@@ -1,4 +1,12 @@
-﻿using System.Text;
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using System.Text;
 using System.Text.RegularExpressions;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -128,7 +136,7 @@ namespace ConsoleEx
 
 		public static List<string> ConvertRenderableToAnsi(IRenderable renderable, int? width, int? height, bool overflow)
 		{
-			if (renderable == null)	return new List<string>();
+			if (renderable == null) return new List<string>();
 
 			var writer = new StringWriter();
 			var console = CreateCaptureConsole(writer, overflow ? width : null, overflow ? height : null);
@@ -205,8 +213,7 @@ namespace ConsoleEx
 			return output.ToString();
 		}
 
-
-		private readonly static Regex TrueLengthOfAnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
+		private static readonly Regex TrueLengthOfAnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
 
 		public static int GetTrueLengthOfAnsi(string input)
 		{

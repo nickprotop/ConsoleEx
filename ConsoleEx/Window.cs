@@ -1,4 +1,12 @@
-﻿using System.Threading;
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ConsoleEx
@@ -14,9 +22,11 @@ namespace ConsoleEx
 		private Thread? _windowThread;
 
 		public delegate Task WindowThreadDelegateAsync(Window window);
+
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 
 		public delegate void WindowThreadDelegate(Window window);
+
 		private WindowThreadDelegate? _windowThreadMethod;
 
 		public int OriginalWidth { get; set; }
@@ -34,6 +44,7 @@ namespace ConsoleEx
 		public bool IsContentVisible { get; set; } = true;
 		public bool Maximized { get; set; }
 		public bool IsDirty { get; set; } = true;
+		public int ZIndex { get; set; }
 
 		private ConsoleWindowSystem? _windowSystem;
 
@@ -119,6 +130,7 @@ namespace ConsoleEx
 							_scrollOffset = Math.Max(0, _scrollOffset - 1);
 							IsDirty = true;
 							break;
+
 						case ConsoleKey.DownArrow:
 							_scrollOffset = Math.Min((_renderedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
 							IsDirty = true;

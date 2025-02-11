@@ -1,4 +1,12 @@
-﻿using System.Runtime.CompilerServices;
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Timers;
 using Spectre.Console;
@@ -6,10 +14,9 @@ using Spectre.Console.Rendering;
 
 namespace ConsoleEx
 {
-
 	internal class Program
 	{
-		static void Main(string[] args)
+		private static void Main(string[] args)
 		{
 			var system = new ConsoleWindowSystem
 			{
@@ -58,7 +65,6 @@ namespace ConsoleEx
 					figletContent.SetText($"{DateTime.Now:HH:mm:ss}");
 					Thread.Sleep(1000);
 				}
-
 			});
 
 			// Example of writing to a window from another thread
@@ -66,7 +72,7 @@ namespace ConsoleEx
 			{
 				for (var i = 0; i < 30; i++)
 				{
-					window1.AddContent(new MarkupContent(new List<string>() { $"Message [bold blue]{i}[/] from thread-Message [bold blue]{i}[/] from thread" }, true ));
+					window1.AddContent(new MarkupContent(new List<string>() { $"Message [bold blue]{i}[/] from thread-Message [bold blue]{i}[/] from thread" }, true));
 					Thread.Sleep(50);
 				}
 				system.Restore(window1);
@@ -78,10 +84,12 @@ namespace ConsoleEx
 			// Set up a timer to update system info in window2 at regular intervals
 			System.Threading.Timer _timer = new System.Threading.Timer(UpdateSystemInfo, new { Window = window2, SystemInfoContent = systemInfoContent }, 0, 5000);
 
+			system.SetActiveWindow(window1);
+
 			system.Run();
 		}
 
-		static void UpdateSystemInfo(object? state)
+		private static void UpdateSystemInfo(object? state)
 		{
 			dynamic? data = state;
 			var window = data?.Window as Window;
@@ -93,12 +101,12 @@ namespace ConsoleEx
 			}
 		}
 
-		static List<string> GetSystemInfo()
+		private static List<string> GetSystemInfo()
 		{
 			var systemInfo = new List<string>();
 
 			// CPU usage
-			systemInfo.Add($"[bold yellow]CPU Usage:[/] [bold green]{new Random().Next(0,100)}%[/]");
+			systemInfo.Add($"[bold yellow]CPU Usage:[/] [bold green]{new Random().Next(0, 100)}%[/]");
 
 			// Memory usage
 			systemInfo.Add($"[bold yellow]Available Memory:[/] [bold green]{new Random().Next(0, 8000)} MB[/]");

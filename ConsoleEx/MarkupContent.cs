@@ -1,4 +1,12 @@
-﻿namespace ConsoleEx
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+namespace ConsoleEx
 {
 	public class MarkupContent : IWIndowContent
 	{
@@ -16,7 +24,7 @@
 
 		public string Guid { get; } = new Guid().ToString();
 
-		public MarkupContent(List<string> lines, bool overflow, out string guid) 
+		public MarkupContent(List<string> lines, bool overflow, out string guid)
 		{
 			_content = lines;
 			_renderedContent = new List<string>();

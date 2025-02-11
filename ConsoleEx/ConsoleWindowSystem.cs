@@ -1,10 +1,9 @@
 ﻿// -----------------------------------------------------------------------
-// ConsoleWindowSystem.cs
-// 
+// ConsoleEx - A simple console window system for .NET Core
+//
 // Author: Nikolaos Protopapas
 // Email: nikolaos.protopapas@gmail.com
-// License: GPLv3
-// Creation Date: February 11, 2025
+// License: MIT
 // -----------------------------------------------------------------------
 
 using System.Collections.Concurrent;
@@ -29,10 +28,29 @@ namespace ConsoleEx
 		{
 			lock (_windows)
 			{
+				window.ZIndex = _windows.Count > 0 ? _windows.Max(w => w.ZIndex) + 1 : 0;
 				_windows.Add(window);
 				_activeWindow ??= window;
 			}
 			return window;
+		}
+
+		public void SetActiveWindow(Window window)
+		{
+			if (window == null || !_windows.Contains(window))
+			{
+				return;
+			}
+
+			lock (_windows)
+			{
+				_activeWindow?.Invalidate();
+
+				_activeWindow = window;
+				_activeWindow.ZIndex = _windows.Max(w => w.ZIndex) + 1;
+
+				_activeWindow.Invalidate();
+			}
 		}
 
 		public void Run()
@@ -317,14 +335,17 @@ namespace ConsoleEx
 									_activeWindow.Height = Math.Max(1, _activeWindow.Height - 1);
 									clearConsole = true;
 									break;
+
 								case ConsoleKey.DownArrow:
 									_activeWindow.Height = Math.Min(Console.WindowHeight - _activeWindow.Top - 1, _activeWindow.Height + 1);
 									clearConsole = true;
 									break;
+
 								case ConsoleKey.LeftArrow:
 									_activeWindow.Width = Math.Max(1, _activeWindow.Width - 1);
 									clearConsole = true;
 									break;
+
 								case ConsoleKey.RightArrow:
 									_activeWindow.Width = Math.Min(Console.WindowWidth - _activeWindow.Left - 1, _activeWindow.Width + 1);
 									clearConsole = true;
@@ -340,18 +361,22 @@ namespace ConsoleEx
 									_activeWindow.Top = Math.Max(1, _activeWindow.Top - 1); // Prevent crossing the header
 									clearConsole = true;
 									break;
+
 								case ConsoleKey.DownArrow:
 									_activeWindow.Top = Math.Min(Console.WindowHeight - _activeWindow.Height - 1, _activeWindow.Top + 1); // Prevent crossing the bottom status
 									clearConsole = true;
 									break;
+
 								case ConsoleKey.LeftArrow:
 									_activeWindow.Left = Math.Max(0, _activeWindow.Left - 1);
 									clearConsole = true;
 									break;
+
 								case ConsoleKey.RightArrow:
 									_activeWindow.Left = Math.Min(Console.WindowWidth - _activeWindow.Width, _activeWindow.Left + 1);
 									clearConsole = true;
 									break;
+
 								case ConsoleKey.X:
 									CloseWindow(_activeWindow);
 									clearConsole = true;
@@ -395,6 +420,11 @@ namespace ConsoleEx
 
 			var index = _windows.IndexOf(_activeWindow ?? _windows.First());
 			_activeWindow = _windows[(index + 1) % _windows.Count];
+
+			if (_activeWindow != null)
+			{
+				_activeWindow.ZIndex = _windows.Max(w => w.ZIndex) + 1;
+			}
 
 			_activeWindow?.Invalidate();
 		}
@@ -502,32 +532,22 @@ namespace ConsoleEx
 				{
 					if (window.IsDirty)
 					{
-						windowsToRender.Add(window);
-						foreach (var otherWindow in _windows)
+						var overlappingWindows = GetOverlappingWindows(window);
+						foreach (var overlappingWindow in overlappingWindows)
 						{
-							if (window != otherWindow && IsOverlapping(window, otherWindow))
-							{
-								windowsToRender.Add(otherWindow);
-							}
+							windowsToRender.Add(overlappingWindow);
 						}
 					}
 				}
 
-				// Render non-active windows first
-				foreach (var window in windowsToRender)
+				// Render windows based on their ZIndex
+				foreach (var window in _windows.OrderBy(w => w.ZIndex))
 				{
-					if (window != _activeWindow)
+					if (windowsToRender.Contains(window))
 					{
-						window.IsActive = false;
+						window.IsActive = window == _activeWindow;
 						RenderWindow(window);
 					}
-				}
-
-				// Render the active window last
-				if (_activeWindow != null && windowsToRender.Contains(_activeWindow))
-				{
-					_activeWindow.IsActive = true;
-					RenderWindow(_activeWindow);
 				}
 			}
 
@@ -544,6 +564,26 @@ namespace ConsoleEx
 			Console.Write(AnsiConsoleExtensions.ConvertMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false)[0]);
 		}
 
+		private HashSet<Window> GetOverlappingWindows(Window window, HashSet<Window>? visited = null)
+		{
+			visited ??= new HashSet<Window>();
+			if (visited.Contains(window))
+			{
+				return visited;
+			}
+
+			visited.Add(window);
+
+			foreach (var otherWindow in _windows)
+			{
+				if (window != otherWindow && IsOverlapping(window, otherWindow))
+				{
+					GetOverlappingWindows(otherWindow, visited);
+				}
+			}
+
+			return visited;
+		}
 
 		private bool IsOverlapping(Window window1, Window window2)
 		{
