@@ -6,11 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Timers;
 using Spectre.Console;
-using Spectre.Console.Rendering;
 
 namespace ConsoleEx
 {

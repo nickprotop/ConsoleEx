@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using System;
 using System.Collections.Generic;
 
@@ -9,7 +17,7 @@ namespace ConsoleEx
         private string _input = string.Empty;
         private Action<PromptContent, string> _onEnter;
 
-        public bool IsInteractive { get; } = true;
+        public bool IsInteractive { get; private set; } = true;
 
         public Window? Container { get; set; }
 
@@ -38,7 +46,9 @@ namespace ConsoleEx
             {
                 _onEnter(this, _input);
                 _input = string.Empty;
-                Container?.Invalidate();
+				IsInteractive = false;
+
+				Container?.Invalidate();
                 return true;
             }
             else if (key.Key == ConsoleKey.Backspace && _input.Length > 0)
