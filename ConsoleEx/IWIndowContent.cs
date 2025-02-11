@@ -12,9 +12,11 @@ namespace ConsoleEx
 	{
 		public string Guid { get; }
 		public Window? Container { get; set; }
+		public bool IsInteractive { get; }
 
 		public List<string> RenderContent(int? width, int? height);
 
 		public List<string> RenderContent(int? width, int? height, bool overflow);
+		public bool ProcessKey(ConsoleKeyInfo key);
 	}
 }

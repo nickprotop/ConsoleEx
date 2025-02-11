@@ -6,9 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace ConsoleEx
 {
 	public class Window
@@ -94,16 +91,18 @@ namespace ConsoleEx
 			Invalidate();
 		}
 
-		public void ShowContent()
+		public void RemoveContent(IWIndowContent content)
 		{
-			IsContentVisible = true;
-			Invalidate();
-		}
-
-		public void HideContent()
-		{
-			IsContentVisible = false;
-			Invalidate();
+			lock (_lock)
+			{
+				if (_content.Remove(content))
+				{
+					content.Container = null;
+					RenderContent();
+					_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
+					IsDirty = true;
+				}
+			}
 		}
 
 		public void AddContent(IWIndowContent content)
@@ -118,10 +117,22 @@ namespace ConsoleEx
 			}
 		}
 
-		public void ProcessInput(ConsoleKeyInfo key)
+		public bool ProcessInput(ConsoleKeyInfo key)
 		{
 			lock (_lock)
 			{
+				bool contentKeyHandled = false;
+
+				if (_content.Any(_content => _content.IsInteractive))
+				{
+					contentKeyHandled = _content.Last(_content => _content.IsInteractive).ProcessKey(key);
+				}
+
+				if (contentKeyHandled)
+				{
+					return true;
+				}
+
 				// Raise the KeyPressed event
 				var handled = OnKeyPressed(key);
 
@@ -133,14 +144,18 @@ namespace ConsoleEx
 						case ConsoleKey.UpArrow:
 							_scrollOffset = Math.Max(0, _scrollOffset - 1);
 							IsDirty = true;
+							handled = true;
 							break;
 
 						case ConsoleKey.DownArrow:
 							_scrollOffset = Math.Min((_renderedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
 							IsDirty = true;
+							handled = true;
 							break;
 					}
 				}
+
+				return handled;
 			}
 		}
 

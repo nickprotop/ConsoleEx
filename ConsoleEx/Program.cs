@@ -42,7 +42,23 @@ namespace ConsoleEx
 				Height = 15
 			};
 
-			var window2 = new Window(system)
+			// Example of creating window with markup content and it's own thread and handling user prompt
+			var window2 = new Window(system, (window) =>
+			{
+				MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo(), false);
+				window.AddContent(systemInfoContent);
+
+				window.AddContent(new MarkupContent(new List<string>() { " " }, true));
+
+				window.AddContent(new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ", (sender, input) =>
+				{
+					sender.Container?.AddContent(new MarkupContent(new List<string>() { $"Hello [bold green]{input}[/]!" }, true));
+					sender.Container?.RemoveContent(sender);
+				}));
+
+				// Set up a timer to update system info in window at regular intervals
+				System.Threading.Timer _timer = new System.Threading.Timer(UpdateSystemInfo, new { Window = window, SystemInfoContent = systemInfoContent }, 0, 5000);
+			})
 			{
 				Title = "System Info",
 				Left = 20,
@@ -75,14 +91,7 @@ namespace ConsoleEx
 					window1.AddContent(new MarkupContent(new List<string>() { $"Message [bold blue]{i}[/] from thread-Message [bold blue]{i}[/] from thread" }, true));
 					Thread.Sleep(50);
 				}
-				system.Restore(window1);
 			});
-
-			MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo(), false);
-			window2.AddContent(systemInfoContent);
-
-			// Set up a timer to update system info in window2 at regular intervals
-			System.Threading.Timer _timer = new System.Threading.Timer(UpdateSystemInfo, new { Window = window2, SystemInfoContent = systemInfoContent }, 0, 5000);
 
 			system.SetActiveWindow(window1);
 

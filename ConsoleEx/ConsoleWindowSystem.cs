@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.Concurrent;
-using Spectre.Console;
 using static ConsoleEx.Window;
 
 namespace ConsoleEx
@@ -99,7 +98,7 @@ namespace ConsoleEx
 				window.Show();
 				window.IsVisible = true;
 				window.Invalidate();
-				AnsiConsole.Clear();
+				Console.Clear();
 				_windows.ForEach(w => w.Invalidate());
 			}
 		}
@@ -111,7 +110,7 @@ namespace ConsoleEx
 				window.Hide();
 				window.IsVisible = false;
 				window.Invalidate();
-				AnsiConsole.Clear();
+				Console.Clear();
 				_windows.ForEach(w => w.Invalidate());
 			}
 		}
@@ -131,7 +130,7 @@ namespace ConsoleEx
 						SetActiveWindow(_activeWindow);
 					}
 				}
-				AnsiConsole.Clear();
+				Console.Clear();
 				_windows.ForEach(w => w.Invalidate());
 			}
 		}
@@ -310,7 +309,7 @@ namespace ConsoleEx
 						}
 					}
 
-					AnsiConsole.Clear();
+					Console.Clear();
 					_windows.ForEach(w => w.Invalidate());
 					_lastConsoleWidth = Console.WindowWidth;
 					_lastConsoleHeight = Console.WindowHeight;
@@ -332,6 +331,7 @@ namespace ConsoleEx
 					else if (_activeWindow != null)
 					{
 						bool clearConsole = false;
+						bool handled = false;
 
 						if ((key.Modifiers & ConsoleModifiers.Shift) != 0)
 						{
@@ -340,21 +340,25 @@ namespace ConsoleEx
 							{
 								case ConsoleKey.UpArrow:
 									_activeWindow.Height = Math.Max(1, _activeWindow.Height - 1);
+									handled = true;
 									clearConsole = true;
 									break;
 
 								case ConsoleKey.DownArrow:
 									_activeWindow.Height = Math.Min(Console.WindowHeight - _activeWindow.Top - 1, _activeWindow.Height + 1);
+									handled = true;
 									clearConsole = true;
 									break;
 
 								case ConsoleKey.LeftArrow:
 									_activeWindow.Width = Math.Max(1, _activeWindow.Width - 1);
+									handled = true;
 									clearConsole = true;
 									break;
 
 								case ConsoleKey.RightArrow:
 									_activeWindow.Width = Math.Min(Console.WindowWidth - _activeWindow.Left - 1, _activeWindow.Width + 1);
+									handled = true;
 									clearConsole = true;
 									break;
 							}
@@ -366,26 +370,31 @@ namespace ConsoleEx
 							{
 								case ConsoleKey.UpArrow:
 									_activeWindow.Top = Math.Max(1, _activeWindow.Top - 1); // Prevent crossing the header
+									handled = true;
 									clearConsole = true;
 									break;
 
 								case ConsoleKey.DownArrow:
 									_activeWindow.Top = Math.Min(Console.WindowHeight - _activeWindow.Height - 1, _activeWindow.Top + 1); // Prevent crossing the bottom status
+									handled = true;
 									clearConsole = true;
 									break;
 
 								case ConsoleKey.LeftArrow:
 									_activeWindow.Left = Math.Max(0, _activeWindow.Left - 1);
+									handled = true;
 									clearConsole = true;
 									break;
 
 								case ConsoleKey.RightArrow:
 									_activeWindow.Left = Math.Min(Console.WindowWidth - _activeWindow.Width, _activeWindow.Left + 1);
+									handled = true;
 									clearConsole = true;
 									break;
 
 								case ConsoleKey.X:
 									CloseWindow(_activeWindow);
+									handled = true;
 									clearConsole = true;
 									break;
 							}
@@ -399,20 +408,21 @@ namespace ConsoleEx
 								if (index < _windows.Count)
 								{
 									_activeWindow = _windows[index];
+									handled = true;
 									clearConsole = true;
 								}
 							}
 						}
 
+						if (!handled)
+						{
+							handled = _activeWindow.ProcessInput(key);
+						}
+
 						if (clearConsole)
 						{
-							AnsiConsole.Clear();
+							Console.Clear();
 							_windows.ForEach(w => w.Invalidate());
-						}
-						else
-						{
-							// Call the active window's ProcessInput method if the input is not handled
-							_activeWindow?.ProcessInput(key);
 						}
 					}
 				}

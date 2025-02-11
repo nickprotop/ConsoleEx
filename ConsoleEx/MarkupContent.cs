@@ -14,7 +14,14 @@ namespace ConsoleEx
 		private List<string> _renderedContent;
 		private bool _overflow;
 
+		public bool IsInteractive { get; } = false;
+
 		public Window? Container { get; set; }
+
+		public bool ProcessKey(ConsoleKeyInfo key)
+		{
+			return false;
+		}
 
 		public void SetMarkup(List<string> lines)
 		{
