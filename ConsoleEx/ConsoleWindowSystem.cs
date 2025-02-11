@@ -71,6 +71,7 @@ namespace ConsoleEx
 
 			while (_running)
 			{
+				ProcessInput();
 				UpdateDisplay();
 				Thread.Sleep(50);
 			}
@@ -446,7 +447,7 @@ namespace ConsoleEx
 			{
 				if (window.Top + y >= Console.WindowHeight - 1) break; // Stop rendering if it reaches the bottom of the console
 				Console.SetCursorPosition(window.Left, window.Top + y);
-				AnsiConsole.Write(new Text(new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left) - 1)));
+				Console.Write(new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left) - 1));
 			}
 
 			// Define border characters
@@ -516,8 +517,6 @@ namespace ConsoleEx
 
 		private void UpdateDisplay()
 		{
-			ProcessInput();
-
 			// Calculate the effective length of the bottom row without markup
 			var topRow = TopStatus;
 			var effectiveLength = AnsiConsoleExtensions.CalculateEffectiveLength(topRow);
