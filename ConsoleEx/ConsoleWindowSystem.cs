@@ -125,6 +125,10 @@ namespace ConsoleEx
 				if (_activeWindow == window)
 				{
 					_activeWindow = _windows.FirstOrDefault();
+					if (_activeWindow != null)
+					{
+						SetActiveWindow(_activeWindow);
+					}
 				}
 				AnsiConsole.Clear();
 				_windows.ForEach(w => w.Invalidate());
@@ -553,20 +557,21 @@ namespace ConsoleEx
 				// check is any of the overlapping windows is overlaping the active window
 				if (_activeWindow != null)
 				{
-					var overlappingWindows = GetOverlappingWindows(_activeWindow);
-					foreach (var overlappingWindow in overlappingWindows)
-					{
-						if (overlappingWindow != _activeWindow && windowsToRender.Contains(overlappingWindow))
-						{
-							RenderWindow(_activeWindow);
-							break;
-						}
-					}
-				} else
-				{
 					if (windowsToRender.Contains(_activeWindow))
 					{
 						RenderWindow(_activeWindow);
+					}
+					else
+					{
+						var overlappingWindows = GetOverlappingWindows(_activeWindow);
+
+						foreach (var overlappingWindow in overlappingWindows)
+						{
+							if (windowsToRender.Contains(overlappingWindow))
+							{
+								RenderWindow(_activeWindow);
+							}
+						}
 					}
 				}
 			}

@@ -80,6 +80,7 @@ namespace ConsoleEx
 		public void Show()
 		{
 			IsVisible = true;
+			Invalidate();
 		}
 
 		public void Close()
@@ -90,16 +91,19 @@ namespace ConsoleEx
 		public void Hide()
 		{
 			IsVisible = false;
+			Invalidate();
 		}
 
 		public void ShowContent()
 		{
 			IsContentVisible = true;
+			Invalidate();
 		}
 
 		public void HideContent()
 		{
 			IsContentVisible = false;
+			Invalidate();
 		}
 
 		public void AddContent(IWIndowContent content)
