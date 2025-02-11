@@ -47,6 +47,8 @@ namespace ConsoleEx
 				_activeWindow?.Invalidate();
 
 				_activeWindow = window;
+				_windows.ForEach(w => w.IsActive = false);
+				_activeWindow.IsActive = true;
 				_activeWindow.ZIndex = _windows.Max(w => w.ZIndex) + 1;
 
 				_activeWindow.Invalidate();
@@ -416,17 +418,13 @@ namespace ConsoleEx
 		{
 			if (_windows.Count == 0) return;
 
-			_activeWindow?.Invalidate();
-
 			var index = _windows.IndexOf(_activeWindow ?? _windows.First());
-			_activeWindow = _windows[(index + 1) % _windows.Count];
+			Window? window = _windows[(index + 1) % _windows.Count];
 
-			if (_activeWindow != null)
+			if (window != null)
 			{
-				_activeWindow.ZIndex = _windows.Max(w => w.ZIndex) + 1;
+				SetActiveWindow(window);
 			}
-
-			_activeWindow?.Invalidate();
 		}
 
 		private void RenderWindow(Window window)
@@ -535,18 +533,40 @@ namespace ConsoleEx
 						var overlappingWindows = GetOverlappingWindows(window);
 						foreach (var overlappingWindow in overlappingWindows)
 						{
-							windowsToRender.Add(overlappingWindow);
+							if (overlappingWindow.IsDirty || IsOverlapping(window, overlappingWindow))
+							{
+								windowsToRender.Add(overlappingWindow);
+							}
 						}
 					}
 				}
 
-				// Render windows based on their ZIndex
+				// Render non-active windows based on their ZIndex
 				foreach (var window in _windows.OrderBy(w => w.ZIndex))
 				{
-					if (windowsToRender.Contains(window))
+					if (window != _activeWindow && windowsToRender.Contains(window))
 					{
-						window.IsActive = window == _activeWindow;
 						RenderWindow(window);
+					}
+				}
+
+				// check is any of the overlapping windows is overlaping the active window
+				if (_activeWindow != null)
+				{
+					var overlappingWindows = GetOverlappingWindows(_activeWindow);
+					foreach (var overlappingWindow in overlappingWindows)
+					{
+						if (overlappingWindow != _activeWindow && windowsToRender.Contains(overlappingWindow))
+						{
+							RenderWindow(_activeWindow);
+							break;
+						}
+					}
+				} else
+				{
+					if (windowsToRender.Contains(_activeWindow))
+					{
+						RenderWindow(_activeWindow);
 					}
 				}
 			}
