@@ -8,7 +8,7 @@
 
 using ConsoleEx;
 
-public class PromptContent : IWIndowContent
+public class PromptContent : IWIndowContent, IInteractiveContent
 {
 	private string _prompt;
 	private string _input = string.Empty;

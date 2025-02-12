@@ -17,14 +17,7 @@ namespace ConsoleEx
 		private Justify? _justify;
 		private List<string> _renderedContent;
 
-		public bool IsInteractive { get; } = false;
-
 		public Window? Container { get; set; }
-
-		public bool ProcessKey(ConsoleKeyInfo key)
-		{
-			return false;
-		}
 
 		public void SetText(string text)
 		{

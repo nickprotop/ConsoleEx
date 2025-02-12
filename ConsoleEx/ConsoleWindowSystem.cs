@@ -135,34 +135,18 @@ namespace ConsoleEx
 			}
 		}
 
-		public Window CreateWindow(string title, int width, int height, int left, int top)
+		public Window CreateWindow(string title, WindowOptions options)
 		{
-			var window = new Window(this)
-			{
-				Title = title,
-				Width = width,
-				Height = height,
-				Left = left,
-				Top = top,
-				IsVisible = true,
-			};
+			var window = new Window(this, options);
 
 			AddWindow(window);
 			_activeWindow = window;
 			return window;
 		}
 
-		public Window CreateWindow(string title, int width, int height, int left, int top, IWIndowContent content)
+		public Window CreateWindow(string title, WindowOptions options, IWIndowContent content)
 		{
-			var window = new Window(this)
-			{
-				Title = title,
-				Width = width,
-				Height = height,
-				Left = left,
-				Top = top,
-				IsVisible = true,
-			};
+			var window = new Window(this, options);
 
 			window.AddContent(content);
 			AddWindow(window);
@@ -170,34 +154,18 @@ namespace ConsoleEx
 			return window;
 		}
 
-		public Window CreateWindow(string title, int width, int height, int left, int top, WindowThreadDelegateAsync windowThreadMethod)
+		public Window CreateWindow(WindowOptions options, WindowThreadDelegateAsync windowThreadMethod)
 		{
-			var window = new Window(this, windowThreadMethod)
-			{
-				Title = title,
-				Width = width,
-				Height = height,
-				Left = left,
-				Top = top,
-				IsVisible = true,
-			};
+			var window = new Window(this, options, windowThreadMethod);
 
 			AddWindow(window);
 			_activeWindow = window;
 			return window;
 		}
 
-		public Window CreateWindow(string title, int width, int height, int left, int top, IWIndowContent content, WindowThreadDelegateAsync windowThreadMethod)
+		public Window CreateWindow(WindowOptions options, IWIndowContent content, WindowThreadDelegateAsync windowThreadMethod)
 		{
-			var window = new Window(this, windowThreadMethod)
-			{
-				Title = title,
-				Width = width,
-				Height = height,
-				Left = left,
-				Top = top,
-				IsVisible = true,
-			};
+			var window = new Window(this, options, windowThreadMethod);
 
 			window.AddContent(content);
 			AddWindow(window);
@@ -205,39 +173,52 @@ namespace ConsoleEx
 			return window;
 		}
 
-		public Window CreateWindow(string title, int width, int height, int left, int top, WindowThreadDelegate windowThreadMethod)
+		public Window CreateWindow(WindowOptions options, WindowThreadDelegate windowThreadMethod)
 		{
-			var window = new Window(this, windowThreadMethod)
-			{
-				Title = title,
-				Width = width,
-				Height = height,
-				Left = left,
-				Top = top,
-				IsVisible = true,
-			};
+			var window = new Window(this, options, windowThreadMethod);
 
 			AddWindow(window);
 			_activeWindow = window;
 			return window;
 		}
 
-		public Window CreateWindow(string title, int width, int height, int left, int top, IWIndowContent content, WindowThreadDelegate windowThreadMethod)
+		public Window CreateWindow(WindowOptions options, IWIndowContent content, WindowThreadDelegate windowThreadMethod)
 		{
-			var window = new Window(this, windowThreadMethod)
-			{
-				Title = title,
-				Width = width,
-				Height = height,
-				Left = left,
-				Top = top,
-				IsVisible = true,
-			};
+			var window = new Window(this, options, windowThreadMethod);
 
 			window.AddContent(content);
 			AddWindow(window);
 			_activeWindow = window;
 			return window;
+		}
+
+		public void SetWindowPosition(Window window, int top, int left)
+		{
+			lock (window)
+			{
+				window.Top = top;
+				window.Left = left;
+				window.Invalidate();
+			}
+		}
+
+		public void SetWindowSize(Window window, int width, int height)
+		{
+			lock (window)
+			{
+				window.Width = width;
+				window.Height = height;
+				window.Invalidate();
+			}
+		}
+
+		public void SetWindowResizable(Window window, bool isResizable)
+		{
+			lock (window)
+			{
+				window.IsResizable = isResizable;
+				window.Invalidate();
+			}
 		}
 
 		public void Maximize(Window window)
@@ -333,7 +314,7 @@ namespace ConsoleEx
 						bool clearConsole = false;
 						bool handled = false;
 
-						if ((key.Modifiers & ConsoleModifiers.Shift) != 0)
+						if ((key.Modifiers & ConsoleModifiers.Shift) != 0 && _activeWindow.IsResizable)
 						{
 							// Handle resizing
 							switch (key.Key)
@@ -363,7 +344,7 @@ namespace ConsoleEx
 									break;
 							}
 						}
-						else if ((key.Modifiers & ConsoleModifiers.Control) != 0)
+						else if ((key.Modifiers & ConsoleModifiers.Control) != 0 && _activeWindow.IsMovable)
 						{
 							// Handle moving
 							switch (key.Key)

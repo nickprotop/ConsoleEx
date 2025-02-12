@@ -42,15 +42,29 @@ namespace ConsoleEx
 		public bool Maximized { get; set; }
 		public bool IsDirty { get; set; } = true;
 		public int ZIndex { get; set; }
+		public bool IsResizable { get; set; } = true;
+		public bool IsMovable { get; set; } = true;
 
 		private ConsoleWindowSystem? _windowSystem;
 
 		// Define the event for key presses
 		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
 
-		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod)
+		private void ApplyWindowOptions(WindowOptions windowOptions)
+		{
+			Title = windowOptions.Title;
+			Top = windowOptions.Top;
+			Left = windowOptions.Left;
+			Width = windowOptions.Width;
+			Height = windowOptions.Height;
+			IsResizable = windowOptions.IsResizable;
+			IsMovable = windowOptions.IsMoveable;
+		}
+
+		public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegateAsync windowThreadMethod)
 		{
 			_windowSystem = windowSystem;
+			ApplyWindowOptions(options);
 			_windowThreadMethodAsync = windowThreadMethod;
 			_windowTask = Task.Run(() => _windowThreadMethodAsync(this));
 		}
@@ -60,12 +74,19 @@ namespace ConsoleEx
 			_windowSystem = windowSystem;
 		}
 
-		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegate windowThreadMethod)
+		public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegate windowThreadMethod)
 		{
 			_windowSystem = windowSystem;
+			ApplyWindowOptions(options);
 			_windowThreadMethod = windowThreadMethod;
 			_windowThread = new Thread(() => _windowThreadMethod(this));
-			_windowThread.Start();
+				_windowThread.Start();
+		}
+
+		public Window(ConsoleWindowSystem windowSystem, WindowOptions options)
+		{
+			_windowSystem = windowSystem;
+			ApplyWindowOptions(options);
 		}
 
 		public void Invalidate()
@@ -123,9 +144,10 @@ namespace ConsoleEx
 			{
 				bool contentKeyHandled = false;
 
-				if (_content.Any(_content => _content.IsInteractive))
+				if (_content.Any(_content => _content is IInteractiveContent))
 				{
-					contentKeyHandled = _content.Last(_content => _content.IsInteractive).ProcessKey(key);
+					var ineractiveContent = _content.Last(_content => _content is IInteractiveContent) as IInteractiveContent;
+					contentKeyHandled = ineractiveContent?.ProcessKey(key) ?? false;
 				}
 
 				if (contentKeyHandled)

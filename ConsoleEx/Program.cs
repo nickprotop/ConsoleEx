@@ -20,7 +20,15 @@ namespace ConsoleEx
 				BottomStatus = "BOTTOM STATUS BAR"
 			};
 
-			var window1 = new Window(system, (window) =>
+			var window1 = new Window(system, new WindowOptions()
+			{
+				Title = "Window 1",
+				Left = 2,
+				Top = 2,
+				Width = 40,
+				Height = 15
+			},
+			(window) =>
 			{
 				window.KeyPressed += (sender, e) =>
 				{
@@ -29,17 +37,20 @@ namespace ConsoleEx
 						window.Close();
 					}
 				};
-			})
-			{
-				Title = "Window 1",
-				Left = 2,
-				Top = 2,
-				Width = 40,
-				Height = 15
-			};
+			});
+
+			system.AddWindow(window1);
 
 			// Example of creating window with markup content and it's own thread and handling user prompt
-			var window2 = new Window(system, (window) =>
+			var window2 = new Window(system, new WindowOptions()
+			{
+				Title = "System Info",
+				Left = 20,
+				Top = 10,
+				Width = 60,
+				Height = 15
+			},
+			(window) =>
 			{
 				MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo(), false);
 				window.AddContent(systemInfoContent);
@@ -53,21 +64,21 @@ namespace ConsoleEx
 				}));
 
 				// Set up a timer to update system info in window at regular intervals
-				System.Threading.Timer _timer = new System.Threading.Timer(UpdateSystemInfo, new { Window = window, SystemInfoContent = systemInfoContent }, 0, 5000);
-			})
-			{
-				Title = "System Info",
-				Left = 20,
-				Top = 10,
-				Width = 60,
-				Height = 15
-			};
-
-			system.AddWindow(window1);
+				Timer _timer = new Timer(UpdateSystemInfo, new { Window = window, SystemInfoContent = systemInfoContent }, 0, 5000);
+			});
+			
 			system.AddWindow(window2);
 
 			// Example of creating window with Figlet content and it's own thread
-			system.CreateWindow("Clock", 60, 10, Console.WindowWidth - 60, 1, (window) =>
+			system.CreateWindow(new WindowOptions()
+			{
+				Title = "Clock",
+				Left = Console.WindowWidth - 60,
+				Top = 1,
+				Width = 60,
+				Height = 10
+			},
+			(window) =>
 			{
 				FigletContent figletContent = new FigletContent($"{DateTime.Now:HH:mm:ss}", Color.Red, Justify.Left);
 				window.AddContent(figletContent);
