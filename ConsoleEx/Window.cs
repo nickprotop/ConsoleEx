@@ -252,8 +252,8 @@
 			if (HasActiveInteractiveContent(out var activeInteractiveContent))
 			{
 				cursorPosition = activeInteractiveContent!.GetCursorPosition();
-				cursorPosition.Top += _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Top;
-				cursorPosition.Left += _contentLeftIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Left;
+				cursorPosition.Top = _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Top + 1;
+				cursorPosition.Left = _contentLeftIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Left + 1;
 				return true;
 			}
 
