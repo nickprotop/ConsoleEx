@@ -1,5 +1,23 @@
 ﻿namespace ConsoleEx
 {
+	public enum WindowState
+	{
+		Normal,
+		Minimized,
+		Maximized,
+		Hidden
+	}
+
+	public class WindowStateChangedEventArgs : EventArgs
+	{
+		public WindowState NewState { get; }
+
+		public WindowStateChangedEventArgs(WindowState newState)
+		{
+			NewState = newState;
+		}
+	}
+
 	public class Window
 	{
 		private readonly object _lock = new();
@@ -38,6 +56,8 @@
 		public bool IsResizable { get; set; } = true;
 		public bool IsMovable { get; set; } = true;
 
+		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
+
 		private ConsoleWindowSystem? _windowSystem;
 
 		// Dictionary to store the top row index for each content
@@ -48,6 +68,11 @@
 
 		// Define the event for key presses
 		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
+
+		protected virtual void OnStateChanged(WindowState newState)
+		{
+			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
+		}
 
 		private void ApplyWindowOptions(WindowOptions windowOptions)
 		{
@@ -80,6 +105,48 @@
 			_windowThreadMethod = windowThreadMethod;
 			_windowThread = new Thread(() => _windowThreadMethod(this));
 			_windowThread.Start();
+		}
+
+		public void Minimize()
+		{
+			if (IsVisible)
+			{
+				IsVisible = false;
+				Invalidate();
+				OnStateChanged(WindowState.Minimized);
+			}
+		}
+
+		public void Maximize()
+		{
+			if (!Maximized)
+			{
+				Maximized = true;
+				OriginalWidth = Width;
+				OriginalHeight = Height;
+				OriginalLeft = Left;
+				OriginalTop = Top;
+				Width = Console.WindowWidth;
+				Height = Console.WindowHeight;
+				Left = 0;
+				Top = 1;
+				Invalidate();
+				OnStateChanged(WindowState.Maximized);
+			}
+		}
+
+		public void Restore()
+		{
+			if (Maximized)
+			{
+				Maximized = false;
+				Top = OriginalTop;
+				Left = OriginalLeft;
+				Width = OriginalWidth;
+				Height = OriginalHeight;
+				Invalidate();
+				OnStateChanged(WindowState.Normal);
+			}
 		}
 
 		public Window(ConsoleWindowSystem windowSystem, WindowOptions options)
