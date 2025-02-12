@@ -252,8 +252,11 @@
 			if (HasActiveInteractiveContent(out var activeInteractiveContent))
 			{
 				cursorPosition = activeInteractiveContent!.GetCursorPosition();
-				cursorPosition.Top = _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Top + 1;
-				cursorPosition.Left = _contentLeftIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Left + 1;
+				if (activeInteractiveContent != null && activeInteractiveContent is IWIndowContent)
+				{
+					cursorPosition.Top = _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Top + 1 - _scrollOffset;
+					cursorPosition.Left = _contentLeftIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Left + 1;
+				}
 				return true;
 			}
 
