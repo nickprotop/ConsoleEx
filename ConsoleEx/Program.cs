@@ -26,7 +26,7 @@ namespace ConsoleEx
 				Left = 2,
 				Top = 2,
 				Width = 40,
-				Height = 15
+				Height = 10
 			},
 			(window) =>
 			{
@@ -45,30 +45,62 @@ namespace ConsoleEx
 			var window2 = new Window(system, new WindowOptions()
 			{
 				Title = "System Info",
-				Left = 20,
-				Top = 10,
-				Width = 60,
-				Height = 15
+				Left = 12,
+				Top = 4,
+				Width = 40,
+				Height = 10
 			},
 			(window) =>
 			{
 				MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo(), false);
 				window.AddContent(systemInfoContent);
 
-				window.AddContent(new MarkupContent(new List<string>() { " " }, true));
-
-				window.AddContent(new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ", (sender, input) =>
-				{
-					sender.Container?.AddContent(new MarkupContent(new List<string>() { $"Hello [bold green]{input}[/]!" }, true));
-					sender.IsEnabled = false;
-					sender.Container?.RemoveContent(sender);
-				}));
-
 				// Set up a timer to update system info in window at regular intervals
 				Timer _timer = new Timer(UpdateSystemInfo, new { Window = window, SystemInfoContent = systemInfoContent }, 0, 5000);
 			});
 			
 			system.AddWindow(window2);
+
+			// Example of creating window with markup content and it's own thread and handling user prompt
+			var window3 = new Window(system, new WindowOptions()
+			{
+				Title = "User",
+				Left = 22,
+				Top = 6,
+				Width = 40,
+				Height = 10,
+				IsResizable = false
+			},
+			(window) =>
+			{
+				window.AddContent(new MarkupContent(new List<string>() { "User Info", " " }, true));
+
+				var ageInfo = new MarkupContent(new List<string>() { " " }, true);
+
+				var namePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ")
+				{
+					DisableOnEnter = false
+				};
+				namePrompt.OnInputChange += (s, e) =>
+				{
+					window.Title = $"User - {e}";
+				};
+				window.AddContent(namePrompt);
+
+				var agePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]age[/]: ", (sender, input) =>
+				{
+					ageInfo.SetMarkup(new List<string>() { $"[bold]Your age is {input}[/]" });
+				})
+				{
+					DisableOnEnter = false
+				};
+
+				window.AddContent(agePrompt);
+				window.AddContent(new MarkupContent(new List<string>() { " " }, true));				
+				window.AddContent(ageInfo);
+			});
+
+			system.AddWindow(window3);
 
 			// Example of creating window with Figlet content and it's own thread
 			system.CreateWindow(new WindowOptions()

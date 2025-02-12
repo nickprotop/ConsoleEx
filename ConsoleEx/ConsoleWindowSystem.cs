@@ -106,7 +106,6 @@ namespace ConsoleEx
 			}
 		}
 
-
 		private void InputLoop()
 		{
 			while (_running)
@@ -225,6 +224,12 @@ namespace ConsoleEx
 		{
 			lock (window)
 			{
+				if (window.Maximized)
+				{
+					Restore(window);
+				}
+				window.Maximized = false;
+
 				window.Top = top;
 				window.Left = left;
 				window.Invalidate();
@@ -235,6 +240,12 @@ namespace ConsoleEx
 		{
 			lock (window)
 			{
+				if (window.Maximized)
+				{
+					Restore(window);
+				}
+				window.Maximized = false;
+
 				window.Width = width;
 				window.Height = height;
 				window.Invalidate();
@@ -334,7 +345,7 @@ namespace ConsoleEx
 			{
 				lock (_windows)
 				{
-					if (key.Key == ConsoleKey.Tab)
+					if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.T)
 					{
 						CycleActiveWindow();
 					}

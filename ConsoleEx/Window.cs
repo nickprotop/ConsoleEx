@@ -4,6 +4,7 @@
 	{
 		private readonly object _lock = new();
 		private readonly List<IWIndowContent> _content = new();
+		private readonly List<IInteractiveContent> _interactiveContents = new(); // List to store interactive contents
 		private List<string> _renderedContent = new();
 		private int _scrollOffset;
 		private bool _invalidated = false;
@@ -116,6 +117,15 @@
 			{
 				if (_content.Remove(content))
 				{
+					if (content is IInteractiveContent interactiveContent)
+					{
+						_interactiveContents.Remove(interactiveContent);
+						// If the removed content had focus, switch focus to the next one
+						if (interactiveContent.HasFocus && _interactiveContents.Count > 0)
+						{
+							_interactiveContents[0].HasFocus = true;
+						}
+					}
 					content.Container = null;
 					RenderContent();
 					_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
@@ -130,24 +140,51 @@
 			{
 				content.Container = this;
 				_content.Add(content);
+				if (content is IInteractiveContent interactiveContent)
+				{
+					_interactiveContents.Add(interactiveContent);
+					// Set focus to the first interactive content if none has focus
+					if (_interactiveContents.Count == 1)
+					{
+						interactiveContent.HasFocus = true;
+					}
+				}
 				RenderContent();
 				_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
 				IsDirty = true;
 			}
 		}
 
+		public void SwitchFocus()
+		{
+			lock (_lock)
+			{
+				if (_interactiveContents.Count == 0) return;
+
+				// Find the currently focused content
+				var currentIndex = _interactiveContents.FindIndex(ic => ic.HasFocus);
+
+				// Remove focus from the current content
+				if (currentIndex != -1)
+				{
+					_interactiveContents[currentIndex].HasFocus = false;
+				}
+
+				// Calculate the next index
+				var nextIndex = (currentIndex + 1) % _interactiveContents.Count;
+
+				// Set focus to the next content
+				_interactiveContents[nextIndex].HasFocus = true;
+
+				// Invalidate the window to update the display
+				Invalidate();
+			}
+		}
+
 		public bool HasActiveInteractiveContent(out IInteractiveContent? interactiveContent)
 		{
-			if (_content.Any(_content => _content is IInteractiveContent))
-			{
-				interactiveContent = _content.Last(_content => _content is IInteractiveContent) as IInteractiveContent;
-				return interactiveContent?.IsEnabled == true;
-			}
-			else
-			{
-				interactiveContent = null;
-				return false;
-			}
+			interactiveContent = _interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
+			return interactiveContent != null;
 		}
 
 		public bool ProcessInput(ConsoleKeyInfo key)
@@ -174,12 +211,15 @@
 				{
 					switch (key.Key)
 					{
+						case ConsoleKey.Tab:
+							SwitchFocus();
+							handled = true;
+							break;
 						case ConsoleKey.UpArrow:
 							_scrollOffset = Math.Max(0, _scrollOffset - 1);
 							IsDirty = true;
 							handled = true;
 							break;
-
 						case ConsoleKey.DownArrow:
 							_scrollOffset = Math.Min((_renderedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
 							IsDirty = true;
@@ -191,6 +231,7 @@
 				return handled;
 			}
 		}
+
 
 		// Method to raise the KeyPressed event and return whether it was handled
 		protected virtual bool OnKeyPressed(ConsoleKeyInfo key)
@@ -263,17 +304,17 @@
 			cursorPosition = (0, 0);
 			return false;
 		}
-	}
 
-	// Custom EventArgs class to indicate whether the event was handled
-	public class KeyPressedEventArgs : EventArgs
-	{
-		public ConsoleKeyInfo KeyInfo { get; }
-		public bool Handled { get; set; }
-
-		public KeyPressedEventArgs(ConsoleKeyInfo keyInfo)
+		// Custom EventArgs class to indicate whether the event was handled
+		public class KeyPressedEventArgs : EventArgs
 		{
-			KeyInfo = keyInfo;
+			public ConsoleKeyInfo KeyInfo { get; }
+			public bool Handled { get; set; }
+
+			public KeyPressedEventArgs(ConsoleKeyInfo keyInfo)
+			{
+				KeyInfo = keyInfo;
+			}
 		}
 	}
 }

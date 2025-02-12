@@ -15,7 +15,13 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	private int _cursorPosition = 0;
 	private List<string> _cachedContent = new List<string>();
 	private int _width;
-	private Action<PromptContent, string> _onEnter;
+	private Action<PromptContent, string>? _onEnter;
+
+	public bool HasFocus { get; set; }
+
+	public Action<PromptContent, string>? OnInputChange { get; set; } 
+
+	public bool DisableOnEnter { get; set; } = true;
 
 	public bool IsEnabled { get; set; } = true;
 
@@ -29,10 +35,30 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		_onEnter = onEnter;
 	}
 
+	public PromptContent(string prompt)
+	{
+		_prompt = prompt;
+	}
+
 	public List<string> RenderContent(int? width, int? height)
 	{
 		_width = width ?? 80;
 		return RenderContent(width, height, true);
+	}
+
+	public void SetPrompt(string prompt)
+	{
+		_cachedContent = new List<string>();
+		_prompt = prompt;
+		Container?.Invalidate();
+	}
+
+	public void SetInput(string input)
+	{
+		_cachedContent = new List<string>();
+		_input = input;
+		Container?.Invalidate();
+		OnInputChange?.Invoke(this, _input);
 	}
 
 	public List<string> RenderContent(int? width, int? height, bool overflow)
@@ -46,10 +72,14 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	{
 		if (key.Key == ConsoleKey.Enter)
 		{
-			_onEnter(this, _input);
-			_input = string.Empty;
-			_cursorPosition = 0;
+			_onEnter?.Invoke(this, _input);
+			if (DisableOnEnter)
+			{
+				_cursorPosition = 0;
+				IsEnabled = false;
+			}
 			Container?.Invalidate();
+			OnInputChange?.Invoke(this, _input);
 			return true;
 		}
 		else if (key.Key == ConsoleKey.Backspace && _cursorPosition > 0)
@@ -57,12 +87,14 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			_input = _input.Remove(_cursorPosition - 1, 1);
 			_cursorPosition--;
 			Container?.Invalidate();
+			OnInputChange?.Invoke(this, _input);
 			return true;
 		}
 		else if (key.Key == ConsoleKey.Delete && _cursorPosition < _input.Length)
 		{
 			_input = _input.Remove(_cursorPosition, 1);
 			Container?.Invalidate();
+			OnInputChange?.Invoke(this, _input);
 			return true;
 		}
 		else if (key.Key == ConsoleKey.Home)
@@ -94,6 +126,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			_input = _input.Insert(_cursorPosition, key.KeyChar.ToString());
 			_cursorPosition++;
 			Container?.Invalidate();
+			OnInputChange?.Invoke(this, _input);
 			return true;
 		}
 		return false;
