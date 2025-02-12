@@ -13,6 +13,8 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	private string _prompt;
 	private string _input = string.Empty;
 	private int _cursorPosition = 0;
+	private List<string> _cachedContent = new List<string>();
+	private int _width;
 	private Action<PromptContent, string> _onEnter;
 
 	public bool IsEnabled { get; set; } = true;
@@ -29,13 +31,15 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
 	public List<string> RenderContent(int? width, int? height)
 	{
+		_width = width ?? 80;
 		return RenderContent(width, height, true);
 	}
 
 	public List<string> RenderContent(int? width, int? height, bool overflow)
 	{
-		var content = AnsiConsoleExtensions.ConvertMarkupToAnsi(_prompt + _input, width, height, true);
-		return content;
+		_width = width ?? 80;
+		_cachedContent = AnsiConsoleExtensions.ConvertMarkupToAnsi(_prompt + _input, width, height, true);
+		return _cachedContent;
 	}
 
 	public bool ProcessKey(ConsoleKeyInfo key)
@@ -97,6 +101,16 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
 	public (int Left, int Top) GetCursorPosition()
 	{
-		return (AnsiConsoleExtensions.CalculateEffectiveLength(_prompt) + _cursorPosition, 0);
+		int width = _width;
+		int promptLength = AnsiConsoleExtensions.CalculateEffectiveLength(_prompt);
+		int totalLength = promptLength + _cursorPosition;
+
+		// Calculate the row and column based on the width
+		int row = totalLength / width;
+		int column = totalLength % width;
+
+		return (column, row);
+
+		return (AnsiConsoleExtensions.CalculateEffectiveLength(_prompt) + _cursorPosition, _cachedContent.Count - 1);
 	}
 }

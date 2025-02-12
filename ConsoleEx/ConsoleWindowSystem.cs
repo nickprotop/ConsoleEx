@@ -84,14 +84,28 @@ namespace ConsoleEx
 			if (_activeWindow != null && _activeWindow.HasInteractiveContent(out var cursorPosition))
 			{
 				var (absoluteLeft, absoluteTop) = TranslateToAbsolute(_activeWindow, cursorPosition.Left, cursorPosition.Top);
-				Console.CursorVisible = true;
-				Console.SetCursorPosition(absoluteLeft, absoluteTop);
+
+				// Check if the cursor position is within the console window boundaries
+				if (absoluteLeft >= 0 && absoluteLeft < Console.WindowWidth &&
+					absoluteTop >= 0 && absoluteTop < Console.WindowHeight &&
+					// Check if the cursor position is within the active window's boundaries
+					absoluteLeft + 1 >= _activeWindow.Left && absoluteLeft + 1 < _activeWindow.Left + _activeWindow.Width &&
+					absoluteTop + 1 >= _activeWindow.Top && absoluteTop + 1 < _activeWindow.Top + _activeWindow.Height)
+				{
+					Console.CursorVisible = true;
+					Console.SetCursorPosition(absoluteLeft, absoluteTop);
+				}
+				else
+				{
+					Console.CursorVisible = false;
+				}
 			}
 			else
 			{
 				Console.CursorVisible = false;
 			}
 		}
+
 
 		private void InputLoop()
 		{
