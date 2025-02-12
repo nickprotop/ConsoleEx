@@ -60,6 +60,7 @@ namespace ConsoleEx
 				window.AddContent(new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ", (sender, input) =>
 				{
 					sender.Container?.AddContent(new MarkupContent(new List<string>() { $"Hello [bold green]{input}[/]!" }, true));
+					sender.IsEnabled = false;
 					sender.Container?.RemoveContent(sender);
 				}));
 

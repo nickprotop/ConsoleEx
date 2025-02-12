@@ -72,10 +72,25 @@ namespace ConsoleEx
 			{
 				ProcessInput();
 				UpdateDisplay();
+				UpdateCursor();
 				Thread.Sleep(50);
 			}
 
 			Console.CursorVisible = true;
+		}
+
+		private void UpdateCursor()
+		{
+			if (_activeWindow != null && _activeWindow.HasInteractiveContent(out var cursorPosition))
+			{
+				var (absoluteLeft, absoluteTop) = TranslateToAbsolute(_activeWindow, cursorPosition.Left, cursorPosition.Top);
+				Console.CursorVisible = true;
+				Console.SetCursorPosition(absoluteLeft, absoluteTop);
+			}
+			else
+			{
+				Console.CursorVisible = false;
+			}
 		}
 
 		private void InputLoop()
@@ -606,6 +621,20 @@ namespace ConsoleEx
 				   window1.Left + window1.Width > window2.Left &&
 				   window1.Top < window2.Top + window2.Height &&
 				   window1.Top + window1.Height > window2.Top;
+		}
+
+		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, int relativeLeft, int relativeTop)
+		{
+			int absoluteLeft = window.Left + relativeLeft;
+			int absoluteTop = window.Top + relativeTop;
+			return (absoluteLeft, absoluteTop);
+		}
+
+		public (int relativeLeft, int relativeTop) TranslateToRelative(Window window, int absoluteLeft, int absoluteTop)
+		{
+			int relativeLeft = absoluteLeft - window.Left;
+			int relativeTop = absoluteTop - window.Top;
+			return (relativeLeft, relativeTop);
 		}
 	}
 }

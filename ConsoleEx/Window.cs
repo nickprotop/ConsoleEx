@@ -1,12 +1,4 @@
-﻿// -----------------------------------------------------------------------
-// ConsoleEx - A simple console window system for .NET Core
-//
-// Author: Nikolaos Protopapas
-// Email: nikolaos.protopapas@gmail.com
-// License: MIT
-// -----------------------------------------------------------------------
-
-namespace ConsoleEx
+﻿namespace ConsoleEx
 {
 	public class Window
 	{
@@ -47,6 +39,12 @@ namespace ConsoleEx
 
 		private ConsoleWindowSystem? _windowSystem;
 
+		// Dictionary to store the top row index for each content
+		private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
+
+		// Dictionary to store the left index for each content
+		private Dictionary<IWIndowContent, int> _contentLeftIndex = new();
+
 		// Define the event for key presses
 		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
 
@@ -80,7 +78,7 @@ namespace ConsoleEx
 			ApplyWindowOptions(options);
 			_windowThreadMethod = windowThreadMethod;
 			_windowThread = new Thread(() => _windowThreadMethod(this));
-				_windowThread.Start();
+			_windowThread.Start();
 		}
 
 		public Window(ConsoleWindowSystem windowSystem, WindowOptions options)
@@ -138,16 +136,29 @@ namespace ConsoleEx
 			}
 		}
 
+		public bool HasActiveInteractiveContent(out IInteractiveContent? interactiveContent)
+		{
+			if (_content.Any(_content => _content is IInteractiveContent))
+			{
+				interactiveContent = _content.Last(_content => _content is IInteractiveContent) as IInteractiveContent;
+				return interactiveContent?.IsEnabled == true;
+			}
+			else
+			{
+				interactiveContent = null;
+				return false;
+			}
+		}
+
 		public bool ProcessInput(ConsoleKeyInfo key)
 		{
 			lock (_lock)
 			{
 				bool contentKeyHandled = false;
 
-				if (_content.Any(_content => _content is IInteractiveContent))
+				if (HasActiveInteractiveContent(out var activeInteractiveContent))
 				{
-					var ineractiveContent = _content.Last(_content => _content is IInteractiveContent) as IInteractiveContent;
-					contentKeyHandled = ineractiveContent?.ProcessKey(key) ?? false;
+					contentKeyHandled = activeInteractiveContent!.ProcessKey(key);
 				}
 
 				if (contentKeyHandled)
@@ -220,6 +231,12 @@ namespace ConsoleEx
 
 				foreach (var content in _content)
 				{
+					// Store the top row index for the current content
+					_contentTopRowIndex[content] = linesCount;
+
+					// Store the left index for the current content
+					_contentLeftIndex[content] = 0;
+
 					var ansiLines = content.RenderContent(Width - 2, Height - 2, true);
 					lines.AddRange(ansiLines);
 
@@ -228,6 +245,20 @@ namespace ConsoleEx
 
 				_renderedContent = lines;
 			}
+		}
+
+		public bool HasInteractiveContent(out (int Left, int Top) cursorPosition)
+		{
+			if (HasActiveInteractiveContent(out var activeInteractiveContent))
+			{
+				cursorPosition = activeInteractiveContent!.GetCursorPosition();
+				cursorPosition.Top += _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Top;
+				cursorPosition.Left += _contentLeftIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Left;
+				return true;
+			}
+
+			cursorPosition = (0, 0);
+			return false;
 		}
 	}
 

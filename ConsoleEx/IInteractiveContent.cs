@@ -10,7 +10,9 @@ namespace ConsoleEx
 {
     public interface IInteractiveContent
     {
-        public bool IsInteractive { get; }
-        public bool ProcessKey(ConsoleKeyInfo key);
-    }
+        public bool IsEnabled { get; set; }
+		public bool ProcessKey(ConsoleKeyInfo key);
+        public (int Left, int Top) GetCursorPosition();
+
+	}
 }

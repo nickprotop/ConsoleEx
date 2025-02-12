@@ -15,7 +15,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	private int _cursorPosition = 0;
 	private Action<PromptContent, string> _onEnter;
 
-	public bool IsInteractive { get; private set; } = true;
+	public bool IsEnabled { get; set; } = true;
 
 	public Window? Container { get; set; }
 
@@ -45,7 +45,6 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			_onEnter(this, _input);
 			_input = string.Empty;
 			_cursorPosition = 0;
-			IsInteractive = false;
 			Container?.Invalidate();
 			return true;
 		}
@@ -94,5 +93,10 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			return true;
 		}
 		return false;
+	}
+
+	public (int Left, int Top) GetCursorPosition()
+	{
+		return (AnsiConsoleExtensions.CalculateEffectiveLength(_prompt) + _cursorPosition, 0);
 	}
 }
