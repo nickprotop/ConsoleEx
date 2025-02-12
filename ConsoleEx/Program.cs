@@ -55,8 +55,11 @@ namespace ConsoleEx
 				MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo(), false);
 				window.AddContent(systemInfoContent);
 
-				// Set up a timer to update system info in window at regular intervals
-				Timer _timer = new Timer(UpdateSystemInfo, new { Window = window, SystemInfoContent = systemInfoContent }, 0, 5000);
+				while(true)
+				{
+					systemInfoContent.SetMarkup(GetSystemInfo());
+					Thread.Sleep(500);
+				}
 			});
 			
 			system.AddWindow(window2);
@@ -136,18 +139,6 @@ namespace ConsoleEx
 			system.SetActiveWindow(window1);
 
 			system.Run();
-		}
-
-		private static void UpdateSystemInfo(object? state)
-		{
-			dynamic? data = state;
-			var window = data?.Window as Window;
-			var systemInfoContent = data?.SystemInfoContent as MarkupContent;
-
-			if (window != null)
-			{
-				systemInfoContent?.SetMarkup(GetSystemInfo());
-			}
 		}
 
 		private static List<string> GetSystemInfo()
