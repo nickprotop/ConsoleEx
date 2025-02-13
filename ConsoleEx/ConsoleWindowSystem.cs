@@ -475,6 +475,8 @@ namespace ConsoleEx
 					return;
 				}
 
+				FillWindowBackground(window);
+
 				// Define border characters and colors
 				var horizontalBorder = window.IsActive ? '═' : '─';
 				var verticalBorder = window.IsActive ? '║' : '│';

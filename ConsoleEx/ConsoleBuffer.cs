@@ -40,7 +40,7 @@ namespace ConsoleEx
 			{
 				for (int j = 0; j < _width; j++)
 				{
-					_buffer[i][j].Content = " ";
+					_buffer[i][j].Content = ".";
 					_buffer[i][j].ActiveAnsi = null;
 					_buffer[i][j].IsModified = true;
 				}
@@ -103,13 +103,13 @@ namespace ConsoleEx
 					_currentAnsi = ansiCodes[i];
 				}
 				
-				//if (!string.IsNullOrEmpty(chars[i]))
-				//{
+				if (!string.IsNullOrEmpty(chars[i]))
+				{
 					_buffer[y][currentX].Content = chars[i] ?? " ";
 					_buffer[y][currentX].ActiveAnsi = _currentAnsi;
 					_buffer[y][currentX].IsModified = true;
 					currentX++;
-				//}
+				}
 			}
 		}
 
