@@ -307,8 +307,6 @@ namespace ConsoleEx
 			}
 		}
 
-
-
 		private void ProcessInput()
 		{
 			while (_inputQueue.TryDequeue(out var key))
@@ -338,7 +336,7 @@ namespace ConsoleEx
 									break;
 
 								case ConsoleKey.DownArrow:
-									_activeWindow.Height = Math.Min(desktopHeight - _activeWindow.Top + 1, _activeWindow.Height + 1);
+									_activeWindow.Height = Math.Min(desktopHeight - _activeWindow.Top, _activeWindow.Height + 1);
 									handled = true;
 									break;
 
@@ -360,12 +358,12 @@ namespace ConsoleEx
 							switch (key.Key)
 							{
 								case ConsoleKey.UpArrow:
-									_activeWindow.Top = Math.Max(desktopTop, _activeWindow.Top - 1);
+									_activeWindow.Top = Math.Max(0, _activeWindow.Top - 1);
 									handled = true;
 									break;
 
 								case ConsoleKey.DownArrow:
-									_activeWindow.Top = Math.Min(desktopHeight - _activeWindow.Height + 1, _activeWindow.Top + 1);
+									_activeWindow.Top = Math.Min(desktopBottom - _activeWindow.Height + 1, _activeWindow.Top + 1);
 									handled = true;
 									break;
 
@@ -419,8 +417,8 @@ namespace ConsoleEx
 			// Fill the entire area of the window, including borders, with background
 			for (var y = 0; y < window.Height; y++)
 			{
-				if (window.Top + y >= Console.WindowHeight - 1) break; // Stop rendering if it reaches the bottom of the console
-				Console.SetCursorPosition(window.Left, window.Top + y);
+				if (window.Top + y > DesktopDimensions.Height) break;
+				Console.SetCursorPosition(window.Left, window.Top + DesktopUpperLeft.Top + y);
 				Console.Write(new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left)));
 			}
 		}
@@ -446,8 +444,8 @@ namespace ConsoleEx
 				var (desktopRight, desktopBottom) = DesktopBottomRight;
 
 				// Check if the window is out of screen boundaries
-				if (window.Left < desktopLeft || window.Top < desktopTop ||
-					window.Left >= desktopRight || window.Top >= desktopBottom)
+				if (window.Left < desktopLeft || (window.Top + DesktopUpperLeft.Top ) < desktopTop ||
+					window.Left >= desktopRight || window.Top + DesktopUpperLeft.Top >= desktopBottom)
 				{
 					return; // Do not render the window if it is out of screen boundaries
 				}
@@ -475,24 +473,24 @@ namespace ConsoleEx
 				var leftPadding = 1;
 				var rightPadding = availableSpace - leftPadding;
 
-				Console.SetCursorPosition(window.Left, window.Top);
+				Console.SetCursorPosition(window.Left + DesktopUpperLeft.Left, window.Top + DesktopUpperLeft.Top);
 				Console.Write(AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", window.Width, 1, false)[0]);
 
 				// Draw sides
 				for (var y = 1; y < window.Height - 1; y++)
 				{
-					if (window.Top + y - 1 >= desktopBottom) break; // Stop rendering if it reaches the bottom of the console
-					Console.SetCursorPosition(window.Left, window.Top + y);
+					if (window.Top + DesktopUpperLeft.Top + y - 1 >= desktopBottom) break; // Stop rendering if it reaches the bottom of the console
+					Console.SetCursorPosition(window.Left, window.Top + DesktopUpperLeft.Top + y);
 					Console.Write(AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false)[0]);
 					if (window.Left + window.Width - 2 < desktopRight)
 					{
-						Console.SetCursorPosition(window.Left + window.Width - 1, window.Top + y);
+						Console.SetCursorPosition(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Top + y);
 						Console.Write(AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false)[0]);
 					}
 				}
 
 				// Draw bottom border
-				Console.SetCursorPosition(window.Left, window.Top + window.Height - 1);
+				Console.SetCursorPosition(window.Left, window.Top + DesktopUpperLeft.Top + window.Height - 1);
 				var bottomBorderWidth = Math.Min(window.Width - 2, desktopRight - window.Left - 1);
 				Console.Write(AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightCorner}{resetColor}", window.Width, 1, false)[0]);
 
@@ -515,13 +513,11 @@ namespace ConsoleEx
 						line = AnsiConsoleExtensions.TruncateAnsiString(line, maxWidth);
 					}
 
-					Console.SetCursorPosition(window.Left + 1, window.Top + y + 1);
+					Console.SetCursorPosition(window.Left + 1, window.Top + DesktopUpperLeft.Top + y + 1);
 					Console.Write(line);
 				}
 			}
 		}
-
-
 
 		private void UpdateDisplay()
 		{
@@ -629,14 +625,14 @@ namespace ConsoleEx
 		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, int relativeLeft, int relativeTop)
 		{
 			int absoluteLeft = window.Left + relativeLeft;
-			int absoluteTop = window.Top + relativeTop;
+			int absoluteTop = window.Top + DesktopUpperLeft.Top + relativeTop;
 			return (absoluteLeft, absoluteTop);
 		}
 
 		public (int relativeLeft, int relativeTop) TranslateToRelative(Window window, int absoluteLeft, int absoluteTop)
 		{
 			int relativeLeft = absoluteLeft - window.Left;
-			int relativeTop = absoluteTop - window.Top;
+			int relativeTop = absoluteTop - window.Top - DesktopUpperLeft.Top;
 			return (relativeLeft, relativeTop);
 		}
 	}
