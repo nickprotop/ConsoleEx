@@ -307,6 +307,19 @@ namespace ConsoleEx
 			}
 		}
 
+		private void MoveOrResizeOperation(Window window)
+		{
+			foreach(var w in _windows)
+			{
+				if (w != window && IsOverlapping(window, w))
+				{
+					w.Invalidate();
+				}
+				FillWindowBackground(window);
+				window.Invalidate();
+			}
+		}
+
 		private void ProcessInput()
 		{
 			while (_inputQueue.TryDequeue(out var key))
@@ -320,32 +333,35 @@ namespace ConsoleEx
 					else if (_activeWindow != null)
 					{
 						bool handled = false;
+
 						var (desktopWidth, desktopHeight) = DesktopDimensions;
 						var (desktopLeft, desktopTop) = DesktopUpperLeft;
 						var (desktopRight, desktopBottom) = DesktopBottomRight;
 
 						if ((key.Modifiers & ConsoleModifiers.Shift) != 0 && _activeWindow.IsResizable)
 						{
-							// Handle resizing
-							FillWindowBackground(_activeWindow);
 							switch (key.Key)
 							{
 								case ConsoleKey.UpArrow:
+									MoveOrResizeOperation(_activeWindow);
 									_activeWindow.Height = Math.Max(1, _activeWindow.Height - 1);
 									handled = true;
 									break;
 
 								case ConsoleKey.DownArrow:
+									MoveOrResizeOperation(_activeWindow);
 									_activeWindow.Height = Math.Min(desktopHeight - _activeWindow.Top, _activeWindow.Height + 1);
 									handled = true;
 									break;
 
 								case ConsoleKey.LeftArrow:
+									MoveOrResizeOperation(_activeWindow);
 									_activeWindow.Width = Math.Max(1, _activeWindow.Width - 1);
 									handled = true;
 									break;
 
 								case ConsoleKey.RightArrow:
+									MoveOrResizeOperation(_activeWindow);
 									_activeWindow.Width = Math.Min(desktopWidth - _activeWindow.Left, _activeWindow.Width + 1);
 									handled = true;
 									break;
@@ -353,26 +369,28 @@ namespace ConsoleEx
 						}
 						else if ((key.Modifiers & ConsoleModifiers.Control) != 0 && _activeWindow.IsMovable)
 						{
-							// Handle moving
-							FillWindowBackground(_activeWindow);
 							switch (key.Key)
 							{
 								case ConsoleKey.UpArrow:
+									MoveOrResizeOperation(_activeWindow);
 									_activeWindow.Top = Math.Max(0, _activeWindow.Top - 1);
 									handled = true;
 									break;
 
 								case ConsoleKey.DownArrow:
+									MoveOrResizeOperation(_activeWindow);
 									_activeWindow.Top = Math.Min(desktopBottom - _activeWindow.Height + 1, _activeWindow.Top + 1);
 									handled = true;
 									break;
 
 								case ConsoleKey.LeftArrow:
+									MoveOrResizeOperation(_activeWindow);
 									_activeWindow.Left = Math.Max(desktopLeft, _activeWindow.Left - 1);
 									handled = true;
 									break;
 
 								case ConsoleKey.RightArrow:
+									MoveOrResizeOperation(_activeWindow);
 									_activeWindow.Left = Math.Min(desktopRight - _activeWindow.Width + 1, _activeWindow.Left + 1);
 									handled = true;
 									break;
@@ -400,11 +418,6 @@ namespace ConsoleEx
 						if (!handled)
 						{
 							handled = _activeWindow.ProcessInput(key);
-						}
-
-						if (handled)
-						{
-							_windows.ForEach(w => w.Invalidate());
 						}
 					}
 				}

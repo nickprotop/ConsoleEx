@@ -252,5 +252,10 @@ namespace ConsoleEx
 
 			return console;
 		}
+
+		public static string GetAnsiCursorPosition(int left, int top)
+		{
+			return $"\u001b[{top + 1};{left + 1}H";
+		}
 	}
 }
