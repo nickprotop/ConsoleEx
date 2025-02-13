@@ -23,6 +23,13 @@ namespace ConsoleEx
 		public string TopStatus { get; set; } = "";
 		public string BottomStatus { get; set; } = "";
 
+		private ConsoleBuffer? _buffer;
+
+		private void InitializeBuffer()
+		{
+			_buffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
+		}
+
 		public Window AddWindow(Window window)
 		{
 			lock (_windows)
@@ -61,6 +68,8 @@ namespace ConsoleEx
 
 			_lastConsoleWidth = Console.WindowWidth;
 			_lastConsoleHeight = Console.WindowHeight;
+
+			InitializeBuffer();
 
 			var inputThread = new Thread(InputLoop) { IsBackground = true };
 			inputThread.Start();
@@ -276,32 +285,29 @@ namespace ConsoleEx
 		{
 			while (_running)
 			{
-				var (desktopWidth, desktopHeight) = DesktopDimensions;
-
 				if (Console.WindowWidth != _lastConsoleWidth || Console.WindowHeight != _lastConsoleHeight)
 				{
 					lock (_windows)
 					{
+						var (desktopWidth, desktopHeight) = DesktopDimensions;
+
 						foreach (var window in _windows)
 						{
-							// Ensure the window is within the new width boundaries
 							if (window.Left + window.Width > desktopWidth)
 							{
 								window.Left = Math.Max(0, desktopWidth - window.Width);
 							}
-
-							// Ensure the window is within the new height boundaries
 							if (window.Top + window.Height > desktopHeight)
 							{
 								window.Top = Math.Max(1, desktopHeight - window.Height);
 							}
 						}
-					}
 
-					Console.Clear();
-					_windows.ForEach(w => w.Invalidate());
-					_lastConsoleWidth = Console.WindowWidth;
-					_lastConsoleHeight = Console.WindowHeight;
+						InitializeBuffer(); // Reinitialize buffer with new dimensions
+						_windows.ForEach(w => w.Invalidate());
+						_lastConsoleWidth = Console.WindowWidth;
+						_lastConsoleHeight = Console.WindowHeight;
+					}
 				}
 				Thread.Sleep(100);
 			}
@@ -431,8 +437,10 @@ namespace ConsoleEx
 			for (var y = 0; y < window.Height; y++)
 			{
 				if (window.Top + y > DesktopDimensions.Height) break;
-				Console.SetCursorPosition(window.Left, window.Top + DesktopUpperLeft.Top + y);
-				Console.Write(new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left)));
+				//Console.SetCursorPosition(window.Left, window.Top + DesktopUpperLeft.Top + y);
+				//Console.Write(new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left)));
+
+				_buffer.Write(window.Left, window.Top + DesktopUpperLeft.Top + y, new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left)));
 			}
 		}
 
@@ -450,6 +458,97 @@ namespace ConsoleEx
 		}
 
 		private void RenderWindow(Window window)
+		{
+			if (_buffer == null) return;
+
+			lock (window)
+			{
+				var (desktopLeft, desktopTop) = DesktopUpperLeft;
+				var (desktopRight, desktopBottom) = DesktopBottomRight;
+
+				// Check if window is out of bounds
+				if (window.Left < desktopLeft ||
+					(window.Top + DesktopUpperLeft.Top) < desktopTop ||
+					window.Left >= desktopRight ||
+					window.Top + DesktopUpperLeft.Top >= desktopBottom)
+				{
+					return;
+				}
+
+				// Define border characters and colors
+				var horizontalBorder = window.IsActive ? '═' : '─';
+				var verticalBorder = window.IsActive ? '║' : '│';
+				var topLeftCorner = window.IsActive ? '╔' : '┌';
+				var topRightCorner = window.IsActive ? '╗' : '┐';
+				var bottomLeftCorner = window.IsActive ? '╚' : '└';
+				var bottomRightCorner = window.IsActive ? '╝' : '┘';
+				var borderColor = window.IsActive ? "[green]" : "[grey]";
+				var titleColor = window.IsActive ? "[bold yellow]" : "[grey]";
+				var resetColor = "[/]";
+
+				// Render top border with title
+				var title = $"| {titleColor}{window.Title}{resetColor} |";
+				var titleLength = AnsiConsoleExtensions.CalculateEffectiveLength(title);
+				var availableSpace = window.Width - 2 - titleLength;
+				var leftPadding = 1;
+				var rightPadding = availableSpace - leftPadding;
+
+				var topBorder = AnsiConsoleExtensions.ConvertMarkupToAnsi(
+					$"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}",
+					window.Width,
+					1,
+					false)[0];
+				_buffer.Write(window.Left, window.Top + desktopTop, topBorder);
+
+				// Render sides
+				var leftBorder = AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false)[0];
+				var rightBorder = AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false)[0];
+
+				for (var y = 1; y < window.Height - 1; y++)
+				{
+					if (window.Top + desktopTop + y >= desktopBottom) break;
+
+					_buffer.Write(window.Left, window.Top + desktopTop + y, leftBorder);
+					if (window.Left + window.Width - 1 < desktopRight)
+					{
+						_buffer.Write(window.Left + window.Width - 1, window.Top + desktopTop + y, rightBorder);
+					}
+				}
+
+				// Render bottom border
+				var bottomBorderWidth = Math.Min(window.Width - 2, desktopRight - window.Left - 1);
+				var bottomBorder = AnsiConsoleExtensions.ConvertMarkupToAnsi(
+					$"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightCorner}{resetColor}",
+					window.Width,
+					1,
+					false)[0];
+				_buffer.Write(window.Left, window.Top + desktopTop + window.Height - 1, bottomBorder);
+
+				// Render content
+				var lines = window.GetVisibleContent();
+				if (window.IsDirty)
+				{
+					window.IsDirty = false;
+				}
+
+				for (var y = 0; y < lines.Count; y++)
+				{
+					if (window.Top + y >= desktopBottom) break;
+
+					var line = lines[y];
+					var maxWidth = Math.Min(window.Width - 2, desktopRight - window.Left - 2);
+
+					if (AnsiConsoleExtensions.GetTrueLengthOfAnsi(line) > maxWidth)
+					{
+						line = AnsiConsoleExtensions.TruncateAnsiString(line, maxWidth);
+					}
+
+					_buffer.Write(window.Left + 1, window.Top + desktopTop + y + 1, line);
+				}
+			}
+		}
+
+		private void RenderWindow_v1(Window window)
 		{
 			lock (window)
 			{
@@ -533,6 +632,49 @@ namespace ConsoleEx
 		}
 
 		private void UpdateDisplay()
+		{
+			if (_buffer == null) return;
+
+			_buffer.Clear();
+
+			// Write top status
+			var topRow = TopStatus;
+			var effectiveLength = AnsiConsoleExtensions.CalculateEffectiveLength(topRow);
+			var paddedTopRow = topRow.PadRight(Console.WindowWidth + (topRow.Length - effectiveLength));
+			var convertedTopRow = AnsiConsoleExtensions.ConvertMarkupToAnsi(
+				$"[black on white]{paddedTopRow}[/]",
+				Console.WindowWidth,
+				1,
+				false)[0];
+			_buffer.Write(0, 0, convertedTopRow);
+
+			lock (_windows)
+			{
+				// Render windows in order of Z-index
+				foreach (var window in _windows.OrderBy(w => w.ZIndex))
+				{
+					RenderWindow(window);
+				}
+			}
+
+			// Write bottom status
+			var windowTitles = _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {w.Title}");
+			var bottomRow = string.Join(" | ", windowTitles);
+			bottomRow += $" | {BottomStatus}";
+			effectiveLength = AnsiConsoleExtensions.CalculateEffectiveLength(bottomRow);
+			var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth + (bottomRow.Length - effectiveLength));
+			var convertedBottomRow = AnsiConsoleExtensions.ConvertMarkupToAnsi(
+				$"[white on blue]{paddedBottomRow}[/]",
+				Console.WindowWidth,
+				1,
+				false)[0];
+			_buffer.Write(0, Console.WindowHeight - 1, convertedBottomRow);
+
+			// Render the buffer
+			_buffer.Render();
+		}
+
+		private void UpdateDisplay_v1()
 		{
 			// Calculate the effective length of the bottom row without markup
 			var topRow = TopStatus;
