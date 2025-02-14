@@ -62,7 +62,7 @@ namespace ConsoleEx
 				}
 			});
 			
-			system.AddWindow(window2);
+			//system.AddWindow(window2);
 
 			// Example of creating window with markup content and it's own thread and handling user prompt
 			var window3 = new Window(system, new WindowOptions()
@@ -103,9 +103,10 @@ namespace ConsoleEx
 				window.AddContent(ageInfo);
 			});
 
-			system.AddWindow(window3);
+			//system.AddWindow(window3);
 
 			// Example of creating window with Figlet content and it's own thread
+			/*
 			system.CreateWindow(new WindowOptions()
 			{
 				Title = "Clock",
@@ -125,6 +126,7 @@ namespace ConsoleEx
 					Thread.Sleep(1000);
 				}
 			});
+			*/
 
 			// Example of writing to a window from another thread
 			Task.Run(() =>

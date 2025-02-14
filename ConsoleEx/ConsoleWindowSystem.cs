@@ -29,7 +29,7 @@ namespace ConsoleEx
 		private ConsoleBuffer _buffer;
 		private object _renderLock { get; } = new object();
 		
-		public RenderMode RenderMode { get; set; } = RenderMode.Buffer;
+		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
 		public string TopStatus { get; set; } = "";
 		public string BottomStatus { get; set; } = "";
 
@@ -505,13 +505,16 @@ namespace ConsoleEx
 				var resetColor = "[/]";
 
 				// Draw top border with title
-				var title = $"| {titleColor}{window.Title}{resetColor} |";
-				var titleLength = AnsiConsoleExtensions.CalculateEffectiveLength(title);
+				var title = $"{(window.IsActive ? "[foreground yellow]" : "[foreground grey]")}| {window.Title} |[/foreground]";
+				var titleLength = AnsiConsoleExtensions.GetStrippedStringLength(title);
 				var availableSpace = window.Width - 2 - titleLength;
 				var leftPadding = 1;
 				var rightPadding = availableSpace - leftPadding;
 
-				WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", window.Width, 1, false)[0]);
+				var ansiString = AnsiConsoleExtensions.ParseAnsiTags($"[background white]{(window.IsActive ? "[foreground green]" : "[foreground grey]")}{topLeftCorner}{new string(horizontalBorder, leftPadding)}[/foreground]{title}{(window.IsActive ? "[foreground green]" : "[foreground grey]")}{new string(horizontalBorder, rightPadding)}{topRightCorner}[/foreground][/background]");
+
+				//WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", window.Width, 1, false)[0]);
+				WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, ansiString);
 
 				// Draw sides
 				for (var y = 1; y < window.Height - 1; y++)
@@ -547,7 +550,8 @@ namespace ConsoleEx
 					{
 						line = AnsiConsoleExtensions.TruncateAnsiString(line, maxWidth);
 					}
-					WriteToConsole(window.Left + 1, window.Top + DesktopUpperLeft.Top + y + 1, line);
+
+					WriteToConsole(window.Left + 1, window.Top + DesktopUpperLeft.Top + y + 1, $"{line}");
 				}
 			}
 		}

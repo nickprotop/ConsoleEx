@@ -41,6 +41,21 @@ namespace ConsoleEx
 			return length;
 		}
 
+		public static int GetStrippedStringLength(string input)
+		{
+			if (string.IsNullOrEmpty(input))
+				return 0;
+
+			// Remove markup tags
+			var markupStripped = Regex.Replace(input, @"\[(.*?)\]", string.Empty);
+
+			// Remove ANSI escape sequences
+			var ansiStripped = Regex.Replace(markupStripped, @"\x1B\[[0-9;]*[a-zA-Z]", string.Empty);
+
+			// Return the length of the cleaned string
+			return ansiStripped.Length;
+		}
+
 		public static string TruncateSpectre(string inputStr, int maxLength)
 		{
 			var output = new StringBuilder();
@@ -156,6 +171,65 @@ namespace ConsoleEx
 			console.Write(renderable);
 			return writer.ToString().Split('\n').ToList();
 		}
+
+		public static string ParseAnsiTags(string input)
+		{
+			if (string.IsNullOrEmpty(input))
+				return string.Empty;
+
+			var tagToAnsi = new Dictionary<string, string>
+			{
+				{ "bold", "\u001b[1m" },
+				{ "/bold", "\u001b[22m" },
+				{ "underline", "\u001b[4m" },
+				{ "/underline", "\u001b[24m" },
+				{ "foreground red", "\u001b[31m" },
+				{ "foreground green", "\u001b[32m" },
+				{ "foreground yellow", "\u001b[33m" },
+				{ "foreground blue", "\u001b[34m" },
+				{ "foreground magenta", "\u001b[35m" },
+				{ "foreground cyan", "\u001b[36m" },
+				{ "foreground white", "\u001b[37m" },
+				{ "foreground grey", "\u001b[90m" },
+				{ "background red", "\u001b[41m" },
+				{ "background green", "\u001b[42m" },
+				{ "background yellow", "\u001b[43m" },
+				{ "background blue", "\u001b[44m" },
+				{ "background magenta", "\u001b[45m" },
+				{ "background cyan", "\u001b[46m" },
+				{ "background white", "\u001b[47m" },
+				{ "/foreground", "\u001b[39m" },
+				{ "/background", "\u001b[49m" },
+				{ "reset", "\u001b[0m" }
+			};
+
+			var output = new StringBuilder();
+			var regex = new Regex(@"\[(.*?)\]");
+			var matches = regex.Matches(input);
+			int lastIndex = 0;
+
+			foreach (Match match in matches)
+			{
+				output.Append(input.Substring(lastIndex, match.Index - lastIndex));
+				var tag = match.Groups[1].Value.ToLower();
+				if (tagToAnsi.TryGetValue(tag, out var ansiCode))
+				{
+					output.Append(ansiCode);
+				}
+				else
+				{
+					output.Append(match.Value); // If tag is not recognized, keep it as is
+				}
+				lastIndex = match.Index + match.Length;
+			}
+
+			output.Append(input.Substring(lastIndex));
+
+			output.Append("\u001b[0m"); // Reset at the end
+
+			return output.ToString();
+		}
+
 
 		private static readonly Regex TruncateAnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
 
