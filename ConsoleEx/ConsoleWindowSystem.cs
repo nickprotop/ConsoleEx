@@ -26,7 +26,8 @@ namespace ConsoleEx
 		private readonly ConcurrentQueue<ConsoleKeyInfo> _inputQueue = new();
 		private int _lastConsoleWidth;
 		private int _lastConsoleHeight;
-		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
+		private ConsoleBuffer _buffer;
+		public RenderMode RenderMode { get; set; } = RenderMode.Buffer;
 
 		public string TopStatus { get; set; } = "";
 		public string BottomStatus { get; set; } = "";
@@ -34,6 +35,7 @@ namespace ConsoleEx
 		public ConsoleWindowSystem()
 		{
 			Console.OutputEncoding = Encoding.UTF8;
+			_buffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
 		}
 
 		private void WriteToConsole(int x, int y, string value)
@@ -44,6 +46,9 @@ namespace ConsoleEx
 					Console.SetCursorPosition(x, y);
 					Console.Write(value);
 					break;
+				case RenderMode.Buffer:
+					_buffer.AddContent(x, y, value);
+				break;
 			}
 		}
 
@@ -451,7 +456,7 @@ namespace ConsoleEx
 			for (var y = 0; y < window.Height; y++)
 			{
 				if (window.Top + y > DesktopDimensions.Height) break;
-				WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left)));
+				WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, $"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}");
 			}
 		}
 
@@ -548,74 +553,81 @@ namespace ConsoleEx
 
 		private void UpdateDisplay()
 		{
-			// Calculate the effective length of the bottom row without markup
-			var topRow = TopStatus;
-			var effectiveLength = AnsiConsoleExtensions.CalculateEffectiveLength(topRow);
-			var paddedTopRow = topRow.PadRight(Console.WindowWidth + (topRow.Length - effectiveLength));
-			WriteToConsole(0, 0, AnsiConsoleExtensions.ConvertMarkupToAnsi($"[black on white]{paddedTopRow}[/]", Console.WindowWidth, 1, false)[0]);
-
 			lock (_windows)
 			{
-				var windowsToRender = new HashSet<Window>();
+				// Calculate the effective length of the bottom row without markup
+				var topRow = TopStatus;
+				var effectiveLength = AnsiConsoleExtensions.CalculateEffectiveLength(topRow);
+				var paddedTopRow = topRow.PadRight(Console.WindowWidth + (topRow.Length - effectiveLength));
+				WriteToConsole(0, 0, AnsiConsoleExtensions.ConvertMarkupToAnsi($"[black on white]{paddedTopRow}[/]", Console.WindowWidth, 1, false)[0]);
 
-				// Identify dirty windows and overlapping windows
-				foreach (var window in _windows)
+				lock (_windows)
 				{
-					if (window.IsDirty)
+					var windowsToRender = new HashSet<Window>();
+
+					// Identify dirty windows and overlapping windows
+					foreach (var window in _windows)
 					{
-						var overlappingWindows = GetOverlappingWindows(window);
-						foreach (var overlappingWindow in overlappingWindows)
+						if (window.IsDirty)
 						{
-							if (overlappingWindow.IsDirty || IsOverlapping(window, overlappingWindow))
+							var overlappingWindows = GetOverlappingWindows(window);
+							foreach (var overlappingWindow in overlappingWindows)
 							{
-								windowsToRender.Add(overlappingWindow);
+								if (overlappingWindow.IsDirty || IsOverlapping(window, overlappingWindow))
+								{
+									windowsToRender.Add(overlappingWindow);
+								}
+							}
+						}
+					}
+
+					// Render non-active windows based on their ZIndex
+					foreach (var window in _windows.OrderBy(w => w.ZIndex))
+					{
+						if (window != _activeWindow && windowsToRender.Contains(window))
+						{
+							RenderWindow(window);
+						}
+					}
+
+					// Check if any of the overlapping windows is overlapping the active window
+					if (_activeWindow != null)
+					{
+						if (windowsToRender.Contains(_activeWindow))
+						{
+							RenderWindow(_activeWindow);
+						}
+						else
+						{
+							var overlappingWindows = GetOverlappingWindows(_activeWindow);
+
+							foreach (var overlappingWindow in overlappingWindows)
+							{
+								if (windowsToRender.Contains(overlappingWindow))
+								{
+									RenderWindow(_activeWindow);
+								}
 							}
 						}
 					}
 				}
 
-				// Render non-active windows based on their ZIndex
-				foreach (var window in _windows.OrderBy(w => w.ZIndex))
-				{
-					if (window != _activeWindow && windowsToRender.Contains(window))
-					{
-						RenderWindow(window);
-					}
-				}
+				// Display the list of window titles in the bottom row
+				var windowTitles = _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {w.Title}");
+				var bottomRow = string.Join(" | ", windowTitles);
+				bottomRow += $" | {BottomStatus}";
 
-				// Check if any of the overlapping windows is overlapping the active window
-				if (_activeWindow != null)
-				{
-					if (windowsToRender.Contains(_activeWindow))
-					{
-						RenderWindow(_activeWindow);
-					}
-					else
-					{
-						var overlappingWindows = GetOverlappingWindows(_activeWindow);
+				// Calculate the effective length of the bottom row without markup
+				effectiveLength = AnsiConsoleExtensions.CalculateEffectiveLength(bottomRow);
+				var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth + (bottomRow.Length - effectiveLength));
 
-						foreach (var overlappingWindow in overlappingWindows)
-						{
-							if (windowsToRender.Contains(overlappingWindow))
-							{
-								RenderWindow(_activeWindow);
-							}
-						}
-					}
+				WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false)[0]);
+
+				if (RenderMode == RenderMode.Buffer)
+				{
+					_buffer.Render();
 				}
 			}
-
-			// Display the list of window titles in the bottom row
-			var windowTitles = _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {w.Title}");
-			var bottomRow = string.Join(" | ", windowTitles);
-			bottomRow += $" | {BottomStatus}";
-
-			// Calculate the effective length of the bottom row without markup
-			effectiveLength = AnsiConsoleExtensions.CalculateEffectiveLength(bottomRow);
-			var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth + (bottomRow.Length - effectiveLength));
-
-			WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false)[0]);
-
 		}
 
 
