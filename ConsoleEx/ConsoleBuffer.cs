@@ -85,11 +85,9 @@ namespace ConsoleEx
 				else
 				{
 					_trailingEscapes[_width - 1, y] += matches[matchIndex++].Value;
-
 				}
-			}	
+			}
 		}
-
 
 		public void Render()
 		{
@@ -99,12 +97,15 @@ namespace ConsoleEx
 			{
 				for (int x = 0; x < _width; x++)
 				{
-					var cell = _frontBuffer[x, y];
-					if (cell.IsDirty)
+					var frontCell = _frontBuffer[x, y];
+					var backCell = _backBuffer[x, y];
+					if (backCell.IsDirty && (frontCell.Character != backCell.Character || frontCell.AnsiEscape != backCell.AnsiEscape))
 					{
 						Console.SetCursorPosition(x, y);
-						Console.Write(cell.AnsiEscape + cell.Character);
-						cell.IsDirty = false;
+						Console.Write(backCell.AnsiEscape + backCell.Character);
+						frontCell.Character = backCell.Character;
+						frontCell.AnsiEscape = backCell.AnsiEscape;
+						backCell.IsDirty = false;
 					}
 				}
 
@@ -116,22 +117,6 @@ namespace ConsoleEx
 					_trailingEscapes[_width - 1, y] = string.Empty;
 				}
 			}
-
-			// Swap buffers
-			SwapBuffers();
-		}
-
-		private void SwapBuffers()
-		{
-			for (int x = 0; x < _width; x++)
-			{
-				for (int y = 0; y < _height; y++)
-				{
-					_frontBuffer[x, y].Character = _backBuffer[x, y].Character;
-					_frontBuffer[x, y].AnsiEscape = _backBuffer[x, y].AnsiEscape;
-					_frontBuffer[x, y].IsDirty = _backBuffer[x, y].IsDirty;
-				}
-			}
 		}
 
 		public void Clear()
@@ -140,7 +125,9 @@ namespace ConsoleEx
 			{
 				for (int y = 0; y < _height; y++)
 				{
-					_backBuffer[x, y] = new Cell(' ');
+					_backBuffer[x, y].Character = ' ';
+					_backBuffer[x, y].AnsiEscape = string.Empty;
+					_backBuffer[x, y].IsDirty = true;
 					_trailingEscapes[x, y] = string.Empty;
 				}
 			}

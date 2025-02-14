@@ -27,8 +27,9 @@ namespace ConsoleEx
 		private int _lastConsoleWidth;
 		private int _lastConsoleHeight;
 		private ConsoleBuffer _buffer;
+		private object _renderLock { get; } = new object();
+		
 		public RenderMode RenderMode { get; set; } = RenderMode.Buffer;
-
 		public string TopStatus { get; set; } = "";
 		public string BottomStatus { get; set; } = "";
 
@@ -307,7 +308,7 @@ namespace ConsoleEx
 			{
 				if (Console.WindowWidth != _lastConsoleWidth || Console.WindowHeight != _lastConsoleHeight)
 				{
-					lock (_windows)
+					lock (_renderLock)
 					{
 						var (desktopWidth, desktopHeight) = DesktopDimensions;
 
@@ -553,7 +554,7 @@ namespace ConsoleEx
 
 		private void UpdateDisplay()
 		{
-			lock (_windows)
+			lock (_renderLock)
 			{
 				// Calculate the effective length of the bottom row without markup
 				var topRow = TopStatus;
