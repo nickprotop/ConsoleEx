@@ -10,103 +10,103 @@ using Spectre.Console;
 
 namespace ConsoleEx
 {
-	internal class Program
-	{
-		private static void Main(string[] args)
-		{
-			var system = new ConsoleWindowSystem
-			{
-				TopStatus = "TOP STATUS BAR",
-				BottomStatus = "BOTTOM STATUS BAR"
-			};
+    internal class Program
+    {
+        private static void Main(string[] args)
+        {
+            var system = new ConsoleWindowSystem
+            {
+                TopStatus = "TOP STATUS BAR",
+                BottomStatus = "BOTTOM STATUS BAR"
+            };
 
-			var window1 = new Window(system, new WindowOptions()
-			{
-				Title = "Window 1",
-				Left = 2,
-				Top = 2,
-				Width = 40,
-				Height = 10
-			},
-			(window) =>
-			{
-				window.KeyPressed += (sender, e) =>
-				{
-					if (e.KeyInfo.Key == ConsoleKey.Escape)
-					{
-						window.Close();
-					}
-				};
-			});
+            var window1 = new Window(system, new WindowOptions()
+            {
+                Title = "Window 1",
+                Left = 2,
+                Top = 2,
+                Width = 40,
+                Height = 10
+            },
+            (window) =>
+            {
+                window.KeyPressed += (sender, e) =>
+                {
+                    if (e.KeyInfo.Key == ConsoleKey.Escape)
+                    {
+                        window.Close();
+                    }
+                };
+            });
 
-			system.AddWindow(window1);
+            system.AddWindow(window1);
 
-			// Example of creating window with markup content and it's own thread and handling user prompt
-			var window2 = new Window(system, new WindowOptions()
-			{
-				Title = "System Info",
-				Left = 12,
-				Top = 4,
-				Width = 40,
-				Height = 10
-			},
-			(window) =>
-			{
-				MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo(), false);
-				window.AddContent(systemInfoContent);
+            // Example of creating window with markup content and it's own thread and handling user prompt
+            var window2 = new Window(system, new WindowOptions()
+            {
+                Title = "System Info",
+                Left = 12,
+                Top = 4,
+                Width = 40,
+                Height = 10
+            },
+            (window) =>
+            {
+                MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo(), false);
+                window.AddContent(systemInfoContent);
 
-				while(true)
-				{
-					systemInfoContent.SetMarkup(GetSystemInfo());
-					Thread.Sleep(500);
-				}
-			});
-			
-			//system.AddWindow(window2);
+                while (true)
+                {
+                    systemInfoContent.SetMarkup(GetSystemInfo());
+                    Thread.Sleep(500);
+                }
+            });
 
-			// Example of creating window with markup content and it's own thread and handling user prompt
-			var window3 = new Window(system, new WindowOptions()
-			{
-				Title = "User",
-				Left = 22,
-				Top = 6,
-				Width = 40,
-				Height = 10,
-				IsResizable = false
-			},
-			(window) =>
-			{
-				window.AddContent(new MarkupContent(new List<string>() { "User Info", " " }, true));
+            system.AddWindow(window2);
 
-				var ageInfo = new MarkupContent(new List<string>() { " " }, true);
+            // Example of creating window with markup content and it's own thread and handling user prompt
+            var window3 = new Window(system, new WindowOptions()
+            {
+                Title = "User",
+                Left = 22,
+                Top = 6,
+                Width = 40,
+                Height = 10,
+                IsResizable = false
+            },
+            (window) =>
+            {
+                window.AddContent(new MarkupContent(new List<string>() { "User Info", " " }, true));
 
-				var namePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ")
-				{
-					DisableOnEnter = false
-				};
-				namePrompt.OnInputChange += (s, e) =>
-				{
-					window.Title = $"User - {e}";
-				};
-				window.AddContent(namePrompt);
+                var ageInfo = new MarkupContent(new List<string>() { " " }, true);
 
-				var agePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]age[/]: ", (sender, input) =>
-				{
-					ageInfo.SetMarkup(new List<string>() { $"[bold]Your age is {input}[/]" });
-				})
-				{
-					DisableOnEnter = false
-				};
+                var namePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ")
+                {
+                    DisableOnEnter = false
+                };
+                namePrompt.OnInputChange += (s, e) =>
+                {
+                    window.Title = $"User - {e}";
+                };
+                window.AddContent(namePrompt);
 
-				window.AddContent(agePrompt);
-				window.AddContent(new MarkupContent(new List<string>() { " " }, true));				
-				window.AddContent(ageInfo);
-			});
+                var agePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]age[/]: ", (sender, input) =>
+                {
+                    ageInfo.SetMarkup(new List<string>() { $"[bold]Your age is {input}[/]" });
+                })
+                {
+                    DisableOnEnter = false
+                };
 
-			//system.AddWindow(window3);
+                window.AddContent(agePrompt);
+                window.AddContent(new MarkupContent(new List<string>() { " " }, true));
+                window.AddContent(ageInfo);
+            });
 
-			// Example of creating window with Figlet content and it's own thread
-			/*
+            system.AddWindow(window3);
+
+            // Example of creating window with Figlet content and it's own thread
+            /*
 			system.CreateWindow(new WindowOptions()
 			{
 				Title = "Clock",
@@ -128,35 +128,35 @@ namespace ConsoleEx
 			});
 			*/
 
-			// Example of writing to a window from another thread
-			Task.Run(() =>
-			{
-				for (var i = 0; i < 30; i++)
-				{
-					window1.AddContent(new MarkupContent(new List<string>() { $"Message [bold blue]{i}[/] from thread-Message [bold blue]{i}[/] from thread" }, true));
-					Thread.Sleep(50);
-				}
-			});
+            // Example of writing to a window from another thread
+            Task.Run(() =>
+            {
+                for (var i = 0; i < 30; i++)
+                {
+                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [foreground blue]{i}[/foreground] from thread-Message [foreground blue]{i}[/foreground] from thread" }, true));
+                    Thread.Sleep(50);
+                }
+            });
 
-			system.SetActiveWindow(window1);
+            system.SetActiveWindow(window1);
 
-			system.Run();
-		}
+            system.Run();
+        }
 
-		private static List<string> GetSystemInfo()
-		{
-			var systemInfo = new List<string>();
+        private static List<string> GetSystemInfo()
+        {
+            var systemInfo = new List<string>();
 
-			// CPU usage
-			systemInfo.Add($"[bold yellow]CPU Usage:[/] [bold green]{new Random().Next(0, 100)}%[/]");
+            // CPU usage
+            systemInfo.Add($"[foreground yellow]CPU Usage:[/foreground] [foreground green]{new Random().Next(0, 100)}%[/foreground]");
 
-			// Memory usage
-			systemInfo.Add($"[bold yellow]Available Memory:[/] [bold green]{new Random().Next(0, 8000)} MB[/]");
+            // Memory usage
+            systemInfo.Add($"[foreground yellow]Available Memory:[/foreground] [foreground green]{new Random().Next(0, 8000)} MB[/foreground]");
 
-			// Disk usage
-			systemInfo.Add($"[bold yellow]Disk Free Space:[/] [bold green]{new Random().Next(1, 100)}%[/]");
+            // Disk usage
+            systemInfo.Add($"[foreground yellow]Disk Free Space:[/foreground] [foreground green]{new Random().Next(1, 100)}%[/foreground]");
 
-			return systemInfo;
-		}
-	}
+            return systemInfo;
+        }
+    }
 }

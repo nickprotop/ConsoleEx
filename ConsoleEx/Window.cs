@@ -1,387 +1,393 @@
 ﻿namespace ConsoleEx
 {
-	public enum WindowState
-	{
-		Normal,
-		Minimized,
-		Maximized,
-		Hidden
-	}
+    public enum WindowState
+    {
+        Normal,
+        Minimized,
+        Maximized,
+        Hidden
+    }
 
-	public class WindowStateChangedEventArgs : EventArgs
-	{
-		public WindowState NewState { get; }
+    public class WindowStateChangedEventArgs : EventArgs
+    {
+        public WindowState NewState { get; }
 
-		public WindowStateChangedEventArgs(WindowState newState)
-		{
-			NewState = newState;
-		}
-	}
+        public WindowStateChangedEventArgs(WindowState newState)
+        {
+            NewState = newState;
+        }
+    }
 
-	public class Window
-	{
-		private readonly object _lock = new();
-		private readonly List<IWIndowContent> _content = new();
-		private readonly List<IInteractiveContent> _interactiveContents = new(); // List to store interactive contents
-		private List<string> _renderedContent = new();
-		private int _scrollOffset;
-		private bool _invalidated = false;
-		private Task? _windowTask;
-		private Thread? _windowThread;
+    public class Window
+    {
+        private readonly object _lock = new();
+        private readonly List<IWIndowContent> _content = new();
+        private readonly List<IInteractiveContent> _interactiveContents = new(); // List to store interactive contents
+        private List<string> _renderedContent = new();
+        private int _scrollOffset;
+        private bool _invalidated = false;
+        private Task? _windowTask;
+        private Thread? _windowThread;
 
-		public delegate Task WindowThreadDelegateAsync(Window window);
+        public delegate Task WindowThreadDelegateAsync(Window window);
 
-		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
+        private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 
-		public delegate void WindowThreadDelegate(Window window);
+        public delegate void WindowThreadDelegate(Window window);
 
-		private WindowThreadDelegate? _windowThreadMethod;
+        private WindowThreadDelegate? _windowThreadMethod;
 
-		public int OriginalWidth { get; set; }
-		public int OriginalHeight { get; set; }
-		public int OriginalLeft { get; set; }
-		public int OriginalTop { get; set; }
+        public int OriginalWidth { get; set; }
+        public int OriginalHeight { get; set; }
+        public int OriginalLeft { get; set; }
+        public int OriginalTop { get; set; }
 
-		public string Title { get; set; } = "Window";
-		public int Left { get; set; }
-		public int Top { get; set; }
-		public int Width { get; set; } = 40;
-		public int Height { get; set; } = 20;
-		public bool IsActive { get; set; }
-		public bool IsVisible { get; set; } = true;
-		public bool IsContentVisible { get; set; } = true;
-		public bool Maximized { get; set; }
-		public bool IsDirty { get; set; } = true;
-		public int ZIndex { get; set; }
-		public bool IsResizable { get; set; } = true;
-		public bool IsMovable { get; set; } = true;
+        public string Title { get; set; } = "Window";
+        public int Left { get; set; }
+        public int Top { get; set; }
+        public int Width { get; set; } = 40;
+        public int Height { get; set; } = 20;
+        public bool IsActive { get; set; }
+        public bool IsVisible { get; set; } = true;
+        public bool IsContentVisible { get; set; } = true;
+        public bool Maximized { get; set; }
+        public bool IsDirty { get; set; } = true;
+        public int ZIndex { get; set; }
+        public bool IsResizable { get; set; } = true;
+        public bool IsMovable { get; set; } = true;
+        public string BackgroundColor { get; set; } = "black";
+        public string ForegroundColor { get; set; } = "white";
 
-		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
+        public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
 
-		private ConsoleWindowSystem? _windowSystem;
+        private ConsoleWindowSystem? _windowSystem;
 
-		// Dictionary to store the top row index for each content
-		private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
+        // Dictionary to store the top row index for each content
+        private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
 
-		// Dictionary to store the left index for each content
-		private Dictionary<IWIndowContent, int> _contentLeftIndex = new();
+        // Dictionary to store the left index for each content
+        private Dictionary<IWIndowContent, int> _contentLeftIndex = new();
 
-		// Define the event for key presses
-		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
+        // Define the event for key presses
+        public event EventHandler<KeyPressedEventArgs>? KeyPressed;
 
-		protected virtual void OnStateChanged(WindowState newState)
-		{
-			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
-		}
+        protected virtual void OnStateChanged(WindowState newState)
+        {
+            StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
+        }
 
-		private void ApplyWindowOptions(WindowOptions windowOptions)
-		{
-			Title = windowOptions.Title;
-			Top = windowOptions.Top;
-			Left = windowOptions.Left;
-			Width = windowOptions.Width;
-			Height = windowOptions.Height;
-			IsResizable = windowOptions.IsResizable;
-			IsMovable = windowOptions.IsMoveable;
-		}
+        private void ApplyWindowOptions(WindowOptions windowOptions)
+        {
+            Title = windowOptions.Title;
+            Top = windowOptions.Top;
+            Left = windowOptions.Left;
+            Width = windowOptions.Width;
+            Height = windowOptions.Height;
+            IsResizable = windowOptions.IsResizable;
+            IsMovable = windowOptions.IsMoveable;
+            BackgroundColor = windowOptions.BackgroundColor;
+            ForegroundColor = windowOptions.ForegroundColor;
+        }
 
-		public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegateAsync windowThreadMethod)
-		{
-			_windowSystem = windowSystem;
-			ApplyWindowOptions(options);
-			_windowThreadMethodAsync = windowThreadMethod;
-			_windowTask = Task.Run(() => _windowThreadMethodAsync(this));
-		}
+        public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegateAsync windowThreadMethod)
+        {
+            _windowSystem = windowSystem;
+            ApplyWindowOptions(options);
+            _windowThreadMethodAsync = windowThreadMethod;
+            _windowTask = Task.Run(() => _windowThreadMethodAsync(this));
+        }
 
-		public Window(ConsoleWindowSystem windowSystem)
-		{
-			_windowSystem = windowSystem;
-		}
+        public Window(ConsoleWindowSystem windowSystem)
+        {
+            _windowSystem = windowSystem;
+        }
 
-		public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegate windowThreadMethod)
-		{
-			_windowSystem = windowSystem;
-			ApplyWindowOptions(options);
-			_windowThreadMethod = windowThreadMethod;
-			_windowThread = new Thread(() => _windowThreadMethod(this));
-			_windowThread.Start();
-		}
+        public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegate windowThreadMethod)
+        {
+            _windowSystem = windowSystem;
+            ApplyWindowOptions(options);
+            _windowThreadMethod = windowThreadMethod;
+            _windowThread = new Thread(() => _windowThreadMethod(this));
+            _windowThread.Start();
+        }
 
-		public void Minimize()
-		{
-			if (IsVisible)
-			{
-				IsVisible = false;
-				Invalidate();
-				OnStateChanged(WindowState.Minimized);
-			}
-		}
+        public void Minimize()
+        {
+            if (IsVisible)
+            {
+                IsVisible = false;
+                Invalidate();
+                OnStateChanged(WindowState.Minimized);
+            }
+        }
 
-		public void Maximize()
-		{
-			if (!Maximized)
-			{
-				Maximized = true;
-				OriginalWidth = Width;
-				OriginalHeight = Height;
-				OriginalLeft = Left;
-				OriginalTop = Top;
-				Width = Console.WindowWidth;
-				Height = Console.WindowHeight;
-				Left = 0;
-				Top = 1;
-				Invalidate();
-				OnStateChanged(WindowState.Maximized);
-			}
-		}
+        public void Maximize()
+        {
+            if (!Maximized)
+            {
+                Maximized = true;
+                OriginalWidth = Width;
+                OriginalHeight = Height;
+                OriginalLeft = Left;
+                OriginalTop = Top;
+                Width = Console.WindowWidth;
+                Height = Console.WindowHeight;
+                Left = 0;
+                Top = 1;
+                Invalidate();
+                OnStateChanged(WindowState.Maximized);
+            }
+        }
 
-		public void Restore()
-		{
-			if (Maximized)
-			{
-				Maximized = false;
-				Top = OriginalTop;
-				Left = OriginalLeft;
-				Width = OriginalWidth;
-				Height = OriginalHeight;
-				Invalidate();
-				OnStateChanged(WindowState.Normal);
-			}
-		}
+        public void Restore()
+        {
+            if (Maximized)
+            {
+                Maximized = false;
+                Top = OriginalTop;
+                Left = OriginalLeft;
+                Width = OriginalWidth;
+                Height = OriginalHeight;
+                Invalidate();
+                OnStateChanged(WindowState.Normal);
+            }
+        }
 
-		public Window(ConsoleWindowSystem windowSystem, WindowOptions options)
-		{
-			_windowSystem = windowSystem;
-			ApplyWindowOptions(options);
-		}
+        public Window(ConsoleWindowSystem windowSystem, WindowOptions options)
+        {
+            _windowSystem = windowSystem;
+            ApplyWindowOptions(options);
+        }
 
-		public void Invalidate()
-		{
-			_invalidated = true;
-			IsDirty = true;
-		}
+        public void Invalidate()
+        {
+            _invalidated = true;
+            IsDirty = true;
+        }
 
-		public void Show()
-		{
-			IsVisible = true;
-			Invalidate();
-		}
+        public void Show()
+        {
+            IsVisible = true;
+            Invalidate();
+        }
 
-		public void Close()
-		{
-			_windowSystem?.CloseWindow(this);
-		}
+        public void Close()
+        {
+            _windowSystem?.CloseWindow(this);
+        }
 
-		public void Hide()
-		{
-			IsVisible = false;
-			Invalidate();
-		}
+        public void Hide()
+        {
+            IsVisible = false;
+            Invalidate();
+        }
 
-		public void RemoveContent(IWIndowContent content)
-		{
-			lock (_lock)
-			{
-				if (_content.Remove(content))
-				{
-					if (content is IInteractiveContent interactiveContent)
-					{
-						_interactiveContents.Remove(interactiveContent);
-						// If the removed content had focus, switch focus to the next one
-						if (interactiveContent.HasFocus && _interactiveContents.Count > 0)
-						{
-							_interactiveContents[0].HasFocus = true;
-						}
-					}
-					content.Container = null;
-					RenderContent();
-					_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
-					IsDirty = true;
-				}
-			}
-		}
+        public void RemoveContent(IWIndowContent content)
+        {
+            lock (_lock)
+            {
+                if (_content.Remove(content))
+                {
+                    if (content is IInteractiveContent interactiveContent)
+                    {
+                        _interactiveContents.Remove(interactiveContent);
+                        // If the removed content had focus, switch focus to the next one
+                        if (interactiveContent.HasFocus && _interactiveContents.Count > 0)
+                        {
+                            _interactiveContents[0].HasFocus = true;
+                        }
+                    }
+                    RenderContent();
+                    content.Dispose();
+                    _scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
+                    IsDirty = true;
+                }
+            }
+        }
 
-		public void AddContent(IWIndowContent content)
-		{
-			lock (_lock)
-			{
-				content.Container = this;
-				_content.Add(content);
-				if (content is IInteractiveContent interactiveContent)
-				{
-					_interactiveContents.Add(interactiveContent);
-					// Set focus to the first interactive content if none has focus
-					if (_interactiveContents.Count == 1)
-					{
-						interactiveContent.HasFocus = true;
-					}
-				}
-				RenderContent();
-				_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
-				IsDirty = true;
-			}
-		}
+        public void AddContent(IWIndowContent content)
+        {
+            lock (_lock)
+            {
+                content.Container = this;
 
-		public void SwitchFocus()
-		{
-			lock (_lock)
-			{
-				if (_interactiveContents.Count == 0) return;
+                _content.Add(content);
+                if (content is IInteractiveContent interactiveContent)
+                {
+                    _interactiveContents.Add(interactiveContent);
+                    // Set focus to the first interactive content if none has focus
+                    if (_interactiveContents.Count == 1)
+                    {
+                        interactiveContent.HasFocus = true;
+                    }
+                }
+                RenderContent();
+                _scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
+                IsDirty = true;
+            }
+        }
 
-				// Find the currently focused content
-				var currentIndex = _interactiveContents.FindIndex(ic => ic.HasFocus);
+        public void SwitchFocus()
+        {
+            lock (_lock)
+            {
+                if (_interactiveContents.Count == 0) return;
 
-				// Remove focus from the current content
-				if (currentIndex != -1)
-				{
-					_interactiveContents[currentIndex].HasFocus = false;
-				}
+                // Find the currently focused content
+                var currentIndex = _interactiveContents.FindIndex(ic => ic.HasFocus);
 
-				// Calculate the next index
-				var nextIndex = (currentIndex + 1) % _interactiveContents.Count;
+                // Remove focus from the current content
+                if (currentIndex != -1)
+                {
+                    _interactiveContents[currentIndex].HasFocus = false;
+                }
 
-				// Set focus to the next content
-				_interactiveContents[nextIndex].HasFocus = true;
+                // Calculate the next index
+                var nextIndex = (currentIndex + 1) % _interactiveContents.Count;
 
-				// Invalidate the window to update the display
-				Invalidate();
-			}
-		}
+                // Set focus to the next content
+                _interactiveContents[nextIndex].HasFocus = true;
 
-		public bool HasActiveInteractiveContent(out IInteractiveContent? interactiveContent)
-		{
-			interactiveContent = _interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
-			return interactiveContent != null;
-		}
+                // Invalidate the window to update the display
+                Invalidate();
+            }
+        }
 
-		public bool ProcessInput(ConsoleKeyInfo key)
-		{
-			lock (_lock)
-			{
-				bool contentKeyHandled = false;
+        public bool HasActiveInteractiveContent(out IInteractiveContent? interactiveContent)
+        {
+            interactiveContent = _interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
+            return interactiveContent != null;
+        }
 
-				if (HasActiveInteractiveContent(out var activeInteractiveContent))
-				{
-					contentKeyHandled = activeInteractiveContent!.ProcessKey(key);
-				}
+        public bool ProcessInput(ConsoleKeyInfo key)
+        {
+            lock (_lock)
+            {
+                bool contentKeyHandled = false;
 
-				if (contentKeyHandled)
-				{
-					return true;
-				}
+                if (HasActiveInteractiveContent(out var activeInteractiveContent))
+                {
+                    contentKeyHandled = activeInteractiveContent!.ProcessKey(key);
+                }
 
-				// Raise the KeyPressed event
-				var handled = OnKeyPressed(key);
+                if (contentKeyHandled)
+                {
+                    return true;
+                }
 
-				// Continue with key handling only if not handled by the user
-				if (!handled)
-				{
-					switch (key.Key)
-					{
-						case ConsoleKey.Tab:
-							SwitchFocus();
-							handled = true;
-							break;
-						case ConsoleKey.UpArrow:
-							_scrollOffset = Math.Max(0, _scrollOffset - 1);
-							IsDirty = true;
-							handled = true;
-							break;
-						case ConsoleKey.DownArrow:
-							_scrollOffset = Math.Min((_renderedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
-							IsDirty = true;
-							handled = true;
-							break;
-					}
-				}
+                // Raise the KeyPressed event
+                var handled = OnKeyPressed(key);
 
-				return handled;
-			}
-		}
+                // Continue with key handling only if not handled by the user
+                if (!handled)
+                {
+                    switch (key.Key)
+                    {
+                        case ConsoleKey.Tab:
+                            SwitchFocus();
+                            handled = true;
+                            break;
 
+                        case ConsoleKey.UpArrow:
+                            _scrollOffset = Math.Max(0, _scrollOffset - 1);
+                            IsDirty = true;
+                            handled = true;
+                            break;
 
-		// Method to raise the KeyPressed event and return whether it was handled
-		protected virtual bool OnKeyPressed(ConsoleKeyInfo key)
-		{
-			var handler = KeyPressed;
-			if (handler != null)
-			{
-				var args = new KeyPressedEventArgs(key);
-				handler(this, args);
-				return args.Handled;
-			}
-			return false;
-		}
+                        case ConsoleKey.DownArrow:
+                            _scrollOffset = Math.Min((_renderedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
+                            IsDirty = true;
+                            handled = true;
+                            break;
+                    }
+                }
 
-		public List<string> GetVisibleContent()
-		{
-			if (_invalidated)
-			{
-				RenderContent();
-				_invalidated = false;
-			}
+                return handled;
+            }
+        }
 
-			return _renderedContent?.Skip(_scrollOffset)?.Take(Height - 2)?.ToList() ?? new List<string>();
-		}
+        // Method to raise the KeyPressed event and return whether it was handled
+        protected virtual bool OnKeyPressed(ConsoleKeyInfo key)
+        {
+            var handler = KeyPressed;
+            if (handler != null)
+            {
+                var args = new KeyPressedEventArgs(key);
+                handler(this, args);
+                return args.Handled;
+            }
+            return false;
+        }
 
-		public void RenderContent()
-		{
-			if (!IsVisible)
-			{
-				return;
-			}
+        public List<string> GetVisibleContent()
+        {
+            if (_invalidated)
+            {
+                RenderContent();
+                _invalidated = false;
+            }
 
-			lock (_lock)
-			{
-				List<string> lines = new List<string>();
+            return _renderedContent?.Skip(_scrollOffset)?.Take(Height - 2)?.ToList() ?? new List<string>();
+        }
 
-				var linesCount = 0;
+        public void RenderContent()
+        {
+            if (!IsVisible)
+            {
+                return;
+            }
 
-				foreach (var content in _content)
-				{
-					// Store the top row index for the current content
-					_contentTopRowIndex[content] = linesCount;
+            lock (_lock)
+            {
+                List<string> lines = new List<string>();
 
-					// Store the left index for the current content
-					_contentLeftIndex[content] = 0;
+                var linesCount = 0;
 
-					var ansiLines = content.RenderContent(Width - 2, Height - 2, true);
-					lines.AddRange(ansiLines);
+                foreach (var content in _content)
+                {
+                    // Store the top row index for the current content
+                    _contentTopRowIndex[content] = linesCount;
 
-					linesCount = lines.Count - _scrollOffset;
-				}
+                    // Store the left index for the current content
+                    _contentLeftIndex[content] = 0;
 
-				_renderedContent = lines;
-			}
-		}
+                    var ansiLines = content.RenderContent(Width - 2, Height - 2, true);
+                    lines.AddRange(ansiLines);
 
-		public bool HasInteractiveContent(out (int Left, int Top) cursorPosition)
-		{
-			if (HasActiveInteractiveContent(out var activeInteractiveContent))
-			{
-				cursorPosition = activeInteractiveContent!.GetCursorPosition();
-				if (activeInteractiveContent != null && activeInteractiveContent is IWIndowContent)
-				{
-					cursorPosition.Top = _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Top + 1 - _scrollOffset;
-					cursorPosition.Left = _contentLeftIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Left + 1;
-				}
-				return true;
-			}
+                    linesCount = lines.Count - _scrollOffset;
+                }
 
-			cursorPosition = (0, 0);
-			return false;
-		}
+                _renderedContent = lines;
+            }
+        }
 
-		// Custom EventArgs class to indicate whether the event was handled
-		public class KeyPressedEventArgs : EventArgs
-		{
-			public ConsoleKeyInfo KeyInfo { get; }
-			public bool Handled { get; set; }
+        public bool HasInteractiveContent(out (int Left, int Top) cursorPosition)
+        {
+            if (HasActiveInteractiveContent(out var activeInteractiveContent))
+            {
+                cursorPosition = activeInteractiveContent!.GetCursorPosition();
+                if (activeInteractiveContent != null && activeInteractiveContent is IWIndowContent)
+                {
+                    cursorPosition.Top = _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Top + 1 - _scrollOffset;
+                    cursorPosition.Left = _contentLeftIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Left + 1;
+                }
+                return true;
+            }
 
-			public KeyPressedEventArgs(ConsoleKeyInfo keyInfo)
-			{
-				KeyInfo = keyInfo;
-			}
-		}
-	}
+            cursorPosition = (0, 0);
+            return false;
+        }
+
+        // Custom EventArgs class to indicate whether the event was handled
+        public class KeyPressedEventArgs : EventArgs
+        {
+            public ConsoleKeyInfo KeyInfo { get; }
+            public bool Handled { get; set; }
+
+            public KeyPressedEventArgs(ConsoleKeyInfo keyInfo)
+            {
+                KeyInfo = keyInfo;
+            }
+        }
+    }
 }
