@@ -63,7 +63,7 @@ namespace ConsoleEx
             foreach (var line in _content)
             {
                 //var ansiLines = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(line, width, height, overflow);
-                var ansiLines = AnsiConsoleExtensions.ParseAnsiTags(line, overflow ? width : null);
+                var ansiLines = AnsiConsoleExtensions.ParseAnsiTags(line, width, overflow, Container?.BackgroundColor, Container?.ForegroundColor);
                 _renderedContent.AddRange(ansiLines);
             }
 

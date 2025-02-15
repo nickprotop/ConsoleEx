@@ -29,7 +29,7 @@ namespace ConsoleEx
         private ConsoleBuffer _buffer;
         private object _renderLock { get; } = new object();
 
-        public RenderMode RenderMode { get; set; } = RenderMode.Direct;
+        public RenderMode RenderMode { get; set; } = RenderMode.Buffer;
         public string TopStatus { get; set; } = "";
         public string BottomStatus { get; set; } = "";
 
@@ -457,7 +457,7 @@ namespace ConsoleEx
             for (var y = 0; y < window.Height; y++)
             {
                 if (window.Top + y > DesktopDimensions.Height) break;
-                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, $"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}");
+                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}", Math.Min(window.Width, Console.WindowWidth - window.Left), false)[0]);
             }
         }
 
@@ -501,17 +501,16 @@ namespace ConsoleEx
 
                 // Define border color
                 var borderColor = window.IsActive ? "green" : "grey";
-                var titleColor = window.IsActive ? "[bold yellow]" : "[grey]";
-                var resetColor = "[/]";
+                var titleColor = window.IsActive ? "yellow" : "grey";
 
                 // Draw top border with title
-                var title = $"{(window.IsActive ? "[foreground yellow]" : "[foreground grey]")}| {window.Title} |[/foreground]";
+                var title = $"[foreground {titleColor}]| {window.Title} |[/foreground]";
                 var titleLength = AnsiConsoleExtensions.GetStrippedStringLength(title);
                 var availableSpace = window.Width - 2 - titleLength;
                 var leftPadding = 1;
                 var rightPadding = availableSpace - leftPadding;
 
-                var ansiString = AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{topLeftCorner}{new string(horizontalBorder, leftPadding)}[/foreground]{title}[foreground {borderColor}]{new string(horizontalBorder, rightPadding)}{topRightCorner}[/foreground][/background]", window.Width);
+                var ansiString = AnsiConsoleExtensions.ParseAnsiTags($"[foreground {borderColor}]{topLeftCorner}{new string(horizontalBorder, leftPadding)}[/foreground]{title}[foreground {borderColor}]{new string(horizontalBorder, rightPadding)}{topRightCorner}[/foreground]", window.Width, false, window.BackgroundColor);
 
                 //WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", window.Width, 1, false)[0]);
                 WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, ansiString[0]);
@@ -520,20 +519,20 @@ namespace ConsoleEx
                 for (var y = 1; y < window.Height - 1; y++)
                 {
                     if (window.Top + DesktopUpperLeft.Top + y - 1 >= desktopBottom) break; // Stop rendering if it reaches the bottom of the console
-                    WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{verticalBorder}[/foreground][/background]", 1)[0]);
+                    WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{verticalBorder}[/foreground][/background]", 1, false)[0]);
 
                     if (window.Left + window.Width - 2 < desktopRight)
                     {
-                        WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{verticalBorder}[/foreground][/background]", 1)[0]);
+                        WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{verticalBorder}[/foreground][/background]", 1, false)[0]);
                     }
                 }
 
                 // Draw bottom border
                 var bottomBorderWidth = Math.Min(window.Width - 2, desktopRight - window.Left - 1);
-                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + window.Height - 1, AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightCorner}[/foreground][/background]", window.Width)[0]);
+                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + window.Height - 1, AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightCorner}[/foreground][/background]", window.Width, false)[0]);
 
                 // Render the window content
-                var lines = window.GetVisibleContent();
+                var lines = window.GetWindowContent();
                 if (window.IsDirty)
                 {
                     window.IsDirty = false;
@@ -580,7 +579,10 @@ namespace ConsoleEx
                             {
                                 if (overlappingWindow.IsDirty || IsOverlapping(window, overlappingWindow))
                                 {
-                                    windowsToRender.Add(overlappingWindow);
+                                    if (overlappingWindow.IsDirty || overlappingWindow.ZIndex > window.ZIndex)
+                                    {
+                                        windowsToRender.Add(overlappingWindow);
+                                    }
                                 }
                             }
                         }

@@ -197,7 +197,7 @@
                             _interactiveContents[0].HasFocus = true;
                         }
                     }
-                    RenderContent();
+                    RenderWindowContent();
                     content.Dispose();
                     _scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
                     IsDirty = true;
@@ -221,7 +221,7 @@
                         interactiveContent.HasFocus = true;
                     }
                 }
-                RenderContent();
+                RenderWindowContent();
                 _scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
                 IsDirty = true;
             }
@@ -319,18 +319,18 @@
             return false;
         }
 
-        public List<string> GetVisibleContent()
+        public List<string> GetWindowContent()
         {
             if (_invalidated)
             {
-                RenderContent();
+                RenderWindowContent();
                 _invalidated = false;
             }
 
             return _renderedContent?.Skip(_scrollOffset)?.Take(Height - 2)?.ToList() ?? new List<string>();
         }
 
-        public void RenderContent()
+        private void RenderWindowContent()
         {
             if (!IsVisible)
             {

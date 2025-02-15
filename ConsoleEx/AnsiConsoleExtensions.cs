@@ -173,37 +173,50 @@ namespace ConsoleEx
         }
 
         private static Dictionary<string, string> tagToAnsi = new Dictionary<string, string>
-            {
-                { "bold", "\u001b[1m" },
-                { "/bold", "\u001b[22m" },
-                { "underline", "\u001b[4m" },
-                { "/underline", "\u001b[24m" },
-                { "foreground red", "\u001b[31m" },
-                { "foreground green", "\u001b[32m" },
-                { "foreground yellow", "\u001b[33m" },
-                { "foreground blue", "\u001b[34m" },
-                { "foreground magenta", "\u001b[35m" },
-                { "foreground cyan", "\u001b[36m" },
-                { "foreground white", "\u001b[37m" },
-                { "foreground grey", "\u001b[90m" },
-                { "foreground black", "\u001b[30m" },
-                { "background red", "\u001b[41m" },
-                { "background green", "\u001b[42m" },
-                { "background yellow", "\u001b[43m" },
-                { "background blue", "\u001b[44m" },
-                { "background magenta", "\u001b[45m" },
-                { "background cyan", "\u001b[46m" },
-                { "background white", "\u001b[47m" },
-                { "background black", "\u001b[40m" },
-                { "/foreground", "\u001b[39m" },
-                { "/background", "\u001b[49m" },
-                { "reset", "\u001b[0m" }
-            };
+        {
+            { "bold", "\u001b[1m" },
+            { "/bold", "\u001b[22m" },
+            { "underline", "\u001b[4m" },
+            { "/underline", "\u001b[24m" },
+            { "foreground red", "\u001b[31m" },
+            { "foreground green", "\u001b[32m" },
+            { "foreground yellow", "\u001b[33m" },
+            { "foreground blue", "\u001b[34m" },
+            { "foreground magenta", "\u001b[35m" },
+            { "foreground cyan", "\u001b[36m" },
+            { "foreground white", "\u001b[37m" },
+            { "foreground grey", "\u001b[90m" },
+            { "foreground black", "\u001b[30m" },
+            { "background red", "\u001b[41m" },
+            { "background green", "\u001b[42m" },
+            { "background yellow", "\u001b[43m" },
+            { "background blue", "\u001b[44m" },
+            { "background magenta", "\u001b[45m" },
+            { "background cyan", "\u001b[46m" },
+            { "background white", "\u001b[47m" },
+            { "background black", "\u001b[40m" },
+            { "/foreground", "\u001b[39m" },
+            { "/background", "\u001b[49m" },
+            { "reset", "\u001b[0m" }
+        };
 
-        public static List<string> ParseAnsiTags(string input, int? width)
+        public static List<string> ParseAnsiTags(string input, int? width, bool wrap, string? backgroundColor = null, string? foregroundColor = null)
         {
             if (string.IsNullOrEmpty(input))
                 return new List<string>();
+
+            if (foregroundColor != null)
+            {
+                input = input.Replace("[/foreground]", $"[foreground {foregroundColor}]", StringComparison.InvariantCultureIgnoreCase);
+            }
+
+            if (backgroundColor != null)
+            {
+                input = input.Replace("[/background]", $"[background {backgroundColor}]", StringComparison.InvariantCultureIgnoreCase);
+            }
+
+            input = foregroundColor == null ? $"{input}" : $"[foreground {foregroundColor}]{input}";
+            input = backgroundColor == null ? $"{input}" : $"[background {backgroundColor}]{input}";
 
             var output = new List<string>();
             var currentLine = new StringBuilder();
@@ -213,17 +226,19 @@ namespace ConsoleEx
             int lastIndex = 0;
             int currentLineLength = 0;
 
+            if (wrap && width == null) wrap = false;
+
             foreach (Match match in matches)
             {
                 var textSegment = input.Substring(lastIndex, match.Index - lastIndex);
                 foreach (var ch in textSegment)
                 {
-                    if (width.HasValue && currentLineLength >= width.Value)
+                    if (wrap && currentLineLength >= width!.Value)
                     {
                         output.Add(currentLine.ToString());
                         currentLine.Clear();
                         currentLine.Append(string.Join("", activeTags.Reverse()));
-                        currentLineLength = activeTags.Sum(tag => tag.Length);
+                        currentLineLength = 0;
                     }
                     currentLine.Append(ch);
                     currentLineLength++;
@@ -256,12 +271,13 @@ namespace ConsoleEx
             var remainingText = input.Substring(lastIndex);
             foreach (var ch in remainingText)
             {
-                if (width.HasValue && currentLineLength >= width.Value)
+                if (wrap && currentLineLength >= width!.Value)
                 {
                     output.Add(currentLine.ToString());
                     currentLine.Clear();
                     currentLine.Append(string.Join("", activeTags.Reverse()));
-                    currentLineLength = activeTags.Sum(tag => tag.Length);
+                    //currentLineLength = activeTags.Sum(tag => tag.Length);
+                    currentLineLength = 0;
                 }
                 currentLine.Append(ch);
                 currentLineLength++;
@@ -269,10 +285,14 @@ namespace ConsoleEx
 
             if (currentLine.Length > 0)
             {
+                if (width.HasValue && currentLineLength < width.Value)
+                {
+                    currentLine.Append(new string(' ', width.Value - currentLineLength));
+                }
                 output.Add(currentLine.ToString());
             }
 
-            //// Reset all attributes at the end of the line
+            // Reset all attributes at the end of the line
             var lastLine = output.Last();
             lastLine += "\u001b[0m";
             output.RemoveAt(output.Count - 1);

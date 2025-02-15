@@ -26,7 +26,9 @@ namespace ConsoleEx
                 Left = 2,
                 Top = 2,
                 Width = 40,
-                Height = 10
+                Height = 10,
+                BackgroundColor = "white",
+                ForegroundColor = "black"
             },
             (window) =>
             {
@@ -58,7 +60,7 @@ namespace ConsoleEx
                 while (true)
                 {
                     systemInfoContent.SetMarkup(GetSystemInfo());
-                    Thread.Sleep(500);
+                    Thread.Sleep(2000);
                 }
             });
 
@@ -103,30 +105,28 @@ namespace ConsoleEx
                 window.AddContent(ageInfo);
             });
 
-            system.AddWindow(window3);
+            //system.AddWindow(window3);
 
             // Example of creating window with Figlet content and it's own thread
-            /*
-			system.CreateWindow(new WindowOptions()
-			{
-				Title = "Clock",
-				Left = Console.WindowWidth - 60,
-				Top = 1,
-				Width = 60,
-				Height = 10
-			},
-			(window) =>
-			{
-				FigletContent figletContent = new FigletContent($"{DateTime.Now:HH:mm:ss}", Color.Red, Justify.Left);
-				window.AddContent(figletContent);
+            system.CreateWindow(new WindowOptions()
+            {
+                Title = "Clock",
+                Left = Console.WindowWidth - 60,
+                Top = 1,
+                Width = 60,
+                Height = 10
+            },
+            (window) =>
+            {
+                FigletContent figletContent = new FigletContent($"{DateTime.Now:HH:mm:ss}", Color.Red, Justify.Left);
+                window.AddContent(figletContent);
 
-				while (true)
-				{
-					figletContent.SetText($"{DateTime.Now:HH:mm:ss}");
-					Thread.Sleep(1000);
-				}
-			});
-			*/
+                while (true)
+                {
+                    figletContent.SetText($"{DateTime.Now:HH:mm:ss}");
+                    Thread.Sleep(1000);
+                }
+            });
 
             // Example of writing to a window from another thread
             Task.Run(() =>
