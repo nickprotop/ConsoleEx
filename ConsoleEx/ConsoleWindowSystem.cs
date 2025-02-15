@@ -29,7 +29,7 @@ namespace ConsoleEx
         private ConsoleBuffer _buffer;
         private object _renderLock { get; } = new object();
 
-        public RenderMode RenderMode { get; set; } = RenderMode.Buffer;
+        public RenderMode RenderMode { get; set; } = RenderMode.Direct;
         public string TopStatus { get; set; } = "";
         public string BottomStatus { get; set; } = "";
 
@@ -101,9 +101,12 @@ namespace ConsoleEx
 
             while (_running)
             {
-                ProcessInput();
-                UpdateDisplay();
-                UpdateCursor();
+                lock (_renderLock)
+                {
+                    ProcessInput();
+                    UpdateDisplay();
+                    UpdateCursor();
+                }
                 Thread.Sleep(50);
             }
 
@@ -328,6 +331,8 @@ namespace ConsoleEx
                         _windows.ForEach(w => w.Invalidate());
                         _lastConsoleWidth = Console.WindowWidth;
                         _lastConsoleHeight = Console.WindowHeight;
+
+                        Console.Clear();
                     }
                 }
                 Thread.Sleep(100);
@@ -342,7 +347,7 @@ namespace ConsoleEx
                 {
                     w.Invalidate();
                 }
-                FillWindowBackground(window);
+                FillWindowBackground(window, false);
                 window.Invalidate();
             }
         }
@@ -451,13 +456,13 @@ namespace ConsoleEx
             }
         }
 
-        private void FillWindowBackground(Window window)
+        private void FillWindowBackground(Window window, bool useWindowBackground)
         {
             // Fill the entire area of the window, including borders, with background
             for (var y = 0; y < window.Height; y++)
             {
                 if (window.Top + y > DesktopDimensions.Height) break;
-                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}", Math.Min(window.Width, Console.WindowWidth - window.Left), false)[0]);
+                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}", Math.Min(window.Width, Console.WindowWidth - window.Left), false, useWindowBackground ? window.BackgroundColor : null)[0]);
             }
         }
 
@@ -489,7 +494,7 @@ namespace ConsoleEx
                 }
 
                 // Fill the window area with background
-                FillWindowBackground(window);
+                FillWindowBackground(window, true);
 
                 // Define border characters
                 var horizontalBorder = window.IsActive ? '═' : '─';

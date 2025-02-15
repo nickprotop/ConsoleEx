@@ -352,7 +352,13 @@
                     _contentLeftIndex[content] = 0;
 
                     var ansiLines = content.RenderContent(Width - 2, Height - 2, true);
-                    lines.AddRange(ansiLines);
+
+                    foreach (var line in ansiLines)
+                    {
+                        //string parsedLine = AnsiConsoleExtensions.ParseAnsiTags(line, null, false, BackgroundColor, ForegroundColor)[0];
+                        // lines.Add(parsedLine);
+                        lines.Add(line);
+                    }
 
                     linesCount = lines.Count - _scrollOffset;
                 }

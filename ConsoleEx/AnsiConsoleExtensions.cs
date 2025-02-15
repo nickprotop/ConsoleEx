@@ -202,6 +202,8 @@ namespace ConsoleEx
 
         public static List<string> ParseAnsiTags(string input, int? width, bool wrap, string? backgroundColor = null, string? foregroundColor = null)
         {
+            bool FillLastLine = false;
+
             if (string.IsNullOrEmpty(input))
                 return new List<string>();
 
@@ -224,6 +226,7 @@ namespace ConsoleEx
             var regex = new Regex(@"\[(.*?)\]");
             var matches = regex.Matches(input);
             int lastIndex = 0;
+
             int currentLineLength = 0;
 
             if (wrap && width == null) wrap = false;
@@ -285,7 +288,7 @@ namespace ConsoleEx
 
             if (currentLine.Length > 0)
             {
-                if (width.HasValue && currentLineLength < width.Value)
+                if (FillLastLine && width.HasValue && currentLineLength < width.Value)
                 {
                     currentLine.Append(new string(' ', width.Value - currentLineLength));
                 }
