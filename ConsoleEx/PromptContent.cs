@@ -64,7 +64,8 @@ public class PromptContent : IWIndowContent, IInteractiveContent
     public List<string> RenderContent(int? width, int? height, bool overflow)
     {
         _width = width ?? 80;
-        _cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, width, height, true);
+
+        _cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, width - 1, height, true);
         return _cachedContent;
     }
 
@@ -142,7 +143,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
         int row = totalLength / width;
         int column = totalLength % width;
 
-        return (column, row);
+        return (AnsiConsoleExtensions.GetStrippedStringLength(_cachedContent.Last()) - _input.Length + _cursorPosition, _cachedContent.Count - 1);
 
         return (AnsiConsoleExtensions.CalculateEffectiveLength(_prompt) + _cursorPosition, _cachedContent.Count - 1);
     }

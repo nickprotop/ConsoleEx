@@ -55,7 +55,7 @@ namespace ConsoleEx
             int contentIndex = 0;
             int matchIndex = 0;
 
-            for (int i = x; i <= x + AnsiConsoleExtensions.GetStrippedStringLength(content) - 1; i++)
+            for (int i = x; i < x + AnsiConsoleExtensions.GetStrippedStringLength(content); i++)
             {
                 if (!string.IsNullOrEmpty(_backBuffer[i, y].AnsiEscape))
                 {
