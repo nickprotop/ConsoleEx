@@ -21,5 +21,6 @@ namespace ConsoleEx
         public bool IsMoveable { get; set; } = true;
         public Color BackgroundColor { get; set; } = Color.Black;
         public Color ForegroundColor { get; set; } = Color.White;
+        public WindowState WindowState { get; set; } = WindowState.Normal;
     }
 }

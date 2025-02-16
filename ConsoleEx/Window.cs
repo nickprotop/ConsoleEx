@@ -6,8 +6,7 @@ namespace ConsoleEx
     {
         Normal,
         Minimized,
-        Maximized,
-        Hidden
+        Maximized
     }
 
     public class WindowStateChangedEventArgs : EventArgs
@@ -30,7 +29,14 @@ namespace ConsoleEx
         private bool _invalidated = false;
         private Task? _windowTask;
         private Thread? _windowThread;
+        private ConsoleWindowSystem? _windowSystem;
+        private bool _isActive;
+        private WindowState _state;
 
+        private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
+        private Dictionary<IWIndowContent, int> _contentLeftIndex = new();
+
+        // Window Thread Delegates
         public delegate Task WindowThreadDelegateAsync(Window window);
 
         private WindowThreadDelegateAsync? _windowThreadMethodAsync;
@@ -38,6 +44,13 @@ namespace ConsoleEx
         public delegate void WindowThreadDelegate(Window window);
 
         private WindowThreadDelegate? _windowThreadMethod;
+
+        // Events
+        public event EventHandler<bool>? ActivationChanged;
+
+        public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
+
+        public event EventHandler<KeyPressedEventArgs>? KeyPressed;
 
         public int OriginalWidth { get; set; }
         public int OriginalHeight { get; set; }
@@ -49,20 +62,7 @@ namespace ConsoleEx
         public int Top { get; set; }
         public int Width { get; set; } = 40;
         public int Height { get; set; } = 20;
-
-        public bool GetIsActive()
-        {
-            return isActive;
-        }
-
-        public void SetIsActive(bool value)
-        {
-            isActive = value;
-        }
-
-        public bool IsVisible { get; set; } = true;
         public bool IsContentVisible { get; set; } = true;
-        public bool Maximized { get; set; }
         public bool IsDirty { get; set; } = true;
         public int ZIndex { get; set; }
         public bool IsResizable { get; set; } = true;
@@ -70,20 +70,16 @@ namespace ConsoleEx
         public Color BackgroundColor { get; set; } = Color.Black;
         public Color ForegroundColor { get; set; } = Color.White;
 
-        public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
+        public bool GetIsActive()
+        {
+            return _isActive;
+        }
 
-        private ConsoleWindowSystem? _windowSystem;
-
-        // Dictionary to store the top row index for each content
-        private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
-
-        // Dictionary to store the left index for each content
-        private Dictionary<IWIndowContent, int> _contentLeftIndex = new();
-
-        private bool isActive;
-
-        // Define the event for key presses
-        public event EventHandler<KeyPressedEventArgs>? KeyPressed;
+        public void SetIsActive(bool value)
+        {
+            ActivationChanged?.Invoke(this, value);
+            _isActive = value;
+        }
 
         protected virtual void OnStateChanged(WindowState newState)
         {
@@ -101,6 +97,7 @@ namespace ConsoleEx
             IsMovable = windowOptions.IsMoveable;
             BackgroundColor = windowOptions.BackgroundColor;
             ForegroundColor = windowOptions.ForegroundColor;
+            _state = windowOptions.WindowState;
         }
 
         public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegateAsync windowThreadMethod)
@@ -125,46 +122,56 @@ namespace ConsoleEx
             _windowThread.Start();
         }
 
-        public void Minimize()
+        public WindowState State
         {
-            if (IsVisible)
+            get => _state;
+            set
             {
-                IsVisible = false;
-                Invalidate();
-                OnStateChanged(WindowState.Minimized);
-            }
-        }
+                WindowState previous_state = _state;
 
-        public void Maximize()
-        {
-            if (!Maximized)
-            {
-                Maximized = true;
-                OriginalWidth = Width;
-                OriginalHeight = Height;
-                OriginalLeft = Left;
-                OriginalTop = Top;
-                Width = Console.WindowWidth;
-                Height = Console.WindowHeight;
-                Left = 0;
-                Top = 1;
-                Invalidate();
-                OnStateChanged(WindowState.Maximized);
+                if (previous_state == value)
+                {
+                    return;
+                }
+
+                _state = value;
+
+                switch (value)
+                {
+                    case WindowState.Minimized:
+                        Invalidate();
+                        break;
+
+                    case WindowState.Maximized:
+                        OriginalWidth = Width;
+                        OriginalHeight = Height;
+                        OriginalLeft = Left;
+                        OriginalTop = Top;
+                        Width = Console.WindowWidth;
+                        Height = Console.WindowHeight;
+                        Left = 0;
+                        Top = 1;
+                        Invalidate();
+                        break;
+
+                    case WindowState.Normal:
+                        if (previous_state == WindowState.Maximized)
+                        {
+                            Top = OriginalTop;
+                            Left = OriginalLeft;
+                            Width = OriginalWidth;
+                            Height = OriginalHeight;
+                            Invalidate();
+                        }
+                        break;
+                }
+
+                OnStateChanged(value);
             }
         }
 
         public void Restore()
         {
-            if (Maximized)
-            {
-                Maximized = false;
-                Top = OriginalTop;
-                Left = OriginalLeft;
-                Width = OriginalWidth;
-                Height = OriginalHeight;
-                Invalidate();
-                OnStateChanged(WindowState.Normal);
-            }
         }
 
         public Window(ConsoleWindowSystem windowSystem, WindowOptions options)
@@ -179,21 +186,14 @@ namespace ConsoleEx
             IsDirty = true;
         }
 
-        public void Show()
-        {
-            IsVisible = true;
-            Invalidate();
-        }
-
         public void Close()
         {
-            _windowSystem?.CloseWindow(this);
-        }
+            foreach (var content in _content)
+            {
+                (content as IWIndowContent).Dispose();
+            }
 
-        public void Hide()
-        {
-            IsVisible = false;
-            Invalidate();
+            _windowSystem?.CloseWindow(this);
         }
 
         public void RemoveContent(IWIndowContent content)
@@ -346,7 +346,7 @@ namespace ConsoleEx
 
         private void RenderWindowContent()
         {
-            if (!IsVisible)
+            if (_state == WindowState.Minimized)
             {
                 return;
             }

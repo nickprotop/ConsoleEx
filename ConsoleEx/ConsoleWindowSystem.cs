@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using Spectre.Console;
 using System.Collections.Concurrent;
 using System.Text;
 using static ConsoleEx.Window;
@@ -15,7 +16,8 @@ namespace ConsoleEx
     public enum RenderMode
     {
         Direct,
-        Buffer
+        Buffer,
+        VirtualConsole
     }
 
     public class ConsoleWindowSystem
@@ -27,7 +29,9 @@ namespace ConsoleEx
         private int _lastConsoleWidth;
         private int _lastConsoleHeight;
         private ConsoleBuffer _buffer;
-        private object _renderLock { get; } = new object();
+        private object _renderLock = new object();
+        private IAnsiConsole? _virtualConsole;
+        private StringWriter _virtualWriter = new StringWriter();
 
         public RenderMode RenderMode { get; set; } = RenderMode.Direct;
         public string TopStatus { get; set; } = "";
@@ -37,6 +41,12 @@ namespace ConsoleEx
         {
             Console.OutputEncoding = Encoding.UTF8;
             _buffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
+            CreateVirtualConsole();
+        }
+
+        private void CreateVirtualConsole()
+        {
+            _virtualConsole = AnsiConsoleExtensions.CreateCaptureConsole(_virtualWriter, Console.WindowWidth + 1, Console.WindowHeight);
         }
 
         private void WriteToConsole(int x, int y, string value)
@@ -51,7 +61,19 @@ namespace ConsoleEx
                 case RenderMode.Buffer:
                     _buffer.AddContent(x, y, value);
                     break;
+
+                case RenderMode.VirtualConsole:
+                    _virtualConsole?.Cursor.SetPosition(x, y);
+                    _virtualConsole?.Write(value);
+                    break;
             }
+        }
+
+        private void FlushVirtualConsole()
+        {
+            Console.Write(_virtualWriter.ToString());
+            _virtualWriter = new StringWriter();
+            _virtualConsole.Profile.Out = new AnsiConsoleOutput(_virtualWriter);
         }
 
         public Window AddWindow(Window window)
@@ -202,30 +224,6 @@ namespace ConsoleEx
                     _inputQueue.Enqueue(key);
                 }
                 Thread.Sleep(10);
-            }
-        }
-
-        public void ShowWindow(Window window)
-        {
-            lock (window)
-            {
-                window.Show();
-                window.IsVisible = true;
-                window.Invalidate();
-                Console.Clear();
-                _windows.ForEach(w => w.Invalidate());
-            }
-        }
-
-        public void HideWindow(Window window)
-        {
-            lock (window)
-            {
-                window.Hide();
-                window.IsVisible = false;
-                window.Invalidate();
-                Console.Clear();
-                _windows.ForEach(w => w.Invalidate());
             }
         }
 
@@ -442,6 +440,7 @@ namespace ConsoleEx
                                 if (index < _windows.Count)
                                 {
                                     SetActiveWindow(_windows[index]);
+                                    if (_windows[index].State == WindowState.Minimized) _windows[index].State = WindowState.Normal;
                                     handled = true;
                                 }
                             }
@@ -477,6 +476,7 @@ namespace ConsoleEx
             if (window != null)
             {
                 SetActiveWindow(window);
+                if (window.State == WindowState.Minimized) window.State = WindowState.Normal;
             }
         }
 
@@ -637,6 +637,11 @@ namespace ConsoleEx
                 if (RenderMode == RenderMode.Buffer)
                 {
                     _buffer.Render();
+                }
+
+                if (RenderMode == RenderMode.VirtualConsole)
+                {
+                    FlushVirtualConsole();
                 }
             }
         }
