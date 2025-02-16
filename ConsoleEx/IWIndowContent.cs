@@ -12,6 +12,7 @@ namespace ConsoleEx
     {
         public string Guid { get; }
         public Window? Container { get; set; }
+        public int? Width { get; set; }
 
         public List<string> RenderContent(int? width, int? height, bool overflow);
     }

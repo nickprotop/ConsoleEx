@@ -17,6 +17,11 @@ public class PromptContent : IWIndowContent, IInteractiveContent
     private int _width;
     private Action<PromptContent, string>? _onEnter;
 
+    private int? width;
+
+    public int? Width
+    { get => width; set { width = value; Container?.Invalidate(); } }
+
     public bool HasFocus { get; set; }
 
     public Action<PromptContent, string>? OnInputChange { get; set; }

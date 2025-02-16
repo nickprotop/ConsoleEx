@@ -17,6 +17,11 @@ namespace ConsoleEx
         private Justify? _justify;
         private List<string> _renderedContent;
 
+        private int? width;
+
+        public int? Width
+        { get => width; set { width = value; Container?.Invalidate(); } }
+
         public Window? Container { get; set; }
 
         public void SetText(string text)

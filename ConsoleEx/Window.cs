@@ -365,7 +365,7 @@ namespace ConsoleEx
                     // Store the left index for the current content
                     _contentLeftIndex[content] = 0;
 
-                    var ansiLines = content.RenderContent(Width - 2, Height - 2, true);
+                    var ansiLines = content.RenderContent(content.Width ?? Width - 2, Height - 2, true);
 
                     lines.AddRange(ansiLines);
 

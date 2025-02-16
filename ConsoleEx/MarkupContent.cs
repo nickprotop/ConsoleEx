@@ -13,7 +13,10 @@ namespace ConsoleEx
         private List<string> _content;
         private List<string> _renderedContent;
         private bool _overflow;
+        private int? width;
 
+        public int? Width
+        { get => width; set { width = value; Container?.Invalidate(); } }
         public Window? Container { get; set; }
 
         public void SetMarkup(List<string> lines)

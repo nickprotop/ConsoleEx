@@ -151,7 +151,15 @@ namespace ConsoleEx
                 }
             }
 
-            return writer.ToString().Split('\n').ToList();
+            List<string> result = writer.ToString().Split('\n').ToList();
+
+            for (int i = 0; i < result.Count; i++)
+            {
+                result[i] = result[i].Replace("\r", "");
+                result[i] = result[i].Replace("\n", "");
+            }
+
+            return result;
         }
 
         public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height, bool overflow)
@@ -364,8 +372,6 @@ namespace ConsoleEx
 
             return output.ToString();
         }
-
-        private static readonly Regex TrueLengthOfAnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
 
         public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
         {
