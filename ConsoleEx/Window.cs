@@ -19,7 +19,7 @@ namespace ConsoleEx
         }
     }
 
-    public class Window
+    public class Window : IContainer
     {
         private readonly object _lock = new();
         private readonly List<IWIndowContent> _content = new();
@@ -380,13 +380,19 @@ namespace ConsoleEx
         {
             if (HasActiveInteractiveContent(out var activeInteractiveContent))
             {
-                cursorPosition = activeInteractiveContent!.GetCursorPosition();
+                (int, int)? currentCursorPosition = activeInteractiveContent!.GetCursorPosition();
+
+                if (currentCursorPosition == null)
+                {
+                    cursorPosition = (0, 0);
+                    return false;
+                }
+
                 if (activeInteractiveContent != null && activeInteractiveContent is IWIndowContent)
                 {
-                    cursorPosition.Top = _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Top + 1 - _scrollOffset;
-                    cursorPosition.Left = _contentLeftIndex[activeInteractiveContent as IWIndowContent] + cursorPosition.Left + 1;
+                    cursorPosition = (_contentLeftIndex[activeInteractiveContent as IWIndowContent] + (int)currentCursorPosition?.Item1 + 1, _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + (int)currentCursorPosition?.Item2 + 1 - _scrollOffset);
+                    return true;
                 }
-                return true;
             }
 
             cursorPosition = (0, 0);

@@ -30,7 +30,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
     public bool IsEnabled { get; set; } = true;
 
-    public Window? Container { get; set; }
+    public IContainer? Container { get; set; }
 
     public string Guid { get; } = System.Guid.NewGuid().ToString();
 
@@ -132,7 +132,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
         return false;
     }
 
-    public (int Left, int Top) GetCursorPosition()
+    public (int Left, int Top)? GetCursorPosition()
     {
         return (AnsiConsoleExtensions.GetStrippedStringLength(_cachedContent.Last()) - _input.Length + _cursorPosition, _cachedContent.Count - 1);
     }

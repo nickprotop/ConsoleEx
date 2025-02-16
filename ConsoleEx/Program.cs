@@ -100,9 +100,21 @@ namespace ConsoleEx
                     DisableOnEnter = false
                 };
 
+                var ButtonContent = new ButtonContent()
+                {
+                    Text = "Close window",
+                    Width = 25
+                };
+                ButtonContent.OnClick += (sender) =>
+                {
+                    window.Close();
+                };
+
                 window.AddContent(agePrompt);
                 window.AddContent(new MarkupContent(new List<string>() { " " }, true));
                 window.AddContent(ageInfo);
+                window.AddContent(new MarkupContent(new List<string>() { " " }, true));
+                window.AddContent(ButtonContent);
             });
 
             system.AddWindow(window3);

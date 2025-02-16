@@ -128,12 +128,12 @@ namespace ConsoleEx
             {
                 if (backgroundColor != null)
                 {
-                    var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, console.Profile.Width), new Style(background: backgroundColor));
+                    var renderedMarkup = new Markup(overflow ? markup : markup, new Style(background: backgroundColor));
                     console.Write(renderedMarkup);
                 }
                 else
                 {
-                    var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, console.Profile.Width));
+                    var renderedMarkup = new Markup(overflow ? markup : markup);
                     console.Write(renderedMarkup);
                 }
             }
@@ -141,12 +141,12 @@ namespace ConsoleEx
             {
                 if (backgroundColor != null)
                 {
-                    var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, console.Profile.Width), new Style(background: backgroundColor, foreground: foregroundColor));
+                    var renderedMarkup = new Markup(overflow ? markup : markup, new Style(background: backgroundColor, foreground: foregroundColor));
                     console.Write(renderedMarkup);
                 }
                 else
                 {
-                    var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, console.Profile.Width), new Style(foreground: foregroundColor));
+                    var renderedMarkup = new Markup(overflow ? markup : markup, new Style(foreground: foregroundColor));
                     console.Write(renderedMarkup);
                 }
             }

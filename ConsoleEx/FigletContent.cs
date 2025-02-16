@@ -22,7 +22,7 @@ namespace ConsoleEx
         public int? Width
         { get => width; set { width = value; Container?.Invalidate(); } }
 
-        public Window? Container { get; set; }
+        public IContainer? Container { get; set; }
 
         public void SetText(string text)
         {
