@@ -49,7 +49,17 @@ namespace ConsoleEx
         public int Top { get; set; }
         public int Width { get; set; } = 40;
         public int Height { get; set; } = 20;
-        public bool IsActive { get; set; }
+
+        public bool GetIsActive()
+        {
+            return isActive;
+        }
+
+        public void SetIsActive(bool value)
+        {
+            isActive = value;
+        }
+
         public bool IsVisible { get; set; } = true;
         public bool IsContentVisible { get; set; } = true;
         public bool Maximized { get; set; }
@@ -69,6 +79,8 @@ namespace ConsoleEx
 
         // Dictionary to store the left index for each content
         private Dictionary<IWIndowContent, int> _contentLeftIndex = new();
+
+        private bool isActive;
 
         // Define the event for key presses
         public event EventHandler<KeyPressedEventArgs>? KeyPressed;
@@ -355,12 +367,7 @@ namespace ConsoleEx
 
                     var ansiLines = content.RenderContent(Width - 2, Height - 2, true);
 
-                    foreach (var line in ansiLines)
-                    {
-                        //string parsedLine = AnsiConsoleExtensions.ParseAnsiTags(line, null, false, BackgroundColor, ForegroundColor)[0];
-                        // lines.Add(parsedLine);
-                        lines.Add(line);
-                    }
+                    lines.AddRange(ansiLines);
 
                     linesCount = lines.Count - _scrollOffset;
                 }

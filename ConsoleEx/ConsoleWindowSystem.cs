@@ -77,8 +77,8 @@ namespace ConsoleEx
                 _activeWindow?.Invalidate();
 
                 _activeWindow = window;
-                _windows.ForEach(w => w.IsActive = false);
-                _activeWindow.IsActive = true;
+                _windows.ForEach(w => w.SetIsActive(false));
+                _activeWindow.SetIsActive(true);
                 _activeWindow.ZIndex = _windows.Max(w => w.ZIndex) + 1;
 
                 _activeWindow.Invalidate();
@@ -498,16 +498,16 @@ namespace ConsoleEx
                 FillWindowBackground(window, true);
 
                 // Define border characters
-                var horizontalBorder = window.IsActive ? '═' : '─';
-                var verticalBorder = window.IsActive ? '║' : '│';
-                var topLeftCorner = window.IsActive ? '╔' : '┌';
-                var topRightCorner = window.IsActive ? '╗' : '┐';
-                var bottomLeftCorner = window.IsActive ? '╚' : '└';
-                var bottomRightCorner = window.IsActive ? '╝' : '┘';
+                var horizontalBorder = window.GetIsActive() ? '═' : '─';
+                var verticalBorder = window.GetIsActive() ? '║' : '│';
+                var topLeftCorner = window.GetIsActive() ? '╔' : '┌';
+                var topRightCorner = window.GetIsActive() ? '╗' : '┐';
+                var bottomLeftCorner = window.GetIsActive() ? '╚' : '└';
+                var bottomRightCorner = window.GetIsActive() ? '╝' : '┘';
 
                 // Define border color
-                var borderColor = window.IsActive ? "[green]" : "[grey]";
-                var titleColor = window.IsActive ? "[green]" : "[grey]";
+                var borderColor = window.GetIsActive() ? "[green]" : "[grey]";
+                var titleColor = window.GetIsActive() ? "[green]" : "[grey]";
                 var resetColor = "[/]";
 
                 // Draw top border with title
@@ -517,10 +517,7 @@ namespace ConsoleEx
                 var leftPadding = 1;
                 var rightPadding = availableSpace - leftPadding;
 
-                //var ansiString = AnsiConsoleExtensions.ParseAnsiTags($"[foreground {borderColor}]{topLeftCorner}{new string(horizontalBorder, leftPadding)}[/foreground]{title}[foreground {borderColor}]{new string(horizontalBorder, rightPadding)}{topRightCorner}[/foreground]", window.Width, false, AnsiConsoleExtensions.SpectreColorToString(window.BackgroundColor));
-
                 WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
-                //WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, ansiString[0]);
 
                 // Draw sides
                 for (var y = 1; y < window.Height - 1; y++)

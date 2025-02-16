@@ -135,17 +135,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
     public (int Left, int Top) GetCursorPosition()
     {
-        int width = _width;
-        int promptLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(_prompt);
-        int totalLength = promptLength + _cursorPosition;
-
-        // Calculate the row and column based on the width
-        int row = totalLength / width;
-        int column = totalLength % width;
-
         return (AnsiConsoleExtensions.GetStrippedStringLength(_cachedContent.Last()) - _input.Length + _cursorPosition, _cachedContent.Count - 1);
-
-        return (AnsiConsoleExtensions.RemoveSpectreMarkupLength(_prompt) + _cursorPosition, _cachedContent.Count - 1);
     }
 
     public void Dispose()

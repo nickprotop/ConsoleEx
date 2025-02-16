@@ -94,7 +94,7 @@ namespace ConsoleEx
                 }
                 else
                 {
-                    _trailingEscapes[_width - 1, y] += matches[matchIndex++].Value;
+                    _trailingEscapes[_width - 1, y] = matches[matchIndex++].Value;
                 }
             }
         }
