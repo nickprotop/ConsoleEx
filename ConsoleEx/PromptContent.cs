@@ -40,12 +40,6 @@ public class PromptContent : IWIndowContent, IInteractiveContent
         _prompt = prompt;
     }
 
-    public List<string> RenderContent(int? width, int? height)
-    {
-        _width = width ?? 80;
-        return RenderContent(width, height, true);
-    }
-
     public void SetPrompt(string prompt)
     {
         _cachedContent = new List<string>();

@@ -70,11 +70,6 @@ namespace ConsoleEx
             return _renderedContent;
         }
 
-        public List<string> RenderContent(int? width, int? height)
-        {
-            return RenderContent(width, height, false);
-        }
-
         public void Dispose()
         {
             Container = null;
