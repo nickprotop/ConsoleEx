@@ -65,7 +65,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
     {
         _width = width ?? 80;
 
-        _cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, width - 1, height, true);
+        _cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, width - 1, height, true, Container?.BackgroundColor, Container?.ForegroundColor);
         return _cachedContent;
     }
 
@@ -136,7 +136,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
     public (int Left, int Top) GetCursorPosition()
     {
         int width = _width;
-        int promptLength = AnsiConsoleExtensions.CalculateEffectiveLength(_prompt);
+        int promptLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(_prompt);
         int totalLength = promptLength + _cursorPosition;
 
         // Calculate the row and column based on the width
@@ -145,7 +145,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
         return (AnsiConsoleExtensions.GetStrippedStringLength(_cachedContent.Last()) - _input.Length + _cursorPosition, _cachedContent.Count - 1);
 
-        return (AnsiConsoleExtensions.CalculateEffectiveLength(_prompt) + _cursorPosition, _cachedContent.Count - 1);
+        return (AnsiConsoleExtensions.RemoveSpectreMarkupLength(_prompt) + _cursorPosition, _cachedContent.Count - 1);
     }
 
     public void Dispose()

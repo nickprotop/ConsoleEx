@@ -27,8 +27,8 @@ namespace ConsoleEx
                 Top = 2,
                 Width = 40,
                 Height = 10,
-                BackgroundColor = "white",
-                ForegroundColor = "black"
+                BackgroundColor = Color.White,
+                ForegroundColor = Color.Black
             },
             (window) =>
             {
@@ -135,7 +135,7 @@ namespace ConsoleEx
             {
                 for (var i = 0; i < 30; i++)
                 {
-                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [foreground blue]{i}[/foreground] from thread-Message [foreground blue]{i}[/foreground] from thread" }, true));
+                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }, true));
                     Thread.Sleep(50);
                 }
             });
@@ -150,13 +150,13 @@ namespace ConsoleEx
             var systemInfo = new List<string>();
 
             // CPU usage
-            systemInfo.Add($"[foreground yellow]CPU Usage:[/foreground] [foreground green]{new Random().Next(0, 100)}%[/foreground]");
+            systemInfo.Add($"[yellow]CPU Usage:[/] [green]{new Random().Next(0, 100)}%[/]");
 
             // Memory usage
-            systemInfo.Add($"[foreground yellow]Available Memory:[/foreground] [foreground green]{new Random().Next(0, 8000)} MB[/foreground]");
+            systemInfo.Add($"[yellow]Available Memory:[/] [green]{new Random().Next(0, 8000)} MB[/]");
 
             // Disk usage
-            systemInfo.Add($"[foreground yellow]Disk Free Space:[/foreground] [foreground green]{new Random().Next(1, 100)}%[/foreground]");
+            systemInfo.Add($"[yellow]Disk Free Space:[/] [green]{new Random().Next(1, 100)}%[/]");
 
             return systemInfo;
         }

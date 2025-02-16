@@ -6,6 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using Spectre.Console;
+
 namespace ConsoleEx
 {
     public class WindowOptions
@@ -17,7 +19,7 @@ namespace ConsoleEx
         public int Height { get; set; }
         public bool IsResizable { get; set; } = true;
         public bool IsMoveable { get; set; } = true;
-        public string BackgroundColor { get; set; } = "black";
-        public string ForegroundColor { get; set; } = "white";
+        public Color BackgroundColor { get; set; } = Color.Black;
+        public Color ForegroundColor { get; set; } = Color.White;
     }
 }

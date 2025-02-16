@@ -462,7 +462,8 @@ namespace ConsoleEx
             for (var y = 0; y < window.Height; y++)
             {
                 if (window.Top + y > DesktopDimensions.Height) break;
-                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}", Math.Min(window.Width, Console.WindowWidth - window.Left), false, useWindowBackground ? window.BackgroundColor : null)[0]);
+                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}", Math.Min(window.Width, Console.WindowWidth - window.Left), 1, false, useWindowBackground ? window.BackgroundColor : null, null)[0]);
+                //WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}", Math.Min(window.Width, Console.WindowWidth - window.Left), false, useWindowBackground ? window.BackgroundColor : null)[0]);
             }
         }
 
@@ -505,36 +506,37 @@ namespace ConsoleEx
                 var bottomRightCorner = window.IsActive ? '╝' : '┘';
 
                 // Define border color
-                var borderColor = window.IsActive ? "green" : "grey";
-                var titleColor = window.IsActive ? "yellow" : "grey";
+                var borderColor = window.IsActive ? "[green]" : "[grey]";
+                var titleColor = window.IsActive ? "[green]" : "[grey]";
+                var resetColor = "[/]";
 
                 // Draw top border with title
-                var title = $"[foreground {titleColor}]| {window.Title} |[/foreground]";
-                var titleLength = AnsiConsoleExtensions.GetStrippedStringLength(title);
+                var title = $"{titleColor}| {window.Title} |{resetColor}";
+                var titleLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(title);
                 var availableSpace = window.Width - 2 - titleLength;
                 var leftPadding = 1;
                 var rightPadding = availableSpace - leftPadding;
 
-                var ansiString = AnsiConsoleExtensions.ParseAnsiTags($"[foreground {borderColor}]{topLeftCorner}{new string(horizontalBorder, leftPadding)}[/foreground]{title}[foreground {borderColor}]{new string(horizontalBorder, rightPadding)}{topRightCorner}[/foreground]", window.Width, false, window.BackgroundColor);
+                //var ansiString = AnsiConsoleExtensions.ParseAnsiTags($"[foreground {borderColor}]{topLeftCorner}{new string(horizontalBorder, leftPadding)}[/foreground]{title}[foreground {borderColor}]{new string(horizontalBorder, rightPadding)}{topRightCorner}[/foreground]", window.Width, false, AnsiConsoleExtensions.SpectreColorToString(window.BackgroundColor));
 
-                //WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, AnsiConsoleExtensions.ConvertMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", window.Width, 1, false)[0]);
-                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, ansiString[0]);
+                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
+                //WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, ansiString[0]);
 
                 // Draw sides
                 for (var y = 1; y < window.Height - 1; y++)
                 {
                     if (window.Top + DesktopUpperLeft.Top + y - 1 >= desktopBottom) break; // Stop rendering if it reaches the bottom of the console
-                    WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{verticalBorder}[/foreground][/background]", 1, false)[0]);
+                    WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 
                     if (window.Left + window.Width - 2 < desktopRight)
                     {
-                        WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{verticalBorder}[/foreground][/background]", 1, false)[0]);
+                        WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
                     }
                 }
 
                 // Draw bottom border
                 var bottomBorderWidth = Math.Min(window.Width - 2, desktopRight - window.Left - 1);
-                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + window.Height - 1, AnsiConsoleExtensions.ParseAnsiTags($"[background {window.BackgroundColor}][foreground {borderColor}]{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightCorner}[/foreground][/background]", window.Width, false)[0]);
+                WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + window.Height - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 
                 // Render the window content
                 var lines = window.GetWindowContent();
@@ -550,7 +552,7 @@ namespace ConsoleEx
 
                     // Truncate the line if it exceeds the console's width
                     var maxWidth = Math.Min(window.Width - 2, desktopRight - window.Left - 2);
-                    if (AnsiConsoleExtensions.GetTrueLengthOfAnsi(line) > maxWidth)
+                    if (AnsiConsoleExtensions.GetStrippedStringLength(line) > maxWidth)
                     {
                         line = AnsiConsoleExtensions.TruncateAnsiString(line, maxWidth);
                     }
@@ -566,9 +568,9 @@ namespace ConsoleEx
             {
                 // Calculate the effective length of the bottom row without markup
                 var topRow = TopStatus;
-                var effectiveLength = AnsiConsoleExtensions.CalculateEffectiveLength(topRow);
+                var effectiveLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(topRow);
                 var paddedTopRow = topRow.PadRight(Console.WindowWidth + (topRow.Length - effectiveLength));
-                WriteToConsole(0, 0, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[black on white]{paddedTopRow}[/]", Console.WindowWidth, 1, false)[0]);
+                WriteToConsole(0, 0, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[black on white]{paddedTopRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
 
                 lock (_windows)
                 {
@@ -630,10 +632,10 @@ namespace ConsoleEx
                 bottomRow += $" | {BottomStatus}";
 
                 // Calculate the effective length of the bottom row without markup
-                effectiveLength = AnsiConsoleExtensions.CalculateEffectiveLength(bottomRow);
+                effectiveLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(bottomRow);
                 var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth + (bottomRow.Length - effectiveLength));
 
-                WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false)[0]);
+                WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
 
                 if (RenderMode == RenderMode.Buffer)
                 {

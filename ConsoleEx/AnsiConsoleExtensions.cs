@@ -15,30 +15,9 @@ namespace ConsoleEx
 {
     public static class AnsiConsoleExtensions
     {
-        public static int CalculateEffectiveLength(string text)
+        public static int RemoveSpectreMarkupLength(string text)
         {
-            var length = 0;
-            var insideMarkup = false;
-
-            foreach (var ch in text)
-            {
-                if (ch == '[')
-                {
-                    insideMarkup = true;
-                }
-                else if (ch == ']')
-                {
-                    insideMarkup = false;
-                }
-                else if (!insideMarkup)
-                {
-                    length++;
-                }
-            }
-
             return Markup.Remove(text).Length;
-
-            return length;
         }
 
         public static int GetStrippedStringLength(string input)
@@ -125,7 +104,7 @@ namespace ConsoleEx
             return output.ToString();
         }
 
-        public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow)
+        public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow, Color? backgroundColor, Color? foregroundColor)
         {
             if (string.IsNullOrEmpty(markup))
                 return new List<string>();
@@ -145,7 +124,33 @@ namespace ConsoleEx
                 }
             }
 
-            console.Markup(overflow ? markup : TruncateSpectre(markup, console.Profile.Width));
+            if (foregroundColor == null)
+            {
+                if (backgroundColor != null)
+                {
+                    var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, console.Profile.Width), new Style(background: backgroundColor));
+                    console.Write(renderedMarkup);
+                }
+                else
+                {
+                    var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, console.Profile.Width));
+                    console.Write(renderedMarkup);
+                }
+            }
+            else
+            {
+                if (backgroundColor != null)
+                {
+                    var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, console.Profile.Width), new Style(background: backgroundColor, foreground: foregroundColor));
+                    console.Write(renderedMarkup);
+                }
+                else
+                {
+                    var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, console.Profile.Width), new Style(foreground: foregroundColor));
+                    console.Write(renderedMarkup);
+                }
+            }
+
             return writer.ToString().Split('\n').ToList();
         }
 
@@ -362,18 +367,6 @@ namespace ConsoleEx
 
         private static readonly Regex TrueLengthOfAnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
 
-        public static int GetTrueLengthOfAnsi(string input)
-        {
-            if (string.IsNullOrEmpty(input))
-                return 0;
-
-            // Remove ANSI escape sequences
-            var cleanString = TrueLengthOfAnsiRegex.Replace(input, string.Empty);
-
-            // Return the length of the cleaned string
-            return cleanString.Length;
-        }
-
         public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
         {
             var console = AnsiConsole.Create(new AnsiConsoleSettings
@@ -400,7 +393,7 @@ namespace ConsoleEx
             return console;
         }
 
-        public static string GetAnsiCursorPosition(int left, int top)
+        public static string SetAnsiCursorPosition(int left, int top)
         {
             return $"\u001b[{top + 1};{left + 1}H";
         }
