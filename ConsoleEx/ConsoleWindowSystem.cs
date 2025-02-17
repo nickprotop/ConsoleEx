@@ -33,7 +33,7 @@ namespace ConsoleEx
         private IAnsiConsole? _virtualConsole;
         private StringWriter _virtualWriter = new StringWriter();
 
-        public RenderMode RenderMode { get; set; } = RenderMode.Direct;
+        public RenderMode RenderMode { get; set; } = RenderMode.Buffer;
         public string TopStatus { get; set; } = "";
         public string BottomStatus { get; set; } = "";
 
@@ -632,7 +632,7 @@ namespace ConsoleEx
                 effectiveLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(bottomRow);
                 var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth + (bottomRow.Length - effectiveLength));
 
-                //WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
+                WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
 
                 if (RenderMode == RenderMode.Buffer)
                 {
