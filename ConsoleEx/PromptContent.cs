@@ -14,13 +14,12 @@ public class PromptContent : IWIndowContent, IInteractiveContent
     private string _input = string.Empty;
     private int _cursorPosition = 0;
     private List<string> _cachedContent = new List<string>();
-    private int _width;
     private Action<PromptContent, string>? _onEnter;
 
-    private int? width;
+    private int? _width;
 
     public int? Width
-    { get => width; set { width = value; Container?.Invalidate(); } }
+    { get => _width; set { _width = value; Container?.Invalidate(); } }
 
     public bool HasFocus { get; set; }
 
@@ -60,11 +59,9 @@ public class PromptContent : IWIndowContent, IInteractiveContent
         OnInputChange?.Invoke(this, _input);
     }
 
-    public List<string> RenderContent(int? width, int? height, bool overflow)
+    public List<string> RenderContent(int? width, int? height)
     {
-        _width = width ?? 80;
-
-        _cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, width - 1, height, true, Container?.BackgroundColor, Container?.ForegroundColor);
+        _cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, (_width ?? (width ?? 50)) - 1, height, true, Container?.BackgroundColor, Container?.ForegroundColor);
         return _cachedContent;
     }
 

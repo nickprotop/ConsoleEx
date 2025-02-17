@@ -154,10 +154,15 @@ namespace ConsoleEx
             {
                 result[i] = result[i].Replace("\r", "");
                 result[i] = result[i].Replace("\n", "");
+
+                //if (result[i].EndsWith("\u001b[0m"))
+                //{
+                //    result[i] = result[i].Substring(0, result[i].Length - 4);
+                //}
             }
 
-			return overflow ? result : new List<string> { result[0] };
-		}
+            return overflow ? result : new List<string> { result[0] };
+        }
 
         public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height, bool overflow)
         {
@@ -361,11 +366,11 @@ namespace ConsoleEx
             // Close any remaining open sequences
             while (openSequences.Count > 0)
             {
-                output.Append("\x1B[0m");
+                output.Append("\u001b[0m");
                 openSequences.Pop();
             }
 
-            output.Append("\x1B[0m");
+            output.Append("\u001b[0m");
 
             return output.ToString();
         }

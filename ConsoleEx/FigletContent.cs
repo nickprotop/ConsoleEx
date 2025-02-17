@@ -17,10 +17,10 @@ namespace ConsoleEx
         private Justify? _justify;
         private List<string> _renderedContent;
 
-        private int? width;
+        private int? _width;
 
         public int? Width
-        { get => width; set { width = value; Container?.Invalidate(); } }
+        { get => _width; set { _width = value; Container?.Invalidate(); } }
 
         public IContainer? Container { get; set; }
 
@@ -61,7 +61,7 @@ namespace ConsoleEx
             _renderedContent = new List<string>();
         }
 
-        public List<string> RenderContent(int? width, int? height, bool overflow)
+        public List<string> RenderContent(int? width, int? height)
         {
             _renderedContent.Clear();
 
@@ -70,7 +70,7 @@ namespace ConsoleEx
                 {
                     Color = _color ?? Color.White,
                     Justification = _justify ?? Justify.Left
-                }, width, height, false);
+                }, _width ?? (width ?? 50), height, false);
 
             return _renderedContent;
         }

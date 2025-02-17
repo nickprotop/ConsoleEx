@@ -54,7 +54,7 @@ namespace ConsoleEx
             },
             (window) =>
             {
-                MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo(), false);
+                MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo());
                 window.AddContent(systemInfoContent);
 
                 while (true)
@@ -78,9 +78,9 @@ namespace ConsoleEx
             },
             (window) =>
             {
-                window.AddContent(new MarkupContent(new List<string>() { "User Info", " " }, true));
+                window.AddContent(new MarkupContent(new List<string>() { "User Info", " " }));
 
-                var ageInfo = new MarkupContent(new List<string>() { " " }, true);
+                var ageInfo = new MarkupContent(new List<string>() { " " });
 
                 var namePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ")
                 {
@@ -100,21 +100,32 @@ namespace ConsoleEx
                     DisableOnEnter = false
                 };
 
-                var ButtonContent = new ButtonContent()
+                var closeButton = new ButtonContent()
                 {
-                    Text = "Close window",
+                    Text = "[red]Close[/] window",
                     Width = 25
                 };
-                ButtonContent.OnClick += (sender) =>
+                closeButton.OnClick += (sender) =>
                 {
                     window.Close();
                 };
 
+                var maximizeButton = new ButtonContent()
+                {
+                    Text = "[yellow]Maximize[/] window",
+                    Width = 25
+                };
+                maximizeButton.OnClick += (sender) =>
+                {
+                    window.State = WindowState.Maximized;
+                };
+
                 window.AddContent(agePrompt);
-                window.AddContent(new MarkupContent(new List<string>() { " " }, true));
+                window.AddContent(new MarkupContent(new List<string>() { " " }));
                 window.AddContent(ageInfo);
-                window.AddContent(new MarkupContent(new List<string>() { " " }, true));
-                window.AddContent(ButtonContent);
+                window.AddContent(new MarkupContent(new List<string>() { " " }));
+                window.AddContent(closeButton);
+                window.AddContent(maximizeButton);
             });
 
             system.AddWindow(window3);
@@ -147,7 +158,7 @@ namespace ConsoleEx
             {
                 for (var i = 0; i < 30; i++)
                 {
-                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }, true));
+                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }));
                     Thread.Sleep(50);
                 }
             });

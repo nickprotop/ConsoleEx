@@ -55,47 +55,58 @@ namespace ConsoleEx
             int contentIndex = 0;
             int matchIndex = 0;
 
+            if (content.EndsWith("\u001b[0m")) content = content.Substring(0, content.Length - 4);
+
             for (int i = x; i < x + AnsiConsoleExtensions.GetStrippedStringLength(content); i++)
             {
-                if (!string.IsNullOrEmpty(_backBuffer[i, y].AnsiEscape))
-                {
-                    _backBuffer[i, y].AnsiEscape = string.Empty;
-                    _backBuffer[i, y].IsDirty = true;
-                    _backBuffer[i, y].Character = ' ';
-                }
+                _backBuffer[i, y].AnsiEscape = string.Empty;
+                _backBuffer[i, y].IsDirty = true;
+                _backBuffer[i, y].Character = ' ';
             }
 
-            while (contentIndex < content.Length && x < _width)
+            int index = 0;
+
+            while (contentIndex < content.Length && (index + x) < _width)
             {
                 if (matchIndex < matches.Count && matches[matchIndex].Index == contentIndex)
                 {
                     // Process ANSI escape sequence
                     var match = matches[matchIndex++];
-                    _backBuffer[x, y].AnsiEscape += match.Value;
-                    _backBuffer[x, y].IsDirty = true;
+                    _backBuffer[x + index, y].AnsiEscape += match.Value;
+                    _backBuffer[x + index, y].IsDirty = true;
                     contentIndex += match.Length;
                 }
                 else
                 {
                     // Process visible character
-                    _backBuffer[x, y].Character = content[contentIndex++];
-                    _backBuffer[x, y].IsDirty = true;
-                    x++;
+                    _backBuffer[x + index, y].Character = content[contentIndex++];
+                    _backBuffer[x + index, y].IsDirty = true;
+                    index++;
                 }
             }
 
             // Handle remaining ANSI escape sequences after the last character
             while (matchIndex < matches.Count)
             {
-                if (x < _width)
+                if ((x + index + 1) < _width)
                 {
-                    _backBuffer[x, y].AnsiEscape += matches[matchIndex++].Value;
-                    _backBuffer[x, y].IsDirty = true;
+                    _backBuffer[x + index + 1, y].AnsiEscape += matches[matchIndex++].Value;
+                    _backBuffer[x + index + 1, y].IsDirty = true;
                 }
                 else
                 {
                     _trailingEscapes[_width - 1, y] = matches[matchIndex++].Value;
                 }
+            }
+
+            if ((x + index) < _width)
+            {
+                _backBuffer[x + index, y].AnsiEscape = "\u001b[0m" + _backBuffer[x + index, y].AnsiEscape;
+                _backBuffer[x + index, y].IsDirty = true;
+            }
+            else
+            {
+                if (y + 1 < _height) _backBuffer[0, y + 1].AnsiEscape = "\u001b[0m" + _backBuffer[0, y + 1].AnsiEscape;
             }
         }
 

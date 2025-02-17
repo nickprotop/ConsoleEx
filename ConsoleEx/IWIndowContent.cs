@@ -10,10 +10,9 @@ namespace ConsoleEx
 {
     public interface IWIndowContent : IDisposable
     {
-        public string Guid { get; }
         public IContainer? Container { get; set; }
         public int? Width { get; set; }
 
-        public List<string> RenderContent(int? width, int? height, bool overflow);
+        public List<string> RenderContent(int? width, int? height);
     }
 }

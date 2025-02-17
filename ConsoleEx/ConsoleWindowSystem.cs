@@ -33,7 +33,7 @@ namespace ConsoleEx
         private IAnsiConsole? _virtualConsole;
         private StringWriter _virtualWriter = new StringWriter();
 
-        public RenderMode RenderMode { get; set; } = RenderMode.Buffer;
+        public RenderMode RenderMode { get; set; } = RenderMode.Direct;
         public string TopStatus { get; set; } = "";
         public string BottomStatus { get; set; } = "";
 
@@ -46,7 +46,7 @@ namespace ConsoleEx
 
         private void CreateVirtualConsole()
         {
-            _virtualConsole = AnsiConsoleExtensions.CreateCaptureConsole(_virtualWriter, Console.WindowWidth + 1, Console.WindowHeight);
+            _virtualConsole = AnsiConsoleExtensions.CreateCaptureConsole(_virtualWriter, Console.WindowWidth, Console.WindowHeight);
         }
 
         private void WriteToConsole(int x, int y, string value)
@@ -64,7 +64,7 @@ namespace ConsoleEx
 
                 case RenderMode.VirtualConsole:
                     _virtualConsole?.Cursor.SetPosition(x, y);
-                    _virtualConsole?.Write(value);
+                    _virtualConsole?.MarkupInterpolated($"{value}");
                     break;
             }
         }
@@ -72,7 +72,10 @@ namespace ConsoleEx
         private void FlushVirtualConsole()
         {
             Console.Write(_virtualWriter.ToString());
+
+            _virtualWriter.Dispose();
             _virtualWriter = new StringWriter();
+
             _virtualConsole.Profile.Out = new AnsiConsoleOutput(_virtualWriter);
         }
 
@@ -632,7 +635,7 @@ namespace ConsoleEx
                 effectiveLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(bottomRow);
                 var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth + (bottomRow.Length - effectiveLength));
 
-                WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
+                //WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
 
                 if (RenderMode == RenderMode.Buffer)
                 {

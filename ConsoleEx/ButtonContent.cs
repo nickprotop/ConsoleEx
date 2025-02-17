@@ -13,7 +13,6 @@ namespace ConsoleEx
         private string? _cachedContent;
         private bool _focused;
         private bool _enabled = true;
-        public string Guid => throw new NotImplementedException();
 
         public Action<ButtonContent>? OnClick { get; set; }
 
@@ -75,23 +74,23 @@ namespace ConsoleEx
             return false;
         }
 
-        public List<string> RenderContent(int? width, int? height, bool overflow)
+        public List<string> RenderContent(int? width, int? height)
         {
             if (_cachedContent != null)
             {
                 return new List<string>() { _cachedContent };
             }
 
-            int buttonWidth = width ?? _width ?? 10; // Default width if not specified
+            int buttonWidth = _width ?? (width ?? 20); // Default width if not specified
             string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
-            int padding = (buttonWidth - text.Length - 2) / 2; // Calculate padding for centering text
+            int padding = (buttonWidth - AnsiConsoleExtensions.RemoveSpectreMarkupLength(text) - 2) / 2; // Calculate padding for centering text
 
             if (padding < 0) padding = 0; // Ensure padding is not negative
 
             string buttonText = $"{new string(' ', padding)}{text}{new string(' ', padding)}";
 
             // Adjust if the total length is less than the button width
-            if (buttonText.Length < buttonWidth)
+            if (AnsiConsoleExtensions.RemoveSpectreMarkupLength(buttonText) > buttonWidth)
             {
                 buttonText = buttonText.PadRight(buttonWidth - 1);
             }

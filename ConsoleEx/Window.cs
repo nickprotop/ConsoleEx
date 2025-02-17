@@ -147,10 +147,10 @@ namespace ConsoleEx
                         OriginalHeight = Height;
                         OriginalLeft = Left;
                         OriginalTop = Top;
-                        Width = Console.WindowWidth;
-                        Height = Console.WindowHeight;
+                        Width = _windowSystem?.DesktopDimensions.Width ?? 80;
+                        Height = _windowSystem?.DesktopDimensions.Height ?? 24;
                         Left = 0;
-                        Top = 1;
+                        Top = 0;
                         Invalidate();
                         break;
 
@@ -365,7 +365,7 @@ namespace ConsoleEx
                     // Store the left index for the current content
                     _contentLeftIndex[content] = 0;
 
-                    var ansiLines = content.RenderContent(content.Width ?? Width - 2, Height - 2, true);
+                    var ansiLines = content.RenderContent(Width - 2, Height - 2);
 
                     lines.AddRange(ansiLines);
 
