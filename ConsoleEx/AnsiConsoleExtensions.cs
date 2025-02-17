@@ -110,18 +110,15 @@ namespace ConsoleEx
                 return new List<string>();
 
             var writer = new StringWriter();
-            var console = CreateCaptureConsole(writer, overflow ? width : null, overflow ? height : null);
+            var console = CreateCaptureConsole(writer, width, height);
 
-            if (overflow)
+            if (width.HasValue)
             {
-                if (width.HasValue)
-                {
-                    console.Profile.Width = width.Value;
-                }
-                if (height.HasValue)
-                {
-                    console.Profile.Height = height.Value;
-                }
+                console.Profile.Width = width.Value;
+            }
+            if (height.HasValue)
+            {
+                console.Profile.Height = height.Value;
             }
 
             if (foregroundColor == null)
@@ -159,8 +156,8 @@ namespace ConsoleEx
                 result[i] = result[i].Replace("\n", "");
             }
 
-            return result;
-        }
+			return overflow ? result : new List<string> { result[0] };
+		}
 
         public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height, bool overflow)
         {
