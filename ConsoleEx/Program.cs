@@ -10,130 +10,130 @@ using Spectre.Console;
 
 namespace ConsoleEx
 {
-    internal class Program
-    {
-        private static void Main(string[] args)
-        {
-            var system = new ConsoleWindowSystem
-            {
-                TopStatus = "TOP STATUS BAR",
-                BottomStatus = "BOTTOM STATUS BAR"
-            };
+	internal class Program
+	{
+		private static void Main(string[] args)
+		{
+			var system = new ConsoleWindowSystem
+			{
+				TopStatus = "TOP STATUS BAR",
+				BottomStatus = "BOTTOM STATUS BAR"
+			};
 
-            var window1 = new Window(system, new WindowOptions()
-            {
-                Title = "Window 1",
-                Left = 2,
-                Top = 2,
-                Width = 40,
-                Height = 10,
-                BackgroundColor = Color.White,
-                ForegroundColor = Color.Black
-            },
-            (window) =>
-            {
-                window.KeyPressed += (sender, e) =>
-                {
-                    if (e.KeyInfo.Key == ConsoleKey.Escape)
-                    {
-                        window.Close();
-                    }
-                };
-            });
+			var window1 = new Window(system, new WindowOptions()
+			{
+				Title = "Window 1",
+				Left = 2,
+				Top = 2,
+				Width = 40,
+				Height = 10,
+				BackgroundColor = Color.White,
+				ForegroundColor = Color.Black
+			},
+			(window) =>
+			{
+				window.KeyPressed += (sender, e) =>
+				{
+					if (e.KeyInfo.Key == ConsoleKey.Escape)
+					{
+						window.Close();
+					}
+				};
+			});
 
-            system.AddWindow(window1);
+			system.AddWindow(window1);
 
-            // Example of creating window with markup content and it's own thread and handling user prompt
-            var window2 = new Window(system, new WindowOptions()
-            {
-                Title = "System Info",
-                Left = 12,
-                Top = 4,
-                Width = 40,
-                Height = 10
-            },
-            (window) =>
-            {
-                MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo());
-                window.AddContent(systemInfoContent);
+			// Example of creating window with markup content and it's own thread and handling user prompt
+			var window2 = new Window(system, new WindowOptions()
+			{
+				Title = "System Info",
+				Left = 12,
+				Top = 4,
+				Width = 40,
+				Height = 10
+			},
+			(window) =>
+			{
+				MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo());
+				window.AddContent(systemInfoContent);
 
-                while (true)
-                {
-                    systemInfoContent.SetMarkup(GetSystemInfo());
-                    Thread.Sleep(2000);
-                }
-            });
+				while (true)
+				{
+					systemInfoContent.SetContent(GetSystemInfo());
+					Thread.Sleep(2000);
+				}
+			});
 
-            system.AddWindow(window2);
+			system.AddWindow(window2);
 
-            // Example of creating window with markup content and it's own thread and handling user prompt
-            var window3 = new Window(system, new WindowOptions()
-            {
-                Title = "User",
-                Left = 22,
-                Top = 6,
-                Width = 40,
-                Height = 10,
-                IsResizable = true
-            },
-            (window) =>
-            {
-                window.AddContent(new MarkupContent(new List<string>() { "User Info", " " }));
+			// Example of creating window with markup content and it's own thread and handling user prompt
+			var window3 = new Window(system, new WindowOptions()
+			{
+				Title = "User",
+				Left = 22,
+				Top = 6,
+				Width = 40,
+				Height = 10,
+				IsResizable = true
+			},
+			(window) =>
+			{
+				window.AddContent(new MarkupContent(new List<string>() { "User Info", " " }));
 
-                var ageInfo = new MarkupContent(new List<string>() { " " });
+				var ageInfo = new MarkupContent(new List<string>() { " " });
 
-                var namePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ")
-                {
-                    DisableOnEnter = false
-                };
-                namePrompt.OnInputChange += (s, e) =>
-                {
-                    window.Title = $"User - {e}";
-                };
-                window.AddContent(namePrompt);
+				var namePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ")
+				{
+					DisableOnEnter = false
+				};
+				namePrompt.OnInputChange += (s, e) =>
+				{
+					window.Title = $"User - {e}";
+				};
+				window.AddContent(namePrompt);
 
-                var agePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]age[/]: ", (sender, input) =>
-                {
-                    ageInfo.SetMarkup(new List<string>() { $"[bold]Your age is {input}[/]" });
-                })
-                {
-                    DisableOnEnter = false
-                };
+				var agePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]age[/]: ", (sender, input) =>
+				{
+					ageInfo.SetContent(new List<string>() { $"[bold]Your age is {input}[/]" });
+				})
+				{
+					DisableOnEnter = false
+				};
 
-                var closeButton = new ButtonContent()
-                {
-                    Text = "[red]Close[/] window",
-                    Width = 25,
+				var closeButton = new ButtonContent()
+				{
+					Text = "[red]Close[/] window",
+					Width = 25,
 					Justify = Justify.Center
 				};
-                closeButton.OnClick += (sender) =>
-                {
-                    window.Close();
-                };
+				closeButton.OnClick += (sender) =>
+				{
+					window.Close();
+				};
 
-                var maximizeButton = new ButtonContent()
-                {
-                    Text = "[yellow]Maximize[/] window",
-                    Width = 25,
+				var maximizeButton = new ButtonContent()
+				{
+					Text = "[yellow]Maximize[/] window",
+					Width = 25,
 					Justify = Justify.Center
 				};
-                maximizeButton.OnClick += (sender) =>
-                {
-                    window.State = WindowState.Maximized;
-                };
+				maximizeButton.OnClick += (sender) =>
+				{
+					window.State = WindowState.Maximized;
+				};
 
-                window.AddContent(agePrompt);
-                window.AddContent(new MarkupContent(new List<string>() { " " }));
-                window.AddContent(ageInfo);
-                window.AddContent(new MarkupContent(new List<string>() { " " }));
-                window.AddContent(closeButton);
-                window.AddContent(maximizeButton);
-            });
+				window.AddContent(agePrompt);
+				window.AddContent(new MarkupContent(new List<string>() { " " }));
+				window.AddContent(ageInfo);
+				window.AddContent(new MarkupContent(new List<string>() { " " }));
+				window.AddContent(closeButton);
+				window.AddContent(maximizeButton);
+			});
 
-            system.AddWindow(window3);
+			system.AddWindow(window3);
 
-            // Example of creating window with Figlet content and it's own thread
-            /*
+			// Example of creating window with Figlet content and it's own thread
+			/*
             system.CreateWindow(new WindowOptions()
             {
                 Title = "Clock",
@@ -155,35 +155,35 @@ namespace ConsoleEx
             });
             */
 
-            // Example of writing to a window from another thread
-            Task.Run(() =>
-            {
-                for (var i = 0; i < 30; i++)
-                {
-                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }) { Justify = Justify.Center });
-                    Thread.Sleep(50);
-                }
-            });
+			// Example of writing to a window from another thread
+			Task.Run(() =>
+			{
+				for (var i = 0; i < 30; i++)
+				{
+					window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }) { Justify = Justify.Center });
+					Thread.Sleep(50);
+				}
+			});
 
-            system.SetActiveWindow(window1);
+			system.SetActiveWindow(window1);
 
-            system.Run();
-        }
+			system.Run();
+		}
 
-        private static List<string> GetSystemInfo()
-        {
-            var systemInfo = new List<string>();
+		private static List<string> GetSystemInfo()
+		{
+			var systemInfo = new List<string>();
 
-            // CPU usage
-            systemInfo.Add($"[yellow]CPU Usage:[/] [green]{new Random().Next(0, 100)}%[/]");
+			// CPU usage
+			systemInfo.Add($"[yellow]CPU Usage:[/] [green]{new Random().Next(0, 100)}%[/]");
 
-            // Memory usage
-            systemInfo.Add($"[yellow]Available Memory:[/] [green]{new Random().Next(0, 8000)} MB[/]");
+			// Memory usage
+			systemInfo.Add($"[yellow]Available Memory:[/] [green]{new Random().Next(0, 8000)} MB[/]");
 
-            // Disk usage
-            systemInfo.Add($"[yellow]Disk Free Space:[/] [green]{new Random().Next(1, 100)}%[/]");
+			// Disk usage
+			systemInfo.Add($"[yellow]Disk Free Space:[/] [green]{new Random().Next(1, 100)}%[/]");
 
-            return systemInfo;
-        }
-    }
+			return systemInfo;
+		}
+	}
 }
