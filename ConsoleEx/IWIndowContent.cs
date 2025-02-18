@@ -8,7 +8,7 @@
 
 namespace ConsoleEx
 {
-	public enum Justify
+	public enum Alignment
 	{
 		Left,
 		Center,
@@ -20,7 +20,7 @@ namespace ConsoleEx
 		public IContainer? Container { get; set; }
 		public int? Width { get; set; }
 		public int? ActualWidth { get; }
-		public Justify Justify { get; set; }
+		public Alignment Alignment { get; set; }
 
 		public void Invalidate();
 

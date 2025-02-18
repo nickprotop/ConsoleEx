@@ -55,13 +55,14 @@ namespace ConsoleEx
 			Container?.Invalidate();
 		}
 
-		private Justify _justify;
-		public Justify Justify
+		private Alignment _justify;
+
+		public Alignment Alignment
 		{ get => _justify; set { _justify = value; Container?.Invalidate(); } }
 
 		public string Guid { get; } = new Guid().ToString();
 
-		public FigletContent(string text, Color color, Justify justify, out string guid)
+		public FigletContent(string text, Color color, Alignment justify, out string guid)
 		{
 			guid = Guid;
 			_text = text;
@@ -70,7 +71,7 @@ namespace ConsoleEx
 			_renderedContent = new List<string>();
 		}
 
-		public FigletContent(string text, Color color, Justify justify)
+		public FigletContent(string text, Color color, Alignment justify)
 		{
 			_text = text;
 			_color = color;

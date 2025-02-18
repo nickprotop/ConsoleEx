@@ -104,7 +104,7 @@ namespace ConsoleEx
 				{
 					Text = "[red]Close[/] window",
 					Width = 25,
-					Justify = Justify.Center
+					Alignment = Alignment.Center
 				};
 				closeButton.OnClick += (sender) =>
 				{
@@ -115,7 +115,7 @@ namespace ConsoleEx
 				{
 					Text = "[yellow]Maximize[/] window",
 					Width = 25,
-					Justify = Justify.Center
+					Alignment = Alignment.Center
 				};
 				maximizeButton.OnClick += (sender) =>
 				{
@@ -160,7 +160,7 @@ namespace ConsoleEx
 			{
 				for (var i = 0; i < 30; i++)
 				{
-					window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }) { Justify = Justify.Center });
+					window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }) { Alignment = Alignment.Center });
 					Thread.Sleep(50);
 				}
 			});

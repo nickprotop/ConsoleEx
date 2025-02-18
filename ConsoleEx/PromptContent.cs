@@ -59,8 +59,9 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		_onEnter = onEnter;
 	}
 
-	private Justify _justify;
-	public Justify Justify
+	private Alignment _justify;
+
+	public Alignment Alignment
 	{ get => _justify; set { _justify = value; Container?.Invalidate(); } }
 
 	public PromptContent(string prompt)

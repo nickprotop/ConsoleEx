@@ -58,9 +58,9 @@ namespace ConsoleEx
 			}
 		}
 
-		private Justify _justify;
+		private Alignment _justify;
 
-		public Justify Justify
+		public Alignment Alignment
 		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent);

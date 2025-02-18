@@ -371,7 +371,7 @@ namespace ConsoleEx
 
 					int contentWidth = content.ActualWidth ?? Width - 2;
 					int paddingLeft = 0;
-					if (content.Justify == Justify.Center)
+					if (content.Alignment == Alignment.Center)
 					{
 						// make the left padding to round to the less nearing integer
 						paddingLeft = (Width - 2 - contentWidth) / 2;

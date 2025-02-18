@@ -18,9 +18,9 @@ namespace ConsoleEx
 		public int? Width
 		{ get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
 
-		private Justify _justify;
+		private Alignment _justify;
 
-		public Justify Justify
+		public Alignment Alignment
 		{ get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
 
 		public void Invalidate()
