@@ -14,14 +14,20 @@ namespace ConsoleEx
 	{
 		private static void Main(string[] args)
 		{
-			var system = new ConsoleWindowSystem
+			var consoleWindowSystem = new ConsoleWindowSystem
 			{
 				TopStatus = "TOP STATUS BAR",
 				BottomStatus = "BOTTOM STATUS BAR",
-				RenderMode = RenderMode.Direct
+				RenderMode = RenderMode.Direct,
+				Theme = new Theme()
+				{
+					DesktopBackroundChar = '.',
+					DesktopBackgroundColor = Color.Black,
+					DesktopForegroundColor = Color.Grey,
+				}
 			};
 
-			var window1 = new Window(system, new WindowOptions()
+			var window1 = new Window(consoleWindowSystem, new WindowOptions()
 			{
 				Title = "Window 1",
 				Left = 2,
@@ -42,10 +48,10 @@ namespace ConsoleEx
 				};
 			});
 
-			system.AddWindow(window1);
+			consoleWindowSystem.AddWindow(window1);
 
 			// Example of creating window with markup content and it's own thread and handling user prompt
-			var window2 = new Window(system, new WindowOptions()
+			var window2 = new Window(consoleWindowSystem, new WindowOptions()
 			{
 				Title = "System Info",
 				Left = 12,
@@ -65,10 +71,10 @@ namespace ConsoleEx
 				}
 			});
 
-			system.AddWindow(window2);
+			consoleWindowSystem.AddWindow(window2);
 
 			// Example of creating window with markup content and it's own thread and handling user prompt
-			var window3 = new Window(system, new WindowOptions()
+			var window3 = new Window(consoleWindowSystem, new WindowOptions()
 			{
 				Title = "User",
 				Left = 22,
@@ -93,12 +99,13 @@ namespace ConsoleEx
 				};
 				window.AddContent(namePrompt);
 
-				var agePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]age[/]: ", (sender, input) =>
-				{
-					ageInfo.SetContent(new List<string>() { $"[bold]Your age is {input}[/]" });
-				})
+				var agePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]age[/]: ")
 				{
 					DisableOnEnter = false
+				};
+				agePrompt.OnEnter += (s, e) =>
+				{
+					ageInfo.SetContent(new List<string>() { $"[bold]Your age is {e}[/]" });
 				};
 
 				var closeButton = new ButtonContent()
@@ -131,7 +138,7 @@ namespace ConsoleEx
 				window.AddContent(maximizeButton);
 			});
 
-			system.AddWindow(window3);
+			consoleWindowSystem.AddWindow(window3);
 
 			// Example of creating window with Figlet content and it's own thread
 			/*
@@ -166,9 +173,9 @@ namespace ConsoleEx
 				}
 			});
 
-			system.SetActiveWindow(window1);
+			consoleWindowSystem.SetActiveWindow(window1);
 
-			system.Run();
+			consoleWindowSystem.Run();
 		}
 
 		private static List<string> GetSystemInfo()

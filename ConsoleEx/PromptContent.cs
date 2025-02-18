@@ -13,8 +13,9 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	private string _prompt;
 	private string _input = string.Empty;
 	private int _cursorPosition = 0;
-	private List<string>? _cachedContent = new List<string>();
-	private Action<PromptContent, string>? _onEnter;
+	private List<string>? _cachedContent;
+	public Action<PromptContent, string>? OnEnter;
+	private Alignment _justify;
 
 	private int? _width;
 
@@ -28,6 +29,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		get
 		{
 			if (_cachedContent == null) return null;
+
 			int maxLength = 0;
 			foreach (var line in _cachedContent)
 			{
@@ -49,17 +51,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
 	public bool IsEnabled { get; set; } = true;
 
-	public IContainer? Container { get; set; }
-
-	public string Guid { get; } = System.Guid.NewGuid().ToString();
-
-	public PromptContent(string prompt, Action<PromptContent, string> onEnter)
-	{
-		_prompt = prompt;
-		_onEnter = onEnter;
-	}
-
-	private Alignment _justify;
+	public IContainer? Container { get; set; }	
 
 	public Alignment Alignment
 	{ get => _justify; set { _justify = value; Container?.Invalidate(); } }
@@ -71,14 +63,14 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
 	public void SetPrompt(string prompt)
 	{
-		_cachedContent = new List<string>();
+		_cachedContent = null;
 		_prompt = prompt;
 		Container?.Invalidate();
 	}
 
 	public void SetInput(string input)
 	{
-		_cachedContent = new List<string>();
+		_cachedContent = null;
 		_input = input;
 		Container?.Invalidate();
 		OnInputChange?.Invoke(this, _input);
@@ -86,6 +78,10 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
 	public List<string> RenderContent(int? width, int? height)
 	{
+		if (_cachedContent != null) return _cachedContent;
+
+		_cachedContent = new List<string>();
+
 		_cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, (_width ?? (width ?? 50)) - 1, height, true, Container?.BackgroundColor, Container?.ForegroundColor);
 		return _cachedContent;
 	}
@@ -94,7 +90,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	{
 		if (key.Key == ConsoleKey.Enter)
 		{
-			_onEnter?.Invoke(this, _input);
+			OnEnter?.Invoke(this, _input);
 			if (DisableOnEnter)
 			{
 				_cursorPosition = 0;
@@ -156,7 +152,8 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
 	public (int Left, int Top)? GetCursorPosition()
 	{
-		return (AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent.Last()) - _input.Length + _cursorPosition, _cachedContent.Count - 1);
+		if (_cachedContent == null) return null;
+		return (AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent?.LastOrDefault() ?? string.Empty) - _input.Length + _cursorPosition, (_cachedContent?.Count ?? 0) - 1);
 	}
 
 	public void Dispose()

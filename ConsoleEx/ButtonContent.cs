@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Spectre.Console;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -93,6 +94,33 @@ namespace ConsoleEx
 				return new List<string>() { _cachedContent };
 			}
 
+			Color backgroundColor = Container?.BackgroundColor ?? Color.Black;
+			Color foregroundColor = Container?.ForegroundColor ?? Color.White;
+
+			if (Container?.GetConsoleWindowSystem?.Theme != null)
+			{
+				if (_enabled == false)
+				{
+					foregroundColor = Container.GetConsoleWindowSystem.Theme.ButtonDisabledForegroundColor;
+					backgroundColor = Container.GetConsoleWindowSystem.Theme.ButtonDisabledBackgroundColor;
+				}
+				else
+				{
+					if (_focused)
+					{
+						{
+							foregroundColor = Container.GetConsoleWindowSystem.Theme.ButtonFocusedForegroundColor;
+							backgroundColor = Container.GetConsoleWindowSystem.Theme.ButtonFocusedBackgroundColor;
+						}
+					}
+					else
+					{
+						foregroundColor = Container.GetConsoleWindowSystem.Theme.ButtonForegroundColor;
+						backgroundColor = Container.GetConsoleWindowSystem.Theme.ButtonBackgroundColor;
+					}
+				}
+			}
+
 			int buttonWidth = _width ?? (width ?? 20); // Default width if not specified
 			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
 			int maxTextLength = buttonWidth - 4; // Account for brackets and padding
@@ -122,7 +150,7 @@ namespace ConsoleEx
 				finalButtonText = finalButtonText.Insert(2, new string(' ', buttonWidth - AnsiConsoleExtensions.StripSpectreLength(finalButtonText)));
 			}
 
-			List<string> renderedAnsi = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(finalButtonText, buttonWidth, height, false, Container?.BackgroundColor, Container?.ForegroundColor);
+			List<string> renderedAnsi = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(finalButtonText, buttonWidth, height, false, backgroundColor, foregroundColor);
 			_cachedContent = renderedAnsi.First();
 			return renderedAnsi;
 		}

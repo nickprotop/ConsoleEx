@@ -34,6 +34,8 @@ namespace ConsoleEx
 		public string TopStatus { get; set; } = "";
 		public string BottomStatus { get; set; } = "";
 
+		public Theme Theme { get; set; } = new Theme();
+
 		public ConsoleWindowSystem()
 		{
 			Console.OutputEncoding = Encoding.UTF8;
@@ -94,6 +96,8 @@ namespace ConsoleEx
 			_lastConsoleWidth = Console.WindowWidth;
 			_lastConsoleHeight = Console.WindowHeight;
 
+			FillRect(0, 0, Console.WindowWidth, Console.WindowHeight, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+
 			var inputThread = new Thread(InputLoop) { IsBackground = true };
 			inputThread.Start();
 
@@ -110,6 +114,10 @@ namespace ConsoleEx
 				}
 				Thread.Sleep(50);
 			}
+
+			Console.Clear();
+			Console.SetCursorPosition(0, 0);
+			Console.WriteLine("Console window system terminated.");
 
 			Console.CursorVisible = true;
 		}
@@ -221,7 +229,9 @@ namespace ConsoleEx
 						SetActiveWindow(_activeWindow);
 					}
 				}
-				Console.Clear();
+				//Console.Clear();
+
+				FillRect(0, 0, Console.WindowWidth, Console.WindowHeight, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 				_windows.ForEach(w => w.Invalidate());
 			}
 		}
@@ -309,7 +319,7 @@ namespace ConsoleEx
 						_lastConsoleWidth = Console.WindowWidth;
 						_lastConsoleHeight = Console.WindowHeight;
 
-						Console.Clear();
+						FillRect(0, 0, Console.WindowWidth, Console.WindowHeight, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 					}
 				}
 				Thread.Sleep(100);
@@ -318,13 +328,15 @@ namespace ConsoleEx
 
 		private void MoveOrResizeOperation(Window window)
 		{
+			FillRect(window.Left, window.Top, window.Width, window.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+
 			foreach (var w in _windows)
 			{
 				if (w != window && IsOverlapping(window, w))
 				{
 					w.Invalidate();
 				}
-				FillWindowBackground(window, false);
+
 				window.Invalidate();
 			}
 		}
@@ -353,25 +365,25 @@ namespace ConsoleEx
 							{
 								case ConsoleKey.UpArrow:
 									MoveOrResizeOperation(_activeWindow);
-									_activeWindow.Height = Math.Max(1, _activeWindow.Height - 1);
+									_activeWindow.SetSize(_activeWindow.Width, Math.Max(1, _activeWindow.Height - 1));
 									handled = true;
 									break;
 
 								case ConsoleKey.DownArrow:
 									MoveOrResizeOperation(_activeWindow);
-									_activeWindow.Height = Math.Min(desktopHeight - _activeWindow.Top, _activeWindow.Height + 1);
+									_activeWindow.SetSize(_activeWindow.Width, Math.Min(desktopHeight - _activeWindow.Top, _activeWindow.Height + 1));
 									handled = true;
 									break;
 
 								case ConsoleKey.LeftArrow:
 									MoveOrResizeOperation(_activeWindow);
-									_activeWindow.Width = Math.Max(1, _activeWindow.Width - 1);
+									_activeWindow.SetSize(Math.Max(1, _activeWindow.Width - 1), _activeWindow.Height);
 									handled = true;
 									break;
 
 								case ConsoleKey.RightArrow:
 									MoveOrResizeOperation(_activeWindow);
-									_activeWindow.Width = Math.Min(desktopWidth - _activeWindow.Left, _activeWindow.Width + 1);
+									_activeWindow.SetSize(Math.Min(desktopRight - _activeWindow.Left, _activeWindow.Width + 1), _activeWindow.Height);
 									handled = true;
 									break;
 							}
@@ -434,14 +446,14 @@ namespace ConsoleEx
 			}
 		}
 
-		private void FillWindowBackground(Window window, bool useWindowBackground)
+		private void FillRect(int left, int top, int width, int height, char character, Color? backgroundColor, Color? foregroundColor)
 		{
-			// Fill the entire area of the window, including borders, with background
-			for (var y = 0; y < window.Height; y++)
+			for (var y = 0; y < height; y++)
 			{
-				if (window.Top + y > DesktopDimensions.Height) break;
-				WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}", Math.Min(window.Width, Console.WindowWidth - window.Left), 1, false, useWindowBackground ? window.BackgroundColor : null, null)[0]);
-				//WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ParseAnsiTags($"{new string(' ', Math.Min(window.Width, Console.WindowWidth - window.Left))}", Math.Min(window.Width, Console.WindowWidth - window.Left), false, useWindowBackground ? window.BackgroundColor : null)[0]);
+				if (top + y > DesktopDimensions.Height) break;
+
+				WriteToConsole(left, top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{new string(character, Math.Min(width, Console.WindowWidth - left))}", Math.Min(width, Console.WindowWidth - left), 1, false, backgroundColor, foregroundColor)[0]);
+
 			}
 		}
 
@@ -474,7 +486,7 @@ namespace ConsoleEx
 				}
 
 				// Fill the window area with background
-				FillWindowBackground(window, true);
+				FillRect(window.Left, window.Top, window.Width, window.Height, ' ', window.BackgroundColor, null);
 
 				// Define border characters
 				var horizontalBorder = window.GetIsActive() ? '═' : '─';
@@ -485,8 +497,8 @@ namespace ConsoleEx
 				var bottomRightCorner = window.GetIsActive() ? '╝' : '┘';
 
 				// Define border color
-				var borderColor = window.GetIsActive() ? "[green]" : "[grey]";
-				var titleColor = window.GetIsActive() ? "[green]" : "[grey]";
+				var borderColor = window.GetIsActive() ? $"[{Theme.ActiveBorderColor}]" : $"[{Theme.InactiveBorderColor}]";
+				var titleColor = window.GetIsActive() ? $"[{Theme.ActiveTitleColor}]" : $"[{Theme.InactiveTitleColor}]";
 				var resetColor = "[/]";
 
 				// Draw top border with title
@@ -512,12 +524,12 @@ namespace ConsoleEx
 					// Draw scrollbar if IsScrollable is true
 					if (window.Left + window.Width - 1 < desktopRight)
 					{
-						var scrollbarChar = verticalBorder;
+						var scrollbarChar = '░';
 						var contentHeight = window.TotalLines;
 						var visibleHeight = window.Height - 2;
 
 						if (window.IsScrollable && contentHeight > visibleHeight)
-						{							
+						{
 							if (window.Height > 2)
 							{
 								var scrollPosition = (float)window.ScrollOffset / Math.Max(1, contentHeight - visibleHeight);
@@ -528,10 +540,10 @@ namespace ConsoleEx
 								}
 							}
 						}
+						else scrollbarChar = verticalBorder;
 
 						WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{scrollbarChar}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 					}
-
 				}
 
 				// Draw bottom border
@@ -539,7 +551,7 @@ namespace ConsoleEx
 				WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + window.Height - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 
 				// Render the window content
-				var lines = window.GetWindowContent();
+				var lines = window.GetVisibleContent();
 				if (window.IsDirty)
 				{
 					window.IsDirty = false;
@@ -562,7 +574,6 @@ namespace ConsoleEx
 			}
 		}
 
-
 		private void UpdateDisplay()
 		{
 			lock (_renderLock)
@@ -571,7 +582,7 @@ namespace ConsoleEx
 				var topRow = TopStatus;
 				var effectiveLength = AnsiConsoleExtensions.StripSpectreLength(topRow);
 				var paddedTopRow = topRow.PadRight(Console.WindowWidth + (topRow.Length - effectiveLength));
-				WriteToConsole(0, 0, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[black on white]{paddedTopRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
+				WriteToConsole(0, 0, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", Console.WindowWidth, 1, false, Theme.TopBarBackgroundColor, null)[0]);
 
 				lock (_windows)
 				{
@@ -631,9 +642,9 @@ namespace ConsoleEx
 				string bottomRow = $"{string.Join(" | ", _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {w.Title}"))} | {BottomStatus}";
 
 				//add padding to the bottom row
-				bottomRow += new string(' ', Console.WindowWidth - AnsiConsoleExtensions.StripSpectreLength(bottomRow) - 1);
+				bottomRow += new string(' ', Console.WindowWidth - AnsiConsoleExtensions.StripSpectreLength(bottomRow));
 
-				WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{bottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
+				WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[{Theme.BottomBarForegroundColor}]{bottomRow}[/]", Console.WindowWidth, 1, false, Theme.BottomBarBackgroundColor, null)[0]);
 
 				if (RenderMode == RenderMode.Buffer)
 				{

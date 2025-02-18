@@ -19,8 +19,9 @@ namespace ConsoleEx
         public int Height { get; set; }
         public bool IsResizable { get; set; } = true;
         public bool IsMoveable { get; set; } = true;
-        public Color BackgroundColor { get; set; } = Color.Black;
-        public Color ForegroundColor { get; set; } = Color.White;
+        public bool IsScrollable { get; set; } = true;
+		public Color? BackgroundColor { get; set; }
+        public Color? ForegroundColor { get; set; }
         public WindowState WindowState { get; set; } = WindowState.Normal;
     }
 }

@@ -64,8 +64,8 @@ namespace ConsoleEx
 		public bool IsMovable { get; set; } = true;
 		public bool IsScrollable { get; set; } = true;
 		public int ScrollOffset => _scrollOffset;
-		public Color BackgroundColor { get; set; } = Color.Black;
-		public Color ForegroundColor { get; set; } = Color.White;
+		public Color BackgroundColor { get; set; }
+		public Color ForegroundColor { get; set; }
 		public int TotalLines => _renderedContent.Count;
 
 		public bool GetIsActive()
@@ -78,6 +78,8 @@ namespace ConsoleEx
 			ActivationChanged?.Invoke(this, value);
 			_isActive = value;
 		}
+
+		public ConsoleWindowSystem? GetConsoleWindowSystem => _windowSystem;
 
 		protected virtual void OnStateChanged(WindowState newState)
 		{
@@ -93,8 +95,9 @@ namespace ConsoleEx
 			Height = windowOptions.Height;
 			IsResizable = windowOptions.IsResizable;
 			IsMovable = windowOptions.IsMoveable;
-			BackgroundColor = windowOptions.BackgroundColor;
-			ForegroundColor = windowOptions.ForegroundColor;
+			BackgroundColor = windowOptions.BackgroundColor ?? (_windowSystem?.Theme.WindowBackgroundColor ?? Color.Black);
+			ForegroundColor = windowOptions.ForegroundColor ?? (_windowSystem?.Theme.WindowForegroundColor ?? Color.White);
+			IsScrollable = windowOptions.IsScrollable;
 			_state = windowOptions.WindowState;
 		}
 
@@ -109,6 +112,9 @@ namespace ConsoleEx
 		public Window(ConsoleWindowSystem windowSystem)
 		{
 			_windowSystem = windowSystem;
+
+			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
+			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
 		}
 
 		public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegate windowThreadMethod)
@@ -168,6 +174,19 @@ namespace ConsoleEx
 			}
 		}
 
+		public void SetSize(int width, int height)
+		{
+			Width = width;
+			Height = height;
+			
+			if (_scrollOffset > (_renderedContent?.Count ?? Height) - (Height - 2))
+			{
+				GoToBottom();
+			}
+
+			Invalidate();
+		}
+
 		public void Restore()
 		{
 		}
@@ -215,10 +234,21 @@ namespace ConsoleEx
 					}
 					RenderWindowContent();
 					content.Dispose();
-					_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
-					IsDirty = true;
+					GoToBottom();
 				}
 			}
+		}
+
+		public void GoToBottom()
+		{
+			_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
+			Invalidate();
+		}
+
+		public void GoToTop()
+		{
+			_scrollOffset = 0;
+			Invalidate();
 		}
 
 		public void AddContent(IWIndowContent content)
@@ -238,8 +268,7 @@ namespace ConsoleEx
 					}
 				}
 				RenderWindowContent();
-				_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
-				IsDirty = true;
+				GoToBottom();
 			}
 		}
 
@@ -335,7 +364,7 @@ namespace ConsoleEx
 			return false;
 		}
 
-		public List<string> GetWindowContent()
+		public List<string> GetVisibleContent()
 		{
 			if (_invalidated)
 			{
@@ -401,9 +430,14 @@ namespace ConsoleEx
 					return false;
 				}
 
+				int left = currentCursorPosition?.Item1 ?? 0;
+				int top = currentCursorPosition?.Item2 ?? 0;
+
 				if (activeInteractiveContent != null && activeInteractiveContent is IWIndowContent)
 				{
-					cursorPosition = (_contentLeftIndex[activeInteractiveContent as IWIndowContent] + (int)currentCursorPosition?.Item1 + 1, _contentTopRowIndex[activeInteractiveContent as IWIndowContent] + (int)currentCursorPosition?.Item2 + 1 - _scrollOffset);
+					IWIndowContent? content = activeInteractiveContent as IWIndowContent;
+
+					cursorPosition = (_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
 					return true;
 				}
 			}

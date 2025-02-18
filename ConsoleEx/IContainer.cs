@@ -13,7 +13,8 @@ namespace ConsoleEx
         public Color ForegroundColor { get; set; }
 
         public void Invalidate();
+        public ConsoleWindowSystem? GetConsoleWindowSystem { get; }
 
-        public bool IsDirty { get; set; }
+		public bool IsDirty { get; set; }
     }
 }
