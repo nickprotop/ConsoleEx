@@ -515,7 +515,7 @@ namespace ConsoleEx
 
                 // Draw top border with title
                 var title = $"{titleColor}| {window.Title} |{resetColor}";
-                var titleLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(title);
+                var titleLength = AnsiConsoleExtensions.StripSpectreLength(title);
                 var availableSpace = window.Width - 2 - titleLength;
                 var leftPadding = 1;
                 var rightPadding = availableSpace - leftPadding;
@@ -552,7 +552,7 @@ namespace ConsoleEx
 
                     // Truncate the line if it exceeds the console's width
                     var maxWidth = Math.Min(window.Width - 2, desktopRight - window.Left - 2);
-                    if (AnsiConsoleExtensions.GetStrippedStringLength(line) > maxWidth)
+                    if (AnsiConsoleExtensions.StripAnsiStringLength(line) > maxWidth)
                     {
                         line = AnsiConsoleExtensions.TruncateAnsiString(line, maxWidth);
                     }
@@ -568,7 +568,7 @@ namespace ConsoleEx
             {
                 // Calculate the effective length of the bottom row without markup
                 var topRow = TopStatus;
-                var effectiveLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(topRow);
+                var effectiveLength = AnsiConsoleExtensions.StripSpectreLength(topRow);
                 var paddedTopRow = topRow.PadRight(Console.WindowWidth + (topRow.Length - effectiveLength));
                 WriteToConsole(0, 0, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[black on white]{paddedTopRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
 
@@ -629,7 +629,7 @@ namespace ConsoleEx
                 // Display the list of window titles in the bottom row
                 string bottomRow = $"{string.Join(" | ", _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {w.Title}"))} | {BottomStatus}";
 
-                var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth - AnsiConsoleExtensions.RemoveSpectreMarkupLength(bottomRow) - 1);
+                var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth - AnsiConsoleExtensions.StripSpectreLength(bottomRow) - 1);
 
                 WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
 

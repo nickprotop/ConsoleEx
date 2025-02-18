@@ -18,7 +18,7 @@ namespace ConsoleEx
 
         private int? _width;
 
-		public int? RenderedWidth
+		public int? ActualWidth
         {
             get
             {
@@ -26,7 +26,7 @@ namespace ConsoleEx
                 int maxLength = 0;
                 foreach (var line in _renderedContent)
                 {
-                    int length = AnsiConsoleExtensions.GetStrippedStringLength(line);
+                    int length = AnsiConsoleExtensions.StripAnsiStringLength(line);
                     if (length > maxLength) maxLength = length;
                 }
                 return maxLength;

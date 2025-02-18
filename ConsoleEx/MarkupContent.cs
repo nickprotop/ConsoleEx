@@ -21,7 +21,7 @@ namespace ConsoleEx
         private Justify _justify;
         public Justify Justify { get => _justify; set { _justify = value; Container?.Invalidate(); } }
 
-		public int? RenderedWidth
+		public int? ActualWidth
 		{
 			get
 			{
@@ -29,7 +29,7 @@ namespace ConsoleEx
 				int maxLength = 0;
 				foreach (var line in _renderedContent)
 				{
-					int length = AnsiConsoleExtensions.GetStrippedStringLength(line);
+					int length = AnsiConsoleExtensions.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
 				}
 				return maxLength;

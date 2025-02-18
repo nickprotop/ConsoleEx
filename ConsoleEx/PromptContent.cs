@@ -18,7 +18,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
     private int? _width;
 
-	public int? RenderedWidth
+	public int? ActualWidth
 	{
 		get
 		{
@@ -26,7 +26,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			int maxLength = 0;
 			foreach (var line in _cachedContent)
 			{
-				int length = AnsiConsoleExtensions.GetStrippedStringLength(line);
+				int length = AnsiConsoleExtensions.StripAnsiStringLength(line);
 				if (length > maxLength) maxLength = length;
 			}
 			return maxLength;
@@ -149,7 +149,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
     public (int Left, int Top)? GetCursorPosition()
     {
-        return (AnsiConsoleExtensions.GetStrippedStringLength(_cachedContent.Last()) - _input.Length + _cursorPosition, _cachedContent.Count - 1);
+        return (AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent.Last()) - _input.Length + _cursorPosition, _cachedContent.Count - 1);
     }
 
     public void Dispose()

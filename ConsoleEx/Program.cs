@@ -103,8 +103,9 @@ namespace ConsoleEx
                 var closeButton = new ButtonContent()
                 {
                     Text = "[red]Close[/] window",
-                    Width = 25
-                };
+                    Width = 25,
+					Justify = Justify.Center
+				};
                 closeButton.OnClick += (sender) =>
                 {
                     window.Close();
@@ -113,8 +114,9 @@ namespace ConsoleEx
                 var maximizeButton = new ButtonContent()
                 {
                     Text = "[yellow]Maximize[/] window",
-                    Width = 25
-                };
+                    Width = 25,
+					Justify = Justify.Center
+				};
                 maximizeButton.OnClick += (sender) =>
                 {
                     window.State = WindowState.Maximized;
@@ -131,6 +133,7 @@ namespace ConsoleEx
             system.AddWindow(window3);
 
             // Example of creating window with Figlet content and it's own thread
+            /*
             system.CreateWindow(new WindowOptions()
             {
                 Title = "Clock",
@@ -150,6 +153,7 @@ namespace ConsoleEx
                     Thread.Sleep(1000);
                 }
             });
+            */
 
             // Example of writing to a window from another thread
             Task.Run(() =>

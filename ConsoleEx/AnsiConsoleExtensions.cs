@@ -15,12 +15,12 @@ namespace ConsoleEx
 {
     public static class AnsiConsoleExtensions
     {
-        public static int RemoveSpectreMarkupLength(string text)
+        public static int StripSpectreLength(string text)
         {
             return Markup.Remove(text).Length;
         }
 
-        public static int GetStrippedStringLength(string input)
+        public static int StripAnsiStringLength(string input)
         {
             if (string.IsNullOrEmpty(input))
                 return 0;

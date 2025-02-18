@@ -56,7 +56,7 @@ namespace ConsoleEx
 		private Justify _justify;
 		public Justify Justify { get => _justify; set { _justify = value; Container?.Invalidate(); } }
 
-		public int? RenderedWidth => _cachedContent == null ? null : AnsiConsoleExtensions.GetStrippedStringLength(_cachedContent);
+		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent);
 
 		public void Dispose()
         {
@@ -88,14 +88,14 @@ namespace ConsoleEx
 
             int buttonWidth = _width ?? (width ?? 20); // Default width if not specified
             string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
-            int padding = (buttonWidth - AnsiConsoleExtensions.RemoveSpectreMarkupLength(text) - 2) / 2; // Calculate padding for centering text
+            int padding = (buttonWidth - AnsiConsoleExtensions.StripSpectreLength(text) - 2) / 2;
 
             if (padding < 0) padding = 0; // Ensure padding is not negative
 
             string buttonText = $"{new string(' ', padding)}{text}{new string(' ', padding)}";
 
             // Adjust if the total length is less than the button width
-            if (AnsiConsoleExtensions.RemoveSpectreMarkupLength(buttonText) > buttonWidth)
+            if (AnsiConsoleExtensions.StripSpectreLength(buttonText) > buttonWidth)
             {
                 buttonText = buttonText.PadRight(buttonWidth - 1);
             }

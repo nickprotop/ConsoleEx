@@ -19,7 +19,7 @@ namespace ConsoleEx
     {
         public IContainer? Container { get; set; }
         public int? Width { get; set; }
-        public int? RenderedWidth { get; }
+        public int? ActualWidth { get; }
 		public Justify Justify { get; set; }
 
 		public List<string> RenderContent(int? width, int? height);

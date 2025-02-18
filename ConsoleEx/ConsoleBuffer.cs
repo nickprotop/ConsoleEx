@@ -57,7 +57,7 @@ namespace ConsoleEx
 
             if (content.EndsWith("\u001b[0m")) content = content.Substring(0, content.Length - 4);
 
-            for (int i = x; i < x + AnsiConsoleExtensions.GetStrippedStringLength(content); i++)
+            for (int i = x; i < x + AnsiConsoleExtensions.StripAnsiStringLength(content); i++)
             {
                 _backBuffer[i, y].AnsiEscape = string.Empty;
                 _backBuffer[i, y].IsDirty = true;
