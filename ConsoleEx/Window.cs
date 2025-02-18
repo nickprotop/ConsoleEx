@@ -183,6 +183,10 @@ namespace ConsoleEx
 		public void Invalidate()
 		{
 			_invalidated = true;
+			foreach (var content in _content)
+			{
+				(content as IWIndowContent)?.Invalidate();
+			}
 			IsDirty = true;
 		}
 

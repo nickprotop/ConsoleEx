@@ -23,6 +23,11 @@ namespace ConsoleEx
 		public Justify Justify
 		{ get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
 
+		public void Invalidate()
+		{
+			_renderedContent = null;
+		}
+
 		public int? ActualWidth
 		{
 			get
@@ -64,10 +69,10 @@ namespace ConsoleEx
 			foreach (var line in _content)
 			{
 				var ansiLines = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(line, _width ?? (width ?? 50), height, _wrap, Container?.BackgroundColor, Container?.ForegroundColor);
-				_renderedContent.AddRange(ansiLines);
+				_renderedContent?.AddRange(ansiLines);
 			}
 
-			return _renderedContent;
+			return _renderedContent ?? new List<string>();
 		}
 
 		public void Dispose()

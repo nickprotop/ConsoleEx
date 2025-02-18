@@ -8,7 +8,7 @@
 
 namespace ConsoleEx
 {
-    public enum Justify
+	public enum Justify
 	{
 		Left,
 		Center,
@@ -16,12 +16,14 @@ namespace ConsoleEx
 	}
 
 	public interface IWIndowContent : IDisposable
-    {
-        public IContainer? Container { get; set; }
-        public int? Width { get; set; }
-        public int? ActualWidth { get; }
+	{
+		public IContainer? Container { get; set; }
+		public int? Width { get; set; }
+		public int? ActualWidth { get; }
 		public Justify Justify { get; set; }
 
+		public void Invalidate();
+
 		public List<string> RenderContent(int? width, int? height);
-    }
+	}
 }

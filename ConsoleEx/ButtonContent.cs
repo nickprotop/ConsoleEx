@@ -32,6 +32,11 @@ namespace ConsoleEx
 			}
 		}
 
+		public void Invalidate()
+		{
+			_cachedContent = null;
+		}
+
 		public bool HasFocus
 		{
 			get => _focused;
