@@ -131,7 +131,6 @@ namespace ConsoleEx
             system.AddWindow(window3);
 
             // Example of creating window with Figlet content and it's own thread
-            /*
             system.CreateWindow(new WindowOptions()
             {
                 Title = "Clock",
@@ -142,7 +141,7 @@ namespace ConsoleEx
             },
             (window) =>
             {
-                FigletContent figletContent = new FigletContent($"{DateTime.Now:HH:mm:ss}", Color.Red, Justify.Left);
+                FigletContent figletContent = new FigletContent($"{DateTime.Now:HH:mm:ss}", Color.Red, Justify.Center);
                 window.AddContent(figletContent);
 
                 while (true)
@@ -151,14 +150,13 @@ namespace ConsoleEx
                     Thread.Sleep(1000);
                 }
             });
-            */
 
             // Example of writing to a window from another thread
             Task.Run(() =>
             {
                 for (var i = 0; i < 30; i++)
                 {
-                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread\nMessage [blue]{i}[/] from thread" }));
+                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }) { Justify = Justify.Center });
                     Thread.Sleep(50);
                 }
             });

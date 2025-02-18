@@ -53,7 +53,12 @@ namespace ConsoleEx
             }
         }
 
-        public void Dispose()
+		private Justify _justify;
+		public Justify Justify { get => _justify; set { _justify = value; Container?.Invalidate(); } }
+
+		public int? RenderedWidth => _cachedContent == null ? null : AnsiConsoleExtensions.GetStrippedStringLength(_cachedContent);
+
+		public void Dispose()
         {
             Container = null;
         }

@@ -18,7 +18,22 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
     private int? _width;
 
-    public int? Width
+	public int? RenderedWidth
+	{
+		get
+		{
+			if (_cachedContent == null) return null;
+			int maxLength = 0;
+			foreach (var line in _cachedContent)
+			{
+				int length = AnsiConsoleExtensions.GetStrippedStringLength(line);
+				if (length > maxLength) maxLength = length;
+			}
+			return maxLength;
+		}
+	}
+
+	public int? Width
     { get => _width; set { _width = value; Container?.Invalidate(); } }
 
     public bool HasFocus { get; set; }
@@ -39,7 +54,10 @@ public class PromptContent : IWIndowContent, IInteractiveContent
         _onEnter = onEnter;
     }
 
-    public PromptContent(string prompt)
+	private Justify _justify;
+	public Justify Justify { get => _justify; set { _justify = value; Container?.Invalidate(); } }
+
+	public PromptContent(string prompt)
     {
         _prompt = prompt;
     }

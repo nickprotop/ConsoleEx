@@ -14,12 +14,26 @@ namespace ConsoleEx
     {
         private string? _text;
         private Color? _color;
-        private Justify? _justify;
         private List<string> _renderedContent;
 
         private int? _width;
 
-        public int? Width
+		public int? RenderedWidth
+        {
+            get
+            {
+                if (_renderedContent == null) return null;
+                int maxLength = 0;
+                foreach (var line in _renderedContent)
+                {
+                    int length = AnsiConsoleExtensions.GetStrippedStringLength(line);
+                    if (length > maxLength) maxLength = length;
+                }
+                return maxLength;
+            }
+        }
+
+		public int? Width
         { get => _width; set { _width = value; Container?.Invalidate(); } }
 
         public IContainer? Container { get; set; }
@@ -36,13 +50,10 @@ namespace ConsoleEx
             Container?.Invalidate();
         }
 
-        public void SetJustify(Justify justify)
-        {
-            _justify = justify;
-            Container?.Invalidate();
-        }
+		private Justify _justify;
+		public Justify Justify { get => _justify; set { _justify = value; Container?.Invalidate(); } }
 
-        public string Guid { get; } = new Guid().ToString();
+		public string Guid { get; } = new Guid().ToString();
 
         public FigletContent(string text, Color color, Justify justify, out string guid)
         {
@@ -68,8 +79,7 @@ namespace ConsoleEx
             _renderedContent = AnsiConsoleExtensions.ConvertSpectreRenderableToAnsi(
                 new FigletText(_text ?? string.Empty)
                 {
-                    Color = _color ?? Color.White,
-                    Justification = _justify ?? Justify.Left
+                    Color = _color ?? Color.White
                 }, _width ?? (width ?? 50), height, false);
 
             return _renderedContent;

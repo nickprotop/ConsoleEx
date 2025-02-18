@@ -18,7 +18,25 @@ namespace ConsoleEx
         public int? Width
         { get => _width; set { _width = value; Container?.Invalidate(); } }
 
-        public bool Wrap
+        private Justify _justify;
+        public Justify Justify { get => _justify; set { _justify = value; Container?.Invalidate(); } }
+
+		public int? RenderedWidth
+		{
+			get
+			{
+				if (_renderedContent == null) return null;
+				int maxLength = 0;
+				foreach (var line in _renderedContent)
+				{
+					int length = AnsiConsoleExtensions.GetStrippedStringLength(line);
+					if (length > maxLength) maxLength = length;
+				}
+				return maxLength;
+			}
+		}
+
+		public bool Wrap
         { get => _wrap; set { _wrap = value; Container?.Invalidate(); } }
 
         public IContainer? Container { get; set; }
@@ -28,8 +46,6 @@ namespace ConsoleEx
             _content = lines;
             Container?.Invalidate();
         }
-
-        public string Guid { get; } = new Guid().ToString();
 
         public MarkupContent(List<string> lines)
         {

@@ -359,15 +359,31 @@ namespace ConsoleEx
 
                 foreach (var content in _content)
                 {
-                    // Store the top row index for the current content
-                    _contentTopRowIndex[content] = linesCount;
+                    int contentWidth = content.RenderedWidth ?? Width - 2;
+
+                    int paddingLeft = 0;
+
+					if (content.Justify == Justify.Center)
+                    {
+						paddingLeft = (Width - contentWidth) / 2;
+						if (paddingLeft < 0) paddingLeft = 0;
+					}
+
+					// Store the top row index for the current content
+					_contentTopRowIndex[content] = linesCount;
 
                     // Store the left index for the current content
                     _contentLeftIndex[content] = 0;
 
                     var ansiLines = content.RenderContent(Width - 2, Height - 2);
 
-                    lines.AddRange(ansiLines);
+                    for(int i = 0; i < ansiLines.Count; i++)
+					{
+						var line = ansiLines[i];
+						ansiLines[i] = $"{AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(new string(' ', paddingLeft), paddingLeft, 1, false, BackgroundColor, null).FirstOrDefault()}{line}";
+					}
+
+					lines.AddRange(ansiLines);
 
                     linesCount = lines.Count - _scrollOffset;
                 }
