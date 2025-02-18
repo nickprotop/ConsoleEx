@@ -154,11 +154,6 @@ namespace ConsoleEx
             {
                 result[i] = result[i].Replace("\r", "");
                 result[i] = result[i].Replace("\n", "");
-
-                //if (result[i].EndsWith("\u001b[0m"))
-                //{
-                //    result[i] = result[i].Substring(0, result[i].Length - 4);
-                //}
             }
 
             return overflow ? result : new List<string> { result[0] };

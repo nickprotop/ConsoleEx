@@ -158,7 +158,7 @@ namespace ConsoleEx
             {
                 for (var i = 0; i < 30; i++)
                 {
-                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }));
+                    window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread\nMessage [blue]{i}[/] from thread" }));
                     Thread.Sleep(50);
                 }
             });

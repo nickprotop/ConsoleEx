@@ -627,15 +627,11 @@ namespace ConsoleEx
                 }
 
                 // Display the list of window titles in the bottom row
-                var windowTitles = _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {w.Title}");
-                var bottomRow = string.Join(" | ", windowTitles);
-                bottomRow += $" | {BottomStatus}";
+                string bottomRow = $"{string.Join(" | ", _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {w.Title}"))} | {BottomStatus}";
 
-                // Calculate the effective length of the bottom row without markup
-                effectiveLength = AnsiConsoleExtensions.RemoveSpectreMarkupLength(bottomRow);
-                var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth + (bottomRow.Length - effectiveLength));
+                var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth - AnsiConsoleExtensions.RemoveSpectreMarkupLength(bottomRow) - 1);
 
-                //WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
+                WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
 
                 if (RenderMode == RenderMode.Buffer)
                 {
