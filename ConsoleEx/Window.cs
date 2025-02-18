@@ -38,18 +38,13 @@ namespace ConsoleEx
 
 		// Window Thread Delegates
 		public delegate Task WindowThreadDelegateAsync(Window window);
-
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
-
 		public delegate void WindowThreadDelegate(Window window);
-
 		private WindowThreadDelegate? _windowThreadMethod;
 
 		// Events
 		public event EventHandler<bool>? ActivationChanged;
-
 		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
-
 		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
 
 		public int OriginalWidth { get; set; }
@@ -67,8 +62,11 @@ namespace ConsoleEx
 		public int ZIndex { get; set; }
 		public bool IsResizable { get; set; } = true;
 		public bool IsMovable { get; set; } = true;
+		public bool IsScrollable { get; set; } = true;
+		public int ScrollOffset => _scrollOffset;
 		public Color BackgroundColor { get; set; } = Color.Black;
 		public Color ForegroundColor { get; set; } = Color.White;
+		public int TotalLines => _renderedContent.Count;
 
 		public bool GetIsActive()
 		{

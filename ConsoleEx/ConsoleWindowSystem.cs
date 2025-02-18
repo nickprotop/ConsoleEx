@@ -16,8 +16,7 @@ namespace ConsoleEx
 	public enum RenderMode
 	{
 		Direct,
-		Buffer,
-		VirtualConsole
+		Buffer
 	}
 
 	public class ConsoleWindowSystem
@@ -30,8 +29,6 @@ namespace ConsoleEx
 		private int _lastConsoleHeight;
 		private ConsoleBuffer _buffer;
 		private object _renderLock = new object();
-		private IAnsiConsole? _virtualConsole;
-		private StringWriter _virtualWriter = new StringWriter();
 
 		public RenderMode RenderMode { get; set; } = RenderMode.Buffer;
 		public string TopStatus { get; set; } = "";
@@ -41,12 +38,6 @@ namespace ConsoleEx
 		{
 			Console.OutputEncoding = Encoding.UTF8;
 			_buffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
-			CreateVirtualConsole();
-		}
-
-		private void CreateVirtualConsole()
-		{
-			_virtualConsole = AnsiConsoleExtensions.CreateCaptureConsole(_virtualWriter, Console.WindowWidth, Console.WindowHeight);
 		}
 
 		private void WriteToConsole(int x, int y, string value)
@@ -61,22 +52,7 @@ namespace ConsoleEx
 				case RenderMode.Buffer:
 					_buffer.AddContent(x, y, value);
 					break;
-
-				case RenderMode.VirtualConsole:
-					_virtualConsole?.Cursor.SetPosition(x, y);
-					_virtualConsole?.MarkupInterpolated($"{value}");
-					break;
 			}
-		}
-
-		private void FlushVirtualConsole()
-		{
-			Console.Write(_virtualWriter.ToString());
-
-			_virtualWriter.Dispose();
-			_virtualWriter = new StringWriter();
-
-			_virtualConsole.Profile.Out = new AnsiConsoleOutput(_virtualWriter);
 		}
 
 		public Window AddWindow(Window window)
@@ -201,7 +177,7 @@ namespace ConsoleEx
 					absoluteTop >= 0 && absoluteTop < Console.WindowHeight &&
 					// Check if the cursor position is within the active window's boundaries
 					absoluteLeft + 1 >= _activeWindow.Left && absoluteLeft + 1 < _activeWindow.Left + _activeWindow.Width &&
-					absoluteTop + 1 >= _activeWindow.Top && absoluteTop + 1 < _activeWindow.Top + _activeWindow.Height)
+					absoluteTop > _activeWindow.Top + 1 && absoluteTop < _activeWindow.Top + _activeWindow.Height)
 				{
 					Console.CursorVisible = true;
 					Console.SetCursorPosition(absoluteLeft, absoluteTop);
@@ -522,7 +498,7 @@ namespace ConsoleEx
 
 				WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 
-				// Draw sides
+				// Draw sides and scrollbar
 				for (var y = 1; y < window.Height - 1; y++)
 				{
 					if (window.Top + DesktopUpperLeft.Top + y - 1 >= desktopBottom) break; // Stop rendering if it reaches the bottom of the console
@@ -532,6 +508,30 @@ namespace ConsoleEx
 					{
 						WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 					}
+
+					// Draw scrollbar if IsScrollable is true
+					if (window.Left + window.Width - 1 < desktopRight)
+					{
+						var scrollbarChar = verticalBorder;
+						var contentHeight = window.TotalLines;
+						var visibleHeight = window.Height - 2;
+
+						if (window.IsScrollable && contentHeight > visibleHeight)
+						{							
+							if (window.Height > 2)
+							{
+								var scrollPosition = (float)window.ScrollOffset / Math.Max(1, contentHeight - visibleHeight);
+								var scrollbarPosition = (int)(scrollPosition * (visibleHeight - 1));
+								if (y - 1 == scrollbarPosition)
+								{
+									scrollbarChar = '█';
+								}
+							}
+						}
+
+						WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Top + y, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"{borderColor}{scrollbarChar}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
+					}
+
 				}
 
 				// Draw bottom border
@@ -561,6 +561,7 @@ namespace ConsoleEx
 				}
 			}
 		}
+
 
 		private void UpdateDisplay()
 		{
@@ -629,18 +630,14 @@ namespace ConsoleEx
 				// Display the list of window titles in the bottom row
 				string bottomRow = $"{string.Join(" | ", _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {w.Title}"))} | {BottomStatus}";
 
-				var paddedBottomRow = bottomRow.PadRight(Console.WindowWidth - AnsiConsoleExtensions.StripSpectreLength(bottomRow) - 1);
+				//add padding to the bottom row
+				bottomRow += new string(' ', Console.WindowWidth - AnsiConsoleExtensions.StripSpectreLength(bottomRow) - 1);
 
-				WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{paddedBottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
+				WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi($"[white on blue]{bottomRow}[/]", Console.WindowWidth, 1, false, null, null)[0]);
 
 				if (RenderMode == RenderMode.Buffer)
 				{
 					_buffer.Render();
-				}
-
-				if (RenderMode == RenderMode.VirtualConsole)
-				{
-					FlushVirtualConsole();
 				}
 			}
 		}

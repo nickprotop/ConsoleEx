@@ -17,7 +17,8 @@ namespace ConsoleEx
 			var system = new ConsoleWindowSystem
 			{
 				TopStatus = "TOP STATUS BAR",
-				BottomStatus = "BOTTOM STATUS BAR"
+				BottomStatus = "BOTTOM STATUS BAR",
+				RenderMode = RenderMode.Direct
 			};
 
 			var window1 = new Window(system, new WindowOptions()
