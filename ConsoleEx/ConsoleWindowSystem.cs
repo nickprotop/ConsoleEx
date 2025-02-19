@@ -129,63 +129,6 @@ namespace ConsoleEx
 			}
 		}
 
-		public Window CreateWindow(string title, WindowOptions options)
-		{
-			var window = new Window(this, options);
-
-			AddWindow(window);
-			_activeWindow = window;
-			return window;
-		}
-
-		public Window CreateWindow(string title, WindowOptions options, IWIndowContent content)
-		{
-			var window = new Window(this, options);
-
-			window.AddContent(content);
-			AddWindow(window);
-			_activeWindow = window;
-			return window;
-		}
-
-		public Window CreateWindow(WindowOptions options, WindowThreadDelegateAsync windowThreadMethod)
-		{
-			var window = new Window(this, options, windowThreadMethod);
-
-			AddWindow(window);
-			_activeWindow = window;
-			return window;
-		}
-
-		public Window CreateWindow(WindowOptions options, IWIndowContent content, WindowThreadDelegateAsync windowThreadMethod)
-		{
-			var window = new Window(this, options, windowThreadMethod);
-
-			window.AddContent(content);
-			AddWindow(window);
-			_activeWindow = window;
-			return window;
-		}
-
-		public Window CreateWindow(WindowOptions options, WindowThreadDelegate windowThreadMethod)
-		{
-			var window = new Window(this, options, windowThreadMethod);
-
-			AddWindow(window);
-			_activeWindow = window;
-			return window;
-		}
-
-		public Window CreateWindow(WindowOptions options, IWIndowContent content, WindowThreadDelegate windowThreadMethod)
-		{
-			var window = new Window(this, options, windowThreadMethod);
-
-			window.AddContent(content);
-			AddWindow(window);
-			_activeWindow = window;
-			return window;
-		}
-
 		public void Run()
 		{
 			_running = true;
@@ -494,7 +437,7 @@ namespace ConsoleEx
 				var leftPadding = 1;
 				var rightPadding = availableSpace - leftPadding;
 
-				var topBorderWidth = Math.Min(window.Width, desktopRight - window.Left);
+				var topBorderWidth = Math.Min(window.Width, desktopRight - window.Left + 1);
 				WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", topBorderWidth, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 
 				// Draw sides and scrollbar

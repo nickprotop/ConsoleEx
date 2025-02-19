@@ -46,10 +46,13 @@ namespace ConsoleEx
 
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 
-		public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegateAsync windowThreadMethod)
+		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod)
 		{
 			_windowSystem = windowSystem;
-			ApplyWindowOptions(options);
+
+			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
+			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
+
 			_windowThreadMethodAsync = windowThreadMethod;
 			_windowTask = Task.Run(() => _windowThreadMethodAsync(this));
 		}
@@ -62,19 +65,16 @@ namespace ConsoleEx
 			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
 		}
 
-		public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegate windowThreadMethod)
+		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegate windowThreadMethod)
 		{
 			_windowSystem = windowSystem;
-			ApplyWindowOptions(options);
+
+			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
+			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
+
 			_windowThreadMethod = windowThreadMethod;
 			_windowThread = new Thread(() => _windowThreadMethod(this));
 			_windowThread.Start();
-		}
-
-		public Window(ConsoleWindowSystem windowSystem, WindowOptions options)
-		{
-			_windowSystem = windowSystem;
-			ApplyWindowOptions(options);
 		}
 
 		public delegate void WindowThreadDelegate(Window window);
@@ -400,21 +400,6 @@ namespace ConsoleEx
 		protected virtual void OnStateChanged(WindowState newState)
 		{
 			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
-		}
-
-		private void ApplyWindowOptions(WindowOptions windowOptions)
-		{
-			Title = windowOptions.Title;
-			Top = windowOptions.Top;
-			Left = windowOptions.Left;
-			Width = windowOptions.Width;
-			Height = windowOptions.Height;
-			IsResizable = windowOptions.IsResizable;
-			IsMovable = windowOptions.IsMoveable;
-			BackgroundColor = windowOptions.BackgroundColor ?? (_windowSystem?.Theme.WindowBackgroundColor ?? Color.Black);
-			ForegroundColor = windowOptions.ForegroundColor ?? (_windowSystem?.Theme.WindowForegroundColor ?? Color.White);
-			IsScrollable = windowOptions.IsScrollable;
-			_state = windowOptions.WindowState;
 		}
 
 		private void RenderWindowContent()

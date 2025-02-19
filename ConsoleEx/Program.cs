@@ -45,16 +45,7 @@ namespace ConsoleEx
 				}
 			};
 
-			var window1 = new Window(consoleWindowSystem, new WindowOptions()
-			{
-				Title = "Window 1",
-				Left = 2,
-				Top = 2,
-				Width = 40,
-				Height = 10,
-				BackgroundColor = Color.White,
-				ForegroundColor = Color.Black
-			},
+			var window1 = new Window(consoleWindowSystem,
 			(window) =>
 			{
 				window.KeyPressed += (sender, e) =>
@@ -64,19 +55,21 @@ namespace ConsoleEx
 						window.Close();
 					}
 				};
-			});
+			})
+			{
+				Title = "Window 1",
+				Left = 2,
+				Top = 2,
+				Width = 40,
+				Height = 10,
+				BackgroundColor = Color.White,
+				ForegroundColor = Color.Black
+			};
 
 			consoleWindowSystem.AddWindow(window1);
 
 			// Example of creating window with markup content and it's own thread and handling user prompt
-			var window2 = new Window(consoleWindowSystem, new WindowOptions()
-			{
-				Title = "System Info",
-				Left = 12,
-				Top = 4,
-				Width = 40,
-				Height = 10
-			},
+			var window2 = new Window(consoleWindowSystem,
 			(window) =>
 			{
 				MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo());
@@ -87,20 +80,19 @@ namespace ConsoleEx
 					systemInfoContent.SetContent(GetSystemInfo());
 					Thread.Sleep(2000);
 				}
-			});
+			})
+			{
+				Title = "System Info",
+				Left = 12,
+				Top = 4,
+				Width = 40,
+				Height = 10
+			};
 
 			consoleWindowSystem.AddWindow(window2);
 
 			// Example of creating window with markup content and it's own thread and handling user prompt
-			var window3 = new Window(consoleWindowSystem, new WindowOptions()
-			{
-				Title = "User",
-				Left = 22,
-				Top = 6,
-				Width = 40,
-				Height = 10,
-				IsResizable = true
-			},
+			var window3 = new Window(consoleWindowSystem,
 			(window) =>
 			{
 				window.AddContent(new MarkupContent(new List<string>() { "User Info", " " }));
@@ -156,21 +148,20 @@ namespace ConsoleEx
 				window.AddContent(new MarkupContent(new List<string>() { " " }));
 				window.AddContent(closeButton);
 				window.AddContent(maximizeButton);
-			});
+			})
+			{
+				Title = "User",
+				Left = 22,
+				Top = 6,
+				Width = 40,
+				Height = 10,
+				IsResizable = true
+			};
 
 			consoleWindowSystem.AddWindow(window3);
 
 			// Example of creating window with Figlet content and it's own thread
-			consoleWindowSystem.CreateWindow(new WindowOptions()
-			{
-				Title = "Clock",
-				Left = Console.WindowWidth - 60,
-				Top = 1,
-				Width = 70,
-				Height = 10,
-				BackgroundColor = Color.Black
-			},
-			(window) =>
+			consoleWindowSystem.AddWindow(new Window(consoleWindowSystem, (window) =>
 			{
 				FigletContent figletContent = new FigletContent()
 				{
@@ -185,6 +176,14 @@ namespace ConsoleEx
 					figletContent.SetText($"{DateTime.Now:HH:mm:ss}");
 					Thread.Sleep(1000);
 				}
+			})
+			{
+				Title = "Clock",
+				Left = Console.WindowWidth - 60,
+				Top = 1,
+				Width = 70,
+				Height = 10,
+				BackgroundColor = Color.Black
 			});
 
 			// Example of writing to a window from another thread
