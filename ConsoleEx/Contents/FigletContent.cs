@@ -6,9 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using ConsoleEx.Helpers;
 using Spectre.Console;
 
-namespace ConsoleEx
+namespace ConsoleEx.Contents
 {
 	public class FigletContent : IWIndowContent
 	{
@@ -26,7 +27,7 @@ namespace ConsoleEx
 				int maxLength = 0;
 				foreach (var line in _renderedContent)
 				{
-					int length = AnsiConsoleExtensions.StripAnsiStringLength(line);
+					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
 				}
 				return maxLength;
@@ -36,7 +37,13 @@ namespace ConsoleEx
 		public Alignment Alignment
 		{ get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
 
+		public Color? Color
+		{ get => _color; set { _color = value; _renderedContent = null; Container?.Invalidate(); } }
+
 		public IContainer? Container { get; set; }
+
+		public string? Text
+		{ get => _text; set { _text = value; _renderedContent = null; Container?.Invalidate(); } }
 
 		public int? Width
 		{ get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
@@ -57,11 +64,29 @@ namespace ConsoleEx
 
 			_renderedContent = new List<string>();
 
-			_renderedContent = AnsiConsoleExtensions.ConvertSpectreRenderableToAnsi(
+			_renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(
 				new FigletText(_text ?? string.Empty)
 				{
-					Color = _color ?? Color.White
-				}, _width ?? (availableWidth ?? 50), availableHeight, false);
+					Color = _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White,
+				}, _width ?? availableWidth ?? 50, availableHeight, false);
+
+			int maxContentWidth = 0;
+			foreach (var line in _renderedContent)
+			{
+				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
+				if (length > maxContentWidth) maxContentWidth = length;
+			}
+
+			int paddingLeft = 0;
+			if (Alignment == Alignment.Center)
+			{
+				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
+			}
+
+			for (int i = 0; i < _renderedContent.Count; i++)
+			{
+				_renderedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + _renderedContent[i];
+			}
 
 			return _renderedContent;
 		}

@@ -1,4 +1,5 @@
-﻿using Spectre.Console;
+﻿using ConsoleEx.Contents;
+using Spectre.Console;
 
 namespace ConsoleEx
 {
@@ -437,19 +438,11 @@ namespace ConsoleEx
 
 					var ansiLines = content.RenderContent(Width - 2, Height - 2);
 
-					int contentWidth = content.ActualWidth ?? Width - 2;
-					int paddingLeft = 0;
-					if (content.Alignment == Alignment.Center)
-					{
-						// make the left padding to round to the less nearing integer
-						paddingLeft = (Width - 2 - contentWidth) / 2;
-						if (paddingLeft < 0) paddingLeft = 0;
-					}
-
 					for (int i = 0; i < ansiLines.Count; i++)
 					{
 						var line = ansiLines[i];
-						ansiLines[i] = $"{AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(new string(' ', paddingLeft), paddingLeft, 1, false, BackgroundColor, null).FirstOrDefault()}{line}";
+						//ansiLines[i] = $"{AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(new string(' ', paddingLeft), paddingLeft, 1, false, BackgroundColor, null).FirstOrDefault()}{line}";
+						ansiLines[i] = $"{line}";
 					}
 
 					lines.AddRange(ansiLines);

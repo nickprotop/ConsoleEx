@@ -1,6 +1,6 @@
 using Spectre.Console;
 
-namespace ConsoleEx
+namespace ConsoleEx.Themes
 {
 	public class Theme
 	{

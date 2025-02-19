@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 using ConsoleEx;
+using ConsoleEx.Contents;
+using ConsoleEx.Helpers;
 
 public class PromptContent : IWIndowContent, IInteractiveContent
 {
@@ -27,7 +29,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			int maxLength = 0;
 			foreach (var line in _cachedContent)
 			{
-				int length = AnsiConsoleExtensions.StripAnsiStringLength(line);
+				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 				if (length > maxLength) maxLength = length;
 			}
 			return maxLength;
@@ -61,7 +63,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	public (int Left, int Top)? GetCursorPosition()
 	{
 		if (_cachedContent == null) return null;
-		return (AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent?.LastOrDefault() ?? string.Empty) - _input.Length + _cursorPosition, (_cachedContent?.Count ?? 0) - 1);
+		return (AnsiConsoleHelper.StripAnsiStringLength(_cachedContent?.LastOrDefault() ?? string.Empty) - _input.Length + _cursorPosition, (_cachedContent?.Count ?? 0) - 1);
 	}
 
 	public void Invalidate()
@@ -139,7 +141,20 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
 		_cachedContent = new List<string>();
 
-		_cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
+		int maxContentWidth = _width ?? (AnsiConsoleHelper.StripSpectreLength(_prompt + _input));
+		int paddingLeft = 0;
+		if (Alignment == Alignment.Center)
+		{
+			paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
+		}
+
+		_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(_prompt + _input, (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
+
+		for (int i = 0; i < _cachedContent.Count; i++)
+		{
+			_cachedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + _cachedContent[i];
+		}
+
 		return _cachedContent;
 	}
 

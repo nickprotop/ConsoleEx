@@ -6,7 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using ConsoleEx.Contents;
 using Spectre.Console;
+using ConsoleEx.Themes;
 
 namespace ConsoleEx
 {
@@ -159,27 +161,31 @@ namespace ConsoleEx
 			consoleWindowSystem.AddWindow(window3);
 
 			// Example of creating window with Figlet content and it's own thread
-			/*
-            system.CreateWindow(new WindowOptions()
-            {
-                Title = "Clock",
-                Left = Console.WindowWidth - 60,
-                Top = 1,
-                Width = 60,
-                Height = 10
-            },
-            (window) =>
-            {
-                FigletContent figletContent = new FigletContent($"{DateTime.Now:HH:mm:ss}", Color.Red, Justify.Center);
-                window.AddContent(figletContent);
+			consoleWindowSystem.CreateWindow(new WindowOptions()
+			{
+				Title = "Clock",
+				Left = Console.WindowWidth - 60,
+				Top = 1,
+				Width = 70,
+				Height = 10,
+				BackgroundColor = Color.Black
+			},
+			(window) =>
+			{
+				FigletContent figletContent = new FigletContent()
+				{
+					Text = $"{DateTime.Now:HH:mm:ss}",
+					Alignment = Alignment.Center,
+					Color = Color.Green
+				};
+				window.AddContent(figletContent);
 
-                while (true)
-                {
-                    figletContent.SetText($"{DateTime.Now:HH:mm:ss}");
-                    Thread.Sleep(1000);
-                }
-            });
-            */
+				while (true)
+				{
+					figletContent.SetText($"{DateTime.Now:HH:mm:ss}");
+					Thread.Sleep(1000);
+				}
+			});
 
 			// Example of writing to a window from another thread
 			Task.Run(() =>

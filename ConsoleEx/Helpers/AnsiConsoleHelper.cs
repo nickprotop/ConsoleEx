@@ -13,7 +13,7 @@ using System.Text.RegularExpressions;
 
 namespace ConsoleEx
 {
-	public static class AnsiConsoleExtensions
+	public static class AnsiConsoleHelper
 	{
 		private static readonly Regex TruncateAnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
 
@@ -66,12 +66,12 @@ namespace ConsoleEx
 			{
 				if (backgroundColor != null)
 				{
-					var renderedMarkup = new Markup(overflow ? markup : markup, new Style(background: backgroundColor));
+					var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor));
 					console.Write(renderedMarkup);
 				}
 				else
 				{
-					var renderedMarkup = new Markup(overflow ? markup : markup);
+					var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, width ?? 80));
 					console.Write(renderedMarkup);
 				}
 			}
@@ -79,12 +79,12 @@ namespace ConsoleEx
 			{
 				if (backgroundColor != null)
 				{
-					var renderedMarkup = new Markup(overflow ? markup : markup, new Style(background: backgroundColor, foreground: foregroundColor));
+					var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor, foreground: foregroundColor));
 					console.Write(renderedMarkup);
 				}
 				else
 				{
-					var renderedMarkup = new Markup(overflow ? markup : markup, new Style(foreground: foregroundColor));
+					var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, width ?? 80), new Style(foreground: foregroundColor));
 					console.Write(renderedMarkup);
 				}
 			}

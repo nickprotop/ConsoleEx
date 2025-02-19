@@ -6,7 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-namespace ConsoleEx
+using ConsoleEx.Helpers;
+
+namespace ConsoleEx.Contents
 {
 	public class MarkupContent : IWIndowContent
 	{
@@ -29,7 +31,7 @@ namespace ConsoleEx
 				int maxLength = 0;
 				foreach (var line in _renderedContent)
 				{
-					int length = AnsiConsoleExtensions.StripAnsiStringLength(line);
+					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
 				}
 				return maxLength;
@@ -63,10 +65,28 @@ namespace ConsoleEx
 
 			_renderedContent = new List<string>();
 
+			int maxContentWidth = 0;
 			foreach (var line in _content)
 			{
-				var ansiLines = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(line, _width ?? (availableWidth ?? 50), availableHeight, _wrap, Container?.BackgroundColor, Container?.ForegroundColor);
+				int length = AnsiConsoleHelper.StripSpectreLength(line);
+				if (length > maxContentWidth) maxContentWidth = length;
+			}
+
+			int paddingLeft = 0;
+			if (Alignment == Alignment.Center)
+			{
+				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
+			}
+
+			foreach (var line in _content)
+			{
+				var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{line}", _width ?? availableWidth ?? 50, availableHeight, _wrap, Container?.BackgroundColor, Container?.ForegroundColor);
 				_renderedContent?.AddRange(ansiLines);
+			}
+
+			for (int i = 0; i < _renderedContent?.Count; i++)
+			{
+				_renderedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + _renderedContent[i];
 			}
 
 			return _renderedContent ?? new List<string>();

@@ -1,6 +1,7 @@
-﻿using Spectre.Console;
+﻿using ConsoleEx.Helpers;
+using Spectre.Console;
 
-namespace ConsoleEx
+namespace ConsoleEx.Contents
 {
 	public class ButtonContent : IWIndowContent, IInteractiveContent
 	{
@@ -10,7 +11,7 @@ namespace ConsoleEx
 		private Alignment _justify = Alignment.Left;
 		private string _text = "Button";
 		private int? _width;
-		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent);
+		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleHelper.StripAnsiStringLength(_cachedContent);
 
 		public Alignment Alignment
 		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
@@ -114,22 +115,22 @@ namespace ConsoleEx
 				}
 			}
 
-			int buttonWidth = _width ?? (availableWidth ?? 20); // Default width if not specified
+			int buttonWidth = _width ?? availableWidth ?? 20; // Default width if not specified
 			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
 			int maxTextLength = buttonWidth - 4; // Account for brackets and padding
 
-			if (AnsiConsoleExtensions.StripSpectreLength(text) > maxTextLength)
+			if (AnsiConsoleHelper.StripSpectreLength(text) > maxTextLength)
 			{
 				text = text.Substring(0, maxTextLength - 3) + "...";
 			}
 
-			int padding = (buttonWidth - AnsiConsoleExtensions.StripSpectreLength(text) - 2) / 2;
+			int padding = (buttonWidth - AnsiConsoleHelper.StripSpectreLength(text) - 2) / 2;
 			if (padding < 0) padding = 0; // Ensure padding is not negative
 
 			string buttonText = $"{new string(' ', padding)}{text}{new string(' ', padding)}";
 
 			// Ensure the buttonText fits within the buttonWidth
-			if (AnsiConsoleExtensions.StripSpectreLength(buttonText) < buttonWidth - 2)
+			if (AnsiConsoleHelper.StripSpectreLength(buttonText) < buttonWidth - 2)
 			{
 				buttonText = buttonText.PadRight(buttonWidth - 2);
 			}
@@ -138,12 +139,26 @@ namespace ConsoleEx
 			string finalButtonText = $"[[{buttonText}]]";
 
 			// Check if finalButtonText is of the desired width
-			if (AnsiConsoleExtensions.StripSpectreLength(finalButtonText) != buttonWidth)
+			if (AnsiConsoleHelper.StripSpectreLength(finalButtonText) != buttonWidth)
 			{
-				finalButtonText = finalButtonText.Insert(2, new string(' ', buttonWidth - AnsiConsoleExtensions.StripSpectreLength(finalButtonText)));
+				finalButtonText = finalButtonText.Insert(2, new string(' ', buttonWidth - AnsiConsoleHelper.StripSpectreLength(finalButtonText)));
 			}
 
-			List<string> renderedAnsi = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(finalButtonText, buttonWidth, availableHeight, false, backgroundColor, foregroundColor);
+			int maxContentWidth = _width ?? availableWidth ?? 80;
+
+			int paddingLeft = 0;
+			if (Alignment == Alignment.Center)
+			{
+				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
+			}
+
+			List<string> renderedAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{finalButtonText}", buttonWidth, availableHeight, false, backgroundColor, foregroundColor);
+
+			for (int i = 0; i < renderedAnsi.Count; i++)
+			{
+				renderedAnsi[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + renderedAnsi[i];
+			}
+
 			_cachedContent = renderedAnsi.First();
 			return renderedAnsi;
 		}

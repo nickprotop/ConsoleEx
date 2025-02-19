@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-namespace ConsoleEx
+namespace ConsoleEx.Contents
 {
 	public interface IInteractiveContent
 	{
