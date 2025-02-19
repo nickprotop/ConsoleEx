@@ -68,7 +68,7 @@ namespace ConsoleEx.Contents
 				new FigletText(_text ?? string.Empty)
 				{
 					Color = _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White,
-				}, _width ?? availableWidth ?? 50, availableHeight, false);
+				}, _width ?? availableWidth ?? 50, availableHeight);
 
 			int maxContentWidth = 0;
 			foreach (var line in _renderedContent)

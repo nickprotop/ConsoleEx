@@ -100,23 +100,20 @@ namespace ConsoleEx
 			return overflow ? result : new List<string> { result[0] };
 		}
 
-		public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height, bool overflow)
+		public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height)
 		{
 			if (renderable == null) return new List<string>();
 
 			var writer = new StringWriter();
-			var console = CreateCaptureConsole(writer, overflow ? width : null, overflow ? height : null);
+			var console = CreateCaptureConsole(writer, width, height);
 
-			if (overflow)
+			if (width.HasValue)
 			{
-				if (width.HasValue)
-				{
-					console.Profile.Width = width.Value;
-				}
-				if (height.HasValue)
-				{
-					console.Profile.Height = height.Value;
-				}
+				console.Profile.Width = width.Value;
+			}
+			if (height.HasValue)
+			{
+				console.Profile.Height = height.Value;
 			}
 
 			console.Write(renderable);

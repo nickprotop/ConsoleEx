@@ -146,6 +146,16 @@ namespace ConsoleEx
 				window.AddContent(new MarkupContent(new List<string>() { " " }));
 				window.AddContent(ageInfo);
 				window.AddContent(new MarkupContent(new List<string>() { " " }));
+
+				window.AddContent(new RuleContent()
+				{
+					Color = Color.Yellow,
+					Title = "[cyan]Actions[/]",
+					TitleAlignment = Justify.Left,
+					Width = 40,
+					Alignment = Alignment.Center
+				});
+
 				window.AddContent(closeButton);
 				window.AddContent(maximizeButton);
 			})
@@ -179,7 +189,7 @@ namespace ConsoleEx
 			})
 			{
 				Title = "Clock",
-				Left = Console.WindowWidth - 60,
+				Left = Console.WindowWidth - 70,
 				Top = 1,
 				Width = 70,
 				Height = 10,
