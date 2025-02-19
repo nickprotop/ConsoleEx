@@ -61,9 +61,7 @@ namespace ConsoleEx
 				Left = 2,
 				Top = 2,
 				Width = 40,
-				Height = 10,
-				BackgroundColor = Color.White,
-				ForegroundColor = Color.Black
+				Height = 10
 			};
 
 			consoleWindowSystem.AddWindow(window1);

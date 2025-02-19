@@ -27,6 +27,8 @@ namespace ConsoleEx
 		private readonly List<IInteractiveContent> _interactiveContents = new();
 		private readonly object _lock = new();
 
+		private int _bottomStickyHeight;
+
 		// List to store interactive contents
 		private List<string> _cachedContent = new();
 
@@ -337,7 +339,7 @@ namespace ConsoleEx
 				{
 					List<string> lines = new List<string>();
 
-					foreach (var content in _content)
+					foreach (var content in _content.Where(c => c.StickyPosition != StickyPosition.Bottom))
 					{
 						// Store the top row index for the current content
 						_contentTopRowIndex[content] = lines.Count;
@@ -356,11 +358,41 @@ namespace ConsoleEx
 						lines.AddRange(ansiLines);
 					}
 
+					_bottomStickyHeight = 0;
+					List<string> bottomStickyLines = new List<string>();
+
+					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Bottom))
+					{
+						// Store the top row index for the current content
+						_contentTopRowIndex[content] = lines.Count + bottomStickyLines.Count;
+
+						// Store the left index for the current content
+						_contentLeftIndex[content] = 0;
+
+						var ansiLines = content.RenderContent(Width - 2, Height - 2);
+
+						for (int i = 0; i < ansiLines.Count; i++)
+						{
+							var line = ansiLines[i];
+							ansiLines[i] = $"{line}";
+						}
+						bottomStickyLines.AddRange(ansiLines);
+
+						_bottomStickyHeight += ansiLines.Count;
+					}
+
+					lines.AddRange(bottomStickyLines);
+
 					_cachedContent = lines;
 					_invalidated = false;
 				}
 
 				List<string> visibleContent = _cachedContent.Skip(_scrollOffset).Take(Height - 2).ToList();
+
+				if (visibleContent.Count < Height - 2)
+				{
+					visibleContent.AddRange(Enumerable.Repeat(string.Empty, Height - 2 - visibleContent.Count));
+				}
 
 				return visibleContent;
 			}
