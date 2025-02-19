@@ -11,107 +11,39 @@ namespace ConsoleEx
 
 	public class KeyPressedEventArgs : EventArgs
 	{
-		public ConsoleKeyInfo KeyInfo { get; }
-		public bool Handled { get; set; }
-
 		public KeyPressedEventArgs(ConsoleKeyInfo keyInfo)
 		{
 			KeyInfo = keyInfo;
 		}
-	}
 
-	public class WindowStateChangedEventArgs : EventArgs
-	{
-		public WindowState NewState { get; }
-
-		public WindowStateChangedEventArgs(WindowState newState)
-		{
-			NewState = newState;
-		}
+		public bool Handled { get; set; }
+		public ConsoleKeyInfo KeyInfo { get; }
 	}
 
 	public class Window : IContainer
 	{
-		private readonly object _lock = new();
 		private readonly List<IWIndowContent> _content = new();
-		private readonly List<IInteractiveContent> _interactiveContents = new(); // List to store interactive contents
-		private List<string> _renderedContent = new();
-		private int _scrollOffset;
-		private bool _invalidated = false;
-		private Task? _windowTask;
-		private Thread? _windowThread;
-		private ConsoleWindowSystem? _windowSystem;
-		private bool _isActive;
-		private WindowState _state;
-
-		private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
+		private readonly List<IInteractiveContent> _interactiveContents = new();
+		private readonly object _lock = new();
 		private Dictionary<IWIndowContent, int> _contentLeftIndex = new();
 
-		// Window Thread Delegates
-		public delegate Task WindowThreadDelegateAsync(Window window);
-		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
-		public delegate void WindowThreadDelegate(Window window);
+		private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
+
+		private bool _invalidated = false;
+
+		private bool _isActive;
+
+		// List to store interactive contents
+		private List<string> _renderedContent = new();
+
+		private int _scrollOffset;
+		private WindowState _state;
+		private ConsoleWindowSystem? _windowSystem;
+		private Task? _windowTask;
+		private Thread? _windowThread;
 		private WindowThreadDelegate? _windowThreadMethod;
 
-		// Events
-		public event EventHandler<bool>? ActivationChanged;
-		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
-		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
-
-		public int OriginalWidth { get; set; }
-		public int OriginalHeight { get; set; }
-		public int OriginalLeft { get; set; }
-		public int OriginalTop { get; set; }
-
-		public string Title { get; set; } = "Window";
-		public int Left { get; set; }
-		public int Top { get; set; }
-		public int Width { get; set; } = 40;
-		public int Height { get; set; } = 20;
-		public bool IsContentVisible { get; set; } = true;
-		public bool IsDirty { get; set; } = true;
-		public int ZIndex { get; set; }
-		public bool IsResizable { get; set; } = true;
-		public bool IsMovable { get; set; } = true;
-		public bool IsScrollable { get; set; } = true;
-		public bool IsClosable { get; set; } = true;
-		public int ScrollOffset => _scrollOffset;
-		public Color BackgroundColor { get; set; }
-		public Color ForegroundColor { get; set; }
-		public int TotalLines => _renderedContent.Count;
-
-		public bool GetIsActive()
-		{
-			return _isActive;
-		}
-
-		public void SetIsActive(bool value)
-		{
-			ActivationChanged?.Invoke(this, value);
-			_isActive = value;
-		}
-
-		public ConsoleWindowSystem? GetConsoleWindowSystem => _windowSystem;
-
-		protected virtual void OnStateChanged(WindowState newState)
-		{
-			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
-		}
-
-		private void ApplyWindowOptions(WindowOptions windowOptions)
-		{
-			Title = windowOptions.Title;
-			Top = windowOptions.Top;
-			Left = windowOptions.Left;
-			Width = windowOptions.Width;
-			Height = windowOptions.Height;
-			IsResizable = windowOptions.IsResizable;
-			IsMovable = windowOptions.IsMoveable;
-			BackgroundColor = windowOptions.BackgroundColor ?? (_windowSystem?.Theme.WindowBackgroundColor ?? Color.Black);
-			ForegroundColor = windowOptions.ForegroundColor ?? (_windowSystem?.Theme.WindowForegroundColor ?? Color.White);
-			IsScrollable = windowOptions.IsScrollable;
-			_state = windowOptions.WindowState;
-		}
+		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 
 		public Window(ConsoleWindowSystem windowSystem, WindowOptions options, WindowThreadDelegateAsync windowThreadMethod)
 		{
@@ -137,6 +69,41 @@ namespace ConsoleEx
 			_windowThread = new Thread(() => _windowThreadMethod(this));
 			_windowThread.Start();
 		}
+
+		public Window(ConsoleWindowSystem windowSystem, WindowOptions options)
+		{
+			_windowSystem = windowSystem;
+			ApplyWindowOptions(options);
+		}
+
+		public delegate void WindowThreadDelegate(Window window);
+
+		// Window Thread Delegates
+		public delegate Task WindowThreadDelegateAsync(Window window);
+
+		// Events
+		public event EventHandler<bool>? ActivationChanged;
+
+		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
+
+		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
+
+		public Color BackgroundColor { get; set; }
+		public Color ForegroundColor { get; set; }
+		public ConsoleWindowSystem? GetConsoleWindowSystem => _windowSystem;
+		public int Height { get; set; } = 20;
+		public bool IsClosable { get; set; } = true;
+		public bool IsContentVisible { get; set; } = true;
+		public bool IsDirty { get; set; } = true;
+		public bool IsMovable { get; set; } = true;
+		public bool IsResizable { get; set; } = true;
+		public bool IsScrollable { get; set; } = true;
+		public int Left { get; set; }
+		public int OriginalHeight { get; set; }
+		public int OriginalLeft { get; set; }
+		public int OriginalTop { get; set; }
+		public int OriginalWidth { get; set; }
+		public int ScrollOffset => _scrollOffset;
 
 		public WindowState State
 		{
@@ -186,85 +153,11 @@ namespace ConsoleEx
 			}
 		}
 
-		public void SetSize(int width, int height)
-		{
-			Width = width;
-			Height = height;
-
-			if (_scrollOffset > (_renderedContent?.Count ?? Height) - (Height - 2))
-			{
-				GoToBottom();
-			}
-
-			Invalidate();
-		}
-
-		public void Restore()
-		{
-		}
-
-		public Window(ConsoleWindowSystem windowSystem, WindowOptions options)
-		{
-			_windowSystem = windowSystem;
-			ApplyWindowOptions(options);
-		}
-
-		public void Invalidate()
-		{
-			_invalidated = true;
-			foreach (var content in _content)
-			{
-				(content as IWIndowContent)?.Invalidate();
-			}
-			IsDirty = true;
-		}
-
-		public void Close()
-		{
-			if (IsClosable)
-			{
-				foreach (var content in _content)
-				{
-					(content as IWIndowContent).Dispose();
-				}
-
-				_windowSystem?.CloseWindow(this);
-			}
-		}
-
-		public void RemoveContent(IWIndowContent content)
-		{
-			lock (_lock)
-			{
-				if (_content.Remove(content))
-				{
-					if (content is IInteractiveContent interactiveContent)
-					{
-						_interactiveContents.Remove(interactiveContent);
-						// If the removed content had focus, switch focus to the next one
-						if (interactiveContent.HasFocus && _interactiveContents.Count > 0)
-						{
-							_interactiveContents[0].HasFocus = true;
-						}
-					}
-					RenderWindowContent();
-					content.Dispose();
-					GoToBottom();
-				}
-			}
-		}
-
-		public void GoToBottom()
-		{
-			_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
-			Invalidate();
-		}
-
-		public void GoToTop()
-		{
-			_scrollOffset = 0;
-			Invalidate();
-		}
+		public string Title { get; set; } = "Window";
+		public int Top { get; set; }
+		public int TotalLines => _renderedContent.Count;
+		public int Width { get; set; } = 40;
+		public int ZIndex { get; set; }
 
 		public void AddContent(IWIndowContent content)
 		{
@@ -287,36 +180,89 @@ namespace ConsoleEx
 			}
 		}
 
-		public void SwitchFocus()
+		public void Close()
 		{
-			lock (_lock)
+			if (IsClosable)
 			{
-				if (_interactiveContents.Count == 0) return;
-
-				// Find the currently focused content
-				var currentIndex = _interactiveContents.FindIndex(ic => ic.HasFocus);
-
-				// Remove focus from the current content
-				if (currentIndex != -1)
+				foreach (var content in _content)
 				{
-					_interactiveContents[currentIndex].HasFocus = false;
+					(content as IWIndowContent).Dispose();
 				}
 
-				// Calculate the next index
-				var nextIndex = (currentIndex + 1) % _interactiveContents.Count;
-
-				// Set focus to the next content
-				_interactiveContents[nextIndex].HasFocus = true;
-
-				// Invalidate the window to update the display
-				Invalidate();
+				_windowSystem?.CloseWindow(this);
 			}
+		}
+
+		public bool GetIsActive()
+		{
+			return _isActive;
+		}
+
+		public List<string> GetVisibleContent()
+		{
+			if (_invalidated)
+			{
+				RenderWindowContent();
+				_invalidated = false;
+			}
+
+			return _renderedContent?.Skip(_scrollOffset)?.Take(Height - 2)?.ToList() ?? new List<string>();
+		}
+
+		public void GoToBottom()
+		{
+			_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
+			Invalidate();
+		}
+
+		public void GoToTop()
+		{
+			_scrollOffset = 0;
+			Invalidate();
 		}
 
 		public bool HasActiveInteractiveContent(out IInteractiveContent? interactiveContent)
 		{
 			interactiveContent = _interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
 			return interactiveContent != null;
+		}
+
+		public bool HasInteractiveContent(out (int Left, int Top) cursorPosition)
+		{
+			if (HasActiveInteractiveContent(out var activeInteractiveContent))
+			{
+				(int, int)? currentCursorPosition = activeInteractiveContent!.GetCursorPosition();
+
+				if (currentCursorPosition == null)
+				{
+					cursorPosition = (0, 0);
+					return false;
+				}
+
+				int left = currentCursorPosition?.Item1 ?? 0;
+				int top = currentCursorPosition?.Item2 ?? 0;
+
+				if (activeInteractiveContent != null && activeInteractiveContent is IWIndowContent)
+				{
+					IWIndowContent? content = activeInteractiveContent as IWIndowContent;
+
+					cursorPosition = (_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
+					return true;
+				}
+			}
+
+			cursorPosition = (0, 0);
+			return false;
+		}
+
+		public void Invalidate()
+		{
+			_invalidated = true;
+			foreach (var content in _content)
+			{
+				(content as IWIndowContent)?.Invalidate();
+			}
+			IsDirty = true;
 		}
 
 		public bool ProcessInput(ConsoleKeyInfo key)
@@ -366,6 +312,77 @@ namespace ConsoleEx
 			}
 		}
 
+		public void RemoveContent(IWIndowContent content)
+		{
+			lock (_lock)
+			{
+				if (_content.Remove(content))
+				{
+					if (content is IInteractiveContent interactiveContent)
+					{
+						_interactiveContents.Remove(interactiveContent);
+						// If the removed content had focus, switch focus to the next one
+						if (interactiveContent.HasFocus && _interactiveContents.Count > 0)
+						{
+							_interactiveContents[0].HasFocus = true;
+						}
+					}
+					RenderWindowContent();
+					content.Dispose();
+					GoToBottom();
+				}
+			}
+		}
+
+		public void Restore()
+		{
+		}
+
+		public void SetIsActive(bool value)
+		{
+			ActivationChanged?.Invoke(this, value);
+			_isActive = value;
+		}
+
+		public void SetSize(int width, int height)
+		{
+			Width = width;
+			Height = height;
+
+			if (_scrollOffset > (_renderedContent?.Count ?? Height) - (Height - 2))
+			{
+				GoToBottom();
+			}
+
+			Invalidate();
+		}
+
+		public void SwitchFocus()
+		{
+			lock (_lock)
+			{
+				if (_interactiveContents.Count == 0) return;
+
+				// Find the currently focused content
+				var currentIndex = _interactiveContents.FindIndex(ic => ic.HasFocus);
+
+				// Remove focus from the current content
+				if (currentIndex != -1)
+				{
+					_interactiveContents[currentIndex].HasFocus = false;
+				}
+
+				// Calculate the next index
+				var nextIndex = (currentIndex + 1) % _interactiveContents.Count;
+
+				// Set focus to the next content
+				_interactiveContents[nextIndex].HasFocus = true;
+
+				// Invalidate the window to update the display
+				Invalidate();
+			}
+		}
+
 		// Method to raise the KeyPressed event and return whether it was handled
 		protected virtual bool OnKeyPressed(ConsoleKeyInfo key)
 		{
@@ -379,15 +396,24 @@ namespace ConsoleEx
 			return false;
 		}
 
-		public List<string> GetVisibleContent()
+		protected virtual void OnStateChanged(WindowState newState)
 		{
-			if (_invalidated)
-			{
-				RenderWindowContent();
-				_invalidated = false;
-			}
+			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
+		}
 
-			return _renderedContent?.Skip(_scrollOffset)?.Take(Height - 2)?.ToList() ?? new List<string>();
+		private void ApplyWindowOptions(WindowOptions windowOptions)
+		{
+			Title = windowOptions.Title;
+			Top = windowOptions.Top;
+			Left = windowOptions.Left;
+			Width = windowOptions.Width;
+			Height = windowOptions.Height;
+			IsResizable = windowOptions.IsResizable;
+			IsMovable = windowOptions.IsMoveable;
+			BackgroundColor = windowOptions.BackgroundColor ?? (_windowSystem?.Theme.WindowBackgroundColor ?? Color.Black);
+			ForegroundColor = windowOptions.ForegroundColor ?? (_windowSystem?.Theme.WindowForegroundColor ?? Color.White);
+			IsScrollable = windowOptions.IsScrollable;
+			_state = windowOptions.WindowState;
 		}
 
 		private void RenderWindowContent()
@@ -432,33 +458,15 @@ namespace ConsoleEx
 				_renderedContent = lines;
 			}
 		}
+	}
 
-		public bool HasInteractiveContent(out (int Left, int Top) cursorPosition)
+	public class WindowStateChangedEventArgs : EventArgs
+	{
+		public WindowStateChangedEventArgs(WindowState newState)
 		{
-			if (HasActiveInteractiveContent(out var activeInteractiveContent))
-			{
-				(int, int)? currentCursorPosition = activeInteractiveContent!.GetCursorPosition();
-
-				if (currentCursorPosition == null)
-				{
-					cursorPosition = (0, 0);
-					return false;
-				}
-
-				int left = currentCursorPosition?.Item1 ?? 0;
-				int top = currentCursorPosition?.Item2 ?? 0;
-
-				if (activeInteractiveContent != null && activeInteractiveContent is IWIndowContent)
-				{
-					IWIndowContent? content = activeInteractiveContent as IWIndowContent;
-
-					cursorPosition = (_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
-					return true;
-				}
-			}
-
-			cursorPosition = (0, 0);
-			return false;
+			NewState = newState;
 		}
+
+		public WindowState NewState { get; }
 	}
 }

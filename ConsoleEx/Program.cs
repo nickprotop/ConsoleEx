@@ -12,6 +12,22 @@ namespace ConsoleEx
 {
 	internal class Program
 	{
+		private static List<string> GetSystemInfo()
+		{
+			var systemInfo = new List<string>();
+
+			// CPU usage
+			systemInfo.Add($"[yellow]CPU Usage:[/] [green]{new Random().Next(0, 100)}%[/]");
+
+			// Memory usage
+			systemInfo.Add($"[yellow]Available Memory:[/] [green]{new Random().Next(0, 8000)} MB[/]");
+
+			// Disk usage
+			systemInfo.Add($"[yellow]Disk Free Space:[/] [green]{new Random().Next(1, 100)}%[/]");
+
+			return systemInfo;
+		}
+
 		private static void Main(string[] args)
 		{
 			var consoleWindowSystem = new ConsoleWindowSystem
@@ -178,22 +194,6 @@ namespace ConsoleEx
 			consoleWindowSystem.SetActiveWindow(window1);
 
 			consoleWindowSystem.Run();
-		}
-
-		private static List<string> GetSystemInfo()
-		{
-			var systemInfo = new List<string>();
-
-			// CPU usage
-			systemInfo.Add($"[yellow]CPU Usage:[/] [green]{new Random().Next(0, 100)}%[/]");
-
-			// Memory usage
-			systemInfo.Add($"[yellow]Available Memory:[/] [green]{new Random().Next(0, 8000)} MB[/]");
-
-			// Disk usage
-			systemInfo.Add($"[yellow]Disk Free Space:[/] [green]{new Random().Next(1, 100)}%[/]");
-
-			return systemInfo;
 		}
 	}
 }

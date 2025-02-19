@@ -17,10 +17,10 @@ namespace ConsoleEx
 
 	public interface IWIndowContent : IDisposable
 	{
-		public IContainer? Container { get; set; }
-		public int? Width { get; set; }
 		public int? ActualWidth { get; }
 		public Alignment Alignment { get; set; }
+		public IContainer? Container { get; set; }
+		public int? Width { get; set; }
 
 		public void Invalidate();
 

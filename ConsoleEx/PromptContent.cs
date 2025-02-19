@@ -10,19 +10,13 @@ using ConsoleEx;
 
 public class PromptContent : IWIndowContent, IInteractiveContent
 {
-	private string? _prompt;
-	private string _input = string.Empty;
-	private int _cursorPosition = 0;
-	private List<string>? _cachedContent;
 	public Action<PromptContent, string>? OnEnter;
+	private List<string>? _cachedContent;
+	private int _cursorPosition = 0;
+	private string _input = string.Empty;
 	private Alignment _justify = Alignment.Left;
-
+	private string? _prompt;
 	private int? _width;
-
-	public void Invalidate()
-	{
-		_cachedContent = null;
-	}
 
 	public int? ActualWidth
 	{
@@ -40,38 +34,39 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		}
 	}
 
-	public int? Width { get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
-
-	public bool HasFocus { get; set; }
-
-	public Action<PromptContent, string>? OnInputChange { get; set; }
-
-	public bool DisableOnEnter { get; set; } = true;
-
-	public bool IsEnabled { get; set; } = true;
+	public Alignment Alignment
+	{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
 
 	public IContainer? Container { get; set; }
 
-	public Alignment Alignment { get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
+	public bool DisableOnEnter { get; set; } = true;
 
-	public string? Prompt { get => _prompt; set { _prompt = value; _cachedContent = null; Container?.Invalidate(); } }
+	public bool HasFocus { get; set; }
 
-	public void SetInput(string input)
+	public bool IsEnabled { get; set; } = true;
+
+	public Action<PromptContent, string>? OnInputChange { get; set; }
+
+	public string? Prompt
+	{ get => _prompt; set { _prompt = value; _cachedContent = null; Container?.Invalidate(); } }
+
+	public int? Width
+	{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
+
+	public void Dispose()
 	{
-		_cachedContent = null;
-		_input = input;
-		Container?.Invalidate();
-		OnInputChange?.Invoke(this, _input);
+		Container = null;
 	}
 
-	public List<string> RenderContent(int? availableWidth, int? availableHeight)
+	public (int Left, int Top)? GetCursorPosition()
 	{
-		if (_cachedContent != null) return _cachedContent;
+		if (_cachedContent == null) return null;
+		return (AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent?.LastOrDefault() ?? string.Empty) - _input.Length + _cursorPosition, (_cachedContent?.Count ?? 0) - 1);
+	}
 
-		_cachedContent = new List<string>();
-
-		_cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
-		return _cachedContent;
+	public void Invalidate()
+	{
+		_cachedContent = null;
 	}
 
 	public bool ProcessKey(ConsoleKeyInfo key)
@@ -138,14 +133,21 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		return false;
 	}
 
-	public (int Left, int Top)? GetCursorPosition()
+	public List<string> RenderContent(int? availableWidth, int? availableHeight)
 	{
-		if (_cachedContent == null) return null;
-		return (AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent?.LastOrDefault() ?? string.Empty) - _input.Length + _cursorPosition, (_cachedContent?.Count ?? 0) - 1);
+		if (_cachedContent != null) return _cachedContent;
+
+		_cachedContent = new List<string>();
+
+		_cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
+		return _cachedContent;
 	}
 
-	public void Dispose()
+	public void SetInput(string input)
 	{
-		Container = null;
+		_cachedContent = null;
+		_input = input;
+		Container?.Invalidate();
+		OnInputChange?.Invoke(this, _input);
 	}
 }

@@ -7,9 +7,10 @@ namespace ConsoleEx
 		public Color BackgroundColor { get; set; }
 		public Color ForegroundColor { get; set; }
 
-		public void Invalidate();
 		public ConsoleWindowSystem? GetConsoleWindowSystem { get; }
 
 		public bool IsDirty { get; set; }
+
+		public void Invalidate();
 	}
 }

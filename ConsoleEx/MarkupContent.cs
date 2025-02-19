@@ -11,18 +11,14 @@ namespace ConsoleEx
 	public class MarkupContent : IWIndowContent
 	{
 		private List<string> _content;
+		private Alignment _justify = Alignment.Left;
 		private List<string>? _renderedContent;
 		private int? _width;
 		private bool _wrap = true;
-		private Alignment _justify = Alignment.Left;
 
-		public int? Width { get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
-
-		public Alignment Alignment { get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
-
-		public void Invalidate()
+		public MarkupContent(List<string> lines)
 		{
-			_renderedContent = null;
+			_content = lines;
 		}
 
 		public int? ActualWidth
@@ -40,21 +36,25 @@ namespace ConsoleEx
 			}
 		}
 
-		public bool Wrap
-		{ get => _wrap; set { _wrap = value; _renderedContent = null; Container?.Invalidate(); } }
+		public Alignment Alignment
+		{ get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
 
 		public IContainer? Container { get; set; }
 
-		public void SetContent(List<string> lines)
+		public int? Width
+		{ get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
+
+		public bool Wrap
+		{ get => _wrap; set { _wrap = value; _renderedContent = null; Container?.Invalidate(); } }
+
+		public void Dispose()
 		{
-			_content = lines;
-			_renderedContent = null;
-			Container?.Invalidate();
+			Container = null;
 		}
 
-		public MarkupContent(List<string> lines)
+		public void Invalidate()
 		{
-			_content = lines;
+			_renderedContent = null;
 		}
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
@@ -72,9 +72,11 @@ namespace ConsoleEx
 			return _renderedContent ?? new List<string>();
 		}
 
-		public void Dispose()
+		public void SetContent(List<string> lines)
 		{
-			Container = null;
+			_content = lines;
+			_renderedContent = null;
+			Container?.Invalidate();
 		}
 	}
 }

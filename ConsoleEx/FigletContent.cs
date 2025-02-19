@@ -12,11 +12,10 @@ namespace ConsoleEx
 {
 	public class FigletContent : IWIndowContent
 	{
-		private string? _text;
 		private Color? _color;
-		private List<string>? _renderedContent;
 		private Alignment _justify = Alignment.Left;
-
+		private List<string>? _renderedContent;
+		private string? _text;
 		private int? _width;
 
 		public int? ActualWidth
@@ -34,30 +33,23 @@ namespace ConsoleEx
 			}
 		}
 
+		public Alignment Alignment
+		{ get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
+
+		public IContainer? Container { get; set; }
+
+		public int? Width
+		{ get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
+
+		public void Dispose()
+		{
+			Container = null;
+		}
+
 		public void Invalidate()
 		{
 			_renderedContent = null;
 		}
-
-		public int? Width { get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
-
-		public IContainer? Container { get; set; }
-
-		public void SetText(string text)
-		{
-			_text = text;
-			_renderedContent = null;
-			Container?.Invalidate();
-		}
-
-		public void SetColor(Color color)
-		{
-			_color = color;
-			_renderedContent = null;
-			Container?.Invalidate();
-		}
-
-		public Alignment Alignment { get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
@@ -74,9 +66,18 @@ namespace ConsoleEx
 			return _renderedContent;
 		}
 
-		public void Dispose()
+		public void SetColor(Color color)
 		{
-			Container = null;
+			_color = color;
+			_renderedContent = null;
+			Container?.Invalidate();
+		}
+
+		public void SetText(string text)
+		{
+			_text = text;
+			_renderedContent = null;
+			Container?.Invalidate();
 		}
 	}
 }

@@ -15,94 +15,35 @@ namespace ConsoleEx
 {
 	public static class AnsiConsoleExtensions
 	{
-		public static int StripSpectreLength(string text)
+		private static readonly Regex TruncateAnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
+
+		private static Dictionary<string, string> tagToAnsi = new Dictionary<string, string>
 		{
-			return Markup.Remove(text).Length;
-		}
-
-		public static int StripAnsiStringLength(string input)
-		{
-			if (string.IsNullOrEmpty(input))
-				return 0;
-
-			// Remove markup tags
-			//var markupStripped = Regex.Replace(input, @"\[(.*?)\]", string.Empty);
-
-			// Remove ANSI escape sequences
-			var ansiStripped = Regex.Replace(input, @"\x1B\[[0-9;]*[a-zA-Z]", string.Empty);
-
-			// Return the length of the cleaned string
-			return ansiStripped.Length;
-		}
-
-		public static string TruncateSpectre(string inputStr, int maxLength)
-		{
-			var output = new StringBuilder();
-			var stack = new Stack<string>();
-			int visibleLength = 0;
-			int i = 0;
-			int n = inputStr.Length;
-
-			while (i < n && visibleLength < maxLength)
-			{
-				if (inputStr[i] == '[')
-				{
-					int j = i + 1;
-					// Find the closing ']'
-					while (j < n && inputStr[j] != ']')
-					{
-						j++;
-					}
-
-					if (j >= n)
-					{
-						// Invalid tag - add remaining characters as visible text
-						for (int k = i; k < n && visibleLength < maxLength; k++)
-						{
-							output.Append(inputStr[k]);
-							visibleLength++;
-						}
-						i = n;
-						break;
-					}
-
-					// Process valid tag
-					string tagContent = inputStr.Substring(i + 1, j - i - 1);
-					if (tagContent == "/")
-					{
-						// Closing tag
-						if (stack.Count > 0)
-						{
-							stack.Pop();
-						}
-						output.Append("[/]");
-					}
-					else
-					{
-						// Opening tag
-						stack.Push(tagContent);
-						output.Append($"[{tagContent}]");
-					}
-					i = j + 1; // Move past the closing ']'
-				}
-				else
-				{
-					// Regular character
-					output.Append(inputStr[i]);
-					visibleLength++;
-					i++;
-				}
-			}
-
-			// Close any remaining open tags
-			while (stack.Count > 0)
-			{
-				output.Append("[/]");
-				stack.Pop();
-			}
-
-			return output.ToString();
-		}
+			{ "bold", "\u001b[1m" },
+			{ "/bold", "\u001b[22m" },
+			{ "underline", "\u001b[4m" },
+			{ "/underline", "\u001b[24m" },
+			{ "foreground red", "\u001b[31m" },
+			{ "foreground green", "\u001b[32m" },
+			{ "foreground yellow", "\u001b[33m" },
+			{ "foreground blue", "\u001b[34m" },
+			{ "foreground magenta", "\u001b[35m" },
+			{ "foreground cyan", "\u001b[36m" },
+			{ "foreground white", "\u001b[37m" },
+			{ "foreground grey", "\u001b[90m" },
+			{ "foreground black", "\u001b[30m" },
+			{ "background red", "\u001b[41m" },
+			{ "background green", "\u001b[42m" },
+			{ "background yellow", "\u001b[43m" },
+			{ "background blue", "\u001b[44m" },
+			{ "background magenta", "\u001b[45m" },
+			{ "background cyan", "\u001b[46m" },
+			{ "background white", "\u001b[47m" },
+			{ "background black", "\u001b[40m" },
+			{ "/foreground", "\u001b[39m" },
+			{ "/background", "\u001b[49m" },
+			{ "reset", "\u001b[0m" }
+		};
 
 		public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow, Color? backgroundColor, Color? foregroundColor)
 		{
@@ -182,33 +123,31 @@ namespace ConsoleEx
 			return writer.ToString().Split('\n').ToList();
 		}
 
-		private static Dictionary<string, string> tagToAnsi = new Dictionary<string, string>
+		public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
 		{
-			{ "bold", "\u001b[1m" },
-			{ "/bold", "\u001b[22m" },
-			{ "underline", "\u001b[4m" },
-			{ "/underline", "\u001b[24m" },
-			{ "foreground red", "\u001b[31m" },
-			{ "foreground green", "\u001b[32m" },
-			{ "foreground yellow", "\u001b[33m" },
-			{ "foreground blue", "\u001b[34m" },
-			{ "foreground magenta", "\u001b[35m" },
-			{ "foreground cyan", "\u001b[36m" },
-			{ "foreground white", "\u001b[37m" },
-			{ "foreground grey", "\u001b[90m" },
-			{ "foreground black", "\u001b[30m" },
-			{ "background red", "\u001b[41m" },
-			{ "background green", "\u001b[42m" },
-			{ "background yellow", "\u001b[43m" },
-			{ "background blue", "\u001b[44m" },
-			{ "background magenta", "\u001b[45m" },
-			{ "background cyan", "\u001b[46m" },
-			{ "background white", "\u001b[47m" },
-			{ "background black", "\u001b[40m" },
-			{ "/foreground", "\u001b[39m" },
-			{ "/background", "\u001b[49m" },
-			{ "reset", "\u001b[0m" }
-		};
+			var console = AnsiConsole.Create(new AnsiConsoleSettings
+			{
+				Ansi = AnsiSupport.Yes,
+				ColorSystem = ColorSystemSupport.Detect,
+				Out = new AnsiConsoleOutput(writer),
+				Interactive = InteractionSupport.No,
+				Enrichment = new ProfileEnrichment
+				{
+					UseDefaultEnrichers = false
+				}
+			});
+
+			if (width.HasValue)
+			{
+				console.Profile.Width = width.Value;
+			}
+			if (height.HasValue)
+			{
+				console.Profile.Height = height.Value;
+			}
+
+			return console;
+		}
 
 		public static List<string> ParseAnsiTags(string input, int? width, bool wrap, string? backgroundColor = null, string? foregroundColor = null)
 		{
@@ -314,7 +253,30 @@ namespace ConsoleEx
 			return output;
 		}
 
-		private static readonly Regex TruncateAnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
+		public static string SetAnsiCursorPosition(int left, int top)
+		{
+			return $"\u001b[{top + 1};{left + 1}H";
+		}
+
+		public static int StripAnsiStringLength(string input)
+		{
+			if (string.IsNullOrEmpty(input))
+				return 0;
+
+			// Remove markup tags
+			//var markupStripped = Regex.Replace(input, @"\[(.*?)\]", string.Empty);
+
+			// Remove ANSI escape sequences
+			var ansiStripped = Regex.Replace(input, @"\x1B\[[0-9;]*[a-zA-Z]", string.Empty);
+
+			// Return the length of the cleaned string
+			return ansiStripped.Length;
+		}
+
+		public static int StripSpectreLength(string text)
+		{
+			return Markup.Remove(text).Length;
+		}
 
 		public static string TruncateAnsiString(string input, int maxVisibleLength)
 		{
@@ -370,35 +332,73 @@ namespace ConsoleEx
 			return output.ToString();
 		}
 
-		public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
+		public static string TruncateSpectre(string inputStr, int maxLength)
 		{
-			var console = AnsiConsole.Create(new AnsiConsoleSettings
+			var output = new StringBuilder();
+			var stack = new Stack<string>();
+			int visibleLength = 0;
+			int i = 0;
+			int n = inputStr.Length;
+
+			while (i < n && visibleLength < maxLength)
 			{
-				Ansi = AnsiSupport.Yes,
-				ColorSystem = ColorSystemSupport.Detect,
-				Out = new AnsiConsoleOutput(writer),
-				Interactive = InteractionSupport.No,
-				Enrichment = new ProfileEnrichment
+				if (inputStr[i] == '[')
 				{
-					UseDefaultEnrichers = false
+					int j = i + 1;
+					// Find the closing ']'
+					while (j < n && inputStr[j] != ']')
+					{
+						j++;
+					}
+
+					if (j >= n)
+					{
+						// Invalid tag - add remaining characters as visible text
+						for (int k = i; k < n && visibleLength < maxLength; k++)
+						{
+							output.Append(inputStr[k]);
+							visibleLength++;
+						}
+						i = n;
+						break;
+					}
+
+					// Process valid tag
+					string tagContent = inputStr.Substring(i + 1, j - i - 1);
+					if (tagContent == "/")
+					{
+						// Closing tag
+						if (stack.Count > 0)
+						{
+							stack.Pop();
+						}
+						output.Append("[/]");
+					}
+					else
+					{
+						// Opening tag
+						stack.Push(tagContent);
+						output.Append($"[{tagContent}]");
+					}
+					i = j + 1; // Move past the closing ']'
 				}
-			});
-
-			if (width.HasValue)
-			{
-				console.Profile.Width = width.Value;
-			}
-			if (height.HasValue)
-			{
-				console.Profile.Height = height.Value;
+				else
+				{
+					// Regular character
+					output.Append(inputStr[i]);
+					visibleLength++;
+					i++;
+				}
 			}
 
-			return console;
-		}
+			// Close any remaining open tags
+			while (stack.Count > 0)
+			{
+				output.Append("[/]");
+				stack.Pop();
+			}
 
-		public static string SetAnsiCursorPosition(int left, int top)
-		{
-			return $"\u001b[{top + 1};{left + 1}H";
+			return output.ToString();
 		}
 	}
 }

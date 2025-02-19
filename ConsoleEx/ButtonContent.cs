@@ -4,19 +4,28 @@ namespace ConsoleEx
 {
 	public class ButtonContent : IWIndowContent, IInteractiveContent
 	{
-		private int? _width;
-		private string _text = "Button";
 		private string? _cachedContent;
-		private bool _focused;
 		private bool _enabled = true;
+		private bool _focused;
 		private Alignment _justify = Alignment.Left;
+		private string _text = "Button";
+		private int? _width;
+		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent);
 
-		public Action<ButtonContent>? OnClick { get; set; }
+		public Alignment Alignment
+		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public IContainer? Container { get; set; }
 
-		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
+		public bool HasFocus
+		{
+			get => _focused;
+			set
+			{
+				_cachedContent = null;
+				_focused = value;
+			}
+		}
 
 		public bool IsEnabled
 		{
@@ -29,20 +38,7 @@ namespace ConsoleEx
 			}
 		}
 
-		public void Invalidate()
-		{
-			_cachedContent = null;
-		}
-
-		public bool HasFocus
-		{
-			get => _focused;
-			set
-			{
-				_cachedContent = null;
-				_focused = value;
-			}
-		}
+		public Action<ButtonContent>? OnClick { get; set; }
 
 		public string Text
 		{
@@ -55,9 +51,8 @@ namespace ConsoleEx
 			}
 		}
 
-		public Alignment Alignment { get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
-
-		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent);
+		public int? Width
+		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public void Dispose()
 		{
@@ -67,6 +62,11 @@ namespace ConsoleEx
 		public (int Left, int Top)? GetCursorPosition()
 		{
 			return null;
+		}
+
+		public void Invalidate()
+		{
+			_cachedContent = null;
 		}
 
 		public bool ProcessKey(ConsoleKeyInfo key)

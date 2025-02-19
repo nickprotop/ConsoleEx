@@ -4,25 +4,15 @@ namespace ConsoleEx
 {
 	public class ConsoleBuffer
 	{
-		private class Cell
-		{
-			public char Character { get; set; }
-			public string AnsiEscape { get; set; }
-			public bool IsDirty { get; set; }
+		private readonly Cell[,] _backBuffer;
 
-			public Cell(char character, string ansiEscape = "")
-			{
-				Character = character;
-				AnsiEscape = ansiEscape;
-				IsDirty = true;
-			}
-		}
+		private readonly Cell[,] _frontBuffer;
+
+		private readonly int _height;
+
+		private readonly string[,] _trailingEscapes;
 
 		private readonly int _width;
-		private readonly int _height;
-		private readonly Cell[,] _frontBuffer;
-		private readonly Cell[,] _backBuffer;
-		private readonly string[,] _trailingEscapes;
 
 		public ConsoleBuffer(int width, int height)
 		{
@@ -108,6 +98,20 @@ namespace ConsoleEx
 			}
 		}
 
+		public void Clear()
+		{
+			for (int x = 0; x < _width; x++)
+			{
+				for (int y = 0; y < _height; y++)
+				{
+					_backBuffer[x, y].Character = ' ';
+					_backBuffer[x, y].AnsiEscape = string.Empty;
+					_backBuffer[x, y].IsDirty = true;
+					_trailingEscapes[x, y] = string.Empty;
+				}
+			}
+		}
+
 		public void Render()
 		{
 			Console.CursorVisible = false;
@@ -157,18 +161,18 @@ namespace ConsoleEx
 			}
 		}
 
-		public void Clear()
+		private class Cell
 		{
-			for (int x = 0; x < _width; x++)
+			public Cell(char character, string ansiEscape = "")
 			{
-				for (int y = 0; y < _height; y++)
-				{
-					_backBuffer[x, y].Character = ' ';
-					_backBuffer[x, y].AnsiEscape = string.Empty;
-					_backBuffer[x, y].IsDirty = true;
-					_trailingEscapes[x, y] = string.Empty;
-				}
+				Character = character;
+				AnsiEscape = ansiEscape;
+				IsDirty = true;
 			}
+
+			public string AnsiEscape { get; set; }
+			public char Character { get; set; }
+			public bool IsDirty { get; set; }
 		}
 	}
 }
