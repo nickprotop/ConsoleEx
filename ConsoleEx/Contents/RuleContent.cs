@@ -99,24 +99,12 @@ namespace ConsoleEx.Contents
 
 			int width = _width ?? availableWidth ?? 80;
 
-			Rule? rule;
-
-			if (_title != null)
+			Rule rule = new Rule()
 			{
-				rule = new Rule(_title)
-				{
-					Style = _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White
-				};
-			}
-			else
-			{
-				rule = new Rule()
-				{
-					Style = _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White
-				};
-			}
-
-			rule.Justification = _titleAlignment;
+				Title = string.IsNullOrEmpty(_title) ? null : _title,
+				Style = new Style(_color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White, background: Container?.BackgroundColor ?? Spectre.Console.Color.Black),
+				Justification = _titleAlignment
+			};
 
 			_cachedContent = new List<string>() { AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(rule, width, 1).FirstOrDefault() ?? string.Empty };
 

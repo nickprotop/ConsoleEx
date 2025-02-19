@@ -150,7 +150,7 @@ namespace ConsoleEx
 				window.AddContent(new RuleContent()
 				{
 					Color = Color.Yellow,
-					Title = "[cyan]Actions[/]",
+					Title = "[cyan]A[/][red]c[/][green]t[/][blue]i[/]o[white]n[/]s",
 					TitleAlignment = Justify.Left,
 					Width = 40,
 					Alignment = Alignment.Center,

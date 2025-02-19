@@ -75,11 +75,11 @@ namespace ConsoleEx.Contents
 
 			_renderedContent = new List<string>();
 
-			_renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(
-				new FigletText(_text ?? string.Empty)
-				{
-					Color = _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White,
-				}, _width ?? availableWidth ?? 50, availableHeight);
+			FigletText figletText = new FigletText(_text ?? string.Empty);
+			Style style = new Style(_color ?? _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White, background: Container?.BackgroundColor ?? Spectre.Console.Color.Black);
+			figletText.Color = style.Foreground;
+
+			_renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? availableWidth ?? 50, availableHeight);
 
 			int maxContentWidth = 0;
 			foreach (var line in _renderedContent)
