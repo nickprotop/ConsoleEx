@@ -26,6 +26,10 @@ namespace ConsoleEx
 		private readonly List<IWIndowContent> _content = new();
 		private readonly List<IInteractiveContent> _interactiveContents = new();
 		private readonly object _lock = new();
+
+		// List to store interactive contents
+		private List<string> _cachedContent = new();
+
 		private Dictionary<IWIndowContent, int> _contentLeftIndex = new();
 
 		private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
@@ -33,10 +37,6 @@ namespace ConsoleEx
 		private bool _invalidated = false;
 
 		private bool _isActive;
-
-		// List to store interactive contents
-		private List<string> _renderedContent = new();
-
 		private int _scrollOffset;
 		private WindowState _state;
 		private ConsoleWindowSystem? _windowSystem;
@@ -156,7 +156,7 @@ namespace ConsoleEx
 
 		public string Title { get; set; } = "Window";
 		public int Top { get; set; }
-		public int TotalLines => _renderedContent.Count;
+		public int TotalLines => _cachedContent.Count;
 		public int Width { get; set; } = 40;
 		public int ZIndex { get; set; }
 
@@ -176,7 +176,7 @@ namespace ConsoleEx
 						interactiveContent.HasFocus = true;
 					}
 				}
-				RenderWindowContent();
+				RenderAndGetVisibleContent();
 				GoToBottom();
 			}
 		}
@@ -199,20 +199,9 @@ namespace ConsoleEx
 			return _isActive;
 		}
 
-		public List<string> GetVisibleContent()
-		{
-			if (_invalidated)
-			{
-				RenderWindowContent();
-				_invalidated = false;
-			}
-
-			return _renderedContent?.Skip(_scrollOffset)?.Take(Height - 2)?.ToList() ?? new List<string>();
-		}
-
 		public void GoToBottom()
 		{
-			_scrollOffset = Math.Max(0, (_renderedContent?.Count ?? Height) - (Height - 2));
+			_scrollOffset = Math.Max(0, (_cachedContent?.Count ?? Height) - (Height - 2));
 			Invalidate();
 		}
 
@@ -302,7 +291,7 @@ namespace ConsoleEx
 							break;
 
 						case ConsoleKey.DownArrow:
-							_scrollOffset = Math.Min((_renderedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
+							_scrollOffset = Math.Min((_cachedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
 							IsDirty = true;
 							handled = true;
 							break;
@@ -328,10 +317,52 @@ namespace ConsoleEx
 							_interactiveContents[0].HasFocus = true;
 						}
 					}
-					RenderWindowContent();
+					RenderAndGetVisibleContent();
 					content.Dispose();
 					GoToBottom();
 				}
+			}
+		}
+
+		public List<string> RenderAndGetVisibleContent()
+		{
+			if (_state == WindowState.Minimized)
+			{
+				return new List<string>();
+			}
+
+			lock (_lock)
+			{
+				if (_invalidated)
+				{
+					List<string> lines = new List<string>();
+
+					foreach (var content in _content)
+					{
+						// Store the top row index for the current content
+						_contentTopRowIndex[content] = lines.Count;
+
+						// Store the left index for the current content
+						_contentLeftIndex[content] = 0;
+
+						var ansiLines = content.RenderContent(Width - 2, Height - 2);
+
+						for (int i = 0; i < ansiLines.Count; i++)
+						{
+							var line = ansiLines[i];
+							ansiLines[i] = $"{line}";
+						}
+
+						lines.AddRange(ansiLines);
+					}
+
+					_cachedContent = lines;
+					_invalidated = false;
+				}
+
+				List<string> visibleContent = _cachedContent.Skip(_scrollOffset).Take(Height - 2).ToList();
+
+				return visibleContent;
 			}
 		}
 
@@ -350,7 +381,7 @@ namespace ConsoleEx
 			Width = width;
 			Height = height;
 
-			if (_scrollOffset > (_renderedContent?.Count ?? Height) - (Height - 2))
+			if (_scrollOffset > (_cachedContent?.Count ?? Height) - (Height - 2))
 			{
 				GoToBottom();
 			}
@@ -379,6 +410,25 @@ namespace ConsoleEx
 				// Set focus to the next content
 				_interactiveContents[nextIndex].HasFocus = true;
 
+				// Ensure the focused content is within the visible window
+				var focusedContent = _interactiveContents[nextIndex] as IWIndowContent;
+				if (focusedContent != null)
+				{
+					int contentTop = _contentTopRowIndex[focusedContent];
+					int contentBottom = contentTop + focusedContent.RenderContent(Width - 2, Height - 2).Count;
+
+					if (contentTop < _scrollOffset)
+					{
+						// Scroll up to make the top of the content visible
+						_scrollOffset = contentTop;
+					}
+					else if (contentBottom > _scrollOffset + (Height - 2))
+					{
+						// Scroll down to make the bottom of the content visible
+						_scrollOffset = contentBottom - (Height - 2);
+					}
+				}
+
 				// Invalidate the window to update the display
 				Invalidate();
 			}
@@ -402,49 +452,14 @@ namespace ConsoleEx
 			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
 		}
 
-		private void RenderWindowContent()
+		public class WindowStateChangedEventArgs : EventArgs
 		{
-			if (_state == WindowState.Minimized)
+			public WindowStateChangedEventArgs(WindowState newState)
 			{
-				return;
+				NewState = newState;
 			}
 
-			lock (_lock)
-			{
-				List<string> lines = new List<string>();
-
-				foreach (var content in _content)
-				{
-					// Store the top row index for the current content
-					_contentTopRowIndex[content] = lines.Count;
-
-					// Store the left index for the current content
-					_contentLeftIndex[content] = 0;
-
-					var ansiLines = content.RenderContent(Width - 2, Height - 2);
-
-					for (int i = 0; i < ansiLines.Count; i++)
-					{
-						var line = ansiLines[i];
-						//ansiLines[i] = $"{AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(new string(' ', paddingLeft), paddingLeft, 1, false, BackgroundColor, null).FirstOrDefault()}{line}";
-						ansiLines[i] = $"{line}";
-					}
-
-					lines.AddRange(ansiLines);
-				}
-
-				_renderedContent = lines;
-			}
+			public WindowState NewState { get; }
 		}
-	}
-
-	public class WindowStateChangedEventArgs : EventArgs
-	{
-		public WindowStateChangedEventArgs(WindowState newState)
-		{
-			NewState = newState;
-		}
-
-		public WindowState NewState { get; }
 	}
 }

@@ -481,7 +481,7 @@ namespace ConsoleEx
 				WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Top + window.Height - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 
 				// Render the window content
-				var lines = window.GetVisibleContent();
+				var lines = window.RenderAndGetVisibleContent();
 				if (window.IsDirty)
 				{
 					window.IsDirty = false;
