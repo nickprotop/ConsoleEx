@@ -9,6 +9,17 @@ namespace ConsoleEx
 		Maximized
 	}
 
+	public class KeyPressedEventArgs : EventArgs
+	{
+		public ConsoleKeyInfo KeyInfo { get; }
+		public bool Handled { get; set; }
+
+		public KeyPressedEventArgs(ConsoleKeyInfo keyInfo)
+		{
+			KeyInfo = keyInfo;
+		}
+	}
+
 	public class WindowStateChangedEventArgs : EventArgs
 	{
 		public WindowState NewState { get; }
@@ -63,6 +74,7 @@ namespace ConsoleEx
 		public bool IsResizable { get; set; } = true;
 		public bool IsMovable { get; set; } = true;
 		public bool IsScrollable { get; set; } = true;
+		public bool IsClosable { get; set; } = true;
 		public int ScrollOffset => _scrollOffset;
 		public Color BackgroundColor { get; set; }
 		public Color ForegroundColor { get; set; }
@@ -178,7 +190,7 @@ namespace ConsoleEx
 		{
 			Width = width;
 			Height = height;
-			
+
 			if (_scrollOffset > (_renderedContent?.Count ?? Height) - (Height - 2))
 			{
 				GoToBottom();
@@ -209,12 +221,15 @@ namespace ConsoleEx
 
 		public void Close()
 		{
-			foreach (var content in _content)
+			if (IsClosable)
 			{
-				(content as IWIndowContent).Dispose();
-			}
+				foreach (var content in _content)
+				{
+					(content as IWIndowContent).Dispose();
+				}
 
-			_windowSystem?.CloseWindow(this);
+				_windowSystem?.CloseWindow(this);
+			}
 		}
 
 		public void RemoveContent(IWIndowContent content)
@@ -444,18 +459,6 @@ namespace ConsoleEx
 
 			cursorPosition = (0, 0);
 			return false;
-		}
-
-		// Custom EventArgs class to indicate whether the event was handled
-		public class KeyPressedEventArgs : EventArgs
-		{
-			public ConsoleKeyInfo KeyInfo { get; }
-			public bool Handled { get; set; }
-
-			public KeyPressedEventArgs(ConsoleKeyInfo keyInfo)
-			{
-				KeyInfo = keyInfo;
-			}
 		}
 	}
 }

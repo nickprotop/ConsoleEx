@@ -6,10 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.Text;
-using System.Text.RegularExpressions;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ConsoleEx
 {

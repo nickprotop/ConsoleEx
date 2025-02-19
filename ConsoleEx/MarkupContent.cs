@@ -14,14 +14,11 @@ namespace ConsoleEx
 		private List<string>? _renderedContent;
 		private int? _width;
 		private bool _wrap = true;
+		private Alignment _justify = Alignment.Left;
 
-		public int? Width
-		{ get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
+		public int? Width { get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
 
-		private Alignment _justify;
-
-		public Alignment Alignment
-		{ get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
+		public Alignment Alignment { get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
 
 		public void Invalidate()
 		{
@@ -60,7 +57,7 @@ namespace ConsoleEx
 			_content = lines;
 		}
 
-		public List<string> RenderContent(int? width, int? height)
+		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			if (_renderedContent != null) return _renderedContent;
 
@@ -68,7 +65,7 @@ namespace ConsoleEx
 
 			foreach (var line in _content)
 			{
-				var ansiLines = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(line, _width ?? (width ?? 50), height, _wrap, Container?.BackgroundColor, Container?.ForegroundColor);
+				var ansiLines = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(line, _width ?? (availableWidth ?? 50), availableHeight, _wrap, Container?.BackgroundColor, Container?.ForegroundColor);
 				_renderedContent?.AddRange(ansiLines);
 			}
 

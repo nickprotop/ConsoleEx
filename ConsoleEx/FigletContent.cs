@@ -14,7 +14,8 @@ namespace ConsoleEx
 	{
 		private string? _text;
 		private Color? _color;
-		private List<string> _renderedContent;
+		private List<string>? _renderedContent;
+		private Alignment _justify = Alignment.Left;
 
 		private int? _width;
 
@@ -38,56 +39,37 @@ namespace ConsoleEx
 			_renderedContent = null;
 		}
 
-		public int? Width
-		{ get => _width; set { _width = value; Container?.Invalidate(); } }
+		public int? Width { get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
 
 		public IContainer? Container { get; set; }
 
 		public void SetText(string text)
 		{
 			_text = text;
+			_renderedContent = null;
 			Container?.Invalidate();
 		}
 
 		public void SetColor(Color color)
 		{
 			_color = color;
+			_renderedContent = null;
 			Container?.Invalidate();
 		}
 
-		private Alignment _justify;
+		public Alignment Alignment { get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
 
-		public Alignment Alignment
-		{ get => _justify; set { _justify = value; Container?.Invalidate(); } }
-
-		public string Guid { get; } = new Guid().ToString();
-
-		public FigletContent(string text, Color color, Alignment justify, out string guid)
+		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			guid = Guid;
-			_text = text;
-			_color = color;
-			_justify = justify;
+			if (_renderedContent != null) return _renderedContent;
+
 			_renderedContent = new List<string>();
-		}
-
-		public FigletContent(string text, Color color, Alignment justify)
-		{
-			_text = text;
-			_color = color;
-			_justify = justify;
-			_renderedContent = new List<string>();
-		}
-
-		public List<string> RenderContent(int? width, int? height)
-		{
-			_renderedContent.Clear();
 
 			_renderedContent = AnsiConsoleExtensions.ConvertSpectreRenderableToAnsi(
 				new FigletText(_text ?? string.Empty)
 				{
 					Color = _color ?? Color.White
-				}, _width ?? (width ?? 50), height, false);
+				}, _width ?? (availableWidth ?? 50), availableHeight, false);
 
 			return _renderedContent;
 		}

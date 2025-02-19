@@ -8,13 +8,13 @@
 
 namespace ConsoleEx
 {
-    public interface IInteractiveContent
-    {
-        public bool IsEnabled { get; set; }
-        public bool HasFocus { get; set; }
+	public interface IInteractiveContent
+	{
+		public bool IsEnabled { get; set; }
+		public bool HasFocus { get; set; }
 
-        public bool ProcessKey(ConsoleKeyInfo key);
+		public bool ProcessKey(ConsoleKeyInfo key);
 
-        public (int Left, int Top)? GetCursorPosition();
-    }
+		public (int Left, int Top)? GetCursorPosition();
+	}
 }

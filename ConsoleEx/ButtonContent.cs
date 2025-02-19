@@ -1,9 +1,4 @@
 ﻿using Spectre.Console;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ConsoleEx
 {
@@ -14,6 +9,7 @@ namespace ConsoleEx
 		private string? _cachedContent;
 		private bool _focused;
 		private bool _enabled = true;
+		private Alignment _justify = Alignment.Left;
 
 		public Action<ButtonContent>? OnClick { get; set; }
 
@@ -59,10 +55,7 @@ namespace ConsoleEx
 			}
 		}
 
-		private Alignment _justify;
-
-		public Alignment Alignment
-		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
+		public Alignment Alignment { get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleExtensions.StripAnsiStringLength(_cachedContent);
 
@@ -87,7 +80,7 @@ namespace ConsoleEx
 			return false;
 		}
 
-		public List<string> RenderContent(int? width, int? height)
+		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			if (_cachedContent != null)
 			{
@@ -121,7 +114,7 @@ namespace ConsoleEx
 				}
 			}
 
-			int buttonWidth = _width ?? (width ?? 20); // Default width if not specified
+			int buttonWidth = _width ?? (availableWidth ?? 20); // Default width if not specified
 			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
 			int maxTextLength = buttonWidth - 4; // Account for brackets and padding
 
@@ -150,7 +143,7 @@ namespace ConsoleEx
 				finalButtonText = finalButtonText.Insert(2, new string(' ', buttonWidth - AnsiConsoleExtensions.StripSpectreLength(finalButtonText)));
 			}
 
-			List<string> renderedAnsi = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(finalButtonText, buttonWidth, height, false, backgroundColor, foregroundColor);
+			List<string> renderedAnsi = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(finalButtonText, buttonWidth, availableHeight, false, backgroundColor, foregroundColor);
 			_cachedContent = renderedAnsi.First();
 			return renderedAnsi;
 		}

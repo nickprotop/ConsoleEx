@@ -10,12 +10,12 @@ using ConsoleEx;
 
 public class PromptContent : IWIndowContent, IInteractiveContent
 {
-	private string _prompt;
+	private string? _prompt;
 	private string _input = string.Empty;
 	private int _cursorPosition = 0;
 	private List<string>? _cachedContent;
 	public Action<PromptContent, string>? OnEnter;
-	private Alignment _justify;
+	private Alignment _justify = Alignment.Left;
 
 	private int? _width;
 
@@ -40,8 +40,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		}
 	}
 
-	public int? Width
-	{ get => _width; set { _width = value; Container?.Invalidate(); } }
+	public int? Width { get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
 
 	public bool HasFocus { get; set; }
 
@@ -51,22 +50,11 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
 	public bool IsEnabled { get; set; } = true;
 
-	public IContainer? Container { get; set; }	
+	public IContainer? Container { get; set; }
 
-	public Alignment Alignment
-	{ get => _justify; set { _justify = value; Container?.Invalidate(); } }
+	public Alignment Alignment { get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
 
-	public PromptContent(string prompt)
-	{
-		_prompt = prompt;
-	}
-
-	public void SetPrompt(string prompt)
-	{
-		_cachedContent = null;
-		_prompt = prompt;
-		Container?.Invalidate();
-	}
+	public string? Prompt { get => _prompt; set { _prompt = value; _cachedContent = null; Container?.Invalidate(); } }
 
 	public void SetInput(string input)
 	{
@@ -76,13 +64,13 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		OnInputChange?.Invoke(this, _input);
 	}
 
-	public List<string> RenderContent(int? width, int? height)
+	public List<string> RenderContent(int? availableWidth, int? availableHeight)
 	{
 		if (_cachedContent != null) return _cachedContent;
 
 		_cachedContent = new List<string>();
 
-		_cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, (_width ?? (width ?? 50)) - 1, height, true, Container?.BackgroundColor, Container?.ForegroundColor);
+		_cachedContent = AnsiConsoleExtensions.ConvertSpectreMarkupToAnsi(_prompt + _input, (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
 		return _cachedContent;
 	}
 

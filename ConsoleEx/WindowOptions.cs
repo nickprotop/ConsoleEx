@@ -10,18 +10,18 @@ using Spectre.Console;
 
 namespace ConsoleEx
 {
-    public class WindowOptions
-    {
-        public string Title { get; set; } = "Window";
-        public int Top { get; set; }
-        public int Left { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
-        public bool IsResizable { get; set; } = true;
-        public bool IsMoveable { get; set; } = true;
-        public bool IsScrollable { get; set; } = true;
+	public class WindowOptions
+	{
+		public string Title { get; set; } = "Window";
+		public int Top { get; set; }
+		public int Left { get; set; }
+		public int Width { get; set; }
+		public int Height { get; set; }
+		public bool IsResizable { get; set; } = true;
+		public bool IsMoveable { get; set; } = true;
+		public bool IsScrollable { get; set; } = true;
 		public Color? BackgroundColor { get; set; }
-        public Color? ForegroundColor { get; set; }
-        public WindowState WindowState { get; set; } = WindowState.Normal;
-    }
+		public Color? ForegroundColor { get; set; }
+		public WindowState WindowState { get; set; } = WindowState.Normal;
+	}
 }

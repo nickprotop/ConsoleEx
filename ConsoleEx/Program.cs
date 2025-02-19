@@ -89,8 +89,9 @@ namespace ConsoleEx
 
 				var ageInfo = new MarkupContent(new List<string>() { " " });
 
-				var namePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]name[/]: ")
+				var namePrompt = new PromptContent()
 				{
+					Prompt = "[yellow]Enter[/] [red]your[/] [blue]name[/]: ",
 					DisableOnEnter = false
 				};
 				namePrompt.OnInputChange += (s, e) =>
@@ -99,8 +100,9 @@ namespace ConsoleEx
 				};
 				window.AddContent(namePrompt);
 
-				var agePrompt = new PromptContent("[yellow]Enter[/] [red]your[/] [blue]age[/]: ")
+				var agePrompt = new PromptContent()
 				{
+					Prompt = "[yellow]Enter[/] [red]your[/] [blue]age[/]: ",
 					DisableOnEnter = false
 				};
 				agePrompt.OnEnter += (s, e) =>

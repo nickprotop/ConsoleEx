@@ -24,6 +24,6 @@ namespace ConsoleEx
 
 		public void Invalidate();
 
-		public List<string> RenderContent(int? width, int? height);
+		public List<string> RenderContent(int? availableWidth, int? availableHeight);
 	}
 }
