@@ -18,6 +18,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	private string _input = string.Empty;
 	private Alignment _justify = Alignment.Left;
 	private string? _prompt;
+	private StickyPosition _stickyPosition = StickyPosition.None;
 	private int? _width;
 
 	public int? ActualWidth
@@ -51,6 +52,16 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 
 	public string? Prompt
 	{ get => _prompt; set { _prompt = value; _cachedContent = null; Container?.Invalidate(); } }
+
+	public StickyPosition StickyPosition
+	{
+		get => _stickyPosition;
+		set
+		{
+			_stickyPosition = value;
+			Container?.Invalidate();
+		}
+	}
 
 	public int? Width
 	{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }

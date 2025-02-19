@@ -9,6 +9,7 @@ namespace ConsoleEx.Contents
 		private bool _enabled = true;
 		private bool _focused;
 		private Alignment _justify = Alignment.Left;
+		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string _text = "Button";
 		private int? _width;
 		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleHelper.StripAnsiStringLength(_cachedContent);
@@ -40,6 +41,16 @@ namespace ConsoleEx.Contents
 		}
 
 		public Action<ButtonContent>? OnClick { get; set; }
+
+		public StickyPosition StickyPosition
+		{
+			get => _stickyPosition;
+			set
+			{
+				_stickyPosition = value;
+				Container?.Invalidate();
+			}
+		}
 
 		public string Text
 		{

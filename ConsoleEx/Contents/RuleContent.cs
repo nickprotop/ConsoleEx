@@ -8,6 +8,7 @@ namespace ConsoleEx.Contents
 		private Alignment _alignment = Alignment.Left;
 		private List<string>? _cachedContent;
 		private Color? _color;
+		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string? _title;
 		private Justify _titleAlignment = Justify.Left;
 		private int? _width;
@@ -36,6 +37,16 @@ namespace ConsoleEx.Contents
 		}
 
 		public IContainer? Container { get; set; }
+
+		public StickyPosition StickyPosition
+		{
+			get => _stickyPosition;
+			set
+			{
+				_stickyPosition = value;
+				Container?.Invalidate();
+			}
+		}
 
 		public string? Title
 		{

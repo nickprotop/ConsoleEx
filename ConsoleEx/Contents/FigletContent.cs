@@ -16,6 +16,7 @@ namespace ConsoleEx.Contents
 		private Color? _color;
 		private Alignment _justify = Alignment.Left;
 		private List<string>? _renderedContent;
+		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string? _text;
 		private int? _width;
 
@@ -41,6 +42,16 @@ namespace ConsoleEx.Contents
 		{ get => _color; set { _color = value; _renderedContent = null; Container?.Invalidate(); } }
 
 		public IContainer? Container { get; set; }
+
+		public StickyPosition StickyPosition
+		{
+			get => _stickyPosition;
+			set
+			{
+				_stickyPosition = value;
+				Container?.Invalidate();
+			}
+		}
 
 		public string? Text
 		{ get => _text; set { _text = value; _renderedContent = null; Container?.Invalidate(); } }
