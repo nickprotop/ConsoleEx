@@ -5,17 +5,18 @@ namespace ConsoleEx.Contents
 {
 	public class ButtonContent : IWIndowContent, IInteractiveContent
 	{
+		private Alignment _alignment = Alignment.Left;
 		private string? _cachedContent;
 		private bool _enabled = true;
 		private bool _focused;
-		private Alignment _justify = Alignment.Left;
+		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string _text = "Button";
 		private int? _width;
 		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleHelper.StripAnsiStringLength(_cachedContent);
 
 		public Alignment Alignment
-		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public IContainer? Container { get; set; }
 
@@ -39,6 +40,9 @@ namespace ConsoleEx.Contents
 				Container?.Invalidate();
 			}
 		}
+
+		public Margin Margin
+		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public Action<ButtonContent>? OnClick { get; set; }
 
@@ -126,8 +130,9 @@ namespace ConsoleEx.Contents
 				}
 			}
 
-			int buttonWidth = _width ?? availableWidth ?? 20; // Default width if not specified
 			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
+
+			int buttonWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(text) + 4);
 			int maxTextLength = buttonWidth - 4; // Account for brackets and padding
 
 			if (AnsiConsoleHelper.StripSpectreLength(text) > maxTextLength)
@@ -138,16 +143,14 @@ namespace ConsoleEx.Contents
 			int padding = (buttonWidth - AnsiConsoleHelper.StripSpectreLength(text) - 2) / 2;
 			if (padding < 0) padding = 0; // Ensure padding is not negative
 
-			string buttonText = $"{new string(' ', padding)}{text}{new string(' ', padding)}";
+			// Create the final string with [ at the start and ] at the end
+			string finalButtonText = $"[[{new string(' ', padding)}{text}{new string(' ', padding)}]]";
 
 			// Ensure the buttonText fits within the buttonWidth
-			if (AnsiConsoleHelper.StripSpectreLength(buttonText) < buttonWidth - 2)
+			if (AnsiConsoleHelper.StripSpectreLength(finalButtonText) < buttonWidth - 2)
 			{
-				buttonText = buttonText.PadRight(buttonWidth - 2);
+				finalButtonText = finalButtonText.PadRight(buttonWidth - 2);
 			}
-
-			// Create the final string with [ at the start and ] at the end
-			string finalButtonText = $"[[{buttonText}]]";
 
 			// Check if finalButtonText is of the desired width
 			if (AnsiConsoleHelper.StripSpectreLength(finalButtonText) != buttonWidth)
@@ -155,7 +158,7 @@ namespace ConsoleEx.Contents
 				finalButtonText = finalButtonText.Insert(2, new string(' ', buttonWidth - AnsiConsoleHelper.StripSpectreLength(finalButtonText)));
 			}
 
-			int maxContentWidth = _width ?? availableWidth ?? 80;
+			int maxContentWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(finalButtonText));
 
 			int paddingLeft = 0;
 			if (Alignment == Alignment.Center)
@@ -168,6 +171,19 @@ namespace ConsoleEx.Contents
 			for (int i = 0; i < renderedAnsi.Count; i++)
 			{
 				renderedAnsi[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + renderedAnsi[i];
+
+				renderedAnsi[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', _margin.Left)}", _margin.Left, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + renderedAnsi[i];
+				renderedAnsi[i] = renderedAnsi[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', _margin.Right)}", _margin.Right, 1, false, Container?.BackgroundColor, null).FirstOrDefault();
+			}
+
+			if (_margin.Top > 0)
+			{
+				renderedAnsi.InsertRange(0, Enumerable.Repeat(string.Empty, _margin.Top));
+			}
+
+			if (_margin.Bottom > 0)
+			{
+				renderedAnsi.InsertRange(0, Enumerable.Repeat(string.Empty, _margin.Bottom));
 			}
 
 			_cachedContent = renderedAnsi.First();

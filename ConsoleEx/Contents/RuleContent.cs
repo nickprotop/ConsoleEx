@@ -8,6 +8,7 @@ namespace ConsoleEx.Contents
 		private Alignment _alignment = Alignment.Left;
 		private List<string>? _cachedContent;
 		private Color? _color;
+		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string? _title;
 		private Justify _titleAlignment = Justify.Left;
@@ -37,6 +38,8 @@ namespace ConsoleEx.Contents
 		}
 
 		public IContainer? Container { get; set; }
+		public Margin Margin
+		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public StickyPosition StickyPosition
 		{

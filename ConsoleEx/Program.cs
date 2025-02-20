@@ -121,8 +121,8 @@ namespace ConsoleEx
 				var closeButton = new ButtonContent()
 				{
 					Text = "[red]Close[/] window",
-					Width = 20,
-					StickyPosition = StickyPosition.Bottom
+					StickyPosition = StickyPosition.Bottom,
+					Margin = new Margin() { Top = 1, Left = 1 }
 				};
 				closeButton.OnClick += (sender) =>
 				{
@@ -132,8 +132,8 @@ namespace ConsoleEx
 				var maximizeButton = new ButtonContent()
 				{
 					Text = "[yellow]Maximize[/] window",
-					Width = 20,
-					StickyPosition = StickyPosition.Bottom
+					StickyPosition = StickyPosition.Bottom,
+					Margin = new Margin() { Top = 1, Left = 1 }
 				};
 				maximizeButton.OnClick += (sender) =>
 				{

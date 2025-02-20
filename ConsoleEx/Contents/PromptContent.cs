@@ -17,6 +17,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	private int _cursorPosition = 0;
 	private string _input = string.Empty;
 	private Alignment _justify = Alignment.Left;
+	private Margin _margin = new Margin(0, 0, 0, 0);
 	private string? _prompt;
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private int? _width;
@@ -41,12 +42,12 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
 
 	public IContainer? Container { get; set; }
-
 	public bool DisableOnEnter { get; set; } = true;
-
 	public bool HasFocus { get; set; }
-
 	public bool IsEnabled { get; set; } = true;
+
+	public Margin Margin
+	{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
 
 	public Action<PromptContent, string>? OnInputChange { get; set; }
 
@@ -135,6 +136,13 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			Container?.Invalidate();
 			return true;
 		}
+		else if (key.Key == ConsoleKey.Escape)
+		{
+			HasFocus = false;
+			Container?.Invalidate();
+			OnInputChange?.Invoke(this, _input);
+			return true;
+		}
 		else if (!char.IsControl(key.KeyChar))
 		{
 			_input = _input.Insert(_cursorPosition, key.KeyChar.ToString());
@@ -159,7 +167,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
 		}
 
-		_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(_prompt + _input, (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
+		_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{_prompt}{_input}", (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
 
 		for (int i = 0; i < _cachedContent.Count; i++)
 		{

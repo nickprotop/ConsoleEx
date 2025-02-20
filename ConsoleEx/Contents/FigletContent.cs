@@ -13,9 +13,10 @@ namespace ConsoleEx.Contents
 {
 	public class FigletContent : IWIndowContent
 	{
+		private List<string>? _cachedContent;
 		private Color? _color;
 		private Alignment _justify = Alignment.Left;
-		private List<string>? _renderedContent;
+		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string? _text;
 		private int? _width;
@@ -24,9 +25,9 @@ namespace ConsoleEx.Contents
 		{
 			get
 			{
-				if (_renderedContent == null) return null;
+				if (_cachedContent == null) return null;
 				int maxLength = 0;
-				foreach (var line in _renderedContent)
+				foreach (var line in _cachedContent)
 				{
 					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
@@ -36,12 +37,15 @@ namespace ConsoleEx.Contents
 		}
 
 		public Alignment Alignment
-		{ get => _justify; set { _justify = value; _renderedContent = null; Container?.Invalidate(); } }
+		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public Color? Color
-		{ get => _color; set { _color = value; _renderedContent = null; Container?.Invalidate(); } }
+		{ get => _color; set { _color = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public IContainer? Container { get; set; }
+
+		public Margin Margin
+		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -54,10 +58,10 @@ namespace ConsoleEx.Contents
 		}
 
 		public string? Text
-		{ get => _text; set { _text = value; _renderedContent = null; Container?.Invalidate(); } }
+		{ get => _text; set { _text = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public int? Width
-		{ get => _width; set { _width = value; _renderedContent = null; Container?.Invalidate(); } }
+		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
 
 		public void Dispose()
 		{
@@ -66,23 +70,23 @@ namespace ConsoleEx.Contents
 
 		public void Invalidate()
 		{
-			_renderedContent = null;
+			_cachedContent = null;
 		}
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (_renderedContent != null) return _renderedContent;
+			if (_cachedContent != null) return _cachedContent;
 
-			_renderedContent = new List<string>();
+			_cachedContent = new List<string>();
 
 			FigletText figletText = new FigletText(_text ?? string.Empty);
 			Style style = new Style(_color ?? _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White, background: Container?.BackgroundColor ?? Spectre.Console.Color.Black);
 			figletText.Color = style.Foreground;
 
-			_renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? availableWidth ?? 50, availableHeight);
+			_cachedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? availableWidth ?? 50, availableHeight);
 
 			int maxContentWidth = 0;
-			foreach (var line in _renderedContent)
+			foreach (var line in _cachedContent)
 			{
 				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 				if (length > maxContentWidth) maxContentWidth = length;
@@ -94,25 +98,25 @@ namespace ConsoleEx.Contents
 				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
 			}
 
-			for (int i = 0; i < _renderedContent.Count; i++)
+			for (int i = 0; i < _cachedContent.Count; i++)
 			{
-				_renderedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + _renderedContent[i];
+				_cachedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + _cachedContent[i];
 			}
 
-			return _renderedContent;
+			return _cachedContent;
 		}
 
 		public void SetColor(Color color)
 		{
 			_color = color;
-			_renderedContent = null;
+			_cachedContent = null;
 			Container?.Invalidate();
 		}
 
 		public void SetText(string text)
 		{
 			_text = text;
-			_renderedContent = null;
+			_cachedContent = null;
 			Container?.Invalidate();
 		}
 	}
