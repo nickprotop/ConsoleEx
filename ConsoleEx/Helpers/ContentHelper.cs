@@ -8,9 +8,9 @@ namespace ConsoleEx.Helpers
 {
 	public static class ContentHelper
 	{
-		public static int GetCenter(int availableWidth, int ContentWidth)
+		public static int GetCenter(int availableWidth, int contentWidth)
 		{
-			int center = (availableWidth - ContentWidth) / 2;
+			int center = (availableWidth - contentWidth) / 2;
 			if (center < 0) center = 0;
 			return center;
 		}

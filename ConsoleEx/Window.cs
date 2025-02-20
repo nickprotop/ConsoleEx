@@ -221,7 +221,7 @@ namespace ConsoleEx
 			return interactiveContent != null;
 		}
 
-		public bool HasInteractiveContent(out (int Left, int Top) cursorPosition)
+		public bool HasInteractiveContent(out Position cursorPosition)
 		{
 			if (HasActiveInteractiveContent(out var activeInteractiveContent))
 			{
@@ -229,7 +229,7 @@ namespace ConsoleEx
 
 				if (currentCursorPosition == null)
 				{
-					cursorPosition = (0, 0);
+					cursorPosition = new Position(0, 0);
 					return false;
 				}
 
@@ -240,12 +240,19 @@ namespace ConsoleEx
 				{
 					IWIndowContent? content = activeInteractiveContent as IWIndowContent;
 
-					cursorPosition = (_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
-					return true;
+					cursorPosition = new Position(_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
+
+					// Check if the cursor position is within the visible bounds
+					if (cursorPosition.Y >= 0 && cursorPosition.Y < Height - 1 - _bottomStickyHeight)
+					{
+						return true;
+					}
+
+					return false;
 				}
 			}
 
-			cursorPosition = (0, 0);
+			cursorPosition = new Position(0, 0);
 			return false;
 		}
 
