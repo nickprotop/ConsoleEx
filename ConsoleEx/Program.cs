@@ -121,8 +121,7 @@ namespace ConsoleEx
 				var closeButton = new ButtonContent()
 				{
 					Text = "[red]Close[/] window",
-					Width = 25,
-					Alignment = Alignment.Center,
+					Width = 20,
 					StickyPosition = StickyPosition.Bottom
 				};
 				closeButton.OnClick += (sender) =>
@@ -133,8 +132,7 @@ namespace ConsoleEx
 				var maximizeButton = new ButtonContent()
 				{
 					Text = "[yellow]Maximize[/] window",
-					Width = 25,
-					Alignment = Alignment.Center,
+					Width = 20,
 					StickyPosition = StickyPosition.Bottom
 				};
 				maximizeButton.OnClick += (sender) =>
@@ -152,8 +150,6 @@ namespace ConsoleEx
 					Color = Color.Yellow,
 					Title = "[cyan]A[/][red]c[/][green]t[/][blue]i[/]o[white]n[/]s",
 					TitleAlignment = Justify.Left,
-					Width = 40,
-					Alignment = Alignment.Center,
 					StickyPosition = StickyPosition.Bottom
 				});
 
