@@ -179,6 +179,7 @@ namespace ConsoleEx
 						interactiveContent.HasFocus = true;
 					}
 				}
+				_invalidated = true;
 				RenderAndGetVisibleContent();
 				GoToBottom();
 			}
@@ -320,6 +321,7 @@ namespace ConsoleEx
 							_interactiveContents[0].HasFocus = true;
 						}
 					}
+					_invalidated = true;
 					RenderAndGetVisibleContent();
 					content.Dispose();
 					GoToBottom();
