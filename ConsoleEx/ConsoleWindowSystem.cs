@@ -337,7 +337,7 @@ namespace ConsoleEx
 
 								case ConsoleKey.RightArrow:
 									MoveOrResizeOperation(_activeWindow);
-									_activeWindow.SetSize(Math.Min(desktopRight - _activeWindow.Left, _activeWindow.Width + 1), _activeWindow.Height);
+									_activeWindow.SetSize(Math.Min(desktopRight - _activeWindow.Left + 1, _activeWindow.Width + 1), _activeWindow.Height);
 									handled = true;
 									break;
 							}
