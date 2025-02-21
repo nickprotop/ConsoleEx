@@ -168,20 +168,23 @@ namespace ConsoleEx
 			lock (_lock)
 			{
 				content.Container = this;
-
 				_content.Add(content);
+
+				_invalidated = true;
+
 				if (content is IInteractiveContent interactiveContent)
 				{
 					_interactiveContents.Add(interactiveContent);
-					// Set focus to the first interactive content if none has focus
-					if (_interactiveContents.Count == 1)
+
+					if (_interactiveContents.Where(p => p.HasFocus).Count() == 0)
 					{
 						interactiveContent.HasFocus = true;
 					}
 				}
-				_invalidated = true;
+
 				RenderAndGetVisibleContent();
-				GoToBottom();
+
+				if (content.StickyPosition == StickyPosition.None) GoToBottom();
 			}
 		}
 
@@ -460,31 +463,6 @@ namespace ConsoleEx
 			}
 		}
 
-		private void BringIntoFocus(int nextIndex)
-		{
-			// Ensure the focused content is within the visible window
-			var focusedContent = _interactiveContents[nextIndex] as IWIndowContent;
-			if (focusedContent != null)
-			{
-				int contentTop = _contentTopRowIndex[focusedContent];
-				int contentBottom = contentTop + focusedContent.RenderContent(Width - 2, Height - 2).Count;
-
-				if (contentTop < _scrollOffset)
-				{
-					// Scroll up to make the top of the content visible
-					_scrollOffset = contentTop;
-				}
-				else if (contentBottom > _scrollOffset + (Height - 2))
-				{
-					// Scroll down to make the bottom of the content visible
-					_scrollOffset = contentBottom - (Height - 2);
-				}
-			}
-
-			// Invalidate the window to update the display
-			Invalidate();
-		}
-
 		// Method to raise the KeyPressed event and return whether it was handled
 		protected virtual bool OnKeyPressed(ConsoleKeyInfo key)
 		{
@@ -501,6 +479,35 @@ namespace ConsoleEx
 		protected virtual void OnStateChanged(WindowState newState)
 		{
 			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
+		}
+
+		private void BringIntoFocus(int nextIndex)
+		{
+			// Ensure the focused content is within the visible window
+			var focusedContent = _interactiveContents[nextIndex] as IWIndowContent;
+
+			if (focusedContent != null)
+			{
+				if (focusedContent.StickyPosition == StickyPosition.None)
+				{
+					int contentTop = _contentTopRowIndex[focusedContent];
+					int contentBottom = contentTop + focusedContent.RenderContent(Width - 2, Height - 2).Count;
+
+					if (contentTop < _scrollOffset)
+					{
+						// Scroll up to make the top of the content visible
+						_scrollOffset = contentTop;
+					}
+					else if (contentBottom > _scrollOffset + (Height - 2 - _bottomStickyHeight))
+					{
+						// Scroll down to make the bottom of the content visible, considering sticky bottom height
+						_scrollOffset = contentBottom - (Height - 2 - _bottomStickyHeight);
+					}
+				}
+			}
+
+			// Invalidate the window to update the display
+			Invalidate();
 		}
 
 		public class WindowStateChangedEventArgs : EventArgs

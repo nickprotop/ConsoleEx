@@ -11,6 +11,7 @@ using Spectre.Console;
 using System.Collections.Concurrent;
 using System.Text;
 using ConsoleEx.Themes;
+using ConsoleEx.Helpers;
 using static ConsoleEx.Window;
 
 namespace ConsoleEx
@@ -629,7 +630,7 @@ namespace ConsoleEx
 				}
 
 				// Display the list of window titles in the bottom row
-				string bottomRow = $"{string.Join(" | ", _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {w.Title}"))} | {BottomStatus}";
+				string bottomRow = $"{string.Join(" | ", _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {StringHelper.TrimWithEllipsis(w.Title, 15, 7)}"))} | {BottomStatus}";
 
 				//add padding to the bottom row
 				bottomRow += new string(' ', Console.WindowWidth - AnsiConsoleHelper.StripSpectreLength(bottomRow));

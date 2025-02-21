@@ -9,72 +9,17 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	private List<string>? _cachedContent;
 	private int _cursorPosition = 0;
 	private string _input = string.Empty;
+	private Color? _inputBackgroundColor;
+	private Color? _inputFocusedBackgroundColor;
+	private Color? _inputFocusedForegroundColor;
+	private Color? _inputForegroundColor;
+	private int? _inputWidth;
 	private Alignment _justify = Alignment.Left;
 	private Margin _margin = new Margin(0, 0, 0, 0);
 	private string? _prompt;
+	private int _scrollOffset = 0;
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private int? _width;
-	private Color? _inputBackgroundColor;
-	private Color? _inputForegroundColor;
-	private Color? _inputFocusedBackgroundColor;
-	private Color? _inputFocusedForegroundColor;
-	private int? _inputWidth;
-	private int _scrollOffset = 0;
-
-	public int? InputWidth
-	{
-		get => _inputWidth;
-		set
-		{
-			_inputWidth = value;
-			_cachedContent = null;
-			Container?.Invalidate();
-		}
-	}
-
-	public Color? InputForegroundColor
-	{
-		get => _inputForegroundColor;
-		set
-		{
-			_inputForegroundColor = value;
-			_cachedContent = null;
-			Container?.Invalidate();
-		}
-	}
-
-	public Color? InputBackgroundColor
-	{
-		get => _inputBackgroundColor;
-		set
-		{
-			_inputBackgroundColor = value;
-			_cachedContent = null;
-			Container?.Invalidate();
-		}
-	}
-
-	public Color? InputFocusedForegroundColor
-	{
-		get => _inputFocusedForegroundColor;
-		set
-		{
-			_inputFocusedForegroundColor = value;
-			_cachedContent = null;
-			Container?.Invalidate();
-		}
-	}
-
-	public Color? InputFocusedBackgroundColor
-	{
-		get => _inputFocusedBackgroundColor;
-		set
-		{
-			_inputFocusedBackgroundColor = value;
-			_cachedContent = null;
-			Container?.Invalidate();
-		}
-	}
 
 	public int? ActualWidth
 	{
@@ -96,8 +41,66 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
 
 	public IContainer? Container { get; set; }
+
 	public bool DisableOnEnter { get; set; } = true;
+
 	public bool HasFocus { get; set; }
+
+	public Color? InputBackgroundColor
+	{
+		get => _inputBackgroundColor;
+		set
+		{
+			_inputBackgroundColor = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
+
+	public Color? InputFocusedBackgroundColor
+	{
+		get => _inputFocusedBackgroundColor;
+		set
+		{
+			_inputFocusedBackgroundColor = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
+
+	public Color? InputFocusedForegroundColor
+	{
+		get => _inputFocusedForegroundColor;
+		set
+		{
+			_inputFocusedForegroundColor = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
+
+	public Color? InputForegroundColor
+	{
+		get => _inputForegroundColor;
+		set
+		{
+			_inputForegroundColor = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
+
+	public int? InputWidth
+	{
+		get => _inputWidth;
+		set
+		{
+			_inputWidth = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
+
 	public bool IsEnabled { get; set; } = true;
 
 	public Margin Margin
@@ -124,11 +127,6 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	public void Dispose()
 	{
 		Container = null;
-	}
-
-	private void SetScrollOffset(int value)
-	{
-		_scrollOffset = Math.Max(0, value);
 	}
 
 	public (int Left, int Top)? GetCursorPosition()
@@ -254,7 +252,10 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		Color inputBackgroundColor = HasFocus ? InputFocusedBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor ?? Color.White : InputBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor ?? Color.Black;
 		Color inputForegroundColor = HasFocus ? InputFocusedForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black : InputBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
 
-		_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{_prompt}[{inputForegroundColor} on {inputBackgroundColor}]{visibleInput.PadRight(_inputWidth ?? 0)}[/]", (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
+		int paddingRight = _inputWidth ?? ((_width ?? availableWidth ?? 50) - AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty)) - 1;
+		if (paddingRight < 0) paddingRight = 0;
+
+		_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{_prompt}[{inputForegroundColor} on {inputBackgroundColor}]{visibleInput.PadRight(paddingRight)}[/]", (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
 
 		for (int i = 0; i < _cachedContent.Count; i++)
 		{
@@ -270,5 +271,10 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		_input = input;
 		Container?.Invalidate();
 		OnInputChange?.Invoke(this, _input);
+	}
+
+	private void SetScrollOffset(int value)
+	{
+		_scrollOffset = Math.Max(0, value);
 	}
 }
