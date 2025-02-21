@@ -1,14 +1,7 @@
-// -----------------------------------------------------------------------
-// ConsoleEx - A simple console window system for .NET Core
-//
-// Author: Nikolaos Protopapas
-// Email: nikolaos.protopapas@gmail.com
-// License: MIT
-// -----------------------------------------------------------------------
-
-using ConsoleEx;
 using ConsoleEx.Contents;
 using ConsoleEx.Helpers;
+using ConsoleEx;
+using Spectre.Console;
 
 public class PromptContent : IWIndowContent, IInteractiveContent
 {
@@ -21,6 +14,67 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	private string? _prompt;
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private int? _width;
+	private Color? _inputBackgroundColor;
+	private Color? _inputForegroundColor;
+	private Color? _inputFocusedBackgroundColor;
+	private Color? _inputFocusedForegroundColor;
+	private int? _inputWidth;
+	private int _scrollOffset = 0;
+
+	public int? InputWidth
+	{
+		get => _inputWidth;
+		set
+		{
+			_inputWidth = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
+
+	public Color? InputForegroundColor
+	{
+		get => _inputForegroundColor;
+		set
+		{
+			_inputForegroundColor = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
+
+	public Color? InputBackgroundColor
+	{
+		get => _inputBackgroundColor;
+		set
+		{
+			_inputBackgroundColor = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
+
+	public Color? InputFocusedForegroundColor
+	{
+		get => _inputFocusedForegroundColor;
+		set
+		{
+			_inputFocusedForegroundColor = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
+
+	public Color? InputFocusedBackgroundColor
+	{
+		get => _inputFocusedBackgroundColor;
+		set
+		{
+			_inputFocusedBackgroundColor = value;
+			_cachedContent = null;
+			Container?.Invalidate();
+		}
+	}
 
 	public int? ActualWidth
 	{
@@ -72,10 +126,16 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		Container = null;
 	}
 
+	private void SetScrollOffset(int value)
+	{
+		_scrollOffset = Math.Max(0, value);
+	}
+
 	public (int Left, int Top)? GetCursorPosition()
 	{
 		if (_cachedContent == null) return null;
-		return (AnsiConsoleHelper.StripAnsiStringLength(_cachedContent?.LastOrDefault() ?? string.Empty) - _input.Length + _cursorPosition, (_cachedContent?.Count ?? 0) - 1);
+		int visibleCursorPosition = _input.Length - _scrollOffset;
+		return (AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty) + visibleCursorPosition, (_cachedContent?.Count ?? 0) - 1);
 	}
 
 	public void Invalidate()
@@ -91,7 +151,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			if (DisableOnEnter)
 			{
 				_cursorPosition = 0;
-				IsEnabled = false;
+				HasFocus = false;
 			}
 			Container?.Invalidate();
 			OnInputChange?.Invoke(this, _input);
@@ -101,6 +161,10 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		{
 			_input = _input.Remove(_cursorPosition - 1, 1);
 			_cursorPosition--;
+			if (_cursorPosition < _scrollOffset + (_inputWidth ?? _input.Length))
+			{
+				SetScrollOffset(_scrollOffset - 1);
+			}
 			Container?.Invalidate();
 			OnInputChange?.Invoke(this, _input);
 			return true;
@@ -115,24 +179,34 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		else if (key.Key == ConsoleKey.Home)
 		{
 			_cursorPosition = 0;
+			SetScrollOffset(0);
 			Container?.Invalidate();
 			return true;
 		}
 		else if (key.Key == ConsoleKey.End)
 		{
 			_cursorPosition = _input.Length;
+			SetScrollOffset(Math.Max(0, _input.Length - (_inputWidth ?? _input.Length)));
 			Container?.Invalidate();
 			return true;
 		}
 		else if (key.Key == ConsoleKey.LeftArrow && _cursorPosition > 0)
 		{
 			_cursorPosition--;
+			if (_cursorPosition < _scrollOffset + (_inputWidth ?? _input.Length))
+			{
+				SetScrollOffset(_scrollOffset - 1);
+			}
 			Container?.Invalidate();
 			return true;
 		}
 		else if (key.Key == ConsoleKey.RightArrow && _cursorPosition < _input.Length)
 		{
 			_cursorPosition++;
+			if (_cursorPosition >= (_scrollOffset + (_inputWidth ?? _input.Length)))
+			{
+				SetScrollOffset(_scrollOffset + 1);
+			}
 			Container?.Invalidate();
 			return true;
 		}
@@ -147,6 +221,10 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		{
 			_input = _input.Insert(_cursorPosition, key.KeyChar.ToString());
 			_cursorPosition++;
+			if (_inputWidth.HasValue && _cursorPosition > _inputWidth.Value)
+			{
+				SetScrollOffset(_cursorPosition - _inputWidth.Value);
+			}
 			Container?.Invalidate();
 			OnInputChange?.Invoke(this, _input);
 			return true;
@@ -167,7 +245,16 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
 		}
 
-		_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{_prompt}{_input}", (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
+		string visibleInput = _input;
+		if (_inputWidth.HasValue && _input.Length > _inputWidth.Value)
+		{
+			visibleInput = _input.Substring(_scrollOffset, _inputWidth.Value);
+		}
+
+		Color inputBackgroundColor = HasFocus ? InputFocusedBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor ?? Color.White : InputBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor ?? Color.Black;
+		Color inputForegroundColor = HasFocus ? InputFocusedForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black : InputBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
+
+		_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{_prompt}[{inputForegroundColor} on {inputBackgroundColor}]{visibleInput.PadRight(_inputWidth ?? 0)}[/]", (_width ?? (availableWidth ?? 50)) - 1, availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
 
 		for (int i = 0; i < _cachedContent.Count; i++)
 		{

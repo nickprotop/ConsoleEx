@@ -111,7 +111,8 @@ namespace ConsoleEx
 				var agePrompt = new PromptContent()
 				{
 					Prompt = "[yellow]Enter[/] [red]your[/] [blue]age[/]: ",
-					DisableOnEnter = false
+					DisableOnEnter = false,
+					InputWidth = 10
 				};
 				agePrompt.OnEnter += (s, e) =>
 				{

@@ -456,28 +456,33 @@ namespace ConsoleEx
 				// Set focus to the next content
 				_interactiveContents[nextIndex].HasFocus = true;
 
-				// Ensure the focused content is within the visible window
-				var focusedContent = _interactiveContents[nextIndex] as IWIndowContent;
-				if (focusedContent != null)
-				{
-					int contentTop = _contentTopRowIndex[focusedContent];
-					int contentBottom = contentTop + focusedContent.RenderContent(Width - 2, Height - 2).Count;
-
-					if (contentTop < _scrollOffset)
-					{
-						// Scroll up to make the top of the content visible
-						_scrollOffset = contentTop;
-					}
-					else if (contentBottom > _scrollOffset + (Height - 2))
-					{
-						// Scroll down to make the bottom of the content visible
-						_scrollOffset = contentBottom - (Height - 2);
-					}
-				}
-
-				// Invalidate the window to update the display
-				Invalidate();
+				BringIntoFocus(nextIndex);
 			}
+		}
+
+		private void BringIntoFocus(int nextIndex)
+		{
+			// Ensure the focused content is within the visible window
+			var focusedContent = _interactiveContents[nextIndex] as IWIndowContent;
+			if (focusedContent != null)
+			{
+				int contentTop = _contentTopRowIndex[focusedContent];
+				int contentBottom = contentTop + focusedContent.RenderContent(Width - 2, Height - 2).Count;
+
+				if (contentTop < _scrollOffset)
+				{
+					// Scroll up to make the top of the content visible
+					_scrollOffset = contentTop;
+				}
+				else if (contentBottom > _scrollOffset + (Height - 2))
+				{
+					// Scroll down to make the bottom of the content visible
+					_scrollOffset = contentBottom - (Height - 2);
+				}
+			}
+
+			// Invalidate the window to update the display
+			Invalidate();
 		}
 
 		// Method to raise the KeyPressed event and return whether it was handled

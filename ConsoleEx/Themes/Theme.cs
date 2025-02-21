@@ -26,5 +26,9 @@ namespace ConsoleEx.Themes
 		public Color TopBarForegroundColor { get; set; } = Color.Black;
 		public Color WindowBackgroundColor { get; set; } = Color.Grey15;
 		public Color WindowForegroundColor { get; set; } = Color.White;
+		public Color PromptInputFocusedBackgroundColor { get; set; } = Color.Grey46;
+		public Color PromptInputBackgroundColor { get; set; } = Color.Grey23;
+		public Color PromptInputFocusedForegroundColor { get; set; } = Color.White;
+		public Color PromptInputForegroundColor { get; set; } = Color.White;
 	}
 }
