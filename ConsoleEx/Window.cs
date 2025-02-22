@@ -40,6 +40,10 @@ namespace ConsoleEx
 		private bool _invalidated = false;
 
 		private bool _isActive;
+		private int? _maximumHeight;
+		private int? _maximumWidth;
+		private int? _minimumHeight = 10;
+		private int? _minimumWidth = 20;
 		private int _scrollOffset;
 		private WindowState _state;
 		private ConsoleWindowSystem? _windowSystem;
@@ -485,8 +489,41 @@ namespace ConsoleEx
 			_isActive = value;
 		}
 
+		public void SetPosition(Position point)
+		{
+			if (point.X < 0 || point.Y < 0) return;
+
+			Left = point.X;
+			Top = point.Y;
+		}
+
 		public void SetSize(int width, int height)
 		{
+			if (Width == width && Height == height)
+			{
+				return;
+			}
+
+			if (_minimumWidth != null && width < _minimumWidth)
+			{
+				width = (int)_minimumWidth;
+			}
+
+			if (_maximumWidth != null && width > _maximumWidth)
+			{
+				width = (int)_maximumWidth;
+			}
+
+			if (_minimumHeight != null && height < _minimumHeight)
+			{
+				height = (int)_minimumHeight;
+			}
+
+			if (_maximumHeight != null && height > _maximumHeight)
+			{
+				height = (int)_maximumHeight;
+			}
+
 			Width = width;
 			Height = height;
 
