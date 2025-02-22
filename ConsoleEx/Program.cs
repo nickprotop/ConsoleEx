@@ -30,12 +30,12 @@ namespace ConsoleEx
 			return systemInfo;
 		}
 
-		private static void Main(string[] args)
+		private static int Main(string[] args)
 		{
 			var consoleWindowSystem = new ConsoleWindowSystem
 			{
 				TopStatus = "TOP STATUS BAR",
-				BottomStatus = "BOTTOM STATUS BAR",
+				BottomStatus = "Ctrl-Q Quit",
 				RenderMode = RenderMode.Direct,
 				Theme = new Theme()
 				{
@@ -217,7 +217,7 @@ namespace ConsoleEx
 
 			consoleWindowSystem.SetActiveWindow(window1);
 
-			consoleWindowSystem.Run();
+			return consoleWindowSystem.Run().exitCode;
 		}
 	}
 }

@@ -27,7 +27,8 @@ namespace ConsoleEx
 		private readonly ConcurrentQueue<ConsoleKeyInfo> _inputQueue = new();
 		private readonly List<Window> _windows = new();
 		private Window? _activeWindow = null;
-		private ConsoleBuffer _buffer;
+		private int _exitCode = 0;
+		private string? _exitMessage;
 		private int _lastConsoleHeight;
 		private int _lastConsoleWidth;
 		private object _renderLock = new object();
@@ -36,7 +37,6 @@ namespace ConsoleEx
 		public ConsoleWindowSystem()
 		{
 			Console.OutputEncoding = Encoding.UTF8;
-			_buffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
 		}
 
 		public string BottomStatus { get; set; } = "";
@@ -130,7 +130,7 @@ namespace ConsoleEx
 			}
 		}
 
-		public void Run()
+		public (int exitCode, string? exitMessage) Run()
 		{
 			_running = true;
 			Console.CursorVisible = false;
@@ -159,9 +159,11 @@ namespace ConsoleEx
 
 			Console.Clear();
 			Console.SetCursorPosition(0, 0);
-			Console.WriteLine("Console window system terminated.");
+			Console.WriteLine($"Console window system terminated{(string.IsNullOrEmpty(_exitMessage) ? "." : (" with message: \"" + _exitMessage + "\""))}");
 
 			Console.CursorVisible = true;
+
+			return (_exitCode, _exitMessage);
 		}
 
 		public void SetActiveWindow(Window window)
@@ -305,6 +307,11 @@ namespace ConsoleEx
 					if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.T)
 					{
 						CycleActiveWindow();
+					}
+					else if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.Q)
+					{
+						_exitMessage = "user requested exit";
+						_running = false;
 					}
 					else if (_activeWindow != null)
 					{
@@ -507,18 +514,12 @@ namespace ConsoleEx
 
 		private void ResizeLoop()
 		{
-			while (_running)
 			{
 				if (Console.WindowWidth != _lastConsoleWidth || Console.WindowHeight != _lastConsoleHeight)
 				{
 					lock (_renderLock)
 					{
 						Size desktopSize = DesktopDimensions;
-
-						if (RenderMode == RenderMode.Buffer)
-						{
-							_buffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
-						}
 
 						foreach (var window in _windows)
 						{
@@ -646,11 +647,6 @@ namespace ConsoleEx
 				bottomRow += new string(' ', Console.WindowWidth - AnsiConsoleHelper.StripSpectreLength(bottomRow));
 
 				WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.BottomBarForegroundColor}]{bottomRow}[/]", Console.WindowWidth, 1, false, Theme.BottomBarBackgroundColor, null)[0]);
-
-				if (RenderMode == RenderMode.Buffer)
-				{
-					_buffer.Render();
-				}
 			}
 		}
 
@@ -661,10 +657,6 @@ namespace ConsoleEx
 				case RenderMode.Direct:
 					Console.SetCursorPosition(x, y);
 					Console.Write(value);
-					break;
-
-				case RenderMode.Buffer:
-					_buffer.AddContent(x, y, value);
 					break;
 			}
 		}
