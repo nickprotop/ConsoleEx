@@ -14,27 +14,11 @@ namespace ConsoleEx
 {
 	internal class Program
 	{
-		private static List<string> GetSystemInfo()
-		{
-			var systemInfo = new List<string>();
-
-			// CPU usage
-			systemInfo.Add($"[yellow]CPU Usage:[/] [green]{new Random().Next(0, 100)}%[/]");
-
-			// Memory usage
-			systemInfo.Add($"[yellow]Available Memory:[/] [green]{new Random().Next(0, 8000)} MB[/]");
-
-			// Disk usage
-			systemInfo.Add($"[yellow]Disk Free Space:[/] [green]{new Random().Next(1, 100)}%[/]");
-
-			return systemInfo;
-		}
-
 		private static int Main(string[] args)
 		{
 			var consoleWindowSystem = new ConsoleWindowSystem
 			{
-				TopStatus = "TOP STATUS BAR",
+				TopStatus = "ConsoleEx example application",
 				BottomStatus = "Ctrl-Q Quit",
 				RenderMode = RenderMode.Direct,
 				Theme = new Theme()
@@ -66,118 +50,8 @@ namespace ConsoleEx
 
 			consoleWindowSystem.AddWindow(window1);
 
-			// Example of creating window with markup content and it's own thread and handling user prompt
-			var window2 = new Window(consoleWindowSystem,
-			(window) =>
-			{
-				MarkupContent systemInfoContent = new MarkupContent(GetSystemInfo());
-				window.AddContent(systemInfoContent);
-
-				while (true)
-				{
-					systemInfoContent.SetContent(GetSystemInfo());
-					Thread.Sleep(2000);
-				}
-			})
-			{
-				Title = "System Info",
-				Left = 12,
-				Top = 4,
-				Width = 40,
-				Height = 10
-			};
-
-			consoleWindowSystem.AddWindow(window2);
-
-			// Example of creating window with markup content and it's own thread and handling user prompt
-			var window3 = new Window(consoleWindowSystem,
-			(window) =>
-			{
-				window.AddContent(new MarkupContent(new List<string>() { "User Info", " " }));
-
-				var ageInfo = new MarkupContent(new List<string>() { " " });
-
-				var namePrompt = new PromptContent()
-				{
-					Prompt = "[yellow]Enter[/] [red]your[/] [blue]name[/]: ",
-					DisableOnEnter = false
-				};
-				namePrompt.OnInputChange += (s, e) =>
-				{
-					window.Title = $"User - {e}";
-				};
-				window.AddContent(namePrompt);
-
-				var agePrompt = new PromptContent()
-				{
-					Prompt = "[yellow]Enter[/] [red]your[/] [blue]age[/]: ",
-					DisableOnEnter = false,
-					InputWidth = 10
-				};
-				agePrompt.OnEnter += (s, e) =>
-				{
-					ageInfo.SetContent(new List<string>() { $"[bold]Your age is {e}[/]" });
-				};
-
-				window.AddContent(agePrompt);
-				window.AddContent(new MarkupContent(new List<string>() { " " }));
-				window.AddContent(ageInfo);
-				window.AddContent(new MarkupContent(new List<string>() { " " }));
-
-				window.AddContent(new RuleContent()
-				{
-					Color = Color.Yellow,
-					Title = "[cyan]A[/][red]c[/][green]t[/][blue]i[/]o[white]n[/]s",
-					TitleAlignment = Justify.Left,
-					StickyPosition = StickyPosition.Bottom
-				});
-
-				HorizontalGridContent horizontalGridContent = new HorizontalGridContent()
-				{
-					StickyPosition = StickyPosition.Bottom
-				};
-				window.AddContent(horizontalGridContent);
-
-				var maximizeButton = new ButtonContent()
-				{
-					Text = "[yellow]Maximize[/] window",
-					StickyPosition = StickyPosition.Bottom,
-					Margin = new Margin() { Left = 1 }
-				};
-				maximizeButton.OnClick += (sender) =>
-				{
-					window.State = WindowState.Maximized;
-				};
-
-				ColumnContainer columnContainer = new ColumnContainer(horizontalGridContent);
-				columnContainer.AddContent(maximizeButton);
-				horizontalGridContent.AddColumn(columnContainer);
-
-				var closeButton = new ButtonContent()
-				{
-					Text = "[red]Close[/] window",
-					StickyPosition = StickyPosition.Bottom,
-					Margin = new Margin() { Left = 1 }
-				};
-				closeButton.OnClick += (sender) =>
-				{
-					window.Close();
-				};
-
-				columnContainer = new ColumnContainer(horizontalGridContent);
-				columnContainer.AddContent(closeButton);
-				horizontalGridContent.AddColumn(columnContainer);
-			})
-			{
-				Title = "User",
-				Left = 22,
-				Top = 6,
-				Width = 40,
-				Height = 10,
-				IsResizable = true
-			};
-
-			consoleWindowSystem.AddWindow(window3);
+			var systemInfoWindow = new SystemInfoWindow(consoleWindowSystem);
+			var userInfoWindow = new UserInfoWindow(consoleWindowSystem);
 
 			// Example of creating window with Figlet content and it's own thread
 			consoleWindowSystem.AddWindow(new Window(consoleWindowSystem, (window) =>
