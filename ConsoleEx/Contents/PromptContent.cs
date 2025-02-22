@@ -265,6 +265,11 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		return _cachedContent;
 	}
 
+	public void SetFocus(bool focus, bool backward)
+	{
+		HasFocus = focus;
+	}
+
 	public void SetInput(string input)
 	{
 		_cachedContent = null;

@@ -201,6 +201,54 @@ namespace ConsoleEx
 			}
 		}
 
+		public IWIndowContent? GetContentFromDesktopCoordinates(Position? point)
+		{
+			lock (_lock)
+			{
+				if (point == null) return null;
+
+				// Translate the coordinates to the relative position within the window
+				var relativePosition = _windowSystem?.TranslateToRelative(this, point);
+				if (relativePosition == null)
+				{
+					return null;
+				}
+
+				return GetContentFromWindowCoordinates(relativePosition);
+			}
+		}
+
+		public IWIndowContent? GetContentFromWindowCoordinates(Position? point)
+		{
+			lock (_lock)
+			{
+				if (point == null) return null;
+
+				// Check if the coordinates are within the window bounds
+				if (point?.X < 0 || point?.X >= Width || point?.Y < 0 || point?.Y >= Height)
+				{
+					return null;
+				}
+
+				// Calculate the content index based on the scroll offset
+				int contentIndex = point?.Y ?? 0 + _scrollOffset;
+
+				// Iterate through the content to find the one that matches the coordinates
+				foreach (var content in _content)
+				{
+					int contentTop = _contentTopRowIndex[content];
+					int contentBottom = contentTop + content.RenderContent(Width - 2, Height - 2).Count;
+
+					if (contentTop <= contentIndex && contentIndex < contentBottom)
+					{
+						return content;
+					}
+				}
+
+				return null;
+			}
+		}
+
 		public bool GetIsActive()
 		{
 			return _isActive;
@@ -271,54 +319,6 @@ namespace ConsoleEx
 			}
 
 			IsDirty = true;
-		}
-
-		public IWIndowContent? GetContentFromWindowCoordinates(Position? point)
-		{
-			lock (_lock)
-			{
-				if (point == null) return null;
-
-				// Check if the coordinates are within the window bounds
-				if (point?.X < 0 || point?.X >= Width || point?.Y < 0 || point?.Y >= Height)
-				{
-					return null;
-				}
-
-				// Calculate the content index based on the scroll offset
-				int contentIndex = point?.Y ?? 0 + _scrollOffset;
-
-				// Iterate through the content to find the one that matches the coordinates
-				foreach (var content in _content)
-				{
-					int contentTop = _contentTopRowIndex[content];
-					int contentBottom = contentTop + content.RenderContent(Width - 2, Height - 2).Count;
-
-					if (contentTop <= contentIndex && contentIndex < contentBottom)
-					{
-						return content;
-					}
-				}
-
-				return null;
-			}
-		}
-
-		public IWIndowContent? GetContentFromDesktopCoordinates(Position? point)
-		{
-			lock (_lock)
-			{
-				if (point == null) return null;
-
-				// Translate the coordinates to the relative position within the window
-				var relativePosition = _windowSystem?.TranslateToRelative(this, point);
-				if (relativePosition == null)
-				{
-					return null;
-				}
-
-				return GetContentFromWindowCoordinates(relativePosition);
-			}
 		}
 
 		public bool ProcessInput(ConsoleKeyInfo key)
@@ -525,7 +525,7 @@ namespace ConsoleEx
 				}
 
 				// Set focus to the next content
-				_interactiveContents[nextIndex].HasFocus = true;
+				_interactiveContents[nextIndex].SetFocus(true, backward);
 
 				BringIntoFocus(nextIndex);
 			}

@@ -237,7 +237,14 @@ namespace ConsoleEx.Contents
 			return _cachedContent;
 		}
 
-		private void FocusChanged()
+		public void SetFocus(bool focus, bool backward)
+		{
+			_hasFocus = focus;
+			FocusChanged(backward);
+			Container?.Invalidate(true);
+		}
+
+		private void FocusChanged(bool backward = false)
 		{
 			if (_hasFocus)
 			{
@@ -254,8 +261,16 @@ namespace ConsoleEx.Contents
 
 				if (_focusedContent == null)
 				{
-					_interactiveContents.Keys.First().HasFocus = true;
-					_focusedContent = _interactiveContents.Keys.First();
+					if (backward)
+					{
+						_interactiveContents.Keys.Last().HasFocus = true;
+						_focusedContent = _interactiveContents.Keys.Last();
+					}
+					else
+					{
+						_interactiveContents.Keys.First().HasFocus = true;
+						_focusedContent = _interactiveContents.Keys.First();
+					}
 				}
 
 				_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()].Invalidate(true);

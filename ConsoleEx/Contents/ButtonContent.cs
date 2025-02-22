@@ -194,5 +194,10 @@ namespace ConsoleEx.Contents
 			_cachedContent = renderedAnsi.First();
 			return renderedAnsi;
 		}
+
+		public void SetFocus(bool focus, bool backward)
+		{
+			HasFocus = focus;
+		}
 	}
 }

@@ -16,5 +16,7 @@ namespace ConsoleEx.Contents
 		public (int Left, int Top)? GetCursorPosition();
 
 		public bool ProcessKey(ConsoleKeyInfo key);
+
+		public void SetFocus(bool focus, bool backward);
 	}
 }
