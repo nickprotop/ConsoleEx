@@ -1,6 +1,7 @@
 using Spectre.Console;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace ConsoleEx.Contents
 {
@@ -24,6 +25,7 @@ namespace ConsoleEx.Contents
 
 		public Color BackgroundColor { get; set; }
 		public Color ForegroundColor { get; set; }
+
 		public ConsoleWindowSystem? GetConsoleWindowSystem
 		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; } }
 
@@ -53,6 +55,19 @@ namespace ConsoleEx.Contents
 			Invalidate();
 		}
 
+		public List<IInteractiveContent> GetInteractiveContents()
+		{
+			List<IInteractiveContent> interactiveContents = new List<IInteractiveContent>();
+			foreach (var content in _contents)
+			{
+				if (content is IInteractiveContent interactiveContent)
+				{
+					interactiveContents.Add(interactiveContent);
+				}
+			}
+			return interactiveContents;
+		}
+
 		public int? GetActualWidth()
 		{
 			if (_cachedContent == null) return null;
@@ -69,6 +84,8 @@ namespace ConsoleEx.Contents
 		public void Invalidate()
 		{
 			_isDirty = true;
+			_cachedContent = null;
+			_horizontalGridContent.Invalidate();
 		}
 
 		public void RemoveContent(IWIndowContent content)
@@ -76,6 +93,7 @@ namespace ConsoleEx.Contents
 			if (_contents.Remove(content))
 			{
 				content.Container = null;
+				content.Dispose();
 				Invalidate();
 			}
 		}

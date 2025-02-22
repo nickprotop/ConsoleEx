@@ -432,7 +432,7 @@ namespace ConsoleEx
 				var resetColor = "[/]";
 
 				// Draw top border with title
-				var title = $"{titleColor}| {window.Title} |{resetColor}";
+				var title = $"{titleColor}| {StringHelper.TrimWithEllipsis(window.Title, window.Width - 8, (window.Width - 8) / 2)} |{resetColor}";
 				var titleLength = AnsiConsoleHelper.StripSpectreLength(title);
 				var availableSpace = window.Width - 2 - titleLength;
 				var leftPadding = 1;

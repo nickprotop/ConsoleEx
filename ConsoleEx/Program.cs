@@ -119,28 +119,6 @@ namespace ConsoleEx
 					ageInfo.SetContent(new List<string>() { $"[bold]Your age is {e}[/]" });
 				};
 
-				var closeButton = new ButtonContent()
-				{
-					Text = "[red]Close[/] window",
-					StickyPosition = StickyPosition.Bottom,
-					Margin = new Margin() { Top = 1, Left = 1 }
-				};
-				closeButton.OnClick += (sender) =>
-				{
-					window.Close();
-				};
-
-				var maximizeButton = new ButtonContent()
-				{
-					Text = "[yellow]Maximize[/] window",
-					StickyPosition = StickyPosition.Bottom,
-					Margin = new Margin() { Top = 1, Left = 1 }
-				};
-				maximizeButton.OnClick += (sender) =>
-				{
-					window.State = WindowState.Maximized;
-				};
-
 				window.AddContent(agePrompt);
 				window.AddContent(new MarkupContent(new List<string>() { " " }));
 				window.AddContent(ageInfo);
@@ -154,8 +132,41 @@ namespace ConsoleEx
 					StickyPosition = StickyPosition.Bottom
 				});
 
-				window.AddContent(closeButton);
-				window.AddContent(maximizeButton);
+				HorizontalGridContent horizontalGridContent = new HorizontalGridContent()
+				{
+					StickyPosition = StickyPosition.Bottom
+				};
+				window.AddContent(horizontalGridContent);
+
+				var maximizeButton = new ButtonContent()
+				{
+					Text = "[yellow]Maximize[/] window",
+					StickyPosition = StickyPosition.Bottom,
+					Margin = new Margin() { Top = 1, Left = 1 }
+				};
+				maximizeButton.OnClick += (sender) =>
+				{
+					window.State = WindowState.Maximized;
+				};
+
+				ColumnContainer columnContainer = new ColumnContainer(horizontalGridContent);
+				columnContainer.AddContent(maximizeButton);
+				horizontalGridContent.AddColumn(columnContainer);
+
+				var closeButton = new ButtonContent()
+				{
+					Text = "[red]Close[/] window",
+					StickyPosition = StickyPosition.Bottom,
+					Margin = new Margin() { Top = 1, Left = 1 }
+				};
+				closeButton.OnClick += (sender) =>
+				{
+					window.Close();
+				};
+
+				columnContainer = new ColumnContainer(horizontalGridContent);
+				columnContainer.AddContent(closeButton);
+				horizontalGridContent.AddColumn(columnContainer);
 			})
 			{
 				Title = "User",

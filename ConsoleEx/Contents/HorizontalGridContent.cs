@@ -2,11 +2,12 @@ using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data.Common;
 using System.Linq;
 
 namespace ConsoleEx.Contents
 {
-	public class HorizontalGridContent : IWIndowContent
+	public class HorizontalGridContent : IWIndowContent, IInteractiveContent
 	{
 		private Alignment _alignment = Alignment.Left;
 		private List<string>? _cachedContent;
@@ -15,6 +16,10 @@ namespace ConsoleEx.Contents
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private int? _width;
+		private bool _hasFocus;
+		private bool _isEnabled = true;
+		private Dictionary<IInteractiveContent, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveContent, ColumnContainer>();
+		private IInteractiveContent? _focusedContent;
 
 		public int? ActualWidth
 		{
@@ -28,6 +33,28 @@ namespace ConsoleEx.Contents
 					if (length > maxLength) maxLength = length;
 				}
 				return maxLength;
+			}
+		}
+
+		public bool IsEnabled
+		{
+			get => _isEnabled;
+			set
+			{
+				_cachedContent = null;
+				_isEnabled = value;
+				Container?.Invalidate();
+			}
+		}
+
+		public bool HasFocus
+		{
+			get => _hasFocus;
+			set
+			{
+				_hasFocus = value;
+				FocusChanged();
+				Container?.Invalidate();
 			}
 		}
 
@@ -69,6 +96,7 @@ namespace ConsoleEx.Contents
 		public void Invalidate()
 		{
 			_invalidated = true;
+			_cachedContent = null;
 		}
 
 		public void RemoveColumn(ColumnContainer column)
@@ -87,16 +115,16 @@ namespace ConsoleEx.Contents
 			}
 
 			_cachedContent = new List<string>();
-			int maxHeight = availableHeight ?? 0;
+			int? maxHeight = 0;
 
 			// Calculate total specified width and count columns with null width
 			int totalSpecifiedWidth = 0;
 			int nullWidthCount = 0;
 			foreach (var column in _columns)
 			{
-				if (column.GetActualWidth() != null)
+				if (column.Width != null)
 				{
-					totalSpecifiedWidth += column.GetActualWidth() ?? 0;
+					totalSpecifiedWidth += column.Width ?? 0;
 				}
 				else
 				{
@@ -144,6 +172,92 @@ namespace ConsoleEx.Contents
 
 			_invalidated = false;
 			return _cachedContent;
+		}
+
+		public (int Left, int Top)? GetCursorPosition()
+		{
+			return null;
+		}
+
+		private void FocusChanged()
+		{
+			if (_hasFocus)
+			{
+				_interactiveContents.Clear();
+				foreach (var column in _columns)
+				{
+					foreach (var interactiveContent in column.GetInteractiveContents())
+					{
+						_interactiveContents.Add(interactiveContent, column);
+					}
+				}
+
+				if (_interactiveContents.Count == 0) return;
+
+				if (_focusedContent == null)
+				{
+					_interactiveContents.Keys.First().HasFocus = true;
+					_focusedContent = _interactiveContents.Keys.First();
+				}
+
+				_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()].Invalidate();
+			}
+			else
+			{
+				_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()].Invalidate();
+				_interactiveContents.Keys.ToList().ForEach(c => c.HasFocus = false);
+				_focusedContent = null;
+			}
+		}
+
+		public bool ProcessKey(ConsoleKeyInfo key)
+		{
+			// check if key is tab
+			if (key.Key == ConsoleKey.Tab)
+			{
+				if (_interactiveContents.Count == 0)
+				{
+					return false;
+				}
+				else
+				{
+					if (_focusedContent == null)
+					{
+						_focusedContent = _interactiveContents.Keys.First();
+					}
+
+					_focusedContent.HasFocus = false;
+					_interactiveContents[_focusedContent].Invalidate();
+
+					int index = _interactiveContents.Keys.ToList().IndexOf(_focusedContent);
+
+					if (key.Modifiers.HasFlag(ConsoleModifiers.Shift))
+					{
+						if (index == 0)
+						{
+							return false;
+						}
+						index = index == 0 ? _interactiveContents.Keys.Count - 1 : index - 1;
+					}
+					else
+					{
+						if (index == _interactiveContents.Keys.Count - 1)
+						{
+							return false;
+						}
+						index = index == _interactiveContents.Keys.Count - 1 ? 0 : index + 1;
+					}
+					_focusedContent = _interactiveContents.Keys.ElementAt(index);
+				}
+
+				_focusedContent.HasFocus = true;
+				_interactiveContents[_focusedContent].Invalidate();
+
+				Container?.Invalidate();
+				return true;
+			}
+
+			return _focusedContent?.ProcessKey(key) ?? false;
 		}
 	}
 }
