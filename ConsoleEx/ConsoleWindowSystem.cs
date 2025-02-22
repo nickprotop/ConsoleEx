@@ -184,17 +184,17 @@ namespace ConsoleEx
 			}
 		}
 
-		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, int relativeLeft, int relativeTop)
+		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, Position point)
 		{
-			int absoluteLeft = window.Left + relativeLeft;
-			int absoluteTop = window.Top + DesktopUpperLeft.Y + relativeTop;
+			int absoluteLeft = window.Left + point.X;
+			int absoluteTop = window.Top + DesktopUpperLeft.Y + point.Y;
 			return (absoluteLeft, absoluteTop);
 		}
 
-		public Position TranslateToRelative(Window window, int absoluteLeft, int absoluteTop)
+		public Position TranslateToRelative(Window window, Position point)
 		{
-			int relativeLeft = absoluteLeft - window.Left;
-			int relativeTop = absoluteTop - window.Top - DesktopUpperLeft.Y;
+			int relativeLeft = point.X - window.Left;
+			int relativeTop = point.Y - window.Top - DesktopUpperLeft.Y;
 			return new Position(relativeLeft, relativeTop);
 		}
 
@@ -403,7 +403,7 @@ namespace ConsoleEx
 
 		private void RenderWindow(Window window)
 		{
-			lock (window)
+			lock (_renderLock)
 			{
 				Position desktopTopLeftCorner = DesktopUpperLeft;
 				Position desktopBottomRightCorner = DesktopBottomRight;
@@ -515,6 +515,11 @@ namespace ConsoleEx
 					{
 						Size desktopSize = DesktopDimensions;
 
+						if (RenderMode == RenderMode.Buffer)
+						{
+							_buffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
+						}
+
 						foreach (var window in _windows)
 						{
 							if (window.Left + window.Width > desktopSize.Width)
@@ -542,7 +547,7 @@ namespace ConsoleEx
 		{
 			if (_activeWindow != null && _activeWindow.HasInteractiveContent(out var cursorPosition))
 			{
-				var (absoluteLeft, absoluteTop) = TranslateToAbsolute(_activeWindow, cursorPosition.X, cursorPosition.Y);
+				var (absoluteLeft, absoluteTop) = TranslateToAbsolute(_activeWindow, new Position(cursorPosition.X, cursorPosition.Y));
 
 				// Check if the cursor position is within the console window boundaries
 				if (absoluteLeft >= 0 && absoluteLeft < Console.WindowWidth &&

@@ -154,8 +154,12 @@ namespace ConsoleEx
 					// Output trailing escapes at the end of the line
 					if (!string.IsNullOrEmpty(_trailingEscapes[_width - 1, y]))
 					{
-						Console.SetCursorPosition(_width - 1, y);
-						Console.Write(_trailingEscapes[_width - 1, y]);
+						try
+						{
+							Console.SetCursorPosition(_width - 1, y);
+							Console.Write(_trailingEscapes[_width - 1, y]);
+						}
+						catch { }
 					}
 				}
 			}
