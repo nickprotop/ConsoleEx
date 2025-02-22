@@ -106,6 +106,9 @@ namespace ConsoleEx.Contents
 			Color backgroundColor = Container?.BackgroundColor ?? Color.Black;
 			Color foregroundColor = Container?.ForegroundColor ?? Color.White;
 
+			Color windowBackground = Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black;
+			Color windowForeground = Container?.GetConsoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White;
+
 			if (Container?.GetConsoleWindowSystem?.Theme != null)
 			{
 				if (_enabled == false)
@@ -176,14 +179,16 @@ namespace ConsoleEx.Contents
 				renderedAnsi[i] = renderedAnsi[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', _margin.Right)}", _margin.Right, 1, false, Container?.BackgroundColor, null).FirstOrDefault();
 			}
 
+			int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedAnsi.FirstOrDefault() ?? string.Empty);
+
 			if (_margin.Top > 0)
 			{
-				renderedAnsi.InsertRange(0, Enumerable.Repeat(string.Empty, _margin.Top));
+				renderedAnsi.InsertRange(0, Enumerable.Repeat($"{AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(new string(' ', finalWidth), finalWidth, 1, false, windowBackground, windowForeground).FirstOrDefault()}", _margin.Top));
 			}
 
 			if (_margin.Bottom > 0)
 			{
-				renderedAnsi.InsertRange(0, Enumerable.Repeat(string.Empty, _margin.Bottom));
+				renderedAnsi.InsertRange(0, Enumerable.Repeat($"{AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(new string(' ', finalWidth), finalWidth, 1, false, windowBackground, windowForeground).FirstOrDefault()}", _margin.Bottom));
 			}
 
 			_cachedContent = renderedAnsi.First();

@@ -142,7 +142,7 @@ namespace ConsoleEx
 				{
 					Text = "[yellow]Maximize[/] window",
 					StickyPosition = StickyPosition.Bottom,
-					Margin = new Margin() { Top = 1, Left = 1 }
+					Margin = new Margin() { Left = 1 }
 				};
 				maximizeButton.OnClick += (sender) =>
 				{
@@ -157,7 +157,7 @@ namespace ConsoleEx
 				{
 					Text = "[red]Close[/] window",
 					StickyPosition = StickyPosition.Bottom,
-					Margin = new Margin() { Top = 1, Left = 1 }
+					Margin = new Margin() { Left = 1 }
 				};
 				closeButton.OnClick += (sender) =>
 				{
