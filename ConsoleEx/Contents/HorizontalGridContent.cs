@@ -43,7 +43,7 @@ namespace ConsoleEx.Contents
 			{
 				_cachedContent = null;
 				_isEnabled = value;
-				Container?.Invalidate();
+				Container?.Invalidate(false);
 			}
 		}
 
@@ -54,19 +54,19 @@ namespace ConsoleEx.Contents
 			{
 				_hasFocus = value;
 				FocusChanged();
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
 		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public Color? BackgroundColor { get; set; }
 		public IContainer? Container { get; set; }
 		public Color? ForegroundColor { get; set; }
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -74,12 +74,12 @@ namespace ConsoleEx.Contents
 			set
 			{
 				_stickyPosition = value;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
 		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public void AddColumn(ColumnContainer column)
 		{
@@ -97,6 +97,7 @@ namespace ConsoleEx.Contents
 		{
 			_invalidated = true;
 			_cachedContent = null;
+			Container?.Invalidate(false);
 		}
 
 		public void RemoveColumn(ColumnContainer column)
@@ -200,11 +201,11 @@ namespace ConsoleEx.Contents
 					_focusedContent = _interactiveContents.Keys.First();
 				}
 
-				_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()].Invalidate();
+				_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()].Invalidate(true);
 			}
 			else
 			{
-				_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()].Invalidate();
+				_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()].Invalidate(true);
 				_interactiveContents.Keys.ToList().ForEach(c => c.HasFocus = false);
 				_focusedContent = null;
 			}
@@ -227,7 +228,7 @@ namespace ConsoleEx.Contents
 					}
 
 					_focusedContent.HasFocus = false;
-					_interactiveContents[_focusedContent].Invalidate();
+					_interactiveContents[_focusedContent].Invalidate(true);
 
 					int index = _interactiveContents.Keys.ToList().IndexOf(_focusedContent);
 
@@ -251,9 +252,9 @@ namespace ConsoleEx.Contents
 				}
 
 				_focusedContent.HasFocus = true;
-				_interactiveContents[_focusedContent].Invalidate();
+				_interactiveContents[_focusedContent].Invalidate(true);
 
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 				return true;
 			}
 

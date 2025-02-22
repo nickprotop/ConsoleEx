@@ -38,7 +38,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	}
 
 	public Alignment Alignment
-	{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
+	{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 	public IContainer? Container { get; set; }
 
@@ -53,7 +53,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		{
 			_inputBackgroundColor = value;
 			_cachedContent = null;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 		}
 	}
 
@@ -64,7 +64,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		{
 			_inputFocusedBackgroundColor = value;
 			_cachedContent = null;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 		}
 	}
 
@@ -75,7 +75,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		{
 			_inputFocusedForegroundColor = value;
 			_cachedContent = null;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 		}
 	}
 
@@ -86,7 +86,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		{
 			_inputForegroundColor = value;
 			_cachedContent = null;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 		}
 	}
 
@@ -97,19 +97,19 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		{
 			_inputWidth = value;
 			_cachedContent = null;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 		}
 	}
 
 	public bool IsEnabled { get; set; } = true;
 
 	public Margin Margin
-	{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
+	{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 	public Action<PromptContent, string>? OnInputChange { get; set; }
 
 	public string? Prompt
-	{ get => _prompt; set { _prompt = value; _cachedContent = null; Container?.Invalidate(); } }
+	{ get => _prompt; set { _prompt = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 	public StickyPosition StickyPosition
 	{
@@ -117,12 +117,12 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		set
 		{
 			_stickyPosition = value;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 		}
 	}
 
 	public int? Width
-	{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
+	{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 	public void Dispose()
 	{
@@ -151,7 +151,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 				_cursorPosition = 0;
 				HasFocus = false;
 			}
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 			OnInputChange?.Invoke(this, _input);
 			return true;
 		}
@@ -163,14 +163,14 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			{
 				SetScrollOffset(_scrollOffset - 1);
 			}
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 			OnInputChange?.Invoke(this, _input);
 			return true;
 		}
 		else if (key.Key == ConsoleKey.Delete && _cursorPosition < _input.Length)
 		{
 			_input = _input.Remove(_cursorPosition, 1);
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 			OnInputChange?.Invoke(this, _input);
 			return true;
 		}
@@ -178,14 +178,14 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 		{
 			_cursorPosition = 0;
 			SetScrollOffset(0);
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 			return true;
 		}
 		else if (key.Key == ConsoleKey.End)
 		{
 			_cursorPosition = _input.Length;
 			SetScrollOffset(Math.Max(0, _input.Length - (_inputWidth ?? _input.Length)));
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 			return true;
 		}
 		else if (key.Key == ConsoleKey.LeftArrow && _cursorPosition > 0)
@@ -195,7 +195,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			{
 				SetScrollOffset(_scrollOffset - 1);
 			}
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 			return true;
 		}
 		else if (key.Key == ConsoleKey.RightArrow && _cursorPosition < _input.Length)
@@ -205,13 +205,13 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			{
 				SetScrollOffset(_scrollOffset + 1);
 			}
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 			return true;
 		}
 		else if (key.Key == ConsoleKey.Escape)
 		{
 			HasFocus = false;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 			OnInputChange?.Invoke(this, _input);
 			return true;
 		}
@@ -223,7 +223,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 			{
 				SetScrollOffset(_cursorPosition - _inputWidth.Value);
 			}
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 			OnInputChange?.Invoke(this, _input);
 			return true;
 		}
@@ -269,7 +269,7 @@ public class PromptContent : IWIndowContent, IInteractiveContent
 	{
 		_cachedContent = null;
 		_input = input;
-		Container?.Invalidate();
+		Container?.Invalidate(true);
 		OnInputChange?.Invoke(this, _input);
 	}
 

@@ -44,7 +44,7 @@ namespace ConsoleEx.Contents
 			set
 			{
 				_width = value;
-				Invalidate();
+				Invalidate(true);
 			}
 		}
 
@@ -52,7 +52,7 @@ namespace ConsoleEx.Contents
 		{
 			content.Container = this;
 			_contents.Add(content);
-			Invalidate();
+			Invalidate(true);
 		}
 
 		public List<IInteractiveContent> GetInteractiveContents()
@@ -81,7 +81,7 @@ namespace ConsoleEx.Contents
 			return maxLength;
 		}
 
-		public void Invalidate()
+		public void Invalidate(bool redrawAll)
 		{
 			_isDirty = true;
 			_cachedContent = null;
@@ -94,7 +94,7 @@ namespace ConsoleEx.Contents
 			{
 				content.Container = null;
 				content.Dispose();
-				Invalidate();
+				Invalidate(true);
 			}
 		}
 

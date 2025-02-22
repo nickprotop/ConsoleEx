@@ -22,7 +22,7 @@ namespace ConsoleEx.Contents
 			{
 				_alignment = value;
 				_cachedContent = null;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -33,13 +33,14 @@ namespace ConsoleEx.Contents
 			{
 				_color = value;
 				_cachedContent = null;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
 		public IContainer? Container { get; set; }
+
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -47,7 +48,7 @@ namespace ConsoleEx.Contents
 			set
 			{
 				_stickyPosition = value;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -58,7 +59,7 @@ namespace ConsoleEx.Contents
 			{
 				_title = value;
 				_cachedContent = null;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -69,7 +70,7 @@ namespace ConsoleEx.Contents
 			{
 				_titleAlignment = value;
 				_cachedContent = null;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -80,7 +81,7 @@ namespace ConsoleEx.Contents
 			{
 				_width = value;
 				_cachedContent = null;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 

@@ -11,6 +11,6 @@ namespace ConsoleEx
 
 		public bool IsDirty { get; set; }
 
-		public void Invalidate();
+		public void Invalidate(bool redrawAll);
 	}
 }

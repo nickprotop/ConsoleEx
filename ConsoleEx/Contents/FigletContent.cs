@@ -37,15 +37,15 @@ namespace ConsoleEx.Contents
 		}
 
 		public Alignment Alignment
-		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public Color? Color
-		{ get => _color; set { _color = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _color; set { _color = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public IContainer? Container { get; set; }
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -53,15 +53,15 @@ namespace ConsoleEx.Contents
 			set
 			{
 				_stickyPosition = value;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
 		public string? Text
-		{ get => _text; set { _text = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _text; set { _text = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public void Dispose()
 		{
@@ -110,14 +110,14 @@ namespace ConsoleEx.Contents
 		{
 			_color = color;
 			_cachedContent = null;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 		}
 
 		public void SetText(string text)
 		{
 			_text = text;
 			_cachedContent = null;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 		}
 	}
 }

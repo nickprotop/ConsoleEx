@@ -41,12 +41,12 @@ namespace ConsoleEx.Contents
 		}
 
 		public Alignment Alignment
-		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public IContainer? Container { get; set; }
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -54,15 +54,15 @@ namespace ConsoleEx.Contents
 			set
 			{
 				_stickyPosition = value;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
 		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public bool Wrap
-		{ get => _wrap; set { _wrap = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _wrap; set { _wrap = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public void Dispose()
 		{
@@ -111,7 +111,7 @@ namespace ConsoleEx.Contents
 		{
 			_content = lines;
 			_cachedContent = null;
-			Container?.Invalidate();
+			Container?.Invalidate(true);
 		}
 	}
 }

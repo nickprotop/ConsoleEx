@@ -126,7 +126,7 @@ namespace ConsoleEx
 				//Console.Clear();
 
 				FillRect(0, 0, Console.WindowWidth, Console.WindowHeight, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-				_windows.ForEach(w => w.Invalidate());
+				_windows.ForEach(w => w.Invalidate(true));
 			}
 		}
 
@@ -173,14 +173,14 @@ namespace ConsoleEx
 
 			lock (_windows)
 			{
-				_activeWindow?.Invalidate();
+				_activeWindow?.Invalidate(true);
 
 				_activeWindow = window;
 				_windows.ForEach(w => w.SetIsActive(false));
 				_activeWindow.SetIsActive(true);
 				_activeWindow.ZIndex = _windows.Max(w => w.ZIndex) + 1;
 
-				_activeWindow.Invalidate();
+				_activeWindow.Invalidate(true);
 			}
 		}
 
@@ -289,10 +289,10 @@ namespace ConsoleEx
 			{
 				if (w != window && IsOverlapping(window, w))
 				{
-					w.Invalidate();
+					w.Invalidate(true);
 				}
 
-				window.Invalidate();
+				window.Invalidate(true);
 			}
 		}
 
@@ -527,7 +527,7 @@ namespace ConsoleEx
 							}
 						}
 
-						_windows.ForEach(w => w.Invalidate());
+						_windows.ForEach(w => w.Invalidate(true));
 						_lastConsoleWidth = Console.WindowWidth;
 						_lastConsoleHeight = Console.WindowHeight;
 

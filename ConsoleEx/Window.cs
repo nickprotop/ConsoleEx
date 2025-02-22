@@ -126,7 +126,7 @@ namespace ConsoleEx
 				switch (value)
 				{
 					case WindowState.Minimized:
-						Invalidate();
+						Invalidate(true);
 						break;
 
 					case WindowState.Maximized:
@@ -138,7 +138,7 @@ namespace ConsoleEx
 						Height = _windowSystem?.DesktopDimensions.Height ?? 24;
 						Left = 0;
 						Top = 0;
-						Invalidate();
+						Invalidate(true);
 						break;
 
 					case WindowState.Normal:
@@ -148,7 +148,7 @@ namespace ConsoleEx
 							Left = OriginalLeft;
 							Width = OriginalWidth;
 							Height = OriginalHeight;
-							Invalidate();
+							Invalidate(true);
 						}
 						break;
 				}
@@ -209,13 +209,13 @@ namespace ConsoleEx
 		public void GoToBottom()
 		{
 			_scrollOffset = Math.Max(0, (_cachedContent?.Count ?? Height) - (Height - 2));
-			Invalidate();
+			Invalidate(true);
 		}
 
 		public void GoToTop()
 		{
 			_scrollOffset = 0;
-			Invalidate();
+			Invalidate(true);
 		}
 
 		public bool HasActiveInteractiveContent(out IInteractiveContent? interactiveContent)
@@ -259,13 +259,17 @@ namespace ConsoleEx
 			return false;
 		}
 
-		public void Invalidate()
+		public void Invalidate(bool redrawAll)
 		{
 			_invalidated = true;
-			foreach (var content in _content)
+			if (redrawAll)
 			{
-				(content as IWIndowContent)?.Invalidate();
+				foreach (var content in _content)
+				{
+					(content as IWIndowContent)?.Invalidate();
+				}
 			}
+
 			IsDirty = true;
 		}
 
@@ -291,24 +295,32 @@ namespace ConsoleEx
 				// Continue with key handling only if not handled by the user
 				if (!handled)
 				{
-					switch (key.Key)
+					if (key.Key == ConsoleKey.Tab && key.Modifiers.HasFlag(ConsoleModifiers.Shift))
 					{
-						case ConsoleKey.Tab:
-							SwitchFocus();
-							handled = true;
-							break;
+						SwitchFocus(true); // Pass true to indicate backward focus switch
+						handled = true;
+					}
+					else if (key.Key == ConsoleKey.Tab)
+					{
+						SwitchFocus(false); // Pass false to indicate forward focus switch
+						handled = true;
+					}
+					else
+					{
+						switch (key.Key)
+						{
+							case ConsoleKey.UpArrow:
+								_scrollOffset = Math.Max(0, _scrollOffset - 1);
+								IsDirty = true;
+								handled = true;
+								break;
 
-						case ConsoleKey.UpArrow:
-							_scrollOffset = Math.Max(0, _scrollOffset - 1);
-							IsDirty = true;
-							handled = true;
-							break;
-
-						case ConsoleKey.DownArrow:
-							_scrollOffset = Math.Min((_cachedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
-							IsDirty = true;
-							handled = true;
-							break;
+							case ConsoleKey.DownArrow:
+								_scrollOffset = Math.Min((_cachedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
+								IsDirty = true;
+								handled = true;
+								break;
+						}
 					}
 				}
 
@@ -435,10 +447,10 @@ namespace ConsoleEx
 				GoToBottom();
 			}
 
-			Invalidate();
+			Invalidate(true);
 		}
 
-		public void SwitchFocus()
+		public void SwitchFocus(bool backward = false)
 		{
 			lock (_lock)
 			{
@@ -454,7 +466,15 @@ namespace ConsoleEx
 				}
 
 				// Calculate the next index
-				var nextIndex = (currentIndex + 1) % _interactiveContents.Count;
+				int nextIndex;
+				if (backward)
+				{
+					nextIndex = (currentIndex - 1 + _interactiveContents.Count) % _interactiveContents.Count;
+				}
+				else
+				{
+					nextIndex = (currentIndex + 1) % _interactiveContents.Count;
+				}
 
 				// Set focus to the next content
 				_interactiveContents[nextIndex].HasFocus = true;
@@ -507,7 +527,7 @@ namespace ConsoleEx
 			}
 
 			// Invalidate the window to update the display
-			Invalidate();
+			Invalidate(true);
 		}
 
 		public class WindowStateChangedEventArgs : EventArgs

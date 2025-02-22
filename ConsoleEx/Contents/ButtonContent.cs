@@ -16,7 +16,7 @@ namespace ConsoleEx.Contents
 		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleHelper.StripAnsiStringLength(_cachedContent);
 
 		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public IContainer? Container { get; set; }
 
@@ -37,12 +37,12 @@ namespace ConsoleEx.Contents
 			{
 				_cachedContent = null;
 				_enabled = value;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public Action<ButtonContent>? OnClick { get; set; }
 
@@ -52,7 +52,7 @@ namespace ConsoleEx.Contents
 			set
 			{
 				_stickyPosition = value;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -63,12 +63,12 @@ namespace ConsoleEx.Contents
 			{
 				_text = value;
 				_cachedContent = null;
-				Container?.Invalidate();
+				Container?.Invalidate(true);
 			}
 		}
 
 		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(); } }
+		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public void Dispose()
 		{
