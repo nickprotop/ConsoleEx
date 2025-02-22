@@ -37,24 +37,27 @@ namespace ConsoleEx
 
 		private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
 
+		private string _guid;
 		private bool _invalidated = false;
 
 		private bool _isActive;
 		private int? _maximumHeight;
 		private int? _maximumWidth;
-		private int? _minimumHeight = 10;
-		private int? _minimumWidth = 20;
+		private int? _minimumHeight = 3;
+		private int? _minimumWidth = 10;
 		private int _scrollOffset;
 		private WindowState _state;
+		private object? _tag;
 		private ConsoleWindowSystem? _windowSystem;
 		private Task? _windowTask;
 		private Thread? _windowThread;
 		private WindowThreadDelegate? _windowThreadMethod;
-
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 
 		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod)
 		{
+			_guid = System.Guid.NewGuid().ToString();
+
 			_windowSystem = windowSystem;
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
@@ -66,6 +69,8 @@ namespace ConsoleEx
 
 		public Window(ConsoleWindowSystem windowSystem)
 		{
+			_guid = System.Guid.NewGuid().ToString();
+
 			_windowSystem = windowSystem;
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
@@ -74,6 +79,8 @@ namespace ConsoleEx
 
 		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegate windowThreadMethod)
 		{
+			_guid = System.Guid.NewGuid().ToString();
+
 			_windowSystem = windowSystem;
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
@@ -99,6 +106,7 @@ namespace ConsoleEx
 		public Color BackgroundColor { get; set; }
 		public Color ForegroundColor { get; set; }
 		public ConsoleWindowSystem? GetConsoleWindowSystem => _windowSystem;
+		public string Guid => _guid.ToString();
 		public int Height { get; set; } = 20;
 		public bool IsClosable { get; set; } = true;
 		public bool IsContentVisible { get; set; } = true;
@@ -161,6 +169,7 @@ namespace ConsoleEx
 			}
 		}
 
+		public object? Tag { get => _tag; set => _tag = value; }
 		public string Title { get; set; } = "Window";
 		public int Top { get; set; }
 		public int TotalLines => _cachedContent.Count;

@@ -27,7 +27,7 @@ namespace ConsoleEx
 	{
 		private readonly ConcurrentQueue<ConsoleKeyInfo> _inputQueue = new();
 		private readonly object _renderLock = new();
-		private readonly ConcurrentDictionary<int, Window> _windows = new();
+		private readonly ConcurrentDictionary<string, Window> _windows = new();
 		private Window? _activeWindow;
 		private int _exitCode;
 		private string? _exitMessage;
@@ -52,7 +52,7 @@ namespace ConsoleEx
 		public Window AddWindow(Window window)
 		{
 			window.ZIndex = _windows.Count > 0 ? _windows.Values.Max(w => w.ZIndex) + 1 : 0;
-			_windows.TryAdd(window.ZIndex, window);
+			_windows.TryAdd(window.Guid, window);
 			_activeWindow ??= window;
 			return window;
 		}
@@ -61,10 +61,11 @@ namespace ConsoleEx
 		{
 			if (window == null) return;
 
-			_windows.TryRemove(window.ZIndex, out _);
+			_windows.TryRemove(window.Guid, out _);
+
 			if (_activeWindow == window)
 			{
-				_activeWindow = _windows.Values.FirstOrDefault();
+				_activeWindow = _windows.FirstOrDefault().Value;
 				if (_activeWindow != null)
 				{
 					SetActiveWindow(_activeWindow);
@@ -260,8 +261,10 @@ namespace ConsoleEx
 				int index = key.Key - ConsoleKey.D1;
 				if (index < _windows.Count)
 				{
-					SetActiveWindow(_windows[index]);
-					if (_windows[index].State == WindowState.Minimized) _windows[index].State = WindowState.Normal;
+					var newActiveWindow = _windows.Values.ElementAt(index);
+
+					SetActiveWindow(newActiveWindow);
+					if (newActiveWindow.State == WindowState.Minimized) newActiveWindow.State = WindowState.Normal;
 					handled = true;
 				}
 			}
