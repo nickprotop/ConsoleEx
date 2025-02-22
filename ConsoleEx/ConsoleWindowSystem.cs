@@ -637,6 +637,11 @@ namespace ConsoleEx
 				// Display the list of window titles in the bottom row
 				string bottomRow = $"{string.Join(" | ", _windows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {StringHelper.TrimWithEllipsis(w.Title, 15, 7)}"))} | {BottomStatus}";
 
+				if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > Console.WindowWidth)
+				{
+					bottomRow = AnsiConsoleHelper.TruncateSpectre(bottomRow, Console.WindowWidth);
+				}
+
 				//add padding to the bottom row
 				bottomRow += new string(' ', Console.WindowWidth - AnsiConsoleHelper.StripSpectreLength(bottomRow));
 
