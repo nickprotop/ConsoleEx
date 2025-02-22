@@ -13,6 +13,7 @@ using System.Text;
 using ConsoleEx.Themes;
 using ConsoleEx.Helpers;
 using static ConsoleEx.Window;
+using System;
 
 namespace ConsoleEx
 {
@@ -479,6 +480,7 @@ namespace ConsoleEx
 
 		private void ResizeLoop()
 		{
+			while (_running)
 			{
 				if (Console.WindowWidth != _lastConsoleWidth || Console.WindowHeight != _lastConsoleHeight)
 				{
@@ -496,10 +498,7 @@ namespace ConsoleEx
 							{
 								window.Top = Math.Max(1, desktopSize.Height - window.Height);
 							}
-						}
 
-						foreach (var window in _windows.Values)
-						{
 							window.Invalidate(true);
 						}
 
