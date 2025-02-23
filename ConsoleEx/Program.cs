@@ -10,6 +10,7 @@ using ConsoleEx.Contents;
 using Spectre.Console;
 using ConsoleEx.Themes;
 using System.Reflection.Metadata.Ecma335;
+using ConsoleEx.Helpers;
 
 namespace ConsoleEx
 {
@@ -35,16 +36,6 @@ namespace ConsoleEx
 			var userInfoWindow = new UserInfoWindow(consoleWindowSystem);
 			var clockWindow = new ClockWindow(consoleWindowSystem);
 
-			// Example of writing to a window from another thread
-			Task.Run(() =>
-			{
-				for (var i = 0; i < 30; i++)
-				{
-					logWindow.AddLog($"{DateTime.Now.ToString("g")}: Message [blue]{i}[/] from main thread. Output status: [yellow]{i * i}[/] from thread");
-					Thread.Sleep(500);
-				}
-			});
-
 			try
 			{
 				bool quit = false;
@@ -52,17 +43,28 @@ namespace ConsoleEx
 
 				consoleWindowSystem.SetActiveWindow(logWindow.Window);
 
+				// Run the console window system in a separate thread on the background
 				Task.Run(() =>
 				{
 					exitCode = consoleWindowSystem.Run().exitCode;
 					quit = true;
 				});
 
-				consoleWindowSystem.ShowNotification("Notification", "Welcome to ConsoleEx example application\nPress Ctrl-Q to quit");
+				// Show a notification message and block UI
+				consoleWindowSystem.ShowNotification("Notification", "Welcome to ConsoleEx example application\nPress Ctrl-Q to quit", NotificationSeverity.Info, true, 0);
 
-				while (!quit)
+				// Example of writing to a window from another thread
+				Task.Run(() =>
 				{
-				}
+					for (var i = 0; i < 30; i++)
+					{
+						logWindow.AddLog($"{DateTime.Now.ToString("g")}: Message [blue]{i}[/] from main thread. Output status: [yellow]{i * i}[/] from thread");
+						Thread.Sleep(500);
+					}
+				});
+
+				// Wait for the console window system to finish
+				while (!quit) { }
 
 				return exitCode;
 			}

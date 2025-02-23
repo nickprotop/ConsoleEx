@@ -29,6 +29,7 @@ namespace ConsoleEx
 		private readonly object _renderLock = new();
 		private readonly ConcurrentDictionary<string, Window> _windows = new();
 		private Window? _activeWindow;
+		private ConcurrentQueue<bool> _blockUi = new();
 		private int _exitCode;
 		private string? _exitMessage;
 		private int _lastConsoleHeight;
@@ -60,6 +61,7 @@ namespace ConsoleEx
 		public void CloseWindow(Window? window)
 		{
 			if (window == null) return;
+			if (!_windows.ContainsKey(window.Guid)) return;
 
 			_windows.TryRemove(window.Guid, out _);
 
@@ -77,39 +79,8 @@ namespace ConsoleEx
 			{
 				w.Invalidate(true);
 			}
-		}
 
-		public void ShowNotification(string title, string message, int? timeout = 5000)
-		{
-			var notificationWindow = new Window(this)
-			{
-				Title = string.IsNullOrWhiteSpace(title) ? "Notification" : title,
-				Left = DesktopDimensions.Width / 2 - (AnsiConsoleHelper.StripSpectreLength(message) + 8) / 2,
-				Top = DesktopDimensions.Height / 2 - 2,
-				Width = AnsiConsoleHelper.StripSpectreLength(message) + 8,
-				Height = 5,
-				BackgroundColor = Theme.WindowBackgroundColor,
-				ForegroundColor = Theme.WindowForegroundColor
-			};
-
-			AddWindow(notificationWindow);
-			SetActiveWindow(notificationWindow);
-
-			var notificationContent = new MarkupContent(new List<string>() { message })
-			{
-				Alignment = Alignment.Left
-			};
-
-			notificationWindow.AddContent(notificationContent);
-
-			if (timeout.HasValue && timeout.Value != 0)
-			{
-				Task.Run(async () =>
-				{
-					await Task.Delay(timeout.Value);
-					CloseWindow(notificationWindow);
-				});
-			}
+			window.Close();
 		}
 
 		public (int exitCode, string? exitMessage) Run()
@@ -163,6 +134,64 @@ namespace ConsoleEx
 			_activeWindow.ZIndex = _windows.Values.Max(w => w.ZIndex) + 1;
 
 			_activeWindow.Invalidate(true);
+		}
+
+		public void ShowNotification(string title, string message, NotificationSeverity severity, bool? blockUi = false, int? timeout = 5000)
+		{
+			var notificationWindow = new Window(this)
+			{
+				Title = string.IsNullOrWhiteSpace(title) ? (severity.Name ?? "Notification") : title,
+				Left = DesktopDimensions.Width / 2 - (AnsiConsoleHelper.StripSpectreLength(message) + 8) / 2,
+				Top = DesktopDimensions.Height / 2 - 2,
+				Width = AnsiConsoleHelper.StripSpectreLength(message) + 8,
+				Height = title.Split('\n').ToList().Count + 5,
+				BackgroundColor = severity.BackgroundColor(this),
+				ForegroundColor = Theme.WindowForegroundColor,
+				IsResizable = false
+			};
+
+			if (blockUi == true)
+			{
+				_blockUi.Enqueue(true);
+			}
+
+			AddWindow(notificationWindow);
+			SetActiveWindow(notificationWindow);
+
+			var notificationContent = new MarkupContent(new List<string>() { $"{severity.Icon}{(string.IsNullOrEmpty(severity.Icon) ? string.Empty : " ")}{message}" })
+			{
+				Alignment = Alignment.Left
+			};
+			notificationWindow.AddContent(notificationContent);
+
+			var closeButton = new ButtonContent()
+			{
+				Text = "Close",
+				StickyPosition = StickyPosition.Bottom,
+				Margin = new Margin() { Left = 1 }
+			};
+			notificationWindow.AddContent(closeButton);
+			closeButton.OnClick += (s) =>
+			{
+				CloseWindow(notificationWindow);
+			};
+
+			if (blockUi == true)
+			{
+				notificationWindow.OnClosed += (s, e) =>
+				{
+					_blockUi.TryDequeue(out _);
+				};
+			}
+
+			if (timeout.HasValue && timeout.Value != 0)
+			{
+				Task.Run(async () =>
+				{
+					await Task.Delay(timeout.Value);
+					CloseWindow(notificationWindow);
+				});
+			}
 		}
 
 		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, Position point)
@@ -291,6 +320,10 @@ namespace ConsoleEx
 			bool handled = false;
 			if (key.Key >= ConsoleKey.D1 && key.Key <= ConsoleKey.D9)
 			{
+				if (_blockUi.Count != 0)
+				{
+					return false;
+				}
 				int index = key.Key - ConsoleKey.D1;
 				if (index < _windows.Count)
 				{
@@ -440,10 +473,15 @@ namespace ConsoleEx
 			{
 				if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.T)
 				{
+					if (_blockUi.Count != 0)
+					{
+						return;
+					}
 					CycleActiveWindow();
 				}
 				else if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.Q)
 				{
+					_exitCode = 0;
 					_exitMessage = "user requested exit";
 					_running = false;
 				}

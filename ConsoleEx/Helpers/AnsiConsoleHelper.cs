@@ -344,7 +344,7 @@ namespace ConsoleEx
 
 			while (i < n && visibleLength < maxLength)
 			{
-				if (inputStr[i] == '[')
+				if (inputStr[i] == '[' && (i + 1 < n && inputStr[i + 1] != '['))
 				{
 					int j = i + 1;
 					// Find the closing ']'
@@ -386,10 +386,23 @@ namespace ConsoleEx
 				}
 				else
 				{
-					// Regular character
-					output.Append(inputStr[i]);
+					// Regular character or escaped '['
+					if (inputStr[i] == '[' && i + 1 < n && inputStr[i + 1] == '[')
+					{
+						output.Append("[[");
+						i += 2;
+					}
+					else if (inputStr[i] == ']' && i + 1 < n && inputStr[i + 1] == ']')
+					{
+						output.Append("]]");
+						i += 2;
+					}
+					else
+					{
+						output.Append(inputStr[i]);
+						i++;
+					}
 					visibleLength++;
-					i++;
 				}
 			}
 

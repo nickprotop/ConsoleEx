@@ -22,13 +22,18 @@ namespace ConsoleEx.Themes
 		public Color DesktopForegroundColor { get; set; } = Color.White;
 		public Color InactiveBorderColor { get; set; } = Color.Grey;
 		public Color InactiveTitleColor { get; set; } = Color.Grey;
+		public Color NotificationDangerWindowBackgroundColor { get; set; } = Color.Maroon;
+		public Color NotificationInfoWindowBackgroundColor { get; set; } = Color.SteelBlue;
+		public Color NotificationSuccessWindowBackgroundColor { get; set; } = Color.DarkGreen;
+		public Color NotificationWarningWindowBackgroundColor { get; set; } = Color.Orange3;
+		public Color NotificationWindowBackgroundColor { get; set; } = Color.Grey;
+		public Color PromptInputBackgroundColor { get; set; } = Color.Grey23;
+		public Color PromptInputFocusedBackgroundColor { get; set; } = Color.Grey46;
+		public Color PromptInputFocusedForegroundColor { get; set; } = Color.White;
+		public Color PromptInputForegroundColor { get; set; } = Color.White;
 		public Color TopBarBackgroundColor { get; set; } = Color.White;
 		public Color TopBarForegroundColor { get; set; } = Color.Black;
 		public Color WindowBackgroundColor { get; set; } = Color.Grey15;
 		public Color WindowForegroundColor { get; set; } = Color.White;
-		public Color PromptInputFocusedBackgroundColor { get; set; } = Color.Grey46;
-		public Color PromptInputBackgroundColor { get; set; } = Color.Grey23;
-		public Color PromptInputFocusedForegroundColor { get; set; } = Color.White;
-		public Color PromptInputForegroundColor { get; set; } = Color.White;
 	}
 }

@@ -10,6 +10,15 @@ namespace ConsoleEx
 		Maximized
 	}
 
+	public class ClosingEventArgs : EventArgs
+	{
+		public ClosingEventArgs()
+		{
+		}
+
+		public bool Allow { get; set; }
+	}
+
 	public class KeyPressedEventArgs : EventArgs
 	{
 		public KeyPressedEventArgs(ConsoleKeyInfo keyInfo)
@@ -100,6 +109,10 @@ namespace ConsoleEx
 		public event EventHandler<bool>? ActivationChanged;
 
 		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
+
+		public event EventHandler? OnClosed;
+
+		public event EventHandler<ClosingEventArgs>? OnCLosing;
 
 		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
 
@@ -205,12 +218,23 @@ namespace ConsoleEx
 		{
 			if (IsClosable)
 			{
+				if (OnCLosing != null)
+				{
+					var args = new ClosingEventArgs();
+					OnCLosing(this, args);
+					if (!args.Allow)
+					{
+						return;
+					}
+				}
+
 				foreach (var content in _content)
 				{
 					(content as IWIndowContent).Dispose();
 				}
 
 				_windowSystem?.CloseWindow(this);
+				OnClosed?.Invoke(this, EventArgs.Empty);
 			}
 		}
 
