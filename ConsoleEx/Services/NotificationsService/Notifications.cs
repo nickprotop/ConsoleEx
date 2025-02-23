@@ -8,7 +8,7 @@
 
 using ConsoleEx.Contents;
 
-namespace ConsoleEx.Services
+namespace ConsoleEx.Services.NotificationsService
 {
 	public static class Notifications
 	{

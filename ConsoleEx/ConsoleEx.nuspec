@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>ConsoleEx</id>
+    <version>1.0.0</version>
+    <authors>YourName</authors>
+    <owners>YourName</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>A description of your package</description>
+    <releaseNotes>Initial release</releaseNotes>
+    <copyright>Copyright © 2025</copyright>
+    <tags>console extension</tags>
+  </metadata>
+</package>

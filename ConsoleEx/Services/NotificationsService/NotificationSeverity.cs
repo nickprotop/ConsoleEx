@@ -8,7 +8,7 @@
 
 using Spectre.Console;
 
-namespace ConsoleEx.Services
+namespace ConsoleEx.Services.NotificationsService
 {
 	public enum NotificationSeverityEnum
 	{

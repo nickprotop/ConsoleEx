@@ -28,6 +28,8 @@ namespace ConsoleEx
 		private readonly ConcurrentDictionary<string, Window> _windows = new();
 		private Window? _activeWindow;
 		private ConcurrentQueue<bool> _blockUi = new();
+		private string? _cachedBottomStatus;
+		private string? _cachedTopStatus;
 		private int _exitCode;
 		private string? _exitMessage;
 		private int _lastConsoleHeight;
@@ -42,7 +44,7 @@ namespace ConsoleEx
 		public ConcurrentQueue<bool> BlockUi => _blockUi;
 		public string BottomStatus { get; set; } = "";
 		public Position DesktopBottomRight => new Position(Console.WindowWidth - 1, Console.WindowHeight - 1 - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
-		public Size DesktopDimensions => new Size(Console.WindowWidth, Console.WindowHeight - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
+		public Helpers.Size DesktopDimensions => new Helpers.Size(Console.WindowWidth, Console.WindowHeight - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
 		public Position DesktopUpperLeft => new Position(0, string.IsNullOrEmpty(TopStatus) ? 0 : 1);
 
 		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
@@ -103,7 +105,7 @@ namespace ConsoleEx
 					UpdateDisplay();
 					UpdateCursor();
 				}
-				Thread.Sleep(50);
+				Thread.Sleep(100);
 			}
 
 			Console.Clear();
@@ -356,7 +358,7 @@ namespace ConsoleEx
 					var key = Console.ReadKey(true);
 					_inputQueue.Enqueue(key);
 				}
-				Thread.Sleep(10);
+				Thread.Sleep(100);
 			}
 		}
 
@@ -501,7 +503,7 @@ namespace ConsoleEx
 				{
 					lock (_renderLock)
 					{
-						Size desktopSize = DesktopDimensions;
+						Helpers.Size desktopSize = DesktopDimensions;
 
 						foreach (var window in _windows.Values)
 						{
@@ -558,11 +560,16 @@ namespace ConsoleEx
 		{
 			lock (_renderLock)
 			{
-				// Calculate the effective length of the bottom row without markup
-				var topRow = TopStatus;
-				var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
-				var paddedTopRow = topRow.PadRight(Console.WindowWidth + (topRow.Length - effectiveLength));
-				WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", Console.WindowWidth, 1, false, Theme.TopBarBackgroundColor, null)[0]);
+				if (TopStatus != _cachedTopStatus)
+				{
+					var topRow = TopStatus;
+
+					var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
+					var paddedTopRow = topRow.PadRight(Console.WindowWidth + (topRow.Length - effectiveLength));
+					WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", Console.WindowWidth, 1, false, Theme.TopBarBackgroundColor, null)[0]);
+
+					_cachedTopStatus = TopStatus;
+				}
 
 				var windowsToRender = new HashSet<Window>();
 
@@ -616,18 +623,20 @@ namespace ConsoleEx
 				}
 			}
 
-			// Display the list of window titles in the bottom row
 			string bottomRow = $"{string.Join(" | ", _windows.Values.Select((w, i) => $"[bold]Alt-{i + 1}[/] {StringHelper.TrimWithEllipsis(w.Title, 15, 7)}"))} | {BottomStatus}";
-
+			// Display the list of window titles in the bottom row
 			if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > Console.WindowWidth)
 			{
 				bottomRow = AnsiConsoleHelper.TruncateSpectre(bottomRow, Console.WindowWidth);
 			}
 
-			//add padding to the bottom row
-			bottomRow += new string(' ', Console.WindowWidth - AnsiConsoleHelper.StripSpectreLength(bottomRow));
+			if (_cachedBottomStatus != BottomStatus)
+			{   //add padding to the bottom row
+				bottomRow += new string(' ', Console.WindowWidth - AnsiConsoleHelper.StripSpectreLength(bottomRow));
+				WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.BottomBarForegroundColor}]{bottomRow}[/]", Console.WindowWidth, 1, false, Theme.BottomBarBackgroundColor, null)[0]);
 
-			WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.BottomBarForegroundColor}]{bottomRow}[/]", Console.WindowWidth, 1, false, Theme.BottomBarBackgroundColor, null)[0]);
+				_cachedBottomStatus = bottomRow;
+			}
 		}
 
 		private void WriteToConsole(int x, int y, string value)

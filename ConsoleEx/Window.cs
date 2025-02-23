@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using ConsoleEx.Contents;
+using ConsoleEx.Helpers;
 using Spectre.Console;
 
 namespace ConsoleEx

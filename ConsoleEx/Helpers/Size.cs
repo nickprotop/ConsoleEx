@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-namespace ConsoleEx
+namespace ConsoleEx.Helpers
 {
 	public class Size
 	{

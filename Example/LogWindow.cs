@@ -9,7 +9,7 @@
 using ConsoleEx.Contents;
 using Spectre.Console;
 
-namespace ConsoleEx
+namespace ConsoleEx.Example
 {
 	public class LogWindow
 	{

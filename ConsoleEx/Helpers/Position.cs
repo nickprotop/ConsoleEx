@@ -6,14 +6,14 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-namespace ConsoleEx
+namespace ConsoleEx.Helpers
 {
 	public class Position
 	{
 		public Position(int x, int y)
 		{
-			this.X = x;
-			this.Y = y;
+			X = x;
+			Y = y;
 		}
 
 		public int X { get; set; }

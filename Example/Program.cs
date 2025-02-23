@@ -8,9 +8,9 @@
 
 using Spectre.Console;
 using ConsoleEx.Themes;
-using ConsoleEx.Services;
+using ConsoleEx.Services.NotificationsService;
 
-namespace ConsoleEx
+namespace ConsoleEx.Example
 {
 	internal class Program
 	{

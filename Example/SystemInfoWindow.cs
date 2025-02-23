@@ -8,7 +8,7 @@
 
 using ConsoleEx.Contents;
 
-namespace ConsoleEx
+namespace ConsoleEx.Example
 {
 	public class SystemInfoWindow
 	{
