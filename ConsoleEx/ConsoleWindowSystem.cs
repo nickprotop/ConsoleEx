@@ -15,10 +15,24 @@ using static ConsoleEx.Window;
 
 namespace ConsoleEx
 {
+	public enum Direction
+	{
+		Up,
+		Down,
+		Left,
+		Right
+	}
+
 	public enum RenderMode
 	{
 		Direct,
 		Buffer
+	}
+
+	public enum WindowTopologyAction
+	{
+		Resize,
+		Move
 	}
 
 	public class ConsoleWindowSystem
@@ -99,13 +113,11 @@ namespace ConsoleEx
 
 			while (_running)
 			{
-				lock (_renderLock)
-				{
-					ProcessInput();
-					UpdateDisplay();
-					UpdateCursor();
-				}
-				Thread.Sleep(100);
+				ProcessInput();
+				UpdateDisplay();
+				UpdateCursor();
+
+				Thread.Sleep(10);
 			}
 
 			Console.Clear();
@@ -286,25 +298,25 @@ namespace ConsoleEx
 			switch (key.Key)
 			{
 				case ConsoleKey.UpArrow:
-					MoveOrResizeOperation(_activeWindow);
+					MoveOrResizeOperation(_activeWindow, WindowTopologyAction.Move, Direction.Up);
 					_activeWindow?.SetPosition(new Position(_activeWindow?.Left ?? 0, Math.Max(0, (_activeWindow?.Top ?? 0) - 1)));
 					handled = true;
 					break;
 
 				case ConsoleKey.DownArrow:
-					MoveOrResizeOperation(_activeWindow);
+					MoveOrResizeOperation(_activeWindow, WindowTopologyAction.Move, Direction.Down);
 					_activeWindow?.SetPosition(new Position(_activeWindow?.Left ?? 0, Math.Min(DesktopBottomRight.Y - (_activeWindow?.Height ?? 0) + 1, (_activeWindow?.Top ?? 0) + 1)));
 					handled = true;
 					break;
 
 				case ConsoleKey.LeftArrow:
-					MoveOrResizeOperation(_activeWindow);
+					MoveOrResizeOperation(_activeWindow, WindowTopologyAction.Move, Direction.Left);
 					_activeWindow?.SetPosition(new Position(Math.Max(DesktopUpperLeft.X, (_activeWindow?.Left ?? 0) - 1), _activeWindow?.Top ?? 0));
 					handled = true;
 					break;
 
 				case ConsoleKey.RightArrow:
-					MoveOrResizeOperation(_activeWindow);
+					MoveOrResizeOperation(_activeWindow, WindowTopologyAction.Move, Direction.Right);
 					_activeWindow?.SetPosition(new Position(Math.Min(DesktopBottomRight.X - (_activeWindow?.Width ?? 0) + 1, (_activeWindow?.Left ?? 0) + 1), _activeWindow?.Top ?? 0));
 					handled = true;
 					break;
@@ -323,25 +335,25 @@ namespace ConsoleEx
 			switch (key.Key)
 			{
 				case ConsoleKey.UpArrow:
-					MoveOrResizeOperation(_activeWindow);
+					MoveOrResizeOperation(_activeWindow, WindowTopologyAction.Resize, Direction.Up);
 					_activeWindow?.SetSize(_activeWindow.Width, Math.Max(1, _activeWindow.Height - 1));
 					handled = true;
 					break;
 
 				case ConsoleKey.DownArrow:
-					MoveOrResizeOperation(_activeWindow);
+					MoveOrResizeOperation(_activeWindow, WindowTopologyAction.Resize, Direction.Down);
 					_activeWindow?.SetSize(_activeWindow.Width, Math.Min(DesktopDimensions.Height - _activeWindow.Top, _activeWindow.Height + 1));
 					handled = true;
 					break;
 
 				case ConsoleKey.LeftArrow:
-					MoveOrResizeOperation(_activeWindow);
+					MoveOrResizeOperation(_activeWindow, WindowTopologyAction.Move, Direction.Left);
 					_activeWindow?.SetSize(Math.Max(1, _activeWindow.Width - 1), _activeWindow.Height);
 					handled = true;
 					break;
 
 				case ConsoleKey.RightArrow:
-					MoveOrResizeOperation(_activeWindow);
+					MoveOrResizeOperation(_activeWindow, WindowTopologyAction.Move, Direction.Right);
 					_activeWindow?.SetSize(Math.Min(DesktopBottomRight.X - _activeWindow.Left + 1, _activeWindow.Width + 1), _activeWindow.Height);
 					handled = true;
 					break;
@@ -358,7 +370,7 @@ namespace ConsoleEx
 					var key = Console.ReadKey(true);
 					_inputQueue.Enqueue(key);
 				}
-				Thread.Sleep(100);
+				Thread.Sleep(10);
 			}
 		}
 
@@ -393,11 +405,59 @@ namespace ConsoleEx
 				   window.Left >= desktopBottomRightCorner.X || window.Top + DesktopUpperLeft.Y >= desktopBottomRightCorner.Y;
 		}
 
-		private void MoveOrResizeOperation(Window? window)
+		private void MoveOrResizeOperation(Window? window, WindowTopologyAction windowTopologyAction, Direction direction)
 		{
 			if (window == null) return;
 
-			FillRect(window.Left, window.Top, window.Width, window.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+			int left = window.Left;
+			int top = window.Top;
+			int width = window.Width;
+			int height = window.Height;
+
+			switch (windowTopologyAction)
+			{
+				case WindowTopologyAction.Move:
+					switch (direction)
+					{
+						case Direction.Up:
+							FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							break;
+
+						case Direction.Down:
+							FillRect(left, top, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							break;
+
+						case Direction.Left:
+							FillRect(left + width - 1, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							break;
+
+						case Direction.Right:
+							FillRect(left, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							break;
+					}
+					break;
+
+				case WindowTopologyAction.Resize:
+					switch (direction)
+					{
+						case Direction.Up:
+							FillRect(left, top + height, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							break;
+
+						case Direction.Down:
+							FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							break;
+
+						case Direction.Left:
+							FillRect(left + width, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							break;
+
+						case Direction.Right:
+							FillRect(left + width - 1, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							break;
+					}
+					break;
+			}
 
 			foreach (var w in _windows.Values)
 			{
@@ -516,6 +576,9 @@ namespace ConsoleEx
 								window.Top = Math.Max(1, desktopSize.Height - window.Height);
 							}
 
+							_cachedBottomStatus = null;
+							_cachedTopStatus = null;
+
 							window.Invalidate(true);
 						}
 
@@ -525,7 +588,7 @@ namespace ConsoleEx
 						FillRect(0, 0, Console.WindowWidth, Console.WindowHeight, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 					}
 				}
-				Thread.Sleep(100);
+				Thread.Sleep(50);
 			}
 		}
 
