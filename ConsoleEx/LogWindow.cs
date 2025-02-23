@@ -1,18 +1,19 @@
-﻿using ConsoleEx.Contents;
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using ConsoleEx.Contents;
 using Spectre.Console;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ConsoleEx
 {
 	public class LogWindow
 	{
 		private Window _window;
-
-		public Window Window => _window;
 
 		public LogWindow(ConsoleWindowSystem consoleWindowSystem)
 		{
@@ -31,9 +32,7 @@ namespace ConsoleEx
 			_window.KeyPressed += KeyPressed;
 		}
 
-		public void WindowThread(Window window)
-		{
-		}
+		public Window Window => _window;
 
 		public void AddLog(string log)
 		{
@@ -49,6 +48,10 @@ namespace ConsoleEx
 				e.Handled = true;
 				_window.Close();
 			}
+		}
+
+		public void WindowThread(Window window)
+		{
 		}
 	}
 }

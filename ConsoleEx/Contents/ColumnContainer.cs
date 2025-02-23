@@ -1,7 +1,12 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using Spectre.Console;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 
 namespace ConsoleEx.Contents
 {
@@ -55,19 +60,6 @@ namespace ConsoleEx.Contents
 			Invalidate(true);
 		}
 
-		public List<IInteractiveContent> GetInteractiveContents()
-		{
-			List<IInteractiveContent> interactiveContents = new List<IInteractiveContent>();
-			foreach (var content in _contents)
-			{
-				if (content is IInteractiveContent interactiveContent)
-				{
-					interactiveContents.Add(interactiveContent);
-				}
-			}
-			return interactiveContents;
-		}
-
 		public int? GetActualWidth()
 		{
 			if (_cachedContent == null) return null;
@@ -79,6 +71,19 @@ namespace ConsoleEx.Contents
 				if (length > maxLength) maxLength = length;
 			}
 			return maxLength;
+		}
+
+		public List<IInteractiveContent> GetInteractiveContents()
+		{
+			List<IInteractiveContent> interactiveContents = new List<IInteractiveContent>();
+			foreach (var content in _contents)
+			{
+				if (content is IInteractiveContent interactiveContent)
+				{
+					interactiveContents.Add(interactiveContent);
+				}
+			}
+			return interactiveContents;
 		}
 
 		public void Invalidate(bool redrawAll)

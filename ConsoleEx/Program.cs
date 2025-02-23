@@ -6,30 +6,50 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Contents;
 using Spectre.Console;
 using ConsoleEx.Themes;
-using System.Reflection.Metadata.Ecma335;
 using ConsoleEx.Services;
 
 namespace ConsoleEx
 {
 	internal class Program
 	{
-		private static int Main(string[] args)
+		private static void HandleException(Exception ex)
 		{
-			var consoleWindowSystem = new ConsoleWindowSystem
+			Console.Clear();
+			AnsiConsole.WriteException(ex);
+			Console.WriteLine(string.Empty);
+			Console.CursorVisible = true;
+		}
+
+		private static ConsoleWindowSystem InitializeConsoleWindowSystem()
+		{
+			return new ConsoleWindowSystem
 			{
 				TopStatus = "ConsoleEx example application",
 				BottomStatus = "Ctrl-Q Quit",
 				RenderMode = RenderMode.Direct,
-				Theme = new Theme()
+				Theme = new Theme
 				{
 					DesktopBackroundChar = '.',
 					DesktopBackgroundColor = Color.Black,
 					DesktopForegroundColor = Color.Grey,
 				}
 			};
+		}
+
+		private static void LogMessages(LogWindow logWindow)
+		{
+			for (var i = 0; i < 30; i++)
+			{
+				logWindow.AddLog($"{DateTime.Now:g}: Message [blue]{i}[/] from main thread. Output status: [yellow]{i * i}[/] from thread");
+				Thread.Sleep(500);
+			}
+		}
+
+		private static int Main(string[] args)
+		{
+			var consoleWindowSystem = InitializeConsoleWindowSystem();
 
 			var logWindow = new LogWindow(consoleWindowSystem);
 			var systemInfoWindow = new SystemInfoWindow(consoleWindowSystem);
@@ -38,44 +58,48 @@ namespace ConsoleEx
 
 			try
 			{
-				bool quit = false;
-				int exitCode = 0;
-
-				consoleWindowSystem.SetActiveWindow(logWindow.Window);
-
-				// Run the console window system in a separate thread on the background
-				Task.Run(() =>
-				{
-					exitCode = consoleWindowSystem.Run().exitCode;
-					quit = true;
-				});
-
-				// Show a notification message and block UI
-				Notifications.ShowNotification(consoleWindowSystem, "Notification", "Welcome to ConsoleEx example application\nPress Ctrl-Q to quit", NotificationSeverity.Info, true, 0);
-
-				// Example of writing to a window from another thread
-				Task.Run(() =>
-				{
-					for (var i = 0; i < 30; i++)
-					{
-						logWindow.AddLog($"{DateTime.Now.ToString("g")}: Message [blue]{i}[/] from main thread. Output status: [yellow]{i * i}[/] from thread");
-						Thread.Sleep(500);
-					}
-				});
-
-				// Wait for the console window system to finish
-				while (!quit) { }
+				int exitCode = RunConsoleWindowSystem(consoleWindowSystem, logWindow);
 
 				return exitCode;
 			}
 			catch (Exception ex)
 			{
-				Console.Clear();
-				AnsiConsole.WriteException(ex);
-				Console.WriteLine(string.Empty);
-				Console.CursorVisible = true;
+				HandleException(ex);
 				return 1;
 			}
+		}
+
+		private static int RunConsoleWindowSystem(ConsoleWindowSystem consoleWindowSystem, LogWindow logWindow)
+		{
+			bool quit = false;
+			int exitCode = 0;
+
+			consoleWindowSystem.SetActiveWindow(logWindow.Window);
+
+			Task.Run(() =>
+			{
+				exitCode = consoleWindowSystem.Run().exitCode;
+				quit = true;
+			});
+
+			ShowWelcomeNotification(consoleWindowSystem);
+
+			Task.Run(() => LogMessages(logWindow));
+
+			while (!quit) { }
+
+			return exitCode;
+		}
+
+		private static void ShowWelcomeNotification(ConsoleWindowSystem consoleWindowSystem)
+		{
+			Notifications.ShowNotification(
+				consoleWindowSystem,
+				"Notification",
+				"Welcome to ConsoleEx example application\nPress Ctrl-Q to quit",
+				NotificationSeverity.Info,
+				true,
+				0);
 		}
 	}
 }

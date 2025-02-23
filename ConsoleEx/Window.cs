@@ -1,4 +1,12 @@
-﻿using ConsoleEx.Contents;
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using ConsoleEx.Contents;
 using Spectre.Console;
 
 namespace ConsoleEx

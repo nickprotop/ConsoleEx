@@ -6,14 +6,12 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Contents;
 using Spectre.Console;
 using System.Collections.Concurrent;
 using System.Text;
 using ConsoleEx.Themes;
 using ConsoleEx.Helpers;
 using static ConsoleEx.Window;
-using System;
 
 namespace ConsoleEx
 {

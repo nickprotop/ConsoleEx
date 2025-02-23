@@ -1,18 +1,20 @@
-﻿using ConsoleEx.Contents;
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using ConsoleEx.Contents;
 using Spectre.Console;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ConsoleEx
 {
 	public class ClockWindow
 	{
-		private Window _window;
 		private FigletContent? _clockContent;
-		public Window Window => _window;
+		private Window _window;
 
 		public ClockWindow(ConsoleWindowSystem consoleWindowSystem)
 		{
@@ -36,6 +38,8 @@ namespace ConsoleEx
 
 			consoleWindowSystem.AddWindow(_window);
 		}
+
+		public Window Window => _window;
 
 		public async void WindowThread(Window window)
 		{
