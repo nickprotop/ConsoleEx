@@ -1,4 +1,5 @@
 ﻿using ConsoleEx.Contents;
+using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,7 +22,8 @@ namespace ConsoleEx
 				Left = 2,
 				Top = 2,
 				Width = 40,
-				Height = 10
+				Height = 10,
+				BackgroundColor = Color.Grey35
 			};
 
 			consoleWindowSystem.AddWindow(_window);

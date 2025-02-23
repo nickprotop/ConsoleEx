@@ -44,9 +44,19 @@ namespace ConsoleEx
 				}
 			});
 
-			consoleWindowSystem.SetActiveWindow(logWindow.Window);
-
-			return consoleWindowSystem.Run().exitCode;
+			try
+			{
+				consoleWindowSystem.SetActiveWindow(logWindow.Window);
+				return consoleWindowSystem.Run().exitCode;
+			}
+			catch (Exception ex)
+			{
+				Console.Clear();
+				AnsiConsole.WriteException(ex);
+				Console.WriteLine(string.Empty);
+				Console.CursorVisible = true;
+				return 1;
+			}
 		}
 	}
 }

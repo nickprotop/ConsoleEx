@@ -19,9 +19,9 @@ namespace ConsoleEx
 			_window = new Window(consoleWindowSystem, WindowThread)
 			{
 				Title = "Clock",
-				Left = consoleWindowSystem.DesktopDimensions.Width - 70,
+				Left = consoleWindowSystem.DesktopDimensions.Width - 60,
 				Top = 1,
-				Width = 70,
+				Width = 60,
 				Height = 10,
 				BackgroundColor = Color.Black
 			};

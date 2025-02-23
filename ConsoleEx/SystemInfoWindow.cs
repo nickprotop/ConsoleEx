@@ -27,7 +27,7 @@ namespace ConsoleEx
 			consoleWindowSystem.AddWindow(_window);
 		}
 
-		public void WindowThread(Window window)
+		public async void WindowThread(Window window)
 		{
 			_systemInfoContent = new MarkupContent(GetSystemInfo());
 			window.AddContent(_systemInfoContent);
@@ -35,7 +35,7 @@ namespace ConsoleEx
 			while (true)
 			{
 				_systemInfoContent.SetContent(GetSystemInfo());
-				Thread.Sleep(2000);
+				await Task.Delay(3000);
 			}
 		}
 

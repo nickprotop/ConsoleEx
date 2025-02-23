@@ -45,7 +45,7 @@ namespace ConsoleEx
 		public Size DesktopDimensions => new Size(Console.WindowWidth, Console.WindowHeight - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
 		public Position DesktopUpperLeft => new Position(0, string.IsNullOrEmpty(TopStatus) ? 0 : 1);
 
-		public RenderMode RenderMode { get; set; } = RenderMode.Buffer;
+		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
 		public Theme Theme { get; set; } = new Theme();
 		public string TopStatus { get; set; } = "";
 
