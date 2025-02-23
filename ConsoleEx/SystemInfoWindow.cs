@@ -11,6 +11,7 @@ namespace ConsoleEx
 	{
 		private MarkupContent? _systemInfoContent;
 		private Window _window;
+		public Window Window => _window;
 
 		public SystemInfoWindow(ConsoleWindowSystem consoleWindowSystem)
 		{

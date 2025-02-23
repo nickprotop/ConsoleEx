@@ -29,67 +29,22 @@ namespace ConsoleEx
 				}
 			};
 
-			var window1 = new Window(consoleWindowSystem,
-			(window) =>
-			{
-				window.KeyPressed += (sender, e) =>
-				{
-					if (e.KeyInfo.Key == ConsoleKey.Escape)
-					{
-						window.Close();
-					}
-				};
-			})
-			{
-				Title = "Window 1",
-				Left = 2,
-				Top = 2,
-				Width = 40,
-				Height = 10
-			};
-
-			consoleWindowSystem.AddWindow(window1);
-
+			var logWindow = new LogWindow(consoleWindowSystem);
 			var systemInfoWindow = new SystemInfoWindow(consoleWindowSystem);
 			var userInfoWindow = new UserInfoWindow(consoleWindowSystem);
-
-			// Example of creating window with Figlet content and it's own thread
-			consoleWindowSystem.AddWindow(new Window(consoleWindowSystem, (window) =>
-			{
-				FigletContent figletContent = new FigletContent()
-				{
-					Text = $"{DateTime.Now:HH:mm:ss}",
-					Alignment = Alignment.Center,
-					Color = Color.Green
-				};
-				window.AddContent(figletContent);
-
-				while (true)
-				{
-					figletContent.SetText($"{DateTime.Now:HH:mm:ss}");
-					Thread.Sleep(1000);
-				}
-			})
-			{
-				Title = "Clock",
-				Left = Console.WindowWidth - 70,
-				Top = 1,
-				Width = 70,
-				Height = 10,
-				BackgroundColor = Color.Black
-			});
+			var clockWindow = new ClockWindow(consoleWindowSystem);
 
 			// Example of writing to a window from another thread
 			Task.Run(() =>
 			{
 				for (var i = 0; i < 30; i++)
 				{
-					window1.AddContent(new MarkupContent(new List<string>() { $"Message [blue]{i}[/] from thread-Message [blue]{i}[/] from thread" }) { Alignment = Alignment.Center });
-					Thread.Sleep(50);
+					logWindow.AddLog($"{DateTime.Now.ToString("g")}: Message [blue]{i}[/] from main thread. Output status: [yellow]{i * i}[/] from thread");
+					Thread.Sleep(500);
 				}
 			});
 
-			consoleWindowSystem.SetActiveWindow(window1);
+			consoleWindowSystem.SetActiveWindow(logWindow.Window);
 
 			return consoleWindowSystem.Run().exitCode;
 		}

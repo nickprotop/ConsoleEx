@@ -8,13 +8,15 @@ using System.Threading.Tasks;
 
 namespace ConsoleEx
 {
-	class UserInfoWindow
+	internal class UserInfoWindow
 	{
 		private Window _window;
 		private MarkupContent? _ageInfo;
 		private PromptContent? _agePrompt;
 		private PromptContent? _namePrompt;
 		private HorizontalGridContent? _bottomButtons;
+
+		public Window Window => _window;
 
 		public UserInfoWindow(ConsoleWindowSystem consoleWindowSystem)
 		{
