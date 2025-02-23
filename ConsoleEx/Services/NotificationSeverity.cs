@@ -1,6 +1,9 @@
-﻿using Spectre.Console;
+﻿using ConsoleEx.Contents;
+using ConsoleEx.Themes;
+using Spectre.Console;
+using System.Threading;
 
-namespace ConsoleEx.Helpers
+namespace ConsoleEx.Services
 {
 	public enum NotificationSeverityEnum
 	{
@@ -50,7 +53,7 @@ namespace ConsoleEx.Helpers
 				NotificationSeverityEnum.None => None,
 				NotificationSeverityEnum.Success => Success,
 				NotificationSeverityEnum.Warning => Warning,
-				_ => throw new System.NotImplementedException()
+				_ => throw new NotImplementedException()
 			};
 		}
 
@@ -63,7 +66,7 @@ namespace ConsoleEx.Helpers
 				NotificationSeverityEnum.None => consoleWindowSystem.Theme.NotificationWindowBackgroundColor,
 				NotificationSeverityEnum.Success => consoleWindowSystem.Theme.NotificationSuccessWindowBackgroundColor,
 				NotificationSeverityEnum.Warning => consoleWindowSystem.Theme.NotificationWarningWindowBackgroundColor,
-				_ => throw new System.NotImplementedException()
+				_ => throw new NotImplementedException()
 			};
 		}
 	}

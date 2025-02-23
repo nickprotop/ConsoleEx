@@ -10,7 +10,7 @@ using ConsoleEx.Contents;
 using Spectre.Console;
 using ConsoleEx.Themes;
 using System.Reflection.Metadata.Ecma335;
-using ConsoleEx.Helpers;
+using ConsoleEx.Services;
 
 namespace ConsoleEx
 {
@@ -51,7 +51,7 @@ namespace ConsoleEx
 				});
 
 				// Show a notification message and block UI
-				consoleWindowSystem.ShowNotification("Notification", "Welcome to ConsoleEx example application\nPress Ctrl-Q to quit", NotificationSeverity.Info, true, 0);
+				Notifications.ShowNotification(consoleWindowSystem, "Notification", "Welcome to ConsoleEx example application\nPress Ctrl-Q to quit", NotificationSeverity.Info, true, 0);
 
 				// Example of writing to a window from another thread
 				Task.Run(() =>
