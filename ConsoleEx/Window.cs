@@ -24,7 +24,7 @@ namespace ConsoleEx
 		{
 		}
 
-		public bool Allow { get; set; }
+		public bool Allow { get; set; } = true;
 	}
 
 	public class KeyPressedEventArgs : EventArgs
@@ -222,7 +222,7 @@ namespace ConsoleEx
 			}
 		}
 
-		public void Close()
+		public bool Close(bool systemCall = false)
 		{
 			if (IsClosable)
 			{
@@ -232,7 +232,7 @@ namespace ConsoleEx
 					OnCLosing(this, args);
 					if (!args.Allow)
 					{
-						return;
+						return false;
 					}
 				}
 
@@ -241,9 +241,13 @@ namespace ConsoleEx
 					(content as IWIndowContent).Dispose();
 				}
 
-				_windowSystem?.CloseWindow(this);
+				if (!systemCall) _windowSystem?.CloseWindow(this);
 				OnClosed?.Invoke(this, EventArgs.Empty);
+
+				return true;
 			}
+
+			return false;
 		}
 
 		public IWIndowContent? GetContentFromDesktopCoordinates(Position? point)

@@ -62,6 +62,8 @@ namespace ConsoleEx
 			if (window == null) return;
 			if (!_windows.ContainsKey(window.Guid)) return;
 
+			if (window.Close(systemCall: true) == false) return;
+
 			_windows.TryRemove(window.Guid, out _);
 
 			if (_activeWindow == window)
@@ -78,8 +80,6 @@ namespace ConsoleEx
 			{
 				w.Invalidate(true);
 			}
-
-			window.Close();
 		}
 
 		public (int exitCode, string? exitMessage) Run()
