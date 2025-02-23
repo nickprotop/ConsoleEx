@@ -79,6 +79,39 @@ namespace ConsoleEx
 			}
 		}
 
+		public void ShowNotification(string title, string message, int? timeout = 5000)
+		{
+			var notificationWindow = new Window(this)
+			{
+				Title = string.IsNullOrWhiteSpace(title) ? "Notification" : title,
+				Left = DesktopDimensions.Width / 2 - (AnsiConsoleHelper.StripSpectreLength(message) + 8) / 2,
+				Top = DesktopDimensions.Height / 2 - 2,
+				Width = AnsiConsoleHelper.StripSpectreLength(message) + 8,
+				Height = 5,
+				BackgroundColor = Theme.WindowBackgroundColor,
+				ForegroundColor = Theme.WindowForegroundColor
+			};
+
+			AddWindow(notificationWindow);
+			SetActiveWindow(notificationWindow);
+
+			var notificationContent = new MarkupContent(new List<string>() { message })
+			{
+				Alignment = Alignment.Left
+			};
+
+			notificationWindow.AddContent(notificationContent);
+
+			if (timeout.HasValue && timeout.Value != 0)
+			{
+				Task.Run(async () =>
+				{
+					await Task.Delay(timeout.Value);
+					CloseWindow(notificationWindow);
+				});
+			}
+		}
+
 		public (int exitCode, string? exitMessage) Run()
 		{
 			_running = true;

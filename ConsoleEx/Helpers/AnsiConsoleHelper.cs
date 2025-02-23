@@ -272,7 +272,12 @@ namespace ConsoleEx
 
 		public static int StripSpectreLength(string text)
 		{
-			return Markup.Remove(text).Length;
+			if (string.IsNullOrEmpty(text))
+				return 0;
+
+			List<int> lines = text.Split('\n').Select(line => Markup.Remove(line).Length).ToList();
+
+			return lines.Max();
 		}
 
 		public static string TruncateAnsiString(string input, int maxVisibleLength)

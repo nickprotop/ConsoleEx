@@ -9,6 +9,7 @@
 using ConsoleEx.Contents;
 using Spectre.Console;
 using ConsoleEx.Themes;
+using System.Reflection.Metadata.Ecma335;
 
 namespace ConsoleEx
 {
@@ -46,8 +47,24 @@ namespace ConsoleEx
 
 			try
 			{
+				bool quit = false;
+				int exitCode = 0;
+
 				consoleWindowSystem.SetActiveWindow(logWindow.Window);
-				return consoleWindowSystem.Run().exitCode;
+
+				Task.Run(() =>
+				{
+					exitCode = consoleWindowSystem.Run().exitCode;
+					quit = true;
+				});
+
+				consoleWindowSystem.ShowNotification("Notification", "Welcome to ConsoleEx example application\nPress Ctrl-Q to quit");
+
+				while (!quit)
+				{
+				}
+
+				return exitCode;
 			}
 			catch (Exception ex)
 			{
