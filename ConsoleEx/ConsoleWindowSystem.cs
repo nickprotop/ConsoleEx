@@ -576,14 +576,16 @@ namespace ConsoleEx
 								window.Top = Math.Max(1, desktopSize.Height - window.Height);
 							}
 
-							_cachedBottomStatus = null;
-							_cachedTopStatus = null;
-
 							window.Invalidate(true);
 						}
 
+						_cachedBottomStatus = null;
+						_cachedTopStatus = null;
+
 						_lastConsoleWidth = Console.WindowWidth;
 						_lastConsoleHeight = Console.WindowHeight;
+
+						Console.Clear();
 
 						FillRect(0, 0, Console.WindowWidth, Console.WindowHeight, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 					}
