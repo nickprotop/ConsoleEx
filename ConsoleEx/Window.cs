@@ -72,6 +72,11 @@ namespace ConsoleEx
 		private WindowThreadDelegate? _windowThreadMethod;
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 
+		private Color? _inactiveBorderForegroundColor;
+		private Color? _activeBorderForegroundColor;
+		private Color? _activeTitleForegroundColor;
+		private Color? _inactiveTitleForegroundColor;
+
 		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod)
 		{
 			_guid = System.Guid.NewGuid().ToString();
@@ -124,6 +129,11 @@ namespace ConsoleEx
 		public event EventHandler<ClosingEventArgs>? OnCLosing;
 
 		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
+
+		public Color ActiveBorderForegroundColor { get => _activeBorderForegroundColor ?? _windowSystem?.Theme.ActiveBorderForegroundColor ?? Color.White; set { _activeBorderForegroundColor = value; Invalidate(false); } }
+		public Color InactiveBorderForegroundColor { get => _inactiveBorderForegroundColor ?? _windowSystem?.Theme.InactiveBorderForegroundColor ?? Color.White; set { _inactiveBorderForegroundColor = value; Invalidate(false); } }
+		public Color ActiveTitleForegroundColor { get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; Invalidate(false); } }
+		public Color InactiveTitleForegroundColor { get => _inactiveTitleForegroundColor ?? _windowSystem?.Theme.InactiveTitleForegroundColor ?? Color.White; set { _inactiveTitleForegroundColor = value; Invalidate(false); } }
 
 		public Color BackgroundColor { get; set; }
 		public Color ForegroundColor { get; set; }

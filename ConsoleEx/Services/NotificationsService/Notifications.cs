@@ -21,8 +21,12 @@ namespace ConsoleEx.Services.NotificationsService
 				Top = consoleWindowSystem.DesktopDimensions.Height / 2 - 2,
 				Width = AnsiConsoleHelper.StripSpectreLength(message) + 8,
 				Height = title.Split('\n').ToList().Count + 5,
-				BackgroundColor = severity.BackgroundColor(consoleWindowSystem),
+				BackgroundColor = severity.WindowBackgroundColor(consoleWindowSystem),
 				ForegroundColor = consoleWindowSystem.Theme.WindowForegroundColor,
+				ActiveBorderForegroundColor = severity.ActiveBorderForegroundColor(consoleWindowSystem),
+				InactiveBorderForegroundColor = severity.InactiveBorderForegroundColor(consoleWindowSystem),
+				ActiveTitleForegroundColor = severity.ActiveTitleForegroundColor(consoleWindowSystem),
+				InactiveTitleForegroundColor = severity.InactiveTitleForegroundColor(consoleWindowSystem),
 				IsResizable = false
 			};
 

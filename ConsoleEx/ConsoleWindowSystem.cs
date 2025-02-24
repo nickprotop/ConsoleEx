@@ -209,8 +209,8 @@ namespace ConsoleEx
 			var bottomLeftCorner = window.GetIsActive() ? '╚' : '└';
 			var bottomRightCorner = window.GetIsActive() ? '╝' : '┘';
 
-			var borderColor = window.GetIsActive() ? $"[{Theme.ActiveBorderColor}]" : $"[{Theme.InactiveBorderColor}]";
-			var titleColor = window.GetIsActive() ? $"[{Theme.ActiveTitleColor}]" : $"[{Theme.InactiveTitleColor}]";
+			var borderColor = window.GetIsActive() ? $"[{window.ActiveBorderForegroundColor}]" : $"[{window.InactiveBorderForegroundColor}]";
+			var titleColor = window.GetIsActive() ? $"[{window.ActiveTitleForegroundColor}]" : $"[{window.InactiveTitleForegroundColor}]";
 			var resetColor = "[/]";
 
 			var title = $"{titleColor}| {StringHelper.TrimWithEllipsis(window.Title, window.Width - 8, (window.Width - 8) / 2)} |{resetColor}";

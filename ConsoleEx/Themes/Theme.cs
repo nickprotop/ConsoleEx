@@ -15,8 +15,8 @@ namespace ConsoleEx.Themes
 		public Theme()
 		{ }
 
-		public Color ActiveBorderColor { get; set; } = Color.Green;
-		public Color ActiveTitleColor { get; set; } = Color.Green;
+		public Color ActiveBorderForegroundColor { get; set; } = Color.Green;
+		public Color ActiveTitleForegroundColor { get; set; } = Color.Green;
 		public Color BottomBarBackgroundColor { get; set; } = Color.Blue;
 		public Color BottomBarForegroundColor { get; set; } = Color.White;
 		public Color ButtonBackgroundColor { get; set; } = Color.Grey39;
@@ -28,8 +28,8 @@ namespace ConsoleEx.Themes
 		public Color DesktopBackgroundColor { get; set; } = Color.Black;
 		public char DesktopBackroundChar { get; set; } = ' ';
 		public Color DesktopForegroundColor { get; set; } = Color.White;
-		public Color InactiveBorderColor { get; set; } = Color.Grey;
-		public Color InactiveTitleColor { get; set; } = Color.Grey;
+		public Color InactiveBorderForegroundColor { get; set; } = Color.Grey;
+		public Color InactiveTitleForegroundColor { get; set; } = Color.Grey;
 		public Color NotificationDangerWindowBackgroundColor { get; set; } = Color.Maroon;
 		public Color NotificationInfoWindowBackgroundColor { get; set; } = Color.SteelBlue;
 		public Color NotificationSuccessWindowBackgroundColor { get; set; } = Color.DarkGreen;

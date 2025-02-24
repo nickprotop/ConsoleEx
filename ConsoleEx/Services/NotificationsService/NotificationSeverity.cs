@@ -62,7 +62,7 @@ namespace ConsoleEx.Services.NotificationsService
 			};
 		}
 
-		public Color BackgroundColor(ConsoleWindowSystem consoleWindowSystem)
+		public Color WindowBackgroundColor(ConsoleWindowSystem consoleWindowSystem)
 		{
 			return Severity switch
 			{
@@ -71,6 +71,58 @@ namespace ConsoleEx.Services.NotificationsService
 				NotificationSeverityEnum.None => consoleWindowSystem.Theme.NotificationWindowBackgroundColor,
 				NotificationSeverityEnum.Success => consoleWindowSystem.Theme.NotificationSuccessWindowBackgroundColor,
 				NotificationSeverityEnum.Warning => consoleWindowSystem.Theme.NotificationWarningWindowBackgroundColor,
+				_ => throw new NotImplementedException()
+			};
+		}
+
+		public Color ActiveTitleForegroundColor(ConsoleWindowSystem consoleWindowSystem)
+		{
+			return Severity switch
+			{
+				NotificationSeverityEnum.Danger => Color.White,
+				NotificationSeverityEnum.Info => Color.White,
+				NotificationSeverityEnum.None => Color.White,
+				NotificationSeverityEnum.Success => Color.White,
+				NotificationSeverityEnum.Warning => Color.White,
+				_ => throw new NotImplementedException()
+			};
+		}
+
+		public Color InactiveTitleForegroundColor(ConsoleWindowSystem consoleWindowSystem)
+		{
+			return Severity switch
+			{
+				NotificationSeverityEnum.Danger => Color.White,
+				NotificationSeverityEnum.Info => Color.White,
+				NotificationSeverityEnum.None => Color.White,
+				NotificationSeverityEnum.Success => Color.White,
+				NotificationSeverityEnum.Warning => Color.White,
+				_ => throw new NotImplementedException()
+			};
+		}
+
+		public Color InactiveBorderForegroundColor(ConsoleWindowSystem consoleWindowSystem)
+		{
+			return Severity switch
+			{
+				NotificationSeverityEnum.Danger => Color.White,
+				NotificationSeverityEnum.Info => Color.White,
+				NotificationSeverityEnum.None => Color.White,
+				NotificationSeverityEnum.Success => Color.White,
+				NotificationSeverityEnum.Warning => Color.White,
+				_ => throw new NotImplementedException()
+			};
+		}
+
+		public Color ActiveBorderForegroundColor(ConsoleWindowSystem consoleWindowSystem)
+		{
+			return Severity switch
+			{
+				NotificationSeverityEnum.Danger => Color.White,
+				NotificationSeverityEnum.Info => Color.White,
+				NotificationSeverityEnum.None => Color.White,
+				NotificationSeverityEnum.Success => Color.White,
+				NotificationSeverityEnum.Warning => Color.White,
 				_ => throw new NotImplementedException()
 			};
 		}
