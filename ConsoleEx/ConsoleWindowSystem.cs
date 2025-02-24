@@ -441,7 +441,7 @@ namespace ConsoleEx
 					switch (direction)
 					{
 						case Direction.Up:
-							FillRect(left, top + height, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 							break;
 
 						case Direction.Down:
