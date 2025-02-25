@@ -15,14 +15,12 @@ namespace ConsoleEx.Drivers
 
 		public Size ScreenSize { get; }
 
-		public void Initialize(ConsoleWindowSystem consoleWindowSystem);
+		public void Clear();
 
 		public void Start();
 
-		public void Exit();
+		public void Stop();
 
 		public void WriteToConsole(int x, int y, string value);
-
-		public void Clear();
 	}
 }

@@ -84,7 +84,7 @@ namespace ConsoleEx.Example
 				quit = true;
 			});
 
-			ShowWelcomeNotification(consoleWindowSystem);
+			//ShowWelcomeNotification(consoleWindowSystem);
 
 			Task.Run(() => LogMessages(logWindow));
 

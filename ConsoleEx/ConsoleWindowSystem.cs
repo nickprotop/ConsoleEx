@@ -39,25 +39,26 @@ namespace ConsoleEx
 		private ConcurrentQueue<bool> _blockUi = new();
 		private string? _cachedBottomStatus;
 		private string? _cachedTopStatus;
+		private IConsoleDriver _consoleDriver;
 		private int _exitCode;
 		private string? _exitMessage;
-		private IConsoleDriver _consoleDriver;
-
 		private bool _running;
 
 		public ConsoleWindowSystem()
 		{
 			// Initialize the console driver
-			_consoleDriver = new NetConsoleDriver();
-			_consoleDriver.Initialize(this);
+			_consoleDriver = new NetConsoleDriver(this);
 		}
+
+		public ConcurrentQueue<bool> BlockUi => _blockUi;
+
+		public string BottomStatus { get; set; } = "";
 
 		public IConsoleDriver ConsoleDriver
 		{ get { return _consoleDriver; } set { _consoleDriver = value; } }
-		public ConcurrentQueue<bool> BlockUi => _blockUi;
-		public string BottomStatus { get; set; } = "";
-		public Position DesktopBottomRight => new Position((_consoleDriver?.ScreenSize.Width ?? 80) - 1, Console.WindowHeight - 1 - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
-		public Helpers.Size DesktopDimensions => new Helpers.Size((_consoleDriver?.ScreenSize.Width ?? 80), Console.WindowHeight - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
+
+		public Position DesktopBottomRight => new Position(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
+		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
 		public Position DesktopUpperLeft => new Position(0, string.IsNullOrEmpty(TopStatus) ? 0 : 1);
 
 		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
@@ -90,7 +91,7 @@ namespace ConsoleEx
 				}
 			}
 
-			FillRect(0, 0, (_consoleDriver?.ScreenSize.Width ?? 80), Console.WindowHeight, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+			FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 			foreach (var w in _windows.Values)
 			{
 				w.Invalidate(true);
@@ -132,7 +133,7 @@ namespace ConsoleEx
 
 					_consoleDriver.Clear();
 
-					FillRect(0, 0, (_consoleDriver?.ScreenSize.Width ?? 80), (_consoleDriver?.ScreenSize.Height ?? 24), Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+					FillRect(0, 0, _consoleDriver.ScreenSize.Width, (_consoleDriver?.ScreenSize.Height ?? 24), Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 				}
 			};
 
@@ -140,7 +141,7 @@ namespace ConsoleEx
 			_consoleDriver.Start();
 
 			// Initialize the console window system with background color and character
-			FillRect(0, 0, (_consoleDriver?.ScreenSize.Width ?? 80), Console.WindowHeight, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+			FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 			// Main loop
 			while (_running)
@@ -152,7 +153,7 @@ namespace ConsoleEx
 				Thread.Sleep(10);
 			}
 
-			_consoleDriver?.Exit();
+			_consoleDriver?.Stop();
 
 			return _exitCode;
 		}
@@ -273,7 +274,7 @@ namespace ConsoleEx
 			{
 				if (top + y > DesktopDimensions.Height) break;
 
-				_consoleDriver?.WriteToConsole(left, top + DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(character, Math.Min(width, (_consoleDriver?.ScreenSize.Width ?? 80) - left))}", Math.Min(width, (_consoleDriver?.ScreenSize.Width ?? 80) - left), 1, false, backgroundColor, foregroundColor)[0]);
+				_consoleDriver?.WriteToConsole(left, top + DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(character, Math.Min(width, _consoleDriver.ScreenSize.Width - left))}", Math.Min(width, _consoleDriver.ScreenSize.Width - left), 1, false, backgroundColor, foregroundColor)[0]);
 			}
 		}
 
@@ -301,13 +302,13 @@ namespace ConsoleEx
 		private bool HandleAltInput(ConsoleKeyInfo key)
 		{
 			bool handled = false;
-			if (key.Key >= ConsoleKey.D1 && key.Key <= ConsoleKey.D9)
+			if (key.KeyChar >= (char)ConsoleKey.D1 && key.KeyChar <= (char)ConsoleKey.D9)
 			{
 				if (_blockUi.Count != 0)
 				{
 					return false;
 				}
-				int index = key.Key - ConsoleKey.D1;
+				int index = key.KeyChar - (char)ConsoleKey.D1;
 				if (index < _windows.Count)
 				{
 					var newActiveWindow = _windows.Values.ElementAt(index);
@@ -577,8 +578,8 @@ namespace ConsoleEx
 				var (absoluteLeft, absoluteTop) = TranslateToAbsolute(_activeWindow, new Position(cursorPosition.X, cursorPosition.Y));
 
 				// Check if the cursor position is within the console window boundaries
-				if (absoluteLeft >= 0 && absoluteLeft < (_consoleDriver?.ScreenSize.Width ?? 80) &&
-					absoluteTop >= 0 && absoluteTop < Console.WindowHeight &&
+				if (absoluteLeft >= 0 && absoluteLeft < _consoleDriver.ScreenSize.Width &&
+					absoluteTop >= 0 && absoluteTop < _consoleDriver.ScreenSize.Height &&
 					// Check if the cursor position is within the active window's boundaries
 					absoluteLeft + 1 >= _activeWindow.Left && absoluteLeft + 1 < _activeWindow.Left + _activeWindow.Width &&
 					absoluteTop > _activeWindow.Top + 1 && absoluteTop < _activeWindow.Top + _activeWindow.Height)
@@ -606,8 +607,8 @@ namespace ConsoleEx
 					var topRow = TopStatus;
 
 					var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
-					var paddedTopRow = topRow.PadRight((_consoleDriver?.ScreenSize.Width ?? 80) + (topRow.Length - effectiveLength));
-					_consoleDriver?.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", (_consoleDriver?.ScreenSize.Width ?? 80), 1, false, Theme.TopBarBackgroundColor, null)[0]);
+					var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
+					_consoleDriver?.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.TopBarBackgroundColor, null)[0]);
 
 					_cachedTopStatus = TopStatus;
 				}
@@ -666,15 +667,15 @@ namespace ConsoleEx
 
 			string bottomRow = $"{string.Join(" | ", _windows.Values.Select((w, i) => $"[bold]Alt-{i + 1}[/] {StringHelper.TrimWithEllipsis(w.Title, 15, 7)}"))} | {BottomStatus}";
 			// Display the list of window titles in the bottom row
-			if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > (_consoleDriver?.ScreenSize.Width ?? 80))
+			if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > _consoleDriver.ScreenSize.Width)
 			{
-				bottomRow = AnsiConsoleHelper.TruncateSpectre(bottomRow, (_consoleDriver?.ScreenSize.Width ?? 80));
+				bottomRow = AnsiConsoleHelper.TruncateSpectre(bottomRow, _consoleDriver.ScreenSize.Width);
 			}
 
 			if (_cachedBottomStatus != BottomStatus)
 			{   //add padding to the bottom row
-				bottomRow += new string(' ', (_consoleDriver?.ScreenSize.Width ?? 80) - AnsiConsoleHelper.StripSpectreLength(bottomRow));
-				_consoleDriver?.WriteToConsole(0, Console.WindowHeight - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.BottomBarForegroundColor}]{bottomRow}[/]", (_consoleDriver?.ScreenSize.Width ?? 80), 1, false, Theme.BottomBarBackgroundColor, null)[0]);
+				bottomRow += new string(' ', _consoleDriver.ScreenSize.Width - AnsiConsoleHelper.StripSpectreLength(bottomRow));
+				_consoleDriver?.WriteToConsole(0, _consoleDriver.ScreenSize.Height - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.BottomBarForegroundColor}]{bottomRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.BottomBarBackgroundColor, null)[0]);
 
 				_cachedBottomStatus = bottomRow;
 			}
