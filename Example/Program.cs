@@ -28,7 +28,6 @@ namespace ConsoleEx.Example
 			{
 				TopStatus = "ConsoleEx example application",
 				BottomStatus = "Ctrl-Q Quit",
-				RenderMode = RenderMode.Direct,
 				Theme = new Theme
 				{
 					DesktopBackroundChar = '.',
@@ -60,6 +59,9 @@ namespace ConsoleEx.Example
 			{
 				int exitCode = RunConsoleWindowSystem(consoleWindowSystem, logWindow);
 
+				Console.SetCursorPosition(0, 0);
+				Console.WriteLine($"Console window system terminated with status: {exitCode}");
+
 				return exitCode;
 			}
 			catch (Exception ex)
@@ -78,7 +80,7 @@ namespace ConsoleEx.Example
 
 			Task.Run(() =>
 			{
-				exitCode = consoleWindowSystem.Run().exitCode;
+				exitCode = consoleWindowSystem.Run();
 				quit = true;
 			});
 
