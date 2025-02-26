@@ -9,15 +9,21 @@
 using ConsoleEx.Helpers;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Size = ConsoleEx.Helpers.Size;
 
 namespace ConsoleEx.Drivers
 {
 	public interface IConsoleDriver
 	{
+		public delegate void MouseEventHandler(object sender, List<MouseFlags> flags, Point point);
+
 		public event EventHandler<ConsoleKeyInfo> KeyPressed;
+
+		public event MouseEventHandler? MouseEvent;
 
 		public event EventHandler<Size>? ScreenResized;
 

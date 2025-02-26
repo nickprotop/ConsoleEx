@@ -152,6 +152,7 @@ namespace ConsoleEx
 		public bool IsClosable { get; set; } = true;
 		public bool IsContentVisible { get; set; } = true;
 		public bool IsDirty { get; set; } = true;
+		public bool IsDragging { get; set; }
 		public bool IsMovable { get; set; } = true;
 		public bool IsResizable { get; set; } = true;
 		public bool IsScrollable { get; set; } = true;

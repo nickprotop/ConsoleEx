@@ -83,6 +83,8 @@ namespace ConsoleEx.Drivers
 
 			_originalInputConsoleMode = mode;
 
+			mode |= ENABLE_MOUSE_INPUT;
+
 			if ((mode & ENABLE_VIRTUAL_TERMINAL_INPUT) < ENABLE_VIRTUAL_TERMINAL_INPUT)
 			{
 				mode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
@@ -133,6 +135,8 @@ namespace ConsoleEx.Drivers
 		}
 
 		public event EventHandler<ConsoleKeyInfo>? KeyPressed;
+
+		public event IConsoleDriver.MouseEventHandler? MouseEvent;
 
 		public event EventHandler<Size>? ScreenResized;
 
@@ -462,44 +466,6 @@ namespace ConsoleEx.Drivers
 
 								if (ParseMouseSequence(consoleKeyInfoSequence.ToArray(), out mouseFlags, out pos))
 								{
-									if (mouseFlags.Count > 0)
-									{
-										// Handle button presses
-										if (mouseFlags.Contains(MouseFlags.Button1Clicked))
-										{
-											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
-												$"Left button clicked at {pos.X}, {pos.Y}", NotificationSeverity.Info);
-										}
-										else if (mouseFlags.Contains(MouseFlags.Button1DoubleClicked))
-										{
-											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
-												$"Left button double-clicked at {pos.X}, {pos.Y}", NotificationSeverity.Info);
-										}
-										else if (mouseFlags.Contains(MouseFlags.Button1TripleClicked))
-										{
-											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
-												$"Left button triple-clicked at {pos.X}, {pos.Y}", NotificationSeverity.Info);
-										}
-										else if (mouseFlags.Contains(MouseFlags.Button1Pressed))
-										{
-											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
-												$"Left button pressed at {pos.X}, {pos.Y}", NotificationSeverity.Info);
-										}
-
-										// Handle wheel events
-										else if (mouseFlags.Contains(MouseFlags.WheeledUp))
-										{
-											string wheelDir = mouseFlags.Contains(MouseFlags.ButtonCtrl) ? "left" : "up";
-											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
-												$"Wheel scrolled {wheelDir} at {pos.X}, {pos.Y}", NotificationSeverity.Info);
-										}
-										else if (mouseFlags.Contains(MouseFlags.WheeledDown))
-										{
-											string wheelDir = mouseFlags.Contains(MouseFlags.ButtonCtrl) ? "right" : "down";
-											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
-												$"Wheel scrolled {wheelDir} at {pos.X}, {pos.Y}", NotificationSeverity.Info);
-										}
-									}
 								}
 							}
 						}
@@ -509,8 +475,6 @@ namespace ConsoleEx.Drivers
 
 			return null;
 		}
-
-		// milliseconds
 
 		private bool ParseMouseSequence(ConsoleKeyInfo[] sequence, out List<MouseFlags> mouseFlags, out Point position)
 		{
@@ -549,11 +513,13 @@ namespace ConsoleEx.Drivers
 						case 1: mouseFlags.Add(MouseFlags.Button2Pressed); break;
 						case 2: mouseFlags.Add(MouseFlags.Button3Pressed); break;
 					}
+					MouseEvent?.Invoke(this, mouseFlags, position); // Raise the MouseEvent
 					return true;
 				}
 
+				// Check for button release events
 				bool isRelease = (buttonCode & 0x03) == 3;
-				int buttonNumber = buttonCode & 0x03;
+				int buttonNumber = (buttonCode >> 2) & 0x03;
 
 				// Handle button events
 				switch (buttonNumber)
@@ -630,6 +596,7 @@ namespace ConsoleEx.Drivers
 						break;
 				}
 
+				MouseEvent?.Invoke(this, mouseFlags, position); // Raise the MouseEvent
 				return true;
 			}
 			catch

@@ -138,6 +138,8 @@ namespace ConsoleEx
 				}
 			};
 
+			_consoleDriver.MouseEvent += HandleMouseEvent;
+
 			// Start the console driver
 			_consoleDriver.Start();
 
@@ -245,6 +247,11 @@ namespace ConsoleEx
 			var titleColor = window.GetIsActive() ? $"[{window.ActiveTitleForegroundColor}]" : $"[{window.InactiveTitleForegroundColor}]";
 			var resetColor = "[/]";
 
+			if (window.IsDragging)
+			{
+				borderColor = "[red]"; // Change the border color to red when dragging
+			}
+
 			var title = $"{titleColor}| {StringHelper.TrimWithEllipsis(window.Title, window.Width - 8, (window.Width - 8) / 2)} |{resetColor}";
 			var titleLength = AnsiConsoleHelper.StripSpectreLength(title);
 			var availableSpace = window.Width - 2 - titleLength;
@@ -302,6 +309,15 @@ namespace ConsoleEx
 			return visited;
 		}
 
+		private Window? GetWindowAtPoint(Point point)
+		{
+			return _windows.Values.FirstOrDefault(window =>
+				point.X >= window.Left &&
+				point.X < window.Left + window.Width &&
+				point.Y >= window.Top &&
+				point.Y < window.Top + window.Height);
+		}
+
 		private bool HandleAltInput(ConsoleKeyInfo key)
 		{
 			bool handled = false;
@@ -322,6 +338,41 @@ namespace ConsoleEx
 				}
 			}
 			return handled;
+		}
+
+		private void HandleMouseEvent(object sender, List<MouseFlags> flags, Point point)
+		{
+			if (flags.Contains(MouseFlags.Button1Clicked))
+			{
+				// Get window at the clicked point
+				var window = GetWindowAtPoint(point);
+				if (window != null && window != _activeWindow)
+				{
+					// Activate the window if it is not already active
+					SetActiveWindow(window);
+				}
+			}
+			else if (flags.Contains(MouseFlags.Button1Pressed) && flags.Contains(MouseFlags.ReportMousePosition))
+			{
+				// Handle dragging
+				var window = GetWindowAtPoint(point);
+				if (window != null && window == _activeWindow)
+				{
+					window.IsDragging = true; // Set dragging state
+											  // Calculate the new position
+					window.SetPosition(new Point(window.Left + point.X, window.Top + point.Y));
+
+					RenderWindow(window);
+				}
+			}
+			else if (flags.Contains(MouseFlags.Button1Released))
+			{
+				// Handle drag end
+				if (_activeWindow != null)
+				{
+					_activeWindow.IsDragging = false; // Reset dragging state
+				}
+			}
 		}
 
 		private bool HandleMoveInput(ConsoleKeyInfo key)
