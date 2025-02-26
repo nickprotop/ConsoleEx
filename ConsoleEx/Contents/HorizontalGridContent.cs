@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using ConsoleEx.Helpers;
 using Spectre.Console;
 
 namespace ConsoleEx.Contents

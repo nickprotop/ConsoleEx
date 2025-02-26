@@ -10,8 +10,9 @@ using Spectre.Console;
 using Spectre.Console.Rendering;
 using System.Text;
 using System.Text.RegularExpressions;
+using static System.Runtime.CompilerServices.RuntimeHelpers;
 
-namespace ConsoleEx
+namespace ConsoleEx.Helpers
 {
 	public static class AnsiConsoleHelper
 	{

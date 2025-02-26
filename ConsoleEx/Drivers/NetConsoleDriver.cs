@@ -1,12 +1,23 @@
-﻿using ConsoleEx.Helpers;
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using ConsoleEx.Helpers;
+using ConsoleEx.Services.NotificationsService;
 using ConsoleEx.Themes;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Size = ConsoleEx.Helpers.Size;
 
 namespace ConsoleEx.Drivers
 {
@@ -19,6 +30,7 @@ namespace ConsoleEx.Drivers
 	public class NetConsoleDriver : IConsoleDriver
 	{
 		private const uint DISABLE_NEWLINE_AUTO_RETURN = 8;
+		private const int DoubleClickTime = 500;
 		private const uint ENABLE_ECHO_INPUT = 4;
 		private const uint ENABLE_EXTENDED_FLAGS = 128;
 		private const uint ENABLE_INSERT_MODE = 32;
@@ -49,6 +61,9 @@ namespace ConsoleEx.Drivers
 		private readonly nint _outputHandle;
 
 		private ConsoleWindowSystem? _consoleWindowSystem;
+		private MouseFlags _lastButton;
+		private Point? _lastClickPosition;
+		private DateTime _lastClickTime;
 		private int _lastConsoleHeight;
 		private int _lastConsoleWidth;
 		private bool _running = false;
@@ -154,6 +169,8 @@ namespace ConsoleEx.Drivers
 
 			Console.CursorVisible = false;
 
+			Console.Out.Write(SequenceHelper.CSI_EnableMouseEvents);
+
 			_lastConsoleWidth = Console.WindowWidth;
 			_lastConsoleHeight = Console.WindowHeight;
 
@@ -219,6 +236,9 @@ namespace ConsoleEx.Drivers
 				{
 					var key = Console.ReadKey(true);
 
+					List<ConsoleKeyInfo> consoleKeyInfoSequence = new List<ConsoleKeyInfo>();
+					consoleKeyInfoSequence.Add(key);
+
 					// Map control characters
 					if (key.KeyChar >= '\u0001' && key.KeyChar <= '\u001A' && key.KeyChar != '\t' && key.KeyChar != '\r')
 					{
@@ -259,12 +279,16 @@ namespace ConsoleEx.Drivers
 						if (Console.KeyAvailable)
 						{
 							var nextKey = Console.ReadKey(true);
+							consoleKeyInfoSequence.Add(nextKey);
+
 							if (nextKey.KeyChar == '[' || nextKey.KeyChar == 'O') // Handle both CSI and SS3
 							{
 								var ansiSequence = new StringBuilder();
 								while (Console.KeyAvailable)
 								{
 									var ansiKey = Console.ReadKey(true);
+									consoleKeyInfoSequence.Add(ansiKey);
+
 									if (char.IsLetter(ansiKey.KeyChar) || ansiKey.KeyChar == '~' || ansiKey.KeyChar == '\r' || ansiKey.KeyChar == '\t')
 									{
 										ansiSequence.Append(ansiKey.KeyChar);
@@ -273,7 +297,8 @@ namespace ConsoleEx.Drivers
 									ansiSequence.Append(ansiKey.KeyChar);
 								}
 
-								var consoleKeyInfo = MapAnsiToConsoleKeyInfo(ansiSequence.ToString());
+								var consoleKeyInfo = MapAnsiToConsoleKeyInfo(ansiSequence.ToString(), consoleKeyInfoSequence);
+
 								if (consoleKeyInfo.HasValue)
 								{
 									KeyPressed?.Invoke(this, consoleKeyInfo.Value);
@@ -309,11 +334,13 @@ namespace ConsoleEx.Drivers
 			}
 		}
 
-		private ConsoleKeyInfo? MapAnsiToConsoleKeyInfo(string ansiSequence)
+		private ConsoleKeyInfo? MapAnsiToConsoleKeyInfo(string ansiSequence, List<ConsoleKeyInfo> consoleKeyInfoSequence)
 		{
 			bool shift = false;
 			bool alt = false;
 			bool ctrl = false;
+
+			string originalSequence = ansiSequence;
 
 			// Check for modifier codes in the sequence
 			if (ansiSequence.Length > 1 && char.IsDigit(ansiSequence[0]))
@@ -413,10 +440,202 @@ namespace ConsoleEx.Drivers
 
 				// Media/Special keys
 				case 'M': // Mouse events (if needed)
+						  // We already have the initial ESC [ M sequence in consoleKeyInfoSequence
+						  // Need to read 3 more bytes: button+mask, x coord, y coord
+					if (Console.KeyAvailable)
+					{
+						var button = Console.ReadKey(true);
+						consoleKeyInfoSequence.Add(button);
+
+						if (Console.KeyAvailable)
+						{
+							var xPos = Console.ReadKey(true);
+							consoleKeyInfoSequence.Add(xPos);
+
+							if (Console.KeyAvailable)
+							{
+								var yPos = Console.ReadKey(true);
+								consoleKeyInfoSequence.Add(yPos);
+
+								List<MouseFlags> mouseFlags;
+								Point pos;
+
+								if (ParseMouseSequence(consoleKeyInfoSequence.ToArray(), out mouseFlags, out pos))
+								{
+									if (mouseFlags.Count > 0)
+									{
+										// Handle button presses
+										if (mouseFlags.Contains(MouseFlags.Button1Clicked))
+										{
+											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
+												$"Left button clicked at {pos.X}, {pos.Y}", NotificationSeverity.Info);
+										}
+										else if (mouseFlags.Contains(MouseFlags.Button1DoubleClicked))
+										{
+											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
+												$"Left button double-clicked at {pos.X}, {pos.Y}", NotificationSeverity.Info);
+										}
+										else if (mouseFlags.Contains(MouseFlags.Button1TripleClicked))
+										{
+											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
+												$"Left button triple-clicked at {pos.X}, {pos.Y}", NotificationSeverity.Info);
+										}
+										else if (mouseFlags.Contains(MouseFlags.Button1Pressed))
+										{
+											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
+												$"Left button pressed at {pos.X}, {pos.Y}", NotificationSeverity.Info);
+										}
+
+										// Handle wheel events
+										else if (mouseFlags.Contains(MouseFlags.WheeledUp))
+										{
+											string wheelDir = mouseFlags.Contains(MouseFlags.ButtonCtrl) ? "left" : "up";
+											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
+												$"Wheel scrolled {wheelDir} at {pos.X}, {pos.Y}", NotificationSeverity.Info);
+										}
+										else if (mouseFlags.Contains(MouseFlags.WheeledDown))
+										{
+											string wheelDir = mouseFlags.Contains(MouseFlags.ButtonCtrl) ? "right" : "down";
+											Notifications.ShowNotification(_consoleWindowSystem!, "Mouse Event",
+												$"Wheel scrolled {wheelDir} at {pos.X}, {pos.Y}", NotificationSeverity.Info);
+										}
+									}
+								}
+							}
+						}
+					}
 					break;
 			}
 
 			return null;
+		}
+
+		// milliseconds
+
+		private bool ParseMouseSequence(ConsoleKeyInfo[] sequence, out List<MouseFlags> mouseFlags, out Point position)
+		{
+			mouseFlags = new List<MouseFlags>();
+			position = new Point(0, 0);
+
+			// We need at least 6 bytes (ESC [ M <button> <x> <y>)
+			if (sequence.Length < 6)
+				return false;
+
+			try
+			{
+				// The button info is in the 4th byte (index 3)
+				// Subtract 32 as per ANSI mouse protocol
+				int buttonCode = sequence[3].KeyChar - 32;
+
+				// Extract coordinates (subtract 32 from the raw values as per ANSI mouse protocol)
+				position.X = sequence[4].KeyChar - 32;
+				position.Y = sequence[5].KeyChar - 32;
+
+				// Set modifier flags first
+				if ((buttonCode & 0x04) != 0) mouseFlags.Add(MouseFlags.ButtonShift);
+				if ((buttonCode & 0x08) != 0) mouseFlags.Add(MouseFlags.ButtonAlt);
+				if ((buttonCode & 0x10) != 0) mouseFlags.Add(MouseFlags.ButtonCtrl);
+
+				// Check for mouse motion
+				bool motion = (buttonCode & 0x20) != 0;
+				if (motion)
+				{
+					mouseFlags.Add(MouseFlags.ReportMousePosition);
+					// For motion events, the bottom 2 bits indicate which button is being dragged (if any)
+					int dragButton = buttonCode & 0x03;
+					switch (dragButton)
+					{
+						case 0: mouseFlags.Add(MouseFlags.Button1Pressed); break;
+						case 1: mouseFlags.Add(MouseFlags.Button2Pressed); break;
+						case 2: mouseFlags.Add(MouseFlags.Button3Pressed); break;
+					}
+					return true;
+				}
+
+				bool isRelease = (buttonCode & 0x03) == 3;
+				int buttonNumber = buttonCode & 0x03;
+
+				// Handle button events
+				switch (buttonNumber)
+				{
+					case 0: // Button 1 (Left button)
+						if (!isRelease)
+						{
+							mouseFlags.Add(MouseFlags.Button1Pressed);
+							_lastButton = MouseFlags.Button1Pressed;
+						}
+						else if (_lastButton == MouseFlags.Button1Pressed)
+						{
+							mouseFlags.Add(MouseFlags.Button1Released);
+							mouseFlags.Add(MouseFlags.Button1Clicked);
+
+							// Check for double/triple click
+							if (_lastClickPosition?.X == position.X &&
+								_lastClickPosition?.Y == position.Y &&
+								(DateTime.Now - _lastClickTime).TotalMilliseconds < DoubleClickTime)
+							{
+								if (mouseFlags.Contains(MouseFlags.Button1DoubleClicked))
+									mouseFlags.Add(MouseFlags.Button1TripleClicked);
+								else
+									mouseFlags.Add(MouseFlags.Button1DoubleClicked);
+							}
+
+							_lastClickPosition = position;
+							_lastClickTime = DateTime.Now;
+						}
+						break;
+
+					case 1: // Button 2 (Middle button)
+						if (!isRelease)
+						{
+							mouseFlags.Add(MouseFlags.Button2Pressed);
+							_lastButton = MouseFlags.Button2Pressed;
+						}
+						else if (_lastButton == MouseFlags.Button2Pressed)
+						{
+							mouseFlags.Add(MouseFlags.Button2Released);
+							mouseFlags.Add(MouseFlags.Button2Clicked);
+						}
+						break;
+
+					case 2: // Button 3 (Right button)
+						if (!isRelease)
+						{
+							mouseFlags.Add(MouseFlags.Button3Pressed);
+							_lastButton = MouseFlags.Button3Pressed;
+						}
+						else if (_lastButton == MouseFlags.Button3Pressed)
+						{
+							mouseFlags.Add(MouseFlags.Button3Released);
+							mouseFlags.Add(MouseFlags.Button3Clicked);
+						}
+						break;
+
+					case 3: // Special cases - includes wheel events
+						if ((buttonCode & 0x40) != 0) // This bit indicates wheel event
+						{
+							if ((buttonCode & 0x01) != 0)
+							{
+								mouseFlags.Add(MouseFlags.WheeledUp);
+								if ((buttonCode & 0x10) != 0) // Ctrl is pressed
+									mouseFlags.Add(MouseFlags.WheeledLeft);
+							}
+							else
+							{
+								mouseFlags.Add(MouseFlags.WheeledDown);
+								if ((buttonCode & 0x10) != 0) // Ctrl is pressed
+									mouseFlags.Add(MouseFlags.WheeledRight);
+							}
+						}
+						break;
+				}
+
+				return true;
+			}
+			catch
+			{
+				return false;
+			}
 		}
 
 		private void ResizeLoop()

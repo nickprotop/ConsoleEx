@@ -9,6 +9,8 @@
 using ConsoleEx.Contents;
 using ConsoleEx.Helpers;
 using Spectre.Console;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace ConsoleEx
 {
@@ -45,6 +47,8 @@ namespace ConsoleEx
 		private readonly List<IInteractiveContent> _interactiveContents = new();
 		private readonly object _lock = new();
 
+		private Color? _activeBorderForegroundColor;
+		private Color? _activeTitleForegroundColor;
 		private int _bottomStickyHeight;
 		private List<string> _bottomStickyLines = new List<string>();
 
@@ -56,6 +60,8 @@ namespace ConsoleEx
 		private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
 
 		private string _guid;
+		private Color? _inactiveBorderForegroundColor;
+		private Color? _inactiveTitleForegroundColor;
 		private bool _invalidated = false;
 
 		private bool _isActive;
@@ -71,11 +77,6 @@ namespace ConsoleEx
 		private Thread? _windowThread;
 		private WindowThreadDelegate? _windowThreadMethod;
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
-
-		private Color? _inactiveBorderForegroundColor;
-		private Color? _activeBorderForegroundColor;
-		private Color? _activeTitleForegroundColor;
-		private Color? _inactiveTitleForegroundColor;
 
 		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod)
 		{
@@ -130,16 +131,24 @@ namespace ConsoleEx
 
 		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
 
-		public Color ActiveBorderForegroundColor { get => _activeBorderForegroundColor ?? _windowSystem?.Theme.ActiveBorderForegroundColor ?? Color.White; set { _activeBorderForegroundColor = value; Invalidate(false); } }
-		public Color InactiveBorderForegroundColor { get => _inactiveBorderForegroundColor ?? _windowSystem?.Theme.InactiveBorderForegroundColor ?? Color.White; set { _inactiveBorderForegroundColor = value; Invalidate(false); } }
-		public Color ActiveTitleForegroundColor { get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; Invalidate(false); } }
-		public Color InactiveTitleForegroundColor { get => _inactiveTitleForegroundColor ?? _windowSystem?.Theme.InactiveTitleForegroundColor ?? Color.White; set { _inactiveTitleForegroundColor = value; Invalidate(false); } }
+		public Color ActiveBorderForegroundColor
+		{ get => _activeBorderForegroundColor ?? _windowSystem?.Theme.ActiveBorderForegroundColor ?? Color.White; set { _activeBorderForegroundColor = value; Invalidate(false); } }
+
+		public Color ActiveTitleForegroundColor
+		{ get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; Invalidate(false); } }
 
 		public Color BackgroundColor { get; set; }
 		public Color ForegroundColor { get; set; }
 		public ConsoleWindowSystem? GetConsoleWindowSystem => _windowSystem;
 		public string Guid => _guid.ToString();
 		public int Height { get; set; } = 20;
+
+		public Color InactiveBorderForegroundColor
+		{ get => _inactiveBorderForegroundColor ?? _windowSystem?.Theme.InactiveBorderForegroundColor ?? Color.White; set { _inactiveBorderForegroundColor = value; Invalidate(false); } }
+
+		public Color InactiveTitleForegroundColor
+		{ get => _inactiveTitleForegroundColor ?? _windowSystem?.Theme.InactiveTitleForegroundColor ?? Color.White; set { _inactiveTitleForegroundColor = value; Invalidate(false); } }
+
 		public bool IsClosable { get; set; } = true;
 		public bool IsContentVisible { get; set; } = true;
 		public bool IsDirty { get; set; } = true;
@@ -261,7 +270,7 @@ namespace ConsoleEx
 			return false;
 		}
 
-		public IWIndowContent? GetContentFromDesktopCoordinates(Position? point)
+		public IWIndowContent? GetContentFromDesktopCoordinates(Point? point)
 		{
 			lock (_lock)
 			{
@@ -278,7 +287,7 @@ namespace ConsoleEx
 			}
 		}
 
-		public IWIndowContent? GetContentFromWindowCoordinates(Position? point)
+		public IWIndowContent? GetContentFromWindowCoordinates(Point? point)
 		{
 			lock (_lock)
 			{
@@ -332,7 +341,7 @@ namespace ConsoleEx
 			return interactiveContent != null;
 		}
 
-		public bool HasInteractiveContent(out Position cursorPosition)
+		public bool HasInteractiveContent(out Point cursorPosition)
 		{
 			if (HasActiveInteractiveContent(out var activeInteractiveContent))
 			{
@@ -340,7 +349,7 @@ namespace ConsoleEx
 
 				if (currentCursorPosition == null)
 				{
-					cursorPosition = new Position(0, 0);
+					cursorPosition = new Point(0, 0);
 					return false;
 				}
 
@@ -351,7 +360,7 @@ namespace ConsoleEx
 				{
 					IWIndowContent? content = activeInteractiveContent as IWIndowContent;
 
-					cursorPosition = new Position(_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
+					cursorPosition = new Point(_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
 
 					// Check if the cursor position is within the visible bounds
 					if (cursorPosition.Y >= 0 && cursorPosition.Y < Height - 1 - _bottomStickyHeight)
@@ -363,7 +372,7 @@ namespace ConsoleEx
 				}
 			}
 
-			cursorPosition = new Position(0, 0);
+			cursorPosition = new Point(0, 0);
 			return false;
 		}
 
@@ -418,12 +427,14 @@ namespace ConsoleEx
 						switch (key.Key)
 						{
 							case ConsoleKey.UpArrow:
+								if (key.Modifiers != ConsoleModifiers.None) break;
 								_scrollOffset = Math.Max(0, _scrollOffset - 1);
 								IsDirty = true;
 								handled = true;
 								break;
 
 							case ConsoleKey.DownArrow:
+								if (key.Modifiers != ConsoleModifiers.None) break;
 								_scrollOffset = Math.Min((_cachedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
 								IsDirty = true;
 								handled = true;
@@ -545,7 +556,7 @@ namespace ConsoleEx
 			_isActive = value;
 		}
 
-		public void SetPosition(Position point)
+		public void SetPosition(Point point)
 		{
 			if (point.X < 0 || point.Y < 0) return;
 
