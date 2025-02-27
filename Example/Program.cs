@@ -9,6 +9,7 @@
 using Spectre.Console;
 using ConsoleEx.Themes;
 using ConsoleEx.Services.NotificationsService;
+using ConsoleEx.Drivers;
 
 namespace ConsoleEx.Example
 {
@@ -33,7 +34,8 @@ namespace ConsoleEx.Example
 					DesktopBackroundChar = '.',
 					DesktopBackgroundColor = Color.Black,
 					DesktopForegroundColor = Color.Grey,
-				}
+				},
+				RenderMode = RenderMode.Buffer
 			};
 		}
 
@@ -53,7 +55,7 @@ namespace ConsoleEx.Example
 			var logWindow = new LogWindow(consoleWindowSystem);
 			var systemInfoWindow = new SystemInfoWindow(consoleWindowSystem);
 			var userInfoWindow = new UserInfoWindow(consoleWindowSystem);
-			var clockWindow = new ClockWindow(consoleWindowSystem);
+			// var clockWindow = new ClockWindow(consoleWindowSystem);
 
 			try
 			{

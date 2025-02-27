@@ -48,7 +48,10 @@ namespace ConsoleEx
 		public ConsoleWindowSystem()
 		{
 			// Initialize the console driver
-			_consoleDriver = new NetConsoleDriver(this);
+			_consoleDriver = new NetConsoleDriver(this)
+			{
+				RenderMode = RenderMode
+			};
 		}
 
 		public ConcurrentQueue<bool> BlockUi => _blockUi;
@@ -115,6 +118,10 @@ namespace ConsoleEx
 				{
 					Helpers.Size desktopSize = DesktopDimensions;
 
+					_consoleDriver.Clear();
+
+					FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+
 					foreach (var window in _windows.Values)
 					{
 						if (window.Left + window.Width > desktopSize.Width)
@@ -131,10 +138,6 @@ namespace ConsoleEx
 
 					_cachedBottomStatus = null;
 					_cachedTopStatus = null;
-
-					_consoleDriver.Clear();
-
-					FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 				}
 			};
 
@@ -173,15 +176,12 @@ namespace ConsoleEx
 				return;
 			}
 
+			_windows.Values.FirstOrDefault(w => w.GetIsActive())?.SetIsActive(false);
 			_activeWindow?.Invalidate(true);
 
 			_activeWindow = window;
-			foreach (var w in _windows.Values)
-			{
-				w.SetIsActive(false);
-			}
 			_activeWindow.SetIsActive(true);
-			//_activeWindow.ZIndex = _windows.Values.Max(w => w.ZIndex) + 1;
+			_activeWindow.ZIndex = _windows.Values.Max(w => w.ZIndex) + 1;
 
 			_activeWindow.Invalidate(true);
 		}
@@ -321,7 +321,7 @@ namespace ConsoleEx
 					point.X >= window.Left &&
 					point.X < window.Left + window.Width &&
 					point.Y - DesktopUpperLeft.Y > window.Top &&
-					point.Y - DesktopUpperLeft.Y < window.Top + window.Height)
+					point.Y - DesktopUpperLeft.Y <= window.Top + window.Height)
 				.OrderByDescending(window => window.ZIndex).ToList();
 
 			if (windows.Any(w => w.Guid == _activeWindow?.Guid))
@@ -724,6 +724,8 @@ namespace ConsoleEx
 
 				_cachedBottomStatus = bottomRow;
 			}
+
+			_consoleDriver.Flush();
 		}
 	}
 }

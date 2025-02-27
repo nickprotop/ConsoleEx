@@ -60,6 +60,7 @@ namespace ConsoleEx.Drivers
 		private readonly uint _originalOutputConsoleMode;
 		private readonly nint _outputHandle;
 
+		private ConsoleBuffer? _consoleBuffer;
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private MouseFlags _lastButton;
 		private Point? _lastClickPosition;
@@ -140,9 +141,8 @@ namespace ConsoleEx.Drivers
 
 		public event EventHandler<Size>? ScreenResized;
 
+		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
 		public Size ScreenSize => new Size(Console.WindowWidth, Console.WindowHeight);
-
-		private RenderMode _renderMode { get; set; } = RenderMode.Direct;
 
 		public void Cleanup()
 		{
@@ -164,11 +164,33 @@ namespace ConsoleEx.Drivers
 
 		public void Clear()
 		{
-			Console.Clear();
+			switch (RenderMode)
+			{
+				case RenderMode.Direct:
+					Console.Clear();
+					break;
+
+				case RenderMode.Buffer:
+					_consoleBuffer?.Clear();
+					break;
+			}
+		}
+
+		public void Flush()
+		{
+			if (RenderMode.Buffer == RenderMode)
+			{
+				_consoleBuffer?.Render();
+			}
 		}
 
 		public void Start()
 		{
+			if (RenderMode.Buffer == RenderMode)
+			{
+				_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
+			}
+
 			_running = true;
 
 			Console.CursorVisible = false;
@@ -195,11 +217,15 @@ namespace ConsoleEx.Drivers
 
 		public void WriteToConsole(int x, int y, string value)
 		{
-			switch (_renderMode)
+			switch (RenderMode)
 			{
 				case RenderMode.Direct:
 					Console.SetCursorPosition(x, y);
 					Console.Write(value);
+					break;
+
+				case RenderMode.Buffer:
+					_consoleBuffer?.AddContent(x, y, value);
 					break;
 			}
 		}
@@ -215,22 +241,6 @@ namespace ConsoleEx.Drivers
 
 		[DllImport("kernel32.dll")]
 		private static extern bool SetConsoleMode(nint hConsoleHandle, uint dwMode);
-
-		/*
-		private void InputLoop()
-		{
-			while (_running == true)
-			{
-				if (Console.KeyAvailable)
-				{
-					var key = Console.ReadKey(true);
-
-					KeyPressed?.Invoke(this, key);
-				}
-				Thread.Sleep(10);
-			}
-		}
-		*/
 
 		private void InputLoop()
 		{
@@ -611,6 +621,13 @@ namespace ConsoleEx.Drivers
 			{
 				if (Console.WindowWidth != _lastConsoleWidth || Console.WindowHeight != _lastConsoleHeight)
 				{
+					if (RenderMode.Buffer == RenderMode)
+					{
+						_consoleBuffer!.Lock = true;
+						_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
+						_consoleBuffer.Lock = false;
+					}
+
 					ScreenResized?.Invoke(this, ScreenSize);
 
 					_lastConsoleWidth = Console.WindowWidth;

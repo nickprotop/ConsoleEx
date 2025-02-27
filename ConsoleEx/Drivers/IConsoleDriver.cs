@@ -31,6 +31,8 @@ namespace ConsoleEx.Drivers
 
 		public void Clear();
 
+		public void Flush();
+
 		public void Start();
 
 		public void Stop();
