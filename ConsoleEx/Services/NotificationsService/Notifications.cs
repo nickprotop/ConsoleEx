@@ -31,13 +31,13 @@ namespace ConsoleEx.Services.NotificationsService
 				IsResizable = false
 			};
 
+			consoleWindowSystem.AddWindow(notificationWindow);
+			consoleWindowSystem.SetActiveWindow(notificationWindow);
+
 			if (blockUi == true)
 			{
 				consoleWindowSystem.BlockUi.Enqueue(true);
 			}
-
-			consoleWindowSystem.AddWindow(notificationWindow);
-			consoleWindowSystem.SetActiveWindow(notificationWindow);
 
 			var notificationContent = new MarkupContent(new List<string>() { $"{severity.Icon}{(string.IsNullOrEmpty(severity.Icon) ? string.Empty : " ")}{message}" })
 			{

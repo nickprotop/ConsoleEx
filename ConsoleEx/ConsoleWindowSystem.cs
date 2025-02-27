@@ -168,6 +168,11 @@ namespace ConsoleEx
 				return;
 			}
 
+			if (_blockUi.Count != 0)
+			{
+				return;
+			}
+
 			_activeWindow?.Invalidate(true);
 
 			_activeWindow = window;
@@ -176,7 +181,7 @@ namespace ConsoleEx
 				w.SetIsActive(false);
 			}
 			_activeWindow.SetIsActive(true);
-			_activeWindow.ZIndex = _windows.Values.Max(w => w.ZIndex) + 1;
+			//_activeWindow.ZIndex = _windows.Values.Max(w => w.ZIndex) + 1;
 
 			_activeWindow.Invalidate(true);
 		}
@@ -311,11 +316,19 @@ namespace ConsoleEx
 
 		private Window? GetWindowAtPoint(Point point)
 		{
-			return _windows.Values.FirstOrDefault(window =>
-				point.X >= window.Left &&
-				point.X < window.Left + window.Width &&
-				point.Y >= window.Top &&
-				point.Y < window.Top + window.Height);
+			List<Window> windows = _windows.Values
+				.Where(window =>
+					point.X >= window.Left &&
+					point.X < window.Left + window.Width &&
+					point.Y - DesktopUpperLeft.Y > window.Top &&
+					point.Y - DesktopUpperLeft.Y < window.Top + window.Height)
+				.OrderByDescending(window => window.ZIndex).ToList();
+
+			if (windows.Any(w => w.Guid == _activeWindow?.Guid))
+			{
+				return _activeWindow;
+			}
+			else return windows.LastOrDefault();
 		}
 
 		private bool HandleAltInput(ConsoleKeyInfo key)
@@ -350,27 +363,6 @@ namespace ConsoleEx
 				{
 					// Activate the window if it is not already active
 					SetActiveWindow(window);
-				}
-			}
-			else if (flags.Contains(MouseFlags.Button1Pressed) && flags.Contains(MouseFlags.ReportMousePosition))
-			{
-				// Handle dragging
-				var window = GetWindowAtPoint(point);
-				if (window != null && window == _activeWindow)
-				{
-					window.IsDragging = true; // Set dragging state
-											  // Calculate the new position
-					window.SetPosition(new Point(window.Left + point.X, window.Top + point.Y));
-
-					RenderWindow(window);
-				}
-			}
-			else if (flags.Contains(MouseFlags.Button1Released))
-			{
-				// Handle drag end
-				if (_activeWindow != null)
-				{
-					_activeWindow.IsDragging = false; // Reset dragging state
 				}
 			}
 		}
