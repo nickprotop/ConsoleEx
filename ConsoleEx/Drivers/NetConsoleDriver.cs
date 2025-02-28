@@ -59,7 +59,6 @@ namespace ConsoleEx.Drivers
 		private readonly uint _originalInputConsoleMode;
 		private readonly uint _originalOutputConsoleMode;
 		private readonly nint _outputHandle;
-
 		private ConsoleBuffer? _consoleBuffer;
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private MouseFlags _lastButton;
@@ -75,62 +74,65 @@ namespace ConsoleEx.Drivers
 
 			Console.OutputEncoding = Encoding.UTF8;
 
-			_inputHandle = GetStdHandle(STD_INPUT_HANDLE);
-
-			if (!GetConsoleMode(_inputHandle, out uint mode))
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 			{
-				throw new ApplicationException($"Failed to get input console mode, error code: {GetLastError()}.");
-			}
+				_inputHandle = GetStdHandle(STD_INPUT_HANDLE);
 
-			_originalInputConsoleMode = mode;
-
-			mode |= ENABLE_MOUSE_INPUT;
-
-			if ((mode & ENABLE_VIRTUAL_TERMINAL_INPUT) < ENABLE_VIRTUAL_TERMINAL_INPUT)
-			{
-				mode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
-
-				if (!SetConsoleMode(_inputHandle, mode))
+				if (!GetConsoleMode(_inputHandle, out uint mode))
 				{
-					throw new ApplicationException($"Failed to set input console mode, error code: {GetLastError()}.");
+					throw new ApplicationException($"Failed to get input console mode, error code: {GetLastError()}.");
 				}
-			}
 
-			_outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+				_originalInputConsoleMode = mode;
 
-			if (!GetConsoleMode(_outputHandle, out mode))
-			{
-				throw new ApplicationException($"Failed to get output console mode, error code: {GetLastError()}.");
-			}
+				mode |= ENABLE_MOUSE_INPUT;
 
-			_originalOutputConsoleMode = mode;
-
-			if ((mode & (ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN)) < DISABLE_NEWLINE_AUTO_RETURN)
-			{
-				mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
-
-				if (!SetConsoleMode(_outputHandle, mode))
+				if ((mode & ENABLE_VIRTUAL_TERMINAL_INPUT) < ENABLE_VIRTUAL_TERMINAL_INPUT)
 				{
-					throw new ApplicationException($"Failed to set output console mode, error code: {GetLastError()}.");
+					mode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
+
+					if (!SetConsoleMode(_inputHandle, mode))
+					{
+						throw new ApplicationException($"Failed to set input console mode, error code: {GetLastError()}.");
+					}
 				}
-			}
 
-			_errorHandle = GetStdHandle(STD_ERROR_HANDLE);
+				_outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-			if (!GetConsoleMode(_errorHandle, out mode))
-			{
-				throw new ApplicationException($"Failed to get error console mode, error code: {GetLastError()}.");
-			}
-
-			_originalErrorConsoleMode = mode;
-
-			if ((mode & DISABLE_NEWLINE_AUTO_RETURN) < DISABLE_NEWLINE_AUTO_RETURN)
-			{
-				mode |= DISABLE_NEWLINE_AUTO_RETURN;
-
-				if (!SetConsoleMode(_errorHandle, mode))
+				if (!GetConsoleMode(_outputHandle, out mode))
 				{
-					throw new ApplicationException($"Failed to set error console mode, error code: {GetLastError()}.");
+					throw new ApplicationException($"Failed to get output console mode, error code: {GetLastError()}.");
+				}
+
+				_originalOutputConsoleMode = mode;
+
+				if ((mode & (ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN)) < DISABLE_NEWLINE_AUTO_RETURN)
+				{
+					mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
+
+					if (!SetConsoleMode(_outputHandle, mode))
+					{
+						throw new ApplicationException($"Failed to set output console mode, error code: {GetLastError()}.");
+					}
+				}
+
+				_errorHandle = GetStdHandle(STD_ERROR_HANDLE);
+
+				if (!GetConsoleMode(_errorHandle, out mode))
+				{
+					throw new ApplicationException($"Failed to get error console mode, error code: {GetLastError()}.");
+				}
+
+				_originalErrorConsoleMode = mode;
+
+				if ((mode & DISABLE_NEWLINE_AUTO_RETURN) < DISABLE_NEWLINE_AUTO_RETURN)
+				{
+					mode |= DISABLE_NEWLINE_AUTO_RETURN;
+
+					if (!SetConsoleMode(_errorHandle, mode))
+					{
+						throw new ApplicationException($"Failed to set error console mode, error code: {GetLastError()}.");
+					}
 				}
 			}
 		}
@@ -142,23 +144,27 @@ namespace ConsoleEx.Drivers
 		public event EventHandler<Size>? ScreenResized;
 
 		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
+
 		public Size ScreenSize => new Size(Console.WindowWidth, Console.WindowHeight);
 
 		public void Cleanup()
 		{
-			if (!SetConsoleMode(_inputHandle, _originalInputConsoleMode))
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 			{
-				throw new ApplicationException($"Failed to restore input console mode, error code: {GetLastError()}.");
-			}
+				if (!SetConsoleMode(_inputHandle, _originalInputConsoleMode))
+				{
+					throw new ApplicationException($"Failed to restore input console mode, error code: {GetLastError()}.");
+				}
 
-			if (!SetConsoleMode(_outputHandle, _originalOutputConsoleMode))
-			{
-				throw new ApplicationException($"Failed to restore output console mode, error code: {GetLastError()}.");
-			}
+				if (!SetConsoleMode(_outputHandle, _originalOutputConsoleMode))
+				{
+					throw new ApplicationException($"Failed to restore output console mode, error code: {GetLastError()}.");
+				}
 
-			if (!SetConsoleMode(_errorHandle, _originalErrorConsoleMode))
-			{
-				throw new ApplicationException($"Failed to restore error console mode, error code: {GetLastError()}.");
+				if (!SetConsoleMode(_errorHandle, _originalErrorConsoleMode))
+				{
+					throw new ApplicationException($"Failed to restore error console mode, error code: {GetLastError()}.");
+				}
 			}
 		}
 
