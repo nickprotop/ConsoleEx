@@ -53,6 +53,7 @@ namespace ConsoleEx.Drivers
 		private const int STD_INPUT_HANDLE = -10;
 		private const int STD_OUTPUT_HANDLE = -11;
 
+		private readonly ConsoleWindowSystem? _consoleWindowSystem;
 		private readonly nint _errorHandle;
 		private readonly nint _inputHandle;
 		private readonly uint _originalErrorConsoleMode;
@@ -60,7 +61,6 @@ namespace ConsoleEx.Drivers
 		private readonly uint _originalOutputConsoleMode;
 		private readonly nint _outputHandle;
 		private ConsoleBuffer? _consoleBuffer;
-		private ConsoleWindowSystem? _consoleWindowSystem;
 		private MouseFlags _lastButton;
 		private Point? _lastClickPosition;
 		private DateTime _lastClickTime;
