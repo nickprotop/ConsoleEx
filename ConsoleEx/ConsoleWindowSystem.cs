@@ -36,6 +36,7 @@ namespace ConsoleEx
 	{
 		private readonly ConcurrentQueue<ConsoleKeyInfo> _inputQueue = new();
 		private readonly object _renderLock = new();
+		private readonly VisibleRegions _visibleRegions;
 		private readonly ConcurrentDictionary<string, Window> _windows = new();
 		private Window? _activeWindow;
 		private ConcurrentQueue<bool> _blockUi = new();
@@ -52,6 +53,9 @@ namespace ConsoleEx
 			{
 				RenderMode = RenderMode
 			};
+
+			// Initialize the visible regions
+			_visibleRegions = new VisibleRegions(this);
 		}
 
 		public ConcurrentQueue<bool> BlockUi => _blockUi;
@@ -263,24 +267,69 @@ namespace ConsoleEx
 			var leftPadding = 1;
 			var rightPadding = availableSpace - leftPadding;
 
-			var topBorderWidth = Math.Min(window.Width, DesktopBottomRight.X - window.Left + 1);
-			_consoleDriver.WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", topBorderWidth, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
+			var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", Math.Min(window.Width, DesktopBottomRight.X - window.Left), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+			var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, window.Width - 2)}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+
+			// Get all windows that potentially overlap with this window
+			var overlappingWindows = _windows.Values
+				.Where(w => w != window && w.ZIndex > window.ZIndex && IsOverlapping(window, w))
+				.OrderBy(w => w.ZIndex)
+				.ToList();
+
+			// Calculate visible regions
+			var visibleRegions = _visibleRegions.CalculateVisibleRegions(window, overlappingWindows);
+
+			foreach (var region in visibleRegions ?? [])
+			{
+				if (region.Top == window.Top)
+				{
+					_consoleDriver.WriteToConsole(region.Left, region.Top + DesktopUpperLeft.Y, AnsiConsoleHelper.SubstringAnsi(topBorder, region.Left - window.Left, region.Width));
+				}
+
+				if (region.Top + region.Height == window.Top + window.Height)
+				{
+					_consoleDriver.WriteToConsole(region.Left, window.Top + window.Height, AnsiConsoleHelper.SubstringAnsi(bottomBorder, region.Left - window.Left, region.Width));
+				}
+			}
+
+			var contentHeight = window.TotalLines;
+			var visibleHeight = window.Height - 2;
+
+			var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
+
+			var verticalBorderAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
 
 			for (var y = 1; y < window.Height - 1; y++)
 			{
 				if (window.Top + DesktopUpperLeft.Y + y - 1 >= DesktopBottomRight.Y) break;
-				_consoleDriver.WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 
-				if (window.Left + window.Width - 2 < DesktopBottomRight.X)
+				// Check if the current line is within any visible region
+				bool isLineVisible = visibleRegions?.Any(region => window.Top + y >= region.Top && window.Top + y < region.Top + region.Height) == true;
+
+				if (isLineVisible)
 				{
-					_consoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
+					// Check if the left border is within any visible region
+					bool isLeftBorderVisible = visibleRegions?.Any(region => window.Left >= region.Left && window.Left < region.Left + region.Width) == true;
+					if (isLeftBorderVisible)
+					{
+						_consoleDriver.WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Y + y, verticalBorderAnsi);
+					}
+
+					// Check if the right border is within any visible region
+					bool isRightBorderVisible = visibleRegions?.Any(region => window.Left + window.Width - 1 >= region.Left && window.Left + window.Width - 1 < region.Left + region.Width) == true;
+					if (isRightBorderVisible)
+					{
+						if (scrollbarVisible)
+						{
+							DrawScrollbar(window, y, borderColor, verticalBorder, resetColor);
+						}
+						else
+						{
+							_consoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Y + y, verticalBorderAnsi);
+						}
+					}
 				}
-
-				DrawScrollbar(window, y, borderColor, verticalBorder, resetColor);
 			}
-
-			var bottomBorderWidth = Math.Min(window.Width - 2, DesktopBottomRight.X - window.Left - 1);
-			_consoleDriver.WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Y + window.Height - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
 		}
 
 		private void FillRect(int left, int top, int width, int height, char character, Color? backgroundColor, Color? foregroundColor)
@@ -574,6 +623,53 @@ namespace ConsoleEx
 			}
 		}
 
+		private void RenderVisibleWindowContent(Window window, List<string> lines, List<Rectangle> visibleRegions)
+		{
+			var screenWidth = _consoleDriver.ScreenSize.Width;
+			var screenHeight = _consoleDriver.ScreenSize.Height;
+			var windowLeft = window.Left;
+			var windowTop = window.Top;
+			var windowWidth = window.Width;
+			var desktopUpperLeftY = DesktopUpperLeft.Y;
+
+			for (var y = 0; y < lines.Count; y++)
+			{
+				// Skip if this line is outside the desktop area
+				if (windowTop + y >= DesktopBottomRight.Y) break;
+
+				// Get the current line
+				var line = lines[y];
+
+				// Calculate the absolute Y position of this line
+				int absoluteY = windowTop + desktopUpperLeftY + y + 1;
+
+				// Check if this line is in any visible region
+				foreach (var region in visibleRegions)
+				{
+					// Check if this line falls within the current region's vertical bounds
+					if (absoluteY >= region.Top && absoluteY < region.Top + region.Height)
+					{
+						// Calculate content boundaries within the window
+						int contentLeft = Math.Max(windowLeft + 1, region.Left);
+						int contentRight = Math.Min(windowLeft + windowWidth - 1, region.Left + region.Width);
+						int contentWidth = contentRight - contentLeft;
+
+						if (contentWidth <= 0) continue;
+
+						// Calculate the portion of the line to render
+						int startOffset = contentLeft - (windowLeft + 1);
+						startOffset = Math.Max(0, startOffset);
+
+						// Get the substring of the line to render
+						string visiblePortion = AnsiConsoleHelper.SubstringAnsi(line, startOffset, contentWidth);
+
+						// Write the visible portion to the console
+						_consoleDriver.WriteToConsole(contentLeft, absoluteY, visiblePortion);
+					}
+				}
+			}
+		}
+
 		private void RenderWindow(Window window)
 		{
 			lock (_renderLock)
@@ -586,33 +682,37 @@ namespace ConsoleEx
 					return;
 				}
 
-				FillRect(window.Left, window.Top, window.Width, window.Height, ' ', window.BackgroundColor, null);
+				// Get all windows that potentially overlap with this window
+				var overlappingWindows = _windows.Values
+					.Where(w => w != window && w.ZIndex > window.ZIndex && IsOverlapping(window, w))
+					.OrderBy(w => w.ZIndex)
+					.ToList();
+
+				// Calculate visible regions
+				var visibleRegions = _visibleRegions.CalculateVisibleRegions(window, overlappingWindows);
+
+				if (!visibleRegions.Any())
+				{
+					// Window is completely covered - no need to render
+					window.IsDirty = false;
+					return;
+				}
+
+				// Fill the background only for the visible regions
+				foreach (var region in visibleRegions)
+				{
+					FillRect(region.Left, region.Top, region.Width, region.Height, ' ', window.BackgroundColor, null);
+				}
+
+				// Draw window borders - these might be partially hidden but the drawing functions
+				// will handle clipping against screen boundaries
 				DrawWindowBorders(window);
 
 				var lines = window.RenderAndGetVisibleContent();
-				if (window.IsDirty)
-				{
-					window.IsDirty = false;
-				}
+				window.IsDirty = false;
 
-				RenderWindowContent(window, lines);
-			}
-		}
-
-		private void RenderWindowContent(Window window, List<string> lines)
-		{
-			for (var y = 0; y < lines.Count; y++)
-			{
-				if (window.Top + y >= DesktopBottomRight.Y) break;
-				var line = lines[y];
-
-				var maxWidth = Math.Min(window.Width - 2, DesktopBottomRight.X - window.Left - 2);
-				if (AnsiConsoleHelper.StripAnsiStringLength(line) > maxWidth)
-				{
-					line = AnsiConsoleHelper.TruncateAnsiString(line, maxWidth);
-				}
-
-				_consoleDriver.WriteToConsole(window.Left + 1, window.Top + DesktopUpperLeft.Y + y + 1, $"{line}");
+				// Render content only for visible parts
+				RenderVisibleWindowContent(window, lines, visibleRegions);
 			}
 		}
 
