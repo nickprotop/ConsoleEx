@@ -7,6 +7,7 @@ namespace ConsoleEx.Drivers
 	public class ConsoleBuffer
 	{
 		private const string ResetSequence = "\u001b[0m";
+		private const string CursorForward = "\u001b[1C";
 
 		// Cached regex for better performance
 		private static readonly Regex _ansiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
@@ -15,6 +16,9 @@ namespace ConsoleEx.Drivers
 		private readonly Cell[,] _frontBuffer;
 		private readonly int _height;
 		private readonly int _width;
+
+		// StringBuilder for render operations to minimize string allocations
+		private readonly StringBuilder _renderBuilder = new(1024);
 
 		public ConsoleBuffer(int width, int height)
 		{
@@ -30,10 +34,8 @@ namespace ConsoleEx.Drivers
 
 		public void AddContent(int x, int y, string content)
 		{
-			if (!IsValidPosition(x, y)) return;
-			//throw new ArgumentOutOfRangeException($"Position ({x},{y}) is outside buffer bounds");
-
-			if (string.IsNullOrEmpty(content))
+			// Early exit conditions
+			if (!IsValidPosition(x, y) || string.IsNullOrEmpty(content))
 				return;
 
 			// Remove trailing reset sequence if present
@@ -41,16 +43,20 @@ namespace ConsoleEx.Drivers
 				content = content[..^ResetSequence.Length];
 
 			var matches = _ansiRegex.Matches(content);
-			var activeAnsiSequence = new StringBuilder();
+			var activeAnsiSequence = new StringBuilder(64); // Pre-size for typical ANSI sequences
 			int contentPos = 0;
 			int bufferX = x;
+			int contentLength = AnsiConsoleHelper.StripAnsiStringLength(content);
 
 			// Clear the area where new content will be written
-			ClearArea(x, y, AnsiConsoleHelper.StripAnsiStringLength(content));
+			ClearArea(x, y, contentLength);
 
+			// Process each character and ANSI sequence
 			while (contentPos < content.Length && bufferX < _width)
 			{
 				bool isAnsiSequence = false;
+
+				// Check if current position is the start of an ANSI sequence
 				foreach (Match match in matches)
 				{
 					if (match.Index == contentPos)
@@ -64,7 +70,7 @@ namespace ConsoleEx.Drivers
 
 				if (!isAnsiSequence)
 				{
-					var cell = _backBuffer[bufferX, y];
+					ref var cell = ref _backBuffer[bufferX, y]; // Use ref for better performance
 					cell.Character = content[contentPos];
 					cell.AnsiEscape = activeAnsiSequence.ToString();
 					cell.IsDirty = true;
@@ -76,13 +82,13 @@ namespace ConsoleEx.Drivers
 			// Handle end of line formatting
 			if (bufferX < _width)
 			{
-				var nextCell = _backBuffer[bufferX, y];
+				ref var nextCell = ref _backBuffer[bufferX, y];
 				nextCell.AnsiEscape = ResetSequence + nextCell.AnsiEscape;
 				nextCell.IsDirty = true;
 			}
 			else if (y + 1 < _height)
 			{
-				var nextLineCell = _backBuffer[0, y + 1];
+				ref var nextLineCell = ref _backBuffer[0, y + 1];
 				nextLineCell.AnsiEscape = ResetSequence + nextLineCell.AnsiEscape;
 				nextLineCell.IsDirty = true;
 			}
@@ -106,13 +112,9 @@ namespace ConsoleEx.Drivers
 
 			Console.CursorVisible = false;
 
-			for (int y = 0; y < _height; y++)
+			for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
 			{
 				if (!IsLineDirty(y))
-					continue;
-
-				// check if x and y is in boundaries
-				if (y >= Console.WindowHeight)
 					continue;
 
 				Console.SetCursorPosition(0, y);
@@ -125,7 +127,7 @@ namespace ConsoleEx.Drivers
 			length = Math.Min(length, _width - x);
 			for (int i = 0; i < length; i++)
 			{
-				var cell = _backBuffer[x + i, y];
+				ref var cell = ref _backBuffer[x + i, y];
 				cell.Character = ' ';
 				cell.AnsiEscape = string.Empty;
 				cell.IsDirty = true;
@@ -134,6 +136,9 @@ namespace ConsoleEx.Drivers
 
 		private void InitializeBuffers()
 		{
+			// Use a single cell template to initialize both buffers
+			var template = new Cell();
+
 			for (int y = 0; y < _height; y++)
 			{
 				for (int x = 0; x < _width; x++)
@@ -148,8 +153,9 @@ namespace ConsoleEx.Drivers
 		{
 			for (int x = 0; x < _width; x++)
 			{
-				var frontCell = _frontBuffer[x, y];
-				var backCell = _backBuffer[x, y];
+				ref readonly var frontCell = ref _frontBuffer[x, y];
+				ref readonly var backCell = ref _backBuffer[x, y];
+
 				if (backCell.IsDirty || !frontCell.Equals(backCell))
 					return true;
 			}
@@ -157,42 +163,84 @@ namespace ConsoleEx.Drivers
 		}
 
 		private bool IsValidPosition(int x, int y)
-					=> x >= 0 && x < _width && y >= 0 && y < _height;
+			=> x >= 0 && x < _width && y >= 0 && y < _height;
 
 		private void RenderLine(int y)
 		{
+			_renderBuilder.Clear();
+			int consecutiveUnchanged = 0;
+
 			for (int x = 0; x < _width; x++)
 			{
-				var frontCell = _frontBuffer[x, y];
-				var backCell = _backBuffer[x, y];
+				ref var frontCell = ref _frontBuffer[x, y];
+				ref var backCell = ref _backBuffer[x, y];
 
 				if (backCell.IsDirty || !frontCell.Equals(backCell))
 				{
-					Console.Write(backCell.AnsiEscape + backCell.Character);
+					// If we have pending cursor forward movements, append them first
+					if (consecutiveUnchanged > 0)
+					{
+						if (consecutiveUnchanged == 1)
+						{
+							_renderBuilder.Append(CursorForward);
+						}
+						else
+						{
+							_renderBuilder.Append($"\u001b[{consecutiveUnchanged}C");
+						}
+						consecutiveUnchanged = 0;
+					}
+
+					_renderBuilder.Append(backCell.AnsiEscape);
+					_renderBuilder.Append(backCell.Character);
 					frontCell.CopyFrom(backCell);
 					backCell.IsDirty = false;
 				}
 				else
 				{
-					Console.Write("\u001b[1C");
+					consecutiveUnchanged++;
 				}
 			}
+
+			// Handle any remaining cursor movements
+			if (consecutiveUnchanged > 0)
+			{
+				if (consecutiveUnchanged == 1)
+				{
+					_renderBuilder.Append(CursorForward);
+				}
+				else
+				{
+					_renderBuilder.Append($"\u001b[{consecutiveUnchanged}C");
+				}
+			}
+
+			// Write all changes at once
+			Console.Write(_renderBuilder);
 		}
 
-		private class Cell
+		// Use struct for better memory layout and performance
+		private struct Cell
 		{
-			public string AnsiEscape { get; set; } = string.Empty;
-			public char Character { get; set; } = ' ';
-			public bool IsDirty { get; set; } = true;
+			public string AnsiEscape;
+			public char Character;
+			public bool IsDirty;
 
-			public void CopyFrom(Cell other)
+			public Cell()
+			{
+				AnsiEscape = string.Empty;
+				Character = ' ';
+				IsDirty = true;
+			}
+
+			public void CopyFrom(in Cell other)
 			{
 				Character = other.Character;
 				AnsiEscape = other.AnsiEscape;
 				IsDirty = other.IsDirty;
 			}
 
-			public bool Equals(Cell other)
+			public bool Equals(in Cell other)
 				=> Character == other.Character && AnsiEscape == other.AnsiEscape;
 
 			public void Reset()
