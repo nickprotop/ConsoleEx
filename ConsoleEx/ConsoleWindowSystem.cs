@@ -193,6 +193,8 @@ namespace ConsoleEx
 
 			if (_blockUi.Count != 0)
 			{
+				FlashWindow(_activeWindow);
+
 				return;
 			}
 
@@ -401,6 +403,7 @@ namespace ConsoleEx
 			{
 				if (_blockUi.Count != 0)
 				{
+					FlashWindow(_activeWindow);
 					return false;
 				}
 				int index = key.KeyChar - (char)ConsoleKey.D1;
@@ -603,6 +606,7 @@ namespace ConsoleEx
 				{
 					if (_blockUi.Count != 0)
 					{
+						FlashWindow(_activeWindow);
 						return;
 					}
 					CycleActiveWindow();
@@ -634,6 +638,25 @@ namespace ConsoleEx
 						handled = _activeWindow.ProcessInput(key);
 					}
 				}
+			}
+		}
+
+		public async Task FlashWindow(Window window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
+		{
+			if (window == null) return;
+
+			var originalBackgroundColor = window.BackgroundColor;
+			var flashColor = flashBackgroundColor ?? (window.BackgroundColor == Theme.ButtonBackgroundColor ? window.ForegroundColor : Theme.ButtonBackgroundColor);
+
+			for (int i = 0; i < flashCount; i++)
+			{
+				window.BackgroundColor = flashColor;
+				window.Invalidate(true);
+				await Task.Delay(flashDuration);
+
+				window.BackgroundColor = originalBackgroundColor;
+				window.Invalidate(true);
+				await Task.Delay(flashDuration);
 			}
 		}
 
