@@ -279,6 +279,12 @@ namespace ConsoleEx
 			// Calculate visible regions
 			var visibleRegions = _visibleRegions.CalculateVisibleRegions(window, overlappingWindows);
 
+			var contentHeight = window.TotalLines;
+			var visibleHeight = window.Height - 2;
+
+			var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
+			var verticalBorderAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+
 			foreach (var region in visibleRegions ?? [])
 			{
 				if (region.Top == window.Top)
@@ -292,40 +298,32 @@ namespace ConsoleEx
 				}
 			}
 
-			var contentHeight = window.TotalLines;
-			var visibleHeight = window.Height - 2;
-
-			var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
-
-			var verticalBorderAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
-
 			for (var y = 1; y < window.Height - 1; y++)
 			{
 				if (window.Top + DesktopUpperLeft.Y + y - 1 >= DesktopBottomRight.Y) break;
 
-				// Check if the current line is within any visible region
-				bool isLineVisible = visibleRegions?.Any(region => window.Top + y >= region.Top && window.Top + y < region.Top + region.Height) == true;
-
-				if (isLineVisible)
+				foreach (var region in visibleRegions ?? [])
 				{
-					// Check if the left border is within any visible region
-					bool isLeftBorderVisible = visibleRegions?.Any(region => window.Left >= region.Left && window.Left < region.Left + region.Width) == true;
-					if (isLeftBorderVisible)
+					if (window.Top + y >= region.Top && window.Top + y < region.Top + region.Height)
 					{
-						_consoleDriver.WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Y + y, verticalBorderAnsi);
-					}
+						bool isLeftBorderVisible = window.Left >= region.Left && window.Left < region.Left + region.Width;
+						bool isRightBorderVisible = window.Left + window.Width > region.Left && window.Left + window.Width < region.Left + region.Width + 1;
 
-					// Check if the right border is within any visible region
-					bool isRightBorderVisible = visibleRegions?.Any(region => window.Left + window.Width - 1 >= region.Left && window.Left + window.Width - 1 < region.Left + region.Width) == true;
-					if (isRightBorderVisible)
-					{
-						if (scrollbarVisible)
+						if (isLeftBorderVisible)
 						{
-							DrawScrollbar(window, y, borderColor, verticalBorder, resetColor);
+							_consoleDriver.WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Y + y, verticalBorderAnsi);
 						}
-						else
+
+						if (isRightBorderVisible)
 						{
-							_consoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Y + y, verticalBorderAnsi);
+							if (scrollbarVisible)
+							{
+								DrawScrollbar(window, y, borderColor, verticalBorder, resetColor);
+							}
+							else
+							{
+								_consoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Y + y, verticalBorderAnsi);
+							}
 						}
 					}
 				}
@@ -640,14 +638,11 @@ namespace ConsoleEx
 				// Get the current line
 				var line = lines[y];
 
-				// Calculate the absolute Y position of this line
-				int absoluteY = windowTop + desktopUpperLeftY + y + 1;
-
 				// Check if this line is in any visible region
 				foreach (var region in visibleRegions)
 				{
 					// Check if this line falls within the current region's vertical bounds
-					if (absoluteY >= region.Top && absoluteY < region.Top + region.Height)
+					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 <= region.Top + region.Height)
 					{
 						// Calculate content boundaries within the window
 						int contentLeft = Math.Max(windowLeft + 1, region.Left);
@@ -664,7 +659,7 @@ namespace ConsoleEx
 						string visiblePortion = AnsiConsoleHelper.SubstringAnsi(line, startOffset, contentWidth);
 
 						// Write the visible portion to the console
-						_consoleDriver.WriteToConsole(contentLeft, absoluteY, visiblePortion);
+						_consoleDriver.WriteToConsole(contentLeft, windowTop + desktopUpperLeftY + y + 1, visiblePortion);
 					}
 				}
 			}
