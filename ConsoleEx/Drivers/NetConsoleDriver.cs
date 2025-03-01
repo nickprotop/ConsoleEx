@@ -283,8 +283,8 @@ namespace ConsoleEx.Drivers
 						case '\b': // Backspace
 							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false));
 							continue;
-						case '\x7f': // Delete
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x7f', ConsoleKey.Delete, false, false, false));
+						case '\x7f': // Backspace
+							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x7f', ConsoleKey.Backspace, false, false, false));
 							continue;
 						case '\t': // Tab
 							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false));
@@ -294,7 +294,7 @@ namespace ConsoleEx.Drivers
 							continue;
 					}
 
-					if (key.KeyChar == '\x1b') // ESC character
+					if (key.KeyChar == '\x1b' || key.KeyChar == '\u001b') // ESC character
 					{
 						if (Console.KeyAvailable)
 						{
@@ -319,9 +319,9 @@ namespace ConsoleEx.Drivers
 
 								var consoleKeyInfo = MapAnsiToConsoleKeyInfo(ansiSequence.ToString(), consoleKeyInfoSequence);
 
-								if (consoleKeyInfo.HasValue)
+								if (consoleKeyInfo.isMouse != true && consoleKeyInfo.consoleKeyInfo.HasValue)
 								{
-									KeyPressed?.Invoke(this, consoleKeyInfo.Value);
+									KeyPressed?.Invoke(this, consoleKeyInfo.consoleKeyInfo.Value);
 									continue;
 								}
 							}
@@ -346,15 +346,17 @@ namespace ConsoleEx.Drivers
 							continue;
 						}
 					}
-
-					// Regular key press
-					KeyPressed?.Invoke(this, key);
+					else
+					{
+						// Regular key press
+						KeyPressed?.Invoke(this, key);
+					}
 				}
 				Thread.Sleep(10);
 			}
 		}
 
-		private ConsoleKeyInfo? MapAnsiToConsoleKeyInfo(string ansiSequence, List<ConsoleKeyInfo> consoleKeyInfoSequence)
+		private (ConsoleKeyInfo? consoleKeyInfo, bool isMouse) MapAnsiToConsoleKeyInfo(string ansiSequence, List<ConsoleKeyInfo> consoleKeyInfoSequence)
 		{
 			bool shift = false;
 			bool alt = false;
@@ -402,59 +404,59 @@ namespace ConsoleEx.Drivers
 			{
 				// Enter key variations
 				case '\r':
-					return new ConsoleKeyInfo('\r', ConsoleKey.Enter, shift, alt, ctrl);
+					return (new ConsoleKeyInfo('\r', ConsoleKey.Enter, shift, alt, ctrl), false);
 
 				// Tab key variations
 				case '\t':
-					return new ConsoleKeyInfo('\t', ConsoleKey.Tab, shift, alt, ctrl);
+					return (new ConsoleKeyInfo('\t', ConsoleKey.Tab, shift, alt, ctrl), false);
 
 				case 'I':  // Some terminals send this for Tab
-					return new ConsoleKeyInfo('\t', ConsoleKey.Tab, shift, alt, ctrl);
+					return (new ConsoleKeyInfo('\t', ConsoleKey.Tab, shift, alt, ctrl), false);
 
 				case 'Z':  // Shift+Tab
-					return new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, alt, ctrl);
+					return (new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, alt, ctrl), false);
 
 				// Arrow keys
-				case 'A': return new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, shift, alt, ctrl);
-				case 'B': return new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, shift, alt, ctrl);
-				case 'C': return new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, shift, alt, ctrl);
-				case 'D': return new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, shift, alt, ctrl);
+				case 'A': return (new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, shift, alt, ctrl), false);
+				case 'B': return (new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, shift, alt, ctrl), false);
+				case 'C': return (new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, shift, alt, ctrl), false);
+				case 'D': return (new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, shift, alt, ctrl), false);
 
 				// Navigation keys
-				case 'H': return new ConsoleKeyInfo('\x1b', ConsoleKey.Home, shift, alt, ctrl);
-				case 'F': return new ConsoleKeyInfo('\x1b', ConsoleKey.End, shift, alt, ctrl);
-				case 'E': return new ConsoleKeyInfo('\x1b', ConsoleKey.Clear, shift, alt, ctrl);
+				case 'H': return (new ConsoleKeyInfo('\x1b', ConsoleKey.Home, shift, alt, ctrl), false);
+				case 'F': return (new ConsoleKeyInfo('\x1b', ConsoleKey.End, shift, alt, ctrl), false);
+				case 'E': return (new ConsoleKeyInfo('\x1b', ConsoleKey.Clear, shift, alt, ctrl), false);
 
 				// Function keys (CSI O)
-				case 'P': return new ConsoleKeyInfo('\0', ConsoleKey.F1, shift, alt, ctrl);
-				case 'Q': return new ConsoleKeyInfo('\0', ConsoleKey.F2, shift, alt, ctrl);
-				case 'R': return new ConsoleKeyInfo('\0', ConsoleKey.F3, shift, alt, ctrl);
-				case 'S': return new ConsoleKeyInfo('\0', ConsoleKey.F4, shift, alt, ctrl);
+				case 'P': return (new ConsoleKeyInfo('\0', ConsoleKey.F1, shift, alt, ctrl), false);
+				case 'Q': return (new ConsoleKeyInfo('\0', ConsoleKey.F2, shift, alt, ctrl), false);
+				case 'R': return (new ConsoleKeyInfo('\0', ConsoleKey.F3, shift, alt, ctrl), false);
+				case 'S': return (new ConsoleKeyInfo('\0', ConsoleKey.F4, shift, alt, ctrl), false);
 
 				case '~':
 					switch (ansiSequence)
 					{
 						// Navigation keys
-						case "1": return new ConsoleKeyInfo('\x1b', ConsoleKey.Home, shift, alt, ctrl);
-						case "2": return new ConsoleKeyInfo('\x1b', ConsoleKey.Insert, shift, alt, ctrl);
-						case "3": return new ConsoleKeyInfo('\x1b', ConsoleKey.Delete, shift, alt, ctrl);
-						case "4": return new ConsoleKeyInfo('\x1b', ConsoleKey.End, shift, alt, ctrl);
-						case "5": return new ConsoleKeyInfo('\x1b', ConsoleKey.PageUp, shift, alt, ctrl);
-						case "6": return new ConsoleKeyInfo('\x1b', ConsoleKey.PageDown, shift, alt, ctrl);
+						case "1": return (new ConsoleKeyInfo('\x1b', ConsoleKey.Home, shift, alt, ctrl), false);
+						case "2": return (new ConsoleKeyInfo('\x1b', ConsoleKey.Insert, shift, alt, ctrl), false);
+						case "3": return (new ConsoleKeyInfo('\x1b', ConsoleKey.Delete, shift, alt, ctrl), false);
+						case "4": return (new ConsoleKeyInfo('\x1b', ConsoleKey.End, shift, alt, ctrl), false);
+						case "5": return (new ConsoleKeyInfo('\x1b', ConsoleKey.PageUp, shift, alt, ctrl), false);
+						case "6": return (new ConsoleKeyInfo('\x1b', ConsoleKey.PageDown, shift, alt, ctrl), false);
 
 						// Function keys
-						case "11": return new ConsoleKeyInfo('\0', ConsoleKey.F1, shift, alt, ctrl);
-						case "12": return new ConsoleKeyInfo('\0', ConsoleKey.F2, shift, alt, ctrl);
-						case "13": return new ConsoleKeyInfo('\0', ConsoleKey.F3, shift, alt, ctrl);
-						case "14": return new ConsoleKeyInfo('\0', ConsoleKey.F4, shift, alt, ctrl);
-						case "15": return new ConsoleKeyInfo('\0', ConsoleKey.F5, shift, alt, ctrl);
-						case "17": return new ConsoleKeyInfo('\0', ConsoleKey.F6, shift, alt, ctrl);
-						case "18": return new ConsoleKeyInfo('\0', ConsoleKey.F7, shift, alt, ctrl);
-						case "19": return new ConsoleKeyInfo('\0', ConsoleKey.F8, shift, alt, ctrl);
-						case "20": return new ConsoleKeyInfo('\0', ConsoleKey.F9, shift, alt, ctrl);
-						case "21": return new ConsoleKeyInfo('\0', ConsoleKey.F10, shift, alt, ctrl);
-						case "23": return new ConsoleKeyInfo('\0', ConsoleKey.F11, shift, alt, ctrl);
-						case "24": return new ConsoleKeyInfo('\0', ConsoleKey.F12, shift, alt, ctrl);
+						case "11": return (new ConsoleKeyInfo('\0', ConsoleKey.F1, shift, alt, ctrl), false);
+						case "12": return (new ConsoleKeyInfo('\0', ConsoleKey.F2, shift, alt, ctrl), false);
+						case "13": return (new ConsoleKeyInfo('\0', ConsoleKey.F3, shift, alt, ctrl), false);
+						case "14": return (new ConsoleKeyInfo('\0', ConsoleKey.F4, shift, alt, ctrl), false);
+						case "15": return (new ConsoleKeyInfo('\0', ConsoleKey.F5, shift, alt, ctrl), false);
+						case "17": return (new ConsoleKeyInfo('\0', ConsoleKey.F6, shift, alt, ctrl), false);
+						case "18": return (new ConsoleKeyInfo('\0', ConsoleKey.F7, shift, alt, ctrl), false);
+						case "19": return (new ConsoleKeyInfo('\0', ConsoleKey.F8, shift, alt, ctrl), false);
+						case "20": return (new ConsoleKeyInfo('\0', ConsoleKey.F9, shift, alt, ctrl), false);
+						case "21": return (new ConsoleKeyInfo('\0', ConsoleKey.F10, shift, alt, ctrl), false);
+						case "23": return (new ConsoleKeyInfo('\0', ConsoleKey.F11, shift, alt, ctrl), false);
+						case "24": return (new ConsoleKeyInfo('\0', ConsoleKey.F12, shift, alt, ctrl), false);
 					}
 					break;
 
@@ -477,11 +479,9 @@ namespace ConsoleEx.Drivers
 								var yPos = Console.ReadKey(true);
 								consoleKeyInfoSequence.Add(yPos);
 
-								List<MouseFlags> mouseFlags;
-								Point pos;
-
-								if (ParseMouseSequence(consoleKeyInfoSequence.ToArray(), out mouseFlags, out pos))
+								if (ParseMouseSequence(consoleKeyInfoSequence.ToArray(), out List<MouseFlags> mouseFlags, out Point pos))
 								{
+									MouseEvent?.Invoke(this, mouseFlags, pos); // Raise the MouseEvent
 								}
 							}
 						}
@@ -489,7 +489,7 @@ namespace ConsoleEx.Drivers
 					break;
 			}
 
-			return null;
+			return (null, false);
 		}
 
 		private bool ParseMouseSequence(ConsoleKeyInfo[] sequence, out List<MouseFlags> mouseFlags, out Point position)
@@ -612,7 +612,6 @@ namespace ConsoleEx.Drivers
 						break;
 				}
 
-				MouseEvent?.Invoke(this, mouseFlags, position); // Raise the MouseEvent
 				return true;
 			}
 			catch

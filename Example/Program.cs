@@ -53,7 +53,7 @@ namespace ConsoleEx.Example
 			var consoleWindowSystem = InitializeConsoleWindowSystem();
 
 			var logWindow = new LogWindow(consoleWindowSystem);
-			var systemInfoWindow = new SystemInfoWindow(consoleWindowSystem);
+			//var systemInfoWindow = new SystemInfoWindow(consoleWindowSystem);
 			var userInfoWindow = new UserInfoWindow(consoleWindowSystem);
 			// var clockWindow = new ClockWindow(consoleWindowSystem);
 
