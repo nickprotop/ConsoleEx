@@ -45,6 +45,7 @@ namespace ConsoleEx
 		private IConsoleDriver _consoleDriver;
 		private int _exitCode;
 		private bool _running;
+		private int _idleTime = 10; // Initial idle time
 
 		public ConsoleWindowSystem()
 		{
@@ -160,12 +161,27 @@ namespace ConsoleEx
 				UpdateDisplay();
 				UpdateCursor();
 
-				Thread.Sleep(10);
+				// Adjust idle time based on workload
+				if (_inputQueue.IsEmpty && !AnyWindowDirty())
+				{
+					_idleTime = Math.Min(_idleTime + 10, 100); // Increase idle time up to 100ms
+				}
+				else
+				{
+					_idleTime = 10; // Reset idle time when there is work to do
+				}
+
+				Thread.Sleep(_idleTime);
 			}
 
 			_consoleDriver.Stop();
 
 			return _exitCode;
+		}
+
+		private bool AnyWindowDirty()
+		{
+			return _windows.Values.Any(window => window.IsDirty);
 		}
 
 		public void SetActiveWindow(Window window)
@@ -642,7 +658,7 @@ namespace ConsoleEx
 				foreach (var region in visibleRegions)
 				{
 					// Check if this line falls within the current region's vertical bounds
-					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 <= region.Top + region.Height)
+					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 < region.Top + region.Height)
 					{
 						// Calculate content boundaries within the window
 						int contentLeft = Math.Max(windowLeft + 1, region.Left);
