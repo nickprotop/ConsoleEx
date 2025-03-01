@@ -70,6 +70,27 @@ namespace ConsoleEx
 			}
 		}
 
+		public HashSet<Window> GetOverlappingWindows(Window window, HashSet<Window>? visited = null)
+		{
+			visited ??= new HashSet<Window>();
+			if (visited.Contains(window))
+			{
+				return visited;
+			}
+
+			visited.Add(window);
+
+			foreach (var otherWindow in _consoleWindowSystem.Windows.Values)
+			{
+				if (window != otherWindow && IsOverlapping(window, otherWindow))
+				{
+					GetOverlappingWindows(otherWindow, visited);
+				}
+			}
+
+			return visited;
+		}
+
 		public bool IsOverlapping(Window window1, Window window2)
 		{
 			return window1.Left < window2.Left + window2.Width &&

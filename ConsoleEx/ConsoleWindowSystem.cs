@@ -246,27 +246,6 @@ namespace ConsoleEx
 			}
 		}
 
-		private HashSet<Window> GetOverlappingWindows(Window window, HashSet<Window>? visited = null)
-		{
-			visited ??= new HashSet<Window>();
-			if (visited.Contains(window))
-			{
-				return visited;
-			}
-
-			visited.Add(window);
-
-			foreach (var otherWindow in _windows.Values)
-			{
-				if (window != otherWindow && _renderer.IsOverlapping(window, otherWindow))
-				{
-					GetOverlappingWindows(otherWindow, visited);
-				}
-			}
-
-			return visited;
-		}
-
 		private Window? GetWindowAtPoint(Point point)
 		{
 			List<Window> windows = _windows.Values
@@ -590,7 +569,7 @@ namespace ConsoleEx
 				{
 					if (window.IsDirty && !IsCompletelyCovered(window))
 					{
-						var overlappingWindows = GetOverlappingWindows(window);
+						var overlappingWindows = _renderer.GetOverlappingWindows(window);
 						foreach (var overlappingWindow in overlappingWindows)
 						{
 							if (overlappingWindow.IsDirty || _renderer.IsOverlapping(window, overlappingWindow))
@@ -622,7 +601,7 @@ namespace ConsoleEx
 					}
 					else
 					{
-						var overlappingWindows = GetOverlappingWindows(_activeWindow);
+						var overlappingWindows = _renderer.GetOverlappingWindows(_activeWindow);
 
 						foreach (var overlappingWindow in overlappingWindows)
 						{
