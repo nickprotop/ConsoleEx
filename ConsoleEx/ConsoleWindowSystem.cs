@@ -15,6 +15,7 @@ using static ConsoleEx.Window;
 using ConsoleEx.Drivers;
 using System.Drawing;
 using Color = Spectre.Console.Color;
+using System;
 
 namespace ConsoleEx
 {
@@ -35,9 +36,9 @@ namespace ConsoleEx
 	public class ConsoleWindowSystem
 	{
 		private readonly ConcurrentQueue<ConsoleKeyInfo> _inputQueue = new();
+		private readonly Renderer _renderer;
 		private readonly object _renderLock = new();
 		private readonly VisibleRegions _visibleRegions;
-		private readonly Renderer _renderer;
 		private readonly ConcurrentDictionary<string, Window> _windows = new();
 		private Window? _activeWindow;
 		private ConcurrentQueue<bool> _blockUi = new();
@@ -45,8 +46,9 @@ namespace ConsoleEx
 		private string? _cachedTopStatus;
 		private IConsoleDriver _consoleDriver;
 		private int _exitCode;
+		private int _idleTime = 10;
 		private bool _running;
-		private int _idleTime = 10; // Initial idle time
+		// Initial idle time
 
 		public ConsoleWindowSystem()
 		{
@@ -63,12 +65,7 @@ namespace ConsoleEx
 			_renderer = new Renderer(this);
 		}
 
-		public ConcurrentDictionary<string, Window> Windows => _windows;
-
 		public ConcurrentQueue<bool> BlockUi => _blockUi;
-
-		public VisibleRegions VisibleRegions => _visibleRegions;
-
 		public string BottomStatus { get; set; } = "";
 
 		public IConsoleDriver ConsoleDriver
@@ -77,10 +74,11 @@ namespace ConsoleEx
 		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
 		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
 		public Point DesktopUpperLeft => new Point(0, string.IsNullOrEmpty(TopStatus) ? 0 : 1);
-
 		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
 		public Theme Theme { get; set; } = new Theme();
 		public string TopStatus { get; set; } = "";
+		public VisibleRegions VisibleRegions => _visibleRegions;
+		public ConcurrentDictionary<string, Window> Windows => _windows;
 
 		public Window AddWindow(Window window)
 		{
@@ -113,6 +111,32 @@ namespace ConsoleEx
 			{
 				w.Invalidate(true);
 			}
+		}
+
+		public void FlashWindow(Window? window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
+		{
+			if (window == null) return;
+
+			var originalBackgroundColor = window.BackgroundColor;
+			var flashColor = flashBackgroundColor ?? (window.BackgroundColor == Theme.ButtonBackgroundColor ? window.ForegroundColor : Theme.ButtonBackgroundColor);
+
+			var flashTask = new Task(async () =>
+			{
+				for (int i = 0; i < flashCount; i++)
+				{
+					if (window == null) return;
+
+					window.BackgroundColor = flashColor;
+					window.Invalidate(true);
+					await Task.Delay(flashDuration);
+
+					window.BackgroundColor = originalBackgroundColor;
+					window.Invalidate(true);
+					await Task.Delay(flashDuration);
+				}
+			});
+
+			flashTask.Start();
 		}
 
 		public int Run()
@@ -187,11 +211,6 @@ namespace ConsoleEx
 			return _exitCode;
 		}
 
-		private bool AnyWindowDirty()
-		{
-			return _windows.Values.Any(window => window.IsDirty);
-		}
-
 		public void SetActiveWindow(Window window)
 		{
 			if (window == null)
@@ -230,6 +249,11 @@ namespace ConsoleEx
 			int relativeLeft = (point?.X ?? 0) - window.Left;
 			int relativeTop = (point?.Y ?? 0) - window.Top - DesktopUpperLeft.Y;
 			return new Point(relativeLeft, relativeTop);
+		}
+
+		private bool AnyWindowDirty()
+		{
+			return _windows.Values.Any(window => window.IsDirty);
 		}
 
 		private void CycleActiveWindow()
@@ -440,15 +464,67 @@ namespace ConsoleEx
 					break;
 			}
 
-			foreach (var w in _windows.Values)
+			// Redraw the necessary regions
+			foreach (var w in _windows.Values.OrderBy(w => w.ZIndex))
 			{
 				if (w != window && _renderer.IsOverlapping(window, w))
 				{
-					w.Invalidate(true);
-				}
+					var overlappingRegions = _renderer.GetOverlappingRegions(window, w);
+					foreach (var region in overlappingRegions)
+					{
+						Rectangle redrawRegion = new();
 
-				window.Invalidate(true);
+						switch (windowTopologyAction)
+						{
+							case WindowTopologyAction.Move:
+								switch (direction)
+								{
+									case Direction.Up:
+										redrawRegion = new Rectangle(region.Left, region.Bottom - 1, region.Right - region.Left, 1);
+										break;
+
+									case Direction.Down:
+										redrawRegion = new Rectangle(region.Left, region.Top, region.Right - region.Left, 1);
+										break;
+
+									case Direction.Left:
+										redrawRegion = new Rectangle(region.Right - 1, region.Top, 1, region.Bottom - region.Top);
+										break;
+
+									case Direction.Right:
+										redrawRegion = new Rectangle(region.Left, region.Top, 1, region.Bottom - region.Top);
+										break;
+								}
+								break;
+
+							case WindowTopologyAction.Resize:
+								switch (direction)
+								{
+									case Direction.Up:
+										redrawRegion = new Rectangle(region.Left, region.Bottom - 1, region.Right - region.Left, 1);
+										break;
+
+									case Direction.Down:
+										redrawRegion = new Rectangle(region.Left, region.Top, region.Right - region.Left, 1);
+										break;
+
+									case Direction.Left:
+										redrawRegion = new Rectangle(region.Right - 1, region.Top, 1, region.Bottom - top);
+										break;
+
+									case Direction.Right:
+										redrawRegion = new Rectangle(region.Left, region.Top, 1, region.Bottom - region.Top);
+										break;
+								}
+								break;
+						}
+
+						_renderer.RenderRegion(w, redrawRegion);
+					}
+				}
 			}
+
+			window.Invalidate(true);
 		}
 
 		private void ProcessInput()
@@ -492,32 +568,6 @@ namespace ConsoleEx
 					}
 				}
 			}
-		}
-
-		public void FlashWindow(Window? window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
-		{
-			if (window == null) return;
-
-			var originalBackgroundColor = window.BackgroundColor;
-			var flashColor = flashBackgroundColor ?? (window.BackgroundColor == Theme.ButtonBackgroundColor ? window.ForegroundColor : Theme.ButtonBackgroundColor);
-
-			var flashTask = new Task(async () =>
-			{
-				for (int i = 0; i < flashCount; i++)
-				{
-					if (window == null) return;
-
-					window.BackgroundColor = flashColor;
-					window.Invalidate(true);
-					await Task.Delay(flashDuration);
-
-					window.BackgroundColor = originalBackgroundColor;
-					window.Invalidate(true);
-					await Task.Delay(flashDuration);
-				}
-			});
-
-			flashTask.Start();
 		}
 
 		private void UpdateCursor()

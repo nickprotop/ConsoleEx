@@ -391,6 +391,13 @@ namespace ConsoleEx
 			IsDirty = true;
 		}
 
+		public void InvalidateRegion(Rectangle region)
+		{
+			//_invalidated = true;
+			// Mark the specific region as dirty
+			//IsDirty = true;
+		}
+
 		public bool ProcessInput(ConsoleKeyInfo key)
 		{
 			lock (_lock)
