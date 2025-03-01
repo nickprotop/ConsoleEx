@@ -641,23 +641,28 @@ namespace ConsoleEx
 			}
 		}
 
-		public async Task FlashWindow(Window window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
+		public void FlashWindow(Window window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
 		{
 			if (window == null) return;
 
 			var originalBackgroundColor = window.BackgroundColor;
 			var flashColor = flashBackgroundColor ?? (window.BackgroundColor == Theme.ButtonBackgroundColor ? window.ForegroundColor : Theme.ButtonBackgroundColor);
 
-			for (int i = 0; i < flashCount; i++)
+			var flashTask = new Task(async () =>
 			{
-				window.BackgroundColor = flashColor;
-				window.Invalidate(true);
-				await Task.Delay(flashDuration);
+				for (int i = 0; i < flashCount; i++)
+				{
+					window.BackgroundColor = flashColor;
+					window.Invalidate(true);
+					await Task.Delay(flashDuration);
 
-				window.BackgroundColor = originalBackgroundColor;
-				window.Invalidate(true);
-				await Task.Delay(flashDuration);
-			}
+					window.BackgroundColor = originalBackgroundColor;
+					window.Invalidate(true);
+					await Task.Delay(flashDuration);
+				}
+			});
+
+			flashTask.Start();
 		}
 
 		private void RenderVisibleWindowContent(Window window, List<string> lines, List<Rectangle> visibleRegions)
