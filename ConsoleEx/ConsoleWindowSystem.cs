@@ -641,7 +641,7 @@ namespace ConsoleEx
 			}
 		}
 
-		public void FlashWindow(Window window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
+		public void FlashWindow(Window? window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
 		{
 			if (window == null) return;
 
