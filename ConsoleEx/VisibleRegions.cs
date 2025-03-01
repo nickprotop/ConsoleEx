@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ConsoleEx.Drivers
+namespace ConsoleEx
 {
 	public class VisibleRegions
 	{
@@ -102,7 +102,7 @@ namespace ConsoleEx.Drivers
 						region.Left,
 						intersection.Top + intersection.Height,
 						region.Width,
-						(region.Top + region.Height) - (intersection.Top + intersection.Height)));
+						region.Top + region.Height - (intersection.Top + intersection.Height)));
 				}
 
 				// Region to the left of the intersection
@@ -121,7 +121,7 @@ namespace ConsoleEx.Drivers
 					result.Add(new Rectangle(
 						intersection.Left + intersection.Width,
 						Math.Max(region.Top, intersection.Top),
-						(region.Left + region.Width) - (intersection.Left + intersection.Width),
+						region.Left + region.Width - (intersection.Left + intersection.Width),
 						Math.Min(region.Top + region.Height, intersection.Top + intersection.Height) - Math.Max(region.Top, intersection.Top)));
 				}
 			}

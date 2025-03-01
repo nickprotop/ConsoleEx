@@ -37,6 +37,7 @@ namespace ConsoleEx
 		private readonly ConcurrentQueue<ConsoleKeyInfo> _inputQueue = new();
 		private readonly object _renderLock = new();
 		private readonly VisibleRegions _visibleRegions;
+		private readonly Renderer _renderer;
 		private readonly ConcurrentDictionary<string, Window> _windows = new();
 		private Window? _activeWindow;
 		private ConcurrentQueue<bool> _blockUi = new();
@@ -57,9 +58,16 @@ namespace ConsoleEx
 
 			// Initialize the visible regions
 			_visibleRegions = new VisibleRegions(this);
+
+			// Initialize the renderer
+			_renderer = new Renderer(this);
 		}
 
+		public ConcurrentDictionary<string, Window> Windows => _windows;
+
 		public ConcurrentQueue<bool> BlockUi => _blockUi;
+
+		public VisibleRegions VisibleRegions => _visibleRegions;
 
 		public string BottomStatus { get; set; } = "";
 
@@ -100,7 +108,7 @@ namespace ConsoleEx
 				}
 			}
 
-			FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 			foreach (var w in _windows.Values)
 			{
 				w.Invalidate(true);
@@ -125,7 +133,7 @@ namespace ConsoleEx
 
 					_consoleDriver.Clear();
 
-					FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+					_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 					foreach (var window in _windows.Values)
 					{
@@ -152,7 +160,7 @@ namespace ConsoleEx
 			_consoleDriver.Start();
 
 			// Initialize the console window system with background color and character
-			FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 			// Main loop
 			while (_running)
@@ -238,126 +246,6 @@ namespace ConsoleEx
 			}
 		}
 
-		private void DrawScrollbar(Window window, int y, string borderColor, char verticalBorder, string resetColor)
-		{
-			var scrollbarChar = '░';
-			var contentHeight = window.TotalLines;
-			var visibleHeight = window.Height - 2;
-
-			if (window.IsScrollable && contentHeight > visibleHeight)
-			{
-				if (window.Height > 2)
-				{
-					var scrollPosition = (float)window.ScrollOffset / Math.Max(1, contentHeight - visibleHeight);
-					var scrollbarPosition = (int)(scrollPosition * (visibleHeight - 1));
-					if (y - 1 == scrollbarPosition)
-					{
-						scrollbarChar = '█';
-					}
-				}
-			}
-			else scrollbarChar = verticalBorder;
-
-			_consoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{scrollbarChar}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
-		}
-
-		private void DrawWindowBorders(Window window)
-		{
-			var horizontalBorder = window.GetIsActive() ? '═' : '─';
-			var verticalBorder = window.GetIsActive() ? '║' : '│';
-			var topLeftCorner = window.GetIsActive() ? '╔' : '┌';
-			var topRightCorner = window.GetIsActive() ? '╗' : '┐';
-			var bottomLeftCorner = window.GetIsActive() ? '╚' : '└';
-			var bottomRightCorner = window.GetIsActive() ? '╝' : '┘';
-
-			var borderColor = window.GetIsActive() ? $"[{window.ActiveBorderForegroundColor}]" : $"[{window.InactiveBorderForegroundColor}]";
-			var titleColor = window.GetIsActive() ? $"[{window.ActiveTitleForegroundColor}]" : $"[{window.InactiveTitleForegroundColor}]";
-			var resetColor = "[/]";
-
-			if (window.IsDragging)
-			{
-				borderColor = "[red]"; // Change the border color to red when dragging
-			}
-
-			var title = $"{titleColor}| {StringHelper.TrimWithEllipsis(window.Title, window.Width - 8, (window.Width - 8) / 2)} |{resetColor}";
-			var titleLength = AnsiConsoleHelper.StripSpectreLength(title);
-			var availableSpace = window.Width - 2 - titleLength;
-			var leftPadding = 1;
-			var rightPadding = availableSpace - leftPadding;
-
-			var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", Math.Min(window.Width, DesktopBottomRight.X - window.Left), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
-			var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, window.Width - 2)}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
-
-			// Get all windows that potentially overlap with this window
-			var overlappingWindows = _windows.Values
-				.Where(w => w != window && w.ZIndex > window.ZIndex && IsOverlapping(window, w))
-				.OrderBy(w => w.ZIndex)
-				.ToList();
-
-			// Calculate visible regions
-			var visibleRegions = _visibleRegions.CalculateVisibleRegions(window, overlappingWindows);
-
-			var contentHeight = window.TotalLines;
-			var visibleHeight = window.Height - 2;
-
-			var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
-			var verticalBorderAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
-
-			foreach (var region in visibleRegions ?? [])
-			{
-				if (region.Top == window.Top)
-				{
-					_consoleDriver.WriteToConsole(region.Left, region.Top + DesktopUpperLeft.Y, AnsiConsoleHelper.SubstringAnsi(topBorder, region.Left - window.Left, region.Width));
-				}
-
-				if (region.Top + region.Height == window.Top + window.Height)
-				{
-					_consoleDriver.WriteToConsole(region.Left, window.Top + window.Height, AnsiConsoleHelper.SubstringAnsi(bottomBorder, region.Left - window.Left, region.Width));
-				}
-			}
-
-			for (var y = 1; y < window.Height - 1; y++)
-			{
-				if (window.Top + DesktopUpperLeft.Y + y - 1 >= DesktopBottomRight.Y) break;
-
-				foreach (var region in visibleRegions ?? [])
-				{
-					if (window.Top + y >= region.Top && window.Top + y < region.Top + region.Height)
-					{
-						bool isLeftBorderVisible = window.Left >= region.Left && window.Left < region.Left + region.Width;
-						bool isRightBorderVisible = window.Left + window.Width > region.Left && window.Left + window.Width < region.Left + region.Width + 1;
-
-						if (isLeftBorderVisible)
-						{
-							_consoleDriver.WriteToConsole(window.Left, window.Top + DesktopUpperLeft.Y + y, verticalBorderAnsi);
-						}
-
-						if (isRightBorderVisible)
-						{
-							if (scrollbarVisible)
-							{
-								DrawScrollbar(window, y, borderColor, verticalBorder, resetColor);
-							}
-							else
-							{
-								_consoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + DesktopUpperLeft.Y + y, verticalBorderAnsi);
-							}
-						}
-					}
-				}
-			}
-		}
-
-		private void FillRect(int left, int top, int width, int height, char character, Color? backgroundColor, Color? foregroundColor)
-		{
-			for (var y = 0; y < height; y++)
-			{
-				if (top + y > DesktopDimensions.Height) break;
-
-				_consoleDriver.WriteToConsole(left, top + DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(character, Math.Min(width, _consoleDriver.ScreenSize.Width - left))}", Math.Min(width, _consoleDriver.ScreenSize.Width - left), 1, false, backgroundColor, foregroundColor)[0]);
-			}
-		}
-
 		private HashSet<Window> GetOverlappingWindows(Window window, HashSet<Window>? visited = null)
 		{
 			visited ??= new HashSet<Window>();
@@ -370,7 +258,7 @@ namespace ConsoleEx
 
 			foreach (var otherWindow in _windows.Values)
 			{
-				if (window != otherWindow && IsOverlapping(window, otherWindow))
+				if (window != otherWindow && _renderer.IsOverlapping(window, otherWindow))
 				{
 					GetOverlappingWindows(otherWindow, visited);
 				}
@@ -506,7 +394,7 @@ namespace ConsoleEx
 		{
 			foreach (var otherWindow in _windows.Values)
 			{
-				if (otherWindow != window && IsOverlapping(window, otherWindow) && otherWindow.ZIndex > window.ZIndex)
+				if (otherWindow != window && _renderer.IsOverlapping(window, otherWindow) && otherWindow.ZIndex > window.ZIndex)
 				{
 					if (otherWindow.Left <= window.Left && otherWindow.Top <= window.Top &&
 						otherWindow.Left + otherWindow.Width >= window.Left + window.Width &&
@@ -517,20 +405,6 @@ namespace ConsoleEx
 				}
 			}
 			return false;
-		}
-
-		private bool IsOverlapping(Window window1, Window window2)
-		{
-			return window1.Left < window2.Left + window2.Width &&
-				   window1.Left + window1.Width > window2.Left &&
-				   window1.Top < window2.Top + window2.Height &&
-				   window1.Top + window1.Height > window2.Top;
-		}
-
-		private bool IsWindowOutOfBounds(Window window, Point desktopTopLeftCorner, Point desktopBottomRightCorner)
-		{
-			return window.Left < desktopTopLeftCorner.X || (window.Top + DesktopUpperLeft.Y) < desktopTopLeftCorner.Y ||
-				   window.Left >= desktopBottomRightCorner.X || window.Top + DesktopUpperLeft.Y >= desktopBottomRightCorner.Y;
 		}
 
 		private void MoveOrResizeOperation(Window? window, WindowTopologyAction windowTopologyAction, Direction direction)
@@ -548,19 +422,19 @@ namespace ConsoleEx
 					switch (direction)
 					{
 						case Direction.Up:
-							FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							_renderer.FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 							break;
 
 						case Direction.Down:
-							FillRect(left, top, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							_renderer.FillRect(left, top, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 							break;
 
 						case Direction.Left:
-							FillRect(left + width - 1, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							_renderer.FillRect(left + width - 1, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 							break;
 
 						case Direction.Right:
-							FillRect(left, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							_renderer.FillRect(left, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 							break;
 					}
 					break;
@@ -569,19 +443,19 @@ namespace ConsoleEx
 					switch (direction)
 					{
 						case Direction.Up:
-							FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							_renderer.FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 							break;
 
 						case Direction.Down:
-							FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							_renderer.FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 							break;
 
 						case Direction.Left:
-							FillRect(left + width, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							_renderer.FillRect(left + width, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 							break;
 
 						case Direction.Right:
-							FillRect(left + width - 1, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							_renderer.FillRect(left + width - 1, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 							break;
 					}
 					break;
@@ -589,7 +463,7 @@ namespace ConsoleEx
 
 			foreach (var w in _windows.Values)
 			{
-				if (w != window && IsOverlapping(window, w))
+				if (w != window && _renderer.IsOverlapping(window, w))
 				{
 					w.Invalidate(true);
 				}
@@ -652,6 +526,8 @@ namespace ConsoleEx
 			{
 				for (int i = 0; i < flashCount; i++)
 				{
+					if (window == null) return;
+
 					window.BackgroundColor = flashColor;
 					window.Invalidate(true);
 					await Task.Delay(flashDuration);
@@ -663,96 +539,6 @@ namespace ConsoleEx
 			});
 
 			flashTask.Start();
-		}
-
-		private void RenderVisibleWindowContent(Window window, List<string> lines, List<Rectangle> visibleRegions)
-		{
-			var screenWidth = _consoleDriver.ScreenSize.Width;
-			var screenHeight = _consoleDriver.ScreenSize.Height;
-			var windowLeft = window.Left;
-			var windowTop = window.Top;
-			var windowWidth = window.Width;
-			var desktopUpperLeftY = DesktopUpperLeft.Y;
-
-			for (var y = 0; y < lines.Count; y++)
-			{
-				// Skip if this line is outside the desktop area
-				if (windowTop + y >= DesktopBottomRight.Y) break;
-
-				// Get the current line
-				var line = lines[y];
-
-				// Check if this line is in any visible region
-				foreach (var region in visibleRegions)
-				{
-					// Check if this line falls within the current region's vertical bounds
-					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 < region.Top + region.Height)
-					{
-						// Calculate content boundaries within the window
-						int contentLeft = Math.Max(windowLeft + 1, region.Left);
-						int contentRight = Math.Min(windowLeft + windowWidth - 1, region.Left + region.Width);
-						int contentWidth = contentRight - contentLeft;
-
-						if (contentWidth <= 0) continue;
-
-						// Calculate the portion of the line to render
-						int startOffset = contentLeft - (windowLeft + 1);
-						startOffset = Math.Max(0, startOffset);
-
-						// Get the substring of the line to render
-						string visiblePortion = AnsiConsoleHelper.SubstringAnsi(line, startOffset, contentWidth);
-
-						// Write the visible portion to the console
-						_consoleDriver.WriteToConsole(contentLeft, windowTop + desktopUpperLeftY + y + 1, visiblePortion);
-					}
-				}
-			}
-		}
-
-		private void RenderWindow(Window window)
-		{
-			lock (_renderLock)
-			{
-				Point desktopTopLeftCorner = DesktopUpperLeft;
-				Point desktopBottomRightCorner = DesktopBottomRight;
-
-				if (IsWindowOutOfBounds(window, desktopTopLeftCorner, desktopBottomRightCorner))
-				{
-					return;
-				}
-
-				// Get all windows that potentially overlap with this window
-				var overlappingWindows = _windows.Values
-					.Where(w => w != window && w.ZIndex > window.ZIndex && IsOverlapping(window, w))
-					.OrderBy(w => w.ZIndex)
-					.ToList();
-
-				// Calculate visible regions
-				var visibleRegions = _visibleRegions.CalculateVisibleRegions(window, overlappingWindows);
-
-				if (!visibleRegions.Any())
-				{
-					// Window is completely covered - no need to render
-					window.IsDirty = false;
-					return;
-				}
-
-				// Fill the background only for the visible regions
-				foreach (var region in visibleRegions)
-				{
-					FillRect(region.Left, region.Top, region.Width, region.Height, ' ', window.BackgroundColor, null);
-				}
-
-				// Draw window borders - these might be partially hidden but the drawing functions
-				// will handle clipping against screen boundaries
-				DrawWindowBorders(window);
-
-				var lines = window.RenderAndGetVisibleContent();
-				window.IsDirty = false;
-
-				// Render content only for visible parts
-				RenderVisibleWindowContent(window, lines, visibleRegions);
-			}
 		}
 
 		private void UpdateCursor()
@@ -807,7 +593,7 @@ namespace ConsoleEx
 						var overlappingWindows = GetOverlappingWindows(window);
 						foreach (var overlappingWindow in overlappingWindows)
 						{
-							if (overlappingWindow.IsDirty || IsOverlapping(window, overlappingWindow))
+							if (overlappingWindow.IsDirty || _renderer.IsOverlapping(window, overlappingWindow))
 							{
 								if (overlappingWindow.IsDirty || overlappingWindow.ZIndex > window.ZIndex)
 								{
@@ -823,7 +609,7 @@ namespace ConsoleEx
 				{
 					if (window != _activeWindow && windowsToRender.Contains(window))
 					{
-						RenderWindow(window);
+						_renderer.RenderWindow(window);
 					}
 				}
 
@@ -832,7 +618,7 @@ namespace ConsoleEx
 				{
 					if (windowsToRender.Contains(_activeWindow))
 					{
-						RenderWindow(_activeWindow);
+						_renderer.RenderWindow(_activeWindow);
 					}
 					else
 					{
@@ -842,7 +628,7 @@ namespace ConsoleEx
 						{
 							if (windowsToRender.Contains(overlappingWindow))
 							{
-								RenderWindow(_activeWindow);
+								_renderer.RenderWindow(_activeWindow);
 							}
 						}
 					}
