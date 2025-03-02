@@ -71,6 +71,7 @@ namespace ConsoleEx
 		private int _scrollOffset;
 		private WindowState _state;
 		private object? _tag;
+		private int _topStickyHeight;
 		private ConsoleWindowSystem? _windowSystem;
 		private Task? _windowTask;
 		private Thread? _windowThread;
@@ -272,7 +273,7 @@ namespace ConsoleEx
 					(content as IWIndowControl).Dispose();
 				}
 
-				_windowSystem?.CloseWindow(this);
+				if (!systemCall) _windowSystem?.CloseWindow(this);
 
 				return true;
 			}
@@ -511,8 +512,29 @@ namespace ConsoleEx
 				{
 					List<string> lines = new List<string>();
 
+					_topStickyHeight = 0;
+					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Top))
+					{
+						// Store the top row index for the current content
+						_contentTopRowIndex[content] = lines.Count;
+						_contentLeftIndex[content] = 0;
+
+						// Get content's rendered lines
+						var ansiLines = content.RenderContent(Width - 2, Height - 2);
+
+						// Ensure proper formatting for each line
+						for (int i = 0; i < ansiLines.Count; i++)
+						{
+							var line = ansiLines[i];
+							ansiLines[i] = $"{line}";
+						}
+
+						lines.AddRange(ansiLines);
+						_topStickyHeight += ansiLines.Count;
+					}
+
 					// Process normal content first (non-sticky)
-					foreach (var content in _content.Where(c => c.StickyPosition != StickyPosition.Bottom))
+					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.None))
 					{
 						// Store the top row index for the current content
 						_contentTopRowIndex[content] = lines.Count;

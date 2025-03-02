@@ -156,6 +156,9 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public bool IsEditing
+		{ get => _isEditing; set { _isEditing = value; Invalidate(); Container?.Invalidate(false); } }
+
 		public bool IsEnabled
 		{
 			get => _isEnabled;
