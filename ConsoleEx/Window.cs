@@ -399,13 +399,6 @@ namespace ConsoleEx
 			IsDirty = true;
 		}
 
-		public void InvalidateRegion(Rectangle region)
-		{
-			//_invalidated = true;
-			// Mark the specific region as dirty
-			//IsDirty = true;
-		}
-
 		public void NotifyControlFocusLost(IInteractiveControl control)
 		{
 			if (control != null && _interactiveContents.Contains(control))
