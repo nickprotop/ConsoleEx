@@ -265,13 +265,14 @@ namespace ConsoleEx
 					}
 				}
 
+				OnClosed?.Invoke(this, EventArgs.Empty);
+
 				foreach (var content in _content)
 				{
 					(content as IWIndowControl).Dispose();
 				}
 
-				if (!systemCall) _windowSystem?.CloseWindow(this);
-				OnClosed?.Invoke(this, EventArgs.Empty);
+				_windowSystem?.CloseWindow(this);
 
 				return true;
 			}
