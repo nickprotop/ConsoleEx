@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -26,12 +26,15 @@ namespace ConsoleEx.Controls
 		// Color properties
 		private Color? _backgroundColorValue;
 
+		private Color _borderColor = Color.White;
 		private List<string>? _cachedContent;
 		private int _cursorX = 0;
 		private int _cursorY = 0;
+		private int _effectiveWidth;
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
+		private bool _hasBorder = false;
 		private bool _hasFocus = false;
 		private bool _hasSelection = false;
 		private int _horizontalScrollOffset = 0;
@@ -96,6 +99,17 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public Color BorderColor
+		{
+			get => _borderColor;
+			set
+			{
+				_borderColor = value;
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
+
 		public IContainer? Container { get; set; }
 
 		public Color FocusedBackgroundColor
@@ -126,6 +140,17 @@ namespace ConsoleEx.Controls
 			set
 			{
 				_foregroundColorValue = value;
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
+
+		public bool HasBorder
+		{
+			get => _hasBorder;
+			set
+			{
+				_hasBorder = value;
 				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
@@ -231,24 +256,22 @@ namespace ConsoleEx.Controls
 		// Cursor management
 		public void EnsureCursorVisible()
 		{
-			int effectiveWidth = _width ?? 80;
-
 			// Special handling for wrap mode
 			if (_wrapMode != WrapMode.NoWrap)
 			{
 				// Calculate how many wrapped lines this logical line occupies
 				int lineLength = _lines[_cursorY].Length;
-				int wrappedLineCount = (lineLength > 0) ? ((lineLength - 1) / effectiveWidth) + 1 : 1;
+				int wrappedLineCount = (lineLength > 0) ? ((lineLength - 1) / _effectiveWidth) + 1 : 1;
 
 				// Calculate which wrapped line within the current logical line contains the cursor
-				int cursorWrappedLine = _cursorX / effectiveWidth;
+				int cursorWrappedLine = _cursorX / _effectiveWidth;
 
 				// Calculate total wrapped lines before the current line
 				int totalWrappedLinesBefore = 0;
 				for (int i = 0; i < _cursorY; i++)
 				{
 					int len = _lines[i].Length;
-					totalWrappedLinesBefore += (len > 0) ? ((len - 1) / effectiveWidth) + 1 : 1;
+					totalWrappedLinesBefore += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
 				}
 
 				// The absolute wrapped line position of the cursor
@@ -264,8 +287,8 @@ namespace ConsoleEx.Controls
 					_verticalScrollOffset = absoluteWrappedCursorLine - _viewportHeight + 1;
 				}
 
-				// Adjust horizontal scroll to show the cursor position within the wrapped line
-				_horizontalScrollOffset = (cursorWrappedLine * effectiveWidth);
+				// In wrap mode, we don't need horizontal scrolling as lines are wrapped
+				_horizontalScrollOffset = 0;
 			}
 			else
 			{
@@ -284,9 +307,9 @@ namespace ConsoleEx.Controls
 				{
 					_horizontalScrollOffset = _cursorX;
 				}
-				else if (_cursorX >= _horizontalScrollOffset + effectiveWidth)
+				else if (_cursorX >= _horizontalScrollOffset + _effectiveWidth)
 				{
-					_horizontalScrollOffset = _cursorX - effectiveWidth + 1;
+					_horizontalScrollOffset = _cursorX - _effectiveWidth + 1;
 				}
 			}
 
@@ -302,14 +325,58 @@ namespace ConsoleEx.Controls
 
 		public (int Left, int Top)? GetCursorPosition()
 		{
-			int visibleCursorX = _cursorX - _horizontalScrollOffset;
-			int visibleCursorY = _cursorY - _verticalScrollOffset;
+			if (_cachedContent == null) return null;
 
-			// Only return cursor position if it's in the visible area
-			if (visibleCursorY >= 0 && visibleCursorY < _viewportHeight)
+			int paddingLeft = 0;
+
+			// Calculate centering if needed
+			if (Alignment == Alignment.Center)
 			{
-				return (visibleCursorX, visibleCursorY);
+				paddingLeft = ContentHelper.GetCenter(_cachedContent?.FirstOrDefault()?.Length ?? 0, _effectiveWidth);
 			}
+
+			// For wrapped modes, we need special handling
+			if (_wrapMode != WrapMode.NoWrap)
+			{
+				// Calculate which wrapped line within the current logical line contains the cursor
+				int cursorWrappedLine = _cursorX / _effectiveWidth;
+
+				// Calculate total wrapped lines before the current logical line
+				int totalWrappedLinesBefore = 0;
+				for (int i = 0; i < _cursorY; i++)
+				{
+					int len = _lines[i].Length;
+					totalWrappedLinesBefore += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+				}
+
+				// The absolute wrapped line position of the cursor
+				int absoluteWrappedCursorLine = totalWrappedLinesBefore + cursorWrappedLine;
+
+				// The cursor position within the wrapped line
+				int cursorPositionInWrappedLine = _cursorX % _effectiveWidth;
+
+				// Calculate visible cursor position
+				int visibleWrappedLine = absoluteWrappedCursorLine - _verticalScrollOffset;
+
+				// Only return cursor position if it's in the visible area
+				if (visibleWrappedLine >= 0 && visibleWrappedLine < _viewportHeight)
+				{
+					return (cursorPositionInWrappedLine + _margin.Left + paddingLeft, visibleWrappedLine + _margin.Top);
+				}
+			}
+			else
+			{
+				// Standard handling for non-wrapped text
+				int visibleCursorX = _cursorX - _horizontalScrollOffset;
+				int visibleCursorY = _cursorY - _verticalScrollOffset;
+
+				// Only return cursor position if it's in the visible area
+				if (visibleCursorY >= 0 && visibleCursorY < _viewportHeight)
+				{
+					return (visibleCursorX + _margin.Left + paddingLeft, visibleCursorY + _margin.Top);
+				}
+			}
+
 			return null;
 		}
 
@@ -464,29 +531,88 @@ namespace ConsoleEx.Controls
 					break;
 
 				case ConsoleKey.UpArrow:
-					if (_cursorY > 0)
+					if (_wrapMode != WrapMode.NoWrap)
 					{
-						_cursorY--;
-						// Ensure cursor X is within bounds of the new line
-						_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+						// Handle up arrow in wrapped mode
+						// First, find the current wrapped line that contains the cursor
+						int cursorWrappedLine = _cursorX / _effectiveWidth;
+
+						// If we're already on the first wrapped line of the current logical line
+						if (cursorWrappedLine == 0)
+						{
+							if (_cursorY > 0)
+							{
+								// Go to the previous logical line
+								_cursorY--;
+
+								// Calculate how many wrapped lines this line has
+								int prevLineLength = _lines[_cursorY].Length;
+								int prevLineWrappedCount = (prevLineLength > 0) ? ((prevLineLength - 1) / _effectiveWidth) + 1 : 1;
+
+								// Position the cursor at the same horizontal position on the last wrapped line
+								int horizontalOffset = _cursorX % _effectiveWidth;
+								_cursorX = Math.Min(prevLineLength, (prevLineWrappedCount - 1) * _effectiveWidth + horizontalOffset);
+							}
+						}
+						else
+						{
+							// Move up to the previous wrapped line within the same logical line
+							int horizontalOffset = _cursorX % _effectiveWidth;
+							_cursorX = (cursorWrappedLine - 1) * _effectiveWidth + horizontalOffset;
+						}
+					}
+					else
+					{
+						// Standard behavior for no-wrap mode
+						if (_cursorY > 0)
+						{
+							_cursorY--;
+							// Ensure cursor X is within bounds of the new line
+							_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+						}
 					}
 					break;
 
 				case ConsoleKey.DownArrow:
-					if (_wrapMode != WrapMode.NoWrap && _cursorY == _lines.Count - 1 && _cursorX < _lines[_cursorY].Length)
+					if (_wrapMode != WrapMode.NoWrap)
 					{
-						// In wrap mode on the last line, but not at the end of the content
-						// Move cursor forward by the effective width to simulate moving down a wrapped line
-						int effectiveWidth = _width ?? 80;
-						int currentLinePos = _cursorX % effectiveWidth;
-						int nextLinePos = Math.Min(_lines[_cursorY].Length, _cursorX - currentLinePos + effectiveWidth);
-						_cursorX = nextLinePos;
+						// Handle down arrow in wrapped mode
+						int cursorWrappedLine = _cursorX / _effectiveWidth;
+						int lineLength = _lines[_cursorY].Length;
+						int lineWrappedCount = (lineLength > 0) ? ((lineLength - 1) / _effectiveWidth) + 1 : 1;
+
+						// If we're on the last wrapped line of the current logical line
+						if (cursorWrappedLine >= lineWrappedCount - 1)
+						{
+							if (_cursorY < _lines.Count - 1)
+							{
+								// Go to the next logical line
+								_cursorY++;
+
+								// Position cursor at the same horizontal position on the first wrapped line
+								int horizontalOffset = _cursorX % _effectiveWidth;
+								_cursorX = Math.Min(_lines[_cursorY].Length, horizontalOffset);
+							}
+						}
+						else
+						{
+							// Move down to the next wrapped line within the same logical line
+							int horizontalOffset = _cursorX % _effectiveWidth;
+							int newPos = (cursorWrappedLine + 1) * _effectiveWidth + horizontalOffset;
+
+							// Make sure we don't go beyond the end of the line
+							_cursorX = Math.Min(lineLength, newPos);
+						}
 					}
-					else if (_cursorY < _lines.Count - 1)
+					else
 					{
-						_cursorY++;
-						// Ensure cursor X is within bounds of the new line
-						_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+						// Standard behavior for no-wrap mode
+						if (_cursorY < _lines.Count - 1)
+						{
+							_cursorY++;
+							// Ensure cursor X is within bounds of the new line
+							_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+						}
 					}
 					break;
 
@@ -499,8 +625,16 @@ namespace ConsoleEx.Controls
 					}
 					else
 					{
-						// Go to start of line
-						_cursorX = 0;
+						if (_wrapMode != WrapMode.NoWrap)
+						{
+							// Go to start of wrapped line
+							_cursorX = (_cursorX / _effectiveWidth) * _effectiveWidth;
+						}
+						else
+						{
+							// Go to start of line
+							_cursorX = 0;
+						}
 					}
 					break;
 
@@ -513,21 +647,108 @@ namespace ConsoleEx.Controls
 					}
 					else
 					{
-						// Go to end of line
-						_cursorX = _lines[_cursorY].Length;
+						if (_wrapMode != WrapMode.NoWrap)
+						{
+							// Go to end of wrapped line
+							int lineLength = _lines[_cursorY].Length;
+							int cursorWrappedLine = _cursorX / _effectiveWidth;
+							int wrappedLineCount = (lineLength > 0) ? ((lineLength - 1) / _effectiveWidth) + 1 : 1;
+							_cursorX = Math.Min(lineLength, (cursorWrappedLine + 1) * _effectiveWidth - 1);
+						}
+						else
+						{
+							// Go to end of line
+							_cursorX = _lines[_cursorY].Length;
+						}
 					}
 					break;
 
 				case ConsoleKey.PageUp:
-					_cursorY = Math.Max(0, _cursorY - _viewportHeight);
-					// Ensure cursor X is within bounds of the new line
-					_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+					if (_wrapMode != WrapMode.NoWrap)
+					{
+						// Handle page up in wrapped mode
+						int totalWrappedLinesBefore = 0;
+						for (int i = 0; i < _cursorY; i++)
+						{
+							int len = _lines[i].Length;
+							totalWrappedLinesBefore += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+						}
+
+						int cursorWrappedLine = _cursorX / _effectiveWidth;
+						int absoluteWrappedCursorLine = totalWrappedLinesBefore + cursorWrappedLine;
+						int newWrappedLine = Math.Max(0, absoluteWrappedCursorLine - _viewportHeight);
+
+						// Find the new cursor position
+						int newCursorY = 0;
+						int newCursorX = 0;
+						int wrappedLinesCount = 0;
+						for (int i = 0; i < _lines.Count; i++)
+						{
+							int len = _lines[i].Length;
+							int wrappedCount = (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+							if (wrappedLinesCount + wrappedCount > newWrappedLine)
+							{
+								newCursorY = i;
+								newCursorX = (newWrappedLine - wrappedLinesCount) * _effectiveWidth;
+								break;
+							}
+							wrappedLinesCount += wrappedCount;
+						}
+
+						_cursorY = newCursorY;
+						_cursorX = Math.Min(_lines[_cursorY].Length, newCursorX);
+					}
+					else
+					{
+						// Standard behavior for no-wrap mode
+						_cursorY = Math.Max(0, _cursorY - _viewportHeight);
+						// Ensure cursor X is within bounds of the new line
+						_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+					}
 					break;
 
 				case ConsoleKey.PageDown:
-					_cursorY = Math.Min(_lines.Count - 1, _cursorY + _viewportHeight);
-					// Ensure cursor X is within bounds of the new line
-					_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+					if (_wrapMode != WrapMode.NoWrap)
+					{
+						// Handle page down in wrapped mode
+						int totalWrappedLinesBefore = 0;
+						for (int i = 0; i < _cursorY; i++)
+						{
+							int len = _lines[i].Length;
+							totalWrappedLinesBefore += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+						}
+
+						int cursorWrappedLine = _cursorX / _effectiveWidth;
+						int absoluteWrappedCursorLine = totalWrappedLinesBefore + cursorWrappedLine;
+						int newWrappedLine = Math.Min(absoluteWrappedCursorLine + _viewportHeight, _lines.Sum(line => (line.Length > 0) ? ((line.Length - 1) / _effectiveWidth) + 1 : 1) - 1);
+
+						// Find the new cursor position
+						int newCursorY = 0;
+						int newCursorX = 0;
+						int wrappedLinesCount = 0;
+						for (int i = 0; i < _lines.Count; i++)
+						{
+							int len = _lines[i].Length;
+							int wrappedCount = (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+							if (wrappedLinesCount + wrappedCount > newWrappedLine)
+							{
+								newCursorY = i;
+								newCursorX = (newWrappedLine - wrappedLinesCount) * _effectiveWidth;
+								break;
+							}
+							wrappedLinesCount += wrappedCount;
+						}
+
+						_cursorY = newCursorY;
+						_cursorX = Math.Min(_lines[_cursorY].Length, newCursorX);
+					}
+					else
+					{
+						// Standard behavior for no-wrap mode
+						_cursorY = Math.Min(_lines.Count - 1, _cursorY + _viewportHeight);
+						// Ensure cursor X is within bounds of the new line
+						_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+					}
 					break;
 
 				case ConsoleKey.Backspace:
@@ -632,12 +853,11 @@ namespace ConsoleEx.Controls
 						// If we're in wrap mode and typing at the edge of the viewport, ensure proper scrolling
 						if (_wrapMode != WrapMode.NoWrap)
 						{
-							int effectiveWidth = _width ?? 80;
-							if (_cursorX > 0 && _cursorX % effectiveWidth == 0)
+							if (_cursorX > 0 && _cursorX % _effectiveWidth == 0)
 							{
 								// We're exactly at a wrap point
 								// Adjust horizontal scroll to show beginning of the new wrapped line
-								if (_horizontalScrollOffset < _cursorX && _cursorX - _horizontalScrollOffset >= effectiveWidth)
+								if (_horizontalScrollOffset < _cursorX && _cursorX - _horizontalScrollOffset >= _effectiveWidth)
 								{
 									_horizontalScrollOffset = _cursorX;
 								}
@@ -688,8 +908,12 @@ namespace ConsoleEx.Controls
 			Color selFgColor = SelectionForegroundColor;
 
 			_cachedContent = new List<string>();
-			int effectiveWidth = _width ?? availableWidth ?? 80;
+
+			// Adjust the effective width to account for left and right margins
+			int effectiveWidth = (_width ?? availableWidth ?? 80) - _margin.Left - _margin.Right;
 			int paddingLeft = 0;
+
+			_effectiveWidth = effectiveWidth;
 
 			// Calculate centering if needed
 			if (Alignment == Alignment.Center)
@@ -1072,6 +1296,58 @@ namespace ConsoleEx.Controls
 				_cachedContent = withMargins;
 			}
 
+			// Add border if enabled
+			if (_hasBorder)
+			{
+				List<string> withBorder = new List<string>();
+
+				string horizontalBorder = new string('─', effectiveWidth + paddingLeft + _margin.Left + _margin.Right);
+				string topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					"┌" + horizontalBorder + "┐",
+					effectiveWidth + paddingLeft + _margin.Left + _margin.Right + 2,
+					1,
+					false,
+					_borderColor,
+					null
+				)[0];
+
+				string bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					"└" + horizontalBorder + "┘",
+					effectiveWidth + paddingLeft + _margin.Left + _margin.Right + 2,
+					1,
+					false,
+					_borderColor,
+					null
+				)[0];
+
+				withBorder.Add(topBorder);
+
+				foreach (var line in _cachedContent)
+				{
+					string borderedLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						"│",
+						1,
+						1,
+						false,
+						_borderColor,
+						null
+					)[0] + line + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						"│",
+						1,
+						1,
+						false,
+						_borderColor,
+						null
+					)[0];
+
+					withBorder.Add(borderedLine);
+				}
+
+				withBorder.Add(bottomBorder);
+
+				_cachedContent = withBorder;
+			}
+
 			_invalidated = false;
 			return _cachedContent;
 		}
@@ -1160,75 +1436,6 @@ namespace ConsoleEx.Controls
 			{
 				return (_selectionEndX, _selectionEndY, _selectionStartX, _selectionStartY);
 			}
-		}
-
-		// Helper to check if position is within selection
-		private bool IsPositionInSelection(int x, int y)
-		{
-			if (!_hasSelection) return false;
-
-			var (startX, startY, endX, endY) = GetOrderedSelectionBounds();
-
-			// If outside the line range of selection, not selected
-			if (y < startY || y > endY) return false;
-
-			// If on start line, must be after startX
-			if (y == startY && x < startX) return false;
-
-			// If on end line, must be before endX
-			if (y == endY && x >= endX) return false;
-
-			return true;
-		}
-
-		private List<string> WrapLines(List<string> lines, int maxWidth)
-		{
-			var wrappedLines = new List<string>();
-
-			foreach (var line in lines)
-			{
-				if (_wrapMode == WrapMode.Wrap)
-				{
-					// Simple character-based wrapping
-					for (int i = 0; i < line.Length; i += maxWidth)
-					{
-						wrappedLines.Add(line.Substring(i, Math.Min(maxWidth, line.Length - i)));
-					}
-				}
-				else if (_wrapMode == WrapMode.WrapWords)
-				{
-					// Word-based wrapping
-					var words = line.Split(' ');
-					var currentLine = new StringBuilder();
-
-					foreach (var word in words)
-					{
-						if (currentLine.Length + word.Length + 1 > maxWidth)
-						{
-							wrappedLines.Add(currentLine.ToString());
-							currentLine.Clear();
-						}
-
-						if (currentLine.Length > 0)
-						{
-							currentLine.Append(' ');
-						}
-
-						currentLine.Append(word);
-					}
-
-					if (currentLine.Length > 0)
-					{
-						wrappedLines.Add(currentLine.ToString());
-					}
-				}
-				else
-				{
-					wrappedLines.Add(line);
-				}
-			}
-
-			return wrappedLines;
 		}
 	}
 }

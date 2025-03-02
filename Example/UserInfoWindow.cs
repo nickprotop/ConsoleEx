@@ -33,7 +33,9 @@ namespace ConsoleEx.Example
 
 			_multilineEdit = new MultilineEditControl()
 			{
-				ViewportHeight = 3
+				ViewportHeight = 3,
+				Margin = new Margin { Left = 1, Right = 1 },
+				HasBorder = true
 			};
 
 			AddWindowContents();

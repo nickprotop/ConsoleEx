@@ -58,6 +58,17 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public string Text
+		{
+			get => string.Join("\n", _content);
+			set
+			{
+				_content = value.Split('\n').ToList();
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
+
 		public int? Width
 		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
 

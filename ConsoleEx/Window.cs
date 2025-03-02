@@ -128,6 +128,10 @@ namespace ConsoleEx
 
 		public event EventHandler<ClosingEventArgs>? OnCLosing;
 
+		public event EventHandler? OnResize;
+
+		public event EventHandler? OnShown;
+
 		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
 
 		public Color ActiveBorderForegroundColor
@@ -211,10 +215,15 @@ namespace ConsoleEx
 		}
 
 		public object? Tag { get => _tag; set => _tag = value; }
+
 		public string Title { get; set; } = "Window";
+
 		public int Top { get; set; }
+
 		public int TotalLines => _cachedContent.Count;
+
 		public int Width { get; set; } = 40;
+
 		public int ZIndex { get; set; }
 
 		public void AddContent(IWIndowControl content)
@@ -628,6 +637,8 @@ namespace ConsoleEx
 			}
 
 			Invalidate(true);
+
+			OnResize?.Invoke(this, EventArgs.Empty);
 		}
 
 		public void SwitchFocus(bool backward = false)
@@ -669,6 +680,11 @@ namespace ConsoleEx
 
 				BringIntoFocus(nextIndex);
 			}
+		}
+
+		public void WindowIsAdded()
+		{
+			OnShown?.Invoke(this, EventArgs.Empty);
 		}
 
 		// Method to raise the KeyPressed event and return whether it was handled
