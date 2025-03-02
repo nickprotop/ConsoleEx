@@ -6,9 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-namespace ConsoleEx.Contents
+namespace ConsoleEx.Controls
 {
-	public interface IInteractiveContent
+	public interface IInteractiveControl
 	{
 		public bool HasFocus { get; set; }
 		public bool IsEnabled { get; set; }

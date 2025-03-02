@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Contents;
+using ConsoleEx.Controls;
 using ConsoleEx.Helpers;
 
 namespace ConsoleEx.Services.NotificationsService
@@ -39,13 +39,13 @@ namespace ConsoleEx.Services.NotificationsService
 				consoleWindowSystem.BlockUi.Enqueue(true);
 			}
 
-			var notificationContent = new MarkupContent(new List<string>() { $"{severity.Icon}{(string.IsNullOrEmpty(severity.Icon) ? string.Empty : " ")}{message}" })
+			var notificationContent = new MarkupControl(new List<string>() { $"{severity.Icon}{(string.IsNullOrEmpty(severity.Icon) ? string.Empty : " ")}{message}" })
 			{
 				Alignment = Alignment.Left
 			};
 			notificationWindow.AddContent(notificationContent);
 
-			var closeButton = new ButtonContent()
+			var closeButton = new ButtonControl()
 			{
 				Text = "Close",
 				StickyPosition = StickyPosition.Bottom,

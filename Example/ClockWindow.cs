@@ -6,14 +6,14 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Contents;
+using ConsoleEx.Controls;
 using Spectre.Console;
 
 namespace ConsoleEx.Example
 {
 	public class ClockWindow
 	{
-		private FigletContent? _clockContent;
+		private FigleControl? _clockContent;
 		private Window _window;
 
 		public ClockWindow(ConsoleWindowSystem consoleWindowSystem)
@@ -28,7 +28,7 @@ namespace ConsoleEx.Example
 				BackgroundColor = Color.Black
 			};
 
-			_clockContent = new FigletContent()
+			_clockContent = new FigleControl()
 			{
 				Text = $"{DateTime.Now:HH:mm:ss}",
 				Alignment = Alignment.Center,

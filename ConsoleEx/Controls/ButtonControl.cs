@@ -9,9 +9,9 @@
 using ConsoleEx.Helpers;
 using Spectre.Console;
 
-namespace ConsoleEx.Contents
+namespace ConsoleEx.Controls
 {
-	public class ButtonContent : IWIndowContent, IInteractiveContent
+	public class ButtonControl : IWIndowControl, IInteractiveControl
 	{
 		private Alignment _alignment = Alignment.Left;
 		private string? _cachedContent;
@@ -52,7 +52,7 @@ namespace ConsoleEx.Contents
 		public Margin Margin
 		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
 
-		public Action<ButtonContent>? OnClick { get; set; }
+		public Action<ButtonControl>? OnClick { get; set; }
 
 		public StickyPosition StickyPosition
 		{

@@ -9,9 +9,9 @@
 using ConsoleEx.Helpers;
 using Spectre.Console;
 
-namespace ConsoleEx.Contents
+namespace ConsoleEx.Controls
 {
-	public class RuleContent : IWIndowContent
+	public class RuleControl : IWIndowControl
 	{
 		private Alignment _alignment = Alignment.Left;
 		private List<string>? _cachedContent;

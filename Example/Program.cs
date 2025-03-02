@@ -25,7 +25,7 @@ namespace ConsoleEx.Example
 
 		private static ConsoleWindowSystem InitializeConsoleWindowSystem()
 		{
-			return new ConsoleWindowSystem
+			return new ConsoleWindowSystem(RenderMode.Buffer)
 			{
 				TopStatus = "ConsoleEx example application",
 				BottomStatus = "Ctrl-Q Quit",
@@ -34,8 +34,7 @@ namespace ConsoleEx.Example
 					DesktopBackroundChar = '.',
 					DesktopBackgroundColor = Color.Black,
 					DesktopForegroundColor = Color.Grey,
-				},
-				RenderMode = RenderMode.Buffer
+				}
 			};
 		}
 

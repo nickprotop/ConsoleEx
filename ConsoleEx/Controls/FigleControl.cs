@@ -7,23 +7,19 @@
 // -----------------------------------------------------------------------
 
 using ConsoleEx.Helpers;
+using Spectre.Console;
 
-namespace ConsoleEx.Contents
+namespace ConsoleEx.Controls
 {
-	public class MarkupContent : IWIndowContent
+	public class FigleControl : IWIndowControl
 	{
 		private List<string>? _cachedContent;
-		private List<string> _content;
+		private Color? _color;
 		private Alignment _justify = Alignment.Left;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
+		private string? _text;
 		private int? _width;
-		private bool _wrap = true;
-
-		public MarkupContent(List<string> lines)
-		{
-			_content = lines;
-		}
 
 		public int? ActualWidth
 		{
@@ -43,6 +39,9 @@ namespace ConsoleEx.Contents
 		public Alignment Alignment
 		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
 
+		public Color? Color
+		{ get => _color; set { _color = value; _cachedContent = null; Container?.Invalidate(true); } }
+
 		public IContainer? Container { get; set; }
 
 		public Margin Margin
@@ -58,11 +57,11 @@ namespace ConsoleEx.Contents
 			}
 		}
 
+		public string? Text
+		{ get => _text; set { _text = value; _cachedContent = null; Container?.Invalidate(true); } }
+
 		public int? Width
 		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
-
-		public bool Wrap
-		{ get => _wrap; set { _wrap = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public void Dispose()
 		{
@@ -80,10 +79,16 @@ namespace ConsoleEx.Contents
 
 			_cachedContent = new List<string>();
 
+			FigletText figletText = new FigletText(_text ?? string.Empty);
+			Style style = new Style(_color ?? _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White, background: Container?.BackgroundColor ?? Spectre.Console.Color.Black);
+			figletText.Color = style.Foreground;
+
+			_cachedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? availableWidth ?? 50, availableHeight);
+
 			int maxContentWidth = 0;
-			foreach (var line in _content)
+			foreach (var line in _cachedContent)
 			{
-				int length = AnsiConsoleHelper.StripSpectreLength(line);
+				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 				if (length > maxContentWidth) maxContentWidth = length;
 			}
 
@@ -93,23 +98,24 @@ namespace ConsoleEx.Contents
 				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
 			}
 
-			foreach (var line in _content)
-			{
-				var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{line}", _width ?? availableWidth ?? 50, availableHeight, _wrap, Container?.BackgroundColor, Container?.ForegroundColor);
-				_cachedContent?.AddRange(ansiLines);
-			}
-
-			for (int i = 0; i < _cachedContent?.Count; i++)
+			for (int i = 0; i < _cachedContent.Count; i++)
 			{
 				_cachedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + _cachedContent[i];
 			}
 
-			return _cachedContent ?? new List<string>();
+			return _cachedContent;
 		}
 
-		public void SetContent(List<string> lines)
+		public void SetColor(Color color)
 		{
-			_content = lines;
+			_color = color;
+			_cachedContent = null;
+			Container?.Invalidate(true);
+		}
+
+		public void SetText(string text)
+		{
+			_text = text;
 			_cachedContent = null;
 			Container?.Invalidate(true);
 		}

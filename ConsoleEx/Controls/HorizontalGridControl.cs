@@ -9,16 +9,16 @@
 using ConsoleEx.Helpers;
 using Spectre.Console;
 
-namespace ConsoleEx.Contents
+namespace ConsoleEx.Controls
 {
-	public class HorizontalGridContent : IWIndowContent, IInteractiveContent
+	public class HorizontalGridControl : IWIndowControl, IInteractiveControl
 	{
 		private Alignment _alignment = Alignment.Left;
 		private List<string>? _cachedContent;
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
-		private IInteractiveContent? _focusedContent;
+		private IInteractiveControl? _focusedContent;
 		private bool _hasFocus;
-		private Dictionary<IInteractiveContent, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveContent, ColumnContainer>();
+		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
 		private bool _invalidated = true;
 		private bool _isEnabled = true;
 		private Margin _margin = new Margin(0, 0, 0, 0);

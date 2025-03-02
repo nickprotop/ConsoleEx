@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Contents;
+using ConsoleEx.Controls;
 using ConsoleEx.Helpers;
 using Spectre.Console;
 using System.Drawing;
@@ -43,8 +43,8 @@ namespace ConsoleEx
 
 	public class Window : IContainer
 	{
-		private readonly List<IWIndowContent> _content = new();
-		private readonly List<IInteractiveContent> _interactiveContents = new();
+		private readonly List<IWIndowControl> _content = new();
+		private readonly List<IInteractiveControl> _interactiveContents = new();
 		private readonly object _lock = new();
 
 		private Color? _activeBorderForegroundColor;
@@ -55,9 +55,9 @@ namespace ConsoleEx
 		// List to store interactive contents
 		private List<string> _cachedContent = new();
 
-		private Dictionary<IWIndowContent, int> _contentLeftIndex = new();
+		private Dictionary<IWIndowControl, int> _contentLeftIndex = new();
 
-		private Dictionary<IWIndowContent, int> _contentTopRowIndex = new();
+		private Dictionary<IWIndowControl, int> _contentTopRowIndex = new();
 
 		private string _guid;
 		private Color? _inactiveBorderForegroundColor;
@@ -218,7 +218,7 @@ namespace ConsoleEx
 		public int Width { get; set; } = 40;
 		public int ZIndex { get; set; }
 
-		public void AddContent(IWIndowContent content)
+		public void AddContent(IWIndowControl content)
 		{
 			lock (_lock)
 			{
@@ -227,7 +227,7 @@ namespace ConsoleEx
 
 				_invalidated = true;
 
-				if (content is IInteractiveContent interactiveContent)
+				if (content is IInteractiveControl interactiveContent)
 				{
 					_interactiveContents.Add(interactiveContent);
 
@@ -259,7 +259,7 @@ namespace ConsoleEx
 
 				foreach (var content in _content)
 				{
-					(content as IWIndowContent).Dispose();
+					(content as IWIndowControl).Dispose();
 				}
 
 				if (!systemCall) _windowSystem?.CloseWindow(this);
@@ -271,7 +271,7 @@ namespace ConsoleEx
 			return false;
 		}
 
-		public IWIndowContent? GetContentFromDesktopCoordinates(Point? point)
+		public IWIndowControl? GetContentFromDesktopCoordinates(Point? point)
 		{
 			lock (_lock)
 			{
@@ -288,7 +288,7 @@ namespace ConsoleEx
 			}
 		}
 
-		public IWIndowContent? GetContentFromWindowCoordinates(Point? point)
+		public IWIndowControl? GetContentFromWindowCoordinates(Point? point)
 		{
 			lock (_lock)
 			{
@@ -336,7 +336,7 @@ namespace ConsoleEx
 			Invalidate(true);
 		}
 
-		public bool HasActiveInteractiveContent(out IInteractiveContent? interactiveContent)
+		public bool HasActiveInteractiveContent(out IInteractiveControl? interactiveContent)
 		{
 			interactiveContent = _interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
 			return interactiveContent != null;
@@ -357,9 +357,9 @@ namespace ConsoleEx
 				int left = currentCursorPosition?.Item1 ?? 0;
 				int top = currentCursorPosition?.Item2 ?? 0;
 
-				if (activeInteractiveContent != null && activeInteractiveContent is IWIndowContent)
+				if (activeInteractiveContent != null && activeInteractiveContent is IWIndowControl)
 				{
-					IWIndowContent? content = activeInteractiveContent as IWIndowContent;
+					IWIndowControl? content = activeInteractiveContent as IWIndowControl;
 
 					cursorPosition = new Point(_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
 
@@ -384,7 +384,7 @@ namespace ConsoleEx
 			{
 				foreach (var content in _content)
 				{
-					(content as IWIndowContent)?.Invalidate();
+					(content as IWIndowControl)?.Invalidate();
 				}
 			}
 
@@ -455,13 +455,13 @@ namespace ConsoleEx
 			}
 		}
 
-		public void RemoveContent(IWIndowContent content)
+		public void RemoveContent(IWIndowControl content)
 		{
 			lock (_lock)
 			{
 				if (_content.Remove(content))
 				{
-					if (content is IInteractiveContent interactiveContent)
+					if (content is IInteractiveControl interactiveContent)
 					{
 						_interactiveContents.Remove(interactiveContent);
 						// If the removed content had focus, switch focus to the next one
@@ -664,7 +664,7 @@ namespace ConsoleEx
 		private void BringIntoFocus(int nextIndex)
 		{
 			// Ensure the focused content is within the visible window
-			var focusedContent = _interactiveContents[nextIndex] as IWIndowContent;
+			var focusedContent = _interactiveContents[nextIndex] as IWIndowControl;
 
 			if (focusedContent != null)
 			{

@@ -6,13 +6,13 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Contents;
+using ConsoleEx.Controls;
 
 namespace ConsoleEx.Example
 {
 	public class SystemInfoWindow
 	{
-		private MarkupContent? _systemInfoContent;
+		private MarkupControl? _systemInfoContent;
 		private Window _window;
 
 		public SystemInfoWindow(ConsoleWindowSystem consoleWindowSystem)
@@ -33,7 +33,7 @@ namespace ConsoleEx.Example
 
 		public async void WindowThread(Window window)
 		{
-			_systemInfoContent = new MarkupContent(GetSystemInfo());
+			_systemInfoContent = new MarkupControl(GetSystemInfo());
 			window.AddContent(_systemInfoContent);
 
 			while (true)

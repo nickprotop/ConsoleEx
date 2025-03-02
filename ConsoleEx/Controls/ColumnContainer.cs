@@ -6,21 +6,22 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using ConsoleEx.Controls;
 using ConsoleEx.Helpers;
 using Spectre.Console;
 
-namespace ConsoleEx.Contents
+namespace ConsoleEx.Controls
 {
 	public class ColumnContainer : IContainer
 	{
 		private List<string>? _cachedContent;
 		private ConsoleWindowSystem? _consoleWindowSystem;
-		private List<IWIndowContent> _contents = new List<IWIndowContent>();
-		private HorizontalGridContent _horizontalGridContent;
+		private List<IWIndowControl> _contents = new List<IWIndowControl>();
+		private HorizontalGridControl _horizontalGridContent;
 		private bool _isDirty;
 		private int? _width;
 
-		public ColumnContainer(HorizontalGridContent horizontalGridContent)
+		public ColumnContainer(HorizontalGridControl horizontalGridContent)
 		{
 			_horizontalGridContent = horizontalGridContent;
 			_consoleWindowSystem = horizontalGridContent.Container?.GetConsoleWindowSystem;
@@ -54,7 +55,7 @@ namespace ConsoleEx.Contents
 			}
 		}
 
-		public void AddContent(IWIndowContent content)
+		public void AddContent(IWIndowControl content)
 		{
 			content.Container = this;
 			_contents.Add(content);
@@ -74,12 +75,12 @@ namespace ConsoleEx.Contents
 			return maxLength;
 		}
 
-		public List<IInteractiveContent> GetInteractiveContents()
+		public List<IInteractiveControl> GetInteractiveContents()
 		{
-			List<IInteractiveContent> interactiveContents = new List<IInteractiveContent>();
+			List<IInteractiveControl> interactiveContents = new List<IInteractiveControl>();
 			foreach (var content in _contents)
 			{
-				if (content is IInteractiveContent interactiveContent)
+				if (content is IInteractiveControl interactiveContent)
 				{
 					interactiveContents.Add(interactiveContent);
 				}
@@ -94,7 +95,7 @@ namespace ConsoleEx.Contents
 			_horizontalGridContent.Invalidate();
 		}
 
-		public void RemoveContent(IWIndowContent content)
+		public void RemoveContent(IWIndowControl content)
 		{
 			if (_contents.Remove(content))
 			{

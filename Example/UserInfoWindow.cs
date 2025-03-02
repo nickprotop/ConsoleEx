@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Contents;
+using ConsoleEx.Controls;
 using Spectre.Console;
 
 namespace ConsoleEx.Example
@@ -14,17 +14,17 @@ namespace ConsoleEx.Example
 	internal class UserInfoWindow
 	{
 		private readonly Window _window;
-		private MarkupContent _ageInfo;
-		private PromptContent _agePrompt;
-		private HorizontalGridContent? _bottomButtons;
-		private PromptContent _namePrompt;
+		private MarkupControl _ageInfo;
+		private PromptControl _agePrompt;
+		private HorizontalGridControl? _bottomButtons;
+		private PromptControl _namePrompt;
 
 		public UserInfoWindow(ConsoleWindowSystem consoleWindowSystem)
 		{
 			_window = CreateWindow(consoleWindowSystem);
 			consoleWindowSystem.AddWindow(_window);
 
-			_ageInfo = new MarkupContent(new List<string> { " " });
+			_ageInfo = new MarkupControl(new List<string> { " " });
 
 			_namePrompt = CreateNamePrompt();
 			_agePrompt = CreateAgePrompt();
@@ -34,12 +34,12 @@ namespace ConsoleEx.Example
 
 		public Window Window => _window;
 
-		public void AgePrompt_Enter(PromptContent prompt, string input)
+		public void AgePrompt_Enter(PromptControl prompt, string input)
 		{
 			_ageInfo?.SetContent(new List<string> { $"[bold]Your age is {input}[/]" });
 		}
 
-		public void NamePrompt_InputChanged(PromptContent prompt, string input)
+		public void NamePrompt_InputChanged(PromptControl prompt, string input)
 		{
 			_window.Title = $"User - {input}";
 		}
@@ -60,7 +60,7 @@ namespace ConsoleEx.Example
 			AddButtonToBottomButtons(closeButton);
 		}
 
-		private void AddButtonToBottomButtons(ButtonContent button)
+		private void AddButtonToBottomButtons(ButtonControl button)
 		{
 			if (_bottomButtons == null) return;
 
@@ -71,14 +71,14 @@ namespace ConsoleEx.Example
 
 		private void AddWindowContents()
 		{
-			_window.AddContent(new MarkupContent(new List<string> { "User Info", " " }));
+			_window.AddContent(new MarkupControl(new List<string> { "User Info", " " }));
 			_window.AddContent(_namePrompt);
 			_window.AddContent(_agePrompt);
-			_window.AddContent(new MarkupContent(new List<string> { " " }));
+			_window.AddContent(new MarkupControl(new List<string> { " " }));
 			_window.AddContent(_ageInfo);
-			_window.AddContent(new MarkupContent(new List<string> { " " }));
+			_window.AddContent(new MarkupControl(new List<string> { " " }));
 
-			_window.AddContent(new RuleContent
+			_window.AddContent(new RuleControl
 			{
 				Color = Color.Yellow,
 				Title = "[cyan]A[/][red]c[/][green]t[/][blue]i[/]o[white]n[/]s",
@@ -89,9 +89,9 @@ namespace ConsoleEx.Example
 			AddBottomButtons();
 		}
 
-		private PromptContent CreateAgePrompt()
+		private PromptControl CreateAgePrompt()
 		{
-			var agePrompt = new PromptContent
+			var agePrompt = new PromptControl
 			{
 				Prompt = "[yellow]Enter[/] [red]your[/] [blue]age[/] : ",
 				DisableOnEnter = false,
@@ -101,17 +101,17 @@ namespace ConsoleEx.Example
 			return agePrompt;
 		}
 
-		private HorizontalGridContent CreateBottomButtons()
+		private HorizontalGridControl CreateBottomButtons()
 		{
-			return new HorizontalGridContent
+			return new HorizontalGridControl
 			{
 				StickyPosition = StickyPosition.Bottom
 			};
 		}
 
-		private ButtonContent CreateButton(string text, Action<object> onClick)
+		private ButtonControl CreateButton(string text, Action<object> onClick)
 		{
-			var button = new ButtonContent
+			var button = new ButtonControl
 			{
 				Text = text,
 				Margin = new Margin { Left = 1 }
@@ -120,9 +120,9 @@ namespace ConsoleEx.Example
 			return button;
 		}
 
-		private PromptContent CreateNamePrompt()
+		private PromptControl CreateNamePrompt()
 		{
-			var namePrompt = new PromptContent
+			var namePrompt = new PromptControl
 			{
 				Prompt = "[yellow]Enter[/] [red]your[/] [blue]name[/]: ",
 				DisableOnEnter = false

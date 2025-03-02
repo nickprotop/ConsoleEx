@@ -50,8 +50,10 @@ namespace ConsoleEx
 		private bool _running;
 		// Initial idle time
 
-		public ConsoleWindowSystem()
+		public ConsoleWindowSystem(RenderMode renderMode)
 		{
+			RenderMode = renderMode;
+
 			// Initialize the console driver
 			_consoleDriver = new NetConsoleDriver(this)
 			{
@@ -74,7 +76,7 @@ namespace ConsoleEx
 		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
 		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
 		public Point DesktopUpperLeft => new Point(0, string.IsNullOrEmpty(TopStatus) ? 0 : 1);
-		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
+		public RenderMode RenderMode { get; set; }
 		public Theme Theme { get; set; } = new Theme();
 		public string TopStatus { get; set; } = "";
 		public VisibleRegions VisibleRegions => _visibleRegions;
@@ -524,7 +526,7 @@ namespace ConsoleEx
 				}
 			}
 
-			window.Invalidate(true);
+			window.Invalidate(false);
 		}
 
 		private void ProcessInput()

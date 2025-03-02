@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Contents;
+using ConsoleEx.Controls;
 using Spectre.Console;
 
 namespace ConsoleEx.Example
@@ -36,7 +36,7 @@ namespace ConsoleEx.Example
 
 		public void AddLog(string log)
 		{
-			_window.AddContent(new MarkupContent(new List<string>() { log }) { Alignment = Alignment.Center });
+			_window.AddContent(new MarkupControl(new List<string>() { log }) { Alignment = Alignment.Center });
 		}
 
 		public void KeyPressed(object? sender, KeyPressedEventArgs e)

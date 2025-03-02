@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-namespace ConsoleEx.Contents
+namespace ConsoleEx.Controls
 {
 	public enum Alignment
 	{
@@ -23,7 +23,7 @@ namespace ConsoleEx.Contents
 		Bottom
 	}
 
-	public interface IWIndowContent : IDisposable
+	public interface IWIndowControl : IDisposable
 	{
 		public int? ActualWidth { get; }
 		public Alignment Alignment { get; set; }

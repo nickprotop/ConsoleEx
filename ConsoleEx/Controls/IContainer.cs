@@ -8,7 +8,7 @@
 
 using Spectre.Console;
 
-namespace ConsoleEx.Contents
+namespace ConsoleEx.Controls
 {
 	public interface IContainer
 	{
