@@ -34,11 +34,11 @@ namespace ConsoleEx.Controls
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
-		private bool _hasBorder = false;
 		private bool _hasFocus = false;
 		private bool _hasSelection = false;
 		private int _horizontalScrollOffset = 0;
 		private bool _invalidated = true;
+		private bool _isEditing = false;
 		private bool _isEnabled = true;
 		private List<string> _lines = new List<string>() { string.Empty };
 		private Margin _margin = new Margin(0, 0, 0, 0);
@@ -140,17 +140,6 @@ namespace ConsoleEx.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				_cachedContent = null;
-				Container?.Invalidate(true);
-			}
-		}
-
-		public bool HasBorder
-		{
-			get => _hasBorder;
-			set
-			{
-				_hasBorder = value;
 				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
@@ -327,6 +316,11 @@ namespace ConsoleEx.Controls
 		{
 			if (_cachedContent == null) return null;
 
+			if (!_isEditing)
+			{
+				return null;
+			}
+
 			int paddingLeft = 0;
 
 			// Calculate centering if needed
@@ -472,6 +466,18 @@ namespace ConsoleEx.Controls
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled) return false;
+
+			if (!_isEditing)
+			{
+				if (key.Key == ConsoleKey.Enter)
+				{
+					_isEditing = true;
+					Invalidate();
+					Container?.Invalidate(false);
+					return true;
+				}
+				return false;
+			}
 
 			bool contentChanged = false;
 			bool isShiftPressed = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
@@ -831,8 +837,10 @@ namespace ConsoleEx.Controls
 					}
 					else
 					{
-						// Give up focus
-						HasFocus = false;
+						Invalidate();
+						Container?.Invalidate(false);
+						_isEditing = false;
+						Invalidate();
 						return true;
 					}
 
@@ -902,7 +910,7 @@ namespace ConsoleEx.Controls
 		{
 			if (!_invalidated && _cachedContent != null) return _cachedContent;
 
-			Color bgColor = _hasFocus ? FocusedBackgroundColor : BackgroundColor;
+			Color bgColor = _hasFocus ? _isEditing ? FocusedBackgroundColor : Container?.GetConsoleWindowSystem?.Theme?.TextEditFocusedNotEditing ?? Color.LightSlateGrey : BackgroundColor;
 			Color fgColor = _hasFocus ? FocusedForegroundColor : ForegroundColor;
 			Color selBgColor = SelectionBackgroundColor;
 			Color selFgColor = SelectionForegroundColor;
@@ -1294,58 +1302,6 @@ namespace ConsoleEx.Controls
 				}
 
 				_cachedContent = withMargins;
-			}
-
-			// Add border if enabled
-			if (_hasBorder)
-			{
-				List<string> withBorder = new List<string>();
-
-				string horizontalBorder = new string('─', effectiveWidth + paddingLeft + _margin.Left + _margin.Right);
-				string topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					"┌" + horizontalBorder + "┐",
-					effectiveWidth + paddingLeft + _margin.Left + _margin.Right + 2,
-					1,
-					false,
-					_borderColor,
-					null
-				)[0];
-
-				string bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					"└" + horizontalBorder + "┘",
-					effectiveWidth + paddingLeft + _margin.Left + _margin.Right + 2,
-					1,
-					false,
-					_borderColor,
-					null
-				)[0];
-
-				withBorder.Add(topBorder);
-
-				foreach (var line in _cachedContent)
-				{
-					string borderedLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						"│",
-						1,
-						1,
-						false,
-						_borderColor,
-						null
-					)[0] + line + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						"│",
-						1,
-						1,
-						false,
-						_borderColor,
-						null
-					)[0];
-
-					withBorder.Add(borderedLine);
-				}
-
-				withBorder.Add(bottomBorder);
-
-				_cachedContent = withBorder;
 			}
 
 			_invalidated = false;

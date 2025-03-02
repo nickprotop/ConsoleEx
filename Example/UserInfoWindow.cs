@@ -34,8 +34,7 @@ namespace ConsoleEx.Example
 			_multilineEdit = new MultilineEditControl()
 			{
 				ViewportHeight = 3,
-				Margin = new Margin { Left = 1, Right = 1 },
-				HasBorder = true
+				Margin = new Margin { Left = 1, Right = 1 }
 			};
 
 			AddWindowContents();
@@ -87,7 +86,15 @@ namespace ConsoleEx.Example
 			_window.AddContent(_ageInfo);
 			_window.AddContent(new MarkupControl(new List<string> { " " }));
 
+			_window.AddContent(new RuleControl
+			{
+				Title = "MultilineEdit control",
+				TitleAlignment = Justify.Left
+			});
+
 			_window.AddContent(_multilineEdit);
+
+			_window.AddContent(new RuleControl());
 
 			_window.AddContent(new RuleControl
 			{
