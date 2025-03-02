@@ -49,7 +49,7 @@ namespace ConsoleEx.Helpers
 		public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow, Color? backgroundColor, Color? foregroundColor)
 		{
 			if (string.IsNullOrEmpty(markup))
-				return new List<string>();
+				return new List<string>() { string.Empty };
 
 			var writer = new StringWriter();
 			var console = CreateCaptureConsole(writer, width, height);

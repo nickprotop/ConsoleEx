@@ -17,17 +17,24 @@ namespace ConsoleEx.Example
 		private MarkupControl _ageInfo;
 		private PromptControl _agePrompt;
 		private HorizontalGridControl? _bottomButtons;
+		private MultilineEditControl _multilineEdit;
 		private PromptControl _namePrompt;
 
 		public UserInfoWindow(ConsoleWindowSystem consoleWindowSystem)
 		{
 			_window = CreateWindow(consoleWindowSystem);
+
 			consoleWindowSystem.AddWindow(_window);
 
 			_ageInfo = new MarkupControl(new List<string> { " " });
 
 			_namePrompt = CreateNamePrompt();
 			_agePrompt = CreateAgePrompt();
+
+			_multilineEdit = new MultilineEditControl()
+			{
+				ViewportHeight = 3
+			};
 
 			AddWindowContents();
 		}
@@ -77,6 +84,8 @@ namespace ConsoleEx.Example
 			_window.AddContent(new MarkupControl(new List<string> { " " }));
 			_window.AddContent(_ageInfo);
 			_window.AddContent(new MarkupControl(new List<string> { " " }));
+
+			_window.AddContent(_multilineEdit);
 
 			_window.AddContent(new RuleControl
 			{
@@ -139,7 +148,7 @@ namespace ConsoleEx.Example
 				Left = 22,
 				Top = 6,
 				Width = 40,
-				Height = 10,
+				Height = 16,
 				IsResizable = true
 			};
 		}

@@ -8,14 +8,12 @@
 
 using Spectre.Console;
 using System.Collections.Concurrent;
-using System.Text;
 using ConsoleEx.Themes;
 using ConsoleEx.Helpers;
 using static ConsoleEx.Window;
 using ConsoleEx.Drivers;
 using System.Drawing;
 using Color = Spectre.Console.Color;
-using System;
 
 namespace ConsoleEx
 {

@@ -1,4 +1,12 @@
-﻿using ConsoleEx.Helpers;
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using ConsoleEx.Helpers;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -6,8 +14,8 @@ namespace ConsoleEx.Drivers
 {
 	public class ConsoleBuffer
 	{
-		private const string ResetSequence = "\u001b[0m";
 		private const string CursorForward = "\u001b[1C";
+		private const string ResetSequence = "\u001b[0m";
 
 		// Cached regex for better performance
 		private static readonly Regex _ansiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
@@ -15,10 +23,11 @@ namespace ConsoleEx.Drivers
 		private readonly Cell[,] _backBuffer;
 		private readonly Cell[,] _frontBuffer;
 		private readonly int _height;
-		private readonly int _width;
 
 		// StringBuilder for render operations to minimize string allocations
 		private readonly StringBuilder _renderBuilder = new(1024);
+
+		private readonly int _width;
 
 		public ConsoleBuffer(int width, int height)
 		{

@@ -1,11 +1,13 @@
-﻿using ConsoleEx.Drivers;
-using System;
-using System.Collections.Generic;
+﻿// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using ConsoleEx.Drivers;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
 
 // Code from Terminal.Gui - https://github.com/gui-cs/Terminal.Gui
 

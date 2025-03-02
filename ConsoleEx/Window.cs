@@ -7,8 +7,6 @@
 // -----------------------------------------------------------------------
 
 using ConsoleEx.Controls;
-using ConsoleEx.Helpers;
-using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
@@ -65,6 +63,7 @@ namespace ConsoleEx
 		private bool _invalidated = false;
 
 		private bool _isActive;
+		private IInteractiveControl? _lastFocusedControl;
 		private int? _maximumHeight;
 		private int? _maximumWidth;
 		private int? _minimumHeight = 3;
@@ -398,6 +397,14 @@ namespace ConsoleEx
 			//IsDirty = true;
 		}
 
+		public void NotifyControlFocusLost(IInteractiveControl control)
+		{
+			if (control != null && _interactiveContents.Contains(control))
+			{
+				_lastFocusedControl = control;
+			}
+		}
+
 		public bool ProcessInput(ConsoleKeyInfo key)
 		{
 			lock (_lock)
@@ -464,10 +471,18 @@ namespace ConsoleEx
 					if (content is IInteractiveControl interactiveContent)
 					{
 						_interactiveContents.Remove(interactiveContent);
+
+						// If the removed content was the last focused control, clear it
+						if (_lastFocusedControl == interactiveContent)
+						{
+							_lastFocusedControl = null;
+						}
+
 						// If the removed content had focus, switch focus to the next one
 						if (interactiveContent.HasFocus && _interactiveContents.Count > 0)
 						{
 							_interactiveContents[0].HasFocus = true;
+							_lastFocusedControl = _interactiveContents[0];
 						}
 					}
 					_invalidated = true;
@@ -480,6 +495,7 @@ namespace ConsoleEx
 
 		public List<string> RenderAndGetVisibleContent()
 		{
+			// Return empty list if window is minimized
 			if (_state == WindowState.Minimized)
 			{
 				return new List<string>();
@@ -487,20 +503,22 @@ namespace ConsoleEx
 
 			lock (_lock)
 			{
+				// Only recalculate content if it's been invalidated
 				if (_invalidated)
 				{
 					List<string> lines = new List<string>();
 
+					// Process normal content first (non-sticky)
 					foreach (var content in _content.Where(c => c.StickyPosition != StickyPosition.Bottom))
 					{
 						// Store the top row index for the current content
 						_contentTopRowIndex[content] = lines.Count;
-
-						// Store the left index for the current content
 						_contentLeftIndex[content] = 0;
 
+						// Get content's rendered lines
 						var ansiLines = content.RenderContent(Width - 2, Height - 2);
 
+						// Ensure proper formatting for each line
 						for (int i = 0; i < ansiLines.Count; i++)
 						{
 							var line = ansiLines[i];
@@ -510,15 +528,14 @@ namespace ConsoleEx
 						lines.AddRange(ansiLines);
 					}
 
+					// Process sticky content separately
 					_bottomStickyHeight = 0;
 					_bottomStickyLines.Clear();
 
 					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Bottom))
 					{
-						// Store the top row index for the current content
+						// Track the position of sticky content
 						_contentTopRowIndex[content] = lines.Count + _bottomStickyLines.Count;
-
-						// Store the left index for the current content
 						_contentLeftIndex[content] = 0;
 
 						var ansiLines = content.RenderContent(Width - 2, Height - 2);
@@ -528,25 +545,28 @@ namespace ConsoleEx
 							var line = ansiLines[i];
 							ansiLines[i] = $"{line}";
 						}
-						_bottomStickyLines.AddRange(ansiLines);
 
+						_bottomStickyLines.AddRange(ansiLines);
 						_bottomStickyHeight += ansiLines.Count;
 					}
 
-					// lines.AddRange(bottomStickyLines);
+					// Reserve space for sticky content at the bottom
 					lines.AddRange(Enumerable.Repeat(string.Empty, _bottomStickyHeight));
 
 					_cachedContent = lines;
 					_invalidated = false;
 				}
 
+				// Get visible portion based on scroll offset (accounting for window border)
 				List<string> visibleContent = _cachedContent.Skip(_scrollOffset).Take(Height - 2).ToList();
 
+				// Pad with empty lines if needed
 				if (visibleContent.Count < Height - 2)
 				{
 					visibleContent.AddRange(Enumerable.Repeat(string.Empty, Height - 2 - visibleContent.Count));
 				}
 
+				// Replace the bottom placeholder lines with actual sticky content
 				visibleContent.RemoveRange(visibleContent.Count - _bottomStickyHeight, _bottomStickyHeight);
 				visibleContent.AddRange(_bottomStickyLines);
 
@@ -619,9 +639,16 @@ namespace ConsoleEx
 				// Find the currently focused content
 				var currentIndex = _interactiveContents.FindIndex(ic => ic.HasFocus);
 
-				// Remove focus from the current content
+				// If no control is focused but we have a last focused control, use that as a starting point
+				if (currentIndex == -1 && _lastFocusedControl != null)
+				{
+					currentIndex = _interactiveContents.IndexOf(_lastFocusedControl);
+				}
+
+				// Remove focus from the current content if there is one
 				if (currentIndex != -1)
 				{
+					_lastFocusedControl = _interactiveContents[currentIndex]; // Remember the last focused control
 					_interactiveContents[currentIndex].HasFocus = false;
 				}
 
@@ -638,6 +665,7 @@ namespace ConsoleEx
 
 				// Set focus to the next content
 				_interactiveContents[nextIndex].SetFocus(true, backward);
+				_lastFocusedControl = _interactiveContents[nextIndex]; // Update last focused control
 
 				BringIntoFocus(nextIndex);
 			}
