@@ -32,9 +32,10 @@ namespace ConsoleEx.Example
 			// Create title
 			_window.AddContent(new MarkupControl(new List<string> { "[bold]Country Selection Form[/]" })
 			{
-				Alignment = Alignment.Center
+				Alignment = Alignment.Center,
+				StickyPosition = StickyPosition.Top
 			});
-			_window.AddContent(new RuleControl());
+			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
 
 			// Create dropdown
 			_countryDropdown = new DropdownControl("Select a country:");
@@ -57,7 +58,7 @@ namespace ConsoleEx.Example
 			_window.AddContent(new MarkupControl(new List<string> { " " }));
 
 			// Add action buttons
-			var buttonsGrid = new HorizontalGridControl { Alignment = Alignment.Center };
+			var buttonsGrid = new HorizontalGridControl { Alignment = Alignment.Center, StickyPosition = StickyPosition.Bottom };
 
 			var okButton = CreateButton("OK", OnOkClicked);
 			var cancelButton = CreateButton("Cancel", OnCancelClicked);
@@ -71,6 +72,7 @@ namespace ConsoleEx.Example
 			buttonsGrid.AddColumn(cancelColumn);
 
 			_window.AddContent(buttonsGrid);
+			;
 
 			// Handle selection change
 			_countryDropdown.SelectedItemChanged += CountryDropdown_SelectedItemChanged;

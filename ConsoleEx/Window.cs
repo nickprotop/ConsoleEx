@@ -532,26 +532,6 @@ namespace ConsoleEx
 						_topStickyHeight += ansiLines.Count;
 					}
 
-					// Process normal content next (non-sticky)
-					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.None && c.Visible == true))
-					{
-						// Store the top row index for the current content
-						_contentTopRowIndex[content] = lines.Count + _topStickyHeight;
-						_contentLeftIndex[content] = 0;
-
-						// Get content's rendered lines
-						var ansiLines = content.RenderContent(Width - 2, Height - 2);
-
-						// Ensure proper formatting for each line
-						for (int i = 0; i < ansiLines.Count; i++)
-						{
-							var line = ansiLines[i];
-							ansiLines[i] = $"{line}";
-						}
-
-						lines.AddRange(ansiLines);
-					}
-
 					// Process bottom sticky content last
 					_bottomStickyHeight = 0;
 					_bottomStickyLines.Clear();
@@ -572,6 +552,26 @@ namespace ConsoleEx
 
 						_bottomStickyLines.AddRange(ansiLines);
 						_bottomStickyHeight += ansiLines.Count;
+					}
+
+					// Process normal content next (non-sticky)
+					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.None && c.Visible == true))
+					{
+						// Store the top row index for the current content
+						_contentTopRowIndex[content] = lines.Count + _topStickyHeight;
+						_contentLeftIndex[content] = 0;
+
+						// Get content's rendered lines
+						var ansiLines = content.RenderContent(Width - 2, Height - 2 - _topStickyHeight - _bottomStickyHeight);
+
+						// Ensure proper formatting for each line
+						for (int i = 0; i < ansiLines.Count; i++)
+						{
+							var line = ansiLines[i];
+							ansiLines[i] = $"{line}";
+						}
+
+						lines.AddRange(ansiLines);
 					}
 
 					// Reserve space for sticky content at the bottom

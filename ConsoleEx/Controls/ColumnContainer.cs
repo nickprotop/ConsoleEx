@@ -31,11 +31,12 @@ namespace ConsoleEx.Controls
 
 		public Color BackgroundColor
 		{ get { return _backgroundColor ?? _consoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black; } set { _backgroundColor = value; Invalidate(true); } }
+
 		public Color ForegroundColor
 		{ get { return _foregroundColor ?? _consoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White; } set { _foregroundColor = value; Invalidate(true); } }
 
 		public ConsoleWindowSystem? GetConsoleWindowSystem
-		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; } }
+		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; foreach (IWIndowControl control in _contents) { control.Invalidate(); }; Invalidate(true); } }
 
 		public bool IsDirty
 		{

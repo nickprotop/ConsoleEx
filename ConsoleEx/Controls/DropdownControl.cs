@@ -20,6 +20,8 @@ namespace ConsoleEx.Controls
 		private bool _autoAdjustWidth = true;
 		private Color? _backgroundColorValue;
 		private List<string>? _cachedContent;
+		private int? _calculatedMaxVisibleItems;
+		private int _containerScrollOffsetBeforeDrop = 0;
 		private int _dropdownScrollOffset = 0;
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
@@ -78,6 +80,18 @@ namespace ConsoleEx.Controls
 		public event EventHandler<DropdownItem?>? SelectedItemChanged;
 
 		public event EventHandler<string?>? SelectedValueChanged;
+
+		public int? ActualHeight
+		{
+			get
+			{
+				if (_cachedContent == null) return null;
+
+				// Return the total number of lines in the rendered content
+				// This includes the header, dropdown items (if open), scroll indicators, and margins
+				return _cachedContent.Count;
+			}
+		}
 
 		// Properties
 		public int? ActualWidth
@@ -193,9 +207,40 @@ namespace ConsoleEx.Controls
 			get => _isDropdownOpen;
 			set
 			{
-				_isDropdownOpen = value;
-				_cachedContent = null;
-				Container?.Invalidate(true);
+				// On state change
+				if (_isDropdownOpen != value)
+				{
+					bool containerIsWindow = Container is Window;
+					Window? containerWindow = Container as Window;
+
+					// If opening, store current scroll offset
+					if (value && !_isDropdownOpen && containerIsWindow)
+					{
+						_containerScrollOffsetBeforeDrop = containerWindow!.ScrollOffset;
+					}
+
+					_isDropdownOpen = value;
+					_cachedContent = null;
+					Container?.Invalidate(true);
+
+					// If closing, restore scroll offset (after content is recalculated)
+					if (!value && containerIsWindow)
+					{
+						// Wait for container to update, then restore scroll offset
+						Task.Run(async () =>
+						{
+							await Task.Delay(1); // Give time for rendering to complete
+							RestoreContainerScrollOffset(containerWindow!);
+						});
+					}
+				}
+				else
+				{
+					_isDropdownOpen = value;
+					_cachedContent = null;
+					_invalidated = true;
+					Container?.Invalidate(true);
+				}
 			}
 		}
 
@@ -246,6 +291,7 @@ namespace ConsoleEx.Controls
 			{
 				_maxVisibleItems = Math.Max(1, value);
 				_cachedContent = null;
+				_invalidated = true;
 				Container?.Invalidate(true);
 			}
 		}
@@ -435,18 +481,15 @@ namespace ConsoleEx.Controls
 						{
 							SelectedIndex = _highlightedIndex; // Actually select the highlighted item
 						}
-						_isDropdownOpen = false;
-						_cachedContent = null;
-						Container?.Invalidate(true);
+						// Use the property setter to handle scroll offset
+						IsDropdownOpen = false;
 						return true;
 					}
 					else if (_items.Count > 0)
 					{
-						// Open dropdown
-						_isDropdownOpen = true;
+						// Open dropdown - use property setter to handle scroll offset
+						IsDropdownOpen = true;
 						_highlightedIndex = _selectedIndex; // Initialize highlighted index with selected index
-						_cachedContent = null;
-						Container?.Invalidate(true);
 						return true;
 					}
 					return false;
@@ -456,9 +499,8 @@ namespace ConsoleEx.Controls
 					{
 						// Close dropdown without changing selection
 						_highlightedIndex = _selectedIndex; // Reset highlighted index
-						_isDropdownOpen = false;
-						_cachedContent = null;
-						Container?.Invalidate(true);
+															// Use property setter to handle scroll offset
+						IsDropdownOpen = false;
 						return true;
 					}
 					return false;
@@ -525,7 +567,7 @@ namespace ConsoleEx.Controls
 				case ConsoleKey.PageUp:
 					if (_isDropdownOpen && _highlightedIndex > 0)
 					{
-						_highlightedIndex = Math.Max(0, _highlightedIndex - _maxVisibleItems);
+						_highlightedIndex = Math.Max(0, _highlightedIndex - _calculatedMaxVisibleItems ?? 1);
 						EnsureHighlightedItemVisible();
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -536,7 +578,7 @@ namespace ConsoleEx.Controls
 				case ConsoleKey.PageDown:
 					if (_isDropdownOpen && _highlightedIndex < _items.Count - 1)
 					{
-						_highlightedIndex = Math.Min(_items.Count - 1, _highlightedIndex + _maxVisibleItems);
+						_highlightedIndex = Math.Min(_items.Count - 1, _highlightedIndex + _calculatedMaxVisibleItems ?? 1);
 						EnsureHighlightedItemVisible();
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -714,8 +756,24 @@ namespace ConsoleEx.Controls
 			// If dropdown is open, render list items
 			if (_isDropdownOpen && _items.Count > 0)
 			{
-				// Determine how many items to display
-				int itemsToShow = Math.Min(_maxVisibleItems, _items.Count - _dropdownScrollOffset);
+				// Calculate available space for dropdown items considering margins and container height
+				int availableSpaceForDropdown = int.MaxValue;
+
+				if (availableHeight.HasValue)
+				{
+					// Calculate how many lines we can use for dropdown items
+					// This considers: header height (1) + top/bottom margins + 1 for scroll indicator
+					int usedHeight = 1 + _margin.Top + _margin.Bottom + ((_dropdownScrollOffset > 0 || _items.Count > _maxVisibleItems) ? 1 : 0);
+					availableSpaceForDropdown = Math.Max(1, availableHeight.Value - usedHeight);
+				}
+
+				// Determine how many items to display based on available height and maxVisibleItems
+				int effectiveMaxVisibleItems = Math.Min(_maxVisibleItems, availableSpaceForDropdown);
+
+				_calculatedMaxVisibleItems = effectiveMaxVisibleItems; // Update maxVisibleItems to actual value
+
+				// Now calculate actual items to show considering scroll offset
+				int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - _dropdownScrollOffset);
 
 				// Render each visible item
 				for (int i = 0; i < itemsToShow; i++)
@@ -815,7 +873,7 @@ namespace ConsoleEx.Controls
 				}
 
 				// Add scroll indicators if needed
-				if (_dropdownScrollOffset > 0 || _dropdownScrollOffset + _maxVisibleItems < _items.Count)
+				if (_dropdownScrollOffset > 0 || _dropdownScrollOffset + itemsToShow < _items.Count)
 				{
 					string scrollIndicator = "";
 
@@ -831,7 +889,7 @@ namespace ConsoleEx.Controls
 						scrollIndicator += new string(' ', scrollPadding);
 
 					// Bottom scroll indicator
-					if (_dropdownScrollOffset + _maxVisibleItems < _items.Count)
+					if (_dropdownScrollOffset + itemsToShow < _items.Count)
 						scrollIndicator += "▼";
 					else
 						scrollIndicator += " ";
@@ -947,13 +1005,17 @@ namespace ConsoleEx.Controls
 			if (_highlightedIndex < 0)
 				return;
 
+			// Calculate effective max visible items considering available space
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? 1;
+
+			// Now use effective max visible items for scrolling logic
 			if (_highlightedIndex < _dropdownScrollOffset)
 			{
 				_dropdownScrollOffset = _highlightedIndex;
 			}
-			else if (_highlightedIndex >= _dropdownScrollOffset + _maxVisibleItems)
+			else if (_highlightedIndex >= _dropdownScrollOffset + effectiveMaxVisibleItems)
 			{
-				_dropdownScrollOffset = _highlightedIndex - _maxVisibleItems + 1;
+				_dropdownScrollOffset = _highlightedIndex - effectiveMaxVisibleItems + 1;
 			}
 		}
 
@@ -963,13 +1025,42 @@ namespace ConsoleEx.Controls
 			if (_selectedIndex < 0)
 				return;
 
+			// Calculate effective max visible items considering available space
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? 1;
+
+			// Now use effective max visible items for scrolling logic
 			if (_selectedIndex < _dropdownScrollOffset)
 			{
 				_dropdownScrollOffset = _selectedIndex;
 			}
-			else if (_selectedIndex >= _dropdownScrollOffset + _maxVisibleItems)
+			else if (_selectedIndex >= _dropdownScrollOffset + effectiveMaxVisibleItems)
 			{
-				_dropdownScrollOffset = _selectedIndex - _maxVisibleItems + 1;
+				_dropdownScrollOffset = _selectedIndex - effectiveMaxVisibleItems + 1;
+			}
+		}
+
+		private void RestoreContainerScrollOffset(Window containerWindow)
+		{
+			// Use reflection to set the private _scrollOffset field in the Window class
+			// since there's no public method to set it directly
+			var scrollOffsetField = typeof(Window).GetField("_scrollOffset",
+				System.Reflection.BindingFlags.NonPublic |
+				System.Reflection.BindingFlags.Instance);
+
+			if (scrollOffsetField != null)
+			{
+				scrollOffsetField.SetValue(containerWindow, _containerScrollOffsetBeforeDrop);
+				containerWindow.Invalidate(true);
+			}
+			else
+			{
+				// Fallback if reflection doesn't work - simulate key presses
+				containerWindow.GoToTop();
+				for (int i = 0; i < _containerScrollOffsetBeforeDrop; i++)
+				{
+					containerWindow.ProcessInput(new ConsoleKeyInfo(
+						'\0', ConsoleKey.DownArrow, false, false, false));
+				}
 			}
 		}
 	}
