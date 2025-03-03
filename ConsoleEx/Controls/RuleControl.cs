@@ -20,6 +20,7 @@ namespace ConsoleEx.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string? _title;
 		private Justify _titleAlignment = Justify.Left;
+		private bool _visible = true;
 		private int? _width;
 		public int? ActualWidth => _cachedContent == null ? 0 : AnsiConsoleHelper.StripAnsiStringLength(_cachedContent?.FirstOrDefault() ?? string.Empty);
 
@@ -81,6 +82,9 @@ namespace ConsoleEx.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		public bool Visible
+		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public int? Width
 		{

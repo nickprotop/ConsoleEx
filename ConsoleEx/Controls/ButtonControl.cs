@@ -20,6 +20,7 @@ namespace ConsoleEx.Controls
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string _text = "Button";
+		private bool _visible = true;
 		private int? _width;
 		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleHelper.StripAnsiStringLength(_cachedContent);
 
@@ -74,6 +75,9 @@ namespace ConsoleEx.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		public bool Visible
+		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public int? Width
 		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }

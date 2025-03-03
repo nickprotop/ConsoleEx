@@ -17,6 +17,7 @@ namespace ConsoleEx.Controls
 		private Alignment _justify = Alignment.Left;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
+		private bool _visible = true;
 		private int? _width;
 		private bool _wrap = true;
 
@@ -68,6 +69,9 @@ namespace ConsoleEx.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		public bool Visible
+		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public int? Width
 		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }

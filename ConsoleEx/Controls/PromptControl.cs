@@ -29,6 +29,7 @@ namespace ConsoleEx.Controls
 		private string? _prompt;
 		private int _scrollOffset = 0;
 		private StickyPosition _stickyPosition = StickyPosition.None;
+		private bool _visible = true;
 		private int? _width;
 
 		public int? ActualWidth
@@ -130,6 +131,9 @@ namespace ConsoleEx.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		public bool Visible
+		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public int? Width
 		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }

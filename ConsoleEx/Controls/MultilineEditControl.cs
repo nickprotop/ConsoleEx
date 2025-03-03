@@ -51,6 +51,7 @@ namespace ConsoleEx.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private int _verticalScrollOffset = 0;
 		private int _viewportHeight;
+		private bool _visible = true;
 		private int? _width;
 		private WrapMode _wrapMode = WrapMode.Wrap;
 
@@ -215,6 +216,9 @@ namespace ConsoleEx.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		public bool Visible
+		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public int? Width
 		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }

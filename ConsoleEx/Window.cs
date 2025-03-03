@@ -512,7 +512,7 @@ namespace ConsoleEx
 					_topStickyHeight = 0;
 					_topStickyLines.Clear();
 
-					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Top))
+					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Top && c.Visible == true))
 					{
 						// Store the top row index for the current content
 						_contentTopRowIndex[content] = _topStickyHeight;
@@ -533,7 +533,7 @@ namespace ConsoleEx
 					}
 
 					// Process normal content next (non-sticky)
-					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.None))
+					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.None && c.Visible == true))
 					{
 						// Store the top row index for the current content
 						_contentTopRowIndex[content] = lines.Count + _topStickyHeight;
@@ -556,7 +556,7 @@ namespace ConsoleEx
 					_bottomStickyHeight = 0;
 					_bottomStickyLines.Clear();
 
-					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Bottom))
+					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Bottom && c.Visible == true))
 					{
 						// Track the position of sticky content
 						_contentTopRowIndex[content] = lines.Count + _bottomStickyLines.Count;
