@@ -249,7 +249,7 @@ namespace ConsoleEx
 
 				RenderAndGetVisibleContent();
 
-				if (content.StickyPosition == StickyPosition.None) GoToBottom();
+				if (content.StickyPosition == StickyPosition.None && _interactiveContents.Where(p => p.HasFocus).Count() == 0) GoToBottom();
 			}
 		}
 

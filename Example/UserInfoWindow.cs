@@ -33,7 +33,7 @@ namespace ConsoleEx.Example
 
 			_multilineEdit = new MultilineEditControl()
 			{
-				ViewportHeight = 3,
+				ViewportHeight = 8,
 				Margin = new Margin { Left = 1, Right = 1 }
 			};
 
@@ -161,8 +161,8 @@ namespace ConsoleEx.Example
 				Title = "User",
 				Left = 22,
 				Top = 6,
-				Width = 40,
-				Height = 16,
+				Width = 60,
+				Height = 10,
 				IsResizable = true
 			};
 		}
