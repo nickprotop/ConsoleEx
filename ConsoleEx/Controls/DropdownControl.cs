@@ -26,6 +26,7 @@ namespace ConsoleEx.Controls
 		private Color? _foregroundColorValue;
 		private bool _hasFocus = false;
 		private Color? _highlightBackgroundColorValue;
+		private int _highlightedIndex = -1;
 		private Color? _highlightForegroundColorValue;
 		private bool _invalidated = true;
 		private bool _isDropdownOpen = false;
@@ -429,7 +430,11 @@ namespace ConsoleEx.Controls
 				case ConsoleKey.Enter:
 					if (_isDropdownOpen)
 					{
-						// Close dropdown and keep selection
+						// Select the currently highlighted item and close the dropdown
+						if (_highlightedIndex >= 0 && _highlightedIndex < _items.Count)
+						{
+							SelectedIndex = _highlightedIndex; // Actually select the highlighted item
+						}
 						_isDropdownOpen = false;
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -439,6 +444,7 @@ namespace ConsoleEx.Controls
 					{
 						// Open dropdown
 						_isDropdownOpen = true;
+						_highlightedIndex = _selectedIndex; // Initialize highlighted index with selected index
 						_cachedContent = null;
 						Container?.Invalidate(true);
 						return true;
@@ -449,6 +455,7 @@ namespace ConsoleEx.Controls
 					if (_isDropdownOpen)
 					{
 						// Close dropdown without changing selection
+						_highlightedIndex = _selectedIndex; // Reset highlighted index
 						_isDropdownOpen = false;
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -459,9 +466,12 @@ namespace ConsoleEx.Controls
 				case ConsoleKey.DownArrow:
 					if (_isDropdownOpen)
 					{
-						if (_selectedIndex < _items.Count - 1)
+						if (_highlightedIndex < _items.Count - 1)
 						{
-							SelectedIndex = _selectedIndex + 1;
+							_highlightedIndex++;
+							EnsureHighlightedItemVisible();
+							_cachedContent = null;
+							Container?.Invalidate(true);
 							return true;
 						}
 					}
@@ -469,6 +479,7 @@ namespace ConsoleEx.Controls
 					{
 						// Open dropdown
 						_isDropdownOpen = true;
+						_highlightedIndex = _selectedIndex; // Initialize highlighted index with selected index
 						_cachedContent = null;
 						Container?.Invalidate(true);
 						return true;
@@ -478,9 +489,12 @@ namespace ConsoleEx.Controls
 				case ConsoleKey.UpArrow:
 					if (_isDropdownOpen)
 					{
-						if (_selectedIndex > 0)
+						if (_highlightedIndex > 0)
 						{
-							SelectedIndex = _selectedIndex - 1;
+							_highlightedIndex--;
+							EnsureHighlightedItemVisible();
+							_cachedContent = null;
+							Container?.Invalidate(true);
 							return true;
 						}
 					}
@@ -489,7 +503,10 @@ namespace ConsoleEx.Controls
 				case ConsoleKey.Home:
 					if (_isDropdownOpen && _items.Count > 0)
 					{
-						SelectedIndex = 0;
+						_highlightedIndex = 0;
+						EnsureHighlightedItemVisible();
+						_cachedContent = null;
+						Container?.Invalidate(true);
 						return true;
 					}
 					return false;
@@ -497,23 +514,32 @@ namespace ConsoleEx.Controls
 				case ConsoleKey.End:
 					if (_isDropdownOpen && _items.Count > 0)
 					{
-						SelectedIndex = _items.Count - 1;
+						_highlightedIndex = _items.Count - 1;
+						EnsureHighlightedItemVisible();
+						_cachedContent = null;
+						Container?.Invalidate(true);
 						return true;
 					}
 					return false;
 
 				case ConsoleKey.PageUp:
-					if (_isDropdownOpen && _selectedIndex > 0)
+					if (_isDropdownOpen && _highlightedIndex > 0)
 					{
-						SelectedIndex = Math.Max(0, _selectedIndex - _maxVisibleItems);
+						_highlightedIndex = Math.Max(0, _highlightedIndex - _maxVisibleItems);
+						EnsureHighlightedItemVisible();
+						_cachedContent = null;
+						Container?.Invalidate(true);
 						return true;
 					}
 					return false;
 
 				case ConsoleKey.PageDown:
-					if (_isDropdownOpen && _selectedIndex < _items.Count - 1)
+					if (_isDropdownOpen && _highlightedIndex < _items.Count - 1)
 					{
-						SelectedIndex = Math.Min(_items.Count - 1, _selectedIndex + _maxVisibleItems);
+						_highlightedIndex = Math.Min(_items.Count - 1, _highlightedIndex + _maxVisibleItems);
+						EnsureHighlightedItemVisible();
+						_cachedContent = null;
+						Container?.Invalidate(true);
 						return true;
 					}
 					return false;
@@ -539,7 +565,10 @@ namespace ConsoleEx.Controls
 						{
 							if (_items[i].Text.StartsWith(_searchText, StringComparison.OrdinalIgnoreCase))
 							{
-								SelectedIndex = i;
+								_highlightedIndex = i; // Update highlighted index only
+								EnsureHighlightedItemVisible();
+								_cachedContent = null;
+								Container?.Invalidate(true);
 								return true;
 							}
 						}
@@ -720,13 +749,13 @@ namespace ConsoleEx.Controls
 						// Create icon markup with proper color
 						string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
 
-						// Add icon to the start of the item content
-						itemContent = (itemIndex == _selectedIndex ? "● " : "  ") + iconMarkup + itemText;
+						// Add icon to the start of the item content - use highlightedIndex for visual highlight
+						itemContent = (itemIndex == _highlightedIndex ? "● " : "  ") + iconMarkup + itemText;
 					}
 					else
 					{
-						// No icon, use standard rendering
-						itemContent = (itemIndex == _selectedIndex ? "● " : "  ") + itemText;
+						// No icon, use standard rendering - use highlightedIndex for visual highlight
+						itemContent = (itemIndex == _highlightedIndex ? "● " : "  ") + itemText;
 					}
 
 					// Ensure item fits within dropdown width
@@ -903,8 +932,29 @@ namespace ConsoleEx.Controls
 		public void SetFocus(bool focus, bool backward)
 		{
 			_hasFocus = focus;
+			if (!_hasFocus)
+			{
+				// Collapse the dropdown when it loses focus
+				_isDropdownOpen = false;
+				_highlightedIndex = _selectedIndex; // Reset highlighted index
+			}
 			_cachedContent = null;
 			Container?.Invalidate(true);
+		}
+
+		private void EnsureHighlightedItemVisible()
+		{
+			if (_highlightedIndex < 0)
+				return;
+
+			if (_highlightedIndex < _dropdownScrollOffset)
+			{
+				_dropdownScrollOffset = _highlightedIndex;
+			}
+			else if (_highlightedIndex >= _dropdownScrollOffset + _maxVisibleItems)
+			{
+				_dropdownScrollOffset = _highlightedIndex - _maxVisibleItems + 1;
+			}
 		}
 
 		// Ensures the selected item is visible in the dropdown

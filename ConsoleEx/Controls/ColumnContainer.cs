@@ -14,9 +14,11 @@ namespace ConsoleEx.Controls
 {
 	public class ColumnContainer : IContainer
 	{
+		private Color? _backgroundColor;
 		private List<string>? _cachedContent;
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private List<IWIndowControl> _contents = new List<IWIndowControl>();
+		private Color? _foregroundColor;
 		private HorizontalGridControl _horizontalGridContent;
 		private bool _isDirty;
 		private int? _width;
@@ -25,13 +27,12 @@ namespace ConsoleEx.Controls
 		{
 			_horizontalGridContent = horizontalGridContent;
 			_consoleWindowSystem = horizontalGridContent.Container?.GetConsoleWindowSystem;
-
-			BackgroundColor = _consoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black;
-			ForegroundColor = _consoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White;
 		}
 
-		public Color BackgroundColor { get; set; }
-		public Color ForegroundColor { get; set; }
+		public Color BackgroundColor
+		{ get { return _backgroundColor ?? _consoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black; } set { _backgroundColor = value; Invalidate(true); } }
+		public Color ForegroundColor
+		{ get { return _foregroundColor ?? _consoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White; } set { _foregroundColor = value; Invalidate(true); } }
 
 		public ConsoleWindowSystem? GetConsoleWindowSystem
 		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; } }
