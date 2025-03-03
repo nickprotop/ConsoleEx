@@ -16,6 +16,7 @@ namespace ConsoleEx.Example
 		private readonly Window _window;
 		private MarkupControl _ageInfo;
 		private PromptControl _agePrompt;
+		private CheckboxControl _agreeTermsCheckbox;
 		private HorizontalGridControl? _bottomButtons;
 		private MultilineEditControl _multilineEdit;
 		private PromptControl _namePrompt;
@@ -30,6 +31,14 @@ namespace ConsoleEx.Example
 
 			_namePrompt = CreateNamePrompt();
 			_agePrompt = CreateAgePrompt();
+
+			// Create checkbox control
+			_agreeTermsCheckbox = new CheckboxControl("I agree to terms and conditions", false)
+			{
+				Margin = new Margin(1, 0, 0, 0),
+				CheckmarkColor = Color.Green
+			};
+			_agreeTermsCheckbox.CheckedChanged += AgreeTerms_CheckedChanged;
 
 			_multilineEdit = new MultilineEditControl()
 			{
@@ -88,6 +97,9 @@ namespace ConsoleEx.Example
 			_window.AddContent(_namePrompt);
 			_window.AddContent(_agePrompt);
 			_window.AddContent(new MarkupControl(new List<string> { " " }));
+
+			_window.AddContent(_agreeTermsCheckbox);
+
 			_window.AddContent(_ageInfo);
 			_window.AddContent(new MarkupControl(new List<string> { " " }));
 
@@ -110,6 +122,19 @@ namespace ConsoleEx.Example
 			});
 
 			AddBottomButtons();
+		}
+
+		private void AgreeTerms_CheckedChanged(object? sender, bool isChecked)
+		{
+			// Update UI based on checkbox state
+			if (isChecked)
+			{
+				_ageInfo?.SetContent(new List<string> { "[green]Terms accepted[/]" });
+			}
+			else
+			{
+				_ageInfo?.SetContent(new List<string> { "[red]Please accept the terms[/]" });
+			}
 		}
 
 		private PromptControl CreateAgePrompt()
