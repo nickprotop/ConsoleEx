@@ -36,7 +36,7 @@ namespace ConsoleEx.Services.NotificationsService
 
 			if (blockUi == true)
 			{
-				consoleWindowSystem.BlockUi.Enqueue(true);
+				consoleWindowSystem.BlockUi.Enqueue(notificationWindow.Guid);
 			}
 
 			var notificationContent = new MarkupControl(new List<string>() { $"{severity.Icon}{(string.IsNullOrEmpty(severity.Icon) ? string.Empty : " ")}{message}" })

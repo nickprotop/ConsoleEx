@@ -39,7 +39,7 @@ namespace ConsoleEx
 		private readonly VisibleRegions _visibleRegions;
 		private readonly ConcurrentDictionary<string, Window> _windows = new();
 		private Window? _activeWindow;
-		private ConcurrentQueue<bool> _blockUi = new();
+		private ConcurrentQueue<string> _blockUi = new();
 		private string? _cachedBottomStatus;
 		private string? _cachedTopStatus;
 		private IConsoleDriver _consoleDriver;
@@ -65,7 +65,7 @@ namespace ConsoleEx
 			_renderer = new Renderer(this);
 		}
 
-		public ConcurrentQueue<bool> BlockUi => _blockUi;
+		public ConcurrentQueue<string> BlockUi => _blockUi;
 		public string BottomStatus { get; set; } = "";
 
 		public IConsoleDriver ConsoleDriver
@@ -140,6 +140,15 @@ namespace ConsoleEx
 			});
 
 			flashTask.Start();
+		}
+
+		public Window? GetWindow(string guid)
+		{
+			if (_windows.TryGetValue(guid, out var window))
+			{
+				return window;
+			}
+			return null;
 		}
 
 		public int Run()

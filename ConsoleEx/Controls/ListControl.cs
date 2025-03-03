@@ -665,8 +665,8 @@ namespace ConsoleEx.Controls
 			// Get appropriate colors based on state
 			Color backgroundColor;
 			Color foregroundColor;
-			Color windowBackground = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
-			Color windowForeground = Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
+			Color windowBackground = Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			Color windowForeground = Container?.ForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 
 			// Determine colors based on enabled/focused state
 			if (!_isEnabled)
