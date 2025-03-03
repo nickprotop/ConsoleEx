@@ -39,13 +39,13 @@ namespace ConsoleEx.Example
 
 			// Create dropdown
 			_countryDropdown = new DropdownControl("Select a country:");
-			_countryDropdown.AddItem(new DropdownItem("USA"));
-			_countryDropdown.AddItem(new DropdownItem("Canada"));
-			_countryDropdown.AddItem(new DropdownItem("UK"));
-			_countryDropdown.AddItem(new DropdownItem("France"));
-			_countryDropdown.AddItem(new DropdownItem("Germany"));
-			_countryDropdown.AddItem(new DropdownItem("Japan"));
-			_countryDropdown.AddItem(new DropdownItem("Australia"));
+			_countryDropdown.AddItem("USA", "★", Color.Cyan1);
+			_countryDropdown.AddItem("Canada", "♦", Color.Red);
+			_countryDropdown.AddItem("UK", "♠", Color.Cyan1);
+			_countryDropdown.AddItem("France", "♣", Color.Red);
+			_countryDropdown.AddItem("Germany", "■", Color.Yellow);
+			_countryDropdown.AddItem("Japan", "●", Color.Red);
+			_countryDropdown.AddItem("Australia", "◆", Color.Green);
 			_countryDropdown.SelectedIndex = 0;
 
 			// Add spacing
@@ -72,7 +72,6 @@ namespace ConsoleEx.Example
 			buttonsGrid.AddColumn(cancelColumn);
 
 			_window.AddContent(buttonsGrid);
-			;
 
 			// Handle selection change
 			_countryDropdown.SelectedItemChanged += CountryDropdown_SelectedItemChanged;

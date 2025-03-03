@@ -798,6 +798,9 @@ namespace ConsoleEx.Controls
 					Color itemBg = (itemIndex == _selectedIndex) ? HighlightBackgroundColor : backgroundColor;
 					Color itemFg = (itemIndex == _selectedIndex) ? HighlightForegroundColor : foregroundColor;
 
+					// Add selection indicator and calculate visual length for padding
+					string selectionIndicator = (itemIndex == _highlightedIndex ? "● " : "  ");
+
 					// Add selection indicator and padding
 					if (_items[itemIndex].Icon != null)
 					{
@@ -807,19 +810,40 @@ namespace ConsoleEx.Controls
 						// Create icon markup with proper color
 						string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
 
+						// Calculate actual visible length of icon plus markup (not including ANSI sequences)
+						int iconVisibleLength = AnsiConsoleHelper.StripSpectreLength(iconText) + 1; // +1 for the space
+
 						// Add icon to the start of the item content - use highlightedIndex for visual highlight
-						itemContent = (itemIndex == _highlightedIndex ? "● " : "  ") + iconMarkup + itemText;
+						itemContent = selectionIndicator + iconMarkup + itemText;
+
+						// Calculate actual visual text length (without ANSI escape sequences)
+						int visibleTextLength = 2 + iconVisibleLength + AnsiConsoleHelper.StripSpectreLength(itemText);
+
+						// Calculate the padding needed
+						int paddingNeeded = Math.Max(0, dropdownWidth - visibleTextLength);
+
+						// Add padding to the end
+						if (paddingNeeded > 0)
+						{
+							itemContent += new string(' ', paddingNeeded);
+						}
 					}
 					else
 					{
 						// No icon, use standard rendering - use highlightedIndex for visual highlight
-						itemContent = (itemIndex == _highlightedIndex ? "● " : "  ") + itemText;
-					}
+						itemContent = selectionIndicator + itemText;
 
-					// Ensure item fits within dropdown width
-					if (AnsiConsoleHelper.StripSpectreLength(itemContent) < dropdownWidth)
-					{
-						itemContent = itemContent.PadRight(dropdownWidth);
+						// Calculate actual visual text length (without ANSI escape sequences)
+						int visibleTextLength = 2 + AnsiConsoleHelper.StripSpectreLength(itemText);
+
+						// Calculate the padding needed
+						int paddingNeeded = Math.Max(0, dropdownWidth - visibleTextLength);
+
+						// Add padding to the end
+						if (paddingNeeded > 0)
+						{
+							itemContent += new string(' ', paddingNeeded);
+						}
 					}
 
 					List<string> itemLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
