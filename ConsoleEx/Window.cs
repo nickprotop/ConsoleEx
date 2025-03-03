@@ -30,10 +30,13 @@ namespace ConsoleEx
 
 	public class KeyPressedEventArgs : EventArgs
 	{
-		public KeyPressedEventArgs(ConsoleKeyInfo keyInfo)
+		public KeyPressedEventArgs(ConsoleKeyInfo keyInfo, bool allreadyHandled)
 		{
 			KeyInfo = keyInfo;
+			AllreadyHandled = allreadyHandled;
 		}
+
+		public bool AllreadyHandled { get; private set; }
 
 		public bool Handled { get; set; }
 		public ConsoleKeyInfo KeyInfo { get; }
@@ -54,14 +57,11 @@ namespace ConsoleEx
 		private List<string> _cachedContent = new();
 
 		private Dictionary<IWIndowControl, int> _contentLeftIndex = new();
-
 		private Dictionary<IWIndowControl, int> _contentTopRowIndex = new();
-
 		private string _guid;
 		private Color? _inactiveBorderForegroundColor;
 		private Color? _inactiveTitleForegroundColor;
 		private bool _invalidated = false;
-
 		private bool _isActive;
 		private IInteractiveControl? _lastFocusedControl;
 		private int? _maximumHeight;
@@ -72,6 +72,7 @@ namespace ConsoleEx
 		private WindowState _state;
 		private object? _tag;
 		private int _topStickyHeight;
+		private List<string> _topStickyLines = new List<string>();
 		private ConsoleWindowSystem? _windowSystem;
 		private Task? _windowTask;
 		private Thread? _windowThread;
@@ -221,7 +222,7 @@ namespace ConsoleEx
 
 		public int Top { get; set; }
 
-		public int TotalLines => _cachedContent.Count;
+		public int TotalLines => _cachedContent.Count + _topStickyHeight;
 
 		public int Width { get; set; } = 40;
 
@@ -374,7 +375,7 @@ namespace ConsoleEx
 					cursorPosition = new Point(_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
 
 					// Check if the cursor position is within the visible bounds
-					if (cursorPosition.Y >= 0 && cursorPosition.Y < Height - 1 - _bottomStickyHeight)
+					if (cursorPosition.Y > _topStickyHeight && cursorPosition.Y < Height - 1 - _bottomStickyHeight)
 					{
 						return true;
 					}
@@ -414,32 +415,25 @@ namespace ConsoleEx
 			lock (_lock)
 			{
 				bool contentKeyHandled = false;
+				bool windowHandled = false;
 
 				if (HasActiveInteractiveContent(out var activeInteractiveContent))
 				{
 					contentKeyHandled = activeInteractiveContent!.ProcessKey(key);
 				}
 
-				if (contentKeyHandled)
-				{
-					return true;
-				}
-
-				// Raise the KeyPressed event
-				var handled = OnKeyPressed(key);
-
-				// Continue with key handling only if not handled by the user
-				if (!handled)
+				// Continue with key handling only if not handled by the focused interactive content
+				if (!contentKeyHandled)
 				{
 					if (key.Key == ConsoleKey.Tab && key.Modifiers.HasFlag(ConsoleModifiers.Shift))
 					{
 						SwitchFocus(true); // Pass true to indicate backward focus switch
-						handled = true;
+						windowHandled = true;
 					}
 					else if (key.Key == ConsoleKey.Tab)
 					{
 						SwitchFocus(false); // Pass false to indicate forward focus switch
-						handled = true;
+						windowHandled = true;
 					}
 					else
 					{
@@ -449,20 +443,22 @@ namespace ConsoleEx
 								if (key.Modifiers != ConsoleModifiers.None) break;
 								_scrollOffset = Math.Max(0, _scrollOffset - 1);
 								IsDirty = true;
-								handled = true;
+								windowHandled = true;
 								break;
 
 							case ConsoleKey.DownArrow:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								_scrollOffset = Math.Min((_cachedContent?.Count ?? Height) - (Height - 2), _scrollOffset + 1);
+								_scrollOffset = Math.Min((_cachedContent?.Count ?? Height) - (Height - 2 - _topStickyHeight), _scrollOffset + 1);
 								IsDirty = true;
-								handled = true;
+								windowHandled = true;
 								break;
 						}
 					}
 				}
 
-				return handled;
+				var handled = OnKeyPressed(key, contentKeyHandled || windowHandled);
+
+				return (handled || contentKeyHandled || windowHandled);
 			}
 		}
 
@@ -512,11 +508,14 @@ namespace ConsoleEx
 				{
 					List<string> lines = new List<string>();
 
+					// Process top sticky content first to ensure it is always on top
 					_topStickyHeight = 0;
+					_topStickyLines.Clear();
+
 					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Top))
 					{
 						// Store the top row index for the current content
-						_contentTopRowIndex[content] = lines.Count;
+						_contentTopRowIndex[content] = _topStickyHeight;
 						_contentLeftIndex[content] = 0;
 
 						// Get content's rendered lines
@@ -529,15 +528,15 @@ namespace ConsoleEx
 							ansiLines[i] = $"{line}";
 						}
 
-						lines.AddRange(ansiLines);
+						_topStickyLines.AddRange(ansiLines);
 						_topStickyHeight += ansiLines.Count;
 					}
 
-					// Process normal content first (non-sticky)
+					// Process normal content next (non-sticky)
 					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.None))
 					{
 						// Store the top row index for the current content
-						_contentTopRowIndex[content] = lines.Count;
+						_contentTopRowIndex[content] = lines.Count + _topStickyHeight;
 						_contentLeftIndex[content] = 0;
 
 						// Get content's rendered lines
@@ -553,7 +552,7 @@ namespace ConsoleEx
 						lines.AddRange(ansiLines);
 					}
 
-					// Process sticky content separately
+					// Process bottom sticky content last
 					_bottomStickyHeight = 0;
 					_bottomStickyLines.Clear();
 
@@ -590,6 +589,10 @@ namespace ConsoleEx
 				{
 					visibleContent.AddRange(Enumerable.Repeat(string.Empty, Height - 2 - visibleContent.Count));
 				}
+
+				// Replace the top placeholder lines with actual sticky content
+				visibleContent.RemoveRange(visibleContent.Count - _topStickyHeight, _topStickyHeight);
+				visibleContent.InsertRange(0, _topStickyLines);
 
 				// Replace the bottom placeholder lines with actual sticky content
 				visibleContent.RemoveRange(visibleContent.Count - _bottomStickyHeight, _bottomStickyHeight);
@@ -704,12 +707,12 @@ namespace ConsoleEx
 		}
 
 		// Method to raise the KeyPressed event and return whether it was handled
-		protected virtual bool OnKeyPressed(ConsoleKeyInfo key)
+		protected virtual bool OnKeyPressed(ConsoleKeyInfo key, bool allreadyHandled)
 		{
 			var handler = KeyPressed;
 			if (handler != null)
 			{
-				var args = new KeyPressedEventArgs(key);
+				var args = new KeyPressedEventArgs(key, allreadyHandled);
 				handler(this, args);
 				return args.Handled;
 			}
@@ -728,15 +731,15 @@ namespace ConsoleEx
 
 			if (focusedContent != null)
 			{
+				int contentTop = _contentTopRowIndex[focusedContent];
+				int contentBottom = contentTop + focusedContent.RenderContent(Width - 2, Height - 2).Count;
+
 				if (focusedContent.StickyPosition == StickyPosition.None)
 				{
-					int contentTop = _contentTopRowIndex[focusedContent];
-					int contentBottom = contentTop + focusedContent.RenderContent(Width - 2, Height - 2).Count;
-
-					if (contentTop < _scrollOffset)
+					if (contentTop < _scrollOffset + _topStickyHeight)
 					{
-						// Scroll up to make the top of the content visible
-						_scrollOffset = contentTop;
+						// Scroll up to make the top of the content visible, considering top sticky height
+						_scrollOffset = contentTop - _topStickyHeight;
 					}
 					else if (contentBottom > _scrollOffset + (Height - 2 - _bottomStickyHeight))
 					{

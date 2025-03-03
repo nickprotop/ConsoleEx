@@ -79,10 +79,11 @@ namespace ConsoleEx.Example
 
 		private void AddWindowContents()
 		{
-			_window.AddContent(new MarkupControl(new List<string> { "User Info" })
+			_window.AddContent(new MarkupControl(new List<string> { "[cyan]F[/]ile [cyan]E[/]dit [cyan]V[/]iew [cyan]H[/]elp" })
 			{
 				StickyPosition = StickyPosition.Top
 			});
+			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
 
 			_window.AddContent(_namePrompt);
 			_window.AddContent(_agePrompt);
@@ -92,7 +93,7 @@ namespace ConsoleEx.Example
 
 			_window.AddContent(new RuleControl
 			{
-				Title = "MultilineEdit control",
+				Title = "Comment",
 				TitleAlignment = Justify.Left
 			});
 
