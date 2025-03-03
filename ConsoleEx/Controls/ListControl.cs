@@ -812,141 +812,166 @@ namespace ConsoleEx.Controls
 				if (itemIndex >= _items.Count)
 					break;
 
-				string itemText = _itemFormatter != null
-					? _itemFormatter(_items[itemIndex], itemIndex == _selectedIndex, _hasFocus)
-					: _items[itemIndex].Text;
+				// Get all lines for this item
+				List<string> itemLines = _items[itemIndex].Lines;
 
-				// Truncate if necessary
-				int maxTextWidth = listWidth - (indicatorSpace + 2); // Account for selection indicator and padding
-				if (AnsiConsoleHelper.StripSpectreLength(itemText) > maxTextWidth)
+				// Process each line of the item
+				for (int lineIndex = 0; lineIndex < itemLines.Count; lineIndex++)
 				{
-					itemText = itemText.Substring(0, maxTextWidth - 3) + "...";
-				}
+					string lineText = itemLines[lineIndex];
 
-				string itemContent;
-
-				// Determine colors for this item
-				Color itemBg;
-				Color itemFg;
-
-				// For selectable lists, highlight the selected item
-				if (_isSelectable && itemIndex == _highlightedIndex && _hasFocus)
-				{
-					itemBg = HighlightBackgroundColor;
-					itemFg = HighlightForegroundColor;
-				}
-				// Handle selected but not highlighted
-				else if (_isSelectable && itemIndex == _selectedIndex)
-				{
-					itemBg = backgroundColor; // Use control background
-					itemFg = foregroundColor; // Use control foreground
-				}
-				else
-				{
-					itemBg = backgroundColor;
-					itemFg = foregroundColor;
-				}
-
-				// Add selection indicator in selectable mode
-				string selectionIndicator = "";
-				if (_isSelectable)
-				{
-					selectionIndicator = (itemIndex == _selectedIndex) ? "● " : "  ";
-				}
-
-				// Handle items with icons
-				if (_items[itemIndex].Icon != null)
-				{
-					string iconText = _items[itemIndex].Icon;
-					Color iconColor = _items[itemIndex].IconColor ?? itemFg;
-
-					// Create icon markup with proper color
-					string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
-
-					// Calculate actual visible length of icon plus markup (not including ANSI sequences)
-					int iconVisibleLength = AnsiConsoleHelper.StripSpectreLength(iconText) + 1; // +1 for the space
-
-					// Add icon to the start of the item content
-					itemContent = selectionIndicator + iconMarkup + itemText;
-
-					// Calculate actual visual text length (without ANSI escape sequences)
-					int visibleTextLength = selectionIndicator.Length + iconVisibleLength + AnsiConsoleHelper.StripSpectreLength(itemText);
-
-					// Calculate the padding needed
-					int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
-
-					// Add padding to the end
-					if (paddingNeeded > 0)
+					// Only use formatter on the first line for now
+					// (could be extended to format each line differently)
+					if (lineIndex == 0 && _itemFormatter != null)
 					{
-						itemContent += new string(' ', paddingNeeded);
+						lineText = _itemFormatter(_items[itemIndex], itemIndex == _selectedIndex, _hasFocus);
 					}
-				}
-				else
-				{
-					// No icon, use standard rendering
-					itemContent = selectionIndicator + itemText;
 
-					// Calculate actual visual text length (without ANSI escape sequences)
-					int visibleTextLength = selectionIndicator.Length + AnsiConsoleHelper.StripSpectreLength(itemText);
-
-					// Calculate the padding needed
-					int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
-
-					// Add padding to the end
-					if (paddingNeeded > 0)
+					// Truncate if necessary
+					int maxTextWidth = listWidth - (indicatorSpace + 2); // Account for selection indicator and padding
+					if (AnsiConsoleHelper.StripSpectreLength(lineText) > maxTextWidth)
 					{
-						itemContent += new string(' ', paddingNeeded);
+						lineText = lineText.Substring(0, maxTextWidth - 3) + "...";
 					}
-				}
 
-				List<string> itemLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					itemContent,
-					listWidth,
-					1,
-					false,
-					itemBg,
-					itemFg
-				);
+					// Determine colors for this item
+					Color itemBg;
+					Color itemFg;
 
-				// Apply padding and margins
-				for (int j = 0; j < itemLine.Count; j++)
-				{
-					// Add alignment padding
-					if (paddingLeft > 0)
+					// For selectable lists, highlight the selected item
+					if (_isSelectable && itemIndex == _highlightedIndex && _hasFocus)
 					{
+						itemBg = HighlightBackgroundColor;
+						itemFg = HighlightForegroundColor;
+					}
+					// Handle selected but not highlighted
+					else if (_isSelectable && itemIndex == _selectedIndex)
+					{
+						itemBg = backgroundColor; // Use control background
+						itemFg = foregroundColor; // Use control foreground
+					}
+					else
+					{
+						itemBg = backgroundColor;
+						itemFg = foregroundColor;
+					}
+
+					string itemContent;
+
+					// Only show selection indicator on first line of a multi-line item
+					string selectionIndicator = "";
+					if (_isSelectable && lineIndex == 0)
+					{
+						selectionIndicator = (itemIndex == _selectedIndex) ? "● " : "  ";
+					}
+					else if (_isSelectable)
+					{
+						// For subsequent lines, use empty space for alignment
+						selectionIndicator = "  ";
+					}
+
+					// Handle items with icons (only on first line)
+					if (lineIndex == 0 && _items[itemIndex].Icon != null)
+					{
+						string iconText = _items[itemIndex].Icon;
+						Color iconColor = _items[itemIndex].IconColor ?? itemFg;
+
+						// Create icon markup with proper color
+						string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
+
+						// Calculate actual visible length of icon plus markup (not including ANSI sequences)
+						int iconVisibleLength = AnsiConsoleHelper.StripSpectreLength(iconText) + 1; // +1 for the space
+
+						// Add icon to the start of the item content
+						itemContent = selectionIndicator + iconMarkup + lineText;
+
+						// Calculate actual visual text length (without ANSI escape sequences)
+						int visibleTextLength = selectionIndicator.Length + iconVisibleLength + AnsiConsoleHelper.StripSpectreLength(lineText);
+
+						// Calculate the padding needed
+						int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
+
+						// Add padding to the end
+						if (paddingNeeded > 0)
+						{
+							itemContent += new string(' ', paddingNeeded);
+						}
+					}
+					else
+					{
+						// Handle subsequent lines or no icon
+						// For lines after the first in multi-line items, indent to align with text in first line
+						string indent = "";
+						if (lineIndex > 0 && _items[itemIndex].Icon != null)
+						{
+							// Match the indentation of text on the first line (icon width + space)
+							string iconText = _items[itemIndex].Icon;
+							int iconWidth = AnsiConsoleHelper.StripSpectreLength(iconText) + 1;
+							indent = new string(' ', iconWidth);
+						}
+
+						itemContent = selectionIndicator + indent + lineText;
+
+						// Calculate actual visual text length
+						int visibleTextLength = selectionIndicator.Length + indent.Length + AnsiConsoleHelper.StripSpectreLength(lineText);
+
+						// Add padding to the end
+						int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
+						if (paddingNeeded > 0)
+						{
+							itemContent += new string(' ', paddingNeeded);
+						}
+					}
+
+					List<string> itemLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						itemContent,
+						listWidth,
+						1,
+						false,
+						itemBg,
+						itemFg
+					);
+
+					// Apply padding and margins
+					for (int j = 0; j < itemLine.Count; j++)
+					{
+						// Add alignment padding
+						if (paddingLeft > 0)
+						{
+							itemLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+								new string(' ', paddingLeft),
+								paddingLeft,
+								1,
+								false,
+								Container?.BackgroundColor,
+								null
+							).FirstOrDefault() + itemLine[j];
+						}
+
+						// Add left margin
 						itemLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', paddingLeft),
-							paddingLeft,
+							new string(' ', _margin.Left),
+							_margin.Left,
 							1,
 							false,
 							Container?.BackgroundColor,
 							null
 						).FirstOrDefault() + itemLine[j];
+
+						// Add right margin
+						itemLine[j] = itemLine[j] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+							new string(' ', _margin.Right),
+							_margin.Right,
+							1,
+							false,
+							Container?.BackgroundColor,
+							null
+						).FirstOrDefault();
 					}
 
-					// Add left margin
-					itemLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', _margin.Left),
-						_margin.Left,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					).FirstOrDefault() + itemLine[j];
-
-					// Add right margin
-					itemLine[j] = itemLine[j] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', _margin.Right),
-						_margin.Right,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					).FirstOrDefault();
+					// Add item line to result
+					_cachedContent.AddRange(itemLine);
 				}
-
-				// Add item to result
-				_cachedContent.AddRange(itemLine);
 			}
 
 			// Add scroll indicators if needed
@@ -1074,6 +1099,23 @@ namespace ConsoleEx.Controls
 			Container?.Invalidate(true);
 		}
 
+		private int CalculateTotalVisibleItemsHeight()
+		{
+			int totalHeight = 0;
+			int itemsToCount = Math.Min(_calculatedMaxVisibleItems ?? _maxVisibleItems, _items.Count - _scrollOffset);
+
+			for (int i = 0; i < itemsToCount; i++)
+			{
+				int itemIndex = i + _scrollOffset;
+				if (itemIndex < _items.Count)
+				{
+					totalHeight += _items[itemIndex].Lines.Count;
+				}
+			}
+
+			return totalHeight;
+		}
+
 		private void EnsureHighlightedItemVisible()
 		{
 			if (_highlightedIndex < 0)
@@ -1115,6 +1157,9 @@ namespace ConsoleEx.Controls
 
 	public class ListItem
 	{
+		private List<string>? _lines;
+		private string _text;
+
 		public ListItem(string text, string? icon = null, Color? iconColor = null)
 		{
 			Text = text;
@@ -1125,8 +1170,26 @@ namespace ConsoleEx.Controls
 		public string? Icon { get; set; }
 		public Color? IconColor { get; set; }
 		public bool IsEnabled { get; set; } = true;
+
+		// New property to access the text as separate lines
+		public List<string> Lines => _lines ?? new List<string> { Text };
+
 		public object? Tag { get; set; }
-		public string Text { get; set; }
+
+		public string Text
+		{
+			get => _text;
+			set
+			{
+				_text = value;
+				// Split the text into lines when the text is set
+				_lines = value?.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+				if (_lines != null && _lines.Count == 0)
+				{
+					_lines = new List<string> { "" };
+				}
+			}
+		}
 
 		// Implicit conversion operator for backward compatibility
 		public static implicit operator ListItem(string text) => new ListItem(text);

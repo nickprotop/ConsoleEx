@@ -224,9 +224,10 @@ namespace ConsoleEx
 			if (_blockUi.Count != 0)
 			{
 				FlashWindow(_activeWindow);
-
 				return;
 			}
+
+			var previousActiveWindow = _activeWindow;
 
 			_windows.Values.FirstOrDefault(w => w.GetIsActive())?.SetIsActive(false);
 			_activeWindow?.Invalidate(true);
@@ -236,6 +237,15 @@ namespace ConsoleEx
 			_activeWindow.ZIndex = _windows.Values.Max(w => w.ZIndex) + 1;
 
 			_activeWindow.Invalidate(true);
+
+			// Unfocus the currently focused control of other windows
+			foreach (var w in _windows.Values)
+			{
+				if (w != _activeWindow)
+				{
+					w.UnfocusCurrentControl();
+				}
+			}
 		}
 
 		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, Point point)

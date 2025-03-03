@@ -143,9 +143,13 @@ namespace ConsoleEx
 		{ get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; Invalidate(false); } }
 
 		public Color BackgroundColor { get; set; }
+
 		public Color ForegroundColor { get; set; }
+
 		public ConsoleWindowSystem? GetConsoleWindowSystem => _windowSystem;
+
 		public string Guid => _guid.ToString();
+
 		public int Height { get; set; } = 20;
 
 		public Color InactiveBorderForegroundColor
@@ -155,17 +159,29 @@ namespace ConsoleEx
 		{ get => _inactiveTitleForegroundColor ?? _windowSystem?.Theme.InactiveTitleForegroundColor ?? Color.White; set { _inactiveTitleForegroundColor = value; Invalidate(false); } }
 
 		public bool IsClosable { get; set; } = true;
+
 		public bool IsContentVisible { get; set; } = true;
+
 		public bool IsDirty { get; set; } = true;
+
 		public bool IsDragging { get; set; }
+
 		public bool IsMovable { get; set; } = true;
+
 		public bool IsResizable { get; set; } = true;
+
 		public bool IsScrollable { get; set; } = true;
+
 		public int Left { get; set; }
+
 		public int OriginalHeight { get; set; }
+
 		public int OriginalLeft { get; set; }
+
 		public int OriginalTop { get; set; }
+
 		public int OriginalWidth { get; set; }
+
 		public int ScrollOffset => _scrollOffset;
 
 		public WindowState State
@@ -244,6 +260,7 @@ namespace ConsoleEx
 					if (_interactiveContents.Where(p => p.HasFocus).Count() == 0)
 					{
 						interactiveContent.HasFocus = true;
+						_lastFocusedControl = interactiveContent;
 					}
 				}
 
@@ -610,6 +627,11 @@ namespace ConsoleEx
 		{
 			ActivationChanged?.Invoke(this, value);
 			_isActive = value;
+
+			if (_lastFocusedControl != null)
+			{
+				_lastFocusedControl.HasFocus = value;
+			}
 		}
 
 		public void SetPosition(Point point)
@@ -698,6 +720,14 @@ namespace ConsoleEx
 				_lastFocusedControl = _interactiveContents[nextIndex]; // Update last focused control
 
 				BringIntoFocus(nextIndex);
+			}
+		}
+
+		public void UnfocusCurrentControl()
+		{
+			if (_lastFocusedControl != null)
+			{
+				_lastFocusedControl.SetFocus(false, false);
 			}
 		}
 
