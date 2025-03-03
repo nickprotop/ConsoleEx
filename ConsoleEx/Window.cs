@@ -122,7 +122,9 @@ namespace ConsoleEx
 		public delegate Task WindowThreadDelegateAsync(Window window);
 
 		// Events
-		public event EventHandler<bool>? ActivationChanged;
+		public event EventHandler? Activated;
+
+		public event EventHandler? Deactivated;
 
 		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
 
@@ -625,7 +627,15 @@ namespace ConsoleEx
 
 		public void SetIsActive(bool value)
 		{
-			ActivationChanged?.Invoke(this, value);
+			if (value)
+			{
+				Activated?.Invoke(this, EventArgs.Empty);
+			}
+			else
+			{
+				Deactivated?.Invoke(this, EventArgs.Empty);
+			}
+
 			_isActive = value;
 
 			if (_lastFocusedControl != null)
