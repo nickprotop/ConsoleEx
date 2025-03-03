@@ -67,6 +67,11 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public ListControl(string title = null)
+		{
+			_title = title ?? "List";
+		}
+
 		public delegate string ItemFormatterEvent(ListItem item, bool isSelected, bool hasFocus);
 
 		// Events
@@ -181,7 +186,7 @@ namespace ConsoleEx.Controls
 
 		public Color HighlightBackgroundColor
 		{
-			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
+			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonSelectedBackgroundColor ?? Color.DarkBlue;
 			set
 			{
 				_highlightBackgroundColorValue = value;
@@ -192,7 +197,7 @@ namespace ConsoleEx.Controls
 
 		public Color HighlightForegroundColor
 		{
-			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
+			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonSelectedForegroundColor ?? Color.White;
 			set
 			{
 				_highlightForegroundColorValue = value;

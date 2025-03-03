@@ -154,6 +154,9 @@ namespace ConsoleEx.Example
 			var myWindow = new MyWindow(consoleWindowSystem);
 			consoleWindowSystem.AddWindow(myWindow.GetWindow());
 
+			var listViewWindow = new ListViewWindow(consoleWindowSystem);
+			consoleWindowSystem.AddWindow(listViewWindow.GetWindow());
+
 			try
 			{
 				int exitCode = RunConsoleWindowSystem(consoleWindowSystem, logWindow);

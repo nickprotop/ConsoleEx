@@ -25,6 +25,8 @@ namespace ConsoleEx.Themes
 		public Color ButtonFocusedBackgroundColor { get; set; } = Color.Blue;
 		public Color ButtonFocusedForegroundColor { get; set; } = Color.White;
 		public Color ButtonForegroundColor { get; set; } = Color.White;
+		public Color ButtonSelectedBackgroundColor { get; set; } = Color.DarkBlue;
+		public Color ButtonSelectedForegroundColor { get; set; } = Color.White;
 		public Color DesktopBackgroundColor { get; set; } = Color.Black;
 		public char DesktopBackroundChar { get; set; } = ' ';
 		public Color DesktopForegroundColor { get; set; } = Color.White;
