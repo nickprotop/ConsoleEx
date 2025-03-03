@@ -16,6 +16,7 @@ namespace ConsoleEx.Controls
 		private Alignment _alignment = Alignment.Left;
 		private List<string>? _cachedContent;
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
+		private IContainer? _container;
 		private IInteractiveControl? _focusedContent;
 		private bool _hasFocus;
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
@@ -46,7 +47,21 @@ namespace ConsoleEx.Controls
 
 		public Color? BackgroundColor { get; set; }
 
-		public IContainer? Container { get; set; }
+		public IContainer? Container
+		{
+			get { return _container; }
+			set
+			{
+				_container = value;
+				_invalidated = true;
+				_cachedContent = null;
+				foreach (var column in _columns)
+				{
+					column.GetConsoleWindowSystem = value?.GetConsoleWindowSystem;
+					column.Invalidate(true);
+				}
+			}
+		}
 
 		public Color? ForegroundColor { get; set; }
 
