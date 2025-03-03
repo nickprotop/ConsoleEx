@@ -281,16 +281,19 @@ namespace ConsoleEx.Drivers
 					switch (key.KeyChar)
 					{
 						case '\b': // Backspace
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false));
+							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\b', ConsoleKey.Backspace, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
 							continue;
 						case '\x7f': // Backspace
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x7f', ConsoleKey.Backspace, false, false, false));
+							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x7f', ConsoleKey.Backspace, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
 							continue;
 						case '\t': // Tab
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false));
+							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\t', ConsoleKey.Tab, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
 							continue;
 						case '\r': // Enter
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
+							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\r', ConsoleKey.Enter, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
+							continue;
+						case ' ': // Spacebar
+							KeyPressed?.Invoke(this, new ConsoleKeyInfo(' ', ConsoleKey.Spacebar, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
 							continue;
 					}
 
