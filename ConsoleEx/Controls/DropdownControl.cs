@@ -759,13 +759,11 @@ namespace ConsoleEx.Controls
 				// Calculate available space for dropdown items considering margins and container height
 				int availableSpaceForDropdown = int.MaxValue;
 
-				if (availableHeight.HasValue)
-				{
-					// Calculate how many lines we can use for dropdown items
-					// This considers: header height (1) + top/bottom margins + 1 for scroll indicator
-					int usedHeight = 1 + _margin.Top + _margin.Bottom + ((_dropdownScrollOffset > 0 || _items.Count > _maxVisibleItems) ? 1 : 0);
-					availableSpaceForDropdown = Math.Max(1, availableHeight.Value - usedHeight);
-				}
+				//if (availableHeight.HasValue)
+				//{
+				//	int usedHeight = 1 + _margin.Top + _margin.Bottom + ((_dropdownScrollOffset > 0 || _items.Count > _maxVisibleItems) ? 1 : 0);
+				//	availableSpaceForDropdown = Math.Max(1, availableHeight.Value - usedHeight);
+				//}
 
 				// Determine how many items to display based on available height and maxVisibleItems
 				int effectiveMaxVisibleItems = Math.Min(_maxVisibleItems, availableSpaceForDropdown);
