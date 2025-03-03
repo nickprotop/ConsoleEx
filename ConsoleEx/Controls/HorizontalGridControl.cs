@@ -238,6 +238,32 @@ namespace ConsoleEx.Controls
 					}
 				}
 
+				// Apply alignment to the combined line
+				if (availableWidth.HasValue && _alignment != Alignment.Left)
+				{
+					int lineLength = AnsiConsoleHelper.StripAnsiStringLength(line);
+					int padding = availableWidth.Value - lineLength;
+
+					if (padding > 0)
+					{
+						switch (_alignment)
+						{
+							case Alignment.Center:
+								int leftPadding = padding / 2;
+								line = new string(' ', leftPadding) + line;
+								break;
+
+							case Alignment.Right:
+								line = new string(' ', padding) + line;
+								break;
+
+							case Alignment.Strecth:
+								// For stretch, we don't add padding here as the content already fills the available width
+								break;
+						}
+					}
+				}
+
 				_cachedContent.Add(line);
 			}
 
