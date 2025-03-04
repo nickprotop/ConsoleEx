@@ -15,6 +15,8 @@ namespace ConsoleEx.Example
 {
 	internal class Program
 	{
+		private Window _commandWindow;
+
 		private static void HandleException(Exception ex)
 		{
 			Console.Clear();
@@ -61,6 +63,9 @@ namespace ConsoleEx.Example
 
 			var listViewWindow = new ListViewWindow(consoleWindowSystem);
 			consoleWindowSystem.AddWindow(listViewWindow.GetWindow());
+
+			var commandWindow = new CommandWindow(consoleWindowSystem);
+			consoleWindowSystem.AddWindow(commandWindow.Window);
 
 			try
 			{

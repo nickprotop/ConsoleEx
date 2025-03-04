@@ -199,7 +199,7 @@ namespace ConsoleEx.Example
 			var agePrompt = new PromptControl
 			{
 				Prompt = "[yellow]Enter[/] [red]your[/] [blue]age[/] : ",
-				DisableOnEnter = false,
+				UnfocusOnEnter = false,
 				InputWidth = 10
 			};
 			agePrompt.OnEnter += AgePrompt_Enter;
@@ -230,7 +230,7 @@ namespace ConsoleEx.Example
 			var namePrompt = new PromptControl
 			{
 				Prompt = "[yellow]Enter[/] [red]your[/] [blue]name[/]: ",
-				DisableOnEnter = false
+				UnfocusOnEnter = false
 			};
 			namePrompt.OnInputChange += NamePrompt_InputChanged;
 			return namePrompt;

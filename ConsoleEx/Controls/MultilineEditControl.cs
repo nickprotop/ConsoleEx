@@ -42,6 +42,7 @@ namespace ConsoleEx.Controls
 		private bool _isEnabled = true;
 		private List<string> _lines = new List<string>() { string.Empty };
 		private Margin _margin = new Margin(0, 0, 0, 0);
+		private bool _readOnly = false;
 		private Color? _selectionBackgroundColorValue;
 		private int _selectionEndX = 0;
 		private int _selectionEndY = 0;
@@ -113,6 +114,12 @@ namespace ConsoleEx.Controls
 
 		public IContainer? Container { get; set; }
 
+		public string Content
+		{
+			get => GetContent();
+			set => SetContent(value);
+		}
+
 		public Color FocusedBackgroundColor
 		{
 			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor ?? Color.White;
@@ -173,6 +180,21 @@ namespace ConsoleEx.Controls
 
 		public Margin Margin
 		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
+
+		/// <summary>
+		/// Gets or sets whether the control is in read-only mode.
+		/// When read-only, users can navigate and select text, but cannot modify content.
+		/// </summary>
+		public bool ReadOnly
+		{
+			get => _readOnly;
+			set
+			{
+				_readOnly = value;
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
 
 		public Color SelectionBackgroundColor
 		{
@@ -419,7 +441,7 @@ namespace ConsoleEx.Controls
 		/// </summary>
 		public void InsertText(string text)
 		{
-			if (string.IsNullOrEmpty(text))
+			if (_readOnly || string.IsNullOrEmpty(text))
 				return;
 
 			// Split the text into lines
@@ -767,6 +789,8 @@ namespace ConsoleEx.Controls
 					break;
 
 				case ConsoleKey.Backspace:
+					if (_readOnly) break;
+
 					if (_hasSelection)
 					{
 						// Delete selected text
@@ -793,6 +817,8 @@ namespace ConsoleEx.Controls
 					break;
 
 				case ConsoleKey.Delete:
+					if (_readOnly) break;
+
 					if (_hasSelection)
 					{
 						// Delete selected text
@@ -815,6 +841,8 @@ namespace ConsoleEx.Controls
 					break;
 
 				case ConsoleKey.Enter:
+					if (_readOnly) break;
+
 					if (_hasSelection)
 					{
 						// Delete selected text first
@@ -854,7 +882,7 @@ namespace ConsoleEx.Controls
 					}
 
 				default:
-					if (!char.IsControl(key.KeyChar))
+					if (!_readOnly && !char.IsControl(key.KeyChar))
 					{
 						if (_hasSelection)
 						{

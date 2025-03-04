@@ -52,7 +52,6 @@ namespace ConsoleEx.Controls
 		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public IContainer? Container { get; set; }
-		public bool DisableOnEnter { get; set; } = true;
 		public bool HasFocus { get; set; }
 
 		public Color? InputBackgroundColor
@@ -131,6 +130,7 @@ namespace ConsoleEx.Controls
 		}
 
 		public object? Tag { get; set; }
+		public bool UnfocusOnEnter { get; set; } = true;
 
 		public bool Visible
 		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
@@ -160,7 +160,7 @@ namespace ConsoleEx.Controls
 			if (key.Key == ConsoleKey.Enter)
 			{
 				OnEnter?.Invoke(this, _input);
-				if (DisableOnEnter)
+				if (UnfocusOnEnter)
 				{
 					_cursorPosition = 0;
 					HasFocus = false;
@@ -284,10 +284,20 @@ namespace ConsoleEx.Controls
 			HasFocus = focus;
 		}
 
-		public void SetInput(string input)
+		public void SetInput(string? input)
 		{
+			if (string.IsNullOrEmpty(input))
+			{
+				_cursorPosition = 0;
+			}
+			else
+			{
+				_cursorPosition = input.Length; // Update cursor position to the end of the input
+			}
+
 			_cachedContent = null;
-			_input = input;
+			_input = input ?? string.Empty;
+
 			Container?.Invalidate(true);
 			OnInputChange?.Invoke(this, _input);
 		}
