@@ -13,9 +13,9 @@ namespace ConsoleEx.Services.NotificationsService
 {
 	public static class Notifications
 	{
-		public static void ShowNotification(ConsoleWindowSystem consoleWindowSystem, string title, string message, NotificationSeverity severity, bool? blockUi = false, int? timeout = 5000)
+		public static void ShowNotification(ConsoleWindowSystem consoleWindowSystem, string title, string message, NotificationSeverity severity, bool? blockUi = false, int? timeout = 5000, Window? parentWindow = null)
 		{
-			var notificationWindow = new Window(consoleWindowSystem)
+			var notificationWindow = new Window(consoleWindowSystem, parentWindow)
 			{
 				Title = string.IsNullOrWhiteSpace(title) ? severity.Name ?? "Notification" : title,
 				Left = consoleWindowSystem.DesktopDimensions.Width / 2 - (AnsiConsoleHelper.StripSpectreLength(message) + 8) / 2,
