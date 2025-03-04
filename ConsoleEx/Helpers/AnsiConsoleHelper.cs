@@ -46,6 +46,13 @@ namespace ConsoleEx.Helpers
 			{ "reset", "\u001b[0m" }
 		};
 
+		public static string AnsiEmptySpace(int width, Color backgroundColor)
+		{
+			if (width <= 0)
+				return string.Empty;
+			return ConvertSpectreMarkupToAnsi($"{new string(' ', width)}", width, 1, false, backgroundColor, null)[0];
+		}
+
 		public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow, Color? backgroundColor, Color? foregroundColor)
 		{
 			if (string.IsNullOrEmpty(markup))

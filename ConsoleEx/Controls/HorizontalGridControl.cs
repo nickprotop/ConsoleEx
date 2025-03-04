@@ -8,6 +8,7 @@
 
 using ConsoleEx.Helpers;
 using Spectre.Console;
+using System.Data.Common;
 
 namespace ConsoleEx.Controls
 {
@@ -251,7 +252,7 @@ namespace ConsoleEx.Controls
 					// Make sure we don't access beyond the bounds of columnContent
 					string contentLine = i < columnContent.Count
 						? columnContent[i]
-						: new string(' ', column.GetActualWidth() ?? 0);
+						: $"[{BackgroundColor}]{new string(' ', column.GetActualWidth() ?? 0)}[/]";
 
 					// Add the column content to the line, properly padded to its width
 					line += contentLine.PadRight(column.GetActualWidth() ?? 0);
@@ -269,11 +270,11 @@ namespace ConsoleEx.Controls
 						{
 							case Alignment.Center:
 								int leftPadding = padding / 2;
-								line = new string(' ', leftPadding) + line;
+								line = AnsiConsoleHelper.AnsiEmptySpace(leftPadding, BackgroundColor ?? Color.Black) + line;
 								break;
 
 							case Alignment.Right:
-								line = new string(' ', padding) + line;
+								line = AnsiConsoleHelper.AnsiEmptySpace(padding, BackgroundColor ?? Color.Black) + line;
 								break;
 
 							case Alignment.Strecth:
