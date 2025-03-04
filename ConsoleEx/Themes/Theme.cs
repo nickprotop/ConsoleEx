@@ -32,6 +32,9 @@ namespace ConsoleEx.Themes
 		public Color DesktopForegroundColor { get; set; } = Color.White;
 		public Color InactiveBorderForegroundColor { get; set; } = Color.Grey;
 		public Color InactiveTitleForegroundColor { get; set; } = Color.Grey;
+		public Color ModalBackgroundColor { get; set; } = Color.Grey19;
+		public Color ModalBorderForegroundColor { get; set; } = Color.Yellow;
+		public Color ModalTitleForegroundColor { get; set; } = Color.Yellow;
 		public Color NotificationDangerWindowBackgroundColor { get; set; } = Color.Maroon;
 		public Color NotificationInfoWindowBackgroundColor { get; set; } = Color.SteelBlue;
 		public Color NotificationSuccessWindowBackgroundColor { get; set; } = Color.DarkGreen;
@@ -41,9 +44,14 @@ namespace ConsoleEx.Themes
 		public Color PromptInputFocusedBackgroundColor { get; set; } = Color.Grey46;
 		public Color PromptInputFocusedForegroundColor { get; set; } = Color.White;
 		public Color PromptInputForegroundColor { get; set; } = Color.White;
+		public bool ShowModalShadow { get; set; } = true;
 		public Color TextEditFocusedNotEditing { get; set; } = Color.Grey35;
 		public Color TopBarBackgroundColor { get; set; } = Color.White;
 		public Color TopBarForegroundColor { get; set; } = Color.Black;
+
+		// Slightly darker than regular windows
+		public bool UseDoubleLineBorderForModal { get; set; } = true;
+
 		public Color WindowBackgroundColor { get; set; } = Color.Grey15;
 		public Color WindowForegroundColor { get; set; } = Color.White;
 	}

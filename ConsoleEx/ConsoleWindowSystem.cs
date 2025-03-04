@@ -91,29 +91,68 @@ namespace ConsoleEx
 			return window;
 		}
 
-		public void CloseWindow(Window? window)
+		public void CloseModalWindow(Window? modalWindow)
 		{
-			if (window == null) return;
-			if (!_windows.ContainsKey(window.Guid)) return;
+			if (modalWindow == null || modalWindow.Mode != WindowMode.Modal)
+				return;
 
-			if (window.Close(systemCall: true) == false) return;
+			// Store the parent window before closing
+			Window? parentWindow = modalWindow.ParentWindow;
 
+			// Close the modal window
+			if (CloseWindow(modalWindow))
+			{
+				// If we have a parent window, ensure it becomes active
+				if (parentWindow != null && _windows.ContainsKey(parentWindow.Guid))
+				{
+					SetActiveWindow(parentWindow);
+				}
+			}
+		}
+
+		public bool CloseWindow(Window? window, bool activateParent = true)
+		{
+			if (window == null) return false;
+			if (!_windows.ContainsKey(window.Guid)) return false;
+
+			if (window.Close(systemCall: true) == false) return false;
+
+			// Store references before removal
+			Window? parentWindow = window.ParentWindow;
+			bool wasActive = (window == _activeWindow);
+
+			// Remove from window collection
 			_windows.TryRemove(window.Guid, out _);
 
-			if (_activeWindow == window)
+			// Handle active window change if needed
+			if (wasActive)
 			{
-				_activeWindow = _windows.Values.LastOrDefault(w => w.ZIndex == _windows.Values.Max(w => w.ZIndex));
-				if (_activeWindow != null)
+				if (activateParent && parentWindow != null && _windows.ContainsKey(parentWindow.Guid))
 				{
+					// Activate the parent
+					_activeWindow = parentWindow;
 					SetActiveWindow(_activeWindow);
+				}
+				else
+				{
+					// Default behavior - activate window with highest Z-Index
+					_activeWindow = _windows.Values.LastOrDefault(w => w.ZIndex == _windows.Values.Max(w => w.ZIndex));
+					if (_activeWindow != null)
+					{
+						SetActiveWindow(_activeWindow);
+					}
 				}
 			}
 
-			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+			// Redraw the screen
+			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height,
+							  Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 			foreach (var w in _windows.Values)
 			{
 				w.Invalidate(true);
 			}
+
+			return true;
 		}
 
 		public void FlashWindow(Window? window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
@@ -244,12 +283,25 @@ namespace ConsoleEx
 				return;
 			}
 
+			if (_windows.Values.Count(w => w.ParentWindow == null && w.Mode == WindowMode.Modal) > 0)
+			{
+				if (window != _activeWindow)
+				{
+					FlashWindow(_activeWindow);
+				}
+
+				return;
+			}
+
+			// Find the appropriate window to activate based on modality rules
+			Window windowToActivate = FindWindowToActivate(window);
+
 			var previousActiveWindow = _activeWindow;
 
 			_windows.Values.FirstOrDefault(w => w.GetIsActive())?.SetIsActive(false);
 			_activeWindow?.Invalidate(true);
 
-			_activeWindow = window;
+			_activeWindow = windowToActivate;
 			_activeWindow.SetIsActive(true);
 			_activeWindow.ZIndex = _windows.Values.Max(w => w.ZIndex) + 1;
 
@@ -300,6 +352,59 @@ namespace ConsoleEx
 			}
 		}
 
+		// Helper method to find the deepest modal child window with the highest Z-index
+		private Window? FindDeepestModalChild(Window window)
+		{
+			// Get all direct modal children of the window, ordered by Z-index (highest first)
+			var modalChildren = _windows.Values
+				.Where(w => w.ParentWindow == window && w.Mode == WindowMode.Modal)
+				.OrderByDescending(w => w.ZIndex)
+				.ToList();
+
+			// If no direct modal children, return null
+			if (modalChildren.Count == 0)
+			{
+				return null;
+			}
+
+			// Take the highest Z-index modal child
+			Window highestModalChild = modalChildren.First();
+
+			// Check if this modal child itself has modal children
+			Window? deeperModalChild = FindDeepestModalChild(highestModalChild);
+
+			// If deeper modal child found, return it, otherwise return the highest modal child
+			return deeperModalChild ?? highestModalChild;
+		}
+
+		// Helper method to find the appropriate window to activate based on modality rules
+		private Window FindWindowToActivate(Window targetWindow)
+		{
+			// First, check if there's already an active modal child - prioritize it
+			var activeModalChild = _windows.Values
+				.Where(w => w.ParentWindow == targetWindow && w.Mode == WindowMode.Modal && w.GetIsActive())
+				.FirstOrDefault();
+
+			if (activeModalChild != null)
+			{
+				// Found an already active modal child, prioritize it
+				FlashWindow(activeModalChild);
+				return FindWindowToActivate(activeModalChild); // Recursively check if this active modal has active modal children
+			}
+
+			// No already active modal child, check for any modal children
+			var modalChild = FindDeepestModalChild(targetWindow);
+			if (modalChild != null)
+			{
+				// Found a modal child, activate it instead
+				FlashWindow(modalChild);
+				return modalChild;
+			}
+
+			// No modal children, return the target window itself
+			return targetWindow;
+		}
+
 		private Window? GetWindowAtPoint(Point point)
 		{
 			List<Window> windows = _windows.Values
@@ -327,16 +432,19 @@ namespace ConsoleEx
 					FlashWindow(_activeWindow);
 					return false;
 				}
+
 				int index = key.KeyChar - (char)ConsoleKey.D1;
 				if (index < _windows.Count)
 				{
 					var newActiveWindow = _windows.Values.ElementAt(index);
 
 					SetActiveWindow(newActiveWindow);
-					if (newActiveWindow.State == WindowState.Minimized) newActiveWindow.State = WindowState.Normal;
+					if (newActiveWindow.State == WindowState.Minimized)
+						newActiveWindow.State = WindowState.Normal;
 					handled = true;
 				}
 			}
+
 			return handled;
 		}
 
@@ -348,7 +456,7 @@ namespace ConsoleEx
 				var window = GetWindowAtPoint(point);
 				if (window != null && window != _activeWindow)
 				{
-					// Activate the window if it is not already active
+					// Activate the window
 					SetActiveWindow(window);
 				}
 			}
@@ -422,6 +530,19 @@ namespace ConsoleEx
 			}
 
 			return handled;
+		}
+
+		// Helper method to check if a window is a child of another
+		private bool IsChildWindow(Window potentialChild, Window potentialParent)
+		{
+			Window? current = potentialChild;
+			while (current?.ParentWindow != null)
+			{
+				if (current.ParentWindow.Equals(potentialParent))
+					return true;
+				current = current.ParentWindow;
+			}
+			return false;
 		}
 
 		private bool IsCompletelyCovered(Window window)

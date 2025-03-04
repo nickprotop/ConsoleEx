@@ -75,6 +75,7 @@ namespace ConsoleEx
 		private int? _maximumWidth;
 		private int? _minimumHeight = 3;
 		private int? _minimumWidth = 10;
+		private WindowMode _mode = WindowMode.Normal;
 		private int _scrollOffset;
 		private WindowState _state;
 		private object? _tag;
@@ -185,6 +186,12 @@ namespace ConsoleEx
 		public bool IsScrollable { get; set; } = true;
 
 		public int Left { get; set; }
+
+		public WindowMode Mode
+		{
+			get => _mode;
+			set { _mode = value; }
+		}
 
 		public int OriginalHeight { get; set; }
 

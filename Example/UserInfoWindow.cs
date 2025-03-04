@@ -18,6 +18,7 @@ namespace ConsoleEx.Example
 		private PromptControl _agePrompt;
 		private CheckboxControl _agreeTermsCheckbox;
 		private HorizontalGridControl? _bottomButtons;
+		private ConsoleWindowSystem _consoleWindowSystem;
 		private DropdownControl? _countryDropdown;
 		private MultilineEditControl _multilineEdit;
 		private PromptControl _namePrompt;
@@ -25,6 +26,7 @@ namespace ConsoleEx.Example
 		public UserInfoWindow(ConsoleWindowSystem consoleWindowSystem)
 		{
 			_window = CreateWindow(consoleWindowSystem);
+			_consoleWindowSystem = consoleWindowSystem;
 
 			consoleWindowSystem.AddWindow(_window);
 
@@ -72,7 +74,39 @@ namespace ConsoleEx.Example
 			_window.AddContent(_bottomButtons);
 
 			var maximizeButton = CreateButton("[yellow]Maximize[/] window", (sender) => _window.State = WindowState.Maximized);
-			var closeButton = CreateButton("[red]Close[/] window", (sender) => _window.Close());
+			var closeButton = CreateButton("[red]Close[/] window", (sender) =>
+			{
+				// Create a modal dialog
+				var modalWindow = new Window(_consoleWindowSystem, _window)
+				{
+					Title = "Confirm Action",
+					Mode = WindowMode.Modal,
+					Width = 40,
+					Height = 10
+				};
+
+				// Add some content
+				modalWindow.AddContent(new MarkupControl(new List<string>() { "Are you sure you want to proceed?" })
+				{
+					Alignment = Alignment.Center
+				});
+
+				var okButton = new ButtonControl()
+				{
+					Text = "ok"
+				};
+				okButton.OnClick += (sender) =>
+				{
+					_consoleWindowSystem.CloseWindow(modalWindow);
+					_consoleWindowSystem.CloseWindow(_window);
+				};
+
+				modalWindow.AddContent(okButton);
+
+				// Make the window visible
+				_consoleWindowSystem.AddWindow(modalWindow);
+				_consoleWindowSystem.SetActiveWindow(modalWindow);
+			});
 
 			AddButtonToBottomButtons(maximizeButton);
 			AddButtonToBottomButtons(closeButton);

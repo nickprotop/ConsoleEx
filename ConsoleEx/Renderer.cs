@@ -175,12 +175,8 @@ namespace ConsoleEx
 
 			var borderColor = window.GetIsActive() ? $"[{window.ActiveBorderForegroundColor}]" : $"[{window.InactiveBorderForegroundColor}]";
 			var titleColor = window.GetIsActive() ? $"[{window.ActiveTitleForegroundColor}]" : $"[{window.InactiveTitleForegroundColor}]";
-			var resetColor = "[/]";
 
-			if (window.IsDragging)
-			{
-				borderColor = "[red]"; // Change the border color to red when dragging
-			}
+			var resetColor = "[/]";
 
 			var title = $"{titleColor}| {StringHelper.TrimWithEllipsis(window.Title, window.Width - 8, (window.Width - 8) / 2)} |{resetColor}";
 			var titleLength = AnsiConsoleHelper.StripSpectreLength(title);
