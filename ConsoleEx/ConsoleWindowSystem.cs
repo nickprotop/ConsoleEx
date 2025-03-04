@@ -39,14 +39,13 @@ namespace ConsoleEx
 		private readonly VisibleRegions _visibleRegions;
 		private readonly ConcurrentDictionary<string, Window> _windows = new();
 		private Window? _activeWindow;
-		private ConcurrentQueue<string> _blockUi = new();
 		private string? _cachedBottomStatus;
 		private string? _cachedTopStatus;
 		private IConsoleDriver _consoleDriver;
 		private int _exitCode;
 		private int _idleTime = 10;
 		private bool _running;
-		// Initial idle time
+		private bool _showTaskBar = true;
 
 		public ConsoleWindowSystem(RenderMode renderMode)
 		{
@@ -65,7 +64,6 @@ namespace ConsoleEx
 			_renderer = new Renderer(this);
 		}
 
-		public ConcurrentQueue<string> BlockUi => _blockUi;
 		public string BottomStatus { get; set; } = "";
 
 		public IConsoleDriver ConsoleDriver
@@ -75,6 +73,7 @@ namespace ConsoleEx
 		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
 		public Point DesktopUpperLeft => new Point(0, string.IsNullOrEmpty(TopStatus) ? 0 : 1);
 		public RenderMode RenderMode { get; set; }
+		public bool ShowTaskBar { get => _showTaskBar; set => _showTaskBar = value; }
 		public Theme Theme { get; set; } = new Theme();
 		public string TopStatus { get; set; } = "";
 		public VisibleRegions VisibleRegions => _visibleRegions;
@@ -277,12 +276,6 @@ namespace ConsoleEx
 				return;
 			}
 
-			if (_blockUi.Count != 0)
-			{
-				FlashWindow(_activeWindow);
-				return;
-			}
-
 			if (_windows.Values.Count(w => w.ParentWindow == null && w.Mode == WindowMode.Modal) > 0)
 			{
 				if (window != _activeWindow)
@@ -427,16 +420,15 @@ namespace ConsoleEx
 			bool handled = false;
 			if (key.KeyChar >= (char)ConsoleKey.D1 && key.KeyChar <= (char)ConsoleKey.D9)
 			{
-				if (_blockUi.Count != 0)
-				{
-					FlashWindow(_activeWindow);
-					return false;
-				}
+				// Get only top-level windows to match what's displayed in the bottom status bar
+				var topLevelWindows = _windows.Values
+					.Where(w => w.ParentWindow == null)
+					.ToList();
 
 				int index = key.KeyChar - (char)ConsoleKey.D1;
-				if (index < _windows.Count)
+				if (index < topLevelWindows.Count)
 				{
-					var newActiveWindow = _windows.Values.ElementAt(index);
+					var newActiveWindow = topLevelWindows[index];
 
 					SetActiveWindow(newActiveWindow);
 					if (newActiveWindow.State == WindowState.Minimized)
@@ -685,11 +677,6 @@ namespace ConsoleEx
 			{
 				if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.T)
 				{
-					if (_blockUi.Count != 0)
-					{
-						FlashWindow(_activeWindow);
-						return;
-					}
 					CycleActiveWindow();
 				}
 				else if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.Q)
@@ -816,7 +803,14 @@ namespace ConsoleEx
 				}
 			}
 
-			string bottomRow = $"{string.Join(" | ", _windows.Values.Select((w, i) => $"[bold]Alt-{i + 1}[/] {StringHelper.TrimWithEllipsis(w.Title, 15, 7)}"))} | {BottomStatus}";
+			// Filter out sub-windows from the bottom status bar
+			var topLevelWindows = _windows.Values
+				.Where(w => w.ParentWindow == null)
+				.ToList();
+
+			var taskBar = _showTaskBar ? $"{string.Join(" | ", topLevelWindows.Select((w, i) => $"[bold]Alt-{i + 1}[/] {StringHelper.TrimWithEllipsis(w.Title, 15, 7)}"))} | " : string.Empty;
+
+			string bottomRow = $"{taskBar}{BottomStatus}";
 
 			// Display the list of window titles in the bottom row
 			if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > _consoleDriver.ScreenSize.Width)

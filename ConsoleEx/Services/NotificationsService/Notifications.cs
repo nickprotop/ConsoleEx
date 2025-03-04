@@ -36,7 +36,7 @@ namespace ConsoleEx.Services.NotificationsService
 
 			if (blockUi == true)
 			{
-				consoleWindowSystem.BlockUi.Enqueue(notificationWindow.Guid);
+				notificationWindow.Mode = WindowMode.Modal;
 			}
 
 			var notificationContent = new MarkupControl(new List<string>() { $"{severity.Icon}{(string.IsNullOrEmpty(severity.Icon) ? string.Empty : " ")}{message}" })
@@ -56,14 +56,6 @@ namespace ConsoleEx.Services.NotificationsService
 			{
 				consoleWindowSystem.CloseWindow(notificationWindow);
 			};
-
-			if (blockUi == true)
-			{
-				notificationWindow.OnClosed += (s, e) =>
-				{
-					consoleWindowSystem.BlockUi.TryDequeue(out _);
-				};
-			}
 
 			if (timeout.HasValue && timeout.Value != 0)
 			{

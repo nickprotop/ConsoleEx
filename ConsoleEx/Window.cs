@@ -97,6 +97,9 @@ namespace ConsoleEx
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
 			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
 
+			// Set position relative to parent if this is a subwindow
+			SetupInitialPosition();
+
 			_windowThreadMethodAsync = windowThreadMethod;
 			_windowTask = Task.Run(() => _windowThreadMethodAsync(this));
 		}
@@ -110,6 +113,9 @@ namespace ConsoleEx
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
 			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
+
+			// Set position relative to parent if this is a subwindow
+			SetupInitialPosition();
 		}
 
 		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegate windowThreadMethod, Window? parentWindow = null)
@@ -121,6 +127,9 @@ namespace ConsoleEx
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
 			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
+
+			// Set position relative to parent if this is a subwindow
+			SetupInitialPosition();
 
 			_windowThreadMethod = windowThreadMethod;
 			_windowThread = new Thread(() => _windowThreadMethod(this));
@@ -816,6 +825,42 @@ namespace ConsoleEx
 
 			// Invalidate the window to update the display
 			Invalidate(true);
+		}
+
+		// Helper method to set up initial position for subwindows
+		private void SetupInitialPosition()
+		{
+			// Only set position if this is a subwindow and both Left and Top are at their default values (0)
+			if (_parentWindow != null && Left == 0 && Top == 0)
+			{
+				// Position the subwindow in the center of the parent window
+				int parentCenterX = _parentWindow.Left + (_parentWindow.Width / 2);
+				int parentCenterY = _parentWindow.Top + (_parentWindow.Height / 2);
+
+				// Center this window on the parent's center
+				Left = Math.Max(0, parentCenterX - (Width / 2));
+				Top = Math.Max(0, parentCenterY - (Height / 2));
+
+				// If we're a modal window, ensure we're visible and properly centered
+				if (Mode == WindowMode.Modal)
+				{
+					// Use a smaller offset for modal windows to make them look more like dialogs
+					// Ensure the window fits within the parent window bounds
+					Left = Math.Max(0, _parentWindow.Left + 5);
+					Top = Math.Max(0, _parentWindow.Top + 3);
+
+					// Make sure the window isn't too large for the parent
+					if (_windowSystem != null)
+					{
+						// Make sure the window fits on the screen
+						if (Left + Width > _windowSystem.DesktopBottomRight.X)
+							Left = Math.Max(0, _windowSystem.DesktopBottomRight.X - Width);
+
+						if (Top + Height > _windowSystem.DesktopBottomRight.Y)
+							Top = Math.Max(0, _windowSystem.DesktopBottomRight.Y - Height);
+					}
+				}
+			}
 		}
 
 		public class WindowStateChangedEventArgs : EventArgs
