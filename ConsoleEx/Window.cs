@@ -12,6 +12,12 @@ using Color = Spectre.Console.Color;
 
 namespace ConsoleEx
 {
+	public enum WindowMode
+	{
+		Normal,
+		Modal
+	}
+
 	public enum WindowState
 	{
 		Normal,
@@ -48,6 +54,7 @@ namespace ConsoleEx
 		private readonly List<IInteractiveControl> _interactiveContents = new();
 		private readonly object _lock = new();
 
+		private readonly Window? _parentWindow;
 		private Color? _activeBorderForegroundColor;
 		private Color? _activeTitleForegroundColor;
 		private int _bottomStickyHeight;
@@ -79,10 +86,11 @@ namespace ConsoleEx
 		private WindowThreadDelegate? _windowThreadMethod;
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 
-		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod)
+		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod, Window? parentWindow = null)
 		{
 			_guid = System.Guid.NewGuid().ToString();
 
+			_parentWindow = parentWindow;
 			_windowSystem = windowSystem;
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
@@ -92,21 +100,23 @@ namespace ConsoleEx
 			_windowTask = Task.Run(() => _windowThreadMethodAsync(this));
 		}
 
-		public Window(ConsoleWindowSystem windowSystem)
+		public Window(ConsoleWindowSystem windowSystem, Window? parentWindow = null)
 		{
 			_guid = System.Guid.NewGuid().ToString();
 
 			_windowSystem = windowSystem;
+			_parentWindow = parentWindow;
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
 			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
 		}
 
-		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegate windowThreadMethod)
+		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegate windowThreadMethod, Window? parentWindow = null)
 		{
 			_guid = System.Guid.NewGuid().ToString();
 
 			_windowSystem = windowSystem;
+			_parentWindow = parentWindow;
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
 			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
@@ -183,6 +193,14 @@ namespace ConsoleEx
 		public int OriginalTop { get; set; }
 
 		public int OriginalWidth { get; set; }
+
+		public Window? ParentWindow
+		{
+			get
+			{
+				return _parentWindow;
+			}
+		}
 
 		public int ScrollOffset => _scrollOffset;
 

@@ -19,7 +19,7 @@
 
 
 	<ItemGroup>
-    <PackageReference Include="Spectre.Console" Version="0.49.2-preview.0.75" />
+    <PackageReference Include="Spectre.Console" Version="0.49.1" />
   </ItemGroup>
 
 </Project>

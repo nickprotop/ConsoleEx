@@ -65,6 +65,8 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public object? Tag { get; set; }
+
 		public string Text
 		{
 			get => _text;

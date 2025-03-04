@@ -201,6 +201,8 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public object? Tag { get; set; }
+
 		public bool Visible
 		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 

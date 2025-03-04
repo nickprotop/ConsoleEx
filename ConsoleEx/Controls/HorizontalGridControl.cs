@@ -100,6 +100,8 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public object? Tag { get; set; }
+
 		public bool Visible
 		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 
@@ -241,16 +243,18 @@ namespace ConsoleEx.Controls
 			{
 				string line = string.Empty;
 
-				foreach (var column in renderedColumns)
+				for (int columnIndex = 0; columnIndex < _columns.Count; columnIndex++)
 				{
-					if (i < column.Count)
-					{
-						line += column[i].PadRight(_columns[i].GetActualWidth() ?? 0);
-					}
-					else
-					{
-						line += AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', _columns[i].GetActualWidth() ?? 0)}", _columns[i].GetActualWidth(), 1, false, BackgroundColor, ForegroundColor)[0];
-					}
+					var column = _columns[columnIndex];
+					var columnContent = renderedColumns[columnIndex];
+
+					// Make sure we don't access beyond the bounds of columnContent
+					string contentLine = i < columnContent.Count
+						? columnContent[i]
+						: new string(' ', column.GetActualWidth() ?? 0);
+
+					// Add the column content to the line, properly padded to its width
+					line += contentLine.PadRight(column.GetActualWidth() ?? 0);
 				}
 
 				// Apply alignment to the combined line
@@ -326,8 +330,11 @@ namespace ConsoleEx.Controls
 			}
 			else
 			{
-				_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()].Invalidate(true);
-				_interactiveContents.Keys.ToList().ForEach(c => c.HasFocus = false);
+				if (_interactiveContents.Count != 0)
+				{
+					_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()]?.Invalidate(true);
+					_interactiveContents.Keys.ToList().ForEach(c => c.HasFocus = false);
+				}
 				_focusedContent = null;
 			}
 		}

@@ -407,6 +407,8 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public object? Tag { get; set; }
+
 		public bool Visible
 		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 
@@ -650,7 +652,7 @@ namespace ConsoleEx.Controls
 			}
 
 			// Calculate effective width
-			int dropdownWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 40) : 40);
+			int dropdownWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 40) : calculateOptimalWidth(availableWidth));
 
 			// Ensure width can accommodate content
 			int maxItemWidth = 0;
@@ -802,7 +804,7 @@ namespace ConsoleEx.Controls
 					// Add selection indicator and padding
 					if (_items[itemIndex].Icon != null)
 					{
-						string iconText = _items[itemIndex].Icon;
+						string iconText = _items[itemIndex].Icon!;
 						Color iconColor = _items[itemIndex].IconColor ?? itemFg;
 
 						// Create icon markup with proper color
@@ -1020,6 +1022,58 @@ namespace ConsoleEx.Controls
 			}
 			_cachedContent = null;
 			Container?.Invalidate(true);
+		}
+
+		// Calculate effective width
+		// Calculate effective width
+		private int calculateOptimalWidth(int? availableWidth)
+		{
+			// Calculate maximum item width including icons, selection indicators, and padding
+			int maxItemWidth = 0;
+			foreach (var item in _items)
+			{
+				// Base length includes text plus basic padding
+				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text);
+
+				// Add space for selection indicator (2 chars: "● " or "  ")
+				itemLength += 2;
+
+				// Add space for icon if present
+				if (item.Icon != null)
+				{
+					itemLength += AnsiConsoleHelper.StripSpectreLength(item.Icon) + 1; // +1 for space after icon
+				}
+
+				// Add some padding for comfortable viewing
+				itemLength += 2;
+
+				if (itemLength > maxItemWidth)
+					maxItemWidth = itemLength;
+			}
+
+			// Consider prompt length for header row
+			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
+
+			// Calculate header length: prompt + space + selected text + arrow
+			// Allow at least 10 chars for selected text display
+			int headerLength = promptLength + 1 + 10 + 3; // +1 for space, +3 for arrow and padding
+
+			// Take the greater of max item width or header length
+			int minWidth = Math.Max(headerLength, maxItemWidth);
+
+			// If width is specified, use it as minimum
+			if (_width.HasValue)
+			{
+				minWidth = Math.Max(minWidth, _width.Value);
+			}
+
+			// If stretch alignment and available width is provided, use available width
+			if (_alignment == Alignment.Strecth && availableWidth.HasValue)
+			{
+				return availableWidth.Value;
+			}
+
+			return minWidth;
 		}
 
 		private void EnsureHighlightedItemVisible()

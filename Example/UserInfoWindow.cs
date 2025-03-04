@@ -18,6 +18,7 @@ namespace ConsoleEx.Example
 		private PromptControl _agePrompt;
 		private CheckboxControl _agreeTermsCheckbox;
 		private HorizontalGridControl? _bottomButtons;
+		private DropdownControl? _countryDropdown;
 		private MultilineEditControl _multilineEdit;
 		private PromptControl _namePrompt;
 
@@ -88,10 +89,32 @@ namespace ConsoleEx.Example
 
 		private void AddWindowContents()
 		{
-			_window.AddContent(new MarkupControl(new List<string> { "[cyan]F[/]ile [cyan]E[/]dit [cyan]V[/]iew [cyan]H[/]elp" })
+			HorizontalGridControl horizontalGridControl = new HorizontalGridControl()
 			{
 				StickyPosition = StickyPosition.Top
-			});
+			};
+			_window.AddContent(horizontalGridControl);
+
+			var columnContainer = new ColumnContainer(horizontalGridControl);
+			columnContainer.AddContent(new MarkupControl(new List<string> { "[cyan]F[/]ile [cyan]E[/]dit [cyan]V[/]iew [cyan]H[/]elp" }));
+			horizontalGridControl.AddColumn(columnContainer);
+
+			columnContainer = new ColumnContainer(horizontalGridControl);
+			_countryDropdown = new DropdownControl("Select a country:")
+			{
+				Margin = new Margin { Left = 1, Right = 1 }
+			};
+			_countryDropdown.AddItem("USA", "★", Color.Cyan1);
+			_countryDropdown.AddItem("Canada", "♦", Color.Red);
+			_countryDropdown.AddItem("UK", "♠", Color.Cyan1);
+			_countryDropdown.AddItem("France", "♣", Color.Red);
+			_countryDropdown.AddItem("Germany", "■", Color.Yellow);
+			_countryDropdown.AddItem("Japan", "●", Color.Red);
+			_countryDropdown.AddItem("Australia", "◆", Color.Green);
+			_countryDropdown.SelectedIndex = 0;
+			columnContainer.AddContent(_countryDropdown);
+			horizontalGridControl.AddColumn(columnContainer);
+
 			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
 
 			_window.AddContent(_namePrompt);

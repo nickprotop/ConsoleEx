@@ -61,6 +61,8 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public object? Tag { get; set; }
+
 		public string? Title
 		{
 			get => _title;

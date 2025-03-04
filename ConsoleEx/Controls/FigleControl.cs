@@ -58,6 +58,8 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public object? Tag { get; set; }
+
 		public string? Text
 		{ get => _text; set { _text = value; _cachedContent = null; Container?.Invalidate(true); } }
 

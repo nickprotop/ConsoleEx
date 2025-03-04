@@ -59,6 +59,8 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public object? Tag { get; set; }
+
 		public string Text
 		{
 			get => string.Join("\n", _content);

@@ -67,7 +67,7 @@ namespace ConsoleEx.Controls
 			}
 		}
 
-		public ListControl(string title = null)
+		public ListControl(string? title = null)
 		{
 			_title = title ?? "List";
 		}
@@ -376,6 +376,8 @@ namespace ConsoleEx.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		public object? Tag { get; set; }
 
 		public string Title
 		{
@@ -873,7 +875,7 @@ namespace ConsoleEx.Controls
 					// Handle items with icons (only on first line)
 					if (lineIndex == 0 && _items[itemIndex].Icon != null)
 					{
-						string iconText = _items[itemIndex].Icon;
+						string iconText = _items[itemIndex].Icon!;
 						Color iconColor = _items[itemIndex].IconColor ?? itemFg;
 
 						// Create icon markup with proper color
@@ -905,7 +907,7 @@ namespace ConsoleEx.Controls
 						if (lineIndex > 0 && _items[itemIndex].Icon != null)
 						{
 							// Match the indentation of text on the first line (icon width + space)
-							string iconText = _items[itemIndex].Icon;
+							string iconText = _items[itemIndex].Icon!;
 							int iconWidth = AnsiConsoleHelper.StripSpectreLength(iconText) + 1;
 							indent = new string(' ', iconWidth);
 						}
@@ -1162,6 +1164,7 @@ namespace ConsoleEx.Controls
 
 		public ListItem(string text, string? icon = null, Color? iconColor = null)
 		{
+			_text = string.Empty;
 			Text = text;
 			Icon = icon;
 			IconColor = iconColor;

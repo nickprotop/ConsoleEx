@@ -206,6 +206,8 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public object? Tag { get; set; }
+
 		public int ViewportHeight
 		{
 			get => _viewportHeight;

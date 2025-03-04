@@ -52,9 +52,7 @@ namespace ConsoleEx.Controls
 		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public IContainer? Container { get; set; }
-
 		public bool DisableOnEnter { get; set; } = true;
-
 		public bool HasFocus { get; set; }
 
 		public Color? InputBackgroundColor
@@ -131,6 +129,8 @@ namespace ConsoleEx.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		public object? Tag { get; set; }
 
 		public bool Visible
 		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
