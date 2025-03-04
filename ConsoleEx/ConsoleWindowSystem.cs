@@ -173,13 +173,21 @@ namespace ConsoleEx
 
 					foreach (var window in _windows.Values)
 					{
-						if (window.Left + window.Width > desktopSize.Width)
+						if (window.State == WindowState.Maximized)
 						{
-							window.Left = Math.Max(0, desktopSize.Width - window.Width);
+							window.SetSize(desktopSize.Width, desktopSize.Height);
+							window.SetPosition(new Point(0, 0));
 						}
-						if (window.Top + window.Height > desktopSize.Height)
+						else
 						{
-							window.Top = Math.Max(1, desktopSize.Height - window.Height);
+							if (window.Left + window.Width > desktopSize.Width)
+							{
+								window.Left = Math.Max(0, desktopSize.Width - window.Width);
+							}
+							if (window.Top + window.Height > desktopSize.Height)
+							{
+								window.Top = Math.Max(1, desktopSize.Height - window.Height);
+							}
 						}
 
 						window.Invalidate(true);
