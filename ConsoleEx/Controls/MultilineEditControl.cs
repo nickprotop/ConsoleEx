@@ -12,6 +12,13 @@ using System.Text;
 
 namespace ConsoleEx.Controls
 {
+	public enum ScrollbarVisibility
+	{
+		Auto,    // Show scrollbars only when needed
+		Always,  // Always show scrollbars
+		Never    // Never show scrollbars
+	}
+
 	public enum WrapMode
 	{
 		NoWrap,
@@ -36,13 +43,19 @@ namespace ConsoleEx.Controls
 		private Color? _foregroundColorValue;
 		private bool _hasFocus = false;
 		private bool _hasSelection = false;
+		private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
 		private int _horizontalScrollOffset = 0;
 		private bool _invalidated = true;
+		private bool _isDraggingScrollbar = false;
+		private bool _isDraggingVerticalScrollbar = false;
 		private bool _isEditing = false;
 		private bool _isEnabled = true;
 		private List<string> _lines = new List<string>() { string.Empty };
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private bool _readOnly = false;
+		private Color? _scrollbarColorValue;
+		private int _scrollbarDragStartPosition = 0;
+		private Color? _scrollbarThumbColorValue;
 		private Color? _selectionBackgroundColorValue;
 		private int _selectionEndX = 0;
 		private int _selectionEndY = 0;
@@ -50,6 +63,7 @@ namespace ConsoleEx.Controls
 		private int _selectionStartX = 0;
 		private int _selectionStartY = 0;
 		private StickyPosition _stickyPosition = StickyPosition.None;
+		private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 		private int _verticalScrollOffset = 0;
 		private int _viewportHeight;
 		private bool _visible = true;
@@ -164,6 +178,17 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		public ScrollbarVisibility HorizontalScrollbarVisibility
+		{
+			get => _horizontalScrollbarVisibility;
+			set
+			{
+				_horizontalScrollbarVisibility = value;
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
+
 		public bool IsEditing
 		{ get => _isEditing; set { _isEditing = value; Invalidate(); Container?.Invalidate(false); } }
 
@@ -191,6 +216,28 @@ namespace ConsoleEx.Controls
 			set
 			{
 				_readOnly = value;
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
+
+		public Color ScrollbarColor
+		{
+			get => _scrollbarColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.InactiveBorderForegroundColor ?? Color.Grey;
+			set
+			{
+				_scrollbarColorValue = value;
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
+
+		public Color ScrollbarThumbColor
+		{
+			get => _scrollbarThumbColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonBackgroundColor ?? Color.White;
+			set
+			{
+				_scrollbarThumbColorValue = value;
 				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
@@ -229,6 +276,17 @@ namespace ConsoleEx.Controls
 		}
 
 		public object? Tag { get; set; }
+
+		public ScrollbarVisibility VerticalScrollbarVisibility
+		{
+			get => _verticalScrollbarVisibility;
+			set
+			{
+				_verticalScrollbarVisibility = value;
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
 
 		public int ViewportHeight
 		{
@@ -954,8 +1012,22 @@ namespace ConsoleEx.Controls
 
 			_cachedContent = new List<string>();
 
-			// Adjust the effective width to account for left and right margins
-			int effectiveWidth = (_width ?? availableWidth ?? 80) - _margin.Left - _margin.Right;
+			// Determine if scrollbars will be shown
+			bool needsVerticalScrollbar = _verticalScrollbarVisibility == ScrollbarVisibility.Always ||
+										(_verticalScrollbarVisibility == ScrollbarVisibility.Auto &&
+										 GetTotalWrappedLineCount() > _viewportHeight);
+
+			bool needsHorizontalScrollbar = _wrapMode == WrapMode.NoWrap &&
+										  (_horizontalScrollbarVisibility == ScrollbarVisibility.Always ||
+										  (_horizontalScrollbarVisibility == ScrollbarVisibility.Auto &&
+										   GetMaxLineLength() > (_width ?? availableWidth ?? 80) - _margin.Left - _margin.Right));
+
+			// Reserve space for scrollbars in effective width/height calculations
+			int scrollbarWidth = needsVerticalScrollbar ? 1 : 0;
+			int scrollbarHeight = needsHorizontalScrollbar ? 1 : 0;
+
+			// Adjust the effective width to account for left and right margins AND scrollbar
+			int effectiveWidth = (_width ?? availableWidth ?? 80) - _margin.Left - _margin.Right - scrollbarWidth;
 			int paddingLeft = 0;
 
 			_effectiveWidth = effectiveWidth;
@@ -1341,6 +1413,68 @@ namespace ConsoleEx.Controls
 				_cachedContent = withMargins;
 			}
 
+			// When adding scrollbars, use the reserved space we calculated earlier
+			if (needsVerticalScrollbar || needsHorizontalScrollbar)
+			{
+				List<string> withScrollbars = new List<string>(_cachedContent);
+
+				if (needsVerticalScrollbar)
+				{
+					// Calculate scrollbar metrics
+					int totalLines = GetTotalWrappedLineCount();
+					var scrollbar = RenderVerticalScrollbar(_viewportHeight, totalLines);
+
+					// Apply vertical scrollbar to the right side of content
+					for (int i = 0; i < Math.Min(withScrollbars.Count, scrollbar.Count); i++)
+					{
+						withScrollbars[i] = withScrollbars[i] + scrollbar[i];
+					}
+				}
+
+				if (needsHorizontalScrollbar)
+				{
+					// Calculate scrollbar metrics
+					int maxLineLength = GetMaxLineLength();
+					string scrollbar = RenderHorizontalScrollbar(effectiveWidth, maxLineLength);
+
+					// Add horizontal scrollbar at the bottom
+					if (!string.IsNullOrEmpty(scrollbar))
+					{
+						// If we have a vertical scrollbar, add a corner character
+						if (needsVerticalScrollbar)
+						{
+							scrollbar += AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+								"┘",
+								1,
+								1,
+								false,
+								BackgroundColor,
+								ScrollbarColor
+							)[0];
+						}
+
+						// Add proper padding if needed
+						if (paddingLeft > 0)
+						{
+							string paddingStr = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+								new string(' ', paddingLeft),
+								paddingLeft,
+								1,
+								false,
+								Container?.BackgroundColor,
+								null
+							)[0];
+
+							scrollbar = paddingStr + scrollbar;
+						}
+
+						withScrollbars.Add(scrollbar);
+					}
+				}
+
+				_cachedContent = withScrollbars;
+			}
+
 			_invalidated = false;
 			return _cachedContent;
 		}
@@ -1418,6 +1552,18 @@ namespace ConsoleEx.Controls
 			ClearSelection();
 		}
 
+		// Calculate maximum line length
+		private int GetMaxLineLength()
+		{
+			int maxLength = 0;
+			foreach (var line in _lines)
+			{
+				if (line.Length > maxLength)
+					maxLength = line.Length;
+			}
+			return maxLength;
+		}
+
 		// Helper to get ordered selection bounds
 		private (int startX, int startY, int endX, int endY) GetOrderedSelectionBounds()
 		{
@@ -1429,6 +1575,111 @@ namespace ConsoleEx.Controls
 			{
 				return (_selectionEndX, _selectionEndY, _selectionStartX, _selectionStartY);
 			}
+		}
+
+		// Calculate total number of wrapped lines
+		private int GetTotalWrappedLineCount()
+		{
+			if (_wrapMode == WrapMode.NoWrap)
+			{
+				return _lines.Count;
+			}
+
+			int totalWrappedLines = 0;
+			for (int i = 0; i < _lines.Count; i++)
+			{
+				int len = _lines[i].Length;
+				totalWrappedLines += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+			}
+			return totalWrappedLines;
+		}
+
+		// Render a horizontal scrollbar
+		private string RenderHorizontalScrollbar(int width, int maxContentWidth)
+		{
+			StringBuilder sb = new StringBuilder();
+
+			// Calculate scrollbar dimensions
+			int thumbSize = Math.Max(1, width * width / Math.Max(1, maxContentWidth));
+			int maxScrollOffset = Math.Max(0, maxContentWidth - width);
+			int thumbPosition = (maxScrollOffset == 0) ? 0 :
+								(int)((float)_horizontalScrollOffset / maxScrollOffset * (width - thumbSize));
+
+			// Make sure thumb position is valid
+			thumbPosition = Math.Max(0, Math.Min(width - thumbSize, thumbPosition));
+
+			// Draw the scrollbar
+			for (int i = 0; i < width; i++)
+			{
+				char c;
+				Color color;
+
+				if (i >= thumbPosition && i < thumbPosition + thumbSize)
+				{
+					c = '▬'; // Thumb character
+					color = ScrollbarThumbColor;
+				}
+				else
+				{
+					c = '─'; // Track character
+					color = ScrollbarColor;
+				}
+
+				sb.Append(AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					c.ToString(),
+					1,
+					1,
+					false,
+					BackgroundColor,
+					color
+				)[0]);
+			}
+
+			return sb.ToString();
+		}
+
+		// Render a vertical scrollbar
+		private List<string> RenderVerticalScrollbar(int height, int maxContentHeight)
+		{
+			List<string> result = new List<string>();
+
+			// Calculate scrollbar dimensions
+			int thumbSize = Math.Max(1, height * height / Math.Max(1, maxContentHeight));
+			int maxScrollOffset = Math.Max(0, maxContentHeight - height);
+			int thumbPosition = (maxScrollOffset == 0) ? 0 :
+								(int)((float)_verticalScrollOffset / maxScrollOffset * (height - thumbSize));
+
+			// Make sure thumb position is valid
+			thumbPosition = Math.Max(0, Math.Min(height - thumbSize, thumbPosition));
+
+			// Draw the scrollbar
+			for (int i = 0; i < height; i++)
+			{
+				char c;
+				Color color;
+
+				if (i >= thumbPosition && i < thumbPosition + thumbSize)
+				{
+					c = '█'; // Thumb character
+					color = ScrollbarThumbColor;
+				}
+				else
+				{
+					c = '│'; // Track character
+					color = ScrollbarColor;
+				}
+
+				result.Add(AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					c.ToString(),
+					1,
+					1,
+					false,
+					BackgroundColor,
+					color
+				)[0]);
+			}
+
+			return result;
 		}
 	}
 }
