@@ -102,7 +102,7 @@ namespace ConsoleEx
 
 			if (_activeWindow == window)
 			{
-				_activeWindow = _windows.FirstOrDefault().Value;
+				_activeWindow = _windows.Values.LastOrDefault(w => w.ZIndex == _windows.Values.Max(w => w.ZIndex));
 				if (_activeWindow != null)
 				{
 					SetActiveWindow(_activeWindow);
