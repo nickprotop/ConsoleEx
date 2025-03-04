@@ -252,7 +252,7 @@ namespace ConsoleEx.Controls
 					// Make sure we don't access beyond the bounds of columnContent
 					string contentLine = i < columnContent.Count
 						? columnContent[i]
-						: $"[{BackgroundColor}]{new string(' ', column.GetActualWidth() ?? 0)}[/]";
+						: AnsiConsoleHelper.AnsiEmptySpace(column.GetActualWidth() ?? 0, BackgroundColor ?? Color.Black);
 
 					// Add the column content to the line, properly padded to its width
 					line += contentLine.PadRight(column.GetActualWidth() ?? 0);

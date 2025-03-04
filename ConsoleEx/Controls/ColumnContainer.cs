@@ -38,6 +38,18 @@ namespace ConsoleEx.Controls
 		public ConsoleWindowSystem? GetConsoleWindowSystem
 		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; foreach (IWIndowControl control in _contents) { control.Invalidate(); }; Invalidate(true); } }
 
+		public HorizontalGridControl HorizontalGridContent
+		{
+			get => _horizontalGridContent;
+			set
+			{
+				_horizontalGridContent = value;
+				_consoleWindowSystem = value.Container?.GetConsoleWindowSystem;
+
+				_horizontalGridContent.Invalidate();
+			}
+		}
+
 		public bool IsDirty
 		{
 			get => _isDirty;

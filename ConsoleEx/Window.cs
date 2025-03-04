@@ -218,7 +218,7 @@ namespace ConsoleEx
 			}
 		}
 
-		public int ScrollOffset => _scrollOffset;
+		public int ScrollOffset { get => _scrollOffset; set => _scrollOffset = value; }
 
 		public WindowState State
 		{

@@ -210,8 +210,10 @@ namespace ConsoleEx.Controls
 				// On state change
 				if (_isDropdownOpen != value)
 				{
-					bool containerIsWindow = Container is Window;
-					Window? containerWindow = Container as Window;
+					// Find the containing window by traversing the container hierarchy
+					Window? containerWindow = FindContainingWindow();
+
+					bool containerIsWindow = containerWindow != null;
 
 					// If opening, store current scroll offset
 					if (value && !_isDropdownOpen && containerIsWindow)
@@ -1113,6 +1115,49 @@ namespace ConsoleEx.Controls
 			{
 				_dropdownScrollOffset = _selectedIndex - effectiveMaxVisibleItems + 1;
 			}
+		}
+
+		// Helper method to traverse up the container hierarchy until finding a Window instance
+		private Window? FindContainingWindow()
+		{
+			// Start with the immediate container
+			IContainer? currentContainer = Container;
+
+			// Maximum number of levels to prevent infinite loops in case of circular references
+			const int MaxLevels = 10;
+			int level = 0;
+
+			// Continue traversing up until we find a Window or reach the top
+			while (currentContainer != null && level < MaxLevels)
+			{
+				// If the current container is a Window, return it
+				if (currentContainer is Window window)
+				{
+					return window;
+				}
+
+				// If the current container is an IWIndowControl, move up to its container
+				if (currentContainer is IWIndowControl control)
+				{
+					currentContainer = control.Container;
+				}
+				else
+				{
+					if (currentContainer is ColumnContainer columnContainer)
+					{
+						currentContainer = columnContainer.HorizontalGridContent.Container;
+					}
+					else
+					{
+						break;
+					}
+				}
+
+				level++;
+			}
+
+			// If we didn't find a Window in the hierarchy, return null
+			return null;
 		}
 
 		private void RestoreContainerScrollOffset(Window containerWindow)
