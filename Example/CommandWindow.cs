@@ -35,6 +35,7 @@ namespace ConsoleEx.Example
 				Prompt = "Enter command: ",
 				OnEnter = ExecuteCommand,
 				UnfocusOnEnter = false,
+				StickyPosition = StickyPosition.Top
 			};
 
 			_outputControl = new MultilineEditControl
@@ -47,7 +48,7 @@ namespace ConsoleEx.Example
 
 			_window.AddContent(_promptControl);
 
-			_window.AddContent(new RuleControl());
+			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
 
 			_window.AddContent(_outputControl);
 
@@ -73,12 +74,15 @@ namespace ConsoleEx.Example
 
 			try
 			{
-				var processStartInfo = new ProcessStartInfo("cmd", $"/c {command}")
+				// Set up process with UTF-8 encoding for proper Unicode support
+				var processStartInfo = new ProcessStartInfo("cmd", $"/c chcp 65001 >nul && {command}")
 				{
 					RedirectStandardOutput = true,
 					RedirectStandardError = true,
 					UseShellExecute = false,
-					CreateNoWindow = true
+					CreateNoWindow = true,
+					StandardOutputEncoding = Encoding.UTF8,
+					StandardErrorEncoding = Encoding.UTF8
 				};
 
 				using var process = new Process { StartInfo = processStartInfo };
@@ -86,10 +90,11 @@ namespace ConsoleEx.Example
 
 				var outputBuilder = new StringBuilder();
 
-				// Read the output asynchronously
+				// Read the output asynchronously with UTF-8 encoding
 				while (!process.StandardOutput.EndOfStream)
 				{
 					var line = await process.StandardOutput.ReadLineAsync();
+
 					if (line != null)
 					{
 						outputBuilder.AppendLine(line);
@@ -102,6 +107,15 @@ namespace ConsoleEx.Example
 				if (!string.IsNullOrEmpty(remainingOutput))
 				{
 					outputBuilder.Append(remainingOutput);
+					_outputControl.SetContent(outputBuilder.ToString());
+				}
+
+				// Check for errors with UTF-8 encoding
+				var errorOutput = await process.StandardError.ReadToEndAsync();
+				if (!string.IsNullOrEmpty(errorOutput))
+				{
+					outputBuilder.AppendLine("\nErrors:");
+					outputBuilder.AppendLine(errorOutput);
 					_outputControl.SetContent(outputBuilder.ToString());
 				}
 

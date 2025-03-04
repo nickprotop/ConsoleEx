@@ -130,11 +130,14 @@ namespace ConsoleEx.Helpers
 
 		public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
 		{
+			var consoleOutput = new AnsiConsoleOutput(writer);
+			consoleOutput.SetEncoding(Encoding.UTF8);
+
 			var console = AnsiConsole.Create(new AnsiConsoleSettings
 			{
 				Ansi = AnsiSupport.Yes,
 				ColorSystem = ColorSystemSupport.Detect,
-				Out = new AnsiConsoleOutput(writer),
+				Out = consoleOutput,
 				Interactive = InteractionSupport.No,
 				Enrichment = new ProfileEnrichment
 				{
