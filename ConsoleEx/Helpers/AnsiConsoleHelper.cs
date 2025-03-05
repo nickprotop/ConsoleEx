@@ -194,51 +194,54 @@ namespace ConsoleEx.Helpers
 			while (i < n)
 			{
 				// Check for potential tag start
-				if (input[i] == '[' && i + 1 < n && input[i + 1] != '[')
+				if (input[i] == '[')
 				{
-					int tagStart = i;
-					int j = i + 1;
-
-					// Find the closing bracket
-					while (j < n && input[j] != ']')
+					// Check if already escaped
+					if (i + 1 < n && input[i + 1] == '[')
 					{
-						j++;
+						output.Append("[[");
+						i += 2;
+						continue;
 					}
 
-					// If we found a complete tag
-					if (j < n)
-					{
-						string tagContent = input.Substring(tagStart + 1, j - tagStart - 1);
-						bool isValidTag = false;
+					// Try to find a closing bracket
+					int j = i + 1;
+					bool foundClosingBracket = false;
+					bool doublicated = false;
 
-						// First, check against our dictionary of known tags
-						if (tagToAnsi.ContainsKey(tagContent.ToLower()))
+					while (j < n && !foundClosingBracket)
+					{
+						if (input[j] == ']')
 						{
-							isValidTag = true;
-						}
-						else
-						{
-							// Check for "color on color" format
-							if (tagContent.Contains(" on "))
+							// Found a closing bracket
+							foundClosingBracket = true;
+							string tagContent = input.Substring(i + 1, j - i - 1);
+							bool isValidTag = false;
+
+							// Check if this is a valid tag
+							if (tagContent == "/")
 							{
+								// Special case for [/]
+								isValidTag = true;
+							}
+							else if (tagToAnsi.ContainsKey(tagContent.ToLower()))
+							{
+								isValidTag = true;
+							}
+							else if (tagContent.Contains(" on "))
+							{
+								// Check "color on color" format
 								string[] colorParts = tagContent.Split(new[] { " on " }, StringSplitOptions.None);
 								if (colorParts.Length == 2)
 								{
 									string foreground = colorParts[0].Trim();
 									string background = colorParts[1].Trim();
-
-									// Check if both colors are valid
-									bool validForeground = IsValidColor(foreground);
-									bool validBackground = IsValidColor(background);
-
-									isValidTag = validForeground && validBackground;
+									isValidTag = IsValidColor(foreground) && IsValidColor(background);
 								}
 							}
-							// Check for color styling
-							else if (tagContent.StartsWith("default"))
-								isValidTag = true;
 							else if (tagContent.StartsWith("foreground") || tagContent.StartsWith("background"))
 							{
+								// Check color styling
 								string[] parts = tagContent.Split(' ', 2);
 								if (parts.Length > 1)
 								{
@@ -246,59 +249,79 @@ namespace ConsoleEx.Helpers
 									isValidTag = IsValidColor(colorPart);
 								}
 							}
-							// Check for generic closing tags or other patterns
+							else if (tagContent.StartsWith("/") && tagContent.Length > 1)
+							{
+								// Generic closing tag like [/blue], [/bold], etc.
+								isValidTag = true;
+							}
+							else if (IsValidColor(tagContent))
+							{
+								// Direct color names
+								isValidTag = true;
+							}
 							else
 							{
-								// Direct color names without foreground/background prefix
-								if (IsValidColor(tagContent))
+								// Check other patterns
+								foreach (var pattern in validPatterns)
 								{
-									isValidTag = true;
-								}
-								else
-								{
-									foreach (var pattern in validPatterns)
+									if (Regex.IsMatch(tagContent, pattern))
 									{
-										if (Regex.IsMatch(tagContent, pattern))
-										{
-											isValidTag = true;
-											break;
-										}
+										isValidTag = true;
+										break;
 									}
 								}
 							}
-						}
 
-						if (isValidTag)
+							if (isValidTag)
+							{
+								// Valid tag - keep as is
+								output.Append(input.Substring(i, j - i + 1));
+							}
+							else
+							{
+								// Invalid tag - escape brackets
+								output.Append("[[").Append(tagContent).Append("]]");
+							}
+							i = j + 1;
+						}
+						else if (input[j] == '[')
 						{
-							// Keep valid tags as they are
-							output.Append(input.Substring(tagStart, j - tagStart + 1));
+							// Found another opening bracket before closing - this means the first one was not part of a valid tag
+							// Escape the first opening bracket and continue from there
+							output.Append("[[");
+							i++;
+							foundClosingBracket = false;
+							doublicated = true;
+							break;
 						}
 						else
 						{
-							// Escape invalid tags with double brackets
-							output.Append("[[").Append(tagContent).Append("]]");
+							j++;
 						}
+					}
 
-						i = j + 1; // Move past the closing bracket
+					// If no closing bracket was found, we need to escape the opening bracket
+					if (!foundClosingBracket && !doublicated)
+					{
+						output.Append("[[");
+						i++;
+						doublicated = false;
+					}
+				}
+				else if (input[i] == ']')
+				{
+					// Check if this is already an escaped closing bracket
+					if (i + 1 < n && input[i + 1] == ']')
+					{
+						output.Append("]]");
+						i += 2;
 					}
 					else
 					{
-						// No closing bracket found, treat as plain text but escape the opening bracket
-						output.Append("[[");
+						// Unmatched closing bracket, escape it
+						output.Append("]]");
 						i++;
 					}
-				}
-				else if (input[i] == '[' && i + 1 < n && input[i + 1] == '[')
-				{
-					// Already escaped opening bracket
-					output.Append("[[");
-					i += 2;
-				}
-				else if (input[i] == ']' && i + 1 < n && input[i + 1] == ']')
-				{
-					// Already escaped closing bracket
-					output.Append("]]");
-					i += 2;
 				}
 				else
 				{
@@ -440,8 +463,8 @@ namespace ConsoleEx.Helpers
 			if (string.IsNullOrEmpty(text))
 				return 0;
 
+			text = EscapeInvalidMarkupTags(text);
 			List<int> lines = text.Split('\n').Select(line => Markup.Remove(line).Length).ToList();
-
 			return lines.Max();
 		}
 
