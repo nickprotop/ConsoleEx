@@ -53,12 +53,12 @@ namespace ConsoleEx.Helpers
 			return ConvertSpectreMarkupToAnsi($"{new string(' ', width)}", width, 1, false, backgroundColor, null)[0];
 		}
 
-		public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow, Color? backgroundColor, Color? foregroundColor)
+		public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow, Color? backgroundColor, Color? foregroundColor, bool safe = false)
 		{
 			if (string.IsNullOrEmpty(markup))
 				return new List<string>() { string.Empty };
 
-			markup = EscapeInvalidMarkupTags(markup);
+			if (!safe) markup = EscapeInvalidMarkupTags(markup);
 
 			var writer = new StringWriter();
 			var console = CreateCaptureConsole(writer, width, height);
@@ -458,12 +458,12 @@ namespace ConsoleEx.Helpers
 			return ansiStripped.Length;
 		}
 
-		public static int StripSpectreLength(string text)
+		public static int StripSpectreLength(string text, bool safe = false)
 		{
 			if (string.IsNullOrEmpty(text))
 				return 0;
 
-			text = EscapeInvalidMarkupTags(text);
+			if (!safe) text = EscapeInvalidMarkupTags(text);
 			List<int> lines = text.Split('\n').Select(line => Markup.Remove(line).Length).ToList();
 			return lines.Max();
 		}
