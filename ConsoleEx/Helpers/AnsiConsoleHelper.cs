@@ -648,21 +648,57 @@ namespace ConsoleEx.Helpers
 		}
 
 		/// <summary>
-		/// Checks if the provided color name is a known Spectre.Console color name.
+		/// Checks if the provided color name is a valid Spectre.Console color name.
 		/// </summary>
+		/// <param name="colorName">The color name to validate</param>
+		/// <returns>True if the color name is valid in Spectre.Console, false otherwise</returns>
 		private static bool IsKnownColorName(string colorName)
 		{
-			// Basic color names that are commonly supported
-			var knownColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+			if (string.IsNullOrWhiteSpace(colorName))
+				return false;
+
+			// Basic set of standard colors supported by Spectre.Console
+			var standardColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 			{
 				"default", "black", "blue", "cyan", "dark_blue", "dark_cyan",
 				"dark_green", "dark_grey", "dark_magenta", "dark_red", "dark_yellow",
-				"grey", "green", "magenta", "red", "white", "yellow",
-				"bright_black", "bright_blue", "bright_cyan", "bright_green",
-				"bright_magenta", "bright_red", "bright_white", "bright_yellow"
+				"grey", "gray", "green", "magenta", "maroon", "navy", "purple",
+				"red", "silver", "teal", "white", "yellow",
+				"brightblack", "bright_black", "brightblue", "bright_blue",
+				"brightcyan", "bright_cyan", "brightgreen", "bright_green",
+				"brightmagenta", "bright_magenta", "brightred", "bright_red",
+				"brightwhite", "bright_white", "brightyellow", "bright_yellow",
+				"steelblue", "steel_blue", "darkorange", "dark_orange",
+				"lime", "olive", "aqua", "fuchsia", "darkgrey", "dark_grey",
+				"lightgrey", "light_grey", "lightblue", "light_blue",
+				"lightgreen", "light_green", "lightcyan", "light_cyan",
+				"lightred", "light_red", "lightmagenta", "light_magenta",
+				"lightyellow", "light_yellow", "cornflowerblue", "cornflower_blue",
+				"hotpink", "hot_pink", "pink", "deeppink", "deep_pink"
 			};
 
-			return knownColors.Contains(colorName);
+			// Check for basic color names first
+			if (standardColors.Contains(colorName))
+				return true;
+
+			// Check for web colors with underscores or camelCase (e.g., "dark_blue" or "darkblue")
+			string normalizedName = colorName.Replace("_", "").ToLowerInvariant();
+			if (standardColors.Contains(normalizedName))
+				return true;
+
+			// Check for numbered color variants (e.g., "grey46", "orange3")
+			if (Regex.IsMatch(colorName, @"^[a-z]+\d+$", RegexOptions.IgnoreCase))
+				return true;
+
+			// Check for color names with spaces (e.g., "hot pink", "light blue")
+			if (colorName.Contains(" "))
+			{
+				string spacelessName = colorName.Replace(" ", "").ToLowerInvariant();
+				if (standardColors.Contains(spacelessName))
+					return true;
+			}
+
+			return false;
 		}
 
 		// Helper methods for SubstringAnsi

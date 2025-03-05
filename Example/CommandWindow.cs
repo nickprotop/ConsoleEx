@@ -18,7 +18,6 @@ namespace ConsoleEx.Example
 		private readonly PromptControl _promptControl;
 		private Process? _cmdProcess;
 		private ConsoleWindowSystem _consoleWindowSystem;
-		private ThreadSafeStringBuilder _outputBuffer = new ThreadSafeStringBuilder();
 		private Window _window;
 
 		public CommandWindow(ConsoleWindowSystem consoleWindowSystem)
@@ -79,19 +78,17 @@ namespace ConsoleEx.Example
 			{
 				if (_cmdProcess == null || _cmdProcess.HasExited)
 				{
-					_outputBuffer.AppendLine("Command process not running. Restarting...");
+					_outputControl.AppendContent("Command process not running. Restarting...\n");
 					InitializeCommandProcess();
 					if (_cmdProcess == null)
 					{
-						_outputBuffer.AppendLine("Failed to restart command process.");
-						_outputControl.SetContent(_outputBuffer.ToString());
+						_outputControl.AppendContent("Failed to restart command process.\n");
 						return;
 					}
 				}
 
 				// Display the command in the output
-				_outputBuffer.AppendLine($"\n> {command}");
-				_outputControl.SetContent(_outputBuffer.ToString());
+				_outputControl.AppendContent($"\n> {command}\n");
 
 				// Send the command to the process
 				await _cmdProcess.StandardInput.WriteLineAsync(command);
@@ -103,8 +100,7 @@ namespace ConsoleEx.Example
 				// Special handling for exit command
 				if (command.Trim().Equals("exit", StringComparison.OrdinalIgnoreCase))
 				{
-					_outputBuffer.AppendLine("Command session terminated.");
-					_outputControl.SetContent(_outputBuffer.ToString());
+					_outputControl.AppendContent("Command session terminated.\n");
 					_outputControl.GoToEnd();
 
 					// Don't dispose the process here as it will be handled by process.OutputDataReceived
@@ -112,8 +108,7 @@ namespace ConsoleEx.Example
 			}
 			catch (Exception ex)
 			{
-				_outputBuffer.AppendLine($"Error executing command: {ex.Message}");
-				_outputControl.SetContent(_outputBuffer.ToString());
+				_outputControl.AppendContent($"Error executing command: {ex.Message}\n");
 				_outputControl.GoToEnd();
 			}
 		}
@@ -142,8 +137,7 @@ namespace ConsoleEx.Example
 				{
 					if (args.Data != null)
 					{
-						_outputBuffer.AppendLine(args.Data);
-						_outputControl.SetContent(_outputBuffer.ToString());
+						_outputControl.AppendContent(args.Data + "\n");
 						_outputControl.GoToEnd();
 					}
 				};
@@ -151,8 +145,7 @@ namespace ConsoleEx.Example
 				{
 					if (args.Data != null)
 					{
-						_outputBuffer.AppendLine($"Error: {args.Data}");
-						_outputControl.SetContent(_outputBuffer.ToString());
+						_outputControl.AppendContent($"Error: {args.Data}\n");
 						_outputControl.GoToEnd();
 					}
 				};
@@ -162,12 +155,11 @@ namespace ConsoleEx.Example
 				_cmdProcess.BeginErrorReadLine();
 
 				// Add initial message
-				_outputBuffer.AppendLine("Interactive command prompt started. Type 'exit' to close the session.");
-				_outputControl.SetContent(_outputBuffer.ToString());
+				_outputControl.AppendContent("Interactive command prompt started. Type 'exit' to close the session.\n");
 			}
 			catch (Exception ex)
 			{
-				_outputControl.SetContent($"Error initializing command prompt: {ex.Message}");
+				_outputControl.AppendContent($"Error initializing command prompt: {ex.Message}\n");
 			}
 		}
 	}
