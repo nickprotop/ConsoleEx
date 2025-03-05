@@ -62,6 +62,7 @@ namespace ConsoleEx.Controls
 		private Color? _selectionForegroundColorValue;
 		private int _selectionStartX = 0;
 		private int _selectionStartY = 0;
+		private bool _skipUpdateScrollPositionsInRender = false;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 		private int _verticalScrollOffset = 0;
@@ -555,6 +556,137 @@ namespace ConsoleEx.Controls
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled) return false;
+
+			// When focused but not editing, allow scrolling with arrow keys
+			if (_hasFocus && !_isEditing)
+			{
+				switch (key.Key)
+				{
+					case ConsoleKey.Enter:
+						_isEditing = true;
+						Invalidate();
+						Container?.Invalidate(false);
+						return true;
+
+					case ConsoleKey.LeftArrow:
+						// Scroll content left if not at leftmost position
+						if (_wrapMode == WrapMode.NoWrap && _horizontalScrollOffset > 0)
+						{
+							_skipUpdateScrollPositionsInRender = true;
+							_horizontalScrollOffset--;
+							_invalidated = true;
+							_cachedContent = null;
+							Container?.Invalidate(true);
+							return true;
+						}
+						return false;
+
+					case ConsoleKey.RightArrow:
+						// Scroll content right if not at rightmost position
+						if (_wrapMode == WrapMode.NoWrap)
+						{
+							int maxLineLength = GetMaxLineLength();
+							if (_horizontalScrollOffset < maxLineLength - _effectiveWidth)
+							{
+								_skipUpdateScrollPositionsInRender = true;
+								_horizontalScrollOffset++;
+								_invalidated = true;
+								_cachedContent = null;
+								Container?.Invalidate(true);
+								return true;
+							}
+						}
+						return false;
+
+					case ConsoleKey.UpArrow:
+						// Scroll content up if not at top
+						if (_verticalScrollOffset > 0)
+						{
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset--;
+							_invalidated = true;
+							_cachedContent = null;
+							Container?.Invalidate(true);
+							return true;
+						}
+						return false;
+
+					case ConsoleKey.DownArrow:
+						// Scroll content down if not at bottom
+						int totalLines = GetTotalWrappedLineCount();
+						if (_verticalScrollOffset < totalLines - _viewportHeight)
+						{
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset++;
+							_invalidated = true;
+							_cachedContent = null;
+							Container?.Invalidate(true);
+							return true;
+						}
+						return false;
+
+					case ConsoleKey.PageUp:
+						// Page up scrolling - move view up by viewport height
+						int pageUpAmount = Math.Min(_viewportHeight, _verticalScrollOffset);
+						if (pageUpAmount > 0)
+						{
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset -= pageUpAmount;
+							_invalidated = true;
+							_cachedContent = null;
+							Container?.Invalidate(true);
+							return true;
+						}
+						return false;
+
+					case ConsoleKey.PageDown:
+						// Page down scrolling - move view down by viewport height
+						int totalWrappedLines = GetTotalWrappedLineCount();
+						int pageDownAmount = Math.Min(_viewportHeight, totalWrappedLines - _verticalScrollOffset - _viewportHeight);
+						if (pageDownAmount > 0)
+						{
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset += pageDownAmount;
+							_invalidated = true;
+							_cachedContent = null;
+							Container?.Invalidate(true);
+							return true;
+						}
+						return false;
+
+					case ConsoleKey.Home:
+						// Scroll to top of document
+						if (_verticalScrollOffset > 0)
+						{
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset = 0;
+							_horizontalScrollOffset = 0;
+							_invalidated = true;
+							_cachedContent = null;
+							Container?.Invalidate(true);
+							return true;
+						}
+						return false;
+
+					case ConsoleKey.End:
+						// Scroll to bottom of document
+						int endOffset = Math.Max(0, GetTotalWrappedLineCount() - _viewportHeight);
+						if (_verticalScrollOffset != endOffset)
+						{
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset = endOffset;
+							_invalidated = true;
+							_cachedContent = null;
+							Container?.Invalidate(true);
+							return true;
+						}
+						return false;
+
+					default:
+						// Let other keys pass through
+						return false;
+				}
+			}
 
 			if (!_isEditing)
 			{
@@ -1155,13 +1287,16 @@ namespace ConsoleEx.Controls
 			// Adjust vertical scroll to make the cursor visible
 			if (wrappedLineWithCursor >= 0)
 			{
-				if (wrappedLineWithCursor < _verticalScrollOffset)
+				if (!_skipUpdateScrollPositionsInRender)
 				{
-					_verticalScrollOffset = wrappedLineWithCursor;
-				}
-				else if (wrappedLineWithCursor >= _verticalScrollOffset + _viewportHeight)
-				{
-					_verticalScrollOffset = wrappedLineWithCursor - _viewportHeight + 1;
+					if (wrappedLineWithCursor < _verticalScrollOffset)
+					{
+						_verticalScrollOffset = wrappedLineWithCursor;
+					}
+					else if (wrappedLineWithCursor >= _verticalScrollOffset + _viewportHeight)
+					{
+						_verticalScrollOffset = wrappedLineWithCursor - _viewportHeight + 1;
+					}
 				}
 			}
 

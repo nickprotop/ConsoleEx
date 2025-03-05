@@ -686,24 +686,22 @@ namespace ConsoleEx
 				}
 				else if (_activeWindow != null)
 				{
-					bool handled = false;
-
-					if ((key.Modifiers & ConsoleModifiers.Shift) != 0 && _activeWindow.IsResizable)
-					{
-						handled = HandleResizeInput(key);
-					}
-					else if ((key.Modifiers & ConsoleModifiers.Control) != 0 && _activeWindow.IsMovable)
-					{
-						handled = HandleMoveInput(key);
-					}
-					else if ((key.Modifiers & ConsoleModifiers.Alt) != 0)
-					{
-						handled = HandleAltInput(key);
-					}
+					bool handled = _activeWindow.ProcessInput(key);
 
 					if (!handled)
 					{
-						handled = _activeWindow.ProcessInput(key);
+						if ((key.Modifiers & ConsoleModifiers.Shift) != 0 && _activeWindow.IsResizable)
+						{
+							handled = HandleResizeInput(key);
+						}
+						else if ((key.Modifiers & ConsoleModifiers.Control) != 0 && _activeWindow.IsMovable)
+						{
+							handled = HandleMoveInput(key);
+						}
+						else if ((key.Modifiers & ConsoleModifiers.Alt) != 0)
+						{
+							handled = HandleAltInput(key);
+						}
 					}
 				}
 			}
