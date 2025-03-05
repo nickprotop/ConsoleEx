@@ -1,5 +1,6 @@
 ﻿using ConsoleEx;
 using ConsoleEx.Controls;
+using ConsoleEx.Helpers;
 using Spectre.Console;
 using System;
 using System.Collections.Generic;
@@ -17,7 +18,7 @@ namespace ConsoleEx.Example
 		private readonly PromptControl _promptControl;
 		private Process? _cmdProcess;
 		private ConsoleWindowSystem _consoleWindowSystem;
-		private StringBuilder _outputBuffer = new StringBuilder();
+		private ThreadSafeStringBuilder _outputBuffer = new ThreadSafeStringBuilder();
 		private Window _window;
 
 		public CommandWindow(ConsoleWindowSystem consoleWindowSystem)
@@ -43,7 +44,6 @@ namespace ConsoleEx.Example
 
 			_outputControl = new MultilineEditControl
 			{
-				Width = 80,
 				ViewportHeight = _window.Height - 2 - 2,
 				WrapMode = WrapMode.Wrap,
 				ReadOnly = true
@@ -58,7 +58,6 @@ namespace ConsoleEx.Example
 			_window.OnResize += (sender, args) =>
 			{
 				_outputControl.ViewportHeight = _window.Height - 2 - 2;
-				_outputControl.Width = _window.Width - 2;
 			};
 
 			// Initialize the interactive command process

@@ -58,6 +58,8 @@ namespace ConsoleEx.Helpers
 			if (string.IsNullOrEmpty(markup))
 				return new List<string>() { string.Empty };
 
+			markup = EscapeInvalidMarkupTags(markup);
+
 			var writer = new StringWriter();
 			var console = CreateCaptureConsole(writer, width, height);
 
@@ -155,6 +157,158 @@ namespace ConsoleEx.Helpers
 			}
 
 			return console;
+		}
+
+		/// <summary>
+		/// Processes a string containing Spectre Console markup and escapes invalid tags with double brackets.
+		/// Valid tags remain unchanged, while invalid tags are escaped by doubling their brackets.
+		/// </summary>
+		/// <param name="input">The string containing Spectre markup to process</param>
+		/// <returns>A string with invalid tags escaped with double brackets</returns>
+		public static string EscapeInvalidMarkupTags(string input)
+		{
+			if (string.IsNullOrEmpty(input))
+				return input;
+
+			var output = new StringBuilder();
+			int i = 0;
+			int n = input.Length;
+
+			// Known valid tag patterns in addition to our dictionary
+			var validPatterns = new[]
+			{
+        // Generic closing tag
+        "^/$",
+        // Color tags (hex)
+        "^#[0-9a-fA-F]{3}$",
+		"^#[0-9a-fA-F]{6}$",
+		"^#[0-9a-fA-F]{8}$",
+        // Color tags (rgb)
+        "^rgb\\(\\s*\\d+\\s*,\\s*\\d+\\s*,\\s*\\d+\\s*\\)$",
+        // Named colors (beyond our basic dictionary)
+        "^[a-z]+( [a-z]+)*$",
+        // Default closing tags
+        "^/[a-z]+$"
+	};
+
+			while (i < n)
+			{
+				// Check for potential tag start
+				if (input[i] == '[' && i + 1 < n && input[i + 1] != '[')
+				{
+					int tagStart = i;
+					int j = i + 1;
+
+					// Find the closing bracket
+					while (j < n && input[j] != ']')
+					{
+						j++;
+					}
+
+					// If we found a complete tag
+					if (j < n)
+					{
+						string tagContent = input.Substring(tagStart + 1, j - tagStart - 1);
+						bool isValidTag = false;
+
+						// First, check against our dictionary of known tags
+						if (tagToAnsi.ContainsKey(tagContent.ToLower()))
+						{
+							isValidTag = true;
+						}
+						else
+						{
+							// Check for "color on color" format
+							if (tagContent.Contains(" on "))
+							{
+								string[] colorParts = tagContent.Split(new[] { " on " }, StringSplitOptions.None);
+								if (colorParts.Length == 2)
+								{
+									string foreground = colorParts[0].Trim();
+									string background = colorParts[1].Trim();
+
+									// Check if both colors are valid
+									bool validForeground = IsValidColor(foreground);
+									bool validBackground = IsValidColor(background);
+
+									isValidTag = validForeground && validBackground;
+								}
+							}
+							// Check for color styling
+							else if (tagContent.StartsWith("default"))
+								isValidTag = true;
+							else if (tagContent.StartsWith("foreground") || tagContent.StartsWith("background"))
+							{
+								string[] parts = tagContent.Split(' ', 2);
+								if (parts.Length > 1)
+								{
+									string colorPart = parts[1].Trim();
+									isValidTag = IsValidColor(colorPart);
+								}
+							}
+							// Check for generic closing tags or other patterns
+							else
+							{
+								// Direct color names without foreground/background prefix
+								if (IsValidColor(tagContent))
+								{
+									isValidTag = true;
+								}
+								else
+								{
+									foreach (var pattern in validPatterns)
+									{
+										if (Regex.IsMatch(tagContent, pattern))
+										{
+											isValidTag = true;
+											break;
+										}
+									}
+								}
+							}
+						}
+
+						if (isValidTag)
+						{
+							// Keep valid tags as they are
+							output.Append(input.Substring(tagStart, j - tagStart + 1));
+						}
+						else
+						{
+							// Escape invalid tags with double brackets
+							output.Append("[[").Append(tagContent).Append("]]");
+						}
+
+						i = j + 1; // Move past the closing bracket
+					}
+					else
+					{
+						// No closing bracket found, treat as plain text but escape the opening bracket
+						output.Append("[[");
+						i++;
+					}
+				}
+				else if (input[i] == '[' && i + 1 < n && input[i + 1] == '[')
+				{
+					// Already escaped opening bracket
+					output.Append("[[");
+					i += 2;
+				}
+				else if (input[i] == ']' && i + 1 < n && input[i + 1] == ']')
+				{
+					// Already escaped closing bracket
+					output.Append("]]");
+					i += 2;
+				}
+				else
+				{
+					// Regular character
+					output.Append(input[i]);
+					i++;
+				}
+			}
+
+			return output.ToString();
 		}
 
 		public static List<string> ParseAnsiTags(string input, int? width, bool wrap, string? backgroundColor = null, string? foregroundColor = null)
@@ -402,6 +556,8 @@ namespace ConsoleEx.Helpers
 
 		public static string TruncateSpectre(string inputStr, int maxLength)
 		{
+			inputStr = EscapeInvalidMarkupTags(inputStr);
+
 			var output = new StringBuilder();
 			var stack = new Stack<string>();
 			int visibleLength = 0;
@@ -491,10 +647,59 @@ namespace ConsoleEx.Helpers
 				   sequence.Contains("49m");   // default background
 		}
 
+		/// <summary>
+		/// Checks if the provided color name is a known Spectre.Console color name.
+		/// </summary>
+		private static bool IsKnownColorName(string colorName)
+		{
+			// Basic color names that are commonly supported
+			var knownColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+			{
+				"default", "black", "blue", "cyan", "dark_blue", "dark_cyan",
+				"dark_green", "dark_grey", "dark_magenta", "dark_red", "dark_yellow",
+				"grey", "green", "magenta", "red", "white", "yellow",
+				"bright_black", "bright_blue", "bright_cyan", "bright_green",
+				"bright_magenta", "bright_red", "bright_white", "bright_yellow"
+			};
+
+			return knownColors.Contains(colorName);
+		}
+
 		// Helper methods for SubstringAnsi
 		private static bool IsResetSequence(string sequence)
 		{
 			return sequence == "\u001b[0m";
+		}
+
+		/// <summary>
+		/// Determines if the provided string represents a valid color in any of the supported formats.
+		/// </summary>
+		/// <param name="color">The color string to validate</param>
+		/// <returns>True if the color is valid, false otherwise</returns>
+		private static bool IsValidColor(string color)
+		{
+			if (string.IsNullOrWhiteSpace(color))
+				return false;
+
+			// Check if it's a known color name
+			if (IsKnownColorName(color))
+				return true;
+
+			// Check for numbered color variants like "grey46" or "orange3"
+			if (Regex.IsMatch(color, @"^[a-z]+\d+$", RegexOptions.IgnoreCase))
+				return true;
+
+			// Check hex format
+			if (Regex.IsMatch(color, "^#[0-9a-fA-F]{3}$") ||
+				Regex.IsMatch(color, "^#[0-9a-fA-F]{6}$") ||
+				Regex.IsMatch(color, "^#[0-9a-fA-F]{8}$"))
+				return true;
+
+			// Check RGB format
+			if (Regex.IsMatch(color, "^rgb\\(\\s*\\d+\\s*,\\s*\\d+\\s*,\\s*\\d+\\s*\\)$"))
+				return true;
+
+			return false;
 		}
 
 		private static void RemoveMatchingSequence(List<string> sequences, string closingSequence)

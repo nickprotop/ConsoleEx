@@ -19,6 +19,6 @@ namespace ConsoleEx.Controls
 
 		public bool IsDirty { get; set; }
 
-		public void Invalidate(bool redrawAll);
+		public void Invalidate(bool redrawAll, IWIndowControl? callerControl = null);
 	}
 }

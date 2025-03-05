@@ -241,8 +241,8 @@ namespace ConsoleEx.Example
 			return new Window(consoleWindowSystem, WindowThread)
 			{
 				Title = "User",
-				Left = 22,
-				Top = 6,
+				Left = 12,
+				Top = 12,
 				Width = 60,
 				Height = 10,
 				IsResizable = true

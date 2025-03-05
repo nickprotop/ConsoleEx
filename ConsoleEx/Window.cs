@@ -52,7 +52,7 @@ namespace ConsoleEx
 	{
 		private readonly List<IWIndowControl> _content = new();
 		private readonly List<IInteractiveControl> _interactiveContents = new();
-		private readonly object _lock = new();
+		private readonly Lock _lock = new();
 
 		private readonly Window? _parentWindow;
 		private Color? _activeBorderForegroundColor;
@@ -441,14 +441,22 @@ namespace ConsoleEx
 			return false;
 		}
 
-		public void Invalidate(bool redrawAll)
+		public void Invalidate(bool redrawAll, IWIndowControl? callerControl = null)
 		{
 			_invalidated = true;
-			if (redrawAll)
+
+			lock (_lock)
 			{
-				foreach (var content in _content)
+				if (redrawAll)
 				{
-					(content as IWIndowControl)?.Invalidate();
+					foreach (var content in _content)
+					{
+						(content as IWIndowControl)?.Invalidate();
+					}
+				}
+				else
+				{
+					(callerControl as IWIndowControl)?.Invalidate();
 				}
 			}
 

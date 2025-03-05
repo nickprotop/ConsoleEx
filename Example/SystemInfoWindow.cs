@@ -20,8 +20,8 @@ namespace ConsoleEx.Example
 			_window = new Window(consoleWindowSystem, WindowThread)
 			{
 				Title = "System Info",
-				Left = 12,
-				Top = 4,
+				Left = 8,
+				Top = 8,
 				Width = 40,
 				Height = 10
 			};

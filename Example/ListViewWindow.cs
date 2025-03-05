@@ -24,7 +24,9 @@ namespace ConsoleEx.Example
 			{
 				Title = "List Control Example",
 				Width = 60,
-				Height = 20
+				Height = 20,
+				Top = 4,
+				Left = 4
 			};
 
 			// Create title

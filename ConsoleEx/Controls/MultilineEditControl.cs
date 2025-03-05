@@ -644,6 +644,11 @@ namespace ConsoleEx.Controls
 			// When focused but not editing, allow scrolling with arrow keys
 			if (_hasFocus && !_isEditing)
 			{
+				if (key.Modifiers.HasFlag(ConsoleModifiers.Control) || key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Control))
+				{
+					return false;
+				}
+
 				switch (key.Key)
 				{
 					case ConsoleKey.Enter:
@@ -1721,9 +1726,12 @@ namespace ConsoleEx.Controls
 			_cursorY = 0;
 			_horizontalScrollOffset = 0;
 			_verticalScrollOffset = 0;
+
+			EnsureCursorVisible();
+
 			_invalidated = true;
 			_cachedContent = null;
-			Container?.Invalidate(true);
+			Container?.Invalidate(false);
 
 			_skipUpdateScrollPositionsInRender = false;
 

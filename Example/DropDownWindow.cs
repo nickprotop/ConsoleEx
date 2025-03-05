@@ -23,6 +23,8 @@ namespace ConsoleEx.Example
 			_window = new Window(system) { Title = "Country Selection" };
 			_window.Width = 50;
 			_window.Height = 20;
+			_window.Top = 2;
+			_window.Left = 2;
 
 			_system = system;
 

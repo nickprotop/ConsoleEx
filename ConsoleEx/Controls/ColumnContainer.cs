@@ -102,7 +102,7 @@ namespace ConsoleEx.Controls
 			return interactiveContents;
 		}
 
-		public void Invalidate(bool redrawAll)
+		public void Invalidate(bool redrawAll, IWIndowControl? callerControl = null)
 		{
 			_isDirty = true;
 			_cachedContent = null;

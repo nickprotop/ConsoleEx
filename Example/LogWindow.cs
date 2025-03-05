@@ -20,8 +20,8 @@ namespace ConsoleEx.Example
 			_window = new Window(consoleWindowSystem, WindowThread)
 			{
 				Title = "Log",
-				Left = 2,
-				Top = 2,
+				Left = 6,
+				Top = 6,
 				Width = 40,
 				Height = 10,
 				BackgroundColor = Color.Grey35
