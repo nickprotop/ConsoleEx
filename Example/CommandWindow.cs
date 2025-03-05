@@ -4,6 +4,7 @@ using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,7 +15,9 @@ namespace ConsoleEx.Example
 	{
 		private readonly MultilineEditControl _outputControl;
 		private readonly PromptControl _promptControl;
+		private Process? _cmdProcess;
 		private ConsoleWindowSystem _consoleWindowSystem;
+		private StringBuilder _outputBuffer = new StringBuilder();
 		private Window _window;
 
 		public CommandWindow(ConsoleWindowSystem consoleWindowSystem)
@@ -32,7 +35,7 @@ namespace ConsoleEx.Example
 
 			_promptControl = new PromptControl
 			{
-				Prompt = "Enter command: ",
+				Prompt = "CMD> ",
 				OnEnter = ExecuteCommand,
 				UnfocusOnEnter = false,
 				StickyPosition = StickyPosition.Top
@@ -57,6 +60,9 @@ namespace ConsoleEx.Example
 				_outputControl.ViewportHeight = _window.Height - 2 - 2;
 				_outputControl.Width = _window.Width - 2;
 			};
+
+			// Initialize the interactive command process
+			InitializeCommandProcess();
 		}
 
 		public Window Window
@@ -70,60 +76,99 @@ namespace ConsoleEx.Example
 
 		private async void ExecuteCommand(PromptControl sender, string command)
 		{
-			sender.SetInput(string.Empty);
-
 			try
 			{
-				// Set up process with UTF-8 encoding for proper Unicode support
-				var processStartInfo = new ProcessStartInfo("cmd", $"/c chcp 65001 >nul && {command}")
+				if (_cmdProcess == null || _cmdProcess.HasExited)
 				{
+					_outputBuffer.AppendLine("Command process not running. Restarting...");
+					InitializeCommandProcess();
+					if (_cmdProcess == null)
+					{
+						_outputBuffer.AppendLine("Failed to restart command process.");
+						_outputControl.SetContent(_outputBuffer.ToString());
+						return;
+					}
+				}
+
+				// Display the command in the output
+				_outputBuffer.AppendLine($"\n> {command}");
+				_outputControl.SetContent(_outputBuffer.ToString());
+
+				// Send the command to the process
+				await _cmdProcess.StandardInput.WriteLineAsync(command);
+				await _cmdProcess.StandardInput.FlushAsync();
+
+				// Clear the input for the next command
+				sender.SetInput(string.Empty);
+
+				// Special handling for exit command
+				if (command.Trim().Equals("exit", StringComparison.OrdinalIgnoreCase))
+				{
+					_outputBuffer.AppendLine("Command session terminated.");
+					_outputControl.SetContent(_outputBuffer.ToString());
+					_outputControl.GoToEnd();
+
+					// Don't dispose the process here as it will be handled by process.OutputDataReceived
+				}
+			}
+			catch (Exception ex)
+			{
+				_outputBuffer.AppendLine($"Error executing command: {ex.Message}");
+				_outputControl.SetContent(_outputBuffer.ToString());
+				_outputControl.GoToEnd();
+			}
+		}
+
+		private void InitializeCommandProcess()
+		{
+			try
+			{
+				// Set up a persistent cmd process
+				var processStartInfo = new ProcessStartInfo
+				{
+					FileName = "cmd.exe",
+					Arguments = "/q /k chcp 65001", // /q = quiet, /k = keep running, set UTF-8 codepage
+					RedirectStandardInput = true,
 					RedirectStandardOutput = true,
 					RedirectStandardError = true,
 					UseShellExecute = false,
 					CreateNoWindow = true,
+					StandardInputEncoding = Encoding.UTF8,
 					StandardOutputEncoding = Encoding.UTF8,
 					StandardErrorEncoding = Encoding.UTF8
 				};
 
-				using var process = new Process { StartInfo = processStartInfo };
-				process.Start();
-
-				var outputBuilder = new StringBuilder();
-
-				// Read the output asynchronously with UTF-8 encoding
-				while (!process.StandardOutput.EndOfStream)
+				_cmdProcess = new Process { StartInfo = processStartInfo };
+				_cmdProcess.OutputDataReceived += (sender, args) =>
 				{
-					var line = await process.StandardOutput.ReadLineAsync();
-
-					if (line != null)
+					if (args.Data != null)
 					{
-						outputBuilder.AppendLine(line);
-						_outputControl.SetContent(outputBuilder.ToString());
+						_outputBuffer.AppendLine(args.Data);
+						_outputControl.SetContent(_outputBuffer.ToString());
+						_outputControl.GoToEnd();
 					}
-				}
-
-				// Ensure any remaining output is captured
-				var remainingOutput = await process.StandardOutput.ReadToEndAsync();
-				if (!string.IsNullOrEmpty(remainingOutput))
+				};
+				_cmdProcess.ErrorDataReceived += (sender, args) =>
 				{
-					outputBuilder.Append(remainingOutput);
-					_outputControl.SetContent(outputBuilder.ToString());
-				}
+					if (args.Data != null)
+					{
+						_outputBuffer.AppendLine($"Error: {args.Data}");
+						_outputControl.SetContent(_outputBuffer.ToString());
+						_outputControl.GoToEnd();
+					}
+				};
 
-				// Check for errors with UTF-8 encoding
-				var errorOutput = await process.StandardError.ReadToEndAsync();
-				if (!string.IsNullOrEmpty(errorOutput))
-				{
-					outputBuilder.AppendLine("\nErrors:");
-					outputBuilder.AppendLine(errorOutput);
-					_outputControl.SetContent(outputBuilder.ToString());
-				}
+				_cmdProcess.Start();
+				_cmdProcess.BeginOutputReadLine();
+				_cmdProcess.BeginErrorReadLine();
 
-				process.WaitForExit();
+				// Add initial message
+				_outputBuffer.AppendLine("Interactive command prompt started. Type 'exit' to close the session.");
+				_outputControl.SetContent(_outputBuffer.ToString());
 			}
 			catch (Exception ex)
 			{
-				_outputControl.SetContent($"Error: {ex.Message}");
+				_outputControl.SetContent($"Error initializing command prompt: {ex.Message}");
 			}
 		}
 	}

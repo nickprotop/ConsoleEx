@@ -317,6 +317,67 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		/// <summary>
+		/// Appends content to the end of the control and scrolls to make it visible.
+		/// </summary>
+		/// <param name="content">The content to append.</param>
+		public void AppendContent(string content)
+		{
+			if (string.IsNullOrEmpty(content))
+				return;
+
+			// Split the content into lines
+			var newLines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+			// If the last line in existing content is empty, replace it with first line of new content
+			if (_lines.Count > 0 && string.IsNullOrEmpty(_lines[_lines.Count - 1]))
+			{
+				_lines[_lines.Count - 1] = newLines[0];
+
+				// Add remaining lines
+				for (int i = 1; i < newLines.Length; i++)
+				{
+					_lines.Add(newLines[i]);
+				}
+			}
+			else
+			{
+				// If the last line isn't empty, append the first new line to it
+				if (_lines.Count > 0 && newLines.Length > 0)
+				{
+					_lines[_lines.Count - 1] += newLines[0];
+
+					// Add remaining lines
+					for (int i = 1; i < newLines.Length; i++)
+					{
+						_lines.Add(newLines[i]);
+					}
+				}
+				else
+				{
+					// Just add all lines if we don't have content yet
+					_lines.AddRange(newLines);
+				}
+			}
+
+			// Force recalculation of scrollbars by invalidating
+			_invalidated = true;
+			_cachedContent = null;
+
+			// Reset flag to ensure scroll positions are updated properly
+			_skipUpdateScrollPositionsInRender = false;
+
+			_invalidated = true;
+			_cachedContent = null;
+			Container?.Invalidate(true);
+
+			// Go to the end of the content
+			GoToEnd();
+
+			// Notify that content has changed
+			ContentChanged?.Invoke(this, GetContent());
+		}
+
 		// Add a helper method to clear selection
 		public void ClearSelection()
 		{
@@ -493,6 +554,29 @@ namespace ConsoleEx.Controls
 			result.Append(_lines[endY].Substring(0, endX));
 
 			return result.ToString();
+		}
+
+		/// <summary>
+		/// Moves the cursor to the end of the document content and ensures it's visible.
+		/// </summary>
+		public void GoToEnd()
+		{
+			// Set cursor to the last line
+			_cursorY = _lines.Count - 1;
+
+			// Set cursor to the end of the last line
+			_cursorX = _lines[_cursorY].Length;
+
+			// Clear any selection
+			ClearSelection();
+
+			// Ensure the cursor is visible in the viewport
+			EnsureCursorVisible();
+
+			// Invalidate cached content to force redraw
+			_invalidated = true;
+			_cachedContent = null;
+			Container?.Invalidate(true);
 		}
 
 		/// <summary>
@@ -1297,6 +1381,8 @@ namespace ConsoleEx.Controls
 					{
 						_verticalScrollOffset = wrappedLineWithCursor - _viewportHeight + 1;
 					}
+
+					_skipUpdateScrollPositionsInRender = false;
 				}
 			}
 
@@ -1638,6 +1724,8 @@ namespace ConsoleEx.Controls
 			_invalidated = true;
 			_cachedContent = null;
 			Container?.Invalidate(true);
+
+			_skipUpdateScrollPositionsInRender = false;
 
 			// Notify that content has changed
 			ContentChanged?.Invoke(this, GetContent());
