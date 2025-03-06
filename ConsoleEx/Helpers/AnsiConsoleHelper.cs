@@ -138,7 +138,7 @@ namespace ConsoleEx.Helpers
 
 			string renderedMarkup = writer.ToString();
 
-			return writer.ToString().Split('\n').ToList().Select(line =>
+			return writer.ToString().Split('\n').Select(line =>
 			{
 				line = line.Replace("\r", "");
 				line = line.Replace("\n", "");
