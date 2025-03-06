@@ -271,7 +271,7 @@ namespace ConsoleEx.Controls
 
 			int rightWhiteSpace = paddingRight - visibleInput.Length;
 
-			_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{_prompt}[{inputForegroundColor} on {inputBackgroundColor}]{Markup.Escape(visibleInput)}{new string(' ', rightWhiteSpace)}[/]", (_width ?? (availableWidth ?? 50)), availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor, false);
+			_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{_prompt}[{inputForegroundColor} on {inputBackgroundColor}]{Markup.Escape(visibleInput)}{new string(' ', rightWhiteSpace)}[/]", (_width ?? (availableWidth ?? 50)), availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
 
 			for (int i = 0; i < _cachedContent.Count; i++)
 			{

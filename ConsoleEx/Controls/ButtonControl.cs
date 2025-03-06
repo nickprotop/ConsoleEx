@@ -161,18 +161,18 @@ namespace ConsoleEx.Controls
 			if (padding < 0) padding = 0; // Ensure padding is not negative
 
 			// Create the final string with [ at the start and ] at the end
-			string finalButtonText = $"[[{new string(' ', padding)}{text}{new string(' ', padding)}]]";
+			string finalButtonText = $"[{new string(' ', padding)}{text}{new string(' ', padding)}]";
 
 			// Ensure the buttonText fits within the buttonWidth
-			if (AnsiConsoleHelper.StripSpectreLength(finalButtonText) < buttonWidth - 2)
+			if (AnsiConsoleHelper.StripSpectreLength(finalButtonText) < buttonWidth)
 			{
-				finalButtonText = finalButtonText.PadRight(buttonWidth - 2);
+				finalButtonText = finalButtonText.PadRight(buttonWidth);
 			}
 
 			// Check if finalButtonText is of the desired width
-			if (AnsiConsoleHelper.StripSpectreLength(finalButtonText) != buttonWidth)
+			if (AnsiConsoleHelper.StripSpectreLength(finalButtonText) < buttonWidth)
 			{
-				finalButtonText = finalButtonText.Insert(2, new string(' ', buttonWidth - AnsiConsoleHelper.StripSpectreLength(finalButtonText)));
+				finalButtonText = finalButtonText.Insert(0, new string(' ', buttonWidth - AnsiConsoleHelper.StripSpectreLength(finalButtonText)));
 			}
 
 			int maxContentWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(finalButtonText));

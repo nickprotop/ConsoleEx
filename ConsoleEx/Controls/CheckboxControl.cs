@@ -274,7 +274,7 @@ namespace ConsoleEx.Controls
 			int checkboxWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 40) : 0);
 
 			// Calculate the minimum width needed
-			int minWidth = AnsiConsoleHelper.StripSpectreLength($"[[{(_checked ? "X" : " ")}]] {_label}") + 2;
+			int minWidth = AnsiConsoleHelper.StripSpectreLength($"[{(_checked ? "X" : " ")}] {_label}") + 2;
 
 			// For non-stretch alignments, adjust width if needed or use auto-size
 			if (_alignment != Alignment.Strecth && _width == null)
@@ -305,11 +305,11 @@ namespace ConsoleEx.Controls
 			// Show focus indicators when focused
 			if (_hasFocus)
 			{
-				checkboxContent = $">[[{checkmark}]] {_label}<";
+				checkboxContent = $">[{checkmark}] {_label}<";
 			}
 			else
 			{
-				checkboxContent = $" [[{checkmark}]] {_label} ";
+				checkboxContent = $" [{checkmark}] {_label} ";
 			}
 
 			// Format the checkmark with color if checked

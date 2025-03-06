@@ -8,6 +8,7 @@
 
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using System;
 using System.Text;
 using System.Text.RegularExpressions;
 using static System.Runtime.CompilerServices.RuntimeHelpers;
@@ -24,25 +25,25 @@ namespace ConsoleEx.Helpers
 			{ "/bold", "\u001b[22m" },
 			{ "underline", "\u001b[4m" },
 			{ "/underline", "\u001b[24m" },
-			{ "foreground red", "\u001b[31m" },
-			{ "foreground green", "\u001b[32m" },
-			{ "foreground yellow", "\u001b[33m" },
-			{ "foreground blue", "\u001b[34m" },
-			{ "foreground magenta", "\u001b[35m" },
-			{ "foreground cyan", "\u001b[36m" },
-			{ "foreground white", "\u001b[37m" },
-			{ "foreground grey", "\u001b[90m" },
-			{ "foreground black", "\u001b[30m" },
-			{ "background red", "\u001b[41m" },
-			{ "background green", "\u001b[42m" },
-			{ "background yellow", "\u001b[43m" },
-			{ "background blue", "\u001b[44m" },
-			{ "background magenta", "\u001b[45m" },
-			{ "background cyan", "\u001b[46m" },
-			{ "background white", "\u001b[47m" },
-			{ "background black", "\u001b[40m" },
-			{ "/foreground", "\u001b[39m" },
-			{ "/background", "\u001b[49m" },
+			{ "fg red", "\u001b[31m" },
+			{ "fg green", "\u001b[32m" },
+			{ "fg yellow", "\u001b[33m" },
+			{ "fg blue", "\u001b[34m" },
+			{ "fg magenta", "\u001b[35m" },
+			{ "fg cyan", "\u001b[36m" },
+			{ "fg white", "\u001b[37m" },
+			{ "fg grey", "\u001b[90m" },
+			{ "fg black", "\u001b[30m" },
+			{ "bg red", "\u001b[41m" },
+			{ "bg green", "\u001b[42m" },
+			{ "bg yellow", "\u001b[43m" },
+			{ "bg blue", "\u001b[44m" },
+			{ "bg magenta", "\u001b[45m" },
+			{ "bg cyan", "\u001b[46m" },
+			{ "bg white", "\u001b[47m" },
+			{ "bg black", "\u001b[40m" },
+			{ "/fg", "\u001b[39m" },
+			{ "/bg", "\u001b[49m" },
 			{ "reset", "\u001b[0m" }
 		};
 
@@ -53,12 +54,10 @@ namespace ConsoleEx.Helpers
 			return ConvertSpectreMarkupToAnsi($"{new string(' ', width)}", width, 1, false, backgroundColor, null)[0];
 		}
 
-		public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow, Color? backgroundColor, Color? foregroundColor, bool safe = false)
+		public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow, Color? backgroundColor, Color? foregroundColor)
 		{
 			if (string.IsNullOrEmpty(markup))
 				return new List<string>() { string.Empty };
-
-			if (!safe) markup = EscapeInvalidMarkupTags(markup);
 
 			var writer = new StringWriter();
 			var console = CreateCaptureConsole(writer, width, height);
@@ -159,182 +158,70 @@ namespace ConsoleEx.Helpers
 			return console;
 		}
 
-		/// <summary>
-		/// Processes a string containing Spectre Console markup and escapes invalid tags with double brackets.
-		/// Valid tags remain unchanged, while invalid tags are escaped by doubling their brackets.
-		/// </summary>
-		/// <param name="input">The string containing Spectre markup to process</param>
-		/// <returns>A string with invalid tags escaped with double brackets</returns>
 		public static string EscapeInvalidMarkupTags(string input)
 		{
-			if (string.IsNullOrEmpty(input))
-				return input;
-
-			var output = new StringBuilder();
+			var result = new StringBuilder();
+			int length = input.Length;
 			int i = 0;
-			int n = input.Length;
 
-			// Known valid tag patterns in addition to our dictionary
-			var validPatterns = new[]
+			while (i < length)
 			{
-        // Generic closing tag
-        "^/$",
-        // Color tags (hex)
-        "^#[0-9a-fA-F]{3}$",
-		"^#[0-9a-fA-F]{6}$",
-		"^#[0-9a-fA-F]{8}$",
-        // Color tags (rgb)
-        "^rgb\\(\\s*\\d+\\s*,\\s*\\d+\\s*,\\s*\\d+\\s*\\)$",
-        // Named colors (beyond our basic dictionary)
-        "^[a-z]+( [a-z]+)*$",
-        // Default closing tags
-        "^/[a-z]+$"
-	};
-
-			while (i < n)
-			{
-				// Check for potential tag start
 				if (input[i] == '[')
 				{
-					// Check if already escaped
-					if (i + 1 < n && input[i + 1] == '[')
-					{
-						output.Append("[[");
-						i += 2;
-						continue;
-					}
-
-					// Try to find a closing bracket
+					int start = i;
 					int j = i + 1;
-					bool foundClosingBracket = false;
-					bool doublicated = false;
+					bool tagClosed = false;
 
-					while (j < n && !foundClosingBracket)
+					// Look for the closing ']'
+					while (j < length)
 					{
 						if (input[j] == ']')
 						{
-							// Found a closing bracket
-							foundClosingBracket = true;
-							string tagContent = input.Substring(i + 1, j - i - 1);
-							bool isValidTag = false;
-
-							// Check if this is a valid tag
-							if (tagContent == "/")
-							{
-								// Special case for [/]
-								isValidTag = true;
-							}
-							else if (tagToAnsi.ContainsKey(tagContent.ToLower()))
-							{
-								isValidTag = true;
-							}
-							else if (tagContent.Contains(" on "))
-							{
-								// Check "color on color" format
-								string[] colorParts = tagContent.Split(new[] { " on " }, StringSplitOptions.None);
-								if (colorParts.Length == 2)
-								{
-									string foreground = colorParts[0].Trim();
-									string background = colorParts[1].Trim();
-									isValidTag = IsValidColor(foreground) && IsValidColor(background);
-								}
-							}
-							else if (tagContent.StartsWith("foreground") || tagContent.StartsWith("background"))
-							{
-								// Check color styling
-								string[] parts = tagContent.Split(' ', 2);
-								if (parts.Length > 1)
-								{
-									string colorPart = parts[1].Trim();
-									isValidTag = IsValidColor(colorPart);
-								}
-							}
-							else if (tagContent.StartsWith("/") && tagContent.Length > 1)
-							{
-								// Generic closing tag like [/blue], [/bold], etc.
-								isValidTag = true;
-							}
-							else if (IsValidColor(tagContent))
-							{
-								// Direct color names
-								isValidTag = true;
-							}
-							else
-							{
-								// Check other patterns
-								foreach (var pattern in validPatterns)
-								{
-									if (Regex.IsMatch(tagContent, pattern))
-									{
-										isValidTag = true;
-										break;
-									}
-								}
-							}
-
-							if (isValidTag)
-							{
-								// Valid tag - keep as is
-								output.Append(input.Substring(i, j - i + 1));
-							}
-							else
-							{
-								// Invalid tag - escape brackets
-								output.Append("[[").Append(tagContent).Append("]]");
-							}
-							i = j + 1;
+							tagClosed = true;
+							break;
 						}
 						else if (input[j] == '[')
 						{
-							// Found another opening bracket before closing - this means the first one was not part of a valid tag
-							// Escape the first opening bracket and continue from there
-							output.Append("[[");
-							i++;
-							foundClosingBracket = false;
-							doublicated = true;
+							// Another '[' found before closing ']', break to handle the first '['
 							break;
 						}
-						else
+						j++;
+					}
+
+					if (tagClosed)
+					{
+						// Check if the content between [ and ] is a valid tag (simplified check)
+						string tagContent = input.Substring(start + 1, j - start - 1);
+						if (IsValidTagContent(tagContent))
 						{
-							j++;
+							// Append the entire tag as is
+							result.Append(input, start, j - start + 1);
+							i = j + 1;
+							continue;
 						}
 					}
 
-					// If no closing bracket was found, we need to escape the opening bracket
-					if (!foundClosingBracket && !doublicated)
-					{
-						output.Append("[[");
-						i++;
-						doublicated = false;
-					}
+					// If not a valid tag, escape the '['
+					result.Append("[[");
+					i++;
 				}
 				else if (input[i] == ']')
 				{
-					// Check if this is already an escaped closing bracket
-					if (i + 1 < n && input[i + 1] == ']')
-					{
-						output.Append("]]");
-						i += 2;
-					}
-					else
-					{
-						// Unmatched closing bracket, escape it
-						output.Append("]]");
-						i++;
-					}
+					// Escape lone ']'
+					result.Append("]]");
+					i++;
 				}
 				else
 				{
-					// Regular character
-					output.Append(input[i]);
+					result.Append(input[i]);
 					i++;
 				}
 			}
 
-			return output.ToString();
+			return result.ToString();
 		}
 
-		public static List<string> ParseAnsiTags(string input, int? width, bool wrap, string? backgroundColor = null, string? foregroundColor = null)
+		public static List<string> ParseAnsiTags(string input, int? width, int? height, bool wrap, string? backgroundColor = null, string? foregroundColor = null)
 		{
 			bool FillLastLine = false;
 
@@ -343,16 +230,16 @@ namespace ConsoleEx.Helpers
 
 			if (foregroundColor != null)
 			{
-				input = input.Replace("[/foreground]", $"[foreground {foregroundColor}]", StringComparison.InvariantCultureIgnoreCase);
+				input = input.Replace("[/fg]", $"[fg {foregroundColor}]", StringComparison.InvariantCultureIgnoreCase);
 			}
 
 			if (backgroundColor != null)
 			{
-				input = input.Replace("[/background]", $"[background {backgroundColor}]", StringComparison.InvariantCultureIgnoreCase);
+				input = input.Replace("[/bg]", $"[bg {backgroundColor}]", StringComparison.InvariantCultureIgnoreCase);
 			}
 
-			input = foregroundColor == null ? $"{input}" : $"[foreground {foregroundColor}]{input}";
-			input = backgroundColor == null ? $"{input}" : $"[background {backgroundColor}]{input}";
+			input = foregroundColor == null ? $"{input}" : $"[fg {foregroundColor}]{input}";
+			input = backgroundColor == null ? $"{input}" : $"[bg {backgroundColor}]{input}";
 
 			var output = new List<string>();
 			var currentLine = new StringBuilder();
@@ -435,7 +322,7 @@ namespace ConsoleEx.Helpers
 			output.RemoveAt(output.Count - 1);
 			output.Add(lastLine);
 
-			return output;
+			return output.Take(height ?? 1).ToList();
 		}
 
 		public static string SetAnsiCursorPosition(int left, int top)
@@ -458,12 +345,13 @@ namespace ConsoleEx.Helpers
 			return ansiStripped.Length;
 		}
 
-		public static int StripSpectreLength(string text, bool safe = false)
+		public static int StripSpectreLength(string text)
 		{
 			if (string.IsNullOrEmpty(text))
 				return 0;
 
-			if (!safe) text = EscapeInvalidMarkupTags(text);
+			text = EscapeInvalidMarkupTags(text);
+
 			List<int> lines = text.Split('\n').Select(line => Markup.Remove(line).Length).ToList();
 			return lines.Max();
 		}
@@ -757,6 +645,97 @@ namespace ConsoleEx.Helpers
 			// Check RGB format
 			if (Regex.IsMatch(color, "^rgb\\(\\s*\\d+\\s*,\\s*\\d+\\s*,\\s*\\d+\\s*\\)$"))
 				return true;
+
+			return false;
+		}
+
+		private static bool IsValidTagContent(string tagContent)
+		{
+			if (string.IsNullOrWhiteSpace(tagContent))
+				return false;
+
+			// Handle special case of default closing tag
+			if (tagContent == "/" || tagContent == "default")
+				return true;
+
+			// Handle specific closing tags
+			if (tagContent.StartsWith("/"))
+			{
+				string styleTag = tagContent[1..]; // Remove the leading '/'
+												   // Common closing tags
+				return new[] { "bold", "italic", "underline", "strikethrough", "dim", "invert",
+					  "blink", "rapidblink", "slowblink", "fg", "bg", "link", "reverse",
+					  "overline", "conceal", "strike" }.Contains(styleTag.ToLowerInvariant());
+			}
+
+			// Check for style attributes (no parameters)
+			if (new[] { "bold", "italic", "underline", "strikethrough", "dim", "invert", "normal",
+				"blink", "rapidblink", "slowblink", "reverse", "overline", "conceal",
+				"strike" }.Contains(tagContent.ToLowerInvariant()))
+				return true;
+
+			// Check for color on color format (e.g., "red on blue")
+			if (tagContent.Contains(" on ", StringComparison.OrdinalIgnoreCase))
+			{
+				string[] colorParts = tagContent.Split(" on ", StringSplitOptions.RemoveEmptyEntries);
+				if (colorParts.Length == 2)
+				{
+					// Validate both foreground and background colors
+					return IsValidColor(colorParts[0].Trim()) && IsValidColor(colorParts[1].Trim());
+				}
+				return false;
+			}
+
+			// Check for foreground color
+			if (tagContent.StartsWith("fg:", StringComparison.OrdinalIgnoreCase) ||
+				tagContent.StartsWith("color:", StringComparison.OrdinalIgnoreCase))
+			{
+				string colorValue = tagContent.Substring(tagContent.IndexOf(':') + 1);
+				return IsValidColor(colorValue);
+			}
+
+			// Check for background color
+			if (tagContent.StartsWith("bg:", StringComparison.OrdinalIgnoreCase) ||
+				tagContent.StartsWith("background:", StringComparison.OrdinalIgnoreCase))
+			{
+				string colorValue = tagContent.Substring(tagContent.IndexOf(':') + 1);
+				return IsValidColor(colorValue);
+			}
+
+			// Check for direct color specifications without fg/bg prefix
+			if (IsValidColor(tagContent))
+				return true;
+
+			// Check for color with space syntax (e.g., "fg red" or "bg blue")
+			if (tagContent.StartsWith("fg ", StringComparison.OrdinalIgnoreCase) ||
+				tagContent.StartsWith("bg ", StringComparison.OrdinalIgnoreCase))
+			{
+				string[] parts = tagContent.Split(' ', 2);
+				if (parts.Length == 2)
+					return IsValidColor(parts[1]);
+			}
+
+			// Check for decoration with parameter
+			if (tagContent.StartsWith("link=", StringComparison.OrdinalIgnoreCase) ||
+				tagContent.StartsWith("link:", StringComparison.OrdinalIgnoreCase))
+				return true; // Any URL is valid for link
+
+			// Check for RGB hex colors directly (e.g. "#ff0000")
+			if (Regex.IsMatch(tagContent, @"^#[0-9a-fA-F]{3}$") ||
+				Regex.IsMatch(tagContent, @"^#[0-9a-fA-F]{6}$") ||
+				Regex.IsMatch(tagContent, @"^#[0-9a-fA-F]{8}$"))
+				return true;
+
+			// Check for RGB functional notation (e.g. "rgb(255,0,0)")
+			if (Regex.IsMatch(tagContent, @"^rgb\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$"))
+				return true;
+
+			// Check for Spectre's special style combination syntax (comma-separated styles)
+			if (tagContent.Contains(','))
+			{
+				string[] subTags = tagContent.Split(',', StringSplitOptions.RemoveEmptyEntries);
+				return subTags.All(tag => IsValidTagContent(tag.Trim()));
+			}
 
 			return false;
 		}
