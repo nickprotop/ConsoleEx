@@ -170,6 +170,25 @@ namespace ConsoleEx.Example
 
 			_window.AddContent(new RuleControl());
 
+			// Create a Table renderable
+			var table = new Table();
+
+			// Add some columns
+			table.AddColumn("Foo");
+			table.AddColumn(new TableColumn("Bar").Centered());
+
+			// Add some rows
+			table.AddRow("Baz", "[green]Qux[/]");
+			table.AddRow(new Markup("[blue]Corgi[/]"), new Panel("Waldo"));
+
+			// Create a control for the table
+			var tableControl = new SpectreRenderableControl(table);
+			tableControl.Alignment = Alignment.Center;
+			tableControl.Margin = new Margin(1, 1, 1, 1);
+
+			// Add to window
+			_window.AddContent(tableControl);
+
 			_window.AddContent(new RuleControl
 			{
 				Color = Color.Yellow,

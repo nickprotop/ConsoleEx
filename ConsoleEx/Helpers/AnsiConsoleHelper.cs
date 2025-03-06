@@ -73,31 +73,38 @@ namespace ConsoleEx.Helpers
 				console.Profile.Height = height.Value;
 			}
 
-			if (foregroundColor == null)
+			try
 			{
-				if (backgroundColor != null)
+				if (foregroundColor == null)
 				{
-					var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor));
-					console.Write(renderedMarkup);
+					if (backgroundColor != null)
+					{
+						var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor));
+						console.Write(renderedMarkup);
+					}
+					else
+					{
+						var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80));
+						console.Write(renderedMarkup);
+					}
 				}
 				else
 				{
-					var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80));
-					console.Write(renderedMarkup);
+					if (backgroundColor != null)
+					{
+						var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor, foreground: foregroundColor));
+						console.Write(renderedMarkup);
+					}
+					else
+					{
+						var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80), new Style(foreground: foregroundColor));
+						console.Write(renderedMarkup);
+					}
 				}
 			}
-			else
+			catch
 			{
-				if (backgroundColor != null)
-				{
-					var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor, foreground: foregroundColor));
-					console.Write(renderedMarkup);
-				}
-				else
-				{
-					var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80), new Style(foreground: foregroundColor));
-					console.Write(renderedMarkup);
-				}
+				return new List<string>() { tagToAnsi["reset"] + Markup.Escape(markup) + tagToAnsi["reset"] };
 			}
 
 			List<string> result = writer.ToString().Split('\n').ToList();
@@ -128,7 +135,15 @@ namespace ConsoleEx.Helpers
 			}
 
 			console.Write(renderable);
-			return writer.ToString().Split('\n').ToList();
+
+			string renderedMarkup = writer.ToString();
+
+			return writer.ToString().Split('\n').ToList().Select(line =>
+			{
+				line = line.Replace("\r", "");
+				line = line.Replace("\n", "");
+				return line;
+			}).ToList();
 		}
 
 		public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
