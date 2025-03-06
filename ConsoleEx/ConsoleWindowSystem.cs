@@ -406,7 +406,7 @@ namespace ConsoleEx
 					point.X < window.Left + window.Width &&
 					point.Y - DesktopUpperLeft.Y > window.Top &&
 					point.Y - DesktopUpperLeft.Y <= window.Top + window.Height)
-				.OrderByDescending(window => window.ZIndex).ToList();
+				.OrderBy(window => window.ZIndex).ToList();
 
 			if (windows.Any(w => w.Guid == _activeWindow?.Guid))
 			{

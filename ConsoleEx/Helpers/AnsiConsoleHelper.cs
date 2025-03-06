@@ -59,6 +59,8 @@ namespace ConsoleEx.Helpers
 			if (string.IsNullOrEmpty(markup))
 				return new List<string>() { string.Empty };
 
+			//if (overflow) markup = EscapeInvalidMarkupTags(markup);
+
 			var writer = new StringWriter();
 			var console = CreateCaptureConsole(writer, width, height);
 
@@ -75,12 +77,12 @@ namespace ConsoleEx.Helpers
 			{
 				if (backgroundColor != null)
 				{
-					var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor));
+					var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor));
 					console.Write(renderedMarkup);
 				}
 				else
 				{
-					var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, width ?? 80));
+					var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80));
 					console.Write(renderedMarkup);
 				}
 			}
@@ -88,12 +90,12 @@ namespace ConsoleEx.Helpers
 			{
 				if (backgroundColor != null)
 				{
-					var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor, foreground: foregroundColor));
+					var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80), new Style(background: backgroundColor, foreground: foregroundColor));
 					console.Write(renderedMarkup);
 				}
 				else
 				{
-					var renderedMarkup = new Markup(overflow ? markup : TruncateSpectre(markup, width ?? 80), new Style(foreground: foregroundColor));
+					var renderedMarkup = new Markup(overflow ? markup.EscapeSpectreMarkup() : TruncateSpectre(markup, width ?? 80), new Style(foreground: foregroundColor));
 					console.Write(renderedMarkup);
 				}
 			}
@@ -219,6 +221,11 @@ namespace ConsoleEx.Helpers
 			}
 
 			return result.ToString();
+		}
+
+		public static string EscapeSpectreMarkup(this string input)
+		{
+			return EscapeInvalidMarkupTags(input);
 		}
 
 		public static List<string> ParseAnsiTags(string input, int? width, int? height, bool wrap, string? backgroundColor = null, string? foregroundColor = null)
@@ -350,9 +357,7 @@ namespace ConsoleEx.Helpers
 			if (string.IsNullOrEmpty(text))
 				return 0;
 
-			text = EscapeInvalidMarkupTags(text);
-
-			List<int> lines = text.Split('\n').Select(line => Markup.Remove(line).Length).ToList();
+			List<int> lines = text.EscapeSpectreMarkup().Split('\n').Select(line => Markup.Remove(line).Length).ToList();
 			return lines.Max();
 		}
 

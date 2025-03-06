@@ -39,7 +39,7 @@ namespace ConsoleEx.Example
 			_agreeTermsCheckbox = new CheckboxControl("I agree to terms and conditions", false)
 			{
 				Margin = new Margin(1, 0, 0, 0),
-				CheckmarkColor = Color.Green
+				CheckmarkColor = Color.Cyan3
 			};
 			_agreeTermsCheckbox.CheckedChanged += AgreeTerms_CheckedChanged;
 
