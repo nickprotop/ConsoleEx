@@ -475,6 +475,8 @@ namespace ConsoleEx.Controls
 			if (!_isEnabled || !_hasFocus)
 				return false;
 
+			if (key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt) || key.Modifiers.HasFlag(ConsoleModifiers.Control)) return false;
+
 			switch (key.Key)
 			{
 				case ConsoleKey.Enter:
