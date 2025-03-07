@@ -15,6 +15,7 @@ namespace ConsoleEx.Example
 {
 	internal class Program
 	{
+		private static LogWindow? _logWindow;
 		private Window _commandWindow;
 
 		private static void HandleException(Exception ex)
@@ -53,23 +54,23 @@ namespace ConsoleEx.Example
 		{
 			var consoleWindowSystem = InitializeConsoleWindowSystem();
 
-			var commandWindow = new CommandWindow(consoleWindowSystem);
-			consoleWindowSystem.AddWindow(commandWindow.Window);
+			//var commandWindow = new CommandWindow(consoleWindowSystem);
+			//consoleWindowSystem.AddWindow(commandWindow.Window);
 
-			var logWindow = new LogWindow(consoleWindowSystem);
-			var systemInfoWindow = new SystemInfoWindow(consoleWindowSystem);
+			//logWindow = new LogWindow(consoleWindowSystem);
+			//var systemInfoWindow = new SystemInfoWindow(consoleWindowSystem);
 			var userInfoWindow = new UserInfoWindow(consoleWindowSystem);
-			var clockWindow = new ClockWindow(consoleWindowSystem);
+			//var clockWindow = new ClockWindow(consoleWindowSystem);
 
-			var dropDownWindow = new DropDownWindow(consoleWindowSystem);
-			consoleWindowSystem.AddWindow(dropDownWindow.GetWindow());
+			//var dropDownWindow = new DropDownWindow(consoleWindowSystem);
+			//consoleWindowSystem.AddWindow(dropDownWindow.GetWindow());
 
-			var listViewWindow = new ListViewWindow(consoleWindowSystem);
-			consoleWindowSystem.AddWindow(listViewWindow.GetWindow());
+			//var listViewWindow = new ListViewWindow(consoleWindowSystem);
+			//consoleWindowSystem.AddWindow(listViewWindow.GetWindow());
 
 			try
 			{
-				int exitCode = RunConsoleWindowSystem(consoleWindowSystem, logWindow);
+				int exitCode = RunConsoleWindowSystem(consoleWindowSystem);
 
 				Console.SetCursorPosition(0, 0);
 				Console.WriteLine($"Console window system terminated with status: {exitCode}");
@@ -83,12 +84,12 @@ namespace ConsoleEx.Example
 			}
 		}
 
-		private static int RunConsoleWindowSystem(ConsoleWindowSystem consoleWindowSystem, LogWindow logWindow)
+		private static int RunConsoleWindowSystem(ConsoleWindowSystem consoleWindowSystem)
 		{
 			bool quit = false;
 			int exitCode = 0;
 
-			consoleWindowSystem.SetActiveWindow(logWindow.Window);
+			//consoleWindowSystem.SetActiveWindow(_logWindow.Window);
 
 			Task.Run(() =>
 			{
@@ -98,7 +99,7 @@ namespace ConsoleEx.Example
 
 			//ShowWelcomeNotification(consoleWindowSystem);
 
-			Task.Run(() => LogMessages(logWindow));
+			//Task.Run(() => LogMessages(_logWindow));
 
 			while (!quit) { }
 

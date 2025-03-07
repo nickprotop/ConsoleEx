@@ -74,6 +74,8 @@ namespace ConsoleEx.Example
 			_window.AddContent(_bottomButtons);
 
 			var maximizeButton = CreateButton("[yellow]Maximize[/] window", (sender) => _window.State = WindowState.Maximized);
+			maximizeButton.Alignment = Alignment.Strecth;
+
 			var closeButton = CreateButton("[red]Close[/] window", (sender) =>
 			{
 				// Create a modal dialog
@@ -110,6 +112,9 @@ namespace ConsoleEx.Example
 
 			AddButtonToBottomButtons(maximizeButton);
 			AddButtonToBottomButtons(closeButton);
+
+			SplitterControl splitter = new SplitterControl();
+			_bottomButtons.AddSplitter(0, splitter);
 		}
 
 		private void AddButtonToBottomButtons(ButtonControl button)

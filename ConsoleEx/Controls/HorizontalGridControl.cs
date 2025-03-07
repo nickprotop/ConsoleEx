@@ -8,6 +8,7 @@
 
 using ConsoleEx.Helpers;
 using Spectre.Console;
+using System.ComponentModel.Design;
 using System.Data.Common;
 
 namespace ConsoleEx.Controls
@@ -24,6 +25,8 @@ namespace ConsoleEx.Controls
 		private bool _invalidated = true;
 		private bool _isEnabled = true;
 		private Margin _margin = new Margin(0, 0, 0, 0);
+		private Dictionary<IInteractiveControl, int> _splitterControls = new Dictionary<IInteractiveControl, int>();
+		private List<SplitterControl> _splitters = new List<SplitterControl>();
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
@@ -47,6 +50,7 @@ namespace ConsoleEx.Controls
 		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public Color? BackgroundColor { get; set; }
+		public List<ColumnContainer> Columns => _columns;
 
 		public IContainer? Container
 		{
@@ -60,6 +64,12 @@ namespace ConsoleEx.Controls
 				{
 					column.GetConsoleWindowSystem = value?.GetConsoleWindowSystem;
 					column.Invalidate(true);
+				}
+
+				// Update container for all splitters as well
+				foreach (var splitter in _splitters)
+				{
+					splitter.Container = value;
 				}
 			}
 		}
@@ -116,8 +126,64 @@ namespace ConsoleEx.Controls
 			Invalidate();
 		}
 
+		public SplitterControl? AddColumnWithSplitter(ColumnContainer column)
+		{
+			// Only add a splitter if there's at least one column already
+			if (_columns.Count > 0)
+			{
+				var splitter = new SplitterControl();
+				column.GetConsoleWindowSystem = Container?.GetConsoleWindowSystem;
+				_columns.Add(column);
+
+				// Set up the splitter
+				splitter.Container = Container;
+				splitter.SetColumns(_columns[_columns.Count - 2], column);
+				_splitters.Add(splitter);
+				_splitterControls[splitter] = _columns.Count - 2;
+
+				// Subscribe to splitter's move event
+				splitter.SplitterMoved += OnSplitterMoved;
+
+				Invalidate();
+				return splitter;
+			}
+			else
+			{
+				// Just add the column without a splitter
+				AddColumn(column);
+				return null;
+			}
+		}
+
+		public bool AddSplitter(int leftColumnIndex, SplitterControl splitterControl)
+		{
+			// Verify the column indices are valid
+			if (leftColumnIndex < 0 || leftColumnIndex >= _columns.Count - 1)
+				return false;
+
+			// Set the columns that this splitter will control
+			splitterControl.Container = Container;
+			splitterControl.SetColumns(_columns[leftColumnIndex], _columns[leftColumnIndex + 1]);
+
+			// Add the splitter and register it for key handling
+			_splitters.Add(splitterControl);
+			_splitterControls[splitterControl] = leftColumnIndex;
+
+			// Subscribe to splitter's move event
+			splitterControl.SplitterMoved += OnSplitterMoved;
+
+			Invalidate();
+			return true;
+		}
+
+		// Update the Dispose method to clean up event handlers
 		public void Dispose()
 		{
+			// Clean up event handlers from splitters
+			foreach (var splitter in _splitters)
+			{
+				splitter.SplitterMoved -= OnSplitterMoved;
+			}
 			Container = null;
 		}
 
@@ -135,58 +201,154 @@ namespace ConsoleEx.Controls
 
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			// check if key is tab
+			// Check if key is tab
 			if (key.Key == ConsoleKey.Tab)
 			{
-				if (_interactiveContents.Count == 0)
+				// Build a properly ordered list of interactive controls
+				var orderedInteractiveControls = new List<IInteractiveControl>();
+
+				// Start by collecting all the interactive controls from columns and their associated splitters
+				var columnControls = new Dictionary<int, List<IInteractiveControl>>();
+
+				// First, gather all interactive controls by column
+				for (int i = 0; i < _columns.Count; i++)
+				{
+					var column = _columns[i];
+					var interactiveContents = column.GetInteractiveContents();
+
+					if (!columnControls.ContainsKey(i))
+					{
+						columnControls[i] = new List<IInteractiveControl>();
+					}
+
+					columnControls[i].AddRange(interactiveContents);
+
+					// Find if this column has a splitter to the right
+					var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+					if (splitter != null)
+					{
+						// Add the splitter right after this column's controls
+						columnControls[i].Add(splitter);
+					}
+				}
+
+				// Now flatten the dictionary into a single ordered list
+				for (int i = 0; i < _columns.Count; i++)
+				{
+					if (columnControls.ContainsKey(i))
+					{
+						orderedInteractiveControls.AddRange(columnControls[i]);
+					}
+				}
+
+				// If we have no interactive controls, exit
+				if (orderedInteractiveControls.Count == 0)
 				{
 					return false;
 				}
+
+				// Handle tabbing through the ordered list
+				if (_focusedContent == null)
+				{
+					_focusedContent = orderedInteractiveControls.First();
+				}
 				else
 				{
-					if (_focusedContent == null)
+					// Unfocus current control
+					_focusedContent.HasFocus = false;
+
+					// If it's from columns dictionary, invalidate its container
+					if (_interactiveContents.ContainsKey(_focusedContent))
 					{
-						_focusedContent = _interactiveContents.Keys.First();
+						_interactiveContents[_focusedContent].Invalidate(true);
 					}
 
-					_focusedContent.HasFocus = false;
-					_interactiveContents[_focusedContent].Invalidate(true);
+					int index = orderedInteractiveControls.IndexOf(_focusedContent);
 
-					int index = _interactiveContents.Keys.ToList().IndexOf(_focusedContent);
-
+					// Determine the next control based on tab direction
 					if (key.Modifiers.HasFlag(ConsoleModifiers.Shift))
 					{
 						if (index == 0)
 						{
-							return false;
+							return false; // Exit control backward
 						}
-						index = index == 0 ? _interactiveContents.Keys.Count - 1 : index - 1;
+						index = index == 0 ? orderedInteractiveControls.Count - 1 : index - 1;
 					}
 					else
 					{
-						if (index == _interactiveContents.Keys.Count - 1)
+						if (index == orderedInteractiveControls.Count - 1)
 						{
-							return false;
+							return false; // Exit control forward
 						}
-						index = index == _interactiveContents.Keys.Count - 1 ? 0 : index + 1;
+						index = index == orderedInteractiveControls.Count - 1 ? 0 : index + 1;
 					}
-					_focusedContent = _interactiveContents.Keys.ElementAt(index);
+
+					_focusedContent = orderedInteractiveControls[index];
 				}
 
+				// Set focus on the new control
 				_focusedContent.HasFocus = true;
-				_interactiveContents[_focusedContent].Invalidate(true);
+
+				// If it's from columns dictionary, invalidate its container
+				if (_interactiveContents.ContainsKey(_focusedContent))
+				{
+					_interactiveContents[_focusedContent].Invalidate(true);
+				}
 
 				Container?.Invalidate(true);
 				return true;
 			}
 
+			// Process key in the focused control
 			return _focusedContent?.ProcessKey(key) ?? false;
 		}
 
 		public void RemoveColumn(ColumnContainer column)
 		{
-			if (_columns.Remove(column))
+			int index = _columns.IndexOf(column);
+			if (index >= 0)
 			{
+				// Remove any splitters connected to this column
+				var splittersToRemove = new List<SplitterControl>();
+
+				foreach (var entry in _splitterControls)
+				{
+					// If splitter is connected to this column (either left or right)
+					if (entry.Value == index || entry.Value == index - 1)
+					{
+						splittersToRemove.Add((SplitterControl)entry.Key);
+					}
+				}
+
+				// Remove the identified splitters
+				foreach (var splitter in splittersToRemove)
+				{
+					_splitters.Remove(splitter);
+					_splitterControls.Remove(splitter);
+					splitter.SplitterMoved -= OnSplitterMoved;
+				}
+
+				// Now remove the column
+				_columns.Remove(column);
+
+				// Update remaining splitter indices
+				var updatedSplitters = new Dictionary<IInteractiveControl, int>();
+				foreach (var entry in _splitterControls)
+				{
+					int leftColIndex = entry.Value;
+					if (leftColIndex > index)
+					{
+						// Decrement index for splitters that were after the removed column
+						updatedSplitters[entry.Key] = leftColIndex - 1;
+					}
+					else
+					{
+						updatedSplitters[entry.Key] = leftColIndex;
+					}
+				}
+
+				_splitterControls = updatedSplitters;
+
 				Invalidate();
 			}
 		}
@@ -204,11 +366,19 @@ namespace ConsoleEx.Controls
 			_cachedContent = new List<string>();
 			int? maxHeight = 0;
 
+			// Create combined list of columns and splitters in their display order
+			var displayControls = new List<(bool IsSplitter, object Control, int Width)>();
+
 			// Calculate total specified width and count columns with null width
 			int totalSpecifiedWidth = 0;
 			int nullWidthCount = 0;
-			foreach (var column in _columns)
+
+			// First, add all columns and calculate width requirements
+			for (int i = 0; i < _columns.Count; i++)
 			{
+				var column = _columns[i];
+				displayControls.Add((false, column, column.Width ?? 0));
+
 				if (column.Width != null)
 				{
 					totalSpecifiedWidth += column.Width ?? 0;
@@ -217,45 +387,92 @@ namespace ConsoleEx.Controls
 				{
 					nullWidthCount += 1;
 				}
-			}
 
-			// Calculate remaining width to be distributed
-			int remainingWidth = (availableWidth ?? 0) - totalSpecifiedWidth;
-			int distributedWidth = nullWidthCount > 0 ? remainingWidth / nullWidthCount : 0;
-
-			// Render each column and collect the lines
-			var renderedColumns = _columns.Select(c =>
-			{
-				int columnWidth = c.Width ?? distributedWidth;
-				return c.RenderContent(columnWidth, availableHeight);
-			}).ToList();
-
-			// Determine the maximum height of the rendered columns
-			foreach (var column in renderedColumns)
-			{
-				if (column.Count > maxHeight)
+				// If there's a splitter after this column, add it too
+				var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+				if (splitter != null)
 				{
-					maxHeight = column.Count;
+					displayControls.Add((true, splitter, splitter.Width ?? 1));
+					totalSpecifiedWidth += splitter.Width ?? 1;
 				}
 			}
 
-			// Combine the rendered columns horizontally
+			// Calculate remaining width to be distributed among auto-width columns
+			int remainingWidth = (availableWidth ?? 0) - totalSpecifiedWidth;
+			int distributedWidth = nullWidthCount > 0 ? remainingWidth / nullWidthCount : 0;
+
+			// First render all columns to determine the maximum height
+			var columnContents = new Dictionary<int, List<string>>();
+			int columnIndex = 0;
+
+			for (int i = 0; i < displayControls.Count; i++)
+			{
+				var (isSplitter, control, _) = displayControls[i];
+
+				if (!isSplitter)
+				{
+					var column = (ColumnContainer)control;
+					int columnWidth = column.Width ?? distributedWidth;
+					var content = column.RenderContent(columnWidth, availableHeight);
+					columnContents[i] = content;
+
+					if (content.Count > maxHeight)
+					{
+						maxHeight = content.Count;
+					}
+
+					columnIndex++;
+				}
+			}
+
+			// Now render splitters with the proper height
+			var renderedControls = new List<List<string>>();
+
+			for (int i = 0; i < displayControls.Count; i++)
+			{
+				var (isSplitter, control, controlWidth) = displayControls[i];
+
+				if (isSplitter)
+				{
+					// Render splitter with the maxHeight of columns instead of availableHeight
+					var splitter = (SplitterControl)control;
+					renderedControls.Add(splitter.RenderContent(splitter.Width ?? 1, maxHeight ?? 1));
+				}
+				else
+				{
+					// For columns, use the already rendered content
+					renderedControls.Add(columnContents[i]);
+				}
+			}
+
+			// Combine the rendered controls horizontally
 			for (int i = 0; i < maxHeight; i++)
 			{
 				string line = string.Empty;
 
-				for (int columnIndex = 0; columnIndex < _columns.Count; columnIndex++)
+				for (int controlIndex = 0; controlIndex < renderedControls.Count; controlIndex++)
 				{
-					var column = _columns[columnIndex];
-					var columnContent = renderedColumns[columnIndex];
+					var controlContent = renderedControls[controlIndex];
+					var controlInfo = displayControls[controlIndex];
 
-					// Make sure we don't access beyond the bounds of columnContent
-					string contentLine = i < columnContent.Count
-						? columnContent[i]
-						: AnsiConsoleHelper.AnsiEmptySpace(column.GetActualWidth() ?? 0, BackgroundColor ?? Color.Black);
+					int controlActualWidth;
 
-					// Add the column content to the line, properly padded to its width
-					line += contentLine.PadRight(column.GetActualWidth() ?? 0);
+					if (controlInfo.IsSplitter)
+					{
+						controlActualWidth = ((SplitterControl)controlInfo.Control).Width ?? 1;
+					}
+					else
+					{
+						controlActualWidth = ((ColumnContainer)controlInfo.Control).GetActualWidth() ?? 0;
+					}
+
+					// Make sure we don't access beyond the bounds of controlContent
+					string contentLine = i < controlContent.Count
+						? controlContent[i]
+						: AnsiConsoleHelper.AnsiEmptySpace(controlActualWidth, BackgroundColor ?? Color.Black);
+
+					// Add the control content to the line
+					line += contentLine;
 				}
 
 				// Apply alignment to the combined line
@@ -311,33 +528,95 @@ namespace ConsoleEx.Controls
 					}
 				}
 
-				if (_interactiveContents.Count == 0) return;
+				if (_interactiveContents.Count == 0 && _splitterControls.Count == 0) return;
 
 				if (_focusedContent == null)
 				{
 					if (backward)
 					{
-						_interactiveContents.Keys.Last().HasFocus = true;
-						_focusedContent = _interactiveContents.Keys.Last();
+						if (_interactiveContents.Count > 0)
+						{
+							_interactiveContents.Keys.Last().HasFocus = true;
+							_focusedContent = _interactiveContents.Keys.Last();
+						}
+						else if (_splitterControls.Count > 0)
+						{
+							var lastSplitter = _splitterControls.Keys.Last();
+							lastSplitter.HasFocus = true;
+							_focusedContent = lastSplitter;
+						}
 					}
 					else
 					{
-						_interactiveContents.Keys.First().HasFocus = true;
-						_focusedContent = _interactiveContents.Keys.First();
+						if (_interactiveContents.Count > 0)
+						{
+							_interactiveContents.Keys.First().HasFocus = true;
+							_focusedContent = _interactiveContents.Keys.First();
+						}
+						else if (_splitterControls.Count > 0)
+						{
+							var firstSplitter = _splitterControls.Keys.First();
+							firstSplitter.HasFocus = true;
+							_focusedContent = firstSplitter;
+						}
 					}
 				}
 
-				_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()].Invalidate(true);
+				if (_focusedContent != null && _interactiveContents.ContainsKey(_focusedContent))
+				{
+					_interactiveContents[_focusedContent].Invalidate(true);
+				}
 			}
 			else
 			{
-				if (_interactiveContents.Count != 0)
+				// Remove focus from all interactive controls
+				if (_interactiveContents.Count > 0 && _focusedContent != null && _interactiveContents.ContainsKey(_focusedContent))
 				{
-					_interactiveContents[_focusedContent ?? _interactiveContents.Keys.First()]?.Invalidate(true);
-					_interactiveContents.Keys.ToList().ForEach(c => c.HasFocus = false);
+					_interactiveContents[_focusedContent]?.Invalidate(true);
 				}
+
+				foreach (var control in _interactiveContents.Keys)
+				{
+					control.HasFocus = false;
+				}
+
+				foreach (var splitterControl in _splitterControls.Keys)
+				{
+					splitterControl.HasFocus = false;
+				}
+
 				_focusedContent = null;
 			}
+		}
+
+		private void OnSplitterMoved(object? sender, SplitterMovedEventArgs e)
+		{
+			if (sender is SplitterControl splitter)
+			{
+				// Find the index of the left column for this splitter
+				int leftColumnIndex = -1;
+				if (_splitterControls.TryGetValue(splitter, out leftColumnIndex))
+				{
+					// Make sure the column indices are valid
+					if (leftColumnIndex >= 0 && leftColumnIndex < _columns.Count - 1)
+					{
+						// Update column widths explicitly
+						_columns[leftColumnIndex].Width = e.LeftColumnWidth;
+						_columns[leftColumnIndex + 1].Width = e.RightColumnWidth;
+
+						// Log width changes for debugging
+						System.Diagnostics.Debug.WriteLine($"Splitter moved: Left col width={e.LeftColumnWidth}, Right col width={e.RightColumnWidth}");
+					}
+				}
+			}
+
+			// Invalidate the entire grid when a splitter moves
+			foreach (var column in _columns)
+			{
+				column.Invalidate(true);
+			}
+
+			Invalidate();
 		}
 	}
 }

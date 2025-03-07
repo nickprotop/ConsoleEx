@@ -128,10 +128,15 @@ namespace ConsoleEx.Controls
 
 			_cachedContent = new List<string>();
 
+			foreach (var content in _contents)
+			{
+				content.Invalidate();
+			}
+
 			// Render each content and collect the lines
 			foreach (var content in _contents)
 			{
-				var renderedContent = content.RenderContent(availableWidth, availableHeight);
+				var renderedContent = content.RenderContent(_width ?? availableWidth, availableHeight);
 				_cachedContent.AddRange(renderedContent);
 			}
 
