@@ -164,8 +164,10 @@ namespace ConsoleEx.Controls
 			get => _hasFocus;
 			set
 			{
+				if (_isDragging && !value) _isDragging = false;
 				_hasFocus = value;
 				_cachedContent = null;
+				_invalidated = true;
 				Container?.Invalidate(true);
 			}
 		}
