@@ -428,12 +428,19 @@ namespace ConsoleEx
 					cursorPosition = new Point(_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
 
 					// Check if the cursor position is within the visible bounds
-					if (cursorPosition.Y > _topStickyHeight && cursorPosition.Y < Height - 1 - _bottomStickyHeight)
+					if (cursorPosition.Y > _topStickyHeight && (activeInteractiveContent as IWIndowControl)?.StickyPosition == StickyPosition.Top)
 					{
-						return true;
+						return false;
 					}
 
-					return false;
+					if (cursorPosition.Y <= _topStickyHeight && (activeInteractiveContent as IWIndowControl)?.StickyPosition != StickyPosition.Top)
+					{
+						return false;
+					}
+
+					if (cursorPosition.Y > Height - 2 - _bottomStickyHeight) return false;
+
+					return true;
 				}
 			}
 
