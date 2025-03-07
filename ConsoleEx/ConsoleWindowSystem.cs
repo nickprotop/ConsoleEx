@@ -408,11 +408,7 @@ namespace ConsoleEx
 					point.Y - DesktopUpperLeft.Y <= window.Top + window.Height)
 				.OrderBy(window => window.ZIndex).ToList();
 
-			if (windows.Any(w => w.Guid == _activeWindow?.Guid))
-			{
-				return _activeWindow;
-			}
-			else return windows.LastOrDefault();
+			return windows.LastOrDefault();
 		}
 
 		private bool HandleAltInput(ConsoleKeyInfo key)
