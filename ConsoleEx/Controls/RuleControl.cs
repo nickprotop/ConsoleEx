@@ -124,7 +124,7 @@ namespace ConsoleEx.Controls
 				Justification = _titleAlignment
 			};
 
-			_cachedContent = new List<string>() { AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(rule, width, 1).FirstOrDefault() ?? string.Empty };
+			_cachedContent = new List<string>() { AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(rule, width, 1, Container?.BackgroundColor ?? Spectre.Console.Color.Black).FirstOrDefault() ?? string.Empty };
 
 			int paddingLeft = 0;
 			if (_alignment == Alignment.Center)

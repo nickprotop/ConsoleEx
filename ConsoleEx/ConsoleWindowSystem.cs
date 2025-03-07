@@ -83,7 +83,8 @@ namespace ConsoleEx
 		{
 			window.ZIndex = _windows.Count > 0 ? _windows.Values.Max(w => w.ZIndex) + 1 : 0;
 			_windows.TryAdd(window.Guid, window);
-			_activeWindow ??= window;
+
+			if (_activeWindow == null) SetActiveWindow(window);
 
 			window.WindowIsAdded();
 

@@ -103,7 +103,7 @@ namespace ConsoleEx.Controls
 			int width = _width ?? availableWidth ?? 80;
 
 			// Convert the Spectre renderable to ANSI strings
-			_cachedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, width, availableHeight);
+			_cachedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, width, availableHeight, Container?.BackgroundColor ?? Spectre.Console.Color.Black);
 
 			int maxContentWidth = 0;
 			foreach (var line in _cachedContent)

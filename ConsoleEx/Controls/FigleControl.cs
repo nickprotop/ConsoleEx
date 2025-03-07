@@ -89,7 +89,7 @@ namespace ConsoleEx.Controls
 			Style style = new Style(_color ?? _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White, background: Container?.BackgroundColor ?? Spectre.Console.Color.Black);
 			figletText.Color = style.Foreground;
 
-			_cachedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? availableWidth ?? 50, availableHeight);
+			_cachedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? availableWidth ?? 50, availableHeight, Container?.BackgroundColor ?? Spectre.Console.Color.Black);
 
 			int maxContentWidth = 0;
 			foreach (var line in _cachedContent)

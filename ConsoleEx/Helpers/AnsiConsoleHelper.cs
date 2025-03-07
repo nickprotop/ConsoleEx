@@ -118,7 +118,7 @@ namespace ConsoleEx.Helpers
 			return overflow ? result : new List<string> { result[0] };
 		}
 
-		public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height)
+		public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height, Color backgroundColor)
 		{
 			if (renderable == null) return new List<string>();
 
@@ -136,14 +136,31 @@ namespace ConsoleEx.Helpers
 
 			console.Write(renderable);
 
-			string renderedMarkup = writer.ToString();
+			var lines = writer.ToString()
+				.Split('\n')
+				.Select(line => line.Replace("\r", "").Replace("\n", ""))
+				.ToList();
 
-			return writer.ToString().Split('\n').Select(line =>
+			// If width is specified, pad each line to that width with spaces
+			if (width.HasValue && width.Value > 0)
 			{
-				line = line.Replace("\r", "");
-				line = line.Replace("\n", "");
-				return line;
-			}).ToList();
+				for (int i = 0; i < lines.Count; i++)
+				{
+					string line = lines[i];
+					int visibleLength = StripAnsiStringLength(line);
+					if (visibleLength < width.Value)
+					{
+						// Add padding with the active style
+						int paddingSize = width.Value - visibleLength;
+						string padding = AnsiEmptySpace(paddingSize, backgroundColor);
+
+						// Append the padding to the line
+						lines[i] = line + padding;
+					}
+				}
+			}
+
+			return lines;
 		}
 
 		public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
@@ -567,6 +584,65 @@ namespace ConsoleEx.Helpers
 			}
 
 			return output.ToString();
+		}
+
+		/// <summary>
+		/// Extracts the active ANSI style codes at the end of a string containing ANSI escape sequences
+		/// </summary>
+		/// <param name="ansiString">String with ANSI escape sequences</param>
+		/// <returns>Active ANSI style sequences that should be applied to subsequent text</returns>
+		private static string GetActiveAnsiStyle(string ansiString)
+		{
+			if (string.IsNullOrEmpty(ansiString))
+				return string.Empty;
+
+			// Track active style attributes
+			bool bold = false;
+			bool underline = false;
+			string foregroundColor = "\u001b[39m"; // Default foreground
+			string backgroundColor = "\u001b[49m"; // Default background
+
+			// Find all ANSI escape sequences
+			var matches = TruncateAnsiRegex.Matches(ansiString);
+
+			foreach (Match match in matches)
+			{
+				string sequence = match.Value;
+
+				if (sequence == "\u001b[0m") // Reset all
+				{
+					bold = false;
+					underline = false;
+					foregroundColor = "\u001b[39m";
+					backgroundColor = "\u001b[49m";
+					continue;
+				}
+
+				// Handle bold
+				if (sequence == "\u001b[1m") bold = true;
+				else if (sequence == "\u001b[22m") bold = false;
+
+				// Handle underline
+				else if (sequence == "\u001b[4m") underline = true;
+				else if (sequence == "\u001b[24m") underline = false;
+
+				// Handle foreground color (crude but effective approach)
+				else if (sequence.Contains("3") && sequence.EndsWith("m") && !sequence.Contains("4"))
+					foregroundColor = sequence;
+
+				// Handle background color
+				else if (sequence.Contains("4") && sequence.EndsWith("m") && !sequence.Contains("3"))
+					backgroundColor = sequence;
+			}
+
+			// Build active style string
+			var activeStyle = new StringBuilder();
+			if (bold) activeStyle.Append("\u001b[1m");
+			if (underline) activeStyle.Append("\u001b[4m");
+			activeStyle.Append(foregroundColor);
+			activeStyle.Append(backgroundColor);
+
+			return activeStyle.ToString();
 		}
 
 		private static bool IsClosingSequence(string sequence)
