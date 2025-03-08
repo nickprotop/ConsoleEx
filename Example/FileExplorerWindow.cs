@@ -22,8 +22,8 @@ namespace ConsoleEx.Example
 				Title = "File Explorer Example",
 				Width = 70,
 				Height = 24,
-				Top = 3,
-				Left = 5
+				Top = 0,
+				Left = 0
 			};
 
 			// Add buttons for controlling the tree

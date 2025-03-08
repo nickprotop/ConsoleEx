@@ -65,8 +65,8 @@ namespace ConsoleEx.Example
 			//var dropDownWindow = new DropDownWindow(consoleWindowSystem);
 			//consoleWindowSystem.AddWindow(dropDownWindow.GetWindow());
 
-			//var listViewWindow = new ListViewWindow(consoleWindowSystem);
-			//consoleWindowSystem.AddWindow(listViewWindow.GetWindow());
+			var listViewWindow = new ListViewWindow(consoleWindowSystem);
+			consoleWindowSystem.AddWindow(listViewWindow.GetWindow());
 
 			var fileExplorerWindow = new FileExplorerWindow(consoleWindowSystem);
 

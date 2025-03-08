@@ -863,12 +863,12 @@ namespace ConsoleEx.Controls
 					string selectionIndicator = "";
 					if (_isSelectable && lineIndex == 0)
 					{
-						selectionIndicator = (itemIndex == _selectedIndex) ? "● " : "  ";
+						selectionIndicator = (itemIndex == _selectedIndex) ? "[x] " : "[ ] ";
 					}
 					else if (_isSelectable)
 					{
 						// For subsequent lines, use empty space for alignment
-						selectionIndicator = "  ";
+						selectionIndicator = "    ";
 					}
 
 					// Handle items with icons (only on first line)
