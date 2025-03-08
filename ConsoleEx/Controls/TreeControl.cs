@@ -512,7 +512,7 @@ namespace ConsoleEx.Controls
 			// Convert tree to ANSI string
 			var renderedAnsi = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(
 				spectreTree,
-				_width ?? availableWidth,
+				(_width ?? availableWidth) - _margin.Left - _margin.Right,
 				null,
 				BackgroundColor
 			);

@@ -26,15 +26,6 @@ namespace ConsoleEx.Example
 				Left = 5
 			};
 
-			// Add a title and rule
-			_window.AddContent(new MarkupControl(new List<string> { "[bold]File Explorer[/]" })
-			{
-				Alignment = Alignment.Center,
-				StickyPosition = StickyPosition.Top
-			});
-
-			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
-
 			// Add buttons for controlling the tree
 			var buttonContainer = new HorizontalGridControl()
 			{
@@ -43,6 +34,8 @@ namespace ConsoleEx.Example
 			};
 
 			_window.AddContent(buttonContainer);
+
+			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
 
 			// Create status display
 			_statusControl = new MarkupControl(new List<string> { "No file selected" })
@@ -54,6 +47,7 @@ namespace ConsoleEx.Example
 			// Create the tree control
 			_fileTree = new TreeControl()
 			{
+				Margin = new Margin(1, 1, 1, 1),
 				Alignment = Alignment.Left,
 				HighlightBackgroundColor = Color.Blue,
 				HighlightForegroundColor = Color.White,
