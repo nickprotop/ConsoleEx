@@ -260,6 +260,40 @@ namespace ConsoleEx.Helpers
 			return EscapeInvalidMarkupTags(input);
 		}
 
+		/// <summary>
+		/// Finds the position of the first visible content character in an ANSI-formatted string,
+		/// skipping over ANSI escape sequences
+		/// </summary>
+		/// <param name="ansiString">String with ANSI escape sequences</param>
+		/// <returns>Index of first visible content character, or 0 if none found</returns>
+		public static int FindFirstContentPosition(string ansiString)
+		{
+			if (string.IsNullOrEmpty(ansiString))
+				return 0;
+
+			// Find all ANSI escape sequences
+			var matches = TruncateAnsiRegex.Matches(ansiString);
+
+			// If there are no sequences, the content starts at position 0
+			if (matches.Count == 0)
+				return 0;
+
+			// Find the end of the last consecutive escape sequence at the beginning
+			int position = 0;
+			foreach (Match match in matches)
+			{
+				// If there's a gap between the current position and the next match,
+				// we've found visible content
+				if (match.Index > position)
+					break;
+
+				// Move position to end of this escape sequence
+				position = match.Index + match.Length;
+			}
+
+			return position;
+		}
+
 		public static List<string> ParseAnsiTags(string input, int? width, int? height, bool wrap, string? backgroundColor = null, string? foregroundColor = null)
 		{
 			bool FillLastLine = false;

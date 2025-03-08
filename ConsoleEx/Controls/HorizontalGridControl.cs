@@ -196,6 +196,12 @@ namespace ConsoleEx.Controls
 		{
 			_invalidated = true;
 			_cachedContent = null;
+
+			foreach (var column in _columns)
+			{
+				column.InvalidateOnlyColumnContents();
+			}
+
 			Container?.Invalidate(false);
 		}
 

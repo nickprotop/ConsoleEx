@@ -109,6 +109,16 @@ namespace ConsoleEx.Controls
 			_horizontalGridContent.Invalidate();
 		}
 
+		public void InvalidateOnlyColumnContents()
+		{
+			_isDirty = true;
+			_cachedContent = null;
+			foreach (var content in _contents)
+			{
+				content.Invalidate();
+			}
+		}
+
 		public void RemoveContent(IWIndowControl content)
 		{
 			if (_contents.Remove(content))

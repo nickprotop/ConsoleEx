@@ -55,7 +55,6 @@ namespace ConsoleEx.Example
 			_fileTree = new TreeControl()
 			{
 				Alignment = Alignment.Left,
-				Margin = new Margin(1, 1, 1, 1),
 				HighlightBackgroundColor = Color.Blue,
 				HighlightForegroundColor = Color.White,
 				Guide = TreeGuide.Line // Use double lines for the tree structure
