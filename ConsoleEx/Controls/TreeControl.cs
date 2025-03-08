@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -9,6 +9,7 @@
 using ConsoleEx.Helpers;
 using Spectre.Console;
 using System.Collections.ObjectModel;
+using System.Text;
 
 namespace ConsoleEx.Controls
 {
@@ -491,74 +492,60 @@ namespace ConsoleEx.Controls
 			if (_cachedContent != null) return _cachedContent;
 			if (!Visible) return new List<string>();
 
-			// Create the internal tree structure
-			var tree = new Tree("").Style(new Style(foreground: ForegroundColor, background: BackgroundColor));
-
-			tree.Guide = Guide;
-
 			// Update the flattened nodes list
 			UpdateFlattenedNodes();
 
-			// Create a Spectre tree renderable
-			var spectreTree = new Tree("")
-			{
-				Guide = Guide,
-				Style = new Style(foreground: ForegroundColor, background: BackgroundColor)
-			};
+			// Calculate effective content width
+			int effectiveWidth = _width ?? availableWidth ?? 80;
+			int contentWidth = effectiveWidth - _margin.Left - _margin.Right;
 
-			// Render the tree nodes
-			RenderNodes(_rootNodes, spectreTree, 0);
+			// Prepare output buffer
+			var renderedContent = new List<string>();
 
-			// Convert tree to ANSI string
-			var renderedAnsi = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(
-				spectreTree,
-				(_width ?? availableWidth) - _margin.Left - _margin.Right,
-				null,
-				BackgroundColor
-			);
+			// Render nodes using custom tree rendering
+			RenderTreeNodes(_rootNodes, renderedContent, 0, contentWidth);
 
 			// Apply margins and alignment
 			var finalContent = new List<string>();
-			int effectiveWidth = _width ?? availableWidth ?? 80;
 
-			for (int i = 0; i < renderedAnsi.Count; i++)
+			for (int i = 0; i < renderedContent.Count; i++)
 			{
-				string line = renderedAnsi[i];
+				string line = renderedContent[i];
 
 				// Apply horizontal alignment
 				int paddingLeft = 0;
 				if (_alignment == Alignment.Center)
 				{
-					int contentWidth = AnsiConsoleHelper.StripAnsiStringLength(line);
-					paddingLeft = Math.Max(0, (effectiveWidth - contentWidth) / 2);
+					int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(line);
+					paddingLeft = Math.Max(0, (effectiveWidth - visibleLength - _margin.Left - _margin.Right) / 2);
 				}
 				else if (_alignment == Alignment.Right)
 				{
-					int contentWidth = AnsiConsoleHelper.StripAnsiStringLength(line);
-					paddingLeft = Math.Max(0, effectiveWidth - contentWidth);
+					int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(line);
+					paddingLeft = Math.Max(0, effectiveWidth - visibleLength - _margin.Left - _margin.Right);
 				}
 
-				// Apply left margin
-				line = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					$"{new string(' ', _margin.Left + paddingLeft)}",
+				// Apply left margin and alignment padding
+				string leftPadding = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					new string(' ', _margin.Left + paddingLeft),
 					_margin.Left + paddingLeft,
 					1,
 					false,
 					Container?.BackgroundColor,
 					null
-				).FirstOrDefault() + line;
+				).FirstOrDefault() ?? string.Empty;
 
 				// Apply right margin
-				line += AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					$"{new string(' ', _margin.Right)}",
+				string rightPadding = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					new string(' ', _margin.Right),
 					_margin.Right,
 					1,
 					false,
 					Container?.BackgroundColor,
 					null
-				).FirstOrDefault();
+				).FirstOrDefault() ?? string.Empty;
 
-				finalContent.Add(line);
+				finalContent.Add(leftPadding + line + rightPadding);
 			}
 
 			// Apply top margin
@@ -650,6 +637,33 @@ namespace ConsoleEx.Controls
 
 			_cachedContent = null;
 			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Build the tree prefix for a node based on its depth and position
+		/// </summary>
+		private string BuildTreePrefix(int depth, bool isLast, (string cross, string corner, string tee, string vertical, string horizontal) guides)
+		{
+			if (depth == 0)
+				return "";
+
+			StringBuilder prefix = new StringBuilder();
+
+			// Add indentation based on depth
+			for (int i = 0; i < depth - 1; i++)
+			{
+				prefix.Append(_indent);
+			}
+
+			// Add appropriate connector for the current node
+			string connector = isLast ? guides.corner : guides.tee;
+			string horizontalLine = guides.horizontal;
+
+			prefix.Append(connector);
+			prefix.Append(horizontalLine);
+			prefix.Append(" ");
+
+			return prefix.ToString();
 		}
 
 		/// <summary>
@@ -746,6 +760,25 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		private (string cross, string corner, string tee, string vertical, string horizontal) GetGuideChars()
+		{
+			switch (_guide)
+			{
+				case var _ when _guide == TreeGuide.Ascii:
+					return ("+", "\\", "+", "|", "-");
+
+				case var _ when _guide == TreeGuide.DoubleLine:
+					return ("╬", "╚", "╚", "║", "═");
+
+				case var _ when _guide == TreeGuide.BoldLine:
+					return ("┿", "┗", "┗", "┃", "━");
+
+				case var _ when _guide == TreeGuide.Line:
+				default:
+					return ("┼", "└", "└", "│", "─");
+			}
+		}
+
 		/// <summary>
 		/// Recursively renders a collection of tree nodes into the Spectre.Console tree structure
 		/// </summary>
@@ -790,6 +823,98 @@ namespace ConsoleEx.Controls
 				if (node.IsExpanded && node.Children.Count > 0)
 				{
 					RenderNodes(node.Children.ToList(), treeNode, depth + 1);
+				}
+			}
+		}
+
+		private void RenderTreeNodes(List<TreeNode> nodes, List<string> output, int depth, int contentWidth)
+		{
+			if (nodes == null || nodes.Count == 0)
+				return;
+
+			// Define tree guide characters
+			var guideChars = GetGuideChars();
+
+			for (int i = 0; i < nodes.Count; i++)
+			{
+				var node = nodes[i];
+				bool isLast = (i == nodes.Count - 1);
+
+				// Build the tree prefix (the line graphics)
+				string prefix = BuildTreePrefix(depth, isLast, guideChars);
+
+				// Get node style and text
+				string displayText = node.Text ?? string.Empty;
+				Color textColor;
+				Color backgroundColor;
+
+				// Determine colors for this node
+				if (_flattenedNodes.Contains(node) && _selectedIndex == _flattenedNodes.IndexOf(node) && _hasFocus)
+				{
+					// Selected node
+					textColor = HighlightForegroundColor;
+					backgroundColor = HighlightBackgroundColor;
+				}
+				else
+				{
+					// Regular node
+					textColor = node.TextColor ?? ForegroundColor;
+					backgroundColor = BackgroundColor;
+				}
+
+				// Add expand/collapse indicator if the node has children
+				string expandCollapseIndicator = "";
+				if (node.Children.Count > 0)
+				{
+					expandCollapseIndicator = node.IsExpanded ? " [-]" : " [+]";
+				}
+
+				// Create the complete node display text
+				string nodeText = prefix + displayText + expandCollapseIndicator;
+
+				// Calculate the visible length of the text (without ANSI codes)
+				int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+
+				// Truncate if necessary to fit in the available width
+				if (visibleLength > contentWidth)
+				{
+					// Truncate the displayText, not the prefix
+					int prefixLength = AnsiConsoleHelper.StripAnsiStringLength(prefix);
+					int maxTextLength = contentWidth - prefixLength - (node.Children.Count > 0 ? 4 : 0) - 3; // 3 for "..."
+
+					if (maxTextLength > 0)
+					{
+						displayText = displayText.Substring(0, Math.Min(displayText.Length, maxTextLength)) + "...";
+						nodeText = prefix + displayText + expandCollapseIndicator;
+						visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+					}
+				}
+
+				// Determine how much padding is needed to reach full width
+				int paddingNeeded = Math.Max(0, contentWidth - visibleLength);
+
+				// Add padding to reach full width
+				if (paddingNeeded > 0)
+				{
+					nodeText += new string(' ', paddingNeeded);
+				}
+
+				// Add the formatted node with padding to the output
+				string formattedNode = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					nodeText,
+					contentWidth,
+					1,
+					false,
+					backgroundColor,
+					textColor
+				).FirstOrDefault() ?? string.Empty;
+
+				output.Add(formattedNode);
+
+				// Recursively render children if the node is expanded
+				if (node.IsExpanded && node.Children.Count > 0)
+				{
+					RenderTreeNodes(node.Children.ToList(), output, depth + 1, contentWidth);
 				}
 			}
 		}

@@ -42,10 +42,9 @@ namespace ConsoleEx.Controls
 		private bool _visible = true;
 		private int? _width;
 
-		// Constructor with optional title and items
-		public ListControl(string title = "List", IEnumerable<string>? items = null)
+		public ListControl(string? title, IEnumerable<string>? items)
 		{
-			_title = title;
+			_title = title ?? string.Empty;
 			if (items != null)
 			{
 				foreach (var item in items)
@@ -55,18 +54,44 @@ namespace ConsoleEx.Controls
 			}
 		}
 
-		public ListControl(string title, IEnumerable<ListItem>? items = null)
+		public ListControl(IEnumerable<string>? items)
 		{
-			_title = title;
+			_title = string.Empty;
+			if (items != null)
+			{
+				foreach (var item in items)
+				{
+					_items.Add(new ListItem(item));
+				}
+			}
+		}
+
+		public ListControl(string? title, IEnumerable<ListItem>? items)
+		{
+			_title = title ?? string.Empty;
 			if (items != null)
 			{
 				_items.AddRange(items);
 			}
 		}
 
-		public ListControl(string? title = null)
+		public ListControl(IEnumerable<ListItem>? items)
 		{
-			_title = title ?? "List";
+			_title = string.Empty;
+			if (items != null)
+			{
+				_items.AddRange(items);
+			}
+		}
+
+		public ListControl()
+		{
+			_title = string.Empty;
+		}
+
+		public ListControl(string title)
+		{
+			_title = title;
 		}
 
 		public delegate string ItemFormatterEvent(ListItem item, bool isSelected, bool hasFocus);
@@ -706,9 +731,21 @@ namespace ConsoleEx.Controls
 				listWidth = Math.Max(listWidth, maxItemWidth + indicatorSpace + 4);
 			}
 
-			int titleLength = AnsiConsoleHelper.StripSpectreLength(_title);
-			int minWidth = Math.Max(titleLength + 5, maxItemWidth + indicatorSpace + 4); // Add padding
-			listWidth = Math.Max(listWidth, minWidth);
+			// Only check title length if we have a title
+			bool hasTitle = !string.IsNullOrEmpty(_title);
+
+			if (hasTitle)
+			{
+				int titleLength = AnsiConsoleHelper.StripSpectreLength(_title);
+				int minWidth = Math.Max(titleLength + 5, maxItemWidth + indicatorSpace + 4); // Add padding
+				listWidth = Math.Max(listWidth, minWidth);
+			}
+			else
+			{
+				// No title, just consider item widths
+				int minWidth = maxItemWidth + indicatorSpace + 4; // Add padding
+				listWidth = Math.Max(listWidth, minWidth);
+			}
 
 			// Calculate padding for alignment
 			int paddingLeft = 0;
@@ -726,8 +763,8 @@ namespace ConsoleEx.Controls
 
 			if (availableHeight.HasValue)
 			{
-				// Account for title, margin and scroll indicators
-				int usedHeight = 1 + _margin.Top + _margin.Bottom;
+				// Account for title (if present), margin and scroll indicators
+				int usedHeight = (hasTitle ? 1 : 0) + _margin.Top + _margin.Bottom;
 				if (_scrollOffset > 0 || _items.Count > _maxVisibleItems)
 				{
 					usedHeight += 1; // Add space for scroll indicator
@@ -739,63 +776,66 @@ namespace ConsoleEx.Controls
 
 			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
-			// Render title bar
-			string titleBarContent = " " + _title + " ";
-
-			if (AnsiConsoleHelper.StripSpectreLength(titleBarContent) < listWidth)
+			// Render title bar only if title is not null or empty
+			if (hasTitle)
 			{
-				int padding = listWidth - AnsiConsoleHelper.StripSpectreLength(titleBarContent);
-				titleBarContent += new string(' ', padding);
-			}
+				string titleBarContent = " " + _title + " ";
 
-			List<string> titleLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-				titleBarContent,
-				listWidth,
-				1,
-				false,
-				backgroundColor,
-				foregroundColor
-			);
-
-			// Apply padding and margins to title
-			for (int i = 0; i < titleLine.Count; i++)
-			{
-				// Add alignment padding
-				if (paddingLeft > 0)
+				if (AnsiConsoleHelper.StripSpectreLength(titleBarContent) < listWidth)
 				{
+					int padding = listWidth - AnsiConsoleHelper.StripSpectreLength(titleBarContent);
+					titleBarContent += new string(' ', padding);
+				}
+
+				List<string> titleLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					titleBarContent,
+					listWidth,
+					1,
+					false,
+					backgroundColor,
+					foregroundColor
+				);
+
+				// Apply padding and margins to title
+				for (int i = 0; i < titleLine.Count; i++)
+				{
+					// Add alignment padding
+					if (paddingLeft > 0)
+					{
+						titleLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+							new string(' ', paddingLeft),
+							paddingLeft,
+							1,
+							false,
+							Container?.BackgroundColor,
+							null
+						).FirstOrDefault() + titleLine[i];
+					}
+
+					// Add left margin
 					titleLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', paddingLeft),
-						paddingLeft,
+						new string(' ', _margin.Left),
+						_margin.Left,
 						1,
 						false,
 						Container?.BackgroundColor,
 						null
 					).FirstOrDefault() + titleLine[i];
+
+					// Add right margin
+					titleLine[i] = titleLine[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						new string(' ', _margin.Right),
+						_margin.Right,
+						1,
+						false,
+						Container?.BackgroundColor,
+						null
+					).FirstOrDefault();
 				}
 
-				// Add left margin
-				titleLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', _margin.Left),
-					_margin.Left,
-					1,
-					false,
-					Container?.BackgroundColor,
-					null
-				).FirstOrDefault() + titleLine[i];
-
-				// Add right margin
-				titleLine[i] = titleLine[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', _margin.Right),
-					_margin.Right,
-					1,
-					false,
-					Container?.BackgroundColor,
-					null
-				).FirstOrDefault();
+				// Add title to result
+				_cachedContent.AddRange(titleLine);
 			}
-
-			// Add title to result
-			_cachedContent.AddRange(titleLine);
 
 			// Initialize highlighted index if needed
 			if (_highlightedIndex == -1 && _selectedIndex >= 0)

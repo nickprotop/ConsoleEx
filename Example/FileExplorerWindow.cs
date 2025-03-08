@@ -1,16 +1,22 @@
-using ConsoleEx;
+﻿using ConsoleEx;
 using ConsoleEx.Controls;
 using Spectre.Console;
 using System;
+using System.IO;
+using System.Collections.Generic;
+using System.Linq;
+using TreeNode = ConsoleEx.Controls.TreeNode;
 
 namespace ConsoleEx.Example
 {
 	public class FileExplorerWindow
 	{
 		private readonly TreeControl _fileTree;
+		private readonly ColumnContainer _itemsColumn;
 		private readonly MarkupControl _statusControl;
 		private readonly ConsoleWindowSystem _system;
 		private readonly Window _window;
+		private ListControl _fileListControl;
 
 		public FileExplorerWindow(ConsoleWindowSystem system)
 		{
@@ -38,7 +44,7 @@ namespace ConsoleEx.Example
 			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
 
 			// Create status display
-			_statusControl = new MarkupControl(new List<string> { "No file selected" })
+			_statusControl = new MarkupControl(new List<string> { "No folder selected" })
 			{
 				Alignment = Alignment.Left,
 				StickyPosition = StickyPosition.Bottom
@@ -51,7 +57,7 @@ namespace ConsoleEx.Example
 				Alignment = Alignment.Left,
 				HighlightBackgroundColor = Color.Blue,
 				HighlightForegroundColor = Color.White,
-				Guide = TreeGuide.Line // Use double lines for the tree structure
+				Guide = TreeGuide.Line
 			};
 
 			// Set up event handlers
@@ -59,20 +65,45 @@ namespace ConsoleEx.Example
 			{
 				if (node != null)
 				{
-					_statusControl.SetContent(new List<string> { $"Selected: [green]{node.Text}[/]" });
+					DirectoryInfo? dirInfo = node.Tag as DirectoryInfo;
+					if (dirInfo != null)
+					{
+						_statusControl.SetContent(new List<string> { $"Selected: [green]{node.Text}[/] - [yellow]{dirInfo.FullName}[/]" });
+
+						// Update the file list when a folder is selected
+						UpdateFileList(dirInfo);
+					}
+					else
+					{
+						_statusControl.SetContent(new List<string> { $"Selected: [green]{node.Text}[/]" });
+					}
 				}
 				else
 				{
-					_statusControl.SetContent(new List<string> { "No file selected" });
+					_statusControl.SetContent(new List<string> { "No folder selected" });
 				}
 			};
 
 			_fileTree.OnNodeExpandCollapse = (tree, node) =>
 			{
-				// You can perform actions when nodes are expanded/collapsed
 				if (node.IsExpanded)
 				{
-					_statusControl.SetContent(new List<string> { $"Expanded: [yellow]{node.Text}[/]" });
+					DirectoryInfo? dirInfo = node.Tag as DirectoryInfo;
+					if (dirInfo != null)
+					{
+						_statusControl.SetContent(new List<string> { $"Loading: [yellow]{dirInfo.FullName}[/]" });
+
+						// Clear any placeholder nodes
+						node.ClearChildren();
+
+						// Load subfolders when expanding
+						LoadSubfolders(node, dirInfo);
+
+						// Update the file list for the expanded folder
+						UpdateFileList(dirInfo);
+
+						_statusControl.SetContent(new List<string> { $"Expanded: [yellow]{node.Text}[/]" });
+					}
 				}
 				else
 				{
@@ -80,8 +111,25 @@ namespace ConsoleEx.Example
 				}
 			};
 
-			// Populate tree with sample data
-			PopulateTreeWithSampleData();
+			// Create the file list control
+			_fileListControl = new ListControl()
+			{
+				Margin = new Margin(1, 1, 1, 1),
+				Alignment = Alignment.Left,
+				MaxVisibleItems = 15,
+			};
+
+			// Handle file selection
+			_fileListControl.SelectedItemChanged += (sender, item) =>
+			{
+				if (item != null && item.Tag is FileInfo fileInfo)
+				{
+					_statusControl.SetContent(new List<string> { $"File: [green]{fileInfo.Name}[/] - [yellow]{fileInfo.FullName}[/] - {FormatFileSize(fileInfo.Length)}" });
+				}
+			};
+
+			// Populate tree with drives and folders
+			PopulateTreeWithDrives();
 
 			// Add controls to window
 			HorizontalGridControl mainPanel = new HorizontalGridControl();
@@ -93,13 +141,21 @@ namespace ConsoleEx.Example
 			fileTreeColumn.AddContent(_fileTree);
 			mainPanel.AddColumn(fileTreeColumn);
 
-			ColumnContainer itemsColumn = new ColumnContainer(mainPanel);
-			itemsColumn.AddContent(new MarkupControl(new List<string> { "Items" })
+			_itemsColumn = new ColumnContainer(mainPanel);
+
+			// Add title for the files section
+			_itemsColumn.AddContent(new MarkupControl(new List<string> { "[bold]Files in Selected Folder[/]" })
 			{
 				Alignment = Alignment.Center
 			});
-			mainPanel.AddColumn(itemsColumn);
 
+			// Add the file list control to the items column
+			_itemsColumn.AddContent(_fileListControl);
+
+			// Initialize with an empty file list message
+			CreateEmptyFileList();
+
+			mainPanel.AddColumn(_itemsColumn);
 			mainPanel.AddSplitter(0, new SplitterControl());
 
 			_window.AddContent(mainPanel);
@@ -109,33 +165,46 @@ namespace ConsoleEx.Example
 
 			ColumnContainer expandButtonColumn = new ColumnContainer(buttonContainer);
 			ColumnContainer collapseButtonColumn = new ColumnContainer(buttonContainer);
+			ColumnContainer refreshButtonColumn = new ColumnContainer(buttonContainer);
 
 			var expandButton = new ButtonControl()
 			{
-				Width = 15,
+				Width = 12,
 				Text = "Expand All"
 			};
 			expandButton.OnClick = (sender) =>
 			{
 				_fileTree.ExpandAll();
 			};
-
 			expandButtonColumn.AddContent(expandButton);
 
 			var collapseButton = new ButtonControl()
 			{
-				Width = 15,
+				Width = 12,
 				Text = "Collapse All"
 			};
 			collapseButton.OnClick = (sender) =>
 			{
 				_fileTree.CollapseAll();
 			};
-
 			collapseButtonColumn.AddContent(collapseButton);
+
+			var refreshButton = new ButtonControl()
+			{
+				Width = 12,
+				Text = "Refresh"
+			};
+			refreshButton.OnClick = (sender) =>
+			{
+				_fileTree.Clear();
+				PopulateTreeWithDrives();
+				CreateEmptyFileList();
+			};
+			refreshButtonColumn.AddContent(refreshButton);
 
 			buttonContainer.AddColumn(expandButtonColumn);
 			buttonContainer.AddColumn(collapseButtonColumn);
+			buttonContainer.AddColumn(refreshButtonColumn);
 
 			// Add the window to the console system
 			system.AddWindow(_window);
@@ -144,61 +213,284 @@ namespace ConsoleEx.Example
 		// Helper method to get the window
 		public Window GetWindow() => _window;
 
-		private void PopulateTreeWithSampleData()
+		private void AddPlaceholderIfHasSubfolders(TreeNode node, string path)
 		{
-			// Create root nodes
-			var documentsNode = _fileTree.AddRootNode("Documents");
-			documentsNode.TextColor = Color.Cyan1;
+			try
+			{
+				// Check if the directory has any subdirectories
+				bool hasSubfolders = Directory.EnumerateDirectories(path).Any();
 
-			var picturesNode = _fileTree.AddRootNode("Pictures");
-			picturesNode.TextColor = Color.Cyan1;
+				if (hasSubfolders)
+				{
+					// Add a placeholder node so the expand icon is shown
+					var placeholder = node.AddChild("Loading...");
+					placeholder.TextColor = Color.Grey;
+				}
+			}
+			catch
+			{
+				// If we can't check, add a placeholder just in case
+				var placeholder = node.AddChild("Loading...");
+				placeholder.TextColor = Color.Grey;
+			}
+		}
 
-			var musicNode = _fileTree.AddRootNode("Music");
-			musicNode.TextColor = Color.Cyan1;
+		// Creates an empty file list
+		private void CreateEmptyFileList()
+		{
+			_fileListControl.ClearItems();
+			_fileListControl.AddItem("No folder selected", "ℹ", Color.Grey);
+		}
 
-			// Add children to Documents
-			var workNode = documentsNode.AddChild("Work");
-			workNode.TextColor = Color.Yellow;
+		// Format file size in human-readable format
+		private string FormatFileSize(long bytes)
+		{
+			string[] suffixes = { "B", "KB", "MB", "GB", "TB" };
+			int order = 0;
+			double size = bytes;
 
-			var personalNode = documentsNode.AddChild("Personal");
-			personalNode.TextColor = Color.Yellow;
+			while (size >= 1024 && order < suffixes.Length - 1)
+			{
+				order++;
+				size /= 1024;
+			}
 
-			// Add sub-folders to Work
-			var projectsNode = workNode.AddChild("Projects");
-			projectsNode.AddChild("Project A");
-			projectsNode.AddChild("Project B");
-			projectsNode.AddChild("Project C");
+			// Format with appropriate decimal places
+			if (order == 0) return $"{size:0} {suffixes[order]}";
+			return $"{size:0.##} {suffixes[order]}";
+		}
 
-			var reportsNode = workNode.AddChild("Reports");
-			reportsNode.AddChild("Q1 Report.docx");
-			reportsNode.AddChild("Q2 Report.docx");
+		// Get an appropriate color based on file extension
+		private Color GetFileColor(string extension)
+		{
+			switch (extension.ToLowerInvariant())
+			{
+				case ".exe":
+				case ".bat":
+				case ".cmd":
+				case ".ps1":
+					return Color.Green;
 
-			// Add files to Personal
-			personalNode.AddChild("Resume.docx");
-			personalNode.AddChild("Family Budget.xlsx");
-			personalNode.AddChild("Shopping List.txt");
+				case ".dll":
+				case ".lib":
+				case ".obj":
+					return Color.Blue;
 
-			// Add children to Pictures
-			var vacationNode = picturesNode.AddChild("Vacation");
-			vacationNode.TextColor = Color.Yellow;
-			vacationNode.AddChild("Beach.jpg");
-			vacationNode.AddChild("Mountains.jpg");
-			vacationNode.AddChild("City.jpg");
+				case ".jpg":
+				case ".jpeg":
+				case ".png":
+				case ".gif":
+				case ".bmp":
+					return Color.Magenta1;
 
-			var familyNode = picturesNode.AddChild("Family");
-			familyNode.TextColor = Color.Yellow;
-			familyNode.AddChild("Birthday Party.jpg");
-			familyNode.AddChild("Christmas.jpg");
+				case ".txt":
+				case ".log":
+				case ".md":
+					return Color.Yellow;
 
-			// Add children to Music
-			var rockNode = musicNode.AddChild("Rock");
-			rockNode.TextColor = Color.Yellow;
-			rockNode.AddChild("Favorite Song.mp3");
+				case ".doc":
+				case ".docx":
+				case ".xls":
+				case ".xlsx":
+				case ".pdf":
+					return Color.Cyan1;
 
-			var jazzNode = musicNode.AddChild("Jazz");
-			jazzNode.TextColor = Color.Yellow;
-			jazzNode.AddChild("Smooth Jazz.mp3");
-			jazzNode.AddChild("Fast Jazz.mp3");
+				case ".zip":
+				case ".rar":
+				case ".7z":
+				case ".tar":
+				case ".gz":
+					return Color.Red;
+
+				default:
+					return Color.White;
+			}
+		}
+
+		// Get an appropriate icon based on file extension
+		private string GetFileIcon(string extension)
+		{
+			switch (extension.ToLowerInvariant())
+			{
+				case ".exe":
+				case ".bat":
+				case ".cmd":
+				case ".ps1":
+					return "▶";
+
+				case ".dll":
+				case ".lib":
+				case ".obj":
+					return "◆";
+
+				case ".jpg":
+				case ".jpeg":
+				case ".png":
+				case ".gif":
+				case ".bmp":
+					return "□";
+
+				case ".txt":
+				case ".log":
+				case ".md":
+					return "📄";
+
+				case ".doc":
+				case ".docx":
+				case ".xls":
+				case ".xlsx":
+				case ".pdf":
+					return "📑";
+
+				case ".zip":
+				case ".rar":
+				case ".7z":
+				case ".tar":
+				case ".gz":
+					return "📦";
+
+				default:
+					return "◯";
+			}
+		}
+
+		private void LoadSubfolders(TreeNode parentNode, DirectoryInfo directory)
+		{
+			try
+			{
+				// Get subdirectories
+				var subdirectories = directory.GetDirectories()
+					.OrderBy(d => d.Name)
+					.ToList();
+
+				foreach (var subdir in subdirectories)
+				{
+					try
+					{
+						if ((subdir.Attributes & FileAttributes.Hidden) == 0) // Skip hidden folders
+						{
+							var folderNode = parentNode.AddChild(subdir.Name);
+							folderNode.TextColor = Color.Yellow;
+							folderNode.Tag = subdir;
+
+							// Add a placeholder child if this folder has subfolders
+							AddPlaceholderIfHasSubfolders(folderNode, subdir.FullName);
+
+							// Initialize as collapsed
+							folderNode.IsExpanded = false;
+						}
+					}
+					catch (UnauthorizedAccessException)
+					{
+						// Handle access denied
+						var folderNode = parentNode.AddChild($"{subdir.Name} [Access Denied]");
+						folderNode.TextColor = Color.Red;
+					}
+					catch
+					{
+						// Skip folders we can't process
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_statusControl.SetContent(new List<string> { $"Error loading folders: [red]{ex.Message}[/]" });
+			}
+		}
+
+		private void PopulateTreeWithDrives()
+		{
+			try
+			{
+				// Get all drives
+				var drives = DriveInfo.GetDrives();
+
+				// Add each drive as a root node
+				foreach (var drive in drives)
+				{
+					if (drive.IsReady)
+					{
+						var driveNode = _fileTree.AddRootNode($"{drive.Name} [{drive.DriveType}]");
+						driveNode.TextColor = Color.Cyan1;
+						driveNode.Tag = new DirectoryInfo(drive.RootDirectory.FullName);
+
+						// Add placeholder child to show expand icon
+						AddPlaceholderIfHasSubfolders(driveNode, drive.RootDirectory.FullName);
+
+						// Collapse the drive node by default
+						driveNode.IsExpanded = false;
+					}
+					else
+					{
+						var driveNode = _fileTree.AddRootNode($"{drive.Name} [Not Ready]");
+						driveNode.TextColor = Color.Grey;
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_statusControl.SetContent(new List<string> { $"Error: [red]{ex.Message}[/]" });
+			}
+		}
+
+		// Updates the file list based on the selected folder
+		private void UpdateFileList(DirectoryInfo directory)
+		{
+			if (directory == null)
+			{
+				CreateEmptyFileList();
+				return;
+			}
+
+			try
+			{
+				_fileListControl.ClearItems();
+
+				// Get files in the directory
+				var files = directory.GetFiles()
+					.Where(f => (f.Attributes & FileAttributes.Hidden) == 0) // Skip hidden files
+					.OrderBy(f => f.Name)
+					.ToList();
+
+				if (files.Count == 0)
+				{
+					// No files found in this folder
+					_fileListControl.AddItem("No files in this folder", "ℹ", Color.Grey);
+				}
+				else
+				{
+					// Add each file to the list
+					foreach (var file in files)
+					{
+						string extension = Path.GetExtension(file.Name);
+						string sizeInfo = FormatFileSize(file.Length);
+						string modified = file.LastWriteTime.ToString("yyyy-MM-dd HH:mm");
+
+						// Create a formatted display with multiple lines of information
+						string displayText = $"{file.Name}\nSize: {sizeInfo} | Modified: {modified}";
+
+						// Create list item with icon based on file type
+						var listItem = new ListItem(displayText, GetFileIcon(extension), GetFileColor(extension));
+
+						// Store the FileInfo object in the Tag for later use
+						listItem.Tag = file;
+
+						// Add the item to the list
+						_fileListControl.AddItem(listItem);
+					}
+
+					// Select the first item
+					if (_fileListControl.Items.Count > 0)
+						_fileListControl.SelectedIndex = 0;
+				}
+			}
+			catch (Exception ex)
+			{
+				// Handle errors
+				_fileListControl.ClearItems();
+				_fileListControl.AddItem($"Error: {ex.Message}", "⚠", Color.Red);
+				_statusControl.SetContent(new List<string> { $"Error loading files: [red]{ex.Message}[/]" });
+			}
 		}
 	}
 }

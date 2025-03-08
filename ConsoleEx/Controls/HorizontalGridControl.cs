@@ -202,6 +202,11 @@ namespace ConsoleEx.Controls
 				column.InvalidateOnlyColumnContents();
 			}
 
+			foreach (var splitter in _splitters)
+			{
+				splitter.Invalidate();
+			}
+
 			Container?.Invalidate(false);
 		}
 
