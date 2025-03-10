@@ -116,7 +116,8 @@ namespace ConsoleEx.Example
 			{
 				Margin = new Margin(1, 1, 1, 1),
 				Alignment = Alignment.Left,
-				MaxVisibleItems = 15,
+				MaxVisibleItems = null,
+				FillHeight = true
 			};
 
 			// Handle file selection

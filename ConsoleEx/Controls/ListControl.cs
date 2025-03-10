@@ -15,7 +15,7 @@ namespace ConsoleEx.Controls
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private Alignment _alignment = Alignment.Left;
-		private bool _autoAdjustWidth = true;
+		private bool _autoAdjustWidth = false;
 		private Color? _backgroundColorValue;
 		private List<string>? _cachedContent;
 		private int? _calculatedMaxVisibleItems;
@@ -33,7 +33,8 @@ namespace ConsoleEx.Controls
 		private List<ListItem> _items = new List<ListItem>();
 		private DateTime _lastKeyTime = DateTime.MinValue;
 		private Margin _margin = new Margin(0, 0, 0, 0);
-		private int _maxVisibleItems = 10;
+		private int? _maxVisibleItems = null;
+		private bool _fillHeight = false; // Added new field for fillHeight
 		private int _scrollOffset = 0;
 		private string _searchText = string.Empty;
 		private int _selectedIndex = -1;
@@ -287,12 +288,24 @@ namespace ConsoleEx.Controls
 			}
 		}
 
-		public int MaxVisibleItems
+		public int? MaxVisibleItems
 		{
 			get => _maxVisibleItems;
 			set
 			{
-				_maxVisibleItems = Math.Max(1, value);
+				_maxVisibleItems = value.HasValue ? Math.Max(1, value.Value) : null;
+				_cachedContent = null;
+				_invalidated = true;
+				Container?.Invalidate(true);
+			}
+		}
+
+		public bool FillHeight
+		{
+			get => _fillHeight;
+			set
+			{
+				_fillHeight = value;
 				_cachedContent = null;
 				_invalidated = true;
 				Container?.Invalidate(true);
@@ -525,7 +538,7 @@ namespace ConsoleEx.Controls
 						return false;
 
 					case ConsoleKey.PageDown:
-						int pageSize = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+						int pageSize = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1;
 						if (_scrollOffset < _items.Count - pageSize)
 						{
 							_scrollOffset = Math.Min(_items.Count - pageSize, _scrollOffset + pageSize);
@@ -538,7 +551,7 @@ namespace ConsoleEx.Controls
 					case ConsoleKey.PageUp:
 						if (_scrollOffset > 0)
 						{
-							_scrollOffset = Math.Max(0, _scrollOffset - (_calculatedMaxVisibleItems ?? _maxVisibleItems));
+							_scrollOffset = Math.Max(0, _scrollOffset - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
 							_cachedContent = null;
 							Container?.Invalidate(true);
 							return true;
@@ -556,7 +569,7 @@ namespace ConsoleEx.Controls
 						return false;
 
 					case ConsoleKey.End:
-						int availableItems = _items.Count - (_calculatedMaxVisibleItems ?? _maxVisibleItems);
+						int availableItems = _items.Count - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1);
 						if (_scrollOffset < availableItems && availableItems > 0)
 						{
 							_scrollOffset = availableItems;
@@ -629,7 +642,7 @@ namespace ConsoleEx.Controls
 				case ConsoleKey.PageUp:
 					if (_highlightedIndex > 0)
 					{
-						_highlightedIndex = Math.Max(0, _highlightedIndex - (_calculatedMaxVisibleItems ?? _maxVisibleItems));
+						_highlightedIndex = Math.Max(0, _highlightedIndex - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
 						EnsureHighlightedItemVisible();
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -640,7 +653,7 @@ namespace ConsoleEx.Controls
 				case ConsoleKey.PageDown:
 					if (_highlightedIndex < _items.Count - 1)
 					{
-						_highlightedIndex = Math.Min(_items.Count - 1, _highlightedIndex + (_calculatedMaxVisibleItems ?? _maxVisibleItems));
+						_highlightedIndex = Math.Min(_items.Count - 1, _highlightedIndex + (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
 						EnsureHighlightedItemVisible();
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -711,8 +724,8 @@ namespace ConsoleEx.Controls
 				foregroundColor = ForegroundColor;
 			}
 
-			// Calculate effective width
-			int listWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 40) : 40);
+			// Add space for selection indicator ([X] ) if selectable
+			int indicatorSpace = _isSelectable ? 4 : 0;
 
 			// Ensure width can accommodate content
 			int maxItemWidth = 0;
@@ -723,12 +736,69 @@ namespace ConsoleEx.Controls
 					maxItemWidth = itemLength;
 			}
 
-			// Add space for selection indicator (● ) if selectable
-			int indicatorSpace = _isSelectable ? 2 : 0;
+			// Calculate effective width based on different scenarios
+			int listWidth;
 
+			if (_width.HasValue)
+			{
+				// If width is explicitly defined, use it
+				listWidth = _width.Value;
+			}
+			else if (_alignment == Alignment.Strecth && availableWidth.HasValue)
+			{
+				// When stretch and availableWidth is known, use full available width
+				listWidth = availableWidth.Value - _margin.Left - _margin.Right;
+			}
+			else
+			{
+				// Calculate based on content width (items and title)
+				foreach (var item in _items)
+				{
+					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+					if (itemLength > maxItemWidth)
+						maxItemWidth = itemLength;
+				}
+
+				// Consider title length if present
+				int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
+
+				// Base width is the maximum of item widths or title width plus padding
+				listWidth = Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
+
+				// For non-stretch modes, limit to available width if provided
+				if (availableWidth.HasValue)
+				{
+					listWidth = Math.Min(listWidth, availableWidth.Value) - _margin.Left - _margin.Right;
+				}
+				else
+				{
+					// Default minimum width when no constraints are available
+					listWidth = Math.Max(listWidth, 40);
+				}
+			}
+
+			// Apply autoAdjustWidth if enabled (only expands width, never shrinks)
 			if (_autoAdjustWidth)
 			{
-				listWidth = Math.Max(listWidth, maxItemWidth + indicatorSpace + 4);
+				int contentWidth = 0;
+				foreach (var item in _items)
+				{
+					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+					contentWidth = Math.Max(contentWidth, itemLength);
+				}
+
+				int minRequiredWidth = contentWidth + indicatorSpace + 4;
+
+				// Auto adjust can only make the width larger, not smaller
+				listWidth = Math.Max(listWidth, minRequiredWidth);
+
+				// But still respect available width if provided
+				if (availableWidth.HasValue)
+				{
+					listWidth = Math.Min(listWidth, availableWidth.Value);
+				}
+
+				listWidth -= _margin.Left + _margin.Right;
 			}
 
 			// Only check title length if we have a title
@@ -738,12 +808,6 @@ namespace ConsoleEx.Controls
 			{
 				int titleLength = AnsiConsoleHelper.StripSpectreLength(_title);
 				int minWidth = Math.Max(titleLength + 5, maxItemWidth + indicatorSpace + 4); // Add padding
-				listWidth = Math.Max(listWidth, minWidth);
-			}
-			else
-			{
-				// No title, just consider item widths
-				int minWidth = maxItemWidth + indicatorSpace + 4; // Add padding
 				listWidth = Math.Max(listWidth, minWidth);
 			}
 
@@ -759,22 +823,54 @@ namespace ConsoleEx.Controls
 			}
 
 			// Determine how many items to show based on available height and maxVisibleItems
-			int effectiveMaxVisibleItems = _maxVisibleItems;
+			int effectiveMaxVisibleItems;
+			bool hasScrollIndicator = _scrollOffset > 0 || _items.Count > (_maxVisibleItems ?? int.MaxValue);
+			int titleHeight = hasTitle ? 1 : 0;
+			int scrollIndicatorHeight = hasScrollIndicator ? 1 : 0;
+			int marginHeight = _margin.Top + _margin.Bottom;
 
-			if (availableHeight.HasValue)
+			if (_maxVisibleItems.HasValue)
 			{
-				// Account for title (if present), margin and scroll indicators
-				int usedHeight = (hasTitle ? 1 : 0) + _margin.Top + _margin.Bottom;
-				if (_scrollOffset > 0 || _items.Count > _maxVisibleItems)
+				// Use specified max visible items if provided
+				effectiveMaxVisibleItems = _maxVisibleItems.Value;
+			}
+			else if (availableHeight.HasValue)
+			{
+				// Calculate based on available height if no max is specified
+				// Account for title, margins and scroll indicators
+				int availableContentHeight = availableHeight.Value - titleHeight - marginHeight - scrollIndicatorHeight;
+
+				// Count how many items we can fit based on their actual line counts
+				effectiveMaxVisibleItems = 0;
+				int heightUsed = 0;
+
+				for (int i = _scrollOffset; i < _items.Count; i++)
 				{
-					usedHeight += 1; // Add space for scroll indicator
+					int itemHeight = _items[i].Lines.Count;
+					if (heightUsed + itemHeight <= availableContentHeight)
+					{
+						effectiveMaxVisibleItems++;
+						heightUsed += itemHeight;
+					}
+					else
+					{
+						break;
+					}
 				}
 
-				int availableItemSpace = Math.Max(1, availableHeight.Value - usedHeight);
-				effectiveMaxVisibleItems = Math.Min(_maxVisibleItems, availableItemSpace);
+				// Ensure we show at least one item even if it doesn't fully fit
+				effectiveMaxVisibleItems = Math.Max(1, effectiveMaxVisibleItems);
+			}
+			else
+			{
+				// Default if neither is available
+				effectiveMaxVisibleItems = 10;
 			}
 
 			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
+
+			// Calculate how many items we can show
+			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - _scrollOffset);
 
 			// Render title bar only if title is not null or empty
 			if (hasTitle)
@@ -842,9 +938,6 @@ namespace ConsoleEx.Controls
 			{
 				_highlightedIndex = _selectedIndex;
 			}
-
-			// Calculate how many items we can show
-			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - _scrollOffset);
 
 			// Render each visible item
 			for (int i = 0; i < itemsToShow; i++)
@@ -1015,6 +1108,80 @@ namespace ConsoleEx.Controls
 				}
 			}
 
+			// Add fill lines if FillHeight is true and we have space to fill
+			if (_fillHeight && availableHeight.HasValue)
+			{
+				// Get current visible content height excluding margins
+				int currentContentHeight = _cachedContent.Count;
+
+				// Account for title and scroll indicators that are already part of the content
+				hasTitle = !string.IsNullOrEmpty(_title);
+				hasScrollIndicator = (_scrollOffset > 0 || _scrollOffset + itemsToShow < _items.Count);
+
+				// Calculate the target height we want to fill
+				int targetHeight = availableHeight.Value - 1 - _margin.Top - _margin.Bottom - (hasTitle ? 1 : 0) - (hasScrollIndicator ? 1 : 0);
+
+				// Calculate how many empty lines we need to add
+				int emptyLinesNeeded = targetHeight - currentContentHeight;
+
+				if (emptyLinesNeeded > 0)
+				{
+					// Create empty lines with proper background color
+					string emptyLine = new string(' ', listWidth);
+
+					for (int i = 0; i < emptyLinesNeeded; i++)
+					{
+						List<string> fillerLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+							emptyLine,
+							listWidth,
+							1,
+							false,
+							backgroundColor,
+							foregroundColor
+						);
+
+						// Apply padding and margins
+						for (int j = 0; j < fillerLine.Count; j++)
+						{
+							// Add alignment padding
+							if (paddingLeft > 0)
+							{
+								fillerLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+									new string(' ', paddingLeft),
+									paddingLeft,
+									1,
+									false,
+									Container?.BackgroundColor,
+									null
+								).FirstOrDefault() + fillerLine[j];
+							}
+
+							// Add left margin
+							fillerLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+								new string(' ', _margin.Left),
+								_margin.Left,
+								1,
+								false,
+								Container?.BackgroundColor,
+								null
+							).FirstOrDefault() + fillerLine[j];
+
+							// Add right margin
+							fillerLine[j] = fillerLine[j] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+								new string(' ', _margin.Right),
+								_margin.Right,
+								1,
+								false,
+								Container?.BackgroundColor,
+								null
+							).FirstOrDefault();
+						}
+
+						_cachedContent.AddRange(fillerLine);
+					}
+				}
+			}
+
 			// Add scroll indicators if needed
 			if (_scrollOffset > 0 || _scrollOffset + itemsToShow < _items.Count)
 			{
@@ -1143,7 +1310,7 @@ namespace ConsoleEx.Controls
 		private int CalculateTotalVisibleItemsHeight()
 		{
 			int totalHeight = 0;
-			int itemsToCount = Math.Min(_calculatedMaxVisibleItems ?? _maxVisibleItems, _items.Count - _scrollOffset);
+			int itemsToCount = Math.Min(_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1, _items.Count - _scrollOffset);
 
 			for (int i = 0; i < itemsToCount; i++)
 			{
@@ -1163,7 +1330,7 @@ namespace ConsoleEx.Controls
 				return;
 
 			// Calculate effective max visible items considering available space
-			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1;
 
 			// Now use effective max visible items for scrolling logic
 			if (_highlightedIndex < _scrollOffset)
@@ -1182,7 +1349,7 @@ namespace ConsoleEx.Controls
 				return;
 
 			// Calculate effective max visible items considering available space
-			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1;
 
 			// Now use effective max visible items for scrolling logic
 			if (_selectedIndex < _scrollOffset)
