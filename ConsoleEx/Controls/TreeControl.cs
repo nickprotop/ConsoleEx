@@ -19,13 +19,17 @@ namespace ConsoleEx.Controls
 		private Alignment _alignment = Alignment.Left;
 		private Color? _backgroundColor;
 		private List<string>? _cachedContent;
+		private int? _calculatedMaxVisibleItems;
+		private bool _fillHeight = false;
 		private List<TreeNode> _flattenedNodes = new();
 		private Color? _foregroundColor;
 		private TreeGuide _guide = TreeGuide.Line;
 		private bool _hasFocus = false;
+		private int? _height;
 		private string _indent = "  ";
 		private bool _isEnabled = true;
 		private Margin _margin = new(0, 0, 0, 0);
+		private int _scrollOffset = 0;
 		private int _selectedIndex = 0;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
@@ -59,9 +63,23 @@ namespace ConsoleEx.Controls
 		}
 
 		public Color BackgroundColor
-		{ get { return _backgroundColor ?? Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black; } set { _backgroundColor = value; Invalidate(); } }
+		{ get { return _backgroundColor ?? Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black; } set { _backgroundColor = value; Invalidate(); } }
 
 		public IContainer? Container { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether the control should fill all available height with empty lines
+		/// </summary>
+		public bool FillHeight
+		{
+			get => _fillHeight;
+			set
+			{
+				_fillHeight = value;
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
 
 		public Color ForegroundColor
 		{ get { return _foregroundColor ?? Container?.GetConsoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White; } set { _foregroundColor = value; Invalidate(); } }
@@ -86,6 +104,21 @@ namespace ConsoleEx.Controls
 			set
 			{
 				_hasFocus = value;
+				_cachedContent = null;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the explicit height of the control.
+		/// If null, control height is based on content until available height.
+		/// </summary>
+		public int? Height
+		{
+			get => _height;
+			set
+			{
+				_height = value;
 				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
@@ -136,6 +169,13 @@ namespace ConsoleEx.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		// Add property to track visible items
+		/// <summary>
+		/// Gets or sets the maximum number of items to display at once.
+		/// If null, shows as many as will fit in available height.
+		/// </summary>
+		public int? MaxVisibleItems { get; set; }
 
 		/// <summary>
 		/// Event that fires when a tree node is expanded or collapsed
@@ -375,12 +415,15 @@ namespace ConsoleEx.Controls
 			if (!IsEnabled || _flattenedNodes.Count == 0)
 				return false;
 
+			if (key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt) || key.Modifiers.HasFlag(ConsoleModifiers.Control)) return false;
+
 			switch (key.Key)
 			{
 				case ConsoleKey.UpArrow:
 					if (_selectedIndex > 0)
 					{
 						_selectedIndex--;
+						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -392,6 +435,35 @@ namespace ConsoleEx.Controls
 					if (_selectedIndex < _flattenedNodes.Count - 1)
 					{
 						_selectedIndex++;
+						EnsureSelectedItemVisible();
+						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
+						_cachedContent = null;
+						Container?.Invalidate(true);
+						return true;
+					}
+					break;
+
+				case ConsoleKey.PageUp:
+					if (_selectedIndex > 0)
+					{
+						// Move up by a page (max visible items)
+						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+						_selectedIndex = Math.Max(0, _selectedIndex - pageSize);
+						EnsureSelectedItemVisible();
+						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
+						_cachedContent = null;
+						Container?.Invalidate(true);
+						return true;
+					}
+					break;
+
+				case ConsoleKey.PageDown:
+					if (_selectedIndex < _flattenedNodes.Count - 1)
+					{
+						// Move down by a page (max visible items)
+						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+						_selectedIndex = Math.Min(_flattenedNodes.Count - 1, _selectedIndex + pageSize);
+						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -445,6 +517,7 @@ namespace ConsoleEx.Controls
 					if (_selectedIndex != 0)
 					{
 						_selectedIndex = 0;
+						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -456,6 +529,7 @@ namespace ConsoleEx.Controls
 					if (_selectedIndex != _flattenedNodes.Count - 1)
 					{
 						_selectedIndex = _flattenedNodes.Count - 1;
+						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_cachedContent = null;
 						Container?.Invalidate(true);
@@ -499,11 +573,99 @@ namespace ConsoleEx.Controls
 			int effectiveWidth = _width ?? availableWidth ?? 80;
 			int contentWidth = effectiveWidth - _margin.Left - _margin.Right;
 
+			// Determine how many items can be displayed
+			int effectiveMaxVisibleItems;
+			bool hasScrollIndicator = false;
+
+			if (MaxVisibleItems.HasValue)
+			{
+				effectiveMaxVisibleItems = MaxVisibleItems.Value;
+				hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
+			}
+			else if (availableHeight.HasValue)
+			{
+				// Account for margin and scroll indicators when calculating max items
+				int availableContentHeight = availableHeight.Value - _margin.Top - _margin.Bottom - 1; // -1 for potential scroll indicator
+				effectiveMaxVisibleItems = availableContentHeight;
+				hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
+			}
+			else
+			{
+				// Default if no height constraint
+				effectiveMaxVisibleItems = 10;
+				hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
+			}
+
+			// Store calculated max visible items
+			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
+
+			// Ensure scroll offset is within valid range
+			int maxScrollOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
+			_scrollOffset = Math.Max(0, Math.Min(_scrollOffset, maxScrollOffset));
+
+			// Ensure selected item is visible
+			EnsureSelectedItemVisible();
+
 			// Prepare output buffer
 			var renderedContent = new List<string>();
 
-			// Render nodes using custom tree rendering
-			RenderTreeNodes(_rootNodes, renderedContent, 0, contentWidth);
+			// Get visible nodes based on scroll offset
+			var visibleNodes = new List<TreeNode>();
+			int endIndex = Math.Min(_scrollOffset + effectiveMaxVisibleItems, _flattenedNodes.Count);
+
+			// Map flattened nodes back to tree structure for rendering
+			for (int i = _scrollOffset; i < endIndex; i++)
+			{
+				visibleNodes.Add(_flattenedNodes[i]);
+			}
+
+			// Render nodes
+			if (visibleNodes.Count > 0)
+			{
+				// We need to create a parent-child structure for visible nodes
+				Dictionary<TreeNode, TreeNode?> nodeParents = new Dictionary<TreeNode, TreeNode?>();
+				foreach (var node in _flattenedNodes)
+				{
+					nodeParents[node] = FindParentNode(node);
+				}
+
+				// Group visible nodes by their root node
+				Dictionary<TreeNode, List<TreeNode>> nodesByRoot = new Dictionary<TreeNode, List<TreeNode>>();
+
+				foreach (var node in visibleNodes)
+				{
+					TreeNode? currentNode = node;
+					TreeNode rootNode = node;
+
+					// Find the root node for this visible node
+					while (currentNode != null)
+					{
+						TreeNode? parent = nodeParents.TryGetValue(currentNode, out var p) ? p : null;
+						if (parent == null || !visibleNodes.Contains(parent))
+						{
+							rootNode = currentNode;
+							break;
+						}
+						currentNode = parent;
+					}
+
+					if (!nodesByRoot.ContainsKey(rootNode))
+					{
+						nodesByRoot[rootNode] = new List<TreeNode>();
+					}
+					nodesByRoot[rootNode].Add(node);
+				}
+
+				// Render visible nodes
+				foreach (var rootNode in nodesByRoot.Keys)
+				{
+					// Find the depth of this root node
+					int rootDepth = GetNodeDepth(rootNode);
+
+					// Custom rendering for visible nodes
+					RenderTreeNodeSubset(rootNode, renderedContent, rootDepth, contentWidth, visibleNodes);
+				}
+			}
 
 			// Apply margins and alignment
 			var finalContent = new List<string>();
@@ -531,7 +693,7 @@ namespace ConsoleEx.Controls
 					_margin.Left + paddingLeft,
 					1,
 					false,
-					Container?.BackgroundColor,
+					BackgroundColor,
 					null
 				).FirstOrDefault() ?? string.Empty;
 
@@ -541,7 +703,7 @@ namespace ConsoleEx.Controls
 					_margin.Right,
 					1,
 					false,
-					Container?.BackgroundColor,
+					BackgroundColor,
 					null
 				).FirstOrDefault() ?? string.Empty;
 
@@ -556,11 +718,45 @@ namespace ConsoleEx.Controls
 					effectiveWidth,
 					1,
 					false,
-					Container?.BackgroundColor,
+					BackgroundColor,
 					null
 				).FirstOrDefault() ?? string.Empty;
 
 				finalContent.InsertRange(0, Enumerable.Repeat(emptyLine, _margin.Top));
+			}
+
+			// Add scroll indicator if needed
+			if (hasScrollIndicator)
+			{
+				string scrollIndicator = "";
+
+				// Up arrow if not at the top
+				if (_scrollOffset > 0)
+					scrollIndicator += "▲";
+				else
+					scrollIndicator += " ";
+
+				// Padding in the middle
+				int scrollPadding = effectiveWidth - 2;
+				if (scrollPadding > 0)
+					scrollIndicator += new string(' ', scrollPadding);
+
+				// Down arrow if not at the bottom
+				if (_scrollOffset + effectiveMaxVisibleItems < _flattenedNodes.Count)
+					scrollIndicator += "▼";
+				else
+					scrollIndicator += " ";
+
+				string formattedScrollIndicator = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					scrollIndicator,
+					effectiveWidth,
+					1,
+					false,
+					BackgroundColor,
+					ForegroundColor
+				).FirstOrDefault() ?? string.Empty;
+
+				finalContent.Add(formattedScrollIndicator);
 			}
 
 			// Apply bottom margin
@@ -571,11 +767,51 @@ namespace ConsoleEx.Controls
 					effectiveWidth,
 					1,
 					false,
-					Container?.BackgroundColor,
+					BackgroundColor,
 					null
 				).FirstOrDefault() ?? string.Empty;
 
 				finalContent.AddRange(Enumerable.Repeat(emptyLine, _margin.Bottom));
+			}
+
+			// Handle height constraints
+			if (availableHeight.HasValue)
+			{
+				// Determine the actual height to use
+				int actualHeight;
+
+				if (_height.HasValue)
+				{
+					// Use the smaller of specified height or available height
+					actualHeight = Math.Min(_height.Value, availableHeight.Value);
+				}
+				else
+				{
+					// Use available height as max height but don't exceed content
+					actualHeight = Math.Min(finalContent.Count, availableHeight.Value);
+				}
+
+				// Truncate content if it exceeds the actual height
+				if (finalContent.Count > actualHeight)
+				{
+					finalContent = finalContent.Take(actualHeight).ToList();
+				}
+
+				// Fill with empty lines if FillHeight is true and content is less than actual height
+				if (_fillHeight && finalContent.Count < actualHeight)
+				{
+					string emptyLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						new string(' ', effectiveWidth),
+						effectiveWidth,
+						1,
+						false,
+						BackgroundColor,
+						null
+					).FirstOrDefault() ?? string.Empty;
+
+					int linesToAdd = actualHeight - finalContent.Count;
+					finalContent.AddRange(Enumerable.Repeat(emptyLine, linesToAdd));
+				}
 			}
 
 			_cachedContent = finalContent;
@@ -681,6 +917,32 @@ namespace ConsoleEx.Controls
 			}
 		}
 
+		// Add method to ensure selected item is visible
+		/// <summary>
+		/// Ensures the selected node is visible in the current view by adjusting scroll offset
+		/// </summary>
+		private void EnsureSelectedItemVisible()
+		{
+			if (_selectedIndex < 0 || _flattenedNodes.Count == 0)
+				return;
+
+			// Calculate effective max visible items considering available space
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+
+			// Adjust scroll offset if selected item is outside visible range
+			if (_selectedIndex < _scrollOffset)
+			{
+				_scrollOffset = _selectedIndex;
+			}
+			else if (_selectedIndex >= _scrollOffset + effectiveMaxVisibleItems)
+			{
+				_scrollOffset = _selectedIndex - effectiveMaxVisibleItems + 1;
+			}
+
+			// Ensure scroll offset is valid
+			_scrollOffset = Math.Max(0, Math.Min(_scrollOffset, _flattenedNodes.Count - effectiveMaxVisibleItems));
+		}
+
 		/// <summary>
 		/// Helper method to recursively expand all nodes
 		/// </summary>
@@ -741,6 +1003,45 @@ namespace ConsoleEx.Controls
 		}
 
 		/// <summary>
+		/// Find the parent node of a given node in the tree
+		/// </summary>
+		/// <param name="node">The node to find parent for</param>
+		/// <returns>Parent node or null if node is a root node</returns>
+		private TreeNode? FindParentNode(TreeNode node)
+		{
+			if (node == null || _rootNodes.Contains(node))
+				return null;
+
+			return FindParentNodeRecursive(node, _rootNodes);
+		}
+
+		/// <summary>
+		/// Recursively searches for the parent of a node
+		/// </summary>
+		/// <param name="targetNode">The node to find parent for</param>
+		/// <param name="currentNodes">Current level of nodes to search</param>
+		/// <returns>Parent node or null if not found</returns>
+		private TreeNode? FindParentNodeRecursive(TreeNode targetNode, List<TreeNode> currentNodes)
+		{
+			foreach (var node in currentNodes)
+			{
+				// Check if this node is the parent
+				if (node.Children.Contains(targetNode))
+					return node;
+
+				// Recursively check children
+				if (node.Children.Count > 0)
+				{
+					var found = FindParentNodeRecursive(targetNode, node.Children.ToList());
+					if (found != null)
+						return found;
+				}
+			}
+
+			return null;
+		}
+
+		/// <summary>
 		/// Helper method to flatten the tree structure into a list for keyboard navigation
 		/// </summary>
 		/// <param name="nodes">Collection of nodes to flatten</param>
@@ -777,6 +1078,67 @@ namespace ConsoleEx.Controls
 				default:
 					return ("┼", "└", "└", "│", "─");
 			}
+		}
+
+		/// <summary>
+		/// Calculates the depth of a node in the tree
+		/// </summary>
+		/// <param name="node">The node to calculate depth for</param>
+		/// <returns>The depth of the node (0 for root nodes)</returns>
+		private int GetNodeDepth(TreeNode node)
+		{
+			if (node == null)
+				return -1;
+
+			if (_rootNodes.Contains(node))
+				return 0;
+
+			int depth = 0;
+			TreeNode? current = node;
+
+			while (current != null)
+			{
+				TreeNode? parent = FindParentNode(current);
+				if (parent == null)
+					break;
+
+				depth++;
+				current = parent;
+			}
+
+			return depth;
+		}
+
+		/// <summary>
+		/// Determines if a node is the last child within its parent
+		/// </summary>
+		/// <param name="node">The node to check</param>
+		/// <returns>True if the node is the last child in its parent's children</returns>
+		private bool IsLastChildInParent(TreeNode node)
+		{
+			if (node == null)
+				return false;
+
+			TreeNode? parent = FindParentNode(node);
+
+			// If it's a root node, check if it's the last root node
+			if (parent == null)
+			{
+				int index = _rootNodes.IndexOf(node);
+				return index == _rootNodes.Count - 1;
+			}
+
+			// If it has a parent, check if it's the last child
+			var children = parent.Children;
+			int lastIndex = children.Count - 1;
+
+			for (int i = 0; i < children.Count; i++)
+			{
+				if (children[i] == node)
+					return i == lastIndex;
+			}
+
+			return false;
 		}
 
 		/// <summary>
@@ -915,6 +1277,110 @@ namespace ConsoleEx.Controls
 				if (node.IsExpanded && node.Children.Count > 0)
 				{
 					RenderTreeNodes(node.Children.ToList(), output, depth + 1, contentWidth);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Renders a subset of tree nodes, handling custom tree connector lines
+		/// </summary>
+		/// <param name="rootNode">The root node to start rendering from</param>
+		/// <param name="output">Output buffer to add rendered lines to</param>
+		/// <param name="depth">Depth of the root node</param>
+		/// <param name="contentWidth">Available content width</param>
+		/// <param name="visibleNodes">Set of nodes that should be visible</param>
+		private void RenderTreeNodeSubset(TreeNode rootNode, List<string> output, int depth, int contentWidth, List<TreeNode> visibleNodes)
+		{
+			if (rootNode == null || !visibleNodes.Contains(rootNode))
+				return;
+
+			// Define tree guide characters
+			var guideChars = GetGuideChars();
+
+			// Determine if this is a "last" node at its level
+			bool isLast = IsLastChildInParent(rootNode);
+
+			// Build the tree prefix (the line graphics)
+			string prefix = BuildTreePrefix(depth, isLast, guideChars);
+
+			// Get node style and text
+			string displayText = rootNode.Text ?? string.Empty;
+			Color textColor;
+			Color backgroundColor;
+
+			// Determine colors for this node
+			if (_flattenedNodes.Contains(rootNode) && _selectedIndex == _flattenedNodes.IndexOf(rootNode) && _hasFocus)
+			{
+				// Selected node
+				textColor = HighlightForegroundColor;
+				backgroundColor = HighlightBackgroundColor;
+			}
+			else
+			{
+				// Regular node
+				textColor = rootNode.TextColor ?? ForegroundColor;
+				backgroundColor = BackgroundColor;
+			}
+
+			// Add expand/collapse indicator if the node has children
+			string expandCollapseIndicator = "";
+			if (rootNode.Children.Count > 0)
+			{
+				expandCollapseIndicator = rootNode.IsExpanded ? " [-]" : " [+]";
+			}
+
+			// Create the complete node display text
+			string nodeText = prefix + displayText + expandCollapseIndicator;
+
+			// Calculate the visible length of the text (without ANSI codes)
+			int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+
+			// Truncate if necessary to fit in the available width
+			if (visibleLength > contentWidth)
+			{
+				// Truncate the displayText, not the prefix
+				int prefixLength = AnsiConsoleHelper.StripAnsiStringLength(prefix);
+				int maxTextLength = contentWidth - prefixLength - (rootNode.Children.Count > 0 ? 4 : 0) - 3; // 3 for "..."
+
+				if (maxTextLength > 0)
+				{
+					displayText = displayText.Substring(0, Math.Min(displayText.Length, maxTextLength)) + "...";
+					nodeText = prefix + displayText + expandCollapseIndicator;
+					visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+				}
+			}
+
+			// Determine how much padding is needed to reach full width
+			int paddingNeeded = Math.Max(0, contentWidth - visibleLength);
+
+			// Add padding to reach full width
+			if (paddingNeeded > 0)
+			{
+				nodeText += new string(' ', paddingNeeded);
+			}
+
+			// Add the formatted node with padding to the output
+			string formattedNode = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+				nodeText,
+				contentWidth,
+				1,
+				false,
+				backgroundColor,
+				textColor
+			).FirstOrDefault() ?? string.Empty;
+
+			output.Add(formattedNode);
+
+			// Recursively render visible children if the node is expanded
+			if (rootNode.IsExpanded && rootNode.Children.Count > 0)
+			{
+				// Only render children that are in the visible nodes list
+				foreach (var child in rootNode.Children)
+				{
+					if (visibleNodes.Contains(child))
+					{
+						RenderTreeNodeSubset(child, output, depth + 1, contentWidth, visibleNodes);
+					}
 				}
 			}
 		}
