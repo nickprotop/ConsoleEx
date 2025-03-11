@@ -847,7 +847,7 @@ namespace ConsoleEx.Controls
 				for (int i = _scrollOffset; i < _items.Count; i++)
 				{
 					int itemHeight = _items[i].Lines.Count;
-					if (heightUsed + itemHeight <= availableContentHeight)
+					if (heightUsed + itemHeight < availableContentHeight)
 					{
 						effectiveMaxVisibleItems++;
 						heightUsed += itemHeight;
