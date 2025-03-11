@@ -115,9 +115,11 @@ namespace ConsoleEx.Example
 			_fileListControl = new ListControl()
 			{
 				Margin = new Margin(1, 1, 1, 1),
-				Alignment = Alignment.Left,
+				Alignment = Alignment.Strecth,
 				MaxVisibleItems = null,
-				FillHeight = true
+				FillHeight = true,
+				BackgroundColor = _window.BackgroundColor,
+				FocusedBackgroundColor = _window.BackgroundColor
 			};
 
 			// Handle file selection
