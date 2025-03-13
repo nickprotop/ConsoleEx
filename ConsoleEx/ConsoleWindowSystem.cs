@@ -79,12 +79,12 @@ namespace ConsoleEx
 		public VisibleRegions VisibleRegions => _visibleRegions;
 		public ConcurrentDictionary<string, Window> Windows => _windows;
 
-		public Window AddWindow(Window window)
+		public Window AddWindow(Window window, bool activateWindow = true)
 		{
 			window.ZIndex = _windows.Count > 0 ? _windows.Values.Max(w => w.ZIndex) + 1 : 0;
 			_windows.TryAdd(window.Guid, window);
 
-			if (_activeWindow == null) SetActiveWindow(window);
+			if (_activeWindow == null || activateWindow) SetActiveWindow(window);
 
 			window.WindowIsAdded();
 
