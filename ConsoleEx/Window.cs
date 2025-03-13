@@ -821,19 +821,28 @@ namespace ConsoleEx
 			if (focusedContent != null)
 			{
 				int contentTop = _contentTopRowIndex[focusedContent];
-				int contentBottom = contentTop + focusedContent.RenderContent(Width - 2, Height - 2).Count;
+				int contentHeight = focusedContent.RenderContent(Width - 2, Height - 2).Count;
+				int contentBottom = contentTop + contentHeight;
 
 				if (focusedContent.StickyPosition == StickyPosition.None)
 				{
-					if (contentTop < _scrollOffset + _topStickyHeight)
+					// Calculate the visible region boundaries
+					int visibleTop = _scrollOffset + _topStickyHeight;
+					int visibleBottom = _scrollOffset + (Height - 2 - _bottomStickyHeight);
+
+					if (contentTop < visibleTop)
 					{
-						// Scroll up to make the top of the content visible, considering top sticky height
-						_scrollOffset = contentTop - _topStickyHeight;
+						// Ensure we never set a negative scroll offset
+						_scrollOffset = Math.Max(0, contentTop - _topStickyHeight);
 					}
-					else if (contentBottom > _scrollOffset + (Height - 2 - _bottomStickyHeight))
+					else if (contentBottom > visibleBottom)
 					{
-						// Scroll down to make the bottom of the content visible, considering sticky bottom height
-						_scrollOffset = contentBottom - (Height - 2 - _bottomStickyHeight);
+						// Calculate how much we need to scroll to show the bottom of the content
+						int newOffset = contentBottom - (Height - 2 - _bottomStickyHeight);
+
+						// Ensure we don't scroll beyond the maximum available content
+						int maxOffset = Math.Max(0, (_cachedContent?.Count ?? 0) - (Height - 2 - _topStickyHeight));
+						_scrollOffset = Math.Min(newOffset, maxOffset);
 					}
 				}
 			}

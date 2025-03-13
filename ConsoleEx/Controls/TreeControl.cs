@@ -585,8 +585,15 @@ namespace ConsoleEx.Controls
 			else if (availableHeight.HasValue)
 			{
 				// Account for margin and scroll indicators when calculating max items
-				int availableContentHeight = availableHeight.Value - _margin.Top - _margin.Bottom - 1; // -1 for potential scroll indicator
-				effectiveMaxVisibleItems = availableContentHeight;
+				int availableContentHeight = availableHeight.Value - _margin.Top - _margin.Bottom;
+
+				// Reserve space for scroll indicator if needed
+				if (_flattenedNodes.Count > 1)
+					availableContentHeight -= 1;
+
+				// Ensure we have at least one line available for content
+				effectiveMaxVisibleItems = Math.Max(1, availableContentHeight);
+
 				hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
 			}
 			else
@@ -869,6 +876,17 @@ namespace ConsoleEx.Controls
 			{
 				// Ensure the selected node is visible (expand parent nodes if needed)
 				EnsureNodeVisible(SelectedNode);
+
+				// Position the selected node in the middle of the visible area when gaining focus
+				int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+
+				// Try to position the selected item in the middle of the viewport
+				int desiredPosition = Math.Max(0, effectiveMaxVisibleItems / 2);
+				int newScrollOffset = Math.Max(0, _selectedIndex - desiredPosition);
+
+				// Make sure we don't scroll past the end
+				int maxScrollOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
+				_scrollOffset = Math.Min(newScrollOffset, maxScrollOffset);
 			}
 
 			_cachedContent = null;
