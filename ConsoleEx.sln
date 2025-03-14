@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.12.35707.178
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleEx", "ConsoleEx\ConsoleEx.csproj", "{05BCE2AE-7439-4D31-9840-1B96C48149F5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpConsoleUI", "ConsoleEx\SharpConsoleUI.csproj", "{05BCE2AE-7439-4D31-9840-1B96C48149F5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Example", "Example\Example.csproj", "{41AF8F6B-8C36-4232-A08A-BC65AD67A708}"
 EndProject

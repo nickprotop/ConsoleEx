@@ -8,11 +8,11 @@
   </PropertyGroup>
 
 	<PropertyGroup>
-		<PackageId>ConsoleEx</PackageId>
-		<Version>1.0.0</Version>
-		<Authors>YourName</Authors>
-		<Description>A description of your package</Description>
-		<PackageReleaseNotes>Initial release</PackageReleaseNotes>
+		<PackageId>SharpConsoleUI</PackageId>
+		<Version>0.0.1</Version>
+		<Authors>Nikolaos Protopapas</Authors>
+		<Description>A console window system library that provides controls like TreeControl, ListControl, and HorizontalGridControl for creating TUI applications.</Description>
+		<PackageReleaseNotes>Bug fixes and performance improvements</PackageReleaseNotes>
 		<Copyright>Copyright © 2025</Copyright>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 	</PropertyGroup>

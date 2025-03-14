@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ConsoleEx\ConsoleEx.csproj" />
+    <ProjectReference Include="..\ConsoleEx\SharpConsoleUI.csproj" />
   </ItemGroup>
 
 </Project>
