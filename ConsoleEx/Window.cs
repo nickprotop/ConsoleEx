@@ -52,7 +52,7 @@ namespace ConsoleEx
 	{
 		private readonly List<IWIndowControl> _content = new();
 		private readonly List<IInteractiveControl> _interactiveContents = new();
-		private readonly Lock _lock = new();
+		private readonly object _lock = new();
 
 		private readonly Window? _parentWindow;
 		private Color? _activeBorderForegroundColor;

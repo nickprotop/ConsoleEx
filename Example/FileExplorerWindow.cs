@@ -119,7 +119,8 @@ namespace ConsoleEx.Example
 				MaxVisibleItems = null,
 				FillHeight = true,
 				BackgroundColor = _window.BackgroundColor,
-				FocusedBackgroundColor = _window.BackgroundColor
+				FocusedBackgroundColor = _window.BackgroundColor,
+				IsSelectable = false
 			};
 
 			// Handle file selection
@@ -481,10 +482,6 @@ namespace ConsoleEx.Example
 						// Add the item to the list
 						_fileListControl.AddItem(listItem);
 					}
-
-					// Select the first item
-					if (_fileListControl.Items.Count > 0)
-						_fileListControl.SelectedIndex = 0;
 				}
 			}
 			catch (Exception ex)

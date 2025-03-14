@@ -1,0 +1,62 @@
+name: Build and Publish NuGet Package
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Get all history for version calculation
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v1
+      with:
+        versionSpec: '5.x'
+        
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v1
+      with:
+        useConfigFile: true
+        
+    - name: Display GitVersion outputs
+      run: |
+        echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
+        echo "NuGetVersionV2: ${{ steps.gitversion.outputs.nuGetVersionV2 }}"
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: dotnet build --configuration Release --no-restore /p:Version=${{ steps.gitversion.outputs.nuGetVersionV2 }}
+      
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+      
+    - name: Package
+      run: dotnet pack ConsoleEx/ConsoleEx.csproj --configuration Release --no-build --output ./nupkgs /p:Version=${{ steps.gitversion.outputs.nuGetVersionV2 }}
+      
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages
+        path: ./nupkgs/*.nupkg
+        
+    - name: Publish to NuGet
+      if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

@@ -1,0 +1,28 @@
+mode: ContinuousDeployment
+branches:
+  main:
+    regex: ^master$|^main$
+    tag: ''
+    increment: Patch
+    prevent-increment-of-merged-branch-version: true
+    track-merge-target: false
+    tracks-release-branches: false
+    is-release-branch: true
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    tag: beta
+    increment: Minor
+    prevent-increment-of-merged-branch-version: false
+    track-merge-target: true
+  feature:
+    regex: ^features?[/-]
+    tag: alpha.{BranchName}
+    increment: Inherit
+  release:
+    regex: ^releases?[/-]
+    tag: rc
+    increment: Patch
+    prevent-increment-of-merged-branch-version: true
+ignore:
+  sha: []
+merge-message-formats: {}

@@ -1,14 +1,17 @@
 <?xml version="1.0"?>
 <package>
-  <metadata>
-    <id>ConsoleEx</id>
-    <version>1.0.0</version>
-    <authors>YourName</authors>
-    <owners>YourName</owners>
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>A description of your package</description>
-    <releaseNotes>Initial release</releaseNotes>
-    <copyright>Copyright © 2025</copyright>
-    <tags>console extension</tags>
-  </metadata>
+	<metadata>
+		<id>ConsoleEx</id>
+		<version>0.0.1</version>
+		<title>ConsoleEx</title>
+		<authors>Your Organization</authors>
+		<owners>Your Organization</owners>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<description>A console window system library that provides controls like TreeControl, ListControl, and HorizontalGridControl for creating TUI applications.</description>
+		<releaseNotes>Bug fixes and performance improvements</releaseNotes>
+		<copyright>Copyright Â© 2025</copyright>
+		<tags>console extension tui ui interface controls windows</tags>
+		<projectUrl>https://github.com/nickprotop/ConsoleEx</projectUrl>
+		<license type="expression">MIT</license>
+	</metadata>
 </package>
