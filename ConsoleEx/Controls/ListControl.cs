@@ -19,6 +19,7 @@ namespace ConsoleEx.Controls
 		private Color? _backgroundColorValue;
 		private List<string>? _cachedContent;
 		private int? _calculatedMaxVisibleItems;
+		private bool _fillHeight = false;
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
@@ -34,8 +35,10 @@ namespace ConsoleEx.Controls
 		private DateTime _lastKeyTime = DateTime.MinValue;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private int? _maxVisibleItems = null;
-		private bool _fillHeight = false; // Added new field for fillHeight
+
+		// Added new field for fillHeight
 		private int _scrollOffset = 0;
+
 		private string _searchText = string.Empty;
 		private int _selectedIndex = -1;
 		private StickyPosition _stickyPosition = StickyPosition.None;
@@ -162,6 +165,18 @@ namespace ConsoleEx.Controls
 		}
 
 		public IContainer? Container { get; set; }
+
+		public bool FillHeight
+		{
+			get => _fillHeight;
+			set
+			{
+				_fillHeight = value;
+				_cachedContent = null;
+				_invalidated = true;
+				Container?.Invalidate(true);
+			}
+		}
 
 		public Color FocusedBackgroundColor
 		{
@@ -294,18 +309,6 @@ namespace ConsoleEx.Controls
 			set
 			{
 				_maxVisibleItems = value.HasValue ? Math.Max(1, value.Value) : null;
-				_cachedContent = null;
-				_invalidated = true;
-				Container?.Invalidate(true);
-			}
-		}
-
-		public bool FillHeight
-		{
-			get => _fillHeight;
-			set
-			{
-				_fillHeight = value;
 				_cachedContent = null;
 				_invalidated = true;
 				Container?.Invalidate(true);
@@ -451,13 +454,6 @@ namespace ConsoleEx.Controls
 		public void AddItem(ListItem item)
 		{
 			_items.Add(item);
-			if (_selectedIndex == -1 && _items.Count == 1 && _isSelectable)
-			{
-				_selectedIndex = 0;
-				SelectedIndexChanged?.Invoke(this, _selectedIndex);
-				SelectedItemChanged?.Invoke(this, _items[_selectedIndex]);
-				SelectedValueChanged?.Invoke(this, _items[_selectedIndex].Text);
-			}
 			_cachedContent = null;
 			Container?.Invalidate(true);
 		}
