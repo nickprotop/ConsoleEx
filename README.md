@@ -124,9 +124,12 @@ namespace YourNamespace
             { 
                 TopStatus = "SharpConsoleUI Example", 
                 BottomStatus = "Ctrl-Q to Quit", 
-                Theme = new Theme { DesktopBackroundChar = '.', 
-                DesktopBackgroundColor = Color.Black, 
-                DesktopForegroundColor = Color.Grey 
+                Theme = new Theme 
+                { 
+                    DesktopBackroundChar = '.', 
+                    DesktopBackgroundColor = Color.Black, 
+                    DesktopForegroundColor = Color.Grey
+                }
             };
 
             // Create a simple window with markup content
