@@ -13,5 +13,9 @@
 		<tags>console extension tui ui interface controls windows</tags>
 		<projectUrl>https://github.com/nickprotop/ConsoleEx</projectUrl>
 		<license type="expression">MIT</license>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/nickprotop/ConsoleEx</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/nickprotop/ConsoleEx.git</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
 	</metadata>
 </package>

@@ -1,10 +1,10 @@
-# ConsoleEx
+# SharpConsoleUI
 
 A simple console window system for .NET Core.
 
 ## Overview
 
-ConsoleEx is a lightweight console window system implementation for .NET Core applications. It provides a windowing system with support for multiple overlapping windows, keyboard and mouse input, and customizable themes.
+SharpConsoleUI is a lightweight console window system implementation for .NET Core applications. It provides a windowing system with support for multiple overlapping windows, keyboard and mouse input, and customizable themes.
 
 ## Features
 
@@ -97,6 +97,137 @@ NetConsoleDriver is the implementation of IConsoleDriver that interfaces with th
 - **Platform Support**
   - Windows console API integration
   - Cross-platform compatibility considerations
+
+## Getting Started
+
+### Basic Setup
+
+Here's a minimal example showing how to initialize the ConsoleWindowSystem and create a simple window with markup:
+
+```cs
+using System; 
+using System.Collections.Generic; 
+using System.Threading.Tasks; 
+using SharpConsoleUI; 
+using SharpConsoleUI.Controls; 
+using SharpConsoleUI.Themes; 
+using Spectre.Console;
+
+namespace YourNamespace 
+{ 
+    class Program 
+    { 
+        static async Task Main(string[] args) 
+        { 
+            // Initialize the console window system 
+            var consoleWindowSystem = new ConsoleWindowSystem(RenderMode.Buffer) 
+            { 
+                TopStatus = "SharpConsoleUI Example", 
+                BottomStatus = "Ctrl-Q to Quit", 
+                Theme = new Theme { DesktopBackroundChar = '.', 
+                DesktopBackgroundColor = Color.Black, 
+                DesktopForegroundColor = Color.Grey 
+            };
+
+            // Create a simple window with markup content
+            var window = new Window(consoleWindowSystem, WindowThread)
+            {
+                Title = "Hello World",
+                Left = 10,
+                Top = 5,
+                Width = 50,
+                Height = 15,
+                IsResizable = true
+            };
+
+            // Add the window to the console window system
+            consoleWindowSystem.AddWindow(window);
+        
+            // Make this window the active window
+            consoleWindowSystem.SetActiveWindow(window);
+
+            // Run the console window system (this blocks until the application exits)
+            int exitCode = consoleWindowSystem.Run();
+        
+            Console.WriteLine($"Application exited with code: {exitCode}");
+        }
+
+        // Window thread function that adds content to the window
+        static void WindowThread(Window window)
+        {
+            // Create a markup control with formatted text
+            var markupContent = new MarkupControl(new List<string>
+            {
+                "[bold yellow]Welcome to SharpConsoleUI![/]",
+                "",
+                "This is a [green]simple[/] demonstration of using [cyan]markup[/] in a window.",
+                "",
+                "[red]Colors[/], [underline]formatting[/], and [bold]styles[/] are supported."
+            });
+        
+            // Add the markup content to the window
+            window.AddContent(markupContent);
+        
+            // Add a horizontal rule
+            window.AddContent(new RuleControl
+            {
+                Title = "Controls Demo",
+                TitleAlignment = Justify.Center
+            });
+        
+            // Add a button control
+            var button = new ButtonControl
+            {
+                Text = "[blue]Click Me![/]",
+                Margin = new Margin(1, 0, 0, 0)
+            };
+        
+            // Add button click handler
+            button.OnClick += (sender) => 
+            {
+                markupContent.SetContent(new List<string>
+                {
+                    "[bold green]Button was clicked![/]",
+                    $"Current time: {DateTime.Now}"
+                });
+            };
+        
+            // Add the button to the window
+            window.AddContent(button);
+        }
+    }
+}
+```
+
+### Displaying Dynamic Content
+
+You can update window content dynamically, for example to show system statistics:
+
+```cs
+public async void WindowThread(Window window) 
+{ 
+    // Create a markup control for content 
+    var contentControl = new MarkupControl(new List<string> { "Loading data..." }); 
+    window.AddContent(contentControl);
+
+    // Update the content every few seconds
+    while (true)
+    {
+        var systemInfo = new List<string>
+        {
+            $"[yellow]CPU Usage:[/] [green]{GetCpuUsage()}%[/]",
+            $"[yellow]Memory Available:[/] [green]{GetAvailableMemory()} MB[/]",
+            $"[yellow]Time:[/] [cyan]{DateTime.Now:HH:mm:ss}[/]"
+        };
+        
+        // Update the control with new content
+        contentControl.SetContent(systemInfo);
+    
+        // Wait before updating again
+        await Task.Delay(1000);
+    }
+}
+```
 
 ## License
 
