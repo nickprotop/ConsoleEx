@@ -6,9 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Controls;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI;
 
-namespace ConsoleEx.Example
+namespace SharpConsoleUI.Example
 {
 	public class SystemInfoWindow
 	{

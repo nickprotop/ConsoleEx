@@ -7,7 +7,8 @@
 // -----------------------------------------------------------------------
 
 using Spectre.Console;
-using ConsoleEx.Controls;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI;
 
 namespace ConsoleEx.Example
 {

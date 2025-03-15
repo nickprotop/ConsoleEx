@@ -6,7 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Controls;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI;
 using Spectre.Console;
 
 namespace ConsoleEx.Example

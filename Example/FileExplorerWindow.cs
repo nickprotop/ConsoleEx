@@ -1,13 +1,13 @@
-﻿using ConsoleEx;
-using ConsoleEx.Controls;
+﻿using SharpConsoleUI;
+using SharpConsoleUI.Controls;
 using Spectre.Console;
 using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
-using TreeNode = ConsoleEx.Controls.TreeNode;
+using TreeNode = SharpConsoleUI.Controls.TreeNode;
 
-namespace ConsoleEx.Example
+namespace SharpConsoleUI.Example
 {
 	public class FileExplorerWindow
 	{

@@ -1,6 +1,6 @@
-﻿using ConsoleEx;
-using ConsoleEx.Controls;
-using ConsoleEx.Helpers;
+﻿using SharpConsoleUI;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using Spectre.Console;
 using System;
 using System.Collections.Generic;

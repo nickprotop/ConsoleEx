@@ -7,11 +7,12 @@
 // -----------------------------------------------------------------------
 
 using Spectre.Console;
-using ConsoleEx.Themes;
-using ConsoleEx.Services.NotificationsService;
-using ConsoleEx.Drivers;
+using SharpConsoleUI.Themes;
+using SharpConsoleUI.Services.NotificationsService;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI;
 
-namespace ConsoleEx.Example
+namespace SharpConsoleUI.Example
 {
 	internal class Program
 	{

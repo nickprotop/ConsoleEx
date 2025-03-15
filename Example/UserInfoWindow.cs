@@ -6,10 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using ConsoleEx.Controls;
+using SharpConsoleUI.Controls;
 using Spectre.Console;
+using SharpConsoleUI;
 
-namespace ConsoleEx.Example
+namespace SharpConsoleUI.Example
 {
 	internal class UserInfoWindow
 	{

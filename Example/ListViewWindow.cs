@@ -1,13 +1,14 @@
-﻿using ConsoleEx.Controls;
-using ConsoleEx.Services.NotificationsService;
+﻿using SharpConsoleUI.Controls;
+using SharpConsoleUI.Services.NotificationsService;
 using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SharpConsoleUI;
 
-namespace ConsoleEx.Example
+namespace SharpConsoleUI.Example
 {
 	public class ListViewWindow
 	{
