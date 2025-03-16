@@ -15,7 +15,7 @@
 		<PackageReleaseNotes>Bug fixes and performance improvements</PackageReleaseNotes>
 		<Copyright>Copyright © 2025</Copyright>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageReadmeFile>docs\README.md</PackageReadmeFile>
 		<PackageProjectUrl>https://github.com/nickprotop/ConsoleEx</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/nickprotop/ConsoleEx</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
@@ -25,7 +25,7 @@
 	<ItemGroup>
 	  <None Include="..\README.md">
 	    <Pack>True</Pack>
-	    <PackagePath>\</PackagePath>
+	    <PackagePath>\docs</PackagePath>
 	  </None>
 	</ItemGroup>
 
