@@ -1,4 +1,4 @@
-mode: ContinuousDeployment
+mode: ContinuousDelivery
 branches:
   main:
     regex: ^master$|^main$
@@ -8,6 +8,7 @@ branches:
     track-merge-target: false
     tracks-release-branches: false
     is-release-branch: true
+    is-mainline: true
   develop:
     regex: ^dev(elop)?(ment)?$
     tag: beta
@@ -16,8 +17,9 @@ branches:
     track-merge-target: true
   feature:
     regex: ^features?[/-]
-    tag: alpha.{BranchName}
+    tag: useBranchName
     increment: Inherit
+    source-branches: ['develop', 'main', 'release']
   release:
     regex: ^releases?[/-]
     tag: rc
