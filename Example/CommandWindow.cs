@@ -48,11 +48,11 @@ namespace SharpConsoleUI.Example
 				ReadOnly = true
 			};
 
-			_window.AddContent(_promptControl);
+			_window.AddControl(_promptControl);
 
-			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
+			_window.AddControl(new RuleControl() { StickyPosition = StickyPosition.Top });
 
-			_window.AddContent(_outputControl);
+			_window.AddControl(_outputControl);
 
 			_window.OnResize += (sender, args) =>
 			{

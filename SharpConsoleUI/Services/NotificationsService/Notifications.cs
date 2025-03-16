@@ -43,7 +43,7 @@ namespace SharpConsoleUI.Services.NotificationsService
 			{
 				Alignment = Alignment.Left
 			};
-			notificationWindow.AddContent(notificationContent);
+			notificationWindow.AddControl(notificationContent);
 
 			var closeButton = new ButtonControl()
 			{
@@ -51,7 +51,7 @@ namespace SharpConsoleUI.Services.NotificationsService
 				StickyPosition = StickyPosition.Bottom,
 				Margin = new Margin() { Left = 1 }
 			};
-			notificationWindow.AddContent(closeButton);
+			notificationWindow.AddControl(closeButton);
 			closeButton.OnClick += (s) =>
 			{
 				consoleWindowSystem.CloseWindow(notificationWindow);

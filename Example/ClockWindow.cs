@@ -35,7 +35,7 @@ namespace SharpConsoleUI.Example
 				Alignment = Alignment.Center,
 				Color = Color.Green
 			};
-			_window.AddContent(_clockContent);
+			_window.AddControl(_clockContent);
 
 			consoleWindowSystem.AddWindow(_window);
 		}

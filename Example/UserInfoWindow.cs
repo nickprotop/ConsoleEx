@@ -72,7 +72,7 @@ namespace SharpConsoleUI.Example
 		private void AddBottomButtons()
 		{
 			_bottomButtons = CreateBottomButtons();
-			_window.AddContent(_bottomButtons);
+			_window.AddControl(_bottomButtons);
 
 			var maximizeButton = CreateButton("[yellow]Maximize[/] window", (sender) => _window.State = WindowState.Maximized);
 			maximizeButton.Alignment = Alignment.Strecth;
@@ -89,7 +89,7 @@ namespace SharpConsoleUI.Example
 				};
 
 				// Add some content
-				modalWindow.AddContent(new MarkupControl(new List<string>() { "Are you sure you want to proceed?" })
+				modalWindow.AddControl(new MarkupControl(new List<string>() { "Are you sure you want to proceed?" })
 				{
 					Alignment = Alignment.Center
 				});
@@ -104,7 +104,7 @@ namespace SharpConsoleUI.Example
 					_consoleWindowSystem.CloseWindow(_window);
 				};
 
-				modalWindow.AddContent(okButton);
+				modalWindow.AddControl(okButton);
 
 				// Make the window visible
 				_consoleWindowSystem.AddWindow(modalWindow);
@@ -133,7 +133,7 @@ namespace SharpConsoleUI.Example
 			{
 				StickyPosition = StickyPosition.Top
 			};
-			_window.AddContent(horizontalGridControl);
+			_window.AddControl(horizontalGridControl);
 
 			var columnContainer = new ColumnContainer(horizontalGridControl);
 			columnContainer.AddContent(new MarkupControl(new List<string> { "[cyan]F[/]ile [cyan]E[/]dit [cyan]V[/]iew [cyan]H[/]elp" }));
@@ -155,26 +155,28 @@ namespace SharpConsoleUI.Example
 			columnContainer.AddContent(_countryDropdown);
 			horizontalGridControl.AddColumn(columnContainer);
 
-			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
+			_window.AddControl(new RuleControl() { StickyPosition = StickyPosition.Top });
 
-			_window.AddContent(_namePrompt);
-			_window.AddContent(_agePrompt);
-			_window.AddContent(new MarkupControl(new List<string> { " " }));
+			_window.AddControl(_namePrompt);
+			_window.AddControl(_agePrompt);
+			_window.AddControl(new MarkupControl(new List<string> { " " }));
 
-			_window.AddContent(_agreeTermsCheckbox);
+			_window.AddControl(_agreeTermsCheckbox);
 
-			_window.AddContent(_ageInfo);
-			_window.AddContent(new MarkupControl(new List<string> { " " }));
+			_window.AddControl(_ageInfo);
+			_window.AddControl(new MarkupControl(new List<string> { " " }));
 
-			_window.AddContent(new RuleControl
+			_window.AddControl(new RuleControl
 			{
 				Title = "Comment",
 				TitleAlignment = Justify.Left
 			});
 
-			_window.AddContent(_multilineEdit);
+			_multilineEdit.Content = "dddddd";
 
-			_window.AddContent(new RuleControl());
+			_window.AddControl(_multilineEdit);
+
+			_window.AddControl(new RuleControl());
 
 			// Create a Table renderable
 			var table = new Table();
@@ -193,9 +195,9 @@ namespace SharpConsoleUI.Example
 			tableControl.Margin = new Margin(1, 1, 1, 1);
 
 			// Add to window
-			_window.AddContent(tableControl);
+			_window.AddControl(tableControl);
 
-			_window.AddContent(new RuleControl
+			_window.AddControl(new RuleControl
 			{
 				Color = Color.Yellow,
 				Title = "[cyan]A[/][red]c[/][green]t[/][blue]i[/]o[white]n[/]s",

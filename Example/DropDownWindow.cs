@@ -30,12 +30,12 @@ namespace SharpConsoleUI.Example
 			_system = system;
 
 			// Create title
-			_window.AddContent(new MarkupControl(new List<string> { "[bold]Country Selection Form[/]" })
+			_window.AddControl(new MarkupControl(new List<string> { "[bold]Country Selection Form[/]" })
 			{
 				Alignment = Alignment.Center,
 				StickyPosition = StickyPosition.Top
 			});
-			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
+			_window.AddControl(new RuleControl() { StickyPosition = StickyPosition.Top });
 
 			// Create dropdown
 			_countryDropdown = new DropdownControl("Select a country:");
@@ -49,13 +49,13 @@ namespace SharpConsoleUI.Example
 			_countryDropdown.SelectedIndex = 0;
 
 			// Add spacing
-			_window.AddContent(new MarkupControl(new List<string> { " " }));
+			_window.AddControl(new MarkupControl(new List<string> { " " }));
 
 			// Add dropdown
-			_window.AddContent(_countryDropdown);
+			_window.AddControl(_countryDropdown);
 
 			// Add some more spacing
-			_window.AddContent(new MarkupControl(new List<string> { " " }));
+			_window.AddControl(new MarkupControl(new List<string> { " " }));
 
 			// Add action buttons
 			var buttonsGrid = new HorizontalGridControl { Alignment = Alignment.Center, StickyPosition = StickyPosition.Bottom };
@@ -71,7 +71,7 @@ namespace SharpConsoleUI.Example
 			cancelColumn.AddContent(cancelButton);
 			buttonsGrid.AddColumn(cancelColumn);
 
-			_window.AddContent(buttonsGrid);
+			_window.AddControl(buttonsGrid);
 
 			// Handle selection change
 			_countryDropdown.SelectedItemChanged += CountryDropdown_SelectedItemChanged;

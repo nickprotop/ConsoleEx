@@ -35,7 +35,7 @@ namespace SharpConsoleUI.Example
 		public async void WindowThread(Window window)
 		{
 			_systemInfoContent = new MarkupControl(GetSystemInfo());
-			window.AddContent(_systemInfoContent);
+			window.AddControl(_systemInfoContent);
 
 			while (true)
 			{

@@ -31,23 +31,23 @@ namespace SharpConsoleUI.Example
 			};
 
 			// Create title
-			_window.AddContent(new MarkupControl(new List<string> { "[bold]Example List Control[/]" })
+			_window.AddControl(new MarkupControl(new List<string> { "[bold]Example List Control[/]" })
 			{
 				Alignment = Alignment.Center,
 				StickyPosition = StickyPosition.Top
 			});
 
-			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
+			_window.AddControl(new RuleControl() { StickyPosition = StickyPosition.Top });
 
 			// Create a selection info display
 			_selectionInfo = new MarkupControl(new List<string> { "No item selected" })
 			{
 				Alignment = Alignment.Left
 			};
-			_window.AddContent(_selectionInfo);
+			_window.AddControl(_selectionInfo);
 
 			// Create spacer
-			_window.AddContent(new MarkupControl(new List<string> { " " }));
+			_window.AddControl(new MarkupControl(new List<string> { " " }));
 
 			// Create list control with some items
 			_listControl = new ListControl("Available Items")
@@ -78,7 +78,7 @@ namespace SharpConsoleUI.Example
 			_listControl.SelectedIndex = 0;
 
 			// Add the list to the window
-			_window.AddContent(_listControl);
+			_window.AddControl(_listControl);
 
 			// Add action buttons at the bottom
 			var buttonsGrid = new HorizontalGridControl
@@ -98,7 +98,7 @@ namespace SharpConsoleUI.Example
 			closeColumn.AddContent(closeButton);
 			buttonsGrid.AddColumn(closeColumn);
 
-			_window.AddContent(buttonsGrid);
+			_window.AddControl(buttonsGrid);
 		}
 
 		// Get the window instance

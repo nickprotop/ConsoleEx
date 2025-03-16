@@ -37,7 +37,7 @@ namespace SharpConsoleUI.Example
 
 		public void AddLog(string log)
 		{
-			_window.AddContent(new MarkupControl(new List<string>() { log }) { Alignment = Alignment.Center });
+			_window.AddControl(new MarkupControl(new List<string>() { log }) { Alignment = Alignment.Center });
 		}
 
 		public void KeyPressed(object? sender, KeyPressedEventArgs e)

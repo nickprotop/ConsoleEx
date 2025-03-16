@@ -378,6 +378,67 @@ namespace SharpConsoleUI.Controls
 			ContentChanged?.Invoke(this, GetContent());
 		}
 
+		/// <summary>
+		/// Appends multiple lines to the end of the control and scrolls to make them visible.
+		/// </summary>
+		/// <param name="lines">The lines to append.</param>
+		public void AppendContentLines(List<string> lines)
+		{
+			if (lines == null || lines.Count == 0)
+				return;
+
+			// If the last line in existing content is empty, replace it with first line of new content
+			if (_lines.Count > 0 && string.IsNullOrEmpty(_lines[_lines.Count - 1]))
+			{
+				if (lines.Count > 0)
+				{
+					_lines[_lines.Count - 1] = lines[0];
+
+					// Add remaining lines
+					for (int i = 1; i < lines.Count; i++)
+					{
+						_lines.Add(lines[i]);
+					}
+				}
+			}
+			else
+			{
+				// If the last line isn't empty, append the first new line to it
+				if (_lines.Count > 0 && lines.Count > 0)
+				{
+					_lines[_lines.Count - 1] += lines[0];
+
+					// Add remaining lines
+					for (int i = 1; i < lines.Count; i++)
+					{
+						_lines.Add(lines[i]);
+					}
+				}
+				else
+				{
+					// Just add all lines if we don't have content yet
+					_lines.AddRange(lines);
+				}
+			}
+
+			// Force recalculation of scrollbars by invalidating
+			_invalidated = true;
+			_cachedContent = null;
+
+			// Reset flag to ensure scroll positions are updated properly
+			_skipUpdateScrollPositionsInRender = false;
+
+			_invalidated = true;
+			_cachedContent = null;
+			Container?.Invalidate(true);
+
+			// Go to the end of the content
+			GoToEnd();
+
+			// Notify that content has changed
+			ContentChanged?.Invoke(this, GetContent());
+		}
+
 		// Add a helper method to clear selection
 		public void ClearSelection()
 		{
@@ -396,6 +457,8 @@ namespace SharpConsoleUI.Controls
 		// Cursor management
 		public void EnsureCursorVisible()
 		{
+			if (Container == null) return;
+
 			// Special handling for wrap mode
 			if (_wrapMode != WrapMode.NoWrap)
 			{
@@ -1233,6 +1296,8 @@ namespace SharpConsoleUI.Controls
 
 			_cachedContent = new List<string>();
 
+			_effectiveWidth = (_width ?? availableWidth ?? 80) - _margin.Left - _margin.Right;
+
 			// Determine if scrollbars will be shown
 			bool needsVerticalScrollbar = _verticalScrollbarVisibility == ScrollbarVisibility.Always ||
 										(_verticalScrollbarVisibility == ScrollbarVisibility.Auto &&
@@ -1714,6 +1779,44 @@ namespace SharpConsoleUI.Controls
 			else
 			{
 				_lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
+				if (_lines.Count == 0)
+				{
+					_lines.Add(string.Empty);
+				}
+			}
+
+			ClearSelection();
+
+			_cursorX = 0;
+			_cursorY = 0;
+			_horizontalScrollOffset = 0;
+			_verticalScrollOffset = 0;
+
+			EnsureCursorVisible();
+
+			_invalidated = true;
+			_cachedContent = null;
+			Container?.Invalidate(false);
+
+			_skipUpdateScrollPositionsInRender = false;
+
+			// Notify that content has changed
+			ContentChanged?.Invoke(this, GetContent());
+		}
+
+		/// <summary>
+		/// Sets the content of the control using a list of strings, with each string representing a line.
+		/// </summary>
+		/// <param name="lines">The lines to set as content.</param>
+		public void SetContentLines(List<string> lines)
+		{
+			if (lines == null || lines.Count == 0)
+			{
+				_lines = new List<string>() { string.Empty };
+			}
+			else
+			{
+				_lines = new List<string>(lines);
 				if (_lines.Count == 0)
 				{
 					_lines.Add(string.Empty);

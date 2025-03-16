@@ -50,7 +50,7 @@ namespace SharpConsoleUI
 
 	public class Window : IContainer
 	{
-		private readonly List<IWIndowControl> _content = new();
+		private readonly List<IWIndowControl> _controls = new();
 		private readonly List<IInteractiveControl> _interactiveContents = new();
 		private readonly object _lock = new();
 
@@ -280,12 +280,12 @@ namespace SharpConsoleUI
 
 		public int ZIndex { get; set; }
 
-		public void AddContent(IWIndowControl content)
+		public void AddControl(IWIndowControl content)
 		{
 			lock (_lock)
 			{
 				content.Container = this;
-				_content.Add(content);
+				_controls.Add(content);
 
 				_invalidated = true;
 
@@ -306,6 +306,18 @@ namespace SharpConsoleUI
 			}
 		}
 
+		public void ClearControls()
+		{
+			lock (_lock)
+			{
+				foreach (var content in _controls.ToList())
+				{
+					RemoveContent(content);
+				}
+				Invalidate(true);
+			}
+		}
+
 		public bool Close(bool systemCall = false)
 		{
 			if (IsClosable)
@@ -322,7 +334,7 @@ namespace SharpConsoleUI
 
 				OnClosed?.Invoke(this, EventArgs.Empty);
 
-				foreach (var content in _content)
+				foreach (var content in _controls)
 				{
 					(content as IWIndowControl).Dispose();
 				}
@@ -333,6 +345,14 @@ namespace SharpConsoleUI
 			}
 
 			return false;
+		}
+
+		public bool ContainsControl(IWIndowControl content)
+		{
+			lock (_lock)
+			{
+				return _controls.Contains(content);
+			}
 		}
 
 		public IWIndowControl? GetContentFromDesktopCoordinates(Point? point)
@@ -368,7 +388,7 @@ namespace SharpConsoleUI
 				int contentIndex = point?.Y ?? 0 + _scrollOffset;
 
 				// Iterate through the content to find the one that matches the coordinates
-				foreach (var content in _content)
+				foreach (var content in _controls)
 				{
 					int contentTop = _contentTopRowIndex[content];
 					int contentBottom = contentTop + content.RenderContent(Width - 2, Height - 2).Count;
@@ -380,6 +400,50 @@ namespace SharpConsoleUI
 				}
 
 				return null;
+			}
+		}
+
+		public IWIndowControl? GetControlByIndex(int index)
+		{
+			lock (_lock)
+			{
+				if (index >= 0 && index < _controls.Count)
+				{
+					return _controls[index];
+				}
+				return null;
+			}
+		}
+
+		public IWIndowControl? GetControlByTag<T>(string tag) where T : IWIndowControl
+		{
+			lock (_lock)
+			{
+				return _controls.FirstOrDefault(c => c is T && c.Tag?.ToString() == tag);
+			}
+		}
+
+		public List<IWIndowControl> GetControls()
+		{
+			lock (_lock)
+			{
+				return _controls.ToList(); // Return a copy to avoid external modification
+			}
+		}
+
+		public List<T> GetControlsByType<T>() where T : IWIndowControl
+		{
+			lock (_lock)
+			{
+				return _controls.OfType<T>().ToList();
+			}
+		}
+
+		public int GetControlsCount()
+		{
+			lock (_lock)
+			{
+				return _controls.Count;
 			}
 		}
 
@@ -456,7 +520,7 @@ namespace SharpConsoleUI
 			{
 				if (redrawAll)
 				{
-					foreach (var content in _content)
+					foreach (var content in _controls)
 					{
 						(content as IWIndowControl)?.Invalidate();
 					}
@@ -534,7 +598,7 @@ namespace SharpConsoleUI
 		{
 			lock (_lock)
 			{
-				if (_content.Remove(content))
+				if (_controls.Remove(content))
 				{
 					if (content is IInteractiveControl interactiveContent)
 					{
@@ -580,7 +644,7 @@ namespace SharpConsoleUI
 					_topStickyHeight = 0;
 					_topStickyLines.Clear();
 
-					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Top && c.Visible == true))
+					foreach (var content in _controls.Where(c => c.StickyPosition == StickyPosition.Top && c.Visible == true))
 					{
 						// Store the top row index for the current content
 						_contentTopRowIndex[content] = _topStickyHeight;
@@ -604,7 +668,7 @@ namespace SharpConsoleUI
 					_bottomStickyHeight = 0;
 					_bottomStickyLines.Clear();
 
-					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.Bottom && c.Visible == true))
+					foreach (var content in _controls.Where(c => c.StickyPosition == StickyPosition.Bottom && c.Visible == true))
 					{
 						// Track the position of sticky content
 						_contentTopRowIndex[content] = lines.Count + _bottomStickyLines.Count;
@@ -623,7 +687,7 @@ namespace SharpConsoleUI
 					}
 
 					// Process normal content next (non-sticky)
-					foreach (var content in _content.Where(c => c.StickyPosition == StickyPosition.None && c.Visible == true))
+					foreach (var content in _controls.Where(c => c.StickyPosition == StickyPosition.None && c.Visible == true))
 					{
 						// Store the top row index for the current content
 						_contentTopRowIndex[content] = lines.Count + _topStickyHeight;
@@ -787,6 +851,20 @@ namespace SharpConsoleUI
 			if (_lastFocusedControl != null)
 			{
 				_lastFocusedControl.SetFocus(false, false);
+			}
+		}
+
+		public void UpdateContentOrder(IWIndowControl content, int newIndex)
+		{
+			lock (_lock)
+			{
+				if (_controls.Contains(content) && newIndex >= 0 && newIndex < _controls.Count)
+				{
+					_controls.Remove(content);
+					_controls.Insert(newIndex, content);
+					_invalidated = true;
+					Invalidate(true);
+				}
 			}
 		}
 

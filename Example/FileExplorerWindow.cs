@@ -39,9 +39,9 @@ namespace SharpConsoleUI.Example
 				StickyPosition = StickyPosition.Top
 			};
 
-			_window.AddContent(buttonContainer);
+			_window.AddControl(buttonContainer);
 
-			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Top });
+			_window.AddControl(new RuleControl() { StickyPosition = StickyPosition.Top });
 
 			// Create status display
 			_statusControl = new MarkupControl(new List<string> { "No folder selected" })
@@ -162,10 +162,10 @@ namespace SharpConsoleUI.Example
 			mainPanel.AddColumn(_itemsColumn);
 			mainPanel.AddSplitter(0, new SplitterControl());
 
-			_window.AddContent(mainPanel);
+			_window.AddControl(mainPanel);
 
-			_window.AddContent(new RuleControl() { StickyPosition = StickyPosition.Bottom });
-			_window.AddContent(_statusControl);
+			_window.AddControl(new RuleControl() { StickyPosition = StickyPosition.Bottom });
+			_window.AddControl(_statusControl);
 
 			ColumnContainer expandButtonColumn = new ColumnContainer(buttonContainer);
 			ColumnContainer collapseButtonColumn = new ColumnContainer(buttonContainer);
