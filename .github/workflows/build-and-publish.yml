@@ -40,13 +40,13 @@ jobs:
         echo "NuGetVersionV2: ${{ steps.gitversion.outputs.nuGetVersionV2 }}"
         
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore SharpConsoleUI/SharpConsoleUI.csproj
       
     - name: Build
-      run: dotnet build --configuration Release --no-restore /p:Version=${{ steps.gitversion.outputs.nuGetVersionV2 }}
+      run: dotnet build SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-restore /p:Version=${{ steps.gitversion.outputs.nuGetVersionV2 }}
       
     - name: Test
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test SharpConsoleUI/SharpConsoleUI.csproj --no-build --verbosity normal
       
     - name: Package
       run: dotnet pack SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-build --output ./nupkgs /p:Version=${{ steps.gitversion.outputs.nuGetVersionV2 }}
