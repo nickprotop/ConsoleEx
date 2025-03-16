@@ -10,7 +10,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI;
 using Spectre.Console;
 
-namespace ConsoleEx.Example
+namespace SharpConsoleUI.Example
 {
 	public class ClockWindow
 	{

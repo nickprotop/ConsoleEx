@@ -10,7 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ConsoleEx.Example
+namespace SharpConsoleUI.Example
 {
 	public class CommandWindow
 	{

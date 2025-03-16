@@ -10,7 +10,7 @@ using Spectre.Console;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI;
 
-namespace ConsoleEx.Example
+namespace SharpConsoleUI.Example
 {
 	public class DropDownWindow
 	{
