@@ -7,8 +7,12 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
+using System.Drawing;
 using System.Text;
+using Color = Spectre.Console.Color;
+using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI.Controls
 {
@@ -26,7 +30,7 @@ namespace SharpConsoleUI.Controls
 		WrapWords
 	}
 
-	public class MultilineEditControl : IWIndowControl, IInteractiveControl
+	public class MultilineEditControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
 	{
 		private Alignment _alignment = Alignment.Left;
 
@@ -2014,6 +2018,55 @@ namespace SharpConsoleUI.Controls
 			}
 
 			return result;
+		}
+
+		// ILogicalCursorProvider implementation
+		public Point? GetLogicalCursorPosition()
+		{
+			// Return the logical cursor position in content coordinates
+			// This is the raw cursor position without any visual adjustments
+			return new Point(_cursorX, _cursorY);
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			// Return the logical size of the content
+			if (_wrapMode != WrapMode.NoWrap && _effectiveWidth > 0)
+			{
+				// For wrapped content, calculate total wrapped lines
+				int totalWrappedLines = 0;
+				foreach (var line in _lines)
+				{
+					int lineLength = line.Length;
+					totalWrappedLines += lineLength > 0 ? ((lineLength - 1) / _effectiveWidth) + 1 : 1;
+				}
+				return new System.Drawing.Size(_effectiveWidth, totalWrappedLines);
+			}
+			else
+			{
+				// For non-wrapped content
+				int maxWidth = _lines.Count > 0 ? _lines.Max(line => line.Length) : 0;
+				return new System.Drawing.Size(maxWidth, _lines.Count);
+			}
+		}
+
+		public void SetLogicalCursorPosition(Point position)
+		{
+			// Set the logical cursor position and ensure it's valid
+			_cursorX = Math.Max(0, position.X);
+			_cursorY = Math.Max(0, Math.Min(position.Y, _lines.Count - 1));
+			
+			// Ensure X position is within the current line bounds
+			if (_cursorY < _lines.Count)
+			{
+				_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+			}
+			
+			// Update visual scroll position to ensure cursor is visible
+			EnsureCursorVisible();
+			
+			// Invalidate the control for redraw
+			Container?.Invalidate(true);
 		}
 	}
 }

@@ -10,6 +10,7 @@ using Spectre.Console;
 using System.Collections.Concurrent;
 using SharpConsoleUI.Themes;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Events;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -350,6 +351,254 @@ namespace SharpConsoleUI
 			return new Point(relativeLeft, relativeTop);
 		}
 
+		/// <summary>
+		/// Invalidates only the regions that are newly exposed after a window move/resize operation
+		/// This happens AFTER the window is already in its new position
+		/// </summary>
+		private void InvalidateExposedRegions(Window movedWindow, Rectangle oldBounds)
+		{
+			// Calculate what regions were covered by the old window but are not covered by the new window
+			var newBounds = new Rectangle(movedWindow.Left, movedWindow.Top, movedWindow.Width, movedWindow.Height);
+			var exposedRegions = CalculateExposedRegions(oldBounds, newBounds);
+
+			if (exposedRegions.Count == 0)
+				return; // No exposed regions, nothing to do
+
+			// Merge small adjacent regions to reduce flicker and improve performance
+			var optimizedRegions = OptimizeExposedRegions(exposedRegions);
+
+			// For each exposed region, redraw what should be there based on Z-order
+			foreach (var exposedRegion in optimizedRegions)
+			{
+				RedrawExposedRegion(exposedRegion, movedWindow.ZIndex);
+			}
+		}
+
+		/// <summary>
+		/// Optimize exposed regions by merging small adjacent rectangles
+		/// </summary>
+		private List<Rectangle> OptimizeExposedRegions(List<Rectangle> regions)
+		{
+			// For now, just return the original regions
+			// Could be enhanced later to merge adjacent rectangles
+			return regions.Where(r => r.Width > 0 && r.Height > 0).ToList();
+		}
+
+		/// <summary>
+		/// Calculate regions that were covered by oldBounds but are not covered by newBounds
+		/// </summary>
+		private List<Rectangle> CalculateExposedRegions(Rectangle oldBounds, Rectangle newBounds)
+		{
+			// If the old and new bounds are the same, no exposed regions
+			if (oldBounds.Equals(newBounds))
+				return new List<Rectangle>();
+			
+			// If there's no overlap between old and new, the entire old bounds is exposed
+			if (!DoesRectangleIntersect(oldBounds, newBounds))
+				return new List<Rectangle> { oldBounds };
+			
+			// Start with the old bounds
+			var regions = new List<Rectangle> { oldBounds };
+			
+			// Subtract the new bounds from the old bounds to get exposed areas
+			return SubtractRectangleFromRegions(regions, newBounds);
+		}
+
+		/// <summary>
+		/// Redraw a specific exposed region by finding what should be visible there
+		/// </summary>
+		private void RedrawExposedRegion(Rectangle exposedRegion, int movedWindowZIndex)
+		{
+			// Find all windows that could be visible in this region (with lower Z-index than the moved window)
+			var candidateWindows = _windows.Values
+				.Where(w => w.ZIndex < movedWindowZIndex) // Only windows that were underneath
+				.Where(w => DoesRectangleOverlapWindow(exposedRegion, w))
+				.OrderBy(w => w.ZIndex) // Process in Z-order (bottom to top)
+				.ToList();
+
+			// Start by clearing the region with desktop background
+			_renderer.FillRect(exposedRegion.X, exposedRegion.Y, exposedRegion.Width, exposedRegion.Height,
+				Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+
+			// Redraw each candidate window in the exposed region (in Z-order)
+			foreach (var candidateWindow in candidateWindows)
+			{
+				var intersection = GetRectangleIntersection(exposedRegion,
+					new Rectangle(candidateWindow.Left, candidateWindow.Top, candidateWindow.Width, candidateWindow.Height));
+				
+				if (!intersection.IsEmpty)
+				{
+					// Calculate what part of this window should be visible in the intersection
+					// (considering other windows that might be on top of it)
+					var windowsAbove = candidateWindows
+						.Where(w => w.ZIndex > candidateWindow.ZIndex && w.ZIndex < movedWindowZIndex)
+						.ToList();
+
+					// Calculate which parts of the intersection are not covered by windows above
+					var uncoveredRegions = CalculateUncoveredRegions(intersection, windowsAbove);
+
+					// Render only the uncovered parts of this window
+					foreach (var uncoveredRegion in uncoveredRegions)
+					{
+						_renderer.RenderRegion(candidateWindow, uncoveredRegion);
+					}
+				}
+			}
+			
+		}
+
+		/// <summary>
+		/// Helper method to check if a rectangle overlaps with a window
+		/// </summary>
+		private bool DoesRectangleOverlapWindow(Rectangle rect, Window window)
+		{
+			return rect.X < window.Left + window.Width &&
+				   rect.X + rect.Width > window.Left &&
+				   rect.Y < window.Top + window.Height &&
+				   rect.Y + rect.Height > window.Top;
+		}
+
+		/// <summary>
+		/// Subtract a rectangle from a list of regions, similar to VisibleRegions.SubtractRectangle but simpler
+		/// </summary>
+		private List<Rectangle> SubtractRectangleFromRegions(List<Rectangle> regions, Rectangle subtract)
+		{
+			var result = new List<Rectangle>();
+
+			foreach (var region in regions)
+			{
+				// If regions don't intersect, keep the original region
+				if (!DoesRectangleIntersect(region, subtract))
+				{
+					result.Add(region);
+					continue;
+				}
+
+				// Calculate the intersection
+				var intersection = GetRectangleIntersection(region, subtract);
+
+				// If region is completely covered, skip it
+				if (intersection.Width == region.Width && intersection.Height == region.Height)
+				{
+					continue;
+				}
+
+				// Split the region into up to 4 sub-regions around the intersection
+
+				// Region above the intersection
+				if (intersection.Y > region.Y)
+				{
+					result.Add(new Rectangle(region.X, region.Y, region.Width, intersection.Y - region.Y));
+				}
+
+				// Region below the intersection
+				if (intersection.Y + intersection.Height < region.Y + region.Height)
+				{
+					result.Add(new Rectangle(region.X, intersection.Y + intersection.Height, region.Width,
+						region.Y + region.Height - (intersection.Y + intersection.Height)));
+				}
+
+				// Region to the left of the intersection
+				if (intersection.X > region.X)
+				{
+					result.Add(new Rectangle(region.X, intersection.Y, intersection.X - region.X, intersection.Height));
+				}
+
+				// Region to the right of the intersection
+				if (intersection.X + intersection.Width < region.X + region.Width)
+				{
+					result.Add(new Rectangle(intersection.X + intersection.Width, intersection.Y,
+						region.X + region.Width - (intersection.X + intersection.Width), intersection.Height));
+				}
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Helper method to check if two rectangles intersect
+		/// </summary>
+		private bool DoesRectangleIntersect(Rectangle rect1, Rectangle rect2)
+		{
+			return rect1.X < rect2.X + rect2.Width &&
+				   rect1.X + rect1.Width > rect2.X &&
+				   rect1.Y < rect2.Y + rect2.Height &&
+				   rect1.Y + rect1.Height > rect2.Y;
+		}
+
+		/// <summary>
+		/// Calculate which parts of a region are not covered by a list of windows
+		/// </summary>
+		private List<Rectangle> CalculateUncoveredRegions(Rectangle region, List<Window> coveringWindows)
+		{
+			// Start with the entire region
+			var regions = new List<Rectangle> { region };
+
+			// Subtract each covering window's area
+			foreach (var window in coveringWindows)
+			{
+				var windowRect = new Rectangle(window.Left, window.Top, window.Width, window.Height);
+				regions = SubtractRectangleFromRegions(regions, windowRect);
+			}
+
+			return regions;
+		}
+
+		/// <summary>
+		/// Handles window clicks - activates inactive windows or propagates to active windows
+		/// </summary>
+		private void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
+		{
+			if (window != _activeWindow)
+			{
+				// Window is not active - activate it and stop propagation
+				SetActiveWindow(window);
+			}
+			else
+			{
+				// Window is already active - propagate the click event
+				PropagateMouseEventToWindow(window, flags, point);
+			}
+		}
+
+		/// <summary>
+		/// Propagates mouse events to the specified window
+		/// </summary>
+		private void PropagateMouseEventToWindow(Window window, List<MouseFlags> flags, Point point)
+		{
+			// Calculate window-relative coordinates
+			var windowPosition = TranslateToRelative(window, point);
+			
+			// Create mouse event arguments
+			var mouseArgs = new Events.MouseEventArgs(
+				flags,
+				windowPosition, // This will be recalculated for control-relative coordinates in the window
+				point, // Absolute desktop coordinates
+				windowPosition, // Window-relative coordinates
+				window
+			);
+
+			// Propagate to the window
+			window.ProcessWindowMouseEvent(mouseArgs);
+		}
+
+		/// <summary>
+		/// Helper method to calculate intersection of two rectangles
+		/// </summary>
+		private Rectangle GetRectangleIntersection(Rectangle rect1, Rectangle rect2)
+		{
+			int left = Math.Max(rect1.X, rect2.X);
+			int top = Math.Max(rect1.Y, rect2.Y);
+			int right = Math.Min(rect1.X + rect1.Width, rect2.X + rect2.Width);
+			int bottom = Math.Min(rect1.Y + rect1.Height, rect2.Y + rect2.Height);
+
+			if (left < right && top < bottom)
+				return new Rectangle(left, top, right - left, bottom - top);
+			else
+				return Rectangle.Empty;
+		}
+
+
 		private bool AnyWindowDirty()
 		{
 			return _windows.Values.Any(window => window.IsDirty);
@@ -462,7 +711,46 @@ namespace SharpConsoleUI
 
 		private void HandleMouseEvent(object sender, List<MouseFlags> flags, Point point)
 		{
-			// Handle mouse button press (start drag/resize)
+			// Handle mouse button release first (end drag/resize) - highest priority
+			if (flags.Contains(MouseFlags.Button1Released))
+			{
+				if (_isDragging || _isResizing)
+				{
+					// Force a final cleanup after drag/resize operations
+					if (_isResizing || _isDragging)
+					{
+						// Invalidate the window that was moved/resized for a final clean redraw
+						if (_dragWindow != null)
+						{
+							_dragWindow.Invalidate(true);
+						}
+					}
+					
+					_isDragging = false;
+					_isResizing = false;
+					_dragWindow = null;
+					_resizeDirection = ResizeDirection.None;
+					return;
+				}
+			}
+
+			// Handle mouse movement during drag/resize operations - second priority
+			if ((_isDragging || _isResizing) && _dragWindow != null)
+			{
+				// Handle any mouse movement when in drag/resize mode
+				if (_isDragging)
+				{
+					HandleWindowMove(point);
+					return;
+				}
+				else if (_isResizing)
+				{
+					HandleWindowResize(point);
+					return;
+				}
+			}
+
+			// Handle mouse button press (start drag/resize) - third priority
 			if (flags.Contains(MouseFlags.Button1Pressed) && !_isDragging && !_isResizing)
 			{
 				var window = GetWindowAtPoint(point);
@@ -503,57 +791,25 @@ namespace SharpConsoleUI
 				}
 			}
 
-			// Handle mouse movement during drag/resize operations
-			// Check for ANY mouse event with position when we're in drag/resize mode
-			if (_isDragging || _isResizing)
-			{
-				if (_isDragging && _dragWindow != null)
-				{
-					HandleWindowMove(point);
-					return;
-				}
-				else if (_isResizing && _dragWindow != null)
-				{
-					HandleWindowResize(point);
-					return;
-				}
-			}
-
-			// Also handle explicit mouse position reports
-			if (flags.Contains(MouseFlags.ReportMousePosition))
-			{
-				if (_isDragging && _dragWindow != null)
-				{
-					HandleWindowMove(point);
-					return;
-				}
-				else if (_isResizing && _dragWindow != null)
-				{
-					HandleWindowResize(point);
-					return;
-				}
-			}
-
-			// Handle mouse button release (end drag/resize)
-			if (flags.Contains(MouseFlags.Button1Released))
-			{
-				if (_isDragging || _isResizing)
-				{
-					_isDragging = false;
-					_isResizing = false;
-					_dragWindow = null;
-					_resizeDirection = ResizeDirection.None;
-					return;
-				}
-			}
-
-			// Handle mouse clicks for window activation (when not dragging)
+			// Handle mouse clicks for window activation and event propagation (when not dragging) - lowest priority
 			if (flags.Contains(MouseFlags.Button1Clicked) && !_isDragging && !_isResizing)
 			{
 				var window = GetWindowAtPoint(point);
-				if (window != null && window != _activeWindow)
+				if (window != null)
 				{
-					SetActiveWindow(window);
+					HandleWindowClick(window, flags, point);
+				}
+			}
+			
+			// Handle other mouse events for active window propagation
+			if (_activeWindow != null && !_isDragging && !_isResizing)
+			{
+				// Check if mouse event is over the active window
+				var windowAtPoint = GetWindowAtPoint(point);
+				if (windowAtPoint == _activeWindow)
+				{
+					// Propagate mouse event to the active window
+					PropagateMouseEventToWindow(_activeWindow, flags, point);
 				}
 			}
 		}
@@ -563,8 +819,9 @@ namespace SharpConsoleUI
 			// Convert to window-relative coordinates
 			var relativePoint = TranslateToRelative(window, point);
 			
-			// Define resize border thickness - make it larger for easier grabbing
+			// Define resize border thickness
 			const int borderThickness = 2;
+			const int cornerSize = 3; // Must match title bar corner exclusion
 			
 			// Check if point is within expanded window bounds for resize detection
 			if (relativePoint.X < -borderThickness || relativePoint.X >= window.Width + borderThickness ||
@@ -573,20 +830,37 @@ namespace SharpConsoleUI
 				return ResizeDirection.None;
 			}
 
-			// Check if we're on the border areas
+			// IMPORTANT: Exclude title bar area (Y=0) from TOP resize detection to allow window moving
+			// Only allow top resize when NOT in the title bar row
 			bool onLeftBorder = relativePoint.X < borderThickness;
 			bool onRightBorder = relativePoint.X >= window.Width - borderThickness;
-			bool onTopBorder = relativePoint.Y < borderThickness;
+			bool onTopBorder = relativePoint.Y < borderThickness && relativePoint.Y != 0; // Exclude title bar
 			bool onBottomBorder = relativePoint.Y >= window.Height - borderThickness;
+			
+			// For corner detection, only allow top corners when NOT in title bar center area
+			bool inTitleBarCorner = relativePoint.Y == 0 && 
+									   (relativePoint.X < cornerSize || relativePoint.X >= window.Width - cornerSize);
 
-			// Corner resize areas (prioritized over edges)
-			if (onTopBorder && onLeftBorder) return ResizeDirection.TopLeft;
-			if (onTopBorder && onRightBorder) return ResizeDirection.TopRight;
+			// Corner resize areas (only allow top corners in title bar corner zones)
+			if (relativePoint.Y == 0)
+			{
+				// In title bar row - only allow corner resize in the corner zones
+				if (inTitleBarCorner && onLeftBorder) return ResizeDirection.TopLeft;
+				if (inTitleBarCorner && onRightBorder) return ResizeDirection.TopRight;
+			}
+			else
+			{
+				// Not in title bar - allow all corner combinations
+				if (onTopBorder && onLeftBorder) return ResizeDirection.TopLeft;
+				if (onTopBorder && onRightBorder) return ResizeDirection.TopRight;
+			}
+			
+			// Bottom corners work normally
 			if (onBottomBorder && onLeftBorder) return ResizeDirection.BottomLeft;
 			if (onBottomBorder && onRightBorder) return ResizeDirection.BottomRight;
 
 			// Edge resize areas
-			if (onTopBorder) return ResizeDirection.Top;
+			if (onTopBorder) return ResizeDirection.Top; // This won't trigger for Y=0 due to exclusion above
 			if (onBottomBorder) return ResizeDirection.Bottom;
 			if (onLeftBorder) return ResizeDirection.Left;
 			if (onRightBorder) return ResizeDirection.Right;
@@ -598,17 +872,31 @@ namespace SharpConsoleUI
 		{
 			var relativePoint = TranslateToRelative(window, point);
 			
-			// Title bar is the top row of the window, but exclude the resize border areas
-			// This prevents conflicts between title bar dragging and top border resizing
-			const int borderThickness = 2;
-			return relativePoint.Y == 0 && 
-				   relativePoint.X >= borderThickness && 
-				   relativePoint.X < window.Width - borderThickness;
+			// Title bar is the top row of the window, but exclude the resize corner areas
+			// This prevents conflicts between title bar dragging and corner resizing
+			const int cornerSize = 3; // Slightly larger corner exclusion for better UX
+			
+			// Must be in the top row
+			if (relativePoint.Y != 0)
+				return false;
+			
+			// Must be within window bounds
+			if (relativePoint.X < 0 || relativePoint.X >= window.Width)
+				return false;
+			
+			// Exclude corner areas where resize handles take precedence
+			if (relativePoint.X < cornerSize || relativePoint.X >= window.Width - cornerSize)
+				return false;
+			
+			return true;
 		}
 
 		private void HandleWindowMove(Point currentMousePos)
 		{
 			if (_dragWindow == null) return;
+
+			// Store the current window bounds before moving
+			var oldBounds = new Rectangle(_dragWindow.Left, _dragWindow.Top, _dragWindow.Width, _dragWindow.Height);
 
 			// Calculate the offset from the start position
 			int deltaX = currentMousePos.X - _dragStartPos.X;
@@ -622,13 +910,26 @@ namespace SharpConsoleUI
 			newLeft = Math.Max(DesktopUpperLeft.X, Math.Min(newLeft, DesktopBottomRight.X - _dragWindow.Width + 1));
 			newTop = Math.Max(DesktopUpperLeft.Y, Math.Min(newTop, DesktopBottomRight.Y - _dragWindow.Height + 1));
 
-			// Apply the new position
-			_dragWindow.SetPosition(new Point(newLeft, newTop));
+			// Only update if position actually changed
+			if (newLeft != _dragWindow.Left || newTop != _dragWindow.Top)
+			{
+				// Apply the new position first
+				_dragWindow.SetPosition(new Point(newLeft, newTop));
+				
+				// Force redraw of the window at its new position
+				_dragWindow.Invalidate(true);
+
+				// THEN invalidate only the exposed regions (areas that were covered but now aren't)
+				InvalidateExposedRegions(_dragWindow, oldBounds);
+			}
 		}
 
 		private void HandleWindowResize(Point currentMousePos)
 		{
 			if (_dragWindow == null) return;
+
+			// Store the current window bounds before resizing
+			var oldBounds = new Rectangle(_dragWindow.Left, _dragWindow.Top, _dragWindow.Width, _dragWindow.Height);
 
 			// Calculate the offset from the start position
 			int deltaX = currentMousePos.X - _dragStartPos.X;
@@ -697,9 +998,20 @@ namespace SharpConsoleUI
 			newWidth = Math.Min(newWidth, DesktopBottomRight.X - newLeft + 1);
 			newHeight = Math.Min(newHeight, DesktopBottomRight.Y - newTop + 1);
 
-			// Apply the new position and size
-			_dragWindow.SetPosition(new Point(newLeft, newTop));
-			_dragWindow.SetSize(newWidth, newHeight);
+			// Only update if position or size actually changed
+			if (newLeft != _dragWindow.Left || newTop != _dragWindow.Top || 
+				newWidth != _dragWindow.Width || newHeight != _dragWindow.Height)
+			{
+				// Apply the new position and size first
+				_dragWindow.SetPosition(new Point(newLeft, newTop));
+				_dragWindow.SetSize(newWidth, newHeight);
+				
+				// Force redraw of the window at its new position and size
+				_dragWindow.Invalidate(true);
+
+				// THEN invalidate only the exposed regions (areas that were covered but now aren't)
+				InvalidateExposedRegions(_dragWindow, oldBounds);
+			}
 		}
 
 		private bool HandleMoveInput(ConsoleKeyInfo key)

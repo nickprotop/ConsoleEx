@@ -7,6 +7,9 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Events;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Layout;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
@@ -55,6 +58,7 @@ namespace SharpConsoleUI
 		private readonly object _lock = new();
 
 		private readonly Window? _parentWindow;
+		private readonly WindowLayoutManager _layoutManager;
 		private Color? _activeBorderForegroundColor;
 		private Color? _activeTitleForegroundColor;
 		private int _bottomStickyHeight;
@@ -110,6 +114,7 @@ namespace SharpConsoleUI
 
 			_windowSystem = windowSystem;
 			_parentWindow = parentWindow;
+			_layoutManager = new WindowLayoutManager(this);
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
 			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
@@ -124,6 +129,7 @@ namespace SharpConsoleUI
 
 			_windowSystem = windowSystem;
 			_parentWindow = parentWindow;
+			_layoutManager = new WindowLayoutManager(this);
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
 			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
@@ -403,6 +409,163 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Handles mouse events for this window and propagates them to controls
+		/// </summary>
+		/// <param name="args">Mouse event arguments with window-relative coordinates</param>
+		/// <returns>True if the event was handled</returns>
+		public bool ProcessWindowMouseEvent(Events.MouseEventArgs args)
+		{
+			lock (_lock)
+			{
+				// Check if the click is within the window content area (not borders/title)
+				if (IsClickInWindowContent(args.WindowPosition))
+				{
+					// Find the control at this position
+					var targetControl = GetContentFromWindowCoordinates(GetContentCoordinates(args.WindowPosition));
+					
+					if (targetControl != null)
+					{
+						// Handle focus management for mouse clicks
+						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+						{
+							HandleControlFocusFromMouse(targetControl);
+						}
+
+						// Propagate mouse event to control if it supports mouse events
+						if (targetControl is Controls.IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
+						{
+							// Calculate control-relative coordinates
+							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
+							var controlArgs = args.WithPosition(controlPosition);
+							
+							return mouseAware.ProcessMouseEvent(controlArgs);
+						}
+						
+						// Event was handled by focus change even if control doesn't support mouse
+						return true;
+					}
+				}
+				
+				return false; // Event not handled
+			}
+		}
+
+		/// <summary>
+		/// Checks if a window-relative position is within the content area (not title bar or borders)
+		/// </summary>
+		private bool IsClickInWindowContent(Point windowPosition)
+		{
+			// Window content starts at (1,1) to account for borders
+			// Title bar is at Y=0, so content starts at Y=1
+			return windowPosition.X >= 1 && windowPosition.X < Width - 1 &&
+				   windowPosition.Y >= 1 && windowPosition.Y < Height - 1;
+		}
+
+		/// <summary>
+		/// Converts window-relative coordinates to content coordinates (accounting for borders and scroll)
+		/// </summary>
+		private Point GetContentCoordinates(Point windowPosition)
+		{
+			// Subtract border offset and add scroll offset
+			return new Point(windowPosition.X - 1, windowPosition.Y - 1 + _scrollOffset);
+		}
+
+		/// <summary>
+		/// Calculates the position relative to a specific control using the new layout system
+		/// </summary>
+		private Point GetControlRelativePosition(IWIndowControl control, Point windowPosition)
+		{
+			// Try to use the new layout manager first
+			var bounds = _layoutManager.GetControlBounds(control);
+			if (bounds != null)
+			{
+				return bounds.WindowToControl(windowPosition);
+			}
+			
+			// Fallback to legacy calculation for controls not yet using the new system
+			int controlTop = _contentTopRowIndex.ContainsKey(control) ? _contentTopRowIndex[control] : 0;
+			int controlLeft = _contentLeftIndex.ContainsKey(control) ? _contentLeftIndex[control] : 0;
+			
+			// Convert to content coordinates first
+			var contentPos = GetContentCoordinates(windowPosition);
+			
+			// Calculate relative to control
+			return new Point(contentPos.X - controlLeft, contentPos.Y - controlTop);
+		}
+
+		/// <summary>
+		/// Handles focus management when a control is clicked
+		/// </summary>
+		private void HandleControlFocusFromMouse(IWIndowControl control)
+		{
+			// Check if control can receive focus
+			if (control is Controls.IFocusableControl focusable && focusable.CanReceiveFocus)
+			{
+				// Remove focus from current control
+				if (_lastFocusedControl is IInteractiveControl currentFocused && currentFocused != focusable)
+				{
+					currentFocused.SetFocus(false, false);
+				}
+				
+				// Set focus to new control
+				focusable.SetFocus(true, Controls.FocusReason.Mouse);
+				_lastFocusedControl = focusable as IInteractiveControl;
+			}
+		}
+
+		/// <summary>
+		/// Updates the layout manager with current control positions and bounds
+		/// </summary>
+		private void UpdateControlLayout()
+		{
+			lock (_lock)
+			{
+				// Update control bounds for each control
+				foreach (var control in _controls)
+				{
+					var bounds = _layoutManager.GetOrCreateControlBounds(control);
+					
+					// Update bounds based on current layout
+					if (_contentTopRowIndex.ContainsKey(control) && _contentLeftIndex.ContainsKey(control))
+					{
+						var contentTop = _contentTopRowIndex[control];
+						var contentLeft = _contentLeftIndex[control];
+						
+						// Calculate control content bounds within window content area
+						var renderedContent = control.RenderContent(Width - 2, Height - 2);
+						bounds.ControlContentBounds = new Rectangle(
+							contentLeft,
+							contentTop,
+							control.ActualWidth ?? (renderedContent.FirstOrDefault()?.Length ?? 0),
+							renderedContent.Count
+						);
+						
+						// Set viewport size (available area for content)
+						bounds.ViewportSize = new Size(
+							Width - 2,  // Available width minus borders
+							Height - 2  // Available height minus borders  
+						);
+						
+						// Handle scrolling for controls that support it
+						if (control is MultilineEditControl)
+						{
+							bounds.HasInternalScrolling = true;
+							// The control manages its own scrolling
+							bounds.ScrollOffset = Point.Empty;
+						}
+						else
+						{
+							bounds.HasInternalScrolling = false;
+							bounds.ScrollOffset = new Point(0, _scrollOffset);
+						}
+						
+						bounds.IsVisible = true; // For now, assume all controls are visible
+					}
+				}
+			}
+		}
+
 		public IWIndowControl? GetControlByIndex(int index)
 		{
 			lock (_lock)
@@ -474,37 +637,50 @@ namespace SharpConsoleUI
 		{
 			if (HasActiveInteractiveContent(out var activeInteractiveContent))
 			{
-				(int, int)? currentCursorPosition = activeInteractiveContent!.GetCursorPosition();
-
-				if (currentCursorPosition == null)
+				if (activeInteractiveContent is IWIndowControl control)
 				{
-					cursorPosition = new Point(0, 0);
-					return false;
+					// Use the new layout manager for coordinate translation
+					var windowCursorPos = _layoutManager.TranslateLogicalCursorToWindow(control);
+					if (windowCursorPos != null)
+					{
+						cursorPosition = windowCursorPos.Value;
+						
+						// Check if the cursor position is within the visible bounds
+						if (cursorPosition.Y > _topStickyHeight && control.StickyPosition == StickyPosition.Top)
+						{
+							return false;
+						}
+
+						if (cursorPosition.Y <= _topStickyHeight && control.StickyPosition != StickyPosition.Top)
+						{
+							return false;
+						}
+
+						if (cursorPosition.Y > Height - 2 - _bottomStickyHeight) return false;
+
+						return true;
+					}
 				}
-
-				int left = currentCursorPosition?.Item1 ?? 0;
-				int top = currentCursorPosition?.Item2 ?? 0;
-
-				if (activeInteractiveContent != null && activeInteractiveContent is IWIndowControl)
+				else
 				{
-					IWIndowControl? content = activeInteractiveContent as IWIndowControl;
+					// Fallback for legacy controls that don't implement ILogicalCursorProvider
+					(int, int)? currentCursorPosition = activeInteractiveContent!.GetCursorPosition();
 
-					cursorPosition = new Point(_contentLeftIndex[content!] + left + 1, _contentTopRowIndex[content!] + top + 1 - _scrollOffset);
-
-					// Check if the cursor position is within the visible bounds
-					if (cursorPosition.Y > _topStickyHeight && (activeInteractiveContent as IWIndowControl)?.StickyPosition == StickyPosition.Top)
+					if (currentCursorPosition == null)
 					{
+						cursorPosition = new Point(0, 0);
 						return false;
 					}
 
-					if (cursorPosition.Y <= _topStickyHeight && (activeInteractiveContent as IWIndowControl)?.StickyPosition != StickyPosition.Top)
+					int left = currentCursorPosition?.Item1 ?? 0;
+					int top = currentCursorPosition?.Item2 ?? 0;
+
+					if (activeInteractiveContent is IWIndowControl legacyControl)
 					{
-						return false;
+						// Legacy coordinate calculation - will be phased out
+						cursorPosition = new Point(_contentLeftIndex[legacyControl!] + left + 1, _contentTopRowIndex[legacyControl!] + top + 1 - _scrollOffset);
+						return true;
 					}
-
-					if (cursorPosition.Y > Height - 2 - _bottomStickyHeight) return false;
-
-					return true;
 				}
 			}
 
@@ -638,6 +814,8 @@ namespace SharpConsoleUI
 				// Only recalculate content if it's been invalidated
 				if (_invalidated)
 				{
+					// Update control layout information first
+					UpdateControlLayout();
 					List<string> lines = new List<string>();
 
 					// Process top sticky content first to ensure it is always on top

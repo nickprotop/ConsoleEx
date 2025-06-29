@@ -7,17 +7,20 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Events;
+using SharpConsoleUI.Drivers;
 using Spectre.Console;
 
 namespace SharpConsoleUI.Controls
 {
-	public class ButtonControl : IWIndowControl, IInteractiveControl
+	public class ButtonControl : IWIndowControl, IInteractiveControl, IMouseAwareControl, IFocusableControl
 	{
 		private Alignment _alignment = Alignment.Left;
 		private string? _cachedContent;
 		private bool _enabled = true;
 		private bool _focused;
 		private Margin _margin = new Margin(0, 0, 0, 0);
+		private Action<ButtonControl>? _onClick;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string _text = "Button";
 		private bool _visible = true;
@@ -52,8 +55,6 @@ namespace SharpConsoleUI.Controls
 
 		public Margin Margin
 		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
-
-		public Action<ButtonControl>? OnClick { get; set; }
 
 		public StickyPosition StickyPosition
 		{
@@ -103,7 +104,13 @@ namespace SharpConsoleUI.Controls
 		{
 			if (key.Key == ConsoleKey.Enter)
 			{
-				OnClick?.Invoke(this);
+				// Trigger the click event
+				TriggerClick(new MouseEventArgs(
+					new List<MouseFlags> { MouseFlags.Button1Clicked },
+					new System.Drawing.Point(0, 0), // No specific position for keyboard
+					new System.Drawing.Point(0, 0),
+					new System.Drawing.Point(0, 0)
+				));
 				return true;
 			}
 
@@ -212,6 +219,99 @@ namespace SharpConsoleUI.Controls
 		public void SetFocus(bool focus, bool backward)
 		{
 			HasFocus = focus;
+		}
+
+		// IMouseAwareControl implementation
+		public bool WantsMouseEvents => IsEnabled;
+		public bool CanFocusWithMouse => IsEnabled;
+
+		/// <summary>
+		/// Event fired when the button is clicked (by mouse or keyboard)
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <summary>
+		/// Convenience property for simple action-based click handling
+		/// </summary>
+		public Action<ButtonControl>? OnClick
+		{
+			get => _onClick;
+			set
+			{
+				if (_onClick != null)
+				{
+					// Remove previous handler
+					MouseClick -= OnClickHandler;
+				}
+				
+				_onClick = value;
+				
+				if (_onClick != null)
+				{
+					// Add new handler
+					MouseClick += OnClickHandler;
+				}
+			}
+		}
+
+		private void OnClickHandler(object? sender, MouseEventArgs args)
+		{
+			_onClick?.Invoke(this);
+		}
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+		public event EventHandler<MouseEventArgs>? MouseMove;
+
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+			if (!IsEnabled || !WantsMouseEvents)
+				return false;
+
+			// Handle mouse clicks
+			if (args.HasFlag(MouseFlags.Button1Clicked))
+			{
+				TriggerClick(args);
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle mouse movement (for future hover effects)
+			if (args.HasFlag(MouseFlags.ReportMousePosition))
+			{
+				MouseMove?.Invoke(this, args);
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Triggers the click event from either mouse or keyboard input
+		/// </summary>
+		private void TriggerClick(MouseEventArgs args)
+		{
+			// Fire the unified click event
+			MouseClick?.Invoke(this, args);
+		}
+
+		// IFocusableControl implementation
+		public bool CanReceiveFocus => IsEnabled;
+
+		public event EventHandler? GotFocus;
+		public event EventHandler? LostFocus;
+
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
+		{
+			var hadFocus = HasFocus;
+			HasFocus = focus;
+			
+			if (focus && !hadFocus)
+			{
+				GotFocus?.Invoke(this, EventArgs.Empty);
+			}
+			else if (!focus && hadFocus)
+			{
+				LostFocus?.Invoke(this, EventArgs.Empty);
+			}
 		}
 	}
 }

@@ -9,11 +9,14 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class PromptControl : IWIndowControl, IInteractiveControl
+	public class PromptControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
 	{
 		public Action<PromptControl, string>? OnEnter;
 		private List<string>? _cachedContent;
@@ -148,6 +151,47 @@ namespace SharpConsoleUI.Controls
 			if (_cachedContent == null) return null;
 			int visibleCursorPosition = _cursorPosition - _scrollOffset;
 			return (AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty) + visibleCursorPosition, (_cachedContent?.Count ?? 0) - 1);
+		}
+
+		// ILogicalCursorProvider implementation
+		public Point? GetLogicalCursorPosition()
+		{
+			// Return the logical cursor position within the input field
+			// This is the cursor position in the content coordinate system
+			return new Point(AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty) + _cursorPosition, 0);
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			// Return the size of the prompt content (prompt + input area)
+			string fullContent = (_prompt ?? string.Empty) + _input;
+			int width = Math.Max(AnsiConsoleHelper.StripSpectreLength(fullContent), _width ?? 0);
+			return new System.Drawing.Size(width, 1); // Single line control
+		}
+
+		public void SetLogicalCursorPosition(Point position)
+		{
+			// Calculate cursor position within the input field (excluding prompt length)
+			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+			int inputCursorPos = Math.Max(0, position.X - promptLength);
+			
+			// Clamp to valid input range
+			_cursorPosition = Math.Max(0, Math.Min(inputCursorPos, _input.Length));
+			
+			// Update scroll offset if needed
+			if (_inputWidth.HasValue)
+			{
+				if (_cursorPosition < _scrollOffset)
+				{
+					SetScrollOffset(_cursorPosition);
+				}
+				else if (_cursorPosition >= _scrollOffset + _inputWidth.Value)
+				{
+					SetScrollOffset(_cursorPosition - _inputWidth.Value + 1);
+				}
+			}
+			
+			Container?.Invalidate(false, this);
 		}
 
 		public void Invalidate()

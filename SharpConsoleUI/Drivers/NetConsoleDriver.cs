@@ -336,7 +336,13 @@ namespace SharpConsoleUI.Drivers
 								if (ansiSequence.ToString().StartsWith("<") && (ansiSequence.ToString().EndsWith("M") || ansiSequence.ToString().EndsWith("m")))
 								{
 									// Use SequenceHelper for SGR mouse parsing (supports unlimited coordinates)
-									SequenceHelper.GetMouse(consoleKeyInfoSequence.ToArray(), out List<MouseFlags> mouseFlags, out Point pos, (flags, position) => { });
+									// Provide proper continuous button press handler for drag operations
+									SequenceHelper.GetMouse(consoleKeyInfoSequence.ToArray(), out List<MouseFlags> mouseFlags, out Point pos, 
+										(flags, position) => {
+											// Handle continuous mouse events (drag operations)
+											var continuousFlags = new List<MouseFlags> { flags };
+											MouseEvent?.Invoke(this, continuousFlags, position);
+										});
 									if (mouseFlags.Count > 0)
 									{
 										MouseEvent?.Invoke(this, mouseFlags, pos);
