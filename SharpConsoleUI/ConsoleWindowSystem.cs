@@ -14,6 +14,7 @@ using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
 using Color = Spectre.Console.Color;
+using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI
 {
@@ -31,6 +32,19 @@ namespace SharpConsoleUI
 		Move
 	}
 
+	public enum ResizeDirection
+	{
+		None,
+		Top,
+		Bottom,
+		Left,
+		Right,
+		TopLeft,
+		TopRight,
+		BottomLeft,
+		BottomRight
+	}
+
 	public class ConsoleWindowSystem
 	{
 		private readonly ConcurrentQueue<ConsoleKeyInfo> _inputQueue = new();
@@ -46,6 +60,15 @@ namespace SharpConsoleUI
 		private int _idleTime = 10;
 		private bool _running;
 		private bool _showTaskBar = true;
+
+		// Mouse drag state
+		private bool _isDragging = false;
+		private bool _isResizing = false;
+		private Window? _dragWindow = null;
+		private Point _dragStartPos = Point.Empty;
+		private Point _dragStartWindowPos = Point.Empty;
+		private Size _dragStartWindowSize = new Size(0, 0);
+		private ResizeDirection _resizeDirection = ResizeDirection.None;
 
 		public ConsoleWindowSystem(RenderMode renderMode)
 		{
@@ -405,8 +428,8 @@ namespace SharpConsoleUI
 				.Where(window =>
 					point.X >= window.Left &&
 					point.X < window.Left + window.Width &&
-					point.Y - DesktopUpperLeft.Y > window.Top &&
-					point.Y - DesktopUpperLeft.Y <= window.Top + window.Height)
+					point.Y - DesktopUpperLeft.Y >= window.Top &&
+					point.Y - DesktopUpperLeft.Y < window.Top + window.Height)
 				.OrderBy(window => window.ZIndex).ToList();
 
 			return windows.LastOrDefault();
@@ -439,16 +462,244 @@ namespace SharpConsoleUI
 
 		private void HandleMouseEvent(object sender, List<MouseFlags> flags, Point point)
 		{
-			if (flags.Contains(MouseFlags.Button1Clicked))
+			// Handle mouse button press (start drag/resize)
+			if (flags.Contains(MouseFlags.Button1Pressed) && !_isDragging && !_isResizing)
 			{
-				// Get window at the clicked point
+				var window = GetWindowAtPoint(point);
+				if (window != null)
+				{
+					// Activate the window if it's not already active
+					if (window != _activeWindow)
+					{
+						SetActiveWindow(window);
+					}
+
+					// Check if we're starting a resize operation
+					var resizeDirection = GetResizeDirection(window, point);
+					if (resizeDirection != ResizeDirection.None && window.IsResizable)
+					{
+						_isResizing = true;
+						_isDragging = false;
+						_dragWindow = window;
+						_dragStartPos = point;
+						_dragStartWindowPos = new Point(window.Left, window.Top);
+						_dragStartWindowSize = new Size(window.Width, window.Height);
+						_resizeDirection = resizeDirection;
+						return;
+					}
+
+					// Check if we're starting a move operation (title bar area)
+					if (IsInTitleBar(window, point) && window.IsMovable)
+					{
+						_isDragging = true;
+						_isResizing = false;
+						_dragWindow = window;
+						_dragStartPos = point;
+						_dragStartWindowPos = new Point(window.Left, window.Top);
+						_dragStartWindowSize = new Size(0, 0);
+						_resizeDirection = ResizeDirection.None;
+						return;
+					}
+				}
+			}
+
+			// Handle mouse movement during drag/resize operations
+			// Check for ANY mouse event with position when we're in drag/resize mode
+			if (_isDragging || _isResizing)
+			{
+				if (_isDragging && _dragWindow != null)
+				{
+					HandleWindowMove(point);
+					return;
+				}
+				else if (_isResizing && _dragWindow != null)
+				{
+					HandleWindowResize(point);
+					return;
+				}
+			}
+
+			// Also handle explicit mouse position reports
+			if (flags.Contains(MouseFlags.ReportMousePosition))
+			{
+				if (_isDragging && _dragWindow != null)
+				{
+					HandleWindowMove(point);
+					return;
+				}
+				else if (_isResizing && _dragWindow != null)
+				{
+					HandleWindowResize(point);
+					return;
+				}
+			}
+
+			// Handle mouse button release (end drag/resize)
+			if (flags.Contains(MouseFlags.Button1Released))
+			{
+				if (_isDragging || _isResizing)
+				{
+					_isDragging = false;
+					_isResizing = false;
+					_dragWindow = null;
+					_resizeDirection = ResizeDirection.None;
+					return;
+				}
+			}
+
+			// Handle mouse clicks for window activation (when not dragging)
+			if (flags.Contains(MouseFlags.Button1Clicked) && !_isDragging && !_isResizing)
+			{
 				var window = GetWindowAtPoint(point);
 				if (window != null && window != _activeWindow)
 				{
-					// Activate the window
 					SetActiveWindow(window);
 				}
 			}
+		}
+
+		private ResizeDirection GetResizeDirection(Window window, Point point)
+		{
+			// Convert to window-relative coordinates
+			var relativePoint = TranslateToRelative(window, point);
+			
+			// Define resize border thickness - make it larger for easier grabbing
+			const int borderThickness = 2;
+			
+			// Check if point is within expanded window bounds for resize detection
+			if (relativePoint.X < -borderThickness || relativePoint.X >= window.Width + borderThickness ||
+				relativePoint.Y < -borderThickness || relativePoint.Y >= window.Height + borderThickness)
+			{
+				return ResizeDirection.None;
+			}
+
+			// Check if we're on the border areas
+			bool onLeftBorder = relativePoint.X < borderThickness;
+			bool onRightBorder = relativePoint.X >= window.Width - borderThickness;
+			bool onTopBorder = relativePoint.Y < borderThickness;
+			bool onBottomBorder = relativePoint.Y >= window.Height - borderThickness;
+
+			// Corner resize areas (prioritized over edges)
+			if (onTopBorder && onLeftBorder) return ResizeDirection.TopLeft;
+			if (onTopBorder && onRightBorder) return ResizeDirection.TopRight;
+			if (onBottomBorder && onLeftBorder) return ResizeDirection.BottomLeft;
+			if (onBottomBorder && onRightBorder) return ResizeDirection.BottomRight;
+
+			// Edge resize areas
+			if (onTopBorder) return ResizeDirection.Top;
+			if (onBottomBorder) return ResizeDirection.Bottom;
+			if (onLeftBorder) return ResizeDirection.Left;
+			if (onRightBorder) return ResizeDirection.Right;
+
+			return ResizeDirection.None;
+		}
+
+		private bool IsInTitleBar(Window window, Point point)
+		{
+			var relativePoint = TranslateToRelative(window, point);
+			
+			// Title bar is the top row of the window, but exclude the resize border areas
+			// This prevents conflicts between title bar dragging and top border resizing
+			const int borderThickness = 2;
+			return relativePoint.Y == 0 && 
+				   relativePoint.X >= borderThickness && 
+				   relativePoint.X < window.Width - borderThickness;
+		}
+
+		private void HandleWindowMove(Point currentMousePos)
+		{
+			if (_dragWindow == null) return;
+
+			// Calculate the offset from the start position
+			int deltaX = currentMousePos.X - _dragStartPos.X;
+			int deltaY = currentMousePos.Y - _dragStartPos.Y;
+
+			// Calculate new position
+			int newLeft = _dragStartWindowPos.X + deltaX;
+			int newTop = _dragStartWindowPos.Y + deltaY;
+
+			// Constrain to desktop bounds
+			newLeft = Math.Max(DesktopUpperLeft.X, Math.Min(newLeft, DesktopBottomRight.X - _dragWindow.Width + 1));
+			newTop = Math.Max(DesktopUpperLeft.Y, Math.Min(newTop, DesktopBottomRight.Y - _dragWindow.Height + 1));
+
+			// Apply the new position
+			_dragWindow.SetPosition(new Point(newLeft, newTop));
+		}
+
+		private void HandleWindowResize(Point currentMousePos)
+		{
+			if (_dragWindow == null) return;
+
+			// Calculate the offset from the start position
+			int deltaX = currentMousePos.X - _dragStartPos.X;
+			int deltaY = currentMousePos.Y - _dragStartPos.Y;
+
+			// Calculate new position and size based on resize direction
+			int newLeft = _dragStartWindowPos.X;
+			int newTop = _dragStartWindowPos.Y;
+			int newWidth = _dragStartWindowSize.Width;
+			int newHeight = _dragStartWindowSize.Height;
+
+			switch (_resizeDirection)
+			{
+				case ResizeDirection.Top:
+					newTop = _dragStartWindowPos.Y + deltaY;
+					newHeight = _dragStartWindowSize.Height - deltaY;
+					break;
+				
+				case ResizeDirection.Bottom:
+					newHeight = _dragStartWindowSize.Height + deltaY;
+					break;
+				
+				case ResizeDirection.Left:
+					newLeft = _dragStartWindowPos.X + deltaX;
+					newWidth = _dragStartWindowSize.Width - deltaX;
+					break;
+				
+				case ResizeDirection.Right:
+					newWidth = _dragStartWindowSize.Width + deltaX;
+					break;
+				
+				case ResizeDirection.TopLeft:
+					newLeft = _dragStartWindowPos.X + deltaX;
+					newTop = _dragStartWindowPos.Y + deltaY;
+					newWidth = _dragStartWindowSize.Width - deltaX;
+					newHeight = _dragStartWindowSize.Height - deltaY;
+					break;
+				
+				case ResizeDirection.TopRight:
+					newTop = _dragStartWindowPos.Y + deltaY;
+					newWidth = _dragStartWindowSize.Width + deltaX;
+					newHeight = _dragStartWindowSize.Height - deltaY;
+					break;
+				
+				case ResizeDirection.BottomLeft:
+					newLeft = _dragStartWindowPos.X + deltaX;
+					newWidth = _dragStartWindowSize.Width - deltaX;
+					newHeight = _dragStartWindowSize.Height + deltaY;
+					break;
+				
+				case ResizeDirection.BottomRight:
+					newWidth = _dragStartWindowSize.Width + deltaX;
+					newHeight = _dragStartWindowSize.Height + deltaY;
+					break;
+			}
+
+			// Constrain to minimum/maximum sizes and desktop bounds
+			newWidth = Math.Max(10, newWidth); // Minimum width
+			newHeight = Math.Max(3, newHeight); // Minimum height
+			
+			// Constrain to desktop bounds
+			newLeft = Math.Max(DesktopUpperLeft.X, Math.Min(newLeft, DesktopBottomRight.X - newWidth + 1));
+			newTop = Math.Max(DesktopUpperLeft.Y, Math.Min(newTop, DesktopBottomRight.Y - newHeight + 1));
+			
+			// Ensure the window doesn't resize beyond desktop bounds
+			newWidth = Math.Min(newWidth, DesktopBottomRight.X - newLeft + 1);
+			newHeight = Math.Min(newHeight, DesktopBottomRight.Y - newTop + 1);
+
+			// Apply the new position and size
+			_dragWindow.SetPosition(new Point(newLeft, newTop));
+			_dragWindow.SetSize(newWidth, newHeight);
 		}
 
 		private bool HandleMoveInput(ConsoleKeyInfo key)

@@ -201,7 +201,12 @@ namespace SharpConsoleUI.Drivers
 
 			Console.CursorVisible = false;
 
-			Console.Out.Write(SequenceHelper.CSI_EnableMouseEvents);
+			// Enable mouse reporting in proper order: basic -> extended modes -> drag tracking
+			Console.Out.Write("\x1b[?1000h");  // Enable basic mouse reporting 
+			Console.Out.Write("\x1b[?1006h");  // Enable SGR extended mouse mode
+			Console.Out.Write("\x1b[?1015h");  // Enable urxvt extended mouse mode  
+			Console.Out.Write("\x1b[?1002h");  // Enable button event tracking (drag mode)
+			Console.Out.Write("\x1b[?1003h");  // Enable any event mouse (motion tracking)
 
 			_lastConsoleWidth = Console.WindowWidth;
 			_lastConsoleHeight = Console.WindowHeight;
@@ -213,6 +218,13 @@ namespace SharpConsoleUI.Drivers
 		public void Stop()
 		{
 			_running = false;
+
+			// Disable mouse reporting in reverse order
+			Console.Out.Write("\x1b[?1003l");  // Disable any event mouse
+			Console.Out.Write("\x1b[?1002l");  // Disable button event tracking (drag mode)
+			Console.Out.Write("\x1b[?1015l");  // Disable urxvt extended mouse mode
+			Console.Out.Write("\x1b[?1006l");  // Disable SGR extended mouse mode  
+			Console.Out.Write("\x1b[?1000l");  // Disable basic mouse reporting
 
 			Cleanup();
 
@@ -318,6 +330,18 @@ namespace SharpConsoleUI.Drivers
 										break;
 									}
 									ansiSequence.Append(ansiKey.KeyChar);
+								}
+
+								// Check if this is a SGR mouse sequence (format: ESC[<button;x;y M/m)
+								if (ansiSequence.ToString().StartsWith("<") && (ansiSequence.ToString().EndsWith("M") || ansiSequence.ToString().EndsWith("m")))
+								{
+									// Use SequenceHelper for SGR mouse parsing (supports unlimited coordinates)
+									SequenceHelper.GetMouse(consoleKeyInfoSequence.ToArray(), out List<MouseFlags> mouseFlags, out Point pos, (flags, position) => { });
+									if (mouseFlags.Count > 0)
+									{
+										MouseEvent?.Invoke(this, mouseFlags, pos);
+										continue;
+									}
 								}
 
 								var consoleKeyInfo = MapAnsiToConsoleKeyInfo(ansiSequence.ToString(), consoleKeyInfoSequence);
@@ -463,10 +487,9 @@ namespace SharpConsoleUI.Drivers
 					}
 					break;
 
-				// Media/Special keys
-				case 'M': // Mouse events (if needed)
-						  // We already have the initial ESC [ M sequence in consoleKeyInfoSequence
-						  // Need to read 3 more bytes: button+mask, x coord, y coord
+				// Media/Special keys  
+				case 'M': // Mouse events - legacy X10 format (ESC [ M <button> <x> <y>)
+					// Read the remaining mouse data for X10 format
 					if (Console.KeyAvailable)
 					{
 						var button = Console.ReadKey(true);
@@ -484,7 +507,7 @@ namespace SharpConsoleUI.Drivers
 
 								if (ParseMouseSequence(consoleKeyInfoSequence.ToArray(), out List<MouseFlags> mouseFlags, out Point pos))
 								{
-									MouseEvent?.Invoke(this, mouseFlags, pos); // Raise the MouseEvent
+									MouseEvent?.Invoke(this, mouseFlags, pos);
 								}
 							}
 						}
@@ -511,8 +534,10 @@ namespace SharpConsoleUI.Drivers
 				int buttonCode = sequence[3].KeyChar - 32;
 
 				// Extract coordinates (subtract 32 from the raw values as per ANSI mouse protocol)
-				position.X = sequence[4].KeyChar - 32;
-				position.Y = sequence[5].KeyChar - 32;
+				// NOTE: This X10 format is limited to coordinates 0-222 (255-32-1)
+				// For coordinates beyond this range, SGR mode should be used instead
+				position.X = Math.Max(0, sequence[4].KeyChar - 33); // Convert to 0-based (32 + 1)
+				position.Y = Math.Max(0, sequence[5].KeyChar - 33); // Convert to 0-based (32 + 1)
 
 				// Set modifier flags first
 				if ((buttonCode & 0x04) != 0) mouseFlags.Add(MouseFlags.ButtonShift);
