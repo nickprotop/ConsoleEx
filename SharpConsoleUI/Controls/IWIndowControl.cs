@@ -6,6 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
+
 namespace SharpConsoleUI.Controls
 {
 	public enum Alignment
@@ -33,6 +35,11 @@ namespace SharpConsoleUI.Controls
 		public object? Tag { get; set; }
 		public bool Visible { get; set; }
 		public int? Width { get; set; }
+
+		/// <summary>
+		/// Gets the logical size of the control's content
+		/// </summary>
+		Size GetLogicalContentSize();
 
 		public void Invalidate();
 

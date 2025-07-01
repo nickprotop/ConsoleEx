@@ -659,43 +659,73 @@ namespace SharpConsoleUI
 					{
 						cursorPosition = windowCursorPos.Value;
 						
-						// Check if the cursor position is within the visible bounds
-						var bounds = _layoutManager.GetOrCreateControlBounds(control);
-						if (bounds.IsVisible && bounds.ControlContentBounds.Contains(cursorPosition.X - 1, cursorPosition.Y - 1))
+						// Check if the cursor position is actually visible in the window
+						if (IsCursorPositionVisible(cursorPosition, control))
 						{
 							return true;
 						}
-					}
-				}
-				else
-				{
-					// Handle controls that only implement IInteractiveControl (legacy interface)
-					var currentCursorPosition = activeInteractiveContent!.GetCursorPosition();
-
-					if (currentCursorPosition == null)
-					{
-						cursorPosition = new Point(0, 0);
-						return false;
-					}
-
-					if (activeInteractiveContent is IWIndowControl windowControl)
-					{
-						// Use bounds system for coordinate translation
-						var bounds = _layoutManager.GetOrCreateControlBounds(windowControl);
-						var controlBounds = bounds.ControlContentBounds;
-						
-						cursorPosition = new Point(
-							controlBounds.X + currentCursorPosition.Value.Left + 1, // Add border offset
-							controlBounds.Y + currentCursorPosition.Value.Top + 1   // Add border offset
-						);
-						
-						return bounds.IsVisible;
 					}
 				}
 			}
 
 			cursorPosition = new Point(0, 0);
 			return false;
+		}
+
+		/// <summary>
+		/// Checks if a cursor position is visible within the current window viewport
+		/// </summary>
+		/// <param name="cursorPosition">The cursor position in window coordinates</param>
+		/// <param name="control">The control that owns the cursor</param>
+		/// <returns>True if the cursor position is visible</returns>
+		private bool IsCursorPositionVisible(Point cursorPosition, IWIndowControl control)
+		{
+			// Check if cursor is within the basic window content area (excluding borders)
+			if (cursorPosition.X < 1 || cursorPosition.X >= Width - 1 || 
+				cursorPosition.Y < 1 || cursorPosition.Y >= Height - 1)
+			{
+				return false;
+			}
+
+			// Get the control's bounds to understand its positioning
+			var bounds = _layoutManager.GetOrCreateControlBounds(control);
+			var controlBounds = bounds.ControlContentBounds;
+
+			// For sticky controls, they're always visible in their designated areas
+			if (control.StickyPosition == StickyPosition.Top)
+			{
+				// Top sticky controls are visible if cursor is within top sticky area
+				return cursorPosition.Y >= 1 && cursorPosition.Y < 1 + _topStickyHeight;
+			}
+			else if (control.StickyPosition == StickyPosition.Bottom)
+			{
+				// Bottom sticky controls are visible if cursor is within bottom sticky area
+				var bottomAreaStart = Height - 1 - _bottomStickyHeight;
+				return cursorPosition.Y >= bottomAreaStart && cursorPosition.Y < Height - 1;
+			}
+			else
+			{
+				// For scrollable controls, check if cursor is within the scrollable viewport
+				var scrollableAreaTop = 1 + _topStickyHeight;
+				var scrollableAreaBottom = Height - 1 - _bottomStickyHeight;
+				
+				// Check if cursor Y is within the scrollable area bounds
+				if (cursorPosition.Y < scrollableAreaTop || cursorPosition.Y >= scrollableAreaBottom)
+				{
+					return false;
+				}
+
+				// Check if the control itself is visible in the current scroll position
+				// Control is visible if any part of it intersects with the visible scrollable area
+				var visibleScrollTop = _scrollOffset;
+				var visibleScrollBottom = _scrollOffset + (scrollableAreaBottom - scrollableAreaTop);
+				
+				var controlTop = controlBounds.Y + _scrollOffset; // Adjust for scroll offset
+				var controlBottom = controlTop + controlBounds.Height;
+				
+				// Control is visible if it overlaps with the visible scroll area
+				return controlBottom > visibleScrollTop && controlTop < visibleScrollBottom;
+			}
 		}
 
 		public void Invalidate(bool redrawAll, IWIndowControl? callerControl = null)

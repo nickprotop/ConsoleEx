@@ -9,6 +9,8 @@
 using SharpConsoleUI.Helpers;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -91,6 +93,18 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate()
 		{
 			_cachedContent = null;
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			// For Spectre renderables, we need to render to get the actual size
+			if (_renderable == null) return new System.Drawing.Size(0, 0);
+			
+			var content = RenderContent(int.MaxValue, int.MaxValue);
+			return new System.Drawing.Size(
+				content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)),
+				content.Count
+			);
 		}
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)

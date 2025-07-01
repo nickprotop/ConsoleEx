@@ -162,11 +162,6 @@ namespace SharpConsoleUI.Layout
 		Point? GetLogicalCursorPosition();
 
 		/// <summary>
-		/// Gets the logical size of the control's content
-		/// </summary>
-		Size GetLogicalContentSize();
-
-		/// <summary>
 		/// Sets the logical cursor position within the control's content coordinate system
 		/// </summary>
 		void SetLogicalCursorPosition(Point position);

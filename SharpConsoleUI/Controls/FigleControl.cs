@@ -8,6 +8,8 @@
 
 using SharpConsoleUI.Helpers;
 using Spectre.Console;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -77,6 +79,16 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate()
 		{
 			_cachedContent = null;
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			// For Figlet text, we need to render to get the size
+			var content = RenderContent(int.MaxValue, int.MaxValue);
+			return new System.Drawing.Size(
+				content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)),
+				content.Count
+			);
 		}
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)

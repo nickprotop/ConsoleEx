@@ -8,6 +8,8 @@
 
 using SharpConsoleUI.Helpers;
 using Spectre.Console;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -107,6 +109,13 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate()
 		{
 			_cachedContent = null;
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			// Rules are typically one line and take the available width
+			int width = _width ?? 80; // Default width if not specified
+			return new System.Drawing.Size(width, 1);
 		}
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)

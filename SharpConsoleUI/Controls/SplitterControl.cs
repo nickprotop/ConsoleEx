@@ -238,11 +238,6 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
-		public (int Left, int Top)? GetCursorPosition()
-		{
-			return null; // Splitter doesn't have a cursor position
-		}
-
 		// ILogicalCursorProvider implementation
 		public Point? GetLogicalCursorPosition()
 		{

@@ -403,11 +403,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		public (int Left, int Top)? GetCursorPosition()
-		{
-			return null; // Tree doesn't need a cursor position
-		}
-
 		// ILogicalCursorProvider implementation
 		public Point? GetLogicalCursorPosition()
 		{

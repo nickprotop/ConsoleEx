@@ -146,13 +146,6 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
-		public (int Left, int Top)? GetCursorPosition()
-		{
-			if (_cachedContent == null) return null;
-			int visibleCursorPosition = _cursorPosition - _scrollOffset;
-			return (AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty) + visibleCursorPosition, (_cachedContent?.Count ?? 0) - 1);
-		}
-
 		// ILogicalCursorProvider implementation
 		public Point? GetLogicalCursorPosition()
 		{

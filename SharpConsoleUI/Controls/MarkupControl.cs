@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using System.Drawing;
 
 namespace SharpConsoleUI.Controls
 {
@@ -89,6 +90,18 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate()
 		{
 			_cachedContent = null;
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			// Calculate the natural size based on content
+			int maxWidth = 0;
+			foreach (var line in _content)
+			{
+				int length = AnsiConsoleHelper.StripSpectreLength(line);
+				if (length > maxWidth) maxWidth = length;
+			}
+			return new System.Drawing.Size(maxWidth, _content.Count);
 		}
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)

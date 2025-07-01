@@ -217,11 +217,6 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
-		public (int Left, int Top)? GetCursorPosition()
-		{
-			return null; // Checkbox doesn't need a cursor position
-		}
-
 		// ILogicalCursorProvider implementation
 		public Point? GetLogicalCursorPosition()
 		{

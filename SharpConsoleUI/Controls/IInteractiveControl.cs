@@ -13,8 +13,6 @@ namespace SharpConsoleUI.Controls
 		public bool HasFocus { get; set; }
 		public bool IsEnabled { get; set; }
 
-		public (int Left, int Top)? GetCursorPosition();
-
 		public bool ProcessKey(ConsoleKeyInfo key);
 
 		public void SetFocus(bool focus, bool backward);

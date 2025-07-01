@@ -190,11 +190,6 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
-		public (int Left, int Top)? GetCursorPosition()
-		{
-			return null;
-		}
-
 		// ILogicalCursorProvider implementation
 		public Point? GetLogicalCursorPosition()
 		{

@@ -528,69 +528,7 @@ namespace SharpConsoleUI.Controls
 		public string GetContent()
 		{
 			return string.Join(Environment.NewLine, _lines);
-		}
-
-		public (int Left, int Top)? GetCursorPosition()
-		{
-			if (_cachedContent == null) return null;
-
-			if (!_isEditing)
-			{
-				return null;
-			}
-
-			int paddingLeft = 0;
-
-			// Calculate centering if needed
-			if (Alignment == Alignment.Center)
-			{
-				paddingLeft = ContentHelper.GetCenter(_cachedContent?.FirstOrDefault()?.Length ?? 0, _effectiveWidth);
-			}
-
-			// For wrapped modes, we need special handling
-			if (_wrapMode != WrapMode.NoWrap)
-			{
-				// Calculate which wrapped line within the current logical line contains the cursor
-				int cursorWrappedLine = _cursorX / _effectiveWidth;
-
-				// Calculate total wrapped lines before the current logical line
-				int totalWrappedLinesBefore = 0;
-				for (int i = 0; i < _cursorY; i++)
-				{
-					int len = _lines[i].Length;
-					totalWrappedLinesBefore += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
-				}
-
-				// The absolute wrapped line position of the cursor
-				int absoluteWrappedCursorLine = totalWrappedLinesBefore + cursorWrappedLine;
-
-				// The cursor position within the wrapped line
-				int cursorPositionInWrappedLine = _cursorX % _effectiveWidth;
-
-				// Calculate visible cursor position
-				int visibleWrappedLine = absoluteWrappedCursorLine - _verticalScrollOffset;
-
-				// Only return cursor position if it's in the visible area
-				if (visibleWrappedLine >= 0 && visibleWrappedLine < _viewportHeight)
-				{
-					return (cursorPositionInWrappedLine + paddingLeft, visibleWrappedLine + _margin.Top);
-				}
-			}
-			else
-			{
-				// Standard handling for non-wrapped text
-				int visibleCursorX = _cursorX - _horizontalScrollOffset;
-				int visibleCursorY = _cursorY - _verticalScrollOffset;
-
-				// Only return cursor position if it's in the visible area
-				if (visibleCursorY >= 0 && visibleCursorY < _viewportHeight)
-				{
-					return (visibleCursorX + paddingLeft, visibleCursorY + _margin.Top);
-				}
-			}
-
-			return null;
-		}
+		}		
 
 		// Add methods to get selected text
 		public string GetSelectedText()

@@ -93,11 +93,6 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
-		public (int Left, int Top)? GetCursorPosition()
-		{
-			return null; // Buttons don't show cursor
-		}
-
 		// ILogicalCursorProvider implementation
 		public Point? GetLogicalCursorPosition()
 		{
