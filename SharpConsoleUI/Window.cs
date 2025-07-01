@@ -67,8 +67,6 @@ namespace SharpConsoleUI
 		// List to store interactive contents
 		private List<string> _cachedContent = new();
 
-		private Dictionary<IWIndowControl, int> _contentLeftIndex = new();
-		private Dictionary<IWIndowControl, int> _contentTopRowIndex = new();
 		private string _guid;
 		private Color? _inactiveBorderForegroundColor;
 		private Color? _inactiveTitleForegroundColor;
@@ -384,24 +382,22 @@ namespace SharpConsoleUI
 			{
 				if (point == null) return null;
 
-				// Check if the coordinates are within the window bounds
-				if (point?.X < 0 || point?.X >= Width || point?.Y < 0 || point?.Y >= Height)
+				// Check if the coordinates are within the window content bounds
+				if (point?.X < 1 || point?.X >= Width - 1 || point?.Y < 1 || point?.Y >= Height - 1)
 				{
 					return null;
 				}
 
-				// Calculate the content index based on the scroll offset
-				int contentIndex = point?.Y ?? 0 + _scrollOffset;
+				// Convert to content coordinates (remove border offset)
+				var contentPoint = new Point(point.Value.X - 1, point.Value.Y - 1);
 
-				// Iterate through the content to find the one that matches the coordinates
-				foreach (var content in _controls)
+				// Check each control's bounds using the layout manager
+				foreach (var control in _controls.Where(c => c.Visible))
 				{
-					int contentTop = _contentTopRowIndex[content];
-					int contentBottom = contentTop + content.RenderContent(Width - 2, Height - 2).Count;
-
-					if (contentTop <= contentIndex && contentIndex < contentBottom)
+					var bounds = _layoutManager.GetOrCreateControlBounds(control);
+					if (bounds.ControlContentBounds.Contains(contentPoint))
 					{
-						return content;
+						return control;
 					}
 				}
 
@@ -476,22 +472,9 @@ namespace SharpConsoleUI
 		/// </summary>
 		private Point GetControlRelativePosition(IWIndowControl control, Point windowPosition)
 		{
-			// Try to use the new layout manager first
-			var bounds = _layoutManager.GetControlBounds(control);
-			if (bounds != null)
-			{
-				return bounds.WindowToControl(windowPosition);
-			}
-			
-			// Fallback to legacy calculation for controls not yet using the new system
-			int controlTop = _contentTopRowIndex.ContainsKey(control) ? _contentTopRowIndex[control] : 0;
-			int controlLeft = _contentLeftIndex.ContainsKey(control) ? _contentLeftIndex[control] : 0;
-			
-			// Convert to content coordinates first
-			var contentPos = GetContentCoordinates(windowPosition);
-			
-			// Calculate relative to control
-			return new Point(contentPos.X - controlLeft, contentPos.Y - controlTop);
+			// Use the new layout manager for coordinate translation
+			var bounds = _layoutManager.GetOrCreateControlBounds(control);
+			return bounds.WindowToControl(windowPosition);
 		}
 
 		/// <summary>
@@ -521,47 +504,78 @@ namespace SharpConsoleUI
 		{
 			lock (_lock)
 			{
-				// Update control bounds for each control
-				foreach (var control in _controls)
+				var availableWidth = Width - 2; // Account for borders
+				var availableHeight = Height - 2; // Account for borders
+				
+				var currentTopOffset = 0;
+				var currentBottomOffset = 0;
+				
+				// Calculate sticky top controls positions
+				foreach (var control in _controls.Where(c => c.StickyPosition == StickyPosition.Top && c.Visible))
 				{
 					var bounds = _layoutManager.GetOrCreateControlBounds(control);
+					var renderedContent = control.RenderContent(availableWidth, availableHeight);
 					
-					// Update bounds based on current layout
-					if (_contentTopRowIndex.ContainsKey(control) && _contentLeftIndex.ContainsKey(control))
-					{
-						var contentTop = _contentTopRowIndex[control];
-						var contentLeft = _contentLeftIndex[control];
-						
-						// Calculate control content bounds within window content area
-						var renderedContent = control.RenderContent(Width - 2, Height - 2);
-						bounds.ControlContentBounds = new Rectangle(
-							contentLeft,
-							contentTop,
-							control.ActualWidth ?? (renderedContent.FirstOrDefault()?.Length ?? 0),
-							renderedContent.Count
-						);
-						
-						// Set viewport size (available area for content)
-						bounds.ViewportSize = new Size(
-							Width - 2,  // Available width minus borders
-							Height - 2  // Available height minus borders  
-						);
-						
-						// Handle scrolling for controls that support it
-						if (control is MultilineEditControl)
-						{
-							bounds.HasInternalScrolling = true;
-							// The control manages its own scrolling
-							bounds.ScrollOffset = Point.Empty;
-						}
-						else
-						{
-							bounds.HasInternalScrolling = false;
-							bounds.ScrollOffset = new Point(0, _scrollOffset);
-						}
-						
-						bounds.IsVisible = true; // For now, assume all controls are visible
-					}
+					bounds.ControlContentBounds = new Rectangle(
+						0, // Always left-aligned 
+						currentTopOffset,
+						control.ActualWidth ?? (renderedContent.FirstOrDefault()?.Length ?? 0),
+						renderedContent.Count
+					);
+					
+					bounds.ViewportSize = new Size(availableWidth, availableHeight);
+					bounds.HasInternalScrolling = control is MultilineEditControl;
+					bounds.ScrollOffset = Point.Empty; // Sticky controls don't scroll
+					bounds.IsVisible = true;
+					
+					currentTopOffset += renderedContent.Count;
+				}
+				
+				// Calculate sticky bottom controls positions (working backwards)
+				var bottomControls = _controls.Where(c => c.StickyPosition == StickyPosition.Bottom && c.Visible).Reverse().ToList();
+				foreach (var control in bottomControls)
+				{
+					var bounds = _layoutManager.GetOrCreateControlBounds(control);
+					var renderedContent = control.RenderContent(availableWidth, availableHeight);
+					
+					currentBottomOffset += renderedContent.Count;
+					
+					bounds.ControlContentBounds = new Rectangle(
+						0, // Always left-aligned
+						availableHeight - currentBottomOffset,
+						control.ActualWidth ?? (renderedContent.FirstOrDefault()?.Length ?? 0),
+						renderedContent.Count
+					);
+					
+					bounds.ViewportSize = new Size(availableWidth, availableHeight);
+					bounds.HasInternalScrolling = control is MultilineEditControl;
+					bounds.ScrollOffset = Point.Empty; // Sticky controls don't scroll
+					bounds.IsVisible = true;
+				}
+				
+				// Calculate scrollable controls positions
+				var scrollableAreaTop = currentTopOffset;
+				var scrollableAreaHeight = availableHeight - currentTopOffset - currentBottomOffset;
+				var currentScrollableOffset = 0;
+				
+				foreach (var control in _controls.Where(c => c.StickyPosition == StickyPosition.None && c.Visible))
+				{
+					var bounds = _layoutManager.GetOrCreateControlBounds(control);
+					var renderedContent = control.RenderContent(availableWidth, scrollableAreaHeight);
+					
+					bounds.ControlContentBounds = new Rectangle(
+						0, // Always left-aligned
+						scrollableAreaTop + currentScrollableOffset - _scrollOffset,
+						control.ActualWidth ?? (renderedContent.FirstOrDefault()?.Length ?? 0),
+						renderedContent.Count
+					);
+					
+					bounds.ViewportSize = new Size(availableWidth, scrollableAreaHeight);
+					bounds.HasInternalScrolling = control is MultilineEditControl;
+					bounds.ScrollOffset = new Point(0, _scrollOffset);
+					bounds.IsVisible = true;
+					
+					currentScrollableOffset += renderedContent.Count;
 				}
 			}
 		}
@@ -646,25 +660,17 @@ namespace SharpConsoleUI
 						cursorPosition = windowCursorPos.Value;
 						
 						// Check if the cursor position is within the visible bounds
-						if (cursorPosition.Y > _topStickyHeight && control.StickyPosition == StickyPosition.Top)
+						var bounds = _layoutManager.GetOrCreateControlBounds(control);
+						if (bounds.IsVisible && bounds.ControlContentBounds.Contains(cursorPosition.X - 1, cursorPosition.Y - 1))
 						{
-							return false;
+							return true;
 						}
-
-						if (cursorPosition.Y <= _topStickyHeight && control.StickyPosition != StickyPosition.Top)
-						{
-							return false;
-						}
-
-						if (cursorPosition.Y > Height - 2 - _bottomStickyHeight) return false;
-
-						return true;
 					}
 				}
 				else
 				{
-					// Fallback for legacy controls that don't implement ILogicalCursorProvider
-					(int, int)? currentCursorPosition = activeInteractiveContent!.GetCursorPosition();
+					// Handle controls that only implement IInteractiveControl (legacy interface)
+					var currentCursorPosition = activeInteractiveContent!.GetCursorPosition();
 
 					if (currentCursorPosition == null)
 					{
@@ -672,14 +678,18 @@ namespace SharpConsoleUI
 						return false;
 					}
 
-					int left = currentCursorPosition?.Item1 ?? 0;
-					int top = currentCursorPosition?.Item2 ?? 0;
-
-					if (activeInteractiveContent is IWIndowControl legacyControl)
+					if (activeInteractiveContent is IWIndowControl windowControl)
 					{
-						// Legacy coordinate calculation - will be phased out
-						cursorPosition = new Point(_contentLeftIndex[legacyControl!] + left + 1, _contentTopRowIndex[legacyControl!] + top + 1 - _scrollOffset);
-						return true;
+						// Use bounds system for coordinate translation
+						var bounds = _layoutManager.GetOrCreateControlBounds(windowControl);
+						var controlBounds = bounds.ControlContentBounds;
+						
+						cursorPosition = new Point(
+							controlBounds.X + currentCursorPosition.Value.Left + 1, // Add border offset
+							controlBounds.Y + currentCursorPosition.Value.Top + 1   // Add border offset
+						);
+						
+						return bounds.IsVisible;
 					}
 				}
 			}
@@ -814,102 +824,100 @@ namespace SharpConsoleUI
 				// Only recalculate content if it's been invalidated
 				if (_invalidated)
 				{
-					// Update control layout information first
 					UpdateControlLayout();
-					List<string> lines = new List<string>();
-
-					// Process top sticky content first to ensure it is always on top
-					_topStickyHeight = 0;
-					_topStickyLines.Clear();
-
-					foreach (var content in _controls.Where(c => c.StickyPosition == StickyPosition.Top && c.Visible == true))
-					{
-						// Store the top row index for the current content
-						_contentTopRowIndex[content] = _topStickyHeight;
-						_contentLeftIndex[content] = 0;
-
-						// Get content's rendered lines
-						var ansiLines = content.RenderContent(Width - 2, Height - 2);
-
-						// Ensure proper formatting for each line
-						for (int i = 0; i < ansiLines.Count; i++)
-						{
-							var line = ansiLines[i];
-							ansiLines[i] = $"{line}";
-						}
-
-						_topStickyLines.AddRange(ansiLines);
-						_topStickyHeight += ansiLines.Count;
-					}
-
-					// Process bottom sticky content last
-					_bottomStickyHeight = 0;
-					_bottomStickyLines.Clear();
-
-					foreach (var content in _controls.Where(c => c.StickyPosition == StickyPosition.Bottom && c.Visible == true))
-					{
-						// Track the position of sticky content
-						_contentTopRowIndex[content] = lines.Count + _bottomStickyLines.Count;
-						_contentLeftIndex[content] = 0;
-
-						var ansiLines = content.RenderContent(Width - 2, Height - 2);
-
-						for (int i = 0; i < ansiLines.Count; i++)
-						{
-							var line = ansiLines[i];
-							ansiLines[i] = $"{line}";
-						}
-
-						_bottomStickyLines.AddRange(ansiLines);
-						_bottomStickyHeight += ansiLines.Count;
-					}
-
-					// Process normal content next (non-sticky)
-					foreach (var content in _controls.Where(c => c.StickyPosition == StickyPosition.None && c.Visible == true))
-					{
-						// Store the top row index for the current content
-						_contentTopRowIndex[content] = lines.Count + _topStickyHeight;
-						_contentLeftIndex[content] = 0;
-
-						// Get content's rendered lines
-						var ansiLines = content.RenderContent(Width - 2, Height - 2 - _topStickyHeight - _bottomStickyHeight);
-
-						// Ensure proper formatting for each line
-						for (int i = 0; i < ansiLines.Count; i++)
-						{
-							var line = ansiLines[i];
-							ansiLines[i] = $"{line}";
-						}
-
-						lines.AddRange(ansiLines);
-					}
-
-					// Reserve space for sticky content at the bottom
-					lines.AddRange(Enumerable.Repeat(string.Empty, _bottomStickyHeight));
-
-					_cachedContent = lines;
-					_invalidated = false;
+					RebuildContentCache();
 				}
 
-				// Get visible portion based on scroll offset (accounting for window border)
-				List<string> visibleContent = _cachedContent.Skip(_scrollOffset).Take(Height - 2).ToList();
-
-				// Pad with empty lines if needed
-				if (visibleContent.Count < Height - 2)
-				{
-					visibleContent.AddRange(Enumerable.Repeat(string.Empty, Height - 2 - visibleContent.Count));
-				}
-
-				// Replace the top placeholder lines with actual sticky content
-				visibleContent.RemoveRange(visibleContent.Count - _topStickyHeight, _topStickyHeight);
-				visibleContent.InsertRange(0, _topStickyLines);
-
-				// Replace the bottom placeholder lines with actual sticky content
-				visibleContent.RemoveRange(visibleContent.Count - _bottomStickyHeight, _bottomStickyHeight);
-				visibleContent.AddRange(_bottomStickyLines);
-
-				return visibleContent;
+				return BuildVisibleContent();
 			}
+		}
+
+		private void RebuildContentCache()
+		{
+			var availableWidth = Width - 2; // Account for borders
+			var availableHeight = Height - 2; // Account for borders
+
+			// Render sticky top controls
+			_topStickyLines.Clear();
+			_topStickyHeight = 0;
+			var topStickyControls = _controls.Where(c => c.StickyPosition == StickyPosition.Top && c.Visible).ToList();
+			
+			foreach (var control in topStickyControls)
+			{
+				var renderedLines = control.RenderContent(availableWidth, availableHeight);
+				_topStickyLines.AddRange(renderedLines);
+				_topStickyHeight += renderedLines.Count;
+			}
+
+			// Render sticky bottom controls
+			_bottomStickyLines.Clear();
+			_bottomStickyHeight = 0;
+			var bottomStickyControls = _controls.Where(c => c.StickyPosition == StickyPosition.Bottom && c.Visible).ToList();
+			
+			foreach (var control in bottomStickyControls)
+			{
+				var renderedLines = control.RenderContent(availableWidth, availableHeight);
+				_bottomStickyLines.AddRange(renderedLines);
+				_bottomStickyHeight += renderedLines.Count;
+			}
+
+			// Render scrollable content (non-sticky controls)
+			var scrollableContent = new List<string>();
+			var scrollableControls = _controls.Where(c => c.StickyPosition == StickyPosition.None && c.Visible).ToList();
+			var scrollableHeight = availableHeight - _topStickyHeight - _bottomStickyHeight;
+			
+			foreach (var control in scrollableControls)
+			{
+				var renderedLines = control.RenderContent(availableWidth, scrollableHeight);
+				scrollableContent.AddRange(renderedLines);
+			}
+
+			_cachedContent = scrollableContent;
+			_invalidated = false;
+		}
+
+		private List<string> BuildVisibleContent()
+		{
+			var availableHeight = Height - 2; // Account for borders
+			var scrollableAreaHeight = availableHeight - _topStickyHeight - _bottomStickyHeight;
+			
+			// Start with empty content area
+			var visibleContent = new List<string>();
+
+			// Add top sticky content (always visible at top)
+			visibleContent.AddRange(_topStickyLines);
+
+			// Add scrollable content (respecting scroll offset)
+			var scrollableVisible = _cachedContent
+				.Skip(_scrollOffset)
+				.Take(scrollableAreaHeight);
+			
+			visibleContent.AddRange(scrollableVisible);
+
+			// Pad scrollable area if needed
+			var currentScrollableLines = visibleContent.Count - _topStickyHeight;
+			if (currentScrollableLines < scrollableAreaHeight)
+			{
+				var paddingNeeded = scrollableAreaHeight - currentScrollableLines;
+				visibleContent.AddRange(Enumerable.Repeat(string.Empty, paddingNeeded));
+			}
+
+			// Add bottom sticky content (always visible at bottom)
+			visibleContent.AddRange(_bottomStickyLines);
+
+			// Final padding to ensure we have exactly the right number of lines
+			while (visibleContent.Count < availableHeight)
+			{
+				visibleContent.Add(string.Empty);
+			}
+
+			// Trim if we have too many lines
+			if (visibleContent.Count > availableHeight)
+			{
+				visibleContent = visibleContent.Take(availableHeight).ToList();
+			}
+
+			return visibleContent;
 		}
 
 		public void Restore()
@@ -1076,8 +1084,11 @@ namespace SharpConsoleUI
 
 			if (focusedContent != null)
 			{
-				int contentTop = _contentTopRowIndex[focusedContent];
-				int contentHeight = focusedContent.RenderContent(Width - 2, Height - 2).Count;
+				var bounds = _layoutManager.GetOrCreateControlBounds(focusedContent);
+				var controlBounds = bounds.ControlContentBounds;
+				
+				int contentTop = controlBounds.Y;
+				int contentHeight = controlBounds.Height;
 				int contentBottom = contentTop + contentHeight;
 
 				if (focusedContent.StickyPosition == StickyPosition.None)

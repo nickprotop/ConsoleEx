@@ -9,11 +9,14 @@
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class ButtonControl : IWIndowControl, IInteractiveControl, IMouseAwareControl, IFocusableControl
+	public class ButtonControl : IWIndowControl, IInteractiveControl, IMouseAwareControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private Alignment _alignment = Alignment.Left;
 		private string? _cachedContent;
@@ -92,7 +95,27 @@ namespace SharpConsoleUI.Controls
 
 		public (int Left, int Top)? GetCursorPosition()
 		{
-			return null;
+			return null; // Buttons don't show cursor
+		}
+
+		// ILogicalCursorProvider implementation
+		public Point? GetLogicalCursorPosition()
+		{
+			return null; // Buttons don't have a visible cursor
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			var content = RenderContent(int.MaxValue, int.MaxValue);
+			return new System.Drawing.Size(
+				content.FirstOrDefault()?.Length ?? 0,
+				content.Count
+			);
+		}
+
+		public void SetLogicalCursorPosition(Point position)
+		{
+			// Buttons don't have cursor positioning
 		}
 
 		public void Invalidate()

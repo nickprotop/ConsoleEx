@@ -7,11 +7,14 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class ListControl : IWIndowControl, IInteractiveControl
+	public class ListControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private Alignment _alignment = Alignment.Left;
@@ -493,6 +496,26 @@ namespace SharpConsoleUI.Controls
 		public (int Left, int Top)? GetCursorPosition()
 		{
 			return null; // List control doesn't need a cursor position
+		}
+
+		// ILogicalCursorProvider implementation
+		public Point? GetLogicalCursorPosition()
+		{
+			return null;
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			var content = RenderContent(int.MaxValue, int.MaxValue);
+			return new System.Drawing.Size(
+				content.FirstOrDefault()?.Length ?? 0,
+				content.Count
+			);
+		}
+
+		public void SetLogicalCursorPosition(Point position)
+		{
+
 		}
 
 		public void Invalidate()

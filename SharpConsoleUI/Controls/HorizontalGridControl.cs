@@ -7,13 +7,16 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
 using System.ComponentModel.Design;
 using System.Data.Common;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class HorizontalGridControl : IWIndowControl, IInteractiveControl
+	public class HorizontalGridControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
 	{
 		private Alignment _alignment = Alignment.Left;
 		private List<string>? _cachedContent;
@@ -190,6 +193,26 @@ namespace SharpConsoleUI.Controls
 		public (int Left, int Top)? GetCursorPosition()
 		{
 			return null;
+		}
+
+		// ILogicalCursorProvider implementation
+		public Point? GetLogicalCursorPosition()
+		{
+			return null; // Grids don't have a visible cursor
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			var content = RenderContent(int.MaxValue, int.MaxValue);
+			return new System.Drawing.Size(
+				content.FirstOrDefault()?.Length ?? 0,
+				content.Count
+			);
+		}
+
+		public void SetLogicalCursorPosition(Point position)
+		{
+			// Grids don't have cursor positioning
 		}
 
 		public void Invalidate()

@@ -7,13 +7,16 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
 using System.Collections.ObjectModel;
+using System.Drawing;
 using System.Text;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class TreeControl : IWIndowControl, IInteractiveControl
+	public class TreeControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
 	{
 		private readonly List<TreeNode> _rootNodes = new();
 		private Alignment _alignment = Alignment.Left;
@@ -403,6 +406,26 @@ namespace SharpConsoleUI.Controls
 		public (int Left, int Top)? GetCursorPosition()
 		{
 			return null; // Tree doesn't need a cursor position
+		}
+
+		// ILogicalCursorProvider implementation
+		public Point? GetLogicalCursorPosition()
+		{
+			return null; // Trees don't have a visible cursor
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			var content = RenderContent(int.MaxValue, int.MaxValue);
+			return new System.Drawing.Size(
+				content.FirstOrDefault()?.Length ?? 0,
+				content.Count
+			);
+		}
+
+		public void SetLogicalCursorPosition(Point position)
+		{
+			// Trees don't have cursor positioning
 		}
 
 		public void Invalidate()

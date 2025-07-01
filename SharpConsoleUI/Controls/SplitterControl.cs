@@ -7,14 +7,17 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
 	/// Represents a vertical splitter control that can be used to resize columns in a HorizontalGridControl
 	/// </summary>
-	public class SplitterControl : IWIndowControl, IInteractiveControl
+	public class SplitterControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
 	{
 		private const int DEFAULT_WIDTH = 1;
 		private const float MIN_COLUMN_PERCENTAGE = 0.1f; // Minimum 10% width for any column
@@ -238,6 +241,26 @@ namespace SharpConsoleUI.Controls
 		public (int Left, int Top)? GetCursorPosition()
 		{
 			return null; // Splitter doesn't have a cursor position
+		}
+
+		// ILogicalCursorProvider implementation
+		public Point? GetLogicalCursorPosition()
+		{
+			return null; // Splitters don't have a visible cursor
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			var content = RenderContent(int.MaxValue, int.MaxValue);
+			return new System.Drawing.Size(
+				content.FirstOrDefault()?.Length ?? 0,
+				content.Count
+			);
+		}
+
+		public void SetLogicalCursorPosition(Point position)
+		{
+			// Splitters don't have cursor positioning
 		}
 
 		public void Invalidate()

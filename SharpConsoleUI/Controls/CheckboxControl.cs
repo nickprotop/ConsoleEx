@@ -7,11 +7,14 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class CheckboxControl : IWIndowControl, IInteractiveControl
+	public class CheckboxControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
 	{
 		private Alignment _alignment = Alignment.Left;
 		private Color? _backgroundColorValue;
@@ -217,6 +220,26 @@ namespace SharpConsoleUI.Controls
 		public (int Left, int Top)? GetCursorPosition()
 		{
 			return null; // Checkbox doesn't need a cursor position
+		}
+
+		// ILogicalCursorProvider implementation
+		public Point? GetLogicalCursorPosition()
+		{
+			return null; // Checkboxes don't have a visible cursor
+		}
+
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			var content = RenderContent(int.MaxValue, int.MaxValue);
+			return new System.Drawing.Size(
+				content.FirstOrDefault()?.Length ?? 0,
+				content.Count
+			);
+		}
+
+		public void SetLogicalCursorPosition(Point position)
+		{
+			// Checkboxes don't have cursor positioning
 		}
 
 		public void Invalidate()

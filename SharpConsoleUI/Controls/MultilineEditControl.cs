@@ -30,7 +30,7 @@ namespace SharpConsoleUI.Controls
 		WrapWords
 	}
 
-	public class MultilineEditControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
+	public class MultilineEditControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private Alignment _alignment = Alignment.Left;
 
@@ -573,7 +573,7 @@ namespace SharpConsoleUI.Controls
 				// Only return cursor position if it's in the visible area
 				if (visibleWrappedLine >= 0 && visibleWrappedLine < _viewportHeight)
 				{
-					return (cursorPositionInWrappedLine + _margin.Left + paddingLeft, visibleWrappedLine + _margin.Top);
+					return (cursorPositionInWrappedLine + paddingLeft, visibleWrappedLine + _margin.Top);
 				}
 			}
 			else
@@ -585,7 +585,7 @@ namespace SharpConsoleUI.Controls
 				// Only return cursor position if it's in the visible area
 				if (visibleCursorY >= 0 && visibleCursorY < _viewportHeight)
 				{
-					return (visibleCursorX + _margin.Left + paddingLeft, visibleCursorY + _margin.Top);
+					return (visibleCursorX + paddingLeft, visibleCursorY + _margin.Top);
 				}
 			}
 
@@ -2067,6 +2067,26 @@ namespace SharpConsoleUI.Controls
 			
 			// Invalidate the control for redraw
 			Container?.Invalidate(true);
+		}
+
+		// IFocusableControl members
+		public bool CanReceiveFocus => IsEnabled && !ReadOnly;
+
+		public event EventHandler? GotFocus;
+		public event EventHandler? LostFocus;
+
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
+		{
+			var hadFocus = _hasFocus;
+			_hasFocus = focus;
+			_cachedContent = null;
+			Container?.Invalidate(true);
+
+			// Fire focus events
+			if (focus && !hadFocus)
+				GotFocus?.Invoke(this, EventArgs.Empty);
+			else if (!focus && hadFocus)
+				LostFocus?.Invoke(this, EventArgs.Empty);
 		}
 	}
 }
