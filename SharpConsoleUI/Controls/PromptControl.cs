@@ -65,6 +65,9 @@ namespace SharpConsoleUI.Controls
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
 				
+				// Invalidate cached content to trigger re-rendering when focus changes
+				_cachedContent = null;
+				
 				// Fire focus events
 				if (value && !hadFocus)
 				{
