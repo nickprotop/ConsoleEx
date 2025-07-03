@@ -389,7 +389,7 @@ namespace SharpConsoleUI
 				}
 
 				// Convert to content coordinates (remove border offset)
-				var contentPoint = new Point(point.Value.X - 1, point.Value.Y - 1);
+				var contentPoint = new Point(point.Value.X, point.Value.Y);
 
 				// Check each control's bounds using the layout manager
 				foreach (var control in _controls.Where(c => c.Visible))
