@@ -14,7 +14,5 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled { get; set; }
 
 		public bool ProcessKey(ConsoleKeyInfo key);
-
-		public void SetFocus(bool focus, bool backward);
 	}
 }

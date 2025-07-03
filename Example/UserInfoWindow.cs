@@ -74,10 +74,10 @@ namespace SharpConsoleUI.Example
 			_bottomButtons = CreateBottomButtons();
 			_window.AddControl(_bottomButtons);
 
-			var maximizeButton = CreateButton("[yellow]Maximize[/] window", (sender) => _window.State = WindowState.Maximized);
+			var maximizeButton = CreateButton("[yellow]Maximize[/] window", (sender, button) => _window.State = WindowState.Maximized);
 			maximizeButton.Alignment = Alignment.Strecth;
 
-			var closeButton = CreateButton("[red]Close[/] window", (sender) =>
+			var closeButton = CreateButton("[red]Close[/] window", (sender, button) =>
 			{
 				// Create a modal dialog
 				var modalWindow = new Window(_consoleWindowSystem, _window)
@@ -98,7 +98,7 @@ namespace SharpConsoleUI.Example
 				{
 					Text = "ok"
 				};
-				okButton.OnClick += (sender) =>
+				okButton.Click += (sender, button) =>
 				{
 					_consoleWindowSystem.CloseWindow(modalWindow);
 					_consoleWindowSystem.CloseWindow(_window);
@@ -241,14 +241,14 @@ namespace SharpConsoleUI.Example
 			};
 		}
 
-		private ButtonControl CreateButton(string text, Action<object> onClick)
+		private ButtonControl CreateButton(string text, EventHandler<ButtonControl> onClick)
 		{
 			var button = new ButtonControl
 			{
 				Text = text,
 				Margin = new Margin { Left = 1 }
 			};
-			button.OnClick += onClick;
+			button.Click += onClick;
 			return button;
 		}
 

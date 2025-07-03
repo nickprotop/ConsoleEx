@@ -1277,8 +1277,8 @@ namespace SharpConsoleUI
 				if (absoluteLeft >= 0 && absoluteLeft < _consoleDriver.ScreenSize.Width &&
 					absoluteTop >= 0 && absoluteTop < _consoleDriver.ScreenSize.Height &&
 					// Check if the cursor position is within the active window's boundaries
-					absoluteLeft + 1 >= _activeWindow.Left && absoluteLeft + 1 < _activeWindow.Left + _activeWindow.Width &&
-					absoluteTop > _activeWindow.Top + 1 && absoluteTop < _activeWindow.Top + _activeWindow.Height)
+					absoluteLeft >= _activeWindow.Left && absoluteLeft < _activeWindow.Left + _activeWindow.Width &&
+					absoluteTop >= _activeWindow.Top && absoluteTop < _activeWindow.Top + _activeWindow.Height)
 				{
 					Console.CursorVisible = true;
 					Console.SetCursorPosition(absoluteLeft, absoluteTop);

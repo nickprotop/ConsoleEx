@@ -52,7 +52,7 @@ namespace SharpConsoleUI.Services.NotificationsService
 				Margin = new Margin() { Left = 1 }
 			};
 			notificationWindow.AddControl(closeButton);
-			closeButton.OnClick += (s) =>
+			closeButton.Click += (sender, button) =>
 			{
 				consoleWindowSystem.CloseWindow(notificationWindow);
 			};

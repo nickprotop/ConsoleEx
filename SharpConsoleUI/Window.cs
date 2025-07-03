@@ -414,6 +414,9 @@ namespace SharpConsoleUI
 		{
 			lock (_lock)
 			{
+				// Ensure layout is current before processing mouse events
+				UpdateControlLayout();
+				
 				// Check if the click is within the window content area (not borders/title)
 				if (IsClickInWindowContent(args.WindowPosition))
 				{
@@ -440,6 +443,15 @@ namespace SharpConsoleUI
 						
 						// Event was handled by focus change even if control doesn't support mouse
 						return true;
+					}
+					else
+					{
+						// Click in window content area but no control found - remove focus from current control
+						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+						{
+							UnfocusCurrentControl();
+							return true; // Event was handled (removed focus)
+						}
 					}
 				}
 				
@@ -486,14 +498,19 @@ namespace SharpConsoleUI
 			if (control is Controls.IFocusableControl focusable && focusable.CanReceiveFocus)
 			{
 				// Remove focus from current control
-				if (_lastFocusedControl is IInteractiveControl currentFocused && currentFocused != focusable)
+				if (_lastFocusedControl != null && _lastFocusedControl != control && _lastFocusedControl is Controls.IFocusableControl currentFocused)
 				{
-					currentFocused.SetFocus(false, false);
+					currentFocused.SetFocus(false, Controls.FocusReason.Mouse);
 				}
 				
 				// Set focus to new control
 				focusable.SetFocus(true, Controls.FocusReason.Mouse);
-				_lastFocusedControl = focusable as IInteractiveControl;
+				
+				// Update last focused control (check if it's also IInteractiveControl)
+				if (control is IInteractiveControl interactive)
+				{
+					_lastFocusedControl = interactive;
+				}
 			}
 		}
 
@@ -519,7 +536,7 @@ namespace SharpConsoleUI
 					bounds.ControlContentBounds = new Rectangle(
 						0, // Always left-aligned 
 						currentTopOffset,
-						control.ActualWidth ?? (renderedContent.FirstOrDefault()?.Length ?? 0),
+						control.ActualWidth ?? availableWidth, // Use full width if not specified
 						renderedContent.Count
 					);
 					
@@ -543,7 +560,7 @@ namespace SharpConsoleUI
 					bounds.ControlContentBounds = new Rectangle(
 						0, // Always left-aligned
 						availableHeight - currentBottomOffset,
-						control.ActualWidth ?? (renderedContent.FirstOrDefault()?.Length ?? 0),
+						control.ActualWidth ?? availableWidth, // Use full width if not specified
 						renderedContent.Count
 					);
 					
@@ -566,7 +583,7 @@ namespace SharpConsoleUI
 					bounds.ControlContentBounds = new Rectangle(
 						0, // Always left-aligned
 						scrollableAreaTop + currentScrollableOffset - _scrollOffset,
-						control.ActualWidth ?? (renderedContent.FirstOrDefault()?.Length ?? 0),
+						control.ActualWidth ?? availableWidth, // Use full width if not specified
 						renderedContent.Count
 					);
 					
@@ -1055,7 +1072,10 @@ namespace SharpConsoleUI
 				}
 
 				// Set focus to the next content
-				_interactiveContents[nextIndex].SetFocus(true, backward);
+				if (_interactiveContents[nextIndex] is Controls.IFocusableControl focusable)
+				{
+					focusable.SetFocus(true, Controls.FocusReason.Keyboard);
+				}
 				_lastFocusedControl = _interactiveContents[nextIndex]; // Update last focused control
 
 				BringIntoFocus(nextIndex);
@@ -1064,9 +1084,9 @@ namespace SharpConsoleUI
 
 		public void UnfocusCurrentControl()
 		{
-			if (_lastFocusedControl != null)
+			if (_lastFocusedControl != null && _lastFocusedControl is Controls.IFocusableControl focusable)
 			{
-				_lastFocusedControl.SetFocus(false, false);
+				focusable.SetFocus(false, Controls.FocusReason.Programmatic);
 			}
 		}
 

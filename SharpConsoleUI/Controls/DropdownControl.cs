@@ -16,7 +16,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class DropdownControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
+	public class DropdownControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private Alignment _alignment = Alignment.Left;
@@ -83,6 +83,10 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<DropdownItem?>? SelectedItemChanged;
 
 		public event EventHandler<string?>? SelectedValueChanged;
+
+		public event EventHandler? GotFocus;
+
+		public event EventHandler? LostFocus;
 
 		public int? ActualHeight
 		{
@@ -177,11 +181,27 @@ namespace SharpConsoleUI.Controls
 			get => _hasFocus;
 			set
 			{
-				_hasFocus = value;
-				_cachedContent = null;
-				Container?.Invalidate(true);
+				if (_hasFocus != value)
+				{
+					_hasFocus = value;
+					if (!_hasFocus)
+					{
+						// Collapse the dropdown when it loses focus
+						_isDropdownOpen = false;
+						_highlightedIndex = _selectedIndex; // Reset highlighted index
+					}
+					_cachedContent = null;
+					Container?.Invalidate(true);
+					
+					if (value)
+						GotFocus?.Invoke(this, EventArgs.Empty);
+					else
+						LostFocus?.Invoke(this, EventArgs.Empty);
+				}
 			}
 		}
+
+		public bool CanReceiveFocus => IsEnabled;
 
 		public Color HighlightBackgroundColor
 		{
@@ -1033,17 +1053,9 @@ namespace SharpConsoleUI.Controls
 			return _cachedContent;
 		}
 
-		public void SetFocus(bool focus, bool backward)
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
-			_hasFocus = focus;
-			if (!_hasFocus)
-			{
-				// Collapse the dropdown when it loses focus
-				_isDropdownOpen = false;
-				_highlightedIndex = _selectedIndex; // Reset highlighted index
-			}
-			_cachedContent = null;
-			Container?.Invalidate(true);
+			HasFocus = focus;
 		}
 
 		// Calculate effective width

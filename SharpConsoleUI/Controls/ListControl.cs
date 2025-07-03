@@ -14,7 +14,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class ListControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
+	public class ListControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private Alignment _alignment = Alignment.Left;
@@ -219,9 +219,20 @@ namespace SharpConsoleUI.Controls
 			get => _hasFocus;
 			set
 			{
+				var hadFocus = _hasFocus;
 				_hasFocus = value;
 				_cachedContent = null;
 				Container?.Invalidate(true);
+				
+				// Fire focus events
+				if (value && !hadFocus)
+				{
+					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
+				else if (!value && hadFocus)
+				{
+					LostFocus?.Invoke(this, EventArgs.Empty);
+				}
 			}
 		}
 
@@ -1310,8 +1321,15 @@ namespace SharpConsoleUI.Controls
 			return _cachedContent;
 		}
 
-		public void SetFocus(bool focus, bool backward)
+		// IFocusableControl implementation
+		public bool CanReceiveFocus => IsEnabled;
+		
+		public event EventHandler? GotFocus;
+		public event EventHandler? LostFocus;
+		
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
+			var hadFocus = _hasFocus;
 			_hasFocus = focus;
 			if (!_hasFocus)
 			{
@@ -1319,6 +1337,16 @@ namespace SharpConsoleUI.Controls
 			}
 			_cachedContent = null;
 			Container?.Invalidate(true);
+			
+			// Fire focus events
+			if (focus && !hadFocus)
+			{
+				GotFocus?.Invoke(this, EventArgs.Empty);
+			}
+			else if (!focus && hadFocus)
+			{
+				LostFocus?.Invoke(this, EventArgs.Empty);
+			}
 		}
 
 		private int CalculateTotalVisibleItemsHeight()

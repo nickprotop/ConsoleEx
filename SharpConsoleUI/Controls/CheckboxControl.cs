@@ -14,7 +14,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class CheckboxControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
+	public class CheckboxControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private Alignment _alignment = Alignment.Left;
 		private Color? _backgroundColorValue;
@@ -44,6 +44,8 @@ namespace SharpConsoleUI.Controls
 
 		// Events
 		public event EventHandler<bool>? CheckedChanged;
+		public event EventHandler? GotFocus;
+		public event EventHandler? LostFocus;
 
 		public int? ActualWidth
 		{
@@ -163,11 +165,21 @@ namespace SharpConsoleUI.Controls
 			get => _hasFocus;
 			set
 			{
-				_hasFocus = value;
-				_cachedContent = null;
-				Container?.Invalidate(true);
+				if (_hasFocus != value)
+				{
+					_hasFocus = value;
+					_cachedContent = null;
+					Container?.Invalidate(true);
+					
+					if (value)
+						GotFocus?.Invoke(this, EventArgs.Empty);
+					else
+						LostFocus?.Invoke(this, EventArgs.Empty);
+				}
 			}
 		}
+
+		public bool CanReceiveFocus => IsEnabled;
 
 		public bool IsEnabled
 		{
@@ -434,7 +446,7 @@ namespace SharpConsoleUI.Controls
 			return _cachedContent;
 		}
 
-		public void SetFocus(bool focus, bool backward)
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			HasFocus = focus;
 		}

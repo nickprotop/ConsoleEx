@@ -16,7 +16,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class HorizontalGridControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
+	public class HorizontalGridControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private Alignment _alignment = Alignment.Left;
 		private List<string>? _cachedContent;
@@ -84,9 +84,20 @@ namespace SharpConsoleUI.Controls
 			get => _hasFocus;
 			set
 			{
+				var hadFocus = _hasFocus;
 				_hasFocus = value;
 				FocusChanged();
 				Container?.Invalidate(true);
+				
+				// Fire focus events
+				if (value && !hadFocus)
+				{
+					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
+				else if (!value && hadFocus)
+				{
+					LostFocus?.Invoke(this, EventArgs.Empty);
+				}
 			}
 		}
 
@@ -537,11 +548,15 @@ namespace SharpConsoleUI.Controls
 			return _cachedContent;
 		}
 
-		public void SetFocus(bool focus, bool backward)
+		// IFocusableControl implementation
+		public bool CanReceiveFocus => IsEnabled;
+		
+		public event EventHandler? GotFocus;
+		public event EventHandler? LostFocus;
+		
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
-			_hasFocus = focus;
-			FocusChanged(backward);
-			Container?.Invalidate(true);
+			HasFocus = focus;
 		}
 
 		private void FocusChanged(bool backward = false)

@@ -16,7 +16,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class TreeControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
+	public class TreeControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private readonly List<TreeNode> _rootNodes = new();
 		private Alignment _alignment = Alignment.Left;
@@ -106,9 +106,20 @@ namespace SharpConsoleUI.Controls
 			get => _hasFocus;
 			set
 			{
+				var hadFocus = _hasFocus;
 				_hasFocus = value;
 				_cachedContent = null;
 				Container?.Invalidate(true);
+				
+				// Fire focus events
+				if (value && !hadFocus)
+				{
+					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
+				else if (!value && hadFocus)
+				{
+					LostFocus?.Invoke(this, EventArgs.Empty);
+				}
 			}
 		}
 
@@ -885,8 +896,15 @@ namespace SharpConsoleUI.Controls
 			return false;
 		}
 
-		public void SetFocus(bool focus, bool backward)
+		// IFocusableControl implementation
+		public bool CanReceiveFocus => IsEnabled;
+		
+		public event EventHandler? GotFocus;
+		public event EventHandler? LostFocus;
+		
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
+			var hadFocus = _hasFocus;
 			_hasFocus = focus;
 
 			// When gaining focus, make sure the selected node is visible
@@ -909,6 +927,16 @@ namespace SharpConsoleUI.Controls
 
 			_cachedContent = null;
 			Container?.Invalidate(true);
+			
+			// Fire focus events
+			if (focus && !hadFocus)
+			{
+				GotFocus?.Invoke(this, EventArgs.Empty);
+			}
+			else if (!focus && hadFocus)
+			{
+				LostFocus?.Invoke(this, EventArgs.Empty);
+			}
 		}
 
 		/// <summary>

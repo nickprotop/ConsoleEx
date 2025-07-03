@@ -17,7 +17,7 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// Represents a vertical splitter control that can be used to resize columns in a HorizontalGridControl
 	/// </summary>
-	public class SplitterControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
+	public class SplitterControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private const int DEFAULT_WIDTH = 1;
 		private const float MIN_COLUMN_PERCENTAGE = 0.1f; // Minimum 10% width for any column
@@ -168,10 +168,21 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				if (_isDragging && !value) _isDragging = false;
+				var hadFocus = _hasFocus;
 				_hasFocus = value;
 				_cachedContent = null;
 				_invalidated = true;
 				Container?.Invalidate(true);
+				
+				// Fire focus events
+				if (value && !hadFocus)
+				{
+					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
+				else if (!value && hadFocus)
+				{
+					LostFocus?.Invoke(this, EventArgs.Empty);
+				}
 			}
 		}
 
@@ -384,11 +395,15 @@ namespace SharpConsoleUI.Controls
 			_cachedContent = null;
 		}
 
-		public void SetFocus(bool focus, bool backward)
+		// IFocusableControl implementation
+		public bool CanReceiveFocus => IsEnabled;
+		
+		public event EventHandler? GotFocus;
+		public event EventHandler? LostFocus;
+		
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
-			_hasFocus = focus;
-			_cachedContent = null;
-			Container?.Invalidate(true);
+			HasFocus = focus;
 		}
 
 		/// <summary>

@@ -16,7 +16,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class PromptControl : IWIndowControl, IInteractiveControl, ILogicalCursorProvider
+	public class PromptControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		public Action<PromptControl, string>? OnEnter;
 		private List<string>? _cachedContent;
@@ -55,7 +55,27 @@ namespace SharpConsoleUI.Controls
 		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public IContainer? Container { get; set; }
-		public bool HasFocus { get; set; }
+		
+		private bool _hasFocus;
+		public bool HasFocus 
+		{ 
+			get => _hasFocus;
+			set
+			{
+				var hadFocus = _hasFocus;
+				_hasFocus = value;
+				
+				// Fire focus events
+				if (value && !hadFocus)
+				{
+					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
+				else if (!value && hadFocus)
+				{
+					LostFocus?.Invoke(this, EventArgs.Empty);
+				}
+			}
+		}
 
 		public Color? InputBackgroundColor
 		{
@@ -318,7 +338,13 @@ namespace SharpConsoleUI.Controls
 			return _cachedContent;
 		}
 
-		public void SetFocus(bool focus, bool backward)
+		// IFocusableControl implementation
+		public bool CanReceiveFocus => IsEnabled;
+		
+		public event EventHandler? GotFocus;
+		public event EventHandler? LostFocus;
+		
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			HasFocus = focus;
 		}

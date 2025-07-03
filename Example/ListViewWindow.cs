@@ -104,10 +104,10 @@ namespace SharpConsoleUI.Example
 		// Get the window instance
 		public Window GetWindow() => _window;
 
-		private ButtonControl CreateButton(string text, Action<object> onClick)
+		private ButtonControl CreateButton(string text, EventHandler<ButtonControl> onClick)
 		{
 			var button = new ButtonControl { Text = text };
-			button.OnClick += onClick;
+			button.Click += onClick;
 			return button;
 		}
 
@@ -125,12 +125,12 @@ namespace SharpConsoleUI.Example
 			}
 		}
 
-		private void OnCloseClicked(object obj)
+		private void OnCloseClicked(object? sender, ButtonControl button)
 		{
 			_window.Close();
 		}
 
-		private void OnSelectClicked(object obj)
+		private void OnSelectClicked(object? sender, ButtonControl button)
 		{
 			var selectedItem = _listControl.SelectedItem;
 			if (selectedItem != null)

@@ -23,7 +23,6 @@ namespace SharpConsoleUI.Controls
 		private bool _enabled = true;
 		private bool _focused;
 		private Margin _margin = new Margin(0, 0, 0, 0);
-		private Action<ButtonControl>? _onClick;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string _text = "Button";
 		private bool _visible = true;
@@ -234,10 +233,6 @@ namespace SharpConsoleUI.Controls
 			return renderedAnsi;
 		}
 
-		public void SetFocus(bool focus, bool backward)
-		{
-			HasFocus = focus;
-		}
 
 		// IMouseAwareControl implementation
 		public bool WantsMouseEvents => IsEnabled;
@@ -249,33 +244,9 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
 		/// <summary>
-		/// Convenience property for simple action-based click handling
+		/// Event fired when the button is clicked (convenience event that provides the button as parameter)
 		/// </summary>
-		public Action<ButtonControl>? OnClick
-		{
-			get => _onClick;
-			set
-			{
-				if (_onClick != null)
-				{
-					// Remove previous handler
-					MouseClick -= OnClickHandler;
-				}
-				
-				_onClick = value;
-				
-				if (_onClick != null)
-				{
-					// Add new handler
-					MouseClick += OnClickHandler;
-				}
-			}
-		}
-
-		private void OnClickHandler(object? sender, MouseEventArgs args)
-		{
-			_onClick?.Invoke(this);
-		}
+		public event EventHandler<ButtonControl>? Click;
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 		public event EventHandler<MouseEventArgs>? MouseLeave;
 		public event EventHandler<MouseEventArgs>? MouseMove;
@@ -307,8 +278,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void TriggerClick(MouseEventArgs args)
 		{
-			// Fire the unified click event
+			// Fire the mouse click event
 			MouseClick?.Invoke(this, args);
+			
+			// Fire the convenience click event
+			Click?.Invoke(this, this);
 		}
 
 		// IFocusableControl implementation

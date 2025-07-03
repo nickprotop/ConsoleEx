@@ -176,7 +176,7 @@ namespace SharpConsoleUI.Example
 				Width = 12,
 				Text = "Expand All"
 			};
-			expandButton.OnClick = (sender) =>
+			expandButton.Click += (sender, button) =>
 			{
 				_fileTree.ExpandAll();
 			};
@@ -187,7 +187,7 @@ namespace SharpConsoleUI.Example
 				Width = 12,
 				Text = "Collapse All"
 			};
-			collapseButton.OnClick = (sender) =>
+			collapseButton.Click += (sender, button) =>
 			{
 				_fileTree.CollapseAll();
 			};
@@ -198,7 +198,7 @@ namespace SharpConsoleUI.Example
 				Width = 12,
 				Text = "Refresh"
 			};
-			refreshButton.OnClick = (sender) =>
+			refreshButton.Click += (sender, button) =>
 			{
 				_fileTree.Clear();
 				PopulateTreeWithDrives();

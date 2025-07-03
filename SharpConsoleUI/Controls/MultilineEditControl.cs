@@ -1784,12 +1784,6 @@ namespace SharpConsoleUI.Controls
 			ContentChanged?.Invoke(this, GetContent());
 		}
 
-		public void SetFocus(bool focus, bool backward)
-		{
-			_hasFocus = focus;
-			_cachedContent = null;
-			Container?.Invalidate(true);
-		}
 
 		// Add this method to support deleting selected text
 		private void DeleteSelectedText()

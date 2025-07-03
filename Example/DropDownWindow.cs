@@ -88,19 +88,19 @@ namespace SharpConsoleUI.Example
 			}
 		}
 
-		private ButtonControl CreateButton(string text, Action<object> onClick)
+		private ButtonControl CreateButton(string text, EventHandler<ButtonControl> onClick)
 		{
 			var button = new ButtonControl { Text = text };
-			button.OnClick += onClick;
+			button.Click += onClick;
 			return button;
 		}
 
-		private void OnCancelClicked(object obj)
+		private void OnCancelClicked(object? sender, ButtonControl button)
 		{
 			_window.GetConsoleWindowSystem?.CloseWindow(_window);
 		}
 
-		private void OnOkClicked(object obj)
+		private void OnOkClicked(object? sender, ButtonControl button)
 		{
 			// Process the selected country
 			var country = _countryDropdown.SelectedValue;

@@ -8,19 +8,29 @@
 
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
+using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class ColumnContainer : IContainer
+	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl
 	{
+		private Alignment _alignment = Alignment.Left;
 		private Color? _backgroundColor;
 		private List<string>? _cachedContent;
 		private ConsoleWindowSystem? _consoleWindowSystem;
+		private IContainer? _container;
 		private List<IWIndowControl> _contents = new List<IWIndowControl>();
 		private Color? _foregroundColor;
+		private bool _hasFocus;
 		private HorizontalGridControl _horizontalGridContent;
 		private bool _isDirty;
+		private bool _isEnabled = true;
+		private Margin _margin = new Margin(0, 0, 0, 0);
+		private StickyPosition _stickyPosition = StickyPosition.None;
+		private bool _visible = true;
 		private int? _width;
 
 		public ColumnContainer(HorizontalGridControl horizontalGridContent)
@@ -65,6 +75,61 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_width = value;
+				Invalidate(true);
+			}
+		}
+		
+		// IWIndowControl implementation
+		public int? ActualWidth => GetActualWidth();
+		
+		public Alignment Alignment
+		{
+			get => _alignment;
+			set
+			{
+				_alignment = value;
+				Invalidate(true);
+			}
+		}
+		
+		public IContainer? Container
+		{
+			get => _container;
+			set
+			{
+				_container = value;
+				Invalidate(true);
+			}
+		}
+		
+		public Margin Margin
+		{
+			get => _margin;
+			set
+			{
+				_margin = value;
+				Invalidate(true);
+			}
+		}
+		
+		public StickyPosition StickyPosition
+		{
+			get => _stickyPosition;
+			set
+			{
+				_stickyPosition = value;
+				Invalidate(true);
+			}
+		}
+		
+		public object? Tag { get; set; }
+		
+		public bool Visible
+		{
+			get => _visible;
+			set
+			{
+				_visible = value;
 				Invalidate(true);
 			}
 		}
@@ -152,6 +217,76 @@ namespace SharpConsoleUI.Controls
 
 			_isDirty = false;
 			return _cachedContent;
+		}
+		
+		// IInteractiveControl implementation
+		public bool HasFocus 
+		{ 
+			get => _hasFocus;
+			set
+			{
+				var hadFocus = _hasFocus;
+				_hasFocus = value;
+				
+				// Fire focus events
+				if (value && !hadFocus)
+				{
+					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
+				else if (!value && hadFocus)
+				{
+					LostFocus?.Invoke(this, EventArgs.Empty);
+				}
+			}
+		}
+		
+		public bool IsEnabled 
+		{ 
+			get => _isEnabled;
+			set 
+			{ 
+				_isEnabled = value; 
+				Invalidate(true); 
+			} 
+		}
+		
+		public bool ProcessKey(ConsoleKeyInfo key)
+		{
+			// ColumnContainer doesn't process keys directly, delegate to focused content
+			var focusedContent = GetInteractiveContents().FirstOrDefault(c => c.HasFocus);
+			return focusedContent?.ProcessKey(key) ?? false;
+		}
+		
+		// IFocusableControl implementation
+		public bool CanReceiveFocus => IsEnabled;
+		
+		public event EventHandler? GotFocus;
+		public event EventHandler? LostFocus;
+		
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
+		{
+			HasFocus = focus;
+		}
+		
+		// Additional IWIndowControl methods
+		public System.Drawing.Size GetLogicalContentSize()
+		{
+			var content = RenderContent(int.MaxValue, int.MaxValue);
+			return new System.Drawing.Size(
+				content.FirstOrDefault()?.Length ?? 0,
+				content.Count
+			);
+		}
+		
+		public void Invalidate()
+		{
+			Invalidate(true);
+		}
+		
+		public void Dispose()
+		{
+			_contents.Clear();
+			_cachedContent = null;
 		}
 	}
 }
