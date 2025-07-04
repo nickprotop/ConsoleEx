@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using Spectre.Console;
 using System.Drawing;
@@ -15,7 +16,7 @@ namespace SharpConsoleUI.Controls
 {
 	public class FigleControl : IWIndowControl
 	{
-		private List<string>? _cachedContent;
+		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private Color? _color;
 		private Alignment _justify = Alignment.Left;
 		private Margin _margin = new Margin(0, 0, 0, 0);
@@ -24,13 +25,18 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		public FigleControl()
+		{
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
+		}
+
 		public int? ActualWidth
 		{
 			get
 			{
-				if (_cachedContent == null) return null;
+				if (_contentCache.Content == null) return null;
 				int maxLength = 0;
-				foreach (var line in _cachedContent)
+				foreach (var line in _contentCache.Content)
 				{
 					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
@@ -40,15 +46,15 @@ namespace SharpConsoleUI.Controls
 		}
 
 		public Alignment Alignment
-		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _justify; set { _justify = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public Color? Color
-		{ get => _color; set { _color = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _color; set { _color = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public IContainer? Container { get; set; }
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -63,28 +69,29 @@ namespace SharpConsoleUI.Controls
 		public object? Tag { get; set; }
 
 		public string? Text
-		{ get => _text; set { _text = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _text; set { _text = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public bool Visible
-		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _width; set { _width = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public void Dispose()
 		{
+			_contentCache.Dispose();
 			Container = null;
 		}
 
 		public void Invalidate()
 		{
-			_cachedContent = null;
+			_contentCache.Invalidate(InvalidationReason.ContentChanged);
 		}
 
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			// For Figlet text, we need to render to get the size
-			var content = RenderContent(int.MaxValue, int.MaxValue);
+			var content = RenderContent(10000, 10000);
 			return new System.Drawing.Size(
 				content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)),
 				content.Count
@@ -93,18 +100,21 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (_cachedContent != null) return _cachedContent;
+			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
+		}
 
-			_cachedContent = new List<string>();
+		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
+		{
+			var renderedContent = new List<string>();
 
 			FigletText figletText = new FigletText(_text ?? string.Empty);
 			Style style = new Style(_color ?? _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White, background: Container?.BackgroundColor ?? Spectre.Console.Color.Black);
 			figletText.Color = style.Foreground;
 
-			_cachedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? availableWidth ?? 50, availableHeight, Container?.BackgroundColor ?? Spectre.Console.Color.Black);
+			renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? availableWidth ?? 50, availableHeight, Container?.BackgroundColor ?? Spectre.Console.Color.Black);
 
 			int maxContentWidth = 0;
-			foreach (var line in _cachedContent)
+			foreach (var line in renderedContent)
 			{
 				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 				if (length > maxContentWidth) maxContentWidth = length;
@@ -116,25 +126,25 @@ namespace SharpConsoleUI.Controls
 				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
 			}
 
-			for (int i = 0; i < _cachedContent.Count; i++)
+			for (int i = 0; i < renderedContent.Count; i++)
 			{
-				_cachedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + _cachedContent[i];
+				renderedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + renderedContent[i];
 			}
 
-			return _cachedContent;
+			return renderedContent;
 		}
 
 		public void SetColor(Color color)
 		{
 			_color = color;
-			_cachedContent = null;
+			_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 			Container?.Invalidate(true);
 		}
 
 		public void SetText(string text)
 		{
 			_text = text;
-			_cachedContent = null;
+			_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 			Container?.Invalidate(true);
 		}
 	}

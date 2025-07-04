@@ -8,6 +8,9 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Events;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Core;
 using Spectre.Console;
 using System.ComponentModel.Design;
 using System.Data.Common;
@@ -16,10 +19,10 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class HorizontalGridControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class HorizontalGridControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl
 	{
 		private Alignment _alignment = Alignment.Left;
-		private List<string>? _cachedContent;
+		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
 		private IContainer? _container;
 		private IInteractiveControl? _focusedContent;
@@ -34,13 +37,19 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		public HorizontalGridControl()
+		{
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
+		}
+
 		public int? ActualWidth
 		{
 			get
 			{
-				if (_cachedContent == null) return 0;
+				var cachedContent = _contentCache.Content;
+				if (cachedContent == null) return 0;
 				int maxLength = 0;
-				foreach (var line in _cachedContent)
+				foreach (var line in cachedContent)
 				{
 					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
@@ -50,7 +59,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
 
 		public Color? BackgroundColor { get; set; }
 		public List<ColumnContainer> Columns => _columns;
@@ -62,7 +71,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_container = value;
 				_invalidated = true;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				foreach (var column in _columns)
 				{
 					column.GetConsoleWindowSystem = value?.GetConsoleWindowSystem;
@@ -87,7 +96,7 @@ namespace SharpConsoleUI.Controls
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
 				FocusChanged();
-				Container?.Invalidate(true);
+				this.SafeInvalidate(InvalidationReason.FocusChanged);
 				
 				// Fire focus events
 				if (value && !hadFocus)
@@ -106,14 +115,14 @@ namespace SharpConsoleUI.Controls
 			get => _isEnabled;
 			set
 			{
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.StateChanged);
 				_isEnabled = value;
 				Container?.Invalidate(false);
 			}
 		}
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -121,17 +130,17 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_stickyPosition = value;
-				Container?.Invalidate(true);
+				this.SafeInvalidate(InvalidationReason.PropertyChanged);
 			}
 		}
 
 		public object? Tag { get; set; }
 
 		public bool Visible
-		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
 
 		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _width; set { _width = value; _contentCache.Invalidate(InvalidationReason.SizeChanged); } }
 
 		public void AddColumn(ColumnContainer column)
 		{
@@ -209,7 +218,8 @@ namespace SharpConsoleUI.Controls
 
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(int.MaxValue, int.MaxValue);
+			// Use reasonable maximum dimensions instead of int.MaxValue to avoid memory issues
+			var content = RenderContent(10000, 10000);
 			return new System.Drawing.Size(
 				content.FirstOrDefault()?.Length ?? 0,
 				content.Count
@@ -224,7 +234,7 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate()
 		{
 			_invalidated = true;
-			_cachedContent = null;
+			_contentCache.Invalidate(InvalidationReason.ContentChanged);
 
 			foreach (var column in _columns)
 			{
@@ -236,7 +246,7 @@ namespace SharpConsoleUI.Controls
 				splitter.Invalidate();
 			}
 
-			Container?.Invalidate(false);
+			// Don't directly call Container.Invalidate - let the InvalidationManager handle it
 		}
 
 		public bool ProcessKey(ConsoleKeyInfo key)
@@ -395,15 +405,16 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (!_invalidated && _cachedContent != null)
-			{
-				return _cachedContent;
-			}
+			// Use thread-safe cache with lazy rendering
+			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
+		}
 
+		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
+		{
 			BackgroundColor = BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black;
 			ForegroundColor = ForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White;
 
-			_cachedContent = new List<string>();
+			var renderedContent = new List<string>();
 			int? maxHeight = 0;
 
 			// Create combined list of columns and splitters in their display order
@@ -541,11 +552,11 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 
-				_cachedContent.Add(line);
+				renderedContent.Add(line);
 			}
 
 			_invalidated = false;
-			return _cachedContent;
+			return renderedContent;
 		}
 
 		// IFocusableControl implementation
@@ -557,6 +568,54 @@ namespace SharpConsoleUI.Controls
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			HasFocus = focus;
+		}
+
+		// IMouseAwareControl implementation
+		public bool WantsMouseEvents => IsEnabled;
+		public bool CanFocusWithMouse => IsEnabled;
+
+		public event EventHandler<MouseEventArgs>? MouseClick;
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+		public event EventHandler<MouseEventArgs>? MouseMove;
+
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+			if (!IsEnabled || !WantsMouseEvents)
+				return false;
+
+			// Find the column and control that was clicked
+			var clickedControl = GetControlAtPosition(args.Position);
+			if (clickedControl != null)
+			{
+				// Handle focus management for mouse clicks
+				if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+				{
+					HandleControlFocusFromMouse(clickedControl);
+				}
+
+				// Propagate mouse event to the clicked control if it supports mouse events
+				if (clickedControl is IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
+				{
+					// Calculate control-relative coordinates
+					var controlPosition = GetControlRelativePosition(clickedControl, args.Position);
+					var controlArgs = args.WithPosition(controlPosition);
+					
+					return mouseAware.ProcessMouseEvent(controlArgs);
+				}
+				
+				// Event was handled by focus change even if control doesn't support mouse
+				return true;
+			}
+
+			// No control was clicked, but we might want to handle grid-level events
+			if (args.HasFlag(MouseFlags.Button1Clicked))
+			{
+				MouseClick?.Invoke(this, args);
+				return true;
+			}
+
+			return false;
 		}
 
 		private void FocusChanged(bool backward = false)
@@ -630,6 +689,187 @@ namespace SharpConsoleUI.Controls
 				}
 
 				_focusedContent = null;
+			}
+		}
+
+		/// <summary>
+		/// Finds the control at the specified position within the grid
+		/// </summary>
+		/// <param name="position">Position relative to the grid</param>
+		/// <returns>The control at the position, or null if no control found</returns>
+		private IInteractiveControl? GetControlAtPosition(Point position)
+		{
+			// We need to find which column and which control within that column contains this position
+			// Use thread-safe cache access to prevent race conditions
+			var cachedContent = _contentCache.Content;
+			if (cachedContent == null)
+			{
+				// Force a render to ensure we have current layout information
+				// Use reasonable maximum dimensions instead of int.MaxValue to avoid memory issues
+				cachedContent = RenderContent(10000, 10000);
+				
+				// Verify content was rendered
+				if (cachedContent == null)
+				{
+					return null;
+				}
+			}
+
+			// Calculate column positions based on the rendered layout
+			var displayControls = BuildDisplayControlsList();
+			int currentX = 0;
+
+			for (int i = 0; i < displayControls.Count; i++)
+			{
+				var (isSplitter, control, controlWidth) = displayControls[i];
+				
+				if (isSplitter)
+				{
+					// Check if click is on splitter
+					if (position.X >= currentX && position.X < currentX + controlWidth)
+					{
+						return control as IInteractiveControl;
+					}
+					currentX += controlWidth;
+				}
+				else
+				{
+					// Check if click is within this column
+					var column = (ColumnContainer)control;
+					int actualColumnWidth = column.GetActualWidth() ?? controlWidth;
+					
+					if (position.X >= currentX && position.X < currentX + actualColumnWidth)
+					{
+						// Find the control within this column at the relative position
+						var relativePosition = new Point(position.X - currentX, position.Y);
+						return column.GetControlAtPosition(relativePosition);
+					}
+					currentX += actualColumnWidth;
+				}
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Calculates the position relative to a specific control
+		/// </summary>
+		/// <param name="control">The target control</param>
+		/// <param name="gridPosition">Position relative to the grid</param>
+		/// <returns>Position relative to the control</returns>
+		private Point GetControlRelativePosition(IInteractiveControl control, Point gridPosition)
+		{
+			// Find the column that contains this control
+			foreach (var column in _columns)
+			{
+				if (column.ContainsControl(control))
+				{
+					// Calculate the column's offset within the grid
+					var columnOffset = GetColumnOffset(column);
+					var columnRelativePosition = new Point(gridPosition.X - columnOffset, gridPosition.Y);
+					
+					// Get the control's position within the column
+					return column.GetControlRelativePosition(control, columnRelativePosition);
+				}
+			}
+
+			// If control not found in any column, check splitters
+			var displayControls = BuildDisplayControlsList();
+			int currentX = 0;
+
+			for (int i = 0; i < displayControls.Count; i++)
+			{
+				var (isSplitter, displayControl, controlWidth) = displayControls[i];
+				
+				if (isSplitter && displayControl == control)
+				{
+					return new Point(gridPosition.X - currentX, gridPosition.Y);
+				}
+				
+				currentX += isSplitter ? controlWidth : ((ColumnContainer)displayControl).GetActualWidth() ?? controlWidth;
+			}
+
+			return gridPosition; // Fallback
+		}
+
+		/// <summary>
+		/// Gets the X offset of a column within the grid
+		/// </summary>
+		/// <param name="targetColumn">The column to find the offset for</param>
+		/// <returns>X offset of the column</returns>
+		private int GetColumnOffset(ColumnContainer targetColumn)
+		{
+			var displayControls = BuildDisplayControlsList();
+			int currentX = 0;
+
+			for (int i = 0; i < displayControls.Count; i++)
+			{
+				var (isSplitter, control, controlWidth) = displayControls[i];
+				
+				if (!isSplitter && control == targetColumn)
+				{
+					return currentX;
+				}
+				
+				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetActualWidth() ?? controlWidth;
+			}
+
+			return 0; // Fallback
+		}
+
+		/// <summary>
+		/// Builds the display controls list similar to what's done in RenderContent
+		/// </summary>
+		/// <returns>List of display controls with their metadata</returns>
+		private List<(bool IsSplitter, object Control, int Width)> BuildDisplayControlsList()
+		{
+			var displayControls = new List<(bool IsSplitter, object Control, int Width)>();
+
+			// Add all columns and their splitters
+			for (int i = 0; i < _columns.Count; i++)
+			{
+				var column = _columns[i];
+				displayControls.Add((false, column, column.Width ?? 0));
+
+				// If there's a splitter after this column, add it
+				var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+				if (splitter != null)
+				{
+					displayControls.Add((true, splitter, splitter.Width ?? 1));
+				}
+			}
+
+			return displayControls;
+		}
+
+		/// <summary>
+		/// Handles focus management when a control is clicked
+		/// </summary>
+		/// <param name="control">The control that was clicked</param>
+		private void HandleControlFocusFromMouse(IInteractiveControl control)
+		{
+			// Check if control can receive focus
+			if (control is IFocusableControl focusable && focusable.CanReceiveFocus)
+			{
+				// Remove focus from current control
+				if (_focusedContent != null && _focusedContent != control && _focusedContent is IFocusableControl currentFocused)
+				{
+					currentFocused.SetFocus(false, FocusReason.Mouse);
+				}
+				
+				// Set focus to new control
+				focusable.SetFocus(true, FocusReason.Mouse);
+				
+				// Update focused content
+				_focusedContent = control;
+				
+				// Invalidate the container that contains this control
+				if (_interactiveContents.ContainsKey(control))
+				{
+					_interactiveContents[control].Invalidate(true);
+				}
+				
+				Container?.Invalidate(true);
 			}
 		}
 

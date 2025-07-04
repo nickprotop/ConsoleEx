@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using Spectre.Console;
 using System.Drawing;
@@ -16,7 +17,7 @@ namespace SharpConsoleUI.Controls
 	public class RuleControl : IWIndowControl
 	{
 		private Alignment _alignment = Alignment.Left;
-		private List<string>? _cachedContent;
+		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private Color? _color;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
@@ -24,7 +25,13 @@ namespace SharpConsoleUI.Controls
 		private Justify _titleAlignment = Justify.Left;
 		private bool _visible = true;
 		private int? _width;
-		public int? ActualWidth => _cachedContent == null ? 0 : AnsiConsoleHelper.StripAnsiStringLength(_cachedContent?.FirstOrDefault() ?? string.Empty);
+
+		public RuleControl()
+		{
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
+		}
+
+		public int? ActualWidth => _contentCache.Content == null ? 0 : AnsiConsoleHelper.StripAnsiStringLength(_contentCache.Content?.FirstOrDefault() ?? string.Empty);
 
 		public Alignment Alignment
 		{
@@ -32,7 +39,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_alignment = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -43,7 +50,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_color = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -51,7 +58,7 @@ namespace SharpConsoleUI.Controls
 		public IContainer? Container { get; set; }
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -71,7 +78,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_title = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -82,13 +89,13 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_titleAlignment = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
 
 		public bool Visible
-		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public int? Width
 		{
@@ -96,19 +103,20 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_width = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
 
 		public void Dispose()
 		{
+			_contentCache.Dispose();
 			Container = null;
 		}
 
 		public void Invalidate()
 		{
-			_cachedContent = null;
+			_contentCache.Invalidate(InvalidationReason.ContentChanged);
 		}
 
 		public System.Drawing.Size GetLogicalContentSize()
@@ -120,9 +128,12 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (_cachedContent != null) return _cachedContent;
+			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
+		}
 
-			_cachedContent = new List<string>();
+		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
+		{
+			var renderedContent = new List<string>();
 
 			int width = _width ?? availableWidth ?? 80;
 
@@ -133,20 +144,20 @@ namespace SharpConsoleUI.Controls
 				Justification = _titleAlignment
 			};
 
-			_cachedContent = new List<string>() { AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(rule, width, 1, Container?.BackgroundColor ?? Spectre.Console.Color.Black).FirstOrDefault() ?? string.Empty };
+			renderedContent = new List<string>() { AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(rule, width, 1, Container?.BackgroundColor ?? Spectre.Console.Color.Black).FirstOrDefault() ?? string.Empty };
 
 			int paddingLeft = 0;
 			if (_alignment == Alignment.Center)
 			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, AnsiConsoleHelper.StripAnsiStringLength(_cachedContent?.FirstOrDefault() ?? string.Empty));
+				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, AnsiConsoleHelper.StripAnsiStringLength(renderedContent?.FirstOrDefault() ?? string.Empty));
 			}
 
-			for (int i = 0; i < _cachedContent!.Count; i++)
+			for (int i = 0; i < renderedContent.Count; i++)
 			{
-				_cachedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + _cachedContent[i];
+				renderedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + renderedContent[i];
 			}
 
-			return _cachedContent;
+			return renderedContent;
 		}
 	}
 }

@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Core;
 using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -18,7 +19,7 @@ namespace SharpConsoleUI.Controls
 	{
 		private Alignment _alignment = Alignment.Left;
 		private Color? _backgroundColorValue;
-		private List<string>? _cachedContent;
+		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private bool _checked = false;
 		private Color? _checkmarkColorValue;
 		private Color? _disabledBackgroundColorValue;
@@ -40,6 +41,7 @@ namespace SharpConsoleUI.Controls
 		{
 			_label = label;
 			_checked = isChecked;
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
 		// Events
@@ -51,9 +53,10 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				if (_cachedContent == null) return null;
+				var cachedContent = _contentCache.Content;
+				if (cachedContent == null) return null;
 				int maxLength = 0;
-				foreach (var line in _cachedContent)
+				foreach (var line in cachedContent)
 				{
 					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
@@ -64,7 +67,7 @@ namespace SharpConsoleUI.Controls
 
 		// Properties
 		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
 
 		public Color BackgroundColor
 		{
@@ -72,7 +75,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -85,7 +88,7 @@ namespace SharpConsoleUI.Controls
 				if (_checked != value)
 				{
 					_checked = value;
-					_cachedContent = null;
+					_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 					Container?.Invalidate(true);
 					CheckedChanged?.Invoke(this, _checked);
 				}
@@ -98,7 +101,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_checkmarkColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -111,7 +114,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_disabledBackgroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -122,7 +125,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_disabledForegroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -133,7 +136,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedBackgroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -144,7 +147,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedForegroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -155,7 +158,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -168,7 +171,7 @@ namespace SharpConsoleUI.Controls
 				if (_hasFocus != value)
 				{
 					_hasFocus = value;
-					_cachedContent = null;
+					_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 					Container?.Invalidate(true);
 					
 					if (value)
@@ -187,7 +190,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -198,13 +201,13 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_label = value;
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -219,14 +222,15 @@ namespace SharpConsoleUI.Controls
 		public object? Tag { get; set; }
 
 		public bool Visible
-		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _width; set { _width = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
 		public void Dispose()
 		{
 			Container = null;
+			_contentCache.Dispose();
 		}
 
 		// ILogicalCursorProvider implementation
@@ -237,7 +241,8 @@ namespace SharpConsoleUI.Controls
 
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(int.MaxValue, int.MaxValue);
+			// Use reasonable maximum dimensions instead of int.MaxValue
+			var content = RenderContent(10000, 10000);
 			return new System.Drawing.Size(
 				content.FirstOrDefault()?.Length ?? 0,
 				content.Count
@@ -252,7 +257,7 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate()
 		{
 			_invalidated = true;
-			_cachedContent = null;
+			_contentCache.Invalidate(InvalidationReason.All);
 		}
 
 		public bool ProcessKey(ConsoleKeyInfo key)
@@ -272,10 +277,13 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (!_invalidated && _cachedContent != null)
-				return _cachedContent;
+			// Use thread-safe cache with lazy rendering
+			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
+		}
 
-			_cachedContent = new List<string>();
+		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
+		{
+			var renderedContentList = new List<string>();
 
 			// Determine colors based on state
 			Color backgroundColor;
@@ -417,11 +425,11 @@ namespace SharpConsoleUI.Controls
 					_margin.Top
 				).ToList();
 
-				_cachedContent.InsertRange(0, topMargin);
+				renderedContentList.InsertRange(0, topMargin);
 			}
 
 			// Add the checkbox content
-			_cachedContent.AddRange(renderedContent);
+			renderedContentList.AddRange(renderedContent);
 
 			// Add bottom margin
 			if (_margin.Bottom > 0)
@@ -439,11 +447,11 @@ namespace SharpConsoleUI.Controls
 					_margin.Bottom
 				).ToList();
 
-				_cachedContent.AddRange(bottomMargin);
+				renderedContentList.AddRange(bottomMargin);
 			}
 
 			_invalidated = false;
-			return _cachedContent;
+			return renderedContentList;
 		}
 
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)

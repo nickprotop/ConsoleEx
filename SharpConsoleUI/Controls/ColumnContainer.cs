@@ -9,6 +9,7 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Core;
 using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -19,7 +20,7 @@ namespace SharpConsoleUI.Controls
 	{
 		private Alignment _alignment = Alignment.Left;
 		private Color? _backgroundColor;
-		private List<string>? _cachedContent;
+		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private IContainer? _container;
 		private List<IWIndowControl> _contents = new List<IWIndowControl>();
@@ -37,16 +38,17 @@ namespace SharpConsoleUI.Controls
 		{
 			_horizontalGridContent = horizontalGridContent;
 			_consoleWindowSystem = horizontalGridContent.Container?.GetConsoleWindowSystem;
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
 		public Color BackgroundColor
-		{ get { return _backgroundColor ?? _consoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black; } set { _backgroundColor = value; Invalidate(true); } }
+		{ get { return _backgroundColor ?? _consoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black; } set { _backgroundColor = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
 
 		public Color ForegroundColor
-		{ get { return _foregroundColor ?? _consoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White; } set { _foregroundColor = value; Invalidate(true); } }
+		{ get { return _foregroundColor ?? _consoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White; } set { _foregroundColor = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
 
 		public ConsoleWindowSystem? GetConsoleWindowSystem
-		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; foreach (IWIndowControl control in _contents) { control.Invalidate(); }; Invalidate(true); } }
+		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; foreach (IWIndowControl control in _contents) { control.Invalidate(); }; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
 
 		public HorizontalGridControl HorizontalGridContent
 		{
@@ -143,10 +145,11 @@ namespace SharpConsoleUI.Controls
 
 		public int? GetActualWidth()
 		{
-			if (_cachedContent == null) return null;
+			var cachedContent = _contentCache.Content;
+			if (cachedContent == null) return null;
 
 			int maxLength = 0;
-			foreach (var line in _cachedContent)
+			foreach (var line in cachedContent)
 			{
 				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 				if (length > maxLength) maxLength = length;
@@ -170,14 +173,14 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate(bool redrawAll, IWIndowControl? callerControl = null)
 		{
 			_isDirty = true;
-			_cachedContent = null;
+			_contentCache.Invalidate(InvalidationReason.ChildInvalidated);
 			_horizontalGridContent.Invalidate();
 		}
 
 		public void InvalidateOnlyColumnContents()
 		{
 			_isDirty = true;
-			_cachedContent = null;
+			_contentCache.Invalidate(InvalidationReason.ContentChanged);
 			foreach (var content in _contents)
 			{
 				content.Invalidate();
@@ -196,12 +199,13 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (!_isDirty && _cachedContent != null)
-			{
-				return _cachedContent;
-			}
+			// Use thread-safe cache with lazy rendering
+			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
+		}
 
-			_cachedContent = new List<string>();
+		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
+		{
+			var renderedContent = new List<string>();
 
 			foreach (var content in _contents)
 			{
@@ -211,12 +215,12 @@ namespace SharpConsoleUI.Controls
 			// Render each content and collect the lines
 			foreach (var content in _contents)
 			{
-				var renderedContent = content.RenderContent(_width ?? availableWidth, availableHeight);
-				_cachedContent.AddRange(renderedContent);
+				var contentRendered = content.RenderContent(_width ?? availableWidth, availableHeight);
+				renderedContent.AddRange(contentRendered);
 			}
 
 			_isDirty = false;
-			return _cachedContent;
+			return renderedContent;
 		}
 		
 		// IInteractiveControl implementation
@@ -283,10 +287,99 @@ namespace SharpConsoleUI.Controls
 			Invalidate(true);
 		}
 		
+		/// <summary>
+		/// Finds the control at the specified position within the column
+		/// </summary>
+		/// <param name="position">Position relative to the column</param>
+		/// <returns>The control at the position, or null if no control found</returns>
+		public IInteractiveControl? GetControlAtPosition(Point position)
+		{
+			// Force render to ensure we have current layout using thread-safe cache
+			var cachedContent = _contentCache.Content;
+			if (cachedContent == null)
+			{
+				// Use reasonable maximum dimensions instead of int.MaxValue to avoid memory issues
+				cachedContent = RenderContent(10000, 10000);
+				
+				// Verify content was rendered
+				if (cachedContent == null)
+				{
+					return null;
+				}
+			}
+
+			int currentY = 0;
+			foreach (var content in _contents.Where(c => c.Visible))
+			{
+				var renderedContent = content.RenderContent(_width, null);
+				int contentHeight = renderedContent.Count;
+				
+				// Check if the position is within this control's bounds
+				if (position.Y >= currentY && position.Y < currentY + contentHeight)
+				{
+					if (content is IInteractiveControl interactiveControl)
+					{
+						return interactiveControl;
+					}
+				}
+				
+				currentY += contentHeight;
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Checks if the column contains the specified control
+		/// </summary>
+		/// <param name="control">The control to check for</param>
+		/// <returns>True if the control is in this column</returns>
+		public bool ContainsControl(IInteractiveControl control)
+		{
+			return control is IWIndowControl windowControl && _contents.Contains(windowControl);
+		}
+
+		/// <summary>
+		/// Calculates the position relative to a specific control within the column
+		/// </summary>
+		/// <param name="control">The target control</param>
+		/// <param name="columnPosition">Position relative to the column</param>
+		/// <returns>Position relative to the control</returns>
+		public Point GetControlRelativePosition(IInteractiveControl control, Point columnPosition)
+		{
+			// Force render to ensure we have current layout using thread-safe cache
+			var cachedContent = _contentCache.Content;
+			if (cachedContent == null)
+			{
+				// Use reasonable maximum dimensions instead of int.MaxValue to avoid memory issues
+				cachedContent = RenderContent(10000, 10000);
+				
+				// Verify content was rendered
+				if (cachedContent == null)
+				{
+					return new Point(0, 0);
+				}
+			}
+
+			int currentY = 0;
+			foreach (var content in _contents.Where(c => c.Visible))
+			{
+				if (content == control)
+				{
+					return new Point(columnPosition.X, columnPosition.Y - currentY);
+				}
+				
+				var renderedContent = content.RenderContent(_width, null);
+				currentY += renderedContent.Count;
+			}
+
+			return columnPosition; // Fallback if control not found
+		}
+
 		public void Dispose()
 		{
 			_contents.Clear();
-			_cachedContent = null;
+			_contentCache.Dispose();
 		}
 	}
 }

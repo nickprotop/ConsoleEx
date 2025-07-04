@@ -10,6 +10,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Core;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
@@ -176,7 +177,20 @@ namespace SharpConsoleUI
 
 		public string Guid => _guid.ToString();
 
-		public int Height { get; set; } = 20;
+		private int _height = 20;
+		public int Height 
+		{ 
+			get => _height; 
+			set 
+			{ 
+				if (_height != value) 
+				{ 
+					_height = value; 
+					UpdateControlLayout(); 
+					Invalidate(true); 
+				} 
+			} 
+		}
 
 		public Color InactiveBorderForegroundColor
 		{ get => _inactiveBorderForegroundColor ?? _windowSystem?.Theme.InactiveBorderForegroundColor ?? Color.White; set { _inactiveBorderForegroundColor = value; Invalidate(false); } }
@@ -280,7 +294,20 @@ namespace SharpConsoleUI
 
 		public int TotalLines => _cachedContent.Count + _topStickyHeight;
 
-		public int Width { get; set; } = 40;
+		private int _width = 40;
+		public int Width 
+		{ 
+			get => _width; 
+			set 
+			{ 
+				if (_width != value) 
+				{ 
+					_width = value; 
+					UpdateControlLayout(); 
+					Invalidate(true); 
+				} 
+			} 
+		}
 
 		public int ZIndex { get; set; }
 
@@ -290,6 +317,9 @@ namespace SharpConsoleUI
 			{
 				content.Container = this;
 				_controls.Add(content);
+
+				// Register the control with the InvalidationManager for proper coordination
+				InvalidationManager.Instance.RegisterControl(content);
 
 				_invalidated = true;
 
@@ -340,6 +370,8 @@ namespace SharpConsoleUI
 
 				foreach (var content in _controls)
 				{
+					// Unregister the control from the InvalidationManager before disposing
+					InvalidationManager.Instance.UnregisterControl(content as IWIndowControl);
 					(content as IWIndowControl).Dispose();
 				}
 
@@ -753,14 +785,20 @@ namespace SharpConsoleUI
 			{
 				if (redrawAll)
 				{
+					// Use the InvalidationManager to coordinate invalidation
 					foreach (var content in _controls)
 					{
-						(content as IWIndowControl)?.Invalidate();
+						if (content is IWIndowControl control)
+						{
+							// Use the thread-safe invalidation system
+							control.SafeInvalidate(InvalidationReason.All);
+						}
 					}
 				}
-				else
+				else if (callerControl != null)
 				{
-					(callerControl as IWIndowControl)?.Invalidate();
+					// Specific control invalidation
+					callerControl.SafeInvalidate(InvalidationReason.ChildInvalidated);
 				}
 			}
 
@@ -852,6 +890,9 @@ namespace SharpConsoleUI
 					}
 					_invalidated = true;
 					RenderAndGetVisibleContent();
+					
+					// Unregister the control from the InvalidationManager
+					InvalidationManager.Instance.UnregisterControl(content);
 					content.Dispose();
 					GoToBottom();
 				}
@@ -1028,11 +1069,15 @@ namespace SharpConsoleUI
 			Width = width;
 			Height = height;
 
+			// Force control layout recalculation for alignment updates (stretch, center, right)
+			UpdateControlLayout();
+
 			if (_scrollOffset > (_cachedContent?.Count ?? Height) - (Height - 2))
 			{
 				GoToBottom();
 			}
 
+			// Use the new invalidation system to notify all controls
 			Invalidate(true);
 
 			OnResize?.Invoke(this, EventArgs.Empty);

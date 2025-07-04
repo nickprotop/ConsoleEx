@@ -10,6 +10,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Core;
 using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -19,7 +20,7 @@ namespace SharpConsoleUI.Controls
 	public class ButtonControl : IWIndowControl, IInteractiveControl, IMouseAwareControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private Alignment _alignment = Alignment.Left;
-		private string? _cachedContent;
+		private readonly ThreadSafeCache<string> _contentCache;
 		private bool _enabled = true;
 		private bool _focused;
 		private Margin _margin = new Margin(0, 0, 0, 0);
@@ -27,10 +28,16 @@ namespace SharpConsoleUI.Controls
 		private string _text = "Button";
 		private bool _visible = true;
 		private int? _width;
-		public int? ActualWidth => _cachedContent == null ? null : AnsiConsoleHelper.StripAnsiStringLength(_cachedContent);
+
+		public ButtonControl()
+		{
+			_contentCache = this.CreateThreadSafeCache<string>();
+		}
+
+		public int? ActualWidth => _contentCache.Content == null ? null : AnsiConsoleHelper.StripAnsiStringLength(_contentCache.Content);
 
 		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
 
 		public IContainer? Container { get; set; }
 
@@ -39,7 +46,7 @@ namespace SharpConsoleUI.Controls
 			get => _focused;
 			set
 			{
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.FocusChanged);
 				_focused = value;
 			}
 		}
@@ -49,14 +56,13 @@ namespace SharpConsoleUI.Controls
 			get => _enabled;
 			set
 			{
-				_cachedContent = null;
+				_contentCache.Invalidate(InvalidationReason.StateChanged);
 				_enabled = value;
-				Container?.Invalidate(true);
 			}
 		}
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -64,7 +70,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_stickyPosition = value;
-				Container?.Invalidate(true);
+				this.SafeInvalidate(InvalidationReason.PropertyChanged);
 			}
 		}
 
@@ -76,20 +82,20 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_text = value;
-				_cachedContent = null;
-				Container?.Invalidate(true);
+				_contentCache.Invalidate(InvalidationReason.ContentChanged);
 			}
 		}
 
 		public bool Visible
-		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
 
 		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _width; set { _width = value; _contentCache.Invalidate(InvalidationReason.SizeChanged); } }
 
 		public void Dispose()
 		{
 			Container = null;
+			_contentCache.Dispose();
 		}
 
 		// ILogicalCursorProvider implementation
@@ -114,7 +120,7 @@ namespace SharpConsoleUI.Controls
 
 		public void Invalidate()
 		{
-			_cachedContent = null;
+			_contentCache.Invalidate(InvalidationReason.All);
 		}
 
 		public bool ProcessKey(ConsoleKeyInfo key)
@@ -136,10 +142,16 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (_cachedContent != null)
+			// Use thread-safe cache with lazy rendering
+			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight).FirstOrDefault() ?? string.Empty) switch
 			{
-				return new List<string>() { _cachedContent };
-			}
+				string content => new List<string> { content },
+				_ => new List<string>()
+			};
+		}
+
+		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
+		{
 
 			Color backgroundColor = Container?.BackgroundColor ?? Color.Black;
 			Color foregroundColor = Container?.ForegroundColor ?? Color.White;
@@ -229,7 +241,6 @@ namespace SharpConsoleUI.Controls
 				renderedAnsi.InsertRange(0, Enumerable.Repeat($"{AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(new string(' ', finalWidth), finalWidth, 1, false, windowBackground, windowForeground).FirstOrDefault()}", _margin.Bottom));
 			}
 
-			_cachedContent = renderedAnsi.First();
 			return renderedAnsi;
 		}
 
