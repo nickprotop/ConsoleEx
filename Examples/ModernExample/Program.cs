@@ -160,6 +160,9 @@ internal class Program
             "[blue]F3[/] - [bold]System Information Window[/]",
             "       Shows system stats with modern data gathering",
             "",
+            "[red]F4[/] - [bold]File Explorer[/]",
+            "        Tree control with file system navigation",
+            "",
             "[magenta]F5[/] - [bold]Digital Clock Window[/]",
             "       Real-time clock with async time updates",
             "",
@@ -173,10 +176,7 @@ internal class Program
             "       Country selection with styled dropdowns",
             "",
             "[green]F9[/] - [bold]ListView Demo[/]",
-            "       List control with selection handling",
-            "",
-            "[red]F10[/] - [bold]File Explorer[/]",
-            "        Tree control with file system navigation"
+            "       List control with selection handling"
         }));
 
         _mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
@@ -233,7 +233,7 @@ internal class Program
                         CreateListViewDemo();
                         e.Handled = true;
                         break;
-                    case ConsoleKey.F10:
+                    case ConsoleKey.F4:
                         CreateFileExplorerWindow();
                         e.Handled = true;
                         break;
