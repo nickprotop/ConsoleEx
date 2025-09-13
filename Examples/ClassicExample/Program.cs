@@ -55,6 +55,14 @@ namespace SharpConsoleUI.Example
 		{
 			var consoleWindowSystem = InitializeConsoleWindowSystem();
 
+			// Handle Ctrl+C gracefully to ensure console cleanup
+			Console.CancelKeyPress += (sender, e) =>
+			{
+				e.Cancel = true; // Prevent immediate termination
+				// Trigger graceful shutdown
+				consoleWindowSystem.Shutdown(0);
+			};
+
 			var commandWindow = new CommandWindow(consoleWindowSystem);
 			consoleWindowSystem.AddWindow(commandWindow.Window);
 

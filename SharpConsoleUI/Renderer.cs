@@ -178,11 +178,14 @@ namespace SharpConsoleUI
 
 			var resetColor = "[/]";
 
-			var title = $"{titleColor}| {StringHelper.TrimWithEllipsis(window.Title, window.Width - 8, (window.Width - 8) / 2)} |{resetColor}";
+			// Ensure we have enough space for the title, with safety margins
+			var maxTitleSpace = Math.Max(0, window.Width - 8); // Reserve space for corners, padding, and safety
+			var truncatedTitle = StringHelper.TrimWithEllipsis(window.Title, maxTitleSpace, maxTitleSpace / 2);
+			var title = $"{titleColor}| {truncatedTitle} |{resetColor}";
 			var titleLength = AnsiConsoleHelper.StripSpectreLength(title);
-			var availableSpace = window.Width - 2 - titleLength;
-			var leftPadding = 1;
-			var rightPadding = availableSpace - leftPadding;
+			var availableSpace = Math.Max(0, window.Width - 2 - titleLength);
+			var leftPadding = Math.Min(1, availableSpace);
+			var rightPadding = Math.Max(0, availableSpace - leftPadding);
 
 			var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
 			var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, window.Width - 2)}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
@@ -197,12 +200,26 @@ namespace SharpConsoleUI
 			{
 				if (region.Top == window.Top)
 				{
-					_consoleWindowSystem.ConsoleDriver.WriteToConsole(region.Left, region.Top + _consoleWindowSystem.DesktopUpperLeft.Y, AnsiConsoleHelper.SubstringAnsi(topBorder, region.Left - window.Left, region.Width));
+					// Ensure we don't write beyond the region boundaries
+					int borderStartX = Math.Max(region.Left, window.Left);
+					int borderWidth = Math.Min(region.Width, window.Left + window.Width - borderStartX);
+					if (borderWidth > 0)
+					{
+						string borderSegment = AnsiConsoleHelper.SubstringAnsi(topBorder, borderStartX - window.Left, borderWidth);
+						_consoleWindowSystem.ConsoleDriver.WriteToConsole(borderStartX, region.Top + _consoleWindowSystem.DesktopUpperLeft.Y, borderSegment);
+					}
 				}
 
 				if (region.Top + region.Height == window.Top + window.Height)
 				{
-					_consoleWindowSystem.ConsoleDriver.WriteToConsole(region.Left, window.Top + window.Height, AnsiConsoleHelper.SubstringAnsi(bottomBorder, region.Left - window.Left, region.Width));
+					// Ensure we don't write beyond the region boundaries for bottom border
+					int borderStartX = Math.Max(region.Left, window.Left);
+					int borderWidth = Math.Min(region.Width, window.Left + window.Width - borderStartX);
+					if (borderWidth > 0)
+					{
+						string borderSegment = AnsiConsoleHelper.SubstringAnsi(bottomBorder, borderStartX - window.Left, borderWidth);
+						_consoleWindowSystem.ConsoleDriver.WriteToConsole(borderStartX, window.Top + window.Height, borderSegment);
+					}
 				}
 			}
 
@@ -215,7 +232,8 @@ namespace SharpConsoleUI
 					if (window.Top + y >= region.Top && window.Top + y < region.Top + region.Height)
 					{
 						bool isLeftBorderVisible = window.Left >= region.Left && window.Left < region.Left + region.Width;
-						bool isRightBorderVisible = window.Left + window.Width > region.Left && window.Left + window.Width < region.Left + region.Width + 1;
+						int rightBorderPos = window.Left + window.Width - 1;
+						bool isRightBorderVisible = rightBorderPos >= region.Left && rightBorderPos < region.Left + region.Width;
 
 						if (isLeftBorderVisible)
 						{
@@ -230,7 +248,7 @@ namespace SharpConsoleUI
 							}
 							else
 							{
-								_consoleWindowSystem.ConsoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, verticalBorderAnsi);
+								_consoleWindowSystem.ConsoleDriver.WriteToConsole(rightBorderPos, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, verticalBorderAnsi);
 							}
 						}
 					}
@@ -268,8 +286,10 @@ namespace SharpConsoleUI
 					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 < region.Top + region.Height)
 					{
 						// Calculate content boundaries within the window
+						// Content area is between left border (windowLeft + 1) and right border (windowLeft + windowWidth - 1)
+						// So content right boundary should be windowLeft + windowWidth - 2
 						int contentLeft = Math.Max(windowLeft + 1, region.Left);
-						int contentRight = Math.Min(windowLeft + windowWidth - 1, region.Left + region.Width);
+						int contentRight = Math.Min(windowLeft + windowWidth - 2, region.Left + region.Width);
 						int contentWidth = contentRight - contentLeft;
 
 						if (contentWidth <= 0) continue;

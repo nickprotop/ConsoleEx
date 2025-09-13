@@ -456,27 +456,31 @@ namespace SharpConsoleUI.Helpers
 				if (match.Index > lastSequenceEnd)
 				{
 					// Count visible characters between sequences
-					visibleIndex += match.Index - lastSequenceEnd;
-					if (visibleIndex > startIndex)
+					int charCount = match.Index - lastSequenceEnd;
+					if (visibleIndex + charCount > startIndex)
 						break;
+					visibleIndex += charCount;
 				}
 
-				// Track this sequence
-				string sequence = match.Value;
-				if (IsResetSequence(sequence))
+				// Track this sequence if it's before our start position
+				if (visibleIndex <= startIndex)
 				{
-					// Reset clears all active sequences
-					activeSequences.Clear();
-				}
-				else if (!IsClosingSequence(sequence))
-				{
-					// Add to active sequences if it's an opening sequence
-					activeSequences.Add(sequence);
-				}
-				else
-				{
-					// Remove the corresponding opening sequence if possible
-					RemoveMatchingSequence(activeSequences, sequence);
+					string sequence = match.Value;
+					if (IsResetSequence(sequence))
+					{
+						// Reset clears all active sequences
+						activeSequences.Clear();
+					}
+					else if (!IsClosingSequence(sequence))
+					{
+						// Add to active sequences if it's an opening sequence
+						activeSequences.Add(sequence);
+					}
+					else
+					{
+						// Remove the corresponding opening sequence if possible
+						RemoveMatchingSequence(activeSequences, sequence);
+					}
 				}
 
 				lastSequenceEnd = match.Index + match.Length;
@@ -500,7 +504,7 @@ namespace SharpConsoleUI.Helpers
 
 				if (match != null)
 				{
-					// Found an escape sequence - always include it
+					// Found an escape sequence - include it if we're in the extraction range
 					if (visibleIndex >= startIndex)
 					{
 						output.Append(match.Value);
@@ -522,8 +526,11 @@ namespace SharpConsoleUI.Helpers
 				}
 			}
 
-			// Add reset sequence at the end
-			output.Append("\u001b[0m");
+			// Add reset sequence at the end to ensure clean termination
+			if (output.Length > 0 && !output.ToString().EndsWith("\u001b[0m"))
+			{
+				output.Append("\u001b[0m");
+			}
 
 			return output.ToString();
 		}

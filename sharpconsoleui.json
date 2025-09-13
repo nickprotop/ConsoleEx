@@ -1,0 +1,60 @@
+{
+  "SharpConsoleUI": {
+    "RenderMode": "Buffer",
+    "IdleTimeMs": 10,
+    "ShowTaskBar": true,
+    "TopStatus": "SharpConsoleUI Application",
+    "BottomStatus": "Ctrl+Q to Quit | F1 Help",
+    "EnablePlugins": true,
+    "PluginDirectory": "plugins",
+    "Performance": {
+      "EnableMonitoring": true,
+      "SamplingIntervalMs": 1000,
+      "LogSlowOperations": true,
+      "SlowOperationThresholdMs": 50
+    },
+    "Input": {
+      "DoubleClickTimeMs": 500,
+      "KeyRepeatDelayMs": 500,
+      "KeyRepeatRateMs": 50,
+      "EnableMouseInput": true,
+      "EnableKeyboardShortcuts": true
+    },
+    "Theme": {
+      "DesktopBackgroundChar": ".",
+      "DesktopBackgroundColor": "Black",
+      "DesktopForegroundColor": "Grey",
+      "WindowBackgroundColor": "Grey15",
+      "WindowForegroundColor": "White",
+      "ActiveBorderForegroundColor": "Green",
+      "InactiveBorderForegroundColor": "Grey",
+      "ActiveTitleForegroundColor": "Green",
+      "InactiveTitleForegroundColor": "Grey",
+      "ButtonBackgroundColor": "Grey39",
+      "ButtonForegroundColor": "White",
+      "ButtonFocusedBackgroundColor": "Blue",
+      "ButtonFocusedForegroundColor": "White",
+      "UseDoubleLineBorderForModal": true,
+      "ShowModalShadow": true,
+      "CustomColors": {
+        "BrandPrimary": "#2563EB",
+        "BrandSecondary": "#7C3AED",
+        "Success": "#059669",
+        "Warning": "#D97706",
+        "Error": "#DC2626"
+      }
+    }
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "SharpConsoleUI": "Debug",
+      "SharpConsoleUI.Plugins": "Information",
+      "SharpConsoleUI.Performance": "Warning"
+    },
+    "Console": {
+      "IncludeScopes": true,
+      "TimestampFormat": "yyyy-MM-dd HH:mm:ss.fff"
+    }
+  }
+}

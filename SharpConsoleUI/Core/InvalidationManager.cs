@@ -242,7 +242,7 @@ namespace SharpConsoleUI.Core
         /// <summary>
         /// Safely executes a function with cache protection
         /// </summary>
-        public T WithCacheProtection<T>(IWIndowControl control, Func<T> renderFunction, T fallbackValue = default)
+        public T WithCacheProtection<T>(IWIndowControl control, Func<T> renderFunction, T fallbackValue = default!)
         {
             var state = GetCacheState(control);
             

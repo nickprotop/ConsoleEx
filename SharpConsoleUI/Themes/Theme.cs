@@ -10,10 +10,22 @@ using Spectre.Console;
 
 namespace SharpConsoleUI.Themes
 {
-	public class Theme
+	/// <summary>
+	/// Default theme implementation for SharpConsoleUI
+	/// </summary>
+	public class Theme : ITheme
 	{
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Theme"/> class
+		/// </summary>
 		public Theme()
 		{ }
+
+		/// <inheritdoc />
+		public virtual string Name => "Default";
+
+		/// <inheritdoc />
+		public virtual string Description => "Default SharpConsoleUI theme";
 
 		public Color ActiveBorderForegroundColor { get; set; } = Color.Green;
 		public Color ActiveTitleForegroundColor { get; set; } = Color.Green;

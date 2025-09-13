@@ -294,6 +294,16 @@ namespace SharpConsoleUI
 			return _exitCode;
 		}
 
+		/// <summary>
+		/// Gracefully shuts down the console window system with the specified exit code
+		/// </summary>
+		/// <param name="exitCode">The exit code to return</param>
+		public void Shutdown(int exitCode = 0)
+		{
+			_exitCode = exitCode;
+			_running = false;
+		}
+
 		public void SetActiveWindow(Window window)
 		{
 			if (window == null)
@@ -913,13 +923,17 @@ namespace SharpConsoleUI
 			// Only update if position actually changed
 			if (newLeft != _dragWindow.Left || newTop != _dragWindow.Top)
 			{
-				// Apply the new position first
+				// FIRST: Clear the old window position completely
+				_renderer.FillRect(_dragWindow.Left, _dragWindow.Top, _dragWindow.Width, _dragWindow.Height,
+					Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+				
+				// THEN: Apply the new position
 				_dragWindow.SetPosition(new Point(newLeft, newTop));
 				
-				// Force redraw of the window at its new position
+				// FINALLY: Force redraw of the window at its new position
 				_dragWindow.Invalidate(true);
 
-				// THEN invalidate only the exposed regions (areas that were covered but now aren't)
+				// And invalidate exposed regions to redraw any windows that were underneath
 				InvalidateExposedRegions(_dragWindow, oldBounds);
 			}
 		}
@@ -1002,14 +1016,18 @@ namespace SharpConsoleUI
 			if (newLeft != _dragWindow.Left || newTop != _dragWindow.Top || 
 				newWidth != _dragWindow.Width || newHeight != _dragWindow.Height)
 			{
-				// Apply the new position and size first
+				// FIRST: Clear the old window position/size completely
+				_renderer.FillRect(_dragWindow.Left, _dragWindow.Top, _dragWindow.Width, _dragWindow.Height,
+					Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+					
+				// THEN: Apply the new position and size
 				_dragWindow.SetPosition(new Point(newLeft, newTop));
 				_dragWindow.SetSize(newWidth, newHeight);
 				
-				// Force redraw of the window at its new position and size
+				// FINALLY: Force redraw of the window at its new position and size
 				_dragWindow.Invalidate(true);
 
-				// THEN invalidate only the exposed regions (areas that were covered but now aren't)
+				// And invalidate exposed regions to redraw any windows that were underneath
 				InvalidateExposedRegions(_dragWindow, oldBounds);
 			}
 		}
@@ -1118,116 +1136,33 @@ namespace SharpConsoleUI
 		{
 			if (window == null) return;
 
-			int left = window.Left;
-			int top = window.Top;
-			int width = window.Width;
-			int height = window.Height;
+			// Store the current window bounds before any operation
+			var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
 
-			switch (windowTopologyAction)
-			{
-				case WindowTopologyAction.Move:
-					switch (direction)
-					{
-						case Direction.Up:
-							_renderer.FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-							break;
+			// FIRST: Clear the old window position completely (same as mouse operations)
+			_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
+				Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
-						case Direction.Down:
-							_renderer.FillRect(left, top, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-							break;
+			// No need for direction-specific clearing since we clear the entire window
 
-						case Direction.Left:
-							_renderer.FillRect(left + width - 1, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-							break;
-
-						case Direction.Right:
-							_renderer.FillRect(left, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-							break;
-					}
-					break;
-
-				case WindowTopologyAction.Resize:
-					switch (direction)
-					{
-						case Direction.Up:
-							_renderer.FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-							break;
-
-						case Direction.Down:
-							_renderer.FillRect(left, top + height - 1, width, 1, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-							break;
-
-						case Direction.Left:
-							_renderer.FillRect(left + width, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-							break;
-
-						case Direction.Right:
-							_renderer.FillRect(left + width - 1, top, 1, height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-							break;
-					}
-					break;
-			}
-
-			// Redraw the necessary regions
+			// Redraw the necessary regions that were underneath the window
 			foreach (var w in _windows.Values.OrderBy(w => w.ZIndex))
 			{
-				if (w != window && _renderer.IsOverlapping(window, w))
+				if (w != window && DoesRectangleOverlapWindow(oldBounds, w))
 				{
-					var overlappingRegions = _renderer.GetOverlappingRegions(window, w);
-					foreach (var region in overlappingRegions)
+					// Redraw the parts of underlying windows that were covered
+					var intersection = GetRectangleIntersection(oldBounds,
+						new Rectangle(w.Left, w.Top, w.Width, w.Height));
+					
+					if (!intersection.IsEmpty)
 					{
-						Rectangle redrawRegion = new();
-
-						switch (windowTopologyAction)
-						{
-							case WindowTopologyAction.Move:
-								switch (direction)
-								{
-									case Direction.Up:
-										redrawRegion = new Rectangle(region.Left, region.Bottom - 1, region.Right - region.Left, 1);
-										break;
-
-									case Direction.Down:
-										redrawRegion = new Rectangle(region.Left, region.Top, region.Right - region.Left, 1);
-										break;
-
-									case Direction.Left:
-										redrawRegion = new Rectangle(region.Right - 1, region.Top, 1, region.Bottom - region.Top);
-										break;
-
-									case Direction.Right:
-										redrawRegion = new Rectangle(region.Left, region.Top, 1, region.Bottom - region.Top);
-										break;
-								}
-								break;
-
-							case WindowTopologyAction.Resize:
-								switch (direction)
-								{
-									case Direction.Up:
-										redrawRegion = new Rectangle(region.Left, region.Bottom - 1, region.Right - region.Left, 1);
-										break;
-
-									case Direction.Down:
-										redrawRegion = new Rectangle(region.Left, region.Top, region.Right - region.Left, 1);
-										break;
-
-									case Direction.Left:
-										redrawRegion = new Rectangle(region.Right - 1, region.Top, 1, region.Bottom - top);
-										break;
-
-									case Direction.Right:
-										redrawRegion = new Rectangle(region.Left, region.Top, 1, region.Bottom - region.Top);
-										break;
-								}
-								break;
-						}
-
-						_renderer.RenderRegion(w, redrawRegion);
+						_renderer.RenderRegion(w, intersection);
 					}
 				}
 			}
 
+			// FINALLY: Invalidate the window which will cause it to redraw at its new position
+			// (The actual position/size change happens in the calling HandleMoveInput method)
 			window.Invalidate(false);
 		}
 
