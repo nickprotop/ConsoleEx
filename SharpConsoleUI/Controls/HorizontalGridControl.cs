@@ -19,7 +19,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class HorizontalGridControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl
+	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl
 	{
 		private Alignment _alignment = Alignment.Left;
 		private readonly ThreadSafeCache<List<string>> _contentCache;
@@ -139,10 +139,19 @@ namespace SharpConsoleUI.Controls
 		public bool Visible
 		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
 
-		public int? Width
-		{ get => _width; set { _width = value; _contentCache.Invalidate(InvalidationReason.SizeChanged); } }
-
-		public void AddColumn(ColumnContainer column)
+	public int? Width
+	{ 
+		get => _width; 
+		set 
+		{ 
+			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+			if (_width != validatedValue)
+			{
+				_width = validatedValue; 
+				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
+			}
+		} 
+	}		public void AddColumn(ColumnContainer column)
 		{
 			column.GetConsoleWindowSystem = Container?.GetConsoleWindowSystem;
 			_columns.Add(column);
@@ -238,7 +247,7 @@ namespace SharpConsoleUI.Controls
 
 			foreach (var column in _columns)
 			{
-				column.InvalidateOnlyColumnContents();
+				column.InvalidateOnlyColumnContents(this);
 			}
 
 			foreach (var splitter in _splitters)
@@ -545,7 +554,7 @@ namespace SharpConsoleUI.Controls
 								line = AnsiConsoleHelper.AnsiEmptySpace(padding, BackgroundColor ?? Color.Black) + line;
 								break;
 
-							case Alignment.Strecth:
+							case Alignment.Stretch:
 								// For stretch, we don't add padding here as the content already fills the available width
 								break;
 						}

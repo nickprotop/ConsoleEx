@@ -15,7 +15,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class CheckboxControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class CheckboxControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private Alignment _alignment = Alignment.Left;
 		private Color? _backgroundColorValue;
@@ -224,10 +224,20 @@ namespace SharpConsoleUI.Controls
 		public bool Visible
 		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
-		public int? Width
-		{ get => _width; set { _width = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
-
-		public void Dispose()
+	public int? Width
+	{ 
+		get => _width; 
+		set 
+		{ 
+			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+			if (_width != validatedValue)
+			{
+				_width = validatedValue; 
+				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
+				Container?.Invalidate(true); 
+			}
+		} 
+	}		public void Dispose()
 		{
 			Container = null;
 			_contentCache.Dispose();
@@ -309,13 +319,13 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Calculate effective width
-			int checkboxWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 40) : 0);
+			int checkboxWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 40) : 0);
 
 			// Calculate the minimum width needed
 			int minWidth = AnsiConsoleHelper.StripSpectreLength($"[{(_checked ? "X" : " ")}] {_label}") + 2;
 
 			// For non-stretch alignments, adjust width if needed or use auto-size
-			if (_alignment != Alignment.Strecth && _width == null)
+			if (_alignment != Alignment.Stretch && _width == null)
 			{
 				checkboxWidth = minWidth;
 			}

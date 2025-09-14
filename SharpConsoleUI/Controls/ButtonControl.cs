@@ -12,12 +12,13 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Core;
 using Spectre.Console;
+using System;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class ButtonControl : IWIndowControl, IInteractiveControl, IMouseAwareControl, IFocusableControl, ILogicalCursorProvider
+		public class ButtonControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
 		private Alignment _alignment = Alignment.Left;
 		private readonly ThreadSafeCache<string> _contentCache;
@@ -90,7 +91,7 @@ namespace SharpConsoleUI.Controls
 		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
 
 		public int? Width
-		{ get => _width; set { _width = value; _contentCache.Invalidate(InvalidationReason.SizeChanged); } }
+		{ get => _width; set { _width = value.HasValue ? Math.Max(0, value.Value) : value; _contentCache.Invalidate(InvalidationReason.SizeChanged); } }
 
 		public void Dispose()
 		{
@@ -185,7 +186,7 @@ namespace SharpConsoleUI.Controls
 
 			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
 
-			int buttonWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(text) + 4);
+			int buttonWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(text) + 4);
 			int maxTextLength = buttonWidth - 4; // Account for brackets and padding
 
 			if (AnsiConsoleHelper.StripSpectreLength(text) > maxTextLength)
@@ -211,7 +212,7 @@ namespace SharpConsoleUI.Controls
 				finalButtonText = finalButtonText.Insert(0, new string(' ', buttonWidth - AnsiConsoleHelper.StripSpectreLength(finalButtonText)));
 			}
 
-			int maxContentWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(finalButtonText));
+			int maxContentWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(finalButtonText));
 
 			int paddingLeft = 0;
 			if (Alignment == Alignment.Center)

@@ -74,7 +74,7 @@ public interface IControlPlugin : IPlugin
     /// <param name="controlType">The control type</param>
     /// <param name="services">The service provider</param>
     /// <returns>The created control instance</returns>
-    IWIndowControl CreateControl(Type controlType, IServiceProvider services);
+    IWindowControl CreateControl(Type controlType, IServiceProvider services);
 }
 
 /// <summary>

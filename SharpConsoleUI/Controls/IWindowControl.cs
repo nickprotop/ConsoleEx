@@ -15,7 +15,7 @@ namespace SharpConsoleUI.Controls
 		Left,
 		Center,
 		Right,
-		Strecth
+		Stretch
 	}
 
 	public enum StickyPosition
@@ -25,7 +25,7 @@ namespace SharpConsoleUI.Controls
 		Bottom
 	}
 
-	public interface IWIndowControl : IDisposable
+	public interface IWindowControl : IDisposable
 	{
 		public int? ActualWidth { get; }
 		public Alignment Alignment { get; set; }

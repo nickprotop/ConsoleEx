@@ -18,7 +18,7 @@ namespace SharpConsoleUI.Layout
 		/// <summary>
 		/// The control these bounds apply to
 		/// </summary>
-		public Controls.IWIndowControl Control { get; }
+		public Controls.IWindowControl Control { get; }
 
 		/// <summary>
 		/// The window containing this control
@@ -55,7 +55,7 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public bool HasInternalScrolling { get; set; }
 
-		public ControlBounds(Controls.IWIndowControl control, Window parentWindow)
+		public ControlBounds(Controls.IWindowControl control, Window parentWindow)
 		{
 			Control = control ?? throw new ArgumentNullException(nameof(control));
 			ParentWindow = parentWindow ?? throw new ArgumentNullException(nameof(parentWindow));
@@ -173,7 +173,7 @@ namespace SharpConsoleUI.Layout
 	public class WindowLayoutManager
 	{
 		private readonly Window _window;
-		private readonly Dictionary<Controls.IWIndowControl, ControlBounds> _controlBounds = new();
+		private readonly Dictionary<Controls.IWindowControl, ControlBounds> _controlBounds = new();
 
 		public WindowLayoutManager(Window window)
 		{
@@ -192,7 +192,7 @@ namespace SharpConsoleUI.Layout
 		/// <summary>
 		/// Gets or creates bounds for a control
 		/// </summary>
-		public ControlBounds GetOrCreateControlBounds(Controls.IWIndowControl control)
+		public ControlBounds GetOrCreateControlBounds(Controls.IWindowControl control)
 		{
 			if (!_controlBounds.TryGetValue(control, out var bounds))
 			{
@@ -205,7 +205,7 @@ namespace SharpConsoleUI.Layout
 		/// <summary>
 		/// Gets the bounds information for a specific control
 		/// </summary>
-		public ControlBounds? GetControlBounds(Controls.IWIndowControl control)
+		public ControlBounds? GetControlBounds(Controls.IWindowControl control)
 		{
 			return _controlBounds.TryGetValue(control, out var bounds) ? bounds : null;
 		}
@@ -213,7 +213,7 @@ namespace SharpConsoleUI.Layout
 		/// <summary>
 		/// Translates a control's logical cursor position to window coordinates
 		/// </summary>
-		public Point? TranslateLogicalCursorToWindow(Controls.IWIndowControl control)
+		public Point? TranslateLogicalCursorToWindow(Controls.IWindowControl control)
 		{
 			if (control is not ILogicalCursorProvider cursorProvider)
 				return null;
@@ -236,7 +236,7 @@ namespace SharpConsoleUI.Layout
 		/// <summary>
 		/// Finds the control at a specific window coordinate
 		/// </summary>
-		public (Controls.IWIndowControl? control, Point localPosition) GetControlAtWindowPosition(Point windowPosition)
+		public (Controls.IWindowControl? control, Point localPosition) GetControlAtWindowPosition(Point windowPosition)
 		{
 			foreach (var kvp in _controlBounds)
 			{

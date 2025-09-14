@@ -13,7 +13,7 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// Interface for controls that can handle mouse events
 	/// </summary>
-	public interface IMouseAwareControl : IWIndowControl
+	public interface IMouseAwareControl : IWindowControl
 	{
 		/// <summary>
 		/// Processes a mouse event for this control
@@ -56,7 +56,7 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// Interface for controls that can receive focus
 	/// </summary>
-	public interface IFocusableControl : IWIndowControl
+	public interface IFocusableControl : IWindowControl
 	{
 		/// <summary>
 		/// Whether this control currently has focus

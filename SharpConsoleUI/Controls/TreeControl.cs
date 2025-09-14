@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
@@ -16,16 +17,16 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class TreeControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class TreeControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private readonly List<TreeNode> _rootNodes = new();
 		private Alignment _alignment = Alignment.Left;
-		private Color? _backgroundColor;
-		private List<string>? _cachedContent;
+		private Color? _backgroundColorValue;
+		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private int? _calculatedMaxVisibleItems;
 		private bool _fillHeight = false;
 		private List<TreeNode> _flattenedNodes = new();
-		private Color? _foregroundColor;
+		private Color? _foregroundColorValue;
 		private TreeGuide _guide = TreeGuide.Line;
 		private bool _hasFocus = false;
 		private int? _height;
@@ -38,14 +39,20 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		public TreeControl()
+		{
+			_contentCache = new ThreadSafeCache<List<string>>(this);
+		}
+
 		public int? ActualWidth
 		{
 			get
 			{
-				if (_cachedContent == null) return null;
+				var cachedContent = _contentCache.Content;
+				if (cachedContent == null) return null;
 
 				int maxLength = 0;
-				foreach (var line in _cachedContent)
+				foreach (var line in cachedContent)
 				{
 					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
@@ -60,13 +67,21 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_alignment = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
 
 		public Color BackgroundColor
-		{ get { return _backgroundColor ?? Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black; } set { _backgroundColor = value; Invalidate(); } }
+		{
+			get => _backgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			set
+			{
+				_backgroundColorValue = value;
+				_contentCache.Invalidate();
+				Container?.Invalidate(true);
+			}
+		}
 
 		public IContainer? Container { get; set; }
 
@@ -79,13 +94,21 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_fillHeight = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
 
 		public Color ForegroundColor
-		{ get { return _foregroundColor ?? Container?.GetConsoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White; } set { _foregroundColor = value; Invalidate(); } }
+		{
+			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
+			set
+			{
+				_foregroundColorValue = value;
+				_contentCache.Invalidate();
+				Container?.Invalidate(true);
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the tree guide style
@@ -96,7 +119,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_guide = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -108,7 +131,7 @@ namespace SharpConsoleUI.Controls
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 				
 				// Fire focus events
@@ -123,22 +146,24 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the explicit height of the control.
-		/// If null, control height is based on content until available height.
-		/// </summary>
-		public int? Height
+	/// <summary>
+	/// Gets or sets the explicit height of the control.
+	/// If null, control height is based on content until available height.
+	/// </summary>
+	public int? Height
+	{
+		get => _height;
+		set
 		{
-			get => _height;
-			set
+			var validatedValue = value.HasValue ? Math.Max(1, value.Value) : value;
+			if (_height != validatedValue)
 			{
-				_height = value;
-				_cachedContent = null;
+				_height = validatedValue;
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 				Container?.Invalidate(true);
 			}
 		}
-
-		/// <summary>
+	}		/// <summary>
 		/// Gets or sets the background color for highlighted items
 		/// </summary>
 		public Color HighlightBackgroundColor { get; set; } = Color.Blue;
@@ -157,7 +182,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_indent = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -168,7 +193,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -179,7 +204,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_margin = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -217,7 +242,7 @@ namespace SharpConsoleUI.Controls
 				if (_flattenedNodes.Count > 0)
 				{
 					_selectedIndex = Math.Max(0, Math.Min(value, _flattenedNodes.Count - 1));
-					_cachedContent = null;
+					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 				}
 			}
@@ -248,23 +273,25 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_visible = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
 
-		public int? Width
+	public int? Width
+	{
+		get => _width;
+		set
 		{
-			get => _width;
-			set
+			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+			if (_width != validatedValue)
 			{
-				_width = value;
-				_cachedContent = null;
+				_width = validatedValue;
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 				Container?.Invalidate(true);
 			}
 		}
-
-		/// <summary>
+	}		/// <summary>
 		/// Adds a root node to the tree control
 		/// </summary>
 		/// <param name="node">The node to add</param>
@@ -275,7 +302,7 @@ namespace SharpConsoleUI.Controls
 
 			_rootNodes.Add(node);
 			UpdateFlattenedNodes();
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
 
@@ -289,7 +316,7 @@ namespace SharpConsoleUI.Controls
 			var node = new TreeNode(text);
 			_rootNodes.Add(node);
 			UpdateFlattenedNodes();
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 			return node;
 		}
@@ -302,7 +329,7 @@ namespace SharpConsoleUI.Controls
 			_rootNodes.Clear();
 			_flattenedNodes.Clear();
 			_selectedIndex = -1;
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
 
@@ -313,7 +340,7 @@ namespace SharpConsoleUI.Controls
 		{
 			CollapseNodes(_rootNodes);
 			UpdateFlattenedNodes();
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
 
@@ -344,7 +371,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				UpdateFlattenedNodes();
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 				return true;
 			}
@@ -359,7 +386,7 @@ namespace SharpConsoleUI.Controls
 		{
 			ExpandNodes(_rootNodes);
 			UpdateFlattenedNodes();
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
 
@@ -422,7 +449,7 @@ namespace SharpConsoleUI.Controls
 
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(int.MaxValue, int.MaxValue);
+			var content = RenderContent(10000, 10000);
 			return new System.Drawing.Size(
 				content.FirstOrDefault()?.Length ?? 0,
 				content.Count
@@ -436,7 +463,7 @@ namespace SharpConsoleUI.Controls
 
 		public void Invalidate()
 		{
-			_cachedContent = null;
+			_contentCache.Invalidate();
 		}
 
 		public bool ProcessKey(ConsoleKeyInfo key)
@@ -454,7 +481,7 @@ namespace SharpConsoleUI.Controls
 						_selectedIndex--;
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -466,7 +493,7 @@ namespace SharpConsoleUI.Controls
 						_selectedIndex++;
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -480,7 +507,7 @@ namespace SharpConsoleUI.Controls
 						_selectedIndex = Math.Max(0, _selectedIndex - pageSize);
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -494,7 +521,7 @@ namespace SharpConsoleUI.Controls
 						_selectedIndex = Math.Min(_flattenedNodes.Count - 1, _selectedIndex + pageSize);
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -506,7 +533,7 @@ namespace SharpConsoleUI.Controls
 						SelectedNode.IsExpanded = true;
 						OnNodeExpandCollapse?.Invoke(this, SelectedNode);
 						UpdateFlattenedNodes();
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -521,7 +548,7 @@ namespace SharpConsoleUI.Controls
 							SelectedNode.IsExpanded = false;
 							OnNodeExpandCollapse?.Invoke(this, SelectedNode);
 							UpdateFlattenedNodes();
-							_cachedContent = null;
+							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -536,7 +563,7 @@ namespace SharpConsoleUI.Controls
 						SelectedNode.IsExpanded = !SelectedNode.IsExpanded;
 						OnNodeExpandCollapse?.Invoke(this, SelectedNode);
 						UpdateFlattenedNodes();
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -548,7 +575,7 @@ namespace SharpConsoleUI.Controls
 						_selectedIndex = 0;
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -560,7 +587,7 @@ namespace SharpConsoleUI.Controls
 						_selectedIndex = _flattenedNodes.Count - 1;
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -584,7 +611,7 @@ namespace SharpConsoleUI.Controls
 			if (result)
 			{
 				UpdateFlattenedNodes();
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 			return result;
@@ -592,249 +619,163 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (_cachedContent != null) return _cachedContent;
-			if (!Visible) return new List<string>();
-
-			// Update the flattened nodes list
-			UpdateFlattenedNodes();
-
-			// Calculate effective content width
-			int effectiveWidth = _width ?? availableWidth ?? 80;
-			int contentWidth = effectiveWidth - _margin.Left - _margin.Right;
-
-			// Determine how many items can be displayed
-			int effectiveMaxVisibleItems;
-			bool hasScrollIndicator = false;
-
-			if (MaxVisibleItems.HasValue)
+			return _contentCache.GetOrRender(() =>
 			{
-				effectiveMaxVisibleItems = MaxVisibleItems.Value;
-				hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
-			}
-			else if (availableHeight.HasValue)
-			{
-				// Account for margin and scroll indicators when calculating max items
-				int availableContentHeight = availableHeight.Value - _margin.Top - _margin.Bottom;
+				if (!Visible) return new List<string>();
 
-				// Reserve space for scroll indicator if needed
-				if (_flattenedNodes.Count > 1)
-					availableContentHeight -= 1;
+				// Update the flattened nodes list
+				UpdateFlattenedNodes();
 
-				// Ensure we have at least one line available for content
-				effectiveMaxVisibleItems = Math.Max(1, availableContentHeight);
+				// Calculate effective content width
+				int effectiveWidth = _width ?? availableWidth ?? 80;
+				int contentWidth = effectiveWidth - _margin.Left - _margin.Right;
 
-				hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
-			}
-			else
-			{
-				// Default if no height constraint
-				effectiveMaxVisibleItems = 10;
-				hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
-			}
+				// Determine how many items can be displayed
+				int effectiveMaxVisibleItems;
+				bool hasScrollIndicator = false;
 
-			// Store calculated max visible items
-			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
-
-			// Ensure scroll offset is within valid range
-			int maxScrollOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
-			_scrollOffset = Math.Max(0, Math.Min(_scrollOffset, maxScrollOffset));
-
-			// Ensure selected item is visible
-			EnsureSelectedItemVisible();
-
-			// Prepare output buffer
-			var renderedContent = new List<string>();
-
-			// Get visible nodes based on scroll offset
-			var visibleNodes = new List<TreeNode>();
-			int endIndex = Math.Min(_scrollOffset + effectiveMaxVisibleItems, _flattenedNodes.Count);
-
-			// Map flattened nodes back to tree structure for rendering
-			for (int i = _scrollOffset; i < endIndex; i++)
-			{
-				visibleNodes.Add(_flattenedNodes[i]);
-			}
-
-			// Render nodes
-			if (visibleNodes.Count > 0)
-			{
-				// We need to create a parent-child structure for visible nodes
-				Dictionary<TreeNode, TreeNode?> nodeParents = new Dictionary<TreeNode, TreeNode?>();
-				foreach (var node in _flattenedNodes)
+				if (MaxVisibleItems.HasValue)
 				{
-					nodeParents[node] = FindParentNode(node);
+					effectiveMaxVisibleItems = MaxVisibleItems.Value;
+					hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
+				}
+				else if (availableHeight.HasValue)
+				{
+					// Account for margin and scroll indicators when calculating max items
+					int availableContentHeight = availableHeight.Value - _margin.Top - _margin.Bottom;
+
+					// Reserve space for scroll indicator if needed
+					if (_flattenedNodes.Count > 1)
+						availableContentHeight -= 1;
+
+					// Ensure we have at least one line available for content
+					effectiveMaxVisibleItems = Math.Max(1, availableContentHeight);
+
+					hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
+				}
+				else
+				{
+					// Default if no height constraint
+					effectiveMaxVisibleItems = 10;
+					hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
 				}
 
-				// Group visible nodes by their root node
-				Dictionary<TreeNode, List<TreeNode>> nodesByRoot = new Dictionary<TreeNode, List<TreeNode>>();
+				// Store calculated max visible items
+				_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
-				foreach (var node in visibleNodes)
+				// Ensure scroll offset is within valid range
+				int maxScrollOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
+				_scrollOffset = Math.Max(0, Math.Min(_scrollOffset, maxScrollOffset));
+
+				// Ensure selected item is visible
+				EnsureSelectedItemVisible();
+
+				// Prepare output buffer
+				var renderedContent = new List<string>();
+
+				// Get visible nodes based on scroll offset
+				var visibleNodes = new List<TreeNode>();
+				int endIndex = Math.Min(_scrollOffset + effectiveMaxVisibleItems, _flattenedNodes.Count);
+
+				// Map flattened nodes back to tree structure for rendering
+				for (int i = _scrollOffset; i < endIndex; i++)
 				{
-					TreeNode? currentNode = node;
-					TreeNode rootNode = node;
+					visibleNodes.Add(_flattenedNodes[i]);
+				}
 
-					// Find the root node for this visible node
-					while (currentNode != null)
+				// Render nodes
+				if (visibleNodes.Count > 0)
+				{
+					// We need to create a parent-child structure for visible nodes
+					Dictionary<TreeNode, TreeNode?> nodeParents = new Dictionary<TreeNode, TreeNode?>();
+					foreach (var node in _flattenedNodes)
 					{
-						TreeNode? parent = nodeParents.TryGetValue(currentNode, out var p) ? p : null;
-						if (parent == null || !visibleNodes.Contains(parent))
+						nodeParents[node] = FindParentNode(node);
+					}
+
+					// Group visible nodes by their root node
+					Dictionary<TreeNode, List<TreeNode>> nodesByRoot = new Dictionary<TreeNode, List<TreeNode>>();
+
+					foreach (var node in visibleNodes)
+					{
+						TreeNode? currentNode = node;
+						TreeNode rootNode = node;
+
+						// Find the root node for this visible node
+						while (currentNode != null)
 						{
-							rootNode = currentNode;
-							break;
+							TreeNode? parent = nodeParents.TryGetValue(currentNode, out var p) ? p : null;
+							if (parent == null || !visibleNodes.Contains(parent))
+							{
+								rootNode = currentNode;
+								break;
+							}
+							currentNode = parent;
 						}
-						currentNode = parent;
+
+						if (!nodesByRoot.ContainsKey(rootNode))
+						{
+							nodesByRoot[rootNode] = new List<TreeNode>();
+						}
+						nodesByRoot[rootNode].Add(node);
 					}
 
-					if (!nodesByRoot.ContainsKey(rootNode))
+					// Render visible nodes
+					foreach (var rootNode in nodesByRoot.Keys)
 					{
-						nodesByRoot[rootNode] = new List<TreeNode>();
+						// Find the depth of this root node
+						int rootDepth = GetNodeDepth(rootNode);
+
+						// Custom rendering for visible nodes
+						RenderTreeNodeSubset(rootNode, renderedContent, rootDepth, contentWidth, visibleNodes);
 					}
-					nodesByRoot[rootNode].Add(node);
 				}
 
-				// Render visible nodes
-				foreach (var rootNode in nodesByRoot.Keys)
+				// Apply margins and alignment
+				var finalContent = new List<string>();
+
+				for (int i = 0; i < renderedContent.Count; i++)
 				{
-					// Find the depth of this root node
-					int rootDepth = GetNodeDepth(rootNode);
+					string line = renderedContent[i];
 
-					// Custom rendering for visible nodes
-					RenderTreeNodeSubset(rootNode, renderedContent, rootDepth, contentWidth, visibleNodes);
-				}
-			}
+					// Apply horizontal alignment
+					int paddingLeft = 0;
+					if (_alignment == Alignment.Center)
+					{
+						int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(line);
+						paddingLeft = Math.Max(0, (effectiveWidth - visibleLength - _margin.Left - _margin.Right) / 2);
+					}
+					else if (_alignment == Alignment.Right)
+					{
+						int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(line);
+						paddingLeft = Math.Max(0, effectiveWidth - visibleLength - _margin.Left - _margin.Right);
+					}
 
-			// Apply margins and alignment
-			var finalContent = new List<string>();
+					// Apply left margin and alignment padding
+					string leftPadding = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						new string(' ', _margin.Left + paddingLeft),
+						_margin.Left + paddingLeft,
+						1,
+						false,
+						BackgroundColor,
+						null
+					).FirstOrDefault() ?? string.Empty;
 
-			for (int i = 0; i < renderedContent.Count; i++)
-			{
-				string line = renderedContent[i];
+					// Apply right margin
+					string rightPadding = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						new string(' ', _margin.Right),
+						_margin.Right,
+						1,
+						false,
+						BackgroundColor,
+						null
+					).FirstOrDefault() ?? string.Empty;
 
-				// Apply horizontal alignment
-				int paddingLeft = 0;
-				if (_alignment == Alignment.Center)
-				{
-					int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(line);
-					paddingLeft = Math.Max(0, (effectiveWidth - visibleLength - _margin.Left - _margin.Right) / 2);
-				}
-				else if (_alignment == Alignment.Right)
-				{
-					int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(line);
-					paddingLeft = Math.Max(0, effectiveWidth - visibleLength - _margin.Left - _margin.Right);
-				}
-
-				// Apply left margin and alignment padding
-				string leftPadding = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', _margin.Left + paddingLeft),
-					_margin.Left + paddingLeft,
-					1,
-					false,
-					BackgroundColor,
-					null
-				).FirstOrDefault() ?? string.Empty;
-
-				// Apply right margin
-				string rightPadding = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', _margin.Right),
-					_margin.Right,
-					1,
-					false,
-					BackgroundColor,
-					null
-				).FirstOrDefault() ?? string.Empty;
-
-				finalContent.Add(leftPadding + line + rightPadding);
-			}
-
-			// Apply top margin
-			if (_margin.Top > 0)
-			{
-				string emptyLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', effectiveWidth),
-					effectiveWidth,
-					1,
-					false,
-					BackgroundColor,
-					null
-				).FirstOrDefault() ?? string.Empty;
-
-				finalContent.InsertRange(0, Enumerable.Repeat(emptyLine, _margin.Top));
-			}
-
-			// Add scroll indicator if needed
-			if (hasScrollIndicator)
-			{
-				string scrollIndicator = "";
-
-				// Up arrow if not at the top
-				if (_scrollOffset > 0)
-					scrollIndicator += "▲";
-				else
-					scrollIndicator += " ";
-
-				// Padding in the middle
-				int scrollPadding = effectiveWidth - 2;
-				if (scrollPadding > 0)
-					scrollIndicator += new string(' ', scrollPadding);
-
-				// Down arrow if not at the bottom
-				if (_scrollOffset + effectiveMaxVisibleItems < _flattenedNodes.Count)
-					scrollIndicator += "▼";
-				else
-					scrollIndicator += " ";
-
-				string formattedScrollIndicator = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					scrollIndicator,
-					effectiveWidth,
-					1,
-					false,
-					BackgroundColor,
-					ForegroundColor
-				).FirstOrDefault() ?? string.Empty;
-
-				finalContent.Add(formattedScrollIndicator);
-			}
-
-			// Apply bottom margin
-			if (_margin.Bottom > 0)
-			{
-				string emptyLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', effectiveWidth),
-					effectiveWidth,
-					1,
-					false,
-					BackgroundColor,
-					null
-				).FirstOrDefault() ?? string.Empty;
-
-				finalContent.AddRange(Enumerable.Repeat(emptyLine, _margin.Bottom));
-			}
-
-			// Handle height constraints
-			if (availableHeight.HasValue)
-			{
-				// Determine the actual height to use
-				int actualHeight;
-
-				if (_height.HasValue)
-				{
-					// Use the smaller of specified height or available height
-					actualHeight = Math.Min(_height.Value, availableHeight.Value);
-				}
-				else
-				{
-					// Use available height as max height but don't exceed content
-					actualHeight = Math.Min(finalContent.Count, availableHeight.Value);
+					finalContent.Add(leftPadding + line + rightPadding);
 				}
 
-				// Truncate content if it exceeds the actual height
-				if (finalContent.Count > actualHeight)
-				{
-					finalContent = finalContent.Take(actualHeight).ToList();
-				}
-
-				// Fill with empty lines if FillHeight is true and content is less than actual height
-				if (_fillHeight && finalContent.Count < actualHeight)
+				// Apply top margin
+				if (_margin.Top > 0)
 				{
 					string emptyLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
 						new string(' ', effectiveWidth),
@@ -845,13 +786,100 @@ namespace SharpConsoleUI.Controls
 						null
 					).FirstOrDefault() ?? string.Empty;
 
-					int linesToAdd = actualHeight - finalContent.Count;
-					finalContent.AddRange(Enumerable.Repeat(emptyLine, linesToAdd));
+					finalContent.InsertRange(0, Enumerable.Repeat(emptyLine, _margin.Top));
 				}
-			}
 
-			_cachedContent = finalContent;
-			return finalContent;
+				// Add scroll indicator if needed
+				if (hasScrollIndicator)
+				{
+					string scrollIndicator = "";
+
+					// Up arrow if not at the top
+					if (_scrollOffset > 0)
+						scrollIndicator += "▲";
+					else
+						scrollIndicator += " ";
+
+					// Padding in the middle
+					int scrollPadding = effectiveWidth - 2;
+					if (scrollPadding > 0)
+						scrollIndicator += new string(' ', scrollPadding);
+
+					// Down arrow if not at the bottom
+					if (_scrollOffset + effectiveMaxVisibleItems < _flattenedNodes.Count)
+						scrollIndicator += "▼";
+					else
+						scrollIndicator += " ";
+
+					string formattedScrollIndicator = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						scrollIndicator,
+						effectiveWidth,
+						1,
+						false,
+						BackgroundColor,
+						ForegroundColor
+					).FirstOrDefault() ?? string.Empty;
+
+					finalContent.Add(formattedScrollIndicator);
+				}
+
+				// Apply bottom margin
+				if (_margin.Bottom > 0)
+				{
+					string emptyLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						new string(' ', effectiveWidth),
+						effectiveWidth,
+						1,
+						false,
+						BackgroundColor,
+						null
+					).FirstOrDefault() ?? string.Empty;
+
+					finalContent.AddRange(Enumerable.Repeat(emptyLine, _margin.Bottom));
+				}
+
+				// Handle height constraints
+				if (availableHeight.HasValue)
+				{
+					// Determine the actual height to use
+					int actualHeight;
+
+					if (_height.HasValue)
+					{
+						// Use the smaller of specified height or available height
+						actualHeight = Math.Min(_height.Value, availableHeight.Value);
+					}
+					else
+					{
+						// Use available height as max height but don't exceed content
+						actualHeight = Math.Min(finalContent.Count, availableHeight.Value);
+					}
+
+					// Truncate content if it exceeds the actual height
+					if (finalContent.Count > actualHeight)
+					{
+						finalContent = finalContent.Take(actualHeight).ToList();
+					}
+
+					// Fill with empty lines if FillHeight is true and content is less than actual height
+					if (_fillHeight && finalContent.Count < actualHeight)
+					{
+						string emptyLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+							new string(' ', effectiveWidth),
+							effectiveWidth,
+							1,
+							false,
+							BackgroundColor,
+							null
+						).FirstOrDefault() ?? string.Empty;
+
+						int linesToAdd = actualHeight - finalContent.Count;
+						finalContent.AddRange(Enumerable.Repeat(emptyLine, linesToAdd));
+					}
+				}
+
+				return finalContent;
+			});
 		}
 
 		/// <summary>
@@ -869,7 +897,7 @@ namespace SharpConsoleUI.Controls
 			if (index >= 0)
 			{
 				_selectedIndex = index;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 				OnSelectedNodeChanged?.Invoke(this, node);
 				return true;
@@ -886,7 +914,7 @@ namespace SharpConsoleUI.Controls
 				if (index >= 0)
 				{
 					_selectedIndex = index;
-					_cachedContent = null;
+					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 					OnSelectedNodeChanged?.Invoke(this, node);
 					return true;
@@ -925,7 +953,7 @@ namespace SharpConsoleUI.Controls
 				_scrollOffset = Math.Min(newScrollOffset, maxScrollOffset);
 			}
 
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 			
 			// Fire focus events

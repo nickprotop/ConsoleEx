@@ -54,7 +54,7 @@ namespace SharpConsoleUI
 
 	public class Window : IContainer
 	{
-		private readonly List<IWIndowControl> _controls = new();
+		private readonly List<IWindowControl> _controls = new();
 		private readonly List<IInteractiveControl> _interactiveContents = new();
 		private readonly object _lock = new();
 
@@ -311,7 +311,7 @@ namespace SharpConsoleUI
 
 		public int ZIndex { get; set; }
 
-		public void AddControl(IWIndowControl content)
+		public void AddControl(IWindowControl content)
 		{
 			lock (_lock)
 			{
@@ -371,8 +371,8 @@ namespace SharpConsoleUI
 				foreach (var content in _controls)
 				{
 					// Unregister the control from the InvalidationManager before disposing
-					InvalidationManager.Instance.UnregisterControl(content as IWIndowControl);
-					(content as IWIndowControl).Dispose();
+					InvalidationManager.Instance.UnregisterControl(content as IWindowControl);
+					(content as IWindowControl).Dispose();
 				}
 
 				if (!systemCall) _windowSystem?.CloseWindow(this);
@@ -383,7 +383,7 @@ namespace SharpConsoleUI
 			return false;
 		}
 
-		public bool ContainsControl(IWIndowControl content)
+		public bool ContainsControl(IWindowControl content)
 		{
 			lock (_lock)
 			{
@@ -391,7 +391,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		public IWIndowControl? GetContentFromDesktopCoordinates(Point? point)
+		public IWindowControl? GetContentFromDesktopCoordinates(Point? point)
 		{
 			lock (_lock)
 			{
@@ -408,7 +408,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		public IWIndowControl? GetContentFromWindowCoordinates(Point? point)
+		public IWindowControl? GetContentFromWindowCoordinates(Point? point)
 		{
 			lock (_lock)
 			{
@@ -514,7 +514,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Calculates the position relative to a specific control using the new layout system
 		/// </summary>
-		private Point GetControlRelativePosition(IWIndowControl control, Point windowPosition)
+		private Point GetControlRelativePosition(IWindowControl control, Point windowPosition)
 		{
 			// Use the new layout manager for coordinate translation
 			var bounds = _layoutManager.GetOrCreateControlBounds(control);
@@ -524,7 +524,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Handles focus management when a control is clicked
 		/// </summary>
-		private void HandleControlFocusFromMouse(IWIndowControl control)
+		private void HandleControlFocusFromMouse(IWindowControl control)
 		{
 			// Check if control can receive focus
 			if (control is Controls.IFocusableControl focusable && focusable.CanReceiveFocus)
@@ -629,7 +629,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		public IWIndowControl? GetControlByIndex(int index)
+		public IWindowControl? GetControlByIndex(int index)
 		{
 			lock (_lock)
 			{
@@ -641,7 +641,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		public IWIndowControl? GetControlByTag<T>(string tag) where T : IWIndowControl
+		public IWindowControl? GetControlByTag<T>(string tag) where T : IWindowControl
 		{
 			lock (_lock)
 			{
@@ -649,7 +649,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		public List<IWIndowControl> GetControls()
+		public List<IWindowControl> GetControls()
 		{
 			lock (_lock)
 			{
@@ -657,7 +657,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		public List<T> GetControlsByType<T>() where T : IWIndowControl
+		public List<T> GetControlsByType<T>() where T : IWindowControl
 		{
 			lock (_lock)
 			{
@@ -700,7 +700,7 @@ namespace SharpConsoleUI
 		{
 			if (HasActiveInteractiveContent(out var activeInteractiveContent))
 			{
-				if (activeInteractiveContent is IWIndowControl control)
+				if (activeInteractiveContent is IWindowControl control)
 				{
 					// Use the new layout manager for coordinate translation
 					var windowCursorPos = _layoutManager.TranslateLogicalCursorToWindow(control);
@@ -727,7 +727,7 @@ namespace SharpConsoleUI
 		/// <param name="cursorPosition">The cursor position in window coordinates</param>
 		/// <param name="control">The control that owns the cursor</param>
 		/// <returns>True if the cursor position is visible</returns>
-		private bool IsCursorPositionVisible(Point cursorPosition, IWIndowControl control)
+		private bool IsCursorPositionVisible(Point cursorPosition, IWindowControl control)
 		{
 			// Check if cursor is within the basic window content area (excluding borders)
 			if (cursorPosition.X < 1 || cursorPosition.X >= Width - 1 || 
@@ -777,7 +777,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		public void Invalidate(bool redrawAll, IWIndowControl? callerControl = null)
+		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
 		{
 			_invalidated = true;
 
@@ -788,7 +788,7 @@ namespace SharpConsoleUI
 					// Use the InvalidationManager to coordinate invalidation
 					foreach (var content in _controls)
 					{
-						if (content is IWIndowControl control)
+						if (content is IWindowControl control)
 						{
 							// Use the thread-safe invalidation system
 							control.SafeInvalidate(InvalidationReason.All);
@@ -865,7 +865,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		public void RemoveContent(IWIndowControl content)
+		public void RemoveContent(IWindowControl content)
 		{
 			lock (_lock)
 			{
@@ -1135,7 +1135,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		public void UpdateContentOrder(IWIndowControl content, int newIndex)
+		public void UpdateContentOrder(IWindowControl content, int newIndex)
 		{
 			lock (_lock)
 			{
@@ -1175,7 +1175,7 @@ namespace SharpConsoleUI
 		private void BringIntoFocus(int nextIndex)
 		{
 			// Ensure the focused content is within the visible window
-			var focusedContent = _interactiveContents[nextIndex] as IWIndowControl;
+			var focusedContent = _interactiveContents[nextIndex] as IWindowControl;
 
 			if (focusedContent != null)
 			{

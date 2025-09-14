@@ -11,14 +11,23 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
+using System;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class PromptControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class PromptControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
-		public Action<PromptControl, string>? OnEnter;
+		/// <summary>
+		/// Event fired when Enter is pressed (modern standardized event)
+		/// </summary>
+		public event EventHandler<string>? Entered;
+
+		/// <summary>
+		/// Event fired when input text changes (modern standardized event)
+		/// </summary>
+		public event EventHandler<string>? InputChanged;
 		private List<string>? _cachedContent;
 		private int _cursorPosition = 0;
 		private string _input = string.Empty;
@@ -129,7 +138,7 @@ namespace SharpConsoleUI.Controls
 			get => _inputWidth;
 			set
 			{
-				_inputWidth = value;
+				_inputWidth = value.HasValue ? Math.Max(1, value.Value) : value;
 				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
@@ -140,7 +149,7 @@ namespace SharpConsoleUI.Controls
 		public Margin Margin
 		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
 
-		public Action<PromptControl, string>? OnInputChange { get; set; }
+
 
 		public string? Prompt
 		{ get => _prompt; set { _prompt = value; _cachedContent = null; Container?.Invalidate(true); } }
@@ -162,7 +171,7 @@ namespace SharpConsoleUI.Controls
 		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _width; set { _width = value.HasValue ? Math.Max(0, value.Value) : value; _cachedContent = null; Container?.Invalidate(true); } }
 
 		public void Dispose()
 		{
@@ -219,14 +228,14 @@ namespace SharpConsoleUI.Controls
 		{
 			if (key.Key == ConsoleKey.Enter)
 			{
-				OnEnter?.Invoke(this, _input);
+				Entered?.Invoke(this, _input);
 				if (UnfocusOnEnter)
 				{
 					_cursorPosition = 0;
 					HasFocus = false;
 				}
 				Container?.Invalidate(true);
-				OnInputChange?.Invoke(this, _input);
+				InputChanged?.Invoke(this, _input);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Backspace && _cursorPosition > 0)
@@ -238,14 +247,14 @@ namespace SharpConsoleUI.Controls
 					SetScrollOffset(_scrollOffset - 1);
 				}
 				Container?.Invalidate(true);
-				OnInputChange?.Invoke(this, _input);
+				InputChanged?.Invoke(this, _input);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Delete && _cursorPosition < _input.Length)
 			{
 				_input = _input.Remove(_cursorPosition, 1);
 				Container?.Invalidate(true);
-				OnInputChange?.Invoke(this, _input);
+				InputChanged?.Invoke(this, _input);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Home)
@@ -286,7 +295,7 @@ namespace SharpConsoleUI.Controls
 			{
 				HasFocus = false;
 				Container?.Invalidate(true);
-				OnInputChange?.Invoke(this, _input);
+				InputChanged?.Invoke(this, _input);
 				return true;
 			}
 			else if (!char.IsControl(key.KeyChar))
@@ -298,7 +307,7 @@ namespace SharpConsoleUI.Controls
 					SetScrollOffset(_cursorPosition - _inputWidth.Value);
 				}
 				Container?.Invalidate(true);
-				OnInputChange?.Invoke(this, _input);
+				InputChanged?.Invoke(this, _input);
 				return true;
 			}
 			return false;
@@ -367,7 +376,7 @@ namespace SharpConsoleUI.Controls
 			_input = input ?? string.Empty;
 
 			Container?.Invalidate(true);
-			OnInputChange?.Invoke(this, _input);
+			InputChanged?.Invoke(this, _input);
 		}
 
 		private void SetScrollOffset(int value)

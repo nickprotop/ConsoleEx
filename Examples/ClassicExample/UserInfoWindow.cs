@@ -55,12 +55,12 @@ namespace SharpConsoleUI.Example
 
 		public Window Window => _window;
 
-		public void AgePrompt_Enter(PromptControl prompt, string input)
+		public void AgePrompt_Enter(object? sender, string input)
 		{
 			_ageInfo?.SetContent(new List<string> { $"[bold]Your age is {input}[/]" });
 		}
 
-		public void NamePrompt_InputChanged(PromptControl prompt, string input)
+		public void NamePrompt_InputChanged(object? sender, string input)
 		{
 			_window.Title = $"User - {input}";
 		}
@@ -75,7 +75,7 @@ namespace SharpConsoleUI.Example
 			_window.AddControl(_bottomButtons);
 
 			var maximizeButton = CreateButton("[yellow]Maximize[/] window", (sender, button) => _window.State = WindowState.Maximized);
-			maximizeButton.Alignment = Alignment.Strecth;
+			maximizeButton.Alignment = Alignment.Stretch;
 
 			var closeButton = CreateButton("[red]Close[/] window", (sender, button) =>
 			{
@@ -229,7 +229,7 @@ namespace SharpConsoleUI.Example
 				UnfocusOnEnter = false,
 				InputWidth = 10
 			};
-			agePrompt.OnEnter += AgePrompt_Enter;
+			agePrompt.Entered += AgePrompt_Enter;
 			return agePrompt;
 		}
 
@@ -259,7 +259,7 @@ namespace SharpConsoleUI.Example
 				Prompt = "[yellow]Enter[/] [red]your[/] [blue]name[/]: ",
 				UnfocusOnEnter = false
 			};
-			namePrompt.OnInputChange += NamePrompt_InputChanged;
+			namePrompt.InputChanged += NamePrompt_InputChanged;
 			return namePrompt;
 		}
 

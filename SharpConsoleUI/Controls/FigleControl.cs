@@ -14,7 +14,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class FigleControl : IWIndowControl
+	public class FigleControl : IWindowControl
 	{
 		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private Color? _color;
@@ -74,10 +74,20 @@ namespace SharpConsoleUI.Controls
 		public bool Visible
 		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
-		public int? Width
-		{ get => _width; set { _width = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
-
-		public void Dispose()
+	public int? Width
+	{ 
+		get => _width; 
+		set 
+		{ 
+			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+			if (_width != validatedValue)
+			{
+				_width = validatedValue; 
+				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
+				Container?.Invalidate(true); 
+			}
+		} 
+	}		public void Dispose()
 		{
 			_contentCache.Dispose();
 			Container = null;

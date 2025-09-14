@@ -19,6 +19,6 @@ namespace SharpConsoleUI.Controls
 
 		public bool IsDirty { get; set; }
 
-		public void Invalidate(bool redrawAll, IWIndowControl? callerControl = null);
+		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null);
 	}
 }

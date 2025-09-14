@@ -29,12 +29,12 @@ namespace SharpConsoleUI.Core
     /// </summary>
     public class InvalidationRequest
     {
-        public IWIndowControl Control { get; }
+        public IWindowControl Control { get; }
         public InvalidationReason Reason { get; }
         public bool PropagateToParent { get; }
         public DateTime RequestTime { get; }
 
-        public InvalidationRequest(IWIndowControl control, InvalidationReason reason, bool propagateToParent = true)
+        public InvalidationRequest(IWindowControl control, InvalidationReason reason, bool propagateToParent = true)
         {
             Control = control;
             Reason = reason;
@@ -174,7 +174,9 @@ namespace SharpConsoleUI.Core
         public static InvalidationManager Instance => _instance.Value;
 
         private readonly ConcurrentQueue<InvalidationRequest> _invalidationQueue = new();
-        private readonly ConcurrentDictionary<IWIndowControl, CacheState> _cacheStates = new();
+        private readonly ConcurrentDictionary<IWindowControl, CacheState> _cacheStates = new();
+        private readonly ConcurrentDictionary<IWindowControl, IContainer> _controlHierarchy = new();
+        private readonly ConcurrentDictionary<IContainer, HashSet<IWindowControl>> _containerChildren = new();
         private readonly Timer _batchTimer;
         private readonly object _processingLock = new();
         private volatile bool _isProcessing = false;
@@ -189,7 +191,7 @@ namespace SharpConsoleUI.Core
         /// <summary>
         /// Registers a control with the invalidation manager
         /// </summary>
-        public void RegisterControl(IWIndowControl control)
+        public void RegisterControl(IWindowControl control)
         {
             _cacheStates.TryAdd(control, new CacheState());
         }
@@ -197,24 +199,70 @@ namespace SharpConsoleUI.Core
         /// <summary>
         /// Unregisters a control from the invalidation manager
         /// </summary>
-        public void UnregisterControl(IWIndowControl control)
+        public void UnregisterControl(IWindowControl control)
         {
             if (_cacheStates.TryRemove(control, out var state))
             {
                 state.Dispose();
+            }
+
+            // Clean up hierarchy tracking
+            if (_controlHierarchy.TryRemove(control, out var parent))
+            {
+                if (_containerChildren.TryGetValue(parent, out var children))
+                {
+                    children.Remove(control);
+                    if (children.Count == 0)
+                    {
+                        _containerChildren.TryRemove(parent, out _);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Registers the parent-child relationship to prevent invalidation cycles
+        /// </summary>
+        public void RegisterControlHierarchy(IWindowControl child, IContainer parent)
+        {
+            if (child == null || parent == null) return;
+
+            _controlHierarchy.AddOrUpdate(child, parent, (k, v) => parent);
+            _containerChildren.AddOrUpdate(parent,
+                new HashSet<IWindowControl> { child },
+                (k, v) => { v.Add(child); return v; });
+        }
+
+        /// <summary>
+        /// Unregisters a control from its parent container
+        /// </summary>
+        public void UnregisterControlHierarchy(IWindowControl child)
+        {
+            if (child == null) return;
+
+            if (_controlHierarchy.TryRemove(child, out var parent))
+            {
+                if (_containerChildren.TryGetValue(parent, out var children))
+                {
+                    children.Remove(child);
+                    if (children.Count == 0)
+                    {
+                        _containerChildren.TryRemove(parent, out _);
+                    }
+                }
             }
         }
 
         /// <summary>
         /// Requests invalidation for a control
         /// </summary>
-        public void RequestInvalidation(IWIndowControl control, InvalidationReason reason, bool propagateToParent = true)
+        public void RequestInvalidation(IWindowControl control, InvalidationReason reason, bool propagateToParent = true)
         {
             if (control == null) return;
 
             // Get or create cache state
             var state = _cacheStates.GetOrAdd(control, _ => new CacheState());
-            
+
             // Mark as invalid
             state.Invalidate(reason);
 
@@ -232,9 +280,29 @@ namespace SharpConsoleUI.Core
         }
 
         /// <summary>
+        /// Checks if a control is a child of the specified container
+        /// </summary>
+        public bool IsChildOfContainer(IWindowControl control, IContainer container)
+        {
+            return _controlHierarchy.TryGetValue(control, out var parent) && parent == container;
+        }
+
+        /// <summary>
+        /// Gets all children of a container
+        /// </summary>
+        public IEnumerable<IWindowControl> GetContainerChildren(IContainer container)
+        {
+            if (_containerChildren.TryGetValue(container, out var children))
+            {
+                return children.ToList(); // Return a copy to avoid concurrent modification
+            }
+            return Enumerable.Empty<IWindowControl>();
+        }
+
+        /// <summary>
         /// Gets the cache state for a control
         /// </summary>
-        public CacheState GetCacheState(IWIndowControl control)
+        public CacheState GetCacheState(IWindowControl control)
         {
             return _cacheStates.GetOrAdd(control, _ => new CacheState());
         }
@@ -242,7 +310,7 @@ namespace SharpConsoleUI.Core
         /// <summary>
         /// Safely executes a function with cache protection
         /// </summary>
-        public T WithCacheProtection<T>(IWIndowControl control, Func<T> renderFunction, T fallbackValue = default!)
+        public T WithCacheProtection<T>(IWindowControl control, Func<T> renderFunction, T fallbackValue = default!)
         {
             var state = GetCacheState(control);
             
@@ -274,7 +342,7 @@ namespace SharpConsoleUI.Core
         /// <summary>
         /// Checks if a control needs rendering
         /// </summary>
-        public bool NeedsRendering(IWIndowControl control)
+        public bool NeedsRendering(IWindowControl control)
         {
             var state = GetCacheState(control);
             return !state.IsValid && !state.IsRendering;
@@ -290,7 +358,7 @@ namespace SharpConsoleUI.Core
             try
             {
                 // Group invalidation requests by control to avoid duplicate processing
-                var controlRequests = new Dictionary<IWIndowControl, InvalidationReason>();
+                var controlRequests = new Dictionary<IWindowControl, InvalidationReason>();
                 var containerRequests = new HashSet<IContainer>();
 
                 // Drain the queue
@@ -306,15 +374,10 @@ namespace SharpConsoleUI.Core
                         controlRequests[request.Control] = request.Reason;
                     }
 
-                    // Track containers that need notification
-                    if (request.PropagateToParent && request.Control is IWIndowControl control)
+                    // Track containers that need notification using hierarchy tracking
+                    if (request.PropagateToParent && _controlHierarchy.TryGetValue(request.Control, out var parentContainer))
                     {
-                        // Find parent containers
-                        var container = GetParentContainer(control);
-                        if (container != null)
-                        {
-                            containerRequests.Add(container);
-                        }
+                        containerRequests.Add(parentContainer);
                     }
                 }
 
@@ -341,7 +404,7 @@ namespace SharpConsoleUI.Core
             }
         }
 
-        private IContainer GetParentContainer(IWIndowControl control)
+        private IContainer GetParentContainer(IWindowControl control)
         {
             // Try to find parent container through common patterns
             var controlType = control.GetType();

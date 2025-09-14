@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
@@ -17,7 +18,7 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// Represents a vertical splitter control that can be used to resize columns in a HorizontalGridControl
 	/// </summary>
-	public class SplitterControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class SplitterControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private const int DEFAULT_WIDTH = 1;
 		private const float MIN_COLUMN_PERCENTAGE = 0.1f; // Minimum 10% width for any column
@@ -25,7 +26,7 @@ namespace SharpConsoleUI.Controls
 		private Alignment _alignment = Alignment.Left;
 		private Color? _backgroundColorValue;
 		private Color _borderColor = Color.White;
-		private List<string>? _cachedContent;
+		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private IContainer? _container;
 		private Color? _draggingBackgroundColorValue;
 		private Color? _draggingForegroundColorValue;
@@ -49,10 +50,12 @@ namespace SharpConsoleUI.Controls
 
 		public SplitterControl()
 		{
+			_contentCache = new ThreadSafeCache<List<string>>(this);
 		}
 
 		public SplitterControl(ColumnContainer leftColumn, ColumnContainer rightColumn)
 		{
+			_contentCache = new ThreadSafeCache<List<string>>(this);
 			_leftColumn = leftColumn;
 			_rightColumn = rightColumn;
 		}
@@ -68,7 +71,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_alignment = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -79,7 +82,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -90,7 +93,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_borderColor = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -102,7 +105,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_container = value;
 				_invalidated = true;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -113,7 +116,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_draggingBackgroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -124,7 +127,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_draggingForegroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -135,7 +138,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedBackgroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -146,7 +149,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedForegroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -157,7 +160,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -170,7 +173,7 @@ namespace SharpConsoleUI.Controls
 				if (_isDragging && !value) _isDragging = false;
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				_invalidated = true;
 				Container?.Invalidate(true);
 				
@@ -194,7 +197,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -205,7 +208,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_margin = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -228,23 +231,25 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_visible = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
 
-		public int? Width
+	public int? Width
+	{
+		get => _width;
+		set
 		{
-			get => _width;
-			set
+			var validatedValue = value.HasValue ? Math.Max(1, value.Value) : value;
+			if (_width != validatedValue)
 			{
-				_width = value;
-				_cachedContent = null;
+				_width = validatedValue;
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 				Container?.Invalidate(true);
 			}
 		}
-
-		public void Dispose()
+	}		public void Dispose()
 		{
 			Container = null;
 		}
@@ -257,7 +262,7 @@ namespace SharpConsoleUI.Controls
 
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(int.MaxValue, int.MaxValue);
+			var content = RenderContent(10000, 10000);
 			return new System.Drawing.Size(
 				content.FirstOrDefault()?.Length ?? 0,
 				content.Count
@@ -272,7 +277,7 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate()
 		{
 			_invalidated = true;
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(false);
 		}
 
@@ -282,49 +287,36 @@ namespace SharpConsoleUI.Controls
 				return false;
 
 			bool handled = false;
+			int delta = 0;
 
-			// If we're not dragging, start dragging on Enter
-			if (!_isDragging && key.Key == ConsoleKey.Enter)
+			// When focused, immediately respond to arrow keys (no Enter needed)
+			switch (key.Key)
 			{
-				_isDragging = true;
-				_startDragPosition = 0; // We'll track relative movement
-				_cachedContent = null;  // Force redraw with dragging colors
-				Container?.Invalidate(true);
-				handled = true;
+				case ConsoleKey.LeftArrow:
+					// Allow faster movement when holding Shift
+					delta = key.Modifiers.HasFlag(ConsoleModifiers.Shift) ? -5 : -1;
+					handled = true;
+					break;
+
+				case ConsoleKey.RightArrow:
+					// Allow faster movement when holding Shift
+					delta = key.Modifiers.HasFlag(ConsoleModifiers.Shift) ? 5 : 1;
+					handled = true;
+					break;
 			}
-			// If we're dragging, handle left/right arrow keys
-			else if (_isDragging)
+
+			// If we have a movement delta and both columns are set
+			if (delta != 0 && _leftColumn != null && _rightColumn != null)
 			{
-				int delta = 0;
-
-				switch (key.Key)
+				// Set dragging state for visual feedback
+				if (!_isDragging)
 				{
-					case ConsoleKey.LeftArrow:
-						// Allow faster movement when holding Shift
-						delta = key.Modifiers.HasFlag(ConsoleModifiers.Shift) ? -5 : -1;
-						handled = true;
-						break;
-
-					case ConsoleKey.RightArrow:
-						// Allow faster movement when holding Shift
-						delta = key.Modifiers.HasFlag(ConsoleModifiers.Shift) ? 5 : 1;
-						handled = true;
-						break;
-
-					case ConsoleKey.Enter:
-					case ConsoleKey.Escape:
-						_isDragging = false;
-						_cachedContent = null;  // Force redraw with normal colors
-						Container?.Invalidate(true);
-						handled = true;
-						break;
+					_isDragging = true;
+					_startDragPosition = 0;
+					_contentCache.Invalidate();  // Force redraw with dragging colors
 				}
-
-				// If we have a movement delta and both columns are set
-				if (delta != 0 && _leftColumn != null && _rightColumn != null)
-				{
-					MoveSplitter(delta);
-				}
+				
+				MoveSplitter(delta);
 			}
 
 			return handled;
@@ -332,54 +324,60 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (!_invalidated && _cachedContent != null)
-				return _cachedContent;
-
-			_cachedContent = new List<string>();
-
-			Color bgColor, fgColor;
-			char splitterChar;
-
-			if (_isDragging)
+			if (!_invalidated)
 			{
-				// Use dragging colors when in dragging mode
-				bgColor = DraggingBackgroundColor;
-				fgColor = DraggingForegroundColor;
-				splitterChar = '║'; // Double vertical line for dragging state
-			}
-			else if (_hasFocus)
-			{
-				// Use focused colors when focused
-				bgColor = FocusedBackgroundColor;
-				fgColor = FocusedForegroundColor;
-				splitterChar = '┃'; // Bold vertical line for focused state
-			}
-			else
-			{
-				// Use normal colors
-				bgColor = BackgroundColor;
-				fgColor = ForegroundColor;
-				splitterChar = '│'; // Normal vertical line for default state
+				var cached = _contentCache.Content;
+				if (cached != null) return cached;
 			}
 
-			// Create the splitter line
-			int height = availableHeight ?? 1;
-			for (int i = 0; i < height; i++)
+			return _contentCache.GetOrRender(() =>
 			{
-				string line = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					splitterChar.ToString(),
-					1,
-					1,
-					false,
-					bgColor,
-					fgColor
-				)[0];
+				var cachedContent = new List<string>();
 
-				_cachedContent.Add(line);
-			}
+				Color bgColor, fgColor;
+				char splitterChar;
 
-			_invalidated = false;
-			return _cachedContent;
+				if (_isDragging)
+				{
+					// Use dragging colors when in dragging mode
+					bgColor = DraggingBackgroundColor;
+					fgColor = DraggingForegroundColor;
+					splitterChar = '║'; // Double vertical line for dragging state
+				}
+				else if (_hasFocus)
+				{
+					// Use focused colors when focused
+					bgColor = FocusedBackgroundColor;
+					fgColor = FocusedForegroundColor;
+					splitterChar = '┃'; // Bold vertical line for focused state
+				}
+				else
+				{
+					// Use normal colors
+					bgColor = BackgroundColor;
+					fgColor = ForegroundColor;
+					splitterChar = '│'; // Normal vertical line for default state
+				}
+
+				// Create the splitter line
+				int height = availableHeight ?? 1;
+				for (int i = 0; i < height; i++)
+				{
+					string line = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						splitterChar.ToString(),
+						1,
+						1,
+						false,
+						bgColor,
+						fgColor
+					)[0];
+
+					cachedContent.Add(line);
+				}
+
+				_invalidated = false;
+				return cachedContent;
+			});
 		}
 
 		/// <summary>
@@ -392,7 +390,7 @@ namespace SharpConsoleUI.Controls
 			_leftColumn = leftColumn;
 			_rightColumn = rightColumn;
 			_invalidated = true;
-			_cachedContent = null;
+			_contentCache.Invalidate();
 		}
 
 		// IFocusableControl implementation
@@ -404,6 +402,14 @@ namespace SharpConsoleUI.Controls
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			HasFocus = focus;
+			
+			// When focus is lost, exit drag mode
+			if (!focus && _isDragging)
+			{
+				_isDragging = false;
+				_contentCache.Invalidate();  // Force redraw with normal colors
+				Container?.Invalidate(true);
+			}
 		}
 
 		/// <summary>
@@ -415,47 +421,48 @@ namespace SharpConsoleUI.Controls
 			if (_leftColumn == null || _rightColumn == null)
 				return;
 
-			// Get the current width of both columns
-			int leftColumnWidth = _leftColumn.Width ?? 0;
-			int rightColumnWidth = _rightColumn.Width ?? 0;
-
-			// If either column has null (auto) width, we need to calculate their actual widths
-			if (leftColumnWidth == 0)
-				leftColumnWidth = _leftColumn.GetActualWidth() ?? 0;
-
-			if (rightColumnWidth == 0)
-				rightColumnWidth = _rightColumn.GetActualWidth() ?? 0;
+			// Get the current effective width of both columns
+			// Use actual width for null (auto-sizing) columns, explicit width otherwise
+			int leftColumnWidth = _leftColumn.Width ?? _leftColumn.GetActualWidth() ?? 10; // Default to 10 if no content
+			int rightColumnWidth = _rightColumn.Width ?? _rightColumn.GetActualWidth() ?? 10; // Default to 10 if no content
 
 			// Calculate new widths
 			int newLeftWidth = leftColumnWidth + delta;
 			int newRightWidth = rightColumnWidth - delta;
 
-			// Ensure minimum widths (at least 10% of combined width)
+			// Ensure minimum widths (at least 10% of combined width or 5 characters minimum)
 			int totalWidth = leftColumnWidth + rightColumnWidth;
-			int minWidth = Math.Max(1, (int)(totalWidth * MIN_COLUMN_PERCENTAGE));
+			int minWidth = Math.Max(5, (int)(totalWidth * MIN_COLUMN_PERCENTAGE));
 
+			// Constrain to minimum widths and adjust delta accordingly
 			if (newLeftWidth < minWidth)
 			{
-				delta = minWidth - leftColumnWidth;
 				newLeftWidth = minWidth;
 				newRightWidth = totalWidth - minWidth;
 			}
 			else if (newRightWidth < minWidth)
 			{
-				delta = leftColumnWidth - (totalWidth - minWidth);
-				newLeftWidth = totalWidth - minWidth;
 				newRightWidth = minWidth;
+				newLeftWidth = totalWidth - minWidth;
 			}
 
-			// Apply the new widths
-			_leftColumn.Width = newLeftWidth;
-			_rightColumn.Width = newRightWidth;
+			// Only apply changes if widths are valid and different
+			if (newLeftWidth > 0 && newRightWidth > 0 && 
+				(newLeftWidth != leftColumnWidth || newRightWidth != rightColumnWidth))
+			{
+				// Apply the new widths
+				_leftColumn.Width = newLeftWidth;
+				_rightColumn.Width = newRightWidth;
 
-			// Raise the SplitterMoved event
-			SplitterMoved?.Invoke(this, new SplitterMovedEventArgs(delta, newLeftWidth, newRightWidth));
+				// Calculate the actual delta that was applied
+				int actualDelta = newLeftWidth - leftColumnWidth;
 
-			// Invalidate to ensure redraw
-			Invalidate();
+				// Raise the SplitterMoved event
+				SplitterMoved?.Invoke(this, new SplitterMovedEventArgs(actualDelta, newLeftWidth, newRightWidth));
+
+				// Invalidate to ensure redraw
+				Invalidate();
+			}
 		}
 	}
 

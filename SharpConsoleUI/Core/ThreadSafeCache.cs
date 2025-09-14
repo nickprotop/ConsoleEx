@@ -13,10 +13,10 @@ namespace SharpConsoleUI.Core
         private readonly ReaderWriterLockSlim _lock = new();
         private T _content;
         private volatile bool _isValid = false;
-        private readonly IWIndowControl _owner;
+        private readonly IWindowControl _owner;
         private readonly InvalidationManager _invalidationManager;
 
-        public ThreadSafeCache(IWIndowControl owner)
+        public ThreadSafeCache(IWindowControl owner)
         {
             _owner = owner;
             _invalidationManager = InvalidationManager.Instance;
@@ -171,7 +171,7 @@ namespace SharpConsoleUI.Core
         /// <summary>
         /// Creates a thread-safe cache for a control
         /// </summary>
-        public static ThreadSafeCache<T> CreateThreadSafeCache<T>(this IWIndowControl control) where T : class
+        public static ThreadSafeCache<T> CreateThreadSafeCache<T>(this IWindowControl control) where T : class
         {
             return new ThreadSafeCache<T>(control);
         }
@@ -179,7 +179,7 @@ namespace SharpConsoleUI.Core
         /// <summary>
         /// Safely invalidates a control with reason
         /// </summary>
-        public static void SafeInvalidate(this IWIndowControl control, InvalidationReason reason)
+        public static void SafeInvalidate(this IWindowControl control, InvalidationReason reason)
         {
             InvalidationManager.Instance.RequestInvalidation(control, reason);
         }

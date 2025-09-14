@@ -418,16 +418,32 @@ namespace SharpConsoleUI.Helpers
 			return ansiStripped.Length;
 		}
 
-		public static int StripSpectreLength(string text)
+	/// <summary>
+	/// Calculates the visible length of text by stripping Spectre.Console markup tags
+	/// </summary>
+	/// <param name="text">Text that may contain markup tags</param>
+	/// <returns>Length of visible text</returns>
+	public static int StripSpectreLength(string text)
+	{
+		if (string.IsNullOrEmpty(text))
+			return 0;
+
+		List<int> lines = text.Split('\n').Select(line => 
 		{
-			if (string.IsNullOrEmpty(text))
-				return 0;
+			// Use Spectre.Console's Markup.Remove to strip formatting
+			try
+			{
+				return Markup.Remove(line).Length;
+			}
+			catch
+			{
+				// If markup parsing fails, return the original length
+				return line.Length;
+			}
+		}).ToList();
 
-			List<int> lines = text.EscapeSpectreMarkup().Split('\n').Select(line => Markup.Remove(line).Length).ToList();
-			return lines.Max();
-		}
-
-		/// <summary>
+		return lines.Max();
+	}		/// <summary>
 		/// Extracts a substring from an ANSI-encoded string, preserving ANSI escape sequences
 		/// </summary>
 		/// <param name="input">The ANSI-encoded string</param>
@@ -810,6 +826,36 @@ namespace SharpConsoleUI.Helpers
 				"blink", "rapidblink", "slowblink", "reverse", "overline", "conceal",
 				"strike" }.Contains(tagContent.ToLowerInvariant()))
 				return true;
+
+			// Check for compound tags with spaces (e.g., "bold cyan", "italic red", "underline yellow")
+			if (tagContent.Contains(' '))
+			{
+				string[] parts = tagContent.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+				
+				// Check if all parts are valid styles or colors
+				bool allPartsValid = true;
+				foreach (string part in parts)
+				{
+					string trimmedPart = part.Trim().ToLowerInvariant();
+					
+					// Check if it's a style attribute
+					bool isStyle = new[] { "bold", "italic", "underline", "strikethrough", "dim", "invert", "normal",
+						"blink", "rapidblink", "slowblink", "reverse", "overline", "conceal", "strike" }
+						.Contains(trimmedPart);
+					
+					// Check if it's a valid color
+					bool isColor = IsValidColor(trimmedPart);
+					
+					if (!isStyle && !isColor)
+					{
+						allPartsValid = false;
+						break;
+					}
+				}
+				
+				if (allPartsValid)
+					return true;
+			}
 
 			// Check for color on color format (e.g., "red on blue")
 			if (tagContent.Contains(" on ", StringComparison.OrdinalIgnoreCase))

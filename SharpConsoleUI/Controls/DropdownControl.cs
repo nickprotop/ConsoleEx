@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
@@ -16,13 +17,13 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class DropdownControl : IWIndowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class DropdownControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private Alignment _alignment = Alignment.Left;
 		private bool _autoAdjustWidth = true;
 		private Color? _backgroundColorValue;
-		private List<string>? _cachedContent;
+		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private int? _calculatedMaxVisibleItems;
 		private int _containerScrollOffsetBeforeDrop = 0;
 		private int _dropdownScrollOffset = 0;
@@ -33,7 +34,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _highlightBackgroundColorValue;
 		private int _highlightedIndex = -1;
 		private Color? _highlightForegroundColorValue;
-		private bool _invalidated = true;
 		private bool _isDropdownOpen = false;
 		private bool _isEnabled = true;
 		private ItemFormatterEvent? _itemFormatter;
@@ -51,6 +51,7 @@ namespace SharpConsoleUI.Controls
 		// Constructor with optional prompt and items
 		public DropdownControl(string prompt = "Select an item:", IEnumerable<string>? items = null)
 		{
+			_contentCache = new ThreadSafeCache<List<string>>(this);
 			_prompt = prompt;
 			if (items != null)
 			{
@@ -63,6 +64,7 @@ namespace SharpConsoleUI.Controls
 
 		public DropdownControl(string prompt, IEnumerable<DropdownItem>? items = null)
 		{
+			_contentCache = new ThreadSafeCache<List<string>>(this);
 			_prompt = prompt;
 			if (items != null)
 			{
@@ -72,6 +74,7 @@ namespace SharpConsoleUI.Controls
 
 		public DropdownControl(string prompt)
 		{
+			_contentCache = new ThreadSafeCache<List<string>>(this);
 			_prompt = prompt;
 		}
 
@@ -92,11 +95,12 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				if (_cachedContent == null) return null;
+				var content = _contentCache.Content;
+				if (content == null) return null;
 
 				// Return the total number of lines in the rendered content
 				// This includes the header, dropdown items (if open), scroll indicators, and margins
-				return _cachedContent.Count;
+				return content.Count;
 			}
 		}
 
@@ -105,9 +109,10 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				if (_cachedContent == null) return null;
+				var content = _contentCache.Content;
+				if (content == null) return null;
 				int maxLength = 0;
-				foreach (var line in _cachedContent)
+				foreach (var line in content)
 				{
 					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
@@ -117,7 +122,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
 		public bool AutoAdjustWidth
 		{
@@ -125,7 +130,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_autoAdjustWidth = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -136,7 +141,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -149,7 +154,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedBackgroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -160,7 +165,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedForegroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -171,7 +176,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -190,7 +195,7 @@ namespace SharpConsoleUI.Controls
 						_isDropdownOpen = false;
 						_highlightedIndex = _selectedIndex; // Reset highlighted index
 					}
-					_cachedContent = null;
+					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 					
 					if (value)
@@ -209,7 +214,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_highlightBackgroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -220,7 +225,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_highlightForegroundColorValue = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -245,7 +250,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					_isDropdownOpen = value;
-					_cachedContent = null;
+					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 
 					// If closing, restore scroll offset (after content is recalculated)
@@ -262,8 +267,8 @@ namespace SharpConsoleUI.Controls
 				else
 				{
 					_isDropdownOpen = value;
-					_cachedContent = null;
-					_invalidated = true;
+					_contentCache.Invalidate();
+					
 					Container?.Invalidate(true);
 				}
 			}
@@ -275,7 +280,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -286,7 +291,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_itemFormatter = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -301,13 +306,13 @@ namespace SharpConsoleUI.Controls
 				{
 					_selectedIndex = _items.Count > 0 ? 0 : -1;
 				}
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
 		public int MaxVisibleItems
 		{
@@ -315,8 +320,8 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_maxVisibleItems = Math.Max(1, value);
-				_cachedContent = null;
-				_invalidated = true;
+				_contentCache.Invalidate();
+				
 				Container?.Invalidate(true);
 			}
 		}
@@ -327,7 +332,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_prompt = value;
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -341,7 +346,7 @@ namespace SharpConsoleUI.Controls
 				{
 					int oldIndex = _selectedIndex;
 					_selectedIndex = value;
-					_cachedContent = null;
+					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 
 					// Ensure selected item is visible when dropdown is open
@@ -427,7 +432,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_selectedIndex = _items.Count > 0 ? 0 : -1;
 				}
-				_cachedContent = null;
+				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -435,12 +440,22 @@ namespace SharpConsoleUI.Controls
 		public object? Tag { get; set; }
 
 		public bool Visible
-		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
-		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
-
-		// Adds a new item to the dropdown
+	public int? Width
+	{ 
+		get => _width; 
+		set 
+		{ 
+			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+			if (_width != validatedValue)
+			{
+				_width = validatedValue; 
+				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
+				Container?.Invalidate(true); 
+			}
+		} 
+	}		// Adds a new item to the dropdown
 		public void AddItem(DropdownItem item)
 		{
 			_items.Add(item);
@@ -450,7 +465,7 @@ namespace SharpConsoleUI.Controls
 				SelectedIndexChanged?.Invoke(this, _selectedIndex);
 				SelectedItemChanged?.Invoke(this, _items[_selectedIndex]);
 			}
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
 
@@ -470,7 +485,7 @@ namespace SharpConsoleUI.Controls
 			_items.Clear();
 			_selectedIndex = -1;
 			_dropdownScrollOffset = 0;
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
 			SelectedIndexChanged?.Invoke(this, _selectedIndex);
@@ -490,7 +505,7 @@ namespace SharpConsoleUI.Controls
 
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(int.MaxValue, int.MaxValue);
+			var content = RenderContent(10000, 10000);
 			return new System.Drawing.Size(
 				content.FirstOrDefault()?.Length ?? 0,
 				content.Count
@@ -504,11 +519,9 @@ namespace SharpConsoleUI.Controls
 
 		public void Invalidate()
 		{
-			_invalidated = true;
-			_cachedContent = null;
-		}
-
-		public bool ProcessKey(ConsoleKeyInfo key)
+			_contentCache.Invalidate();
+			Container?.Invalidate(true, this);
+		}		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled || !_hasFocus)
 				return false;
@@ -556,7 +569,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_highlightedIndex++;
 							EnsureHighlightedItemVisible();
-							_cachedContent = null;
+							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -566,7 +579,7 @@ namespace SharpConsoleUI.Controls
 						// Open dropdown
 						_isDropdownOpen = true;
 						_highlightedIndex = _selectedIndex; // Initialize highlighted index with selected index
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -579,7 +592,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_highlightedIndex--;
 							EnsureHighlightedItemVisible();
-							_cachedContent = null;
+							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -591,7 +604,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_highlightedIndex = 0;
 						EnsureHighlightedItemVisible();
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -602,7 +615,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_highlightedIndex = _items.Count - 1;
 						EnsureHighlightedItemVisible();
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -613,7 +626,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_highlightedIndex = Math.Max(0, _highlightedIndex - _calculatedMaxVisibleItems ?? 1);
 						EnsureHighlightedItemVisible();
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -624,7 +637,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_highlightedIndex = Math.Min(_items.Count - 1, _highlightedIndex + _calculatedMaxVisibleItems ?? 1);
 						EnsureHighlightedItemVisible();
-						_cachedContent = null;
+						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -653,7 +666,7 @@ namespace SharpConsoleUI.Controls
 							{
 								_highlightedIndex = i; // Update highlighted index only
 								EnsureHighlightedItemVisible();
-								_cachedContent = null;
+								_contentCache.Invalidate();
 								Container?.Invalidate(true);
 								return true;
 							}
@@ -665,54 +678,53 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (!_invalidated && _cachedContent != null)
-				return _cachedContent;
-
-			_cachedContent = new List<string>();
-
-			// Get appropriate colors based on state
-			Color backgroundColor;
-			Color foregroundColor;
-			Color windowBackground = Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
-			Color windowForeground = Container?.ForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
-
-			// Determine colors based on enabled/focused state
-			if (!_isEnabled)
+			return _contentCache.GetOrRender(() =>
 			{
-				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
-				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
-			}
-			else if (_hasFocus)
-			{
-				backgroundColor = FocusedBackgroundColor;
-				foregroundColor = FocusedForegroundColor;
-			}
-			else
-			{
-				backgroundColor = BackgroundColor;
-				foregroundColor = ForegroundColor;
-			}
+				var content = new List<string>();
 
-			// Calculate effective width
-			int dropdownWidth = _width ?? (_alignment == Alignment.Strecth ? (availableWidth ?? 40) : calculateOptimalWidth(availableWidth));
+				// Get appropriate colors based on state
+				Color backgroundColor;
+				Color foregroundColor;
+				Color windowBackground = Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+				Color windowForeground = Container?.ForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 
-			// Ensure width can accommodate content
-			int maxItemWidth = 0;
-			foreach (var item in _items)
-			{
-				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
-				if (itemLength > maxItemWidth)
-					maxItemWidth = itemLength;
-			}
+				// Determine colors based on enabled/focused state
+				if (!_isEnabled)
+				{
+					backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
+					foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
+				}
+				else if (_hasFocus)
+				{
+					backgroundColor = FocusedBackgroundColor;
+					foregroundColor = FocusedForegroundColor;
+				}
+				else
+				{
+					backgroundColor = BackgroundColor;
+					foregroundColor = ForegroundColor;
+				}
 
-			if (_autoAdjustWidth)
-			{
-				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
-			}
+				// Calculate effective width
+				int dropdownWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 40) : calculateOptimalWidth(availableWidth));
 
-			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
-			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4); // Add padding
-			dropdownWidth = Math.Max(dropdownWidth, minWidth);
+				// Ensure width can accommodate content
+				int maxItemWidth = 0;
+				foreach (var item in _items)
+				{
+					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+					if (itemLength > maxItemWidth)
+						maxItemWidth = itemLength;
+				}
+
+				if (_autoAdjustWidth)
+				{
+					dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
+				}
+
+				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
+				int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4); // Add padding
+				dropdownWidth = Math.Max(dropdownWidth, minWidth);
 
 			// Calculate padding for alignment
 			int paddingLeft = 0;
@@ -795,13 +807,13 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Add header to result
-			_cachedContent.AddRange(headerLine);
+			content.AddRange(headerLine);
 
 			// If dropdown is open, render list items
 			if (_isDropdownOpen && _items.Count > 0)
 			{
 				// Calculate available space for dropdown items considering margins and container height
-				int availableSpaceForDropdown = int.MaxValue;
+				int availableSpaceForDropdown = 10000;
 
 				//if (availableHeight.HasValue)
 				//{
@@ -935,7 +947,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					// Add item to result
-					_cachedContent.AddRange(itemLine);
+					content.AddRange(itemLine);
 				}
 
 				// Add scroll indicators if needed
@@ -1007,14 +1019,14 @@ namespace SharpConsoleUI.Controls
 					}
 
 					// Add scroll indicator to result
-					_cachedContent.AddRange(scrollLine);
+					content.AddRange(scrollLine);
 				}
 			}
 
 			// Add top margin
 			if (_margin.Top > 0)
 			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(_cachedContent.FirstOrDefault() ?? string.Empty);
+				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(content.FirstOrDefault() ?? string.Empty);
 				var topMargin = Enumerable.Repeat(
 					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
 						new string(' ', finalWidth),
@@ -1027,13 +1039,13 @@ namespace SharpConsoleUI.Controls
 					_margin.Top
 				).ToList();
 
-				_cachedContent.InsertRange(0, topMargin);
+				content.InsertRange(0, topMargin);
 			}
 
 			// Add bottom margin
 			if (_margin.Bottom > 0)
 			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(_cachedContent.FirstOrDefault() ?? string.Empty);
+				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(content.FirstOrDefault() ?? string.Empty);
 				var bottomMargin = Enumerable.Repeat(
 					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
 						new string(' ', finalWidth),
@@ -1046,11 +1058,11 @@ namespace SharpConsoleUI.Controls
 					_margin.Bottom
 				).ToList();
 
-				_cachedContent.AddRange(bottomMargin);
+				content.AddRange(bottomMargin);
 			}
 
-			_invalidated = false;
-			return _cachedContent;
+			return content;
+			});
 		}
 
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
@@ -1102,7 +1114,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// If stretch alignment and available width is provided, use available width
-			if (_alignment == Alignment.Strecth && availableWidth.HasValue)
+			if (_alignment == Alignment.Stretch && availableWidth.HasValue)
 			{
 				return availableWidth.Value;
 			}
@@ -1168,8 +1180,8 @@ namespace SharpConsoleUI.Controls
 					return window;
 				}
 
-				// If the current container is an IWIndowControl, move up to its container
-				if (currentContainer is IWIndowControl control)
+				// If the current container is an IWindowControl, move up to its container
+				if (currentContainer is IWindowControl control)
 				{
 					currentContainer = control.Container;
 				}

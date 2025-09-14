@@ -19,12 +19,12 @@ namespace SharpConsoleUI.Controls
 	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl
 	{
 		private Alignment _alignment = Alignment.Left;
-		private Color? _backgroundColor;
+		private Color? _backgroundColorValue;
 		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private IContainer? _container;
-		private List<IWIndowControl> _contents = new List<IWIndowControl>();
-		private Color? _foregroundColor;
+		private List<IWindowControl> _contents = new List<IWindowControl>();
+		private Color? _foregroundColorValue;
 		private bool _hasFocus;
 		private HorizontalGridControl _horizontalGridContent;
 		private bool _isDirty;
@@ -42,13 +42,13 @@ namespace SharpConsoleUI.Controls
 		}
 
 		public Color BackgroundColor
-		{ get { return _backgroundColor ?? _consoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black; } set { _backgroundColor = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
+		{ get => _backgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black; set { _backgroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
 
 		public Color ForegroundColor
-		{ get { return _foregroundColor ?? _consoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White; } set { _foregroundColor = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
+		{ get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White; set { _foregroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
 
 		public ConsoleWindowSystem? GetConsoleWindowSystem
-		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; foreach (IWIndowControl control in _contents) { control.Invalidate(); }; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
+		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; foreach (IWindowControl control in _contents) { control.Invalidate(); }; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
 
 		public HorizontalGridControl HorizontalGridContent
 		{
@@ -71,17 +71,19 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		public int? Width
+	public int? Width
+	{
+		get => _width;
+		set
 		{
-			get => _width;
-			set
+			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+			if (_width != validatedValue)
 			{
-				_width = value;
+				_width = validatedValue;
 				Invalidate(true);
 			}
 		}
-		
-		// IWIndowControl implementation
+	}		// IWindowControl implementation
 		public int? ActualWidth => GetActualWidth();
 		
 		public Alignment Alignment
@@ -136,7 +138,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		public void AddContent(IWIndowControl content)
+		public void AddContent(IWindowControl content)
 		{
 			content.Container = this;
 			_contents.Add(content);
@@ -170,24 +172,65 @@ namespace SharpConsoleUI.Controls
 			return interactiveContents;
 		}
 
-		public void Invalidate(bool redrawAll, IWIndowControl? callerControl = null)
-		{
-			_isDirty = true;
-			_contentCache.Invalidate(InvalidationReason.ChildInvalidated);
-			_horizontalGridContent.Invalidate();
-		}
+	private static readonly ThreadLocal<HashSet<ColumnContainer>> _invalidatingContainers = new(() => new HashSet<ColumnContainer>());
 
-		public void InvalidateOnlyColumnContents()
+	public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
+	{
+		_isDirty = true;
+		_contentCache.Invalidate(InvalidationReason.ChildInvalidated);
+		
+		// Prevent infinite recursion by tracking if this container is already being invalidated
+		if (_invalidatingContainers.Value!.Contains(this))
+		{
+			return;
+		}
+		
+		// Only invalidate parent grid if we're not being called from it
+		// This prevents infinite recursion in invalidation chains
+		if (callerControl != _horizontalGridContent && _horizontalGridContent != null)
+		{
+			_invalidatingContainers.Value!.Add(this);
+			try
+			{
+				_horizontalGridContent.Invalidate();
+			}
+			finally
+			{
+				_invalidatingContainers.Value!.Remove(this);
+			}
+		}
+	}		public void InvalidateOnlyColumnContents(IWindowControl? callerControl = null)
 		{
 			_isDirty = true;
 			_contentCache.Invalidate(InvalidationReason.ContentChanged);
-			foreach (var content in _contents)
+			
+			// Prevent infinite recursion by tracking if this container is already being invalidated
+			if (_invalidatingContainers.Value!.Contains(this))
 			{
-				content.Invalidate();
+				return;
+			}
+			
+			_invalidatingContainers.Value!.Add(this);
+			try
+			{
+				foreach (var content in _contents)
+				{
+					// Prevent infinite recursion by not invalidating:
+					// 1. The horizontal grid content if it's the caller
+					// 2. The caller control passed as parameter
+					if (content != _horizontalGridContent && content != callerControl)
+					{
+						content.Invalidate();
+					}
+				}
+			}
+			finally
+			{
+				_invalidatingContainers.Value!.Remove(this);
 			}
 		}
 
-		public void RemoveContent(IWIndowControl content)
+		public void RemoveContent(IWindowControl content)
 		{
 			if (_contents.Remove(content))
 			{
@@ -272,10 +315,10 @@ namespace SharpConsoleUI.Controls
 			HasFocus = focus;
 		}
 		
-		// Additional IWIndowControl methods
+		// Additional IWindowControl methods
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(int.MaxValue, int.MaxValue);
+			var content = RenderContent(10000, 10000);
 			return new System.Drawing.Size(
 				content.FirstOrDefault()?.Length ?? 0,
 				content.Count
@@ -336,7 +379,7 @@ namespace SharpConsoleUI.Controls
 		/// <returns>True if the control is in this column</returns>
 		public bool ContainsControl(IInteractiveControl control)
 		{
-			return control is IWIndowControl windowControl && _contents.Contains(windowControl);
+			return control is IWindowControl windowControl && _contents.Contains(windowControl);
 		}
 
 		/// <summary>

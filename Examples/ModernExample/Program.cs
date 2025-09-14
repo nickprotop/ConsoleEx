@@ -154,7 +154,10 @@ internal class Program
         {
             "[bold]Available Demo Windows (adapted from originals):[/]",
             "",
-            "[green]F2[/] - [bold]Real-time Log Window[/]",
+            "[green]F1[/] - [bold]Comprehensive Layout Demo[/]",
+            "       Complete application UI with menus, splitters, status",
+            "",
+            "[blue]F2[/] - [bold]Real-time Log Window[/]",
             "       Demonstrates async logging with live updates",
             "",
             "[blue]F3[/] - [bold]System Information Window[/]",
@@ -176,14 +179,15 @@ internal class Program
             "       Country selection with styled dropdowns",
             "",
             "[green]F9[/] - [bold]ListView Demo[/]",
-            "       List control with selection handling"
+            "       List control with selection handling",
+            "",
         }));
 
         _mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
         _mainWindow.AddControl(new MarkupControl(new List<string>
         {
             "[dim]Navigation:[/]",
-            "[dim]• Press function keys (F2-F6) to open demo windows[/]",
+            "[dim]• Press function keys (F2-F9, F11) to open demo windows[/]",
             "[dim]• Press ESC in any window to close it[/]",
             "[dim]• Press Ctrl+Q in main window to exit[/]"
         }));
@@ -199,14 +203,14 @@ internal class Program
     {
         if (_mainWindow == null) return;
 
-        _mainWindow.KeyPressed += async (sender, e) =>
+        _mainWindow.KeyPressed += (sender, e) =>
         {
             try
             {
                 switch (e.KeyInfo.Key)
                 {
                     case ConsoleKey.F2:
-                        await CreateLogWindow();
+                        _ = CreateLogWindow();
                         e.Handled = true;
                         break;
                     case ConsoleKey.F3:
@@ -214,7 +218,7 @@ internal class Program
                         e.Handled = true;
                         break;
                     case ConsoleKey.F5:
-                        await CreateClockWindow();
+                        _ = CreateClockWindow();
                         e.Handled = true;
                         break;
                     case ConsoleKey.F6:
@@ -222,7 +226,7 @@ internal class Program
                         e.Handled = true;
                         break;
                     case ConsoleKey.F7:
-                        await CreateCommandWindow();
+                        _ = CreateCommandWindow();
                         e.Handled = true;
                         break;
                     case ConsoleKey.F8:
@@ -235,6 +239,10 @@ internal class Program
                         break;
                     case ConsoleKey.F4:
                         CreateFileExplorerWindow();
+                        e.Handled = true;
+                        break;
+                    case ConsoleKey.F1:
+                        CreateComprehensiveLayoutDemo();
                         e.Handled = true;
                         break;
                     case ConsoleKey.Q when e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control):
@@ -255,9 +263,9 @@ internal class Program
     /// <summary>
     /// Create log window with real-time updates (adapted from LogWindow.cs)
     /// </summary>
-    private static async Task CreateLogWindow()
+    private static Task CreateLogWindow()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null) return Task.CompletedTask;
 
         _logWindow = new WindowBuilder(_windowSystem, _serviceProvider)
             .WithTitle("Real-time Log Viewer")
@@ -289,6 +297,8 @@ internal class Program
 
         _windowSystem.AddWindow(_logWindow);
         _logger?.LogInformation("Log window created with real-time updates");
+        
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -368,9 +378,9 @@ internal class Program
     /// <summary>
     /// Create clock window with real-time updates (adapted from ClockWindow.cs)
     /// </summary>
-    private static async Task CreateClockWindow()
+    private static Task CreateClockWindow()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null) return Task.CompletedTask;
 
         _clockWindow = new WindowBuilder(_windowSystem, _serviceProvider)
             .WithTitle("Digital Clock")
@@ -394,6 +404,8 @@ internal class Program
 
         _windowSystem.AddWindow(_clockWindow);
         _logger?.LogInformation("Clock window created with async updates");
+        
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -518,9 +530,9 @@ internal class Program
     /// <summary>
     /// Create command window with interactive command prompt (adapted from CommandWindow.cs)
     /// </summary>
-    private static async Task CreateCommandWindow()
+    private static Task CreateCommandWindow()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null) return Task.CompletedTask;
 
         var commandWindow = new WindowBuilder(_windowSystem, _serviceProvider)
             .WithTitle("Interactive Command Window")
@@ -561,7 +573,7 @@ internal class Program
         outputControl.AppendContent("Type 'help' for available commands, 'exit' to close.\n");
 
         // Setup command execution with modern async patterns
-        promptControl.OnEnter = async (sender, command) =>
+        promptControl.Entered += async (sender, command) =>
         {
             try
             {
@@ -603,6 +615,8 @@ internal class Program
 
         _windowSystem.AddWindow(commandWindow);
         _logger?.LogInformation("Command window created with modern async patterns");
+        
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -1024,7 +1038,7 @@ internal class Program
         var fileList = new ListControl
         {
             Margin = new Margin(1, 1, 1, 1),
-            Alignment = Alignment.Strecth,
+            Alignment = Alignment.Stretch,
             MaxVisibleItems = null,
             FillHeight = true,
             IsSelectable = true
@@ -1205,7 +1219,7 @@ internal class Program
 
             if (!files.Any())
             {
-                fileList.AddItem("📂 No files in this folder", "ℹ", SpectreColor.Grey);
+                fileList.AddItem("No files in this folder", "i", SpectreColor.Grey);
                 return;
             }
 
@@ -1226,7 +1240,7 @@ internal class Program
         catch (Exception ex)
         {
             fileList.ClearItems();
-            fileList.AddItem($"❌ Error: {ex.Message}", "⚠", SpectreColor.Red);
+            fileList.AddItem("Error: " + ex.Message, "!", SpectreColor.Red);
             statusControl.SetContent(new List<string> { $"[red]Error loading files: {ex.Message}[/]" });
         }
     }
@@ -1238,15 +1252,15 @@ internal class Program
     {
         return extension.ToLowerInvariant() switch
         {
-            ".exe" or ".bat" or ".cmd" => "▶",
-            ".dll" or ".lib" => "◆",
-            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" => "◆",
-            ".txt" or ".log" or ".md" => "■",
-            ".doc" or ".docx" or ".pdf" => "■",
-            ".zip" or ".rar" or ".7z" => "□",
-            ".mp3" or ".wav" or ".flac" => "♪",
-            ".mp4" or ".avi" or ".mkv" => "►",
-            _ => "·"
+            ".exe" or ".bat" or ".cmd" => ">",
+            ".dll" or ".lib" => "#",
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" => "*",
+            ".txt" or ".log" or ".md" => "=",
+            ".doc" or ".docx" or ".pdf" => "=",
+            ".zip" or ".rar" or ".7z" => "[",
+            ".mp3" or ".wav" or ".flac" => "~",
+            ".mp4" or ".avi" or ".mkv" => ">",
+            _ => "."
         };
     }
 
@@ -1283,6 +1297,25 @@ internal class Program
         }
 
         return order == 0 ? $"{size:0} {suffixes[order]}" : $"{size:0.##} {suffixes[order]}";
+    }
+
+    /// <summary>
+    /// Create comprehensive layout demo window showcasing complete application UI patterns
+    /// </summary>
+    private static void CreateComprehensiveLayoutDemo()
+    {
+        if (_windowSystem == null) return;
+
+        try
+        {
+            var comprehensiveWindow = new ComprehensiveLayoutWindow(_windowSystem, _serviceProvider);
+            comprehensiveWindow.Show();
+            _logger?.LogInformation("Comprehensive layout demo window created using separate class");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error creating comprehensive layout demo window");
+        }
     }
 }
 

@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -14,12 +15,12 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class SpectreRenderableControl : IWIndowControl
+	public class SpectreRenderableControl : IWindowControl
 	{
 		private Alignment _alignment = Alignment.Left;
-		private Color? _backgroundColor;
-		private List<string>? _cachedContent;
-		private Color? _foregroundColor;
+		private Color? _backgroundColorValue;
+		private readonly ThreadSafeCache<List<string>> _contentCache;
+		private Color? _foregroundColorValue;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private IRenderable? _renderable;
 		private StickyPosition _stickyPosition = StickyPosition.None;
@@ -28,10 +29,12 @@ namespace SharpConsoleUI.Controls
 
 		public SpectreRenderableControl()
 		{
+			_contentCache = new ThreadSafeCache<List<string>>(this);
 		}
 
 		public SpectreRenderableControl(IRenderable renderable)
 		{
+			_contentCache = new ThreadSafeCache<List<string>>(this);
 			_renderable = renderable;
 		}
 
@@ -39,9 +42,10 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				if (_cachedContent == null) return null;
+				var content = _contentCache.Content;
+				if (content == null || content.Count == 0) return null;
 				int maxLength = 0;
-				foreach (var line in _cachedContent)
+				foreach (var line in content)
 				{
 					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
@@ -51,21 +55,37 @@ namespace SharpConsoleUI.Controls
 		}
 
 		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
-		public Color? BackgroundColor
-		{ get => _backgroundColor; set { _backgroundColor = value; _cachedContent = null; Container?.Invalidate(true); } }
+		public Color BackgroundColor
+		{
+			get => _backgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			set
+			{
+				_backgroundColorValue = value;
+				_contentCache.Invalidate();
+				Container?.Invalidate(true);
+			}
+		}
 
 		public IContainer? Container { get; set; }
 
-		public Color? ForegroundColor
-		{ get => _foregroundColor; set { _foregroundColor = value; _cachedContent = null; Container?.Invalidate(true); } }
+		public Color ForegroundColor
+		{
+			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
+			set
+			{
+				_foregroundColorValue = value;
+				_contentCache.Invalidate();
+				Container?.Invalidate(true);
+			}
+		}
 
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
 		public IRenderable? Renderable
-		{ get => _renderable; set { _renderable = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _renderable; set { _renderable = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
 		public StickyPosition StickyPosition
 		{
@@ -80,19 +100,29 @@ namespace SharpConsoleUI.Controls
 		public object? Tag { get; set; }
 
 		public bool Visible
-		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
-		public int? Width
-		{ get => _width; set { _width = value; _cachedContent = null; Container?.Invalidate(true); } }
-
-		public void Dispose()
+	public int? Width
+	{ 
+		get => _width; 
+		set 
+		{ 
+			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+			if (_width != validatedValue)
+			{
+				_width = validatedValue; 
+				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
+				Container?.Invalidate(true); 
+			}
+		} 
+	}		public void Dispose()
 		{
 			Container = null;
 		}
 
 		public void Invalidate()
 		{
-			_cachedContent = null;
+			_contentCache.Invalidate();
 		}
 
 		public System.Drawing.Size GetLogicalContentSize()
@@ -100,7 +130,7 @@ namespace SharpConsoleUI.Controls
 			// For Spectre renderables, we need to render to get the actual size
 			if (_renderable == null) return new System.Drawing.Size(0, 0);
 			
-			var content = RenderContent(int.MaxValue, int.MaxValue);
+			var content = RenderContent(10000, 10000);
 			return new System.Drawing.Size(
 				content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)),
 				content.Count
@@ -109,54 +139,56 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (_cachedContent != null) return _cachedContent;
-			if (_renderable == null) return new List<string> { string.Empty };
-
-			_cachedContent = new List<string>();
-
-			int width = _width ?? availableWidth ?? 80;
-
-			// Convert the Spectre renderable to ANSI strings
-			_cachedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, width, availableHeight, Container?.BackgroundColor ?? Spectre.Console.Color.Black);
-
-			int maxContentWidth = 0;
-			foreach (var line in _cachedContent)
+			return _contentCache.GetOrRender(() =>
 			{
-				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-				if (length > maxContentWidth) maxContentWidth = length;
-			}
+				if (_renderable == null) return new List<string> { string.Empty };
 
-			// Apply alignment
-			int paddingLeft = 0;
-			if (_alignment == Alignment.Center)
-			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
-			}
+				var cachedContent = new List<string>();
 
-			for (int i = 0; i < _cachedContent.Count; i++)
-			{
-				string leftPadding = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', paddingLeft),
-					paddingLeft,
-					1,
-					false,
-					Container?.BackgroundColor,
-					null
-				).FirstOrDefault() ?? string.Empty;
+				int width = _width ?? availableWidth ?? 80;
 
-				_cachedContent[i] = leftPadding + _cachedContent[i];
-			}
+				// Convert the Spectre renderable to ANSI strings
+				cachedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, width, availableHeight, BackgroundColor);
 
-			// Apply margins
-			ApplyMargins(ref _cachedContent, maxContentWidth + paddingLeft);
+				int maxContentWidth = 0;
+				foreach (var line in cachedContent)
+				{
+					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
+					if (length > maxContentWidth) maxContentWidth = length;
+				}
 
-			return _cachedContent;
+				// Apply alignment
+				int paddingLeft = 0;
+				if (_alignment == Alignment.Center)
+				{
+					paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
+				}
+
+				for (int i = 0; i < cachedContent.Count; i++)
+				{
+					string leftPadding = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+						new string(' ', paddingLeft),
+						paddingLeft,
+						1,
+						false,
+						BackgroundColor,
+						null
+					).FirstOrDefault() ?? string.Empty;
+
+					cachedContent[i] = leftPadding + cachedContent[i];
+				}
+
+				// Apply margins
+				ApplyMargins(ref cachedContent, maxContentWidth + paddingLeft);
+
+				return cachedContent;
+			});
 		}
 
 		public void SetRenderable(IRenderable renderable)
 		{
 			_renderable = renderable;
-			_cachedContent = null;
+			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
 

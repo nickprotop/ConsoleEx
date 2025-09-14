@@ -36,10 +36,10 @@ namespace SharpConsoleUI.Example
 			_promptControl = new PromptControl
 			{
 				Prompt = "CMD> ",
-				OnEnter = ExecuteCommand,
 				UnfocusOnEnter = false,
 				StickyPosition = StickyPosition.Top
 			};
+			_promptControl.Entered += ExecuteCommand;
 
 			_outputControl = new MultilineEditControl
 			{
@@ -72,7 +72,7 @@ namespace SharpConsoleUI.Example
 		{
 		}
 
-		private async void ExecuteCommand(PromptControl sender, string command)
+		private async void ExecuteCommand(object? sender, string command)
 		{
 			try
 			{
@@ -95,7 +95,7 @@ namespace SharpConsoleUI.Example
 				await _cmdProcess.StandardInput.FlushAsync();
 
 				// Clear the input for the next command
-				sender.SetInput(string.Empty);
+				_promptControl.SetInput(string.Empty);
 
 				// Special handling for exit command
 				if (command.Trim().Equals("exit", StringComparison.OrdinalIgnoreCase))

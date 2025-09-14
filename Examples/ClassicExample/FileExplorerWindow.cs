@@ -115,7 +115,7 @@ namespace SharpConsoleUI.Example
 			_fileListControl = new ListControl()
 			{
 				Margin = new Margin(1, 1, 1, 1),
-				Alignment = Alignment.Strecth,
+				Alignment = Alignment.Stretch,
 				MaxVisibleItems = null,
 				FillHeight = true,
 				BackgroundColor = _window.BackgroundColor,

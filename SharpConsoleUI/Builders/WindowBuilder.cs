@@ -37,7 +37,7 @@ public sealed class WindowBuilder
     private int? _maxWidth;
     private int? _maxHeight;
     private Window? _parentWindow;
-    private readonly List<IWIndowControl> _controls = new();
+    private readonly List<IWindowControl> _controls = new();
     private Window.WindowThreadDelegate? _windowThread;
     private Window.WindowThreadDelegateAsync? _asyncWindowThread;
 
@@ -270,7 +270,7 @@ public sealed class WindowBuilder
     /// </summary>
     /// <param name="control">The control to add</param>
     /// <returns>The builder for chaining</returns>
-    public WindowBuilder AddControl(IWIndowControl control)
+    public WindowBuilder AddControl(IWindowControl control)
     {
         if (control != null)
         {
@@ -284,7 +284,7 @@ public sealed class WindowBuilder
     /// </summary>
     /// <param name="controls">The controls to add</param>
     /// <returns>The builder for chaining</returns>
-    public WindowBuilder AddControls(params IWIndowControl[] controls)
+    public WindowBuilder AddControls(params IWindowControl[] controls)
     {
         foreach (var control in controls)
         {
@@ -299,7 +299,7 @@ public sealed class WindowBuilder
     /// <typeparam name="T">The control type</typeparam>
     /// <param name="configure">Configuration action for the control</param>
     /// <returns>The builder for chaining</returns>
-    public WindowBuilder AddControl<T>(Action<T> configure) where T : class, IWIndowControl, new()
+    public WindowBuilder AddControl<T>(Action<T> configure) where T : class, IWindowControl, new()
     {
         var control = _services?.GetService<T>() ?? new T();
         configure(control);
