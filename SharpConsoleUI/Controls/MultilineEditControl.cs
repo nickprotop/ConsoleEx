@@ -31,7 +31,7 @@ namespace SharpConsoleUI.Controls
 		WrapWords
 	}
 
-	public class MultilineEditControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class MultilineEditControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		private Alignment _alignment = Alignment.Left;
 
@@ -199,6 +199,12 @@ namespace SharpConsoleUI.Controls
 
 		public bool IsEditing
 		{ get => _isEditing; set { _isEditing = value; Invalidate(); Container?.Invalidate(false); } }
+
+		/// <summary>
+		/// Gets the preferred cursor shape based on editing state.
+		/// Returns VerticalBar when editing (like modern text editors), null otherwise.
+		/// </summary>
+		public CursorShape? PreferredCursorShape => _isEditing ? CursorShape.VerticalBar : null;
 
 		public bool IsEnabled
 		{

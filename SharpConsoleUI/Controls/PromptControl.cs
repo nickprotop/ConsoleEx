@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
@@ -17,7 +18,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class PromptControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class PromptControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		/// <summary>
 		/// Event fired when Enter is pressed (modern standardized event)
@@ -88,6 +89,11 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 		}
+
+		/// <summary>
+		/// Gets the preferred cursor shape - always VerticalBar for text input
+		/// </summary>
+		public CursorShape? PreferredCursorShape => CursorShape.VerticalBar;
 
 		public Color? InputBackgroundColor
 		{

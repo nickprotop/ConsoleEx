@@ -99,12 +99,6 @@ namespace SharpConsoleUI.Controls
 			_contentCache.Dispose();
 		}
 
-		// ILogicalCursorProvider implementation
-		public Point? GetLogicalCursorPosition()
-		{
-			return null; // Buttons don't have a visible cursor
-		}
-
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			var content = RenderContent(int.MaxValue, int.MaxValue);
@@ -112,11 +106,6 @@ namespace SharpConsoleUI.Controls
 				content.FirstOrDefault()?.Length ?? 0,
 				content.Count
 			);
-		}
-
-		public void SetLogicalCursorPosition(Point position)
-		{
-			// Buttons don't have cursor positioning
 		}
 
 		public void Invalidate()

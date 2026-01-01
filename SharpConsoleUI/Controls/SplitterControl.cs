@@ -18,7 +18,7 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// Represents a vertical splitter control that can be used to resize columns in a HorizontalGridControl
 	/// </summary>
-	public class SplitterControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class SplitterControl : IWindowControl, IInteractiveControl, IFocusableControl
 	{
 		private const int DEFAULT_WIDTH = 1;
 		private const float MIN_COLUMN_PERCENTAGE = 0.1f; // Minimum 10% width for any column
@@ -254,12 +254,6 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
-		// ILogicalCursorProvider implementation
-		public Point? GetLogicalCursorPosition()
-		{
-			return null; // Splitters don't have a visible cursor
-		}
-
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			var content = RenderContent(10000, 10000);
@@ -267,11 +261,6 @@ namespace SharpConsoleUI.Controls
 				content.FirstOrDefault()?.Length ?? 0,
 				content.Count
 			);
-		}
-
-		public void SetLogicalCursorPosition(Point position)
-		{
-			// Splitters don't have cursor positioning
 		}
 
 		public void Invalidate()

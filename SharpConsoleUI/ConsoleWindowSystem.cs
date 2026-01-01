@@ -11,6 +11,8 @@ using System.Collections.Concurrent;
 using SharpConsoleUI.Themes;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Core;
+using SharpConsoleUI.Controls;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -71,6 +73,9 @@ namespace SharpConsoleUI
 		private Size _dragStartWindowSize = new Size(0, 0);
 		private ResizeDirection _resizeDirection = ResizeDirection.None;
 
+		// Cursor state management
+		private readonly CursorStateService _cursorStateService = new();
+
 		public ConsoleWindowSystem(RenderMode renderMode)
 		{
 			RenderMode = renderMode;
@@ -102,6 +107,7 @@ namespace SharpConsoleUI
 		public string TopStatus { get; set; } = "";
 		public VisibleRegions VisibleRegions => _visibleRegions;
 		public ConcurrentDictionary<string, Window> Windows => _windows;
+		public CursorStateService CursorStateService => _cursorStateService;
 
 		public Window AddWindow(Window window, bool activateWindow = true)
 		{
@@ -1209,24 +1215,54 @@ namespace SharpConsoleUI
 				var (absoluteLeft, absoluteTop) = TranslateToAbsolute(_activeWindow, new Point(cursorPosition.X, cursorPosition.Y));
 
 				// Check if the cursor position is within the console window boundaries
-				if (absoluteLeft >= 0 && absoluteLeft < _consoleDriver.ScreenSize.Width &&
+				// and within the active window's boundaries
+				bool isWithinBounds =
+					absoluteLeft >= 0 && absoluteLeft < _consoleDriver.ScreenSize.Width &&
 					absoluteTop >= 0 && absoluteTop < _consoleDriver.ScreenSize.Height &&
-					// Check if the cursor position is within the active window's boundaries
 					absoluteLeft >= _activeWindow.Left && absoluteLeft < _activeWindow.Left + _activeWindow.Width &&
-					absoluteTop >= _activeWindow.Top && absoluteTop < _activeWindow.Top + _activeWindow.Height)
+					absoluteTop >= _activeWindow.Top && absoluteTop < _activeWindow.Top + _activeWindow.Height;
+
+				if (isWithinBounds)
 				{
-					Console.CursorVisible = true;
-					Console.SetCursorPosition(absoluteLeft, absoluteTop);
+					// Get the owner control if available
+					IWindowControl? ownerControl = null;
+					CursorShape cursorShape = CursorShape.Block;
+
+					if (_activeWindow.HasActiveInteractiveContent(out var interactiveContent) &&
+						interactiveContent is IWindowControl windowControl)
+					{
+						ownerControl = windowControl;
+
+						// Check if control provides a preferred cursor shape
+						if (windowControl is ICursorShapeProvider shapeProvider &&
+							shapeProvider.PreferredCursorShape.HasValue)
+						{
+							cursorShape = shapeProvider.PreferredCursorShape.Value;
+						}
+					}
+
+					// Update cursor state service with new state
+					_cursorStateService.UpdateFromWindowSystem(
+						ownerWindow: _activeWindow,
+						logicalPosition: cursorPosition,
+						absolutePosition: new Point(absoluteLeft, absoluteTop),
+						ownerControl: ownerControl,
+						shape: cursorShape);
 				}
 				else
 				{
-					Console.CursorVisible = false;
+					_cursorStateService.HideCursor();
 				}
 			}
 			else
 			{
-				Console.CursorVisible = false;
+				_cursorStateService.HideCursor();
 			}
+
+			// Apply cursor state to the actual console
+			_cursorStateService.ApplyCursorToConsole(
+				_consoleDriver.ScreenSize.Width,
+				_consoleDriver.ScreenSize.Height);
 		}
 
 		private void UpdateDisplay()

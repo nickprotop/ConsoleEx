@@ -15,7 +15,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class ListControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider
+	public class ListControl : IWindowControl, IInteractiveControl, IFocusableControl
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private Alignment _alignment = Alignment.Left;
@@ -510,12 +510,6 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
-		// ILogicalCursorProvider implementation
-		public Point? GetLogicalCursorPosition()
-		{
-			return null;
-		}
-
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			var content = RenderContent(10000, 10000);
@@ -523,11 +517,6 @@ namespace SharpConsoleUI.Controls
 				content.FirstOrDefault()?.Length ?? 0,
 				content.Count
 			);
-		}
-
-		public void SetLogicalCursorPosition(Point position)
-		{
-
 		}
 
 		public void Invalidate()
