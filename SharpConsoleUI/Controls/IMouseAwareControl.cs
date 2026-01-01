@@ -87,6 +87,19 @@ namespace SharpConsoleUI.Controls
 	}
 
 	/// <summary>
+	/// Interface for controls that support directional focus (for container controls with children)
+	/// </summary>
+	public interface IDirectionalFocusControl
+	{
+		/// <summary>
+		/// Sets focus with direction information for proper child control selection
+		/// </summary>
+		/// <param name="focus">Whether to set or remove focus</param>
+		/// <param name="backward">If true, focus last child; if false, focus first child</param>
+		void SetFocusWithDirection(bool focus, bool backward);
+	}
+
+	/// <summary>
 	/// Reasons for focus changes
 	/// </summary>
 	public enum FocusReason

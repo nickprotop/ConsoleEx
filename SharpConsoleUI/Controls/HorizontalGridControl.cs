@@ -19,7 +19,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl
+	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl
 	{
 		private Alignment _alignment = Alignment.Left;
 		private readonly ThreadSafeCache<List<string>> _contentCache;
@@ -28,7 +28,9 @@ namespace SharpConsoleUI.Controls
 		private IInteractiveControl? _focusedContent;
 		private bool _hasFocus;
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
+		private bool _interactiveContentsDirty = true;
 		private bool _invalidated = true;
+		private bool _focusFromBackward = false;
 		private bool _isEnabled = true;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private Dictionary<IInteractiveControl, int> _splitterControls = new Dictionary<IInteractiveControl, int>();
@@ -155,6 +157,7 @@ namespace SharpConsoleUI.Controls
 		{
 			column.GetConsoleWindowSystem = Container?.GetConsoleWindowSystem;
 			_columns.Add(column);
+			_interactiveContentsDirty = true;
 			Invalidate();
 		}
 
@@ -176,6 +179,7 @@ namespace SharpConsoleUI.Controls
 				// Subscribe to splitter's move event
 				splitter.SplitterMoved += OnSplitterMoved;
 
+				_interactiveContentsDirty = true;
 				Invalidate();
 				return splitter;
 			}
@@ -204,6 +208,7 @@ namespace SharpConsoleUI.Controls
 			// Subscribe to splitter's move event
 			splitterControl.SplitterMoved += OnSplitterMoved;
 
+			_interactiveContentsDirty = true;
 			Invalidate();
 			return true;
 		}
@@ -219,11 +224,36 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
-		// ILogicalCursorProvider implementation
+		// ILogicalCursorProvider implementation - delegate to focused child with column offset
 		public Point? GetLogicalCursorPosition()
 		{
-			return null; // Grids don't have a visible cursor
+			if (_focusedContent is ILogicalCursorProvider cursorProvider)
+			{
+				var childPosition = cursorProvider.GetLogicalCursorPosition();
+				if (childPosition.HasValue)
+				{
+					// Check if focused content is in a column
+					if (_interactiveContents.TryGetValue(_focusedContent, out var column))
+					{
+						var columnOffset = GetColumnOffset(column);
+						return new Point(childPosition.Value.X + columnOffset, childPosition.Value.Y);
+					}
+					
+					// Check if focused content is a splitter
+					if (_focusedContent is SplitterControl splitter && _splitterControls.ContainsKey(splitter))
+					{
+						var splitterOffset = GetSplitterOffset(splitter);
+						return new Point(childPosition.Value.X + splitterOffset, childPosition.Value.Y);
+					}
+				}
+				return childPosition;
+			}
+			return null;
 		}
+
+		// ICursorShapeProvider implementation - delegate to focused child
+		public CursorShape? PreferredCursorShape =>
+			(_focusedContent as ICursorShapeProvider)?.PreferredCursorShape;
 
 		public System.Drawing.Size GetLogicalContentSize()
 		{
@@ -313,8 +343,15 @@ namespace SharpConsoleUI.Controls
 				}
 				else
 				{
-					// Unfocus current control
-					_focusedContent.HasFocus = false;
+					// Unfocus current control using SetFocus for consistent focus handling
+					if (_focusedContent is IFocusableControl currentFocusable)
+					{
+						currentFocusable.SetFocus(false, FocusReason.Keyboard);
+					}
+					else
+					{
+						_focusedContent.HasFocus = false;
+					}
 
 					// If it's from columns dictionary, invalidate its container
 					if (_interactiveContents.ContainsKey(_focusedContent))
@@ -331,7 +368,7 @@ namespace SharpConsoleUI.Controls
 						{
 							return false; // Exit control backward
 						}
-						index = index == 0 ? orderedInteractiveControls.Count - 1 : index - 1;
+						index--;
 					}
 					else
 					{
@@ -339,14 +376,21 @@ namespace SharpConsoleUI.Controls
 						{
 							return false; // Exit control forward
 						}
-						index = index == orderedInteractiveControls.Count - 1 ? 0 : index + 1;
+						index++;
 					}
 
 					_focusedContent = orderedInteractiveControls[index];
 				}
 
-				// Set focus on the new control
-				_focusedContent.HasFocus = true;
+				// Set focus on the new control using SetFocus for consistent focus handling
+				if (_focusedContent is IFocusableControl newFocusable)
+				{
+					newFocusable.SetFocus(true, FocusReason.Keyboard);
+				}
+				else
+				{
+					_focusedContent.HasFocus = true;
+				}
 
 				// If it's from columns dictionary, invalidate its container
 				if (_interactiveContents.ContainsKey(_focusedContent))
@@ -408,6 +452,7 @@ namespace SharpConsoleUI.Controls
 
 				_splitterControls = updatedSplitters;
 
+				_interactiveContentsDirty = true;
 				Invalidate();
 			}
 		}
@@ -579,6 +624,19 @@ namespace SharpConsoleUI.Controls
 		
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
+			// Note: _focusFromBackward should be set before calling this method
+			// if backward focus selection is needed
+			HasFocus = focus;
+		}
+
+		/// <summary>
+		/// Sets focus with direction information for proper child control selection
+		/// </summary>
+		/// <param name="focus">Whether to set or remove focus</param>
+		/// <param name="backward">If true, focus last child; if false, focus first child</param>
+		public void SetFocusWithDirection(bool focus, bool backward)
+		{
+			_focusFromBackward = backward;
 			HasFocus = focus;
 		}
 
@@ -630,56 +688,44 @@ namespace SharpConsoleUI.Controls
 			return false;
 		}
 
-		private void FocusChanged(bool backward = false)
+		private void FocusChanged()
 		{
 			if (_hasFocus)
 			{
-				_interactiveContents.Clear();
-				foreach (var column in _columns)
+				// Only rebuild interactive contents dictionary when columns have changed
+				if (_interactiveContentsDirty)
 				{
-					foreach (var interactiveContent in column.GetInteractiveContents())
+					_interactiveContents.Clear();
+					foreach (var column in _columns)
 					{
-						_interactiveContents.Add(interactiveContent, column);
+						foreach (var interactiveContent in column.GetInteractiveContents())
+						{
+							_interactiveContents.Add(interactiveContent, column);
+						}
 					}
+					_interactiveContentsDirty = false;
 				}
 
 				if (_interactiveContents.Count == 0 && _splitterControls.Count == 0) return;
 
 				if (_focusedContent == null)
 				{
-					if (backward)
-					{
-						if (_interactiveContents.Count > 0)
-						{
-							_interactiveContents.Keys.Last().HasFocus = true;
-							_focusedContent = _interactiveContents.Keys.Last();
-						}
-						else if (_splitterControls.Count > 0)
-						{
-							var lastSplitter = _splitterControls.Keys.Last();
-							lastSplitter.HasFocus = true;
-							_focusedContent = lastSplitter;
-						}
-					}
-					else
-					{
-						if (_interactiveContents.Count > 0)
-						{
-							_interactiveContents.Keys.First().HasFocus = true;
-							_focusedContent = _interactiveContents.Keys.First();
-						}
-						else if (_splitterControls.Count > 0)
-						{
-							var firstSplitter = _splitterControls.Keys.First();
-							firstSplitter.HasFocus = true;
-							_focusedContent = firstSplitter;
-						}
-					}
+					// Find first or last focusable control based on focus direction
+					_focusedContent = _focusFromBackward 
+						? FindLastFocusableControl() 
+						: FindFirstFocusableControl();
+					_focusFromBackward = false; // Reset after use
 				}
 
-				if (_focusedContent != null && _interactiveContents.ContainsKey(_focusedContent))
+				// Set focus on the control if it can receive focus
+				if (_focusedContent != null)
 				{
-					_interactiveContents[_focusedContent].Invalidate(true);
+					SetControlFocus(_focusedContent, true);
+					
+					if (_interactiveContents.ContainsKey(_focusedContent))
+					{
+						_interactiveContents[_focusedContent].Invalidate(true);
+					}
 				}
 			}
 			else
@@ -711,20 +757,12 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The control at the position, or null if no control found</returns>
 		private IInteractiveControl? GetControlAtPosition(Point position)
 		{
-			// We need to find which column and which control within that column contains this position
-			// Use thread-safe cache access to prevent race conditions
+			// If content hasn't been rendered yet, we can't calculate positions accurately
+			// BuildDisplayControlsList uses GetActualWidth which requires rendering to have occurred
 			var cachedContent = _contentCache.Content;
-			if (cachedContent == null)
+			if (cachedContent == null || cachedContent.Count == 0)
 			{
-				// Force a render to ensure we have current layout information
-				// Use reasonable maximum dimensions instead of int.MaxValue to avoid memory issues
-				cachedContent = RenderContent(10000, 10000);
-				
-				// Verify content was rendered
-				if (cachedContent == null)
-				{
-					return null;
-				}
+				return null;
 			}
 
 			// Calculate column positions based on the rendered layout
@@ -805,6 +843,31 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Gets the X offset of a splitter within the grid
+		/// </summary>
+		/// <param name="targetSplitter">The splitter to find the offset for</param>
+		/// <returns>X offset of the splitter</returns>
+		private int GetSplitterOffset(SplitterControl targetSplitter)
+		{
+			var displayControls = BuildDisplayControlsList();
+			int currentX = 0;
+
+			for (int i = 0; i < displayControls.Count; i++)
+			{
+				var (isSplitter, control, controlWidth) = displayControls[i];
+				
+				if (isSplitter && control == targetSplitter)
+				{
+					return currentX;
+				}
+				
+				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetActualWidth() ?? controlWidth;
+			}
+
+			return 0; // Fallback
+		}
+
+		/// <summary>
 		/// Gets the X offset of a column within the grid
 		/// </summary>
 		/// <param name="targetColumn">The column to find the offset for</param>
@@ -830,7 +893,8 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Builds the display controls list similar to what's done in RenderContent
+		/// Builds the display controls list similar to what's done in RenderContent.
+		/// Uses actual rendered widths for accurate position calculations.
 		/// </summary>
 		/// <returns>List of display controls with their metadata</returns>
 		private List<(bool IsSplitter, object Control, int Width)> BuildDisplayControlsList()
@@ -841,7 +905,9 @@ namespace SharpConsoleUI.Controls
 			for (int i = 0; i < _columns.Count; i++)
 			{
 				var column = _columns[i];
-				displayControls.Add((false, column, column.Width ?? 0));
+				// Use GetActualWidth for accurate position calculations after rendering
+				int columnWidth = column.GetActualWidth() ?? column.Width ?? 0;
+				displayControls.Add((false, column, columnWidth));
 
 				// If there's a splitter after this column, add it
 				var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
@@ -882,6 +948,79 @@ namespace SharpConsoleUI.Controls
 				}
 				
 				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Finds the first control that can receive focus
+		/// </summary>
+		private IInteractiveControl? FindFirstFocusableControl()
+		{
+			// Check interactive contents first
+			foreach (var control in _interactiveContents.Keys)
+			{
+				if (control is IFocusableControl focusable && focusable.CanReceiveFocus)
+				{
+					return control;
+				}
+			}
+
+			// Then check splitters
+			foreach (var splitter in _splitterControls.Keys)
+			{
+				if (splitter is IFocusableControl focusable && focusable.CanReceiveFocus)
+				{
+					return splitter;
+				}
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Finds the last control that can receive focus (for backward tab navigation)
+		/// </summary>
+		private IInteractiveControl? FindLastFocusableControl()
+		{
+			IInteractiveControl? lastFocusable = null;
+
+			// Check interactive contents
+			foreach (var control in _interactiveContents.Keys)
+			{
+				if (control is IFocusableControl focusable && focusable.CanReceiveFocus)
+				{
+					lastFocusable = control;
+				}
+			}
+
+			// Then check splitters (splitters come after column controls in tab order)
+			foreach (var splitter in _splitterControls.Keys)
+			{
+				if (splitter is IFocusableControl focusable && focusable.CanReceiveFocus)
+				{
+					lastFocusable = splitter;
+				}
+			}
+
+			return lastFocusable;
+		}
+
+		/// <summary>
+		/// Sets focus on a control, checking CanReceiveFocus and using SetFocus when available
+		/// </summary>
+		private void SetControlFocus(IInteractiveControl control, bool focus)
+		{
+			if (control is IFocusableControl focusable)
+			{
+				if (focus && !focusable.CanReceiveFocus)
+				{
+					return; // Don't set focus if control can't receive it
+				}
+				focusable.SetFocus(focus, FocusReason.Programmatic);
+			}
+			else
+			{
+				control.HasFocus = focus;
 			}
 		}
 

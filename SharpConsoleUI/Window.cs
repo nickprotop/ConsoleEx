@@ -1117,7 +1117,12 @@ namespace SharpConsoleUI
 				}
 
 				// Set focus to the next content
-				if (_interactiveContents[nextIndex] is Controls.IFocusableControl focusable)
+				// Use directional focus for container controls that support it
+				if (_interactiveContents[nextIndex] is Controls.IDirectionalFocusControl directional)
+				{
+					directional.SetFocusWithDirection(true, backward);
+				}
+				else if (_interactiveContents[nextIndex] is Controls.IFocusableControl focusable)
 				{
 					focusable.SetFocus(true, Controls.FocusReason.Keyboard);
 				}
