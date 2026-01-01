@@ -420,8 +420,11 @@ namespace SharpConsoleUI.Controls
 
 		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
 		{
-			BackgroundColor = BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black;
-			ForegroundColor = ForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White;
+			// Inherit background color from parent container first, then fall back to theme
+			BackgroundColor = BackgroundColor ?? Container?.BackgroundColor
+				?? Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black;
+			ForegroundColor = ForegroundColor ?? Container?.ForegroundColor
+				?? Container?.GetConsoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White;
 
 			var renderedContent = new List<string>();
 			int? maxHeight = 0;

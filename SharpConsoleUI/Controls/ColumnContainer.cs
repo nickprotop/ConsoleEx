@@ -42,10 +42,22 @@ namespace SharpConsoleUI.Controls
 		}
 
 		public Color BackgroundColor
-		{ get => _backgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black; set { _backgroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
+		{
+			// Inherit background color from parent HorizontalGridControl's container (the Window),
+			// then fall back to theme
+			get => _backgroundColorValue ?? _horizontalGridContent?.Container?.BackgroundColor
+				?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			set { _backgroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); }
+		}
 
 		public Color ForegroundColor
-		{ get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White; set { _foregroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
+		{
+			// Inherit foreground color from parent HorizontalGridControl's container (the Window),
+			// then fall back to theme
+			get => _foregroundColorValue ?? _horizontalGridContent?.Container?.ForegroundColor
+				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
+			set { _foregroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); }
+		}
 
 		public ConsoleWindowSystem? GetConsoleWindowSystem
 		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; foreach (IWindowControl control in _contents) { control.Invalidate(); }; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }

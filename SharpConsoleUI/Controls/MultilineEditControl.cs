@@ -480,22 +480,25 @@ namespace SharpConsoleUI.Controls
 		{
 			if (Container == null) return;
 
+			// Guard against uninitialized _effectiveWidth (can be 0 before first render)
+			int effectiveWidth = _effectiveWidth > 0 ? _effectiveWidth : 80;
+
 			// Special handling for wrap mode
 			if (_wrapMode != WrapMode.NoWrap)
 			{
 				// Calculate how many wrapped lines this logical line occupies
 				int lineLength = _lines[_cursorY].Length;
-				int wrappedLineCount = (lineLength > 0) ? ((lineLength - 1) / _effectiveWidth) + 1 : 1;
+				int wrappedLineCount = (lineLength > 0) ? ((lineLength - 1) / effectiveWidth) + 1 : 1;
 
 				// Calculate which wrapped line within the current logical line contains the cursor
-				int cursorWrappedLine = _cursorX / _effectiveWidth;
+				int cursorWrappedLine = _cursorX / effectiveWidth;
 
 				// Calculate total wrapped lines before the current line
 				int totalWrappedLinesBefore = 0;
 				for (int i = 0; i < _cursorY; i++)
 				{
 					int len = _lines[i].Length;
-					totalWrappedLinesBefore += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+					totalWrappedLinesBefore += (len > 0) ? ((len - 1) / effectiveWidth) + 1 : 1;
 				}
 
 				// The absolute wrapped line position of the cursor
@@ -531,9 +534,9 @@ namespace SharpConsoleUI.Controls
 				{
 					_horizontalScrollOffset = _cursorX;
 				}
-				else if (_cursorX >= _horizontalScrollOffset + _effectiveWidth)
+				else if (_cursorX >= _horizontalScrollOffset + effectiveWidth)
 				{
-					_horizontalScrollOffset = _cursorX - _effectiveWidth + 1;
+					_horizontalScrollOffset = _cursorX - effectiveWidth + 1;
 				}
 			}
 
@@ -666,7 +669,7 @@ namespace SharpConsoleUI.Controls
 			// When focused but not editing, allow scrolling with arrow keys
 			if (_hasFocus && !_isEditing)
 			{
-				if (key.Modifiers.HasFlag(ConsoleModifiers.Control) || key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Control))
+				if (key.Modifiers.HasFlag(ConsoleModifiers.Control) || key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt))
 				{
 					return false;
 				}
@@ -987,11 +990,11 @@ namespace SharpConsoleUI.Controls
 					{
 						if (_wrapMode != WrapMode.NoWrap)
 						{
-							// Go to end of wrapped line
+							// Go to end of wrapped line segment (position after last char, not last char itself)
 							int lineLength = _lines[_cursorY].Length;
 							int cursorWrappedLine = _cursorX / _effectiveWidth;
-							int wrappedLineCount = (lineLength > 0) ? ((lineLength - 1) / _effectiveWidth) + 1 : 1;
-							_cursorX = Math.Min(lineLength, (cursorWrappedLine + 1) * _effectiveWidth - 1);
+							int wrappedLineEnd = (cursorWrappedLine + 1) * _effectiveWidth;
+							_cursorX = Math.Min(lineLength, wrappedLineEnd);
 						}
 						else
 						{
@@ -1336,6 +1339,31 @@ namespace SharpConsoleUI.Controls
 					{
 						foreach (var word in words)
 						{
+							// Handle words longer than effective width by breaking them into chunks
+							if (word.Length > effectiveWidth)
+							{
+								// Flush current line if not empty
+								if (currentLine.Length > 0)
+								{
+									allWrappedLines.Add(currentLine.ToString());
+									sourceLineIndex.Add(i);
+									sourceLineOffset.Add(currentOffset);
+									currentOffset += currentLine.Length + 1; // +1 for the space
+									currentLine.Clear();
+								}
+
+								// Break the long word into chunks
+								for (int k = 0; k < word.Length; k += effectiveWidth)
+								{
+									int chunkLen = Math.Min(effectiveWidth, word.Length - k);
+									allWrappedLines.Add(word.Substring(k, chunkLen));
+									sourceLineIndex.Add(i);
+									sourceLineOffset.Add(currentOffset + k);
+								}
+								currentOffset += word.Length + 1; // +1 for the space after word
+								continue;
+							}
+
 							if (currentLine.Length + word.Length + (currentLine.Length > 0 ? 1 : 0) > effectiveWidth)
 							{
 								allWrappedLines.Add(currentLine.ToString());
@@ -1602,15 +1630,78 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Add margin spacing
+			// Add scrollbars BEFORE margins so they appear inside the content area
+			if (needsVerticalScrollbar || needsHorizontalScrollbar)
+			{
+				if (needsVerticalScrollbar)
+				{
+					// Calculate scrollbar metrics
+					int totalLines = GetTotalWrappedLineCount();
+					var scrollbar = RenderVerticalScrollbar(_viewportHeight, totalLines, bgColor);
+
+					// Apply vertical scrollbar to the right side of content
+					for (int i = 0; i < Math.Min(renderedContent.Count, scrollbar.Count); i++)
+					{
+						renderedContent[i] = renderedContent[i] + scrollbar[i];
+					}
+				}
+
+				if (needsHorizontalScrollbar)
+				{
+					// Calculate scrollbar metrics
+					int maxLineLength = GetMaxLineLength();
+					string scrollbar = RenderHorizontalScrollbar(effectiveWidth, maxLineLength);
+
+					// Add horizontal scrollbar at the bottom
+					if (!string.IsNullOrEmpty(scrollbar))
+					{
+						// If we have a vertical scrollbar, add a corner character
+						if (needsVerticalScrollbar)
+						{
+							scrollbar += AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+								"┘",
+								1,
+								1,
+								false,
+								bgColor,
+								ScrollbarColor
+							)[0];
+						}
+
+						// Add proper padding if needed
+						if (paddingLeft > 0)
+						{
+							string paddingStr = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+								new string(' ', paddingLeft),
+								paddingLeft,
+								1,
+								false,
+								Container?.BackgroundColor,
+								null
+							)[0];
+
+							renderedContent.Add(paddingStr + scrollbar);
+						}
+						else
+						{
+							renderedContent.Add(scrollbar);
+						}
+					}
+				}
+			}
+
+			// Add margin spacing AFTER scrollbars
 			if (_margin.Left > 0 || _margin.Right > 0 || _margin.Top > 0 || _margin.Bottom > 0)
 			{
 				List<string> withMargins = new List<string>();
 
+				// Calculate total width including scrollbar
+				int contentWidth = effectiveWidth + (needsVerticalScrollbar ? 1 : 0) + paddingLeft;
+
 				// Top margin
 				string emptyLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', effectiveWidth + paddingLeft),
-					effectiveWidth + paddingLeft,
+					new string(' ', contentWidth),
+					contentWidth,
 					1,
 					false,
 					Container?.BackgroundColor,
@@ -1661,68 +1752,6 @@ namespace SharpConsoleUI.Controls
 				}
 
 				renderedContent = withMargins;
-			}
-
-			// When adding scrollbars, use the reserved space we calculated earlier
-			if (needsVerticalScrollbar || needsHorizontalScrollbar)
-			{
-				List<string> withScrollbars = new List<string>(renderedContent);
-
-				if (needsVerticalScrollbar)
-				{
-					// Calculate scrollbar metrics
-					int totalLines = GetTotalWrappedLineCount();
-					var scrollbar = RenderVerticalScrollbar(_viewportHeight, totalLines);
-
-					// Apply vertical scrollbar to the right side of content
-					for (int i = 0; i < Math.Min(withScrollbars.Count, scrollbar.Count); i++)
-					{
-						withScrollbars[i] = withScrollbars[i] + scrollbar[i];
-					}
-				}
-
-				if (needsHorizontalScrollbar)
-				{
-					// Calculate scrollbar metrics
-					int maxLineLength = GetMaxLineLength();
-					string scrollbar = RenderHorizontalScrollbar(effectiveWidth, maxLineLength);
-
-					// Add horizontal scrollbar at the bottom
-					if (!string.IsNullOrEmpty(scrollbar))
-					{
-						// If we have a vertical scrollbar, add a corner character
-						if (needsVerticalScrollbar)
-						{
-							scrollbar += AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-								"┘",
-								1,
-								1,
-								false,
-								BackgroundColor,
-								ScrollbarColor
-							)[0];
-						}
-
-						// Add proper padding if needed
-						if (paddingLeft > 0)
-						{
-							string paddingStr = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-								new string(' ', paddingLeft),
-								paddingLeft,
-								1,
-								false,
-								Container?.BackgroundColor,
-								null
-							)[0];
-
-							scrollbar = paddingStr + scrollbar;
-						}
-
-						withScrollbars.Add(scrollbar);
-					}
-				}
-
-				renderedContent = withScrollbars;
 			}
 
 			return renderedContent;
@@ -1926,7 +1955,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		// Render a vertical scrollbar
-		private List<string> RenderVerticalScrollbar(int height, int maxContentHeight)
+		private List<string> RenderVerticalScrollbar(int height, int maxContentHeight, Color scrollbarBgColor)
 		{
 			List<string> result = new List<string>();
 
@@ -1961,7 +1990,7 @@ namespace SharpConsoleUI.Controls
 					1,
 					1,
 					false,
-					BackgroundColor,
+					scrollbarBgColor,
 					color
 				)[0]);
 			}
@@ -1972,9 +2001,43 @@ namespace SharpConsoleUI.Controls
 		// ILogicalCursorProvider implementation
 		public Point? GetLogicalCursorPosition()
 		{
-			// Return the logical cursor position in content coordinates
-			// This is the raw cursor position without any visual adjustments
-			return new Point(_cursorX, _cursorY);
+			// Only show cursor when in editing mode
+			if (!_isEditing)
+				return null;
+
+			// Guard against uninitialized _effectiveWidth
+			int effectiveWidth = _effectiveWidth > 0 ? _effectiveWidth : 80;
+
+			if (_wrapMode == WrapMode.NoWrap)
+			{
+				// NoWrap: return position adjusted for margins and scroll offsets
+				return new Point(
+					_margin.Left + _cursorX - _horizontalScrollOffset,
+					_margin.Top + _cursorY - _verticalScrollOffset);
+			}
+			else
+			{
+				// Wrap mode: calculate visual position within wrapped content
+				// First, calculate total wrapped lines before the cursor's logical line
+				int totalWrappedLinesBefore = 0;
+				for (int i = 0; i < _cursorY; i++)
+				{
+					int len = _lines[i].Length;
+					totalWrappedLinesBefore += (len > 0) ? ((len - 1) / effectiveWidth) + 1 : 1;
+				}
+
+				// Calculate which wrapped line within the current logical line contains the cursor
+				int cursorWrappedLine = _cursorX / effectiveWidth;
+
+				// Visual Y = total wrapped lines before + cursor's wrapped line - vertical scroll
+				int visualY = totalWrappedLinesBefore + cursorWrappedLine - _verticalScrollOffset;
+
+				// Visual X = cursor position within the current wrapped line segment
+				int visualX = _cursorX % effectiveWidth;
+
+				// Add margin offsets to visual position
+				return new Point(_margin.Left + visualX, _margin.Top + visualY);
+			}
 		}
 
 		public System.Drawing.Size GetLogicalContentSize()
@@ -2019,7 +2082,8 @@ namespace SharpConsoleUI.Controls
 		}
 
 		// IFocusableControl members
-		public bool CanReceiveFocus => IsEnabled && !ReadOnly;
+		// ReadOnly controls can still receive focus for navigation/selection (edits blocked in ProcessKey)
+		public bool CanReceiveFocus => IsEnabled;
 
 		public event EventHandler? GotFocus;
 		public event EventHandler? LostFocus;

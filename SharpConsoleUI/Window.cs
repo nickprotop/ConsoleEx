@@ -769,7 +769,7 @@ namespace SharpConsoleUI
 				var visibleScrollTop = _scrollOffset;
 				var visibleScrollBottom = _scrollOffset + (scrollableAreaBottom - scrollableAreaTop);
 				
-				var controlTop = controlBounds.Y + _scrollOffset; // Adjust for scroll offset
+				var controlTop = controlBounds.Y; // controlBounds.Y is already in window coordinates
 				var controlBottom = controlTop + controlBounds.Height;
 				
 				// Control is visible if it overlaps with the visible scroll area

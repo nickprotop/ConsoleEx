@@ -181,9 +181,11 @@ namespace SharpConsoleUI.Controls
 		// ILogicalCursorProvider implementation
 		public Point? GetLogicalCursorPosition()
 		{
-			// Return the logical cursor position within the input field
-			// This is the cursor position in the content coordinate system
-			return new Point(AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty) + _cursorPosition, 0);
+			// Return the visual cursor position within the input field
+			// Account for scroll offset to get the position relative to visible content
+			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+			int visualCursorX = promptLength + (_cursorPosition - _scrollOffset);
+			return new Point(visualCursorX, 0);
 		}
 
 		public System.Drawing.Size GetLogicalContentSize()
@@ -234,6 +236,7 @@ namespace SharpConsoleUI.Controls
 					_cursorPosition = 0;
 					HasFocus = false;
 				}
+				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
@@ -246,6 +249,7 @@ namespace SharpConsoleUI.Controls
 				{
 					SetScrollOffset(_scrollOffset - 1);
 				}
+				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
@@ -253,6 +257,7 @@ namespace SharpConsoleUI.Controls
 			else if (key.Key == ConsoleKey.Delete && _cursorPosition < _input.Length)
 			{
 				_input = _input.Remove(_cursorPosition, 1);
+				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
@@ -261,6 +266,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_cursorPosition = 0;
 				SetScrollOffset(0);
+				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
@@ -268,6 +274,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_cursorPosition = _input.Length;
 				SetScrollOffset(Math.Max(0, _input.Length - (_inputWidth ?? _input.Length)));
+				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
@@ -278,6 +285,7 @@ namespace SharpConsoleUI.Controls
 				{
 					SetScrollOffset(_scrollOffset - 1);
 				}
+				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
@@ -288,12 +296,14 @@ namespace SharpConsoleUI.Controls
 				{
 					SetScrollOffset(_scrollOffset + 1);
 				}
+				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Escape)
 			{
 				HasFocus = false;
+				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
@@ -306,6 +316,7 @@ namespace SharpConsoleUI.Controls
 				{
 					SetScrollOffset(_cursorPosition - _inputWidth.Value);
 				}
+				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
@@ -329,16 +340,24 @@ namespace SharpConsoleUI.Controls
 			string visibleInput = _input;
 			if (_inputWidth.HasValue && _input.Length > _inputWidth.Value)
 			{
-				visibleInput = _input.Substring(_scrollOffset, _inputWidth.Value);
+				int maxLength = Math.Min(_inputWidth.Value, _input.Length - _scrollOffset);
+				if (maxLength > 0 && _scrollOffset < _input.Length)
+				{
+					visibleInput = _input.Substring(_scrollOffset, maxLength);
+				}
+				else
+				{
+					visibleInput = string.Empty;
+				}
 			}
 
 			Color inputBackgroundColor = HasFocus ? InputFocusedBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor ?? Color.White : InputBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor ?? Color.Black;
-			Color inputForegroundColor = HasFocus ? InputFocusedForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black : InputBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
+			Color inputForegroundColor = HasFocus ? InputFocusedForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black : InputForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
 
 			int paddingRight = _inputWidth ?? ((_width ?? availableWidth ?? 50) - AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty));
 			if (paddingRight < 0) paddingRight = 0;
 
-			int rightWhiteSpace = paddingRight - visibleInput.Length;
+			int rightWhiteSpace = Math.Max(0, paddingRight - visibleInput.Length);
 
 			_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{_prompt}[{inputForegroundColor} on {inputBackgroundColor}]{visibleInput}{new string(' ', rightWhiteSpace)}[/]", (_width ?? (availableWidth ?? 50)), availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
 
