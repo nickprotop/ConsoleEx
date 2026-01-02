@@ -259,6 +259,8 @@ namespace SharpConsoleUI
 				switch (value)
 				{
 					case WindowState.Minimized:
+						// Clear the window area before minimizing
+						_windowSystem?.ClearArea(Left, Top, Width, Height);
 						Invalidate(true);
 						break;
 
@@ -284,6 +286,11 @@ namespace SharpConsoleUI
 							Left = OriginalLeft;
 							Width = OriginalWidth;
 							Height = OriginalHeight;
+							Invalidate(true);
+						}
+						else if (previous_state == WindowState.Minimized)
+						{
+							// Just need to redraw - position hasn't changed
 							Invalidate(true);
 						}
 						break;

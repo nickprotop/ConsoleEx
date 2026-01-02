@@ -199,7 +199,16 @@ namespace SharpConsoleUI.Drivers
 
 			_running = true;
 
-			Console.CursorVisible = false;
+			// Hide cursor via service (if available) or directly
+			if (_consoleWindowSystem != null)
+			{
+				_consoleWindowSystem.CursorStateService.HideCursor();
+				_consoleWindowSystem.CursorStateService.ApplyCursorToConsole(Console.WindowWidth, Console.WindowHeight);
+			}
+			else
+			{
+				Console.CursorVisible = false;
+			}
 
 			// Enable mouse reporting in proper order: basic -> extended modes -> drag tracking
 			Console.Out.Write("\x1b[?1000h");  // Enable basic mouse reporting 
@@ -230,7 +239,9 @@ namespace SharpConsoleUI.Drivers
 
 			Console.Clear();
 
+			// Restore cursor visibility on shutdown
 			Console.CursorVisible = true;
+			Core.CursorStateService.ResetCursorShape();
 		}
 
 		public void WriteToConsole(int x, int y, string value)
