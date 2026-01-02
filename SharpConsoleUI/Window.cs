@@ -74,6 +74,9 @@ namespace SharpConsoleUI
 		private bool _invalidated = false;
 		private bool _isActive;
 		private IInteractiveControl? _lastFocusedControl;
+
+		// Convenience property to access FocusStateService
+		private FocusStateService? FocusService => _windowSystem?.FocusStateService;
 		private int? _maximumHeight;
 		private int? _maximumWidth;
 		private int? _minimumHeight = 3;
@@ -345,6 +348,8 @@ namespace SharpConsoleUI
 					{
 						interactiveContent.HasFocus = true;
 						_lastFocusedControl = interactiveContent;
+						// Sync with FocusStateService
+						FocusService?.SetFocus(this, interactiveContent, FocusChangeReason.Programmatic);
 					}
 				}
 
@@ -548,14 +553,16 @@ namespace SharpConsoleUI
 				{
 					currentFocused.SetFocus(false, Controls.FocusReason.Mouse);
 				}
-				
+
 				// Set focus to new control
 				focusable.SetFocus(true, Controls.FocusReason.Mouse);
-				
+
 				// Update last focused control (check if it's also IInteractiveControl)
 				if (control is IInteractiveControl interactive)
 				{
 					_lastFocusedControl = interactive;
+					// Sync with FocusStateService
+					FocusService?.SetFocus(this, interactive, FocusChangeReason.Mouse);
 				}
 			}
 		}
@@ -893,6 +900,7 @@ namespace SharpConsoleUI
 						if (_lastFocusedControl == interactiveContent)
 						{
 							_lastFocusedControl = null;
+							FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
 						}
 
 						// If the removed content had focus, switch focus to the next one
@@ -900,6 +908,7 @@ namespace SharpConsoleUI
 						{
 							_interactiveContents[0].HasFocus = true;
 							_lastFocusedControl = _interactiveContents[0];
+							FocusService?.SetFocus(this, _interactiveContents[0], FocusChangeReason.Programmatic);
 						}
 					}
 					_invalidated = true;
@@ -1057,6 +1066,11 @@ namespace SharpConsoleUI
 			if (_lastFocusedControl != null)
 			{
 				_lastFocusedControl.HasFocus = value;
+				// Sync with FocusStateService
+				if (value)
+				{
+					FocusService?.SetFocus(this, _lastFocusedControl, FocusChangeReason.Programmatic);
+				}
 			}
 		}
 
@@ -1158,6 +1172,9 @@ namespace SharpConsoleUI
 				}
 				_lastFocusedControl = _interactiveContents[nextIndex]; // Update last focused control
 
+				// Sync with FocusStateService
+				FocusService?.SetFocus(this, _interactiveContents[nextIndex], FocusChangeReason.Keyboard);
+
 				BringIntoFocus(nextIndex);
 			}
 		}
@@ -1167,6 +1184,8 @@ namespace SharpConsoleUI
 			if (_lastFocusedControl != null && _lastFocusedControl is Controls.IFocusableControl focusable)
 			{
 				focusable.SetFocus(false, Controls.FocusReason.Programmatic);
+				// Sync with FocusStateService
+				FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
 			}
 		}
 

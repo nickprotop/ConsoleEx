@@ -50,7 +50,6 @@ namespace SharpConsoleUI
 
 	public class ConsoleWindowSystem
 	{
-		private readonly ConcurrentQueue<ConsoleKeyInfo> _inputQueue = new();
 		private readonly Renderer _renderer;
 		private readonly object _renderLock = new();
 		private readonly VisibleRegions _visibleRegions;
@@ -65,6 +64,13 @@ namespace SharpConsoleUI
 		// State services
 		private readonly CursorStateService _cursorStateService = new();
 		private readonly WindowStateService _windowStateService = new();
+		private readonly FocusStateService _focusStateService = new();
+		private readonly ModalStateService _modalStateService = new();
+		private readonly ThemeStateService _themeStateService = new();
+		private readonly SelectionStateService _selectionStateService = new();
+		private readonly ScrollStateService _scrollStateService = new();
+		private readonly InputStateService _inputStateService = new();
+		private readonly EditStateService _editStateService = new();
 
 		public ConsoleWindowSystem(RenderMode renderMode)
 		{
@@ -81,6 +87,9 @@ namespace SharpConsoleUI
 
 			// Initialize the renderer
 			_renderer = new Renderer(this);
+
+			// Initialize the theme service with the default theme
+			_themeStateService.SetTheme(Theme);
 		}
 
 		public string BottomStatus { get; set; } = "";
@@ -93,13 +102,30 @@ namespace SharpConsoleUI
 		public Point DesktopUpperLeft => new Point(0, string.IsNullOrEmpty(TopStatus) ? 0 : 1);
 		public RenderMode RenderMode { get; set; }
 		public bool ShowTaskBar { get => _showTaskBar; set => _showTaskBar = value; }
-		public Theme Theme { get; set; } = new Theme();
+
+		private Theme _theme = new Theme();
+		public Theme Theme
+		{
+			get => _theme;
+			set
+			{
+				_theme = value;
+				_themeStateService.SetTheme(value);
+			}
+		}
 		public string TopStatus { get; set; } = "";
 		public VisibleRegions VisibleRegions => _visibleRegions;
 		public IReadOnlyDictionary<string, Window> Windows => _windowStateService.Windows;
 		public Window? ActiveWindow => _windowStateService.ActiveWindow;
 		public CursorStateService CursorStateService => _cursorStateService;
 		public WindowStateService WindowStateService => _windowStateService;
+		public FocusStateService FocusStateService => _focusStateService;
+		public ModalStateService ModalStateService => _modalStateService;
+		public ThemeStateService ThemeStateService => _themeStateService;
+		public SelectionStateService SelectionStateService => _selectionStateService;
+		public ScrollStateService ScrollStateService => _scrollStateService;
+		public InputStateService InputStateService => _inputStateService;
+		public EditStateService EditStateService => _editStateService;
 
 		// Convenience properties for drag/resize state (delegated to service)
 		private bool IsDragging => _windowStateService.IsDragging;
@@ -112,6 +138,12 @@ namespace SharpConsoleUI
 			// Delegate to window state service for window registration
 			// The service handles ZIndex assignment and adding to collection
 			_windowStateService.RegisterWindow(window, activate: false);
+
+			// Register modal windows with the modal state service
+			if (window.Mode == WindowMode.Modal)
+			{
+				_modalStateService.PushModal(window, window.ParentWindow);
+			}
 
 			// Activate the window if needed (through SetActiveWindow for modal logic)
 			if (ActiveWindow == null || activateWindow) SetActiveWindow(window);
@@ -150,6 +182,15 @@ namespace SharpConsoleUI
 			// Store references before removal
 			Window? parentWindow = window.ParentWindow;
 			bool wasActive = (window == ActiveWindow);
+
+			// Unregister modal window from modal state service
+			if (window.Mode == WindowMode.Modal)
+			{
+				_modalStateService.PopModal(window);
+			}
+
+			// Clear focus state for this window
+			_focusStateService.ClearFocus(window);
 
 			// Remove from window collection via service
 			_windowStateService.UnregisterWindow(window);
@@ -242,7 +283,7 @@ namespace SharpConsoleUI
 			// Subscribe to the console driver events
 			_consoleDriver.KeyPressed += (sender, key) =>
 			{
-				_inputQueue.Enqueue(key);
+				_inputStateService.EnqueueKey(key);
 			};
 
 			_consoleDriver.ScreenResized += (sender, size) =>
@@ -297,14 +338,14 @@ namespace SharpConsoleUI
 				UpdateDisplay();
 				UpdateCursor();
 
-				// Adjust idle time based on workload
-				if (_inputQueue.IsEmpty && !AnyWindowDirty())
+				// Update idle state and get recommended sleep duration
+				_inputStateService.UpdateIdleState();
+				_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
+
+				// Reduce idle time if windows need redrawing
+				if (AnyWindowDirty())
 				{
-					_idleTime = Math.Min(_idleTime + 10, 100); // Increase idle time up to 100ms
-				}
-				else
-				{
-					_idleTime = 10; // Reset idle time when there is work to do
+					_idleTime = 10;
 				}
 
 				Thread.Sleep(_idleTime);
@@ -332,19 +373,29 @@ namespace SharpConsoleUI
 				return;
 			}
 
-			// Check for orphan modals that block activation
-			if (Windows.Values.Count(w => w.ParentWindow == null && w.Mode == WindowMode.Modal) > 0)
+			// Check if activation is blocked by modal service
+			if (_modalStateService.IsActivationBlocked(window))
 			{
-				if (window != ActiveWindow)
+				var blockingModal = _modalStateService.GetBlockingModal(window);
+				if (blockingModal != null && blockingModal != ActiveWindow)
+				{
+					FlashWindow(blockingModal);
+				}
+				else if (ActiveWindow != null)
 				{
 					FlashWindow(ActiveWindow);
 				}
-
 				return;
 			}
 
-			// Find the appropriate window to activate based on modality rules
-			Window windowToActivate = FindWindowToActivate(window);
+			// Get the effective activation target (handles modal children)
+			Window windowToActivate = _modalStateService.GetEffectiveActivationTarget(window) ?? window;
+
+			// If a different modal should be activated, flash it
+			if (windowToActivate != window && windowToActivate.Mode == WindowMode.Modal)
+			{
+				FlashWindow(windowToActivate);
+			}
 
 			var previousActiveWindow = ActiveWindow;
 
@@ -355,6 +406,9 @@ namespace SharpConsoleUI
 			// The service handles: SetIsActive, ZIndex update, and state tracking
 			_windowStateService.ActivateWindow(windowToActivate);
 
+			// Update focus state via FocusStateService
+			_focusStateService.SetWindowFocus(windowToActivate);
+
 			// Invalidate new active window
 			windowToActivate.Invalidate(true);
 
@@ -364,6 +418,7 @@ namespace SharpConsoleUI
 				if (w != ActiveWindow)
 				{
 					w.UnfocusCurrentControl();
+					_focusStateService.ClearFocus(w);
 				}
 			}
 		}
@@ -1314,34 +1369,36 @@ namespace SharpConsoleUI
 
 		private void ProcessInput()
 		{
-			while (_inputQueue.TryDequeue(out var key))
+			ConsoleKeyInfo? key;
+			while ((key = _inputStateService.DequeueKey()) != null)
 			{
-				if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.T)
+				var keyInfo = key.Value;
+				if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && keyInfo.Key == ConsoleKey.T)
 				{
 					CycleActiveWindow();
 				}
-				else if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.Q)
+				else if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && keyInfo.Key == ConsoleKey.Q)
 				{
 					_exitCode = 0;
 					_running = false;
 				}
 				else if (ActiveWindow != null)
 				{
-					bool handled = ActiveWindow.ProcessInput(key);
+					bool handled = ActiveWindow.ProcessInput(keyInfo);
 
 					if (!handled)
 					{
-						if ((key.Modifiers & ConsoleModifiers.Shift) != 0 && ActiveWindow.IsResizable)
+						if ((keyInfo.Modifiers & ConsoleModifiers.Shift) != 0 && ActiveWindow.IsResizable)
 						{
-							handled = HandleResizeInput(key);
+							handled = HandleResizeInput(keyInfo);
 						}
-						else if ((key.Modifiers & ConsoleModifiers.Control) != 0 && ActiveWindow.IsMovable)
+						else if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && ActiveWindow.IsMovable)
 						{
-							handled = HandleMoveInput(key);
+							handled = HandleMoveInput(keyInfo);
 						}
-						else if ((key.Modifiers & ConsoleModifiers.Alt) != 0)
+						else if ((keyInfo.Modifiers & ConsoleModifiers.Alt) != 0)
 						{
-							handled = HandleAltInput(key);
+							handled = HandleAltInput(keyInfo);
 						}
 					}
 				}

@@ -76,6 +76,9 @@ namespace SharpConsoleUI.Controls
 		private int? _width;
 		private WrapMode _wrapMode = WrapMode.Wrap;
 
+		// Convenience property to access EditStateService
+		private EditStateService? EditService => Container?.GetConsoleWindowSystem?.EditStateService;
+
 		// Constructors
 		public MultilineEditControl(int viewportHeight = 10)
 		{
@@ -1786,6 +1789,10 @@ namespace SharpConsoleUI.Controls
 			_horizontalScrollOffset = 0;
 			_verticalScrollOffset = 0;
 
+			// Sync with EditStateService
+			SyncEditState();
+			EditService?.SetLineCount(this, _lines.Count);
+
 			EnsureCursorVisible();
 
 			_invalidated = true;
@@ -1823,6 +1830,10 @@ namespace SharpConsoleUI.Controls
 			_cursorY = 0;
 			_horizontalScrollOffset = 0;
 			_verticalScrollOffset = 0;
+
+			// Sync with EditStateService
+			SyncEditState();
+			EditService?.SetLineCount(this, _lines.Count);
 
 			EnsureCursorVisible();
 
@@ -2073,18 +2084,48 @@ namespace SharpConsoleUI.Controls
 			// Set the logical cursor position and ensure it's valid
 			_cursorX = Math.Max(0, position.X);
 			_cursorY = Math.Max(0, Math.Min(position.Y, _lines.Count - 1));
-			
+
 			// Ensure X position is within the current line bounds
 			if (_cursorY < _lines.Count)
 			{
 				_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
 			}
-			
+
+			// Sync with EditStateService
+			SyncEditState();
+
 			// Update visual scroll position to ensure cursor is visible
 			EnsureCursorVisible();
-			
+
 			// Invalidate the control for redraw
 			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Syncs the current edit state (cursor, selection, scroll) with the EditStateService
+		/// </summary>
+		private void SyncEditState()
+		{
+			var service = EditService;
+			if (service == null) return;
+
+			// Sync cursor position
+			service.SetCursorPosition(this, _cursorY, _cursorX, EditChangeReason.Programmatic);
+
+			// Sync scroll position
+			service.SetScrollPosition(this, _horizontalScrollOffset, _verticalScrollOffset, EditChangeReason.Programmatic);
+
+			// Sync selection state
+			if (_hasSelection)
+			{
+				var start = new TextPosition(_selectionStartY, _selectionStartX);
+				var end = new TextPosition(_selectionEndY, _selectionEndX);
+				service.SetSelection(this, start, end, EditChangeReason.Programmatic);
+			}
+			else
+			{
+				service.ClearSelection(this, EditChangeReason.Programmatic);
+			}
 		}
 
 		// IFocusableControl members

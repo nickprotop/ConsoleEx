@@ -52,6 +52,12 @@ namespace SharpConsoleUI.Controls
 		private int? _lastRenderWidth;
 		private int? _lastRenderHeight;
 
+		// Convenience property to access SelectionStateService
+		private SelectionStateService? SelectionService => Container?.GetConsoleWindowSystem?.SelectionStateService;
+
+		// Convenience property to access ScrollStateService
+		private ScrollStateService? ScrollService => Container?.GetConsoleWindowSystem?.ScrollStateService;
+
 		public ListControl(string? title, IEnumerable<string>? items)
 		{
 			_title = title ?? string.Empty;
@@ -350,6 +356,9 @@ namespace SharpConsoleUI.Controls
 					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 
+					// Sync with SelectionStateService
+					SelectionService?.SetSelectedIndex(this, _selectedIndex);
+
 					// Ensure selected item is visible
 					if (_selectedIndex >= 0)
 					{
@@ -499,6 +508,10 @@ namespace SharpConsoleUI.Controls
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
+			// Sync with state services
+			SelectionService?.ClearSelection(this);
+			ScrollService?.ResetScroll(this);
+
 			if (_isSelectable)
 			{
 				SelectedIndexChanged?.Invoke(this, _selectedIndex);
@@ -613,6 +626,7 @@ namespace SharpConsoleUI.Controls
 					if (_highlightedIndex < _items.Count - 1)
 					{
 						_highlightedIndex++;
+						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -624,6 +638,7 @@ namespace SharpConsoleUI.Controls
 					if (_highlightedIndex > 0)
 					{
 						_highlightedIndex--;
+						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -643,6 +658,7 @@ namespace SharpConsoleUI.Controls
 					if (_items.Count > 0)
 					{
 						_highlightedIndex = 0;
+						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -654,6 +670,7 @@ namespace SharpConsoleUI.Controls
 					if (_items.Count > 0)
 					{
 						_highlightedIndex = _items.Count - 1;
+						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -665,6 +682,7 @@ namespace SharpConsoleUI.Controls
 					if (_highlightedIndex > 0)
 					{
 						_highlightedIndex = Math.Max(0, _highlightedIndex - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
+						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -676,6 +694,7 @@ namespace SharpConsoleUI.Controls
 					if (_highlightedIndex < _items.Count - 1)
 					{
 						_highlightedIndex = Math.Min(_items.Count - 1, _highlightedIndex + (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
+						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -705,6 +724,7 @@ namespace SharpConsoleUI.Controls
 							if (_items[i].Text.StartsWith(_searchText, StringComparison.OrdinalIgnoreCase))
 							{
 								_highlightedIndex = i;
+								SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
 								EnsureHighlightedItemVisible();
 								_contentCache.Invalidate();
 								Container?.Invalidate(true);
