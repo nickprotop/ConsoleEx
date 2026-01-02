@@ -31,6 +31,7 @@ public sealed class WindowBuilder
     private WindowMode _mode = WindowMode.Normal;
     private WindowState _state = WindowState.Normal;
     private bool _isResizable = true;
+    private bool _isClosable = true;
     private bool _isMovable = true;
     private int? _minWidth;
     private int? _minHeight;
@@ -218,6 +219,17 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
+    /// Sets whether the window is closable (shows close button)
+    /// </summary>
+    /// <param name="closable">Whether the window is closable</param>
+    /// <returns>The builder for chaining</returns>
+    public WindowBuilder Closable(bool closable = true)
+    {
+        _isClosable = closable;
+        return this;
+    }
+
+    /// <summary>
     /// Sets whether the window is movable
     /// </summary>
     /// <param name="movable">Whether the window is movable</param>
@@ -371,6 +383,7 @@ public sealed class WindowBuilder
         window.Mode = _mode;
         window.State = _state;
         window.IsResizable = _isResizable;
+        window.IsClosable = _isClosable;
         window.IsMovable = _isMovable;
 
         // Note: MinimumWidth, MinimumHeight, MaximumWidth, MaximumHeight are private fields in Window

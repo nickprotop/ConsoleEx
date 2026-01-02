@@ -125,6 +125,7 @@ internal class Program
             .WithSize(65, 22)
             .Centered()
             .WithColors(SpectreColor.DarkBlue, SpectreColor.White)
+            .Closable(false)
             .Build();
 
         // Add welcome content with markup
