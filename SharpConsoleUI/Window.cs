@@ -200,6 +200,10 @@ namespace SharpConsoleUI
 
 		public bool IsClosable { get; set; } = true;
 
+		public bool IsMaximizable { get; set; } = true;
+
+		public bool IsMinimizable { get; set; } = true;
+
 		public bool IsContentVisible { get; set; } = true;
 
 		public bool IsDirty { get; set; } = true;
@@ -273,6 +277,9 @@ namespace SharpConsoleUI
 					case WindowState.Normal:
 						if (previous_state == WindowState.Maximized)
 						{
+							// Clear the old maximized area before restoring
+							_windowSystem?.ClearArea(Left, Top, Width, Height);
+
 							Top = OriginalTop;
 							Left = OriginalLeft;
 							Width = OriginalWidth;
@@ -1008,8 +1015,23 @@ namespace SharpConsoleUI
 			return visibleContent;
 		}
 
+		public void Maximize()
+		{
+			if (!IsMaximizable)
+				return;
+			State = WindowState.Maximized;
+		}
+
+		public void Minimize()
+		{
+			if (!IsMinimizable)
+				return;
+			State = WindowState.Minimized;
+		}
+
 		public void Restore()
 		{
+			State = WindowState.Normal;
 		}
 
 		public void SetIsActive(bool value)

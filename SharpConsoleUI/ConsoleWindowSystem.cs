@@ -185,6 +185,26 @@ namespace SharpConsoleUI
 			return true;
 		}
 
+		/// <summary>
+		/// Clears a rectangular area with the desktop background
+		/// </summary>
+		public void ClearArea(int left, int top, int width, int height)
+		{
+			_renderer.FillRect(left, top, width, height,
+				Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+
+			// Invalidate any windows that overlap with this area to redraw them
+			foreach (var window in _windows.Values)
+			{
+				var windowRect = new Rectangle(window.Left, window.Top, window.Width, window.Height);
+				var clearRect = new Rectangle(left, top, width, height);
+				if (DoesRectangleIntersect(windowRect, clearRect))
+				{
+					window.Invalidate(true);
+				}
+			}
+		}
+
 		public void FlashWindow(Window? window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
 		{
 			if (window == null) return;
@@ -820,6 +840,27 @@ namespace SharpConsoleUI
 						return;
 					}
 
+					// Check if maximize button was clicked
+					if (IsOnMaximizeButton(window, point))
+					{
+						if (window.State == WindowState.Maximized)
+						{
+							window.Restore();
+						}
+						else
+						{
+							window.Maximize();
+						}
+						return;
+					}
+
+					// Check if minimize button was clicked
+					if (IsOnMinimizeButton(window, point))
+					{
+						window.Minimize();
+						return;
+					}
+
 					HandleWindowClick(window, flags, point);
 				}
 			}
@@ -924,17 +965,57 @@ namespace SharpConsoleUI
 
 			var relativePoint = TranslateToRelative(window, point);
 
-			// Close button is at positions [X] which is at width-4, width-3, width-2 (before the corner)
 			// Top row only
 			if (relativePoint.Y != 0)
 				return false;
 
-			// Close button occupies 3 characters: [X] at positions (width-4), (width-3), (width-2)
-			// The corner is at (width-1)
+			// Close button [X] is 3 characters wide, positioned just before the corner at (width-1)
+			// Button spans positions: (width-4), (width-3), (width-2)
 			int closeButtonStart = window.Width - 4;
 			int closeButtonEnd = window.Width - 2;
 
 			return relativePoint.X >= closeButtonStart && relativePoint.X <= closeButtonEnd;
+		}
+
+		private bool IsOnMaximizeButton(Window window, Point point)
+		{
+			if (!window.IsMaximizable)
+				return false;
+
+			var relativePoint = TranslateToRelative(window, point);
+
+			// Top row only
+			if (relativePoint.Y != 0)
+				return false;
+
+			// Calculate maximize button position
+			// Button order from right: corner(width-1), close[X](3 chars if present), maximize[+](3 chars), minimize[_]
+			int closeButtonWidth = window.IsClosable ? 3 : 0;
+			int maximizeButtonEnd = window.Width - 2 - closeButtonWidth;
+			int maximizeButtonStart = maximizeButtonEnd - 2;
+
+			return relativePoint.X >= maximizeButtonStart && relativePoint.X <= maximizeButtonEnd;
+		}
+
+		private bool IsOnMinimizeButton(Window window, Point point)
+		{
+			if (!window.IsMinimizable)
+				return false;
+
+			var relativePoint = TranslateToRelative(window, point);
+
+			// Top row only
+			if (relativePoint.Y != 0)
+				return false;
+
+			// Calculate minimize button position
+			// Button order from right: corner(width-1), close[X](3 chars if present), maximize[+](3 chars if present), minimize[_](3 chars)
+			int closeButtonWidth = window.IsClosable ? 3 : 0;
+			int maximizeButtonWidth = window.IsMaximizable ? 3 : 0;
+			int minimizeButtonEnd = window.Width - 2 - closeButtonWidth - maximizeButtonWidth;
+			int minimizeButtonStart = minimizeButtonEnd - 2;
+
+			return relativePoint.X >= minimizeButtonStart && relativePoint.X <= minimizeButtonEnd;
 		}
 
 		private bool IsOnResizeGrip(Window window, Point point)

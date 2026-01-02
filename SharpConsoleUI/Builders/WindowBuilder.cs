@@ -33,6 +33,8 @@ public sealed class WindowBuilder
     private bool _isResizable = true;
     private bool _isClosable = true;
     private bool _isMovable = true;
+    private bool _isMinimizable = true;
+    private bool _isMaximizable = true;
     private int? _minWidth;
     private int? _minHeight;
     private int? _maxWidth;
@@ -241,6 +243,28 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
+    /// Sets whether the window is minimizable (shows minimize button)
+    /// </summary>
+    /// <param name="minimizable">Whether the window is minimizable</param>
+    /// <returns>The builder for chaining</returns>
+    public WindowBuilder Minimizable(bool minimizable = true)
+    {
+        _isMinimizable = minimizable;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets whether the window is maximizable (shows maximize button)
+    /// </summary>
+    /// <param name="maximizable">Whether the window is maximizable</param>
+    /// <returns>The builder for chaining</returns>
+    public WindowBuilder Maximizable(bool maximizable = true)
+    {
+        _isMaximizable = maximizable;
+        return this;
+    }
+
+    /// <summary>
     /// Sets the minimum window size
     /// </summary>
     /// <param name="minWidth">The minimum width</param>
@@ -385,6 +409,8 @@ public sealed class WindowBuilder
         window.IsResizable = _isResizable;
         window.IsClosable = _isClosable;
         window.IsMovable = _isMovable;
+        window.IsMinimizable = _isMinimizable;
+        window.IsMaximizable = _isMaximizable;
 
         // Note: MinimumWidth, MinimumHeight, MaximumWidth, MaximumHeight are private fields in Window
         // and cannot be set from the builder. These properties would need to be exposed publicly
