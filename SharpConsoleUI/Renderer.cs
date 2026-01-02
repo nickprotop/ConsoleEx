@@ -60,6 +60,10 @@ namespace SharpConsoleUI
 
 			foreach (var otherWindow in _consoleWindowSystem.Windows.Values)
 			{
+				// Skip minimized windows - they're invisible and don't overlap
+				if (otherWindow.State == WindowState.Minimized)
+					continue;
+
 				if (window != otherWindow && IsOverlapping(window, otherWindow))
 				{
 					GetOverlappingWindows(otherWindow, visited);
@@ -79,6 +83,12 @@ namespace SharpConsoleUI
 
 		public void RenderRegion(Window window, Rectangle region)
 		{
+			// Skip rendering entirely for minimized windows
+			if (window.State == WindowState.Minimized)
+			{
+				return;
+			}
+
 			var visibleRegions = new List<Rectangle> { region };
 
 			// Fill the background only for the visible regions
@@ -100,6 +110,12 @@ namespace SharpConsoleUI
 
 		public void RenderWindow(Window window)
 		{
+			// Skip rendering entirely for minimized windows
+			if (window.State == WindowState.Minimized)
+			{
+				return;
+			}
+
 			Point desktopTopLeftCorner = _consoleWindowSystem.DesktopUpperLeft;
 			Point desktopBottomRightCorner = _consoleWindowSystem.DesktopBottomRight;
 
@@ -109,8 +125,12 @@ namespace SharpConsoleUI
 			}
 
 			// Get all windows that potentially overlap with this window
+			// Exclude minimized windows - they're invisible and shouldn't block rendering
 			var overlappingWindows = _consoleWindowSystem.Windows.Values
-				.Where(w => w != window && w.ZIndex > window.ZIndex && IsOverlapping(window, w))
+				.Where(w => w != window &&
+				            w.ZIndex > window.ZIndex &&
+				            w.State != WindowState.Minimized &&
+				            IsOverlapping(window, w))
 				.OrderBy(w => w.ZIndex)
 				.ToList();
 
@@ -194,9 +214,8 @@ namespace SharpConsoleUI
 			var closeButton = window.IsClosable ? $"{closeButtonColor}[X]" : "";
 			var windowButtons = $"{minimizeButton}{maximizeButton}{closeButton}{resetColor}";
 
-			// Resize grip takes 1 character: ◢
-			var resizeGripWidth = window.IsResizable ? 1 : 0;
-			var resizeGrip = window.IsResizable ? $"{borderColor}◢{resetColor}" : "";
+			// Resize grip replaces bottom-right corner when window is resizable: ◢
+			var bottomRightChar = window.IsResizable ? "◢" : bottomRightCorner.ToString();
 
 			// Ensure we have enough space for the title, with safety margins
 			var maxTitleSpace = Math.Max(0, window.Width - 8 - totalButtonWidth); // Reserve space for corners, padding, buttons, and safety
@@ -207,9 +226,9 @@ namespace SharpConsoleUI
 			var leftPadding = Math.Min(1, availableSpace);
 			var rightPadding = Math.Max(0, availableSpace - leftPadding);
 
-			var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
-			var bottomBorderWidth = window.Width - 2 - resizeGripWidth;
-			var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{resizeGrip}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+			var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{borderColor}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+			var bottomBorderWidth = window.Width - 2;
+			var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightChar}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
 
 			var contentHeight = window.TotalLines;
 			var visibleHeight = window.Height - 2;
