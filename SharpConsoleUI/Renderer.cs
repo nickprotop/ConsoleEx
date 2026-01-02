@@ -175,20 +175,30 @@ namespace SharpConsoleUI
 
 			var borderColor = window.GetIsActive() ? $"[{window.ActiveBorderForegroundColor}]" : $"[{window.InactiveBorderForegroundColor}]";
 			var titleColor = window.GetIsActive() ? $"[{window.ActiveTitleForegroundColor}]" : $"[{window.InactiveTitleForegroundColor}]";
+			var closeButtonColor = window.GetIsActive() ? "[red]" : $"[{window.InactiveBorderForegroundColor}]";
 
 			var resetColor = "[/]";
 
+			// Close button takes 3 characters: [X]
+			var closeButtonWidth = window.IsClosable ? 3 : 0;
+			var closeButton = window.IsClosable ? $"{closeButtonColor}[X]{resetColor}" : "";
+
+			// Resize grip takes 1 character: ◢
+			var resizeGripWidth = window.IsResizable ? 1 : 0;
+			var resizeGrip = window.IsResizable ? $"{borderColor}◢{resetColor}" : "";
+
 			// Ensure we have enough space for the title, with safety margins
-			var maxTitleSpace = Math.Max(0, window.Width - 8); // Reserve space for corners, padding, and safety
+			var maxTitleSpace = Math.Max(0, window.Width - 8 - closeButtonWidth); // Reserve space for corners, padding, close button, and safety
 			var truncatedTitle = StringHelper.TrimWithEllipsis(window.Title, maxTitleSpace, maxTitleSpace / 2);
 			var title = $"{titleColor}| {truncatedTitle} |{resetColor}";
 			var titleLength = AnsiConsoleHelper.StripSpectreLength(title);
-			var availableSpace = Math.Max(0, window.Width - 2 - titleLength);
+			var availableSpace = Math.Max(0, window.Width - 2 - titleLength - closeButtonWidth);
 			var leftPadding = Math.Min(1, availableSpace);
 			var rightPadding = Math.Max(0, availableSpace - leftPadding);
 
-			var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
-			var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, window.Width - 2)}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+			var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{closeButton}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+			var bottomBorderWidth = window.Width - 2 - resizeGripWidth;
+			var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{resizeGrip}{bottomRightCorner}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
 
 			var contentHeight = window.TotalLines;
 			var visibleHeight = window.Height - 2;

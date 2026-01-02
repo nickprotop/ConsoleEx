@@ -813,6 +813,13 @@ namespace SharpConsoleUI
 				var window = GetWindowAtPoint(point);
 				if (window != null)
 				{
+					// Check if close button was clicked
+					if (IsOnCloseButton(window, point))
+					{
+						CloseWindow(window);
+						return;
+					}
+
 					HandleWindowClick(window, flags, point);
 				}
 			}
@@ -875,6 +882,9 @@ namespace SharpConsoleUI
 			if (onBottomBorder && onLeftBorder) return ResizeDirection.BottomLeft;
 			if (onBottomBorder && onRightBorder) return ResizeDirection.BottomRight;
 
+			// Resize grip at bottom-right (width-2, height-1) also triggers BottomRight resize
+			if (IsOnResizeGrip(window, point)) return ResizeDirection.BottomRight;
+
 			// Edge resize areas
 			if (onTopBorder) return ResizeDirection.Top; // This won't trigger for Y=0 due to exclusion above
 			if (onBottomBorder) return ResizeDirection.Bottom;
@@ -905,6 +915,38 @@ namespace SharpConsoleUI
 				return false;
 			
 			return true;
+		}
+
+		private bool IsOnCloseButton(Window window, Point point)
+		{
+			if (!window.IsClosable)
+				return false;
+
+			var relativePoint = TranslateToRelative(window, point);
+
+			// Close button is at positions [X] which is at width-4, width-3, width-2 (before the corner)
+			// Top row only
+			if (relativePoint.Y != 0)
+				return false;
+
+			// Close button occupies 3 characters: [X] at positions (width-4), (width-3), (width-2)
+			// The corner is at (width-1)
+			int closeButtonStart = window.Width - 4;
+			int closeButtonEnd = window.Width - 2;
+
+			return relativePoint.X >= closeButtonStart && relativePoint.X <= closeButtonEnd;
+		}
+
+		private bool IsOnResizeGrip(Window window, Point point)
+		{
+			if (!window.IsResizable)
+				return false;
+
+			var relativePoint = TranslateToRelative(window, point);
+
+			// Resize grip is at bottom-right corner, position (width-2, height-1)
+			// The corner is at (width-1, height-1)
+			return relativePoint.Y == window.Height - 1 && relativePoint.X == window.Width - 2;
 		}
 
 		private void HandleWindowMove(Point currentMousePos)
