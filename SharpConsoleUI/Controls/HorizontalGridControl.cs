@@ -32,6 +32,8 @@ namespace SharpConsoleUI.Controls
 		private bool _invalidated = true;
 		private bool _focusFromBackward = false;
 		private bool _isEnabled = true;
+		private int? _lastRenderWidth;
+		private int? _lastRenderHeight;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private Dictionary<IInteractiveControl, int> _splitterControls = new Dictionary<IInteractiveControl, int>();
 		private List<SplitterControl> _splitters = new List<SplitterControl>();
@@ -459,12 +461,22 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
+			// Check if dimensions have changed - if so, invalidate the cache
+			if (_lastRenderWidth != availableWidth || _lastRenderHeight != availableHeight)
+			{
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+			}
+
 			// Use thread-safe cache with lazy rendering
 			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
 		}
 
 		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
 		{
+			// Store the render dimensions for cache validation
+			_lastRenderWidth = availableWidth;
+			_lastRenderHeight = availableHeight;
+
 			// Inherit background color from parent container first, then fall back to theme
 			BackgroundColor = BackgroundColor ?? Container?.BackgroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black;
@@ -508,19 +520,42 @@ namespace SharpConsoleUI.Controls
 			// Calculate remaining width to be distributed among auto-width columns
 			int remainingWidth = (availableWidth ?? 0) - totalSpecifiedWidth;
 			int distributedWidth = nullWidthCount > 0 ? remainingWidth / nullWidthCount : 0;
+			// Calculate remainder to distribute evenly among first N auto-width columns
+			int extraWidthRemainder = nullWidthCount > 0 ? remainingWidth % nullWidthCount : 0;
 
 			// First render all columns to determine the maximum height
 			var columnContents = new Dictionary<int, List<string>>();
+			var renderedWidths = new Dictionary<int, int>(); // Track the width used to render each control
 			int columnIndex = 0;
+			int autoWidthColumnIndex = 0; // Track auto-width columns for remainder distribution
 
 			for (int i = 0; i < displayControls.Count; i++)
 			{
 				var (isSplitter, control, _) = displayControls[i];
 
-				if (!isSplitter)
+				if (isSplitter)
+				{
+					// Store splitter width for later use
+					renderedWidths[i] = ((SplitterControl)control).Width ?? 1;
+				}
+				else
 				{
 					var column = (ColumnContainer)control;
-					int columnWidth = column.Width ?? distributedWidth;
+					int columnWidth;
+					if (column.Width != null)
+					{
+						columnWidth = column.Width.Value;
+					}
+					else
+					{
+						// Distribute extra pixel to first N auto-width columns where N = remainder
+						columnWidth = distributedWidth + (autoWidthColumnIndex < extraWidthRemainder ? 1 : 0);
+						autoWidthColumnIndex++;
+					}
+
+					// Store the width used to render this column
+					renderedWidths[i] = columnWidth;
+
 					var content = column.RenderContent(columnWidth, availableHeight);
 					columnContents[i] = content;
 
@@ -563,16 +598,9 @@ namespace SharpConsoleUI.Controls
 					var controlContent = renderedControls[controlIndex];
 					var controlInfo = displayControls[controlIndex];
 
-					int controlActualWidth;
-
-					if (controlInfo.IsSplitter)
-					{
-						controlActualWidth = ((SplitterControl)controlInfo.Control).Width ?? 1;
-					}
-					else
-					{
-						controlActualWidth = ((ColumnContainer)controlInfo.Control).GetActualWidth() ?? 0;
-					}
+					// Use the actual width that was used during rendering, not GetActualWidth()
+					// This ensures consistency between render and combine phases
+					int controlActualWidth = renderedWidths.TryGetValue(controlIndex, out int width) ? width : 0;
 
 					// Make sure we don't access beyond the bounds of controlContent
 					string contentLine = i < controlContent.Count

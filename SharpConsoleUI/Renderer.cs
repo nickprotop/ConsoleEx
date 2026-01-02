@@ -298,8 +298,8 @@ namespace SharpConsoleUI
 						int startOffset = contentLeft - (windowLeft + 1);
 						startOffset = Math.Max(0, startOffset);
 
-						// Get the substring of the line to render
-						string visiblePortion = AnsiConsoleHelper.SubstringAnsi(line, startOffset, contentWidth);
+						// Get the substring of the line to render, padding to full width if shorter
+						string visiblePortion = AnsiConsoleHelper.SubstringAnsiWithPadding(line, startOffset, contentWidth, window.BackgroundColor);
 
 						// Write the visible portion to the console
 						_consoleWindowSystem.ConsoleDriver.WriteToConsole(contentLeft, windowTop + desktopUpperLeftY + y + 1, visiblePortion);

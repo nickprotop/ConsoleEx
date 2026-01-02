@@ -29,6 +29,8 @@ namespace SharpConsoleUI.Controls
 		private HorizontalGridControl _horizontalGridContent;
 		private bool _isDirty;
 		private bool _isEnabled = true;
+		private int? _lastRenderWidth;
+		private int? _lastRenderHeight;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
@@ -254,6 +256,13 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
+			// Check if dimensions have changed - if so, invalidate the cache
+			int? effectiveWidth = _width ?? availableWidth;
+			if (_lastRenderWidth != effectiveWidth || _lastRenderHeight != availableHeight)
+			{
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+			}
+
 			// Use thread-safe cache with lazy rendering
 			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
 		}
@@ -261,6 +270,11 @@ namespace SharpConsoleUI.Controls
 		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
 		{
 			var renderedContent = new List<string>();
+
+			// Store the effective render dimensions for cache validation and hit-testing
+			_lastRenderWidth = _width ?? availableWidth;
+			_lastRenderHeight = availableHeight;
+			int targetWidth = _lastRenderWidth ?? 0;
 
 			foreach (var content in _contents)
 			{
@@ -270,8 +284,28 @@ namespace SharpConsoleUI.Controls
 			// Render each content and collect the lines
 			foreach (var content in _contents)
 			{
-				var contentRendered = content.RenderContent(_width ?? availableWidth, availableHeight);
+				var contentRendered = content.RenderContent(_lastRenderWidth, availableHeight);
 				renderedContent.AddRange(contentRendered);
+			}
+
+			// CRITICAL: Ensure ALL lines in this column have the same width
+			// This is required for proper horizontal alignment when columns are combined
+			if (targetWidth > 0)
+			{
+				for (int i = 0; i < renderedContent.Count; i++)
+				{
+					int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent[i]);
+					if (lineWidth < targetWidth)
+					{
+						// Pad the line to the target width
+						renderedContent[i] = renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(targetWidth - lineWidth, BackgroundColor);
+					}
+					else if (lineWidth > targetWidth)
+					{
+						// Truncate the line to the target width (preserving ANSI codes)
+						renderedContent[i] = AnsiConsoleHelper.SubstringAnsi(renderedContent[i], 0, targetWidth);
+					}
+				}
 			}
 
 			_isDirty = false;
@@ -366,9 +400,10 @@ namespace SharpConsoleUI.Controls
 			int currentY = 0;
 			foreach (var content in _contents.Where(c => c.Visible))
 			{
-				var renderedContent = content.RenderContent(_width, null);
+				// Use _lastRenderWidth to match the width used during actual rendering
+				var renderedContent = content.RenderContent(_lastRenderWidth, null);
 				int contentHeight = renderedContent.Count;
-				
+
 				// Check if the position is within this control's bounds
 				if (position.Y >= currentY && position.Y < currentY + contentHeight)
 				{
@@ -377,7 +412,7 @@ namespace SharpConsoleUI.Controls
 						return interactiveControl;
 					}
 				}
-				
+
 				currentY += contentHeight;
 			}
 
@@ -423,8 +458,9 @@ namespace SharpConsoleUI.Controls
 				{
 					return new Point(columnPosition.X, columnPosition.Y - currentY);
 				}
-				
-				var renderedContent = content.RenderContent(_width, null);
+
+				// Use _lastRenderWidth to match the width used during actual rendering
+				var renderedContent = content.RenderContent(_lastRenderWidth, null);
 				currentY += renderedContent.Count;
 			}
 

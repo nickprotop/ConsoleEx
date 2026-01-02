@@ -559,6 +559,31 @@ namespace SharpConsoleUI.Helpers
 			return SubstringAnsi(input, 0, maxVisibleLength);
 		}
 
+		/// <summary>
+		/// Extracts a substring from an ANSI-encoded string and pads to the requested length if shorter.
+		/// </summary>
+		/// <param name="input">The ANSI-encoded string</param>
+		/// <param name="startIndex">The position to start extraction (refers to visible characters)</param>
+		/// <param name="length">The desired number of visible characters</param>
+		/// <param name="backgroundColor">Background color for padding spaces</param>
+		/// <returns>The extracted substring padded to exactly the specified length</returns>
+		public static string SubstringAnsiWithPadding(string input, int startIndex, int length, Color backgroundColor)
+		{
+			if (length <= 0)
+				return string.Empty;
+
+			var result = SubstringAnsi(input, startIndex, length);
+			int actualLength = StripAnsiStringLength(result);
+
+			if (actualLength < length)
+			{
+				// Pad with spaces using the background color
+				result += AnsiEmptySpace(length - actualLength, backgroundColor);
+			}
+
+			return result;
+		}
+
 		public static string TruncateSpectre(string inputStr, int maxLength)
 		{
 			inputStr = EscapeInvalidMarkupTags(inputStr);

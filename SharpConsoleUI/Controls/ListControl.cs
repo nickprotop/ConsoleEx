@@ -49,6 +49,8 @@ namespace SharpConsoleUI.Controls
 		private string _title = "List";
 		private bool _visible = true;
 		private int? _width;
+		private int? _lastRenderWidth;
+		private int? _lastRenderHeight;
 
 		public ListControl(string? title, IEnumerable<string>? items)
 		{
@@ -716,8 +718,19 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			return _contentCache.GetOrRender(() => 
+			// Check if dimensions have changed - if so, invalidate the cache
+			int? effectiveWidthCheck = _width ?? availableWidth;
+			if (_lastRenderWidth != effectiveWidthCheck || _lastRenderHeight != availableHeight)
 			{
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+			}
+
+			return _contentCache.GetOrRender(() =>
+			{
+				// Store the render dimensions for cache validation
+				_lastRenderWidth = _width ?? availableWidth;
+				_lastRenderHeight = availableHeight;
+
 				var content = new List<string>();
 
 				// Get appropriate colors based on state

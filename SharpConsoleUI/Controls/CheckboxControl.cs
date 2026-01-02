@@ -355,10 +355,12 @@ namespace SharpConsoleUI.Controls
 				checkboxContent = checkboxContent.Replace(checkmark, $"[{CheckmarkColor.ToMarkup()}]{checkmark}[/]");
 			}
 
-			// Ensure the content fits within the checkbox width
-			if (AnsiConsoleHelper.StripSpectreLength(checkboxContent) < checkboxWidth)
+			// Ensure the content fits within the checkbox width using visible-length-aware padding
+			int checkboxVisibleLength = AnsiConsoleHelper.StripSpectreLength(checkboxContent);
+			if (checkboxVisibleLength < checkboxWidth)
 			{
-				checkboxContent = checkboxContent.PadRight(checkboxWidth);
+				// Use manual padding based on visible length, not string length
+				checkboxContent = checkboxContent + new string(' ', checkboxWidth - checkboxVisibleLength);
 			}
 
 			// Render the checkbox content

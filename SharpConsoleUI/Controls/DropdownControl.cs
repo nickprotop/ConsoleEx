@@ -743,10 +743,12 @@ namespace SharpConsoleUI.Controls
 			// Format header text
 			string headerContent = $"{_prompt} {selectedText} {arrow}";
 
-			// Ensure header fits within dropdown width
-			if (AnsiConsoleHelper.StripSpectreLength(headerContent) < dropdownWidth)
+			// Ensure header fits within dropdown width using visible-length-aware padding
+			int headerVisibleLength = AnsiConsoleHelper.StripSpectreLength(headerContent);
+			if (headerVisibleLength < dropdownWidth)
 			{
-				headerContent = headerContent.PadRight(dropdownWidth);
+				// Use manual padding based on visible length, not string length
+				headerContent = headerContent + new string(' ', dropdownWidth - headerVisibleLength);
 			}
 
 			// Render header

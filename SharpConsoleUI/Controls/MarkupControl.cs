@@ -22,6 +22,8 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 		private bool _wrap = true;
+		private int? _lastRenderWidth;
+		private int? _lastRenderHeight;
 
 		public MarkupControl(List<string> lines)
 		{
@@ -119,13 +121,27 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
+			// Check if dimensions have changed - if so, invalidate the cache
+			int? effectiveWidthCheck = _width ?? availableWidth;
+			if (_lastRenderWidth != effectiveWidthCheck || _lastRenderHeight != availableHeight)
+			{
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+			}
+
 			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
 		}
 
 		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
 		{
-			var renderedContent = new List<string>();
+			// Store the render dimensions for cache validation
+			_lastRenderWidth = _width ?? availableWidth;
+			_lastRenderHeight = availableHeight;
 
+			var renderedContent = new List<string>();
+			int targetWidth = _width ?? availableWidth ?? 50;
+			Spectre.Console.Color bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
+
+			// Calculate content width for alignment
 			int maxContentWidth = 0;
 			foreach (var line in _content)
 			{
@@ -133,26 +149,50 @@ namespace SharpConsoleUI.Controls
 				if (length > maxContentWidth) maxContentWidth = length;
 			}
 
-			int paddingLeft = 0;
-			if (Alignment == Alignment.Center)
-			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
-			}
+			// For centered/right alignment, render at content width then pad
+			// For left/stretch alignment, render at target width
+			int renderWidth = (Alignment == Alignment.Center || Alignment == Alignment.Right)
+				? Math.Min(maxContentWidth, targetWidth)
+				: targetWidth;
 
 			foreach (var line in _content)
 			{
 				// Use _wrap to control whether multiple lines are allowed in output
-				var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{line}", _width ?? availableWidth ?? 50, availableHeight, _wrap, Container?.BackgroundColor, Container?.ForegroundColor);
+				var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{line}", renderWidth, availableHeight, _wrap, Container?.BackgroundColor, Container?.ForegroundColor);
 				renderedContent.AddRange(ansiLines);
 			}
 
-			// Apply padding AFTER converting markup to avoid double processing
-			if (paddingLeft > 0)
+			// Apply alignment padding to reach targetWidth
+			for (int i = 0; i < renderedContent.Count; i++)
 			{
-				for (int i = 0; i < renderedContent.Count; i++)
+				int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent[i]);
+				if (lineWidth < targetWidth)
 				{
-					// Add plain spaces without processing through markup converter
-					renderedContent[i] = new string(' ', paddingLeft) + renderedContent[i];
+					int totalPadding = targetWidth - lineWidth;
+
+					switch (Alignment)
+					{
+						case Alignment.Center:
+							int leftPad = totalPadding / 2;
+							int rightPad = totalPadding - leftPad;
+							renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(leftPad, bgColor)
+								+ renderedContent[i]
+								+ AnsiConsoleHelper.AnsiEmptySpace(rightPad, bgColor);
+							break;
+						case Alignment.Right:
+							renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor)
+								+ renderedContent[i];
+							break;
+						default: // Left or Stretch
+							renderedContent[i] = renderedContent[i]
+								+ AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor);
+							break;
+					}
+				}
+				else if (lineWidth > targetWidth)
+				{
+					// Truncate if line is too wide
+					renderedContent[i] = AnsiConsoleHelper.SubstringAnsi(renderedContent[i], 0, targetWidth);
 				}
 			}
 

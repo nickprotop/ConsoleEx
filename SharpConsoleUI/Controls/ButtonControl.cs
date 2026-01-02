@@ -180,7 +180,8 @@ namespace SharpConsoleUI.Controls
 
 			if (AnsiConsoleHelper.StripSpectreLength(text) > maxTextLength)
 			{
-				text = text.Substring(0, maxTextLength - 3) + "...";
+				// Use TruncateSpectre to safely truncate text with Spectre markup
+				text = AnsiConsoleHelper.TruncateSpectre(text, maxTextLength - 3) + "...";
 			}
 
 			int padding = (buttonWidth - AnsiConsoleHelper.StripSpectreLength(text) - 2) / 2;
@@ -189,10 +190,12 @@ namespace SharpConsoleUI.Controls
 			// Create the final string with [ at the start and ] at the end
 			string finalButtonText = $"[{new string(' ', padding)}{text}{new string(' ', padding)}]";
 
-			// Ensure the buttonText fits within the buttonWidth
-			if (AnsiConsoleHelper.StripSpectreLength(finalButtonText) < buttonWidth)
+			// Ensure the buttonText fits within the buttonWidth using visible-length-aware padding
+			int visibleLength = AnsiConsoleHelper.StripSpectreLength(finalButtonText);
+			if (visibleLength < buttonWidth)
 			{
-				finalButtonText = finalButtonText.PadRight(buttonWidth);
+				// Use manual padding based on visible length, not string length
+				finalButtonText = finalButtonText + new string(' ', buttonWidth - visibleLength);
 			}
 
 			// Check if finalButtonText is of the desired width

@@ -1069,6 +1069,10 @@ namespace SharpConsoleUI
 			Width = width;
 			Height = height;
 
+			// IMPORTANT: Invalidate controls FIRST so they re-render with new dimensions
+			// This must happen before UpdateControlLayout which calls RenderContent
+			Invalidate(true);
+
 			// Force control layout recalculation for alignment updates (stretch, center, right)
 			UpdateControlLayout();
 
@@ -1076,9 +1080,6 @@ namespace SharpConsoleUI
 			{
 				GoToBottom();
 			}
-
-			// Use the new invalidation system to notify all controls
-			Invalidate(true);
 
 			OnResize?.Invoke(this, EventArgs.Empty);
 		}
