@@ -1475,21 +1475,36 @@ namespace SharpConsoleUI
 			// Render scrollable content (non-sticky controls)
 			var scrollableContent = new List<string>();
 			var scrollableControls = _controls.Where(c => c.StickyPosition == StickyPosition.None && c.Visible).ToList();
-			var scrollableHeight = availableHeight - _topStickyHeight - _bottomStickyHeight;
+			var scrollableHeight = Math.Max(0, availableHeight - _topStickyHeight - _bottomStickyHeight);
 
 			// Clear and rebuild control position tracking
 			_controlPositions.Clear();
 			int currentScrollableOffset = 0;
 
+			int remainingScrollableHeight = scrollableHeight;
 			foreach (var control in scrollableControls)
 			{
-				var renderedLines = control.RenderContent(availableWidth, scrollableHeight);
+				if (remainingScrollableHeight <= 0)
+				{
+					// No vertical budget left; stop rendering further scrollable controls
+					_controlPositions[control] = (currentScrollableOffset, 0);
+					continue;
+				}
+
+				var renderedLines = control.RenderContent(availableWidth, remainingScrollableHeight);
+
+				// Enforce the remaining scrollable height budget per control to avoid overgrowth
+				if (renderedLines.Count > remainingScrollableHeight)
+				{
+					renderedLines = renderedLines.Take(remainingScrollableHeight).ToList();
+				}
 
 				// Track this control's position and size
 				_controlPositions[control] = (currentScrollableOffset, renderedLines.Count);
 
 				scrollableContent.AddRange(renderedLines);
 				currentScrollableOffset += renderedLines.Count;
+				remainingScrollableHeight = Math.Max(0, remainingScrollableHeight - renderedLines.Count);
 			}
 
 			_cachedContent = scrollableContent;
