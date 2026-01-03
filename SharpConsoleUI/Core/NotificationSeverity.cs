@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -8,7 +8,7 @@
 
 using Spectre.Console;
 
-namespace SharpConsoleUI.Services.NotificationsService
+namespace SharpConsoleUI.Core
 {
 	public enum NotificationSeverityEnum
 	{

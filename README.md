@@ -754,7 +754,8 @@ dotnet run
 ```
 ConsoleEx/
 ├── SharpConsoleUI/           # Main library
-│   ├── Core/                 # Core infrastructure
+│   ├── Core/                 # State services & infrastructure
+│   ├── Logging/              # Debug logging system
 │   ├── Controls/             # UI controls
 │   ├── Builders/             # Fluent builders
 │   ├── DependencyInjection/  # DI system
@@ -801,6 +802,41 @@ services.AddLogging(builder =>
     // builder.AddFile("logs/app-{Date}.txt");
 });
 ```
+
+### 🔧 Built-in Debug Logging
+
+The library includes a built-in debug logging system for troubleshooting, controlled via environment variables:
+
+```bash
+# Enable debug logging to file
+export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
+
+# Set minimum log level (Trace, Debug, Information, Warning, Error, Critical)
+export SHARPCONSOLEUI_DEBUG_LEVEL=Debug
+```
+
+Access logs programmatically:
+```csharp
+// Subscribe to log events
+windowSystem.LogService.LogAdded += (s, entry) => { /* handle entry */ };
+
+// Get recent logs
+var logs = windowSystem.LogService.GetRecentLogs(50);
+```
+
+### 🔔 Notifications
+
+Display notifications using the built-in notification service:
+```csharp
+windowSystem.NotificationStateService.ShowNotification(
+    title: "Success",
+    message: "Operation completed",
+    severity: NotificationSeverity.Success,
+    blockUi: false,
+    timeout: 5000);
+```
+
+Severity levels: `Info`, `Success`, `Warning`, `Danger`, `None`
 
 ## 📄 License
 

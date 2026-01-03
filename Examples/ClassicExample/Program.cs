@@ -8,7 +8,7 @@
 
 using Spectre.Console;
 using SharpConsoleUI.Themes;
-using SharpConsoleUI.Services.NotificationsService;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI;
 
@@ -119,13 +119,12 @@ namespace SharpConsoleUI.Example
 
 		private static void ShowWelcomeNotification(ConsoleWindowSystem consoleWindowSystem)
 		{
-			Notifications.ShowNotification(
-				consoleWindowSystem,
+			consoleWindowSystem.NotificationStateService.ShowNotification(
 				"Notification",
 				"Welcome to ConsoleEx example application\nPress Ctrl-Q to quit",
 				NotificationSeverity.Info,
-				true,
-				0);
+				blockUi: true,
+				timeout: null);
 		}
 	}
 }

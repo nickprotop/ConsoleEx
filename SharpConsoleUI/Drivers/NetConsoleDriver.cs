@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Services.NotificationsService;
 using SharpConsoleUI.Themes;
 using System;
 using System.Collections.Generic;

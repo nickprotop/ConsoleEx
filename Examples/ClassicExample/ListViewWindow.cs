@@ -1,5 +1,5 @@
 ﻿using SharpConsoleUI.Controls;
-using SharpConsoleUI.Services.NotificationsService;
+using SharpConsoleUI.Core;
 using Spectre.Console;
 using System;
 using System.Collections.Generic;
@@ -136,8 +136,7 @@ namespace SharpConsoleUI.Example
 			if (selectedItem != null)
 			{
 				// Process the selected item
-				Notifications.ShowNotification(
-					_system,
+				_system.NotificationStateService.ShowNotification(
 					"Selection",
 					$"You selected: {selectedItem.Text.Split('\n')[0]}",
 					NotificationSeverity.Info);

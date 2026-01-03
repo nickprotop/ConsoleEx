@@ -19,6 +19,7 @@ namespace SharpConsoleUI.Logging;
 public sealed class LogService : ILogService, IDisposable
 {
     private const string DebugLogEnvVar = "SHARPCONSOLEUI_DEBUG_LOG";
+    private const string DebugLevelEnvVar = "SHARPCONSOLEUI_DEBUG_LEVEL";
 
     private readonly ConcurrentQueue<LogEntry> _buffer = new();
     private readonly object _lock = new();
@@ -34,6 +35,7 @@ public sealed class LogService : ILogService, IDisposable
     /// <summary>
     /// Creates a new LogService instance.
     /// Automatically enables file logging if SHARPCONSOLEUI_DEBUG_LOG environment variable is set.
+    /// Minimum log level can be overridden via SHARPCONSOLEUI_DEBUG_LEVEL (Trace/Debug/Information/Warning/Error/Critical).
     /// </summary>
     public LogService()
     {
@@ -48,6 +50,16 @@ public sealed class LogService : ILogService, IDisposable
             catch
             {
                 // Silently ignore - don't crash if we can't create log file
+            }
+        }
+
+        // Check for environment variable to override minimum log level
+        var envLevel = Environment.GetEnvironmentVariable(DebugLevelEnvVar);
+        if (!string.IsNullOrWhiteSpace(envLevel))
+        {
+            if (Enum.TryParse<LogLevel>(envLevel, ignoreCase: true, out var level))
+            {
+                _minimumLevel = level;
             }
         }
     }

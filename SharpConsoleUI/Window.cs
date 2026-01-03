@@ -281,6 +281,7 @@ namespace SharpConsoleUI
 					return;
 				}
 
+				_windowSystem?.LogService?.LogDebug($"Window state changed: {Title} ({previous_state} -> {value})", "Window");
 				_state = value;
 
 				switch (value)
@@ -369,6 +370,8 @@ namespace SharpConsoleUI
 		{
 			lock (_lock)
 			{
+				_windowSystem?.LogService?.LogDebug($"Control added to window '{Title}': {content.GetType().Name}", "Window");
+
 				content.Container = this;
 				_controls.Add(content);
 
@@ -1095,6 +1098,7 @@ namespace SharpConsoleUI
 			{
 				if (_controls.Remove(content))
 				{
+					_windowSystem?.LogService?.LogDebug($"Control removed from window '{Title}': {content.GetType().Name}", "Window");
 					if (content is IInteractiveControl interactiveContent)
 					{
 						_interactiveContents.Remove(interactiveContent);
@@ -1381,6 +1385,8 @@ namespace SharpConsoleUI
 
 				// Sync with FocusStateService
 				FocusService?.SetFocus(this, _interactiveContents[nextIndex], FocusChangeReason.Keyboard);
+
+				_windowSystem?.LogService?.LogTrace($"Focus switched in '{Title}': {_lastFocusedControl?.GetType().Name}", "Focus");
 
 				BringIntoFocus(nextIndex);
 			}

@@ -62,24 +62,40 @@ namespace SharpConsoleUI
 		private bool _running;
 		private bool _showTaskBar = true;
 
-		// State services
-		private readonly CursorStateService _cursorStateService = new();
-		private readonly WindowStateService _windowStateService = new();
-		private readonly FocusStateService _focusStateService = new();
-		private readonly ModalStateService _modalStateService = new();
-		private readonly ThemeStateService _themeStateService = new();
-		private readonly SelectionStateService _selectionStateService = new();
-		private readonly ScrollStateService _scrollStateService = new();
-		private readonly InputStateService _inputStateService = new();
-		private readonly EditStateService _editStateService = new();
-		private readonly LayoutStateService _layoutStateService = new();
-
-		// Logging service
+		// Logging service - created first so other services can use it
 		private readonly LogService _logService = new();
+
+		// State services
+		private readonly CursorStateService _cursorStateService;
+		private readonly WindowStateService _windowStateService;
+		private readonly FocusStateService _focusStateService;
+		private readonly ModalStateService _modalStateService;
+		private readonly ThemeStateService _themeStateService;
+		private readonly SelectionStateService _selectionStateService;
+		private readonly ScrollStateService _scrollStateService;
+		private readonly InputStateService _inputStateService;
+		private readonly EditStateService _editStateService;
+		private readonly LayoutStateService _layoutStateService;
+		private readonly NotificationStateService _notificationStateService;
 
 		public ConsoleWindowSystem(RenderMode renderMode)
 		{
 			RenderMode = renderMode;
+
+			// Initialize state services with logging
+			_cursorStateService = new CursorStateService();
+			_windowStateService = new WindowStateService(_logService);
+			_focusStateService = new FocusStateService(_logService);
+			_modalStateService = new ModalStateService(_logService);
+			_themeStateService = new ThemeStateService();
+			_selectionStateService = new SelectionStateService();
+			_scrollStateService = new ScrollStateService();
+			_inputStateService = new InputStateService();
+			_editStateService = new EditStateService();
+			_layoutStateService = new LayoutStateService();
+
+			// Initialize notification service (needs 'this' reference)
+			_notificationStateService = new NotificationStateService(this, _logService);
 
 			// Initialize the console driver
 			_consoleDriver = new NetConsoleDriver(this)
@@ -132,6 +148,7 @@ namespace SharpConsoleUI
 		public InputStateService InputStateService => _inputStateService;
 		public EditStateService EditStateService => _editStateService;
 		public LayoutStateService LayoutStateService => _layoutStateService;
+		public NotificationStateService NotificationStateService => _notificationStateService;
 
 		/// <summary>
 		/// Gets the library-managed logging service.
@@ -147,6 +164,8 @@ namespace SharpConsoleUI
 
 		public Window AddWindow(Window window, bool activateWindow = true)
 		{
+			_logService.LogDebug($"Adding window: {window.Title} (GUID: {window.Guid})", "Window");
+
 			// Delegate to window state service for window registration
 			// The service handles ZIndex assignment and adding to collection
 			_windowStateService.RegisterWindow(window, activate: false);
@@ -155,6 +174,7 @@ namespace SharpConsoleUI
 			if (window.Mode == WindowMode.Modal)
 			{
 				_modalStateService.PushModal(window, window.ParentWindow);
+				_logService.LogDebug($"Modal window pushed: {window.Title}", "Modal");
 			}
 
 			// Activate the window if needed (through SetActiveWindow for modal logic)
@@ -162,6 +182,7 @@ namespace SharpConsoleUI
 
 			window.WindowIsAdded();
 
+			_logService.LogDebug($"Window added successfully: {window.Title}", "Window");
 			return window;
 		}
 
@@ -169,6 +190,8 @@ namespace SharpConsoleUI
 		{
 			if (modalWindow == null || modalWindow.Mode != WindowMode.Modal)
 				return;
+
+			_logService.LogDebug($"Closing modal window: {modalWindow.Title}", "Modal");
 
 			// Store the parent window before closing
 			Window? parentWindow = modalWindow.ParentWindow;
@@ -188,6 +211,8 @@ namespace SharpConsoleUI
 		{
 			if (window == null) return false;
 			if (!Windows.ContainsKey(window.Guid)) return false;
+
+			_logService.LogDebug($"Closing window: {window.Title} (GUID: {window.Guid})", "Window");
 
 			// Store references BEFORE any modifications
 			Window? parentWindow = window.ParentWindow;
@@ -304,6 +329,7 @@ namespace SharpConsoleUI
 
 		public int Run()
 		{
+			_logService.LogDebug("Console window system starting", "System");
 			_running = true;
 
 			// Subscribe to the console driver events
@@ -420,6 +446,7 @@ namespace SharpConsoleUI
 		/// <param name="exitCode">The exit code to return</param>
 		public void Shutdown(int exitCode = 0)
 		{
+			_logService.LogDebug($"Console window system shutting down (exit code: {exitCode})", "System");
 			_exitCode = exitCode;
 			_running = false;
 		}
@@ -434,6 +461,7 @@ namespace SharpConsoleUI
 			// Check if activation is blocked by modal service
 			if (_modalStateService.IsActivationBlocked(window))
 			{
+				_logService.LogTrace($"Window activation blocked by modal: {window.Title}", "Modal");
 				var blockingModal = _modalStateService.GetBlockingModal(window);
 				if (blockingModal != null && blockingModal != ActiveWindow)
 				{
@@ -479,6 +507,8 @@ namespace SharpConsoleUI
 					_focusStateService.ClearFocus(w);
 				}
 			}
+
+			_logService.LogTrace($"Window activated: {windowToActivate.Title}", "Window");
 		}
 
 		/// <summary>
@@ -940,9 +970,15 @@ namespace SharpConsoleUI
 
 					// End interaction via service
 					if (IsDragging)
+					{
+						_logService.LogDebug($"Drag ended: {DragWindow?.Title}", "Interaction");
 						_windowStateService.EndDrag();
+					}
 					else if (IsResizing)
+					{
+						_logService.LogDebug($"Resize ended: {DragWindow?.Title}", "Interaction");
 						_windowStateService.EndResize();
+					}
 
 					return;
 				}
@@ -981,6 +1017,7 @@ namespace SharpConsoleUI
 					if (resizeDirection != ResizeDirection.None && window.IsResizable)
 					{
 						// Start resize via service
+						_logService.LogDebug($"Resize started: {window.Title} ({resizeDirection})", "Interaction");
 						_windowStateService.StartResize(window, resizeDirection, point);
 						return;
 					}
@@ -989,6 +1026,7 @@ namespace SharpConsoleUI
 					if (IsInTitleBar(window, point) && window.IsMovable)
 					{
 						// Start drag via service
+						_logService.LogDebug($"Drag started: {window.Title}", "Interaction");
 						_windowStateService.StartDrag(window, point);
 						return;
 					}

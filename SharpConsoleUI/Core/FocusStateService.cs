@@ -8,6 +8,7 @@
 
 using System.Collections.Concurrent;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Core
 {
@@ -18,11 +19,17 @@ namespace SharpConsoleUI.Core
 	public class FocusStateService : IDisposable
 	{
 		private readonly object _lock = new();
+		private readonly ILogService? _logService;
 		private FocusState _currentState = FocusState.Empty;
 		private readonly ConcurrentQueue<FocusState> _stateHistory = new();
 		private readonly Stack<(Window Window, IInteractiveControl? Control)> _focusStack = new();
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
+
+		public FocusStateService(ILogService? logService = null)
+		{
+			_logService = logService;
+		}
 
 		#region Properties
 
@@ -99,6 +106,8 @@ namespace SharpConsoleUI.Core
 				var previousState = _currentState;
 				var previousControl = previousState.FocusedControl;
 
+				_logService?.LogTrace($"Focus change: {previousControl?.GetType().Name ?? "None"} -> {control?.GetType().Name ?? "None"} ({reason})", "Focus");
+
 				// Update the actual control's HasFocus property
 				if (previousControl != null && previousControl != control)
 				{
@@ -153,6 +162,8 @@ namespace SharpConsoleUI.Core
 				// If focusing the same window, keep the current control focus
 				if (previousState.FocusedWindow == window)
 					return;
+
+				_logService?.LogTrace($"Window focus change: {previousState.FocusedWindow?.Title ?? "None"} -> {window.Title} ({reason})", "Focus");
 
 				// Clear focus from previous control
 				if (previousState.FocusedControl != null)

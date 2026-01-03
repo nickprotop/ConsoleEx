@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.Concurrent;
+using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Core
 {
@@ -17,12 +18,18 @@ namespace SharpConsoleUI.Core
 	public class ModalStateService : IDisposable
 	{
 		private readonly object _lock = new();
+		private readonly ILogService? _logService;
 		private ModalState _currentState = ModalState.Empty;
 		private readonly List<Window> _modalStack = new();
 		private readonly Dictionary<Window, Window> _modalParents = new();
 		private readonly ConcurrentQueue<ModalState> _stateHistory = new();
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
+
+		public ModalStateService(ILogService? logService = null)
+		{
+			_logService = logService;
+		}
 
 		#region Properties
 
@@ -95,6 +102,8 @@ namespace SharpConsoleUI.Core
 
 			lock (_lock)
 			{
+				_logService?.LogDebug($"Modal pushed: {modal.Title} (parent: {parent?.Title ?? "None"})", "Modal");
+
 				var previousState = _currentState;
 
 				// Add to stack
@@ -128,6 +137,8 @@ namespace SharpConsoleUI.Core
 			{
 				if (!_modalStack.Contains(modal))
 					return;
+
+				_logService?.LogDebug($"Modal popped: {modal.Title}", "Modal");
 
 				var previousState = _currentState;
 

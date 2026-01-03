@@ -8,6 +8,7 @@
 
 using System.Collections.Concurrent;
 using System.Drawing;
+using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Core
 {
@@ -19,11 +20,17 @@ namespace SharpConsoleUI.Core
 	public class WindowStateService : IDisposable
 	{
 		private readonly object _lock = new();
+		private readonly ILogService? _logService;
 		private WindowSystemState _currentState = WindowSystemState.Empty;
 		private readonly ConcurrentDictionary<string, Window> _windows = new();
 		private readonly ConcurrentQueue<WindowSystemState> _stateHistory = new();
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
+
+		public WindowStateService(ILogService? logService = null)
+		{
+			_logService = logService;
+		}
 
 		#region Properties
 
@@ -124,6 +131,8 @@ namespace SharpConsoleUI.Core
 
 			lock (_lock)
 			{
+				_logService?.LogDebug($"Registering window: {window.Title} (ZIndex: {GetMaxZIndex() + 1})", "WindowState");
+
 				// Calculate Z-index
 				window.ZIndex = GetMaxZIndex() + 1;
 
@@ -162,6 +171,8 @@ namespace SharpConsoleUI.Core
 			{
 				if (!_windows.TryRemove(window.Guid, out _))
 					return;
+
+				_logService?.LogDebug($"Unregistering window: {window.Title}", "WindowState");
 
 				var previousActive = _currentState.ActiveWindow;
 				var newState = CreateStateSnapshot();
@@ -272,6 +283,7 @@ namespace SharpConsoleUI.Core
 					return;
 
 				var previousActive = _currentState.ActiveWindow;
+				_logService?.LogTrace($"Active window changing: {previousActive?.Title ?? "None"} -> {window?.Title ?? "None"}", "WindowState");
 
 				// Update active status on windows
 				previousActive?.SetIsActive(false);

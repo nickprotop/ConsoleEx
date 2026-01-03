@@ -10,7 +10,6 @@ using Microsoft.Extensions.Logging;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Logging;
-using SharpConsoleUI.Services;
 
 namespace SharpConsoleUI.Controls;
 
