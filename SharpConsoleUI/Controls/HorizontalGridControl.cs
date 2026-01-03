@@ -335,7 +335,13 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			// Check if key is tab
+			// Let focused content try to handle the key first (including Tab for nested containers)
+			if (_focusedContent != null && _focusedContent.ProcessKey(key))
+			{
+				return true; // Child handled it (e.g., inner grid's Tab navigation)
+			}
+
+			// Child didn't handle it - now handle Tab at this level
 			if (key.Key == ConsoleKey.Tab)
 			{
 				// Build a properly ordered list of interactive controls
@@ -447,8 +453,7 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Process key in the focused control
-			return _focusedContent?.ProcessKey(key) ?? false;
+			return false;
 		}
 
 		/// <summary>
@@ -575,6 +580,13 @@ namespace SharpConsoleUI.Controls
 					int columnWidth = renderedWidths[i];
 
 					var content = column.RenderContent(columnWidth, availableHeight);
+
+					// Cap column height to the grid's available height when provided to avoid overdraw
+					if (availableHeight.HasValue && content.Count > availableHeight.Value)
+					{
+						content = content.Take(availableHeight.Value).ToList();
+					}
+
 					columnContents[i] = content;
 
 					if (content.Count > maxHeight)
@@ -582,6 +594,12 @@ namespace SharpConsoleUI.Controls
 						maxHeight = content.Count;
 					}
 				}
+			}
+
+			// Never exceed the grid's own available height when determining the combined output height
+			if (availableHeight.HasValue && maxHeight.HasValue)
+			{
+				maxHeight = Math.Min(maxHeight.Value, availableHeight.Value);
 			}
 
 			// Now render splitters with the proper height

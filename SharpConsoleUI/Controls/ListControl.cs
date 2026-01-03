@@ -1250,17 +1250,25 @@ namespace SharpConsoleUI.Controls
 					Color itemBg;
 					Color itemFg;
 
-					// For selectable lists, highlight the selected item
+					// For selectable lists, highlight the selected/highlighted item
 					if (_isSelectable && itemIndex == highlightedIndex && _hasFocus)
 					{
+						// Focused: full highlight colors
 						itemBg = HighlightBackgroundColor;
 						itemFg = HighlightForegroundColor;
 					}
-					// Handle selected but not highlighted
-					else if (_isSelectable && itemIndex == selectedIndex)
+					else if (_isSelectable && itemIndex == highlightedIndex && !_hasFocus)
 					{
-						itemBg = backgroundColor; // Use control background
-						itemFg = foregroundColor; // Use control foreground
+						// Unfocused: dimmed highlight (standard UI behavior - show selection when unfocused)
+						// Use a slightly darker/lighter version of highlight colors
+						itemBg = HighlightBackgroundColor;
+						itemFg = Color.Grey;
+					}
+					// Handle selected but not highlighted (when navigating away from selected item)
+					else if (_isSelectable && itemIndex == selectedIndex && _hasFocus)
+					{
+						itemBg = backgroundColor;
+						itemFg = foregroundColor;
 					}
 					else
 					{
@@ -1396,8 +1404,8 @@ namespace SharpConsoleUI.Controls
 				hasTitle = !string.IsNullOrEmpty(_title);
 				hasScrollIndicator = (scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count);
 
-				// Calculate the target height we want to fill
-				int targetHeight = availableHeight.Value - 1 - _margin.Top - _margin.Bottom - (hasTitle ? 1 : 0) - (hasScrollIndicator ? 1 : 0);
+				// Calculate the target height we want to fill; title is already in content, so only reserve space for indicator
+				int targetHeight = availableHeight.Value - _margin.Top - _margin.Bottom - (hasScrollIndicator ? 1 : 0);
 
 				// Calculate how many empty lines we need to add
 				int emptyLinesNeeded = targetHeight - currentContentHeight;
@@ -1590,11 +1598,8 @@ namespace SharpConsoleUI.Controls
 		{
 			var hadFocus = _hasFocus;
 			_hasFocus = focus;
-			if (!_hasFocus)
-			{
-				// Reset highlighted index to selected index
-				SelectionService?.SetHighlightedIndex(this, CurrentSelectedIndex);
-			}
+			// Keep the highlighted index when losing focus - standard UI behavior
+			// The highlight shows where the user was, not what was selected
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 

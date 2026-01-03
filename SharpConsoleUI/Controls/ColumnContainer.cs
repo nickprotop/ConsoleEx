@@ -528,11 +528,34 @@ namespace SharpConsoleUI.Controls
 				content.Invalidate();
 			}
 
-			// Render each content and collect the lines
+			// Render each content and collect the lines, passing down and enforcing the remaining height
+			int? remainingHeight = availableHeight;
 			foreach (var content in _contents)
 			{
-				var contentRendered = content.RenderContent(_lastRenderWidth, availableHeight);
+				// Skip invisible controls
+				if (!content.Visible) continue;
+
+				var childAvailableHeight = remainingHeight;
+				var contentRendered = content.RenderContent(_lastRenderWidth, childAvailableHeight);
+
+				// If the child over-rendered relative to the remaining budget, clip it
+				if (remainingHeight.HasValue && contentRendered.Count > remainingHeight.Value)
+				{
+					contentRendered = contentRendered.Take(remainingHeight.Value).ToList();
+				}
+
 				renderedContent.AddRange(contentRendered);
+
+				if (remainingHeight.HasValue)
+				{
+					// Reduce the remaining budget by what we actually kept (don’t drop below zero)
+					remainingHeight = Math.Max(0, remainingHeight.Value - contentRendered.Count);
+					if (remainingHeight.Value == 0)
+					{
+						// No more space to render further children
+						break;
+					}
+				}
 			}
 
 			// CRITICAL: Ensure ALL lines in this column have the same width
