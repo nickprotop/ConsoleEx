@@ -55,6 +55,12 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public bool HasInternalScrolling { get; set; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ControlBounds"/> class.
+		/// </summary>
+		/// <param name="control">The control these bounds apply to.</param>
+		/// <param name="parentWindow">The window containing this control.</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="control"/> or <paramref name="parentWindow"/> is null.</exception>
 		public ControlBounds(Controls.IWindowControl control, Window parentWindow)
 		{
 			Control = control ?? throw new ArgumentNullException(nameof(control));
@@ -175,6 +181,11 @@ namespace SharpConsoleUI.Layout
 		private readonly Window _window;
 		private readonly Dictionary<Controls.IWindowControl, ControlBounds> _controlBounds = new();
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="WindowLayoutManager"/> class.
+		/// </summary>
+		/// <param name="window">The window to manage layout for.</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="window"/> is null.</exception>
 		public WindowLayoutManager(Window window)
 		{
 			_window = window ?? throw new ArgumentNullException(nameof(window));

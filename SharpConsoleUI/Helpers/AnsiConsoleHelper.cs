@@ -15,6 +15,15 @@ using static System.Runtime.CompilerServices.RuntimeHelpers;
 
 namespace SharpConsoleUI.Helpers
 {
+	/// <summary>
+	/// Provides helper methods for working with ANSI escape sequences and Spectre.Console markup
+	/// in console applications.
+	/// </summary>
+	/// <remarks>
+	/// This class offers utilities for converting between Spectre.Console markup and raw ANSI sequences,
+	/// measuring visible string lengths, extracting substrings from ANSI-formatted text,
+	/// and creating capture consoles for rendering operations.
+	/// </remarks>
 	public static class AnsiConsoleHelper
 	{
 		private static readonly Regex TruncateAnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
@@ -47,6 +56,12 @@ namespace SharpConsoleUI.Helpers
 			{ "reset", "\u001b[0m" }
 		};
 
+		/// <summary>
+		/// Creates a string of empty spaces with the specified background color as ANSI-formatted output.
+		/// </summary>
+		/// <param name="width">The number of space characters to create.</param>
+		/// <param name="backgroundColor">The background color to apply to the spaces.</param>
+		/// <returns>An ANSI-formatted string containing the specified number of spaces with the background color applied.</returns>
 		public static string AnsiEmptySpace(int width, Color backgroundColor)
 		{
 			if (width <= 0)
@@ -54,6 +69,16 @@ namespace SharpConsoleUI.Helpers
 			return ConvertSpectreMarkupToAnsi($"{new string(' ', width)}", width, 1, false, backgroundColor, null)[0];
 		}
 
+		/// <summary>
+		/// Converts Spectre.Console markup text to ANSI escape sequence formatted strings.
+		/// </summary>
+		/// <param name="markup">The Spectre.Console markup text to convert.</param>
+		/// <param name="width">The optional maximum width for the output.</param>
+		/// <param name="height">The optional maximum height for the output.</param>
+		/// <param name="overflow">If <c>true</c>, escapes markup and allows text to wrap; if <c>false</c>, truncates to fit.</param>
+		/// <param name="backgroundColor">The optional background color to apply.</param>
+		/// <param name="foregroundColor">The optional foreground color to apply.</param>
+		/// <returns>A list of ANSI-formatted strings, one per line.</returns>
 		public static List<string> ConvertSpectreMarkupToAnsi(string markup, int? width, int? height, bool overflow, Color? backgroundColor, Color? foregroundColor)
 		{
 			if (string.IsNullOrEmpty(markup))
@@ -118,6 +143,14 @@ namespace SharpConsoleUI.Helpers
 			return overflow ? result : new List<string> { result[0] };
 		}
 
+		/// <summary>
+		/// Converts a Spectre.Console <see cref="IRenderable"/> object to ANSI escape sequence formatted strings.
+		/// </summary>
+		/// <param name="renderable">The Spectre.Console renderable object to convert.</param>
+		/// <param name="width">The optional maximum width for the output.</param>
+		/// <param name="height">The optional maximum height for the output.</param>
+		/// <param name="backgroundColor">The background color to use for padding.</param>
+		/// <returns>A list of ANSI-formatted strings, one per line, padded to the specified width.</returns>
 		public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height, Color backgroundColor)
 		{
 			if (renderable == null) return new List<string>();
@@ -163,6 +196,13 @@ namespace SharpConsoleUI.Helpers
 			return lines;
 		}
 
+		/// <summary>
+		/// Creates an <see cref="IAnsiConsole"/> instance that captures output to the specified <see cref="TextWriter"/>.
+		/// </summary>
+		/// <param name="writer">The text writer to capture console output to.</param>
+		/// <param name="width">The optional width of the console.</param>
+		/// <param name="height">The optional height of the console.</param>
+		/// <returns>An <see cref="IAnsiConsole"/> configured for capturing output.</returns>
 		public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
 		{
 			var consoleOutput = new AnsiConsoleOutput(writer);
@@ -192,6 +232,15 @@ namespace SharpConsoleUI.Helpers
 			return console;
 		}
 
+		/// <summary>
+		/// Escapes invalid Spectre.Console markup tags in the input string by doubling the brackets.
+		/// </summary>
+		/// <param name="input">The input string that may contain invalid markup tags.</param>
+		/// <returns>A string with invalid markup tags escaped.</returns>
+		/// <remarks>
+		/// Valid tags are preserved as-is, while standalone brackets or invalid tag content
+		/// are escaped by doubling them (e.g., "[" becomes "[[").
+		/// </remarks>
 		public static string EscapeInvalidMarkupTags(string input)
 		{
 			var result = new StringBuilder();
@@ -255,6 +304,11 @@ namespace SharpConsoleUI.Helpers
 			return result.ToString();
 		}
 
+		/// <summary>
+		/// Extension method that escapes invalid Spectre.Console markup in a string.
+		/// </summary>
+		/// <param name="input">The input string to escape.</param>
+		/// <returns>A string with invalid markup tags escaped.</returns>
 		public static string EscapeSpectreMarkup(this string input)
 		{
 			return EscapeInvalidMarkupTags(input);
@@ -294,6 +348,16 @@ namespace SharpConsoleUI.Helpers
 			return position;
 		}
 
+		/// <summary>
+		/// Parses custom ANSI-style tags in the input string and converts them to actual ANSI escape sequences.
+		/// </summary>
+		/// <param name="input">The input string containing custom tags (e.g., [bold], [fg red]).</param>
+		/// <param name="width">The optional maximum width for line wrapping.</param>
+		/// <param name="height">The optional maximum number of lines to return.</param>
+		/// <param name="wrap">If <c>true</c>, wraps text at the specified width.</param>
+		/// <param name="backgroundColor">The optional background color name (e.g., "red", "blue").</param>
+		/// <param name="foregroundColor">The optional foreground color name (e.g., "white", "yellow").</param>
+		/// <returns>A list of ANSI-formatted strings, one per line.</returns>
 		public static List<string> ParseAnsiTags(string input, int? width, int? height, bool wrap, string? backgroundColor = null, string? foregroundColor = null)
 		{
 			bool FillLastLine = false;
@@ -398,11 +462,22 @@ namespace SharpConsoleUI.Helpers
 			return output.Take(height ?? 1).ToList();
 		}
 
+		/// <summary>
+		/// Generates an ANSI escape sequence to set the cursor position.
+		/// </summary>
+		/// <param name="left">The column position (0-based).</param>
+		/// <param name="top">The row position (0-based).</param>
+		/// <returns>An ANSI escape sequence string that moves the cursor to the specified position.</returns>
 		public static string SetAnsiCursorPosition(int left, int top)
 		{
 			return $"\u001b[{top + 1};{left + 1}H";
 		}
 
+		/// <summary>
+		/// Calculates the visible length of a string by removing ANSI escape sequences.
+		/// </summary>
+		/// <param name="input">The string potentially containing ANSI escape sequences.</param>
+		/// <returns>The length of the visible (non-escape-sequence) characters.</returns>
 		public static int StripAnsiStringLength(string input)
 		{
 			if (string.IsNullOrEmpty(input))
@@ -551,6 +626,12 @@ namespace SharpConsoleUI.Helpers
 			return output.ToString();
 		}
 
+		/// <summary>
+		/// Truncates an ANSI-formatted string to a maximum visible length while preserving escape sequences.
+		/// </summary>
+		/// <param name="input">The ANSI-formatted string to truncate.</param>
+		/// <param name="maxVisibleLength">The maximum number of visible characters to keep.</param>
+		/// <returns>A truncated string with ANSI escape sequences preserved and properly terminated.</returns>
 		public static string TruncateAnsiString(string input, int maxVisibleLength)
 		{
 			if (string.IsNullOrEmpty(input) || maxVisibleLength <= 0)
@@ -584,6 +665,12 @@ namespace SharpConsoleUI.Helpers
 			return result;
 		}
 
+		/// <summary>
+		/// Truncates a Spectre.Console markup string to a maximum visible length while preserving valid markup tags.
+		/// </summary>
+		/// <param name="inputStr">The Spectre.Console markup string to truncate.</param>
+		/// <param name="maxLength">The maximum number of visible characters to keep.</param>
+		/// <returns>A truncated string with markup tags preserved and properly closed.</returns>
 		public static string TruncateSpectre(string inputStr, int maxLength)
 		{
 			inputStr = EscapeInvalidMarkupTags(inputStr);

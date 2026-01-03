@@ -12,6 +12,14 @@ using System.Text.RegularExpressions;
 
 namespace SharpConsoleUI.Drivers
 {
+	/// <summary>
+	/// Provides double-buffered console rendering with ANSI escape sequence support.
+	/// </summary>
+	/// <remarks>
+	/// This class maintains a front buffer (what is currently displayed) and a back buffer
+	/// (what will be rendered next). Only changed cells are written to the console,
+	/// optimizing rendering performance by minimizing console output operations.
+	/// </remarks>
 	public class ConsoleBuffer
 	{
 		private const string CursorForward = "\u001b[1C";
@@ -29,6 +37,11 @@ namespace SharpConsoleUI.Drivers
 
 		private readonly int _width;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ConsoleBuffer"/> class with the specified dimensions.
+		/// </summary>
+		/// <param name="width">The width of the buffer in characters.</param>
+		/// <param name="height">The height of the buffer in lines.</param>
 		public ConsoleBuffer(int width, int height)
 		{
 			_width = width;
@@ -39,8 +52,27 @@ namespace SharpConsoleUI.Drivers
 			InitializeBuffers();
 		}
 
+		/// <summary>
+		/// Gets or sets a value indicating whether rendering is locked.
+		/// </summary>
+		/// <value>
+		/// <c>true</c> if rendering should be skipped during <see cref="Render"/>; otherwise, <c>false</c>.
+		/// </value>
+		/// <remarks>
+		/// This property is used to prevent rendering during buffer resizing operations.
+		/// </remarks>
 		public bool Lock { get; set; } = false;
 
+		/// <summary>
+		/// Adds content to the back buffer at the specified position.
+		/// </summary>
+		/// <param name="x">The horizontal position (column) to start writing at.</param>
+		/// <param name="y">The vertical position (row) to write to.</param>
+		/// <param name="content">The content to write, which may include ANSI escape sequences for formatting.</param>
+		/// <remarks>
+		/// ANSI escape sequences in the content are parsed and associated with the appropriate cells,
+		/// ensuring proper formatting when rendered. Content that extends beyond the buffer width is truncated.
+		/// </remarks>
 		public void AddContent(int x, int y, string content)
 		{
 			// Early exit conditions
@@ -103,6 +135,12 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <summary>
+		/// Clears the back buffer by resetting all cells to their default state.
+		/// </summary>
+		/// <remarks>
+		/// All cells are reset to a space character with no ANSI formatting and marked as dirty.
+		/// </remarks>
 		public void Clear()
 		{
 			for (int y = 0; y < _height; y++)
@@ -114,6 +152,15 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <summary>
+		/// Renders the back buffer to the console, updating only the changed portions.
+		/// </summary>
+		/// <remarks>
+		/// This method compares the back buffer with the front buffer and only writes
+		/// cells that have changed, using cursor positioning to skip unchanged regions.
+		/// After rendering, the front buffer is synchronized with the back buffer.
+		/// The cursor is hidden during rendering to prevent flickering.
+		/// </remarks>
 		public void Render()
 		{
 			if (Lock)

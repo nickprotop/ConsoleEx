@@ -13,13 +13,44 @@ using System.Drawing;
 
 namespace SharpConsoleUI.Helpers
 {
+	/// <summary>
+	/// Provides helper methods and constants for handling ANSI escape sequences,
+	/// mouse input parsing, and keyboard input processing in console applications.
+	/// </summary>
+	/// <remarks>
+	/// This class contains functionality adapted from Terminal.Gui for parsing
+	/// escape sequences and mouse events from console input.
+	/// </remarks>
 	public static class SequenceHelper
 	{
+		/// <summary>
+		/// The Control Sequence Introducer (CSI) escape sequence prefix.
+		/// </summary>
 		public const string CSI = "\u001B[";
+
+		/// <summary>
+		/// The escape key character value.
+		/// </summary>
 		public const char KeyEsc = (char)KeyCode.Esc;
+
+		/// <summary>
+		/// The CSI sequence to enable any-event mouse tracking mode.
+		/// </summary>
 		public static readonly string CSI_EnableAnyEventMouse = CSI + "?1003h";
+
+		/// <summary>
+		/// The combined CSI sequence to enable all mouse event tracking modes.
+		/// </summary>
 		public static readonly string CSI_EnableMouseEvents = CSI_EnableAnyEventMouse + CSI_EnableUrxvtExtModeMouse + CSI_EnableSgrExtModeMouse;
+
+		/// <summary>
+		/// The CSI sequence to enable SGR extended mouse mode.
+		/// </summary>
 		public static readonly string CSI_EnableSgrExtModeMouse = CSI + "?1006h";
+
+		/// <summary>
+		/// The CSI sequence to enable urxvt extended mouse mode.
+		/// </summary>
 		public static readonly string CSI_EnableUrxvtExtModeMouse = CSI + "?1015h";
 
 		private static bool _isButtonClicked;
@@ -37,6 +68,14 @@ namespace SharpConsoleUI.Helpers
 		private static MouseFlags? _lastMouseButtonPressed;
 		private static Point? _point;
 
+		/// <summary>
+		/// Gets the C1 control character name for the specified character.
+		/// </summary>
+		/// <param name="c">The character following an escape sequence to interpret.</param>
+		/// <returns>The name of the C1 control character, or an empty string if not recognized.</returns>
+		/// <remarks>
+		/// These control characters are used in vtXXX terminal emulation.
+		/// </remarks>
 		public static string GetC1ControlChar(in char c)
 		{
 			// These control characters are used in the vtXXX emulation.
@@ -62,6 +101,19 @@ namespace SharpConsoleUI.Helpers
 			};
 		}
 
+		/// <summary>
+		/// Parses an escape sequence from a character array and extracts its components.
+		/// </summary>
+		/// <param name="kChar">The character array containing the escape sequence.</param>
+		/// <returns>
+		/// A tuple containing:
+		/// <list type="bullet">
+		/// <item><description>c1Control: The C1 control character name (e.g., "CSI", "ESC").</description></item>
+		/// <item><description>code: Any additional code characters in the sequence.</description></item>
+		/// <item><description>values: The numeric parameter values separated by semicolons.</description></item>
+		/// <item><description>terminating: The terminating character(s) of the sequence.</description></item>
+		/// </list>
+		/// </returns>
 		public static (string? c1Control, string? code, string[]? values, string? terminating) GetEscapeResult(char[] kChar)
 		{
 			if (kChar is null || kChar.Length == 0 || (kChar.Length == 1 && kChar[0] != KeyEsc))
@@ -119,6 +171,11 @@ namespace SharpConsoleUI.Helpers
 			return (c1Control, code, values, terminating);
 		}
 
+		/// <summary>
+		/// Converts an array of <see cref="ConsoleKeyInfo"/> to a character array.
+		/// </summary>
+		/// <param name="cki">The array of console key information.</param>
+		/// <returns>An array of characters extracted from the key information.</returns>
 		public static char[] GetKeyCharArray(ConsoleKeyInfo[] cki)
 		{
 			char[] kChar = [];
@@ -134,6 +191,13 @@ namespace SharpConsoleUI.Helpers
 			return kChar;
 		}
 
+		/// <summary>
+		/// Parses mouse input from console key information and extracts mouse state.
+		/// </summary>
+		/// <param name="cki">The array of console key information containing mouse data.</param>
+		/// <param name="mouseFlags">Output list of mouse flags indicating the current mouse state.</param>
+		/// <param name="pos">Output position of the mouse cursor.</param>
+		/// <param name="continuousButtonPressedHandler">Handler to invoke for continuous button press events.</param>
 		public static void GetMouse(ConsoleKeyInfo[] cki, out List<MouseFlags> mouseFlags, out Point pos, Action<MouseFlags, Point> continuousButtonPressedHandler)
 		{
 			MouseFlags buttonState = 0;

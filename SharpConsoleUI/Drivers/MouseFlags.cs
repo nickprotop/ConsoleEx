@@ -16,6 +16,21 @@ using System.Threading.Tasks;
 
 namespace SharpConsoleUI.Drivers
 {
+	/// <summary>
+	/// Specifies flags that describe mouse button states and events.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// This enumeration supports a bitwise combination of its member values,
+	/// allowing multiple mouse states to be represented simultaneously.
+	/// </para>
+	/// <para>
+	/// Button numbers correspond to: Button1 (left), Button2 (middle), Button3 (right), Button4 (extended).
+	/// </para>
+	/// <para>
+	/// Code adapted from Terminal.Gui - https://github.com/gui-cs/Terminal.Gui
+	/// </para>
+	/// </remarks>
 	[Flags]
 	public enum MouseFlags
 	{

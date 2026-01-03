@@ -20,12 +20,48 @@ using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI.Drivers
 {
+	/// <summary>
+	/// Specifies the rendering mode for console output.
+	/// </summary>
 	public enum RenderMode
 	{
+		/// <summary>
+		/// Writes directly to the console without buffering.
+		/// </summary>
+		/// <remarks>
+		/// This mode writes each output operation immediately to the console,
+		/// which may result in visible flickering during complex updates.
+		/// </remarks>
 		Direct,
+
+		/// <summary>
+		/// Uses double-buffering for smoother rendering.
+		/// </summary>
+		/// <remarks>
+		/// This mode accumulates changes in a buffer and renders them all at once,
+		/// only updating portions of the screen that have changed. This provides
+		/// smoother visual updates and is recommended for most applications.
+		/// </remarks>
 		Buffer
 	}
 
+	/// <summary>
+	/// Provides a cross-platform console driver implementation using .NET Console APIs.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// This driver supports both Windows and Unix-like platforms, handling platform-specific
+	/// console mode configuration for mouse input, virtual terminal processing, and other features.
+	/// </para>
+	/// <para>
+	/// On Windows, the driver configures console modes using Win32 API calls to enable
+	/// virtual terminal input/output and mouse reporting.
+	/// </para>
+	/// <para>
+	/// Mouse events are parsed from ANSI escape sequences in both X10 and SGR formats,
+	/// supporting button presses, releases, clicks, double-clicks, triple-clicks, and wheel events.
+	/// </para>
+	/// </remarks>
 	public class NetConsoleDriver : IConsoleDriver
 	{
 		private const uint DISABLE_NEWLINE_AUTO_RETURN = 8;
@@ -67,6 +103,13 @@ namespace SharpConsoleUI.Drivers
 		private int _lastConsoleWidth;
 		private bool _running = false;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="NetConsoleDriver"/> class.
+		/// </summary>
+		/// <param name="consoleWindowSystem">The console window system that owns this driver.</param>
+		/// <exception cref="ApplicationException">
+		/// Thrown when console mode configuration fails on Windows platforms.
+		/// </exception>
 		public NetConsoleDriver(ConsoleWindowSystem consoleWindowSystem)
 		{
 			_consoleWindowSystem = consoleWindowSystem;
@@ -136,16 +179,38 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <inheritdoc/>
 		public event EventHandler<ConsoleKeyInfo>? KeyPressed;
 
+		/// <inheritdoc/>
 		public event IConsoleDriver.MouseEventHandler? MouseEvent;
 
+		/// <inheritdoc/>
 		public event EventHandler<Size>? ScreenResized;
 
+		/// <summary>
+		/// Gets or sets the rendering mode for console output.
+		/// </summary>
+		/// <value>The current render mode. Defaults to <see cref="Drivers.RenderMode.Direct"/>.</value>
+		/// <remarks>
+		/// Changing this property after calling <see cref="Start"/> may result in undefined behavior.
+		/// Set this property before starting the driver for best results.
+		/// </remarks>
 		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
 
+		/// <inheritdoc/>
 		public Size ScreenSize => new Size(Console.WindowWidth, Console.WindowHeight);
 
+		/// <summary>
+		/// Restores the console to its original configuration.
+		/// </summary>
+		/// <remarks>
+		/// On Windows, this method restores the original console modes for input, output, and error handles.
+		/// This method is automatically called by <see cref="Stop"/>.
+		/// </remarks>
+		/// <exception cref="ApplicationException">
+		/// Thrown when restoring console modes fails on Windows platforms.
+		/// </exception>
 		public void Cleanup()
 		{
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -167,6 +232,7 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <inheritdoc/>
 		public void Clear()
 		{
 			switch (RenderMode)
@@ -181,6 +247,7 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <inheritdoc/>
 		public void Flush()
 		{
 			if (RenderMode.Buffer == RenderMode)
@@ -189,6 +256,7 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <inheritdoc/>
 		public void Start()
 		{
 			if (RenderMode.Buffer == RenderMode)
@@ -223,6 +291,7 @@ namespace SharpConsoleUI.Drivers
 			var resizeTask = Task.Run(ResizeLoop);
 		}
 
+		/// <inheritdoc/>
 		public void Stop()
 		{
 			_running = false;
@@ -243,6 +312,7 @@ namespace SharpConsoleUI.Drivers
 			Core.CursorStateService.ResetCursorShape();
 		}
 
+		/// <inheritdoc/>
 		public void WriteToConsole(int x, int y, string value)
 		{
 			switch (RenderMode)
