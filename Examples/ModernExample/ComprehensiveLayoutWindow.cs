@@ -3,8 +3,6 @@
 // Demonstrates a complete UI form with proper window class architecture
 // -----------------------------------------------------------------------
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -25,8 +23,6 @@ namespace ModernExample;
 public class ComprehensiveLayoutWindow : IDisposable
 {
     private readonly ConsoleWindowSystem _windowSystem;
-    private readonly IServiceProvider? _serviceProvider;
-    private readonly ILogger<ComprehensiveLayoutWindow>? _logger;
 
     // Window and main container
     private Window? _window;
@@ -87,18 +83,15 @@ public class ComprehensiveLayoutWindow : IDisposable
     /// Initialize the comprehensive layout window
     /// </summary>
     /// <param name="windowSystem">The console window system</param>
-    /// <param name="serviceProvider">Service provider for dependency injection</param>
-    public ComprehensiveLayoutWindow(ConsoleWindowSystem windowSystem, IServiceProvider? serviceProvider = null)
+    public ComprehensiveLayoutWindow(ConsoleWindowSystem windowSystem)
     {
         _windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
-        _serviceProvider = serviceProvider;
-        _logger = serviceProvider?.GetService<ILogger<ComprehensiveLayoutWindow>>();
 
         CreateWindow();
         SetupControls();
         SetupEventHandlers();
 
-        _logger?.LogInformation("Comprehensive layout window initialized with proper window thread");
+        _windowSystem.LogService.LogInfo("Comprehensive layout window initialized with proper window thread");
     }
 
     /// <summary>
@@ -109,7 +102,7 @@ public class ComprehensiveLayoutWindow : IDisposable
         if (_window != null)
         {
             _windowSystem.AddWindow(_window);
-            _logger?.LogInformation("Comprehensive layout window shown");
+            _windowSystem.LogService.LogInfo("Comprehensive layout window shown");
         }
     }
 
@@ -160,12 +153,12 @@ public class ComprehensiveLayoutWindow : IDisposable
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Error in window thread");
+                _windowSystem.LogService.LogError("Error in window thread", ex, "WindowThread");
                 break;
             }
         }
         
-        _logger?.LogInformation("Window thread completed for comprehensive layout window");
+        _windowSystem.LogService.LogInfo("Window thread completed for comprehensive layout window");
     }
 
     /// <summary>
@@ -584,7 +577,7 @@ namespace MyProject
             if (node != null)
             {
                 UpdateFileStatus($"Selected: [yellow]{node.Text}[/]");
-                _logger?.LogDebug("Project tree node selected: {NodeText}", node.Text);
+                _windowSystem.LogService.LogDebug($"Project tree node selected: {node.Text}");
             }
         };
     }
@@ -680,7 +673,7 @@ namespace MyProject
             }
         }
 
-        _logger?.LogInformation("Switched to file: {FileName}", filename);
+        _windowSystem.LogService.LogInfo($"Switched to file: {filename}");
     }
 
     /// <summary>
@@ -772,7 +765,7 @@ See the docs folder for detailed documentation.
         if (_window != null)
         {
             _windowSystem?.CloseWindow(_window);
-            _logger?.LogInformation("Comprehensive layout window closed");
+            _windowSystem.LogService.LogInfo("Comprehensive layout window closed");
         }
     }
 
@@ -784,6 +777,6 @@ See the docs folder for detailed documentation.
         if (_disposed) return;
 
         _disposed = true;
-        _logger?.LogInformation("Comprehensive layout window disposed");
+        _windowSystem.LogService.LogInfo("Comprehensive layout window disposed");
     }
 }

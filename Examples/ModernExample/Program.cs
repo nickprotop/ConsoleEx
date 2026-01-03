@@ -3,7 +3,6 @@
 // Demonstrates all features with modern patterns adapted from the original examples
 // -----------------------------------------------------------------------
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
@@ -24,8 +23,6 @@ namespace ModernExample;
 internal class Program
 {
     private static ConsoleWindowSystem? _windowSystem;
-    private static IServiceProvider? _serviceProvider;
-    private static ILogger<Program>? _logger;
 
     // Window references for management
     private static Window? _mainWindow;
@@ -42,9 +39,6 @@ internal class Program
     {
         try
         {
-            // Setup services with dependency injection
-            SetupServices();
-
             // Initialize console window system with modern patterns
             _windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
             {
@@ -55,7 +49,7 @@ internal class Program
             // Setup graceful shutdown handler for Ctrl+C
             Console.CancelKeyPress += (sender, e) =>
             {
-                _logger?.LogInformation("Received interrupt signal, shutting down gracefully...");
+                _windowSystem?.LogService.LogInfo("Received interrupt signal, shutting down gracefully...");
                 e.Cancel = true; // Prevent immediate termination
                 _windowSystem?.Shutdown(0);
             };
@@ -67,41 +61,19 @@ internal class Program
             SetupMainWindowKeyHandlers();
 
             // Run the application
-            _logger?.LogInformation("Starting Modern SharpConsoleUI Demo");
+            _windowSystem.LogService.LogInfo("Starting Modern SharpConsoleUI Demo");
             await Task.Run(() => _windowSystem.Run());
 
-            _logger?.LogInformation("Application shutting down");
+            _windowSystem.LogService.LogInfo("Application shutting down");
             return 0;
         }
         catch (Exception ex)
         {
-            // Use logger if available for critical startup errors
-            _logger?.LogCritical(ex, "Fatal application error during startup");
-
-            // If logger is not available, we can't safely output anything
-            // as the console system may be in a corrupted state
-
+            // If console system is corrupted, use Spectre.Console to output error
+            Console.Clear();
+            AnsiConsole.WriteException(ex);
             return 1;
         }
-    }
-
-    /// <summary>
-    /// Setup dependency injection and services
-    /// </summary>
-    private static void SetupServices()
-    {
-        var services = new ServiceCollection();
-
-        // No logging setup needed here!
-        // SharpConsoleUI provides its own LogService accessible via:
-        //   _windowSystem.LogService.LogInfo("message");
-        //   _windowSystem.LogService.LogAdded += (s, entry) => { ... };
-        //   var logs = _windowSystem.LogService.GetRecentLogs(50);
-        //
-        // You can also use LogViewerControl to display logs in a window.
-
-        _serviceProvider = services.BuildServiceProvider();
-        _logger = _serviceProvider.GetService<ILogger<Program>>();
     }
 
     /// <summary>
@@ -111,7 +83,7 @@ internal class Program
     {
         if (_windowSystem == null) return;
 
-        _mainWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        _mainWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Modern SharpConsoleUI Demo - Main Menu")
             .WithSize(65, 22)
             .Centered()
@@ -185,7 +157,7 @@ internal class Program
         }));
 
         _windowSystem.AddWindow(_mainWindow);
-        _logger?.LogInformation("Main menu window created with fluent builder");
+        _windowSystem?.LogService.LogInfo("Main menu window created with fluent builder");
     }
 
     /// <summary>
@@ -245,11 +217,11 @@ internal class Program
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Error handling key press in main window");
+                _windowSystem?.LogService.LogError("Error handling key press in main window", ex);
             }
         };
 
-        _logger?.LogInformation("Main window key handlers configured");
+        _windowSystem?.LogService.LogInfo("Main window key handlers configured");
     }
 
     /// <summary>
@@ -267,7 +239,7 @@ internal class Program
             FilterLevel = LogLevel.Trace  // Show all levels for demo
         };
 
-        _logWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        _logWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Log Viewer (F2)")
             .WithSize(80, 18)
             .AtPosition(5, 3)
@@ -329,7 +301,7 @@ internal class Program
     {
         if (_windowSystem == null) return;
 
-        _sysInfoWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        _sysInfoWindow = new WindowBuilder(_windowSystem)
             .WithTitle("System Information")
             .WithSize(75, 18)
             .AtPosition(8, 3)
@@ -362,7 +334,7 @@ internal class Program
         };
 
         _windowSystem.AddWindow(_sysInfoWindow);
-        _logger?.LogInformation("System information window created");
+        _windowSystem?.LogService.LogInfo("System information window created");
     }
 
     /// <summary>
@@ -372,7 +344,7 @@ internal class Program
     {
         if (_windowSystem == null) return Task.CompletedTask;
 
-        _clockWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        _clockWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Digital Clock")
             .WithSize(35, 10)
             .AtPosition(15, 8)
@@ -393,7 +365,7 @@ internal class Program
         _ = Task.Run(async () => await UpdateClockAsync());
 
         _windowSystem.AddWindow(_clockWindow);
-        _logger?.LogInformation("Clock window created with async updates");
+        _windowSystem?.LogService.LogInfo("Clock window created with async updates");
         
         return Task.CompletedTask;
     }
@@ -431,7 +403,7 @@ internal class Program
     {
         if (_windowSystem == null) return;
 
-        var demoWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        var demoWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Interactive Demo")
             .WithSize(60, 16)
             .AtPosition(12, 6)
@@ -471,13 +443,13 @@ internal class Program
                 $"[cyan]Key pressed: {e.KeyInfo.Key} (Char: '{e.KeyInfo.KeyChar}')[/]"
             }));
 
-            _logger?.LogDebug("Key pressed in demo window: {Key}", e.KeyInfo.Key);
+            _windowSystem?.LogService.LogDebug($"Key pressed in demo window: {e.KeyInfo.Key}");
             demoWindow.GoToBottom();
             e.Handled = true;
         };
 
         _windowSystem.AddWindow(demoWindow);
-        _logger?.LogInformation("Interactive demo window created");
+        _windowSystem?.LogService.LogInfo("Interactive demo window created");
     }
 
     /// <summary>
@@ -510,7 +482,7 @@ internal class Program
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Error gathering system information");
+            _windowSystem?.LogService.LogError("Error gathering system information", ex);
             info.Add($"[red]Error gathering system info: {ex.Message}[/]");
         }
 
@@ -524,7 +496,7 @@ internal class Program
     {
         if (_windowSystem == null) return Task.CompletedTask;
 
-        var commandWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        var commandWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Interactive Command Window")
             .WithSize(80, 25)
             .AtPosition(2, 2)
@@ -585,7 +557,7 @@ internal class Program
             catch (Exception ex)
             {
                 outputControl.AppendContent($"Error: {ex.Message}\n");
-                _logger?.LogError(ex, "Error executing command: {Command}", command);
+                _windowSystem?.LogService.LogError($"Error executing command: {command}", ex);
             }
             finally
             {
@@ -604,7 +576,7 @@ internal class Program
         };
 
         _windowSystem.AddWindow(commandWindow);
-        _logger?.LogInformation("Command window created with modern async patterns");
+        _windowSystem?.LogService.LogInfo("Command window created with modern async patterns");
         
         return Task.CompletedTask;
     }
@@ -733,7 +705,7 @@ internal class Program
         catch (Exception ex)
         {
             output.AppendContent($"Failed to execute command: {ex.Message}\n");
-            _logger?.LogError(ex, "Failed to execute external command: {Command}", command);
+            _windowSystem?.LogService.LogError($"Failed to execute external command: {command}", ex);
         }
     }
 
@@ -744,7 +716,7 @@ internal class Program
     {
         if (_windowSystem == null) return;
 
-        var dropdownWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        var dropdownWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Country Selection Demo")
             .WithSize(50, 20)
             .AtPosition(4, 4)
@@ -794,7 +766,7 @@ internal class Program
             {
                 statusControl.SetContent(new List<string> { $"Selected: [green]{item.Text}[/]" });
                 dropdownWindow.Title = $"Country Selection - {item.Text}";
-                _logger?.LogDebug("Country selection changed to: {Country}", item.Text);
+                _windowSystem?.LogService.LogDebug("Country selection changed to: {Country}", item.Text);
             }
         };
 
@@ -809,7 +781,7 @@ internal class Program
         okButton.Click += (sender, button) =>
         {
             var selected = countryDropdown.SelectedValue;
-            _logger?.LogInformation("User selected country: {Country}", selected);
+            _windowSystem?.LogService.LogInfo("User selected country: {Country}", selected);
             _windowSystem?.CloseWindow(dropdownWindow);
         };
 
@@ -840,7 +812,7 @@ internal class Program
         };
 
         _windowSystem.AddWindow(dropdownWindow);
-        _logger?.LogInformation("Dropdown demo window created");
+        _windowSystem?.LogService.LogInfo("Dropdown demo window created");
     }
 
     /// <summary>
@@ -850,7 +822,7 @@ internal class Program
     {
         if (_windowSystem == null) return;
 
-        var listWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        var listWindow = new WindowBuilder(_windowSystem)
             .WithTitle("ListView Demo")
             .WithSize(65, 22)
             .AtPosition(6, 6)
@@ -907,7 +879,7 @@ internal class Program
                 var item = listControl.SelectedItem;
                 var displayText = item?.Text.Split('\n')[0] ?? "Unknown";
                 selectionInfo.SetContent(new List<string> { $"Selected: [green]{displayText}[/] (Index: {selectedIndex})" });
-                _logger?.LogDebug("List item selected: {Item} at index {Index}", displayText, selectedIndex);
+                _windowSystem?.LogService.LogDebug($"List item selected: {displayText} at index {selectedIndex}");
             }
             else
             {
@@ -933,7 +905,7 @@ internal class Program
             if (selectedItem != null)
             {
                 var displayText = selectedItem.Text.Split('\n')[0];
-                _logger?.LogInformation("User selected item: {Item}", displayText);
+                _windowSystem?.LogService.LogInfo("User selected item: {Item}", displayText);
             }
         };
 
@@ -964,7 +936,7 @@ internal class Program
         };
 
         _windowSystem.AddWindow(listWindow);
-        _logger?.LogInformation("ListView demo window created");
+        _windowSystem?.LogService.LogInfo("ListView demo window created");
     }
 
     /// <summary>
@@ -974,7 +946,7 @@ internal class Program
     {
         if (_windowSystem == null) return;
 
-        var explorerWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        var explorerWindow = new WindowBuilder(_windowSystem)
             .WithTitle("File Explorer Demo")
             .WithSize(75, 26)
             .AtPosition(3, 3)
@@ -1074,7 +1046,7 @@ internal class Program
         catch (Exception ex)
         {
             statusControl.SetContent(new List<string> { $"[red]Error initializing: {ex.Message}[/]" });
-            _logger?.LogError(ex, "Error initializing file explorer");
+            _windowSystem?.LogService.LogError("Error initializing file explorer", ex);
         }
 
         // Tree selection handler
@@ -1174,7 +1146,7 @@ internal class Program
         };
 
         _windowSystem.AddWindow(explorerWindow);
-        _logger?.LogInformation("File explorer window created");
+        _windowSystem?.LogService.LogInfo("File explorer window created");
     }
 
     /// <summary>
@@ -1298,13 +1270,13 @@ internal class Program
 
         try
         {
-            var comprehensiveWindow = new ComprehensiveLayoutWindow(_windowSystem, _serviceProvider);
+            var comprehensiveWindow = new ComprehensiveLayoutWindow(_windowSystem);
             comprehensiveWindow.Show();
-            _logger?.LogInformation("Comprehensive layout demo window created using separate class");
+            _windowSystem?.LogService.LogInfo("Comprehensive layout demo window created using separate class");
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Error creating comprehensive layout demo window");
+            _windowSystem?.LogService.LogError("Error creating comprehensive layout demo window", ex);
         }
     }
 }

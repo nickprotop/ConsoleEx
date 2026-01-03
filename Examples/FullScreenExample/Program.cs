@@ -1,11 +1,9 @@
 // -----------------------------------------------------------------------
 // FullScreenExample - Demonstrates full-screen window mode
 // A maximized window with no resize, move, close, minimize, or maximize buttons
-// Uses modern patterns: DI, async/await, fluent builders
+// Uses modern patterns: async/await, fluent builders
 // -----------------------------------------------------------------------
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -20,17 +18,12 @@ namespace FullScreenExample;
 internal class Program
 {
     private static ConsoleWindowSystem? _windowSystem;
-    private static IServiceProvider? _serviceProvider;
-    private static ILogger<Program>? _logger;
     private static Window? _mainWindow;
 
     static async Task<int> Main(string[] args)
     {
         try
         {
-            // Setup services with dependency injection
-            SetupServices();
-
             // Initialize console window system
             _windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
             {
@@ -41,7 +34,7 @@ internal class Program
             // Setup graceful shutdown handler for Ctrl+C
             Console.CancelKeyPress += (sender, e) =>
             {
-                _logger?.LogInformation("Received interrupt signal, shutting down gracefully...");
+                _windowSystem?.LogService.LogInfo("Received interrupt signal, shutting down gracefully...");
                 e.Cancel = true;
                 _windowSystem?.Shutdown(0);
             };
@@ -50,10 +43,10 @@ internal class Program
             CreateFullScreenWindow();
 
             // Run the application
-            _logger?.LogInformation("Starting Full Screen Example");
+            _windowSystem.LogService.LogInfo("Starting Full Screen Example");
             await Task.Run(() => _windowSystem.Run());
 
-            _logger?.LogInformation("Application shutting down");
+            _windowSystem.LogService.LogInfo("Application shutting down");
             return 0;
         }
         catch (Exception ex)
@@ -64,23 +57,12 @@ internal class Program
         }
     }
 
-    private static void SetupServices()
-    {
-        var services = new ServiceCollection();
-
-        // No logging configuration needed!
-        // SharpConsoleUI provides its own LogService accessible via _windowSystem.LogService
-
-        _serviceProvider = services.BuildServiceProvider();
-        _logger = _serviceProvider.GetService<ILogger<Program>>();
-    }
-
     private static void CreateFullScreenWindow()
     {
-        if (_windowSystem == null || _serviceProvider == null) return;
+        if (_windowSystem == null) return;
 
         // Create window using fluent builder
-        _mainWindow = new WindowBuilder(_windowSystem, _serviceProvider)
+        _mainWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Full Screen Application")
             .Resizable(false)
             .Movable(false)

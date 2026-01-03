@@ -7,9 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Drawing;
-using Microsoft.Extensions.DependencyInjection;
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Models;
 using SharpConsoleUI.Themes;
 using SpectreColor = Spectre.Console.Color;
 using DrawingSize = System.Drawing.Size;
@@ -22,7 +20,6 @@ namespace SharpConsoleUI.Builders;
 public sealed class WindowBuilder
 {
     private readonly ConsoleWindowSystem _windowSystem;
-    private readonly IServiceProvider? _services;
 
     private string? _title;
     private string? _name;
@@ -49,11 +46,9 @@ public sealed class WindowBuilder
     /// Initializes a new instance of the <see cref="WindowBuilder"/> class
     /// </summary>
     /// <param name="windowSystem">The console window system</param>
-    /// <param name="services">Optional service provider</param>
-    public WindowBuilder(ConsoleWindowSystem windowSystem, IServiceProvider? services = null)
+    public WindowBuilder(ConsoleWindowSystem windowSystem)
     {
         _windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
-        _services = services;
     }
 
     /// <summary>
@@ -350,7 +345,7 @@ public sealed class WindowBuilder
     /// <returns>The builder for chaining</returns>
     public WindowBuilder AddControl<T>(Action<T> configure) where T : class, IWindowControl, new()
     {
-        var control = _services?.GetService<T>() ?? new T();
+        var control = new T();
         configure(control);
         return AddControl(control);
     }

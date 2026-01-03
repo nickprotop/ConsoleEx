@@ -4,7 +4,7 @@
 ![.NET](https://img.shields.io/badge/.NET-9.0-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-A modern console window system for .NET 9 with dependency injection, async patterns, and fluent builders.
+A modern console window system for .NET 9 with fluent builders, async patterns, and built-in state services.
 
 ## 🚀 Quick Start
 
@@ -90,7 +90,6 @@ dotnet add package SharpConsoleUI
 - **Keyboard Input**: Full keyboard support with modifier keys
 - **Mouse Support**: Click, drag, and mouse event handling
 - **Input Queue**: Efficient input processing system
-- **Event System**: Enhanced event aggregation and handling
 
 ### 🎨 Rendering System
 - **Double Buffering**: Smooth rendering without flicker
@@ -237,81 +236,18 @@ var mainWindow = new WindowBuilder(windowSystem)
     .WithMinimumSize(60, 20)
     .Build();
 
-// Dialog template
+// Dialog template - applies title, size, centered, modal automatically
 var dialog = new WindowBuilder(windowSystem)
-    .WithTitle("⚠️ Confirmation")
-    .WithSize(40, 10)
-    .Centered()
-    .AsModal()
-    .WithTemplate(new DialogTemplate("Are you sure?"))
+    .WithTemplate(new DialogTemplate("⚠️ Confirmation", 40, 10))
     .Build();
 
-// Tool window
+// Tool window template - applies title, position, size automatically
 var toolWindow = new WindowBuilder(windowSystem)
-    .WithTitle("🔧 Tools")
-    .AtPosition(5, 5)
-    .WithSize(30, 15)
-    .WithTemplate(new ToolWindowTemplate("Tools", new Point(5, 5), new Size(30, 15)))
+    .WithTemplate(new ToolWindowTemplate("🔧 Tools", new Point(5, 5), new Size(30, 15)))
     .Build();
 ```
 
-### 3. Enhanced Event System
-```csharp
-using SharpConsoleUI.Events.Enhanced;
-
-// Subscribe to events with priority and async support
-await eventAggregator.SubscribeAsync<WindowCreatedEvent>(
-    async (eventData, cancellationToken) =>
-    {
-        logger.LogInformation("Window created: {WindowId}", eventData.WindowId);
-        await SomeAsyncOperation(eventData.WindowId);
-    },
-    EventPriority.High);
-
-// Publish events
-await eventAggregator.PublishAsync(new WindowCreatedEvent(
-    window.Guid,
-    "MainWindow",
-    DateTime.UtcNow
-));
-
-// Event data using records (immutable)
-public record WindowCreatedEvent(string WindowId, string WindowType, DateTime Timestamp);
-public record WindowClosedEvent(string WindowId, DateTime Timestamp);
-```
-
-### 4. Exception Handling
-```csharp
-using SharpConsoleUI.ExceptionHandling;
-
-// Configure exception handling strategies
-var exceptionManager = serviceProvider.GetService<IExceptionManager>();
-
-// Configure retry strategy
-exceptionManager?.ConfigureStrategy<FileNotFoundException>(
-    ExceptionStrategy.Retry(maxAttempts: 3, delayMs: 1000));
-
-// Configure fallback strategy
-exceptionManager?.ConfigureStrategy<NetworkException>(
-    ExceptionStrategy.Fallback(() => GetCachedData()));
-
-// Use in application code
-try
-{
-    await SomeRiskyOperation();
-}
-catch (Exception ex)
-{
-    var result = await exceptionManager.HandleExceptionAsync(ex);
-    if (!result.Handled)
-    {
-        // Handle unrecoverable error
-        throw;
-    }
-}
-```
-
-### 5. Async Patterns
+### 3. Async Patterns
 ```csharp
 // Async window thread
 var window = new WindowBuilder(windowSystem)
@@ -342,12 +278,12 @@ window.OnClosed += (sender, e) =>
 };
 ```
 
-### 6. Resource Management
+### 4. Resource Management
 ```csharp
 using SharpConsoleUI.Core;
 
 // Automatic resource disposal
-using var disposableManager = new DisposableManager(logger);
+using var disposableManager = new DisposableManager();
 
 // Register resources for automatic cleanup
 var window1 = disposableManager.Register(CreateWindow("Window 1"));
@@ -356,7 +292,7 @@ var window2 = disposableManager.Register(CreateWindow("Window 2"));
 // Register custom cleanup actions
 disposableManager.RegisterDisposalAction(() =>
 {
-    logger.LogInformation("Performing custom cleanup");
+    // Perform custom cleanup
 });
 
 // Create scoped disposals
@@ -364,29 +300,6 @@ using var scope = disposableManager.CreateScope();
 scope.Register(temporaryWindow);
 scope.RegisterDisposalAction(() => SaveTempData());
 // Scope automatically disposes when using block exits
-```
-
-### 7. Configuration System
-```csharp
-using Microsoft.Extensions.Configuration;
-using SharpConsoleUI.Configuration;
-
-// Load configuration from JSON
-var configuration = new ConfigurationBuilder()
-    .AddJsonFile("appsettings.json", optional: true)
-    .AddEnvironmentVariables()
-    .Build();
-
-// Configure themes from config
-var themeConfig = configuration.GetSection("UI:Theme");
-var customTheme = new Theme
-{
-    WindowBackgroundColor = Enum.Parse<Color>(themeConfig["BackgroundColor"]),
-    WindowForegroundColor = Enum.Parse<Color>(themeConfig["ForegroundColor"]),
-    ActiveBorderColor = Enum.Parse<Color>(themeConfig["BorderColor"])
-};
-
-windowSystem.Theme = customTheme;
 ```
 
 ## 🏗️ Architecture Overview
@@ -398,15 +311,12 @@ windowSystem.Theme = customTheme;
 │                    SharpConsoleUI Architecture              │
 ├─────────────────────────────────────────────────────────────┤
 │  Application Layer (Your Code)                             │
-│  ├── Dependency Injection (IServiceProvider)               │
-│  ├── Configuration (IConfiguration)                        │
-│  └── Logging (ILogger)                                     │
+│  └── Window Builders & Event Handlers                      │
 ├─────────────────────────────────────────────────────────────┤
 │  Framework Layer                                           │
 │  ├── Window Builders (Fluent API)                         │
-│  ├── Event System (IEventAggregator)                      │
-│  ├── Exception Handling (IExceptionManager)               │
-│  ├── Plugin System (IPlugin)                              │
+│  ├── State Services (Focus, Modal, Notification, etc.)    │
+│  ├── Logging Service (ILogService)                        │
 │  └── Resource Management (DisposableManager)              │
 ├─────────────────────────────────────────────────────────────┤
 │  Core UI Layer                                            │
@@ -528,13 +438,10 @@ internal class Program
         windowSystem.AddWindow(taskWindow, activate: true);
     }
 
-    static void SaveTask(string taskDescription, ConsoleWindowSystem windowSystem)
+    static void SaveTask(string taskDescription)
     {
-        // Show notification instead of Console.WriteLine
-        windowSystem.NotificationStateService.ShowNotification(
-            "Task Saved",
-            $"Created: {taskDescription}",
-            NotificationSeverity.Success);
+        // Save task to storage
+        // File.AppendAllText("tasks.txt", taskDescription + Environment.NewLine);
     }
 }
 ```
@@ -587,44 +494,6 @@ public static async Task CreateRealtimeWindow(ConsoleWindowSystem windowSystem)
 ```
 
 ## 🎯 Advanced Features
-
-### Plugin Development
-```csharp
-using SharpConsoleUI.Plugins;
-
-// Create custom plugin
-public class MyCustomPlugin : IControlPlugin
-{
-    public string Name => "My Custom Plugin";
-    public Version Version => new(1, 0, 0);
-    public string Description => "Adds custom functionality";
-
-    public Task InitializeAsync(IServiceProvider services)
-    {
-        // Initialize plugin
-        return Task.CompletedTask;
-    }
-
-    public IWIndowControl CreateControl(string type, object? parameters = null)
-    {
-        return type switch
-        {
-            "CustomControl" => new MyCustomControl(),
-            _ => throw new ArgumentException($"Unknown control type: {type}")
-        };
-    }
-
-    public Task ShutdownAsync()
-    {
-        // Cleanup
-        return Task.CompletedTask;
-    }
-}
-
-// Register plugin
-var pluginManager = new PluginManager(services.GetService<ILogger<PluginManager>>());
-await pluginManager.LoadPluginAsync<MyCustomPlugin>();
-```
 
 ### Custom Themes
 ```csharp
@@ -685,10 +554,9 @@ windowSystem.LogService.LogAdded += (s, e) => { /* handle */ };
 | v1.x Feature | v2.0 Equivalent | Enhancement |
 |--------------|-----------------|-------------|
 | `new Window()` | `new WindowBuilder().Build()` | Fluent API |
-| Event handling | Event handlers + EventAggregator | Async events |
+| Event handling | Event handlers | Clean patterns |
 | Manual cleanup | DisposableManager | Auto cleanup |
-| Try/catch | ExceptionManager | Strategy patterns |
-| Static config | IConfiguration | External config |
+| Custom notifications | NotificationStateService | Built-in |
 
 ## 🤝 Contributing
 
@@ -718,13 +586,11 @@ dotnet run
 ConsoleEx/
 ├── SharpConsoleUI/           # Main library
 │   ├── Core/                 # State services & infrastructure
-│   ├── Logging/              # Debug logging system
+│   ├── Logging/              # Built-in logging system
 │   ├── Controls/             # UI controls
-│   ├── Builders/             # Fluent builders
-│   ├── DependencyInjection/  # DI system
-│   ├── Events/               # Event system
-│   ├── ExceptionHandling/    # Exception management
-│   ├── Plugins/              # Plugin system
+│   ├── Builders/             # Fluent builders & templates
+│   ├── Helpers/              # Utility classes
+│   ├── Drivers/              # Console abstraction layer
 │   └── Themes/               # Theming system
 ├── Example/                  # Simple examples
 ├── Examples/
@@ -753,17 +619,11 @@ ConsoleEx/
 - **Debug Logging**: Only in development, not console output
 - **Event Logging**: Windows Event Log or similar
 
-**Example Safe Logging Configuration:**
-```csharp
-services.AddLogging(builder =>
-{
-    // ❌ DON'T: builder.AddConsole(); // Corrupts UI!
-
-    // ✅ DO: Use file/debug/event logging
-    builder.SetMinimumLevel(LogLevel.Warning);
-    // In production: add file logging package
-    // builder.AddFile("logs/app-{Date}.txt");
-});
+**Use the built-in logging instead:**
+```bash
+# Enable debug logging via environment variables
+export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
+export SHARPCONSOLEUI_DEBUG_LEVEL=Debug
 ```
 
 ### 🔧 Built-in Debug Logging
@@ -809,7 +669,6 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 - Built on [Spectre.Console](https://github.com/spectreconsole/spectre.console) for rich console output
 - Inspired by traditional GUI frameworks adapted for console applications
-- Uses Microsoft.Extensions.* for modern .NET patterns
 
 ---
 
