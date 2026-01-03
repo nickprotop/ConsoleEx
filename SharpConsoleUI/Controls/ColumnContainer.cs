@@ -528,33 +528,29 @@ namespace SharpConsoleUI.Controls
 				content.Invalidate();
 			}
 
-			// Render each content and collect the lines, passing down and enforcing the remaining height
+			// Render each content and collect the lines
+			// Track remainingHeight so FillHeight controls know their budget
+			// Note: We do NOT clip content or break early - viewport clipping happens at Window level
 			int? remainingHeight = availableHeight;
 			foreach (var content in _contents)
 			{
 				// Skip invisible controls
 				if (!content.Visible) continue;
 
-				var childAvailableHeight = remainingHeight;
-				var contentRendered = content.RenderContent(_lastRenderWidth, childAvailableHeight);
+				// Pass remainingHeight so FillHeight controls know their budget
+				// When remainingHeight is 0 or less, pass null to signal "no fixed constraint"
+				// (Spectre.Console requires height > 0, so 0 is invalid)
+				var heightToPass = (remainingHeight.HasValue && remainingHeight.Value > 0) ? remainingHeight : null;
+				var contentRendered = content.RenderContent(_lastRenderWidth, heightToPass);
 
-				// If the child over-rendered relative to the remaining budget, clip it
-				if (remainingHeight.HasValue && contentRendered.Count > remainingHeight.Value)
-				{
-					contentRendered = contentRendered.Take(remainingHeight.Value).ToList();
-				}
-
+				// NO .Take() clipping - let full content flow through
 				renderedContent.AddRange(contentRendered);
 
+				// Track remaining for next child's FillHeight calculation
 				if (remainingHeight.HasValue)
 				{
-					// Reduce the remaining budget by what we actually kept (don’t drop below zero)
 					remainingHeight = Math.Max(0, remainingHeight.Value - contentRendered.Count);
-					if (remainingHeight.Value == 0)
-					{
-						// No more space to render further children
-						break;
-					}
+					// NO early break - render ALL children even if budget exhausted
 				}
 			}
 

@@ -580,13 +580,7 @@ namespace SharpConsoleUI.Controls
 					int columnWidth = renderedWidths[i];
 
 					var content = column.RenderContent(columnWidth, availableHeight);
-
-					// Cap column height to the grid's available height when provided to avoid overdraw
-					if (availableHeight.HasValue && content.Count > availableHeight.Value)
-					{
-						content = content.Take(availableHeight.Value).ToList();
-					}
-
+					// Note: We render full content here; viewport clipping happens at the Window level
 					columnContents[i] = content;
 
 					if (content.Count > maxHeight)
@@ -596,11 +590,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Never exceed the grid's own available height when determining the combined output height
-			if (availableHeight.HasValue && maxHeight.HasValue)
-			{
-				maxHeight = Math.Min(maxHeight.Value, availableHeight.Value);
-			}
+			// Note: We use full content height here; viewport clipping happens at the Window level
 
 			// Now render splitters with the proper height
 			var renderedControls = new List<List<string>>();

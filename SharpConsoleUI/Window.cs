@@ -1481,30 +1481,29 @@ namespace SharpConsoleUI
 			_controlPositions.Clear();
 			int currentScrollableOffset = 0;
 
-			int remainingScrollableHeight = scrollableHeight;
+			// Track remaining height for scrollable controls (like ColumnContainer does for children)
+			// This ensures FillHeight controls know their ACTUAL available space
+			int? remainingHeight = scrollableHeight;
 			foreach (var control in scrollableControls)
 			{
-				if (remainingScrollableHeight <= 0)
-				{
-					// No vertical budget left; stop rendering further scrollable controls
-					_controlPositions[control] = (currentScrollableOffset, 0);
-					continue;
-				}
+				// Pass remaining height so FillHeight knows actual budget
+				// When remainingHeight is 0 or less, pass null to signal "no fixed constraint"
+				// (Spectre.Console requires height > 0, so 0 is invalid)
+				var heightToPass = (remainingHeight.HasValue && remainingHeight.Value > 0) ? remainingHeight : null;
+				var renderedLines = control.RenderContent(availableWidth, heightToPass);
 
-				var renderedLines = control.RenderContent(availableWidth, remainingScrollableHeight);
-
-				// Enforce the remaining scrollable height budget per control to avoid overgrowth
-				if (renderedLines.Count > remainingScrollableHeight)
-				{
-					renderedLines = renderedLines.Take(remainingScrollableHeight).ToList();
-				}
-
-				// Track this control's position and size
+				// Track this control's position and size (NO clipping)
 				_controlPositions[control] = (currentScrollableOffset, renderedLines.Count);
 
 				scrollableContent.AddRange(renderedLines);
 				currentScrollableOffset += renderedLines.Count;
-				remainingScrollableHeight = Math.Max(0, remainingScrollableHeight - renderedLines.Count);
+
+				// Update remaining for next control's FillHeight calculation
+				if (remainingHeight.HasValue)
+				{
+					remainingHeight = Math.Max(0, remainingHeight.Value - renderedLines.Count);
+					// NO early break - render ALL controls
+				}
 			}
 
 			_cachedContent = scrollableContent;
