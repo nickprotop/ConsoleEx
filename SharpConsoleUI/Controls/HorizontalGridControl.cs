@@ -32,8 +32,6 @@ namespace SharpConsoleUI.Controls
 		private bool _invalidated = true;
 		private bool _focusFromBackward = false;
 		private bool _isEnabled = true;
-		private int? _lastRenderWidth;
-		private int? _lastRenderHeight;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private Dictionary<IInteractiveControl, int> _splitterControls = new Dictionary<IInteractiveControl, int>();
 		private List<SplitterControl> _splitters = new List<SplitterControl>();
@@ -461,11 +459,23 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			// Check if dimensions have changed - if so, invalidate the cache
-			if (_lastRenderWidth != availableWidth || _lastRenderHeight != availableHeight)
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
 			{
+				// Dimensions changed - invalidate cache
 				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				var cached = _contentCache.Content;
+				if (cached != null) return cached;
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
 
 			// Use thread-safe cache with lazy rendering
 			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
@@ -473,15 +483,11 @@ namespace SharpConsoleUI.Controls
 
 		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
 		{
-			// Store the render dimensions for cache validation
-			_lastRenderWidth = availableWidth;
-			_lastRenderHeight = availableHeight;
-
 			// Inherit background color from parent container first, then fall back to theme
 			BackgroundColor = BackgroundColor ?? Container?.BackgroundColor
-				?? Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black;
+				?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 			ForegroundColor = ForegroundColor ?? Container?.ForegroundColor
-				?? Container?.GetConsoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White;
+				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 
 			var renderedContent = new List<string>();
 			int? maxHeight = 0;
@@ -489,72 +495,34 @@ namespace SharpConsoleUI.Controls
 			// Create combined list of columns and splitters in their display order
 			var displayControls = new List<(bool IsSplitter, object Control, int Width)>();
 
-			// Calculate total specified width and count columns with null width
-			int totalSpecifiedWidth = 0;
-			int nullWidthCount = 0;
-
-			// First, add all columns and calculate width requirements
+			// First, add all columns
 			for (int i = 0; i < _columns.Count; i++)
 			{
 				var column = _columns[i];
 				displayControls.Add((false, column, column.Width ?? 0));
-
-				if (column.Width != null)
-				{
-					totalSpecifiedWidth += column.Width ?? 0;
-				}
-				else
-				{
-					nullWidthCount += 1;
-				}
 
 				// If there's a splitter after this column, add it too
 				var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
 				if (splitter != null)
 				{
 					displayControls.Add((true, splitter, splitter.Width ?? 1));
-					totalSpecifiedWidth += splitter.Width ?? 1;
 				}
 			}
 
-			// Calculate remaining width to be distributed among auto-width columns
-			int remainingWidth = (availableWidth ?? 0) - totalSpecifiedWidth;
-			int distributedWidth = nullWidthCount > 0 ? remainingWidth / nullWidthCount : 0;
-			// Calculate remainder to distribute evenly among first N auto-width columns
-			int extraWidthRemainder = nullWidthCount > 0 ? remainingWidth % nullWidthCount : 0;
+			// Use the new layout-aware width distribution algorithm
+			var (renderedWidths, hasOverflow) = DistributeColumnWidths(availableWidth ?? 0, displayControls);
 
 			// First render all columns to determine the maximum height
 			var columnContents = new Dictionary<int, List<string>>();
-			var renderedWidths = new Dictionary<int, int>(); // Track the width used to render each control
-			int columnIndex = 0;
-			int autoWidthColumnIndex = 0; // Track auto-width columns for remainder distribution
 
 			for (int i = 0; i < displayControls.Count; i++)
 			{
 				var (isSplitter, control, _) = displayControls[i];
 
-				if (isSplitter)
-				{
-					// Store splitter width for later use
-					renderedWidths[i] = ((SplitterControl)control).Width ?? 1;
-				}
-				else
+				if (!isSplitter)
 				{
 					var column = (ColumnContainer)control;
-					int columnWidth;
-					if (column.Width != null)
-					{
-						columnWidth = column.Width.Value;
-					}
-					else
-					{
-						// Distribute extra pixel to first N auto-width columns where N = remainder
-						columnWidth = distributedWidth + (autoWidthColumnIndex < extraWidthRemainder ? 1 : 0);
-						autoWidthColumnIndex++;
-					}
-
-					// Store the width used to render this column
-					renderedWidths[i] = columnWidth;
+					int columnWidth = renderedWidths[i];
 
 					var content = column.RenderContent(columnWidth, availableHeight);
 					columnContents[i] = content;
@@ -563,8 +531,6 @@ namespace SharpConsoleUI.Controls
 					{
 						maxHeight = content.Count;
 					}
-
-					columnIndex++;
 				}
 			}
 
@@ -642,6 +608,145 @@ namespace SharpConsoleUI.Controls
 
 			_invalidated = false;
 			return renderedContent;
+		}
+
+		/// <summary>
+		/// Distributes available width among columns using the new layout-aware algorithm.
+		/// </summary>
+		private (Dictionary<int, int> columnWidths, bool hasOverflow) DistributeColumnWidths(
+			int totalAvailableWidth,
+			List<(bool IsSplitter, object Control, int Width)> displayControls)
+		{
+			var columnWidths = new Dictionary<int, int>();
+			bool hasOverflow = false;
+
+			// Phase 1: Calculate fixed width and gather flexible columns
+			int totalFixedWidth = 0;
+			var flexibleColumns = new List<(int Index, ColumnContainer Column, LayoutRequirements Req)>();
+
+			for (int i = 0; i < displayControls.Count; i++)
+			{
+				var (isSplitter, control, _) = displayControls[i];
+
+				if (isSplitter)
+				{
+					var splitter = (SplitterControl)control;
+					int width = splitter.Width ?? 1;
+					columnWidths[i] = width;
+					totalFixedWidth += width;
+				}
+				else
+				{
+					var column = (ColumnContainer)control;
+					var requirements = GetColumnRequirements(column);
+
+					if (column.Width != null)
+					{
+						// Column has fixed width
+						columnWidths[i] = column.Width.Value;
+						totalFixedWidth += column.Width.Value;
+					}
+					else
+					{
+						// Column is flexible - gather for phase 2
+						flexibleColumns.Add((i, column, requirements));
+					}
+				}
+			}
+
+			// Phase 2: Distribute remaining width among flexible columns
+			int remainingWidth = totalAvailableWidth - totalFixedWidth;
+
+			if (flexibleColumns.Count > 0)
+			{
+				if (remainingWidth <= 0)
+				{
+					// No space - allocate absolute minimums (EffectiveMinWidth defaults to 1)
+					hasOverflow = true;
+					foreach (var (index, _, req) in flexibleColumns)
+						columnWidths[index] = req.EffectiveMinWidth;
+				}
+				else
+				{
+					int totalMinRequired = flexibleColumns.Sum(f => f.Req.EffectiveMinWidth);
+
+					if (remainingWidth < totalMinRequired)
+					{
+						// Insufficient space - scale proportionally below minimums
+						hasOverflow = true;
+						double scale = (double)remainingWidth / Math.Max(1, totalMinRequired);
+						int allocated = 0;
+
+						for (int i = 0; i < flexibleColumns.Count - 1; i++)
+						{
+							var (index, _, req) = flexibleColumns[i];
+							int width = Math.Max(1, (int)(req.EffectiveMinWidth * scale));
+							columnWidths[index] = width;
+							allocated += width;
+						}
+						// Last column gets remainder to avoid rounding issues
+						columnWidths[flexibleColumns[^1].Index] = Math.Max(1, remainingWidth - allocated);
+					}
+					else
+					{
+						// Sufficient space - distribute by flex factors
+						double totalFlex = flexibleColumns.Sum(f => f.Req.FlexFactor);
+						if (totalFlex <= 0) totalFlex = flexibleColumns.Count;
+
+						// First pass: calculate ideal widths using floor division
+						var idealWidths = new int[flexibleColumns.Count];
+						int totalIdeal = 0;
+
+						for (int i = 0; i < flexibleColumns.Count; i++)
+						{
+							var (_, _, req) = flexibleColumns[i];
+							double proportion = req.FlexFactor / totalFlex;
+							int width = Math.Max(req.EffectiveMinWidth, (int)(remainingWidth * proportion));
+							if (req.MaxWidth.HasValue) width = Math.Min(width, req.MaxWidth.Value);
+							idealWidths[i] = width;
+							totalIdeal += width;
+						}
+
+						// Second pass: distribute any remaining pixels due to rounding
+						int remainder = remainingWidth - totalIdeal;
+						int distributed = 0;
+
+						for (int i = 0; i < flexibleColumns.Count && distributed < remainder; i++)
+						{
+							var (index, _, req) = flexibleColumns[i];
+							// Only add extra if we haven't hit max width
+							if (!req.MaxWidth.HasValue || idealWidths[i] < req.MaxWidth.Value)
+							{
+								idealWidths[i]++;
+								distributed++;
+							}
+						}
+
+						// Apply the calculated widths
+						for (int i = 0; i < flexibleColumns.Count; i++)
+						{
+							columnWidths[flexibleColumns[i].Index] = idealWidths[i];
+						}
+					}
+				}
+			}
+
+			return (columnWidths, hasOverflow);
+		}
+
+		/// <summary>
+		/// Gets the layout requirements for a column, either from ILayoutAware or from properties.
+		/// </summary>
+		private LayoutRequirements GetColumnRequirements(ColumnContainer column)
+		{
+			if (column is ILayoutAware layoutAware)
+				return layoutAware.GetLayoutRequirements();
+
+			// If column has explicit Width, treat it as fixed
+			// Otherwise, it's flexible with no constraints
+			return column.Width.HasValue
+				? LayoutRequirements.Fixed(column.Width.Value)
+				: LayoutRequirements.Default;
 		}
 
 		// IFocusableControl implementation

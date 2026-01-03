@@ -26,13 +26,11 @@ namespace SharpConsoleUI.Controls
 		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private int? _calculatedMaxVisibleItems;
 		private int _containerScrollOffsetBeforeDrop = 0;
-		private int _dropdownScrollOffset = 0;
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
 		private bool _hasFocus = false;
 		private Color? _highlightBackgroundColorValue;
-		private int _highlightedIndex = -1;
 		private Color? _highlightForegroundColorValue;
 		private bool _isDropdownOpen = false;
 		private bool _isEnabled = true;
@@ -43,10 +41,31 @@ namespace SharpConsoleUI.Controls
 		private int _maxVisibleItems = 5;
 		private string _prompt = "Select an item:";
 		private string _searchText = string.Empty;
-		private int _selectedIndex = -1;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
+
+		// Convenience property to access SelectionStateService
+		private SelectionStateService? SelectionService => Container?.GetConsoleWindowSystem?.SelectionStateService;
+
+		// Convenience property to access ScrollStateService
+		private ScrollStateService? ScrollService => Container?.GetConsoleWindowSystem?.ScrollStateService;
+
+		// Local fallback for scroll offset when ScrollService is unavailable
+		private int _localDropdownScrollOffset = 0;
+
+		// Read-only helpers that read from state services (single source of truth)
+		private int CurrentSelectedIndex => SelectionService?.GetSelectedIndex(this) ?? -1;
+		private int CurrentHighlightedIndex => SelectionService?.GetHighlightedIndex(this) ?? -1;
+		private int CurrentDropdownScrollOffset => ScrollService?.GetVerticalOffset(this) ?? _localDropdownScrollOffset;
+
+		// Helper to set scroll offset - updates both service and local fallback
+		private void SetDropdownScrollOffset(int offset)
+		{
+			_localDropdownScrollOffset = Math.Max(0, offset);
+			ScrollService?.UpdateDimensions(this, 0, _items.Count, 0, _calculatedMaxVisibleItems ?? _maxVisibleItems);
+			ScrollService?.SetVerticalOffset(this, _localDropdownScrollOffset);
+		}
 
 		// Constructor with optional prompt and items
 		public DropdownControl(string prompt = "Select an item:", IEnumerable<string>? items = null)
@@ -193,11 +212,12 @@ namespace SharpConsoleUI.Controls
 					{
 						// Collapse the dropdown when it loses focus
 						_isDropdownOpen = false;
-						_highlightedIndex = _selectedIndex; // Reset highlighted index
+						// Reset highlighted index to selected index
+						SelectionService?.SetHighlightedIndex(this, CurrentSelectedIndex);
 					}
 					_contentCache.Invalidate();
 					Container?.Invalidate(true);
-					
+
 					if (value)
 						GotFocus?.Invoke(this, EventArgs.Empty);
 					else
@@ -302,9 +322,11 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_items = value;
-				if (_selectedIndex >= _items.Count)
+				int currentSel = CurrentSelectedIndex;
+				if (currentSel >= _items.Count)
 				{
-					_selectedIndex = _items.Count > 0 ? 0 : -1;
+					int newSel = _items.Count > 0 ? 0 : -1;
+					SelectionService?.SetSelectedIndex(this, newSel);
 				}
 				_contentCache.Invalidate();
 				Container?.Invalidate(true);
@@ -339,32 +361,33 @@ namespace SharpConsoleUI.Controls
 
 		public int SelectedIndex
 		{
-			get => _selectedIndex;
+			get => CurrentSelectedIndex;
 			set
 			{
-				if (value >= -1 && value < _items.Count && _selectedIndex != value)
+				int currentSel = CurrentSelectedIndex;
+				if (value >= -1 && value < _items.Count && currentSel != value)
 				{
-					int oldIndex = _selectedIndex;
-					_selectedIndex = value;
+					int oldIndex = currentSel;
+					SelectionService?.SetSelectedIndex(this, value);
 					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 
 					// Ensure selected item is visible when dropdown is open
-					if (_isDropdownOpen && _selectedIndex >= 0)
+					if (_isDropdownOpen && value >= 0)
 					{
 						EnsureSelectedItemVisible();
 					}
 
 					// Trigger events
-					if (oldIndex != _selectedIndex)
+					if (oldIndex != value)
 					{
-						SelectedIndexChanged?.Invoke(this, _selectedIndex);
-						SelectedItemChanged?.Invoke(this, (_selectedIndex >= 0 && _selectedIndex < _items.Count) ?
-							_items[_selectedIndex] : null);
+						SelectedIndexChanged?.Invoke(this, value);
+						SelectedItemChanged?.Invoke(this, (value >= 0 && value < _items.Count) ?
+							_items[value] : null);
 
 						// Keep for backward compatibility
-						string? selectedValue = (_selectedIndex >= 0 && _selectedIndex < _items.Count) ?
-							_items[_selectedIndex].Text : null;
+						string? selectedValue = (value >= 0 && value < _items.Count) ?
+							_items[value].Text : null;
 						SelectedValueChanged?.Invoke(this, selectedValue);
 					}
 				}
@@ -373,7 +396,11 @@ namespace SharpConsoleUI.Controls
 
 		public DropdownItem? SelectedItem
 		{
-			get => _selectedIndex >= 0 && _selectedIndex < _items.Count ? _items[_selectedIndex] : null;
+			get
+			{
+				int sel = CurrentSelectedIndex;
+				return sel >= 0 && sel < _items.Count ? _items[sel] : null;
+			}
 			set
 			{
 				if (value == null)
@@ -392,7 +419,11 @@ namespace SharpConsoleUI.Controls
 
 		public string? SelectedValue
 		{
-			get => _selectedIndex >= 0 && _selectedIndex < _items.Count ? _items[_selectedIndex].Text : null;
+			get
+			{
+				int sel = CurrentSelectedIndex;
+				return sel >= 0 && sel < _items.Count ? _items[sel].Text : null;
+			}
 			set
 			{
 				if (value == null)
@@ -428,9 +459,11 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_items = value.Select(text => new DropdownItem(text)).ToList();
-				if (_selectedIndex >= _items.Count)
+				int currentSel = CurrentSelectedIndex;
+				if (currentSel >= _items.Count)
 				{
-					_selectedIndex = _items.Count > 0 ? 0 : -1;
+					int newSel = _items.Count > 0 ? 0 : -1;
+					SelectionService?.SetSelectedIndex(this, newSel);
 				}
 				_contentCache.Invalidate();
 				Container?.Invalidate(true);
@@ -459,11 +492,11 @@ namespace SharpConsoleUI.Controls
 		public void AddItem(DropdownItem item)
 		{
 			_items.Add(item);
-			if (_selectedIndex == -1 && _items.Count == 1)
+			if (CurrentSelectedIndex == -1 && _items.Count == 1)
 			{
-				_selectedIndex = 0;
-				SelectedIndexChanged?.Invoke(this, _selectedIndex);
-				SelectedItemChanged?.Invoke(this, _items[_selectedIndex]);
+				SelectionService?.SetSelectedIndex(this, 0);
+				SelectedIndexChanged?.Invoke(this, 0);
+				SelectedItemChanged?.Invoke(this, _items[0]);
 			}
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
@@ -483,12 +516,15 @@ namespace SharpConsoleUI.Controls
 		public void ClearItems()
 		{
 			_items.Clear();
-			_selectedIndex = -1;
-			_dropdownScrollOffset = 0;
+
+			// Clear state via services (single source of truth)
+			SelectionService?.ClearSelection(this);
+			ScrollService?.ResetScroll(this);
+
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
-			SelectedIndexChanged?.Invoke(this, _selectedIndex);
+			SelectedIndexChanged?.Invoke(this, -1);
 			SelectedValueChanged?.Invoke(this, null);
 		}
 
@@ -517,15 +553,18 @@ namespace SharpConsoleUI.Controls
 
 			if (key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt) || key.Modifiers.HasFlag(ConsoleModifiers.Control)) return false;
 
+			int currentHighlight = CurrentHighlightedIndex;
+			int currentSelection = CurrentSelectedIndex;
+
 			switch (key.Key)
 			{
 				case ConsoleKey.Enter:
 					if (_isDropdownOpen)
 					{
 						// Select the currently highlighted item and close the dropdown
-						if (_highlightedIndex >= 0 && _highlightedIndex < _items.Count)
+						if (currentHighlight >= 0 && currentHighlight < _items.Count)
 						{
-							SelectedIndex = _highlightedIndex; // Actually select the highlighted item
+							SelectedIndex = currentHighlight; // Actually select the highlighted item
 						}
 						// Use the property setter to handle scroll offset
 						IsDropdownOpen = false;
@@ -535,7 +574,7 @@ namespace SharpConsoleUI.Controls
 					{
 						// Open dropdown - use property setter to handle scroll offset
 						IsDropdownOpen = true;
-						_highlightedIndex = _selectedIndex; // Initialize highlighted index with selected index
+						SelectionService?.SetHighlightedIndex(this, currentSelection);
 						return true;
 					}
 					return false;
@@ -543,9 +582,9 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.Escape:
 					if (_isDropdownOpen)
 					{
-						// Close dropdown without changing selection
-						_highlightedIndex = _selectedIndex; // Reset highlighted index
-															// Use property setter to handle scroll offset
+						// Close dropdown without changing selection - reset highlighted to selected
+						SelectionService?.SetHighlightedIndex(this, currentSelection);
+						// Use property setter to handle scroll offset
 						IsDropdownOpen = false;
 						return true;
 					}
@@ -554,9 +593,9 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.DownArrow:
 					if (_isDropdownOpen)
 					{
-						if (_highlightedIndex < _items.Count - 1)
+						if (currentHighlight < _items.Count - 1)
 						{
-							_highlightedIndex++;
+							SelectionService?.SetHighlightedIndex(this, currentHighlight + 1);
 							EnsureHighlightedItemVisible();
 							_contentCache.Invalidate();
 							Container?.Invalidate(true);
@@ -567,7 +606,7 @@ namespace SharpConsoleUI.Controls
 					{
 						// Open dropdown
 						_isDropdownOpen = true;
-						_highlightedIndex = _selectedIndex; // Initialize highlighted index with selected index
+						SelectionService?.SetHighlightedIndex(this, currentSelection);
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
@@ -577,9 +616,9 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.UpArrow:
 					if (_isDropdownOpen)
 					{
-						if (_highlightedIndex > 0)
+						if (currentHighlight > 0)
 						{
-							_highlightedIndex--;
+							SelectionService?.SetHighlightedIndex(this, currentHighlight - 1);
 							EnsureHighlightedItemVisible();
 							_contentCache.Invalidate();
 							Container?.Invalidate(true);
@@ -591,7 +630,7 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.Home:
 					if (_isDropdownOpen && _items.Count > 0)
 					{
-						_highlightedIndex = 0;
+						SelectionService?.SetHighlightedIndex(this, 0);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -602,7 +641,7 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.End:
 					if (_isDropdownOpen && _items.Count > 0)
 					{
-						_highlightedIndex = _items.Count - 1;
+						SelectionService?.SetHighlightedIndex(this, _items.Count - 1);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -611,9 +650,10 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.PageUp:
-					if (_isDropdownOpen && _highlightedIndex > 0)
+					if (_isDropdownOpen && currentHighlight > 0)
 					{
-						_highlightedIndex = Math.Max(0, _highlightedIndex - _calculatedMaxVisibleItems ?? 1);
+						int newIndex = Math.Max(0, currentHighlight - (_calculatedMaxVisibleItems ?? 1));
+						SelectionService?.SetHighlightedIndex(this, newIndex);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -622,9 +662,10 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.PageDown:
-					if (_isDropdownOpen && _highlightedIndex < _items.Count - 1)
+					if (_isDropdownOpen && currentHighlight < _items.Count - 1)
 					{
-						_highlightedIndex = Math.Min(_items.Count - 1, _highlightedIndex + _calculatedMaxVisibleItems ?? 1);
+						int newIndex = Math.Min(_items.Count - 1, currentHighlight + (_calculatedMaxVisibleItems ?? 1));
+						SelectionService?.SetHighlightedIndex(this, newIndex);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -653,7 +694,7 @@ namespace SharpConsoleUI.Controls
 						{
 							if (_items[i].Text.StartsWith(_searchText, StringComparison.OrdinalIgnoreCase))
 							{
-								_highlightedIndex = i; // Update highlighted index only
+								SelectionService?.SetHighlightedIndex(this, i);
 								EnsureHighlightedItemVisible();
 								_contentCache.Invalidate();
 								Container?.Invalidate(true);
@@ -667,6 +708,24 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
+			{
+				// Dimensions changed - invalidate cache
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				var cached = _contentCache.Content;
+				if (cached != null) return cached;
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
+
 			return _contentCache.GetOrRender(() =>
 			{
 				var content = new List<string>();
@@ -726,9 +785,14 @@ namespace SharpConsoleUI.Controls
 				paddingLeft = availableWidth.Value - dropdownWidth;
 			}
 
+			// Get current state from services (single source of truth)
+			int selectedIdx = CurrentSelectedIndex;
+			int highlightedIdx = CurrentHighlightedIndex;
+			int dropdownScroll = CurrentDropdownScrollOffset;
+
 			// Render header with selected item
-			string selectedText = _selectedIndex >= 0 && _selectedIndex < _items.Count
-				? _items[_selectedIndex].Text
+			string selectedText = selectedIdx >= 0 && selectedIdx < _items.Count
+				? _items[selectedIdx].Text
 				: "(None)";
 
 			// Truncate selected text if needed and add arrow indicator
@@ -817,18 +881,21 @@ namespace SharpConsoleUI.Controls
 
 				_calculatedMaxVisibleItems = effectiveMaxVisibleItems; // Update maxVisibleItems to actual value
 
+				// Update scroll dimensions so MaxVerticalOffset is calculated correctly
+				ScrollService?.UpdateDimensions(this, 0, _items.Count, 0, effectiveMaxVisibleItems);
+
 				// Now calculate actual items to show considering scroll offset
-				int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - _dropdownScrollOffset);
+				int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - dropdownScroll);
 
 				// Render each visible item
 				for (int i = 0; i < itemsToShow; i++)
 				{
-					int itemIndex = i + _dropdownScrollOffset;
+					int itemIndex = i + dropdownScroll;
 					if (itemIndex >= _items.Count)
 						break;
 
 					string itemText = _itemFormatter != null
-						? _itemFormatter(_items[itemIndex], itemIndex == _selectedIndex, _hasFocus)
+						? _itemFormatter(_items[itemIndex], itemIndex == selectedIdx, _hasFocus)
 						: _items[itemIndex].Text;
 
 					// Truncate if necessary
@@ -840,11 +907,11 @@ namespace SharpConsoleUI.Controls
 					string itemContent;
 
 					// Use highlight colors for selected item, normal colors for others
-					Color itemBg = (itemIndex == _selectedIndex) ? HighlightBackgroundColor : backgroundColor;
-					Color itemFg = (itemIndex == _selectedIndex) ? HighlightForegroundColor : foregroundColor;
+					Color itemBg = (itemIndex == selectedIdx) ? HighlightBackgroundColor : backgroundColor;
+					Color itemFg = (itemIndex == selectedIdx) ? HighlightForegroundColor : foregroundColor;
 
 					// Add selection indicator and calculate visual length for padding
-					string selectionIndicator = (itemIndex == _highlightedIndex ? "● " : "  ");
+					string selectionIndicator = (itemIndex == highlightedIdx ? "● " : "  ");
 
 					// Add selection indicator and padding
 					if (_items[itemIndex].Icon != null)
@@ -942,12 +1009,12 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Add scroll indicators if needed
-				if (_dropdownScrollOffset > 0 || _dropdownScrollOffset + itemsToShow < _items.Count)
+				if (dropdownScroll > 0 || dropdownScroll + itemsToShow < _items.Count)
 				{
 					string scrollIndicator = "";
 
 					// Top scroll indicator
-					if (_dropdownScrollOffset > 0)
+					if (dropdownScroll > 0)
 						scrollIndicator += "▲";
 					else
 						scrollIndicator += " ";
@@ -958,7 +1025,7 @@ namespace SharpConsoleUI.Controls
 						scrollIndicator += new string(' ', scrollPadding);
 
 					// Bottom scroll indicator
-					if (_dropdownScrollOffset + itemsToShow < _items.Count)
+					if (dropdownScroll + itemsToShow < _items.Count)
 						scrollIndicator += "▼";
 					else
 						scrollIndicator += " ";
@@ -1115,40 +1182,44 @@ namespace SharpConsoleUI.Controls
 
 		private void EnsureHighlightedItemVisible()
 		{
-			if (_highlightedIndex < 0)
+			int highlightedIdx = CurrentHighlightedIndex;
+			if (highlightedIdx < 0)
 				return;
 
-			// Calculate effective max visible items considering available space
-			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? 1;
+			// GUI framework approach: viewport is defined by MaxVisibleItems, not container space
+			int effectiveMaxVisibleItems = _maxVisibleItems;
 
-			// Now use effective max visible items for scrolling logic
-			if (_highlightedIndex < _dropdownScrollOffset)
+			int scrollOffset = CurrentDropdownScrollOffset;
+
+			if (highlightedIdx < scrollOffset)
 			{
-				_dropdownScrollOffset = _highlightedIndex;
+				SetDropdownScrollOffset(highlightedIdx);
 			}
-			else if (_highlightedIndex >= _dropdownScrollOffset + effectiveMaxVisibleItems)
+			else if (highlightedIdx >= scrollOffset + effectiveMaxVisibleItems)
 			{
-				_dropdownScrollOffset = _highlightedIndex - effectiveMaxVisibleItems + 1;
+				SetDropdownScrollOffset(highlightedIdx - effectiveMaxVisibleItems + 1);
 			}
 		}
 
 		// Ensures the selected item is visible in the dropdown
 		private void EnsureSelectedItemVisible()
 		{
-			if (_selectedIndex < 0)
+			int selectedIdx = CurrentSelectedIndex;
+			if (selectedIdx < 0)
 				return;
 
-			// Calculate effective max visible items considering available space
-			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? 1;
+			// GUI framework approach: viewport is defined by MaxVisibleItems, not container space
+			int effectiveMaxVisibleItems = _maxVisibleItems;
 
-			// Now use effective max visible items for scrolling logic
-			if (_selectedIndex < _dropdownScrollOffset)
+			int scrollOffset = CurrentDropdownScrollOffset;
+
+			if (selectedIdx < scrollOffset)
 			{
-				_dropdownScrollOffset = _selectedIndex;
+				SetDropdownScrollOffset(selectedIdx);
 			}
-			else if (_selectedIndex >= _dropdownScrollOffset + effectiveMaxVisibleItems)
+			else if (selectedIdx >= scrollOffset + effectiveMaxVisibleItems)
 			{
-				_dropdownScrollOffset = _selectedIndex - effectiveMaxVisibleItems + 1;
+				SetDropdownScrollOffset(selectedIdx - effectiveMaxVisibleItems + 1);
 			}
 		}
 

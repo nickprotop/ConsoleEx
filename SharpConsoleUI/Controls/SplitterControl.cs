@@ -37,6 +37,7 @@ namespace SharpConsoleUI.Controls
 		private bool _invalidated = true;
 		private bool _isDragging;
 		private bool _isEnabled = true;
+		private int? _lastRenderHeight;
 
 		// References to the columns on either side of this splitter
 		private ColumnContainer? _leftColumn;
@@ -313,11 +314,23 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (!_invalidated)
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
 			{
+				// Dimensions changed - invalidate cache
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
 				var cached = _contentCache.Content;
 				if (cached != null) return cached;
 			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
 
 			return _contentCache.GetOrRender(() =>
 			{

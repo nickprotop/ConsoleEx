@@ -121,7 +121,32 @@ namespace SharpConsoleUI.Controls
             }
         }
 
-        public virtual int? Width { get; set; }
+        private int? _width;
+
+        public virtual int? Width
+        {
+            get => _width;
+            set
+            {
+                // Validate: if value is provided, ensure it's non-negative
+                var validated = value.HasValue ? Math.Max(0, value.Value) : value;
+                if (_width != validated)
+                {
+                    _width = validated;
+                    InvalidateLayout();
+
+                    // Update LayoutStateService with new requirements
+                    var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+                    if (layoutService != null && validated.HasValue)
+                    {
+                        layoutService.UpdateRequirements(this, LayoutRequirements.Fixed(validated.Value));
+                    }
+
+                    // Notify parent container of the change
+                    Container?.Invalidate(true);
+                }
+            }
+        }
 
         public abstract List<string> RenderContent(int? availableWidth, int? availableHeight);
 

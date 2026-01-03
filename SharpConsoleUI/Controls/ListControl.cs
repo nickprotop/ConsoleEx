@@ -29,7 +29,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _foregroundColorValue;
 		private bool _hasFocus = false;
 		private Color? _highlightBackgroundColorValue;
-		private int _highlightedIndex = -1;
 		private Color? _highlightForegroundColorValue;
 		private bool _invalidated = true;
 		private bool _isEnabled = true;
@@ -40,23 +39,104 @@ namespace SharpConsoleUI.Controls
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private int? _maxVisibleItems = null;
 
-		// Added new field for fillHeight
-		private int _scrollOffset = 0;
-
 		private string _searchText = string.Empty;
-		private int _selectedIndex = -1;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string _title = "List";
 		private bool _visible = true;
 		private int? _width;
-		private int? _lastRenderWidth;
-		private int? _lastRenderHeight;
+		private int _localScrollOffset = 0;  // Local fallback for scroll offset
 
 		// Convenience property to access SelectionStateService
 		private SelectionStateService? SelectionService => Container?.GetConsoleWindowSystem?.SelectionStateService;
 
 		// Convenience property to access ScrollStateService
 		private ScrollStateService? ScrollService => Container?.GetConsoleWindowSystem?.ScrollStateService;
+
+		// Read-only helpers that read from state services (single source of truth)
+		private int CurrentSelectedIndex => SelectionService?.GetSelectedIndex(this) ?? -1;
+		private int CurrentHighlightedIndex => SelectionService?.GetHighlightedIndex(this) ?? -1;
+		private int CurrentScrollOffset => ScrollService?.GetVerticalOffset(this) ?? _localScrollOffset;
+
+		// Helper to set scroll offset - updates both service and local fallback
+		private void SetScrollOffset(int offset)
+		{
+			_localScrollOffset = Math.Max(0, offset);
+			// Use GetEffectiveVisibleItems() to get the actual visible item count (considering clipping)
+			// This ensures MaxVerticalOffset is calculated correctly
+			int viewportItems = GetEffectiveVisibleItems();
+			ScrollService?.UpdateDimensions(this, 0, _items.Count, 0, viewportItems);
+			ScrollService?.SetVerticalOffset(this, _localScrollOffset);
+		}
+
+		// Helper to find containing Window by traversing container hierarchy
+		private Window? FindContainingWindow()
+		{
+			IContainer? current = Container;
+			while (current != null)
+			{
+				if (current is Window window)
+					return window;
+				if (current is IWindowControl control)
+					current = control.Container;
+				else
+					break;
+			}
+			return null;
+		}
+
+		// Calculate effective visible items for scroll logic
+		private int GetEffectiveVisibleItems()
+		{
+			// Query actual visible height from container (accounts for clipping)
+			int? actualVisibleHeight = Container?.GetVisibleHeightForControl(this);
+			int actualVisibleItems = int.MaxValue;
+
+			if (actualVisibleHeight.HasValue && actualVisibleHeight.Value > 0)
+			{
+				// Account for title bar and scroll indicator
+				int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
+				int scrollIndicatorHeight = 1; // Assume scroll indicator present when scrolling
+				int availableForItems = Math.Max(1, actualVisibleHeight.Value - titleHeight - scrollIndicatorHeight);
+
+				// Count how many items actually fit based on their line heights
+				// Start from current scroll offset to match what's actually visible
+				int scrollOffset = CurrentScrollOffset;
+				actualVisibleItems = 0;
+				int heightUsed = 0;
+
+				for (int i = scrollOffset; i < _items.Count; i++)
+				{
+					int itemHeight = _items[i].Lines.Count;
+					if (heightUsed + itemHeight <= availableForItems)
+					{
+						actualVisibleItems++;
+						heightUsed += itemHeight;
+					}
+					else
+					{
+						break;
+					}
+				}
+
+				actualVisibleItems = Math.Max(1, actualVisibleItems);
+			}
+
+			// If user set MaxVisibleItems, use the minimum of that and actual visible
+			// This ensures scrolling works even when MaxVisibleItems > actual visible area
+			if (_maxVisibleItems.HasValue)
+				return Math.Min(_maxVisibleItems.Value, actualVisibleItems);
+
+			// If we have actual visible height, use it
+			if (actualVisibleItems < int.MaxValue)
+				return actualVisibleItems;
+
+			// Fall back to calculated max from last render
+			if (_calculatedMaxVisibleItems.HasValue)
+				return _calculatedMaxVisibleItems.Value;
+
+			// Ultimate fallback
+			return Math.Min(10, _items.Count);
+		}
 
 		public ListControl(string? title, IEnumerable<string>? items)
 		{
@@ -309,9 +389,12 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_items = value;
-				if (_selectedIndex >= _items.Count)
+				// Adjust selection if out of bounds
+				int currentSel = CurrentSelectedIndex;
+				if (currentSel >= _items.Count)
 				{
-					_selectedIndex = _items.Count > 0 ? 0 : -1;
+					int newSel = _items.Count > 0 ? 0 : -1;
+					SelectionService?.SetSelectedIndex(this, newSel);
 				}
 				_contentCache.Invalidate();
 				Container?.Invalidate(true);
@@ -343,44 +426,39 @@ namespace SharpConsoleUI.Controls
 
 		public int SelectedIndex
 		{
-			get => _selectedIndex;
+			get => CurrentSelectedIndex;
 			set
 			{
 				if (!_isSelectable)
 					return;
 
-				if (value >= -1 && value < _items.Count && _selectedIndex != value)
+				int oldIndex = CurrentSelectedIndex;
+				if (value >= -1 && value < _items.Count && oldIndex != value)
 				{
-					int oldIndex = _selectedIndex;
-					_selectedIndex = value;
+					// Write to state service (single source of truth)
+					SelectionService?.SetSelectedIndex(this, value);
 					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 
-					// Sync with SelectionStateService
-					SelectionService?.SetSelectedIndex(this, _selectedIndex);
-
 					// Ensure selected item is visible
-					if (_selectedIndex >= 0)
+					if (value >= 0)
 					{
 						EnsureSelectedItemVisible();
 					}
 
 					// Trigger events
-					if (oldIndex != _selectedIndex)
-					{
-						SelectedIndexChanged?.Invoke(this, _selectedIndex);
-						SelectedItemChanged?.Invoke(this, (_selectedIndex >= 0 && _selectedIndex < _items.Count) ?
-							_items[_selectedIndex] : null);
-						SelectedValueChanged?.Invoke(this, (_selectedIndex >= 0 && _selectedIndex < _items.Count) ?
-							_items[_selectedIndex].Text : null);
-					}
+					SelectedIndexChanged?.Invoke(this, value);
+					SelectedItemChanged?.Invoke(this, (value >= 0 && value < _items.Count) ?
+						_items[value] : null);
+					SelectedValueChanged?.Invoke(this, (value >= 0 && value < _items.Count) ?
+						_items[value].Text : null);
 				}
 			}
 		}
 
 		public ListItem? SelectedItem
 		{
-			get => _selectedIndex >= 0 && _selectedIndex < _items.Count ? _items[_selectedIndex] : null;
+			get { int idx = CurrentSelectedIndex; return idx >= 0 && idx < _items.Count ? _items[idx] : null; }
 			set
 			{
 				if (!_isSelectable || value == null)
@@ -399,7 +477,7 @@ namespace SharpConsoleUI.Controls
 
 		public string? SelectedValue
 		{
-			get => _selectedIndex >= 0 && _selectedIndex < _items.Count ? _items[_selectedIndex].Text : null;
+			get { int idx = CurrentSelectedIndex; return idx >= 0 && idx < _items.Count ? _items[idx].Text : null; }
 			set
 			{
 				if (!_isSelectable || value == null)
@@ -435,9 +513,11 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_items = value.Select(text => new ListItem(text)).ToList();
-				if (_selectedIndex >= _items.Count)
+				int currentSel = CurrentSelectedIndex;
+				if (currentSel >= _items.Count)
 				{
-					_selectedIndex = _items.Count > 0 ? 0 : -1;
+					int newSel = _items.Count > 0 ? 0 : -1;
+					SelectionService?.SetSelectedIndex(this, newSel);
 				}
 				_contentCache.Invalidate();
 				Container?.Invalidate(true);
@@ -502,19 +582,17 @@ namespace SharpConsoleUI.Controls
 		public void ClearItems()
 		{
 			_items.Clear();
-			_selectedIndex = -1;
-			_highlightedIndex = -1;
-			_scrollOffset = 0;
+
+			// Clear state via services (single source of truth)
+			SelectionService?.ClearAll(this);
+			SetScrollOffset(0);
+
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
-			// Sync with state services
-			SelectionService?.ClearSelection(this);
-			ScrollService?.ResetScroll(this);
-
 			if (_isSelectable)
 			{
-				SelectedIndexChanged?.Invoke(this, _selectedIndex);
+				SelectedIndexChanged?.Invoke(this, -1);
 				SelectedItemChanged?.Invoke(this, null);
 				SelectedValueChanged?.Invoke(this, null);
 			}
@@ -550,12 +628,13 @@ namespace SharpConsoleUI.Controls
 			// If control is not selectable, we just handle scrolling
 			if (!_isSelectable)
 			{
+				int scrollOffset = CurrentScrollOffset;
 				switch (key.Key)
 				{
 					case ConsoleKey.DownArrow:
-						if (_scrollOffset < _items.Count - (_calculatedMaxVisibleItems ?? _maxVisibleItems))
+						if (scrollOffset < _items.Count - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 10))
 						{
-							_scrollOffset++;
+							SetScrollOffset(scrollOffset + 1);
 							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
@@ -563,9 +642,9 @@ namespace SharpConsoleUI.Controls
 						return false;
 
 					case ConsoleKey.UpArrow:
-						if (_scrollOffset > 0)
+						if (scrollOffset > 0)
 						{
-							_scrollOffset--;
+							SetScrollOffset(scrollOffset - 1);
 							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
@@ -573,10 +652,10 @@ namespace SharpConsoleUI.Controls
 						return false;
 
 					case ConsoleKey.PageDown:
-						int pageSize = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1;
-						if (_scrollOffset < _items.Count - pageSize)
+						int pageSize = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? 10;
+						if (scrollOffset < _items.Count - pageSize)
 						{
-							_scrollOffset = Math.Min(_items.Count - pageSize, _scrollOffset + pageSize);
+							SetScrollOffset(Math.Min(_items.Count - pageSize, scrollOffset + pageSize));
 							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
@@ -584,9 +663,9 @@ namespace SharpConsoleUI.Controls
 						return false;
 
 					case ConsoleKey.PageUp:
-						if (_scrollOffset > 0)
+						if (scrollOffset > 0)
 						{
-							_scrollOffset = Math.Max(0, _scrollOffset - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
+							SetScrollOffset(Math.Max(0, scrollOffset - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 10)));
 							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
@@ -594,9 +673,9 @@ namespace SharpConsoleUI.Controls
 						return false;
 
 					case ConsoleKey.Home:
-						if (_scrollOffset > 0)
+						if (scrollOffset > 0)
 						{
-							_scrollOffset = 0;
+							SetScrollOffset(0);
 							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
@@ -604,10 +683,10 @@ namespace SharpConsoleUI.Controls
 						return false;
 
 					case ConsoleKey.End:
-						int availableItems = _items.Count - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1);
-						if (_scrollOffset < availableItems && availableItems > 0)
+						int availableItems = _items.Count - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 10);
+						if (scrollOffset < availableItems && availableItems > 0)
 						{
-							_scrollOffset = availableItems;
+							SetScrollOffset(availableItems);
 							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
@@ -620,13 +699,13 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// If control is selectable, we handle both scrolling and selection
+			int highlightedIndex = CurrentHighlightedIndex;
 			switch (key.Key)
 			{
 				case ConsoleKey.DownArrow:
-					if (_highlightedIndex < _items.Count - 1)
+					if (highlightedIndex < _items.Count - 1)
 					{
-						_highlightedIndex++;
-						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
+						SelectionService?.SetHighlightedIndex(this, highlightedIndex + 1);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -635,10 +714,9 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.UpArrow:
-					if (_highlightedIndex > 0)
+					if (highlightedIndex > 0)
 					{
-						_highlightedIndex--;
-						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
+						SelectionService?.SetHighlightedIndex(this, highlightedIndex - 1);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -647,9 +725,9 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.Enter:
-					if (_highlightedIndex >= 0 && _highlightedIndex < _items.Count)
+					if (highlightedIndex >= 0 && highlightedIndex < _items.Count)
 					{
-						SelectedIndex = _highlightedIndex;
+						SelectedIndex = highlightedIndex;
 						return true;
 					}
 					return false;
@@ -657,8 +735,7 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.Home:
 					if (_items.Count > 0)
 					{
-						_highlightedIndex = 0;
-						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
+						SelectionService?.SetHighlightedIndex(this, 0);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -669,8 +746,7 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.End:
 					if (_items.Count > 0)
 					{
-						_highlightedIndex = _items.Count - 1;
-						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
+						SelectionService?.SetHighlightedIndex(this, _items.Count - 1);
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -679,10 +755,9 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.PageUp:
-					if (_highlightedIndex > 0)
+					if (highlightedIndex > 0)
 					{
-						_highlightedIndex = Math.Max(0, _highlightedIndex - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
-						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
+						SelectionService?.SetHighlightedIndex(this, Math.Max(0, highlightedIndex - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1)));
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -691,10 +766,9 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.PageDown:
-					if (_highlightedIndex < _items.Count - 1)
+					if (highlightedIndex < _items.Count - 1)
 					{
-						_highlightedIndex = Math.Min(_items.Count - 1, _highlightedIndex + (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
-						SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
+						SelectionService?.SetHighlightedIndex(this, Math.Min(_items.Count - 1, highlightedIndex + (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1)));
 						EnsureHighlightedItemVisible();
 						_contentCache.Invalidate();
 						Container?.Invalidate(true);
@@ -723,8 +797,7 @@ namespace SharpConsoleUI.Controls
 						{
 							if (_items[i].Text.StartsWith(_searchText, StringComparison.OrdinalIgnoreCase))
 							{
-								_highlightedIndex = i;
-								SelectionService?.SetHighlightedIndex(this, _highlightedIndex);
+								SelectionService?.SetHighlightedIndex(this, i);
 								EnsureHighlightedItemVisible();
 								_contentCache.Invalidate();
 								Container?.Invalidate(true);
@@ -738,18 +811,26 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			// Check if dimensions have changed - if so, invalidate the cache
-			int? effectiveWidthCheck = _width ?? availableWidth;
-			if (_lastRenderWidth != effectiveWidthCheck || _lastRenderHeight != availableHeight)
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
 			{
+				// Dimensions changed - invalidate cache
 				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				var cached = _contentCache.Content;
+				if (cached != null) return cached;
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
 
 			return _contentCache.GetOrRender(() =>
 			{
-				// Store the render dimensions for cache validation
-				_lastRenderWidth = _width ?? availableWidth;
-				_lastRenderHeight = availableHeight;
 
 				var content = new List<string>();
 
@@ -875,8 +956,11 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Determine how many items to show based on available height and maxVisibleItems
+			int scrollOffset = CurrentScrollOffset;
+			int selectedIndex = CurrentSelectedIndex;
+			int highlightedIndex = CurrentHighlightedIndex;
 			int effectiveMaxVisibleItems;
-			bool hasScrollIndicator = _scrollOffset > 0 || _items.Count > (_maxVisibleItems ?? 10000);
+			bool hasScrollIndicator = scrollOffset > 0 || _items.Count > (_maxVisibleItems ?? 10000);
 			int titleHeight = hasTitle ? 1 : 0;
 			int scrollIndicatorHeight = hasScrollIndicator ? 1 : 0;
 			int marginHeight = _margin.Top + _margin.Bottom;
@@ -896,10 +980,10 @@ namespace SharpConsoleUI.Controls
 				effectiveMaxVisibleItems = 0;
 				int heightUsed = 0;
 
-				for (int i = _scrollOffset; i < _items.Count; i++)
+				for (int i = scrollOffset; i < _items.Count; i++)
 				{
 					int itemHeight = _items[i].Lines.Count;
-					if (heightUsed + itemHeight < availableContentHeight)
+					if (heightUsed + itemHeight <= availableContentHeight)  // Use <= to include items that exactly fit
 					{
 						effectiveMaxVisibleItems++;
 						heightUsed += itemHeight;
@@ -921,8 +1005,11 @@ namespace SharpConsoleUI.Controls
 
 			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
+			// Update scroll dimensions so MaxVerticalOffset is calculated correctly
+			ScrollService?.UpdateDimensions(this, 0, _items.Count, 0, effectiveMaxVisibleItems);
+
 			// Calculate how many items we can show
-			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - _scrollOffset);
+			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - scrollOffset);
 
 			// Render title bar only if title is not null or empty
 			if (hasTitle)
@@ -986,15 +1073,16 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Initialize highlighted index if needed
-			if (_highlightedIndex == -1 && _selectedIndex >= 0)
+			if (highlightedIndex == -1 && selectedIndex >= 0)
 			{
-				_highlightedIndex = _selectedIndex;
+				SelectionService?.SetHighlightedIndex(this, selectedIndex);
+				highlightedIndex = selectedIndex;
 			}
 
 			// Render each visible item
 			for (int i = 0; i < itemsToShow; i++)
 			{
-				int itemIndex = i + _scrollOffset;
+				int itemIndex = i + scrollOffset;
 				if (itemIndex >= _items.Count)
 					break;
 
@@ -1010,7 +1098,7 @@ namespace SharpConsoleUI.Controls
 					// (could be extended to format each line differently)
 					if (lineIndex == 0 && _itemFormatter != null)
 					{
-						lineText = _itemFormatter(_items[itemIndex], itemIndex == _selectedIndex, _hasFocus);
+						lineText = _itemFormatter(_items[itemIndex], itemIndex == selectedIndex, _hasFocus);
 					}
 
 					// Truncate if necessary
@@ -1025,13 +1113,13 @@ namespace SharpConsoleUI.Controls
 					Color itemFg;
 
 					// For selectable lists, highlight the selected item
-					if (_isSelectable && itemIndex == _highlightedIndex && _hasFocus)
+					if (_isSelectable && itemIndex == highlightedIndex && _hasFocus)
 					{
 						itemBg = HighlightBackgroundColor;
 						itemFg = HighlightForegroundColor;
 					}
 					// Handle selected but not highlighted
-					else if (_isSelectable && itemIndex == _selectedIndex)
+					else if (_isSelectable && itemIndex == selectedIndex)
 					{
 						itemBg = backgroundColor; // Use control background
 						itemFg = foregroundColor; // Use control foreground
@@ -1048,7 +1136,7 @@ namespace SharpConsoleUI.Controls
 					string selectionIndicator = "";
 					if (_isSelectable && lineIndex == 0)
 					{
-						selectionIndicator = (itemIndex == _selectedIndex) ? "[x] " : "[ ] ";
+						selectionIndicator = (itemIndex == selectedIndex) ? "[x] " : "[ ] ";
 					}
 					else if (_isSelectable)
 					{
@@ -1168,7 +1256,7 @@ namespace SharpConsoleUI.Controls
 
 				// Account for title and scroll indicators that are already part of the content
 				hasTitle = !string.IsNullOrEmpty(_title);
-				hasScrollIndicator = (_scrollOffset > 0 || _scrollOffset + itemsToShow < _items.Count);
+				hasScrollIndicator = (scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count);
 
 				// Calculate the target height we want to fill
 				int targetHeight = availableHeight.Value - 1 - _margin.Top - _margin.Bottom - (hasTitle ? 1 : 0) - (hasScrollIndicator ? 1 : 0);
@@ -1235,12 +1323,12 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Add scroll indicators if needed
-			if (_scrollOffset > 0 || _scrollOffset + itemsToShow < _items.Count)
+			if (scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count)
 			{
 				string scrollIndicator = "";
 
 				// Top scroll indicator
-				if (_scrollOffset > 0)
+				if (scrollOffset > 0)
 					scrollIndicator += "▲";
 				else
 					scrollIndicator += " ";
@@ -1251,7 +1339,7 @@ namespace SharpConsoleUI.Controls
 					scrollIndicator += new string(' ', scrollPadding);
 
 				// Bottom scroll indicator
-				if (_scrollOffset + itemsToShow < _items.Count)
+				if (scrollOffset + itemsToShow < _items.Count)
 					scrollIndicator += "▼";
 				else
 					scrollIndicator += " ";
@@ -1359,11 +1447,12 @@ namespace SharpConsoleUI.Controls
 			_hasFocus = focus;
 			if (!_hasFocus)
 			{
-				_highlightedIndex = _selectedIndex; // Reset highlighted index
+				// Reset highlighted index to selected index
+				SelectionService?.SetHighlightedIndex(this, CurrentSelectedIndex);
 			}
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
-			
+
 			// Fire focus events
 			if (focus && !hadFocus)
 			{
@@ -1378,11 +1467,12 @@ namespace SharpConsoleUI.Controls
 		private int CalculateTotalVisibleItemsHeight()
 		{
 			int totalHeight = 0;
-			int itemsToCount = Math.Min(_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1, _items.Count - _scrollOffset);
+			int scrollOffset = CurrentScrollOffset;
+			int itemsToCount = Math.Min(_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1, _items.Count - scrollOffset);
 
 			for (int i = 0; i < itemsToCount; i++)
 			{
-				int itemIndex = i + _scrollOffset;
+				int itemIndex = i + scrollOffset;
 				if (itemIndex < _items.Count)
 				{
 					totalHeight += _items[itemIndex].Lines.Count;
@@ -1394,39 +1484,39 @@ namespace SharpConsoleUI.Controls
 
 		private void EnsureHighlightedItemVisible()
 		{
-			if (_highlightedIndex < 0)
+			int highlightedIndex = CurrentHighlightedIndex;
+			if (highlightedIndex < 0)
 				return;
 
-			// Calculate effective max visible items considering available space
-			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1;
+			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
+			int scrollOffset = CurrentScrollOffset;
 
-			// Now use effective max visible items for scrolling logic
-			if (_highlightedIndex < _scrollOffset)
+			if (highlightedIndex < scrollOffset)
 			{
-				_scrollOffset = _highlightedIndex;
+				SetScrollOffset(highlightedIndex);
 			}
-			else if (_highlightedIndex >= _scrollOffset + effectiveMaxVisibleItems)
+			else if (highlightedIndex >= scrollOffset + effectiveMaxVisibleItems)
 			{
-				_scrollOffset = _highlightedIndex - effectiveMaxVisibleItems + 1;
+				SetScrollOffset(highlightedIndex - effectiveMaxVisibleItems + 1);
 			}
 		}
 
 		private void EnsureSelectedItemVisible()
 		{
-			if (_selectedIndex < 0)
+			int selectedIndex = CurrentSelectedIndex;
+			if (selectedIndex < 0)
 				return;
 
-			// Calculate effective max visible items considering available space
-			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1;
+			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
+			int scrollOffset = CurrentScrollOffset;
 
-			// Now use effective max visible items for scrolling logic
-			if (_selectedIndex < _scrollOffset)
+			if (selectedIndex < scrollOffset)
 			{
-				_scrollOffset = _selectedIndex;
+				SetScrollOffset(selectedIndex);
 			}
-			else if (_selectedIndex >= _scrollOffset + effectiveMaxVisibleItems)
+			else if (selectedIndex >= scrollOffset + effectiveMaxVisibleItems)
 			{
-				_scrollOffset = _selectedIndex - effectiveMaxVisibleItems + 1;
+				SetScrollOffset(selectedIndex - effectiveMaxVisibleItems + 1);
 			}
 		}
 	}

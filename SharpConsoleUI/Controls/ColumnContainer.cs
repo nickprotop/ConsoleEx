@@ -16,7 +16,7 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl
+	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, ILayoutAware
 	{
 		private Alignment _alignment = Alignment.Left;
 		private Color? _backgroundColorValue;
@@ -61,8 +61,51 @@ namespace SharpConsoleUI.Controls
 			set { _foregroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); }
 		}
 
+		private bool _propagatingWindowSystem = false;
+
 		public ConsoleWindowSystem? GetConsoleWindowSystem
-		{ get => _consoleWindowSystem; set { _consoleWindowSystem = value; foreach (IWindowControl control in _contents) { control.Invalidate(); }; this.SafeInvalidate(InvalidationReason.PropertyChanged); } }
+		{
+			get => _consoleWindowSystem;
+			set
+			{
+				// Avoid redundant work if value unchanged
+				if (_consoleWindowSystem == value)
+					return;
+
+				_consoleWindowSystem = value;
+
+				// Propagate to nested HorizontalGridControls if not already propagating (prevents re-entrancy)
+				if (!_propagatingWindowSystem)
+				{
+					_propagatingWindowSystem = true;
+					try
+					{
+						foreach (IWindowControl control in _contents)
+						{
+							if (control is HorizontalGridControl nestedGrid)
+							{
+								// Update nested grid's columns
+								foreach (var column in nestedGrid.Columns)
+								{
+									column.GetConsoleWindowSystem = value;
+								}
+							}
+						}
+					}
+					finally
+					{
+						_propagatingWindowSystem = false;
+					}
+				}
+
+				// Invalidate contents
+				foreach (IWindowControl control in _contents)
+				{
+					control.Invalidate();
+				}
+				this.SafeInvalidate(InvalidationReason.PropertyChanged);
+			}
+		}
 
 		public HorizontalGridControl HorizontalGridContent
 		{
@@ -95,9 +138,135 @@ namespace SharpConsoleUI.Controls
 			{
 				_width = validatedValue;
 				Invalidate(true);
+
+				// Notify layout service of requirements change
+				NotifyLayoutRequirementsChanged();
 			}
 		}
-	}		// IWindowControl implementation
+	}
+
+		private int? _minWidth;
+		private int? _maxWidth;
+		private double _flexFactor = 1.0;
+
+		/// <summary>
+		/// Minimum width constraint for flexible columns (null = no minimum, defaults to 1 during layout)
+		/// </summary>
+		public int? MinWidth
+		{
+			get => _minWidth;
+			set
+			{
+				if (_minWidth != value)
+				{
+					_minWidth = value;
+					Invalidate(true);
+					NotifyLayoutRequirementsChanged();
+				}
+			}
+		}
+
+		/// <summary>
+		/// Maximum width constraint for flexible columns (null = unlimited)
+		/// </summary>
+		public int? MaxWidth
+		{
+			get => _maxWidth;
+			set
+			{
+				if (_maxWidth != value)
+				{
+					_maxWidth = value;
+					Invalidate(true);
+					NotifyLayoutRequirementsChanged();
+				}
+			}
+		}
+
+		/// <summary>
+		/// Flex factor for proportional sizing when Width is null (1.0 = equal share)
+		/// </summary>
+		public double FlexFactor
+		{
+			get => _flexFactor;
+			set
+			{
+				if (_flexFactor != value)
+				{
+					_flexFactor = Math.Max(0, value);
+					Invalidate(true);
+					NotifyLayoutRequirementsChanged();
+				}
+			}
+		}
+
+		#region ILayoutAware Implementation
+
+		/// <summary>
+		/// Gets the layout requirements for this column
+		/// </summary>
+		public LayoutRequirements GetLayoutRequirements()
+		{
+			if (_width.HasValue)
+			{
+				// Fixed width column
+				return LayoutRequirements.Fixed(_width.Value, _alignment);
+			}
+			else
+			{
+				// Calculate minimum width from content if not explicitly set
+				int? effectiveMinWidth = _minWidth;
+				if (!effectiveMinWidth.HasValue && _contents.Count > 0)
+				{
+					// Get the maximum required width from all content controls
+					int maxContentWidth = 0;
+					foreach (var content in _contents)
+					{
+						// Check if content has an explicit Width requirement
+						if (content.Width.HasValue)
+						{
+							maxContentWidth = Math.Max(maxContentWidth, content.Width.Value);
+						}
+					}
+					if (maxContentWidth > 0)
+					{
+						effectiveMinWidth = maxContentWidth;
+					}
+				}
+
+				// Flexible column with optional constraints
+				return new LayoutRequirements
+				{
+					MinWidth = effectiveMinWidth,
+					MaxWidth = _maxWidth,
+					HorizontalAlignment = _alignment,
+					FlexFactor = _flexFactor
+				};
+			}
+		}
+
+		/// <summary>
+		/// Called when layout allocation is set for this column
+		/// </summary>
+		public void OnLayoutAllocated(LayoutAllocation allocation)
+		{
+			// Store the allocated dimensions for use during rendering
+			// The RenderContent method will use _lastRenderWidth which gets updated during render
+			// This is informational - the actual width comes from the RenderContent parameter
+		}
+
+		private void NotifyLayoutRequirementsChanged()
+		{
+			var layoutService = GetConsoleWindowSystem?.LayoutStateService;
+			if (layoutService != null)
+			{
+				layoutService.UpdateRequirements(this, GetLayoutRequirements(), LayoutChangeReason.RequirementsChange);
+			}
+		}
+
+		#endregion
+
+		// IWindowControl implementation
 		public int? ActualWidth => GetActualWidth();
 		
 		public Alignment Alignment
@@ -152,10 +321,23 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets the list of child controls in this column
+		/// </summary>
+		public IReadOnlyList<IWindowControl> Contents => _contents;
+
 		public void AddContent(IWindowControl content)
 		{
 			content.Container = this;
 			_contents.Add(content);
+
+			// Update MinWidth if content has explicit Width and it's larger than current MinWidth
+			// This ensures the column gets enough space during layout distribution
+			if (content.Width.HasValue && (!_minWidth.HasValue || content.Width.Value > _minWidth.Value))
+			{
+				_minWidth = content.Width.Value;
+			}
+
 			Invalidate(true);
 		}
 
@@ -192,13 +374,13 @@ namespace SharpConsoleUI.Controls
 	{
 		_isDirty = true;
 		_contentCache.Invalidate(InvalidationReason.ChildInvalidated);
-		
+
 		// Prevent infinite recursion by tracking if this container is already being invalidated
 		if (_invalidatingContainers.Value!.Contains(this))
 		{
 			return;
 		}
-		
+
 		// Only invalidate parent grid if we're not being called from it
 		// This prevents infinite recursion in invalidation chains
 		if (callerControl != _horizontalGridContent && _horizontalGridContent != null)
@@ -213,7 +395,22 @@ namespace SharpConsoleUI.Controls
 				_invalidatingContainers.Value!.Remove(this);
 			}
 		}
-	}		public void InvalidateOnlyColumnContents(IWindowControl? callerControl = null)
+	}
+
+	/// <summary>
+	/// Gets the actual visible height for a control within this column.
+	/// Delegates to parent container if available.
+	/// </summary>
+	public int? GetVisibleHeightForControl(IWindowControl control)
+	{
+		// ColumnContainer doesn't clip its children, so delegate to parent
+		// Navigate through HorizontalGridControl to reach the Window
+		// Note: _container may not be set, but _horizontalGridContent.Container should point to Window
+		var parentContainer = _horizontalGridContent?.Container;
+		return parentContainer?.GetVisibleHeightForControl(control);
+	}
+
+	public void InvalidateOnlyColumnContents(IWindowControl? callerControl = null)
 		{
 			_isDirty = true;
 			_contentCache.Invalidate(InvalidationReason.ContentChanged);
@@ -256,12 +453,23 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			// Check if dimensions have changed - if so, invalidate the cache
-			int? effectiveWidth = _width ?? availableWidth;
-			if (_lastRenderWidth != effectiveWidth || _lastRenderHeight != availableHeight)
+			var layoutService = GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
 			{
+				// Dimensions changed - invalidate cache
 				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				var cached = _contentCache.Content;
+				if (cached != null) return cached;
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
 
 			// Use thread-safe cache with lazy rendering
 			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));

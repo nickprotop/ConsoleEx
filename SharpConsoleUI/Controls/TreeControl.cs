@@ -33,13 +33,19 @@ namespace SharpConsoleUI.Controls
 		private string _indent = "  ";
 		private bool _isEnabled = true;
 		private Margin _margin = new(0, 0, 0, 0);
-		private int _scrollOffset = 0;
-		private int _selectedIndex = 0;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
-		private int? _lastRenderWidth;
-		private int? _lastRenderHeight;
+
+		// Convenience property to access SelectionStateService
+		private SelectionStateService? SelectionService => Container?.GetConsoleWindowSystem?.SelectionStateService;
+
+		// Convenience property to access ScrollStateService
+		private ScrollStateService? ScrollService => Container?.GetConsoleWindowSystem?.ScrollStateService;
+
+		// Read-only helpers that read from state services (single source of truth)
+		private int CurrentSelectedIndex => SelectionService?.GetSelectedIndex(this) ?? 0;
+		private int CurrentScrollOffset => ScrollService?.GetVerticalOffset(this) ?? 0;
 
 		public TreeControl()
 		{
@@ -238,14 +244,20 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public int SelectedIndex
 		{
-			get => _selectedIndex;
+			get => CurrentSelectedIndex;
 			set
 			{
 				if (_flattenedNodes.Count > 0)
 				{
-					_selectedIndex = Math.Max(0, Math.Min(value, _flattenedNodes.Count - 1));
-					_contentCache.Invalidate();
-					Container?.Invalidate(true);
+					int newValue = Math.Max(0, Math.Min(value, _flattenedNodes.Count - 1));
+					int currentSel = CurrentSelectedIndex;
+					if (currentSel != newValue)
+					{
+						// Write to state service (single source of truth)
+						SelectionService?.SetSelectedIndex(this, newValue);
+						_contentCache.Invalidate();
+						Container?.Invalidate(true);
+					}
 				}
 			}
 		}
@@ -253,9 +265,16 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the currently selected node
 		/// </summary>
-		public TreeNode? SelectedNode => _flattenedNodes.Count > 0 && _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count
-			? _flattenedNodes[_selectedIndex]
-			: null;
+		public TreeNode? SelectedNode
+		{
+			get
+			{
+				int idx = CurrentSelectedIndex;
+				return _flattenedNodes.Count > 0 && idx >= 0 && idx < _flattenedNodes.Count
+					? _flattenedNodes[idx]
+					: null;
+			}
+		}
 
 		public StickyPosition StickyPosition
 		{
@@ -330,7 +349,11 @@ namespace SharpConsoleUI.Controls
 		{
 			_rootNodes.Clear();
 			_flattenedNodes.Clear();
-			_selectedIndex = -1;
+
+			// Clear state via services (single source of truth)
+			SelectionService?.ClearSelection(this);
+			ScrollService?.ResetScroll(this);
+
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
@@ -464,12 +487,13 @@ namespace SharpConsoleUI.Controls
 
 			if (key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt) || key.Modifiers.HasFlag(ConsoleModifiers.Control)) return false;
 
+			int selectedIndex = CurrentSelectedIndex;
 			switch (key.Key)
 			{
 				case ConsoleKey.UpArrow:
-					if (_selectedIndex > 0)
+					if (selectedIndex > 0)
 					{
-						_selectedIndex--;
+						SelectionService?.SetSelectedIndex(this, selectedIndex - 1);
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_contentCache.Invalidate();
@@ -479,9 +503,9 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.DownArrow:
-					if (_selectedIndex < _flattenedNodes.Count - 1)
+					if (selectedIndex < _flattenedNodes.Count - 1)
 					{
-						_selectedIndex++;
+						SelectionService?.SetSelectedIndex(this, selectedIndex + 1);
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_contentCache.Invalidate();
@@ -491,11 +515,11 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.PageUp:
-					if (_selectedIndex > 0)
+					if (selectedIndex > 0)
 					{
 						// Move up by a page (max visible items)
 						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-						_selectedIndex = Math.Max(0, _selectedIndex - pageSize);
+						SelectionService?.SetSelectedIndex(this, Math.Max(0, selectedIndex - pageSize));
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_contentCache.Invalidate();
@@ -505,11 +529,11 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.PageDown:
-					if (_selectedIndex < _flattenedNodes.Count - 1)
+					if (selectedIndex < _flattenedNodes.Count - 1)
 					{
 						// Move down by a page (max visible items)
 						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-						_selectedIndex = Math.Min(_flattenedNodes.Count - 1, _selectedIndex + pageSize);
+						SelectionService?.SetSelectedIndex(this, Math.Min(_flattenedNodes.Count - 1, selectedIndex + pageSize));
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_contentCache.Invalidate();
@@ -561,9 +585,9 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.Home:
-					if (_selectedIndex != 0)
+					if (selectedIndex != 0)
 					{
-						_selectedIndex = 0;
+						SelectionService?.SetSelectedIndex(this, 0);
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_contentCache.Invalidate();
@@ -573,9 +597,9 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.End:
-					if (_selectedIndex != _flattenedNodes.Count - 1)
+					if (selectedIndex != _flattenedNodes.Count - 1)
 					{
-						_selectedIndex = _flattenedNodes.Count - 1;
+						SelectionService?.SetSelectedIndex(this, _flattenedNodes.Count - 1);
 						EnsureSelectedItemVisible();
 						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
 						_contentCache.Invalidate();
@@ -610,19 +634,26 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			// Check if dimensions have changed - if so, invalidate the cache
-			int? effectiveWidthCheck = _width ?? availableWidth;
-			if (_lastRenderWidth != effectiveWidthCheck || _lastRenderHeight != availableHeight)
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
 			{
+				// Dimensions changed - invalidate cache
 				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				var cached = _contentCache.Content;
+				if (cached != null) return cached;
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
 
 			return _contentCache.GetOrRender(() =>
 			{
-				// Store the render dimensions for cache validation
-				_lastRenderWidth = _width ?? availableWidth;
-				_lastRenderHeight = availableHeight;
-
 				if (!Visible) return new List<string>();
 
 				// Update the flattened nodes list
@@ -665,9 +696,14 @@ namespace SharpConsoleUI.Controls
 				// Store calculated max visible items
 				_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
-				// Ensure scroll offset is within valid range
+				// Get and validate scroll offset
+				int scrollOffset = CurrentScrollOffset;
 				int maxScrollOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
-				_scrollOffset = Math.Max(0, Math.Min(_scrollOffset, maxScrollOffset));
+				if (scrollOffset < 0 || scrollOffset > maxScrollOffset)
+				{
+					scrollOffset = Math.Max(0, Math.Min(scrollOffset, maxScrollOffset));
+					ScrollService?.SetVerticalOffset(this, scrollOffset);
+				}
 
 				// Ensure selected item is visible
 				EnsureSelectedItemVisible();
@@ -677,10 +713,10 @@ namespace SharpConsoleUI.Controls
 
 				// Get visible nodes based on scroll offset
 				var visibleNodes = new List<TreeNode>();
-				int endIndex = Math.Min(_scrollOffset + effectiveMaxVisibleItems, _flattenedNodes.Count);
+				int endIndex = Math.Min(scrollOffset + effectiveMaxVisibleItems, _flattenedNodes.Count);
 
 				// Map flattened nodes back to tree structure for rendering
-				for (int i = _scrollOffset; i < endIndex; i++)
+				for (int i = scrollOffset; i < endIndex; i++)
 				{
 					visibleNodes.Add(_flattenedNodes[i]);
 				}
@@ -797,7 +833,7 @@ namespace SharpConsoleUI.Controls
 					string scrollIndicator = "";
 
 					// Up arrow if not at the top
-					if (_scrollOffset > 0)
+					if (scrollOffset > 0)
 						scrollIndicator += "▲";
 					else
 						scrollIndicator += " ";
@@ -808,7 +844,7 @@ namespace SharpConsoleUI.Controls
 						scrollIndicator += new string(' ', scrollPadding);
 
 					// Down arrow if not at the bottom
-					if (_scrollOffset + effectiveMaxVisibleItems < _flattenedNodes.Count)
+					if (scrollOffset + effectiveMaxVisibleItems < _flattenedNodes.Count)
 						scrollIndicator += "▼";
 					else
 						scrollIndicator += " ";
@@ -898,7 +934,7 @@ namespace SharpConsoleUI.Controls
 			int index = _flattenedNodes.IndexOf(node);
 			if (index >= 0)
 			{
-				_selectedIndex = index;
+				SelectionService?.SetSelectedIndex(this, index);
 				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 				OnSelectedNodeChanged?.Invoke(this, node);
@@ -915,7 +951,7 @@ namespace SharpConsoleUI.Controls
 				index = _flattenedNodes.IndexOf(node);
 				if (index >= 0)
 				{
-					_selectedIndex = index;
+					SelectionService?.SetSelectedIndex(this, index);
 					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 					OnSelectedNodeChanged?.Invoke(this, node);
@@ -945,19 +981,21 @@ namespace SharpConsoleUI.Controls
 
 				// Position the selected node in the middle of the visible area when gaining focus
 				int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+				int selectedIndex = CurrentSelectedIndex;
 
 				// Try to position the selected item in the middle of the viewport
 				int desiredPosition = Math.Max(0, effectiveMaxVisibleItems / 2);
-				int newScrollOffset = Math.Max(0, _selectedIndex - desiredPosition);
+				int newScrollOffset = Math.Max(0, selectedIndex - desiredPosition);
 
 				// Make sure we don't scroll past the end
 				int maxScrollOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
-				_scrollOffset = Math.Min(newScrollOffset, maxScrollOffset);
+				int validScrollOffset = Math.Min(newScrollOffset, maxScrollOffset);
+				ScrollService?.SetVerticalOffset(this, validScrollOffset);
 			}
 
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
-			
+
 			// Fire focus events
 			if (focus && !hadFocus)
 			{
@@ -1017,24 +1055,32 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void EnsureSelectedItemVisible()
 		{
-			if (_selectedIndex < 0 || _flattenedNodes.Count == 0)
+			int selectedIndex = CurrentSelectedIndex;
+			if (selectedIndex < 0 || _flattenedNodes.Count == 0)
 				return;
 
 			// Calculate effective max visible items considering available space
 			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+			int scrollOffset = CurrentScrollOffset;
+			int newScrollOffset = scrollOffset;
 
 			// Adjust scroll offset if selected item is outside visible range
-			if (_selectedIndex < _scrollOffset)
+			if (selectedIndex < scrollOffset)
 			{
-				_scrollOffset = _selectedIndex;
+				newScrollOffset = selectedIndex;
 			}
-			else if (_selectedIndex >= _scrollOffset + effectiveMaxVisibleItems)
+			else if (selectedIndex >= scrollOffset + effectiveMaxVisibleItems)
 			{
-				_scrollOffset = _selectedIndex - effectiveMaxVisibleItems + 1;
+				newScrollOffset = selectedIndex - effectiveMaxVisibleItems + 1;
 			}
 
 			// Ensure scroll offset is valid
-			_scrollOffset = Math.Max(0, Math.Min(_scrollOffset, _flattenedNodes.Count - effectiveMaxVisibleItems));
+			newScrollOffset = Math.Max(0, Math.Min(newScrollOffset, _flattenedNodes.Count - effectiveMaxVisibleItems));
+
+			if (newScrollOffset != scrollOffset)
+			{
+				ScrollService?.SetVerticalOffset(this, newScrollOffset);
+			}
 		}
 
 		/// <summary>
@@ -1246,12 +1292,13 @@ namespace SharpConsoleUI.Controls
 			if (nodes == null || nodes.Count == 0)
 				return;
 
+			int selectedIndex = CurrentSelectedIndex;
 			foreach (var node in nodes)
 			{
 				// Get display style for this node
 				Style nodeStyle;
 
-				if (_flattenedNodes.Contains(node) && _selectedIndex == _flattenedNodes.IndexOf(node) && _hasFocus)
+				if (_flattenedNodes.Contains(node) && selectedIndex == _flattenedNodes.IndexOf(node) && _hasFocus)
 				{
 					// Selected node style
 					nodeStyle = new Style(foreground: HighlightForegroundColor, background: HighlightBackgroundColor);
@@ -1290,6 +1337,7 @@ namespace SharpConsoleUI.Controls
 
 			// Define tree guide characters
 			var guideChars = GetGuideChars();
+			int selectedIndex = CurrentSelectedIndex;
 
 			for (int i = 0; i < nodes.Count; i++)
 			{
@@ -1305,7 +1353,7 @@ namespace SharpConsoleUI.Controls
 				Color backgroundColor;
 
 				// Determine colors for this node
-				if (_flattenedNodes.Contains(node) && _selectedIndex == _flattenedNodes.IndexOf(node) && _hasFocus)
+				if (_flattenedNodes.Contains(node) && selectedIndex == _flattenedNodes.IndexOf(node) && _hasFocus)
 				{
 					// Selected node
 					textColor = HighlightForegroundColor;
@@ -1390,6 +1438,7 @@ namespace SharpConsoleUI.Controls
 
 			// Define tree guide characters
 			var guideChars = GetGuideChars();
+			int selectedIndex = CurrentSelectedIndex;
 
 			// Determine if this is a "last" node at its level
 			bool isLast = IsLastChildInParent(rootNode);
@@ -1403,7 +1452,7 @@ namespace SharpConsoleUI.Controls
 			Color backgroundColor;
 
 			// Determine colors for this node
-			if (_flattenedNodes.Contains(rootNode) && _selectedIndex == _flattenedNodes.IndexOf(rootNode) && _hasFocus)
+			if (_flattenedNodes.Contains(rootNode) && selectedIndex == _flattenedNodes.IndexOf(rootNode) && _hasFocus)
 			{
 				// Selected node
 				textColor = HighlightForegroundColor;
@@ -1488,13 +1537,18 @@ namespace SharpConsoleUI.Controls
 			FlattenNodes(_rootNodes);
 
 			// Ensure selected index is valid
+			int selectedIndex = CurrentSelectedIndex;
 			if (_flattenedNodes.Count > 0)
 			{
-				_selectedIndex = Math.Max(0, Math.Min(_selectedIndex, _flattenedNodes.Count - 1));
+				int validIndex = Math.Max(0, Math.Min(selectedIndex, _flattenedNodes.Count - 1));
+				if (validIndex != selectedIndex)
+				{
+					SelectionService?.SetSelectedIndex(this, validIndex);
+				}
 			}
-			else
+			else if (selectedIndex != -1)
 			{
-				_selectedIndex = -1;
+				SelectionService?.SetSelectedIndex(this, -1);
 			}
 		}
 	}
