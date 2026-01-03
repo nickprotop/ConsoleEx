@@ -65,6 +65,9 @@ namespace SharpConsoleUI
 		private int _bottomStickyHeight;
 		private List<string> _bottomStickyLines = new List<string>();
 
+		// Track control positions within scrollable content (startLine, lineCount)
+		private readonly Dictionary<IWindowControl, (int StartLine, int LineCount)> _controlPositions = new();
+
 		// List to store interactive contents
 		private List<string> _cachedContent = new();
 
@@ -272,11 +275,14 @@ namespace SharpConsoleUI
 						OriginalHeight = Height;
 						OriginalLeft = Left;
 						OriginalTop = Top;
-						Width = _windowSystem?.DesktopDimensions.Width ?? 80;
-						Height = _windowSystem?.DesktopDimensions.Height ?? 24;
 						Left = 0;
 						Top = 0;
-						Invalidate(true);
+						// Use centralized SetSize which handles invalidation order correctly
+						SetSize(
+							_windowSystem?.DesktopDimensions.Width ?? 80,
+							_windowSystem?.DesktopDimensions.Height ?? 24
+						);
+						OnResize?.Invoke(this, EventArgs.Empty);
 						break;
 
 					case WindowState.Normal:
@@ -287,9 +293,9 @@ namespace SharpConsoleUI
 
 							Top = OriginalTop;
 							Left = OriginalLeft;
-							Width = OriginalWidth;
-							Height = OriginalHeight;
-							Invalidate(true);
+							// Use centralized SetSize which handles invalidation order correctly
+							SetSize(OriginalWidth, OriginalHeight);
+							OnResize?.Invoke(this, EventArgs.Empty);
 						}
 						else if (previous_state == WindowState.Minimized)
 						{
@@ -806,24 +812,155 @@ namespace SharpConsoleUI
 			{
 				if (redrawAll)
 				{
-					// Use the InvalidationManager to coordinate invalidation
+					// Directly invalidate each control's cache to ensure they re-render
+					// This is essential for window resize/maximize operations
 					foreach (var content in _controls)
 					{
-						if (content is IWindowControl control)
+						if (content is IWindowControl control && control != callerControl)
 						{
-							// Use the thread-safe invalidation system
-							control.SafeInvalidate(InvalidationReason.All);
+							// Call Invalidate() directly to clear the control's ThreadSafeCache
+							// SafeInvalidate only marks the InvalidationManager's state,
+							// it doesn't clear the actual content cache
+							// Skip the callerControl to prevent infinite recursion
+							control.Invalidate();
 						}
 					}
 				}
 				else if (callerControl != null)
 				{
-					// Specific control invalidation
+					// Specific control invalidation - use SafeInvalidate for coordination
 					callerControl.SafeInvalidate(InvalidationReason.ChildInvalidated);
 				}
 			}
 
 			IsDirty = true;
+		}
+
+		/// <summary>
+		/// Gets the actual visible height for a control within the window viewport.
+		/// Accounts for window scrolling and clipping.
+		/// </summary>
+		public int? GetVisibleHeightForControl(IWindowControl control)
+		{
+			lock (_lock)
+			{
+				// For sticky controls, they're always fully visible
+				if (control.StickyPosition == StickyPosition.Top || control.StickyPosition == StickyPosition.Bottom)
+				{
+					// Return the control's rendered height
+					var bounds = _layoutManager.GetControlBounds(control);
+					return bounds?.ControlContentBounds.Height;
+				}
+
+				var availableHeight = Height - 2;
+				var scrollableAreaHeight = availableHeight - _topStickyHeight - _bottomStickyHeight;
+
+				// Try to find position for direct children
+				if (_controlPositions.TryGetValue(control, out var position))
+				{
+					return CalculateVisibleHeight(position.StartLine, position.LineCount, scrollableAreaHeight);
+				}
+
+				// For nested controls, find the parent container that IS tracked
+				// and calculate the nested control's actual position
+				foreach (var kvp in _controlPositions)
+				{
+					var (nestedOffset, nestedHeight) = FindNestedControlPosition(kvp.Key, control);
+					if (nestedHeight > 0)
+					{
+						// Calculate actual position: parent start + nested offset
+						int actualStart = kvp.Value.StartLine + nestedOffset;
+						return CalculateVisibleHeight(actualStart, nestedHeight, scrollableAreaHeight);
+					}
+				}
+
+				return null;
+			}
+		}
+
+		// Find a nested control's position within a parent container
+		// Returns (offsetWithinParent, controlHeight) or (-1, 0) if not found
+		private (int Offset, int Height) FindNestedControlPosition(IWindowControl container, IWindowControl target)
+		{
+			if (container is HorizontalGridControl grid)
+			{
+				// For HorizontalGridControl, controls are in columns side by side
+				// We need to find which column contains the control and its vertical offset
+				foreach (var column in grid.Columns)
+				{
+					var result = FindNestedControlPosition(column, target);
+					if (result.Height > 0)
+						return result;
+				}
+			}
+			else if (container is ColumnContainer column)
+			{
+				int offset = 0;
+				foreach (var child in column.Contents.Where(c => c.Visible))
+				{
+					if (child == target)
+					{
+						// Found the target - get its rendered height
+						var rendered = child.RenderContent(null, null);
+						return (offset, rendered.Count);
+					}
+
+					// Check if target is nested deeper
+					var nestedResult = FindNestedControlPosition(child, target);
+					if (nestedResult.Height > 0)
+					{
+						return (offset + nestedResult.Offset, nestedResult.Height);
+					}
+
+					// Add this child's height to the offset
+					var childRendered = child.RenderContent(null, null);
+					offset += childRendered.Count;
+				}
+			}
+			return (-1, 0);
+		}
+
+		// Check if a container control contains the target control
+		private bool ContainsControl(IWindowControl container, IWindowControl target)
+		{
+			if (container is HorizontalGridControl grid)
+			{
+				foreach (var column in grid.Columns)
+				{
+					foreach (var child in column.Contents)
+					{
+						if (child == target)
+							return true;
+						if (ContainsControl(child, target))
+							return true;
+					}
+				}
+			}
+			else if (container is ColumnContainer column)
+			{
+				foreach (var child in column.Contents)
+				{
+					if (child == target)
+						return true;
+					if (ContainsControl(child, target))
+						return true;
+				}
+			}
+			return false;
+		}
+
+		// Calculate visible height given control position and viewport
+		private int CalculateVisibleHeight(int controlStart, int controlHeight, int viewportHeight)
+		{
+			int controlEnd = controlStart + controlHeight;
+			int viewportTop = _scrollOffset;
+			int viewportBottom = _scrollOffset + viewportHeight;
+
+			int visibleTop = Math.Max(controlStart, viewportTop);
+			int visibleBottom = Math.Min(controlEnd, viewportBottom);
+
+			int visibleHeight = visibleBottom - visibleTop;
+			return visibleHeight > 0 ? visibleHeight : 0;
 		}
 
 		public void NotifyControlFocusLost(IInteractiveControl control)
@@ -976,11 +1113,20 @@ namespace SharpConsoleUI
 			var scrollableContent = new List<string>();
 			var scrollableControls = _controls.Where(c => c.StickyPosition == StickyPosition.None && c.Visible).ToList();
 			var scrollableHeight = availableHeight - _topStickyHeight - _bottomStickyHeight;
-			
+
+			// Clear and rebuild control position tracking
+			_controlPositions.Clear();
+			int currentScrollableOffset = 0;
+
 			foreach (var control in scrollableControls)
 			{
 				var renderedLines = control.RenderContent(availableWidth, scrollableHeight);
+
+				// Track this control's position and size
+				_controlPositions[control] = (currentScrollableOffset, renderedLines.Count);
+
 				scrollableContent.AddRange(renderedLines);
+				currentScrollableOffset += renderedLines.Count;
 			}
 
 			_cachedContent = scrollableContent;
@@ -1082,41 +1228,36 @@ namespace SharpConsoleUI
 			Top = point.Y;
 		}
 
+		/// <summary>
+		/// Sets window size using backing fields directly to ensure proper invalidation order.
+		/// This is the centralized resize logic used by maximize, restore, and manual resize.
+		/// </summary>
 		public void SetSize(int width, int height)
 		{
-			if (Width == width && Height == height)
+			if (_width == width && _height == height)
 			{
 				return;
 			}
 
+			// Apply constraints
 			if (_minimumWidth != null && width < _minimumWidth)
-			{
 				width = (int)_minimumWidth;
-			}
-
 			if (_maximumWidth != null && width > _maximumWidth)
-			{
 				width = (int)_maximumWidth;
-			}
-
 			if (_minimumHeight != null && height < _minimumHeight)
-			{
 				height = (int)_minimumHeight;
-			}
-
 			if (_maximumHeight != null && height > _maximumHeight)
-			{
 				height = (int)_maximumHeight;
-			}
 
-			Width = width;
-			Height = height;
+			// Set backing fields directly to avoid property setters calling
+			// UpdateControlLayout() before both dimensions are set
+			_width = width;
+			_height = height;
 
-			// IMPORTANT: Invalidate controls FIRST so they re-render with new dimensions
-			// This must happen before UpdateControlLayout which calls RenderContent
+			// IMPORTANT: Invalidate controls FIRST so they clear their caches
 			Invalidate(true);
 
-			// Force control layout recalculation for alignment updates (stretch, center, right)
+			// Then recalculate layout with fresh rendering
 			UpdateControlLayout();
 
 			if (_scrollOffset > (_cachedContent?.Count ?? Height) - (Height - 2))

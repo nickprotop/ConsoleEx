@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Drawing;
+using SharpConsoleUI.Core;
 
 namespace SharpConsoleUI.Controls
 {
@@ -60,5 +61,25 @@ namespace SharpConsoleUI.Controls
 		public int Left { get; set; }
 		public int Right { get; set; }
 		public int Top { get; set; }
+	}
+
+	/// <summary>
+	/// Optional interface for controls that participate in layout negotiation.
+	/// Controls implementing this interface can express their sizing requirements
+	/// and receive notifications when their allocated space changes.
+	/// </summary>
+	public interface ILayoutAware
+	{
+		/// <summary>
+		/// Gets the control's layout requirements.
+		/// Called during the measure phase before RenderContent.
+		/// </summary>
+		LayoutRequirements GetLayoutRequirements();
+
+		/// <summary>
+		/// Notifies the control of its layout allocation.
+		/// Called after layout calculation, before RenderContent.
+		/// </summary>
+		void OnLayoutAllocated(LayoutAllocation allocation);
 	}
 }
