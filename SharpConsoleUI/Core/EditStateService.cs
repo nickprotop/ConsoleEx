@@ -537,6 +537,7 @@ namespace SharpConsoleUI.Core
 
 		#region IDisposable
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			if (_isDisposed)

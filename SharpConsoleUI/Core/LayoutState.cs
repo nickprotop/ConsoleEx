@@ -11,16 +11,23 @@ using SharpConsoleUI.Controls;
 namespace SharpConsoleUI.Core
 {
 	/// <summary>
-	/// Reason for a layout change
+	/// Reason for a layout change.
 	/// </summary>
 	public enum LayoutChangeReason
 	{
+		/// <summary>Layout changed programmatically.</summary>
 		Programmatic,
+		/// <summary>Layout changed due to window resize.</summary>
 		WindowResize,
+		/// <summary>Layout changed due to container resize.</summary>
 		ContainerResize,
+		/// <summary>Layout changed due to sibling control change.</summary>
 		SiblingChange,
+		/// <summary>Layout changed due to content size change.</summary>
 		ContentSizeChange,
+		/// <summary>Layout changed due to requirements change.</summary>
 		RequirementsChange,
+		/// <summary>Initial layout calculation.</summary>
 		Initial
 	}
 
@@ -57,6 +64,9 @@ namespace SharpConsoleUI.Core
 		/// <summary>Flex factor for proportional sizing when Width is null (1.0 = equal share)</summary>
 		public double FlexFactor { get; init; } = 1.0;
 
+		/// <summary>
+		/// Default layout requirements with no fixed dimensions and left alignment.
+		/// </summary>
 		public static readonly LayoutRequirements Default = new();
 
 		/// <summary>Creates fixed-width requirements</summary>
@@ -135,6 +145,9 @@ namespace SharpConsoleUI.Core
 		/// <summary>When this allocation was made</summary>
 		public DateTime UpdateTime { get; init; } = DateTime.UtcNow;
 
+		/// <summary>
+		/// Empty layout allocation with no allocated space.
+		/// </summary>
 		public static readonly LayoutAllocation Empty = new();
 	}
 
@@ -164,6 +177,9 @@ namespace SharpConsoleUI.Core
 		/// <summary>When this state was last updated</summary>
 		public DateTime UpdateTime { get; init; } = DateTime.UtcNow;
 
+		/// <summary>
+		/// Empty layout state with default requirements and no allocation.
+		/// </summary>
 		public static readonly LayoutState Empty = new();
 
 		/// <summary>

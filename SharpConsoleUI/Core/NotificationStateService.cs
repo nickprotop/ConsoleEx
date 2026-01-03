@@ -14,8 +14,16 @@ using SharpConsoleUI.Logging;
 namespace SharpConsoleUI.Core
 {
 	/// <summary>
-	/// Represents the state of a single notification
+	/// Represents the state of a single notification.
 	/// </summary>
+	/// <param name="Id">The unique identifier for the notification.</param>
+	/// <param name="Window">The window displaying the notification.</param>
+	/// <param name="Title">The notification title.</param>
+	/// <param name="Message">The notification message.</param>
+	/// <param name="Severity">The severity level of the notification.</param>
+	/// <param name="CreatedAt">The timestamp when the notification was created.</param>
+	/// <param name="TimeoutMs">The auto-dismiss timeout in milliseconds, or null for no timeout.</param>
+	/// <param name="IsModal">Whether the notification blocks UI interaction.</param>
 	public record NotificationInfo(
 		string Id,
 		Window Window,
@@ -27,31 +35,61 @@ namespace SharpConsoleUI.Core
 		bool IsModal);
 
 	/// <summary>
-	/// Represents the current notification system state
+	/// Represents the current notification system state.
 	/// </summary>
+	/// <param name="ActiveNotifications">The list of currently active notifications.</param>
+	/// <param name="TotalShown">The total number of notifications shown since service creation.</param>
+	/// <param name="TotalDismissed">The total number of notifications dismissed since service creation.</param>
 	public record NotificationState(
 		IReadOnlyList<NotificationInfo> ActiveNotifications,
 		int TotalShown,
 		int TotalDismissed)
 	{
+		/// <summary>
+		/// Gets an empty notification state.
+		/// </summary>
 		public static NotificationState Empty => new(
 			Array.Empty<NotificationInfo>(),
 			0,
 			0);
 
+		/// <summary>
+		/// Gets a value indicating whether there are any active notifications.
+		/// </summary>
 		public bool HasNotifications => ActiveNotifications.Count > 0;
+
+		/// <summary>
+		/// Gets the number of active notifications.
+		/// </summary>
 		public int ActiveCount => ActiveNotifications.Count;
 	}
 
 	/// <summary>
-	/// Event args for notification state changes
+	/// Event arguments for notification state changes.
 	/// </summary>
 	public class NotificationEventArgs : EventArgs
 	{
+		/// <summary>
+		/// Gets the notification that triggered the event.
+		/// </summary>
 		public NotificationInfo Notification { get; }
+
+		/// <summary>
+		/// Gets the previous notification state.
+		/// </summary>
 		public NotificationState PreviousState { get; }
+
+		/// <summary>
+		/// Gets the current notification state.
+		/// </summary>
 		public NotificationState CurrentState { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="NotificationEventArgs"/> class.
+		/// </summary>
+		/// <param name="notification">The notification that triggered the event.</param>
+		/// <param name="previousState">The previous notification state.</param>
+		/// <param name="currentState">The current notification state.</param>
 		public NotificationEventArgs(NotificationInfo notification, NotificationState previousState, NotificationState currentState)
 		{
 			Notification = notification;
@@ -77,6 +115,12 @@ namespace SharpConsoleUI.Core
 		private bool _isDisposed;
 		private int _notificationCounter;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="NotificationStateService"/> class.
+		/// </summary>
+		/// <param name="windowSystem">The console window system to display notifications in.</param>
+		/// <param name="logService">Optional log service for diagnostic logging.</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="windowSystem"/> is null.</exception>
 		public NotificationStateService(ConsoleWindowSystem windowSystem, ILogService? logService = null)
 		{
 			_windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
@@ -86,7 +130,7 @@ namespace SharpConsoleUI.Core
 		#region Properties
 
 		/// <summary>
-		/// Gets the current notification state
+		/// Gets the current notification state.
 		/// </summary>
 		public NotificationState CurrentState
 		{
@@ -100,17 +144,17 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets whether any notifications are currently displayed
+		/// Gets a value indicating whether any notifications are currently displayed.
 		/// </summary>
 		public bool HasNotifications => CurrentState.HasNotifications;
 
 		/// <summary>
-		/// Gets the number of active notifications
+		/// Gets the number of active notifications.
 		/// </summary>
 		public int ActiveCount => CurrentState.ActiveCount;
 
 		/// <summary>
-		/// Gets all active notifications
+		/// Gets all active notifications.
 		/// </summary>
 		public IReadOnlyList<NotificationInfo> ActiveNotifications => CurrentState.ActiveNotifications;
 
@@ -119,22 +163,22 @@ namespace SharpConsoleUI.Core
 		#region Events
 
 		/// <summary>
-		/// Raised when a notification is shown
+		/// Occurs when a notification is shown.
 		/// </summary>
 		public event EventHandler<NotificationEventArgs>? NotificationShown;
 
 		/// <summary>
-		/// Raised when a notification is dismissed
+		/// Occurs when a notification is dismissed.
 		/// </summary>
 		public event EventHandler<NotificationEventArgs>? NotificationDismissed;
 
 		/// <summary>
-		/// Raised when all notifications are dismissed
+		/// Occurs when all notifications are dismissed.
 		/// </summary>
 		public event EventHandler? AllNotificationsDismissed;
 
 		/// <summary>
-		/// Raised when notification state changes
+		/// Occurs when notification state changes.
 		/// </summary>
 		public event EventHandler<NotificationState>? StateChanged;
 
@@ -143,15 +187,15 @@ namespace SharpConsoleUI.Core
 		#region Public Methods
 
 		/// <summary>
-		/// Shows a notification with the specified parameters
+		/// Shows a notification with the specified parameters.
 		/// </summary>
-		/// <param name="title">The notification title</param>
-		/// <param name="message">The notification message</param>
-		/// <param name="severity">The severity level</param>
-		/// <param name="blockUi">Whether to block UI (modal)</param>
-		/// <param name="timeout">Auto-dismiss timeout in milliseconds (0 or null = no timeout)</param>
-		/// <param name="parentWindow">Optional parent window for modal notifications</param>
-		/// <returns>The notification ID for later reference</returns>
+		/// <param name="title">The notification title.</param>
+		/// <param name="message">The notification message.</param>
+		/// <param name="severity">The severity level.</param>
+		/// <param name="blockUi">Whether to block UI (modal).</param>
+		/// <param name="timeout">Auto-dismiss timeout in milliseconds (0 or null = no timeout).</param>
+		/// <param name="parentWindow">Optional parent window for modal notifications.</param>
+		/// <returns>The notification ID for later reference.</returns>
 		public string ShowNotification(
 			string title,
 			string message,
@@ -209,10 +253,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Dismisses a notification by ID
+		/// Dismisses a notification by ID.
 		/// </summary>
-		/// <param name="notificationId">The notification ID to dismiss</param>
-		/// <returns>True if the notification was found and dismissed</returns>
+		/// <param name="notificationId">The notification ID to dismiss.</param>
+		/// <returns>True if the notification was found and dismissed; otherwise, false.</returns>
 		public bool DismissNotification(string notificationId)
 		{
 			lock (_lock)
@@ -226,10 +270,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Dismisses a notification by its window
+		/// Dismisses a notification by its window.
 		/// </summary>
-		/// <param name="window">The notification window to dismiss</param>
-		/// <returns>True if the notification was found and dismissed</returns>
+		/// <param name="window">The notification window to dismiss.</param>
+		/// <returns>True if the notification was found and dismissed; otherwise, false.</returns>
 		public bool DismissNotification(Window window)
 		{
 			lock (_lock)
@@ -243,7 +287,7 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Dismisses all active notifications
+		/// Dismisses all active notifications.
 		/// </summary>
 		public void DismissAll()
 		{
@@ -267,8 +311,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets a notification by ID
+		/// Gets a notification by ID.
 		/// </summary>
+		/// <param name="notificationId">The notification ID to find.</param>
+		/// <returns>The notification info if found; otherwise, null.</returns>
 		public NotificationInfo? GetNotification(string notificationId)
 		{
 			lock (_lock)
@@ -278,8 +324,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Checks if a notification with the given ID exists
+		/// Checks if a notification with the given ID exists.
 		/// </summary>
+		/// <param name="notificationId">The notification ID to check.</param>
+		/// <returns>True if the notification exists; otherwise, false.</returns>
 		public bool NotificationExists(string notificationId)
 		{
 			return GetNotification(notificationId) != null;
@@ -437,6 +485,7 @@ namespace SharpConsoleUI.Core
 
 		#region IDisposable
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			if (_isDisposed)

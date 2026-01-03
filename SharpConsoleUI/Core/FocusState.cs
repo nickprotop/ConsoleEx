@@ -132,6 +132,11 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public IInteractiveControl? GainedFocusControl => NewState.FocusedControl;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="FocusStateChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="previousState">The previous focus state before the change.</param>
+		/// <param name="newState">The new focus state after the change.</param>
 		public FocusStateChangedEventArgs(FocusState previousState, FocusState newState)
 		{
 			PreviousState = previousState;
@@ -159,6 +164,12 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public FocusChangeReason Reason { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ControlFocusEventArgs"/> class.
+		/// </summary>
+		/// <param name="control">The control involved in the focus change.</param>
+		/// <param name="window">The window containing the control.</param>
+		/// <param name="reason">The reason for the focus change.</param>
 		public ControlFocusEventArgs(IInteractiveControl control, Window window, FocusChangeReason reason)
 		{
 			Control = control;

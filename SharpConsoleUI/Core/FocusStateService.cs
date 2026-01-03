@@ -26,6 +26,10 @@ namespace SharpConsoleUI.Core
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="FocusStateService"/> class.
+		/// </summary>
+		/// <param name="logService">Optional log service for diagnostic logging.</param>
 		public FocusStateService(ILogService? logService = null)
 		{
 			_logService = logService;
@@ -34,7 +38,7 @@ namespace SharpConsoleUI.Core
 		#region Properties
 
 		/// <summary>
-		/// Gets the current focus state
+		/// Gets the current focus state.
 		/// </summary>
 		public FocusState CurrentState
 		{
@@ -48,17 +52,17 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets the currently focused window
+		/// Gets the currently focused window.
 		/// </summary>
 		public Window? FocusedWindow => CurrentState.FocusedWindow;
 
 		/// <summary>
-		/// Gets the currently focused control
+		/// Gets the currently focused control.
 		/// </summary>
 		public IInteractiveControl? FocusedControl => CurrentState.FocusedControl;
 
 		/// <summary>
-		/// Gets whether any control has focus
+		/// Gets a value indicating whether any control has focus.
 		/// </summary>
 		public bool HasFocus => CurrentState.FocusedControl != null;
 
@@ -67,22 +71,22 @@ namespace SharpConsoleUI.Core
 		#region Events
 
 		/// <summary>
-		/// Event fired when any aspect of focus state changes
+		/// Occurs when any aspect of focus state changes.
 		/// </summary>
 		public event EventHandler<FocusStateChangedEventArgs>? StateChanged;
 
 		/// <summary>
-		/// Event fired when a control gains focus
+		/// Occurs when a control gains focus.
 		/// </summary>
 		public event EventHandler<ControlFocusEventArgs>? ControlFocused;
 
 		/// <summary>
-		/// Event fired when a control loses focus
+		/// Occurs when a control loses focus.
 		/// </summary>
 		public event EventHandler<ControlFocusEventArgs>? ControlBlurred;
 
 		/// <summary>
-		/// Event fired when the focused window changes
+		/// Occurs when the focused window changes.
 		/// </summary>
 		public event EventHandler<FocusStateChangedEventArgs>? WindowFocusChanged;
 
@@ -91,11 +95,12 @@ namespace SharpConsoleUI.Core
 		#region Focus Management
 
 		/// <summary>
-		/// Sets focus to a specific control within a window
+		/// Sets focus to a specific control within a window.
 		/// </summary>
-		/// <param name="window">The window containing the control</param>
-		/// <param name="control">The control to focus (null to clear control focus)</param>
-		/// <param name="reason">The reason for the focus change</param>
+		/// <param name="window">The window containing the control.</param>
+		/// <param name="control">The control to focus (null to clear control focus).</param>
+		/// <param name="reason">The reason for the focus change.</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="window"/> is null.</exception>
 		public void SetFocus(Window window, IInteractiveControl? control, FocusChangeReason reason = FocusChangeReason.Programmatic)
 		{
 			if (window == null)
@@ -146,10 +151,11 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Sets focus to a window without specifying a control
+		/// Sets focus to a window without specifying a control.
 		/// </summary>
-		/// <param name="window">The window to focus</param>
-		/// <param name="reason">The reason for the focus change</param>
+		/// <param name="window">The window to focus.</param>
+		/// <param name="reason">The reason for the focus change.</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="window"/> is null.</exception>
 		public void SetWindowFocus(Window window, FocusChangeReason reason = FocusChangeReason.Programmatic)
 		{
 			if (window == null)
@@ -184,9 +190,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Clears all focus (no window or control has focus)
+		/// Clears all focus (no window or control has focus).
 		/// </summary>
-		/// <param name="reason">The reason for clearing focus</param>
+		/// <param name="reason">The reason for clearing focus.</param>
 		public void ClearFocus(FocusChangeReason reason = FocusChangeReason.Programmatic)
 		{
 			lock (_lock)
@@ -210,10 +216,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Clears focus for a specific window (only if that window currently has focus)
+		/// Clears focus for a specific window (only if that window currently has focus).
 		/// </summary>
-		/// <param name="window">The window to clear focus for</param>
-		/// <param name="reason">The reason for clearing focus</param>
+		/// <param name="window">The window to clear focus for.</param>
+		/// <param name="reason">The reason for clearing focus.</param>
 		public void ClearFocus(Window window, FocusChangeReason reason = FocusChangeReason.Programmatic)
 		{
 			if (window == null)
@@ -240,9 +246,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Clears control focus within the current window but keeps window focus
+		/// Clears control focus within the current window but keeps window focus.
 		/// </summary>
-		/// <param name="reason">The reason for clearing control focus</param>
+		/// <param name="reason">The reason for clearing control focus.</param>
 		public void ClearControlFocus(FocusChangeReason reason = FocusChangeReason.Programmatic)
 		{
 			lock (_lock)
@@ -265,16 +271,20 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Checks if a specific control currently has focus
+		/// Checks if a specific control currently has focus.
 		/// </summary>
+		/// <param name="control">The control to check.</param>
+		/// <returns>True if the control has focus; otherwise, false.</returns>
 		public bool HasControlFocus(IInteractiveControl control)
 		{
 			return CurrentState.FocusedControl == control;
 		}
 
 		/// <summary>
-		/// Checks if a specific window currently has focus
+		/// Checks if a specific window currently has focus.
 		/// </summary>
+		/// <param name="window">The window to check.</param>
+		/// <returns>True if the window has focus; otherwise, false.</returns>
 		public bool HasWindowFocus(Window window)
 		{
 			return CurrentState.FocusedWindow == window;
@@ -285,8 +295,11 @@ namespace SharpConsoleUI.Core
 		#region Focus Stack (for modal dialogs, etc.)
 
 		/// <summary>
-		/// Pushes the current focus state onto the stack and sets new focus
+		/// Pushes the current focus state onto the stack and sets new focus.
 		/// </summary>
+		/// <param name="window">The window to focus.</param>
+		/// <param name="control">The control to focus (optional).</param>
+		/// <param name="reason">The reason for the focus change.</param>
 		public void PushFocus(Window window, IInteractiveControl? control, FocusChangeReason reason = FocusChangeReason.Programmatic)
 		{
 			lock (_lock)
@@ -300,8 +313,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Pops focus from the stack and restores it
+		/// Pops focus from the stack and restores it.
 		/// </summary>
+		/// <param name="reason">The reason for the focus change.</param>
 		public void PopFocus(FocusChangeReason reason = FocusChangeReason.Programmatic)
 		{
 			lock (_lock)
@@ -323,7 +337,7 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets the depth of the focus stack
+		/// Gets the depth of the focus stack.
 		/// </summary>
 		public int FocusStackDepth
 		{
@@ -341,15 +355,16 @@ namespace SharpConsoleUI.Core
 		#region Debugging
 
 		/// <summary>
-		/// Gets recent focus state history for debugging
+		/// Gets recent focus state history for debugging.
 		/// </summary>
+		/// <returns>A read-only list of recent focus states.</returns>
 		public IReadOnlyList<FocusState> GetHistory()
 		{
 			return _stateHistory.ToArray();
 		}
 
 		/// <summary>
-		/// Clears the state history
+		/// Clears the state history.
 		/// </summary>
 		public void ClearHistory()
 		{
@@ -357,8 +372,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets a debug string representation of current focus state
+		/// Gets a debug string representation of current focus state.
 		/// </summary>
+		/// <returns>A formatted string containing the current focus state information.</returns>
 		public string GetDebugInfo()
 		{
 			var state = CurrentState;
@@ -457,6 +473,7 @@ namespace SharpConsoleUI.Core
 
 		#region IDisposable
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			if (_isDisposed)

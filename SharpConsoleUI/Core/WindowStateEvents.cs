@@ -66,6 +66,11 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public bool WindowsChanged => NewState.HasWindowsChanged(PreviousState);
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="WindowSystemStateChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="previousState">The state before the change.</param>
+		/// <param name="newState">The state after the change.</param>
 		public WindowSystemStateChangedEventArgs(WindowSystemState previousState, WindowSystemState newState)
 		{
 			PreviousState = previousState;
@@ -93,6 +98,12 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public object? Data { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="WindowEventArgs"/> class.
+		/// </summary>
+		/// <param name="window">The window involved in the event.</param>
+		/// <param name="eventType">The type of event that occurred.</param>
+		/// <param name="data">Optional additional data for the event.</param>
 		public WindowEventArgs(Window window, WindowEventType eventType, object? data = null)
 		{
 			Window = window;
@@ -116,6 +127,11 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public Window? NewWindow { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="WindowActivatedEventArgs"/> class.
+		/// </summary>
+		/// <param name="previousWindow">The window that was deactivated, or null if no window was previously active.</param>
+		/// <param name="newWindow">The window that is now active, or null if no window is active.</param>
 		public WindowActivatedEventArgs(Window? previousWindow, Window? newWindow)
 		{
 			PreviousWindow = previousWindow;
@@ -158,6 +174,11 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public bool ResizeEnded => PreviousState.IsResizing && !NewState.IsResizing;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="InteractionStateChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="previousState">The interaction state before the change.</param>
+		/// <param name="newState">The interaction state after the change.</param>
 		public InteractionStateChangedEventArgs(InteractionState previousState, InteractionState newState)
 		{
 			PreviousState = previousState;
@@ -185,6 +206,12 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public WindowState NewState { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="WindowStateEventArgs"/> class.
+		/// </summary>
+		/// <param name="window">The window whose state changed.</param>
+		/// <param name="previousState">The window state before the change.</param>
+		/// <param name="newState">The window state after the change.</param>
 		public WindowStateEventArgs(Window window, WindowState previousState, WindowState newState)
 		{
 			Window = window;

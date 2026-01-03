@@ -83,6 +83,13 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public Window? ClosedModal { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ModalStateChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="previousState">The previous modal state before the change.</param>
+		/// <param name="newState">The new modal state after the change.</param>
+		/// <param name="openedModal">The modal window that was opened, if applicable.</param>
+		/// <param name="closedModal">The modal window that was closed, if applicable.</param>
 		public ModalStateChangedEventArgs(ModalState previousState, ModalState newState, Window? openedModal = null, Window? closedModal = null)
 		{
 			PreviousState = previousState;
@@ -107,6 +114,11 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public Window BlockingModal { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ActivationBlockedEventArgs"/> class.
+		/// </summary>
+		/// <param name="targetWindow">The window that attempted to activate.</param>
+		/// <param name="blockingModal">The modal window that blocked the activation.</param>
 		public ActivationBlockedEventArgs(Window targetWindow, Window blockingModal)
 		{
 			TargetWindow = targetWindow;

@@ -13,16 +13,42 @@ using Color = Spectre.Console.Color;
 namespace SharpConsoleUI.Core
 {
 	/// <summary>
-	/// Immutable record representing a color set for a window
+	/// Immutable record representing a color set for a window.
 	/// </summary>
 	public record WindowColorSet
 	{
+		/// <summary>
+		/// Gets the background color for the window.
+		/// </summary>
 		public Color BackgroundColor { get; init; }
+
+		/// <summary>
+		/// Gets the foreground (text) color for the window.
+		/// </summary>
 		public Color ForegroundColor { get; init; }
+
+		/// <summary>
+		/// Gets the border foreground color for the window.
+		/// </summary>
 		public Color BorderForegroundColor { get; init; }
+
+		/// <summary>
+		/// Gets the title foreground color for the window.
+		/// </summary>
 		public Color TitleForegroundColor { get; init; }
+
+		/// <summary>
+		/// Gets a value indicating whether the window is active.
+		/// </summary>
 		public bool IsActive { get; init; }
 
+		/// <summary>
+		/// Creates a <see cref="WindowColorSet"/> from a theme based on window state.
+		/// </summary>
+		/// <param name="theme">The theme to derive colors from.</param>
+		/// <param name="isActive">Whether the window is currently active.</param>
+		/// <param name="isModal">Whether the window is a modal dialog.</param>
+		/// <returns>A new <see cref="WindowColorSet"/> with the appropriate colors.</returns>
 		public static WindowColorSet FromTheme(Theme theme, bool isActive, bool isModal)
 		{
 			if (isModal)
@@ -49,15 +75,37 @@ namespace SharpConsoleUI.Core
 	}
 
 	/// <summary>
-	/// Immutable record representing a color set for a button control
+	/// Immutable record representing a color set for a button control.
 	/// </summary>
 	public record ButtonColorSet
 	{
+		/// <summary>
+		/// Gets the background color for the button.
+		/// </summary>
 		public Color BackgroundColor { get; init; }
+
+		/// <summary>
+		/// Gets the foreground (text) color for the button.
+		/// </summary>
 		public Color ForegroundColor { get; init; }
+
+		/// <summary>
+		/// Gets a value indicating whether the button is focused.
+		/// </summary>
 		public bool IsFocused { get; init; }
+
+		/// <summary>
+		/// Gets a value indicating whether the button is enabled.
+		/// </summary>
 		public bool IsEnabled { get; init; }
 
+		/// <summary>
+		/// Creates a <see cref="ButtonColorSet"/> from a theme based on button state.
+		/// </summary>
+		/// <param name="theme">The theme to derive colors from.</param>
+		/// <param name="isFocused">Whether the button is currently focused.</param>
+		/// <param name="isEnabled">Whether the button is enabled.</param>
+		/// <returns>A new <see cref="ButtonColorSet"/> with the appropriate colors.</returns>
 		public static ButtonColorSet FromTheme(Theme theme, bool isFocused, bool isEnabled)
 		{
 			if (!isEnabled)
@@ -107,6 +155,11 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public Theme NewTheme { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ThemeChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="previousTheme">The previous theme, or null if this is the initial theme.</param>
+		/// <param name="newTheme">The new theme that was applied.</param>
 		public ThemeChangedEventArgs(Theme? previousTheme, Theme newTheme)
 		{
 			PreviousTheme = previousTheme;
@@ -329,6 +382,7 @@ namespace SharpConsoleUI.Core
 
 		#region IDisposable
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			if (_isDisposed)

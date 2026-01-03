@@ -160,6 +160,11 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public bool OwnerChanged => NewState.HasOwnerChanged(PreviousState);
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="CursorStateChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="previousState">The previous cursor state before the change.</param>
+		/// <param name="newState">The new cursor state after the change.</param>
 		public CursorStateChangedEventArgs(CursorState previousState, CursorState newState)
 		{
 			PreviousState = previousState;

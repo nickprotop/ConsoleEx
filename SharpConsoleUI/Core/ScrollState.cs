@@ -180,6 +180,13 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public int HorizontalDelta => NewState.HorizontalOffset - PreviousState.HorizontalOffset;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ScrollChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="scrollable">The scrollable object whose scroll position changed.</param>
+		/// <param name="previousState">The previous scroll state before the change.</param>
+		/// <param name="newState">The new scroll state after the change.</param>
+		/// <param name="reason">The reason for the scroll change.</param>
 		public ScrollChangedEventArgs(object scrollable, ScrollState previousState, ScrollState newState, ScrollChangeReason reason)
 		{
 			Scrollable = scrollable;

@@ -8,32 +8,63 @@ using SharpConsoleUI.Controls;
 namespace SharpConsoleUI.Core
 {
     /// <summary>
-    /// Reasons why a control or container needs invalidation
+    /// Specifies the reasons why a control or container needs invalidation.
+    /// This is a flags enumeration allowing multiple reasons to be combined.
     /// </summary>
     [Flags]
     public enum InvalidationReason
     {
+        /// <summary>No invalidation reason specified.</summary>
         None = 0,
+        /// <summary>A property value has changed.</summary>
         PropertyChanged = 1,
+        /// <summary>The control's internal state has changed.</summary>
         StateChanged = 2,
+        /// <summary>Focus has changed to or from the control.</summary>
         FocusChanged = 4,
+        /// <summary>The control's size has changed.</summary>
         SizeChanged = 8,
+        /// <summary>The control's content has changed.</summary>
         ContentChanged = 16,
+        /// <summary>The theme has changed.</summary>
         ThemeChanged = 32,
+        /// <summary>A child control was invalidated.</summary>
         ChildInvalidated = 64,
+        /// <summary>All invalidation reasons combined.</summary>
         All = PropertyChanged | StateChanged | FocusChanged | SizeChanged | ContentChanged | ThemeChanged | ChildInvalidated
     }
 
     /// <summary>
-    /// Represents an invalidation request
+    /// Represents an invalidation request for a control.
     /// </summary>
     public class InvalidationRequest
     {
+        /// <summary>
+        /// Gets the control that needs invalidation.
+        /// </summary>
         public IWindowControl Control { get; }
+
+        /// <summary>
+        /// Gets the reason for the invalidation.
+        /// </summary>
         public InvalidationReason Reason { get; }
+
+        /// <summary>
+        /// Gets whether this invalidation should propagate to the parent container.
+        /// </summary>
         public bool PropagateToParent { get; }
+
+        /// <summary>
+        /// Gets the UTC time when the invalidation was requested.
+        /// </summary>
         public DateTime RequestTime { get; }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="InvalidationRequest"/> class.
+        /// </summary>
+        /// <param name="control">The control that needs invalidation.</param>
+        /// <param name="reason">The reason for the invalidation.</param>
+        /// <param name="propagateToParent">Whether to propagate the invalidation to the parent container. Defaults to <c>true</c>.</param>
         public InvalidationRequest(IWindowControl control, InvalidationReason reason, bool propagateToParent = true)
         {
             Control = control;
@@ -44,7 +75,8 @@ namespace SharpConsoleUI.Core
     }
 
     /// <summary>
-    /// Thread-safe cache state manager for controls
+    /// Thread-safe cache state manager for controls.
+    /// Tracks validation state, rendering status, and invalidation reasons.
     /// </summary>
     public class CacheState
     {
@@ -54,6 +86,9 @@ namespace SharpConsoleUI.Core
         private DateTime _lastInvalidated = DateTime.MinValue;
         private InvalidationReason _invalidationReason = InvalidationReason.None;
 
+        /// <summary>
+        /// Gets whether the cache is currently valid.
+        /// </summary>
         public bool IsValid 
         { 
             get
@@ -70,6 +105,9 @@ namespace SharpConsoleUI.Core
             }
         }
 
+        /// <summary>
+        /// Gets whether a render operation is currently in progress.
+        /// </summary>
         public bool IsRendering
         {
             get
@@ -86,6 +124,10 @@ namespace SharpConsoleUI.Core
             }
         }
 
+        /// <summary>
+        /// Marks the cache as invalid with the specified reason.
+        /// </summary>
+        /// <param name="reason">The reason for invalidation.</param>
         public void Invalidate(InvalidationReason reason)
         {
             _lock.EnterWriteLock();
@@ -101,6 +143,9 @@ namespace SharpConsoleUI.Core
             }
         }
 
+        /// <summary>
+        /// Marks the cache as currently rendering to prevent concurrent render operations.
+        /// </summary>
         public void MarkAsRendering()
         {
             _lock.EnterWriteLock();
@@ -114,6 +159,9 @@ namespace SharpConsoleUI.Core
             }
         }
 
+        /// <summary>
+        /// Marks the cache as valid and clears the rendering flag and invalidation reason.
+        /// </summary>
         public void MarkAsValid()
         {
             _lock.EnterWriteLock();
@@ -129,6 +177,10 @@ namespace SharpConsoleUI.Core
             }
         }
 
+        /// <summary>
+        /// Attempts to begin a render operation. Returns <c>false</c> if another render is in progress.
+        /// </summary>
+        /// <returns><c>true</c> if rendering was started; <c>false</c> if a render is already in progress.</returns>
         public bool TryBeginRendering()
         {
             _lock.EnterWriteLock();
@@ -136,7 +188,7 @@ namespace SharpConsoleUI.Core
             {
                 if (_isRendering)
                     return false;
-                
+
                 _isRendering = true;
                 return true;
             }
@@ -146,6 +198,10 @@ namespace SharpConsoleUI.Core
             }
         }
 
+        /// <summary>
+        /// Gets the current invalidation reason flags.
+        /// </summary>
+        /// <returns>The combined invalidation reasons.</returns>
         public InvalidationReason GetInvalidationReason()
         {
             _lock.EnterReadLock();
@@ -159,6 +215,9 @@ namespace SharpConsoleUI.Core
             }
         }
 
+        /// <summary>
+        /// Disposes the internal reader-writer lock.
+        /// </summary>
         public void Dispose()
         {
             _lock?.Dispose();
@@ -166,11 +225,16 @@ namespace SharpConsoleUI.Core
     }
 
     /// <summary>
-    /// Thread-safe invalidation manager that coordinates all invalidation requests
+    /// Thread-safe invalidation manager that coordinates all invalidation requests.
+    /// Implements singleton pattern and batches rapid invalidation requests for efficiency.
     /// </summary>
     public class InvalidationManager
     {
         private static readonly Lazy<InvalidationManager> _instance = new(() => new InvalidationManager());
+
+        /// <summary>
+        /// Gets the singleton instance of the <see cref="InvalidationManager"/>.
+        /// </summary>
         public static InvalidationManager Instance => _instance.Value;
 
         private readonly ConcurrentQueue<InvalidationRequest> _invalidationQueue = new();
@@ -221,8 +285,11 @@ namespace SharpConsoleUI.Core
         }
 
         /// <summary>
-        /// Registers the parent-child relationship to prevent invalidation cycles
+        /// Registers the parent-child relationship for hierarchy tracking.
+        /// Used to propagate invalidation to parent containers.
         /// </summary>
+        /// <param name="child">The child control.</param>
+        /// <param name="parent">The parent container.</param>
         public void RegisterControlHierarchy(IWindowControl child, IContainer parent)
         {
             if (child == null || parent == null) return;
@@ -234,8 +301,9 @@ namespace SharpConsoleUI.Core
         }
 
         /// <summary>
-        /// Unregisters a control from its parent container
+        /// Unregisters a control from its parent container in the hierarchy tracking.
         /// </summary>
+        /// <param name="child">The child control to unregister.</param>
         public void UnregisterControlHierarchy(IWindowControl child)
         {
             if (child == null) return;
@@ -254,8 +322,11 @@ namespace SharpConsoleUI.Core
         }
 
         /// <summary>
-        /// Requests invalidation for a control
+        /// Requests invalidation for a control. The request is queued and processed in batches.
         /// </summary>
+        /// <param name="control">The control to invalidate.</param>
+        /// <param name="reason">The reason for invalidation.</param>
+        /// <param name="propagateToParent">Whether to propagate the invalidation to the parent container. Defaults to <c>true</c>.</param>
         public void RequestInvalidation(IWindowControl control, InvalidationReason reason, bool propagateToParent = true)
         {
             if (control == null) return;
@@ -280,16 +351,21 @@ namespace SharpConsoleUI.Core
         }
 
         /// <summary>
-        /// Checks if a control is a child of the specified container
+        /// Checks if a control is a direct child of the specified container.
         /// </summary>
+        /// <param name="control">The control to check.</param>
+        /// <param name="container">The container to check against.</param>
+        /// <returns><c>true</c> if the control is a direct child of the container; otherwise, <c>false</c>.</returns>
         public bool IsChildOfContainer(IWindowControl control, IContainer container)
         {
             return _controlHierarchy.TryGetValue(control, out var parent) && parent == container;
         }
 
         /// <summary>
-        /// Gets all children of a container
+        /// Gets all direct children of a container.
         /// </summary>
+        /// <param name="container">The container whose children to retrieve.</param>
+        /// <returns>A copy of the children collection to avoid concurrent modification issues.</returns>
         public IEnumerable<IWindowControl> GetContainerChildren(IContainer container)
         {
             if (_containerChildren.TryGetValue(container, out var children))
@@ -300,16 +376,24 @@ namespace SharpConsoleUI.Core
         }
 
         /// <summary>
-        /// Gets the cache state for a control
+        /// Gets or creates the cache state for a control.
         /// </summary>
+        /// <param name="control">The control whose cache state to retrieve.</param>
+        /// <returns>The cache state for the control.</returns>
         public CacheState GetCacheState(IWindowControl control)
         {
             return _cacheStates.GetOrAdd(control, _ => new CacheState());
         }
 
         /// <summary>
-        /// Safely executes a function with cache protection
+        /// Safely executes a render function with cache protection.
+        /// Prevents concurrent rendering and handles invalidation on failure.
         /// </summary>
+        /// <typeparam name="T">The type of the render result.</typeparam>
+        /// <param name="control">The control being rendered.</param>
+        /// <param name="renderFunction">The function that produces the rendered content.</param>
+        /// <param name="fallbackValue">The value to return if another render is in progress. Defaults to <c>default(T)</c>.</param>
+        /// <returns>The rendered content, or the fallback value if rendering could not proceed.</returns>
         public T WithCacheProtection<T>(IWindowControl control, Func<T> renderFunction, T fallbackValue = default!)
         {
             var state = GetCacheState(control);
@@ -340,8 +424,10 @@ namespace SharpConsoleUI.Core
         }
 
         /// <summary>
-        /// Checks if a control needs rendering
+        /// Checks if a control needs rendering (is invalid and not currently being rendered).
         /// </summary>
+        /// <param name="control">The control to check.</param>
+        /// <returns><c>true</c> if the control needs rendering; otherwise, <c>false</c>.</returns>
         public bool NeedsRendering(IWindowControl control)
         {
             var state = GetCacheState(control);

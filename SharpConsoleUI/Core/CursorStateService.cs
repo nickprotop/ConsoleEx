@@ -281,6 +281,7 @@ namespace SharpConsoleUI.Core
 			Console.Write("\x1b[0 q");
 		}
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			if (_isDisposed)

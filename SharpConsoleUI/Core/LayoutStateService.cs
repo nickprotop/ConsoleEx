@@ -12,40 +12,47 @@ using SharpConsoleUI.Controls;
 namespace SharpConsoleUI.Core
 {
 	/// <summary>
-	/// Event arguments for layout changes
+	/// Event arguments for layout changes.
 	/// </summary>
 	public class LayoutChangedEventArgs : EventArgs
 	{
 		/// <summary>
-		/// The control whose layout changed
+		/// Gets the control whose layout changed.
 		/// </summary>
 		public IWindowControl Control { get; }
 
 		/// <summary>
-		/// The previous layout state
+		/// Gets the previous layout state.
 		/// </summary>
 		public LayoutState PreviousState { get; }
 
 		/// <summary>
-		/// The new layout state
+		/// Gets the new layout state.
 		/// </summary>
 		public LayoutState NewState { get; }
 
 		/// <summary>
-		/// The reason for the layout change
+		/// Gets the reason for the layout change.
 		/// </summary>
 		public LayoutChangeReason Reason { get; }
 
 		/// <summary>
-		/// True if the available width changed
+		/// Gets a value indicating whether the available width changed.
 		/// </summary>
 		public bool WidthChanged => PreviousState.AvailableWidth != NewState.AvailableWidth;
 
 		/// <summary>
-		/// True if the available height changed
+		/// Gets a value indicating whether the available height changed.
 		/// </summary>
 		public bool HeightChanged => PreviousState.AvailableHeight != NewState.AvailableHeight;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="LayoutChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="control">The control whose layout changed.</param>
+		/// <param name="previousState">The previous layout state.</param>
+		/// <param name="newState">The new layout state.</param>
+		/// <param name="reason">The reason for the layout change.</param>
 		public LayoutChangedEventArgs(IWindowControl control, LayoutState previousState, LayoutState newState, LayoutChangeReason reason)
 		{
 			Control = control;
@@ -70,7 +77,7 @@ namespace SharpConsoleUI.Core
 		#region Events
 
 		/// <summary>
-		/// Event fired when any control's layout state changes
+		/// Occurs when any control's layout state changes.
 		/// </summary>
 		public event EventHandler<LayoutChangedEventArgs>? LayoutChanged;
 
@@ -79,8 +86,11 @@ namespace SharpConsoleUI.Core
 		#region Layout State Management
 
 		/// <summary>
-		/// Gets the layout state for a control
+		/// Gets the layout state for a control.
 		/// </summary>
+		/// <param name="control">The control to get layout state for.</param>
+		/// <returns>The layout state for the control, or <see cref="LayoutState.Empty"/> if not found.</returns>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="control"/> is null.</exception>
 		public LayoutState GetLayoutState(IWindowControl control)
 		{
 			if (control == null)
@@ -90,24 +100,30 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets the layout requirements for a control
+		/// Gets the layout requirements for a control.
 		/// </summary>
+		/// <param name="control">The control to get requirements for.</param>
+		/// <returns>The layout requirements for the control.</returns>
 		public LayoutRequirements GetRequirements(IWindowControl control)
 		{
 			return GetLayoutState(control).Requirements;
 		}
 
 		/// <summary>
-		/// Gets the available width for a control
+		/// Gets the available width for a control.
 		/// </summary>
+		/// <param name="control">The control to get available width for.</param>
+		/// <returns>The available width, or null if not set.</returns>
 		public int? GetAvailableWidth(IWindowControl control)
 		{
 			return GetLayoutState(control).AvailableWidth;
 		}
 
 		/// <summary>
-		/// Gets the available height for a control
+		/// Gets the available height for a control.
 		/// </summary>
+		/// <param name="control">The control to get available height for.</param>
+		/// <returns>The available height, or null if not set.</returns>
 		public int? GetAvailableHeight(IWindowControl control)
 		{
 			return GetLayoutState(control).AvailableHeight;
@@ -115,8 +131,13 @@ namespace SharpConsoleUI.Core
 
 		/// <summary>
 		/// Updates the available space for a control.
-		/// Returns true if the space actually changed (control needs re-render).
 		/// </summary>
+		/// <param name="control">The control to update.</param>
+		/// <param name="availableWidth">The new available width.</param>
+		/// <param name="availableHeight">The new available height.</param>
+		/// <param name="reason">The reason for the change.</param>
+		/// <returns>True if the space actually changed (control needs re-render); otherwise, false.</returns>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="control"/> is null.</exception>
 		public bool UpdateAvailableSpace(IWindowControl control, int? availableWidth, int? availableHeight,
 			LayoutChangeReason reason = LayoutChangeReason.Programmatic)
 		{
@@ -143,8 +164,12 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Updates the layout requirements for a control
+		/// Updates the layout requirements for a control.
 		/// </summary>
+		/// <param name="control">The control to update.</param>
+		/// <param name="requirements">The new layout requirements.</param>
+		/// <param name="reason">The reason for the change.</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="control"/> is null.</exception>
 		public void UpdateRequirements(IWindowControl control, LayoutRequirements requirements,
 			LayoutChangeReason reason = LayoutChangeReason.RequirementsChange)
 		{
@@ -169,8 +194,12 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Updates the actual rendered dimensions for a control
+		/// Updates the actual rendered dimensions for a control.
 		/// </summary>
+		/// <param name="control">The control to update.</param>
+		/// <param name="actualWidth">The actual rendered width.</param>
+		/// <param name="actualHeight">The actual rendered height.</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="control"/> is null.</exception>
 		public void UpdateActualDimensions(IWindowControl control, int actualWidth, int actualHeight)
 		{
 			if (control == null)
@@ -196,8 +225,12 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Sets the layout allocation for a control after layout calculation
+		/// Sets the layout allocation for a control after layout calculation.
 		/// </summary>
+		/// <param name="control">The control to set allocation for.</param>
+		/// <param name="allocation">The layout allocation to set.</param>
+		/// <param name="reason">The reason for the change.</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="control"/> is null.</exception>
 		public void SetAllocation(IWindowControl control, LayoutAllocation allocation,
 			LayoutChangeReason reason = LayoutChangeReason.Programmatic)
 		{
@@ -227,8 +260,12 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Checks if a control needs re-rendering based on new available space
+		/// Checks if a control needs re-rendering based on new available space.
 		/// </summary>
+		/// <param name="control">The control to check.</param>
+		/// <param name="newWidth">The new available width.</param>
+		/// <param name="newHeight">The new available height.</param>
+		/// <returns>True if the control needs re-rendering; otherwise, false.</returns>
 		public bool NeedsRerender(IWindowControl control, int? newWidth, int? newHeight)
 		{
 			var state = GetLayoutState(control);
@@ -236,8 +273,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Removes all state for a control (when control is disposed)
+		/// Removes all state for a control (when control is disposed).
 		/// </summary>
+		/// <param name="control">The control to unregister.</param>
 		public void UnregisterControl(IWindowControl control)
 		{
 			if (control == null)
@@ -251,8 +289,11 @@ namespace SharpConsoleUI.Core
 		#region Layout Helpers
 
 		/// <summary>
-		/// Calculates the effective width for a control based on requirements and available space
+		/// Calculates the effective width for a control based on requirements and available space.
 		/// </summary>
+		/// <param name="control">The control to calculate width for.</param>
+		/// <param name="availableWidth">The available width constraint.</param>
+		/// <returns>The calculated effective width.</returns>
 		public int GetEffectiveWidth(IWindowControl control, int? availableWidth)
 		{
 			var state = GetLayoutState(control);
@@ -271,8 +312,11 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Calculates the effective height for a control based on requirements and available space
+		/// Calculates the effective height for a control based on requirements and available space.
 		/// </summary>
+		/// <param name="control">The control to calculate height for.</param>
+		/// <param name="availableHeight">The available height constraint.</param>
+		/// <returns>The calculated effective height.</returns>
 		public int GetEffectiveHeight(IWindowControl control, int? availableHeight)
 		{
 			var state = GetLayoutState(control);
@@ -291,15 +335,16 @@ namespace SharpConsoleUI.Core
 		#region Debugging
 
 		/// <summary>
-		/// Gets recent layout state history for debugging
+		/// Gets recent layout state history for debugging.
 		/// </summary>
+		/// <returns>A read-only list of control and layout state pairs.</returns>
 		public IReadOnlyList<(IWindowControl Control, LayoutState State)> GetHistory()
 		{
 			return _stateHistory.ToArray();
 		}
 
 		/// <summary>
-		/// Clears the state history
+		/// Clears the state history.
 		/// </summary>
 		public void ClearHistory()
 		{
@@ -307,8 +352,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets a debug string representation of layout state for a control
+		/// Gets a debug string representation of layout state for a control.
 		/// </summary>
+		/// <param name="control">The control to get debug info for.</param>
+		/// <returns>A formatted string containing the control's layout state information.</returns>
 		public string GetDebugInfo(IWindowControl control)
 		{
 			var state = GetLayoutState(control);
@@ -352,6 +399,7 @@ namespace SharpConsoleUI.Core
 
 		#region IDisposable
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			if (_isDisposed)

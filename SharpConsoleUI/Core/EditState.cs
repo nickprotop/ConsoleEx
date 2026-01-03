@@ -12,10 +12,15 @@ using SharpConsoleUI.Controls;
 namespace SharpConsoleUI.Core
 {
 	/// <summary>
-	/// Represents a text position (line and column)
+	/// Represents a text position (line and column).
 	/// </summary>
+	/// <param name="Line">The zero-based line number.</param>
+	/// <param name="Column">The zero-based column number.</param>
 	public record TextPosition(int Line, int Column)
 	{
+		/// <summary>
+		/// Represents position (0, 0) - the origin position.
+		/// </summary>
 		public static readonly TextPosition Zero = new(0, 0);
 
 		/// <summary>
@@ -243,6 +248,13 @@ namespace SharpConsoleUI.Core
 		public bool ScrollChanged => PreviousState.VerticalScrollOffset != NewState.VerticalScrollOffset ||
 		                              PreviousState.HorizontalScrollOffset != NewState.HorizontalScrollOffset;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="EditStateChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="control">The control whose edit state changed.</param>
+		/// <param name="previousState">The previous edit state before the change.</param>
+		/// <param name="newState">The new edit state after the change.</param>
+		/// <param name="reason">The reason for the edit state change.</param>
 		public EditStateChangedEventArgs(IWindowControl control, EditState previousState, EditState newState, EditChangeReason reason)
 		{
 			Control = control;
@@ -267,6 +279,11 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public EditOperation Operation { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="TextChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="control">The control whose text changed.</param>
+		/// <param name="operation">The edit operation that caused the change.</param>
 		public TextChangedEventArgs(IWindowControl control, EditOperation operation)
 		{
 			Control = control;

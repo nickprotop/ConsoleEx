@@ -27,6 +27,10 @@ namespace SharpConsoleUI.Core
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="WindowStateService"/> class.
+		/// </summary>
+		/// <param name="logService">Optional log service for diagnostic logging.</param>
 		public WindowStateService(ILogService? logService = null)
 		{
 			_logService = logService;
@@ -35,7 +39,7 @@ namespace SharpConsoleUI.Core
 		#region Properties
 
 		/// <summary>
-		/// Gets the current window system state
+		/// Gets the current window system state.
 		/// </summary>
 		public WindowSystemState CurrentState
 		{
@@ -49,37 +53,37 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets the currently active window
+		/// Gets the currently active window.
 		/// </summary>
 		public Window? ActiveWindow => CurrentState.ActiveWindow;
 
 		/// <summary>
-		/// Gets whether a drag operation is in progress
+		/// Gets a value indicating whether a drag operation is in progress.
 		/// </summary>
 		public bool IsDragging => CurrentState.Interaction.IsDragging;
 
 		/// <summary>
-		/// Gets whether a resize operation is in progress
+		/// Gets a value indicating whether a resize operation is in progress.
 		/// </summary>
 		public bool IsResizing => CurrentState.Interaction.IsResizing;
 
 		/// <summary>
-		/// Gets the current drag state (if dragging)
+		/// Gets the current drag state (if dragging).
 		/// </summary>
 		public DragState? CurrentDrag => CurrentState.Interaction.Drag;
 
 		/// <summary>
-		/// Gets the current resize state (if resizing)
+		/// Gets the current resize state (if resizing).
 		/// </summary>
 		public ResizeState? CurrentResize => CurrentState.Interaction.Resize;
 
 		/// <summary>
-		/// Gets all registered windows
+		/// Gets all registered windows.
 		/// </summary>
 		public IReadOnlyDictionary<string, Window> Windows => _windows;
 
 		/// <summary>
-		/// Gets the number of registered windows
+		/// Gets the number of registered windows.
 		/// </summary>
 		public int WindowCount => _windows.Count;
 
@@ -88,32 +92,32 @@ namespace SharpConsoleUI.Core
 		#region Events
 
 		/// <summary>
-		/// Event fired when any aspect of window system state changes
+		/// Occurs when any aspect of window system state changes.
 		/// </summary>
 		public event EventHandler<WindowSystemStateChangedEventArgs>? StateChanged;
 
 		/// <summary>
-		/// Event fired when a window is created/registered
+		/// Occurs when a window is created/registered.
 		/// </summary>
 		public event EventHandler<WindowEventArgs>? WindowCreated;
 
 		/// <summary>
-		/// Event fired when a window is closed/unregistered
+		/// Occurs when a window is closed/unregistered.
 		/// </summary>
 		public event EventHandler<WindowEventArgs>? WindowClosed;
 
 		/// <summary>
-		/// Event fired when the active window changes
+		/// Occurs when the active window changes.
 		/// </summary>
 		public event EventHandler<WindowActivatedEventArgs>? WindowActivated;
 
 		/// <summary>
-		/// Event fired when a window's state (min/max/restore) changes
+		/// Occurs when a window's state (min/max/restore) changes.
 		/// </summary>
 		public event EventHandler<WindowStateEventArgs>? WindowStateChanged;
 
 		/// <summary>
-		/// Event fired when interaction state (drag/resize) changes
+		/// Occurs when interaction state (drag/resize) changes.
 		/// </summary>
 		public event EventHandler<InteractionStateChangedEventArgs>? InteractionChanged;
 
@@ -122,8 +126,11 @@ namespace SharpConsoleUI.Core
 		#region Window Management
 
 		/// <summary>
-		/// Registers a new window with the system
+		/// Registers a new window with the system.
 		/// </summary>
+		/// <param name="window">The window to register.</param>
+		/// <param name="activate">Whether to activate the window after registration.</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="window"/> is null.</exception>
 		public void RegisterWindow(Window window, bool activate = true)
 		{
 			if (window == null)
@@ -160,8 +167,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Unregisters a window from the system
+		/// Unregisters a window from the system.
 		/// </summary>
+		/// <param name="window">The window to unregister.</param>
 		public void UnregisterWindow(Window window)
 		{
 			if (window == null)
@@ -197,24 +205,28 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets a window by its GUID
+		/// Gets a window by its GUID.
 		/// </summary>
+		/// <param name="guid">The GUID of the window to find.</param>
+		/// <returns>The window if found; otherwise, null.</returns>
 		public Window? GetWindow(string guid)
 		{
 			return _windows.TryGetValue(guid, out var window) ? window : null;
 		}
 
 		/// <summary>
-		/// Gets all windows ordered by Z-index (back to front)
+		/// Gets all windows ordered by Z-index (back to front).
 		/// </summary>
+		/// <returns>A read-only list of windows ordered by Z-index.</returns>
 		public IReadOnlyList<Window> GetWindowsByZOrder()
 		{
 			return _windows.Values.OrderBy(w => w.ZIndex).ToList();
 		}
 
 		/// <summary>
-		/// Gets only visible windows (excludes minimized)
+		/// Gets only visible windows (excludes minimized).
 		/// </summary>
+		/// <returns>A read-only list of visible windows ordered by Z-index.</returns>
 		public IReadOnlyList<Window> GetVisibleWindows()
 		{
 			return _windows.Values
@@ -224,18 +236,19 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets the maximum Z-index among all windows
+		/// Gets the maximum Z-index among all windows.
 		/// </summary>
+		/// <returns>The maximum Z-index, or 0 if no windows exist.</returns>
 		public int GetMaxZIndex()
 		{
 			return _windows.Count > 0 ? _windows.Values.Max(w => w.ZIndex) : 0;
 		}
 
 		/// <summary>
-		/// Finds a window by its Name property
+		/// Finds a window by its Name property.
 		/// </summary>
-		/// <param name="name">The window name to search for</param>
-		/// <returns>The window if found, null otherwise</returns>
+		/// <param name="name">The window name to search for.</param>
+		/// <returns>The window if found; otherwise, null.</returns>
 		public Window? FindWindowByName(string name)
 		{
 			if (string.IsNullOrEmpty(name)) return null;
@@ -243,18 +256,19 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Checks if a window with the given name exists
+		/// Checks if a window with the given name exists.
 		/// </summary>
-		/// <param name="name">The window name to check</param>
-		/// <returns>True if a window with the given name exists</returns>
+		/// <param name="name">The window name to check.</param>
+		/// <returns>True if a window with the given name exists; otherwise, false.</returns>
 		public bool WindowExists(string name)
 		{
 			return FindWindowByName(name) != null;
 		}
 
 		/// <summary>
-		/// Checks if any window is dirty (needs re-rendering)
+		/// Checks if any window is dirty (needs re-rendering).
 		/// </summary>
+		/// <returns>True if any window needs re-rendering; otherwise, false.</returns>
 		public bool AnyWindowDirty()
 		{
 			return _windows.Values.Any(w => w.IsDirty);
@@ -265,8 +279,9 @@ namespace SharpConsoleUI.Core
 		#region Active Window Management
 
 		/// <summary>
-		/// Activates a window, making it the active window
+		/// Activates a window, making it the active window.
 		/// </summary>
+		/// <param name="window">The window to activate, or null to deactivate all windows.</param>
 		public void ActivateWindow(Window? window)
 		{
 			lock (_lock)
@@ -305,7 +320,7 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Activates the next window in Z-order
+		/// Activates the next window in Z-order.
 		/// </summary>
 		public void ActivateNextWindow()
 		{
@@ -330,7 +345,7 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Activates the previous window in Z-order
+		/// Activates the previous window in Z-order.
 		/// </summary>
 		public void ActivatePreviousWindow()
 		{
@@ -355,8 +370,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Activates a window by its index (1-based, for Alt+1-9)
+		/// Activates a window by its index (1-based, for Alt+1-9).
 		/// </summary>
+		/// <param name="index">The 1-based index of the window to activate.</param>
 		public void ActivateWindowByIndex(int index)
 		{
 			lock (_lock)
@@ -385,8 +401,9 @@ namespace SharpConsoleUI.Core
 		#region Window State Operations
 
 		/// <summary>
-		/// Minimizes a window
+		/// Minimizes a window.
 		/// </summary>
+		/// <param name="window">The window to minimize.</param>
 		public void MinimizeWindow(Window window)
 		{
 			if (window == null || !window.IsMinimizable)
@@ -409,8 +426,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Maximizes a window
+		/// Maximizes a window.
 		/// </summary>
+		/// <param name="window">The window to maximize.</param>
 		public void MaximizeWindow(Window window)
 		{
 			if (window == null || !window.IsMaximizable)
@@ -425,8 +443,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Restores a window to normal state
+		/// Restores a window to normal state.
 		/// </summary>
+		/// <param name="window">The window to restore.</param>
 		public void RestoreWindow(Window window)
 		{
 			if (window == null)
@@ -441,8 +460,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Closes a window
+		/// Closes a window.
 		/// </summary>
+		/// <param name="window">The window to close.</param>
 		public void CloseWindow(Window window)
 		{
 			if (window == null)
@@ -456,8 +476,10 @@ namespace SharpConsoleUI.Core
 		#region Drag Operations
 
 		/// <summary>
-		/// Starts a drag operation
+		/// Starts a drag operation.
 		/// </summary>
+		/// <param name="window">The window being dragged.</param>
+		/// <param name="mousePos">The initial mouse position.</param>
 		public void StartDrag(Window window, Point mousePos)
 		{
 			if (window == null)
@@ -484,7 +506,7 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Ends the current drag operation
+		/// Ends the current drag operation.
 		/// </summary>
 		public void EndDrag()
 		{
@@ -510,8 +532,11 @@ namespace SharpConsoleUI.Core
 		#region Resize Operations
 
 		/// <summary>
-		/// Starts a resize operation
+		/// Starts a resize operation.
 		/// </summary>
+		/// <param name="window">The window being resized.</param>
+		/// <param name="direction">The resize direction.</param>
+		/// <param name="mousePos">The initial mouse position.</param>
 		public void StartResize(Window window, ResizeDirection direction, Point mousePos)
 		{
 			if (window == null || !window.IsResizable)
@@ -540,7 +565,7 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Ends the current resize operation
+		/// Ends the current resize operation.
 		/// </summary>
 		public void EndResize()
 		{
@@ -566,8 +591,9 @@ namespace SharpConsoleUI.Core
 		#region Z-Order Management
 
 		/// <summary>
-		/// Brings a window to the front (highest Z-index)
+		/// Brings a window to the front (highest Z-index).
 		/// </summary>
+		/// <param name="window">The window to bring to front.</param>
 		public void BringToFront(Window window)
 		{
 			if (window == null)
@@ -582,8 +608,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Sends a window to the back (lowest Z-index)
+		/// Sends a window to the back (lowest Z-index).
 		/// </summary>
+		/// <param name="window">The window to send to back.</param>
 		public void SendToBack(Window window)
 		{
 			if (window == null)
@@ -603,15 +630,16 @@ namespace SharpConsoleUI.Core
 		#region Debugging
 
 		/// <summary>
-		/// Gets recent state history for debugging
+		/// Gets recent state history for debugging.
 		/// </summary>
+		/// <returns>A read-only list of recent window system states.</returns>
 		public IReadOnlyList<WindowSystemState> GetHistory()
 		{
 			return _stateHistory.ToArray();
 		}
 
 		/// <summary>
-		/// Clears the state history
+		/// Clears the state history.
 		/// </summary>
 		public void ClearHistory()
 		{
@@ -619,8 +647,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets a debug string representation of current state
+		/// Gets a debug string representation of current state.
 		/// </summary>
+		/// <returns>A formatted string containing the current state information.</returns>
 		public string GetDebugInfo()
 		{
 			var state = CurrentState;
@@ -765,6 +794,7 @@ namespace SharpConsoleUI.Core
 
 		#region IDisposable
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			if (_isDisposed)

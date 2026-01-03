@@ -26,6 +26,10 @@ namespace SharpConsoleUI.Core
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ModalStateService"/> class.
+		/// </summary>
+		/// <param name="logService">Optional log service for diagnostic logging.</param>
 		public ModalStateService(ILogService? logService = null)
 		{
 			_logService = logService;
@@ -34,7 +38,7 @@ namespace SharpConsoleUI.Core
 		#region Properties
 
 		/// <summary>
-		/// Gets the current modal state
+		/// Gets the current modal state.
 		/// </summary>
 		public ModalState CurrentState
 		{
@@ -48,17 +52,17 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets whether any modal windows are open
+		/// Gets a value indicating whether any modal windows are open.
 		/// </summary>
 		public bool HasModals => CurrentState.HasModals;
 
 		/// <summary>
-		/// Gets the number of modal windows currently open
+		/// Gets the number of modal windows currently open.
 		/// </summary>
 		public int ModalCount => CurrentState.ModalCount;
 
 		/// <summary>
-		/// Gets the topmost modal window (if any)
+		/// Gets the topmost modal window (if any).
 		/// </summary>
 		public Window? TopmostModal => CurrentState.TopmostModal;
 
@@ -67,22 +71,22 @@ namespace SharpConsoleUI.Core
 		#region Events
 
 		/// <summary>
-		/// Event fired when modal state changes
+		/// Occurs when modal state changes.
 		/// </summary>
 		public event EventHandler<ModalStateChangedEventArgs>? StateChanged;
 
 		/// <summary>
-		/// Event fired when a modal window is opened
+		/// Occurs when a modal window is opened.
 		/// </summary>
 		public event EventHandler<ModalStateChangedEventArgs>? ModalOpened;
 
 		/// <summary>
-		/// Event fired when a modal window is closed
+		/// Occurs when a modal window is closed.
 		/// </summary>
 		public event EventHandler<ModalStateChangedEventArgs>? ModalClosed;
 
 		/// <summary>
-		/// Event fired when window activation is blocked by a modal
+		/// Occurs when window activation is blocked by a modal.
 		/// </summary>
 		public event EventHandler<ActivationBlockedEventArgs>? ActivationBlocked;
 
@@ -91,10 +95,11 @@ namespace SharpConsoleUI.Core
 		#region Modal Management
 
 		/// <summary>
-		/// Registers a modal window with its parent
+		/// Registers a modal window with its parent.
 		/// </summary>
-		/// <param name="modal">The modal window</param>
-		/// <param name="parent">The parent window (can be null for orphan modals)</param>
+		/// <param name="modal">The modal window.</param>
+		/// <param name="parent">The parent window (can be null for orphan modals).</param>
+		/// <exception cref="ArgumentNullException">Thrown when <paramref name="modal"/> is null.</exception>
 		public void PushModal(Window modal, Window? parent)
 		{
 			if (modal == null)
@@ -125,9 +130,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Unregisters a modal window
+		/// Unregisters a modal window.
 		/// </summary>
-		/// <param name="modal">The modal window to remove</param>
+		/// <param name="modal">The modal window to remove.</param>
 		public void PopModal(Window modal)
 		{
 			if (modal == null)
@@ -158,8 +163,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets the parent of a modal window
+		/// Gets the parent of a modal window.
 		/// </summary>
+		/// <param name="modal">The modal window.</param>
+		/// <returns>The parent window, or null if the modal has no parent.</returns>
 		public Window? GetModalParent(Window modal)
 		{
 			lock (_lock)
@@ -169,8 +176,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Checks if a window is a modal
+		/// Checks if a window is a modal.
 		/// </summary>
+		/// <param name="window">The window to check.</param>
+		/// <returns>True if the window is a modal; otherwise, false.</returns>
 		public bool IsModal(Window window)
 		{
 			lock (_lock)
@@ -180,8 +189,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets all modal children of a window (direct children only)
+		/// Gets all modal children of a window (direct children only).
 		/// </summary>
+		/// <param name="parent">The parent window.</param>
+		/// <returns>A read-only list of modal children.</returns>
 		public IReadOnlyList<Window> GetModalChildren(Window parent)
 		{
 			lock (_lock)
@@ -194,8 +205,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets the deepest modal child of a window (recursive)
+		/// Gets the deepest modal child of a window (recursive).
 		/// </summary>
+		/// <param name="parent">The parent window.</param>
+		/// <returns>The deepest modal child, or null if no modal children exist.</returns>
 		public Window? GetDeepestModalChild(Window parent)
 		{
 			lock (_lock)
@@ -209,10 +222,10 @@ namespace SharpConsoleUI.Core
 		#region Activation Blocking
 
 		/// <summary>
-		/// Checks if activation of a window is blocked by a modal
+		/// Checks if activation of a window is blocked by a modal.
 		/// </summary>
-		/// <param name="targetWindow">The window trying to be activated</param>
-		/// <returns>The blocking modal, or null if not blocked</returns>
+		/// <param name="targetWindow">The window trying to be activated.</param>
+		/// <returns>The blocking modal, or null if not blocked.</returns>
 		public Window? GetBlockingModal(Window targetWindow)
 		{
 			lock (_lock)
@@ -236,10 +249,10 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Checks if activation of a window is blocked
+		/// Checks if activation of a window is blocked.
 		/// </summary>
-		/// <param name="targetWindow">The window trying to be activated</param>
-		/// <returns>True if blocked, false otherwise</returns>
+		/// <param name="targetWindow">The window trying to be activated.</param>
+		/// <returns>True if blocked; otherwise, false.</returns>
 		public bool IsActivationBlocked(Window targetWindow)
 		{
 			return GetBlockingModal(targetWindow) != null;
@@ -249,8 +262,8 @@ namespace SharpConsoleUI.Core
 		/// Gets the window that should actually be activated when trying to activate a target window.
 		/// This handles modal blocking by returning the deepest modal child if one exists.
 		/// </summary>
-		/// <param name="targetWindow">The window the user is trying to activate</param>
-		/// <returns>The window that should actually be activated</returns>
+		/// <param name="targetWindow">The window the user is trying to activate.</param>
+		/// <returns>The window that should actually be activated.</returns>
 		public Window GetEffectiveActivationTarget(Window targetWindow)
 		{
 			lock (_lock)
@@ -277,8 +290,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Checks if there are any orphan modals (modals with no parent that block everything)
+		/// Checks if there are any orphan modals (modals with no parent that block everything).
 		/// </summary>
+		/// <returns>True if orphan modals exist; otherwise, false.</returns>
 		public bool HasOrphanModals()
 		{
 			lock (_lock)
@@ -292,15 +306,16 @@ namespace SharpConsoleUI.Core
 		#region Debugging
 
 		/// <summary>
-		/// Gets recent modal state history for debugging
+		/// Gets recent modal state history for debugging.
 		/// </summary>
+		/// <returns>A read-only list of recent modal states.</returns>
 		public IReadOnlyList<ModalState> GetHistory()
 		{
 			return _stateHistory.ToArray();
 		}
 
 		/// <summary>
-		/// Clears the state history
+		/// Clears the state history.
 		/// </summary>
 		public void ClearHistory()
 		{
@@ -308,8 +323,9 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets a debug string representation of current modal state
+		/// Gets a debug string representation of current modal state.
 		/// </summary>
+		/// <returns>A formatted string containing the current modal state information.</returns>
 		public string GetDebugInfo()
 		{
 			var state = CurrentState;
@@ -427,6 +443,7 @@ namespace SharpConsoleUI.Core
 
 		#region IDisposable
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			if (_isDisposed)

@@ -30,6 +30,10 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public bool Handled { get; set; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="KeyPressEventArgs"/> class.
+		/// </summary>
+		/// <param name="keyInfo">The key information for the pressed key.</param>
 		public KeyPressEventArgs(ConsoleKeyInfo keyInfo)
 		{
 			KeyInfo = keyInfo;
@@ -52,6 +56,11 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public TimeSpan IdleDuration { get; }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="IdleStateEventArgs"/> class.
+		/// </summary>
+		/// <param name="isIdle">Whether the system is now idle.</param>
+		/// <param name="idleDuration">The duration of idle time.</param>
 		public IdleStateEventArgs(bool isIdle, TimeSpan idleDuration)
 		{
 			IsIdle = isIdle;
@@ -391,6 +400,7 @@ namespace SharpConsoleUI.Core
 
 		#region IDisposable
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			if (_isDisposed)

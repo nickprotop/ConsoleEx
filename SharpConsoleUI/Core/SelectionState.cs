@@ -117,6 +117,13 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public bool HighlightedIndexChanged => PreviousState.HighlightedIndex != NewState.HighlightedIndex;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="SelectionChangedEventArgs"/> class.
+		/// </summary>
+		/// <param name="control">The control whose selection changed.</param>
+		/// <param name="previousState">The previous selection state before the change.</param>
+		/// <param name="newState">The new selection state after the change.</param>
+		/// <param name="reason">The reason for the selection change.</param>
 		public SelectionChangedEventArgs(IWindowControl control, SelectionState previousState, SelectionState newState, SelectionChangeReason reason)
 		{
 			Control = control;
