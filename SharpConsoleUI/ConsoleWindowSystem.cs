@@ -71,6 +71,7 @@ namespace SharpConsoleUI
 		private readonly ScrollStateService _scrollStateService = new();
 		private readonly InputStateService _inputStateService = new();
 		private readonly EditStateService _editStateService = new();
+		private readonly LayoutStateService _layoutStateService = new();
 
 		public ConsoleWindowSystem(RenderMode renderMode)
 		{
@@ -126,6 +127,7 @@ namespace SharpConsoleUI
 		public ScrollStateService ScrollStateService => _scrollStateService;
 		public InputStateService InputStateService => _inputStateService;
 		public EditStateService EditStateService => _editStateService;
+		public LayoutStateService LayoutStateService => _layoutStateService;
 
 		// Convenience properties for drag/resize state (delegated to service)
 		private bool IsDragging => _windowStateService.IsDragging;

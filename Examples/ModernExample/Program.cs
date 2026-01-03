@@ -51,6 +51,9 @@ internal class Program
                 BottomStatus = "ESC: Close Window | F2-F6,F7-F10: Demo Windows | Ctrl+Q: Quit"
             };
 
+            // Set desktop background character to dots for better visibility
+            _windowSystem.Theme.DesktopBackroundChar = '.';
+
             // Setup graceful shutdown handler for Ctrl+C
             Console.CancelKeyPress += (sender, e) =>
             {

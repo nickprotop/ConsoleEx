@@ -278,7 +278,10 @@ public class ComprehensiveLayoutWindow : IDisposable
     {
         if (_window == null) return;
 
-        var mainContentArea = new HorizontalGridControl();
+        var mainContentArea = new HorizontalGridControl
+        {
+            Alignment = Alignment.Stretch  // Fill available space when window resizes
+        };
 
         CreateLeftPanel(mainContentArea);
         CreateRightPanel(mainContentArea);
@@ -365,7 +368,7 @@ public class ComprehensiveLayoutWindow : IDisposable
     /// </summary>
     private void CreateEditorTabs(ColumnContainer rightPanel)
     {
-        var editorTabs = new HorizontalGridControl { Alignment = Alignment.Left };
+        var editorTabs = new HorizontalGridControl { Alignment = Alignment.Stretch };
 
         _tab1 = new ButtonControl { Text = "Program.cs x", Width = 15 };
         _tab2 = new ButtonControl { Text = "User.cs", Width = 12 };
