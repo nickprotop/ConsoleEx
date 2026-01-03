@@ -221,6 +221,27 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
+		/// Finds a window by its Name property
+		/// </summary>
+		/// <param name="name">The window name to search for</param>
+		/// <returns>The window if found, null otherwise</returns>
+		public Window? FindWindowByName(string name)
+		{
+			if (string.IsNullOrEmpty(name)) return null;
+			return _windows.Values.FirstOrDefault(w => w.Name == name);
+		}
+
+		/// <summary>
+		/// Checks if a window with the given name exists
+		/// </summary>
+		/// <param name="name">The window name to check</param>
+		/// <returns>True if a window with the given name exists</returns>
+		public bool WindowExists(string name)
+		{
+			return FindWindowByName(name) != null;
+		}
+
+		/// <summary>
 		/// Checks if any window is dirty (needs re-rendering)
 		/// </summary>
 		public bool AnyWindowDirty()

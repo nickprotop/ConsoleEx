@@ -25,6 +25,7 @@ public sealed class WindowBuilder
     private readonly IServiceProvider? _services;
 
     private string? _title;
+    private string? _name;
     private WindowBounds? _bounds;
     private SpectreColor? _backgroundColor;
     private SpectreColor? _foregroundColor;
@@ -63,6 +64,18 @@ public sealed class WindowBuilder
     public WindowBuilder WithTitle(string title)
     {
         _title = title;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the window name for singleton window patterns.
+    /// Windows can be found/activated by name using ConsoleWindowSystem.ActivateOrCreate().
+    /// </summary>
+    /// <param name="name">The unique window name</param>
+    /// <returns>The builder for chaining</returns>
+    public WindowBuilder WithName(string name)
+    {
+        _name = name;
         return this;
     }
 
@@ -389,6 +402,9 @@ public sealed class WindowBuilder
         // Apply configuration
         if (_title != null)
             window.Title = _title;
+
+        if (_name != null)
+            window.Name = _name;
 
         if (_bounds != null)
         {

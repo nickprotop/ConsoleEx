@@ -95,6 +95,9 @@ namespace SharpConsoleUI
 		private Thread? _windowThread;
 		private WindowThreadDelegate? _windowThreadMethod;
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
+		private CancellationTokenSource? _windowThreadCts;
+		private bool _isClosing = false;
+		private string? _name;
 
 		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod, Window? parentWindow = null)
 		{
@@ -102,6 +105,7 @@ namespace SharpConsoleUI
 
 			_parentWindow = parentWindow;
 			_windowSystem = windowSystem;
+			_layoutManager = new WindowLayoutManager(this);
 
 			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
 			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
@@ -110,7 +114,24 @@ namespace SharpConsoleUI
 			SetupInitialPosition();
 
 			_windowThreadMethodAsync = windowThreadMethod;
-			_windowTask = Task.Run(() => _windowThreadMethodAsync(this));
+			_windowThreadCts = new CancellationTokenSource();
+			var token = _windowThreadCts.Token;
+			_windowTask = Task.Run(async () =>
+			{
+				try
+				{
+					await windowThreadMethod(this, token);
+				}
+				catch (OperationCanceledException)
+				{
+					// Normal cancellation, ignore
+				}
+				catch (Exception ex)
+				{
+					// Log error to LogService if available, but don't crash
+					_windowSystem?.LogService?.LogError($"Window thread error: {ex.Message}", ex, "Window");
+				}
+			});
 		}
 
 		public Window(ConsoleWindowSystem windowSystem, Window? parentWindow = null)
@@ -150,7 +171,7 @@ namespace SharpConsoleUI
 		public delegate void WindowThreadDelegate(Window window);
 
 		// Window Thread Delegates
-		public delegate Task WindowThreadDelegateAsync(Window window);
+		public delegate Task WindowThreadDelegateAsync(Window window, CancellationToken cancellationToken);
 
 		// Events
 		public event EventHandler? Activated;
@@ -313,6 +334,16 @@ namespace SharpConsoleUI
 
 		public string Title { get; set; } = "Window";
 
+		/// <summary>
+		/// Optional unique name for finding/identifying this window.
+		/// User-defined string for singleton window patterns (e.g., "LogViewer", "Settings").
+		/// </summary>
+		public string? Name
+		{
+			get => _name;
+			set => _name = value;
+		}
+
 		public int Top { get; set; }
 
 		public int TotalLines => _cachedContent.Count + _topStickyHeight;
@@ -379,14 +410,49 @@ namespace SharpConsoleUI
 
 		public bool Close(bool systemCall = false)
 		{
+			// Prevent re-entrancy: Close() can be called twice when closing via button
+			// (once from button click, once from CloseWindow calling Close(true))
+			if (_isClosing) return true;
+
 			if (IsClosable)
 			{
+				_isClosing = true;
+
+				// Cancel async window thread - non-blocking to avoid UI freeze
+				if (_windowThreadCts != null)
+				{
+					_windowThreadCts.Cancel();
+					// Don't Wait() - it blocks the UI thread and can cause deadlock
+					// The task wrapper has try/catch that handles cancellation gracefully
+					// Clean up CTS in background after task completes
+					var cts = _windowThreadCts;
+					var task = _windowTask;
+					_windowThreadCts = null;
+					_windowTask = null;
+
+					// Fire-and-forget cleanup (safe - task has exception handling)
+					_ = Task.Run(async () =>
+					{
+						try
+						{
+							if (task != null)
+								await task.ConfigureAwait(false);
+						}
+						catch { }
+						finally
+						{
+							cts?.Dispose();
+						}
+					});
+				}
+
 				if (OnCLosing != null)
 				{
 					var args = new ClosingEventArgs();
 					OnCLosing(this, args);
 					if (!args.Allow)
 					{
+						_isClosing = false;
 						return false;
 					}
 				}
