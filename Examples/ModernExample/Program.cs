@@ -9,6 +9,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Logging;
 using Spectre.Console;
 using System.Diagnostics;
 using System.IO;
@@ -51,9 +52,6 @@ internal class Program
                 BottomStatus = "ESC: Close Window | F2-F6,F7-F10: Demo Windows | Ctrl+Q: Quit"
             };
 
-            // Set desktop background character to dots for better visibility
-            _windowSystem.Theme.DesktopBackroundChar = '.';
-
             // Setup graceful shutdown handler for Ctrl+C
             Console.CancelKeyPress += (sender, e) =>
             {
@@ -94,26 +92,16 @@ internal class Program
     {
         var services = new ServiceCollection();
 
-        // Add logging - NEVER use AddConsole() in UI apps as it corrupts the display!
-        // For UI applications, we either disable logging or use non-console providers
-        services.AddLogging(builder =>
-        {
-            // For demo purposes, we'll use minimal logging to avoid console output
-            // In production apps, use file logging, database logging, etc.
-
-#if DEBUG
-            // In debug mode, you might want to see logs - use EventLog or file logging
-            // builder.AddEventLog(); // Windows Event Log (Windows only)
-#endif
-
-            // Set minimum level but no console output
-            builder.SetMinimumLevel(LogLevel.Warning); // Only show warnings/errors
-        });
+        // No logging setup needed here!
+        // SharpConsoleUI provides its own LogService accessible via:
+        //   _windowSystem.LogService.LogInfo("message");
+        //   _windowSystem.LogService.LogAdded += (s, entry) => { ... };
+        //   var logs = _windowSystem.LogService.GetRecentLogs(50);
+        //
+        // You can also use LogViewerControl to display logs in a window.
 
         _serviceProvider = services.BuildServiceProvider();
         _logger = _serviceProvider.GetService<ILogger<Program>>();
-
-        _logger?.LogInformation("Services configured successfully");
     }
 
     /// <summary>
@@ -214,7 +202,7 @@ internal class Program
                 switch (e.KeyInfo.Key)
                 {
                     case ConsoleKey.F2:
-                        _ = CreateLogWindow();
+                        CreateLogWindow();
                         e.Handled = true;
                         break;
                     case ConsoleKey.F3:
@@ -265,26 +253,28 @@ internal class Program
     }
 
     /// <summary>
-    /// Create log window with real-time updates (adapted from LogWindow.cs)
+    /// Create log window with real-time updates using LogViewerControl
     /// </summary>
-    private static Task CreateLogWindow()
+    private static void CreateLogWindow()
     {
-        if (_windowSystem == null) return Task.CompletedTask;
+        if (_windowSystem == null) return;
+
+        // Use the new LogViewerControl
+        var logViewer = new LogViewerControl(_windowSystem.LogService)
+        {
+            Title = "Application Logs",
+            MaxDisplayLines = 14,
+            FilterLevel = LogLevel.Trace  // Show all levels for demo
+        };
 
         _logWindow = new WindowBuilder(_windowSystem, _serviceProvider)
-            .WithTitle("Real-time Log Viewer")
-            .WithSize(70, 15)
-            .AtPosition(5, 5)
+            .WithTitle("Log Viewer (F2)")
+            .WithSize(80, 18)
+            .AtPosition(5, 3)
             .WithColors(SpectreColor.Black, SpectreColor.Green)
+            .AddControl(logViewer)
+            .WithAsyncWindowThread(SimulateLoggingAsync)
             .Build();
-
-        // Add initial content
-        _logWindow.AddControl(new MarkupControl(new List<string>
-        {
-            "[bold green]Real-time Log Viewer[/]",
-            "[dim](Adapted from original LogWindow with async patterns)[/]",
-            ""
-        }));
 
         // Setup ESC key handler
         _logWindow.KeyPressed += (sender, e) =>
@@ -296,44 +286,40 @@ internal class Program
             }
         };
 
-        // Start background logging task (modern async pattern)
-        _ = Task.Run(async () => await SimulateLoggingAsync());
-
         _windowSystem.AddWindow(_logWindow);
-        _logger?.LogInformation("Log window created with real-time updates");
-        
-        return Task.CompletedTask;
+        _windowSystem.LogService.LogInfo("Log window created with LogViewerControl", "UI");
     }
 
     /// <summary>
-    /// Simulate real-time logging updates using modern async patterns
+    /// Simulate real-time logging updates using window thread delegate pattern
     /// </summary>
-    private static async Task SimulateLoggingAsync()
+    private static async Task SimulateLoggingAsync(Window window, CancellationToken cancellationToken)
     {
+        if (_windowSystem == null) return;
+
+        // Enable all log levels for demo
+        _windowSystem.LogService.MinimumLevel = LogLevel.Trace;
+
+        var levels = new[] { LogLevel.Trace, LogLevel.Debug, LogLevel.Information, LogLevel.Warning };
+        var categories = new[] { "System", "Network", "Database", "UI", "Auth" };
+        var messages = new[] { "Processing request", "Connection established", "Query executed", "Cache hit", "User action" };
+
+        // Thread runs until cancelled or loop completes - window system manages lifecycle
         for (int i = 1; i <= 30; i++)
         {
-            if (_logWindow == null) break;
+            // Check for cancellation before delay and logging
+            cancellationToken.ThrowIfCancellationRequested();
 
-            await Task.Delay(800); // Faster updates for demo
+            await Task.Delay(600, cancellationToken);
 
-            var logMessage = $"[{DateTime.Now:HH:mm:ss}] [yellow]Log #{i:D2}[/] - Processing task [green]OK[/]";
-            _logWindow.AddControl(new MarkupControl(new List<string> { logMessage }));
+            var level = levels[i % levels.Length];
+            var category = categories[i % categories.Length];
+            var message = $"{messages[i % messages.Length]} #{i}";
 
-            _logger?.LogDebug("Added log entry {LogNumber}", i);
-
-            // Auto-scroll to show latest entries
-            _logWindow.GoToBottom();
+            _windowSystem.LogService.Log(level, message, category);
         }
 
-        if (_logWindow != null)
-        {
-            _logWindow.AddControl(new MarkupControl(new List<string>
-            {
-                "",
-                "[bold red]Logging simulation completed![/]",
-                "[dim]Press ESC to close this window[/]"
-            }));
-        }
+        _windowSystem.LogService.LogInfo("Log simulation completed", "Demo");
     }
 
     /// <summary>

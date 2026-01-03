@@ -68,12 +68,8 @@ internal class Program
     {
         var services = new ServiceCollection();
 
-        // Configure logging (file-based only - never console for UI apps!)
-        services.AddLogging(builder =>
-        {
-            builder.SetMinimumLevel(LogLevel.Warning);
-            // In production: builder.AddFile("logs/fullscreen.txt");
-        });
+        // No logging configuration needed!
+        // SharpConsoleUI provides its own LogService accessible via _windowSystem.LogService
 
         _serviceProvider = services.BuildServiceProvider();
         _logger = _serviceProvider.GetService<ILogger<Program>>();
@@ -154,7 +150,8 @@ internal class Program
         {
             actionCount++;
             statusLabel.SetContent(new List<string> { $"[green]Action performed {actionCount} time(s)![/]" });
-            _logger?.LogInformation("Action performed: {Count}", actionCount);
+            // Use the library's built-in LogService
+            _windowSystem?.LogService.LogInfo($"Action performed: {actionCount}", "Button");
         };
 
         infoButton.Click += (s, e) =>
@@ -167,7 +164,7 @@ internal class Program
 
         exitButton.Click += (s, e) =>
         {
-            _logger?.LogInformation("Exit button clicked");
+            _windowSystem?.LogService.LogInfo("Exit button clicked", "Button");
             _windowSystem?.Shutdown();
         };
 
@@ -191,7 +188,7 @@ internal class Program
         {
             if (e.KeyInfo.Key == ConsoleKey.F10)
             {
-                _logger?.LogInformation("F10 pressed, shutting down");
+                _windowSystem?.LogService.LogInfo("F10 pressed, shutting down", "Input");
                 _windowSystem?.Shutdown();
                 e.Handled = true;
             }
