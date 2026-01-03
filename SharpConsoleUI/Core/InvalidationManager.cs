@@ -388,10 +388,10 @@ namespace SharpConsoleUI.Core
                     {
                         container.Invalidate(false); // Don't redraw all, just mark as dirty
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        // Log error but continue processing
-                        Console.WriteLine($"Error invalidating container: {ex.Message}");
+                        // Silently swallow errors - Console.WriteLine would corrupt UI
+                        // Continue processing other containers
                     }
                 }
             }

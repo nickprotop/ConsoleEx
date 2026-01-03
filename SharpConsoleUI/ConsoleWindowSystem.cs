@@ -13,6 +13,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Logging;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -73,6 +74,9 @@ namespace SharpConsoleUI
 		private readonly EditStateService _editStateService = new();
 		private readonly LayoutStateService _layoutStateService = new();
 
+		// Logging service
+		private readonly LogService _logService = new();
+
 		public ConsoleWindowSystem(RenderMode renderMode)
 		{
 			RenderMode = renderMode;
@@ -129,6 +133,12 @@ namespace SharpConsoleUI
 		public EditStateService EditStateService => _editStateService;
 		public LayoutStateService LayoutStateService => _layoutStateService;
 
+		/// <summary>
+		/// Gets the library-managed logging service.
+		/// Subscribe to LogAdded event or call GetRecentLogs() to access internal logs.
+		/// </summary>
+		public ILogService LogService => _logService;
+
 		// Convenience properties for drag/resize state (delegated to service)
 		private bool IsDragging => _windowStateService.IsDragging;
 		private bool IsResizing => _windowStateService.IsResizing;
@@ -179,11 +189,13 @@ namespace SharpConsoleUI
 			if (window == null) return false;
 			if (!Windows.ContainsKey(window.Guid)) return false;
 
-			if (window.Close(systemCall: true) == false) return false;
-
-			// Store references before removal
+			// Store references BEFORE any modifications
 			Window? parentWindow = window.ParentWindow;
 			bool wasActive = (window == ActiveWindow);
+
+			// CRITICAL FIX: Remove from dictionary FIRST so render thread won't find it!
+			// This prevents race condition where input thread disposes controls while
+			// render thread is still trying to render them.
 
 			// Unregister modal window from modal state service
 			if (window.Mode == WindowMode.Modal)
@@ -194,26 +206,38 @@ namespace SharpConsoleUI
 			// Clear focus state for this window
 			_focusStateService.ClearFocus(window);
 
-			// Remove from window collection via service
+			// Remove from window collection via service (BEFORE Close()!)
 			_windowStateService.UnregisterWindow(window);
 
-			// Handle active window change if needed
+			// Activate the next window (UnregisterWindow updates state but doesn't call SetIsActive)
 			if (wasActive)
 			{
 				if (activateParent && parentWindow != null && Windows.ContainsKey(parentWindow.Guid))
 				{
-					// Activate the parent
+					// Activate the parent window
 					SetActiveWindow(parentWindow);
 				}
-				else
+				else if (Windows.Count > 0)
 				{
-					// Default behavior - activate window with highest Z-Index
-					var nextWindow = Windows.Values.LastOrDefault(w => w.ZIndex == Windows.Values.Max(w => w.ZIndex));
+					// Activate window with highest Z-Index
+					int maxZIndex = Windows.Values.Max(w => w.ZIndex);
+					var nextWindow = Windows.Values.FirstOrDefault(w => w.ZIndex == maxZIndex);
 					if (nextWindow != null)
 					{
 						SetActiveWindow(nextWindow);
 					}
 				}
+			}
+
+			// NOW dispose the window - it's safe because it's no longer in the Windows dictionary
+			// so the render thread won't try to render it
+			if (window.Close(systemCall: true) == false)
+			{
+				// Close was cancelled via OnClosing event - window is now orphaned
+				// This is an edge case; caller should not have an OnClosing handler that cancels
+				// when Close is called programmatically via CloseWindow
+				LogService?.LogWarning("Window close was cancelled after removal from system", "CloseWindow");
+				return false;
 			}
 
 			// Redraw the screen
@@ -333,27 +357,59 @@ namespace SharpConsoleUI
 			// Initialize the console window system with background color and character
 			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
-			// Main loop
-			while (_running)
+			Exception? fatalException = null;
+
+			try
 			{
-				ProcessInput();
-				UpdateDisplay();
-				UpdateCursor();
-
-				// Update idle state and get recommended sleep duration
-				_inputStateService.UpdateIdleState();
-				_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
-
-				// Reduce idle time if windows need redrawing
-				if (AnyWindowDirty())
+				// Main loop
+				while (_running)
 				{
-					_idleTime = 10;
-				}
+					ProcessInput();
+					UpdateDisplay();
+					UpdateCursor();
 
-				Thread.Sleep(_idleTime);
+					// Update idle state and get recommended sleep duration
+					_inputStateService.UpdateIdleState();
+					_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
+
+					// Reduce idle time if windows need redrawing
+					if (AnyWindowDirty())
+					{
+						_idleTime = 10;
+					}
+
+					Thread.Sleep(_idleTime);
+				}
+			}
+			catch (Exception ex)
+			{
+				// Log the exception to file (if file logging is enabled) before cleanup
+				LogService?.LogCritical($"Unhandled exception in main loop: {ex.Message}", ex, "System");
+				fatalException = ex;
+				_exitCode = 1;  // Error exit code
+			}
+			finally
+			{
+				// ALWAYS restore console state (mouse mode, cursor, etc.)
+				// This ensures the terminal is usable even if the app crashes
+				try
+				{
+					_consoleDriver.Stop();
+				}
+				catch
+				{
+					// Ignore cleanup errors - we're already exiting
+				}
 			}
 
-			_consoleDriver.Stop();
+			// After console is restored, show error message to user
+			if (fatalException != null)
+			{
+				Console.ForegroundColor = ConsoleColor.Red;
+				Console.WriteLine($"Fatal error: {fatalException.Message}");
+				Console.ResetColor();
+				Console.WriteLine(fatalException.StackTrace);
+			}
 
 			return _exitCode;
 		}
@@ -423,6 +479,87 @@ namespace SharpConsoleUI
 					_focusStateService.ClearFocus(w);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Activates an existing window by name, or creates it using the factory if not found.
+		/// </summary>
+		/// <param name="name">The window name to find/create</param>
+		/// <param name="factory">Factory function to create the window if it doesn't exist</param>
+		/// <returns>The activated or newly created window</returns>
+		public Window ActivateOrCreate(string name, Func<Window> factory)
+		{
+			if (string.IsNullOrEmpty(name))
+				throw new ArgumentException("Window name cannot be null or empty", nameof(name));
+			if (factory == null)
+				throw new ArgumentNullException(nameof(factory));
+
+			var existing = _windowStateService.FindWindowByName(name);
+			if (existing != null)
+			{
+				SetActiveWindow(existing);
+				return existing;
+			}
+
+			var window = factory();
+			window.Name = name;
+			AddWindow(window);
+			return window;
+		}
+
+		/// <summary>
+		/// Activates an existing window by GUID, or creates it using the factory if not found.
+		/// </summary>
+		/// <param name="guid">The window GUID to find/create</param>
+		/// <param name="factory">Factory function to create the window if it doesn't exist</param>
+		/// <returns>The activated or newly created window</returns>
+		public Window ActivateOrCreateByGuid(string guid, Func<Window> factory)
+		{
+			if (string.IsNullOrEmpty(guid))
+				throw new ArgumentException("Window GUID cannot be null or empty", nameof(guid));
+			if (factory == null)
+				throw new ArgumentNullException(nameof(factory));
+
+			var existing = _windowStateService.GetWindow(guid);
+			if (existing != null)
+			{
+				SetActiveWindow(existing);
+				return existing;
+			}
+
+			var window = factory();
+			AddWindow(window);
+			return window;
+		}
+
+		/// <summary>
+		/// Activates an existing window by name if found, otherwise returns null.
+		/// </summary>
+		/// <param name="name">The window name to find</param>
+		/// <returns>The activated window, or null if not found</returns>
+		public Window? TryActivate(string name)
+		{
+			var existing = _windowStateService.FindWindowByName(name);
+			if (existing != null)
+			{
+				SetActiveWindow(existing);
+			}
+			return existing;
+		}
+
+		/// <summary>
+		/// Activates an existing window by GUID if found, otherwise returns null.
+		/// </summary>
+		/// <param name="guid">The window GUID to find</param>
+		/// <returns>The activated window, or null if not found</returns>
+		public Window? TryActivateByGuid(string guid)
+		{
+			var existing = _windowStateService.GetWindow(guid);
+			if (existing != null)
+			{
+				SetActiveWindow(existing);
+			}
+			return existing;
 		}
 
 		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, Point point)
