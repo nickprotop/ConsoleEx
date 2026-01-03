@@ -147,10 +147,12 @@ public sealed class ConsoleUIServiceBuilder : IConsoleUIServiceBuilder
 
         Services.AddSingleton<IConfiguration>(configuration);
 
-        // Logging
+        // Logging - NOTE: Console logging is NOT added here as it corrupts UI rendering!
+        // The library uses its own LogService (accessible via ConsoleWindowSystem.LogService)
         Services.AddLogging(builder =>
         {
-            builder.AddConsole();
+            // Never add console logging in a console UI application
+            // builder.AddConsole(); // DO NOT ENABLE - corrupts UI!
             builder.AddConfiguration(configuration.GetSection("Logging"));
         });
 
