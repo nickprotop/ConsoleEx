@@ -12,15 +12,33 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI
 {
+	/// <summary>
+	/// Handles rendering of windows and their content to the console display.
+	/// Manages window borders, scrollbars, and content rendering with support for overlapping windows.
+	/// </summary>
 	public class Renderer
 	{
 		private ConsoleWindowSystem _consoleWindowSystem;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Renderer"/> class.
+		/// </summary>
+		/// <param name="consoleWindowSystem">The console window system that owns this renderer.</param>
 		public Renderer(ConsoleWindowSystem consoleWindowSystem)
 		{
 			_consoleWindowSystem = consoleWindowSystem;
 		}
 
+		/// <summary>
+		/// Fills a rectangular area with a specified character and colors.
+		/// </summary>
+		/// <param name="left">The left coordinate of the rectangle.</param>
+		/// <param name="top">The top coordinate of the rectangle.</param>
+		/// <param name="width">The width of the rectangle.</param>
+		/// <param name="height">The height of the rectangle.</param>
+		/// <param name="character">The character to fill the rectangle with.</param>
+		/// <param name="backgroundColor">The background color, or null to use the default.</param>
+		/// <param name="foregroundColor">The foreground color, or null to use the default.</param>
 		public void FillRect(int left, int top, int width, int height, char character, Color? backgroundColor, Color? foregroundColor)
 		{
 			for (var y = 0; y < height; y++)
@@ -31,6 +49,12 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets the rectangular regions where two windows overlap.
+		/// </summary>
+		/// <param name="window1">The first window.</param>
+		/// <param name="window2">The second window.</param>
+		/// <returns>A list of rectangles representing the overlapping areas. Empty if windows do not overlap.</returns>
 		public List<Rectangle> GetOverlappingRegions(Window window1, Window window2)
 		{
 			var overlappingRegions = new List<Rectangle>();
@@ -48,6 +72,12 @@ namespace SharpConsoleUI
 			return overlappingRegions;
 		}
 
+		/// <summary>
+		/// Gets all windows that overlap with the specified window, recursively including windows that overlap with those windows.
+		/// </summary>
+		/// <param name="window">The window to check for overlaps.</param>
+		/// <param name="visited">Optional set of already visited windows to prevent infinite recursion.</param>
+		/// <returns>A set of all windows that form an overlapping chain with the specified window.</returns>
 		public HashSet<Window> GetOverlappingWindows(Window window, HashSet<Window>? visited = null)
 		{
 			visited ??= new HashSet<Window>();
@@ -73,6 +103,12 @@ namespace SharpConsoleUI
 			return visited;
 		}
 
+		/// <summary>
+		/// Determines whether two windows overlap each other.
+		/// </summary>
+		/// <param name="window1">The first window.</param>
+		/// <param name="window2">The second window.</param>
+		/// <returns>True if the windows overlap; otherwise, false.</returns>
 		public bool IsOverlapping(Window window1, Window window2)
 		{
 			return window1.Left < window2.Left + window2.Width &&
@@ -81,6 +117,11 @@ namespace SharpConsoleUI
 				   window1.Top + window1.Height > window2.Top;
 		}
 
+		/// <summary>
+		/// Renders a specific region of a window. Used for partial window updates.
+		/// </summary>
+		/// <param name="window">The window to render.</param>
+		/// <param name="region">The rectangular region to render.</param>
 		public void RenderRegion(Window window, Rectangle region)
 		{
 			// Skip rendering entirely for minimized windows
@@ -108,6 +149,11 @@ namespace SharpConsoleUI
 			RenderVisibleWindowContent(window, lines, visibleRegions);
 		}
 
+		/// <summary>
+		/// Renders a complete window including borders, content, and scrollbars.
+		/// Handles visibility calculations for overlapping windows.
+		/// </summary>
+		/// <param name="window">The window to render.</param>
 		public void RenderWindow(Window window)
 		{
 			// Skip rendering entirely for minimized windows

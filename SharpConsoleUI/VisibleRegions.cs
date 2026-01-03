@@ -10,15 +10,29 @@ using System.Drawing;
 
 namespace SharpConsoleUI
 {
+	/// <summary>
+	/// Calculates visible regions of windows by subtracting overlapping areas from higher z-order windows.
+	/// Used by the rendering system to determine which portions of a window need to be drawn.
+	/// </summary>
 	public class VisibleRegions
 	{
 		private readonly ConsoleWindowSystem _consoleWindowSystem;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="VisibleRegions"/> class.
+		/// </summary>
+		/// <param name="consoleWindowSystem">The console window system that owns this visible regions calculator.</param>
 		public VisibleRegions(ConsoleWindowSystem consoleWindowSystem)
 		{
 			_consoleWindowSystem = consoleWindowSystem;
 		}
 
+		/// <summary>
+		/// Calculates the visible regions of a window by subtracting areas covered by overlapping windows.
+		/// </summary>
+		/// <param name="window">The window to calculate visible regions for.</param>
+		/// <param name="overlappingWindows">List of windows that overlap with the target window (typically higher z-order).</param>
+		/// <returns>A list of rectangles representing the visible portions of the window.</returns>
 		public List<Rectangle> CalculateVisibleRegions(Window window, List<Window> overlappingWindows)
 		{
 			// Start with the entire window as visible

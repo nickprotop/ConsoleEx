@@ -22,33 +22,61 @@ using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI
 {
+	/// <summary>
+	/// Specifies the direction of movement or navigation.
+	/// </summary>
 	public enum Direction
 	{
+		/// <summary>Upward direction.</summary>
 		Up,
+		/// <summary>Downward direction.</summary>
 		Down,
+		/// <summary>Leftward direction.</summary>
 		Left,
+		/// <summary>Rightward direction.</summary>
 		Right
 	}
 
+	/// <summary>
+	/// Specifies the type of window topology operation.
+	/// </summary>
 	public enum WindowTopologyAction
 	{
+		/// <summary>Resize the window.</summary>
 		Resize,
+		/// <summary>Move the window.</summary>
 		Move
 	}
 
+	/// <summary>
+	/// Specifies the direction from which a window is being resized.
+	/// </summary>
 	public enum ResizeDirection
 	{
+		/// <summary>No resize operation.</summary>
 		None,
+		/// <summary>Resize from the top edge.</summary>
 		Top,
+		/// <summary>Resize from the bottom edge.</summary>
 		Bottom,
+		/// <summary>Resize from the left edge.</summary>
 		Left,
+		/// <summary>Resize from the right edge.</summary>
 		Right,
+		/// <summary>Resize from the top-left corner.</summary>
 		TopLeft,
+		/// <summary>Resize from the top-right corner.</summary>
 		TopRight,
+		/// <summary>Resize from the bottom-left corner.</summary>
 		BottomLeft,
+		/// <summary>Resize from the bottom-right corner.</summary>
 		BottomRight
 	}
 
+	/// <summary>
+	/// The main window system that manages console windows, input processing, and rendering.
+	/// Provides window management, focus handling, theming, and event processing for console applications.
+	/// </summary>
 	public class ConsoleWindowSystem
 	{
 		private readonly Renderer _renderer;
@@ -78,6 +106,10 @@ namespace SharpConsoleUI
 		private readonly LayoutStateService _layoutStateService;
 		private readonly NotificationStateService _notificationStateService;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class.
+		/// </summary>
+		/// <param name="renderMode">The rendering mode to use for the window system.</param>
 		public ConsoleWindowSystem(RenderMode renderMode)
 		{
 			RenderMode = renderMode;
@@ -113,18 +145,47 @@ namespace SharpConsoleUI
 			_themeStateService.SetTheme(Theme);
 		}
 
+		/// <summary>
+		/// Gets or sets the text displayed in the bottom status bar.
+		/// </summary>
 		public string BottomStatus { get; set; } = "";
 
+		/// <summary>
+		/// Gets or sets the console driver used for low-level console operations.
+		/// </summary>
 		public IConsoleDriver ConsoleDriver
 		{ get { return _consoleDriver; } set { _consoleDriver = value; } }
 
+		/// <summary>
+		/// Gets the bottom-right coordinate of the usable desktop area (excluding status bars).
+		/// </summary>
 		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
+
+		/// <summary>
+		/// Gets the dimensions of the usable desktop area (excluding status bars).
+		/// </summary>
 		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
+
+		/// <summary>
+		/// Gets the upper-left coordinate of the usable desktop area (excluding status bars).
+		/// </summary>
 		public Point DesktopUpperLeft => new Point(0, string.IsNullOrEmpty(TopStatus) ? 0 : 1);
+
+		/// <summary>
+		/// Gets or sets the rendering mode for the window system.
+		/// </summary>
 		public RenderMode RenderMode { get; set; }
+
+		/// <summary>
+		/// Gets or sets a value indicating whether the task bar is visible at the bottom of the screen.
+		/// </summary>
 		public bool ShowTaskBar { get => _showTaskBar; set => _showTaskBar = value; }
 
 		private Theme _theme = new Theme();
+
+		/// <summary>
+		/// Gets or sets the theme used for styling windows and controls.
+		/// </summary>
 		public Theme Theme
 		{
 			get => _theme;
@@ -134,20 +195,80 @@ namespace SharpConsoleUI
 				_themeStateService.SetTheme(value);
 			}
 		}
+
+		/// <summary>
+		/// Gets or sets the text displayed in the top status bar.
+		/// </summary>
 		public string TopStatus { get; set; } = "";
+
+		/// <summary>
+		/// Gets the visible regions manager for calculating window visibility.
+		/// </summary>
 		public VisibleRegions VisibleRegions => _visibleRegions;
+
+		/// <summary>
+		/// Gets a read-only dictionary of all windows in the system, keyed by their GUID.
+		/// </summary>
 		public IReadOnlyDictionary<string, Window> Windows => _windowStateService.Windows;
+
+		/// <summary>
+		/// Gets the currently active window, or null if no window is active.
+		/// </summary>
 		public Window? ActiveWindow => _windowStateService.ActiveWindow;
+
+		/// <summary>
+		/// Gets the cursor state service for managing cursor visibility and position.
+		/// </summary>
 		public CursorStateService CursorStateService => _cursorStateService;
+
+		/// <summary>
+		/// Gets the window state service for managing window lifecycle and state.
+		/// </summary>
 		public WindowStateService WindowStateService => _windowStateService;
+
+		/// <summary>
+		/// Gets the focus state service for managing control focus within windows.
+		/// </summary>
 		public FocusStateService FocusStateService => _focusStateService;
+
+		/// <summary>
+		/// Gets the modal state service for managing modal window behavior.
+		/// </summary>
 		public ModalStateService ModalStateService => _modalStateService;
+
+		/// <summary>
+		/// Gets the theme state service for managing theme application.
+		/// </summary>
 		public ThemeStateService ThemeStateService => _themeStateService;
+
+		/// <summary>
+		/// Gets the selection state service for managing selection state across controls.
+		/// </summary>
 		public SelectionStateService SelectionStateService => _selectionStateService;
+
+		/// <summary>
+		/// Gets the scroll state service for managing scroll positions.
+		/// </summary>
 		public ScrollStateService ScrollStateService => _scrollStateService;
+
+		/// <summary>
+		/// Gets the input state service for managing input queue and idle state.
+		/// </summary>
 		public InputStateService InputStateService => _inputStateService;
+
+		/// <summary>
+		/// Gets the edit state service for managing text editing state.
+		/// </summary>
 		public EditStateService EditStateService => _editStateService;
+
+		/// <summary>
+		/// Gets the layout state service for managing layout calculations.
+		/// </summary>
 		public LayoutStateService LayoutStateService => _layoutStateService;
+
+		/// <summary>
+		/// Gets the notification state service for managing notifications and toasts.
+		/// </summary>
 		public NotificationStateService NotificationStateService => _notificationStateService;
 
 		/// <summary>
@@ -162,6 +283,12 @@ namespace SharpConsoleUI
 		private Window? DragWindow => IsDragging ? _windowStateService.CurrentDrag?.Window :
 		                               (IsResizing ? _windowStateService.CurrentResize?.Window : null);
 
+		/// <summary>
+		/// Adds a window to the window system.
+		/// </summary>
+		/// <param name="window">The window to add.</param>
+		/// <param name="activateWindow">Whether to activate the window after adding. Defaults to true.</param>
+		/// <returns>The added window.</returns>
 		public Window AddWindow(Window window, bool activateWindow = true)
 		{
 			_logService.LogDebug($"Adding window: {window.Title} (GUID: {window.Guid})", "Window");
@@ -186,6 +313,10 @@ namespace SharpConsoleUI
 			return window;
 		}
 
+		/// <summary>
+		/// Closes a modal window and optionally activates its parent window.
+		/// </summary>
+		/// <param name="modalWindow">The modal window to close. If null or not a modal window, the method returns without action.</param>
 		public void CloseModalWindow(Window? modalWindow)
 		{
 			if (modalWindow == null || modalWindow.Mode != WindowMode.Modal)
@@ -207,6 +338,12 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Closes a window and removes it from the window system.
+		/// </summary>
+		/// <param name="window">The window to close. If null or not in the system, returns false.</param>
+		/// <param name="activateParent">Whether to activate the parent window after closing. Defaults to true.</param>
+		/// <returns>True if the window was closed successfully; false otherwise.</returns>
 		public bool CloseWindow(Window? window, bool activateParent = true)
 		{
 			if (window == null) return false;
@@ -296,6 +433,13 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Flashes a window to draw user attention by briefly changing its background color.
+		/// </summary>
+		/// <param name="window">The window to flash. If null, the method returns without action.</param>
+		/// <param name="flashCount">The number of times to flash. Defaults to 3.</param>
+		/// <param name="flashDuration">The duration of each flash in milliseconds. Defaults to 200.</param>
+		/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses a contrasting color.</param>
 		public void FlashWindow(Window? window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
 		{
 			if (window == null) return;
@@ -322,11 +466,20 @@ namespace SharpConsoleUI
 			flashTask.Start();
 		}
 
+		/// <summary>
+		/// Gets a window by its GUID.
+		/// </summary>
+		/// <param name="guid">The GUID of the window to find.</param>
+		/// <returns>The window with the specified GUID, or null if not found.</returns>
 		public Window? GetWindow(string guid)
 		{
 			return _windowStateService.GetWindow(guid);
 		}
 
+		/// <summary>
+		/// Starts the main event loop of the window system. Blocks until <see cref="Shutdown"/> is called.
+		/// </summary>
+		/// <returns>The exit code set by <see cref="Shutdown"/> or 1 if an unhandled exception occurred.</returns>
 		public int Run()
 		{
 			_logService.LogDebug("Console window system starting", "System");
@@ -451,6 +604,10 @@ namespace SharpConsoleUI
 			_running = false;
 		}
 
+		/// <summary>
+		/// Sets the specified window as the active window, handling modal window logic and focus.
+		/// </summary>
+		/// <param name="window">The window to activate. If null, the method returns without action.</param>
 		public void SetActiveWindow(Window window)
 		{
 			if (window == null)
@@ -592,6 +749,12 @@ namespace SharpConsoleUI
 			return existing;
 		}
 
+		/// <summary>
+		/// Translates a window-relative point to absolute screen coordinates.
+		/// </summary>
+		/// <param name="window">The window containing the point.</param>
+		/// <param name="point">The point in window-relative coordinates.</param>
+		/// <returns>A tuple containing the absolute screen coordinates (absoluteLeft, absoluteTop).</returns>
 		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, Point point)
 		{
 			int absoluteLeft = window.Left + point.X;
@@ -599,6 +762,12 @@ namespace SharpConsoleUI
 			return (absoluteLeft, absoluteTop);
 		}
 
+		/// <summary>
+		/// Translates an absolute screen point to window-relative coordinates.
+		/// </summary>
+		/// <param name="window">The window to translate coordinates relative to.</param>
+		/// <param name="point">The point in absolute screen coordinates, or null.</param>
+		/// <returns>The point in window-relative coordinates. Returns (0,0) if point is null.</returns>
 		public Point TranslateToRelative(Window window, Point? point)
 		{
 			if (point == null) return new Point(0, 0);

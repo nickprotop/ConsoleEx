@@ -16,42 +16,95 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI
 {
+	/// <summary>
+	/// Specifies the display mode of a window.
+	/// </summary>
 	public enum WindowMode
 	{
+		/// <summary>
+		/// Normal window that can be deactivated when other windows are selected.
+		/// </summary>
 		Normal,
+		/// <summary>
+		/// Modal window that blocks input to other windows until closed.
+		/// </summary>
 		Modal
 	}
 
+	/// <summary>
+	/// Specifies the current state of a window.
+	/// </summary>
 	public enum WindowState
 	{
+		/// <summary>
+		/// Window is displayed at its normal size and position.
+		/// </summary>
 		Normal,
+		/// <summary>
+		/// Window is minimized and not visible in the content area.
+		/// </summary>
 		Minimized,
+		/// <summary>
+		/// Window is maximized to fill the entire desktop area.
+		/// </summary>
 		Maximized
 	}
 
+	/// <summary>
+	/// Provides data for the window closing event, allowing cancellation of the close operation.
+	/// </summary>
 	public class ClosingEventArgs : EventArgs
 	{
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ClosingEventArgs"/> class.
+		/// </summary>
 		public ClosingEventArgs()
 		{
 		}
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window close operation should be allowed.
+		/// Set to false to cancel the close operation.
+		/// </summary>
 		public bool Allow { get; set; } = true;
 	}
 
+	/// <summary>
+	/// Provides data for the key pressed event within a window.
+	/// </summary>
 	public class KeyPressedEventArgs : EventArgs
 	{
+		/// <summary>
+		/// Initializes a new instance of the <see cref="KeyPressedEventArgs"/> class.
+		/// </summary>
+		/// <param name="keyInfo">The key information for the pressed key.</param>
+		/// <param name="allreadyHandled">Indicates whether the key was already handled by a control.</param>
 		public KeyPressedEventArgs(ConsoleKeyInfo keyInfo, bool allreadyHandled)
 		{
 			KeyInfo = keyInfo;
 			AllreadyHandled = allreadyHandled;
 		}
 
+		/// <summary>
+		/// Gets a value indicating whether the key press was already handled by a focused control.
+		/// </summary>
 		public bool AllreadyHandled { get; private set; }
 
+		/// <summary>
+		/// Gets or sets a value indicating whether this key press event has been handled.
+		/// </summary>
 		public bool Handled { get; set; }
+
+		/// <summary>
+		/// Gets the key information for the pressed key.
+		/// </summary>
 		public ConsoleKeyInfo KeyInfo { get; }
 	}
 
+	/// <summary>
+	/// Represents a window in the console UI system that can contain controls and handle user input.
+	/// Implements <see cref="IContainer"/> for control management.
+	/// </summary>
 	public class Window : IContainer
 	{
 		private readonly List<IWindowControl> _controls = new();
@@ -99,6 +152,12 @@ namespace SharpConsoleUI
 		private bool _isClosing = false;
 		private string? _name;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Window"/> class with an async background task.
+		/// </summary>
+		/// <param name="windowSystem">The console window system that manages this window.</param>
+		/// <param name="windowThreadMethod">The async delegate to run in the background for this window.</param>
+		/// <param name="parentWindow">Optional parent window for positioning and modal behavior.</param>
 		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod, Window? parentWindow = null)
 		{
 			_guid = System.Guid.NewGuid().ToString();
@@ -134,6 +193,11 @@ namespace SharpConsoleUI
 			});
 		}
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Window"/> class without a background task.
+		/// </summary>
+		/// <param name="windowSystem">The console window system that manages this window.</param>
+		/// <param name="parentWindow">Optional parent window for positioning and modal behavior.</param>
 		public Window(ConsoleWindowSystem windowSystem, Window? parentWindow = null)
 		{
 			_guid = System.Guid.NewGuid().ToString();
@@ -149,6 +213,12 @@ namespace SharpConsoleUI
 			SetupInitialPosition();
 		}
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Window"/> class with a synchronous background thread.
+		/// </summary>
+		/// <param name="windowSystem">The console window system that manages this window.</param>
+		/// <param name="windowThreadMethod">The delegate to run on a background thread for this window.</param>
+		/// <param name="parentWindow">Optional parent window for positioning and modal behavior.</param>
 		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegate windowThreadMethod, Window? parentWindow = null)
 		{
 			_guid = System.Guid.NewGuid().ToString();
@@ -168,97 +238,205 @@ namespace SharpConsoleUI
 			_windowThread.Start();
 		}
 
+		/// <summary>
+		/// Represents a synchronous method that runs on the window's background thread.
+		/// </summary>
+		/// <param name="window">The window instance.</param>
 		public delegate void WindowThreadDelegate(Window window);
 
-		// Window Thread Delegates
+		/// <summary>
+		/// Represents an asynchronous method that runs as the window's background task.
+		/// </summary>
+		/// <param name="window">The window instance.</param>
+		/// <param name="cancellationToken">Token to signal cancellation when the window closes.</param>
+		/// <returns>A task representing the async operation.</returns>
 		public delegate Task WindowThreadDelegateAsync(Window window, CancellationToken cancellationToken);
 
-		// Events
+		/// <summary>
+		/// Occurs when the window becomes the active window.
+		/// </summary>
 		public event EventHandler? Activated;
 
+		/// <summary>
+		/// Occurs when the window loses active status.
+		/// </summary>
 		public event EventHandler? Deactivated;
 
+		/// <summary>
+		/// Occurs when a key is pressed while the window has focus.
+		/// </summary>
 		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
 
+		/// <summary>
+		/// Occurs after the window has been closed.
+		/// </summary>
 		public event EventHandler? OnClosed;
 
+		/// <summary>
+		/// Occurs when the window is about to close, allowing cancellation.
+		/// </summary>
 		public event EventHandler<ClosingEventArgs>? OnCLosing;
 
+		/// <summary>
+		/// Occurs when the window is resized.
+		/// </summary>
 		public event EventHandler? OnResize;
 
+		/// <summary>
+		/// Occurs when the window is first shown.
+		/// </summary>
 		public event EventHandler? OnShown;
 
+		/// <summary>
+		/// Occurs when the window state changes (Normal, Minimized, Maximized).
+		/// </summary>
 		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
 
+		/// <summary>
+		/// Gets or sets the foreground color of the window border when active.
+		/// </summary>
 		public Color ActiveBorderForegroundColor
 		{ get => _activeBorderForegroundColor ?? _windowSystem?.Theme.ActiveBorderForegroundColor ?? Color.White; set { _activeBorderForegroundColor = value; Invalidate(false); } }
 
+		/// <summary>
+		/// Gets or sets the foreground color of the window title when active.
+		/// </summary>
 		public Color ActiveTitleForegroundColor
 		{ get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; Invalidate(false); } }
 
+		/// <summary>
+		/// Gets or sets the background color of the window content area.
+		/// </summary>
 		public Color BackgroundColor { get; set; }
 
+		/// <summary>
+		/// Gets or sets the default foreground color for window content.
+		/// </summary>
 		public Color ForegroundColor { get; set; }
 
+		/// <summary>
+		/// Gets the console window system that manages this window.
+		/// </summary>
 		public ConsoleWindowSystem? GetConsoleWindowSystem => _windowSystem;
 
+		/// <summary>
+		/// Gets the unique identifier for this window instance.
+		/// </summary>
 		public string Guid => _guid.ToString();
 
 		private int _height = 20;
-		public int Height 
-		{ 
-			get => _height; 
-			set 
-			{ 
-				if (_height != value) 
-				{ 
-					_height = value; 
-					UpdateControlLayout(); 
-					Invalidate(true); 
-				} 
-			} 
+
+		/// <summary>
+		/// Gets or sets the height of the window in character rows.
+		/// </summary>
+		public int Height
+		{
+			get => _height;
+			set
+			{
+				if (_height != value)
+				{
+					_height = value;
+					UpdateControlLayout();
+					Invalidate(true);
+				}
+			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of the window border when inactive.
+		/// </summary>
 		public Color InactiveBorderForegroundColor
 		{ get => _inactiveBorderForegroundColor ?? _windowSystem?.Theme.InactiveBorderForegroundColor ?? Color.White; set { _inactiveBorderForegroundColor = value; Invalidate(false); } }
 
+		/// <summary>
+		/// Gets or sets the foreground color of the window title when inactive.
+		/// </summary>
 		public Color InactiveTitleForegroundColor
 		{ get => _inactiveTitleForegroundColor ?? _windowSystem?.Theme.InactiveTitleForegroundColor ?? Color.White; set { _inactiveTitleForegroundColor = value; Invalidate(false); } }
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window can be closed by the user.
+		/// </summary>
 		public bool IsClosable { get; set; } = true;
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window can be maximized.
+		/// </summary>
 		public bool IsMaximizable { get; set; } = true;
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window can be minimized.
+		/// </summary>
 		public bool IsMinimizable { get; set; } = true;
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window content is visible.
+		/// </summary>
 		public bool IsContentVisible { get; set; } = true;
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window needs to be redrawn.
+		/// </summary>
 		public bool IsDirty { get; set; } = true;
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window is currently being dragged.
+		/// </summary>
 		public bool IsDragging { get; set; }
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window can be moved by the user.
+		/// </summary>
 		public bool IsMovable { get; set; } = true;
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window can be resized by the user.
+		/// </summary>
 		public bool IsResizable { get; set; } = true;
 
+		/// <summary>
+		/// Gets or sets a value indicating whether the window content is scrollable.
+		/// </summary>
 		public bool IsScrollable { get; set; } = true;
 
+		/// <summary>
+		/// Gets or sets the left position of the window in character columns.
+		/// </summary>
 		public int Left { get; set; }
 
+		/// <summary>
+		/// Gets or sets the window mode (Normal or Modal).
+		/// </summary>
 		public WindowMode Mode
 		{
 			get => _mode;
 			set { _mode = value; }
 		}
 
+		/// <summary>
+		/// Gets or sets the original height before maximizing, used for restore.
+		/// </summary>
 		public int OriginalHeight { get; set; }
 
+		/// <summary>
+		/// Gets or sets the original left position before maximizing, used for restore.
+		/// </summary>
 		public int OriginalLeft { get; set; }
 
+		/// <summary>
+		/// Gets or sets the original top position before maximizing, used for restore.
+		/// </summary>
 		public int OriginalTop { get; set; }
 
+		/// <summary>
+		/// Gets or sets the original width before maximizing, used for restore.
+		/// </summary>
 		public int OriginalWidth { get; set; }
 
+		/// <summary>
+		/// Gets the parent window if this is a subwindow, otherwise null.
+		/// </summary>
 		public Window? ParentWindow
 		{
 			get
@@ -267,8 +445,14 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the vertical scroll offset for window content.
+		/// </summary>
 		public int ScrollOffset { get => _scrollOffset; set => _scrollOffset = value; }
 
+		/// <summary>
+		/// Gets or sets the current state of the window (Normal, Minimized, Maximized).
+		/// </summary>
 		public WindowState State
 		{
 			get => _state;
@@ -331,8 +515,14 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets an arbitrary object value that can be attached to this window.
+		/// </summary>
 		public object? Tag { get => _tag; set => _tag = value; }
 
+		/// <summary>
+		/// Gets or sets the title displayed in the window's title bar.
+		/// </summary>
 		public string Title { get; set; } = "Window";
 
 		/// <summary>
@@ -345,27 +535,41 @@ namespace SharpConsoleUI
 			set => _name = value;
 		}
 
+		/// <summary>
+		/// Gets or sets the top position of the window in character rows.
+		/// </summary>
 		public int Top { get; set; }
 
+		/// <summary>
+		/// Gets the total number of content lines including sticky headers.
+		/// </summary>
 		public int TotalLines => _cachedContent.Count + _topStickyHeight;
 
 		private int _width = 40;
-		public int Width 
-		{ 
-			get => _width; 
-			set 
-			{ 
-				if (_width != value) 
-				{ 
-					_width = value; 
-					UpdateControlLayout(); 
-					Invalidate(true); 
-				} 
-			} 
+
+		/// <summary>
+		/// Gets or sets the width of the window in character columns.
+		/// </summary>
+		public int Width
+		{
+			get => _width;
+			set
+			{
+				if (_width != value)
+				{
+					_width = value;
+					UpdateControlLayout();
+					Invalidate(true);
+				}
+			}
 		}
 
+		/// <summary>
+		/// Gets or sets the Z-order index for layering windows.
+		/// </summary>
 		public int ZIndex { get; set; }
 
+		/// <inheritdoc/>
 		public void AddControl(IWindowControl content)
 		{
 			lock (_lock)
@@ -399,6 +603,9 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Removes all controls from the window.
+		/// </summary>
 		public void ClearControls()
 		{
 			lock (_lock)
@@ -411,6 +618,11 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Attempts to close the window.
+		/// </summary>
+		/// <param name="systemCall">True if called by the window system during cleanup.</param>
+		/// <returns>True if the window was closed; false if closing was cancelled.</returns>
 		public bool Close(bool systemCall = false)
 		{
 			// Prevent re-entrancy: Close() can be called twice when closing via button
@@ -477,6 +689,11 @@ namespace SharpConsoleUI
 			return false;
 		}
 
+		/// <summary>
+		/// Determines whether this window contains the specified control.
+		/// </summary>
+		/// <param name="content">The control to check for.</param>
+		/// <returns>True if the control is in this window; otherwise false.</returns>
 		public bool ContainsControl(IWindowControl content)
 		{
 			lock (_lock)
@@ -485,6 +702,11 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets the control at the specified desktop coordinates.
+		/// </summary>
+		/// <param name="point">The desktop coordinates to check.</param>
+		/// <returns>The control at the specified position, or null if none found.</returns>
 		public IWindowControl? GetContentFromDesktopCoordinates(Point? point)
 		{
 			lock (_lock)
@@ -502,6 +724,11 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets the control at the specified window-relative coordinates.
+		/// </summary>
+		/// <param name="point">The window-relative coordinates to check.</param>
+		/// <returns>The control at the specified position, or null if none found.</returns>
 		public IWindowControl? GetContentFromWindowCoordinates(Point? point)
 		{
 			lock (_lock)
@@ -725,6 +952,11 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets a control by its index in the controls collection.
+		/// </summary>
+		/// <param name="index">The zero-based index of the control.</param>
+		/// <returns>The control at the specified index, or null if out of range.</returns>
 		public IWindowControl? GetControlByIndex(int index)
 		{
 			lock (_lock)
@@ -737,6 +969,12 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets a control of type T by its tag value.
+		/// </summary>
+		/// <typeparam name="T">The type of control to search for.</typeparam>
+		/// <param name="tag">The tag value to match.</param>
+		/// <returns>The first matching control, or null if not found.</returns>
 		public IWindowControl? GetControlByTag<T>(string tag) where T : IWindowControl
 		{
 			lock (_lock)
@@ -745,6 +983,10 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets a copy of all controls in this window.
+		/// </summary>
+		/// <returns>A list containing all controls.</returns>
 		public List<IWindowControl> GetControls()
 		{
 			lock (_lock)
@@ -753,6 +995,11 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets all controls of the specified type.
+		/// </summary>
+		/// <typeparam name="T">The type of controls to retrieve.</typeparam>
+		/// <returns>A list of controls of type T.</returns>
 		public List<T> GetControlsByType<T>() where T : IWindowControl
 		{
 			lock (_lock)
@@ -761,6 +1008,10 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets the number of controls in this window.
+		/// </summary>
+		/// <returns>The control count.</returns>
 		public int GetControlsCount()
 		{
 			lock (_lock)
@@ -769,29 +1020,49 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets a value indicating whether this window is currently active.
+		/// </summary>
+		/// <returns>True if the window is active; otherwise false.</returns>
 		public bool GetIsActive()
 		{
 			return _isActive;
 		}
 
+		/// <summary>
+		/// Scrolls the window content to the bottom.
+		/// </summary>
 		public void GoToBottom()
 		{
 			_scrollOffset = Math.Max(0, (_cachedContent?.Count ?? Height) - (Height - 2));
 			Invalidate(true);
 		}
 
+		/// <summary>
+		/// Scrolls the window content to the top.
+		/// </summary>
 		public void GoToTop()
 		{
 			_scrollOffset = 0;
 			Invalidate(true);
 		}
 
+		/// <summary>
+		/// Determines whether this window has an active interactive control with focus.
+		/// </summary>
+		/// <param name="interactiveContent">When returning true, contains the focused interactive control.</param>
+		/// <returns>True if there is a focused interactive control; otherwise false.</returns>
 		public bool HasActiveInteractiveContent(out IInteractiveControl? interactiveContent)
 		{
 			interactiveContent = _interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
 			return interactiveContent != null;
 		}
 
+		/// <summary>
+		/// Determines whether there is interactive content that needs cursor display.
+		/// </summary>
+		/// <param name="cursorPosition">When returning true, contains the cursor position in window coordinates.</param>
+		/// <returns>True if cursor should be displayed; otherwise false.</returns>
 		public bool HasInteractiveContent(out Point cursorPosition)
 		{
 			if (HasActiveInteractiveContent(out var activeInteractiveContent))
@@ -803,7 +1074,7 @@ namespace SharpConsoleUI
 					if (windowCursorPos != null)
 					{
 						cursorPosition = windowCursorPos.Value;
-						
+
 						// Check if the cursor position is actually visible in the window
 						if (IsCursorPositionVisible(cursorPosition, control))
 						{
@@ -873,6 +1144,11 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Marks the window as needing redraw and optionally invalidates all controls.
+		/// </summary>
+		/// <param name="redrawAll">True to invalidate all controls; false for partial invalidation.</param>
+		/// <param name="callerControl">The control that initiated the invalidation, to prevent recursion.</param>
 		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
 		{
 			_invalidated = true;
@@ -1032,6 +1308,10 @@ namespace SharpConsoleUI
 			return visibleHeight > 0 ? visibleHeight : 0;
 		}
 
+		/// <summary>
+		/// Notifies the window that a control has lost focus.
+		/// </summary>
+		/// <param name="control">The control that lost focus.</param>
 		public void NotifyControlFocusLost(IInteractiveControl control)
 		{
 			if (control != null && _interactiveContents.Contains(control))
@@ -1040,6 +1320,11 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Processes keyboard input for this window.
+		/// </summary>
+		/// <param name="key">The key information to process.</param>
+		/// <returns>True if the input was handled; otherwise false.</returns>
 		public bool ProcessInput(ConsoleKeyInfo key)
 		{
 			lock (_lock)
@@ -1092,6 +1377,10 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Removes a control from this window and disposes it.
+		/// </summary>
+		/// <param name="content">The control to remove.</param>
 		public void RemoveContent(IWindowControl content)
 		{
 			lock (_lock)
@@ -1120,7 +1409,7 @@ namespace SharpConsoleUI
 					}
 					_invalidated = true;
 					RenderAndGetVisibleContent();
-					
+
 					// Unregister the control from the InvalidationManager
 					InvalidationManager.Instance.UnregisterControl(content);
 					content.Dispose();
@@ -1129,6 +1418,10 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Renders the window content and returns the visible lines.
+		/// </summary>
+		/// <returns>A list of rendered content lines visible within the window viewport.</returns>
 		public List<string> RenderAndGetVisibleContent()
 		{
 			// Return empty list if window is minimized
@@ -1247,6 +1540,9 @@ namespace SharpConsoleUI
 			return visibleContent;
 		}
 
+		/// <summary>
+		/// Maximizes the window to fill the entire desktop area.
+		/// </summary>
 		public void Maximize()
 		{
 			if (!IsMaximizable)
@@ -1254,6 +1550,9 @@ namespace SharpConsoleUI
 			State = WindowState.Maximized;
 		}
 
+		/// <summary>
+		/// Minimizes the window.
+		/// </summary>
 		public void Minimize()
 		{
 			if (!IsMinimizable)
@@ -1261,11 +1560,18 @@ namespace SharpConsoleUI
 			State = WindowState.Minimized;
 		}
 
+		/// <summary>
+		/// Restores the window to its normal state.
+		/// </summary>
 		public void Restore()
 		{
 			State = WindowState.Normal;
 		}
 
+		/// <summary>
+		/// Sets the active state of the window.
+		/// </summary>
+		/// <param name="value">True to activate the window; false to deactivate.</param>
 		public void SetIsActive(bool value)
 		{
 			if (value)
@@ -1290,6 +1596,10 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Sets the position of the window.
+		/// </summary>
+		/// <param name="point">The new position with X as left and Y as top.</param>
 		public void SetPosition(Point point)
 		{
 			if (point.X < 0 || point.Y < 0) return;
@@ -1299,9 +1609,10 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Sets window size using backing fields directly to ensure proper invalidation order.
-		/// This is the centralized resize logic used by maximize, restore, and manual resize.
+		/// Sets the window size with proper invalidation and constraint handling.
 		/// </summary>
+		/// <param name="width">The new width in character columns.</param>
+		/// <param name="height">The new height in character rows.</param>
 		public void SetSize(int width, int height)
 		{
 			if (_width == width && _height == height)
@@ -1338,6 +1649,10 @@ namespace SharpConsoleUI
 			OnResize?.Invoke(this, EventArgs.Empty);
 		}
 
+		/// <summary>
+		/// Switches focus to the next or previous interactive control in the window.
+		/// </summary>
+		/// <param name="backward">True to move focus backward; false to move forward.</param>
 		public void SwitchFocus(bool backward = false)
 		{
 			lock (_lock)
@@ -1392,6 +1707,9 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Removes focus from the currently focused control.
+		/// </summary>
 		public void UnfocusCurrentControl()
 		{
 			if (_lastFocusedControl != null && _lastFocusedControl is Controls.IFocusableControl focusable)
@@ -1402,6 +1720,11 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Changes the order of a control in the rendering sequence.
+		/// </summary>
+		/// <param name="content">The control to reorder.</param>
+		/// <param name="newIndex">The new index position for the control.</param>
 		public void UpdateContentOrder(IWindowControl content, int newIndex)
 		{
 			lock (_lock)
@@ -1416,12 +1739,20 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Called when the window has been added to the window system.
+		/// </summary>
 		public void WindowIsAdded()
 		{
 			OnShown?.Invoke(this, EventArgs.Empty);
 		}
 
-		// Method to raise the KeyPressed event and return whether it was handled
+		/// <summary>
+		/// Raises the KeyPressed event.
+		/// </summary>
+		/// <param name="key">The key information.</param>
+		/// <param name="allreadyHandled">Indicates whether the key was already handled.</param>
+		/// <returns>True if the event was handled; otherwise false.</returns>
 		protected virtual bool OnKeyPressed(ConsoleKeyInfo key, bool allreadyHandled)
 		{
 			var handler = KeyPressed;
@@ -1434,6 +1765,10 @@ namespace SharpConsoleUI
 			return false;
 		}
 
+		/// <summary>
+		/// Raises the StateChanged event.
+		/// </summary>
+		/// <param name="newState">The new window state.</param>
 		protected virtual void OnStateChanged(WindowState newState)
 		{
 			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
@@ -1516,13 +1851,23 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Provides data for the window state changed event.
+		/// </summary>
 		public class WindowStateChangedEventArgs : EventArgs
 		{
+			/// <summary>
+			/// Initializes a new instance of the <see cref="WindowStateChangedEventArgs"/> class.
+			/// </summary>
+			/// <param name="newState">The new window state.</param>
 			public WindowStateChangedEventArgs(WindowState newState)
 			{
 				NewState = newState;
 			}
 
+			/// <summary>
+			/// Gets the new window state.
+			/// </summary>
 			public WindowState NewState { get; }
 		}
 	}

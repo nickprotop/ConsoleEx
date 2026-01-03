@@ -15,8 +15,18 @@ using DrawingSize = System.Drawing.Size;
 namespace SharpConsoleUI.Builders;
 
 /// <summary>
-/// Fluent builder for creating and configuring windows
+/// Provides a fluent builder pattern for creating and configuring windows in the console window system.
+/// Use method chaining to configure window properties before calling <see cref="Build"/> or <see cref="BuildAndShow"/>.
 /// </summary>
+/// <example>
+/// <code>
+/// var window = new WindowBuilder(windowSystem)
+///     .WithTitle("My Window")
+///     .WithSize(80, 25)
+///     .Centered()
+///     .Build();
+/// </code>
+/// </example>
 public sealed class WindowBuilder
 {
     private readonly ConsoleWindowSystem _windowSystem;
@@ -43,19 +53,20 @@ public sealed class WindowBuilder
     private Window.WindowThreadDelegateAsync? _asyncWindowThread;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="WindowBuilder"/> class
+    /// Initializes a new instance of the <see cref="WindowBuilder"/> class.
     /// </summary>
-    /// <param name="windowSystem">The console window system</param>
+    /// <param name="windowSystem">The console window system that will manage the created window.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="windowSystem"/> is null.</exception>
     public WindowBuilder(ConsoleWindowSystem windowSystem)
     {
         _windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
     }
 
     /// <summary>
-    /// Sets the window title
+    /// Sets the window title displayed in the title bar.
     /// </summary>
-    /// <param name="title">The window title</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="title">The title text to display.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithTitle(string title)
     {
         _title = title;
@@ -64,10 +75,10 @@ public sealed class WindowBuilder
 
     /// <summary>
     /// Sets the window name for singleton window patterns.
-    /// Windows can be found/activated by name using ConsoleWindowSystem.ActivateOrCreate().
+    /// Windows can be found and activated by name using <see cref="ConsoleWindowSystem.ActivateOrCreate"/>.
     /// </summary>
-    /// <param name="name">The unique window name</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="name">The unique window name used for identification.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithName(string name)
     {
         _name = name;
@@ -75,13 +86,13 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window bounds
+    /// Sets the window bounds including position and size.
     /// </summary>
-    /// <param name="x">The X coordinate</param>
-    /// <param name="y">The Y coordinate</param>
-    /// <param name="width">The width</param>
-    /// <param name="height">The height</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="x">The X coordinate of the window's left edge.</param>
+    /// <param name="y">The Y coordinate of the window's top edge.</param>
+    /// <param name="width">The width of the window in characters.</param>
+    /// <param name="height">The height of the window in characters.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithBounds(int x, int y, int width, int height)
     {
         _bounds = new WindowBounds(x, y, width, height);
@@ -89,10 +100,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window bounds
+    /// Sets the window bounds using a <see cref="WindowBounds"/> instance.
     /// </summary>
-    /// <param name="bounds">The window bounds</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="bounds">The bounds defining position and size of the window.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithBounds(WindowBounds bounds)
     {
         _bounds = bounds;
@@ -100,11 +111,12 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window position
+    /// Sets the window position without changing its size.
+    /// If no size has been set, defaults to 80x25 characters.
     /// </summary>
-    /// <param name="x">The X coordinate</param>
-    /// <param name="y">The Y coordinate</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="x">The X coordinate of the window's left edge.</param>
+    /// <param name="y">The Y coordinate of the window's top edge.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder AtPosition(int x, int y)
     {
         _bounds = _bounds?.WithPosition(x, y) ?? new WindowBounds(x, y, 80, 25);
@@ -112,11 +124,12 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window size
+    /// Sets the window size without changing its position.
+    /// If no position has been set, defaults to position (0, 0).
     /// </summary>
-    /// <param name="width">The width</param>
-    /// <param name="height">The height</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="width">The width of the window in characters.</param>
+    /// <param name="height">The height of the window in characters.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithSize(int width, int height)
     {
         _bounds = _bounds?.WithSize(width, height) ?? new WindowBounds(0, 0, width, height);
@@ -124,9 +137,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Centers the window on the screen
+    /// Centers the window on the screen based on the current desktop dimensions.
+    /// Should be called after <see cref="WithSize"/> to ensure correct centering.
     /// </summary>
-    /// <returns>The builder for chaining</returns>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder Centered()
     {
         var screenWidth = _windowSystem.DesktopDimensions.Width;
@@ -141,10 +155,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window background color
+    /// Sets the window background color.
     /// </summary>
-    /// <param name="color">The background color</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="color">The background color for the window content area.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithBackgroundColor(SpectreColor color)
     {
         _backgroundColor = color;
@@ -152,10 +166,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window foreground color
+    /// Sets the window foreground color used for text rendering.
     /// </summary>
-    /// <param name="color">The foreground color</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="color">The foreground color for the window content area.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithForegroundColor(SpectreColor color)
     {
         _foregroundColor = color;
@@ -163,11 +177,11 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window colors
+    /// Sets both the background and foreground colors for the window.
     /// </summary>
-    /// <param name="backgroundColor">The background color</param>
-    /// <param name="foregroundColor">The foreground color</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="backgroundColor">The background color for the window content area.</param>
+    /// <param name="foregroundColor">The foreground color for text in the window content area.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithColors(SpectreColor backgroundColor, SpectreColor foregroundColor)
     {
         _backgroundColor = backgroundColor;
@@ -176,10 +190,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window mode
+    /// Sets the window mode (normal or modal).
     /// </summary>
-    /// <param name="mode">The window mode</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="mode">The window mode to apply.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithMode(WindowMode mode)
     {
         _mode = mode;
@@ -187,9 +201,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Makes the window modal
+    /// Makes the window modal, blocking input to other windows until closed.
+    /// Equivalent to calling <see cref="WithMode"/> with <see cref="WindowMode.Modal"/>.
     /// </summary>
-    /// <returns>The builder for chaining</returns>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder AsModal()
     {
         _mode = WindowMode.Modal;
@@ -197,10 +212,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window state
+    /// Sets the initial window state (normal, minimized, or maximized).
     /// </summary>
-    /// <param name="state">The window state</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="state">The initial window state.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithState(WindowState state)
     {
         _state = state;
@@ -208,9 +223,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Makes the window maximized
+    /// Makes the window start in maximized state, filling the available desktop area.
+    /// Equivalent to calling <see cref="WithState"/> with <see cref="WindowState.Maximized"/>.
     /// </summary>
-    /// <returns>The builder for chaining</returns>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder Maximized()
     {
         _state = WindowState.Maximized;
@@ -218,10 +234,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets whether the window is resizable
+    /// Sets whether the window can be resized by the user.
     /// </summary>
-    /// <param name="resizable">Whether the window is resizable</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="resizable">True to allow resizing; false to prevent it. Defaults to true.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder Resizable(bool resizable = true)
     {
         _isResizable = resizable;
@@ -229,10 +245,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets whether the window is closable (shows close button)
+    /// Sets whether the window shows a close button and can be closed by the user.
     /// </summary>
-    /// <param name="closable">Whether the window is closable</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="closable">True to show the close button; false to hide it. Defaults to true.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder Closable(bool closable = true)
     {
         _isClosable = closable;
@@ -240,10 +256,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets whether the window is movable
+    /// Sets whether the window can be moved by dragging the title bar.
     /// </summary>
-    /// <param name="movable">Whether the window is movable</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="movable">True to allow moving; false to prevent it. Defaults to true.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder Movable(bool movable = true)
     {
         _isMovable = movable;
@@ -251,10 +267,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets whether the window is minimizable (shows minimize button)
+    /// Sets whether the window shows a minimize button and can be minimized.
     /// </summary>
-    /// <param name="minimizable">Whether the window is minimizable</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="minimizable">True to show the minimize button; false to hide it. Defaults to true.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder Minimizable(bool minimizable = true)
     {
         _isMinimizable = minimizable;
@@ -262,10 +278,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets whether the window is maximizable (shows maximize button)
+    /// Sets whether the window shows a maximize button and can be maximized.
     /// </summary>
-    /// <param name="maximizable">Whether the window is maximizable</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="maximizable">True to show the maximize button; false to hide it. Defaults to true.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder Maximizable(bool maximizable = true)
     {
         _isMaximizable = maximizable;
@@ -273,11 +289,11 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the minimum window size
+    /// Sets the minimum size constraints for the window when resizing.
     /// </summary>
-    /// <param name="minWidth">The minimum width</param>
-    /// <param name="minHeight">The minimum height</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="minWidth">The minimum width in characters.</param>
+    /// <param name="minHeight">The minimum height in characters.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithMinimumSize(int minWidth, int minHeight)
     {
         _minWidth = minWidth;
@@ -286,11 +302,11 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the maximum window size
+    /// Sets the maximum size constraints for the window when resizing.
     /// </summary>
-    /// <param name="maxWidth">The maximum width</param>
-    /// <param name="maxHeight">The maximum height</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="maxWidth">The maximum width in characters.</param>
+    /// <param name="maxHeight">The maximum height in characters.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithMaximumSize(int maxWidth, int maxHeight)
     {
         _maxWidth = maxWidth;
@@ -299,10 +315,11 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the parent window
+    /// Sets the parent window for establishing a parent-child relationship.
+    /// Child windows are typically positioned relative to their parent.
     /// </summary>
-    /// <param name="parent">The parent window</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="parent">The parent window instance.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithParent(Window parent)
     {
         _parentWindow = parent;
@@ -310,10 +327,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Adds a control to the window
+    /// Adds a control to the window's control collection.
     /// </summary>
-    /// <param name="control">The control to add</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="control">The control to add. Null values are ignored.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder AddControl(IWindowControl control)
     {
         if (control != null)
@@ -324,10 +341,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Adds multiple controls to the window
+    /// Adds multiple controls to the window's control collection.
     /// </summary>
-    /// <param name="controls">The controls to add</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="controls">The controls to add. Null values in the array are ignored.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder AddControls(params IWindowControl[] controls)
     {
         foreach (var control in controls)
@@ -338,11 +355,11 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Adds a control using a builder pattern
+    /// Adds a control to the window using a configuration action for inline setup.
     /// </summary>
-    /// <typeparam name="T">The control type</typeparam>
-    /// <param name="configure">Configuration action for the control</param>
-    /// <returns>The builder for chaining</returns>
+    /// <typeparam name="T">The type of control to create. Must have a parameterless constructor.</typeparam>
+    /// <param name="configure">An action to configure the newly created control.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder AddControl<T>(Action<T> configure) where T : class, IWindowControl, new()
     {
         var control = new T();
@@ -351,10 +368,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window thread method
+    /// Sets a synchronous window thread method that runs in the background while the window is open.
     /// </summary>
-    /// <param name="threadMethod">The window thread method</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="threadMethod">The delegate to execute as the window's background thread.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithWindowThread(Window.WindowThreadDelegate threadMethod)
     {
         _windowThread = threadMethod;
@@ -362,10 +379,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the async window thread method
+    /// Sets an asynchronous window thread method that runs in the background while the window is open.
     /// </summary>
-    /// <param name="asyncThreadMethod">The async window thread method</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="asyncThreadMethod">The async delegate to execute as the window's background thread.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithAsyncWindowThread(Window.WindowThreadDelegateAsync asyncThreadMethod)
     {
         _asyncWindowThread = asyncThreadMethod;
@@ -373,9 +390,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Builds the window with the configured settings
+    /// Builds and returns the window with all configured settings applied.
+    /// The window is created but not added to the window system.
     /// </summary>
-    /// <returns>The created window</returns>
+    /// <returns>A new <see cref="Window"/> instance with the configured settings.</returns>
     public Window Build()
     {
         Window window;
@@ -437,10 +455,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Builds and shows the window
+    /// Builds the window with all configured settings and immediately adds it to the window system.
     /// </summary>
-    /// <param name="activate">Whether to activate the window</param>
-    /// <returns>The created window</returns>
+    /// <param name="activate">True to activate (bring to front and focus) the window after creation; false to add it inactive. Defaults to true.</param>
+    /// <returns>The created and displayed <see cref="Window"/> instance.</returns>
     public Window BuildAndShow(bool activate = true)
     {
         var window = Build();
@@ -449,10 +467,10 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Applies a theme to the window builder
+    /// Applies a theme to set the window's background and foreground colors.
     /// </summary>
-    /// <param name="theme">The theme to apply</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="theme">The theme to apply. If null, no changes are made.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithTheme(ITheme theme)
     {
         if (theme == null)
@@ -462,10 +480,11 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Applies a preconfigured window template
+    /// Applies a preconfigured window template to set multiple properties at once.
+    /// Templates encapsulate common window configurations for reuse.
     /// </summary>
-    /// <param name="template">The window template</param>
-    /// <returns>The builder for chaining</returns>
+    /// <param name="template">The window template to apply.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder WithTemplate(WindowTemplate template)
     {
         return template.Configure(this);
@@ -473,20 +492,22 @@ public sealed class WindowBuilder
 }
 
 /// <summary>
-/// Abstract base class for window templates
+/// Abstract base class for window templates that encapsulate reusable window configurations.
+/// Inherit from this class to create custom templates for common window types.
 /// </summary>
 public abstract class WindowTemplate
 {
     /// <summary>
-    /// Configures the window builder with this template
+    /// Configures the window builder with the settings defined by this template.
     /// </summary>
-    /// <param name="builder">The window builder</param>
-    /// <returns>The configured builder</returns>
+    /// <param name="builder">The window builder to configure.</param>
+    /// <returns>The configured builder instance for continued method chaining.</returns>
     public abstract WindowBuilder Configure(WindowBuilder builder);
 }
 
 /// <summary>
-/// Template for dialog windows
+/// A window template for creating modal dialog windows with standard dialog behavior.
+/// Dialogs are centered, modal, and non-resizable by default.
 /// </summary>
 public sealed class DialogTemplate : WindowTemplate
 {
@@ -495,11 +516,12 @@ public sealed class DialogTemplate : WindowTemplate
     private readonly int _height;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="DialogTemplate"/> class
+    /// Initializes a new instance of the <see cref="DialogTemplate"/> class.
     /// </summary>
-    /// <param name="title">The dialog title</param>
-    /// <param name="width">The dialog width</param>
-    /// <param name="height">The dialog height</param>
+    /// <param name="title">The title text to display in the dialog's title bar.</param>
+    /// <param name="width">The width of the dialog in characters. Defaults to 50.</param>
+    /// <param name="height">The height of the dialog in characters. Defaults to 15.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> is null.</exception>
     public DialogTemplate(string title, int width = 50, int height = 15)
     {
         _title = title ?? throw new ArgumentNullException(nameof(title));
@@ -507,7 +529,12 @@ public sealed class DialogTemplate : WindowTemplate
         _height = height;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Configures the window builder with dialog-specific settings including
+    /// modal mode, centered position, and disabled resizing.
+    /// </summary>
+    /// <param name="builder">The window builder to configure.</param>
+    /// <returns>The configured builder instance for continued method chaining.</returns>
     public override WindowBuilder Configure(WindowBuilder builder)
     {
         return builder
@@ -520,7 +547,8 @@ public sealed class DialogTemplate : WindowTemplate
 }
 
 /// <summary>
-/// Template for tool windows
+/// A window template for creating tool windows with standard tool panel behavior.
+/// Tool windows are typically smaller, positioned to the side, and can be resized and moved.
 /// </summary>
 public sealed class ToolWindowTemplate : WindowTemplate
 {
@@ -529,11 +557,12 @@ public sealed class ToolWindowTemplate : WindowTemplate
     private readonly DrawingSize _size;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ToolWindowTemplate"/> class
+    /// Initializes a new instance of the <see cref="ToolWindowTemplate"/> class.
     /// </summary>
-    /// <param name="title">The tool window title</param>
-    /// <param name="position">The window position</param>
-    /// <param name="size">The window size</param>
+    /// <param name="title">The title text to display in the tool window's title bar.</param>
+    /// <param name="position">The initial position of the tool window.</param>
+    /// <param name="size">The initial size of the tool window.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> is null.</exception>
     public ToolWindowTemplate(string title, Point position, DrawingSize size)
     {
         _title = title ?? throw new ArgumentNullException(nameof(title));
@@ -541,7 +570,12 @@ public sealed class ToolWindowTemplate : WindowTemplate
         _size = size;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Configures the window builder with tool window-specific settings including
+    /// the specified position and size, with resizing and moving enabled.
+    /// </summary>
+    /// <param name="builder">The window builder to configure.</param>
+    /// <returns>The configured builder instance for continued method chaining.</returns>
     public override WindowBuilder Configure(WindowBuilder builder)
     {
         return builder
