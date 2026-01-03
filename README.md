@@ -26,28 +26,26 @@ windowSystem.Run();
 
 ### Modern Approach (v2.0+)
 ```csharp
-using Microsoft.Extensions.DependencyInjection;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 
-// Setup with dependency injection
-var services = new ServiceCollection()
-    .AddLogging()
-    .BuildServiceProvider();
-
-// Create window system
+// Create window system (has built-in logging and state services)
 var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer);
 
 // Use fluent builder pattern
-var window = new WindowBuilder(windowSystem, services)
+var window = new WindowBuilder(windowSystem)
     .WithTitle("Modern Hello World")
     .WithSize(50, 15)
     .Centered()
     .WithColors(Color.DarkBlue, Color.White)
     .Build();
 
+// Show a notification
+windowSystem.NotificationStateService.ShowNotification(
+    "Welcome", "Hello World!", NotificationSeverity.Info);
+
 windowSystem.AddWindow(window);
-await Task.Run(() => windowSystem.Run());
+windowSystem.Run();
 ```
 
 ## 📋 Table of Contents
@@ -200,37 +198,28 @@ window.OnClosed += (sender, e) =>
 
 ## 🚀 Modern API (v2.0+)
 
-Enhanced with dependency injection, fluent builders, async patterns, and modern C# features.
+Enhanced with fluent builders, built-in logging, state services, and modern C# features.
 
-### 1. Dependency Injection Setup
+### 1. Built-in Services
+
+The library includes built-in logging and state services - no DI setup required:
+
 ```csharp
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using SharpConsoleUI.DependencyInjection;
-using SharpConsoleUI.Events.Enhanced;
-using SharpConsoleUI.ExceptionHandling;
+var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer);
 
-// Create service collection
-var services = new ServiceCollection();
+// Built-in logging (outputs to file, never console)
+windowSystem.LogService.LogAdded += (s, entry) => { /* handle log */ };
 
-// Add logging - AVOID AddConsole() in UI apps!
-services.AddLogging(builder =>
-{
-    // Use file logging, debug logging, or minimal logging for UI apps
-    builder.SetMinimumLevel(LogLevel.Warning);
-    // In production: builder.AddFile("logs/app-{Date}.txt");
-});
+// Built-in state services
+windowSystem.NotificationStateService.ShowNotification("Title", "Message", NotificationSeverity.Info);
+windowSystem.ModalStateService.HasModals;
+windowSystem.FocusStateService.FocusedWindow;
+```
 
-// Create service container for SharpConsoleUI
-var serviceContainer = new ConsoleUIServiceContainer();
-
-// Register services
-serviceContainer.RegisterService<IEventAggregator>(sp =>
-    new EventAggregator(sp.GetService<ILogger<EventAggregator>>()));
-serviceContainer.RegisterService<IExceptionManager>(sp =>
-    new ExceptionManager(sp.GetService<ILogger<ExceptionManager>>()));
-
-var serviceProvider = services.BuildServiceProvider();
+Enable debug logging via environment variables:
+```bash
+export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
+export SHARPCONSOLEUI_DEBUG_LEVEL=Debug
 ```
 
 ### 2. Fluent Window Builders
@@ -238,7 +227,7 @@ var serviceProvider = services.BuildServiceProvider();
 using SharpConsoleUI.Builders;
 
 // Create windows using fluent API
-var mainWindow = new WindowBuilder(windowSystem, serviceProvider)
+var mainWindow = new WindowBuilder(windowSystem)
     .WithTitle("🚀 Modern Application")
     .WithSize(80, 25)
     .Centered()
@@ -249,7 +238,7 @@ var mainWindow = new WindowBuilder(windowSystem, serviceProvider)
     .Build();
 
 // Dialog template
-var dialog = new WindowBuilder(windowSystem, serviceProvider)
+var dialog = new WindowBuilder(windowSystem)
     .WithTitle("⚠️ Confirmation")
     .WithSize(40, 10)
     .Centered()
@@ -258,7 +247,7 @@ var dialog = new WindowBuilder(windowSystem, serviceProvider)
     .Build();
 
 // Tool window
-var toolWindow = new WindowBuilder(windowSystem, serviceProvider)
+var toolWindow = new WindowBuilder(windowSystem)
     .WithTitle("🔧 Tools")
     .AtPosition(5, 5)
     .WithSize(30, 15)
@@ -325,7 +314,7 @@ catch (Exception ex)
 ### 5. Async Patterns
 ```csharp
 // Async window thread
-var window = new WindowBuilder(windowSystem, serviceProvider)
+var window = new WindowBuilder(windowSystem)
     .WithTitle("Async Demo")
     .WithAsyncWindowThread(async window =>
     {
@@ -446,88 +435,68 @@ windowSystem.Theme = customTheme;
 
 ### Complete Modern Application
 ```csharp
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
 
 namespace MyApp;
 
 internal class Program
 {
-    static async Task<int> Main(string[] args)
+    static int Main(string[] args)
     {
-        // Setup DI
-        var services = new ServiceCollection()
-            .AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning)) // No console output!
-            .BuildServiceProvider();
-
-        var logger = services.GetService<ILogger<Program>>();
-
-        try
+        // Create window system (has built-in logging and state services)
+        var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
         {
-            // Create window system
-            var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
-            {
-                TopStatus = "🚀 My Modern App",
-                BottomStatus = "ESC: Close | F1: Help"
-            };
+            TopStatus = "🚀 My Modern App",
+            BottomStatus = "ESC: Close | F1: Help"
+        };
 
-            // Main window with fluent builder
-            var mainWindow = new WindowBuilder(windowSystem, services)
-                .WithTitle("📋 Task Manager")
-                .WithSize(80, 25)
-                .Centered()
-                .WithColors(Color.DarkBlue, Color.White)
-                .Build();
+        // Main window with fluent builder
+        var mainWindow = new WindowBuilder(windowSystem)
+            .WithTitle("📋 Task Manager")
+            .WithSize(80, 25)
+            .Centered()
+            .WithColors(Color.DarkBlue, Color.White)
+            .Build();
 
-            // Add controls
-            mainWindow.AddControl(new MarkupControl(new List<string>
-            {
-                "[bold yellow]Welcome to Task Manager![/]",
-                "",
-                "[green]Features:[/]",
-                "• Real-time task monitoring",
-                "• Interactive controls",
-                "• Modern async patterns",
-                "",
-                "[dim]Press F2 to add a new task[/]"
-            }));
-
-            // Setup key handlers
-            mainWindow.KeyPressed += async (sender, e) =>
-            {
-                switch (e.KeyInfo.Key)
-                {
-                    case ConsoleKey.F2:
-                        await CreateAddTaskWindow(windowSystem, services);
-                        e.Handled = true;
-                        break;
-                    case ConsoleKey.Escape:
-                        windowSystem.CloseWindow(mainWindow);
-                        e.Handled = true;
-                        break;
-                }
-            };
-
-            windowSystem.AddWindow(mainWindow);
-
-            logger?.LogInformation("Starting application");
-            await Task.Run(() => windowSystem.Run());
-
-            return 0;
-        }
-        catch (Exception ex)
+        // Add controls
+        mainWindow.AddControl(new MarkupControl(new List<string>
         {
-            logger?.LogError(ex, "Application error");
-            return 1;
-        }
+            "[bold yellow]Welcome to Task Manager![/]",
+            "",
+            "[green]Features:[/]",
+            "• Real-time task monitoring",
+            "• Interactive controls",
+            "• Built-in notifications",
+            "",
+            "[dim]Press F2 to add a new task[/]"
+        }));
+
+        // Setup key handlers
+        mainWindow.KeyPressed += (sender, e) =>
+        {
+            switch (e.KeyInfo.Key)
+            {
+                case ConsoleKey.F2:
+                    CreateAddTaskWindow(windowSystem);
+                    e.Handled = true;
+                    break;
+                case ConsoleKey.Escape:
+                    windowSystem.CloseWindow(mainWindow);
+                    e.Handled = true;
+                    break;
+            }
+        };
+
+        windowSystem.AddWindow(mainWindow);
+        return windowSystem.Run();
     }
 
-    static async Task CreateAddTaskWindow(ConsoleWindowSystem windowSystem, IServiceProvider services)
+    static void CreateAddTaskWindow(ConsoleWindowSystem windowSystem)
     {
-        var taskWindow = new WindowBuilder(windowSystem, services)
+        var taskWindow = new WindowBuilder(windowSystem)
             .WithTitle("➕ Add Task")
             .WithSize(50, 12)
             .Centered()
@@ -559,27 +528,22 @@ internal class Program
         windowSystem.AddWindow(taskWindow, activate: true);
     }
 
-    static void SaveTask(string taskDescription)
+    static void SaveTask(string taskDescription, ConsoleWindowSystem windowSystem)
     {
-        // Implement task saving logic - DON'T use Console.WriteLine in UI apps!
-        // Instead use:
-        // 1. Logging service
-        // 2. Database/file storage
-        // 3. Update UI elements
-
-        // Example proper approaches:
-        // logger?.LogInformation("Task saved: {TaskDescription}", taskDescription);
-        // await taskRepository.SaveAsync(new Task { Description = taskDescription });
-        // or update a status label in the UI instead of console output
+        // Show notification instead of Console.WriteLine
+        windowSystem.NotificationStateService.ShowNotification(
+            "Task Saved",
+            $"Created: {taskDescription}",
+            NotificationSeverity.Success);
     }
 }
 ```
 
 ### Real-time Data Window
 ```csharp
-public static async Task CreateRealtimeWindow(ConsoleWindowSystem windowSystem, IServiceProvider services)
+public static async Task CreateRealtimeWindow(ConsoleWindowSystem windowSystem)
 {
-    var dataWindow = new WindowBuilder(windowSystem, services)
+    var dataWindow = new WindowBuilder(windowSystem)
         .WithTitle("📊 Real-time Data")
         .WithSize(60, 20)
         .AtPosition(10, 5)
@@ -703,18 +667,17 @@ windowSystem.Run();
 Gradually adopt new features:
 
 ```csharp
-// Step 1: Add DI (optional)
-var services = new ServiceCollection()
-    .AddLogging()
-    .BuildServiceProvider();
-
-// Step 2: Use fluent builders (optional)
-var window = new WindowBuilder(windowSystem, services)
+// Step 1: Use fluent builders
+var window = new WindowBuilder(windowSystem)
     .WithTitle("My Window")
     .Build();
 
-// Step 3: Add async patterns (optional)
-await Task.Run(() => windowSystem.Run());
+// Step 2: Use built-in notifications
+windowSystem.NotificationStateService.ShowNotification(
+    "Info", "Message", NotificationSeverity.Info);
+
+// Step 3: Access built-in logging
+windowSystem.LogService.LogAdded += (s, e) => { /* handle */ };
 ```
 
 ### Feature Mapping
