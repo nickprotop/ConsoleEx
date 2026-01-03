@@ -30,7 +30,6 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<string>? InputChanged;
 		private List<string>? _cachedContent;
-		private int _cursorPosition = 0;
 		private string _input = string.Empty;
 		private Color? _inputBackgroundColor;
 		private Color? _inputFocusedBackgroundColor;
@@ -40,10 +39,16 @@ namespace SharpConsoleUI.Controls
 		private Alignment _justify = Alignment.Left;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private string? _prompt;
-		private int _scrollOffset = 0;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
+
+		// Convenience property to access EditStateService
+		private EditStateService? EditService => Container?.GetConsoleWindowSystem?.EditStateService;
+
+		// Read-only helpers that read from state services (single source of truth)
+		private int CurrentCursorPosition => EditService?.GetCursorPosition(this).Column ?? 0;
+		private int CurrentScrollOffset => EditService?.GetEditState(this).HorizontalScrollOffset ?? 0;
 
 		public int? ActualWidth
 		{
@@ -67,17 +72,20 @@ namespace SharpConsoleUI.Controls
 		public IContainer? Container { get; set; }
 		
 		private bool _hasFocus;
-		public bool HasFocus 
-		{ 
+		public bool HasFocus
+		{
 			get => _hasFocus;
 			set
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
-				
+
 				// Invalidate cached content to trigger re-rendering when focus changes
 				_cachedContent = null;
-				
+
+				// Sync editing mode with EditStateService
+				EditService?.SetEditingMode(this, value);
+
 				// Fire focus events
 				if (value && !hadFocus)
 				{
@@ -190,7 +198,7 @@ namespace SharpConsoleUI.Controls
 			// Return the visual cursor position within the input field
 			// Account for scroll offset to get the position relative to visible content
 			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
-			int visualCursorX = promptLength + (_cursorPosition - _scrollOffset);
+			int visualCursorX = promptLength + (CurrentCursorPosition - CurrentScrollOffset);
 			return new Point(visualCursorX, 0);
 		}
 
@@ -207,23 +215,25 @@ namespace SharpConsoleUI.Controls
 			// Calculate cursor position within the input field (excluding prompt length)
 			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
 			int inputCursorPos = Math.Max(0, position.X - promptLength);
-			
+
 			// Clamp to valid input range
-			_cursorPosition = Math.Max(0, Math.Min(inputCursorPos, _input.Length));
-			
+			int newCursorPos = Math.Max(0, Math.Min(inputCursorPos, _input.Length));
+			EditService?.SetCursorPosition(this, 0, newCursorPos);
+
 			// Update scroll offset if needed
 			if (_inputWidth.HasValue)
 			{
-				if (_cursorPosition < _scrollOffset)
+				int scrollOffset = CurrentScrollOffset;
+				if (newCursorPos < scrollOffset)
 				{
-					SetScrollOffset(_cursorPosition);
+					SetScrollOffset(newCursorPos);
 				}
-				else if (_cursorPosition >= _scrollOffset + _inputWidth.Value)
+				else if (newCursorPos >= scrollOffset + _inputWidth.Value)
 				{
-					SetScrollOffset(_cursorPosition - _inputWidth.Value + 1);
+					SetScrollOffset(newCursorPos - _inputWidth.Value + 1);
 				}
 			}
-			
+
 			Container?.Invalidate(false, this);
 		}
 
@@ -234,12 +244,15 @@ namespace SharpConsoleUI.Controls
 
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+			int cursorPos = CurrentCursorPosition;
+			int scrollOffset = CurrentScrollOffset;
+
 			if (key.Key == ConsoleKey.Enter)
 			{
 				Entered?.Invoke(this, _input);
 				if (UnfocusOnEnter)
 				{
-					_cursorPosition = 0;
+					EditService?.SetCursorPosition(this, 0, 0);
 					HasFocus = false;
 				}
 				_cachedContent = null;
@@ -247,22 +260,23 @@ namespace SharpConsoleUI.Controls
 				InputChanged?.Invoke(this, _input);
 				return true;
 			}
-			else if (key.Key == ConsoleKey.Backspace && _cursorPosition > 0)
+			else if (key.Key == ConsoleKey.Backspace && cursorPos > 0)
 			{
-				_input = _input.Remove(_cursorPosition - 1, 1);
-				_cursorPosition--;
-				if (_cursorPosition < _scrollOffset + (_inputWidth ?? _input.Length))
+				_input = _input.Remove(cursorPos - 1, 1);
+				int newCursorPos = cursorPos - 1;
+				EditService?.SetCursorPosition(this, 0, newCursorPos);
+				if (newCursorPos < scrollOffset + (_inputWidth ?? _input.Length))
 				{
-					SetScrollOffset(_scrollOffset - 1);
+					SetScrollOffset(scrollOffset - 1);
 				}
 				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
 			}
-			else if (key.Key == ConsoleKey.Delete && _cursorPosition < _input.Length)
+			else if (key.Key == ConsoleKey.Delete && cursorPos < _input.Length)
 			{
-				_input = _input.Remove(_cursorPosition, 1);
+				_input = _input.Remove(cursorPos, 1);
 				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
@@ -270,7 +284,7 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (key.Key == ConsoleKey.Home)
 			{
-				_cursorPosition = 0;
+				EditService?.SetCursorPosition(this, 0, 0);
 				SetScrollOffset(0);
 				_cachedContent = null;
 				Container?.Invalidate(true);
@@ -278,29 +292,31 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (key.Key == ConsoleKey.End)
 			{
-				_cursorPosition = _input.Length;
+				EditService?.SetCursorPosition(this, 0, _input.Length);
 				SetScrollOffset(Math.Max(0, _input.Length - (_inputWidth ?? _input.Length)));
 				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
-			else if (key.Key == ConsoleKey.LeftArrow && _cursorPosition > 0)
+			else if (key.Key == ConsoleKey.LeftArrow && cursorPos > 0)
 			{
-				_cursorPosition--;
-				if (_cursorPosition < _scrollOffset + (_inputWidth ?? _input.Length))
+				int newCursorPos = cursorPos - 1;
+				EditService?.SetCursorPosition(this, 0, newCursorPos);
+				if (newCursorPos < scrollOffset + (_inputWidth ?? _input.Length))
 				{
-					SetScrollOffset(_scrollOffset - 1);
+					SetScrollOffset(scrollOffset - 1);
 				}
 				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
-			else if (key.Key == ConsoleKey.RightArrow && _cursorPosition < _input.Length)
+			else if (key.Key == ConsoleKey.RightArrow && cursorPos < _input.Length)
 			{
-				_cursorPosition++;
-				if (_cursorPosition >= (_scrollOffset + (_inputWidth ?? _input.Length)))
+				int newCursorPos = cursorPos + 1;
+				EditService?.SetCursorPosition(this, 0, newCursorPos);
+				if (newCursorPos >= (scrollOffset + (_inputWidth ?? _input.Length)))
 				{
-					SetScrollOffset(_scrollOffset + 1);
+					SetScrollOffset(scrollOffset + 1);
 				}
 				_cachedContent = null;
 				Container?.Invalidate(true);
@@ -316,11 +332,12 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (!char.IsControl(key.KeyChar))
 			{
-				_input = _input.Insert(_cursorPosition, key.KeyChar.ToString());
-				_cursorPosition++;
-				if (_inputWidth.HasValue && _cursorPosition > _inputWidth.Value)
+				_input = _input.Insert(cursorPos, key.KeyChar.ToString());
+				int newCursorPos = cursorPos + 1;
+				EditService?.SetCursorPosition(this, 0, newCursorPos);
+				if (_inputWidth.HasValue && newCursorPos > _inputWidth.Value)
 				{
-					SetScrollOffset(_cursorPosition - _inputWidth.Value);
+					SetScrollOffset(newCursorPos - _inputWidth.Value);
 				}
 				_cachedContent = null;
 				Container?.Invalidate(true);
@@ -332,7 +349,22 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			if (_cachedContent != null) return _cachedContent;
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
+			{
+				// Dimensions changed - invalidate cached content
+				_cachedContent = null;
+			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				if (_cachedContent != null) return _cachedContent;
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
 
 			_cachedContent = new List<string>();
 
@@ -343,13 +375,14 @@ namespace SharpConsoleUI.Controls
 				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
 			}
 
+			int scrollOffset = CurrentScrollOffset;
 			string visibleInput = _input;
 			if (_inputWidth.HasValue && _input.Length > _inputWidth.Value)
 			{
-				int maxLength = Math.Min(_inputWidth.Value, _input.Length - _scrollOffset);
-				if (maxLength > 0 && _scrollOffset < _input.Length)
+				int maxLength = Math.Min(_inputWidth.Value, _input.Length - scrollOffset);
+				if (maxLength > 0 && scrollOffset < _input.Length)
 				{
-					visibleInput = _input.Substring(_scrollOffset, maxLength);
+					visibleInput = _input.Substring(scrollOffset, maxLength);
 				}
 				else
 				{
@@ -388,17 +421,14 @@ namespace SharpConsoleUI.Controls
 
 		public void SetInput(string? input)
 		{
-			if (string.IsNullOrEmpty(input))
-			{
-				_cursorPosition = 0;
-			}
-			else
-			{
-				_cursorPosition = input.Length; // Update cursor position to the end of the input
-			}
+			int newCursorPos = string.IsNullOrEmpty(input) ? 0 : input.Length;
 
 			_cachedContent = null;
 			_input = input ?? string.Empty;
+
+			// Set cursor and scroll via services (single source of truth)
+			EditService?.SetCursorPosition(this, 0, newCursorPos);
+			EditService?.SetScrollPosition(this, 0, 0);
 
 			Container?.Invalidate(true);
 			InputChanged?.Invoke(this, _input);
@@ -406,7 +436,9 @@ namespace SharpConsoleUI.Controls
 
 		private void SetScrollOffset(int value)
 		{
-			_scrollOffset = Math.Max(0, value);
+			int newOffset = Math.Max(0, value);
+			// Set scroll position via service (single source of truth)
+			EditService?.SetScrollPosition(this, newOffset, 0);
 		}
 	}
 }

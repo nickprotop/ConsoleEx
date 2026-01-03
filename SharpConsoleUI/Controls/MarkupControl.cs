@@ -22,8 +22,6 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 		private bool _wrap = true;
-		private int? _lastRenderWidth;
-		private int? _lastRenderHeight;
 
 		public MarkupControl(List<string> lines)
 		{
@@ -121,22 +119,29 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
-			// Check if dimensions have changed - if so, invalidate the cache
-			int? effectiveWidthCheck = _width ?? availableWidth;
-			if (_lastRenderWidth != effectiveWidthCheck || _lastRenderHeight != availableHeight)
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
 			{
+				// Dimensions changed - invalidate cache
 				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				var cached = _contentCache.Content;
+				if (cached != null) return cached;
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
 
 			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
 		}
 
 		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
 		{
-			// Store the render dimensions for cache validation
-			_lastRenderWidth = _width ?? availableWidth;
-			_lastRenderHeight = availableHeight;
-
 			var renderedContent = new List<string>();
 			int targetWidth = _width ?? availableWidth ?? 50;
 			Spectre.Console.Color bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;

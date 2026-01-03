@@ -110,6 +110,24 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
+			{
+				// Dimensions changed - invalidate cache
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				var cached = _contentCache.Content;
+				if (cached != null) return cached;
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
+
 			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
 		}
 

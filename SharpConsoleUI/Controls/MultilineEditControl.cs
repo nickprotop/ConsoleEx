@@ -51,15 +51,12 @@ namespace SharpConsoleUI.Controls
 		private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
 		private int _horizontalScrollOffset = 0;
 		private bool _invalidated = true;
-		private bool _isDraggingScrollbar = false;
-		private bool _isDraggingVerticalScrollbar = false;
 		private bool _isEditing = false;
 		private bool _isEnabled = true;
 		private List<string> _lines = new List<string>() { string.Empty };
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private bool _readOnly = false;
 		private Color? _scrollbarColorValue;
-		private int _scrollbarDragStartPosition = 0;
 		private Color? _scrollbarThumbColorValue;
 		private Color? _selectionBackgroundColorValue;
 		private int _selectionEndX = 0;
@@ -336,7 +333,9 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true); 
 			}
 		} 
-	}		public WrapMode WrapMode
+	}
+
+		public WrapMode WrapMode
 		{
 			get => _wrapMode;
 			set
@@ -390,13 +389,10 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Force recalculation of scrollbars by invalidating
-			_invalidated = true;
-			_contentCache.Invalidate();
-
 			// Reset flag to ensure scroll positions are updated properly
 			_skipUpdateScrollPositionsInRender = false;
 
+			// Force recalculation of scrollbars by invalidating
 			_invalidated = true;
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
@@ -451,13 +447,10 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Force recalculation of scrollbars by invalidating
-			_invalidated = true;
-			_contentCache.Invalidate();
-
 			// Reset flag to ensure scroll positions are updated properly
 			_skipUpdateScrollPositionsInRender = false;
 
+			// Force recalculation of scrollbars by invalidating
 			_invalidated = true;
 			_contentCache.Invalidate();
 			Container?.Invalidate(true);
@@ -563,13 +556,23 @@ namespace SharpConsoleUI.Controls
 		public string GetSelectedText()
 		{
 			if (!_hasSelection) return string.Empty;
+			if (_lines.Count == 0) return string.Empty;
 
 			// Ensure start is before end
 			(int startX, int startY, int endX, int endY) = GetOrderedSelectionBounds();
 
+			// Validate bounds
+			if (startY < 0 || startY >= _lines.Count || endY < 0 || endY >= _lines.Count)
+				return string.Empty;
+
+			// Clamp X positions to line lengths
+			startX = Math.Max(0, Math.Min(startX, _lines[startY].Length));
+			endX = Math.Max(0, Math.Min(endX, _lines[endY].Length));
+
 			if (startY == endY)
 			{
 				// Selection on same line
+				if (startX >= endX) return string.Empty;
 				return _lines[startY].Substring(startX, endX - startX);
 			}
 
@@ -884,8 +887,9 @@ namespace SharpConsoleUI.Controls
 					if (_wrapMode != WrapMode.NoWrap)
 					{
 						// Handle up arrow in wrapped mode
+						int safeWidth = SafeEffectiveWidth;
 						// First, find the current wrapped line that contains the cursor
-						int cursorWrappedLine = _cursorX / _effectiveWidth;
+						int cursorWrappedLine = _cursorX / safeWidth;
 
 						// If we're already on the first wrapped line of the current logical line
 						if (cursorWrappedLine == 0)
@@ -897,18 +901,18 @@ namespace SharpConsoleUI.Controls
 
 								// Calculate how many wrapped lines this line has
 								int prevLineLength = _lines[_cursorY].Length;
-								int prevLineWrappedCount = (prevLineLength > 0) ? ((prevLineLength - 1) / _effectiveWidth) + 1 : 1;
+								int prevLineWrappedCount = (prevLineLength > 0) ? ((prevLineLength - 1) / safeWidth) + 1 : 1;
 
 								// Position the cursor at the same horizontal position on the last wrapped line
-								int horizontalOffset = _cursorX % _effectiveWidth;
-								_cursorX = Math.Min(prevLineLength, (prevLineWrappedCount - 1) * _effectiveWidth + horizontalOffset);
+								int horizontalOffset = _cursorX % safeWidth;
+								_cursorX = Math.Min(prevLineLength, (prevLineWrappedCount - 1) * safeWidth + horizontalOffset);
 							}
 						}
 						else
 						{
 							// Move up to the previous wrapped line within the same logical line
-							int horizontalOffset = _cursorX % _effectiveWidth;
-							_cursorX = (cursorWrappedLine - 1) * _effectiveWidth + horizontalOffset;
+							int horizontalOffset = _cursorX % safeWidth;
+							_cursorX = (cursorWrappedLine - 1) * safeWidth + horizontalOffset;
 						}
 					}
 					else
@@ -927,9 +931,10 @@ namespace SharpConsoleUI.Controls
 					if (_wrapMode != WrapMode.NoWrap)
 					{
 						// Handle down arrow in wrapped mode
-						int cursorWrappedLine = _cursorX / _effectiveWidth;
+						int safeWidth = SafeEffectiveWidth;
+						int cursorWrappedLine = _cursorX / safeWidth;
 						int lineLength = _lines[_cursorY].Length;
-						int lineWrappedCount = (lineLength > 0) ? ((lineLength - 1) / _effectiveWidth) + 1 : 1;
+						int lineWrappedCount = (lineLength > 0) ? ((lineLength - 1) / safeWidth) + 1 : 1;
 
 						// If we're on the last wrapped line of the current logical line
 						if (cursorWrappedLine >= lineWrappedCount - 1)
@@ -940,15 +945,15 @@ namespace SharpConsoleUI.Controls
 								_cursorY++;
 
 								// Position cursor at the same horizontal position on the first wrapped line
-								int horizontalOffset = _cursorX % _effectiveWidth;
+								int horizontalOffset = _cursorX % safeWidth;
 								_cursorX = Math.Min(_lines[_cursorY].Length, horizontalOffset);
 							}
 						}
 						else
 						{
 							// Move down to the next wrapped line within the same logical line
-							int horizontalOffset = _cursorX % _effectiveWidth;
-							int newPos = (cursorWrappedLine + 1) * _effectiveWidth + horizontalOffset;
+							int horizontalOffset = _cursorX % safeWidth;
+							int newPos = (cursorWrappedLine + 1) * safeWidth + horizontalOffset;
 
 							// Make sure we don't go beyond the end of the line
 							_cursorX = Math.Min(lineLength, newPos);
@@ -978,7 +983,8 @@ namespace SharpConsoleUI.Controls
 						if (_wrapMode != WrapMode.NoWrap)
 						{
 							// Go to start of wrapped line
-							_cursorX = (_cursorX / _effectiveWidth) * _effectiveWidth;
+							int safeWidth = SafeEffectiveWidth;
+							_cursorX = (_cursorX / safeWidth) * safeWidth;
 						}
 						else
 						{
@@ -1000,9 +1006,10 @@ namespace SharpConsoleUI.Controls
 						if (_wrapMode != WrapMode.NoWrap)
 						{
 							// Go to end of wrapped line segment (position after last char, not last char itself)
+							int safeWidth = SafeEffectiveWidth;
 							int lineLength = _lines[_cursorY].Length;
-							int cursorWrappedLine = _cursorX / _effectiveWidth;
-							int wrappedLineEnd = (cursorWrappedLine + 1) * _effectiveWidth;
+							int cursorWrappedLine = _cursorX / safeWidth;
+							int wrappedLineEnd = (cursorWrappedLine + 1) * safeWidth;
 							_cursorX = Math.Min(lineLength, wrappedLineEnd);
 						}
 						else
@@ -1017,14 +1024,15 @@ namespace SharpConsoleUI.Controls
 					if (_wrapMode != WrapMode.NoWrap)
 					{
 						// Handle page up in wrapped mode
+						int safeWidth = SafeEffectiveWidth;
 						int totalWrappedLinesBefore = 0;
 						for (int i = 0; i < _cursorY; i++)
 						{
 							int len = _lines[i].Length;
-							totalWrappedLinesBefore += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+							totalWrappedLinesBefore += (len > 0) ? ((len - 1) / safeWidth) + 1 : 1;
 						}
 
-						int cursorWrappedLine = _cursorX / _effectiveWidth;
+						int cursorWrappedLine = _cursorX / safeWidth;
 						int absoluteWrappedCursorLine = totalWrappedLinesBefore + cursorWrappedLine;
 						int newWrappedLine = Math.Max(0, absoluteWrappedCursorLine - _viewportHeight);
 
@@ -1035,11 +1043,11 @@ namespace SharpConsoleUI.Controls
 						for (int i = 0; i < _lines.Count; i++)
 						{
 							int len = _lines[i].Length;
-							int wrappedCount = (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+							int wrappedCount = (len > 0) ? ((len - 1) / safeWidth) + 1 : 1;
 							if (wrappedLinesCount + wrappedCount > newWrappedLine)
 							{
 								newCursorY = i;
-								newCursorX = (newWrappedLine - wrappedLinesCount) * _effectiveWidth;
+								newCursorX = (newWrappedLine - wrappedLinesCount) * safeWidth;
 								break;
 							}
 							wrappedLinesCount += wrappedCount;
@@ -1061,16 +1069,17 @@ namespace SharpConsoleUI.Controls
 					if (_wrapMode != WrapMode.NoWrap)
 					{
 						// Handle page down in wrapped mode
+						int safeWidth = SafeEffectiveWidth;
 						int totalWrappedLinesBefore = 0;
 						for (int i = 0; i < _cursorY; i++)
 						{
 							int len = _lines[i].Length;
-							totalWrappedLinesBefore += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+							totalWrappedLinesBefore += (len > 0) ? ((len - 1) / safeWidth) + 1 : 1;
 						}
 
-						int cursorWrappedLine = _cursorX / _effectiveWidth;
+						int cursorWrappedLine = _cursorX / safeWidth;
 						int absoluteWrappedCursorLine = totalWrappedLinesBefore + cursorWrappedLine;
-						int newWrappedLine = Math.Min(absoluteWrappedCursorLine + _viewportHeight, _lines.Sum(line => (line.Length > 0) ? ((line.Length - 1) / _effectiveWidth) + 1 : 1) - 1);
+						int newWrappedLine = Math.Min(absoluteWrappedCursorLine + _viewportHeight, GetTotalWrappedLineCount() - 1);
 
 						// Find the new cursor position
 						int newCursorY = 0;
@@ -1079,11 +1088,11 @@ namespace SharpConsoleUI.Controls
 						for (int i = 0; i < _lines.Count; i++)
 						{
 							int len = _lines[i].Length;
-							int wrappedCount = (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+							int wrappedCount = (len > 0) ? ((len - 1) / safeWidth) + 1 : 1;
 							if (wrappedLinesCount + wrappedCount > newWrappedLine)
 							{
 								newCursorY = i;
-								newCursorX = (newWrappedLine - wrappedLinesCount) * _effectiveWidth;
+								newCursorX = (newWrappedLine - wrappedLinesCount) * safeWidth;
 								break;
 							}
 							wrappedLinesCount += wrappedCount;
@@ -1187,10 +1196,9 @@ namespace SharpConsoleUI.Controls
 					}
 					else
 					{
-						Invalidate();
-						Container?.Invalidate(false);
 						_isEditing = false;
 						Invalidate();
+						Container?.Invalidate(true);
 						return true;
 					}
 
@@ -1258,6 +1266,24 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
+			{
+				// Dimensions changed - invalidate cache
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				var cached = _contentCache.Content;
+				if (cached != null) return cached;
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
+
 			return _contentCache.GetOrRender(() =>
 			{
 				Color bgColor = _hasFocus ? _isEditing ? FocusedBackgroundColor : Container?.GetConsoleWindowSystem?.Theme?.TextEditFocusedNotEditing ?? Color.LightSlateGrey : BackgroundColor;
@@ -1333,19 +1359,19 @@ namespace SharpConsoleUI.Controls
 				else if (_wrapMode == WrapMode.WrapWords)
 				{
 					// Word-based wrapping
-					var words = line.Split(' ');
-					var currentLine = new StringBuilder();
-					int currentOffset = 0;
-
-					if (words.Length == 0)
+					// Handle empty line first (Split returns [""] for empty string, not empty array)
+					if (string.IsNullOrEmpty(line))
 					{
-						// Handle empty line
 						allWrappedLines.Add(string.Empty);
 						sourceLineIndex.Add(i);
 						sourceLineOffset.Add(0);
 					}
 					else
 					{
+						var words = line.Split(' ');
+						var currentLine = new StringBuilder();
+						int currentOffset = 0;
+
 						foreach (var word in words)
 						{
 							// Handle words longer than effective width by breaking them into chunks
@@ -1390,12 +1416,10 @@ namespace SharpConsoleUI.Controls
 							currentLine.Append(word);
 						}
 
-						if (currentLine.Length > 0)
-						{
-							allWrappedLines.Add(currentLine.ToString());
-							sourceLineIndex.Add(i);
-							sourceLineOffset.Add(currentOffset);
-						}
+						// Add remaining content (or empty line if no content was accumulated)
+						allWrappedLines.Add(currentLine.ToString());
+						sourceLineIndex.Add(i);
+						sourceLineOffset.Add(currentOffset);
 					}
 				}
 			}
@@ -1852,13 +1876,28 @@ namespace SharpConsoleUI.Controls
 		private void DeleteSelectedText()
 		{
 			if (!_hasSelection) return;
+			if (_lines.Count == 0) return;
 
 			var (startX, startY, endX, endY) = GetOrderedSelectionBounds();
+
+			// Validate bounds
+			if (startY < 0 || startY >= _lines.Count || endY < 0 || endY >= _lines.Count)
+			{
+				ClearSelection();
+				return;
+			}
+
+			// Clamp X positions to line lengths
+			startX = Math.Max(0, Math.Min(startX, _lines[startY].Length));
+			endX = Math.Max(0, Math.Min(endX, _lines[endY].Length));
 
 			if (startY == endY)
 			{
 				// Selection on the same line
-				_lines[startY] = _lines[startY].Remove(startX, endX - startX);
+				if (startX < endX)
+				{
+					_lines[startY] = _lines[startY].Remove(startX, endX - startX);
+				}
 			}
 			else
 			{
@@ -1874,7 +1913,11 @@ namespace SharpConsoleUI.Controls
 				_lines[startY] = firstLineStart + lastLineEnd;
 
 				// Remove the lines in between
-				_lines.RemoveRange(startY + 1, endY - startY);
+				int linesToRemove = endY - startY;
+				if (linesToRemove > 0 && startY + 1 < _lines.Count)
+				{
+					_lines.RemoveRange(startY + 1, Math.Min(linesToRemove, _lines.Count - startY - 1));
+				}
 			}
 
 			// Move cursor to the selection start
@@ -1884,6 +1927,11 @@ namespace SharpConsoleUI.Controls
 			// Clear the selection
 			ClearSelection();
 		}
+
+		/// <summary>
+		/// Gets a safe effective width value, ensuring it's never zero to prevent division by zero errors.
+		/// </summary>
+		private int SafeEffectiveWidth => _effectiveWidth > 0 ? _effectiveWidth : 80;
 
 		// Calculate maximum line length
 		private int GetMaxLineLength()
@@ -1918,11 +1966,12 @@ namespace SharpConsoleUI.Controls
 				return _lines.Count;
 			}
 
+			int safeWidth = SafeEffectiveWidth;
 			int totalWrappedLines = 0;
 			for (int i = 0; i < _lines.Count; i++)
 			{
 				int len = _lines[i].Length;
-				totalWrappedLines += (len > 0) ? ((len - 1) / _effectiveWidth) + 1 : 1;
+				totalWrappedLines += (len > 0) ? ((len - 1) / safeWidth) + 1 : 1;
 			}
 			return totalWrappedLines;
 		}

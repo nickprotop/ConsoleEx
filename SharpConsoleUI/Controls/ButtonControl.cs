@@ -132,6 +132,24 @@ namespace SharpConsoleUI.Controls
 
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
+			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+
+			// Smart invalidation: check if re-render is needed due to size change
+			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
+			{
+				// Dimensions changed - invalidate cache
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+			}
+			else
+			{
+				// Dimensions unchanged - return cached content if available
+				var cached = _contentCache.Content;
+				if (cached != null) return new List<string> { cached };
+			}
+
+			// Update available space tracking
+			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
+
 			// Use thread-safe cache with lazy rendering
 			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight).FirstOrDefault() ?? string.Empty) switch
 			{
@@ -146,8 +164,8 @@ namespace SharpConsoleUI.Controls
 			Color backgroundColor = Container?.BackgroundColor ?? Color.Black;
 			Color foregroundColor = Container?.ForegroundColor ?? Color.White;
 
-			Color windowBackground = Container?.GetConsoleWindowSystem?.Theme.WindowBackgroundColor ?? Color.Black;
-			Color windowForeground = Container?.GetConsoleWindowSystem?.Theme.WindowForegroundColor ?? Color.White;
+			Color windowBackground = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			Color windowForeground = Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 
 			if (Container?.GetConsoleWindowSystem?.Theme != null)
 			{
@@ -175,13 +193,23 @@ namespace SharpConsoleUI.Controls
 
 			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
 
-			int buttonWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(text) + 4);
+			// Calculate button width with minimum of 4 to ensure room for brackets
+			int rawButtonWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(text) + 4);
+			int buttonWidth = Math.Max(4, rawButtonWidth); // Minimum width of 4 for "[ ]"
 			int maxTextLength = buttonWidth - 4; // Account for brackets and padding
 
-			if (AnsiConsoleHelper.StripSpectreLength(text) > maxTextLength)
+			if (maxTextLength > 0 && AnsiConsoleHelper.StripSpectreLength(text) > maxTextLength)
 			{
 				// Use TruncateSpectre to safely truncate text with Spectre markup
-				text = AnsiConsoleHelper.TruncateSpectre(text, maxTextLength - 3) + "...";
+				int truncateLength = Math.Max(0, maxTextLength - 3);
+				text = truncateLength > 0
+					? AnsiConsoleHelper.TruncateSpectre(text, truncateLength) + "..."
+					: "...".Substring(0, Math.Max(0, maxTextLength)); // Handle very small widths
+			}
+			else if (maxTextLength <= 0)
+			{
+				// Button is too small for any text
+				text = string.Empty;
 			}
 
 			int padding = (buttonWidth - AnsiConsoleHelper.StripSpectreLength(text) - 2) / 2;
@@ -231,7 +259,7 @@ namespace SharpConsoleUI.Controls
 
 			if (_margin.Bottom > 0)
 			{
-				renderedAnsi.InsertRange(0, Enumerable.Repeat($"{AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(new string(' ', finalWidth), finalWidth, 1, false, windowBackground, windowForeground).FirstOrDefault()}", _margin.Bottom));
+				renderedAnsi.AddRange(Enumerable.Repeat($"{AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(new string(' ', finalWidth), finalWidth, 1, false, windowBackground, windowForeground).FirstOrDefault()}", _margin.Bottom));
 			}
 
 			return renderedAnsi;
