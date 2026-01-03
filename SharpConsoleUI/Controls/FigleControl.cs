@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -14,6 +14,10 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// A control that renders text using FIGlet ASCII art fonts.
+	/// Wraps the Spectre.Console FigletText component for large decorative text display.
+	/// </summary>
 	public class FigleControl : IWindowControl
 	{
 		private readonly ThreadSafeCache<List<string>> _contentCache;
@@ -25,11 +29,15 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="FigleControl"/> class.
+		/// </summary>
 		public FigleControl()
 		{
 			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
+		/// <inheritdoc/>
 		public int? ActualWidth
 		{
 			get
@@ -45,17 +53,24 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Alignment Alignment
 		{ get => _justify; set { _justify = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <summary>
+		/// Gets or sets the color of the FIGlet text.
+		/// </summary>
 		public Color? Color
 		{ get => _color; set { _color = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
 
+		/// <inheritdoc/>
 		public Margin Margin
 		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -66,38 +81,49 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <summary>
+		/// Gets or sets the text to render as FIGlet ASCII art.
+		/// </summary>
 		public string? Text
 		{ get => _text; set { _text = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public bool Visible
 		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
-	public int? Width
-	{ 
-		get => _width; 
-		set 
-		{ 
-			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-			if (_width != validatedValue)
+		/// <inheritdoc/>
+		public int? Width
+		{
+			get => _width;
+			set
 			{
-				_width = validatedValue; 
-				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
-				Container?.Invalidate(true); 
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				if (_width != validatedValue)
+				{
+					_width = validatedValue;
+					_contentCache.Invalidate(InvalidationReason.SizeChanged);
+					Container?.Invalidate(true);
+				}
 			}
-		} 
-	}		public void Dispose()
+		}
+
+		/// <inheritdoc/>
+		public void Dispose()
 		{
 			_contentCache.Dispose();
 			Container = null;
 		}
 
+		/// <inheritdoc/>
 		public void Invalidate()
 		{
 			_contentCache.Invalidate(InvalidationReason.ContentChanged);
 		}
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			// For Figlet text, we need to render to get the size
@@ -108,6 +134,7 @@ namespace SharpConsoleUI.Controls
 			);
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -134,34 +161,78 @@ namespace SharpConsoleUI.Controls
 		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
 		{
 			var renderedContent = new List<string>();
+			var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
+			var fgColor = Container?.ForegroundColor ?? Spectre.Console.Color.White;
+			int targetWidth = availableWidth ?? 80;
 
 			FigletText figletText = new FigletText(_text ?? string.Empty);
-			Style style = new Style(_color ?? _color ?? Container?.ForegroundColor ?? Spectre.Console.Color.White, background: Container?.BackgroundColor ?? Spectre.Console.Color.Black);
-			figletText.Color = style.Foreground;
+			figletText.Color = _color ?? fgColor;
 
-			renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? availableWidth ?? 50, availableHeight, Container?.BackgroundColor ?? Spectre.Console.Color.Black);
+			renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? targetWidth, availableHeight, bgColor);
 
-			int maxContentWidth = 0;
-			foreach (var line in renderedContent)
-			{
-				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-				if (length > maxContentWidth) maxContentWidth = length;
-			}
-
-			int paddingLeft = 0;
-			if (Alignment == Alignment.Center)
-			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
-			}
-
+			// Apply alignment padding
 			for (int i = 0; i < renderedContent.Count; i++)
 			{
-				renderedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + renderedContent[i];
+				int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent[i]);
+				if (lineWidth < targetWidth)
+				{
+					int totalPadding = targetWidth - lineWidth;
+					switch (_justify)
+					{
+						case Alignment.Center:
+							int leftPad = totalPadding / 2;
+							int rightPad = totalPadding - leftPad;
+							renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(leftPad, bgColor) + renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(rightPad, bgColor);
+							break;
+						case Alignment.Right:
+							renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor) + renderedContent[i];
+							break;
+						default: // Left or Stretch
+							renderedContent[i] = renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor);
+							break;
+					}
+				}
+
+				// Apply left margin
+				if (_margin.Left > 0)
+				{
+					renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(_margin.Left, bgColor) + renderedContent[i];
+				}
+
+				// Apply right margin
+				if (_margin.Right > 0)
+				{
+					renderedContent[i] = renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(_margin.Right, bgColor);
+				}
+			}
+
+			// Add top margin
+			if (_margin.Top > 0)
+			{
+				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
+				for (int i = 0; i < _margin.Top; i++)
+				{
+					renderedContent.Insert(0, AnsiConsoleHelper.AnsiEmptySpace(finalWidth, bgColor));
+				}
+			}
+
+			// Add bottom margin
+			if (_margin.Bottom > 0)
+			{
+				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
+				for (int i = 0; i < _margin.Bottom; i++)
+				{
+					renderedContent.Add(AnsiConsoleHelper.AnsiEmptySpace(finalWidth, bgColor));
+				}
 			}
 
 			return renderedContent;
 		}
 
+		/// <summary>
+		/// Sets the color of the FIGlet text.
+		/// </summary>
+		/// <param name="color">The color to apply to the text.</param>
 		public void SetColor(Color color)
 		{
 			_color = color;
@@ -169,6 +240,10 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(true);
 		}
 
+		/// <summary>
+		/// Sets the text to render as FIGlet ASCII art.
+		/// </summary>
+		/// <param name="text">The text to display.</param>
 		public void SetText(string text)
 		{
 			_text = text;

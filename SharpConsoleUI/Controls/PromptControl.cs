@@ -18,6 +18,10 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// A single-line text input control with optional prompt text.
+	/// Supports text editing, cursor navigation, and horizontal scrolling for overflow text.
+	/// </summary>
 	public class PromptControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		/// <summary>
@@ -50,6 +54,9 @@ namespace SharpConsoleUI.Controls
 		private int CurrentCursorPosition => EditService?.GetCursorPosition(this).Column ?? 0;
 		private int CurrentScrollOffset => EditService?.GetEditState(this).HorizontalScrollOffset ?? 0;
 
+		/// <summary>
+		/// Gets the actual rendered width of the control content in characters.
+		/// </summary>
 		public int? ActualWidth
 		{
 			get
@@ -66,12 +73,18 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the text alignment within the control.
+		/// </summary>
 		public Alignment Alignment
 		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
 		
 		private bool _hasFocus;
+
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -103,6 +116,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public CursorShape? PreferredCursorShape => CursorShape.VerticalBar;
 
+		/// <summary>
+		/// Gets or sets the background color of the input area when not focused.
+		/// </summary>
 		public Color? InputBackgroundColor
 		{
 			get => _inputBackgroundColor;
@@ -114,6 +130,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color of the input area when focused.
+		/// </summary>
 		public Color? InputFocusedBackgroundColor
 		{
 			get => _inputFocusedBackgroundColor;
@@ -125,6 +144,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of the input text when focused.
+		/// </summary>
 		public Color? InputFocusedForegroundColor
 		{
 			get => _inputFocusedForegroundColor;
@@ -136,6 +158,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of the input text when not focused.
+		/// </summary>
 		public Color? InputForegroundColor
 		{
 			get => _inputForegroundColor;
@@ -147,6 +172,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the width of the input area in characters. When set, enables horizontal scrolling.
+		/// </summary>
 		public int? InputWidth
 		{
 			get => _inputWidth;
@@ -158,16 +186,22 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool IsEnabled { get; set; } = true;
 
+		/// <inheritdoc/>
 		public Margin Margin
 		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
 
 
 
+		/// <summary>
+		/// Gets or sets the prompt text displayed before the input area.
+		/// </summary>
 		public string? Prompt
 		{ get => _prompt; set { _prompt = value; _cachedContent = null; Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -178,21 +212,41 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether the control loses focus when Enter is pressed.
+		/// </summary>
 		public bool UnfocusOnEnter { get; set; } = true;
 
+		/// <inheritdoc/>
 		public bool Visible
 		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public int? Width
-		{ get => _width; set { _width = value.HasValue ? Math.Max(0, value.Value) : value; _cachedContent = null; Container?.Invalidate(true); } }
+		{
+			get => _width;
+			set
+			{
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				if (_width != validatedValue)
+				{
+					_width = validatedValue;
+					_cachedContent = null;
+					Container?.Invalidate(true);
+				}
+			}
+		}
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			Container = null;
 		}
 
-		// ILogicalCursorProvider implementation
+		/// <inheritdoc/>
 		public Point? GetLogicalCursorPosition()
 		{
 			// Return the visual cursor position within the input field
@@ -202,6 +256,7 @@ namespace SharpConsoleUI.Controls
 			return new Point(visualCursorX, 0);
 		}
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			// Return the size of the prompt content (prompt + input area)
@@ -210,6 +265,7 @@ namespace SharpConsoleUI.Controls
 			return new System.Drawing.Size(width, 1); // Single line control
 		}
 
+		/// <inheritdoc/>
 		public void SetLogicalCursorPosition(Point position)
 		{
 			// Calculate cursor position within the input field (excluding prompt length)
@@ -237,11 +293,13 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(false, this);
 		}
 
+		/// <inheritdoc/>
 		public void Invalidate()
 		{
 			_cachedContent = null;
 		}
 
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			int cursorPos = CurrentCursorPosition;
@@ -347,6 +405,7 @@ namespace SharpConsoleUI.Controls
 			return false;
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -408,17 +467,29 @@ namespace SharpConsoleUI.Controls
 			return _cachedContent;
 		}
 
-		// IFocusableControl implementation
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 		
+		/// <summary>
+		/// Occurs when the control receives focus.
+		/// </summary>
 		public event EventHandler? GotFocus;
+
+		/// <summary>
+		/// Occurs when the control loses focus.
+		/// </summary>
 		public event EventHandler? LostFocus;
 		
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			HasFocus = focus;
 		}
 
+		/// <summary>
+		/// Sets the input text and positions the cursor at the end.
+		/// </summary>
+		/// <param name="input">The text to set as input.</param>
 		public void SetInput(string? input)
 		{
 			int newCursorPos = string.IsNullOrEmpty(input) ? 0 : input.Length;

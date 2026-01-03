@@ -19,6 +19,10 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// A grid control that arranges child columns horizontally with optional splitters between them.
+	/// Supports keyboard and mouse navigation, focus management, and dynamic column resizing.
+	/// </summary>
 	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl
 	{
 		private Alignment _alignment = Alignment.Left;
@@ -39,11 +43,15 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="HorizontalGridControl"/> class.
+		/// </summary>
 		public HorizontalGridControl()
 		{
 			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
+		/// <inheritdoc/>
 		public int? ActualWidth
 		{
 			get
@@ -60,12 +68,19 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
+		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public Color? BackgroundColor { get; set; }
+
+		/// <summary>
+		/// Gets the list of columns contained in this grid.
+		/// </summary>
 		public List<ColumnContainer> Columns => _columns;
 
+		/// <inheritdoc/>
 		public IContainer? Container
 		{
 			get { return _container; }
@@ -88,8 +103,10 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Color? ForegroundColor { get; set; }
 
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -99,7 +116,7 @@ namespace SharpConsoleUI.Controls
 				_hasFocus = value;
 				FocusChanged();
 				this.SafeInvalidate(InvalidationReason.FocusChanged);
-				
+
 				// Fire focus events
 				if (value && !hadFocus)
 				{
@@ -112,6 +129,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
@@ -123,9 +141,11 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
+		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -136,24 +156,34 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
+		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 	public int? Width
-	{ 
-		get => _width; 
-		set 
-		{ 
+	{
+		get => _width;
+		set
+		{
 			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
 			if (_width != validatedValue)
 			{
-				_width = validatedValue; 
-				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
+				_width = validatedValue;
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+				Container?.Invalidate(true);
 			}
-		} 
-	}		public void AddColumn(ColumnContainer column)
+		}
+	}
+
+		/// <summary>
+		/// Adds a column to the grid.
+		/// </summary>
+		/// <param name="column">The column container to add.</param>
+		public void AddColumn(ColumnContainer column)
 		{
 			column.GetConsoleWindowSystem = Container?.GetConsoleWindowSystem;
 			_columns.Add(column);
@@ -161,6 +191,11 @@ namespace SharpConsoleUI.Controls
 			Invalidate();
 		}
 
+		/// <summary>
+		/// Adds a column to the grid with an automatically created splitter between it and the previous column.
+		/// </summary>
+		/// <param name="column">The column container to add.</param>
+		/// <returns>The created splitter control, or null if this is the first column.</returns>
 		public SplitterControl? AddColumnWithSplitter(ColumnContainer column)
 		{
 			// Only add a splitter if there's at least one column already
@@ -191,6 +226,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Adds a splitter control between two adjacent columns.
+		/// </summary>
+		/// <param name="leftColumnIndex">The index of the column to the left of the splitter.</param>
+		/// <param name="splitterControl">The splitter control to add.</param>
+		/// <returns>True if the splitter was added successfully; false if the column index is invalid.</returns>
 		public bool AddSplitter(int leftColumnIndex, SplitterControl splitterControl)
 		{
 			// Verify the column indices are valid
@@ -213,7 +254,7 @@ namespace SharpConsoleUI.Controls
 			return true;
 		}
 
-		// Update the Dispose method to clean up event handlers
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			// Clean up event handlers from splitters
@@ -224,7 +265,7 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
-		// ILogicalCursorProvider implementation - delegate to focused child with column offset
+		/// <inheritdoc/>
 		public Point? GetLogicalCursorPosition()
 		{
 			if (_focusedContent is ILogicalCursorProvider cursorProvider)
@@ -251,10 +292,11 @@ namespace SharpConsoleUI.Controls
 			return null;
 		}
 
-		// ICursorShapeProvider implementation - delegate to focused child
+		/// <inheritdoc/>
 		public CursorShape? PreferredCursorShape =>
 			(_focusedContent as ICursorShapeProvider)?.PreferredCursorShape;
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			// Use reasonable maximum dimensions instead of int.MaxValue to avoid memory issues
@@ -265,11 +307,13 @@ namespace SharpConsoleUI.Controls
 			);
 		}
 
+		/// <inheritdoc/>
 		public void SetLogicalCursorPosition(Point position)
 		{
 			// Grids don't have cursor positioning
 		}
 
+		/// <inheritdoc/>
 		public void Invalidate()
 		{
 			_invalidated = true;
@@ -288,6 +332,7 @@ namespace SharpConsoleUI.Controls
 			// Don't directly call Container.Invalidate - let the InvalidationManager handle it
 		}
 
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			// Check if key is tab
@@ -406,6 +451,10 @@ namespace SharpConsoleUI.Controls
 			return _focusedContent?.ProcessKey(key) ?? false;
 		}
 
+		/// <summary>
+		/// Removes a column from the grid along with any associated splitters.
+		/// </summary>
+		/// <param name="column">The column container to remove.</param>
 		public void RemoveColumn(ColumnContainer column)
 		{
 			int index = _columns.IndexOf(column);
@@ -457,6 +506,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -749,12 +799,16 @@ namespace SharpConsoleUI.Controls
 				: LayoutRequirements.Default;
 		}
 
-		// IFocusableControl implementation
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
-		
+
+		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
+
+		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
-		
+
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			// Note: _focusFromBackward should be set before calling this method
@@ -763,25 +817,35 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Sets focus with direction information for proper child control selection
+		/// Sets focus with direction information for proper child control selection.
 		/// </summary>
-		/// <param name="focus">Whether to set or remove focus</param>
-		/// <param name="backward">If true, focus last child; if false, focus first child</param>
+		/// <param name="focus">Whether to set or remove focus.</param>
+		/// <param name="backward">If true, focus last child; if false, focus first child.</param>
 		public void SetFocusWithDirection(bool focus, bool backward)
 		{
 			_focusFromBackward = backward;
 			HasFocus = focus;
 		}
 
-		// IMouseAwareControl implementation
+		/// <inheritdoc/>
 		public bool WantsMouseEvents => IsEnabled;
+
+		/// <inheritdoc/>
 		public bool CanFocusWithMouse => IsEnabled;
 
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
 
+		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			if (!IsEnabled || !WantsMouseEvents)

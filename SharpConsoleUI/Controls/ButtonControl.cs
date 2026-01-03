@@ -18,7 +18,10 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
-		public class ButtonControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	/// <summary>
+	/// A clickable button control that supports keyboard and mouse interaction.
+	/// </summary>
+	public class ButtonControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
 		private Alignment _alignment = Alignment.Left;
 		private readonly ThreadSafeCache<string> _contentCache;
@@ -30,41 +33,57 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		/// <summary>
+		/// Initializes a new instance of the ButtonControl class with default settings.
+		/// </summary>
 		public ButtonControl()
 		{
 			_contentCache = this.CreateThreadSafeCache<string>();
 		}
 
+		/// <summary>
+		/// Gets the actual rendered width of the button in characters.
+		/// </summary>
 		public int? ActualWidth => _contentCache.Content == null ? null : AnsiConsoleHelper.StripAnsiStringLength(_contentCache.Content);
 
+		/// <inheritdoc/>
 		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
+		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
 
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _focused;
 			set
 			{
-				_contentCache.Invalidate(InvalidationReason.FocusChanged);
 				_focused = value;
+				_contentCache.Invalidate(InvalidationReason.FocusChanged);
+				Container?.Invalidate(true);
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the button is enabled and can be interacted with.
+		/// </summary>
 		public bool IsEnabled
 		{
 			get => _enabled;
 			set
 			{
-				_contentCache.Invalidate(InvalidationReason.StateChanged);
 				_enabled = value;
+				_contentCache.Invalidate(InvalidationReason.StateChanged);
+				Container?.Invalidate(true);
 			}
 		}
 
+		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
+		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -75,8 +94,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <summary>
+		/// Gets or sets the text displayed on the button.
+		/// </summary>
 		public string Text
 		{
 			get => _text;
@@ -84,21 +107,38 @@ namespace SharpConsoleUI.Controls
 			{
 				_text = value;
 				_contentCache.Invalidate(InvalidationReason.ContentChanged);
+				Container?.Invalidate(true);
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
+		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public int? Width
-		{ get => _width; set { _width = value.HasValue ? Math.Max(0, value.Value) : value; _contentCache.Invalidate(InvalidationReason.SizeChanged); } }
+		{
+			get => _width;
+			set
+			{
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				if (_width != validatedValue)
+				{
+					_width = validatedValue;
+					_contentCache.Invalidate(InvalidationReason.SizeChanged);
+					Container?.Invalidate(true);
+				}
+			}
+		}
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			Container = null;
 			_contentCache.Dispose();
 		}
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			var content = RenderContent(int.MaxValue, int.MaxValue);
@@ -108,11 +148,13 @@ namespace SharpConsoleUI.Controls
 			);
 		}
 
+		/// <inheritdoc/>
 		public void Invalidate()
 		{
 			_contentCache.Invalidate(InvalidationReason.All);
 		}
 
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (key.Key == ConsoleKey.Enter)
@@ -130,6 +172,7 @@ namespace SharpConsoleUI.Controls
 			return false;
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -164,7 +207,7 @@ namespace SharpConsoleUI.Controls
 			Color backgroundColor = Container?.BackgroundColor ?? Color.Black;
 			Color foregroundColor = Container?.ForegroundColor ?? Color.White;
 
-			Color windowBackground = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			Color windowBackground = Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 			Color windowForeground = Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 
 			if (Container?.GetConsoleWindowSystem?.Theme != null)
@@ -232,34 +275,64 @@ namespace SharpConsoleUI.Controls
 				finalButtonText = finalButtonText.Insert(0, new string(' ', buttonWidth - AnsiConsoleHelper.StripSpectreLength(finalButtonText)));
 			}
 
-			int maxContentWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(finalButtonText));
-
-			int paddingLeft = 0;
-			if (Alignment == Alignment.Center)
-			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
-			}
+			int targetWidth = availableWidth ?? 80;
 
 			List<string> renderedAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{finalButtonText}", buttonWidth, availableHeight, false, backgroundColor, foregroundColor);
 
+			// Apply alignment padding
 			for (int i = 0; i < renderedAnsi.Count; i++)
 			{
-				renderedAnsi[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + renderedAnsi[i];
+				int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedAnsi[i]);
+				if (lineWidth < targetWidth)
+				{
+					int totalPadding = targetWidth - lineWidth;
+					switch (_alignment)
+					{
+						case Alignment.Center:
+							int leftPad = totalPadding / 2;
+							int rightPad = totalPadding - leftPad;
+							renderedAnsi[i] = AnsiConsoleHelper.AnsiEmptySpace(leftPad, windowBackground) + renderedAnsi[i] + AnsiConsoleHelper.AnsiEmptySpace(rightPad, windowBackground);
+							break;
+						case Alignment.Right:
+							renderedAnsi[i] = AnsiConsoleHelper.AnsiEmptySpace(totalPadding, windowBackground) + renderedAnsi[i];
+							break;
+						default: // Left or Stretch
+							renderedAnsi[i] = renderedAnsi[i] + AnsiConsoleHelper.AnsiEmptySpace(totalPadding, windowBackground);
+							break;
+					}
+				}
 
-				renderedAnsi[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', _margin.Left)}", _margin.Left, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + renderedAnsi[i];
-				renderedAnsi[i] = renderedAnsi[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', _margin.Right)}", _margin.Right, 1, false, Container?.BackgroundColor, null).FirstOrDefault();
+				// Apply left margin
+				if (_margin.Left > 0)
+				{
+					renderedAnsi[i] = AnsiConsoleHelper.AnsiEmptySpace(_margin.Left, windowBackground) + renderedAnsi[i];
+				}
+
+				// Apply right margin
+				if (_margin.Right > 0)
+				{
+					renderedAnsi[i] = renderedAnsi[i] + AnsiConsoleHelper.AnsiEmptySpace(_margin.Right, windowBackground);
+				}
 			}
 
-			int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedAnsi.FirstOrDefault() ?? string.Empty);
-
+			// Add top margin
 			if (_margin.Top > 0)
 			{
-				renderedAnsi.InsertRange(0, Enumerable.Repeat($"{AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(new string(' ', finalWidth), finalWidth, 1, false, windowBackground, windowForeground).FirstOrDefault()}", _margin.Top));
+				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedAnsi.FirstOrDefault() ?? string.Empty);
+				for (int j = 0; j < _margin.Top; j++)
+				{
+					renderedAnsi.Insert(0, AnsiConsoleHelper.AnsiEmptySpace(finalWidth, windowBackground));
+				}
 			}
 
+			// Add bottom margin
 			if (_margin.Bottom > 0)
 			{
-				renderedAnsi.AddRange(Enumerable.Repeat($"{AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(new string(' ', finalWidth), finalWidth, 1, false, windowBackground, windowForeground).FirstOrDefault()}", _margin.Bottom));
+				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedAnsi.FirstOrDefault() ?? string.Empty);
+				for (int j = 0; j < _margin.Bottom; j++)
+				{
+					renderedAnsi.Add(AnsiConsoleHelper.AnsiEmptySpace(finalWidth, windowBackground));
+				}
 			}
 
 			return renderedAnsi;
@@ -267,22 +340,32 @@ namespace SharpConsoleUI.Controls
 
 
 		// IMouseAwareControl implementation
+		/// <inheritdoc/>
 		public bool WantsMouseEvents => IsEnabled;
+
+		/// <inheritdoc/>
 		public bool CanFocusWithMouse => IsEnabled;
 
 		/// <summary>
-		/// Event fired when the button is clicked (by mouse or keyboard)
+		/// Event fired when the button is clicked (by mouse or keyboard).
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
 		/// <summary>
-		/// Event fired when the button is clicked (convenience event that provides the button as parameter)
+		/// Event fired when the button is clicked (convenience event that provides the button as parameter).
 		/// </summary>
 		public event EventHandler<ButtonControl>? Click;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
 
+		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			if (!IsEnabled || !WantsMouseEvents)
@@ -318,11 +401,16 @@ namespace SharpConsoleUI.Controls
 		}
 
 		// IFocusableControl implementation
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
+		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
+
+		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
 
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			var hadFocus = HasFocus;

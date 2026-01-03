@@ -17,6 +17,9 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// A hierarchical tree control that displays nodes in a collapsible tree structure with keyboard navigation.
+	/// </summary>
 	public class TreeControl : IWindowControl, IInteractiveControl, IFocusableControl
 	{
 		private readonly List<TreeNode> _rootNodes = new();
@@ -47,11 +50,17 @@ namespace SharpConsoleUI.Controls
 		private int CurrentSelectedIndex => SelectionService?.GetSelectedIndex(this) ?? 0;
 		private int CurrentScrollOffset => ScrollService?.GetVerticalOffset(this) ?? 0;
 
+		/// <summary>
+		/// Initializes a new instance of the TreeControl class.
+		/// </summary>
 		public TreeControl()
 		{
-			_contentCache = new ThreadSafeCache<List<string>>(this);
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
+		/// <summary>
+		/// Gets the actual rendered width in characters.
+		/// </summary>
 		public int? ActualWidth
 		{
 			get
@@ -69,6 +78,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Alignment Alignment
 		{
 			get => _alignment;
@@ -80,9 +90,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color of the tree.
+		/// </summary>
 		public Color BackgroundColor
 		{
-			get => _backgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			get => _backgroundColorValue ?? Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 			set
 			{
 				_backgroundColorValue = value;
@@ -91,6 +104,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
 
 		/// <summary>
@@ -107,6 +121,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of tree nodes.
+		/// </summary>
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
@@ -119,7 +136,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets or sets the tree guide style
+		/// Gets or sets the tree guide style used for drawing the tree structure.
 		/// </summary>
 		public TreeGuide Guide
 		{
@@ -132,6 +149,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -141,7 +159,7 @@ namespace SharpConsoleUI.Controls
 				_hasFocus = value;
 				_contentCache.Invalidate();
 				Container?.Invalidate(true);
-				
+
 				// Fire focus events
 				if (value && !hadFocus)
 				{
@@ -195,6 +213,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the tree is enabled for user interaction.
+		/// </summary>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
@@ -206,6 +227,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Margin Margin
 		{
 			get => _margin;
@@ -217,7 +239,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		// Add property to track visible items
 		/// <summary>
 		/// Gets or sets the maximum number of items to display at once.
 		/// If null, shows as many as will fit in available height.
@@ -225,22 +246,22 @@ namespace SharpConsoleUI.Controls
 		public int? MaxVisibleItems { get; set; }
 
 		/// <summary>
-		/// Event that fires when a tree node is expanded or collapsed
+		/// Event that fires when a tree node is expanded or collapsed.
 		/// </summary>
 		public Action<TreeControl, TreeNode>? OnNodeExpandCollapse { get; set; }
 
 		/// <summary>
-		/// Event that fires when the selected node changes
+		/// Event that fires when the selected node changes.
 		/// </summary>
 		public Action<TreeControl, TreeNode?>? OnSelectedNodeChanged { get; set; }
 
 		/// <summary>
-		/// Gets the collection of root nodes in the tree
+		/// Gets the collection of root nodes in the tree.
 		/// </summary>
 		public ReadOnlyCollection<TreeNode> RootNodes => _rootNodes.AsReadOnly();
 
 		/// <summary>
-		/// Gets or sets the currently selected node index (flattenedNodes)
+		/// Gets or sets the currently selected node index in the flattened nodes list.
 		/// </summary>
 		public int SelectedIndex
 		{
@@ -263,7 +284,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets the currently selected node
+		/// Gets the currently selected node.
 		/// </summary>
 		public TreeNode? SelectedNode
 		{
@@ -276,6 +297,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -286,8 +308,10 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <inheritdoc/>
 		public bool Visible
 		{
 			get => _visible;
@@ -299,23 +323,26 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-	public int? Width
-	{
-		get => _width;
-		set
+		/// <inheritdoc/>
+		public int? Width
 		{
-			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-			if (_width != validatedValue)
+			get => _width;
+			set
 			{
-				_width = validatedValue;
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-				Container?.Invalidate(true);
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				if (_width != validatedValue)
+				{
+					_width = validatedValue;
+					_contentCache.Invalidate(InvalidationReason.SizeChanged);
+					Container?.Invalidate(true);
+				}
 			}
 		}
-	}		/// <summary>
-		/// Adds a root node to the tree control
+
+		/// <summary>
+		/// Adds a root node to the tree control.
 		/// </summary>
-		/// <param name="node">The node to add</param>
+		/// <param name="node">The node to add.</param>
 		public void AddRootNode(TreeNode node)
 		{
 			if (node == null)
@@ -328,10 +355,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Adds a root node with the specified text
+		/// Adds a root node with the specified text.
 		/// </summary>
-		/// <param name="text">Text for the new node</param>
-		/// <returns>The newly created node</returns>
+		/// <param name="text">Text for the new node.</param>
+		/// <returns>The newly created node.</returns>
 		public TreeNode AddRootNode(string text)
 		{
 			var node = new TreeNode(text);
@@ -343,7 +370,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Clears all nodes from the tree
+		/// Clears all nodes from the tree.
 		/// </summary>
 		public void Clear()
 		{
@@ -359,7 +386,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Collapses all nodes in the tree
+		/// Collapses all nodes in the tree.
 		/// </summary>
 		public void CollapseAll()
 		{
@@ -369,16 +396,17 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(true);
 		}
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			Container = null;
 		}
 
 		/// <summary>
-		/// Ensures a node is visible by expanding all its parent nodes
+		/// Ensures a node is visible by expanding all its parent nodes.
 		/// </summary>
-		/// <param name="targetNode">The node to make visible</param>
-		/// <returns>True if the node was found and made visible, false otherwise</returns>
+		/// <param name="targetNode">The node to make visible.</param>
+		/// <returns>True if the node was found and made visible, false otherwise.</returns>
 		public bool EnsureNodeVisible(TreeNode targetNode)
 		{
 			if (targetNode == null)
@@ -405,7 +433,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Expands all nodes in the tree
+		/// Expands all nodes in the tree.
 		/// </summary>
 		public void ExpandAll()
 		{
@@ -416,10 +444,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Finds a node by its associated tag object
+		/// Finds a node by its associated tag object.
 		/// </summary>
-		/// <param name="tag">The tag object to search for</param>
-		/// <returns>The first node found with matching tag, or null if not found</returns>
+		/// <param name="tag">The tag object to search for.</param>
+		/// <returns>The first node found with matching tag, or null if not found.</returns>
 		public TreeNode? FindNodeByTag(object tag)
 		{
 			if (tag == null)
@@ -429,11 +457,11 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Finds a node by its text content (exact match)
+		/// Finds a node by its text content (exact match).
 		/// </summary>
-		/// <param name="text">The text to search for</param>
-		/// <param name="searchRoot">Optional root to search from, searches all nodes if null</param>
-		/// <returns>The first node found with matching text, or null if not found</returns>
+		/// <param name="text">The text to search for.</param>
+		/// <param name="searchRoot">Optional root to search from; searches all nodes if null.</param>
+		/// <returns>The first node found with matching text, or null if not found.</returns>
 		public TreeNode? FindNodeByText(string text, TreeNode? searchRoot = null)
 		{
 			if (string.IsNullOrEmpty(text))
@@ -466,6 +494,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			var content = RenderContent(10000, 10000);
@@ -475,11 +504,13 @@ namespace SharpConsoleUI.Controls
 			);
 		}
 
+		/// <inheritdoc/>
 		public void Invalidate()
 		{
 			_contentCache.Invalidate();
 		}
 
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!IsEnabled || _flattenedNodes.Count == 0)
@@ -613,10 +644,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Removes a root node from the tree
+		/// Removes a root node from the tree.
 		/// </summary>
-		/// <param name="node">The node to remove</param>
-		/// <returns>True if the node was found and removed, false otherwise</returns>
+		/// <param name="node">The node to remove.</param>
+		/// <returns>True if the node was found and removed, false otherwise.</returns>
 		public bool RemoveRootNode(TreeNode node)
 		{
 			if (node == null || !_rootNodes.Contains(node))
@@ -632,6 +663,7 @@ namespace SharpConsoleUI.Controls
 			return result;
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -921,10 +953,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Selects a specific node in the tree
+		/// Selects a specific node in the tree.
 		/// </summary>
-		/// <param name="node">The node to select</param>
-		/// <returns>True if the node was found and selected, false otherwise</returns>
+		/// <param name="node">The node to select.</param>
+		/// <returns>True if the node was found and selected, false otherwise.</returns>
 		public bool SelectNode(TreeNode node)
 		{
 			if (node == null)
@@ -963,11 +995,16 @@ namespace SharpConsoleUI.Controls
 		}
 
 		// IFocusableControl implementation
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
-		
+
+		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
+
+		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
-		
+
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			var hadFocus = _hasFocus;
@@ -1554,51 +1591,51 @@ namespace SharpConsoleUI.Controls
 	}
 
 	/// <summary>
-	/// Represents a tree node in the TreeControl
+	/// Represents a tree node in the TreeControl.
 	/// </summary>
 	public class TreeNode
 	{
 		private List<TreeNode> _children = new();
 
 		/// <summary>
-		/// Creates a new tree node with specified text
+		/// Creates a new tree node with specified text.
 		/// </summary>
-		/// <param name="text">The text label for the node</param>
+		/// <param name="text">The text label for the node.</param>
 		public TreeNode(string text)
 		{
 			Text = text;
 		}
 
 		/// <summary>
-		/// Gets the children of this node
+		/// Gets the children of this node.
 		/// </summary>
 		public ReadOnlyCollection<TreeNode> Children => _children.AsReadOnly();
 
 		/// <summary>
-		/// Gets or sets whether this node is expanded
+		/// Gets or sets whether this node is expanded.
 		/// </summary>
 		public bool IsExpanded { get; set; } = true;
 
 		/// <summary>
-		/// Gets or sets a custom object associated with this node
+		/// Gets or sets a custom object associated with this node.
 		/// </summary>
 		public object? Tag { get; set; }
 
 		/// <summary>
-		/// Gets or sets the text label of this node
+		/// Gets or sets the text label of this node.
 		/// </summary>
 		public string Text { get; set; }
 
 		/// <summary>
-		/// Gets or sets the optional color for this node's text
+		/// Gets or sets the optional color for this node's text.
 		/// </summary>
 		public Color? TextColor { get; set; }
 
 		/// <summary>
-		/// Adds a child node to this node
+		/// Adds a child node to this node.
 		/// </summary>
-		/// <param name="node">The child node to add</param>
-		/// <returns>The added child node</returns>
+		/// <param name="node">The child node to add.</param>
+		/// <returns>The added child node.</returns>
 		public TreeNode AddChild(TreeNode node)
 		{
 			_children.Add(node);
@@ -1606,10 +1643,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Adds a child node with specified text
+		/// Adds a child node with specified text.
 		/// </summary>
-		/// <param name="text">The text label for the child node</param>
-		/// <returns>The newly created and added child node</returns>
+		/// <param name="text">The text label for the child node.</param>
+		/// <returns>The newly created and added child node.</returns>
 		public TreeNode AddChild(string text)
 		{
 			var node = new TreeNode(text);
@@ -1618,7 +1655,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Clears all child nodes
+		/// Clears all child nodes.
 		/// </summary>
 		public void ClearChildren()
 		{
@@ -1626,10 +1663,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Removes a child node
+		/// Removes a child node.
 		/// </summary>
-		/// <param name="node">The node to remove</param>
-		/// <returns>True if the node was found and removed, false otherwise</returns>
+		/// <param name="node">The node to remove.</param>
+		/// <returns>True if the node was found and removed, false otherwise.</returns>
 		public bool RemoveChild(TreeNode node)
 		{
 			return _children.Remove(node);

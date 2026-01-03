@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -12,6 +12,10 @@ using System.Drawing;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// A control that displays rich text content using Spectre.Console markup syntax.
+	/// Supports text alignment, margins, word wrapping, and sticky positioning.
+	/// </summary>
 	public class MarkupControl : IWindowControl
 	{
 		private readonly ThreadSafeCache<List<string>> _contentCache;
@@ -23,12 +27,20 @@ namespace SharpConsoleUI.Controls
 		private int? _width;
 		private bool _wrap = true;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="MarkupControl"/> class with the specified lines of text.
+		/// </summary>
+		/// <param name="lines">The lines of text to display, supporting Spectre.Console markup syntax.</param>
 		public MarkupControl(List<string> lines)
 		{
 			_content = lines;
 			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
+		/// <summary>
+		/// Gets the actual rendered width of the control based on cached content.
+		/// </summary>
+		/// <returns>The maximum line width in characters, or null if content has not been rendered.</returns>
 		public int? ActualWidth
 		{
 			get
@@ -44,14 +56,22 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the text alignment within the control.
+		/// </summary>
 		public Alignment Alignment
 		{ get => _justify; set { _justify = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
 
+		/// <summary>
+		/// Gets or sets the margin around the control content.
+		/// </summary>
 		public Margin Margin
 		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -62,8 +82,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <summary>
+		/// Gets or sets the text content as a single string with newline separators.
+		/// </summary>
 		public string Text
 		{
 			get => string.Join("\n", _content);
@@ -75,36 +99,50 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool Visible
 		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
-	public int? Width
-	{ 
-		get => _width; 
-		set 
-		{ 
-			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-			if (_width != validatedValue)
+		/// <summary>
+		/// Gets or sets the fixed width of the control. When null, the control uses available width.
+		/// </summary>
+		public int? Width
+		{
+			get => _width;
+			set
 			{
-				_width = validatedValue; 
-				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
-				Container?.Invalidate(true); 
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				if (_width != validatedValue)
+				{
+					_width = validatedValue;
+					_contentCache.Invalidate(InvalidationReason.SizeChanged);
+					Container?.Invalidate(true);
+				}
 			}
-		} 
-	}		public bool Wrap
+		}
+
+		/// <summary>
+		/// Gets or sets whether text should wrap to multiple lines when exceeding available width.
+		/// </summary>
+		public bool Wrap
 		{ get => _wrap; set { _wrap = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			_contentCache.Dispose();
 			Container = null;
 		}
 
+		/// <summary>
+		/// Invalidates the cached content, forcing a re-render on the next draw.
+		/// </summary>
 		public void Invalidate()
 		{
 			_contentCache.Invalidate(InvalidationReason.ContentChanged);
 		}
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			// Calculate the natural size based on content
@@ -117,6 +155,7 @@ namespace SharpConsoleUI.Controls
 			return new System.Drawing.Size(maxWidth, _content.Count);
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -199,11 +238,47 @@ namespace SharpConsoleUI.Controls
 					// Truncate if line is too wide
 					renderedContent[i] = AnsiConsoleHelper.SubstringAnsi(renderedContent[i], 0, targetWidth);
 				}
+
+				// Apply left margin
+				if (_margin.Left > 0)
+				{
+					renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(_margin.Left, bgColor) + renderedContent[i];
+				}
+
+				// Apply right margin
+				if (_margin.Right > 0)
+				{
+					renderedContent[i] = renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(_margin.Right, bgColor);
+				}
+			}
+
+			// Add top margin
+			if (_margin.Top > 0)
+			{
+				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
+				for (int i = 0; i < _margin.Top; i++)
+				{
+					renderedContent.Insert(0, AnsiConsoleHelper.AnsiEmptySpace(finalWidth, bgColor));
+				}
+			}
+
+			// Add bottom margin
+			if (_margin.Bottom > 0)
+			{
+				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
+				for (int i = 0; i < _margin.Bottom; i++)
+				{
+					renderedContent.Add(AnsiConsoleHelper.AnsiEmptySpace(finalWidth, bgColor));
+				}
 			}
 
 			return renderedContent;
 		}
 
+		/// <summary>
+		/// Sets the content of the control to the specified lines of text.
+		/// </summary>
+		/// <param name="lines">The lines of text to display, supporting Spectre.Console markup syntax.</param>
 		public void SetContent(List<string> lines)
 		{
 			_content = lines;

@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -17,6 +17,10 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// A dropdown/combobox control that displays a list of selectable items.
+	/// Supports keyboard navigation, type-ahead search, and custom item formatting.
+	/// </summary>
 	public class DropdownControl : IWindowControl, IInteractiveControl, IFocusableControl
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
@@ -67,10 +71,14 @@ namespace SharpConsoleUI.Controls
 			ScrollService?.SetVerticalOffset(this, _localDropdownScrollOffset);
 		}
 
-		// Constructor with optional prompt and items
+		/// <summary>
+		/// Initializes a new instance of the <see cref="DropdownControl"/> class with string items.
+		/// </summary>
+		/// <param name="prompt">The prompt text displayed in the header.</param>
+		/// <param name="items">Optional collection of string items to populate the dropdown.</param>
 		public DropdownControl(string prompt = "Select an item:", IEnumerable<string>? items = null)
 		{
-			_contentCache = new ThreadSafeCache<List<string>>(this);
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_prompt = prompt;
 			if (items != null)
 			{
@@ -81,9 +89,14 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="DropdownControl"/> class with dropdown items.
+		/// </summary>
+		/// <param name="prompt">The prompt text displayed in the header.</param>
+		/// <param name="items">Optional collection of <see cref="DropdownItem"/> objects to populate the dropdown.</param>
 		public DropdownControl(string prompt, IEnumerable<DropdownItem>? items = null)
 		{
-			_contentCache = new ThreadSafeCache<List<string>>(this);
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_prompt = prompt;
 			if (items != null)
 			{
@@ -91,25 +104,50 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="DropdownControl"/> class with only a prompt.
+		/// </summary>
+		/// <param name="prompt">The prompt text displayed in the header.</param>
 		public DropdownControl(string prompt)
 		{
-			_contentCache = new ThreadSafeCache<List<string>>(this);
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_prompt = prompt;
 		}
 
+		/// <summary>
+		/// Delegate for custom item formatting in the dropdown list.
+		/// </summary>
+		/// <param name="item">The dropdown item to format.</param>
+		/// <param name="isSelected">Whether the item is currently selected.</param>
+		/// <param name="hasFocus">Whether the dropdown control has focus.</param>
+		/// <returns>The formatted string representation of the item.</returns>
 		public delegate string ItemFormatterEvent(DropdownItem item, bool isSelected, bool hasFocus);
 
-		// Events
+		/// <summary>
+		/// Occurs when the selected index changes.
+		/// </summary>
 		public event EventHandler<int>? SelectedIndexChanged;
 
+		/// <summary>
+		/// Occurs when the selected item changes.
+		/// </summary>
 		public event EventHandler<DropdownItem?>? SelectedItemChanged;
 
+		/// <summary>
+		/// Occurs when the selected value (text) changes.
+		/// </summary>
 		public event EventHandler<string?>? SelectedValueChanged;
 
+		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
 
+		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
 
+		/// <summary>
+		/// Gets the actual rendered height of the control based on cached content.
+		/// </summary>
+		/// <returns>The total number of lines including header, items, and margins, or null if not rendered.</returns>
 		public int? ActualHeight
 		{
 			get
@@ -123,7 +161,10 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		// Properties
+		/// <summary>
+		/// Gets the actual rendered width of the control based on cached content.
+		/// </summary>
+		/// <returns>The maximum line width in characters, or null if content has not been rendered.</returns>
 		public int? ActualWidth
 		{
 			get
@@ -140,9 +181,15 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the text alignment within the control.
+		/// </summary>
 		public Alignment Alignment
 		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
+		/// <summary>
+		/// Gets or sets whether the control automatically adjusts its width to fit content.
+		/// </summary>
 		public bool AutoAdjustWidth
 		{
 			get => _autoAdjustWidth;
@@ -154,9 +201,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color of the dropdown in its normal state.
+		/// </summary>
 		public Color BackgroundColor
 		{
-			get => _backgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonBackgroundColor ?? Color.Black;
+			get => _backgroundColorValue ?? Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 			set
 			{
 				_backgroundColorValue = value;
@@ -165,8 +215,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
 
+		/// <summary>
+		/// Gets or sets the background color when the control has focus.
+		/// </summary>
 		public Color FocusedBackgroundColor
 		{
 			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
@@ -178,6 +232,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color when the control has focus.
+		/// </summary>
 		public Color FocusedForegroundColor
 		{
 			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
@@ -189,6 +246,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of the dropdown in its normal state.
+		/// </summary>
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor ?? Color.White;
@@ -200,6 +260,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -226,8 +287,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
+		/// <summary>
+		/// Gets or sets the background color for the highlighted (selected) item in the dropdown list.
+		/// </summary>
 		public Color HighlightBackgroundColor
 		{
 			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
@@ -239,6 +304,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color for the highlighted (selected) item in the dropdown list.
+		/// </summary>
 		public Color HighlightForegroundColor
 		{
 			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
@@ -250,6 +318,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the dropdown list is currently expanded.
+		/// </summary>
 		public bool IsDropdownOpen
 		{
 			get => _isDropdownOpen;
@@ -288,12 +359,15 @@ namespace SharpConsoleUI.Controls
 				{
 					_isDropdownOpen = value;
 					_contentCache.Invalidate();
-					
+
 					Container?.Invalidate(true);
 				}
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the dropdown is enabled and can be interacted with.
+		/// </summary>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
@@ -305,6 +379,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the custom item formatter delegate for rendering dropdown items.
+		/// </summary>
 		public ItemFormatterEvent? ItemFormatter
 		{
 			get => _itemFormatter;
@@ -316,6 +393,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the list of dropdown items.
+		/// </summary>
 		public List<DropdownItem> Items
 		{
 			get => _items;
@@ -333,9 +413,15 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the margin around the control content.
+		/// </summary>
 		public Margin Margin
 		{ get => _margin; set { _margin = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
+		/// <summary>
+		/// Gets or sets the maximum number of items visible in the dropdown list without scrolling.
+		/// </summary>
 		public int MaxVisibleItems
 		{
 			get => _maxVisibleItems;
@@ -343,11 +429,14 @@ namespace SharpConsoleUI.Controls
 			{
 				_maxVisibleItems = Math.Max(1, value);
 				_contentCache.Invalidate();
-				
+
 				Container?.Invalidate(true);
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the prompt text displayed in the dropdown header.
+		/// </summary>
 		public string Prompt
 		{
 			get => _prompt;
@@ -359,6 +448,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the index of the currently selected item. Returns -1 if no item is selected.
+		/// </summary>
 		public int SelectedIndex
 		{
 			get => CurrentSelectedIndex;
@@ -394,6 +486,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the currently selected dropdown item. Returns null if no item is selected.
+		/// </summary>
 		public DropdownItem? SelectedItem
 		{
 			get
@@ -417,6 +512,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the text of the currently selected item. Returns null if no item is selected.
+		/// </summary>
 		public string? SelectedValue
 		{
 			get
@@ -443,6 +541,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -453,6 +552,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the items as a list of strings for simplified access.
+		/// </summary>
 		public List<string> StringItems
 		{
 			get => _items.Select(i => i.Text).ToList();
@@ -470,25 +572,35 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <inheritdoc/>
 		public bool Visible
 		{ get => _visible; set { _visible = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
-	public int? Width
-	{ 
-		get => _width; 
-		set 
-		{ 
-			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-			if (_width != validatedValue)
+		/// <summary>
+		/// Gets or sets the fixed width of the control. When null, the control auto-sizes based on content.
+		/// </summary>
+		public int? Width
+		{
+			get => _width;
+			set
 			{
-				_width = validatedValue; 
-				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
-				Container?.Invalidate(true); 
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				if (_width != validatedValue)
+				{
+					_width = validatedValue;
+					_contentCache.Invalidate(InvalidationReason.SizeChanged);
+					Container?.Invalidate(true);
+				}
 			}
-		} 
-	}		// Adds a new item to the dropdown
+		}
+
+		/// <summary>
+		/// Adds a new item to the dropdown list.
+		/// </summary>
+		/// <param name="item">The dropdown item to add.</param>
 		public void AddItem(DropdownItem item)
 		{
 			_items.Add(item);
@@ -502,17 +614,29 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(true);
 		}
 
+		/// <summary>
+		/// Adds a new item to the dropdown list with text and an optional icon.
+		/// </summary>
+		/// <param name="text">The text to display for the item.</param>
+		/// <param name="icon">The icon character or string to display.</param>
+		/// <param name="iconColor">Optional color for the icon.</param>
 		public void AddItem(string text, string icon, Color? iconColor = null)
 		{
 			AddItem(new DropdownItem(text, icon, iconColor));
 		}
 
+		/// <summary>
+		/// Adds a new item to the dropdown list with text only.
+		/// </summary>
+		/// <param name="text">The text to display for the item.</param>
 		public void AddItem(string text)
 		{
 			AddItem(new DropdownItem(text));
 		}
 
-		// Clears all items from the dropdown
+		/// <summary>
+		/// Removes all items from the dropdown list and resets selection state.
+		/// </summary>
 		public void ClearItems()
 		{
 			_items.Clear();
@@ -528,11 +652,13 @@ namespace SharpConsoleUI.Controls
 			SelectedValueChanged?.Invoke(this, null);
 		}
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			Container = null;
 		}
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			var content = RenderContent(10000, 10000);
@@ -542,11 +668,17 @@ namespace SharpConsoleUI.Controls
 			);
 		}
 
+		/// <summary>
+		/// Invalidates the cached content, forcing a re-render on the next draw.
+		/// </summary>
 		public void Invalidate()
 		{
 			_contentCache.Invalidate();
 			Container?.Invalidate(true, this);
-		}		public bool ProcessKey(ConsoleKeyInfo key)
+		}
+
+		/// <inheritdoc/>
+		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled || !_hasFocus)
 				return false;
@@ -706,6 +838,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -1123,6 +1256,7 @@ namespace SharpConsoleUI.Controls
 			});
 		}
 
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			HasFocus = focus;
@@ -1292,8 +1426,17 @@ namespace SharpConsoleUI.Controls
 		}
 	}
 
+	/// <summary>
+	/// Represents an item in a <see cref="DropdownControl"/> with text, optional icon, and metadata.
+	/// </summary>
 	public class DropdownItem
 	{
+		/// <summary>
+		/// Initializes a new instance of the <see cref="DropdownItem"/> class.
+		/// </summary>
+		/// <param name="text">The display text for the item.</param>
+		/// <param name="icon">Optional icon character or string to display before the text.</param>
+		/// <param name="iconColor">Optional color for the icon.</param>
 		public DropdownItem(string text, string? icon = null, Color? iconColor = null)
 		{
 			Text = text;
@@ -1301,13 +1444,36 @@ namespace SharpConsoleUI.Controls
 			IconColor = iconColor;
 		}
 
+		/// <summary>
+		/// Gets or sets the icon character or string displayed before the item text.
+		/// </summary>
 		public string? Icon { get; set; }
+
+		/// <summary>
+		/// Gets or sets the color of the icon.
+		/// </summary>
 		public Color? IconColor { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether the item is enabled and can be selected.
+		/// </summary>
 		public bool IsEnabled { get; set; } = true;
+
+		/// <summary>
+		/// Gets or sets custom data associated with this item.
+		/// </summary>
 		public object? Tag { get; set; }
+
+		/// <summary>
+		/// Gets or sets the display text for the item.
+		/// </summary>
 		public string Text { get; set; }
 
-		// Implicit conversion operator for backward compatibility
+		/// <summary>
+		/// Implicitly converts a string to a <see cref="DropdownItem"/> for convenience.
+		/// </summary>
+		/// <param name="text">The text to convert.</param>
+		/// <returns>A new <see cref="DropdownItem"/> with the specified text.</returns>
 		public static implicit operator DropdownItem(string text) => new DropdownItem(text);
 	}
 }

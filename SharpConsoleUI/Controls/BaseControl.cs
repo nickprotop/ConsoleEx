@@ -14,10 +14,14 @@ using System.Drawing;
 namespace SharpConsoleUI.Controls
 {
     /// <summary>
-    /// Base class for all controls with standardized invalidation methods
+    /// Base class for all controls providing standardized property management,
+    /// caching, and invalidation methods.
     /// </summary>
     public abstract class BaseControl : IWindowControl
     {
+        /// <summary>
+        /// Thread-safe cache for rendered content.
+        /// </summary>
         protected readonly ThreadSafeCache<List<string>> _contentCache;
         private Alignment _alignment = Alignment.Left;
         private IContainer? _container;
@@ -26,6 +30,9 @@ namespace SharpConsoleUI.Controls
         private bool _visible = true;
         private object? _tag;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BaseControl"/> class.
+        /// </summary>
         protected BaseControl()
         {
             _contentCache = this.CreateThreadSafeCache<List<string>>();
@@ -33,6 +40,7 @@ namespace SharpConsoleUI.Controls
 
         #region IWindowControl Implementation
 
+        /// <inheritdoc/>
         public virtual int? ActualWidth
         {
             get
@@ -50,6 +58,7 @@ namespace SharpConsoleUI.Controls
             }
         }
 
+        /// <inheritdoc/>
         public virtual Alignment Alignment
         {
             get => _alignment;
@@ -63,6 +72,7 @@ namespace SharpConsoleUI.Controls
             }
         }
 
+        /// <inheritdoc/>
         public virtual IContainer? Container
         {
             get => _container;
@@ -76,6 +86,7 @@ namespace SharpConsoleUI.Controls
             }
         }
 
+        /// <inheritdoc/>
         public virtual Margin Margin
         {
             get => _margin;
@@ -89,6 +100,7 @@ namespace SharpConsoleUI.Controls
             }
         }
 
+        /// <inheritdoc/>
         public virtual StickyPosition StickyPosition
         {
             get => _stickyPosition;
@@ -102,12 +114,14 @@ namespace SharpConsoleUI.Controls
             }
         }
 
+        /// <inheritdoc/>
         public virtual object? Tag
         {
             get => _tag;
             set => _tag = value;
         }
 
+        /// <inheritdoc/>
         public virtual bool Visible
         {
             get => _visible;
@@ -123,6 +137,7 @@ namespace SharpConsoleUI.Controls
 
         private int? _width;
 
+        /// <inheritdoc/>
         public virtual int? Width
         {
             get => _width;
@@ -148,8 +163,10 @@ namespace SharpConsoleUI.Controls
             }
         }
 
+        /// <inheritdoc/>
         public abstract List<string> RenderContent(int? availableWidth, int? availableHeight);
 
+        /// <inheritdoc/>
         public virtual System.Drawing.Size GetLogicalContentSize()
         {
             var content = RenderContent(10000, 10000);
@@ -159,11 +176,13 @@ namespace SharpConsoleUI.Controls
             );
         }
 
+        /// <inheritdoc/>
         public virtual void Invalidate()
         {
             InvalidateContent();
         }
 
+        /// <inheritdoc/>
         public virtual void Dispose()
         {
             _contentCache?.Dispose();
@@ -175,7 +194,7 @@ namespace SharpConsoleUI.Controls
         #region Standardized Invalidation Methods
 
         /// <summary>
-        /// Invalidates due to property changes (colors, text, etc.)
+        /// Invalidates the control due to property changes (colors, text, etc.).
         /// </summary>
         protected virtual void InvalidateProperty()
         {
@@ -183,7 +202,7 @@ namespace SharpConsoleUI.Controls
         }
 
         /// <summary>
-        /// Invalidates due to content changes (items added/removed, text changed)
+        /// Invalidates the control due to content changes (items added/removed, text changed).
         /// </summary>
         protected virtual void InvalidateContent()
         {
@@ -191,7 +210,7 @@ namespace SharpConsoleUI.Controls
         }
 
         /// <summary>
-        /// Invalidates due to layout changes (size, position, alignment)
+        /// Invalidates the control due to layout changes (size, position, alignment).
         /// </summary>
         protected virtual void InvalidateLayout()
         {
@@ -199,7 +218,7 @@ namespace SharpConsoleUI.Controls
         }
 
         /// <summary>
-        /// Invalidates due to state changes (focus, selection, enabled)
+        /// Invalidates the control due to state changes (focus, selection, enabled).
         /// </summary>
         protected virtual void InvalidateState()
         {
@@ -207,7 +226,7 @@ namespace SharpConsoleUI.Controls
         }
 
         /// <summary>
-        /// Invalidates due to theme changes
+        /// Invalidates the control due to theme changes.
         /// </summary>
         protected virtual void InvalidateTheme()
         {
@@ -215,8 +234,9 @@ namespace SharpConsoleUI.Controls
         }
 
         /// <summary>
-        /// Invalidates with a specific reason
+        /// Invalidates the control with a specific reason.
         /// </summary>
+        /// <param name="reason">The reason for invalidation.</param>
         protected virtual void Invalidate(InvalidationReason reason)
         {
             _contentCache.Invalidate(reason);

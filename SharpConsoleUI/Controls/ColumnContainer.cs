@@ -16,6 +16,10 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// A container control that holds child controls vertically within a column of a <see cref="HorizontalGridControl"/>.
+	/// Supports layout constraints, focus management, and dynamic content sizing.
+	/// </summary>
 	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, ILayoutAware
 	{
 		private Alignment _alignment = Alignment.Left;
@@ -36,6 +40,10 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ColumnContainer"/> class.
+		/// </summary>
+		/// <param name="horizontalGridContent">The parent horizontal grid that contains this column.</param>
 		public ColumnContainer(HorizontalGridControl horizontalGridContent)
 		{
 			_horizontalGridContent = horizontalGridContent;
@@ -43,6 +51,7 @@ namespace SharpConsoleUI.Controls
 			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
+		/// <inheritdoc/>
 		public Color BackgroundColor
 		{
 			// Inherit background color from parent HorizontalGridControl's container (the Window),
@@ -52,6 +61,7 @@ namespace SharpConsoleUI.Controls
 			set { _backgroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); }
 		}
 
+		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
 			// Inherit foreground color from parent HorizontalGridControl's container (the Window),
@@ -63,6 +73,7 @@ namespace SharpConsoleUI.Controls
 
 		private bool _propagatingWindowSystem = false;
 
+		/// <inheritdoc/>
 		public ConsoleWindowSystem? GetConsoleWindowSystem
 		{
 			get => _consoleWindowSystem;
@@ -107,6 +118,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the parent horizontal grid control.
+		/// </summary>
 		public HorizontalGridControl HorizontalGridContent
 		{
 			get => _horizontalGridContent;
@@ -119,6 +133,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets a value indicating whether this column needs to be re-rendered.
+		/// </summary>
 		public bool IsDirty
 		{
 			get => _isDirty;
@@ -128,6 +145,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 	public int? Width
 	{
 		get => _width;
@@ -150,7 +168,7 @@ namespace SharpConsoleUI.Controls
 		private double _flexFactor = 1.0;
 
 		/// <summary>
-		/// Minimum width constraint for flexible columns (null = no minimum, defaults to 1 during layout)
+		/// Gets or sets the minimum width constraint for flexible columns. Null means no minimum, defaults to 1 during layout.
 		/// </summary>
 		public int? MinWidth
 		{
@@ -167,7 +185,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Maximum width constraint for flexible columns (null = unlimited)
+		/// Gets or sets the maximum width constraint for flexible columns. Null means unlimited.
 		/// </summary>
 		public int? MaxWidth
 		{
@@ -184,7 +202,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Flex factor for proportional sizing when Width is null (1.0 = equal share)
+		/// Gets or sets the flex factor for proportional sizing when Width is null. A value of 1.0 means equal share.
 		/// </summary>
 		public double FlexFactor
 		{
@@ -202,9 +220,7 @@ namespace SharpConsoleUI.Controls
 
 		#region ILayoutAware Implementation
 
-		/// <summary>
-		/// Gets the layout requirements for this column
-		/// </summary>
+		/// <inheritdoc/>
 		public LayoutRequirements GetLayoutRequirements()
 		{
 			if (_width.HasValue)
@@ -245,9 +261,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <summary>
-		/// Called when layout allocation is set for this column
-		/// </summary>
+		/// <inheritdoc/>
 		public void OnLayoutAllocated(LayoutAllocation allocation)
 		{
 			// Store the allocated dimensions for use during rendering
@@ -266,9 +280,10 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		// IWindowControl implementation
+		/// <inheritdoc/>
 		public int? ActualWidth => GetActualWidth();
-		
+
+		/// <inheritdoc/>
 		public Alignment Alignment
 		{
 			get => _alignment;
@@ -278,7 +293,8 @@ namespace SharpConsoleUI.Controls
 				Invalidate(true);
 			}
 		}
-		
+
+		/// <inheritdoc/>
 		public IContainer? Container
 		{
 			get => _container;
@@ -288,7 +304,8 @@ namespace SharpConsoleUI.Controls
 				Invalidate(true);
 			}
 		}
-		
+
+		/// <inheritdoc/>
 		public Margin Margin
 		{
 			get => _margin;
@@ -298,7 +315,8 @@ namespace SharpConsoleUI.Controls
 				Invalidate(true);
 			}
 		}
-		
+
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -308,9 +326,11 @@ namespace SharpConsoleUI.Controls
 				Invalidate(true);
 			}
 		}
-		
+
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
-		
+
+		/// <inheritdoc/>
 		public bool Visible
 		{
 			get => _visible;
@@ -322,10 +342,14 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets the list of child controls in this column
+		/// Gets the list of child controls in this column.
 		/// </summary>
 		public IReadOnlyList<IWindowControl> Contents => _contents;
 
+		/// <summary>
+		/// Adds a child control to this column.
+		/// </summary>
+		/// <param name="content">The control to add.</param>
 		public void AddContent(IWindowControl content)
 		{
 			content.Container = this;
@@ -341,6 +365,10 @@ namespace SharpConsoleUI.Controls
 			Invalidate(true);
 		}
 
+		/// <summary>
+		/// Gets the actual rendered width of this column based on cached content.
+		/// </summary>
+		/// <returns>The maximum line width of the rendered content, or null if not rendered.</returns>
 		public int? GetActualWidth()
 		{
 			var cachedContent = _contentCache.Content;
@@ -355,6 +383,10 @@ namespace SharpConsoleUI.Controls
 			return maxLength;
 		}
 
+		/// <summary>
+		/// Gets all interactive controls contained in this column.
+		/// </summary>
+		/// <returns>A list of interactive controls.</returns>
 		public List<IInteractiveControl> GetInteractiveContents()
 		{
 			List<IInteractiveControl> interactiveContents = new List<IInteractiveControl>();
@@ -370,6 +402,7 @@ namespace SharpConsoleUI.Controls
 
 	private static readonly ThreadLocal<HashSet<ColumnContainer>> _invalidatingContainers = new(() => new HashSet<ColumnContainer>());
 
+	/// <inheritdoc/>
 	public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
 	{
 		_isDirty = true;
@@ -397,10 +430,7 @@ namespace SharpConsoleUI.Controls
 		}
 	}
 
-	/// <summary>
-	/// Gets the actual visible height for a control within this column.
-	/// Delegates to parent container if available.
-	/// </summary>
+	/// <inheritdoc/>
 	public int? GetVisibleHeightForControl(IWindowControl control)
 	{
 		// ColumnContainer doesn't clip its children, so delegate to parent
@@ -410,6 +440,10 @@ namespace SharpConsoleUI.Controls
 		return parentContainer?.GetVisibleHeightForControl(control);
 	}
 
+	/// <summary>
+	/// Invalidates only the child controls within this column without triggering parent invalidation.
+	/// </summary>
+	/// <param name="callerControl">Optional caller control to exclude from invalidation.</param>
 	public void InvalidateOnlyColumnContents(IWindowControl? callerControl = null)
 		{
 			_isDirty = true;
@@ -441,6 +475,10 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Removes a child control from this column and disposes it.
+		/// </summary>
+		/// <param name="content">The control to remove.</param>
 		public void RemoveContent(IWindowControl content)
 		{
 			if (_contents.Remove(content))
@@ -451,6 +489,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = GetConsoleWindowSystem?.LayoutStateService;
@@ -519,16 +558,16 @@ namespace SharpConsoleUI.Controls
 			_isDirty = false;
 			return renderedContent;
 		}
-		
-		// IInteractiveControl implementation
-		public bool HasFocus 
-		{ 
+
+		/// <inheritdoc/>
+		public bool HasFocus
+		{
 			get => _hasFocus;
 			set
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
-				
+
 				// Fire focus events
 				if (value && !hadFocus)
 				{
@@ -540,36 +579,42 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 		}
-		
-		public bool IsEnabled 
-		{ 
+
+		/// <inheritdoc/>
+		public bool IsEnabled
+		{
 			get => _isEnabled;
-			set 
-			{ 
-				_isEnabled = value; 
-				Invalidate(true); 
-			} 
+			set
+			{
+				_isEnabled = value;
+				Invalidate(true);
+			}
 		}
-		
+
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			// ColumnContainer doesn't process keys directly, delegate to focused content
 			var focusedContent = GetInteractiveContents().FirstOrDefault(c => c.HasFocus);
 			return focusedContent?.ProcessKey(key) ?? false;
 		}
-		
-		// IFocusableControl implementation
+
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
-		
+
+		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
+
+		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
-		
+
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			HasFocus = focus;
 		}
-		
-		// Additional IWindowControl methods
+
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			var content = RenderContent(10000, 10000);
@@ -578,17 +623,18 @@ namespace SharpConsoleUI.Controls
 				content.Count
 			);
 		}
-		
+
+		/// <inheritdoc/>
 		public void Invalidate()
 		{
 			Invalidate(true);
 		}
-		
+
 		/// <summary>
-		/// Finds the control at the specified position within the column
+		/// Finds the control at the specified position within the column.
 		/// </summary>
-		/// <param name="position">Position relative to the column</param>
-		/// <returns>The control at the position, or null if no control found</returns>
+		/// <param name="position">Position relative to the column.</param>
+		/// <returns>The control at the position, or null if no control found.</returns>
 		public IInteractiveControl? GetControlAtPosition(Point position)
 		{
 			// Force render to ensure we have current layout using thread-safe cache
@@ -628,21 +674,21 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Checks if the column contains the specified control
+		/// Checks if the column contains the specified control.
 		/// </summary>
-		/// <param name="control">The control to check for</param>
-		/// <returns>True if the control is in this column</returns>
+		/// <param name="control">The control to check for.</param>
+		/// <returns>True if the control is in this column; otherwise, false.</returns>
 		public bool ContainsControl(IInteractiveControl control)
 		{
 			return control is IWindowControl windowControl && _contents.Contains(windowControl);
 		}
 
 		/// <summary>
-		/// Calculates the position relative to a specific control within the column
+		/// Calculates the position relative to a specific control within the column.
 		/// </summary>
-		/// <param name="control">The target control</param>
-		/// <param name="columnPosition">Position relative to the column</param>
-		/// <returns>Position relative to the control</returns>
+		/// <param name="control">The target control.</param>
+		/// <param name="columnPosition">Position relative to the column.</param>
+		/// <returns>Position relative to the control.</returns>
 		public Point GetControlRelativePosition(IInteractiveControl control, Point columnPosition)
 		{
 			// Force render to ensure we have current layout using thread-safe cache
@@ -675,6 +721,7 @@ namespace SharpConsoleUI.Controls
 			return columnPosition; // Fallback if control not found
 		}
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			_contents.Clear();

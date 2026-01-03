@@ -16,7 +16,8 @@ using Color = Spectre.Console.Color;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
-	/// Represents a vertical splitter control that can be used to resize columns in a HorizontalGridControl
+	/// A vertical splitter control that allows users to resize adjacent columns in a <see cref="HorizontalGridControl"/>.
+	/// Supports keyboard-based resizing with arrow keys and provides visual feedback during focus and dragging.
 	/// </summary>
 	public class SplitterControl : IWindowControl, IInteractiveControl, IFocusableControl
 	{
@@ -49,37 +50,52 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width = DEFAULT_WIDTH;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="SplitterControl"/> class.
+		/// </summary>
 		public SplitterControl()
 		{
-			_contentCache = new ThreadSafeCache<List<string>>(this);
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="SplitterControl"/> class with specified adjacent columns.
+		/// </summary>
+		/// <param name="leftColumn">The column to the left of the splitter.</param>
+		/// <param name="rightColumn">The column to the right of the splitter.</param>
 		public SplitterControl(ColumnContainer leftColumn, ColumnContainer rightColumn)
 		{
-			_contentCache = new ThreadSafeCache<List<string>>(this);
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_leftColumn = leftColumn;
 			_rightColumn = rightColumn;
 		}
 
-		// Event raised when the splitter is moved
+		/// <summary>
+		/// Occurs when the splitter is moved and column widths are adjusted.
+		/// </summary>
 		public event EventHandler<SplitterMovedEventArgs>? SplitterMoved;
 
+		/// <inheritdoc/>
 		public int? ActualWidth => _width;
 
+		/// <inheritdoc/>
 		public Alignment Alignment
 		{
 			get => _alignment;
 			set
 			{
 				_alignment = value;
-				_contentCache.Invalidate();
+				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color of the splitter in normal state.
+		/// </summary>
 		public Color BackgroundColor
 		{
-			get => _backgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			get => _backgroundColorValue ?? Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 			set
 			{
 				_backgroundColorValue = value;
@@ -88,6 +104,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the border color of the splitter.
+		/// </summary>
 		public Color BorderColor
 		{
 			get => _borderColor;
@@ -99,6 +118,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public IContainer? Container
 		{
 			get => _container;
@@ -111,6 +131,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color of the splitter when being dragged.
+		/// </summary>
 		public Color DraggingBackgroundColor
 		{
 			get => _draggingBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Yellow;
@@ -122,6 +145,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of the splitter when being dragged.
+		/// </summary>
 		public Color DraggingForegroundColor
 		{
 			get => _draggingForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.Black;
@@ -133,6 +159,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color of the splitter when focused.
+		/// </summary>
 		public Color FocusedBackgroundColor
 		{
 			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
@@ -144,6 +173,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of the splitter when focused.
+		/// </summary>
 		public Color FocusedForegroundColor
 		{
 			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
@@ -155,6 +187,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of the splitter in normal state.
+		/// </summary>
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
@@ -166,6 +201,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -177,7 +213,7 @@ namespace SharpConsoleUI.Controls
 				_contentCache.Invalidate();
 				_invalidated = true;
 				Container?.Invalidate(true);
-				
+
 				// Fire focus events
 				if (value && !hadFocus)
 				{
@@ -190,8 +226,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets a value indicating whether the splitter is currently being dragged.
+		/// </summary>
 		public bool IsDragging => _isDragging;
 
+		/// <inheritdoc/>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
@@ -203,6 +243,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Margin Margin
 		{
 			get => _margin;
@@ -214,6 +255,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -224,8 +266,10 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <inheritdoc/>
 		public bool Visible
 		{
 			get => _visible;
@@ -237,6 +281,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 	public int? Width
 	{
 		get => _width;
@@ -250,11 +295,15 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 			}
 		}
-	}		public void Dispose()
+	}
+
+		/// <inheritdoc/>
+		public void Dispose()
 		{
 			Container = null;
 		}
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			var content = RenderContent(10000, 10000);
@@ -264,6 +313,7 @@ namespace SharpConsoleUI.Controls
 			);
 		}
 
+		/// <inheritdoc/>
 		public void Invalidate()
 		{
 			_invalidated = true;
@@ -271,6 +321,7 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(false);
 		}
 
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled || !_hasFocus)
@@ -312,6 +363,7 @@ namespace SharpConsoleUI.Controls
 			return handled;
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -395,16 +447,20 @@ namespace SharpConsoleUI.Controls
 			_contentCache.Invalidate();
 		}
 
-		// IFocusableControl implementation
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
-		
+
+		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
+
+		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
-		
+
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			HasFocus = focus;
-			
+
 			// When focus is lost, exit drag mode
 			if (!focus && _isDragging)
 			{
@@ -415,9 +471,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Moves the splitter by adjusting the widths of adjacent columns
+		/// Moves the splitter by adjusting the widths of adjacent columns.
 		/// </summary>
-		/// <param name="delta">The amount to move the splitter (positive = right, negative = left)</param>
+		/// <param name="delta">The amount to move the splitter (positive = right, negative = left).</param>
 		private void MoveSplitter(int delta)
 		{
 			if (_leftColumn == null || _rightColumn == null)
@@ -469,10 +525,16 @@ namespace SharpConsoleUI.Controls
 	}
 
 	/// <summary>
-	/// Event arguments for the SplitterMoved event
+	/// Provides data for the <see cref="SplitterControl.SplitterMoved"/> event.
 	/// </summary>
 	public class SplitterMovedEventArgs : EventArgs
 	{
+		/// <summary>
+		/// Initializes a new instance of the <see cref="SplitterMovedEventArgs"/> class.
+		/// </summary>
+		/// <param name="delta">The amount the splitter was moved.</param>
+		/// <param name="leftColumnWidth">The new width of the left column.</param>
+		/// <param name="rightColumnWidth">The new width of the right column.</param>
 		public SplitterMovedEventArgs(int delta, int leftColumnWidth, int rightColumnWidth)
 		{
 			Delta = delta;
@@ -480,8 +542,19 @@ namespace SharpConsoleUI.Controls
 			RightColumnWidth = rightColumnWidth;
 		}
 
+		/// <summary>
+		/// Gets the amount the splitter was moved (positive = right, negative = left).
+		/// </summary>
 		public int Delta { get; }
+
+		/// <summary>
+		/// Gets the new width of the column to the left of the splitter.
+		/// </summary>
 		public int LeftColumnWidth { get; }
+
+		/// <summary>
+		/// Gets the new width of the column to the right of the splitter.
+		/// </summary>
 		public int RightColumnWidth { get; }
 	}
 }

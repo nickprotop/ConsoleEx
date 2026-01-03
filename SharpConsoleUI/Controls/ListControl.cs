@@ -15,6 +15,9 @@ using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// A scrollable list control that supports selection, highlighting, and keyboard navigation.
+	/// </summary>
 	public class ListControl : IWindowControl, IInteractiveControl, IFocusableControl
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
@@ -138,8 +141,14 @@ namespace SharpConsoleUI.Controls
 			return Math.Min(10, _items.Count);
 		}
 
+		/// <summary>
+		/// Initializes a new ListControl with a title and string items.
+		/// </summary>
+		/// <param name="title">The title displayed at the top of the list.</param>
+		/// <param name="items">The initial items to populate the list.</param>
 		public ListControl(string? title, IEnumerable<string>? items)
 		{
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = title ?? string.Empty;
 			if (items != null)
 			{
@@ -150,8 +159,13 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Initializes a new ListControl with string items and no title.
+		/// </summary>
+		/// <param name="items">The initial items to populate the list.</param>
 		public ListControl(IEnumerable<string>? items)
 		{
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = string.Empty;
 			if (items != null)
 			{
@@ -162,8 +176,14 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Initializes a new ListControl with a title and ListItem objects.
+		/// </summary>
+		/// <param name="title">The title displayed at the top of the list.</param>
+		/// <param name="items">The initial ListItem objects to populate the list.</param>
 		public ListControl(string? title, IEnumerable<ListItem>? items)
 		{
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = title ?? string.Empty;
 			if (items != null)
 			{
@@ -171,8 +191,13 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Initializes a new ListControl with ListItem objects and no title.
+		/// </summary>
+		/// <param name="items">The initial ListItem objects to populate the list.</param>
 		public ListControl(IEnumerable<ListItem>? items)
 		{
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = string.Empty;
 			if (items != null)
 			{
@@ -180,27 +205,52 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Initializes a new empty ListControl with no title.
+		/// </summary>
 		public ListControl()
 		{
 			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = string.Empty;
 		}
 
+		/// <summary>
+		/// Initializes a new empty ListControl with a title.
+		/// </summary>
+		/// <param name="title">The title displayed at the top of the list.</param>
 		public ListControl(string title)
 		{
 			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = title;
 		}
 
+		/// <summary>
+		/// Delegate for custom item formatting.
+		/// </summary>
+		/// <param name="item">The item to format.</param>
+		/// <param name="isSelected">Whether the item is currently selected.</param>
+		/// <param name="hasFocus">Whether the list control has focus.</param>
+		/// <returns>The formatted string to display.</returns>
 		public delegate string ItemFormatterEvent(ListItem item, bool isSelected, bool hasFocus);
 
-		// Events
+		/// <summary>
+		/// Occurs when the selected index changes.
+		/// </summary>
 		public event EventHandler<int>? SelectedIndexChanged;
 
+		/// <summary>
+		/// Occurs when the selected item changes.
+		/// </summary>
 		public event EventHandler<ListItem?>? SelectedItemChanged;
 
+		/// <summary>
+		/// Occurs when the selected value (text) changes.
+		/// </summary>
 		public event EventHandler<string?>? SelectedValueChanged;
 
+		/// <summary>
+		/// Gets the actual rendered height in lines.
+		/// </summary>
 		public int? ActualHeight
 		{
 			get
@@ -210,6 +260,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets the actual rendered width in characters.
+		/// </summary>
 		public int? ActualWidth
 		{
 			get
@@ -226,6 +279,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Alignment Alignment
 		{
 			get => _alignment;
@@ -237,6 +291,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the control automatically adjusts its width to fit content.
+		/// </summary>
 		public bool AutoAdjustWidth
 		{
 			get => _autoAdjustWidth;
@@ -248,9 +305,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color of the list.
+		/// </summary>
 		public Color BackgroundColor
 		{
-			get => _backgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonBackgroundColor ?? Color.Black;
+			get => _backgroundColorValue ?? Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 			set
 			{
 				_backgroundColorValue = value;
@@ -259,8 +319,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
 
+		/// <summary>
+		/// Gets or sets whether the control fills all available vertical space.
+		/// </summary>
 		public bool FillHeight
 		{
 			get => _fillHeight;
@@ -273,6 +337,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color when the list has focus.
+		/// </summary>
 		public Color FocusedBackgroundColor
 		{
 			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
@@ -284,6 +351,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color when the list has focus.
+		/// </summary>
 		public Color FocusedForegroundColor
 		{
 			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
@@ -295,6 +365,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of list items.
+		/// </summary>
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor ?? Color.White;
@@ -306,6 +379,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -315,7 +389,7 @@ namespace SharpConsoleUI.Controls
 				_hasFocus = value;
 				_contentCache.Invalidate();
 				Container?.Invalidate(true);
-				
+
 				// Fire focus events
 				if (value && !hadFocus)
 				{
@@ -328,6 +402,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color for highlighted items.
+		/// </summary>
 		public Color HighlightBackgroundColor
 		{
 			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonSelectedBackgroundColor ?? Color.DarkBlue;
@@ -339,6 +416,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color for highlighted items.
+		/// </summary>
 		public Color HighlightForegroundColor
 		{
 			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonSelectedForegroundColor ?? Color.White;
@@ -350,6 +430,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the list is enabled for user interaction.
+		/// </summary>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
@@ -361,6 +444,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether items can be selected in the list.
+		/// </summary>
 		public bool IsSelectable
 		{
 			get => _isSelectable;
@@ -372,6 +458,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets a custom formatter for rendering list items.
+		/// </summary>
 		public ItemFormatterEvent? ItemFormatter
 		{
 			get => _itemFormatter;
@@ -383,6 +472,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the collection of items in the list.
+		/// </summary>
 		public List<ListItem> Items
 		{
 			get => _items;
@@ -401,6 +493,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Margin Margin
 		{
 			get => _margin;
@@ -412,6 +505,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the maximum number of items visible at once. If null, calculated from available height.
+		/// </summary>
 		public int? MaxVisibleItems
 		{
 			get => _maxVisibleItems;
@@ -424,6 +520,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the index of the currently selected item. -1 if no item is selected.
+		/// </summary>
 		public int SelectedIndex
 		{
 			get => CurrentSelectedIndex;
@@ -456,6 +555,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the currently selected item.
+		/// </summary>
 		public ListItem? SelectedItem
 		{
 			get { int idx = CurrentSelectedIndex; return idx >= 0 && idx < _items.Count ? _items[idx] : null; }
@@ -475,6 +577,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the text of the currently selected item.
+		/// </summary>
 		public string? SelectedValue
 		{
 			get { int idx = CurrentSelectedIndex; return idx >= 0 && idx < _items.Count ? _items[idx].Text : null; }
@@ -497,6 +602,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -507,6 +613,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the list items as simple strings.
+		/// </summary>
 		public List<string> StringItems
 		{
 			get => _items.Select(i => i.Text).ToList();
@@ -524,8 +633,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <summary>
+		/// Gets or sets the title displayed at the top of the list.
+		/// </summary>
 		public string Title
 		{
 			get => _title;
@@ -537,6 +650,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool Visible
 		{
 			get => _visible;
@@ -548,20 +662,26 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-	public int? Width
-	{
-		get => _width;
-		set
+		/// <inheritdoc/>
+		public int? Width
 		{
-			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-			if (_width != validatedValue)
+			get => _width;
+			set
 			{
-				_width = validatedValue;
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-				Container?.Invalidate(true);
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				if (_width != validatedValue)
+				{
+					_width = validatedValue;
+					_contentCache.Invalidate(InvalidationReason.SizeChanged);
+					Container?.Invalidate(true);
+				}
 			}
 		}
-	}		// Methods
+
+		/// <summary>
+		/// Adds a ListItem to the list.
+		/// </summary>
+		/// <param name="item">The item to add.</param>
 		public void AddItem(ListItem item)
 		{
 			_items.Add(item);
@@ -569,16 +689,29 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(true);
 		}
 
+		/// <summary>
+		/// Adds a new item with text, optional icon, and icon color.
+		/// </summary>
+		/// <param name="text">The text of the item.</param>
+		/// <param name="icon">Optional icon to display.</param>
+		/// <param name="iconColor">Optional color for the icon.</param>
 		public void AddItem(string text, string? icon = null, Color? iconColor = null)
 		{
 			AddItem(new ListItem(text, icon, iconColor));
 		}
 
+		/// <summary>
+		/// Adds a new item with the specified text.
+		/// </summary>
+		/// <param name="text">The text of the item.</param>
 		public void AddItem(string text)
 		{
 			AddItem(new ListItem(text));
 		}
 
+		/// <summary>
+		/// Removes all items from the list.
+		/// </summary>
 		public void ClearItems()
 		{
 			_items.Clear();
@@ -598,11 +731,13 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			Container = null;
 		}
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			var content = RenderContent(10000, 10000);
@@ -612,12 +747,14 @@ namespace SharpConsoleUI.Controls
 			);
 		}
 
+		/// <inheritdoc/>
 		public void Invalidate()
 		{
 			_invalidated = true;
 			_contentCache.Invalidate();
 		}
 
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled || !_hasFocus)
@@ -809,6 +946,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -1435,12 +1573,19 @@ namespace SharpConsoleUI.Controls
 			_invalidated = false;
 			return content;
 		});
-	}		// IFocusableControl implementation
+	}
+
+		// IFocusableControl implementation
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
-		
+
+		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
+
+		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
-		
+
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			var hadFocus = _hasFocus;
@@ -1521,11 +1666,20 @@ namespace SharpConsoleUI.Controls
 		}
 	}
 
+	/// <summary>
+	/// Represents an item in a ListControl.
+	/// </summary>
 	public class ListItem
 	{
 		private List<string>? _lines;
 		private string _text;
 
+		/// <summary>
+		/// Initializes a new ListItem with text, optional icon, and icon color.
+		/// </summary>
+		/// <param name="text">The text content of the item.</param>
+		/// <param name="icon">Optional icon to display before the text.</param>
+		/// <param name="iconColor">Optional color for the icon.</param>
 		public ListItem(string text, string? icon = null, Color? iconColor = null)
 		{
 			_text = string.Empty;
@@ -1534,15 +1688,34 @@ namespace SharpConsoleUI.Controls
 			IconColor = iconColor;
 		}
 
+		/// <summary>
+		/// Gets or sets the icon displayed before the item text.
+		/// </summary>
 		public string? Icon { get; set; }
+
+		/// <summary>
+		/// Gets or sets the color of the icon.
+		/// </summary>
 		public Color? IconColor { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether this item is enabled.
+		/// </summary>
 		public bool IsEnabled { get; set; } = true;
 
-		// New property to access the text as separate lines
+		/// <summary>
+		/// Gets the text split into separate lines for multi-line items.
+		/// </summary>
 		public List<string> Lines => _lines ?? new List<string> { Text };
 
+		/// <summary>
+		/// Gets or sets a custom object associated with this item.
+		/// </summary>
 		public object? Tag { get; set; }
 
+		/// <summary>
+		/// Gets or sets the text content of the item.
+		/// </summary>
 		public string Text
 		{
 			get => _text;
@@ -1558,7 +1731,10 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		// Implicit conversion operator for backward compatibility
+		/// <summary>
+		/// Implicitly converts a string to a ListItem for convenience.
+		/// </summary>
+		/// <param name="text">The text to convert.</param>
 		public static implicit operator ListItem(string text) => new ListItem(text);
 	}
 }

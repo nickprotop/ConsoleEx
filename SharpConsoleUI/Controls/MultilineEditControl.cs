@@ -17,20 +17,36 @@ using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// Specifies when scrollbars should be displayed.
+	/// </summary>
 	public enum ScrollbarVisibility
 	{
-		Auto,    // Show scrollbars only when needed
-		Always,  // Always show scrollbars
-		Never    // Never show scrollbars
+		/// <summary>Show scrollbars only when content exceeds viewport.</summary>
+		Auto,
+		/// <summary>Always show scrollbars regardless of content size.</summary>
+		Always,
+		/// <summary>Never show scrollbars.</summary>
+		Never
 	}
 
+	/// <summary>
+	/// Specifies how text wrapping is handled in multiline controls.
+	/// </summary>
 	public enum WrapMode
 	{
+		/// <summary>No text wrapping; lines extend beyond viewport width.</summary>
 		NoWrap,
+		/// <summary>Wrap text at character boundaries.</summary>
 		Wrap,
+		/// <summary>Wrap text at word boundaries when possible.</summary>
 		WrapWords
 	}
 
+	/// <summary>
+	/// A multiline text editing control with support for text selection, scrolling, and word wrap.
+	/// Provides full cursor navigation, cut/copy/paste-like operations, and configurable scrollbars.
+	/// </summary>
 	public class MultilineEditControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		private Alignment _alignment = Alignment.Left;
@@ -76,23 +92,36 @@ namespace SharpConsoleUI.Controls
 		// Convenience property to access EditStateService
 		private EditStateService? EditService => Container?.GetConsoleWindowSystem?.EditStateService;
 
-		// Constructors
+		/// <summary>
+		/// Initializes a new instance of the MultilineEditControl with the specified viewport height.
+		/// </summary>
+		/// <param name="viewportHeight">The number of visible lines in the viewport.</param>
 		public MultilineEditControl(int viewportHeight = 10)
 		{
-			_contentCache = new ThreadSafeCache<List<string>>(this);
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_viewportHeight = Math.Max(1, viewportHeight);
 		}
 
+		/// <summary>
+		/// Initializes a new instance of the MultilineEditControl with initial content and viewport height.
+		/// </summary>
+		/// <param name="initialContent">The initial text content to display.</param>
+		/// <param name="viewportHeight">The number of visible lines in the viewport.</param>
 		public MultilineEditControl(string initialContent, int viewportHeight = 10)
 		{
-			_contentCache = new ThreadSafeCache<List<string>>(this);
+			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_viewportHeight = Math.Max(1, viewportHeight);
 			SetContent(initialContent);
 		}
 
-		// Event for content changes
+		/// <summary>
+		/// Occurs when the text content changes.
+		/// </summary>
 		public event EventHandler<string>? ContentChanged;
 
+		/// <summary>
+		/// Gets the actual rendered width of the control content in characters.
+		/// </summary>
 		public int? ActualWidth
 		{
 			get
@@ -109,12 +138,18 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the text alignment within the control.
+		/// </summary>
 		public Alignment Alignment
 		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
+		/// <summary>
+		/// Gets or sets the background color when the control is not focused.
+		/// </summary>
 		public Color BackgroundColor
 		{
-			get => _backgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor ?? Color.Black;
+			get => _backgroundColorValue ?? Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 			set
 			{
 				_backgroundColorValue = value;
@@ -123,6 +158,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the border color of the control.
+		/// </summary>
 		public Color BorderColor
 		{
 			get => _borderColor;
@@ -134,14 +172,21 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
 
+		/// <summary>
+		/// Gets or sets the text content as a single string with line breaks.
+		/// </summary>
 		public string Content
 		{
 			get => GetContent();
 			set => SetContent(value);
 		}
 
+		/// <summary>
+		/// Gets or sets the background color when the control is focused.
+		/// </summary>
 		public Color FocusedBackgroundColor
 		{
 			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor ?? Color.White;
@@ -153,6 +198,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color when the control is focused.
+		/// </summary>
 		public Color FocusedForegroundColor
 		{
 			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.White;
@@ -164,6 +212,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color when the control is not focused.
+		/// </summary>
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
@@ -175,6 +226,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -186,6 +238,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets when the horizontal scrollbar is displayed.
+		/// </summary>
 		public ScrollbarVisibility HorizontalScrollbarVisibility
 		{
 			get => _horizontalScrollbarVisibility;
@@ -197,6 +252,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the control is currently in text editing mode.
+		/// </summary>
 		public bool IsEditing
 		{ get => _isEditing; set { _isEditing = value; Invalidate(); Container?.Invalidate(false); } }
 
@@ -206,6 +264,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public CursorShape? PreferredCursorShape => _isEditing ? CursorShape.VerticalBar : null;
 
+		/// <inheritdoc/>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
@@ -217,6 +276,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public Margin Margin
 		{ get => _margin; set { _margin = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
@@ -235,6 +295,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the scrollbar track color.
+		/// </summary>
 		public Color ScrollbarColor
 		{
 			get => _scrollbarColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.InactiveBorderForegroundColor ?? Color.Grey;
@@ -246,6 +309,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the scrollbar thumb (handle) color.
+		/// </summary>
 		public Color ScrollbarThumbColor
 		{
 			get => _scrollbarThumbColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonBackgroundColor ?? Color.White;
@@ -257,6 +323,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color for selected text.
+		/// </summary>
 		public Color SelectionBackgroundColor
 		{
 			get => _selectionBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
@@ -268,6 +337,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color for selected text.
+		/// </summary>
 		public Color SelectionForegroundColor
 		{
 			get => _selectionForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
@@ -279,6 +351,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
@@ -289,8 +362,12 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <summary>
+		/// Gets or sets when the vertical scrollbar is displayed.
+		/// </summary>
 		public ScrollbarVisibility VerticalScrollbarVisibility
 		{
 			get => _verticalScrollbarVisibility;
@@ -302,6 +379,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the number of visible lines in the viewport.
+		/// </summary>
 		public int ViewportHeight
 		{
 			get => _viewportHeight;
@@ -317,24 +397,29 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool Visible
 		{ get => _visible; set { _visible = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
 
+		/// <inheritdoc/>
 	public int? Width
-	{ 
-		get => _width; 
-		set 
-		{ 
+	{
+		get => _width;
+		set
+		{
 			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
 			if (_width != validatedValue)
 			{
-				_width = validatedValue; 
-				_contentCache.Invalidate(InvalidationReason.SizeChanged); 
-				Container?.Invalidate(true); 
+				_width = validatedValue;
+				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+				Container?.Invalidate(true);
 			}
-		} 
+		}
 	}
 
+		/// <summary>
+		/// Gets or sets the text wrapping mode.
+		/// </summary>
 		public WrapMode WrapMode
 		{
 			get => _wrapMode;
@@ -462,7 +547,9 @@ namespace SharpConsoleUI.Controls
 			ContentChanged?.Invoke(this, GetContent());
 		}
 
-		// Add a helper method to clear selection
+		/// <summary>
+		/// Clears the current text selection.
+		/// </summary>
 		public void ClearSelection()
 		{
 			_hasSelection = false;
@@ -471,13 +558,15 @@ namespace SharpConsoleUI.Controls
 			_contentCache.Invalidate();
 		}
 
-		// Required interface methods
+		/// <inheritdoc/>
 		public void Dispose()
 		{
 			Container = null;
 		}
 
-		// Cursor management
+		/// <summary>
+		/// Ensures the cursor position is visible within the viewport by adjusting scroll offsets.
+		/// </summary>
 		public void EnsureCursorVisible()
 		{
 			if (Container == null) return;
@@ -546,13 +635,19 @@ namespace SharpConsoleUI.Controls
 			_contentCache.Invalidate();
 		}
 
-		// Basic content management methods
+		/// <summary>
+		/// Gets the text content as a single string with line breaks.
+		/// </summary>
+		/// <returns>The complete text content.</returns>
 		public string GetContent()
 		{
 			return string.Join(Environment.NewLine, _lines);
-		}		
+		}
 
-		// Add methods to get selected text
+		/// <summary>
+		/// Gets the currently selected text.
+		/// </summary>
+		/// <returns>The selected text, or an empty string if no selection exists.</returns>
 		public string GetSelectedText()
 		{
 			if (!_hasSelection) return string.Empty;
@@ -668,12 +763,14 @@ namespace SharpConsoleUI.Controls
 			ContentChanged?.Invoke(this, GetContent());
 		}
 
+		/// <inheritdoc/>
 		public void Invalidate()
 		{
 			_invalidated = true;
 			_contentCache.Invalidate();
 		}
 
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled) return false;
@@ -1264,6 +1361,7 @@ namespace SharpConsoleUI.Controls
 			return true;
 		}
 
+		/// <inheritdoc/>
 		public List<string> RenderContent(int? availableWidth, int? availableHeight)
 		{
 			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -1791,6 +1889,10 @@ namespace SharpConsoleUI.Controls
 			});
 		}
 
+		/// <summary>
+		/// Sets the text content from a string, splitting on line breaks.
+		/// </summary>
+		/// <param name="content">The text content to set.</param>
 		public void SetContent(string content)
 		{
 			if (content == null)
@@ -1872,7 +1974,6 @@ namespace SharpConsoleUI.Controls
 		}
 
 
-		// Add this method to support deleting selected text
 		private void DeleteSelectedText()
 		{
 			if (!_hasSelection) return;
@@ -1933,7 +2034,6 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private int SafeEffectiveWidth => _effectiveWidth > 0 ? _effectiveWidth : 80;
 
-		// Calculate maximum line length
 		private int GetMaxLineLength()
 		{
 			int maxLength = 0;
@@ -1945,7 +2045,6 @@ namespace SharpConsoleUI.Controls
 			return maxLength;
 		}
 
-		// Helper to get ordered selection bounds
 		private (int startX, int startY, int endX, int endY) GetOrderedSelectionBounds()
 		{
 			if (_selectionStartY < _selectionEndY || (_selectionStartY == _selectionEndY && _selectionStartX <= _selectionEndX))
@@ -1958,7 +2057,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		// Calculate total number of wrapped lines
 		private int GetTotalWrappedLineCount()
 		{
 			if (_wrapMode == WrapMode.NoWrap)
@@ -1976,7 +2074,6 @@ namespace SharpConsoleUI.Controls
 			return totalWrappedLines;
 		}
 
-		// Render a horizontal scrollbar
 		private string RenderHorizontalScrollbar(int width, int maxContentWidth)
 		{
 			StringBuilder sb = new StringBuilder();
@@ -2020,7 +2117,6 @@ namespace SharpConsoleUI.Controls
 			return sb.ToString();
 		}
 
-		// Render a vertical scrollbar
 		private List<string> RenderVerticalScrollbar(int height, int maxContentHeight, Color scrollbarBgColor)
 		{
 			List<string> result = new List<string>();
@@ -2064,7 +2160,7 @@ namespace SharpConsoleUI.Controls
 			return result;
 		}
 
-		// ILogicalCursorProvider implementation
+		/// <inheritdoc/>
 		public Point? GetLogicalCursorPosition()
 		{
 			// Only show cursor when in editing mode
@@ -2106,6 +2202,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			// Return the logical size of the content
@@ -2128,6 +2225,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public void SetLogicalCursorPosition(Point position)
 		{
 			// Set the logical cursor position and ensure it's valid
@@ -2177,13 +2275,20 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		// IFocusableControl members
-		// ReadOnly controls can still receive focus for navigation/selection (edits blocked in ProcessKey)
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
+		/// <summary>
+		/// Occurs when the control receives focus.
+		/// </summary>
 		public event EventHandler? GotFocus;
+
+		/// <summary>
+		/// Occurs when the control loses focus.
+		/// </summary>
 		public event EventHandler? LostFocus;
 
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			var hadFocus = _hasFocus;

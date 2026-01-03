@@ -71,6 +71,9 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
 
     #region IWindowControl Properties
 
+    /// <summary>
+    /// Gets the actual rendered width of the control content in characters.
+    /// </summary>
     public int? ActualWidth
     {
         get
@@ -86,6 +89,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         }
     }
 
+    /// <inheritdoc/>
     public Alignment Alignment
     {
         get => _alignment;
@@ -97,8 +101,10 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         }
     }
 
+    /// <inheritdoc/>
     public IContainer? Container { get; set; }
 
+    /// <inheritdoc/>
     public Margin Margin
     {
         get => _margin;
@@ -110,6 +116,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         }
     }
 
+    /// <inheritdoc/>
     public StickyPosition StickyPosition
     {
         get => _stickyPosition;
@@ -120,8 +127,10 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         }
     }
 
+    /// <inheritdoc/>
     public object? Tag { get; set; }
 
+    /// <inheritdoc/>
     public bool Visible
     {
         get => _visible;
@@ -133,6 +142,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         }
     }
 
+    /// <inheritdoc/>
     public int? Width
     {
         get => _width;
@@ -152,6 +162,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
 
     #region IInteractiveControl Properties
 
+    /// <inheritdoc/>
     public bool HasFocus
     {
         get => _hasFocus;
@@ -163,6 +174,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         }
     }
 
+    /// <inheritdoc/>
     public bool IsEnabled { get; set; } = true;
 
     #endregion
@@ -237,6 +249,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
 
     #region IWindowControl Methods
 
+    /// <inheritdoc/>
     public System.Drawing.Size GetLogicalContentSize()
     {
         int height = _maxDisplayLines + (string.IsNullOrEmpty(_title) ? 0 : 1);
@@ -244,6 +257,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         return new System.Drawing.Size(width, height);
     }
 
+    /// <inheritdoc/>
     public List<string> RenderContent(int? availableWidth, int? availableHeight)
     {
         var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
@@ -356,11 +370,13 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         return lines;
     }
 
+    /// <inheritdoc/>
     public void Invalidate()
     {
         _contentCache.Invalidate(InvalidationReason.ContentChanged);
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         if (_disposed) return;
@@ -376,6 +392,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
 
     #region IInteractiveControl Methods
 
+    /// <inheritdoc/>
     public bool ProcessKey(ConsoleKeyInfo keyInfo)
     {
         if (!IsEnabled) return false;
@@ -425,8 +442,9 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
     #region Scroll Methods
 
     /// <summary>
-    /// Scrolls up by the specified number of lines
+    /// Scrolls up by the specified number of lines.
     /// </summary>
+    /// <param name="lines">The number of lines to scroll.</param>
     public void ScrollUp(int lines = 1)
     {
         int newOffset = Math.Max(0, CurrentScrollOffset - lines);
@@ -437,8 +455,9 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
     }
 
     /// <summary>
-    /// Scrolls down by the specified number of lines
+    /// Scrolls down by the specified number of lines.
     /// </summary>
+    /// <param name="lines">The number of lines to scroll.</param>
     public void ScrollDown(int lines = 1)
     {
         int logCount;
@@ -454,7 +473,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
     }
 
     /// <summary>
-    /// Scrolls to show the most recent log entries
+    /// Scrolls to show the most recent log entries.
     /// </summary>
     public void ScrollToEnd()
     {
