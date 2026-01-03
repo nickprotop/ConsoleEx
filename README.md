@@ -310,25 +310,25 @@ scope.RegisterDisposalAction(() => SaveTempData());
 ┌─────────────────────────────────────────────────────────────┐
 │                    SharpConsoleUI Architecture              │
 ├─────────────────────────────────────────────────────────────┤
-│  Application Layer (Your Code)                             │
-│  └── Window Builders & Event Handlers                      │
+│  Application Layer (Your Code)                              │
+│  └── Window Builders & Event Handlers                       │
 ├─────────────────────────────────────────────────────────────┤
-│  Framework Layer                                           │
-│  ├── Window Builders (Fluent API)                         │
-│  ├── State Services (Focus, Modal, Notification, etc.)    │
-│  ├── Logging Service (ILogService)                        │
-│  └── Resource Management (DisposableManager)              │
+│  Framework Layer                                            │
+│  ├── Window Builders (Fluent API)                           │
+│  ├── State Services (Focus, Modal, Notification, etc.)      │
+│  ├── Logging Service (ILogService)                          │
+│  └── Resource Management (DisposableManager)                │
 ├─────────────────────────────────────────────────────────────┤
-│  Core UI Layer                                            │
-│  ├── ConsoleWindowSystem (Window Management)              │
-│  ├── Window (Container & Rendering)                       │
-│  ├── Controls (UI Components)                             │
-│  └── Themes (Appearance)                                  │
+│  Core UI Layer                                              │
+│  ├── ConsoleWindowSystem (Window Management)                │
+│  ├── Window (Container & Rendering)                         │
+│  ├── Controls (UI Components)                               │
+│  └── Themes (Appearance)                                    │
 ├─────────────────────────────────────────────────────────────┤
-│  Driver Layer                                             │
-│  ├── IConsoleDriver (Abstraction)                        │
-│  ├── NetConsoleDriver (Implementation)                   │
-│  └── Input/Output Handling                               │
+│  Driver Layer                                               │
+│  ├── IConsoleDriver (Abstraction)                           │
+│  ├── NetConsoleDriver (Implementation)                      │
+│  └── Input/Output Handling                                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
