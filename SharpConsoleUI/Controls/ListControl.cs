@@ -1260,9 +1260,8 @@ namespace SharpConsoleUI.Controls
 					else if (_isSelectable && itemIndex == highlightedIndex && !_hasFocus)
 					{
 						// Unfocused: dimmed highlight (standard UI behavior - show selection when unfocused)
-						// Use a slightly darker/lighter version of highlight colors
-						itemBg = HighlightBackgroundColor;
-						itemFg = Color.Grey;
+						itemBg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightBackgroundColor ?? HighlightBackgroundColor;
+						itemFg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
 					}
 					// Handle selected but not highlighted (when navigating away from selected item)
 					else if (_isSelectable && itemIndex == selectedIndex && _hasFocus)

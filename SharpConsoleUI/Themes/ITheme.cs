@@ -87,6 +87,16 @@ public interface ITheme
     Color ButtonSelectedForegroundColor { get; }
 
     /// <summary>
+    /// Gets the background color for list items when highlighted but the control is unfocused.
+    /// </summary>
+    Color ListUnfocusedHighlightBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for list items when highlighted but the control is unfocused.
+    /// </summary>
+    Color ListUnfocusedHighlightForegroundColor { get; }
+
+    /// <summary>
     /// Gets the background color for the desktop area behind all windows.
     /// </summary>
     Color DesktopBackgroundColor { get; }

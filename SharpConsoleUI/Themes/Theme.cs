@@ -89,6 +89,16 @@ namespace SharpConsoleUI.Themes
 		public Color ButtonSelectedForegroundColor { get; set; } = Color.White;
 
 		/// <summary>
+		/// Gets or sets the background color for list items when highlighted but the control is unfocused.
+		/// </summary>
+		public Color ListUnfocusedHighlightBackgroundColor { get; set; } = Color.Grey37;
+
+		/// <summary>
+		/// Gets or sets the foreground color for list items when highlighted but the control is unfocused.
+		/// </summary>
+		public Color ListUnfocusedHighlightForegroundColor { get; set; } = Color.Grey;
+
+		/// <summary>
 		/// Gets or sets the background color for the desktop area behind all windows.
 		/// </summary>
 		public Color DesktopBackgroundColor { get; set; } = Color.Black;
