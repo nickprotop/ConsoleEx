@@ -1061,9 +1061,9 @@ internal class Program
         }
 
         // Tree selection handler
-        fileTree.OnSelectedNodeChanged = (tree, node) =>
+        fileTree.SelectedNodeChanged += (tree, args) =>
         {
-            if (node?.Tag is DirectoryInfo dirInfo)
+            if (args.Node?.Tag is DirectoryInfo dirInfo)
             {
                 statusControl.SetContent(new List<string> { $"Selected: [yellow]{dirInfo.FullName}[/]" });
                 UpdateFileList(dirInfo, fileList, statusControl);
@@ -1071,13 +1071,13 @@ internal class Program
         };
 
         // Tree expand/collapse handler
-        fileTree.OnNodeExpandCollapse = (tree, node) =>
+        fileTree.NodeExpandCollapse += (tree, args) =>
         {
-            if (node.IsExpanded && node.Tag is DirectoryInfo dirInfo)
+            if (args.Node != null && args.Node.IsExpanded && args.Node.Tag is DirectoryInfo dirInfo)
             {
                 // Clear placeholder
-                node.ClearChildren();
-                
+                args.Node.ClearChildren();
+
                 try
                 {
                     // Load subdirectories
@@ -1088,10 +1088,10 @@ internal class Program
 
                     foreach (var subdir in subdirs)
                     {
-                        var childNode = node.AddChild($"[{subdir.Name}]");
+                        var childNode = args.Node.AddChild($"[{subdir.Name}]");
                         childNode.TextColor = SpectreColor.Yellow;
                         childNode.Tag = subdir;
-                        
+
                         if (HasSubdirectories(subdir))
                         {
                             childNode.AddChild("Loading...");

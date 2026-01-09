@@ -575,12 +575,12 @@ namespace MyProject
     {
         if (_projectTree == null) return;
 
-        _projectTree.OnSelectedNodeChanged = (tree, node) =>
+        _projectTree.SelectedNodeChanged += (tree, args) =>
         {
-            if (node != null)
+            if (args.Node != null)
             {
-                UpdateFileStatus($"Selected: [yellow]{node.Text}[/]");
-                _windowSystem.LogService.LogDebug($"Project tree node selected: {node.Text}");
+                UpdateFileStatus($"Selected: [yellow]{args.Node.Text}[/]");
+                _windowSystem.LogService.LogDebug($"Project tree node selected: {args.Node.Text}");
             }
         };
     }
