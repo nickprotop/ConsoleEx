@@ -1114,10 +1114,7 @@ namespace SharpConsoleUI.Controls
 					// Make sure the column indices are valid
 					if (leftColumnIndex >= 0 && leftColumnIndex < _columns.Count - 1)
 					{
-						// Update column widths explicitly
-// REMOVED - SplitterControl already sets widths: 						_columns[leftColumnIndex].Width = e.LeftColumnWidth;
-// REMOVED - SplitterControl already sets widths: 						_columns[leftColumnIndex + 1].Width = e.RightColumnWidth;
-
+						// Note: Column widths are already set by SplitterControl.MoveSplitter()
 						// Log width changes for debugging
 						System.Diagnostics.Debug.WriteLine($"Splitter moved: Left col width={e.LeftColumnWidth}, Right col width={e.RightColumnWidth}");
 					}
