@@ -1313,17 +1313,8 @@ namespace SharpConsoleUI.Controls
 			if (sender is SplitterControl splitter)
 			{
 				// Find the index of the left column for this splitter
-				int leftColumnIndex = -1;
-				if (_splitterControls.TryGetValue(splitter, out leftColumnIndex))
-				{
-					// Make sure the column indices are valid
-					if (leftColumnIndex >= 0 && leftColumnIndex < _columns.Count - 1)
-					{
-						// Note: Column widths are already set by SplitterControl.MoveSplitter()
-						// Log width changes for debugging
-						System.Diagnostics.Debug.WriteLine($"Splitter moved: Left col width={e.LeftColumnWidth}, Right col width={e.RightColumnWidth}");
-					}
-				}
+				// Note: Column widths are already set by SplitterControl.MoveSplitter()
+				// This block is kept for potential future use
 			}
 
 			// Invalidate the entire grid when a splitter moves

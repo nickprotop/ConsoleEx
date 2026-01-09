@@ -159,14 +159,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			System.IO.File.AppendAllText("/tmp/consoleex_button_debug.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}] ButtonControl.ProcessKey: key={key.Key}, Text={Text}, HasFocus={HasFocus}, IsEnabled={IsEnabled}\n");
-
 			if (key.Key == ConsoleKey.Enter)
 			{
-				System.IO.File.AppendAllText("/tmp/consoleex_button_debug.log",
-					$"[{DateTime.Now:HH:mm:ss.fff}]   Enter key detected, triggering click\n");
-
 				// Trigger the click event
 				TriggerClick(new MouseEventArgs(
 					new List<MouseFlags> { MouseFlags.Button1Clicked },
@@ -234,17 +228,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void TriggerClick(MouseEventArgs args)
 		{
-			System.IO.File.AppendAllText("/tmp/consoleex_button_debug.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}] ButtonControl.TriggerClick: Text={Text}, MouseClick subscribers={MouseClick?.GetInvocationList().Length ?? 0}, Click subscribers={Click?.GetInvocationList().Length ?? 0}\n");
-
 			// Fire the mouse click event
 			MouseClick?.Invoke(this, args);
 
 			// Fire the convenience click event
 			Click?.Invoke(this, this);
-
-			System.IO.File.AppendAllText("/tmp/consoleex_button_debug.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}]   Click events fired\n");
 		}
 
 		// IFocusableControl implementation
