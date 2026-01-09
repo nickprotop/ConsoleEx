@@ -376,28 +376,27 @@ namespace SharpConsoleUI.Controls
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
 			Color bgColor, fgColor;
-			char splitterChar;
+
+			// Always use double vertical line - color indicates focus/dragging state
+			const char splitterChar = '║';
 
 			if (_isDragging)
 			{
 				// Use dragging colors when in dragging mode
 				bgColor = DraggingBackgroundColor;
 				fgColor = DraggingForegroundColor;
-				splitterChar = '║'; // Double vertical line for dragging state
 			}
 			else if (_hasFocus)
 			{
 				// Use focused colors when focused
 				bgColor = FocusedBackgroundColor;
 				fgColor = FocusedForegroundColor;
-				splitterChar = '┃'; // Bold vertical line for focused state
 			}
 			else
 			{
 				// Use normal colors
 				bgColor = BackgroundColor;
 				fgColor = ForegroundColor;
-				splitterChar = '│'; // Normal vertical line for default state
 			}
 
 			int startX = bounds.X + _margin.Left;
