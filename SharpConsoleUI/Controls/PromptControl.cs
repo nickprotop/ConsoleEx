@@ -205,6 +205,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
+		public string? Name { get; set; }
+
+		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
 		/// <summary>

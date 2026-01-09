@@ -27,6 +27,7 @@ public sealed class ToolbarBuilder
 	private int? _height = 1;
 	private int? _width;
 	private bool _visible = true;
+	private string? _name;
 	private object? _tag;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
@@ -223,6 +224,17 @@ public sealed class ToolbarBuilder
 	}
 
 	/// <summary>
+	/// Sets the control name for lookup
+	/// </summary>
+	/// <param name="name">The control name</param>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder WithName(string name)
+	{
+		_name = name;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets a tag object
 	/// </summary>
 	/// <param name="tag">The tag object</param>
@@ -270,6 +282,7 @@ public sealed class ToolbarBuilder
 			Height = _height,
 			Width = _width,
 			Visible = _visible,
+			Name = _name,
 			Tag = _tag
 		};
 

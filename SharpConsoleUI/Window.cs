@@ -1021,6 +1021,95 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Finds a control by name, searching recursively through all containers.
+		/// </summary>
+		/// <typeparam name="T">The type of control to find.</typeparam>
+		/// <param name="name">The name of the control to find.</param>
+		/// <returns>The control if found, otherwise null.</returns>
+		public T? FindControl<T>(string name) where T : class, IWindowControl
+		{
+			lock (_lock)
+			{
+				return FindControlRecursive(_controls, name) as T;
+			}
+		}
+
+		/// <summary>
+		/// Finds a control by name, searching recursively through all containers.
+		/// </summary>
+		/// <param name="name">The name of the control to find.</param>
+		/// <returns>The control if found, otherwise null.</returns>
+		public IWindowControl? FindControl(string name)
+		{
+			lock (_lock)
+			{
+				return FindControlRecursive(_controls, name);
+			}
+		}
+
+		/// <summary>
+		/// Gets all named controls as a dictionary for batch access.
+		/// </summary>
+		/// <returns>A dictionary mapping control names to controls.</returns>
+		public IReadOnlyDictionary<string, IWindowControl> GetNamedControls()
+		{
+			var result = new Dictionary<string, IWindowControl>();
+			lock (_lock)
+			{
+				CollectNamedControls(_controls, result);
+			}
+			return result;
+		}
+
+		private static IWindowControl? FindControlRecursive(IEnumerable<IWindowControl> controls, string name)
+		{
+			foreach (var control in controls)
+			{
+				if (control.Name == name)
+					return control;
+
+				// Search nested containers
+				var nested = GetNestedControls(control);
+				if (nested != null)
+				{
+					var found = FindControlRecursive(nested, name);
+					if (found != null)
+						return found;
+				}
+			}
+			return null;
+		}
+
+		private static void CollectNamedControls(IEnumerable<IWindowControl> controls, Dictionary<string, IWindowControl> result)
+		{
+			foreach (var control in controls)
+			{
+				if (!string.IsNullOrEmpty(control.Name) && !result.ContainsKey(control.Name))
+				{
+					result[control.Name] = control;
+				}
+
+				// Collect from nested containers
+				var nested = GetNestedControls(control);
+				if (nested != null)
+				{
+					CollectNamedControls(nested, result);
+				}
+			}
+		}
+
+		private static IEnumerable<IWindowControl>? GetNestedControls(IWindowControl control)
+		{
+			return control switch
+			{
+				ToolbarControl toolbar => toolbar.Items,
+				HorizontalGridControl grid => grid.Columns.SelectMany(c => c.Contents),
+				ColumnContainer column => column.Contents,
+				_ => null
+			};
+		}
+
+		/// <summary>
 		/// Gets a copy of all controls in this window.
 		/// </summary>
 		/// <returns>A list containing all controls.</returns>

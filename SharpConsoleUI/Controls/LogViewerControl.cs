@@ -134,6 +134,9 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
     }
 
     /// <inheritdoc/>
+    public string? Name { get; set; }
+
+    /// <inheritdoc/>
     public object? Tag { get; set; }
 
     /// <inheritdoc/>

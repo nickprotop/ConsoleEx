@@ -48,6 +48,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Gets or sets whether this control should stick to the top or bottom during scrolling.</summary>
 		StickyPosition StickyPosition { get; set; }
 
+		/// <summary>Gets or sets the unique name identifier for this control, used for lookup.</summary>
+		string? Name { get; set; }
+
 		/// <summary>Gets or sets an arbitrary object value that can be used to store custom data.</summary>
 		object? Tag { get; set; }
 
