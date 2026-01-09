@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -36,9 +38,9 @@ public sealed class ToolbarBuilder
 	/// Adds a button to the toolbar with the specified text and click handler
 	/// </summary>
 	/// <param name="text">The button text</param>
-	/// <param name="onClick">The click handler</param>
+	/// <param name="onClick">The click handler with button reference</param>
 	/// <returns>The builder for chaining</returns>
-	public ToolbarBuilder AddButton(string text, Action onClick)
+	public ToolbarBuilder AddButton(string text, EventHandler<ButtonControl> onClick)
 	{
 		var button = new ButtonBuilder()
 			.WithText(text)
@@ -49,12 +51,12 @@ public sealed class ToolbarBuilder
 	}
 
 	/// <summary>
-	/// Adds a button to the toolbar with the specified text and click handler
+	/// Adds a button to the toolbar with window-aware click handler
 	/// </summary>
 	/// <param name="text">The button text</param>
-	/// <param name="onClick">The click handler with button reference</param>
+	/// <param name="onClick">The click handler with window access</param>
 	/// <returns>The builder for chaining</returns>
-	public ToolbarBuilder AddButton(string text, EventHandler<ButtonControl> onClick)
+	public ToolbarBuilder AddButton(string text, WindowEventHandler<ButtonControl> onClick)
 	{
 		var button = new ButtonBuilder()
 			.WithText(text)
