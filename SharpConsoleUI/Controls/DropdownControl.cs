@@ -9,6 +9,8 @@
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System.Collections.Generic;
 using System.Drawing;
@@ -21,13 +23,13 @@ namespace SharpConsoleUI.Controls
 	/// A dropdown/combobox control that displays a list of selectable items.
 	/// Supports keyboard navigation, type-ahead search, and custom item formatting.
 	/// </summary>
-	public class DropdownControl : IWindowControl, IInteractiveControl, IFocusableControl
+	public class DropdownControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
-		private Alignment _alignment = Alignment.Left;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _autoAdjustWidth = true;
 		private Color? _backgroundColorValue;
-		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private int? _calculatedMaxVisibleItems;
 		private int _containerScrollOffsetBeforeDrop = 0;
 		private Color? _focusedBackgroundColorValue;
@@ -78,7 +80,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="items">Optional collection of string items to populate the dropdown.</param>
 		public DropdownControl(string prompt = "Select an item:", IEnumerable<string>? items = null)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_prompt = prompt;
 			if (items != null)
 			{
@@ -96,7 +97,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="items">Optional collection of <see cref="DropdownItem"/> objects to populate the dropdown.</param>
 		public DropdownControl(string prompt, IEnumerable<DropdownItem>? items = null)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_prompt = prompt;
 			if (items != null)
 			{
@@ -110,7 +110,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="prompt">The prompt text displayed in the header.</param>
 		public DropdownControl(string prompt)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_prompt = prompt;
 		}
 
@@ -152,12 +151,23 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				var content = _contentCache.Content;
-				if (content == null) return null;
+				// Base height is header (1 line) plus margins
+				int height = 1 + _margin.Top + _margin.Bottom;
 
-				// Return the total number of lines in the rendered content
-				// This includes the header, dropdown items (if open), scroll indicators, and margins
-				return content.Count;
+				// If dropdown is open, add visible items plus scroll indicator if needed
+				if (_isDropdownOpen && _items.Count > 0)
+				{
+					int effectiveMaxVisible = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+					int itemsToShow = Math.Min(effectiveMaxVisible, _items.Count);
+					height += itemsToShow;
+
+					// Add scroll indicator line if needed
+					int dropdownScroll = CurrentDropdownScrollOffset;
+					if (dropdownScroll > 0 || dropdownScroll + itemsToShow < _items.Count)
+						height++;
+				}
+
+				return height;
 			}
 		}
 
@@ -169,23 +179,28 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				var content = _contentCache.Content;
-				if (content == null) return null;
-				int maxLength = 0;
-				foreach (var line in content)
+				// Calculate optimal width based on items
+				int maxItemWidth = 0;
+				foreach (var item in _items)
 				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-					if (length > maxLength) maxLength = length;
+					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
+					if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 				}
-				return maxLength;
+
+				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt) + 5;
+				int dropdownWidth = Math.Max(promptLength, maxItemWidth);
+
+				return dropdownWidth + _margin.Left + _margin.Right;
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the text alignment within the control.
-		/// </summary>
-		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
+		/// <inheritdoc/>
+		public HorizontalAlignment HorizontalAlignment
+		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets whether the control automatically adjusts its width to fit content.
@@ -196,7 +211,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_autoAdjustWidth = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -210,7 +224,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -227,7 +240,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedBackgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -241,7 +253,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedForegroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -255,7 +266,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -276,7 +286,6 @@ namespace SharpConsoleUI.Controls
 						// Reset highlighted index to selected index
 						SelectionService?.SetHighlightedIndex(this, CurrentSelectedIndex);
 					}
-					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 
 					if (value)
@@ -299,7 +308,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_highlightBackgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -313,7 +321,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_highlightForegroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -341,7 +348,6 @@ namespace SharpConsoleUI.Controls
 					}
 
 					_isDropdownOpen = value;
-					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 
 					// If closing, restore scroll offset (after content is recalculated)
@@ -358,8 +364,6 @@ namespace SharpConsoleUI.Controls
 				else
 				{
 					_isDropdownOpen = value;
-					_contentCache.Invalidate();
-
 					Container?.Invalidate(true);
 				}
 			}
@@ -374,7 +378,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -388,7 +391,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_itemFormatter = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -408,7 +410,6 @@ namespace SharpConsoleUI.Controls
 					int newSel = _items.Count > 0 ? 0 : -1;
 					SelectionService?.SetSelectedIndex(this, newSel);
 				}
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -417,7 +418,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the margin around the control content.
 		/// </summary>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets the maximum number of items visible in the dropdown list without scrolling.
@@ -428,8 +429,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_maxVisibleItems = Math.Max(1, value);
-				_contentCache.Invalidate();
-
 				Container?.Invalidate(true);
 			}
 		}
@@ -443,7 +442,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_prompt = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -461,7 +459,6 @@ namespace SharpConsoleUI.Controls
 				{
 					int oldIndex = currentSel;
 					SelectionService?.SetSelectedIndex(this, value);
-					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 
 					// Ensure selected item is visible when dropdown is open
@@ -567,7 +564,6 @@ namespace SharpConsoleUI.Controls
 					int newSel = _items.Count > 0 ? 0 : -1;
 					SelectionService?.SetSelectedIndex(this, newSel);
 				}
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -577,7 +573,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets the fixed width of the control. When null, the control auto-sizes based on content.
@@ -591,7 +587,6 @@ namespace SharpConsoleUI.Controls
 				if (_width != validatedValue)
 				{
 					_width = validatedValue;
-					_contentCache.Invalidate(InvalidationReason.SizeChanged);
 					Container?.Invalidate(true);
 				}
 			}
@@ -610,7 +605,6 @@ namespace SharpConsoleUI.Controls
 				SelectedIndexChanged?.Invoke(this, 0);
 				SelectedItemChanged?.Invoke(this, _items[0]);
 			}
-			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
 
@@ -645,7 +639,6 @@ namespace SharpConsoleUI.Controls
 			SelectionService?.ClearSelection(this);
 			ScrollService?.ResetScroll(this);
 
-			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
 			SelectedIndexChanged?.Invoke(this, -1);
@@ -661,11 +654,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(10000, 10000);
-			return new System.Drawing.Size(
-				content.FirstOrDefault()?.Length ?? 0,
-				content.Count
-			);
+			int width = ActualWidth ?? 0;
+			int height = ActualHeight ?? 1;
+			return new System.Drawing.Size(width, height);
 		}
 
 		/// <summary>
@@ -673,7 +664,6 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void Invalidate()
 		{
-			_contentCache.Invalidate();
 			Container?.Invalidate(true, this);
 		}
 
@@ -729,7 +719,6 @@ namespace SharpConsoleUI.Controls
 						{
 							SelectionService?.SetHighlightedIndex(this, currentHighlight + 1);
 							EnsureHighlightedItemVisible();
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -739,7 +728,6 @@ namespace SharpConsoleUI.Controls
 						// Open dropdown
 						_isDropdownOpen = true;
 						SelectionService?.SetHighlightedIndex(this, currentSelection);
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -752,7 +740,6 @@ namespace SharpConsoleUI.Controls
 						{
 							SelectionService?.SetHighlightedIndex(this, currentHighlight - 1);
 							EnsureHighlightedItemVisible();
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -764,7 +751,6 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetHighlightedIndex(this, 0);
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -775,7 +761,6 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetHighlightedIndex(this, _items.Count - 1);
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -787,7 +772,6 @@ namespace SharpConsoleUI.Controls
 						int newIndex = Math.Max(0, currentHighlight - (_calculatedMaxVisibleItems ?? 1));
 						SelectionService?.SetHighlightedIndex(this, newIndex);
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -799,7 +783,6 @@ namespace SharpConsoleUI.Controls
 						int newIndex = Math.Min(_items.Count - 1, currentHighlight + (_calculatedMaxVisibleItems ?? 1));
 						SelectionService?.SetHighlightedIndex(this, newIndex);
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -828,7 +811,6 @@ namespace SharpConsoleUI.Controls
 							{
 								SelectionService?.SetHighlightedIndex(this, i);
 								EnsureHighlightedItemVisible();
-								_contentCache.Invalidate();
 								Container?.Invalidate(true);
 								return true;
 							}
@@ -838,423 +820,250 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
-		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+		#region IDOMPaintable Implementation
 
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
+		/// <inheritdoc/>
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			int dropdownWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch
+				? constraints.MaxWidth - _margin.Left - _margin.Right
+				: calculateOptimalWidth(constraints.MaxWidth));
+
+			// Ensure width can accommodate content
+			int maxItemWidth = 0;
+			foreach (var item in _items)
 			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
+				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
+			}
+
+			if (_autoAdjustWidth)
+				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
+
+			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
+			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
+			dropdownWidth = Math.Max(dropdownWidth, minWidth);
+
+			// Calculate height
+			int height = 1 + _margin.Top + _margin.Bottom;
+			if (_isDropdownOpen && _items.Count > 0)
+			{
+				int effectiveMaxVisible = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+				int itemsToShow = Math.Min(effectiveMaxVisible, _items.Count);
+				height += itemsToShow;
+
+				int dropdownScroll = CurrentDropdownScrollOffset;
+				if (dropdownScroll > 0 || dropdownScroll + itemsToShow < _items.Count)
+					height++;
+			}
+
+			int width = dropdownWidth + _margin.Left + _margin.Right;
+
+			return new LayoutSize(
+				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			Color backgroundColor;
+			Color foregroundColor;
+			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
+
+			if (!_isEnabled)
+			{
+				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
+				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
+			}
+			else if (_hasFocus)
+			{
+				backgroundColor = FocusedBackgroundColor;
+				foregroundColor = FocusedForegroundColor;
 			}
 			else
 			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return cached;
+				backgroundColor = BackgroundColor;
+				foregroundColor = ForegroundColor;
 			}
 
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
+			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			if (targetWidth <= 0) return;
 
-			return _contentCache.GetOrRender(() =>
+			int startX = bounds.X + _margin.Left;
+			int startY = bounds.Y + _margin.Top;
+
+			// Fill top margin
+			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
 			{
-				var content = new List<string>();
-
-				// Get appropriate colors based on state
-				Color backgroundColor;
-				Color foregroundColor;
-				Color windowBackground = Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
-				Color windowForeground = Container?.ForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
-
-				// Determine colors based on enabled/focused state
-				if (!_isEnabled)
-				{
-					backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
-					foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
-				}
-				else if (_hasFocus)
-				{
-					backgroundColor = FocusedBackgroundColor;
-					foregroundColor = FocusedForegroundColor;
-				}
-				else
-				{
-					backgroundColor = BackgroundColor;
-					foregroundColor = ForegroundColor;
-				}
-
-				// Calculate effective width
-				int dropdownWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 40) : calculateOptimalWidth(availableWidth));
-
-				// Ensure width can accommodate content
-				int maxItemWidth = 0;
-				foreach (var item in _items)
-				{
-					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
-					if (itemLength > maxItemWidth)
-						maxItemWidth = itemLength;
-				}
-
-				if (_autoAdjustWidth)
-				{
-					dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
-				}
-
-				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
-				int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4); // Add padding
-				dropdownWidth = Math.Max(dropdownWidth, minWidth);
-
-			// Calculate padding for alignment
-			int paddingLeft = 0;
-			if (_alignment == Alignment.Center)
-			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, dropdownWidth);
-			}
-			else if (_alignment == Alignment.Right && availableWidth.HasValue)
-			{
-				paddingLeft = availableWidth.Value - dropdownWidth;
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
 			}
 
-			// Get current state from services (single source of truth)
+			// Calculate dropdown width
+			int dropdownWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
+			int maxItemWidth = 0;
+			foreach (var item in _items)
+			{
+				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
+				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
+			}
+			if (_autoAdjustWidth)
+				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
+
+			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
+			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
+			dropdownWidth = Math.Min(Math.Max(dropdownWidth, minWidth), targetWidth);
+
+			// Calculate alignment offset
+			int alignOffset = 0;
+			if (dropdownWidth < targetWidth)
+			{
+				switch (_horizontalAlignment)
+				{
+					case HorizontalAlignment.Center:
+						alignOffset = (targetWidth - dropdownWidth) / 2;
+						break;
+					case HorizontalAlignment.Right:
+						alignOffset = targetWidth - dropdownWidth;
+						break;
+				}
+			}
+
 			int selectedIdx = CurrentSelectedIndex;
 			int highlightedIdx = CurrentHighlightedIndex;
 			int dropdownScroll = CurrentDropdownScrollOffset;
 
-			// Render header with selected item
-			string selectedText = selectedIdx >= 0 && selectedIdx < _items.Count
-				? _items[selectedIdx].Text
-				: "(None)";
-
-			// Truncate selected text if needed and add arrow indicator
+			// Render header
+			string selectedText = selectedIdx >= 0 && selectedIdx < _items.Count ? _items[selectedIdx].Text : "(None)";
 			string arrow = _isDropdownOpen ? "▲" : "▼";
 			int maxSelectedTextLength = dropdownWidth - promptLength - 5;
+			if (maxSelectedTextLength > 0 && selectedText.Length > maxSelectedTextLength)
+				selectedText = selectedText.Substring(0, Math.Max(0, maxSelectedTextLength - 3)) + "...";
 
-			if (selectedText.Length > maxSelectedTextLength)
-			{
-				selectedText = selectedText.Substring(0, maxSelectedTextLength - 3) + "...";
-			}
-
-			// Format header text
 			string headerContent = $"{_prompt} {selectedText} {arrow}";
-
-			// Ensure header fits within dropdown width using visible-length-aware padding
 			int headerVisibleLength = AnsiConsoleHelper.StripSpectreLength(headerContent);
 			if (headerVisibleLength < dropdownWidth)
+				headerContent += new string(' ', dropdownWidth - headerVisibleLength);
+
+			int paintY = startY;
+			if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 			{
-				// Use manual padding based on visible length, not string length
-				headerContent = headerContent + new string(' ', dropdownWidth - headerVisibleLength);
+				if (_margin.Left > 0)
+					buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+
+				if (alignOffset > 0)
+					buffer.FillRect(new LayoutRect(startX, paintY, alignOffset, 1), ' ', foregroundColor, windowBackground);
+
+				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(headerContent, dropdownWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
+				var cells = AnsiParser.Parse(ansiLine, foregroundColor, backgroundColor);
+				buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
+
+				int rightFillStart = startX + alignOffset + dropdownWidth;
+				int rightFillWidth = bounds.Right - rightFillStart - _margin.Right;
+				if (rightFillWidth > 0)
+					buffer.FillRect(new LayoutRect(rightFillStart, paintY, rightFillWidth, 1), ' ', foregroundColor, windowBackground);
+
+				if (_margin.Right > 0)
+					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, paintY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
 			}
+			paintY++;
 
-			// Render header
-			List<string> headerLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-				headerContent,
-				dropdownWidth,
-				1,
-				false,
-				backgroundColor,
-				foregroundColor
-			);
-
-			// Apply padding and margins to header
-			for (int i = 0; i < headerLine.Count; i++)
-			{
-				// Add alignment padding
-				if (paddingLeft > 0)
-				{
-					headerLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', paddingLeft),
-						paddingLeft,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					).FirstOrDefault() + headerLine[i];
-				}
-
-				// Add left and right margins
-				headerLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', _margin.Left),
-					_margin.Left,
-					1,
-					false,
-					Container?.BackgroundColor,
-					null
-				).FirstOrDefault() + headerLine[i];
-
-				headerLine[i] = headerLine[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', _margin.Right),
-					_margin.Right,
-					1,
-					false,
-					Container?.BackgroundColor,
-					null
-				).FirstOrDefault();
-			}
-
-			// Add header to result
-			content.AddRange(headerLine);
-
-			// If dropdown is open, render list items
+			// Render dropdown items if open
 			if (_isDropdownOpen && _items.Count > 0)
 			{
-				// Calculate available space for dropdown items considering margins and container height
-				int availableSpaceForDropdown = 10000;
-
-				//if (availableHeight.HasValue)
-				//{
-				//	int usedHeight = 1 + _margin.Top + _margin.Bottom + ((_dropdownScrollOffset > 0 || _items.Count > _maxVisibleItems) ? 1 : 0);
-				//	availableSpaceForDropdown = Math.Max(1, availableHeight.Value - usedHeight);
-				//}
-
-				// Determine how many items to display based on available height and maxVisibleItems
-				int effectiveMaxVisibleItems = Math.Min(_maxVisibleItems, availableSpaceForDropdown);
-
-				_calculatedMaxVisibleItems = effectiveMaxVisibleItems; // Update maxVisibleItems to actual value
-
-				// Update scroll dimensions so MaxVerticalOffset is calculated correctly
+				int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
 				ScrollService?.UpdateDimensions(this, 0, _items.Count, 0, effectiveMaxVisibleItems);
-
-				// Now calculate actual items to show considering scroll offset
 				int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - dropdownScroll);
 
-				// Render each visible item
 				for (int i = 0; i < itemsToShow; i++)
 				{
-					int itemIndex = i + dropdownScroll;
-					if (itemIndex >= _items.Count)
-						break;
-
-					string itemText = _itemFormatter != null
-						? _itemFormatter(_items[itemIndex], itemIndex == selectedIdx, _hasFocus)
-						: _items[itemIndex].Text;
-
-					// Truncate if necessary
-					if (AnsiConsoleHelper.StripSpectreLength(itemText) > dropdownWidth - 4)
+					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 					{
-						itemText = itemText.Substring(0, dropdownWidth - 7) + "...";
-					}
+						int itemIndex = i + dropdownScroll;
+						if (itemIndex >= _items.Count) break;
 
-					string itemContent;
+						string itemText = _itemFormatter != null
+							? _itemFormatter(_items[itemIndex], itemIndex == selectedIdx, _hasFocus)
+							: _items[itemIndex].Text;
 
-					// Use highlight colors for selected item, normal colors for others
-					Color itemBg = (itemIndex == selectedIdx) ? HighlightBackgroundColor : backgroundColor;
-					Color itemFg = (itemIndex == selectedIdx) ? HighlightForegroundColor : foregroundColor;
+						if (AnsiConsoleHelper.StripSpectreLength(itemText) > dropdownWidth - 4)
+							itemText = itemText.Substring(0, Math.Max(0, dropdownWidth - 7)) + "...";
 
-					// Add selection indicator and calculate visual length for padding
-					string selectionIndicator = (itemIndex == highlightedIdx ? "● " : "  ");
+						Color itemBg = (itemIndex == selectedIdx) ? HighlightBackgroundColor : backgroundColor;
+						Color itemFg = (itemIndex == selectedIdx) ? HighlightForegroundColor : foregroundColor;
 
-					// Add selection indicator and padding
-					if (_items[itemIndex].Icon != null)
-					{
-						string iconText = _items[itemIndex].Icon!;
-						Color iconColor = _items[itemIndex].IconColor ?? itemFg;
-
-						// Create icon markup with proper color
-						string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
-
-						// Calculate actual visible length of icon plus markup (not including ANSI sequences)
-						int iconVisibleLength = AnsiConsoleHelper.StripSpectreLength(iconText) + 1; // +1 for the space
-
-						// Add icon to the start of the item content - use highlightedIndex for visual highlight
-						itemContent = selectionIndicator + iconMarkup + itemText;
-
-						// Calculate actual visual text length (without ANSI escape sequences)
-						int visibleTextLength = 2 + iconVisibleLength + AnsiConsoleHelper.StripSpectreLength(itemText);
-
-						// Calculate the padding needed
-						int paddingNeeded = Math.Max(0, dropdownWidth - visibleTextLength);
-
-						// Add padding to the end
-						if (paddingNeeded > 0)
-						{
-							itemContent += new string(' ', paddingNeeded);
-						}
-					}
-					else
-					{
-						// No icon, use standard rendering - use highlightedIndex for visual highlight
-						itemContent = selectionIndicator + itemText;
-
-						// Calculate actual visual text length (without ANSI escape sequences)
+						string selectionIndicator = itemIndex == highlightedIdx ? "● " : "  ";
+						string itemContent = selectionIndicator + itemText;
 						int visibleTextLength = 2 + AnsiConsoleHelper.StripSpectreLength(itemText);
-
-						// Calculate the padding needed
 						int paddingNeeded = Math.Max(0, dropdownWidth - visibleTextLength);
-
-						// Add padding to the end
 						if (paddingNeeded > 0)
-						{
 							itemContent += new string(' ', paddingNeeded);
-						}
+
+						if (_margin.Left > 0)
+							buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', itemFg, windowBackground);
+
+						if (alignOffset > 0)
+							buffer.FillRect(new LayoutRect(startX, paintY, alignOffset, 1), ' ', itemFg, windowBackground);
+
+						var itemAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(itemContent, dropdownWidth, 1, false, itemBg, itemFg).FirstOrDefault() ?? string.Empty;
+						var itemCells = AnsiParser.Parse(itemAnsi, itemFg, itemBg);
+						buffer.WriteCellsClipped(startX + alignOffset, paintY, itemCells, clipRect);
+
+						int rightStart = startX + alignOffset + dropdownWidth;
+						int rightWidth = bounds.Right - rightStart - _margin.Right;
+						if (rightWidth > 0)
+							buffer.FillRect(new LayoutRect(rightStart, paintY, rightWidth, 1), ' ', itemFg, windowBackground);
+
+						if (_margin.Right > 0)
+							buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, paintY, _margin.Right, 1), ' ', itemFg, windowBackground);
 					}
-
-					List<string> itemLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						itemContent,
-						dropdownWidth,
-						1,
-						false,
-						itemBg,
-						itemFg
-					);
-
-					// Apply padding and margins
-					for (int j = 0; j < itemLine.Count; j++)
-					{
-						// Add alignment padding
-						if (paddingLeft > 0)
-						{
-							itemLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-								new string(' ', paddingLeft),
-								paddingLeft,
-								1,
-								false,
-								Container?.BackgroundColor,
-								null
-							).FirstOrDefault() + itemLine[j];
-						}
-
-						// Add left margin
-						itemLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', _margin.Left),
-							_margin.Left,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						).FirstOrDefault() + itemLine[j];
-
-						// Add right margin
-						itemLine[j] = itemLine[j] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', _margin.Right),
-							_margin.Right,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						).FirstOrDefault();
-					}
-
-					// Add item to result
-					content.AddRange(itemLine);
+					paintY++;
 				}
 
-				// Add scroll indicators if needed
+				// Render scroll indicators if needed
 				if (dropdownScroll > 0 || dropdownScroll + itemsToShow < _items.Count)
 				{
-					string scrollIndicator = "";
-
-					// Top scroll indicator
-					if (dropdownScroll > 0)
-						scrollIndicator += "▲";
-					else
-						scrollIndicator += " ";
-
-					// Center padding
-					int scrollPadding = dropdownWidth - 2;
-					if (scrollPadding > 0)
-						scrollIndicator += new string(' ', scrollPadding);
-
-					// Bottom scroll indicator
-					if (dropdownScroll + itemsToShow < _items.Count)
-						scrollIndicator += "▼";
-					else
-						scrollIndicator += " ";
-
-					List<string> scrollLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						scrollIndicator,
-						dropdownWidth,
-						1,
-						false,
-						backgroundColor,
-						foregroundColor
-					);
-
-					// Apply padding and margins
-					for (int i = 0; i < scrollLine.Count; i++)
+					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 					{
-						// Add alignment padding
-						if (paddingLeft > 0)
-						{
-							scrollLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-								new string(' ', paddingLeft),
-								paddingLeft,
-								1,
-								false,
-								Container?.BackgroundColor,
-								null
-							).FirstOrDefault() + scrollLine[i];
-						}
+						string scrollIndicator = (dropdownScroll > 0 ? "▲" : " ");
+						int scrollPadding = dropdownWidth - 2;
+						if (scrollPadding > 0)
+							scrollIndicator += new string(' ', scrollPadding);
+						scrollIndicator += (dropdownScroll + itemsToShow < _items.Count ? "▼" : " ");
 
-						// Add left margin
-						scrollLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', _margin.Left),
-							_margin.Left,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						).FirstOrDefault() + scrollLine[i];
+						if (_margin.Left > 0)
+							buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
 
-						// Add right margin
-						scrollLine[i] = scrollLine[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', _margin.Right),
-							_margin.Right,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						).FirstOrDefault();
+						if (alignOffset > 0)
+							buffer.FillRect(new LayoutRect(startX, paintY, alignOffset, 1), ' ', foregroundColor, windowBackground);
+
+						var scrollAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(scrollIndicator, dropdownWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
+						var scrollCells = AnsiParser.Parse(scrollAnsi, foregroundColor, backgroundColor);
+						buffer.WriteCellsClipped(startX + alignOffset, paintY, scrollCells, clipRect);
+
+						int rightStart = startX + alignOffset + dropdownWidth;
+						int rightWidth = bounds.Right - rightStart - _margin.Right;
+						if (rightWidth > 0)
+							buffer.FillRect(new LayoutRect(rightStart, paintY, rightWidth, 1), ' ', foregroundColor, windowBackground);
+
+						if (_margin.Right > 0)
+							buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, paintY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
 					}
-
-					// Add scroll indicator to result
-					content.AddRange(scrollLine);
+					paintY++;
 				}
 			}
 
-			// Add top margin
-			if (_margin.Top > 0)
+			// Fill bottom margin
+			for (int y = paintY; y < bounds.Bottom; y++)
 			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(content.FirstOrDefault() ?? string.Empty);
-				var topMargin = Enumerable.Repeat(
-					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', finalWidth),
-						finalWidth,
-						1,
-						false,
-						windowBackground,
-						windowForeground
-					).FirstOrDefault() ?? string.Empty,
-					_margin.Top
-				).ToList();
-
-				content.InsertRange(0, topMargin);
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
 			}
-
-			// Add bottom margin
-			if (_margin.Bottom > 0)
-			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(content.FirstOrDefault() ?? string.Empty);
-				var bottomMargin = Enumerable.Repeat(
-					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', finalWidth),
-						finalWidth,
-						1,
-						false,
-						windowBackground,
-						windowForeground
-					).FirstOrDefault() ?? string.Empty,
-					_margin.Bottom
-				).ToList();
-
-				content.AddRange(bottomMargin);
-			}
-
-			return content;
-			});
 		}
+
+		#endregion
 
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
@@ -1306,7 +1115,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// If stretch alignment and available width is provided, use available width
-			if (_alignment == Alignment.Stretch && availableWidth.HasValue)
+			if (_horizontalAlignment == HorizontalAlignment.Stretch && availableWidth.HasValue)
 			{
 				return availableWidth.Value;
 			}

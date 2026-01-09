@@ -9,7 +9,12 @@
 using Microsoft.Extensions.Logging;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Logging;
+using Spectre.Console;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls;
 
@@ -17,10 +22,9 @@ namespace SharpConsoleUI.Controls;
 /// A control that displays log entries from the library's LogService.
 /// Automatically updates when new log entries are added.
 /// </summary>
-public class LogViewerControl : IWindowControl, IInteractiveControl
+public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintable
 {
     private readonly ILogService _logService;
-    private readonly ThreadSafeCache<List<string>> _contentCache;
     private readonly object _logsLock = new object();  // Lock for thread-safe access to _displayedLogs
     private readonly List<LogEntry> _displayedLogs = new();
     private int _localScrollOffset = 0;  // Local fallback for scroll offset
@@ -29,7 +33,8 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
     private bool _hasFocus;
     private LogLevel _filterLevel = LogLevel.Trace;
     private string? _filterCategory;
-    private Alignment _alignment = Alignment.Left;
+    private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
     private Margin _margin = new Margin(0, 0, 0, 0);
     private StickyPosition _stickyPosition = StickyPosition.None;
     private bool _visible = true;
@@ -63,7 +68,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
     public LogViewerControl(ILogService logService)
     {
         _logService = logService ?? throw new ArgumentNullException(nameof(logService));
-        _contentCache = this.CreateThreadSafeCache<List<string>>();
         _logService.LogAdded += OnLogAdded;
         _logService.LogsCleared += OnLogsCleared;
         RefreshLogs();
@@ -78,25 +82,28 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
     {
         get
         {
-            if (_contentCache.Content == null) return null;
-            int maxLength = 0;
-            foreach (var line in _contentCache.Content)
-            {
-                int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-                if (length > maxLength) maxLength = length;
-            }
-            return maxLength;
+            return _width ?? 80 + _margin.Left + _margin.Right;
         }
     }
 
     /// <inheritdoc/>
-    public Alignment Alignment
+    public HorizontalAlignment HorizontalAlignment
     {
-        get => _alignment;
+        get => _horizontalAlignment;
         set
         {
-            _alignment = value;
-            _contentCache.Invalidate(InvalidationReason.PropertyChanged);
+            _horizontalAlignment = value;
+            Container?.Invalidate(true);
+        }
+    }
+
+    /// <inheritdoc/>
+    public VerticalAlignment VerticalAlignment
+    {
+        get => _verticalAlignment;
+        set
+        {
+            _verticalAlignment = value;
             Container?.Invalidate(true);
         }
     }
@@ -111,7 +118,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         set
         {
             _margin = value;
-            _contentCache.Invalidate(InvalidationReason.PropertyChanged);
             Container?.Invalidate(true);
         }
     }
@@ -137,7 +143,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         set
         {
             _visible = value;
-            _contentCache.Invalidate(InvalidationReason.PropertyChanged);
             Container?.Invalidate(true);
         }
     }
@@ -152,7 +157,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
             if (_width != validatedValue)
             {
                 _width = validatedValue;
-                _contentCache.Invalidate(InvalidationReason.SizeChanged);
                 Container?.Invalidate(true);
             }
         }
@@ -169,7 +173,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         set
         {
             _hasFocus = value;
-            _contentCache.Invalidate(InvalidationReason.FocusChanged);
             Container?.Invalidate(true);
         }
     }
@@ -191,7 +194,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         {
             if (value < 1) throw new ArgumentOutOfRangeException(nameof(value));
             _maxDisplayLines = value;
-            _contentCache.Invalidate(InvalidationReason.SizeChanged);
             Container?.Invalidate(true);
         }
     }
@@ -240,7 +242,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         set
         {
             _title = value;
-            _contentCache.Invalidate(InvalidationReason.PropertyChanged);
             Container?.Invalidate(true);
         }
     }
@@ -258,122 +259,9 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
     }
 
     /// <inheritdoc/>
-    public List<string> RenderContent(int? availableWidth, int? availableHeight)
-    {
-        var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
-
-        // Smart invalidation: check if re-render is needed due to size change
-        if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
-        {
-            _contentCache.Invalidate(InvalidationReason.SizeChanged);
-        }
-        else
-        {
-            var cached = _contentCache.Content;
-            if (cached != null) return cached;
-        }
-
-        // Update available space tracking
-        layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-        return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
-    }
-
-    private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
-    {
-        var lines = new List<string>();
-        int targetWidth = _width ?? availableWidth ?? 80;
-        int displayHeight = availableHeight ?? _maxDisplayLines;
-        var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
-        var fgColor = Container?.ForegroundColor ?? Spectre.Console.Color.White;
-
-        // Account for title
-        int contentHeight = string.IsNullOrEmpty(_title) ? displayHeight : displayHeight - 1;
-
-        // Add title if set
-        if (!string.IsNullOrEmpty(_title))
-        {
-            var titleColor = _hasFocus ? "cyan" : "dim";
-            var titleMarkup = $"[{titleColor}]{_title}[/]";
-            var titleLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(titleMarkup, targetWidth, 1, false, bgColor, fgColor);
-            lines.AddRange(titleLines);
-        }
-
-        // Get visible logs - lock to prevent concurrent modification
-        int scrollOffset = CurrentScrollOffset;
-        List<LogEntry> visibleLogs;
-        int totalFiltered;
-        lock (_logsLock)
-        {
-            visibleLogs = _displayedLogs
-                .Skip(scrollOffset)
-                .Take(contentHeight)
-                .ToList();  // Copy inside lock
-            totalFiltered = _displayedLogs.Count;
-        }
-
-        if (visibleLogs.Count == 0)
-        {
-            var emptyLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi("[dim]No log entries[/]", targetWidth, 1, false, bgColor, fgColor);
-            lines.AddRange(emptyLines);
-        }
-        else
-        {
-            foreach (var entry in visibleLogs)
-            {
-                var entryLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(entry.ToMarkup(), targetWidth, 1, false, bgColor, fgColor);
-                lines.AddRange(entryLines);
-            }
-        }
-
-        // Add scroll indicator if there are more entries
-        if (totalFiltered > contentHeight && visibleLogs.Count > 0)
-        {
-            var scrollInfo = $"[dim]({scrollOffset + 1}-{Math.Min(scrollOffset + contentHeight, totalFiltered)} of {totalFiltered})[/]";
-            var scrollLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(scrollInfo, targetWidth, 1, false, bgColor, fgColor);
-            lines.AddRange(scrollLines);
-        }
-
-        // Apply alignment padding
-        for (int i = 0; i < lines.Count; i++)
-        {
-            int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(lines[i]);
-            if (lineWidth < targetWidth)
-            {
-                int totalPadding = targetWidth - lineWidth;
-
-                switch (_alignment)
-                {
-                    case Alignment.Center:
-                        int leftPad = totalPadding / 2;
-                        int rightPad = totalPadding - leftPad;
-                        lines[i] = AnsiConsoleHelper.AnsiEmptySpace(leftPad, bgColor)
-                            + lines[i]
-                            + AnsiConsoleHelper.AnsiEmptySpace(rightPad, bgColor);
-                        break;
-                    case Alignment.Right:
-                        lines[i] = AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor)
-                            + lines[i];
-                        break;
-                    default: // Left or Stretch
-                        lines[i] = lines[i]
-                            + AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor);
-                        break;
-                }
-            }
-            else if (lineWidth > targetWidth)
-            {
-                lines[i] = AnsiConsoleHelper.SubstringAnsi(lines[i], 0, targetWidth);
-            }
-        }
-
-        return lines;
-    }
-
-    /// <inheritdoc/>
     public void Invalidate()
     {
-        _contentCache.Invalidate(InvalidationReason.ContentChanged);
+        Container?.Invalidate(true);
     }
 
     /// <inheritdoc/>
@@ -384,7 +272,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
 
         _logService.LogAdded -= OnLogAdded;
         _logService.LogsCleared -= OnLogsCleared;
-        _contentCache.Dispose();
         Container = null;
     }
 
@@ -418,7 +305,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
             case ConsoleKey.Home:
                 SetScrollOffset(0);
                 _autoScroll = false;
-                _contentCache.Invalidate(InvalidationReason.StateChanged);
                 Container?.Invalidate(true);
                 return true;
 
@@ -450,7 +336,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         int newOffset = Math.Max(0, CurrentScrollOffset - lines);
         SetScrollOffset(newOffset);
         _autoScroll = false;
-        _contentCache.Invalidate(InvalidationReason.StateChanged);
         Container?.Invalidate(true);
     }
 
@@ -468,7 +353,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         var maxOffset = Math.Max(0, logCount - _maxDisplayLines);
         int newOffset = Math.Min(maxOffset, CurrentScrollOffset + lines);
         SetScrollOffset(newOffset);
-        _contentCache.Invalidate(InvalidationReason.StateChanged);
         Container?.Invalidate(true);
     }
 
@@ -484,7 +368,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         }
         int newOffset = Math.Max(0, logCount - _maxDisplayLines);
         SetScrollOffset(newOffset);
-        _contentCache.Invalidate(InvalidationReason.StateChanged);
         Container?.Invalidate(true);
     }
 
@@ -536,7 +419,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
         }
 
         // Invalidate OUTSIDE the lock to avoid deadlock
-        _contentCache.Invalidate(InvalidationReason.ContentChanged);
         Container?.Invalidate(true);
     }
 
@@ -550,7 +432,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
             _displayedLogs.Clear();
         }
         SetScrollOffset(0);
-        _contentCache.Invalidate(InvalidationReason.ContentChanged);
         Container?.Invalidate(true);
     }
 
@@ -589,8 +470,310 @@ public class LogViewerControl : IWindowControl, IInteractiveControl
             SetScrollOffset(newOffset);
         }
 
-        _contentCache.Invalidate(InvalidationReason.ContentChanged);
         Container?.Invalidate(true);
+    }
+
+    #endregion
+
+    #region IDOMPaintable Implementation
+
+    /// <inheritdoc/>
+    public LayoutSize MeasureDOM(LayoutConstraints constraints)
+    {
+        int contentWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
+
+        // Calculate height: title line + visible log lines + possible scroll indicator
+        int logCount;
+        lock (_logsLock)
+        {
+            logCount = _displayedLogs.Count;
+        }
+
+        int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
+        int contentHeight = Math.Min(_maxDisplayLines, logCount);
+        if (contentHeight == 0) contentHeight = 1; // "No log entries" message
+
+        // Add scroll indicator line if there are more entries than visible
+        int scrollIndicatorHeight = logCount > _maxDisplayLines ? 1 : 0;
+
+        int totalHeight = titleHeight + contentHeight + scrollIndicatorHeight + _margin.Top + _margin.Bottom;
+        int width = (_width ?? contentWidth) + _margin.Left + _margin.Right;
+
+        return new LayoutSize(
+            Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+            Math.Clamp(totalHeight, constraints.MinHeight, constraints.MaxHeight)
+        );
+    }
+
+    /// <inheritdoc/>
+    public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+    {
+        var bgColor = Container?.BackgroundColor ?? defaultBg;
+        var fgColor = Container?.ForegroundColor ?? defaultFg;
+        int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+
+        if (targetWidth <= 0) return;
+
+        int startX = bounds.X + _margin.Left;
+        int startY = bounds.Y + _margin.Top;
+        int currentY = startY;
+
+        // Fill top margin
+        for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
+        {
+            if (y >= clipRect.Y && y < clipRect.Bottom)
+            {
+                buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+            }
+        }
+
+        // Render title if set
+        int contentHeight = bounds.Height - _margin.Top - _margin.Bottom;
+        if (!string.IsNullOrEmpty(_title))
+        {
+            if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
+            {
+                // Fill left margin
+                if (_margin.Left > 0)
+                {
+                    buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', fgColor, bgColor);
+                }
+
+                var titleColor = _hasFocus ? Color.Cyan1 : Color.Grey;
+                var titleText = _title.Length > targetWidth ? _title.Substring(0, targetWidth) : _title;
+
+                // Apply alignment
+                int alignOffset = 0;
+                if (titleText.Length < targetWidth)
+                {
+                    switch (_horizontalAlignment)
+                    {
+                        case HorizontalAlignment.Center:
+                            alignOffset = (targetWidth - titleText.Length) / 2;
+                            break;
+                        case HorizontalAlignment.Right:
+                            alignOffset = targetWidth - titleText.Length;
+                            break;
+                    }
+                }
+
+                // Fill left alignment padding
+                if (alignOffset > 0)
+                {
+                    buffer.FillRect(new LayoutRect(startX, currentY, alignOffset, 1), ' ', fgColor, bgColor);
+                }
+
+                // Write title
+                for (int i = 0; i < titleText.Length && startX + alignOffset + i < clipRect.Right; i++)
+                {
+                    int x = startX + alignOffset + i;
+                    if (x >= clipRect.X)
+                    {
+                        buffer.SetCell(x, currentY, titleText[i], titleColor, bgColor);
+                    }
+                }
+
+                // Fill right padding
+                int rightPadStart = startX + alignOffset + titleText.Length;
+                int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+                if (rightPadWidth > 0)
+                {
+                    buffer.FillRect(new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), ' ', fgColor, bgColor);
+                }
+
+                // Fill right margin
+                if (_margin.Right > 0)
+                {
+                    buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', fgColor, bgColor);
+                }
+            }
+            currentY++;
+            contentHeight--;
+        }
+
+        // Get visible logs
+        int scrollOffset = CurrentScrollOffset;
+        List<LogEntry> visibleLogs;
+        int totalFiltered;
+        lock (_logsLock)
+        {
+            visibleLogs = _displayedLogs
+                .Skip(scrollOffset)
+                .Take(contentHeight - 1) // Leave room for scroll indicator if needed
+                .ToList();
+            totalFiltered = _displayedLogs.Count;
+        }
+
+        // Render log entries or empty message
+        if (visibleLogs.Count == 0)
+        {
+            if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
+            {
+                // Fill left margin
+                if (_margin.Left > 0)
+                {
+                    buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', fgColor, bgColor);
+                }
+
+                var emptyText = "No log entries";
+                var emptyColor = Color.Grey;
+
+                // Apply alignment
+                int alignOffset = 0;
+                if (emptyText.Length < targetWidth)
+                {
+                    switch (_horizontalAlignment)
+                    {
+                        case HorizontalAlignment.Center:
+                            alignOffset = (targetWidth - emptyText.Length) / 2;
+                            break;
+                        case HorizontalAlignment.Right:
+                            alignOffset = targetWidth - emptyText.Length;
+                            break;
+                    }
+                }
+
+                if (alignOffset > 0)
+                {
+                    buffer.FillRect(new LayoutRect(startX, currentY, alignOffset, 1), ' ', fgColor, bgColor);
+                }
+
+                for (int i = 0; i < emptyText.Length && startX + alignOffset + i < clipRect.Right; i++)
+                {
+                    int x = startX + alignOffset + i;
+                    if (x >= clipRect.X)
+                    {
+                        buffer.SetCell(x, currentY, emptyText[i], emptyColor, bgColor);
+                    }
+                }
+
+                int rightPadStart = startX + alignOffset + emptyText.Length;
+                int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+                if (rightPadWidth > 0)
+                {
+                    buffer.FillRect(new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), ' ', fgColor, bgColor);
+                }
+
+                if (_margin.Right > 0)
+                {
+                    buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', fgColor, bgColor);
+                }
+            }
+            currentY++;
+        }
+        else
+        {
+            foreach (var entry in visibleLogs)
+            {
+                if (currentY >= bounds.Bottom) break;
+
+                if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
+                {
+                    // Fill left margin
+                    if (_margin.Left > 0)
+                    {
+                        buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', fgColor, bgColor);
+                    }
+
+                    // Render log entry using Spectre markup
+                    var entryMarkup = entry.ToMarkup();
+                    var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(entryMarkup, targetWidth, 1, false, bgColor, fgColor).FirstOrDefault() ?? string.Empty;
+                    var cells = AnsiParser.Parse(ansiLine, fgColor, bgColor);
+                    buffer.WriteCellsClipped(startX, currentY, cells, clipRect);
+
+                    // Fill any remaining width
+                    int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(ansiLine);
+                    if (lineWidth < targetWidth)
+                    {
+                        buffer.FillRect(new LayoutRect(startX + lineWidth, currentY, targetWidth - lineWidth, 1), ' ', fgColor, bgColor);
+                    }
+
+                    // Fill right margin
+                    if (_margin.Right > 0)
+                    {
+                        buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', fgColor, bgColor);
+                    }
+                }
+                currentY++;
+            }
+        }
+
+        // Render scroll indicator if there are more entries
+        if (totalFiltered > _maxDisplayLines && visibleLogs.Count > 0)
+        {
+            if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
+            {
+                // Fill left margin
+                if (_margin.Left > 0)
+                {
+                    buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', fgColor, bgColor);
+                }
+
+                var endVisible = Math.Min(scrollOffset + visibleLogs.Count, totalFiltered);
+                var scrollInfo = $"({scrollOffset + 1}-{endVisible} of {totalFiltered})";
+                var scrollColor = Color.Grey;
+
+                // Apply alignment
+                int alignOffset = 0;
+                if (scrollInfo.Length < targetWidth)
+                {
+                    switch (_horizontalAlignment)
+                    {
+                        case HorizontalAlignment.Center:
+                            alignOffset = (targetWidth - scrollInfo.Length) / 2;
+                            break;
+                        case HorizontalAlignment.Right:
+                            alignOffset = targetWidth - scrollInfo.Length;
+                            break;
+                    }
+                }
+
+                if (alignOffset > 0)
+                {
+                    buffer.FillRect(new LayoutRect(startX, currentY, alignOffset, 1), ' ', fgColor, bgColor);
+                }
+
+                for (int i = 0; i < scrollInfo.Length && startX + alignOffset + i < clipRect.Right; i++)
+                {
+                    int x = startX + alignOffset + i;
+                    if (x >= clipRect.X)
+                    {
+                        buffer.SetCell(x, currentY, scrollInfo[i], scrollColor, bgColor);
+                    }
+                }
+
+                int rightPadStart = startX + alignOffset + scrollInfo.Length;
+                int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+                if (rightPadWidth > 0)
+                {
+                    buffer.FillRect(new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), ' ', fgColor, bgColor);
+                }
+
+                if (_margin.Right > 0)
+                {
+                    buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', fgColor, bgColor);
+                }
+            }
+            currentY++;
+        }
+
+        // Fill any remaining content area
+        for (int y = currentY; y < bounds.Bottom - _margin.Bottom; y++)
+        {
+            if (y >= clipRect.Y && y < clipRect.Bottom)
+            {
+                buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+            }
+        }
+
+        // Fill bottom margin
+        for (int y = bounds.Bottom - _margin.Bottom; y < bounds.Bottom; y++)
+        {
+            if (y >= clipRect.Y && y < clipRect.Bottom)
+            {
+                buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+            }
+        }
     }
 
     #endregion

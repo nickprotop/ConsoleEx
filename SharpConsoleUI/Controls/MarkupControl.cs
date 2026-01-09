@@ -6,9 +6,12 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using System.Drawing;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -16,11 +19,11 @@ namespace SharpConsoleUI.Controls
 	/// A control that displays rich text content using Spectre.Console markup syntax.
 	/// Supports text alignment, margins, word wrapping, and sticky positioning.
 	/// </summary>
-	public class MarkupControl : IWindowControl
+	public class MarkupControl : IWindowControl, IDOMPaintable
 	{
-		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private List<string> _content;
-		private Alignment _justify = Alignment.Left;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
@@ -34,33 +37,33 @@ namespace SharpConsoleUI.Controls
 		public MarkupControl(List<string> lines)
 		{
 			_content = lines;
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
 		/// <summary>
-		/// Gets the actual rendered width of the control based on cached content.
+		/// Gets the actual rendered width of the control based on content.
 		/// </summary>
-		/// <returns>The maximum line width in characters, or null if content has not been rendered.</returns>
+		/// <returns>The maximum line width in characters.</returns>
 		public int? ActualWidth
 		{
 			get
 			{
-				if (_contentCache.Content == null) return null;
 				int maxLength = 0;
-				foreach (var line in _contentCache.Content)
+				foreach (var line in _content)
 				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
+					int length = AnsiConsoleHelper.StripSpectreLength(line);
 					if (length > maxLength) maxLength = length;
 				}
-				return maxLength;
+				return maxLength + _margin.Left + _margin.Right;
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the text alignment within the control.
-		/// </summary>
-		public Alignment Alignment
-		{ get => _justify; set { _justify = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		/// <inheritdoc/>
+		public HorizontalAlignment HorizontalAlignment
+		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
@@ -69,7 +72,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the margin around the control content.
 		/// </summary>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
@@ -94,14 +97,13 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_content = value.Split('\n').ToList();
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
 
 		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets the fixed width of the control. When null, the control uses available width.
@@ -115,7 +117,6 @@ namespace SharpConsoleUI.Controls
 				if (_width != validatedValue)
 				{
 					_width = validatedValue;
-					_contentCache.Invalidate(InvalidationReason.SizeChanged);
 					Container?.Invalidate(true);
 				}
 			}
@@ -125,21 +126,20 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets whether text should wrap to multiple lines when exceeding available width.
 		/// </summary>
 		public bool Wrap
-		{ get => _wrap; set { _wrap = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _wrap; set { _wrap = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public void Dispose()
 		{
-			_contentCache.Dispose();
 			Container = null;
 		}
 
 		/// <summary>
-		/// Invalidates the cached content, forcing a re-render on the next draw.
+		/// Invalidates the control, forcing a re-render on the next draw.
 		/// </summary>
 		public void Invalidate()
 		{
-			_contentCache.Invalidate(InvalidationReason.ContentChanged);
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -155,126 +155,6 @@ namespace SharpConsoleUI.Controls
 			return new System.Drawing.Size(maxWidth, _content.Count);
 		}
 
-		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
-		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
-
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
-			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-			}
-			else
-			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return cached;
-			}
-
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
-		}
-
-		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
-		{
-			var renderedContent = new List<string>();
-			int targetWidth = _width ?? availableWidth ?? 50;
-			Spectre.Console.Color bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
-
-			// Calculate content width for alignment
-			int maxContentWidth = 0;
-			foreach (var line in _content)
-			{
-				int length = AnsiConsoleHelper.StripSpectreLength(line);
-				if (length > maxContentWidth) maxContentWidth = length;
-			}
-
-			// For centered/right alignment, render at content width then pad
-			// For left/stretch alignment, render at target width
-			int renderWidth = (Alignment == Alignment.Center || Alignment == Alignment.Right)
-				? Math.Min(maxContentWidth, targetWidth)
-				: targetWidth;
-
-			foreach (var line in _content)
-			{
-				// Use _wrap to control whether multiple lines are allowed in output
-				var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{line}", renderWidth, availableHeight, _wrap, Container?.BackgroundColor, Container?.ForegroundColor);
-				renderedContent.AddRange(ansiLines);
-			}
-
-			// Apply alignment padding to reach targetWidth
-			for (int i = 0; i < renderedContent.Count; i++)
-			{
-				int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent[i]);
-				if (lineWidth < targetWidth)
-				{
-					int totalPadding = targetWidth - lineWidth;
-
-					switch (Alignment)
-					{
-						case Alignment.Center:
-							int leftPad = totalPadding / 2;
-							int rightPad = totalPadding - leftPad;
-							renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(leftPad, bgColor)
-								+ renderedContent[i]
-								+ AnsiConsoleHelper.AnsiEmptySpace(rightPad, bgColor);
-							break;
-						case Alignment.Right:
-							renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor)
-								+ renderedContent[i];
-							break;
-						default: // Left or Stretch
-							renderedContent[i] = renderedContent[i]
-								+ AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor);
-							break;
-					}
-				}
-				else if (lineWidth > targetWidth)
-				{
-					// Truncate if line is too wide
-					renderedContent[i] = AnsiConsoleHelper.SubstringAnsi(renderedContent[i], 0, targetWidth);
-				}
-
-				// Apply left margin
-				if (_margin.Left > 0)
-				{
-					renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(_margin.Left, bgColor) + renderedContent[i];
-				}
-
-				// Apply right margin
-				if (_margin.Right > 0)
-				{
-					renderedContent[i] = renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(_margin.Right, bgColor);
-				}
-			}
-
-			// Add top margin
-			if (_margin.Top > 0)
-			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
-				for (int i = 0; i < _margin.Top; i++)
-				{
-					renderedContent.Insert(0, AnsiConsoleHelper.AnsiEmptySpace(finalWidth, bgColor));
-				}
-			}
-
-			// Add bottom margin
-			if (_margin.Bottom > 0)
-			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
-				for (int i = 0; i < _margin.Bottom; i++)
-				{
-					renderedContent.Add(AnsiConsoleHelper.AnsiEmptySpace(finalWidth, bgColor));
-				}
-			}
-
-			return renderedContent;
-		}
-
 		/// <summary>
 		/// Sets the content of the control to the specified lines of text.
 		/// </summary>
@@ -282,8 +162,156 @@ namespace SharpConsoleUI.Controls
 		public void SetContent(List<string> lines)
 		{
 			_content = lines;
-			_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 			Container?.Invalidate(true);
 		}
+
+		#region IDOMPaintable Implementation
+
+		/// <inheritdoc/>
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			int targetWidth = _width ?? constraints.MaxWidth;
+
+			// Calculate content dimensions
+			int maxContentWidth = 0;
+			int totalLines = 0;
+
+			foreach (var line in _content)
+			{
+				int lineWidth = AnsiConsoleHelper.StripSpectreLength(line);
+				maxContentWidth = Math.Max(maxContentWidth, lineWidth);
+
+				if (_wrap && lineWidth > targetWidth && targetWidth > 0)
+				{
+					// Estimate wrapped lines
+					totalLines += (int)Math.Ceiling((double)lineWidth / targetWidth);
+				}
+				else
+				{
+					totalLines++;
+				}
+			}
+
+			// Account for margins
+			int width = Math.Min(targetWidth, maxContentWidth) + _margin.Left + _margin.Right;
+			int height = totalLines + _margin.Top + _margin.Bottom;
+
+			return new LayoutSize(
+				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			Color bgColor = Container?.BackgroundColor ?? defaultBg;
+			Color fgColor = Container?.ForegroundColor ?? defaultFg;
+
+			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			if (targetWidth <= 0) return;
+
+			// Calculate content width for alignment
+			int maxContentWidth = 0;
+			foreach (var line in _content)
+			{
+				int length = AnsiConsoleHelper.StripSpectreLength(line);
+				maxContentWidth = Math.Max(maxContentWidth, length);
+			}
+
+			// Render content lines
+			var renderedLines = new List<string>();
+			foreach (var line in _content)
+			{
+				int renderWidth = (_horizontalAlignment == HorizontalAlignment.Center || _horizontalAlignment == HorizontalAlignment.Right)
+					? Math.Min(maxContentWidth, targetWidth)
+					: targetWidth;
+
+				var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					line, renderWidth, null, _wrap, bgColor, fgColor);
+				renderedLines.AddRange(ansiLines);
+			}
+
+			// Paint with margins
+			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + _margin.Left;
+
+			// Fill top margin
+			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+				}
+			}
+
+			// Paint content lines
+			for (int i = 0; i < renderedLines.Count && startY + i < bounds.Bottom; i++)
+			{
+				int y = startY + i;
+				if (y < clipRect.Y || y >= clipRect.Bottom)
+					continue;
+
+				string line = renderedLines[i];
+				int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(line);
+
+				// Calculate alignment offset
+				int alignOffset = 0;
+				if (lineWidth < targetWidth)
+				{
+					switch (_horizontalAlignment)
+					{
+						case HorizontalAlignment.Center:
+							alignOffset = (targetWidth - lineWidth) / 2;
+							break;
+						case HorizontalAlignment.Right:
+							alignOffset = targetWidth - lineWidth;
+							break;
+					}
+				}
+
+				// Fill left margin
+				if (_margin.Left > 0)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, _margin.Left, 1), ' ', fgColor, bgColor);
+				}
+
+				// Fill alignment padding (left side)
+				if (alignOffset > 0)
+				{
+					buffer.FillRect(new LayoutRect(startX, y, alignOffset, 1), ' ', fgColor, bgColor);
+				}
+
+				// Paint the line content
+				var cells = AnsiParser.Parse(line, fgColor, bgColor);
+				buffer.WriteCellsClipped(startX + alignOffset, y, cells, clipRect);
+
+				// Fill remaining space (right side)
+				int rightPadStart = startX + alignOffset + lineWidth;
+				int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+				if (rightPadWidth > 0)
+				{
+					buffer.FillRect(new LayoutRect(rightPadStart, y, rightPadWidth, 1), ' ', fgColor, bgColor);
+				}
+
+				// Fill right margin
+				if (_margin.Right > 0)
+				{
+					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, y, _margin.Right, 1), ' ', fgColor, bgColor);
+				}
+			}
+
+			// Fill bottom margin and remaining space
+			int contentEndY = startY + renderedLines.Count;
+			for (int y = contentEndY; y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+				}
+			}
+		}
+
+		#endregion
 	}
 }

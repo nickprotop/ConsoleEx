@@ -10,21 +10,22 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Core;
 using Spectre.Console;
 using System;
 using System.Drawing;
 using Color = Spectre.Console.Color;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
 	/// A clickable button control that supports keyboard and mouse interaction.
 	/// </summary>
-	public class ButtonControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	public class ButtonControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
 	{
-		private Alignment _alignment = Alignment.Left;
-		private readonly ThreadSafeCache<string> _contentCache;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _enabled = true;
 		private bool _focused;
 		private Margin _margin = new Margin(0, 0, 0, 0);
@@ -38,17 +39,26 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public ButtonControl()
 		{
-			_contentCache = this.CreateThreadSafeCache<string>();
 		}
 
 		/// <summary>
 		/// Gets the actual rendered width of the button in characters.
 		/// </summary>
-		public int? ActualWidth => _contentCache.Content == null ? null : AnsiConsoleHelper.StripAnsiStringLength(_contentCache.Content);
+		public int? ActualWidth => GetButtonWidth() + _margin.Left + _margin.Right;
+
+		private int GetButtonWidth()
+		{
+			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
+			return _width ?? (AnsiConsoleHelper.StripSpectreLength(text) + 4);
+		}
 
 		/// <inheritdoc/>
-		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		public HorizontalAlignment HorizontalAlignment
+		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
@@ -60,7 +70,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focused = value;
-				_contentCache.Invalidate(InvalidationReason.FocusChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -74,14 +83,13 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_enabled = value;
-				_contentCache.Invalidate(InvalidationReason.StateChanged);
 				Container?.Invalidate(true);
 			}
 		}
 
 		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
@@ -90,7 +98,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_stickyPosition = value;
-				this.SafeInvalidate(InvalidationReason.PropertyChanged);
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -106,14 +114,13 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_text = value;
-				_contentCache.Invalidate(InvalidationReason.ContentChanged);
 				Container?.Invalidate(true);
 			}
 		}
 
 		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public int? Width
@@ -125,7 +132,6 @@ namespace SharpConsoleUI.Controls
 				if (_width != validatedValue)
 				{
 					_width = validatedValue;
-					_contentCache.Invalidate(InvalidationReason.SizeChanged);
 					Container?.Invalidate(true);
 				}
 			}
@@ -135,30 +141,32 @@ namespace SharpConsoleUI.Controls
 		public void Dispose()
 		{
 			Container = null;
-			_contentCache.Dispose();
 		}
 
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(int.MaxValue, int.MaxValue);
-			return new System.Drawing.Size(
-				content.FirstOrDefault()?.Length ?? 0,
-				content.Count
-			);
+			int buttonWidth = GetButtonWidth();
+			return new System.Drawing.Size(buttonWidth + _margin.Left + _margin.Right, 1 + _margin.Top + _margin.Bottom);
 		}
 
 		/// <inheritdoc/>
 		public void Invalidate()
 		{
-			_contentCache.Invalidate(InvalidationReason.All);
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+			System.IO.File.AppendAllText("/tmp/consoleex_button_debug.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}] ButtonControl.ProcessKey: key={key.Key}, Text={Text}, HasFocus={HasFocus}, IsEnabled={IsEnabled}\n");
+
 			if (key.Key == ConsoleKey.Enter)
 			{
+				System.IO.File.AppendAllText("/tmp/consoleex_button_debug.log",
+					$"[{DateTime.Now:HH:mm:ss.fff}]   Enter key detected, triggering click\n");
+
 				// Trigger the click event
 				TriggerClick(new MouseEventArgs(
 					new List<MouseFlags> { MouseFlags.Button1Clicked },
@@ -171,173 +179,6 @@ namespace SharpConsoleUI.Controls
 
 			return false;
 		}
-
-		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
-		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
-
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
-			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-			}
-			else
-			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return new List<string> { cached };
-			}
-
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-			// Use thread-safe cache with lazy rendering
-			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight).FirstOrDefault() ?? string.Empty) switch
-			{
-				string content => new List<string> { content },
-				_ => new List<string>()
-			};
-		}
-
-		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
-		{
-
-			Color backgroundColor = Container?.BackgroundColor ?? Color.Black;
-			Color foregroundColor = Container?.ForegroundColor ?? Color.White;
-
-			Color windowBackground = Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
-			Color windowForeground = Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
-
-			if (Container?.GetConsoleWindowSystem?.Theme != null)
-			{
-				if (_enabled == false)
-				{
-					foregroundColor = Container.GetConsoleWindowSystem.Theme.ButtonDisabledForegroundColor;
-					backgroundColor = Container.GetConsoleWindowSystem.Theme.ButtonDisabledBackgroundColor;
-				}
-				else
-				{
-					if (_focused)
-					{
-						{
-							foregroundColor = Container.GetConsoleWindowSystem.Theme.ButtonFocusedForegroundColor;
-							backgroundColor = Container.GetConsoleWindowSystem.Theme.ButtonFocusedBackgroundColor;
-						}
-					}
-					else
-					{
-						foregroundColor = Container.GetConsoleWindowSystem.Theme.ButtonForegroundColor;
-						backgroundColor = Container.GetConsoleWindowSystem.Theme.ButtonBackgroundColor;
-					}
-				}
-			}
-
-			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
-
-			// Calculate button width with minimum of 4 to ensure room for brackets
-			int rawButtonWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 20) : AnsiConsoleHelper.StripSpectreLength(text) + 4);
-			int buttonWidth = Math.Max(4, rawButtonWidth); // Minimum width of 4 for "[ ]"
-			int maxTextLength = buttonWidth - 4; // Account for brackets and padding
-
-			if (maxTextLength > 0 && AnsiConsoleHelper.StripSpectreLength(text) > maxTextLength)
-			{
-				// Use TruncateSpectre to safely truncate text with Spectre markup
-				int truncateLength = Math.Max(0, maxTextLength - 3);
-				text = truncateLength > 0
-					? AnsiConsoleHelper.TruncateSpectre(text, truncateLength) + "..."
-					: "...".Substring(0, Math.Max(0, maxTextLength)); // Handle very small widths
-			}
-			else if (maxTextLength <= 0)
-			{
-				// Button is too small for any text
-				text = string.Empty;
-			}
-
-			int padding = (buttonWidth - AnsiConsoleHelper.StripSpectreLength(text) - 2) / 2;
-			if (padding < 0) padding = 0; // Ensure padding is not negative
-
-			// Create the final string with [ at the start and ] at the end
-			string finalButtonText = $"[{new string(' ', padding)}{text}{new string(' ', padding)}]";
-
-			// Ensure the buttonText fits within the buttonWidth using visible-length-aware padding
-			int visibleLength = AnsiConsoleHelper.StripSpectreLength(finalButtonText);
-			if (visibleLength < buttonWidth)
-			{
-				// Use manual padding based on visible length, not string length
-				finalButtonText = finalButtonText + new string(' ', buttonWidth - visibleLength);
-			}
-
-			// Check if finalButtonText is of the desired width
-			if (AnsiConsoleHelper.StripSpectreLength(finalButtonText) < buttonWidth)
-			{
-				finalButtonText = finalButtonText.Insert(0, new string(' ', buttonWidth - AnsiConsoleHelper.StripSpectreLength(finalButtonText)));
-			}
-
-			int targetWidth = availableWidth ?? 80;
-
-			List<string> renderedAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{finalButtonText}", buttonWidth, availableHeight, false, backgroundColor, foregroundColor);
-
-			// Apply alignment padding
-			for (int i = 0; i < renderedAnsi.Count; i++)
-			{
-				int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedAnsi[i]);
-				if (lineWidth < targetWidth)
-				{
-					int totalPadding = targetWidth - lineWidth;
-					switch (_alignment)
-					{
-						case Alignment.Center:
-							int leftPad = totalPadding / 2;
-							int rightPad = totalPadding - leftPad;
-							renderedAnsi[i] = AnsiConsoleHelper.AnsiEmptySpace(leftPad, windowBackground) + renderedAnsi[i] + AnsiConsoleHelper.AnsiEmptySpace(rightPad, windowBackground);
-							break;
-						case Alignment.Right:
-							renderedAnsi[i] = AnsiConsoleHelper.AnsiEmptySpace(totalPadding, windowBackground) + renderedAnsi[i];
-							break;
-						default: // Left or Stretch
-							renderedAnsi[i] = renderedAnsi[i] + AnsiConsoleHelper.AnsiEmptySpace(totalPadding, windowBackground);
-							break;
-					}
-				}
-
-				// Apply left margin
-				if (_margin.Left > 0)
-				{
-					renderedAnsi[i] = AnsiConsoleHelper.AnsiEmptySpace(_margin.Left, windowBackground) + renderedAnsi[i];
-				}
-
-				// Apply right margin
-				if (_margin.Right > 0)
-				{
-					renderedAnsi[i] = renderedAnsi[i] + AnsiConsoleHelper.AnsiEmptySpace(_margin.Right, windowBackground);
-				}
-			}
-
-			// Add top margin
-			if (_margin.Top > 0)
-			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedAnsi.FirstOrDefault() ?? string.Empty);
-				for (int j = 0; j < _margin.Top; j++)
-				{
-					renderedAnsi.Insert(0, AnsiConsoleHelper.AnsiEmptySpace(finalWidth, windowBackground));
-				}
-			}
-
-			// Add bottom margin
-			if (_margin.Bottom > 0)
-			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedAnsi.FirstOrDefault() ?? string.Empty);
-				for (int j = 0; j < _margin.Bottom; j++)
-				{
-					renderedAnsi.Add(AnsiConsoleHelper.AnsiEmptySpace(finalWidth, windowBackground));
-				}
-			}
-
-			return renderedAnsi;
-		}
-
 
 		// IMouseAwareControl implementation
 		/// <inheritdoc/>
@@ -393,11 +234,17 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void TriggerClick(MouseEventArgs args)
 		{
+			System.IO.File.AppendAllText("/tmp/consoleex_button_debug.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}] ButtonControl.TriggerClick: Text={Text}, MouseClick subscribers={MouseClick?.GetInvocationList().Length ?? 0}, Click subscribers={Click?.GetInvocationList().Length ?? 0}\n");
+
 			// Fire the mouse click event
 			MouseClick?.Invoke(this, args);
-			
+
 			// Fire the convenience click event
 			Click?.Invoke(this, this);
+
+			System.IO.File.AppendAllText("/tmp/consoleex_button_debug.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}]   Click events fired\n");
 		}
 
 		// IFocusableControl implementation
@@ -415,7 +262,7 @@ namespace SharpConsoleUI.Controls
 		{
 			var hadFocus = HasFocus;
 			HasFocus = focus;
-			
+
 			if (focus && !hadFocus)
 			{
 				GotFocus?.Invoke(this, EventArgs.Empty);
@@ -425,5 +272,155 @@ namespace SharpConsoleUI.Controls
 				LostFocus?.Invoke(this, EventArgs.Empty);
 			}
 		}
+
+		#region IDOMPaintable Implementation
+
+		/// <inheritdoc/>
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
+			int buttonWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - _margin.Left - _margin.Right : AnsiConsoleHelper.StripSpectreLength(text) + 4);
+			buttonWidth = Math.Max(4, buttonWidth);
+
+			int width = buttonWidth + _margin.Left + _margin.Right;
+			int height = 1 + _margin.Top + _margin.Bottom;
+
+			return new LayoutSize(
+				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			Color backgroundColor = Container?.BackgroundColor ?? defaultBg;
+			Color foregroundColor = Container?.ForegroundColor ?? defaultFg;
+			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
+
+			// Get theme colors
+			if (Container?.GetConsoleWindowSystem?.Theme != null)
+			{
+				var theme = Container.GetConsoleWindowSystem.Theme;
+				if (!_enabled)
+				{
+					foregroundColor = theme.ButtonDisabledForegroundColor;
+					backgroundColor = theme.ButtonDisabledBackgroundColor;
+				}
+				else if (_focused)
+				{
+					foregroundColor = theme.ButtonFocusedForegroundColor;
+					backgroundColor = theme.ButtonFocusedBackgroundColor;
+				}
+				else
+				{
+					foregroundColor = theme.ButtonForegroundColor;
+					backgroundColor = theme.ButtonBackgroundColor;
+				}
+			}
+
+			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			if (targetWidth <= 0) return;
+
+			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
+			int buttonWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : Math.Min(AnsiConsoleHelper.StripSpectreLength(text) + 4, targetWidth));
+			buttonWidth = Math.Max(4, buttonWidth);
+			int maxTextLength = buttonWidth - 4;
+
+			// Truncate text if needed
+			if (maxTextLength > 0 && AnsiConsoleHelper.StripSpectreLength(text) > maxTextLength)
+			{
+				int truncateLength = Math.Max(0, maxTextLength - 3);
+				text = truncateLength > 0
+					? AnsiConsoleHelper.TruncateSpectre(text, truncateLength) + "..."
+					: "...".Substring(0, Math.Max(0, maxTextLength));
+			}
+			else if (maxTextLength <= 0)
+			{
+				text = string.Empty;
+			}
+
+			// Build button text with padding
+			int padding = Math.Max(0, (buttonWidth - AnsiConsoleHelper.StripSpectreLength(text) - 2) / 2);
+			string buttonText = $"[{new string(' ', padding)}{text}{new string(' ', padding)}]";
+			int visibleLen = AnsiConsoleHelper.StripSpectreLength(buttonText);
+			if (visibleLen < buttonWidth)
+			{
+				buttonText = buttonText + new string(' ', buttonWidth - visibleLen);
+			}
+
+			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + _margin.Left;
+
+			// Calculate alignment offset
+			int alignOffset = 0;
+			if (buttonWidth < targetWidth)
+			{
+				switch (_horizontalAlignment)
+				{
+					case HorizontalAlignment.Center:
+						alignOffset = (targetWidth - buttonWidth) / 2;
+						break;
+					case HorizontalAlignment.Right:
+						alignOffset = targetWidth - buttonWidth;
+						break;
+				}
+			}
+
+			// Fill top margin
+			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
+				}
+			}
+
+			// Paint button line
+			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
+			{
+				// Fill left margin
+				if (_margin.Left > 0)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, startY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+				}
+
+				// Fill alignment padding (left side)
+				if (alignOffset > 0)
+				{
+					buffer.FillRect(new LayoutRect(startX, startY, alignOffset, 1), ' ', foregroundColor, windowBackground);
+				}
+
+				// Render button text
+				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(buttonText, buttonWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
+				var cells = AnsiParser.Parse(ansiLine, foregroundColor, backgroundColor);
+				buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
+
+				// Fill alignment padding (right side)
+				int rightPadStart = startX + alignOffset + buttonWidth;
+				int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+				if (rightPadWidth > 0)
+				{
+					buffer.FillRect(new LayoutRect(rightPadStart, startY, rightPadWidth, 1), ' ', foregroundColor, windowBackground);
+				}
+
+				// Fill right margin
+				if (_margin.Right > 0)
+				{
+					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, startY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+				}
+			}
+
+			// Fill bottom margin
+			for (int y = startY + 1; y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
+				}
+			}
+		}
+
+		#endregion
 	}
 }

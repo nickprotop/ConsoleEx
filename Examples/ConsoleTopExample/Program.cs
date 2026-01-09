@@ -4,6 +4,9 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI;
+using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
@@ -85,13 +88,17 @@ internal class Program
             "[dim]F10/ESC: exit • Live data from /proc[/]"
         })
         {
-            Alignment = Alignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             StickyPosition = StickyPosition.Top
         });
 
         _mainWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Top });
 
-        var grid = new HorizontalGridControl { Alignment = Alignment.Stretch };
+        var grid = new HorizontalGridControl
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch
+            // No VerticalAlignment.Fill - let it use natural height from content
+        };
 
         var cpuColumn = new ColumnContainer(grid) { Width = 48 };
         cpuColumn.AddContent(new MarkupControl(new List<string> { "[yellow]CPU Usage[/]" }));
@@ -114,15 +121,19 @@ internal class Program
         {
             "[bold]Processes[/]",
             "[dim]Arrows navigate • Enter shows modal • Right panel updates live[/]"
-        }) { Alignment = Alignment.Left });
+        }) { HorizontalAlignment = HorizontalAlignment.Left });
 
-        var processesGrid = new HorizontalGridControl { Alignment = Alignment.Stretch };
+        var processesGrid = new HorizontalGridControl
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Fill
+        };
 
         var listColumn = new ColumnContainer(processesGrid) { Width = 60 };
         _processList = new ListControl("Processes")
         {
-            Alignment = Alignment.Stretch,
-            FillHeight = true,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Fill,
             BackgroundColor = Color.Black,
             ForegroundColor = Color.White,
             FocusedBackgroundColor = Color.Black,
@@ -149,16 +160,30 @@ internal class Program
         var detailColumn = new ColumnContainer(processesGrid);
 
         // Header with mode buttons
-        var headerButtons = new HorizontalGridControl { Alignment = Alignment.Left };
+        var headerButtons = new HorizontalGridControl { HorizontalAlignment = HorizontalAlignment.Stretch };
         var procBtnCol = new ColumnContainer(headerButtons);
         var procBtn = new ButtonControl { Text = "Process", Width = 12 };
-        procBtn.Click += (_, _) => { _detailMode = DetailMode.Process; if (_lastSnapshot != null) UpdateDetailPanel(_lastSnapshot); };
+        procBtn.Click += (_, _) =>
+        {
+            _detailMode = DetailMode.Process;
+            if (_lastSnapshot != null)
+            {
+                UpdateDetailPanel(_lastSnapshot);
+            }
+        };
         procBtnCol.AddContent(procBtn);
         headerButtons.AddColumn(procBtnCol);
 
         var memBtnCol = new ColumnContainer(headerButtons);
         var memBtn = new ButtonControl { Text = "Memory", Width = 12 };
-        memBtn.Click += (_, _) => { _detailMode = DetailMode.Memory; if (_lastSnapshot != null) UpdateDetailPanel(_lastSnapshot); };
+        memBtn.Click += (_, _) =>
+        {
+            _detailMode = DetailMode.Memory;
+            if (_lastSnapshot != null)
+            {
+                UpdateDetailPanel(_lastSnapshot);
+            }
+        };
         memBtnCol.AddContent(memBtn);
         headerButtons.AddColumn(memBtnCol);
 
@@ -376,6 +401,7 @@ internal class Program
 
     private static void UpdateDetailPanel(SystemSnapshot snapshot)
     {
+
         if (_processDetails == null) return;
 
         if (_detailMode == DetailMode.Memory)
@@ -513,9 +539,9 @@ internal class Program
             $"System NET up/down: {snapshot.Network.UpMbps:F1}/{snapshot.Network.DownMbps:F1} MB/s",
             "",
             "Actions:"
-        }) { Alignment = Alignment.Left });
+        }) { HorizontalAlignment = HorizontalAlignment.Left });
 
-        var buttonRow = new HorizontalGridControl { Alignment = Alignment.Center };
+        var buttonRow = new HorizontalGridControl { HorizontalAlignment = HorizontalAlignment.Center };
 
         var killColumn = new ColumnContainer(buttonRow);
         var killButton = new ButtonControl { Text = "Kill (SIGKILL)", Width = 18 };

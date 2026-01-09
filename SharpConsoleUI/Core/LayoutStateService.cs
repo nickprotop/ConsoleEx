@@ -66,6 +66,11 @@ namespace SharpConsoleUI.Core
 	/// Centralized service for managing layout state across controls.
 	/// Provides smart invalidation and layout negotiation support.
 	/// </summary>
+	/// <remarks>
+	/// This service is obsolete. Layout state is now managed by the DOM-based layout system
+	/// through LayoutNode. This class is kept for backward compatibility.
+	/// </remarks>
+	[Obsolete("Layout state is now managed by the DOM layout system. This service will be removed in a future version.")]
 	public class LayoutStateService : IDisposable
 	{
 		private readonly object _lock = new();

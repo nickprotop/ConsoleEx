@@ -6,9 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -19,15 +20,15 @@ namespace SharpConsoleUI.Controls
 	/// A vertical splitter control that allows users to resize adjacent columns in a <see cref="HorizontalGridControl"/>.
 	/// Supports keyboard-based resizing with arrow keys and provides visual feedback during focus and dragging.
 	/// </summary>
-	public class SplitterControl : IWindowControl, IInteractiveControl, IFocusableControl
+	public class SplitterControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
 	{
 		private const int DEFAULT_WIDTH = 1;
 		private const float MIN_COLUMN_PERCENTAGE = 0.1f; // Minimum 10% width for any column
 
-		private Alignment _alignment = Alignment.Left;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Fill;
 		private Color? _backgroundColorValue;
 		private Color _borderColor = Color.White;
-		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private IContainer? _container;
 		private Color? _draggingBackgroundColorValue;
 		private Color? _draggingForegroundColorValue;
@@ -35,17 +36,15 @@ namespace SharpConsoleUI.Controls
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
 		private bool _hasFocus;
-		private bool _invalidated = true;
 		private bool _isDragging;
 		private bool _isEnabled = true;
-		private int? _lastRenderHeight;
 
 		// References to the columns on either side of this splitter
 		private ColumnContainer? _leftColumn;
 
 		private Margin _margin = new Margin(0, 0, 0, 0);
+		private HorizontalGridControl? _parentGrid;
 		private ColumnContainer? _rightColumn;
-		private int _startDragPosition;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width = DEFAULT_WIDTH;
@@ -55,7 +54,6 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public SplitterControl()
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
 		/// <summary>
@@ -65,7 +63,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="rightColumn">The column to the right of the splitter.</param>
 		public SplitterControl(ColumnContainer leftColumn, ColumnContainer rightColumn)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_leftColumn = leftColumn;
 			_rightColumn = rightColumn;
 		}
@@ -79,13 +76,23 @@ namespace SharpConsoleUI.Controls
 		public int? ActualWidth => _width;
 
 		/// <inheritdoc/>
-		public Alignment Alignment
+		public HorizontalAlignment HorizontalAlignment
 		{
-			get => _alignment;
+			get => _horizontalAlignment;
 			set
 			{
-				_alignment = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
+				_horizontalAlignment = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{
+			get => _verticalAlignment;
+			set
+			{
+				_verticalAlignment = value;
 				Container?.Invalidate(true);
 			}
 		}
@@ -99,7 +106,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -113,7 +119,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_borderColor = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -125,8 +130,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_container = value;
-				_invalidated = true;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -140,7 +143,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_draggingBackgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -154,7 +156,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_draggingForegroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -168,7 +169,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedBackgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -182,7 +182,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedForegroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -196,7 +195,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -210,8 +208,8 @@ namespace SharpConsoleUI.Controls
 				if (_isDragging && !value) _isDragging = false;
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
-				_contentCache.Invalidate();
-				_invalidated = true;
+
+
 				Container?.Invalidate(true);
 
 				// Fire focus events
@@ -238,7 +236,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -250,7 +247,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_margin = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -276,26 +272,24 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_visible = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
 
 		/// <inheritdoc/>
-	public int? Width
-	{
-		get => _width;
-		set
+		public int? Width
 		{
-			var validatedValue = value.HasValue ? Math.Max(1, value.Value) : value;
-			if (_width != validatedValue)
+			get => _width;
+			set
 			{
-				_width = validatedValue;
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-				Container?.Invalidate(true);
+				var validatedValue = value.HasValue ? Math.Max(1, value.Value) : value;
+				if (_width != validatedValue)
+				{
+					_width = validatedValue;
+					Container?.Invalidate(true);
+				}
 			}
 		}
-	}
 
 		/// <inheritdoc/>
 		public void Dispose()
@@ -306,18 +300,12 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(10000, 10000);
-			return new System.Drawing.Size(
-				content.FirstOrDefault()?.Length ?? 0,
-				content.Count
-			);
+			return new System.Drawing.Size(_width ?? 1, 1);
 		}
 
 		/// <inheritdoc/>
 		public void Invalidate()
 		{
-			_invalidated = true;
-			_contentCache.Invalidate();
 			Container?.Invalidate(false);
 		}
 
@@ -349,102 +337,135 @@ namespace SharpConsoleUI.Controls
 			// If we have a movement delta and both columns are set
 			if (delta != 0 && _leftColumn != null && _rightColumn != null)
 			{
+
 				// Set dragging state for visual feedback
 				if (!_isDragging)
 				{
 					_isDragging = true;
-					_startDragPosition = 0;
-					_contentCache.Invalidate();  // Force redraw with dragging colors
+					Container?.Invalidate(true);  // Force redraw with dragging colors
 				}
-				
+
 				MoveSplitter(delta);
+			}
+			else if (delta != 0)
+			{
 			}
 
 			return handled;
 		}
 
-		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
-		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+		#region IDOMPaintable Implementation
 
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
+		/// <inheritdoc/>
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			int splitterWidth = _width ?? 1;
+			int width = splitterWidth + _margin.Left + _margin.Right;
+			// Report minimal height during measurement.
+			// The splitter will be given full height during arrangement.
+			// This prevents integer overflow when measured with unbounded height.
+			int height = 1 + _margin.Top + _margin.Bottom;
+
+			return new LayoutSize(
+				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			Color bgColor, fgColor;
+			char splitterChar;
+
+			if (_isDragging)
 			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+				// Use dragging colors when in dragging mode
+				bgColor = DraggingBackgroundColor;
+				fgColor = DraggingForegroundColor;
+				splitterChar = '║'; // Double vertical line for dragging state
+			}
+			else if (_hasFocus)
+			{
+				// Use focused colors when focused
+				bgColor = FocusedBackgroundColor;
+				fgColor = FocusedForegroundColor;
+				splitterChar = '┃'; // Bold vertical line for focused state
 			}
 			else
 			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return cached;
+				// Use normal colors
+				bgColor = BackgroundColor;
+				fgColor = ForegroundColor;
+				splitterChar = '│'; // Normal vertical line for default state
 			}
 
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
+			int startX = bounds.X + _margin.Left;
+			int startY = bounds.Y + _margin.Top;
+			int splitterHeight = bounds.Height - _margin.Top - _margin.Bottom;
 
-			return _contentCache.GetOrRender(() =>
+			// Fill margins with background color
+			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
+
+			// Fill top margin
+			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
 			{
-				var cachedContent = new List<string>();
-
-				Color bgColor, fgColor;
-				char splitterChar;
-
-				if (_isDragging)
+				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					// Use dragging colors when in dragging mode
-					bgColor = DraggingBackgroundColor;
-					fgColor = DraggingForegroundColor;
-					splitterChar = '║'; // Double vertical line for dragging state
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, windowBackground);
 				}
-				else if (_hasFocus)
-				{
-					// Use focused colors when focused
-					bgColor = FocusedBackgroundColor;
-					fgColor = FocusedForegroundColor;
-					splitterChar = '┃'; // Bold vertical line for focused state
-				}
-				else
-				{
-					// Use normal colors
-					bgColor = BackgroundColor;
-					fgColor = ForegroundColor;
-					splitterChar = '│'; // Normal vertical line for default state
-				}
+			}
 
-				// Create the splitter line
-				int height = availableHeight ?? 1;
-				for (int i = 0; i < height; i++)
+			// Paint the splitter lines
+			for (int y = 0; y < splitterHeight; y++)
+			{
+				int paintY = startY + y;
+				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 				{
-					string line = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						splitterChar.ToString(),
-						1,
-						1,
-						false,
-						bgColor,
-						fgColor
-					)[0];
+					// Fill left margin
+					if (_margin.Left > 0)
+					{
+						buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, windowBackground);
+					}
 
-					cachedContent.Add(line);
+					// Paint splitter character
+					if (startX >= clipRect.X && startX < clipRect.Right)
+					{
+						buffer.SetCell(startX, paintY, splitterChar, fgColor, bgColor);
+					}
+
+					// Fill right margin
+					if (_margin.Right > 0)
+					{
+						buffer.FillRect(new LayoutRect(startX + 1, paintY, _margin.Right, 1), ' ', fgColor, windowBackground);
+					}
 				}
+			}
 
-				_invalidated = false;
-				return cachedContent;
-			});
+			// Fill bottom margin
+			for (int y = startY + splitterHeight; y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, windowBackground);
+				}
+			}
 		}
+
+		#endregion
 
 		/// <summary>
 		/// Sets the columns that this splitter will resize
 		/// </summary>
 		/// <param name="leftColumn">Column to the left of the splitter</param>
 		/// <param name="rightColumn">Column to the right of the splitter</param>
-		public void SetColumns(ColumnContainer leftColumn, ColumnContainer rightColumn)
+		/// <param name="parentGrid">The parent HorizontalGridControl that contains this splitter</param>
+		public void SetColumns(ColumnContainer leftColumn, ColumnContainer rightColumn, HorizontalGridControl? parentGrid = null)
 		{
 			_leftColumn = leftColumn;
 			_rightColumn = rightColumn;
-			_invalidated = true;
-			_contentCache.Invalidate();
+			_parentGrid = parentGrid;
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -465,8 +486,7 @@ namespace SharpConsoleUI.Controls
 			if (!focus && _isDragging)
 			{
 				_isDragging = false;
-				_contentCache.Invalidate();  // Force redraw with normal colors
-				Container?.Invalidate(true);
+				Container?.Invalidate(true);  // Force redraw with normal colors
 			}
 		}
 
@@ -479,47 +499,44 @@ namespace SharpConsoleUI.Controls
 			if (_leftColumn == null || _rightColumn == null)
 				return;
 
-			// Get the current effective width of both columns
-			// Use actual width for null (auto-sizing) columns, explicit width otherwise
-			int leftColumnWidth = _leftColumn.Width ?? _leftColumn.GetActualWidth() ?? 10; // Default to 10 if no content
-			int rightColumnWidth = _rightColumn.Width ?? _rightColumn.GetActualWidth() ?? 10; // Default to 10 if no content
+			// Get the current left column width
+			int leftColumnWidth = _leftColumn.Width ?? _leftColumn.GetActualWidth() ?? 10;
 
-			// Calculate new widths
+			// Calculate new left width
 			int newLeftWidth = leftColumnWidth + delta;
-			int newRightWidth = rightColumnWidth - delta;
 
-			// Ensure minimum widths (at least 10% of combined width or 5 characters minimum)
-			int totalWidth = leftColumnWidth + rightColumnWidth;
-			int minWidth = Math.Max(5, (int)(totalWidth * MIN_COLUMN_PERCENTAGE));
+			// Get the total AVAILABLE width from the parent grid
+			// This is critical - we need the actual available space, not the sum of rendered column widths
+			int totalAvailableWidth = _parentGrid?.ActualWidth ?? (leftColumnWidth + (_rightColumn.ActualWidth ?? 10));
 
-			// Constrain to minimum widths and adjust delta accordingly
-			if (newLeftWidth < minWidth)
-			{
-				newLeftWidth = minWidth;
-				newRightWidth = totalWidth - minWidth;
-			}
-			else if (newRightWidth < minWidth)
-			{
-				newRightWidth = minWidth;
-				newLeftWidth = totalWidth - minWidth;
-			}
 
-			// Only apply changes if widths are valid and different
-			if (newLeftWidth > 0 && newRightWidth > 0 && 
-				(newLeftWidth != leftColumnWidth || newRightWidth != rightColumnWidth))
+			// Enforce minimum widths (at least 10% of total available or 5 characters)
+			int minWidth = Math.Max(5, (int)(totalAvailableWidth * MIN_COLUMN_PERCENTAGE));
+			int maxLeftWidth = totalAvailableWidth - minWidth; // Leave minimum space for right column
+
+			// Constrain the new left width
+			newLeftWidth = Math.Clamp(newLeftWidth, minWidth, maxLeftWidth);
+
+			// Only apply changes if width is valid and different
+			if (newLeftWidth > 0 && newLeftWidth != leftColumnWidth)
 			{
+
 				// Apply the new widths
+				// FIX: Only set the left column's explicit width.
+				// The right column should flex to fill the remaining space in HorizontalLayout.
 				_leftColumn.Width = newLeftWidth;
-				_rightColumn.Width = newRightWidth;
+				_rightColumn.Width = null;  // Clear right column width - let it flex
+
 
 				// Calculate the actual delta that was applied
 				int actualDelta = newLeftWidth - leftColumnWidth;
 
 				// Raise the SplitterMoved event
-				SplitterMoved?.Invoke(this, new SplitterMovedEventArgs(actualDelta, newLeftWidth, newRightWidth));
+				SplitterMoved?.Invoke(this, new SplitterMovedEventArgs(actualDelta, newLeftWidth, 0));
 
 				// Invalidate to ensure redraw
 				Invalidate();
+
 			}
 		}
 	}

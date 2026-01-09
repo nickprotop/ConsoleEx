@@ -5,6 +5,9 @@
 
 using Microsoft.Extensions.Logging;
 using SharpConsoleUI;
+using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
@@ -57,6 +60,9 @@ internal class Program
             // Create main menu window using fluent builder
             CreateMainMenuWindow();
 
+            // Open File Explorer for testing
+            CreateFileExplorerWindow();
+
             // Set up key handlers for the main window
             SetupMainWindowKeyHandlers();
 
@@ -89,6 +95,7 @@ internal class Program
             .Centered()
             .WithColors(SpectreColor.DarkBlue, SpectreColor.White)
             .Closable(false)
+            .WithDOMLayout()  // Enable DOM-based layout for testing
             .Build();
 
         // Add welcome content with markup
@@ -246,6 +253,7 @@ internal class Program
             .WithColors(SpectreColor.Black, SpectreColor.Green)
             .AddControl(logViewer)
             .WithAsyncWindowThread(SimulateLoggingAsync)
+            .WithDOMLayout()  // Enable DOM-based layout for testing
             .Build();
 
         // Setup ESC key handler
@@ -306,6 +314,7 @@ internal class Program
             .WithSize(75, 18)
             .AtPosition(8, 3)
             .WithColors(SpectreColor.DarkCyan, SpectreColor.White)
+            .WithDOMLayout()  // Enable DOM-based layout for testing
             .Build();
 
         // System information using modern patterns
@@ -349,6 +358,7 @@ internal class Program
             .WithSize(35, 10)
             .AtPosition(15, 8)
             .WithColors(SpectreColor.DarkGreen, SpectreColor.Yellow)
+            .WithDOMLayout()  // Enable DOM-based layout for testing
             .Build();
 
         // Setup ESC key handler
@@ -730,7 +740,7 @@ internal class Program
             "[dim](Adapted with modern patterns)[/]" 
         })
         {
-            Alignment = Alignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             StickyPosition = StickyPosition.Top
         });
 
@@ -755,7 +765,7 @@ internal class Program
         // Create status display
         var statusControl = new MarkupControl(new List<string> { "Selected: USA" })
         {
-            Alignment = Alignment.Center
+            HorizontalAlignment = HorizontalAlignment.Center
         };
         dropdownWindow.AddControl(statusControl);
 
@@ -773,7 +783,7 @@ internal class Program
         // Add action buttons
         var buttonsGrid = new HorizontalGridControl 
         { 
-            Alignment = Alignment.Center, 
+            HorizontalAlignment = HorizontalAlignment.Center, 
             StickyPosition = StickyPosition.Bottom 
         };
 
@@ -836,7 +846,7 @@ internal class Program
             "[dim](Adapted with modern selection handling)[/]" 
         })
         {
-            Alignment = Alignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             StickyPosition = StickyPosition.Top
         });
 
@@ -845,7 +855,7 @@ internal class Program
         // Create selection info display
         var selectionInfo = new MarkupControl(new List<string> { "No item selected" })
         {
-            Alignment = Alignment.Left
+            HorizontalAlignment = HorizontalAlignment.Left
         };
         listWindow.AddControl(selectionInfo);
         listWindow.AddControl(new MarkupControl(new List<string> { " " }));
@@ -854,7 +864,7 @@ internal class Program
         var listControl = new ListControl("Available Items")
         {
             Width = 55,
-            Alignment = Alignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             MaxVisibleItems = 10,
             AutoAdjustWidth = true
         };
@@ -894,7 +904,7 @@ internal class Program
         // Add action buttons
         var buttonsGrid = new HorizontalGridControl 
         { 
-            Alignment = Alignment.Center, 
+            HorizontalAlignment = HorizontalAlignment.Center, 
             StickyPosition = StickyPosition.Bottom 
         };
 
@@ -959,7 +969,7 @@ internal class Program
             "[bold]File System Explorer[/] [dim](Adapted with modern patterns)[/]" 
         })
         {
-            Alignment = Alignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             StickyPosition = StickyPosition.Top
         });
 
@@ -968,23 +978,24 @@ internal class Program
         // Create button container
         var buttonContainer = new HorizontalGridControl
         {
-            Alignment = Alignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Left,
             StickyPosition = StickyPosition.Top
         };
 
         // Create main panel with splitter
-        var mainPanel = new HorizontalGridControl();
+        var mainPanel = new HorizontalGridControl { VerticalAlignment = VerticalAlignment.Fill };
 
         // Left panel - Tree control for folders
-        var treeColumn = new ColumnContainer(mainPanel) { Width = 35 };
+        var treeColumn = new ColumnContainer(mainPanel) { Width = 20 };  // Moved splitter left
         
         var fileTree = new TreeControl
         {
             Margin = new Margin(1, 1, 1, 1),
-            Alignment = Alignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Left,
             HighlightBackgroundColor = SpectreColor.Blue,
             HighlightForegroundColor = SpectreColor.White,
-            Guide = TreeGuide.Line
+            Guide = TreeGuide.Line,
+            VerticalAlignment = VerticalAlignment.Fill
         };
 
         treeColumn.AddContent(fileTree);
@@ -994,15 +1005,15 @@ internal class Program
         var fileColumn = new ColumnContainer(mainPanel);
         fileColumn.AddContent(new MarkupControl(new List<string> { "[bold]Files in Selected Folder[/]" })
         {
-            Alignment = Alignment.Center
+            HorizontalAlignment = HorizontalAlignment.Center
         });
 
         var fileList = new ListControl
         {
             Margin = new Margin(1, 1, 1, 1),
-            Alignment = Alignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             MaxVisibleItems = null,
-            FillHeight = true,
+            VerticalAlignment = VerticalAlignment.Fill,
             IsSelectable = true
         };
 
@@ -1015,7 +1026,7 @@ internal class Program
         // Status bar
         var statusControl = new MarkupControl(new List<string> { "Select a folder to view its contents" })
         {
-            Alignment = Alignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Left,
             StickyPosition = StickyPosition.Bottom
         };
 

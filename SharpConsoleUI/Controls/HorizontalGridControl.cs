@@ -8,6 +8,8 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Core;
@@ -23,10 +25,10 @@ namespace SharpConsoleUI.Controls
 	/// A grid control that arranges child columns horizontally with optional splitters between them.
 	/// Supports keyboard and mouse navigation, focus management, and dynamic column resizing.
 	/// </summary>
-	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl
+	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IDOMPaintable
 	{
-		private Alignment _alignment = Alignment.Left;
-		private readonly ThreadSafeCache<List<string>> _contentCache;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
 		private IContainer? _container;
 		private IInteractiveControl? _focusedContent;
@@ -42,13 +44,13 @@ namespace SharpConsoleUI.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
+		private int _allocatedWidth; // Width allocated during layout (used by splitters)
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="HorizontalGridControl"/> class.
 		/// </summary>
 		public HorizontalGridControl()
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
 		/// <inheritdoc/>
@@ -56,21 +58,32 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				var cachedContent = _contentCache.Content;
-				if (cachedContent == null) return 0;
-				int maxLength = 0;
-				foreach (var line in cachedContent)
+				int totalWidth = _margin.Left + _margin.Right;
+				foreach (var column in _columns)
 				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-					if (length > maxLength) maxLength = length;
+					totalWidth += column.ActualWidth ?? column.Width ?? 0;
 				}
-				return maxLength;
+				foreach (var splitter in _splitters)
+				{
+					totalWidth += splitter.Width ?? 1;
+				}
+				return totalWidth;
 			}
-		}
+	}
+
+	/// <summary>
+	/// Gets the width allocated to this grid during the last layout pass.
+	/// This is the actual available width for distributing among columns, used by splitters.
+	/// </summary>
+	public int AllocatedWidth => _allocatedWidth;
 
 		/// <inheritdoc/>
-		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		public HorizontalAlignment HorizontalAlignment
+		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public Color? BackgroundColor { get; set; }
@@ -80,6 +93,21 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public List<ColumnContainer> Columns => _columns;
 
+		/// <summary>
+		/// Gets the list of splitters in this grid.
+		/// </summary>
+		public IReadOnlyList<SplitterControl> Splitters => _splitters;
+
+		/// <summary>
+		/// Gets the index of the column to the left of the specified splitter.
+		/// </summary>
+		/// <param name="splitter">The splitter to look up.</param>
+		/// <returns>The index of the left column, or -1 if not found.</returns>
+		public int GetSplitterLeftColumnIndex(SplitterControl splitter)
+		{
+			return _splitterControls.TryGetValue(splitter, out int index) ? index : -1;
+		}
+
 		/// <inheritdoc/>
 		public IContainer? Container
 		{
@@ -88,7 +116,6 @@ namespace SharpConsoleUI.Controls
 			{
 				_container = value;
 				_invalidated = true;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				foreach (var column in _columns)
 				{
 					column.GetConsoleWindowSystem = value?.GetConsoleWindowSystem;
@@ -115,7 +142,7 @@ namespace SharpConsoleUI.Controls
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
 				FocusChanged();
-				this.SafeInvalidate(InvalidationReason.FocusChanged);
+				Container?.Invalidate(true);
 
 				// Fire focus events
 				if (value && !hadFocus)
@@ -135,15 +162,14 @@ namespace SharpConsoleUI.Controls
 			get => _isEnabled;
 			set
 			{
-				_contentCache.Invalidate(InvalidationReason.StateChanged);
 				_isEnabled = value;
-				Container?.Invalidate(false);
+				Container?.Invalidate(true);
 			}
 		}
 
 		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
@@ -152,7 +178,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_stickyPosition = value;
-				this.SafeInvalidate(InvalidationReason.PropertyChanged);
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -161,7 +187,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 	public int? Width
@@ -173,7 +199,6 @@ namespace SharpConsoleUI.Controls
 			if (_width != validatedValue)
 			{
 				_width = validatedValue;
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -240,7 +265,7 @@ namespace SharpConsoleUI.Controls
 
 			// Set the columns that this splitter will control
 			splitterControl.Container = Container;
-			splitterControl.SetColumns(_columns[leftColumnIndex], _columns[leftColumnIndex + 1]);
+			splitterControl.SetColumns(_columns[leftColumnIndex], _columns[leftColumnIndex + 1], this);
 
 			// Add the splitter and register it for key handling
 			_splitters.Add(splitterControl);
@@ -299,12 +324,22 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			// Use reasonable maximum dimensions instead of int.MaxValue to avoid memory issues
-			var content = RenderContent(10000, 10000);
-			return new System.Drawing.Size(
-				content.FirstOrDefault()?.Length ?? 0,
-				content.Count
-			);
+			int totalWidth = _margin.Left + _margin.Right;
+			int maxHeight = 0;
+
+			foreach (var column in _columns)
+			{
+				var size = column.GetLogicalContentSize();
+				totalWidth += size.Width;
+				maxHeight = Math.Max(maxHeight, size.Height);
+			}
+
+			foreach (var splitter in _splitters)
+			{
+				totalWidth += splitter.Width ?? 1;
+			}
+
+			return new System.Drawing.Size(totalWidth, maxHeight + _margin.Top + _margin.Bottom);
 		}
 
 		/// <inheritdoc/>
@@ -317,7 +352,6 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate()
 		{
 			_invalidated = true;
-			_contentCache.Invalidate(InvalidationReason.ContentChanged);
 
 			foreach (var column in _columns)
 			{
@@ -329,12 +363,13 @@ namespace SharpConsoleUI.Controls
 				splitter.Invalidate();
 			}
 
-			// Don't directly call Container.Invalidate - let the InvalidationManager handle it
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+
 			// Let focused content try to handle the key first (including Tab for nested containers)
 			if (_focusedContent != null && _focusedContent.ProcessKey(key))
 			{
@@ -509,163 +544,6 @@ namespace SharpConsoleUI.Controls
 				_interactiveContentsDirty = true;
 				Invalidate();
 			}
-		}
-
-		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
-		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
-
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
-			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-			}
-			else
-			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return cached;
-			}
-
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-			// Use thread-safe cache with lazy rendering
-			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
-		}
-
-		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
-		{
-			// Inherit background color from parent container first, then fall back to theme
-			BackgroundColor = BackgroundColor ?? Container?.BackgroundColor
-				?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
-			ForegroundColor = ForegroundColor ?? Container?.ForegroundColor
-				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
-
-			var renderedContent = new List<string>();
-			int? maxHeight = 0;
-
-			// Create combined list of columns and splitters in their display order
-			var displayControls = new List<(bool IsSplitter, object Control, int Width)>();
-
-			// First, add all columns
-			for (int i = 0; i < _columns.Count; i++)
-			{
-				var column = _columns[i];
-				displayControls.Add((false, column, column.Width ?? 0));
-
-				// If there's a splitter after this column, add it too
-				var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
-				if (splitter != null)
-				{
-					displayControls.Add((true, splitter, splitter.Width ?? 1));
-				}
-			}
-
-			// Use the new layout-aware width distribution algorithm
-			var (renderedWidths, hasOverflow) = DistributeColumnWidths(availableWidth ?? 0, displayControls);
-
-			// First render all columns to determine the maximum height
-			var columnContents = new Dictionary<int, List<string>>();
-
-			for (int i = 0; i < displayControls.Count; i++)
-			{
-				var (isSplitter, control, _) = displayControls[i];
-
-				if (!isSplitter)
-				{
-					var column = (ColumnContainer)control;
-					int columnWidth = renderedWidths[i];
-
-					var content = column.RenderContent(columnWidth, availableHeight);
-					// Note: We render full content here; viewport clipping happens at the Window level
-					columnContents[i] = content;
-
-					if (content.Count > maxHeight)
-					{
-						maxHeight = content.Count;
-					}
-				}
-			}
-
-			// Note: We use full content height here; viewport clipping happens at the Window level
-
-			// Now render splitters with the proper height
-			var renderedControls = new List<List<string>>();
-
-			for (int i = 0; i < displayControls.Count; i++)
-			{
-				var (isSplitter, control, controlWidth) = displayControls[i];
-
-				if (isSplitter)
-				{
-					// Render splitter with the maxHeight of columns instead of availableHeight
-					var splitter = (SplitterControl)control;
-					renderedControls.Add(splitter.RenderContent(splitter.Width ?? 1, maxHeight ?? 1));
-				}
-				else
-				{
-					// For columns, use the already rendered content
-					renderedControls.Add(columnContents[i]);
-				}
-			}
-
-			// Combine the rendered controls horizontally
-			for (int i = 0; i < maxHeight; i++)
-			{
-				string line = string.Empty;
-
-				for (int controlIndex = 0; controlIndex < renderedControls.Count; controlIndex++)
-				{
-					var controlContent = renderedControls[controlIndex];
-					var controlInfo = displayControls[controlIndex];
-
-					// Use the actual width that was used during rendering, not GetActualWidth()
-					// This ensures consistency between render and combine phases
-					int controlActualWidth = renderedWidths.TryGetValue(controlIndex, out int width) ? width : 0;
-
-					// Make sure we don't access beyond the bounds of controlContent
-					string contentLine = i < controlContent.Count
-						? controlContent[i]
-						: AnsiConsoleHelper.AnsiEmptySpace(controlActualWidth, BackgroundColor ?? Color.Black);
-
-					// Add the control content to the line
-					line += contentLine;
-				}
-
-				// Apply alignment to the combined line
-				if (availableWidth.HasValue && _alignment != Alignment.Left)
-				{
-					int lineLength = AnsiConsoleHelper.StripAnsiStringLength(line);
-					int padding = availableWidth.Value - lineLength;
-
-					if (padding > 0)
-					{
-						switch (_alignment)
-						{
-							case Alignment.Center:
-								int leftPadding = padding / 2;
-								line = AnsiConsoleHelper.AnsiEmptySpace(leftPadding, BackgroundColor ?? Color.Black) + line;
-								break;
-
-							case Alignment.Right:
-								line = AnsiConsoleHelper.AnsiEmptySpace(padding, BackgroundColor ?? Color.Black) + line;
-								break;
-
-							case Alignment.Stretch:
-								// For stretch, we don't add padding here as the content already fills the available width
-								break;
-						}
-					}
-				}
-
-				renderedContent.Add(line);
-			}
-
-			_invalidated = false;
-			return renderedContent;
 		}
 
 		/// <summary>
@@ -962,16 +840,12 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The control at the position, or null if no control found</returns>
 		private IInteractiveControl? GetControlAtPosition(Point position)
 		{
-			// If content hasn't been rendered yet, we can't calculate positions accurately
-			// BuildDisplayControlsList uses GetActualWidth which requires rendering to have occurred
-			var cachedContent = _contentCache.Content;
-			if (cachedContent == null || cachedContent.Count == 0)
+			// Calculate column positions based on the rendered layout
+			var displayControls = BuildDisplayControlsList();
+			if (displayControls.Count == 0)
 			{
 				return null;
 			}
-
-			// Calculate column positions based on the rendered layout
-			var displayControls = BuildDisplayControlsList();
 			int currentX = 0;
 
 			for (int i = 0; i < displayControls.Count; i++)
@@ -1098,7 +972,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Builds the display controls list similar to what's done in RenderContent.
+		/// Builds the display controls list for layout calculations.
 		/// Uses actual rendered widths for accurate position calculations.
 		/// </summary>
 		/// <returns>List of display controls with their metadata</returns>
@@ -1241,8 +1115,8 @@ namespace SharpConsoleUI.Controls
 					if (leftColumnIndex >= 0 && leftColumnIndex < _columns.Count - 1)
 					{
 						// Update column widths explicitly
-						_columns[leftColumnIndex].Width = e.LeftColumnWidth;
-						_columns[leftColumnIndex + 1].Width = e.RightColumnWidth;
+// REMOVED - SplitterControl already sets widths: 						_columns[leftColumnIndex].Width = e.LeftColumnWidth;
+// REMOVED - SplitterControl already sets widths: 						_columns[leftColumnIndex + 1].Width = e.RightColumnWidth;
 
 						// Log width changes for debugging
 						System.Diagnostics.Debug.WriteLine($"Splitter moved: Left col width={e.LeftColumnWidth}, Right col width={e.RightColumnWidth}");
@@ -1258,5 +1132,94 @@ namespace SharpConsoleUI.Controls
 
 			Invalidate();
 		}
+
+		#region IDOMPaintable Implementation
+
+		/// <inheritdoc/>
+        public LayoutSize MeasureDOM(LayoutConstraints constraints)
+        {
+
+            // Create combined list of columns and splitters in their display order
+            var displayControls = new List<(bool IsSplitter, object Control, int Width)>();
+
+            for (int i = 0; i < _columns.Count; i++)
+            {
+                var column = _columns[i];
+                displayControls.Add((false, column, column.Width ?? 0));
+
+                var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+                if (splitter != null)
+                {
+                    displayControls.Add((true, splitter, splitter.Width ?? 1));
+                }
+            }
+
+            int availableWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
+
+            // Distribute widths using the layout algorithm
+            var (renderedWidths, _) = DistributeColumnWidths(availableWidth, displayControls);
+
+            // Calculate total width and max height
+            int totalWidth = _margin.Left + _margin.Right;
+            int maxHeight = 0;
+
+            for (int i = 0; i < displayControls.Count; i++)
+            {
+                var (isSplitter, control, _) = displayControls[i];
+                int controlWidth = renderedWidths.TryGetValue(i, out int w) ? w : 0;
+                totalWidth += controlWidth;
+
+                if (!isSplitter)
+                {
+                    var column = (ColumnContainer)control;
+
+                    if (column is IDOMPaintable paintable)
+                    {
+                        var childConstraints = new LayoutConstraints(0, controlWidth, 0, constraints.MaxHeight);
+                        var childSize = paintable.MeasureDOM(childConstraints);
+                        maxHeight = Math.Max(maxHeight, childSize.Height);
+                    }
+                    else
+                    {
+                        var size = column.GetLogicalContentSize();
+                        maxHeight = Math.Max(maxHeight, size.Height);
+                    }
+                }
+            }
+
+            var finalHeight = Math.Clamp(maxHeight + _margin.Top + _margin.Bottom, constraints.MinHeight, constraints.MaxHeight);
+
+            return new LayoutSize(
+                Math.Clamp(totalWidth, constraints.MinWidth, constraints.MaxWidth),
+                finalHeight
+            );
+        }
+
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			// NOTE: Container controls should NOT paint their children here.
+			// Children (columns, splitters) are painted by the DOM tree's child LayoutNodes.
+			// This method only paints the container's own content (background, margins).
+
+			var bgColor = BackgroundColor ?? Container?.BackgroundColor
+				?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? defaultBg;
+			var fgColor = ForegroundColor ?? Container?.ForegroundColor
+				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? defaultFg;
+
+			// Fill the entire bounds with background color
+			for (int y = bounds.Y; y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+				}
+			}
+
+			_invalidated = false;
+		}
+
+		#endregion
 	}
 }

@@ -1,4 +1,7 @@
 // -----------------------------------------------------------------------
+using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 // Comprehensive Layout Window - Complete Application UI Demo
 // Demonstrates a complete UI form with proper window class architecture
 // -----------------------------------------------------------------------
@@ -183,7 +186,7 @@ public class ComprehensiveLayoutWindow : IDisposable
 
         _menuBar = new HorizontalGridControl
         {
-            Alignment = Alignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Left,
             StickyPosition = StickyPosition.Top
         };
 
@@ -228,7 +231,7 @@ public class ComprehensiveLayoutWindow : IDisposable
 
         _toolbar = new HorizontalGridControl
         {
-            Alignment = Alignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Left,
             StickyPosition = StickyPosition.Top
         };
 
@@ -273,7 +276,7 @@ public class ComprehensiveLayoutWindow : IDisposable
 
         var mainContentArea = new HorizontalGridControl
         {
-            Alignment = Alignment.Stretch  // Fill available space when window resizes
+            HorizontalAlignment = HorizontalAlignment.Stretch  // Fill available space when window resizes
         };
 
         CreateLeftPanel(mainContentArea);
@@ -294,13 +297,13 @@ public class ComprehensiveLayoutWindow : IDisposable
 
         leftPanel.AddContent(new MarkupControl(new List<string> { "[bold cyan]Project Explorer[/]" })
         {
-            Alignment = Alignment.Center
+            HorizontalAlignment = HorizontalAlignment.Center
         });
 
         _projectTree = new TreeControl
         {
             Margin = new Margin(1, 1, 1, 1),
-            Alignment = Alignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Left,
             Guide = TreeGuide.Line,
             HighlightBackgroundColor = SpectreColor.Blue,
             HighlightForegroundColor = SpectreColor.White
@@ -361,7 +364,7 @@ public class ComprehensiveLayoutWindow : IDisposable
     /// </summary>
     private void CreateEditorTabs(ColumnContainer rightPanel)
     {
-        var editorTabs = new HorizontalGridControl { Alignment = Alignment.Stretch };
+        var editorTabs = new HorizontalGridControl { HorizontalAlignment = HorizontalAlignment.Stretch };
 
         _tab1 = new ButtonControl { Text = "Program.cs x", Width = 15 };
         _tab2 = new ButtonControl { Text = "User.cs", Width = 12 };
@@ -394,7 +397,7 @@ public class ComprehensiveLayoutWindow : IDisposable
         var lineNumbersCol = new ColumnContainer(editorArea) { Width = 4 };
         _lineNumbers = new MarkupControl(GenerateLineNumbers())
         {
-            Alignment = Alignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right
         };
         lineNumbersCol.AddContent(_lineNumbers);
         editorArea.AddColumn(lineNumbersCol);
@@ -406,7 +409,7 @@ public class ComprehensiveLayoutWindow : IDisposable
             ViewportHeight = _window?.Height - 12 ?? 20, // Account for menus and status
             WrapMode = WrapMode.Wrap,
             ReadOnly = false,
-            Alignment = Alignment.Left
+            HorizontalAlignment = HorizontalAlignment.Left
         };
 
         LoadSampleCode();
@@ -478,7 +481,7 @@ namespace MyProject
 
         var statusBar = new HorizontalGridControl
         {
-            Alignment = Alignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Left,
             StickyPosition = StickyPosition.Bottom
         };
 
@@ -509,7 +512,7 @@ namespace MyProject
         var timeCol = new ColumnContainer(statusBar) { Width = 20 };
         _timeStatus = new MarkupControl(new List<string> { $"{DateTime.Now:HH:mm:ss}" })
         {
-            Alignment = Alignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right
         };
         timeCol.AddContent(_timeStatus);
         statusBar.AddColumn(timeCol);

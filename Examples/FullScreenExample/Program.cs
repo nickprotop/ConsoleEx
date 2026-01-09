@@ -5,6 +5,9 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI;
+using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
@@ -78,7 +81,7 @@ internal class Program
             "[dim]This window fills the entire console and resizes with it[/]"
         })
         {
-            Alignment = Alignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             StickyPosition = StickyPosition.Top
         });
 
@@ -112,14 +115,14 @@ internal class Program
 
         var statusLabel = new MarkupControl(new List<string> { "[dim]Status: Running...[/]" })
         {
-            Alignment = Alignment.Center
+            HorizontalAlignment = HorizontalAlignment.Center
         };
         _mainWindow.AddControl(statusLabel);
 
         // Create button grid at the bottom
         var buttonGrid = new HorizontalGridControl
         {
-            Alignment = Alignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             StickyPosition = StickyPosition.Bottom
         };
 

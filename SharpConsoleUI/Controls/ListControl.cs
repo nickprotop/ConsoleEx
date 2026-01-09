@@ -6,9 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Core;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -18,22 +20,20 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A scrollable list control that supports selection, highlighting, and keyboard navigation.
 	/// </summary>
-	public class ListControl : IWindowControl, IInteractiveControl, IFocusableControl
+	public class ListControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
-		private Alignment _alignment = Alignment.Left;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _autoAdjustWidth = false;
 		private Color? _backgroundColorValue;
-		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private int? _calculatedMaxVisibleItems;
-		private bool _fillHeight = false;
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
 		private bool _hasFocus = false;
 		private Color? _highlightBackgroundColorValue;
 		private Color? _highlightForegroundColorValue;
-		private bool _invalidated = true;
 		private bool _isEnabled = true;
 		private bool _isSelectable = true;
 		private ItemFormatterEvent? _itemFormatter;
@@ -148,7 +148,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="items">The initial items to populate the list.</param>
 		public ListControl(string? title, IEnumerable<string>? items)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = title ?? string.Empty;
 			if (items != null)
 			{
@@ -165,7 +164,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="items">The initial items to populate the list.</param>
 		public ListControl(IEnumerable<string>? items)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = string.Empty;
 			if (items != null)
 			{
@@ -183,7 +181,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="items">The initial ListItem objects to populate the list.</param>
 		public ListControl(string? title, IEnumerable<ListItem>? items)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = title ?? string.Empty;
 			if (items != null)
 			{
@@ -197,7 +194,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="items">The initial ListItem objects to populate the list.</param>
 		public ListControl(IEnumerable<ListItem>? items)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = string.Empty;
 			if (items != null)
 			{
@@ -210,7 +206,6 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public ListControl()
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = string.Empty;
 		}
 
@@ -220,7 +215,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="title">The title displayed at the top of the list.</param>
 		public ListControl(string title)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_title = title;
 		}
 
@@ -255,8 +249,20 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				var content = _contentCache.Content;
-				return content?.Count;
+				// Calculate based on content
+				bool hasTitle = !string.IsNullOrEmpty(_title);
+				int titleHeight = hasTitle ? 1 : 0;
+				int visibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? Math.Min(10, _items.Count);
+				int itemsHeight = 0;
+				int scrollOffset = CurrentScrollOffset;
+				for (int i = 0; i < Math.Min(visibleItems, _items.Count - scrollOffset); i++)
+				{
+					int itemIndex = i + scrollOffset;
+					if (itemIndex < _items.Count)
+						itemsHeight += _items[itemIndex].Lines.Count;
+				}
+				bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + visibleItems < _items.Count;
+				return titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + _margin.Top + _margin.Bottom;
 			}
 		}
 
@@ -267,26 +273,40 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				var content = _contentCache.Content;
-				if (content == null) return null;
-				int maxLength = 0;
-				foreach (var line in content)
+				// Calculate based on content
+				int maxItemWidth = 0;
+				foreach (var item in _items)
 				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-					if (length > maxLength) maxLength = length;
+					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+					if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 				}
-				return maxLength;
+
+				int indicatorSpace = _isSelectable ? 4 : 0;
+				int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
+
+				int width = _width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
+				return width + _margin.Left + _margin.Right;
 			}
 		}
 
 		/// <inheritdoc/>
-		public Alignment Alignment
+		public HorizontalAlignment HorizontalAlignment
 		{
-			get => _alignment;
+			get => _horizontalAlignment;
 			set
 			{
-				_alignment = value;
-				_contentCache.Invalidate();
+				_horizontalAlignment = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{
+			get => _verticalAlignment;
+			set
+			{
+				_verticalAlignment = value;
 				Container?.Invalidate(true);
 			}
 		}
@@ -300,7 +320,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_autoAdjustWidth = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -314,28 +333,12 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
 
 		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
-
-		/// <summary>
-		/// Gets or sets whether the control fills all available vertical space.
-		/// </summary>
-		public bool FillHeight
-		{
-			get => _fillHeight;
-			set
-			{
-				_fillHeight = value;
-				_contentCache.Invalidate();
-				_invalidated = true;
-				Container?.Invalidate(true);
-			}
-		}
 
 		/// <summary>
 		/// Gets or sets the background color when the list has focus.
@@ -346,7 +349,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedBackgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -360,7 +362,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedForegroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -374,7 +375,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -387,7 +387,6 @@ namespace SharpConsoleUI.Controls
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 
 				// Fire focus events
@@ -411,7 +410,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_highlightBackgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -425,7 +423,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_highlightForegroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -439,7 +436,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -453,7 +449,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isSelectable = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -467,7 +462,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_itemFormatter = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -488,7 +482,6 @@ namespace SharpConsoleUI.Controls
 					int newSel = _items.Count > 0 ? 0 : -1;
 					SelectionService?.SetSelectedIndex(this, newSel);
 				}
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -500,7 +493,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_margin = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -514,8 +506,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_maxVisibleItems = value.HasValue ? Math.Max(1, value.Value) : null;
-				_contentCache.Invalidate();
-				_invalidated = true;
 				Container?.Invalidate(true);
 			}
 		}
@@ -536,7 +526,6 @@ namespace SharpConsoleUI.Controls
 				{
 					// Write to state service (single source of truth)
 					SelectionService?.SetSelectedIndex(this, value);
-					_contentCache.Invalidate();
 					Container?.Invalidate(true);
 
 					// Ensure selected item is visible
@@ -628,7 +617,6 @@ namespace SharpConsoleUI.Controls
 					int newSel = _items.Count > 0 ? 0 : -1;
 					SelectionService?.SetSelectedIndex(this, newSel);
 				}
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -645,7 +633,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_title = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -657,7 +644,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_visible = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -672,7 +658,6 @@ namespace SharpConsoleUI.Controls
 				if (_width != validatedValue)
 				{
 					_width = validatedValue;
-					_contentCache.Invalidate(InvalidationReason.SizeChanged);
 					Container?.Invalidate(true);
 				}
 			}
@@ -685,7 +670,6 @@ namespace SharpConsoleUI.Controls
 		public void AddItem(ListItem item)
 		{
 			_items.Add(item);
-			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
 
@@ -720,7 +704,6 @@ namespace SharpConsoleUI.Controls
 			SelectionService?.ClearAll(this);
 			SetScrollOffset(0);
 
-			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
 			if (_isSelectable)
@@ -740,18 +723,42 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(10000, 10000);
-			return new System.Drawing.Size(
-				content.FirstOrDefault()?.Length ?? 0,
-				content.Count
-			);
+			// Calculate content size directly
+			bool hasTitle = !string.IsNullOrEmpty(_title);
+			int titleHeight = hasTitle ? 1 : 0;
+			int visibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? Math.Min(10, _items.Count);
+			int itemsHeight = 0;
+			int scrollOffset = CurrentScrollOffset;
+
+			for (int i = 0; i < Math.Min(visibleItems, _items.Count - scrollOffset); i++)
+			{
+				int itemIndex = i + scrollOffset;
+				if (itemIndex < _items.Count)
+					itemsHeight += _items[itemIndex].Lines.Count;
+			}
+
+			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + visibleItems < _items.Count;
+			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + _margin.Top + _margin.Bottom;
+
+			int indicatorSpace = _isSelectable ? 4 : 0;
+			int maxItemWidth = 0;
+			foreach (var item in _items)
+			{
+				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
+			}
+
+			int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
+			int width = _width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
+			width += _margin.Left + _margin.Right;
+
+			return new System.Drawing.Size(width, height);
 		}
 
 		/// <inheritdoc/>
 		public void Invalidate()
 		{
-			_invalidated = true;
-			_contentCache.Invalidate();
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -772,7 +779,6 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset < _items.Count - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 10))
 						{
 							SetScrollOffset(scrollOffset + 1);
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -782,7 +788,6 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset > 0)
 						{
 							SetScrollOffset(scrollOffset - 1);
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -793,7 +798,6 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset < _items.Count - pageSize)
 						{
 							SetScrollOffset(Math.Min(_items.Count - pageSize, scrollOffset + pageSize));
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -803,7 +807,6 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset > 0)
 						{
 							SetScrollOffset(Math.Max(0, scrollOffset - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 10)));
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -813,7 +816,6 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset > 0)
 						{
 							SetScrollOffset(0);
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -824,7 +826,6 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset < availableItems && availableItems > 0)
 						{
 							SetScrollOffset(availableItems);
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -844,7 +845,6 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetHighlightedIndex(this, highlightedIndex + 1);
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -855,7 +855,6 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetHighlightedIndex(this, highlightedIndex - 1);
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -874,7 +873,6 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetHighlightedIndex(this, 0);
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -885,7 +883,6 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetHighlightedIndex(this, _items.Count - 1);
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -896,7 +893,6 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetHighlightedIndex(this, Math.Max(0, highlightedIndex - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1)));
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -907,7 +903,6 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetHighlightedIndex(this, Math.Min(_items.Count - 1, highlightedIndex + (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1)));
 						EnsureHighlightedItemVisible();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -936,7 +931,6 @@ namespace SharpConsoleUI.Controls
 							{
 								SelectionService?.SetHighlightedIndex(this, i);
 								EnsureHighlightedItemVisible();
-								_contentCache.Invalidate();
 								Container?.Invalidate(true);
 								return true;
 							}
@@ -946,37 +940,130 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
-		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+		#region IDOMPaintable Implementation
 
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
+		/// <inheritdoc/>
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			int indicatorSpace = _isSelectable ? 4 : 0;
+
+			// Calculate max item width
+			int maxItemWidth = 0;
+			foreach (var item in _items)
 			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
+				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
+			}
+
+			// Calculate list width
+			int listWidth;
+			if (_width.HasValue)
+			{
+				listWidth = _width.Value;
+			}
+			else if (_horizontalAlignment == HorizontalAlignment.Stretch)
+			{
+				listWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
 			}
 			else
 			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return cached;
+				int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
+				listWidth = Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
+				listWidth = Math.Max(listWidth, 40);
 			}
 
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-			return _contentCache.GetOrRender(() =>
+			if (_autoAdjustWidth)
 			{
+				int contentWidth = 0;
+				foreach (var item in _items)
+				{
+					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+					contentWidth = Math.Max(contentWidth, itemLength);
+				}
+				listWidth = Math.Max(listWidth, contentWidth + indicatorSpace + 4);
+			}
 
-				var content = new List<string>();
+			int width = listWidth + _margin.Left + _margin.Right;
 
-				// Get appropriate colors based on state
-				Color backgroundColor;
-				Color foregroundColor;
-				Color windowBackground = Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
-			Color windowForeground = Container?.ForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
+			// Calculate height
+			bool hasTitle = !string.IsNullOrEmpty(_title);
+			int titleHeight = hasTitle ? 1 : 0;
+			int scrollOffset = CurrentScrollOffset;
+
+			int effectiveMaxVisibleItems;
+			if (_maxVisibleItems.HasValue)
+			{
+				effectiveMaxVisibleItems = _maxVisibleItems.Value;
+			}
+			else if (_verticalAlignment == VerticalAlignment.Fill)
+			{
+				// Check if we have unbounded constraints
+				bool isUnbounded = constraints.MaxHeight >= int.MaxValue / 2;
+
+				if (isUnbounded)
+				{
+					// With unbounded constraints and Fill alignment, return a reasonable default
+					// instead of trying to fit all items. The parent container should provide
+					// proper bounded constraints during the arrange phase.
+					effectiveMaxVisibleItems = Math.Min(10, _items.Count);
+				}
+				else
+				{
+					// When VerticalAlignment.Fill with bounded constraints, use available height
+					int availableContentHeight = constraints.MaxHeight - titleHeight - _margin.Top - _margin.Bottom - 1;
+					effectiveMaxVisibleItems = 0;
+					int heightUsed = 0;
+					for (int i = scrollOffset; i < _items.Count; i++)
+					{
+						int itemHeight = _items[i].Lines.Count;
+						if (heightUsed + itemHeight <= availableContentHeight)
+						{
+							effectiveMaxVisibleItems++;
+							heightUsed += itemHeight;
+						}
+						else break;
+					}
+					effectiveMaxVisibleItems = Math.Max(1, effectiveMaxVisibleItems);
+				}
+			}
+			else
+			{
+				effectiveMaxVisibleItems = Math.Min(10, _items.Count);
+			}
+
+			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
+			ScrollService?.UpdateDimensions(this, 0, _items.Count, 0, effectiveMaxVisibleItems);
+
+			int itemsHeight = 0;
+			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - scrollOffset);
+			for (int i = 0; i < itemsToShow; i++)
+			{
+				int itemIndex = i + scrollOffset;
+				if (itemIndex < _items.Count)
+					itemsHeight += _items[itemIndex].Lines.Count;
+			}
+
+			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count;
+			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + _margin.Top + _margin.Bottom;
+
+			// VerticalAlignment.Fill is handled during arrangement, not measurement.
+			// Measurement should return actual content height, not constraints.MaxHeight.
+			// This prevents integer overflow when measured with unbounded height.
+
+			var result = new LayoutSize(
+				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
+
+			return result;
+		}
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			Color backgroundColor;
+			Color foregroundColor;
+			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 
 			// Determine colors based on enabled/focused state
 			if (!_isEnabled)
@@ -995,220 +1082,27 @@ namespace SharpConsoleUI.Controls
 				foregroundColor = ForegroundColor;
 			}
 
-			// Add space for selection indicator ([X] ) if selectable
 			int indicatorSpace = _isSelectable ? 4 : 0;
+			int listWidth = bounds.Width - _margin.Left - _margin.Right;
+			if (listWidth <= 0) return;
 
-			// Ensure width can accommodate content
-			int maxItemWidth = 0;
-			foreach (var item in _items)
-			{
-				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
-				if (itemLength > maxItemWidth)
-					maxItemWidth = itemLength;
-			}
+			int startX = bounds.X + _margin.Left;
+			int startY = bounds.Y + _margin.Top;
+			int currentY = startY;
 
-			// Calculate effective width based on different scenarios
-			int listWidth;
-
-			if (_width.HasValue)
+			// Fill top margin
+			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
 			{
-				// If width is explicitly defined, use it
-				listWidth = _width.Value;
-			}
-			else if (_alignment == Alignment.Stretch && availableWidth.HasValue)
-			{
-				// When stretch and availableWidth is known, use full available width
-				listWidth = availableWidth.Value - _margin.Left - _margin.Right;
-			}
-			else
-			{
-				// Calculate based on content width (items and title)
-				foreach (var item in _items)
+				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
-					if (itemLength > maxItemWidth)
-						maxItemWidth = itemLength;
-				}
-
-				// Consider title length if present
-				int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
-
-				// Base width is the maximum of item widths or title width plus padding
-				listWidth = Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
-
-				// For non-stretch modes, limit to available width if provided
-				if (availableWidth.HasValue)
-				{
-					listWidth = Math.Min(listWidth, availableWidth.Value) - _margin.Left - _margin.Right;
-				}
-				else
-				{
-					// Default minimum width when no constraints are available
-					listWidth = Math.Max(listWidth, 40);
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
 				}
 			}
 
-			// Apply autoAdjustWidth if enabled (only expands width, never shrinks)
-			if (_autoAdjustWidth)
-			{
-				int contentWidth = 0;
-				foreach (var item in _items)
-				{
-					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
-					contentWidth = Math.Max(contentWidth, itemLength);
-				}
-
-				int minRequiredWidth = contentWidth + indicatorSpace + 4;
-
-				// Auto adjust can only make the width larger, not smaller
-				listWidth = Math.Max(listWidth, minRequiredWidth);
-
-				// But still respect available width if provided
-				if (availableWidth.HasValue)
-				{
-					listWidth = Math.Min(listWidth, availableWidth.Value);
-				}
-
-				listWidth -= _margin.Left + _margin.Right;
-			}
-
-			// Only check title length if we have a title
 			bool hasTitle = !string.IsNullOrEmpty(_title);
-
-			if (hasTitle)
-			{
-				int titleLength = AnsiConsoleHelper.StripSpectreLength(_title);
-				int minWidth = Math.Max(titleLength + 5, maxItemWidth + indicatorSpace + 4); // Add padding
-				listWidth = Math.Max(listWidth, minWidth);
-			}
-
-			// Calculate padding for alignment
-			int paddingLeft = 0;
-			if (_alignment == Alignment.Center)
-			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, listWidth);
-			}
-			else if (_alignment == Alignment.Right && availableWidth.HasValue)
-			{
-				paddingLeft = availableWidth.Value - listWidth;
-			}
-
-			// Determine how many items to show based on available height and maxVisibleItems
 			int scrollOffset = CurrentScrollOffset;
 			int selectedIndex = CurrentSelectedIndex;
 			int highlightedIndex = CurrentHighlightedIndex;
-			int effectiveMaxVisibleItems;
-			bool hasScrollIndicator = scrollOffset > 0 || _items.Count > (_maxVisibleItems ?? 10000);
-			int titleHeight = hasTitle ? 1 : 0;
-			int scrollIndicatorHeight = hasScrollIndicator ? 1 : 0;
-			int marginHeight = _margin.Top + _margin.Bottom;
-
-			if (_maxVisibleItems.HasValue)
-			{
-				// Use specified max visible items if provided
-				effectiveMaxVisibleItems = _maxVisibleItems.Value;
-			}
-			else if (availableHeight.HasValue)
-			{
-				// Calculate based on available height if no max is specified
-				// Account for title, margins and scroll indicators
-				int availableContentHeight = availableHeight.Value - titleHeight - marginHeight - scrollIndicatorHeight;
-
-				// Count how many items we can fit based on their actual line counts
-				effectiveMaxVisibleItems = 0;
-				int heightUsed = 0;
-
-				for (int i = scrollOffset; i < _items.Count; i++)
-				{
-					int itemHeight = _items[i].Lines.Count;
-					if (heightUsed + itemHeight <= availableContentHeight)  // Use <= to include items that exactly fit
-					{
-						effectiveMaxVisibleItems++;
-						heightUsed += itemHeight;
-					}
-					else
-					{
-						break;
-					}
-				}
-
-				// Ensure we show at least one item even if it doesn't fully fit
-				effectiveMaxVisibleItems = Math.Max(1, effectiveMaxVisibleItems);
-			}
-			else
-			{
-				// Default if neither is available
-				effectiveMaxVisibleItems = 10;
-			}
-
-			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
-
-			// Update scroll dimensions so MaxVerticalOffset is calculated correctly
-			ScrollService?.UpdateDimensions(this, 0, _items.Count, 0, effectiveMaxVisibleItems);
-
-			// Calculate how many items we can show
-			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - scrollOffset);
-
-			// Render title bar only if title is not null or empty
-			if (hasTitle)
-			{
-				string titleBarContent = " " + _title + " ";
-
-				if (AnsiConsoleHelper.StripSpectreLength(titleBarContent) < listWidth)
-				{
-					int padding = listWidth - AnsiConsoleHelper.StripSpectreLength(titleBarContent);
-					titleBarContent += new string(' ', padding);
-				}
-
-				List<string> titleLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					titleBarContent,
-					listWidth,
-					1,
-					false,
-					backgroundColor,
-					foregroundColor
-				);
-
-				// Apply padding and margins to title
-				for (int i = 0; i < titleLine.Count; i++)
-				{
-					// Add alignment padding
-					if (paddingLeft > 0)
-					{
-						titleLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', paddingLeft),
-							paddingLeft,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						).FirstOrDefault() + titleLine[i];
-					}
-
-					// Add left margin
-					titleLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', _margin.Left),
-						_margin.Left,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					).FirstOrDefault() + titleLine[i];
-
-					// Add right margin
-					titleLine[i] = titleLine[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', _margin.Right),
-						_margin.Right,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					).FirstOrDefault();
-				}
-
-				// Add title to result
-				content.AddRange(titleLine);
-			}
 
 			// Initialize highlighted index if needed
 			if (highlightedIndex == -1 && selectedIndex >= 0)
@@ -1217,370 +1111,230 @@ namespace SharpConsoleUI.Controls
 				highlightedIndex = selectedIndex;
 			}
 
+			// Render title
+			if (hasTitle && currentY < bounds.Bottom)
+			{
+				if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
+				{
+					// Fill left margin
+					if (_margin.Left > 0)
+					{
+						buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+					}
+
+					string titleBarContent = " " + _title + " ";
+					int titleLen = AnsiConsoleHelper.StripSpectreLength(titleBarContent);
+					if (titleLen < listWidth)
+					{
+						titleBarContent += new string(' ', listWidth - titleLen);
+					}
+
+					var titleAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(titleBarContent, listWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? "";
+					var titleCells = AnsiParser.Parse(titleAnsi, foregroundColor, backgroundColor);
+					buffer.WriteCellsClipped(startX, currentY, titleCells, clipRect);
+
+					// Fill right margin
+					if (_margin.Right > 0)
+					{
+						buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+					}
+				}
+				currentY++;
+			}
+
+			// Calculate effective visible items
+			int availableContentHeight = bounds.Height - _margin.Top - _margin.Bottom - (hasTitle ? 1 : 0) - 1;
+			int effectiveMaxVisibleItems;
+
+			if (_maxVisibleItems.HasValue)
+			{
+				effectiveMaxVisibleItems = _maxVisibleItems.Value;
+			}
+			else
+			{
+				effectiveMaxVisibleItems = 0;
+				int heightUsed = 0;
+				for (int i = scrollOffset; i < _items.Count; i++)
+				{
+					int itemHeight = _items[i].Lines.Count;
+					if (heightUsed + itemHeight <= availableContentHeight)
+					{
+						effectiveMaxVisibleItems++;
+						heightUsed += itemHeight;
+					}
+					else break;
+				}
+				effectiveMaxVisibleItems = Math.Max(1, effectiveMaxVisibleItems);
+			}
+
+			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
+			ScrollService?.UpdateDimensions(this, 0, _items.Count, 0, effectiveMaxVisibleItems);
+
+			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - scrollOffset);
+
 			// Render each visible item
-			for (int i = 0; i < itemsToShow; i++)
+			for (int i = 0; i < itemsToShow && currentY < bounds.Bottom - _margin.Bottom - 1; i++)
 			{
 				int itemIndex = i + scrollOffset;
-				if (itemIndex >= _items.Count)
-					break;
+				if (itemIndex >= _items.Count) break;
 
-				// Get all lines for this item
 				List<string> itemLines = _items[itemIndex].Lines;
 
-				// Process each line of the item
-				for (int lineIndex = 0; lineIndex < itemLines.Count; lineIndex++)
+				for (int lineIndex = 0; lineIndex < itemLines.Count && currentY < bounds.Bottom - _margin.Bottom - 1; lineIndex++)
 				{
-					string lineText = itemLines[lineIndex];
-
-					// Only use formatter on the first line for now
-					// (could be extended to format each line differently)
-					if (lineIndex == 0 && _itemFormatter != null)
+					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					{
-						lineText = _itemFormatter(_items[itemIndex], itemIndex == selectedIndex, _hasFocus);
-					}
-
-					// Truncate if necessary
-					int maxTextWidth = listWidth - (indicatorSpace + 2); // Account for selection indicator and padding
-					if (AnsiConsoleHelper.StripSpectreLength(lineText) > maxTextWidth)
-					{
-						lineText = lineText.Substring(0, maxTextWidth - 3) + "...";
-					}
-
-					// Determine colors for this item
-					Color itemBg;
-					Color itemFg;
-
-					// For selectable lists, highlight the selected/highlighted item
-					if (_isSelectable && itemIndex == highlightedIndex && _hasFocus)
-					{
-						// Focused: full highlight colors
-						itemBg = HighlightBackgroundColor;
-						itemFg = HighlightForegroundColor;
-					}
-					else if (_isSelectable && itemIndex == highlightedIndex && !_hasFocus)
-					{
-						// Unfocused: dimmed highlight (standard UI behavior - show selection when unfocused)
-						itemBg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightBackgroundColor ?? HighlightBackgroundColor;
-						itemFg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
-					}
-					// Handle selected but not highlighted (when navigating away from selected item)
-					else if (_isSelectable && itemIndex == selectedIndex && _hasFocus)
-					{
-						itemBg = backgroundColor;
-						itemFg = foregroundColor;
-					}
-					else
-					{
-						itemBg = backgroundColor;
-						itemFg = foregroundColor;
-					}
-
-					string itemContent;
-
-					// Only show selection indicator on first line of a multi-line item
-					string selectionIndicator = "";
-					if (_isSelectable && lineIndex == 0)
-					{
-						selectionIndicator = (itemIndex == selectedIndex) ? "[x] " : "[ ] ";
-					}
-					else if (_isSelectable)
-					{
-						// For subsequent lines, use empty space for alignment
-						selectionIndicator = "    ";
-					}
-
-					// Handle items with icons (only on first line)
-					if (lineIndex == 0 && _items[itemIndex].Icon != null)
-					{
-						string iconText = _items[itemIndex].Icon!;
-						Color iconColor = _items[itemIndex].IconColor ?? itemFg;
-
-						// Create icon markup with proper color
-						string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
-
-						// Calculate actual visible length of icon plus markup (not including ANSI sequences)
-						int iconVisibleLength = AnsiConsoleHelper.StripSpectreLength(iconText) + 1; // +1 for the space
-
-						// Add icon to the start of the item content
-						itemContent = selectionIndicator + iconMarkup + lineText;
-
-						// Calculate actual visual text length (without ANSI escape sequences)
-						int visibleTextLength = selectionIndicator.Length + iconVisibleLength + AnsiConsoleHelper.StripSpectreLength(lineText);
-
-						// Calculate the padding needed
-						int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
-
-						// Add padding to the end
-						if (paddingNeeded > 0)
+						// Fill left margin
+						if (_margin.Left > 0)
 						{
-							itemContent += new string(' ', paddingNeeded);
+							buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
 						}
-					}
-					else
-					{
-						// Handle subsequent lines or no icon
-						// For lines after the first in multi-line items, indent to align with text in first line
-						string indent = "";
-						if (lineIndex > 0 && _items[itemIndex].Icon != null)
+
+						string lineText = itemLines[lineIndex];
+						if (lineIndex == 0 && _itemFormatter != null)
 						{
-							// Match the indentation of text on the first line (icon width + space)
+							lineText = _itemFormatter(_items[itemIndex], itemIndex == selectedIndex, _hasFocus);
+						}
+
+						// Truncate if necessary
+						int maxTextWidth = listWidth - (indicatorSpace + 2);
+						if (AnsiConsoleHelper.StripSpectreLength(lineText) > maxTextWidth && maxTextWidth > 3)
+						{
+							lineText = lineText.Substring(0, Math.Max(0, maxTextWidth - 3)) + "...";
+						}
+
+						// Determine colors for this item
+						Color itemBg, itemFg;
+						if (_isSelectable && itemIndex == highlightedIndex && _hasFocus)
+						{
+							itemBg = HighlightBackgroundColor;
+							itemFg = HighlightForegroundColor;
+						}
+						else if (_isSelectable && itemIndex == highlightedIndex && !_hasFocus)
+						{
+							itemBg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightBackgroundColor ?? HighlightBackgroundColor;
+							itemFg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
+						}
+						else
+						{
+							itemBg = backgroundColor;
+							itemFg = foregroundColor;
+						}
+
+						// Build item content
+						string selectionIndicator = "";
+						if (_isSelectable && lineIndex == 0)
+						{
+							selectionIndicator = (itemIndex == selectedIndex) ? "[x] " : "[ ] ";
+						}
+						else if (_isSelectable)
+						{
+							selectionIndicator = "    ";
+						}
+
+						string itemContent;
+						if (lineIndex == 0 && _items[itemIndex].Icon != null)
+						{
 							string iconText = _items[itemIndex].Icon!;
-							int iconWidth = AnsiConsoleHelper.StripSpectreLength(iconText) + 1;
-							indent = new string(' ', iconWidth);
+							Color iconColor = _items[itemIndex].IconColor ?? itemFg;
+							string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
+							int iconVisibleLength = AnsiConsoleHelper.StripSpectreLength(iconText) + 1;
+							itemContent = selectionIndicator + iconMarkup + lineText;
+							int visibleTextLength = selectionIndicator.Length + iconVisibleLength + AnsiConsoleHelper.StripSpectreLength(lineText);
+							int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
+							if (paddingNeeded > 0) itemContent += new string(' ', paddingNeeded);
 						}
-
-						itemContent = selectionIndicator + indent + lineText;
-
-						// Calculate actual visual text length
-						int visibleTextLength = selectionIndicator.Length + indent.Length + AnsiConsoleHelper.StripSpectreLength(lineText);
-
-						// Add padding to the end
-						int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
-						if (paddingNeeded > 0)
+						else
 						{
-							itemContent += new string(' ', paddingNeeded);
-						}
-					}
-
-					List<string> itemLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						itemContent,
-						listWidth,
-						1,
-						false,
-						itemBg,
-						itemFg
-					);
-
-					// Apply padding and margins
-					for (int j = 0; j < itemLine.Count; j++)
-					{
-						// Add alignment padding
-						if (paddingLeft > 0)
-						{
-							itemLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-								new string(' ', paddingLeft),
-								paddingLeft,
-								1,
-								false,
-								Container?.BackgroundColor,
-								null
-							).FirstOrDefault() + itemLine[j];
-						}
-
-						// Add left margin
-						itemLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', _margin.Left),
-							_margin.Left,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						).FirstOrDefault() + itemLine[j];
-
-						// Add right margin
-						itemLine[j] = itemLine[j] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', _margin.Right),
-							_margin.Right,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						).FirstOrDefault();
-					}
-
-					// Add item line to result
-					content.AddRange(itemLine);
-				}
-			}
-
-			// Add fill lines if FillHeight is true and we have space to fill
-			if (_fillHeight && availableHeight.HasValue)
-			{
-				// Get current visible content height excluding margins
-				int currentContentHeight = content.Count;
-
-				// Account for title and scroll indicators that are already part of the content
-				hasTitle = !string.IsNullOrEmpty(_title);
-				hasScrollIndicator = (scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count);
-
-				// Calculate the target height we want to fill; title is already in content, so only reserve space for indicator
-				int targetHeight = availableHeight.Value - _margin.Top - _margin.Bottom - (hasScrollIndicator ? 1 : 0);
-
-				// Calculate how many empty lines we need to add
-				int emptyLinesNeeded = targetHeight - currentContentHeight;
-
-				if (emptyLinesNeeded > 0)
-				{
-					// Create empty lines with proper background color
-					string emptyLine = new string(' ', listWidth);
-
-					for (int i = 0; i < emptyLinesNeeded; i++)
-					{
-						List<string> fillerLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							emptyLine,
-							listWidth,
-							1,
-							false,
-							backgroundColor,
-							foregroundColor
-						);
-
-						// Apply padding and margins
-						for (int j = 0; j < fillerLine.Count; j++)
-						{
-							// Add alignment padding
-							if (paddingLeft > 0)
+							string indent = "";
+							if (lineIndex > 0 && _items[itemIndex].Icon != null)
 							{
-								fillerLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-									new string(' ', paddingLeft),
-									paddingLeft,
-									1,
-									false,
-									Container?.BackgroundColor,
-									null
-								).FirstOrDefault() + fillerLine[j];
+								string iconText = _items[itemIndex].Icon!;
+								int iconWidth = AnsiConsoleHelper.StripSpectreLength(iconText) + 1;
+								indent = new string(' ', iconWidth);
 							}
-
-							// Add left margin
-							fillerLine[j] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-								new string(' ', _margin.Left),
-								_margin.Left,
-								1,
-								false,
-								Container?.BackgroundColor,
-								null
-							).FirstOrDefault() + fillerLine[j];
-
-							// Add right margin
-							fillerLine[j] = fillerLine[j] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-								new string(' ', _margin.Right),
-								_margin.Right,
-								1,
-								false,
-								Container?.BackgroundColor,
-								null
-							).FirstOrDefault();
+							itemContent = selectionIndicator + indent + lineText;
+							int visibleTextLength = selectionIndicator.Length + indent.Length + AnsiConsoleHelper.StripSpectreLength(lineText);
+							int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
+							if (paddingNeeded > 0) itemContent += new string(' ', paddingNeeded);
 						}
 
-						content.AddRange(fillerLine);
+						var itemAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(itemContent, listWidth, 1, false, itemBg, itemFg).FirstOrDefault() ?? "";
+						var itemCells = AnsiParser.Parse(itemAnsi, itemFg, itemBg);
+						buffer.WriteCellsClipped(startX, currentY, itemCells, clipRect);
+
+						// Fill right margin
+						if (_margin.Right > 0)
+						{
+							buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+						}
 					}
+					currentY++;
 				}
 			}
 
-			// Add scroll indicators if needed
-			if (scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count)
+			// Fill empty lines if VerticalAlignment.Fill
+			if (_verticalAlignment == VerticalAlignment.Fill)
 			{
-				string scrollIndicator = "";
-
-				// Top scroll indicator
-				if (scrollOffset > 0)
-					scrollIndicator += "▲";
-				else
-					scrollIndicator += " ";
-
-				// Center padding
-				int scrollPadding = listWidth - 2;
-				if (scrollPadding > 0)
-					scrollIndicator += new string(' ', scrollPadding);
-
-				// Bottom scroll indicator
-				if (scrollOffset + itemsToShow < _items.Count)
-					scrollIndicator += "▼";
-				else
-					scrollIndicator += " ";
-
-				List<string> scrollLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					scrollIndicator,
-					listWidth,
-					1,
-					false,
-					backgroundColor,
-					foregroundColor
-				);
-
-				// Apply padding and margins
-				for (int i = 0; i < scrollLine.Count; i++)
+				int scrollIndicatorY = bounds.Bottom - _margin.Bottom - 1;
+				while (currentY < scrollIndicatorY)
 				{
-					// Add alignment padding
-					if (paddingLeft > 0)
+					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					{
-						scrollLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', paddingLeft),
-							paddingLeft,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						).FirstOrDefault() + scrollLine[i];
+						if (_margin.Left > 0)
+						{
+							buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+						}
+						buffer.FillRect(new LayoutRect(startX, currentY, listWidth, 1), ' ', foregroundColor, backgroundColor);
+						if (_margin.Right > 0)
+						{
+							buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+						}
+					}
+					currentY++;
+				}
+			}
+
+			// Render scroll indicators
+			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count;
+			if (hasScrollIndicator && currentY < bounds.Bottom - _margin.Bottom)
+			{
+				if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
+				{
+					if (_margin.Left > 0)
+					{
+						buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
 					}
 
-					// Add left margin
-					scrollLine[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', _margin.Left),
-						_margin.Left,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					).FirstOrDefault() + scrollLine[i];
+					string scrollIndicator = "";
+					scrollIndicator += scrollOffset > 0 ? "▲" : " ";
+					int scrollPadding = listWidth - 2;
+					if (scrollPadding > 0) scrollIndicator += new string(' ', scrollPadding);
+					scrollIndicator += (scrollOffset + itemsToShow < _items.Count) ? "▼" : " ";
 
-					// Add right margin
-					scrollLine[i] = scrollLine[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', _margin.Right),
-						_margin.Right,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					).FirstOrDefault();
+					var scrollAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(scrollIndicator, listWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? "";
+					var scrollCells = AnsiParser.Parse(scrollAnsi, foregroundColor, backgroundColor);
+					buffer.WriteCellsClipped(startX, currentY, scrollCells, clipRect);
+
+					if (_margin.Right > 0)
+					{
+						buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+					}
 				}
-
-				// Add scroll indicator to result
-				content.AddRange(scrollLine);
+				currentY++;
 			}
 
-			// Add top margin
-			if (_margin.Top > 0)
+			// Fill bottom margin
+			for (int y = currentY; y < bounds.Bottom; y++)
 			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(content.FirstOrDefault() ?? string.Empty);
-				var topMargin = Enumerable.Repeat(
-					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', finalWidth),
-						finalWidth,
-						1,
-						false,
-						windowBackground,
-						windowForeground
-					).FirstOrDefault() ?? string.Empty,
-					_margin.Top
-				).ToList();
-
-				content.InsertRange(0, topMargin);
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
+				}
 			}
+		}
 
-			// Add bottom margin
-			if (_margin.Bottom > 0)
-			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(content.FirstOrDefault() ?? string.Empty);
-				var bottomMargin = Enumerable.Repeat(
-					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', finalWidth),
-						finalWidth,
-						1,
-						false,
-						windowBackground,
-						windowForeground
-					).FirstOrDefault() ?? string.Empty,
-					_margin.Bottom
-				).ToList();
-
-				content.AddRange(bottomMargin);
-			}
-
-			_invalidated = false;
-			return content;
-		});
-	}
+		#endregion
 
 		// IFocusableControl implementation
 		/// <inheritdoc/>
@@ -1599,7 +1353,6 @@ namespace SharpConsoleUI.Controls
 			_hasFocus = focus;
 			// Keep the highlighted index when losing focus - standard UI behavior
 			// The highlight shows where the user was, not what was selected
-			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
 			// Fire focus events

@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -151,86 +151,88 @@ namespace SharpConsoleUI.Helpers
 		/// <param name="height">The optional maximum height for the output.</param>
 		/// <param name="backgroundColor">The background color to use for padding.</param>
 		/// <returns>A list of ANSI-formatted strings, one per line, padded to the specified width.</returns>
-		public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height, Color backgroundColor)
-		{
-			if (renderable == null) return new List<string>();
+        public static List<string> ConvertSpectreRenderableToAnsi(IRenderable renderable, int? width, int? height, Color backgroundColor)
+        {
+            if (renderable == null) return new List<string>();
 
-			var writer = new StringWriter();
-			var console = CreateCaptureConsole(writer, width, height);
+            var writer = new StringWriter();
 
-			if (width.HasValue)
-			{
-				console.Profile.Width = width.Value;
-			}
-			if (height.HasValue)
-			{
-				console.Profile.Height = height.Value;
-			}
+            var console = CreateCaptureConsole(writer, width, height);
 
-			console.Write(renderable);
+            if (width.HasValue)
+            {
+                console.Profile.Width = width.Value;
+            }
+            if (height.HasValue)
+            {
+                console.Profile.Height = height.Value;
+            }
 
-			var lines = writer.ToString()
-				.Split('\n')
-				.Select(line => line.Replace("\r", "").Replace("\n", ""))
-				.ToList();
+            console.Write(renderable);
 
-			// If width is specified, pad each line to that width with spaces
-			if (width.HasValue && width.Value > 0)
-			{
-				for (int i = 0; i < lines.Count; i++)
-				{
-					string line = lines[i];
-					int visibleLength = StripAnsiStringLength(line);
-					if (visibleLength < width.Value)
-					{
-						// Add padding with the active style
-						int paddingSize = width.Value - visibleLength;
-						string padding = AnsiEmptySpace(paddingSize, backgroundColor);
+            var lines = writer.ToString()
+                .Split('\n')
+                .Select(line => line.Replace("\r", "").Replace("\n", ""))
+                .ToList();
 
-						// Append the padding to the line
-						lines[i] = line + padding;
-					}
-				}
-			}
+            // If width is specified, pad each line to that width with spaces
+            if (width.HasValue && width.Value > 0)
+            {
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    string line = lines[i];
+                    int visibleLength = StripAnsiStringLength(line);
+                    if (visibleLength < width.Value)
+                    {
+                        // Add padding with the active style
+                        int paddingSize = width.Value - visibleLength;
+                        string padding = AnsiEmptySpace(paddingSize, backgroundColor);
 
-			return lines;
-		}
+                        // Append the padding to the line
+                        lines[i] = line + padding;
+                    }
+                }
+            }
 
-		/// <summary>
-		/// Creates an <see cref="IAnsiConsole"/> instance that captures output to the specified <see cref="TextWriter"/>.
-		/// </summary>
-		/// <param name="writer">The text writer to capture console output to.</param>
-		/// <param name="width">The optional width of the console.</param>
-		/// <param name="height">The optional height of the console.</param>
-		/// <returns>An <see cref="IAnsiConsole"/> configured for capturing output.</returns>
-		public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
-		{
-			var consoleOutput = new AnsiConsoleOutput(writer);
-			consoleOutput.SetEncoding(Encoding.UTF8);
+            return lines;
+        }
 
-			var console = AnsiConsole.Create(new AnsiConsoleSettings
-			{
-				Ansi = AnsiSupport.Yes,
-				ColorSystem = ColorSystemSupport.Detect,
-				Out = consoleOutput,
-				Interactive = InteractionSupport.No,
-				Enrichment = new ProfileEnrichment
-				{
-					UseDefaultEnrichers = false
-				}
-			});
+        /// <summary>
+        /// Creates an <see cref="IAnsiConsole"/> instance that captures output to the specified <see cref="TextWriter"/>.
+        /// </summary>
+        /// <param name="writer">The text writer to capture console output to.</param>
+        /// <param name="width">The optional width of the console.</param>
+        /// <param name="height">The optional height of the console.</param>
+        /// <returns>An <see cref="IAnsiConsole"/> configured for capturing output.</returns>
+        public static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
+        {
+            var consoleOutput = new AnsiConsoleOutput(writer);
+            consoleOutput.SetEncoding(Encoding.UTF8);
 
-			if (width.HasValue)
-			{
-				console.Profile.Width = width.Value;
-			}
-			if (height.HasValue)
-			{
-				console.Profile.Height = height.Value;
-			}
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes,
+                ColorSystem = ColorSystemSupport.Detect,
+                Out = consoleOutput,
+                Interactive = InteractionSupport.No,
+                Enrichment = new ProfileEnrichment
+                {
+                    UseDefaultEnrichers = false
+                }
+            });
 
-			return console;
-		}
+            if (width.HasValue)
+            {
+                console.Profile.Width = width.Value;
+            }
+            if (height.HasValue)
+            {
+                console.Profile.Height = height.Value;
+            }
+
+            return console;
+        }
+
 
 		/// <summary>
 		/// Escapes invalid Spectre.Console markup tags in the input string by doubling the brackets.

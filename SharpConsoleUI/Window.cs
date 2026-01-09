@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -151,6 +151,13 @@ namespace SharpConsoleUI
 		private CancellationTokenSource? _windowThreadCts;
 		private bool _isClosing = false;
 		private string? _name;
+
+		// DOM-based layout system
+		private LayoutNode? _rootNode;
+		private WindowContentLayout? _windowContentLayout;
+		private CharacterBuffer? _buffer;
+		private readonly Dictionary<IWindowControl, LayoutNode> _controlToNodeMap = new();
+		private readonly bool _useDOMLayout = true;  // DOM-based layout is now the only rendering path
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Window"/> class with an async background task.
@@ -448,7 +455,19 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets or sets the vertical scroll offset for window content.
 		/// </summary>
-		public int ScrollOffset { get => _scrollOffset; set => _scrollOffset = value; }
+		public int ScrollOffset
+		{
+			get => _useDOMLayout && _windowContentLayout != null
+				? _windowContentLayout.ScrollOffset
+				: _scrollOffset;
+			set
+			{
+				if (_useDOMLayout && _windowContentLayout != null)
+					_windowContentLayout.ScrollOffset = value;
+				else
+					_scrollOffset = value;
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the current state of the window (Normal, Minimized, Maximized).
@@ -543,7 +562,18 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the total number of content lines including sticky headers.
 		/// </summary>
-		public int TotalLines => _cachedContent.Count + _topStickyHeight;
+		public int TotalLines
+		{
+			get
+			{
+				if (_useDOMLayout && _windowContentLayout != null)
+				{
+					// DOM mode: return total scrollable content height
+					return _windowContentLayout.ScrollableContentHeight;
+				}
+				return _cachedContent.Count + _topStickyHeight;
+			}
+		}
 
 		private int _width = 40;
 
@@ -582,6 +612,12 @@ namespace SharpConsoleUI
 				// Register the control with the InvalidationManager for proper coordination
 				InvalidationManager.Instance.RegisterControl(content);
 
+				// Invalidate DOM tree so it gets rebuilt with the new control
+				if (_useDOMLayout)
+				{
+					_rootNode = null;
+				}
+
 				_invalidated = true;
 
 				if (content is IInteractiveControl interactiveContent)
@@ -614,6 +650,13 @@ namespace SharpConsoleUI
 				{
 					RemoveContent(content);
 				}
+
+				// Invalidate DOM tree
+				if (_useDOMLayout)
+				{
+					_rootNode = null;
+				}
+
 				Invalidate(true);
 			}
 		}
@@ -807,7 +850,26 @@ namespace SharpConsoleUI
 						}
 					}
 				}
-				
+
+				// Handle mouse wheel scrolling in DOM mode
+				if (_useDOMLayout && _windowContentLayout != null)
+				{
+					if (args.HasFlag(MouseFlags.WheeledUp))
+					{
+						_windowContentLayout.ScrollBy(-3);
+						_invalidated = true;
+						IsDirty = true;
+						return true;
+					}
+					else if (args.HasFlag(MouseFlags.WheeledDown))
+					{
+						_windowContentLayout.ScrollBy(3);
+						_invalidated = true;
+						IsDirty = true;
+						return true;
+					}
+				}
+
 				return false; // Event not handled
 			}
 		}
@@ -871,6 +933,7 @@ namespace SharpConsoleUI
 
 		/// <summary>
 		/// Updates the layout manager with current control positions and bounds
+		/// using DOM-based layout information.
 		/// </summary>
 		private void UpdateControlLayout()
 		{
@@ -878,76 +941,50 @@ namespace SharpConsoleUI
 			{
 				var availableWidth = Width - 2; // Account for borders
 				var availableHeight = Height - 2; // Account for borders
-				
-				var currentTopOffset = 0;
-				var currentBottomOffset = 0;
-				
-				// Calculate sticky top controls positions
-				foreach (var control in _controls.Where(c => c.StickyPosition == StickyPosition.Top && c.Visible))
+
+				// Ensure DOM tree is built
+				if (_rootNode == null)
+				{
+					RebuildDOMTree();
+				}
+
+				// Update layout bounds from DOM nodes
+				foreach (var control in _controls.Where(c => c.Visible))
 				{
 					var bounds = _layoutManager.GetOrCreateControlBounds(control);
-					var renderedContent = control.RenderContent(availableWidth, availableHeight);
-					
-					bounds.ControlContentBounds = new Rectangle(
-						0, // Always left-aligned 
-						currentTopOffset,
-						control.ActualWidth ?? availableWidth, // Use full width if not specified
-						renderedContent.Count
-					);
-					
+
+					// Try to get bounds from DOM node
+					if (_controlToNodeMap.TryGetValue(control, out var node))
+					{
+						var nodeBounds = node.AbsoluteBounds;
+						bounds.ControlContentBounds = new Rectangle(
+							nodeBounds.X,
+							nodeBounds.Y,
+							nodeBounds.Width,
+							nodeBounds.Height
+						);
+					}
+					else
+					{
+						// Fallback: measure using IDOMPaintable
+						var size = control is IDOMPaintable paintable
+							? paintable.MeasureDOM(new LayoutConstraints(0, availableWidth, 0, availableHeight))
+							: new LayoutSize(control.ActualWidth ?? availableWidth, 1);
+
+						bounds.ControlContentBounds = new Rectangle(
+							0,
+							0,
+							size.Width,
+							size.Height
+						);
+					}
+
 					bounds.ViewportSize = new Size(availableWidth, availableHeight);
 					bounds.HasInternalScrolling = control is MultilineEditControl;
-					bounds.ScrollOffset = Point.Empty; // Sticky controls don't scroll
+					bounds.ScrollOffset = control.StickyPosition == StickyPosition.None
+						? new Point(0, ScrollOffset)
+						: Point.Empty;
 					bounds.IsVisible = true;
-					
-					currentTopOffset += renderedContent.Count;
-				}
-				
-				// Calculate sticky bottom controls positions (working backwards)
-				var bottomControls = _controls.Where(c => c.StickyPosition == StickyPosition.Bottom && c.Visible).Reverse().ToList();
-				foreach (var control in bottomControls)
-				{
-					var bounds = _layoutManager.GetOrCreateControlBounds(control);
-					var renderedContent = control.RenderContent(availableWidth, availableHeight);
-					
-					currentBottomOffset += renderedContent.Count;
-					
-					bounds.ControlContentBounds = new Rectangle(
-						0, // Always left-aligned
-						availableHeight - currentBottomOffset,
-						control.ActualWidth ?? availableWidth, // Use full width if not specified
-						renderedContent.Count
-					);
-					
-					bounds.ViewportSize = new Size(availableWidth, availableHeight);
-					bounds.HasInternalScrolling = control is MultilineEditControl;
-					bounds.ScrollOffset = Point.Empty; // Sticky controls don't scroll
-					bounds.IsVisible = true;
-				}
-				
-				// Calculate scrollable controls positions
-				var scrollableAreaTop = currentTopOffset;
-				var scrollableAreaHeight = availableHeight - currentTopOffset - currentBottomOffset;
-				var currentScrollableOffset = 0;
-				
-				foreach (var control in _controls.Where(c => c.StickyPosition == StickyPosition.None && c.Visible))
-				{
-					var bounds = _layoutManager.GetOrCreateControlBounds(control);
-					var renderedContent = control.RenderContent(availableWidth, scrollableAreaHeight);
-					
-					bounds.ControlContentBounds = new Rectangle(
-						0, // Always left-aligned
-						scrollableAreaTop + currentScrollableOffset - _scrollOffset,
-						control.ActualWidth ?? availableWidth, // Use full width if not specified
-						renderedContent.Count
-					);
-					
-					bounds.ViewportSize = new Size(availableWidth, scrollableAreaHeight);
-					bounds.HasInternalScrolling = control is MultilineEditControl;
-					bounds.ScrollOffset = new Point(0, _scrollOffset);
-					bounds.IsVisible = true;
-					
-					currentScrollableOffset += renderedContent.Count;
 				}
 			}
 		}
@@ -1157,24 +1194,22 @@ namespace SharpConsoleUI
 			{
 				if (redrawAll)
 				{
-					// Directly invalidate each control's cache to ensure they re-render
-					// This is essential for window resize/maximize operations
-					foreach (var content in _controls)
-					{
-						if (content is IWindowControl control && control != callerControl)
-						{
-							// Call Invalidate() directly to clear the control's ThreadSafeCache
-							// SafeInvalidate only marks the InvalidationManager's state,
-							// it doesn't clear the actual content cache
-							// Skip the callerControl to prevent infinite recursion
-							control.Invalidate();
-						}
-					}
+					// Invalidate measurements without rebuilding the tree
+					// This preserves runtime state like splitter positions
+					_rootNode?.InvalidateMeasure();
 				}
 				else if (callerControl != null)
 				{
-					// Specific control invalidation - use SafeInvalidate for coordination
-					callerControl.SafeInvalidate(InvalidationReason.ChildInvalidated);
+					// Specific control invalidation
+					if (_controlToNodeMap.TryGetValue(callerControl, out var node))
+					{
+						node.InvalidateMeasure();
+					}
+					else
+					{
+						// Fallback: invalidate entire tree
+						_rootNode?.InvalidateMeasure();
+					}
 				}
 			}
 
@@ -1245,9 +1280,9 @@ namespace SharpConsoleUI
 				{
 					if (child == target)
 					{
-						// Found the target - get its rendered height
-						var rendered = child.RenderContent(null, null);
-						return (offset, rendered.Count);
+						// Found the target - get its size using DOM
+						var size = GetControlHeight(child);
+						return (offset, size);
 					}
 
 					// Check if target is nested deeper
@@ -1258,11 +1293,30 @@ namespace SharpConsoleUI
 					}
 
 					// Add this child's height to the offset
-					var childRendered = child.RenderContent(null, null);
-					offset += childRendered.Count;
+					offset += GetControlHeight(child);
 				}
 			}
 			return (-1, 0);
+		}
+
+		// Get control height using DOM or MeasureDOM
+		private int GetControlHeight(IWindowControl control)
+		{
+			// Try to get from DOM node first
+			if (_controlToNodeMap.TryGetValue(control, out var node))
+			{
+				return node.AbsoluteBounds.Height;
+			}
+
+			// Fallback to MeasureDOM
+			if (control is IDOMPaintable paintable)
+			{
+				var size = paintable.MeasureDOM(new LayoutConstraints(0, Width - 2, 0, Height - 2));
+				return size.Height;
+			}
+
+			// Last resort
+			return control.GetLogicalContentSize().Height;
 		}
 
 		// Check if a container control contains the target control
@@ -1356,16 +1410,74 @@ namespace SharpConsoleUI
 						{
 							case ConsoleKey.UpArrow:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								_scrollOffset = Math.Max(0, _scrollOffset - 1);
+								if (_useDOMLayout && _windowContentLayout != null)
+								{
+									_windowContentLayout.ScrollBy(-1);
+									_invalidated = true;
+								}
+								else
+								{
+									_scrollOffset = Math.Max(0, _scrollOffset - 1);
+								}
 								IsDirty = true;
 								windowHandled = true;
 								break;
 
 							case ConsoleKey.DownArrow:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								_scrollOffset = Math.Min((_cachedContent?.Count ?? Height) - (Height - 2 - _topStickyHeight), _scrollOffset + 1);
+								if (_useDOMLayout && _windowContentLayout != null)
+								{
+									_windowContentLayout.ScrollBy(1);
+									_invalidated = true;
+								}
+								else
+								{
+									_scrollOffset = Math.Min((_cachedContent?.Count ?? Height) - (Height - 2 - _topStickyHeight), _scrollOffset + 1);
+								}
 								IsDirty = true;
 								windowHandled = true;
+								break;
+
+							case ConsoleKey.PageUp:
+								if (key.Modifiers != ConsoleModifiers.None) break;
+								if (_useDOMLayout && _windowContentLayout != null)
+								{
+									_windowContentLayout.PageUp();
+									_invalidated = true;
+									IsDirty = true;
+									windowHandled = true;
+								}
+								break;
+
+							case ConsoleKey.PageDown:
+								if (key.Modifiers != ConsoleModifiers.None) break;
+								if (_useDOMLayout && _windowContentLayout != null)
+								{
+									_windowContentLayout.PageDown();
+									_invalidated = true;
+									IsDirty = true;
+									windowHandled = true;
+								}
+								break;
+
+							case ConsoleKey.Home:
+								if (key.Modifiers == ConsoleModifiers.Control && _useDOMLayout && _windowContentLayout != null)
+								{
+									_windowContentLayout.ScrollToTop();
+									_invalidated = true;
+									IsDirty = true;
+									windowHandled = true;
+								}
+								break;
+
+							case ConsoleKey.End:
+								if (key.Modifiers == ConsoleModifiers.Control && _useDOMLayout && _windowContentLayout != null)
+								{
+									_windowContentLayout.ScrollToBottom();
+									_invalidated = true;
+									IsDirty = true;
+									windowHandled = true;
+								}
 								break;
 						}
 					}
@@ -1448,111 +1560,247 @@ namespace SharpConsoleUI
 			var availableWidth = Width - 2; // Account for borders
 			var availableHeight = Height - 2; // Account for borders
 
-			// Render sticky top controls
-			_topStickyLines.Clear();
-			_topStickyHeight = 0;
-			var topStickyControls = _controls.Where(c => c.StickyPosition == StickyPosition.Top && c.Visible).ToList();
-			
-			foreach (var control in topStickyControls)
-			{
-				var renderedLines = control.RenderContent(availableWidth, availableHeight);
-				_topStickyLines.AddRange(renderedLines);
-				_topStickyHeight += renderedLines.Count;
-			}
-
-			// Render sticky bottom controls
-			_bottomStickyLines.Clear();
-			_bottomStickyHeight = 0;
-			var bottomStickyControls = _controls.Where(c => c.StickyPosition == StickyPosition.Bottom && c.Visible).ToList();
-			
-			foreach (var control in bottomStickyControls)
-			{
-				var renderedLines = control.RenderContent(availableWidth, availableHeight);
-				_bottomStickyLines.AddRange(renderedLines);
-				_bottomStickyHeight += renderedLines.Count;
-			}
-
-			// Render scrollable content (non-sticky controls)
-			var scrollableContent = new List<string>();
-			var scrollableControls = _controls.Where(c => c.StickyPosition == StickyPosition.None && c.Visible).ToList();
-			var scrollableHeight = Math.Max(0, availableHeight - _topStickyHeight - _bottomStickyHeight);
-
-			// Clear and rebuild control position tracking
-			_controlPositions.Clear();
-			int currentScrollableOffset = 0;
-
-			// Track remaining height for scrollable controls (like ColumnContainer does for children)
-			// This ensures FillHeight controls know their ACTUAL available space
-			int? remainingHeight = scrollableHeight;
-			foreach (var control in scrollableControls)
-			{
-				// Pass remaining height so FillHeight knows actual budget
-				// When remainingHeight is 0 or less, pass null to signal "no fixed constraint"
-				// (Spectre.Console requires height > 0, so 0 is invalid)
-				var heightToPass = (remainingHeight.HasValue && remainingHeight.Value > 0) ? remainingHeight : null;
-				var renderedLines = control.RenderContent(availableWidth, heightToPass);
-
-				// Track this control's position and size (NO clipping)
-				_controlPositions[control] = (currentScrollableOffset, renderedLines.Count);
-
-				scrollableContent.AddRange(renderedLines);
-				currentScrollableOffset += renderedLines.Count;
-
-				// Update remaining for next control's FillHeight calculation
-				if (remainingHeight.HasValue)
-				{
-					remainingHeight = Math.Max(0, remainingHeight.Value - renderedLines.Count);
-					// NO early break - render ALL controls
-				}
-			}
-
-			_cachedContent = scrollableContent;
-			_invalidated = false;
+			// Always use DOM-based layout
+			RebuildContentCacheDOM(availableWidth, availableHeight);
 		}
 
 		private List<string> BuildVisibleContent()
 		{
 			var availableHeight = Height - 2; // Account for borders
-			var scrollableAreaHeight = availableHeight - _topStickyHeight - _bottomStickyHeight;
-			
-			// Start with empty content area
-			var visibleContent = new List<string>();
 
-			// Add top sticky content (always visible at top)
-			visibleContent.AddRange(_topStickyLines);
-
-			// Add scrollable content (respecting scroll offset)
-			var scrollableVisible = _cachedContent
-				.Skip(_scrollOffset)
-				.Take(scrollableAreaHeight);
-			
-			visibleContent.AddRange(scrollableVisible);
-
-			// Pad scrollable area if needed
-			var currentScrollableLines = visibleContent.Count - _topStickyHeight;
-			if (currentScrollableLines < scrollableAreaHeight)
+			// DOM mode: _cachedContent already contains the viewport-sized content
+			var result = _cachedContent?.Take(availableHeight).ToList() ?? new List<string>();
+			while (result.Count < availableHeight)
 			{
-				var paddingNeeded = scrollableAreaHeight - currentScrollableLines;
-				visibleContent.AddRange(Enumerable.Repeat(string.Empty, paddingNeeded));
+				result.Add(string.Empty);
 			}
-
-			// Add bottom sticky content (always visible at bottom)
-			visibleContent.AddRange(_bottomStickyLines);
-
-			// Final padding to ensure we have exactly the right number of lines
-			while (visibleContent.Count < availableHeight)
-			{
-				visibleContent.Add(string.Empty);
-			}
-
-			// Trim if we have too many lines
-			if (visibleContent.Count > availableHeight)
-			{
-				visibleContent = visibleContent.Take(availableHeight).ToList();
-			}
-
-			return visibleContent;
+			return result;
 		}
+
+		#region DOM-Based Layout System
+
+		/// <summary>
+		/// Gets the LayoutNode associated with a control.
+		/// </summary>
+		/// <param name="control">The control to look up.</param>
+		/// <returns>The LayoutNode for the control, or null if not found.</returns>
+		public LayoutNode? GetLayoutNode(IWindowControl control)
+		{
+			return _controlToNodeMap.TryGetValue(control, out var node) ? node : null;
+		}
+
+		/// <summary>
+		/// Gets the root layout node for this window.
+		/// </summary>
+		public LayoutNode? RootLayoutNode => _rootNode;
+
+		/// <summary>
+		/// Gets whether DOM-based layout is enabled.
+		/// DOM layout is always enabled and is the only rendering path.
+		/// </summary>
+		[Obsolete("DOM layout is now always enabled. This property will be removed.")]
+		public bool UseDOMLayout => true;
+
+		/// <summary>
+		/// Rebuilds the DOM tree from the current controls.
+		/// </summary>
+		private void RebuildDOMTree()
+		{
+			var contentWidth = Width - 2;
+			var contentHeight = Height - 2;
+
+			// Create the character buffer if needed
+			if (_buffer == null || _buffer.Width != contentWidth || _buffer.Height != contentHeight)
+			{
+				_buffer = new CharacterBuffer(contentWidth, contentHeight);
+			}
+
+			// Create root node with WindowContentLayout, preserving scroll offset
+			int previousScrollOffset = _windowContentLayout?.ScrollOffset ?? 0;
+			_windowContentLayout = new WindowContentLayout { ScrollOffset = previousScrollOffset };
+			_rootNode = new LayoutNode(null, _windowContentLayout);
+			_controlToNodeMap.Clear();
+
+			// Add ALL controls as children (not just visible ones)
+			// The node's IsVisible property will control whether it participates in layout
+			foreach (var control in _controls)
+			{
+				var node = CreateLayoutNode(control);
+				node.IsVisible = control.Visible; // Set visibility on the node
+				_rootNode.AddChild(node);
+				_controlToNodeMap[control] = node;
+			}
+
+			// Perform initial layout
+			PerformDOMLayout();
+		}
+
+		/// <summary>
+		/// Creates a LayoutNode for a control, handling container controls recursively.
+		/// </summary>
+		private LayoutNode CreateLayoutNode(IWindowControl control)
+		{
+			ILayoutContainer? layout = null;
+			IEnumerable<IWindowControl>? children = null;
+
+			// Determine layout type and get children based on control type
+			if (control is Controls.ColumnContainer columnContainer)
+			{
+				layout = new VerticalStackLayout();
+				children = columnContainer.Contents;
+			}
+			else if (control is Controls.HorizontalGridControl horizontalGrid)
+			{
+				layout = new HorizontalLayout();
+				// Build ordered list of columns and splitters
+				var orderedChildren = new List<IWindowControl>();
+				for (int i = 0; i < horizontalGrid.Columns.Count; i++)
+				{
+					orderedChildren.Add(horizontalGrid.Columns[i]);
+					// Add splitter after this column if one exists
+					var splitter = horizontalGrid.Splitters.FirstOrDefault(s => horizontalGrid.GetSplitterLeftColumnIndex(s) == i);
+					if (splitter != null)
+					{
+						orderedChildren.Add(splitter);
+					}
+				}
+				children = orderedChildren;
+			}
+
+			var node = new LayoutNode(control, layout);
+
+			// Handle container controls with children
+			// Create nodes for ALL children and set their visibility
+			if (children != null)
+			{
+				foreach (var child in children)
+				{
+					var childNode = CreateLayoutNode(child);
+					childNode.IsVisible = child.Visible; // Set visibility on the node
+					node.AddChild(childNode);
+					_controlToNodeMap[child] = childNode;
+				}
+			}
+
+			return node;
+		}
+
+		/// <summary>
+		/// Performs the measure and arrange passes on the DOM tree.
+		/// </summary>
+		private void PerformDOMLayout()
+		{
+			if (_rootNode == null) return;
+
+			// Sync node visibility with control visibility before layout
+			SyncNodeVisibility();
+
+			var contentWidth = Width - 2;
+			var contentHeight = Height - 2;
+
+			// Measure pass - use Loose constraints so children can measure smaller
+			var constraints = LayoutConstraints.Loose(contentWidth, contentHeight);
+
+			_rootNode.Measure(constraints);
+
+			// Arrange pass
+			_rootNode.Arrange(new LayoutRect(0, 0, contentWidth, contentHeight));
+		}
+
+		/// <summary>
+		/// Syncs all layout node properties with their corresponding control properties.
+		/// This includes visibility and explicit width (important for dynamic sizing like splitters).
+		/// </summary>
+		private void SyncNodeVisibility()
+		{
+			foreach (var pair in _controlToNodeMap)
+			{
+				// Sync visibility
+				pair.Value.IsVisible = pair.Key.Visible;
+
+				// Sync explicit width (critical for splitter-resized columns!)
+				pair.Value.ExplicitWidth = pair.Key.Width;
+
+				if (pair.Key is Controls.ColumnContainer column)
+				{
+				}
+			}
+		}
+		/// <param name="x">X coordinate relative to window content area.</param>
+		/// <param name="y">Y coordinate relative to window content area.</param>
+		/// <returns>The control at the specified position, or null if none found.</returns>
+		private IWindowControl? HitTestDOM(int x, int y)
+		{
+			if (_rootNode == null) return null;
+
+			var hitNode = _rootNode.HitTest(x, y);
+			return hitNode?.Control;
+		}
+
+		/// <summary>
+		/// Paints the DOM tree to the character buffer.
+		/// </summary>
+		private void PaintDOM()
+		{
+			if (_rootNode == null || _buffer == null) return;
+
+			var contentWidth = Width - 2;
+			var contentHeight = Height - 2;
+
+			// Clear buffer
+			_buffer.Clear(BackgroundColor);
+
+			// Paint the tree
+			var clipRect = new LayoutRect(0, 0, contentWidth, contentHeight);
+			_rootNode.Paint(_buffer, clipRect);
+		}
+
+		/// <summary>
+		/// Invalidates the DOM layout, triggering a re-measure and re-arrange.
+		/// </summary>
+		private void InvalidateDOMLayout()
+		{
+			_rootNode?.InvalidateMeasure();
+		}
+
+		/// <summary>
+		/// Rebuilds the content cache using DOM-based layout.
+		/// Converts the CharacterBuffer output to line-based format for compatibility.
+		/// </summary>
+		private void RebuildContentCacheDOM(int availableWidth, int availableHeight)
+		{
+			// Ensure DOM tree exists
+			if (_rootNode == null)
+			{
+				RebuildDOMTree();
+			}
+
+			// Ensure buffer is sized correctly - invalidate measure if size changed (text wrapping may change)
+			if (_buffer == null || _buffer.Width != availableWidth || _buffer.Height != availableHeight)
+			{
+				_buffer = new CharacterBuffer(availableWidth, availableHeight);
+				_rootNode?.InvalidateMeasure(); // Size changed, need to re-measure (text wrapping)
+			}
+
+			// Always perform layout (arrange pass uses scroll offset)
+			PerformDOMLayout();
+
+			// Paint to buffer
+			PaintDOM();
+
+			// Convert buffer to lines for compatibility with existing render system
+			_topStickyLines.Clear();
+			_topStickyHeight = 0;
+			_bottomStickyLines.Clear();
+			_bottomStickyHeight = 0;
+			_controlPositions.Clear();
+
+			// Convert the entire buffer to lines (DOM handles sticky internally)
+			_cachedContent = _buffer.ToLines(ForegroundColor, BackgroundColor);
+			_invalidated = false;
+		}
+
+		#endregion
 
 		/// <summary>
 		/// Maximizes the window to fill the entire desktop area.

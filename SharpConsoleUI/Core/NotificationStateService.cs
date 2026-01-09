@@ -9,6 +9,7 @@
 using System.Collections.Concurrent;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Core
@@ -376,7 +377,7 @@ namespace SharpConsoleUI.Core
 				$"{severity.Icon}{(string.IsNullOrEmpty(severity.Icon) ? string.Empty : " ")}{message}"
 			})
 			{
-				Alignment = Alignment.Left
+				HorizontalAlignment = HorizontalAlignment.Left
 			};
 			notificationWindow.AddControl(notificationContent);
 

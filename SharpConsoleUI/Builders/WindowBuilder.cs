@@ -390,6 +390,19 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
+    /// Enables DOM-based layout for this window.
+    /// DOM layout is now always enabled and is the only rendering path.
+    /// </summary>
+    /// <param name="enabled">This parameter is ignored. DOM layout is always enabled.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    [Obsolete("DOM layout is now always enabled. This method will be removed.")]
+    public WindowBuilder WithDOMLayout(bool enabled = true)
+    {
+        // DOM layout is always enabled - this method is kept for backward compatibility
+        return this;
+    }
+
+    /// <summary>
     /// Builds and returns the window with all configured settings applied.
     /// The window is created but not added to the window system.
     /// </summary>
@@ -440,6 +453,7 @@ public sealed class WindowBuilder
         window.IsMovable = _isMovable;
         window.IsMinimizable = _isMinimizable;
         window.IsMaximizable = _isMaximizable;
+        // DOM layout is now always enabled - no need to set
 
         // Note: MinimumWidth, MinimumHeight, MaximumWidth, MaximumHeight are private fields in Window
         // and cannot be set from the builder. These properties would need to be exposed publicly

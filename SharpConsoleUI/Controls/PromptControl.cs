@@ -11,6 +11,8 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System;
 using System.Drawing;
@@ -22,7 +24,7 @@ namespace SharpConsoleUI.Controls
 	/// A single-line text input control with optional prompt text.
 	/// Supports text editing, cursor navigation, and horizontal scrolling for overflow text.
 	/// </summary>
-	public class PromptControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider
+	public class PromptControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider, IDOMPaintable
 	{
 		/// <summary>
 		/// Event fired when Enter is pressed (modern standardized event)
@@ -33,14 +35,14 @@ namespace SharpConsoleUI.Controls
 		/// Event fired when input text changes (modern standardized event)
 		/// </summary>
 		public event EventHandler<string>? InputChanged;
-		private List<string>? _cachedContent;
 		private string _input = string.Empty;
 		private Color? _inputBackgroundColor;
 		private Color? _inputFocusedBackgroundColor;
 		private Color? _inputFocusedForegroundColor;
 		private Color? _inputForegroundColor;
 		private int? _inputWidth;
-		private Alignment _justify = Alignment.Left;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private string? _prompt;
 		private StickyPosition _stickyPosition = StickyPosition.None;
@@ -61,23 +63,19 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				if (_cachedContent == null) return null;
-
-				int maxLength = 0;
-				foreach (var line in _cachedContent)
-				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-					if (length > maxLength) maxLength = length;
-				}
-				return maxLength;
+				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+				int inputLength = _inputWidth ?? _input.Length;
+				return promptLength + inputLength + _margin.Left + _margin.Right;
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the text alignment within the control.
-		/// </summary>
-		public Alignment Alignment
-		{ get => _justify; set { _justify = value; _cachedContent = null; Container?.Invalidate(true); } }
+		/// <inheritdoc/>
+		public HorizontalAlignment HorizontalAlignment
+		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
@@ -93,9 +91,6 @@ namespace SharpConsoleUI.Controls
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
 
-				// Invalidate cached content to trigger re-rendering when focus changes
-				_cachedContent = null;
-
 				// Sync editing mode with EditStateService
 				EditService?.SetEditingMode(this, value);
 
@@ -108,6 +103,8 @@ namespace SharpConsoleUI.Controls
 				{
 					LostFocus?.Invoke(this, EventArgs.Empty);
 				}
+
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -125,7 +122,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_inputBackgroundColor = value;
-				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
 		}
@@ -139,7 +135,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_inputFocusedBackgroundColor = value;
-				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
 		}
@@ -153,7 +148,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_inputFocusedForegroundColor = value;
-				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
 		}
@@ -167,7 +161,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_inputForegroundColor = value;
-				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
 		}
@@ -181,7 +174,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_inputWidth = value.HasValue ? Math.Max(1, value.Value) : value;
-				_cachedContent = null;
 				Container?.Invalidate(true);
 			}
 		}
@@ -191,7 +183,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
 
 
 
@@ -199,7 +191,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the prompt text displayed before the input area.
 		/// </summary>
 		public string? Prompt
-		{ get => _prompt; set { _prompt = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _prompt; set { _prompt = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
@@ -222,7 +214,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _cachedContent = null; Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public int? Width
@@ -234,7 +226,6 @@ namespace SharpConsoleUI.Controls
 				if (_width != validatedValue)
 				{
 					_width = validatedValue;
-					_cachedContent = null;
 					Container?.Invalidate(true);
 				}
 			}
@@ -296,7 +287,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Invalidate()
 		{
-			_cachedContent = null;
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -313,7 +304,6 @@ namespace SharpConsoleUI.Controls
 					EditService?.SetCursorPosition(this, 0, 0);
 					HasFocus = false;
 				}
-				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
@@ -327,7 +317,6 @@ namespace SharpConsoleUI.Controls
 				{
 					SetScrollOffset(scrollOffset - 1);
 				}
-				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
@@ -335,7 +324,6 @@ namespace SharpConsoleUI.Controls
 			else if (key.Key == ConsoleKey.Delete && cursorPos < _input.Length)
 			{
 				_input = _input.Remove(cursorPos, 1);
-				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
@@ -344,7 +332,6 @@ namespace SharpConsoleUI.Controls
 			{
 				EditService?.SetCursorPosition(this, 0, 0);
 				SetScrollOffset(0);
-				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
@@ -352,7 +339,6 @@ namespace SharpConsoleUI.Controls
 			{
 				EditService?.SetCursorPosition(this, 0, _input.Length);
 				SetScrollOffset(Math.Max(0, _input.Length - (_inputWidth ?? _input.Length)));
-				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
@@ -364,7 +350,6 @@ namespace SharpConsoleUI.Controls
 				{
 					SetScrollOffset(scrollOffset - 1);
 				}
-				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
@@ -376,14 +361,12 @@ namespace SharpConsoleUI.Controls
 				{
 					SetScrollOffset(scrollOffset + 1);
 				}
-				_cachedContent = null;
 				Container?.Invalidate(true);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Escape)
 			{
 				HasFocus = false;
-				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
@@ -397,74 +380,11 @@ namespace SharpConsoleUI.Controls
 				{
 					SetScrollOffset(newCursorPos - _inputWidth.Value);
 				}
-				_cachedContent = null;
 				Container?.Invalidate(true);
 				InputChanged?.Invoke(this, _input);
 				return true;
 			}
 			return false;
-		}
-
-		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
-		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
-
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
-			{
-				// Dimensions changed - invalidate cached content
-				_cachedContent = null;
-			}
-			else
-			{
-				// Dimensions unchanged - return cached content if available
-				if (_cachedContent != null) return _cachedContent;
-			}
-
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-			_cachedContent = new List<string>();
-
-			int maxContentWidth = _width ?? (AnsiConsoleHelper.StripSpectreLength(_prompt + _input));
-			int paddingLeft = 0;
-			if (Alignment == Alignment.Center)
-			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, maxContentWidth);
-			}
-
-			int scrollOffset = CurrentScrollOffset;
-			string visibleInput = _input;
-			if (_inputWidth.HasValue && _input.Length > _inputWidth.Value)
-			{
-				int maxLength = Math.Min(_inputWidth.Value, _input.Length - scrollOffset);
-				if (maxLength > 0 && scrollOffset < _input.Length)
-				{
-					visibleInput = _input.Substring(scrollOffset, maxLength);
-				}
-				else
-				{
-					visibleInput = string.Empty;
-				}
-			}
-
-			Color inputBackgroundColor = HasFocus ? InputFocusedBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor ?? Color.White : InputBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor ?? Color.Black;
-			Color inputForegroundColor = HasFocus ? InputFocusedForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black : InputForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
-
-			int paddingRight = _inputWidth ?? ((_width ?? availableWidth ?? 50) - AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty));
-			if (paddingRight < 0) paddingRight = 0;
-
-			int rightWhiteSpace = Math.Max(0, paddingRight - visibleInput.Length);
-
-			_cachedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{_prompt}[{inputForegroundColor} on {inputBackgroundColor}]{visibleInput}{new string(' ', rightWhiteSpace)}[/]", (_width ?? (availableWidth ?? 50)), availableHeight, true, Container?.BackgroundColor, Container?.ForegroundColor);
-
-			for (int i = 0; i < _cachedContent.Count; i++)
-			{
-				_cachedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(' ', paddingLeft)}", paddingLeft, 1, false, Container?.BackgroundColor, null).FirstOrDefault() + _cachedContent[i];
-			}
-
-			return _cachedContent;
 		}
 
 		/// <inheritdoc/>
@@ -494,7 +414,6 @@ namespace SharpConsoleUI.Controls
 		{
 			int newCursorPos = string.IsNullOrEmpty(input) ? 0 : input.Length;
 
-			_cachedContent = null;
 			_input = input ?? string.Empty;
 
 			// Set cursor and scroll via services (single source of truth)
@@ -511,5 +430,177 @@ namespace SharpConsoleUI.Controls
 			// Set scroll position via service (single source of truth)
 			EditService?.SetScrollPosition(this, newOffset, 0);
 		}
+
+		#region IDOMPaintable Implementation
+
+		/// <inheritdoc/>
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+			int inputFieldWidth = _inputWidth ?? Math.Max(_input.Length, 10);
+			int contentWidth = promptLength + inputFieldWidth;
+			int width = (_width ?? contentWidth) + _margin.Left + _margin.Right;
+			int height = 1 + _margin.Top + _margin.Bottom;
+
+			return new LayoutSize(
+				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			var bgColor = Container?.BackgroundColor ?? defaultBg;
+			var fgColor = Container?.ForegroundColor ?? defaultFg;
+			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+
+			if (targetWidth <= 0) return;
+
+			int startX = bounds.X + _margin.Left;
+			int startY = bounds.Y + _margin.Top;
+
+			// Fill top margin
+			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+				}
+			}
+
+			// Render the prompt line
+			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
+			{
+				// Fill left margin
+				if (_margin.Left > 0)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, startY, _margin.Left, 1), ' ', fgColor, bgColor);
+				}
+
+				// Calculate colors
+				Color inputBackgroundColor = HasFocus
+					? InputFocusedBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor ?? Color.White
+					: InputBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor ?? Color.Black;
+				Color inputForegroundColor = HasFocus
+					? InputFocusedForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black
+					: InputForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
+
+				int currentX = startX;
+				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+
+				// Calculate alignment offset
+				int inputFieldWidth = _inputWidth ?? (targetWidth - promptLength);
+				int totalContentWidth = promptLength + inputFieldWidth;
+				int alignOffset = 0;
+				if (totalContentWidth < targetWidth)
+				{
+					switch (_horizontalAlignment)
+					{
+						case HorizontalAlignment.Center:
+							alignOffset = (targetWidth - totalContentWidth) / 2;
+							break;
+						case HorizontalAlignment.Right:
+							alignOffset = targetWidth - totalContentWidth;
+							break;
+					}
+				}
+
+				// Fill left alignment padding
+				if (alignOffset > 0)
+				{
+					buffer.FillRect(new LayoutRect(startX, startY, alignOffset, 1), ' ', fgColor, bgColor);
+					currentX += alignOffset;
+				}
+
+				// Render prompt text (if any)
+				if (!string.IsNullOrEmpty(_prompt))
+				{
+					var promptAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(_prompt, promptLength, 1, false, bgColor, fgColor).FirstOrDefault() ?? string.Empty;
+					var promptCells = AnsiParser.Parse(promptAnsi, fgColor, bgColor);
+					buffer.WriteCellsClipped(currentX, startY, promptCells, clipRect);
+					currentX += promptLength;
+				}
+
+				// Calculate visible input with scroll offset
+				int scrollOffset = CurrentScrollOffset;
+				string visibleInput = _input;
+				if (_inputWidth.HasValue && _input.Length > _inputWidth.Value)
+				{
+					int maxLength = Math.Min(_inputWidth.Value, _input.Length - scrollOffset);
+					if (maxLength > 0 && scrollOffset < _input.Length)
+					{
+						visibleInput = _input.Substring(scrollOffset, maxLength);
+					}
+					else
+					{
+						visibleInput = string.Empty;
+					}
+				}
+				else if (scrollOffset > 0 && scrollOffset < _input.Length)
+				{
+					visibleInput = _input.Substring(scrollOffset);
+				}
+				else if (scrollOffset >= _input.Length)
+				{
+					visibleInput = string.Empty;
+				}
+
+				// Render input field with background color
+				int remainingWidth = bounds.Right - currentX - _margin.Right;
+				int inputDisplayWidth = _inputWidth ?? Math.Max(remainingWidth, 0);
+				inputDisplayWidth = Math.Min(inputDisplayWidth, remainingWidth);
+
+				// Write the visible input text
+				for (int i = 0; i < visibleInput.Length && i < inputDisplayWidth; i++)
+				{
+					int x = currentX + i;
+					if (x >= clipRect.X && x < clipRect.Right)
+					{
+						buffer.SetCell(x, startY, visibleInput[i], inputForegroundColor, inputBackgroundColor);
+					}
+				}
+
+				// Fill remaining input field with background color
+				int inputEndX = currentX + visibleInput.Length;
+				int fillWidth = inputDisplayWidth - visibleInput.Length;
+				if (fillWidth > 0 && inputEndX < bounds.Right - _margin.Right)
+				{
+					for (int i = 0; i < fillWidth; i++)
+					{
+						int x = inputEndX + i;
+						if (x >= clipRect.X && x < clipRect.Right && x < bounds.Right - _margin.Right)
+						{
+							buffer.SetCell(x, startY, ' ', inputForegroundColor, inputBackgroundColor);
+						}
+					}
+				}
+
+				// Fill right padding (after input field, before margin)
+				int rightPadStart = currentX + inputDisplayWidth;
+				int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+				if (rightPadWidth > 0)
+				{
+					buffer.FillRect(new LayoutRect(rightPadStart, startY, rightPadWidth, 1), ' ', fgColor, bgColor);
+				}
+
+				// Fill right margin
+				if (_margin.Right > 0)
+				{
+					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, startY, _margin.Right, 1), ' ', fgColor, bgColor);
+				}
+			}
+
+			// Fill bottom margin
+			for (int y = startY + 1; y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+				}
+			}
+		}
+
+		#endregion
 	}
 }

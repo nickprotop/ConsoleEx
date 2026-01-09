@@ -8,24 +8,10 @@
 
 using System.Drawing;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
 {
-	/// <summary>
-	/// Specifies the horizontal alignment of a control within its container.
-	/// </summary>
-	public enum Alignment
-	{
-		/// <summary>Aligns the control to the left edge of its container.</summary>
-		Left,
-		/// <summary>Centers the control horizontally within its container.</summary>
-		Center,
-		/// <summary>Aligns the control to the right edge of its container.</summary>
-		Right,
-		/// <summary>Stretches the control to fill the available width.</summary>
-		Stretch
-	}
-
 	/// <summary>
 	/// Specifies whether a control should stick to the top or bottom of its container during scrolling.
 	/// </summary>
@@ -48,7 +34,10 @@ namespace SharpConsoleUI.Controls
 		int? ActualWidth { get; }
 
 		/// <summary>Gets or sets the horizontal alignment of the control within its container.</summary>
-		Alignment Alignment { get; set; }
+		HorizontalAlignment HorizontalAlignment { get; set; }
+
+		/// <summary>Gets or sets the vertical alignment of the control within its container.</summary>
+		VerticalAlignment VerticalAlignment { get; set; }
 
 		/// <summary>Gets or sets the parent container that hosts this control.</summary>
 		IContainer? Container { get; set; }
@@ -79,13 +68,6 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		void Invalidate();
 
-		/// <summary>
-		/// Renders the control's content to a list of ANSI-formatted strings.
-		/// </summary>
-		/// <param name="availableWidth">The available width for rendering, or null for unlimited.</param>
-		/// <param name="availableHeight">The available height for rendering, or null for unlimited.</param>
-		/// <returns>A list of strings representing the rendered lines of the control.</returns>
-		List<string> RenderContent(int? availableWidth, int? availableHeight);
 	}
 
 	/// <summary>
@@ -130,14 +112,32 @@ namespace SharpConsoleUI.Controls
 	{
 		/// <summary>
 		/// Gets the control's layout requirements.
-		/// Called during the measure phase before RenderContent.
+		/// Called during the measure phase before painting.
 		/// </summary>
 		LayoutRequirements GetLayoutRequirements();
 
 		/// <summary>
 		/// Notifies the control of its layout allocation.
-		/// Called after layout calculation, before RenderContent.
+		/// Called after layout calculation, before painting.
 		/// </summary>
 		void OnLayoutAllocated(LayoutAllocation allocation);
+	}
+
+	/// <summary>
+	/// Interface for controls that can provide logical cursor positions.
+	/// </summary>
+	public interface ILogicalCursorProvider
+	{
+		/// <summary>
+		/// Gets the logical cursor position within the control's content coordinate system.
+		/// This should be the raw position without any visual adjustments for margins, scrolling, etc.
+		/// </summary>
+		/// <returns>Logical cursor position or null if no cursor.</returns>
+		Point? GetLogicalCursorPosition();
+
+		/// <summary>
+		/// Sets the logical cursor position within the control's content coordinate system.
+		/// </summary>
+		void SetLogicalCursorPosition(Point position);
 	}
 }

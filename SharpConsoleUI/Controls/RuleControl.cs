@@ -6,8 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -18,10 +20,10 @@ namespace SharpConsoleUI.Controls
 	/// A control that renders a horizontal rule (divider line) with optional title text.
 	/// Wraps the Spectre.Console Rule component.
 	/// </summary>
-	public class RuleControl : IWindowControl
+	public class RuleControl : IWindowControl, IDOMPaintable
 	{
-		private Alignment _alignment = Alignment.Left;
-		private readonly ThreadSafeCache<List<string>> _contentCache;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Color? _color;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
@@ -35,20 +37,29 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public RuleControl()
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
 		/// <inheritdoc/>
-		public int? ActualWidth => _contentCache.Content == null ? 0 : AnsiConsoleHelper.StripAnsiStringLength(_contentCache.Content?.FirstOrDefault() ?? string.Empty);
+		public int? ActualWidth => (_width ?? 80) + _margin.Left + _margin.Right;
 
 		/// <inheritdoc/>
-		public Alignment Alignment
+		public HorizontalAlignment HorizontalAlignment
 		{
-			get => _alignment;
+			get => _horizontalAlignment;
 			set
 			{
-				_alignment = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
+				_horizontalAlignment = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{
+			get => _verticalAlignment;
+			set
+			{
+				_verticalAlignment = value;
 				Container?.Invalidate(true);
 			}
 		}
@@ -62,7 +73,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_color = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -72,7 +82,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
@@ -97,7 +107,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_title = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -111,14 +120,13 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_titleAlignment = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
 
 		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public int? Width
@@ -130,7 +138,6 @@ namespace SharpConsoleUI.Controls
 				if (_width != validatedValue)
 				{
 					_width = validatedValue;
-					_contentCache.Invalidate(InvalidationReason.SizeChanged);
 					Container?.Invalidate(true);
 				}
 			}
@@ -139,14 +146,13 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Dispose()
 		{
-			_contentCache.Dispose();
 			Container = null;
 		}
 
 		/// <inheritdoc/>
 		public void Invalidate()
 		{
-			_contentCache.Invalidate(InvalidationReason.ContentChanged);
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -154,108 +160,84 @@ namespace SharpConsoleUI.Controls
 		{
 			// Rules are typically one line and take the available width
 			int width = _width ?? 80; // Default width if not specified
-			return new System.Drawing.Size(width, 1);
+			return new System.Drawing.Size(width, 1 + _margin.Top + _margin.Bottom);
+		}
+
+		#region IDOMPaintable Implementation
+
+		/// <inheritdoc/>
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			int width = _width ?? constraints.MaxWidth;
+			int height = 1 + _margin.Top + _margin.Bottom;
+
+			return new LayoutSize(
+				Math.Clamp(width + _margin.Left + _margin.Right, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
 		}
 
 		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
+			var bgColor = Container?.BackgroundColor ?? defaultBg;
+			var fgColor = Container?.ForegroundColor ?? defaultFg;
+			var ruleColor = _color ?? fgColor;
 
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
-			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-			}
-			else
-			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return cached;
-			}
-
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
-		}
-
-		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
-		{
-			var renderedContent = new List<string>();
-			var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
-			var fgColor = Container?.ForegroundColor ?? Spectre.Console.Color.White;
-			int targetWidth = availableWidth ?? 80;
+			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			if (targetWidth <= 0) return;
 
 			int ruleWidth = _width ?? targetWidth;
+			int startX = bounds.X + _margin.Left;
+			int startY = bounds.Y + _margin.Top;
 
-			Rule rule = new Rule()
+			// Fill top margin
+			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
 			{
-				Title = string.IsNullOrEmpty(_title) ? null : _title,
-				Style = new Style(_color ?? fgColor, background: bgColor),
-				Justification = _titleAlignment
-			};
-
-			renderedContent = new List<string>() { AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(rule, ruleWidth, 1, bgColor).FirstOrDefault() ?? string.Empty };
-
-			// Apply alignment padding
-			for (int i = 0; i < renderedContent.Count; i++)
-			{
-				int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent[i]);
-				if (lineWidth < targetWidth)
+				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					int totalPadding = targetWidth - lineWidth;
-					switch (_alignment)
-					{
-						case Alignment.Center:
-							int leftPad = totalPadding / 2;
-							int rightPad = totalPadding - leftPad;
-							renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(leftPad, bgColor) + renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(rightPad, bgColor);
-							break;
-						case Alignment.Right:
-							renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor) + renderedContent[i];
-							break;
-						default: // Left or Stretch
-							renderedContent[i] = renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(totalPadding, bgColor);
-							break;
-					}
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
 				}
+			}
 
-				// Apply left margin
+			// Paint the rule line
+			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
+			{
+				// Fill left margin
 				if (_margin.Left > 0)
 				{
-					renderedContent[i] = AnsiConsoleHelper.AnsiEmptySpace(_margin.Left, bgColor) + renderedContent[i];
+					buffer.FillRect(new LayoutRect(bounds.X, startY, _margin.Left, 1), ' ', fgColor, bgColor);
 				}
 
-				// Apply right margin
+				// Render using Spectre's Rule and parse the output
+				Rule rule = new Rule()
+				{
+					Title = string.IsNullOrEmpty(_title) ? null : _title,
+					Style = new Style(ruleColor, background: bgColor),
+					Justification = _titleAlignment
+				};
+
+				var ansiLine = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(rule, ruleWidth, 1, bgColor).FirstOrDefault() ?? string.Empty;
+				var cells = AnsiParser.Parse(ansiLine, ruleColor, bgColor);
+				buffer.WriteCellsClipped(startX, startY, cells, clipRect);
+
+				// Fill right margin
 				if (_margin.Right > 0)
 				{
-					renderedContent[i] = renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(_margin.Right, bgColor);
+					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, startY, _margin.Right, 1), ' ', fgColor, bgColor);
 				}
 			}
 
-			// Add top margin
-			if (_margin.Top > 0)
+			// Fill bottom margin
+			for (int y = startY + 1; y < bounds.Bottom; y++)
 			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
-				for (int i = 0; i < _margin.Top; i++)
+				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					renderedContent.Insert(0, AnsiConsoleHelper.AnsiEmptySpace(finalWidth, bgColor));
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
 				}
 			}
-
-			// Add bottom margin
-			if (_margin.Bottom > 0)
-			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
-				for (int i = 0; i < _margin.Bottom; i++)
-				{
-					renderedContent.Add(AnsiConsoleHelper.AnsiEmptySpace(finalWidth, bgColor));
-				}
-			}
-
-			return renderedContent;
 		}
+
+		#endregion
 	}
 }

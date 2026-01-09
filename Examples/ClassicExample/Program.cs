@@ -11,6 +11,7 @@ using SharpConsoleUI.Themes;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Example
 {

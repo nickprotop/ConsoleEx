@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using Spectre.Console;
 
 namespace SharpConsoleUI.Builders;
@@ -17,7 +19,7 @@ namespace SharpConsoleUI.Builders;
 public sealed class ButtonBuilder
 {
     private string _text = "Button";
-    private Alignment _alignment = Alignment.Left;
+    private HorizontalAlignment _alignment = HorizontalAlignment.Left;
     private Margin _margin = new(0, 0, 0, 0);
     private bool _enabled = true;
     private bool _visible = true;
@@ -41,7 +43,7 @@ public sealed class ButtonBuilder
     /// </summary>
     /// <param name="alignment">The alignment</param>
     /// <returns>The builder for chaining</returns>
-    public ButtonBuilder WithAlignment(Alignment alignment)
+    public ButtonBuilder WithAlignment(HorizontalAlignment alignment)
     {
         _alignment = alignment;
         return this;
@@ -53,7 +55,7 @@ public sealed class ButtonBuilder
     /// <returns>The builder for chaining</returns>
     public ButtonBuilder Centered()
     {
-        _alignment = Alignment.Center;
+        _alignment = HorizontalAlignment.Center;
         return this;
     }
 
@@ -167,7 +169,7 @@ public sealed class ButtonBuilder
         var button = new ButtonControl
         {
             Text = _text,
-            Alignment = _alignment,
+            HorizontalAlignment = _alignment,
             Margin = _margin,
             IsEnabled = _enabled,
             Visible = _visible,
@@ -197,7 +199,7 @@ public sealed class ButtonBuilder
 public sealed class MarkupBuilder
 {
     private readonly List<string> _lines = new();
-    private Alignment _alignment = Alignment.Left;
+    private HorizontalAlignment _alignment = HorizontalAlignment.Left;
     private Margin _margin = new(0, 0, 0, 0);
     private bool _visible = true;
     private int? _width;
@@ -253,7 +255,7 @@ public sealed class MarkupBuilder
     /// </summary>
     /// <param name="alignment">The alignment</param>
     /// <returns>The builder for chaining</returns>
-    public MarkupBuilder WithAlignment(Alignment alignment)
+    public MarkupBuilder WithAlignment(HorizontalAlignment alignment)
     {
         _alignment = alignment;
         return this;
@@ -265,7 +267,7 @@ public sealed class MarkupBuilder
     /// <returns>The builder for chaining</returns>
     public MarkupBuilder Centered()
     {
-        _alignment = Alignment.Center;
+        _alignment = HorizontalAlignment.Center;
         return this;
     }
 
@@ -335,7 +337,7 @@ public sealed class MarkupBuilder
     {
         var markup = new MarkupControl(_lines.ToList())
         {
-            Alignment = _alignment,
+            HorizontalAlignment = _alignment,
             Margin = _margin,
             Visible = _visible,
             Width = _width,

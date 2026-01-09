@@ -9,7 +9,10 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Events;
 using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -20,11 +23,11 @@ namespace SharpConsoleUI.Controls
 	/// A container control that holds child controls vertically within a column of a <see cref="HorizontalGridControl"/>.
 	/// Supports layout constraints, focus management, and dynamic content sizing.
 	/// </summary>
-	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, ILayoutAware
+	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILayoutAware, IDOMPaintable
 	{
-		private Alignment _alignment = Alignment.Left;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Fill;
 		private Color? _backgroundColorValue;
-		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private IContainer? _container;
 		private List<IWindowControl> _contents = new List<IWindowControl>();
@@ -33,8 +36,6 @@ namespace SharpConsoleUI.Controls
 		private HorizontalGridControl _horizontalGridContent;
 		private bool _isDirty;
 		private bool _isEnabled = true;
-		private int? _lastRenderWidth;
-		private int? _lastRenderHeight;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
@@ -48,7 +49,6 @@ namespace SharpConsoleUI.Controls
 		{
 			_horizontalGridContent = horizontalGridContent;
 			_consoleWindowSystem = horizontalGridContent.Container?.GetConsoleWindowSystem;
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
 		/// <inheritdoc/>
@@ -58,7 +58,7 @@ namespace SharpConsoleUI.Controls
 			// then fall back to theme
 			get => _backgroundColorValue ?? _horizontalGridContent?.Container?.BackgroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
-			set { _backgroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); }
+			set { _backgroundColorValue = value; Container?.Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
@@ -68,7 +68,7 @@ namespace SharpConsoleUI.Controls
 			// then fall back to theme
 			get => _foregroundColorValue ?? _horizontalGridContent?.Container?.ForegroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
-			set { _foregroundColorValue = value; this.SafeInvalidate(InvalidationReason.PropertyChanged); }
+			set { _foregroundColorValue = value; Container?.Invalidate(true); }
 		}
 
 		private bool _propagatingWindowSystem = false;
@@ -114,7 +114,7 @@ namespace SharpConsoleUI.Controls
 				{
 					control.Invalidate();
 				}
-				this.SafeInvalidate(InvalidationReason.PropertyChanged);
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -156,9 +156,6 @@ namespace SharpConsoleUI.Controls
 			{
 				_width = validatedValue;
 				Invalidate(true);
-
-				// Notify layout service of requirements change
-				NotifyLayoutRequirementsChanged();
 			}
 		}
 	}
@@ -179,7 +176,6 @@ namespace SharpConsoleUI.Controls
 				{
 					_minWidth = value;
 					Invalidate(true);
-					NotifyLayoutRequirementsChanged();
 				}
 			}
 		}
@@ -196,7 +192,6 @@ namespace SharpConsoleUI.Controls
 				{
 					_maxWidth = value;
 					Invalidate(true);
-					NotifyLayoutRequirementsChanged();
 				}
 			}
 		}
@@ -213,7 +208,6 @@ namespace SharpConsoleUI.Controls
 				{
 					_flexFactor = Math.Max(0, value);
 					Invalidate(true);
-					NotifyLayoutRequirementsChanged();
 				}
 			}
 		}
@@ -226,7 +220,7 @@ namespace SharpConsoleUI.Controls
 			if (_width.HasValue)
 			{
 				// Fixed width column
-				return LayoutRequirements.Fixed(_width.Value, _alignment);
+				return LayoutRequirements.Fixed(_width.Value, _horizontalAlignment);
 			}
 			else
 			{
@@ -255,7 +249,7 @@ namespace SharpConsoleUI.Controls
 				{
 					MinWidth = effectiveMinWidth,
 					MaxWidth = _maxWidth,
-					HorizontalAlignment = _alignment,
+					HorizontalAlignment = _horizontalAlignment,
 					FlexFactor = _flexFactor
 				};
 			}
@@ -264,18 +258,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void OnLayoutAllocated(LayoutAllocation allocation)
 		{
-			// Store the allocated dimensions for use during rendering
-			// The RenderContent method will use _lastRenderWidth which gets updated during render
-			// This is informational - the actual width comes from the RenderContent parameter
-		}
-
-		private void NotifyLayoutRequirementsChanged()
-		{
-			var layoutService = GetConsoleWindowSystem?.LayoutStateService;
-			if (layoutService != null)
-			{
-				layoutService.UpdateRequirements(this, GetLayoutRequirements(), LayoutChangeReason.RequirementsChange);
-			}
+			// Layout allocation is now handled by the DOM layout system
 		}
 
 		#endregion
@@ -284,12 +267,23 @@ namespace SharpConsoleUI.Controls
 		public int? ActualWidth => GetActualWidth();
 
 		/// <inheritdoc/>
-		public Alignment Alignment
+		public HorizontalAlignment HorizontalAlignment
 		{
-			get => _alignment;
+			get => _horizontalAlignment;
 			set
 			{
-				_alignment = value;
+				_horizontalAlignment = value;
+				Invalidate(true);
+			}
+		}
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{
+			get => _verticalAlignment;
+			set
+			{
+				_verticalAlignment = value;
 				Invalidate(true);
 			}
 		}
@@ -366,21 +360,21 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets the actual rendered width of this column based on cached content.
+		/// Gets the actual rendered width of this column based on content.
 		/// </summary>
-		/// <returns>The maximum line width of the rendered content, or null if not rendered.</returns>
+		/// <returns>The maximum width required by content, or null if no content.</returns>
 		public int? GetActualWidth()
 		{
-			var cachedContent = _contentCache.Content;
-			if (cachedContent == null) return null;
+			if (_contents.Count == 0) return _margin.Left + _margin.Right;
 
-			int maxLength = 0;
-			foreach (var line in cachedContent)
+			// Calculate width from visible content controls
+			int maxWidth = 0;
+			foreach (var content in _contents.Where(c => c.Visible))
 			{
-				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-				if (length > maxLength) maxLength = length;
+				int contentWidth = content.ActualWidth ?? content.Width ?? 0;
+				maxWidth = Math.Max(maxWidth, contentWidth);
 			}
-			return maxLength;
+			return maxWidth + _margin.Left + _margin.Right;
 		}
 
 		/// <summary>
@@ -406,7 +400,6 @@ namespace SharpConsoleUI.Controls
 	public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
 	{
 		_isDirty = true;
-		_contentCache.Invalidate(InvalidationReason.ChildInvalidated);
 
 		// Prevent infinite recursion by tracking if this container is already being invalidated
 		if (_invalidatingContainers.Value!.Contains(this))
@@ -447,8 +440,7 @@ namespace SharpConsoleUI.Controls
 	public void InvalidateOnlyColumnContents(IWindowControl? callerControl = null)
 		{
 			_isDirty = true;
-			_contentCache.Invalidate(InvalidationReason.ContentChanged);
-			
+
 			// Prevent infinite recursion by tracking if this container is already being invalidated
 			if (_invalidatingContainers.Value!.Contains(this))
 			{
@@ -490,95 +482,6 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
-		{
-			var layoutService = GetConsoleWindowSystem?.LayoutStateService;
-
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
-			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-			}
-			else
-			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return cached;
-			}
-
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-			// Use thread-safe cache with lazy rendering
-			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
-		}
-
-		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
-		{
-			var renderedContent = new List<string>();
-
-			// Store the effective render dimensions for cache validation and hit-testing
-			_lastRenderWidth = _width ?? availableWidth;
-			_lastRenderHeight = availableHeight;
-			int targetWidth = _lastRenderWidth ?? 0;
-
-			foreach (var content in _contents)
-			{
-				content.Invalidate();
-			}
-
-			// Render each content and collect the lines
-			// Track remainingHeight so FillHeight controls know their budget
-			// Note: We do NOT clip content or break early - viewport clipping happens at Window level
-			int? remainingHeight = availableHeight;
-			foreach (var content in _contents)
-			{
-				// Skip invisible controls
-				if (!content.Visible) continue;
-
-				// Pass remainingHeight so FillHeight controls know their budget
-				// When remainingHeight is 0 or less, pass null to signal "no fixed constraint"
-				// (Spectre.Console requires height > 0, so 0 is invalid)
-				var heightToPass = (remainingHeight.HasValue && remainingHeight.Value > 0) ? remainingHeight : null;
-				var contentRendered = content.RenderContent(_lastRenderWidth, heightToPass);
-
-				// NO .Take() clipping - let full content flow through
-				renderedContent.AddRange(contentRendered);
-
-				// Track remaining for next child's FillHeight calculation
-				if (remainingHeight.HasValue)
-				{
-					remainingHeight = Math.Max(0, remainingHeight.Value - contentRendered.Count);
-					// NO early break - render ALL children even if budget exhausted
-				}
-			}
-
-			// CRITICAL: Ensure ALL lines in this column have the same width
-			// This is required for proper horizontal alignment when columns are combined
-			if (targetWidth > 0)
-			{
-				for (int i = 0; i < renderedContent.Count; i++)
-				{
-					int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent[i]);
-					if (lineWidth < targetWidth)
-					{
-						// Pad the line to the target width
-						renderedContent[i] = renderedContent[i] + AnsiConsoleHelper.AnsiEmptySpace(targetWidth - lineWidth, BackgroundColor);
-					}
-					else if (lineWidth > targetWidth)
-					{
-						// Truncate the line to the target width (preserving ANSI codes)
-						renderedContent[i] = AnsiConsoleHelper.SubstringAnsi(renderedContent[i], 0, targetWidth);
-					}
-				}
-			}
-
-			_isDirty = false;
-			return renderedContent;
-		}
-
-		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -613,9 +516,15 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+
 			// ColumnContainer doesn't process keys directly, delegate to focused content
 			var focusedContent = GetInteractiveContents().FirstOrDefault(c => c.HasFocus);
-			return focusedContent?.ProcessKey(key) ?? false;
+
+
+			var result = focusedContent?.ProcessKey(key) ?? false;
+
+
+			return result;
 		}
 
 		/// <inheritdoc/>
@@ -636,11 +545,36 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			var content = RenderContent(10000, 10000);
-			return new System.Drawing.Size(
-				content.FirstOrDefault()?.Length ?? 0,
-				content.Count
-			);
+			int totalHeight = _margin.Top + _margin.Bottom;
+			int maxWidth = 0;
+			int fillChildCount = 0;
+
+			// First pass: sum non-fill children
+			foreach (var content in _contents.Where(c => c.Visible))
+			{
+				if (content.VerticalAlignment == VerticalAlignment.Fill)
+				{
+					fillChildCount++;
+					// For fill children without constraints, use a reasonable default height
+					// This prevents them from reporting 0 or full content height
+					totalHeight += 10; // Default reasonable height for fill children
+				}
+				else
+				{
+					var size = content.GetLogicalContentSize();
+					totalHeight += size.Height;
+					maxWidth = Math.Max(maxWidth, size.Width);
+				}
+			}
+
+			// Get width from all children
+			foreach (var content in _contents.Where(c => c.Visible))
+			{
+				var size = content.GetLogicalContentSize();
+				maxWidth = Math.Max(maxWidth, size.Width);
+			}
+
+			return new System.Drawing.Size(maxWidth + _margin.Left + _margin.Right, totalHeight);
 		}
 
 		/// <inheritdoc/>
@@ -656,26 +590,11 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The control at the position, or null if no control found.</returns>
 		public IInteractiveControl? GetControlAtPosition(Point position)
 		{
-			// Force render to ensure we have current layout using thread-safe cache
-			var cachedContent = _contentCache.Content;
-			if (cachedContent == null)
-			{
-				// Use reasonable maximum dimensions instead of int.MaxValue to avoid memory issues
-				cachedContent = RenderContent(10000, 10000);
-				
-				// Verify content was rendered
-				if (cachedContent == null)
-				{
-					return null;
-				}
-			}
-
-			int currentY = 0;
+			int currentY = _margin.Top;
 			foreach (var content in _contents.Where(c => c.Visible))
 			{
-				// Use _lastRenderWidth to match the width used during actual rendering
-				var renderedContent = content.RenderContent(_lastRenderWidth, null);
-				int contentHeight = renderedContent.Count;
+				var size = content.GetLogicalContentSize();
+				int contentHeight = size.Height;
 
 				// Check if the position is within this control's bounds
 				if (position.Y >= currentY && position.Y < currentY + contentHeight)
@@ -710,41 +629,230 @@ namespace SharpConsoleUI.Controls
 		/// <returns>Position relative to the control.</returns>
 		public Point GetControlRelativePosition(IInteractiveControl control, Point columnPosition)
 		{
-			// Force render to ensure we have current layout using thread-safe cache
-			var cachedContent = _contentCache.Content;
-			if (cachedContent == null)
-			{
-				// Use reasonable maximum dimensions instead of int.MaxValue to avoid memory issues
-				cachedContent = RenderContent(10000, 10000);
-				
-				// Verify content was rendered
-				if (cachedContent == null)
-				{
-					return new Point(0, 0);
-				}
-			}
-
-			int currentY = 0;
+			int currentY = _margin.Top;
 			foreach (var content in _contents.Where(c => c.Visible))
 			{
 				if (content == control)
 				{
-					return new Point(columnPosition.X, columnPosition.Y - currentY);
+					return new Point(columnPosition.X - _margin.Left, columnPosition.Y - currentY);
 				}
 
-				// Use _lastRenderWidth to match the width used during actual rendering
-				var renderedContent = content.RenderContent(_lastRenderWidth, null);
-				currentY += renderedContent.Count;
+				var size = content.GetLogicalContentSize();
+				currentY += size.Height;
 			}
 
 			return columnPosition; // Fallback if control not found
 		}
 
+		#region IDOMPaintable Implementation
+
+		/// <inheritdoc/>
+        public LayoutSize MeasureDOM(LayoutConstraints constraints)
+        {
+            int maxWidth = 0;
+
+            // DEBUG: Log width values
+
+            // FIX: If we have an explicit width (set by splitter), use it to calculate content width
+            // This ensures children measure with the correct width constraints
+            int contentMaxWidth;
+            if (_width.HasValue)
+            {
+                // Use explicit width minus margins for child constraints
+                contentMaxWidth = Math.Max(0, _width.Value - _margin.Left - _margin.Right);
+            }
+            else
+            {
+                // Use constraint width minus margins (original behavior)
+                contentMaxWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
+            }
+
+            // Use two-pass measurement like VerticalStackLayout to properly handle Fill children
+            // First pass: measure non-Fill children to determine fixed height
+            int fixedHeight = _margin.Top + _margin.Bottom;
+            int fillCount = 0;
+            var childSizes = new Dictionary<IWindowControl, LayoutSize>();
+
+            foreach (var content in _contents.Where(c => c.Visible))
+            {
+                if (content.VerticalAlignment == VerticalAlignment.Fill)
+                {
+                    fillCount++;
+                }
+                else
+                {
+                    // Measure non-fill children with remaining available height
+                    if (content is IDOMPaintable paintable)
+                    {
+                        var childConstraints = new LayoutConstraints(
+                            constraints.MinWidth > 0 ? Math.Max(0, constraints.MinWidth - _margin.Left - _margin.Right) : 0,
+                            contentMaxWidth,
+                            0,
+                            Math.Max(0, constraints.MaxHeight - fixedHeight)
+                        );
+
+                        var childSize = paintable.MeasureDOM(childConstraints);
+                        childSizes[content] = childSize;
+                        fixedHeight += childSize.Height;
+                        maxWidth = Math.Max(maxWidth, childSize.Width);
+                    }
+                    else
+                    {
+                        var size = content.GetLogicalContentSize();
+                        var layoutSize = new LayoutSize(size.Width, size.Height);
+                        childSizes[content] = layoutSize;
+                        fixedHeight += layoutSize.Height;
+                        maxWidth = Math.Max(maxWidth, layoutSize.Width);
+                    }
+                }
+            }
+
+            // Second pass: measure Fill children with remaining space divided among them
+            int remainingHeight = Math.Max(0, constraints.MaxHeight - fixedHeight);
+            int fillHeight = fillCount > 0 ? remainingHeight / fillCount : 0;
+
+            foreach (var content in _contents.Where(c => c.Visible))
+            {
+                if (content.VerticalAlignment == VerticalAlignment.Fill)
+                {
+                    if (content is IDOMPaintable paintable)
+                    {
+                        var childConstraints = new LayoutConstraints(
+                            constraints.MinWidth > 0 ? Math.Max(0, constraints.MinWidth - _margin.Left - _margin.Right) : 0,
+                            contentMaxWidth,
+                            0,
+                            fillHeight
+                        );
+
+                        var childSize = paintable.MeasureDOM(childConstraints);
+                        childSizes[content] = childSize;
+                        maxWidth = Math.Max(maxWidth, childSize.Width);
+                    }
+                    else
+                    {
+                        var size = content.GetLogicalContentSize();
+                        var layoutSize = new LayoutSize(size.Width, size.Height);
+                        childSizes[content] = layoutSize;
+                        maxWidth = Math.Max(maxWidth, layoutSize.Width);
+                    }
+                }
+            }
+
+            // Calculate total height
+            int totalHeight = _margin.Top + _margin.Bottom;
+            foreach (var size in childSizes.Values)
+            {
+                totalHeight += size.Height;
+            }
+
+            int finalWidth = maxWidth + _margin.Left + _margin.Right;
+
+            // If we have an explicit width, use it
+            if (_width.HasValue)
+            {
+                finalWidth = _width.Value;
+            }
+
+            return new LayoutSize(
+                Math.Clamp(finalWidth, constraints.MinWidth, constraints.MaxWidth),
+                Math.Clamp(totalHeight, constraints.MinHeight, constraints.MaxHeight)
+            );
+        }
+
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			// NOTE: Container controls should NOT paint their children here.
+			// Children are painted by the DOM tree's child LayoutNodes.
+			// This method only paints the container's own content (background, margins).
+
+			var bgColor = BackgroundColor;
+			var fgColor = ForegroundColor;
+
+			// Fill the entire bounds with background color
+			// This provides the background for the container and any margins
+			for (int y = bounds.Y; y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+				}
+			}
+
+			_isDirty = false;
+		}
+
+		#endregion
+
+		#region IMouseAwareControl Implementation
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseMove;
+
+		/// <inheritdoc/>
+		public bool WantsMouseEvents => IsEnabled && Visible;
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse => IsEnabled && Visible;
+
+		/// <inheritdoc/>
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+			if (!Visible || !IsEnabled)
+				return false;
+
+			// Find which child control was clicked
+			int currentY = _margin.Top;
+			foreach (var content in _contents.Where(c => c.Visible))
+			{
+				var size = content.GetLogicalContentSize();
+				int contentHeight = size.Height;
+
+				// Check if the mouse position is within this control's bounds
+				if (args.Position.Y >= currentY && args.Position.Y < currentY + contentHeight)
+				{
+					// Forward to IMouseAwareControl if applicable
+					if (content is IMouseAwareControl mouseAware)
+					{
+						// Adjust position relative to the child control
+						var childPosition = new Point(args.Position.X - _margin.Left, args.Position.Y - currentY);
+						var relativeArgs = args.WithPosition(childPosition);
+
+						if (mouseAware.ProcessMouseEvent(relativeArgs))
+						{
+							args.Handled = true;
+							return true;
+						}
+					}
+					break;
+				}
+
+				currentY += contentHeight;
+			}
+
+			return false;
+		}
+
+		#endregion
+
 		/// <inheritdoc/>
 		public void Dispose()
 		{
+			foreach (var content in _contents)
+			{
+				content.Dispose();
+			}
 			_contents.Clear();
-			_contentCache.Dispose();
 		}
 	}
 }

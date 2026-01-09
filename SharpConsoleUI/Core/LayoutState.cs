@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Core
 {
@@ -56,10 +57,10 @@ namespace SharpConsoleUI.Core
 		public int? MaxHeight { get; init; }
 
 		/// <summary>Horizontal alignment within allocated space</summary>
-		public Alignment HorizontalAlignment { get; init; } = Alignment.Left;
+		public HorizontalAlignment HorizontalAlignment { get; init; } = HorizontalAlignment.Left;
 
 		/// <summary>Vertical alignment within allocated space</summary>
-		public Alignment VerticalAlignment { get; init; } = Alignment.Left;
+		public VerticalAlignment VerticalAlignment { get; init; } = VerticalAlignment.Top;
 
 		/// <summary>Flex factor for proportional sizing when Width is null (1.0 = equal share)</summary>
 		public double FlexFactor { get; init; } = 1.0;
@@ -70,14 +71,14 @@ namespace SharpConsoleUI.Core
 		public static readonly LayoutRequirements Default = new();
 
 		/// <summary>Creates fixed-width requirements</summary>
-		public static LayoutRequirements Fixed(int width, Alignment alignment = Alignment.Left) => new()
+		public static LayoutRequirements Fixed(int width, HorizontalAlignment alignment = HorizontalAlignment.Left) => new()
 		{
 			Width = width,
 			HorizontalAlignment = alignment
 		};
 
 		/// <summary>Creates fixed-size requirements</summary>
-		public static LayoutRequirements Fixed(int width, int height, Alignment horizontalAlignment = Alignment.Left, Alignment verticalAlignment = Alignment.Left) => new()
+		public static LayoutRequirements Fixed(int width, int height, HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left, VerticalAlignment verticalAlignment = VerticalAlignment.Top) => new()
 		{
 			Width = width,
 			Height = height,
@@ -86,7 +87,7 @@ namespace SharpConsoleUI.Core
 		};
 
 		/// <summary>Creates flexible requirements with optional constraints</summary>
-		public static LayoutRequirements Flexible(int? minWidth = null, int? maxWidth = null, Alignment alignment = Alignment.Left) => new()
+		public static LayoutRequirements Flexible(int? minWidth = null, int? maxWidth = null, HorizontalAlignment alignment = HorizontalAlignment.Left) => new()
 		{
 			MinWidth = minWidth,
 			MaxWidth = maxWidth,
@@ -96,7 +97,7 @@ namespace SharpConsoleUI.Core
 		/// <summary>Creates stretch requirements (expands to fill available space)</summary>
 		public static LayoutRequirements Stretch() => new()
 		{
-			HorizontalAlignment = Alignment.Stretch
+			HorizontalAlignment = HorizontalAlignment.Stretch
 		};
 
 		/// <summary>Effective minimum width (defaults to 1 if null)</summary>
@@ -115,7 +116,7 @@ namespace SharpConsoleUI.Core
 		public bool IsFixed => Width.HasValue;
 
 		/// <summary>True if this should expand to fill available space</summary>
-		public bool IsStretch => HorizontalAlignment == Alignment.Stretch;
+		public bool IsStretch => HorizontalAlignment == HorizontalAlignment.Stretch;
 
 		/// <summary>
 		/// Clamps a width value to the min/max constraints

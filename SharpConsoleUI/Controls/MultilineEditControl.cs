@@ -9,6 +9,8 @@
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System.Drawing;
 using System.Text;
@@ -47,15 +49,15 @@ namespace SharpConsoleUI.Controls
 	/// A multiline text editing control with support for text selection, scrolling, and word wrap.
 	/// Provides full cursor navigation, cut/copy/paste-like operations, and configurable scrollbars.
 	/// </summary>
-	public class MultilineEditControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider
+	public class MultilineEditControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider, IDOMPaintable
 	{
-		private Alignment _alignment = Alignment.Left;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 
 		// Color properties
 		private Color? _backgroundColorValue;
 
 		private Color _borderColor = Color.White;
-		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private int _cursorX = 0;
 		private int _cursorY = 0;
 		private int _effectiveWidth;
@@ -98,7 +100,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="viewportHeight">The number of visible lines in the viewport.</param>
 		public MultilineEditControl(int viewportHeight = 10)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_viewportHeight = Math.Max(1, viewportHeight);
 		}
 
@@ -109,7 +110,6 @@ namespace SharpConsoleUI.Controls
 		/// <param name="viewportHeight">The number of visible lines in the viewport.</param>
 		public MultilineEditControl(string initialContent, int viewportHeight = 10)
 		{
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 			_viewportHeight = Math.Max(1, viewportHeight);
 			SetContent(initialContent);
 		}
@@ -126,23 +126,24 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				if (_contentCache.Content == null) return null;
-
 				int maxLength = 0;
-				foreach (var line in _contentCache.Content)
+				foreach (var line in _lines)
 				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-					if (length > maxLength) maxLength = length;
+					if (line.Length > maxLength) maxLength = line.Length;
 				}
-				return maxLength;
+				return maxLength + _margin.Left + _margin.Right;
 			}
 		}
 
 		/// <summary>
 		/// Gets or sets the text alignment within the control.
 		/// </summary>
-		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
+		public HorizontalAlignment HorizontalAlignment
+		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets the background color when the control is not focused.
@@ -153,7 +154,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -167,7 +167,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_borderColor = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -193,7 +192,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedBackgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -207,7 +205,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedForegroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -221,7 +218,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -233,7 +229,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_hasFocus = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -247,7 +242,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_horizontalScrollbarVisibility = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -271,14 +265,13 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
 
 		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets whether the control is in read-only mode.
@@ -290,7 +283,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_readOnly = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -304,7 +296,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_scrollbarColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -318,7 +309,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_scrollbarThumbColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -332,7 +322,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_selectionBackgroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -346,7 +335,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_selectionForegroundColorValue = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -374,7 +362,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_verticalScrollbarVisibility = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -391,7 +378,6 @@ namespace SharpConsoleUI.Controls
 				if (_viewportHeight != validatedValue)
 				{
 					_viewportHeight = validatedValue;
-					_contentCache.Invalidate(InvalidationReason.SizeChanged);
 					Container?.Invalidate(true);
 				}
 			}
@@ -399,7 +385,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _contentCache.Invalidate(); Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 	public int? Width
@@ -411,7 +397,6 @@ namespace SharpConsoleUI.Controls
 			if (_width != validatedValue)
 			{
 				_width = validatedValue;
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -426,7 +411,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_wrapMode = value;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 		}
@@ -479,7 +463,6 @@ namespace SharpConsoleUI.Controls
 
 			// Force recalculation of scrollbars by invalidating
 			_invalidated = true;
-			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
 			// Go to the end of the content
@@ -537,7 +520,6 @@ namespace SharpConsoleUI.Controls
 
 			// Force recalculation of scrollbars by invalidating
 			_invalidated = true;
-			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
 			// Go to the end of the content
@@ -555,7 +537,6 @@ namespace SharpConsoleUI.Controls
 			_hasSelection = false;
 			_selectionStartX = _selectionEndX = _cursorX;
 			_selectionStartY = _selectionEndY = _cursorY;
-			_contentCache.Invalidate();
 		}
 
 		/// <inheritdoc/>
@@ -632,7 +613,6 @@ namespace SharpConsoleUI.Controls
 			}
 
 			_invalidated = true;
-			_contentCache.Invalidate();
 		}
 
 		/// <summary>
@@ -707,7 +687,6 @@ namespace SharpConsoleUI.Controls
 
 			// Invalidate cached content to force redraw
 			_invalidated = true;
-			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 		}
 
@@ -755,7 +734,6 @@ namespace SharpConsoleUI.Controls
 			}
 
 			_invalidated = true;
-			_contentCache.Invalidate();
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
 
@@ -767,7 +745,7 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate()
 		{
 			_invalidated = true;
-			_contentCache.Invalidate();
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -798,7 +776,6 @@ namespace SharpConsoleUI.Controls
 							_skipUpdateScrollPositionsInRender = true;
 							_horizontalScrollOffset--;
 							_invalidated = true;
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -814,7 +791,6 @@ namespace SharpConsoleUI.Controls
 								_skipUpdateScrollPositionsInRender = true;
 								_horizontalScrollOffset++;
 								_invalidated = true;
-								_contentCache.Invalidate();
 								Container?.Invalidate(true);
 								return true;
 							}
@@ -828,7 +804,6 @@ namespace SharpConsoleUI.Controls
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset--;
 							_invalidated = true;
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -842,7 +817,6 @@ namespace SharpConsoleUI.Controls
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset++;
 							_invalidated = true;
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -856,7 +830,6 @@ namespace SharpConsoleUI.Controls
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset -= pageUpAmount;
 							_invalidated = true;
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -871,7 +844,6 @@ namespace SharpConsoleUI.Controls
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset += pageDownAmount;
 							_invalidated = true;
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -885,7 +857,6 @@ namespace SharpConsoleUI.Controls
 							_verticalScrollOffset = 0;
 							_horizontalScrollOffset = 0;
 							_invalidated = true;
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -899,7 +870,6 @@ namespace SharpConsoleUI.Controls
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = endOffset;
 							_invalidated = true;
-							_contentCache.Invalidate();
 							Container?.Invalidate(true);
 							return true;
 						}
@@ -1287,7 +1257,6 @@ namespace SharpConsoleUI.Controls
 					{
 						// Clear selection but keep focus
 						ClearSelection();
-						_contentCache.Invalidate();
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -1337,7 +1306,6 @@ namespace SharpConsoleUI.Controls
 			{
 				_selectionEndX = _cursorX;
 				_selectionEndY = _cursorY;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 
@@ -1345,7 +1313,6 @@ namespace SharpConsoleUI.Controls
 			if (_cursorX != oldCursorX || _cursorY != oldCursorY)
 			{
 				EnsureCursorVisible();
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 			}
 
@@ -1353,540 +1320,11 @@ namespace SharpConsoleUI.Controls
 			if (contentChanged)
 			{
 				_invalidated = true;
-				_contentCache.Invalidate();
 				Container?.Invalidate(true);
 				ContentChanged?.Invoke(this, GetContent());
 			}
 
 			return true;
-		}
-
-		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
-		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
-
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
-			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-			}
-			else
-			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return cached;
-			}
-
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-			return _contentCache.GetOrRender(() =>
-			{
-				Color bgColor = _hasFocus ? _isEditing ? FocusedBackgroundColor : Container?.GetConsoleWindowSystem?.Theme?.TextEditFocusedNotEditing ?? Color.LightSlateGrey : BackgroundColor;
-				Color fgColor = _hasFocus ? FocusedForegroundColor : ForegroundColor;
-				Color selBgColor = SelectionBackgroundColor;
-				Color selFgColor = SelectionForegroundColor;
-
-				var renderedContent = new List<string>();
-
-				_effectiveWidth = (_width ?? availableWidth ?? 80) - _margin.Left - _margin.Right;
-
-			// Determine if scrollbars will be shown
-			bool needsVerticalScrollbar = _verticalScrollbarVisibility == ScrollbarVisibility.Always ||
-										(_verticalScrollbarVisibility == ScrollbarVisibility.Auto &&
-										 GetTotalWrappedLineCount() > _viewportHeight);
-
-			bool needsHorizontalScrollbar = _wrapMode == WrapMode.NoWrap &&
-										  (_horizontalScrollbarVisibility == ScrollbarVisibility.Always ||
-										  (_horizontalScrollbarVisibility == ScrollbarVisibility.Auto &&
-										   GetMaxLineLength() > (_width ?? availableWidth ?? 80) - _margin.Left - _margin.Right));
-
-			// Reserve space for scrollbars in effective width/height calculations
-			int scrollbarWidth = needsVerticalScrollbar ? 1 : 0;
-			int scrollbarHeight = needsHorizontalScrollbar ? 1 : 0;
-
-			// Adjust the effective width to account for left and right margins AND scrollbar
-			int effectiveWidth = (_width ?? availableWidth ?? 80) - _margin.Left - _margin.Right - scrollbarWidth;
-			int paddingLeft = 0;
-
-			_effectiveWidth = effectiveWidth;
-
-			// Calculate centering if needed
-			if (Alignment == Alignment.Center)
-			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth ?? 80, effectiveWidth);
-			}
-
-			// First, wrap all lines according to mode and calculate total wrapped lines
-			List<string> allWrappedLines = new List<string>();
-			List<int> sourceLineIndex = new List<int>(); // Tracks which original line each wrapped line comes from
-			List<int> sourceLineOffset = new List<int>(); // Tracks the character offset within source line
-
-			// Process each line and track which original line each wrapped line belongs to
-			for (int i = 0; i < _lines.Count; i++)
-			{
-				string line = _lines[i];
-				if (_wrapMode == WrapMode.NoWrap)
-				{
-					allWrappedLines.Add(line);
-					sourceLineIndex.Add(i);
-					sourceLineOffset.Add(0);
-				}
-				else if (_wrapMode == WrapMode.Wrap)
-				{
-					// Character-based wrapping
-					if (line.Length == 0)
-					{
-						// Handle empty line
-						allWrappedLines.Add(string.Empty);
-						sourceLineIndex.Add(i);
-						sourceLineOffset.Add(0);
-					}
-					else
-					{
-						for (int j = 0; j < line.Length; j += effectiveWidth)
-						{
-							allWrappedLines.Add(line.Substring(j, Math.Min(effectiveWidth, line.Length - j)));
-							sourceLineIndex.Add(i);
-							sourceLineOffset.Add(j);
-						}
-					}
-				}
-				else if (_wrapMode == WrapMode.WrapWords)
-				{
-					// Word-based wrapping
-					// Handle empty line first (Split returns [""] for empty string, not empty array)
-					if (string.IsNullOrEmpty(line))
-					{
-						allWrappedLines.Add(string.Empty);
-						sourceLineIndex.Add(i);
-						sourceLineOffset.Add(0);
-					}
-					else
-					{
-						var words = line.Split(' ');
-						var currentLine = new StringBuilder();
-						int currentOffset = 0;
-
-						foreach (var word in words)
-						{
-							// Handle words longer than effective width by breaking them into chunks
-							if (word.Length > effectiveWidth)
-							{
-								// Flush current line if not empty
-								if (currentLine.Length > 0)
-								{
-									allWrappedLines.Add(currentLine.ToString());
-									sourceLineIndex.Add(i);
-									sourceLineOffset.Add(currentOffset);
-									currentOffset += currentLine.Length + 1; // +1 for the space
-									currentLine.Clear();
-								}
-
-								// Break the long word into chunks
-								for (int k = 0; k < word.Length; k += effectiveWidth)
-								{
-									int chunkLen = Math.Min(effectiveWidth, word.Length - k);
-									allWrappedLines.Add(word.Substring(k, chunkLen));
-									sourceLineIndex.Add(i);
-									sourceLineOffset.Add(currentOffset + k);
-								}
-								currentOffset += word.Length + 1; // +1 for the space after word
-								continue;
-							}
-
-							if (currentLine.Length + word.Length + (currentLine.Length > 0 ? 1 : 0) > effectiveWidth)
-							{
-								allWrappedLines.Add(currentLine.ToString());
-								sourceLineIndex.Add(i);
-								sourceLineOffset.Add(currentOffset);
-								currentOffset += currentLine.Length + 1; // +1 for the space
-								currentLine.Clear();
-							}
-
-							if (currentLine.Length > 0)
-							{
-								currentLine.Append(' ');
-							}
-
-							currentLine.Append(word);
-						}
-
-						// Add remaining content (or empty line if no content was accumulated)
-						allWrappedLines.Add(currentLine.ToString());
-						sourceLineIndex.Add(i);
-						sourceLineOffset.Add(currentOffset);
-					}
-				}
-			}
-
-			// Find the wrapped line that contains our cursor
-			int wrappedLineWithCursor = -1;
-			if (_wrapMode != WrapMode.NoWrap)
-			{
-				for (int i = 0; i < sourceLineIndex.Count; i++)
-				{
-					if (sourceLineIndex[i] == _cursorY)
-					{
-						int startOffset = sourceLineOffset[i];
-						int endOffset = (i + 1 < sourceLineIndex.Count && sourceLineIndex[i + 1] == _cursorY)
-							? sourceLineOffset[i + 1]
-							: _lines[_cursorY].Length;
-
-						if (_cursorX >= startOffset && _cursorX < endOffset)
-						{
-							wrappedLineWithCursor = i;
-							break;
-						}
-
-						// If this is the last segment of the line and cursor is exactly at the end
-						if (_cursorX == endOffset && (i + 1 >= sourceLineIndex.Count || sourceLineIndex[i + 1] != _cursorY))
-						{
-							wrappedLineWithCursor = i;
-							break;
-						}
-					}
-				}
-			}
-			else
-			{
-				// In no-wrap mode, the wrapped line index is the same as the line index
-				wrappedLineWithCursor = _cursorY;
-			}
-
-			// Adjust vertical scroll to make the cursor visible
-			if (wrappedLineWithCursor >= 0)
-			{
-				if (!_skipUpdateScrollPositionsInRender)
-				{
-					if (wrappedLineWithCursor < _verticalScrollOffset)
-					{
-						_verticalScrollOffset = wrappedLineWithCursor;
-					}
-					else if (wrappedLineWithCursor >= _verticalScrollOffset + _viewportHeight)
-					{
-						_verticalScrollOffset = wrappedLineWithCursor - _viewportHeight + 1;
-					}
-
-					_skipUpdateScrollPositionsInRender = false;
-				}
-			}
-
-			// Get visible wrapped lines based on vertical scroll
-			List<string> visibleLines = allWrappedLines
-				.Skip(_verticalScrollOffset)
-				.Take(_viewportHeight)
-				.ToList();
-
-			// Get selection bounds
-			var (startX, startY, endX, endY) = GetOrderedSelectionBounds();
-
-			// Render visible lines
-			for (int i = 0; i < visibleLines.Count; i++)
-			{
-				int actualWrappedLineIndex = i + _verticalScrollOffset;
-				int actualSourceLineIndex = sourceLineIndex[actualWrappedLineIndex];
-				int actualSourceOffset = sourceLineOffset[actualWrappedLineIndex];
-				string line = visibleLines[i];
-				string visibleLine = line;
-
-				// Apply horizontal scrolling
-				if (_horizontalScrollOffset > 0 && _horizontalScrollOffset < line.Length)
-				{
-					visibleLine = line.Substring(_horizontalScrollOffset);
-				}
-				else if (_horizontalScrollOffset >= line.Length)
-				{
-					visibleLine = string.Empty;
-				}
-
-				// Pad to effective width
-				if (visibleLine.Length < effectiveWidth)
-				{
-					visibleLine = visibleLine.PadRight(effectiveWidth);
-				}
-				else if (visibleLine.Length > effectiveWidth)
-				{
-					visibleLine = visibleLine.Substring(0, effectiveWidth);
-				}
-
-				string renderedLine;
-
-				if (_hasSelection)
-				{
-					// Check if this wrapped line has any selection
-					bool hasSelection = false;
-					StringBuilder sb = new StringBuilder();
-
-					// Check if this source line is within the selection range
-					if (actualSourceLineIndex >= startY && actualSourceLineIndex <= endY)
-					{
-						for (int charPos = 0; charPos < visibleLine.Length; charPos++)
-						{
-							int actualCharPos = charPos + actualSourceOffset + _horizontalScrollOffset;
-							bool isSelected = false;
-
-							if (actualSourceLineIndex == startY && actualSourceLineIndex == endY)
-							{
-								// Selection within a single line
-								isSelected = actualCharPos >= startX && actualCharPos < endX;
-							}
-							else if (actualSourceLineIndex == startY)
-							{
-								// First line of selection
-								isSelected = actualCharPos >= startX;
-							}
-							else if (actualSourceLineIndex == endY)
-							{
-								// Last line of selection
-								isSelected = actualCharPos < endX;
-							}
-							else if (actualSourceLineIndex > startY && actualSourceLineIndex < endY)
-							{
-								// Middle line of selection
-								isSelected = true;
-							}
-
-							char c = visibleLine[charPos];
-							if (isSelected)
-							{
-								hasSelection = true;
-								sb.Append(AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-									c.ToString(),
-									1,
-									1,
-									false,
-									selBgColor,
-									selFgColor
-								)[0]);
-							}
-							else
-							{
-								sb.Append(AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-									c.ToString(),
-									1,
-									1,
-									false,
-									bgColor,
-									fgColor
-								)[0]);
-							}
-						}
-
-						renderedLine = hasSelection ? sb.ToString() : AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							visibleLine,
-							effectiveWidth,
-							1,
-							false,
-							bgColor,
-							fgColor
-						)[0];
-					}
-					else
-					{
-						// No selection on this line
-						renderedLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							visibleLine,
-							effectiveWidth,
-							1,
-							false,
-							bgColor,
-							fgColor
-						)[0];
-					}
-				}
-				else
-				{
-					// No selection at all
-					renderedLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						visibleLine,
-						effectiveWidth,
-						1,
-						false,
-						bgColor,
-						fgColor
-					)[0];
-				}
-
-				// Add left padding if needed
-				if (paddingLeft > 0)
-				{
-					string paddingSpace = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', paddingLeft),
-						paddingLeft,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					)[0];
-
-					renderedContent.Add(paddingSpace + renderedLine);
-				}
-				else
-				{
-					renderedContent.Add(renderedLine);
-				}
-			}
-
-			// Fill remaining viewport with empty lines
-			while (renderedContent.Count < _viewportHeight)
-			{
-				string emptyLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', effectiveWidth),
-					effectiveWidth,
-					1,
-					false,
-					bgColor,
-					fgColor
-				)[0];
-
-				if (paddingLeft > 0)
-				{
-					string paddingSpace = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', paddingLeft),
-						paddingLeft,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					)[0];
-
-					renderedContent.Add(paddingSpace + emptyLine);
-				}
-				else
-				{
-					renderedContent.Add(emptyLine);
-				}
-			}
-
-			// Add scrollbars BEFORE margins so they appear inside the content area
-			if (needsVerticalScrollbar || needsHorizontalScrollbar)
-			{
-				if (needsVerticalScrollbar)
-				{
-					// Calculate scrollbar metrics
-					int totalLines = GetTotalWrappedLineCount();
-					var scrollbar = RenderVerticalScrollbar(_viewportHeight, totalLines, bgColor);
-
-					// Apply vertical scrollbar to the right side of content
-					for (int i = 0; i < Math.Min(renderedContent.Count, scrollbar.Count); i++)
-					{
-						renderedContent[i] = renderedContent[i] + scrollbar[i];
-					}
-				}
-
-				if (needsHorizontalScrollbar)
-				{
-					// Calculate scrollbar metrics
-					int maxLineLength = GetMaxLineLength();
-					string scrollbar = RenderHorizontalScrollbar(effectiveWidth, maxLineLength);
-
-					// Add horizontal scrollbar at the bottom
-					if (!string.IsNullOrEmpty(scrollbar))
-					{
-						// If we have a vertical scrollbar, add a corner character
-						if (needsVerticalScrollbar)
-						{
-							scrollbar += AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-								"┘",
-								1,
-								1,
-								false,
-								bgColor,
-								ScrollbarColor
-							)[0];
-						}
-
-						// Add proper padding if needed
-						if (paddingLeft > 0)
-						{
-							string paddingStr = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-								new string(' ', paddingLeft),
-								paddingLeft,
-								1,
-								false,
-								Container?.BackgroundColor,
-								null
-							)[0];
-
-							renderedContent.Add(paddingStr + scrollbar);
-						}
-						else
-						{
-							renderedContent.Add(scrollbar);
-						}
-					}
-				}
-			}
-
-			// Add margin spacing AFTER scrollbars
-			if (_margin.Left > 0 || _margin.Right > 0 || _margin.Top > 0 || _margin.Bottom > 0)
-			{
-				List<string> withMargins = new List<string>();
-
-				// Calculate total width including scrollbar
-				int contentWidth = effectiveWidth + (needsVerticalScrollbar ? 1 : 0) + paddingLeft;
-
-				// Top margin
-				string emptyLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', contentWidth),
-					contentWidth,
-					1,
-					false,
-					Container?.BackgroundColor,
-					Container?.ForegroundColor
-				)[0];
-
-				for (int i = 0; i < _margin.Top; i++)
-				{
-					withMargins.Add(emptyLine);
-				}
-
-				// Add content with left and right margins
-				foreach (var line in renderedContent)
-				{
-					string leftMargin = string.Empty;
-					if (_margin.Left > 0)
-					{
-						leftMargin = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', _margin.Left),
-							_margin.Left,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						)[0];
-					}
-
-					string rightMargin = string.Empty;
-					if (_margin.Right > 0)
-					{
-						rightMargin = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							new string(' ', _margin.Right),
-							_margin.Right,
-							1,
-							false,
-							Container?.BackgroundColor,
-							null
-						)[0];
-					}
-
-					withMargins.Add(leftMargin + line + rightMargin);
-				}
-
-				// Bottom margin
-				for (int i = 0; i < _margin.Bottom; i++)
-				{
-					withMargins.Add(emptyLine);
-				}
-
-				renderedContent = withMargins;
-			}
-
-			return renderedContent;
-			});
 		}
 
 		/// <summary>
@@ -1922,7 +1360,6 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 
 			_invalidated = true;
-			_contentCache.Invalidate();
 			Container?.Invalidate(false);
 
 			_skipUpdateScrollPositionsInRender = false;
@@ -1964,7 +1401,6 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 
 			_invalidated = true;
-			_contentCache.Invalidate();
 			Container?.Invalidate(false);
 
 			_skipUpdateScrollPositionsInRender = false;
@@ -2293,7 +1729,6 @@ namespace SharpConsoleUI.Controls
 		{
 			var hadFocus = _hasFocus;
 			_hasFocus = focus;
-			_contentCache.Invalidate();
 			Container?.Invalidate(true);
 
 			// Fire focus events
@@ -2302,5 +1737,402 @@ namespace SharpConsoleUI.Controls
 			else if (!focus && hadFocus)
 				LostFocus?.Invoke(this, EventArgs.Empty);
 		}
+
+		#region IDOMPaintable Implementation
+
+		/// <inheritdoc/>
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			int baseWidth = _width ?? constraints.MaxWidth - _margin.Left - _margin.Right;
+			int contentHeight = _viewportHeight;
+
+			// Account for horizontal scrollbar if needed
+			bool needsHorizontalScrollbar = _wrapMode == WrapMode.NoWrap &&
+				(_horizontalScrollbarVisibility == ScrollbarVisibility.Always ||
+				 (_horizontalScrollbarVisibility == ScrollbarVisibility.Auto &&
+				  GetMaxLineLength() > baseWidth));
+			if (needsHorizontalScrollbar) contentHeight++;
+
+			int width = baseWidth + _margin.Left + _margin.Right;
+			int height = contentHeight + _margin.Top + _margin.Bottom;
+
+			return new LayoutSize(
+				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			Color bgColor = _hasFocus
+				? (_isEditing ? FocusedBackgroundColor : Container?.GetConsoleWindowSystem?.Theme?.TextEditFocusedNotEditing ?? Color.LightSlateGrey)
+				: BackgroundColor;
+			Color fgColor = _hasFocus ? FocusedForegroundColor : ForegroundColor;
+			Color selBgColor = SelectionBackgroundColor;
+			Color selFgColor = SelectionForegroundColor;
+			Color windowBgColor = Container?.BackgroundColor ?? defaultBg;
+
+			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			if (targetWidth <= 0) return;
+
+			int startX = bounds.X + _margin.Left;
+			int startY = bounds.Y + _margin.Top;
+
+			// Fill top margin
+			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, windowBgColor);
+				}
+			}
+
+			// Determine if scrollbars will be shown
+			bool needsVerticalScrollbar = _verticalScrollbarVisibility == ScrollbarVisibility.Always ||
+				(_verticalScrollbarVisibility == ScrollbarVisibility.Auto &&
+				 GetTotalWrappedLineCount() > _viewportHeight);
+
+			bool needsHorizontalScrollbar = _wrapMode == WrapMode.NoWrap &&
+				(_horizontalScrollbarVisibility == ScrollbarVisibility.Always ||
+				 (_horizontalScrollbarVisibility == ScrollbarVisibility.Auto &&
+				  GetMaxLineLength() > targetWidth));
+
+			int scrollbarWidth = needsVerticalScrollbar ? 1 : 0;
+			int effectiveWidth = targetWidth - scrollbarWidth;
+			_effectiveWidth = effectiveWidth;
+
+			if (effectiveWidth <= 0) return;
+
+			// Wrap lines and track source positions
+			List<string> allWrappedLines = new List<string>();
+			List<int> sourceLineIndex = new List<int>();
+			List<int> sourceLineOffset = new List<int>();
+
+			for (int i = 0; i < _lines.Count; i++)
+			{
+				string line = _lines[i];
+				if (_wrapMode == WrapMode.NoWrap)
+				{
+					allWrappedLines.Add(line);
+					sourceLineIndex.Add(i);
+					sourceLineOffset.Add(0);
+				}
+				else if (_wrapMode == WrapMode.Wrap)
+				{
+					if (line.Length == 0)
+					{
+						allWrappedLines.Add(string.Empty);
+						sourceLineIndex.Add(i);
+						sourceLineOffset.Add(0);
+					}
+					else
+					{
+						for (int j = 0; j < line.Length; j += effectiveWidth)
+						{
+							allWrappedLines.Add(line.Substring(j, Math.Min(effectiveWidth, line.Length - j)));
+							sourceLineIndex.Add(i);
+							sourceLineOffset.Add(j);
+						}
+					}
+				}
+				else if (_wrapMode == WrapMode.WrapWords)
+				{
+					if (string.IsNullOrEmpty(line))
+					{
+						allWrappedLines.Add(string.Empty);
+						sourceLineIndex.Add(i);
+						sourceLineOffset.Add(0);
+					}
+					else
+					{
+						var words = line.Split(' ');
+						var currentLine = new StringBuilder();
+						int currentOffset = 0;
+
+						foreach (var word in words)
+						{
+							if (word.Length > effectiveWidth)
+							{
+								if (currentLine.Length > 0)
+								{
+									allWrappedLines.Add(currentLine.ToString());
+									sourceLineIndex.Add(i);
+									sourceLineOffset.Add(currentOffset);
+									currentOffset += currentLine.Length + 1;
+									currentLine.Clear();
+								}
+
+								for (int k = 0; k < word.Length; k += effectiveWidth)
+								{
+									int chunkLen = Math.Min(effectiveWidth, word.Length - k);
+									allWrappedLines.Add(word.Substring(k, chunkLen));
+									sourceLineIndex.Add(i);
+									sourceLineOffset.Add(currentOffset + k);
+								}
+								currentOffset += word.Length + 1;
+								continue;
+							}
+
+							if (currentLine.Length + word.Length + (currentLine.Length > 0 ? 1 : 0) > effectiveWidth)
+							{
+								allWrappedLines.Add(currentLine.ToString());
+								sourceLineIndex.Add(i);
+								sourceLineOffset.Add(currentOffset);
+								currentOffset += currentLine.Length + 1;
+								currentLine.Clear();
+							}
+
+							if (currentLine.Length > 0) currentLine.Append(' ');
+							currentLine.Append(word);
+						}
+
+						allWrappedLines.Add(currentLine.ToString());
+						sourceLineIndex.Add(i);
+						sourceLineOffset.Add(currentOffset);
+					}
+				}
+			}
+
+			// Find wrapped line with cursor and adjust scroll
+			int wrappedLineWithCursor = -1;
+			if (_wrapMode != WrapMode.NoWrap)
+			{
+				for (int i = 0; i < sourceLineIndex.Count; i++)
+				{
+					if (sourceLineIndex[i] == _cursorY)
+					{
+						int startOffset = sourceLineOffset[i];
+						int endOffset = (i + 1 < sourceLineIndex.Count && sourceLineIndex[i + 1] == _cursorY)
+							? sourceLineOffset[i + 1]
+							: _lines[_cursorY].Length;
+
+						if (_cursorX >= startOffset && _cursorX < endOffset)
+						{
+							wrappedLineWithCursor = i;
+							break;
+						}
+						if (_cursorX == endOffset && (i + 1 >= sourceLineIndex.Count || sourceLineIndex[i + 1] != _cursorY))
+						{
+							wrappedLineWithCursor = i;
+							break;
+						}
+					}
+				}
+			}
+			else
+			{
+				wrappedLineWithCursor = _cursorY;
+			}
+
+			// Adjust vertical scroll
+			if (wrappedLineWithCursor >= 0 && !_skipUpdateScrollPositionsInRender)
+			{
+				if (wrappedLineWithCursor < _verticalScrollOffset)
+					_verticalScrollOffset = wrappedLineWithCursor;
+				else if (wrappedLineWithCursor >= _verticalScrollOffset + _viewportHeight)
+					_verticalScrollOffset = wrappedLineWithCursor - _viewportHeight + 1;
+				_skipUpdateScrollPositionsInRender = false;
+			}
+
+			// Get selection bounds
+			var (selStartX, selStartY, selEndX, selEndY) = GetOrderedSelectionBounds();
+
+			// Paint visible lines
+			int availableHeight = bounds.Height - _margin.Top - _margin.Bottom - (needsHorizontalScrollbar ? 1 : 0);
+			int linesToPaint = Math.Min(_viewportHeight, availableHeight);
+
+			for (int i = 0; i < linesToPaint; i++)
+			{
+				int paintY = startY + i;
+				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
+				{
+					// Fill left margin
+					if (_margin.Left > 0)
+					{
+						buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, windowBgColor);
+					}
+
+					int wrappedIndex = i + _verticalScrollOffset;
+					if (wrappedIndex < allWrappedLines.Count)
+					{
+						int actualSourceLineIndex = sourceLineIndex[wrappedIndex];
+						int actualSourceOffset = sourceLineOffset[wrappedIndex];
+						string line = allWrappedLines[wrappedIndex];
+						string visibleLine = line;
+
+						// Apply horizontal scrolling
+						if (_horizontalScrollOffset > 0 && _horizontalScrollOffset < line.Length)
+							visibleLine = line.Substring(_horizontalScrollOffset);
+						else if (_horizontalScrollOffset >= line.Length)
+							visibleLine = string.Empty;
+
+						// Pad or truncate to effective width
+						if (visibleLine.Length < effectiveWidth)
+							visibleLine = visibleLine.PadRight(effectiveWidth);
+						else if (visibleLine.Length > effectiveWidth)
+							visibleLine = visibleLine.Substring(0, effectiveWidth);
+
+						// Paint each character with selection handling
+						for (int charPos = 0; charPos < effectiveWidth; charPos++)
+						{
+							int actualCharPos = charPos + actualSourceOffset + _horizontalScrollOffset;
+							bool isSelected = false;
+
+							if (_hasSelection && actualSourceLineIndex >= selStartY && actualSourceLineIndex <= selEndY)
+							{
+								if (actualSourceLineIndex == selStartY && actualSourceLineIndex == selEndY)
+									isSelected = actualCharPos >= selStartX && actualCharPos < selEndX;
+								else if (actualSourceLineIndex == selStartY)
+									isSelected = actualCharPos >= selStartX;
+								else if (actualSourceLineIndex == selEndY)
+									isSelected = actualCharPos < selEndX;
+								else
+									isSelected = true;
+							}
+
+							char c = charPos < visibleLine.Length ? visibleLine[charPos] : ' ';
+							int cellX = startX + charPos;
+							if (cellX >= clipRect.X && cellX < clipRect.Right)
+							{
+								buffer.SetCell(cellX, paintY, c,
+									isSelected ? selFgColor : fgColor,
+									isSelected ? selBgColor : bgColor);
+							}
+						}
+					}
+					else
+					{
+						// Empty line beyond content
+						buffer.FillRect(new LayoutRect(startX, paintY, effectiveWidth, 1), ' ', fgColor, bgColor);
+					}
+
+					// Paint vertical scrollbar
+					if (needsVerticalScrollbar)
+					{
+						int scrollX = startX + effectiveWidth;
+						if (scrollX >= clipRect.X && scrollX < clipRect.Right)
+						{
+							int totalLines = GetTotalWrappedLineCount();
+							int thumbHeight = Math.Max(1, (_viewportHeight * _viewportHeight) / Math.Max(1, totalLines));
+							int maxThumbPos = _viewportHeight - thumbHeight;
+							int thumbPos = totalLines > _viewportHeight
+								? (int)Math.Round((double)_verticalScrollOffset / (totalLines - _viewportHeight) * maxThumbPos)
+								: 0;
+
+							bool isThumb = i >= thumbPos && i < thumbPos + thumbHeight;
+							char scrollChar = isThumb ? '█' : '│';
+							buffer.SetCell(scrollX, paintY, scrollChar,
+								isThumb ? ScrollbarThumbColor : ScrollbarColor,
+								bgColor);
+						}
+					}
+
+					// Fill right margin
+					if (_margin.Right > 0)
+					{
+						int rightMarginX = startX + effectiveWidth + scrollbarWidth;
+						buffer.FillRect(new LayoutRect(rightMarginX, paintY, _margin.Right, 1), ' ', fgColor, windowBgColor);
+					}
+				}
+			}
+
+			// Fill remaining viewport height with empty lines
+			for (int i = linesToPaint; i < _viewportHeight && startY + i < bounds.Bottom; i++)
+			{
+				int paintY = startY + i;
+				if (paintY >= clipRect.Y && paintY < clipRect.Bottom)
+				{
+					if (_margin.Left > 0)
+						buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, windowBgColor);
+
+					buffer.FillRect(new LayoutRect(startX, paintY, effectiveWidth, 1), ' ', fgColor, bgColor);
+
+					if (needsVerticalScrollbar)
+					{
+						int scrollX = startX + effectiveWidth;
+						if (scrollX >= clipRect.X && scrollX < clipRect.Right)
+						{
+							int totalLines = GetTotalWrappedLineCount();
+							int thumbHeight = Math.Max(1, (_viewportHeight * _viewportHeight) / Math.Max(1, totalLines));
+							int maxThumbPos = _viewportHeight - thumbHeight;
+							int thumbPos = totalLines > _viewportHeight
+								? (int)Math.Round((double)_verticalScrollOffset / (totalLines - _viewportHeight) * maxThumbPos)
+								: 0;
+
+							bool isThumb = i >= thumbPos && i < thumbPos + thumbHeight;
+							char scrollChar = isThumb ? '█' : '│';
+							buffer.SetCell(scrollX, paintY, scrollChar,
+								isThumb ? ScrollbarThumbColor : ScrollbarColor,
+								bgColor);
+						}
+					}
+
+					if (_margin.Right > 0)
+					{
+						int rightMarginX = startX + effectiveWidth + scrollbarWidth;
+						buffer.FillRect(new LayoutRect(rightMarginX, paintY, _margin.Right, 1), ' ', fgColor, windowBgColor);
+					}
+				}
+			}
+
+			// Paint horizontal scrollbar
+			if (needsHorizontalScrollbar)
+			{
+				int scrollY = startY + _viewportHeight;
+				if (scrollY >= clipRect.Y && scrollY < clipRect.Bottom && scrollY < bounds.Bottom)
+				{
+					if (_margin.Left > 0)
+						buffer.FillRect(new LayoutRect(bounds.X, scrollY, _margin.Left, 1), ' ', fgColor, windowBgColor);
+
+					int maxLineLength = GetMaxLineLength();
+					int thumbWidth = Math.Max(1, (effectiveWidth * effectiveWidth) / Math.Max(1, maxLineLength));
+					int maxThumbPos = effectiveWidth - thumbWidth;
+					int thumbPos = maxLineLength > effectiveWidth
+						? (int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - effectiveWidth) * maxThumbPos)
+						: 0;
+
+					for (int x = 0; x < effectiveWidth; x++)
+					{
+						int cellX = startX + x;
+						if (cellX >= clipRect.X && cellX < clipRect.Right)
+						{
+							bool isThumb = x >= thumbPos && x < thumbPos + thumbWidth;
+							char scrollChar = isThumb ? '█' : '─';
+							buffer.SetCell(cellX, scrollY, scrollChar,
+								isThumb ? ScrollbarThumbColor : ScrollbarColor,
+								bgColor);
+						}
+					}
+
+					if (needsVerticalScrollbar)
+					{
+						int cornerX = startX + effectiveWidth;
+						if (cornerX >= clipRect.X && cornerX < clipRect.Right)
+						{
+							buffer.SetCell(cornerX, scrollY, '┘', ScrollbarColor, bgColor);
+						}
+					}
+
+					if (_margin.Right > 0)
+					{
+						int rightMarginX = startX + effectiveWidth + scrollbarWidth;
+						buffer.FillRect(new LayoutRect(rightMarginX, scrollY, _margin.Right, 1), ' ', fgColor, windowBgColor);
+					}
+				}
+			}
+
+			// Fill bottom margin
+			int contentEndY = startY + _viewportHeight + (needsHorizontalScrollbar ? 1 : 0);
+			for (int y = contentEndY; y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, windowBgColor);
+				}
+			}
+		}
+
+		#endregion
 	}
 }

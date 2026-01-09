@@ -8,7 +8,8 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Core;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -19,11 +20,11 @@ namespace SharpConsoleUI.Controls
 	/// A toggleable checkbox control that displays a label and checked/unchecked state.
 	/// Supports keyboard interaction with Space or Enter keys to toggle state.
 	/// </summary>
-	public class CheckboxControl : IWindowControl, IInteractiveControl, IFocusableControl
+	public class CheckboxControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
 	{
-		private Alignment _alignment = Alignment.Left;
+		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
+		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Color? _backgroundColorValue;
-		private readonly ThreadSafeCache<List<string>> _contentCache;
 		private bool _checked = false;
 		private Color? _checkmarkColorValue;
 		private Color? _disabledBackgroundColorValue;
@@ -32,7 +33,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
 		private bool _hasFocus = false;
-		private bool _invalidated = true;
 		private bool _isEnabled = true;
 		private string _label = "Checkbox";
 		private Margin _margin = new Margin(0, 0, 0, 0);
@@ -49,7 +49,6 @@ namespace SharpConsoleUI.Controls
 		{
 			_label = label;
 			_checked = isChecked;
-			_contentCache = this.CreateThreadSafeCache<List<string>>();
 		}
 
 		/// <summary>
@@ -64,30 +63,24 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler? LostFocus;
 
 		/// <summary>
-		/// Gets the actual rendered width of the control based on cached content.
+		/// Gets the actual rendered width of the control based on content.
 		/// </summary>
-		/// <returns>The maximum line width in characters, or null if content has not been rendered.</returns>
-		public int? ActualWidth
+		public int? ActualWidth => GetCheckboxWidth() + _margin.Left + _margin.Right;
+
+		private int GetCheckboxWidth()
 		{
-			get
-			{
-				var cachedContent = _contentCache.Content;
-				if (cachedContent == null) return null;
-				int maxLength = 0;
-				foreach (var line in cachedContent)
-				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-					if (length > maxLength) maxLength = length;
-				}
-				return maxLength;
-			}
+			// Checkbox format: "[X] Label" or ">[X] Label<" when focused
+			int minWidth = AnsiConsoleHelper.StripSpectreLength($"[{(_checked ? "X" : " ")}] {_label}") + 2;
+			return _width ?? minWidth;
 		}
 
-		/// <summary>
-		/// Gets or sets the text alignment within the control.
-		/// </summary>
-		public Alignment Alignment
-		{ get => _alignment; set { _alignment = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); } }
+		/// <inheritdoc/>
+		public HorizontalAlignment HorizontalAlignment
+		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
+
+		/// <inheritdoc/>
+		public VerticalAlignment VerticalAlignment
+		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets the background color of the checkbox in its normal state.
@@ -98,7 +91,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColorValue = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -114,7 +106,6 @@ namespace SharpConsoleUI.Controls
 				if (_checked != value)
 				{
 					_checked = value;
-					_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 					Container?.Invalidate(true);
 					CheckedChanged?.Invoke(this, _checked);
 				}
@@ -130,7 +121,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_checkmarkColorValue = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -147,7 +137,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_disabledBackgroundColorValue = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -161,7 +150,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_disabledForegroundColorValue = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -175,7 +163,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedBackgroundColorValue = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -189,7 +176,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedForegroundColorValue = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -203,7 +189,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -217,7 +202,6 @@ namespace SharpConsoleUI.Controls
 				if (_hasFocus != value)
 				{
 					_hasFocus = value;
-					_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 					Container?.Invalidate(true);
 
 					if (value)
@@ -240,7 +224,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -254,7 +237,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_label = value;
-				_contentCache.Invalidate(InvalidationReason.PropertyChanged);
 				Container?.Invalidate(true);
 			}
 		}
@@ -263,7 +245,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the margin around the control content.
 		/// </summary>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
@@ -281,7 +263,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool Visible
-		{ get => _visible; set { _visible = value; _contentCache.Invalidate(InvalidationReason.PropertyChanged); Container?.Invalidate(true); } }
+		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets the fixed width of the control. When null, the control auto-sizes based on content.
@@ -295,7 +277,6 @@ namespace SharpConsoleUI.Controls
 				if (_width != validatedValue)
 				{
 					_width = validatedValue;
-					_contentCache.Invalidate(InvalidationReason.SizeChanged);
 					Container?.Invalidate(true);
 				}
 			}
@@ -305,27 +286,21 @@ namespace SharpConsoleUI.Controls
 		public void Dispose()
 		{
 			Container = null;
-			_contentCache.Dispose();
 		}
 
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			// Use reasonable maximum dimensions instead of int.MaxValue
-			var content = RenderContent(10000, 10000);
-			return new System.Drawing.Size(
-				content.FirstOrDefault()?.Length ?? 0,
-				content.Count
-			);
+			int width = GetCheckboxWidth() + _margin.Left + _margin.Right;
+			return new System.Drawing.Size(width, 1 + _margin.Top + _margin.Bottom);
 		}
 
 		/// <summary>
-		/// Invalidates the cached content, forcing a re-render on the next draw.
+		/// Invalidates the control, forcing a re-render on the next draw.
 		/// </summary>
 		public void Invalidate()
 		{
-			_invalidated = true;
-			_contentCache.Invalidate(InvalidationReason.All);
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -345,39 +320,43 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public List<string> RenderContent(int? availableWidth, int? availableHeight)
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
-			var layoutService = Container?.GetConsoleWindowSystem?.LayoutStateService;
-
-			// Smart invalidation: check if re-render is needed due to size change
-			if (layoutService == null || layoutService.NeedsRerender(this, availableWidth, availableHeight))
-			{
-				// Dimensions changed - invalidate cache
-				_contentCache.Invalidate(InvalidationReason.SizeChanged);
-			}
-			else
-			{
-				// Dimensions unchanged - return cached content if available
-				var cached = _contentCache.Content;
-				if (cached != null) return cached;
-			}
-
-			// Update available space tracking
-			layoutService?.UpdateAvailableSpace(this, availableWidth, availableHeight, LayoutChangeReason.ContainerResize);
-
-			// Use thread-safe cache with lazy rendering
-			return _contentCache.GetOrRender(() => RenderContentInternal(availableWidth, availableHeight));
+			HasFocus = focus;
 		}
 
-		private List<string> RenderContentInternal(int? availableWidth, int? availableHeight)
+		/// <summary>
+		/// Toggles the checked state of the checkbox.
+		/// </summary>
+		public void Toggle()
 		{
-			var renderedContentList = new List<string>();
+			Checked = !Checked;
+		}
 
-			// Determine colors based on state
+		#region IDOMPaintable Implementation
+
+		/// <inheritdoc/>
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			int minWidth = AnsiConsoleHelper.StripSpectreLength($"[{(_checked ? "X" : " ")}] {_label}") + 2;
+			int checkboxWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - _margin.Left - _margin.Right : minWidth);
+			checkboxWidth = Math.Max(minWidth, checkboxWidth);
+
+			int width = checkboxWidth + _margin.Left + _margin.Right;
+			int height = 1 + _margin.Top + _margin.Bottom;
+
+			return new LayoutSize(
+				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
+
+		/// <inheritdoc/>
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
 			Color backgroundColor;
 			Color foregroundColor;
-			Color windowBackground = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
-			Color windowForeground = Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
+			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 
 			// Determine colors based on enabled/focused state
 			if (!_isEnabled)
@@ -396,39 +375,18 @@ namespace SharpConsoleUI.Controls
 				foregroundColor = ForegroundColor;
 			}
 
-			// Calculate effective width
-			int checkboxWidth = _width ?? (_alignment == Alignment.Stretch ? (availableWidth ?? 40) : 0);
+			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			if (targetWidth <= 0) return;
 
-			// Calculate the minimum width needed
+			// Calculate checkbox width
 			int minWidth = AnsiConsoleHelper.StripSpectreLength($"[{(_checked ? "X" : " ")}] {_label}") + 2;
+			int checkboxWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : minWidth);
+			checkboxWidth = Math.Min(Math.Max(minWidth, checkboxWidth), targetWidth);
 
-			// For non-stretch alignments, adjust width if needed or use auto-size
-			if (_alignment != Alignment.Stretch && _width == null)
-			{
-				checkboxWidth = minWidth;
-			}
-			else
-			{
-				// Ensure the width is at least the minimum needed
-				checkboxWidth = Math.Max(checkboxWidth, minWidth);
-			}
-
-			// Calculate padding for alignment
-			int paddingLeft = 0;
-			if (_alignment == Alignment.Center && availableWidth.HasValue)
-			{
-				paddingLeft = ContentHelper.GetCenter(availableWidth.Value, checkboxWidth);
-			}
-			else if (_alignment == Alignment.Right && availableWidth.HasValue)
-			{
-				paddingLeft = availableWidth.Value - checkboxWidth;
-			}
-
-			// Create the checkbox content with checkmark and label
+			// Build checkbox content
 			string checkmark = _checked ? "X" : " ";
 			string checkboxContent;
 
-			// Show focus indicators when focused
 			if (_hasFocus)
 			{
 				checkboxContent = $">[{checkmark}] {_label}<";
@@ -438,124 +396,91 @@ namespace SharpConsoleUI.Controls
 				checkboxContent = $" [{checkmark}] {_label} ";
 			}
 
-			// Format the checkmark with color if checked
+			// Add checkmark color if checked
 			if (_checked)
 			{
 				checkboxContent = checkboxContent.Replace(checkmark, $"[{CheckmarkColor.ToMarkup()}]{checkmark}[/]");
 			}
 
-			// Ensure the content fits within the checkbox width using visible-length-aware padding
-			int checkboxVisibleLength = AnsiConsoleHelper.StripSpectreLength(checkboxContent);
-			if (checkboxVisibleLength < checkboxWidth)
+			// Pad to checkboxWidth
+			int visibleLen = AnsiConsoleHelper.StripSpectreLength(checkboxContent);
+			if (visibleLen < checkboxWidth)
 			{
-				// Use manual padding based on visible length, not string length
-				checkboxContent = checkboxContent + new string(' ', checkboxWidth - checkboxVisibleLength);
+				checkboxContent = checkboxContent + new string(' ', checkboxWidth - visibleLen);
 			}
 
-			// Render the checkbox content
-			List<string> renderedContent = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-				checkboxContent,
-				checkboxWidth,
-				1,
-				false,
-				backgroundColor,
-				foregroundColor
-			);
+			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + _margin.Left;
 
-			// Apply padding and margins
-			for (int i = 0; i < renderedContent.Count; i++)
+			// Calculate alignment offset
+			int alignOffset = 0;
+			if (checkboxWidth < targetWidth)
 			{
-				// Add alignment padding
-				if (paddingLeft > 0)
+				switch (_horizontalAlignment)
 				{
-					renderedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', paddingLeft),
-						paddingLeft,
-						1,
-						false,
-						Container?.BackgroundColor,
-						null
-					).FirstOrDefault() + renderedContent[i];
+					case HorizontalAlignment.Center:
+						alignOffset = (targetWidth - checkboxWidth) / 2;
+						break;
+					case HorizontalAlignment.Right:
+						alignOffset = targetWidth - checkboxWidth;
+						break;
+				}
+			}
+
+			// Fill top margin
+			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
+			{
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
+				}
+			}
+
+			// Paint checkbox line
+			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
+			{
+				// Fill left margin
+				if (_margin.Left > 0)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, startY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
 				}
 
-				// Add left margin
-				renderedContent[i] = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', _margin.Left),
-					_margin.Left,
-					1,
-					false,
-					Container?.BackgroundColor,
-					null
-				).FirstOrDefault() + renderedContent[i];
+				// Fill alignment padding (left side)
+				if (alignOffset > 0)
+				{
+					buffer.FillRect(new LayoutRect(startX, startY, alignOffset, 1), ' ', foregroundColor, windowBackground);
+				}
 
-				// Add right margin
-				renderedContent[i] = renderedContent[i] + AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					new string(' ', _margin.Right),
-					_margin.Right,
-					1,
-					false,
-					Container?.BackgroundColor,
-					null
-				).FirstOrDefault();
+				// Render checkbox content
+				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(checkboxContent, checkboxWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
+				var cells = AnsiParser.Parse(ansiLine, foregroundColor, backgroundColor);
+				buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
+
+				// Fill alignment padding (right side)
+				int rightPadStart = startX + alignOffset + checkboxWidth;
+				int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+				if (rightPadWidth > 0)
+				{
+					buffer.FillRect(new LayoutRect(rightPadStart, startY, rightPadWidth, 1), ' ', foregroundColor, windowBackground);
+				}
+
+				// Fill right margin
+				if (_margin.Right > 0)
+				{
+					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, startY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+				}
 			}
 
-			// Add top margin
-			if (_margin.Top > 0)
+			// Fill bottom margin
+			for (int y = startY + 1; y < bounds.Bottom; y++)
 			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
-				var topMargin = Enumerable.Repeat(
-					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', finalWidth),
-						finalWidth,
-						1,
-						false,
-						windowBackground,
-						windowForeground
-					).FirstOrDefault() ?? string.Empty,
-					_margin.Top
-				).ToList();
-
-				renderedContentList.InsertRange(0, topMargin);
+				if (y >= clipRect.Y && y < clipRect.Bottom)
+				{
+					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
+				}
 			}
-
-			// Add the checkbox content
-			renderedContentList.AddRange(renderedContent);
-
-			// Add bottom margin
-			if (_margin.Bottom > 0)
-			{
-				int finalWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent.FirstOrDefault() ?? string.Empty);
-				var bottomMargin = Enumerable.Repeat(
-					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						new string(' ', finalWidth),
-						finalWidth,
-						1,
-						false,
-						windowBackground,
-						windowForeground
-					).FirstOrDefault() ?? string.Empty,
-					_margin.Bottom
-				).ToList();
-
-				renderedContentList.AddRange(bottomMargin);
-			}
-
-			_invalidated = false;
-			return renderedContentList;
 		}
 
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			HasFocus = focus;
-		}
-
-		/// <summary>
-		/// Toggles the checked state of the checkbox.
-		/// </summary>
-		public void Toggle()
-		{
-			Checked = !Checked;
-		}
+		#endregion
 	}
 }
