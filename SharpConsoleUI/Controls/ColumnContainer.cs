@@ -291,7 +291,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public IContainer? Container
 		{
-			get => _container;
+			get => _container ?? _horizontalGridContent?.Container;
 			set
 			{
 				_container = value;
