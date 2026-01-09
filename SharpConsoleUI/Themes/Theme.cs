@@ -218,5 +218,23 @@ namespace SharpConsoleUI.Themes
 		/// Gets or sets the default foreground color for text in standard window content areas.
 		/// </summary>
 		public Color WindowForegroundColor { get; set; } = Color.White;
+
+		/// <summary>
+		/// Gets or sets the background color for toolbar controls.
+		/// Null means transparent (inherit from container).
+		/// </summary>
+		public Color? ToolbarBackgroundColor { get; set; } = null;
+
+		/// <summary>
+		/// Gets or sets the foreground color for toolbar controls.
+		/// Null means transparent (inherit from container).
+		/// </summary>
+		public Color? ToolbarForegroundColor { get; set; } = null;
+
+		/// <summary>
+		/// Gets or sets the foreground color for separator controls.
+		/// Null means transparent (inherit from container).
+		/// </summary>
+		public Color? SeparatorForegroundColor { get; set; } = Color.Grey;
 	}
 }

@@ -450,4 +450,24 @@ public static class Controls
     /// <returns>A configured markup control</returns>
     public static MarkupControl Success(string text) =>
         new MarkupControl(new List<string> { $"[green]{text}[/]" });
+
+    /// <summary>
+    /// Creates a vertical separator control
+    /// </summary>
+    /// <returns>A configured separator control</returns>
+    public static SeparatorControl VerticalSeparator() => new SeparatorControl();
+
+    /// <summary>
+    /// Creates a vertical separator control with horizontal margin
+    /// </summary>
+    /// <param name="horizontalMargin">The margin on left and right sides</param>
+    /// <returns>A configured separator control</returns>
+    public static SeparatorControl VerticalSeparator(int horizontalMargin) =>
+        new SeparatorControl { Margin = new Margin(horizontalMargin, 0, horizontalMargin, 0) };
+
+    /// <summary>
+    /// Creates a new toolbar builder
+    /// </summary>
+    /// <returns>A new toolbar builder</returns>
+    public static ToolbarBuilder Toolbar() => new ToolbarBuilder();
 }

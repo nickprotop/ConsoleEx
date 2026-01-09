@@ -159,35 +159,29 @@ internal class Program
 
         var detailColumn = new ColumnContainer(processesGrid);
 
-        // Header with mode buttons
-        var headerButtons = new HorizontalGridControl { HorizontalAlignment = HorizontalAlignment.Stretch };
-        var procBtnCol = new ColumnContainer(headerButtons);
-        var procBtn = new ButtonControl { Text = "Process", Width = 12 };
-        procBtn.Click += (_, _) =>
-        {
-            _detailMode = DetailMode.Process;
-            if (_lastSnapshot != null)
+        // Header with mode buttons using ToolbarControl
+        var toolbar = ToolbarControl.Create()
+            .AddButton("Process", () =>
             {
-                UpdateDetailPanel(_lastSnapshot);
-            }
-        };
-        procBtnCol.AddContent(procBtn);
-        headerButtons.AddColumn(procBtnCol);
-
-        var memBtnCol = new ColumnContainer(headerButtons);
-        var memBtn = new ButtonControl { Text = "Memory", Width = 12 };
-        memBtn.Click += (_, _) =>
-        {
-            _detailMode = DetailMode.Memory;
-            if (_lastSnapshot != null)
+                _detailMode = DetailMode.Process;
+                if (_lastSnapshot != null)
+                {
+                    UpdateDetailPanel(_lastSnapshot);
+                }
+            })
+            .AddSeparator(1)
+            .AddButton("Memory", () =>
             {
-                UpdateDetailPanel(_lastSnapshot);
-            }
-        };
-        memBtnCol.AddContent(memBtn);
-        headerButtons.AddColumn(memBtnCol);
+                _detailMode = DetailMode.Memory;
+                if (_lastSnapshot != null)
+                {
+                    UpdateDetailPanel(_lastSnapshot);
+                }
+            })
+            .WithSpacing(1)
+            .Build();
 
-        detailColumn.AddContent(headerButtons);
+        detailColumn.AddContent(toolbar);
         detailColumn.AddContent(new RuleControl());
 
         // Process details (shown in Process mode)

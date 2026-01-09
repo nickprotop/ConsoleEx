@@ -215,4 +215,19 @@ public interface ITheme
     /// Gets the default foreground color for text in standard window content areas.
     /// </summary>
     Color WindowForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for toolbar controls. Null means transparent (inherit from container).
+    /// </summary>
+    Color? ToolbarBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for toolbar controls. Null means transparent (inherit from container).
+    /// </summary>
+    Color? ToolbarForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for separator controls. Null means transparent (inherit from container).
+    /// </summary>
+    Color? SeparatorForegroundColor { get; }
 }
