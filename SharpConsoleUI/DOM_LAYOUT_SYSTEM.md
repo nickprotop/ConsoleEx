@@ -491,7 +491,6 @@ The `CursorStateService` translates logical positions to screen coordinates usin
 
 ### Deferred Work
 - `ControlBounds.cs` still exists for legacy hit-testing (can be removed when Window.cs is fully updated)
-- `LayoutStateService` is marked obsolete (state now lives in LayoutNodes)
 
 ### Potential Enhancements
 - Portal system for dropdowns (render outside allocated bounds)

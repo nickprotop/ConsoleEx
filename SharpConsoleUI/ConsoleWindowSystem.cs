@@ -103,7 +103,6 @@ namespace SharpConsoleUI
 		private readonly ScrollStateService _scrollStateService;
 		private readonly InputStateService _inputStateService;
 		private readonly EditStateService _editStateService;
-		private readonly LayoutStateService _layoutStateService;
 		private readonly NotificationStateService _notificationStateService;
 
 		/// <summary>
@@ -124,7 +123,6 @@ namespace SharpConsoleUI
 			_scrollStateService = new ScrollStateService();
 			_inputStateService = new InputStateService();
 			_editStateService = new EditStateService();
-			_layoutStateService = new LayoutStateService();
 
 			// Initialize notification service (needs 'this' reference)
 			_notificationStateService = new NotificationStateService(this, _logService);
@@ -261,10 +259,6 @@ namespace SharpConsoleUI
 		/// </summary>
 		public EditStateService EditStateService => _editStateService;
 
-		/// <summary>
-		/// Gets the layout state service for managing layout calculations.
-		/// </summary>
-		public LayoutStateService LayoutStateService => _layoutStateService;
 
 		/// <summary>
 		/// Gets the notification state service for managing notifications and toasts.
