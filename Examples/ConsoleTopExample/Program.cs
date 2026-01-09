@@ -541,23 +541,19 @@ internal class Program
             "Actions:"
         }) { HorizontalAlignment = HorizontalAlignment.Left });
 
-        var buttonRow = new HorizontalGridControl { HorizontalAlignment = HorizontalAlignment.Center };
-
-        var killColumn = new ColumnContainer(buttonRow);
+        // Create buttons with event handlers
         var killButton = new ButtonControl { Text = "Kill (SIGKILL)", Width = 18 };
         killButton.Click += (_, _) =>
         {
             TryKillProcess(liveProc.Pid, liveProc.Command);
             modal.Close();
         };
-        killColumn.AddContent(killButton);
-        buttonRow.AddColumn(killColumn);
 
-        var closeColumn = new ColumnContainer(buttonRow);
         var closeButton = new ButtonControl { Text = "Close", Width = 10 };
         closeButton.Click += (_, _) => modal.Close();
-        closeColumn.AddContent(closeButton);
-        buttonRow.AddColumn(closeColumn);
+
+        // Use new ButtonRow factory method (reduces 16 lines to 1!)
+        var buttonRow = HorizontalGridControl.ButtonRow(killButton, closeButton);
 
         modal.AddControl(buttonRow);
 

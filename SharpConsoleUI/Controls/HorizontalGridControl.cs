@@ -24,6 +24,55 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A grid control that arranges child columns horizontally with optional splitters between them.
 	/// Supports keyboard and mouse navigation, focus management, and dynamic column resizing.
+	///
+	/// <para><b>SIMPLE USAGE (Factory Methods):</b></para>
+	/// <code>
+	/// // Button row (common pattern)
+	/// var buttons = HorizontalGridControl.ButtonRow(
+	///     new ButtonControl { Text = "OK" },
+	///     new ButtonControl { Text = "Cancel" }
+	/// );
+	///
+	/// // Any controls
+	/// var grid = HorizontalGridControl.FromControls(control1, control2, control3);
+	/// </code>
+	///
+	/// <para><b>FLUENT USAGE (For Complex Layouts):</b></para>
+	/// <code>
+	/// var grid = HorizontalGridControl.Create()
+	///     .Column(col => col.Width(48).Add(control1))
+	///     .Column(col => col.Flex(2.0).Add(control2))
+	///     .WithSplitterAfter(0)
+	///     .WithAlignment(HorizontalAlignment.Stretch)
+	///     .Build();
+	/// </code>
+	///
+	/// <para><b>SPLITTER API:</b></para>
+	/// <code>
+	/// // Add splitters using column references (more intuitive than indices)
+	/// grid.AddSplitterAfter(column1);  // Adds splitter between column1 and column2
+	/// grid.AddSplitterBefore(column2); // Same result as above
+	///
+	/// // Or add columns with automatic splitters
+	/// grid.AddColumn(column1);
+	/// grid.AddColumnWithSplitter(column2); // Creates splitter automatically
+	/// </code>
+	///
+	/// <para><b>TRADITIONAL USAGE (Still Supported):</b></para>
+	/// <code>
+	/// var grid = new HorizontalGridControl();
+	/// var column = new ColumnContainer(grid);
+	/// column.AddContent(control);
+	/// grid.AddColumn(column);
+	/// grid.AddSplitter(0, new SplitterControl()); // Add splitter by index
+	/// </code>
+	///
+	/// <para><b>ARCHITECTURE NOTE:</b></para>
+	/// <para>
+	/// This control uses <see cref="HorizontalLayout"/> internally for measuring
+	/// and arranging columns. The layout algorithm is assigned automatically by
+	/// Window.cs during tree building. Users don't interact with HorizontalLayout directly.
+	/// </para>
 	/// </summary>
 	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IDOMPaintable
 	{
@@ -52,6 +101,98 @@ namespace SharpConsoleUI.Controls
 		public HorizontalGridControl()
 		{
 		}
+
+		#region Factory Methods
+
+		/// <summary>
+		/// Creates a horizontal grid with buttons, commonly used for dialog button rows.
+		/// Each button is automatically wrapped in a column.
+		/// </summary>
+		/// <param name="buttons">The buttons to add to the grid.</param>
+		/// <returns>A new HorizontalGridControl containing the buttons, centered horizontally.</returns>
+		public static HorizontalGridControl ButtonRow(params ButtonControl[] buttons)
+		{
+			return ButtonRow(buttons, HorizontalAlignment.Center);
+		}
+
+		/// <summary>
+		/// Creates a horizontal grid with buttons.
+		/// Each button is automatically wrapped in a column.
+		/// </summary>
+		/// <param name="buttons">The buttons to add to the grid.</param>
+		/// <param name="alignment">The horizontal alignment of the grid.</param>
+		/// <returns>A new HorizontalGridControl containing the buttons.</returns>
+		public static HorizontalGridControl ButtonRow(
+			IEnumerable<ButtonControl> buttons,
+			HorizontalAlignment alignment = HorizontalAlignment.Center)
+		{
+			var grid = new HorizontalGridControl { HorizontalAlignment = alignment };
+
+			foreach (var button in buttons)
+			{
+				var column = new ColumnContainer(grid);
+				column.AddContent(button);
+				grid.AddColumn(column);
+			}
+
+			return grid;
+		}
+
+		/// <summary>
+		/// Creates a horizontal grid with arbitrary controls.
+		/// Each control is automatically wrapped in a column.
+		/// </summary>
+		/// <param name="controls">The controls to add to the grid.</param>
+		/// <param name="alignment">The horizontal alignment of the grid.</param>
+		/// <returns>A new HorizontalGridControl containing the controls.</returns>
+		public static HorizontalGridControl FromControls(
+			IEnumerable<IWindowControl> controls,
+			HorizontalAlignment alignment = HorizontalAlignment.Left)
+		{
+			var grid = new HorizontalGridControl { HorizontalAlignment = alignment };
+
+			foreach (var control in controls)
+			{
+				var column = new ColumnContainer(grid);
+				column.AddContent(control);
+				grid.AddColumn(column);
+			}
+
+			return grid;
+		}
+
+		/// <summary>
+		/// Creates a horizontal grid from controls using params syntax.
+		/// Each control is automatically wrapped in a column.
+		/// </summary>
+		/// <param name="controls">The controls to add to the grid.</param>
+		/// <returns>A new HorizontalGridControl containing the controls.</returns>
+		public static HorizontalGridControl FromControls(params IWindowControl[] controls)
+		{
+			return FromControls(controls, HorizontalAlignment.Left);
+		}
+
+		/// <summary>
+		/// Creates a fluent builder for constructing a HorizontalGridControl.
+		/// Provides a concise, chainable API for complex grid layouts.
+		/// </summary>
+		/// <returns>A new HorizontalGridBuilder instance.</returns>
+		/// <example>
+		/// <code>
+		/// var grid = HorizontalGridControl.Create()
+		///     .Column(col => col.Width(48).Add(control1))
+		///     .Column(col => col.Flex(2.0).Add(control2))
+		///     .WithSplitterAfter(0)
+		///     .WithAlignment(HorizontalAlignment.Stretch)
+		///     .Build();
+		/// </code>
+		/// </example>
+		public static Builders.HorizontalGridBuilder Create()
+		{
+			return new Builders.HorizontalGridBuilder();
+		}
+
+		#endregion
 
 		/// <inheritdoc/>
 		public int? ActualWidth
@@ -217,10 +358,20 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Adds a column to the grid with an automatically created splitter between it and the previous column.
+		/// Adds a column to the grid and automatically creates a splitter before it.
+		/// Convenience method - equivalent to calling AddSplitter() then AddColumn().
+		/// If this is the first column, no splitter is added.
 		/// </summary>
 		/// <param name="column">The column container to add.</param>
 		/// <returns>The created splitter control, or null if this is the first column.</returns>
+		/// <example>
+		/// <code>
+		/// var grid = new HorizontalGridControl();
+		/// grid.AddColumn(column1);  // First column - no splitter
+		/// grid.AddColumnWithSplitter(column2); // Adds splitter between column1 and column2
+		/// grid.AddColumnWithSplitter(column3); // Adds splitter between column2 and column3
+		/// </code>
+		/// </example>
 		public SplitterControl? AddColumnWithSplitter(ColumnContainer column)
 		{
 			// Only add a splitter if there's at least one column already
@@ -278,6 +429,60 @@ namespace SharpConsoleUI.Controls
 			Invalidate();
 			return true;
 		}
+
+		#region Splitter API Convenience Methods
+
+		/// <summary>
+		/// Adds a splitter after the specified column.
+		/// More intuitive than AddSplitter(index) - you specify the column, not an index.
+		/// </summary>
+		/// <param name="column">The column after which to add the splitter.</param>
+		/// <param name="splitter">The splitter control to add. If null, a new SplitterControl is created.</param>
+		/// <returns>True if the splitter was added successfully; false if the column is not found or is the last column.</returns>
+		/// <example>
+		/// <code>
+		/// var col1 = new ColumnContainer(grid);
+		/// grid.AddColumn(col1);
+		/// var col2 = new ColumnContainer(grid);
+		/// grid.AddColumn(col2);
+		/// grid.AddSplitterAfter(col1); // Adds splitter between col1 and col2
+		/// </code>
+		/// </example>
+		public bool AddSplitterAfter(ColumnContainer column, SplitterControl? splitter = null)
+		{
+			int columnIndex = _columns.IndexOf(column);
+			if (columnIndex < 0)
+				return false;
+
+			return AddSplitter(columnIndex, splitter ?? new SplitterControl());
+		}
+
+		/// <summary>
+		/// Adds a splitter before the specified column.
+		/// More intuitive than AddSplitter(index) - you specify the column, not an index.
+		/// </summary>
+		/// <param name="column">The column before which to add the splitter.</param>
+		/// <param name="splitter">The splitter control to add. If null, a new SplitterControl is created.</param>
+		/// <returns>True if the splitter was added successfully; false if the column is not found or is the first column.</returns>
+		/// <example>
+		/// <code>
+		/// var col1 = new ColumnContainer(grid);
+		/// grid.AddColumn(col1);
+		/// var col2 = new ColumnContainer(grid);
+		/// grid.AddColumn(col2);
+		/// grid.AddSplitterBefore(col2); // Adds splitter between col1 and col2
+		/// </code>
+		/// </example>
+		public bool AddSplitterBefore(ColumnContainer column, SplitterControl? splitter = null)
+		{
+			int columnIndex = _columns.IndexOf(column);
+			if (columnIndex <= 0)
+				return false;
+
+			return AddSplitter(columnIndex - 1, splitter ?? new SplitterControl());
+		}
+
+		#endregion
 
 		/// <inheritdoc/>
 		public void Dispose()
