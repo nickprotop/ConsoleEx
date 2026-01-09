@@ -243,6 +243,11 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<string?>? SelectedValueChanged;
 
 		/// <summary>
+		/// Occurs when an item is activated (Enter or double-click).
+		/// </summary>
+		public event EventHandler<ListItem>? ItemActivated;
+
+		/// <summary>
 		/// Gets the actual rendered height in lines.
 		/// </summary>
 		public int? ActualHeight
@@ -864,6 +869,11 @@ namespace SharpConsoleUI.Controls
 					if (highlightedIndex >= 0 && highlightedIndex < _items.Count)
 					{
 						SelectedIndex = highlightedIndex;
+						var item = _items[highlightedIndex];
+						if (item.IsEnabled)
+						{
+							ItemActivated?.Invoke(this, item);
+						}
 						return true;
 					}
 					return false;

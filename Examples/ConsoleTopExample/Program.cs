@@ -147,6 +147,14 @@ internal class Program
             if (_lastSnapshot != null) UpdateDetailPanel(_lastSnapshot);
         };
 
+        _processList.ItemActivated += (_, item) =>
+        {
+            if (item.Tag is ProcessSample ps)
+            {
+                ShowProcessActions(ps);
+            }
+        };
+
         // Update details pane when highlight changes (moving with arrows without selecting)
         _windowSystem.SelectionStateService.HighlightChanged += (sender, args) =>
         {
@@ -226,12 +234,6 @@ internal class Program
             if (e.KeyInfo.Key == ConsoleKey.F10 || e.KeyInfo.Key == ConsoleKey.Escape)
             {
                 _windowSystem?.Shutdown();
-                e.Handled = true;
-            }
-
-            if ((e.KeyInfo.Key == ConsoleKey.Enter || e.KeyInfo.Key == ConsoleKey.Spacebar) && _processList?.SelectedItem?.Tag is ProcessSample ps)
-            {
-                ShowProcessActions(ps);
                 e.Handled = true;
             }
         };
