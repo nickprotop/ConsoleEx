@@ -5,11 +5,9 @@ VisualStudioVersion = 17.12.35707.178
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpConsoleUI", "SharpConsoleUI\SharpConsoleUI.csproj", "{05BCE2AE-7439-4D31-9840-1B96C48149F5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClassicExample", "Examples\ClassicExample\ClassicExample.csproj", "{41AF8F6B-8C36-4232-A08A-BC65AD67A708}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{070CE9D0-AD9A-4069-AFCC-E8C2AA766CC3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModernExample", "Examples\ModernExample\ModernExample.csproj", "{B76FBC18-71CD-4287-966B-289952EE5253}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DemoApp", "Examples\DemoApp\DemoApp.csproj", "{B76FBC18-71CD-4287-966B-289952EE5253}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FullScreenExample", "Examples\FullScreenExample\FullScreenExample.csproj", "{3D266CB7-6509-4BBC-B35C-5A9604C80F49}"
 EndProject
@@ -37,18 +35,6 @@ Global
 		{05BCE2AE-7439-4D31-9840-1B96C48149F5}.Release|x64.Build.0 = Release|Any CPU
 		{05BCE2AE-7439-4D31-9840-1B96C48149F5}.Release|x86.ActiveCfg = Release|Any CPU
 		{05BCE2AE-7439-4D31-9840-1B96C48149F5}.Release|x86.Build.0 = Release|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Debug|x64.Build.0 = Debug|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Debug|x86.Build.0 = Debug|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Release|Any CPU.Build.0 = Release|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Release|x64.ActiveCfg = Release|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Release|x64.Build.0 = Release|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Release|x86.ActiveCfg = Release|Any CPU
-		{41AF8F6B-8C36-4232-A08A-BC65AD67A708}.Release|x86.Build.0 = Release|Any CPU
 		{B76FBC18-71CD-4287-966B-289952EE5253}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B76FBC18-71CD-4287-966B-289952EE5253}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B76FBC18-71CD-4287-966B-289952EE5253}.Debug|x64.ActiveCfg = Debug|Any CPU
