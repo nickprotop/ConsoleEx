@@ -11,6 +11,8 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using Spectre.Console;
 using System.Diagnostics;
 using System.Globalization;
@@ -24,15 +26,8 @@ internal class Program
     private static ConsoleWindowSystem? _windowSystem;
     private static Window? _mainWindow;
 
-    private static SpectreRenderableControl? _cpuChart;
-    private static SpectreRenderableControl? _memChart;
-    private static ListControl? _processList;
-    private static MarkupControl? _legend;
-    private static MarkupControl? _processDetails;
-    private static SpectreRenderableControl? _memoryDetailChart;
-    private static MarkupControl? _memoryDetailStats;
+    // State (not UI references)
     private static DetailMode _detailMode = DetailMode.Process;
-
     private static readonly LinuxSystemStats _stats = new();
     private static SystemSnapshot? _lastSnapshot;
 
@@ -102,14 +97,22 @@ internal class Program
 
         var cpuColumn = new ColumnContainer(grid) { Width = 48 };
         cpuColumn.AddContent(new MarkupControl(new List<string> { "[yellow]CPU Usage[/]" }));
-        _cpuChart = new SpectreRenderableControl(BuildCpuChart(0, 0, 0)) { Margin = new Margin(0, 1, 0, 1) };
-        cpuColumn.AddContent(_cpuChart);
+        var cpuChart = new SpectreRenderableControl(BuildCpuChart(0, 0, 0))
+        {
+            Name = "cpuChart",
+            Margin = new Margin(0, 1, 0, 1)
+        };
+        cpuColumn.AddContent(cpuChart);
         grid.AddColumn(cpuColumn);
 
         var memColumn = new ColumnContainer(grid);
         memColumn.AddContent(new MarkupControl(new List<string> { "[yellow]Memory / IO[/]" }));
-        _memChart = new SpectreRenderableControl(BuildMemoryChart(0, 0, 0)) { Margin = new Margin(0, 1, 0, 1) };
-        memColumn.AddContent(_memChart);
+        var memChart = new SpectreRenderableControl(BuildMemoryChart(0, 0, 0))
+        {
+            Name = "memChart",
+            Margin = new Margin(0, 1, 0, 1)
+        };
+        memColumn.AddContent(memChart);
         grid.AddColumn(memColumn);
 
         grid.AddSplitter(0, new SplitterControl());
@@ -130,24 +133,25 @@ internal class Program
         };
 
         var listColumn = new ColumnContainer(processesGrid) { Width = 60 };
-        _processList = new ListControl("Processes")
+        var processList = new ListControl("Processes")
         {
+            Name = "processList",
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Fill,
             BackgroundColor = Color.Black,
             ForegroundColor = Color.White,
-            FocusedBackgroundColor = Color.Black,
+            FocusedBackgroundColor = Color.Grey11,
             FocusedForegroundColor = Color.White,
             HighlightBackgroundColor = Color.DodgerBlue1,
             HighlightForegroundColor = Color.White
         };
-        _processList.SelectedIndexChanged += (_, _) =>
+        processList.SelectedIndexChanged += (_, _) =>
         {
             UpdateLegendSelection();
             if (_lastSnapshot != null) UpdateDetailPanel(_lastSnapshot);
         };
 
-        _processList.ItemActivated += (_, item) =>
+        processList.ItemActivated += (_, item) =>
         {
             if (item.Tag is ProcessSample ps)
             {
@@ -158,18 +162,19 @@ internal class Program
         // Update details pane when highlight changes (moving with arrows without selecting)
         _windowSystem.SelectionStateService.HighlightChanged += (sender, args) =>
         {
-            if (args.Control == _processList && _lastSnapshot != null)
+            var pList = _mainWindow?.FindControl<ListControl>("processList");
+            if (args.Control == pList && _lastSnapshot != null)
             {
                 UpdateDetailPanel(_lastSnapshot);
             }
         };
-        listColumn.AddContent(_processList);
+        listColumn.AddContent(processList);
 
         var detailColumn = new ColumnContainer(processesGrid);
 
         // Header with mode buttons using ToolbarControl
         var toolbar = ToolbarControl.Create()
-            .AddButton("Process", () =>
+            .AddButton("Process", (sender, e, window) =>
             {
                 _detailMode = DetailMode.Process;
                 if (_lastSnapshot != null)
@@ -178,7 +183,7 @@ internal class Program
                 }
             })
             .AddSeparator(1)
-            .AddButton("Memory", () =>
+            .AddButton("Memory", (sender, e, window) =>
             {
                 _detailMode = DetailMode.Memory;
                 if (_lastSnapshot != null)
@@ -193,41 +198,47 @@ internal class Program
         detailColumn.AddContent(new RuleControl());
 
         // Process details (shown in Process mode)
-        _processDetails = new MarkupControl(new List<string>
+        var processDetails = new MarkupControl(new List<string>
         {
             "[bold]Process details[/]",
             "[dim]Select a process to see live stats[/]"
-        });
-        detailColumn.AddContent(_processDetails);
+        })
+        {
+            Name = "processDetails"
+        };
+        detailColumn.AddContent(processDetails);
 
         // Memory detail chart (shown in Memory mode)
-        _memoryDetailChart = new SpectreRenderableControl(BuildMemoryDetailChart(0, 0, 0, 0))
+        var memoryDetailChart = new SpectreRenderableControl(BuildMemoryDetailChart(0, 0, 0, 0))
         {
+            Name = "memoryDetailChart",
             Visible = false
         };
-        detailColumn.AddContent(_memoryDetailChart);
+        detailColumn.AddContent(memoryDetailChart);
 
         // Memory detail stats (shown in Memory mode)
-        _memoryDetailStats = new MarkupControl(new List<string> { "" })
+        var memoryDetailStats = new MarkupControl(new List<string> { "" })
         {
+            Name = "memoryDetailStats",
             Visible = false
         };
-        detailColumn.AddContent(_memoryDetailStats);
+        detailColumn.AddContent(memoryDetailStats);
 
         processesGrid.AddColumn(listColumn);
         processesGrid.AddColumn(detailColumn);
         processesGrid.AddSplitter(0, new SplitterControl());
         _mainWindow.AddControl(processesGrid);
 
-        _legend = new MarkupControl(new List<string>
+        var legend = new MarkupControl(new List<string>
         {
             "[dim]Legend: CPU = user/sys/io | MEM = used/free/cache | NET = up/down MB/s[/]"
         })
         {
+            Name = "legend",
             StickyPosition = StickyPosition.Bottom
         };
         _mainWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Bottom });
-        _mainWindow.AddControl(_legend);
+        _mainWindow.AddControl(legend);
 
         _mainWindow.KeyPressed += (sender, e) =>
         {
@@ -255,32 +266,36 @@ internal class Program
 
                 _lastSnapshot = snapshot;
 
-                _cpuChart?.SetRenderable(BuildCpuChart(snapshot.Cpu.User, snapshot.Cpu.System, snapshot.Cpu.IoWait));
+                // Update CPU chart
+                var cpuChart = window.FindControl<SpectreRenderableControl>("cpuChart");
+                cpuChart?.SetRenderable(BuildCpuChart(snapshot.Cpu.User, snapshot.Cpu.System, snapshot.Cpu.IoWait));
 
+                // Update memory chart
                 var ioScaled = Math.Min(100, Math.Max(snapshot.Network.UpMbps, snapshot.Network.DownMbps));
-                _memChart?.SetRenderable(BuildMemoryChart(snapshot.Memory.UsedPercent, snapshot.Memory.CachedPercent, ioScaled));
+                var memChart = window.FindControl<SpectreRenderableControl>("memChart");
+                memChart?.SetRenderable(BuildMemoryChart(snapshot.Memory.UsedPercent, snapshot.Memory.CachedPercent, ioScaled));
 
-                if (_processList != null)
+                // Update process list
+                var processList = window.FindControl<ListControl>("processList");
+                if (processList != null)
                 {
-                    var selectedPid = (_processList.SelectedItem?.Tag as ProcessSample)?.Pid;
+                    var selectedPid = (processList.SelectedItem?.Tag as ProcessSample)?.Pid;
                     var items = BuildProcessList(snapshot.Processes);
-                    _processList.Items = items;
+                    processList.Items = items;
 
                     if (selectedPid.HasValue)
                     {
                         int idx = items.FindIndex(i => (i.Tag as ProcessSample)?.Pid == selectedPid.Value);
-                        if (idx >= 0) _processList.SelectedIndex = idx;
+                        if (idx >= 0) processList.SelectedIndex = idx;
                     }
                 }
 
                 UpdateLegendSelection();
+                UpdateDetailPanel(snapshot);
 
-                if (_processDetails != null)
-                {
-                    UpdateDetailPanel(snapshot);
-                }
-
-                _legend?.SetContent(new List<string>
+                // Update legend
+                var legend = window.FindControl<MarkupControl>("legend");
+                legend?.SetContent(new List<string>
                 {
                     $"[dim]CPU user:{snapshot.Cpu.User:F1}% sys:{snapshot.Cpu.System:F1}% io:{snapshot.Cpu.IoWait:F1}% | MEM used:{snapshot.Memory.UsedPercent:F1}% cached:{snapshot.Memory.CachedPercent:F1}% | NET up:{snapshot.Network.UpMbps:F1}MB/s down:{snapshot.Network.DownMbps:F1}MB/s[/]"
                 });
@@ -377,19 +392,20 @@ internal class Program
 
     private static void UpdateLegendSelection()
     {
-        if (_legend == null) return;
+        var legend = _mainWindow?.FindControl<MarkupControl>("legend");
+        if (legend == null) return;
 
         var selection = GetCurrentProcessItem()?.Tag as ProcessSample;
         if (selection == null)
         {
-            _legend.SetContent(new List<string>
+            legend.SetContent(new List<string>
             {
                 "[dim]Legend: CPU = user/sys/io | MEM = used/cache | NET = up/down MB/s • Enter for process details[/]"
             });
             return;
         }
 
-        _legend.SetContent(new List<string>
+        legend.SetContent(new List<string>
         {
             $"[dim]Selected PID {selection.Pid}: CPU {selection.CpuPercent:F1}% MEM {selection.MemPercent:F1}% • Enter opens details[/]"
         });
@@ -397,19 +413,21 @@ internal class Program
 
     private static void UpdateDetailPanel(SystemSnapshot snapshot)
     {
-
-        if (_processDetails == null) return;
+        var processDetails = _mainWindow?.FindControl<MarkupControl>("processDetails");
+        if (processDetails == null) return;
 
         if (_detailMode == DetailMode.Memory)
         {
             // Show memory controls, hide process details
-            _processDetails.Visible = false;
-            if (_memoryDetailChart != null) _memoryDetailChart.Visible = true;
-            if (_memoryDetailStats != null) _memoryDetailStats.Visible = true;
+            processDetails.Visible = false;
+            var memoryDetailChart = _mainWindow?.FindControl<SpectreRenderableControl>("memoryDetailChart");
+            var memoryDetailStats = _mainWindow?.FindControl<MarkupControl>("memoryDetailStats");
+            if (memoryDetailChart != null) memoryDetailChart.Visible = true;
+            if (memoryDetailStats != null) memoryDetailStats.Visible = true;
 
             // Update memory chart
             var mem = snapshot.Memory;
-            _memoryDetailChart?.SetRenderable(BuildMemoryDetailChart(
+            memoryDetailChart?.SetRenderable(BuildMemoryDetailChart(
                 mem.UsedMb, mem.CachedMb, mem.BuffersMb, mem.AvailableMb));
 
             // Build progress bars
@@ -443,19 +461,21 @@ internal class Program
                 statsLines.Add($"  {p.MemPercent,5:F1}%  {p.Pid,6}  [green]{p.Command}[/]");
             }
 
-            _memoryDetailStats?.SetContent(statsLines);
+            memoryDetailStats?.SetContent(statsLines);
             return;
         }
 
         // Process mode - show process details, hide memory controls
-        _processDetails.Visible = true;
-        if (_memoryDetailChart != null) _memoryDetailChart.Visible = false;
-        if (_memoryDetailStats != null) _memoryDetailStats.Visible = false;
+        processDetails.Visible = true;
+        var memChart = _mainWindow?.FindControl<SpectreRenderableControl>("memoryDetailChart");
+        var memStats = _mainWindow?.FindControl<MarkupControl>("memoryDetailStats");
+        if (memChart != null) memChart.Visible = false;
+        if (memStats != null) memStats.Visible = false;
 
         var selection = GetCurrentProcessItem()?.Tag as ProcessSample;
         if (selection == null)
         {
-            _processDetails.SetContent(new List<string>
+            processDetails.SetContent(new List<string>
             {
                 "[bold]Process details[/]",
                 "[dim]Select a process to see live stats[/]"
@@ -467,7 +487,7 @@ internal class Program
 
         var extra = ReadProcessExtra(liveProc.Pid);
 
-        _processDetails.SetContent(new List<string>
+        processDetails.SetContent(new List<string>
         {
             "[bold]Process details[/]",
             $"PID: {liveProc.Pid}",
@@ -488,12 +508,13 @@ internal class Program
 
     private static ListItem? GetCurrentProcessItem()
     {
-        if (_processList == null) return null;
-        var items = _processList.Items;
+        var processList = _mainWindow?.FindControl<ListControl>("processList");
+        if (processList == null) return null;
+        var items = processList.Items;
 
         // Prefer highlighted item if available, otherwise fall back to selected
-        var highlightIdx = _windowSystem?.SelectionStateService.GetHighlightedIndex(_processList) ?? -1;
-        var selectedIdx = _processList.SelectedIndex;
+        var highlightIdx = _windowSystem?.SelectionStateService.GetHighlightedIndex(processList) ?? -1;
+        var selectedIdx = processList.SelectedIndex;
 
         int idx = highlightIdx >= 0 ? highlightIdx : selectedIdx;
         if (idx >= 0 && idx < items.Count)
