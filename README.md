@@ -302,6 +302,69 @@ scope.RegisterDisposalAction(() => SaveTempData());
 // Scope automatically disposes when using block exits
 ```
 
+### 5. Event Handlers with Window Access
+
+All event handlers in fluent builders include a `window` parameter, enabling access to other controls via `FindControl<T>()`:
+
+```csharp
+// Create controls with names
+window.AddControl(
+    Controls.Markup("[bold]Status:[/] Ready")
+        .WithName("status")
+        .Build()
+);
+
+window.AddControl(
+    Controls.Prompt("Enter name:")
+        .WithName("nameInput")
+        .OnInputChanged((sender, text, window) =>
+        {
+            // Access other controls through window parameter
+            var status = window.FindControl<MarkupControl>("status");
+            status?.SetContent($"[bold]Status:[/] Typing... ({text.Length} chars)");
+        })
+        .Build()
+);
+
+window.AddControl(
+    Controls.Button("Submit")
+        .OnClick((sender, e, window) =>
+        {
+            var nameInput = window.FindControl<PromptControl>("nameInput");
+            var status = window.FindControl<MarkupControl>("status");
+
+            if (string.IsNullOrWhiteSpace(nameInput?.Text))
+            {
+                status?.SetContent("[red]Error:[/] Name is required");
+            }
+            else
+            {
+                status?.SetContent($"[green]Submitted:[/] {nameInput.Text}");
+                nameInput.Text = "";
+            }
+        })
+        .Build()
+);
+```
+
+#### Available Event Handler Signatures
+
+All fluent builders provide event handlers with window access:
+
+| Builder | Event Method | Event Handler Signature |
+|---------|--------------|-------------------------|
+| ButtonBuilder | `OnClick` | `(sender, ButtonControl, Window)` |
+| ListBuilder | `OnItemActivated` | `(sender, ListItem, Window)` |
+| ListBuilder | `OnSelectionChanged` | `(sender, int, Window)` |
+| ListBuilder | `OnSelectedItemChanged` | `(sender, ListItem?, Window)` |
+| CheckboxBuilder | `OnCheckedChanged` | `(sender, bool, Window)` |
+| DropdownBuilder | `OnSelectionChanged` | `(sender, int, Window)` |
+| DropdownBuilder | `OnSelectedItemChanged` | `(sender, DropdownItem?, Window)` |
+| PromptBuilder | `OnEntered` | `(sender, string, Window)` |
+| PromptBuilder | `OnInputChanged` | `(sender, string, Window)` |
+
+This enables **pure declarative UIs** where all control interactions happen through named lookups, eliminating the need to maintain field references.
+
 ## 🏗️ Architecture Overview
 
 ### Core Components
