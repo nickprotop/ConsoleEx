@@ -171,4 +171,36 @@ public static class Controls
 	/// <param name="prompt">The prompt text</param>
 	/// <returns>A new prompt builder</returns>
 	public static PromptBuilder Prompt(string prompt = "> ") => new PromptBuilder().WithPrompt(prompt);
+
+	/// <summary>
+	/// Creates a new tree control builder
+	/// </summary>
+	/// <returns>A new tree control builder</returns>
+	public static TreeControlBuilder Tree() => new TreeControlBuilder();
+
+	/// <summary>
+	/// Creates a new multiline edit control builder
+	/// </summary>
+	/// <param name="content">Optional initial content</param>
+	/// <returns>A new multiline edit control builder</returns>
+	public static MultilineEditControlBuilder MultilineEdit(string? content = null)
+	{
+		var builder = new MultilineEditControlBuilder();
+		if (content != null)
+			builder.WithContent(content);
+		return builder;
+	}
+
+	/// <summary>
+	/// Creates a new Figlet text control builder
+	/// </summary>
+	/// <param name="text">The FIGlet ASCII art text</param>
+	/// <returns>A new Figlet control builder</returns>
+	public static FigleControlBuilder Figlet(string? text = null)
+	{
+		var builder = new FigleControlBuilder();
+		if (text != null)
+			builder.WithText(text);
+		return builder;
+	}
 }
