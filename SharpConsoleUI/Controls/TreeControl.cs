@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -240,12 +241,12 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Event that fires when a tree node is expanded or collapsed.
 		/// </summary>
-		public Action<TreeControl, TreeNode>? OnNodeExpandCollapse { get; set; }
+		public event EventHandler<TreeNodeEventArgs>? NodeExpandCollapse;
 
 		/// <summary>
 		/// Event that fires when the selected node changes.
 		/// </summary>
-		public Action<TreeControl, TreeNode?>? OnSelectedNodeChanged { get; set; }
+		public event EventHandler<TreeNodeEventArgs>? SelectedNodeChanged;
 
 		/// <summary>
 		/// Gets the collection of root nodes in the tree.
@@ -523,7 +524,7 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetSelectedIndex(this, selectedIndex - 1);
 						EnsureSelectedItemVisible();
-						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -534,7 +535,7 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetSelectedIndex(this, selectedIndex + 1);
 						EnsureSelectedItemVisible();
-						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -547,7 +548,7 @@ namespace SharpConsoleUI.Controls
 						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
 						SelectionService?.SetSelectedIndex(this, Math.Max(0, selectedIndex - pageSize));
 						EnsureSelectedItemVisible();
-						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -560,7 +561,7 @@ namespace SharpConsoleUI.Controls
 						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
 						SelectionService?.SetSelectedIndex(this, Math.Min(_flattenedNodes.Count - 1, selectedIndex + pageSize));
 						EnsureSelectedItemVisible();
-						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -570,7 +571,7 @@ namespace SharpConsoleUI.Controls
 					if (SelectedNode != null && !SelectedNode.IsExpanded)
 					{
 						SelectedNode.IsExpanded = true;
-						OnNodeExpandCollapse?.Invoke(this, SelectedNode);
+						NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						UpdateFlattenedNodes();
 						Container?.Invalidate(true);
 						return true;
@@ -584,7 +585,7 @@ namespace SharpConsoleUI.Controls
 						{
 							// Collapse the expanded node
 							SelectedNode.IsExpanded = false;
-							OnNodeExpandCollapse?.Invoke(this, SelectedNode);
+							NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 							UpdateFlattenedNodes();
 							Container?.Invalidate(true);
 							return true;
@@ -598,7 +599,7 @@ namespace SharpConsoleUI.Controls
 					{
 						// Toggle expand/collapse
 						SelectedNode.IsExpanded = !SelectedNode.IsExpanded;
-						OnNodeExpandCollapse?.Invoke(this, SelectedNode);
+						NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						UpdateFlattenedNodes();
 						Container?.Invalidate(true);
 						return true;
@@ -610,7 +611,7 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetSelectedIndex(this, 0);
 						EnsureSelectedItemVisible();
-						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -621,7 +622,7 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectionService?.SetSelectedIndex(this, _flattenedNodes.Count - 1);
 						EnsureSelectedItemVisible();
-						OnSelectedNodeChanged?.Invoke(this, SelectedNode);
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -666,7 +667,7 @@ namespace SharpConsoleUI.Controls
 			{
 				SelectionService?.SetSelectedIndex(this, index);
 				Container?.Invalidate(true);
-				OnSelectedNodeChanged?.Invoke(this, node);
+				SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(node));
 				return true;
 			}
 
@@ -682,7 +683,7 @@ namespace SharpConsoleUI.Controls
 				{
 					SelectionService?.SetSelectedIndex(this, index);
 					Container?.Invalidate(true);
-					OnSelectedNodeChanged?.Invoke(this, node);
+					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(node));
 					return true;
 				}
 			}
