@@ -949,35 +949,24 @@ namespace SharpConsoleUI
 				}
 
 				// Update layout bounds from DOM nodes
-				foreach (var control in _controls.Where(c => c.Visible))
+				foreach (var kvp in _controlToNodeMap)
 				{
+					var control = kvp.Key;
+					var node = kvp.Value;
+
+					if (!control.Visible)
+						continue;
+
 					var bounds = _layoutManager.GetOrCreateControlBounds(control);
+					var nodeBounds = node.AbsoluteBounds;
 
-					// Try to get bounds from DOM node
-					if (_controlToNodeMap.TryGetValue(control, out var node))
-					{
-						var nodeBounds = node.AbsoluteBounds;
-						bounds.ControlContentBounds = new Rectangle(
-							nodeBounds.X,
-							nodeBounds.Y,
-							nodeBounds.Width,
-							nodeBounds.Height
-						);
-					}
-					else
-					{
-						// Fallback: measure using IDOMPaintable
-						var size = control is IDOMPaintable paintable
-							? paintable.MeasureDOM(new LayoutConstraints(0, availableWidth, 0, availableHeight))
-							: new LayoutSize(control.ActualWidth ?? availableWidth, 1);
+					bounds.ControlContentBounds = new Rectangle(
+						nodeBounds.X,
+						nodeBounds.Y,
+						nodeBounds.Width,
+						nodeBounds.Height
+					);
 
-						bounds.ControlContentBounds = new Rectangle(
-							0,
-							0,
-							size.Width,
-							size.Height
-						);
-					}
 
 					bounds.ViewportSize = new Size(availableWidth, availableHeight);
 					bounds.HasInternalScrolling = control is MultilineEditControl;
@@ -1174,6 +1163,33 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Finds the deepest focused control by recursively checking containers
+		/// </summary>
+		private IWindowControl? FindDeepestFocusedControl(IInteractiveControl control)
+		{
+			// If this is a container with a focused child, recurse deeper
+			if (control is Controls.HorizontalGridControl grid)
+			{
+				// Access the focused content through reflection
+				var focusedField = typeof(Controls.HorizontalGridControl).GetField("_focusedContent",
+					System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+				if (focusedField != null)
+				{
+					var focusedContent = focusedField.GetValue(grid);
+					if (focusedContent is IInteractiveControl focusedInteractive && focusedInteractive.HasFocus)
+					{
+						// Recursively find the deepest focused control
+						var deeper = FindDeepestFocusedControl(focusedInteractive);
+						return deeper ?? (focusedContent as IWindowControl);
+					}
+				}
+			}
+
+			// This is the deepest focused control
+			return control as IWindowControl;
+		}
+
+		/// <summary>
 		/// Determines whether this window has an active interactive control with focus.
 		/// </summary>
 		/// <param name="interactiveContent">When returning true, contains the focused interactive control.</param>
@@ -1191,23 +1207,42 @@ namespace SharpConsoleUI
 		/// <returns>True if cursor should be displayed; otherwise false.</returns>
 		public bool HasInteractiveContent(out Point cursorPosition)
 		{
+
 			if (HasActiveInteractiveContent(out var activeInteractiveContent))
 			{
 				if (activeInteractiveContent is IWindowControl control)
 				{
+
+					// Find the deepest focused control to walk from
+					var deepestControl = FindDeepestFocusedControl(activeInteractiveContent);
+					if (deepestControl != null)
+					{
+						control = deepestControl;
+					}
+
 					// Use the new layout manager for coordinate translation
 					var windowCursorPos = _layoutManager.TranslateLogicalCursorToWindow(control);
 					if (windowCursorPos != null)
 					{
 						cursorPosition = windowCursorPos.Value;
 
+
 						// Check if the cursor position is actually visible in the window
 						if (IsCursorPositionVisible(cursorPosition, control))
 						{
 							return true;
 						}
+						else
+						{
+						}
+					}
+					else
+					{
 					}
 				}
+			}
+			else
+			{
 			}
 
 			cursorPosition = new Point(0, 0);
@@ -1222,35 +1257,44 @@ namespace SharpConsoleUI
 		/// <returns>True if the cursor position is visible</returns>
 		private bool IsCursorPositionVisible(Point cursorPosition, IWindowControl control)
 		{
-			// Check if cursor is within the basic window content area (excluding borders)
-			if (cursorPosition.X < 1 || cursorPosition.X >= Width - 1 || 
-				cursorPosition.Y < 1 || cursorPosition.Y >= Height - 1)
-			{
-				return false;
-			}
 
 			// Get the control's bounds to understand its positioning
 			var bounds = _layoutManager.GetOrCreateControlBounds(control);
 			var controlBounds = bounds.ControlContentBounds;
 
-			// For sticky controls, they're always visible in their designated areas
-			if (control.StickyPosition == StickyPosition.Top)
+			// Convert cursor position from window coordinates to window content coordinates
+			// Window coordinates have border at (0,0), content starts at (1,1)
+			// Window content coordinates (used by ControlContentBounds) have content at (0,0)
+			var cursorInContentCoords = new Point(cursorPosition.X - 1, cursorPosition.Y - 1);
+
+
+			// Check if cursor is within the control's actual content bounds
+			// This is more accurate than hard-coded border checks
+			if (cursorInContentCoords.X < controlBounds.X ||
+				cursorInContentCoords.X >= controlBounds.X + controlBounds.Width ||
+				cursorInContentCoords.Y < controlBounds.Y ||
+				cursorInContentCoords.Y >= controlBounds.Y + controlBounds.Height)
 			{
-				// Top sticky controls are visible if cursor is within top sticky area
-				return cursorPosition.Y >= 1 && cursorPosition.Y < 1 + _topStickyHeight;
+				return false;
 			}
-			else if (control.StickyPosition == StickyPosition.Bottom)
+
+
+			// For sticky controls, the cursor is visible if it's within the window bounds
+			// (bounds check already passed above)
+			if (control.StickyPosition == StickyPosition.Top || control.StickyPosition == StickyPosition.Bottom)
 			{
-				// Bottom sticky controls are visible if cursor is within bottom sticky area
-				var bottomAreaStart = Height - 1 - _bottomStickyHeight;
-				return cursorPosition.Y >= bottomAreaStart && cursorPosition.Y < Height - 1;
+				// Sticky controls are always visible if within window bounds
+				var result = cursorPosition.X >= 1 && cursorPosition.X < Width - 1 &&
+							 cursorPosition.Y >= 1 && cursorPosition.Y < Height - 1;
+				return result;
 			}
 			else
 			{
-				// For scrollable controls, check if cursor is within the scrollable viewport
-				var scrollableAreaTop = 1 + _topStickyHeight;
-				var scrollableAreaBottom = Height - 1 - _bottomStickyHeight;
-				
+				// For scrollable (non-sticky) controls, check if cursor is within window viewport
+				var scrollableAreaTop = 1;
+				var scrollableAreaBottom = Height - 1;
+
+
 				// Check if cursor Y is within the scrollable area bounds
 				if (cursorPosition.Y < scrollableAreaTop || cursorPosition.Y >= scrollableAreaBottom)
 				{
@@ -1261,12 +1305,13 @@ namespace SharpConsoleUI
 				// Control is visible if any part of it intersects with the visible scrollable area
 				var visibleScrollTop = _scrollOffset;
 				var visibleScrollBottom = _scrollOffset + (scrollableAreaBottom - scrollableAreaTop);
-				
+
 				var controlTop = controlBounds.Y; // controlBounds.Y is already in window coordinates
 				var controlBottom = controlTop + controlBounds.Height;
-				
+
 				// Control is visible if it overlaps with the visible scroll area
-				return controlBottom > visibleScrollTop && controlTop < visibleScrollBottom;
+				var result = controlBottom > visibleScrollTop && controlTop < visibleScrollBottom;
+				return result;
 			}
 		}
 

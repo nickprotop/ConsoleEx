@@ -1602,9 +1602,12 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Point? GetLogicalCursorPosition()
 		{
+
 			// Only show cursor when in editing mode
 			if (!_isEditing)
+			{
 				return null;
+			}
 
 			// Guard against uninitialized _effectiveWidth
 			int effectiveWidth = _effectiveWidth > 0 ? _effectiveWidth : 80;
@@ -1612,9 +1615,10 @@ namespace SharpConsoleUI.Controls
 			if (_wrapMode == WrapMode.NoWrap)
 			{
 				// NoWrap: return position adjusted for margins and scroll offsets
-				return new Point(
+				var pos = new Point(
 					_margin.Left + _cursorX - _horizontalScrollOffset,
 					_margin.Top + _cursorY - _verticalScrollOffset);
+				return pos;
 			}
 			else
 			{
@@ -1637,7 +1641,8 @@ namespace SharpConsoleUI.Controls
 				int visualX = _cursorX % effectiveWidth;
 
 				// Add margin offsets to visual position
-				return new Point(_margin.Left + visualX, _margin.Top + visualY);
+				var pos = new Point(_margin.Left + visualX, _margin.Top + visualY);
+				return pos;
 			}
 		}
 

@@ -501,27 +501,28 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Point? GetLogicalCursorPosition()
 		{
+			System.IO.File.AppendAllText("/tmp/cursor-debug.log",
+				$"[HorizontalGridControl.GetLogicalCursorPosition] _focusedContent={_focusedContent?.GetType().Name ?? "null"}\n");
+
 			if (_focusedContent is ILogicalCursorProvider cursorProvider)
 			{
 				var childPosition = cursorProvider.GetLogicalCursorPosition();
-				if (childPosition.HasValue)
+				System.IO.File.AppendAllText("/tmp/cursor-debug.log",
+					$"[HorizontalGridControl.GetLogicalCursorPosition] childPosition={childPosition?.ToString() ?? "null"}\n");
+
+				if (childPosition.HasValue && _focusedContent is IWindowControl focusedControl)
 				{
-					// Check if focused content is in a column
-					if (_interactiveContents.TryGetValue(_focusedContent, out var column))
-					{
-						var columnOffset = GetColumnOffset(column);
-						return new Point(childPosition.Value.X + columnOffset, childPosition.Value.Y);
-					}
-					
-					// Check if focused content is a splitter
-					if (_focusedContent is SplitterControl splitter && _splitterControls.ContainsKey(splitter))
-					{
-						var splitterOffset = GetSplitterOffset(splitter);
-						return new Point(childPosition.Value.X + splitterOffset, childPosition.Value.Y);
-					}
+					// For now, just return child position as-is
+					// The proper offset will be accumulated in TranslateLogicalCursorToWindow
+					System.IO.File.AppendAllText("/tmp/cursor-debug.log",
+						$"[HorizontalGridControl.GetLogicalCursorPosition] returning child position as-is\n");
 				}
+
 				return childPosition;
 			}
+
+			System.IO.File.AppendAllText("/tmp/cursor-debug.log",
+				$"[HorizontalGridControl.GetLogicalCursorPosition] _focusedContent is not ILogicalCursorProvider, returning null\n");
 			return null;
 		}
 

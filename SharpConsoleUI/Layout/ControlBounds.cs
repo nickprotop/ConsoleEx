@@ -156,24 +156,6 @@ namespace SharpConsoleUI.Layout
 	}
 
 	/// <summary>
-	/// Interface for controls that can provide logical cursor positions
-	/// </summary>
-	public interface ILogicalCursorProvider
-	{
-		/// <summary>
-		/// Gets the logical cursor position within the control's content coordinate system
-		/// This should be the raw position without any visual adjustments for margins, scrolling, etc.
-		/// </summary>
-		/// <returns>Logical cursor position or null if no cursor</returns>
-		Point? GetLogicalCursorPosition();
-
-		/// <summary>
-		/// Sets the logical cursor position within the control's content coordinate system
-		/// </summary>
-		void SetLogicalCursorPosition(Point position);
-	}
-
-	/// <summary>
 	/// Manages layout calculations and coordinate translations for all controls in a window
 	/// </summary>
 	public class WindowLayoutManager
@@ -223,25 +205,37 @@ namespace SharpConsoleUI.Layout
 
 		/// <summary>
 		/// Translates a control's logical cursor position to window coordinates
+		/// by walking up the parent container hierarchy and accumulating offsets
 		/// </summary>
 		public Point? TranslateLogicalCursorToWindow(Controls.IWindowControl control)
 		{
-			if (control is not ILogicalCursorProvider cursorProvider)
+			if (control is not Controls.ILogicalCursorProvider cursorProvider)
+			{
 				return null;
+			}
 
 			var logicalPosition = cursorProvider.GetLogicalCursorPosition();
 			if (logicalPosition == null)
+			{
 				return null;
+			}
 
-			var bounds = GetControlBounds(control);
-			if (bounds == null)
-				return null;
+			// Get control's bounds (which are already absolute window-content coordinates from DOM)
+			var bounds = GetOrCreateControlBounds(control);
 
-			// Convert logical position to visible window position
-			if (!bounds.IsPositionVisible(logicalPosition.Value))
-				return null; // Cursor is scrolled out of view
 
-			return bounds.ControlToWindow(bounds.ControlToViewport(logicalPosition.Value));
+			// ControlContentBounds are already absolute window-content coordinates (from DOM rendering)
+			// Just add the logical position to the bounds, then add window border offset
+			var windowContentPosition = new Point(
+				bounds.ControlContentBounds.X + logicalPosition.Value.X,
+				bounds.ControlContentBounds.Y + logicalPosition.Value.Y
+			);
+
+			// Add window border offset (+1, +1)
+			var finalPosition = new Point(windowContentPosition.X + 1, windowContentPosition.Y + 1);
+
+
+			return finalPosition;
 		}
 
 		/// <summary>

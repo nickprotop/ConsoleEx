@@ -247,7 +247,15 @@ namespace SharpConsoleUI.Controls
 			// Account for scroll offset to get the position relative to visible content
 			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
 			int visualCursorX = promptLength + (CurrentCursorPosition - CurrentScrollOffset);
-			return new Point(visualCursorX, 0);
+			var pos = new Point(visualCursorX, 0);
+
+			// DEBUG
+			System.IO.File.AppendAllText("/tmp/cursor-debug.log",
+				$"[PromptControl.GetLogicalCursorPosition] promptLength={promptLength}, " +
+				$"CurrentCursorPosition={CurrentCursorPosition}, CurrentScrollOffset={CurrentScrollOffset}, " +
+				$"visualCursorX={visualCursorX}, returning Point({pos.X}, {pos.Y})\n");
+
+			return pos;
 		}
 
 		/// <inheritdoc/>
