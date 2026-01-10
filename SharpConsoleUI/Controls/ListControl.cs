@@ -22,6 +22,15 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public class ListControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
 	{
+		/// <summary>
+		/// Creates a fluent builder for constructing a ListControl.
+		/// </summary>
+		/// <returns>A new ListBuilder instance.</returns>
+		public static Builders.ListBuilder Create()
+		{
+			return new Builders.ListBuilder();
+		}
+
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;

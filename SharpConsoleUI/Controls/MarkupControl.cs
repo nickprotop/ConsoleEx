@@ -40,6 +40,15 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Creates a fluent builder for constructing a MarkupControl.
+		/// </summary>
+		/// <returns>A new MarkupBuilder instance.</returns>
+		public static Builders.MarkupBuilder Create()
+		{
+			return new Builders.MarkupBuilder();
+		}
+
+		/// <summary>
 		/// Gets the actual rendered width of the control based on content.
 		/// </summary>
 		/// <returns>The maximum line width in characters.</returns>
