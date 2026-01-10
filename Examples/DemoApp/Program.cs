@@ -3,19 +3,19 @@
 // Demonstrates all features with modern patterns adapted from the original examples
 // -----------------------------------------------------------------------
 
+using System.Diagnostics;
+using System.IO;
 using Microsoft.Extensions.Logging;
 using SharpConsoleUI;
-using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
 using Spectre.Console;
-using System.Diagnostics;
-using System.IO;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using SpectreColor = Spectre.Console.Color;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace ModernExample;
 
@@ -32,6 +32,7 @@ internal class Program
     private static Window? _logWindow;
     private static Window? _clockWindow;
     private static Window? _sysInfoWindow;
+    private static Window? _welcomeWindow;
 
     /// <summary>
     /// Application entry point
@@ -46,25 +47,30 @@ internal class Program
             _windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
             {
                 TopStatus = "Modern SharpConsoleUI Demo - Press F1-F10 for windows",
-                BottomStatus = "ESC: Close Window | F2-F6,F7-F10: Demo Windows | Ctrl+Q: Quit"
+                BottomStatus = "ESC: Close Window | F2-F6,F7-F10: Demo Windows | Ctrl+Q: Quit",
             };
 
             // Setup graceful shutdown handler for Ctrl+C
             Console.CancelKeyPress += (sender, e) =>
             {
-                _windowSystem?.LogService.LogInfo("Received interrupt signal, shutting down gracefully...");
+                _windowSystem?.LogService.LogInfo(
+                    "Received interrupt signal, shutting down gracefully..."
+                );
                 e.Cancel = true; // Prevent immediate termination
                 _windowSystem?.Shutdown(0);
             };
 
+            // Create welcome window
+            CreateWelcomeWindow();
+
             // Create main menu window using fluent builder
             CreateMainMenuWindow();
 
-            // Open File Explorer for testing
-            CreateFileExplorerWindow();
-
             // Set up key handlers for the main window
             SetupMainWindowKeyHandlers();
+
+            // Activate wellcome window
+            _windowSystem.TryActivate("WelcomeWindow");
 
             // Run the application
             _windowSystem.LogService.LogInfo("Starting Modern SharpConsoleUI Demo");
@@ -83,11 +89,50 @@ internal class Program
     }
 
     /// <summary>
+    /// Create a welcome window using the Fingle control
+    /// </summary>
+    private static void CreateWelcomeWindow()
+    {
+        if (_windowSystem == null)
+            return;
+
+        _welcomeWindow = new WindowBuilder(_windowSystem)
+            .WithTitle("Welcome")
+            .WithSize(70, 20)
+            .Centered()
+            .Closable(true)
+            .AddControl(new FigleControl() { Text = "ConsoleEx Demo App" })
+            .AddControl(new RuleControl())
+            .AddControl(
+                new MarkupBuilder()
+                    .AddLine("[magenta]Copyright (c) 2025 by Nikolaos Protopapas[/]")
+                    .Centered()
+                    .Build()
+            )
+            .WithName("WelcomeWindow")
+            .Build();
+
+        _welcomeWindow.KeyPressed += (sender, e) =>
+        {
+            if (e.KeyInfo.Key == ConsoleKey.Escape)
+            {
+                _welcomeWindow.Close(false);
+                e.Handled = true;
+            }
+        };
+
+        _windowSystem.LogService?.LogInfo("Welcome window created");
+
+        _windowSystem.AddWindow(_welcomeWindow);
+    }
+
+    /// <summary>
     /// Create the main menu window using fluent builder pattern
     /// </summary>
     private static void CreateMainMenuWindow()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null)
+            return;
 
         _mainWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Modern SharpConsoleUI Demo - Main Menu")
@@ -95,73 +140,85 @@ internal class Program
             .Centered()
             .WithColors(SpectreColor.DarkBlue, SpectreColor.White)
             .Closable(false)
-            .WithDOMLayout()  // Enable DOM-based layout for testing
             .Build();
 
         // Add welcome content with markup
-        _mainWindow.AddControl(new MarkupControl(new List<string>
-        {
-            "[bold yellow]Welcome to Modern SharpConsoleUI![/]"
-        }));
+        _mainWindow.AddControl(
+            new MarkupControl(
+                new List<string> { "[bold yellow]Welcome to Modern SharpConsoleUI![/]" }
+            )
+        );
 
         _mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
 
         // Feature showcase
-        _mainWindow.AddControl(new MarkupControl(new List<string>
-        {
-            "[green]Enhanced Features Demonstrated:[/]",
-            "• [cyan]Fluent Builder Pattern[/] - Chainable window creation",
-            "• [magenta]Async Patterns[/] - Background tasks and real-time updates",
-            "• [yellow]Modern C# Features[/] - Records, nullable refs, top-level",
-            "• [blue]Service Integration[/] - Dependency injection ready",
-            "• [red]Enhanced Controls[/] - Rich markup and styling",
-            "• [white]Comprehensive Examples[/] - Multiple window types"
-        }));
+        _mainWindow.AddControl(
+            new MarkupControl(
+                new List<string>
+                {
+                    "[green]Enhanced Features Demonstrated:[/]",
+                    "• [cyan]Fluent Builder Pattern[/] - Chainable window creation",
+                    "• [magenta]Async Patterns[/] - Background tasks and real-time updates",
+                    "• [yellow]Modern C# Features[/] - Records, nullable refs, top-level",
+                    "• [blue]Service Integration[/] - Dependency injection ready",
+                    "• [red]Enhanced Controls[/] - Rich markup and styling",
+                    "• [white]Comprehensive Examples[/] - Multiple window types",
+                }
+            )
+        );
 
         _mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
 
         // Window showcase adapted from original examples
-        _mainWindow.AddControl(new MarkupControl(new List<string>
-        {
-            "[bold]Available Demo Windows (adapted from originals):[/]",
-            "",
-            "[green]F1[/] - [bold]Comprehensive Layout Demo[/]",
-            "       Complete application UI with menus, splitters, status",
-            "",
-            "[blue]F2[/] - [bold]Real-time Log Window[/]",
-            "       Demonstrates async logging with live updates",
-            "",
-            "[blue]F3[/] - [bold]System Information Window[/]",
-            "       Shows system stats with modern data gathering",
-            "",
-            "[red]F4[/] - [bold]File Explorer[/]",
-            "        Tree control with file system navigation",
-            "",
-            "[magenta]F5[/] - [bold]Digital Clock Window[/]",
-            "       Real-time clock with async time updates",
-            "",
-            "[yellow]F6[/] - [bold]Interactive Demo[/]",
-            "       Shows modern control interactions",
-            "",
-            "[cyan]F7[/] - [bold]Command Window[/]",
-            "       Interactive command prompt with async I/O",
-            "",
-            "[white]F8[/] - [bold]Dropdown Demo[/]",
-            "       Country selection with styled dropdowns",
-            "",
-            "[green]F9[/] - [bold]ListView Demo[/]",
-            "       List control with selection handling",
-            "",
-        }));
+        _mainWindow.AddControl(
+            new MarkupControl(
+                new List<string>
+                {
+                    "[bold]Available Demo Windows (adapted from originals):[/]",
+                    "",
+                    "[green]F1[/] - [bold]Comprehensive Layout Demo[/]",
+                    "       Complete application UI with menus, splitters, status",
+                    "",
+                    "[blue]F2[/] - [bold]Real-time Log Window[/]",
+                    "       Demonstrates async logging with live updates",
+                    "",
+                    "[blue]F3[/] - [bold]System Information Window[/]",
+                    "       Shows system stats with modern data gathering",
+                    "",
+                    "[red]F4[/] - [bold]File Explorer[/]",
+                    "        Tree control with file system navigation",
+                    "",
+                    "[magenta]F5[/] - [bold]Digital Clock Window[/]",
+                    "       Real-time clock with async time updates",
+                    "",
+                    "[yellow]F6[/] - [bold]Interactive Demo[/]",
+                    "       Shows modern control interactions",
+                    "",
+                    "[cyan]F7[/] - [bold]Command Window[/]",
+                    "       Interactive command prompt with async I/O",
+                    "",
+                    "[white]F8[/] - [bold]Dropdown Demo[/]",
+                    "       Country selection with styled dropdowns",
+                    "",
+                    "[green]F9[/] - [bold]ListView Demo[/]",
+                    "       List control with selection handling",
+                    "",
+                }
+            )
+        );
 
         _mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
-        _mainWindow.AddControl(new MarkupControl(new List<string>
-        {
-            "[dim]Navigation:[/]",
-            "[dim]• Press function keys (F2-F9, F11) to open demo windows[/]",
-            "[dim]• Press ESC in any window to close it[/]",
-            "[dim]• Press Ctrl+Q in main window to exit[/]"
-        }));
+        _mainWindow.AddControl(
+            new MarkupControl(
+                new List<string>
+                {
+                    "[dim]Navigation:[/]",
+                    "[dim]• Press function keys (F2-F9, F11) to open demo windows[/]",
+                    "[dim]• Press ESC in any window to close it[/]",
+                    "[dim]• Press Ctrl+Q in main window to exit[/]",
+                }
+            )
+        );
 
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem?.LogService.LogInfo("Main menu window created with fluent builder");
@@ -172,7 +229,8 @@ internal class Program
     /// </summary>
     private static void SetupMainWindowKeyHandlers()
     {
-        if (_mainWindow == null) return;
+        if (_mainWindow == null)
+            return;
 
         _mainWindow.KeyPressed += (sender, e) =>
         {
@@ -236,14 +294,15 @@ internal class Program
     /// </summary>
     private static void CreateLogWindow()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null)
+            return;
 
         // Use the new LogViewerControl
         var logViewer = new LogViewerControl(_windowSystem.LogService)
         {
             Title = "Application Logs",
             MaxDisplayLines = 14,
-            FilterLevel = LogLevel.Trace  // Show all levels for demo
+            FilterLevel = LogLevel.Trace, // Show all levels for demo
         };
 
         _logWindow = new WindowBuilder(_windowSystem)
@@ -253,7 +312,6 @@ internal class Program
             .WithColors(SpectreColor.Black, SpectreColor.Green)
             .AddControl(logViewer)
             .WithAsyncWindowThread(SimulateLoggingAsync)
-            .WithDOMLayout()  // Enable DOM-based layout for testing
             .Build();
 
         // Setup ESC key handler
@@ -273,16 +331,33 @@ internal class Program
     /// <summary>
     /// Simulate real-time logging updates using window thread delegate pattern
     /// </summary>
-    private static async Task SimulateLoggingAsync(Window window, CancellationToken cancellationToken)
+    private static async Task SimulateLoggingAsync(
+        Window window,
+        CancellationToken cancellationToken
+    )
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null)
+            return;
 
         // Enable all log levels for demo
         _windowSystem.LogService.MinimumLevel = LogLevel.Trace;
 
-        var levels = new[] { LogLevel.Trace, LogLevel.Debug, LogLevel.Information, LogLevel.Warning };
+        var levels = new[]
+        {
+            LogLevel.Trace,
+            LogLevel.Debug,
+            LogLevel.Information,
+            LogLevel.Warning,
+        };
         var categories = new[] { "System", "Network", "Database", "UI", "Auth" };
-        var messages = new[] { "Processing request", "Connection established", "Query executed", "Cache hit", "User action" };
+        var messages = new[]
+        {
+            "Processing request",
+            "Connection established",
+            "Query executed",
+            "Cache hit",
+            "User action",
+        };
 
         // Thread runs until cancelled or loop completes - window system manages lifecycle
         for (int i = 1; i <= 30; i++)
@@ -307,25 +382,29 @@ internal class Program
     /// </summary>
     private static void CreateSystemInfoWindow()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null)
+            return;
 
         _sysInfoWindow = new WindowBuilder(_windowSystem)
             .WithTitle("System Information")
             .WithSize(75, 18)
             .AtPosition(8, 3)
             .WithColors(SpectreColor.DarkCyan, SpectreColor.White)
-            .WithDOMLayout()  // Enable DOM-based layout for testing
             .Build();
 
         // System information using modern patterns
         var sysInfo = GetSystemInformation();
 
-        _sysInfoWindow.AddControl(new MarkupControl(new List<string>
-        {
-            "[bold cyan]System Information Dashboard[/]",
-            "[dim](Adapted from original with modern data gathering)[/]",
-            ""
-        }));
+        _sysInfoWindow.AddControl(
+            new MarkupControl(
+                new List<string>
+                {
+                    "[bold cyan]System Information Dashboard[/]",
+                    "[dim](Adapted from original with modern data gathering)[/]",
+                    "",
+                }
+            )
+        );
 
         foreach (var info in sysInfo)
         {
@@ -351,14 +430,14 @@ internal class Program
     /// </summary>
     private static Task CreateClockWindow()
     {
-        if (_windowSystem == null) return Task.CompletedTask;
+        if (_windowSystem == null)
+            return Task.CompletedTask;
 
         _clockWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Digital Clock")
             .WithSize(35, 10)
             .AtPosition(15, 8)
             .WithColors(SpectreColor.DarkGreen, SpectreColor.Yellow)
-            .WithDOMLayout()  // Enable DOM-based layout for testing
             .Build();
 
         // Setup ESC key handler
@@ -376,7 +455,7 @@ internal class Program
 
         _windowSystem.AddWindow(_clockWindow);
         _windowSystem?.LogService.LogInfo("Clock window created with async updates");
-        
+
         return Task.CompletedTask;
     }
 
@@ -390,17 +469,21 @@ internal class Program
             _clockWindow.ClearControls();
 
             var now = DateTime.Now;
-            _clockWindow.AddControl(new MarkupControl(new List<string>
-            {
-                "[bold yellow]Digital Clock[/]",
-                "[dim](Adapted with async updates)[/]",
-                "",
-                $"[bold green]{now:HH:mm:ss}[/]",
-                $"[cyan]{now:dddd}[/]",
-                $"[white]{now:MMMM dd, yyyy}[/]",
-                "",
-                "[dim]Updates every second • ESC to close[/]"
-            }));
+            _clockWindow.AddControl(
+                new MarkupControl(
+                    new List<string>
+                    {
+                        "[bold yellow]Digital Clock[/]",
+                        "[dim](Adapted with async updates)[/]",
+                        "",
+                        $"[bold green]{now:HH:mm:ss}[/]",
+                        $"[cyan]{now:dddd}[/]",
+                        $"[white]{now:MMMM dd, yyyy}[/]",
+                        "",
+                        "[dim]Updates every second • ESC to close[/]",
+                    }
+                )
+            );
 
             await Task.Delay(1000);
         }
@@ -411,7 +494,8 @@ internal class Program
     /// </summary>
     private static void CreateInteractiveDemo()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null)
+            return;
 
         var demoWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Interactive Demo")
@@ -420,22 +504,26 @@ internal class Program
             .WithColors(SpectreColor.Purple, SpectreColor.White)
             .Build();
 
-        demoWindow.AddControl(new MarkupControl(new List<string>
-        {
-            "[bold purple]Interactive Demo[/]",
-            "[dim](Shows modern control patterns)[/]",
-            "",
-            "[yellow]This window demonstrates:[/]",
-            "• Modern fluent builder patterns",
-            "• Enhanced markup controls with colors",
-            "• Proper event handling and cleanup",
-            "• Service provider integration",
-            "• Structured logging integration",
-            "",
-            "[green]Try pressing different keys:[/]",
-            "• ESC - Close window",
-            "• Any other key - Shows key info"
-        }));
+        demoWindow.AddControl(
+            new MarkupControl(
+                new List<string>
+                {
+                    "[bold purple]Interactive Demo[/]",
+                    "[dim](Shows modern control patterns)[/]",
+                    "",
+                    "[yellow]This window demonstrates:[/]",
+                    "• Modern fluent builder patterns",
+                    "• Enhanced markup controls with colors",
+                    "• Proper event handling and cleanup",
+                    "• Service provider integration",
+                    "• Structured logging integration",
+                    "",
+                    "[green]Try pressing different keys:[/]",
+                    "• ESC - Close window",
+                    "• Any other key - Shows key info",
+                }
+            )
+        );
 
         // Enhanced key handler with logging
         demoWindow.KeyPressed += (sender, e) =>
@@ -448,10 +536,14 @@ internal class Program
             }
 
             // Show key press info
-            demoWindow.AddControl(new MarkupControl(new List<string>
-            {
-                $"[cyan]Key pressed: {e.KeyInfo.Key} (Char: '{e.KeyInfo.KeyChar}')[/]"
-            }));
+            demoWindow.AddControl(
+                new MarkupControl(
+                    new List<string>
+                    {
+                        $"[cyan]Key pressed: {e.KeyInfo.Key} (Char: '{e.KeyInfo.KeyChar}')[/]",
+                    }
+                )
+            );
 
             _windowSystem?.LogService.LogDebug($"Key pressed in demo window: {e.KeyInfo.Key}");
             demoWindow.GoToBottom();
@@ -477,7 +569,9 @@ internal class Program
             info.Add($"[green]Processor Count:[/] {Environment.ProcessorCount}");
             info.Add($"[green]Working Set:[/] {Environment.WorkingSet / (1024 * 1024):N0} MB");
             info.Add($"[green].NET Version:[/] {Environment.Version}");
-            info.Add($"[green]Current Directory:[/] {(Environment.CurrentDirectory.Length > 50 ? "..." + Environment.CurrentDirectory.Substring(Environment.CurrentDirectory.Length - 47) : Environment.CurrentDirectory)}");
+            info.Add(
+                $"[green]Current Directory:[/] {(Environment.CurrentDirectory.Length > 50 ? "..." + Environment.CurrentDirectory.Substring(Environment.CurrentDirectory.Length - 47) : Environment.CurrentDirectory)}"
+            );
 
             // Modern C# features demo
             var memoryInfo = GC.GetTotalMemory(false);
@@ -485,7 +579,9 @@ internal class Program
 
             var uptime = Environment.TickCount64;
             var uptimeSpan = TimeSpan.FromMilliseconds(uptime);
-            info.Add($"[green]System Uptime:[/] {uptimeSpan.Days}d {uptimeSpan.Hours}h {uptimeSpan.Minutes}m");
+            info.Add(
+                $"[green]System Uptime:[/] {uptimeSpan.Days}d {uptimeSpan.Hours}h {uptimeSpan.Minutes}m"
+            );
 
             info.Add("");
             info.Add("[dim]Press ESC to close this window[/]");
@@ -504,7 +600,8 @@ internal class Program
     /// </summary>
     private static Task CreateCommandWindow()
     {
-        if (_windowSystem == null) return Task.CompletedTask;
+        if (_windowSystem == null)
+            return Task.CompletedTask;
 
         var commandWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Interactive Command Window")
@@ -518,7 +615,7 @@ internal class Program
         {
             Prompt = "CMD> ",
             UnfocusOnEnter = false,
-            StickyPosition = StickyPosition.Top
+            StickyPosition = StickyPosition.Top,
         };
 
         // Create multiline output control
@@ -526,7 +623,7 @@ internal class Program
         {
             ViewportHeight = commandWindow.Height - 4, // Leave space for prompt and borders
             WrapMode = WrapMode.Wrap,
-            ReadOnly = true
+            ReadOnly = true,
         };
 
         // Add controls to window
@@ -541,7 +638,9 @@ internal class Program
         };
 
         // Add initial welcome message
-        outputControl.AppendContent("Interactive command prompt started. Modern async implementation.\n");
+        outputControl.AppendContent(
+            "Interactive command prompt started. Modern async implementation.\n"
+        );
         outputControl.AppendContent("Type 'help' for available commands, 'exit' to close.\n");
 
         // Setup command execution with modern async patterns
@@ -561,7 +660,7 @@ internal class Program
 
                 // Execute external command with proper async handling
                 await ExecuteExternalCommand(command, outputControl);
-                
+
                 promptControl.SetInput(string.Empty);
             }
             catch (Exception ex)
@@ -587,14 +686,18 @@ internal class Program
 
         _windowSystem.AddWindow(commandWindow);
         _windowSystem?.LogService.LogInfo("Command window created with modern async patterns");
-        
+
         return Task.CompletedTask;
     }
 
     /// <summary>
     /// Handle built-in commands that don't need external process execution
     /// </summary>
-    private static async Task<bool> HandleBuiltInCommand(string command, MultilineEditControl output, Window window)
+    private static async Task<bool> HandleBuiltInCommand(
+        string command,
+        MultilineEditControl output,
+        Window window
+    )
     {
         await Task.Delay(10); // Simulate async operation
 
@@ -608,12 +711,16 @@ internal class Program
                 output.AppendContent("  version  - Show application version\n");
                 output.AppendContent("  exit     - Close this window\n");
                 output.AppendContent("  sysinfo  - Show system information\n");
-                output.AppendContent("\nAll other commands will be executed as external processes.\n");
+                output.AppendContent(
+                    "\nAll other commands will be executed as external processes.\n"
+                );
                 return true;
 
             case "clear":
                 output.SetContent("");
-                output.AppendContent("Interactive command prompt started. Modern async implementation.\n");
+                output.AppendContent(
+                    "Interactive command prompt started. Modern async implementation.\n"
+                );
                 return true;
 
             case "date":
@@ -634,7 +741,9 @@ internal class Program
                 output.AppendContent($"Machine: {Environment.MachineName}\n");
                 output.AppendContent($"User: {Environment.UserName}\n");
                 output.AppendContent($"Processors: {Environment.ProcessorCount}\n");
-                output.AppendContent($"Working Set: {Environment.WorkingSet / (1024 * 1024):N0} MB\n");
+                output.AppendContent(
+                    $"Working Set: {Environment.WorkingSet / (1024 * 1024):N0} MB\n"
+                );
                 return true;
 
             default:
@@ -650,7 +759,7 @@ internal class Program
         try
         {
             using var process = new System.Diagnostics.Process();
-            
+
             // Setup process for cross-platform compatibility
             if (Environment.OSVersion.Platform == PlatformID.Win32NT)
             {
@@ -715,7 +824,10 @@ internal class Program
         catch (Exception ex)
         {
             output.AppendContent($"Failed to execute command: {ex.Message}\n");
-            _windowSystem?.LogService.LogError($"Failed to execute external command: {command}", ex);
+            _windowSystem?.LogService.LogError(
+                $"Failed to execute external command: {command}",
+                ex
+            );
         }
     }
 
@@ -724,7 +836,8 @@ internal class Program
     /// </summary>
     private static void CreateDropdownDemo()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null)
+            return;
 
         var dropdownWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Country Selection Demo")
@@ -734,15 +847,19 @@ internal class Program
             .Build();
 
         // Add title
-        dropdownWindow.AddControl(new MarkupControl(new List<string> 
-        { 
-            "[bold]Country Selection Form[/]",
-            "[dim](Adapted with modern patterns)[/]" 
-        })
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            StickyPosition = StickyPosition.Top
-        });
+        dropdownWindow.AddControl(
+            new MarkupControl(
+                new List<string>
+                {
+                    "[bold]Country Selection Form[/]",
+                    "[dim](Adapted with modern patterns)[/]",
+                }
+            )
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                StickyPosition = StickyPosition.Top,
+            }
+        );
 
         dropdownWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Top });
         dropdownWindow.AddControl(new MarkupControl(new List<string> { " " }));
@@ -765,7 +882,7 @@ internal class Program
         // Create status display
         var statusControl = new MarkupControl(new List<string> { "Selected: USA" })
         {
-            HorizontalAlignment = HorizontalAlignment.Center
+            HorizontalAlignment = HorizontalAlignment.Center,
         };
         dropdownWindow.AddControl(statusControl);
 
@@ -776,15 +893,18 @@ internal class Program
             {
                 statusControl.SetContent(new List<string> { $"Selected: [green]{item.Text}[/]" });
                 dropdownWindow.Title = $"Country Selection - {item.Text}";
-                _windowSystem?.LogService.LogDebug("Country selection changed to: {Country}", item.Text);
+                _windowSystem?.LogService.LogDebug(
+                    "Country selection changed to: {Country}",
+                    item.Text
+                );
             }
         };
 
         // Add action buttons
-        var buttonsGrid = new HorizontalGridControl 
-        { 
-            HorizontalAlignment = HorizontalAlignment.Center, 
-            StickyPosition = StickyPosition.Bottom 
+        var buttonsGrid = new HorizontalGridControl
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            StickyPosition = StickyPosition.Bottom,
         };
 
         var okButton = new ButtonControl { Text = "OK" };
@@ -830,7 +950,8 @@ internal class Program
     /// </summary>
     private static void CreateListViewDemo()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null)
+            return;
 
         var listWindow = new WindowBuilder(_windowSystem)
             .WithTitle("ListView Demo")
@@ -840,22 +961,26 @@ internal class Program
             .Build();
 
         // Add title
-        listWindow.AddControl(new MarkupControl(new List<string> 
-        { 
-            "[bold]List Control Demonstration[/]",
-            "[dim](Adapted with modern selection handling)[/]" 
-        })
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            StickyPosition = StickyPosition.Top
-        });
+        listWindow.AddControl(
+            new MarkupControl(
+                new List<string>
+                {
+                    "[bold]List Control Demonstration[/]",
+                    "[dim](Adapted with modern selection handling)[/]",
+                }
+            )
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                StickyPosition = StickyPosition.Top,
+            }
+        );
 
         listWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Top });
 
         // Create selection info display
         var selectionInfo = new MarkupControl(new List<string> { "No item selected" })
         {
-            HorizontalAlignment = HorizontalAlignment.Left
+            HorizontalAlignment = HorizontalAlignment.Left,
         };
         listWindow.AddControl(selectionInfo);
         listWindow.AddControl(new MarkupControl(new List<string> { " " }));
@@ -866,7 +991,7 @@ internal class Program
             Width = 55,
             HorizontalAlignment = HorizontalAlignment.Center,
             MaxVisibleItems = 10,
-            AutoAdjustWidth = true
+            AutoAdjustWidth = true,
         };
 
         // Add diverse items to demonstrate features
@@ -888,8 +1013,15 @@ internal class Program
             {
                 var item = listControl.SelectedItem;
                 var displayText = item?.Text.Split('\n')[0] ?? "Unknown";
-                selectionInfo.SetContent(new List<string> { $"Selected: [green]{displayText}[/] (Index: {selectedIndex})" });
-                _windowSystem?.LogService.LogDebug($"List item selected: {displayText} at index {selectedIndex}");
+                selectionInfo.SetContent(
+                    new List<string>
+                    {
+                        $"Selected: [green]{displayText}[/] (Index: {selectedIndex})",
+                    }
+                );
+                _windowSystem?.LogService.LogDebug(
+                    $"List item selected: {displayText} at index {selectedIndex}"
+                );
             }
             else
             {
@@ -902,10 +1034,10 @@ internal class Program
         listWindow.AddControl(listControl);
 
         // Add action buttons
-        var buttonsGrid = new HorizontalGridControl 
-        { 
-            HorizontalAlignment = HorizontalAlignment.Center, 
-            StickyPosition = StickyPosition.Bottom 
+        var buttonsGrid = new HorizontalGridControl
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            StickyPosition = StickyPosition.Bottom,
         };
 
         var selectButton = new ButtonControl { Text = "Select" };
@@ -954,7 +1086,8 @@ internal class Program
     /// </summary>
     private static void CreateFileExplorerWindow()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null)
+            return;
 
         var explorerWindow = new WindowBuilder(_windowSystem)
             .WithTitle("File Explorer Demo")
@@ -964,14 +1097,18 @@ internal class Program
             .Build();
 
         // Add title and instructions
-        explorerWindow.AddControl(new MarkupControl(new List<string> 
-        { 
-            "[bold]File System Explorer[/] [dim](Adapted with modern patterns)[/]" 
-        })
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            StickyPosition = StickyPosition.Top
-        });
+        explorerWindow.AddControl(
+            new MarkupControl(
+                new List<string>
+                {
+                    "[bold]File System Explorer[/] [dim](Adapted with modern patterns)[/]",
+                }
+            )
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                StickyPosition = StickyPosition.Top,
+            }
+        );
 
         explorerWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Top });
 
@@ -979,15 +1116,15 @@ internal class Program
         var buttonContainer = new HorizontalGridControl
         {
             HorizontalAlignment = HorizontalAlignment.Left,
-            StickyPosition = StickyPosition.Top
+            StickyPosition = StickyPosition.Top,
         };
 
         // Create main panel with splitter
         var mainPanel = new HorizontalGridControl { VerticalAlignment = VerticalAlignment.Fill };
 
         // Left panel - Tree control for folders
-        var treeColumn = new ColumnContainer(mainPanel) { Width = 20 };  // Moved splitter left
-        
+        var treeColumn = new ColumnContainer(mainPanel) { Width = 20 }; // Moved splitter left
+
         var fileTree = new TreeControl
         {
             Margin = new Margin(1, 1, 1, 1),
@@ -995,7 +1132,7 @@ internal class Program
             HighlightBackgroundColor = SpectreColor.Blue,
             HighlightForegroundColor = SpectreColor.White,
             Guide = TreeGuide.Line,
-            VerticalAlignment = VerticalAlignment.Fill
+            VerticalAlignment = VerticalAlignment.Fill,
         };
 
         treeColumn.AddContent(fileTree);
@@ -1003,10 +1140,12 @@ internal class Program
 
         // Right panel - File list
         var fileColumn = new ColumnContainer(mainPanel);
-        fileColumn.AddContent(new MarkupControl(new List<string> { "[bold]Files in Selected Folder[/]" })
-        {
-            HorizontalAlignment = HorizontalAlignment.Center
-        });
+        fileColumn.AddContent(
+            new MarkupControl(new List<string> { "[bold]Files in Selected Folder[/]" })
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+            }
+        );
 
         var fileList = new ListControl
         {
@@ -1014,7 +1153,7 @@ internal class Program
             HorizontalAlignment = HorizontalAlignment.Stretch,
             MaxVisibleItems = null,
             VerticalAlignment = VerticalAlignment.Fill,
-            IsSelectable = true
+            IsSelectable = true,
         };
 
         fileColumn.AddContent(fileList);
@@ -1024,10 +1163,12 @@ internal class Program
         mainPanel.AddSplitter(0, new SplitterControl());
 
         // Status bar
-        var statusControl = new MarkupControl(new List<string> { "Select a folder to view its contents" })
+        var statusControl = new MarkupControl(
+            new List<string> { "Select a folder to view its contents" }
+        )
         {
             HorizontalAlignment = HorizontalAlignment.Left,
-            StickyPosition = StickyPosition.Bottom
+            StickyPosition = StickyPosition.Bottom,
         };
 
         // Add controls to window
@@ -1043,7 +1184,7 @@ internal class Program
             var rootNode = fileTree.AddRootNode($"[{currentDir.Name}]");
             rootNode.TextColor = SpectreColor.Yellow;
             rootNode.Tag = currentDir;
-            
+
             // Add placeholder for expansion
             if (HasSubdirectories(currentDir))
             {
@@ -1056,7 +1197,9 @@ internal class Program
         }
         catch (Exception ex)
         {
-            statusControl.SetContent(new List<string> { $"[red]Error initializing: {ex.Message}[/]" });
+            statusControl.SetContent(
+                new List<string> { $"[red]Error initializing: {ex.Message}[/]" }
+            );
             _windowSystem?.LogService.LogError("Error initializing file explorer", ex);
         }
 
@@ -1065,7 +1208,9 @@ internal class Program
         {
             if (args.Node?.Tag is DirectoryInfo dirInfo)
             {
-                statusControl.SetContent(new List<string> { $"Selected: [yellow]{dirInfo.FullName}[/]" });
+                statusControl.SetContent(
+                    new List<string> { $"Selected: [yellow]{dirInfo.FullName}[/]" }
+                );
                 UpdateFileList(dirInfo, fileList, statusControl);
             }
         };
@@ -1081,7 +1226,8 @@ internal class Program
                 try
                 {
                     // Load subdirectories
-                    var subdirs = dirInfo.GetDirectories()
+                    var subdirs = dirInfo
+                        .GetDirectories()
                         .Where(d => (d.Attributes & FileAttributes.Hidden) == 0)
                         .OrderBy(d => d.Name)
                         .Take(50); // Limit for performance
@@ -1101,7 +1247,9 @@ internal class Program
                 }
                 catch (Exception ex)
                 {
-                    statusControl.SetContent(new List<string> { $"[red]Error loading: {ex.Message}[/]" });
+                    statusControl.SetContent(
+                        new List<string> { $"[red]Error loading: {ex.Message}[/]" }
+                    );
                 }
             }
         };
@@ -1129,7 +1277,9 @@ internal class Program
             }
             catch (Exception ex)
             {
-                statusControl.SetContent(new List<string> { $"[red]Refresh failed: {ex.Message}[/]" });
+                statusControl.SetContent(
+                    new List<string> { $"[red]Refresh failed: {ex.Message}[/]" }
+                );
             }
         };
 
@@ -1137,11 +1287,11 @@ internal class Program
         var expandButtonColumn = new ColumnContainer(buttonContainer);
         expandButtonColumn.AddContent(expandButton);
         buttonContainer.AddColumn(expandButtonColumn);
-        
+
         var collapseButtonColumn = new ColumnContainer(buttonContainer);
         collapseButtonColumn.AddContent(collapseButton);
         buttonContainer.AddColumn(collapseButtonColumn);
-        
+
         var refreshButtonColumn = new ColumnContainer(buttonContainer);
         refreshButtonColumn.AddContent(refreshButton);
         buttonContainer.AddColumn(refreshButtonColumn);
@@ -1167,8 +1317,7 @@ internal class Program
     {
         try
         {
-            return directory.GetDirectories()
-                .Any(d => (d.Attributes & FileAttributes.Hidden) == 0);
+            return directory.GetDirectories().Any(d => (d.Attributes & FileAttributes.Hidden) == 0);
         }
         catch
         {
@@ -1179,13 +1328,18 @@ internal class Program
     /// <summary>
     /// Update file list for selected directory (helper for file explorer)
     /// </summary>
-    private static void UpdateFileList(DirectoryInfo directory, ListControl fileList, MarkupControl statusControl)
+    private static void UpdateFileList(
+        DirectoryInfo directory,
+        ListControl fileList,
+        MarkupControl statusControl
+    )
     {
         try
         {
             fileList.ClearItems();
-            
-            var files = directory.GetFiles()
+
+            var files = directory
+                .GetFiles()
                 .Where(f => (f.Attributes & FileAttributes.Hidden) == 0)
                 .OrderBy(f => f.Name)
                 .Take(100); // Limit for performance
@@ -1201,20 +1355,28 @@ internal class Program
                 var icon = GetFileIcon(file.Extension);
                 var color = GetFileColor(file.Extension);
                 var sizeText = FormatFileSize(file.Length);
-                var displayText = $"{file.Name}\n{sizeText} • {file.LastWriteTime:yyyy-MM-dd HH:mm}";
-                
+                var displayText =
+                    $"{file.Name}\n{sizeText} • {file.LastWriteTime:yyyy-MM-dd HH:mm}";
+
                 var listItem = new ListItem(displayText, icon, color);
                 listItem.Tag = file;
                 fileList.AddItem(listItem);
             }
 
-            statusControl.SetContent(new List<string> { $"Loaded {files.Count()} files from [yellow]{directory.FullName}[/]" });
+            statusControl.SetContent(
+                new List<string>
+                {
+                    $"Loaded {files.Count()} files from [yellow]{directory.FullName}[/]",
+                }
+            );
         }
         catch (Exception ex)
         {
             fileList.ClearItems();
             fileList.AddItem("Error: " + ex.Message, "!", SpectreColor.Red);
-            statusControl.SetContent(new List<string> { $"[red]Error loading files: {ex.Message}[/]" });
+            statusControl.SetContent(
+                new List<string> { $"[red]Error loading files: {ex.Message}[/]" }
+            );
         }
     }
 
@@ -1233,7 +1395,7 @@ internal class Program
             ".zip" or ".rar" or ".7z" => "[",
             ".mp3" or ".wav" or ".flac" => "~",
             ".mp4" or ".avi" or ".mkv" => ">",
-            _ => "."
+            _ => ".",
         };
     }
 
@@ -1250,7 +1412,7 @@ internal class Program
             ".txt" or ".log" or ".md" => SpectreColor.Yellow,
             ".doc" or ".docx" or ".pdf" => SpectreColor.Cyan1,
             ".zip" or ".rar" or ".7z" => SpectreColor.Red,
-            _ => SpectreColor.White
+            _ => SpectreColor.White,
         };
     }
 
@@ -1277,17 +1439,23 @@ internal class Program
     /// </summary>
     private static void CreateComprehensiveLayoutDemo()
     {
-        if (_windowSystem == null) return;
+        if (_windowSystem == null)
+            return;
 
         try
         {
             var comprehensiveWindow = new ComprehensiveLayoutWindow(_windowSystem);
             comprehensiveWindow.Show();
-            _windowSystem?.LogService.LogInfo("Comprehensive layout demo window created using separate class");
+            _windowSystem?.LogService.LogInfo(
+                "Comprehensive layout demo window created using separate class"
+            );
         }
         catch (Exception ex)
         {
-            _windowSystem?.LogService.LogError("Error creating comprehensive layout demo window", ex);
+            _windowSystem?.LogService.LogError(
+                "Error creating comprehensive layout demo window",
+                ex
+            );
         }
     }
 }
@@ -1297,5 +1465,7 @@ internal class Program
 /// Demonstrates immutable data structures
 /// </summary>
 public record WindowCreatedEvent(string WindowId, string WindowType, DateTime Timestamp);
+
 public record WindowClosedEvent(string WindowId, DateTime Timestamp);
+
 public record LogEntryEvent(string Message, string Level, DateTime Timestamp);
