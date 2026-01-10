@@ -18,11 +18,14 @@ namespace ConsoleTopExample.Stats;
 /// </summary>
 internal sealed class WindowsSystemStats : ISystemStatsProvider
 {
-    private DateTime _previousSample = DateTime.MinValue;
     private Dictionary<int, ProcessCpuInfo> _previousProcessCpu = new();
     private long _previousNetRx;
     private long _previousNetTx;
     private DateTime _previousNetSample = DateTime.MinValue;
+
+    // CPU tracking for system-wide stats
+    private TimeSpan _previousTotalCpuTime = TimeSpan.Zero;
+    private DateTime _previousCpuSample = DateTime.MinValue;
 
     // P/Invoke for Windows memory information
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
@@ -133,23 +136,23 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
 
         try
         {
-            // Calculate overall CPU usage from all processes
+            // Calculate overall CPU usage by summing all process CPU times
             var processes = Process.GetProcesses();
-            double totalCpuTime = 0;
-            double userTime = 0;
-            double systemTime = 0;
+            TimeSpan currentTotalCpu = TimeSpan.Zero;
+            TimeSpan currentUserCpu = TimeSpan.Zero;
+            TimeSpan currentSystemCpu = TimeSpan.Zero;
 
             foreach (var proc in processes)
             {
                 try
                 {
-                    totalCpuTime += proc.TotalProcessorTime.TotalMilliseconds;
-                    userTime += proc.UserProcessorTime.TotalMilliseconds;
-                    systemTime += proc.PrivilegedProcessorTime.TotalMilliseconds;
+                    currentTotalCpu += proc.TotalProcessorTime;
+                    currentUserCpu += proc.UserProcessorTime;
+                    currentSystemCpu += proc.PrivilegedProcessorTime;
                 }
                 catch
                 {
-                    // Process may have exited or access denied
+                    // Process may have exited or access denied - skip it
                 }
                 finally
                 {
@@ -157,32 +160,43 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
                 }
             }
 
-            // On first run, just store baseline
-            if (_previousSample == DateTime.MinValue)
+            // On first run, just store baseline and return 0
+            if (_previousCpuSample == DateTime.MinValue)
             {
-                _previousSample = now;
+                _previousTotalCpuTime = currentTotalCpu;
+                _previousCpuSample = now;
                 return new CpuSample(0, 0, 0);
             }
 
-            // Calculate CPU percentage based on elapsed time
-            var elapsed = (now - _previousSample).TotalMilliseconds;
-            if (elapsed <= 0)
+            // Calculate elapsed time in seconds
+            var elapsedTime = (now - _previousCpuSample).TotalSeconds;
+            if (elapsedTime <= 0)
             {
                 return new CpuSample(0, 0, 0);
             }
 
+            // Calculate CPU time deltas
+            var deltaTotalCpu = (currentTotalCpu - _previousTotalCpuTime).TotalSeconds;
             var cpuCount = Environment.ProcessorCount;
-            var maxCpu = elapsed * cpuCount;
 
-            // Estimate user/system split (Windows doesn't expose this at system level easily)
-            // Using rough 70/30 split as heuristic
-            var user = Math.Min(100, (userTime / maxCpu) * 100);
-            var system = Math.Min(100, (systemTime / maxCpu) * 100);
+            // CPU usage percentage = (CPU time used / elapsed real time) / number of cores * 100
+            // This gives us percentage of total available CPU
+            var totalCpuPercent = Math.Min(100, Math.Max(0, (deltaTotalCpu / (elapsedTime * cpuCount)) * 100));
 
-            _previousSample = now;
+            // Estimate user/system split based on the ratio
+            // Windows aggregates these across all processes, so this is an approximation
+            var userRatio = currentUserCpu.TotalSeconds / (currentUserCpu.TotalSeconds + currentSystemCpu.TotalSeconds + 0.001);
+            var systemRatio = currentSystemCpu.TotalSeconds / (currentUserCpu.TotalSeconds + currentSystemCpu.TotalSeconds + 0.001);
 
-            // Windows doesn't have I/O wait - return 0
-            return new CpuSample(user, system, 0);
+            var userPercent = totalCpuPercent * userRatio;
+            var systemPercent = totalCpuPercent * systemRatio;
+
+            // Update for next sample
+            _previousTotalCpuTime = currentTotalCpu;
+            _previousCpuSample = now;
+
+            // Windows doesn't have I/O wait as a separate metric - return 0
+            return new CpuSample(userPercent, systemPercent, 0);
         }
         catch
         {
@@ -211,11 +225,11 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
             // Calculate percentages
             double usedPercent = totalPhysical > 0 ? (usedPhysical / totalPhysical * 100) : 0;
 
-            // Windows doesn't have a direct "cached" equivalent like Linux
-            // Use GC info as rough estimate
-            var gcInfo = GC.GetGCMemoryInfo();
-            double cachedMb = gcInfo.TotalCommittedBytes / (1024.0 * 1024.0);
-            double cachedPercent = totalPhysical > 0 ? Math.Min(100, (cachedMb / totalPhysical * 100)) : 0;
+            // Windows doesn't expose system cache memory like Linux /proc/meminfo
+            // The "Standby List" serves as cache but isn't easily accessible via standard APIs
+            // Return 0 for cache-related metrics on Windows
+            double cachedMb = 0;
+            double cachedPercent = 0;
 
             // Map Windows page file to swap
             double swapTotalMb = Math.Max(0, totalPageFile - totalPhysical);
