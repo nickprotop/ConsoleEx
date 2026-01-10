@@ -25,11 +25,13 @@ public sealed class DropdownBuilder
 	private string _prompt = "Select...";
 	private int _selectedIndex = -1;
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
+	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
 	private bool _visible = true;
 	private int? _width;
 	private string? _name;
 	private object? _tag;
+	private StickyPosition _stickyPosition = StickyPosition.None;
 	private EventHandler<int>? _selectionChangedHandler;
 	private EventHandler<DropdownItem?>? _selectedItemChangedHandler;
 	private WindowEventHandler<int>? _selectionChangedWithWindowHandler;
@@ -160,6 +162,42 @@ public sealed class DropdownBuilder
 	}
 
 	/// <summary>
+	/// Sets the vertical alignment
+	/// </summary>
+	public DropdownBuilder WithVerticalAlignment(VerticalAlignment alignment)
+	{
+		_verticalAlignment = alignment;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the sticky position
+	/// </summary>
+	public DropdownBuilder WithStickyPosition(StickyPosition position)
+	{
+		_stickyPosition = position;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the top of the window
+	/// </summary>
+	public DropdownBuilder StickyTop()
+	{
+		_stickyPosition = StickyPosition.Top;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the bottom of the window
+	/// </summary>
+	public DropdownBuilder StickyBottom()
+	{
+		_stickyPosition = StickyPosition.Bottom;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the selection changed event handler (index-based)
 	/// </summary>
 	public DropdownBuilder OnSelectionChanged(EventHandler<int> handler)
@@ -269,11 +307,13 @@ public sealed class DropdownBuilder
 		var dropdown = new DropdownControl(_prompt)
 		{
 			HorizontalAlignment = _alignment,
+			VerticalAlignment = _verticalAlignment,
 			Margin = _margin,
 			Visible = _visible,
 			Width = _width,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			StickyPosition = _stickyPosition
 		};
 
 		foreach (var item in _items)

@@ -25,11 +25,13 @@ public sealed class PromptBuilder
 	private string _initialInput = "";
 	private bool _unfocusOnEnter = true;
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
+	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
 	private bool _visible = true;
 	private int? _width;
 	private string? _name;
 	private object? _tag;
+	private StickyPosition _stickyPosition = StickyPosition.None;
 	private EventHandler<string>? _enteredHandler;
 	private EventHandler<string>? _inputChangedHandler;
 	private WindowEventHandler<string>? _enteredWithWindowHandler;
@@ -130,6 +132,42 @@ public sealed class PromptBuilder
 	}
 
 	/// <summary>
+	/// Sets the vertical alignment
+	/// </summary>
+	public PromptBuilder WithVerticalAlignment(VerticalAlignment alignment)
+	{
+		_verticalAlignment = alignment;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the sticky position
+	/// </summary>
+	public PromptBuilder WithStickyPosition(StickyPosition position)
+	{
+		_stickyPosition = position;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the top of the window
+	/// </summary>
+	public PromptBuilder StickyTop()
+	{
+		_stickyPosition = StickyPosition.Top;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the bottom of the window
+	/// </summary>
+	public PromptBuilder StickyBottom()
+	{
+		_stickyPosition = StickyPosition.Bottom;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the entered event handler (fired when Enter is pressed)
 	/// </summary>
 	public PromptBuilder OnEntered(EventHandler<string> handler)
@@ -219,11 +257,13 @@ public sealed class PromptBuilder
 			Prompt = _prompt,
 			UnfocusOnEnter = _unfocusOnEnter,
 			HorizontalAlignment = _alignment,
+			VerticalAlignment = _verticalAlignment,
 			Margin = _margin,
 			Visible = _visible,
 			Width = _width,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			StickyPosition = _stickyPosition
 		};
 
 		if (!string.IsNullOrEmpty(_initialInput))

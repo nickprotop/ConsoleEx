@@ -31,6 +31,7 @@ public sealed class ToolbarBuilder
 	private bool _visible = true;
 	private string? _name;
 	private object? _tag;
+	private StickyPosition _stickyPosition = StickyPosition.None;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
 	private EventHandler? _gotFocusHandler;
@@ -252,6 +253,37 @@ public sealed class ToolbarBuilder
 	}
 
 	/// <summary>
+	/// Sets the sticky position
+	/// </summary>
+	/// <param name="position">The sticky position</param>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder WithStickyPosition(StickyPosition position)
+	{
+		_stickyPosition = position;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the top of the window
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder StickyTop()
+	{
+		_stickyPosition = StickyPosition.Top;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the bottom of the window
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder StickyBottom()
+	{
+		_stickyPosition = StickyPosition.Bottom;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the background color (null for transparent/inherit)
 	/// </summary>
 	/// <param name="color">The background color</param>
@@ -333,7 +365,8 @@ public sealed class ToolbarBuilder
 			Width = _width,
 			Visible = _visible,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			StickyPosition = _stickyPosition
 		};
 
 		// Only set colors if explicitly specified (null = inherit)

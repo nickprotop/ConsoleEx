@@ -28,6 +28,7 @@ public sealed class MarkupBuilder
 	private int? _width;
 	private string? _name;
 	private object? _tag;
+	private StickyPosition _stickyPosition = StickyPosition.None;
 
 	/// <summary>
 	/// Adds a line of markup text
@@ -165,6 +166,37 @@ public sealed class MarkupBuilder
 	}
 
 	/// <summary>
+	/// Sets the sticky position
+	/// </summary>
+	/// <param name="position">The sticky position</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithStickyPosition(StickyPosition position)
+	{
+		_stickyPosition = position;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the top of the window
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder StickyTop()
+	{
+		_stickyPosition = StickyPosition.Top;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the bottom of the window
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder StickyBottom()
+	{
+		_stickyPosition = StickyPosition.Bottom;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the markup control
 	/// </summary>
 	/// <returns>The configured markup control</returns>
@@ -177,7 +209,8 @@ public sealed class MarkupBuilder
 			Visible = _visible,
 			Width = _width,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			StickyPosition = _stickyPosition
 		};
 
 		return markup;

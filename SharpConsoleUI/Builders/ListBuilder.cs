@@ -33,6 +33,13 @@ public sealed class ListBuilder
 	private int? _width;
 	private string? _name;
 	private object? _tag;
+	private StickyPosition _stickyPosition = StickyPosition.None;
+	private Color? _backgroundColor;
+	private Color? _foregroundColor;
+	private Color? _focusedBackgroundColor;
+	private Color? _focusedForegroundColor;
+	private Color? _highlightBackgroundColor;
+	private Color? _highlightForegroundColor;
 	private EventHandler<ListItem>? _itemActivatedHandler;
 	private EventHandler<int>? _selectionChangedHandler;
 	private EventHandler<ListItem?>? _selectedItemChangedHandler;
@@ -201,6 +208,117 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
+	/// Sets the sticky position
+	/// </summary>
+	public ListBuilder WithStickyPosition(StickyPosition position)
+	{
+		_stickyPosition = position;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the top of the window
+	/// </summary>
+	public ListBuilder StickyTop()
+	{
+		_stickyPosition = StickyPosition.Top;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the bottom of the window
+	/// </summary>
+	public ListBuilder StickyBottom()
+	{
+		_stickyPosition = StickyPosition.Bottom;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the background color
+	/// </summary>
+	public ListBuilder WithBackgroundColor(Color color)
+	{
+		_backgroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the foreground color
+	/// </summary>
+	public ListBuilder WithForegroundColor(Color color)
+	{
+		_foregroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets both background and foreground colors
+	/// </summary>
+	public ListBuilder WithColors(Color background, Color foreground)
+	{
+		_backgroundColor = background;
+		_foregroundColor = foreground;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the focused background color
+	/// </summary>
+	public ListBuilder WithFocusedBackgroundColor(Color color)
+	{
+		_focusedBackgroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the focused foreground color
+	/// </summary>
+	public ListBuilder WithFocusedForegroundColor(Color color)
+	{
+		_focusedForegroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets both focused background and foreground colors
+	/// </summary>
+	public ListBuilder WithFocusedColors(Color background, Color foreground)
+	{
+		_focusedBackgroundColor = background;
+		_focusedForegroundColor = foreground;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the highlight background color for selected items
+	/// </summary>
+	public ListBuilder WithHighlightBackgroundColor(Color color)
+	{
+		_highlightBackgroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the highlight foreground color for selected items
+	/// </summary>
+	public ListBuilder WithHighlightForegroundColor(Color color)
+	{
+		_highlightForegroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets both highlight background and foreground colors for selected items
+	/// </summary>
+	public ListBuilder WithHighlightColors(Color background, Color foreground)
+	{
+		_highlightBackgroundColor = background;
+		_highlightForegroundColor = foreground;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the item activated event handler (Enter key or double-click)
 	/// </summary>
 	public ListBuilder OnItemActivated(EventHandler<ListItem> handler)
@@ -336,8 +454,23 @@ public sealed class ListBuilder
 			Visible = _visible,
 			Width = _width,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			StickyPosition = _stickyPosition
 		};
+
+		// Apply colors if specified
+		if (_backgroundColor.HasValue)
+			list.BackgroundColor = _backgroundColor.Value;
+		if (_foregroundColor.HasValue)
+			list.ForegroundColor = _foregroundColor.Value;
+		if (_focusedBackgroundColor.HasValue)
+			list.FocusedBackgroundColor = _focusedBackgroundColor.Value;
+		if (_focusedForegroundColor.HasValue)
+			list.FocusedForegroundColor = _focusedForegroundColor.Value;
+		if (_highlightBackgroundColor.HasValue)
+			list.HighlightBackgroundColor = _highlightBackgroundColor.Value;
+		if (_highlightForegroundColor.HasValue)
+			list.HighlightForegroundColor = _highlightForegroundColor.Value;
 
 		foreach (var item in _items)
 			list.AddItem(item);

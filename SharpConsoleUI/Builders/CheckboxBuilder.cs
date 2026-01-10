@@ -24,11 +24,13 @@ public sealed class CheckboxBuilder
 	private string _label = "Checkbox";
 	private bool _isChecked = false;
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
+	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
 	private bool _visible = true;
 	private int? _width;
 	private string? _name;
 	private object? _tag;
+	private StickyPosition _stickyPosition = StickyPosition.None;
 	private EventHandler<bool>? _checkedChangedHandler;
 	private WindowEventHandler<bool>? _checkedChangedWithWindowHandler;
 	private EventHandler? _gotFocusHandler;
@@ -118,6 +120,42 @@ public sealed class CheckboxBuilder
 	}
 
 	/// <summary>
+	/// Sets the vertical alignment
+	/// </summary>
+	public CheckboxBuilder WithVerticalAlignment(VerticalAlignment alignment)
+	{
+		_verticalAlignment = alignment;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the sticky position
+	/// </summary>
+	public CheckboxBuilder WithStickyPosition(StickyPosition position)
+	{
+		_stickyPosition = position;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the top of the window
+	/// </summary>
+	public CheckboxBuilder StickyTop()
+	{
+		_stickyPosition = StickyPosition.Top;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the bottom of the window
+	/// </summary>
+	public CheckboxBuilder StickyBottom()
+	{
+		_stickyPosition = StickyPosition.Bottom;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the checked changed event handler
 	/// </summary>
 	public CheckboxBuilder OnCheckedChanged(EventHandler<bool> handler)
@@ -187,11 +225,13 @@ public sealed class CheckboxBuilder
 		var checkbox = new CheckboxControl(_label, _isChecked)
 		{
 			HorizontalAlignment = _alignment,
+			VerticalAlignment = _verticalAlignment,
 			Margin = _margin,
 			Visible = _visible,
 			Width = _width,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			StickyPosition = _stickyPosition
 		};
 
 		// Attach standard handler

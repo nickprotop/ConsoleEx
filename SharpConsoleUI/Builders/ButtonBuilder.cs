@@ -23,12 +23,14 @@ public sealed class ButtonBuilder
 {
 	private string _text = "Button";
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
+	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
 	private bool _enabled = true;
 	private bool _visible = true;
 	private int? _width;
 	private string? _name;
 	private object? _tag;
+	private StickyPosition _stickyPosition = StickyPosition.None;
 	private EventHandler<ButtonControl>? _clickHandler;
 	private WindowEventHandler<ButtonControl>? _clickWithWindowHandler;
 	private EventHandler? _gotFocusHandler;
@@ -159,6 +161,48 @@ public sealed class ButtonBuilder
 	}
 
 	/// <summary>
+	/// Sets the vertical alignment
+	/// </summary>
+	/// <param name="alignment">The vertical alignment</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithVerticalAlignment(VerticalAlignment alignment)
+	{
+		_verticalAlignment = alignment;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the sticky position
+	/// </summary>
+	/// <param name="position">The sticky position</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithStickyPosition(StickyPosition position)
+	{
+		_stickyPosition = position;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the top of the window
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder StickyTop()
+	{
+		_stickyPosition = StickyPosition.Top;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the bottom of the window
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder StickyBottom()
+	{
+		_stickyPosition = StickyPosition.Bottom;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the click event handler
 	/// </summary>
 	/// <param name="handler">The click handler</param>
@@ -234,12 +278,14 @@ public sealed class ButtonBuilder
 		{
 			Text = _text,
 			HorizontalAlignment = _alignment,
+			VerticalAlignment = _verticalAlignment,
 			Margin = _margin,
 			IsEnabled = _enabled,
 			Visible = _visible,
 			Width = _width,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			StickyPosition = _stickyPosition
 		};
 
 		// Attach standard handler

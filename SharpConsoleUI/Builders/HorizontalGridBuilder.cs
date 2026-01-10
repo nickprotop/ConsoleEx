@@ -30,6 +30,12 @@ namespace SharpConsoleUI.Builders
 		private readonly List<ColumnConfiguration> _columns = new();
 		private readonly List<int> _splitterIndices = new();
 		private HorizontalAlignment? _alignment;
+		private VerticalAlignment? _verticalAlignment;
+		private string? _name;
+		private object? _tag;
+		private bool? _visible;
+		private Margin? _margin;
+		private StickyPosition? _stickyPosition;
 
 		/// <summary>
 		/// Adds a column to the grid using a fluent configuration.
@@ -67,6 +73,117 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
+		/// Sets the vertical alignment of the grid.
+		/// </summary>
+		/// <param name="alignment">The vertical alignment.</param>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder WithVerticalAlignment(VerticalAlignment alignment)
+		{
+			_verticalAlignment = alignment;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the control name for FindControl queries.
+		/// </summary>
+		/// <param name="name">The control name.</param>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder WithName(string name)
+		{
+			_name = name;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the control tag for custom data storage.
+		/// </summary>
+		/// <param name="tag">The tag object.</param>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder WithTag(object tag)
+		{
+			_tag = tag;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the visibility.
+		/// </summary>
+		/// <param name="visible">True if visible.</param>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder Visible(bool visible = true)
+		{
+			_visible = visible;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the margin.
+		/// </summary>
+		/// <param name="left">Left margin.</param>
+		/// <param name="top">Top margin.</param>
+		/// <param name="right">Right margin.</param>
+		/// <param name="bottom">Bottom margin.</param>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder WithMargin(int left, int top, int right, int bottom)
+		{
+			_margin = new Margin(left, top, right, bottom);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets uniform margin on all sides.
+		/// </summary>
+		/// <param name="margin">The margin value.</param>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder WithMargin(int margin)
+		{
+			_margin = new Margin(margin, margin, margin, margin);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the margin.
+		/// </summary>
+		/// <param name="margin">The margin.</param>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder WithMargin(Margin margin)
+		{
+			_margin = margin;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the sticky position.
+		/// </summary>
+		/// <param name="position">The sticky position.</param>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder WithStickyPosition(StickyPosition position)
+		{
+			_stickyPosition = position;
+			return this;
+		}
+
+		/// <summary>
+		/// Makes the control stick to the top of the window.
+		/// </summary>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder StickyTop()
+		{
+			_stickyPosition = StickyPosition.Top;
+			return this;
+		}
+
+		/// <summary>
+		/// Makes the control stick to the bottom of the window.
+		/// </summary>
+		/// <returns>This builder for method chaining.</returns>
+		public HorizontalGridBuilder StickyBottom()
+		{
+			_stickyPosition = StickyPosition.Bottom;
+			return this;
+		}
+
+		/// <summary>
 		/// Builds the HorizontalGridControl with all configured columns and splitters.
 		/// </summary>
 		/// <returns>The configured HorizontalGridControl.</returns>
@@ -76,6 +193,42 @@ namespace SharpConsoleUI.Builders
 			if (_alignment.HasValue)
 			{
 				_grid.HorizontalAlignment = _alignment.Value;
+			}
+
+			// Apply vertical alignment if specified
+			if (_verticalAlignment.HasValue)
+			{
+				_grid.VerticalAlignment = _verticalAlignment.Value;
+			}
+
+			// Apply name if specified
+			if (_name != null)
+			{
+				_grid.Name = _name;
+			}
+
+			// Apply tag if specified
+			if (_tag != null)
+			{
+				_grid.Tag = _tag;
+			}
+
+			// Apply visibility if specified
+			if (_visible.HasValue)
+			{
+				_grid.Visible = _visible.Value;
+			}
+
+			// Apply margin if specified
+			if (_margin.HasValue)
+			{
+				_grid.Margin = _margin.Value;
+			}
+
+			// Apply sticky position if specified
+			if (_stickyPosition.HasValue)
+			{
+				_grid.StickyPosition = _stickyPosition.Value;
 			}
 
 			// Create and add all columns

@@ -28,6 +28,7 @@ public sealed class FigleControlBuilder
 	private int? _width;
 	private string? _name;
 	private object? _tag;
+	private StickyPosition _stickyPosition = StickyPosition.None;
 
 	/// <summary>
 	/// Sets the FIGlet text to render
@@ -153,6 +154,37 @@ public sealed class FigleControlBuilder
 	}
 
 	/// <summary>
+	/// Sets the sticky position
+	/// </summary>
+	/// <param name="position">The sticky position</param>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder WithStickyPosition(StickyPosition position)
+	{
+		_stickyPosition = position;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the top of the window
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder StickyTop()
+	{
+		_stickyPosition = StickyPosition.Top;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the control stick to the bottom of the window
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder StickyBottom()
+	{
+		_stickyPosition = StickyPosition.Bottom;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the Figlet control
 	/// </summary>
 	/// <returns>The configured Figlet control</returns>
@@ -167,7 +199,8 @@ public sealed class FigleControlBuilder
 			Visible = _visible,
 			Width = _width,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			StickyPosition = _stickyPosition
 		};
 
 		if (_color.HasValue)
