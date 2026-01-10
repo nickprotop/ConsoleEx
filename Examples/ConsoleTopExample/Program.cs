@@ -77,87 +77,70 @@ internal class Program
             .WithAsyncWindowThread(UpdateLoopAsync)
             .Build();
 
-        _mainWindow.AddControl(new MarkupControl(new List<string>
-        {
-            "[bold cyan]ConsoleTop[/] — ntop-inspired live dashboard",
-            "[dim]F10/ESC: exit • Live data from /proc[/]"
-        })
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            StickyPosition = StickyPosition.Top
-        });
+        // === HEADER SECTION (declarative) ===
+        _mainWindow.AddControl(MarkupControl.Create()
+            .AddLines(
+                "[bold cyan]ConsoleTop[/] — ntop-inspired live dashboard",
+                "[dim]F10/ESC: exit • Live data from /proc[/]")
+            .Centered()
+            .StickyTop()
+            .Build());
 
-        _mainWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Top });
+        _mainWindow.AddControl(RuleControl.Create().StickyTop().Build());
 
-        var grid = new HorizontalGridControl
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch
-            // No VerticalAlignment.Fill - let it use natural height from content
-        };
+        // === CPU/MEMORY GRID (declarative) ===
+        _mainWindow.AddControl(HorizontalGridControl.Create()
+            .Column(col => col
+                .Width(48)
+                .Add(MarkupControl.Create().AddLine("[yellow]CPU Usage[/]").Build())
+                .Add(SpectreRenderableControl.Create()
+                    .WithRenderable(BuildCpuChart(0, 0, 0))
+                    .WithName("cpuChart")
+                    .WithMargin(0, 1, 0, 1)
+                    .Build()))
+            .Column(col => col
+                .Add(MarkupControl.Create().AddLine("[yellow]Memory / IO[/]").Build())
+                .Add(SpectreRenderableControl.Create()
+                    .WithRenderable(BuildMemoryChart(0, 0, 0))
+                    .WithName("memChart")
+                    .WithMargin(0, 1, 0, 1)
+                    .Build()))
+            .WithSplitterAfter(0)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build());
 
-        var cpuColumn = new ColumnContainer(grid) { Width = 48 };
-        cpuColumn.AddContent(new MarkupControl(new List<string> { "[yellow]CPU Usage[/]" }));
-        var cpuChart = new SpectreRenderableControl(BuildCpuChart(0, 0, 0))
-        {
-            Name = "cpuChart",
-            Margin = new Margin(0, 1, 0, 1)
-        };
-        cpuColumn.AddContent(cpuChart);
-        grid.AddColumn(cpuColumn);
+        _mainWindow.AddControl(RuleControl.Create().Build());
 
-        var memColumn = new ColumnContainer(grid);
-        memColumn.AddContent(new MarkupControl(new List<string> { "[yellow]Memory / IO[/]" }));
-        var memChart = new SpectreRenderableControl(BuildMemoryChart(0, 0, 0))
-        {
-            Name = "memChart",
-            Margin = new Margin(0, 1, 0, 1)
-        };
-        memColumn.AddContent(memChart);
-        grid.AddColumn(memColumn);
+        // === PROCESSES SECTION HEADER (declarative) ===
+        _mainWindow.AddControl(MarkupControl.Create()
+            .AddLines(
+                "[bold]Processes[/]",
+                "[dim]Arrows navigate • Enter shows modal • Right panel updates live[/]")
+            .WithAlignment(HorizontalAlignment.Left)
+            .Build());
 
-        grid.AddSplitter(0, new SplitterControl());
-        _mainWindow.AddControl(grid);
-
-        _mainWindow.AddControl(new RuleControl());
-
-        _mainWindow.AddControl(new MarkupControl(new List<string>
-        {
-            "[bold]Processes[/]",
-            "[dim]Arrows navigate • Enter shows modal • Right panel updates live[/]"
-        }) { HorizontalAlignment = HorizontalAlignment.Left });
-
-        var processesGrid = new HorizontalGridControl
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Fill
-        };
-
-        var listColumn = new ColumnContainer(processesGrid) { Width = 60 };
-        var processList = new ListControl("Processes")
-        {
-            Name = "processList",
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Fill,
-            BackgroundColor = Color.Black,
-            ForegroundColor = Color.White,
-            FocusedBackgroundColor = Color.Grey11,
-            FocusedForegroundColor = Color.White,
-            HighlightBackgroundColor = Color.DodgerBlue1,
-            HighlightForegroundColor = Color.White
-        };
-        processList.SelectedIndexChanged += (_, _) =>
-        {
-            UpdateLegendSelection();
-            if (_lastSnapshot != null) UpdateDetailPanel(_lastSnapshot);
-        };
-
-        processList.ItemActivated += (_, item) =>
-        {
-            if (item.Tag is ProcessSample ps)
+        // === PROCESSES GRID (declarative) ===
+        var processList = ListControl.Create()
+            .WithTitle("Processes")
+            .WithName("processList")
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithColors(Color.Black, Color.White)
+            .WithFocusedColors(Color.Grey11, Color.White)
+            .WithHighlightColors(Color.DodgerBlue1, Color.White)
+            .OnSelectedItemChanged((_, item) =>
             {
-                ShowProcessActions(ps);
-            }
-        };
+                UpdateLegendSelection();
+                if (_lastSnapshot != null) UpdateDetailPanel(_lastSnapshot);
+            })
+            .OnItemActivated((_, item) =>
+            {
+                if (item.Tag is ProcessSample ps)
+                {
+                    ShowProcessActions(ps);
+                }
+            })
+            .Build();
 
         // Update details pane when highlight changes (moving with arrows without selecting)
         _windowSystem.SelectionStateService.HighlightChanged += (sender, args) =>
@@ -168,78 +151,57 @@ internal class Program
                 UpdateDetailPanel(_lastSnapshot);
             }
         };
-        listColumn.AddContent(processList);
 
-        var detailColumn = new ColumnContainer(processesGrid);
+        _mainWindow.AddControl(HorizontalGridControl.Create()
+            .Column(col => col
+                .Width(60)
+                .Add(processList))
+            .Column(col => col
+                .Add(ToolbarControl.Create()
+                    .AddButton("Process", (sender, e, window) =>
+                    {
+                        _detailMode = DetailMode.Process;
+                        if (_lastSnapshot != null) UpdateDetailPanel(_lastSnapshot);
+                    })
+                    .AddSeparator(1)
+                    .AddButton("Memory", (sender, e, window) =>
+                    {
+                        _detailMode = DetailMode.Memory;
+                        if (_lastSnapshot != null) UpdateDetailPanel(_lastSnapshot);
+                    })
+                    .WithSpacing(1)
+                    .Build())
+                .Add(RuleControl.Create().Build())
+                .Add(MarkupControl.Create()
+                    .AddLines(
+                        "[bold]Process details[/]",
+                        "[dim]Select a process to see live stats[/]")
+                    .WithName("processDetails")
+                    .Build())
+                .Add(SpectreRenderableControl.Create()
+                    .WithRenderable(BuildMemoryDetailChart(0, 0, 0, 0))
+                    .WithName("memoryDetailChart")
+                    .Visible(false)
+                    .Build())
+                .Add(MarkupControl.Create()
+                    .AddLine("")
+                    .WithName("memoryDetailStats")
+                    .Visible(false)
+                    .Build()))
+            .WithSplitterAfter(0)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .Build());
 
-        // Header with mode buttons using ToolbarControl
-        var toolbar = ToolbarControl.Create()
-            .AddButton("Process", (sender, e, window) =>
-            {
-                _detailMode = DetailMode.Process;
-                if (_lastSnapshot != null)
-                {
-                    UpdateDetailPanel(_lastSnapshot);
-                }
-            })
-            .AddSeparator(1)
-            .AddButton("Memory", (sender, e, window) =>
-            {
-                _detailMode = DetailMode.Memory;
-                if (_lastSnapshot != null)
-                {
-                    UpdateDetailPanel(_lastSnapshot);
-                }
-            })
-            .WithSpacing(1)
-            .Build();
+        // === FOOTER SECTION (declarative) ===
+        _mainWindow.AddControl(RuleControl.Create().StickyBottom().Build());
+        _mainWindow.AddControl(MarkupControl.Create()
+            .AddLine("[dim]Legend: CPU = user/sys/io | MEM = used/free/cache | NET = up/down MB/s[/]")
+            .WithName("legend")
+            .StickyBottom()
+            .Build());
 
-        detailColumn.AddContent(toolbar);
-        detailColumn.AddContent(new RuleControl());
-
-        // Process details (shown in Process mode)
-        var processDetails = new MarkupControl(new List<string>
-        {
-            "[bold]Process details[/]",
-            "[dim]Select a process to see live stats[/]"
-        })
-        {
-            Name = "processDetails"
-        };
-        detailColumn.AddContent(processDetails);
-
-        // Memory detail chart (shown in Memory mode)
-        var memoryDetailChart = new SpectreRenderableControl(BuildMemoryDetailChart(0, 0, 0, 0))
-        {
-            Name = "memoryDetailChart",
-            Visible = false
-        };
-        detailColumn.AddContent(memoryDetailChart);
-
-        // Memory detail stats (shown in Memory mode)
-        var memoryDetailStats = new MarkupControl(new List<string> { "" })
-        {
-            Name = "memoryDetailStats",
-            Visible = false
-        };
-        detailColumn.AddContent(memoryDetailStats);
-
-        processesGrid.AddColumn(listColumn);
-        processesGrid.AddColumn(detailColumn);
-        processesGrid.AddSplitter(0, new SplitterControl());
-        _mainWindow.AddControl(processesGrid);
-
-        var legend = new MarkupControl(new List<string>
-        {
-            "[dim]Legend: CPU = user/sys/io | MEM = used/free/cache | NET = up/down MB/s[/]"
-        })
-        {
-            Name = "legend",
-            StickyPosition = StickyPosition.Bottom
-        };
-        _mainWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Bottom });
-        _mainWindow.AddControl(legend);
-
+        // === EVENT HANDLERS ===
         _mainWindow.KeyPressed += (sender, e) =>
         {
             if (e.KeyInfo.Key == ConsoleKey.F10 || e.KeyInfo.Key == ConsoleKey.Escape)
