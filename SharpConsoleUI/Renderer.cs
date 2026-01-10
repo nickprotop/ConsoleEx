@@ -373,9 +373,9 @@ namespace SharpConsoleUI
 					{
 						// Calculate content boundaries within the window
 						// Content area is between left border (windowLeft + 1) and right border (windowLeft + windowWidth - 1)
-						// So content right boundary should be windowLeft + windowWidth - 2
+						// Content right boundary (exclusive) should be windowLeft + windowWidth - 1
 						int contentLeft = Math.Max(windowLeft + 1, region.Left);
-						int contentRight = Math.Min(windowLeft + windowWidth - 2, region.Left + region.Width);
+						int contentRight = Math.Min(windowLeft + windowWidth - 1, region.Left + region.Width);
 						int contentWidth = contentRight - contentLeft;
 
 						if (contentWidth <= 0) continue;
