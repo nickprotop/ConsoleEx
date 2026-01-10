@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using ConsoleTopExample.Stats;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
@@ -765,26 +766,114 @@ internal class Program
             }
         );
 
-        // Create buttons with event handlers
-        var killButton = new ButtonControl { Text = "Kill (SIGKILL)", Width = 18 };
-        killButton.Click += (_, _) =>
+        // Create buttons with event handlers (platform-specific)
+        var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+        HorizontalGridControl buttonRow;
+        ButtonControl closeButton;
+
+        if (isWindows)
         {
-            TryKillProcess(liveProc.Pid, liveProc.Command);
-            modal.Close();
-        };
+            // Windows: Terminate (graceful) and Force Kill options
+            var terminateButton = new ButtonControl { Text = "Terminate", Width = 14 };
+            terminateButton.Click += (_, _) =>
+            {
+                TryTerminateProcess(liveProc.Pid, liveProc.Command);
+                modal.Close();
+            };
 
-        var closeButton = new ButtonControl { Text = "Close", Width = 10 };
-        closeButton.Click += (_, _) => modal.Close();
+            var forceKillButton = new ButtonControl { Text = "Force Kill", Width = 14 };
+            forceKillButton.Click += (_, _) =>
+            {
+                TryKillProcess(liveProc.Pid, liveProc.Command);
+                modal.Close();
+            };
 
-        // Use new ButtonRow factory method (reduces 16 lines to 1!)
-        var buttonRow = HorizontalGridControl.ButtonRow(killButton, closeButton);
+            closeButton = new ButtonControl { Text = "Close", Width = 10 };
+            closeButton.Click += (_, _) => modal.Close();
+
+            buttonRow = HorizontalGridControl.ButtonRow(terminateButton, forceKillButton, closeButton);
+        }
+        else
+        {
+            // Linux: SIGTERM and SIGKILL options
+            var sigtermButton = new ButtonControl { Text = "SIGTERM", Width = 12 };
+            sigtermButton.Click += (_, _) =>
+            {
+                TryTerminateProcess(liveProc.Pid, liveProc.Command);
+                modal.Close();
+            };
+
+            var sigkillButton = new ButtonControl { Text = "SIGKILL", Width = 12 };
+            sigkillButton.Click += (_, _) =>
+            {
+                TryKillProcess(liveProc.Pid, liveProc.Command);
+                modal.Close();
+            };
+
+            closeButton = new ButtonControl { Text = "Close", Width = 10 };
+            closeButton.Click += (_, _) => modal.Close();
+
+            buttonRow = HorizontalGridControl.ButtonRow(sigtermButton, sigkillButton, closeButton);
+        }
 
         modal.AddControl(buttonRow);
 
+        // Focus the close button by default
         closeButton.SetFocus(true, FocusReason.Programmatic);
 
         _windowSystem.AddWindow(modal);
         _windowSystem.SetActiveWindow(modal);
+    }
+
+    private static void TryTerminateProcess(int pid, string command)
+    {
+        if (_windowSystem == null)
+            return;
+
+        try
+        {
+            var proc = Process.GetProcessById(pid);
+
+            // Try graceful termination
+            // On Windows: Sends WM_CLOSE to process (like closing a window)
+            // On Linux: Sends SIGTERM (allows cleanup)
+            if (!proc.CloseMainWindow())
+            {
+                // Process has no main window or didn't respond, fall back to Kill
+                proc.Kill();
+                _windowSystem.NotificationStateService.ShowNotification(
+                    $"Force killed {pid}",
+                    $"{command} (PID {pid}) had no main window, force terminated",
+                    NotificationSeverity.Warning,
+                    blockUi: false,
+                    timeout: 2500,
+                    parentWindow: _mainWindow
+                );
+            }
+            else
+            {
+                _windowSystem.NotificationStateService.ShowNotification(
+                    $"Terminated {pid}",
+                    $"{command} (PID {pid}) gracefully terminated",
+                    NotificationSeverity.Info,
+                    blockUi: false,
+                    timeout: 2000,
+                    parentWindow: _mainWindow
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            _windowSystem.NotificationStateService.ShowNotification(
+                $"Terminate failed for {pid}",
+                ex.Message,
+                NotificationSeverity.Warning,
+                blockUi: false,
+                timeout: 3000,
+                parentWindow: _mainWindow
+            );
+        }
     }
 
     private static void TryKillProcess(int pid, string command)
@@ -796,9 +885,13 @@ internal class Program
         {
             var proc = Process.GetProcessById(pid);
             proc.Kill();
+
+            var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+            var killMethod = isWindows ? "Force killed" : "SIGKILL sent to";
+
             _windowSystem.NotificationStateService.ShowNotification(
-                $"Killed {pid}",
-                $"{command} (PID {pid}) terminated",
+                $"{killMethod} {pid}",
+                $"{command} (PID {pid}) force terminated",
                 NotificationSeverity.Info,
                 blockUi: false,
                 timeout: 2000,
