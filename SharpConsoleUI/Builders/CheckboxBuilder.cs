@@ -31,6 +31,10 @@ public sealed class CheckboxBuilder
 	private object? _tag;
 	private EventHandler<bool>? _checkedChangedHandler;
 	private WindowEventHandler<bool>? _checkedChangedWithWindowHandler;
+	private EventHandler? _gotFocusHandler;
+	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
+	private EventHandler? _lostFocusHandler;
+	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
 
 	/// <summary>
 	/// Sets the checkbox label
@@ -132,6 +136,50 @@ public sealed class CheckboxBuilder
 	}
 
 	/// <summary>
+	/// Sets the GotFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the checkbox receives focus</param>
+	/// <returns>The builder for chaining</returns>
+	public CheckboxBuilder OnGotFocus(EventHandler handler)
+	{
+		_gotFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the GotFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public CheckboxBuilder OnGotFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_gotFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the checkbox loses focus</param>
+	/// <returns>The builder for chaining</returns>
+	public CheckboxBuilder OnLostFocus(EventHandler handler)
+	{
+		_lostFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public CheckboxBuilder OnLostFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_lostFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the checkbox control
 	/// </summary>
 	public CheckboxControl Build()
@@ -158,6 +206,38 @@ public sealed class CheckboxBuilder
 				var window = (sender as IWindowControl)?.GetParentWindow();
 				if (window != null)
 					_checkedChangedWithWindowHandler(sender, isChecked, window);
+			};
+		}
+
+		// Attach GotFocus handlers
+		if (_gotFocusHandler != null)
+		{
+			checkbox.GotFocus += _gotFocusHandler;
+		}
+
+		if (_gotFocusWithWindowHandler != null)
+		{
+			checkbox.GotFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_gotFocusWithWindowHandler(sender, e, window);
+			};
+		}
+
+		// Attach LostFocus handlers
+		if (_lostFocusHandler != null)
+		{
+			checkbox.LostFocus += _lostFocusHandler;
+		}
+
+		if (_lostFocusWithWindowHandler != null)
+		{
+			checkbox.LostFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_lostFocusWithWindowHandler(sender, e, window);
 			};
 		}
 

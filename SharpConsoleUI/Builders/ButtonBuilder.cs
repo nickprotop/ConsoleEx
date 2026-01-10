@@ -31,6 +31,10 @@ public sealed class ButtonBuilder
 	private object? _tag;
 	private EventHandler<ButtonControl>? _clickHandler;
 	private WindowEventHandler<ButtonControl>? _clickWithWindowHandler;
+	private EventHandler? _gotFocusHandler;
+	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
+	private EventHandler? _lostFocusHandler;
+	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
 
 	/// <summary>
 	/// Sets the button text
@@ -177,6 +181,50 @@ public sealed class ButtonBuilder
 	}
 
 	/// <summary>
+	/// Sets the GotFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the button receives focus</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder OnGotFocus(EventHandler handler)
+	{
+		_gotFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the GotFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder OnGotFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_gotFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the button loses focus</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder OnLostFocus(EventHandler handler)
+	{
+		_lostFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder OnLostFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_lostFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the button control
 	/// </summary>
 	/// <returns>The configured button control</returns>
@@ -208,6 +256,38 @@ public sealed class ButtonBuilder
 				var window = (sender as IWindowControl)?.GetParentWindow();
 				if (window != null)
 					_clickWithWindowHandler(sender, e, window);
+			};
+		}
+
+		// Attach GotFocus handlers
+		if (_gotFocusHandler != null)
+		{
+			button.GotFocus += _gotFocusHandler;
+		}
+
+		if (_gotFocusWithWindowHandler != null)
+		{
+			button.GotFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_gotFocusWithWindowHandler(sender, e, window);
+			};
+		}
+
+		// Attach LostFocus handlers
+		if (_lostFocusHandler != null)
+		{
+			button.LostFocus += _lostFocusHandler;
+		}
+
+		if (_lostFocusWithWindowHandler != null)
+		{
+			button.LostFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_lostFocusWithWindowHandler(sender, e, window);
 			};
 		}
 

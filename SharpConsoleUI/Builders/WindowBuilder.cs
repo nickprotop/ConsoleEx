@@ -51,6 +51,14 @@ public sealed class WindowBuilder
     private readonly List<IWindowControl> _controls = new();
     private Window.WindowThreadDelegate? _windowThread;
     private Window.WindowThreadDelegateAsync? _asyncWindowThread;
+    private EventHandler? _activatedHandler;
+    private EventHandler? _deactivatedHandler;
+    private EventHandler<KeyPressedEventArgs>? _keyPressedHandler;
+    private EventHandler? _closedHandler;
+    private EventHandler<ClosingEventArgs>? _closingHandler;
+    private EventHandler? _resizeHandler;
+    private EventHandler? _shownHandler;
+    private EventHandler<Window.WindowStateChangedEventArgs>? _stateChangedHandler;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WindowBuilder"/> class.
@@ -390,6 +398,94 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
+    /// Subscribes a handler to the window's Activated event, which is raised when the window becomes the active window.
+    /// </summary>
+    /// <param name="handler">The event handler to invoke when the window is activated.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder OnActivated(EventHandler handler)
+    {
+        _activatedHandler = handler;
+        return this;
+    }
+
+    /// <summary>
+    /// Subscribes a handler to the window's Deactivated event, which is raised when the window loses focus to another window.
+    /// </summary>
+    /// <param name="handler">The event handler to invoke when the window is deactivated.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder OnDeactivated(EventHandler handler)
+    {
+        _deactivatedHandler = handler;
+        return this;
+    }
+
+    /// <summary>
+    /// Subscribes a handler to the window's KeyPressed event, which is raised when a key is pressed while the window has focus.
+    /// </summary>
+    /// <param name="handler">The event handler to invoke when a key is pressed.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder OnKeyPressed(EventHandler<KeyPressedEventArgs> handler)
+    {
+        _keyPressedHandler = handler;
+        return this;
+    }
+
+    /// <summary>
+    /// Subscribes a handler to the window's OnClosed event, which is raised after the window has been closed.
+    /// </summary>
+    /// <param name="handler">The event handler to invoke when the window is closed.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder OnClosed(EventHandler handler)
+    {
+        _closedHandler = handler;
+        return this;
+    }
+
+    /// <summary>
+    /// Subscribes a handler to the window's OnCLosing event, which is raised when the window is about to close and can be cancelled.
+    /// </summary>
+    /// <param name="handler">The event handler to invoke when the window is closing.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder OnClosing(EventHandler<ClosingEventArgs> handler)
+    {
+        _closingHandler = handler;
+        return this;
+    }
+
+    /// <summary>
+    /// Subscribes a handler to the window's OnResize event, which is raised when the window size changes.
+    /// </summary>
+    /// <param name="handler">The event handler to invoke when the window is resized.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder OnResize(EventHandler handler)
+    {
+        _resizeHandler = handler;
+        return this;
+    }
+
+    /// <summary>
+    /// Subscribes a handler to the window's OnShown event, which is raised when the window is first displayed.
+    /// </summary>
+    /// <param name="handler">The event handler to invoke when the window is shown.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder OnShown(EventHandler handler)
+    {
+        _shownHandler = handler;
+        return this;
+    }
+
+    /// <summary>
+    /// Subscribes a handler to the window's StateChanged event, which is raised when the window state changes (normal, minimized, maximized).
+    /// </summary>
+    /// <param name="handler">The event handler to invoke when the window state changes.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder OnStateChanged(EventHandler<Window.WindowStateChangedEventArgs> handler)
+    {
+        _stateChangedHandler = handler;
+        return this;
+    }
+
+    /// <summary>
     /// Enables DOM-based layout for this window.
     /// DOM layout is now always enabled and is the only rendering path.
     /// </summary>
@@ -464,6 +560,31 @@ public sealed class WindowBuilder
         {
             window.AddControl(control);
         }
+
+        // Subscribe event handlers
+        if (_activatedHandler != null)
+            window.Activated += _activatedHandler;
+
+        if (_deactivatedHandler != null)
+            window.Deactivated += _deactivatedHandler;
+
+        if (_keyPressedHandler != null)
+            window.KeyPressed += _keyPressedHandler;
+
+        if (_closedHandler != null)
+            window.OnClosed += _closedHandler;
+
+        if (_closingHandler != null)
+            window.OnCLosing += _closingHandler;
+
+        if (_resizeHandler != null)
+            window.OnResize += _resizeHandler;
+
+        if (_shownHandler != null)
+            window.OnShown += _shownHandler;
+
+        if (_stateChangedHandler != null)
+            window.StateChanged += _stateChangedHandler;
 
         return window;
     }

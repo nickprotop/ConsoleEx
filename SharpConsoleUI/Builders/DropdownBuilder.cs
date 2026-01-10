@@ -34,6 +34,12 @@ public sealed class DropdownBuilder
 	private EventHandler<DropdownItem?>? _selectedItemChangedHandler;
 	private WindowEventHandler<int>? _selectionChangedWithWindowHandler;
 	private WindowEventHandler<DropdownItem?>? _selectedItemChangedWithWindowHandler;
+	private EventHandler<string?>? _selectedValueChangedHandler;
+	private WindowEventHandler<string?>? _selectedValueChangedWithWindowHandler;
+	private EventHandler? _gotFocusHandler;
+	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
+	private EventHandler? _lostFocusHandler;
+	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
 
 	/// <summary>
 	/// Sets the dropdown prompt text
@@ -190,6 +196,72 @@ public sealed class DropdownBuilder
 	}
 
 	/// <summary>
+	/// Sets the selected value changed event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the selected value changes</param>
+	/// <returns>The builder for chaining</returns>
+	public DropdownBuilder OnSelectedValueChanged(EventHandler<string?> handler)
+	{
+		_selectedValueChangedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the selected value changed event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public DropdownBuilder OnSelectedValueChanged(WindowEventHandler<string?> handler)
+	{
+		_selectedValueChangedWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the GotFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the dropdown receives focus</param>
+	/// <returns>The builder for chaining</returns>
+	public DropdownBuilder OnGotFocus(EventHandler handler)
+	{
+		_gotFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the GotFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public DropdownBuilder OnGotFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_gotFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the dropdown loses focus</param>
+	/// <returns>The builder for chaining</returns>
+	public DropdownBuilder OnLostFocus(EventHandler handler)
+	{
+		_lostFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public DropdownBuilder OnLostFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_lostFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the dropdown control
 	/// </summary>
 	public DropdownControl Build()
@@ -233,6 +305,54 @@ public sealed class DropdownBuilder
 				var window = (sender as IWindowControl)?.GetParentWindow();
 				if (window != null)
 					_selectedItemChangedWithWindowHandler(sender, item, window);
+			};
+		}
+
+		// Attach SelectedValueChanged handlers
+		if (_selectedValueChangedHandler != null)
+		{
+			dropdown.SelectedValueChanged += _selectedValueChangedHandler;
+		}
+
+		if (_selectedValueChangedWithWindowHandler != null)
+		{
+			dropdown.SelectedValueChanged += (sender, value) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_selectedValueChangedWithWindowHandler(sender, value, window);
+			};
+		}
+
+		// Attach GotFocus handlers
+		if (_gotFocusHandler != null)
+		{
+			dropdown.GotFocus += _gotFocusHandler;
+		}
+
+		if (_gotFocusWithWindowHandler != null)
+		{
+			dropdown.GotFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_gotFocusWithWindowHandler(sender, e, window);
+			};
+		}
+
+		// Attach LostFocus handlers
+		if (_lostFocusHandler != null)
+		{
+			dropdown.LostFocus += _lostFocusHandler;
+		}
+
+		if (_lostFocusWithWindowHandler != null)
+		{
+			dropdown.LostFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_lostFocusWithWindowHandler(sender, e, window);
 			};
 		}
 

@@ -33,6 +33,10 @@ public sealed class ToolbarBuilder
 	private object? _tag;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
+	private EventHandler? _gotFocusHandler;
+	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
+	private EventHandler? _lostFocusHandler;
+	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
 
 	/// <summary>
 	/// Adds a button to the toolbar with the specified text and click handler
@@ -270,6 +274,50 @@ public sealed class ToolbarBuilder
 	}
 
 	/// <summary>
+	/// Sets the GotFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the toolbar receives focus</param>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder OnGotFocus(EventHandler handler)
+	{
+		_gotFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the GotFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder OnGotFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_gotFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the toolbar loses focus</param>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder OnLostFocus(EventHandler handler)
+	{
+		_lostFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder OnLostFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_lostFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the toolbar control
 	/// </summary>
 	/// <returns>The configured toolbar control</returns>
@@ -297,6 +345,38 @@ public sealed class ToolbarBuilder
 		foreach (var item in _items)
 		{
 			toolbar.AddItem(item);
+		}
+
+		// Attach GotFocus handlers
+		if (_gotFocusHandler != null)
+		{
+			toolbar.GotFocus += _gotFocusHandler;
+		}
+
+		if (_gotFocusWithWindowHandler != null)
+		{
+			toolbar.GotFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_gotFocusWithWindowHandler(sender, e, window);
+			};
+		}
+
+		// Attach LostFocus handlers
+		if (_lostFocusHandler != null)
+		{
+			toolbar.LostFocus += _lostFocusHandler;
+		}
+
+		if (_lostFocusWithWindowHandler != null)
+		{
+			toolbar.LostFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_lostFocusWithWindowHandler(sender, e, window);
+			};
 		}
 
 		return toolbar;

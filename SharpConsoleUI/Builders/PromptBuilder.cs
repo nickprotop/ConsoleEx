@@ -34,6 +34,10 @@ public sealed class PromptBuilder
 	private EventHandler<string>? _inputChangedHandler;
 	private WindowEventHandler<string>? _enteredWithWindowHandler;
 	private WindowEventHandler<string>? _inputChangedWithWindowHandler;
+	private EventHandler? _gotFocusHandler;
+	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
+	private EventHandler? _lostFocusHandler;
+	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
 
 	/// <summary>
 	/// Sets the prompt text (displayed before the input area)
@@ -162,6 +166,50 @@ public sealed class PromptBuilder
 	}
 
 	/// <summary>
+	/// Sets the GotFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the prompt receives focus</param>
+	/// <returns>The builder for chaining</returns>
+	public PromptBuilder OnGotFocus(EventHandler handler)
+	{
+		_gotFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the GotFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public PromptBuilder OnGotFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_gotFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the prompt loses focus</param>
+	/// <returns>The builder for chaining</returns>
+	public PromptBuilder OnLostFocus(EventHandler handler)
+	{
+		_lostFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public PromptBuilder OnLostFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_lostFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the prompt control
 	/// </summary>
 	public PromptControl Build()
@@ -204,6 +252,38 @@ public sealed class PromptBuilder
 				var window = (sender as IWindowControl)?.GetParentWindow();
 				if (window != null)
 					_inputChangedWithWindowHandler(sender, text, window);
+			};
+		}
+
+		// Attach GotFocus handlers
+		if (_gotFocusHandler != null)
+		{
+			prompt.GotFocus += _gotFocusHandler;
+		}
+
+		if (_gotFocusWithWindowHandler != null)
+		{
+			prompt.GotFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_gotFocusWithWindowHandler(sender, e, window);
+			};
+		}
+
+		// Attach LostFocus handlers
+		if (_lostFocusHandler != null)
+		{
+			prompt.LostFocus += _lostFocusHandler;
+		}
+
+		if (_lostFocusWithWindowHandler != null)
+		{
+			prompt.LostFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_lostFocusWithWindowHandler(sender, e, window);
 			};
 		}
 

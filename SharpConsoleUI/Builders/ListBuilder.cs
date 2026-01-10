@@ -39,6 +39,12 @@ public sealed class ListBuilder
 	private WindowEventHandler<ListItem>? _itemActivatedWithWindowHandler;
 	private WindowEventHandler<int>? _selectionChangedWithWindowHandler;
 	private WindowEventHandler<ListItem?>? _selectedItemChangedWithWindowHandler;
+	private EventHandler<string?>? _selectedValueChangedHandler;
+	private WindowEventHandler<string?>? _selectedValueChangedWithWindowHandler;
+	private EventHandler? _gotFocusHandler;
+	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
+	private EventHandler? _lostFocusHandler;
+	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
 
 	/// <summary>
 	/// Sets the list title
@@ -249,6 +255,72 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
+	/// Sets the selected value changed event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the selected value changes</param>
+	/// <returns>The builder for chaining</returns>
+	public ListBuilder OnSelectedValueChanged(EventHandler<string?> handler)
+	{
+		_selectedValueChangedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the selected value changed event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public ListBuilder OnSelectedValueChanged(WindowEventHandler<string?> handler)
+	{
+		_selectedValueChangedWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the GotFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the list receives focus</param>
+	/// <returns>The builder for chaining</returns>
+	public ListBuilder OnGotFocus(EventHandler handler)
+	{
+		_gotFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the GotFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public ListBuilder OnGotFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_gotFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the list loses focus</param>
+	/// <returns>The builder for chaining</returns>
+	public ListBuilder OnLostFocus(EventHandler handler)
+	{
+		_lostFocusHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the LostFocus event handler with window access
+	/// </summary>
+	/// <param name="handler">Handler that receives sender, event data, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public ListBuilder OnLostFocus(WindowEventHandler<EventArgs> handler)
+	{
+		_lostFocusWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the list control
 	/// </summary>
 	public ListControl Build()
@@ -304,6 +376,54 @@ public sealed class ListBuilder
 				var window = (sender as IWindowControl)?.GetParentWindow();
 				if (window != null)
 					_selectedItemChangedWithWindowHandler(sender, item, window);
+			};
+		}
+
+		// Attach SelectedValueChanged handlers
+		if (_selectedValueChangedHandler != null)
+		{
+			list.SelectedValueChanged += _selectedValueChangedHandler;
+		}
+
+		if (_selectedValueChangedWithWindowHandler != null)
+		{
+			list.SelectedValueChanged += (sender, value) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_selectedValueChangedWithWindowHandler(sender, value, window);
+			};
+		}
+
+		// Attach GotFocus handlers
+		if (_gotFocusHandler != null)
+		{
+			list.GotFocus += _gotFocusHandler;
+		}
+
+		if (_gotFocusWithWindowHandler != null)
+		{
+			list.GotFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_gotFocusWithWindowHandler(sender, e, window);
+			};
+		}
+
+		// Attach LostFocus handlers
+		if (_lostFocusHandler != null)
+		{
+			list.LostFocus += _lostFocusHandler;
+		}
+
+		if (_lostFocusWithWindowHandler != null)
+		{
+			list.LostFocus += (sender, e) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_lostFocusWithWindowHandler(sender, e, window);
 			};
 		}
 
