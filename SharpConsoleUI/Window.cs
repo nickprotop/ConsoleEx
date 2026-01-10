@@ -1094,6 +1094,7 @@ namespace SharpConsoleUI
 				ToolbarControl toolbar => toolbar.Items,
 				HorizontalGridControl grid => grid.Columns.SelectMany(c => c.Contents),
 				ColumnContainer column => column.Contents,
+			ScrollablePanelControl panel => panel.Children,
 				_ => null
 			};
 		}
@@ -2071,35 +2072,62 @@ namespace SharpConsoleUI
 					_interactiveContents[currentIndex].HasFocus = false;
 				}
 
-				// Calculate the next index
-				int nextIndex;
-				if (backward)
+				// Find the next focusable control
+				int nextIndex = currentIndex;
+				int attempts = 0;
+				do
 				{
-					nextIndex = (currentIndex - 1 + _interactiveContents.Count) % _interactiveContents.Count;
-				}
-				else
-				{
-					nextIndex = (currentIndex + 1) % _interactiveContents.Count;
-				}
+					// Calculate the next index
+					if (backward)
+					{
+						nextIndex = (nextIndex - 1 + _interactiveContents.Count) % _interactiveContents.Count;
+					}
+					else
+					{
+						nextIndex = (nextIndex + 1) % _interactiveContents.Count;
+					}
 
-				// Set focus to the next content
-				// Use directional focus for container controls that support it
-				if (_interactiveContents[nextIndex] is Controls.IDirectionalFocusControl directional)
-				{
-					directional.SetFocusWithDirection(true, backward);
-				}
-				else if (_interactiveContents[nextIndex] is Controls.IFocusableControl focusable)
-				{
-					focusable.SetFocus(true, Controls.FocusReason.Keyboard);
-				}
-				_lastFocusedControl = _interactiveContents[nextIndex]; // Update last focused control
+					attempts++;
 
-				// Sync with FocusStateService
-				FocusService?.SetFocus(this, _interactiveContents[nextIndex], FocusChangeReason.Keyboard);
+					// Check if this control can receive focus
+					var control = _interactiveContents[nextIndex];
+					bool canFocus = true;
 
-				_windowSystem?.LogService?.LogTrace($"Focus switched in '{Title}': {_lastFocusedControl?.GetType().Name}", "Focus");
+					// Check CanReceiveFocus if the control implements IFocusableControl
+					if (control is Controls.IFocusableControl focusable)
+					{
+						canFocus = focusable.CanReceiveFocus;
+					}
 
-				BringIntoFocus(nextIndex);
+					// If we found a focusable control, set focus
+					if (canFocus)
+					{
+						// Use directional focus for container controls that support it
+						if (control is Controls.IDirectionalFocusControl directional)
+						{
+							directional.SetFocusWithDirection(true, backward);
+						}
+						else if (control is Controls.IFocusableControl focusableControl)
+						{
+							focusableControl.SetFocus(true, Controls.FocusReason.Keyboard);
+						}
+						else
+						{
+							control.HasFocus = true;
+						}
+
+						_lastFocusedControl = control; // Update last focused control
+
+						// Sync with FocusStateService
+						FocusService?.SetFocus(this, control, FocusChangeReason.Keyboard);
+
+						_windowSystem?.LogService?.LogTrace($"Focus switched in '{Title}': {_lastFocusedControl?.GetType().Name}", "Focus");
+
+						BringIntoFocus(nextIndex);
+						break;
+					}
+
+				} while (attempts < _interactiveContents.Count && nextIndex != currentIndex);
 			}
 		}
 
