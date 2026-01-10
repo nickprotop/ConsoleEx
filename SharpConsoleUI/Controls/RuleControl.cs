@@ -152,6 +152,15 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
+		/// <summary>
+		/// Creates a new builder for configuring a RuleControl
+		/// </summary>
+		/// <returns>A new builder instance</returns>
+		public static Builders.RuleBuilder Create()
+		{
+			return new Builders.RuleBuilder();
+		}
+
 		/// <inheritdoc/>
 		public void Invalidate()
 		{

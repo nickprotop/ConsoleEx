@@ -160,6 +160,15 @@ namespace SharpConsoleUI.Controls
 			Container = null;
 		}
 
+		/// <summary>
+		/// Creates a new builder for configuring a SpectreRenderableControl
+		/// </summary>
+		/// <returns>A new builder instance</returns>
+		public static Builders.SpectreRenderableBuilder Create()
+		{
+			return new Builders.SpectreRenderableBuilder();
+		}
+
 		/// <inheritdoc/>
 		public void Invalidate()
 		{
