@@ -625,6 +625,11 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 
+				// Filter to only include controls that can actually receive focus
+				orderedInteractiveControls = orderedInteractiveControls
+					.Where(c => c is not IFocusableControl fc || fc.CanReceiveFocus)
+					.ToList();
+
 				// If we have no interactive controls, exit
 				if (orderedInteractiveControls.Count == 0)
 				{
