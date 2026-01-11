@@ -280,6 +280,86 @@ namespace SharpConsoleUI.Builders
 	public class ColumnBuilder
 	{
 		private readonly HorizontalGridBuilder.ColumnConfiguration _config = new();
+		private ScrollablePanelControl? _scrollablePanel = null;
+
+		/// <summary>
+		/// Makes this column scrollable by wrapping contents in a ScrollablePanelControl.
+		/// All subsequent Add() calls will add to the scrollable panel instead of the column directly.
+		/// </summary>
+		/// <param name="configure">Optional action to configure the scrollable panel (ShowScrollbar, VerticalScrollMode, etc.)</param>
+		/// <returns>This ColumnBuilder for method chaining</returns>
+		public ColumnBuilder AsScrollable(Action<ScrollablePanelControl>? configure = null)
+		{
+			_scrollablePanel = new ScrollablePanelControl();
+			configure?.Invoke(_scrollablePanel);
+
+			// Add the panel as the column's content
+			_config.Contents.Add(_scrollablePanel);
+
+			return this;
+		}
+
+		/// <summary>
+		/// Configures scrollbar visibility and position.
+		/// Automatically enables scrollable mode if not already enabled.
+		/// </summary>
+		/// <param name="show">Whether to show the scrollbar</param>
+		/// <param name="position">Scrollbar position (Left or Right)</param>
+		/// <returns>This ColumnBuilder for method chaining</returns>
+		public ColumnBuilder WithScrollbar(bool show, ScrollbarPosition position = ScrollbarPosition.Right)
+		{
+			if (_scrollablePanel == null)
+				AsScrollable();  // Auto-enable scrollable mode
+
+			_scrollablePanel!.ShowScrollbar = show;
+			_scrollablePanel.ScrollbarPosition = position;
+			return this;
+		}
+
+		/// <summary>
+		/// Enables or disables mouse wheel scrolling.
+		/// Automatically enables scrollable mode if not already enabled.
+		/// </summary>
+		/// <param name="enable">Whether to enable mouse wheel scrolling</param>
+		/// <returns>This ColumnBuilder for method chaining</returns>
+		public ColumnBuilder WithMouseWheel(bool enable)
+		{
+			if (_scrollablePanel == null)
+				AsScrollable();  // Auto-enable scrollable mode
+
+			_scrollablePanel!.EnableMouseWheel = enable;
+			return this;
+		}
+
+		/// <summary>
+		/// Configures vertical scroll mode.
+		/// Automatically enables scrollable mode if not already enabled.
+		/// </summary>
+		/// <param name="mode">The vertical scroll mode (None, Scroll, or Auto)</param>
+		/// <returns>This ColumnBuilder for method chaining</returns>
+		public ColumnBuilder WithVerticalScroll(ScrollMode mode)
+		{
+			if (_scrollablePanel == null)
+				AsScrollable();  // Auto-enable scrollable mode
+
+			_scrollablePanel!.VerticalScrollMode = mode;
+			return this;
+		}
+
+		/// <summary>
+		/// Configures horizontal scroll mode.
+		/// Automatically enables scrollable mode if not already enabled.
+		/// </summary>
+		/// <param name="mode">The horizontal scroll mode (None, Scroll, or Auto)</param>
+		/// <returns>This ColumnBuilder for method chaining</returns>
+		public ColumnBuilder WithHorizontalScroll(ScrollMode mode)
+		{
+			if (_scrollablePanel == null)
+				AsScrollable();  // Auto-enable scrollable mode
+
+			_scrollablePanel!.HorizontalScrollMode = mode;
+			return this;
+		}
 
 		/// <summary>
 		/// Sets the fixed width of the column.
@@ -326,13 +406,22 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
-		/// Adds a control to the column.
+		/// Adds a control to the column (or to the scrollable panel if AsScrollable was called).
 		/// </summary>
 		/// <param name="control">The control to add.</param>
 		/// <returns>This builder for method chaining.</returns>
 		public ColumnBuilder Add(IWindowControl control)
 		{
-			_config.Contents.Add(control);
+			if (_scrollablePanel != null)
+			{
+				// Delegate to scrollable panel
+				_scrollablePanel.AddControl(control);
+			}
+			else
+			{
+				// Add directly to column contents
+				_config.Contents.Add(control);
+			}
 			return this;
 		}
 
