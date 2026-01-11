@@ -763,7 +763,7 @@ namespace SharpConsoleUI
 					return null;
 				}
 
-				return GetContentFromWindowCoordinates(relativePosition);
+				return GetContentFromWindowCoordinates(GetContentCoordinates(relativePosition.Value));
 			}
 		}
 
@@ -774,34 +774,18 @@ namespace SharpConsoleUI
 		/// <returns>The control at the specified position, or null if none found.</returns>
 		public IWindowControl? GetContentFromWindowCoordinates(Point? point)
 		{
-			lock (_lock)
-			{
-				if (point == null) return null;
+		lock (_lock)
+		{
+			if (point == null) return null;
 
-				// Check if the coordinates are within the window content bounds
-				if (point?.X < 1 || point?.X >= Width - 1 || point?.Y < 1 || point?.Y >= Height - 1)
-				{
-					return null;
-				}
+			var contentPoint = point.Value;
 
-				// Convert to content coordinates (remove border offset)
-				var contentPoint = new Point(point.Value.X, point.Value.Y);
-
-				// Check each control's bounds using the layout manager
-				foreach (var control in _controls.Where(c => c.Visible))
-				{
-					var bounds = _layoutManager.GetOrCreateControlBounds(control);
-					if (bounds.ControlContentBounds.Contains(contentPoint))
-					{
-						return control;
-					}
-				}
-
-				return null;
-			}
+			// Use DOM tree hit-testing for correct nested control detection
+			return HitTestDOM(contentPoint.X, contentPoint.Y);
 		}
+	}
 
-		/// <summary>
+	/// <summary>
 		/// Handles mouse events for this window and propagates them to controls
 		/// </summary>
 		/// <param name="args">Mouse event arguments with window-relative coordinates</param>
@@ -833,10 +817,9 @@ namespace SharpConsoleUI
 							// Calculate control-relative coordinates
 							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
 							var controlArgs = args.WithPosition(controlPosition);
-							
 							return mouseAware.ProcessMouseEvent(controlArgs);
 						}
-						
+
 						// Event was handled by focus change even if control doesn't support mouse
 						return true;
 					}
@@ -890,8 +873,8 @@ namespace SharpConsoleUI
 		/// </summary>
 		private Point GetContentCoordinates(Point windowPosition)
 		{
-			// Subtract border offset and add scroll offset
-			return new Point(windowPosition.X - 1, windowPosition.Y - 1 + _scrollOffset);
+			// Subtract border offset only - DOM layout handles scroll offset in absolute bounds
+			return new Point(windowPosition.X - 1, windowPosition.Y - 1);
 		}
 
 		/// <summary>
@@ -899,10 +882,23 @@ namespace SharpConsoleUI
 		/// </summary>
 		private Point GetControlRelativePosition(IWindowControl control, Point windowPosition)
 		{
-			// Use the new layout manager for coordinate translation
-			var bounds = _layoutManager.GetOrCreateControlBounds(control);
-			return bounds.WindowToControl(windowPosition);
+		// Use DOM bounds if available (for sticky and container controls)
+		if (_controlToNodeMap.TryGetValue(control, out var node))
+		{
+		  // Convert window position to content position
+			var contentPos = GetContentCoordinates(windowPosition);
+			
+			// Make relative to control's AbsoluteBounds
+			return new Point(
+				contentPos.X - node.AbsoluteBounds.X,
+				contentPos.Y - node.AbsoluteBounds.Y
+			);
 		}
+		
+		// Fallback to layout manager for controls not in DOM
+		var bounds = _layoutManager.GetOrCreateControlBounds(control);
+		return bounds.WindowToControl(windowPosition);
+	}
 
 		/// <summary>
 		/// Handles focus management when a control is clicked
@@ -910,24 +906,28 @@ namespace SharpConsoleUI
 		private void HandleControlFocusFromMouse(IWindowControl control)
 		{
 			// Check if control can receive focus
-			if (control is Controls.IFocusableControl focusable && focusable.CanReceiveFocus)
+			if (control is not Controls.IFocusableControl focusable || !focusable.CanReceiveFocus)
+				return;
+
+			// Check if control allows mouse focus
+			if (control is Controls.IMouseAwareControl mouseAware && !mouseAware.CanFocusWithMouse)
+				return;
+
+			// Remove focus from current control
+			if (_lastFocusedControl != null && _lastFocusedControl != control && _lastFocusedControl is Controls.IFocusableControl currentFocused)
 			{
-				// Remove focus from current control
-				if (_lastFocusedControl != null && _lastFocusedControl != control && _lastFocusedControl is Controls.IFocusableControl currentFocused)
-				{
-					currentFocused.SetFocus(false, Controls.FocusReason.Mouse);
-				}
+				currentFocused.SetFocus(false, Controls.FocusReason.Mouse);
+			}
 
-				// Set focus to new control
-				focusable.SetFocus(true, Controls.FocusReason.Mouse);
+			// Set focus to new control
+			focusable.SetFocus(true, Controls.FocusReason.Mouse);
 
-				// Update last focused control (check if it's also IInteractiveControl)
-				if (control is IInteractiveControl interactive)
-				{
-					_lastFocusedControl = interactive;
-					// Sync with FocusStateService
-					FocusService?.SetFocus(this, interactive, FocusChangeReason.Mouse);
-				}
+			// Update last focused control (check if it's also IInteractiveControl)
+			if (control is IInteractiveControl interactive)
+			{
+				_lastFocusedControl = interactive;
+				// Sync with FocusStateService
+				FocusService?.SetFocus(this, interactive, FocusChangeReason.Mouse);
 			}
 		}
 
@@ -1197,7 +1197,15 @@ namespace SharpConsoleUI
 		/// <returns>True if there is a focused interactive control; otherwise false.</returns>
 		public bool HasActiveInteractiveContent(out IInteractiveControl? interactiveContent)
 		{
+			// First try to find focused control in _interactiveContents (direct children)
 			interactiveContent = _interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
+
+			// Fallback to _lastFocusedControl if it has focus (for nested controls in containers)
+			if (interactiveContent == null && _lastFocusedControl != null && _lastFocusedControl.HasFocus && _lastFocusedControl.IsEnabled)
+			{
+				interactiveContent = _lastFocusedControl;
+			}
+
 			return interactiveContent != null;
 		}
 

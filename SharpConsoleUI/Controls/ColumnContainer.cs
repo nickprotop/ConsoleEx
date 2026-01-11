@@ -654,8 +654,6 @@ namespace SharpConsoleUI.Controls
         {
             int maxWidth = 0;
 
-            // DEBUG: Log width values
-
             // FIX: If we have an explicit width (set by splitter), use it to calculate content width
             // This ensures children measure with the correct width constraints
             int contentMaxWidth;

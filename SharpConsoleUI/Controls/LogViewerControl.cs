@@ -27,7 +27,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
     private readonly ILogService _logService;
     private readonly object _logsLock = new object();  // Lock for thread-safe access to _displayedLogs
     private readonly List<LogEntry> _displayedLogs = new();
-    private int _localScrollOffset = 0;  // Local fallback for scroll offset
+    private int _scrollOffset = 0;  // Local fallback for scroll offset
     private int _maxDisplayLines = 10;
     private bool _autoScroll = true;
     private bool _hasFocus;
@@ -42,23 +42,12 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
     private string? _title;
     private volatile bool _disposed = false;
 
-    // Convenience property to access ScrollStateService
-    private ScrollStateService? ScrollService => Container?.GetConsoleWindowSystem?.ScrollStateService;
+    private int CurrentScrollOffset => _scrollOffset;
 
-    // Read scroll offset from state service (single source of truth)
-    private int CurrentScrollOffset => ScrollService?.GetVerticalOffset(this) ?? _localScrollOffset;
-
-    // Helper to set scroll offset - updates both service and local fallback
+    // Helper to set scroll offset
     private void SetScrollOffset(int offset)
     {
-        _localScrollOffset = Math.Max(0, offset);
-        int logCount;
-        lock (_logsLock)
-        {
-            logCount = _displayedLogs.Count;
-        }
-        ScrollService?.UpdateDimensions(this, 0, logCount, 0, _maxDisplayLines);
-        ScrollService?.SetVerticalOffset(this, _localScrollOffset);
+        _scrollOffset = Math.Max(0, offset);
     }
 
     /// <summary>
@@ -404,7 +393,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
                 int currentOffset = CurrentScrollOffset;
                 if (currentOffset > 0)
                 {
-                    _localScrollOffset = Math.Max(0, currentOffset - 1);
+                    _scrollOffset = Math.Max(0, currentOffset - 1);
                 }
             }
 

@@ -91,8 +91,6 @@ namespace SharpConsoleUI.Controls
 		private int? _width;
 		private WrapMode _wrapMode = WrapMode.Wrap;
 
-		// Convenience property to access EditStateService
-		private EditStateService? EditService => Container?.GetConsoleWindowSystem?.EditStateService;
 
 		/// <summary>
 		/// Initializes a new instance of the MultilineEditControl with the specified viewport height.
@@ -1356,9 +1354,6 @@ namespace SharpConsoleUI.Controls
 			_horizontalScrollOffset = 0;
 			_verticalScrollOffset = 0;
 
-			// Sync with EditStateService
-			SyncEditState();
-			EditService?.SetLineCount(this, _lines.Count);
 
 			EnsureCursorVisible();
 
@@ -1397,9 +1392,6 @@ namespace SharpConsoleUI.Controls
 			_horizontalScrollOffset = 0;
 			_verticalScrollOffset = 0;
 
-			// Sync with EditStateService
-			SyncEditState();
-			EditService?.SetLineCount(this, _lines.Count);
 
 			EnsureCursorVisible();
 
@@ -1682,41 +1674,11 @@ namespace SharpConsoleUI.Controls
 				_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
 			}
 
-			// Sync with EditStateService
-			SyncEditState();
-
 			// Update visual scroll position to ensure cursor is visible
 			EnsureCursorVisible();
 
 			// Invalidate the control for redraw
 			Container?.Invalidate(true);
-		}
-
-		/// <summary>
-		/// Syncs the current edit state (cursor, selection, scroll) with the EditStateService
-		/// </summary>
-		private void SyncEditState()
-		{
-			var service = EditService;
-			if (service == null) return;
-
-			// Sync cursor position
-			service.SetCursorPosition(this, _cursorY, _cursorX, EditChangeReason.Programmatic);
-
-			// Sync scroll position
-			service.SetScrollPosition(this, _horizontalScrollOffset, _verticalScrollOffset, EditChangeReason.Programmatic);
-
-			// Sync selection state
-			if (_hasSelection)
-			{
-				var start = new TextPosition(_selectionStartY, _selectionStartX);
-				var end = new TextPosition(_selectionEndY, _selectionEndX);
-				service.SetSelection(this, start, end, EditChangeReason.Programmatic);
-			}
-			else
-			{
-				service.ClearSelection(this, EditChangeReason.Programmatic);
-			}
 		}
 
 		/// <inheritdoc/>
@@ -1737,9 +1699,16 @@ namespace SharpConsoleUI.Controls
 		{
 			var hadFocus = _hasFocus;
 			_hasFocus = focus;
-			Container?.Invalidate(true);
 
-			// Fire focus events
+		// Exit edit mode when losing focus
+			if (!focus && hadFocus && _isEditing)
+		{
+			_isEditing = false;
+		}
+
+		Container?.Invalidate(true);
+
+		// Fire focus events
 			if (focus && !hadFocus)
 				GotFocus?.Invoke(this, EventArgs.Empty);
 			else if (!focus && hadFocus)

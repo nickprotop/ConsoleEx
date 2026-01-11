@@ -49,12 +49,13 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
-		// Convenience property to access EditStateService
-		private EditStateService? EditService => Container?.GetConsoleWindowSystem?.EditStateService;
+		// Local edit state - controls own their edit state
+		private int _cursorPosition = 0;
+		private int _horizontalScrollOffset = 0;
 
-		// Read-only helpers that read from state services (single source of truth)
-		private int CurrentCursorPosition => EditService?.GetCursorPosition(this).Column ?? 0;
-		private int CurrentScrollOffset => EditService?.GetEditState(this).HorizontalScrollOffset ?? 0;
+		// Read-only helpers
+		private int CurrentCursorPosition => _cursorPosition;
+		private int CurrentScrollOffset => _horizontalScrollOffset;
 
 		/// <summary>
 		/// Gets the actual rendered width of the control content in characters.
@@ -90,9 +91,6 @@ namespace SharpConsoleUI.Controls
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
-
-				// Sync editing mode with EditStateService
-				EditService?.SetEditingMode(this, value);
 
 				// Fire focus events
 				if (value && !hadFocus)
@@ -276,7 +274,7 @@ namespace SharpConsoleUI.Controls
 
 			// Clamp to valid input range
 			int newCursorPos = Math.Max(0, Math.Min(inputCursorPos, _input.Length));
-			EditService?.SetCursorPosition(this, 0, newCursorPos);
+			_cursorPosition = newCursorPos;
 
 			// Update scroll offset if needed
 			if (_inputWidth.HasValue)
@@ -312,7 +310,7 @@ namespace SharpConsoleUI.Controls
 				Entered?.Invoke(this, _input);
 				if (UnfocusOnEnter)
 				{
-					EditService?.SetCursorPosition(this, 0, 0);
+					_cursorPosition = 0;
 					HasFocus = false;
 				}
 				Container?.Invalidate(true);
@@ -323,7 +321,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_input = _input.Remove(cursorPos - 1, 1);
 				int newCursorPos = cursorPos - 1;
-				EditService?.SetCursorPosition(this, 0, newCursorPos);
+				_cursorPosition = newCursorPos;
 				if (newCursorPos < scrollOffset + (_inputWidth ?? _input.Length))
 				{
 					SetScrollOffset(scrollOffset - 1);
@@ -341,14 +339,14 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (key.Key == ConsoleKey.Home)
 			{
-				EditService?.SetCursorPosition(this, 0, 0);
+				_cursorPosition = 0;
 				SetScrollOffset(0);
 				Container?.Invalidate(true);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.End)
 			{
-				EditService?.SetCursorPosition(this, 0, _input.Length);
+				_cursorPosition = _input.Length;
 				SetScrollOffset(Math.Max(0, _input.Length - (_inputWidth ?? _input.Length)));
 				Container?.Invalidate(true);
 				return true;
@@ -356,7 +354,7 @@ namespace SharpConsoleUI.Controls
 			else if (key.Key == ConsoleKey.LeftArrow && cursorPos > 0)
 			{
 				int newCursorPos = cursorPos - 1;
-				EditService?.SetCursorPosition(this, 0, newCursorPos);
+				_cursorPosition = newCursorPos;
 				if (newCursorPos < scrollOffset + (_inputWidth ?? _input.Length))
 				{
 					SetScrollOffset(scrollOffset - 1);
@@ -367,7 +365,7 @@ namespace SharpConsoleUI.Controls
 			else if (key.Key == ConsoleKey.RightArrow && cursorPos < _input.Length)
 			{
 				int newCursorPos = cursorPos + 1;
-				EditService?.SetCursorPosition(this, 0, newCursorPos);
+				_cursorPosition = newCursorPos;
 				if (newCursorPos >= (scrollOffset + (_inputWidth ?? _input.Length)))
 				{
 					SetScrollOffset(scrollOffset + 1);
@@ -386,7 +384,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_input = _input.Insert(cursorPos, key.KeyChar.ToString());
 				int newCursorPos = cursorPos + 1;
-				EditService?.SetCursorPosition(this, 0, newCursorPos);
+				_cursorPosition = newCursorPos;
 				if (_inputWidth.HasValue && newCursorPos > _inputWidth.Value)
 				{
 					SetScrollOffset(newCursorPos - _inputWidth.Value);
@@ -428,8 +426,8 @@ namespace SharpConsoleUI.Controls
 			_input = input ?? string.Empty;
 
 			// Set cursor and scroll via services (single source of truth)
-			EditService?.SetCursorPosition(this, 0, newCursorPos);
-			EditService?.SetScrollPosition(this, 0, 0);
+			_cursorPosition = newCursorPos;
+			_horizontalScrollOffset = 0;
 
 			Container?.Invalidate(true);
 			InputChanged?.Invoke(this, _input);
@@ -439,7 +437,7 @@ namespace SharpConsoleUI.Controls
 		{
 			int newOffset = Math.Max(0, value);
 			// Set scroll position via service (single source of truth)
-			EditService?.SetScrollPosition(this, newOffset, 0);
+			_horizontalScrollOffset = newOffset;
 		}
 
 		#region IDOMPaintable Implementation

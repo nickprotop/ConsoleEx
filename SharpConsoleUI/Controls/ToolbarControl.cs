@@ -424,15 +424,18 @@ namespace SharpConsoleUI.Controls
 
 			if (item != null)
 			{
-				// Focus the item if it's focusable
-				if (item is IInteractiveControl interactive)
+				// Focus the item if it's focusable and clicked
+				if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
 				{
-					if (_focusedItem != null && _focusedItem != interactive)
+					if (item is IInteractiveControl interactive)
 					{
-						SetItemFocus(_focusedItem, false);
+						if (_focusedItem != null && _focusedItem != interactive)
+						{
+							SetItemFocus(_focusedItem, false);
+						}
+						_focusedItem = interactive;
+						SetItemFocus(interactive, true);
 					}
-					_focusedItem = interactive;
-					SetItemFocus(interactive, true);
 				}
 
 				// Delegate mouse event to the item

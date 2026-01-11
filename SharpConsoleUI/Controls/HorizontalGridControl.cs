@@ -955,11 +955,7 @@ namespace SharpConsoleUI.Controls
 			var clickedControl = GetControlAtPosition(args.Position);
 			if (clickedControl != null)
 			{
-				// Handle focus management for mouse clicks
-				if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
-				{
-					HandleControlFocusFromMouse(clickedControl);
-				}
+				// Window now handles focus via DOM tree - just forward mouse event to child
 
 				// Propagate mouse event to the clicked control if it supports mouse events
 				if (clickedControl is IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
@@ -970,9 +966,8 @@ namespace SharpConsoleUI.Controls
 					
 					return mouseAware.ProcessMouseEvent(controlArgs);
 				}
-				
-				// Event was handled by focus change even if control doesn't support mouse
-				return true;
+
+				return false;
 			}
 
 			// No control was clicked, but we might want to handle grid-level events
@@ -1211,37 +1206,6 @@ namespace SharpConsoleUI.Controls
 			}
 
 			return displayControls;
-		}
-
-		/// <summary>
-		/// Handles focus management when a control is clicked
-		/// </summary>
-		/// <param name="control">The control that was clicked</param>
-		private void HandleControlFocusFromMouse(IInteractiveControl control)
-		{
-			// Check if control can receive focus
-			if (control is IFocusableControl focusable && focusable.CanReceiveFocus)
-			{
-				// Remove focus from current control
-				if (_focusedContent != null && _focusedContent != control && _focusedContent is IFocusableControl currentFocused)
-				{
-					currentFocused.SetFocus(false, FocusReason.Mouse);
-				}
-				
-				// Set focus to new control
-				focusable.SetFocus(true, FocusReason.Mouse);
-				
-				// Update focused content
-				_focusedContent = control;
-				
-				// Invalidate the container that contains this control
-				if (_interactiveContents.ContainsKey(control))
-				{
-					_interactiveContents[control].Invalidate(true);
-				}
-				
-				Container?.Invalidate(true);
-			}
 		}
 
 		/// <summary>

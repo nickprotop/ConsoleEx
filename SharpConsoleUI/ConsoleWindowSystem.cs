@@ -99,10 +99,7 @@ namespace SharpConsoleUI
 		private readonly FocusStateService _focusStateService;
 		private readonly ModalStateService _modalStateService;
 		private readonly ThemeStateService _themeStateService;
-		private readonly SelectionStateService _selectionStateService;
-		private readonly ScrollStateService _scrollStateService;
 		private readonly InputStateService _inputStateService;
-		private readonly EditStateService _editStateService;
 		private readonly NotificationStateService _notificationStateService;
 
 		/// <summary>
@@ -119,10 +116,7 @@ namespace SharpConsoleUI
 			_focusStateService = new FocusStateService(_logService);
 			_modalStateService = new ModalStateService(_logService);
 			_themeStateService = new ThemeStateService();
-			_selectionStateService = new SelectionStateService();
-			_scrollStateService = new ScrollStateService();
 			_inputStateService = new InputStateService();
-			_editStateService = new EditStateService();
 
 			// Initialize notification service (needs 'this' reference)
 			_notificationStateService = new NotificationStateService(this, _logService);
@@ -240,24 +234,9 @@ namespace SharpConsoleUI
 		public ThemeStateService ThemeStateService => _themeStateService;
 
 		/// <summary>
-		/// Gets the selection state service for managing selection state across controls.
-		/// </summary>
-		public SelectionStateService SelectionStateService => _selectionStateService;
-
-		/// <summary>
-		/// Gets the scroll state service for managing scroll positions.
-		/// </summary>
-		public ScrollStateService ScrollStateService => _scrollStateService;
-
-		/// <summary>
 		/// Gets the input state service for managing input queue and idle state.
 		/// </summary>
 		public InputStateService InputStateService => _inputStateService;
-
-		/// <summary>
-		/// Gets the edit state service for managing text editing state.
-		/// </summary>
-		public EditStateService EditStateService => _editStateService;
 
 
 		/// <summary>
@@ -1175,23 +1154,33 @@ namespace SharpConsoleUI
 						SetActiveWindow(window);
 					}
 
-					// Check if we're starting a resize operation
-					var resizeDirection = GetResizeDirection(window, point);
-					if (resizeDirection != ResizeDirection.None && window.IsResizable)
-					{
-						// Start resize via service
-						_logService.LogDebug($"Resize started: {window.Title} ({resizeDirection})", "Interaction");
-						_windowStateService.StartResize(window, resizeDirection, point);
-						return;
-					}
+					// IMPORTANT: Check if clicking on an interactive control first
+					// Controls should have priority over resize/drag operations
+					var contentControl = window.GetContentFromWindowCoordinates(TranslateToRelative(window, point));
+					bool clickingOnControl = contentControl is Controls.IMouseAwareControl mouseAware
+					                          && mouseAware.WantsMouseEvents;
 
-					// Check if we're starting a move operation (title bar area)
-					if (IsInTitleBar(window, point) && window.IsMovable)
+					// Only check resize/drag if NOT clicking on an interactive control
+					if (!clickingOnControl)
 					{
-						// Start drag via service
-						_logService.LogDebug($"Drag started: {window.Title}", "Interaction");
-						_windowStateService.StartDrag(window, point);
-						return;
+						// Check if we're starting a resize operation
+						var resizeDirection = GetResizeDirection(window, point);
+						if (resizeDirection != ResizeDirection.None && window.IsResizable)
+						{
+							// Start resize via service
+							_logService.LogDebug($"Resize started: {window.Title} ({resizeDirection})", "Interaction");
+							_windowStateService.StartResize(window, resizeDirection, point);
+							return;
+						}
+
+						// Check if we're starting a move operation (title bar area)
+						if (IsInTitleBar(window, point) && window.IsMovable)
+						{
+							// Start drag via service
+							_logService.LogDebug($"Drag started: {window.Title}", "Interaction");
+							_windowStateService.StartDrag(window, point);
+							return;
+						}
 					}
 				}
 			}
@@ -1281,7 +1270,7 @@ namespace SharpConsoleUI
 			var relativePoint = TranslateToRelative(window, point);
 			
 			// Define resize border thickness
-			const int borderThickness = 2;
+			const int borderThickness = 1;  // Border is exactly 1 row/column thick
 			const int cornerSize = 3; // Must match title bar corner exclusion
 			
 			// Check if point is within expanded window bounds for resize detection

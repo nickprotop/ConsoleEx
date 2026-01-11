@@ -52,6 +52,8 @@ public sealed class ListBuilder
 	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
 	private EventHandler? _lostFocusHandler;
 	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
+	private EventHandler<int>? _highlightChangedHandler;
+	private WindowEventHandler<int>? _highlightChangedWithWindowHandler;
 
 	/// <summary>
 	/// Sets the list title
@@ -439,6 +441,31 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
+	/// Sets the highlight changed event handler for arrow key navigation.
+	/// Fires when the highlighted index changes (before selection/activation).
+	/// Use this for real-time preview updates as the user browses items.
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when highlight changes</param>
+	/// <returns>The builder for chaining</returns>
+	public ListBuilder OnHighlightChanged(EventHandler<int> handler)
+	{
+		_highlightChangedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the highlight changed event handler with window access.
+	/// Fires when the highlighted index changes (before selection/activation).
+	/// </summary>
+	/// <param name="handler">Handler receiving sender, index, and window</param>
+	/// <returns>The builder for chaining</returns>
+	public ListBuilder OnHighlightChanged(WindowEventHandler<int> handler)
+	{
+		_highlightChangedWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the list control
 	/// </summary>
 	public ListControl Build()
@@ -557,6 +584,22 @@ public sealed class ListBuilder
 				var window = (sender as IWindowControl)?.GetParentWindow();
 				if (window != null)
 					_lostFocusWithWindowHandler(sender, e, window);
+			};
+		}
+
+		// Attach HighlightChanged handlers
+		if (_highlightChangedHandler != null)
+		{
+			list.HighlightChanged += _highlightChangedHandler;
+		}
+
+		if (_highlightChangedWithWindowHandler != null)
+		{
+			list.HighlightChanged += (sender, index) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_highlightChangedWithWindowHandler(sender, index, window);
 			};
 		}
 

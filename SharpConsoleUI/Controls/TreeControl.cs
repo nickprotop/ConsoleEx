@@ -42,15 +42,13 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
-		// Convenience property to access SelectionStateService
-		private SelectionStateService? SelectionService => Container?.GetConsoleWindowSystem?.SelectionStateService;
+		// Local selection state
+		private int _selectedIndex = 0;
+		private int _scrollOffset = 0;
 
-		// Convenience property to access ScrollStateService
-		private ScrollStateService? ScrollService => Container?.GetConsoleWindowSystem?.ScrollStateService;
-
-		// Read-only helpers that read from state services (single source of truth)
-		private int CurrentSelectedIndex => SelectionService?.GetSelectedIndex(this) ?? 0;
-		private int CurrentScrollOffset => ScrollService?.GetVerticalOffset(this) ?? 0;
+		// Read-only helpers
+		private int CurrentSelectedIndex => _selectedIndex;
+		private int CurrentScrollOffset => _scrollOffset;
 
 		/// <summary>
 		/// Initializes a new instance of the TreeControl class.
@@ -268,7 +266,13 @@ namespace SharpConsoleUI.Controls
 					if (currentSel != newValue)
 					{
 						// Write to state service (single source of truth)
-						SelectionService?.SetSelectedIndex(this, newValue);
+						int oldIndex = _selectedIndex;
+					_selectedIndex = newValue;
+					if (oldIndex != _selectedIndex)
+					{
+						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					}
 						Container?.Invalidate(true);
 					}
 				}
@@ -369,8 +373,13 @@ namespace SharpConsoleUI.Controls
 			_flattenedNodes.Clear();
 
 			// Clear state via services (single source of truth)
-			SelectionService?.ClearSelection(this);
-			ScrollService?.ResetScroll(this);
+			int oldIndex = _selectedIndex;
+		_selectedIndex = -1;
+		if (oldIndex != _selectedIndex)
+		{
+			SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(null));
+		}
+			_scrollOffset = 0;
 
 			Container?.Invalidate(true);
 		}
@@ -522,7 +531,13 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.UpArrow:
 					if (selectedIndex > 0)
 					{
-						SelectionService?.SetSelectedIndex(this, selectedIndex - 1);
+						int oldIndex = _selectedIndex;
+					_selectedIndex = selectedIndex - 1;
+					if (oldIndex != _selectedIndex)
+					{
+						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					}
 						EnsureSelectedItemVisible();
 						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
@@ -533,7 +548,13 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.DownArrow:
 					if (selectedIndex < _flattenedNodes.Count - 1)
 					{
-						SelectionService?.SetSelectedIndex(this, selectedIndex + 1);
+						int oldIndex = _selectedIndex;
+					_selectedIndex = selectedIndex + 1;
+					if (oldIndex != _selectedIndex)
+					{
+						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					}
 						EnsureSelectedItemVisible();
 						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
@@ -546,7 +567,13 @@ namespace SharpConsoleUI.Controls
 					{
 						// Move up by a page (max visible items)
 						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-						SelectionService?.SetSelectedIndex(this, Math.Max(0, selectedIndex - pageSize));
+						int oldIndex = _selectedIndex;
+					_selectedIndex = Math.Max(0, selectedIndex - pageSize);
+					if (oldIndex != _selectedIndex)
+					{
+						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					}
 						EnsureSelectedItemVisible();
 						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
@@ -559,7 +586,13 @@ namespace SharpConsoleUI.Controls
 					{
 						// Move down by a page (max visible items)
 						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-						SelectionService?.SetSelectedIndex(this, Math.Min(_flattenedNodes.Count - 1, selectedIndex + pageSize));
+						int oldIndex = _selectedIndex;
+					_selectedIndex = Math.Min(_flattenedNodes.Count - 1, selectedIndex + pageSize);
+					if (oldIndex != _selectedIndex)
+					{
+						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					}
 						EnsureSelectedItemVisible();
 						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
@@ -609,7 +642,13 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.Home:
 					if (selectedIndex != 0)
 					{
-						SelectionService?.SetSelectedIndex(this, 0);
+						int oldIndex = _selectedIndex;
+					_selectedIndex = 0;
+					if (oldIndex != _selectedIndex)
+					{
+						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					}
 						EnsureSelectedItemVisible();
 						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
@@ -620,7 +659,13 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.End:
 					if (selectedIndex != _flattenedNodes.Count - 1)
 					{
-						SelectionService?.SetSelectedIndex(this, _flattenedNodes.Count - 1);
+						int oldIndex = _selectedIndex;
+					_selectedIndex = _flattenedNodes.Count - 1;
+					if (oldIndex != _selectedIndex)
+					{
+						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					}
 						EnsureSelectedItemVisible();
 						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
@@ -665,7 +710,13 @@ namespace SharpConsoleUI.Controls
 			int index = _flattenedNodes.IndexOf(node);
 			if (index >= 0)
 			{
-				SelectionService?.SetSelectedIndex(this, index);
+				int oldIndex = _selectedIndex;
+					_selectedIndex = index;
+				if (oldIndex != _selectedIndex)
+				{
+					var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+				}
 				Container?.Invalidate(true);
 				SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(node));
 				return true;
@@ -681,9 +732,14 @@ namespace SharpConsoleUI.Controls
 				index = _flattenedNodes.IndexOf(node);
 				if (index >= 0)
 				{
-					SelectionService?.SetSelectedIndex(this, index);
+					int oldIndex = _selectedIndex;
+					_selectedIndex = index;
+				if (oldIndex != _selectedIndex)
+				{
+					var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+				}
 					Container?.Invalidate(true);
-					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(node));
 					return true;
 				}
 			}
@@ -724,7 +780,7 @@ namespace SharpConsoleUI.Controls
 				// Make sure we don't scroll past the end
 				int maxScrollOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
 				int validScrollOffset = Math.Min(newScrollOffset, maxScrollOffset);
-				ScrollService?.SetVerticalOffset(this, validScrollOffset);
+				_scrollOffset = validScrollOffset;
 			}
 
 			Container?.Invalidate(true);
@@ -812,7 +868,7 @@ namespace SharpConsoleUI.Controls
 
 			if (newScrollOffset != scrollOffset)
 			{
-				ScrollService?.SetVerticalOffset(this, newScrollOffset);
+				_scrollOffset = newScrollOffset;
 			}
 		}
 
@@ -1276,12 +1332,24 @@ namespace SharpConsoleUI.Controls
 				int validIndex = Math.Max(0, Math.Min(selectedIndex, _flattenedNodes.Count - 1));
 				if (validIndex != selectedIndex)
 				{
-					SelectionService?.SetSelectedIndex(this, validIndex);
+					int oldIndex = _selectedIndex;
+					_selectedIndex = validIndex;
+					if (oldIndex != _selectedIndex)
+					{
+						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					}
 				}
 			}
 			else if (selectedIndex != -1)
 			{
-				SelectionService?.SetSelectedIndex(this, -1);
+				int oldIndex = _selectedIndex;
+					_selectedIndex = -1;
+				if (oldIndex != _selectedIndex)
+				{
+					var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+				}
 			}
 		}
 
@@ -1390,7 +1458,7 @@ namespace SharpConsoleUI.Controls
 			if (scrollOffset < 0 || scrollOffset > maxScrollOffset)
 			{
 				scrollOffset = Math.Max(0, Math.Min(scrollOffset, maxScrollOffset));
-				ScrollService?.SetVerticalOffset(this, scrollOffset);
+				_scrollOffset = scrollOffset;
 			}
 
 			// Ensure selected item is visible

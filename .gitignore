@@ -368,3 +368,4 @@ FodyWeavers.xsd
 /context.db
 /context.db-shm
 /context.db-wal
+.agent/
