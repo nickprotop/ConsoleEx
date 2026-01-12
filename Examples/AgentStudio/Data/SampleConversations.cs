@@ -1,6 +1,6 @@
-using OpenCodeShowcase.Models;
+using AgentStudio.Models;
 
-namespace OpenCodeShowcase.Data;
+namespace AgentStudio.Data;
 
 /// <summary>
 /// Pre-scripted conversation scenarios for demo purposes

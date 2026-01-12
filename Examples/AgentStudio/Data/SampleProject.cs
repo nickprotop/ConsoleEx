@@ -6,7 +6,7 @@ using SharpConsoleUI.Controls;
 using Spectre.Console;
 using TreeNode = SharpConsoleUI.Controls.TreeNode;
 
-namespace OpenCodeShowcase.Data;
+namespace AgentStudio.Data;
 
 /// <summary>
 /// Provides mock project structure for the tree control

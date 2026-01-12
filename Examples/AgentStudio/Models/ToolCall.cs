@@ -1,4 +1,4 @@
-namespace OpenCodeShowcase.Models;
+namespace AgentStudio.Models;
 
 /// <summary>
 /// Represents the status of a tool execution

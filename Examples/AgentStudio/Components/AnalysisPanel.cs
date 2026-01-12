@@ -1,11 +1,11 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using OpenCodeShowcase.Models;
+using AgentStudio.Models;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 
-namespace OpenCodeShowcase.Components;
+namespace AgentStudio.Components;
 
 /// <summary>
 /// Creates visual panels for analysis results

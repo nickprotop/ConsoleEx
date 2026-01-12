@@ -7,12 +7,12 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
-using OpenCodeShowcase.Models;
-using OpenCodeShowcase.Data;
+using AgentStudio.Models;
+using AgentStudio.Data;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
-namespace OpenCodeShowcase;
+namespace AgentStudio;
 
 /// <summary>
 /// Main AgentStudio window showcasing SharpConsoleUI capabilities

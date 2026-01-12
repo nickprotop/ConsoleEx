@@ -1,9 +1,9 @@
-using OpenCodeShowcase.Models;
+using AgentStudio.Models;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 
-namespace OpenCodeShowcase.Services;
+namespace AgentStudio.Services;
 
 /// <summary>
 /// Mock AI service for simulating AI responses with animations

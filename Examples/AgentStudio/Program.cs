@@ -12,7 +12,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Drivers;
 using Spectre.Console;
 
-namespace OpenCodeShowcase;
+namespace AgentStudio;
 
 internal class Program
 {

@@ -1,4 +1,4 @@
-namespace OpenCodeShowcase.Models;
+namespace AgentStudio.Models;
 
 /// <summary>
 /// Represents the role of a message sender
