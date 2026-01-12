@@ -234,7 +234,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			int height = _children.Where(c => c.Visible).Sum(c => c.GetLogicalContentSize().Height);
+			int height = _children.Where(c => c.Visible).ToList().Sum(c => c.GetLogicalContentSize().Height);
 			int width = _width ?? 80;
 			return new System.Drawing.Size(width, height);
 		}
@@ -705,7 +705,7 @@ namespace SharpConsoleUI.Controls
 			// Render children with scroll offsets applied
 			int currentY = -_verticalScrollOffset;
 
-			foreach (var child in _children)
+			foreach (var child in _children.ToList())
 			{
 				if (!child.Visible) continue;
 
@@ -848,7 +848,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			int totalHeight = 0;
-			foreach (var child in _children.Where(c => c.Visible))
+			foreach (var child in _children.Where(c => c.Visible).ToList())
 			{
 				// For DOM-paintable controls, use MeasureDOM to get actual rendered height (including wrapping)
 				if (child is IDOMPaintable measurable)
@@ -874,7 +874,7 @@ namespace SharpConsoleUI.Controls
 
 		private int CalculateContentWidth()
 		{
-			var visibleChildren = _children.Where(c => c.Visible);
+			var visibleChildren = _children.Where(c => c.Visible).ToList();
 			return visibleChildren.Any() ? visibleChildren.Max(c => c.ActualWidth ?? 0) : 0;
 		}
 
