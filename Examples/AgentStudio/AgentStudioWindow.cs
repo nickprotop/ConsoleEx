@@ -183,7 +183,7 @@ public class AgentStudioWindow : IDisposable
 
         var explorerHeader = new MarkupControl(new List<string> { "[cyan1 bold]Project Explorer[/]" })
         {
-            Margin = new Margin(1, 1, 0, 0),
+            Margin = new Margin(1, 0, 0, 0),
             BackgroundColor = Color.Grey15
         };
         leftColumn.AddContent(explorerHeader);
@@ -221,7 +221,7 @@ public class AgentStudioWindow : IDisposable
 
         var conversationHeader = new MarkupControl(new List<string> { "[cyan1 bold]Conversation & Tool Outputs[/]" })
         {
-            Margin = new Margin(1, 1, 0, 0),
+            Margin = new Margin(1, 0, 0, 0),
             BackgroundColor = Color.Grey11
         };
         rightColumn.AddContent(conversationHeader);

@@ -24,7 +24,8 @@ internal class Program
             var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
             {
                 TopStatus = "AgentStudio - TUI Showcase",
-                ShowTaskBar = false
+                ShowTaskBar = false,
+                ShowBottomStatus = false
             };
 
             // Setup graceful shutdown
