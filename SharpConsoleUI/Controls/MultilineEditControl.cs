@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -49,7 +51,7 @@ namespace SharpConsoleUI.Controls
 	/// A multiline text editing control with support for text selection, scrolling, and word wrap.
 	/// Provides full cursor navigation, cut/copy/paste-like operations, and configurable scrollbars.
 	/// </summary>
-	public class MultilineEditControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider, IDOMPaintable
+	public class MultilineEditControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, IDOMPaintable
 	{
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -116,6 +118,18 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the text content changes.
 		/// </summary>
 		public event EventHandler<string>? ContentChanged;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseMove;
 
 		/// <summary>
 		/// Gets the actual rendered width of the control content in characters.
@@ -1697,6 +1711,12 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
+		/// <inheritdoc/>
+		public bool WantsMouseEvents => IsEnabled;
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse => IsEnabled;
+
 		/// <summary>
 		/// Occurs when the control receives focus.
 		/// </summary>
@@ -1713,19 +1733,54 @@ namespace SharpConsoleUI.Controls
 			var hadFocus = _hasFocus;
 			_hasFocus = focus;
 
-		// Exit edit mode when losing focus
+			// Enter edit mode when focused with mouse
+			if (focus && !hadFocus && reason == FocusReason.Mouse && !_readOnly)
+			{
+				_isEditing = true;
+			}
+
+			// Exit edit mode when losing focus
 			if (!focus && hadFocus && _isEditing)
-		{
-			_isEditing = false;
-		}
+			{
+				_isEditing = false;
+			}
 
-		Container?.Invalidate(true);
+			Container?.Invalidate(true);
 
-		// Fire focus events
+			// Fire focus events
 			if (focus && !hadFocus)
 				GotFocus?.Invoke(this, EventArgs.Empty);
 			else if (!focus && hadFocus)
 				LostFocus?.Invoke(this, EventArgs.Empty);
+		}
+
+		/// <inheritdoc/>
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+			if (!IsEnabled || !WantsMouseEvents)
+				return false;
+
+			// Handle mouse clicks - enter edit mode if already focused
+			if (args.HasFlag(MouseFlags.Button1Clicked))
+			{
+				if (_hasFocus && !_readOnly)
+				{
+					_isEditing = true;
+					Container?.Invalidate(true);
+				}
+
+				MouseClick?.Invoke(this, args);
+				return true;
+			}
+
+			// Handle mouse position reports
+			if (args.HasFlag(MouseFlags.ReportMousePosition))
+			{
+				MouseMove?.Invoke(this, args);
+				return false;
+			}
+
+			return false;
 		}
 
 		#region IDOMPaintable Implementation
