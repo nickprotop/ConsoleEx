@@ -361,7 +361,7 @@ internal class Program
                 var separator = new MarkupControl(new List<string> { "[grey23]─────────────────────────────────────────────[/]" })
                 {
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Margin(0, 1, 0, 1)
+                    Margin = new Margin(0, 0, 0, 1)  // No top margin (AI message already has bottom margin), 1 line below
                 };
                 _messagePanel.AddControl(separator);
             }
