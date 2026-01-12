@@ -757,7 +757,13 @@ namespace SharpConsoleUI.Controls
 			// When focused but not editing, allow scrolling with arrow keys
 			if (_hasFocus && !_isEditing)
 			{
-				if (key.Modifiers.HasFlag(ConsoleModifiers.Control) || key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt))
+				// Special case: Ctrl+Enter should bubble up even when not editing
+				if (key.Key == ConsoleKey.Enter && key.Modifiers.HasFlag(ConsoleModifiers.Control))
+				{
+					return false;
+				}
+
+				if (key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt))
 				{
 					return false;
 				}
@@ -896,6 +902,7 @@ namespace SharpConsoleUI.Controls
 
 			bool contentChanged = false;
 			bool isShiftPressed = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
+			bool isCtrlPressed = key.Modifiers.HasFlag(ConsoleModifiers.Control);
 			int oldCursorX = _cursorX;
 			int oldCursorY = _cursorY;
 
@@ -1231,6 +1238,12 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.Enter:
+					// If Ctrl is pressed with Enter, let the window handle it (e.g., Ctrl+Enter to send)
+					if (isCtrlPressed)
+					{
+						return false;
+					}
+
 					if (_readOnly) break;
 
 					if (_hasSelection)
