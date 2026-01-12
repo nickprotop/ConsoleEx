@@ -3,6 +3,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI;
+using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
@@ -27,6 +28,7 @@ public class AgentStudioWindow : IDisposable
     private ScrollablePanelControl? _conversationPanel;
     private TreeControl? _projectTree;
     private MultilineEditControl? _inputArea;
+    private ButtonControl? _sendButton;
 
     // Status bar controls
     private MarkupControl? _topStatusLeft;
@@ -37,6 +39,7 @@ public class AgentStudioWindow : IDisposable
     private string _currentMode = "Build";
     private string _currentSession = "demo-1";
     private readonly List<Message> _messages = new();
+    private Services.MockAiService? _mockAiService;
 
     public AgentStudioWindow(ConsoleWindowSystem windowSystem)
     {
@@ -57,17 +60,15 @@ public class AgentStudioWindow : IDisposable
 
     private void CreateWindow()
     {
-        // Create fullscreen window - no Width/Height for maximum screen usage
-        _window = new Window(_windowSystem, WindowThreadMethod)
-        {
-            Title = "AgentStudio",
-            BackgroundColor = Color.Grey11,
-            ForegroundColor = Color.Grey93,
-            Left = 0,
-            Top = 0,
-            Width = Console.WindowWidth,
-            Height = Console.WindowHeight
-        };
+        // Create fullscreen window using WindowBuilder fluent API
+        _window = new WindowBuilder(_windowSystem)
+            .WithTitle("AgentStudio")
+            .WithColors(Color.Grey11, Color.Grey93)
+            .AtPosition(0, 0)
+            .WithSize(80, 24)
+            .WithWindowThread(WindowThreadMethod)
+            .Maximized()
+            .Build();
     }
 
     /// <summary>
@@ -188,6 +189,7 @@ public class AgentStudioWindow : IDisposable
 
         _projectTree = new TreeControl
         {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Fill,
             BackgroundColor = Color.Grey15,
             ForegroundColor = Color.Grey93,
@@ -234,6 +236,9 @@ public class AgentStudioWindow : IDisposable
         };
         rightColumn.AddContent(_conversationPanel);
 
+        // Initialize mock AI service
+        _mockAiService = new Services.MockAiService(_conversationPanel, _messages);
+
         _mainGrid.AddColumn(rightColumn);
 
         _window.AddControl(_mainGrid);
@@ -257,6 +262,45 @@ public class AgentStudioWindow : IDisposable
             Margin = new Margin(1, 0, 1, 0)
         };
         _window.AddControl(_inputArea);
+
+        // Input hint bar with Send button (model info + send button)
+        var hintGrid = new HorizontalGridControl
+        {
+            StickyPosition = StickyPosition.Bottom,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            BackgroundColor = Color.Grey15,
+            ForegroundColor = Color.Grey70
+        };
+
+        // Left column: Model info
+        var hintLeftColumn = new ColumnContainer(hintGrid);
+        var modelInfo = new MarkupControl(new List<string>
+        {
+            "[grey50]Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Enter:Send[/]"
+        })
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Margin(1, 0, 0, 0)
+        };
+        hintLeftColumn.AddContent(modelInfo);
+        hintGrid.AddColumn(hintLeftColumn);
+
+        // Right column: Send button
+        var hintRightColumn = new ColumnContainer(hintGrid)
+        {
+            Width = 12
+        };
+        _sendButton = new ButtonControl
+        {
+            Text = "Send",
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Margin(0, 0, 1, 0)
+        };
+        _sendButton.Click += (s, e) => HandleSendMessage();
+        hintRightColumn.AddContent(_sendButton);
+        hintGrid.AddColumn(hintRightColumn);
+
+        _window.AddControl(hintGrid);
     }
 
     /// <summary>
@@ -274,7 +318,7 @@ public class AgentStudioWindow : IDisposable
 
         _bottomStatus = new MarkupControl(new List<string>
         {
-            "[grey50]Tokens: 0  |  [/][grey70]Ctrl+N:New  Ctrl+S:Session  Tab:Mode[/]"
+            "[grey50]Tokens: 0  |  [/][grey70]Send Button or Ctrl+Enter  Tab:Mode  ESC:Quit[/]"
         })
         {
             StickyPosition = StickyPosition.Bottom,
@@ -298,20 +342,16 @@ public class AgentStudioWindow : IDisposable
                 _windowSystem.CloseWindow(_window);
                 e.Handled = true;
             }
-            else if (e.KeyInfo.Key == ConsoleKey.Tab)
+            else if (e.KeyInfo.Key == ConsoleKey.Tab && !e.AllreadyHandled)
             {
                 // Switch mode
                 _currentMode = _currentMode == "Build" ? "Plan" : "Build";
                 _topStatusLeft?.SetContent(new List<string> { $"[cyan1]Mode: {_currentMode}[/]" });
                 e.Handled = true;
             }
-            else if (e.KeyInfo.Key == ConsoleKey.Enter && !e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
-            {
-                // Regular enter in input - do nothing (allow multiline)
-            }
             else if (e.KeyInfo.Key == ConsoleKey.Enter && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
             {
-                // Ctrl+Enter to send
+                // Ctrl+Enter to send (may or may not work depending on terminal)
                 HandleSendMessage();
                 e.Handled = true;
             }
@@ -328,36 +368,77 @@ public class AgentStudioWindow : IDisposable
 
         AddMessage(new Message(
             MessageRole.System,
-            "[grey50 italic]Type /analyze, /diff, or /test to see mock tool interactions.[/]",
+            "[grey50 italic]Welcome! Try these demo commands: [/][cyan1]/analyze[/][grey50], [/][cyan1]/diff[/][grey50], or [/][cyan1]/test[/]",
             DateTime.Now
         ));
     }
 
     private void HandleSendMessage()
     {
-        if (_inputArea == null) return;
+        if (_inputArea == null || _mockAiService == null) return;
 
         var content = _inputArea.Content.Trim();
         if (string.IsNullOrWhiteSpace(content))
             return;
 
-        // Add user message
-        AddMessage(new Message(MessageRole.User, content, DateTime.Now));
+        // Clear input
         _inputArea.SetContent("");
 
-        // Placeholder for AI response (will be implemented in Phase 5)
-        AddMessage(new Message(
-            MessageRole.Assistant,
-            "[grey70]Mock AI response will be implemented in Phase 5.[/]",
-            DateTime.Now,
-            0.5
-        ));
+        // Add user message immediately
+        AddMessage(new Message(MessageRole.User, content, DateTime.Now));
+
+        // Check for demo commands and run scenarios with animation
+        if (content.Contains("/analyze"))
+        {
+            var scenario = Data.SampleConversations.SecurityAnalysisScenario();
+            _ = _mockAiService.AddScenarioAsync(scenario);
+            return;
+        }
+
+        if (content.Contains("/diff"))
+        {
+            var scenario = Data.SampleConversations.CodeDiffScenario();
+            _ = _mockAiService.AddScenarioAsync(scenario);
+            return;
+        }
+
+        if (content.Contains("/test"))
+        {
+            var scenario = Data.SampleConversations.TestExecutionScenario();
+            _ = _mockAiService.AddScenarioAsync(scenario);
+            return;
+        }
+
+        // For other messages, show help response
+        var helpScenario = new List<Message>
+        {
+            new Message(
+                MessageRole.Assistant,
+                "[grey70]This is a demo showcase. Try: [/][cyan1]/analyze[/][grey70], [/][cyan1]/diff[/][grey70], or [/][cyan1]/test[/]",
+                DateTime.Now,
+                0.3
+            )
+        };
+        _ = _mockAiService.AddScenarioAsync(helpScenario);
     }
 
     private void AddMessage(Message message)
     {
         _messages.Add(message);
         RenderMessages();
+        UpdateTokenCount();
+    }
+
+    private void UpdateTokenCount()
+    {
+        // Rough token estimation: ~4 chars per token
+        int totalChars = _messages.Sum(m => m.Content.Length);
+        int estimatedTokens = (int)Math.Round(totalChars / 4.0);
+
+        _bottomStatus?.SetContent(new List<string>
+        {
+            $"[grey50]Tokens: {estimatedTokens:N0}  |  [/][grey70]Send Button or Ctrl+Enter  Tab:Mode  ESC:Quit[/]"
+        });
     }
 
     private void RenderMessages()
@@ -372,8 +453,9 @@ public class AgentStudioWindow : IDisposable
         }
 
         // Render all messages
-        foreach (var msg in _messages)
+        for (int i = 0; i < _messages.Count; i++)
         {
+            var msg = _messages[i];
             var (lines, bgColor, fgColor) = FormatMessage(msg);
             var markup = new MarkupControl(lines)
             {
@@ -385,6 +467,32 @@ public class AgentStudioWindow : IDisposable
             };
 
             _conversationPanel.AddControl(markup);
+
+            // Add tool call panel if present
+            if (msg.ToolCall != null)
+            {
+                var toolPanel = Components.ToolCallPanel.CreatePanel(msg.ToolCall);
+                _conversationPanel.AddControl(toolPanel);
+            }
+
+            // Add analysis panel if present
+            if (msg.Findings != null && msg.Findings.Count > 0)
+            {
+                var analysisPanel = Components.AnalysisPanel.CreatePanel(msg.Findings);
+                _conversationPanel.AddControl(analysisPanel);
+            }
+
+            // Add separator line after AI responses
+            if (msg.Role == MessageRole.Assistant)
+            {
+                var separator = new RuleControl
+                {
+                    Color = Color.Grey23,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Margin = new Margin(1, 1, 1, 0)
+                };
+                _conversationPanel.AddControl(separator);
+            }
         }
 
         _conversationPanel.ScrollToBottom();

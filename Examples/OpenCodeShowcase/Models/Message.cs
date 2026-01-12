@@ -17,9 +17,13 @@ public enum MessageRole
 /// <param name="Content">Message text content</param>
 /// <param name="Timestamp">When the message was created</param>
 /// <param name="ResponseTime">Optional response time in seconds for AI messages</param>
+/// <param name="ToolCall">Optional tool call data</param>
+/// <param name="Findings">Optional analysis findings</param>
 public record Message(
     MessageRole Role,
     string Content,
     DateTime Timestamp,
-    double? ResponseTime = null
+    double? ResponseTime = null,
+    ToolCall? ToolCall = null,
+    List<Finding>? Findings = null
 );
