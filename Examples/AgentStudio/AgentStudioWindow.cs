@@ -33,7 +33,6 @@ public class AgentStudioWindow : IDisposable
     // Status bar controls
     private MarkupControl? _topStatusLeft;
     private MarkupControl? _topStatusRight;
-    private MarkupControl? _bottomStatus;
 
     // State
     private string _currentMode = "Build";
@@ -108,7 +107,6 @@ public class AgentStudioWindow : IDisposable
 
         CreateTopStatusBar();
         CreateMainLayout();
-        CreateBottomStatusBar();
     }
 
     /// <summary>
@@ -266,6 +264,13 @@ public class AgentStudioWindow : IDisposable
         };
         _window.AddControl(_inputArea);
 
+        // Separator between input and hint
+        _window.AddControl(new RuleControl
+        {
+            StickyPosition = StickyPosition.Bottom,
+            Color = Color.Grey23
+        });
+
         // Input hint bar with Send button (model info + send button)
         var hintGrid = new HorizontalGridControl
         {
@@ -306,33 +311,6 @@ public class AgentStudioWindow : IDisposable
         _window.AddControl(hintGrid);
     }
 
-    /// <summary>
-    /// Create bottom status bar
-    /// </summary>
-    private void CreateBottomStatusBar()
-    {
-        if (_window == null) return;
-
-        _window.AddControl(new RuleControl
-        {
-            StickyPosition = StickyPosition.Bottom,
-            Color = Color.Grey23
-        });
-
-        _bottomStatus = new MarkupControl(new List<string>
-        {
-            "[grey50]Tokens: 0  |  [/][grey70]Send Button or Ctrl+Enter  Tab:Mode  ESC:Quit[/]"
-        })
-        {
-            StickyPosition = StickyPosition.Bottom,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            BackgroundColor = Color.Grey15,
-            ForegroundColor = Color.Grey70,
-            Margin = new Margin(0, 0, 0, 0)
-        };
-
-        _window.AddControl(_bottomStatus);
-    }
 
     private void SetupEventHandlers()
     {
@@ -429,20 +407,8 @@ public class AgentStudioWindow : IDisposable
     {
         _messages.Add(message);
         RenderMessages();
-        UpdateTokenCount();
     }
 
-    private void UpdateTokenCount()
-    {
-        // Rough token estimation: ~4 chars per token
-        int totalChars = _messages.Sum(m => m.Content.Length);
-        int estimatedTokens = (int)Math.Round(totalChars / 4.0);
-
-        _bottomStatus?.SetContent(new List<string>
-        {
-            $"[grey50]Tokens: {estimatedTokens:N0}  |  [/][grey70]Send Button or Ctrl+Enter  Tab:Mode  ESC:Quit[/]"
-        });
-    }
 
     private void RenderMessages()
     {
