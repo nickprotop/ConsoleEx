@@ -1375,7 +1375,14 @@ namespace SharpConsoleUI.Controls
 				if (itemWidth > maxItemWidth) maxItemWidth = itemWidth;
 			}
 
-			int width = (_width ?? maxItemWidth) + _margin.Left + _margin.Right;
+			// Calculate width based on content or explicit width
+			int contentBasedWidth = (_width ?? maxItemWidth) + _margin.Left + _margin.Right;
+
+			// For Stretch alignment, request full available width
+			// For other alignments, request only what content needs
+			int width = _horizontalAlignment == HorizontalAlignment.Stretch
+				? constraints.MaxWidth
+				: contentBasedWidth;
 
 			// Calculate height based on visible items
 			int effectiveMaxVisibleItems;
