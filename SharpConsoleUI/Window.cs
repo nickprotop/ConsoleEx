@@ -51,6 +51,24 @@ namespace SharpConsoleUI
 	}
 
 	/// <summary>
+	/// Specifies the visual style of a window's border.
+	/// </summary>
+	public enum BorderStyle
+	{
+		/// <summary>
+		/// Double-line border characters (╔═╗║╚╝ when active, ┌─┐│└┘ when inactive).
+		/// This is the default and traditional border style.
+		/// </summary>
+		DoubleLine,
+
+		/// <summary>
+		/// No visible border. Border areas render as spaces with window background color.
+		/// Layout dimensions unchanged - border space still exists but is invisible.
+		/// </summary>
+		None
+	}
+
+	/// <summary>
 	/// Provides data for the window closing event, allowing cancellation of the close operation.
 	/// </summary>
 	public class ClosingEventArgs : EventArgs
@@ -149,6 +167,7 @@ namespace SharpConsoleUI
 		private WindowThreadDelegate? _windowThreadMethod;
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 		private CancellationTokenSource? _windowThreadCts;
+		private BorderStyle _borderStyle = BorderStyle.DoubleLine;
 		private bool _isClosing = false;
 		private string? _name;
 
@@ -598,6 +617,24 @@ namespace SharpConsoleUI
 		/// Gets or sets the Z-order index for layering windows.
 		/// </summary>
 		public int ZIndex { get; set; }
+
+		/// <summary>
+		/// Gets or sets the border style for this window.
+		/// When set to BorderStyle.None, border areas render as spaces with window background color
+		/// while preserving layout dimensions.
+		/// </summary>
+		public BorderStyle BorderStyle
+		{
+			get => _borderStyle;
+			set
+			{
+				if (_borderStyle != value)
+				{
+					_borderStyle = value;
+					Invalidate(false);
+				}
+			}
+		}
 
 		/// <inheritdoc/>
 		public void AddControl(IWindowControl content)

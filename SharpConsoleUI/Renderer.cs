@@ -232,6 +232,13 @@ namespace SharpConsoleUI
 
 		private void DrawWindowBorders(Window window, List<Rectangle> visibleRegions)
 		{
+			// Handle borderless windows
+			if (window.BorderStyle == BorderStyle.None)
+			{
+				DrawInvisibleBorders(window, visibleRegions);
+				return;
+			}
+
 			var horizontalBorder = window.GetIsActive() ? '═' : '─';
 			var verticalBorder = window.GetIsActive() ? '║' : '│';
 			var topLeftCorner = window.GetIsActive() ? '╔' : '┌';
@@ -335,6 +342,109 @@ namespace SharpConsoleUI
 							else
 							{
 								_consoleWindowSystem.ConsoleDriver.WriteToConsole(rightBorderPos, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, verticalBorderAnsi);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Renders invisible borders by filling border areas with spaces.
+		/// Preserves layout (border space exists) while making borders visually disappear.
+		/// </summary>
+		private void DrawInvisibleBorders(Window window, List<Rectangle> visibleRegions)
+		{
+			var backgroundColor = window.BackgroundColor;
+			var foregroundColor = window.ForegroundColor;
+
+			// Create space character with window background color
+			var spaceAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+				" ", 1, 1, false, backgroundColor, foregroundColor)[0];
+
+			foreach (var region in visibleRegions ?? new List<Rectangle>())
+			{
+				// Top border row (Y=0)
+				if (region.Top == window.Top)
+				{
+					int startX = Math.Max(region.Left, window.Left);
+					int width = Math.Min(region.Width, window.Left + window.Width - startX);
+
+					for (int x = 0; x < width; x++)
+					{
+						_consoleWindowSystem.ConsoleDriver.WriteToConsole(
+							startX + x,
+							region.Top + _consoleWindowSystem.DesktopUpperLeft.Y,
+							spaceAnsi);
+					}
+				}
+
+				// Bottom border row (Y=height-1)
+				if (region.Top + region.Height == window.Top + window.Height)
+				{
+					int startX = Math.Max(region.Left, window.Left);
+					int width = Math.Min(region.Width, window.Left + window.Width - startX);
+
+					for (int x = 0; x < width; x++)
+					{
+						_consoleWindowSystem.ConsoleDriver.WriteToConsole(
+							startX + x,
+							window.Top + window.Height - 1 + _consoleWindowSystem.DesktopUpperLeft.Y,
+							spaceAnsi);
+					}
+				}
+			}
+
+			// Left and right border columns
+			for (var y = 1; y < window.Height - 1; y++)
+			{
+				if (window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y >=
+					_consoleWindowSystem.DesktopBottomRight.Y)
+					break;
+
+				foreach (var region in visibleRegions ?? new List<Rectangle>())
+				{
+					if (window.Top + y >= region.Top &&
+						window.Top + y < region.Top + region.Height)
+					{
+						// Left border
+						if (window.Left >= region.Left &&
+							window.Left < region.Left + region.Width)
+						{
+							_consoleWindowSystem.ConsoleDriver.WriteToConsole(
+								window.Left,
+								window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y,
+								spaceAnsi);
+						}
+
+						// Right border (includes scrollbar position)
+						int rightPos = window.Left + window.Width - 1;
+						if (rightPos >= region.Left &&
+							rightPos < region.Left + region.Width)
+						{
+							// Check if scrollbar should be visible
+							var contentHeight = window.TotalLines;
+							var visibleHeight = window.Height - 2;
+							var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
+
+							if (scrollbarVisible)
+							{
+								// Render scrollbar (same as DrawWindowBorders does)
+								var borderColor = window.GetIsActive()
+									? $"[{window.ActiveBorderForegroundColor}]"
+									: $"[{window.InactiveBorderForegroundColor}]";
+								var verticalBorder = window.GetIsActive() ? '║' : '│';
+								var resetColor = "[/]";
+
+								DrawScrollbar(window, y, borderColor, verticalBorder, resetColor);
+							}
+							else
+							{
+								// No scrollbar - render as space
+								_consoleWindowSystem.ConsoleDriver.WriteToConsole(
+									rightPos,
+									window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y,
+									spaceAnsi);
 							}
 						}
 					}

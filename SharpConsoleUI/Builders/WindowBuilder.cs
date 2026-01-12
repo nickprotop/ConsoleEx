@@ -59,6 +59,7 @@ public sealed class WindowBuilder
     private EventHandler? _resizeHandler;
     private EventHandler? _shownHandler;
     private EventHandler<Window.WindowStateChangedEventArgs>? _stateChangedHandler;
+    private BorderStyle _borderStyle = BorderStyle.DoubleLine;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WindowBuilder"/> class.
@@ -293,6 +294,27 @@ public sealed class WindowBuilder
     public WindowBuilder Maximizable(bool maximizable = true)
     {
         _isMaximizable = maximizable;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the border style for the window.
+    /// </summary>
+    /// <param name="borderStyle">The border style to use.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithBorderStyle(BorderStyle borderStyle)
+    {
+        _borderStyle = borderStyle;
+        return this;
+    }
+
+    /// <summary>
+    /// Creates a borderless window (renders borders as invisible spaces).
+    /// </summary>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder Borderless()
+    {
+        _borderStyle = BorderStyle.None;
         return this;
     }
 
@@ -549,6 +571,7 @@ public sealed class WindowBuilder
         window.IsMovable = _isMovable;
         window.IsMinimizable = _isMinimizable;
         window.IsMaximizable = _isMaximizable;
+        window.BorderStyle = _borderStyle;
         // DOM layout is now always enabled - no need to set
 
         // Note: MinimumWidth, MinimumHeight, MaximumWidth, MaximumHeight are private fields in Window

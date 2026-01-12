@@ -1266,6 +1266,12 @@ namespace SharpConsoleUI
 
 		private ResizeDirection GetResizeDirection(Window window, Point point)
 		{
+			// Borderless windows cannot be resized from borders
+			if (window.BorderStyle == BorderStyle.None)
+			{
+				return ResizeDirection.None;
+			}
+
 			// Convert to window-relative coordinates
 			var relativePoint = TranslateToRelative(window, point);
 			
@@ -1323,6 +1329,12 @@ namespace SharpConsoleUI
 
 		private bool IsInTitleBar(Window window, Point point)
 		{
+			// Borderless windows have no title bar
+			if (window.BorderStyle == BorderStyle.None)
+			{
+				return false;
+			}
+
 			var relativePoint = TranslateToRelative(window, point);
 
 			// Must be in the top row

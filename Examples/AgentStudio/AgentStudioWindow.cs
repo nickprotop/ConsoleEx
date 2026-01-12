@@ -60,13 +60,16 @@ public class AgentStudioWindow : IDisposable
 
     private void CreateWindow()
     {
-        // Create fullscreen window using WindowBuilder fluent API
+        // Create fullscreen borderless window using WindowBuilder fluent API
         _window = new WindowBuilder(_windowSystem)
             .WithTitle("AgentStudio")
             .WithColors(Color.Grey11, Color.Grey93)
             .AtPosition(0, 0)
             .WithSize(80, 24)
             .WithWindowThread(WindowThreadMethod)
+            .Borderless()
+            .Minimizable(false)
+            .Maximizable(false)
             .Maximized()
             .Build();
     }
