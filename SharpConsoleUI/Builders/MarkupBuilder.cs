@@ -29,6 +29,8 @@ public sealed class MarkupBuilder
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
+	private Color? _backgroundColor;
+	private Color? _foregroundColor;
 
 	/// <summary>
 	/// Adds a line of markup text
@@ -197,6 +199,41 @@ public sealed class MarkupBuilder
 	}
 
 	/// <summary>
+	/// Sets the background color for the control
+	/// </summary>
+	/// <param name="color">The background color</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithBackgroundColor(Color color)
+	{
+		_backgroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the foreground (text) color for the control
+	/// </summary>
+	/// <param name="color">The foreground color</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithForegroundColor(Color color)
+	{
+		_foregroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets both foreground and background colors for the control
+	/// </summary>
+	/// <param name="foreground">The foreground (text) color</param>
+	/// <param name="background">The background color</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithColors(Color foreground, Color background)
+	{
+		_foregroundColor = foreground;
+		_backgroundColor = background;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the markup control
 	/// </summary>
 	/// <returns>The configured markup control</returns>
@@ -210,7 +247,9 @@ public sealed class MarkupBuilder
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			BackgroundColor = _backgroundColor,
+			ForegroundColor = _foregroundColor
 		};
 
 		return markup;

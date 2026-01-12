@@ -29,6 +29,8 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 		private bool _wrap = true;
+		private Color? _backgroundColor = null;
+		private Color? _foregroundColor = null;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="MarkupControl"/> class with the specified lines of text.
@@ -140,6 +142,25 @@ namespace SharpConsoleUI.Controls
 		public bool Wrap
 		{ get => _wrap; set { _wrap = value; Container?.Invalidate(true); } }
 
+		/// <summary>
+		/// Gets or sets the background color for the control. If null, uses container's background color.
+		/// When set with HorizontalAlignment.Stretch, this color will fill the entire width.
+		/// </summary>
+		public Color? BackgroundColor
+		{
+			get => _backgroundColor;
+			set { _backgroundColor = value; Container?.Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Gets or sets the foreground (text) color for the control. If null, uses container's foreground color.
+		/// </summary>
+		public Color? ForegroundColor
+		{
+			get => _foregroundColor;
+			set { _foregroundColor = value; Container?.Invalidate(true); }
+		}
+
 		/// <inheritdoc/>
 		public void Dispose()
 		{
@@ -205,7 +226,12 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Account for margins
-			int width = Math.Min(targetWidth, maxContentWidth) + _margin.Left + _margin.Right;
+			// For Stretch alignment, request full available width
+			// For other alignments, request only what content needs
+			int contentBasedWidth = maxContentWidth + _margin.Left + _margin.Right;
+			int width = _horizontalAlignment == HorizontalAlignment.Stretch
+				? targetWidth + _margin.Left + _margin.Right
+				: Math.Min(targetWidth, contentBasedWidth);
 			int height = totalLines + _margin.Top + _margin.Bottom;
 
 			return new LayoutSize(
@@ -239,8 +265,23 @@ namespace SharpConsoleUI.Controls
 					? Math.Min(maxContentWidth, targetWidth)
 					: targetWidth;
 
+				// Wrap the line with control's colors if set
+				string processedLine = line;
+				if (_backgroundColor.HasValue || _foregroundColor.HasValue)
+				{
+					Color fg = _foregroundColor ?? fgColor;
+					Color bg = _backgroundColor ?? bgColor;
+
+					// Convert colors to Spectre.Console color names
+					string fgName = ColorToSpectreString(fg);
+					string bgName = ColorToSpectreString(bg);
+
+					// Wrap: [foreground on background]original content[/]
+					processedLine = $"[{fgName} on {bgName}]{line}[/]";
+				}
+
 				var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					line, renderWidth, null, _wrap, bgColor, fgColor);
+					processedLine, renderWidth, null, _wrap, bgColor, fgColor);
 				renderedLines.AddRange(ansiLines);
 			}
 
@@ -303,7 +344,9 @@ namespace SharpConsoleUI.Controls
 				int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
 				if (rightPadWidth > 0)
 				{
-					buffer.FillRect(new LayoutRect(rightPadStart, y, rightPadWidth, 1), ' ', fgColor, bgColor);
+					// Use the control's background color if set, otherwise container's
+					Color fillBg = _backgroundColor ?? bgColor;
+					buffer.FillRect(new LayoutRect(rightPadStart, y, rightPadWidth, 1), ' ', fgColor, fillBg);
 				}
 
 				// Fill right margin
@@ -322,6 +365,17 @@ namespace SharpConsoleUI.Controls
 					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Converts a Spectre.Console Color to its string representation for markup.
+		/// </summary>
+		/// <param name="color">The color to convert</param>
+		/// <returns>RGB string representation in format "rgb(r,g,b)"</returns>
+		private static string ColorToSpectreString(Color color)
+		{
+			// Use RGB format for consistency - Spectre.Console supports both named colors and rgb(r,g,b)
+			return $"rgb({color.R},{color.G},{color.B})";
 		}
 
 		#endregion
