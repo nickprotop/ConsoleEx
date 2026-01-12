@@ -84,6 +84,8 @@ namespace SharpConsoleUI
 		private readonly VisibleRegions _visibleRegions;
 		private string? _cachedBottomStatus;
 		private string? _cachedTopStatus;
+		private bool _showTopStatus = true;
+		private bool _showBottomStatus = true;
 		private IConsoleDriver _consoleDriver;
 		private int _exitCode;
 		private int _idleTime = 10;
@@ -151,17 +153,49 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the bottom-right coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
+		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - GetTopStatusHeight() - GetBottomStatusHeight());
 
 		/// <summary>
 		/// Gets the dimensions of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - (string.IsNullOrEmpty(TopStatus) ? 0 : 1) - (string.IsNullOrEmpty(BottomStatus) ? 0 : 1));
+		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - GetTopStatusHeight() - GetBottomStatusHeight());
 
 		/// <summary>
 		/// Gets the upper-left coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopUpperLeft => new Point(0, string.IsNullOrEmpty(TopStatus) ? 0 : 1);
+		public Point DesktopUpperLeft => new Point(0, GetTopStatusHeight());
+
+		/// <summary>
+		/// Gets the height occupied by the top status bar (0 or 1).
+		/// </summary>
+		private int GetTopStatusHeight()
+		{
+			return _showTopStatus && !string.IsNullOrEmpty(TopStatus) ? 1 : 0;
+		}
+
+		/// <summary>
+		/// Gets the height occupied by the bottom status bar (0 or 1).
+		/// </summary>
+		private int GetBottomStatusHeight()
+		{
+			return _showBottomStatus && !string.IsNullOrEmpty(BottomStatus) ? 1 : 0;
+		}
+
+		/// <summary>
+		/// Returns true if the top status bar should be rendered.
+		/// </summary>
+		private bool ShouldRenderTopStatus()
+		{
+			return _showTopStatus && !string.IsNullOrEmpty(TopStatus);
+		}
+
+		/// <summary>
+		/// Returns true if the bottom status bar should be rendered.
+		/// </summary>
+		private bool ShouldRenderBottomStatus()
+		{
+			return _showBottomStatus && !string.IsNullOrEmpty(BottomStatus);
+		}
 
 		/// <summary>
 		/// Gets or sets the rendering mode for the window system.
@@ -192,6 +226,50 @@ namespace SharpConsoleUI
 		/// Gets or sets the text displayed in the top status bar.
 		/// </summary>
 		public string TopStatus { get; set; } = "";
+
+		/// <summary>
+		/// Gets or sets whether the top status bar is shown.
+		/// Changing this affects desktop dimensions and all window coordinates.
+		/// </summary>
+		public bool ShowTopStatus
+		{
+			get => _showTopStatus;
+			set
+			{
+				if (_showTopStatus != value)
+				{
+					_showTopStatus = value;
+					_cachedTopStatus = null; // Force re-render
+					// Invalidate all windows to recalculate bounds
+					foreach (var w in Windows.Values)
+					{
+						w.Invalidate(true);
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether the bottom status bar is shown.
+		/// Changing this affects desktop dimensions and all window coordinates.
+		/// </summary>
+		public bool ShowBottomStatus
+		{
+			get => _showBottomStatus;
+			set
+			{
+				if (_showBottomStatus != value)
+				{
+					_showBottomStatus = value;
+					_cachedBottomStatus = null; // Force re-render
+					// Invalidate all windows to recalculate bounds
+					foreach (var w in Windows.Values)
+					{
+						w.Invalidate(true);
+					}
+				}
+			}
+		}
 
 		/// <summary>
 		/// Gets the visible regions manager for calculating window visibility.
@@ -1807,15 +1885,18 @@ namespace SharpConsoleUI
 		{
 			lock (_renderLock)
 			{
-				if (TopStatus != _cachedTopStatus)
+				if (ShouldRenderTopStatus())
 				{
-					var topRow = TopStatus;
+					if (TopStatus != _cachedTopStatus)
+					{
+						var topRow = TopStatus;
 
-					var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
-					var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
-					_consoleDriver.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.TopBarBackgroundColor, null)[0]);
+						var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
+						var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
+						_consoleDriver.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.TopBarBackgroundColor, null)[0]);
 
-					_cachedTopStatus = TopStatus;
+						_cachedTopStatus = TopStatus;
+					}
 				}
 
 				var windowsToRender = new HashSet<Window>();
@@ -1874,32 +1955,35 @@ namespace SharpConsoleUI
 				}
 			}
 
-			// Filter out sub-windows from the bottom status bar
-			var topLevelWindows = Windows.Values
-				.Where(w => w.ParentWindow == null)
-				.ToList();
-
-			var taskBar = _showTaskBar ? $"{string.Join(" | ", topLevelWindows.Select((w, i) => {
-				var minIndicator = w.State == WindowState.Minimized ? "[dim]" : "";
-				var minEnd = w.State == WindowState.Minimized ? "[/]" : "";
-				return $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";
-			}))} | " : string.Empty;
-
-			string bottomRow = $"{taskBar}{BottomStatus}";
-
-			// Display the list of window titles in the bottom row
-			if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > _consoleDriver.ScreenSize.Width)
+			if (ShouldRenderBottomStatus())
 			{
-				bottomRow = AnsiConsoleHelper.TruncateSpectre(bottomRow, _consoleDriver.ScreenSize.Width);
-			}
+				// Filter out sub-windows from the bottom status bar
+				var topLevelWindows = Windows.Values
+					.Where(w => w.ParentWindow == null)
+					.ToList();
 
-			bottomRow += new string(' ', _consoleDriver.ScreenSize.Width - AnsiConsoleHelper.StripSpectreLength(bottomRow));
+				var taskBar = _showTaskBar ? $"{string.Join(" | ", topLevelWindows.Select((w, i) => {
+					var minIndicator = w.State == WindowState.Minimized ? "[dim]" : "";
+					var minEnd = w.State == WindowState.Minimized ? "[/]" : "";
+					return $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";
+				}))} | " : string.Empty;
 
-			if (_cachedBottomStatus != bottomRow)
-			{   //add padding to the bottom row
-				_consoleDriver.WriteToConsole(0, _consoleDriver.ScreenSize.Height - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.BottomBarForegroundColor}]{bottomRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.BottomBarBackgroundColor, null)[0]);
+				string bottomRow = $"{taskBar}{BottomStatus}";
 
-				_cachedBottomStatus = bottomRow;
+				// Display the list of window titles in the bottom row
+				if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > _consoleDriver.ScreenSize.Width)
+				{
+					bottomRow = AnsiConsoleHelper.TruncateSpectre(bottomRow, _consoleDriver.ScreenSize.Width);
+				}
+
+				bottomRow += new string(' ', _consoleDriver.ScreenSize.Width - AnsiConsoleHelper.StripSpectreLength(bottomRow));
+
+				if (_cachedBottomStatus != bottomRow)
+				{   //add padding to the bottom row
+					_consoleDriver.WriteToConsole(0, _consoleDriver.ScreenSize.Height - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.BottomBarForegroundColor}]{bottomRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.BottomBarBackgroundColor, null)[0]);
+
+					_cachedBottomStatus = bottomRow;
+				}
 			}
 
 			_consoleDriver.Flush();
