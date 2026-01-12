@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
@@ -273,8 +274,10 @@ namespace SharpConsoleUI
 			// Ensure we have enough space for the title, with safety margins
 			var maxTitleSpace = Math.Max(0, window.Width - 8 - totalButtonWidth); // Reserve space for corners, padding, buttons, and safety
 			var truncatedTitle = StringHelper.TrimWithEllipsis(window.Title, maxTitleSpace, maxTitleSpace / 2);
+			// Don't escape - title is plain text, not parsed as markup when concatenated
+			// Calculate visible length directly from plain text
+			var titleLength = 4 + truncatedTitle.Length; // "| " + title + " |" = 4 extra chars
 			var title = $"{titleColor}| {truncatedTitle} |{resetColor}";
-			var titleLength = AnsiConsoleHelper.StripSpectreLength(title);
 			var availableSpace = Math.Max(0, window.Width - 2 - titleLength - totalButtonWidth);
 			var leftPadding = Math.Min(1, availableSpace);
 			var rightPadding = Math.Max(0, availableSpace - leftPadding);
