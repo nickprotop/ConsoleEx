@@ -209,4 +209,22 @@ public static class Controls
 	/// </summary>
 	/// <returns>A new menu builder</returns>
 	public static MenuBuilder Menu() => new MenuBuilder();
+
+	/// <summary>
+	/// Creates a new horizontal grid builder
+	/// </summary>
+	/// <returns>A new horizontal grid builder</returns>
+	public static HorizontalGridBuilder HorizontalGrid() => new HorizontalGridBuilder();
+
+	/// <summary>
+	/// Creates a new scrollable panel builder
+	/// </summary>
+	/// <returns>A new scrollable panel builder</returns>
+	public static ScrollablePanelBuilder ScrollablePanel() => new ScrollablePanelBuilder();
+
+	/// <summary>
+	/// Creates a new rule builder for horizontal separator lines
+	/// </summary>
+	/// <returns>A new rule builder</returns>
+	public static RuleBuilder RuleBuilder() => new RuleBuilder();
 }
