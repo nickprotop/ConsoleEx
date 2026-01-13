@@ -2,7 +2,11 @@ using MultiDashboard.Services;
 using Microsoft.Extensions.Logging;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI.Layout;
 using Spectre.Console;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace MultiDashboard.Windows;
 
@@ -29,6 +33,26 @@ public class LogStreamWindow : IDisposable
             .WithColors(Color.Black, Color.Grey93)
             .WithAsyncWindowThread(UpdateLoopAsync)
             .Build();
+
+        SetupControls();
+    }
+
+    private void SetupControls()
+    {
+        if (_window == null) return;
+
+        // Set minimum log level to show all logs including Info and Debug
+        _windowSystem.LogService.MinimumLevel = LogLevel.Trace;
+
+        // Add LogViewerControl to display log entries
+        var logViewer = new LogViewerControl(_windowSystem.LogService)
+        {
+            VerticalAlignment = VerticalAlignment.Fill,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            FilterLevel = LogLevel.Trace,
+            AutoScroll = true
+        };
+        _window.AddControl(logViewer);
     }
 
     private async Task UpdateLoopAsync(Window window, CancellationToken ct)
