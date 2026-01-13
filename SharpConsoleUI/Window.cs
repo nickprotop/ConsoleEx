@@ -1818,7 +1818,7 @@ namespace SharpConsoleUI
 				_controlToNodeMap[portalContent] = portalNode;
 			}
 
-			Invalidate(true); // Force full redraw to include portal
+			Invalidate(false);
 			return portalNode;
 		}
 
@@ -1837,7 +1837,7 @@ namespace SharpConsoleUI
 					_controlToNodeMap.Remove(portalNode.Control);
 			}
 
-			Invalidate(true); // Force full redraw to clear portal
+			Invalidate(false);
 		}
 
 		/// <summary>
