@@ -880,37 +880,27 @@ namespace SharpConsoleUI
 				// Check if the click is within the window content area (not borders/title)
 				if (IsClickInWindowContent(args.WindowPosition))
 				{
-					// Find the control at this position
+					// Single hit test - used for both focus and event routing
 					var targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
 
-					if (targetControl != null)
+					// Centralized focus handling on click
+					if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
 					{
-						// Handle focus management for mouse clicks
-						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
-						{
-							HandleControlFocusFromMouse(targetControl);
-						}
-
-						// Propagate mouse event to control if it supports mouse events
-						if (targetControl is Controls.IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
-						{
-							// Calculate control-relative coordinates
-							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
-							var controlArgs = args.WithPosition(controlPosition);
-							return mouseAware.ProcessMouseEvent(controlArgs);
-						}
-
-						// Event was handled by focus change even if control doesn't support mouse
-						return true;
+						HandleClickFocus(targetControl);
 					}
-					else
+
+					// Propagate mouse event to control if applicable
+					if (targetControl != null && targetControl is Controls.IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
 					{
-						// Click in window content area but no control found - remove focus from current control
-						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
-						{
-							UnfocusCurrentControl();
-							return true; // Event was handled (removed focus)
-						}
+						var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
+						var controlArgs = args.WithPosition(controlPosition);
+						return mouseAware.ProcessMouseEvent(controlArgs);
+					}
+
+					// Click was handled (focus change or hit on non-mouse control)
+					if (targetControl != null || args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+					{
+						return true;
 					}
 				}
 
@@ -981,34 +971,69 @@ namespace SharpConsoleUI
 	}
 
 		/// <summary>
-		/// Handles focus management when a control is clicked
+		/// Centralized focus handling for mouse clicks.
+		/// Single decision point for all focus changes triggered by clicking.
 		/// </summary>
-		private void HandleControlFocusFromMouse(IWindowControl control)
+		/// <param name="clickedControl">The control at click position, or null if clicked on empty space</param>
+		private void HandleClickFocus(IWindowControl? clickedControl)
 		{
-			// Check if control can receive focus
-			if (control is not Controls.IFocusableControl focusable || !focusable.CanReceiveFocus)
+			// Determine what should be focused after this click
+			var newFocusTarget = DetermineFocusTarget(clickedControl);
+
+			// No change needed
+			if (newFocusTarget == _lastFocusedControl)
 				return;
 
-			// Check if control allows mouse focus
-			if (control is Controls.IMouseAwareControl mouseAware && !mouseAware.CanFocusWithMouse)
-				return;
-
-			// Remove focus from current control
-			if (_lastFocusedControl != null && _lastFocusedControl != control && _lastFocusedControl is Controls.IFocusableControl currentFocused)
+			// Transfer focus: unfocus old, focus new (if any)
+			if (_lastFocusedControl != null && _lastFocusedControl is Controls.IFocusableControl currentFocused)
 			{
 				currentFocused.SetFocus(false, Controls.FocusReason.Mouse);
 			}
 
-			// Set focus to new control
-			focusable.SetFocus(true, Controls.FocusReason.Mouse);
-
-			// Update last focused control (check if it's also IInteractiveControl)
-			if (control is IInteractiveControl interactive)
+			if (newFocusTarget != null && newFocusTarget is Controls.IFocusableControl newFocusable)
 			{
-				_lastFocusedControl = interactive;
-				// Sync with FocusStateService
-				FocusService?.SetFocus(this, interactive, FocusChangeReason.Mouse);
+				newFocusable.SetFocus(true, Controls.FocusReason.Mouse);
+
+				if (newFocusTarget is IInteractiveControl interactive)
+				{
+					_lastFocusedControl = interactive;
+					FocusService?.SetFocus(this, interactive, FocusChangeReason.Mouse);
+				}
 			}
+			else
+			{
+				_lastFocusedControl = null;
+				FocusService?.ClearControlFocus(FocusChangeReason.Mouse);
+			}
+		}
+
+		/// <summary>
+		/// Determines what control should receive focus based on what was clicked.
+		/// Returns null to indicate focus should be cleared.
+		/// Returns current focused control to indicate no change (e.g., portal click).
+		/// </summary>
+		private IWindowControl? DetermineFocusTarget(IWindowControl? clickedControl)
+		{
+			// Case 1: Clicked on empty space → clear focus
+			if (clickedControl == null)
+				return null;
+
+			// Case 2: Clicked on portal/overlay content (CanFocusWithMouse = false)
+			// These are controls that receive mouse events but shouldn't change focus
+			// (e.g., MenuPortalContent, DropdownPortalContent)
+			// The portal's owner should keep focus - return current to signal no change
+			if (clickedControl is Controls.IMouseAwareControl mouseAware &&
+				!mouseAware.CanFocusWithMouse)
+			{
+				return _lastFocusedControl as IWindowControl;
+			}
+
+			// Case 3: Clicked on non-focusable control → clear focus
+			if (clickedControl is not Controls.IFocusableControl focusable || !focusable.CanReceiveFocus)
+				return null;
+
+			// Case 4: Clicked on focusable control → focus it
+			return clickedControl;
 		}
 
 		/// <summary>
@@ -1836,11 +1861,15 @@ namespace SharpConsoleUI
 			portalNode.Measure(constraints);
 
 			// Get the portal's desired position
-			// For MenuPortalContent, use GetPortalBounds() if available
+			// For portal content with custom bounds, use GetPortalBounds() if available
 			Rectangle portalBounds;
 			if (portalContent is MenuPortalContent menuPortal)
 			{
 				portalBounds = menuPortal.GetPortalBounds();
+			}
+			else if (portalContent is Controls.DropdownPortalContent dropdownPortal)
+			{
+				portalBounds = dropdownPortal.GetPortalBounds();
 			}
 			else
 			{
