@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// AgentStudioWindow - Main showcase window
+// AgentStudioWindow - Main showcase window with full declarative UI
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI;
@@ -15,7 +15,7 @@ using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 namespace AgentStudio;
 
 /// <summary>
-/// Main AgentStudio window showcasing SharpConsoleUI capabilities
+/// Main AgentStudio window showcasing SharpConsoleUI capabilities with fully declarative UI
 /// </summary>
 public class AgentStudioWindow : IDisposable
 {
@@ -23,16 +23,12 @@ public class AgentStudioWindow : IDisposable
     private Window? _window;
     private volatile bool _disposed = false;
 
-    // Layout controls
-    private HorizontalGridControl? _mainGrid;
-    private ScrollablePanelControl? _conversationPanel;
-    private MultilineEditControl? _inputArea;
-    private ButtonControl? _sendButton;
-
-    // Status bar controls
+    // Named controls for runtime access
     private MarkupControl? _topStatusLeft;
     private MarkupControl? _topStatusRight;
     private MarkupControl? _bottomModeInfo;
+    private ScrollablePanelControl? _conversationPanel;
+    private MultilineEditControl? _inputArea;
 
     // State
     private string _currentMode = "Build";
@@ -43,8 +39,7 @@ public class AgentStudioWindow : IDisposable
     public AgentStudioWindow(ConsoleWindowSystem windowSystem)
     {
         _windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
-        CreateWindow();
-        SetupControls();
+        BuildUI();
         SetupEventHandlers();
         AddWelcomeMessages();
     }
@@ -57,9 +52,11 @@ public class AgentStudioWindow : IDisposable
         }
     }
 
-    private void CreateWindow()
+    /// <summary>
+    /// Build the entire UI declaratively using fluent builders
+    /// </summary>
+    private void BuildUI()
     {
-        // Create fullscreen borderless window using WindowBuilder fluent API
         _window = new WindowBuilder(_windowSystem)
             .WithTitle("AgentStudio")
             .WithColors(Color.Grey11, Color.Grey93)
@@ -71,6 +68,140 @@ public class AgentStudioWindow : IDisposable
             .Maximizable(false)
             .Maximized()
             .Build();
+
+        // Top status bar
+        _topStatusLeft = Controls.Markup($"[grey50]Session: [/][cyan1]{_currentSession}[/]")
+            .WithAlignment(HorizontalAlignment.Left)
+            .WithMargin(1, 0, 0, 0)
+            .Build();
+
+        _topStatusRight = Controls.Markup("[grey70]--:--:--[/]")
+            .WithAlignment(HorizontalAlignment.Right)
+            .WithMargin(0, 0, 1, 0)
+            .Build();
+
+        var topStatusBar = Controls.HorizontalGrid()
+            .StickyTop()
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Column(col => col.Add(_topStatusLeft))
+            .Column(col => col.Add(_topStatusRight))
+            .Build();
+        topStatusBar.BackgroundColor = Color.Grey15;
+        topStatusBar.ForegroundColor = Color.Grey93;
+
+        _window.AddControl(topStatusBar);
+
+        _window.AddControl(Controls.RuleBuilder()
+            .StickyTop()
+            .WithColor(Color.Grey23)
+            .Build());
+
+        // Main content area - two columns
+        _conversationPanel = Controls.ScrollablePanel()
+            .WithVerticalScroll(ScrollMode.Scroll)
+            .WithScrollbar(true)
+            .WithMouseWheel(true)
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithColors(Color.Grey93, Color.Grey11)
+            .Build();
+
+        _mockAiService = new Services.MockAiService(_conversationPanel, _messages);
+
+        var mainGrid = Controls.HorizontalGrid()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Column(col => col
+                .Add(Controls.Markup("[cyan1 bold]Conversation & Tool Outputs[/]")
+                    .WithMargin(1, 0, 0, 0)
+                    .WithBackgroundColor(Color.Grey11)
+                    .Build())
+                .Add(_conversationPanel))
+            .Column(col => col.Width(1)) // Spacing
+            .Column(col => col
+                .Width(30)
+                .Add(Controls.Markup()
+                    .AddEmptyLine()
+                    .AddLine("[cyan1 bold]Session Info[/]")
+                    .WithMargin(2, 0, 0, 0)
+                    .Build())
+                .Add(Controls.Markup()
+                    .AddEmptyLine()
+                    .AddLine("[grey70 bold]Model[/]")
+                    .AddLine("[cyan1]claude-sonnet-4-5[/]")
+                    .AddEmptyLine()
+                    .AddLine("[grey70 bold]Messages[/]")
+                    .AddLine("[grey50]0 total[/]")
+                    .AddLine("[grey35]━━━━━━━━━━━━━━━━━━━━━━[/]")
+                    .AddEmptyLine()
+                    .AddEmptyLine()
+                    .AddLine("[grey70 bold]Token Usage[/]")
+                    .AddLine("[cyan1]█████[/][grey35]░░░░░░░░░░░░░░░[/] 25%")
+                    .AddLine("[grey50]2.5K / 10K tokens[/]")
+                    .AddEmptyLine()
+                    .AddEmptyLine()
+                    .AddLine("[grey70 bold]Response Time[/]")
+                    .AddLine("[green]█████████[/][grey35]░░░░░░░░░░░[/] 45%")
+                    .AddLine("[grey50]avg 0.8s[/]")
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .WithForegroundColor(Color.Grey93)
+                    .WithMargin(2, 1, 1, 1)
+                    .Build()))
+            .Build();
+
+        // Set the right column background
+        if (mainGrid.Columns.Count > 2)
+        {
+            mainGrid.Columns[2].BackgroundColor = Color.Grey19;
+        }
+
+        _window.AddControl(mainGrid);
+
+        // Input separator
+        _window.AddControl(Controls.RuleBuilder()
+            .StickyBottom()
+            .WithColor(Color.Grey23)
+            .Build());
+
+        // Input area
+        _inputArea = Controls.MultilineEdit()
+            .WithViewportHeight(3)
+            .WithWrapMode(WrapMode.Wrap)
+            .WithFocusedColors(Color.White, Color.Grey27)
+            .WithColors(Color.Grey70, Color.Grey19)
+            .WithStickyPosition(StickyPosition.Bottom)
+            .WithMargin(1, 0, 1, 0)
+            .Build();
+
+        _window.AddControl(_inputArea);
+
+        // Separator between input and hint
+        _window.AddControl(Controls.RuleBuilder()
+            .StickyBottom()
+            .WithColor(Color.Grey23)
+            .Build());
+
+        // Bottom hint bar
+        _bottomModeInfo = Controls.Markup($"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Enter:Send[/]")
+            .WithAlignment(HorizontalAlignment.Left)
+            .WithMargin(1, 0, 0, 0)
+            .Build();
+
+        var hintGrid = Controls.HorizontalGrid()
+            .StickyBottom()
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Column(col => col.Add(_bottomModeInfo))
+            .Column(col => col
+                .Width(12)
+                .Add(Controls.Button("Send")
+                    .WithAlignment(HorizontalAlignment.Right)
+                    .WithMargin(0, 0, 1, 0)
+                    .OnClick((s, e) => HandleSendMessage())
+                    .Build()))
+            .Build();
+        hintGrid.BackgroundColor = Color.Grey15;
+        hintGrid.ForegroundColor = Color.Grey70;
+
+        _window.AddControl(hintGrid);
     }
 
     /// <summary>
@@ -107,228 +238,6 @@ public class AgentStudioWindow : IDisposable
             }
         }
     }
-
-    private void SetupControls()
-    {
-        if (_window == null) return;
-
-        CreateTopStatusBar();
-        CreateMainLayout();
-    }
-
-    /// <summary>
-    /// Create top status bar with mode and clock
-    /// </summary>
-    private void CreateTopStatusBar()
-    {
-        if (_window == null) return;
-
-        var statusGrid = new HorizontalGridControl
-        {
-            StickyPosition = StickyPosition.Top,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            BackgroundColor = Color.Grey15,
-            ForegroundColor = Color.Grey93
-        };
-
-        // Left side: Session indicator
-        _topStatusLeft = new MarkupControl(new List<string>
-        {
-            $"[grey50]Session: [/][cyan1]{_currentSession}[/]"
-        })
-        {
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Margin = new Margin(1, 0, 0, 0)
-        };
-
-        // Right side: Clock only
-        _topStatusRight = new MarkupControl(new List<string>
-        {
-            $"[grey70]--:--:--[/]"
-        })
-        {
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Margin(0, 0, 1, 0)
-        };
-
-        var leftColumn = new ColumnContainer(statusGrid);
-        leftColumn.AddContent(_topStatusLeft);
-        statusGrid.AddColumn(leftColumn);
-
-        var rightColumn = new ColumnContainer(statusGrid);
-        rightColumn.AddContent(_topStatusRight);
-        statusGrid.AddColumn(rightColumn);
-
-        _window.AddControl(statusGrid);
-
-        // Separator
-        _window.AddControl(new RuleControl
-        {
-            StickyPosition = StickyPosition.Top,
-            Color = Color.Grey23
-        });
-    }
-
-    /// <summary>
-    /// Create main 2-panel layout
-    /// </summary>
-    private void CreateMainLayout()
-    {
-        if (_window == null) return;
-
-        _mainGrid = new HorizontalGridControl
-        {
-            VerticalAlignment = VerticalAlignment.Fill,
-            HorizontalAlignment = HorizontalAlignment.Stretch
-        };
-
-        // Left panel: Conversation (flexible width)
-        var leftColumn = new ColumnContainer(_mainGrid);
-
-        var conversationHeader = new MarkupControl(new List<string> { "[cyan1 bold]Conversation & Tool Outputs[/]" })
-        {
-            Margin = new Margin(1, 0, 0, 0),
-            BackgroundColor = Color.Grey11
-        };
-        leftColumn.AddContent(conversationHeader);
-
-        _conversationPanel = new ScrollablePanelControl
-        {
-            VerticalScrollMode = ScrollMode.Scroll,
-            ShowScrollbar = true,
-            EnableMouseWheel = true,
-            VerticalAlignment = VerticalAlignment.Fill,
-            BackgroundColor = Color.Grey11,
-            ForegroundColor = Color.Grey93
-        };
-        leftColumn.AddContent(_conversationPanel);
-
-        // Initialize mock AI service
-        _mockAiService = new Services.MockAiService(_conversationPanel, _messages);
-
-        _mainGrid.AddColumn(leftColumn);
-
-        // Spacing column between panels
-        var spacingColumn = new ColumnContainer(_mainGrid)
-        {
-            Width = 1
-        };
-        _mainGrid.AddColumn(spacingColumn);
-
-        // Right panel: Info & Stats (30 chars wide)
-        var rightColumn = new ColumnContainer(_mainGrid)
-        {
-            Width = 30,
-            BackgroundColor = Color.Grey19
-        };
-
-        var infoHeader = new MarkupControl(new List<string> { "", "[cyan1 bold]Session Info[/]" })
-        {
-            Margin = new Margin(2, 0, 0, 0)
-        };
-        rightColumn.AddContent(infoHeader);
-
-        // Info panel content
-        var infoPanel = new MarkupControl(new List<string>
-        {
-            "",
-            "[grey70 bold]Model[/]",
-            "[cyan1]claude-sonnet-4-5[/]",
-            "",
-            "[grey70 bold]Messages[/]",
-            "[grey50]0 total[/]",
-            "[grey35]━━━━━━━━━━━━━━━━━━━━━━[/]",
-            "",
-            "",
-            "[grey70 bold]Token Usage[/]",
-            "[cyan1]█████[/][grey35]░░░░░░░░░░░░░░░[/] 25%",
-            "[grey50]2.5K / 10K tokens[/]",
-            "",
-            "",
-            "[grey70 bold]Response Time[/]",
-            "[green]█████████[/][grey35]░░░░░░░░░░░[/] 45%",
-            "[grey50]avg 0.8s[/]"
-        })
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Fill,
-            ForegroundColor = Color.Grey93,
-            Margin = new Margin(2, 1, 1, 1),
-            Wrap = true
-        };
-        rightColumn.AddContent(infoPanel);
-
-        _mainGrid.AddColumn(rightColumn);
-
-        _window.AddControl(_mainGrid);
-
-        // Input separator
-        _window.AddControl(new RuleControl
-        {
-            StickyPosition = StickyPosition.Bottom,
-            Color = Color.Grey23
-        });
-
-        // Input area
-        _inputArea = new MultilineEditControl(viewportHeight: 3)
-        {
-            WrapMode = WrapMode.Wrap,
-            FocusedBackgroundColor = Color.Grey27,
-            FocusedForegroundColor = Color.White,
-            BackgroundColor = Color.Grey19,
-            ForegroundColor = Color.Grey70,
-            StickyPosition = StickyPosition.Bottom,
-            Margin = new Margin(1, 0, 1, 0)
-        };
-        _window.AddControl(_inputArea);
-
-        // Separator between input and hint
-        _window.AddControl(new RuleControl
-        {
-            StickyPosition = StickyPosition.Bottom,
-            Color = Color.Grey23
-        });
-
-        // Input hint bar with Send button (model info + send button)
-        var hintGrid = new HorizontalGridControl
-        {
-            StickyPosition = StickyPosition.Bottom,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            BackgroundColor = Color.Grey15,
-            ForegroundColor = Color.Grey70
-        };
-
-        // Left column: Mode and Model info
-        var hintLeftColumn = new ColumnContainer(hintGrid);
-        _bottomModeInfo = new MarkupControl(new List<string>
-        {
-            $"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Enter:Send[/]"
-        })
-        {
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Margin = new Margin(1, 0, 0, 0)
-        };
-        hintLeftColumn.AddContent(_bottomModeInfo);
-        hintGrid.AddColumn(hintLeftColumn);
-
-        // Right column: Send button
-        var hintRightColumn = new ColumnContainer(hintGrid)
-        {
-            Width = 12
-        };
-        _sendButton = new ButtonControl
-        {
-            Text = "Send",
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Margin(0, 0, 1, 0)
-        };
-        _sendButton.Click += (s, e) => HandleSendMessage();
-        hintRightColumn.AddContent(_sendButton);
-        hintGrid.AddColumn(hintRightColumn);
-
-        _window.AddControl(hintGrid);
-    }
-
 
     private void SetupEventHandlers()
     {
@@ -447,14 +356,23 @@ public class AgentStudioWindow : IDisposable
         {
             var msg = _messages[i];
             var (lines, bgColor, fgColor) = FormatMessage(msg);
-            var markup = new MarkupControl(lines)
+
+            var markupBuilder = Controls.Markup()
+                .WithMargin(1, 0, 1, 1)
+                .WithAlignment(HorizontalAlignment.Stretch);
+
+            foreach (var line in lines)
             {
-                Wrap = true,
-                Margin = new Margin(1, 0, 1, 1),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                BackgroundColor = bgColor,
-                ForegroundColor = fgColor
-            };
+                markupBuilder.AddLine(line);
+            }
+
+            if (bgColor.HasValue)
+                markupBuilder.WithBackgroundColor(bgColor.Value);
+            if (fgColor.HasValue)
+                markupBuilder.WithForegroundColor(fgColor.Value);
+
+            var markup = markupBuilder.Build();
+            markup.Wrap = true;
 
             _conversationPanel.AddControl(markup);
 
@@ -475,13 +393,11 @@ public class AgentStudioWindow : IDisposable
             // Add separator line after AI responses
             if (msg.Role == MessageRole.Assistant)
             {
-                var separator = new RuleControl
-                {
-                    Color = Color.Grey23,
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    Margin = new Margin(1, 1, 1, 0)
-                };
-                _conversationPanel.AddControl(separator);
+                _conversationPanel.AddControl(Controls.RuleBuilder()
+                    .WithColor(Color.Grey23)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .WithMargin(1, 1, 1, 0)
+                    .Build());
             }
         }
 
