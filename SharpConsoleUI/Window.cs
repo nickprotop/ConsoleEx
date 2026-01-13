@@ -1810,8 +1810,13 @@ namespace SharpConsoleUI
 			// Arrange the portal at its absolute position
 			portalNode.Arrange(portalRect);
 
-			ownerNode.AddPortalChild(portalNode);
-			_controlToNodeMap[portalContent] = portalNode;
+			// CRITICAL: Add portal to ROOT node, not owner node
+			// This ensures portals paint AFTER all regular content
+			if (_rootNode != null)
+			{
+				_rootNode.AddPortalChild(portalNode);
+				_controlToNodeMap[portalContent] = portalNode;
+			}
 
 			Invalidate(true); // Force full redraw to include portal
 			return portalNode;
@@ -1824,13 +1829,13 @@ namespace SharpConsoleUI
 		/// <param name="portalNode">The portal LayoutNode returned by CreatePortal().</param>
 		public void RemovePortal(IWindowControl ownerControl, LayoutNode portalNode)
 		{
-			var ownerNode = GetLayoutNode(ownerControl);
-			if (ownerNode == null)
-				return;
-
-			ownerNode.RemovePortalChild(portalNode);
-			if (portalNode.Control != null)
-				_controlToNodeMap.Remove(portalNode.Control);
+			// Remove from root node (where it was added in CreatePortal)
+			if (_rootNode != null)
+			{
+				var removed = _rootNode.RemovePortalChild(portalNode);
+				if (portalNode.Control != null)
+					_controlToNodeMap.Remove(portalNode.Control);
+			}
 
 			Invalidate(true); // Force full redraw to clear portal
 		}
@@ -2043,15 +2048,6 @@ namespace SharpConsoleUI
 
 			// Convert the entire buffer to lines (DOM handles sticky internally)
 			_cachedContent = _buffer.ToLines(ForegroundColor, BackgroundColor);
-
-			// Debug: Check if line 1 has the dropdown box character
-			System.IO.File.AppendAllText("/tmp/menu_debug.log", $"{DateTime.Now:HH:mm:ss.fff} - ToLines called: _cachedContent.Count={_cachedContent.Count}\n");
-			if (_cachedContent.Count > 1)
-			{
-				var line1 = _cachedContent[1];
-				var hasBox = line1.Contains("╭");
-				System.IO.File.AppendAllText("/tmp/menu_debug.log", $"{DateTime.Now:HH:mm:ss.fff} - Line[1] has box char: {hasBox}, length={line1.Length}\n");
-			}
 
 			_invalidated = false;
 		}

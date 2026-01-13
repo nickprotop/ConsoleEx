@@ -325,7 +325,6 @@ namespace SharpConsoleUI.Layout
 		{
 			if (!IsVisible)
 			{
-				System.IO.File.AppendAllText("/tmp/menu_debug.log", $"{DateTime.Now:HH:mm:ss.fff} - [LayoutNode.Paint] Skipping invisible node\n");
 				return;
 			}
 
@@ -333,7 +332,6 @@ namespace SharpConsoleUI.Layout
 			var visibleBounds = AbsoluteBounds.Intersect(clipRect);
 			if (visibleBounds.IsEmpty)
 			{
-				System.IO.File.AppendAllText("/tmp/menu_debug.log", $"{DateTime.Now:HH:mm:ss.fff} - [LayoutNode.Paint] Skipping empty visibleBounds: AbsoluteBounds={AbsoluteBounds}, clipRect={clipRect}, intersection empty\n");
 				return;
 			}
 
@@ -352,7 +350,6 @@ namespace SharpConsoleUI.Layout
 			// Paint portal children last (on top)
 			foreach (var portal in _portalChildren)
 			{
-				System.IO.File.AppendAllText("/tmp/menu_debug.log", $"{DateTime.Now:HH:mm:ss.fff} - [LayoutNode.Paint] Painting portal: IsVisible={portal.IsVisible}, AbsoluteBounds={portal.AbsoluteBounds}, clipRect={clipRect}\n");
 				portal.Paint(buffer, clipRect); // Portals clip to full area, not our bounds
 			}
 

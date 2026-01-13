@@ -51,17 +51,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     // Cached layout data
     private LayoutRect _lastBounds;
 
-    // Debug logging
-    private static readonly string DebugLogPath = "/tmp/menu_debug.log";
-    private static void DebugLog(string message)
-    {
-        try
-        {
-            File.AppendAllText(DebugLogPath, $"{DateTime.Now:HH:mm:ss.fff} - {message}\n");
-        }
-        catch { }
-    }
-
     #endregion
 
     #region Properties
@@ -394,6 +383,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         if (!_enabled || !_hasFocus)
             return false;
 
+
         bool isInSubmenu = _openDropdowns.Count > 1;
         bool hasOpenDropdown = _openDropdowns.Count > 0;
 
@@ -456,7 +446,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     {
         _lastBounds = bounds;
 
-        DebugLog($"PaintDOM: bounds={bounds}, clipRect={clipRect}");
 
         Color windowBg = Container?.BackgroundColor ?? defaultBg;
         Color windowFg = Container?.ForegroundColor ?? defaultFg;
@@ -623,7 +612,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             if (_dropdownPortals.TryGetValue(dropdown, out var portalNode) && window != null)
             {
                 window.RemovePortal(this, portalNode);
-                DebugLog($"Removed portal for dropdown: {dropdown.ParentItem?.Text}");
             }
         }
 
@@ -663,6 +651,12 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         if (!item.HasChildren)
             return;
 
+        // Check if already open - prevent duplicate portals
+        if (item.IsOpen && _openDropdowns.Any(d => d.ParentItem == item))
+        {
+            return;
+        }
+
         item.IsOpen = true;
 
         var dropdown = new MenuDropdown
@@ -676,7 +670,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         dropdown.Bounds = CalculateDropdownBounds(item);
         dropdown.Direction = CalculateSubmenuDirection(item);
 
-        DebugLog($"OpenDropdownInternal: item={item.Text}, itemBounds={item.Bounds}, dropdownBounds={dropdown.Bounds}, visibleItems={dropdown.VisibleItems.Count}");
 
         _openDropdowns.Add(dropdown);
 
@@ -689,7 +682,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             if (portalNode != null)
             {
                 _dropdownPortals[dropdown] = portalNode;
-                DebugLog($"Created portal for dropdown: {item.Text}");
             }
         }
 
@@ -711,7 +703,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                 if (window != null)
                 {
                     window.RemovePortal(this, portalNode);
-                    DebugLog($"Removed portal for last dropdown: {last.ParentItem?.Text}");
                 }
                 _dropdownPortals.Remove(last);
             }
@@ -1006,7 +997,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     {
         var bounds = dropdown.Bounds;
 
-        DebugLog($"PaintDropdown: bounds={bounds}, clipRect={clipRect}");
 
         // Draw border (rounded box)
         DrawBox(buffer, bounds);
@@ -1048,6 +1038,9 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         {
             buffer.SetCell(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height - 1, '▼', ForegroundColor, BackgroundColor);
         }
+
+        // Debug: Verify box character is still there after complete dropdown paint
+        var cellAfterPaint = buffer.GetCell(bounds.X, bounds.Y);
     }
 
     private void PaintMenuItem(CharacterBuffer buffer, MenuItem item, int x, int y, int width, MenuItemState state, bool isTopLevel)
@@ -1128,13 +1121,11 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     private void DrawBox(CharacterBuffer buffer, Rectangle bounds)
     {
-        DebugLog($"DrawBox: bounds={bounds}, buffer.Width={buffer.Width}, buffer.Height={buffer.Height}");
 
         // Draw rounded box using box-drawing characters
         // Corners
         buffer.SetCell(bounds.X, bounds.Y, '╭', ForegroundColor, BackgroundColor);
         var cell = buffer.GetCell(bounds.X, bounds.Y);
-        DebugLog($"Drew corner at ({bounds.X},{bounds.Y}), verified cell.Character='{cell.Character}', FG={ForegroundColor}, BG={BackgroundColor}");
         buffer.SetCell(bounds.Right - 1, bounds.Y, '╮', ForegroundColor, BackgroundColor);
         buffer.SetCell(bounds.X, bounds.Bottom - 1, '╰', ForegroundColor, BackgroundColor);
         buffer.SetCell(bounds.Right - 1, bounds.Bottom - 1, '╯', ForegroundColor, BackgroundColor);
@@ -1179,7 +1170,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                     }
                     else
                     {
-                        // Move to previous top-level item
+                        // Move to previous top-level item (works from any dropdown item)
                         MoveToPreviousTopLevel();
                     }
                     return true;
@@ -1194,14 +1185,18 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             case ConsoleKey.RightArrow:
                 if (hasOpenDropdown)
                 {
-                    if (_focusedItem?.HasChildren == true)
+                    // Check if focused item already has its dropdown open
+                    bool isParentOfOpenDropdown = _openDropdowns.Count > 0 &&
+                                                   _openDropdowns[0].ParentItem == _focusedItem;
+
+                    if (_focusedItem?.HasChildren == true && !isParentOfOpenDropdown)
                     {
-                        // Open submenu
+                        // Open submenu (only if not already the parent of current dropdown)
                         OpenSubmenu(_focusedItem);
                     }
                     else if (!isInSubmenu)
                     {
-                        // Move to next top-level item
+                        // Move to next top-level item (from dropdown item or top-level item)
                         MoveToNextTopLevel();
                     }
                     return true;
@@ -1224,7 +1219,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                     // Open dropdown of focused top-level item
                     if (_focusedItem != null)
                     {
-                        DebugLog($"DOWN pressed: _focusedItem={_focusedItem.Text}, HasChildren={_focusedItem.HasChildren}, Children.Count={_focusedItem.Children.Count}");
                         if (_focusedItem.HasChildren)
                             OpenDropdownInternal(_focusedItem);
                     }
@@ -1384,7 +1378,21 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         if (_items.Count == 0)
             return;
 
-        int currentIndex = _focusedItem != null ? _items.IndexOf(_focusedItem) : 0;
+        // Find starting point: if focused item is top-level, use it; otherwise use current dropdown parent
+        int currentIndex;
+        if (_focusedItem != null && _items.Contains(_focusedItem))
+        {
+            currentIndex = _items.IndexOf(_focusedItem);
+        }
+        else if (_openDropdowns.Count > 0 && _openDropdowns[0].ParentItem != null)
+        {
+            currentIndex = _items.IndexOf(_openDropdowns[0].ParentItem);
+        }
+        else
+        {
+            currentIndex = 0;
+        }
+
         int startIndex = currentIndex;
 
         do
@@ -1418,7 +1426,21 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         if (_items.Count == 0)
             return;
 
-        int currentIndex = _focusedItem != null ? _items.IndexOf(_focusedItem) : -1;
+        // Find starting point: if focused item is top-level, use it; otherwise use current dropdown parent
+        int currentIndex;
+        if (_focusedItem != null && _items.Contains(_focusedItem))
+        {
+            currentIndex = _items.IndexOf(_focusedItem);
+        }
+        else if (_openDropdowns.Count > 0 && _openDropdowns[0].ParentItem != null)
+        {
+            currentIndex = _items.IndexOf(_openDropdowns[0].ParentItem);
+        }
+        else
+        {
+            currentIndex = -1;
+        }
+
         int startIndex = currentIndex;
 
         do
@@ -1604,12 +1626,21 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             return;
 
         // Close any existing submenu at this level or deeper
+        var window = Container as Window ?? FindContainingWindow();
         while (_openDropdowns.Count > 0)
         {
             var last = _openDropdowns[_openDropdowns.Count - 1];
             if (last.ParentItem != null && last.ParentItem.GetDepth() >= item.GetDepth())
             {
                 last.ParentItem.IsOpen = false;
+
+                // Remove portal before removing dropdown from list
+                if (_dropdownPortals.TryGetValue(last, out var portalNode) && window != null)
+                {
+                    window.RemovePortal(this, portalNode);
+                    _dropdownPortals.Remove(last);
+                }
+
                 _openDropdowns.RemoveAt(_openDropdowns.Count - 1);
             }
             else
@@ -1712,6 +1743,9 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable
     {
         // Delegate painting to the owner MenuControl
         _owner.PaintDropdownInternal(buffer, _dropdown, clipRect);
+
+        // Debug: Verify box character after PaintDropdownInternal returns
+        var cell = buffer.GetCell(_dropdown.Bounds.X, _dropdown.Bounds.Y);
     }
 }
 
