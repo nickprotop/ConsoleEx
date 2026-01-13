@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -16,6 +18,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using Color = Spectre.Console.Color;
+using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls
 {
@@ -23,7 +26,7 @@ namespace SharpConsoleUI.Controls
 	/// A dropdown/combobox control that displays a list of selectable items.
 	/// Supports keyboard navigation, type-ahead search, and custom item formatting.
 	/// </summary>
-	public class DropdownControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
+	public class DropdownControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
 	{
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
@@ -55,6 +58,18 @@ namespace SharpConsoleUI.Controls
 		private int _selectedIndex = -1;
 		private int _highlightedIndex = -1;
 		private int _dropdownScrollOffset = 0;
+
+		// Mouse state tracking
+		private bool _isMouseInside;
+		private bool _isHeaderPressed;
+		private int _mouseHoveredIndex = -1;
+
+		// Portal state for dropdown overlay
+		private LayoutNode? _dropdownPortal;
+		private DropdownPortalContent? _portalContent;
+		private Rectangle _dropdownBounds;
+		private bool _opensUpward;
+		private LayoutRect _lastLayoutBounds;
 
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
@@ -137,6 +152,28 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
 
+		#region IMouseAwareControl Events and Properties
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseMove;
+
+		/// <inheritdoc/>
+		public bool WantsMouseEvents => _isEnabled;
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse => _isEnabled;
+
+		#endregion
+
 		/// <summary>
 		/// Gets the actual rendered height of the control based on cached content.
 		/// </summary>
@@ -145,23 +182,9 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				// Base height is header (1 line) plus margins
-				int height = 1 + _margin.Top + _margin.Bottom;
-
-				// If dropdown is open, add visible items plus scroll indicator if needed
-				if (_isDropdownOpen && _items.Count > 0)
-				{
-					int effectiveMaxVisible = _calculatedMaxVisibleItems ?? _maxVisibleItems;
-					int itemsToShow = Math.Min(effectiveMaxVisible, _items.Count);
-					height += itemsToShow;
-
-					// Add scroll indicator line if needed
-					int dropdownScroll = CurrentDropdownScrollOffset;
-					if (dropdownScroll > 0 || dropdownScroll + itemsToShow < _items.Count)
-						height++;
-				}
-
-				return height;
+				// Constant height - header (1 line) plus margins
+				// Dropdown items render via portal overlay, not affecting control height
+				return 1 + _margin.Top + _margin.Bottom;
 			}
 		}
 
@@ -273,19 +296,9 @@ namespace SharpConsoleUI.Controls
 				if (_hasFocus != value)
 				{
 					_hasFocus = value;
-					if (!_hasFocus)
-					{
-						// Collapse the dropdown when it loses focus
-						_isDropdownOpen = false;
-						// Reset highlighted index to selected index
-						_highlightedIndex = CurrentSelectedIndex;
-					}
+					// Note: Dropdown closing is handled by SetFocus(), not here
+					// to ensure proper portal cleanup via CloseDropdown()
 					Container?.Invalidate(true);
-
-					if (value)
-						GotFocus?.Invoke(this, EventArgs.Empty);
-					else
-						LostFocus?.Invoke(this, EventArgs.Empty);
 				}
 			}
 		}
@@ -294,11 +307,11 @@ namespace SharpConsoleUI.Controls
 		public bool CanReceiveFocus => IsEnabled;
 
 		/// <summary>
-		/// Gets or sets the background color for the highlighted (selected) item in the dropdown list.
+		/// Gets or sets the background color for the highlighted item in the dropdown list (keyboard or mouse).
 		/// </summary>
 		public Color HighlightBackgroundColor
 		{
-			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
+			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.DropdownHighlightBackgroundColor ?? Color.Blue;
 			set
 			{
 				_highlightBackgroundColorValue = value;
@@ -307,11 +320,11 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets or sets the foreground color for the highlighted (selected) item in the dropdown list.
+		/// Gets or sets the foreground color for the highlighted item in the dropdown list (keyboard or mouse).
 		/// </summary>
 		public Color HighlightForegroundColor
 		{
-			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
+			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.DropdownHighlightForegroundColor ?? Color.White;
 			set
 			{
 				_highlightForegroundColorValue = value;
@@ -327,38 +340,16 @@ namespace SharpConsoleUI.Controls
 			get => _isDropdownOpen;
 			set
 			{
-				// On state change
 				if (_isDropdownOpen != value)
 				{
-					// Find the containing window by traversing the container hierarchy
-					Window? containerWindow = FindContainingWindow();
-
-					bool containerIsWindow = containerWindow != null;
-
-					// If opening, store current scroll offset
-					if (value && !_isDropdownOpen && containerIsWindow)
+					if (value)
 					{
-						_containerScrollOffsetBeforeDrop = containerWindow!.ScrollOffset;
+						OpenDropdown();
 					}
-
-					_isDropdownOpen = value;
-					Container?.Invalidate(true);
-
-					// If closing, restore scroll offset (after content is recalculated)
-					if (!value && containerIsWindow)
+					else
 					{
-						// Wait for container to update, then restore scroll offset
-						Task.Run(async () =>
-						{
-							await Task.Delay(1); // Give time for rendering to complete
-							RestoreContainerScrollOffset(containerWindow!);
-						});
+						CloseDropdown();
 					}
-				}
-				else
-				{
-					_isDropdownOpen = value;
-					Container?.Invalidate(true);
 				}
 			}
 		}
@@ -844,6 +835,234 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		#region IMouseAwareControl Implementation
+
+		/// <summary>
+		/// Processes mouse events for the dropdown header.
+		/// Note: When the dropdown list is open, it's rendered as a portal and
+		/// receives events via ProcessPortalMouseEvent instead.
+		/// </summary>
+		/// <param name="args">Mouse event arguments with control-relative coordinates.</param>
+		/// <returns>True if the event was handled.</returns>
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+			if (!_isEnabled)
+				return false;
+
+			// Handle mouse leave
+			if (args.HasFlag(MouseFlags.MouseLeave))
+			{
+				_isMouseInside = false;
+				_isHeaderPressed = false;
+				if (!_hasFocus)
+				{
+					_mouseHoveredIndex = -1;
+				}
+				MouseLeave?.Invoke(this, args);
+				Container?.Invalidate(true);
+				return true;
+			}
+
+			// Handle mouse enter
+			if (args.HasFlag(MouseFlags.MouseEnter))
+			{
+				_isMouseInside = true;
+				MouseEnter?.Invoke(this, args);
+				return true;
+			}
+
+			// Check if click is on header (Y == 0 for single-line header)
+			bool isOnHeader = args.Position.Y == 0;
+
+			// Handle mouse move
+			if (args.HasAnyFlag(MouseFlags.ReportMousePosition))
+			{
+				MouseMove?.Invoke(this, args);
+				return true;
+			}
+
+			// Handle mouse down
+			if (args.HasAnyFlag(MouseFlags.Button1Pressed))
+			{
+				if (isOnHeader)
+				{
+					_isHeaderPressed = true;
+
+					// Capture focus on mouse down
+					if (!_hasFocus)
+					{
+						SetFocus(true, FocusReason.Mouse);
+					}
+
+					Container?.Invalidate(true);
+					return true;
+				}
+
+				// Click outside header area
+				return false;
+			}
+
+			// Handle mouse up
+			if (args.HasFlag(MouseFlags.Button1Released))
+			{
+				bool wasHeaderPressed = _isHeaderPressed;
+				_isHeaderPressed = false;
+
+				if (wasHeaderPressed && isOnHeader)
+				{
+					// Toggle dropdown
+					IsDropdownOpen = !_isDropdownOpen;
+
+					MouseClick?.Invoke(this, args);
+					Container?.Invalidate(true);
+					return true;
+				}
+
+				return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Processes mouse events from the dropdown portal (when dropdown list is open).
+		/// Called by DropdownPortalContent when the portal receives mouse events.
+		/// </summary>
+		/// <param name="args">Mouse event arguments with portal-relative coordinates.</param>
+		/// <returns>True if the event was handled.</returns>
+		internal bool ProcessPortalMouseEvent(MouseEventArgs args)
+		{
+			if (!_isEnabled || !_isDropdownOpen)
+				return false;
+
+			// Portal coordinates are relative to portal bounds (no border, starts at 0,0)
+			int contentY = args.Position.Y;
+			int contentX = args.Position.X;
+
+			// Calculate visible structure for hit testing
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+			bool hasScrollIndicator = (_items.Count > effectiveMaxVisibleItems);
+			int visibleItemCount = Math.Min(effectiveMaxVisibleItems, _items.Count - _dropdownScrollOffset);
+			int scrollIndicatorRow = hasScrollIndicator ? visibleItemCount : -1;
+
+			// Check if click is on scroll indicator row
+			bool isOnScrollIndicatorRow = hasScrollIndicator && contentY == scrollIndicatorRow;
+
+			// Find which item is at this Y position (accounting for scroll offset)
+			int hitItemIndex = -1;
+			if (contentY >= 0 && !isOnScrollIndicatorRow)
+			{
+				int itemIndex = contentY + _dropdownScrollOffset;
+				if (itemIndex >= 0 && itemIndex < _items.Count)
+				{
+					hitItemIndex = itemIndex;
+				}
+			}
+
+			// Handle mouse wheel scrolling
+			if (args.HasFlag(MouseFlags.WheeledUp))
+			{
+				if (_dropdownScrollOffset > 0)
+				{
+					SetDropdownScrollOffset(_dropdownScrollOffset - 1);
+					Container?.Invalidate(true);
+				}
+				return true;
+			}
+			else if (args.HasFlag(MouseFlags.WheeledDown))
+			{
+				int maxScroll = Math.Max(0, _items.Count - effectiveMaxVisibleItems);
+				if (_dropdownScrollOffset < maxScroll)
+				{
+					SetDropdownScrollOffset(_dropdownScrollOffset + 1);
+					Container?.Invalidate(true);
+				}
+				return true;
+			}
+
+			// Handle mouse leave
+			if (args.HasFlag(MouseFlags.MouseLeave))
+			{
+				if (!_hasFocus)
+				{
+					_mouseHoveredIndex = -1;
+				}
+				Container?.Invalidate(true);
+				return true;
+			}
+
+			// Handle mouse move (hover)
+			if (args.HasAnyFlag(MouseFlags.ReportMousePosition))
+			{
+				if (hitItemIndex != _mouseHoveredIndex)
+				{
+					_mouseHoveredIndex = hitItemIndex;
+					Container?.Invalidate(true);
+				}
+				return true;
+			}
+
+			// Handle scroll indicator clicks
+			if (isOnScrollIndicatorRow)
+			{
+				// Only act on mouse release to avoid double-scroll
+				if (args.HasFlag(MouseFlags.Button1Released))
+				{
+					int dropdownWidth = _dropdownBounds.Width;
+
+					// Small click areas: ▲ at positions 0-2, ▼ at last 3 positions
+					if (contentX <= 2 && _dropdownScrollOffset > 0)
+					{
+						// Click on ▲ area - scroll up
+						SetDropdownScrollOffset(_dropdownScrollOffset - 1);
+						Container?.Invalidate(true);
+					}
+					else if (contentX >= dropdownWidth - 3)
+					{
+						// Click on ▼ area - scroll down
+						int maxScroll = Math.Max(0, _items.Count - effectiveMaxVisibleItems);
+						if (_dropdownScrollOffset < maxScroll)
+						{
+							SetDropdownScrollOffset(_dropdownScrollOffset + 1);
+							Container?.Invalidate(true);
+						}
+					}
+				}
+				return true; // Consume all events on scroll indicator row
+			}
+
+			// Handle mouse down on items
+			if (args.HasAnyFlag(MouseFlags.Button1Pressed))
+			{
+				if (hitItemIndex >= 0)
+				{
+					_mouseHoveredIndex = hitItemIndex;
+					Container?.Invalidate(true);
+				}
+				return true;
+			}
+
+			// Handle mouse up - select item
+			if (args.HasFlag(MouseFlags.Button1Released))
+			{
+				if (hitItemIndex >= 0 && hitItemIndex == _mouseHoveredIndex)
+				{
+					// Select the item and close dropdown
+					SelectedIndex = hitItemIndex;
+					IsDropdownOpen = false;
+					_mouseHoveredIndex = -1;
+
+					MouseClick?.Invoke(this, args);
+					Container?.Invalidate(true);
+				}
+				return true;
+			}
+
+			return false;
+		}
+
+		#endregion
+
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
@@ -868,18 +1087,8 @@ namespace SharpConsoleUI.Controls
 			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
 			dropdownWidth = Math.Max(dropdownWidth, minWidth);
 
-			// Calculate height
+			// Calculate height - constant (header only), dropdown items render via portal
 			int height = 1 + _margin.Top + _margin.Bottom;
-			if (_isDropdownOpen && _items.Count > 0)
-			{
-				int effectiveMaxVisible = _calculatedMaxVisibleItems ?? _maxVisibleItems;
-				int itemsToShow = Math.Min(effectiveMaxVisible, _items.Count);
-				height += itemsToShow;
-
-				int dropdownScroll = CurrentDropdownScrollOffset;
-				if (dropdownScroll > 0 || dropdownScroll + itemsToShow < _items.Count)
-					height++;
-			}
 
 			int width = dropdownWidth + _margin.Left + _margin.Right;
 
@@ -892,6 +1101,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			// Store bounds for portal positioning
+			_lastLayoutBounds = bounds;
+
 			Color backgroundColor;
 			Color foregroundColor;
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
@@ -961,7 +1173,8 @@ namespace SharpConsoleUI.Controls
 
 			// Render header
 			string selectedText = selectedIdx >= 0 && selectedIdx < _items.Count ? _items[selectedIdx].Text : "(None)";
-			string arrow = _isDropdownOpen ? "▲" : "▼";
+			// Arrow shows direction: ▲ when open upward, ▼ when closed or open downward
+			string arrow = _isDropdownOpen && _opensUpward ? "▲" : "▼";
 			int maxSelectedTextLength = dropdownWidth - promptLength - 5;
 			if (maxSelectedTextLength > 0 && selectedText.Length > maxSelectedTextLength)
 				selectedText = selectedText.Substring(0, Math.Max(0, maxSelectedTextLength - 3)) + "...";
@@ -994,89 +1207,8 @@ namespace SharpConsoleUI.Controls
 			}
 			paintY++;
 
-			// Render dropdown items if open
-			if (_isDropdownOpen && _items.Count > 0)
-			{
-				int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
-								int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - dropdownScroll);
-
-				for (int i = 0; i < itemsToShow; i++)
-				{
-					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
-					{
-						int itemIndex = i + dropdownScroll;
-						if (itemIndex >= _items.Count) break;
-
-						string itemText = _itemFormatter != null
-							? _itemFormatter(_items[itemIndex], itemIndex == selectedIdx, _hasFocus)
-							: _items[itemIndex].Text;
-
-						if (AnsiConsoleHelper.StripSpectreLength(itemText) > dropdownWidth - 4)
-							itemText = itemText.Substring(0, Math.Max(0, dropdownWidth - 7)) + "...";
-
-						Color itemBg = (itemIndex == selectedIdx) ? HighlightBackgroundColor : backgroundColor;
-						Color itemFg = (itemIndex == selectedIdx) ? HighlightForegroundColor : foregroundColor;
-
-						string selectionIndicator = itemIndex == highlightedIdx ? "● " : "  ";
-						string itemContent = selectionIndicator + itemText;
-						int visibleTextLength = 2 + AnsiConsoleHelper.StripSpectreLength(itemText);
-						int paddingNeeded = Math.Max(0, dropdownWidth - visibleTextLength);
-						if (paddingNeeded > 0)
-							itemContent += new string(' ', paddingNeeded);
-
-						if (_margin.Left > 0)
-							buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', itemFg, windowBackground);
-
-						if (alignOffset > 0)
-							buffer.FillRect(new LayoutRect(startX, paintY, alignOffset, 1), ' ', itemFg, windowBackground);
-
-						var itemAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(itemContent, dropdownWidth, 1, false, itemBg, itemFg).FirstOrDefault() ?? string.Empty;
-						var itemCells = AnsiParser.Parse(itemAnsi, itemFg, itemBg);
-						buffer.WriteCellsClipped(startX + alignOffset, paintY, itemCells, clipRect);
-
-						int rightStart = startX + alignOffset + dropdownWidth;
-						int rightWidth = bounds.Right - rightStart - _margin.Right;
-						if (rightWidth > 0)
-							buffer.FillRect(new LayoutRect(rightStart, paintY, rightWidth, 1), ' ', itemFg, windowBackground);
-
-						if (_margin.Right > 0)
-							buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, paintY, _margin.Right, 1), ' ', itemFg, windowBackground);
-					}
-					paintY++;
-				}
-
-				// Render scroll indicators if needed
-				if (dropdownScroll > 0 || dropdownScroll + itemsToShow < _items.Count)
-				{
-					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
-					{
-						string scrollIndicator = (dropdownScroll > 0 ? "▲" : " ");
-						int scrollPadding = dropdownWidth - 2;
-						if (scrollPadding > 0)
-							scrollIndicator += new string(' ', scrollPadding);
-						scrollIndicator += (dropdownScroll + itemsToShow < _items.Count ? "▼" : " ");
-
-						if (_margin.Left > 0)
-							buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
-
-						if (alignOffset > 0)
-							buffer.FillRect(new LayoutRect(startX, paintY, alignOffset, 1), ' ', foregroundColor, windowBackground);
-
-						var scrollAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(scrollIndicator, dropdownWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
-						var scrollCells = AnsiParser.Parse(scrollAnsi, foregroundColor, backgroundColor);
-						buffer.WriteCellsClipped(startX + alignOffset, paintY, scrollCells, clipRect);
-
-						int rightStart = startX + alignOffset + dropdownWidth;
-						int rightWidth = bounds.Right - rightStart - _margin.Right;
-						if (rightWidth > 0)
-							buffer.FillRect(new LayoutRect(rightStart, paintY, rightWidth, 1), ' ', foregroundColor, windowBackground);
-
-						if (_margin.Right > 0)
-							buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, paintY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
-					}
-					paintY++;
-				}
-			}
+			// Note: Dropdown items are rendered via portal overlay (PaintDropdownListInternal)
+			// This keeps the control height constant and allows the list to extend beyond parent bounds
 
 			// Fill bottom margin
 			for (int y = paintY; y < bounds.Bottom; y++)
@@ -1091,8 +1223,291 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
+			var hadFocus = HasFocus;
 			HasFocus = focus;
+
+			if (focus && !hadFocus)
+			{
+				// Gaining focus
+				GotFocus?.Invoke(this, EventArgs.Empty);
+			}
+			else if (!focus && hadFocus)
+			{
+				// Losing focus - close dropdown and clear mouse state
+				_mouseHoveredIndex = -1;
+				_isHeaderPressed = false;
+				_highlightedIndex = CurrentSelectedIndex; // Reset highlight to selection
+				if (_isDropdownOpen)
+				{
+					IsDropdownOpen = false;
+				}
+				LostFocus?.Invoke(this, EventArgs.Empty);
+			}
+
+			Container?.Invalidate(true);
 		}
+
+		#region Portal Methods
+
+		/// <summary>
+		/// Opens the dropdown and creates the portal overlay.
+		/// </summary>
+		private void OpenDropdown()
+		{
+			if (_isDropdownOpen) return;
+
+			_isDropdownOpen = true;
+
+			// Calculate portal bounds
+			CalculatePortalBounds();
+
+			// Create portal content and add to window
+			var window = Container as Window ?? FindContainingWindow();
+			if (window != null)
+			{
+				_portalContent = new DropdownPortalContent(this);
+				_dropdownPortal = window.CreatePortal(this, _portalContent);
+			}
+
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Closes the dropdown and removes the portal overlay.
+		/// </summary>
+		private void CloseDropdown()
+		{
+			if (!_isDropdownOpen) return;
+
+			// Remove portal
+			if (_dropdownPortal != null)
+			{
+				var window = Container as Window ?? FindContainingWindow();
+				if (window != null)
+				{
+					window.RemovePortal(this, _dropdownPortal);
+				}
+				_dropdownPortal = null;
+				_portalContent = null;
+			}
+
+			_isDropdownOpen = false;
+			_mouseHoveredIndex = -1;
+
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Calculates the portal bounds with auto-flip logic.
+		/// If the dropdown would extend past the window bottom, it flips upward.
+		/// </summary>
+		private void CalculatePortalBounds()
+		{
+			// Get screen dimensions
+			int screenWidth = 160;
+			int screenHeight = 40;
+
+			var window = Container as Window ?? FindContainingWindow();
+			if (window != null)
+			{
+				screenWidth = window.Width;
+				screenHeight = window.Height;
+			}
+
+			// Calculate dropdown dimensions
+			int dropdownWidth = CalculateDropdownWidth();
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+			int visibleItems = Math.Min(effectiveMaxVisibleItems, _items.Count);
+			int hasScrollIndicator = (_items.Count > visibleItems) ? 1 : 0;
+			int dropdownHeight = visibleItems + hasScrollIndicator;
+
+			// Calculate header position from last layout bounds
+			int headerX = _lastLayoutBounds.X + _margin.Left;
+			int headerY = _lastLayoutBounds.Y + _margin.Top;
+
+			// Calculate alignment offset (same logic as PaintDOM)
+			int targetWidth = _lastLayoutBounds.Width - _margin.Left - _margin.Right;
+			int alignOffset = 0;
+			if (dropdownWidth < targetWidth)
+			{
+				switch (_horizontalAlignment)
+				{
+					case HorizontalAlignment.Center:
+						alignOffset = (targetWidth - dropdownWidth) / 2;
+						break;
+					case HorizontalAlignment.Right:
+						alignOffset = targetWidth - dropdownWidth;
+						break;
+				}
+			}
+
+			int dropdownX = headerX + alignOffset;
+
+			// Check if dropdown fits below or needs to flip upward
+			int spaceBelow = screenHeight - (headerY + 1); // +1 for header height
+			int spaceAbove = headerY;
+
+			if (dropdownHeight > spaceBelow && spaceAbove > spaceBelow)
+			{
+				// Flip upward
+				_opensUpward = true;
+				int dropdownY = headerY - dropdownHeight;
+				// Clamp to screen bounds
+				if (dropdownY < 0)
+				{
+					dropdownHeight += dropdownY; // Reduce height
+					dropdownY = 0;
+				}
+				_dropdownBounds = new Rectangle(dropdownX, dropdownY, dropdownWidth, dropdownHeight);
+			}
+			else
+			{
+				// Open downward (default)
+				_opensUpward = false;
+				int dropdownY = headerY + 1; // Below header
+				// Clamp height to available space
+				if (dropdownY + dropdownHeight > screenHeight)
+				{
+					dropdownHeight = screenHeight - dropdownY;
+				}
+				_dropdownBounds = new Rectangle(dropdownX, dropdownY, dropdownWidth, dropdownHeight);
+			}
+		}
+
+		/// <summary>
+		/// Calculates the optimal dropdown width.
+		/// </summary>
+		private int CalculateDropdownWidth()
+		{
+			int targetWidth = _lastLayoutBounds.Width - _margin.Left - _margin.Right;
+			if (targetWidth <= 0) targetWidth = 20;
+
+			int dropdownWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
+
+			int maxItemWidth = 0;
+			foreach (var item in _items)
+			{
+				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
+				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
+			}
+
+			if (_autoAdjustWidth)
+				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
+
+			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
+			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
+			dropdownWidth = Math.Min(Math.Max(dropdownWidth, minWidth), targetWidth);
+
+			return dropdownWidth;
+		}
+
+		/// <summary>
+		/// Gets the portal bounds for positioning the dropdown overlay.
+		/// </summary>
+		internal Rectangle GetPortalBounds()
+		{
+			return _dropdownBounds;
+		}
+
+		/// <summary>
+		/// Paints the dropdown list items (called by portal content).
+		/// </summary>
+		internal void PaintDropdownListInternal(CharacterBuffer buffer, LayoutRect clipRect)
+		{
+			if (_items.Count == 0) return;
+
+			// Get colors for dropdown list (uses dedicated dropdown theme colors)
+			Color backgroundColor;
+			Color foregroundColor;
+
+			if (!_isEnabled)
+			{
+				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
+				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
+			}
+			else
+			{
+				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.DropdownBackgroundColor ?? Color.Grey23;
+				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.DropdownForegroundColor ?? Color.White;
+			}
+
+			int selectedIdx = CurrentSelectedIndex;
+			int highlightedIdx = CurrentHighlightedIndex;
+			int dropdownScroll = CurrentDropdownScrollOffset;
+
+			// Use mouse hover index if active, otherwise keyboard highlight
+			int effectiveHighlight = _mouseHoveredIndex >= 0 ? _mouseHoveredIndex : highlightedIdx;
+
+			int dropdownWidth = _dropdownBounds.Width;
+			int startX = _dropdownBounds.X;
+			int paintY = _dropdownBounds.Y;
+
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - dropdownScroll);
+
+			// Clamp to available height in bounds
+			int availableHeight = _dropdownBounds.Height;
+			bool hasScrollIndicator = (_items.Count > effectiveMaxVisibleItems);
+			int maxItemsInBounds = hasScrollIndicator ? availableHeight - 1 : availableHeight;
+			itemsToShow = Math.Min(itemsToShow, maxItemsInBounds);
+
+			for (int i = 0; i < itemsToShow; i++)
+			{
+				if (paintY >= clipRect.Y && paintY < clipRect.Bottom)
+				{
+					int itemIndex = i + dropdownScroll;
+					if (itemIndex >= _items.Count) break;
+
+					string itemText = _itemFormatter != null
+						? _itemFormatter(_items[itemIndex], itemIndex == selectedIdx, _hasFocus)
+						: _items[itemIndex].Text;
+
+					if (AnsiConsoleHelper.StripSpectreLength(itemText) > dropdownWidth - 4)
+						itemText = itemText.Substring(0, Math.Max(0, dropdownWidth - 7)) + "...";
+
+					Color itemBg = (itemIndex == selectedIdx) ? HighlightBackgroundColor : backgroundColor;
+					Color itemFg = (itemIndex == selectedIdx) ? HighlightForegroundColor : foregroundColor;
+
+					// Override with hover highlight
+					if (itemIndex == effectiveHighlight)
+					{
+						itemBg = HighlightBackgroundColor;
+						itemFg = HighlightForegroundColor;
+					}
+
+					string selectionIndicator = itemIndex == highlightedIdx ? "● " : "  ";
+					string itemContent = selectionIndicator + itemText;
+					int visibleTextLength = 2 + AnsiConsoleHelper.StripSpectreLength(itemText);
+					int paddingNeeded = Math.Max(0, dropdownWidth - visibleTextLength);
+					if (paddingNeeded > 0)
+						itemContent += new string(' ', paddingNeeded);
+
+					var itemAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(itemContent, dropdownWidth, 1, false, itemBg, itemFg).FirstOrDefault() ?? string.Empty;
+					var itemCells = AnsiParser.Parse(itemAnsi, itemFg, itemBg);
+					buffer.WriteCellsClipped(startX, paintY, itemCells, clipRect);
+				}
+				paintY++;
+			}
+
+			// Render scroll indicators if needed
+			if (hasScrollIndicator && paintY < _dropdownBounds.Bottom)
+			{
+				if (paintY >= clipRect.Y && paintY < clipRect.Bottom)
+				{
+					string scrollIndicator = (dropdownScroll > 0 ? "▲" : " ");
+					int scrollPadding = dropdownWidth - 2;
+					if (scrollPadding > 0)
+						scrollIndicator += new string(' ', scrollPadding);
+					scrollIndicator += (dropdownScroll + itemsToShow < _items.Count ? "▼" : " ");
+
+					var scrollAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(scrollIndicator, dropdownWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
+					var scrollCells = AnsiParser.Parse(scrollAnsi, foregroundColor, backgroundColor);
+					buffer.WriteCellsClipped(startX, paintY, scrollCells, clipRect);
+				}
+			}
+		}
+
+		#endregion
 
 		// Calculate effective width
 		// Calculate effective width
@@ -1307,5 +1722,104 @@ namespace SharpConsoleUI.Controls
 		/// <param name="text">The text to convert.</param>
 		/// <returns>A new <see cref="DropdownItem"/> with the specified text.</returns>
 		public static implicit operator DropdownItem(string text) => new DropdownItem(text);
+	}
+
+	/// <summary>
+	/// Internal portal content control for rendering dropdown lists as overlays.
+	/// This control is created by DropdownControl when the dropdown opens and is added as a portal child
+	/// to render outside the normal bounds of the dropdown control.
+	/// </summary>
+	internal class DropdownPortalContent : IWindowControl, IDOMPaintable, IMouseAwareControl
+	{
+		private readonly DropdownControl _owner;
+
+		public DropdownPortalContent(DropdownControl owner)
+		{
+			_owner = owner;
+		}
+
+		#region IMouseAwareControl Implementation
+
+		/// <inheritdoc/>
+		public bool WantsMouseEvents => true;
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse => false;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseMove;
+
+		/// <inheritdoc/>
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+			return _owner.ProcessPortalMouseEvent(args);
+		}
+
+		#endregion
+
+		#region IWindowControl Implementation
+
+		public int? ActualWidth => _owner.GetPortalBounds().Width;
+		public int? ActualHeight => _owner.GetPortalBounds().Height;
+		public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
+		public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.Top;
+		public IContainer? Container { get; set; }
+		public Margin Margin { get; set; } = new Margin(0, 0, 0, 0);
+		public StickyPosition StickyPosition { get; set; } = StickyPosition.None;
+		public string? Name { get; set; }
+		public object? Tag { get; set; }
+		public bool Visible { get; set; } = true;
+		public int? Width { get; set; }
+
+		public Size GetLogicalContentSize()
+		{
+			var bounds = _owner.GetPortalBounds();
+			return new Size(bounds.Width, bounds.Height);
+		}
+
+		/// <summary>
+		/// Gets the absolute bounds for portal positioning.
+		/// </summary>
+		public Rectangle GetPortalBounds()
+		{
+			return _owner.GetPortalBounds();
+		}
+
+		public void Invalidate()
+		{
+			Container?.Invalidate(true);
+		}
+
+		public void Dispose()
+		{
+			// Nothing to dispose
+		}
+
+		#endregion
+
+		#region IDOMPaintable Implementation
+
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			var bounds = _owner.GetPortalBounds();
+			return new LayoutSize(bounds.Width, bounds.Height);
+		}
+
+		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
+							 Color defaultFg, Color defaultBg)
+		{
+			_owner.PaintDropdownListInternal(buffer, clipRect);
+		}
+
+		#endregion
 	}
 }
