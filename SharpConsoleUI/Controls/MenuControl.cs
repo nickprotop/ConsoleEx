@@ -356,9 +356,12 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         }
         else if (!focus && hadFocus)
         {
-            // When losing focus, clear hover and close all menus if not sticky
+            // When losing focus, clear all item states and close menus
+            // Sticky only prevents closing on keyboard/programmatic focus loss, not mouse clicks
             _hoveredItem = null;
-            if (!_isSticky)
+            _focusedItem = null;
+            _pressedItem = null;
+            if (!_isSticky || reason == FocusReason.Mouse)
             {
                 CloseAllMenus();
             }
@@ -533,6 +536,129 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             }
             // Submenu item with children
             else if (hitItem.HasChildren)
+            {
+                OpenSubmenu(hitItem);
+            }
+            // Leaf item - execute action
+            else
+            {
+                ExecuteMenuItem(hitItem);
+                CloseAllMenus();
+            }
+
+            MouseClick?.Invoke(this, args);
+            Container?.Invalidate(true);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Processes mouse events for a dropdown portal.
+    /// Called by MenuPortalContent when the portal receives mouse events.
+    /// </summary>
+    /// <param name="dropdown">The dropdown that received the event.</param>
+    /// <param name="args">Mouse event arguments with portal-relative coordinates.</param>
+    /// <returns>True if the event was handled.</returns>
+    internal bool ProcessDropdownMouseEvent(MenuDropdown dropdown, MouseEventArgs args)
+    {
+        if (!_enabled)
+            return false;
+
+        // Convert portal-relative coordinates to item index
+        // Portal bounds include border (1 char each side), so content starts at (1, 1)
+        int contentX = args.Position.X - 1;
+        int contentY = args.Position.Y - 1;
+
+        // Find which item is at this Y position (accounting for scroll offset)
+        MenuItem? hitItem = null;
+        if (contentY >= 0 && contentY < dropdown.VisibleItems.Count)
+        {
+            int itemIndex = contentY + dropdown.ScrollOffset;
+            if (itemIndex >= 0 && itemIndex < dropdown.VisibleItems.Count)
+            {
+                hitItem = dropdown.VisibleItems[itemIndex];
+            }
+        }
+
+        // Handle mouse leave
+        if (args.HasFlag(MouseFlags.MouseLeave))
+        {
+            if (!HasFocus)
+            {
+                _hoveredItem = null;
+            }
+            MouseLeave?.Invoke(this, args);
+            Container?.Invalidate(true);
+            return true;
+        }
+
+        // Handle mouse enter
+        if (args.HasFlag(MouseFlags.MouseEnter))
+        {
+            MouseEnter?.Invoke(this, args);
+            return true;
+        }
+
+        // Handle mouse move (hover)
+        if (args.HasAnyFlag(MouseFlags.ReportMousePosition))
+        {
+            if (hitItem != _hoveredItem)
+            {
+                _hoveredItem = hitItem;
+
+                if (hitItem != null && hitItem.HasChildren && !hitItem.IsOpen)
+                {
+                    // Item with children - open its submenu (closes sibling submenus automatically)
+                    OpenSubmenu(hitItem);
+                }
+                else if (hitItem != null && !hitItem.HasChildren)
+                {
+                    // Leaf item - close any sibling submenus that are deeper than this dropdown
+                    CloseSiblingSubmenus(dropdown);
+                }
+
+                ItemHovered?.Invoke(this, hitItem);
+                Container?.Invalidate(true);
+            }
+            return true;
+        }
+
+        // Handle mouse down
+        if (args.HasAnyFlag(MouseFlags.Button1Pressed))
+        {
+            if (hitItem == null || !hitItem.IsEnabled || hitItem.IsSeparator)
+            {
+                return true;
+            }
+
+            _pressedItem = hitItem;
+            Container?.Invalidate(true);
+            return true;
+        }
+
+        // Handle mouse up - execute action
+        if (args.HasFlag(MouseFlags.Button1Released))
+        {
+            var pressedItem = _pressedItem;
+            _pressedItem = null;
+
+            if (pressedItem == null || hitItem == null || hitItem != pressedItem)
+            {
+                Container?.Invalidate(true);
+                return true;
+            }
+
+            if (!hitItem.IsEnabled || hitItem.IsSeparator)
+                return true;
+
+            // Update focus and clear hover
+            _focusedItem = hitItem;
+            _hoveredItem = null;
+
+            // Item with children - open submenu
+            if (hitItem.HasChildren)
             {
                 OpenSubmenu(hitItem);
             }
@@ -1872,6 +1998,35 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         Container?.Invalidate(true);
     }
 
+    /// <summary>
+    /// Closes any submenus that are deeper than the specified dropdown.
+    /// Called when hovering over a leaf item to close sibling submenus.
+    /// </summary>
+    private void CloseSiblingSubmenus(MenuDropdown currentDropdown)
+    {
+        var window = Container as Window ?? FindContainingWindow();
+        int currentIndex = _openDropdowns.IndexOf(currentDropdown);
+        if (currentIndex < 0) return;
+
+        // Close all dropdowns after the current one
+        while (_openDropdowns.Count > currentIndex + 1)
+        {
+            var last = _openDropdowns[_openDropdowns.Count - 1];
+            if (last.ParentItem != null)
+            {
+                last.ParentItem.IsOpen = false;
+            }
+
+            if (_dropdownPortals.TryGetValue(last, out var portalNode) && window != null)
+            {
+                window.RemovePortal(this, portalNode);
+                _dropdownPortals.Remove(last);
+            }
+
+            _openDropdowns.RemoveAt(_openDropdowns.Count - 1);
+        }
+    }
+
     private void UpdateFocusToLastDropdown()
     {
         if (_openDropdowns.Count > 0)
@@ -1896,7 +2051,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 /// This control is created by MenuControl when a dropdown opens and is added as a portal child
 /// to render outside the normal bounds of the menu control.
 /// </summary>
-internal class MenuPortalContent : IWindowControl, IDOMPaintable
+internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareControl
 {
     private readonly MenuControl _owner;
     private readonly MenuDropdown _dropdown;
@@ -1906,6 +2061,52 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable
         _owner = owner;
         _dropdown = dropdown;
     }
+
+    #region IMouseAwareControl Implementation
+
+    /// <summary>
+    /// Whether this control wants to receive mouse events.
+    /// </summary>
+    public bool WantsMouseEvents => true;
+
+    /// <summary>
+    /// Whether this control can receive focus via mouse clicks.
+    /// Portal content should not steal focus from owner.
+    /// </summary>
+    public bool CanFocusWithMouse => false;
+
+    /// <summary>
+    /// Event fired when the control is clicked.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseClick;
+
+    /// <summary>
+    /// Event fired when the mouse enters the control area.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseEnter;
+
+    /// <summary>
+    /// Event fired when the mouse leaves the control area.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseLeave;
+
+    /// <summary>
+    /// Event fired when the mouse moves over the control.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseMove;
+
+    /// <summary>
+    /// Processes mouse events for this portal content and delegates to owner MenuControl.
+    /// </summary>
+    /// <param name="args">Mouse event arguments with portal-relative coordinates.</param>
+    /// <returns>True if the event was handled.</returns>
+    public bool ProcessMouseEvent(MouseEventArgs args)
+    {
+        // Delegate to owner MenuControl for handling
+        return _owner.ProcessDropdownMouseEvent(_dropdown, args);
+    }
+
+    #endregion
 
     // IWindowControl minimal implementation
     public int? ActualWidth => _dropdown.Bounds.Width;
