@@ -800,27 +800,38 @@ namespace SharpConsoleUI
 					return null;
 				}
 
-				return GetContentFromWindowCoordinates(GetContentCoordinates(relativePosition.Value));
+				return GetContentFromWindowCoordinates(relativePosition.Value);
 			}
 		}
 
 		/// <summary>
 		/// Gets the control at the specified window-relative coordinates.
+		/// Handles conversion from window coords to content coords internally.
 		/// </summary>
 		/// <param name="point">The window-relative coordinates to check.</param>
-		/// <returns>The control at the specified position, or null if none found.</returns>
+		/// <returns>The control at the specified position, or null if none found or outside content area.</returns>
 		public IWindowControl? GetContentFromWindowCoordinates(Point? point)
 		{
-		lock (_lock)
-		{
-			if (point == null) return null;
+			lock (_lock)
+			{
+				if (point == null) return null;
 
-			var contentPoint = point.Value;
+				var windowPoint = point.Value;
 
-			// Use DOM tree hit-testing for correct nested control detection
-			return HitTestDOM(contentPoint.X, contentPoint.Y);
+				// Convert window coords to content coords (subtract border offset)
+				// Title bar is at window Y=0, content starts at Y=1
+				var contentX = windowPoint.X - 1;
+				var contentY = windowPoint.Y - 1;
+
+				// Return null if outside content area (title bar, borders)
+				if (contentX < 0 || contentY < 0 ||
+				    contentX >= Width - 2 || contentY >= Height - 2)
+					return null;
+
+				// Use DOM tree hit-testing for correct nested control detection
+				return HitTestDOM(contentX, contentY);
+			}
 		}
-	}
 
 	/// <summary>
 		/// Handles mouse events for this window and propagates them to controls
@@ -838,7 +849,7 @@ namespace SharpConsoleUI
 				if (IsClickInWindowContent(args.WindowPosition))
 				{
 					// Find the control at this position
-					var targetControl = GetContentFromWindowCoordinates(GetContentCoordinates(args.WindowPosition));
+					var targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
 					
 					if (targetControl != null)
 					{
