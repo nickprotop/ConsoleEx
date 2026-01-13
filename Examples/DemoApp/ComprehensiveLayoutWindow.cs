@@ -31,7 +31,7 @@ public class ComprehensiveLayoutWindow : IDisposable
     private Window? _window;
 
     // Control properties for easy access throughout the class
-    private HorizontalGridControl? _menuBar;
+    private MenuControl? _menu;
     private HorizontalGridControl? _toolbar;
     private TreeControl? _projectTree;
     private MultilineEditControl? _editorContent;
@@ -42,12 +42,7 @@ public class ComprehensiveLayoutWindow : IDisposable
     private MarkupControl? _timeStatus;
     private MarkupControl? _lineNumbers;
 
-    // Menu and toolbar buttons
-    private ButtonControl? _fileMenu;
-    private ButtonControl? _editMenu;
-    private ButtonControl? _viewMenu;
-    private ButtonControl? _toolsMenu;
-    private ButtonControl? _helpMenu;
+    // Toolbar buttons
     private ButtonControl? _newBtn;
     private ButtonControl? _openBtn;
     private ButtonControl? _saveBtn;
@@ -184,43 +179,47 @@ public class ComprehensiveLayoutWindow : IDisposable
     {
         if (_window == null) return;
 
-        _menuBar = new HorizontalGridControl
-        {
-            HorizontalAlignment = HorizontalAlignment.Left,
-            StickyPosition = StickyPosition.Top
-        };
+        _menu = Controls.Menu()
+            .Horizontal()
+            .WithName("mainMenu")
+            .Sticky()
+            .AddItem("File", m => m
+                .AddItem("New", "Ctrl+N", () => HandleNewFile(null, _newBtn!))
+                .AddItem("Open", "Ctrl+O", () => UpdateFileStatus("Open file dialog..."))
+                .AddSeparator()
+                .AddItem("Save", "Ctrl+S", () => HandleSaveFile(null, _saveBtn!))
+                .AddItem("Save As...", "Ctrl+Shift+S", () => UpdateFileStatus("Save As dialog..."))
+                .AddSeparator()
+                .AddItem("Exit", "Alt+F4", () => Close()))
+            .AddItem("Edit", m => m
+                .AddItem("Undo", "Ctrl+Z", () => UpdateFileStatus("[blue]<-[/] Undo"))
+                .AddItem("Redo", "Ctrl+Y", () => UpdateFileStatus("[blue]->[/] Redo"))
+                .AddSeparator()
+                .AddItem("Cut", "Ctrl+X", () => UpdateFileStatus("Cut to clipboard"))
+                .AddItem("Copy", "Ctrl+C", () => UpdateFileStatus("Copy to clipboard"))
+                .AddItem("Paste", "Ctrl+V", () => UpdateFileStatus("Paste from clipboard"))
+                .AddSeparator()
+                .AddItem("Find", "Ctrl+F", () => UpdateFileStatus("Find..."))
+                .AddItem("Replace", "Ctrl+H", () => UpdateFileStatus("Replace...")))
+            .AddItem("View", m => m
+                .AddItem("Toggle Sidebar", "Ctrl+B", () => UpdateFileStatus("Sidebar toggled"))
+                .AddItem("Toggle Panel", "Ctrl+J", () => UpdateFileStatus("Panel toggled"))
+                .AddSeparator()
+                .AddItem("Zoom In", "Ctrl++", () => UpdateFileStatus("Zoom In"))
+                .AddItem("Zoom Out", "Ctrl+-", () => UpdateFileStatus("Zoom Out")))
+            .AddItem("Tools", m => m
+                .AddItem("Options", () => UpdateFileStatus("Options dialog..."))
+                .AddItem("Preferences", () => UpdateFileStatus("Preferences dialog...")))
+            .AddItem("Help", m => m
+                .AddItem("Documentation", "F1", () => UpdateFileStatus("Documentation..."))
+                .AddItem("About", () => UpdateFileStatus("About IDE Demo...")))
+            .Build();
 
-        // Create menu buttons
-        _fileMenu = new ButtonControl { Text = " File ", Width = 8 };
-        _editMenu = new ButtonControl { Text = " Edit ", Width = 8 };
-        _viewMenu = new ButtonControl { Text = " View ", Width = 8 };
-        _toolsMenu = new ButtonControl { Text = " Tools ", Width = 8 };
-        _helpMenu = new ButtonControl { Text = " Help ", Width = 8 };
-
-        // Add menu buttons to columns
-        var fileMenuCol = new ColumnContainer(_menuBar);
-        fileMenuCol.AddContent(_fileMenu);
-        _menuBar.AddColumn(fileMenuCol);
-
-        var editMenuCol = new ColumnContainer(_menuBar);
-        editMenuCol.AddContent(_editMenu);
-        _menuBar.AddColumn(editMenuCol);
-
-        var viewMenuCol = new ColumnContainer(_menuBar);
-        viewMenuCol.AddContent(_viewMenu);
-        _menuBar.AddColumn(viewMenuCol);
-
-        var toolsMenuCol = new ColumnContainer(_menuBar);
-        toolsMenuCol.AddContent(_toolsMenu);
-        _menuBar.AddColumn(toolsMenuCol);
-
-        var helpMenuCol = new ColumnContainer(_menuBar);
-        helpMenuCol.AddContent(_helpMenu);
-        _menuBar.AddColumn(helpMenuCol);
-
-        _window.AddControl(_menuBar);
+        _menu.StickyPosition = StickyPosition.Top;
+        _window.AddControl(_menu);
         _window.AddControl(new RuleControl { StickyPosition = StickyPosition.Top });
     }
+
 
     /// <summary>
     /// Create the toolbar (sticky top)
@@ -539,11 +538,14 @@ namespace MyProject
     /// </summary>
     private void SetupMenuHandlers()
     {
-        if (_fileMenu != null) _fileMenu.Click += (s, e) => UpdateFileStatus("File menu clicked");
-        if (_editMenu != null) _editMenu.Click += (s, e) => UpdateFileStatus("Edit menu clicked");
-        if (_viewMenu != null) _viewMenu.Click += (s, e) => UpdateFileStatus("View menu clicked");
-        if (_toolsMenu != null) _toolsMenu.Click += (s, e) => UpdateFileStatus("Tools menu clicked");
-        if (_helpMenu != null) _helpMenu.Click += (s, e) => UpdateFileStatus("Help menu clicked");
+        if (_menu != null)
+        {
+            // Optional: Global selection handler for logging
+            _menu.ItemSelected += (sender, item) =>
+            {
+                _windowSystem.LogService.LogInfo($"Menu item selected: {item.GetPath()}");
+            };
+        }
     }
 
     /// <summary>
