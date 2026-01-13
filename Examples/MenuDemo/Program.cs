@@ -50,9 +50,21 @@ class Program
 
     static void CreateMainWindow(ConsoleWindowSystem windowSystem)
     {
+        // Calculate responsive window size based on terminal dimensions
+        var screenWidth = windowSystem.DesktopDimensions.Width;
+        var screenHeight = windowSystem.DesktopDimensions.Height;
+
+        // Use 90% of screen width (max 140) and 90% of height (max 35)
+        var windowWidth = Math.Min(140, (int)(screenWidth * 0.9));
+        var windowHeight = Math.Min(35, (int)(screenHeight * 0.9));
+
+        // Ensure minimum viable size
+        windowWidth = Math.Max(60, windowWidth);
+        windowHeight = Math.Max(20, windowHeight);
+
         _mainWindow = new WindowBuilder(windowSystem)
             .WithTitle("MenuControl Showcase")
-            .WithSize(140, 35)
+            .WithSize(windowWidth, windowHeight)
             .Centered()
             .WithColors(Color.Grey11, Color.White)
             .Build();

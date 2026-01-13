@@ -85,5 +85,29 @@ namespace SharpConsoleUI.Events
 				Handled = this.Handled
 			};
 		}
+
+		/// <summary>
+		/// Creates a copy of this event args with additional flags
+		/// </summary>
+		public MouseEventArgs WithFlags(params MouseFlags[] additionalFlags)
+		{
+			var newFlags = new List<MouseFlags>(Flags);
+			newFlags.AddRange(additionalFlags);
+			return new MouseEventArgs(newFlags, Position, AbsolutePosition, WindowPosition, SourceWindow)
+			{
+				Handled = this.Handled
+			};
+		}
+
+		/// <summary>
+		/// Creates a copy of this event args with flags replaced
+		/// </summary>
+		public MouseEventArgs WithReplacedFlags(params MouseFlags[] replacementFlags)
+		{
+			return new MouseEventArgs(new List<MouseFlags>(replacementFlags), Position, AbsolutePosition, WindowPosition, SourceWindow)
+			{
+				Handled = this.Handled
+			};
+		}
 	}
 }

@@ -37,6 +37,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     private MenuItem? _focusedItem;              // Keyboard focus
     private MenuItem? _hoveredItem;              // Mouse hover
     private MenuItem? _pressedItem;              // Mouse pressed (visual feedback)
+    private bool _isMouseInside;                 // Track if mouse is currently inside control
     private readonly List<MenuDropdown> _openDropdowns = new();
     private readonly Dictionary<MenuDropdown, LayoutNode> _dropdownPortals = new();
     private DateTime _hoverStartTime = DateTime.MinValue;
@@ -384,6 +385,27 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         if (!_enabled)
             return false;
 
+        // Handle mouse leave event - clear hover if unfocused
+        if (args.HasFlag(MouseFlags.MouseLeave))
+        {
+            _isMouseInside = false;
+            if (!HasFocus)
+            {
+                _hoveredItem = null;
+                Container?.Invalidate(true);
+            }
+            MouseLeave?.Invoke(this, args);
+            return true;
+        }
+
+        // Handle mouse enter event
+        if (args.HasFlag(MouseFlags.MouseEnter))
+        {
+            _isMouseInside = true;
+            MouseEnter?.Invoke(this, args);
+            return true;
+        }
+
         // Mouse move - update hover state
         if (args.HasAnyFlag(MouseFlags.ReportMousePosition))
         {
@@ -437,9 +459,20 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             _pressedItem = hitItem;
 
             // Set focus on mouse down
+            bool wasFocused = HasFocus;
             if (!HasFocus)
             {
                 SetFocus(true, FocusReason.Mouse);
+            }
+
+            // If we just gained focus and clicked a top-level item with children, open it immediately
+            // This allows single-click to open menus instead of requiring click-to-focus then click-to-open
+            if (!wasFocused && IsTopLevelItem(hitItem) && hitItem.HasChildren && hitItem.IsEnabled && !hitItem.IsSeparator)
+            {
+                CloseAllMenus();
+                OpenDropdownInternal(hitItem);
+                _focusedItem = hitItem;
+                _hoveredItem = null;
             }
 
             Container?.Invalidate(true);
@@ -450,6 +483,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         if (args.HasAnyFlag(MouseFlags.Button1Released, MouseFlags.Button1Clicked))
         {
             var hitItem = HitTest(args.Position.X, args.Position.Y);
+            var pressedItem = _pressedItem; // Save before clearing
             _pressedItem = null;
 
             if (hitItem == null)
@@ -469,9 +503,17 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             // Top-level item clicked
             if (IsTopLevelItem(hitItem))
             {
-                if (hitItem.IsOpen)
+                // Check if we just opened this menu in the Button1Pressed handler
+                // (happens when menu wasn't focused and we clicked it)
+                bool justOpenedInMouseDown = (pressedItem == hitItem && hitItem.IsOpen && hitItem.HasChildren);
+
+                if (justOpenedInMouseDown)
                 {
-                    // Close if already open
+                    // Skip - already opened in mouse down, don't toggle it closed
+                }
+                else if (hitItem.IsOpen)
+                {
+                    // Close if already open from a previous click
                     CloseAllMenus();
                 }
                 else

@@ -178,6 +178,9 @@ namespace SharpConsoleUI
 		private readonly Dictionary<IWindowControl, LayoutNode> _controlToNodeMap = new();
 		private readonly bool _useDOMLayout = true;  // DOM-based layout is now the only rendering path
 
+		// Mouse tracking for enter/leave events
+		private Controls.IWindowControl? _lastMouseOverControl;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Window"/> class with an async background task.
 		/// </summary>
@@ -844,13 +847,42 @@ namespace SharpConsoleUI
 			{
 				// Ensure layout is current before processing mouse events
 				UpdateControlLayout();
-				
+
+				// Find the control at the current mouse position
+				Controls.IWindowControl? currentControl = null;
+				if (IsClickInWindowContent(args.WindowPosition))
+				{
+					currentControl = GetContentFromWindowCoordinates(args.WindowPosition);
+				}
+
+				// Generate enter/leave events when control under mouse changes
+				if (currentControl != _lastMouseOverControl)
+				{
+					// Send leave event to previous control
+					if (_lastMouseOverControl != null && _lastMouseOverControl is Controls.IMouseAwareControl leavingControl && leavingControl.WantsMouseEvents)
+					{
+						var leavePosition = GetControlRelativePosition(_lastMouseOverControl, args.WindowPosition);
+						var leaveArgs = args.WithPosition(leavePosition).WithFlags(MouseFlags.MouseLeave);
+						leavingControl.ProcessMouseEvent(leaveArgs);
+					}
+
+					// Send enter event to new control
+					if (currentControl != null && currentControl is Controls.IMouseAwareControl enteringControl && enteringControl.WantsMouseEvents)
+					{
+						var enterPosition = GetControlRelativePosition(currentControl, args.WindowPosition);
+						var enterArgs = args.WithPosition(enterPosition).WithFlags(MouseFlags.MouseEnter);
+						enteringControl.ProcessMouseEvent(enterArgs);
+					}
+
+					_lastMouseOverControl = currentControl;
+				}
+
 				// Check if the click is within the window content area (not borders/title)
 				if (IsClickInWindowContent(args.WindowPosition))
 				{
 					// Find the control at this position
 					var targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
-					
+
 					if (targetControl != null)
 					{
 						// Handle focus management for mouse clicks

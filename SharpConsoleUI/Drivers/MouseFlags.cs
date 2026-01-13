@@ -121,7 +121,13 @@ namespace SharpConsoleUI.Drivers
 		/// <summary>Vertical button wheeled down while pressing ButtonCtrl.</summary>
 		WheeledRight = ButtonCtrl | WheeledDown,
 
+		/// <summary>The mouse entered the control area.</summary>
+		MouseEnter = 0x40000000,
+
+		/// <summary>The mouse left the control area.</summary>
+		MouseLeave = unchecked((int)0x80000000),
+
 		/// <summary>Mask that captures all the events.</summary>
-		AllEvents = 0x7ffffff
+		AllEvents = unchecked((int)0xffffffff)
 	}
 }
