@@ -26,7 +26,6 @@ public class AgentStudioWindow : IDisposable
     // Layout controls
     private HorizontalGridControl? _mainGrid;
     private ScrollablePanelControl? _conversationPanel;
-    private TreeControl? _projectTree;
     private MultilineEditControl? _inputArea;
     private ButtonControl? _sendButton;
 
@@ -163,7 +162,7 @@ public class AgentStudioWindow : IDisposable
     }
 
     /// <summary>
-    /// Create main 2-panel layout with splitter
+    /// Create main 2-panel layout
     /// </summary>
     private void CreateMainLayout()
     {
@@ -175,56 +174,15 @@ public class AgentStudioWindow : IDisposable
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
 
-        // Left panel: Project Explorer (30 chars wide)
-        var leftColumn = new ColumnContainer(_mainGrid)
-        {
-            Width = 30
-        };
-
-        var explorerHeader = new MarkupControl(new List<string> { "[cyan1 bold]Project Explorer[/]" })
-        {
-            Margin = new Margin(1, 0, 0, 0),
-            BackgroundColor = Color.Grey15
-        };
-        leftColumn.AddContent(explorerHeader);
-
-        _projectTree = new TreeControl
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Fill,
-            BackgroundColor = Color.Grey15,
-            ForegroundColor = Color.Grey93,
-            Margin = new Margin(1, 1, 1, 1)
-        };
-
-        // Populate with sample project
-        SampleProject.PopulateProjectTree(_projectTree);
-
-        leftColumn.AddContent(_projectTree);
-
-        _mainGrid.AddColumn(leftColumn);
-
-        // Splitter
-        var splitterColumn = new ColumnContainer(_mainGrid)
-        {
-            Width = 1
-        };
-        splitterColumn.AddContent(new SplitterControl
-        {
-            VerticalAlignment = VerticalAlignment.Fill,
-            ForegroundColor = Color.Grey23
-        });
-        _mainGrid.AddColumn(splitterColumn);
-
-        // Right panel: Conversation
-        var rightColumn = new ColumnContainer(_mainGrid);
+        // Left panel: Conversation (flexible width)
+        var leftColumn = new ColumnContainer(_mainGrid);
 
         var conversationHeader = new MarkupControl(new List<string> { "[cyan1 bold]Conversation & Tool Outputs[/]" })
         {
             Margin = new Margin(1, 0, 0, 0),
             BackgroundColor = Color.Grey11
         };
-        rightColumn.AddContent(conversationHeader);
+        leftColumn.AddContent(conversationHeader);
 
         _conversationPanel = new ScrollablePanelControl
         {
@@ -235,10 +193,74 @@ public class AgentStudioWindow : IDisposable
             BackgroundColor = Color.Grey11,
             ForegroundColor = Color.Grey93
         };
-        rightColumn.AddContent(_conversationPanel);
+        leftColumn.AddContent(_conversationPanel);
 
         // Initialize mock AI service
         _mockAiService = new Services.MockAiService(_conversationPanel, _messages);
+
+        _mainGrid.AddColumn(leftColumn);
+
+        // Spacing column between panels
+        var spacingColumn = new ColumnContainer(_mainGrid)
+        {
+            Width = 1
+        };
+        _mainGrid.AddColumn(spacingColumn);
+
+        // Right panel: Info & Stats (30 chars wide)
+        var rightColumn = new ColumnContainer(_mainGrid)
+        {
+            Width = 30,
+            BackgroundColor = Color.Grey19
+        };
+
+        var infoHeader = new MarkupControl(new List<string> { "", "[cyan1 bold]Session Info[/]" })
+        {
+            Margin = new Margin(2, 0, 0, 0)
+        };
+        rightColumn.AddContent(infoHeader);
+
+        // Info panel content
+        var infoPanel = new MarkupControl(new List<string>
+        {
+            "",
+            "[grey70 bold]Model[/]",
+            "[cyan1]claude-sonnet-4-5[/]",
+            "",
+            "[grey70 bold]Messages[/]",
+            "[grey50]0 total[/]",
+            "[grey35]━━━━━━━━━━━━━━━━━━━━━━[/]",
+            "",
+            "",
+            "[grey70 bold]Token Usage[/]",
+            "[cyan1]█████[/][grey35]░░░░░░░░░░░░░░░[/] 25%",
+            "[grey50]2.5K / 10K tokens[/]",
+            "",
+            "",
+            "[grey70 bold]Response Time[/]",
+            "[green]█████████[/][grey35]░░░░░░░░░░░[/] 45%",
+            "[grey50]avg 0.8s[/]",
+            "",
+            "",
+            "[grey70 bold]Available Commands[/]",
+            "[cyan1]/analyze[/] [dim]Security check[/]",
+            "[cyan1]/diff[/]    [dim]Code changes[/]",
+            "[cyan1]/test[/]    [dim]Run tests[/]",
+            "",
+            "",
+            "[grey70 bold]Shortcuts[/]",
+            "[grey50]Tab[/]         Switch mode",
+            "[grey50]Esc[/]         Exit",
+            "[grey50]Ctrl+Enter[/]  Send"
+        })
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Fill,
+            ForegroundColor = Color.Grey93,
+            Margin = new Margin(2, 1, 1, 1),
+            Wrap = true
+        };
+        rightColumn.AddContent(infoPanel);
 
         _mainGrid.AddColumn(rightColumn);
 

@@ -1770,6 +1770,72 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Creates a portal overlay for the specified control.
+		/// Portal content renders on top of all normal content with no parent clipping.
+		/// Portals are useful for dropdowns, tooltips, context menus, and other overlay content.
+		/// </summary>
+		/// <param name="ownerControl">The control creating the portal.</param>
+		/// <param name="portalContent">The content to render as an overlay.</param>
+		/// <returns>The portal LayoutNode for later removal, or null if owner not found.</returns>
+		public LayoutNode? CreatePortal(IWindowControl ownerControl, IWindowControl portalContent)
+		{
+			var ownerNode = GetLayoutNode(ownerControl);
+			if (ownerNode == null)
+				return null;
+
+			var portalNode = new LayoutNode(portalContent);
+			portalNode.IsVisible = true; // Ensure portal is visible
+
+			// Measure the portal to get its size
+			var contentWidth = Width - 2;
+			var contentHeight = Height - 2;
+			var constraints = LayoutConstraints.Loose(contentWidth, contentHeight);
+			portalNode.Measure(constraints);
+
+			// Get the portal's desired position
+			// For MenuPortalContent, use GetPortalBounds() if available
+			Rectangle portalBounds;
+			if (portalContent is MenuPortalContent menuPortal)
+			{
+				portalBounds = menuPortal.GetPortalBounds();
+			}
+			else
+			{
+				// Fallback: position at (0,0) with measured size
+				portalBounds = new Rectangle(0, 0, portalNode.DesiredSize.Width, portalNode.DesiredSize.Height);
+			}
+
+			var portalRect = new LayoutRect(portalBounds.X, portalBounds.Y, portalBounds.Width, portalBounds.Height);
+
+			// Arrange the portal at its absolute position
+			portalNode.Arrange(portalRect);
+
+			ownerNode.AddPortalChild(portalNode);
+			_controlToNodeMap[portalContent] = portalNode;
+
+			Invalidate(true); // Force full redraw to include portal
+			return portalNode;
+		}
+
+		/// <summary>
+		/// Removes a portal overlay created by CreatePortal().
+		/// </summary>
+		/// <param name="ownerControl">The control that owns the portal.</param>
+		/// <param name="portalNode">The portal LayoutNode returned by CreatePortal().</param>
+		public void RemovePortal(IWindowControl ownerControl, LayoutNode portalNode)
+		{
+			var ownerNode = GetLayoutNode(ownerControl);
+			if (ownerNode == null)
+				return;
+
+			ownerNode.RemovePortalChild(portalNode);
+			if (portalNode.Control != null)
+				_controlToNodeMap.Remove(portalNode.Control);
+
+			Invalidate(true); // Force full redraw to clear portal
+		}
+
+		/// <summary>
 		/// Gets the root layout node for this window.
 		/// </summary>
 		public LayoutNode? RootLayoutNode => _rootNode;
@@ -1977,6 +2043,16 @@ namespace SharpConsoleUI
 
 			// Convert the entire buffer to lines (DOM handles sticky internally)
 			_cachedContent = _buffer.ToLines(ForegroundColor, BackgroundColor);
+
+			// Debug: Check if line 1 has the dropdown box character
+			System.IO.File.AppendAllText("/tmp/menu_debug.log", $"{DateTime.Now:HH:mm:ss.fff} - ToLines called: _cachedContent.Count={_cachedContent.Count}\n");
+			if (_cachedContent.Count > 1)
+			{
+				var line1 = _cachedContent[1];
+				var hasBox = line1.Contains("╭");
+				System.IO.File.AppendAllText("/tmp/menu_debug.log", $"{DateTime.Now:HH:mm:ss.fff} - Line[1] has box char: {hasBox}, length={line1.Length}\n");
+			}
+
 			_invalidated = false;
 		}
 

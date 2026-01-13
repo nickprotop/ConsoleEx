@@ -203,4 +203,10 @@ public static class Controls
 			builder.WithText(text);
 		return builder;
 	}
+
+	/// <summary>
+	/// Creates a new menu builder
+	/// </summary>
+	/// <returns>A new menu builder</returns>
+	public static MenuBuilder Menu() => new MenuBuilder();
 }
