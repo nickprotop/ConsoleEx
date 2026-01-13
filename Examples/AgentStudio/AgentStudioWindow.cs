@@ -32,6 +32,7 @@ public class AgentStudioWindow : IDisposable
     // Status bar controls
     private MarkupControl? _topStatusLeft;
     private MarkupControl? _topStatusRight;
+    private MarkupControl? _bottomModeInfo;
 
     // State
     private string _currentMode = "Build";
@@ -77,7 +78,14 @@ public class AgentStudioWindow : IDisposable
     /// </summary>
     private void WindowThreadMethod(Window window)
     {
-        while (window.GetIsActive() && !_disposed)
+        // Wait for window to become active (it's not active until AddWindow is called)
+        while (!window.GetIsActive() && !_disposed)
+        {
+            Thread.Sleep(100);
+        }
+
+        // Main clock update loop
+        while (!_disposed)
         {
             try
             {
@@ -87,7 +95,7 @@ public class AgentStudioWindow : IDisposable
                     var timeStr = DateTime.Now.ToString("HH:mm:ss");
                     _topStatusRight.SetContent(new List<string>
                     {
-                        $"[grey50]Session: {_currentSession}[/]                   [grey70]{timeStr}[/]"
+                        $"[grey70]{timeStr}[/]"
                     });
                 }
 
@@ -123,20 +131,20 @@ public class AgentStudioWindow : IDisposable
             ForegroundColor = Color.Grey93
         };
 
-        // Left side: Mode indicator
+        // Left side: Session indicator
         _topStatusLeft = new MarkupControl(new List<string>
         {
-            $"[cyan1]Mode: {_currentMode}[/]"
+            $"[grey50]Session: [/][cyan1]{_currentSession}[/]"
         })
         {
             HorizontalAlignment = HorizontalAlignment.Left,
             Margin = new Margin(1, 0, 0, 0)
         };
 
-        // Right side: Session and clock
+        // Right side: Clock only
         _topStatusRight = new MarkupControl(new List<string>
         {
-            $"[grey50]Session: {_currentSession}[/]                   [grey70]--:--:--[/]"
+            $"[grey70]--:--:--[/]"
         })
         {
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -239,19 +247,7 @@ public class AgentStudioWindow : IDisposable
             "",
             "[grey70 bold]Response Time[/]",
             "[green]█████████[/][grey35]░░░░░░░░░░░[/] 45%",
-            "[grey50]avg 0.8s[/]",
-            "",
-            "",
-            "[grey70 bold]Available Commands[/]",
-            "[cyan1]/analyze[/] [dim]Security check[/]",
-            "[cyan1]/diff[/]    [dim]Code changes[/]",
-            "[cyan1]/test[/]    [dim]Run tests[/]",
-            "",
-            "",
-            "[grey70 bold]Shortcuts[/]",
-            "[grey50]Tab[/]         Switch mode",
-            "[grey50]Esc[/]         Exit",
-            "[grey50]Ctrl+Enter[/]  Send"
+            "[grey50]avg 0.8s[/]"
         })
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -302,17 +298,17 @@ public class AgentStudioWindow : IDisposable
             ForegroundColor = Color.Grey70
         };
 
-        // Left column: Model info
+        // Left column: Mode and Model info
         var hintLeftColumn = new ColumnContainer(hintGrid);
-        var modelInfo = new MarkupControl(new List<string>
+        _bottomModeInfo = new MarkupControl(new List<string>
         {
-            "[grey50]Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Enter:Send[/]"
+            $"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Enter:Send[/]"
         })
         {
             HorizontalAlignment = HorizontalAlignment.Left,
             Margin = new Margin(1, 0, 0, 0)
         };
-        hintLeftColumn.AddContent(modelInfo);
+        hintLeftColumn.AddContent(_bottomModeInfo);
         hintGrid.AddColumn(hintLeftColumn);
 
         // Right column: Send button
@@ -349,7 +345,10 @@ public class AgentStudioWindow : IDisposable
             {
                 // Switch mode
                 _currentMode = _currentMode == "Build" ? "Plan" : "Build";
-                _topStatusLeft?.SetContent(new List<string> { $"[cyan1]Mode: {_currentMode}[/]" });
+                _bottomModeInfo?.SetContent(new List<string>
+                {
+                    $"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Enter:Send[/]"
+                });
                 e.Handled = true;
             }
             else if (e.KeyInfo.Key == ConsoleKey.Enter && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
