@@ -479,11 +479,18 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             return true;
         }
 
-        // Mouse up - execute action
-        if (args.HasAnyFlag(MouseFlags.Button1Released, MouseFlags.Button1Clicked))
+        // Mouse up - execute action (only handle Released, not Clicked to avoid duplicate processing)
+        if (args.HasFlag(MouseFlags.Button1Released))
         {
             var hitItem = HitTest(args.Position.X, args.Position.Y);
             var pressedItem = _pressedItem; // Save before clearing
+
+            // Only process if we have a pressedItem - prevents duplicate processing
+            if (pressedItem == null)
+            {
+                return true;
+            }
+
             _pressedItem = null;
 
             if (hitItem == null)
@@ -552,7 +559,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     {
         if (!_enabled || !_hasFocus)
             return false;
-
 
         bool isInSubmenu = _openDropdowns.Count > 1;
         bool hasOpenDropdown = _openDropdowns.Count > 0;
@@ -1429,9 +1435,8 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                 if (hasOpenDropdown)
                 {
                     MoveToPreviousItem();
-                    return true;
                 }
-                break;
+                return true;
 
             case ConsoleKey.Enter:
                 return HandleEnterKey();
@@ -1674,6 +1679,9 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         if (_openDropdowns.Count == 0)
             return;
 
+        // Clear hover state when using keyboard navigation
+        _hoveredItem = null;
+
         var currentDropdown = _openDropdowns[_openDropdowns.Count - 1];
         var items = currentDropdown.VisibleItems;
 
@@ -1702,6 +1710,9 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     {
         if (_openDropdowns.Count == 0)
             return;
+
+        // Clear hover state when using keyboard navigation
+        _hoveredItem = null;
 
         var currentDropdown = _openDropdowns[_openDropdowns.Count - 1];
         var items = currentDropdown.VisibleItems;
