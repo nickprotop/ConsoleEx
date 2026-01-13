@@ -82,25 +82,140 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     /// </summary>
     public IReadOnlyList<MenuItem> Items => _items.AsReadOnly();
 
-    /// <summary>
-    /// Gets or sets the background color for dropdowns.
-    /// </summary>
-    public Color BackgroundColor { get; set; } = Color.White;
+    // Menu bar colors (nullable for theme fallback)
+    private Color? _menuBarBackgroundColor;
+    private Color? _menuBarForegroundColor;
+    private Color? _menuBarHighlightBackgroundColor;
+    private Color? _menuBarHighlightForegroundColor;
+
+    // Dropdown colors (nullable for theme fallback)
+    private Color? _dropdownBackgroundColor;
+    private Color? _dropdownForegroundColor;
+    private Color? _dropdownHighlightBackgroundColor;
+    private Color? _dropdownHighlightForegroundColor;
 
     /// <summary>
-    /// Gets or sets the foreground color for dropdown items.
+    /// Gets or sets the background color for the menu bar. Null uses theme default.
     /// </summary>
-    public Color ForegroundColor { get; set; } = Color.Black;
+    public Color? MenuBarBackgroundColor
+    {
+        get => _menuBarBackgroundColor;
+        set { _menuBarBackgroundColor = value; Container?.Invalidate(false); }
+    }
 
     /// <summary>
-    /// Gets or sets the background color for highlighted items.
+    /// Gets or sets the foreground color for the menu bar. Null uses theme default.
     /// </summary>
-    public Color HighlightColor { get; set; } = Color.Blue;
+    public Color? MenuBarForegroundColor
+    {
+        get => _menuBarForegroundColor;
+        set { _menuBarForegroundColor = value; Container?.Invalidate(false); }
+    }
 
     /// <summary>
-    /// Gets or sets the foreground color for highlighted items.
+    /// Gets or sets the background color for highlighted menu bar items. Null uses theme default.
     /// </summary>
-    public Color HighlightForeground { get; set; } = Color.White;
+    public Color? MenuBarHighlightBackgroundColor
+    {
+        get => _menuBarHighlightBackgroundColor;
+        set { _menuBarHighlightBackgroundColor = value; Container?.Invalidate(false); }
+    }
+
+    /// <summary>
+    /// Gets or sets the foreground color for highlighted menu bar items. Null uses theme default.
+    /// </summary>
+    public Color? MenuBarHighlightForegroundColor
+    {
+        get => _menuBarHighlightForegroundColor;
+        set { _menuBarHighlightForegroundColor = value; Container?.Invalidate(false); }
+    }
+
+    /// <summary>
+    /// Gets or sets the background color for dropdowns. Null uses theme default.
+    /// </summary>
+    public Color? DropdownBackgroundColor
+    {
+        get => _dropdownBackgroundColor;
+        set { _dropdownBackgroundColor = value; Container?.Invalidate(false); }
+    }
+
+    /// <summary>
+    /// Gets or sets the foreground color for dropdown items. Null uses theme default.
+    /// </summary>
+    public Color? DropdownForegroundColor
+    {
+        get => _dropdownForegroundColor;
+        set { _dropdownForegroundColor = value; Container?.Invalidate(false); }
+    }
+
+    /// <summary>
+    /// Gets or sets the background color for highlighted dropdown items. Null uses theme default.
+    /// </summary>
+    public Color? DropdownHighlightBackgroundColor
+    {
+        get => _dropdownHighlightBackgroundColor;
+        set { _dropdownHighlightBackgroundColor = value; Container?.Invalidate(false); }
+    }
+
+    /// <summary>
+    /// Gets or sets the foreground color for highlighted dropdown items. Null uses theme default.
+    /// </summary>
+    public Color? DropdownHighlightForegroundColor
+    {
+        get => _dropdownHighlightForegroundColor;
+        set { _dropdownHighlightForegroundColor = value; Container?.Invalidate(false); }
+    }
+
+    // Resolved colors with theme fallback
+    private Color ResolvedMenuBarBackground => _menuBarBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarBackgroundColor ?? Container?.BackgroundColor ?? Color.Black;
+    private Color ResolvedMenuBarForeground => _menuBarForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarForegroundColor ?? Container?.ForegroundColor ?? Color.White;
+    private Color ResolvedMenuBarHighlightBackground => _menuBarHighlightBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarHighlightBackgroundColor ?? Color.Blue;
+    private Color ResolvedMenuBarHighlightForeground => _menuBarHighlightForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarHighlightForegroundColor ?? Color.White;
+    private Color ResolvedDropdownBackground => _dropdownBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownBackgroundColor ?? Color.White;
+    private Color ResolvedDropdownForeground => _dropdownForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownForegroundColor ?? Color.Black;
+    private Color ResolvedDropdownHighlightBackground => _dropdownHighlightBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightBackgroundColor ?? Color.Blue;
+    private Color ResolvedDropdownHighlightForeground => _dropdownHighlightForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightForegroundColor ?? Color.White;
+
+    // Legacy property aliases for backward compatibility
+    /// <summary>
+    /// Gets or sets the background color for dropdowns. Alias for DropdownBackgroundColor.
+    /// </summary>
+    [Obsolete("Use DropdownBackgroundColor instead")]
+    public Color BackgroundColor
+    {
+        get => ResolvedDropdownBackground;
+        set => _dropdownBackgroundColor = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the foreground color for dropdown items. Alias for DropdownForegroundColor.
+    /// </summary>
+    [Obsolete("Use DropdownForegroundColor instead")]
+    public Color ForegroundColor
+    {
+        get => ResolvedDropdownForeground;
+        set => _dropdownForegroundColor = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the background color for highlighted items. Alias for DropdownHighlightBackgroundColor.
+    /// </summary>
+    [Obsolete("Use DropdownHighlightBackgroundColor instead")]
+    public Color HighlightColor
+    {
+        get => ResolvedDropdownHighlightBackground;
+        set => _dropdownHighlightBackgroundColor = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the foreground color for highlighted items. Alias for DropdownHighlightForegroundColor.
+    /// </summary>
+    [Obsolete("Use DropdownHighlightForegroundColor instead")]
+    public Color HighlightForeground
+    {
+        get => ResolvedDropdownHighlightForeground;
+        set => _dropdownHighlightForegroundColor = value;
+    }
 
     #endregion
 
@@ -1014,7 +1129,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             if (item.IsSeparator)
             {
                 // Draw separator line
-                buffer.FillRect(new LayoutRect(x, y, width, 1), '─', Color.Grey, BackgroundColor);
+                buffer.FillRect(new LayoutRect(x, y, width, 1), '─', Color.Grey, ResolvedDropdownBackground);
             }
             else
             {
@@ -1031,12 +1146,12 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         // Draw scroll indicators if needed
         if (dropdown.CanScrollUp)
         {
-            buffer.SetCell(bounds.X + bounds.Width / 2, bounds.Y, '▲', ForegroundColor, BackgroundColor);
+            buffer.SetCell(bounds.X + bounds.Width / 2, bounds.Y, '▲', ResolvedDropdownForeground, ResolvedDropdownBackground);
         }
 
         if (dropdown.CanScrollDown)
         {
-            buffer.SetCell(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height - 1, '▼', ForegroundColor, BackgroundColor);
+            buffer.SetCell(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height - 1, '▼', ResolvedDropdownForeground, ResolvedDropdownBackground);
         }
 
         // Debug: Verify box character is still there after complete dropdown paint
@@ -1045,16 +1160,30 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     private void PaintMenuItem(CharacterBuffer buffer, MenuItem item, int x, int y, int width, MenuItemState state, bool isTopLevel)
     {
-        // Determine colors based on state
-        var (bg, fg) = state switch
+        // Determine colors based on state and whether this is a top-level item or dropdown item
+        Color bg, fg;
+        if (isTopLevel)
         {
-            MenuItemState.Disabled => (BackgroundColor, Color.Grey),
-            MenuItemState.Pressed => (Color.DarkBlue, Color.White),
-            MenuItemState.Highlighted => (HighlightColor, HighlightForeground),
-            MenuItemState.Open => (HighlightColor, HighlightForeground),
-            _ => isTopLevel ? (Container?.BackgroundColor ?? Color.Black, Container?.ForegroundColor ?? Color.White)
-                            : (BackgroundColor, ForegroundColor)
-        };
+            (bg, fg) = state switch
+            {
+                MenuItemState.Disabled => (ResolvedMenuBarBackground, Color.Grey),
+                MenuItemState.Pressed => (Color.DarkBlue, Color.White),
+                MenuItemState.Highlighted => (ResolvedMenuBarHighlightBackground, ResolvedMenuBarHighlightForeground),
+                MenuItemState.Open => (ResolvedMenuBarHighlightBackground, ResolvedMenuBarHighlightForeground),
+                _ => (ResolvedMenuBarBackground, ResolvedMenuBarForeground)
+            };
+        }
+        else
+        {
+            (bg, fg) = state switch
+            {
+                MenuItemState.Disabled => (ResolvedDropdownBackground, Color.Grey),
+                MenuItemState.Pressed => (Color.DarkBlue, Color.White),
+                MenuItemState.Highlighted => (ResolvedDropdownHighlightBackground, ResolvedDropdownHighlightForeground),
+                MenuItemState.Open => (ResolvedDropdownHighlightBackground, ResolvedDropdownHighlightForeground),
+                _ => (ResolvedDropdownBackground, ResolvedDropdownForeground)
+            };
+        }
 
         // Build item text
         string text = item.Text;
@@ -1121,33 +1250,35 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     private void DrawBox(CharacterBuffer buffer, Rectangle bounds)
     {
+        var fg = ResolvedDropdownForeground;
+        var bg = ResolvedDropdownBackground;
 
         // Draw rounded box using box-drawing characters
         // Corners
-        buffer.SetCell(bounds.X, bounds.Y, '╭', ForegroundColor, BackgroundColor);
+        buffer.SetCell(bounds.X, bounds.Y, '╭', fg, bg);
         var cell = buffer.GetCell(bounds.X, bounds.Y);
-        buffer.SetCell(bounds.Right - 1, bounds.Y, '╮', ForegroundColor, BackgroundColor);
-        buffer.SetCell(bounds.X, bounds.Bottom - 1, '╰', ForegroundColor, BackgroundColor);
-        buffer.SetCell(bounds.Right - 1, bounds.Bottom - 1, '╯', ForegroundColor, BackgroundColor);
+        buffer.SetCell(bounds.Right - 1, bounds.Y, '╮', fg, bg);
+        buffer.SetCell(bounds.X, bounds.Bottom - 1, '╰', fg, bg);
+        buffer.SetCell(bounds.Right - 1, bounds.Bottom - 1, '╯', fg, bg);
 
         // Horizontal lines
         for (int x = bounds.X + 1; x < bounds.Right - 1; x++)
         {
-            buffer.SetCell(x, bounds.Y, '─', ForegroundColor, BackgroundColor);
-            buffer.SetCell(x, bounds.Bottom - 1, '─', ForegroundColor, BackgroundColor);
+            buffer.SetCell(x, bounds.Y, '─', fg, bg);
+            buffer.SetCell(x, bounds.Bottom - 1, '─', fg, bg);
         }
 
         // Vertical lines
         for (int y = bounds.Y + 1; y < bounds.Bottom - 1; y++)
         {
-            buffer.SetCell(bounds.X, y, '│', ForegroundColor, BackgroundColor);
-            buffer.SetCell(bounds.Right - 1, y, '│', ForegroundColor, BackgroundColor);
+            buffer.SetCell(bounds.X, y, '│', fg, bg);
+            buffer.SetCell(bounds.Right - 1, y, '│', fg, bg);
         }
 
         // Fill interior
         for (int y = bounds.Y + 1; y < bounds.Bottom - 1; y++)
         {
-            buffer.FillRect(new LayoutRect(bounds.X + 1, y, bounds.Width - 2, 1), ' ', ForegroundColor, BackgroundColor);
+            buffer.FillRect(new LayoutRect(bounds.X + 1, y, bounds.Width - 2, 1), ' ', fg, bg);
         }
     }
 

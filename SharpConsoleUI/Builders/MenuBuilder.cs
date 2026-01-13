@@ -1,5 +1,6 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Events;
+using Spectre.Console;
 
 namespace SharpConsoleUI.Builders;
 
@@ -15,6 +16,18 @@ public class MenuBuilder
     private EventHandler<MenuItem>? _itemSelectedHandler;
     private EventHandler<MenuItem>? _itemHoveredHandler;
     private WindowEventHandler<MenuItem>? _itemSelectedWithWindowHandler;
+
+    // Menu bar colors
+    private Color? _menuBarBackgroundColor;
+    private Color? _menuBarForegroundColor;
+    private Color? _menuBarHighlightBackgroundColor;
+    private Color? _menuBarHighlightForegroundColor;
+
+    // Dropdown colors
+    private Color? _dropdownBackgroundColor;
+    private Color? _dropdownForegroundColor;
+    private Color? _dropdownHighlightBackgroundColor;
+    private Color? _dropdownHighlightForegroundColor;
 
     /// <summary>
     /// Sets the menu orientation to horizontal (menu bar style).
@@ -134,6 +147,102 @@ public class MenuBuilder
     }
 
     /// <summary>
+    /// Sets the background color for the menu bar (top-level items).
+    /// </summary>
+    public MenuBuilder WithMenuBarBackgroundColor(Color color)
+    {
+        _menuBarBackgroundColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the foreground color for the menu bar (top-level items).
+    /// </summary>
+    public MenuBuilder WithMenuBarForegroundColor(Color color)
+    {
+        _menuBarForegroundColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the background color for highlighted menu bar items.
+    /// </summary>
+    public MenuBuilder WithMenuBarHighlightBackgroundColor(Color color)
+    {
+        _menuBarHighlightBackgroundColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the foreground color for highlighted menu bar items.
+    /// </summary>
+    public MenuBuilder WithMenuBarHighlightForegroundColor(Color color)
+    {
+        _menuBarHighlightForegroundColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets all menu bar colors at once.
+    /// </summary>
+    public MenuBuilder WithMenuBarColors(Color background, Color foreground, Color highlightBackground, Color highlightForeground)
+    {
+        _menuBarBackgroundColor = background;
+        _menuBarForegroundColor = foreground;
+        _menuBarHighlightBackgroundColor = highlightBackground;
+        _menuBarHighlightForegroundColor = highlightForeground;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the background color for dropdown menus.
+    /// </summary>
+    public MenuBuilder WithDropdownBackgroundColor(Color color)
+    {
+        _dropdownBackgroundColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the foreground color for dropdown menu items.
+    /// </summary>
+    public MenuBuilder WithDropdownForegroundColor(Color color)
+    {
+        _dropdownForegroundColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the background color for highlighted dropdown items.
+    /// </summary>
+    public MenuBuilder WithDropdownHighlightBackgroundColor(Color color)
+    {
+        _dropdownHighlightBackgroundColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the foreground color for highlighted dropdown items.
+    /// </summary>
+    public MenuBuilder WithDropdownHighlightForegroundColor(Color color)
+    {
+        _dropdownHighlightForegroundColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets all dropdown colors at once.
+    /// </summary>
+    public MenuBuilder WithDropdownColors(Color background, Color foreground, Color highlightBackground, Color highlightForeground)
+    {
+        _dropdownBackgroundColor = background;
+        _dropdownForegroundColor = foreground;
+        _dropdownHighlightBackgroundColor = highlightBackground;
+        _dropdownHighlightForegroundColor = highlightForeground;
+        return this;
+    }
+
+    /// <summary>
     /// Builds and returns the configured MenuControl instance.
     /// </summary>
     public MenuControl Build()
@@ -142,7 +251,17 @@ public class MenuBuilder
         {
             Orientation = _orientation,
             Name = _name,
-            IsSticky = _isSticky
+            IsSticky = _isSticky,
+            // Menu bar colors
+            MenuBarBackgroundColor = _menuBarBackgroundColor,
+            MenuBarForegroundColor = _menuBarForegroundColor,
+            MenuBarHighlightBackgroundColor = _menuBarHighlightBackgroundColor,
+            MenuBarHighlightForegroundColor = _menuBarHighlightForegroundColor,
+            // Dropdown colors
+            DropdownBackgroundColor = _dropdownBackgroundColor,
+            DropdownForegroundColor = _dropdownForegroundColor,
+            DropdownHighlightBackgroundColor = _dropdownHighlightBackgroundColor,
+            DropdownHighlightForegroundColor = _dropdownHighlightForegroundColor
         };
 
         foreach (var item in _items)

@@ -230,4 +230,44 @@ public interface ITheme
     /// Gets the foreground color for separator controls. Null means transparent (inherit from container).
     /// </summary>
     Color? SeparatorForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for the menu bar (top-level items). Null means inherit from container.
+    /// </summary>
+    Color? MenuBarBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for the menu bar (top-level items). Null means inherit from container.
+    /// </summary>
+    Color? MenuBarForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for highlighted menu bar items.
+    /// </summary>
+    Color MenuBarHighlightBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for highlighted menu bar items.
+    /// </summary>
+    Color MenuBarHighlightForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for menu dropdowns.
+    /// </summary>
+    Color MenuDropdownBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for menu dropdown items.
+    /// </summary>
+    Color MenuDropdownForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for highlighted menu dropdown items.
+    /// </summary>
+    Color MenuDropdownHighlightBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for highlighted menu dropdown items.
+    /// </summary>
+    Color MenuDropdownHighlightForegroundColor { get; }
 }

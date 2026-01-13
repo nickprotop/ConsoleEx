@@ -236,5 +236,47 @@ namespace SharpConsoleUI.Themes
 		/// Null means transparent (inherit from container).
 		/// </summary>
 		public Color? SeparatorForegroundColor { get; set; } = Color.Grey;
+
+		/// <summary>
+		/// Gets or sets the background color for the menu bar (top-level items).
+		/// Null means inherit from container.
+		/// </summary>
+		public Color? MenuBarBackgroundColor { get; set; } = null;
+
+		/// <summary>
+		/// Gets or sets the foreground color for the menu bar (top-level items).
+		/// Null means inherit from container.
+		/// </summary>
+		public Color? MenuBarForegroundColor { get; set; } = null;
+
+		/// <summary>
+		/// Gets or sets the background color for highlighted menu bar items.
+		/// </summary>
+		public Color MenuBarHighlightBackgroundColor { get; set; } = Color.Blue;
+
+		/// <summary>
+		/// Gets or sets the foreground color for highlighted menu bar items.
+		/// </summary>
+		public Color MenuBarHighlightForegroundColor { get; set; } = Color.White;
+
+		/// <summary>
+		/// Gets or sets the background color for menu dropdowns.
+		/// </summary>
+		public Color MenuDropdownBackgroundColor { get; set; } = Color.White;
+
+		/// <summary>
+		/// Gets or sets the foreground color for menu dropdown items.
+		/// </summary>
+		public Color MenuDropdownForegroundColor { get; set; } = Color.Black;
+
+		/// <summary>
+		/// Gets or sets the background color for highlighted menu dropdown items.
+		/// </summary>
+		public Color MenuDropdownHighlightBackgroundColor { get; set; } = Color.Blue;
+
+		/// <summary>
+		/// Gets or sets the foreground color for highlighted menu dropdown items.
+		/// </summary>
+		public Color MenuDropdownHighlightForegroundColor { get; set; } = Color.White;
 	}
 }
