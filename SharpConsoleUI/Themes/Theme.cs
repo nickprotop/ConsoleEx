@@ -278,5 +278,26 @@ namespace SharpConsoleUI.Themes
 		/// Gets or sets the foreground color for highlighted menu dropdown items.
 		/// </summary>
 		public Color MenuDropdownHighlightForegroundColor { get; set; } = Color.White;
+
+		/// <summary>
+		/// Gets or sets the background color for dropdown control lists.
+		/// </summary>
+		public Color DropdownBackgroundColor { get; set; } = Color.Grey23;
+
+		/// <summary>
+		/// Gets or sets the foreground color for dropdown control list items.
+		/// </summary>
+		public Color DropdownForegroundColor { get; set; } = Color.White;
+
+		/// <summary>
+		/// Gets or sets the background color for highlighted/selected dropdown items.
+		/// </summary>
+		public Color DropdownHighlightBackgroundColor { get; set; } = Color.Blue;
+
+		/// <summary>
+		/// Gets or sets the foreground color for highlighted/selected dropdown items.
+		/// </summary>
+		public Color DropdownHighlightForegroundColor { get; set; } = Color.White;
+
 	}
 }

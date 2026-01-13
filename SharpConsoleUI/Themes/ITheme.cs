@@ -270,4 +270,25 @@ public interface ITheme
     /// Gets the foreground color for highlighted menu dropdown items.
     /// </summary>
     Color MenuDropdownHighlightForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for dropdown control lists.
+    /// </summary>
+    Color DropdownBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for dropdown control list items.
+    /// </summary>
+    Color DropdownForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for highlighted/selected dropdown items.
+    /// </summary>
+    Color DropdownHighlightBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for highlighted/selected dropdown items.
+    /// </summary>
+    Color DropdownHighlightForegroundColor { get; }
+
 }
