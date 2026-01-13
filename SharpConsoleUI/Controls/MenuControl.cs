@@ -339,6 +339,13 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
         if (focus && !hadFocus)
         {
+            // Clear hover state when gaining focus via keyboard
+            // (mouse focus will set _focusedItem properly in click handler)
+            if (reason == FocusReason.Keyboard || reason == FocusReason.Programmatic)
+            {
+                _hoveredItem = null;
+            }
+
             // When gaining focus, focus first item if nothing focused
             if (_focusedItem == null && _items.Count > 0)
             {
@@ -348,7 +355,8 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         }
         else if (!focus && hadFocus)
         {
-            // When losing focus, close all menus if not sticky
+            // When losing focus, clear hover and close all menus if not sticky
+            _hoveredItem = null;
             if (!_isSticky)
             {
                 CloseAllMenus();
@@ -391,6 +399,8 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                 {
                     // Switch dropdown immediately
                     CloseAllMenus();
+                    // Restore hover after CloseAllMenus cleared it (we're switching, not closing)
+                    _hoveredItem = hitItem;
                     if (hitItem.HasChildren)
                         OpenDropdownInternal(hitItem);
                 }
@@ -451,6 +461,11 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             if (!hitItem.IsEnabled || hitItem.IsSeparator)
                 return true;
 
+            // Always update focus to clicked item and clear hover
+            // (click "commits" the hover to a focused state)
+            _focusedItem = hitItem;
+            _hoveredItem = null;
+
             // Top-level item clicked
             if (IsTopLevelItem(hitItem))
             {
@@ -465,14 +480,12 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                     CloseAllMenus();
                     if (hitItem.HasChildren)
                         OpenDropdownInternal(hitItem);
-                    _focusedItem = hitItem;
                 }
             }
             // Submenu item with children
             else if (hitItem.HasChildren)
             {
                 OpenSubmenu(hitItem);
-                _focusedItem = hitItem;
             }
             // Leaf item - execute action
             else
@@ -732,6 +745,10 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
         _openDropdowns.Clear();
         _dropdownPortals.Clear();
+
+        // Clear hover state - dropdown items are no longer visible
+        _hoveredItem = null;
+
         Container?.Invalidate(true);
     }
 
@@ -1241,8 +1258,18 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             return MenuItemState.Disabled;
         if (item == _pressedItem)
             return MenuItemState.Pressed;
-        if (item == _hoveredItem || item == _focusedItem)
+
+        // Priority: hover takes precedence when mouse is active
+        if (_hoveredItem != null)
+        {
+            if (item == _hoveredItem)
+                return MenuItemState.Highlighted;
+        }
+        else if (item == _focusedItem)
+        {
             return MenuItemState.Highlighted;
+        }
+
         if (item.IsOpen)
             return MenuItemState.Open;
         return MenuItemState.Normal;
