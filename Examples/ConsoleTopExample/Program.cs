@@ -1,6 +1,7 @@
 // -----------------------------------------------------------------------
 // ConsoleTopExample - ntop/btop-inspired live dashboard
 // Demonstrates full-screen window with Spectre renderables and SharpConsoleUI controls
+// Modernized with AgentStudio aesthetics and simplified UX
 // -----------------------------------------------------------------------
 
 using System.Diagnostics;
@@ -29,9 +30,9 @@ internal class Program
     private static Window? _mainWindow;
 
     // State (not UI references)
-    private static DetailMode _detailMode = DetailMode.Process;
     private static readonly ISystemStatsProvider _stats = SystemStatsFactory.Create();
     private static SystemSnapshot? _lastSnapshot;
+    private static bool _showMemoryInfo = true; // Flag to override and show memory details
 
     static async Task<int> Main(string[] args)
     {
@@ -72,6 +73,9 @@ internal class Program
 
         _mainWindow = new WindowBuilder(_windowSystem)
             .WithTitle("ConsoleTop - Live System Pulse")
+            .WithColors(Color.Grey11, Color.Grey93)
+            .Borderless()
+            .Maximized()
             .Resizable(false)
             .Movable(false)
             .Closable(false)
@@ -90,236 +94,194 @@ internal class Program
             )
             .Build();
 
-        // === HEADER SECTION (declarative) ===
         var platformName = SystemStatsFactory.GetPlatformName();
-        _mainWindow.AddControl(
-            MarkupControl
-                .Create()
-                .AddLines(
-                    $"[bold cyan]ConsoleTop[/] — System Monitor ({platformName})",
-                    "[dim]F10/ESC: exit • Live system statistics[/]"
-                )
-                .Centered()
-                .StickyTop()
-                .Build()
-        );
 
-        _mainWindow.AddControl(RuleControl.Create().StickyTop().Build());
-
-        // === CPU/MEMORY GRID (declarative) ===
-        _mainWindow.AddControl(
-            HorizontalGridControl
-                .Create()
-                .Column(col =>
-                    col.Width(48)
-                        .Add(MarkupControl.Create().AddLine("[yellow]CPU Usage[/]").Build())
-                        .Add(
-                            SpectreRenderableControl
-                                .Create()
-                                .WithRenderable(BuildCpuChart(0, 0, 0))
-                                .WithName("cpuChart")
-                                .WithMargin(0, 1, 0, 1)
-                                .Build()
-                        )
-                )
-                .Column(col =>
-                    col.Add(MarkupControl.Create().AddLine("[yellow]Memory / IO[/]").Build())
-                        .Add(
-                            SpectreRenderableControl
-                                .Create()
-                                .WithRenderable(BuildMemoryChart(0, 0, 0))
-                                .WithName("memChart")
-                                .WithMargin(0, 1, 0, 1)
-                                .Build()
-                        )
-                )
-                .WithSplitterAfter(0)
-                .WithAlignment(HorizontalAlignment.Stretch)
-                .Build()
-        );
-
-        _mainWindow.AddControl(RuleControl.Create().Build());
-
-        // === PROCESSES SECTION HEADER (declarative) ===
-        _mainWindow.AddControl(
-            MarkupControl
-                .Create()
-                .AddLines(
-                    "[bold]Processes[/]",
-                    "[dim]Arrows navigate • Enter shows modal • Right panel updates live[/]"
-                )
-                .WithAlignment(HorizontalAlignment.Left)
-                .Build()
-        );
-
-        // === PROCESSES GRID (declarative) ===
-        var processList = ListControl
-            .Create()
-            .WithTitle("Processes")
-            .WithName("processList")
+        // === TOP STATUS BAR ===
+        var topStatusBar = Controls.HorizontalGrid()
+            .StickyTop()
             .WithAlignment(HorizontalAlignment.Stretch)
+            .Column(col => col.Add(
+                Controls.Markup($"[cyan1 bold]ConsoleTop[/] [grey70]• {platformName}[/]")
+                    .WithAlignment(HorizontalAlignment.Left)
+                    .WithMargin(1, 0, 0, 0)
+                    .Build()
+            ))
+            .Column(col => col.Add(
+                Controls.Markup("[grey70]--:--:--[/]")
+                    .WithAlignment(HorizontalAlignment.Right)
+                    .WithMargin(0, 0, 1, 0)
+                    .WithName("topStatusClock")
+                    .Build()
+            ))
+            .Build();
+        topStatusBar.BackgroundColor = Color.Grey15;
+        topStatusBar.ForegroundColor = Color.Grey93;
+
+        _mainWindow.AddControl(topStatusBar);
+        _mainWindow.AddControl(Controls.RuleBuilder().StickyTop().WithColor(Color.Grey23).Build());
+
+        // === CPU/MEMORY SECTION ===
+        var metricsGrid = Controls.HorizontalGrid()
+            .WithMargin(1, 1, 1, 1)
+            .Column(col =>
+                col.Add(Controls.Markup("[grey70 bold]⚡ CPU Usage[/]").WithMargin(0, 0, 0, 0).Build())
+                    .Add(
+                        SpectreRenderableControl
+                            .Create()
+                            .WithRenderable(BuildCpuChart(0, 0, 0))
+                            .WithName("cpuChart")
+                            .WithMargin(0, 1, 0, 1)
+                            .Build()
+                    )
+            )
+            .Column(col =>
+                col.Add(Controls.Markup("[grey70 bold]📊 Memory / IO[/]").WithMargin(0, 0, 0, 0).Build())
+                    .Add(
+                        SpectreRenderableControl
+                            .Create()
+                            .WithRenderable(BuildMemoryChart(0, 0, 0))
+                            .WithName("memChart")
+                            .WithMargin(0, 1, 0, 1)
+                            .Build()
+                    )
+            )
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        metricsGrid.BackgroundColor = Color.Grey11;
+        metricsGrid.ForegroundColor = Color.Grey93;
+
+        _mainWindow.AddControl(metricsGrid);
+
+        _mainWindow.AddControl(Controls.RuleBuilder().WithColor(Color.Grey23).Build());
+
+        // === PROCESSES SECTION HEADER ===
+        var processHeader = Controls.Markup("[grey70 bold]⚙ Processes[/]")
+            .WithAlignment(HorizontalAlignment.Left)
+            .WithMargin(1, 1, 1, 0)
+            .Build();
+        processHeader.BackgroundColor = Color.Grey15;
+        _mainWindow.AddControl(processHeader);
+
+        // === PROCESS LIST + DETAIL HORIZONTAL LAYOUT (NO SPLITTER) ===
+        var mainGrid = Controls.HorizontalGrid()
             .WithVerticalAlignment(VerticalAlignment.Fill)
-            .WithColors(Color.Black, Color.White)
-            .WithFocusedColors(Color.Grey11, Color.White)
-            .WithHighlightColors(Color.DodgerBlue1, Color.White)
-            .OnSelectedItemChanged(
-                (_, item) =>
-                {
-                    UpdateLegendSelection();
-                    if (_lastSnapshot != null)
-                        UpdateSelectedProcessSection(_lastSnapshot);
-                }
-            )
-            .OnItemActivated(
-                (_, item) =>
-                {
-                    if (item.Tag is ProcessSample ps)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            // Left column: Process list (no width set = fills remaining space)
+            .Column(col => col.Add(
+                ListControl.Create()
+                    .WithName("processList")
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithColors(Color.Grey11, Color.Grey93)
+                    .WithFocusedColors(Color.Grey11, Color.Grey93)
+                    .WithHighlightColors(Color.Grey35, Color.White)
+                    .WithMargin(1, 0, 0, 1)
+                    .OnHighlightChanged((_, item) =>
                     {
-                        ShowProcessActions(ps);
-                    }
-                }
-            )
-            .OnHighlightChanged(
-                (_, index) =>
-                {
-                    if (_lastSnapshot != null)
+                        _showMemoryInfo = false; // Clear flag when navigating
+                        UpdateHighlightedProcess();
+                    })
+                    .OnItemActivated((_, item) =>
                     {
-                        UpdateHighlightedProcessSection(_lastSnapshot);
-                    }
-                }
+                        if (item?.Tag is ProcessSample ps)
+                        {
+                            ShowProcessActionsDialog(ps);
+                        }
+                    })
+                    .Build()
+            ))
+            // Spacing column (1 char wide for visual separation)
+            .Column(col => col.Width(1))
+            // Right column: Detail panel with fixed width (Grey19 background)
+            .Column(col => col
+                .Width(40)
+                // Top toolbar with buttons
+                .Add(Controls.Toolbar()
+                    .WithName("detailToolbar")
+                    .WithMargin(1, 0, 1, 0)
+                    .WithSpacing(2)
+                    .AddButton(Controls.Button("Actions")
+                        .OnClick((s, e) => ShowProcessActionsDialog())
+                        .WithName("actionButton")
+                        .Visible(false))
+                    .AddButton(Controls.Button("Memory Info")
+                        .OnClick((s, e) =>
+                        {
+                            _showMemoryInfo = true;
+                            UpdateHighlightedProcess();
+                        })
+                        .WithName("memoryInfoButton")
+                        .Visible(false))
+                    .Build())
+                // Detail content (scrollable) - fills remaining vertical space
+                .Add(Controls.ScrollablePanel()
+                    .WithName("processDetailPanel")
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .WithMargin(1, 0, 1, 0)
+                    .AddControl(
+                        Controls.Markup()
+                            .AddLine("[grey50 italic]Loading...[/]")
+                            .WithAlignment(HorizontalAlignment.Left)
+                            .WithName("processDetailContent")
+                            .Build()
+                    )
+                    .Build())
             )
             .Build();
 
-        _mainWindow.AddControl(
-            HorizontalGridControl
-                .Create()
-                .Column(col => col.Width(60).Add(processList))
-                .Column(col =>
-                    col.Add(
-                            ToolbarControl
-                                .Create()
-                                .AddButton(
-                                    "Process",
-                                    (sender, e, window) =>
-                                    {
-                                        _detailMode = DetailMode.Process;
-                                        if (_lastSnapshot != null)
-                                            UpdateDetailPanel(_lastSnapshot);
-                                    }
-                                )
-                                .AddSeparator(1)
-                                .AddButton(
-                                    "Memory",
-                                    (sender, e, window) =>
-                                    {
-                                        _detailMode = DetailMode.Memory;
-                                        if (_lastSnapshot != null)
-                                            UpdateDetailPanel(_lastSnapshot);
-                                    }
-                                )
-                                .WithSpacing(1)
-                                .Build()
-                        )
-                        .Add(RuleControl.Create().Build())
-                        // Section 1: Highlighted Process (always visible in Process mode)
-                        .Add(
-                            MarkupControl
-                                .Create()
-                                .AddLines(
-                                    "[bold]Highlighted Process[/]",
-                                    "[dim]Arrow keys to navigate[/]"
-                                )
-                                .WithName("highlightedProcessHeader")
-                                .Build()
-                        )
-                        .Add(
-                            ScrollablePanelControl
-                                .Create()
-                                .AddControl(
-                                    MarkupControl
-                                        .Create()
-                                        .AddLine("[dim]No process highlighted[/]")
-                                        .WithName("highlightedProcessDetails")
-                                        .Build()
-                                )
-                                .WithName("highlightedProcessPanel")
-                                .WithVerticalAlignment(VerticalAlignment.Fill)
-                                .Build()
-                        )
-                        // Ruler (visible only when something selected)
-                        .Add(
-                            RuleControl
-                                .Create()
-                                .WithName("selectedSectionRuler")
-                                .Visible(false)
-                                .Build()
-                        )
-                        // Section 2: Selected Process (visible only when selected)
-                        .Add(
-                            MarkupControl
-                                .Create()
-                                .AddLines(
-                                    "[bold]Selected Process[/]",
-                                    "[dim]Press Enter again to show dialog[/]"
-                                )
-                                .WithName("selectedProcessHeader")
-                                .Visible(false)
-                                .Build()
-                        )
-                        .Add(
-                            ScrollablePanelControl
-                                .Create()
-                                .AddControl(
-                                    MarkupControl
-                                        .Create()
-                                        .AddLine("")
-                                        .WithName("selectedProcessDetails")
-                                        .Build()
-                                )
-                                .WithName("selectedProcessPanel")
-                                .WithVerticalAlignment(VerticalAlignment.Fill)
-                                .Visible(false)
-                                .Build()
-                        )
-                        // Memory mode controls (unchanged)
-                        .Add(
-                            SpectreRenderableControl
-                                .Create()
-                                .WithRenderable(BuildMemoryDetailChart(0, 0, 0, 0))
-                                .WithName("memoryDetailChart")
-                                .Visible(false)
-                                .Build()
-                        )
-                        .Add(
-                            MarkupControl
-                                .Create()
-                                .AddLine("")
-                                .WithName("memoryDetailStats")
-                                .Visible(false)
-                                .Build()
-                        )
-                )
-                .WithSplitterAfter(0)
-                .WithAlignment(HorizontalAlignment.Stretch)
-                .WithVerticalAlignment(VerticalAlignment.Fill)
-                .Build()
-        );
+        // Set right column background to Grey19 for visual distinction
+        if (mainGrid.Columns.Count > 2)
+        {
+            mainGrid.Columns[2].BackgroundColor = Color.Grey19;
+            mainGrid.Columns[2].ForegroundColor = Color.Grey93;
+        }
 
-        // === FOOTER SECTION (declarative) ===
-        _mainWindow.AddControl(RuleControl.Create().StickyBottom().Build());
-        _mainWindow.AddControl(
-            MarkupControl
-                .Create()
-                .AddLine(
-                    "[dim]Legend: CPU = user/sys/io | MEM = used/free/cache | NET = up/down MB/s[/]"
-                )
-                .WithName("legend")
-                .StickyBottom()
-                .Build()
-        );
+        _mainWindow.AddControl(mainGrid);
+
+        // Set detail toolbar background to Grey19
+        var detailToolbar = _mainWindow?.FindControl<ToolbarControl>("detailToolbar");
+        if (detailToolbar != null)
+        {
+            detailToolbar.BackgroundColor = Color.Grey19;
+            detailToolbar.ForegroundColor = Color.Grey93;
+        }
+
+        // Set detail panel background to Grey19
+        var detailPanel = _mainWindow?.FindControl<ScrollablePanelControl>("processDetailPanel");
+        if (detailPanel != null)
+        {
+            detailPanel.BackgroundColor = Color.Grey19;
+            detailPanel.ForegroundColor = Color.Grey93;
+        }
+
+        // === BOTTOM STATUS BAR ===
+        _mainWindow.AddControl(Controls.RuleBuilder().StickyBottom().WithColor(Color.Grey23).Build());
+
+        var bottomStatusBar = Controls.HorizontalGrid()
+            .StickyBottom()
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Column(col => col.Add(
+                Controls.Markup()
+                    .AddLine("[grey70]F10/ESC: Exit • Click: Select • Double-Click: Actions[/]")
+                    .WithAlignment(HorizontalAlignment.Left)
+                    .WithMargin(1, 0, 0, 0)
+                    .Build()
+            ))
+            .Column(col => col.Add(
+                Controls.Markup("[grey70]CPU [cyan1]0.0%[/] • MEM [cyan1]0.0%[/] • NET ↑[cyan1]0.0[/]/↓[cyan1]0.0[/] MB/s[/]")
+                    .WithAlignment(HorizontalAlignment.Right)
+                    .WithMargin(0, 0, 1, 0)
+                    .WithName("statsLegend")
+                    .Build()
+            ))
+            .Build();
+        bottomStatusBar.BackgroundColor = Color.Grey15;
+        bottomStatusBar.ForegroundColor = Color.Grey70;
+
+        _mainWindow.AddControl(bottomStatusBar);
 
         _windowSystem.AddWindow(_mainWindow);
-        _mainWindow.State = WindowState.Maximized;
     }
 
     private static async Task UpdateLoopAsync(Window window, CancellationToken cancellationToken)
@@ -332,8 +294,15 @@ internal class Program
             try
             {
                 var snapshot = _stats.ReadSnapshot();
-
                 _lastSnapshot = snapshot;
+
+                // Update clock
+                var clock = window.FindControl<MarkupControl>("topStatusClock");
+                if (clock != null)
+                {
+                    var timeStr = DateTime.Now.ToString("HH:mm:ss");
+                    clock.SetContent(new List<string> { $"[grey70]{timeStr}[/]" });
+                }
 
                 // Update CPU chart
                 var cpuChart = window.FindControl<SpectreRenderableControl>("cpuChart");
@@ -373,17 +342,25 @@ internal class Program
                     }
                 }
 
-                UpdateLegendSelection();
-                UpdateDetailPanel(snapshot);
+                // Update detail panel
+                UpdateHighlightedProcess();
 
-                // Update legend
-                var legend = window.FindControl<MarkupControl>("legend");
-                legend?.SetContent(
-                    new List<string>
+                // Update bottom stats legend
+                var statsLegend = window.FindControl<MarkupControl>("statsLegend");
+                if (statsLegend != null)
+                {
+                    statsLegend.SetContent(new List<string>
                     {
-                        $"[dim]CPU user:{snapshot.Cpu.User:F1}% sys:{snapshot.Cpu.System:F1}% io:{snapshot.Cpu.IoWait:F1}% | MEM used:{snapshot.Memory.UsedPercent:F1}% cached:{snapshot.Memory.CachedPercent:F1}% | NET up:{snapshot.Network.UpMbps:F1}MB/s down:{snapshot.Network.DownMbps:F1}MB/s[/]",
-                    }
-                );
+                        $"[grey70]CPU [cyan1]{snapshot.Cpu.User:F1}%[/] • MEM [cyan1]{snapshot.Memory.UsedPercent:F1}%[/] • NET ↑[cyan1]{snapshot.Network.UpMbps:F1}[/]/↓[cyan1]{snapshot.Network.DownMbps:F1}[/] MB/s[/]"
+                    });
+                }
+
+                // Update button states
+                var actionButton = window.FindControl<ButtonControl>("actionButton");
+                if (actionButton != null)
+                {
+                    actionButton.IsEnabled = processList?.SelectedIndex >= 0;
+                }
             }
             catch (Exception ex)
             {
@@ -419,9 +396,9 @@ internal class Program
         return new BarChart()
             .Label("[bold]CPU load[/]")
             .WithMaxValue(100)
-            .AddItem("User", user, Color.Lime)
-            .AddItem("System", sys, Color.DodgerBlue1)
-            .AddItem("IOwait", io, Color.Yellow);
+            .AddItem("User", user, Color.Cyan1)
+            .AddItem("System", sys, Color.Grey50)
+            .AddItem("IOwait", io, Color.Grey70);
     }
 
     private static BarChart BuildMemoryChart(double used, double cached, double ioScaled)
@@ -429,28 +406,12 @@ internal class Program
         var chart = new BarChart()
             .Label("[bold]Memory / IO[/]")
             .WithMaxValue(100)
-            .AddItem("Used %", used, Color.HotPink)
-            .AddItem("Cached %", cached, Color.MediumPurple);
+            .AddItem("Used %", used, Color.Cyan1)
+            .AddItem("Cached %", cached, Color.Grey50);
 
         var ioPercent = Math.Min(100, ioScaled);
-        chart.AddItem("Disk/IO est %", ioPercent, Color.Orange1);
+        chart.AddItem("Disk/IO est %", ioPercent, Color.Grey70);
         return chart;
-    }
-
-    private static BarChart BuildMemoryDetailChart(
-        double usedMb,
-        double cachedMb,
-        double buffersMb,
-        double availMb
-    )
-    {
-        return new BarChart()
-            .Label("[bold]Memory Breakdown (MB)[/]")
-            .WithMaxValue(usedMb + cachedMb + buffersMb + availMb)
-            .AddItem("Used", usedMb, Color.HotPink)
-            .AddItem("Cached", cachedMb, Color.MediumPurple)
-            .AddItem("Buffers", buffersMb, Color.Cyan1)
-            .AddItem("Available", availMb, Color.Green);
     }
 
     private static string BuildProgressBar(double percent, int width = 20)
@@ -458,7 +419,7 @@ internal class Program
         int filled = (int)Math.Round(percent / 100.0 * width);
         filled = Math.Clamp(filled, 0, width);
         int empty = width - filled;
-        return $"[green]{"█".PadRight(filled, '█')}[/][dim]{"░".PadRight(empty, '░')}[/]";
+        return $"[cyan1]{"█".PadRight(filled, '█')}[/][dim]{"░".PadRight(empty, '░')}[/]";
     }
 
     private static List<ListItem> BuildProcessList(IReadOnlyList<ProcessSample> processes)
@@ -468,7 +429,7 @@ internal class Program
         foreach (var p in processes)
         {
             var line =
-                $"  {p.Pid, 5}  {p.CpuPercent, 4:F1}%  {p.MemPercent, 4:F1}%  [green]{p.Command}[/]";
+                $"  {p.Pid,5}  [grey70]{p.CpuPercent,4:F1}%[/]  [grey70]{p.MemPercent,4:F1}%[/]  [cyan1]{p.Command}[/]";
             var item = new ListItem(line) { Tag = p };
             items.Add(item);
         }
@@ -481,252 +442,138 @@ internal class Program
         return items;
     }
 
-    private static void UpdateLegendSelection()
+    private static void UpdateHighlightedProcess()
     {
-        var legend = _mainWindow?.FindControl<MarkupControl>("legend");
-        if (legend == null)
+        var processList = _mainWindow?.FindControl<ListControl>("processList");
+        var detailContent = _mainWindow?.FindControl<MarkupControl>("processDetailContent");
+        var detailToolbar = _mainWindow?.FindControl<ToolbarControl>("detailToolbar");
+        var actionButton = _mainWindow?.FindControl<ButtonControl>("actionButton");
+        var memoryInfoButton = _mainWindow?.FindControl<ButtonControl>("memoryInfoButton");
+
+        if (processList == null || detailContent == null)
             return;
 
-        var selection = GetCurrentProcessItem()?.Tag as ProcessSample;
-        if (selection == null)
+        // Check if we should show memory info (override flag or no highlight)
+        bool showMemory = _showMemoryInfo ||
+                         processList.HighlightedIndex < 0 ||
+                         processList.HighlightedIndex >= processList.Items.Count;
+
+        if (showMemory)
         {
-            legend.SetContent(
-                new List<string>
-                {
-                    "[dim]Legend: CPU = user/sys/io | MEM = used/cache | NET = up/down MB/s • Enter for process details[/]",
-                }
-            );
+            // Case 1: Show memory breakdown - hide toolbar and buttons
+            if (detailToolbar != null)
+                detailToolbar.Visible = false;
+            if (actionButton != null)
+                actionButton.Visible = false;
+            if (memoryInfoButton != null)
+                memoryInfoButton.Visible = false;
+
+            // Show memory breakdown
+            var snapshot = _lastSnapshot ?? _stats.ReadSnapshot();
+            var lines = BuildMemoryBreakdownContent(snapshot);
+            detailContent.SetContent(lines);
             return;
         }
 
-        legend.SetContent(
-            new List<string>
-            {
-                $"[dim]Selected PID {selection.Pid}: CPU {selection.CpuPercent:F1}% MEM {selection.MemPercent:F1}% • Enter opens details[/]",
-            }
-        );
+        // Case 2: Process highlighted - show toolbar and buttons
+        if (detailToolbar != null)
+            detailToolbar.Visible = true;
+        if (actionButton != null)
+            actionButton.Visible = true;
+        if (memoryInfoButton != null)
+            memoryInfoButton.Visible = true;
+
+        // Show process details
+        var item = processList.Items[processList.HighlightedIndex];
+        if (item.Tag is ProcessSample sample)
+        {
+            var snapshot = _lastSnapshot ?? _stats.ReadSnapshot();
+            var lines = BuildProcessDetailsContent(sample, snapshot);
+            detailContent.SetContent(lines);
+        }
     }
 
-    private static void UpdateHighlightedProcessSection(SystemSnapshot snapshot)
+    private static List<string> BuildMemoryBreakdownContent(SystemSnapshot snapshot)
     {
-        var detailsMarkup = _mainWindow?.FindControl<MarkupControl>("highlightedProcessDetails");
-        if (detailsMarkup == null)
-            return;
+        var mem = snapshot.Memory;
 
-        var processList = _mainWindow?.FindControl<ListControl>("processList");
-        if (processList == null)
-            return;
+        // Build progress bars
+        var ramBar = BuildProgressBar(mem.UsedPercent);
+        var swapPercent = mem.SwapTotalMb > 0 ? (mem.SwapUsedMb / mem.SwapTotalMb * 100) : 0;
+        var swapBar = BuildProgressBar(swapPercent);
 
-        var highlightIdx = processList.HighlightedIndex;
-        if (highlightIdx < 0 || highlightIdx >= processList.Items.Count)
-        {
-            detailsMarkup.SetContent(new List<string> { "[dim]No process highlighted[/]" });
-            return;
-        }
-
-        var item = processList.Items[highlightIdx];
-        if (item.Tag is not ProcessSample sample)
-            return;
-
-        var liveProc = snapshot.Processes.FirstOrDefault(p => p.Pid == sample.Pid) ?? sample;
-        var extra = _stats.ReadProcessExtra(liveProc.Pid) ?? new ProcessExtra("?", 0, 0, 0, 0, "");
+        // Get top 5 memory consumers
+        var topMemProcs = snapshot.Processes
+            .OrderByDescending(p => p.MemPercent)
+            .Take(5)
+            .ToList();
 
         var lines = new List<string>
         {
-            $"PID: {liveProc.Pid}",
-            $"Cmd: {liveProc.Command}",
-            $"CPU: {liveProc.CpuPercent:F1}%",
-            $"Mem: {liveProc.MemPercent:F1}%",
-            $"State/Threads: {extra.State} / {extra.Threads}",
-            $"RSS: {extra.RssMb:F1} MB",
-        };
-
-        detailsMarkup.SetContent(lines);
-    }
-
-    private static void UpdateSelectedProcessSection(SystemSnapshot snapshot)
-    {
-        var processList = _mainWindow?.FindControl<ListControl>("processList");
-        var ruler = _mainWindow?.FindControl<RuleControl>("selectedSectionRuler");
-        var header = _mainWindow?.FindControl<MarkupControl>("selectedProcessHeader");
-        var panel = _mainWindow?.FindControl<ScrollablePanelControl>("selectedProcessPanel");
-        var detailsMarkup = _mainWindow?.FindControl<MarkupControl>("selectedProcessDetails");
-
-        if (processList == null)
-            return;
-
-        var selectedIdx = processList.SelectedIndex;
-
-        // No selection - hide everything
-        if (selectedIdx < 0 || selectedIdx >= processList.Items.Count)
-        {
-            if (ruler != null)
-                ruler.Visible = false;
-            if (header != null)
-                header.Visible = false;
-            if (panel != null)
-                panel.Visible = false;
-            return;
-        }
-
-        // Has selection - show everything
-        if (ruler != null)
-            ruler.Visible = true;
-        if (header != null)
-            header.Visible = true;
-        if (panel != null)
-            panel.Visible = true;
-
-        var item = processList.Items[selectedIdx];
-        if (item.Tag is not ProcessSample sample)
-            return;
-
-        var liveProc = snapshot.Processes.FirstOrDefault(p => p.Pid == sample.Pid) ?? sample;
-        var extra = _stats.ReadProcessExtra(liveProc.Pid) ?? new ProcessExtra("?", 0, 0, 0, 0, "");
-
-        var lines = new List<string>
-        {
-            $"PID: {liveProc.Pid}",
-            $"Cmd: {liveProc.Command}",
-            $"Exe: {extra.ExePath}",
-            $"CPU: {liveProc.CpuPercent:F1}%",
-            $"Mem: {liveProc.MemPercent:F1}%",
-            $"State/Threads: {extra.State} / {extra.Threads}",
-            $"RSS: {extra.RssMb:F1} MB",
-            $"IO r/w: {extra.ReadKb:F0}/{extra.WriteKb:F0} KB/s",
             "",
-            "[bold]System snapshot[/]",
-            $"CPU user/sys/io: {snapshot.Cpu.User:F1}/{snapshot.Cpu.System:F1}/{snapshot.Cpu.IoWait:F1}%",
-            $"Mem used/cache: {snapshot.Memory.UsedPercent:F1}%/{snapshot.Memory.CachedPercent:F1}%",
-            $"Net up/down: {snapshot.Network.UpMbps:F1}/{snapshot.Network.DownMbps:F1} MB/s",
+            "[cyan1 bold]System Memory[/]",
+            "",
+            "[grey70 bold]Usage[/]",
+            $"  RAM:  {ramBar}",
+            $"        [cyan1]{mem.UsedPercent:F1}%[/] [grey70]({mem.UsedMb:F0}/{mem.TotalMb:F0} MB)[/]",
+            $"  Swap: {swapBar}",
+            $"        [cyan1]{swapPercent:F1}%[/] [grey70]({mem.SwapUsedMb:F0}/{mem.SwapTotalMb:F0} MB)[/]",
+            "",
+            "[grey70 bold]Statistics[/]",
+            $"  [grey70]Total:[/]     [cyan1]{mem.TotalMb:F0} MB[/]",
+            $"  [grey70]Used:[/]      [cyan1]{mem.UsedMb:F0} MB[/]",
+            $"  [grey70]Available:[/] [cyan1]{mem.AvailableMb:F0} MB[/]",
+            $"  [grey70]Cached:[/]    [cyan1]{mem.CachedMb:F0} MB[/]",
+            $"  [grey70]Buffers:[/]   [cyan1]{mem.BuffersMb:F0} MB[/]",
+            "",
+            "[grey70 bold]Top Memory Consumers[/]"
         };
 
-        if (detailsMarkup != null)
+        foreach (var p in topMemProcs)
         {
-            detailsMarkup.SetContent(lines);
-        }
-    }
-
-    private static void UpdateDetailPanel(SystemSnapshot snapshot)
-    {
-        if (_detailMode == DetailMode.Memory)
-        {
-            // Show memory controls, hide process sections
-            var highlightedHeader = _mainWindow?.FindControl<MarkupControl>(
-                "highlightedProcessHeader"
-            );
-            var highlightedPanel = _mainWindow?.FindControl<ScrollablePanelControl>(
-                "highlightedProcessPanel"
-            );
-            var selectedRuler = _mainWindow?.FindControl<RuleControl>("selectedSectionRuler");
-            var selectedHeader = _mainWindow?.FindControl<MarkupControl>("selectedProcessHeader");
-            var selectedPanel = _mainWindow?.FindControl<ScrollablePanelControl>(
-                "selectedProcessPanel"
-            );
-
-            if (highlightedHeader != null)
-                highlightedHeader.Visible = false;
-            if (highlightedPanel != null)
-                highlightedPanel.Visible = false;
-            if (selectedRuler != null)
-                selectedRuler.Visible = false;
-            if (selectedHeader != null)
-                selectedHeader.Visible = false;
-            if (selectedPanel != null)
-                selectedPanel.Visible = false;
-
-            var memoryDetailChart = _mainWindow?.FindControl<SpectreRenderableControl>(
-                "memoryDetailChart"
-            );
-            var memoryDetailStats = _mainWindow?.FindControl<MarkupControl>("memoryDetailStats");
-            if (memoryDetailChart != null)
-                memoryDetailChart.Visible = true;
-            if (memoryDetailStats != null)
-                memoryDetailStats.Visible = true;
-
-            // Update memory chart
-            var mem = snapshot.Memory;
-            memoryDetailChart?.SetRenderable(
-                BuildMemoryDetailChart(mem.UsedMb, mem.CachedMb, mem.BuffersMb, mem.AvailableMb)
-            );
-
-            // Build progress bars
-            var ramBar = BuildProgressBar(mem.UsedPercent);
-            var swapPercent = mem.SwapTotalMb > 0 ? (mem.SwapUsedMb / mem.SwapTotalMb * 100) : 0;
-            var swapBar = BuildProgressBar(swapPercent);
-
-            // Get top 5 memory consumers
-            var topMemProcs = snapshot
-                .Processes.OrderByDescending(p => p.MemPercent)
-                .Take(5)
-                .ToList();
-
-            var statsLines = new List<string>
-            {
-                "",
-                "[bold]Progress[/]",
-                $"RAM:  {ramBar} {mem.UsedPercent:F1}% ({mem.UsedMb:F0}/{mem.TotalMb:F0} MB)",
-                $"Swap: {swapBar} {swapPercent:F1}% ({mem.SwapUsedMb:F0}/{mem.SwapTotalMb:F0} MB)",
-                "",
-                "[bold]Stats[/]",
-                $"  Total:     {mem.TotalMb, 8:F0} MB    Buffers:  {mem.BuffersMb, 6:F0} MB",
-                $"  Used:      {mem.UsedMb, 8:F0} MB    Dirty:    {mem.DirtyMb, 6:F0} MB",
-                $"  Available: {mem.AvailableMb, 8:F0} MB    Cached:   {mem.CachedMb, 6:F0} MB",
-                "",
-                "[bold]Top 5 Memory Consumers[/]",
-            };
-
-            foreach (var p in topMemProcs)
-            {
-                statsLines.Add($"  {p.MemPercent, 5:F1}%  {p.Pid, 6}  [green]{p.Command}[/]");
-            }
-
-            memoryDetailStats?.SetContent(statsLines);
-            return;
+            lines.Add($"  [cyan1]{p.MemPercent,5:F1}%[/]  [grey70]{p.Pid,6}[/]  {p.Command}");
         }
 
-        // Process mode - show process sections, hide memory controls
-        var hlHeader = _mainWindow?.FindControl<MarkupControl>("highlightedProcessHeader");
-        var hlPanel = _mainWindow?.FindControl<ScrollablePanelControl>("highlightedProcessPanel");
-        if (hlHeader != null)
-            hlHeader.Visible = true;
-        if (hlPanel != null)
-            hlPanel.Visible = true;
-
-        var memChart = _mainWindow?.FindControl<SpectreRenderableControl>("memoryDetailChart");
-        var memStats = _mainWindow?.FindControl<MarkupControl>("memoryDetailStats");
-        if (memChart != null)
-            memChart.Visible = false;
-        if (memStats != null)
-            memStats.Visible = false;
-
-        UpdateHighlightedProcessSection(snapshot);
-        UpdateSelectedProcessSection(snapshot);
+        return lines;
     }
 
-    private static ListItem? GetCurrentProcessItem()
+    private static List<string> BuildProcessDetailsContent(ProcessSample sample, SystemSnapshot snapshot)
     {
-        var processList = _mainWindow?.FindControl<ListControl>("processList");
-        if (processList == null)
-            return null;
-        var items = processList.Items;
+        var liveProc = snapshot.Processes.FirstOrDefault(p => p.Pid == sample.Pid) ?? sample;
+        var extra = _stats.ReadProcessExtra(liveProc.Pid) ?? new ProcessExtra("?", 0, 0, 0, 0, "");
 
-        // Prefer highlighted item if available, otherwise fall back to selected
-        var highlightIdx = processList.HighlightedIndex;
-        var selectedIdx = processList.SelectedIndex;
-
-        int idx = highlightIdx >= 0 ? highlightIdx : selectedIdx;
-        if (idx >= 0 && idx < items.Count)
+        return new List<string>
         {
-            return items[idx];
+            "",
+            $"[cyan1 bold]{liveProc.Command}[/]",
+            "",
+            $"[grey70]PID:[/] [cyan1]{liveProc.Pid}[/]",
+            $"[grey70]Executable:[/] [cyan1]{extra.ExePath}[/]",
+            "",
+            $"[grey70 bold]Process Metrics[/]",
+            $"  [grey70]CPU:[/] [cyan1]{liveProc.CpuPercent:F1}%[/]",
+            $"  [grey70]Memory:[/] [cyan1]{liveProc.MemPercent:F1}%[/]",
+            $"  [grey70]State:[/] [cyan1]{extra.State}[/]  [grey70]Threads:[/] [cyan1]{extra.Threads}[/]",
+            $"  [grey70]RSS:[/] [cyan1]{extra.RssMb:F1} MB[/]",
+            $"  [grey70]I/O:[/] [cyan1]↑{extra.ReadKb:F0} / ↓{extra.WriteKb:F0} KB/s[/]",
+            "",
+            $"[grey70 bold]System Snapshot[/]",
+            $"  [grey70]CPU:[/] usr [cyan1]{snapshot.Cpu.User:F1}%[/] / sys [cyan1]{snapshot.Cpu.System:F1}%[/] / io [cyan1]{snapshot.Cpu.IoWait:F1}%[/]",
+            $"  [grey70]Memory:[/] used [cyan1]{snapshot.Memory.UsedPercent:F1}%[/] / cached [cyan1]{snapshot.Memory.CachedPercent:F1}%[/]",
+            $"  [grey70]Network:[/] ↑[cyan1]{snapshot.Network.UpMbps:F1}[/] / ↓[cyan1]{snapshot.Network.DownMbps:F1}[/] MB/s"
+        };
+    }
+
+    private static void ShowProcessActionsDialog(ProcessSample? sample = null)
+    {
+        // Get selected process if not provided
+        if (sample == null)
+        {
+            var processList = _mainWindow?.FindControl<ListControl>("processList");
+            sample = processList?.SelectedItem?.Tag as ProcessSample;
         }
 
-        return null;
-    }
-
-    private static void ShowProcessActions(ProcessSample sample)
-    {
-        if (_windowSystem == null)
+        if (sample == null || _windowSystem == null)
             return;
 
         var snapshot = _stats.ReadSnapshot();
@@ -736,35 +583,43 @@ internal class Program
         var extra = _stats.ReadProcessExtra(liveProc.Pid) ?? new ProcessExtra("?", 0, 0, 0, 0, "");
 
         var modal = new WindowBuilder(_windowSystem)
-            .WithTitle($"Process {liveProc.Pid}")
+            .WithTitle("Process Actions")
             .Centered()
-            .WithSize(80, 18)
+            .WithSize(70, 18)
             .AsModal()
+            .Borderless()
             .Resizable(false)
-            .Movable(true)
+            .Movable(false)
+            .WithColors(Color.Grey15, Color.Grey93)
             .Build();
 
+        // Modern header
         modal.AddControl(
-            new MarkupControl(
-                new List<string>
-                {
-                    $"[bold]Command:[/] {liveProc.Command}",
-                    $"PID: {liveProc.Pid}",
-                    $"Exe: {extra.ExePath}",
-                    $"CPU: {liveProc.CpuPercent:F1}%  MEM: {liveProc.MemPercent:F1}%",
-                    $"State/Threads: {extra.State} / {extra.Threads}",
-                    $"RSS: {extra.RssMb:F1} MB  IO r/w: {extra.ReadKb:F0}/{extra.WriteKb:F0} KB/s",
-                    $"System CPU user/sys/io: {snapshot.Cpu.User:F1}/{snapshot.Cpu.System:F1}/{snapshot.Cpu.IoWait:F1}%",
-                    $"System MEM used/cache: {snapshot.Memory.UsedMb:F0}MB/{snapshot.Memory.CachedMb:F0}MB ({snapshot.Memory.UsedPercent:F1}%/{snapshot.Memory.CachedPercent:F1}%)",
-                    $"System NET up/down: {snapshot.Network.UpMbps:F1}/{snapshot.Network.DownMbps:F1} MB/s",
-                    "",
-                    "Actions:",
-                }
-            )
-            {
-                HorizontalAlignment = HorizontalAlignment.Left,
-            }
+            Controls.Markup()
+                .AddLine($"[cyan1 bold]Process {liveProc.Pid}[/]")
+                .AddLine($"[grey70]{liveProc.Command}[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(1, 1, 1, 0)
+                .Build()
         );
+
+        modal.AddControl(Controls.RuleBuilder().WithColor(Color.Grey23).Build());
+
+        // Process details with improved formatting
+        modal.AddControl(
+            Controls.Markup()
+                .AddLine($"[grey70]Executable:[/] [cyan1]{extra.ExePath}[/]")
+                .AddLine("")
+                .AddLine($"[grey70]CPU:[/] [cyan1]{liveProc.CpuPercent:F1}%[/]  [grey70]Memory:[/] [cyan1]{liveProc.MemPercent:F1}%[/]")
+                .AddLine($"[grey70]State:[/] [cyan1]{extra.State}[/]  [grey70]Threads:[/] [cyan1]{extra.Threads}[/]")
+                .AddLine($"[grey70]RSS:[/] [cyan1]{extra.RssMb:F1} MB[/]")
+                .AddLine($"[grey70]I/O:[/] [cyan1]↑{extra.ReadKb:F0} / ↓{extra.WriteKb:F0} KB/s[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(1, 1, 1, 1)
+                .Build()
+        );
+
+        modal.AddControl(Controls.RuleBuilder().WithColor(Color.Grey23).Build());
 
         // Create buttons with event handlers (platform-specific)
         var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -843,7 +698,7 @@ internal class Program
                 // Process has no main window or didn't respond, fall back to Kill
                 proc.Kill();
                 _windowSystem.NotificationStateService.ShowNotification(
-                    $"Force killed {pid}",
+                    $"✓ Force killed {pid}",
                     $"{command} (PID {pid}) had no main window, force terminated",
                     NotificationSeverity.Warning,
                     blockUi: false,
@@ -854,7 +709,7 @@ internal class Program
             else
             {
                 _windowSystem.NotificationStateService.ShowNotification(
-                    $"Terminated {pid}",
+                    $"✓ Terminated {pid}",
                     $"{command} (PID {pid}) gracefully terminated",
                     NotificationSeverity.Info,
                     blockUi: false,
@@ -866,7 +721,7 @@ internal class Program
         catch (Exception ex)
         {
             _windowSystem.NotificationStateService.ShowNotification(
-                $"Terminate failed for {pid}",
+                $"⚠ Terminate failed for {pid}",
                 ex.Message,
                 NotificationSeverity.Warning,
                 blockUi: false,
@@ -890,7 +745,7 @@ internal class Program
             var killMethod = isWindows ? "Force killed" : "SIGKILL sent to";
 
             _windowSystem.NotificationStateService.ShowNotification(
-                $"{killMethod} {pid}",
+                $"✓ {killMethod} {pid}",
                 $"{command} (PID {pid}) force terminated",
                 NotificationSeverity.Info,
                 blockUi: false,
@@ -901,7 +756,7 @@ internal class Program
         catch (Exception ex)
         {
             _windowSystem.NotificationStateService.ShowNotification(
-                $"Kill failed for {pid}",
+                $"⚠ Kill failed for {pid}",
                 ex.Message,
                 NotificationSeverity.Warning,
                 blockUi: false,
@@ -910,10 +765,4 @@ internal class Program
             );
         }
     }
-}
-
-internal enum DetailMode
-{
-    Process,
-    Memory,
 }
