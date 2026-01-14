@@ -62,7 +62,7 @@ public class AgentStudioWindow : IDisposable
             .WithColors(Color.Grey11, Color.Grey93)
             .AtPosition(0, 0)
             .WithSize(80, 24)
-            .WithWindowThread(WindowThreadMethod)
+            .WithAsyncWindowThread(WindowThreadMethodAsync)
             .Borderless()
             .Resizable(false)
             .Movable(false)
@@ -210,16 +210,16 @@ public class AgentStudioWindow : IDisposable
     /// <summary>
     /// Window thread for live clock updates
     /// </summary>
-    private void WindowThreadMethod(Window window)
+    private async Task WindowThreadMethodAsync(Window window, CancellationToken ct)
     {
         // Wait for window to become active (it's not active until AddWindow is called)
-        while (!window.GetIsActive() && !_disposed)
+        while (!window.GetIsActive() && !ct.IsCancellationRequested && !_disposed)
         {
-            Thread.Sleep(100);
+            await Task.Delay(100, ct);
         }
 
         // Main clock update loop
-        while (!_disposed)
+        while (!ct.IsCancellationRequested && !_disposed)
         {
             try
             {
@@ -233,7 +233,11 @@ public class AgentStudioWindow : IDisposable
                     });
                 }
 
-                Thread.Sleep(1000);
+                await Task.Delay(1000, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch
             {

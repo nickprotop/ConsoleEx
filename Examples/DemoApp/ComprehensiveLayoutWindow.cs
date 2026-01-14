@@ -109,7 +109,7 @@ public class ComprehensiveLayoutWindow : IDisposable
     /// </summary>
     private void CreateWindow()
     {
-        _window = new Window(_windowSystem, WindowThreadMethod)
+        _window = new Window(_windowSystem, WindowThreadMethodAsync)
         {
             Title = "IDE Demo - Complete Application UI",
             Width = 95,
@@ -123,31 +123,35 @@ public class ComprehensiveLayoutWindow : IDisposable
     /// Window thread method - runs as long as the window is active
     /// This is the proper SharpConsoleUI pattern for window background tasks
     /// </summary>
-    public void WindowThreadMethod(Window window)
+    public async Task WindowThreadMethodAsync(Window window, CancellationToken ct)
     {
         var random = new Random();
-        
-        while (window.GetIsActive() && !_disposed)
+
+        while (!ct.IsCancellationRequested && !_disposed)
         {
             try
             {
                 // Update cursor position simulation
                 CurrentLine = random.Next(1, 25);
                 CurrentColumn = random.Next(1, 80);
-                
+
                 // Update position display
                 if (_positionStatus != null)
                 {
                     _positionStatus.SetContent(new List<string> { GetPositionDisplay() });
                 }
-                
+
                 // Update time
                 if (_timeStatus != null)
                 {
                     _timeStatus.SetContent(new List<string> { $"{DateTime.Now:HH:mm:ss}" });
                 }
 
-                Thread.Sleep(1000); // Use Thread.Sleep in window thread
+                await Task.Delay(1000, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
@@ -155,7 +159,7 @@ public class ComprehensiveLayoutWindow : IDisposable
                 break;
             }
         }
-        
+
         _windowSystem.LogService.LogInfo("Window thread completed for comprehensive layout window");
     }
 
