@@ -14,7 +14,7 @@ namespace SharpConsoleUI.Layout
 	/// Root layout for window content.
 	/// Handles sticky top, scrollable middle, and sticky bottom sections.
 	/// </summary>
-	public class WindowContentLayout : ILayoutContainer
+	public class WindowContentLayout : ILayoutContainer, IRegionClippingLayout
 	{
 		/// <summary>
 		/// Gets or sets the current scroll offset for the scrollable section.
@@ -40,6 +40,26 @@ namespace SharpConsoleUI.Layout
 		/// Gets the maximum scroll offset.
 		/// </summary>
 		public int MaxScrollOffset => Math.Max(0, ScrollableContentHeight - ViewportHeight);
+
+		/// <summary>
+		/// Gets the height of sticky top controls (set during arrange).
+		/// </summary>
+		public int StickyTopHeight { get; private set; }
+
+		/// <summary>
+		/// Gets the height of sticky bottom controls (set during arrange).
+		/// </summary>
+		public int StickyBottomHeight { get; private set; }
+
+		/// <summary>
+		/// Gets the Y position where scrollable content starts (set during arrange).
+		/// </summary>
+		public int ScrollableTop { get; private set; }
+
+		/// <summary>
+		/// Gets the Y position where scrollable content ends (set during arrange).
+		/// </summary>
+		public int ScrollableBottom { get; private set; }
 
 		/// <summary>
 		/// Measures all children and returns the total desired size.
@@ -184,6 +204,12 @@ namespace SharpConsoleUI.Layout
 			int scrollableBottom = finalRect.Height - stickyBottomHeight;
 			ViewportHeight = scrollableBottom - scrollableTop;
 
+			// Store sticky boundaries for paint clipping
+			StickyTopHeight = stickyTopHeight;
+			StickyBottomHeight = stickyBottomHeight;
+			ScrollableTop = scrollableTop;
+			ScrollableBottom = scrollableBottom;
+
 			// Calculate height for fill children
 			int remainingHeight = Math.Max(0, ViewportHeight - fixedScrollableHeight);
 			int fillChildHeight = fillChildCount > 0 ? remainingHeight / fillChildCount : 0;
@@ -305,6 +331,48 @@ namespace SharpConsoleUI.Layout
 		public void PageDown()
 		{
 			ScrollBy(ViewportHeight);
+		}
+
+		/// <summary>
+		/// Gets the paint clip rectangle for a child node based on its sticky position.
+		/// This prevents scrollable content from painting over sticky regions.
+		/// </summary>
+		/// <param name="child">The child node to get the clip rectangle for.</param>
+		/// <param name="parentClipRect">The parent's clip rectangle.</param>
+		/// <returns>A restricted clip rectangle based on the child's sticky position.</returns>
+		public LayoutRect GetPaintClipRect(LayoutNode child, LayoutRect parentClipRect)
+		{
+			var stickyPosition = child.Control?.StickyPosition ?? StickyPosition.None;
+
+			switch (stickyPosition)
+			{
+				case StickyPosition.Top:
+					// Sticky top controls can only paint in the top sticky region
+					return new LayoutRect(
+						parentClipRect.X,
+						parentClipRect.Y,
+						parentClipRect.Width,
+						Math.Min(StickyTopHeight, parentClipRect.Height));
+
+				case StickyPosition.Bottom:
+					// Sticky bottom controls can only paint in the bottom sticky region
+					int bottomStartY = Math.Max(parentClipRect.Y, ScrollableBottom);
+					return new LayoutRect(
+						parentClipRect.X,
+						bottomStartY,
+						parentClipRect.Width,
+						Math.Max(0, parentClipRect.Bottom - bottomStartY));
+
+				default: // None - scrollable
+					// Scrollable controls can only paint in the scrollable region (between sticky areas)
+					int scrollableStartY = Math.Max(parentClipRect.Y, ScrollableTop);
+					int scrollableEndY = Math.Min(parentClipRect.Bottom, ScrollableBottom);
+					return new LayoutRect(
+						parentClipRect.X,
+						scrollableStartY,
+						parentClipRect.Width,
+						Math.Max(0, scrollableEndY - scrollableStartY));
+			}
 		}
 	}
 }

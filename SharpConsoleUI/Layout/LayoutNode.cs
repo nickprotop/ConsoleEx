@@ -344,7 +344,13 @@ namespace SharpConsoleUI.Layout
 			// Paint children
 			foreach (var child in _children)
 			{
-				child.Paint(buffer, visibleBounds);
+				// Use region-specific clipping if the layout supports it
+				var childClipRect = visibleBounds;
+				if (Layout is IRegionClippingLayout regionLayout)
+				{
+					childClipRect = regionLayout.GetPaintClipRect(child, visibleBounds);
+				}
+				child.Paint(buffer, childClipRect);
 			}
 
 			// Paint portal children last (on top)
