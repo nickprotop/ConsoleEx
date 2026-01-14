@@ -49,7 +49,7 @@ namespace SharpConsoleUI.Core
 		/// <param name="isActive">Whether the window is currently active.</param>
 		/// <param name="isModal">Whether the window is a modal dialog.</param>
 		/// <returns>A new <see cref="WindowColorSet"/> with the appropriate colors.</returns>
-		public static WindowColorSet FromTheme(Theme theme, bool isActive, bool isModal)
+		public static WindowColorSet FromTheme(ITheme theme, bool isActive, bool isModal)
 		{
 			if (isModal)
 			{
@@ -106,7 +106,7 @@ namespace SharpConsoleUI.Core
 		/// <param name="isFocused">Whether the button is currently focused.</param>
 		/// <param name="isEnabled">Whether the button is enabled.</param>
 		/// <returns>A new <see cref="ButtonColorSet"/> with the appropriate colors.</returns>
-		public static ButtonColorSet FromTheme(Theme theme, bool isFocused, bool isEnabled)
+		public static ButtonColorSet FromTheme(ITheme theme, bool isFocused, bool isEnabled)
 		{
 			if (!isEnabled)
 			{
@@ -148,19 +148,19 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// The previous theme
 		/// </summary>
-		public Theme? PreviousTheme { get; }
+		public ITheme? PreviousTheme { get; }
 
 		/// <summary>
 		/// The new theme
 		/// </summary>
-		public Theme NewTheme { get; }
+		public ITheme NewTheme { get; }
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ThemeChangedEventArgs"/> class.
 		/// </summary>
 		/// <param name="previousTheme">The previous theme, or null if this is the initial theme.</param>
 		/// <param name="newTheme">The new theme that was applied.</param>
-		public ThemeChangedEventArgs(Theme? previousTheme, Theme newTheme)
+		public ThemeChangedEventArgs(ITheme? previousTheme, ITheme newTheme)
 		{
 			PreviousTheme = previousTheme;
 			NewTheme = newTheme;
@@ -174,22 +174,22 @@ namespace SharpConsoleUI.Core
 	public class ThemeStateService : IDisposable
 	{
 		private readonly object _lock = new();
-		private Theme _currentTheme;
-		private readonly ConcurrentQueue<Theme> _themeHistory = new();
+		private ITheme _currentTheme;
+		private readonly ConcurrentQueue<ITheme> _themeHistory = new();
 		private const int MaxHistorySize = 10;
 		private bool _isDisposed;
 
 		/// <summary>
 		/// Creates a new theme state service with the default theme
 		/// </summary>
-		public ThemeStateService() : this(new Theme())
+		public ThemeStateService() : this(ThemeRegistry.GetDefaultTheme())
 		{
 		}
 
 		/// <summary>
 		/// Creates a new theme state service with the specified theme
 		/// </summary>
-		public ThemeStateService(Theme initialTheme)
+		public ThemeStateService(ITheme initialTheme)
 		{
 			_currentTheme = initialTheme ?? throw new ArgumentNullException(nameof(initialTheme));
 		}
@@ -199,7 +199,7 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Gets the current theme
 		/// </summary>
-		public Theme CurrentTheme
+		public ITheme CurrentTheme
 		{
 			get
 			{
@@ -231,7 +231,7 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Sets a new theme
 		/// </summary>
-		public void SetTheme(Theme newTheme)
+		public void SetTheme(ITheme newTheme)
 		{
 			if (newTheme == null)
 				throw new ArgumentNullException(nameof(newTheme));
@@ -342,7 +342,7 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Gets recent theme history for debugging
 		/// </summary>
-		public IReadOnlyList<Theme> GetHistory()
+		public IReadOnlyList<ITheme> GetHistory()
 		{
 			return _themeHistory.ToArray();
 		}
@@ -362,7 +362,7 @@ namespace SharpConsoleUI.Core
 
 		#region Private Helpers
 
-		private void FireThemeChanged(Theme previousTheme, Theme newTheme)
+		private void FireThemeChanged(ITheme previousTheme, ITheme newTheme)
 		{
 			var args = new ThemeChangedEventArgs(previousTheme, newTheme);
 			ThreadPool.QueueUserWorkItem(_ =>
@@ -379,6 +379,26 @@ namespace SharpConsoleUI.Core
 		}
 
 		#endregion
+
+
+	#region Theme Dialog
+
+	/// <summary>
+	/// Action to invoke when the theme selector dialog should be shown.
+	/// Set this to ConsoleWindowSystem.ShowThemeSelectorDialog to enable UI-based theme selection.
+	/// </summary>
+	public Action? ShowThemeSelectorCallback { get; set; }
+
+	/// <summary>
+	/// Shows the theme selector dialog by invoking the registered callback.
+	/// If no callback is registered, this method does nothing.
+	/// </summary>
+	public void ShowThemeSelector()
+	{
+		ShowThemeSelectorCallback?.Invoke();
+	}
+
+	#endregion
 
 		#region IDisposable
 

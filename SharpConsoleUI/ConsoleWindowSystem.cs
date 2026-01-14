@@ -105,19 +105,41 @@ namespace SharpConsoleUI
 		private readonly NotificationStateService _notificationStateService;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class.
+		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
 		/// </summary>
 		/// <param name="renderMode">The rendering mode to use for the window system.</param>
 		public ConsoleWindowSystem(RenderMode renderMode)
+			: this(renderMode, ThemeRegistry.GetDefaultTheme())
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with a theme specified by name.
+		/// </summary>
+		/// <param name="renderMode">The rendering mode to use for the window system.</param>
+		/// <param name="themeName">The name of the theme to use.</param>
+		public ConsoleWindowSystem(RenderMode renderMode, string themeName)
+			: this(renderMode, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()))
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with a specific theme instance.
+		/// </summary>
+		/// <param name="renderMode">The rendering mode to use for the window system.</param>
+		/// <param name="theme">The theme instance to use.</param>
+		public ConsoleWindowSystem(RenderMode renderMode, ITheme theme)
 		{
 			RenderMode = renderMode;
+			_theme = theme ?? new ModernGrayTheme();
 
 			// Initialize state services with logging
 			_cursorStateService = new CursorStateService();
 			_windowStateService = new WindowStateService(_logService);
 			_focusStateService = new FocusStateService(_logService);
 			_modalStateService = new ModalStateService(_logService);
-			_themeStateService = new ThemeStateService();
+			_themeStateService = new ThemeStateService(_theme);
+			_themeStateService.ShowThemeSelectorCallback = ShowThemeSelectorDialog;
 			_inputStateService = new InputStateService();
 
 			// Initialize notification service (needs 'this' reference)
@@ -135,9 +157,193 @@ namespace SharpConsoleUI
 			// Initialize the renderer
 			_renderer = new Renderer(this);
 
-			// Initialize the theme service with the default theme
-			_themeStateService.SetTheme(Theme);
+			// Subscribe to theme changes for automatic window invalidation
+			_themeStateService.ThemeChanged += OnThemeChanged;
+			_themeStateService.ThemePropertyChanged += OnThemePropertyChanged;
 		}
+
+		/// <summary>
+		/// Handles theme change events and automatically invalidates all windows.
+		/// </summary>
+		private void OnThemeChanged(object? sender, ThemeChangedEventArgs e)
+		{
+			_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
+				$"Theme changed from '{e.PreviousTheme?.Name}' to '{e.NewTheme.Name}'");
+			InvalidateAllWindows();
+		}
+
+		/// <summary>
+		/// Handles theme property change events and automatically invalidates all windows.
+		/// </summary>
+		private void OnThemePropertyChanged(object? sender, EventArgs e)
+		{
+			_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Debug, "Theme",
+				"Theme property changed");
+			InvalidateAllWindows();
+		}
+
+		/// <summary>
+		/// Switches to a theme by name and automatically invalidates all windows.
+		/// </summary>
+		/// <param name="themeName">Name of the theme to switch to.</param>
+		/// <returns>True if theme was found and applied, false otherwise.</returns>
+		public bool SwitchTheme(string themeName)
+		{
+			var newTheme = ThemeRegistry.GetTheme(themeName);
+			if (newTheme == null)
+			{
+				_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Warning, "Theme",
+					$"Theme '{themeName}' not found in registry");
+				return false;
+			}
+
+			Theme = newTheme;
+			return true;
+		}
+
+		/// <summary>
+		/// Invalidates all windows to force complete redraw.
+		/// Called automatically after theme changes.
+		/// </summary>
+		private void InvalidateAllWindows()
+		{
+			// Get all windows and invalidate them
+			var windows = _windowStateService.GetWindowsByZOrder();
+			foreach (var window in windows)
+			{
+				window.Invalidate(true); // Deep invalidate (controls too)
+			}
+		}
+
+		/// <summary>
+		/// Shows the theme selector dialog for interactive theme selection.
+		/// </summary>
+	public void ShowThemeSelectorDialog()
+	{
+		var themes = ThemeRegistry.GetAvailableThemes();
+		var currentThemeName = Theme.Name;
+
+		// Log available themes
+		_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
+			$"Available themes ({themes.Count}): {string.Join(", ", themes.Select(t => t.Name))}");
+		_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
+			$"Current theme: {currentThemeName}");
+
+		// Create modal window using WindowBuilder
+		var modal = new Builders.WindowBuilder(this)
+			.WithTitle("Theme Selector")
+			.Centered()
+			.WithSize(65, 20)
+			.AsModal()
+			.Borderless()
+			.Resizable(false)
+			.Movable(false)
+			.WithColors(Theme.ModalBackgroundColor, Theme.WindowForegroundColor)
+			.Build();
+
+		// Header with title and instructions
+		modal.AddControl(Builders.Controls.Markup()
+			.AddLine("[cyan1 bold]Available Themes[/]")
+			.AddLine("[grey50]Select a theme to apply, or press Escape to cancel[/]")
+			.WithAlignment(Layout.HorizontalAlignment.Left)
+			.WithMargin(1, 0, 1, 0)
+			.Build());
+
+		// Separator
+		modal.AddControl(Builders.Controls.RuleBuilder()
+			.WithColor(Color.Grey23)
+			.Build());
+
+		// Theme list
+		var themeList = Builders.Controls.List()
+			.WithAlignment(Layout.HorizontalAlignment.Stretch)
+			.WithVerticalAlignment(Layout.VerticalAlignment.Fill)
+			.WithColors(Theme.ModalBackgroundColor, Theme.WindowForegroundColor)
+			.WithFocusedColors(Theme.ModalBackgroundColor, Theme.WindowForegroundColor)
+			.WithHighlightColors(Color.Grey35, Color.White)
+			.SimpleMode()
+			.WithDoubleClickActivation(true)
+			.Build();
+
+		// Populate theme list
+		foreach (var themeInfo in themes)
+		{
+			var isCurrentTheme = themeInfo.Name == currentThemeName;
+			var label = isCurrentTheme
+				? $"[white bold]{themeInfo.Name}[/] [cyan1](current)[/] [grey50]{themeInfo.Description}[/]"
+				: $"[white]{themeInfo.Name}[/] [grey50]{themeInfo.Description}[/]";
+
+			themeList.AddItem(new Controls.ListItem(label) { Tag = themeInfo.Name });
+		}
+
+		// Set initial selection to current theme
+		var currentIdx = themes.ToList().FindIndex(t => t.Name == currentThemeName);
+		if (currentIdx >= 0)
+		{
+			themeList.SelectedIndex = currentIdx;
+		}
+
+		modal.AddControl(themeList);
+
+		// Bottom separator
+		modal.AddControl(Builders.Controls.RuleBuilder()
+			.WithColor(Color.Grey23)
+			.StickyBottom()
+			.Build());
+
+		// Footer with instructions
+		modal.AddControl(Builders.Controls.Markup()
+			.AddLine("[grey70]Enter/Double-click: Apply Theme  •  Escape: Cancel[/]")
+			.WithAlignment(Layout.HorizontalAlignment.Center)
+			.WithMargin(0, 0, 0, 0)
+			.StickyBottom()
+			.Build());
+
+		// Handle double-click activation
+		themeList.ItemActivated += (sender, item) =>
+		{
+			if (item?.Tag is string themeName)
+			{
+				_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
+					$"Theme selected via double-click: {themeName}");
+				SwitchTheme(themeName);
+				modal.Close();
+			}
+		};
+
+		// Handle Enter and Escape keys
+		modal.KeyPressed += (sender, e) =>
+		{
+			if (e.KeyInfo.Key == ConsoleKey.Enter)
+			{
+				// Apply selected theme with Enter key
+				var selectedItem = themeList.SelectedItem;
+				if (selectedItem?.Tag is string themeName)
+				{
+					_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
+						$"Theme selected via Enter: {themeName}");
+					SwitchTheme(themeName);
+					modal.Close();
+				}
+				e.Handled = true;
+			}
+			else if (e.KeyInfo.Key == ConsoleKey.Escape)
+			{
+				// Cancel with Escape key
+				_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Debug, "Theme",
+					"Theme selector cancelled");
+				modal.Close();
+				e.Handled = true;
+			}
+		};
+
+		// Add modal to window system and activate it
+		AddWindow(modal);
+		SetActiveWindow(modal);
+
+		// Focus the list after modal is active
+		themeList.SetFocus(true, FocusReason.Programmatic);
+	}
 
 		/// <summary>
 		/// Gets or sets the text displayed in the bottom status bar.
@@ -207,18 +413,18 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool ShowTaskBar { get => _showTaskBar; set => _showTaskBar = value; }
 
-		private Theme _theme = new Theme();
+		private ITheme _theme = null!; // Initialized in constructor
 
 		/// <summary>
 		/// Gets or sets the theme used for styling windows and controls.
 		/// </summary>
-		public Theme Theme
+		public ITheme Theme
 		{
 			get => _theme;
 			set
 			{
-				_theme = value;
-				_themeStateService.SetTheme(value);
+				_theme = value ?? throw new ArgumentNullException(nameof(value));
+				_themeStateService.SetTheme(_theme);
 			}
 		}
 
@@ -332,7 +538,7 @@ namespace SharpConsoleUI
 		private bool IsDragging => _windowStateService.IsDragging;
 		private bool IsResizing => _windowStateService.IsResizing;
 		private Window? DragWindow => IsDragging ? _windowStateService.CurrentDrag?.Window :
-		                               (IsResizing ? _windowStateService.CurrentResize?.Window : null);
+									   (IsResizing ? _windowStateService.CurrentResize?.Window : null);
 
 		/// <summary>
 		/// Adds a window to the window system.
@@ -1236,7 +1442,7 @@ namespace SharpConsoleUI
 					// Controls should have priority over resize/drag operations
 					var contentControl = window.GetContentFromWindowCoordinates(TranslateToRelative(window, point));
 					bool clickingOnControl = contentControl is Controls.IMouseAwareControl mouseAware
-					                          && mouseAware.WantsMouseEvents;
+											  && mouseAware.WantsMouseEvents;
 
 					// Only check resize/drag if NOT clicking on an interactive control
 					if (!clickingOnControl)
