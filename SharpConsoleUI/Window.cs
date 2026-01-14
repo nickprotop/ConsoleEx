@@ -163,13 +163,12 @@ namespace SharpConsoleUI
 		private List<string> _topStickyLines = new List<string>();
 		private ConsoleWindowSystem? _windowSystem;
 		private Task? _windowTask;
-		private Thread? _windowThread;
-		private WindowThreadDelegate? _windowThreadMethod;
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 		private CancellationTokenSource? _windowThreadCts;
 		private BorderStyle _borderStyle = BorderStyle.DoubleLine;
 		private bool _isClosing = false;
 		private string? _name;
+		private TimeSpan _asyncThreadCleanupTimeout = TimeSpan.FromSeconds(5);
 
 		// DOM-based layout system
 		private LayoutNode? _rootNode;
@@ -241,37 +240,6 @@ namespace SharpConsoleUI
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
 		}
-
-		/// <summary>
-		/// Initializes a new instance of the <see cref="Window"/> class with a synchronous background thread.
-		/// </summary>
-		/// <param name="windowSystem">The console window system that manages this window.</param>
-		/// <param name="windowThreadMethod">The delegate to run on a background thread for this window.</param>
-		/// <param name="parentWindow">Optional parent window for positioning and modal behavior.</param>
-		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegate windowThreadMethod, Window? parentWindow = null)
-		{
-			_guid = System.Guid.NewGuid().ToString();
-
-			_windowSystem = windowSystem;
-			_parentWindow = parentWindow;
-			_layoutManager = new WindowLayoutManager(this);
-
-			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
-			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
-
-			// Set position relative to parent if this is a subwindow
-			SetupInitialPosition();
-
-			_windowThreadMethod = windowThreadMethod;
-			_windowThread = new Thread(() => _windowThreadMethod(this));
-			_windowThread.Start();
-		}
-
-		/// <summary>
-		/// Represents a synchronous method that runs on the window's background thread.
-		/// </summary>
-		/// <param name="window">The window instance.</param>
-		public delegate void WindowThreadDelegate(Window window);
 
 		/// <summary>
 		/// Represents an asynchronous method that runs as the window's background task.
@@ -430,6 +398,12 @@ namespace SharpConsoleUI
 		public bool IsScrollable { get; set; } = true;
 
 		/// <summary>
+		/// Gets or sets a value indicating whether this window always renders on top of normal windows.
+		/// AlwaysOnTop windows render after normal windows regardless of ZIndex.
+		/// </summary>
+		public bool AlwaysOnTop { get; set; } = false;
+
+		/// <summary>
 		/// Gets or sets the left position of the window in character columns.
 		/// </summary>
 		public int Left { get; set; }
@@ -577,6 +551,17 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Gets or sets the timeout for async window thread cleanup.
+		/// If thread doesn't respond to cancellation within this time, window transforms to error state.
+		/// Default is 5 seconds.
+		/// </summary>
+		public TimeSpan AsyncThreadCleanupTimeout
+		{
+			get => _asyncThreadCleanupTimeout;
+			set => _asyncThreadCleanupTimeout = value;
+		}
+
+		/// <summary>
 		/// Gets or sets the top position of the window in character rows.
 		/// </summary>
 		public int Top { get; set; }
@@ -708,68 +693,264 @@ namespace SharpConsoleUI
 		/// <returns>True if the window was closed; false if closing was cancelled.</returns>
 		public bool Close(bool systemCall = false)
 		{
-			// Prevent re-entrancy: Close() can be called twice when closing via button
-			// (once from button click, once from CloseWindow calling Close(true))
+			// Prevent re-entrancy
 			if (_isClosing) return true;
+			if (!IsClosable) return false;
 
-			if (IsClosable)
+			// 1. Fire OnClosing event FIRST (before any changes)
+			if (OnCLosing != null)
 			{
-				_isClosing = true;
-
-				// Cancel async window thread - non-blocking to avoid UI freeze
-				if (_windowThreadCts != null)
+				var args = new ClosingEventArgs();
+				OnCLosing(this, args);
+				if (!args.Allow)
 				{
-					_windowThreadCts.Cancel();
-					// Don't Wait() - it blocks the UI thread and can cause deadlock
-					// The task wrapper has try/catch that handles cancellation gracefully
-					// Clean up CTS in background after task completes
-					var cts = _windowThreadCts;
-					var task = _windowTask;
-					_windowThreadCts = null;
-					_windowTask = null;
-
-					// Fire-and-forget cleanup (safe - task has exception handling)
-					_ = Task.Run(async () =>
-					{
-						try
-						{
-							if (task != null)
-								await task.ConfigureAwait(false);
-						}
-						catch { }
-						finally
-						{
-							cts?.Dispose();
-						}
-					});
+					return false;  // ✅ Close cancelled - nothing was changed!
 				}
-
-				if (OnCLosing != null)
-				{
-					var args = new ClosingEventArgs();
-					OnCLosing(this, args);
-					if (!args.Allow)
-					{
-						_isClosing = false;
-						return false;
-					}
-				}
-
-				OnClosed?.Invoke(this, EventArgs.Empty);
-
-				foreach (var content in _controls)
-				{
-					// Unregister the control from the InvalidationManager before disposing
-					InvalidationManager.Instance.UnregisterControl(content as IWindowControl);
-					(content as IWindowControl).Dispose();
-				}
-
-				if (!systemCall) _windowSystem?.CloseWindow(this);
-
-				return true;
 			}
 
-			return false;
+			// 2. Now commit to closing
+			_isClosing = true;
+
+			// 3. Handle async thread cleanup with timeout
+			if (_windowThreadCts != null)
+			{
+				_windowThreadCts.Cancel();
+
+				var cts = _windowThreadCts;
+				var task = _windowTask;
+				_windowThreadCts = null;
+				_windowTask = null;
+
+				// Start grace period with visual feedback
+				BeginGracePeriodClose(task, cts);
+				return true; // Close initiated (not completed yet)
+			}
+
+			// 4. No async thread - complete close immediately
+			CompleteClose();
+			if (!systemCall) _windowSystem?.CloseWindow(this);
+			return true;
+		}
+
+		/// <summary>
+		/// Begins the grace period for window thread cleanup with visual feedback.
+		/// </summary>
+		private void BeginGracePeriodClose(Task windowTask, CancellationTokenSource cts)
+		{
+			var originalTitle = Title;
+			Title = $"{originalTitle} [Closing...]";
+
+			// Add status indicator
+			var statusControl = new MarkupControl(new List<string>
+			{
+				"[yellow on grey11] ⏳ Waiting for window thread to stop... [/]"
+			});
+			AddControl(statusControl);
+
+			// Lock down window during grace period
+			IsResizable = false;
+			IsMovable = false;
+			var wasClosable = IsClosable;
+			IsClosable = false;
+			Invalidate(true);
+
+			// Start countdown timer
+			var remainingSeconds = (int)AsyncThreadCleanupTimeout.TotalSeconds;
+			var countdownTimer = new System.Timers.Timer(1000);
+			countdownTimer.Elapsed += (s, e) =>
+			{
+				remainingSeconds--;
+
+				// After 2 seconds, show countdown
+				if (remainingSeconds <= 3)
+				{
+					statusControl.SetContent(new List<string>
+					{
+						$"[yellow on grey11] ⏳ Waiting for thread to stop... ({remainingSeconds}s remaining) [/]"
+					});
+					Invalidate(true);
+				}
+			};
+			countdownTimer.Start();
+
+			// Wait for completion or timeout
+			_ = Task.Run(async () =>
+			{
+				try
+				{
+					var completedTask = await Task.WhenAny(
+						windowTask,
+						Task.Delay(AsyncThreadCleanupTimeout)
+					);
+
+					countdownTimer.Stop();
+					countdownTimer.Dispose();
+
+					if (completedTask == windowTask)
+					{
+						// SUCCESS: Thread stopped gracefully
+						await windowTask; // Propagate exceptions
+
+						// Remove status control and restore window
+						RemoveContent(statusControl);
+						Title = originalTitle;
+
+						// Complete close normally
+						CompleteClose();
+						_windowSystem?.CloseWindow(this);
+
+						_windowSystem?.LogService?.LogDebug(
+							$"Window thread stopped gracefully within timeout",
+							"Window");
+					}
+					else
+					{
+						// TIMEOUT: Thread hung - transform to error window
+						statusControl.SetContent(new List<string>
+						{
+							"[red on yellow] ⚠ Thread did not respond - transforming to error state... [/]"
+						});
+						Invalidate(true);
+
+						await Task.Delay(500); // Brief pause so user sees message
+
+						TransformToErrorWindow(statusControl);
+					}
+				}
+				catch (Exception ex)
+				{
+					_windowSystem?.LogService?.LogError(
+						$"Error during grace period: {ex.Message}",
+						ex, "Window");
+
+					// Fallback: force complete close
+					CompleteClose();
+					_windowSystem?.CloseWindow(this);
+				}
+				finally
+				{
+					cts?.Dispose();
+				}
+			});
+		}
+
+		/// <summary>
+		/// Completes the window close operation by disposing controls and firing OnClosed event.
+		/// </summary>
+		private void CompleteClose()
+		{
+			OnClosed?.Invoke(this, EventArgs.Empty);
+
+			foreach (var content in _controls.ToList())
+			{
+				InvalidationManager.Instance.UnregisterControl(content as IWindowControl);
+				(content as IWindowControl)?.Dispose();
+			}
+		}
+
+		/// <summary>
+		/// Transforms this window into an error boundary showing hung thread information.
+		/// </summary>
+		private void TransformToErrorWindow(IWindowControl? statusControl)
+		{
+			try
+			{
+				var originalTitle = Title.Replace("[Closing...]", "").Trim();
+
+				// 1. Build error message
+				var errorLines = new List<string>
+				{
+					"",
+					"[bold red]⚠ WINDOW THREAD HUNG ⚠[/]",
+					"",
+					$"[yellow]Window:[/] {originalTitle}",
+					$"[yellow]Timeout:[/] {(int)AsyncThreadCleanupTimeout.TotalSeconds} seconds",
+					"",
+					"[white]The window's background thread did not respond to[/]",
+					"[white]cancellation within the timeout period.[/]",
+					"",
+					"[bold cyan]Cause:[/]",
+					"[white]• Infinite loop without checking CancellationToken[/]",
+					"[white]• Blocking operation ignoring cancellation[/]",
+					"",
+					"[bold cyan]How to fix:[/]",
+					"[white]1. Check [cyan]ct.IsCancellationRequested[/] in loops[/]",
+					"[white]2. Pass token: [cyan]await Task.Delay(ms, ct)[/][/]",
+					"[white]3. Use [cyan]ct.ThrowIfCancellationRequested()[/][/]",
+					"",
+					"[grey]Move this window aside to continue debugging.[/]",
+					""
+				};
+
+				// 2. Calculate required size (strip markup for length calculation)
+				var maxLineLength = errorLines
+					.Select(line => Helpers.AnsiConsoleHelper.StripSpectreLength(line))
+					.Max();
+
+				var requiredWidth = Math.Max(50, maxLineLength + 4); // Min 50, +4 for borders
+				var requiredHeight = errorLines.Count + 6; // +6 for borders, spacing, button
+
+				// 3. Remove ALL existing controls
+				foreach (var control in _controls.ToList())
+				{
+					RemoveContent(control);
+					try { (control as IDisposable)?.Dispose(); }
+					catch { /* Ignore disposal errors */ }
+				}
+
+				// 4. Resize and center window
+				Width = requiredWidth;
+				Height = requiredHeight;
+				if (_windowSystem != null)
+				{
+					Left = Math.Max(0, (_windowSystem.DesktopDimensions.Width - requiredWidth) / 2);
+					Top = Math.Max(0, (_windowSystem.DesktopDimensions.Height - requiredHeight) / 2);
+				}
+
+				// 5. Add error content
+				var errorControl = new MarkupControl(errorLines);
+				AddControl(errorControl);
+
+				// 6. Add quit button
+				var quitButton = new ButtonControl
+				{
+					Text = "[white on red] Force Quit Application [/]"
+				};
+				quitButton.Click += (sender, e) =>
+				{
+					_windowSystem?.LogService?.LogCritical(
+						"User force quit application due to hung window thread",
+						null, "Window");
+					_windowSystem?.Shutdown(1);
+				};
+				AddControl(quitButton);
+
+				// 7. Configure window behavior
+				_isClosing = false;         // Allow window to live
+				IsResizable = false;        // Can't resize (content is fixed)
+				IsClosable = false;         // Can't close (would hide error!)
+				IsMovable = true;           // ✅ CAN MOVE - user can move it aside
+				AlwaysOnTop = true;         // ✅ ALWAYS VISIBLE - can't hide the error
+				Title = "⚠ HUNG THREAD ERROR";
+				BackgroundColor = Color.Red;
+				ForegroundColor = Color.White;
+
+				// 8. Bring to front
+				_windowSystem?.WindowStateService.BringToFront(this);
+				Invalidate(true);
+
+				_windowSystem?.LogService?.LogCritical(
+					$"Window thread hung and did not respond to cancellation. " +
+					$"Original window '{originalTitle}' transformed to error boundary (AlwaysOnTop, movable).",
+					null, "Window");
+			}
+			catch (Exception ex)
+			{
+				// If transformation fails, fallback to logging
+				_windowSystem?.LogService?.LogCritical(
+					$"Failed to transform hung window to error state: {ex.Message}",
+					ex, "Window");
+			}
 		}
 
 		/// <summary>

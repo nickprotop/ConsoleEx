@@ -1927,8 +1927,10 @@ namespace SharpConsoleUI
 					}
 				}
 
-				// Render non-active windows based on their ZIndex
-				foreach (var window in Windows.Values.OrderBy(w => w.ZIndex))
+				// PASS 1: Render normal (non-AlwaysOnTop) windows based on their ZIndex
+				foreach (var window in Windows.Values
+					.Where(w => !w.AlwaysOnTop)
+					.OrderBy(w => w.ZIndex))
 				{
 					if (window != ActiveWindow && windowsToRender.Contains(window))
 					{
@@ -1937,7 +1939,7 @@ namespace SharpConsoleUI
 				}
 
 				// Check if any of the overlapping windows is overlapping the active window
-				if (ActiveWindow != null)
+				if (ActiveWindow != null && !ActiveWindow.AlwaysOnTop)
 				{
 					if (windowsToRender.Contains(ActiveWindow))
 					{
@@ -1954,6 +1956,18 @@ namespace SharpConsoleUI
 								_renderer.RenderWindow(ActiveWindow);
 							}
 						}
+					}
+				}
+
+				// PASS 2: Render AlwaysOnTop windows (always last, on top of everything)
+				foreach (var window in Windows.Values
+					.Where(w => w.AlwaysOnTop && w.State != WindowState.Minimized)
+					.OrderBy(w => w.ZIndex))
+				{
+					// AlwaysOnTop windows always render if dirty or in windowsToRender
+					if (window.IsDirty || windowsToRender.Contains(window))
+					{
+						_renderer.RenderWindow(window);
 					}
 				}
 			}

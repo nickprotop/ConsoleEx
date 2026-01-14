@@ -49,8 +49,8 @@ public sealed class WindowBuilder
     private int? _maxHeight;
     private Window? _parentWindow;
     private readonly List<IWindowControl> _controls = new();
-    private Window.WindowThreadDelegate? _windowThread;
     private Window.WindowThreadDelegateAsync? _asyncWindowThread;
+    private bool _alwaysOnTop = false;
     private EventHandler? _activatedHandler;
     private EventHandler? _deactivatedHandler;
     private EventHandler<KeyPressedEventArgs>? _keyPressedHandler;
@@ -398,17 +398,6 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets a synchronous window thread method that runs in the background while the window is open.
-    /// </summary>
-    /// <param name="threadMethod">The delegate to execute as the window's background thread.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithWindowThread(Window.WindowThreadDelegate threadMethod)
-    {
-        _windowThread = threadMethod;
-        return this;
-    }
-
-    /// <summary>
     /// Sets an asynchronous window thread method that runs in the background while the window is open.
     /// </summary>
     /// <param name="asyncThreadMethod">The async delegate to execute as the window's background thread.</param>
@@ -416,6 +405,18 @@ public sealed class WindowBuilder
     public WindowBuilder WithAsyncWindowThread(Window.WindowThreadDelegateAsync asyncThreadMethod)
     {
         _asyncWindowThread = asyncThreadMethod;
+        return this;
+    }
+
+    /// <summary>
+    /// Configures the window to always render on top of normal windows.
+    /// AlwaysOnTop windows are rendered after all normal windows regardless of ZIndex.
+    /// </summary>
+    /// <param name="alwaysOnTop">True to make the window always on top; false otherwise. Default is true.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithAlwaysOnTop(bool alwaysOnTop = true)
+    {
+        _alwaysOnTop = alwaysOnTop;
         return this;
     }
 
@@ -534,10 +535,6 @@ public sealed class WindowBuilder
         {
             window = new Window(_windowSystem, _asyncWindowThread, _parentWindow);
         }
-        else if (_windowThread != null)
-        {
-            window = new Window(_windowSystem, _windowThread, _parentWindow);
-        }
         else
         {
             window = new Window(_windowSystem, _parentWindow);
@@ -571,6 +568,7 @@ public sealed class WindowBuilder
         window.IsMovable = _isMovable;
         window.IsMinimizable = _isMinimizable;
         window.IsMaximizable = _isMaximizable;
+        window.AlwaysOnTop = _alwaysOnTop;
         window.BorderStyle = _borderStyle;
         // DOM layout is now always enabled - no need to set
 
