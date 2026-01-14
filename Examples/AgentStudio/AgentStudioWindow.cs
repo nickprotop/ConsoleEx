@@ -64,6 +64,9 @@ public class AgentStudioWindow : IDisposable
             .WithSize(80, 24)
             .WithWindowThread(WindowThreadMethod)
             .Borderless()
+            .Resizable(false)
+            .Movable(false)
+            .Closable(false)
             .Minimizable(false)
             .Maximizable(false)
             .Maximized()
@@ -181,7 +184,7 @@ public class AgentStudioWindow : IDisposable
             .Build());
 
         // Bottom hint bar
-        _bottomModeInfo = Controls.Markup($"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Enter:Send[/]")
+        _bottomModeInfo = Controls.Markup($"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Space:Mode  Ctrl+J:Sessions  Ctrl+P:Commands  Ctrl+S:Send[/]")
             .WithAlignment(HorizontalAlignment.Left)
             .WithMargin(1, 0, 0, 0)
             .Build();
@@ -245,25 +248,74 @@ public class AgentStudioWindow : IDisposable
 
         _window.KeyPressed += (sender, e) =>
         {
-            if (e.KeyInfo.Key == ConsoleKey.Escape)
+            // DEBUG: Log all keys to /tmp/agentstudio_keys.log
+            try
             {
-                _windowSystem.CloseWindow(_window);
-                e.Handled = true;
+                var logLine = $"{DateTime.Now:HH:mm:ss.fff} | Key: {e.KeyInfo.Key,-15} | Mods: {e.KeyInfo.Modifiers,-20} | Char: '{e.KeyInfo.KeyChar}' (0x{(int)e.KeyInfo.KeyChar:X2}) | AlreadyHandled: {e.AllreadyHandled}\n";
+                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", logLine);
             }
-            else if (e.KeyInfo.Key == ConsoleKey.Tab && !e.AllreadyHandled)
+            catch { }
+
+            // Don't process keys already handled by controls or window
+            if (e.AllreadyHandled)
             {
-                // Switch mode
+                e.Handled = true; // Acknowledge
+                return;
+            }
+
+            if (e.KeyInfo.Key == ConsoleKey.Spacebar && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+            {
+                // Ctrl+Space to switch mode
+                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> CTRL+SPACE DETECTED - Switching mode\n");
                 _currentMode = _currentMode == "Build" ? "Plan" : "Build";
                 _bottomModeInfo?.SetContent(new List<string>
                 {
-                    $"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Enter:Send[/]"
+                    $"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Space:Mode  Ctrl+J:Sessions  Ctrl+P:Commands  Ctrl+S:Send[/]"
                 });
                 e.Handled = true;
             }
-            else if (e.KeyInfo.Key == ConsoleKey.Enter && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+            else if (e.KeyInfo.Key == ConsoleKey.S && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
             {
-                // Ctrl+Enter to send (may or may not work depending on terminal)
+                // Ctrl+S to send message
+                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> CTRL+S DETECTED - Sending message\n");
                 HandleSendMessage();
+                e.Handled = true;
+            }
+            else if (e.KeyInfo.Key == ConsoleKey.J && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+            {
+                // Ctrl+J to open session manager
+                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> CTRL+J DETECTED - Opening Session Manager\n");
+                Modals.SessionManagerModal.Show(_windowSystem, _currentSession, selected =>
+                {
+                    if (selected != null)
+                    {
+                        _currentSession = selected;
+                        _topStatusLeft?.SetContent(new List<string> { $"[grey50]Session: [/][cyan1]{_currentSession}[/]" });
+                        System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> Session changed to: {_currentSession}\n");
+                    }
+                });
+                e.Handled = true;
+            }
+            else if (e.KeyInfo.Key == ConsoleKey.P && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+            {
+                // Ctrl+P to open command palette
+                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> CTRL+P DETECTED - Opening Command Palette\n");
+                Modals.CommandPaletteModal.Show(_windowSystem, command =>
+                {
+                    if (command != null)
+                    {
+                        // Simulate user typing the command
+                        _inputArea?.SetContent(command);
+                        System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> Command selected: {command}\n");
+                    }
+                });
+                e.Handled = true;
+            }
+            else if (e.KeyInfo.Key == ConsoleKey.Enter && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Alt))
+            {
+                // Alt+Enter test
+                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> ALT+ENTER DETECTED - Terminal supports Alt+Enter!\n");
+                // Could be used as alternative send key if it works
                 e.Handled = true;
             }
         };
