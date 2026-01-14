@@ -1066,6 +1066,13 @@ namespace SharpConsoleUI.Controls
 			switch (key.Key)
 			{
 				case ConsoleKey.DownArrow:
+					// Clear hover when switching to keyboard navigation
+					if (_hoveredIndex != -1)
+					{
+						_hoveredIndex = -1;
+						ItemHovered?.Invoke(this, -1);
+					}
+
 					if (_selectionMode == ListSelectionMode.Simple)
 					{
 						// Simple mode: Move selection + highlight together
@@ -1093,6 +1100,13 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.UpArrow:
+					// Clear hover when switching to keyboard navigation
+					if (_hoveredIndex != -1)
+					{
+						_hoveredIndex = -1;
+						ItemHovered?.Invoke(this, -1);
+					}
+
 					if (_selectionMode == ListSelectionMode.Simple)
 					{
 						// Simple mode: Move selection + highlight together
@@ -1173,6 +1187,13 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.Home:
+					// Clear hover when switching to keyboard navigation
+					if (_hoveredIndex != -1)
+					{
+						_hoveredIndex = -1;
+						ItemHovered?.Invoke(this, -1);
+					}
+
 					if (_items.Count > 0)
 					{
 						_highlightedIndex = 0;
@@ -1184,6 +1205,13 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.End:
+					// Clear hover when switching to keyboard navigation
+					if (_hoveredIndex != -1)
+					{
+						_hoveredIndex = -1;
+						ItemHovered?.Invoke(this, -1);
+					}
+
 					if (_items.Count > 0)
 					{
 						_highlightedIndex = _items.Count - 1;
@@ -1195,6 +1223,13 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.PageUp:
+					// Clear hover when switching to keyboard navigation
+					if (_hoveredIndex != -1)
+					{
+						_hoveredIndex = -1;
+						ItemHovered?.Invoke(this, -1);
+					}
+
 					if (highlightedIndex > 0)
 					{
 						_highlightedIndex = Math.Max(0, highlightedIndex - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
@@ -1206,6 +1241,13 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				case ConsoleKey.PageDown:
+					// Clear hover when switching to keyboard navigation
+					if (_hoveredIndex != -1)
+					{
+						_hoveredIndex = -1;
+						ItemHovered?.Invoke(this, -1);
+					}
+
 					if (highlightedIndex < _items.Count - 1)
 					{
 						_highlightedIndex = Math.Min(_items.Count - 1, highlightedIndex + (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
@@ -1867,7 +1909,13 @@ namespace SharpConsoleUI.Controls
 						}
 						else
 						{
-							// Complex mode: Separate states, single click only highlights
+							// Complex mode: Click is browsing action (like arrow keys)
+							// Clear any existing selection and highlight clicked item
+							if (_selectedIndex != -1)
+							{
+								_selectedIndex = -1;
+								SelectedIndexChanged?.Invoke(this, -1);
+							}
 							_highlightedIndex = clickedIndex;
 							HighlightChanged?.Invoke(this, clickedIndex);
 						}
