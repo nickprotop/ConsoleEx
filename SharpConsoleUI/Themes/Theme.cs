@@ -99,6 +99,18 @@ namespace SharpConsoleUI.Themes
 		public Color ListUnfocusedHighlightForegroundColor { get; set; } = Color.Silver;
 
 		/// <summary>
+		/// Gets or sets the background color for list items when hovered by the mouse.
+		/// If null, falls back to highlight color.
+		/// </summary>
+		public Color? ListHoverBackgroundColor { get; set; } = null;
+
+		/// <summary>
+		/// Gets or sets the foreground color for list items when hovered by the mouse.
+		/// If null, falls back to highlight color.
+		/// </summary>
+		public Color? ListHoverForegroundColor { get; set; } = null;
+
+		/// <summary>
 		/// Gets or sets the background color for the desktop area behind all windows.
 		/// </summary>
 		public Color DesktopBackgroundColor { get; set; } = Color.Black;

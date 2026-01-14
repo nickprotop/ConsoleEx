@@ -97,6 +97,18 @@ public interface ITheme
     Color ListUnfocusedHighlightForegroundColor { get; }
 
     /// <summary>
+    /// Gets the background color for list items when hovered by the mouse.
+    /// If null, falls back to highlight color.
+    /// </summary>
+    Color? ListHoverBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for list items when hovered by the mouse.
+    /// If null, falls back to highlight color.
+    /// </summary>
+    Color? ListHoverForegroundColor { get; }
+
+    /// <summary>
     /// Gets the background color for the desktop area behind all windows.
     /// </summary>
     Color DesktopBackgroundColor { get; }
