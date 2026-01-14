@@ -68,7 +68,6 @@ class Program
             .WithTitle("MenuControl Showcase")
             .WithSize(windowWidth, windowHeight)
             .Centered()
-            .WithColors(Color.Grey11, Color.White)
             .Build();
 
         // Create horizontal menu bar

@@ -222,7 +222,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the default background color for standard window content areas.
 		/// </summary>
-		public Color WindowBackgroundColor { get; set; } = Color.Grey11;
+		public Color WindowBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <summary>
 		/// Gets or sets the default foreground color for text in standard window content areas.
