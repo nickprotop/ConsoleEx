@@ -132,8 +132,8 @@ namespace YourNamespace
                 }
             };
 
-            // Create a simple window with markup content
-            var window = new Window(consoleWindowSystem, WindowThread)
+            // Create a simple window with async thread for updates
+            var window = new Window(consoleWindowSystem, WindowThreadAsync)
             {
                 Title = "Hello World",
                 Left = 10,
@@ -145,18 +145,18 @@ namespace YourNamespace
 
             // Add the window to the console window system
             consoleWindowSystem.AddWindow(window);
-        
+
             // Make this window the active window
             consoleWindowSystem.SetActiveWindow(window);
 
             // Run the console window system (this blocks until the application exits)
             int exitCode = consoleWindowSystem.Run();
-        
+
             Console.WriteLine($"Application exited with code: {exitCode}");
         }
 
         // Window thread function that adds content to the window
-        static void WindowThread(Window window)
+        static async Task WindowThreadAsync(Window window, CancellationToken ct)
         {
             // Create a markup control with formatted text
             var markupContent = new MarkupControl(new List<string>
