@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -18,9 +20,28 @@ using Color = Spectre.Console.Color;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
+	/// Specifies the selection mode for a ListControl.
+	/// </summary>
+	public enum ListSelectionMode
+	{
+		/// <summary>
+		/// Highlight and selection are merged. Only one index tracked.
+		/// No [x] markers shown. Like TreeControl behavior.
+		/// </summary>
+		Simple,
+
+		/// <summary>
+		/// Highlight and selection are separate. Two indices tracked.
+		/// [x] markers show selected items, [ ] shows highlighted item.
+		/// Like DropdownControl behavior. (Default)
+		/// </summary>
+		Complex
+	}
+
+	/// <summary>
 	/// A scrollable list control that supports selection, highlighting, and keyboard navigation.
 	/// </summary>
-	public class ListControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
+	public class ListControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
 	{
 		/// <summary>
 		/// Creates a fluent builder for constructing a ListControl.
@@ -62,6 +83,20 @@ namespace SharpConsoleUI.Controls
 		// Local state - controls own their selection/highlight state
 		private int _selectedIndex = -1;
 		private int _highlightedIndex = -1;
+
+		// Mouse interaction state
+		private int _hoveredIndex = -1;                        // Mouse hover tracking
+		private DateTime _lastClickTime = DateTime.MinValue;   // Double-click detection
+		private int _lastClickIndex = -1;                      // Double-click detection
+
+		// Selection mode configuration
+		private ListSelectionMode _selectionMode = ListSelectionMode.Complex;
+		private bool _hoverHighlightsItems = true;
+		private bool _autoHighlightOnFocus = true;
+		private int _mouseWheelScrollSpeed = 3;
+		private bool _doubleClickActivates = true;
+		private int _doubleClickThresholdMs = 500;
+		private bool _showSelectionMarkers = true;  // Show [x]/[ ] markers
 
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
@@ -258,6 +293,37 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<int>? HighlightChanged;
 
 		/// <summary>
+		/// Occurs when the control is clicked with the mouse.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <summary>
+		/// Occurs when the mouse enters the control area.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <summary>
+		/// Occurs when the mouse leaves the control area.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <summary>
+		/// Occurs when the mouse moves over the control.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseMove;
+
+		/// <summary>
+		/// Occurs when an item is hovered by the mouse.
+		/// The index is the hovered item index, or -1 if mouse left all items.
+		/// </summary>
+		public event EventHandler<int>? ItemHovered;
+
+		/// <summary>
+		/// Occurs when an item is double-clicked with the mouse.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+		/// <summary>
 		/// Gets the actual rendered height in lines.
 		/// </summary>
 		public int? ActualHeight
@@ -296,7 +362,8 @@ namespace SharpConsoleUI.Controls
 					if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 				}
 
-				int indicatorSpace = _isSelectable ? 4 : 0;
+				// Calculate indicator space: only needed in Complex mode with markers
+				int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 4 : 0;
 				int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
 
 				int width = _width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
@@ -549,27 +616,41 @@ namespace SharpConsoleUI.Controls
 					return;
 
 				int oldIndex = CurrentSelectedIndex;
-				if (value >= -1 && value < _items.Count && oldIndex != value)
+				var oldItem = SelectedItem;
+				var oldValue = SelectedValue;
+
+				// Early return if no change
+				if (oldIndex == value)
+					return;
+
+				// Validate range
+				if (value < -1 || value >= _items.Count)
+					return;
+
+				_selectedIndex = value;
+
+				// Sync highlight in Simple mode
+				if (_selectionMode == ListSelectionMode.Simple)
 				{
-					_selectedIndex = value;
-					SelectedIndexChanged?.Invoke(this, _selectedIndex);
-					SelectedItemChanged?.Invoke(this, SelectedItem);
-					SelectedValueChanged?.Invoke(this, SelectedValue);
-					Container?.Invalidate(true);
-
-					// Ensure selected item is visible
-					if (value >= 0)
-					{
-						EnsureSelectedItemVisible();
-					}
-
-					// Trigger events
-					SelectedIndexChanged?.Invoke(this, value);
-					SelectedItemChanged?.Invoke(this, (value >= 0 && value < _items.Count) ?
-						_items[value] : null);
-					SelectedValueChanged?.Invoke(this, (value >= 0 && value < _items.Count) ?
-						_items[value].Text : null);
+					_highlightedIndex = value;
 				}
+
+				// Fire events ONCE
+				SelectedIndexChanged?.Invoke(this, value);
+
+				if (SelectedItem != oldItem)
+					SelectedItemChanged?.Invoke(this, SelectedItem);
+
+				if (SelectedValue != oldValue)
+					SelectedValueChanged?.Invoke(this, SelectedValue);
+
+				// Ensure selected item is visible
+				if (value >= 0)
+				{
+					EnsureSelectedItemVisible();
+				}
+
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -579,6 +660,97 @@ namespace SharpConsoleUI.Controls
 		public int HighlightedIndex
 		{
 			get => _highlightedIndex;
+		}
+
+		/// <summary>
+		/// Gets the index of the currently hovered item (mouse cursor). -1 if no item is hovered.
+		/// </summary>
+		public int HoveredIndex
+		{
+			get => _hoveredIndex;
+		}
+
+		/// <summary>
+		/// Gets or sets the selection mode (Simple or Complex).
+		/// Simple: Highlight and selection are merged (like TreeControl).
+		/// Complex: Highlight and selection are separate (like DropdownControl).
+		/// Default: Complex (backward compatible).
+		/// </summary>
+		public ListSelectionMode SelectionMode
+		{
+			get => _selectionMode;
+			set
+			{
+				_selectionMode = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether mouse hover highlights items visually.
+		/// Default: true.
+		/// </summary>
+		public bool HoverHighlightsItems
+		{
+			get => _hoverHighlightsItems;
+			set
+			{
+				_hoverHighlightsItems = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether to auto-highlight on focus gain.
+		/// When true, the control will highlight the selected item (or first item) when focused.
+		/// Default: true (fixes UX issue where focus had no visual feedback).
+		/// </summary>
+		public bool AutoHighlightOnFocus
+		{
+			get => _autoHighlightOnFocus;
+			set
+			{
+				_autoHighlightOnFocus = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the number of lines to scroll with mouse wheel.
+		/// Default: 3.
+		/// </summary>
+		public int MouseWheelScrollSpeed
+		{
+			get => _mouseWheelScrollSpeed;
+			set
+			{
+				_mouseWheelScrollSpeed = Math.Max(1, value);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether double-click activates items.
+		/// Default: true.
+		/// </summary>
+		public bool DoubleClickActivates
+		{
+			get => _doubleClickActivates;
+			set
+			{
+				_doubleClickActivates = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the double-click threshold in milliseconds.
+		/// Default: 500.
+		/// </summary>
+		public int DoubleClickThresholdMs
+		{
+			get => _doubleClickThresholdMs;
+			set
+			{
+				_doubleClickThresholdMs = Math.Max(100, value);
+			}
 		}
 
 		/// <summary>
@@ -792,7 +964,8 @@ namespace SharpConsoleUI.Controls
 			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + visibleItems < _items.Count;
 			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + _margin.Top + _margin.Bottom;
 
-			int indicatorSpace = _isSelectable ? 4 : 0;
+			// Calculate indicator space: only needed in Complex mode with markers
+			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 4 : 0;
 			int maxItemWidth = 0;
 			foreach (var item in _items)
 			{
@@ -893,42 +1066,84 @@ namespace SharpConsoleUI.Controls
 			switch (key.Key)
 			{
 				case ConsoleKey.DownArrow:
-					if (highlightedIndex < _items.Count - 1)
+					if (_selectionMode == ListSelectionMode.Simple)
 					{
-						_highlightedIndex = highlightedIndex + 1;
-					HighlightChanged?.Invoke(this, _highlightedIndex);
-						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
-						return true;
+						// Simple mode: Move selection + highlight together
+						if (_selectedIndex < _items.Count - 1)
+						{
+							SelectedIndex = _selectedIndex + 1;
+							_highlightedIndex = _selectedIndex;
+							EnsureHighlightedItemVisible();
+							Container?.Invalidate(true);
+							return true;
+						}
+					}
+					else
+					{
+						// Complex mode: Move highlight only
+						if (highlightedIndex < _items.Count - 1)
+						{
+							_highlightedIndex = highlightedIndex + 1;
+							HighlightChanged?.Invoke(this, _highlightedIndex);
+							EnsureHighlightedItemVisible();
+							Container?.Invalidate(true);
+							return true;
+						}
 					}
 					return false;
 
 				case ConsoleKey.UpArrow:
-					if (highlightedIndex > 0)
+					if (_selectionMode == ListSelectionMode.Simple)
 					{
-						_highlightedIndex = highlightedIndex - 1;
-					HighlightChanged?.Invoke(this, _highlightedIndex);
-						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
-						return true;
+						// Simple mode: Move selection + highlight together
+						if (_selectedIndex > 0)
+						{
+							SelectedIndex = _selectedIndex - 1;
+							_highlightedIndex = _selectedIndex;
+							EnsureHighlightedItemVisible();
+							Container?.Invalidate(true);
+							return true;
+						}
+					}
+					else
+					{
+						// Complex mode: Move highlight only
+						if (highlightedIndex > 0)
+						{
+							_highlightedIndex = highlightedIndex - 1;
+							HighlightChanged?.Invoke(this, _highlightedIndex);
+							EnsureHighlightedItemVisible();
+							Container?.Invalidate(true);
+							return true;
+						}
 					}
 					return false;
 
 				case ConsoleKey.Enter:
 					if (highlightedIndex >= 0 && highlightedIndex < _items.Count)
 					{
-						// If not already selected, select it (first Enter press)
-						if (_selectedIndex != highlightedIndex)
+						if (_selectionMode == ListSelectionMode.Simple)
 						{
-							SelectedIndex = highlightedIndex;  // Fires SelectedItemChanged only
-						}
-						// If already selected, activate it (second Enter press)
-						else
-						{
+							// Simple mode: Already selected (highlight = selection), just activate
 							var item = _items[highlightedIndex];
 							if (item.IsEnabled)
 							{
-								ItemActivated?.Invoke(this, item);  // Fires ItemActivated only
+								ItemActivated?.Invoke(this, item);
+							}
+						}
+						else
+						{
+							// Complex mode: Commit highlight to selection first
+							if (_selectedIndex != highlightedIndex)
+							{
+								SelectedIndex = highlightedIndex;
+							}
+
+							// Then activate
+							var item = _items[highlightedIndex];
+							if (item.IsEnabled)
+							{
+								ItemActivated?.Invoke(this, item);
 							}
 						}
 						return true;
@@ -1017,7 +1232,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int indicatorSpace = _isSelectable ? 4 : 0;
+			// Calculate indicator space: only needed in Complex mode with markers
+			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 4 : 0;
 
 			// Calculate max item width
 			int maxItemWidth = 0;
@@ -1153,7 +1369,8 @@ namespace SharpConsoleUI.Controls
 				foregroundColor = ForegroundColor;
 			}
 
-			int indicatorSpace = _isSelectable ? 4 : 0;
+			// Calculate indicator space: only needed in Complex mode with markers
+			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 4 : 0;
 			int listWidth = bounds.Width - _margin.Left - _margin.Right;
 			if (listWidth <= 0) return;
 
@@ -1175,13 +1392,7 @@ namespace SharpConsoleUI.Controls
 			int selectedIndex = CurrentSelectedIndex;
 			int highlightedIndex = CurrentHighlightedIndex;
 
-			// Initialize highlighted index if needed
-			if (highlightedIndex == -1 && selectedIndex >= 0)
-			{
-				_highlightedIndex = selectedIndex;
-				HighlightChanged?.Invoke(this, _highlightedIndex);
-				highlightedIndex = selectedIndex;
-			}
+			// Note: Highlight initialization moved to SetFocus to avoid firing events during render
 
 			// Render title
 			if (hasTitle && currentY < bounds.Bottom)
@@ -1194,7 +1405,7 @@ namespace SharpConsoleUI.Controls
 						buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
 					}
 
-					string titleBarContent = " " + _title + " ";
+					string titleBarContent = _title;
 					int titleLen = AnsiConsoleHelper.StripSpectreLength(titleBarContent);
 					if (titleLen < listWidth)
 					{
@@ -1275,8 +1486,24 @@ namespace SharpConsoleUI.Controls
 						}
 
 						// Determine colors for this item
+						// Priority: Disabled > Hovered > Highlighted > Selected > Normal
 						Color itemBg, itemFg;
-						if (_isSelectable && itemIndex == highlightedIndex && _hasFocus)
+						bool isHovered = (itemIndex == _hoveredIndex);
+
+						if (!IsEnabled)
+						{
+							itemBg = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
+							itemFg = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
+						}
+						else if (isHovered && _hoverHighlightsItems && _hasFocus)
+						{
+							// Hover takes precedence when control has focus
+							// Use theme hover colors if available, otherwise fall back to highlight colors
+							var theme = Container?.GetConsoleWindowSystem?.Theme;
+							itemBg = theme?.ListHoverBackgroundColor ?? HighlightBackgroundColor;
+							itemFg = theme?.ListHoverForegroundColor ?? HighlightForegroundColor;
+						}
+						else if (_isSelectable && itemIndex == highlightedIndex && _hasFocus)
 						{
 							itemBg = HighlightBackgroundColor;
 							itemFg = HighlightForegroundColor;
@@ -1292,15 +1519,29 @@ namespace SharpConsoleUI.Controls
 							itemFg = foregroundColor;
 						}
 
-						// Build item content
+						// Build item content with selection markers
 						string selectionIndicator = "";
 						if (_isSelectable && lineIndex == 0)
 						{
-							selectionIndicator = (itemIndex == selectedIndex) ? "[x] " : "[ ] ";
+							// Show markers only in Complex mode
+							if (_selectionMode == ListSelectionMode.Complex && _showSelectionMarkers)
+							{
+								if (itemIndex == selectedIndex)
+									selectionIndicator = "[x] ";
+								else if (itemIndex == highlightedIndex && _hasFocus)
+									selectionIndicator = "[ ] ";
+								else
+									selectionIndicator = "    ";
+							}
+							// In Simple mode, no markers
 						}
-						else if (_isSelectable)
+						else if (_isSelectable && lineIndex > 0)
 						{
-							selectionIndicator = "    ";
+							// Continuation lines: add spacing if Complex mode
+							if (_selectionMode == ListSelectionMode.Complex && _showSelectionMarkers)
+							{
+								selectionIndicator = "    ";
+							}
 						}
 
 						string itemContent;
@@ -1422,19 +1663,168 @@ namespace SharpConsoleUI.Controls
 		{
 			var hadFocus = _hasFocus;
 			_hasFocus = focus;
-			// Keep the highlighted index when losing focus - standard UI behavior
-			// The highlight shows where the user was, not what was selected
-			Container?.Invalidate(true);
 
-			// Fire focus events
 			if (focus && !hadFocus)
 			{
+				// Initialize highlight on focus gain
+				if (_autoHighlightOnFocus && _highlightedIndex == -1)
+				{
+					if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
+					{
+						_highlightedIndex = _selectedIndex;
+					}
+					else if (_items.Count > 0)
+					{
+						_highlightedIndex = 0;  // Highlight first item
+					}
+
+					if (_highlightedIndex >= 0)
+					{
+						HighlightChanged?.Invoke(this, _highlightedIndex);
+					}
+				}
+
 				GotFocus?.Invoke(this, EventArgs.Empty);
 			}
 			else if (!focus && hadFocus)
 			{
+				// Reset highlight to selection on focus loss (DropdownControl pattern)
+				if (_selectionMode == ListSelectionMode.Complex)
+				{
+					_highlightedIndex = _selectedIndex;
+				}
+
+				// Clear hover state
+				if (_hoveredIndex != -1)
+				{
+					_hoveredIndex = -1;
+					ItemHovered?.Invoke(this, -1);
+				}
+
 				LostFocus?.Invoke(this, EventArgs.Empty);
 			}
+
+			Container?.Invalidate(true);
+		}
+
+		// IMouseAwareControl implementation
+		/// <inheritdoc/>
+		public bool WantsMouseEvents => IsEnabled;
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse => IsEnabled;
+
+		/// <inheritdoc/>
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+			if (!IsEnabled || !WantsMouseEvents)
+				return false;
+
+			// Calculate which item the mouse is over
+			int titleOffset = string.IsNullOrEmpty(_title) ? 0 : 1;
+			int relativeY = args.Position.Y - titleOffset;
+			int hoveredIndex = -1;
+
+			// Get visible height to properly calculate item index
+			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
+			if (relativeY >= 0 && relativeY < Math.Min(_items.Count, effectiveMaxVisibleItems))
+			{
+				hoveredIndex = _scrollOffset + relativeY;
+				if (hoveredIndex >= _items.Count)
+					hoveredIndex = -1;
+			}
+
+			// Update hover state (visual feedback only, doesn't change highlight/selection)
+			if (_hoverHighlightsItems && hoveredIndex != _hoveredIndex)
+			{
+				_hoveredIndex = hoveredIndex;
+				ItemHovered?.Invoke(this, hoveredIndex);
+				Container?.Invalidate(true);
+			}
+
+			// Handle mouse wheel scrolling (no impact on selection/highlight)
+			if (args.HasFlag(MouseFlags.WheeledUp))
+			{
+				if (_scrollOffset > 0)
+				{
+					_scrollOffset = Math.Max(0, _scrollOffset - _mouseWheelScrollSpeed);
+					Container?.Invalidate(true);
+				}
+				args.Handled = true;
+				return true;
+			}
+			else if (args.HasFlag(MouseFlags.WheeledDown))
+			{
+				int maxScroll = Math.Max(0, _items.Count - effectiveMaxVisibleItems);
+				if (_scrollOffset < maxScroll)
+				{
+					_scrollOffset = Math.Min(maxScroll, _scrollOffset + _mouseWheelScrollSpeed);
+					Container?.Invalidate(true);
+				}
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle mouse clicks - set focus, select item, detect double-click
+			if (args.HasFlag(MouseFlags.Button1Clicked))
+			{
+				// Set focus on click
+				if (!HasFocus && CanFocusWithMouse)
+				{
+					SetFocus(true, FocusReason.Mouse);
+				}
+
+				if (relativeY >= 0 && relativeY < _items.Count)
+				{
+					int clickedIndex = _scrollOffset + relativeY;
+					if (clickedIndex >= 0 && clickedIndex < _items.Count)
+					{
+						// Detect double-click
+						var now = DateTime.UtcNow;
+						bool isDoubleClick = _doubleClickActivates &&
+											 clickedIndex == _lastClickIndex &&
+											 (now - _lastClickTime).TotalMilliseconds <= _doubleClickThresholdMs;
+
+						_lastClickTime = now;
+						_lastClickIndex = clickedIndex;
+
+						// Single click: Set selection and highlight (FIX: sync both)
+						SelectedIndex = clickedIndex;
+						_highlightedIndex = clickedIndex;
+
+						// Double click: Activate item
+						if (isDoubleClick)
+						{
+							MouseDoubleClick?.Invoke(this, args);
+
+							// Fire ItemActivated (like Enter key)
+							var item = _items[clickedIndex];
+							if (item.IsEnabled)
+							{
+								ItemActivated?.Invoke(this, item);
+							}
+						}
+						else
+						{
+							// Fire mouse click event
+							MouseClick?.Invoke(this, args);
+						}
+
+						Container?.Invalidate(true);
+					}
+				}
+
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle mouse movement
+			if (args.HasFlag(MouseFlags.ReportMousePosition))
+			{
+				MouseMove?.Invoke(this, args);
+			}
+
+			return false;
 		}
 
 		private int CalculateTotalVisibleItemsHeight()
