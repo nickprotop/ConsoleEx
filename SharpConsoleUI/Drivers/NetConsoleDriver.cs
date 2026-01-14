@@ -674,25 +674,36 @@ namespace SharpConsoleUI.Drivers
 							mouseFlags.Add(MouseFlags.Button1Pressed);
 							_lastButton = MouseFlags.Button1Pressed;
 						}
-						else if (_lastButton == MouseFlags.Button1Pressed)
+					else if (_lastButton == MouseFlags.Button1Pressed)
+					{
+						// SAFEGUARD: Ignore duplicate release events (< 50ms = driver bug)
+						// The console mouse driver sometimes generates duplicate Button1Released events
+						var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
+						if (_lastClickPosition?.X == position.X &&
+							_lastClickPosition?.Y == position.Y &&
+							timeSinceLastClick < 50)
 						{
-							mouseFlags.Add(MouseFlags.Button1Released);
-							mouseFlags.Add(MouseFlags.Button1Clicked);
-
-							// Check for double/triple click
-							if (_lastClickPosition?.X == position.X &&
-								_lastClickPosition?.Y == position.Y &&
-								(DateTime.Now - _lastClickTime).TotalMilliseconds < DoubleClickTime)
-							{
-								if (mouseFlags.Contains(MouseFlags.Button1DoubleClicked))
-									mouseFlags.Add(MouseFlags.Button1TripleClicked);
-								else
-									mouseFlags.Add(MouseFlags.Button1DoubleClicked);
-							}
-
-							_lastClickPosition = position;
-							_lastClickTime = DateTime.Now;
+							// Duplicate event, ignore it
+							return true;
 						}
+
+						mouseFlags.Add(MouseFlags.Button1Released);
+						mouseFlags.Add(MouseFlags.Button1Clicked);
+
+						// Check for double/triple click
+						if (_lastClickPosition?.X == position.X &&
+							_lastClickPosition?.Y == position.Y &&
+							timeSinceLastClick < DoubleClickTime)
+						{
+							if (mouseFlags.Contains(MouseFlags.Button1DoubleClicked))
+								mouseFlags.Add(MouseFlags.Button1TripleClicked);
+							else
+								mouseFlags.Add(MouseFlags.Button1DoubleClicked);
+						}
+
+						_lastClickPosition = position;
+						_lastClickTime = DateTime.Now;
+					}
 						break;
 
 					case 1: // Button 2 (Middle button)

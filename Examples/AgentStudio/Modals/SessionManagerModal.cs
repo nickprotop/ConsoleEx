@@ -56,7 +56,7 @@ public static class SessionManagerModal
             .WithFocusedColors(Color.Grey15, Color.Grey93)
             .WithHighlightColors(Color.Grey35, Color.White)  // Subtle gray highlight instead of bright blue
             .SimpleMode()  // Clean, no markers
-            .WithDoubleClickActivation(false)  // Click only selects, doesn't close modal
+            .WithDoubleClickActivation(true)  // Double-click selects and closes modal
             .Build();
 
         // Mock sessions data
@@ -94,11 +94,21 @@ public static class SessionManagerModal
 
         // Footer with instructions
         modal.AddControl(Controls.Markup()
-            .AddLine("[grey70]Enter: Select  •  Escape: Cancel[/]")
+            .AddLine("[grey70]Enter/Double-click: Select  •  Escape: Cancel[/]")
             .WithAlignment(HorizontalAlignment.Center)
             .WithMargin(0, 0, 0, 0)
             .StickyBottom()
             .Build());
+
+        // Handle double-click activation
+        sessionList.ItemActivated += (sender, item) =>
+        {
+            if (item?.Tag is string sessionName)
+            {
+                onSessionSelected(sessionName);
+                modal.Close();
+            }
+        };
 
         // Handle Enter and Escape keys
         modal.KeyPressed += (sender, e) =>

@@ -55,7 +55,7 @@ public static class CommandPaletteModal
             .WithFocusedColors(Color.Grey15, Color.Grey93)
             .WithHighlightColors(Color.Grey35, Color.White)  // Subtle gray highlight instead of bright blue
             .SimpleMode()  // Clean, no markers
-            .WithDoubleClickActivation(false)  // Click only selects, doesn't close modal
+            .WithDoubleClickActivation(true)  // Double-click selects and closes modal
             .Build();
 
         // Commands with descriptions
@@ -84,11 +84,21 @@ public static class CommandPaletteModal
 
         // Footer with instructions
         modal.AddControl(Controls.Markup()
-            .AddLine("[grey70]Enter: Execute  •  Escape: Cancel[/]")
+            .AddLine("[grey70]Enter/Double-click: Execute  •  Escape: Cancel[/]")
             .WithAlignment(HorizontalAlignment.Center)
             .WithMargin(0, 0, 0, 0)
             .StickyBottom()
             .Build());
+
+        // Handle double-click activation
+        commandList.ItemActivated += (sender, item) =>
+        {
+            if (item?.Tag is string command)
+            {
+                onCommandSelected(command);
+                modal.Close();
+            }
+        };
 
         // Handle Enter and Escape keys
         modal.KeyPressed += (sender, e) =>

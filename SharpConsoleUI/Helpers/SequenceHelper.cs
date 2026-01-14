@@ -67,6 +67,7 @@ namespace SharpConsoleUI.Helpers
 
 		private static MouseFlags? _lastMouseButtonPressed;
 		private static Point? _point;
+		private static DateTime _lastClickTime = DateTime.MinValue;
 
 		/// <summary>
 		/// Gets the C1 control character name for the specified character.
@@ -564,9 +565,15 @@ namespace SharpConsoleUI.Helpers
 				}
 				else if (pos.X == _point?.X && pos.Y == _point?.Y)
 				{
-					mouseFlags.Add(GetButtonClicked(buttonState));
-					_isButtonClicked = true;
-					Task.Run(async () => await ProcessButtonClickedAsync());
+					// SAFEGUARD: Ignore duplicate release events (< 50ms = driver bug)
+					var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
+					if (timeSinceLastClick >= 50)
+					{
+						mouseFlags.Add(GetButtonClicked(buttonState));
+						_isButtonClicked = true;
+						Task.Run(async () => await ProcessButtonClickedAsync());
+						_lastClickTime = DateTime.Now;
+					}
 				}
 
 				_point = pos;

@@ -1316,6 +1316,7 @@ namespace SharpConsoleUI
 					}
 
 					HandleWindowClick(window, flags, point);
+					return; // Event handled, prevent double-propagation
 				}
 				else
 				{

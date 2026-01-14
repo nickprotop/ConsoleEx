@@ -363,7 +363,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Calculate indicator space: only needed in Complex mode with markers
-				int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 4 : 0;
+				int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 5 : 0;
 				int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
 
 				int width = _width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
@@ -965,7 +965,7 @@ namespace SharpConsoleUI.Controls
 			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + _margin.Top + _margin.Bottom;
 
 			// Calculate indicator space: only needed in Complex mode with markers
-			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 4 : 0;
+			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 5 : 0;
 			int maxItemWidth = 0;
 			foreach (var item in _items)
 			{
@@ -1133,19 +1133,41 @@ namespace SharpConsoleUI.Controls
 						}
 						else
 						{
-							// Complex mode: Commit highlight to selection first
+							// Complex mode: Two-step Enter
+							// First Enter: If highlight != selection, commit to selection (no activate)
+							// Second Enter: If highlight == selection, activate
+
 							if (_selectedIndex != highlightedIndex)
 							{
+								// First Enter: Commit highlight to selection (browse → selected)
 								SelectedIndex = highlightedIndex;
+								// Don't fire ItemActivated yet!
 							}
-
-							// Then activate
-							var item = _items[highlightedIndex];
-							if (item.IsEnabled)
+							else
 							{
-								ItemActivated?.Invoke(this, item);
+								// Second Enter: Already selected, now activate
+								var item = _items[highlightedIndex];
+								if (item.IsEnabled)
+								{
+									ItemActivated?.Invoke(this, item);
+								}
 							}
 						}
+						return true;
+					}
+					else if (_items.Count > 0)
+					{
+						// Nothing highlighted: First Enter initializes highlight
+						if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
+						{
+							_highlightedIndex = _selectedIndex;
+						}
+						else
+						{
+							_highlightedIndex = 0;  // Highlight first item
+						}
+						HighlightChanged?.Invoke(this, _highlightedIndex);
+						Container?.Invalidate(true);
 						return true;
 					}
 					return false;
@@ -1233,7 +1255,7 @@ namespace SharpConsoleUI.Controls
 		public LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			// Calculate indicator space: only needed in Complex mode with markers
-			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 4 : 0;
+			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 5 : 0;
 
 			// Calculate max item width
 			int maxItemWidth = 0;
@@ -1370,7 +1392,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Calculate indicator space: only needed in Complex mode with markers
-			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 4 : 0;
+			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 5 : 0;
 			int listWidth = bounds.Width - _margin.Left - _margin.Right;
 			if (listWidth <= 0) return;
 
@@ -1527,11 +1549,11 @@ namespace SharpConsoleUI.Controls
 							if (_selectionMode == ListSelectionMode.Complex && _showSelectionMarkers)
 							{
 								if (itemIndex == selectedIndex)
-									selectionIndicator = "[x] ";
+									selectionIndicator = "[ x ] ";
 								else if (itemIndex == highlightedIndex && _hasFocus)
-									selectionIndicator = "[ ] ";
+									selectionIndicator = "[ > ] ";
 								else
-									selectionIndicator = "    ";
+									selectionIndicator = "     ";
 							}
 							// In Simple mode, no markers
 						}
@@ -1540,7 +1562,7 @@ namespace SharpConsoleUI.Controls
 							// Continuation lines: add spacing if Complex mode
 							if (_selectionMode == ListSelectionMode.Complex && _showSelectionMarkers)
 							{
-								selectionIndicator = "    ";
+								selectionIndicator = "     ";
 							}
 						}
 
@@ -1720,6 +1742,23 @@ namespace SharpConsoleUI.Controls
 			if (!IsEnabled || !WantsMouseEvents)
 				return false;
 
+			// Don't process if already handled
+			if (args.Handled)
+				return false;
+
+			// Handle mouse leave - clear hover state
+			if (args.HasFlag(MouseFlags.MouseLeave))
+			{
+				if (_hoveredIndex != -1)
+				{
+					_hoveredIndex = -1;
+					ItemHovered?.Invoke(this, -1);
+					Container?.Invalidate(true);
+				}
+				MouseLeave?.Invoke(this, args);
+				return true;
+			}
+
 			// Calculate which item the mouse is over
 			int titleOffset = string.IsNullOrEmpty(_title) ? 0 : 1;
 			int relativeY = args.Position.Y - titleOffset;
@@ -1765,6 +1804,36 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
+			// Handle double-click event from driver
+			if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickActivates)
+			{
+				if (relativeY >= 0 && relativeY < _items.Count)
+				{
+					int clickedIndex = _scrollOffset + relativeY;
+					if (clickedIndex >= 0 && clickedIndex < _items.Count)
+					{
+						// Commit highlight to selection
+						if (_selectedIndex != clickedIndex)
+						{
+							SelectedIndex = clickedIndex;
+						}
+
+						MouseDoubleClick?.Invoke(this, args);
+
+						// Fire ItemActivated
+						var item = _items[clickedIndex];
+						if (item.IsEnabled)
+						{
+							ItemActivated?.Invoke(this, item);
+						}
+
+						Container?.Invalidate(true);
+						args.Handled = true;
+						return true;
+					}
+				}
+			}
+
 			// Handle mouse clicks - set focus, select item, detect double-click
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
@@ -1781,20 +1850,37 @@ namespace SharpConsoleUI.Controls
 					{
 						// Detect double-click
 						var now = DateTime.UtcNow;
+						var timeSince = (now - _lastClickTime).TotalMilliseconds;
 						bool isDoubleClick = _doubleClickActivates &&
 											 clickedIndex == _lastClickIndex &&
-											 (now - _lastClickTime).TotalMilliseconds <= _doubleClickThresholdMs;
+											 timeSince <= _doubleClickThresholdMs;
 
 						_lastClickTime = now;
 						_lastClickIndex = clickedIndex;
 
-						// Single click: Set selection and highlight (FIX: sync both)
-						SelectedIndex = clickedIndex;
-						_highlightedIndex = clickedIndex;
+						// ✅ FIX: Behavior depends on SelectionMode
+						if (_selectionMode == ListSelectionMode.Simple)
+						{
+							// Simple mode: Merged state, set both
+							SelectedIndex = clickedIndex;
+							_highlightedIndex = clickedIndex;
+						}
+						else
+						{
+							// Complex mode: Separate states, single click only highlights
+							_highlightedIndex = clickedIndex;
+							HighlightChanged?.Invoke(this, clickedIndex);
+						}
 
-						// Double click: Activate item
+						// Double click: Commit to selection and activate
 						if (isDoubleClick)
 						{
+							// Commit highlight to selection
+							if (_selectedIndex != clickedIndex)
+							{
+								SelectedIndex = clickedIndex;
+							}
+
 							MouseDoubleClick?.Invoke(this, args);
 
 							// Fire ItemActivated (like Enter key)
