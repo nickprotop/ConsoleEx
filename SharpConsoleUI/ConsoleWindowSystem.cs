@@ -1678,7 +1678,10 @@ namespace SharpConsoleUI
 					break;
 
 				case ConsoleKey.X:
-					CloseWindow(ActiveWindow);
+					if (ActiveWindow?.IsClosable ?? false)
+					{
+						CloseWindow(ActiveWindow);
+					}
 					handled = true;
 					break;
 			}

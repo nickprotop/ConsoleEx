@@ -351,6 +351,20 @@ namespace SharpConsoleUI.Drivers
 					List<ConsoleKeyInfo> consoleKeyInfoSequence = new List<ConsoleKeyInfo>();
 					consoleKeyInfoSequence.Add(key);
 
+					// Normalize Ctrl+Space: Terminals often send this as Ctrl+2 (D2) with NUL character (0x00)
+					if (key.Key == ConsoleKey.D2 && (key.Modifiers & ConsoleModifiers.Control) != 0 && key.KeyChar == '\0')
+					{
+						var normalizedKey = new ConsoleKeyInfo(
+							' ',                          // Spacebar character
+							ConsoleKey.Spacebar,          // Spacebar key
+							false,                        // shift
+							false,                        // alt
+							true                          // ctrl
+						);
+						KeyPressed?.Invoke(this, normalizedKey);
+						continue;
+					}
+
 					// Map control characters
 					if (key.KeyChar >= '\u0001' && key.KeyChar <= '\u001A' && key.KeyChar != '\t' && key.KeyChar != '\r')
 					{

@@ -764,24 +764,22 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
+		/// <summary>
+		/// KEY BUBBLING PHILOSOPHY:
+		/// - Keys are only consumed (return true) if this control actually processes them
+		/// - Unhandled keys bubble up (return false) to window/application handlers
+		/// - In NOT EDITING mode: Only consume arrow keys for scrolling and Enter to start editing
+		/// - In EDITING mode: Only consume keys that change content, cursor, or selection state
+		/// - This ensures application shortcuts (Ctrl+S, Ctrl+P, etc.) work even when control has focus
+		/// </summary>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled) return false;
 
-			// When focused but not editing, allow scrolling with arrow keys
+			// When focused but not editing, only handle specific navigation keys
+			// All other keys (including Ctrl/Alt/Shift combinations) bubble up
 			if (_hasFocus && !_isEditing)
 			{
-				// Special case: Ctrl+Enter should bubble up even when not editing
-				if (key.Key == ConsoleKey.Enter && key.Modifiers.HasFlag(ConsoleModifiers.Control))
-				{
-					return false;
-				}
-
-				if (key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt))
-				{
-					return false;
-				}
-
 				switch (key.Key)
 				{
 					case ConsoleKey.Enter:
@@ -919,6 +917,7 @@ namespace SharpConsoleUI.Controls
 			bool isCtrlPressed = key.Modifiers.HasFlag(ConsoleModifiers.Control);
 			int oldCursorX = _cursorX;
 			int oldCursorY = _cursorY;
+			bool oldHasSelection = _hasSelection;
 
 			// If starting selection with Shift key
 			if (isShiftPressed && !_hasSelection &&
@@ -1252,8 +1251,9 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.Enter:
-					// If Ctrl is pressed with Enter, let the window handle it (e.g., Ctrl+Enter to send)
-					if (isCtrlPressed)
+					// Any modified Enter key (Ctrl/Alt/Shift) is a command, not text insertion
+					// Let the window/application handle it (e.g., Ctrl+Enter to send, Shift+Enter for special actions)
+					if (isCtrlPressed || isShiftPressed || key.Modifiers.HasFlag(ConsoleModifiers.Alt))
 					{
 						return false;
 					}
@@ -1297,6 +1297,14 @@ namespace SharpConsoleUI.Controls
 					}
 
 				default:
+					// Keys with Ctrl or Alt modifiers are commands/shortcuts, not text input
+					// Let them bubble up to window/application handlers
+					if (key.Modifiers.HasFlag(ConsoleModifiers.Control) ||
+					    key.Modifiers.HasFlag(ConsoleModifiers.Alt))
+					{
+						break;  // Don't insert, will bubble up since nothing changed
+					}
+
 					if (!_readOnly && !char.IsControl(key.KeyChar))
 					{
 						if (_hasSelection)
@@ -1352,7 +1360,13 @@ namespace SharpConsoleUI.Controls
 				ContentChanged?.Invoke(this, GetContent());
 			}
 
-			return true;
+			// Only consume the key if we actually did something with it
+			// Check if content, cursor position, or selection state changed
+			bool cursorMoved = (_cursorX != oldCursorX || _cursorY != oldCursorY);
+			bool selectionChanged = (_hasSelection != oldHasSelection);
+			bool keyWasHandled = contentChanged || cursorMoved || selectionChanged;
+
+			return keyWasHandled;
 		}
 
 		/// <summary>
