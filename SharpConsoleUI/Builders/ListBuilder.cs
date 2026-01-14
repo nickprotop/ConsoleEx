@@ -10,6 +10,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Drivers;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
@@ -54,6 +55,16 @@ public sealed class ListBuilder
 	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
 	private EventHandler<int>? _highlightChangedHandler;
 	private WindowEventHandler<int>? _highlightChangedWithWindowHandler;
+	private EventHandler<int>? _itemHoveredHandler;
+	private WindowEventHandler<int>? _itemHoveredWithWindowHandler;
+	private EventHandler<MouseEventArgs>? _mouseDoubleClickHandler;
+	private WindowEventHandler<MouseEventArgs>? _mouseDoubleClickWithWindowHandler;
+	private ListSelectionMode _selectionMode = ListSelectionMode.Complex;
+	private bool _hoverHighlightsItems = true;
+	private bool _autoHighlightOnFocus = true;
+	private int _mouseWheelScrollSpeed = 3;
+	private bool _doubleClickActivates = true;
+	private int _doubleClickThresholdMs = 500;
 
 	/// <summary>
 	/// Sets the list title
@@ -321,6 +332,117 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
+	/// Sets the selection mode (Simple or Complex).
+	/// Simple: Highlight and selection are merged (like TreeControl).
+	/// Complex: Highlight and selection are separate (like DropdownControl). Default.
+	/// </summary>
+	public ListBuilder WithSelectionMode(ListSelectionMode mode)
+	{
+		_selectionMode = mode;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables Simple selection mode (merged highlight/selection, no markers).
+	/// </summary>
+	public ListBuilder SimpleMode()
+	{
+		_selectionMode = ListSelectionMode.Simple;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables Complex selection mode (separate highlight/selection with [x]/[ ] markers). Default.
+	/// </summary>
+	public ListBuilder ComplexMode()
+	{
+		_selectionMode = ListSelectionMode.Complex;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether mouse hover highlights items visually.
+	/// Default: true.
+	/// </summary>
+	public ListBuilder WithHoverHighlighting(bool enabled = true)
+	{
+		_hoverHighlightsItems = enabled;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether to auto-highlight on focus gain.
+	/// When true, the control will highlight the selected item (or first item) when focused.
+	/// Default: true.
+	/// </summary>
+	public ListBuilder WithAutoHighlightOnFocus(bool enabled = true)
+	{
+		_autoHighlightOnFocus = enabled;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the number of lines to scroll with mouse wheel.
+	/// Default: 3.
+	/// </summary>
+	public ListBuilder WithMouseWheelScrollSpeed(int speed)
+	{
+		_mouseWheelScrollSpeed = Math.Max(1, speed);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether double-click activates items and the threshold in milliseconds.
+	/// Default: enabled with 500ms threshold.
+	/// </summary>
+	public ListBuilder WithDoubleClickActivation(bool enabled = true, int thresholdMs = 500)
+	{
+		_doubleClickActivates = enabled;
+		_doubleClickThresholdMs = Math.Max(100, thresholdMs);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the item hovered event handler (mouse hover over items).
+	/// The index is the hovered item index, or -1 if mouse left all items.
+	/// </summary>
+	public ListBuilder OnItemHovered(EventHandler<int> handler)
+	{
+		_itemHoveredHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the item hovered event handler with window access.
+	/// The index is the hovered item index, or -1 if mouse left all items.
+	/// </summary>
+	public ListBuilder OnItemHovered(WindowEventHandler<int> handler)
+	{
+		_itemHoveredWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the mouse double-click event handler.
+	/// Fires when an item is double-clicked (before ItemActivated).
+	/// </summary>
+	public ListBuilder OnMouseDoubleClick(EventHandler<MouseEventArgs> handler)
+	{
+		_mouseDoubleClickHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the mouse double-click event handler with window access.
+	/// Fires when an item is double-clicked (before ItemActivated).
+	/// </summary>
+	public ListBuilder OnMouseDoubleClick(WindowEventHandler<MouseEventArgs> handler)
+	{
+		_mouseDoubleClickWithWindowHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the item activated event handler (Enter key or double-click)
 	/// </summary>
 	public ListBuilder OnItemActivated(EventHandler<ListItem> handler)
@@ -482,7 +604,14 @@ public sealed class ListBuilder
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			// Apply new modernization properties
+			SelectionMode = _selectionMode,
+			HoverHighlightsItems = _hoverHighlightsItems,
+			AutoHighlightOnFocus = _autoHighlightOnFocus,
+			MouseWheelScrollSpeed = _mouseWheelScrollSpeed,
+			DoubleClickActivates = _doubleClickActivates,
+			DoubleClickThresholdMs = _doubleClickThresholdMs
 		};
 
 		// Apply colors if specified
@@ -600,6 +729,38 @@ public sealed class ListBuilder
 				var window = (sender as IWindowControl)?.GetParentWindow();
 				if (window != null)
 					_highlightChangedWithWindowHandler(sender, index, window);
+			};
+		}
+
+		// Attach ItemHovered handlers
+		if (_itemHoveredHandler != null)
+		{
+			list.ItemHovered += _itemHoveredHandler;
+		}
+
+		if (_itemHoveredWithWindowHandler != null)
+		{
+			list.ItemHovered += (sender, index) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_itemHoveredWithWindowHandler(sender, index, window);
+			};
+		}
+
+		// Attach MouseDoubleClick handlers
+		if (_mouseDoubleClickHandler != null)
+		{
+			list.MouseDoubleClick += _mouseDoubleClickHandler;
+		}
+
+		if (_mouseDoubleClickWithWindowHandler != null)
+		{
+			list.MouseDoubleClick += (sender, args) =>
+			{
+				var window = (sender as IWindowControl)?.GetParentWindow();
+				if (window != null)
+					_mouseDoubleClickWithWindowHandler(sender, args, window);
 			};
 		}
 
