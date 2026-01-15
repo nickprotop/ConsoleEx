@@ -14,6 +14,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Logging;
+using SharpConsoleUI.Plugins;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -107,6 +108,12 @@ namespace SharpConsoleUI
 		// Track windows currently being flashed to prevent concurrent flashes
 		private readonly HashSet<Window> _flashingWindows = new();
 
+		// Plugin system
+		private readonly List<IPlugin> _plugins = new();
+		private readonly Dictionary<string, Func<IWindowControl>> _pluginControlFactories = new();
+		private readonly Dictionary<string, Func<ConsoleWindowSystem, Window>> _pluginWindowFactories = new();
+		private readonly Dictionary<Type, object> _pluginServices = new();
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
 		/// </summary>
@@ -170,7 +177,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void OnThemeChanged(object? sender, ThemeChangedEventArgs e)
 		{
-			_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
+			_logService?.Log(LogLevel.Information, "Theme",
 				$"Theme changed from '{e.PreviousTheme?.Name}' to '{e.NewTheme.Name}'");
 			InvalidateAllWindows();
 		}
@@ -180,7 +187,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void OnThemePropertyChanged(object? sender, EventArgs e)
 		{
-			_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Debug, "Theme",
+			_logService?.Log(LogLevel.Debug, "Theme",
 				"Theme property changed");
 			InvalidateAllWindows();
 		}
@@ -195,7 +202,7 @@ namespace SharpConsoleUI
 			var newTheme = ThemeRegistry.GetTheme(themeName);
 			if (newTheme == null)
 			{
-				_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Warning, "Theme",
+				_logService?.Log(LogLevel.Warning, "Theme",
 					$"Theme '{themeName}' not found in registry");
 				return false;
 			}
@@ -221,133 +228,41 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Shows the theme selector dialog for interactive theme selection.
 		/// </summary>
-	public void ShowThemeSelectorDialog()
-	{
-		var themes = ThemeRegistry.GetAvailableThemes();
-		var currentThemeName = Theme.Name;
+		public void ShowThemeSelectorDialog() => Dialogs.ThemeSelectorDialog.Show(this);
 
-		// Log available themes
-		_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
-			$"Available themes ({themes.Count}): {string.Join(", ", themes.Select(t => t.Name))}");
-		_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
-			$"Current theme: {currentThemeName}");
+	#region File/Folder Picker Dialogs
 
-		// Create modal window using WindowBuilder
-		var modal = new Builders.WindowBuilder(this)
-			.WithTitle("Theme Selector")
-			.Centered()
-			.WithSize(65, 20)
-			.AsModal()
-			.Resizable(false)
-			.Minimizable(false)
-			.Maximizable(false)
-			.Movable(false)
-			.WithColors(Theme.ModalBackgroundColor, Theme.WindowForegroundColor)
-			.Build();
+	/// <summary>
+	/// Shows a folder picker dialog for selecting a directory.
+	/// </summary>
+	/// <param name="startPath">The initial directory path to display. Defaults to current directory.</param>
+	/// <returns>A task that completes with the selected folder path, or null if cancelled.</returns>
+	public Task<string?> ShowFolderPickerDialogAsync(string? startPath = null, Window? parentWindow = null)
+		=> Dialogs.FileDialogs.ShowFolderPickerAsync(this, startPath, parentWindow);
 
-		// Header with title and instructions
-		modal.AddControl(Builders.Controls.Markup()
-			.AddLine("[cyan1 bold]Available Themes[/]")
-			.AddLine("[grey50]Select a theme to apply, or press Escape to cancel[/]")
-			.WithAlignment(Layout.HorizontalAlignment.Left)
-			.WithMargin(1, 0, 1, 0)
-			.Build());
+	/// <summary>
+	/// Shows a file picker dialog for selecting a file.
+	/// </summary>
+	/// <param name="startPath">The initial directory path to display. Defaults to current directory.</param>
+	/// <param name="filter">Optional file filter (e.g., "*.txt", "*.cs;*.txt"). Null shows all files.</param>
+	/// <param name="parentWindow">Optional parent window. If specified, the dialog will be modal to this window only.</param>
+	/// <returns>A task that completes with the selected file path, or null if cancelled.</returns>
+	public Task<string?> ShowFilePickerDialogAsync(string? startPath = null, string? filter = null, Window? parentWindow = null)
+		=> Dialogs.FileDialogs.ShowFilePickerAsync(this, startPath, filter, parentWindow);
 
-		// Separator
-		modal.AddControl(Builders.Controls.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.Build());
+	/// <summary>
+	/// Shows a save file dialog for specifying a file to save.
+	/// </summary>
+	/// <param name="startPath">The initial directory path to display. Defaults to current directory.</param>
+	/// <param name="filter">Optional file filter (e.g., "*.txt", "*.cs;*.txt"). Null shows all files.</param>
+	/// <param name="defaultFileName">Default filename to pre-populate in the input field.</param>
+	/// <param name="parentWindow">Optional parent window. If specified, the dialog will be modal to this window only.</param>
+	/// <returns>A task that completes with the specified file path, or null if cancelled.</returns>
+	public Task<string?> ShowSaveFileDialogAsync(string? startPath = null, string? filter = null, string? defaultFileName = null, Window? parentWindow = null)
+		=> Dialogs.FileDialogs.ShowSaveFileAsync(this, startPath, filter, defaultFileName, parentWindow);
 
-		// Theme list
-		var themeList = Builders.Controls.List()
-			.WithAlignment(Layout.HorizontalAlignment.Stretch)
-			.WithVerticalAlignment(Layout.VerticalAlignment.Fill)
-			.WithColors(Theme.ModalBackgroundColor, Theme.WindowForegroundColor)
-			.WithFocusedColors(Theme.ModalBackgroundColor, Theme.WindowForegroundColor)
-			.WithHighlightColors(Color.Grey35, Color.White)
-			.SimpleMode()
-			.WithDoubleClickActivation(true)
-			.Build();
+	#endregion
 
-		// Populate theme list
-		foreach (var themeInfo in themes)
-		{
-			var isCurrentTheme = themeInfo.Name == currentThemeName;
-			var label = isCurrentTheme
-				? $"[white bold]{themeInfo.Name}[/] [cyan1](current)[/] [grey50]{themeInfo.Description}[/]"
-				: $"[white]{themeInfo.Name}[/] [grey50]{themeInfo.Description}[/]";
-
-			themeList.AddItem(new Controls.ListItem(label) { Tag = themeInfo.Name });
-		}
-
-		// Set initial selection to current theme
-		var currentIdx = themes.ToList().FindIndex(t => t.Name == currentThemeName);
-		if (currentIdx >= 0)
-		{
-			themeList.SelectedIndex = currentIdx;
-		}
-
-		modal.AddControl(themeList);
-
-		// Bottom separator
-		modal.AddControl(Builders.Controls.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.StickyBottom()
-			.Build());
-
-		// Footer with instructions
-		modal.AddControl(Builders.Controls.Markup()
-			.AddLine("[grey70]Enter/Double-click: Apply Theme  •  Escape: Cancel[/]")
-			.WithAlignment(Layout.HorizontalAlignment.Center)
-			.WithMargin(0, 0, 0, 0)
-			.StickyBottom()
-			.Build());
-
-		// Handle double-click activation
-		themeList.ItemActivated += (sender, item) =>
-		{
-			if (item?.Tag is string themeName)
-			{
-				_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
-					$"Theme selected via double-click: {themeName}");
-				SwitchTheme(themeName);
-				modal.Close();
-			}
-		};
-
-		// Handle Enter and Escape keys
-		modal.KeyPressed += (sender, e) =>
-		{
-			if (e.KeyInfo.Key == ConsoleKey.Enter)
-			{
-				// Apply selected theme with Enter key
-				var selectedItem = themeList.SelectedItem;
-				if (selectedItem?.Tag is string themeName)
-				{
-					_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Information, "Theme",
-						$"Theme selected via Enter: {themeName}");
-					SwitchTheme(themeName);
-					modal.Close();
-				}
-				e.Handled = true;
-			}
-			else if (e.KeyInfo.Key == ConsoleKey.Escape)
-			{
-				// Cancel with Escape key
-				_logService?.Log(Microsoft.Extensions.Logging.LogLevel.Debug, "Theme",
-					"Theme selector cancelled");
-				modal.Close();
-				e.Handled = true;
-			}
-		};
-
-		// Add modal to window system and activate it
-		AddWindow(modal);
-		SetActiveWindow(modal);
-
-		// Focus the list after modal is active
-		themeList.SetFocus(true, FocusReason.Programmatic);
-	}
 
 		/// <summary>
 		/// Gets or sets the text displayed in the bottom status bar.
@@ -416,6 +331,11 @@ namespace SharpConsoleUI
 		/// Gets or sets a value indicating whether the task bar is visible at the bottom of the screen.
 		/// </summary>
 		public bool ShowTaskBar { get => _showTaskBar; set => _showTaskBar = value; }
+
+		/// <summary>
+		/// Gets a value indicating whether the window system is currently running.
+		/// </summary>
+		public bool IsRunning => _running;
 
 		private ITheme _theme = null!; // Initialized in constructor
 
@@ -883,6 +803,17 @@ namespace SharpConsoleUI
 			_logService.LogDebug($"Console window system shutting down (exit code: {exitCode})", "System");
 			_exitCode = exitCode;
 			_running = false;
+		}
+
+		/// <summary>
+		/// Processes one iteration of the main loop (input, display, cursor).
+		/// This is useful for modal dialogs that need to block while still processing UI events.
+		/// </summary>
+		public void ProcessOnce()
+		{
+			ProcessInput();
+			UpdateDisplay();
+			UpdateCursor();
 		}
 
 		/// <summary>
@@ -2236,5 +2167,148 @@ namespace SharpConsoleUI
 
 			_consoleDriver.Flush();
 		}
+
+		#region Plugin System
+
+		/// <summary>
+		/// Gets the list of loaded plugins.
+		/// </summary>
+		public IReadOnlyList<IPlugin> Plugins => _plugins.AsReadOnly();
+
+		/// <summary>
+		/// Loads plugins from the specified directory.
+		/// If no path is specified, uses the "plugins" subdirectory of the application's base directory.
+		/// </summary>
+		/// <param name="pluginsPath">Optional path to the plugins directory.</param>
+		public void LoadPluginsFromDirectory(string? pluginsPath = null)
+		{
+			pluginsPath ??= Path.Combine(AppContext.BaseDirectory, "plugins");
+			if (!Directory.Exists(pluginsPath))
+			{
+				_logService?.LogDebug($"Plugin directory not found: {pluginsPath}", "Plugins");
+				return;
+			}
+
+			foreach (var dll in Directory.GetFiles(pluginsPath, "*.dll"))
+			{
+				try
+				{
+					var assembly = System.Reflection.Assembly.LoadFrom(dll);
+					foreach (var type in assembly.GetTypes().Where(t =>
+						typeof(IPlugin).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface))
+					{
+						var plugin = (IPlugin?)Activator.CreateInstance(type);
+						if (plugin != null)
+						{
+							LoadPlugin(plugin);
+							_logService?.LogInfo($"Loaded plugin: {plugin.Info.Name} v{plugin.Info.Version}", "Plugins");
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					_logService?.LogError($"Failed to load plugin from {dll}: {ex.Message}", ex, "Plugins");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Loads a plugin instance and registers its contributions.
+		/// </summary>
+		/// <param name="plugin">The plugin to load.</param>
+		public void LoadPlugin(IPlugin plugin)
+		{
+			if (plugin == null)
+				throw new ArgumentNullException(nameof(plugin));
+
+			// Initialize the plugin
+			plugin.Initialize(this);
+
+			// Register themes to ThemeRegistry
+			foreach (var theme in plugin.GetThemes())
+			{
+				ThemeRegistry.RegisterTheme(theme.Name, theme.Description, () => theme.Theme);
+				_logService?.LogDebug($"Registered theme: {theme.Name}", "Plugins");
+			}
+
+			// Register control factories
+			foreach (var control in plugin.GetControls())
+			{
+				_pluginControlFactories[control.Name] = control.Factory;
+				_logService?.LogDebug($"Registered control: {control.Name}", "Plugins");
+			}
+
+			// Register window factories
+			foreach (var window in plugin.GetWindows())
+			{
+				_pluginWindowFactories[window.Name] = window.Factory;
+				_logService?.LogDebug($"Registered window: {window.Name}", "Plugins");
+			}
+
+			// Register services
+			foreach (var service in plugin.GetServices())
+			{
+				_pluginServices[service.ServiceType] = service.Instance;
+				_logService?.LogDebug($"Registered service: {service.ServiceType.Name}", "Plugins");
+			}
+
+			_plugins.Add(plugin);
+		}
+
+		/// <summary>
+		/// Loads a plugin of the specified type.
+		/// </summary>
+		/// <typeparam name="T">The plugin type to instantiate and load.</typeparam>
+		public void LoadPlugin<T>() where T : IPlugin, new()
+		{
+			LoadPlugin(new T());
+		}
+
+		/// <summary>
+		/// Creates a control instance from a plugin-registered factory.
+		/// </summary>
+		/// <param name="name">The name of the control to create.</param>
+		/// <returns>The created control instance, or null if not found.</returns>
+		public IWindowControl? CreatePluginControl(string name)
+		{
+			return _pluginControlFactories.TryGetValue(name, out var factory) ? factory() : null;
+		}
+
+		/// <summary>
+		/// Creates a window instance from a plugin-registered factory.
+		/// </summary>
+		/// <param name="name">The name of the window to create.</param>
+		/// <returns>The created window instance, or null if not found.</returns>
+		public Window? CreatePluginWindow(string name)
+		{
+			return _pluginWindowFactories.TryGetValue(name, out var factory) ? factory(this) : null;
+		}
+
+		/// <summary>
+		/// Gets a service instance registered by a plugin.
+		/// </summary>
+		/// <typeparam name="T">The service type to retrieve.</typeparam>
+		/// <returns>The service instance, or null if not found.</returns>
+		public T? GetService<T>() where T : class
+		{
+			return _pluginServices.TryGetValue(typeof(T), out var service) ? service as T : null;
+		}
+
+		/// <summary>
+		/// Gets the names of all registered plugin controls.
+		/// </summary>
+		public IReadOnlyCollection<string> RegisteredPluginControls => _pluginControlFactories.Keys;
+
+		/// <summary>
+		/// Gets the names of all registered plugin windows.
+		/// </summary>
+		public IReadOnlyCollection<string> RegisteredPluginWindows => _pluginWindowFactories.Keys;
+
+		/// <summary>
+		/// Gets the types of all registered plugin services.
+		/// </summary>
+		public IReadOnlyCollection<Type> RegisteredPluginServices => _pluginServices.Keys;
+
+		#endregion
 	}
 }
