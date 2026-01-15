@@ -104,6 +104,9 @@ namespace SharpConsoleUI
 		private readonly InputStateService _inputStateService;
 		private readonly NotificationStateService _notificationStateService;
 
+		// Track windows currently being flashed to prevent concurrent flashes
+		private readonly HashSet<Window> _flashingWindows = new();
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
 		/// </summary>
@@ -235,8 +238,9 @@ namespace SharpConsoleUI
 			.Centered()
 			.WithSize(65, 20)
 			.AsModal()
-			.Borderless()
 			.Resizable(false)
+			.Minimizable(false)
+			.Maximizable(false)
 			.Movable(false)
 			.WithColors(Theme.ModalBackgroundColor, Theme.WindowForegroundColor)
 			.Build();
@@ -694,33 +698,53 @@ namespace SharpConsoleUI
 		/// Flashes a window to draw user attention by briefly changing its background color.
 		/// </summary>
 		/// <param name="window">The window to flash. If null, the method returns without action.</param>
-		/// <param name="flashCount">The number of times to flash. Defaults to 3.</param>
-		/// <param name="flashDuration">The duration of each flash in milliseconds. Defaults to 200.</param>
-		/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses a contrasting color.</param>
-		public void FlashWindow(Window? window, int flashCount = 3, int flashDuration = 200, Color? flashBackgroundColor = null)
+		/// <param name="flashCount">The number of times to flash. Defaults to 1.</param>
+		/// <param name="flashDuration">The duration of each flash in milliseconds. Defaults to 150.</param>
+		/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses the theme's ModalFlashColor.</param>
+		public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 150, Color? flashBackgroundColor = null)
 		{
 			if (window == null) return;
 
-			var originalBackgroundColor = window.BackgroundColor;
-			var flashColor = flashBackgroundColor ?? (window.BackgroundColor == Theme.ButtonBackgroundColor ? window.ForegroundColor : Theme.ButtonBackgroundColor);
-
-			var flashTask = new Task(async () =>
+			// Prevent multiple concurrent flashes on the same window
+			lock (_flashingWindows)
 			{
-				for (int i = 0; i < flashCount; i++)
+				if (_flashingWindows.Contains(window)) return;
+				_flashingWindows.Add(window);
+			}
+
+			var originalBackgroundColor = window.BackgroundColor;
+			var flashColor = flashBackgroundColor ?? Theme.ModalFlashColor;
+
+			// Use ThreadPool with synchronous sleep for reliable timing
+			ThreadPool.QueueUserWorkItem(_ =>
+			{
+				try
 				{
-					if (window == null) return;
+					for (int i = 0; i < flashCount; i++)
+					{
+						window.BackgroundColor = flashColor;
+						window.Invalidate(true);
+						Thread.Sleep(flashDuration);
 
-					window.BackgroundColor = flashColor;
-					window.Invalidate(true);
-					await Task.Delay(flashDuration);
+						window.BackgroundColor = originalBackgroundColor;
+						window.Invalidate(true);
 
-					window.BackgroundColor = originalBackgroundColor;
-					window.Invalidate(true);
-					await Task.Delay(flashDuration);
+						// Only delay between flashes, not after the last one
+						if (i < flashCount - 1)
+						{
+							Thread.Sleep(flashDuration);
+						}
+					}
+				}
+				finally
+				{
+					// Always remove from tracking to allow future flashes
+					lock (_flashingWindows)
+					{
+						_flashingWindows.Remove(window);
+					}
 				}
 			});
-
-			flashTask.Start();
 		}
 
 		/// <summary>
