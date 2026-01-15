@@ -6,7 +6,7 @@
 
 A modern console window system for .NET 9 with fluent builders, async patterns, and built-in state services.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Simple Approach (Original)
 ```csharp
@@ -48,7 +48,7 @@ windowSystem.AddWindow(window);
 windowSystem.Run();
 ```
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Installation](#-installation)
 - [Core Features](#-core-features)
@@ -60,7 +60,7 @@ windowSystem.Run();
 - [Migration Guide](#-migration-guide)
 - [Contributing](#-contributing)
 
-## 📦 Installation
+## Installation
 
 ### Package Manager
 ```bash
@@ -77,28 +77,31 @@ dotnet add package SharpConsoleUI
 <PackageReference Include="SharpConsoleUI" Version="2.0.0" />
 ```
 
-## ✨ Core Features
+## Core Features
 
-### 🪟 Window Management
+### Window Management
 - **Multiple Windows**: Create and manage overlapping windows with proper Z-order
 - **Window States**: Normal, maximized, minimized states
 - **Window Modes**: Normal and modal dialogs
+- **Independent Window Threads**: Each window can run with its own async thread for real-time updates
 - **Focus Management**: Keyboard and mouse focus handling
 - **Window Cycling**: Alt+1-9, Ctrl+T for window navigation
 
-### 🎮 Input Handling
+### Input Handling
 - **Keyboard Input**: Full keyboard support with modifier keys
 - **Mouse Support**: Click, drag, and mouse event handling
 - **Input Queue**: Efficient input processing system
 
-### 🎨 Rendering System
+### Rendering System
+- **Spectre.Console Foundation**: Leverages Spectre's perfect rendering engine for rich TUI widgets
 - **Double Buffering**: Smooth rendering without flicker
 - **Dirty Regions**: Efficient partial updates
 - **Render Modes**: Direct and buffered rendering
-- **Themes**: Customizable appearance and colors
+- **Themes**: Multiple built-in themes (Classic, ModernGray) with runtime switching
+- **Plugins**: Extensible architecture with DeveloperTools plugin
 - **Status Bars**: Top and bottom status bar support
 
-### 🧩 Controls Library
+### Controls Library
 - **MarkupControl**: Rich text with Spectre.Console markup
 - **ButtonControl**: Interactive buttons with events
 - **CheckboxControl**: Toggle controls
@@ -107,7 +110,7 @@ dotnet add package SharpConsoleUI
 - **ListControl**: List display and selection
 - **HorizontalGridControl**: Tabular data display
 
-## 🔧 Simple API (Original)
+## Simple API (Original)
 
 Perfect for getting started quickly or simple applications.
 
@@ -195,7 +198,7 @@ window.OnClosed += (sender, e) =>
 };
 ```
 
-## 🚀 Modern API (v2.0+)
+## Modern API (v2.0+)
 
 Enhanced with fluent builders, built-in logging, state services, and modern C# features.
 
@@ -227,7 +230,7 @@ using SharpConsoleUI.Builders;
 
 // Create windows using fluent API
 var mainWindow = new WindowBuilder(windowSystem)
-    .WithTitle("🚀 Modern Application")
+    .WithTitle("Modern Application")
     .WithSize(80, 25)
     .Centered()
     .WithColors(Color.DarkBlue, Color.White)
@@ -238,45 +241,57 @@ var mainWindow = new WindowBuilder(windowSystem)
 
 // Dialog template - applies title, size, centered, modal automatically
 var dialog = new WindowBuilder(windowSystem)
-    .WithTemplate(new DialogTemplate("⚠️ Confirmation", 40, 10))
+    .WithTemplate(new DialogTemplate("Confirmation", 40, 10))
     .Build();
 
 // Tool window template - applies title, position, size automatically
 var toolWindow = new WindowBuilder(windowSystem)
-    .WithTemplate(new ToolWindowTemplate("🔧 Tools", new Point(5, 5), new Size(30, 15)))
+    .WithTemplate(new ToolWindowTemplate("Tools", new Point(5, 5), new Size(30, 15)))
     .Build();
 ```
 
-### 3. Async Patterns
+### 3. Independent Window Threads
+
+**KEY FEATURE**: Each window can run with its own async thread, enabling true multi-threaded UIs where windows update independently.
+
 ```csharp
-// Async window thread
-var window = new WindowBuilder(windowSystem)
-    .WithTitle("Async Demo")
-    .WithAsyncWindowThread(async window =>
-    {
-        while (!window.IsClosed)
-        {
-            // Update UI with real-time data
-            var data = await GetRealTimeDataAsync();
-            UpdateWindowContent(window, data);
-
-            await Task.Delay(1000); // Update every second
-        }
-    })
+// Create a window with an independent async thread
+var clockWindow = new WindowBuilder(windowSystem)
+    .WithTitle("Digital Clock [1s refresh]")
+    .WithSize(40, 12)
+    .WithAsyncWindowThread(UpdateClockAsync)  // Async method runs independently
     .Build();
 
-// Background tasks with proper cleanup
-var cts = new CancellationTokenSource();
-var backgroundTask = Task.Run(async () =>
+// The async method receives Window and CancellationToken
+private async Task UpdateClockAsync(Window window, CancellationToken ct)
 {
-    await ProcessBackgroundDataAsync(cts.Token);
-}, cts.Token);
+    while (!ct.IsCancellationRequested)  // Runs until window closes
+    {
+        try
+        {
+            var now = DateTime.Now;
 
-window.OnClosed += (sender, e) =>
-{
-    cts.Cancel(); // Clean cancellation
-};
+            // Find and update control by name
+            var timeControl = window.FindControl<MarkupControl>("timeDisplay");
+            timeControl?.SetContent(new List<string>
+            {
+                $"[bold cyan]{now:HH:mm:ss}[/]",
+                $"[yellow]{now:dddd}[/]",
+                $"[white]{now:MMMM dd, yyyy}[/]"
+            });
+
+            await Task.Delay(1000, ct);  // Update every second
+        }
+        catch (OperationCanceledException) { break; }  // Clean shutdown
+    }
+}
 ```
+
+**Benefits:**
+- **True Parallelism**: Multiple windows update simultaneously without blocking
+- **Real-time Data**: Perfect for dashboards, monitors, live feeds
+- **Clean Cancellation**: CancellationToken handles automatic cleanup on window close
+- **No Manual Threading**: Framework manages thread lifecycle
 
 ### 4. Resource Management
 ```csharp
@@ -365,7 +380,7 @@ All fluent builders provide event handlers with window access:
 
 This enables **pure declarative UIs** where all control interactions happen through named lookups, eliminating the need to maintain field references.
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ### Core Components
 
@@ -395,6 +410,17 @@ This enables **pure declarative UIs** where all control interactions happen thro
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Spectre.Console Integration
+
+SharpConsoleUI uses **Spectre.Console as its rendering foundation**, combining Spectre's beautiful rendering with a complete windowing system:
+
+1. **Capture Spectre Output**: `AnsiConsoleHelper` captures Spectre's ANSI rendering into our CharacterBuffer
+2. **Wrap Any Spectre Widget**: `SpectreRenderableControl` makes any `IRenderable` (Tables, Trees, Panels, Charts) work as a window control
+3. **Combine with Windows**: Multiple Spectre-rendered controls + interactive controls + independent window threads
+4. **Result**: Best of both worlds - Spectre's rich rendering + full windowing system + multi-threading
+
+This architecture allows using Spectre's perfect rendering engine while adding features Spectre.Console doesn't provide: overlapping windows, Z-order management, independent window threads, and a complete event-driven UI system.
+
 ### Modern C# Features Used
 - **Records**: Immutable data structures (WindowBounds, InputEvent, etc.)
 - **Nullable Reference Types**: Explicit null handling
@@ -404,7 +430,7 @@ This enables **pure declarative UIs** where all control interactions happen thro
 - **Init-only Properties**: Immutable initialization
 - **Primary Constructors**: Concise record definitions
 
-## 📖 Examples
+## Examples
 
 ### Complete Modern Application
 ```csharp
@@ -422,13 +448,13 @@ internal class Program
         // Create window system (has built-in logging and state services)
         var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
         {
-            TopStatus = "🚀 My Modern App",
+            TopStatus = "My Modern App",
             BottomStatus = "ESC: Close | F1: Help"
         };
 
         // Main window with fluent builder
         var mainWindow = new WindowBuilder(windowSystem)
-            .WithTitle("📋 Task Manager")
+            .WithTitle("Task Manager")
             .WithSize(80, 25)
             .Centered()
             .WithColors(Color.DarkBlue, Color.White)
@@ -556,7 +582,53 @@ public static async Task CreateRealtimeWindow(ConsoleWindowSystem windowSystem)
 }
 ```
 
-## 🎯 Advanced Features
+## Advanced Features
+
+### Built-in Themes & Theme Registry
+
+SharpConsoleUI includes multiple built-in themes that can be switched at runtime:
+
+```csharp
+// Switch to Modern Gray theme (dark theme with gray tones)
+windowSystem.ThemeRegistry.SetTheme("ModernGray");
+
+// Switch to Classic theme (navy blue windows, traditional look)
+windowSystem.ThemeRegistry.SetTheme("Classic");
+
+// Available built-in themes:
+// - "Classic": Navy blue windows with traditional styling
+// - "ModernGray": Modern dark theme with gray color scheme
+```
+
+Theme changes apply immediately to all windows and controls, enabling dynamic appearance customization.
+
+### Plugin System
+
+The DeveloperTools plugin provides built-in development tools and diagnostics:
+
+```csharp
+// Load the built-in DeveloperTools plugin
+windowSystem.LoadPlugin<DeveloperToolsPlugin>();
+
+// Switch to DevDark theme (provided by plugin)
+windowSystem.SwitchTheme("DevDark");
+
+// Create Debug Console window from plugin
+var debugWindow = windowSystem.CreatePluginWindow("DebugConsole");
+windowSystem.AddWindow(debugWindow);
+
+// Get diagnostics service from plugin
+var diagnostics = windowSystem.GetService<IDiagnosticsService>();
+var report = diagnostics?.GetDiagnosticsReport();
+```
+
+**DeveloperTools Plugin Provides:**
+- **DevDark Theme**: Dark developer theme with green terminal-inspired accents
+- **LogExporter Control**: Export and filter application logs
+- **DebugConsole Window**: Interactive debug console for runtime inspection
+- **DiagnosticsService**: System diagnostics and performance metrics
+
+Create custom plugins by implementing `IPlugin` for application-specific tools and extensions.
 
 ### Custom Themes
 ```csharp
@@ -579,7 +651,7 @@ public class MyDarkTheme : ITheme
 windowSystem.Theme = new MyDarkTheme();
 ```
 
-## 🔄 Migration Guide
+## Migration Guide
 
 ### From v1.x to v2.0
 
@@ -621,7 +693,7 @@ windowSystem.LogService.LogAdded += (s, e) => { /* handle */ };
 | Manual cleanup | DisposableManager | Auto cleanup |
 | Custom notifications | NotificationStateService | Built-in |
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Here's how to get started:
 
@@ -668,7 +740,7 @@ ConsoleEx/
 - Add unit tests for new features
 - Maintain backward compatibility
 
-### ⚠️ Critical: Console Output & Logging
+### Critical: Console Output & Logging
 **NEVER use console-based output in SharpConsoleUI applications - it corrupts the display!**
 
 **❌ Avoid These (corrupt UI rendering):**
@@ -689,7 +761,7 @@ export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
 export SHARPCONSOLEUI_DEBUG_LEVEL=Debug
 ```
 
-### 🔧 Built-in Debug Logging
+### Built-in Debug Logging
 
 The library includes a built-in debug logging system for troubleshooting, controlled via environment variables:
 
@@ -744,4 +816,4 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ---
 
-**Made with ❤️ for the .NET console development community**
+**Made for the .NET console development community**
