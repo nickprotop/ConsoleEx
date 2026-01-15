@@ -23,7 +23,7 @@ namespace SharpConsoleUI.Themes
 		{ }
 
 		/// <inheritdoc />
-		public virtual string Name => "Modern Gray";
+		public virtual string Name => "ModernGray";
 
 		/// <inheritdoc />
 		public virtual string Description => "Professional dark theme with grayscale foundation and cyan accents, inspired by modern developer tools";
