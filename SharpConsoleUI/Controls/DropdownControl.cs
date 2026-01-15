@@ -20,6 +20,7 @@ using System.Linq;
 using Color = Spectre.Console.Color;
 using Size = System.Drawing.Size;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -1244,6 +1245,12 @@ namespace SharpConsoleUI.Controls
 			}
 
 			Container?.Invalidate(true);
+
+			// Notify parent Window if focus state actually changed
+			if (hadFocus != focus)
+			{
+				this.NotifyParentWindowOfFocusChange(focus);
+			}
 		}
 
 		#region Portal Methods

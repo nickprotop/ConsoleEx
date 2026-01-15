@@ -18,6 +18,7 @@ using System.Drawing;
 using System.Text;
 using Color = Spectre.Console.Color;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -793,6 +794,12 @@ namespace SharpConsoleUI.Controls
 			else if (!focus && hadFocus)
 			{
 				LostFocus?.Invoke(this, EventArgs.Empty);
+			}
+
+			// Notify parent Window if focus state actually changed
+			if (hadFocus != focus)
+			{
+				this.NotifyParentWindowOfFocusChange(focus);
 			}
 		}
 

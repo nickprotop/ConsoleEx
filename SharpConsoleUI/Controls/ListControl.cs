@@ -17,6 +17,7 @@ using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -1769,6 +1770,12 @@ namespace SharpConsoleUI.Controls
 			}
 
 			Container?.Invalidate(true);
+
+			// Notify parent Window if focus state actually changed
+			if (hadFocus != focus)
+			{
+				this.NotifyParentWindowOfFocusChange(focus);
+			}
 		}
 
 		// IMouseAwareControl implementation

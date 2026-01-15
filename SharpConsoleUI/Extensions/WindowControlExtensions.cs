@@ -42,4 +42,27 @@ public static class WindowControlExtensions
 
 		return null;
 	}
+
+	/// <summary>
+	/// Notifies the parent Window that this control's focus has changed.
+	/// Call this after updating HasFocus to keep Window's focus tracking in sync.
+	/// </summary>
+	/// <param name="control">The control whose focus changed</param>
+	/// <param name="hasFocus">Whether the control now has focus</param>
+	public static void NotifyParentWindowOfFocusChange(this IFocusableControl control, bool hasFocus)
+	{
+		if (control is not IInteractiveControl interactiveControl)
+			return;
+
+		// Find parent Window
+		var window = GetParentWindow(control);
+		if (window == null)
+			return;
+
+		// Notify Window to update its focus tracking
+		if (hasFocus)
+			window.NotifyControlGainedFocus(interactiveControl);
+		else
+			window.NotifyControlLostFocus(interactiveControl);
+	}
 }

@@ -14,6 +14,7 @@ using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -482,6 +483,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
+			bool hadFocus = HasFocus;
 			HasFocus = focus;
 
 			// When focus is lost, exit drag mode
@@ -489,6 +491,12 @@ namespace SharpConsoleUI.Controls
 			{
 				_isDragging = false;
 				Container?.Invalidate(true);  // Force redraw with normal colors
+			}
+
+			// Notify parent Window if focus state actually changed
+			if (hadFocus != focus)
+			{
+				this.NotifyParentWindowOfFocusChange(focus);
 			}
 		}
 

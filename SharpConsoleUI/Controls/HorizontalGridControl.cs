@@ -19,6 +19,7 @@ using System.Data.Common;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -913,7 +914,14 @@ namespace SharpConsoleUI.Controls
 		{
 			// Note: _focusFromBackward should be set before calling this method
 			// if backward focus selection is needed
+			bool hadFocus = HasFocus;
 			HasFocus = focus;
+
+			// Notify parent Window if focus state actually changed
+			if (hadFocus != focus)
+			{
+				this.NotifyParentWindowOfFocusChange(focus);
+			}
 		}
 
 		/// <summary>

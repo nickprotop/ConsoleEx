@@ -17,6 +17,7 @@ using Color = Spectre.Console.Color;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -261,6 +262,12 @@ namespace SharpConsoleUI.Controls
 			else if (!focus && hadFocus)
 			{
 				LostFocus?.Invoke(this, EventArgs.Empty);
+			}
+
+			// Notify parent Window if focus state actually changed
+			if (hadFocus != focus)
+			{
+				this.NotifyParentWindowOfFocusChange(focus);
 			}
 		}
 

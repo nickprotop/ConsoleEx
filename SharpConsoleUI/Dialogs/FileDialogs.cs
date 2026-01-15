@@ -251,7 +251,7 @@ public static class FileDialogs
 		// Footer with instructions
 		var instructions = foldersOnly
 			? "[grey70]Enter: Select Folder  •  Backspace: Go Up  •  Escape: Cancel[/]"
-			: "[grey70]Enter: Select  •  Tab: Switch Panel  •  Backspace: Go Up  •  Escape: Cancel[/]";
+			: "[grey70]Enter: Select  •  Backspace: Go Up  •  Escape: Cancel[/]";
 		modal.AddControl(Ctl.Markup()
 			.AddLine(instructions)
 			.WithAlignment(HorizontalAlignment.Center)
@@ -263,9 +263,6 @@ public static class FileDialogs
 		PopulateFolderList(currentPath);
 		if (!foldersOnly)
 			PopulateFileList(currentPath);
-
-		// Track which panel is focused
-		bool folderPanelFocused = true;
 
 		// Handle folder list activation (navigate into folder)
 		folderList.ItemActivated += (sender, item) =>
@@ -322,20 +319,6 @@ public static class FileDialogs
 					PopulateFolderList(parent.FullName);
 					if (!foldersOnly)
 						PopulateFileList(parent.FullName);
-				}
-				e.Handled = true;
-			}
-			else if (e.KeyInfo.Key == ConsoleKey.Tab && !foldersOnly)
-			{
-				// Switch between folder and file panels
-				folderPanelFocused = !folderPanelFocused;
-				if (folderPanelFocused)
-				{
-					folderList.SetFocus(true, FocusReason.Programmatic);
-				}
-				else
-				{
-					fileList?.SetFocus(true, FocusReason.Programmatic);
 				}
 				e.Handled = true;
 			}
@@ -552,7 +535,7 @@ public static class FileDialogs
 
 		// Footer with instructions
 		modal.AddControl(Ctl.Markup()
-			.AddLine("[grey70]Enter: Save  •  Tab: Switch Panel  •  Backspace: Go Up  •  Escape: Cancel[/]")
+			.AddLine("[grey70]Enter: Save  •  Backspace: Go Up  •  Escape: Cancel[/]")
 			.WithAlignment(HorizontalAlignment.Center)
 			.WithMargin(0, 0, 0, 0)
 			.StickyBottom()
@@ -611,23 +594,6 @@ public static class FileDialogs
 				{
 					PopulateFolderList(parent.FullName);
 					PopulateFileList(parent.FullName);
-				}
-				e.Handled = true;
-			}
-			else if (e.KeyInfo.Key == ConsoleKey.Tab)
-			{
-				// Cycle focus: folderList -> fileList -> filenameInput -> folderList
-				if (folderList.HasFocus)
-				{
-					fileList.SetFocus(true, FocusReason.Programmatic);
-				}
-				else if (fileList.HasFocus)
-				{
-					filenameInput.SetFocus(true, FocusReason.Programmatic);
-				}
-				else
-				{
-					folderList.SetFocus(true, FocusReason.Programmatic);
 				}
 				e.Handled = true;
 			}

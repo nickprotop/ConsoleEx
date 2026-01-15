@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -368,6 +369,10 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The maximum width required by content, or null if no content.</returns>
 		public int? GetActualWidth()
 		{
+			// If explicit width is set, return that (includes margins already accounted for in Width)
+			if (_width.HasValue)
+				return _width.Value;
+
 			if (_contents.Count == 0) return _margin.Left + _margin.Right;
 
 			// Calculate width from visible content controls
@@ -542,7 +547,14 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
+			bool hadFocus = HasFocus;
 			HasFocus = focus;
+
+			// Notify parent Window if focus state actually changed
+			if (hadFocus != focus)
+			{
+				this.NotifyParentWindowOfFocusChange(focus);
+			}
 		}
 
 		/// <inheritdoc/>

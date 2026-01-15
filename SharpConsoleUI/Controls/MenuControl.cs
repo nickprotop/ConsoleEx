@@ -9,6 +9,7 @@ using Size = System.Drawing.Size;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls;
 
 /// <summary>
@@ -369,6 +370,12 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         }
 
         Container?.Invalidate(true);
+
+        // Notify parent Window if focus state actually changed
+        if (hadFocus != focus)
+        {
+            this.NotifyParentWindowOfFocusChange(focus);
+        }
     }
 
     #endregion

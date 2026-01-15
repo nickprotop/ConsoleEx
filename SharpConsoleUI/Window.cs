@@ -1174,10 +1174,14 @@ namespace SharpConsoleUI
 			if (newFocusTarget == _lastFocusedControl)
 				return;
 
-			// Transfer focus: unfocus old, focus new (if any)
-			if (_lastFocusedControl != null && _lastFocusedControl is Controls.IFocusableControl currentFocused)
+			// DEFENSIVE: Unfocus ALL controls that have HasFocus=true, not just _lastFocusedControl
+			// This handles cases where SetFocus() was called directly on a control, bypassing _lastFocusedControl tracking
+			foreach (var control in _interactiveContents)
 			{
-				currentFocused.SetFocus(false, Controls.FocusReason.Mouse);
+				if (control.HasFocus && control != newFocusTarget && control is Controls.IFocusableControl focusable)
+				{
+					focusable.SetFocus(false, Controls.FocusReason.Mouse);
+				}
 			}
 
 			if (newFocusTarget != null && newFocusTarget is Controls.IFocusableControl newFocusable)
@@ -1809,6 +1813,63 @@ namespace SharpConsoleUI
 			if (control != null && _interactiveContents.Contains(control))
 			{
 				_lastFocusedControl = control;
+			}
+		}
+
+		/// <summary>
+		/// Called by controls when they gain focus (via SetFocus).
+		/// Updates Window's focus tracking to keep _lastFocusedControl in sync.
+		/// </summary>
+		/// <param name="control">The control that gained focus.</param>
+		public void NotifyControlGainedFocus(IInteractiveControl control)
+		{
+			if (control != null && _interactiveContents.Contains(control))
+			{
+				_lastFocusedControl = control;
+				FocusService?.SetFocus(this, control, FocusChangeReason.Programmatic);
+			}
+		}
+
+		/// <summary>
+		/// Called by controls when they lose focus (via SetFocus).
+		/// Updates Window's focus tracking to keep _lastFocusedControl in sync.
+		/// </summary>
+		/// <param name="control">The control that lost focus.</param>
+		public void NotifyControlLostFocus(IInteractiveControl control)
+		{
+			// Clear tracking if this was the last focused control
+			if (control != null && _lastFocusedControl == control)
+			{
+				_lastFocusedControl = null;
+				FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
+			}
+		}
+
+		/// <summary>
+		/// Sets focus to the specified control in this window.
+		/// This is the recommended way to programmatically change focus, as it properly
+		/// updates Window's internal focus tracking and unfocuses the previously focused control.
+		/// </summary>
+		/// <param name="control">The control to focus, or null to clear focus entirely.</param>
+		public void FocusControl(IInteractiveControl? control)
+		{
+			// Unfocus currently focused control
+			if (_lastFocusedControl != null && _lastFocusedControl is Controls.IFocusableControl currentFocusable)
+			{
+				currentFocusable.SetFocus(false, Controls.FocusReason.Programmatic);
+			}
+
+			// Focus new control
+			if (control != null && control is Controls.IFocusableControl newFocusable && newFocusable.CanReceiveFocus)
+			{
+				// SetFocus() will call NotifyParentWindowOfFocusChange(), which handles tracking
+				newFocusable.SetFocus(true, Controls.FocusReason.Programmatic);
+				// Notification system now handles _lastFocusedControl and FocusService updates
+			}
+			else
+			{
+				_lastFocusedControl = null;
+				FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
 			}
 		}
 
