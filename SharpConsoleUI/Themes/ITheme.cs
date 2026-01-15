@@ -303,4 +303,9 @@ public interface ITheme
     /// </summary>
     Color DropdownHighlightForegroundColor { get; }
 
+    /// <summary>
+    /// Gets the background color used when flashing modal windows to draw user attention.
+    /// </summary>
+    Color ModalFlashColor { get; }
+
 }

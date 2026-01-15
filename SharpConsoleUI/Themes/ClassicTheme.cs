@@ -311,5 +311,10 @@ namespace SharpConsoleUI.Themes
 		/// </summary>
 		public Color DropdownHighlightForegroundColor { get; set; } = Color.White;
 
+		/// <summary>
+		/// Gets or sets the background color used when flashing modal windows to draw user attention.
+		/// </summary>
+		public Color ModalFlashColor { get; set; } = Color.Yellow;
+
 	}
 }
