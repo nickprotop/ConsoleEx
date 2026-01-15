@@ -1,6 +1,6 @@
 using MultiDashboard.Services;
-using Microsoft.Extensions.Logging;
 using SharpConsoleUI;
+using SharpConsoleUI.Logging;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
