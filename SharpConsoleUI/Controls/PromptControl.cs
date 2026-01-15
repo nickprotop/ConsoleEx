@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
@@ -250,16 +251,23 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Point? GetLogicalCursorPosition()
 		{
+			// Only show cursor when control has focus
+			if (!HasFocus)
+			{
+				return null;
+			}
+
 			// Return the visual cursor position within the input field
-			// Account for scroll offset to get the position relative to visible content
+			// Account for scroll offset and margins to get the position relative to visible content
 			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
-			int visualCursorX = promptLength + (CurrentCursorPosition - CurrentScrollOffset);
-			var pos = new Point(visualCursorX, 0);
+			int visualCursorX = _margin.Left + promptLength + (CurrentCursorPosition - CurrentScrollOffset);
+			var pos = new Point(visualCursorX, _margin.Top);
 
 			// DEBUG
 			System.IO.File.AppendAllText("/tmp/cursor-debug.log",
 				$"[PromptControl.GetLogicalCursorPosition] promptLength={promptLength}, " +
 				$"CurrentCursorPosition={CurrentCursorPosition}, CurrentScrollOffset={CurrentScrollOffset}, " +
+				$"margin.Left={_margin.Left}, margin.Top={_margin.Top}, " +
 				$"visualCursorX={visualCursorX}, returning Point({pos.X}, {pos.Y})\n");
 
 			return pos;
@@ -421,7 +429,14 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
+			bool hadFocus = HasFocus;
 			HasFocus = focus;
+
+			// Notify parent Window if focus state actually changed
+			if (hadFocus != focus)
+			{
+				this.NotifyParentWindowOfFocusChange(focus);
+			}
 		}
 
 		/// <summary>
