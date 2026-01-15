@@ -6,8 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using Microsoft.Extensions.Logging;
-
 namespace SharpConsoleUI.Logging;
 
 /// <summary>
