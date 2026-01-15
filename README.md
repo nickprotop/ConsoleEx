@@ -540,7 +540,7 @@ internal class Program
 public static async Task CreateRealtimeWindow(ConsoleWindowSystem windowSystem)
 {
     var dataWindow = new WindowBuilder(windowSystem)
-        .WithTitle("📊 Real-time Data")
+        .WithTitle("Real-time Data")
         .WithSize(60, 20)
         .AtPosition(10, 5)
         .Build();
@@ -556,7 +556,7 @@ public static async Task CreateRealtimeWindow(ConsoleWindowSystem windowSystem)
 
             dataWindow.AddControl(new MarkupControl(new List<string>
             {
-                "[bold blue]📊 System Metrics[/]",
+                "[bold blue]System Metrics[/]",
                 $"[green]CPU Usage:[/] {random.Next(0, 100)}%",
                 $"[yellow]Memory:[/] {random.Next(1000, 8000)}MB",
                 $"[red]Network:[/] {random.Next(0, 1000)}KB/s",
@@ -782,7 +782,7 @@ windowSystem.LogService.LogAdded += (s, entry) => { /* handle entry */ };
 var logs = windowSystem.LogService.GetRecentLogs(50);
 ```
 
-### 🔔 Notifications
+### Notifications
 
 Display notifications using the built-in notification service:
 ```csharp
@@ -796,18 +796,18 @@ windowSystem.NotificationStateService.ShowNotification(
 
 Severity levels: `Info`, `Success`, `Warning`, `Danger`, `None`
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built on [Spectre.Console](https://github.com/spectreconsole/spectre.console) for rich console output
 - Inspired by traditional GUI frameworks adapted for console applications
 
 ---
 
-## 🔗 Links
+## Links
 
 - **NuGet Package**: [SharpConsoleUI](https://www.nuget.org/packages/SharpConsoleUI)
 - **GitHub Repository**: [ConsoleEx](https://github.com/nickprotop/ConsoleEx)
