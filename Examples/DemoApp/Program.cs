@@ -136,9 +136,8 @@ internal class Program
 
         _mainWindow = new WindowBuilder(_windowSystem)
             .WithTitle("Modern SharpConsoleUI Demo - Main Menu")
-            .WithSize(65, 22)
+            .WithSize(65, 24)
             .Centered()
-            .WithColors(SpectreColor.DarkBlue, SpectreColor.White)
             .Closable(false)
             .Build();
 
@@ -149,6 +148,40 @@ internal class Program
             )
         );
 
+        _mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
+
+        // Theme info and selector button
+        var themeInfoGrid = new HorizontalGridControl
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+
+        var themeLabel = new MarkupControl(
+            new List<string> { $"[dim]Current Theme:[/] [cyan]{_windowSystem.Theme.Name}[/]" }
+        )
+        {
+            Margin = new Margin(0, 0, 2, 0),
+        };
+
+        var themeLabelCol = new ColumnContainer(themeInfoGrid);
+        themeLabelCol.AddContent(themeLabel);
+        themeInfoGrid.AddColumn(themeLabelCol);
+
+        var themeButton = new ButtonControl { Text = "Change Theme", Width = 16 };
+        themeButton.Click += (sender, btn) =>
+        {
+            _windowSystem?.ShowThemeSelectorDialog();
+            // Update theme label after dialog closes
+            themeLabel.SetContent(
+                new List<string> { $"[dim]Current Theme:[/] [cyan]{_windowSystem?.Theme.Name}[/]" }
+            );
+        };
+
+        var themeButtonCol = new ColumnContainer(themeInfoGrid);
+        themeButtonCol.AddContent(themeButton);
+        themeInfoGrid.AddColumn(themeButtonCol);
+
+        _mainWindow.AddControl(themeInfoGrid);
         _mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
 
         // Feature showcase
@@ -309,7 +342,6 @@ internal class Program
             .WithTitle("Log Viewer (F2)")
             .WithSize(80, 18)
             .AtPosition(5, 3)
-            .WithColors(SpectreColor.Black, SpectreColor.Green)
             .AddControl(logViewer)
             .WithAsyncWindowThread(SimulateLoggingAsync)
             .Build();
@@ -389,7 +421,6 @@ internal class Program
             .WithTitle("System Information")
             .WithSize(75, 18)
             .AtPosition(8, 3)
-            .WithColors(SpectreColor.DarkCyan, SpectreColor.White)
             .Build();
 
         // System information using modern patterns
@@ -437,7 +468,6 @@ internal class Program
             .WithTitle("Digital Clock")
             .WithSize(35, 10)
             .AtPosition(15, 8)
-            .WithColors(SpectreColor.DarkGreen, SpectreColor.Yellow)
             .Build();
 
         // Setup ESC key handler
@@ -501,7 +531,6 @@ internal class Program
             .WithTitle("Interactive Demo")
             .WithSize(60, 16)
             .AtPosition(12, 6)
-            .WithColors(SpectreColor.Purple, SpectreColor.White)
             .Build();
 
         demoWindow.AddControl(
@@ -607,7 +636,7 @@ internal class Program
             .WithTitle("Interactive Command Window")
             .WithSize(80, 25)
             .AtPosition(2, 2)
-            .WithColors(SpectreColor.Black, SpectreColor.White)
+            .WithColors(SpectreColor.Grey15, SpectreColor.Grey93)
             .Build();
 
         // Create prompt control for command input
@@ -843,7 +872,6 @@ internal class Program
             .WithTitle("Country Selection Demo")
             .WithSize(50, 20)
             .AtPosition(4, 4)
-            .WithColors(SpectreColor.DarkBlue, SpectreColor.White)
             .Build();
 
         // Add title
@@ -957,7 +985,7 @@ internal class Program
             .WithTitle("ListView Demo")
             .WithSize(65, 22)
             .AtPosition(6, 6)
-            .WithColors(SpectreColor.DarkGreen, SpectreColor.White)
+            .WithColors(SpectreColor.Grey19, SpectreColor.Grey93)
             .Build();
 
         // Add title
@@ -1093,7 +1121,6 @@ internal class Program
             .WithTitle("File Explorer Demo")
             .WithSize(75, 26)
             .AtPosition(3, 3)
-            .WithColors(SpectreColor.DarkCyan, SpectreColor.White)
             .Build();
 
         // Add title and instructions
