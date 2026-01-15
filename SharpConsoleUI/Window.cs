@@ -194,9 +194,6 @@ namespace SharpConsoleUI
 			_windowSystem = windowSystem;
 			_layoutManager = new WindowLayoutManager(this);
 
-			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
-			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
-
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
 
@@ -233,9 +230,6 @@ namespace SharpConsoleUI
 			_windowSystem = windowSystem;
 			_parentWindow = parentWindow;
 			_layoutManager = new WindowLayoutManager(this);
-
-			BackgroundColor = _windowSystem.Theme.WindowBackgroundColor;
-			ForegroundColor = _windowSystem.Theme.WindowForegroundColor;
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -301,15 +295,30 @@ namespace SharpConsoleUI
 		public Color ActiveTitleForegroundColor
 		{ get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; Invalidate(false); } }
 
+		private Color? _backgroundColor;
+		private Color? _foregroundColor;
+
 		/// <summary>
 		/// Gets or sets the background color of the window content area.
+		/// If not set, uses the theme's WindowBackgroundColor (or ModalBackgroundColor for modals).
 		/// </summary>
-		public Color BackgroundColor { get; set; }
+		public Color BackgroundColor
+		{
+			get => _backgroundColor ?? (Mode == WindowMode.Modal
+				? _windowSystem?.Theme.ModalBackgroundColor
+				: _windowSystem?.Theme.WindowBackgroundColor) ?? Color.Black;
+			set => _backgroundColor = value;
+		}
 
 		/// <summary>
 		/// Gets or sets the default foreground color for window content.
+		/// If not set, uses the theme's WindowForegroundColor.
 		/// </summary>
-		public Color ForegroundColor { get; set; }
+		public Color ForegroundColor
+		{
+			get => _foregroundColor ?? _windowSystem?.Theme.WindowForegroundColor ?? Color.White;
+			set => _foregroundColor = value;
+		}
 
 		/// <summary>
 		/// Gets the console window system that manages this window.
