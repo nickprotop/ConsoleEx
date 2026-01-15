@@ -314,7 +314,7 @@ namespace SharpConsoleUI
 					if (borderWidth > 0)
 					{
 						string borderSegment = AnsiConsoleHelper.SubstringAnsi(bottomBorder, borderStartX - window.Left, borderWidth);
-						_consoleWindowSystem.ConsoleDriver.WriteToConsole(borderStartX, window.Top + window.Height, borderSegment);
+						_consoleWindowSystem.ConsoleDriver.WriteToConsole(borderStartX, window.Top + window.Height - 1 + _consoleWindowSystem.DesktopUpperLeft.Y, borderSegment);
 					}
 				}
 			}

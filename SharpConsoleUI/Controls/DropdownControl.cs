@@ -740,10 +740,9 @@ namespace SharpConsoleUI.Controls
 					}
 					else if (_items.Count > 0)
 					{
-						// Open dropdown
-						_isDropdownOpen = true;
+						// Open dropdown - use property to trigger OpenDropdown()
+						IsDropdownOpen = true;
 						_highlightedIndex = currentSelection;
-						Container?.Invalidate(true);
 						return true;
 					}
 					return false;

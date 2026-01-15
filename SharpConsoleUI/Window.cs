@@ -2037,9 +2037,10 @@ namespace SharpConsoleUI
 		/// <returns>The portal LayoutNode for later removal, or null if owner not found.</returns>
 		public LayoutNode? CreatePortal(IWindowControl ownerControl, IWindowControl portalContent)
 		{
-			var ownerNode = GetLayoutNode(ownerControl);
-			if (ownerNode == null)
-				return null;
+			// Note: ownerControl may be nested inside another control (e.g., dropdown inside toolbar)
+			// and not directly registered in _controlToNodeMap. We don't actually need the owner node
+			// for portal creation - the portal bounds come from the portal content itself.
+			// So we allow portal creation even for nested controls.
 
 			var portalNode = new LayoutNode(portalContent);
 			portalNode.IsVisible = true; // Ensure portal is visible
