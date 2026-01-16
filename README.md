@@ -805,6 +805,10 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 - Built on [Spectre.Console](https://github.com/spectreconsole/spectre.console) for rich console output
 - Inspired by traditional GUI frameworks adapted for console applications
 
+## Development Notes
+
+Version 1.0 of SharpConsoleUI was developed manually and provided core windowing functionality with double-buffered rendering. However, it had architectural limitations that made scaling difficult: line-by-line rendering without true layout support, implicit logic scattered across controls, and tight coupling between components. The refactoring to version 2.0 and the addition of modern features (DOM-based layout system, fluent builders, plugin architecture, theme system) was developed with AI assistance. Architectural decisions and feature design came from the project author, while AI generated code implementations based on those decisions. The development process involved code generation, review sessions, debugging, and manual refinements. This collaborative approach enabled rapid iteration on complex features while maintaining architectural coherence.
+
 ---
 
 ## Links
