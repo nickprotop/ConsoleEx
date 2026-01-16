@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
@@ -1172,7 +1173,7 @@ namespace SharpConsoleUI.Controls
 				{
 					// Truncate the displayText, not the prefix
 					int prefixLength = AnsiConsoleHelper.StripAnsiStringLength(prefix);
-					int maxTextLength = contentWidth - prefixLength - (node.Children.Count > 0 ? 4 : 0) - 3; // 3 for "..."
+					int maxTextLength = contentWidth - prefixLength - (node.Children.Count > 0 ? 4 : 0) - ControlDefaults.DefaultEllipsisLength; // 3 for "..."
 
 					if (maxTextLength > 0)
 					{
@@ -1516,7 +1517,7 @@ namespace SharpConsoleUI.Controls
 				if (visibleLength > contentWidth)
 				{
 					int prefixLength = AnsiConsoleHelper.StripAnsiStringLength(prefix);
-					int maxTextLength = contentWidth - prefixLength - (node.Children.Count > 0 ? 4 : 0) - 3;
+					int maxTextLength = contentWidth - prefixLength - (node.Children.Count > 0 ? 4 : 0) - ControlDefaults.DefaultEllipsisLength;
 					if (maxTextLength > 0)
 					{
 						displayText = displayText.Substring(0, Math.Min(displayText.Length, maxTextLength)) + "...";

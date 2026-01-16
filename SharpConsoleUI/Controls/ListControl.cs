@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
@@ -94,9 +95,9 @@ namespace SharpConsoleUI.Controls
 		private ListSelectionMode _selectionMode = ListSelectionMode.Complex;
 		private bool _hoverHighlightsItems = true;
 		private bool _autoHighlightOnFocus = true;
-		private int _mouseWheelScrollSpeed = 3;
+		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultMinimumVisibleItems;
 		private bool _doubleClickActivates = true;
-		private int _doubleClickThresholdMs = 500;
+		private int _doubleClickThresholdMs = ControlDefaults.DefaultDoubleClickThresholdMs;
 		private bool _showSelectionMarkers = true;  // Show [x]/[ ] markers
 
 		// Read-only helpers
@@ -1530,9 +1531,9 @@ namespace SharpConsoleUI.Controls
 
 						// Truncate if necessary
 						int maxTextWidth = listWidth - (indicatorSpace + 2);
-						if (AnsiConsoleHelper.StripSpectreLength(lineText) > maxTextWidth && maxTextWidth > 3)
+						if (AnsiConsoleHelper.StripSpectreLength(lineText) > maxTextWidth && maxTextWidth > ControlDefaults.DefaultMinTextWidth)
 						{
-							lineText = lineText.Substring(0, Math.Max(0, maxTextWidth - 3)) + "...";
+							lineText = lineText.Substring(0, Math.Max(0, maxTextWidth - ControlDefaults.DefaultEllipsisLength)) + "...";
 						}
 
 						// Determine colors for this item
