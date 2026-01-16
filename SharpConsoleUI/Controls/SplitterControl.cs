@@ -80,22 +80,14 @@ namespace SharpConsoleUI.Controls
 		public HorizontalAlignment HorizontalAlignment
 		{
 			get => _horizontalAlignment;
-			set
-			{
-				_horizontalAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
 		}
 
 		/// <inheritdoc/>
 		public VerticalAlignment VerticalAlignment
 		{
 			get => _verticalAlignment;
-			set
-			{
-				_verticalAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
 		}
 
 		/// <summary>
@@ -234,11 +226,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set
-			{
-				_isEnabled = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -256,11 +244,7 @@ namespace SharpConsoleUI.Controls
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -273,11 +257,7 @@ namespace SharpConsoleUI.Controls
 		public bool Visible
 		{
 			get => _visible;
-			set
-			{
-				_visible = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
 		}
 
 		/// <inheritdoc/>

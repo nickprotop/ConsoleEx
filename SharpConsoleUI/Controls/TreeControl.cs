@@ -49,7 +49,7 @@ namespace SharpConsoleUI.Controls
 		private int _scrollOffset = 0;
 
 		// Performance: Cache for expensive text measurement operations
-		private readonly Dictionary<string, int> _textLengthCache = new Dictionary<string, int>();
+		private readonly TextMeasurementCache _textMeasurementCache = new(AnsiConsoleHelper.StripAnsiStringLength);
 
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
@@ -64,14 +64,9 @@ namespace SharpConsoleUI.Controls
 
 		// Helper to get cached text length (expensive operation)
 		private int GetCachedTextLength(string text)
-		{
-			if (_textLengthCache.TryGetValue(text, out int cachedLength))
-				return cachedLength;
-
-			int length = AnsiConsoleHelper.StripAnsiStringLength(text);
-			_textLengthCache[text] = length;
-			return length;
-		}
+	{
+		return _textMeasurementCache.GetCachedLength(text);
+	}
 
 		/// <summary>
 		/// Gets the actual rendered width in characters.
@@ -101,11 +96,7 @@ namespace SharpConsoleUI.Controls
 		public HorizontalAlignment HorizontalAlignment
 		{
 			get => _horizontalAlignment;
-			set
-			{
-				_horizontalAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -185,15 +176,7 @@ namespace SharpConsoleUI.Controls
 		public int? Height
 		{
 			get => _height;
-			set
-			{
-				var validatedValue = value.HasValue ? Math.Max(1, value.Value) : value;
-				if (_height != validatedValue)
-				{
-					_height = validatedValue;
-					Container?.Invalidate(true);
-				}
-			}
+			set => PropertySetterHelper.SetDimensionProperty(ref _height, value, Container);
 		}		/// <summary>
 		/// Gets or sets the background color for highlighted items
 		/// </summary>
@@ -220,11 +203,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set
-			{
-				_isEnabled = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -305,11 +284,7 @@ namespace SharpConsoleUI.Controls
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -322,26 +297,14 @@ namespace SharpConsoleUI.Controls
 		public bool Visible
 		{
 			get => _visible;
-			set
-			{
-				_visible = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
 		}
 
 		/// <inheritdoc/>
 		public int? Width
 		{
 			get => _width;
-			set
-			{
-				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-				if (_width != validatedValue)
-				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
-				}
-			}
+			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
 		/// <summary>
@@ -379,7 +342,7 @@ namespace SharpConsoleUI.Controls
 		{
 			_rootNodes.Clear();
 			_flattenedNodes.Clear();
-			_textLengthCache.Clear(); // Clear cache when tree cleared
+			_textMeasurementCache.InvalidateCache(); // Clear cache when tree cleared
 
 			// Clear state via services (single source of truth)
 			int oldIndex = _selectedIndex;
@@ -535,79 +498,73 @@ namespace SharpConsoleUI.Controls
 			if (key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt) || key.Modifiers.HasFlag(ConsoleModifiers.Control)) return false;
 
 			int selectedIndex = CurrentSelectedIndex;
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+
 			switch (key.Key)
 			{
 				case ConsoleKey.UpArrow:
-					if (selectedIndex > 0)
+					if (SelectionStateHelper.UpdateSelectionWithScroll(
+						ref _selectedIndex,
+						selectedIndex - 1,
+						_flattenedNodes.Count,
+						ref _scrollOffset,
+						effectiveMaxVisibleItems,
+						OnSelectionChanged))
 					{
-						int oldIndex = _selectedIndex;
-					_selectedIndex = selectedIndex - 1;
-					if (oldIndex != _selectedIndex)
-					{
-						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
-					}
-						EnsureSelectedItemVisible();
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
 					break;
 
 				case ConsoleKey.DownArrow:
-					if (selectedIndex < _flattenedNodes.Count - 1)
+					if (SelectionStateHelper.UpdateSelectionWithScroll(
+						ref _selectedIndex,
+						selectedIndex + 1,
+						_flattenedNodes.Count,
+						ref _scrollOffset,
+						effectiveMaxVisibleItems,
+						OnSelectionChanged))
 					{
-						int oldIndex = _selectedIndex;
-					_selectedIndex = selectedIndex + 1;
-					if (oldIndex != _selectedIndex)
-					{
-						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
-					}
-						EnsureSelectedItemVisible();
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
 					break;
 
 				case ConsoleKey.PageUp:
-					if (selectedIndex > 0)
+				{
+					int pageSize = effectiveMaxVisibleItems;
+					int newIndex = Math.Max(0, selectedIndex - pageSize);
+					if (SelectionStateHelper.UpdateSelectionWithScroll(
+						ref _selectedIndex,
+						newIndex,
+						_flattenedNodes.Count,
+						ref _scrollOffset,
+						effectiveMaxVisibleItems,
+						OnSelectionChanged))
 					{
-						// Move up by a page (max visible items)
-						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-						int oldIndex = _selectedIndex;
-					_selectedIndex = Math.Max(0, selectedIndex - pageSize);
-					if (oldIndex != _selectedIndex)
-					{
-						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
-					}
-						EnsureSelectedItemVisible();
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
 					break;
+				}
 
 				case ConsoleKey.PageDown:
-					if (selectedIndex < _flattenedNodes.Count - 1)
+				{
+					int pageSize = effectiveMaxVisibleItems;
+					int newIndex = Math.Min(_flattenedNodes.Count - 1, selectedIndex + pageSize);
+					if (SelectionStateHelper.UpdateSelectionWithScroll(
+						ref _selectedIndex,
+						newIndex,
+						_flattenedNodes.Count,
+						ref _scrollOffset,
+						effectiveMaxVisibleItems,
+						OnSelectionChanged))
 					{
-						// Move down by a page (max visible items)
-						int pageSize = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-						int oldIndex = _selectedIndex;
-					_selectedIndex = Math.Min(_flattenedNodes.Count - 1, selectedIndex + pageSize);
-					if (oldIndex != _selectedIndex)
-					{
-						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
-					}
-						EnsureSelectedItemVisible();
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
 					break;
+				}
 
 				case ConsoleKey.RightArrow:
 					if (SelectedNode != null && !SelectedNode.IsExpanded)
@@ -649,34 +606,28 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.Home:
-					if (selectedIndex != 0)
+					if (SelectionStateHelper.UpdateSelectionWithScroll(
+						ref _selectedIndex,
+						0,
+						_flattenedNodes.Count,
+						ref _scrollOffset,
+						effectiveMaxVisibleItems,
+						OnSelectionChanged))
 					{
-						int oldIndex = _selectedIndex;
-					_selectedIndex = 0;
-					if (oldIndex != _selectedIndex)
-					{
-						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
-					}
-						EnsureSelectedItemVisible();
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
 					break;
 
 				case ConsoleKey.End:
-					if (selectedIndex != _flattenedNodes.Count - 1)
+					if (SelectionStateHelper.UpdateSelectionWithScroll(
+						ref _selectedIndex,
+						_flattenedNodes.Count - 1,
+						_flattenedNodes.Count,
+						ref _scrollOffset,
+						effectiveMaxVisibleItems,
+						OnSelectionChanged))
 					{
-						int oldIndex = _selectedIndex;
-					_selectedIndex = _flattenedNodes.Count - 1;
-					if (oldIndex != _selectedIndex)
-					{
-						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
-					}
-						EnsureSelectedItemVisible();
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
 						Container?.Invalidate(true);
 						return true;
 					}
@@ -684,6 +635,13 @@ namespace SharpConsoleUI.Controls
 			}
 
 			return false;
+		}
+
+		// Helper method to invoke selection changed event (called by SelectionStateHelper)
+		private void OnSelectionChanged(int newIndex)
+		{
+			var selectedNode = newIndex >= 0 && newIndex < _flattenedNodes.Count ? _flattenedNodes[newIndex] : null;
+			SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
 		}
 
 		/// <summary>
@@ -719,15 +677,12 @@ namespace SharpConsoleUI.Controls
 			int index = _flattenedNodes.IndexOf(node);
 			if (index >= 0)
 			{
-				int oldIndex = _selectedIndex;
-					_selectedIndex = index;
-				if (oldIndex != _selectedIndex)
+				if (_selectedIndex != index)
 				{
-					var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					_selectedIndex = index;
+					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(node));
 				}
 				Container?.Invalidate(true);
-				SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(node));
 				return true;
 			}
 
@@ -1186,16 +1141,13 @@ namespace SharpConsoleUI.Controls
 				// Truncate if necessary to fit in the available width
 				if (visibleLength > contentWidth)
 				{
-					// Truncate the displayText, not the prefix
-					int prefixLength = GetCachedTextLength(prefix);
-					int maxTextLength = contentWidth - prefixLength - (node.Children.Count > 0 ? 4 : 0) - ControlDefaults.DefaultEllipsisLength; // 3 for "..."
-
-					if (maxTextLength > 0)
-					{
-						displayText = displayText.Substring(0, Math.Min(displayText.Length, maxTextLength)) + "...";
-						nodeText = prefix + displayText + expandCollapseIndicator;
-						visibleLength = GetCachedTextLength(nodeText);
-					}
+					nodeText = TextTruncationHelper.TruncateWithFixedParts(
+						prefix,
+						displayText,
+						expandCollapseIndicator,
+						contentWidth,
+						_textMeasurementCache);
+					visibleLength = GetCachedTextLength(nodeText);
 				}
 
 				// Determine how much padding is needed to reach full width
@@ -1285,16 +1237,13 @@ namespace SharpConsoleUI.Controls
 			// Truncate if necessary to fit in the available width
 			if (visibleLength > contentWidth)
 			{
-				// Truncate the displayText, not the prefix
-				int prefixLength = GetCachedTextLength(prefix);
-				int maxTextLength = contentWidth - prefixLength - (rootNode.Children.Count > 0 ? 4 : 0) - 3; // 3 for "..."
-
-				if (maxTextLength > 0)
-				{
-					displayText = displayText.Substring(0, Math.Min(displayText.Length, maxTextLength)) + "...";
-					nodeText = prefix + displayText + expandCollapseIndicator;
-					visibleLength = GetCachedTextLength(nodeText);
-				}
+				nodeText = TextTruncationHelper.TruncateWithFixedParts(
+					prefix,
+					displayText,
+					expandCollapseIndicator,
+					contentWidth,
+					_textMeasurementCache);
+				visibleLength = GetCachedTextLength(nodeText);
 			}
 
 			// Determine how much padding is needed to reach full width
@@ -1338,7 +1287,7 @@ namespace SharpConsoleUI.Controls
 		private void UpdateFlattenedNodes()
 		{
 			_flattenedNodes.Clear();
-			_textLengthCache.Clear(); // Clear cache when tree structure changes
+			_textMeasurementCache.InvalidateCache(); // Clear cache when tree structure changes
 			FlattenNodes(_rootNodes);
 
 			// Ensure selected index is valid
@@ -1532,14 +1481,13 @@ namespace SharpConsoleUI.Controls
 				// Truncate if necessary
 				if (visibleLength > contentWidth)
 				{
-					int prefixLength = GetCachedTextLength(prefix);
-					int maxTextLength = contentWidth - prefixLength - (node.Children.Count > 0 ? 4 : 0) - ControlDefaults.DefaultEllipsisLength;
-					if (maxTextLength > 0)
-					{
-						displayText = displayText.Substring(0, Math.Min(displayText.Length, maxTextLength)) + "...";
-						nodeText = prefix + displayText + expandIndicator;
-						visibleLength = GetCachedTextLength(nodeText);
-					}
+					nodeText = TextTruncationHelper.TruncateWithFixedParts(
+						prefix,
+						displayText,
+						expandIndicator,
+						contentWidth,
+						_textMeasurementCache);
+					visibleLength = GetCachedTextLength(nodeText);
 				}
 
 				// Fill left margin

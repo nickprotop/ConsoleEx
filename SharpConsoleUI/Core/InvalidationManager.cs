@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Core
 {
@@ -247,6 +248,11 @@ namespace SharpConsoleUI.Core
 
         private const int BatchDelayMs = 5; // Small delay to batch rapid invalidations
 
+        /// <summary>
+        /// Optional log service for error logging. Can be set by ConsoleWindowSystem or tests.
+        /// </summary>
+        public ILogService? LogService { get; set; }
+
         private InvalidationManager()
         {
             _batchTimer = new Timer(ProcessBatch, null, Timeout.Infinite, Timeout.Infinite);
@@ -474,10 +480,11 @@ namespace SharpConsoleUI.Core
                     {
                         container.Invalidate(false); // Don't redraw all, just mark as dirty
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        // Silently swallow errors - Console.WriteLine would corrupt UI
-                        // Continue processing other containers
+                        // Log error but continue processing other containers
+                        // Don't use Console.WriteLine as it would corrupt UI
+                        LogService?.Log(LogLevel.Error, $"Failed to invalidate container: {ex.Message}", "Invalidation");
                     }
                 }
             }

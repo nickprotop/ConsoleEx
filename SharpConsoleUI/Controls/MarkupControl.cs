@@ -83,17 +83,16 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the margin around the control content.
 		/// </summary>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
+		{
+			get => _margin;
+			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
+		}
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -125,15 +124,7 @@ namespace SharpConsoleUI.Controls
 		public int? Width
 		{
 			get => _width;
-			set
-			{
-				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-				if (_width != validatedValue)
-				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
-				}
-			}
+			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
 		/// <summary>
@@ -290,13 +281,7 @@ namespace SharpConsoleUI.Controls
 			int startX = bounds.X + _margin.Left;
 
 			// Fill top margin
-			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
-				}
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
 
 			// Paint content lines
 			for (int i = 0; i < renderedLines.Count && startY + i < bounds.Bottom; i++)

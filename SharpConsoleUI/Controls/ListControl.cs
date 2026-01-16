@@ -16,6 +16,7 @@ using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System.Drawing;
+using System.Text;
 using Color = Spectre.Console.Color;
 
 using SharpConsoleUI.Extensions;
@@ -74,6 +75,7 @@ namespace SharpConsoleUI.Controls
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private int? _maxVisibleItems = null;
 
+		private readonly StringBuilder _searchBuilder = new();
 		private string _searchText = string.Empty;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string _title = "List";
@@ -101,7 +103,7 @@ namespace SharpConsoleUI.Controls
 		private bool _showSelectionMarkers = true;  // Show [x]/[ ] markers
 
 		// Performance: Cache for expensive text measurement operations
-		private readonly Dictionary<string, int> _textLengthCache = new Dictionary<string, int>();
+		private readonly TextMeasurementCache _textMeasurementCache = new(AnsiConsoleHelper.StripSpectreLength);
 
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
@@ -116,14 +118,9 @@ namespace SharpConsoleUI.Controls
 
 		// Helper to get cached text length (expensive operation)
 		private int GetCachedTextLength(string text)
-		{
-			if (_textLengthCache.TryGetValue(text, out int cachedLength))
-				return cachedLength;
-
-			int length = AnsiConsoleHelper.StripSpectreLength(text);
-			_textLengthCache[text] = length;
-			return length;
-		}
+	{
+		return _textMeasurementCache.GetCachedLength(text);
+	}
 
 		// Helper to find containing Window by traversing container hierarchy
 		private Window? FindContainingWindow()
@@ -530,11 +527,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set
-			{
-				_isEnabled = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
 		}
 
 		/// <summary>
@@ -569,7 +562,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_items = value;
-				_textLengthCache.Clear(); // Clear cache when items change
+				_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 				// Adjust selection if out of bounds
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
@@ -812,11 +805,7 @@ namespace SharpConsoleUI.Controls
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <summary>
@@ -828,7 +817,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_items = value.Select(text => new ListItem(text)).ToList();
-				_textLengthCache.Clear(); // Clear cache when items change
+				_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
 				{
@@ -869,26 +858,14 @@ namespace SharpConsoleUI.Controls
 		public bool Visible
 		{
 			get => _visible;
-			set
-			{
-				_visible = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
 		}
 
 		/// <inheritdoc/>
 		public int? Width
 		{
 			get => _width;
-			set
-			{
-				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-				if (_width != validatedValue)
-				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
-				}
-			}
+			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
 		/// <summary>
@@ -898,7 +875,7 @@ namespace SharpConsoleUI.Controls
 		public void AddItem(ListItem item)
 		{
 			_items.Add(item);
-			_textLengthCache.Clear(); // Clear cache when items change
+			_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 			Container?.Invalidate(true);
 		}
 
@@ -928,7 +905,7 @@ namespace SharpConsoleUI.Controls
 		public void ClearItems()
 		{
 			_items.Clear();
-			_textLengthCache.Clear(); // Clear cache when items cleared
+			_textMeasurementCache.InvalidateCache(); // Clear cache when items cleared
 
 			// Clear state via services (single source of truth)
 			_selectedIndex = -1;
@@ -1276,13 +1253,15 @@ namespace SharpConsoleUI.Controls
 						// Check if this is part of a search sequence or new search
 						if ((DateTime.Now - _lastKeyTime) > _searchResetDelay)
 						{
-							_searchText = key.KeyChar.ToString();
+							_searchBuilder.Clear();
+							_searchBuilder.Append(key.KeyChar);
 						}
 						else
 						{
-							_searchText += key.KeyChar;
+							_searchBuilder.Append(key.KeyChar);
 						}
 
+						_searchText = _searchBuilder.ToString();
 						_lastKeyTime = DateTime.Now;
 
 						// Search for items starting with the search text
@@ -1549,9 +1528,9 @@ namespace SharpConsoleUI.Controls
 
 						// Truncate if necessary
 						int maxTextWidth = listWidth - (indicatorSpace + 2);
-						if (GetCachedTextLength(lineText) > maxTextWidth && maxTextWidth > ControlDefaults.DefaultMinTextWidth)
+						if (maxTextWidth > ControlDefaults.DefaultMinTextWidth)
 						{
-							lineText = lineText.Substring(0, Math.Max(0, maxTextWidth - ControlDefaults.DefaultEllipsisLength)) + "...";
+							lineText = TextTruncationHelper.Truncate(lineText, maxTextWidth, cache: _textMeasurementCache);
 						}
 
 						// Determine colors for this item

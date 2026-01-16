@@ -9,6 +9,7 @@
 using System.Collections.Concurrent;
 using System.Drawing;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Core
 {
@@ -18,11 +19,21 @@ namespace SharpConsoleUI.Core
 	/// </summary>
 	public class CursorStateService : IDisposable
 	{
+		private readonly IConsoleDriver _driver;
 		private readonly object _lock = new();
 		private CursorState _currentState = CursorState.Hidden;
 		private readonly ConcurrentQueue<CursorState> _stateHistory = new();
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="CursorStateService"/> class.
+		/// </summary>
+		/// <param name="driver">The console driver to use for cursor operations.</param>
+		public CursorStateService(IConsoleDriver driver)
+		{
+			_driver = driver ?? throw new ArgumentNullException(nameof(driver));
+		}
 
 		/// <summary>
 		/// Gets the current cursor state
@@ -226,7 +237,7 @@ namespace SharpConsoleUI.Core
 
 			if (!state.IsVisible || state.Shape == CursorShape.Hidden)
 			{
-				Console.CursorVisible = false;
+				_driver.SetCursorVisible(false);
 				return true;
 			}
 
@@ -235,50 +246,16 @@ namespace SharpConsoleUI.Core
 			// Bounds check
 			if (pos.X < 0 || pos.X >= screenWidth || pos.Y < 0 || pos.Y >= screenHeight)
 			{
-				Console.CursorVisible = false;
+				_driver.SetCursorVisible(false);
 				return false;
 			}
 
-			// Apply cursor shape using ANSI escape sequences
-			ApplyCursorShape(state.Shape);
-
-			// Set position and make visible
-			Console.SetCursorPosition(pos.X, pos.Y);
-			Console.CursorVisible = true;
+			// Apply cursor shape, position, and make visible
+			_driver.SetCursorShape(state.Shape);
+			_driver.SetCursorPosition(pos.X, pos.Y);
+			_driver.SetCursorVisible(true);
 
 			return true;
-		}
-
-		/// <summary>
-		/// Applies cursor shape using ANSI escape sequences.
-		/// Shape codes: 1=blinking block, 2=steady block, 3=blinking underline,
-		/// 4=steady underline, 5=blinking bar, 6=steady bar
-		/// </summary>
-		private static void ApplyCursorShape(CursorShape shape)
-		{
-			var shapeCode = shape switch
-			{
-				CursorShape.Block => 2,       // Steady block
-				CursorShape.Underline => 4,   // Steady underline
-				CursorShape.VerticalBar => 6, // Steady bar
-				CursorShape.Hidden => 0,      // Will be handled by CursorVisible
-				_ => 2
-			};
-
-			if (shapeCode > 0)
-			{
-				// ANSI escape sequence: ESC [ n SP q
-				Console.Write($"\x1b[{shapeCode} q");
-			}
-		}
-
-		/// <summary>
-		/// Resets the cursor to default shape (block)
-		/// </summary>
-		public static void ResetCursorShape()
-		{
-			// Reset to default: ESC [ 0 SP q
-			Console.Write("\x1b[0 q");
 		}
 
 		/// <inheritdoc/>

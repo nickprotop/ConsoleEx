@@ -46,22 +46,14 @@ namespace SharpConsoleUI.Controls
 		public HorizontalAlignment HorizontalAlignment
 		{
 			get => _horizontalAlignment;
-			set
-			{
-				_horizontalAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
 		}
 
 		/// <inheritdoc/>
 		public VerticalAlignment VerticalAlignment
 		{
 			get => _verticalAlignment;
-			set
-			{
-				_verticalAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
 		}
 
 		/// <summary>
@@ -82,17 +74,16 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
+		{
+			get => _margin;
+			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
+		}
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -135,15 +126,7 @@ namespace SharpConsoleUI.Controls
 		public int? Width
 		{
 			get => _width;
-			set
-			{
-				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-				if (_width != validatedValue)
-				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
-				}
-			}
+			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -204,13 +187,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + _margin.Top;
 
 			// Fill top margin
-			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
-				}
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
 
 			// Paint the rule line
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
@@ -241,13 +218,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill bottom margin
-			for (int y = startY + 1; y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
-				}
-			}
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, fgColor, bgColor);
 		}
 
 		#endregion

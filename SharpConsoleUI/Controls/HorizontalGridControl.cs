@@ -302,26 +302,21 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set
-			{
-				_isEnabled = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
 		}
 
 		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
+		{
+			get => _margin;
+			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
+		}
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <inheritdoc/>

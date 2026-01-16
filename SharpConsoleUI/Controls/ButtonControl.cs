@@ -87,17 +87,16 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
+		{
+			get => _margin;
+			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
+		}
 
 		/// <inheritdoc/>
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -124,15 +123,7 @@ namespace SharpConsoleUI.Controls
 		public int? Width
 		{
 			get => _width;
-			set
-			{
-				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-				if (_width != validatedValue)
-				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
-				}
-			}
+			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -320,14 +311,11 @@ namespace SharpConsoleUI.Controls
 			int maxTextLength = buttonWidth - 4;
 
 			// Truncate text if needed
-			if (maxTextLength > 0 && AnsiConsoleHelper.StripSpectreLength(text) > maxTextLength)
+			if (maxTextLength > 0)
 			{
-				int truncateLength = Math.Max(0, maxTextLength - 3);
-				text = truncateLength > 0
-					? AnsiConsoleHelper.TruncateSpectre(text, truncateLength) + "..."
-					: "...".Substring(0, Math.Max(0, maxTextLength));
+				text = TextTruncationHelper.Truncate(text, maxTextLength);
 			}
-			else if (maxTextLength <= 0)
+			else
 			{
 				text = string.Empty;
 			}
@@ -360,13 +348,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill top margin
-			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
-				}
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground);
 
 			// Paint button line
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
@@ -404,13 +386,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill bottom margin
-			for (int y = startY + 1; y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
-				}
-			}
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, foregroundColor, windowBackground);
 		}
 
 		#endregion

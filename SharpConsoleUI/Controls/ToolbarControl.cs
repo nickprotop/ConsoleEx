@@ -18,6 +18,7 @@ using Size = System.Drawing.Size;
 using Point = System.Drawing.Point;
 
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -171,22 +172,14 @@ namespace SharpConsoleUI.Controls
 		public HorizontalAlignment HorizontalAlignment
 		{
 			get => _horizontalAlignment;
-			set
-			{
-				_horizontalAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
 		}
 
 		/// <inheritdoc/>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set
-			{
-				_isEnabled = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
 		}
 
 		/// <summary>
@@ -222,11 +215,7 @@ namespace SharpConsoleUI.Controls
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -239,22 +228,14 @@ namespace SharpConsoleUI.Controls
 		public VerticalAlignment VerticalAlignment
 		{
 			get => _verticalAlignment;
-			set
-			{
-				_verticalAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
 		}
 
 		/// <inheritdoc/>
 		public bool Visible
 		{
 			get => _visible;
-			set
-			{
-				_visible = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -550,11 +531,7 @@ namespace SharpConsoleUI.Controls
 			Color containerBg = Container?.BackgroundColor ?? defaultBg;
 
 			// Top margin
-			for (int y = bounds.Y; y < contentY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, containerBg);
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, contentY, fgColor, containerBg);
 
 			// Content area
 			for (int y = contentY; y < contentY + contentHeight && y < bounds.Bottom; y++)

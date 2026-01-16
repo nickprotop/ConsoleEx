@@ -154,9 +154,10 @@ public static class FileDialogs
 					{
 						folderList.AddItem(new ListItem($"[yellow]📁[/] {EscapeMarkup(dir.Name)}") { Tag = dir.FullName });
 					}
-					catch
+					catch (UnauthorizedAccessException)
 					{
-						// Skip directories we can't access
+						// Skip directories we can't access due to permissions
+						// Errors are expected when browsing system directories
 					}
 				}
 
@@ -443,9 +444,10 @@ public static class FileDialogs
 					{
 						folderList.AddItem(new ListItem($"[yellow]📁[/] {EscapeMarkup(dir.Name)}") { Tag = dir.FullName });
 					}
-					catch
+					catch (UnauthorizedAccessException)
 					{
-						// Skip directories we can't access
+						// Skip directories we can't access due to permissions
+						// Errors are expected when browsing system directories
 					}
 				}
 			}

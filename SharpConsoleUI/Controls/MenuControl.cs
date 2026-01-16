@@ -1403,9 +1403,9 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             int availableForText = width - shortcutWidth - indicatorWidth - 4; // Padding
 
             // Truncate text if needed
-            if (textWidth > availableForText && availableForText > 0)
+            if (availableForText > 0)
             {
-                text = AnsiConsoleHelper.TruncateSpectre(text, Math.Max(0, availableForText - 3)) + "...";
+                text = TextTruncationHelper.Truncate(text, availableForText);
             }
 
             buffer.FillRect(new LayoutRect(x, y, width, 1), ' ', fg, bg);

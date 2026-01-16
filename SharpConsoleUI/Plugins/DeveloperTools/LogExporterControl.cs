@@ -195,7 +195,7 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 
 		if (e.HasFlag(MouseFlags.Button1Clicked))
 		{
-			ExportLogs();
+			ExportLogsFireAndForget();
 			MouseClick?.Invoke(this, e);
 			e.Handled = true;
 			return true;
@@ -211,7 +211,7 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 
 		if (keyInfo.Key == ConsoleKey.Enter || keyInfo.Key == ConsoleKey.Spacebar)
 		{
-			ExportLogs();
+			ExportLogsFireAndForget();
 			return true;
 		}
 
@@ -221,7 +221,7 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	/// <summary>
 	/// Exports logs to a file selected via save file dialog.
 	/// </summary>
-	public async void ExportLogs()
+	public async Task ExportLogsAsync()
 	{
 		// Use save file dialog if window system is available
 		var windowSystem = Container?.GetConsoleWindowSystem;
@@ -243,6 +243,24 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 			// Fallback to default path if no window system
 			ExportLogs(GetDefaultLogPath());
 		}
+	}
+
+	/// <summary>
+	/// Fire-and-forget wrapper for async export with proper exception handling.
+	/// </summary>
+	private void ExportLogsFireAndForget()
+	{
+		Task.Run(async () =>
+		{
+			try
+			{
+				await ExportLogsAsync();
+			}
+			catch (Exception ex)
+			{
+				_logService?.Log(Logging.LogLevel.Error, $"Export failed: {ex.Message}", "LogExporter");
+			}
+		});
 	}
 
 	/// <summary>

@@ -17,6 +17,7 @@ using Spectre.Console;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Text;
 using Color = Spectre.Console.Color;
 using Size = System.Drawing.Size;
 
@@ -50,6 +51,7 @@ namespace SharpConsoleUI.Controls
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private int _maxVisibleItems = 5;
 		private string _prompt = "Select an item:";
+		private readonly StringBuilder _searchBuilder = new();
 		private string _searchText = string.Empty;
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
@@ -358,11 +360,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set
-			{
-				_isEnabled = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
 		}
 
 		/// <summary>
@@ -409,7 +407,10 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the margin around the control content.
 		/// </summary>
 		public Margin Margin
-		{ get => _margin; set { _margin = value; Container?.Invalidate(true); } }
+		{
+			get => _margin;
+			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
+		}
 
 		/// <summary>
 		/// Gets or sets the maximum number of items visible in the dropdown list without scrolling.
@@ -534,11 +535,7 @@ namespace SharpConsoleUI.Controls
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <summary>
@@ -584,15 +581,7 @@ namespace SharpConsoleUI.Controls
 		public int? Width
 		{
 			get => _width;
-			set
-			{
-				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-				if (_width != validatedValue)
-				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
-				}
-			}
+			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
 		/// <summary>
@@ -807,13 +796,15 @@ namespace SharpConsoleUI.Controls
 						// Check if this is part of a search sequence or new search
 						if ((DateTime.Now - _lastKeyTime) > _searchResetDelay)
 						{
-							_searchText = key.KeyChar.ToString();
+							_searchBuilder.Clear();
+							_searchBuilder.Append(key.KeyChar);
 						}
 						else
 						{
-							_searchText += key.KeyChar;
+							_searchBuilder.Append(key.KeyChar);
 						}
 
+						_searchText = _searchBuilder.ToString();
 						_lastKeyTime = DateTime.Now;
 
 						// Search for items starting with the search text

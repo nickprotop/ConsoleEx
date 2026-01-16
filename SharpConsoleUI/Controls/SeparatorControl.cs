@@ -12,6 +12,7 @@ using Color = Spectre.Console.Color;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Size = System.Drawing.Size;
+using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI.Controls
 {
@@ -102,11 +103,7 @@ namespace SharpConsoleUI.Controls
 		public HorizontalAlignment HorizontalAlignment
 		{
 			get => _horizontalAlignment;
-			set
-			{
-				_horizontalAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -124,11 +121,7 @@ namespace SharpConsoleUI.Controls
 		public StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set
-			{
-				_stickyPosition = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -141,22 +134,14 @@ namespace SharpConsoleUI.Controls
 		public VerticalAlignment VerticalAlignment
 		{
 			get => _verticalAlignment;
-			set
-			{
-				_verticalAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
 		}
 
 		/// <inheritdoc/>
 		public bool Visible
 		{
 			get => _visible;
-			set
-			{
-				_visible = value;
-				Container?.Invalidate(true);
-			}
+			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -235,13 +220,7 @@ namespace SharpConsoleUI.Controls
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 
 			// Fill top margin
-			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, windowBackground);
-				}
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBackground);
 
 			// Paint the separator lines
 			for (int y = 0; y < separatorHeight; y++)

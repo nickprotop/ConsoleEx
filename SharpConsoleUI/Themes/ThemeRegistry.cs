@@ -25,6 +25,7 @@ namespace SharpConsoleUI.Themes
 	public static class ThemeRegistry
 	{
 		private static readonly ConcurrentDictionary<string, ThemeInfo> _themes = new();
+		private static readonly object _defaultThemeLock = new();
 		private static string _defaultThemeName = "ModernGray";
 
 		/// <summary>
@@ -48,15 +49,26 @@ namespace SharpConsoleUI.Themes
 
 		/// <summary>
 		/// Gets or sets the name of the default theme to use when none is specified.
+		/// Thread-safe property with synchronized access.
 		/// </summary>
 		public static string DefaultThemeName
 		{
-			get => _defaultThemeName;
+			get
+			{
+				lock (_defaultThemeLock)
+				{
+					return _defaultThemeName;
+				}
+			}
 			set
 			{
 				if (string.IsNullOrWhiteSpace(value))
 					throw new ArgumentException("Default theme name cannot be null or empty.", nameof(value));
-				_defaultThemeName = value;
+
+				lock (_defaultThemeLock)
+				{
+					_defaultThemeName = value;
+				}
 			}
 		}
 
@@ -135,9 +147,10 @@ namespace SharpConsoleUI.Themes
 		/// <exception cref="InvalidOperationException">Thrown if the default theme is not registered.</exception>
 		public static ITheme GetDefaultTheme()
 		{
-			var theme = GetTheme(_defaultThemeName);
+			string themeName = DefaultThemeName;  // Thread-safe property access
+			var theme = GetTheme(themeName);
 			if (theme == null)
-				throw new InvalidOperationException($"Default theme '{_defaultThemeName}' is not registered. " +
+				throw new InvalidOperationException($"Default theme '{themeName}' is not registered. " +
 				                                    "Ensure the theme is registered before calling GetDefaultTheme().");
 			return theme;
 		}
