@@ -260,13 +260,6 @@ namespace SharpConsoleUI.Controls
 			int visualCursorX = _margin.Left + promptLength + (CurrentCursorPosition - CurrentScrollOffset);
 			var pos = new Point(visualCursorX, _margin.Top);
 
-			// DEBUG
-			System.IO.File.AppendAllText("/tmp/cursor-debug.log",
-				$"[PromptControl.GetLogicalCursorPosition] promptLength={promptLength}, " +
-				$"CurrentCursorPosition={CurrentCursorPosition}, CurrentScrollOffset={CurrentScrollOffset}, " +
-				$"margin.Left={_margin.Left}, margin.Top={_margin.Top}, " +
-				$"visualCursorX={visualCursorX}, returning Point({pos.X}, {pos.Y})\n");
-
 			return pos;
 		}
 

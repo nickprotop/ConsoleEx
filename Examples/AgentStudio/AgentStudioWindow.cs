@@ -252,14 +252,6 @@ public class AgentStudioWindow : IDisposable
 
         _window.KeyPressed += (sender, e) =>
         {
-            // DEBUG: Log all keys to /tmp/agentstudio_keys.log
-            try
-            {
-                var logLine = $"{DateTime.Now:HH:mm:ss.fff} | Key: {e.KeyInfo.Key,-15} | Mods: {e.KeyInfo.Modifiers,-20} | Char: '{e.KeyInfo.KeyChar}' (0x{(int)e.KeyInfo.KeyChar:X2}) | AlreadyHandled: {e.AlreadyHandled}\n";
-                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", logLine);
-            }
-            catch { }
-
             // Don't process keys already handled by controls or window
             if (e.AlreadyHandled)
             {
@@ -270,7 +262,6 @@ public class AgentStudioWindow : IDisposable
             if (e.KeyInfo.Key == ConsoleKey.Spacebar && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
             {
                 // Ctrl+Space to switch mode
-                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> CTRL+SPACE DETECTED - Switching mode\n");
                 _currentMode = _currentMode == "Build" ? "Plan" : "Build";
                 _bottomModeInfo?.SetContent(new List<string>
                 {
@@ -281,21 +272,18 @@ public class AgentStudioWindow : IDisposable
             else if (e.KeyInfo.Key == ConsoleKey.S && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
             {
                 // Ctrl+S to send message
-                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> CTRL+S DETECTED - Sending message\n");
                 HandleSendMessage();
                 e.Handled = true;
             }
             else if (e.KeyInfo.Key == ConsoleKey.J && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
             {
                 // Ctrl+J to open session manager
-                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> CTRL+J DETECTED - Opening Session Manager\n");
                 Modals.SessionManagerModal.Show(_windowSystem, _currentSession, selected =>
                 {
                     if (selected != null)
                     {
                         _currentSession = selected;
                         _topStatusLeft?.SetContent(new List<string> { $"[grey50]Session: [/][cyan1]{_currentSession}[/]" });
-                        System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> Session changed to: {_currentSession}\n");
                     }
                 });
                 e.Handled = true;
@@ -303,23 +291,19 @@ public class AgentStudioWindow : IDisposable
             else if (e.KeyInfo.Key == ConsoleKey.P && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
             {
                 // Ctrl+P to open command palette
-                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> CTRL+P DETECTED - Opening Command Palette\n");
                 Modals.CommandPaletteModal.Show(_windowSystem, command =>
                 {
                     if (command != null)
                     {
                         // Simulate user typing the command
                         _inputArea?.SetContent(command);
-                        System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> Command selected: {command}\n");
                     }
                 });
                 e.Handled = true;
             }
             else if (e.KeyInfo.Key == ConsoleKey.Enter && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Alt))
             {
-                // Alt+Enter test
-                System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", $"{DateTime.Now:HH:mm:ss.fff} | >>> ALT+ENTER DETECTED - Terminal supports Alt+Enter!\n");
-                // Could be used as alternative send key if it works
+                // Alt+Enter test - could be used as alternative send key if it works
                 e.Handled = true;
             }
         };

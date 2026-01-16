@@ -502,28 +502,19 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Point? GetLogicalCursorPosition()
 		{
-			System.IO.File.AppendAllText("/tmp/cursor-debug.log",
-				$"[HorizontalGridControl.GetLogicalCursorPosition] _focusedContent={_focusedContent?.GetType().Name ?? "null"}\n");
-
 			if (_focusedContent is ILogicalCursorProvider cursorProvider)
 			{
 				var childPosition = cursorProvider.GetLogicalCursorPosition();
-				System.IO.File.AppendAllText("/tmp/cursor-debug.log",
-					$"[HorizontalGridControl.GetLogicalCursorPosition] childPosition={childPosition?.ToString() ?? "null"}\n");
 
 				if (childPosition.HasValue && _focusedContent is IWindowControl focusedControl)
 				{
 					// For now, just return child position as-is
 					// The proper offset will be accumulated in TranslateLogicalCursorToWindow
-					System.IO.File.AppendAllText("/tmp/cursor-debug.log",
-						$"[HorizontalGridControl.GetLogicalCursorPosition] returning child position as-is\n");
 				}
 
 				return childPosition;
 			}
 
-			System.IO.File.AppendAllText("/tmp/cursor-debug.log",
-				$"[HorizontalGridControl.GetLogicalCursorPosition] _focusedContent is not ILogicalCursorProvider, returning null\n");
 			return null;
 		}
 
