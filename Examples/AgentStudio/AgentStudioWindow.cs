@@ -255,13 +255,13 @@ public class AgentStudioWindow : IDisposable
             // DEBUG: Log all keys to /tmp/agentstudio_keys.log
             try
             {
-                var logLine = $"{DateTime.Now:HH:mm:ss.fff} | Key: {e.KeyInfo.Key,-15} | Mods: {e.KeyInfo.Modifiers,-20} | Char: '{e.KeyInfo.KeyChar}' (0x{(int)e.KeyInfo.KeyChar:X2}) | AlreadyHandled: {e.AllreadyHandled}\n";
+                var logLine = $"{DateTime.Now:HH:mm:ss.fff} | Key: {e.KeyInfo.Key,-15} | Mods: {e.KeyInfo.Modifiers,-20} | Char: '{e.KeyInfo.KeyChar}' (0x{(int)e.KeyInfo.KeyChar:X2}) | AlreadyHandled: {e.AlreadyHandled}\n";
                 System.IO.File.AppendAllText("/tmp/agentstudio_keys.log", logLine);
             }
             catch { }
 
             // Don't process keys already handled by controls or window
-            if (e.AllreadyHandled)
+            if (e.AlreadyHandled)
             {
                 e.Handled = true; // Acknowledge
                 return;
