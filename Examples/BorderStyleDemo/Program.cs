@@ -30,7 +30,7 @@ internal class Program
         try
         {
             // Initialize console window system
-            _windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
+            _windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
             {
                 TopStatus = "BorderStyle Demo - F1: DoubleLine | F2: Borderless | F3: Toggle | F10: Exit",
                 BottomStatus = "ESC: Close Window | Tab: Switch Windows | Ctrl+Q: Quit"

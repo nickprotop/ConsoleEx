@@ -28,7 +28,7 @@ internal class Program
         try
         {
             // Initialize console window system
-            _windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
+            _windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
             {
                 TopStatus = "Full Screen Example - Press F10 to Exit",
                 ShowTaskBar = false  // Hide taskbar for true full-screen experience

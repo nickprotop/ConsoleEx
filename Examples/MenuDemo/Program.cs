@@ -19,7 +19,7 @@ class Program
         try
         {
             // Initialize window system
-            _windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
+            _windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
             {
                 TopStatus = "MenuControl Demo - Full-Featured Menu with Keyboard & Mouse Support",
                 BottomStatus =

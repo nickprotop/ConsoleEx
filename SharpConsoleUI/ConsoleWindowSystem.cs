@@ -93,6 +93,10 @@ namespace SharpConsoleUI
 		private bool _running;
 		private bool _showTaskBar = true;
 
+		// Event handlers stored for proper cleanup
+		private EventHandler<ConsoleKeyInfo>? _keyPressedHandler;
+		private EventHandler<Size>? _screenResizedHandler;
+
 		// Logging service - created first so other services can use it
 		private readonly LogService _logService = new();
 
@@ -117,34 +121,34 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
 		/// </summary>
-		/// <param name="renderMode">The rendering mode to use for the window system.</param>
-		public ConsoleWindowSystem(RenderMode renderMode)
-			: this(renderMode, ThemeRegistry.GetDefaultTheme())
+		/// <param name="driver">Pre-configured console driver.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver)
+			: this(driver, ThemeRegistry.GetDefaultTheme())
 		{
 		}
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with a theme specified by name.
 		/// </summary>
-		/// <param name="renderMode">The rendering mode to use for the window system.</param>
+		/// <param name="driver">Pre-configured console driver.</param>
 		/// <param name="themeName">The name of the theme to use.</param>
-		public ConsoleWindowSystem(RenderMode renderMode, string themeName)
-			: this(renderMode, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()))
+		public ConsoleWindowSystem(IConsoleDriver driver, string themeName)
+			: this(driver, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()))
 		{
 		}
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with a specific theme instance.
 		/// </summary>
-		/// <param name="renderMode">The rendering mode to use for the window system.</param>
+		/// <param name="driver">Pre-configured console driver.</param>
 		/// <param name="theme">The theme instance to use.</param>
-		public ConsoleWindowSystem(RenderMode renderMode, ITheme theme)
+		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme)
 		{
-			RenderMode = renderMode;
+			_consoleDriver = driver ?? throw new ArgumentNullException(nameof(driver));
 			_theme = theme ?? new ModernGrayTheme();
 
-			// Initialize state services with logging
-			_cursorStateService = new CursorStateService();
+			// Initialize state services BEFORE driver.Initialize() call
+			_cursorStateService = new CursorStateService(_consoleDriver);
 			_windowStateService = new WindowStateService(_logService);
 			_focusStateService = new FocusStateService(_logService);
 			_modalStateService = new ModalStateService(_logService);
@@ -155,17 +159,17 @@ namespace SharpConsoleUI
 			// Initialize notification service (needs 'this' reference)
 			_notificationStateService = new NotificationStateService(this, _logService);
 
-			// Initialize the console driver
-			_consoleDriver = new NetConsoleDriver(this)
-			{
-				RenderMode = RenderMode
-			};
+			// Provide log service to InvalidationManager for error logging
+			InvalidationManager.Instance.LogService = _logService;
 
 			// Initialize the visible regions
 			_visibleRegions = new VisibleRegions(this);
 
 			// Initialize the renderer
 			_renderer = new Renderer(this);
+
+			// NOW initialize driver with 'this' reference (after services exist)
+			_consoleDriver.Initialize(this);
 
 			// Subscribe to theme changes for automatic window invalidation
 			_themeStateService.ThemeChanged += OnThemeChanged;
@@ -321,11 +325,6 @@ namespace SharpConsoleUI
 		{
 			return _showBottomStatus && !string.IsNullOrEmpty(BottomStatus);
 		}
-
-		/// <summary>
-		/// Gets or sets the rendering mode for the window system.
-		/// </summary>
-		public RenderMode RenderMode { get; set; }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the task bar is visible at the bottom of the screen.
@@ -687,12 +686,14 @@ namespace SharpConsoleUI
 			_running = true;
 
 			// Subscribe to the console driver events
-			_consoleDriver.KeyPressed += (sender, key) =>
+			// Store handlers in fields so they can be properly unsubscribed in Shutdown()
+			_keyPressedHandler = (sender, key) =>
 			{
 				_inputStateService.EnqueueKey(key);
 			};
+			_consoleDriver.KeyPressed += _keyPressedHandler;
 
-			_consoleDriver.ScreenResized += (sender, size) =>
+			_screenResizedHandler = (sender, size) =>
 			{
 				lock (_renderLock)
 				{
@@ -728,6 +729,7 @@ namespace SharpConsoleUI
 					_cachedTopStatus = null;
 				}
 			};
+			_consoleDriver.ScreenResized += _screenResizedHandler;
 
 			_consoleDriver.MouseEvent += HandleMouseEvent;
 
@@ -803,6 +805,21 @@ namespace SharpConsoleUI
 			_logService.LogDebug($"Console window system shutting down (exit code: {exitCode})", "System");
 			_exitCode = exitCode;
 			_running = false;
+
+			// Unsubscribe from console driver events to prevent memory leaks
+			if (_keyPressedHandler != null)
+			{
+				_consoleDriver.KeyPressed -= _keyPressedHandler;
+				_keyPressedHandler = null;
+			}
+
+			if (_screenResizedHandler != null)
+			{
+				_consoleDriver.ScreenResized -= _screenResizedHandler;
+				_screenResizedHandler = null;
+			}
+
+			_consoleDriver.MouseEvent -= HandleMouseEvent;
 		}
 
 		/// <summary>

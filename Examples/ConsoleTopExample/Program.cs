@@ -37,7 +37,7 @@ internal class Program
     private enum TabMode
     {
         Processes,
-        Memory
+        Memory,
     }
 
     private static TabMode _activeTab = TabMode.Processes;
@@ -47,7 +47,7 @@ internal class Program
     {
         try
         {
-            _windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
+            _windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
             {
                 TopStatus = $"ConsoleTop - System Monitor ({SystemStatsFactory.GetPlatformName()})",
                 ShowTaskBar = false,
@@ -141,12 +141,7 @@ internal class Program
             .HorizontalGrid()
             .WithMargin(1, 1, 1, 1)
             .Column(col =>
-                col.Add(
-                        Controls
-                            .Markup("[grey70 bold]CPU Usage[/]")
-                            .WithMargin(1, 1, 0, 0)
-                            .Build()
-                    )
+                col.Add(Controls.Markup("[grey70 bold]CPU Usage[/]").WithMargin(1, 1, 0, 0).Build())
                     .Add(
                         SpectreRenderableControl
                             .Create()
@@ -156,7 +151,7 @@ internal class Program
                             .Build()
                     )
             )
-            .Column(col => col.Width(1))  // Spacing between boxes
+            .Column(col => col.Width(1)) // Spacing between boxes
             .Column(col =>
                 col.Add(
                         Controls
@@ -173,14 +168,9 @@ internal class Program
                             .Build()
                     )
             )
-            .Column(col => col.Width(1))  // Spacing between boxes
+            .Column(col => col.Width(1)) // Spacing between boxes
             .Column(col =>
-                col.Add(
-                        Controls
-                            .Markup("[grey70 bold]Network[/]")
-                            .WithMargin(1, 1, 1, 0)
-                            .Build()
-                    )
+                col.Add(Controls.Markup("[grey70 bold]Network[/]").WithMargin(1, 1, 1, 0).Build())
                     .Add(
                         SpectreRenderableControl
                             .Create()
@@ -196,13 +186,13 @@ internal class Program
         // Set background colors for metrics boxes
         if (metricsGrid.Columns.Count >= 5)
         {
-            metricsGrid.Columns[0].BackgroundColor = Color.Grey15;  // CPU box
+            metricsGrid.Columns[0].BackgroundColor = Color.Grey15; // CPU box
             metricsGrid.Columns[0].ForegroundColor = Color.Grey93;
 
-            metricsGrid.Columns[2].BackgroundColor = Color.Grey15;  // Memory box
+            metricsGrid.Columns[2].BackgroundColor = Color.Grey15; // Memory box
             metricsGrid.Columns[2].ForegroundColor = Color.Grey93;
 
-            metricsGrid.Columns[4].BackgroundColor = Color.Grey15;  // Network box
+            metricsGrid.Columns[4].BackgroundColor = Color.Grey15; // Network box
             metricsGrid.Columns[4].ForegroundColor = Color.Grey93;
         }
 
@@ -268,10 +258,17 @@ internal class Program
                             (_, idx) =>
                             {
                                 // Store the highlighted process (only update when valid, never clear)
-                                var processList = _mainWindow?.FindControl<ListControl>("processList");
-                                if (processList != null && idx >= 0 && idx < processList.Items.Count)
+                                var processList = _mainWindow?.FindControl<ListControl>(
+                                    "processList"
+                                );
+                                if (
+                                    processList != null
+                                    && idx >= 0
+                                    && idx < processList.Items.Count
+                                )
                                 {
-                                    _lastHighlightedProcess = processList.Items[idx].Tag as ProcessSample;
+                                    _lastHighlightedProcess =
+                                        processList.Items[idx].Tag as ProcessSample;
                                 }
                                 // Note: Don't clear _lastHighlightedProcess when idx == -1
                                 // This preserves it when list loses focus before button click
@@ -378,7 +375,7 @@ internal class Program
                     .WithName("memoryPanelContent")
                     .Build()
             )
-            .Visible(false)  // Hidden by default, Processes tab is active
+            .Visible(false) // Hidden by default, Processes tab is active
             .Build();
         memoryPanel.BackgroundColor = Color.Grey11;
         memoryPanel.ForegroundColor = Color.Grey93;
@@ -426,7 +423,8 @@ internal class Program
 
     private static void UpdateDisplay()
     {
-        if (_mainWindow == null) return;
+        if (_mainWindow == null)
+            return;
 
         // Find both panels
         var processPanel = _mainWindow.FindControl<HorizontalGridControl>("processPanel");
@@ -436,8 +434,10 @@ internal class Program
         if (_activeTab == TabMode.Processes)
         {
             // Show process panel, hide memory panel
-            if (processPanel != null) processPanel.Visible = true;
-            if (memoryPanel != null) memoryPanel.Visible = false;
+            if (processPanel != null)
+                processPanel.Visible = true;
+            if (memoryPanel != null)
+                memoryPanel.Visible = false;
 
             // Update process detail content
             UpdateHighlightedProcess();
@@ -445,8 +445,10 @@ internal class Program
         else // TabMode.Memory
         {
             // Hide process panel, show memory panel
-            if (processPanel != null) processPanel.Visible = false;
-            if (memoryPanel != null) memoryPanel.Visible = true;
+            if (processPanel != null)
+                processPanel.Visible = false;
+            if (memoryPanel != null)
+                memoryPanel.Visible = true;
 
             // Update memory panel content
             UpdateMemoryPanel();
@@ -498,10 +500,7 @@ internal class Program
                 // Update network chart
                 var netChart = window.FindControl<SpectreRenderableControl>("netChart");
                 netChart?.SetRenderable(
-                    BuildNetworkChart(
-                        snapshot.Network.UpMbps,
-                        snapshot.Network.DownMbps
-                    )
+                    BuildNetworkChart(snapshot.Network.UpMbps, snapshot.Network.DownMbps)
                 );
 
                 // Update process list
@@ -542,7 +541,8 @@ internal class Program
                 if (actionButton != null)
                 {
                     // Enable button if we have a highlighted process or cached process
-                    bool hasProcess = (processList?.HighlightedIndex >= 0) || (_lastHighlightedProcess != null);
+                    bool hasProcess =
+                        (processList?.HighlightedIndex >= 0) || (_lastHighlightedProcess != null);
                     actionButton.IsEnabled = hasProcess;
                 }
             }
@@ -667,7 +667,10 @@ internal class Program
         ProcessSample? processToShow = null;
 
         // First try: current highlighted item in list
-        if (processList.HighlightedIndex >= 0 && processList.HighlightedIndex < processList.Items.Count)
+        if (
+            processList.HighlightedIndex >= 0
+            && processList.HighlightedIndex < processList.Items.Count
+        )
         {
             processToShow = processList.Items[processList.HighlightedIndex].Tag as ProcessSample;
         }
@@ -685,11 +688,9 @@ internal class Program
             if (actionButton != null)
                 actionButton.Visible = false;
 
-            detailContent.SetContent(new List<string>
-            {
-                "",
-                "[grey50 italic]Select a process to view details[/]"
-            });
+            detailContent.SetContent(
+                new List<string> { "", "[grey50 italic]Select a process to view details[/]" }
+            );
             return;
         }
 
@@ -781,7 +782,11 @@ internal class Program
         if (sample == null)
         {
             var processList = _mainWindow?.FindControl<ListControl>("processList");
-            if (processList != null && processList.HighlightedIndex >= 0 && processList.HighlightedIndex < processList.Items.Count)
+            if (
+                processList != null
+                && processList.HighlightedIndex >= 0
+                && processList.HighlightedIndex < processList.Items.Count
+            )
             {
                 sample = processList.Items[processList.HighlightedIndex].Tag as ProcessSample;
             }

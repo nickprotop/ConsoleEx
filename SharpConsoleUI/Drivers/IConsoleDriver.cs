@@ -80,6 +80,37 @@ namespace SharpConsoleUI.Drivers
 		public void Stop();
 
 		/// <summary>
+		/// Sets the cursor position on the console screen.
+		/// </summary>
+		/// <param name="x">The column position (0-based).</param>
+		/// <param name="y">The row position (0-based).</param>
+		public void SetCursorPosition(int x, int y);
+
+		/// <summary>
+		/// Sets the visibility of the cursor.
+		/// </summary>
+		/// <param name="visible">True to show the cursor, false to hide it.</param>
+		public void SetCursorVisible(bool visible);
+
+		/// <summary>
+		/// Sets the cursor shape/style.
+		/// </summary>
+		/// <param name="shape">The desired cursor shape.</param>
+		public void SetCursorShape(Core.CursorShape shape);
+
+		/// <summary>
+		/// Resets the cursor to the default shape.
+		/// </summary>
+		public void ResetCursorShape();
+
+		/// <summary>
+		/// Initializes the driver with a reference to the window system.
+		/// Called by ConsoleWindowSystem after state services are created.
+		/// </summary>
+		/// <param name="windowSystem">The window system instance</param>
+		public void Initialize(ConsoleWindowSystem windowSystem);
+
+		/// <summary>
 		/// Writes a string value to the console at the specified position.
 		/// </summary>
 		/// <param name="x">The horizontal position (column) to write at.</param>

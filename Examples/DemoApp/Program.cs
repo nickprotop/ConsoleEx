@@ -43,7 +43,7 @@ internal class Program
         try
         {
             // Initialize console window system with modern patterns
-            _windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
+            _windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
             {
                 TopStatus = "Modern SharpConsoleUI Demo - Press F1-F10 for windows",
                 BottomStatus = "ESC: Close Window | F2-F6,F7-F10: Demo Windows | Ctrl+Q: Quit",

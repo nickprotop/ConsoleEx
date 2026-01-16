@@ -20,8 +20,15 @@ internal class Program
     {
         try
         {
-            // Initialize window system
-            var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
+            // Initialize window system with driver options (demonstrates advanced configuration)
+            var driverOptions = new NetConsoleDriverOptions
+            {
+                RenderMode = RenderMode.Buffer,
+                BufferSize = 8192,  // Future use
+                CursorBlinkRate = 500  // Future use
+            };
+            var driver = new NetConsoleDriver(driverOptions);
+            var windowSystem = new ConsoleWindowSystem(driver)
             {
                 TopStatus = "AgentStudio - TUI Showcase",
                 ShowTaskBar = false,

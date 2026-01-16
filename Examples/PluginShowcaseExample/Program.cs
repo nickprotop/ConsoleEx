@@ -18,7 +18,7 @@ using SharpConsoleUI.Logging;
 using SharpConsoleUI.Plugins.DeveloperTools;
 
 // Create window system (testing without status bars to verify bug fix)
-var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer);
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
 // Enable all log levels for the demo (default is Warning)
 windowSystem.LogService.MinimumLevel = LogLevel.Trace;

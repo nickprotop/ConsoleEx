@@ -23,7 +23,7 @@ class Program
         try
         {
             // 1. Initialize window system
-            _windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
+            _windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
             {
                 TopStatus = "Multi-Dashboard Showcase - ConsoleEx Unique Capabilities Demo",
                 BottomStatus = "F1-F6: Toggle Windows | ESC: Close Window | F10: Close All | Ctrl+C: Quit",

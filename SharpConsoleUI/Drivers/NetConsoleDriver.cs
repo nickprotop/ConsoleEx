@@ -88,7 +88,7 @@ namespace SharpConsoleUI.Drivers
 		private const int STD_INPUT_HANDLE = -10;
 		private const int STD_OUTPUT_HANDLE = -11;
 
-		private readonly ConsoleWindowSystem? _consoleWindowSystem;
+		private ConsoleWindowSystem? _consoleWindowSystem;
 		private readonly nint _errorHandle;
 		private readonly nint _inputHandle;
 		private readonly uint _originalErrorConsoleMode;
@@ -104,15 +104,19 @@ namespace SharpConsoleUI.Drivers
 		private bool _running = false;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="NetConsoleDriver"/> class.
+		/// Initializes a new instance of the <see cref="NetConsoleDriver"/> class with configuration options.
 		/// </summary>
-		/// <param name="consoleWindowSystem">The console window system that owns this driver.</param>
+		/// <param name="options">Configuration options for the driver.</param>
+		/// <exception cref="ArgumentNullException">
+		/// Thrown when <paramref name="options"/> is null.
+		/// </exception>
 		/// <exception cref="ApplicationException">
 		/// Thrown when console mode configuration fails on Windows platforms.
 		/// </exception>
-		public NetConsoleDriver(ConsoleWindowSystem consoleWindowSystem)
+		public NetConsoleDriver(NetConsoleDriverOptions options)
 		{
-			_consoleWindowSystem = consoleWindowSystem;
+			Options = options ?? throw new ArgumentNullException(nameof(options));
+			RenderMode = options.RenderMode;
 
 			Console.OutputEncoding = Encoding.UTF8;
 
@@ -179,6 +183,18 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="NetConsoleDriver"/> class with a specific render mode.
+		/// </summary>
+		/// <param name="renderMode">The rendering mode to use. Defaults to <see cref="RenderMode.Buffer"/>.</param>
+		/// <exception cref="ApplicationException">
+		/// Thrown when console mode configuration fails on Windows platforms.
+		/// </exception>
+		public NetConsoleDriver(RenderMode renderMode = RenderMode.Buffer)
+			: this(new NetConsoleDriverOptions { RenderMode = renderMode })
+		{
+		}
+
 		/// <inheritdoc/>
 		public event EventHandler<ConsoleKeyInfo>? KeyPressed;
 
@@ -189,14 +205,18 @@ namespace SharpConsoleUI.Drivers
 		public event EventHandler<Size>? ScreenResized;
 
 		/// <summary>
-		/// Gets or sets the rendering mode for console output.
+		/// Gets the driver configuration options.
 		/// </summary>
-		/// <value>The current render mode. Defaults to <see cref="Drivers.RenderMode.Direct"/>.</value>
+		public NetConsoleDriverOptions Options { get; }
+
+		/// <summary>
+		/// Gets the rendering mode for console output.
+		/// </summary>
+		/// <value>The current render mode.</value>
 		/// <remarks>
-		/// Changing this property after calling <see cref="Start"/> may result in undefined behavior.
-		/// Set this property before starting the driver for best results.
+		/// The render mode is set during driver construction and cannot be changed afterward.
 		/// </remarks>
-		public RenderMode RenderMode { get; set; } = RenderMode.Direct;
+		public RenderMode RenderMode { get; }
 
 		/// <inheritdoc/>
 		public Size ScreenSize => new Size(Console.WindowWidth, Console.WindowHeight);
@@ -230,6 +250,12 @@ namespace SharpConsoleUI.Drivers
 					throw new ApplicationException($"Failed to restore error console mode, error code: {GetLastError()}.");
 				}
 			}
+		}
+
+		/// <inheritdoc/>
+		public void Initialize(ConsoleWindowSystem windowSystem)
+		{
+			_consoleWindowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
 		}
 
 		/// <inheritdoc/>
@@ -308,8 +334,48 @@ namespace SharpConsoleUI.Drivers
 			Console.Clear();
 
 			// Restore cursor visibility on shutdown
-			Console.CursorVisible = true;
-			Core.CursorStateService.ResetCursorShape();
+			SetCursorVisible(true);
+			ResetCursorShape();
+		}
+
+		/// <inheritdoc/>
+		public void SetCursorPosition(int x, int y)
+		{
+			Console.SetCursorPosition(x, y);
+		}
+
+		/// <inheritdoc/>
+		public void SetCursorVisible(bool visible)
+		{
+			Console.CursorVisible = visible;
+		}
+
+		/// <inheritdoc/>
+		public void SetCursorShape(Core.CursorShape shape)
+		{
+			// ANSI escape sequence for cursor shape: ESC [ n SP q
+			// Shape codes: 1=blinking block, 2=steady block, 3=blinking underline,
+			// 4=steady underline, 5=blinking bar, 6=steady bar
+			int shapeCode = shape switch
+			{
+				Core.CursorShape.Block => 2,        // Steady block
+				Core.CursorShape.Underline => 4,    // Steady underline
+				Core.CursorShape.VerticalBar => 6,  // Steady bar
+				Core.CursorShape.Hidden => 0,       // Will be handled by SetCursorVisible
+				_ => 2  // Default to steady block
+			};
+
+			if (shapeCode > 0)
+			{
+				Console.Write($"\x1b[{shapeCode} q");
+			}
+		}
+
+		/// <inheritdoc/>
+		public void ResetCursorShape()
+		{
+			// Reset to default: ESC [ 0 SP q
+			Console.Write("\x1b[0 q");
 		}
 
 		/// <inheritdoc/>
