@@ -465,7 +465,7 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Subscribes a handler to the window's OnCLosing event, which is raised when the window is about to close and can be cancelled.
+    /// Subscribes a handler to the window's OnClosing event, which is raised when the window is about to close and can be cancelled.
     /// </summary>
     /// <param name="handler">The event handler to invoke when the window is closing.</param>
     /// <returns>The current builder instance for method chaining.</returns>
@@ -596,7 +596,7 @@ public sealed class WindowBuilder
             window.OnClosed += _closedHandler;
 
         if (_closingHandler != null)
-            window.OnCLosing += _closingHandler;
+            window.OnClosing += _closingHandler;
 
         if (_resizeHandler != null)
             window.OnResize += _resizeHandler;

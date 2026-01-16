@@ -116,7 +116,7 @@ public interface ITheme
     /// <summary>
     /// Gets the character used to fill the desktop background area.
     /// </summary>
-    char DesktopBackroundChar { get; }
+    char DesktopBackgroundChar { get; }
 
     /// <summary>
     /// Gets the foreground color for the desktop background character pattern.

@@ -116,7 +116,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the character used to fill the desktop background area.
 		/// </summary>
-		public char DesktopBackroundChar { get; set; } = ' ';
+		public char DesktopBackgroundChar { get; set; } = ' ';
 
 		/// <summary>
 		/// Gets or sets the foreground color for the desktop background character pattern.

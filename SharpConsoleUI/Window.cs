@@ -96,17 +96,17 @@ namespace SharpConsoleUI
 		/// Initializes a new instance of the <see cref="KeyPressedEventArgs"/> class.
 		/// </summary>
 		/// <param name="keyInfo">The key information for the pressed key.</param>
-		/// <param name="allreadyHandled">Indicates whether the key was already handled by a control.</param>
-		public KeyPressedEventArgs(ConsoleKeyInfo keyInfo, bool allreadyHandled)
+		/// <param name="alreadyHandled">Indicates whether the key was already handled by a control.</param>
+		public KeyPressedEventArgs(ConsoleKeyInfo keyInfo, bool alreadyHandled)
 		{
 			KeyInfo = keyInfo;
-			AllreadyHandled = allreadyHandled;
+			AlreadyHandled = alreadyHandled;
 		}
 
 		/// <summary>
 		/// Gets a value indicating whether the key press was already handled by a focused control.
 		/// </summary>
-		public bool AllreadyHandled { get; private set; }
+		public bool AlreadyHandled { get; private set; }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether this key press event has been handled.
@@ -266,7 +266,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Occurs when the window is about to close, allowing cancellation.
 		/// </summary>
-		public event EventHandler<ClosingEventArgs>? OnCLosing;
+		public event EventHandler<ClosingEventArgs>? OnClosing;
 
 		/// <summary>
 		/// Occurs when the window is resized.
@@ -707,10 +707,10 @@ namespace SharpConsoleUI
 			if (!IsClosable) return false;
 
 			// 1. Fire OnClosing event FIRST (before any changes)
-			if (OnCLosing != null)
+			if (OnClosing != null)
 			{
 				var args = new ClosingEventArgs();
-				OnCLosing(this, args);
+				OnClosing(this, args);
 				if (!args.Allow)
 				{
 					return false;  // ✅ Close cancelled - nothing was changed!
@@ -2616,14 +2616,14 @@ namespace SharpConsoleUI
 		/// Raises the KeyPressed event.
 		/// </summary>
 		/// <param name="key">The key information.</param>
-		/// <param name="allreadyHandled">Indicates whether the key was already handled.</param>
+		/// <param name="alreadyHandled">Indicates whether the key was already handled.</param>
 		/// <returns>True if the event was handled; otherwise false.</returns>
-		protected virtual bool OnKeyPressed(ConsoleKeyInfo key, bool allreadyHandled)
+		protected virtual bool OnKeyPressed(ConsoleKeyInfo key, bool alreadyHandled)
 		{
 			var handler = KeyPressed;
 			if (handler != null)
 			{
-				var args = new KeyPressedEventArgs(key, allreadyHandled);
+				var args = new KeyPressedEventArgs(key, alreadyHandled);
 				handler(this, args);
 				return args.Handled;
 			}

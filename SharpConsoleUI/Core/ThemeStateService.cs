@@ -302,7 +302,7 @@ namespace SharpConsoleUI.Core
 		public (Color Background, Color Foreground, char BackgroundChar) GetDesktopColors()
 		{
 			var theme = CurrentTheme;
-			return (theme.DesktopBackgroundColor, theme.DesktopForegroundColor, theme.DesktopBackroundChar);
+			return (theme.DesktopBackgroundColor, theme.DesktopForegroundColor, theme.DesktopBackgroundChar);
 		}
 
 		/// <summary>

@@ -75,7 +75,7 @@ public class DevDarkTheme : ITheme
 	public Color DesktopBackgroundColor { get; set; } = Color.Grey7;
 
 	/// <inheritdoc />
-	public char DesktopBackroundChar { get; set; } = ' ';
+	public char DesktopBackgroundChar { get; set; } = ' ';
 
 	/// <inheritdoc />
 	public Color DesktopForegroundColor { get; set; } = Color.Grey35;

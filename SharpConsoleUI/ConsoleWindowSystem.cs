@@ -585,7 +585,7 @@ namespace SharpConsoleUI
 
 			// Redraw the screen
 			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height,
-							  Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+							  Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 			foreach (var w in Windows.Values)
 			{
 				w.Invalidate(true);
@@ -600,7 +600,7 @@ namespace SharpConsoleUI
 		public void ClearArea(int left, int top, int width, int height)
 		{
 			_renderer.FillRect(left, top, width, height,
-				Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+				Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 			// Invalidate any windows that overlap with this area to redraw them
 			foreach (var window in Windows.Values)
@@ -700,7 +700,7 @@ namespace SharpConsoleUI
 
 					_consoleDriver.Clear();
 
-					_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+					_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 					foreach (var window in Windows.Values)
 					{
@@ -735,7 +735,7 @@ namespace SharpConsoleUI
 			_consoleDriver.Start();
 
 			// Initialize the console window system with background color and character
-			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 			Exception? fatalException = null;
 
@@ -1056,7 +1056,7 @@ namespace SharpConsoleUI
 
 			// Start by clearing the region with desktop background
 			_renderer.FillRect(exposedRegion.X, exposedRegion.Y, exposedRegion.Width, exposedRegion.Height,
-				Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+				Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 			// Redraw each candidate window in the exposed region (in Z-order)
 			foreach (var candidateWindow in candidateWindows)
@@ -1700,7 +1700,7 @@ namespace SharpConsoleUI
 			{
 				// FIRST: Clear the old window position completely
 				_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
-					Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+					Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 				// THEN: Apply the new position
 				window.SetPosition(new Point(newLeft, newTop));
@@ -1796,7 +1796,7 @@ namespace SharpConsoleUI
 			{
 				// FIRST: Clear the old window position/size completely
 				_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
-					Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+					Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 				// THEN: Apply the new position and size
 				window.SetPosition(new Point(newLeft, newTop));
@@ -1922,7 +1922,7 @@ namespace SharpConsoleUI
 
 			// FIRST: Clear the old window position completely (same as mouse operations)
 			_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
-				Theme.DesktopBackroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+				Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 
 			// No need for direction-specific clearing since we clear the entire window
 
