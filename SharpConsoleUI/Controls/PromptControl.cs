@@ -177,9 +177,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the current input text.
-		/// </summary>
 		public string Input
 		{
 			get => _input;
