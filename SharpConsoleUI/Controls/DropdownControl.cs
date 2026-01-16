@@ -355,9 +355,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets whether the dropdown is enabled and can be interacted with.
-		/// </summary>
 		public bool IsEnabled
 		{
 			get => _isEnabled;

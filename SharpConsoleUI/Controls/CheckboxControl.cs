@@ -216,9 +216,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
-		/// <summary>
-		/// Gets or sets whether the checkbox is enabled and can be interacted with.
-		/// </summary>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
@@ -229,9 +226,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the text label displayed next to the checkbox.
-		/// </summary>
 		public string Label
 		{
 			get => _label;
