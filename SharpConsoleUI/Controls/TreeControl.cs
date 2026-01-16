@@ -99,6 +99,7 @@ namespace SharpConsoleUI.Controls
 			get => _verticalAlignment;
 			set
 			{
+				if (_verticalAlignment == value) return;
 				_verticalAlignment = value;
 				Container?.Invalidate(true);
 			}

@@ -378,6 +378,7 @@ namespace SharpConsoleUI.Controls
 			get => _horizontalAlignment;
 			set
 			{
+				if (_horizontalAlignment == value) return;
 				_horizontalAlignment = value;
 				Container?.Invalidate(true);
 			}
@@ -389,6 +390,7 @@ namespace SharpConsoleUI.Controls
 			get => _verticalAlignment;
 			set
 			{
+				if (_verticalAlignment == value) return;
 				_verticalAlignment = value;
 				Container?.Invalidate(true);
 			}
@@ -402,6 +404,7 @@ namespace SharpConsoleUI.Controls
 			get => _autoAdjustWidth;
 			set
 			{
+				if (_autoAdjustWidth == value) return;
 				_autoAdjustWidth = value;
 				Container?.Invalidate(true);
 			}
