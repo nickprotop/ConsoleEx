@@ -1131,11 +1131,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + _margin.Top;
 
 			// Fill top margin
-			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground);
 
 			// Calculate dropdown width
 			int dropdownWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
@@ -1211,11 +1207,7 @@ namespace SharpConsoleUI.Controls
 			// This keeps the control height constant and allows the list to extend beyond parent bounds
 
 			// Fill bottom margin
-			for (int y = paintY; y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
-			}
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, paintY, foregroundColor, windowBackground);
 		}
 
 		#endregion

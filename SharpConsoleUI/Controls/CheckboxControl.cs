@@ -439,13 +439,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill top margin
-			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
-				}
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground);
 
 			// Paint checkbox line
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
@@ -483,13 +477,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill bottom margin
-			for (int y = startY + 1; y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
-				}
-			}
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, foregroundColor, windowBackground);
 		}
 
 		#endregion

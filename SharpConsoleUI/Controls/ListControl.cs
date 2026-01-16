@@ -1444,13 +1444,7 @@ namespace SharpConsoleUI.Controls
 			int currentY = startY;
 
 			// Fill top margin
-			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
-				}
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground);
 
 			bool hasTitle = !string.IsNullOrEmpty(_title);
 			int scrollOffset = CurrentScrollOffset;
@@ -1702,13 +1696,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill bottom margin
-			for (int y = currentY; y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', foregroundColor, windowBackground);
-				}
-			}
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, currentY, foregroundColor, windowBackground);
 		}
 
 		#endregion

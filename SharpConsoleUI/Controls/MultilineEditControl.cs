@@ -1846,13 +1846,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + _margin.Top;
 
 			// Fill top margin
-			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, windowBgColor);
-				}
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBgColor);
 
 			// Determine if scrollbars will be shown
 			bool needsVerticalScrollbar = _verticalScrollbarVisibility == ScrollbarVisibility.Always ||
@@ -2190,13 +2184,7 @@ namespace SharpConsoleUI.Controls
 
 			// Fill bottom margin
 			int contentEndY = startY + _viewportHeight + (needsHorizontalScrollbar ? 1 : 0);
-			for (int y = contentEndY; y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, windowBgColor);
-				}
-			}
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, fgColor, windowBgColor);
 		}
 
 		#endregion

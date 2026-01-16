@@ -510,13 +510,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
         int currentY = startY;
 
         // Fill top margin
-        for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-        {
-            if (y >= clipRect.Y && y < clipRect.Bottom)
-            {
-                buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
-            }
-        }
+        ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
 
         // Render title if set
         int contentHeight = bounds.Height - _margin.Top - _margin.Bottom;
@@ -758,13 +752,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
         }
 
         // Fill bottom margin
-        for (int y = bounds.Bottom - _margin.Bottom; y < bounds.Bottom; y++)
-        {
-            if (y >= clipRect.Y && y < clipRect.Bottom)
-            {
-                buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
-            }
-        }
+        ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - _margin.Bottom, fgColor, bgColor);
     }
 
     #endregion

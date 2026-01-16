@@ -411,13 +411,7 @@ namespace SharpConsoleUI.Controls
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 
 			// Fill top margin
-			for (int y = bounds.Y; y < startY && y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, windowBackground);
-				}
-			}
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBackground);
 
 			// Paint the splitter lines
 			for (int y = 0; y < splitterHeight; y++)
@@ -446,13 +440,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill bottom margin
-			for (int y = startY + splitterHeight; y < bounds.Bottom; y++)
-			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, windowBackground);
-				}
-			}
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + splitterHeight, fgColor, windowBackground);
 		}
 
 		#endregion
