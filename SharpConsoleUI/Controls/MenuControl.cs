@@ -169,8 +169,8 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     }
 
     // Resolved colors with theme fallback
-    private Color ResolvedMenuBarBackground => _menuBarBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarBackgroundColor ?? Container?.BackgroundColor ?? Color.Black;
-    private Color ResolvedMenuBarForeground => _menuBarForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarForegroundColor ?? Container?.ForegroundColor ?? Color.White;
+    private Color ResolvedMenuBarBackground => ColorResolver.ResolveMenuBarBackground(_menuBarBackgroundColor, Container);
+    private Color ResolvedMenuBarForeground => ColorResolver.ResolveMenuBarForeground(_menuBarForegroundColor, Container);
     private Color ResolvedMenuBarHighlightBackground => _menuBarHighlightBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarHighlightBackgroundColor ?? Color.Blue;
     private Color ResolvedMenuBarHighlightForeground => _menuBarHighlightForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarHighlightForegroundColor ?? Color.White;
     private Color ResolvedDropdownBackground => _dropdownBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownBackgroundColor ?? Color.White;

@@ -80,10 +80,11 @@
 
 ## Phase 2: Remove Code Duplication (Category 1 - CRITICAL)
 
-**Status:** 🔄 In Progress (2/3 tasks completed)
+**Status:** ✅ Completed (3/3 tasks completed)
 **Tasks:** 3
-**Estimated Time:** 1 hour
+**Actual Time:** ~30 minutes
 **Impact:** -108 duplicated lines, +121 helper lines + 18 calls = **-90 net reduction** (better than estimated!)
+**Committed:** 9c70760
 
 **Deep Analysis Findings:**
 - **Severity:** HIGH (Category 1 in CODE_DUPLICATION_ANALYSIS.md)
@@ -145,18 +146,21 @@ if (contentEndX < bounds.Right)
   - **Build:** Verified successful (0 errors, 101 warnings)
   - **Note:** 5 controls didn't have the pattern, only 9 needed updates
 
-- [ ] **Task 7:** Commit duplication fixes
+- [x] **Task 7:** Commit duplication fixes ✅ COMPLETED
   - Commit message: `"Extract duplicated rendering code to ControlRenderingHelpers"`
-  - Push to remote
+  - Commit hash: `9c70760`
+  - **Files changed:** 11 files (164 insertions, 148 deletions)
+  - **Net reduction:** 16 fewer lines overall
+  - **Note:** Ready to push when all phases complete
 
 ---
 
 ## Phase 3: Consolidate Color Resolution (Category 2 - HIGH)
 
-**Status:** ⏸️ Not Started
+**Status:** 🔄 In Progress (2/3 tasks completed)
 **Tasks:** 3
 **Estimated Time:** 1 hour
-**Impact:** -33 duplicated lines, +150 helper lines = **+117 net lines** (massive readability improvement)
+**Impact:** -40 duplicated lines, +105 helper lines = **+65 net lines** (massive readability improvement)
 
 **Deep Analysis Findings:**
 - **Severity:** HIGH (Category 2 in CODE_DUPLICATION_ANALYSIS.md)
@@ -195,31 +199,29 @@ private Color ResolvedMenuBarBackground
 
 **Problem:** Unreadable, error-prone, difficult to maintain
 
-- [ ] **Task 8:** Create `SharpConsoleUI/Helpers/ColorResolver.cs`
-  - Add methods: `ResolveBackground`, `ResolveForeground`, `ResolveMenuBarBackground`, `ResolveMenuBarForeground`
-  - Centralize the 4-level fallback chain logic
-  - See REFACTORING_PROMPT.md for detailed implementation
-  - See CODE_DUPLICATION_ANALYSIS.md Category 2 for analysis
+- [x] **Task 8:** Create `SharpConsoleUI/Helpers/ColorResolver.cs` ✅ COMPLETED
+  - **Created:** 105-line helper class with 4 static methods
+  - Methods: `ResolveBackground`, `ResolveForeground`, `ResolveMenuBarBackground`, `ResolveMenuBarForeground`
+  - Centralizes the 4-level fallback chain logic
+  - **Build:** Verified successful (0 errors)
 
-- [ ] **Task 9:** Replace 11+ instances of cascading `??` chains
-  - **Files to update (all confirmed instances):**
-    1. SpectreRenderableControl.cs (line 86) - BackgroundColor
-    2. DropdownControl.cs (line 241) - BackgroundColor
-    3. MenuControl.cs (lines 172-173) - MenuBar colors (2 instances)
-    4. CheckboxControl.cs (line 91) - BackgroundColor
-    5. ListControl.cs (line 415) - BackgroundColor
-    6. MultilineEditControl.cs (line 166) - BackgroundColor
-    7. SplitterControl.cs (line 106) - BackgroundColor
-    8. TreeControl.cs (line 112) - BackgroundColor
-    9. ButtonControl.cs - Check for ForegroundColor/BackgroundColor
-    10. PromptControl.cs - Check for color properties
-    11. ToolbarControl.cs - Check for color properties
-  - **Search pattern:** `?? Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme`
-  - **Replace pattern:**
-    - Background: `ColorResolver.ResolveBackground(_backgroundColorValue, Container)`
-    - Foreground: `ColorResolver.ResolveForeground(_foregroundColorValue, Container)`
-    - MenuBar: `ColorResolver.ResolveMenuBarBackground(_menuBarBackgroundColor, Container)`
-  - **Verification:** Build succeeds, colors render identically
+- [x] **Task 9:** Replace 10 instances of cascading `??` chains ✅ COMPLETED
+  - **Files updated (9 controls with standard patterns):**
+    1. ✅ ListControl.cs (line 415) - BackgroundColor property
+    2. ✅ TreeControl.cs (line 112) - BackgroundColor property
+    3. ✅ DropdownControl.cs (line 241) - BackgroundColor property
+    4. ✅ CheckboxControl.cs (line 91) - BackgroundColor property
+    5. ✅ MultilineEditControl.cs (line 166) - BackgroundColor property
+    6. ✅ SplitterControl.cs (line 106) - BackgroundColor property
+    7. ✅ SpectreRenderableControl.cs (line 86) - BackgroundColor property
+    8. ✅ HorizontalGridControl.cs (lines 1380-1381) - Background AND Foreground in Paint method
+    9. ✅ MenuControl.cs (lines 172-173) - ResolvedMenuBarBackground AND ResolvedMenuBarForeground
+  - **Total instances replaced:** 10 color resolution chains
+  - **Lines removed:** ~40 lines of cascading ?? chains
+  - **Lines added:** 10 ColorResolver method calls
+  - **Net reduction:** -30 lines
+  - **Build:** Verified successful (0 errors, 101 warnings)
+  - **Note:** SeparatorControl and ToolbarControl use specialized theme colors (not standard pattern)
 
 - [ ] **Task 10:** Commit color resolution refactoring
   - Commit message: `"Consolidate color resolution logic to ColorResolver"`

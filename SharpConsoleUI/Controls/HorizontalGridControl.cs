@@ -1377,10 +1377,8 @@ namespace SharpConsoleUI.Controls
 			// Children (columns, splitters) are painted by the DOM tree's child LayoutNodes.
 			// This method only paints the container's own content (background, margins).
 
-			var bgColor = BackgroundColor ?? Container?.BackgroundColor
-				?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? defaultBg;
-			var fgColor = ForegroundColor ?? Container?.ForegroundColor
-				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? defaultFg;
+			var bgColor = ColorResolver.ResolveBackground(BackgroundColor, Container, defaultBg);
+			var fgColor = ColorResolver.ResolveForeground(ForegroundColor, Container, defaultFg);
 
 			// Fill the entire bounds with background color
 			for (int y = bounds.Y; y < bounds.Bottom; y++)

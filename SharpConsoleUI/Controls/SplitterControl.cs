@@ -103,7 +103,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color BackgroundColor
 		{
-			get => _backgroundColorValue ?? Container?.BackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			set
 			{
 				_backgroundColorValue = value;
