@@ -48,6 +48,9 @@ namespace SharpConsoleUI.Controls
 		private int _selectedIndex = 0;
 		private int _scrollOffset = 0;
 
+		// Performance: Cache for expensive text measurement operations
+		private readonly Dictionary<string, int> _textLengthCache = new Dictionary<string, int>();
+
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
 		private int CurrentScrollOffset => _scrollOffset;
@@ -57,6 +60,17 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public TreeControl()
 		{
+		}
+
+		// Helper to get cached text length (expensive operation)
+		private int GetCachedTextLength(string text)
+		{
+			if (_textLengthCache.TryGetValue(text, out int cachedLength))
+				return cachedLength;
+
+			int length = AnsiConsoleHelper.StripAnsiStringLength(text);
+			_textLengthCache[text] = length;
+			return length;
 		}
 
 		/// <summary>
@@ -76,7 +90,7 @@ namespace SharpConsoleUI.Controls
 					string prefix = BuildTreePrefix(depth, IsLastChildInParent(node), guideChars);
 					string displayText = node.Text ?? string.Empty;
 					string expandIndicator = node.Children.Count > 0 ? " [-]" : "";
-					int length = AnsiConsoleHelper.StripAnsiStringLength(prefix + displayText + expandIndicator);
+					int length = GetCachedTextLength(prefix + displayText + expandIndicator);
 					if (length > maxLength) maxLength = length;
 				}
 				return maxLength + _margin.Left + _margin.Right;
@@ -365,6 +379,7 @@ namespace SharpConsoleUI.Controls
 		{
 			_rootNodes.Clear();
 			_flattenedNodes.Clear();
+			_textLengthCache.Clear(); // Clear cache when tree cleared
 
 			// Clear state via services (single source of truth)
 			int oldIndex = _selectedIndex;
@@ -496,7 +511,7 @@ namespace SharpConsoleUI.Controls
 				string prefix = BuildTreePrefix(depth, IsLastChildInParent(node), guideChars);
 				string displayText = node.Text ?? string.Empty;
 				string expandIndicator = node.Children.Count > 0 ? " [-]" : "";
-				int width = AnsiConsoleHelper.StripAnsiStringLength(prefix + displayText + expandIndicator);
+				int width = GetCachedTextLength(prefix + displayText + expandIndicator);
 				if (width > maxWidth) maxWidth = width;
 			}
 			return new System.Drawing.Size(
@@ -1166,20 +1181,20 @@ namespace SharpConsoleUI.Controls
 				string nodeText = prefix + displayText + expandCollapseIndicator;
 
 				// Calculate the visible length of the text (without ANSI codes)
-				int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+				int visibleLength = GetCachedTextLength(nodeText);
 
 				// Truncate if necessary to fit in the available width
 				if (visibleLength > contentWidth)
 				{
 					// Truncate the displayText, not the prefix
-					int prefixLength = AnsiConsoleHelper.StripAnsiStringLength(prefix);
+					int prefixLength = GetCachedTextLength(prefix);
 					int maxTextLength = contentWidth - prefixLength - (node.Children.Count > 0 ? 4 : 0) - ControlDefaults.DefaultEllipsisLength; // 3 for "..."
 
 					if (maxTextLength > 0)
 					{
 						displayText = displayText.Substring(0, Math.Min(displayText.Length, maxTextLength)) + "...";
 						nodeText = prefix + displayText + expandCollapseIndicator;
-						visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+						visibleLength = GetCachedTextLength(nodeText);
 					}
 				}
 
@@ -1265,20 +1280,20 @@ namespace SharpConsoleUI.Controls
 			string nodeText = prefix + displayText + expandCollapseIndicator;
 
 			// Calculate the visible length of the text (without ANSI codes)
-			int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+			int visibleLength = GetCachedTextLength(nodeText);
 
 			// Truncate if necessary to fit in the available width
 			if (visibleLength > contentWidth)
 			{
 				// Truncate the displayText, not the prefix
-				int prefixLength = AnsiConsoleHelper.StripAnsiStringLength(prefix);
+				int prefixLength = GetCachedTextLength(prefix);
 				int maxTextLength = contentWidth - prefixLength - (rootNode.Children.Count > 0 ? 4 : 0) - 3; // 3 for "..."
 
 				if (maxTextLength > 0)
 				{
 					displayText = displayText.Substring(0, Math.Min(displayText.Length, maxTextLength)) + "...";
 					nodeText = prefix + displayText + expandCollapseIndicator;
-					visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+					visibleLength = GetCachedTextLength(nodeText);
 				}
 			}
 
@@ -1323,6 +1338,7 @@ namespace SharpConsoleUI.Controls
 		private void UpdateFlattenedNodes()
 		{
 			_flattenedNodes.Clear();
+			_textLengthCache.Clear(); // Clear cache when tree structure changes
 			FlattenNodes(_rootNodes);
 
 			// Ensure selected index is valid
@@ -1371,7 +1387,7 @@ namespace SharpConsoleUI.Controls
 				string prefix = BuildTreePrefix(depth, IsLastChildInParent(node), guideChars);
 				string displayText = node.Text ?? string.Empty;
 				string expandIndicator = node.Children.Count > 0 ? " [-]" : "";
-				int itemWidth = AnsiConsoleHelper.StripAnsiStringLength(prefix + displayText + expandIndicator);
+				int itemWidth = GetCachedTextLength(prefix + displayText + expandIndicator);
 				if (itemWidth > maxItemWidth) maxItemWidth = itemWidth;
 			}
 
@@ -1511,18 +1527,18 @@ namespace SharpConsoleUI.Controls
 
 				// Build full node text
 				string nodeText = prefix + displayText + expandIndicator;
-				int visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+				int visibleLength = GetCachedTextLength(nodeText);
 
 				// Truncate if necessary
 				if (visibleLength > contentWidth)
 				{
-					int prefixLength = AnsiConsoleHelper.StripAnsiStringLength(prefix);
+					int prefixLength = GetCachedTextLength(prefix);
 					int maxTextLength = contentWidth - prefixLength - (node.Children.Count > 0 ? 4 : 0) - ControlDefaults.DefaultEllipsisLength;
 					if (maxTextLength > 0)
 					{
 						displayText = displayText.Substring(0, Math.Min(displayText.Length, maxTextLength)) + "...";
 						nodeText = prefix + displayText + expandIndicator;
-						visibleLength = AnsiConsoleHelper.StripAnsiStringLength(nodeText);
+						visibleLength = GetCachedTextLength(nodeText);
 					}
 				}
 

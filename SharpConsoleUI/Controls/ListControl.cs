@@ -100,6 +100,9 @@ namespace SharpConsoleUI.Controls
 		private int _doubleClickThresholdMs = ControlDefaults.DefaultDoubleClickThresholdMs;
 		private bool _showSelectionMarkers = true;  // Show [x]/[ ] markers
 
+		// Performance: Cache for expensive text measurement operations
+		private readonly Dictionary<string, int> _textLengthCache = new Dictionary<string, int>();
+
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
 		private int CurrentHighlightedIndex => _highlightedIndex;
@@ -109,6 +112,17 @@ namespace SharpConsoleUI.Controls
 		private void SetScrollOffset(int offset)
 		{
 			_scrollOffset = Math.Max(0, offset);
+		}
+
+		// Helper to get cached text length (expensive operation)
+		private int GetCachedTextLength(string text)
+		{
+			if (_textLengthCache.TryGetValue(text, out int cachedLength))
+				return cachedLength;
+
+			int length = AnsiConsoleHelper.StripSpectreLength(text);
+			_textLengthCache[text] = length;
+			return length;
 		}
 
 		// Helper to find containing Window by traversing container hierarchy
@@ -360,13 +374,13 @@ namespace SharpConsoleUI.Controls
 				int maxItemWidth = 0;
 				foreach (var item in _items)
 				{
-					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+					int itemLength = GetCachedTextLength(item.Text + "    ");
 					if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 				}
 
 				// Calculate indicator space: only needed in Complex mode with markers
 				int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 5 : 0;
-				int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
+				int titleLength = string.IsNullOrEmpty(_title) ? 0 : GetCachedTextLength(_title) + 5;
 
 				int width = _width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
 				return width + _margin.Left + _margin.Right;
@@ -555,6 +569,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_items = value;
+				_textLengthCache.Clear(); // Clear cache when items change
 				// Adjust selection if out of bounds
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
@@ -813,6 +828,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_items = value.Select(text => new ListItem(text)).ToList();
+				_textLengthCache.Clear(); // Clear cache when items change
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
 				{
@@ -882,6 +898,7 @@ namespace SharpConsoleUI.Controls
 		public void AddItem(ListItem item)
 		{
 			_items.Add(item);
+			_textLengthCache.Clear(); // Clear cache when items change
 			Container?.Invalidate(true);
 		}
 
@@ -911,6 +928,7 @@ namespace SharpConsoleUI.Controls
 		public void ClearItems()
 		{
 			_items.Clear();
+			_textLengthCache.Clear(); // Clear cache when items cleared
 
 			// Clear state via services (single source of truth)
 			_selectedIndex = -1;
@@ -962,11 +980,11 @@ namespace SharpConsoleUI.Controls
 			int maxItemWidth = 0;
 			foreach (var item in _items)
 			{
-				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+				int itemLength = GetCachedTextLength(item.Text + "    ");
 				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 			}
 
-			int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
+			int titleLength = string.IsNullOrEmpty(_title) ? 0 : GetCachedTextLength(_title) + 5;
 			int width = _width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
 			width += _margin.Left + _margin.Right;
 
@@ -1296,7 +1314,7 @@ namespace SharpConsoleUI.Controls
 			int maxItemWidth = 0;
 			foreach (var item in _items)
 			{
-				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+				int itemLength = GetCachedTextLength(item.Text + "    ");
 				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 			}
 
@@ -1312,7 +1330,7 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				int titleLength = string.IsNullOrEmpty(_title) ? 0 : AnsiConsoleHelper.StripSpectreLength(_title) + 5;
+				int titleLength = string.IsNullOrEmpty(_title) ? 0 : GetCachedTextLength(_title) + 5;
 				listWidth = Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
 				listWidth = Math.Max(listWidth, 40);
 			}
@@ -1322,7 +1340,7 @@ namespace SharpConsoleUI.Controls
 				int contentWidth = 0;
 				foreach (var item in _items)
 				{
-					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text + "    ");
+					int itemLength = GetCachedTextLength(item.Text + "    ");
 					contentWidth = Math.Max(contentWidth, itemLength);
 				}
 				listWidth = Math.Max(listWidth, contentWidth + indicatorSpace + 4);
@@ -1457,7 +1475,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					string titleBarContent = _title;
-					int titleLen = AnsiConsoleHelper.StripSpectreLength(titleBarContent);
+					int titleLen = GetCachedTextLength(titleBarContent);
 					if (titleLen < listWidth)
 					{
 						titleBarContent += new string(' ', listWidth - titleLen);
@@ -1531,7 +1549,7 @@ namespace SharpConsoleUI.Controls
 
 						// Truncate if necessary
 						int maxTextWidth = listWidth - (indicatorSpace + 2);
-						if (AnsiConsoleHelper.StripSpectreLength(lineText) > maxTextWidth && maxTextWidth > ControlDefaults.DefaultMinTextWidth)
+						if (GetCachedTextLength(lineText) > maxTextWidth && maxTextWidth > ControlDefaults.DefaultMinTextWidth)
 						{
 							lineText = lineText.Substring(0, Math.Max(0, maxTextWidth - ControlDefaults.DefaultEllipsisLength)) + "...";
 						}
@@ -1601,9 +1619,9 @@ namespace SharpConsoleUI.Controls
 							string iconText = _items[itemIndex].Icon!;
 							Color iconColor = _items[itemIndex].IconColor ?? itemFg;
 							string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
-							int iconVisibleLength = AnsiConsoleHelper.StripSpectreLength(iconText) + 1;
+							int iconVisibleLength = GetCachedTextLength(iconText) + 1;
 							itemContent = selectionIndicator + iconMarkup + lineText;
-							int visibleTextLength = selectionIndicator.Length + iconVisibleLength + AnsiConsoleHelper.StripSpectreLength(lineText);
+							int visibleTextLength = selectionIndicator.Length + iconVisibleLength + GetCachedTextLength(lineText);
 							int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
 							if (paddingNeeded > 0) itemContent += new string(' ', paddingNeeded);
 						}
@@ -1613,11 +1631,11 @@ namespace SharpConsoleUI.Controls
 							if (lineIndex > 0 && _items[itemIndex].Icon != null)
 							{
 								string iconText = _items[itemIndex].Icon!;
-								int iconWidth = AnsiConsoleHelper.StripSpectreLength(iconText) + 1;
+								int iconWidth = GetCachedTextLength(iconText) + 1;
 								indent = new string(' ', iconWidth);
 							}
 							itemContent = selectionIndicator + indent + lineText;
-							int visibleTextLength = selectionIndicator.Length + indent.Length + AnsiConsoleHelper.StripSpectreLength(lineText);
+							int visibleTextLength = selectionIndicator.Length + indent.Length + GetCachedTextLength(lineText);
 							int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
 							if (paddingNeeded > 0) itemContent += new string(' ', paddingNeeded);
 						}
