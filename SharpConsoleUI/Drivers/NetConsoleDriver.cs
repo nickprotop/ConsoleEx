@@ -304,11 +304,14 @@ namespace SharpConsoleUI.Drivers
 			}
 
 			// Enable mouse reporting in proper order: basic -> extended modes -> drag tracking
-			Console.Out.Write("\x1b[?1000h");  // Enable basic mouse reporting 
+			Console.Out.Write("\x1b[?1000h");  // Enable basic mouse reporting
 			Console.Out.Write("\x1b[?1006h");  // Enable SGR extended mouse mode
-			Console.Out.Write("\x1b[?1015h");  // Enable urxvt extended mouse mode  
+			Console.Out.Write("\x1b[?1015h");  // Enable urxvt extended mouse mode
 			Console.Out.Write("\x1b[?1002h");  // Enable button event tracking (drag mode)
 			Console.Out.Write("\x1b[?1003h");  // Enable any event mouse (motion tracking)
+
+			// Disable autowrap to prevent terminal scroll when writing to bottom-right corner
+			Console.Out.Write("\x1b[?7l");
 
 			_lastConsoleWidth = Console.WindowWidth;
 			_lastConsoleHeight = Console.WindowHeight;
@@ -326,8 +329,11 @@ namespace SharpConsoleUI.Drivers
 			Console.Out.Write("\x1b[?1003l");  // Disable any event mouse
 			Console.Out.Write("\x1b[?1002l");  // Disable button event tracking (drag mode)
 			Console.Out.Write("\x1b[?1015l");  // Disable urxvt extended mouse mode
-			Console.Out.Write("\x1b[?1006l");  // Disable SGR extended mouse mode  
+			Console.Out.Write("\x1b[?1006l");  // Disable SGR extended mouse mode
 			Console.Out.Write("\x1b[?1000l");  // Disable basic mouse reporting
+
+			// Re-enable autowrap
+			Console.Out.Write("\x1b[?7h");
 
 			Cleanup();
 
