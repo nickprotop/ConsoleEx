@@ -51,15 +51,16 @@ windowSystem.Run();
 
 ## Table of Contents
 
-- [Installation](#-installation)
-- [Core Features](#-core-features)
-- [Simple API (Original)](#-simple-api-original)
-- [Modern API (v2.0+)](#-modern-api-v20)
-- [Architecture Overview](#-architecture-overview)
-- [Examples](#-examples)
-- [Advanced Features](#-advanced-features)
-- [Migration Guide](#-migration-guide)
-- [Contributing](#-contributing)
+- [Installation](#installation)
+- [Core Features](#core-features)
+- [Simple API (Original)](#simple-api-original)
+- [Modern API (v20)](#modern-api-v20)
+- [Architecture Overview](#architecture-overview)
+- [Examples](#examples)
+- [Advanced Features](#advanced-features)
+- [Migration Guide](#migration-guide)
+- [Contributing](#contributing)
+- [Documentation](#documentation)
 
 ## Installation
 
@@ -827,11 +828,22 @@ Version 1.0 of SharpConsoleUI was developed manually and provided core windowing
 
 ---
 
+## Documentation
+
+Detailed documentation is available in separate guides:
+
+- **[Controls Reference](docs/CONTROLS.md)** - Complete guide to all 25+ UI controls
+- **[Built-in Dialogs](docs/DIALOGS.md)** - File pickers, folder browsers, and system dialogs
+- **[Theme System](docs/THEMES.md)** - Built-in themes, custom themes, and runtime switching
+- **[Plugin Development](docs/PLUGINS.md)** - Creating custom plugins and using the plugin architecture
+- **[State Services](docs/STATE-SERVICES.md)** - Window state, focus, modal, and notification services
+- **[Fluent Builders](docs/BUILDERS.md)** - WindowBuilder and control builder APIs
+
 ## Links
 
 - **NuGet Package**: [SharpConsoleUI](https://www.nuget.org/packages/SharpConsoleUI)
 - **GitHub Repository**: [ConsoleEx](https://github.com/nickprotop/ConsoleEx)
-- **Documentation**: This README and inline XML comments
+- **Documentation**: [docs/](docs/) folder and inline XML comments
 - **Issues**: [GitHub Issues](https://github.com/nickprotop/ConsoleEx/issues)
 
 ---
