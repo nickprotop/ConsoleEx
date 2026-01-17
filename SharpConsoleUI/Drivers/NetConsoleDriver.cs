@@ -102,6 +102,7 @@ namespace SharpConsoleUI.Drivers
 		private int _lastConsoleHeight;
 		private int _lastConsoleWidth;
 		private bool _running = false;
+		private EventHandler? _processExitHandler;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="NetConsoleDriver"/> class with configuration options.
@@ -181,6 +182,10 @@ namespace SharpConsoleUI.Drivers
 					}
 				}
 			}
+
+			// Register process exit handler for emergency cleanup
+			_processExitHandler = OnProcessExit;
+			AppDomain.CurrentDomain.ProcessExit += _processExitHandler;
 		}
 
 		/// <summary>
@@ -325,15 +330,68 @@ namespace SharpConsoleUI.Drivers
 		{
 			_running = false;
 
-			// Disable mouse reporting in reverse order
-			Console.Out.Write("\x1b[?1003l");  // Disable any event mouse
-			Console.Out.Write("\x1b[?1002l");  // Disable button event tracking (drag mode)
-			Console.Out.Write("\x1b[?1015l");  // Disable urxvt extended mouse mode
-			Console.Out.Write("\x1b[?1006l");  // Disable SGR extended mouse mode
-			Console.Out.Write("\x1b[?1000l");  // Disable basic mouse reporting
+			// Unregister emergency handler - we're doing proper cleanup now
+			if (_processExitHandler != null)
+			{
+				AppDomain.CurrentDomain.ProcessExit -= _processExitHandler;
+				_processExitHandler = null;
+			}
 
-			// Re-enable autowrap
-			Console.Out.Write("\x1b[?7h");
+			// Soft terminal reset first
+			var resetSequence = "\x1b[!p";  // Soft reset (RIS)
+
+			// TRIPLE-SEND the mouse disable sequences
+			var mouseDisable =
+				"\x1b[?1003l" +  // Disable any event mouse
+				"\x1b[?1002l" +  // Disable button event tracking
+				"\x1b[?1015l" +  // Disable urxvt extended mouse mode
+				"\x1b[?1006l" +  // Disable SGR extended mouse mode
+				"\x1b[?1000l";   // Disable basic mouse reporting
+
+			var cleanupSequence =
+				resetSequence +
+				mouseDisable +
+				mouseDisable +  // Second time
+				mouseDisable +  // Third time
+				"\x1b[?7h" +    // Re-enable autowrap
+				"\x1b[0m" +     // Reset ANSI attributes
+				"\x1b[?25h" +   // Make cursor visible
+				"\n";
+
+			// Write to /dev/tty on Unix
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+			    RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ||
+			    RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
+			{
+				try
+				{
+					using var tty = new System.IO.FileStream("/dev/tty",
+						System.IO.FileMode.Open,
+						System.IO.FileAccess.Write,
+						System.IO.FileShare.ReadWrite);
+					var bytes = Encoding.UTF8.GetBytes(cleanupSequence);
+					tty.Write(bytes, 0, bytes.Length);
+					tty.Flush();
+					tty.Write(bytes, 0, bytes.Length);
+					tty.Flush();
+				}
+				catch
+				{
+					Console.Error.Write(cleanupSequence);
+					Console.Error.Flush();
+				}
+			}
+			else
+			{
+				Console.Error.Write(cleanupSequence);
+				Console.Error.Flush();
+			}
+
+			Console.Out.Write(cleanupSequence);
+			Console.Out.Flush();
+			Console.ResetColor();
+
+			Thread.Sleep(50);
 
 			Cleanup();
 
@@ -397,6 +455,101 @@ namespace SharpConsoleUI.Drivers
 				case RenderMode.Buffer:
 					_consoleBuffer?.AddContent(x, y, value);
 					break;
+			}
+		}
+
+		/// <summary>
+		/// Emergency cleanup handler called on process exit.
+		/// </summary>
+		/// <remarks>
+		/// This handler ensures console cleanup even during forceful termination,
+		/// crashes, or abnormal exits. Errors are swallowed since process is exiting.
+		/// </remarks>
+		private void OnProcessExit(object? sender, EventArgs e)
+		{
+			try
+			{
+				EmergencyCleanup();
+			}
+			catch
+			{
+				// Ignore all errors during emergency cleanup - process is exiting anyway
+			}
+		}
+
+		/// <summary>
+		/// Performs minimal essential cleanup when process is terminating.
+		/// </summary>
+		/// <remarks>
+		/// Only executes critical escape sequences to restore terminal state.
+		/// Does not clear screen or perform complex operations.
+		/// All errors are swallowed to ensure cleanup completes.
+		/// </remarks>
+		private void EmergencyCleanup()
+		{
+			try
+			{
+				// Soft terminal reset first
+				var resetSequence = "\x1b[!p";  // Soft reset (RIS)
+
+				// TRIPLE-SEND the mouse disable sequences
+				var mouseDisable =
+					"\x1b[?1003l" +  // Disable any event mouse
+					"\x1b[?1002l" +  // Disable button event tracking
+					"\x1b[?1015l" +  // Disable urxvt extended mouse mode
+					"\x1b[?1006l" +  // Disable SGR extended mouse mode
+					"\x1b[?1000l";   // Disable basic mouse reporting
+
+				var cleanupSequence =
+					resetSequence +
+					mouseDisable +
+					mouseDisable +  // Second time
+					mouseDisable +  // Third time
+					"\x1b[?7h" +    // Re-enable autowrap
+					"\x1b[0m" +     // Reset ANSI attributes
+					"\x1b[?25h" +   // Make cursor visible
+					"\n";
+
+				// Write to /dev/tty on Unix
+				if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+				    RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ||
+				    RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
+				{
+					try
+					{
+						using var tty = new System.IO.FileStream("/dev/tty",
+							System.IO.FileMode.Open,
+							System.IO.FileAccess.Write,
+							System.IO.FileShare.ReadWrite);
+						var bytes = Encoding.UTF8.GetBytes(cleanupSequence);
+						tty.Write(bytes, 0, bytes.Length);
+						tty.Flush();
+						tty.Write(bytes, 0, bytes.Length);
+						tty.Flush();
+					}
+					catch
+					{
+						Console.Error.Write(cleanupSequence);
+						Console.Error.Flush();
+					}
+				}
+				else
+				{
+					Console.Error.Write(cleanupSequence);
+					Console.Error.Flush();
+				}
+
+				Console.Out.Write(cleanupSequence);
+				Console.Out.Flush();
+				Console.ResetColor();
+
+				try { Console.CursorVisible = true; } catch { }
+
+				Thread.Sleep(50);
+			}
+			catch
+			{
+				// Swallow all errors - exiting anyway
 			}
 		}
 
