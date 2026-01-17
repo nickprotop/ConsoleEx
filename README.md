@@ -8,34 +8,17 @@ A modern console window system for .NET 9 with fluent builders, async patterns, 
 
 ## Quick Start
 
-### Simple Approach (Original)
-```csharp
-using SharpConsoleUI;
-using SharpConsoleUI.Drivers;
-
-var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
-var window = new Window(windowSystem)
-{
-    Title = "Hello World",
-    Width = 50,
-    Height = 15
-};
-windowSystem.AddWindow(window);
-windowSystem.Run();
-```
-
-### Modern Approach (v2.0+)
 ```csharp
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Drivers;
 
-// Create window system (has built-in logging and state services)
+// Create window system with built-in logging and state services
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
 // Use fluent builder pattern
 var window = new WindowBuilder(windowSystem)
-    .WithTitle("Modern Hello World")
+    .WithTitle("Hello World")
     .WithSize(50, 15)
     .Centered()
     .WithColors(Color.DarkBlue, Color.White)
@@ -53,12 +36,10 @@ windowSystem.Run();
 
 - [Installation](#installation)
 - [Core Features](#core-features)
-- [Simple API (Original)](#simple-api-original)
-- [Modern API (v20)](#modern-api-v20)
+- [API Usage](#api-usage)
 - [Architecture Overview](#architecture-overview)
 - [Examples](#examples)
 - [Advanced Features](#advanced-features)
-- [Migration Guide](#migration-guide)
 - [Contributing](#contributing)
 - [Documentation](#documentation)
 
@@ -112,97 +93,9 @@ dotnet add package SharpConsoleUI
 - **ListControl**: List display and selection
 - **HorizontalGridControl**: Tabular data display
 
-## Simple API (Original)
+## API Usage
 
-Perfect for getting started quickly or simple applications.
-
-### Basic Window Creation
-```csharp
-using SharpConsoleUI;
-using SharpConsoleUI.Controls;
-using SharpConsoleUI.Drivers;
-
-// Create window system
-var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
-{
-    TopStatus = "My App v1.0",
-    BottomStatus = "Press Ctrl+Q to quit"
-};
-
-// Create a simple window
-var window = new Window(windowSystem)
-{
-    Title = "Simple Window",
-    Left = 10,
-    Top = 5,
-    Width = 60,
-    Height = 20,
-    BackgroundColor = Color.DarkBlue,
-    ForegroundColor = Color.White
-};
-
-// Add content
-window.AddControl(new MarkupControl(new List<string>
-{
-    "[yellow]Welcome to SharpConsoleUI![/]"
-}));
-
-// Add to system and run
-windowSystem.AddWindow(window);
-windowSystem.Run();
-```
-
-### Adding Interactive Controls
-```csharp
-// Button
-var button = new ButtonControl
-{
-    Text = "Click Me!",
-    Width = 20
-};
-button.OnClick += (sender, e) =>
-{
-    // Handle button click
-};
-window.AddControl(button);
-
-// Checkbox
-var checkbox = new CheckboxControl("Enable Feature", false);
-checkbox.CheckedChanged += (sender, e) =>
-{
-    // Handle checkbox change
-};
-window.AddControl(checkbox);
-
-// Text input
-var textInput = new MultilineEditControl
-{
-    ViewportHeight = 5,
-    WrapMode = WrapMode.Wrap
-};
-window.AddControl(textInput);
-```
-
-### Event Handling (Simple)
-```csharp
-window.KeyPressed += (sender, e) =>
-{
-    if (e.KeyInfo.Key == ConsoleKey.Escape)
-    {
-        window.Close();
-        e.Handled = true;
-    }
-};
-
-window.OnClosed += (sender, e) =>
-{
-    // Cleanup when window closes
-};
-```
-
-## Modern API (v2.0+)
-
-Enhanced with fluent builders, built-in logging, state services, and modern C# features.
+SharpConsoleUI provides a fluent API with built-in logging, state services, and modern C# features.
 
 ### 1. Built-in Services
 
@@ -654,48 +547,6 @@ public class MyDarkTheme : ITheme
 windowSystem.Theme = new MyDarkTheme();
 ```
 
-## Migration Guide
-
-### From v1.x to v2.0
-
-#### Simple Migration (No Breaking Changes)
-Your existing v1.x code continues to work as-is:
-
-```csharp
-// v1.x code (still works)
-var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
-var window = new Window(windowSystem);
-window.Title = "My Window";
-windowSystem.AddWindow(window);
-windowSystem.Run();
-```
-
-#### Enhanced Migration (Recommended)
-Gradually adopt new features:
-
-```csharp
-// Step 1: Use fluent builders
-var window = new WindowBuilder(windowSystem)
-    .WithTitle("My Window")
-    .Build();
-
-// Step 2: Use built-in notifications
-windowSystem.NotificationStateService.ShowNotification(
-    "Info", "Message", NotificationSeverity.Info);
-
-// Step 3: Access built-in logging
-windowSystem.LogService.LogAdded += (s, e) => { /* handle */ };
-```
-
-### Feature Mapping
-
-| v1.x Feature | v2.0 Equivalent | Enhancement |
-|--------------|-----------------|-------------|
-| `new Window()` | `new WindowBuilder().Build()` | Fluent API |
-| Event handling | Event handlers | Clean patterns |
-| Manual cleanup | DisposableManager | Auto cleanup |
-| Custom notifications | NotificationStateService | Built-in |
-
 ## Contributing
 
 We welcome contributions! Here's how to get started:
@@ -824,7 +675,7 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ## Development Notes
 
-Version 1.0 of SharpConsoleUI was developed manually and provided core windowing functionality with double-buffered rendering. However, it had architectural limitations that made scaling difficult: line-by-line rendering without true layout support, implicit logic scattered across controls, and tight coupling between components. The refactoring to version 2.0 and the addition of modern features (DOM-based layout system, fluent builders, plugin architecture, theme system) was developed with AI assistance. Architectural decisions and feature design came from the project author, while AI generated code implementations based on those decisions. The development process involved code generation, review sessions, debugging, and manual refinements. This collaborative approach enabled rapid iteration on complex features while maintaining architectural coherence.
+SharpConsoleUI was initially developed manually with core windowing functionality and double-buffered rendering. The project evolved to include modern features (DOM-based layout system, fluent builders, plugin architecture, theme system) with AI assistance. Architectural decisions and feature design came from the project author, while AI generated code implementations based on those decisions. The development process involved code generation, review sessions, debugging, and manual refinements. This collaborative approach enabled rapid iteration on complex features while maintaining architectural coherence.
 
 ---
 
