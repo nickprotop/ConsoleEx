@@ -774,7 +774,7 @@ See the docs folder for detailed documentation.
         if (_window != null)
         {
             _windowSystem?.CloseWindow(_window);
-            _windowSystem.LogService.LogInfo("Comprehensive layout window closed");
+            _windowSystem?.LogService.LogInfo("Comprehensive layout window closed");
         }
     }
 

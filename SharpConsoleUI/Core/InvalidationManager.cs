@@ -440,7 +440,7 @@ namespace SharpConsoleUI.Core
             return !state.IsValid && !state.IsRendering;
         }
 
-        private void ProcessBatch(object state)
+        private void ProcessBatch(object? state)
         {
             lock (_processingLock)
             {
@@ -497,11 +497,11 @@ namespace SharpConsoleUI.Core
             }
         }
 
-        private IContainer GetParentContainer(IWindowControl control)
+        private IContainer? GetParentContainer(IWindowControl control)
         {
             // Try to find parent container through common patterns
             var controlType = control.GetType();
-            
+
             // Check for Container property
             var containerProperty = controlType.GetProperty("Container");
             if (containerProperty != null)

@@ -38,7 +38,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     private MenuItem? _focusedItem;              // Keyboard focus
     private MenuItem? _hoveredItem;              // Mouse hover
     private MenuItem? _pressedItem;              // Mouse pressed (visual feedback)
-    private bool _isMouseInside;                 // Track if mouse is currently inside control
     private readonly List<MenuDropdown> _openDropdowns = new();
     private readonly Dictionary<MenuDropdown, LayoutNode> _dropdownPortals = new();
     private DateTime _hoverStartTime = DateTime.MinValue;
@@ -223,46 +222,56 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     #region IWindowControl Implementation
 
+    /// <inheritdoc/>
     public IContainer? Container { get; set; }
+    /// <inheritdoc/>
     public string? Name { get; set; }
+    /// <inheritdoc/>
     public object? Tag { get; set; }
 
+    /// <inheritdoc/>
     public HorizontalAlignment HorizontalAlignment
     {
         get => _horizontalAlignment;
         set { _horizontalAlignment = value; Container?.Invalidate(true); }
     }
 
+    /// <inheritdoc/>
     public VerticalAlignment VerticalAlignment
     {
         get => _verticalAlignment;
         set { _verticalAlignment = value; Container?.Invalidate(true); }
     }
 
+    /// <inheritdoc/>
     public Margin Margin
     {
         get => _margin;
         set { _margin = value; Container?.Invalidate(true); }
     }
 
+    /// <inheritdoc/>
     public StickyPosition StickyPosition
     {
         get => _stickyPosition;
         set { _stickyPosition = value; Container?.Invalidate(true); }
     }
 
+    /// <inheritdoc/>
     public bool Visible
     {
         get => _visible;
         set { _visible = value; Container?.Invalidate(true); }
     }
 
+    /// <inheritdoc/>
     public bool IsEnabled
     {
         get => _enabled;
         set { _enabled = value; Container?.Invalidate(true); }
     }
 
+    /// <inheritdoc/>
     public int? Width
     {
         get => _width;
@@ -277,8 +286,10 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         }
     }
 
+    /// <inheritdoc/>
     public int? ActualWidth => null;
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         CloseAllMenus();
@@ -286,6 +297,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         Container = null;
     }
 
+    /// <inheritdoc/>
     public Size GetLogicalContentSize()
     {
         if (_orientation == MenuOrientation.Horizontal)
@@ -310,6 +322,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         }
     }
 
+    /// <inheritdoc/>
     public void Invalidate()
     {
         Container?.Invalidate(true);
@@ -319,6 +332,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     #region IFocusableControl Implementation
 
+    /// <inheritdoc/>
     public bool HasFocus
     {
         get => _hasFocus;
@@ -329,11 +343,15 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         }
     }
 
+    /// <inheritdoc/>
     public bool CanReceiveFocus => _enabled;
 
+    /// <inheritdoc/>
     public event EventHandler? GotFocus;
+    /// <inheritdoc/>
     public event EventHandler? LostFocus;
 
+    /// <inheritdoc/>
     public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
     {
         var hadFocus = HasFocus;
@@ -382,14 +400,23 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     #region IMouseAwareControl Implementation
 
+    /// <inheritdoc/>
     public bool WantsMouseEvents => _enabled;
+    /// <inheritdoc/>
     public bool CanFocusWithMouse => _enabled;
 
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseClick;
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseEnter;
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseLeave;
+    #pragma warning disable CS0067  // Event never raised (interface requirement)
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseMove;
+    #pragma warning restore CS0067
 
+    /// <inheritdoc/>
     public bool ProcessMouseEvent(MouseEventArgs args)
     {
         if (!_enabled)
@@ -398,7 +425,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         // Handle mouse leave event - clear hover if unfocused
         if (args.HasFlag(MouseFlags.MouseLeave))
         {
-            _isMouseInside = false;
             if (!HasFocus)
             {
                 _hoveredItem = null;
@@ -411,7 +437,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         // Handle mouse enter event
         if (args.HasFlag(MouseFlags.MouseEnter))
         {
-            _isMouseInside = true;
             MouseEnter?.Invoke(this, args);
             return true;
         }
@@ -447,7 +472,10 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                     }
                 }
 
-                ItemHovered?.Invoke(this, hitItem);
+                if (hitItem != null)
+                {
+                    ItemHovered?.Invoke(this, hitItem);
+                }
                 Container?.Invalidate(true);
             }
 
@@ -626,7 +654,10 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                     CloseSiblingSubmenus(dropdown);
                 }
 
-                ItemHovered?.Invoke(this, hitItem);
+                if (hitItem != null)
+                {
+                    ItemHovered?.Invoke(this, hitItem);
+                }
                 Container?.Invalidate(true);
             }
             return true;
@@ -688,6 +719,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     #region IInteractiveControl Implementation
 
+    /// <inheritdoc/>
     public bool ProcessKey(ConsoleKeyInfo key)
     {
         if (!_enabled || !_hasFocus)
@@ -710,6 +742,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     #region IDOMPaintable Implementation
 
+    /// <inheritdoc/>
     public LayoutSize MeasureDOM(LayoutConstraints constraints)
     {
         int width, height;
@@ -751,6 +784,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         );
     }
 
+    /// <inheritdoc/>
     public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
     {
         _lastBounds = bounds;
@@ -807,6 +841,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         return null;
     }
 
+    /// <inheritdoc/>
     public void Invalidate(bool fullRender)
     {
         Container?.Invalidate(fullRender);
@@ -1722,9 +1757,17 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         {
             currentIndex = _items.IndexOf(_focusedItem);
         }
-        else if (_openDropdowns.Count > 0 && _openDropdowns[0].ParentItem != null)
+        else if (_openDropdowns.Count > 0)
         {
-            currentIndex = _items.IndexOf(_openDropdowns[0].ParentItem);
+            var parentItem = _openDropdowns[0].ParentItem;
+            if (parentItem != null)
+            {
+                currentIndex = _items.IndexOf(parentItem);
+            }
+            else
+            {
+                currentIndex = 0;
+            }
         }
         else
         {
@@ -1770,9 +1813,17 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         {
             currentIndex = _items.IndexOf(_focusedItem);
         }
-        else if (_openDropdowns.Count > 0 && _openDropdowns[0].ParentItem != null)
+        else if (_openDropdowns.Count > 0)
         {
-            currentIndex = _items.IndexOf(_openDropdowns[0].ParentItem);
+            var parentItem = _openDropdowns[0].ParentItem;
+            if (parentItem != null)
+            {
+                currentIndex = _items.IndexOf(parentItem);
+            }
+            else
+            {
+                currentIndex = 0;
+            }
         }
         else
         {
@@ -2082,6 +2133,7 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareCon
     /// </summary>
     public bool CanFocusWithMouse => false;
 
+    #pragma warning disable CS0067  // Event never raised (interface requirement)
     /// <summary>
     /// Event fired when the control is clicked.
     /// </summary>
@@ -2101,6 +2153,7 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareCon
     /// Event fired when the mouse moves over the control.
     /// </summary>
     public event EventHandler<MouseEventArgs>? MouseMove;
+    #pragma warning restore CS0067
 
     /// <summary>
     /// Processes mouse events for this portal content and delegates to owner MenuControl.

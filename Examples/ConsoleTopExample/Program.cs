@@ -103,6 +103,11 @@ internal class Program
             )
             .Build();
 
+        if (_mainWindow == null)
+            return;
+
+        var mainWindow = _mainWindow; // Capture non-null reference for nullable flow analysis
+
         var systemInfo = SystemStatsFactory.GetDetailedSystemInfo();
 
         // === TOP STATUS BAR ===
@@ -133,8 +138,8 @@ internal class Program
         topStatusBar.BackgroundColor = Color.Grey15;
         topStatusBar.ForegroundColor = Color.Grey93;
 
-        _mainWindow.AddControl(topStatusBar);
-        _mainWindow.AddControl(Controls.RuleBuilder().StickyTop().WithColor(Color.Grey23).Build());
+        mainWindow.AddControl(topStatusBar);
+        mainWindow.AddControl(Controls.RuleBuilder().StickyTop().WithColor(Color.Grey23).Build());
 
         // === CPU/MEMORY SECTION ===
         var metricsGrid = Controls
@@ -196,9 +201,9 @@ internal class Program
             metricsGrid.Columns[4].ForegroundColor = Color.Grey93;
         }
 
-        _mainWindow.AddControl(metricsGrid);
+        mainWindow.AddControl(metricsGrid);
 
-        _mainWindow.AddControl(Controls.RuleBuilder().WithColor(Color.Grey23).Build());
+        mainWindow.AddControl(Controls.RuleBuilder().WithColor(Color.Grey23).Build());
 
         // === TAB TOOLBAR ===
         var tabToolbar = Controls
@@ -232,9 +237,9 @@ internal class Program
             )
             .WithSpacing(1)
             .Build();
-        _mainWindow.AddControl(tabToolbar);
+        mainWindow.AddControl(tabToolbar);
 
-        _mainWindow.AddControl(Controls.RuleBuilder().WithColor(Color.Grey23).Build());
+        mainWindow.AddControl(Controls.RuleBuilder().WithColor(Color.Grey23).Build());
 
         // === PROCESS LIST + DETAIL HORIZONTAL LAYOUT (NO SPLITTER) ===
         var mainGrid = Controls
@@ -342,7 +347,7 @@ internal class Program
             mainGrid.Columns[2].ForegroundColor = Color.Grey93;
         }
 
-        _mainWindow.AddControl(mainGrid);
+        mainWindow.AddControl(mainGrid);
 
         // Set detail toolbar background to Grey19
         var detailToolbar = _mainWindow?.FindControl<ToolbarControl>("detailToolbar");
@@ -379,10 +384,10 @@ internal class Program
             .Build();
         memoryPanel.BackgroundColor = Color.Grey11;
         memoryPanel.ForegroundColor = Color.Grey93;
-        _mainWindow.AddControl(memoryPanel);
+        mainWindow.AddControl(memoryPanel);
 
         // === BOTTOM STATUS BAR ===
-        _mainWindow.AddControl(
+        mainWindow.AddControl(
             Controls.RuleBuilder().StickyBottom().WithColor(Color.Grey23).Build()
         );
 
@@ -416,9 +421,9 @@ internal class Program
         bottomStatusBar.BackgroundColor = Color.Grey15;
         bottomStatusBar.ForegroundColor = Color.Grey70;
 
-        _mainWindow.AddControl(bottomStatusBar);
+        mainWindow.AddControl(bottomStatusBar);
 
-        _windowSystem.AddWindow(_mainWindow);
+        _windowSystem.AddWindow(mainWindow);
     }
 
     private static void UpdateDisplay()
@@ -427,8 +432,8 @@ internal class Program
             return;
 
         // Find both panels
-        var processPanel = _mainWindow.FindControl<HorizontalGridControl>("processPanel");
-        var memoryPanel = _mainWindow.FindControl<ScrollablePanelControl>("memoryPanel");
+        var processPanel = _mainWindow?.FindControl<HorizontalGridControl>("processPanel");
+        var memoryPanel = _mainWindow?.FindControl<ScrollablePanelControl>("memoryPanel");
 
         // Switch visibility based on active tab
         if (_activeTab == TabMode.Processes)
@@ -454,7 +459,7 @@ internal class Program
             UpdateMemoryPanel();
         }
 
-        _mainWindow.Invalidate(true);
+        _mainWindow?.Invalidate(true);
     }
 
     private static async Task UpdateLoopAsync(Window window, CancellationToken cancellationToken)

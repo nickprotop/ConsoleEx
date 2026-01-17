@@ -1332,7 +1332,7 @@ internal class Program
             }
         };
 
-        _windowSystem.AddWindow(explorerWindow);
+        _windowSystem?.AddWindow(explorerWindow);
         _windowSystem?.LogService.LogInfo("File explorer window created");
     }
 

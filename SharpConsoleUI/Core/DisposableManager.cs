@@ -38,12 +38,13 @@ public sealed class DisposableManager : IDisposable, IAsyncDisposable
 	/// <param name="disposable">The disposable resource</param>
 	/// <returns>The registered resource for fluent chaining</returns>
 	/// <exception cref="ObjectDisposedException">Thrown if the manager is already disposed</exception>
+	/// <exception cref="ArgumentNullException">Thrown if disposable is null</exception>
 	public T Register<T>(T disposable) where T : IDisposable
 	{
 		ThrowIfDisposed();
 
 		if (disposable == null)
-			return disposable;
+			throw new ArgumentNullException(nameof(disposable));
 
 		_disposables.Add(disposable);
 
@@ -61,12 +62,13 @@ public sealed class DisposableManager : IDisposable, IAsyncDisposable
 	/// <param name="asyncDisposable">The async disposable resource</param>
 	/// <returns>The registered resource for fluent chaining</returns>
 	/// <exception cref="ObjectDisposedException">Thrown if the manager is already disposed</exception>
+	/// <exception cref="ArgumentNullException">Thrown if asyncDisposable is null</exception>
 	public T RegisterAsync<T>(T asyncDisposable) where T : IAsyncDisposable
 	{
 		ThrowIfDisposed();
 
 		if (asyncDisposable == null)
-			return asyncDisposable;
+			throw new ArgumentNullException(nameof(asyncDisposable));
 
 		_asyncDisposables.Add(asyncDisposable);
 

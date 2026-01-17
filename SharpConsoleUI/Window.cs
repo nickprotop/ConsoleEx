@@ -151,8 +151,6 @@ namespace SharpConsoleUI
 
 		// Convenience property to access FocusStateService
 		private FocusStateService? FocusService => _windowSystem?.FocusStateService;
-		private int? _maximumHeight;
-		private int? _maximumWidth;
 		private int? _minimumHeight = 3;
 		private int? _minimumWidth = 10;
 		private WindowMode _mode = WindowMode.Normal;
@@ -721,7 +719,7 @@ namespace SharpConsoleUI
 			_isClosing = true;
 
 			// 3. Handle async thread cleanup with timeout
-			if (_windowThreadCts != null)
+			if (_windowThreadCts != null && _windowTask != null)
 			{
 				_windowThreadCts.Cancel();
 
@@ -2461,12 +2459,8 @@ namespace SharpConsoleUI
 			// Apply constraints
 			if (_minimumWidth != null && width < _minimumWidth)
 				width = (int)_minimumWidth;
-			if (_maximumWidth != null && width > _maximumWidth)
-				width = (int)_maximumWidth;
 			if (_minimumHeight != null && height < _minimumHeight)
 				height = (int)_minimumHeight;
-			if (_maximumHeight != null && height > _maximumHeight)
-				height = (int)_maximumHeight;
 
 			// Set backing fields directly to avoid property setters calling
 			// UpdateControlLayout() before both dimensions are set
