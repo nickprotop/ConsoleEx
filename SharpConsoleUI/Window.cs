@@ -503,6 +503,8 @@ namespace SharpConsoleUI
 						OriginalHeight = Height;
 						OriginalLeft = Left;
 						OriginalTop = Top;
+						// Position window at desktop origin (0,0 in desktop coordinates)
+						// Desktop coordinates are automatically offset by DesktopUpperLeft during rendering
 						Left = 0;
 						Top = 0;
 						// Use centralized SetSize which handles invalidation order correctly
