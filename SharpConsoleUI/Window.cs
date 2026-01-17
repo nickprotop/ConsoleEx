@@ -173,7 +173,6 @@ namespace SharpConsoleUI
 		private WindowContentLayout? _windowContentLayout;
 		private CharacterBuffer? _buffer;
 		private readonly Dictionary<IWindowControl, LayoutNode> _controlToNodeMap = new();
-		private readonly bool _useDOMLayout = true;  // DOM-based layout is now the only rendering path
 
 		// Mouse tracking for enter/leave events
 		private Controls.IWindowControl? _lastMouseOverControl;
@@ -460,12 +459,12 @@ namespace SharpConsoleUI
 		/// </summary>
 		public int ScrollOffset
 		{
-			get => _useDOMLayout && _windowContentLayout != null
+			get => _windowContentLayout != null
 				? _windowContentLayout.ScrollOffset
 				: _scrollOffset;
 			set
 			{
-				if (_useDOMLayout && _windowContentLayout != null)
+				if (_windowContentLayout != null)
 					_windowContentLayout.ScrollOffset = value;
 				else
 					_scrollOffset = value;
@@ -582,7 +581,7 @@ namespace SharpConsoleUI
 		{
 			get
 			{
-				if (_useDOMLayout && _windowContentLayout != null)
+				if (_windowContentLayout != null)
 				{
 					// DOM mode: return total scrollable content height
 					return _windowContentLayout.ScrollableContentHeight;
@@ -647,10 +646,7 @@ namespace SharpConsoleUI
 				InvalidationManager.Instance.RegisterControl(content);
 
 				// Invalidate DOM tree so it gets rebuilt with the new control
-				if (_useDOMLayout)
-				{
-					_rootNode = null;
-				}
+				_rootNode = null;
 
 				_invalidated = true;
 
@@ -686,10 +682,7 @@ namespace SharpConsoleUI
 				}
 
 				// Invalidate DOM tree
-				if (_useDOMLayout)
-				{
-					_rootNode = null;
-				}
+				_rootNode = null;
 
 				Invalidate(true);
 			}
@@ -1128,7 +1121,7 @@ namespace SharpConsoleUI
 				}
 
 				// Handle mouse wheel scrolling in DOM mode
-				if (_useDOMLayout && _windowContentLayout != null)
+				if (_windowContentLayout != null)
 				{
 					if (args.HasFlag(MouseFlags.WheeledUp))
 					{
@@ -1942,7 +1935,7 @@ namespace SharpConsoleUI
 						{
 							case ConsoleKey.UpArrow:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_useDOMLayout && _windowContentLayout != null)
+								if (_windowContentLayout != null)
 								{
 									_windowContentLayout.ScrollBy(-1);
 									_invalidated = true;
@@ -1957,7 +1950,7 @@ namespace SharpConsoleUI
 
 							case ConsoleKey.DownArrow:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_useDOMLayout && _windowContentLayout != null)
+								if (_windowContentLayout != null)
 								{
 									_windowContentLayout.ScrollBy(1);
 									_invalidated = true;
@@ -1972,7 +1965,7 @@ namespace SharpConsoleUI
 
 							case ConsoleKey.PageUp:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_useDOMLayout && _windowContentLayout != null)
+								if (_windowContentLayout != null)
 								{
 									_windowContentLayout.PageUp();
 									_invalidated = true;
@@ -1983,7 +1976,7 @@ namespace SharpConsoleUI
 
 							case ConsoleKey.PageDown:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_useDOMLayout && _windowContentLayout != null)
+								if (_windowContentLayout != null)
 								{
 									_windowContentLayout.PageDown();
 									_invalidated = true;
@@ -1993,7 +1986,7 @@ namespace SharpConsoleUI
 								break;
 
 							case ConsoleKey.Home:
-								if (key.Modifiers == ConsoleModifiers.Control && _useDOMLayout && _windowContentLayout != null)
+								if (key.Modifiers == ConsoleModifiers.Control && _windowContentLayout != null)
 								{
 									_windowContentLayout.ScrollToTop();
 									_invalidated = true;
@@ -2003,7 +1996,7 @@ namespace SharpConsoleUI
 								break;
 
 							case ConsoleKey.End:
-								if (key.Modifiers == ConsoleModifiers.Control && _useDOMLayout && _windowContentLayout != null)
+								if (key.Modifiers == ConsoleModifiers.Control && _windowContentLayout != null)
 								{
 									_windowContentLayout.ScrollToBottom();
 									_invalidated = true;
