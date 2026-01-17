@@ -13,7 +13,7 @@ A modern console window system for .NET 9 with fluent builders, async patterns, 
 using SharpConsoleUI;
 using SharpConsoleUI.Drivers;
 
-var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer);
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 var window = new Window(windowSystem)
 {
     Title = "Hello World",
@@ -28,9 +28,10 @@ windowSystem.Run();
 ```csharp
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Drivers;
 
 // Create window system (has built-in logging and state services)
-var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer);
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
 // Use fluent builder pattern
 var window = new WindowBuilder(windowSystem)
@@ -121,7 +122,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 
 // Create window system
-var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
 {
     TopStatus = "My App v1.0",
     BottomStatus = "Press Ctrl+Q to quit"
@@ -207,7 +208,7 @@ Enhanced with fluent builders, built-in logging, state services, and modern C# f
 The library includes built-in logging and state services - no DI setup required:
 
 ```csharp
-var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer);
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
 // Built-in logging (outputs to file, never console)
 windowSystem.LogService.LogAdded += (s, entry) => { /* handle log */ };
@@ -438,6 +439,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
 
 namespace MyApp;
 
@@ -446,7 +448,7 @@ internal class Program
     static int Main(string[] args)
     {
         // Create window system (has built-in logging and state services)
-        var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer)
+        var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
         {
             TopStatus = "My Modern App",
             BottomStatus = "ESC: Close | F1: Help"
@@ -660,7 +662,7 @@ Your existing v1.x code continues to work as-is:
 
 ```csharp
 // v1.x code (still works)
-var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer);
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 var window = new Window(windowSystem);
 window.Title = "My Window";
 windowSystem.AddWindow(window);
@@ -707,12 +709,20 @@ dotnet build
 
 ### Running Examples
 ```bash
-# Simple example
-cd Example
+# Comprehensive demo application
+cd Examples/DemoApp
 dotnet run
 
-# Modern example (shows all v2.0 features)
-cd Examples/ModernExample
+# Console monitoring tool (ConsoleTop-style dashboard)
+cd Examples/ConsoleTopExample
+dotnet run
+
+# Full screen example
+cd Examples/FullScreenExample
+dotnet run
+
+# Plugin showcase
+cd Examples/PluginShowcaseExample
 dotnet run
 ```
 
@@ -727,9 +737,15 @@ ConsoleEx/
 │   ├── Helpers/              # Utility classes
 │   ├── Drivers/              # Console abstraction layer
 │   └── Themes/               # Theming system
-├── Example/                  # Simple examples
-├── Examples/
-│   └── ModernExample/        # Modern features demo
+├── Examples/                 # Example applications
+│   ├── DemoApp/              # Comprehensive demo
+│   ├── ConsoleTopExample/    # System monitoring dashboard
+│   ├── FullScreenExample/    # Full screen demo
+│   ├── PluginShowcaseExample/# Plugin system demo
+│   ├── AgentStudio/          # Advanced agent demo
+│   ├── MultiDashboard/       # Multi-window dashboard
+│   ├── MenuDemo/             # Menu system demo
+│   └── BorderStyleDemo/      # Border style demo
 └── Tests/                    # Unit tests
 ```
 
