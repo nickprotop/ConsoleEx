@@ -8,6 +8,8 @@
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 		<WarningsAsErrors />
+		<!-- Enable XML documentation warnings -->
+		<NoWarn></NoWarn>
 	</PropertyGroup>
 
 	<PropertyGroup>
