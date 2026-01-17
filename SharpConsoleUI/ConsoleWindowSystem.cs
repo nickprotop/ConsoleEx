@@ -240,6 +240,7 @@ namespace SharpConsoleUI
 	/// Shows a folder picker dialog for selecting a directory.
 	/// </summary>
 	/// <param name="startPath">The initial directory path to display. Defaults to current directory.</param>
+	/// <param name="parentWindow">Optional parent window for the dialog</param>
 	/// <returns>A task that completes with the selected folder path, or null if cancelled.</returns>
 	public Task<string?> ShowFolderPickerDialogAsync(string? startPath = null, Window? parentWindow = null)
 		=> Dialogs.FileDialogs.ShowFolderPickerAsync(this, startPath, parentWindow);

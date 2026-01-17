@@ -174,28 +174,28 @@ namespace SharpConsoleUI.Core
 	/// <summary>
 	/// State of an active drag operation
 	/// </summary>
+	/// <param name="Window">Window being dragged</param>
+	/// <param name="StartMousePos">Mouse position when drag started</param>
+	/// <param name="StartWindowPos">Window position when drag started</param>
 	public record DragState(
-		/// <summary>Window being dragged</summary>
 		Window Window,
-		/// <summary>Mouse position when drag started</summary>
 		Point StartMousePos,
-		/// <summary>Window position when drag started</summary>
 		Point StartWindowPos
 	);
 
 	/// <summary>
 	/// State of an active resize operation
 	/// </summary>
+	/// <param name="Window">Window being resized</param>
+	/// <param name="Direction">Direction of the resize</param>
+	/// <param name="StartMousePos">Mouse position when resize started</param>
+	/// <param name="StartWindowSize">Window size when resize started</param>
+	/// <param name="StartWindowPos">Window position when resize started</param>
 	public record ResizeState(
-		/// <summary>Window being resized</summary>
 		Window Window,
-		/// <summary>Direction of the resize</summary>
 		ResizeDirection Direction,
-		/// <summary>Mouse position when resize started</summary>
 		Point StartMousePos,
-		/// <summary>Window size when resize started</summary>
 		Size StartWindowSize,
-		/// <summary>Window position when resize started</summary>
 		Point StartWindowPos
 	);
 }

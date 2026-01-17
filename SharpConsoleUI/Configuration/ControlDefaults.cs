@@ -106,7 +106,7 @@ namespace SharpConsoleUI.Configuration
 		public const string DefaultFocusPrefix = ">";
 
 		/// <summary>
-		/// Suffix shown after focused button text (default: "<")
+		/// Suffix shown after focused button text (default: "&lt;")
 		/// </summary>
 		public const string DefaultFocusSuffix = "<";
 

@@ -17,13 +17,8 @@ using System.Threading.Tasks;
 namespace SharpConsoleUI.Helpers
 {
 	/// <summary>
-	///     The <see cref="KeyCode"/> enumeration encodes key information from <see cref="IConsoleDriver"/>s and provides a
+	///     The <see cref="KeyCode"/> enumeration encodes key information from console drivers and provides a
 	///     consistent way for application code to specify keys and receive key events.
-	///     <para>
-	///         The <see cref="Key"/> class provides a higher-level abstraction, with helper methods and properties for
-	///         common operations. For example, <see cref="Key.IsAlt"/> and <see cref="Key.IsCtrl"/> provide a convenient way
-	///         to check whether the Alt or Ctrl modifier keys were pressed when a key was pressed.
-	///     </para>
 	/// </summary>
 	/// <remarks>
 	///     <para>
