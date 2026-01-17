@@ -85,7 +85,6 @@ namespace SharpConsoleUI.Controls
 		private bool _hasFocus;
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
 		private bool _interactiveContentsDirty = true;
-		private bool _invalidated = true;
 		private bool _focusFromBackward = false;
 		private bool _isEnabled = true;
 		private Margin _margin = new Margin(0, 0, 0, 0);
@@ -94,7 +93,6 @@ namespace SharpConsoleUI.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
-		private int _allocatedWidth; // Width allocated during layout (used by splitters)
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="HorizontalGridControl"/> class.
@@ -213,13 +211,7 @@ namespace SharpConsoleUI.Controls
 			}
 	}
 
-	/// <summary>
-	/// Gets the width allocated to this grid during the last layout pass.
-	/// This is the actual available width for distributing among columns, used by splitters.
-	/// </summary>
-	public int AllocatedWidth => _allocatedWidth;
-
-		/// <inheritdoc/>
+	/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
 		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
 
@@ -257,8 +249,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_container = value;
-				_invalidated = true;
-				foreach (var column in _columns)
+					foreach (var column in _columns)
 				{
 					column.GetConsoleWindowSystem = value?.GetConsoleWindowSystem;
 					column.Invalidate(true);
@@ -547,7 +538,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Invalidate()
 		{
-			_invalidated = true;
 
 			foreach (var column in _columns)
 			{
@@ -927,6 +917,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanFocusWithMouse => IsEnabled;
 
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -938,6 +929,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
+		#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
@@ -1375,8 +1367,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			_invalidated = false;
-		}
+			}
 
 		#endregion
 	}

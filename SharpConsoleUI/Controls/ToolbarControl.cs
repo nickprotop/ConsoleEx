@@ -261,6 +261,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
@@ -269,6 +270,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
+		#pragma warning restore CS0067
 
 		/// <summary>
 		/// Adds an item to the toolbar.

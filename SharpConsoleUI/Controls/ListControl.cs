@@ -310,6 +310,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <summary>
 		/// Occurs when the mouse enters the control area.
 		/// </summary>
@@ -324,6 +325,7 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the mouse moves over the control.
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseMove;
+		#pragma warning restore CS0067
 
 		/// <summary>
 		/// Occurs when an item is hovered by the mouse.

@@ -800,6 +800,7 @@ namespace SharpConsoleUI.Controls
 
 		#region IMouseAwareControl Implementation
 
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -811,6 +812,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
+		#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => IsEnabled && Visible;

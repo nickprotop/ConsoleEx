@@ -71,7 +71,6 @@ namespace SharpConsoleUI.Controls
 		private bool _hasSelection = false;
 		private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
 		private int _horizontalScrollOffset = 0;
-		private bool _invalidated = true;
 		private bool _isEditing = false;
 		private bool _isEnabled = true;
 		private List<string> _lines = new List<string>() { string.Empty };
@@ -123,11 +122,13 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseLeave;
+		#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
@@ -473,7 +474,6 @@ namespace SharpConsoleUI.Controls
 			_skipUpdateScrollPositionsInRender = false;
 
 			// Force recalculation of scrollbars by invalidating
-			_invalidated = true;
 			Container?.Invalidate(true);
 
 			// Go to the end of the content
@@ -530,7 +530,6 @@ namespace SharpConsoleUI.Controls
 			_skipUpdateScrollPositionsInRender = false;
 
 			// Force recalculation of scrollbars by invalidating
-			_invalidated = true;
 			Container?.Invalidate(true);
 
 			// Go to the end of the content
@@ -623,7 +622,6 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			_invalidated = true;
 		}
 
 		/// <summary>
@@ -697,7 +695,6 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 
 			// Invalidate cached content to force redraw
-			_invalidated = true;
 			Container?.Invalidate(true);
 		}
 
@@ -744,7 +741,6 @@ namespace SharpConsoleUI.Controls
 				_cursorX = textLines[textLines.Length - 1].Length;
 			}
 
-			_invalidated = true;
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
 
@@ -755,7 +751,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Invalidate()
 		{
-			_invalidated = true;
 			Container?.Invalidate(true);
 		}
 
@@ -790,8 +785,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_horizontalScrollOffset--;
-							_invalidated = true;
-							Container?.Invalidate(true);
+											Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -805,8 +799,7 @@ namespace SharpConsoleUI.Controls
 							{
 								_skipUpdateScrollPositionsInRender = true;
 								_horizontalScrollOffset++;
-								_invalidated = true;
-								Container?.Invalidate(true);
+													Container?.Invalidate(true);
 								return true;
 							}
 						}
@@ -818,8 +811,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset--;
-							_invalidated = true;
-							Container?.Invalidate(true);
+											Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -831,8 +823,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset++;
-							_invalidated = true;
-							Container?.Invalidate(true);
+											Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -844,8 +835,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset -= pageUpAmount;
-							_invalidated = true;
-							Container?.Invalidate(true);
+											Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -858,8 +848,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset += pageDownAmount;
-							_invalidated = true;
-							Container?.Invalidate(true);
+											Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -871,8 +860,7 @@ namespace SharpConsoleUI.Controls
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = 0;
 							_horizontalScrollOffset = 0;
-							_invalidated = true;
-							Container?.Invalidate(true);
+											Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -884,8 +872,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = endOffset;
-							_invalidated = true;
-							Container?.Invalidate(true);
+											Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -1351,8 +1338,7 @@ namespace SharpConsoleUI.Controls
 			// If content changed, notify listeners and invalidate
 			if (contentChanged)
 			{
-				_invalidated = true;
-				Container?.Invalidate(true);
+					Container?.Invalidate(true);
 				ContentChanged?.Invoke(this, GetContent());
 			}
 
@@ -1394,7 +1380,6 @@ namespace SharpConsoleUI.Controls
 
 			EnsureCursorVisible();
 
-			_invalidated = true;
 			Container?.Invalidate(false);
 
 			_skipUpdateScrollPositionsInRender = false;
@@ -1432,7 +1417,6 @@ namespace SharpConsoleUI.Controls
 
 			EnsureCursorVisible();
 
-			_invalidated = true;
 			Container?.Invalidate(false);
 
 			_skipUpdateScrollPositionsInRender = false;

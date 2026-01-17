@@ -181,6 +181,7 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<ButtonControl>? Click;
 
 		/// <inheritdoc/>
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
 		/// <inheritdoc/>
@@ -188,6 +189,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
+		#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)

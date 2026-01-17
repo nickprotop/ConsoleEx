@@ -35,7 +35,6 @@ namespace SharpConsoleUI.Controls
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _autoAdjustWidth = true;
 		private Color? _backgroundColorValue;
-		private int? _calculatedMaxVisibleItems;
 		private int _containerScrollOffsetBeforeDrop = 0;
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
@@ -63,7 +62,6 @@ namespace SharpConsoleUI.Controls
 		private int _dropdownScrollOffset = 0;
 
 		// Mouse state tracking
-		private bool _isMouseInside;
 		private bool _isHeaderPressed;
 		private int _mouseHoveredIndex = -1;
 
@@ -157,6 +155,7 @@ namespace SharpConsoleUI.Controls
 
 		#region IMouseAwareControl Events and Properties
 
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -168,6 +167,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
+		#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => _isEnabled;
@@ -770,7 +770,7 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.PageUp:
 					if (_isDropdownOpen && currentHighlight > 0)
 					{
-						int newIndex = Math.Max(0, currentHighlight - (_calculatedMaxVisibleItems ?? 1));
+						int newIndex = Math.Max(0, currentHighlight - ( 1));
 						_highlightedIndex = newIndex;
 						EnsureHighlightedItemVisible();
 						Container?.Invalidate(true);
@@ -781,7 +781,7 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.PageDown:
 					if (_isDropdownOpen && currentHighlight < _items.Count - 1)
 					{
-						int newIndex = Math.Min(_items.Count - 1, currentHighlight + (_calculatedMaxVisibleItems ?? 1));
+						int newIndex = Math.Min(_items.Count - 1, currentHighlight + ( 1));
 						_highlightedIndex = newIndex;
 						EnsureHighlightedItemVisible();
 						Container?.Invalidate(true);
@@ -840,7 +840,6 @@ namespace SharpConsoleUI.Controls
 			// Handle mouse leave
 			if (args.HasFlag(MouseFlags.MouseLeave))
 			{
-				_isMouseInside = false;
 				_isHeaderPressed = false;
 				if (!_hasFocus)
 				{
@@ -854,7 +853,6 @@ namespace SharpConsoleUI.Controls
 			// Handle mouse enter
 			if (args.HasFlag(MouseFlags.MouseEnter))
 			{
-				_isMouseInside = true;
 				MouseEnter?.Invoke(this, args);
 				return true;
 			}
@@ -928,7 +926,7 @@ namespace SharpConsoleUI.Controls
 			int contentX = args.Position.X;
 
 			// Calculate visible structure for hit testing
-			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+			int effectiveMaxVisibleItems =  _maxVisibleItems;
 			bool hasScrollIndicator = (_items.Count > effectiveMaxVisibleItems);
 			int visibleItemCount = Math.Min(effectiveMaxVisibleItems, _items.Count - _dropdownScrollOffset);
 			int scrollIndicatorRow = hasScrollIndicator ? visibleItemCount : -1;
@@ -1302,7 +1300,7 @@ namespace SharpConsoleUI.Controls
 
 			// Calculate dropdown dimensions
 			int dropdownWidth = CalculateDropdownWidth();
-			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+			int effectiveMaxVisibleItems =  _maxVisibleItems;
 			int visibleItems = Math.Min(effectiveMaxVisibleItems, _items.Count);
 			int hasScrollIndicator = (_items.Count > visibleItems) ? 1 : 0;
 			int dropdownHeight = visibleItems + hasScrollIndicator;
@@ -1428,7 +1426,7 @@ namespace SharpConsoleUI.Controls
 			int startX = _dropdownBounds.X;
 			int paintY = _dropdownBounds.Y;
 
-			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+			int effectiveMaxVisibleItems =  _maxVisibleItems;
 			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - dropdownScroll);
 
 			// Clamp to available height in bounds
@@ -1732,6 +1730,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanFocusWithMouse => false;
 
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -1743,6 +1742,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
+		#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)

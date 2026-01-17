@@ -88,6 +88,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler? LostFocus;
 
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <summary>
 		/// Event fired when the control is clicked.
 		/// </summary>
@@ -107,6 +108,7 @@ namespace SharpConsoleUI.Controls
 		/// Event fired when the mouse moves over the control.
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseMove;
+		#pragma warning restore CS0067
 
 		#endregion
 

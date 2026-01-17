@@ -174,6 +174,7 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseClick;
 
+	#pragma warning disable CS0067  // Event never raised (interface requirement)
 	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseEnter;
 
@@ -182,6 +183,7 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 
 	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseMove;
+	#pragma warning restore CS0067
 
 	/// <summary>
 	/// Raised when logs are successfully exported.
