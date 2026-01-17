@@ -952,8 +952,13 @@ namespace SharpConsoleUI.Controls
 				{
 					SetDropdownScrollOffset(_dropdownScrollOffset - 1);
 					Container?.Invalidate(true);
+					args.Handled = true;
+					return true; // Consumed
 				}
-				return true;
+				else
+				{
+					return false; // Allow parent to handle
+				}
 			}
 			else if (args.HasFlag(MouseFlags.WheeledDown))
 			{
@@ -962,8 +967,13 @@ namespace SharpConsoleUI.Controls
 				{
 					SetDropdownScrollOffset(_dropdownScrollOffset + 1);
 					Container?.Invalidate(true);
+					args.Handled = true;
+					return true; // Consumed
 				}
-				return true;
+				else
+				{
+					return false; // Allow parent to handle
+				}
 			}
 
 			// Handle mouse leave

@@ -1071,24 +1071,57 @@ namespace SharpConsoleUI
 					// Single hit test - used for both focus and event routing
 					var targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
 
-					// Centralized focus handling on click
-					if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+					// === NEW: SCROLL EVENT BUBBLING ===
+					// For scroll events, try bubbling up the parent chain
+					if (args.HasAnyFlag(MouseFlags.WheeledUp, MouseFlags.WheeledDown))
 					{
-						HandleClickFocus(targetControl);
-					}
+						// Build parent chain from deepest to shallowest
+						var parentChain = new List<IWindowControl>();
+						var current = targetControl;
+						while (current != null)
+						{
+							parentChain.Add(current);
+							current = current.Container as IWindowControl;
+						}
 
-					// Propagate mouse event to control if applicable
-					if (targetControl != null && targetControl is Controls.IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
-					{
-						var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
-						var controlArgs = args.WithPosition(controlPosition);
-						return mouseAware.ProcessMouseEvent(controlArgs);
-					}
+						// Try each control in chain (deepest first)
+						foreach (var control in parentChain)
+						{
+							if (control is Controls.IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
+							{
+								// Calculate relative position for this control
+								var controlPosition = GetControlRelativePosition(control, args.WindowPosition);
+								var controlArgs = args.WithPosition(controlPosition);
 
-					// Click was handled (focus change or hit on non-mouse control)
-					if (targetControl != null || args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+								if (mouseAware.ProcessMouseEvent(controlArgs))
+								{
+									return true; // Event consumed
+								}
+							}
+						}
+					}
+					else
 					{
-						return true;
+						// === EXISTING: NON-SCROLL EVENTS (clicks, etc.) ===
+						// Centralized focus handling on click
+						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+						{
+							HandleClickFocus(targetControl);
+						}
+
+						// Propagate mouse event to control if applicable
+						if (targetControl != null && targetControl is Controls.IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
+						{
+							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
+							var controlArgs = args.WithPosition(controlPosition);
+							return mouseAware.ProcessMouseEvent(controlArgs);
+						}
+
+						// Click was handled (focus change or hit on non-mouse control)
+						if (targetControl != null || args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+						{
+							return true;
+						}
 					}
 				}
 

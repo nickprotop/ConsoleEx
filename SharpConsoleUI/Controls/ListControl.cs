@@ -1816,9 +1816,13 @@ namespace SharpConsoleUI.Controls
 				{
 					_scrollOffset = Math.Max(0, _scrollOffset - _mouseWheelScrollSpeed);
 					Container?.Invalidate(true);
+					args.Handled = true;
+					return true; // Consumed
 				}
-				args.Handled = true;
-				return true;
+				else
+				{
+					return false; // Allow parent to handle
+				}
 			}
 			else if (args.HasFlag(MouseFlags.WheeledDown))
 			{
@@ -1827,9 +1831,13 @@ namespace SharpConsoleUI.Controls
 				{
 					_scrollOffset = Math.Min(maxScroll, _scrollOffset + _mouseWheelScrollSpeed);
 					Container?.Invalidate(true);
+					args.Handled = true;
+					return true; // Consumed
 				}
-				args.Handled = true;
-				return true;
+				else
+				{
+					return false; // Allow parent to handle
+				}
 			}
 
 			// Handle double-click event from driver

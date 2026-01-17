@@ -505,16 +505,39 @@ namespace SharpConsoleUI.Controls
 		{
 			if (!_enableMouseWheel) return false;
 
-			// Mouse wheel scrolling
+			// Don't re-process already handled events
+			if (args.Handled) return false;
+
+			// Mouse wheel scrolling - only consume if we can actually scroll
 			if (args.HasFlag(Drivers.MouseFlags.WheeledUp))
 			{
-				ScrollVerticalBy(-3);
-				return true;
+				// Only consume if we can actually scroll up
+				if (_verticalScrollOffset > 0)
+				{
+					ScrollVerticalBy(-3);
+					args.Handled = true;
+					return true;
+				}
+				else
+				{
+					return false; // Let it bubble
+				}
 			}
 			else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
 			{
-				ScrollVerticalBy(3);
-				return true;
+				int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
+
+				// Only consume if we can actually scroll down
+				if (_verticalScrollOffset < maxScroll)
+				{
+					ScrollVerticalBy(3);
+					args.Handled = true;
+					return true;
+				}
+				else
+				{
+					return false; // Let it bubble
+				}
 			}
 
 			return false;
