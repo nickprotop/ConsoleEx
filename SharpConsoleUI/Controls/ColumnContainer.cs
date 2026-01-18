@@ -13,6 +13,7 @@ using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using Spectre.Console;
 using System.Drawing;
@@ -800,10 +801,10 @@ namespace SharpConsoleUI.Controls
 
 		#region IMouseAwareControl Implementation
 
-		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
+		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
@@ -826,6 +827,8 @@ namespace SharpConsoleUI.Controls
 			if (!Visible || !IsEnabled)
 				return false;
 
+			bool childHandled = false;
+
 			// Find which child control was clicked
 			int currentY = _margin.Top;
 			foreach (var content in _contents.Where(c => c.Visible))
@@ -846,7 +849,7 @@ namespace SharpConsoleUI.Controls
 						if (mouseAware.ProcessMouseEvent(relativeArgs))
 						{
 							args.Handled = true;
-							return true;
+							childHandled = true;
 						}
 					}
 					break;
@@ -855,7 +858,14 @@ namespace SharpConsoleUI.Controls
 				currentY += contentHeight;
 			}
 
-			return false;
+			// Fire MouseClick only if no child handled it (white space clicked)
+			if (!childHandled && args.HasFlag(MouseFlags.Button1Clicked))
+			{
+				MouseClick?.Invoke(this, args);
+				return true;  // Mark as handled
+			}
+
+			return childHandled;
 		}
 
 		#endregion
