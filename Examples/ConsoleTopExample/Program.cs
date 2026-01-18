@@ -38,6 +38,7 @@ internal class Program
     {
         Processes,
         Memory,
+        Cpu,
     }
 
     private static TabMode _activeTab = TabMode.Processes;
@@ -54,6 +55,18 @@ internal class Program
     private enum MemoryLayoutMode { Wide, Narrow }
     private static MemoryLayoutMode _currentMemoryLayout = MemoryLayoutMode.Wide;
     private const int MEMORY_LAYOUT_THRESHOLD_WIDTH = 80; // Switch to narrow below this width
+
+    // CPU history for sparkline graphs
+    private static readonly List<double> _cpuUserHistory = new();
+    private static readonly List<double> _cpuSystemHistory = new();
+    private static readonly List<double> _cpuIoWaitHistory = new();
+    private static readonly List<double> _cpuTotalHistory = new();
+    private static readonly Dictionary<int, List<double>> _cpuPerCoreHistory = new();
+
+    // Responsive layout tracking for CPU panel
+    private enum CpuLayoutMode { Wide, Narrow }
+    private static CpuLayoutMode _currentCpuLayout = CpuLayoutMode.Wide;
+    private const int CPU_LAYOUT_THRESHOLD_WIDTH = 80; // Switch to narrow below this width
 
     static async Task<int> Main(string[] args)
     {
@@ -247,6 +260,18 @@ internal class Program
                         }
                     )
             )
+            .AddButton(
+                Controls
+                    .Button("CPU")
+                    .WithName("tabCpu")
+                    .OnClick(
+                        (s, e) =>
+                        {
+                            _activeTab = TabMode.Cpu;
+                            UpdateDisplay();
+                        }
+                    )
+            )
             .WithSpacing(1)
             .Build();
         mainWindow.AddControl(tabToolbar);
@@ -383,6 +408,11 @@ internal class Program
         var memoryPanelInitial = BuildResponsiveMemoryGrid(mainWindow.Width, initialSnapshot);
         mainWindow.AddControl(memoryPanelInitial);
 
+        // === CPU PANEL (RESPONSIVE LAYOUT) ===
+        // Build CPU panel at startup with responsive layout based on window width
+        var cpuPanelInitial = BuildResponsiveCpuGrid(mainWindow.Width, initialSnapshot);
+        mainWindow.AddControl(cpuPanelInitial);
+
         // === BOTTOM STATUS BAR ===
         mainWindow.AddControl(
             Controls.RuleBuilder().StickyBottom().WithColor(Color.Grey23).Build()
@@ -420,10 +450,11 @@ internal class Program
 
         mainWindow.AddControl(bottomStatusBar);
 
-        // Hook up responsive layout handler for memory panel
+        // Hook up responsive layout handlers for memory and CPU panels
         mainWindow.OnResize += (sender, e) =>
         {
             HandleMemoryPanelResize();
+            HandleCpuPanelResize();
         };
 
         _windowSystem.AddWindow(mainWindow);
@@ -434,32 +465,52 @@ internal class Program
         if (_mainWindow == null)
             return;
 
-        // Find both panels
+        // Find all panels
         var processPanel = _mainWindow?.FindControl<HorizontalGridControl>("processPanel");
         var memoryPanel = _mainWindow?.FindControl<HorizontalGridControl>("memoryPanel");
+        var cpuPanel = _mainWindow?.FindControl<HorizontalGridControl>("cpuPanel");
 
         // Switch visibility based on active tab
-        if (_activeTab == TabMode.Processes)
+        switch (_activeTab)
         {
-            // Show process panel, hide memory panel
-            if (processPanel != null)
-                processPanel.Visible = true;
-            if (memoryPanel != null)
-                memoryPanel.Visible = false;
+            case TabMode.Processes:
+                // Show process panel, hide others
+                if (processPanel != null)
+                    processPanel.Visible = true;
+                if (memoryPanel != null)
+                    memoryPanel.Visible = false;
+                if (cpuPanel != null)
+                    cpuPanel.Visible = false;
 
-            // Update process detail content
-            UpdateHighlightedProcess();
-        }
-        else // TabMode.Memory
-        {
-            // Hide process panel, show memory panel
-            if (processPanel != null)
-                processPanel.Visible = false;
-            if (memoryPanel != null)
-                memoryPanel.Visible = true;
+                // Update process detail content
+                UpdateHighlightedProcess();
+                break;
 
-            // Update memory panel content
-            UpdateMemoryPanel();
+            case TabMode.Memory:
+                // Hide process panel, show memory panel, hide CPU panel
+                if (processPanel != null)
+                    processPanel.Visible = false;
+                if (memoryPanel != null)
+                    memoryPanel.Visible = true;
+                if (cpuPanel != null)
+                    cpuPanel.Visible = false;
+
+                // Update memory panel content
+                UpdateMemoryPanel();
+                break;
+
+            case TabMode.Cpu:
+                // Hide process and memory panels, show CPU panel
+                if (processPanel != null)
+                    processPanel.Visible = false;
+                if (memoryPanel != null)
+                    memoryPanel.Visible = false;
+                if (cpuPanel != null)
+                    cpuPanel.Visible = true;
+
+                // Update CPU panel content
+                UpdateCpuPanel();
+                break;
         }
 
         _mainWindow?.Invalidate(true);
@@ -536,6 +587,12 @@ internal class Program
                 if (_activeTab == TabMode.Memory)
                 {
                     UpdateMemoryPanel();
+                }
+
+                // Update CPU panel (CPU tab)
+                if (_activeTab == TabMode.Cpu)
+                {
+                    UpdateCpuPanel();
                 }
 
                 // Update bottom stats legend
@@ -1564,5 +1621,761 @@ internal class Program
                 parentWindow: _mainWindow
             );
         }
+    }
+
+    // ========================================================================
+    // CPU PANEL METHODS
+    // ========================================================================
+
+    private static void UpdateCpuPanel()
+    {
+        if (_mainWindow == null)
+            return;
+
+        // Find the CPU panel grid
+        var cpuPanel = _mainWindow.FindControl<HorizontalGridControl>("cpuPanel");
+        if (cpuPanel == null)
+        {
+            _windowSystem?.LogService.LogWarning("UpdateCpuPanel: Panel not found", "CPU");
+            return;
+        }
+
+        var snapshot = _lastSnapshot ?? _stats.ReadSnapshot();
+        UpdateCpuHistory(snapshot.Cpu);
+
+        // Update the graph controls with new data
+        UpdateCpuGraphControls(cpuPanel, snapshot);
+    }
+
+    private static void UpdateCpuHistory(CpuSample cpu)
+    {
+        // Update aggregate history
+        _cpuUserHistory.Add(cpu.User);
+        _cpuSystemHistory.Add(cpu.System);
+        _cpuIoWaitHistory.Add(cpu.IoWait);
+
+        double totalCpu = cpu.User + cpu.System + cpu.IoWait;
+        _cpuTotalHistory.Add(totalCpu);
+
+        // Update per-core history
+        if (cpu.PerCoreSamples != null)
+        {
+            foreach (var core in cpu.PerCoreSamples)
+            {
+                if (!_cpuPerCoreHistory.ContainsKey(core.CoreIndex))
+                {
+                    _cpuPerCoreHistory[core.CoreIndex] = new List<double>();
+                }
+
+                double coreTotal = core.User + core.System + core.IoWait;
+                _cpuPerCoreHistory[core.CoreIndex].Add(coreTotal);
+
+                // Trim per-core history to max points
+                while (_cpuPerCoreHistory[core.CoreIndex].Count > MAX_HISTORY_POINTS)
+                {
+                    _cpuPerCoreHistory[core.CoreIndex].RemoveAt(0);
+                }
+            }
+        }
+
+        // Trim aggregate histories to max points
+        while (_cpuUserHistory.Count > MAX_HISTORY_POINTS)
+            _cpuUserHistory.RemoveAt(0);
+        while (_cpuSystemHistory.Count > MAX_HISTORY_POINTS)
+            _cpuSystemHistory.RemoveAt(0);
+        while (_cpuIoWaitHistory.Count > MAX_HISTORY_POINTS)
+            _cpuIoWaitHistory.RemoveAt(0);
+        while (_cpuTotalHistory.Count > MAX_HISTORY_POINTS)
+            _cpuTotalHistory.RemoveAt(0);
+    }
+
+    private static void UpdateCpuGraphControls(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        // Find the right column (column 2) which has the graphs
+        if (grid.Columns.Count < 3)
+        {
+            _windowSystem?.LogService.LogDebug($"UpdateCpuGraphControls: Grid has {grid.Columns.Count} columns, expected 3", "CPU");
+            return;
+        }
+
+        var rightCol = grid.Columns[2];
+        var rightPanel = rightCol.Contents.FirstOrDefault() as ScrollablePanelControl;
+        if (rightPanel == null)
+        {
+            _windowSystem?.LogService.LogDebug("UpdateCpuGraphControls: Right panel not found", "CPU");
+            return;
+        }
+
+        var cpu = snapshot.Cpu;
+        double totalCpu = cpu.User + cpu.System + cpu.IoWait;
+
+        // Update aggregate bar graphs
+        var userBar = rightPanel.Children.FirstOrDefault(c => c.Name == "cpuUserBar") as BarGraphControl;
+        if (userBar != null)
+            userBar.Value = cpu.User;
+
+        var systemBar = rightPanel.Children.FirstOrDefault(c => c.Name == "cpuSystemBar") as BarGraphControl;
+        if (systemBar != null)
+            systemBar.Value = cpu.System;
+
+        var ioWaitBar = rightPanel.Children.FirstOrDefault(c => c.Name == "cpuIoWaitBar") as BarGraphControl;
+        if (ioWaitBar != null)
+            ioWaitBar.Value = cpu.IoWait;
+
+        var totalBar = rightPanel.Children.FirstOrDefault(c => c.Name == "cpuTotalBar") as BarGraphControl;
+        if (totalBar != null)
+            totalBar.Value = totalCpu;
+
+        // Update aggregate sparklines
+        var userSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == "cpuUserSparkline") as SparklineControl;
+        if (userSparkline != null)
+            userSparkline.SetDataPoints(_cpuUserHistory);
+
+        var systemSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == "cpuSystemSparkline") as SparklineControl;
+        if (systemSparkline != null)
+            systemSparkline.SetDataPoints(_cpuSystemHistory);
+
+        var totalSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == "cpuTotalSparkline") as SparklineControl;
+        if (totalSparkline != null)
+            totalSparkline.SetDataPoints(_cpuTotalHistory);
+
+        // Update per-core sparklines
+        if (cpu.PerCoreSamples != null)
+        {
+            foreach (var core in cpu.PerCoreSamples)
+            {
+                var coreSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == $"cpuCore{core.CoreIndex}Sparkline") as SparklineControl;
+                if (coreSparkline != null && _cpuPerCoreHistory.ContainsKey(core.CoreIndex))
+                {
+                    coreSparkline.SetDataPoints(_cpuPerCoreHistory[core.CoreIndex]);
+                }
+            }
+        }
+
+        // Update left column text stats
+        if (grid.Columns.Count > 0)
+        {
+            var leftCol = grid.Columns[0];
+            var leftPanel = leftCol.Contents.FirstOrDefault() as ScrollablePanelControl;
+            if (leftPanel != null && leftPanel.Children.Count > 0)
+            {
+                var markup = leftPanel.Children[0] as MarkupControl;
+                if (markup != null)
+                {
+                    var lines = BuildCpuTextContent(snapshot);
+                    markup.SetContent(lines);
+                }
+            }
+        }
+    }
+
+    private static HorizontalGridControl BuildResponsiveCpuGrid(int windowWidth, SystemSnapshot snapshot)
+    {
+        var desiredLayout = windowWidth >= CPU_LAYOUT_THRESHOLD_WIDTH
+            ? CpuLayoutMode.Wide
+            : CpuLayoutMode.Narrow;
+
+        _currentCpuLayout = desiredLayout;
+
+        _windowSystem?.LogService.LogDebug(
+            $"BuildResponsiveCpuGrid: Building initial layout in {desiredLayout} mode (width={windowWidth})",
+            "CPU");
+
+        if (desiredLayout == CpuLayoutMode.Wide)
+        {
+            return BuildWideCpuGridInitial(snapshot);
+        }
+        else
+        {
+            return BuildNarrowCpuGridInitial(snapshot);
+        }
+    }
+
+    private static HorizontalGridControl BuildWideCpuGridInitial(SystemSnapshot snapshot)
+    {
+        var lines = BuildCpuTextContent(snapshot);
+
+        var grid = Controls
+            .HorizontalGrid()
+            .WithName("cpuPanel")
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithMargin(1, 0, 1, 1)
+            .Visible(false) // Hidden by default
+            // Left column: Scrollable text info (fixed width)
+            .Column(col =>
+            {
+                col.Width(40); // Fixed width for text stats
+                var leftPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                leftPanel.BackgroundColor = Color.Grey11;
+                leftPanel.ForegroundColor = Color.Grey93;
+
+                var markup = Controls.Markup();
+                foreach (var line in lines)
+                {
+                    markup = markup.AddLine(line);
+                }
+                leftPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+                col.Add(leftPanel);
+            })
+            // Middle column: Separator (1 char wide)
+            .Column(col =>
+            {
+                col.Width(1);
+                col.Add(new SeparatorControl
+                {
+                    ForegroundColor = Color.Grey23,
+                    VerticalAlignment = VerticalAlignment.Fill
+                });
+            })
+            // Right column: Scrollable graphs (fills remaining space)
+            .Column(col =>
+            {
+                // No width set - fills remaining space responsively
+                var rightPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                rightPanel.BackgroundColor = Color.Grey11;
+                rightPanel.ForegroundColor = Color.Grey93;
+                BuildCpuGraphsContent(rightPanel, snapshot);
+                col.Add(rightPanel);
+            })
+            .Build();
+
+        grid.BackgroundColor = Color.Grey11;
+        grid.ForegroundColor = Color.Grey93;
+
+        return grid;
+    }
+
+    private static HorizontalGridControl BuildNarrowCpuGridInitial(SystemSnapshot snapshot)
+    {
+        var lines = BuildCpuTextContent(snapshot);
+
+        var grid = Controls
+            .HorizontalGrid()
+            .WithName("cpuPanel")
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithMargin(1, 0, 1, 1)
+            .Visible(false) // Hidden by default
+            // Single column: Scrollable panel with ALL content (text + graphs)
+            .Column(col =>
+            {
+                var scrollPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                scrollPanel.BackgroundColor = Color.Grey11;
+                scrollPanel.ForegroundColor = Color.Grey93;
+
+                // Add text content
+                var markup = Controls.Markup();
+                foreach (var line in lines)
+                {
+                    markup = markup.AddLine(line);
+                }
+                scrollPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+                // Add separator
+                scrollPanel.AddControl(
+                    Controls
+                        .Markup()
+                        .AddLine("")
+                        .AddLine("[grey23]────────────────────────────────────────[/]")
+                        .AddLine("")
+                        .WithAlignment(HorizontalAlignment.Left)
+                        .WithMargin(2, 1, 2, 0)
+                        .Build()
+                );
+
+                // Add all graphs (same as wide mode right panel)
+                BuildCpuGraphsContent(scrollPanel, snapshot);
+
+                col.Add(scrollPanel);
+            })
+            .Build();
+
+        grid.BackgroundColor = Color.Grey11;
+        grid.ForegroundColor = Color.Grey93;
+
+        return grid;
+    }
+
+    private static List<string> BuildCpuTextContent(SystemSnapshot snapshot)
+    {
+        var cpu = snapshot.Cpu;
+        int coreCount = cpu.PerCoreSamples?.Count ?? Environment.ProcessorCount;
+        double totalCpu = cpu.User + cpu.System + cpu.IoWait;
+        double idleCpu = Math.Max(0, 100 - totalCpu);
+
+        // Get top 5 CPU consumers
+        var topCpuProcs = snapshot.Processes.OrderByDescending(p => p.CpuPercent).Take(5).ToList();
+
+        var lines = new List<string>
+        {
+            "",
+            $"[cyan1 bold]System CPU ({coreCount} cores)[/]",
+            "",
+            "[grey70 bold]Aggregate Usage[/]",
+            $"  [grey70]User:[/]      [red]{cpu.User:F1}%[/]",
+            $"  [grey70]System:[/]    [yellow]{cpu.System:F1}%[/]",
+            $"  [grey70]IoWait:[/]    [blue]{cpu.IoWait:F1}%[/] [grey50](Linux only)[/]",
+            $"  [grey70]Total:[/]     [cyan1]{totalCpu:F1}%[/]",
+            $"  [grey70]Idle:[/]      [green]{idleCpu:F1}%[/]",
+            "",
+            "[grey70 bold]Per-Core Usage[/]",
+        };
+
+        // Add per-core usage with inline bar charts
+        if (cpu.PerCoreSamples != null && cpu.PerCoreSamples.Count > 0)
+        {
+            foreach (var core in cpu.PerCoreSamples)
+            {
+                double coreTotal = core.User + core.System + core.IoWait;
+                string bar = BuildInlineBar(coreTotal, 10);
+
+                // Calculate gradient color for this core
+                double ratio = coreCount > 1 ? (double)core.CoreIndex / (coreCount - 1) : 0;
+                string color = GetGradientColorMarkup(ratio);
+
+                lines.Add($"  [grey70]C{core.CoreIndex,2}:[/] {bar} [{color}]{coreTotal,5:F1}%[/]");
+            }
+        }
+        else
+        {
+            // Show placeholder cores if data not yet available
+            for (int i = 0; i < coreCount; i++)
+            {
+                string bar = BuildInlineBar(0, 10);
+                lines.Add($"  [grey70]C{i,2}:[/] {bar} [grey50]{0.0,5:F1}%[/]");
+            }
+        }
+
+        lines.Add("");
+        lines.Add("[grey70 bold]Top CPU Consumers[/]");
+
+        foreach (var p in topCpuProcs)
+        {
+            lines.Add($"  [cyan1]{p.CpuPercent,5:F1}%[/]  [grey70]{p.Pid,6}[/]  {p.Command}");
+        }
+
+        return lines;
+    }
+
+    private static string BuildInlineBar(double percent, int width)
+    {
+        int filled = (int)Math.Round((percent / 100.0) * width);
+        filled = Math.Clamp(filled, 0, width);
+        int empty = width - filled;
+
+        string filledBar = new string('█', filled);
+        string emptyBar = new string('░', empty);
+
+        return $"[cyan1]{filledBar}[/][grey35]{emptyBar}[/]";
+    }
+
+    private static string GetGradientColorMarkup(double ratio)
+    {
+        // Green (0.0) → Yellow (0.5) → Red (1.0)
+        if (ratio < 0.5)
+        {
+            // Green to Yellow
+            return "green";
+        }
+        else if (ratio < 0.75)
+        {
+            // Yellow
+            return "yellow";
+        }
+        else
+        {
+            // Red
+            return "red";
+        }
+    }
+
+    private static void BuildCpuGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
+    {
+        var cpu = snapshot.Cpu;
+        double totalCpu = cpu.User + cpu.System + cpu.IoWait;
+
+        // Title
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("")
+                .AddLine("[cyan1 bold]═══ CPU Visualization ═══[/]")
+                .AddLine("")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // Current Aggregate Usage Section
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("[grey70 bold]Current Aggregate Usage[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // User CPU Bar
+        panel.AddControl(new BarGraphControl
+        {
+            Name = "cpuUserBar",
+            Label = "User CPU",
+            Value = cpu.User,
+            MaxValue = 100,
+            BarWidth = 35,
+            FilledColor = Color.Red,
+            UnfilledColor = Color.Grey35,
+            ShowLabel = true,
+            ShowValue = true,
+            ValueFormat = "F1",
+            Margin = new Margin(2, 0, 2, 0)
+        });
+
+        // System CPU Bar
+        panel.AddControl(new BarGraphControl
+        {
+            Name = "cpuSystemBar",
+            Label = "System CPU",
+            Value = cpu.System,
+            MaxValue = 100,
+            BarWidth = 35,
+            FilledColor = Color.Yellow,
+            UnfilledColor = Color.Grey35,
+            ShowLabel = true,
+            ShowValue = true,
+            ValueFormat = "F1",
+            Margin = new Margin(2, 0, 2, 0)
+        });
+
+        // IoWait CPU Bar
+        panel.AddControl(new BarGraphControl
+        {
+            Name = "cpuIoWaitBar",
+            Label = "IoWait",
+            Value = cpu.IoWait,
+            MaxValue = 100,
+            BarWidth = 35,
+            FilledColor = Color.Blue,
+            UnfilledColor = Color.Grey35,
+            ShowLabel = true,
+            ShowValue = true,
+            ValueFormat = "F1",
+            Margin = new Margin(2, 0, 2, 0)
+        });
+
+        // Total CPU Bar
+        panel.AddControl(new BarGraphControl
+        {
+            Name = "cpuTotalBar",
+            Label = "Total CPU",
+            Value = totalCpu,
+            MaxValue = 100,
+            BarWidth = 35,
+            FilledColor = Color.Cyan1,
+            UnfilledColor = Color.Grey35,
+            ShowLabel = true,
+            ShowValue = true,
+            ValueFormat = "F1",
+            Margin = new Margin(2, 0, 2, 2)
+        });
+
+        // Separator
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("[grey23]────────────────────────────────────────[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // Aggregate History Sparklines
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("[grey70 bold]Aggregate Historical Trends[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 1)
+                .Build()
+        );
+
+        // User CPU sparkline
+        var userSparkline = new SparklineControl
+        {
+            Name = "cpuUserSparkline",
+            Title = "User CPU %",
+            TitleColor = Color.Red,
+            GraphHeight = 6,
+            MaxValue = 100,
+            BarColor = Color.Red,
+            BackgroundColor = Color.Grey15,
+            BorderStyle = BorderStyle.Rounded,
+            BorderColor = Color.Grey50,
+            Margin = new Margin(2, 0, 2, 1)
+        };
+        userSparkline.SetDataPoints(_cpuUserHistory);
+        panel.AddControl(userSparkline);
+
+        // System CPU sparkline
+        var systemSparkline = new SparklineControl
+        {
+            Name = "cpuSystemSparkline",
+            Title = "System CPU %",
+            TitleColor = Color.Yellow,
+            GraphHeight = 6,
+            MaxValue = 100,
+            BarColor = Color.Yellow,
+            BackgroundColor = Color.Grey15,
+            BorderStyle = BorderStyle.Rounded,
+            BorderColor = Color.Grey50,
+            Margin = new Margin(2, 0, 2, 1)
+        };
+        systemSparkline.SetDataPoints(_cpuSystemHistory);
+        panel.AddControl(systemSparkline);
+
+        // Total CPU sparkline
+        var totalSparkline = new SparklineControl
+        {
+            Name = "cpuTotalSparkline",
+            Title = "Total CPU %",
+            TitleColor = Color.Cyan1,
+            GraphHeight = 6,
+            MaxValue = 100,
+            BarColor = Color.Cyan1,
+            BackgroundColor = Color.Grey15,
+            BorderStyle = BorderStyle.Rounded,
+            BorderColor = Color.Grey50,
+            Margin = new Margin(2, 0, 2, 1)
+        };
+        totalSparkline.SetDataPoints(_cpuTotalHistory);
+        panel.AddControl(totalSparkline);
+
+        // Per-Core History Section
+        // Use actual core count if available, otherwise use Environment.ProcessorCount
+        int coreCount = cpu.PerCoreSamples != null && cpu.PerCoreSamples.Count > 0
+            ? cpu.PerCoreSamples.Count
+            : Environment.ProcessorCount;
+
+        if (coreCount > 0)
+        {
+            // Separator
+            panel.AddControl(
+                Controls
+                    .Markup()
+                    .AddLine("[grey23]────────────────────────────────────────[/]")
+                    .WithAlignment(HorizontalAlignment.Left)
+                    .WithMargin(2, 0, 2, 0)
+                    .Build()
+            );
+
+            panel.AddControl(
+                Controls
+                    .Markup()
+                    .AddLine("[grey70 bold]Per-Core History[/]")
+                    .WithAlignment(HorizontalAlignment.Left)
+                    .WithMargin(2, 0, 2, 1)
+                    .Build()
+            );
+
+            // Create sparklines for all cores (even if data not yet available)
+            for (int coreIndex = 0; coreIndex < coreCount; coreIndex++)
+            {
+                // Calculate gradient color from Green to Red
+                double ratio = coreCount > 1 ? (double)coreIndex / (coreCount - 1) : 0;
+                int red = (int)(ratio * 255);
+                int green = (int)((1 - ratio) * 255);
+                var coreColor = new Color((byte)red, (byte)green, 0);
+
+                var coreSparkline = new SparklineControl
+                {
+                    Name = $"cpuCore{coreIndex}Sparkline",
+                    Title = $"Core {coreIndex}",
+                    TitleColor = coreColor,
+                    GraphHeight = 4, // Smaller height for per-core
+                    MaxValue = 100,
+                    BarColor = coreColor,
+                    BackgroundColor = Color.Grey15,
+                    BorderStyle = BorderStyle.Rounded,
+                    BorderColor = Color.Grey50,
+                    Margin = new Margin(2, 0, 2, coreIndex == coreCount - 1 ? 0 : 1)
+                };
+
+                // Set data points if history available for this core
+                if (_cpuPerCoreHistory.ContainsKey(coreIndex))
+                {
+                    coreSparkline.SetDataPoints(_cpuPerCoreHistory[coreIndex]);
+                }
+
+                panel.AddControl(coreSparkline);
+            }
+        }
+    }
+
+    private static void HandleCpuPanelResize()
+    {
+        if (_mainWindow == null)
+            return;
+
+        var cpuPanel = _mainWindow.FindControl<HorizontalGridControl>("cpuPanel");
+        if (cpuPanel == null || !cpuPanel.Visible)
+            return; // Only handle resize if CPU panel is visible
+
+        int windowWidth = _mainWindow.Width;
+        var desiredLayout = windowWidth >= CPU_LAYOUT_THRESHOLD_WIDTH
+            ? CpuLayoutMode.Wide
+            : CpuLayoutMode.Narrow;
+
+        // Only rebuild if layout mode changed
+        if (desiredLayout != _currentCpuLayout)
+        {
+            _windowSystem?.LogService.LogDebug(
+                $"HandleCpuPanelResize: Layout mode changed from {_currentCpuLayout} to {desiredLayout} (width={windowWidth})",
+                "CPU");
+
+            _currentCpuLayout = desiredLayout;
+            RebuildCpuPanelColumns(cpuPanel);
+        }
+    }
+
+    private static void RebuildCpuPanelColumns(HorizontalGridControl grid)
+    {
+        if (_lastSnapshot == null)
+            return;
+
+        _windowSystem?.LogService.LogDebug(
+            $"RebuildCpuPanelColumns: Rebuilding in {_currentCpuLayout} mode",
+            "CPU");
+
+        // Clear existing columns in reverse order to avoid index issues
+        for (int i = grid.Columns.Count - 1; i >= 0; i--)
+        {
+            grid.RemoveColumn(grid.Columns[i]);
+        }
+
+        if (_currentCpuLayout == CpuLayoutMode.Wide)
+        {
+            BuildWideCpuColumns(grid, _lastSnapshot);
+        }
+        else
+        {
+            BuildNarrowCpuColumns(grid, _lastSnapshot);
+        }
+
+        // Force complete DOM tree rebuild
+        _mainWindow?.ForceRebuildLayout();
+        _mainWindow?.Invalidate(true);
+    }
+
+    private static void BuildWideCpuColumns(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        _windowSystem?.LogService.LogDebug("BuildWideCpuColumns: Starting", "CPU");
+
+        var lines = BuildCpuTextContent(snapshot);
+
+        // Left column: Scrollable text info
+        var leftPanel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        leftPanel.BackgroundColor = Color.Grey11;
+        leftPanel.ForegroundColor = Color.Grey93;
+
+        var markup = Controls.Markup();
+        foreach (var line in lines)
+        {
+            markup = markup.AddLine(line);
+        }
+        leftPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+        var leftCol = new ColumnContainer(grid);
+        leftCol.Width = 40;
+        leftCol.AddContent(leftPanel);
+        grid.AddColumn(leftCol);
+
+        // Middle column: Separator
+        var sepCol = new ColumnContainer(grid);
+        sepCol.Width = 1;
+        sepCol.AddContent(new SeparatorControl
+        {
+            ForegroundColor = Color.Grey23,
+            VerticalAlignment = VerticalAlignment.Fill
+        });
+        grid.AddColumn(sepCol);
+
+        // Right column: Scrollable graphs
+        var rightPanel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        rightPanel.BackgroundColor = Color.Grey11;
+        rightPanel.ForegroundColor = Color.Grey93;
+        BuildCpuGraphsContent(rightPanel, snapshot);
+
+        var rightCol = new ColumnContainer(grid);
+        rightCol.AddContent(rightPanel);
+        grid.AddColumn(rightCol);
+
+        _windowSystem?.LogService.LogDebug($"BuildWideCpuColumns: Added 3 columns (40 | 1 | fill)", "CPU");
+    }
+
+    private static void BuildNarrowCpuColumns(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        _windowSystem?.LogService.LogDebug("BuildNarrowCpuColumns: Starting", "CPU");
+
+        var lines = BuildCpuTextContent(snapshot);
+
+        // Single column with all content
+        var scrollPanel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        scrollPanel.BackgroundColor = Color.Grey11;
+        scrollPanel.ForegroundColor = Color.Grey93;
+
+        // Add text content
+        var markup = Controls.Markup();
+        foreach (var line in lines)
+        {
+            markup = markup.AddLine(line);
+        }
+        scrollPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+        // Add separator
+        scrollPanel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("")
+                .AddLine("[grey23]────────────────────────────────────────[/]")
+                .AddLine("")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 1, 2, 0)
+                .Build()
+        );
+
+        // Add all graphs
+        BuildCpuGraphsContent(scrollPanel, snapshot);
+
+        var col = new ColumnContainer(grid);
+        col.AddContent(scrollPanel);
+        grid.AddColumn(col);
+
+        _windowSystem?.LogService.LogDebug($"BuildNarrowCpuColumns: Added 1 column with full content", "CPU");
     }
 }
