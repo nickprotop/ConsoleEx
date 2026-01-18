@@ -1489,6 +1489,70 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Scrolls the window to ensure the specified control is visible in the viewport.
+		/// If the control is already fully visible, no scrolling occurs.
+		/// Handles both partially visible and completely off-screen controls.
+		/// </summary>
+		/// <param name="control">The control to scroll into view</param>
+		public void ScrollToControl(IWindowControl control)
+		{
+			if (_layoutManager == null || _windowContentLayout == null) return;
+
+			try
+			{
+				// CRITICAL: Force layout update to get fresh widget positions
+				// Without this, we get stale cached bounds from before the previous scroll
+				Invalidate(true);
+
+				// Allow the layout to update (process pending invalidations)
+				System.Threading.Thread.Sleep(1);
+
+				var bounds = _layoutManager.GetOrCreateControlBounds(control);
+				if (bounds == null) return;
+
+				var controlBounds = bounds.ControlContentBounds;
+				int contentTop = controlBounds.Y;
+				int contentHeight = controlBounds.Height;
+				int contentBottom = contentTop + contentHeight;
+
+				int windowHeight = Height;
+				int currentScrollOffset = ScrollOffset;
+
+				// IMPORTANT: Control bounds Y values are RELATIVE to scrollOffset, not absolute!
+				// When scrollOffset=0, widget at absolute Y=50 has relative Y=50
+				// When scrollOffset=50, same widget has relative Y=0
+				int visibleTop = 0;
+				int visibleBottom = windowHeight - 2;  // -2 for window borders
+
+				// Check if widget is not fully visible
+				bool topCutOff = contentTop < visibleTop;
+				bool bottomCutOff = contentBottom > visibleBottom;
+
+				if (topCutOff)
+				{
+					// Widget top is cut off - scroll up to align top with viewport top
+					int absoluteY = currentScrollOffset + contentTop;
+					ScrollOffset = Math.Max(0, absoluteY);
+					Invalidate(true);
+				}
+				else if (bottomCutOff)
+				{
+					// Widget bottom is cut off - scroll down to show widget
+					int absoluteTopY = currentScrollOffset + contentTop;
+					int newOffset = Math.Min(absoluteTopY, _windowContentLayout.MaxScrollOffset);
+					ScrollOffset = Math.Max(0, newOffset);
+					Invalidate(true);
+				}
+
+				// If neither topCutOff nor bottomCutOff, widget is already fully visible - no scroll needed
+			}
+			catch
+			{
+				// If layout access fails, widget may be off-screen but won't crash
+			}
+		}
+
+		/// <summary>
 		/// Finds the deepest focused control by recursively checking containers
 		/// </summary>
 		private IWindowControl? FindDeepestFocusedControl(IInteractiveControl control)
