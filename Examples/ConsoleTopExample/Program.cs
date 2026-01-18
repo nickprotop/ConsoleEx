@@ -43,6 +43,18 @@ internal class Program
     private static TabMode _activeTab = TabMode.Processes;
     private static ProcessSample? _lastHighlightedProcess;
 
+    // Memory history for sparkline graphs
+    private static readonly List<double> _memoryUsedHistory = new();
+    private static readonly List<double> _memoryAvailableHistory = new();
+    private static readonly List<double> _memoryCachedHistory = new();
+    private static readonly List<double> _swapUsedHistory = new();
+    private const int MAX_HISTORY_POINTS = 50;
+
+    // Responsive layout tracking for memory panel
+    private enum MemoryLayoutMode { Wide, Narrow }
+    private static MemoryLayoutMode _currentMemoryLayout = MemoryLayoutMode.Wide;
+    private const int MEMORY_LAYOUT_THRESHOLD_WIDTH = 80; // Switch to narrow below this width
+
     static async Task<int> Main(string[] args)
     {
         try
@@ -365,26 +377,11 @@ internal class Program
             detailPanel.ForegroundColor = Color.Grey93;
         }
 
-        // === MEMORY PANEL (FULL WIDTH) ===
-        var memoryPanel = Controls
-            .ScrollablePanel()
-            .WithName("memoryPanel")
-            .WithVerticalAlignment(VerticalAlignment.Fill)
-            .WithAlignment(HorizontalAlignment.Stretch)
-            .WithMargin(1, 0, 1, 1)
-            .AddControl(
-                Controls
-                    .Markup()
-                    .AddLine("[grey50 italic]Loading memory information...[/]")
-                    .WithAlignment(HorizontalAlignment.Left)
-                    .WithName("memoryPanelContent")
-                    .Build()
-            )
-            .Visible(false) // Hidden by default, Processes tab is active
-            .Build();
-        memoryPanel.BackgroundColor = Color.Grey11;
-        memoryPanel.ForegroundColor = Color.Grey93;
-        mainWindow.AddControl(memoryPanel);
+        // === MEMORY PANEL (RESPONSIVE LAYOUT) ===
+        // Build memory panel at startup with responsive layout based on window width
+        var initialSnapshot = _stats.ReadSnapshot();
+        var memoryPanelInitial = BuildResponsiveMemoryGrid(mainWindow.Width, initialSnapshot);
+        mainWindow.AddControl(memoryPanelInitial);
 
         // === BOTTOM STATUS BAR ===
         mainWindow.AddControl(
@@ -423,6 +420,12 @@ internal class Program
 
         mainWindow.AddControl(bottomStatusBar);
 
+        // Hook up responsive layout handler for memory panel
+        mainWindow.OnResize += (sender, e) =>
+        {
+            HandleMemoryPanelResize();
+        };
+
         _windowSystem.AddWindow(mainWindow);
     }
 
@@ -433,7 +436,7 @@ internal class Program
 
         // Find both panels
         var processPanel = _mainWindow?.FindControl<HorizontalGridControl>("processPanel");
-        var memoryPanel = _mainWindow?.FindControl<ScrollablePanelControl>("memoryPanel");
+        var memoryPanel = _mainWindow?.FindControl<HorizontalGridControl>("memoryPanel");
 
         // Switch visibility based on active tab
         if (_activeTab == TabMode.Processes)
@@ -526,8 +529,14 @@ internal class Program
                     }
                 }
 
-                // Update detail panel
+                // Update detail panel (Processes tab)
                 UpdateHighlightedProcess();
+
+                // Update memory panel (Memory tab)
+                if (_activeTab == TabMode.Memory)
+                {
+                    UpdateMemoryPanel();
+                }
 
                 // Update bottom stats legend
                 var statsLegend = window.FindControl<MarkupControl>("statsLegend");
@@ -649,13 +658,604 @@ internal class Program
 
     private static void UpdateMemoryPanel()
     {
-        var memoryContent = _mainWindow?.FindControl<MarkupControl>("memoryPanelContent");
-        if (memoryContent == null)
+        if (_mainWindow == null)
             return;
 
+        // Find the memory panel grid
+        var memoryPanel = _mainWindow.FindControl<HorizontalGridControl>("memoryPanel");
+        if (memoryPanel == null)
+        {
+            _windowSystem?.LogService.LogWarning("UpdateMemoryPanel: Panel not found", "Memory");
+            return;
+        }
+
         var snapshot = _lastSnapshot ?? _stats.ReadSnapshot();
-        var lines = BuildMemoryBreakdownContent(snapshot);
-        memoryContent.SetContent(lines);
+        UpdateMemoryHistory(snapshot.Memory);
+
+        // Update the graph controls with new data
+        UpdateMemoryGraphControls(memoryPanel, snapshot);
+    }
+
+    private static void UpdateMemoryGraphControls(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        // Find the right column (column 2) which has the graphs
+        if (grid.Columns.Count < 3)
+        {
+            _windowSystem?.LogService.LogDebug($"UpdateMemoryGraphControls: Grid has {grid.Columns.Count} columns, expected 3", "Memory");
+            return;
+        }
+
+        var rightCol = grid.Columns[2];
+        var rightPanel = rightCol.Contents.FirstOrDefault() as ScrollablePanelControl;
+        if (rightPanel == null)
+        {
+            _windowSystem?.LogService.LogDebug("UpdateMemoryGraphControls: Right panel not found", "Memory");
+            return;
+        }
+
+        _windowSystem?.LogService.LogDebug($"UpdateMemoryGraphControls: Right panel has {rightPanel.Children.Count} children", "Memory");
+
+        var mem = snapshot.Memory;
+
+        // Update bar graphs
+        var ramUsedBar = rightPanel.Children.FirstOrDefault(c => c.Name == "ramUsedBar") as BarGraphControl;
+        if (ramUsedBar != null)
+        {
+            _windowSystem?.LogService.LogDebug($"UpdateMemoryGraphControls: Updating ramUsedBar to {mem.UsedPercent:F1}%", "Memory");
+            ramUsedBar.Value = mem.UsedPercent;
+        }
+        else
+        {
+            _windowSystem?.LogService.LogDebug("UpdateMemoryGraphControls: ramUsedBar not found", "Memory");
+        }
+
+        var ramFreeBar = rightPanel.Children.FirstOrDefault(c => c.Name == "ramFreeBar") as BarGraphControl;
+        if (ramFreeBar != null)
+        {
+            var freePercent = (mem.AvailableMb / mem.TotalMb) * 100;
+            _windowSystem?.LogService.LogDebug($"UpdateMemoryGraphControls: Updating ramFreeBar to {freePercent:F1}%", "Memory");
+            ramFreeBar.Value = freePercent;
+        }
+        else
+        {
+            _windowSystem?.LogService.LogDebug("UpdateMemoryGraphControls: ramFreeBar not found", "Memory");
+        }
+
+        var swapBar = rightPanel.Children.FirstOrDefault(c => c.Name == "swapUsedBar") as BarGraphControl;
+        if (swapBar != null)
+        {
+            double swapPercent = mem.SwapTotalMb > 0 ? (mem.SwapUsedMb / mem.SwapTotalMb * 100) : 0;
+            swapBar.Value = swapPercent;
+        }
+
+        // Update sparklines
+        var usedSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == "memoryUsedSparkline") as SparklineControl;
+        if (usedSparkline != null)
+            usedSparkline.SetDataPoints(_memoryUsedHistory);
+
+        var cachedSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == "memoryCachedSparkline") as SparklineControl;
+        if (cachedSparkline != null)
+            cachedSparkline.SetDataPoints(_memoryCachedHistory);
+
+        var freeSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == "memoryFreeSparkline") as SparklineControl;
+        if (freeSparkline != null)
+            freeSparkline.SetDataPoints(_memoryAvailableHistory);
+
+        // Update left column text stats
+        if (grid.Columns.Count > 0)
+        {
+            var leftCol = grid.Columns[0];
+            var leftPanel = leftCol.Contents.FirstOrDefault() as ScrollablePanelControl;
+            if (leftPanel != null && leftPanel.Children.Count > 0)
+            {
+                var markup = leftPanel.Children[0] as MarkupControl;
+                if (markup != null)
+                {
+                    var lines = BuildMemoryTextContent(snapshot);
+                    markup.SetContent(lines);
+                }
+            }
+        }
+    }
+
+    private static void UpdateMemoryHistory(MemorySample memory)
+    {
+        _memoryUsedHistory.Add(memory.UsedPercent);
+        _memoryAvailableHistory.Add((memory.AvailableMb / memory.TotalMb) * 100);
+        _memoryCachedHistory.Add(memory.CachedPercent);
+
+        double swapPercent = memory.SwapTotalMb > 0 ? (memory.SwapUsedMb / memory.SwapTotalMb * 100) : 0;
+        _swapUsedHistory.Add(swapPercent);
+
+        // Trim to max points
+        while (_memoryUsedHistory.Count > MAX_HISTORY_POINTS)
+            _memoryUsedHistory.RemoveAt(0);
+        while (_memoryAvailableHistory.Count > MAX_HISTORY_POINTS)
+            _memoryAvailableHistory.RemoveAt(0);
+        while (_memoryCachedHistory.Count > MAX_HISTORY_POINTS)
+            _memoryCachedHistory.RemoveAt(0);
+        while (_swapUsedHistory.Count > MAX_HISTORY_POINTS)
+            _swapUsedHistory.RemoveAt(0);
+    }
+
+    private static HorizontalGridControl BuildResponsiveMemoryGrid(int windowWidth, SystemSnapshot snapshot)
+    {
+        var desiredLayout = windowWidth >= MEMORY_LAYOUT_THRESHOLD_WIDTH
+            ? MemoryLayoutMode.Wide
+            : MemoryLayoutMode.Narrow;
+
+        _currentMemoryLayout = desiredLayout;
+
+        _windowSystem?.LogService.LogDebug(
+            $"BuildResponsiveMemoryGrid: Building initial layout in {desiredLayout} mode (width={windowWidth})",
+            "Memory");
+
+        if (desiredLayout == MemoryLayoutMode.Wide)
+        {
+            return BuildWideMemoryGridInitial(snapshot);
+        }
+        else
+        {
+            return BuildNarrowMemoryGridInitial(snapshot);
+        }
+    }
+
+    private static HorizontalGridControl BuildWideMemoryGridInitial(SystemSnapshot snapshot)
+    {
+        var lines = BuildMemoryTextContent(snapshot);
+
+        var grid = Controls
+            .HorizontalGrid()
+            .WithName("memoryPanel")
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithMargin(1, 0, 1, 1)
+            .Visible(false) // Hidden by default
+            // Left column: Scrollable text info (fixed width)
+            .Column(col =>
+            {
+                col.Width(40); // Fixed width for text stats
+                var leftPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                leftPanel.BackgroundColor = Color.Grey11;
+                leftPanel.ForegroundColor = Color.Grey93;
+
+                var markup = Controls.Markup();
+                foreach (var line in lines)
+                {
+                    markup = markup.AddLine(line);
+                }
+                leftPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+                col.Add(leftPanel);
+            })
+            // Middle column: Separator (1 char wide)
+            .Column(col =>
+            {
+                col.Width(1);
+                col.Add(new SeparatorControl
+                {
+                    ForegroundColor = Color.Grey23,
+                    VerticalAlignment = VerticalAlignment.Fill
+                });
+            })
+            // Right column: Scrollable graphs (fills remaining space)
+            .Column(col =>
+            {
+                // No width set - fills remaining space responsively
+                var rightPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                rightPanel.BackgroundColor = Color.Grey11;
+                rightPanel.ForegroundColor = Color.Grey93;
+                BuildMemoryGraphsContent(rightPanel, snapshot);
+                col.Add(rightPanel);
+            })
+            .Build();
+
+        grid.BackgroundColor = Color.Grey11;
+        grid.ForegroundColor = Color.Grey93;
+
+        return grid;
+    }
+
+    private static HorizontalGridControl BuildNarrowMemoryGridInitial(SystemSnapshot snapshot)
+    {
+        var lines = BuildMemoryTextContent(snapshot);
+
+        var grid = Controls
+            .HorizontalGrid()
+            .WithName("memoryPanel")
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithMargin(1, 0, 1, 1)
+            .Visible(false) // Hidden by default
+            // Single column: Scrollable panel with ALL content (text + graphs)
+            .Column(col =>
+            {
+                var scrollPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                scrollPanel.BackgroundColor = Color.Grey11;
+                scrollPanel.ForegroundColor = Color.Grey93;
+
+                // Add text content
+                var markup = Controls.Markup();
+                foreach (var line in lines)
+                {
+                    markup = markup.AddLine(line);
+                }
+                scrollPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+                // Add separator
+                scrollPanel.AddControl(
+                    Controls
+                        .Markup()
+                        .AddLine("")
+                        .AddLine("[grey23]────────────────────────────────────────[/]")
+                        .AddLine("")
+                        .WithAlignment(HorizontalAlignment.Left)
+                        .WithMargin(2, 1, 2, 0)
+                        .Build()
+                );
+
+                // Add all graphs (same as wide mode right panel)
+                BuildMemoryGraphsContent(scrollPanel, snapshot);
+
+                col.Add(scrollPanel);
+            })
+            .Build();
+
+        grid.BackgroundColor = Color.Grey11;
+        grid.ForegroundColor = Color.Grey93;
+
+        return grid;
+    }
+
+    private static void BuildWideMemoryColumns(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        _windowSystem?.LogService.LogDebug("BuildWideMemoryColumns: Starting", "Memory");
+
+        var lines = BuildMemoryTextContent(snapshot);
+
+        // Left column: Scrollable text info
+        var leftPanel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        leftPanel.BackgroundColor = Color.Grey11;
+        leftPanel.ForegroundColor = Color.Grey93;
+
+        var markup = Controls.Markup();
+        foreach (var line in lines)
+        {
+            markup = markup.AddLine(line);
+        }
+        leftPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+        var leftCol = new ColumnContainer(grid);
+        leftCol.Width = 40; // Fixed width for text stats
+        leftCol.AddContent(leftPanel);
+        grid.AddColumn(leftCol);
+
+        // Middle column: Separator (1 char wide)
+        var sepCol = new ColumnContainer(grid);
+        sepCol.Width = 1;
+        sepCol.AddContent(new SeparatorControl
+        {
+            ForegroundColor = Color.Grey23,
+            VerticalAlignment = VerticalAlignment.Fill
+        });
+        grid.AddColumn(sepCol);
+
+        // Right column: Scrollable graphs
+        var rightPanel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        rightPanel.BackgroundColor = Color.Grey11;
+        rightPanel.ForegroundColor = Color.Grey93;
+        BuildMemoryGraphsContent(rightPanel, snapshot);
+
+        var rightCol = new ColumnContainer(grid);
+        rightCol.AddContent(rightPanel);
+        grid.AddColumn(rightCol);
+
+        _windowSystem?.LogService.LogDebug($"BuildWideMemoryColumns: Added 3 columns", "Memory");
+    }
+
+    private static void BuildNarrowMemoryColumns(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        _windowSystem?.LogService.LogDebug("BuildNarrowMemoryColumns: Starting", "Memory");
+
+        var lines = BuildMemoryTextContent(snapshot);
+
+        // Single column: Scrollable panel with ALL content (text + graphs)
+        var scrollPanel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        scrollPanel.BackgroundColor = Color.Grey11;
+        scrollPanel.ForegroundColor = Color.Grey93;
+
+        // Add text content
+        var markup = Controls.Markup();
+        foreach (var line in lines)
+        {
+            markup = markup.AddLine(line);
+        }
+        scrollPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+        // Add separator
+        scrollPanel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("")
+                .AddLine("[grey23]────────────────────────────────────────[/]")
+                .AddLine("")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 1, 2, 0)
+                .Build()
+        );
+
+        // Add all graphs (same as wide mode right panel)
+        BuildMemoryGraphsContent(scrollPanel, snapshot);
+
+        var col = new ColumnContainer(grid);
+        col.AddContent(scrollPanel);
+        grid.AddColumn(col);
+
+        _windowSystem?.LogService.LogDebug($"BuildNarrowMemoryColumns: Added 1 column with full content", "Memory");
+    }
+
+    private static void BuildMemoryGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
+    {
+        var mem = snapshot.Memory;
+
+        // Title
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("")
+                .AddLine("[cyan1 bold]═══ Memory Visualization ═══[/]")
+                .AddLine("")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // Current Usage Section
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("[grey70 bold]Current Usage[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // RAM Usage Bar
+        panel.AddControl(new BarGraphControl
+        {
+            Name = "ramUsedBar",
+            Label = "RAM Used",
+            Value = mem.UsedPercent,
+            MaxValue = 100,
+            BarWidth = 35,
+            FilledColor = Color.Red,
+            UnfilledColor = Color.Grey35,
+            ShowLabel = true,
+            ShowValue = true,
+            ValueFormat = "F1",
+            Margin = new Margin(2, 0, 2, 0)
+        });
+
+        // RAM Free Bar
+        var freePercent = (mem.AvailableMb / mem.TotalMb) * 100;
+        panel.AddControl(new BarGraphControl
+        {
+            Name = "ramFreeBar",
+            Label = "RAM Free",
+            Value = freePercent,
+            MaxValue = 100,
+            BarWidth = 35,
+            FilledColor = Color.Green,
+            UnfilledColor = Color.Grey35,
+            ShowLabel = true,
+            ShowValue = true,
+            ValueFormat = "F1",
+            Margin = new Margin(2, 0, 2, 0)
+        });
+
+        // Swap Usage Bar
+        double swapPercent = mem.SwapTotalMb > 0 ? (mem.SwapUsedMb / mem.SwapTotalMb * 100) : 0;
+        panel.AddControl(new BarGraphControl
+        {
+            Name = "swapUsedBar",
+            Label = "Swap Used",
+            Value = swapPercent,
+            MaxValue = 100,
+            BarWidth = 35,
+            FilledColor = Color.Yellow,
+            UnfilledColor = Color.Grey35,
+            ShowLabel = true,
+            ShowValue = true,
+            ValueFormat = "F1",
+            Margin = new Margin(2, 0, 2, 2)
+        });
+
+        // Separator
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("[grey23]────────────────────────────────────────[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // Memory History Sparklines
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("[grey70 bold]Historical Trends[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 1)
+                .Build()
+        );
+
+        // Used sparkline
+        var usedSparkline = new SparklineControl
+        {
+            Name = "memoryUsedSparkline",
+            Title = "Memory Used %",
+            TitleColor = Color.Cyan1,
+            GraphHeight = 6,
+            MaxValue = 100,
+            BarColor = Color.Cyan1,
+            BackgroundColor = Color.Grey15,
+            BorderStyle = BorderStyle.Rounded,
+            BorderColor = Color.Grey50,
+            Margin = new Margin(2, 0, 2, 1)
+        };
+        usedSparkline.SetDataPoints(_memoryUsedHistory);
+        panel.AddControl(usedSparkline);
+
+        // Cached sparkline
+        var cachedSparkline = new SparklineControl
+        {
+            Name = "memoryCachedSparkline",
+            Title = "Memory Cached %",
+            TitleColor = Color.Yellow,
+            GraphHeight = 6,
+            MaxValue = 100,
+            BarColor = Color.Yellow,
+            BackgroundColor = Color.Grey15,
+            BorderStyle = BorderStyle.Rounded,
+            BorderColor = Color.Grey50,
+            Margin = new Margin(2, 0, 2, 1)
+        };
+        cachedSparkline.SetDataPoints(_memoryCachedHistory);
+        panel.AddControl(cachedSparkline);
+
+        // Free sparkline
+        var freeSparkline = new SparklineControl
+        {
+            Name = "memoryFreeSparkline",
+            Title = "Memory Available %",
+            TitleColor = Color.Green,
+            GraphHeight = 6,
+            MaxValue = 100,
+            BarColor = Color.Green,
+            BackgroundColor = Color.Grey15,
+            BorderStyle = BorderStyle.Rounded,
+            BorderColor = Color.Grey50,
+            Margin = new Margin(2, 0, 2, 0)
+        };
+        freeSparkline.SetDataPoints(_memoryAvailableHistory);
+        panel.AddControl(freeSparkline);
+    }
+
+    private static List<string> BuildMemoryTextContent(SystemSnapshot snapshot)
+    {
+        var mem = snapshot.Memory;
+
+        // Get top 5 memory consumers
+        var topMemProcs = snapshot.Processes.OrderByDescending(p => p.MemPercent).Take(5).ToList();
+
+        var lines = new List<string>
+        {
+            "",
+            "[cyan1 bold]System Memory[/]",
+            "",
+            "[grey70 bold]Statistics[/]",
+            $"  [grey70]Total:[/]     [cyan1]{mem.TotalMb:F0} MB[/]",
+            $"  [grey70]Used:[/]      [cyan1]{mem.UsedMb:F0} MB[/] [grey50]({mem.UsedPercent:F1}%)[/]",
+            $"  [grey70]Available:[/] [cyan1]{mem.AvailableMb:F0} MB[/]",
+            $"  [grey70]Cached:[/]    [cyan1]{mem.CachedMb:F0} MB[/] [grey50]({mem.CachedPercent:F1}%)[/]",
+            $"  [grey70]Buffers:[/]   [cyan1]{mem.BuffersMb:F0} MB[/]",
+             "",
+             "[grey70 bold]Swap[/]",
+            $"  [grey70]Total:[/] [cyan1]{mem.SwapTotalMb:F0} MB[/]",
+            $"  [grey70]Used:[/]  [cyan1]{mem.SwapUsedMb:F0} MB[/]",
+            $"  [grey70]Free:[/]  [cyan1]{mem.SwapFreeMb:F0} MB[/]",
+            "",
+            "[grey70 bold]Top Memory Consumers[/]",
+        };
+
+        foreach (var p in topMemProcs)
+        {
+            lines.Add($"  [cyan1]{p.MemPercent, 5:F1}%[/]  [grey70]{p.Pid, 6}[/]  {p.Command}");
+        }
+
+        return lines;
+    }
+
+    private static void HandleMemoryPanelResize()
+    {
+        if (_mainWindow == null)
+            return;
+
+        var memoryPanel = _mainWindow.FindControl<HorizontalGridControl>("memoryPanel");
+        if (memoryPanel == null || !memoryPanel.Visible)
+            return; // Only handle resize if memory panel is visible
+
+        int windowWidth = _mainWindow.Width;
+        var desiredLayout = windowWidth >= MEMORY_LAYOUT_THRESHOLD_WIDTH
+            ? MemoryLayoutMode.Wide
+            : MemoryLayoutMode.Narrow;
+
+        // Only rebuild if layout mode changed
+        if (desiredLayout != _currentMemoryLayout)
+        {
+            _windowSystem?.LogService.LogDebug(
+                $"HandleMemoryPanelResize: Switching from {_currentMemoryLayout} to {desiredLayout} (width={windowWidth})",
+                "Memory");
+
+            _currentMemoryLayout = desiredLayout;
+            RebuildMemoryPanelColumns(memoryPanel, desiredLayout);
+        }
+    }
+
+    private static void RebuildMemoryPanelColumns(HorizontalGridControl grid, MemoryLayoutMode mode)
+    {
+        var snapshot = _lastSnapshot ?? _stats.ReadSnapshot();
+
+        _windowSystem?.LogService.LogDebug($"RebuildMemoryPanelColumns: Starting rebuild in {mode} mode", "Memory");
+
+        // Clear existing columns
+        // Must clear in reverse order to avoid index issues with splitters
+        for (int i = grid.Columns.Count - 1; i >= 0; i--)
+        {
+            grid.RemoveColumn(grid.Columns[i]);
+        }
+
+        _windowSystem?.LogService.LogDebug($"RebuildMemoryPanelColumns: Cleared {grid.Columns.Count} columns", "Memory");
+
+        // Rebuild based on mode
+        if (mode == MemoryLayoutMode.Wide)
+        {
+            BuildWideMemoryColumns(grid, snapshot);
+        }
+        else
+        {
+            BuildNarrowMemoryColumns(grid, snapshot);
+        }
+
+        // Force complete DOM tree rebuild (not just invalidation)
+        // This is necessary because the column structure changed, not just properties
+        _mainWindow?.ForceRebuildLayout();
+
+        _windowSystem?.LogService.LogDebug($"RebuildMemoryPanelColumns: Rebuild complete, grid now has {grid.Columns.Count} columns", "Memory");
     }
 
     private static void UpdateHighlightedProcess()
@@ -710,46 +1310,6 @@ internal class Program
         detailContent.SetContent(lines);
     }
 
-    private static List<string> BuildMemoryBreakdownContent(SystemSnapshot snapshot)
-    {
-        var mem = snapshot.Memory;
-
-        // Build progress bars
-        var ramBar = BuildProgressBar(mem.UsedPercent);
-        var swapPercent = mem.SwapTotalMb > 0 ? (mem.SwapUsedMb / mem.SwapTotalMb * 100) : 0;
-        var swapBar = BuildProgressBar(swapPercent);
-
-        // Get top 5 memory consumers
-        var topMemProcs = snapshot.Processes.OrderByDescending(p => p.MemPercent).Take(5).ToList();
-
-        var lines = new List<string>
-        {
-            "",
-            "[cyan1 bold]System Memory[/]",
-            "",
-            "[grey70 bold]Usage[/]",
-            $"  RAM:  {ramBar}",
-            $"        [cyan1]{mem.UsedPercent:F1}%[/] [grey70]({mem.UsedMb:F0}/{mem.TotalMb:F0} MB)[/]",
-            $"  Swap: {swapBar}",
-            $"        [cyan1]{swapPercent:F1}%[/] [grey70]({mem.SwapUsedMb:F0}/{mem.SwapTotalMb:F0} MB)[/]",
-            "",
-            "[grey70 bold]Statistics[/]",
-            $"  [grey70]Total:[/]     [cyan1]{mem.TotalMb:F0} MB[/]",
-            $"  [grey70]Used:[/]      [cyan1]{mem.UsedMb:F0} MB[/]",
-            $"  [grey70]Available:[/] [cyan1]{mem.AvailableMb:F0} MB[/]",
-            $"  [grey70]Cached:[/]    [cyan1]{mem.CachedMb:F0} MB[/]",
-            $"  [grey70]Buffers:[/]   [cyan1]{mem.BuffersMb:F0} MB[/]",
-            "",
-            "[grey70 bold]Top Memory Consumers[/]",
-        };
-
-        foreach (var p in topMemProcs)
-        {
-            lines.Add($"  [cyan1]{p.MemPercent, 5:F1}%[/]  [grey70]{p.Pid, 6}[/]  {p.Command}");
-        }
-
-        return lines;
-    }
 
     private static List<string> BuildProcessDetailsContent(
         ProcessSample sample,
