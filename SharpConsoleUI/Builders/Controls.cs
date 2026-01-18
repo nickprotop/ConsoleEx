@@ -227,4 +227,16 @@ public static class Controls
 	/// </summary>
 	/// <returns>A new rule builder</returns>
 	public static RuleBuilder RuleBuilder() => new RuleBuilder();
+
+	/// <summary>
+	/// Creates a new sparkline graph builder
+	/// </summary>
+	/// <returns>A new sparkline builder</returns>
+	public static SparklineBuilder Sparkline() => new SparklineBuilder();
+
+	/// <summary>
+	/// Creates a new bar graph builder
+	/// </summary>
+	/// <returns>A new bar graph builder</returns>
+	public static BarGraphBuilder BarGraph() => new BarGraphBuilder();
 }
