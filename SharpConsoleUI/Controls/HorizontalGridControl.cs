@@ -922,6 +922,9 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
 		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
 		/// <inheritdoc/>

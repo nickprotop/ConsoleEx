@@ -34,6 +34,12 @@ namespace SharpConsoleUI.Controls
 		private Color? _backgroundColor = null;
 		private Color? _foregroundColor = null;
 
+		// Double-click detection
+		private DateTime _lastClickTime = DateTime.MinValue;
+		private Point _lastClickPosition = Point.Empty;
+		private int _doubleClickThresholdMs = Configuration.ControlDefaults.DefaultDoubleClickThresholdMs;
+		private bool _doubleClickEnabled = true;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="MarkupControl"/> class with the specified lines of text.
 		/// </summary>
@@ -136,6 +142,26 @@ namespace SharpConsoleUI.Controls
 		{ get => _wrap; set { _wrap = value; Container?.Invalidate(true); } }
 
 		/// <summary>
+		/// Gets or sets whether double-click events are enabled.
+		/// Default: true.
+		/// </summary>
+		public bool DoubleClickEnabled
+		{
+			get => _doubleClickEnabled;
+			set => _doubleClickEnabled = value;
+		}
+
+		/// <summary>
+		/// Gets or sets the double-click threshold in milliseconds.
+		/// Default: 500ms, minimum: 100ms.
+		/// </summary>
+		public int DoubleClickThresholdMs
+		{
+			get => _doubleClickThresholdMs;
+			set => _doubleClickThresholdMs = Math.Max(100, value);
+		}
+
+		/// <summary>
 		/// Gets or sets the background color for the control. If null, uses container's background color.
 		/// When set with HorizontalAlignment.Stretch, this color will fill the entire width.
 		/// </summary>
@@ -171,6 +197,11 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the control is clicked.
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <summary>
+		/// Occurs when the control is double-clicked.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
 		/// <summary>
 		/// Occurs when the mouse enters the control area.
@@ -236,10 +267,36 @@ namespace SharpConsoleUI.Controls
 		if (!WantsMouseEvents || args.Handled)
 		return false;
 
-		// Handle click
+		// Handle double-click (driver-level detection)
+		if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickEnabled)
+		{
+		MouseDoubleClick?.Invoke(this, args);
+		return true;
+		}
+
+		// Handle click with manual double-click detection
 		if (args.HasFlag(MouseFlags.Button1Clicked))
 		{
+		// Detect double-click
+		var now = DateTime.UtcNow;
+		var timeSince = (now - _lastClickTime).TotalMilliseconds;
+		bool isDoubleClick = _doubleClickEnabled &&
+							 args.Position == _lastClickPosition &&
+							 timeSince <= _doubleClickThresholdMs;
+
+		_lastClickTime = now;
+		_lastClickPosition = args.Position;
+
+		// Mutually exclusive: Fire either MouseDoubleClick OR MouseClick
+		if (isDoubleClick)
+		{
+		MouseDoubleClick?.Invoke(this, args);
+		}
+		else
+		{
 		MouseClick?.Invoke(this, args);
+		}
+
 		return true;
 		}
 

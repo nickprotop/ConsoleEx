@@ -413,6 +413,8 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     public event EventHandler<MouseEventArgs>? MouseLeave;
     #pragma warning disable CS0067  // Event never raised (interface requirement)
     /// <inheritdoc/>
+    public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseMove;
     #pragma warning restore CS0067
 
@@ -2138,6 +2140,11 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareCon
     /// Event fired when the control is clicked.
     /// </summary>
     public event EventHandler<MouseEventArgs>? MouseClick;
+
+    /// <summary>
+    /// Event fired when the control is double-clicked.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
     /// <summary>
     /// Event fired when the mouse enters the control area.

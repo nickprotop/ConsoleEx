@@ -43,6 +43,12 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		// Double-click detection
+		private DateTime _lastClickTime = DateTime.MinValue;
+		private Point _lastClickPosition = Point.Empty;
+		private int _doubleClickThresholdMs = Configuration.ControlDefaults.DefaultDoubleClickThresholdMs;
+		private bool _doubleClickEnabled = true;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ColumnContainer"/> class.
 		/// </summary>
@@ -161,6 +167,27 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 	}
+
+		/// <summary>
+		/// Gets or sets whether double-click events are enabled for white space clicks.
+		/// Default: true.
+		/// </summary>
+		public bool DoubleClickEnabled
+		{
+			get => _doubleClickEnabled;
+			set => _doubleClickEnabled = value;
+		}
+
+		/// <summary>
+		/// Gets or sets the double-click threshold in milliseconds.
+		/// Two clicks within this time window are considered a double-click.
+		/// Default: 500ms, minimum: 100ms.
+		/// </summary>
+		public int DoubleClickThresholdMs
+		{
+			get => _doubleClickThresholdMs;
+			set => _doubleClickThresholdMs = Math.Max(100, value);
+		}
 
 		private int? _minWidth;
 		private int? _maxWidth;
@@ -804,6 +831,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
 		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
@@ -858,11 +888,52 @@ namespace SharpConsoleUI.Controls
 				currentY += contentHeight;
 			}
 
-			// Fire MouseClick only if no child handled it (white space clicked)
-			if (!childHandled && args.HasFlag(MouseFlags.Button1Clicked))
+			// Handle white space clicks (no child handled the event)
+			if (!childHandled)
 			{
-				MouseClick?.Invoke(this, args);
-				return true;  // Mark as handled
+				// Parent already validated click is within column bounds
+				// Just exclude margin areas
+				if (args.Position.X >= _margin.Left && args.Position.Y >= _margin.Top)
+				{
+					// Adjust position to be relative to content area (exclude margins)
+					var contentPosition = new Point(args.Position.X - _margin.Left, args.Position.Y - _margin.Top);
+					var contentArgs = args.WithPosition(contentPosition);
+
+					// Handle double-click detection (two methods like ListControl)
+
+					// Method 1: Direct flag detection from driver
+					if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickEnabled)
+					{
+						MouseDoubleClick?.Invoke(this, contentArgs);
+						return true;
+					}
+
+					// Method 2: Manual timer-based detection
+					if (args.HasFlag(MouseFlags.Button1Clicked))
+					{
+						// Detect double-click
+						var now = DateTime.UtcNow;
+						var timeSince = (now - _lastClickTime).TotalMilliseconds;
+						bool isDoubleClick = _doubleClickEnabled &&
+											 args.Position == _lastClickPosition &&
+											 timeSince <= _doubleClickThresholdMs;
+
+						_lastClickTime = now;
+						_lastClickPosition = args.Position;
+
+						// Mutually exclusive: Fire either MouseDoubleClick OR MouseClick
+						if (isDoubleClick)
+						{
+							MouseDoubleClick?.Invoke(this, contentArgs);
+						}
+						else
+						{
+							MouseClick?.Invoke(this, contentArgs);
+						}
+
+						return true;
+					}
+				}
 			}
 
 			return childHandled;

@@ -38,6 +38,11 @@ namespace SharpConsoleUI.Controls
 		event EventHandler<MouseEventArgs>? MouseClick;
 
 		/// <summary>
+		/// Event fired when the control is double-clicked
+		/// </summary>
+		event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+		/// <summary>
 		/// Event fired when the mouse enters the control area
 		/// </summary>
 		event EventHandler<MouseEventArgs>? MouseEnter;

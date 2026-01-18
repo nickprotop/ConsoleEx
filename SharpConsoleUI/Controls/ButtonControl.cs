@@ -182,6 +182,9 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		#pragma warning disable CS0067  // Event never raised (interface requirement)
+		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
 		/// <inheritdoc/>
