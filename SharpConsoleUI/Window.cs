@@ -62,6 +62,16 @@ namespace SharpConsoleUI
 		DoubleLine,
 
 		/// <summary>
+		/// Single-line border characters (┌─┐│└┘).
+		/// </summary>
+		Single,
+
+		/// <summary>
+		/// Rounded border characters (╭─╮│╰╯).
+		/// </summary>
+		Rounded,
+
+		/// <summary>
 		/// No visible border. Border areas render as spaces with window background color.
 		/// Layout dimensions unchanged - border space still exists but is invisible.
 		/// </summary>
@@ -1746,6 +1756,21 @@ namespace SharpConsoleUI
 			}
 
 			IsDirty = true;
+		}
+
+		/// <summary>
+		/// Forces a complete rebuild of the DOM tree. Use this when the control hierarchy changes
+		/// structurally (e.g., adding/removing columns in a grid) rather than just property changes.
+		/// This is more expensive than Invalidate() but necessary for structural changes.
+		/// </summary>
+		public void ForceRebuildLayout()
+		{
+			lock (_lock)
+			{
+				_rootNode = null; // Force rebuild on next render
+			}
+			IsDirty = true;
+			_invalidated = true;
 		}
 
 		/// <summary>
