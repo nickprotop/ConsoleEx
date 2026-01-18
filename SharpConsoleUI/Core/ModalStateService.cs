@@ -234,6 +234,19 @@ namespace SharpConsoleUI.Core
 				var orphanModal = _modalStack.FirstOrDefault(m => !_modalParents.ContainsKey(m));
 				if (orphanModal != null && orphanModal != targetWindow)
 				{
+					// Don't block if targetWindow is a child of the orphan modal
+					if (IsChildOfInternal(targetWindow, orphanModal))
+					{
+						// Target is a child of orphan, allow activation
+						// (but check if target has its own modal children)
+						var childModal = FindDeepestModalChildInternal(targetWindow);
+						if (childModal != null)
+						{
+							return childModal;
+						}
+						return null;
+					}
+
 					return orphanModal;
 				}
 
@@ -272,7 +285,21 @@ namespace SharpConsoleUI.Core
 				var orphanModal = _modalStack.FirstOrDefault(m => !_modalParents.ContainsKey(m));
 				if (orphanModal != null && orphanModal != targetWindow)
 				{
-					// Orphan modal blocks everything
+					// Don't block if targetWindow is a child of the orphan modal
+					if (IsChildOfInternal(targetWindow, orphanModal))
+					{
+						// Target is a child of orphan, allow it to be the effective target
+						// (but check if target has its own modal children)
+						var childModal = FindDeepestModalChildInternal(targetWindow);
+						if (childModal != null)
+						{
+							FireActivationBlocked(targetWindow, childModal);
+							return childModal;
+						}
+						return targetWindow;
+					}
+
+					// Orphan modal blocks everything else
 					FireActivationBlocked(targetWindow, orphanModal);
 					return orphanModal;
 				}
@@ -338,6 +365,21 @@ namespace SharpConsoleUI.Core
 		#endregion
 
 		#region Private Helpers
+
+		/// <summary>
+		/// Checks if a window is a child (direct or indirect) of a parent window.
+		/// </summary>
+		private bool IsChildOfInternal(Window window, Window potentialParent)
+		{
+			var currentParent = _modalParents.TryGetValue(window, out var parent) ? parent : null;
+			while (currentParent != null)
+			{
+				if (currentParent == potentialParent)
+					return true;
+				currentParent = _modalParents.TryGetValue(currentParent, out var nextParent) ? nextParent : null;
+			}
+			return false;
+		}
 
 		private Window? FindDeepestModalChildInternal(Window parent)
 		{

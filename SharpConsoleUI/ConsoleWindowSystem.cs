@@ -1340,6 +1340,7 @@ namespace SharpConsoleUI
 				for (int j = i + 1; j < windows.Count; j++)
 				{
 					var higherWindow = windows[j];
+
 					// Check if this higher window is a modal child of current window
 					if (higherWindow.Mode == WindowMode.Modal && higherWindow.ParentWindow == window)
 					{
@@ -1348,18 +1349,12 @@ namespace SharpConsoleUI
 					}
 				}
 
-				if (hasChildAtPoint)
+				if (!hasChildAtPoint)
 				{
-					// This window has a modal child at this point
-					// Skip it - the child should receive the event
-					continue;
+					return window;
 				}
-
-				// This window can receive events
-				return window;
 			}
 
-			// No windows found (shouldn't happen)
 			return null;
 		}
 
@@ -1545,6 +1540,7 @@ namespace SharpConsoleUI
 			{
 				// Check if mouse event is over the active window
 				var windowAtPoint = GetWindowAtPoint(point);
+
 				if (windowAtPoint == ActiveWindow)
 				{
 					// Propagate mouse event to the active window

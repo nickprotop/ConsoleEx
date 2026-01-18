@@ -1,0 +1,29 @@
+Testing GetWindowAtPoint bounds check:
+
+Parent Modal A:
+- Left: 10, Top: 5
+- Width: 80, Height: 25  
+- Right: 10+80=90, Bottom: 5+25=30
+
+Child Modal B (centered on parent):
+- Left: 20, Top: 10
+- Width: 60, Height: 15
+- Right: 20+60=80, Bottom: 10+15=25
+
+Click at (30, 15) - should hit child:
+Parent check:
+- point.X(30) >= window.Left(10)  ✓
+- point.X(30) < window.Left(10) + window.Width(80) = 90  ✓  
+- point.Y(15) - DesktopUpperLeft.Y(?) >= window.Top(5)  ?
+- point.Y(15) - DesktopUpperLeft.Y(?) < window.Top(5) + window.Height(25) = 30  ?
+
+Child check:
+- point.X(30) >= window.Left(20)  ✓
+- point.X(30) < window.Left(20) + window.Width(60) = 80  ✓
+- point.Y(15) - DesktopUpperLeft.Y(?) >= window.Top(10)  ?  
+- point.Y(15) - DesktopUpperLeft.Y(?) < window.Top(10) + window.Height(15) = 25  ?
+
+The bounds check includes "point.Y - DesktopUpperLeft.Y" which suggests
+the point is in screen coordinates and needs to be adjusted for desktop offset.
+
+If both pass the bounds check, OrderBy(ZIndex) and LastOrDefault() should return the child.
