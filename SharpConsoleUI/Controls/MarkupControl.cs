@@ -12,6 +12,8 @@ using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using System.Drawing;
 using Color = Spectre.Console.Color;
+using SharpConsoleUI.Events;
+using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Controls
 {
@@ -19,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	/// A control that displays rich text content using Spectre.Console markup syntax.
 	/// Supports text alignment, margins, word wrapping, and sticky positioning.
 	/// </summary>
-	public class MarkupControl : IWindowControl, IDOMPaintable
+	public class MarkupControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	{
 		private List<string> _content;
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
@@ -152,11 +154,46 @@ namespace SharpConsoleUI.Controls
 			set { _foregroundColor = value; Container?.Invalidate(true); }
 		}
 
-		/// <inheritdoc/>
-		public void Dispose()
-		{
-			Container = null;
-		}
+		#region IMouseAwareControl Implementation
+
+		/// <summary>
+		/// Gets whether this control wants to receive mouse events.
+		/// </summary>
+		public bool WantsMouseEvents => true;
+
+		/// <summary>
+		/// Gets whether this control can receive focus via mouse click.
+		/// MarkupControl is display-only, so it doesn't take keyboard focus.
+		/// </summary>
+		public bool CanFocusWithMouse => false;
+
+		/// <summary>
+		/// Occurs when the control is clicked.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <summary>
+		/// Occurs when the mouse enters the control area.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <summary>
+		/// Occurs when the mouse leaves the control area.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <summary>
+		/// Occurs when the mouse moves over the control.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseMove;
+
+		#endregion
+
+	/// <inheritdoc/>
+	public void Dispose()
+	{
+		Container = null;
+	}
 
 		/// <summary>
 		/// Invalidates the control, forcing a re-render on the next draw.
@@ -185,11 +222,52 @@ namespace SharpConsoleUI.Controls
 		/// <param name="lines">The lines of text to display, supporting Spectre.Console markup syntax.</param>
 		public void SetContent(List<string> lines)
 		{
-			_content = lines;
-			Container?.Invalidate(true);
+		_content = lines;
+		Container?.Invalidate(true);
 		}
 
-		#region IDOMPaintable Implementation
+		/// <summary>
+		/// Processes mouse events for this control.
+		/// </summary>
+		/// <param name="args">The mouse event arguments.</param>
+		/// <returns>True if the event was handled; otherwise, false.</returns>
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+		if (!WantsMouseEvents || args.Handled)
+		return false;
+
+		// Handle click
+		if (args.HasFlag(MouseFlags.Button1Clicked))
+		{
+		MouseClick?.Invoke(this, args);
+		return true;
+		}
+
+		// Handle mouse enter
+		if (args.HasFlag(MouseFlags.MouseEnter))
+		{
+		MouseEnter?.Invoke(this, args);
+		return false;  // Don't mark as handled, allow propagation
+		}
+
+		// Handle mouse leave
+		if (args.HasFlag(MouseFlags.MouseLeave))
+		{
+		MouseLeave?.Invoke(this, args);
+		return false;  // Don't mark as handled, allow propagation
+		}
+
+		// Handle mouse move
+		if (args.HasFlag(MouseFlags.ReportMousePosition))
+		{
+		MouseMove?.Invoke(this, args);
+		return false;  // Don't mark as handled, allow propagation
+		}
+
+		return false;
+		}
+
+	#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
 		public LayoutSize MeasureDOM(LayoutConstraints constraints)
