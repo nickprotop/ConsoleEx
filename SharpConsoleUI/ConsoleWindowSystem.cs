@@ -1329,7 +1329,38 @@ namespace SharpConsoleUI
 					point.Y - DesktopUpperLeft.Y < window.Top + window.Height)
 				.OrderBy(window => window.ZIndex).ToList();
 
-			return windows.LastOrDefault();
+			// Iterate from topmost (highest ZIndex) to bottom
+			// Return the first window that doesn't have a child at this point
+			for (int i = windows.Count - 1; i >= 0; i--)
+			{
+				var window = windows[i];
+
+				// Check if any higher-ZIndex window in the list is a child of this window
+				bool hasChildAtPoint = false;
+				for (int j = i + 1; j < windows.Count; j++)
+				{
+					var higherWindow = windows[j];
+					// Check if this higher window is a modal child of current window
+					if (higherWindow.Mode == WindowMode.Modal && higherWindow.ParentWindow == window)
+					{
+						hasChildAtPoint = true;
+						break;
+					}
+				}
+
+				if (hasChildAtPoint)
+				{
+					// This window has a modal child at this point
+					// Skip it - the child should receive the event
+					continue;
+				}
+
+				// This window can receive events
+				return window;
+			}
+
+			// No windows found (shouldn't happen)
+			return null;
 		}
 
 		private bool HandleAltInput(ConsoleKeyInfo key)
