@@ -27,6 +27,10 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
     private TimeSpan _previousTotalCpuTime = TimeSpan.Zero;
     private DateTime _previousCpuSample = DateTime.MinValue;
 
+    // Per-core CPU tracking using PerformanceCounter
+    private PerformanceCounter[]? _perCoreCounters;
+    private bool _perCoreCountersInitialized = false;
+
     // P/Invoke for Windows memory information
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
     private class MemoryStatusEx
@@ -130,12 +134,46 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
         }
     }
 
+    private void InitializePerCoreCounters()
+    {
+        if (_perCoreCountersInitialized)
+            return;
+
+        _perCoreCountersInitialized = true;
+
+        try
+        {
+            int coreCount = Environment.ProcessorCount;
+            _perCoreCounters = new PerformanceCounter[coreCount];
+
+            for (int i = 0; i < coreCount; i++)
+            {
+                _perCoreCounters[i] = new PerformanceCounter(
+                    "Processor",
+                    "% Processor Time",
+                    i.ToString(),
+                    true
+                );
+                // Call NextValue once to initialize the counter
+                _perCoreCounters[i].NextValue();
+            }
+        }
+        catch
+        {
+            // Failed to initialize - fall back to aggregate only
+            _perCoreCounters = null;
+        }
+    }
+
     private CpuSample ReadCpu()
     {
         var now = DateTime.UtcNow;
 
         try
         {
+            // Initialize per-core counters on first call
+            InitializePerCoreCounters();
+
             // Calculate overall CPU usage by summing all process CPU times
             var processes = Process.GetProcesses();
             TimeSpan currentTotalCpu = TimeSpan.Zero;
@@ -195,8 +233,33 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
             _previousTotalCpuTime = currentTotalCpu;
             _previousCpuSample = now;
 
+            // Read per-core CPU data if available
+            List<CoreCpuSample>? perCoreSamples = null;
+            if (_perCoreCounters != null)
+            {
+                perCoreSamples = new List<CoreCpuSample>();
+                for (int i = 0; i < _perCoreCounters.Length; i++)
+                {
+                    try
+                    {
+                        float totalPct = _perCoreCounters[i].NextValue();
+
+                        // Windows doesn't provide User/System split per-core easily
+                        // Use ratio from aggregate to estimate
+                        double coreUserPct = totalPct * userRatio;
+                        double coreSystemPct = totalPct * systemRatio;
+
+                        perCoreSamples.Add(new CoreCpuSample(i, coreUserPct, coreSystemPct, 0.0));
+                    }
+                    catch
+                    {
+                        // Counter may have failed - skip this core
+                    }
+                }
+            }
+
             // Windows doesn't have I/O wait as a separate metric - return 0
-            return new CpuSample(userPercent, systemPercent, 0);
+            return new CpuSample(userPercent, systemPercent, 0, perCoreSamples);
         }
         catch
         {

@@ -18,6 +18,7 @@ namespace ConsoleTopExample.Stats;
 internal sealed class LinuxSystemStats : ISystemStatsProvider
 {
     private CpuTimes? _previousCpu;
+    private Dictionary<int, CpuTimes> _previousPerCoreCpu = new();
     private Dictionary<string, NetCounters>? _previousNet;
     private DateTime _previousNetSample = DateTime.MinValue;
 
@@ -90,10 +91,13 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
 
     private CpuSample ReadCpu()
     {
-        var line = File.ReadLines("/proc/stat").FirstOrDefault(l => l.StartsWith("cpu "));
-        if (line == null) return new CpuSample(0, 0, 0);
+        var lines = File.ReadAllLines("/proc/stat");
 
-        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // Parse aggregate CPU line
+        var aggLine = lines.FirstOrDefault(l => l.StartsWith("cpu "));
+        if (aggLine == null) return new CpuSample(0, 0, 0);
+
+        var parts = aggLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length < 8) return new CpuSample(0, 0, 0);
 
         long user = ParseLong(parts[1]);
@@ -133,14 +137,74 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
             return new CpuSample(0, 0, 0);
         }
 
-        var sample = new CpuSample(
-            Percent(deltaUser, total),
-            Percent(deltaSystem, total),
-            Percent(deltaIo, total)
-        );
+        double aggUserPct = Percent(deltaUser, total);
+        double aggSystemPct = Percent(deltaSystem, total);
+        double aggIoPct = Percent(deltaIo, total);
+
+        // Parse per-core CPU lines (cpu0, cpu1, etc.)
+        var perCoreSamples = new List<CoreCpuSample>();
+        var coreLines = lines.Where(l => l.Length > 3 && l.StartsWith("cpu") && char.IsDigit(l[3]));
+
+        foreach (var coreLine in coreLines)
+        {
+            var coreParts = coreLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (coreParts.Length < 8) continue;
+
+            // Extract core index from "cpu0", "cpu1", etc.
+            if (!int.TryParse(coreParts[0].Substring(3), out int coreIndex))
+                continue;
+
+            long coreUser = ParseLong(coreParts[1]);
+            long coreNice = ParseLong(coreParts[2]);
+            long coreSystem = ParseLong(coreParts[3]);
+            long coreIdle = ParseLong(coreParts[4]);
+            long coreIowait = ParseLong(coreParts[5]);
+            long coreIrq = ParseLong(coreParts[6]);
+            long coreSoftirq = ParseLong(coreParts[7]);
+            long coreSteal = coreParts.Length > 8 ? ParseLong(coreParts[8]) : 0;
+
+            var coreCurrent = new CpuTimes
+            {
+                User = coreUser + coreNice,
+                System = coreSystem + coreIrq + coreSoftirq,
+                IoWait = coreIowait,
+                Idle = coreIdle,
+                Steal = coreSteal
+            };
+
+            // Check if we have previous data for this core
+            if (!_previousPerCoreCpu.TryGetValue(coreIndex, out var corePrev))
+            {
+                _previousPerCoreCpu[coreIndex] = coreCurrent;
+                continue; // Skip first sample for this core
+            }
+
+            // Calculate deltas
+            var coreDeltaUser = coreCurrent.User - corePrev.User;
+            var coreDeltaSystem = coreCurrent.System - corePrev.System;
+            var coreDeltaIo = coreCurrent.IoWait - corePrev.IoWait;
+            var coreDeltaIdle = coreCurrent.Idle - corePrev.Idle;
+            var coreDeltaSteal = coreCurrent.Steal - corePrev.Steal;
+
+            double coreTotal = coreDeltaUser + coreDeltaSystem + coreDeltaIo + coreDeltaIdle + coreDeltaSteal;
+            if (coreTotal > 0)
+            {
+                perCoreSamples.Add(new CoreCpuSample(
+                    coreIndex,
+                    Percent(coreDeltaUser, coreTotal),
+                    Percent(coreDeltaSystem, coreTotal),
+                    Percent(coreDeltaIo, coreTotal)
+                ));
+            }
+
+            _previousPerCoreCpu[coreIndex] = coreCurrent;
+        }
+
+        // Sort per-core samples by core index
+        perCoreSamples.Sort((a, b) => a.CoreIndex.CompareTo(b.CoreIndex));
 
         _previousCpu = current;
-        return sample;
+        return new CpuSample(aggUserPct, aggSystemPct, aggIoPct, perCoreSamples);
     }
 
     private MemorySample ReadMemory()

@@ -9,9 +9,18 @@
 namespace ConsoleTopExample.Stats;
 
 /// <summary>
+/// Per-core CPU usage statistics
+/// </summary>
+internal record CoreCpuSample(int CoreIndex, double User, double System, double IoWait);
+
+/// <summary>
 /// Snapshot of CPU usage statistics
 /// </summary>
-internal record CpuSample(double User, double System, double IoWait);
+internal record CpuSample(
+    double User,
+    double System,
+    double IoWait,
+    IReadOnlyList<CoreCpuSample>? PerCoreSamples = null);
 
 /// <summary>
 /// Snapshot of memory usage statistics
