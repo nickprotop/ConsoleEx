@@ -23,6 +23,7 @@ public sealed class MarkupBuilder
 {
 	private readonly List<string> _lines = new();
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
+	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
 	private bool _visible = true;
 	private int? _width;
@@ -89,12 +90,63 @@ public sealed class MarkupBuilder
 	}
 
 	/// <summary>
-	/// Centers the content
+	/// Centers the content horizontally
 	/// </summary>
 	/// <returns>The builder for chaining</returns>
 	public MarkupBuilder Centered()
 	{
 		_alignment = HorizontalAlignment.Center;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the vertical alignment
+	/// </summary>
+	/// <param name="alignment">The vertical alignment</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithVerticalAlignment(VerticalAlignment alignment)
+	{
+		_verticalAlignment = alignment;
+		return this;
+	}
+
+	/// <summary>
+	/// Centers the content vertically
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder VerticallyCentered()
+	{
+		_verticalAlignment = VerticalAlignment.Center;
+		return this;
+	}
+
+	/// <summary>
+	/// Aligns content to the top
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder AlignTop()
+	{
+		_verticalAlignment = VerticalAlignment.Top;
+		return this;
+	}
+
+	/// <summary>
+	/// Aligns content to the bottom
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder AlignBottom()
+	{
+		_verticalAlignment = VerticalAlignment.Bottom;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the content fill vertically
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder FillVertical()
+	{
+		_verticalAlignment = VerticalAlignment.Fill;
 		return this;
 	}
 
@@ -242,6 +294,7 @@ public sealed class MarkupBuilder
 		var markup = new MarkupControl(_lines.ToList())
 		{
 			HorizontalAlignment = _alignment,
+			VerticalAlignment = _verticalAlignment,
 			Margin = _margin,
 			Visible = _visible,
 			Width = _width,
