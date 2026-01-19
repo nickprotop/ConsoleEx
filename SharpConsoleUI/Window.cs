@@ -174,6 +174,8 @@ namespace SharpConsoleUI
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 		private CancellationTokenSource? _windowThreadCts;
 		private BorderStyle _borderStyle = BorderStyle.DoubleLine;
+		private bool _showTitle = true;
+		private bool _showCloseButton = true;
 		private bool _isClosing = false;
 		private string? _name;
 		private TimeSpan _asyncThreadCleanupTimeout = TimeSpan.FromSeconds(5);
@@ -372,6 +374,23 @@ namespace SharpConsoleUI
 		/// Gets or sets a value indicating whether the window can be closed by the user.
 		/// </summary>
 		public bool IsClosable { get; set; } = true;
+
+		/// <summary>
+		/// Gets or sets a value indicating whether the close button [X] is shown in the title bar.
+		/// This only affects the visual display - use IsClosable to prevent closing entirely.
+		/// </summary>
+		public bool ShowCloseButton
+		{
+			get => _showCloseButton;
+			set
+			{
+				if (_showCloseButton != value)
+				{
+					_showCloseButton = value;
+					Invalidate(false);
+				}
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the window can be maximized.
@@ -637,6 +656,23 @@ namespace SharpConsoleUI
 				if (_borderStyle != value)
 				{
 					_borderStyle = value;
+					Invalidate(false);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether the window title is displayed in the title bar.
+		/// When false, only the border is shown without the title text.
+		/// </summary>
+		public bool ShowTitle
+		{
+			get => _showTitle;
+			set
+			{
+				if (_showTitle != value)
+				{
+					_showTitle = value;
 					Invalidate(false);
 				}
 			}

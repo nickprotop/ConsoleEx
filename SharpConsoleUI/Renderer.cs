@@ -240,12 +240,37 @@ namespace SharpConsoleUI
 				return;
 			}
 
-			var horizontalBorder = window.GetIsActive() ? '═' : '─';
-			var verticalBorder = window.GetIsActive() ? '║' : '│';
-			var topLeftCorner = window.GetIsActive() ? '╔' : '┌';
-			var topRightCorner = window.GetIsActive() ? '╗' : '┐';
-			var bottomLeftCorner = window.GetIsActive() ? '╚' : '└';
-			var bottomRightCorner = window.GetIsActive() ? '╝' : '┘';
+			// Get border characters based on BorderStyle (not active state)
+			char horizontalBorder, verticalBorder, topLeftCorner, topRightCorner, bottomLeftCorner, bottomRightCorner;
+			switch (window.BorderStyle)
+			{
+				case BorderStyle.Single:
+					horizontalBorder = '─';
+					verticalBorder = '│';
+					topLeftCorner = '┌';
+					topRightCorner = '┐';
+					bottomLeftCorner = '└';
+					bottomRightCorner = '┘';
+					break;
+				case BorderStyle.Rounded:
+					horizontalBorder = '─';
+					verticalBorder = '│';
+					topLeftCorner = '╭';
+					topRightCorner = '╮';
+					bottomLeftCorner = '╰';
+					bottomRightCorner = '╯';
+					break;
+				case BorderStyle.DoubleLine:
+				default:
+					// DoubleLine: use double when active, single when inactive (legacy behavior)
+					horizontalBorder = window.GetIsActive() ? '═' : '─';
+					verticalBorder = window.GetIsActive() ? '║' : '│';
+					topLeftCorner = window.GetIsActive() ? '╔' : '┌';
+					topRightCorner = window.GetIsActive() ? '╗' : '┐';
+					bottomLeftCorner = window.GetIsActive() ? '╚' : '└';
+					bottomRightCorner = window.GetIsActive() ? '╝' : '┘';
+					break;
+			}
 
 			var borderColor = window.GetIsActive() ? $"[{window.ActiveBorderForegroundColor}]" : $"[{window.InactiveBorderForegroundColor}]";
 			var titleColor = window.GetIsActive() ? $"[{window.ActiveTitleForegroundColor}]" : $"[{window.InactiveTitleForegroundColor}]";
@@ -258,29 +283,47 @@ namespace SharpConsoleUI
 			// Each button takes 3 characters
 			var minimizeButtonWidth = window.IsMinimizable ? 3 : 0;
 			var maximizeButtonWidth = window.IsMaximizable ? 3 : 0;
-			var closeButtonWidth = window.IsClosable ? 3 : 0;
+			var closeButtonWidth = (window.IsClosable && window.ShowCloseButton) ? 3 : 0;
 			var totalButtonWidth = minimizeButtonWidth + maximizeButtonWidth + closeButtonWidth;
 
 			var minimizeButton = window.IsMinimizable ? $"{buttonColor}[_]" : "";
 			// + for maximize, - for restore (when already maximized)
 			var maximizeSymbol = window.State == WindowState.Maximized ? "-" : "+";
 			var maximizeButton = window.IsMaximizable ? $"{buttonColor}[{maximizeSymbol}]" : "";
-			var closeButton = window.IsClosable ? $"{closeButtonColor}[X]" : "";
+			var closeButton = (window.IsClosable && window.ShowCloseButton) ? $"{closeButtonColor}[X]" : "";
 			var windowButtons = $"{minimizeButton}{maximizeButton}{closeButton}{resetColor}";
 
 			// Resize grip replaces bottom-right corner when window is resizable: ◢
 			var bottomRightChar = window.IsResizable ? "◢" : bottomRightCorner.ToString();
 
-			// Ensure we have enough space for the title, with safety margins
-			var maxTitleSpace = Math.Max(0, window.Width - 8 - totalButtonWidth); // Reserve space for corners, padding, buttons, and safety
-			var truncatedTitle = StringHelper.TrimWithEllipsis(window.Title, maxTitleSpace, maxTitleSpace / 2);
-			// Don't escape - title is plain text, not parsed as markup when concatenated
-			// Calculate visible length directly from plain text
-			var titleLength = 4 + truncatedTitle.Length; // "| " + title + " |" = 4 extra chars
-			var title = $"{titleColor}| {truncatedTitle} |{resetColor}";
-			var availableSpace = Math.Max(0, window.Width - 2 - titleLength - totalButtonWidth);
-			var leftPadding = Math.Min(1, availableSpace);
-			var rightPadding = Math.Max(0, availableSpace - leftPadding);
+			// Build title section (only if ShowTitle is true and title is not empty)
+			string title;
+			int titleLength;
+			int leftPadding;
+			int rightPadding;
+
+			if (window.ShowTitle && !string.IsNullOrEmpty(window.Title))
+			{
+				// Ensure we have enough space for the title, with safety margins
+				var maxTitleSpace = Math.Max(0, window.Width - 8 - totalButtonWidth); // Reserve space for corners, padding, buttons, and safety
+				var truncatedTitle = StringHelper.TrimWithEllipsis(window.Title, maxTitleSpace, maxTitleSpace / 2);
+				// Don't escape - title is plain text, not parsed as markup when concatenated
+				// Calculate visible length directly from plain text
+				titleLength = 4 + truncatedTitle.Length; // "| " + title + " |" = 4 extra chars
+				title = $"{titleColor}| {truncatedTitle} |{resetColor}";
+				var availableSpace = Math.Max(0, window.Width - 2 - titleLength - totalButtonWidth);
+				leftPadding = Math.Min(1, availableSpace);
+				rightPadding = Math.Max(0, availableSpace - leftPadding);
+			}
+			else
+			{
+				// No title - just border and buttons
+				title = "";
+				titleLength = 0;
+				var availableSpace = Math.Max(0, window.Width - 2 - totalButtonWidth);
+				leftPadding = availableSpace / 2;
+				rightPadding = availableSpace - leftPadding;
+			}
 
 			var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{borderColor}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
 			var bottomBorderWidth = window.Width - 2;

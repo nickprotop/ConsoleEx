@@ -60,6 +60,10 @@ public sealed class WindowBuilder
     private EventHandler? _shownHandler;
     private EventHandler<Window.WindowStateChangedEventArgs>? _stateChangedHandler;
     private BorderStyle _borderStyle = BorderStyle.DoubleLine;
+    private bool _showTitle = true;
+    private bool _showCloseButton = true;
+    private SpectreColor? _activeBorderColor;
+    private SpectreColor? _inactiveBorderColor;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WindowBuilder"/> class.
@@ -254,13 +258,36 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets whether the window shows a close button and can be closed by the user.
+    /// Sets whether the window can be closed by the user (via close button or programmatically).
     /// </summary>
-    /// <param name="closable">True to show the close button; false to hide it. Defaults to true.</param>
+    /// <param name="closable">True to allow closing; false to prevent it. Defaults to true.</param>
     /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder Closable(bool closable = true)
     {
         _isClosable = closable;
+        return this;
+    }
+
+    /// <summary>
+    /// Hides the close button [X] from the title bar while still allowing programmatic closing.
+    /// Use this when you want Escape key to close but don't want a visible close button.
+    /// </summary>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder HideCloseButton()
+    {
+        _showCloseButton = false;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets whether the close button [X] is shown in the title bar.
+    /// This only affects visual display - use Closable() to prevent closing entirely.
+    /// </summary>
+    /// <param name="show">True to show the close button; false to hide it.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithShowCloseButton(bool show)
+    {
+        _showCloseButton = show;
         return this;
     }
 
@@ -315,6 +342,62 @@ public sealed class WindowBuilder
     public WindowBuilder Borderless()
     {
         _borderStyle = BorderStyle.None;
+        return this;
+    }
+
+    /// <summary>
+    /// Hides the window title from the title bar.
+    /// Only the border and window buttons will be displayed.
+    /// </summary>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder HideTitle()
+    {
+        _showTitle = false;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets whether the window title is shown in the title bar.
+    /// </summary>
+    /// <param name="show">True to show the title, false to hide it.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithShowTitle(bool show)
+    {
+        _showTitle = show;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the border foreground color when the window is active.
+    /// </summary>
+    /// <param name="color">The color to use for the active border.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithActiveBorderColor(SpectreColor color)
+    {
+        _activeBorderColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the border foreground color when the window is inactive.
+    /// </summary>
+    /// <param name="color">The color to use for the inactive border.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithInactiveBorderColor(SpectreColor color)
+    {
+        _inactiveBorderColor = color;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the border foreground color for both active and inactive states.
+    /// </summary>
+    /// <param name="color">The color to use for the border.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithBorderColor(SpectreColor color)
+    {
+        _activeBorderColor = color;
+        _inactiveBorderColor = color;
         return this;
     }
 
@@ -570,6 +653,15 @@ public sealed class WindowBuilder
         window.IsMaximizable = _isMaximizable;
         window.AlwaysOnTop = _alwaysOnTop;
         window.BorderStyle = _borderStyle;
+        window.ShowTitle = _showTitle;
+        window.ShowCloseButton = _showCloseButton;
+
+        if (_activeBorderColor.HasValue)
+            window.ActiveBorderForegroundColor = _activeBorderColor.Value;
+
+        if (_inactiveBorderColor.HasValue)
+            window.InactiveBorderForegroundColor = _inactiveBorderColor.Value;
+
         // DOM layout is now always enabled - no need to set
 
         // Note: MinimumWidth, MinimumHeight, MaximumWidth, MaximumHeight are private fields in Window
