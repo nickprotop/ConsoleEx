@@ -86,13 +86,22 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ClosingEventArgs"/> class.
 		/// </summary>
-		public ClosingEventArgs()
+		/// <param name="force">Whether this is a forced close that cannot be cancelled.</param>
+		public ClosingEventArgs(bool force = false)
 		{
+			Force = force;
 		}
 
 		/// <summary>
+		/// Gets a value indicating whether this is a forced close.
+		/// When true, the close cannot be cancelled (Allow is ignored).
+		/// Handlers can use this to perform cleanup knowing the window will close.
+		/// </summary>
+		public bool Force { get; }
+
+		/// <summary>
 		/// Gets or sets a value indicating whether the window close operation should be allowed.
-		/// Set to false to cancel the close operation.
+		/// Set to false to cancel the close operation. Ignored when <see cref="Force"/> is true.
 		/// </summary>
 		public bool Allow { get; set; } = true;
 	}
@@ -735,33 +744,59 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Attempts to close the window.
+		/// Checks if the window can be closed by firing the OnClosing event.
+		/// Does not modify any state - only queries whether close is allowed.
 		/// </summary>
-		/// <param name="systemCall">True if called by the window system during cleanup.</param>
-		/// <returns>True if the window was closed; false if closing was cancelled.</returns>
-		public bool Close(bool systemCall = false)
+		/// <param name="force">If true, bypasses IsClosable check and ignores Allow from OnClosing.
+		/// The OnClosing event is still fired so handlers can perform pre-close work.</param>
+		/// <returns>True if the window can be closed; false if close was cancelled (only when force=false).</returns>
+		public bool TryClose(bool force = false)
 		{
-			// Prevent re-entrancy
+			// Already closing - allow it to proceed
 			if (_isClosing) return true;
-			if (!IsClosable) return false;
 
-			// 1. Fire OnClosing event FIRST (before any changes)
+			// Check IsClosable (unless forced)
+			if (!force && !IsClosable) return false;
+
+			// Fire OnClosing event
 			if (OnClosing != null)
 			{
-				var args = new ClosingEventArgs();
+				var args = new ClosingEventArgs(force);
 				OnClosing(this, args);
-				if (!args.Allow)
+
+				// Only respect Allow if not forced
+				if (!force && !args.Allow)
 				{
-					return false;  // ✅ Close cancelled - nothing was changed!
+					return false;  // Close cancelled by handler
 				}
 			}
 
-			// 2. Now commit to closing
-			_isClosing = true;
+			return true;
+		}
 
-			// 3. Handle async thread cleanup with timeout
+		/// <summary>
+		/// Attempts to close the window.
+		/// If the window is in a system, delegates to CloseWindow() for proper cleanup.
+		/// </summary>
+		/// <param name="force">If true, forces the window to close even if IsClosable is false or OnClosing cancels.</param>
+		/// <returns>True if the window was closed or close was initiated; false if closing was cancelled.</returns>
+		public bool Close(bool force = false)
+		{
+			// Prevent re-entrancy
+			if (_isClosing) return true;
+
+			// Handle async thread cleanup with timeout (must happen before CloseWindow removes from system)
 			if (_windowThreadCts != null && _windowTask != null)
 			{
+				// Check if close is allowed first
+				if (!TryClose(force))
+				{
+					return false;  // Close cancelled - nothing changed
+				}
+
+				// Commit to closing
+				_isClosing = true;
+
 				_windowThreadCts.Cancel();
 
 				var cts = _windowThreadCts;
@@ -770,13 +805,25 @@ namespace SharpConsoleUI
 				_windowTask = null;
 
 				// Start grace period with visual feedback
+				// When done, it will call CloseWindow() to remove from system
 				BeginGracePeriodClose(task, cts);
 				return true; // Close initiated (not completed yet)
 			}
 
-			// 4. No async thread - complete close immediately
+			// No async thread - delegate to CloseWindow if window is in a system
+			if (_windowSystem != null)
+			{
+				return _windowSystem.CloseWindow(this, force: force);
+			}
+
+			// Orphan window (not in a system) - handle locally
+			if (!TryClose(force))
+			{
+				return false;  // Close cancelled - nothing changed
+			}
+
+			_isClosing = true;
 			CompleteClose();
-			if (!systemCall) _windowSystem?.CloseWindow(this);
 			return true;
 		}
 
@@ -843,9 +890,12 @@ namespace SharpConsoleUI
 						RemoveContent(statusControl);
 						Title = originalTitle;
 
-						// Complete close normally
-						CompleteClose();
-						_windowSystem?.CloseWindow(this);
+						// Close via system (handles removal and CompleteClose)
+						// If not in system (orphan or already removed), call CompleteClose directly
+						if (_windowSystem == null || !_windowSystem.CloseWindow(this, force: true))
+						{
+							CompleteClose();
+						}
 
 						_windowSystem?.LogService?.LogDebug(
 							$"Window thread stopped gracefully within timeout",
@@ -871,9 +921,11 @@ namespace SharpConsoleUI
 						$"Error during grace period: {ex.Message}",
 						ex, "Window");
 
-					// Fallback: force complete close
-					CompleteClose();
-					_windowSystem?.CloseWindow(this);
+					// Fallback: force close via system or directly if not in system
+					if (_windowSystem == null || !_windowSystem.CloseWindow(this, force: true))
+					{
+						CompleteClose();
+					}
 				}
 				finally
 				{
@@ -884,8 +936,9 @@ namespace SharpConsoleUI
 
 		/// <summary>
 		/// Completes the window close operation by disposing controls and firing OnClosed event.
+		/// Called by ConsoleWindowSystem after removing the window from collections.
 		/// </summary>
-		private void CompleteClose()
+		internal void CompleteClose()
 		{
 			OnClosed?.Invoke(this, EventArgs.Empty);
 

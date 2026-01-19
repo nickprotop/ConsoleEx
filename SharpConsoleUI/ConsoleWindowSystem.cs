@@ -524,21 +524,26 @@ namespace SharpConsoleUI
 		/// </summary>
 		/// <param name="window">The window to close. If null or not in the system, returns false.</param>
 		/// <param name="activateParent">Whether to activate the parent window after closing. Defaults to true.</param>
+		/// <param name="force">If true, forces the window to close even if IsClosable is false or OnClosing cancels.</param>
 		/// <returns>True if the window was closed successfully; false otherwise.</returns>
-		public bool CloseWindow(Window? window, bool activateParent = true)
+		public bool CloseWindow(Window? window, bool activateParent = true, bool force = false)
 		{
 			if (window == null) return false;
 			if (!Windows.ContainsKey(window.Guid)) return false;
 
-			_logService.LogDebug($"Closing window: {window.Title} (GUID: {window.Guid})", "Window");
+			_logService.LogDebug($"Closing window: {window.Title} (GUID: {window.Guid}, Force: {force})", "Window");
 
-			// Store references BEFORE any modifications
+			// STEP 1: Check if close is allowed BEFORE any state changes
+			// This fires OnClosing and respects IsClosable (unless forced)
+			if (!window.TryClose(force))
+			{
+				_logService.LogDebug($"Window close cancelled by OnClosing handler: {window.Title}", "Window");
+				return false;
+			}
+
+			// STEP 2: Close is allowed - now safe to remove from system
 			Window? parentWindow = window.ParentWindow;
 			bool wasActive = (window == ActiveWindow);
-
-			// CRITICAL FIX: Remove from dictionary FIRST so render thread won't find it!
-			// This prevents race condition where input thread disposes controls while
-			// render thread is still trying to render them.
 
 			// Unregister modal window from modal state service
 			if (window.Mode == WindowMode.Modal)
@@ -549,7 +554,8 @@ namespace SharpConsoleUI
 			// Clear focus state for this window
 			_focusStateService.ClearFocus(window);
 
-			// Remove from window collection via service (BEFORE Close()!)
+			// Remove from window collection via service
+			// This prevents race condition where render thread tries to render disposed controls
 			_windowStateService.UnregisterWindow(window);
 
 			// Activate the next window (UnregisterWindow updates state but doesn't call SetIsActive)
@@ -572,16 +578,8 @@ namespace SharpConsoleUI
 				}
 			}
 
-			// NOW dispose the window - it's safe because it's no longer in the Windows dictionary
-			// so the render thread won't try to render it
-			if (window.Close(systemCall: true) == false)
-			{
-				// Close was cancelled via OnClosing event - window is now orphaned
-				// This is an edge case; caller should not have an OnClosing handler that cancels
-				// when Close is called programmatically via CloseWindow
-				LogService?.LogWarning("Window close was cancelled after removal from system", "CloseWindow");
-				return false;
-			}
+			// STEP 3: Complete the close (fire OnClosed, dispose controls)
+			window.CompleteClose();
 
 			// Redraw the screen
 			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height,
