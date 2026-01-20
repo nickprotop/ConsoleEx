@@ -2585,9 +2585,18 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Maximizes the window to fill the entire desktop area.
 		/// </summary>
-		public void Maximize()
+		/// <param name="force">
+		/// If true, bypasses the <see cref="IsMaximizable"/> check and forces maximization.
+		/// Default is false, which respects the <see cref="IsMaximizable"/> property.
+		/// Use force=true for programmatic maximization that should override user preferences.
+		/// </param>
+		/// <remarks>
+		/// When force is false (default), the method will silently return if IsMaximizable is false.
+		/// This maintains backward compatibility with existing code.
+		/// </remarks>
+		public void Maximize(bool force = false)
 		{
-			if (!IsMaximizable)
+			if (!force && !IsMaximizable)
 				return;
 			State = WindowState.Maximized;
 		}
@@ -2595,9 +2604,19 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Minimizes the window.
 		/// </summary>
-		public void Minimize()
+		/// <param name="force">
+		/// If true, bypasses the <see cref="IsMinimizable"/> check and forces minimization.
+		/// Default is false, which respects the <see cref="IsMinimizable"/> property.
+		/// Use force=true for programmatic minimization (e.g., UAC-style dialogs) that
+		/// should override user preferences.
+		/// </param>
+		/// <remarks>
+		/// When force is false (default), the method will silently return if IsMinimizable is false.
+		/// This maintains backward compatibility with existing code.
+		/// </remarks>
+		public void Minimize(bool force = false)
 		{
-			if (!IsMinimizable)
+			if (!force && !IsMinimizable)
 				return;
 			State = WindowState.Minimized;
 		}
