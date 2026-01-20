@@ -55,6 +55,9 @@ namespace SharpConsoleUI.Controls
 		private int _horizontalScrollOffset = 0;
 		private char? _maskCharacter;
 
+		// Cached alignment offset from last render (needed for cursor positioning)
+		private int _lastAlignOffset = 0;
+
 		// Read-only helpers
 		private int CurrentCursorPosition => _cursorPosition;
 		private int CurrentScrollOffset => _horizontalScrollOffset;
@@ -257,9 +260,9 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Return the visual cursor position within the input field
-			// Account for scroll offset and margins to get the position relative to visible content
+			// Account for scroll offset, margins, and alignment offset to get the position relative to visible content
 			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
-			int visualCursorX = _margin.Left + promptLength + (CurrentCursorPosition - CurrentScrollOffset);
+			int visualCursorX = _margin.Left + _lastAlignOffset + promptLength + (CurrentCursorPosition - CurrentScrollOffset);
 			var pos = new Point(visualCursorX, _margin.Top);
 
 			return pos;
@@ -524,6 +527,9 @@ namespace SharpConsoleUI.Controls
 							break;
 					}
 				}
+
+				// Cache alignment offset for cursor positioning
+				_lastAlignOffset = alignOffset;
 
 				// Fill left alignment padding
 				if (alignOffset > 0)
