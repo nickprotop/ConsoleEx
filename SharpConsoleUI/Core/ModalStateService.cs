@@ -230,14 +230,31 @@ namespace SharpConsoleUI.Core
 		{
 			lock (_lock)
 			{
-				// Check for orphan modals (modals with no parent that block everything)
-				var orphanModal = _modalStack.FirstOrDefault(m => !_modalParents.ContainsKey(m));
-				if (orphanModal != null && orphanModal != targetWindow)
+				// Check if targetWindow is itself an orphan modal
+				bool targetIsOrphan = _modalStack.Contains(targetWindow) && !_modalParents.ContainsKey(targetWindow);
+
+				// Get topmost (most recently added) orphan modal
+				var topmostOrphan = _modalStack.LastOrDefault(m => !_modalParents.ContainsKey(m));
+
+				if (topmostOrphan != null && topmostOrphan != targetWindow)
 				{
-					// Don't block if targetWindow is a child of the orphan modal
-					if (IsChildOfInternal(targetWindow, orphanModal))
+					// If target is an orphan, it should not be blocked by other orphans
+					// (the topmost orphan wins)
+					if (targetIsOrphan)
 					{
-						// Target is a child of orphan, allow activation
+						// Check if target has modal children
+						var childModal = FindDeepestModalChildInternal(targetWindow);
+						if (childModal != null)
+						{
+							return childModal;
+						}
+						return null;
+					}
+
+					// Don't block if targetWindow is a child of the topmost orphan modal
+					if (IsChildOfInternal(targetWindow, topmostOrphan))
+					{
+						// Target is a child of topmost orphan, allow activation
 						// (but check if target has its own modal children)
 						var childModal = FindDeepestModalChildInternal(targetWindow);
 						if (childModal != null)
@@ -247,7 +264,10 @@ namespace SharpConsoleUI.Core
 						return null;
 					}
 
-					return orphanModal;
+					// Topmost orphan blocks this window
+					// Return the orphan or its deepest child
+					var orphanChild = FindDeepestModalChildInternal(topmostOrphan);
+					return orphanChild ?? topmostOrphan;
 				}
 
 				// Check if target window has modal children that should be activated instead
@@ -281,14 +301,32 @@ namespace SharpConsoleUI.Core
 		{
 			lock (_lock)
 			{
-				// First check for orphan modals
-				var orphanModal = _modalStack.FirstOrDefault(m => !_modalParents.ContainsKey(m));
-				if (orphanModal != null && orphanModal != targetWindow)
+				// Check if targetWindow is itself an orphan modal
+				bool targetIsOrphan = _modalStack.Contains(targetWindow) && !_modalParents.ContainsKey(targetWindow);
+
+				// Get topmost (most recently added) orphan modal
+				var topmostOrphan = _modalStack.LastOrDefault(m => !_modalParents.ContainsKey(m));
+
+				if (topmostOrphan != null && topmostOrphan != targetWindow)
 				{
-					// Don't block if targetWindow is a child of the orphan modal
-					if (IsChildOfInternal(targetWindow, orphanModal))
+					// If target is an orphan and it's the topmost orphan, allow activation
+					if (targetIsOrphan)
 					{
-						// Target is a child of orphan, allow it to be the effective target
+						// Target is an orphan but not the topmost - shouldn't happen in normal flow
+						// but allow it anyway and check for modal children
+						var childModal = FindDeepestModalChildInternal(targetWindow);
+						if (childModal != null)
+						{
+							FireActivationBlocked(targetWindow, childModal);
+							return childModal;
+						}
+						return targetWindow;
+					}
+
+					// Don't block if targetWindow is a child of the topmost orphan modal
+					if (IsChildOfInternal(targetWindow, topmostOrphan))
+					{
+						// Target is a child of topmost orphan, allow it to be the effective target
 						// (but check if target has its own modal children)
 						var childModal = FindDeepestModalChildInternal(targetWindow);
 						if (childModal != null)
@@ -299,12 +337,20 @@ namespace SharpConsoleUI.Core
 						return targetWindow;
 					}
 
-					// Orphan modal blocks everything else
-					FireActivationBlocked(targetWindow, orphanModal);
-					return orphanModal;
+					// Topmost orphan modal blocks everything else
+					// Return the orphan or its deepest child
+					var orphanChild = FindDeepestModalChildInternal(topmostOrphan);
+					if (orphanChild != null)
+					{
+						FireActivationBlocked(targetWindow, orphanChild);
+						return orphanChild;
+					}
+
+					FireActivationBlocked(targetWindow, topmostOrphan);
+					return topmostOrphan;
 				}
 
-				// Find deepest modal child
+				// No orphan modals blocking, find deepest modal child of target
 				var modalChild = FindDeepestModalChildInternal(targetWindow);
 				if (modalChild != null)
 				{
