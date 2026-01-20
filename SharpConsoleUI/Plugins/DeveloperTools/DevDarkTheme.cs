@@ -190,4 +190,13 @@ public class DevDarkTheme : ITheme
 
 	/// <inheritdoc />
 	public Color ModalFlashColor { get; set; } = Color.Grey27;
+
+	/// <inheritdoc />
+	public Color ProgressBarFilledColor { get; set; } = Color.Green;
+
+	/// <inheritdoc />
+	public Color ProgressBarUnfilledColor { get; set; } = Color.Grey19;
+
+	/// <inheritdoc />
+	public Color ProgressBarPercentageColor { get; set; } = Color.Grey78;
 }

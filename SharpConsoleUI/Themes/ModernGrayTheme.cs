@@ -312,5 +312,20 @@ namespace SharpConsoleUI.Themes
 		/// Gets or sets the background color used when flashing modal windows to draw user attention.
 		/// </summary>
 		public Color ModalFlashColor { get; set; } = Color.Grey35;
+
+		/// <summary>
+		/// Gets or sets the color for the filled portion of progress bars.
+		/// </summary>
+		public Color ProgressBarFilledColor { get; set; } = Color.Cyan1;
+
+		/// <summary>
+		/// Gets or sets the color for the unfilled portion of progress bars.
+		/// </summary>
+		public Color ProgressBarUnfilledColor { get; set; } = Color.Grey23;
+
+		/// <summary>
+		/// Gets or sets the color for the percentage text display on progress bars.
+		/// </summary>
+		public Color ProgressBarPercentageColor { get; set; } = Color.Grey93;
 	}
 }

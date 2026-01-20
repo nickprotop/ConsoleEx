@@ -308,4 +308,19 @@ public interface ITheme
     /// </summary>
     Color ModalFlashColor { get; }
 
+    /// <summary>
+    /// Gets the color for the filled portion of progress bars.
+    /// </summary>
+    Color ProgressBarFilledColor { get; }
+
+    /// <summary>
+    /// Gets the color for the unfilled portion of progress bars.
+    /// </summary>
+    Color ProgressBarUnfilledColor { get; }
+
+    /// <summary>
+    /// Gets the color for the percentage text display on progress bars.
+    /// </summary>
+    Color ProgressBarPercentageColor { get; }
+
 }
