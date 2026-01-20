@@ -333,7 +333,6 @@ internal class Program
         var logViewer = new LogViewerControl(_windowSystem.LogService)
         {
             Title = "Application Logs",
-            MaxDisplayLines = 14,
             FilterLevel = LogLevel.Trace, // Show all levels for demo
         };
 

@@ -14,40 +14,39 @@ using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Logging;
 using Spectre.Console;
 using Color = Spectre.Console.Color;
+using SharpConsoleUI.Events;
+using System.Collections.Concurrent;
 
 namespace SharpConsoleUI.Controls;
 
 /// <summary>
 /// A control that displays log entries from the library's LogService.
 /// Automatically updates when new log entries are added.
+/// Uses ScrollablePanelControl internally for scrolling with AutoScroll support.
+/// Thread-safe: log events can be received from any thread.
 /// </summary>
-public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintable
+public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
 {
     private readonly ILogService _logService;
-    private readonly object _logsLock = new object();  // Lock for thread-safe access to _displayedLogs
+    private readonly ScrollablePanelControl _scrollPanel;
+    private readonly Dictionary<LogEntry, MarkupControl> _entryControls = new();
     private readonly List<LogEntry> _displayedLogs = new();
-    private int _scrollOffset = 0;  // Local fallback for scroll offset
-    private int _maxDisplayLines = 10;
-    private bool _autoScroll = true;
+
+    // Thread-safe queue for pending log entries (can be added from any thread)
+    private readonly ConcurrentQueue<LogEntry> _pendingEntries = new();
+    private volatile bool _pendingClear = false;
+
     private bool _hasFocus;
     private LogLevel _filterLevel = LogLevel.Trace;
     private string? _filterCategory;
     private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
+    private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
     private Margin _margin = new Margin(0, 0, 0, 0);
     private StickyPosition _stickyPosition = StickyPosition.None;
     private bool _visible = true;
     private int? _width;
     private string? _title;
     private volatile bool _disposed = false;
-
-    private int CurrentScrollOffset => _scrollOffset;
-
-    // Helper to set scroll offset
-    private void SetScrollOffset(int offset)
-    {
-        _scrollOffset = Math.Max(0, offset);
-    }
 
     /// <summary>
     /// Creates a new LogViewerControl bound to the specified log service
@@ -56,10 +55,71 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
     public LogViewerControl(ILogService logService)
     {
         _logService = logService ?? throw new ArgumentNullException(nameof(logService));
+
+        _scrollPanel = new ScrollablePanelControl
+        {
+            AutoScroll = true,
+            VerticalScrollMode = ScrollMode.Scroll,
+            ShowScrollbar = true
+        };
+
         _logService.LogAdded += OnLogAdded;
         _logService.LogsCleared += OnLogsCleared;
-        RefreshLogs();
+
+        // Load existing logs (we're on the creating thread, not UI thread yet)
+        // Queue them for processing on first paint
+        foreach (var entry in _logService.GetAllLogs())
+        {
+            if (entry.Level >= _filterLevel)
+            {
+                if (_filterCategory == null || entry.Category == _filterCategory)
+                {
+                    _pendingEntries.Enqueue(entry);
+                }
+            }
+        }
     }
+
+    #region Events
+
+    /// <summary>
+    /// Event fired when the control gains focus.
+    /// </summary>
+    public event EventHandler? GotFocus;
+
+    /// <summary>
+    /// Event fired when the control loses focus.
+    /// </summary>
+    public event EventHandler? LostFocus;
+
+    #pragma warning disable CS0067  // Event never raised (interface requirement)
+    /// <summary>
+    /// Occurs when the control is clicked.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseClick;
+
+    /// <summary>
+    /// Occurs when the control is double-clicked.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+    /// <summary>
+    /// Occurs when the mouse enters the control area.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseEnter;
+
+    /// <summary>
+    /// Occurs when the mouse leaves the control area.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseLeave;
+
+    /// <summary>
+    /// Occurs when the mouse moves over the control.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseMove;
+    #pragma warning restore CS0067
+
+    #endregion
 
     #region IWindowControl Properties
 
@@ -163,8 +223,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
         get => _hasFocus;
         set
         {
-            _hasFocus = value;
-            Container?.Invalidate(true);
+            SetFocus(value, FocusReason.Programmatic);
         }
     }
 
@@ -173,29 +232,33 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
 
     #endregion
 
+    #region IFocusableControl Properties
+
+    /// <inheritdoc/>
+    public bool CanReceiveFocus => _visible && IsEnabled;
+
+    #endregion
+
+    #region IMouseAwareControl Properties
+
+    /// <inheritdoc/>
+    public bool WantsMouseEvents => true;
+
+    /// <inheritdoc/>
+    public bool CanFocusWithMouse => CanReceiveFocus;
+
+    #endregion
+
     #region LogViewerControl Properties
 
     /// <summary>
-    /// Gets or sets the maximum number of log lines to display
-    /// </summary>
-    public int MaxDisplayLines
-    {
-        get => _maxDisplayLines;
-        set
-        {
-            if (value < 1) throw new ArgumentOutOfRangeException(nameof(value));
-            _maxDisplayLines = value;
-            Container?.Invalidate(true);
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets whether to automatically scroll to show new log entries
+    /// Gets or sets whether to automatically scroll to show new log entries.
+    /// This now delegates to the internal ScrollablePanelControl.
     /// </summary>
     public bool AutoScroll
     {
-        get => _autoScroll;
-        set => _autoScroll = value;
+        get => _scrollPanel.AutoScroll;
+        set => _scrollPanel.AutoScroll = value;
     }
 
     /// <summary>
@@ -244,9 +307,10 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
     /// <inheritdoc/>
     public System.Drawing.Size GetLogicalContentSize()
     {
-        int height = _maxDisplayLines + (string.IsNullOrEmpty(_title) ? 0 : 1);
+        int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
+        var panelSize = _scrollPanel.GetLogicalContentSize();
         int width = _width ?? 80;
-        return new System.Drawing.Size(width, height);
+        return new System.Drawing.Size(width, titleHeight + panelSize.Height);
     }
 
     /// <inheritdoc/>
@@ -259,10 +323,11 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true;  // Set flag FIRST to prevent event handlers from running
+        _disposed = true;
 
         _logService.LogAdded -= OnLogAdded;
         _logService.LogsCleared -= OnLogsCleared;
+        _scrollPanel.Dispose();
         Container = null;
     }
 
@@ -275,100 +340,59 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
     {
         if (!IsEnabled) return false;
 
-        switch (keyInfo.Key)
+        // Handle clear logs
+        if (keyInfo.Key == ConsoleKey.Delete ||
+            (keyInfo.Key == ConsoleKey.C && keyInfo.Modifiers.HasFlag(ConsoleModifiers.Control)))
         {
-            case ConsoleKey.UpArrow:
-                ScrollUp();
-                return true;
-
-            case ConsoleKey.DownArrow:
-                ScrollDown();
-                return true;
-
-            case ConsoleKey.PageUp:
-                ScrollUp(_maxDisplayLines);
-                return true;
-
-            case ConsoleKey.PageDown:
-                ScrollDown(_maxDisplayLines);
-                return true;
-
-            case ConsoleKey.Home:
-                SetScrollOffset(0);
-                _autoScroll = false;
-                Container?.Invalidate(true);
-                return true;
-
-            case ConsoleKey.End:
-                ScrollToEnd();
-                _autoScroll = true;
-                return true;
-
-            case ConsoleKey.Delete:
-            case ConsoleKey.C when keyInfo.Modifiers.HasFlag(ConsoleModifiers.Control):
-                _logService.ClearLogs();
-                return true;
-
-            default:
-                return false;
+            _logService.ClearLogs();
+            return true;
         }
+
+        // Delegate to scroll panel for scrolling keys
+        return _scrollPanel.ProcessKey(keyInfo);
     }
 
     #endregion
 
-    #region Scroll Methods
+    #region IFocusableControl Methods
 
-    /// <summary>
-    /// Scrolls up by the specified number of lines.
-    /// </summary>
-    /// <param name="lines">The number of lines to scroll.</param>
-    public void ScrollUp(int lines = 1)
+    /// <inheritdoc/>
+    public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
     {
-        int newOffset = Math.Max(0, CurrentScrollOffset - lines);
-        SetScrollOffset(newOffset);
-        _autoScroll = false;
-        Container?.Invalidate(true);
-    }
+        if (_hasFocus == focus) return;
 
-    /// <summary>
-    /// Scrolls down by the specified number of lines.
-    /// </summary>
-    /// <param name="lines">The number of lines to scroll.</param>
-    public void ScrollDown(int lines = 1)
-    {
-        int logCount;
-        lock (_logsLock)
+        _hasFocus = focus;
+        _scrollPanel.HasFocus = focus;
+
+        if (focus)
         {
-            logCount = _displayedLogs.Count;
+            GotFocus?.Invoke(this, EventArgs.Empty);
         }
-        var maxOffset = Math.Max(0, logCount - _maxDisplayLines);
-        int newOffset = Math.Min(maxOffset, CurrentScrollOffset + lines);
-        SetScrollOffset(newOffset);
-        Container?.Invalidate(true);
-    }
-
-    /// <summary>
-    /// Scrolls to show the most recent log entries.
-    /// </summary>
-    public void ScrollToEnd()
-    {
-        int logCount;
-        lock (_logsLock)
+        else
         {
-            logCount = _displayedLogs.Count;
+            LostFocus?.Invoke(this, EventArgs.Empty);
         }
-        int newOffset = Math.Max(0, logCount - _maxDisplayLines);
-        SetScrollOffset(newOffset);
+
         Container?.Invalidate(true);
     }
 
     #endregion
 
-    #region Private Methods
+    #region IMouseAwareControl Methods
+
+    /// <inheritdoc/>
+    public bool ProcessMouseEvent(MouseEventArgs args)
+    {
+        // Delegate mouse handling to scroll panel
+        return _scrollPanel.ProcessMouseEvent(args);
+    }
+
+    #endregion
+
+    #region Private Methods - Event Handlers (called from any thread)
 
     private void OnLogAdded(object? sender, LogEntry entry)
     {
-        // Early exit if disposed - event might fire during disposal
         if (_disposed) return;
 
         // Check if entry passes filter
@@ -378,87 +402,90 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
         if (_filterCategory != null && entry.Category != _filterCategory)
             return;
 
-        int newOffset = 0;
-        bool needsScrollUpdate = false;
+        // Queue for processing on UI thread during paint
+        _pendingEntries.Enqueue(entry);
 
-        lock (_logsLock)
-        {
-            _displayedLogs.Add(entry);
-
-            // Trim if we have too many
-            while (_displayedLogs.Count > _logService.MaxBufferSize)
-            {
-                _displayedLogs.RemoveAt(0);
-                int currentOffset = CurrentScrollOffset;
-                if (currentOffset > 0)
-                {
-                    _scrollOffset = Math.Max(0, currentOffset - 1);
-                }
-            }
-
-            if (_autoScroll)
-            {
-                newOffset = Math.Max(0, _displayedLogs.Count - _maxDisplayLines);
-                needsScrollUpdate = true;
-            }
-        }
-
-        // Update scroll state OUTSIDE the lock to avoid potential deadlock
-        if (needsScrollUpdate)
-        {
-            SetScrollOffset(newOffset);
-        }
-
-        // Invalidate OUTSIDE the lock to avoid deadlock
+        // Trigger repaint (Invalidate is safe to call from any thread)
         Container?.Invalidate(true);
     }
 
     private void OnLogsCleared(object? sender, EventArgs e)
     {
-        // Early exit if disposed - event might fire during disposal
         if (_disposed) return;
 
-        lock (_logsLock)
-        {
-            _displayedLogs.Clear();
-        }
-        SetScrollOffset(0);
+        // Signal clear - will be processed on UI thread during paint
+        _pendingClear = true;
+
+        // Trigger repaint
         Container?.Invalidate(true);
+    }
+
+    #endregion
+
+    #region Private Methods - UI Thread Processing
+
+    /// <summary>
+    /// Processes pending queue entries. Must be called from UI thread (during paint).
+    /// </summary>
+    private void ProcessPendingEntries()
+    {
+        // Handle clear first
+        if (_pendingClear)
+        {
+            _pendingClear = false;
+
+            // Clear the queue of any pending entries
+            while (_pendingEntries.TryDequeue(out _)) { }
+
+            // Clear displayed logs
+            _displayedLogs.Clear();
+            foreach (var control in _entryControls.Values)
+            {
+                _scrollPanel.RemoveControl(control);
+            }
+            _entryControls.Clear();
+        }
+
+        // Process pending additions
+        while (_pendingEntries.TryDequeue(out var entry))
+        {
+            _displayedLogs.Add(entry);
+
+            // Create MarkupControl for this entry
+            var markup = new MarkupControl(new List<string> { entry.ToMarkup() }) { Wrap = true };
+            _entryControls[entry] = markup;
+            _scrollPanel.AddControl(markup);
+
+            // Trim if we have too many
+            while (_displayedLogs.Count > _logService.MaxBufferSize)
+            {
+                var oldEntry = _displayedLogs[0];
+                _displayedLogs.RemoveAt(0);
+
+                if (_entryControls.TryGetValue(oldEntry, out var oldControl))
+                {
+                    _scrollPanel.RemoveControl(oldControl);
+                    _entryControls.Remove(oldEntry);
+                }
+            }
+        }
     }
 
     private void RefreshLogs()
     {
-        int newOffset = 0;
+        // Signal clear and re-queue matching logs
+        _pendingClear = true;
 
-        lock (_logsLock)
+        // Queue filtered logs
+        foreach (var entry in _logService.GetAllLogs())
         {
-            _displayedLogs.Clear();
-        }
-        SetScrollOffset(0);
-
-        var allLogs = _logService.GetAllLogs();
-        lock (_logsLock)
-        {
-            foreach (var entry in allLogs)
+            if (entry.Level >= _filterLevel)
             {
-                if (entry.Level >= _filterLevel)
+                if (_filterCategory == null || entry.Category == _filterCategory)
                 {
-                    if (_filterCategory == null || entry.Category == _filterCategory)
-                    {
-                        _displayedLogs.Add(entry);
-                    }
+                    _pendingEntries.Enqueue(entry);
                 }
             }
-
-            if (_autoScroll)
-            {
-                newOffset = Math.Max(0, _displayedLogs.Count - _maxDisplayLines);
-            }
-        }
-
-        if (_autoScroll)
-        {
-            SetScrollOffset(newOffset);
         }
 
         Container?.Invalidate(true);
@@ -471,23 +498,22 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
     /// <inheritdoc/>
     public LayoutSize MeasureDOM(LayoutConstraints constraints)
     {
+        // Process pending entries before measuring
+        ProcessPendingEntries();
+
         int contentWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
-
-        // Calculate height: title line + visible log lines + possible scroll indicator
-        int logCount;
-        lock (_logsLock)
-        {
-            logCount = _displayedLogs.Count;
-        }
-
         int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
-        int contentHeight = Math.Min(_maxDisplayLines, logCount);
-        if (contentHeight == 0) contentHeight = 1; // "No log entries" message
 
-        // Add scroll indicator line if there are more entries than visible
-        int scrollIndicatorHeight = logCount > _maxDisplayLines ? 1 : 0;
+        // Measure the scroll panel
+        var panelConstraints = new LayoutConstraints(
+            MinWidth: 1,
+            MaxWidth: contentWidth,
+            MinHeight: 1,
+            MaxHeight: Math.Max(1, constraints.MaxHeight - titleHeight - _margin.Top - _margin.Bottom)
+        );
+        var panelSize = (_scrollPanel as IDOMPaintable).MeasureDOM(panelConstraints);
 
-        int totalHeight = titleHeight + contentHeight + scrollIndicatorHeight + _margin.Top + _margin.Bottom;
+        int totalHeight = titleHeight + panelSize.Height + _margin.Top + _margin.Bottom;
         int width = (_width ?? contentWidth) + _margin.Left + _margin.Right;
 
         return new LayoutSize(
@@ -499,6 +525,9 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
     /// <inheritdoc/>
     public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
     {
+        // Process pending entries on UI thread
+        ProcessPendingEntries();
+
         var bgColor = Container?.BackgroundColor ?? defaultBg;
         var fgColor = Container?.ForegroundColor ?? defaultFg;
         int targetWidth = bounds.Width - _margin.Left - _margin.Right;
@@ -513,9 +542,10 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
         ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
 
         // Render title if set
-        int contentHeight = bounds.Height - _margin.Top - _margin.Bottom;
+        int titleHeight = 0;
         if (!string.IsNullOrEmpty(_title))
         {
+            titleHeight = 1;
             if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
             {
                 // Fill left margin
@@ -573,182 +603,21 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IDOMPaintab
                 }
             }
             currentY++;
-            contentHeight--;
         }
 
-        // Get visible logs
-        int scrollOffset = CurrentScrollOffset;
-        List<LogEntry> visibleLogs;
-        int totalFiltered;
-        lock (_logsLock)
+        // Render scroll panel
+        int panelHeight = bounds.Height - _margin.Top - _margin.Bottom - titleHeight;
+        if (panelHeight > 0)
         {
-            visibleLogs = _displayedLogs
-                .Skip(scrollOffset)
-                .Take(contentHeight - 1) // Leave room for scroll indicator if needed
-                .ToList();
-            totalFiltered = _displayedLogs.Count;
-        }
+            var panelBounds = new LayoutRect(startX, currentY, targetWidth, panelHeight);
+            var panelClipRect = clipRect.Intersect(panelBounds);
 
-        // Render log entries or empty message
-        if (visibleLogs.Count == 0)
-        {
-            if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
-            {
-                // Fill left margin
-                if (_margin.Left > 0)
-                {
-                    buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', fgColor, bgColor);
-                }
+            // Update scroll panel container reference for proper invalidation
+            _scrollPanel.Container = this.Container;
+            _scrollPanel.BackgroundColor = bgColor;
+            _scrollPanel.ForegroundColor = fgColor;
 
-                var emptyText = "No log entries";
-                var emptyColor = Color.Grey;
-
-                // Apply alignment
-                int alignOffset = 0;
-                if (emptyText.Length < targetWidth)
-                {
-                    switch (_horizontalAlignment)
-                    {
-                        case HorizontalAlignment.Center:
-                            alignOffset = (targetWidth - emptyText.Length) / 2;
-                            break;
-                        case HorizontalAlignment.Right:
-                            alignOffset = targetWidth - emptyText.Length;
-                            break;
-                    }
-                }
-
-                if (alignOffset > 0)
-                {
-                    buffer.FillRect(new LayoutRect(startX, currentY, alignOffset, 1), ' ', fgColor, bgColor);
-                }
-
-                for (int i = 0; i < emptyText.Length && startX + alignOffset + i < clipRect.Right; i++)
-                {
-                    int x = startX + alignOffset + i;
-                    if (x >= clipRect.X)
-                    {
-                        buffer.SetCell(x, currentY, emptyText[i], emptyColor, bgColor);
-                    }
-                }
-
-                int rightPadStart = startX + alignOffset + emptyText.Length;
-                int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
-                if (rightPadWidth > 0)
-                {
-                    buffer.FillRect(new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), ' ', fgColor, bgColor);
-                }
-
-                if (_margin.Right > 0)
-                {
-                    buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', fgColor, bgColor);
-                }
-            }
-            currentY++;
-        }
-        else
-        {
-            foreach (var entry in visibleLogs)
-            {
-                if (currentY >= bounds.Bottom) break;
-
-                if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
-                {
-                    // Fill left margin
-                    if (_margin.Left > 0)
-                    {
-                        buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', fgColor, bgColor);
-                    }
-
-                    // Render log entry using Spectre markup
-                    var entryMarkup = entry.ToMarkup();
-                    var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(entryMarkup, targetWidth, 1, false, bgColor, fgColor).FirstOrDefault() ?? string.Empty;
-                    var cells = AnsiParser.Parse(ansiLine, fgColor, bgColor);
-                    buffer.WriteCellsClipped(startX, currentY, cells, clipRect);
-
-                    // Fill any remaining width
-                    int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(ansiLine);
-                    if (lineWidth < targetWidth)
-                    {
-                        buffer.FillRect(new LayoutRect(startX + lineWidth, currentY, targetWidth - lineWidth, 1), ' ', fgColor, bgColor);
-                    }
-
-                    // Fill right margin
-                    if (_margin.Right > 0)
-                    {
-                        buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', fgColor, bgColor);
-                    }
-                }
-                currentY++;
-            }
-        }
-
-        // Render scroll indicator if there are more entries
-        if (totalFiltered > _maxDisplayLines && visibleLogs.Count > 0)
-        {
-            if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
-            {
-                // Fill left margin
-                if (_margin.Left > 0)
-                {
-                    buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', fgColor, bgColor);
-                }
-
-                var endVisible = Math.Min(scrollOffset + visibleLogs.Count, totalFiltered);
-                var scrollInfo = $"({scrollOffset + 1}-{endVisible} of {totalFiltered})";
-                var scrollColor = Color.Grey;
-
-                // Apply alignment
-                int alignOffset = 0;
-                if (scrollInfo.Length < targetWidth)
-                {
-                    switch (_horizontalAlignment)
-                    {
-                        case HorizontalAlignment.Center:
-                            alignOffset = (targetWidth - scrollInfo.Length) / 2;
-                            break;
-                        case HorizontalAlignment.Right:
-                            alignOffset = targetWidth - scrollInfo.Length;
-                            break;
-                    }
-                }
-
-                if (alignOffset > 0)
-                {
-                    buffer.FillRect(new LayoutRect(startX, currentY, alignOffset, 1), ' ', fgColor, bgColor);
-                }
-
-                for (int i = 0; i < scrollInfo.Length && startX + alignOffset + i < clipRect.Right; i++)
-                {
-                    int x = startX + alignOffset + i;
-                    if (x >= clipRect.X)
-                    {
-                        buffer.SetCell(x, currentY, scrollInfo[i], scrollColor, bgColor);
-                    }
-                }
-
-                int rightPadStart = startX + alignOffset + scrollInfo.Length;
-                int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
-                if (rightPadWidth > 0)
-                {
-                    buffer.FillRect(new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), ' ', fgColor, bgColor);
-                }
-
-                if (_margin.Right > 0)
-                {
-                    buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', fgColor, bgColor);
-                }
-            }
-            currentY++;
-        }
-
-        // Fill any remaining content area
-        for (int y = currentY; y < bounds.Bottom - _margin.Bottom; y++)
-        {
-            if (y >= clipRect.Y && y < clipRect.Bottom)
-            {
-                buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
-            }
+            (_scrollPanel as IDOMPaintable).PaintDOM(buffer, panelBounds, panelClipRect, fgColor, bgColor);
         }
 
         // Fill bottom margin
