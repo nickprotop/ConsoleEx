@@ -30,6 +30,7 @@ public sealed class ScrollablePanelBuilder
 	private ScrollMode _horizontalScrollMode = ScrollMode.None;
 	private ScrollMode _verticalScrollMode = ScrollMode.Scroll;
 	private bool _enableMouseWheel = true;
+	private bool _autoScroll = false;
 
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -125,6 +126,19 @@ public sealed class ScrollablePanelBuilder
 	public ScrollablePanelBuilder WithMouseWheel(bool enable = true)
 	{
 		_enableMouseWheel = enable;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables or disables automatic scrolling to bottom when content is added.
+	/// When enabled, new content auto-scrolls to bottom if already at bottom,
+	/// disables when user scrolls up, and re-enables when user scrolls to bottom.
+	/// </summary>
+	/// <param name="enabled">True to enable auto-scroll</param>
+	/// <returns>The builder for chaining</returns>
+	public ScrollablePanelBuilder WithAutoScroll(bool enabled = true)
+	{
+		_autoScroll = enabled;
 		return this;
 	}
 
@@ -342,6 +356,7 @@ public sealed class ScrollablePanelBuilder
 			HorizontalScrollMode = _horizontalScrollMode,
 			VerticalScrollMode = _verticalScrollMode,
 			EnableMouseWheel = _enableMouseWheel,
+			AutoScroll = _autoScroll,
 			HorizontalAlignment = _alignment,
 			VerticalAlignment = _verticalAlignment,
 			Margin = _margin,

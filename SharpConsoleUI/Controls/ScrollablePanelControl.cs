@@ -41,6 +41,8 @@ namespace SharpConsoleUI.Controls
 		private ScrollMode _horizontalScrollMode = ScrollMode.None;
 		private ScrollMode _verticalScrollMode = ScrollMode.Scroll;
 		private bool _enableMouseWheel = true;
+		private bool _autoScroll = false;
+		private bool _pendingScrollToBottom = false;
 
 		// IWindowControl properties
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
@@ -162,6 +164,17 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _enableMouseWheel;
 			set => _enableMouseWheel = value;
+		}
+
+		/// <summary>
+		/// Gets or sets whether to automatically scroll to bottom when content is added.
+		/// When enabled, scrolls to bottom on AddControl if currently at/near bottom.
+		/// Disables automatically when user scrolls up, re-enables when user scrolls to bottom.
+		/// </summary>
+		public bool AutoScroll
+		{
+			get => _autoScroll;
+			set => _autoScroll = value;
 		}
 
 		#endregion
@@ -388,6 +401,7 @@ namespace SharpConsoleUI.Controls
 					case ConsoleKey.End:
 						if (_verticalScrollMode == ScrollMode.Scroll)
 						{
+							_autoScroll = true;  // Explicitly re-attach
 							ScrollVerticalTo(Math.Max(0, _contentHeight - _viewportHeight));
 							return true;
 						}
@@ -595,16 +609,25 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Adds a child control to the panel.
+		/// This method is not thread-safe and must be called from the UI thread.
+		/// For multi-threaded scenarios, queue additions and process them during paint.
 		/// </summary>
 		public void AddControl(IWindowControl control)
 		{
 			_children.Add(control);
 			control.Container = this;
+
+			if (_autoScroll)
+			{
+				_pendingScrollToBottom = true;
+			}
+
 			Invalidate(true);
 		}
 
 		/// <summary>
 		/// Removes a child control from the panel.
+		/// This method is not thread-safe and must be called from the UI thread.
 		/// </summary>
 		public void RemoveControl(IWindowControl control)
 		{
@@ -644,6 +667,16 @@ namespace SharpConsoleUI.Controls
 			int oldOffset = _verticalScrollOffset;
 			int maxOffset = Math.Max(0, _contentHeight - _viewportHeight);
 			_verticalScrollOffset = Math.Clamp(_verticalScrollOffset + lines, 0, maxOffset);
+
+			// AutoScroll state tracking
+			if (_autoScroll && lines < 0 && _verticalScrollOffset < maxOffset)
+			{
+				_autoScroll = false;  // Detach: user scrolled up
+			}
+			else if (!_autoScroll && lines > 0 && _verticalScrollOffset >= maxOffset)
+			{
+				_autoScroll = true;   // Re-attach: user scrolled to bottom
+			}
 
 			if (oldOffset != _verticalScrollOffset)
 			{
@@ -731,6 +764,17 @@ namespace SharpConsoleUI.Controls
 			// Calculate content dimensions from children
 			_contentHeight = CalculateContentHeight(_viewportWidth);
 			_contentWidth = CalculateContentWidth();
+
+			// AutoScroll: scroll to bottom after content added
+			if (_pendingScrollToBottom && _autoScroll)
+			{
+				_pendingScrollToBottom = false;
+				int maxOffset = Math.Max(0, _contentHeight - _viewportHeight);
+				if (_verticalScrollOffset < maxOffset)
+				{
+					_verticalScrollOffset = maxOffset;
+				}
+			}
 
 			// Reserve space for scrollbar(s)
 			int contentWidth = _viewportWidth;
