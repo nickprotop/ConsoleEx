@@ -765,16 +765,16 @@ namespace SharpConsoleUI.Controls
 			_contentHeight = CalculateContentHeight(_viewportWidth);
 			_contentWidth = CalculateContentWidth();
 
-			// AutoScroll: scroll to bottom after content added
-			if (_pendingScrollToBottom && _autoScroll)
+			// AutoScroll: scroll to bottom on any repaint when enabled
+			if (_autoScroll)
 			{
-				_pendingScrollToBottom = false;
 				int maxOffset = Math.Max(0, _contentHeight - _viewportHeight);
 				if (_verticalScrollOffset < maxOffset)
 				{
 					_verticalScrollOffset = maxOffset;
 				}
 			}
+			_pendingScrollToBottom = false;
 
 			// Reserve space for scrollbar(s)
 			int contentWidth = _viewportWidth;
