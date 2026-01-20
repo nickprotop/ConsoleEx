@@ -152,7 +152,7 @@ internal class Program
         // Theme info and selector button
         var themeInfoGrid = new HorizontalGridControl
         {
-            HorizontalAlignment = HorizontalAlignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
         };
 
         var themeLabel = new MarkupControl(
