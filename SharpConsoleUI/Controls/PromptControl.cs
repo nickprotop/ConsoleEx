@@ -53,6 +53,7 @@ namespace SharpConsoleUI.Controls
 		// Local edit state - controls own their edit state
 		private int _cursorPosition = 0;
 		private int _horizontalScrollOffset = 0;
+		private char? _maskCharacter;
 
 		// Read-only helpers
 		private int CurrentCursorPosition => _cursorPosition;
@@ -175,6 +176,16 @@ namespace SharpConsoleUI.Controls
 				_inputWidth = value.HasValue ? Math.Max(1, value.Value) : value;
 				Container?.Invalidate(true);
 			}
+		}
+
+		/// <summary>
+		/// Gets or sets a character to display instead of the actual input (for password fields).
+		/// When null, the actual input is displayed.
+		/// </summary>
+		public char? MaskCharacter
+		{
+			get => _maskCharacter;
+			set { _maskCharacter = value; Container?.Invalidate(true); }
 		}
 
 		public string Input
@@ -565,7 +576,8 @@ namespace SharpConsoleUI.Controls
 					int x = currentX + i;
 					if (x >= clipRect.X && x < clipRect.Right)
 					{
-						buffer.SetCell(x, startY, visibleInput[i], inputForegroundColor, inputBackgroundColor);
+						char displayChar = _maskCharacter ?? visibleInput[i];
+						buffer.SetCell(x, startY, displayChar, inputForegroundColor, inputBackgroundColor);
 					}
 				}
 
