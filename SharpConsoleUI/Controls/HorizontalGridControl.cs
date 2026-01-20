@@ -737,145 +737,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <summary>
-		/// Distributes available width among columns using the new layout-aware algorithm.
-		/// </summary>
-		private (Dictionary<int, int> columnWidths, bool hasOverflow) DistributeColumnWidths(
-			int totalAvailableWidth,
-			List<(bool IsSplitter, object Control, int Width)> displayControls)
-		{
-			var columnWidths = new Dictionary<int, int>();
-			bool hasOverflow = false;
-
-			// Phase 1: Calculate fixed width and gather flexible columns
-			int totalFixedWidth = 0;
-			var flexibleColumns = new List<(int Index, ColumnContainer Column, LayoutRequirements Req)>();
-
-			for (int i = 0; i < displayControls.Count; i++)
-			{
-				var (isSplitter, control, _) = displayControls[i];
-
-				if (isSplitter)
-				{
-					var splitter = (SplitterControl)control;
-					int width = splitter.Width ?? 1;
-					columnWidths[i] = width;
-					totalFixedWidth += width;
-				}
-				else
-				{
-					var column = (ColumnContainer)control;
-					var requirements = GetColumnRequirements(column);
-
-					if (column.Width != null)
-					{
-						// Column has fixed width
-						columnWidths[i] = column.Width.Value;
-						totalFixedWidth += column.Width.Value;
-					}
-					else
-					{
-						// Column is flexible - gather for phase 2
-						flexibleColumns.Add((i, column, requirements));
-					}
-				}
-			}
-
-			// Phase 2: Distribute remaining width among flexible columns
-			int remainingWidth = totalAvailableWidth - totalFixedWidth;
-
-			if (flexibleColumns.Count > 0)
-			{
-				if (remainingWidth <= 0)
-				{
-					// No space - allocate absolute minimums (EffectiveMinWidth defaults to 1)
-					hasOverflow = true;
-					foreach (var (index, _, req) in flexibleColumns)
-						columnWidths[index] = req.EffectiveMinWidth;
-				}
-				else
-				{
-					int totalMinRequired = flexibleColumns.Sum(f => f.Req.EffectiveMinWidth);
-
-					if (remainingWidth < totalMinRequired)
-					{
-						// Insufficient space - scale proportionally below minimums
-						hasOverflow = true;
-						double scale = (double)remainingWidth / Math.Max(1, totalMinRequired);
-						int allocated = 0;
-
-						for (int i = 0; i < flexibleColumns.Count - 1; i++)
-						{
-							var (index, _, req) = flexibleColumns[i];
-							int width = Math.Max(1, (int)(req.EffectiveMinWidth * scale));
-							columnWidths[index] = width;
-							allocated += width;
-						}
-						// Last column gets remainder to avoid rounding issues
-						columnWidths[flexibleColumns[^1].Index] = Math.Max(1, remainingWidth - allocated);
-					}
-					else
-					{
-						// Sufficient space - distribute by flex factors
-						double totalFlex = flexibleColumns.Sum(f => f.Req.FlexFactor);
-						if (totalFlex <= 0) totalFlex = flexibleColumns.Count;
-
-						// First pass: calculate ideal widths using floor division
-						var idealWidths = new int[flexibleColumns.Count];
-						int totalIdeal = 0;
-
-						for (int i = 0; i < flexibleColumns.Count; i++)
-						{
-							var (_, _, req) = flexibleColumns[i];
-							double proportion = req.FlexFactor / totalFlex;
-							int width = Math.Max(req.EffectiveMinWidth, (int)(remainingWidth * proportion));
-							if (req.MaxWidth.HasValue) width = Math.Min(width, req.MaxWidth.Value);
-							idealWidths[i] = width;
-							totalIdeal += width;
-						}
-
-						// Second pass: distribute any remaining pixels due to rounding
-						int remainder = remainingWidth - totalIdeal;
-						int distributed = 0;
-
-						for (int i = 0; i < flexibleColumns.Count && distributed < remainder; i++)
-						{
-							var (index, _, req) = flexibleColumns[i];
-							// Only add extra if we haven't hit max width
-							if (!req.MaxWidth.HasValue || idealWidths[i] < req.MaxWidth.Value)
-							{
-								idealWidths[i]++;
-								distributed++;
-							}
-						}
-
-						// Apply the calculated widths
-						for (int i = 0; i < flexibleColumns.Count; i++)
-						{
-							columnWidths[flexibleColumns[i].Index] = idealWidths[i];
-						}
-					}
-				}
-			}
-
-			return (columnWidths, hasOverflow);
-		}
-
-		/// <summary>
-		/// Gets the layout requirements for a column, either from ILayoutAware or from properties.
-		/// </summary>
-		private LayoutRequirements GetColumnRequirements(ColumnContainer column)
-		{
-			if (column is ILayoutAware layoutAware)
-				return layoutAware.GetLayoutRequirements();
-
-			// If column has explicit Width, treat it as fixed
-			// Otherwise, it's flexible with no constraints
-			return column.Width.HasValue
-				? LayoutRequirements.Fixed(column.Width.Value)
-				: LayoutRequirements.Default;
-		}
-
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
@@ -1291,62 +1152,67 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
+		/// <remarks>
+		/// This method measures content-based size (sum of actual child sizes), consistent with
+		/// how HorizontalLayout.MeasureChildren works in the DOM system. Space distribution
+		/// happens during arrangement, not measurement.
+		/// </remarks>
         public LayoutSize MeasureDOM(LayoutConstraints constraints)
         {
-
-            // Create combined list of columns and splitters in their display order
-            var displayControls = new List<(bool IsSplitter, object Control, int Width)>();
-
-            for (int i = 0; i < _columns.Count; i++)
-            {
-                var column = _columns[i];
-                displayControls.Add((false, column, column.Width ?? 0));
-
-                var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
-                if (splitter != null)
-                {
-                    displayControls.Add((true, splitter, splitter.Width ?? 1));
-                }
-            }
-
-            int availableWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
-
-            // Distribute widths using the layout algorithm
-            var (renderedWidths, _) = DistributeColumnWidths(availableWidth, displayControls);
-
-            // Calculate total width and max height
             int totalWidth = _margin.Left + _margin.Right;
             int maxHeight = 0;
 
-            for (int i = 0; i < displayControls.Count; i++)
+            // Measure each column and sum actual widths
+            for (int i = 0; i < _columns.Count; i++)
             {
-                var (isSplitter, control, _) = displayControls[i];
-                int controlWidth = renderedWidths.TryGetValue(i, out int w) ? w : 0;
-                totalWidth += controlWidth;
+                var column = _columns[i];
+                int columnWidth;
+                int columnHeight = 0;
 
-                if (!isSplitter)
+                if (column.Width.HasValue)
                 {
-                    var column = (ColumnContainer)control;
-
+                    // Column has explicit width - use it, but still measure for height
+                    columnWidth = column.Width.Value;
                     if (column is IDOMPaintable paintable)
                     {
-                        var childConstraints = new LayoutConstraints(0, controlWidth, 0, constraints.MaxHeight);
-                        var childSize = paintable.MeasureDOM(childConstraints);
-                        maxHeight = Math.Max(maxHeight, childSize.Height);
+                        var childSize = paintable.MeasureDOM(
+                            LayoutConstraints.Loose(columnWidth, constraints.MaxHeight));
+                        columnHeight = childSize.Height;
                     }
                     else
                     {
-                        var size = column.GetLogicalContentSize();
-                        maxHeight = Math.Max(maxHeight, size.Height);
+                        columnHeight = column.GetLogicalContentSize().Height;
                     }
+                }
+                else if (column is IDOMPaintable paintable)
+                {
+                    // Measure with loose constraints to get natural content size
+                    var childSize = paintable.MeasureDOM(
+                        LayoutConstraints.Loose(constraints.MaxWidth, constraints.MaxHeight));
+                    columnWidth = childSize.Width;
+                    columnHeight = childSize.Height;
+                }
+                else
+                {
+                    var size = column.GetLogicalContentSize();
+                    columnWidth = size.Width;
+                    columnHeight = size.Height;
+                }
+
+                totalWidth += columnWidth;
+                maxHeight = Math.Max(maxHeight, columnHeight);
+
+                // Add splitter width if present after this column
+                var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+                if (splitter != null)
+                {
+                    totalWidth += splitter.Width ?? 1;
                 }
             }
 
-            var finalHeight = Math.Clamp(maxHeight + _margin.Top + _margin.Bottom, constraints.MinHeight, constraints.MaxHeight);
-
             return new LayoutSize(
                 Math.Clamp(totalWidth, constraints.MinWidth, constraints.MaxWidth),
-                finalHeight
+                Math.Clamp(maxHeight + _margin.Top + _margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
             );
         }
 
