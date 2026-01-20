@@ -234,18 +234,20 @@ namespace SharpConsoleUI.Layout
 				{
 					case StickyPosition.Top:
 						{
+							var (childX, childWidth) = CalculateHorizontalPosition(child, finalRect.Width);
 							child.Arrange(new LayoutRect(
-								0, currentStickyTopY,
-								finalRect.Width, child.DesiredSize.Height));
+								childX, currentStickyTopY,
+								childWidth, child.DesiredSize.Height));
 							currentStickyTopY += child.DesiredSize.Height;
 							break;
 						}
 
 					case StickyPosition.Bottom:
 						{
+							var (childX, childWidth) = CalculateHorizontalPosition(child, finalRect.Width);
 							child.Arrange(new LayoutRect(
-								0, currentStickyBottomY,
-								finalRect.Width, child.DesiredSize.Height));
+								childX, currentStickyBottomY,
+								childWidth, child.DesiredSize.Height));
 							currentStickyBottomY += child.DesiredSize.Height;
 							break;
 						}
@@ -267,13 +269,40 @@ namespace SharpConsoleUI.Layout
 								childHeight = child.DesiredSize.Height;
 							}
 
-							var childRect = new LayoutRect(0, visualY, finalRect.Width, childHeight);
+							var (childX, childWidth) = CalculateHorizontalPosition(child, finalRect.Width);
+							var childRect = new LayoutRect(childX, visualY, childWidth, childHeight);
 							child.Arrange(childRect);
 
 							currentScrollableY += childHeight;
 							break;
 						}
 				}
+			}
+		}
+
+		/// <summary>
+		/// Calculates the X position and width for a child based on its HorizontalAlignment.
+		/// </summary>
+		private (int X, int Width) CalculateHorizontalPosition(LayoutNode child, int availableWidth)
+		{
+			var alignment = child.Control?.HorizontalAlignment ?? HorizontalAlignment.Stretch;
+
+			switch (alignment)
+			{
+				case HorizontalAlignment.Left:
+					return (0, child.DesiredSize.Width);
+
+				case HorizontalAlignment.Center:
+					int centeredX = (availableWidth - child.DesiredSize.Width) / 2;
+					return (Math.Max(0, centeredX), child.DesiredSize.Width);
+
+				case HorizontalAlignment.Right:
+					int rightX = availableWidth - child.DesiredSize.Width;
+					return (Math.Max(0, rightX), child.DesiredSize.Width);
+
+				case HorizontalAlignment.Stretch:
+				default:
+					return (0, availableWidth);
 			}
 		}
 
