@@ -104,6 +104,7 @@ public class AgentStudioWindow : IDisposable
             .WithVerticalScroll(ScrollMode.Scroll)
             .WithScrollbar(true)
             .WithMouseWheel(true)
+            .WithAutoScroll(true)
             .WithVerticalAlignment(VerticalAlignment.Fill)
             .WithColors(Color.Grey93, Color.Grey11)
             .Build();
@@ -441,7 +442,7 @@ public class AgentStudioWindow : IDisposable
             }
         }
 
-        _conversationPanel.ScrollToBottom();
+        // AutoScroll handles scrolling to bottom automatically
         _conversationPanel.Invalidate(true);
     }
 

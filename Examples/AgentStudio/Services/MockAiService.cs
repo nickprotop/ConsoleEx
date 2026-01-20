@@ -132,7 +132,7 @@ public class MockAiService
             }
         }
 
-        _conversationPanel.ScrollToBottom();
+        // AutoScroll handles scrolling to bottom automatically
         _conversationPanel.Invalidate(true);
     }
 
