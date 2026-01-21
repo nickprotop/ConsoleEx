@@ -643,6 +643,7 @@ internal class Program
             Prompt = "CMD> ",
             UnfocusOnEnter = false,
             StickyPosition = StickyPosition.Top,
+            HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment.Stretch
         };
 
         // Create multiline output control
