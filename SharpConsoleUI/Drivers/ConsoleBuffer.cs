@@ -36,16 +36,19 @@ namespace SharpConsoleUI.Drivers
 		private readonly StringBuilder _renderBuilder = new(1024);
 
 		private readonly int _width;
+		private readonly object? _consoleLock; // Shared lock for thread-safe Console I/O
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleBuffer"/> class with the specified dimensions.
 		/// </summary>
 		/// <param name="width">The width of the buffer in characters.</param>
 		/// <param name="height">The height of the buffer in lines.</param>
-		public ConsoleBuffer(int width, int height)
+		/// <param name="consoleLock">Optional shared lock for thread-safe Console I/O operations.</param>
+		public ConsoleBuffer(int width, int height, object? consoleLock = null)
 		{
 			_width = width;
 			_height = height;
+			_consoleLock = consoleLock;
 			_backBuffer = new Cell[width, height];
 			_frontBuffer = new Cell[width, height];
 
@@ -166,15 +169,19 @@ namespace SharpConsoleUI.Drivers
 			if (Lock)
 				return;
 
-			Console.CursorVisible = false;
-
-			for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
+			// Lock Console I/O to prevent concurrent input operations from being corrupted
+			lock (_consoleLock ?? new object())
 			{
-				if (!IsLineDirty(y))
-					continue;
+				Console.CursorVisible = false;
 
-				Console.SetCursorPosition(0, y);
-				RenderLine(y);
+				for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
+				{
+					if (!IsLineDirty(y))
+						continue;
+
+					Console.SetCursorPosition(0, y);
+					RenderLine(y);
+				}
 			}
 		}
 

@@ -82,6 +82,7 @@ namespace SharpConsoleUI
 	{
 		private readonly Renderer _renderer;
 		private readonly object _renderLock = new();
+		private readonly object _consoleLock = new(); // Shared lock for ALL Console I/O operations
 		private readonly VisibleRegions _visibleRegions;
 		private string? _cachedBottomStatus;
 		private string? _cachedTopStatus;
@@ -457,6 +458,17 @@ namespace SharpConsoleUI
 		/// Subscribe to LogAdded event or call GetRecentLogs() to access internal logs.
 		/// </summary>
 		public ILogService LogService => _logService;
+
+		/// <summary>
+		/// Gets the shared console lock used to synchronize ALL Console I/O operations.
+		/// This lock MUST be used by all code that accesses System.Console to prevent
+		/// thread-safety violations that corrupt Console internal state.
+		/// </summary>
+		/// <remarks>
+		/// InputLoop thread and rendering thread must coordinate through this lock to prevent
+		/// Console.KeyAvailable from returning incorrect values during concurrent Console.Write operations.
+		/// </remarks>
+		internal object ConsoleLock => _consoleLock;
 
 		// Convenience properties for drag/resize state (delegated to service)
 		private bool IsDragging => _windowStateService.IsDragging;

@@ -89,6 +89,7 @@ namespace SharpConsoleUI.Drivers
 		private const int STD_OUTPUT_HANDLE = -11;
 
 		private ConsoleWindowSystem? _consoleWindowSystem;
+		private object? _consoleLock; // Shared lock for thread-safe Console I/O
 		private readonly nint _errorHandle;
 		private readonly nint _inputHandle;
 		private readonly uint _originalErrorConsoleMode;
@@ -261,6 +262,7 @@ namespace SharpConsoleUI.Drivers
 		public void Initialize(ConsoleWindowSystem windowSystem)
 		{
 			_consoleWindowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
+			_consoleLock = windowSystem.ConsoleLock;
 		}
 
 		/// <inheritdoc/>
@@ -292,7 +294,7 @@ namespace SharpConsoleUI.Drivers
 		{
 			if (RenderMode.Buffer == RenderMode)
 			{
-				_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
+				_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleLock);
 			}
 
 			_running = true;
@@ -630,17 +632,21 @@ namespace SharpConsoleUI.Drivers
 
 					if (key.KeyChar == '\x1b' || key.KeyChar == '\u001b') // ESC character
 					{
-						if (Console.KeyAvailable)
+						// CRITICAL SECTION: Lock Console I/O to prevent concurrent writes from
+						// corrupting Console.KeyAvailable state during ANSI sequence parsing
+						lock (_consoleLock ?? new object())
 						{
-							var nextKey = Console.ReadKey(true);
-							consoleKeyInfoSequence.Add(nextKey);
-
-							if (nextKey.KeyChar == '[' || nextKey.KeyChar == 'O') // Handle both CSI and SS3
+							if (Console.KeyAvailable)
 							{
-								var ansiSequence = new StringBuilder();
-								while (Console.KeyAvailable)
+								var nextKey = Console.ReadKey(true);
+								consoleKeyInfoSequence.Add(nextKey);
+
+								if (nextKey.KeyChar == '[' || nextKey.KeyChar == 'O') // Handle both CSI and SS3
 								{
-									var ansiKey = Console.ReadKey(true);
+									var ansiSequence = new StringBuilder();
+									while (Console.KeyAvailable)
+									{
+										var ansiKey = Console.ReadKey(true);
 									consoleKeyInfoSequence.Add(ansiKey);
 
 									if (char.IsLetter(ansiKey.KeyChar) || ansiKey.KeyChar == '~' || ansiKey.KeyChar == '\r' || ansiKey.KeyChar == '\t')
@@ -691,12 +697,13 @@ namespace SharpConsoleUI.Drivers
 								continue;
 							}
 						}
-						else
-						{
-							// Plain ESC key
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
-							continue;
-						}
+							else
+							{
+								// Plain ESC key
+								KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
+								continue;
+							}
+						} // End lock(_consoleLock)
 					}
 					else
 					{
@@ -993,7 +1000,7 @@ namespace SharpConsoleUI.Drivers
 					if (RenderMode.Buffer == RenderMode)
 					{
 						_consoleBuffer!.Lock = true;
-						_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight);
+						_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleLock);
 						_consoleBuffer.Lock = false;
 					}
 
