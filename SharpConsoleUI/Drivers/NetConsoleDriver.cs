@@ -571,12 +571,16 @@ namespace SharpConsoleUI.Drivers
 		{
 			while (_running == true)
 			{
-				if (Console.KeyAvailable)
+				// CRITICAL: Acquire lock BEFORE checking Console.KeyAvailable to prevent
+				// concurrent Console I/O from corrupting ANSI sequence parsing
+				lock (_consoleLock ?? new object())
 				{
-					var key = Console.ReadKey(true);
+					if (Console.KeyAvailable)
+					{
+						var key = Console.ReadKey(true);
 
-					List<ConsoleKeyInfo> consoleKeyInfoSequence = new List<ConsoleKeyInfo>();
-					consoleKeyInfoSequence.Add(key);
+						List<ConsoleKeyInfo> consoleKeyInfoSequence = new List<ConsoleKeyInfo>();
+						consoleKeyInfoSequence.Add(key);
 
 					// Normalize Ctrl+Space: Terminals often send this as Ctrl+2 (D2) with NUL character (0x00)
 					if (key.Key == ConsoleKey.D2 && (key.Modifiers & ConsoleModifiers.Control) != 0 && key.KeyChar == '\0')
@@ -632,12 +636,8 @@ namespace SharpConsoleUI.Drivers
 
 					if (key.KeyChar == '\x1b' || key.KeyChar == '\u001b') // ESC character
 					{
-						// CRITICAL SECTION: Lock Console I/O to prevent concurrent writes from
-						// corrupting Console.KeyAvailable state during ANSI sequence parsing
-						lock (_consoleLock ?? new object())
+						if (Console.KeyAvailable)
 						{
-							if (Console.KeyAvailable)
-							{
 								var nextKey = Console.ReadKey(true);
 								consoleKeyInfoSequence.Add(nextKey);
 
@@ -697,13 +697,12 @@ namespace SharpConsoleUI.Drivers
 								continue;
 							}
 						}
-							else
-							{
-								// Plain ESC key
-								KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
-								continue;
-							}
-						} // End lock(_consoleLock)
+						else
+						{
+							// Plain ESC key
+							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
+							continue;
+						}
 					}
 					else
 					{
@@ -711,6 +710,7 @@ namespace SharpConsoleUI.Drivers
 						KeyPressed?.Invoke(this, key);
 					}
 				}
+				} // End lock(_consoleLock) - all Console I/O now protected
 				Thread.Sleep(10);
 			}
 		}

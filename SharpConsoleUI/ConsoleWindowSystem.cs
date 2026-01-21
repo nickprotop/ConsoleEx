@@ -2096,9 +2096,14 @@ namespace SharpConsoleUI
 			}
 
 			// Apply cursor state to the actual console
-			_cursorStateService.ApplyCursorToConsole(
-				_consoleDriver.ScreenSize.Width,
-				_consoleDriver.ScreenSize.Height);
+			// CRITICAL: Protect Console I/O with lock to prevent concurrent writes
+			// from corrupting ANSI sequences during InputLoop's mouse parsing
+			lock (_consoleLock)
+			{
+				_cursorStateService.ApplyCursorToConsole(
+					_consoleDriver.ScreenSize.Width,
+					_consoleDriver.ScreenSize.Height);
+			}
 		}
 
 		private void UpdateDisplay()
