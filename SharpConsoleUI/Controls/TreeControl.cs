@@ -111,6 +111,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color of the tree control.
+		/// </summary>
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
@@ -124,6 +127,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public IContainer? Container { get; set; }
 
+		/// <summary>
+		/// Gets or sets the foreground color of the tree control.
+		/// </summary>
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
@@ -200,6 +206,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the tree control is enabled and can be interacted with.
+		/// </summary>
 		public bool IsEnabled
 		{
 			get => _isEnabled;

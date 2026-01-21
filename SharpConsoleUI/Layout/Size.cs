@@ -82,6 +82,7 @@ namespace SharpConsoleUI.Layout
 		public static LayoutSize FromDrawingSize(System.Drawing.Size size) =>
 			new(size.Width, size.Height);
 
+		/// <summary>Returns a string representation of this size.</summary>
 		public override string ToString() => $"LayoutSize({Width}, {Height})";
 	}
 }

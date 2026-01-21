@@ -75,6 +75,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the button is enabled and can be interacted with.
+		/// </summary>
 		public bool IsEnabled
 		{
 			get => _enabled;
@@ -105,6 +108,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <summary>
+		/// Gets or sets the text displayed on the button.
+		/// </summary>
 		public string Text
 		{
 			get => _text;

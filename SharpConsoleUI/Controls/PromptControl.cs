@@ -191,6 +191,9 @@ namespace SharpConsoleUI.Controls
 			set { _maskCharacter = value; Container?.Invalidate(true); }
 		}
 
+		/// <summary>
+		/// Gets or sets the current input text entered by the user.
+		/// </summary>
 		public string Input
 		{
 			get => _input;

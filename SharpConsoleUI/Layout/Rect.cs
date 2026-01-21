@@ -160,6 +160,7 @@ namespace SharpConsoleUI.Layout
 		public static LayoutRect FromRectangle(Rectangle rect) =>
 			new(rect.X, rect.Y, rect.Width, rect.Height);
 
+		/// <summary>Returns a string representation of this rectangle.</summary>
 		public override string ToString() => $"LayoutRect({X}, {Y}, {Width}, {Height})";
 	}
 }

@@ -93,19 +93,25 @@ namespace SharpConsoleUI.Layout
 			Foreground.Equals(other.Foreground) &&
 			Background.Equals(other.Background);
 
+		/// <summary>Determines whether this cell equals another cell.</summary>
 		public bool Equals(Cell other) =>
 			Character == other.Character &&
 			Foreground.Equals(other.Foreground) &&
 			Background.Equals(other.Background) &&
 			Dirty == other.Dirty;
 
+		/// <summary>Determines whether this cell equals another object.</summary>
 		public override bool Equals(object? obj) => obj is Cell other && Equals(other);
 
+		/// <summary>Gets the hash code for this cell.</summary>
 		public override int GetHashCode() => HashCode.Combine(Character, Foreground, Background, Dirty);
 
+		/// <summary>Equality operator.</summary>
 		public static bool operator ==(Cell left, Cell right) => left.Equals(right);
+		/// <summary>Inequality operator.</summary>
 		public static bool operator !=(Cell left, Cell right) => !left.Equals(right);
 
+		/// <summary>Returns a string representation of this cell.</summary>
 		public override string ToString() =>
 			$"Cell('{(Character == ' ' ? "SP" : Character)}', {Foreground}, {Background}{(Dirty ? ", dirty" : "")})";
 	}

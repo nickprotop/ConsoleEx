@@ -424,6 +424,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the background color of the list control.
+		/// </summary>
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
@@ -468,6 +471,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color of the list control.
+		/// </summary>
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor ?? Color.White;
@@ -526,6 +532,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the list control is enabled and can be interacted with.
+		/// </summary>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
@@ -558,6 +567,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the collection of items displayed in the list.
+		/// </summary>
 		public List<ListItem> Items
 		{
 			get => _items;

@@ -42,7 +42,6 @@ namespace SharpConsoleUI.Controls
 		private ScrollMode _verticalScrollMode = ScrollMode.Scroll;
 		private bool _enableMouseWheel = true;
 		private bool _autoScroll = false;
-		private bool _pendingScrollToBottom = false;
 
 		// IWindowControl properties
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
@@ -617,11 +616,6 @@ namespace SharpConsoleUI.Controls
 			_children.Add(control);
 			control.Container = this;
 
-			if (_autoScroll)
-			{
-				_pendingScrollToBottom = true;
-			}
-
 			Invalidate(true);
 		}
 
@@ -774,7 +768,6 @@ namespace SharpConsoleUI.Controls
 					_verticalScrollOffset = maxOffset;
 				}
 			}
-			_pendingScrollToBottom = false;
 
 			// Reserve space for scrollbar(s)
 			int contentWidth = _viewportWidth;

@@ -161,6 +161,7 @@ namespace SharpConsoleUI.Layout
 				Math.Min(MaxHeight, other.MaxHeight)
 			);
 
+		/// <summary>Returns a string representation of these layout constraints.</summary>
 		public override string ToString() =>
 			$"Constraints(W: {MinWidth}-{(MaxWidth == int.MaxValue ? "∞" : MaxWidth)}, H: {MinHeight}-{(MaxHeight == int.MaxValue ? "∞" : MaxHeight)})";
 	}
