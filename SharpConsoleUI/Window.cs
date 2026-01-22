@@ -2445,6 +2445,11 @@ namespace SharpConsoleUI
 				}
 				children = orderedChildren;
 			}
+			else if (control is Controls.ScrollablePanelControl scrollablePanel)
+			{
+				layout = new VerticalStackLayout();
+				children = scrollablePanel.Children;
+			}
 
 			var node = new LayoutNode(control, layout);
 
