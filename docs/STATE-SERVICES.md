@@ -12,6 +12,7 @@ SharpConsoleUI includes built-in state management services for managing differen
 - [ThemeStateService](#themestateservice)
 - [CursorStateService](#cursorstateservice)
 - [InputStateService](#inputstateservice)
+- [PluginStateService](#pluginstateservice)
 
 ## Overview
 
@@ -28,6 +29,7 @@ windowSystem.NotificationStateService
 windowSystem.ThemeStateService
 windowSystem.CursorStateService
 windowSystem.InputStateService
+windowSystem.PluginStateService
 ```
 
 ## WindowStateService
@@ -476,6 +478,165 @@ if (windowSystem.InputStateService.IsLeftButtonPressed)
 
 // Reset input state (useful when losing focus)
 windowSystem.InputStateService.Reset();
+```
+
+## PluginStateService
+
+Manages the plugin system, including plugin loading, service registration, control/window factories, and plugin state tracking.
+
+### Key Properties
+
+```csharp
+// Get current plugin system state
+PluginState CurrentState { get; }
+
+// Get loaded plugins
+IReadOnlyList<IPlugin> LoadedPlugins { get; }
+
+// Get registered plugin contributions
+IReadOnlyCollection<string> RegisteredControlNames { get; }
+IReadOnlyCollection<string> RegisteredWindowNames { get; }
+IReadOnlyCollection<string> RegisteredServiceNames { get; }
+IReadOnlyCollection<IPluginService> RegisteredServices { get; }
+
+// Get configuration
+PluginConfiguration Configuration { get; }
+```
+
+### PluginState Record
+
+```csharp
+public record PluginState(
+    int LoadedPluginCount,
+    int RegisteredServiceCount,
+    int RegisteredControlCount,
+    int RegisteredWindowCount,
+    IReadOnlyList<string> PluginNames,
+    bool AutoLoadEnabled,
+    string? PluginsDirectory
+);
+```
+
+### Key Methods
+
+```csharp
+// Load plugins
+void LoadPlugin<T>() where T : IPlugin, new();
+void LoadPlugin(IPlugin plugin);
+void LoadPlugin(string dllPath);
+void LoadPluginsFromDirectory(string? pluginsPath = null);
+
+// Query plugins
+IPlugin? GetPlugin(string name);
+bool IsPluginLoaded(string name);
+
+// Create plugin content
+IWindowControl? CreateControl(string name);
+Window? CreateWindow(string name);
+
+// Access plugin services
+IPluginService? GetService(string serviceName);
+bool HasService(string serviceName);
+T? GetService<T>() where T : class; // Legacy, deprecated
+
+// Configuration
+void UpdateConfiguration(PluginConfiguration configuration);
+```
+
+### Events
+
+```csharp
+// Fired when plugin state changes
+event EventHandler<PluginStateChangedEventArgs>? StateChanged;
+
+// Fired when a plugin is loaded
+event EventHandler<PluginEventArgs>? PluginLoaded;
+
+// Fired when a plugin is unloaded
+event EventHandler<PluginEventArgs>? PluginUnloaded;
+
+// Fired when a service is registered
+event EventHandler<ServiceRegisteredEventArgs>? ServiceRegistered;
+```
+
+### Usage Example
+
+```csharp
+// Load a plugin
+windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+
+// Get current state
+var state = windowSystem.PluginStateService.CurrentState;
+Console.WriteLine($"Loaded plugins: {state.LoadedPluginCount}");
+Console.WriteLine($"Registered services: {state.RegisteredServiceCount}");
+Console.WriteLine($"Registered controls: {state.RegisteredControlCount}");
+
+// Subscribe to plugin events
+windowSystem.PluginStateService.PluginLoaded += (sender, e) =>
+{
+    Console.WriteLine($"Plugin loaded: {e.Info.Name} v{e.Info.Version}");
+    windowSystem.NotificationStateService.ShowNotification(
+        "Plugin Loaded",
+        $"{e.Info.Name} is now available",
+        NotificationSeverity.Success
+    );
+};
+
+windowSystem.PluginStateService.StateChanged += (sender, e) =>
+{
+    Console.WriteLine($"Plugin count: {e.PreviousState.LoadedPluginCount} → {e.NewState.LoadedPluginCount}");
+};
+
+// Check if a plugin is loaded
+if (windowSystem.PluginStateService.IsPluginLoaded("DeveloperTools"))
+{
+    Console.WriteLine("DeveloperTools plugin is available");
+}
+
+// Get a plugin by name
+var devTools = windowSystem.PluginStateService.GetPlugin("DeveloperTools");
+if (devTools != null)
+{
+    Console.WriteLine($"Found plugin: {devTools.Info.Description}");
+}
+
+// Create plugin control
+var logExporter = windowSystem.PluginStateService.CreateControl("LogExporter");
+if (logExporter != null)
+{
+    mainWindow.AddControl(logExporter);
+}
+
+// Create plugin window
+var debugWindow = windowSystem.PluginStateService.CreateWindow("DebugConsole");
+if (debugWindow != null)
+{
+    windowSystem.AddWindow(debugWindow);
+}
+
+// Access plugin service
+var diagnostics = windowSystem.PluginStateService.GetService("Diagnostics");
+if (diagnostics != null)
+{
+    var report = (string)diagnostics.Execute("GetDiagnosticsReport")!;
+    Console.WriteLine(report);
+}
+
+// Get all registered service names
+var services = windowSystem.PluginStateService.RegisteredServiceNames;
+Console.WriteLine($"Available services: {string.Join(", ", services)}");
+
+// Auto-load plugins from directory with configuration
+var pluginConfig = new PluginConfiguration(
+    AutoLoad: true,
+    PluginsDirectory: "./plugins"
+);
+
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer),
+    pluginConfiguration: pluginConfig
+);
+// Plugins are loaded automatically on startup
 ```
 
 ## Complete Example

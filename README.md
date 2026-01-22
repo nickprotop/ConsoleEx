@@ -504,25 +504,28 @@ The DeveloperTools plugin provides built-in development tools and diagnostics:
 
 ```csharp
 // Load the built-in DeveloperTools plugin
-windowSystem.LoadPlugin<DeveloperToolsPlugin>();
+windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
 
 // Switch to DevDark theme (provided by plugin)
 windowSystem.SwitchTheme("DevDark");
 
 // Create Debug Console window from plugin
-var debugWindow = windowSystem.CreatePluginWindow("DebugConsole");
+var debugWindow = windowSystem.PluginStateService.CreateWindow("DebugConsole");
 windowSystem.AddWindow(debugWindow);
 
-// Get diagnostics service from plugin
-var diagnostics = windowSystem.GetService<IDiagnosticsService>();
-var report = diagnostics?.GetDiagnosticsReport();
+// Get diagnostics service from plugin (agnostic - no type knowledge required!)
+var diagnostics = windowSystem.PluginStateService.GetService("Diagnostics");
+if (diagnostics != null)
+{
+    var report = (string)diagnostics.Execute("GetDiagnosticsReport")!;
+}
 ```
 
 **DeveloperTools Plugin Provides:**
 - **DevDark Theme**: Dark developer theme with green terminal-inspired accents
 - **LogExporter Control**: Export and filter application logs
 - **DebugConsole Window**: Interactive debug console for runtime inspection
-- **DiagnosticsService**: System diagnostics and performance metrics
+- **Diagnostics Service**: System diagnostics and performance metrics (agnostic IPluginService)
 
 Create custom plugins by implementing `IPlugin` for application-specific tools and extensions.
 

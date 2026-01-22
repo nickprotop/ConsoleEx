@@ -8,6 +8,7 @@ SharpConsoleUI provides an extensible plugin architecture that allows you to add
 - [Creating a Plugin](#creating-a-plugin)
 - [Plugin Capabilities](#plugin-capabilities)
 - [Loading Plugins](#loading-plugins)
+- [PluginStateService](#pluginstateservice)
 - [Using Plugin Content](#using-plugin-content)
 - [DeveloperTools Plugin](#developertools-plugin)
 - [Best Practices](#best-practices)
@@ -27,7 +28,7 @@ All plugins implement the `IPlugin` interface or inherit from the `PluginBase` a
 
 ```
 1. Create plugin instance
-2. windowSystem.LoadPlugin<MyPlugin>()
+2. windowSystem.PluginStateService.LoadPlugin<MyPlugin>()
 3. Plugin.Initialize() called
 4. Plugin.GetThemes() called - themes registered
 5. Plugin.GetControls() called - control factories registered
@@ -230,63 +231,96 @@ public class MyPlugin : PluginBase
 }
 ```
 
-### 4. Providing Services
+### 4. Providing Services (Agnostic Pattern)
 
-Create application-level services:
+Create application-level services using the **agnostic IPluginService pattern** - no shared interfaces required:
 
 ```csharp
-public interface IMyService
-{
-    string GetData();
-    void ProcessData(string data);
-}
+using SharpConsoleUI.Plugins;
 
-public class MyService : IMyService
+public class MyDataService : IPluginService
 {
     private readonly ConsoleWindowSystem _windowSystem;
 
-    public MyService(ConsoleWindowSystem windowSystem)
+    public string ServiceName => "MyData";
+    public string Description => "Provides data processing operations";
+
+    public MyDataService(ConsoleWindowSystem windowSystem)
     {
         _windowSystem = windowSystem;
     }
 
-    public string GetData() => "Sample data";
-
-    public void ProcessData(string data)
+    public IReadOnlyList<ServiceOperation> GetAvailableOperations()
     {
-        _windowSystem.NotificationStateService.ShowNotification(
-            "Data Processed",
-            $"Processed: {data}",
-            NotificationSeverity.Success
-        );
+        return new[]
+        {
+            new ServiceOperation(
+                Name: "GetData",
+                Description: "Retrieves sample data",
+                ReturnType: typeof(string),
+                Parameters: Array.Empty<ServiceOperationParameter>()
+            ),
+            new ServiceOperation(
+                Name: "ProcessData",
+                Description: "Processes the provided data",
+                ReturnType: null, // void
+                Parameters: new[]
+                {
+                    new ServiceOperationParameter(
+                        Name: "data",
+                        Type: typeof(string),
+                        Description: "The data to process",
+                        Required: true
+                    )
+                }
+            )
+        };
+    }
+
+    public object? Execute(string operationName, Dictionary<string, object>? parameters = null)
+    {
+        switch (operationName)
+        {
+            case "GetData":
+                return "Sample data from service";
+
+            case "ProcessData":
+                var data = parameters?["data"] as string ?? "";
+                _windowSystem.NotificationStateService.ShowNotification(
+                    "Data Processed",
+                    $"Processed: {data}",
+                    NotificationSeverity.Success
+                );
+                return null;
+
+            default:
+                throw new InvalidOperationException($"Unknown operation: {operationName}");
+        }
     }
 }
 
 public class MyPlugin : PluginBase
 {
-    private MyService? _myService;
+    private MyDataService? _dataService;
 
     public override PluginInfo Info => new("MyPlugin", "1.0.0", "Me", "Custom services");
 
     public override void Initialize(ConsoleWindowSystem windowSystem)
     {
-        _myService = new MyService(windowSystem);
+        _dataService = new MyDataService(windowSystem);
     }
 
-    public override IReadOnlyList<PluginService> GetServices()
+    public override IReadOnlyList<IPluginService> GetServicePlugins()
     {
-        if (_myService == null)
-            return Array.Empty<PluginService>();
+        if (_dataService == null)
+            return Array.Empty<IPluginService>();
 
-        return new[]
-        {
-            new PluginService(typeof(IMyService), _myService)
-        };
+        return new[] { _dataService };
     }
 
     public override void Dispose()
     {
-        _myService = null;
+        _dataService = null;
     }
 }
 ```
@@ -303,8 +337,8 @@ using SharpConsoleUI.Plugins.DeveloperTools;
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
 // Load plugin
-windowSystem.LoadPlugin<DeveloperToolsPlugin>();
-windowSystem.LoadPlugin<MyPlugin>();
+windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Plugin content is now available
 ```
@@ -313,9 +347,134 @@ windowSystem.LoadPlugin<MyPlugin>();
 
 ```csharp
 // Load plugin dynamically
-windowSystem.LoadPlugin<MyPlugin>();
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Plugin themes, controls, windows, and services are immediately available
+```
+
+### Auto-loading with Configuration
+
+```csharp
+using SharpConsoleUI.Configuration;
+
+// Configure auto-loading from plugins directory
+var pluginConfig = new PluginConfiguration(
+    AutoLoad: true,
+    PluginsDirectory: "./plugins"
+);
+
+// Plugins are loaded automatically on startup
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer),
+    pluginConfiguration: pluginConfig
+);
+
+// All plugins from ./plugins directory are now loaded
+```
+
+## PluginStateService
+
+The `PluginStateService` manages all plugin-related functionality, including plugin loading, service registration, and factory management. This service follows the established state service pattern used throughout SharpConsoleUI.
+
+### Accessing PluginStateService
+
+```csharp
+// Access through ConsoleWindowSystem
+var pluginService = windowSystem.PluginStateService;
+
+// Get current plugin system state
+var state = pluginService.CurrentState;
+Console.WriteLine($"Loaded plugins: {state.LoadedPluginCount}");
+Console.WriteLine($"Registered services: {state.RegisteredServiceCount}");
+Console.WriteLine($"Registered controls: {state.RegisteredControlCount}");
+Console.WriteLine($"Registered windows: {state.RegisteredWindowCount}");
+```
+
+### Plugin State Management
+
+The `PluginState` record provides an immutable snapshot of the plugin system:
+
+```csharp
+public record PluginState(
+    int LoadedPluginCount,
+    int RegisteredServiceCount,
+    int RegisteredControlCount,
+    int RegisteredWindowCount,
+    IReadOnlyList<string> PluginNames,
+    bool AutoLoadEnabled,
+    string? PluginsDirectory
+);
+```
+
+### Plugin Query Methods
+
+```csharp
+// Get all loaded plugins
+IReadOnlyList<IPlugin> plugins = windowSystem.PluginStateService.LoadedPlugins;
+
+// Get a specific plugin by name
+IPlugin? myPlugin = windowSystem.PluginStateService.GetPlugin("MyPlugin");
+
+// Check if a plugin is loaded
+bool isLoaded = windowSystem.PluginStateService.IsPluginLoaded("DeveloperTools");
+
+// Get registered service/control/window names
+var serviceNames = windowSystem.PluginStateService.RegisteredServiceNames;
+var controlNames = windowSystem.PluginStateService.RegisteredControlNames;
+var windowNames = windowSystem.PluginStateService.RegisteredWindowNames;
+```
+
+### Plugin Events
+
+Subscribe to plugin system events for real-time notifications:
+
+```csharp
+// Subscribe to plugin loaded event
+windowSystem.PluginStateService.PluginLoaded += (sender, e) =>
+{
+    Console.WriteLine($"Plugin loaded: {e.Info.Name} v{e.Info.Version}");
+    Console.WriteLine($"Author: {e.Info.Author}");
+    Console.WriteLine($"Description: {e.Info.Description}");
+};
+
+// Subscribe to state changes
+windowSystem.PluginStateService.StateChanged += (sender, e) =>
+{
+    Console.WriteLine($"Plugin count changed: {e.PreviousState.LoadedPluginCount} → {e.NewState.LoadedPluginCount}");
+};
+
+// Subscribe to service registration
+windowSystem.PluginStateService.ServiceRegistered += (sender, e) =>
+{
+    Console.WriteLine($"Service registered: {e.ServiceName}");
+};
+```
+
+### Thread Safety
+
+The `PluginStateService` is thread-safe and uses internal locking for all operations:
+
+```csharp
+// Safe to call from multiple threads
+Task.Run(() => windowSystem.PluginStateService.LoadPlugin<Plugin1>());
+Task.Run(() => windowSystem.PluginStateService.LoadPlugin<Plugin2>());
+
+// All state queries are also thread-safe
+var state = windowSystem.PluginStateService.CurrentState; // Safe
+```
+
+### Configuration Management
+
+```csharp
+// Get current configuration
+var config = windowSystem.PluginStateService.Configuration;
+
+// Update configuration at runtime
+var newConfig = new PluginConfiguration(
+    AutoLoad: false,
+    PluginsDirectory: "./custom-plugins"
+);
+windowSystem.PluginStateService.UpdateConfiguration(newConfig);
 ```
 
 ## Using Plugin Content
@@ -324,7 +483,7 @@ windowSystem.LoadPlugin<MyPlugin>();
 
 ```csharp
 // After loading plugin, theme is registered
-windowSystem.LoadPlugin<MyPlugin>();
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Switch to plugin theme
 windowSystem.ThemeRegistry.SetTheme("MyAwesomeTheme");
@@ -337,10 +496,10 @@ windowSystem.ShowThemeSelectorDialog();
 
 ```csharp
 // After loading plugin
-windowSystem.LoadPlugin<MyPlugin>();
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Create control using factory
-var control = windowSystem.CreatePluginControl("MyCustomControl");
+var control = windowSystem.PluginStateService.CreateControl("MyCustomControl");
 
 // Add to window
 window.AddControl(control);
@@ -350,29 +509,35 @@ window.AddControl(control);
 
 ```csharp
 // After loading plugin
-windowSystem.LoadPlugin<MyPlugin>();
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Create window using factory
-var aboutWindow = windowSystem.CreatePluginWindow("AboutDialog");
+var aboutWindow = windowSystem.PluginStateService.CreateWindow("AboutDialog");
 
 // Show window
 windowSystem.AddWindow(aboutWindow);
 ```
 
-### Using Plugin Services
+### Using Plugin Services (Agnostic Pattern)
 
 ```csharp
 // After loading plugin
-windowSystem.LoadPlugin<MyPlugin>();
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
-// Get service instance
-var myService = windowSystem.GetService<IMyService>();
+// Get service by name (agnostic - no type knowledge required!)
+var myService = windowSystem.PluginStateService.GetService("MyData");
 
-// Use service
+// Use service with reflection-free Execute method
 if (myService != null)
 {
-    string data = myService.GetData();
-    myService.ProcessData(data);
+    // Call operation without parameters
+    string data = (string)myService.Execute("GetData")!;
+
+    // Call operation with parameters
+    myService.Execute("ProcessData", new Dictionary<string, object>
+    {
+        ["data"] = data
+    });
 }
 ```
 
@@ -385,7 +550,7 @@ SharpConsoleUI includes a built-in DeveloperTools plugin that provides developme
 ```csharp
 using SharpConsoleUI.Plugins.DeveloperTools;
 
-windowSystem.LoadPlugin<DeveloperToolsPlugin>();
+windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
 ```
 
 ### DeveloperTools Content
@@ -400,27 +565,40 @@ windowSystem.LoadPlugin<DeveloperToolsPlugin>();
 - **DebugConsole** - Interactive debug console for runtime inspection
 
 **Services:**
-- **IDiagnosticsService** - System diagnostics and performance metrics
+- **Diagnostics** - System diagnostics and performance metrics (agnostic IPluginService)
 
 ### Using DeveloperTools
 
 ```csharp
 // Load plugin
-windowSystem.LoadPlugin<DeveloperToolsPlugin>();
+windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
 
 // Switch to DevDark theme
 windowSystem.ThemeRegistry.SetTheme("DevDark");
 
 // Create debug console window
-var debugWindow = windowSystem.CreatePluginWindow("DebugConsole");
+var debugWindow = windowSystem.PluginStateService.CreateWindow("DebugConsole");
 windowSystem.AddWindow(debugWindow);
 
-// Get diagnostics service
-var diagnostics = windowSystem.GetService<IDiagnosticsService>();
-var report = diagnostics?.GetDiagnosticsReport();
+// Get diagnostics service (agnostic - no type knowledge required!)
+var diagnostics = windowSystem.PluginStateService.GetService("Diagnostics");
+if (diagnostics != null)
+{
+    // Call operations using reflection-free Execute method
+    var report = (string)diagnostics.Execute("GetDiagnosticsReport")!;
+
+    // Or with parameters
+    var customReport = (string)diagnostics.Execute("GetDetailedReport", new Dictionary<string, object>
+    {
+        ["includeMemory"] = true,
+        ["includeGC"] = true,
+        ["includeUptime"] = false,
+        ["includeWindows"] = true
+    })!;
+}
 
 // Add log exporter control to a window
-var logExporter = windowSystem.CreatePluginControl("LogExporter");
+var logExporter = windowSystem.PluginStateService.CreateControl("LogExporter");
 window.AddControl(logExporter);
 ```
 
@@ -470,25 +648,54 @@ public class StatusIndicatorControl : IWindowControl
     public void Dispose() { }
 }
 
-// Custom service
-public interface IStatusService
+// Custom service (agnostic IPluginService pattern)
+public class StatusService : IPluginService
 {
-    void SetStatus(string status, Color color);
-    string GetStatus();
-}
+    public string ServiceName => "Status";
+    public string Description => "Application status management";
 
-public class StatusService : IStatusService
-{
     private string _status = "Ready";
     private Color _color = Color.Green;
 
-    public void SetStatus(string status, Color color)
+    public IReadOnlyList<ServiceOperation> GetAvailableOperations()
     {
-        _status = status;
-        _color = color;
+        return new[]
+        {
+            new ServiceOperation(
+                Name: "SetStatus",
+                Description: "Sets the application status",
+                ReturnType: null,
+                Parameters: new[]
+                {
+                    new ServiceOperationParameter("status", typeof(string), "Status message", required: true),
+                    new ServiceOperationParameter("color", typeof(Color), "Status color", required: true)
+                }
+            ),
+            new ServiceOperation(
+                Name: "GetStatus",
+                Description: "Gets the current status",
+                ReturnType: typeof(string),
+                Parameters: Array.Empty<ServiceOperationParameter>()
+            )
+        };
     }
 
-    public string GetStatus() => _status;
+    public object? Execute(string operationName, Dictionary<string, object>? parameters = null)
+    {
+        switch (operationName)
+        {
+            case "SetStatus":
+                _status = parameters?["status"] as string ?? "Ready";
+                _color = (Color)(parameters?["color"] ?? Color.Green);
+                return null;
+
+            case "GetStatus":
+                return _status;
+
+            default:
+                throw new InvalidOperationException($"Unknown operation: {operationName}");
+        }
+    }
 }
 
 // Plugin class
@@ -554,15 +761,12 @@ public class CorporatePlugin : PluginBase
         })
     };
 
-    public override IReadOnlyList<PluginService> GetServices()
+    public override IReadOnlyList<IPluginService> GetServicePlugins()
     {
         if (_statusService == null)
-            return Array.Empty<PluginService>();
+            return Array.Empty<IPluginService>();
 
-        return new[]
-        {
-            new PluginService(typeof(IStatusService), _statusService)
-        };
+        return new[] { _statusService };
     }
 
     public override void Dispose()
@@ -580,7 +784,7 @@ class Program
         var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
         // Load plugin
-        windowSystem.LoadPlugin<CorporatePlugin>();
+        windowSystem.PluginStateService.LoadPlugin<CorporatePlugin>();
 
         // Use plugin theme
         windowSystem.ThemeRegistry.SetTheme("Corporate");
@@ -593,19 +797,23 @@ class Program
             .Build();
 
         // Use plugin control
-        var statusIndicator = windowSystem.CreatePluginControl("StatusIndicator");
+        var statusIndicator = windowSystem.PluginStateService.CreateControl("StatusIndicator");
         mainWindow.AddControl(statusIndicator);
 
-        // Use plugin service
-        var statusService = windowSystem.GetService<IStatusService>();
-        statusService?.SetStatus("Application Started", Color.Green);
+        // Use plugin service (agnostic - no type knowledge required!)
+        var statusService = windowSystem.PluginStateService.GetService("Status");
+        statusService?.Execute("SetStatus", new Dictionary<string, object>
+        {
+            ["status"] = "Application Started",
+            ["color"] = Color.Green
+        });
 
         // Button to show plugin window
         mainWindow.AddControl(
             Controls.Button("About")
                 .OnClick((sender, e, window) =>
                 {
-                    var aboutWindow = windowSystem.CreatePluginWindow("AboutCompany");
+                    var aboutWindow = windowSystem.PluginStateService.CreateWindow("AboutCompany");
                     windowSystem.AddWindow(aboutWindow);
                 })
                 .Build()
