@@ -6,7 +6,12 @@
 // - Switch to the DevDark theme
 // - Create the Debug Console window from the plugin
 // - Use the LogExporter control from the plugin
-// - Access the Diagnostics service from the plugin
+// - Access the Diagnostics service from the plugin (using IPluginService - agnostic pattern)
+//
+// NOTE: This example demonstrates the AGNOSTIC service plugin pattern.
+// It uses ONLY the IPluginService interface and does not reference any
+// specific plugin types or interfaces. This proves the plugin can be
+// loaded from an external DLL without shared interfaces.
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI;
@@ -15,7 +20,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
-using SharpConsoleUI.Plugins.DeveloperTools;
+using SharpConsoleUI.Plugins.DeveloperTools; // Only needed for LoadPlugin<T>() - in production would load by path
 
 // Create window system (testing without status bars to verify bug fix)
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
@@ -24,7 +29,7 @@ var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffe
 windowSystem.LogService.MinimumLevel = LogLevel.Trace;
 
 // Load the built-in developer tools plugin
-windowSystem.LoadPlugin<DeveloperToolsPlugin>();
+windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
 
 // Switch to DevDark theme (provided by the plugin)
 windowSystem.SwitchTheme("DevDark");
@@ -50,6 +55,18 @@ mainWindow.AddControl(Controls.Markup()
 	.AddLine("  [cyan1]•[/] [yellow]LogExporter[/] control")
 	.AddLine("  [cyan1]•[/] [yellow]DebugConsole[/] window")
 	.AddLine("  [cyan1]•[/] [yellow]DiagnosticsService[/]")
+	.Build());
+
+mainWindow.AddControl(Controls.Separator());
+
+// Show plugin state information
+var state = windowSystem.PluginStateService.CurrentState;
+mainWindow.AddControl(Controls.Markup()
+	.AddLine($"[grey50]Plugin System State:[/]")
+	.AddLine($"  Loaded plugins: [cyan]{state.LoadedPluginCount}[/]")
+	.AddLine($"  Registered services: [cyan]{state.RegisteredServiceCount}[/]")
+	.AddLine($"  Registered controls: [cyan]{state.RegisteredControlCount}[/]")
+	.AddLine($"  Registered windows: [cyan]{state.RegisteredWindowCount}[/]")
 	.Build());
 
 mainWindow.AddControl(Controls.Separator());
@@ -101,7 +118,7 @@ void OpenLogExporter()
 		.AtPosition(2, 2)
 		.Build();
 
-	var logExporter = windowSystem.CreatePluginControl("LogExporter");
+	var logExporter = windowSystem.PluginStateService.CreateControl("LogExporter");
 	if (logExporter != null)
 	{
 		logExporterWindow.AddControl(logExporter);
@@ -116,7 +133,7 @@ var toolbar = Controls.Toolbar()
 	.AddButton("Debug Console", (sender, btn) =>
 	{
 		// Create debug console window from plugin
-		var debugWindow = windowSystem.CreatePluginWindow("DebugConsole");
+		var debugWindow = windowSystem.PluginStateService.CreateWindow("DebugConsole");
 		if (debugWindow != null)
 		{
 			windowSystem.AddWindow(debugWindow);
@@ -131,8 +148,9 @@ var toolbar = Controls.Toolbar()
 	.AddSeparator(1)
 	.AddButton("Diagnostics", (sender, btn) =>
 	{
-		// Get diagnostics service from plugin
-		var diagnostics = windowSystem.GetService<IDiagnosticsService>();
+		// Get diagnostics service from plugin using the AGNOSTIC pattern
+		// We use GetService() with a string name - no type knowledge required!
+		var diagnostics = windowSystem.PluginStateService.GetService("Diagnostics");
 		if (diagnostics != null)
 		{
 			// Create a modal window to show diagnostics
@@ -143,7 +161,10 @@ var toolbar = Controls.Toolbar()
 				.AsModal()
 				.Build();
 
-			var report = diagnostics.GetDiagnosticsReport();
+			// Call the operation using Execute() - reflection-free!
+			// We don't need to know the return type at compile time,
+			// just cast based on the operation metadata.
+			var report = (string)diagnostics.Execute("GetDiagnosticsReport")!;
 			var lines = report.Split('\n');
 			var markup = Controls.Markup();
 			foreach (var line in lines)
@@ -161,6 +182,110 @@ var toolbar = Controls.Toolbar()
 
 			windowSystem.AddWindow(diagWindow);
 			windowSystem.SetActiveWindow(diagWindow);
+		}
+	})
+	.AddSeparator(1)
+	.AddButton("Service Discovery", (sender, btn) =>
+	{
+		// Demonstrate service discovery - enumerate available operations
+		var diagnostics = windowSystem.PluginStateService.GetService("Diagnostics");
+		if (diagnostics != null)
+		{
+			var discoveryWindow = new WindowBuilder(windowSystem)
+				.WithTitle($"Service Discovery: {diagnostics.ServiceName}")
+				.WithSize(60, 22)
+				.Centered()
+				.AsModal()
+				.Build();
+
+			var markup = Controls.Markup();
+			markup.AddLine($"[yellow bold]{diagnostics.ServiceName}[/]");
+			markup.AddLine($"[grey]{diagnostics.Description}[/]");
+			markup.AddLine("");
+			markup.AddLine("[cyan]Available Operations:[/]");
+			markup.AddLine("");
+
+			var operations = diagnostics.GetAvailableOperations();
+			foreach (var op in operations)
+			{
+				markup.AddLine($"[green]• {op.Name}[/]");
+				markup.AddLine($"  [grey]{op.Description}[/]");
+				if (op.ReturnType != null)
+				{
+					markup.AddLine($"  [grey]Returns:[/] [yellow]{op.ReturnType.Name}[/]");
+				}
+				if (op.Parameters.Count > 0)
+				{
+					markup.AddLine($"  [grey]Parameters:[/]");
+					foreach (var param in op.Parameters)
+					{
+						var required = param.Required ? "[red]*required*[/]" : $"[grey](default: {param.DefaultValue})[/]";
+						markup.AddLine($"    - [cyan]{param.Name}[/] ([yellow]{param.Type.Name}[/]) {required}");
+						if (!string.IsNullOrEmpty(param.Description))
+						{
+							markup.AddLine($"      [grey]{param.Description}[/]");
+						}
+					}
+				}
+				markup.AddLine("");
+			}
+
+			discoveryWindow.AddControl(markup.Build());
+
+			var closeBtn = Controls.Button("Close")
+				.Centered()
+				.StickyBottom()
+				.OnClick((s, b) => discoveryWindow.Close())
+				.Build();
+			discoveryWindow.AddControl(closeBtn);
+
+			windowSystem.AddWindow(discoveryWindow);
+			windowSystem.SetActiveWindow(discoveryWindow);
+		}
+	})
+	.AddSeparator(1)
+	.AddButton("Custom Report", (sender, btn) =>
+	{
+		// Demonstrate parameterized operation invocation
+		var diagnostics = windowSystem.PluginStateService.GetService("Diagnostics");
+		if (diagnostics != null)
+		{
+			var customWindow = new WindowBuilder(windowSystem)
+				.WithTitle("Custom Diagnostics Report")
+				.WithSize(50, 18)
+				.Centered()
+				.AsModal()
+				.Build();
+
+			// Call operation with parameters using Execute()
+			var parameters = new Dictionary<string, object>
+			{
+				["includeMemory"] = true,
+				["includeGC"] = true,
+				["includeUptime"] = false,
+				["includeWindows"] = true
+			};
+
+			var report = (string)diagnostics.Execute("GetDetailedReport", parameters)!;
+			var lines = report.Split('\n');
+			var markup = Controls.Markup();
+			markup.AddLine("[cyan]Custom Report:[/] Memory + GC + Windows only");
+			markup.AddLine("");
+			foreach (var line in lines)
+			{
+				markup.AddLine(line.Replace("[", "[[").Replace("]", "]]"));
+			}
+			customWindow.AddControl(markup.Build());
+
+			var closeBtn = Controls.Button("Close")
+				.Centered()
+				.StickyBottom()
+				.OnClick((s, b) => customWindow.Close())
+				.Build();
+			customWindow.AddControl(closeBtn);
+
+			windowSystem.AddWindow(customWindow);
+			windowSystem.SetActiveWindow(customWindow);
 		}
 	})
 	.AddSeparator(1)
