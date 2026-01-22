@@ -15,6 +15,7 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Logging;
 using SharpConsoleUI.Plugins;
+using SharpConsoleUI.Configuration;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -114,17 +115,15 @@ namespace SharpConsoleUI
 		private readonly HashSet<Window> _flashingWindows = new();
 
 		// Plugin system
-		private readonly List<IPlugin> _plugins = new();
-		private readonly Dictionary<string, Func<IWindowControl>> _pluginControlFactories = new();
-		private readonly Dictionary<string, Func<ConsoleWindowSystem, Window>> _pluginWindowFactories = new();
-		private readonly Dictionary<Type, object> _pluginServices = new();
+		private readonly PluginStateService _pluginStateService;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
 		/// </summary>
 		/// <param name="driver">Pre-configured console driver.</param>
-		public ConsoleWindowSystem(IConsoleDriver driver)
-			: this(driver, ThemeRegistry.GetDefaultTheme())
+		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver, PluginConfiguration? pluginConfiguration = null)
+			: this(driver, ThemeRegistry.GetDefaultTheme(), pluginConfiguration)
 		{
 		}
 
@@ -133,8 +132,9 @@ namespace SharpConsoleUI
 		/// </summary>
 		/// <param name="driver">Pre-configured console driver.</param>
 		/// <param name="themeName">The name of the theme to use.</param>
-		public ConsoleWindowSystem(IConsoleDriver driver, string themeName)
-			: this(driver, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()))
+		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver, string themeName, PluginConfiguration? pluginConfiguration = null)
+			: this(driver, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()), pluginConfiguration)
 		{
 		}
 
@@ -143,7 +143,8 @@ namespace SharpConsoleUI
 		/// </summary>
 		/// <param name="driver">Pre-configured console driver.</param>
 		/// <param name="theme">The theme instance to use.</param>
-		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme)
+		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme, PluginConfiguration? pluginConfiguration = null)
 		{
 			_consoleDriver = driver ?? throw new ArgumentNullException(nameof(driver));
 			_theme = theme ?? new ModernGrayTheme();
@@ -160,6 +161,9 @@ namespace SharpConsoleUI
 			// Initialize notification service (needs 'this' reference)
 			_notificationStateService = new NotificationStateService(this, _logService);
 
+			// Initialize plugin state service
+			_pluginStateService = new PluginStateService(this, _logService, pluginConfiguration);
+
 			// Provide log service to InvalidationManager for error logging
 			InvalidationManager.Instance.LogService = _logService;
 
@@ -175,6 +179,12 @@ namespace SharpConsoleUI
 			// Subscribe to theme changes for automatic window invalidation
 			_themeStateService.ThemeChanged += OnThemeChanged;
 			_themeStateService.ThemePropertyChanged += OnThemePropertyChanged;
+
+			// Auto-load plugins if configured
+			if (pluginConfiguration?.AutoLoad == true)
+			{
+				_pluginStateService.LoadPluginsFromDirectory(pluginConfiguration.GetEffectivePluginsDirectory());
+			}
 		}
 
 		/// <summary>
@@ -452,6 +462,11 @@ namespace SharpConsoleUI
 		/// Gets the notification state service for managing notifications and toasts.
 		/// </summary>
 		public NotificationStateService NotificationStateService => _notificationStateService;
+
+		/// <summary>
+		/// Gets the plugin state service for managing plugins and their contributions.
+		/// </summary>
+		public PluginStateService PluginStateService => _pluginStateService;
 
 		/// <summary>
 		/// Gets the library-managed logging service.
@@ -2228,147 +2243,5 @@ namespace SharpConsoleUI
 			_consoleDriver.Flush();
 		}
 
-		#region Plugin System
-
-		/// <summary>
-		/// Gets the list of loaded plugins.
-		/// </summary>
-		public IReadOnlyList<IPlugin> Plugins => _plugins.AsReadOnly();
-
-		/// <summary>
-		/// Loads plugins from the specified directory.
-		/// If no path is specified, uses the "plugins" subdirectory of the application's base directory.
-		/// </summary>
-		/// <param name="pluginsPath">Optional path to the plugins directory.</param>
-		public void LoadPluginsFromDirectory(string? pluginsPath = null)
-		{
-			pluginsPath ??= Path.Combine(AppContext.BaseDirectory, "plugins");
-			if (!Directory.Exists(pluginsPath))
-			{
-				_logService?.LogDebug($"Plugin directory not found: {pluginsPath}", "Plugins");
-				return;
-			}
-
-			foreach (var dll in Directory.GetFiles(pluginsPath, "*.dll"))
-			{
-				try
-				{
-					var assembly = System.Reflection.Assembly.LoadFrom(dll);
-					foreach (var type in assembly.GetTypes().Where(t =>
-						typeof(IPlugin).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface))
-					{
-						var plugin = (IPlugin?)Activator.CreateInstance(type);
-						if (plugin != null)
-						{
-							LoadPlugin(plugin);
-							_logService?.LogInfo($"Loaded plugin: {plugin.Info.Name} v{plugin.Info.Version}", "Plugins");
-						}
-					}
-				}
-				catch (Exception ex)
-				{
-					_logService?.LogError($"Failed to load plugin from {dll}: {ex.Message}", ex, "Plugins");
-				}
-			}
-		}
-
-		/// <summary>
-		/// Loads a plugin instance and registers its contributions.
-		/// </summary>
-		/// <param name="plugin">The plugin to load.</param>
-		public void LoadPlugin(IPlugin plugin)
-		{
-			if (plugin == null)
-				throw new ArgumentNullException(nameof(plugin));
-
-			// Initialize the plugin
-			plugin.Initialize(this);
-
-			// Register themes to ThemeRegistry
-			foreach (var theme in plugin.GetThemes())
-			{
-				ThemeRegistry.RegisterTheme(theme.Name, theme.Description, () => theme.Theme);
-				_logService?.LogDebug($"Registered theme: {theme.Name}", "Plugins");
-			}
-
-			// Register control factories
-			foreach (var control in plugin.GetControls())
-			{
-				_pluginControlFactories[control.Name] = control.Factory;
-				_logService?.LogDebug($"Registered control: {control.Name}", "Plugins");
-			}
-
-			// Register window factories
-			foreach (var window in plugin.GetWindows())
-			{
-				_pluginWindowFactories[window.Name] = window.Factory;
-				_logService?.LogDebug($"Registered window: {window.Name}", "Plugins");
-			}
-
-			// Register services
-			foreach (var service in plugin.GetServices())
-			{
-				_pluginServices[service.ServiceType] = service.Instance;
-				_logService?.LogDebug($"Registered service: {service.ServiceType.Name}", "Plugins");
-			}
-
-			_plugins.Add(plugin);
-		}
-
-		/// <summary>
-		/// Loads a plugin of the specified type.
-		/// </summary>
-		/// <typeparam name="T">The plugin type to instantiate and load.</typeparam>
-		public void LoadPlugin<T>() where T : IPlugin, new()
-		{
-			LoadPlugin(new T());
-		}
-
-		/// <summary>
-		/// Creates a control instance from a plugin-registered factory.
-		/// </summary>
-		/// <param name="name">The name of the control to create.</param>
-		/// <returns>The created control instance, or null if not found.</returns>
-		public IWindowControl? CreatePluginControl(string name)
-		{
-			return _pluginControlFactories.TryGetValue(name, out var factory) ? factory() : null;
-		}
-
-		/// <summary>
-		/// Creates a window instance from a plugin-registered factory.
-		/// </summary>
-		/// <param name="name">The name of the window to create.</param>
-		/// <returns>The created window instance, or null if not found.</returns>
-		public Window? CreatePluginWindow(string name)
-		{
-			return _pluginWindowFactories.TryGetValue(name, out var factory) ? factory(this) : null;
-		}
-
-		/// <summary>
-		/// Gets a service instance registered by a plugin.
-		/// </summary>
-		/// <typeparam name="T">The service type to retrieve.</typeparam>
-		/// <returns>The service instance, or null if not found.</returns>
-		public T? GetService<T>() where T : class
-		{
-			return _pluginServices.TryGetValue(typeof(T), out var service) ? service as T : null;
-		}
-
-		/// <summary>
-		/// Gets the names of all registered plugin controls.
-		/// </summary>
-		public IReadOnlyCollection<string> RegisteredPluginControls => _pluginControlFactories.Keys;
-
-		/// <summary>
-		/// Gets the names of all registered plugin windows.
-		/// </summary>
-		public IReadOnlyCollection<string> RegisteredPluginWindows => _pluginWindowFactories.Keys;
-
-		/// <summary>
-		/// Gets the types of all registered plugin services.
-		/// </summary>
-		public IReadOnlyCollection<Type> RegisteredPluginServices => _pluginServices.Keys;
-
-		#endregion
 	}
 }

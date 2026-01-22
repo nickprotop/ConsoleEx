@@ -60,14 +60,14 @@ public class DeveloperToolsPlugin : PluginBase
 	};
 
 	/// <inheritdoc />
-	public override IReadOnlyList<PluginService> GetServices()
+	public override IReadOnlyList<IPluginService> GetServicePlugins()
 	{
 		if (_diagnosticsService == null)
-			return Array.Empty<PluginService>();
+			return Array.Empty<IPluginService>();
 
-		return new[]
+		return new IPluginService[]
 		{
-			new PluginService(typeof(IDiagnosticsService), _diagnosticsService)
+			_diagnosticsService
 		};
 	}
 

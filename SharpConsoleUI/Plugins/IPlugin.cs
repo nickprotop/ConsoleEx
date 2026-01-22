@@ -43,10 +43,12 @@ public record PluginControl(string Name, Func<IWindowControl> Factory);
 public record PluginWindow(string Name, Func<ConsoleWindowSystem, Window> Factory);
 
 /// <summary>
-/// A service contribution from a plugin
+/// A service contribution from a plugin (legacy type-based pattern).
+/// This pattern is obsolete. Use IPluginService instead for reflection-free service invocation.
 /// </summary>
 /// <param name="ServiceType">The service type (usually an interface)</param>
 /// <param name="Instance">The service instance</param>
+[Obsolete("Use IPluginService interface instead. This type-based pattern will be removed in a future version.")]
 public record PluginService(Type ServiceType, object Instance);
 
 /// <summary>
@@ -78,10 +80,19 @@ public interface IPlugin : IDisposable
 	IReadOnlyList<PluginWindow> GetWindows();
 
 	/// <summary>
-	/// Gets the services provided by this plugin
+	/// Gets the services provided by this plugin (legacy type-based pattern).
+	/// This method is obsolete. Override GetServicePlugins() instead.
 	/// </summary>
 	/// <returns>A list of services, or empty if the plugin provides no services</returns>
+	[Obsolete("Use GetServicePlugins() instead. This type-based pattern will be removed in a future version.")]
 	IReadOnlyList<PluginService> GetServices();
+
+	/// <summary>
+	/// Gets the service plugins provided by this plugin using the reflection-free pattern.
+	/// Service plugins implement IPluginService and can be invoked without shared interfaces.
+	/// </summary>
+	/// <returns>A list of service plugins, or empty if the plugin provides no services</returns>
+	IReadOnlyList<IPluginService> GetServicePlugins();
 
 	/// <summary>
 	/// Called when the plugin is loaded, before Get* methods are called.
@@ -110,7 +121,12 @@ public abstract class PluginBase : IPlugin
 	public virtual IReadOnlyList<PluginWindow> GetWindows() => Array.Empty<PluginWindow>();
 
 	/// <inheritdoc/>
+#pragma warning disable CS0618 // Type or member is obsolete
 	public virtual IReadOnlyList<PluginService> GetServices() => Array.Empty<PluginService>();
+#pragma warning restore CS0618 // Type or member is obsolete
+
+	/// <inheritdoc/>
+	public virtual IReadOnlyList<IPluginService> GetServicePlugins() => Array.Empty<IPluginService>();
 
 	/// <inheritdoc/>
 	public virtual void Initialize(ConsoleWindowSystem windowSystem) { }
