@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drawing;
 using Spectre.Console;
 
 namespace SharpConsoleUI.Layout
@@ -491,38 +492,5 @@ namespace SharpConsoleUI.Layout
 
 			return lines;
 		}
-	}
-
-	/// <summary>
-	/// Box drawing characters for borders.
-	/// </summary>
-	public readonly record struct BoxChars(
-		char TopLeft,
-		char TopRight,
-		char BottomLeft,
-		char BottomRight,
-		char Horizontal,
-		char Vertical
-	)
-	{
-		/// <summary>
-		/// Single-line box characters.
-		/// </summary>
-		public static BoxChars Single => new('┌', '┐', '└', '┘', '─', '│');
-
-		/// <summary>
-		/// Double-line box characters.
-		/// </summary>
-		public static BoxChars Double => new('╔', '╗', '╚', '╝', '═', '║');
-
-		/// <summary>
-		/// Rounded box characters.
-		/// </summary>
-		public static BoxChars Rounded => new('╭', '╮', '╰', '╯', '─', '│');
-
-		/// <summary>
-		/// ASCII box characters.
-		/// </summary>
-		public static BoxChars Ascii => new('+', '+', '+', '+', '-', '|');
 	}
 }

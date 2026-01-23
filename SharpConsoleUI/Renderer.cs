@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using Spectre.Console;
 using System.Drawing;
@@ -240,37 +241,15 @@ namespace SharpConsoleUI
 				return;
 			}
 
-			// Get border characters based on BorderStyle (not active state)
-			char horizontalBorder, verticalBorder, topLeftCorner, topRightCorner, bottomLeftCorner, bottomRightCorner;
-			switch (window.BorderStyle)
-			{
-				case BorderStyle.Single:
-					horizontalBorder = '─';
-					verticalBorder = '│';
-					topLeftCorner = '┌';
-					topRightCorner = '┐';
-					bottomLeftCorner = '└';
-					bottomRightCorner = '┘';
-					break;
-				case BorderStyle.Rounded:
-					horizontalBorder = '─';
-					verticalBorder = '│';
-					topLeftCorner = '╭';
-					topRightCorner = '╮';
-					bottomLeftCorner = '╰';
-					bottomRightCorner = '╯';
-					break;
-				case BorderStyle.DoubleLine:
-				default:
-					// DoubleLine: use double when active, single when inactive (legacy behavior)
-					horizontalBorder = window.GetIsActive() ? '═' : '─';
-					verticalBorder = window.GetIsActive() ? '║' : '│';
-					topLeftCorner = window.GetIsActive() ? '╔' : '┌';
-					topRightCorner = window.GetIsActive() ? '╗' : '┐';
-					bottomLeftCorner = window.GetIsActive() ? '╚' : '└';
-					bottomRightCorner = window.GetIsActive() ? '╝' : '┘';
-					break;
-			}
+			// Get border characters using BoxChars abstraction
+			// DoubleLine style uses active state to switch between double (active) and single (inactive)
+			var chars = BoxChars.FromBorderStyle(window.BorderStyle, window.GetIsActive());
+			char horizontalBorder = chars.Horizontal;
+			char verticalBorder = chars.Vertical;
+			char topLeftCorner = chars.TopLeft;
+			char topRightCorner = chars.TopRight;
+			char bottomLeftCorner = chars.BottomLeft;
+			char bottomRightCorner = chars.BottomRight;
 
 			var borderColor = window.GetIsActive() ? $"[{window.ActiveBorderForegroundColor}]" : $"[{window.InactiveBorderForegroundColor}]";
 			var titleColor = window.GetIsActive() ? $"[{window.ActiveTitleForegroundColor}]" : $"[{window.InactiveTitleForegroundColor}]";

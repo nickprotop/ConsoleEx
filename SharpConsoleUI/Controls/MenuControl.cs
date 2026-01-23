@@ -1,3 +1,4 @@
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -1498,26 +1499,27 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         var fg = ResolvedDropdownForeground;
         var bg = ResolvedDropdownBackground;
 
-        // Draw rounded box using box-drawing characters
+        // Use BoxChars abstraction for rounded dropdown borders
+        var chars = BoxChars.Rounded;
+
         // Corners
-        buffer.SetCell(bounds.X, bounds.Y, '╭', fg, bg);
-        var cell = buffer.GetCell(bounds.X, bounds.Y);
-        buffer.SetCell(bounds.Right - 1, bounds.Y, '╮', fg, bg);
-        buffer.SetCell(bounds.X, bounds.Bottom - 1, '╰', fg, bg);
-        buffer.SetCell(bounds.Right - 1, bounds.Bottom - 1, '╯', fg, bg);
+        buffer.SetCell(bounds.X, bounds.Y, chars.TopLeft, fg, bg);
+        buffer.SetCell(bounds.Right - 1, bounds.Y, chars.TopRight, fg, bg);
+        buffer.SetCell(bounds.X, bounds.Bottom - 1, chars.BottomLeft, fg, bg);
+        buffer.SetCell(bounds.Right - 1, bounds.Bottom - 1, chars.BottomRight, fg, bg);
 
         // Horizontal lines
         for (int x = bounds.X + 1; x < bounds.Right - 1; x++)
         {
-            buffer.SetCell(x, bounds.Y, '─', fg, bg);
-            buffer.SetCell(x, bounds.Bottom - 1, '─', fg, bg);
+            buffer.SetCell(x, bounds.Y, chars.Horizontal, fg, bg);
+            buffer.SetCell(x, bounds.Bottom - 1, chars.Horizontal, fg, bg);
         }
 
         // Vertical lines
         for (int y = bounds.Y + 1; y < bounds.Bottom - 1; y++)
         {
-            buffer.SetCell(bounds.X, y, '│', fg, bg);
-            buffer.SetCell(bounds.Right - 1, y, '│', fg, bg);
+            buffer.SetCell(bounds.X, y, chars.Vertical, fg, bg);
+            buffer.SetCell(bounds.Right - 1, y, chars.Vertical, fg, bg);
         }
 
         // Fill interior
