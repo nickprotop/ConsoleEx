@@ -274,19 +274,36 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
         {
             _previousNet = current;
             _previousNetSample = now;
-            return new NetworkSample(0, 0);
+            // Return zero rates but include interface names for UI initialization
+            var initialSamples = current.Keys
+                .Select(name => new NetworkInterfaceSample(name, 0, 0))
+                .OrderBy(s => s.InterfaceName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return new NetworkSample(0, 0, initialSamples);
         }
 
         var seconds = Math.Max(0.1, (now - _previousNetSample).TotalSeconds);
         double rxDiff = 0;
         double txDiff = 0;
 
+        // Calculate per-interface rates and aggregate totals
+        var perInterfaceSamples = new List<NetworkInterfaceSample>();
+
         foreach (var kvp in current)
         {
             if (_previousNet.TryGetValue(kvp.Key, out var prev))
             {
-                rxDiff += Math.Max(0, kvp.Value.RxBytes - prev.RxBytes);
-                txDiff += Math.Max(0, kvp.Value.TxBytes - prev.TxBytes);
+                var ifaceRxDiff = Math.Max(0, kvp.Value.RxBytes - prev.RxBytes);
+                var ifaceTxDiff = Math.Max(0, kvp.Value.TxBytes - prev.TxBytes);
+
+                rxDiff += ifaceRxDiff;
+                txDiff += ifaceTxDiff;
+
+                // Calculate per-interface MB/s
+                var ifaceUpMbps = (ifaceTxDiff / seconds) / (1024 * 1024);
+                var ifaceDownMbps = (ifaceRxDiff / seconds) / (1024 * 1024);
+
+                perInterfaceSamples.Add(new NetworkInterfaceSample(kvp.Key, ifaceUpMbps, ifaceDownMbps));
             }
         }
 
@@ -295,7 +312,11 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
 
         var upMbps = (txDiff / seconds) / (1024 * 1024);
         var downMbps = (rxDiff / seconds) / (1024 * 1024);
-        return new NetworkSample(upMbps, downMbps);
+
+        // Sort interfaces by name for consistent ordering
+        perInterfaceSamples.Sort((a, b) => string.Compare(a.InterfaceName, b.InterfaceName, StringComparison.OrdinalIgnoreCase));
+
+        return new NetworkSample(upMbps, downMbps, perInterfaceSamples);
     }
 
     private List<ProcessSample> ReadTopProcesses()

@@ -39,6 +39,7 @@ internal class Program
         Processes,
         Memory,
         Cpu,
+        Network,
     }
 
     private static TabMode _activeTab = TabMode.Processes;
@@ -78,6 +79,23 @@ internal class Program
     private enum CpuLayoutMode { Wide, Narrow }
     private static CpuLayoutMode _currentCpuLayout = CpuLayoutMode.Wide;
     private const int CPU_LAYOUT_THRESHOLD_WIDTH = 80; // Switch to narrow below this width
+
+    // Network history for sparkline graphs (aggregate)
+    private static readonly List<double> _networkUpHistory = new();
+    private static readonly List<double> _networkDownHistory = new();
+
+    // Per-interface network history (like _cpuPerCoreHistory)
+    private static readonly Dictionary<string, List<double>> _networkPerInterfaceUpHistory = new();
+    private static readonly Dictionary<string, List<double>> _networkPerInterfaceDownHistory = new();
+
+    // Peak tracking for network stats display
+    private static double _peakUpMbps = 0;
+    private static double _peakDownMbps = 0;
+
+    // Responsive layout tracking for network panel
+    private enum NetworkLayoutMode { Wide, Narrow }
+    private static NetworkLayoutMode _currentNetworkLayout = NetworkLayoutMode.Wide;
+    private const int NETWORK_LAYOUT_THRESHOLD_WIDTH = 80; // Switch to narrow below this width
 
     static async Task<int> Main(string[] args)
     {
@@ -283,6 +301,18 @@ internal class Program
                         }
                     )
             )
+            .AddButton(
+                Controls
+                    .Button("Network")
+                    .WithName("tabNetwork")
+                    .OnClick(
+                        (s, e) =>
+                        {
+                            _activeTab = TabMode.Network;
+                            UpdateDisplay();
+                        }
+                    )
+            )
             .WithSpacing(1)
             .Build();
         mainWindow.AddControl(tabToolbar);
@@ -400,7 +430,7 @@ internal class Program
                             .WithName("processDetailPanel")
                             .WithVerticalAlignment(VerticalAlignment.Fill)
                             .WithAlignment(HorizontalAlignment.Stretch)
-                            .WithMargin(1, 0, 1, 0)
+                            .WithMargin(2, 0, 1, 0)
                             .AddControl(
                                 Controls
                                     .Markup()
@@ -450,6 +480,11 @@ internal class Program
         var cpuPanelInitial = BuildResponsiveCpuGrid(mainWindow.Width, initialSnapshot);
         mainWindow.AddControl(cpuPanelInitial);
 
+        // === NETWORK PANEL (RESPONSIVE LAYOUT) ===
+        // Build Network panel at startup with responsive layout based on window width
+        var networkPanelInitial = BuildResponsiveNetworkGrid(mainWindow.Width, initialSnapshot);
+        mainWindow.AddControl(networkPanelInitial);
+
         // === BOTTOM STATUS BAR ===
         mainWindow.AddControl(
             Controls.RuleBuilder().StickyBottom().WithColor(Color.Grey23).Build()
@@ -487,11 +522,12 @@ internal class Program
 
         mainWindow.AddControl(bottomStatusBar);
 
-        // Hook up responsive layout handlers for memory and CPU panels
+        // Hook up responsive layout handlers for memory, CPU, and network panels
         mainWindow.OnResize += (sender, e) =>
         {
             HandleMemoryPanelResize();
             HandleCpuPanelResize();
+            HandleNetworkPanelResize();
         };
 
         _windowSystem.AddWindow(mainWindow);
@@ -506,6 +542,7 @@ internal class Program
         var processPanel = _mainWindow?.FindControl<HorizontalGridControl>("processPanel");
         var memoryPanel = _mainWindow?.FindControl<HorizontalGridControl>("memoryPanel");
         var cpuPanel = _mainWindow?.FindControl<HorizontalGridControl>("cpuPanel");
+        var networkPanel = _mainWindow?.FindControl<HorizontalGridControl>("networkPanel");
 
         // Switch visibility based on active tab
         switch (_activeTab)
@@ -518,35 +555,56 @@ internal class Program
                     memoryPanel.Visible = false;
                 if (cpuPanel != null)
                     cpuPanel.Visible = false;
+                if (networkPanel != null)
+                    networkPanel.Visible = false;
 
                 // Update process detail content
                 UpdateHighlightedProcess();
                 break;
 
             case TabMode.Memory:
-                // Hide process panel, show memory panel, hide CPU panel
+                // Hide process panel, show memory panel, hide CPU and network panels
                 if (processPanel != null)
                     processPanel.Visible = false;
                 if (memoryPanel != null)
                     memoryPanel.Visible = true;
                 if (cpuPanel != null)
                     cpuPanel.Visible = false;
+                if (networkPanel != null)
+                    networkPanel.Visible = false;
 
                 // Update memory panel content
                 UpdateMemoryPanel();
                 break;
 
             case TabMode.Cpu:
-                // Hide process and memory panels, show CPU panel
+                // Hide process, memory, and network panels, show CPU panel
                 if (processPanel != null)
                     processPanel.Visible = false;
                 if (memoryPanel != null)
                     memoryPanel.Visible = false;
                 if (cpuPanel != null)
                     cpuPanel.Visible = true;
+                if (networkPanel != null)
+                    networkPanel.Visible = false;
 
                 // Update CPU panel content
                 UpdateCpuPanel();
+                break;
+
+            case TabMode.Network:
+                // Hide process, memory, and CPU panels, show network panel
+                if (processPanel != null)
+                    processPanel.Visible = false;
+                if (memoryPanel != null)
+                    memoryPanel.Visible = false;
+                if (cpuPanel != null)
+                    cpuPanel.Visible = false;
+                if (networkPanel != null)
+                    networkPanel.Visible = true;
+
+                // Update network panel content
+                UpdateNetworkPanel();
                 break;
         }
 
@@ -630,6 +688,12 @@ internal class Program
                 if (_activeTab == TabMode.Cpu)
                 {
                     UpdateCpuPanel();
+                }
+
+                // Update Network panel (Network tab)
+                if (_activeTab == TabMode.Network)
+                {
+                    UpdateNetworkPanel();
                 }
 
                 // Update bottom stats legend
@@ -1261,13 +1325,14 @@ internal class Program
         var usedSparkline = new SparklineBuilder()
             .WithName("memoryUsedSparkline")
             .WithTitle("Memory Used %", Color.Cyan1)
+            .WithTitlePosition(TitlePosition.Bottom)
             .WithHeight(6)
             .WithMaxValue(100)
             .WithBarColor(Color.Cyan1)
             .WithBackgroundColor(Color.Grey15)
-            .WithBorder(BorderStyle.Rounded, Color.Grey50)
+            .WithBorder(BorderStyle.None)
             .WithMode(SparklineMode.Braille) // Use braille patterns for smoother rendering
-            .WithMargin(2, 0, 2, 1)
+            .WithMargin(2, 0, 1, 0)
             .WithData(_memoryUsedHistory)
             .Build();
         panel.AddControl(usedSparkline);
@@ -1277,13 +1342,14 @@ internal class Program
             new SparklineBuilder()
                 .WithName("memoryCachedSparkline")
                 .WithTitle("Memory Cached %", Color.Yellow)
+                .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(6)
                 .WithMaxValue(100)
                 .WithBarColor(Color.Yellow)
                 .WithBackgroundColor(Color.Grey15)
-                .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.Braille)
-                .WithMargin(2, 0, 2, 1)
+                .WithMargin(2, 0, 1, 0)
                 .WithData(_memoryCachedHistory)
                 .Build()
         );
@@ -1293,13 +1359,14 @@ internal class Program
             new SparklineBuilder()
                 .WithName("memoryFreeSparkline")
                 .WithTitle("Memory Available %", Color.Green)
+                .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(6)
                 .WithMaxValue(100)
                 .WithBarColor(Color.Green)
                 .WithBackgroundColor(Color.Grey15)
-                .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.Braille)
-                .WithMargin(2, 0, 2, 0)
+                .WithMargin(2, 0, 1, 0)
                 .WithData(_memoryAvailableHistory)
                 .Build()
         );
@@ -2218,13 +2285,14 @@ internal class Program
             new SparklineBuilder()
                 .WithName("cpuUserSparkline")
                 .WithTitle("User CPU %", Color.Red)
+                .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(6)
                 .WithMaxValue(100)
                 .WithBarColor(Color.Red)
                 .WithBackgroundColor(Color.Grey15)
-                .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.Braille)
-                .WithMargin(2, 0, 2, 1)
+                .WithMargin(2, 0, 1, 0)
                 .WithData(_cpuUserHistory)
                 .Build()
         );
@@ -2234,13 +2302,14 @@ internal class Program
             new SparklineBuilder()
                 .WithName("cpuSystemSparkline")
                 .WithTitle("System CPU %", Color.Yellow)
+                .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(6)
                 .WithMaxValue(100)
                 .WithBarColor(Color.Yellow)
                 .WithBackgroundColor(Color.Grey15)
-                .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.Braille)
-                .WithMargin(2, 0, 2, 1)
+                .WithMargin(2, 0, 1, 0)
                 .WithData(_cpuSystemHistory)
                 .Build()
         );
@@ -2249,13 +2318,14 @@ internal class Program
         var totalSparkline = new SparklineBuilder()
             .WithName("cpuTotalSparkline")
             .WithTitle("Total CPU %", Color.Cyan1)
+            .WithTitlePosition(TitlePosition.Bottom)
             .WithHeight(6)
             .WithMaxValue(100)
             .WithBarColor(Color.Cyan1)
             .WithBackgroundColor(Color.Grey15)
-            .WithBorder(BorderStyle.Rounded, Color.Grey50)
+            .WithBorder(BorderStyle.None)
             .WithMode(SparklineMode.Braille) // Use braille patterns for smoother rendering
-            .WithMargin(2, 0, 2, 1)
+            .WithMargin(2, 0, 1, 0)
             .WithData(_cpuTotalHistory)
             .Build();
         panel.AddControl(totalSparkline);
@@ -2305,13 +2375,14 @@ internal class Program
                     new SparklineBuilder()
                         .WithName($"cpuCore{coreIndex}Sparkline")
                         .WithTitle($"Core {coreIndex}", coreColor)
+                        .WithTitlePosition(TitlePosition.Bottom)
                         .WithHeight(4) // Smaller height for per-core
                         .WithMaxValue(100)
                         .WithBarColor(coreColor)
                         .WithBackgroundColor(Color.Grey15)
-                        .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                        .WithBorder(BorderStyle.None)
                         .WithMode(SparklineMode.Braille) // Braille works better at small heights
-                        .WithMargin(2, 0, 2, coreIndex == coreCount - 1 ? 0 : 1)
+                        .WithMargin(2, 0, 1, 0)
                         .WithData(coreData)
                         .Build()
                 );
@@ -2471,5 +2542,662 @@ internal class Program
         grid.AddColumn(col);
 
         _windowSystem?.LogService.LogDebug($"BuildNarrowCpuColumns: Added 1 column with full content", "CPU");
+    }
+
+    // ========================================================================
+    // NETWORK PANEL METHODS
+    // ========================================================================
+
+    private static void UpdateNetworkPanel()
+    {
+        if (_mainWindow == null)
+            return;
+
+        // Find the network panel grid
+        var networkPanel = _mainWindow.FindControl<HorizontalGridControl>("networkPanel");
+        if (networkPanel == null)
+        {
+            _windowSystem?.LogService.LogWarning("UpdateNetworkPanel: Panel not found", "Network");
+            return;
+        }
+
+        var snapshot = _lastSnapshot ?? _stats.ReadSnapshot();
+        UpdateNetworkHistory(snapshot.Network);
+
+        // Update the graph controls with new data
+        UpdateNetworkGraphControls(networkPanel, snapshot);
+    }
+
+    private static void UpdateNetworkHistory(NetworkSample network)
+    {
+        // Aggregate history
+        _networkUpHistory.Add(network.UpMbps);
+        _networkDownHistory.Add(network.DownMbps);
+
+        // Peak tracking
+        _peakUpMbps = Math.Max(_peakUpMbps, network.UpMbps);
+        _peakDownMbps = Math.Max(_peakDownMbps, network.DownMbps);
+
+        // Per-interface history
+        if (network.PerInterfaceSamples != null)
+        {
+            foreach (var iface in network.PerInterfaceSamples)
+            {
+                if (!_networkPerInterfaceUpHistory.ContainsKey(iface.InterfaceName))
+                {
+                    _networkPerInterfaceUpHistory[iface.InterfaceName] = new List<double>();
+                    _networkPerInterfaceDownHistory[iface.InterfaceName] = new List<double>();
+                }
+                _networkPerInterfaceUpHistory[iface.InterfaceName].Add(iface.UpMbps);
+                _networkPerInterfaceDownHistory[iface.InterfaceName].Add(iface.DownMbps);
+
+                // Trim per-interface history
+                while (_networkPerInterfaceUpHistory[iface.InterfaceName].Count > MAX_HISTORY_POINTS)
+                    _networkPerInterfaceUpHistory[iface.InterfaceName].RemoveAt(0);
+                while (_networkPerInterfaceDownHistory[iface.InterfaceName].Count > MAX_HISTORY_POINTS)
+                    _networkPerInterfaceDownHistory[iface.InterfaceName].RemoveAt(0);
+            }
+        }
+
+        // Trim aggregate history
+        while (_networkUpHistory.Count > MAX_HISTORY_POINTS)
+            _networkUpHistory.RemoveAt(0);
+        while (_networkDownHistory.Count > MAX_HISTORY_POINTS)
+            _networkDownHistory.RemoveAt(0);
+    }
+
+    private static void UpdateNetworkGraphControls(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        // Find the right column (column 2) which has the graphs
+        if (grid.Columns.Count < 3)
+        {
+            _windowSystem?.LogService.LogDebug($"UpdateNetworkGraphControls: Grid has {grid.Columns.Count} columns, expected 3", "Network");
+            return;
+        }
+
+        var rightCol = grid.Columns[2];
+        var rightPanel = rightCol.Contents.FirstOrDefault() as ScrollablePanelControl;
+        if (rightPanel == null)
+        {
+            _windowSystem?.LogService.LogDebug("UpdateNetworkGraphControls: Right panel not found", "Network");
+            return;
+        }
+
+        var net = snapshot.Network;
+
+        // Update bar graphs
+        var uploadBar = rightPanel.Children.FirstOrDefault(c => c.Name == "netUploadBar") as BarGraphControl;
+        if (uploadBar != null)
+            uploadBar.Value = net.UpMbps;
+
+        var downloadBar = rightPanel.Children.FirstOrDefault(c => c.Name == "netDownloadBar") as BarGraphControl;
+        if (downloadBar != null)
+            downloadBar.Value = net.DownMbps;
+
+        // Update combined bidirectional sparkline
+        var combinedSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == "netCombinedSparkline") as SparklineControl;
+        if (combinedSparkline != null)
+        {
+            combinedSparkline.SetBidirectionalData(_networkUpHistory, _networkDownHistory);
+            // Update max values dynamically based on peaks
+            combinedSparkline.MaxValue = Math.Max(_peakUpMbps, 1.0);
+            combinedSparkline.SecondaryMaxValue = Math.Max(_peakDownMbps, 1.0);
+        }
+
+        // Update per-interface combined sparklines
+        if (net.PerInterfaceSamples != null)
+        {
+            foreach (var iface in net.PerInterfaceSamples)
+            {
+                var ifaceSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == $"net{iface.InterfaceName}Sparkline") as SparklineControl;
+                if (ifaceSparkline != null)
+                {
+                    var upData = _networkPerInterfaceUpHistory.ContainsKey(iface.InterfaceName)
+                        ? _networkPerInterfaceUpHistory[iface.InterfaceName]
+                        : new List<double>();
+                    var downData = _networkPerInterfaceDownHistory.ContainsKey(iface.InterfaceName)
+                        ? _networkPerInterfaceDownHistory[iface.InterfaceName]
+                        : new List<double>();
+
+                    ifaceSparkline.SetBidirectionalData(upData, downData);
+                    ifaceSparkline.MaxValue = Math.Max(_peakUpMbps, 0.1);
+                    ifaceSparkline.SecondaryMaxValue = Math.Max(_peakDownMbps, 0.1);
+                }
+            }
+        }
+
+        // Update left column text stats
+        if (grid.Columns.Count > 0)
+        {
+            var leftCol = grid.Columns[0];
+            var leftPanel = leftCol.Contents.FirstOrDefault() as ScrollablePanelControl;
+            if (leftPanel != null && leftPanel.Children.Count > 0)
+            {
+                var markup = leftPanel.Children[0] as MarkupControl;
+                if (markup != null)
+                {
+                    var lines = BuildNetworkTextContent(snapshot);
+                    markup.SetContent(lines);
+                }
+            }
+        }
+    }
+
+    private static HorizontalGridControl BuildResponsiveNetworkGrid(int windowWidth, SystemSnapshot snapshot)
+    {
+        var desiredLayout = windowWidth >= NETWORK_LAYOUT_THRESHOLD_WIDTH
+            ? NetworkLayoutMode.Wide
+            : NetworkLayoutMode.Narrow;
+
+        _currentNetworkLayout = desiredLayout;
+
+        _windowSystem?.LogService.LogDebug(
+            $"BuildResponsiveNetworkGrid: Building initial layout in {desiredLayout} mode (width={windowWidth})",
+            "Network");
+
+        if (desiredLayout == NetworkLayoutMode.Wide)
+        {
+            return BuildWideNetworkGridInitial(snapshot);
+        }
+        else
+        {
+            return BuildNarrowNetworkGridInitial(snapshot);
+        }
+    }
+
+    private static HorizontalGridControl BuildWideNetworkGridInitial(SystemSnapshot snapshot)
+    {
+        var lines = BuildNetworkTextContent(snapshot);
+
+        var grid = Controls
+            .HorizontalGrid()
+            .WithName("networkPanel")
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithMargin(1, 0, 1, 1)
+            .Visible(false) // Hidden by default
+            // Left column: Scrollable text info (fixed width)
+            .Column(col =>
+            {
+                col.Width(40); // Fixed width for text stats
+                var leftPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                leftPanel.BackgroundColor = Color.Grey11;
+                leftPanel.ForegroundColor = Color.Grey93;
+
+                var markup = Controls.Markup();
+                foreach (var line in lines)
+                {
+                    markup = markup.AddLine(line);
+                }
+                leftPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+                col.Add(leftPanel);
+            })
+            // Middle column: Separator (1 char wide)
+            .Column(col =>
+            {
+                col.Width(1);
+                col.Add(new SeparatorControl
+                {
+                    ForegroundColor = Color.Grey23,
+                    VerticalAlignment = VerticalAlignment.Fill
+                });
+            })
+            // Right column: Scrollable graphs (fills remaining space)
+            .Column(col =>
+            {
+                // No width set - fills remaining space responsively
+                var rightPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                rightPanel.BackgroundColor = Color.Grey11;
+                rightPanel.ForegroundColor = Color.Grey93;
+                BuildNetworkGraphsContent(rightPanel, snapshot);
+                col.Add(rightPanel);
+            })
+            .Build();
+
+        grid.BackgroundColor = Color.Grey11;
+        grid.ForegroundColor = Color.Grey93;
+
+        return grid;
+    }
+
+    private static HorizontalGridControl BuildNarrowNetworkGridInitial(SystemSnapshot snapshot)
+    {
+        var lines = BuildNetworkTextContent(snapshot);
+
+        var grid = Controls
+            .HorizontalGrid()
+            .WithName("networkPanel")
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithMargin(1, 0, 1, 1)
+            .Visible(false) // Hidden by default
+            // Single column: Scrollable panel with ALL content (text + graphs)
+            .Column(col =>
+            {
+                var scrollPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                scrollPanel.BackgroundColor = Color.Grey11;
+                scrollPanel.ForegroundColor = Color.Grey93;
+
+                // Add text content
+                var markup = Controls.Markup();
+                foreach (var line in lines)
+                {
+                    markup = markup.AddLine(line);
+                }
+                scrollPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+                // Add separator
+                scrollPanel.AddControl(
+                    Controls
+                        .Markup()
+                        .AddLine("")
+                        .AddLine("[grey23]────────────────────────────────────────[/]")
+                        .AddLine("")
+                        .WithAlignment(HorizontalAlignment.Left)
+                        .WithMargin(2, 1, 2, 0)
+                        .Build()
+                );
+
+                // Add all graphs (same as wide mode right panel)
+                BuildNetworkGraphsContent(scrollPanel, snapshot);
+
+                col.Add(scrollPanel);
+            })
+            .Build();
+
+        grid.BackgroundColor = Color.Grey11;
+        grid.ForegroundColor = Color.Grey93;
+
+        return grid;
+    }
+
+    private static List<string> BuildNetworkTextContent(SystemSnapshot snapshot)
+    {
+        var net = snapshot.Network;
+        int interfaceCount = net.PerInterfaceSamples?.Count ?? 0;
+
+        var lines = new List<string>
+        {
+            "",
+            $"[cyan1 bold]Network ({interfaceCount} interface{(interfaceCount != 1 ? "s" : "")})[/]",
+            "",
+            "[grey70 bold]Current Rates[/]",
+            $"  [grey70]Upload:[/]   [cyan1]{net.UpMbps:F2} MB/s[/]",
+            $"  [grey70]Download:[/] [green]{net.DownMbps:F2} MB/s[/]",
+            "",
+            "[grey70 bold]Peak Rates (session)[/]",
+            $"  [grey70]Upload:[/]   [cyan1]{_peakUpMbps:F2} MB/s[/]",
+            $"  [grey70]Download:[/] [green]{_peakDownMbps:F2} MB/s[/]",
+            "",
+            "[grey70 bold]Active Interfaces[/]",
+        };
+
+        if (net.PerInterfaceSamples != null && net.PerInterfaceSamples.Count > 0)
+        {
+            foreach (var iface in net.PerInterfaceSamples)
+            {
+                // Truncate long interface names for display
+                string ifaceName = iface.InterfaceName.Length > 15
+                    ? iface.InterfaceName.Substring(0, 12) + "..."
+                    : iface.InterfaceName;
+
+                lines.Add($"  [cyan1]{ifaceName,-15}[/] ↑[grey70]{iface.UpMbps:F2}[/] ↓[grey70]{iface.DownMbps:F2}[/]");
+            }
+        }
+        else
+        {
+            lines.Add("  [grey50]No active interfaces[/]");
+        }
+
+        return lines;
+    }
+
+    private static void BuildNetworkGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
+    {
+        var net = snapshot.Network;
+
+        // Title
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("")
+                .AddLine("[cyan1 bold]═══ Network Visualization ═══[/]")
+                .AddLine("")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // Current Usage Section
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("[grey70 bold]Current Usage[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // Calculate max value for bar graphs - use peak or at least 1 MB/s for scale
+        double maxRate = Math.Max(Math.Max(_peakUpMbps, _peakDownMbps), 1.0);
+        double barMax = Math.Ceiling(maxRate / 10) * 10; // Round up to nearest 10
+
+        // Upload Bar - Cyan color
+        panel.AddControl(
+            new BarGraphBuilder()
+                .WithName("netUploadBar")
+                .WithLabel("Upload")
+                .WithLabelWidth(10)
+                .WithValue(net.UpMbps)
+                .WithMaxValue(barMax)
+                .WithBarWidth(35)
+                .WithFilledColor(Color.Cyan1)
+                .WithUnfilledColor(Color.Grey35)
+                .ShowLabel()
+                .ShowValue()
+                .WithValueFormat("F2")
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // Download Bar - Green color
+        panel.AddControl(
+            new BarGraphBuilder()
+                .WithName("netDownloadBar")
+                .WithLabel("Download")
+                .WithLabelWidth(10)
+                .WithValue(net.DownMbps)
+                .WithMaxValue(barMax)
+                .WithBarWidth(35)
+                .WithFilledColor(Color.Green)
+                .WithUnfilledColor(Color.Grey35)
+                .ShowLabel()
+                .ShowValue()
+                .WithValueFormat("F2")
+                .WithMargin(2, 0, 2, 2)
+                .Build()
+        );
+
+        // Separator
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("[grey23]────────────────────────────────────────[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 0)
+                .Build()
+        );
+
+        // Aggregate History Sparkline (bidirectional: upload up, download down)
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("[grey70 bold]Network History[/] [grey50](↑ Upload  ↓ Download)[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 0, 2, 1)
+                .Build()
+        );
+
+        // Combined upload/download sparkline using bidirectional mode
+        panel.AddControl(
+            new SparklineBuilder()
+                .WithName("netCombinedSparkline")
+                .WithTitle("↑ Upload  ↓ Download", Color.Grey70)
+                .WithTitlePosition(TitlePosition.Bottom)
+                .WithHeight(10) // Taller to accommodate both directions
+                .WithMaxValue(Math.Max(_peakUpMbps, 1.0))
+                .WithSecondaryMaxValue(Math.Max(_peakDownMbps, 1.0))
+                .WithBarColor(Color.Cyan1)           // Upload color
+                .WithSecondaryBarColor(Color.Green) // Download color
+                .WithBackgroundColor(Color.Grey15)
+                .WithBorder(BorderStyle.None)
+                .WithMode(SparklineMode.BidirectionalBraille)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(2, 0, 1, 0)
+                .WithBidirectionalData(_networkUpHistory, _networkDownHistory)
+                .Build()
+        );
+
+        // Per-Interface History Section
+        if (net.PerInterfaceSamples != null && net.PerInterfaceSamples.Count > 0)
+        {
+            // Separator
+            panel.AddControl(
+                Controls
+                    .Markup()
+                    .AddLine("[grey23]────────────────────────────────────────[/]")
+                    .WithAlignment(HorizontalAlignment.Left)
+                    .WithMargin(2, 0, 2, 0)
+                    .Build()
+            );
+
+            panel.AddControl(
+                Controls
+                    .Markup()
+                    .AddLine("[grey70 bold]Per-Interface History[/]")
+                    .WithAlignment(HorizontalAlignment.Left)
+                    .WithMargin(2, 0, 2, 1)
+                    .Build()
+            );
+
+            // Create combined bidirectional sparklines for each interface
+            int ifaceIndex = 0;
+            foreach (var iface in net.PerInterfaceSamples)
+            {
+                // Calculate gradient colors based on interface index
+                int ifaceCount = net.PerInterfaceSamples.Count;
+                double ratio = ifaceCount > 1 ? (double)ifaceIndex / (ifaceCount - 1) : 0;
+
+                // Cyan (0, 255, 255) to Magenta (255, 0, 255) gradient for uploads
+                int upRed = (int)(ratio * 255);
+                int upGreen = (int)((1 - ratio) * 255);
+                var upColor = new Color((byte)upRed, (byte)upGreen, (byte)255);
+
+                // Green (0, 255, 0) to Yellow (255, 255, 0) gradient for downloads
+                int downRed = (int)(ratio * 255);
+                var downColor = new Color((byte)downRed, (byte)255, (byte)0);
+
+                // Truncate long interface names
+                string ifaceNameDisplay = iface.InterfaceName.Length > 15
+                    ? iface.InterfaceName.Substring(0, 12) + "..."
+                    : iface.InterfaceName;
+
+                // Get upload and download data for this interface
+                var upData = _networkPerInterfaceUpHistory.ContainsKey(iface.InterfaceName)
+                    ? _networkPerInterfaceUpHistory[iface.InterfaceName]
+                    : new List<double>();
+                var downData = _networkPerInterfaceDownHistory.ContainsKey(iface.InterfaceName)
+                    ? _networkPerInterfaceDownHistory[iface.InterfaceName]
+                    : new List<double>();
+
+                // Combined bidirectional sparkline for this interface
+                panel.AddControl(
+                    new SparklineBuilder()
+                        .WithName($"net{iface.InterfaceName}Sparkline")
+                        .WithTitle(ifaceNameDisplay, Color.Grey70)
+                        .WithTitlePosition(TitlePosition.Bottom)
+                        .WithHeight(6) // Height for bidirectional display
+                        .WithMaxValue(Math.Max(_peakUpMbps, 0.1))
+                        .WithSecondaryMaxValue(Math.Max(_peakDownMbps, 0.1))
+                        .WithBarColor(upColor)           // Upload color
+                        .WithSecondaryBarColor(downColor) // Download color
+                        .WithBackgroundColor(Color.Grey15)
+                        .WithBorder(BorderStyle.None)
+                        .WithMode(SparklineMode.BidirectionalBraille)
+                        .WithAlignment(HorizontalAlignment.Stretch)
+                        .WithMargin(2, 0, 1, 0)
+                        .WithBidirectionalData(upData, downData)
+                        .Build()
+                );
+
+                ifaceIndex++;
+            }
+        }
+    }
+
+    private static void HandleNetworkPanelResize()
+    {
+        if (_mainWindow == null)
+            return;
+
+        var networkPanel = _mainWindow.FindControl<HorizontalGridControl>("networkPanel");
+        if (networkPanel == null || !networkPanel.Visible)
+            return; // Only handle resize if network panel is visible
+
+        int windowWidth = _mainWindow.Width;
+        var desiredLayout = windowWidth >= NETWORK_LAYOUT_THRESHOLD_WIDTH
+            ? NetworkLayoutMode.Wide
+            : NetworkLayoutMode.Narrow;
+
+        // Only rebuild if layout mode changed
+        if (desiredLayout != _currentNetworkLayout)
+        {
+            _windowSystem?.LogService.LogDebug(
+                $"HandleNetworkPanelResize: Layout mode changed from {_currentNetworkLayout} to {desiredLayout} (width={windowWidth})",
+                "Network");
+
+            _currentNetworkLayout = desiredLayout;
+            RebuildNetworkPanelColumns(networkPanel);
+        }
+    }
+
+    private static void RebuildNetworkPanelColumns(HorizontalGridControl grid)
+    {
+        if (_lastSnapshot == null)
+            return;
+
+        _windowSystem?.LogService.LogDebug(
+            $"RebuildNetworkPanelColumns: Rebuilding in {_currentNetworkLayout} mode",
+            "Network");
+
+        // Clear existing columns in reverse order to avoid index issues
+        for (int i = grid.Columns.Count - 1; i >= 0; i--)
+        {
+            grid.RemoveColumn(grid.Columns[i]);
+        }
+
+        if (_currentNetworkLayout == NetworkLayoutMode.Wide)
+        {
+            BuildWideNetworkColumns(grid, _lastSnapshot);
+        }
+        else
+        {
+            BuildNarrowNetworkColumns(grid, _lastSnapshot);
+        }
+
+        // Force complete DOM tree rebuild
+        _mainWindow?.ForceRebuildLayout();
+        _mainWindow?.Invalidate(true);
+    }
+
+    private static void BuildWideNetworkColumns(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        _windowSystem?.LogService.LogDebug("BuildWideNetworkColumns: Starting", "Network");
+
+        var lines = BuildNetworkTextContent(snapshot);
+
+        // Left column: Scrollable text info
+        var leftPanel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        leftPanel.BackgroundColor = Color.Grey11;
+        leftPanel.ForegroundColor = Color.Grey93;
+
+        var markup = Controls.Markup();
+        foreach (var line in lines)
+        {
+            markup = markup.AddLine(line);
+        }
+        leftPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+        var leftCol = new ColumnContainer(grid);
+        leftCol.Width = 40;
+        leftCol.AddContent(leftPanel);
+        grid.AddColumn(leftCol);
+
+        // Middle column: Separator
+        var sepCol = new ColumnContainer(grid);
+        sepCol.Width = 1;
+        sepCol.AddContent(new SeparatorControl
+        {
+            ForegroundColor = Color.Grey23,
+            VerticalAlignment = VerticalAlignment.Fill
+        });
+        grid.AddColumn(sepCol);
+
+        // Right column: Scrollable graphs
+        var rightPanel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        rightPanel.BackgroundColor = Color.Grey11;
+        rightPanel.ForegroundColor = Color.Grey93;
+        BuildNetworkGraphsContent(rightPanel, snapshot);
+
+        var rightCol = new ColumnContainer(grid);
+        rightCol.AddContent(rightPanel);
+        grid.AddColumn(rightCol);
+
+        _windowSystem?.LogService.LogDebug($"BuildWideNetworkColumns: Added 3 columns (40 | 1 | fill)", "Network");
+    }
+
+    private static void BuildNarrowNetworkColumns(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        _windowSystem?.LogService.LogDebug("BuildNarrowNetworkColumns: Starting", "Network");
+
+        var lines = BuildNetworkTextContent(snapshot);
+
+        // Single column with all content
+        var scrollPanel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        scrollPanel.BackgroundColor = Color.Grey11;
+        scrollPanel.ForegroundColor = Color.Grey93;
+
+        // Add text content
+        var markup = Controls.Markup();
+        foreach (var line in lines)
+        {
+            markup = markup.AddLine(line);
+        }
+        scrollPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+        // Add separator
+        scrollPanel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("")
+                .AddLine("[grey23]────────────────────────────────────────[/]")
+                .AddLine("")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(2, 1, 2, 0)
+                .Build()
+        );
+
+        // Add all graphs
+        BuildNetworkGraphsContent(scrollPanel, snapshot);
+
+        var col = new ColumnContainer(grid);
+        col.AddContent(scrollPanel);
+        grid.AddColumn(col);
+
+        _windowSystem?.LogService.LogDebug($"BuildNarrowNetworkColumns: Added 1 column with full content", "Network");
     }
 }

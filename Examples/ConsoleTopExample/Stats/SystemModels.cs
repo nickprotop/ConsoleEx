@@ -39,9 +39,20 @@ internal record MemorySample(
     double DirtyMb);
 
 /// <summary>
+/// Per-interface network statistics
+/// </summary>
+internal record NetworkInterfaceSample(
+    string InterfaceName,    // "eth0", "wlan0", "Ethernet", etc.
+    double UpMbps,           // Upload (TX) rate
+    double DownMbps);        // Download (RX) rate
+
+/// <summary>
 /// Snapshot of network interface statistics
 /// </summary>
-internal record NetworkSample(double UpMbps, double DownMbps);
+internal record NetworkSample(
+    double UpMbps,
+    double DownMbps,
+    IReadOnlyList<NetworkInterfaceSample>? PerInterfaceSamples = null);
 
 /// <summary>
 /// Information about a running process

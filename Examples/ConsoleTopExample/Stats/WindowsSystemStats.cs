@@ -9,6 +9,7 @@
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace ConsoleTopExample.Stats;
 
@@ -16,12 +17,14 @@ namespace ConsoleTopExample.Stats;
 /// Windows-specific implementation of system statistics collection.
 /// Uses Process API, Performance Counters, and NetworkInterface for CPU, memory, network, and process information.
 /// </summary>
+[SupportedOSPlatform("windows")]
 internal sealed class WindowsSystemStats : ISystemStatsProvider
 {
     private Dictionary<int, ProcessCpuInfo> _previousProcessCpu = new();
     private long _previousNetRx;
     private long _previousNetTx;
     private DateTime _previousNetSample = DateTime.MinValue;
+    private Dictionary<string, NetCounters> _previousNetPerInterface = new();
 
     // CPU tracking for system-wide stats
     private TimeSpan _previousTotalCpuTime = TimeSpan.Zero;
@@ -331,6 +334,7 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
 
             long totalRx = 0;
             long totalTx = 0;
+            var currentPerInterface = new Dictionary<string, NetCounters>();
 
             foreach (var iface in interfaces)
             {
@@ -344,6 +348,9 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
                 var stats = iface.GetIPv4Statistics();
                 totalRx += stats.BytesReceived;
                 totalTx += stats.BytesSent;
+
+                // Track per-interface counters
+                currentPerInterface[iface.Name] = new NetCounters(stats.BytesReceived, stats.BytesSent);
             }
 
             if (_previousNetSample == DateTime.MinValue)
@@ -351,21 +358,47 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
                 _previousNetRx = totalRx;
                 _previousNetTx = totalTx;
                 _previousNetSample = now;
-                return new NetworkSample(0, 0);
+                _previousNetPerInterface = currentPerInterface;
+                // Return zero rates but include interface names for UI initialization
+                var initialSamples = currentPerInterface.Keys
+                    .Select(name => new NetworkInterfaceSample(name, 0, 0))
+                    .OrderBy(s => s.InterfaceName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                return new NetworkSample(0, 0, initialSamples);
             }
 
             var seconds = Math.Max(0.1, (now - _previousNetSample).TotalSeconds);
             var rxDiff = Math.Max(0, totalRx - _previousNetRx);
             var txDiff = Math.Max(0, totalTx - _previousNetTx);
 
+            // Calculate per-interface rates
+            var perInterfaceSamples = new List<NetworkInterfaceSample>();
+            foreach (var kvp in currentPerInterface)
+            {
+                if (_previousNetPerInterface.TryGetValue(kvp.Key, out var prev))
+                {
+                    var ifaceRxDiff = Math.Max(0, kvp.Value.RxBytes - prev.RxBytes);
+                    var ifaceTxDiff = Math.Max(0, kvp.Value.TxBytes - prev.TxBytes);
+
+                    var ifaceUpMbps = (ifaceTxDiff / seconds) / (1024 * 1024);
+                    var ifaceDownMbps = (ifaceRxDiff / seconds) / (1024 * 1024);
+
+                    perInterfaceSamples.Add(new NetworkInterfaceSample(kvp.Key, ifaceUpMbps, ifaceDownMbps));
+                }
+            }
+
             _previousNetRx = totalRx;
             _previousNetTx = totalTx;
             _previousNetSample = now;
+            _previousNetPerInterface = currentPerInterface;
 
             var upMbps = (txDiff / seconds) / (1024 * 1024);
             var downMbps = (rxDiff / seconds) / (1024 * 1024);
 
-            return new NetworkSample(upMbps, downMbps);
+            // Sort interfaces by name for consistent ordering
+            perInterfaceSamples.Sort((a, b) => string.Compare(a.InterfaceName, b.InterfaceName, StringComparison.OrdinalIgnoreCase));
+
+            return new NetworkSample(upMbps, downMbps, perInterfaceSamples);
         }
         catch
         {
