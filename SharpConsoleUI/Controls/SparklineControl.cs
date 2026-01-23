@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
@@ -17,6 +18,24 @@ using Size = System.Drawing.Size;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
+	/// Specifies the rendering mode for sparkline bars.
+	/// </summary>
+	public enum SparklineMode
+	{
+		/// <summary>
+		/// Uses 9-level block characters (▁▂▃▄▅▆▇█) for traditional sparkline appearance.
+		/// This is the default mode with 8 vertical levels per character cell.
+		/// </summary>
+		Block,
+
+		/// <summary>
+		/// Uses braille patterns for a smoother, denser appearance.
+		/// Provides 5 vertical levels (0-4 dots) using the left column of braille cells.
+		/// </summary>
+		Braille
+	}
+
+	/// <summary>
 	/// A vertical column/sparkline graph control for visualizing time-series data.
 	/// Displays vertical bars showing historical values over time.
 	/// </summary>
@@ -24,11 +43,26 @@ namespace SharpConsoleUI.Controls
 	{
 		private const int DEFAULT_HEIGHT = 8;
 		private const int DEFAULT_MAX_DATA_POINTS = 50;
+
+		// Block mode: 9 levels (0-8) using box drawing vertical bar characters
 		private static readonly char[] VERTICAL_CHARS = { ' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█' };
+
+		// Braille mode: 5 levels (0-4) using left column of braille patterns
+		// Unicode braille: dots are numbered 1,2,3,7 for left column (top to bottom: 1,2,3,7)
+		// Dot positions: 1=top-left, 2=mid-upper-left, 3=mid-lower-left, 7=bottom-left
+		private static readonly char[] BRAILLE_CHARS =
+		{
+			'\u2800', // ⠀ empty (0 dots)
+			'\u2840', // ⡀ dot 7 (bottom)
+			'\u2844', // ⡄ dots 3,7
+			'\u2846', // ⡆ dots 2,3,7
+			'\u2847', // ⡇ dots 1,2,3,7 (full left column)
+		};
 
 		private Color? _backgroundColorValue;
 		private Color _barColor = Color.Cyan1;
 		private BorderStyle _borderStyle = BorderStyle.None;
+		private SparklineMode _mode = SparklineMode.Block;
 		private Color? _borderColor;
 		private IContainer? _container;
 		private List<double> _dataPoints = new();
@@ -89,6 +123,20 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_borderStyle = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the rendering mode for sparkline bars.
+		/// Block mode uses 9-level block characters, Braille mode uses 5-level braille patterns.
+		/// </summary>
+		public SparklineMode Mode
+		{
+			get => _mode;
+			set
+			{
+				_mode = value;
 				Container?.Invalidate(true);
 			}
 		}
@@ -453,26 +501,50 @@ namespace SharpConsoleUI.Controls
 					double rowBottomThreshold = y;
 
 					char displayChar;
-					if (barHeight >= rowTopThreshold)
+					if (_mode == SparklineMode.Braille)
 					{
-						// Fully filled row
-						displayChar = VERTICAL_CHARS[8];
-					}
-					else if (barHeight > rowBottomThreshold)
-					{
-						// Partially filled row
-						double fraction = barHeight - rowBottomThreshold;
-						int charIndex = (int)Math.Round(fraction * 8);
-						charIndex = Math.Clamp(charIndex, 0, 8);
-						displayChar = VERTICAL_CHARS[charIndex];
+						// Braille mode: 5 levels (0-4)
+						if (barHeight >= rowTopThreshold)
+						{
+							displayChar = BRAILLE_CHARS[4]; // Full
+						}
+						else if (barHeight > rowBottomThreshold)
+						{
+							double fraction = barHeight - rowBottomThreshold;
+							int charIndex = (int)Math.Round(fraction * 4);
+							charIndex = Math.Clamp(charIndex, 0, 4);
+							displayChar = BRAILLE_CHARS[charIndex];
+						}
+						else
+						{
+							displayChar = BRAILLE_CHARS[0]; // Empty
+						}
 					}
 					else
 					{
-						// Empty row
-						displayChar = VERTICAL_CHARS[0];
+						// Block mode: 9 levels (0-8)
+						if (barHeight >= rowTopThreshold)
+						{
+							displayChar = VERTICAL_CHARS[8]; // Full
+						}
+						else if (barHeight > rowBottomThreshold)
+						{
+							double fraction = barHeight - rowBottomThreshold;
+							int charIndex = (int)Math.Round(fraction * 8);
+							charIndex = Math.Clamp(charIndex, 0, 8);
+							displayChar = VERTICAL_CHARS[charIndex];
+						}
+						else
+						{
+							displayChar = VERTICAL_CHARS[0]; // Empty
+						}
 					}
 
-					Color cellColor = displayChar == ' ' ? Color.Grey19 : _barColor;
+					// Determine cell color based on whether the character is "empty"
+					bool isEmpty = (_mode == SparklineMode.Braille)
+						? displayChar == BRAILLE_CHARS[0]
+						: displayChar == ' ';
+					Color cellColor = isEmpty ? Color.Grey19 : _barColor;
 					buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
 				}
 			}
@@ -529,42 +601,24 @@ namespace SharpConsoleUI.Controls
 			if (_borderStyle == BorderStyle.None || width < 2 || height < 2)
 				return;
 
-			// Get border characters based on style
-			char topLeft, topRight, bottomLeft, bottomRight, horizontal, vertical;
-
-			switch (_borderStyle)
-			{
-				case BorderStyle.Single:
-					topLeft = '┌'; topRight = '┐'; bottomLeft = '└'; bottomRight = '┘';
-					horizontal = '─'; vertical = '│';
-					break;
-				case BorderStyle.Rounded:
-					topLeft = '╭'; topRight = '╮'; bottomLeft = '╰'; bottomRight = '╯';
-					horizontal = '─'; vertical = '│';
-					break;
-				case BorderStyle.DoubleLine:
-					topLeft = '╔'; topRight = '╗'; bottomLeft = '╚'; bottomRight = '╝';
-					horizontal = '═'; vertical = '║';
-					break;
-				default:
-					return;
-			}
+			// Get border characters using BoxChars abstraction
+			var chars = BoxChars.FromBorderStyle(_borderStyle);
 
 			// Draw top border
 			if (y >= clipRect.Y && y < clipRect.Bottom)
 			{
 				if (x >= clipRect.X && x < clipRect.Right)
-					buffer.SetCell(x, y, topLeft, borderColor, bgColor);
+					buffer.SetCell(x, y, chars.TopLeft, borderColor, bgColor);
 
 				for (int i = 1; i < width - 1; i++)
 				{
 					int drawX = x + i;
 					if (drawX >= clipRect.X && drawX < clipRect.Right)
-						buffer.SetCell(drawX, y, horizontal, borderColor, bgColor);
+						buffer.SetCell(drawX, y, chars.Horizontal, borderColor, bgColor);
 				}
 
 				if (x + width - 1 >= clipRect.X && x + width - 1 < clipRect.Right)
-					buffer.SetCell(x + width - 1, y, topRight, borderColor, bgColor);
+					buffer.SetCell(x + width - 1, y, chars.TopRight, borderColor, bgColor);
 			}
 
 			// Draw bottom border
@@ -572,17 +626,17 @@ namespace SharpConsoleUI.Controls
 			if (bottomY >= clipRect.Y && bottomY < clipRect.Bottom)
 			{
 				if (x >= clipRect.X && x < clipRect.Right)
-					buffer.SetCell(x, bottomY, bottomLeft, borderColor, bgColor);
+					buffer.SetCell(x, bottomY, chars.BottomLeft, borderColor, bgColor);
 
 				for (int i = 1; i < width - 1; i++)
 				{
 					int drawX = x + i;
 					if (drawX >= clipRect.X && drawX < clipRect.Right)
-						buffer.SetCell(drawX, bottomY, horizontal, borderColor, bgColor);
+						buffer.SetCell(drawX, bottomY, chars.Horizontal, borderColor, bgColor);
 				}
 
 				if (x + width - 1 >= clipRect.X && x + width - 1 < clipRect.Right)
-					buffer.SetCell(x + width - 1, bottomY, bottomRight, borderColor, bgColor);
+					buffer.SetCell(x + width - 1, bottomY, chars.BottomRight, borderColor, bgColor);
 			}
 
 			// Draw left and right borders
@@ -592,10 +646,10 @@ namespace SharpConsoleUI.Controls
 				if (drawY >= clipRect.Y && drawY < clipRect.Bottom)
 				{
 					if (x >= clipRect.X && x < clipRect.Right)
-						buffer.SetCell(x, drawY, vertical, borderColor, bgColor);
+						buffer.SetCell(x, drawY, chars.Vertical, borderColor, bgColor);
 
 					if (x + width - 1 >= clipRect.X && x + width - 1 < clipRect.Right)
-						buffer.SetCell(x + width - 1, drawY, vertical, borderColor, bgColor);
+						buffer.SetCell(x + width - 1, drawY, chars.Vertical, borderColor, bgColor);
 				}
 			}
 		}

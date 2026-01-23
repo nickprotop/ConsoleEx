@@ -212,6 +212,16 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
+		/// Sets the rendering mode (Block or Braille).
+		/// Block uses 9-level block characters, Braille uses 5-level braille patterns.
+		/// </summary>
+		public SparklineBuilder WithMode(SparklineMode mode)
+		{
+			_control.Mode = mode;
+			return this;
+		}
+
+		/// <summary>
 		/// Builds the SparklineControl instance.
 		/// </summary>
 		public SparklineControl Build()
