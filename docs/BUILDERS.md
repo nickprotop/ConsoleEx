@@ -323,11 +323,31 @@ new SparklineBuilder()
     .WithBarColor(Color.Green)
     .WithTitle("Memory %")
     .Build();
+
+// Bidirectional mode for network upload/download visualization
+new SparklineBuilder()
+    .WithHeight(10)
+    .WithMode(SparklineMode.BidirectionalBraille)  // Upload up, download down
+    .WithMaxValue(100)                    // Primary (upload) max
+    .WithSecondaryMaxValue(100)           // Secondary (download) max
+    .WithBarColor(Color.Cyan1)            // Upload color (goes up from center)
+    .WithSecondaryBarColor(Color.Green)   // Download color (goes down from center)
+    .WithTitle("↑ Upload  ↓ Download", Color.Grey70)
+    .WithBidirectionalData(uploadHistory, downloadHistory)
+    .Build();
 ```
 
 **SparklineMode Options:**
 - `Block` (default) - Uses 9-level block characters (▁▂▃▄▅▆▇█)
 - `Braille` - Uses 5-level braille patterns for smoother, denser appearance
+- `Bidirectional` - Two series: primary goes up from center, secondary goes down (block chars)
+- `BidirectionalBraille` - Same as Bidirectional but with braille patterns
+
+**Bidirectional Mode Methods:**
+- `WithSecondaryData(IEnumerable<double>)` - Set secondary data series
+- `WithSecondaryBarColor(Color)` - Color for secondary (downward) bars
+- `WithSecondaryMaxValue(double)` - Max scale for secondary series
+- `WithBidirectionalData(primary, secondary)` - Set both series at once
 
 ### BarGraphBuilder
 
