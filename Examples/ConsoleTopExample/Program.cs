@@ -44,6 +44,17 @@ internal class Program
     private static TabMode _activeTab = TabMode.Processes;
     private static ProcessSample? _lastHighlightedProcess;
 
+    // Process sorting
+    private enum ProcessSortMode
+    {
+        Cpu,      // CPU% descending (default)
+        Memory,   // Memory% descending
+        Pid,      // PID ascending
+        Name      // Command name ascending
+    }
+
+    private static ProcessSortMode _processSortMode = ProcessSortMode.Cpu;
+
     // Memory history for sparkline graphs
     private static readonly List<double> _memoryUsedHistory = new();
     private static readonly List<double> _memoryAvailableHistory = new();
@@ -279,60 +290,86 @@ internal class Program
         mainWindow.AddControl(Controls.RuleBuilder().WithColor(Color.Grey23).Build());
 
         // === PROCESS LIST + DETAIL HORIZONTAL LAYOUT (NO SPLITTER) ===
+        // Build the sorting toolbar for the process list
+        var processSortToolbar = Controls
+            .Toolbar()
+            .WithName("processSortToolbar")
+            .WithMargin(1, 0, 0, 0)
+            .Add(
+                Controls.Dropdown()
+                    .WithName("processSortDropdown")
+                    .WithPrompt("Sort:")
+                    .AddItem("CPU %")
+                    .AddItem("Memory %")
+                    .AddItem("PID")
+                    .AddItem("Name")
+                    .SelectedIndex(0)
+                    .WithWidth(20)
+                    .OnSelectionChanged((sender, index, window) =>
+                    {
+                        _processSortMode = (ProcessSortMode)index;
+                        UpdateProcessList();
+                    })
+                    .Build()
+            )
+            .Build();
+
+        // Build the process list control
+        var processListControl = ListControl
+            .Create()
+            .WithName("processList")
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithColors(Color.Grey11, Color.Grey93)
+            .WithFocusedColors(Color.Grey11, Color.Grey93)
+            .WithHighlightColors(Color.Grey35, Color.White)
+            .WithMargin(1, 0, 0, 1)
+            .OnHighlightChanged(
+                (_, idx) =>
+                {
+                    // Store the highlighted process (only update when valid, never clear)
+                    var processList = _mainWindow?.FindControl<ListControl>(
+                        "processList"
+                    );
+                    if (
+                        processList != null
+                        && idx >= 0
+                        && idx < processList.Items.Count
+                    )
+                    {
+                        _lastHighlightedProcess =
+                            processList.Items[idx].Tag as ProcessSample;
+                    }
+                    // Note: Don't clear _lastHighlightedProcess when idx == -1
+                    // This preserves it when list loses focus before button click
+
+                    // Only update if on Processes tab
+                    if (_activeTab == TabMode.Processes)
+                    {
+                        UpdateHighlightedProcess();
+                    }
+                }
+            )
+            .OnItemActivated(
+                (_, item) =>
+                {
+                    if (item?.Tag is ProcessSample ps)
+                    {
+                        ShowProcessActionsDialog(ps);
+                    }
+                }
+            )
+            .Build();
+
         var mainGrid = Controls
             .HorizontalGrid()
             .WithName("processPanel")
             .WithVerticalAlignment(VerticalAlignment.Fill)
             .WithAlignment(HorizontalAlignment.Stretch)
-            // Left column: Process list (no width set = fills remaining space)
+            // Left column: Toolbar + Process list (multiple controls stack vertically)
             .Column(col =>
-                col.Add(
-                    ListControl
-                        .Create()
-                        .WithName("processList")
-                        .WithAlignment(HorizontalAlignment.Stretch)
-                        .WithVerticalAlignment(VerticalAlignment.Fill)
-                        .WithColors(Color.Grey11, Color.Grey93)
-                        .WithFocusedColors(Color.Grey11, Color.Grey93)
-                        .WithHighlightColors(Color.Grey35, Color.White)
-                        .WithMargin(1, 0, 0, 1)
-                        .OnHighlightChanged(
-                            (_, idx) =>
-                            {
-                                // Store the highlighted process (only update when valid, never clear)
-                                var processList = _mainWindow?.FindControl<ListControl>(
-                                    "processList"
-                                );
-                                if (
-                                    processList != null
-                                    && idx >= 0
-                                    && idx < processList.Items.Count
-                                )
-                                {
-                                    _lastHighlightedProcess =
-                                        processList.Items[idx].Tag as ProcessSample;
-                                }
-                                // Note: Don't clear _lastHighlightedProcess when idx == -1
-                                // This preserves it when list loses focus before button click
-
-                                // Only update if on Processes tab
-                                if (_activeTab == TabMode.Processes)
-                                {
-                                    UpdateHighlightedProcess();
-                                }
-                            }
-                        )
-                        .OnItemActivated(
-                            (_, item) =>
-                            {
-                                if (item?.Tag is ProcessSample ps)
-                                {
-                                    ShowProcessActionsDialog(ps);
-                                }
-                            }
-                        )
-                        .Build()
-                )
+                col.Add(processSortToolbar)
+                   .Add(processListControl)
             )
             // Spacing column (1 char wide for visual separation)
             .Column(col => col.Width(1))
@@ -695,9 +732,19 @@ internal class Program
 
     private static List<ListItem> BuildProcessList(IReadOnlyList<ProcessSample> processes)
     {
+        // Apply sorting based on current sort mode
+        var sorted = _processSortMode switch
+        {
+            ProcessSortMode.Cpu => processes.OrderByDescending(p => p.CpuPercent),
+            ProcessSortMode.Memory => processes.OrderByDescending(p => p.MemPercent),
+            ProcessSortMode.Pid => processes.OrderBy(p => p.Pid),
+            ProcessSortMode.Name => processes.OrderBy(p => p.Command, StringComparer.OrdinalIgnoreCase),
+            _ => processes.OrderByDescending(p => p.CpuPercent)
+        };
+
         var items = new List<ListItem>();
 
-        foreach (var p in processes)
+        foreach (var p in sorted)
         {
             var line =
                 $"  {p.Pid, 5}  [grey70]{p.CpuPercent, 4:F1}%[/]  [grey70]{p.MemPercent, 4:F1}%[/]  [cyan1]{p.Command}[/]";
@@ -711,6 +758,31 @@ internal class Program
         }
 
         return items;
+    }
+
+    private static void UpdateProcessList()
+    {
+        if (_mainWindow == null || _lastSnapshot == null)
+            return;
+
+        var processList = _mainWindow.FindControl<ListControl>("processList");
+        if (processList != null)
+        {
+            // Remember current selection by PID
+            var selectedPid = (processList.SelectedItem?.Tag as ProcessSample)?.Pid;
+
+            // Rebuild and update the list
+            var items = BuildProcessList(_lastSnapshot.Processes);
+            processList.Items = items;
+
+            // Restore selection if possible
+            if (selectedPid.HasValue)
+            {
+                int idx = items.FindIndex(i => (i.Tag as ProcessSample)?.Pid == selectedPid.Value);
+                if (idx >= 0)
+                    processList.SelectedIndex = idx;
+            }
+        }
     }
 
     private static void UpdateMemoryPanel()
