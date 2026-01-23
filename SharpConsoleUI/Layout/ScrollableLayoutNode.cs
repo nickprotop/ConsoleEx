@@ -280,5 +280,32 @@ namespace SharpConsoleUI.Layout
 			// to account for scroll offset
 			child.Paint(buffer, clipRect);
 		}
+
+		/// <summary>
+		/// Hit test with scroll offset applied.
+		/// Translates the hit test coordinates by the scroll offset before checking children.
+		/// </summary>
+		public override LayoutNode? HitTest(int x, int y)
+		{
+			if (!IsVisible || !AbsoluteBounds.Contains(x, y))
+				return null;
+
+			// Translate coordinates by scroll offset
+			// Mouse coordinates are in screen space, but children are positioned in content space
+			// Content space is scrolled, so we need to add the scroll offset to the mouse position
+			int contentX = x + ScrollX;
+			int contentY = y + ScrollY;
+
+			// Check children with translated coordinates
+			for (int i = Children.Count - 1; i >= 0; i--)
+			{
+				var hit = Children[i].HitTest(contentX, contentY);
+				if (hit != null)
+					return hit;
+			}
+
+			// Return this node if we have a control
+			return Control != null ? this : null;
+		}
 	}
 }

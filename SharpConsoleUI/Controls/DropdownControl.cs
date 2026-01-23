@@ -863,8 +863,21 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Check if click is on header (Y == 0 for single-line header)
-			bool isOnHeader = args.Position.Y == 0;
+			// Validate click is within content area (not in margins)
+			// Margins are non-interactive spacing around the control
+			int contentHeight = (_lastLayoutBounds.Height > 0 ? _lastLayoutBounds.Height : 1);
+			if (args.Position.Y < _margin.Top ||
+			    args.Position.Y >= contentHeight - _margin.Bottom ||
+			    args.Position.X < _margin.Left ||
+			    args.Position.X >= (_lastLayoutBounds.Width - _margin.Right))
+			{
+				// Click is in margin area - not interactive
+				return false;
+			}
+
+			// Check if click is on header row (accounts for top margin)
+			// The header is painted at margin.Top, not at Y=0
+			bool isOnHeader = args.Position.Y == _margin.Top;
 
 			// Handle mouse move
 			if (args.HasAnyFlag(MouseFlags.ReportMousePosition))
@@ -1183,6 +1196,7 @@ namespace SharpConsoleUI.Controls
 				headerContent += new string(' ', dropdownWidth - headerVisibleLength);
 
 			int paintY = startY;
+
 			if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 			{
 				if (_margin.Left > 0)

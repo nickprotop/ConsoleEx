@@ -1800,8 +1800,9 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Calculate which item the mouse is over
+			// args.Position.Y is control-relative (includes margin), so subtract both margin and title
 			int titleOffset = string.IsNullOrEmpty(_title) ? 0 : 1;
-			int relativeY = args.Position.Y - titleOffset;
+			int relativeY = args.Position.Y - _margin.Top - titleOffset;
 			int hoveredIndex = -1;
 
 			// Get visible height to properly calculate item index

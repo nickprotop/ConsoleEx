@@ -176,6 +176,16 @@ namespace SharpConsoleUI.Controls
 			set => _autoScroll = value;
 		}
 
+		/// <summary>
+		/// Gets the current vertical scroll offset in lines.
+		/// </summary>
+		public int VerticalScrollOffset => _verticalScrollOffset;
+
+		/// <summary>
+		/// Gets the current horizontal scroll offset in characters.
+		/// </summary>
+		public int HorizontalScrollOffset => _horizontalScrollOffset;
+
 		#endregion
 
 		#region IWindowControl Implementation
@@ -513,7 +523,7 @@ namespace SharpConsoleUI.Controls
 		#region IMouseAwareControl Implementation
 
 		/// <inheritdoc/>
-		public bool WantsMouseEvents => _enableMouseWheel;
+		public bool WantsMouseEvents => true;  // Always want mouse events for child focus
 
 		/// <inheritdoc/>
 		public bool CanFocusWithMouse => CanReceiveFocus;
@@ -521,44 +531,123 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
-			if (!_enableMouseWheel) return false;
-
-			// Don't re-process already handled events
 			if (args.Handled) return false;
 
-			// Mouse wheel scrolling - only consume if we can actually scroll
-			if (args.HasFlag(Drivers.MouseFlags.WheeledUp))
+			// Handle mouse wheel scrolling
+			if (_enableMouseWheel)
 			{
-				// Only consume if we can actually scroll up
-				if (_verticalScrollOffset > 0)
+				if (args.HasFlag(Drivers.MouseFlags.WheeledUp))
 				{
-					ScrollVerticalBy(-3);
-					args.Handled = true;
-					return true;
+					if (_verticalScrollOffset > 0)
+					{
+						ScrollVerticalBy(-3);
+						args.Handled = true;
+						return true;
+					}
+					return false;
 				}
-				else
+				else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
 				{
-					return false; // Let it bubble
+					int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
+					if (_verticalScrollOffset < maxScroll)
+					{
+						ScrollVerticalBy(3);
+						args.Handled = true;
+						return true;
+					}
+					return false;
 				}
 			}
-			else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
-			{
-				int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
 
-				// Only consume if we can actually scroll down
-				if (_verticalScrollOffset < maxScroll)
+			// Handle click events for child focus
+			if (args.HasAnyFlag(Drivers.MouseFlags.Button1Clicked, Drivers.MouseFlags.Button1Pressed))
+			{
+				// Calculate content width (accounting for scrollbar)
+				int contentWidth = _viewportWidth;
+				bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
+				if (needsScrollbar)
+					contentWidth -= 2;
+
+				// Translate mouse position to content-relative coordinates
+				// NOTE: args.Position is already control-relative (includes margin area)
+				// Subtract margin to get viewport position, then add scroll offset to get content position
+				int viewportX = args.Position.X - _margin.Left;
+				int contentY = args.Position.Y - _margin.Top + _verticalScrollOffset;
+
+				// Check if click is within content area (not in scrollbar or margins)
+				if (viewportX >= 0 && viewportX < contentWidth && args.Position.Y >= _margin.Top)
 				{
-					ScrollVerticalBy(3);
-					args.Handled = true;
-					return true;
-				}
-				else
-				{
-					return false; // Let it bubble
+					// Find which child was clicked
+					int currentY = 0;
+					int childIndex = 0;
+					foreach (var child in _children.Where(c => c.Visible))
+					{
+						int childHeight = MeasureChildHeight(child, contentWidth);
+
+						if (contentY >= currentY && contentY < currentY + childHeight)
+						{
+							// Found the clicked child - handle focus and forward event
+							// Set focus on clicked child (if focusable)
+							if (child is IFocusableControl focusable && focusable.CanReceiveFocus)
+							{
+								// Clear focus from other children
+								foreach (var otherChild in _children)
+								{
+									if (otherChild != child && otherChild is IFocusableControl fc && fc.HasFocus)
+									{
+										fc.SetFocus(false, FocusReason.Mouse);
+									}
+								}
+
+								// Set focus on clicked child
+								focusable.SetFocus(true, FocusReason.Mouse);
+								if (child is IInteractiveControl interactive)
+									_focusedChild = interactive;
+							}
+
+							// Forward mouse event to child (if it handles mouse events)
+							if (child is IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
+							{
+								// Translate coordinates to child-relative
+								var childPosition = new System.Drawing.Point(viewportX, contentY - currentY);
+								var childArgs = args.WithPosition(childPosition);
+
+								// Forward event to child
+								if (mouseAware.ProcessMouseEvent(childArgs))
+								{
+									args.Handled = true;
+									return true;
+								}
+							}
+
+							// Event was within child bounds but child didn't handle it
+							break;
+						}
+
+						currentY += childHeight;
+						childIndex++;
+					}
 				}
 			}
 
 			return false;
+		}
+
+		/// <summary>
+		/// Measures the height of a child control.
+		/// </summary>
+		private int MeasureChildHeight(IWindowControl child, int availableWidth)
+		{
+			if (child is IDOMPaintable measurable)
+			{
+				var constraints = new LayoutConstraints(
+					MinWidth: 1,
+					MaxWidth: availableWidth,
+					MinHeight: 1,
+					MaxHeight: int.MaxValue);
+				return measurable.MeasureDOM(constraints).Height;
+			}
+			return child.GetLogicalContentSize().Height;
 		}
 
 		#endregion
@@ -615,7 +704,6 @@ namespace SharpConsoleUI.Controls
 		{
 			_children.Add(control);
 			control.Container = this;
-
 			Invalidate(true);
 		}
 

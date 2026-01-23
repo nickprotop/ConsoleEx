@@ -449,7 +449,7 @@ namespace SharpConsoleUI.Layout
 		/// <summary>
 		/// Performs hit testing to find the node at the specified absolute position.
 		/// </summary>
-		public LayoutNode? HitTest(int x, int y)
+		public virtual LayoutNode? HitTest(int x, int y)
 		{
 			if (!IsVisible || !AbsoluteBounds.Contains(x, y))
 				return null;
