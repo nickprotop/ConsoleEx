@@ -42,6 +42,7 @@ windowSystem.Run();
 - [Advanced Features](#advanced-features)
 - [Contributing](#contributing)
 - [Documentation](#documentation)
+- [Projects Using SharpConsoleUI](#projects-using-sharpconsoleui)
 
 ## Installation
 
@@ -699,6 +700,16 @@ Detailed documentation is available in separate guides:
 - **GitHub Repository**: [ConsoleEx](https://github.com/nickprotop/ConsoleEx)
 - **Documentation**: [docs/](docs/) folder and inline XML comments
 - **Issues**: [GitHub Issues](https://github.com/nickprotop/ConsoleEx/issues)
+
+## Projects Using SharpConsoleUI
+
+Real-world applications built with SharpConsoleUI:
+
+| Project | Description |
+|---------|-------------|
+| **[ServerHub](https://github.com/nickprotop/ServerHub)** | A terminal-based control panel for Linux servers and homelabs. Features 14 bundled widgets for monitoring CPU, memory, disk, network, Docker containers, systemd services, and more. Supports custom widgets in any language and context-aware actions. |
+
+*Using SharpConsoleUI in your project? Open a PR to add it to this list!*
 
 ---
 
