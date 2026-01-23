@@ -131,6 +131,15 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
+		/// Sets the title position (Top or Bottom).
+		/// </summary>
+		public SparklineBuilder WithTitlePosition(TitlePosition position)
+		{
+			_control.TitlePosition = position;
+			return this;
+		}
+
+		/// <summary>
 		/// Sets the maximum number of data points to keep.
 		/// </summary>
 		public SparklineBuilder WithMaxDataPoints(int maxPoints)
@@ -145,6 +154,42 @@ namespace SharpConsoleUI.Builders
 		public SparklineBuilder WithData(IEnumerable<double> dataPoints)
 		{
 			_control.SetDataPoints(dataPoints);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the secondary data points (for bidirectional mode).
+		/// </summary>
+		public SparklineBuilder WithSecondaryData(IEnumerable<double> dataPoints)
+		{
+			_control.SetSecondaryDataPoints(dataPoints);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the secondary bar color (for bidirectional mode).
+		/// </summary>
+		public SparklineBuilder WithSecondaryBarColor(Color color)
+		{
+			_control.SecondaryBarColor = color;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the secondary max value (for bidirectional mode).
+		/// </summary>
+		public SparklineBuilder WithSecondaryMaxValue(double maxValue)
+		{
+			_control.SecondaryMaxValue = maxValue;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets both primary and secondary data at once (for bidirectional mode).
+		/// </summary>
+		public SparklineBuilder WithBidirectionalData(IEnumerable<double> primaryData, IEnumerable<double> secondaryData)
+		{
+			_control.SetBidirectionalData(primaryData, secondaryData);
 			return this;
 		}
 

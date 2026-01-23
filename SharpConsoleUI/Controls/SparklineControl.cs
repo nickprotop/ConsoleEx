@@ -32,7 +32,36 @@ namespace SharpConsoleUI.Controls
 		/// Uses braille patterns for a smoother, denser appearance.
 		/// Provides 5 vertical levels (0-4 dots) using the left column of braille cells.
 		/// </summary>
-		Braille
+		Braille,
+
+		/// <summary>
+		/// Bidirectional mode showing two data series: primary goes up from center,
+		/// secondary goes down from center. Uses block characters.
+		/// Useful for network upload/download visualization.
+		/// </summary>
+		Bidirectional,
+
+		/// <summary>
+		/// Bidirectional mode using braille patterns for smoother appearance.
+		/// Primary series goes up from center, secondary goes down from center.
+		/// </summary>
+		BidirectionalBraille
+	}
+
+	/// <summary>
+	/// Specifies the position of the title relative to the sparkline graph.
+	/// </summary>
+	public enum TitlePosition
+	{
+		/// <summary>
+		/// Title appears above the graph (default behavior).
+		/// </summary>
+		Top,
+
+		/// <summary>
+		/// Title appears below the graph.
+		/// </summary>
+		Bottom
 	}
 
 	/// <summary>
@@ -76,9 +105,15 @@ namespace SharpConsoleUI.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string? _title;
 		private Color? _titleColor;
+		private TitlePosition _titlePosition = TitlePosition.Top;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _visible = true;
 		private int? _width;
+
+		// Secondary data series (for bidirectional mode)
+		private List<double> _secondaryDataPoints = new();
+		private Color _secondaryBarColor = Color.Green;
+		private double? _secondaryMaxValue;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SparklineControl"/> class.
@@ -257,6 +292,52 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the position of the title relative to the sparkline graph.
+		/// Default is Top (title above the graph).
+		/// </summary>
+		public TitlePosition TitlePosition
+		{
+			get => _titlePosition;
+			set
+			{
+				_titlePosition = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets the secondary data points collection (for bidirectional mode).
+		/// </summary>
+		public IReadOnlyList<double> SecondaryDataPoints => _secondaryDataPoints.AsReadOnly();
+
+		/// <summary>
+		/// Gets or sets the color for the secondary bars (in bidirectional mode).
+		/// </summary>
+		public Color SecondaryBarColor
+		{
+			get => _secondaryBarColor;
+			set
+			{
+				_secondaryBarColor = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the maximum value for the secondary data series scale.
+		/// When null, uses the same scale as the primary series or the max secondary data value.
+		/// </summary>
+		public double? SecondaryMaxValue
+		{
+			get => _secondaryMaxValue;
+			set
+			{
+				_secondaryMaxValue = value;
+				Container?.Invalidate(true);
+			}
+		}
+
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
@@ -363,7 +444,18 @@ namespace SharpConsoleUI.Controls
 		{
 			int borderSize = _borderStyle != BorderStyle.None ? 2 : 0;
 			int titleHeight = !string.IsNullOrEmpty(_title) ? 1 : 0;
-			int width = (_width ?? _dataPoints.Count) + _margin.Left + _margin.Right + borderSize;
+
+			// Calculate minimum width needed for title (visible chars only, not markup)
+			int titleWidth = 0;
+			if (!string.IsNullOrEmpty(_title))
+			{
+				titleWidth = Helpers.AnsiConsoleHelper.StripSpectreLength(_title);
+			}
+
+			// Width should be max of: explicit width, data points, or title width
+			int dataWidth = _width ?? _dataPoints.Count;
+			int contentWidth = Math.Max(dataWidth, titleWidth);
+			int width = contentWidth + _margin.Left + _margin.Right + borderSize;
 			int height = _graphHeight + _margin.Top + _margin.Bottom + borderSize + titleHeight;
 
 			return new LayoutSize(
@@ -418,12 +510,24 @@ namespace SharpConsoleUI.Controls
 				DrawBorder(buffer, startX, startY, contentWidth, contentHeight, clipRect, borderColor, bgColor);
 			}
 
-			// Draw title if present (inside border, below top border line)
+			// Calculate graph area (inside border if present)
+			// Title position affects whether graph or title comes first vertically
+			int graphStartX = startX + borderSize;
+			int graphStartY = _titlePosition == TitlePosition.Top
+				? startY + borderSize + titleHeight  // Graph below title
+				: startY + borderSize;               // Graph at top, title below
+			int graphWidth = contentWidth - (borderSize * 2);
+			int graphBottom = graphStartY + _graphHeight - 1;
+
+			// Draw title if present (position depends on TitlePosition setting)
 			if (!string.IsNullOrEmpty(_title))
 			{
-				int titleY = startY + borderSize;
-				int titleX = startX + borderSize + 1; // 1 char padding from left border
-				int maxTitleWidth = contentWidth - (borderSize * 2) - 2; // 1 char padding on each side
+				int titleY = _titlePosition == TitlePosition.Top
+					? startY + borderSize                    // Title above graph
+					: graphStartY + _graphHeight;            // Title below graph
+				int titlePadding = borderSize > 0 ? 1 : 0; // Only pad when border is present
+				int titleX = startX + borderSize + titlePadding;
+				int maxTitleWidth = contentWidth - (borderSize * 2) - (titlePadding * 2);
 
 				if (titleY >= clipRect.Y && titleY < clipRect.Bottom && maxTitleWidth > 0)
 				{
@@ -452,6 +556,25 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			if (_dataPoints.Count == 0 && _secondaryDataPoints.Count == 0)
+				return;
+
+			// Check if we're in bidirectional mode
+			bool isBidirectional = _mode == SparklineMode.Bidirectional || _mode == SparklineMode.BidirectionalBraille;
+			bool useBraille = _mode == SparklineMode.Braille || _mode == SparklineMode.BidirectionalBraille;
+
+			if (isBidirectional)
+			{
+				PaintBidirectional(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, graphBottom, clipRect, bgColor, useBraille);
+			}
+			else
+			{
+				PaintStandard(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, graphBottom, clipRect, bgColor, useBraille);
+			}
+		}
+
+		private void PaintStandard(CharacterBuffer buffer, int graphStartX, int graphStartY, int graphWidth, int graphHeight, int graphBottom, LayoutRect clipRect, Color bgColor, bool useBraille)
+		{
 			if (_dataPoints.Count == 0)
 				return;
 
@@ -462,12 +585,6 @@ namespace SharpConsoleUI.Controls
 
 			if (range < 0.001)
 				range = 1.0;
-
-			// Calculate graph area (inside border if present, below title if present)
-			int graphStartX = startX + borderSize;
-			int graphStartY = startY + borderSize + titleHeight;
-			int graphWidth = contentWidth - (borderSize * 2);
-			int graphBottom = graphStartY + _graphHeight - 1;
 
 			// Determine which data points to display
 			int availableWidth = graphWidth;
@@ -483,70 +600,167 @@ namespace SharpConsoleUI.Controls
 
 				double value = _dataPoints[dataIndex];
 				double normalized = (value - min) / range; // 0.0 to 1.0
-				double barHeight = normalized * _graphHeight;
+				double barHeight = normalized * graphHeight;
 
 				int paintX = graphStartX + i;
 				if (paintX < clipRect.X || paintX >= clipRect.Right)
 					continue;
 
 				// Paint vertical bar from bottom to top
-				for (int y = 0; y < _graphHeight; y++)
+				for (int y = 0; y < graphHeight; y++)
 				{
 					int paintY = graphBottom - y;
 					if (paintY < clipRect.Y || paintY >= clipRect.Bottom)
 						continue;
 
-					// Calculate fill character based on how much of this row should be filled
-					double rowTopThreshold = (y + 1);
-					double rowBottomThreshold = y;
-
-					char displayChar;
-					if (_mode == SparklineMode.Braille)
-					{
-						// Braille mode: 5 levels (0-4)
-						if (barHeight >= rowTopThreshold)
-						{
-							displayChar = BRAILLE_CHARS[4]; // Full
-						}
-						else if (barHeight > rowBottomThreshold)
-						{
-							double fraction = barHeight - rowBottomThreshold;
-							int charIndex = (int)Math.Round(fraction * 4);
-							charIndex = Math.Clamp(charIndex, 0, 4);
-							displayChar = BRAILLE_CHARS[charIndex];
-						}
-						else
-						{
-							displayChar = BRAILLE_CHARS[0]; // Empty
-						}
-					}
-					else
-					{
-						// Block mode: 9 levels (0-8)
-						if (barHeight >= rowTopThreshold)
-						{
-							displayChar = VERTICAL_CHARS[8]; // Full
-						}
-						else if (barHeight > rowBottomThreshold)
-						{
-							double fraction = barHeight - rowBottomThreshold;
-							int charIndex = (int)Math.Round(fraction * 8);
-							charIndex = Math.Clamp(charIndex, 0, 8);
-							displayChar = VERTICAL_CHARS[charIndex];
-						}
-						else
-						{
-							displayChar = VERTICAL_CHARS[0]; // Empty
-						}
-					}
+					char displayChar = GetBarChar(barHeight, y, useBraille);
 
 					// Determine cell color based on whether the character is "empty"
-					bool isEmpty = (_mode == SparklineMode.Braille)
-						? displayChar == BRAILLE_CHARS[0]
-						: displayChar == ' ';
+					bool isEmpty = useBraille ? displayChar == BRAILLE_CHARS[0] : displayChar == ' ';
 					Color cellColor = isEmpty ? Color.Grey19 : _barColor;
 					buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
 				}
+			}
+		}
+
+		private void PaintBidirectional(CharacterBuffer buffer, int graphStartX, int graphStartY, int graphWidth, int graphHeight, int graphBottom, LayoutRect clipRect, Color bgColor, bool useBraille)
+		{
+			// In bidirectional mode:
+			// - Primary series (upload) goes UP from the middle
+			// - Secondary series (download) goes DOWN from the middle
+			int halfHeight = graphHeight / 2;
+			int middleY = graphStartY + halfHeight;
+
+			// Calculate scales for both series
+			double primaryMax = _maxValue ?? (_dataPoints.Count > 0 ? Math.Max(_dataPoints.Max(), 0.001) : 1.0);
+			double secondaryMax = _secondaryMaxValue ?? (_secondaryDataPoints.Count > 0 ? Math.Max(_secondaryDataPoints.Max(), 0.001) : primaryMax);
+
+			// Determine display count based on larger dataset
+			int availableWidth = graphWidth;
+			int primaryCount = _dataPoints.Count;
+			int secondaryCount = _secondaryDataPoints.Count;
+			int maxDataCount = Math.Max(primaryCount, secondaryCount);
+			int displayCount = Math.Min(maxDataCount, availableWidth);
+
+			int primaryStartIndex = Math.Max(0, primaryCount - displayCount);
+			int secondaryStartIndex = Math.Max(0, secondaryCount - displayCount);
+
+			// Paint each column
+			for (int i = 0; i < displayCount; i++)
+			{
+				int paintX = graphStartX + i;
+				if (paintX < clipRect.X || paintX >= clipRect.Right)
+					continue;
+
+				// Paint primary (upload) - goes UP from middle
+				int primaryDataIndex = primaryStartIndex + i;
+				if (primaryDataIndex < primaryCount)
+				{
+					double value = _dataPoints[primaryDataIndex];
+					double normalized = Math.Clamp(value / primaryMax, 0, 1);
+					double barHeight = normalized * halfHeight;
+
+					for (int y = 0; y < halfHeight; y++)
+					{
+						int paintY = middleY - 1 - y; // Paint upward from middle
+						if (paintY < clipRect.Y || paintY >= clipRect.Bottom)
+							continue;
+
+						char displayChar = GetBarChar(barHeight, y, useBraille);
+						bool isEmpty = useBraille ? displayChar == BRAILLE_CHARS[0] : displayChar == ' ';
+						Color cellColor = isEmpty ? Color.Grey19 : _barColor;
+						buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
+					}
+				}
+
+				// Paint secondary (download) - goes DOWN from middle
+				int secondaryDataIndex = secondaryStartIndex + i;
+				if (secondaryDataIndex < secondaryCount)
+				{
+					double value = _secondaryDataPoints[secondaryDataIndex];
+					double normalized = Math.Clamp(value / secondaryMax, 0, 1);
+					double barHeight = normalized * halfHeight;
+
+					for (int y = 0; y < halfHeight; y++)
+					{
+						int paintY = middleY + y; // Paint downward from middle
+						if (paintY < clipRect.Y || paintY >= clipRect.Bottom)
+							continue;
+
+						// For downward bars, we use inverted block chars (▔▀ style) or just fill from top
+						char displayChar = GetBarCharInverted(barHeight, y, useBraille);
+						bool isEmpty = useBraille ? displayChar == BRAILLE_CHARS[0] : displayChar == ' ';
+						Color cellColor = isEmpty ? Color.Grey19 : _secondaryBarColor;
+						buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
+					}
+				}
+			}
+		}
+
+		private char GetBarChar(double barHeight, int rowIndex, bool useBraille)
+		{
+			double rowTopThreshold = rowIndex + 1;
+			double rowBottomThreshold = rowIndex;
+
+			if (useBraille)
+			{
+				if (barHeight >= rowTopThreshold)
+					return BRAILLE_CHARS[4]; // Full
+				else if (barHeight > rowBottomThreshold)
+				{
+					double fraction = barHeight - rowBottomThreshold;
+					int charIndex = (int)Math.Round(fraction * 4);
+					return BRAILLE_CHARS[Math.Clamp(charIndex, 0, 4)];
+				}
+				return BRAILLE_CHARS[0]; // Empty
+			}
+			else
+			{
+				if (barHeight >= rowTopThreshold)
+					return VERTICAL_CHARS[8]; // Full
+				else if (barHeight > rowBottomThreshold)
+				{
+					double fraction = barHeight - rowBottomThreshold;
+					int charIndex = (int)Math.Round(fraction * 8);
+					return VERTICAL_CHARS[Math.Clamp(charIndex, 0, 8)];
+				}
+				return VERTICAL_CHARS[0]; // Empty
+			}
+		}
+
+		private char GetBarCharInverted(double barHeight, int rowIndex, bool useBraille)
+		{
+			// For inverted bars (growing downward), we fill from the top of each cell
+			double rowTopThreshold = rowIndex + 1;
+			double rowBottomThreshold = rowIndex;
+
+			if (useBraille)
+			{
+				if (barHeight >= rowTopThreshold)
+					return BRAILLE_CHARS[4]; // Full
+				else if (barHeight > rowBottomThreshold)
+				{
+					double fraction = barHeight - rowBottomThreshold;
+					int charIndex = (int)Math.Round(fraction * 4);
+					// Invert the char index for top-down fill
+					return BRAILLE_CHARS[Math.Clamp(charIndex, 0, 4)];
+				}
+				return BRAILLE_CHARS[0]; // Empty
+			}
+			else
+			{
+				// For block mode, use upper block characters for downward bars
+				// ▀ (upper half block) and similar
+				if (barHeight >= rowTopThreshold)
+					return '█'; // Full
+				else if (barHeight > rowBottomThreshold)
+				{
+					double fraction = barHeight - rowBottomThreshold;
+					int charIndex = (int)Math.Round(fraction * 8);
+					// Use same vertical chars but the visual effect is top-down
+					return VERTICAL_CHARS[Math.Clamp(charIndex, 0, 8)];
+				}
+				return ' '; // Empty
 			}
 		}
 
@@ -584,6 +798,49 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(true);
 		}
 
+		/// <summary>
+		/// Adds a new secondary data point (for bidirectional mode).
+		/// If the maximum number of points is exceeded, the oldest point is removed.
+		/// </summary>
+		public void AddSecondaryDataPoint(double value)
+		{
+			_secondaryDataPoints.Add(value);
+			TrimSecondaryDataPoints();
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Clears all secondary data points from the graph.
+		/// </summary>
+		public void ClearSecondaryDataPoints()
+		{
+			_secondaryDataPoints.Clear();
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Sets the secondary data points for bidirectional mode, replacing any existing points.
+		/// </summary>
+		public void SetSecondaryDataPoints(IEnumerable<double> dataPoints)
+		{
+			_secondaryDataPoints = new List<double>(dataPoints);
+			TrimSecondaryDataPoints();
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Sets both primary and secondary data points at once (for bidirectional mode).
+		/// More efficient than calling SetDataPoints and SetSecondaryDataPoints separately.
+		/// </summary>
+		public void SetBidirectionalData(IEnumerable<double> primaryData, IEnumerable<double> secondaryData)
+		{
+			_dataPoints = new List<double>(primaryData);
+			_secondaryDataPoints = new List<double>(secondaryData);
+			TrimDataPoints();
+			TrimSecondaryDataPoints();
+			Container?.Invalidate(true);
+		}
+
 		#endregion
 
 		#region Private Helper Methods
@@ -593,6 +850,14 @@ namespace SharpConsoleUI.Controls
 			while (_dataPoints.Count > _maxDataPoints)
 			{
 				_dataPoints.RemoveAt(0);
+			}
+		}
+
+		private void TrimSecondaryDataPoints()
+		{
+			while (_secondaryDataPoints.Count > _maxDataPoints)
+			{
+				_secondaryDataPoints.RemoveAt(0);
 			}
 		}
 
