@@ -344,6 +344,10 @@ namespace SharpConsoleUI.Controls
 			column.GetConsoleWindowSystem = Container?.GetConsoleWindowSystem;
 			_columns.Add(column);
 			_interactiveContentsDirty = true;
+
+			// Force DOM rebuild for runtime addition
+			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+
 			Invalidate();
 		}
 
@@ -381,6 +385,10 @@ namespace SharpConsoleUI.Controls
 				splitter.SplitterMoved += OnSplitterMoved;
 
 				_interactiveContentsDirty = true;
+
+				// Force DOM rebuild for runtime addition
+				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+
 				Invalidate();
 				return splitter;
 			}
@@ -733,8 +741,32 @@ namespace SharpConsoleUI.Controls
 				_splitterControls = updatedSplitters;
 
 				_interactiveContentsDirty = true;
+
+				// Force DOM rebuild for runtime removal
+				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+
 				Invalidate();
 			}
+		}
+
+		/// <summary>
+		/// Removes all columns and splitters from the grid.
+		/// </summary>
+		public void ClearColumns()
+		{
+			foreach (var splitter in _splitters)
+			{
+				splitter.SplitterMoved -= OnSplitterMoved;
+			}
+
+			_columns.Clear();
+			_splitters.Clear();
+			_splitterControls.Clear();
+			_interactiveContentsDirty = true;
+			_focusedContent = null;
+
+			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+			Invalidate();
 		}
 
 		/// <inheritdoc/>

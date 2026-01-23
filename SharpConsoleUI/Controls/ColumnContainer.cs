@@ -388,6 +388,9 @@ namespace SharpConsoleUI.Controls
 				_minWidth = content.Width.Value;
 			}
 
+			// Force DOM rebuild for runtime addition
+			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+
 			Invalidate(true);
 		}
 
@@ -513,8 +516,28 @@ namespace SharpConsoleUI.Controls
 			{
 				content.Container = null;
 				content.Dispose();
+
+				// Force DOM rebuild for runtime removal
+				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+
 				Invalidate(true);
 			}
+		}
+
+		/// <summary>
+		/// Removes all child controls from this column.
+		/// </summary>
+		public void ClearContents()
+		{
+			foreach (var content in _contents)
+			{
+				content.Container = null;
+				content.Dispose();
+			}
+			_contents.Clear();
+
+			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+			Invalidate(true);
 		}
 
 		/// <inheritdoc/>
