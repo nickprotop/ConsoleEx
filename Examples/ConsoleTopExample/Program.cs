@@ -1100,55 +1100,70 @@ internal class Program
                 .Build()
         );
 
-        // RAM Usage Bar
-        panel.AddControl(new BarGraphControl
-        {
-            Name = "ramUsedBar",
-            Label = "RAM Used",
-            Value = mem.UsedPercent,
-            MaxValue = 100,
-            BarWidth = 35,
-            FilledColor = Color.Red,
-            UnfilledColor = Color.Grey35,
-            ShowLabel = true,
-            ShowValue = true,
-            ValueFormat = "F1",
-            Margin = new Margin(2, 0, 2, 0)
-        });
+        // RAM Usage Bar - with gradient (green at low usage, yellow at medium, red at high)
+        // LabelWidth 9 aligns all memory bars (longest label: "Swap Used")
+        panel.AddControl(
+            new BarGraphBuilder()
+                .WithName("ramUsedBar")
+                .WithLabel("RAM Used")
+                .WithLabelWidth(9)
+                .WithValue(mem.UsedPercent)
+                .WithMaxValue(100)
+                .WithBarWidth(35)
+                .WithUnfilledColor(Color.Grey35)
+                .ShowLabel()
+                .ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(2, 0, 2, 0)
+                .WithStandardGradient()
+                .Build()
+        );
 
-        // RAM Free Bar
+        // RAM Free Bar - inverse gradient (more free = greener)
         var freePercent = (mem.AvailableMb / mem.TotalMb) * 100;
-        panel.AddControl(new BarGraphControl
-        {
-            Name = "ramFreeBar",
-            Label = "RAM Free",
-            Value = freePercent,
-            MaxValue = 100,
-            BarWidth = 35,
-            FilledColor = Color.Green,
-            UnfilledColor = Color.Grey35,
-            ShowLabel = true,
-            ShowValue = true,
-            ValueFormat = "F1",
-            Margin = new Margin(2, 0, 2, 0)
-        });
+        panel.AddControl(
+            new BarGraphBuilder()
+                .WithName("ramFreeBar")
+                .WithLabel("RAM Free")
+                .WithLabelWidth(9)
+                .WithValue(freePercent)
+                .WithMaxValue(100)
+                .WithBarWidth(35)
+                .WithUnfilledColor(Color.Grey35)
+                .ShowLabel()
+                .ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(2, 0, 2, 0)
+                .WithGradient(
+                    new ColorThreshold(0, Color.Red),
+                    new ColorThreshold(20, Color.Yellow),
+                    new ColorThreshold(50, Color.Green)
+                )
+                .Build()
+        );
 
-        // Swap Usage Bar
+        // Swap Usage Bar - with gradient (any swap usage is potentially concerning)
         double swapPercent = mem.SwapTotalMb > 0 ? (mem.SwapUsedMb / mem.SwapTotalMb * 100) : 0;
-        panel.AddControl(new BarGraphControl
-        {
-            Name = "swapUsedBar",
-            Label = "Swap Used",
-            Value = swapPercent,
-            MaxValue = 100,
-            BarWidth = 35,
-            FilledColor = Color.Yellow,
-            UnfilledColor = Color.Grey35,
-            ShowLabel = true,
-            ShowValue = true,
-            ValueFormat = "F1",
-            Margin = new Margin(2, 0, 2, 2)
-        });
+        panel.AddControl(
+            new BarGraphBuilder()
+                .WithName("swapUsedBar")
+                .WithLabel("Swap Used")
+                .WithLabelWidth(9)
+                .WithValue(swapPercent)
+                .WithMaxValue(100)
+                .WithBarWidth(35)
+                .WithUnfilledColor(Color.Grey35)
+                .ShowLabel()
+                .ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(2, 0, 2, 2)
+                .WithGradient(
+                    new ColorThreshold(0, Color.Green),
+                    new ColorThreshold(25, Color.Yellow),
+                    new ColorThreshold(50, Color.Red)
+                )
+                .Build()
+        );
 
         // Separator
         panel.AddControl(
@@ -1170,56 +1185,52 @@ internal class Program
                 .Build()
         );
 
-        // Used sparkline
-        var usedSparkline = new SparklineControl
-        {
-            Name = "memoryUsedSparkline",
-            Title = "Memory Used %",
-            TitleColor = Color.Cyan1,
-            GraphHeight = 6,
-            MaxValue = 100,
-            BarColor = Color.Cyan1,
-            BackgroundColor = Color.Grey15,
-            BorderStyle = BorderStyle.Rounded,
-            BorderColor = Color.Grey50,
-            Margin = new Margin(2, 0, 2, 1)
-        };
-        usedSparkline.SetDataPoints(_memoryUsedHistory);
+        // Used sparkline - using braille mode for smoother appearance
+        var usedSparkline = new SparklineBuilder()
+            .WithName("memoryUsedSparkline")
+            .WithTitle("Memory Used %", Color.Cyan1)
+            .WithHeight(6)
+            .WithMaxValue(100)
+            .WithBarColor(Color.Cyan1)
+            .WithBackgroundColor(Color.Grey15)
+            .WithBorder(BorderStyle.Rounded, Color.Grey50)
+            .WithMode(SparklineMode.Braille) // Use braille patterns for smoother rendering
+            .WithMargin(2, 0, 2, 1)
+            .WithData(_memoryUsedHistory)
+            .Build();
         panel.AddControl(usedSparkline);
 
         // Cached sparkline
-        var cachedSparkline = new SparklineControl
-        {
-            Name = "memoryCachedSparkline",
-            Title = "Memory Cached %",
-            TitleColor = Color.Yellow,
-            GraphHeight = 6,
-            MaxValue = 100,
-            BarColor = Color.Yellow,
-            BackgroundColor = Color.Grey15,
-            BorderStyle = BorderStyle.Rounded,
-            BorderColor = Color.Grey50,
-            Margin = new Margin(2, 0, 2, 1)
-        };
-        cachedSparkline.SetDataPoints(_memoryCachedHistory);
-        panel.AddControl(cachedSparkline);
+        panel.AddControl(
+            new SparklineBuilder()
+                .WithName("memoryCachedSparkline")
+                .WithTitle("Memory Cached %", Color.Yellow)
+                .WithHeight(6)
+                .WithMaxValue(100)
+                .WithBarColor(Color.Yellow)
+                .WithBackgroundColor(Color.Grey15)
+                .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                .WithMode(SparklineMode.Braille)
+                .WithMargin(2, 0, 2, 1)
+                .WithData(_memoryCachedHistory)
+                .Build()
+        );
 
         // Free sparkline
-        var freeSparkline = new SparklineControl
-        {
-            Name = "memoryFreeSparkline",
-            Title = "Memory Available %",
-            TitleColor = Color.Green,
-            GraphHeight = 6,
-            MaxValue = 100,
-            BarColor = Color.Green,
-            BackgroundColor = Color.Grey15,
-            BorderStyle = BorderStyle.Rounded,
-            BorderColor = Color.Grey50,
-            Margin = new Margin(2, 0, 2, 0)
-        };
-        freeSparkline.SetDataPoints(_memoryAvailableHistory);
-        panel.AddControl(freeSparkline);
+        panel.AddControl(
+            new SparklineBuilder()
+                .WithName("memoryFreeSparkline")
+                .WithTitle("Memory Available %", Color.Green)
+                .WithHeight(6)
+                .WithMaxValue(100)
+                .WithBarColor(Color.Green)
+                .WithBackgroundColor(Color.Grey15)
+                .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                .WithMode(SparklineMode.Braille)
+                .WithMargin(2, 0, 2, 0)
+                .WithData(_memoryAvailableHistory)
+                .Build()
+        );
     }
 
     private static List<string> BuildMemoryTextContent(SystemSnapshot snapshot)
@@ -2029,69 +2040,86 @@ internal class Program
                 .Build()
         );
 
-        // User CPU Bar
-        panel.AddControl(new BarGraphControl
-        {
-            Name = "cpuUserBar",
-            Label = "User CPU",
-            Value = cpu.User,
-            MaxValue = 100,
-            BarWidth = 35,
-            FilledColor = Color.Red,
-            UnfilledColor = Color.Grey35,
-            ShowLabel = true,
-            ShowValue = true,
-            ValueFormat = "F1",
-            Margin = new Margin(2, 0, 2, 0)
-        });
+        // LabelWidth 10 aligns all CPU bars (longest label: "System CPU")
+        // User CPU Bar - gradient shows high user CPU as concerning
+        panel.AddControl(
+            new BarGraphBuilder()
+                .WithName("cpuUserBar")
+                .WithLabel("User CPU")
+                .WithLabelWidth(10)
+                .WithValue(cpu.User)
+                .WithMaxValue(100)
+                .WithBarWidth(35)
+                .WithUnfilledColor(Color.Grey35)
+                .ShowLabel()
+                .ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(2, 0, 2, 0)
+                .WithStandardGradient()
+                .Build()
+        );
 
-        // System CPU Bar
-        panel.AddControl(new BarGraphControl
-        {
-            Name = "cpuSystemBar",
-            Label = "System CPU",
-            Value = cpu.System,
-            MaxValue = 100,
-            BarWidth = 35,
-            FilledColor = Color.Yellow,
-            UnfilledColor = Color.Grey35,
-            ShowLabel = true,
-            ShowValue = true,
-            ValueFormat = "F1",
-            Margin = new Margin(2, 0, 2, 0)
-        });
+        // System CPU Bar - gradient shows high system CPU as concerning
+        panel.AddControl(
+            new BarGraphBuilder()
+                .WithName("cpuSystemBar")
+                .WithLabel("System CPU")
+                .WithLabelWidth(10)
+                .WithValue(cpu.System)
+                .WithMaxValue(100)
+                .WithBarWidth(35)
+                .WithUnfilledColor(Color.Grey35)
+                .ShowLabel()
+                .ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(2, 0, 2, 0)
+                .WithGradient(
+                    new ColorThreshold(0, Color.Green),
+                    new ColorThreshold(30, Color.Yellow),
+                    new ColorThreshold(50, Color.Red)
+                )
+                .Build()
+        );
 
-        // IoWait CPU Bar
-        panel.AddControl(new BarGraphControl
-        {
-            Name = "cpuIoWaitBar",
-            Label = "IoWait",
-            Value = cpu.IoWait,
-            MaxValue = 100,
-            BarWidth = 35,
-            FilledColor = Color.Blue,
-            UnfilledColor = Color.Grey35,
-            ShowLabel = true,
-            ShowValue = true,
-            ValueFormat = "F1",
-            Margin = new Margin(2, 0, 2, 0)
-        });
+        // IoWait CPU Bar - any significant IoWait is concerning
+        panel.AddControl(
+            new BarGraphBuilder()
+                .WithName("cpuIoWaitBar")
+                .WithLabel("IoWait")
+                .WithLabelWidth(10)
+                .WithValue(cpu.IoWait)
+                .WithMaxValue(100)
+                .WithBarWidth(35)
+                .WithUnfilledColor(Color.Grey35)
+                .ShowLabel()
+                .ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(2, 0, 2, 0)
+                .WithGradient(
+                    new ColorThreshold(0, Color.Green),
+                    new ColorThreshold(10, Color.Yellow),
+                    new ColorThreshold(25, Color.Red)
+                )
+                .Build()
+        );
 
-        // Total CPU Bar
-        panel.AddControl(new BarGraphControl
-        {
-            Name = "cpuTotalBar",
-            Label = "Total CPU",
-            Value = totalCpu,
-            MaxValue = 100,
-            BarWidth = 35,
-            FilledColor = Color.Cyan1,
-            UnfilledColor = Color.Grey35,
-            ShowLabel = true,
-            ShowValue = true,
-            ValueFormat = "F1",
-            Margin = new Margin(2, 0, 2, 2)
-        });
+        // Total CPU Bar - with gradient (green at low load, yellow at medium, red at high)
+        panel.AddControl(
+            new BarGraphBuilder()
+                .WithName("cpuTotalBar")
+                .WithLabel("Total CPU")
+                .WithLabelWidth(10)
+                .WithValue(totalCpu)
+                .WithMaxValue(100)
+                .WithBarWidth(35)
+                .WithUnfilledColor(Color.Grey35)
+                .ShowLabel()
+                .ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(2, 0, 2, 2)
+                .WithStandardGradient()
+                .Build()
+        );
 
         // Separator
         panel.AddControl(
@@ -2114,54 +2142,50 @@ internal class Program
         );
 
         // User CPU sparkline
-        var userSparkline = new SparklineControl
-        {
-            Name = "cpuUserSparkline",
-            Title = "User CPU %",
-            TitleColor = Color.Red,
-            GraphHeight = 6,
-            MaxValue = 100,
-            BarColor = Color.Red,
-            BackgroundColor = Color.Grey15,
-            BorderStyle = BorderStyle.Rounded,
-            BorderColor = Color.Grey50,
-            Margin = new Margin(2, 0, 2, 1)
-        };
-        userSparkline.SetDataPoints(_cpuUserHistory);
-        panel.AddControl(userSparkline);
+        panel.AddControl(
+            new SparklineBuilder()
+                .WithName("cpuUserSparkline")
+                .WithTitle("User CPU %", Color.Red)
+                .WithHeight(6)
+                .WithMaxValue(100)
+                .WithBarColor(Color.Red)
+                .WithBackgroundColor(Color.Grey15)
+                .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                .WithMode(SparklineMode.Braille)
+                .WithMargin(2, 0, 2, 1)
+                .WithData(_cpuUserHistory)
+                .Build()
+        );
 
         // System CPU sparkline
-        var systemSparkline = new SparklineControl
-        {
-            Name = "cpuSystemSparkline",
-            Title = "System CPU %",
-            TitleColor = Color.Yellow,
-            GraphHeight = 6,
-            MaxValue = 100,
-            BarColor = Color.Yellow,
-            BackgroundColor = Color.Grey15,
-            BorderStyle = BorderStyle.Rounded,
-            BorderColor = Color.Grey50,
-            Margin = new Margin(2, 0, 2, 1)
-        };
-        systemSparkline.SetDataPoints(_cpuSystemHistory);
-        panel.AddControl(systemSparkline);
+        panel.AddControl(
+            new SparklineBuilder()
+                .WithName("cpuSystemSparkline")
+                .WithTitle("System CPU %", Color.Yellow)
+                .WithHeight(6)
+                .WithMaxValue(100)
+                .WithBarColor(Color.Yellow)
+                .WithBackgroundColor(Color.Grey15)
+                .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                .WithMode(SparklineMode.Braille)
+                .WithMargin(2, 0, 2, 1)
+                .WithData(_cpuSystemHistory)
+                .Build()
+        );
 
-        // Total CPU sparkline
-        var totalSparkline = new SparklineControl
-        {
-            Name = "cpuTotalSparkline",
-            Title = "Total CPU %",
-            TitleColor = Color.Cyan1,
-            GraphHeight = 6,
-            MaxValue = 100,
-            BarColor = Color.Cyan1,
-            BackgroundColor = Color.Grey15,
-            BorderStyle = BorderStyle.Rounded,
-            BorderColor = Color.Grey50,
-            Margin = new Margin(2, 0, 2, 1)
-        };
-        totalSparkline.SetDataPoints(_cpuTotalHistory);
+        // Total CPU sparkline - using braille mode for smoother appearance
+        var totalSparkline = new SparklineBuilder()
+            .WithName("cpuTotalSparkline")
+            .WithTitle("Total CPU %", Color.Cyan1)
+            .WithHeight(6)
+            .WithMaxValue(100)
+            .WithBarColor(Color.Cyan1)
+            .WithBackgroundColor(Color.Grey15)
+            .WithBorder(BorderStyle.Rounded, Color.Grey50)
+            .WithMode(SparklineMode.Braille) // Use braille patterns for smoother rendering
+            .WithMargin(2, 0, 2, 1)
+            .WithData(_cpuTotalHistory)
+            .Build();
         panel.AddControl(totalSparkline);
 
         // Per-Core History Section
@@ -2192,35 +2216,33 @@ internal class Program
             );
 
             // Create sparklines for all cores (even if data not yet available)
+            // Use braille mode for per-core graphs - smoother at smaller heights
             for (int coreIndex = 0; coreIndex < coreCount; coreIndex++)
             {
-                // Calculate gradient color from Green to Red
+                // Calculate gradient color from Green to Red based on core index
                 double ratio = coreCount > 1 ? (double)coreIndex / (coreCount - 1) : 0;
                 int red = (int)(ratio * 255);
                 int green = (int)((1 - ratio) * 255);
                 var coreColor = new Color((byte)red, (byte)green, 0);
 
-                var coreSparkline = new SparklineControl
-                {
-                    Name = $"cpuCore{coreIndex}Sparkline",
-                    Title = $"Core {coreIndex}",
-                    TitleColor = coreColor,
-                    GraphHeight = 4, // Smaller height for per-core
-                    MaxValue = 100,
-                    BarColor = coreColor,
-                    BackgroundColor = Color.Grey15,
-                    BorderStyle = BorderStyle.Rounded,
-                    BorderColor = Color.Grey50,
-                    Margin = new Margin(2, 0, 2, coreIndex == coreCount - 1 ? 0 : 1)
-                };
+                var coreData = _cpuPerCoreHistory.ContainsKey(coreIndex)
+                    ? _cpuPerCoreHistory[coreIndex]
+                    : new List<double>();
 
-                // Set data points if history available for this core
-                if (_cpuPerCoreHistory.ContainsKey(coreIndex))
-                {
-                    coreSparkline.SetDataPoints(_cpuPerCoreHistory[coreIndex]);
-                }
-
-                panel.AddControl(coreSparkline);
+                panel.AddControl(
+                    new SparklineBuilder()
+                        .WithName($"cpuCore{coreIndex}Sparkline")
+                        .WithTitle($"Core {coreIndex}", coreColor)
+                        .WithHeight(4) // Smaller height for per-core
+                        .WithMaxValue(100)
+                        .WithBarColor(coreColor)
+                        .WithBackgroundColor(Color.Grey15)
+                        .WithBorder(BorderStyle.Rounded, Color.Grey50)
+                        .WithMode(SparklineMode.Braille) // Braille works better at small heights
+                        .WithMargin(2, 0, 2, coreIndex == coreCount - 1 ? 0 : 1)
+                        .WithData(coreData)
+                        .Build()
+                );
             }
         }
     }
