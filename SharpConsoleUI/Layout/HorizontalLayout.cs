@@ -137,10 +137,29 @@ namespace SharpConsoleUI.Layout
 			// Calculate width for flex children
 			int remainingWidth = Math.Max(0, finalRect.Width - fixedWidth);
 
+			// Calculate base widths for flex children (their measured content sizes)
+			int totalBaseWidth = 0;
+			foreach (var child in node.Children)
+			{
+				if (!child.IsVisible)
+					continue;
+
+				if (child.ExplicitWidth == null && child.FlexFactor > 0)
+				{
+					totalBaseWidth += child.DesiredSize.Width;
+				}
+			}
+
+			// Calculate extra space available for proportional distribution
+			int extraSpace = Math.Max(0, remainingWidth - totalBaseWidth);
+
 			// Arrange children
 			int currentX = 0;
 			bool isFirst = true;
 
+			// Accumulation variables for precise width distribution
+			double accumulatedWidth = 0.0;
+			int allocatedWidth = 0;
 
 			foreach (var child in node.Children)
 			{
@@ -157,11 +176,28 @@ namespace SharpConsoleUI.Layout
 				int childWidth;
 				if (child.ExplicitWidth == null && child.FlexFactor > 0)
 				{
-					// Distribute remaining space by flex factor
-					childWidth = (int)(remainingWidth * (child.FlexFactor / totalFlexFactor));
+					// Flex child: base width + proportional share of extra space
+					int baseWidth = child.DesiredSize.Width;
+
+					if (extraSpace > 0)
+					{
+						// Distribute extra space proportionally by flex factor
+						// Use accumulation to avoid integer truncation loss
+						double extraShare = extraSpace * (child.FlexFactor / totalFlexFactor);
+						accumulatedWidth += baseWidth + extraShare;
+						int targetWidth = (int)Math.Round(accumulatedWidth);
+						childWidth = targetWidth - allocatedWidth;
+						allocatedWidth = targetWidth;
+					}
+					else
+					{
+						// No extra space: use base width
+						childWidth = baseWidth;
+					}
 				}
 				else
 				{
+					// Non-flex child: use desired size
 					childWidth = child.DesiredSize.Width;
 				}
 
