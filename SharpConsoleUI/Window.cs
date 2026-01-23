@@ -2447,8 +2447,11 @@ namespace SharpConsoleUI
 			}
 			else if (control is Controls.ScrollablePanelControl scrollablePanel)
 			{
-				layout = new VerticalStackLayout();
-				children = scrollablePanel.Children;
+				// ScrollablePanelControl is a self-painting container that manages its own children's
+				// rendering with scroll offsets. Do NOT add children to DOM tree - the panel's PaintDOM
+				// handles all child painting. Adding children here would cause double-painting.
+				layout = null;
+				children = null;
 			}
 
 			var node = new LayoutNode(control, layout);
