@@ -58,6 +58,8 @@ Controls for displaying formatted content.
 | **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
 | **[SpectreRenderableControl](controls/SpectreRenderableControl.md)** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
 | **[RuleControl](controls/RuleControl.md)** | Horizontal rule/separator | Optional title, colors, horizontal line |
+| **SparklineControl** | Time-series sparkline graph | Block or braille rendering modes, borders, titles |
+| **BarGraphControl** | Horizontal bar graph | Gradient color thresholds, labels, value display |
 
 ## Layout Controls
 

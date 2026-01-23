@@ -302,6 +302,85 @@ Controls.Figle("BIG TEXT")
     .Build();
 ```
 
+### SparklineBuilder
+
+```csharp
+// Basic sparkline with block characters (default)
+new SparklineBuilder()
+    .WithHeight(6)
+    .WithMaxValue(100)
+    .WithBarColor(Color.Cyan1)
+    .WithBorder(BorderStyle.Rounded, Color.Grey50)
+    .WithTitle("CPU Usage %", Color.Cyan1)
+    .WithData(cpuHistory)
+    .Build();
+
+// Braille mode for smoother appearance
+new SparklineBuilder()
+    .WithHeight(6)
+    .WithMode(SparklineMode.Braille)  // Use braille patterns (5 levels)
+    .WithMaxValue(100)
+    .WithBarColor(Color.Green)
+    .WithTitle("Memory %")
+    .Build();
+```
+
+**SparklineMode Options:**
+- `Block` (default) - Uses 9-level block characters (▁▂▃▄▅▆▇█)
+- `Braille` - Uses 5-level braille patterns for smoother, denser appearance
+
+### BarGraphBuilder
+
+```csharp
+// Basic bar graph with fixed color
+new BarGraphBuilder()
+    .WithLabel("CPU")
+    .WithValue(65.5)
+    .WithMaxValue(100)
+    .WithBarWidth(30)
+    .WithFilledColor(Color.Cyan1)
+    .WithUnfilledColor(Color.Grey35)
+    .ShowLabel()
+    .ShowValue()
+    .WithValueFormat("F1")
+    .Build();
+
+// Bar graph with gradient thresholds
+new BarGraphBuilder()
+    .WithLabel("RAM Used")
+    .WithValue(75.0)
+    .WithMaxValue(100)
+    .WithBarWidth(30)
+    .WithStandardGradient()  // Green (0-49%), Yellow (50-79%), Red (80%+)
+    .Build();
+
+// Custom gradient thresholds
+new BarGraphBuilder()
+    .WithLabel("Swap")
+    .WithValue(30.0)
+    .WithMaxValue(100)
+    .WithGradient(
+        new ColorThreshold(0, Color.Green),
+        new ColorThreshold(25, Color.Yellow),
+        new ColorThreshold(50, Color.Red)
+    )
+    .Build();
+
+// Aligned bar graphs with fixed label width
+new BarGraphBuilder()
+    .WithLabel("RAM Used")
+    .WithLabelWidth(12)  // All bars align at position 12 + ": "
+    .WithValue(75.0)
+    .WithMaxValue(100)
+    .WithBarWidth(30)
+    .Build();
+```
+
+**Key Methods:**
+- `WithLabelWidth(int)` - Fixed label column width for vertical alignment
+- `WithGradient(params ColorThreshold[])` - Set custom color thresholds
+- `WithStandardGradient()` - Convenience method for green/yellow/red at 0/50/80%
+
 ### SpectreRenderableBuilder
 
 ```csharp
@@ -364,6 +443,8 @@ Controls.MultilineEdit()            // MultilineEditControlBuilder
 Controls.Figle(text)                // FigleControlBuilder
 Controls.SpectreRenderable(widget)  // SpectreRenderableBuilder
 Controls.RuleBuilder()              // RuleBuilder
+new SparklineBuilder()              // SparklineBuilder (for time-series graphs)
+new BarGraphBuilder()               // BarGraphBuilder (for horizontal bar graphs)
 ```
 
 ## Builder Patterns
