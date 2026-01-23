@@ -17,6 +17,14 @@ using Size = System.Drawing.Size;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
+	/// Represents a color threshold for gradient bar effects.
+	/// When the bar value reaches or exceeds the threshold percentage, this color is used.
+	/// </summary>
+	/// <param name="Threshold">The percentage threshold (0-100) at which this color activates.</param>
+	/// <param name="Color">The color to use when value meets or exceeds the threshold.</param>
+	public record struct ColorThreshold(double Threshold, Color Color);
+
+	/// <summary>
 	/// A horizontal bar graph control for visualizing percentage-based data.
 	/// Displays a filled/unfilled bar with optional label, value, and custom colors.
 	/// </summary>
@@ -33,6 +41,7 @@ namespace SharpConsoleUI.Controls
 		private Color? _foregroundColorValue;
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private string _label = string.Empty;
+		private int? _labelWidth;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private double _maxValue = 100.0;
 		private bool _showLabel = true;
@@ -41,6 +50,7 @@ namespace SharpConsoleUI.Controls
 		private Color _unfilledColor = Color.Grey35;
 		private double _value;
 		private string _valueFormat = "F1";
+		private List<ColorThreshold>? _colorThresholds;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _visible = true;
 		private int? _width;
@@ -115,6 +125,21 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_label = value ?? string.Empty;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the fixed width for the label column in characters.
+		/// When set, labels are padded or truncated to this width, ensuring bars align vertically.
+		/// When null (default), the label uses its natural length.
+		/// </summary>
+		public int? LabelWidth
+		{
+			get => _labelWidth;
+			set
+			{
+				_labelWidth = value.HasValue ? Math.Max(0, value.Value) : null;
 				Container?.Invalidate(true);
 			}
 		}
@@ -195,6 +220,39 @@ namespace SharpConsoleUI.Controls
 				_valueFormat = value ?? "F1";
 				Container?.Invalidate(true);
 			}
+		}
+
+		/// <summary>
+		/// Gets the current color thresholds for gradient effect.
+		/// </summary>
+		public IReadOnlyList<ColorThreshold>? ColorThresholds => _colorThresholds?.AsReadOnly();
+
+		/// <summary>
+		/// Sets color thresholds for gradient effect.
+		/// Colors apply when the bar percentage is greater than or equal to the threshold.
+		/// Example: (0, Green), (50, Yellow), (80, Red) shows green 0-49%, yellow 50-79%, red 80%+.
+		/// </summary>
+		/// <param name="thresholds">Color thresholds ordered by percentage. Will be auto-sorted.</param>
+		public void SetColorThresholds(params ColorThreshold[] thresholds)
+		{
+			if (thresholds == null || thresholds.Length == 0)
+			{
+				_colorThresholds = null;
+			}
+			else
+			{
+				_colorThresholds = thresholds.OrderBy(t => t.Threshold).ToList();
+			}
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Clears all color thresholds, reverting to single FilledColor.
+		/// </summary>
+		public void ClearColorThresholds()
+		{
+			_colorThresholds = null;
+			Container?.Invalidate(true);
 		}
 
 		#region IWindowControl Implementation
@@ -337,8 +395,45 @@ namespace SharpConsoleUI.Controls
 			// Paint label
 			if (_showLabel && !string.IsNullOrEmpty(_label))
 			{
-				string labelText = _label + ": ";
-				foreach (char c in labelText)
+				string labelContent = _label;
+				string suffix = ": ";
+				int targetWidth = _labelWidth ?? AnsiConsoleHelper.StripSpectreLength(labelContent);
+
+				// Truncate label if it exceeds target width (handles markup correctly)
+				int visibleLength = AnsiConsoleHelper.StripSpectreLength(labelContent);
+				if (visibleLength > targetWidth)
+				{
+					labelContent = TextTruncationHelper.Truncate(labelContent, targetWidth);
+					visibleLength = AnsiConsoleHelper.StripSpectreLength(labelContent);
+				}
+
+				// Convert markup to ANSI and write label
+				var labelCells = AnsiParser.Parse(
+					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(labelContent, targetWidth, 1, false, bgColor, fgColor).FirstOrDefault() ?? labelContent,
+					fgColor, bgColor);
+
+				foreach (var cell in labelCells)
+				{
+					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
+					{
+						buffer.SetCell(currentX, paintY, cell.Character, cell.Foreground, cell.Background);
+					}
+					currentX++;
+				}
+
+				// Pad to target width if needed
+				int paddingNeeded = targetWidth - visibleLength;
+				for (int i = 0; i < paddingNeeded; i++)
+				{
+					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
+					{
+						buffer.SetCell(currentX, paintY, ' ', Color.Grey70, bgColor);
+					}
+					currentX++;
+				}
+
+				// Write suffix ": "
+				foreach (char c in suffix)
 				{
 					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 					{
@@ -353,12 +448,15 @@ namespace SharpConsoleUI.Controls
 			int filledChars = (int)Math.Round(percent * _barWidth);
 			int unfilledChars = _barWidth - filledChars;
 
+			// Resolve the fill color based on thresholds
+			Color resolvedFilledColor = GetFilledColorForPercent(percent * 100);
+
 			// Filled portion
 			for (int i = 0; i < filledChars; i++)
 			{
 				if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 				{
-					buffer.SetCell(currentX, paintY, FILLED_CHAR, _filledColor, bgColor);
+					buffer.SetCell(currentX, paintY, FILLED_CHAR, resolvedFilledColor, bgColor);
 				}
 				currentX++;
 			}
@@ -382,7 +480,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 					{
-						buffer.SetCell(currentX, paintY, c, _filledColor, bgColor);
+						buffer.SetCell(currentX, paintY, c, resolvedFilledColor, bgColor);
 					}
 					currentX++;
 				}
@@ -408,6 +506,26 @@ namespace SharpConsoleUI.Controls
 			}
 
 			return width;
+		}
+
+		/// <summary>
+		/// Gets the appropriate fill color based on the current percentage and thresholds.
+		/// </summary>
+		/// <param name="percent">Current value as percentage (0-100).</param>
+		/// <returns>The color to use for the filled portion.</returns>
+		private Color GetFilledColorForPercent(double percent)
+		{
+			if (_colorThresholds == null || _colorThresholds.Count == 0)
+				return _filledColor;
+
+			// Find highest threshold that value meets or exceeds
+			Color result = _filledColor;
+			foreach (var threshold in _colorThresholds)
+			{
+				if (percent >= threshold.Threshold)
+					result = threshold.Color;
+			}
+			return result;
 		}
 
 		#endregion

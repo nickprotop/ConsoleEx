@@ -39,6 +39,17 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
+		/// Sets the fixed width for the label column in characters.
+		/// When set, all labels are padded or truncated to this width, ensuring bars align vertically.
+		/// Use this when displaying multiple bar graphs to align them.
+		/// </summary>
+		public BarGraphBuilder WithLabelWidth(int width)
+		{
+			_control.LabelWidth = width;
+			return this;
+		}
+
+		/// <summary>
 		/// Sets the current value.
 		/// </summary>
 		public BarGraphBuilder WithValue(double value)
@@ -198,6 +209,30 @@ namespace SharpConsoleUI.Builders
 		public BarGraphBuilder Visible(bool visible)
 		{
 			_control.Visible = visible;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets color thresholds for gradient effect.
+		/// Colors apply when bar percentage meets or exceeds the threshold.
+		/// </summary>
+		public BarGraphBuilder WithGradient(params ColorThreshold[] thresholds)
+		{
+			_control.SetColorThresholds(thresholds);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets a standard green/yellow/red gradient at 0%, 50%, and 80% thresholds.
+		/// Green for 0-49%, Yellow for 50-79%, Red for 80%+.
+		/// </summary>
+		public BarGraphBuilder WithStandardGradient()
+		{
+			_control.SetColorThresholds(
+				new ColorThreshold(0, Color.Green),
+				new ColorThreshold(50, Color.Yellow),
+				new ColorThreshold(80, Color.Red)
+			);
 			return this;
 		}
 
