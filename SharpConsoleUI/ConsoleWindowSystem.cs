@@ -2211,33 +2211,12 @@ namespace SharpConsoleUI
 		{
 			lock (_renderLock)
 			{
-				// CRITICAL: Capture dirty chars BEFORE rendering TopStatus (to avoid measuring our own metrics display)
-				if (_options.EnablePerformanceMetrics)
-				{
-					_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
-				}
-
-				if (ShouldRenderTopStatus())
-				{
-					// Build complete TopStatus with metrics appended
-					var baseStatus = TopStatus ?? string.Empty;
-					var metricsString = _options.EnablePerformanceMetrics
-						? FormatPerformanceMetrics()
-						: string.Empty;
-					var completeTopStatus = baseStatus + metricsString;
-
-					// Cache includes metrics for proper invalidation
-					if (completeTopStatus != _cachedTopStatus)
-					{
-						var topRow = completeTopStatus;
-
-						var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
-						var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
-						_consoleDriver.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.TopBarBackgroundColor, null)[0]);
-
-						_cachedTopStatus = completeTopStatus;
-					}
-				}
+				// RENDERING ORDER:
+				// 1. Windows first (so we can measure their dirty chars)
+				// 2. Capture dirty chars (after windows, before TopStatus)
+				// 3. TopStatus (with captured metrics, doesn't pollute measurement)
+				// 4. BottomStatus
+				// 5. Flush
 
 				var windowsToRender = new HashSet<Window>();
 
@@ -2339,6 +2318,36 @@ namespace SharpConsoleUI
 							_renderer.RenderWindow(window);
 						}
 					}
+				}
+			}
+
+			// CRITICAL: Capture dirty chars AFTER windows rendered, BEFORE TopStatus
+			// This measures window rendering work without including TopStatus itself
+			if (_options.EnablePerformanceMetrics)
+			{
+				_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
+			}
+
+			// Render TopStatus with captured metrics (this won't pollute the measurement)
+			if (ShouldRenderTopStatus())
+			{
+				// Build complete TopStatus with metrics appended
+				var baseStatus = TopStatus ?? string.Empty;
+				var metricsString = _options.EnablePerformanceMetrics
+					? FormatPerformanceMetrics()
+					: string.Empty;
+				var completeTopStatus = baseStatus + metricsString;
+
+				// Cache includes metrics for proper invalidation
+				if (completeTopStatus != _cachedTopStatus)
+				{
+					var topRow = completeTopStatus;
+
+					var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
+					var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
+					_consoleDriver.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.TopBarBackgroundColor, null)[0]);
+
+					_cachedTopStatus = completeTopStatus;
 				}
 			}
 
