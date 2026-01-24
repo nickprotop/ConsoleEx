@@ -1340,16 +1340,8 @@ namespace SharpConsoleUI
 			if (_currentFrameTimeMs <= 0)
 				return string.Empty;
 
-			// Calculate current FPS from current frame time
-			double currentFps = 1000.0 / _currentFrameTimeMs;
-
-			// Color-code FPS based on performance thresholds
-			string fpsColor = currentFps >= 55 ? "green" :
-							  currentFps >= 30 ? "yellow" : "red";
-
-			// Format: " | FPS:60 Frame:16ms Win:3 Dirty:1 DirtyChars:234"
+			// Format: " | Frame:16ms Win:3 Dirty:1 DirtyChars:234"
 			return $" [dim]|[/] " +
-				   $"[{fpsColor}]FPS:{currentFps:F0}[/] " +
 				   $"[dim]Frame:{_currentFrameTimeMs:F0}ms[/] " +
 				   $"[dim]Win:{_currentWindowCount}[/] " +
 				   $"[dim]Dirty:{_currentDirtyCount}[/] " +
