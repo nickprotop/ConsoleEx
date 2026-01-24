@@ -911,7 +911,8 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Find the parent node of a given node in the tree
+		/// Find the parent node of a given node in the tree with caching.
+		/// Uses cached parent when available to avoid tree traversal.
 		/// </summary>
 		/// <param name="node">The node to find parent for</param>
 		/// <returns>Parent node or null if node is a root node</returns>
@@ -920,7 +921,14 @@ namespace SharpConsoleUI.Controls
 			if (node == null || _rootNodes.Contains(node))
 				return null;
 
-			return FindParentNodeRecursive(node, _rootNodes);
+			// Use cache if available
+			if (node.CachedParent != null)
+				return node.CachedParent;
+
+			// Fall back to search and cache result
+			var parent = FindParentNodeRecursive(node, _rootNodes);
+			node.CachedParent = parent;
+			return parent;
 		}
 
 		/// <summary>
@@ -989,7 +997,8 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Calculates the depth of a node in the tree
+		/// Calculates the depth of a node in the tree with memoization.
+		/// Uses cached depth when available to avoid repeated traversals.
 		/// </summary>
 		/// <param name="node">The node to calculate depth for</param>
 		/// <returns>The depth of the node (0 for root nodes)</returns>
@@ -998,22 +1007,27 @@ namespace SharpConsoleUI.Controls
 			if (node == null)
 				return -1;
 
+			// Return cached depth if available
+			if (node.CachedDepth.HasValue)
+				return node.CachedDepth.Value;
+
 			if (_rootNodes.Contains(node))
-				return 0;
-
-			int depth = 0;
-			TreeNode? current = node;
-
-			while (current != null)
 			{
-				TreeNode? parent = FindParentNode(current);
-				if (parent == null)
-					break;
-
-				depth++;
-				current = parent;
+				node.CachedDepth = 0;
+				return 0;
 			}
 
+			TreeNode? parent = FindParentNode(node);
+			if (parent == null)
+			{
+				node.CachedDepth = 0;
+				return 0;
+			}
+
+			// Recursive calculation with memoization
+			int depth = GetNodeDepth(parent) + 1;
+			node.CachedDepth = depth;
+			node.CachedParent = parent;
 			return depth;
 		}
 
@@ -1291,12 +1305,26 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Invalidates the depth cache for all nodes in the tree.
+		/// Should be called when the tree structure changes.
+		/// </summary>
+		private void InvalidateDepthCache()
+		{
+			foreach (var node in _flattenedNodes)
+			{
+				node.CachedDepth = null;
+				node.CachedParent = null;
+			}
+		}
+
+		/// <summary>
 		/// Updates the flattened nodes list for easier navigation
 		/// </summary>
 		private void UpdateFlattenedNodes()
 		{
 			_flattenedNodes.Clear();
 			_textMeasurementCache.InvalidateCache(); // Clear cache when tree structure changes
+			InvalidateDepthCache(); // Clear depth cache when tree structure changes
 			FlattenNodes(_rootNodes);
 
 			// Ensure selected index is valid
@@ -1630,6 +1658,16 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the optional color for this node's text.
 		/// </summary>
 		public Color? TextColor { get; set; }
+
+		/// <summary>
+		/// Internal cache for node depth calculation. Invalidated when tree structure changes.
+		/// </summary>
+		internal int? CachedDepth { get; set; }
+
+		/// <summary>
+		/// Internal cache for parent node lookup. Invalidated when tree structure changes.
+		/// </summary>
+		internal TreeNode? CachedParent { get; set; }
 
 		/// <summary>
 		/// Adds a child node to this node.

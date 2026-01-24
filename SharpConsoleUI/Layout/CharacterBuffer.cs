@@ -25,6 +25,7 @@ namespace SharpConsoleUI.Layout
 		private Cell[,] _cells;
 		private Cell[,]? _previousCells;
 		private readonly Color _defaultBackground;
+		private LayoutRect _dirtyRegion = LayoutRect.Empty;
 
 		/// <summary>
 		/// Gets the width of the buffer.
@@ -122,6 +123,20 @@ namespace SharpConsoleUI.Layout
 				cell.Foreground = foreground;
 				cell.Background = background;
 				cell.Dirty = true;
+
+				// Expand dirty region to include this cell
+				if (_dirtyRegion.IsEmpty)
+				{
+					_dirtyRegion = new LayoutRect(x, y, 1, 1);
+				}
+				else
+				{
+					int minX = Math.Min(_dirtyRegion.X, x);
+					int minY = Math.Min(_dirtyRegion.Y, y);
+					int maxX = Math.Max(_dirtyRegion.Right, x + 1);
+					int maxY = Math.Max(_dirtyRegion.Bottom, y + 1);
+					_dirtyRegion = new LayoutRect(minX, minY, maxX - minX, maxY - minY);
+				}
 			}
 		}
 
@@ -249,6 +264,9 @@ namespace SharpConsoleUI.Layout
 					cell.Dirty = true;
 				}
 			}
+
+			// Mark entire buffer as dirty
+			_dirtyRegion = new LayoutRect(0, 0, Width, Height);
 		}
 
 		/// <summary>
@@ -368,14 +386,20 @@ namespace SharpConsoleUI.Layout
 				_previousCells = new Cell[Width, Height];
 			}
 
-			// Copy current to previous and clear dirty flags
-			for (int y = 0; y < Height; y++)
+			// Only copy dirty region for efficiency
+			if (!_dirtyRegion.IsEmpty)
 			{
-				for (int x = 0; x < Width; x++)
+				// Copy only the dirty region
+				for (int y = _dirtyRegion.Y; y < _dirtyRegion.Bottom && y < Height; y++)
 				{
-					_previousCells[x, y] = _cells[x, y];
-					_cells[x, y].Dirty = false;
+					for (int x = _dirtyRegion.X; x < _dirtyRegion.Right && x < Width; x++)
+					{
+						_previousCells[x, y] = _cells[x, y];
+						_cells[x, y].Dirty = false;
+					}
 				}
+
+				_dirtyRegion = LayoutRect.Empty;
 			}
 		}
 

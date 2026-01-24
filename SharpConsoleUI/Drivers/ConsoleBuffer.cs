@@ -86,7 +86,6 @@ namespace SharpConsoleUI.Drivers
 			if (content.EndsWith(ResetSequence))
 				content = content[..^ResetSequence.Length];
 
-			var matches = _ansiRegex.Matches(content);
 			var activeAnsiSequence = new StringBuilder(64); // Pre-size for typical ANSI sequences
 			int contentPos = 0;
 			int bufferX = x;
@@ -95,25 +94,35 @@ namespace SharpConsoleUI.Drivers
 			// Clear the area where new content will be written
 			ClearArea(x, y, contentLength);
 
-			// Process each character and ANSI sequence
+			// Single-pass state machine parser for ANSI sequences
 			while (contentPos < content.Length && bufferX < _width)
 			{
-				bool isAnsiSequence = false;
-
-				// Check if current position is the start of an ANSI sequence
-				foreach (Match match in matches)
+				// State machine: detect ESC character
+				if (content[contentPos] == '\x1B' &&
+					contentPos + 1 < content.Length &&
+					content[contentPos + 1] == '[')
 				{
-					if (match.Index == contentPos)
+					// Parse ANSI sequence inline
+					int seqStart = contentPos;
+					contentPos += 2;  // Skip ESC[
+
+					// Read parameters and command (consume all non-letter characters)
+					while (contentPos < content.Length &&
+						   !char.IsLetter(content[contentPos]))
 					{
-						activeAnsiSequence.Append(match.Value);
-						contentPos += match.Length;
-						isAnsiSequence = true;
-						break;
+						contentPos++;
+					}
+
+					// Include the terminating command letter
+					if (contentPos < content.Length)
+					{
+						contentPos++;  // Include terminator
+						activeAnsiSequence.Append(content, seqStart, contentPos - seqStart);
 					}
 				}
-
-				if (!isAnsiSequence)
+				else
 				{
+					// Regular character - write to buffer
 					ref var cell = ref _backBuffer[bufferX, y]; // Use ref for better performance
 					cell.Character = content[contentPos];
 					cell.AnsiEscape = activeAnsiSequence.ToString();

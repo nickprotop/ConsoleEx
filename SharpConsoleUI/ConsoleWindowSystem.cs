@@ -95,6 +95,11 @@ namespace SharpConsoleUI
 		private bool _running;
 		private bool _showTaskBar = true;
 
+		// Frame rate limiting
+		private const int TargetFPS = 60;
+		private const int MinFrameTime = 1000 / TargetFPS;  // ~16ms
+		private DateTime _lastRenderTime = DateTime.UtcNow;
+
 		// Event handlers stored for proper cleanup
 		private EventHandler<ConsoleKeyInfo>? _keyPressedHandler;
 		private EventHandler<Size>? _screenResizedHandler;
@@ -773,19 +778,24 @@ namespace SharpConsoleUI
 				while (_running)
 				{
 					ProcessInput();
-					UpdateDisplay();
-					UpdateCursor();
 
-					// Update idle state and get recommended sleep duration
-					_inputStateService.UpdateIdleState();
-					_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
+					var now = DateTime.UtcNow;
+					var elapsed = (now - _lastRenderTime).TotalMilliseconds;
 
-					// Reduce idle time if windows need redrawing
-					if (AnyWindowDirty())
+					// Frame pacing: only render if enough time has passed and windows are dirty
+					if (AnyWindowDirty() && elapsed >= MinFrameTime)
 					{
-						_idleTime = 10;
+						UpdateDisplay();
+						_lastRenderTime = now;
+						_idleTime = MinFrameTime;
+					}
+					else
+					{
+						_inputStateService.UpdateIdleState();
+						_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
 					}
 
+					UpdateCursor();
 					Thread.Sleep(_idleTime);
 				}
 			}
@@ -2141,26 +2151,43 @@ namespace SharpConsoleUI
 
 				var windowsToRender = new HashSet<Window>();
 
-				// Identify dirty windows and overlapping windows
+				// Identify dirty windows and only overlapping windows with higher Z-index
+				// This prevents unnecessary redraws of windows below the dirty window
 				foreach (var window in Windows.Values)
 				{
 					// Skip minimized windows - they're invisible
 					if (window.State == WindowState.Minimized)
 						continue;
 
-					if (window.IsDirty && !IsCompletelyCovered(window))
+					// Skip windows with invalid dimensions (can happen during rapid resize)
+					if (window.Width <= 0 || window.Height <= 0)
+						continue;
+
+					if (!window.IsDirty)
+						continue;
+
+					if (IsCompletelyCovered(window))
+						continue;
+
+					windowsToRender.Add(window);
+
+					// Only add overlapping windows with HIGHER Z-index (drawn on top)
+					foreach (var other in Windows.Values)
 					{
-						var overlappingWindows = _renderer.GetOverlappingWindows(window);
-						foreach (var overlappingWindow in overlappingWindows)
-						{
-							if (overlappingWindow.IsDirty || _renderer.IsOverlapping(window, overlappingWindow))
-							{
-								if (overlappingWindow.IsDirty || overlappingWindow.ZIndex > window.ZIndex)
-								{
-									windowsToRender.Add(overlappingWindow);
-								}
-							}
-						}
+						if (other.State == WindowState.Minimized)
+							continue;
+
+						// Skip windows with invalid dimensions
+						if (other.Width <= 0 || other.Height <= 0)
+							continue;
+
+						if (other.ZIndex <= window.ZIndex)
+							continue; // Skip windows below or at same level
+
+						if (!_renderer.IsOverlapping(window, other))
+							continue;
+
+						windowsToRender.Add(other);
 					}
 				}
 
@@ -2171,7 +2198,11 @@ namespace SharpConsoleUI
 				{
 					if (window != ActiveWindow && windowsToRender.Contains(window))
 					{
-						_renderer.RenderWindow(window);
+						// Skip windows with invalid dimensions
+						if (window.Width > 0 && window.Height > 0)
+						{
+							_renderer.RenderWindow(window);
+						}
 					}
 				}
 
@@ -2180,7 +2211,11 @@ namespace SharpConsoleUI
 				{
 					if (windowsToRender.Contains(ActiveWindow))
 					{
-						_renderer.RenderWindow(ActiveWindow);
+						// Skip windows with invalid dimensions
+						if (ActiveWindow.Width > 0 && ActiveWindow.Height > 0)
+						{
+							_renderer.RenderWindow(ActiveWindow);
+						}
 					}
 					else
 					{
@@ -2190,7 +2225,11 @@ namespace SharpConsoleUI
 						{
 							if (windowsToRender.Contains(overlappingWindow))
 							{
-								_renderer.RenderWindow(ActiveWindow);
+								// Skip windows with invalid dimensions
+								if (ActiveWindow.Width > 0 && ActiveWindow.Height > 0)
+								{
+									_renderer.RenderWindow(ActiveWindow);
+								}
 							}
 						}
 					}
@@ -2204,7 +2243,11 @@ namespace SharpConsoleUI
 					// AlwaysOnTop windows always render if dirty or in windowsToRender
 					if (window.IsDirty || windowsToRender.Contains(window))
 					{
-						_renderer.RenderWindow(window);
+						// Skip windows with invalid dimensions
+						if (window.Width > 0 && window.Height > 0)
+						{
+							_renderer.RenderWindow(window);
+						}
 					}
 				}
 			}

@@ -43,11 +43,27 @@ namespace SharpConsoleUI
 		/// <param name="foregroundColor">The foreground color, or null to use the default.</param>
 		public void FillRect(int left, int top, int width, int height, char character, Color? backgroundColor, Color? foregroundColor)
 		{
+			// Guard against invalid dimensions during rapid console resize
+			if (width <= 0 || height <= 0)
+				return;
+
+			// Early exit if completely off-screen
+			if (left >= _consoleWindowSystem.ConsoleDriver.ScreenSize.Width)
+				return;
+
+			if (top >= _consoleWindowSystem.DesktopDimensions.Height)
+				return;
+
 			for (var y = 0; y < height; y++)
 			{
-				if (top + y > _consoleWindowSystem.DesktopDimensions.Height) break;
+				if (top + y >= _consoleWindowSystem.DesktopDimensions.Height) break;
 
-				_consoleWindowSystem.ConsoleDriver.WriteToConsole(left, top + _consoleWindowSystem.DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(character, Math.Min(width, _consoleWindowSystem.ConsoleDriver.ScreenSize.Width - left))}", Math.Min(width, _consoleWindowSystem.ConsoleDriver.ScreenSize.Width - left), 1, false, backgroundColor, foregroundColor)[0]);
+				// Calculate effective width, ensuring it's non-negative
+				int effectiveWidth = Math.Min(width, _consoleWindowSystem.ConsoleDriver.ScreenSize.Width - left);
+				if (effectiveWidth <= 0)
+					continue;
+
+				_consoleWindowSystem.ConsoleDriver.WriteToConsole(left, top + _consoleWindowSystem.DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(character, effectiveWidth)}", effectiveWidth, 1, false, backgroundColor, foregroundColor)[0]);
 			}
 		}
 
@@ -75,34 +91,41 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Gets all windows that overlap with the specified window, recursively including windows that overlap with those windows.
+		/// Gets all windows that overlap with the specified window using iterative BFS.
+		/// This avoids unbounded recursion and is more efficient than the recursive approach.
 		/// </summary>
 		/// <param name="window">The window to check for overlaps.</param>
-		/// <param name="visited">Optional set of already visited windows to prevent infinite recursion.</param>
+		/// <param name="visited">Optional set of already visited windows (ignored, kept for compatibility).</param>
 		/// <returns>A set of all windows that form an overlapping chain with the specified window.</returns>
 		public HashSet<Window> GetOverlappingWindows(Window window, HashSet<Window>? visited = null)
 		{
-			visited ??= new HashSet<Window>();
-			if (visited.Contains(window))
-			{
-				return visited;
-			}
+			var result = new HashSet<Window>();
+			var queue = new Queue<Window>();
+			queue.Enqueue(window);
 
-			visited.Add(window);
-
-			foreach (var otherWindow in _consoleWindowSystem.Windows.Values)
+			while (queue.Count > 0)
 			{
-				// Skip minimized windows - they're invisible and don't overlap
-				if (otherWindow.State == WindowState.Minimized)
+				var current = queue.Dequeue();
+				if (!result.Add(current))
 					continue;
 
-				if (window != otherWindow && IsOverlapping(window, otherWindow))
+				foreach (var other in _consoleWindowSystem.Windows.Values)
 				{
-					GetOverlappingWindows(otherWindow, visited);
+					// Skip minimized windows - they're invisible and don't overlap
+					if (other.State == WindowState.Minimized)
+						continue;
+
+					if (result.Contains(other))
+						continue;
+
+					if (IsOverlapping(current, other))
+					{
+						queue.Enqueue(other);
+					}
 				}
 			}
 
-			return visited;
+			return result;
 		}
 
 		/// <summary>
