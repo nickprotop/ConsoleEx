@@ -107,6 +107,9 @@ namespace SharpConsoleUI
 		private int _currentWindowCount;
 		private int _currentDirtyCount;
 		private int _currentDirtyChars;
+		private int _displayedDirtyChars; // Preserved value for display
+		private DateTime _lastDirtyCharsChange = DateTime.UtcNow;
+		private const int DirtyCharsHoldTimeMs = 1000; // Hold last value for 1 second
 		private int _metricsUpdateCounter = 0;
 		private const int MetricsUpdateInterval = 15; // Update display every 15 frames (~250ms at 60fps)
 
@@ -1335,6 +1338,24 @@ namespace SharpConsoleUI
 			_currentWindowCount = Windows.Count;
 			_currentDirtyCount = Windows.Values.Count(w => w.IsDirty);
 			_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
+
+			// Handle DirtyChars hold logic: preserve last non-zero value for visibility
+			if (_currentDirtyChars != _displayedDirtyChars)
+			{
+				// Value changed - update immediately
+				_displayedDirtyChars = _currentDirtyChars;
+				_lastDirtyCharsChange = DateTime.UtcNow;
+			}
+			else if (_currentDirtyChars == 0)
+			{
+				// Value is 0 - check if hold time expired
+				var elapsed = (DateTime.UtcNow - _lastDirtyCharsChange).TotalMilliseconds;
+				if (elapsed >= DirtyCharsHoldTimeMs)
+				{
+					_displayedDirtyChars = 0; // Reset to 0 after hold period
+				}
+				// else: preserve last non-zero value
+			}
 		}
 
 		private string FormatPerformanceMetrics()
@@ -1347,7 +1368,7 @@ namespace SharpConsoleUI
 				   $"[dim]Frame:{_currentFrameTimeMs:F0}ms[/] " +
 				   $"[dim]Win:{_currentWindowCount}[/] " +
 				   $"[dim]Dirty:{_currentDirtyCount}[/] " +
-				   $"[dim]DirtyChars:{_currentDirtyChars}[/]";
+				   $"[dim]DirtyChars:{_displayedDirtyChars}[/]";
 		}
 
 		private void CycleActiveWindow()
