@@ -126,12 +126,5 @@ namespace SharpConsoleUI.Configuration
 		/// Maximum time between clicks to register as double-click in milliseconds (default: 500ms)
 		/// </summary>
 		public const int DefaultDoubleClickThresholdMs = 500;
-
-		// Performance metrics defaults
-		/// <summary>
-		/// Number of frames to average for performance metrics display (default: 30 frames)
-		/// At 60 FPS, this provides ~0.5 second rolling average
-		/// </summary>
-		public const int DefaultPerformanceAverageFrames = 30;
 	}
 }

@@ -4,8 +4,7 @@ namespace SharpConsoleUI.Configuration;
 /// Configuration options for ConsoleWindowSystem behavior.
 /// </summary>
 public record ConsoleWindowSystemOptions(
-    bool EnablePerformanceMetrics = false,
-    int PerformanceAverageFrames = 30
+    bool EnablePerformanceMetrics = false
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

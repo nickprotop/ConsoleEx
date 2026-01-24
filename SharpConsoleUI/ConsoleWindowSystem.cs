@@ -99,18 +99,13 @@ namespace SharpConsoleUI
 		private const int TargetFPS = 60;
 		private const int MinFrameTime = 1000 / TargetFPS;  // ~16ms
 		private DateTime _lastRenderTime = DateTime.UtcNow;
+		private DateTime _lastFrameTime = DateTime.UtcNow;
 
-		// Performance metrics tracking
+		// Performance metrics tracking - real-time, no aggregation
 		private readonly ConsoleWindowSystemOptions _options;
-		private readonly Queue<PerformanceFrame> _performanceFrames = new();
-		private const int MaxPerformanceFrames = 30;
-
-		private record PerformanceFrame(
-			double FrameTimeMs,
-			int WindowCount,
-			int DirtyCount,
-			DateTime Timestamp
-		);
+		private double _currentFrameTimeMs;
+		private int _currentWindowCount;
+		private int _currentDirtyCount;
 
 		// Event handlers stored for proper cleanup
 		private EventHandler<ConsoleKeyInfo>? _keyPressedHandler;
@@ -800,15 +795,17 @@ namespace SharpConsoleUI
 					var now = DateTime.UtcNow;
 					var elapsed = (now - _lastRenderTime).TotalMilliseconds;
 
+					// Track performance metrics on EVERY iteration (independent of rendering)
+					if (_options.EnablePerformanceMetrics)
+					{
+						var frameElapsed = (now - _lastFrameTime).TotalMilliseconds;
+						TrackPerformanceFrame(frameElapsed);
+						_lastFrameTime = now;
+					}
+
 					// Frame pacing: only render if enough time has passed and windows are dirty
 					if (AnyWindowDirty() && elapsed >= MinFrameTime)
 					{
-						// Track performance metrics BEFORE rendering
-						if (_options.EnablePerformanceMetrics)
-						{
-							TrackPerformanceFrame(elapsed);
-						}
-
 						UpdateDisplay();
 						_lastRenderTime = now;
 						_idleTime = MinFrameTime;
@@ -1321,49 +1318,30 @@ namespace SharpConsoleUI
 
 		private void TrackPerformanceFrame(double frameTimeMs)
 		{
-			// Count dirty windows
-			int dirtyCount = Windows.Values.Count(w => w.IsDirty);
-			int windowCount = Windows.Count;
-
-			// Add frame to rolling buffer
-			_performanceFrames.Enqueue(new PerformanceFrame(
-				FrameTimeMs: frameTimeMs,
-				WindowCount: windowCount,
-				DirtyCount: dirtyCount,
-				Timestamp: DateTime.UtcNow
-			));
-
-			// Maintain 30-frame sliding window
-			while (_performanceFrames.Count > MaxPerformanceFrames)
-			{
-				_performanceFrames.Dequeue();
-			}
+			// Update current frame metrics - real-time, no aggregation
+			_currentFrameTimeMs = frameTimeMs;
+			_currentWindowCount = Windows.Count;
+			_currentDirtyCount = Windows.Values.Count(w => w.IsDirty);
 		}
 
 		private string FormatPerformanceMetrics()
 		{
-			if (_performanceFrames.Count == 0)
+			if (_currentFrameTimeMs <= 0)
 				return string.Empty;
 
-			// Calculate rolling averages
-			double avgFrameTime = _performanceFrames.Average(f => f.FrameTimeMs);
-			double avgFps = 1000.0 / avgFrameTime;
-
-			// Get current counts from most recent frame
-			var latest = _performanceFrames.Last();
-			int windowCount = latest.WindowCount;
-			int dirtyCount = latest.DirtyCount;
+			// Calculate current FPS from current frame time
+			double currentFps = 1000.0 / _currentFrameTimeMs;
 
 			// Color-code FPS based on performance thresholds
-			string fpsColor = avgFps >= 55 ? "green" :
-							  avgFps >= 30 ? "yellow" : "red";
+			string fpsColor = currentFps >= 55 ? "green" :
+							  currentFps >= 30 ? "yellow" : "red";
 
 			// Format: " | FPS:60 Frame:16ms Win:3 Dirty:1"
 			return $" [dim]|[/] " +
-				   $"[{fpsColor}]FPS:{avgFps:F0}[/] " +
-				   $"[dim]Frame:{avgFrameTime:F0}ms[/] " +
-				   $"[dim]Win:{windowCount}[/] " +
-				   $"[dim]Dirty:{dirtyCount}[/]";
+				   $"[{fpsColor}]FPS:{currentFps:F0}[/] " +
+				   $"[dim]Frame:{_currentFrameTimeMs:F0}ms[/] " +
+				   $"[dim]Win:{_currentWindowCount}[/] " +
+				   $"[dim]Dirty:{_currentDirtyCount}[/]";
 		}
 
 		private void CycleActiveWindow()
