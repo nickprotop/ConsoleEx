@@ -461,6 +461,17 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <summary>
+		/// Gets the count of dirty characters in the rendering buffer.
+		/// </summary>
+		/// <returns>The number of dirty characters, or 0 if not using buffered rendering.</returns>
+		public int GetDirtyCharacterCount()
+		{
+			return RenderMode == RenderMode.Buffer && _consoleBuffer != null
+				? _consoleBuffer.GetDirtyCharacterCount()
+				: 0;
+		}
+
+		/// <summary>
 		/// Emergency cleanup handler called on process exit.
 		/// </summary>
 		/// <remarks>

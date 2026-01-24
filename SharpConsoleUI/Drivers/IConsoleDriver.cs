@@ -117,5 +117,11 @@ namespace SharpConsoleUI.Drivers
 		/// <param name="y">The vertical position (row) to write at.</param>
 		/// <param name="value">The string value to write, which may include ANSI escape sequences.</param>
 		public void WriteToConsole(int x, int y, string value);
+
+		/// <summary>
+		/// Gets the count of dirty characters in the rendering buffer.
+		/// </summary>
+		/// <returns>The number of dirty characters, or 0 if not using buffered rendering.</returns>
+		public int GetDirtyCharacterCount();
 	}
 }

@@ -106,6 +106,9 @@ namespace SharpConsoleUI
 		private double _currentFrameTimeMs;
 		private int _currentWindowCount;
 		private int _currentDirtyCount;
+		private int _currentDirtyChars;
+		private int _metricsUpdateCounter = 0;
+		private const int MetricsUpdateInterval = 15; // Update display every 15 frames (~250ms at 60fps)
 
 		// Event handlers stored for proper cleanup
 		private EventHandler<ConsoleKeyInfo>? _keyPressedHandler;
@@ -801,6 +804,13 @@ namespace SharpConsoleUI
 						var frameElapsed = (now - _lastFrameTime).TotalMilliseconds;
 						TrackPerformanceFrame(frameElapsed);
 						_lastFrameTime = now;
+
+						// Throttle TopStatus updates - only invalidate every N frames
+						if (++_metricsUpdateCounter >= MetricsUpdateInterval)
+						{
+							_metricsUpdateCounter = 0;
+							_cachedTopStatus = null; // Force TopStatus refresh
+						}
 					}
 
 					// Frame pacing: only render if enough time has passed and windows are dirty
@@ -1322,6 +1332,7 @@ namespace SharpConsoleUI
 			_currentFrameTimeMs = frameTimeMs;
 			_currentWindowCount = Windows.Count;
 			_currentDirtyCount = Windows.Values.Count(w => w.IsDirty);
+			_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
 		}
 
 		private string FormatPerformanceMetrics()
@@ -1336,12 +1347,13 @@ namespace SharpConsoleUI
 			string fpsColor = currentFps >= 55 ? "green" :
 							  currentFps >= 30 ? "yellow" : "red";
 
-			// Format: " | FPS:60 Frame:16ms Win:3 Dirty:1"
+			// Format: " | FPS:60 Frame:16ms Win:3 Dirty:1 DirtyChars:234"
 			return $" [dim]|[/] " +
 				   $"[{fpsColor}]FPS:{currentFps:F0}[/] " +
 				   $"[dim]Frame:{_currentFrameTimeMs:F0}ms[/] " +
 				   $"[dim]Win:{_currentWindowCount}[/] " +
-				   $"[dim]Dirty:{_currentDirtyCount}[/]";
+				   $"[dim]Dirty:{_currentDirtyCount}[/] " +
+				   $"[dim]DirtyChars:{_currentDirtyChars}[/]";
 		}
 
 		private void CycleActiveWindow()

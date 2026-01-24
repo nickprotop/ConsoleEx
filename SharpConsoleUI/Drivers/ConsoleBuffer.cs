@@ -165,6 +165,24 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <summary>
+		/// Gets the count of dirty characters in the back buffer.
+		/// </summary>
+		/// <returns>The number of characters marked as dirty.</returns>
+		public int GetDirtyCharacterCount()
+		{
+			int count = 0;
+			for (int y = 0; y < _height; y++)
+			{
+				for (int x = 0; x < _width; x++)
+				{
+					if (_backBuffer[x, y].IsDirty)
+						count++;
+				}
+			}
+			return count;
+		}
+
+		/// <summary>
 		/// Renders the back buffer to the console, updating only the changed portions.
 		/// </summary>
 		/// <remarks>
