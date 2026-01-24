@@ -2211,6 +2211,12 @@ namespace SharpConsoleUI
 		{
 			lock (_renderLock)
 			{
+				// CRITICAL: Capture dirty chars BEFORE rendering TopStatus (to avoid measuring our own metrics display)
+				if (_options.EnablePerformanceMetrics)
+				{
+					_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
+				}
+
 				if (ShouldRenderTopStatus())
 				{
 					// Build complete TopStatus with metrics appended
@@ -2365,12 +2371,6 @@ namespace SharpConsoleUI
 
 					_cachedBottomStatus = bottomRow;
 				}
-			}
-
-			// Capture dirty char count BEFORE Flush() clears the buffer
-			if (_options.EnablePerformanceMetrics)
-			{
-				_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
 			}
 
 			_consoleDriver.Flush();
