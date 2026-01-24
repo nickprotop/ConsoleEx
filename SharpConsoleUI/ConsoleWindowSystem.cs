@@ -799,22 +799,24 @@ namespace SharpConsoleUI
 					var elapsed = (now - _lastRenderTime).TotalMilliseconds;
 
 					// Track performance metrics on EVERY iteration (independent of rendering)
+					bool metricsNeedUpdate = false;
 					if (_options.EnablePerformanceMetrics)
 					{
 						var frameElapsed = (now - _lastFrameTime).TotalMilliseconds;
 						TrackPerformanceFrame(frameElapsed);
 						_lastFrameTime = now;
 
-						// Throttle TopStatus updates - only invalidate every N frames
+						// Check if metrics display needs updating (every N frames)
 						if (++_metricsUpdateCounter >= MetricsUpdateInterval)
 						{
 							_metricsUpdateCounter = 0;
-							_cachedTopStatus = null; // Force TopStatus refresh
+							_cachedTopStatus = null; // Invalidate cache
+							metricsNeedUpdate = true; // Force render
 						}
 					}
 
-					// Frame pacing: only render if enough time has passed and windows are dirty
-					if (AnyWindowDirty() && elapsed >= MinFrameTime)
+					// Frame pacing: render if windows are dirty OR metrics need update
+					if ((AnyWindowDirty() || metricsNeedUpdate) && elapsed >= MinFrameTime)
 					{
 						UpdateDisplay();
 						_lastRenderTime = now;
