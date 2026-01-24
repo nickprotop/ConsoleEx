@@ -1337,7 +1337,7 @@ namespace SharpConsoleUI
 			_currentFrameTimeMs = frameTimeMs;
 			_currentWindowCount = Windows.Count;
 			_currentDirtyCount = Windows.Values.Count(w => w.IsDirty);
-			_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
+			// NOTE: _currentDirtyChars is captured in UpdateDisplay() before Flush()
 
 			// Handle DirtyChars hold logic: preserve last non-zero value for visibility
 			if (_currentDirtyChars != _displayedDirtyChars)
@@ -2365,6 +2365,12 @@ namespace SharpConsoleUI
 
 					_cachedBottomStatus = bottomRow;
 				}
+			}
+
+			// Capture dirty char count BEFORE Flush() clears the buffer
+			if (_options.EnablePerformanceMetrics)
+			{
+				_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
 			}
 
 			_consoleDriver.Flush();
