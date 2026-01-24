@@ -100,6 +100,18 @@ namespace SharpConsoleUI
 		private const int MinFrameTime = 1000 / TargetFPS;  // ~16ms
 		private DateTime _lastRenderTime = DateTime.UtcNow;
 
+		// Performance metrics tracking
+		private readonly ConsoleWindowSystemOptions _options;
+		private readonly Queue<PerformanceFrame> _performanceFrames = new();
+		private const int MaxPerformanceFrames = 30;
+
+		private record PerformanceFrame(
+			double FrameTimeMs,
+			int WindowCount,
+			int DirtyCount,
+			DateTime Timestamp
+		);
+
 		// Event handlers stored for proper cleanup
 		private EventHandler<ConsoleKeyInfo>? _keyPressedHandler;
 		private EventHandler<Size>? _screenResizedHandler;
@@ -127,8 +139,9 @@ namespace SharpConsoleUI
 		/// </summary>
 		/// <param name="driver">Pre-configured console driver.</param>
 		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
-		public ConsoleWindowSystem(IConsoleDriver driver, PluginConfiguration? pluginConfiguration = null)
-			: this(driver, ThemeRegistry.GetDefaultTheme(), pluginConfiguration)
+		/// <param name="options">Optional configuration options for system behavior.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null)
+			: this(driver, ThemeRegistry.GetDefaultTheme(), pluginConfiguration, options)
 		{
 		}
 
@@ -138,8 +151,9 @@ namespace SharpConsoleUI
 		/// <param name="driver">Pre-configured console driver.</param>
 		/// <param name="themeName">The name of the theme to use.</param>
 		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
-		public ConsoleWindowSystem(IConsoleDriver driver, string themeName, PluginConfiguration? pluginConfiguration = null)
-			: this(driver, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()), pluginConfiguration)
+		/// <param name="options">Optional configuration options for system behavior.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver, string themeName, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null)
+			: this(driver, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()), pluginConfiguration, options)
 		{
 		}
 
@@ -149,10 +163,14 @@ namespace SharpConsoleUI
 		/// <param name="driver">Pre-configured console driver.</param>
 		/// <param name="theme">The theme instance to use.</param>
 		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
-		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme, PluginConfiguration? pluginConfiguration = null)
+		/// <param name="options">Optional configuration options for system behavior.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null)
 		{
 			_consoleDriver = driver ?? throw new ArgumentNullException(nameof(driver));
 			_theme = theme ?? new ModernGrayTheme();
+
+			// Initialize options with environment variable fallback
+			_options = options ?? ConsoleWindowSystemOptions.Create();
 
 			// Initialize state services BEFORE driver.Initialize() call
 			_cursorStateService = new CursorStateService(_consoleDriver);
@@ -332,7 +350,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		private bool ShouldRenderTopStatus()
 		{
-			return _showTopStatus && !string.IsNullOrEmpty(TopStatus);
+			return _showTopStatus && (!string.IsNullOrEmpty(TopStatus) || _options.EnablePerformanceMetrics);
 		}
 
 		/// <summary>
@@ -785,6 +803,12 @@ namespace SharpConsoleUI
 					// Frame pacing: only render if enough time has passed and windows are dirty
 					if (AnyWindowDirty() && elapsed >= MinFrameTime)
 					{
+						// Track performance metrics BEFORE rendering
+						if (_options.EnablePerformanceMetrics)
+						{
+							TrackPerformanceFrame(elapsed);
+						}
+
 						UpdateDisplay();
 						_lastRenderTime = now;
 						_idleTime = MinFrameTime;
@@ -1293,6 +1317,53 @@ namespace SharpConsoleUI
 		private bool AnyWindowDirty()
 		{
 			return Windows.Values.Any(window => window.IsDirty);
+		}
+
+		private void TrackPerformanceFrame(double frameTimeMs)
+		{
+			// Count dirty windows
+			int dirtyCount = Windows.Values.Count(w => w.IsDirty);
+			int windowCount = Windows.Count;
+
+			// Add frame to rolling buffer
+			_performanceFrames.Enqueue(new PerformanceFrame(
+				FrameTimeMs: frameTimeMs,
+				WindowCount: windowCount,
+				DirtyCount: dirtyCount,
+				Timestamp: DateTime.UtcNow
+			));
+
+			// Maintain 30-frame sliding window
+			while (_performanceFrames.Count > MaxPerformanceFrames)
+			{
+				_performanceFrames.Dequeue();
+			}
+		}
+
+		private string FormatPerformanceMetrics()
+		{
+			if (_performanceFrames.Count == 0)
+				return string.Empty;
+
+			// Calculate rolling averages
+			double avgFrameTime = _performanceFrames.Average(f => f.FrameTimeMs);
+			double avgFps = 1000.0 / avgFrameTime;
+
+			// Get current counts from most recent frame
+			var latest = _performanceFrames.Last();
+			int windowCount = latest.WindowCount;
+			int dirtyCount = latest.DirtyCount;
+
+			// Color-code FPS based on performance thresholds
+			string fpsColor = avgFps >= 55 ? "green" :
+							  avgFps >= 30 ? "yellow" : "red";
+
+			// Format: " | FPS:60 Frame:16ms Win:3 Dirty:1"
+			return $" [dim]|[/] " +
+				   $"[{fpsColor}]FPS:{avgFps:F0}[/] " +
+				   $"[dim]Frame:{avgFrameTime:F0}ms[/] " +
+				   $"[dim]Win:{windowCount}[/] " +
+				   $"[dim]Dirty:{dirtyCount}[/]";
 		}
 
 		private void CycleActiveWindow()
@@ -2137,15 +2208,23 @@ namespace SharpConsoleUI
 			{
 				if (ShouldRenderTopStatus())
 				{
-					if (TopStatus != _cachedTopStatus)
+					// Build complete TopStatus with metrics appended
+					var baseStatus = TopStatus ?? string.Empty;
+					var metricsString = _options.EnablePerformanceMetrics
+						? FormatPerformanceMetrics()
+						: string.Empty;
+					var completeTopStatus = baseStatus + metricsString;
+
+					// Cache includes metrics for proper invalidation
+					if (completeTopStatus != _cachedTopStatus)
 					{
-						var topRow = TopStatus;
+						var topRow = completeTopStatus;
 
 						var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
 						var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
 						_consoleDriver.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.TopBarBackgroundColor, null)[0]);
 
-						_cachedTopStatus = TopStatus;
+						_cachedTopStatus = completeTopStatus;
 					}
 				}
 
