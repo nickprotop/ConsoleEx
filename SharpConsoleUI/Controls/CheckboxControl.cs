@@ -8,6 +8,8 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Events;
+using SharpConsoleUI.Drivers;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
@@ -21,7 +23,8 @@ namespace SharpConsoleUI.Controls
 	/// A toggleable checkbox control that displays a label and checked/unchecked state.
 	/// Supports keyboard interaction with Space or Enter keys to toggle state.
 	/// </summary>
-	public class CheckboxControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
+	public class CheckboxControl : IWindowControl, IInteractiveControl,
+		IFocusableControl, IMouseAwareControl, IDOMPaintable
 	{
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -40,9 +43,10 @@ namespace SharpConsoleUI.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
+	private LayoutRect _lastLayoutBounds;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="CheckboxControl"/> class.
+	/// Initializes a new instance of the <see cref="CheckboxControl"/> class.
 		/// </summary>
 		/// <param name="label">The text label displayed next to the checkbox.</param>
 		/// <param name="isChecked">The initial checked state of the checkbox.</param>
@@ -64,16 +68,46 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler? LostFocus;
 
 		/// <summary>
-		/// Gets the actual rendered width of the control based on content.
+		/// Occurs when the checkbox is clicked with the mouse.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseClick;
+
+	/// <summary>
+	/// Occurs when the mouse enters the checkbox area.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseEnter;
+
+	/// <summary>
+	/// Occurs when the mouse leaves the checkbox area.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseLeave;
+
+	/// <summary>
+	/// Occurs when the mouse moves over the checkbox.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseMove;
+
+	/// <summary>
+	/// Occurs when the checkbox is double-clicked with the mouse.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+	/// <summary>
+	/// Gets the actual rendered width of the control based on content.
 		/// </summary>
 		public int? ActualWidth => GetCheckboxWidth() + _margin.Left + _margin.Right;
 
 		private int GetCheckboxWidth()
 		{
-			// Checkbox format: "[X] Label" or ">[X] Label<" when focused
-			int minWidth = AnsiConsoleHelper.StripSpectreLength($"[{(_checked ? "X" : " ")}] {_label}") + 2;
-			return _width ?? minWidth;
-		}
+		// Build content with decorators (same as rendering)
+		string checkmark = _checked ? "X" : " ";
+		string content = _hasFocus
+		  ? $">[{checkmark}] {_label}<"
+			: $" [{checkmark}] {_label} ";
+
+		int minWidth = AnsiConsoleHelper.StripSpectreLength(content);
+		return _width ?? minWidth;
+	}
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -269,12 +303,24 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public int? Width
 		{
-			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
+		get => _width;
+		set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
-		/// <inheritdoc/>
-		public void Dispose()
+		/// <summary>
+		/// Gets whether the checkbox wants to receive mouse events.
+	/// Only receives events when enabled.
+	/// </summary>
+	public bool WantsMouseEvents => _isEnabled;
+
+	/// <summary>
+	/// Gets whether the checkbox can receive focus via mouse click.
+	/// Only can focus when enabled.
+	/// </summary>
+	public bool CanFocusWithMouse => _isEnabled;
+
+	/// <inheritdoc/>
+	public void Dispose()
 		{
 			Container = null;
 		}
@@ -313,18 +359,118 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
-			bool hadFocus = HasFocus;
-			HasFocus = focus;
+		bool hadFocus = HasFocus;
+		HasFocus = focus;
 
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
+		// Notify parent Window if focus state actually changed
+		if (hadFocus != focus)
+		{
+		this.NotifyParentWindowOfFocusChange(focus);
+		}
 		}
 
 		/// <summary>
-		/// Toggles the checked state of the checkbox.
+		/// Processes mouse events for the checkbox.
+	/// Handles clicks to toggle the checked state and capture focus.
+	/// </summary>
+	public bool ProcessMouseEvent(MouseEventArgs args)
+	{
+		// Guard: Only process events when enabled
+		if (!_isEnabled || !WantsMouseEvents)
+			return false;
+
+		// Handle mouse leave
+		if (args.HasFlag(MouseFlags.MouseLeave))
+		{
+			MouseLeave?.Invoke(this, args);
+			return true;
+		}
+
+		// Handle mouse enter
+		if (args.HasFlag(MouseFlags.MouseEnter))
+		{
+			MouseEnter?.Invoke(this, args);
+			return true;
+		}
+
+		// Validate click is within content area (not in margins)
+		// Mouse coordinates are control-relative (already offset from control bounds)
+		int contentHeight = (_lastLayoutBounds.Height > 0 ? _lastLayoutBounds.Height : 1);
+		if (args.Position.Y < _margin.Top ||
+			args.Position.Y >= contentHeight - _margin.Bottom ||
+			args.Position.X < _margin.Left ||
+			args.Position.X >= (_lastLayoutBounds.Width - _margin.Right))
+		{
+			// Click is in margin area - not interactive
+			return false;
+		}
+
+		// Check if click is on the checkbox row (single-row control)
+		// Content row is at _margin.Top
+		bool isOnCheckbox = args.Position.Y == _margin.Top;
+
+		if (!isOnCheckbox)
+		{
+			// Click is not on checkbox row (shouldn't happen for single-row control)
+			return false;
+		}
+
+		// Handle mouse movement (for future hover effects or visual feedback)
+		if (args.HasAnyFlag(MouseFlags.ReportMousePosition))
+		{
+			MouseMove?.Invoke(this, args);
+			return true;
+		}
+
+		// Handle mouse click to toggle checkbox
+		if (args.HasFlag(MouseFlags.Button1Clicked))
+		{
+			// Capture focus if not already focused
+			if (!_hasFocus)
+			{
+				SetFocus(true, FocusReason.Mouse);
+			}
+
+			// Toggle checked state (uses property setter to fire CheckedChanged event)
+			Checked = !Checked;
+
+			// Fire mouse click event
+			MouseClick?.Invoke(this, args);
+
+			// Mark event as handled and trigger re-render
+			args.Handled = true;
+			Container?.Invalidate(true);
+
+			return true;
+		}
+
+		// Handle double-click (same behavior as single click for checkboxes)
+		if (args.HasFlag(MouseFlags.Button1DoubleClicked))
+		{
+			// Capture focus if not already focused
+			if (!_hasFocus)
+			{
+				SetFocus(true, FocusReason.Mouse);
+			}
+
+			// Toggle checked state
+			Checked = !Checked;
+
+			// Fire double-click event
+			MouseDoubleClick?.Invoke(this, args);
+
+			// Mark event as handled and trigger re-render
+			args.Handled = true;
+			Container?.Invalidate(true);
+
+			return true;
+		}
+
+		return false;
+	}
+
+	/// <summary>
+	/// Toggles the checked state of the checkbox.
 		/// </summary>
 		public void Toggle()
 		{
@@ -336,23 +482,32 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int minWidth = AnsiConsoleHelper.StripSpectreLength($"[{(_checked ? "X" : " ")}] {_label}") + 2;
-			int checkboxWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - _margin.Left - _margin.Right : minWidth);
-			checkboxWidth = Math.Max(minWidth, checkboxWidth);
+		// Build content with decorators (same as rendering)
+		string checkmark = _checked ? "X" : " ";
+		string content = _hasFocus
+			? $">[{checkmark}] {_label}<"
+		 : $" [{checkmark}] {_label} ";
 
-			int width = checkboxWidth + _margin.Left + _margin.Right;
-			int height = 1 + _margin.Top + _margin.Bottom;
+		int minWidth = AnsiConsoleHelper.StripSpectreLength(content);
+		int checkboxWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - _margin.Left - _margin.Right : minWidth);
+		checkboxWidth = Math.Max(minWidth, checkboxWidth);
 
-			return new LayoutSize(
-				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
-				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
-			);
-		}
+		int width = checkboxWidth + _margin.Left + _margin.Right;
+		 int height = 1 + _margin.Top + _margin.Bottom;
+
+		return new LayoutSize(
+			Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+			Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+		);
+	}
 
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			Color backgroundColor;
+		// Store bounds for mouse handling
+		_lastLayoutBounds = bounds;
+
+		Color backgroundColor;
 			Color foregroundColor;
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 
@@ -376,13 +531,16 @@ namespace SharpConsoleUI.Controls
 			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
 			if (targetWidth <= 0) return;
 
-			// Calculate checkbox width
-			int minWidth = AnsiConsoleHelper.StripSpectreLength($"[{(_checked ? "X" : " ")}] {_label}") + 2;
-			int checkboxWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : minWidth);
-			checkboxWidth = Math.Min(Math.Max(minWidth, checkboxWidth), targetWidth);
-
 			// Build checkbox content
 			string checkmark = _checked ? "X" : " ";
+			string tempContent = _hasFocus
+			 ? $">[{checkmark}] {_label}<"
+			: $" [{checkmark}] {_label} ";
+
+			// Calculate checkbox width with decorators
+		int minWidth = AnsiConsoleHelper.StripSpectreLength(tempContent);
+		int checkboxWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : minWidth);
+		checkboxWidth = Math.Min(Math.Max(minWidth, checkboxWidth), targetWidth);
 			string checkboxContent;
 
 			if (_hasFocus)
