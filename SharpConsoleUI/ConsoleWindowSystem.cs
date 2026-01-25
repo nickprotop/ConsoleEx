@@ -95,14 +95,12 @@ namespace SharpConsoleUI
 		private bool _running;
 		private bool _showTaskBar = true;
 
-		// Frame rate limiting
-		private const int TargetFPS = 60;
-		private const int MinFrameTime = 1000 / TargetFPS;  // ~16ms
+		// Frame rate limiting (configured via ConsoleWindowSystemOptions)
 		private DateTime _lastRenderTime = DateTime.UtcNow;
 		private DateTime _lastFrameTime = DateTime.UtcNow;
 
 		// Performance metrics tracking - real-time, no aggregation
-		private readonly ConsoleWindowSystemOptions _options;
+		private ConsoleWindowSystemOptions _options;
 		private double _currentFrameTimeMs;
 		private int _currentWindowCount;
 		private int _currentDirtyCount;
@@ -727,12 +725,76 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Sets the target frames per second for rendering.
+		/// </summary>
+		/// <param name="fps">Target FPS (must be greater than 0). Common values: 15, 30, 60, 120, 144.</param>
+		public void SetTargetFPS(int fps)
+		{
+			if (fps <= 0)
+				throw new ArgumentException("FPS must be greater than 0", nameof(fps));
+
+			_options = _options with { TargetFPS = fps };
+			_logService?.Log(LogLevel.Information, "System", $"Target FPS changed to {fps}");
+		}
+
+		/// <summary>
+		/// Gets the current target frames per second.
+		/// </summary>
+		public int GetTargetFPS() => _options.TargetFPS;
+
+		/// <summary>
+		/// Enables or disables frame rate limiting.
+		/// </summary>
+		/// <param name="enabled">True to enable frame rate limiting (cap at TargetFPS), false to render as fast as possible.</param>
+		public void SetFrameRateLimiting(bool enabled)
+		{
+			_options = _options with { EnableFrameRateLimiting = enabled };
+			_logService?.Log(LogLevel.Information, "System", $"Frame rate limiting {(enabled ? "enabled" : "disabled")}");
+		}
+
+		/// <summary>
+		/// Gets whether frame rate limiting is currently enabled.
+		/// </summary>
+		public bool IsFrameRateLimitingEnabled() => _options.EnableFrameRateLimiting;
+
+		/// <summary>
+		/// Enables or disables performance metrics display in the top status bar.
+		/// </summary>
+		/// <param name="enabled">True to show performance metrics, false to hide them.</param>
+		public void SetPerformanceMetrics(bool enabled)
+		{
+			_options = _options with { EnablePerformanceMetrics = enabled };
+			_cachedTopStatus = null; // Force status bar refresh
+			_logService?.Log(LogLevel.Information, "System", $"Performance metrics {(enabled ? "enabled" : "disabled")}");
+		}
+
+		/// <summary>
+		/// Gets whether performance metrics are currently enabled.
+		/// </summary>
+		public bool IsPerformanceMetricsEnabled() => _options.EnablePerformanceMetrics;
+
+		/// <summary>
+		/// Gets the current actual frame time in milliseconds.
+		/// </summary>
+		public double GetCurrentFrameTime() => _currentFrameTimeMs;
+
+		/// <summary>
+		/// Gets the current actual FPS based on frame time.
+		/// </summary>
+		public double GetCurrentFPS() => _currentFrameTimeMs > 0 ? 1000.0 / _currentFrameTimeMs : 0;
+
+		/// <summary>
+		/// Gets the number of dirty characters (changed cells) in the last frame.
+		/// </summary>
+		public int GetDirtyCharCount() => _currentDirtyChars;
+
+		/// <summary>
 		/// Starts the main event loop of the window system. Blocks until <see cref="Shutdown"/> is called.
 		/// </summary>
 		/// <returns>The exit code set by <see cref="Shutdown"/> or 1 if an unhandled exception occurred.</returns>
 		public int Run()
 		{
-			_logService.LogDebug("Console window system starting", "System");
+			_logService.LogDebug("Console window system starting");
 			_running = true;
 
 			// Subscribe to the console driver events
@@ -819,16 +881,37 @@ namespace SharpConsoleUI
 					}
 
 					// Frame pacing: render if windows are dirty OR metrics need update
-					if ((AnyWindowDirty() || metricsNeedUpdate) && elapsed >= MinFrameTime)
+					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate;
+
+					if (_options.EnableFrameRateLimiting)
 					{
-						UpdateDisplay();
-						_lastRenderTime = now;
-						_idleTime = MinFrameTime;
+						// Frame rate limiting enabled: only render if enough time elapsed
+						if (shouldRender && elapsed >= _options.MinFrameTime)
+						{
+							UpdateDisplay();
+							_lastRenderTime = now;
+							_idleTime = _options.MinFrameTime;
+						}
+						else
+						{
+							_inputStateService.UpdateIdleState();
+							_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
+						}
 					}
 					else
 					{
-						_inputStateService.UpdateIdleState();
-						_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
+						// Frame rate limiting disabled: render immediately when dirty
+						if (shouldRender)
+						{
+							UpdateDisplay();
+							_lastRenderTime = now;
+							_idleTime = 10; // Fast loop when dirty, no frame rate cap
+						}
+						else
+						{
+							_inputStateService.UpdateIdleState();
+							_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
+						}
 					}
 
 					UpdateCursor();
@@ -874,7 +957,7 @@ namespace SharpConsoleUI
 		/// <param name="exitCode">The exit code to return</param>
 		public void Shutdown(int exitCode = 0)
 		{
-			_logService.LogDebug($"Console window system shutting down (exit code: {exitCode})", "System");
+			_logService.LogDebug($"Console window system shutting down (exit code: {exitCode})");
 			_exitCode = exitCode;
 			_running = false;
 
@@ -2240,6 +2323,14 @@ namespace SharpConsoleUI
 
 					windowsToRender.Add(window);
 
+					// OPTIMIZATION: Don't add overlapping windows to render list
+					// VisibleRegions.CalculateVisibleRegions() already clips each window's rendering
+					// to exclude areas covered by higher Z-index windows, so overlapping windows
+					// don't need re-rendering when a window beneath them changes.
+
+					// COMMENTED OUT: Previous behavior that re-rendered all overlapping windows
+					// Uncomment this block to rollback the optimization if issues are found
+					/*
 					// Only add overlapping windows with HIGHER Z-index (drawn on top)
 					foreach (var other in Windows.Values)
 					{
@@ -2258,6 +2349,7 @@ namespace SharpConsoleUI
 
 						windowsToRender.Add(other);
 					}
+					*/
 				}
 
 				// PASS 1: Render normal (non-AlwaysOnTop) windows based on their ZIndex
