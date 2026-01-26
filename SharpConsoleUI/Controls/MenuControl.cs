@@ -792,6 +792,14 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     {
         _lastBounds = bounds;
 
+        // DEBUG: Log PaintDOM bounds
+        System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+            $"[{DateTime.Now:HH:mm:ss.fff}] MenuControl.PaintDOM:\n" +
+            $"  Name: {Name}\n" +
+            $"  bounds: ({bounds.X}, {bounds.Y}, {bounds.Width}, {bounds.Height})\n" +
+            $"  _margin: ({_margin.Left}, {_margin.Top}, {_margin.Right}, {_margin.Bottom})\n" +
+            $"  Calculated item position will be: ({bounds.X + _margin.Left}, {bounds.Y + _margin.Top})\n\n");
+
 
         Color windowBg = Container?.BackgroundColor ?? defaultBg;
         Color windowFg = Container?.ForegroundColor ?? defaultFg;
@@ -1021,6 +1029,16 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         dropdown.Bounds = CalculateDropdownBounds(item);
         dropdown.Direction = CalculateSubmenuDirection(item);
 
+        // DEBUG: Log dropdown creation
+        System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+            $"[{DateTime.Now:HH:mm:ss.fff}] OpenDropdownInternal:\n" +
+            $"  Item: '{item.Text}'\n" +
+            $"  Menu orientation: {_orientation}\n" +
+            $"  Item.Parent: {(item.Parent != null ? $"'{item.Parent.Text}'" : "null (top-level)")}\n" +
+            $"  Direction: {dropdown.Direction}\n" +
+            $"  Item.Bounds: ({item.Bounds.X}, {item.Bounds.Y}, {item.Bounds.Width}, {item.Bounds.Height})\n" +
+            $"  _lastBounds: ({_lastBounds.X}, {_lastBounds.Y}, {_lastBounds.Width}, {_lastBounds.Height})\n" +
+            $"  Calculated dropdown.Bounds: ({dropdown.Bounds.X}, {dropdown.Bounds.Y}, {dropdown.Bounds.Width}, {dropdown.Bounds.Height})\n\n");
 
         _openDropdowns.Add(dropdown);
 
@@ -1130,30 +1148,37 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         }
 
         // Calculate dropdown size
-        int dropdownWidth = maxTextWidth + maxShortcutWidth + 8; // Padding + indicator + margins
+        // Width: text + shortcut + padding(4) + indicator(3) + spacing(1) + borders(2) = +10 total
+        int dropdownWidth = maxTextWidth + maxShortcutWidth + 10; // +8 for padding/indicator/margins, +2 for borders
         dropdownWidth = Math.Max(dropdownWidth, 15); // Minimum width
         dropdownWidth = Math.Min(dropdownWidth, 50); // Maximum width
 
         int dropdownHeight = Math.Min(itemCount + 2, MaxDropdownHeight + 2); // +2 for borders
 
-        // Get screen size
-        int screenWidth = 160; // Default, will get from console driver if available
+        // Get screen dimensions - item.Bounds are in absolute screen coordinates
+        int screenWidth = 160; // Default
         int screenHeight = 40;
 
         if (Container?.GetConsoleWindowSystem != null)
         {
-            // Try to get actual screen size
-            screenWidth = 160; // Placeholder - would get from driver
-            screenHeight = 40;
+            var ws = Container.GetConsoleWindowSystem;
+            var dimensions = ws.DesktopDimensions;
+            screenWidth = dimensions.Width;
+            screenHeight = dimensions.Height;
         }
 
         // Calculate position based on direction
         var direction = CalculateSubmenuDirection(item);
         int x, y;
 
-        if (item.Parent == null)
+        // Determine if this is a top-level item in this menu
+        bool isTopLevel = (item.Parent == null);
+
+        // For top-level items, direction depends on menu orientation
+        // For nested submenus, always use Right/Left regardless of parent menu orientation
+        if (isTopLevel && _orientation == MenuOrientation.Horizontal)
         {
-            // Top-level dropdown
+            // Horizontal menu bar - top-level dropdowns open Below/Above
             if (direction == SubmenuDirection.Below)
             {
                 x = item.Bounds.X;
@@ -1167,7 +1192,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         }
         else
         {
-            // Submenu
+            // Vertical menu OR nested submenu - opens Right/Left
             if (direction == SubmenuDirection.Right)
             {
                 x = item.Bounds.Right;
@@ -1180,33 +1205,140 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             }
         }
 
-        // Clamp to screen bounds
+        // DEBUG: Log before clamping
+        int originalX = x;
+        int originalY = y;
+
+        // First clamp to screen bounds
         x = Math.Max(0, Math.Min(x, screenWidth - dropdownWidth));
         y = Math.Max(0, Math.Min(y, screenHeight - dropdownHeight));
+
+        // Then clamp to parent window's content buffer bounds to prevent buffer overflow
+        // Window buffer is sized to (Width-2) × (Height-2) by design
+        if (Container is Window parentWindow)
+        {
+            // Border space always exists (even with BorderStyle.None, it's just empty space)
+            int borderOffsetX = 1; // Left border space
+            int borderOffsetY = parentWindow.ShowTitle ? 2 : 1; // Top border + title (or just top border)
+
+            // Content area starts at window position + border offset
+            int contentLeft = parentWindow.Left + borderOffsetX;
+            int contentTop = parentWindow.Top + borderOffsetY;
+
+            // Buffer dimensions (always Width-2 and Height-2 by design)
+            int bufferWidth = parentWindow.Width - 2;
+            int bufferHeight = parentWindow.Height - 2;
+
+            // Calculate absolute bounds where buffer can render
+            // TODO: There's a clipping bug where the bottom border gets cut off at exact boundary.
+            // Using -2 as workaround until root cause is found. See TODO.md for details.
+            int renderRight = contentLeft + bufferWidth;
+            int renderBottom = contentTop + bufferHeight - 2;  // WORKAROUND: -2 to avoid clipping bug
+
+            // Adjust position if dropdown would extend beyond buffer bounds
+            if (y + dropdownHeight > renderBottom)
+            {
+                y = Math.Max(contentTop, renderBottom - dropdownHeight);
+            }
+
+            if (x + dropdownWidth > renderRight)
+            {
+                x = Math.Max(contentLeft, renderRight - dropdownWidth);
+            }
+
+            // Ensure not pushed off content area edges
+            y = Math.Max(contentTop, y);
+            x = Math.Max(contentLeft, x);
+        }
+
+        // DEBUG: Log calculations
+        var windowInfo = "";
+        if (Container is Window pw)
+        {
+            int borderOffX = 1; // Always 1
+            int borderOffY = pw.ShowTitle ? 2 : 1; // Title + top border or just top border
+            int contentL = pw.Left + borderOffX;
+            int contentT = pw.Top + borderOffY;
+            int bufW = pw.Width - 2;
+            int bufH = pw.Height - 2;
+            int renderR = contentL + bufW;
+            int renderB = contentT + bufH - 2;  // Match the actual calculation with -2 workaround
+
+            windowInfo = $"  Window: ({pw.Left}, {pw.Top}, {pw.Width}, {pw.Height}) ShowTitle={pw.ShowTitle}\n" +
+                         $"  Buffer: {bufW}×{bufH}, Content area: ({contentL}, {contentT}) to ({renderR}, {renderB})\n" +
+                         $"  Dropdown occupies Y: {y} to {y + dropdownHeight - 1} (last row drawn)\n" +
+                         $"  Dropdown occupies X: {x} to {x + dropdownWidth - 1} (last col drawn)\n" +
+                         $"  Check: y+height={y + dropdownHeight} > renderBottom={renderB}? {y + dropdownHeight > renderB}\n" +
+                         $"  Check: x+width={x + dropdownWidth} > renderRight={renderR}? {x + dropdownWidth > renderR}\n";
+        }
+
+        System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+            $"[{DateTime.Now:HH:mm:ss.fff}] CalculateDropdownBounds:\n" +
+            $"  Item: '{item.Text}' has {item.Children.Count} children\n" +
+            $"  ItemBounds: ({item.Bounds.X}, {item.Bounds.Y}, {item.Bounds.Width}, {item.Bounds.Height})\n" +
+            $"  Direction: {direction}\n" +
+            $"  IsTopLevel: {isTopLevel}\n" +
+            $"  Orientation: {_orientation}\n" +
+            $"  DropdownSize: {dropdownWidth}×{dropdownHeight}\n" +
+            $"  Screen size: {screenWidth}×{screenHeight}\n" +
+            windowInfo +
+            $"  Original position: ({originalX}, {originalY})\n" +
+            $"  Final position: ({x}, {y})\n" +
+            $"  Final bounds: ({x}, {y}, {dropdownWidth}, {dropdownHeight})\n\n");
 
         return new Rectangle(x, y, dropdownWidth, dropdownHeight);
     }
 
     private SubmenuDirection CalculateSubmenuDirection(MenuItem item)
     {
-        // Get screen size
-        int screenWidth = 160;
+        // Get screen dimensions - item.Bounds are in absolute screen coordinates
+        int screenWidth = 160; // Default
         int screenHeight = 40;
 
         if (Container?.GetConsoleWindowSystem != null)
         {
-            screenWidth = 160;
-            screenHeight = 40;
+            var ws = Container.GetConsoleWindowSystem;
+            var dimensions = ws.DesktopDimensions;
+            screenWidth = dimensions.Width;
+            screenHeight = dimensions.Height;
         }
 
-        // Calculate submenu dimensions
-        int submenuWidth = 20; // Approximate
-        int submenuHeight = Math.Min(item.Children.Count + 2, MaxDropdownHeight + 2);
+        // Calculate submenu dimensions (same logic as CalculateDropdownBounds)
+        int maxTextWidth = 0;
+        int maxShortcutWidth = 0;
+        int itemCount = 0;
+
+        foreach (var child in item.Children)
+        {
+            if (child.IsSeparator)
+            {
+                itemCount++;
+                continue;
+            }
+
+            int textWidth = AnsiConsoleHelper.StripSpectreLength(child.Text);
+            maxTextWidth = Math.Max(maxTextWidth, textWidth);
+
+            if (!string.IsNullOrEmpty(child.Shortcut))
+            {
+                int shortcutWidth = AnsiConsoleHelper.StripSpectreLength(child.Shortcut);
+                maxShortcutWidth = Math.Max(maxShortcutWidth, shortcutWidth);
+            }
+
+            itemCount++;
+        }
+
+        int submenuWidth = maxTextWidth + maxShortcutWidth + 10; // +8 for padding/indicator/margins, +2 for borders
+        submenuWidth = Math.Max(submenuWidth, 15); // Minimum width
+        submenuWidth = Math.Min(submenuWidth, 50); // Maximum width
+
+        int submenuHeight = Math.Min(itemCount + 2, MaxDropdownHeight + 2); // +2 for borders
 
         var itemBounds = item.Bounds;
+        bool isTopLevel = (item.Parent == null);
 
-        // For top-level dropdown
-        if (item.Parent == null)
+        // For top-level items in HORIZONTAL menu: open Below/Above
+        if (isTopLevel && _orientation == MenuOrientation.Horizontal)
         {
             // Try below first
             int belowY = itemBounds.Bottom;
@@ -1221,7 +1353,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             return SubmenuDirection.Below; // Best effort
         }
 
-        // For nested submenu
+        // For top-level items in VERTICAL menu OR nested submenus: open Right/Left
         // Try right first
         int rightX = itemBounds.Right;
         if (rightX + submenuWidth <= screenWidth)
@@ -1240,14 +1372,35 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         return _items.Contains(item);
     }
 
-    private MenuItem? HitTest(int screenX, int screenY)
+    private MenuItem? HitTest(int controlRelativeX, int controlRelativeY)
     {
+        // Convert control-relative coordinates to bounds-relative coordinates
+        int boundsX = controlRelativeX + _lastBounds.X;
+        int boundsY = controlRelativeY + _lastBounds.Y;
+
+        // DEBUG: Log hit test
+        System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+            $"[{DateTime.Now:HH:mm:ss.fff}] MenuControl.HitTest:\n" +
+            $"  Control-relative input: ({controlRelativeX}, {controlRelativeY})\n" +
+            $"  _lastBounds: ({_lastBounds.X}, {_lastBounds.Y}, {_lastBounds.Width}, {_lastBounds.Height})\n" +
+            $"  Converted to bounds-relative: ({boundsX}, {boundsY})\n");
+
         // Check top-level items
         foreach (var item in _items)
         {
-            if (item.Bounds.Contains(screenX, screenY))
+            System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+                $"  Item '{item.Text}' bounds: ({item.Bounds.X}, {item.Bounds.Y}, {item.Bounds.Width}, {item.Bounds.Height})\n");
+
+            if (item.Bounds.Contains(boundsX, boundsY))
+            {
+                System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+                    $"  -> MATCH on '{item.Text}'\n\n");
                 return item;
+            }
         }
+
+        System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+            $"  -> NO MATCH\n\n");
 
         // Check open dropdowns in reverse order (topmost first)
         for (int i = _openDropdowns.Count - 1; i >= 0; i--)
@@ -1255,12 +1408,12 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             var dropdown = _openDropdowns[i];
 
             // Check if click is in dropdown bounds
-            if (dropdown.Contains(screenX, screenY))
+            if (dropdown.Contains(boundsX, boundsY))
             {
                 // Check each item in dropdown
                 foreach (var item in dropdown.VisibleItems)
                 {
-                    if (item.Bounds.Contains(screenX, screenY))
+                    if (item.Bounds.Contains(boundsX, boundsY))
                         return item;
                 }
 
@@ -1419,6 +1572,16 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                 MenuItemState.Open => (ResolvedDropdownHighlightBackground, ResolvedDropdownHighlightForeground),
                 _ => (ResolvedDropdownBackground, ResolvedDropdownForeground)
             };
+        }
+
+        // Apply custom foreground color if set (only for normal states)
+        if (item.ForegroundColor.HasValue &&
+            state != MenuItemState.Disabled &&
+            state != MenuItemState.Pressed &&
+            state != MenuItemState.Highlighted &&
+            state != MenuItemState.Open)
+        {
+            fg = item.ForegroundColor.Value;
         }
 
         // Build item text
@@ -2222,6 +2385,12 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareCon
     public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
                          Color defaultFg, Color defaultBg)
     {
+        // DEBUG: Log portal paint bounds
+        System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+            $"[{DateTime.Now:HH:mm:ss.fff}] MenuPortalContent.PaintDOM:\n" +
+            $"  Portal bounds (from layout): ({bounds.X}, {bounds.Y}, {bounds.Width}, {bounds.Height})\n" +
+            $"  _dropdown.Bounds (stored): ({_dropdown.Bounds.X}, {_dropdown.Bounds.Y}, {_dropdown.Bounds.Width}, {_dropdown.Bounds.Height})\n\n");
+
         // Delegate painting to the owner MenuControl
         _owner.PaintDropdownInternal(buffer, _dropdown, clipRect);
 
