@@ -302,6 +302,12 @@ namespace SharpConsoleUI
 		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
 
 		/// <summary>
+		/// Occurs when a mouse click happens on empty space (no control at that position).
+		/// Used by specialized windows (e.g., OverlayWindow) to detect clicks outside content.
+		/// </summary>
+		public event EventHandler<Events.MouseEventArgs>? UnhandledMouseClick;
+
+		/// <summary>
 		/// Gets or sets the foreground color of the window border when active.
 		/// </summary>
 		public Color ActiveBorderForegroundColor
@@ -1165,6 +1171,12 @@ namespace SharpConsoleUI
 					// Single hit test - used for both focus and event routing
 					var targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
 
+					// DEBUG: Log control hit testing
+					System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+						$"[{DateTime.Now:HH:mm:ss.fff}] Window.ProcessWindowMouseEvent: Hit test in content area\n" +
+						$"  TargetControl: {(targetControl != null ? $"{targetControl.GetType().Name} '{targetControl.Name}'" : "NULL")}\n" +
+						$"  WindowPosition: ({args.WindowPosition.X}, {args.WindowPosition.Y})\n");
+
 					// === NEW: SCROLL EVENT BUBBLING ===
 					// For scroll events, try bubbling up the parent chain
 					if (args.HasAnyFlag(MouseFlags.WheeledUp, MouseFlags.WheeledDown))
@@ -1208,13 +1220,36 @@ namespace SharpConsoleUI
 						{
 							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
 							var controlArgs = args.WithPosition(controlPosition);
+
+							// DEBUG: Log mouse event propagation to control
+							System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+								$"  Propagating to IMouseAwareControl\n" +
+								$"  ControlPosition: ({controlPosition.X}, {controlPosition.Y})\n" +
+								$"  WantsMouseEvents: {mouseAware.WantsMouseEvents}\n\n");
+
 							return mouseAware.ProcessMouseEvent(controlArgs);
 						}
 
 						// Click was handled (focus change or hit on non-mouse control)
-						if (targetControl != null || args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+						if (targetControl != null)
 						{
+							// DEBUG: Log that control handled the event
+							System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+								$"[{DateTime.Now:HH:mm:ss.fff}] Window.ProcessWindowMouseEvent: Control handled event\n" +
+								$"  Control: {targetControl.GetType().Name} '{targetControl.Name}'\n" +
+								$"  WindowPosition: ({args.WindowPosition.X}, {args.WindowPosition.Y})\n\n");
 							return true;
+						}
+
+						// Fire UnhandledMouseClick event for clicks on empty space
+						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+						{
+							// DEBUG: Log unhandled click
+							System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+								$"[{DateTime.Now:HH:mm:ss.fff}] Window.ProcessWindowMouseEvent: UNHANDLED CLICK - firing event\n" +
+								$"  WindowPosition: ({args.WindowPosition.X}, {args.WindowPosition.Y})\n\n");
+							UnhandledMouseClick?.Invoke(this, args);
+							return true; // Considered handled after event fires
 						}
 					}
 				}

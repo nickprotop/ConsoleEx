@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Windows;
 using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -183,6 +184,112 @@ namespace SharpConsoleUI
 		{
 			// Skip rendering entirely for minimized windows
 			if (window.State == WindowState.Minimized)
+			{
+				return;
+			}
+			// Special rendering for OverlayWindow
+			if (window is OverlayWindow overlay)
+			{
+				RenderOverlayWindow(overlay);
+				return;
+			}
+
+
+			Point desktopTopLeftCorner = _consoleWindowSystem.DesktopUpperLeft;
+			Point desktopBottomRightCorner = _consoleWindowSystem.DesktopBottomRight;
+
+			if (IsWindowOutOfBounds(window, desktopTopLeftCorner, desktopBottomRightCorner))
+			{
+				return;
+			}
+
+			// Get all windows that potentially overlap with this window
+			// Exclude minimized windows - they're invisible and shouldn't block rendering
+			var overlappingWindows = _consoleWindowSystem.Windows.Values
+				.Where(w => w != window &&
+				            w.ZIndex > window.ZIndex &&
+				            w.State != WindowState.Minimized &&
+				            IsOverlapping(window, w))
+				.OrderBy(w => w.ZIndex)
+				.ToList();
+
+			// Calculate visible regions
+			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(window, overlappingWindows);
+
+			if (!visibleRegions.Any())
+			{
+				// Window is completely covered - no need to render
+				window.IsDirty = false;
+				return;
+			}
+
+			// Fill the background only for the visible regions
+			foreach (var region in visibleRegions)
+			{
+				FillRect(region.Left, region.Top, region.Width, region.Height, ' ', window.BackgroundColor, null);
+			}
+
+			// Draw window borders - these might be partially hidden but the drawing functions
+			// will handle clipping against screen boundaries
+			DrawWindowBorders(window, visibleRegions);
+
+			var lines = window.RenderAndGetVisibleContent();
+			window.IsDirty = false;
+
+			// Render content only for visible parts
+			RenderVisibleWindowContent(window, lines, visibleRegions);
+		}
+
+		/// <summary>
+		/// Special rendering for OverlayWindow that allows underlying windows to show through.
+		/// Overlay controls render their own backgrounds, creating transparent show-through effect.
+		/// </summary>
+		private void RenderOverlayWindow(OverlayWindow overlay)
+		{
+			// Get all windows BELOW the overlay (lower Z-index)
+			var underlyingWindows = _consoleWindowSystem.Windows.Values
+				.Where(w => w != overlay &&
+				            w.ZIndex < overlay.ZIndex &&
+				            w.State != WindowState.Minimized)
+				.OrderBy(w => w.ZIndex)
+				.ToList();
+
+			// Render all underlying windows first (they show through overlay's transparent areas)
+			foreach (var underlyingWindow in underlyingWindows)
+			{
+				RenderNormalWindow(underlyingWindow);
+			}
+
+			// Render overlay content (controls) at their actual positions
+			// Controls render their own backgrounds (e.g., menu dropdown background)
+			var lines = overlay.RenderAndGetVisibleContent();
+			overlay.IsDirty = false;
+
+			// Calculate visible regions (areas not covered by higher z-index windows)
+			var overlappingWindows = _consoleWindowSystem.Windows.Values
+				.Where(w => w != overlay &&
+				            w.ZIndex > overlay.ZIndex &&
+				            w.State != WindowState.Minimized &&
+				            IsOverlapping(overlay, w))
+				.OrderBy(w => w.ZIndex)
+				.ToList();
+
+			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(overlay, overlappingWindows);
+			RenderVisibleWindowContent(overlay, lines, visibleRegions);
+		}
+
+		/// <summary>
+		/// Normal window rendering (extracted from RenderWindow for reuse).
+		/// </summary>
+		private void RenderNormalWindow(Window window)
+		{
+			if (window.State == WindowState.Minimized)
+			{
+				return;
+			}
+
+			// Skip OverlayWindow (handled separately)
+			if (window is OverlayWindow)
 			{
 				return;
 			}

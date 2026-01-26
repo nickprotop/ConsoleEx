@@ -16,6 +16,8 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Logging;
 using SharpConsoleUI.Plugins;
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Windows;
+using SharpConsoleUI.Models;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -132,6 +134,12 @@ namespace SharpConsoleUI
 
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
+
+		// Start menu system
+		private readonly List<StartMenuAction> _startMenuActions = new();
+		private Rectangle _topStatusBarBounds = Rectangle.Empty;
+		private Rectangle _bottomStatusBarBounds = Rectangle.Empty;
+		private Rectangle _startButtonBounds = Rectangle.Empty;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
@@ -357,13 +365,24 @@ namespace SharpConsoleUI
 		/// </summary>
 		private bool ShouldRenderBottomStatus()
 		{
-			return _showBottomStatus && !string.IsNullOrEmpty(BottomStatus);
+			// Render if we have status text OR if Start button is configured for bottom
+			bool hasContent = !string.IsNullOrEmpty(BottomStatus) || _showTaskBar;
+			bool hasStartButton = _options.StatusBar.ShowStartButton &&
+			                      _options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom;
+
+			return _showBottomStatus && (hasContent || hasStartButton);
 		}
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the task bar is visible at the bottom of the screen.
 		/// </summary>
+		[Obsolete("ShowTaskBar is deprecated. Use StatusBarOptions.ShowWindowListInMenu to move window list to Start menu, or set ShowTaskBar in StatusBarOptions. This property will be removed in v3.0.")]
 		public bool ShowTaskBar { get => _showTaskBar; set => _showTaskBar = value; }
+
+		/// <summary>
+		/// Gets the current console window system options.
+		/// </summary>
+		public ConsoleWindowSystemOptions Options => _options;
 
 		/// <summary>
 		/// Gets a value indicating whether the window system is currently running.
@@ -977,6 +996,109 @@ namespace SharpConsoleUI
 			_consoleDriver.MouseEvent -= HandleMouseEvent;
 		}
 
+		#region Start Menu API
+
+		/// <summary>
+		/// Registers a user-defined action in the Start menu.
+		/// </summary>
+		/// <param name="name">Display name for the action (supports Spectre markup).</param>
+		/// <param name="callback">Action to execute when selected.</param>
+		/// <param name="category">Optional category (defaults to "User Actions").</param>
+		/// <param name="order">Sort order within category (lower = earlier).</param>
+		public void RegisterStartMenuAction(string name, Action callback, string? category = null, int order = 0)
+		{
+			var action = new StartMenuAction(name, callback, category, order);
+			_startMenuActions.Add(action);
+		}
+
+		/// <summary>
+		/// Unregisters a Start menu action by name.
+		/// </summary>
+		/// <param name="name">Name of the action to remove.</param>
+		public void UnregisterStartMenuAction(string name)
+		{
+			_startMenuActions.RemoveAll(a => a.Name == name);
+		}
+
+		/// <summary>
+		/// Gets all registered Start menu actions.
+		/// </summary>
+		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _startMenuActions.AsReadOnly();
+
+		/// <summary>
+		/// Shows the Start menu dialog.
+		/// </summary>
+		public void ShowStartMenu()
+		{
+			Dialogs.StartMenuDialog.Show(this);
+		}
+
+		private string BuildStartButton()
+		{
+			if (!_options.StatusBar.ShowStartButton)
+				return string.Empty;
+
+			var text = _options.StatusBar.StartButtonText;
+			return $"[bold cyan]{text}[/] ";
+		}
+
+		private bool HandleStartMenuShortcut(ConsoleKeyInfo key)
+		{
+			var options = _options.StatusBar;
+			if (key.Key == options.StartMenuShortcutKey &&
+				key.Modifiers == options.StartMenuShortcutModifiers)
+			{
+				ShowStartMenu();
+				return true;
+			}
+			return false;
+		}
+
+		private void UpdateStatusBarBounds()
+		{
+			if (_showTopStatus)
+				_topStatusBarBounds = new Rectangle(0, 0, _consoleDriver.ScreenSize.Width, 1);
+
+			if (_showBottomStatus)
+				_bottomStatusBarBounds = new Rectangle(0, _consoleDriver.ScreenSize.Height - 1,
+					_consoleDriver.ScreenSize.Width, 1);
+
+			if (_options.StatusBar.ShowStartButton)
+			{
+				int y = _options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Top
+					? 0
+					: (_consoleDriver.ScreenSize.Height - 1);
+
+				int x;
+				int width = AnsiConsoleHelper.StripSpectreLength(_options.StatusBar.StartButtonText) + 1;
+
+				if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
+				{
+					x = 0;
+				}
+				else
+				{
+					x = _consoleDriver.ScreenSize.Width - width;
+				}
+
+				_startButtonBounds = new Rectangle(x, y, width, 1);
+			}
+		}
+
+		private bool HandleStatusBarMouseClick(int x, int y)
+		{
+			// Check if click is on Start button
+			if (_startButtonBounds.Contains(x, y))
+			{
+				ShowStartMenu();
+				return true;
+			}
+
+			return false;
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Processes one iteration of the main loop (input, display, cursor).
 		/// This is useful for modal dialogs that need to block while still processing UI events.
@@ -1359,14 +1481,42 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
 		{
+			// DEBUG: Log window click handling
+			try
+			{
+				var debugInfo = $"[{DateTime.Now:HH:mm:ss.fff}] HandleWindowClick:\n" +
+				                $"  Window: {window.GetType().Name} (Title: {window.Title})\n" +
+				                $"  Point: ({point.X}, {point.Y})\n" +
+				                $"  IsActive: {window == ActiveWindow}\n" +
+				                $"  IsOverlay: {window is Windows.OverlayWindow}\n";
+				System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log", debugInfo);
+			}
+			catch { }
+
 			if (window != ActiveWindow)
 			{
-				// Window is not active - activate it and stop propagation
+				// Window is not active - activate it
 				SetActiveWindow(window);
+
+				// Special case: OverlayWindow needs mouse events even on first click
+				// for click-outside-to-dismiss handling
+				if (window is Windows.OverlayWindow)
+				{
+					System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+						$"  -> Activating overlay and propagating event\n\n");
+					PropagateMouseEventToWindow(window, flags, point);
+				}
+				else
+				{
+					System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+						$"  -> Activating window (no propagation)\n\n");
+				}
 			}
 			else
 			{
 				// Window is already active - propagate the click event
+				System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+					$"  -> Already active, propagating\n\n");
 				PropagateMouseEventToWindow(window, flags, point);
 			}
 		}
@@ -1378,7 +1528,16 @@ namespace SharpConsoleUI
 		{
 			// Calculate window-relative coordinates
 			var windowPosition = TranslateToRelative(window, point);
-			
+
+			// DEBUG: Log mouse event propagation
+			System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}] PropagateMouseEventToWindow:\n" +
+				$"  Window: {window.GetType().Name} '{window.Title}'\n" +
+				$"  Absolute point: ({point.X}, {point.Y})\n" +
+				$"  Window position: ({windowPosition.X}, {windowPosition.Y})\n" +
+				$"  Window bounds: ({window.Left}, {window.Top}, {window.Width}, {window.Height})\n" +
+				$"  Flags: {string.Join(", ", flags)}\n\n");
+
 			// Create mouse event arguments
 			var mouseArgs = new Events.MouseEventArgs(
 				flags,
@@ -1579,6 +1738,15 @@ namespace SharpConsoleUI
 
 		private void HandleMouseEvent(object sender, List<MouseFlags> flags, Point point)
 		{
+			// Check for Start button click first
+			if (flags.Contains(MouseFlags.Button1Pressed))
+			{
+				if (HandleStatusBarMouseClick(point.X, point.Y))
+				{
+					return;
+				}
+			}
+
 			// Handle mouse button release first (end drag/resize) - highest priority
 			if (flags.Contains(MouseFlags.Button1Released))
 			{
@@ -2196,6 +2364,13 @@ namespace SharpConsoleUI
 			while ((key = _inputStateService.DequeueKey()) != null)
 			{
 				var keyInfo = key.Value;
+
+				// Check for Start menu shortcut first
+				if (HandleStartMenuShortcut(keyInfo))
+				{
+					continue;
+				}
+
 				if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && keyInfo.Key == ConsoleKey.T)
 				{
 					CycleActiveWindow();
@@ -2430,16 +2605,44 @@ namespace SharpConsoleUI
 					: string.Empty;
 				var completeTopStatus = baseStatus + metricsString;
 
-				// Cache includes metrics for proper invalidation
-				if (completeTopStatus != _cachedTopStatus)
+				// Build start button if configured for top
+				var startButton = string.Empty;
+				if (_options.StatusBar.ShowStartButton &&
+					_options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Top)
 				{
-					var topRow = completeTopStatus;
+					startButton = BuildStartButton();
+				}
 
+				string topRow;
+				if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
+				{
+					topRow = $"{startButton}{completeTopStatus}";
+				}
+				else
+				{
+					// Right position - add start button at the end
+					var contentLength = AnsiConsoleHelper.StripSpectreLength(completeTopStatus);
+					var startButtonLength = AnsiConsoleHelper.StripSpectreLength(startButton);
+					var availableSpace = _consoleDriver.ScreenSize.Width - startButtonLength;
+
+					var content = completeTopStatus;
+					if (contentLength > availableSpace)
+					{
+						content = AnsiConsoleHelper.TruncateSpectre(content, availableSpace);
+					}
+
+					content += new string(' ', availableSpace - AnsiConsoleHelper.StripSpectreLength(content));
+					topRow = $"{content}{startButton}";
+				}
+
+				// Cache includes start button for proper invalidation
+				if (topRow != _cachedTopStatus)
+				{
 					var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
 					var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
 					_consoleDriver.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.TopBarBackgroundColor, null)[0]);
 
-					_cachedTopStatus = completeTopStatus;
+					_cachedTopStatus = topRow;
 				}
 			}
 
@@ -2456,7 +2659,35 @@ namespace SharpConsoleUI
 					return $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";
 				}))} | " : string.Empty;
 
-				string bottomRow = $"{taskBar}{BottomStatus}";
+				// Build start button if configured for bottom
+				var startButton = string.Empty;
+				if (_options.StatusBar.ShowStartButton &&
+					_options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom)
+				{
+					startButton = BuildStartButton();
+				}
+
+				string bottomRow;
+				if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
+				{
+					bottomRow = $"{startButton}{taskBar}{BottomStatus}";
+				}
+				else
+				{
+					// Right position - add start button at the end
+					var content = $"{taskBar}{BottomStatus}";
+					var contentLength = AnsiConsoleHelper.StripSpectreLength(content);
+					var startButtonLength = AnsiConsoleHelper.StripSpectreLength(startButton);
+					var availableSpace = _consoleDriver.ScreenSize.Width - startButtonLength;
+
+					if (contentLength > availableSpace)
+					{
+						content = AnsiConsoleHelper.TruncateSpectre(content, availableSpace);
+					}
+
+					content += new string(' ', availableSpace - AnsiConsoleHelper.StripSpectreLength(content));
+					bottomRow = $"{content}{startButton}";
+				}
 
 				// Display the list of window titles in the bottom row
 				if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > _consoleDriver.ScreenSize.Width)
@@ -2473,6 +2704,9 @@ namespace SharpConsoleUI
 					_cachedBottomStatus = bottomRow;
 				}
 			}
+
+			// Update status bar bounds for mouse click detection
+			UpdateStatusBarBounds();
 
 			_consoleDriver.Flush();
 		}
