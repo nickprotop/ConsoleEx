@@ -1,4 +1,5 @@
 using SharpConsoleUI.Controls;
+using Spectre.Console;
 
 namespace SharpConsoleUI.Builders;
 
@@ -34,6 +35,23 @@ public class MenuItemBuilder
     }
 
     /// <summary>
+    /// Adds a child menu item with text, action, and custom foreground color.
+    /// </summary>
+    /// <param name="text">The text to display for the child item.</param>
+    /// <param name="action">The action to execute when selected.</param>
+    /// <param name="foregroundColor">The custom foreground color for this item.</param>
+    public MenuItemBuilder AddItem(string text, Action action, Color foregroundColor)
+    {
+        _item.AddChild(new MenuItem
+        {
+            Text = text,
+            Action = action,
+            ForegroundColor = foregroundColor
+        });
+        return this;
+    }
+
+    /// <summary>
     /// Adds a child menu item with text, shortcut, and action.
     /// </summary>
     /// <param name="text">The text to display for the child item.</param>
@@ -46,6 +64,25 @@ public class MenuItemBuilder
             Text = text,
             Shortcut = shortcut,
             Action = action
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a child menu item with text, shortcut, action, and custom foreground color.
+    /// </summary>
+    /// <param name="text">The text to display for the child item.</param>
+    /// <param name="shortcut">The keyboard shortcut text (display only).</param>
+    /// <param name="action">The action to execute when selected.</param>
+    /// <param name="foregroundColor">The custom foreground color for this item.</param>
+    public MenuItemBuilder AddItem(string text, string shortcut, Action action, Color foregroundColor)
+    {
+        _item.AddChild(new MenuItem
+        {
+            Text = text,
+            Shortcut = shortcut,
+            Action = action,
+            ForegroundColor = foregroundColor
         });
         return this;
     }
@@ -108,6 +145,16 @@ public class MenuItemBuilder
     public MenuItemBuilder WithTag(object tag)
     {
         _item.Tag = tag;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets a custom foreground color for this menu item.
+    /// </summary>
+    /// <param name="color">The foreground color to use.</param>
+    public MenuItemBuilder WithForegroundColor(Color color)
+    {
+        _item.ForegroundColor = color;
         return this;
     }
 

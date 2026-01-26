@@ -95,6 +95,12 @@ public interface IPlugin : IDisposable
 	IReadOnlyList<IPluginService> GetServicePlugins();
 
 	/// <summary>
+	/// Gets the action providers for Start menu integration using the reflection-free pattern.
+	/// </summary>
+	/// <returns>A list of action providers, or empty if the plugin provides no actions</returns>
+	IReadOnlyList<IPluginActionProvider> GetActionProviders();
+
+	/// <summary>
 	/// Called when the plugin is loaded, before Get* methods are called.
 	/// Use this for any initialization that requires access to the window system.
 	/// </summary>
@@ -127,6 +133,9 @@ public abstract class PluginBase : IPlugin
 
 	/// <inheritdoc/>
 	public virtual IReadOnlyList<IPluginService> GetServicePlugins() => Array.Empty<IPluginService>();
+
+	/// <inheritdoc/>
+	public virtual IReadOnlyList<IPluginActionProvider> GetActionProviders() => Array.Empty<IPluginActionProvider>();
 
 	/// <inheritdoc/>
 	public virtual void Initialize(ConsoleWindowSystem windowSystem) { }

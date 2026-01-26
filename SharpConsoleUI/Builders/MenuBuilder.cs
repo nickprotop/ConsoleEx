@@ -111,6 +111,42 @@ public class MenuBuilder
     }
 
     /// <summary>
+    /// Adds a simple menu item with text, action, and custom foreground color.
+    /// </summary>
+    /// <param name="text">The text to display for this menu item.</param>
+    /// <param name="action">The action to execute when selected.</param>
+    /// <param name="foregroundColor">The custom foreground color for this item.</param>
+    public MenuBuilder AddItem(string text, Action action, Color foregroundColor)
+    {
+        _items.Add(new MenuItem
+        {
+            Text = text,
+            Action = action,
+            ForegroundColor = foregroundColor
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a simple menu item with text, shortcut, action, and custom foreground color.
+    /// </summary>
+    /// <param name="text">The text to display for this menu item.</param>
+    /// <param name="shortcut">The keyboard shortcut text (display only).</param>
+    /// <param name="action">The action to execute when selected.</param>
+    /// <param name="foregroundColor">The custom foreground color for this item.</param>
+    public MenuBuilder AddItem(string text, string shortcut, Action action, Color foregroundColor)
+    {
+        _items.Add(new MenuItem
+        {
+            Text = text,
+            Shortcut = shortcut,
+            Action = action,
+            ForegroundColor = foregroundColor
+        });
+        return this;
+    }
+
+    /// <summary>
     /// Adds a separator line to the menu.
     /// </summary>
     public MenuBuilder AddSeparator()

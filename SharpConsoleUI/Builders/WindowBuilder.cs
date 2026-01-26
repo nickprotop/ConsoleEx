@@ -137,6 +137,15 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
+    /// Sets the window position without changing its size. Alias for AtPosition.
+    /// If no size has been set, defaults to 80x25 characters.
+    /// </summary>
+    /// <param name="x">The X coordinate of the window's left edge.</param>
+    /// <param name="y">The Y coordinate of the window's top edge.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithPosition(int x, int y) => AtPosition(x, y);
+
+    /// <summary>
     /// Sets the window size without changing its position.
     /// If no position has been set, defaults to position (0, 0).
     /// </summary>
@@ -288,6 +297,19 @@ public sealed class WindowBuilder
     public WindowBuilder WithShowCloseButton(bool show)
     {
         _showCloseButton = show;
+        return this;
+    }
+
+    /// <summary>
+    /// Hides all title buttons (close, minimize, maximize) for a clean window appearance.
+    /// Useful for dialogs or panels that should not have window controls.
+    /// </summary>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder HideTitleButtons()
+    {
+        _showCloseButton = false;
+        _isMinimizable = false;
+        _isMaximizable = false;
         return this;
     }
 

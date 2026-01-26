@@ -144,6 +144,7 @@ namespace SharpConsoleUI.Core
 		private readonly Dictionary<string, Func<ConsoleWindowSystem, Window>> _windowFactories = new();
 		private readonly Dictionary<Type, object> _legacyServices = new(); // Legacy type-based services
 		private readonly Dictionary<string, IPluginService> _services = new(); // New name-based service plugins
+		private readonly Dictionary<string, IPluginActionProvider> _actionProviders = new(); // Action providers for Start menu
 
 		private bool _disposed;
 
@@ -237,6 +238,20 @@ namespace SharpConsoleUI.Core
 				lock (_lock)
 				{
 					return _windowFactories.Keys.ToList().AsReadOnly();
+				}
+			}
+		}
+
+		/// <summary>
+		/// Gets the names of all registered action providers.
+		/// </summary>
+		public IReadOnlyCollection<string> RegisteredActionProviderNames
+		{
+			get
+			{
+				lock (_lock)
+				{
+					return _actionProviders.Keys.ToList().AsReadOnly();
 				}
 			}
 		}
@@ -439,6 +454,19 @@ namespace SharpConsoleUI.Core
 					ServiceRegistered?.Invoke(this, new ServiceRegisteredEventArgs(servicePlugin.ServiceName, servicePlugin));
 				}
 
+				// Register action providers
+				foreach (var actionProvider in plugin.GetActionProviders())
+				{
+					if (_actionProviders.ContainsKey(actionProvider.ProviderName))
+					{
+						_logService?.LogWarning($"Action provider '{actionProvider.ProviderName}' already registered, skipping", "Plugins");
+						continue;
+					}
+
+					_actionProviders[actionProvider.ProviderName] = actionProvider;
+					_logService?.LogDebug($"Registered action provider: {actionProvider.ProviderName}", "Plugins");
+				}
+
 				_loadedPlugins.Add(plugin);
 
 				var newState = CurrentState;
@@ -575,6 +603,44 @@ namespace SharpConsoleUI.Core
 			{
 				return _services.ContainsKey(serviceName);
 			}
+		}
+
+		/// <summary>
+		/// Gets an action provider by name.
+		/// </summary>
+		/// <param name="providerName">The unique name of the action provider.</param>
+		/// <returns>The action provider instance, or null if not found.</returns>
+		public IPluginActionProvider? GetActionProvider(string providerName)
+		{
+			lock (_lock)
+			{
+				return _actionProviders.TryGetValue(providerName, out var provider) ? provider : null;
+			}
+		}
+
+		/// <summary>
+		/// Executes a plugin action using the agnostic pattern.
+		/// </summary>
+		/// <param name="providerName">The name of the action provider.</param>
+		/// <param name="actionName">The name of the action to execute.</param>
+		/// <param name="context">Optional execution context (will include WindowSystem automatically).</param>
+		public void ExecutePluginAction(string providerName, string actionName, Dictionary<string, object>? context = null)
+		{
+			IPluginActionProvider? provider;
+			lock (_lock)
+			{
+				if (!_actionProviders.TryGetValue(providerName, out provider))
+				{
+					throw new InvalidOperationException($"Action provider '{providerName}' not found");
+				}
+			}
+
+			// Add ConsoleWindowSystem to context for plugin use
+			context ??= new Dictionary<string, object>();
+			if (!context.ContainsKey("WindowSystem"))
+				context["WindowSystem"] = _windowSystem;
+
+			provider.ExecuteAction(actionName, context);
 		}
 
 		/// <summary>

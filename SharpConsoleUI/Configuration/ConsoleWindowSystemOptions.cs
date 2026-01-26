@@ -6,7 +6,8 @@ namespace SharpConsoleUI.Configuration;
 public record ConsoleWindowSystemOptions(
     bool EnablePerformanceMetrics = false,
     bool EnableFrameRateLimiting = true,
-    int TargetFPS = 60
+    int TargetFPS = 60,
+    StatusBarOptions? StatusBarOptions = null
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";
@@ -53,6 +54,11 @@ public record ConsoleWindowSystemOptions(
         return envValue.Equals("true", StringComparison.OrdinalIgnoreCase) ||
                envValue.Equals("1", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// Gets the status bar configuration, using defaults if not specified.
+    /// </summary>
+    public StatusBarOptions StatusBar => StatusBarOptions ?? Configuration.StatusBarOptions.Default;
 
     /// <summary>
     /// Gets a configuration with performance metrics enabled.
