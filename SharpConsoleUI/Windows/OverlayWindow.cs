@@ -18,30 +18,14 @@ public class OverlayWindow : Window
 	/// <param name="windowSystem">The console window system.</param>
 	public OverlayWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
 	{
-		// Configure to cover desktop but NOT status bars
+		// Configure to cover the entire desktop area (DesktopDimensions already excludes status bars)
 		var dimensions = windowSystem.DesktopDimensions;
+		var upperLeft = windowSystem.DesktopUpperLeft;
 
-		// Adjust for status bars so overlay doesn't block them
-		int top = 0;
-		int height = dimensions.Height;
-
-		// If top status bar is shown, start below it
-		if (windowSystem.Options.StatusBar.ShowTopStatus)
-		{
-			top = 1;
-			height--;
-		}
-
-		// If bottom status bar is shown, don't cover it
-		if (windowSystem.Options.StatusBar.ShowBottomStatus)
-		{
-			height--;
-		}
-
-		Left = 0;
-		Top = top;
+		Left = upperLeft.X;
+		Top = upperLeft.Y;
 		Width = dimensions.Width;
-		Height = height;
+		Height = dimensions.Height;
 
 		// Remove all window chrome
 		BorderStyle = BorderStyle.None;

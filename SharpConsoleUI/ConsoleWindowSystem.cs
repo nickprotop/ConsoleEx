@@ -338,18 +338,20 @@ namespace SharpConsoleUI
 
 		/// <summary>
 		/// Gets the height occupied by the top status bar (0 or 1).
+		/// Accounts for both status text and performance metrics.
 		/// </summary>
 		private int GetTopStatusHeight()
 		{
-			return _showTopStatus && !string.IsNullOrEmpty(TopStatus) ? 1 : 0;
+			return ShouldRenderTopStatus() ? 1 : 0;
 		}
 
 		/// <summary>
 		/// Gets the height occupied by the bottom status bar (0 or 1).
+		/// Accounts for both status text and Start button.
 		/// </summary>
 		private int GetBottomStatusHeight()
 		{
-			return _showBottomStatus && !string.IsNullOrEmpty(BottomStatus) ? 1 : 0;
+			return ShouldRenderBottomStatus() ? 1 : 0;
 		}
 
 		/// <summary>
