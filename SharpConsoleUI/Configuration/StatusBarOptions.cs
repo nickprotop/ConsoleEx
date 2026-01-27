@@ -5,10 +5,10 @@ namespace SharpConsoleUI.Configuration;
 /// </summary>
 public record StatusBarOptions(
     // Start button configuration
-    bool ShowStartButton = true,
+    bool ShowStartButton = false,
     StatusBarLocation StartButtonLocation = StatusBarLocation.Bottom,
     StartButtonPosition StartButtonPosition = StartButtonPosition.Left,
-    string StartButtonText = "●",
+    string StartButtonText = "☰ Start",
     ConsoleKey StartMenuShortcutKey = ConsoleKey.M,
     ConsoleModifiers StartMenuShortcutModifiers = ConsoleModifiers.Control,
 

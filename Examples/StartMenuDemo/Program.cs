@@ -19,16 +19,15 @@ class Program
 			var options = new ConsoleWindowSystemOptions(
 				EnablePerformanceMetrics: false,
 				StatusBarOptions: new StatusBarOptions(
-					ShowStartButton: false,
+					ShowStartButton: true,
 					StartButtonLocation: StatusBarLocation.Bottom,
 					StartButtonPosition: StartButtonPosition.Left,
-					StartButtonText: "☰",
 					ShowWindowListInMenu: true
 				)
 			);
 
 			var windowSystem = new ConsoleWindowSystem(driver, options: options);
-			windowSystem.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+Esc[/] to open Start menu";
+			windowSystem.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+M[/] or click [yellow]☰ Start[/] button";
 			windowSystem.BottomStatus = "";
 
 			// Graceful shutdown
@@ -162,13 +161,11 @@ class Program
 				"",
 				"[white bold]How to Use:[/]",
 				"",
-				"  [yellow]1. Press Ctrl+Esc[/] to open the Start menu",
-				"  [yellow]2. Navigate with arrow keys[/]",
-				"  [yellow]3. Press Enter[/] to select an item",
-				"  [yellow]4. Press Escape[/] to close the menu",
-				"",
-				"[grey]Note: Start button and performance metrics are disabled by default.[/]",
-				"[grey]Enable them in ConsoleWindowSystemOptions for production use.[/]",
+				"  [yellow]1. Press Ctrl+M[/] to open the Start menu",
+				"  [yellow]2. Click the ☰ Start button[/] in the bottom-left corner",
+				"  [yellow]3. Navigate with arrow keys[/]",
+				"  [yellow]4. Press Enter[/] to select an item",
+				"  [yellow]5. Press Escape[/] to close the menu",
 				"",
 				"[grey]Try creating multiple windows using the File menu, then access them via[/]",
 				"[grey]the Windows category in the Start menu![/]"
@@ -192,7 +189,7 @@ class Program
 				"This window appears in the Start menu's",
 				"Windows category.",
 				"",
-				"Try pressing [yellow]Ctrl+Esc[/] and navigating to",
+				"Try pressing [yellow]Ctrl+M[/] and navigating to",
 				"[cyan]Windows > Secondary Window[/]"
 			}));
 			windowSystem.AddWindow(window2);
