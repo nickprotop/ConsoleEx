@@ -101,12 +101,6 @@ public class OverlayWindow : Window
 	/// </summary>
 	private void OnUnhandledMouseClick(object? sender, Events.MouseEventArgs e)
 	{
-		// DEBUG: Log unhandled click in overlay
-		System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
-			$"[{DateTime.Now:HH:mm:ss.fff}] OverlayWindow.OnUnhandledMouseClick: DISMISSING\n" +
-			$"  DismissOnClickOutside: {_dismissOnClickOutside}\n" +
-			$"  WindowPosition: ({e.WindowPosition.X}, {e.WindowPosition.Y})\n\n");
-
 		if (_dismissOnClickOutside)
 		{
 			Dismiss();
