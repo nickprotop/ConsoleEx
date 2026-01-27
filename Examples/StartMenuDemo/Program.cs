@@ -17,9 +17,9 @@ class Program
 			var driver = new NetConsoleDriver(RenderMode.Buffer);
 
 			var options = new ConsoleWindowSystemOptions(
-				EnablePerformanceMetrics: true,
+				EnablePerformanceMetrics: false,
 				StatusBarOptions: new StatusBarOptions(
-					ShowStartButton: true,
+					ShowStartButton: false,
 					StartButtonLocation: StatusBarLocation.Bottom,
 					StartButtonPosition: StartButtonPosition.Left,
 					StartButtonText: "☰",
@@ -28,7 +28,7 @@ class Program
 			);
 
 			var windowSystem = new ConsoleWindowSystem(driver, options: options);
-			windowSystem.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+M[/] to open Start menu";
+			windowSystem.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+Esc[/] to open Start menu";
 			windowSystem.BottomStatus = "";
 
 			// Graceful shutdown
@@ -162,11 +162,13 @@ class Program
 				"",
 				"[white bold]How to Use:[/]",
 				"",
-				"  [yellow]1. Press Ctrl+M[/] to open the Start menu",
-				"  [yellow]2. Click the ☰ button[/] in the top-left corner",
-				"  [yellow]3. Navigate with arrow keys[/]",
-				"  [yellow]4. Press Enter[/] to select an item",
-				"  [yellow]5. Press Escape[/] to close the menu",
+				"  [yellow]1. Press Ctrl+Esc[/] to open the Start menu",
+				"  [yellow]2. Navigate with arrow keys[/]",
+				"  [yellow]3. Press Enter[/] to select an item",
+				"  [yellow]4. Press Escape[/] to close the menu",
+				"",
+				"[grey]Note: Start button and performance metrics are disabled by default.[/]",
+				"[grey]Enable them in ConsoleWindowSystemOptions for production use.[/]",
 				"",
 				"[grey]Try creating multiple windows using the File menu, then access them via[/]",
 				"[grey]the Windows category in the Start menu![/]"
