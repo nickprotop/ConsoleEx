@@ -95,7 +95,6 @@ namespace SharpConsoleUI
 		private int _exitCode;
 		private int _idleTime = 10;
 		private bool _running;
-		private bool _showTaskBar = true;
 
 		// Frame rate limiting (configured via ConsoleWindowSystemOptions)
 		private DateTime _lastRenderTime = DateTime.UtcNow;
@@ -367,19 +366,14 @@ namespace SharpConsoleUI
 		/// </summary>
 		private bool ShouldRenderBottomStatus()
 		{
-			// Render if we have status text OR if Start button is configured for bottom
-			bool hasContent = !string.IsNullOrEmpty(BottomStatus) || _showTaskBar;
+			// Render if we have status text OR if task bar (window list) is enabled
+			bool hasContent = !string.IsNullOrEmpty(BottomStatus) || _options.StatusBar.ShowTaskBar;
 			bool hasStartButton = _options.StatusBar.ShowStartButton &&
 			                      _options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom;
 
 			return _showBottomStatus && (hasContent || hasStartButton);
 		}
 
-		/// <summary>
-		/// Gets or sets a value indicating whether the task bar is visible at the bottom of the screen.
-		/// </summary>
-		[Obsolete("ShowTaskBar is deprecated. Use StatusBarOptions.ShowWindowListInMenu to move window list to Start menu, or set ShowTaskBar in StatusBarOptions. This property will be removed in v3.0.")]
-		public bool ShowTaskBar { get => _showTaskBar; set => _showTaskBar = value; }
 
 		/// <summary>
 		/// Gets the current console window system options.
@@ -2655,7 +2649,7 @@ namespace SharpConsoleUI
 					.Where(w => w.ParentWindow == null)
 					.ToList();
 
-				var taskBar = _showTaskBar ? $"{string.Join(" | ", topLevelWindows.Select((w, i) => {
+				var taskBar = _options.StatusBar.ShowTaskBar ? $"{string.Join(" | ", topLevelWindows.Select((w, i) => {
 					var minIndicator = w.State == WindowState.Minimized ? "[dim]" : "";
 					var minEnd = w.State == WindowState.Minimized ? "[/]" : "";
 					return $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";

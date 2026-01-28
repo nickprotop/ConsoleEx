@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using ConsoleTopExample.Stats;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
@@ -101,10 +102,15 @@ internal class Program
     {
         try
         {
-            _windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
+            _windowSystem = new ConsoleWindowSystem(
+                new NetConsoleDriver(RenderMode.Buffer),
+                options: new ConsoleWindowSystemOptions(
+                    StatusBarOptions: new StatusBarOptions(
+                        ShowTaskBar: false
+                    )
+                ))
             {
                 TopStatus = $"ConsoleTop - System Monitor ({SystemStatsFactory.GetPlatformName()})",
-                ShowTaskBar = false,
             };
 
             Console.CancelKeyPress += (sender, e) =>

@@ -5,12 +5,13 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI;
+using SharpConsoleUI.Builders;
+using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using SharpConsoleUI.Builders;
-using SharpConsoleUI.Controls;
-using SharpConsoleUI.Drivers;
 using Spectre.Console;
 
 namespace FullScreenExample;
@@ -28,10 +29,15 @@ internal class Program
         try
         {
             // Initialize console window system
-            _windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
+            _windowSystem = new ConsoleWindowSystem(
+                new NetConsoleDriver(RenderMode.Buffer),
+                options: new ConsoleWindowSystemOptions(
+                    StatusBarOptions: new StatusBarOptions(
+                        ShowTaskBar: false  // Hide taskbar for true full-screen experience
+                    )
+                ))
             {
                 TopStatus = "Full Screen Example - Press F10 to Exit",
-                ShowTaskBar = false  // Hide taskbar for true full-screen experience
             };
 
             // Setup graceful shutdown handler for Ctrl+C
