@@ -19,14 +19,17 @@ public class OverlayWindow : Window
 	public OverlayWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
 	{
 		// Configure to cover the entire desktop area
-		// Window positions are in desktop-relative coordinates, not screen-absolute
-		// So (0,0) means the top-left of the desktop area (below status bars)
+		// Window content buffer is always Width-2 x Height-2 (for border space)
+		// and content renders at position (Left+1, Top+1)
+		// RenderOverlayWindow() does NOT draw borders, so we compensate:
+		//   - Set Left=-1, Top=-1 (content renders at -1+1, -1+1 = 0, 0 ✓)
+		//   - Set Width=desktop+2, Height=desktop+2 (content buffer = desktop dimensions ✓)
 		var dimensions = windowSystem.DesktopDimensions;
 
-		Left = 0;
-		Top = 0;
-		Width = dimensions.Width;
-		Height = dimensions.Height;
+		Left = -1;
+		Top = -1;
+		Width = dimensions.Width + 2;
+		Height = dimensions.Height + 2;
 
 		// Remove all window chrome
 		BorderStyle = BorderStyle.None;

@@ -243,6 +243,8 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Special rendering for OverlayWindow that allows underlying windows to show through.
 		/// Overlay controls render their own backgrounds, creating transparent show-through effect.
+		/// NOTE: This method does NOT call DrawWindowBorders() - no border space is rendered.
+		/// OverlayWindow compensates by offsetting position and dimensions to account for missing borders.
 		/// </summary>
 		private void RenderOverlayWindow(OverlayWindow overlay)
 		{
