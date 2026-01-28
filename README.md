@@ -687,6 +687,8 @@ SharpConsoleUI was initially developed manually with core windowing functionalit
 
 Detailed documentation is available in separate guides:
 
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Complete system configuration reference
+- **[Status System](docs/STATUS_SYSTEM.md)** - Status bars, window task bar, and Start Menu
 - **[Controls Reference](docs/CONTROLS.md)** - Complete guide to all 25+ UI controls
 - **[Built-in Dialogs](docs/DIALOGS.md)** - File pickers, folder browsers, and system dialogs
 - **[Theme System](docs/THEMES.md)** - Built-in themes, custom themes, and runtime switching
