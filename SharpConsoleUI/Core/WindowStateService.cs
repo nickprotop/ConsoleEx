@@ -307,7 +307,19 @@ namespace SharpConsoleUI.Core
 				// Update Z-index to bring to front
 				if (window != null)
 				{
+					var oldZIndex = window.ZIndex;
 					window.ZIndex = GetMaxZIndex() + 1;
+
+					// DEBUG: Log activation
+					System.IO.File.AppendAllText("/tmp/window_render.log",
+						$"[{DateTime.Now:HH:mm:ss.fff}] ACTIVATE: {window.Title} | ZIndex {oldZIndex} -> {window.ZIndex}\n");
+
+					// Invalidate window when z-order changes because visibleRegions change
+					// Window may now have more visible area and needs to repaint with new clipRect
+					window.Invalidate(true);
+
+					System.IO.File.AppendAllText("/tmp/window_render.log",
+						$"[{DateTime.Now:HH:mm:ss.fff}] INVALIDATED: {window.Title}\n");
 				}
 
 				// Update state
@@ -603,6 +615,11 @@ namespace SharpConsoleUI.Core
 			{
 				window.ZIndex = GetMaxZIndex() + 1;
 				UpdateStateInternal(CreateStateSnapshot());
+
+				// Invalidate window when z-order changes because visibleRegions change
+				// Window may now have more visible area and needs to repaint with new clipRect
+				window.Invalidate(true);
+
 				FireWindowEvent(window, WindowEventType.ZOrderChanged);
 			}
 		}
@@ -621,6 +638,11 @@ namespace SharpConsoleUI.Core
 				var minZIndex = _windows.Count > 0 ? _windows.Values.Min(w => w.ZIndex) : 0;
 				window.ZIndex = minZIndex - 1;
 				UpdateStateInternal(CreateStateSnapshot());
+
+				// Invalidate window when z-order changes because visibleRegions change
+				// Window may now have less visible area and needs to repaint with new clipRect
+				window.Invalidate(true);
+
 				FireWindowEvent(window, WindowEventType.ZOrderChanged);
 			}
 		}

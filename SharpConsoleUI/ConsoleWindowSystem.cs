@@ -130,6 +130,8 @@ namespace SharpConsoleUI
 
 		// Track windows currently being flashed to prevent concurrent flashes
 		private readonly HashSet<Window> _flashingWindows = new();
+		private readonly HashSet<Window> _windowsNeedingRegionUpdate = new();
+		private readonly List<Rectangle> _pendingDesktopClears = new(); // Areas to clear atomically in UpdateDisplay
 
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
@@ -1283,24 +1285,53 @@ namespace SharpConsoleUI
 		/// Invalidates only the regions that are newly exposed after a window move/resize operation
 		/// This happens AFTER the window is already in its new position
 		/// </summary>
-		private void InvalidateExposedRegions(Window movedWindow, Rectangle oldBounds)
+	/// <summary>
+	/// Adds overlapping windows to the region update set (without invalidating them).
+	/// This allows them to recalculate clipping without repainting content.
+	/// </summary>
+	private void AddOverlappingWindowsForRegionUpdate(Window movingWindow)
+	{
+		var overlapping = Windows.Values
+			.Where(w => w != movingWindow && _renderer.IsOverlapping(movingWindow, w))
+			.ToList();
+
+
+		foreach (var w in overlapping)
 		{
-			// Calculate what regions were covered by the old window but are not covered by the new window
-			var newBounds = new Rectangle(movedWindow.Left, movedWindow.Top, movedWindow.Width, movedWindow.Height);
-			var exposedRegions = CalculateExposedRegions(oldBounds, newBounds);
+			System.IO.File.AppendAllText("/tmp/window_render.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}]   Adding to region update: {w.Title}\n");
+			_windowsNeedingRegionUpdate.Add(w);
+		}
+	}
 
-			if (exposedRegions.Count == 0)
-				return; // No exposed regions, nothing to do
 
-			// Merge small adjacent regions to reduce flicker and improve performance
-			var optimizedRegions = OptimizeExposedRegions(exposedRegions);
 
-			// For each exposed region, redraw what should be there based on Z-order
-			foreach (var exposedRegion in optimizedRegions)
+	private void InvalidateExposedRegions(Window movedWindow, Rectangle oldBounds)
+	{
+		System.IO.File.AppendAllText("/tmp/window_render.log",
+			$"[{DateTime.Now:HH:mm:ss.fff}] InvalidateExposedRegions: {movedWindow.Title} | OldBounds=({oldBounds.Left},{oldBounds.Top}) {oldBounds.Width}x{oldBounds.Height}\n");
+
+		// BRUTE FORCE FIX: Instead of trying to render tiny exposed regions (which causes blanks),
+		// just invalidate all windows that were underneath the old position.
+		// They'll render normally with proper visibleRegions in the next UpdateDisplay.
+
+		foreach (var window in Windows.Values)
+		{
+			if (window == movedWindow)
+				continue; // Skip the window that moved
+
+			if (window.ZIndex >= movedWindow.ZIndex)
+				continue; // Only invalidate windows that were underneath
+
+			// Check if this window overlaps with the OLD position
+			if (DoesRectangleOverlapWindow(oldBounds, window))
 			{
-				RedrawExposedRegion(exposedRegion, movedWindow.ZIndex);
+				System.IO.File.AppendAllText("/tmp/window_render.log",
+					$"[{DateTime.Now:HH:mm:ss.fff}]   Invalidating underlying window: {window.Title}\n");
+				window.Invalidate(true);
 			}
 		}
+	}
 
 		/// <summary>
 		/// Optimize exposed regions by merging small adjacent rectangles
@@ -1337,6 +1368,8 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void RedrawExposedRegion(Rectangle exposedRegion, int movedWindowZIndex)
 		{
+		System.IO.File.AppendAllText("/tmp/window_render.log",
+			$"[{DateTime.Now:HH:mm:ss.fff}]   RedrawExposedRegion: ({exposedRegion.Left},{exposedRegion.Top}) {exposedRegion.Width}x{exposedRegion.Height}\n");
 			// Find all windows that could be visible in this region (with lower Z-index than the moved window)
 			var candidateWindows = Windows.Values
 				.Where(w => w.ZIndex < movedWindowZIndex) // Only windows that were underneath
@@ -2101,11 +2134,12 @@ namespace SharpConsoleUI
 			// Only update if position actually changed
 			if (newLeft != window.Left || newTop != window.Top)
 			{
-				// FIRST: Clear the old window position completely
-				_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
-					Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+				System.IO.File.AppendAllText("/tmp/window_render.log",
+					$"[{DateTime.Now:HH:mm:ss.fff}] MOVE: {window.Title} from ({window.Left},{window.Top}) to ({newLeft},{newTop})\n");
+			// Add old position to pending clears (will be cleared atomically in UpdateDisplay)
+			_pendingDesktopClears.Add(oldBounds);
 
-				// THEN: Apply the new position
+			// Apply the new position
 				window.SetPosition(new Point(newLeft, newTop));
 
 				// FINALLY: Force redraw of the window at its new position
@@ -2197,16 +2231,19 @@ namespace SharpConsoleUI
 			if (newLeft != window.Left || newTop != window.Top ||
 				newWidth != window.Width || newHeight != window.Height)
 			{
-				// FIRST: Clear the old window position/size completely
-				_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
-					Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+			// Add old bounds to pending clears (will be cleared atomically in UpdateDisplay)
+			_pendingDesktopClears.Add(oldBounds);
 
-				// THEN: Apply the new position and size
+			// Apply the new position and size
 				window.SetPosition(new Point(newLeft, newTop));
 				window.SetSize(newWidth, newHeight);
 
-				// FINALLY: Force redraw of the window at its new position and size
-				window.Invalidate(true);
+				// OPTIMIZATION: Don't invalidate during resize - keep using cached content
+				// Only mark for region update (clipping recalculation)
+				_windowsNeedingRegionUpdate.Add(window);
+
+				// Mark overlapping windows for region update (their visibleRegions changed)
+				AddOverlappingWindowsForRegionUpdate(window);
 
 				// And invalidate exposed regions to redraw any windows that were underneath
 				InvalidateExposedRegions(window, oldBounds);
@@ -2465,6 +2502,28 @@ namespace SharpConsoleUI
 		{
 			lock (_renderLock)
 			{
+			// ATOMIC DESKTOP CLEARING: Clear old window positions before rendering
+			// This prevents traces from rapid moves between frames
+			if (_pendingDesktopClears.Count > 0)
+			{
+			// Copy list to avoid race condition (mouse events can add during iteration)
+			var clearsCopy = _pendingDesktopClears.ToList();
+			_pendingDesktopClears.Clear();
+
+			System.IO.File.AppendAllText("/tmp/window_render.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}] CLEARING {clearsCopy.Count} pending desktop regions\n");
+
+
+				foreach (var rect in clearsCopy)
+				{
+					System.IO.File.AppendAllText("/tmp/window_render.log",
+						$"[{DateTime.Now:HH:mm:ss.fff}]   Clear ({rect.Left},{rect.Top}) {rect.Width}x{rect.Height}\n");
+					_renderer.FillRect(rect.Left, rect.Top, rect.Width, rect.Height,
+						Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+				}
+
+			}
+
 				// RENDERING ORDER:
 				// 1. Windows first (so we can measure their dirty chars)
 				// 2. Capture dirty chars (after windows, before TopStatus)
@@ -2478,6 +2537,9 @@ namespace SharpConsoleUI
 				// This prevents unnecessary redraws of windows below the dirty window
 				foreach (var window in Windows.Values)
 				{
+				System.IO.File.AppendAllText("/tmp/window_render.log",
+					$"[{DateTime.Now:HH:mm:ss.fff}] CHECK_WINDOW: {window.Title} | Minimized={window.State == WindowState.Minimized} | InvalidDim={window.Width <= 0 || window.Height <= 0} | IsDirty={window.IsDirty}\n");
+
 					// Skip minimized windows - they're invisible
 					if (window.State == WindowState.Minimized)
 						continue;
@@ -2704,7 +2766,13 @@ namespace SharpConsoleUI
 			// Update status bar bounds for mouse click detection
 			UpdateStatusBarBounds();
 
+			// Clear the region update set for next frame
+			_windowsNeedingRegionUpdate.Clear();
+		System.IO.File.AppendAllText("/tmp/window_render.log",
+			$"[{DateTime.Now:HH:mm:ss.fff}] === FLUSH_START ===\n");
 			_consoleDriver.Flush();
+		System.IO.File.AppendAllText("/tmp/window_render.log",
+			$"[{DateTime.Now:HH:mm:ss.fff}] === FLUSH_COMPLETE ===\n");
 		}
 
 	}

@@ -168,7 +168,12 @@ namespace SharpConsoleUI
 			// will handle clipping against screen boundaries
 			DrawWindowBorders(window, visibleRegions);
 
-			var lines = window.RenderAndGetVisibleContent();
+			// Pass visible regions to window rendering so it only paints visible areas (optimization)
+			// OPTION C FIX: Force rebuild for exposed regions to ensure cache contains correct content
+			// Exposed regions may request areas that weren't in the previous cache (stale regional cache bug)
+			window.Invalidate(true);
+
+			var lines = window.RenderAndGetVisibleContent(visibleRegions);
 			window.IsDirty = false;
 
 			// Render content only for visible parts
@@ -233,7 +238,8 @@ namespace SharpConsoleUI
 			// will handle clipping against screen boundaries
 			DrawWindowBorders(window, visibleRegions);
 
-			var lines = window.RenderAndGetVisibleContent();
+			// Pass visible regions to window rendering so it only paints visible areas (optimization)
+			var lines = window.RenderAndGetVisibleContent(visibleRegions);
 			window.IsDirty = false;
 
 			// Render content only for visible parts
@@ -334,7 +340,8 @@ namespace SharpConsoleUI
 			// will handle clipping against screen boundaries
 			DrawWindowBorders(window, visibleRegions);
 
-			var lines = window.RenderAndGetVisibleContent();
+			// Pass visible regions to window rendering so it only paints visible areas (optimization)
+			var lines = window.RenderAndGetVisibleContent(visibleRegions);
 			window.IsDirty = false;
 
 			// Render content only for visible parts

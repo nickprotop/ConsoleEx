@@ -425,7 +425,20 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets or sets a value indicating whether the window needs to be redrawn.
 		/// </summary>
-		public bool IsDirty { get; set; } = true;
+		private bool _isDirty = true;
+		public bool IsDirty
+		{
+			get => _isDirty;
+			set
+			{
+				if (_isDirty != value)
+				{
+					_isDirty = value;
+					System.IO.File.AppendAllText("/tmp/window_render.log",
+						$"[{DateTime.Now:HH:mm:ss.fff}] IsDirty={value}: {Title}\n");
+				}
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the window is currently being dragged.
@@ -1855,6 +1868,8 @@ namespace SharpConsoleUI
 		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
 		{
 			_invalidated = true;
+		System.IO.File.AppendAllText("/tmp/window_render.log",
+			$"[{DateTime.Now:HH:mm:ss.fff}] INVALIDATE: {Title} | redrawAll={redrawAll}\n");
 
 			lock (_lock)
 			{
@@ -2271,8 +2286,10 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Renders the window content and returns the visible lines.
 		/// </summary>
+		/// <param name="visibleRegions">Optional list of screen-space rectangles representing visible portions of the window.
+		/// If provided, only these regions will be painted (optimization to avoid painting occluded areas).</param>
 		/// <returns>A list of rendered content lines visible within the window viewport.</returns>
-		public List<string> RenderAndGetVisibleContent()
+		public List<string> RenderAndGetVisibleContent(List<Rectangle>? visibleRegions = null)
 		{
 			// Return empty list if window is minimized
 			if (_state == WindowState.Minimized)
@@ -2282,24 +2299,45 @@ namespace SharpConsoleUI
 
 			lock (_lock)
 			{
+				// DEBUG: Log render call
+				System.IO.File.AppendAllText("/tmp/window_render.log",
+					$"[{DateTime.Now:HH:mm:ss.fff}] RenderAndGetVisibleContent: {Title} | _invalidated={_invalidated} | visibleRegions={(visibleRegions?.Count ?? 0)}\n");
+
 				// Only recalculate content if it's been invalidated
 				if (_invalidated)
 				{
 					UpdateControlLayout();
-					RebuildContentCache();
+					RebuildContentCache(visibleRegions);
+
+				// Check if visibleRegions is null or empty (window not in rendering pipeline yet)
+				bool isInRenderingPipeline = visibleRegions != null && visibleRegions.Count > 0;
+
+				// If we rendered without visible regions (during window creation),
+				// keep _invalidated=true so we re-render when actually in the pipeline
+				if (!isInRenderingPipeline)
+				{
+					_invalidated = true;
+					System.IO.File.AppendAllText("/tmp/window_render.log",
+						$"[{DateTime.Now:HH:mm:ss.fff}] KEEPING INVALIDATED: {Title} (no visibleRegions - not in pipeline yet)\n");
+				}
+				}
+				else
+				{
+					System.IO.File.AppendAllText("/tmp/window_render.log",
+						$"[{DateTime.Now:HH:mm:ss.fff}] SKIPPED REBUILD: {Title} (not invalidated)\n");
 				}
 
 				return BuildVisibleContent();
 			}
 		}
 
-		private void RebuildContentCache()
+		private void RebuildContentCache(List<Rectangle>? visibleRegions = null)
 		{
 			var availableWidth = Width - 2; // Account for borders
 			var availableHeight = Height - 2; // Account for borders
 
 			// Always use DOM-based layout
-			RebuildContentCacheDOM(availableWidth, availableHeight);
+			RebuildContentCacheDOM(availableWidth, availableHeight, visibleRegions);
 		}
 
 		private List<string> BuildVisibleContent()
@@ -2562,18 +2600,15 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Paints the DOM tree to the character buffer.
 		/// </summary>
-		private void PaintDOM()
+		/// <param name="clipRect">The clipping rectangle in window-space coordinates. Only content within this rect will be painted.</param>
+		private void PaintDOM(LayoutRect clipRect)
 		{
 			if (_rootNode == null || _buffer == null) return;
 
-			var contentWidth = Width - 2;
-			var contentHeight = Height - 2;
-
-			// Clear buffer
+			// Clear buffer (could optimize to only clear clipRect region, but full clear is simpler)
 			_buffer.Clear(BackgroundColor);
 
-			// Paint the tree
-			var clipRect = new LayoutRect(0, 0, contentWidth, contentHeight);
+			// Paint the tree with the provided clip rect
 			_rootNode.Paint(_buffer, clipRect);
 		}
 
@@ -2586,10 +2621,90 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Converts screen-space visible regions to a window-space clipping rectangle.
+		/// This optimization prevents painting occluded areas that are covered by overlapping windows.
+		/// </summary>
+		/// <param name="visibleRegions">Screen-space rectangles representing visible portions of the window.</param>
+		/// <returns>A window-space LayoutRect representing the bounding box of all visible regions, or empty rect if nothing is visible.</returns>
+		private LayoutRect ConvertVisibleRegionsToClipRect(List<Rectangle> visibleRegions)
+		{
+			if (visibleRegions == null || !visibleRegions.Any())
+			{
+				// No visible regions - return empty clipRect
+				return new LayoutRect(0, 0, 0, 0);
+			}
+
+			// Convert screen-space rectangles to window-space coordinates
+			// Screen coords: absolute positions on console
+			// Window coords: relative to window content area (0,0 = top-left of content, excluding border)
+
+			int windowContentLeft = Left + 1;  // +1 for left border
+			int windowContentTop = Top + (ShowTitle ? 2 : 1);  // +1 or +2 for border/title
+
+			// Find bounding box of all visible regions in window space
+			int minX = int.MaxValue;
+			int minY = int.MaxValue;
+			int maxX = int.MinValue;
+			int maxY = int.MinValue;
+
+			int contentWidth = Width - 2;  // Available content width
+			int contentHeight = Height - 2;  // Available content height
+
+		System.IO.File.AppendAllText("/tmp/window_render.log",
+			$"[{DateTime.Now:HH:mm:ss.fff}] ConvertClipRect START: {Title} | Window=({Left},{Top}) {Width}x{Height} | Content=({windowContentLeft},{windowContentTop}) {contentWidth}x{contentHeight} | Regions={visibleRegions.Count}\n");
+
+			foreach (var region in visibleRegions)
+			{
+			System.IO.File.AppendAllText("/tmp/window_render.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}]   Region: ({region.Left},{region.Top}) {region.Width}x{region.Height}\n");
+
+				// Convert to window-relative coordinates
+				int relLeft = region.Left - windowContentLeft;
+				int relTop = region.Top - windowContentTop;
+				int relRight = relLeft + region.Width;
+				int relBottom = relTop + region.Height;
+
+			System.IO.File.AppendAllText("/tmp/window_render.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}]   Relative BEFORE clamp: L={relLeft} T={relTop} R={relRight} B={relBottom}\n");
+
+				// Clamp to window content bounds
+				relLeft = Math.Max(0, Math.Min(relLeft, contentWidth));
+				relTop = Math.Max(0, Math.Min(relTop, contentHeight));
+				relRight = Math.Max(0, Math.Min(relRight, contentWidth));
+				relBottom = Math.Max(0, Math.Min(relBottom, contentHeight));
+
+			System.IO.File.AppendAllText("/tmp/window_render.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}]   Relative AFTER clamp: L={relLeft} T={relTop} R={relRight} B={relBottom} | Valid={relLeft < relRight && relTop < relBottom}\n");
+
+				// Skip if region has no area after clamping
+				if (relLeft < relRight && relTop < relBottom)
+				{
+					minX = Math.Min(minX, relLeft);
+					minY = Math.Min(minY, relTop);
+					maxX = Math.Max(maxX, relRight);
+					maxY = Math.Max(maxY, relBottom);
+				}
+			}
+
+			if (minX == int.MaxValue)
+			{
+				// No valid regions after conversion
+			System.IO.File.AppendAllText("/tmp/window_render.log",
+				$"[{DateTime.Now:HH:mm:ss.fff}] ConvertClipRect END: {Title} | EMPTY (no valid regions)\n");
+				return new LayoutRect(0, 0, 0, 0);
+			}
+
+		var result = new LayoutRect(minX, minY, maxX - minX, maxY - minY);
+		System.IO.File.AppendAllText("/tmp/window_render.log",
+			$"[{DateTime.Now:HH:mm:ss.fff}] ConvertClipRect END: {Title} | Result=({result.X},{result.Y}) {result.Width}x{result.Height}\n");
+		return result;
+		}
+
+		/// <summary>
 		/// Rebuilds the content cache using DOM-based layout.
 		/// Converts the CharacterBuffer output to line-based format for compatibility.
 		/// </summary>
-		private void RebuildContentCacheDOM(int availableWidth, int availableHeight)
+		private void RebuildContentCacheDOM(int availableWidth, int availableHeight, List<Rectangle>? visibleRegions = null)
 		{
 			// Ensure DOM tree exists
 			if (_rootNode == null)
@@ -2607,8 +2722,34 @@ namespace SharpConsoleUI
 			// Always perform layout (arrange pass uses scroll offset)
 			PerformDOMLayout();
 
-			// Paint to buffer
-			PaintDOM();
+			// Calculate clip rect from visible regions (optimization to avoid painting occluded areas)
+			LayoutRect clipRect;
+			if (visibleRegions != null && visibleRegions.Any())
+			{
+				clipRect = ConvertVisibleRegionsToClipRect(visibleRegions);
+
+				// DEBUG: Log clipRect
+				System.IO.File.AppendAllText("/tmp/window_render.log",
+					$"[{DateTime.Now:HH:mm:ss.fff}] ClipRect: {Title} | ({clipRect.X},{clipRect.Y}) {clipRect.Width}x{clipRect.Height}\n");
+
+				// If no visible area, skip painting entirely
+				if (clipRect.Width == 0 || clipRect.Height == 0)
+				{
+					System.IO.File.AppendAllText("/tmp/window_render.log",
+						$"[{DateTime.Now:HH:mm:ss.fff}] BLANK! {Title} | ClipRect is empty, setting _cachedContent to empty list\n");
+					_cachedContent = new List<string>();
+					_invalidated = false;
+					return;
+				}
+			}
+			else
+			{
+				// No visible regions provided - paint entire window (fallback for non-optimized calls)
+				clipRect = new LayoutRect(0, 0, availableWidth, availableHeight);
+			}
+
+			// Paint to buffer with clip rect
+			PaintDOM(clipRect);
 
 			// Convert buffer to lines for compatibility with existing render system
 			_topStickyLines.Clear();
