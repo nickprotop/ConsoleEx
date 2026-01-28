@@ -2100,9 +2100,9 @@ namespace SharpConsoleUI
 			int newLeft = dragState.StartWindowPos.X + deltaX;
 			int newTop = dragState.StartWindowPos.Y + deltaY;
 
-			// Constrain to desktop bounds
-			newLeft = Math.Max(DesktopUpperLeft.X, Math.Min(newLeft, DesktopBottomRight.X - window.Width + 1));
-			newTop = Math.Max(DesktopUpperLeft.Y, Math.Min(newTop, DesktopBottomRight.Y - window.Height + 1));
+			// Constrain to desktop bounds (window positions are desktop-relative, not screen-absolute)
+			newLeft = Math.Max(0, Math.Min(newLeft, DesktopDimensions.Width - window.Width));
+			newTop = Math.Max(0, Math.Min(newTop, DesktopDimensions.Height - window.Height));
 
 			// Only update if position actually changed
 			if (newLeft != window.Left || newTop != window.Top)
@@ -2191,13 +2191,13 @@ namespace SharpConsoleUI
 			newWidth = Math.Max(10, newWidth); // Minimum width
 			newHeight = Math.Max(3, newHeight); // Minimum height
 
-			// Constrain to desktop bounds
-			newLeft = Math.Max(DesktopUpperLeft.X, Math.Min(newLeft, DesktopBottomRight.X - newWidth + 1));
-			newTop = Math.Max(DesktopUpperLeft.Y, Math.Min(newTop, DesktopBottomRight.Y - newHeight + 1));
+			// Constrain to desktop bounds (window positions are desktop-relative, not screen-absolute)
+			newLeft = Math.Max(0, Math.Min(newLeft, DesktopDimensions.Width - newWidth));
+			newTop = Math.Max(0, Math.Min(newTop, DesktopDimensions.Height - newHeight));
 
 			// Ensure the window doesn't resize beyond desktop bounds
-			newWidth = Math.Min(newWidth, DesktopBottomRight.X - newLeft + 1);
-			newHeight = Math.Min(newHeight, DesktopBottomRight.Y - newTop + 1);
+			newWidth = Math.Min(newWidth, DesktopDimensions.Width - newLeft);
+			newHeight = Math.Min(newHeight, DesktopDimensions.Height - newTop);
 
 			// Only update if position or size actually changed
 			if (newLeft != window.Left || newTop != window.Top ||
@@ -2232,19 +2232,19 @@ namespace SharpConsoleUI
 
 				case ConsoleKey.DownArrow:
 					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Down);
-					ActiveWindow?.SetPosition(new Point(ActiveWindow?.Left ?? 0, Math.Min(DesktopBottomRight.Y - (ActiveWindow?.Height ?? 0) + 1, (ActiveWindow?.Top ?? 0) + 1)));
+					ActiveWindow?.SetPosition(new Point(ActiveWindow?.Left ?? 0, Math.Min(DesktopDimensions.Height - (ActiveWindow?.Height ?? 0), (ActiveWindow?.Top ?? 0) + 1)));
 					handled = true;
 					break;
 
 				case ConsoleKey.LeftArrow:
 					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Left);
-					ActiveWindow?.SetPosition(new Point(Math.Max(DesktopUpperLeft.X, (ActiveWindow?.Left ?? 0) - 1), ActiveWindow?.Top ?? 0));
+					ActiveWindow?.SetPosition(new Point(Math.Max(0, (ActiveWindow?.Left ?? 0) - 1), ActiveWindow?.Top ?? 0));
 					handled = true;
 					break;
 
 				case ConsoleKey.RightArrow:
 					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Right);
-					ActiveWindow?.SetPosition(new Point(Math.Min(DesktopBottomRight.X - (ActiveWindow?.Width ?? 0) + 1, (ActiveWindow?.Left ?? 0) + 1), ActiveWindow?.Top ?? 0));
+					ActiveWindow?.SetPosition(new Point(Math.Min(DesktopDimensions.Width - (ActiveWindow?.Width ?? 0), (ActiveWindow?.Left ?? 0) + 1), ActiveWindow?.Top ?? 0));
 					handled = true;
 					break;
 
@@ -2284,7 +2284,7 @@ namespace SharpConsoleUI
 
 				case ConsoleKey.RightArrow:
 					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Right);
-					ActiveWindow?.SetSize(Math.Min(DesktopBottomRight.X - ActiveWindow.Left + 1, ActiveWindow.Width + 1), ActiveWindow.Height);
+					ActiveWindow?.SetSize(Math.Min(DesktopDimensions.Width - ActiveWindow.Left, ActiveWindow.Width + 1), ActiveWindow.Height);
 					handled = true;
 					break;
 			}

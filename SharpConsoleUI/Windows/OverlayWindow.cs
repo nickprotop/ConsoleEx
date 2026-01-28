@@ -18,12 +18,13 @@ public class OverlayWindow : Window
 	/// <param name="windowSystem">The console window system.</param>
 	public OverlayWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
 	{
-		// Configure to cover the entire desktop area (DesktopDimensions already excludes status bars)
+		// Configure to cover the entire desktop area
+		// Window positions are in desktop-relative coordinates, not screen-absolute
+		// So (0,0) means the top-left of the desktop area (below status bars)
 		var dimensions = windowSystem.DesktopDimensions;
-		var upperLeft = windowSystem.DesktopUpperLeft;
 
-		Left = upperLeft.X;
-		Top = upperLeft.Y;
+		Left = 0;
+		Top = 0;
 		Width = dimensions.Width;
 		Height = dimensions.Height;
 
