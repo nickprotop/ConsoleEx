@@ -120,21 +120,120 @@ string? savePath = await windowSystem.ShowSaveFileDialogAsync(
 
 ## System Dialogs
 
+System dialogs provide access to settings, configuration, and application information. These dialogs are accessible through the Start Menu > System category or can be called programmatically.
+
+### Settings Dialog
+
+Shows a dialog with links to various configuration dialogs (Theme, Performance, About).
+
+```csharp
+// Show settings dialog
+using SharpConsoleUI.Dialogs;
+
+SettingsDialog.Show(windowSystem);
+
+// Or as modal to a parent window
+SettingsDialog.Show(windowSystem, parentWindow);
+```
+
+The settings dialog provides access to:
+- **Change Theme...** - Opens Theme Selector Dialog
+- **Performance Settings...** - Opens Performance Dialog
+- **About...** - Opens About Dialog
+
+**Navigation:**
+- Arrow keys to navigate options
+- Enter or double-click to select
+- Escape to close
+
 ### Theme Selector
 
 Display a dialog for selecting and switching themes at runtime.
 
 ```csharp
 // Show theme selector dialog
+using SharpConsoleUI.Dialogs;
+
 windowSystem.ShowThemeSelectorDialog();
+
+// Or as modal to a parent window
+ThemeSelectorDialog.Show(windowSystem, parentWindow);
 ```
 
 The theme selector dialog displays all registered themes and allows the user to switch between them. The selected theme is applied immediately to all windows.
 
 **Available Built-in Themes:**
-- Classic - Navy blue windows with traditional styling
-- ModernGray - Modern dark theme with gray color scheme
-- DevDark - Dark developer theme (requires DeveloperTools plugin)
+- **Classic** - Navy blue windows with traditional styling
+- **ModernGray** - Modern dark theme with gray color scheme
+- **DevDark** - Dark developer theme (requires DeveloperTools plugin)
+
+**Navigation:**
+- Arrow keys to select theme
+- Enter or double-click to apply
+- Escape to close
+
+### Performance Dialog
+
+Configure performance and rendering settings.
+
+```csharp
+// Show performance configuration dialog
+using SharpConsoleUI.Dialogs;
+
+PerformanceDialog.Show(windowSystem);
+
+// Or as modal to a parent window
+PerformanceDialog.Show(windowSystem, parentWindow);
+```
+
+The performance dialog allows runtime configuration of:
+- **Performance Metrics Display** - Toggle FPS and metrics overlay
+- **Frame Rate Limiting** - Toggle frame rate limiting on/off
+- **Target FPS** - Set target FPS (30, 60, 120, or 144)
+
+**Runtime Methods:**
+
+```csharp
+// Toggle performance metrics programmatically
+windowSystem.SetPerformanceMetrics(true);
+bool enabled = windowSystem.IsPerformanceMetricsEnabled();
+
+// Toggle frame rate limiting
+windowSystem.SetFrameRateLimiting(false);  // Unlimited FPS
+bool limited = windowSystem.IsFrameRateLimitingEnabled();
+
+// Set target FPS
+windowSystem.SetTargetFPS(30);
+int fps = windowSystem.GetTargetFPS();
+```
+
+**Navigation:**
+- Arrow keys to navigate options
+- Enter or double-click to toggle/configure
+- Escape to close
+
+### About Dialog
+
+Display application information, version, and loaded plugins.
+
+```csharp
+// Show about dialog
+using SharpConsoleUI.Dialogs;
+
+AboutDialog.Show(windowSystem);
+
+// Or as modal to a parent window
+AboutDialog.Show(windowSystem, parentWindow);
+```
+
+The about dialog displays:
+- Application name and version
+- Description and core features
+- Author and license information
+- List of loaded plugins (if any)
+
+**Navigation:**
+- Enter or Escape to close
 
 ## Complete Example
 
