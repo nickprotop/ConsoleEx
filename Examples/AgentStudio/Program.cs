@@ -9,6 +9,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using Spectre.Console;
 
@@ -28,11 +29,16 @@ internal class Program
                 CursorBlinkRate = 500  // Future use
             };
             var driver = new NetConsoleDriver(driverOptions);
-            var windowSystem = new ConsoleWindowSystem(driver)
+            var windowSystem = new ConsoleWindowSystem(
+                driver,
+                options: new ConsoleWindowSystemOptions(
+                    StatusBarOptions: new StatusBarOptions(
+                        ShowTaskBar: false,
+                        ShowBottomStatus: false
+                    )
+                ))
             {
                 TopStatus = "AgentStudio - TUI Showcase",
-                ShowTaskBar = false,
-                ShowBottomStatus = false
             };
 
             // Setup graceful shutdown

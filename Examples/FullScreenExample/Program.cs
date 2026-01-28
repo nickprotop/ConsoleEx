@@ -104,7 +104,7 @@ internal class Program
             "  [green]•[/] IsClosable = false      - Window cannot be closed with X button",
             "  [green]•[/] IsMinimizable = false   - Window cannot be minimized",
             "  [green]•[/] IsMaximizable = false   - Window cannot be maximized/restored",
-            "  [green]•[/] ShowTaskBar = false     - Taskbar hidden for full-screen",
+            "  [green]•[/] StatusBarOptions.ShowTaskBar = false - Taskbar hidden for full-screen",
             "  [green]•[/] State = Maximized       - Fills console, resizes with it",
             "",
             "[dim]This is ideal for:[/]",

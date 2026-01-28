@@ -1,5 +1,6 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
@@ -19,12 +20,17 @@ class Program
         try
         {
             // Initialize window system
-            _windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
+            _windowSystem = new ConsoleWindowSystem(
+                new NetConsoleDriver(RenderMode.Buffer),
+                options: new ConsoleWindowSystemOptions(
+                    StatusBarOptions: new StatusBarOptions(
+                        ShowTaskBar: true
+                    )
+                ))
             {
                 TopStatus = "MenuControl Demo - Full-Featured Menu with Keyboard & Mouse Support",
                 BottomStatus =
                     "Use Arrow Keys, Enter, Escape, Home/End, or Mouse | Tab to focus menu | ESC to close | Ctrl+C to Quit",
-                ShowTaskBar = true,
             };
 
             // Graceful shutdown

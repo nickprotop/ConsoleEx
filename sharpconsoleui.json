@@ -2,9 +2,11 @@
   "SharpConsoleUI": {
     "RenderMode": "Buffer",
     "IdleTimeMs": 10,
-    "ShowTaskBar": true,
     "TopStatus": "SharpConsoleUI Application",
     "BottomStatus": "Ctrl+Q to Quit | F1 Help",
+    "StatusBarOptions": {
+      "ShowTaskBar": true
+    },
     "EnablePlugins": true,
     "PluginDirectory": "plugins",
     "Performance": {
