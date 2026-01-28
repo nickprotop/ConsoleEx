@@ -6,6 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -21,7 +24,7 @@ namespace SharpConsoleUI.Controls
 	/// A control that wraps any Spectre.Console IRenderable for display within the window system.
 	/// Provides a bridge between Spectre.Console's rich rendering and the SharpConsoleUI framework.
 	/// </summary>
-	public class SpectreRenderableControl : IWindowControl, IDOMPaintable
+	public class SpectreRenderableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	{
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -32,6 +35,13 @@ namespace SharpConsoleUI.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
+
+		// Mouse interaction state
+		private bool _wantsMouseEvents = true;
+		private bool _canFocusWithMouse = false;
+		private bool _isMouseInside = false;
+		private DateTime _lastClickTime = DateTime.MinValue;
+		private int _clickCount = 0;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SpectreRenderableControl"/> class.
@@ -146,8 +156,132 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
+		public bool WantsMouseEvents
+		{
+			get => _wantsMouseEvents;
+			set
+			{
+				if (_wantsMouseEvents == value) return;
+				_wantsMouseEvents = value;
+			}
+		}
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse
+		{
+			get => _canFocusWithMouse;
+			set
+			{
+				if (_canFocusWithMouse == value) return;
+				_canFocusWithMouse = value;
+			}
+		}
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseMove;
+
+		/// <inheritdoc/>
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+			if (!WantsMouseEvents)
+				return false;
+
+			if (args.Handled)
+				return false;
+
+			// Handle mouse leave
+			if (args.HasFlag(MouseFlags.MouseLeave))
+			{
+				if (_isMouseInside)
+				{
+					_isMouseInside = false;
+					MouseLeave?.Invoke(this, args);
+					Container?.Invalidate(true);
+				}
+				return true;
+			}
+
+			// Handle mouse enter
+			if (!_isMouseInside && args.HasFlag(MouseFlags.ReportMousePosition))
+			{
+				_isMouseInside = true;
+				MouseEnter?.Invoke(this, args);
+				Container?.Invalidate(true);
+			}
+
+			// Scroll events - ALWAYS bubble up (don't consume)
+			if (args.HasFlag(MouseFlags.WheeledUp) || args.HasFlag(MouseFlags.WheeledDown) ||
+				args.HasFlag(MouseFlags.WheeledLeft) || args.HasFlag(MouseFlags.WheeledRight))
+			{
+				return false;  // Let scroll events bubble to parent
+			}
+
+			// Handle driver-provided double-click
+			if (args.HasFlag(MouseFlags.Button1DoubleClicked))
+			{
+				MouseDoubleClick?.Invoke(this, args);
+				args.Handled = true;
+				Container?.Invalidate(true);
+				return true;
+			}
+
+			// Handle clicks with manual double-click detection
+			if (args.HasFlag(MouseFlags.Button1Clicked))
+			{
+				var now = DateTime.UtcNow;
+				var timeSince = (now - _lastClickTime).TotalMilliseconds;
+				bool isDoubleClick = timeSince <= ControlDefaults.DefaultDoubleClickThresholdMs &&
+									_clickCount == 1;
+
+				if (isDoubleClick)
+				{
+					_clickCount = 0;
+					_lastClickTime = DateTime.MinValue;
+					MouseDoubleClick?.Invoke(this, args);
+				}
+				else
+				{
+					_clickCount = 1;
+					_lastClickTime = now;
+					MouseClick?.Invoke(this, args);
+				}
+
+				args.Handled = true;
+				Container?.Invalidate(true);
+				return true;
+			}
+
+			// Handle mouse movement
+			if (args.HasFlag(MouseFlags.ReportMousePosition))
+			{
+				MouseMove?.Invoke(this, args);
+			}
+
+			return false;
+		}
+
+		/// <inheritdoc/>
 		public void Dispose()
 		{
+			// Clear mouse event handlers to prevent memory leaks
+			MouseClick = null;
+			MouseDoubleClick = null;
+			MouseEnter = null;
+			MouseLeave = null;
+			MouseMove = null;
+
 			Container = null;
 		}
 

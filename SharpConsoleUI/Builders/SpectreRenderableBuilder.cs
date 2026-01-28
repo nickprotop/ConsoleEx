@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
@@ -32,6 +33,13 @@ public sealed class SpectreRenderableBuilder
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
+	private bool _wantsMouseEvents = true;
+	private bool _canFocusWithMouse = false;
+	private EventHandler<MouseEventArgs>? _mouseClickHandler;
+	private EventHandler<MouseEventArgs>? _mouseDoubleClickHandler;
+	private EventHandler<MouseEventArgs>? _mouseEnterHandler;
+	private EventHandler<MouseEventArgs>? _mouseLeaveHandler;
+	private EventHandler<MouseEventArgs>? _mouseMoveHandler;
 
 	/// <summary>
 	/// Sets the renderable to display
@@ -233,6 +241,83 @@ public sealed class SpectreRenderableBuilder
 	}
 
 	/// <summary>
+	/// Configures whether the control wants to receive mouse events
+	/// </summary>
+	/// <param name="wants">True to enable mouse events (default), false to disable</param>
+	/// <returns>The builder for chaining</returns>
+	public SpectreRenderableBuilder WithMouseEvents(bool wants = true)
+	{
+		_wantsMouseEvents = wants;
+		return this;
+	}
+
+	/// <summary>
+	/// Configures whether the control can receive focus via mouse clicks
+	/// </summary>
+	/// <param name="canFocus">True to enable mouse focus, false to disable (default)</param>
+	/// <returns>The builder for chaining</returns>
+	public SpectreRenderableBuilder CanFocusWithMouse(bool canFocus = true)
+	{
+		_canFocusWithMouse = canFocus;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the handler for mouse click events
+	/// </summary>
+	/// <param name="handler">The event handler</param>
+	/// <returns>The builder for chaining</returns>
+	public SpectreRenderableBuilder OnClick(EventHandler<MouseEventArgs> handler)
+	{
+		_mouseClickHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the handler for mouse double-click events
+	/// </summary>
+	/// <param name="handler">The event handler</param>
+	/// <returns>The builder for chaining</returns>
+	public SpectreRenderableBuilder OnDoubleClick(EventHandler<MouseEventArgs> handler)
+	{
+		_mouseDoubleClickHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the handler for mouse enter events
+	/// </summary>
+	/// <param name="handler">The event handler</param>
+	/// <returns>The builder for chaining</returns>
+	public SpectreRenderableBuilder OnMouseEnter(EventHandler<MouseEventArgs> handler)
+	{
+		_mouseEnterHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the handler for mouse leave events
+	/// </summary>
+	/// <param name="handler">The event handler</param>
+	/// <returns>The builder for chaining</returns>
+	public SpectreRenderableBuilder OnMouseLeave(EventHandler<MouseEventArgs> handler)
+	{
+		_mouseLeaveHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the handler for mouse move events
+	/// </summary>
+	/// <param name="handler">The event handler</param>
+	/// <returns>The builder for chaining</returns>
+	public SpectreRenderableBuilder OnMouseMove(EventHandler<MouseEventArgs> handler)
+	{
+		_mouseMoveHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the Spectre renderable control
 	/// </summary>
 	/// <returns>The configured control</returns>
@@ -248,7 +333,9 @@ public sealed class SpectreRenderableBuilder
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			WantsMouseEvents = _wantsMouseEvents,
+			CanFocusWithMouse = _canFocusWithMouse
 		};
 
 		if (_backgroundColor.HasValue)
@@ -260,6 +347,18 @@ public sealed class SpectreRenderableBuilder
 		{
 			control.ForegroundColor = _foregroundColor.Value;
 		}
+
+		// Subscribe event handlers
+		if (_mouseClickHandler != null)
+			control.MouseClick += _mouseClickHandler;
+		if (_mouseDoubleClickHandler != null)
+			control.MouseDoubleClick += _mouseDoubleClickHandler;
+		if (_mouseEnterHandler != null)
+			control.MouseEnter += _mouseEnterHandler;
+		if (_mouseLeaveHandler != null)
+			control.MouseLeave += _mouseLeaveHandler;
+		if (_mouseMoveHandler != null)
+			control.MouseMove += _mouseMoveHandler;
 
 		return control;
 	}
