@@ -1298,8 +1298,6 @@ namespace SharpConsoleUI
 
 		foreach (var w in overlapping)
 		{
-			System.IO.File.AppendAllText("/tmp/window_render.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}]   Adding to region update: {w.Title}\n");
 			_windowsNeedingRegionUpdate.Add(w);
 		}
 	}
@@ -1308,9 +1306,6 @@ namespace SharpConsoleUI
 
 	private void InvalidateExposedRegions(Window movedWindow, Rectangle oldBounds)
 	{
-		System.IO.File.AppendAllText("/tmp/window_render.log",
-			$"[{DateTime.Now:HH:mm:ss.fff}] InvalidateExposedRegions: {movedWindow.Title} | OldBounds=({oldBounds.Left},{oldBounds.Top}) {oldBounds.Width}x{oldBounds.Height}\n");
-
 		// BRUTE FORCE FIX: Instead of trying to render tiny exposed regions (which causes blanks),
 		// just invalidate all windows that were underneath the old position.
 		// They'll render normally with proper visibleRegions in the next UpdateDisplay.
@@ -1326,8 +1321,6 @@ namespace SharpConsoleUI
 			// Check if this window overlaps with the OLD position
 			if (DoesRectangleOverlapWindow(oldBounds, window))
 			{
-				System.IO.File.AppendAllText("/tmp/window_render.log",
-					$"[{DateTime.Now:HH:mm:ss.fff}]   Invalidating underlying window: {window.Title}\n");
 				window.Invalidate(true);
 			}
 		}
@@ -1368,8 +1361,6 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void RedrawExposedRegion(Rectangle exposedRegion, int movedWindowZIndex)
 		{
-		System.IO.File.AppendAllText("/tmp/window_render.log",
-			$"[{DateTime.Now:HH:mm:ss.fff}]   RedrawExposedRegion: ({exposedRegion.Left},{exposedRegion.Top}) {exposedRegion.Width}x{exposedRegion.Height}\n");
 			// Find all windows that could be visible in this region (with lower Z-index than the moved window)
 			var candidateWindows = Windows.Values
 				.Where(w => w.ZIndex < movedWindowZIndex) // Only windows that were underneath
@@ -1510,18 +1501,6 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
 		{
-			// DEBUG: Log window click handling
-			try
-			{
-				var debugInfo = $"[{DateTime.Now:HH:mm:ss.fff}] HandleWindowClick:\n" +
-				                $"  Window: {window.GetType().Name} (Title: {window.Title})\n" +
-				                $"  Point: ({point.X}, {point.Y})\n" +
-				                $"  IsActive: {window == ActiveWindow}\n" +
-				                $"  IsOverlay: {window is Windows.OverlayWindow}\n";
-				System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log", debugInfo);
-			}
-			catch { }
-
 			if (window != ActiveWindow)
 			{
 				// Window is not active - activate it
@@ -1531,21 +1510,12 @@ namespace SharpConsoleUI
 				// for click-outside-to-dismiss handling
 				if (window is Windows.OverlayWindow)
 				{
-					System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
-						$"  -> Activating overlay and propagating event\n\n");
 					PropagateMouseEventToWindow(window, flags, point);
-				}
-				else
-				{
-					System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
-						$"  -> Activating window (no propagation)\n\n");
 				}
 			}
 			else
 			{
 				// Window is already active - propagate the click event
-				System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
-					$"  -> Already active, propagating\n\n");
 				PropagateMouseEventToWindow(window, flags, point);
 			}
 		}
@@ -1557,15 +1527,6 @@ namespace SharpConsoleUI
 		{
 			// Calculate window-relative coordinates
 			var windowPosition = TranslateToRelative(window, point);
-
-			// DEBUG: Log mouse event propagation
-			System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}] PropagateMouseEventToWindow:\n" +
-				$"  Window: {window.GetType().Name} '{window.Title}'\n" +
-				$"  Absolute point: ({point.X}, {point.Y})\n" +
-				$"  Window position: ({windowPosition.X}, {windowPosition.Y})\n" +
-				$"  Window bounds: ({window.Left}, {window.Top}, {window.Width}, {window.Height})\n" +
-				$"  Flags: {string.Join(", ", flags)}\n\n");
 
 			// Create mouse event arguments
 			var mouseArgs = new Events.MouseEventArgs(
@@ -2134,12 +2095,10 @@ namespace SharpConsoleUI
 			// Only update if position actually changed
 			if (newLeft != window.Left || newTop != window.Top)
 			{
-				System.IO.File.AppendAllText("/tmp/window_render.log",
-					$"[{DateTime.Now:HH:mm:ss.fff}] MOVE: {window.Title} from ({window.Left},{window.Top}) to ({newLeft},{newTop})\n");
-			// Add old position to pending clears (will be cleared atomically in UpdateDisplay)
-			_pendingDesktopClears.Add(oldBounds);
+				// Add old position to pending clears (will be cleared atomically in UpdateDisplay)
+				_pendingDesktopClears.Add(oldBounds);
 
-			// Apply the new position
+				// Apply the new position
 				window.SetPosition(new Point(newLeft, newTop));
 
 				// FINALLY: Force redraw of the window at its new position
@@ -2506,55 +2465,45 @@ namespace SharpConsoleUI
 			// This prevents traces from rapid moves between frames
 			if (_pendingDesktopClears.Count > 0)
 			{
-			// Copy list to avoid race condition (mouse events can add during iteration)
-			var clearsCopy = _pendingDesktopClears.ToList();
-			_pendingDesktopClears.Clear();
-
-			System.IO.File.AppendAllText("/tmp/window_render.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}] CLEARING {clearsCopy.Count} pending desktop regions\n");
-
+				// Copy list to avoid race condition (mouse events can add during iteration)
+				var clearsCopy = _pendingDesktopClears.ToList();
+				_pendingDesktopClears.Clear();
 
 				foreach (var rect in clearsCopy)
 				{
-					System.IO.File.AppendAllText("/tmp/window_render.log",
-						$"[{DateTime.Now:HH:mm:ss.fff}]   Clear ({rect.Left},{rect.Top}) {rect.Width}x{rect.Height}\n");
 					_renderer.FillRect(rect.Left, rect.Top, rect.Width, rect.Height,
 						Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
 				}
-
 			}
 
-				// RENDERING ORDER:
-				// 1. Windows first (so we can measure their dirty chars)
-				// 2. Capture dirty chars (after windows, before TopStatus)
-				// 3. TopStatus (with captured metrics, doesn't pollute measurement)
-				// 4. BottomStatus
-				// 5. Flush
+			// RENDERING ORDER:
+			// 1. Windows first (so we can measure their dirty chars)
+			// 2. Capture dirty chars (after windows, before TopStatus)
+			// 3. TopStatus (with captured metrics, doesn't pollute measurement)
+			// 4. BottomStatus
+			// 5. Flush
 
-				var windowsToRender = new HashSet<Window>();
+			var windowsToRender = new HashSet<Window>();
 
-				// Identify dirty windows and only overlapping windows with higher Z-index
-				// This prevents unnecessary redraws of windows below the dirty window
-				foreach (var window in Windows.Values)
-				{
-				System.IO.File.AppendAllText("/tmp/window_render.log",
-					$"[{DateTime.Now:HH:mm:ss.fff}] CHECK_WINDOW: {window.Title} | Minimized={window.State == WindowState.Minimized} | InvalidDim={window.Width <= 0 || window.Height <= 0} | IsDirty={window.IsDirty}\n");
+			// Identify dirty windows and only overlapping windows with higher Z-index
+			// This prevents unnecessary redraws of windows below the dirty window
+			foreach (var window in Windows.Values)
+			{
+				// Skip minimized windows - they're invisible
+				if (window.State == WindowState.Minimized)
+					continue;
 
-					// Skip minimized windows - they're invisible
-					if (window.State == WindowState.Minimized)
-						continue;
+				// Skip windows with invalid dimensions (can happen during rapid resize)
+				if (window.Width <= 0 || window.Height <= 0)
+					continue;
 
-					// Skip windows with invalid dimensions (can happen during rapid resize)
-					if (window.Width <= 0 || window.Height <= 0)
-						continue;
+				if (!window.IsDirty)
+					continue;
 
-					if (!window.IsDirty)
-						continue;
+				if (IsCompletelyCovered(window))
+					continue;
 
-					if (IsCompletelyCovered(window))
-						continue;
-
-					windowsToRender.Add(window);
+				windowsToRender.Add(window);
 
 					// OPTIMIZATION: Don't add overlapping windows to render list
 					// VisibleRegions.CalculateVisibleRegions() already clips each window's rendering
@@ -2706,9 +2655,9 @@ namespace SharpConsoleUI
 
 			if (ShouldRenderBottomStatus())
 			{
-				// Filter out sub-windows from the bottom status bar
+				// Filter out sub-windows and overlay windows from the bottom status bar
 				var topLevelWindows = Windows.Values
-					.Where(w => w.ParentWindow == null)
+					.Where(w => w.ParentWindow == null && !(w is Windows.OverlayWindow))
 					.ToList();
 
 				var taskBar = _options.StatusBar.ShowTaskBar ? $"{string.Join(" | ", topLevelWindows.Select((w, i) => {
@@ -2768,11 +2717,7 @@ namespace SharpConsoleUI
 
 			// Clear the region update set for next frame
 			_windowsNeedingRegionUpdate.Clear();
-		System.IO.File.AppendAllText("/tmp/window_render.log",
-			$"[{DateTime.Now:HH:mm:ss.fff}] === FLUSH_START ===\n");
 			_consoleDriver.Flush();
-		System.IO.File.AppendAllText("/tmp/window_render.log",
-			$"[{DateTime.Now:HH:mm:ss.fff}] === FLUSH_COMPLETE ===\n");
 		}
 
 	}

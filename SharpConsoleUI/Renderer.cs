@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using SharpConsoleUI.Windows;
 using Spectre.Console;
 using System.Drawing;
@@ -248,30 +249,48 @@ namespace SharpConsoleUI
 
 		/// <summary>
 		/// Special rendering for OverlayWindow that allows underlying windows to show through.
-		/// Overlay controls render their own backgrounds, creating transparent show-through effect.
+		/// Renders only the regions where controls exist, letting underlying content show through
+		/// in areas without controls (true transparency effect).
 		/// NOTE: This method does NOT call DrawWindowBorders() - no border space is rendered.
 		/// OverlayWindow compensates by offsetting position and dimensions to account for missing borders.
 		/// </summary>
 		private void RenderOverlayWindow(OverlayWindow overlay)
 		{
-			// Get all windows BELOW the overlay (lower Z-index)
+			// Get all windows BELOW the overlay (lower Z-index), ordered by z-index
 			var underlyingWindows = _consoleWindowSystem.Windows.Values
 				.Where(w => w != overlay &&
+				            !(w is OverlayWindow) &&  // Skip other overlays
 				            w.ZIndex < overlay.ZIndex &&
 				            w.State != WindowState.Minimized)
 				.OrderBy(w => w.ZIndex)
 				.ToList();
 
-			// Render all underlying windows first (they show through overlay's transparent areas)
+			// First, fill the entire desktop area with the desktop background to clear any previous overlay content.
+			// This ensures areas not covered by windows are properly cleared.
+			var desktopDims = _consoleWindowSystem.DesktopDimensions;
+			var desktopUpperLeftY = _consoleWindowSystem.DesktopUpperLeft.Y;
+			var theme = _consoleWindowSystem.Theme;
+			FillRect(0, desktopUpperLeftY, desktopDims.Width, desktopDims.Height,
+				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+
+			// Render all underlying windows in z-order.
+			// Each window renders fully within its bounds (ignoring the overlay).
 			foreach (var underlyingWindow in underlyingWindows)
 			{
-				RenderNormalWindow(underlyingWindow);
+				RenderWindowForOverlay(underlyingWindow, underlyingWindows);
 			}
 
-			// Render overlay content (controls) at their actual positions
-			// Controls render their own backgrounds (e.g., menu dropdown background)
+			// Trigger overlay content rebuild (populates buffer and performs layout)
 			var lines = overlay.RenderAndGetVisibleContent();
 			overlay.IsDirty = false;
+
+			// Get control bounds - these are the only regions we need to render
+			var controlBounds = overlay.GetControlBounds();
+
+			if (controlBounds.Count == 0)
+			{
+				return;
+			}
 
 			// Calculate visible regions (areas not covered by higher z-index windows)
 			var overlappingWindows = _consoleWindowSystem.Windows.Values
@@ -283,7 +302,137 @@ namespace SharpConsoleUI
 				.ToList();
 
 			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(overlay, overlappingWindows);
-			RenderVisibleWindowContent(overlay, lines, visibleRegions);
+
+			// Render only the control regions from the buffer
+			RenderOverlayControlRegions(overlay, lines, controlBounds, visibleRegions);
+		}
+
+		/// <summary>
+		/// Renders a window for overlay transparency purposes.
+		/// Calculates visible regions considering only other underlying windows (not overlays).
+		/// </summary>
+		private void RenderWindowForOverlay(Window window, List<Window> allUnderlyingWindows)
+		{
+			if (window.State == WindowState.Minimized)
+				return;
+
+			Point desktopTopLeftCorner = _consoleWindowSystem.DesktopUpperLeft;
+			Point desktopBottomRightCorner = _consoleWindowSystem.DesktopBottomRight;
+
+			if (IsWindowOutOfBounds(window, desktopTopLeftCorner, desktopBottomRightCorner))
+				return;
+
+			// Get overlapping windows from the underlying windows list only (higher z-index among underlying)
+			var overlappingWindows = allUnderlyingWindows
+				.Where(w => w != window &&
+				            w.ZIndex > window.ZIndex &&
+				            IsOverlapping(window, w))
+				.OrderBy(w => w.ZIndex)
+				.ToList();
+
+			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(window, overlappingWindows);
+
+			if (!visibleRegions.Any())
+			{
+				window.IsDirty = false;
+				return;
+			}
+
+			// Fill the background only for the visible regions
+			foreach (var region in visibleRegions)
+			{
+				FillRect(region.Left, region.Top, region.Width, region.Height, ' ', window.BackgroundColor, null);
+			}
+
+			DrawWindowBorders(window, visibleRegions);
+
+			var windowLines = window.RenderAndGetVisibleContent(visibleRegions);
+			window.IsDirty = false;
+
+			RenderVisibleWindowContent(window, windowLines, visibleRegions);
+		}
+
+
+		/// <summary>
+		/// Renders only the specified control regions from the overlay buffer.
+		/// Areas without controls are not rendered, allowing underlying content to show through.
+		/// </summary>
+		private void RenderOverlayControlRegions(
+			OverlayWindow overlay,
+			List<string> lines,
+			List<LayoutRect> controlBounds,
+			List<Rectangle> visibleRegions)
+		{
+			var windowLeft = overlay.Left;
+			var windowTop = overlay.Top;
+			var desktopUpperLeftY = _consoleWindowSystem.DesktopUpperLeft.Y;
+
+			// For each control bounds, render that portion of the buffer
+			foreach (var bounds in controlBounds)
+			{
+				// Render each line within the control bounds
+				for (int localY = 0; localY < bounds.Height; localY++)
+				{
+					int bufferY = bounds.Y + localY;
+
+					// Skip if outside buffer
+					if (bufferY < 0 || bufferY >= lines.Count)
+					{
+						continue;
+					}
+
+					// Check if outside desktop area (use same calculation as RenderVisibleWindowContent)
+					// windowTop + bufferY is the window-relative Y, compare to DesktopBottomRight.Y
+					if (windowTop + bufferY >= _consoleWindowSystem.DesktopBottomRight.Y)
+					{
+						break;
+					}
+
+					// Screen Y for rendering: window content starts at windowTop + 1 (border offset)
+					// Plus desktopUpperLeftY for status bar
+					int screenY = windowTop + 1 + bufferY;
+
+					var line = lines[bufferY];
+
+					// Check each visible region to see if this line intersects
+					foreach (var region in visibleRegions)
+					{
+						// Visible regions are in screen coordinates (include desktopUpperLeftY)
+						// Check vertical intersection
+						int screenYWithOffset = screenY + desktopUpperLeftY;
+						if (screenYWithOffset < region.Top || screenYWithOffset >= region.Top + region.Height)
+						{
+							continue;
+						}
+
+						// Calculate horizontal bounds for this control
+						// Control X in buffer space, convert to screen space
+						int controlScreenLeft = windowLeft + 1 + bounds.X;
+						int controlScreenRight = controlScreenLeft + bounds.Width;
+
+						// Intersect with visible region horizontally
+						int renderLeft = Math.Max(controlScreenLeft, region.Left);
+						int renderRight = Math.Min(controlScreenRight, region.Left + region.Width);
+						int renderWidth = renderRight - renderLeft;
+
+						if (renderWidth <= 0)
+						{
+							continue;
+						}
+
+						// Calculate offset within the line to extract
+						int lineOffset = renderLeft - (windowLeft + 1);
+
+						// Get the substring to render
+						string portion = AnsiConsoleHelper.SubstringAnsiWithPadding(
+							line, lineOffset, renderWidth, overlay.BackgroundColor);
+
+						// Write to console
+						_consoleWindowSystem.ConsoleDriver.WriteToConsole(
+							renderLeft, screenYWithOffset, portion);
+					}
+				}
+			}
 		}
 
 		/// <summary>

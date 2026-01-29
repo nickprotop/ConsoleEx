@@ -310,16 +310,9 @@ namespace SharpConsoleUI.Core
 					var oldZIndex = window.ZIndex;
 					window.ZIndex = GetMaxZIndex() + 1;
 
-					// DEBUG: Log activation
-					System.IO.File.AppendAllText("/tmp/window_render.log",
-						$"[{DateTime.Now:HH:mm:ss.fff}] ACTIVATE: {window.Title} | ZIndex {oldZIndex} -> {window.ZIndex}\n");
-
 					// Invalidate window when z-order changes because visibleRegions change
 					// Window may now have more visible area and needs to repaint with new clipRect
 					window.Invalidate(true);
-
-					System.IO.File.AppendAllText("/tmp/window_render.log",
-						$"[{DateTime.Now:HH:mm:ss.fff}] INVALIDATED: {window.Title}\n");
 				}
 
 				// Update state

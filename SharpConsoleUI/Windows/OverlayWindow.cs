@@ -1,3 +1,4 @@
+using SharpConsoleUI.Layout;
 using Spectre.Console;
 using System.Drawing;
 
@@ -123,5 +124,30 @@ public class OverlayWindow : Window
 		}
 
 		Close();
+	}
+
+	/// <summary>
+	/// Collects the bounding rectangles of all controls in the overlay.
+	/// Used by the Renderer to render only control regions, allowing underlying
+	/// windows to show through in areas without controls.
+	/// </summary>
+	/// <returns>List of rectangles in window-space coordinates where controls exist.</returns>
+	internal List<LayoutRect> GetControlBounds()
+	{
+		var bounds = new List<LayoutRect>();
+
+		var rootNode = GetRootLayoutNode();
+		if (rootNode == null) return bounds;
+
+		rootNode.Visit(node =>
+		{
+			// Collect bounds of nodes that have controls and non-empty bounds
+			if (node.Control != null && !node.AbsoluteBounds.IsEmpty)
+			{
+				bounds.Add(node.AbsoluteBounds);
+			}
+		});
+
+		return bounds;
 	}
 }

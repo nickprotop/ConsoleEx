@@ -434,8 +434,6 @@ namespace SharpConsoleUI
 				if (_isDirty != value)
 				{
 					_isDirty = value;
-					System.IO.File.AppendAllText("/tmp/window_render.log",
-						$"[{DateTime.Now:HH:mm:ss.fff}] IsDirty={value}: {Title}\n");
 				}
 			}
 		}
@@ -1184,12 +1182,6 @@ namespace SharpConsoleUI
 					// Single hit test - used for both focus and event routing
 					var targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
 
-					// DEBUG: Log control hit testing
-					System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
-						$"[{DateTime.Now:HH:mm:ss.fff}] Window.ProcessWindowMouseEvent: Hit test in content area\n" +
-						$"  TargetControl: {(targetControl != null ? $"{targetControl.GetType().Name} '{targetControl.Name}'" : "NULL")}\n" +
-						$"  WindowPosition: ({args.WindowPosition.X}, {args.WindowPosition.Y})\n");
-
 					// === NEW: SCROLL EVENT BUBBLING ===
 					// For scroll events, try bubbling up the parent chain
 					if (args.HasAnyFlag(MouseFlags.WheeledUp, MouseFlags.WheeledDown))
@@ -1234,33 +1226,18 @@ namespace SharpConsoleUI
 							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
 							var controlArgs = args.WithPosition(controlPosition);
 
-							// DEBUG: Log mouse event propagation to control
-							System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
-								$"  Propagating to IMouseAwareControl\n" +
-								$"  ControlPosition: ({controlPosition.X}, {controlPosition.Y})\n" +
-								$"  WantsMouseEvents: {mouseAware.WantsMouseEvents}\n\n");
-
 							return mouseAware.ProcessMouseEvent(controlArgs);
 						}
 
 						// Click was handled (focus change or hit on non-mouse control)
 						if (targetControl != null)
 						{
-							// DEBUG: Log that control handled the event
-							System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
-								$"[{DateTime.Now:HH:mm:ss.fff}] Window.ProcessWindowMouseEvent: Control handled event\n" +
-								$"  Control: {targetControl.GetType().Name} '{targetControl.Name}'\n" +
-								$"  WindowPosition: ({args.WindowPosition.X}, {args.WindowPosition.Y})\n\n");
 							return true;
 						}
 
 						// Fire UnhandledMouseClick event for clicks on empty space
 						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
 						{
-							// DEBUG: Log unhandled click
-							System.IO.File.AppendAllText("/tmp/overlay_mouse_debug.log",
-								$"[{DateTime.Now:HH:mm:ss.fff}] Window.ProcessWindowMouseEvent: UNHANDLED CLICK - firing event\n" +
-								$"  WindowPosition: ({args.WindowPosition.X}, {args.WindowPosition.Y})\n\n");
 							UnhandledMouseClick?.Invoke(this, args);
 							return true; // Considered handled after event fires
 						}
@@ -1868,8 +1845,6 @@ namespace SharpConsoleUI
 		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
 		{
 			_invalidated = true;
-		System.IO.File.AppendAllText("/tmp/window_render.log",
-			$"[{DateTime.Now:HH:mm:ss.fff}] INVALIDATE: {Title} | redrawAll={redrawAll}\n");
 
 			lock (_lock)
 			{
@@ -2299,32 +2274,21 @@ namespace SharpConsoleUI
 
 			lock (_lock)
 			{
-				// DEBUG: Log render call
-				System.IO.File.AppendAllText("/tmp/window_render.log",
-					$"[{DateTime.Now:HH:mm:ss.fff}] RenderAndGetVisibleContent: {Title} | _invalidated={_invalidated} | visibleRegions={(visibleRegions?.Count ?? 0)}\n");
-
 				// Only recalculate content if it's been invalidated
 				if (_invalidated)
 				{
 					UpdateControlLayout();
 					RebuildContentCache(visibleRegions);
 
-				// Check if visibleRegions is null or empty (window not in rendering pipeline yet)
-				bool isInRenderingPipeline = visibleRegions != null && visibleRegions.Count > 0;
+					// Check if visibleRegions is null or empty (window not in rendering pipeline yet)
+					bool isInRenderingPipeline = visibleRegions != null && visibleRegions.Count > 0;
 
-				// If we rendered without visible regions (during window creation),
-				// keep _invalidated=true so we re-render when actually in the pipeline
-				if (!isInRenderingPipeline)
-				{
-					_invalidated = true;
-					System.IO.File.AppendAllText("/tmp/window_render.log",
-						$"[{DateTime.Now:HH:mm:ss.fff}] KEEPING INVALIDATED: {Title} (no visibleRegions - not in pipeline yet)\n");
-				}
-				}
-				else
-				{
-					System.IO.File.AppendAllText("/tmp/window_render.log",
-						$"[{DateTime.Now:HH:mm:ss.fff}] SKIPPED REBUILD: {Title} (not invalidated)\n");
+					// If we rendered without visible regions (during window creation),
+					// keep _invalidated=true so we re-render when actually in the pipeline
+					if (!isInRenderingPipeline)
+					{
+						_invalidated = true;
+					}
 				}
 
 				return BuildVisibleContent();
@@ -2354,6 +2318,12 @@ namespace SharpConsoleUI
 		}
 
 		#region DOM-Based Layout System
+
+		/// <summary>
+		/// Gets the root layout node for the window's DOM tree.
+		/// Used internally for layout traversal (e.g., collecting control bounds for overlay rendering).
+		/// </summary>
+		internal LayoutNode? GetRootLayoutNode() => _rootNode;
 
 		/// <summary>
 		/// Gets the LayoutNode associated with a control.
@@ -2650,31 +2620,19 @@ namespace SharpConsoleUI
 			int contentWidth = Width - 2;  // Available content width
 			int contentHeight = Height - 2;  // Available content height
 
-		System.IO.File.AppendAllText("/tmp/window_render.log",
-			$"[{DateTime.Now:HH:mm:ss.fff}] ConvertClipRect START: {Title} | Window=({Left},{Top}) {Width}x{Height} | Content=({windowContentLeft},{windowContentTop}) {contentWidth}x{contentHeight} | Regions={visibleRegions.Count}\n");
-
 			foreach (var region in visibleRegions)
 			{
-			System.IO.File.AppendAllText("/tmp/window_render.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}]   Region: ({region.Left},{region.Top}) {region.Width}x{region.Height}\n");
-
 				// Convert to window-relative coordinates
 				int relLeft = region.Left - windowContentLeft;
 				int relTop = region.Top - windowContentTop;
 				int relRight = relLeft + region.Width;
 				int relBottom = relTop + region.Height;
 
-			System.IO.File.AppendAllText("/tmp/window_render.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}]   Relative BEFORE clamp: L={relLeft} T={relTop} R={relRight} B={relBottom}\n");
-
 				// Clamp to window content bounds
 				relLeft = Math.Max(0, Math.Min(relLeft, contentWidth));
 				relTop = Math.Max(0, Math.Min(relTop, contentHeight));
 				relRight = Math.Max(0, Math.Min(relRight, contentWidth));
 				relBottom = Math.Max(0, Math.Min(relBottom, contentHeight));
-
-			System.IO.File.AppendAllText("/tmp/window_render.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}]   Relative AFTER clamp: L={relLeft} T={relTop} R={relRight} B={relBottom} | Valid={relLeft < relRight && relTop < relBottom}\n");
 
 				// Skip if region has no area after clamping
 				if (relLeft < relRight && relTop < relBottom)
@@ -2689,15 +2647,10 @@ namespace SharpConsoleUI
 			if (minX == int.MaxValue)
 			{
 				// No valid regions after conversion
-			System.IO.File.AppendAllText("/tmp/window_render.log",
-				$"[{DateTime.Now:HH:mm:ss.fff}] ConvertClipRect END: {Title} | EMPTY (no valid regions)\n");
 				return new LayoutRect(0, 0, 0, 0);
 			}
 
-		var result = new LayoutRect(minX, minY, maxX - minX, maxY - minY);
-		System.IO.File.AppendAllText("/tmp/window_render.log",
-			$"[{DateTime.Now:HH:mm:ss.fff}] ConvertClipRect END: {Title} | Result=({result.X},{result.Y}) {result.Width}x{result.Height}\n");
-		return result;
+			return new LayoutRect(minX, minY, maxX - minX, maxY - minY);
 		}
 
 		/// <summary>
@@ -2728,15 +2681,9 @@ namespace SharpConsoleUI
 			{
 				clipRect = ConvertVisibleRegionsToClipRect(visibleRegions);
 
-				// DEBUG: Log clipRect
-				System.IO.File.AppendAllText("/tmp/window_render.log",
-					$"[{DateTime.Now:HH:mm:ss.fff}] ClipRect: {Title} | ({clipRect.X},{clipRect.Y}) {clipRect.Width}x{clipRect.Height}\n");
-
 				// If no visible area, skip painting entirely
 				if (clipRect.Width == 0 || clipRect.Height == 0)
 				{
-					System.IO.File.AppendAllText("/tmp/window_render.log",
-						$"[{DateTime.Now:HH:mm:ss.fff}] BLANK! {Title} | ClipRect is empty, setting _cachedContent to empty list\n");
 					_cachedContent = new List<string>();
 					_invalidated = false;
 					return;
