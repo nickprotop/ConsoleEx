@@ -245,4 +245,17 @@ public static class Controls
 	/// </summary>
 	/// <returns>A new progress bar builder</returns>
 	public static ProgressBarBuilder ProgressBar() => new ProgressBarBuilder();
+
+	/// <summary>
+	/// Creates a new panel builder for bordered content panels
+	/// </summary>
+	/// <returns>A new panel builder</returns>
+	public static PanelBuilder Panel() => new PanelBuilder();
+
+	/// <summary>
+	/// Creates a panel control with text content
+	/// </summary>
+	/// <param name="content">The text content (supports Spectre markup)</param>
+	/// <returns>A configured panel control</returns>
+	public static PanelControl Panel(string content) => new PanelControl(content);
 }
