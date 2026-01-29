@@ -27,7 +27,7 @@ class Program
 			);
 
 			var windowSystem = new ConsoleWindowSystem(driver, options: options);
-			windowSystem.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+M[/] or click [yellow]☰ Start[/] button";
+			windowSystem.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+Space[/] or click [yellow]☰ Start[/] button";
 			windowSystem.BottomStatus = "";
 
 			// Graceful shutdown
@@ -131,11 +131,23 @@ class Program
 				Top = 3
 			};
 
+			// Title panel using Spectre Panel
+			var titlePanel = new Panel(new Markup("[yellow bold]Start Menu System Demo[/]"))
+			{
+				Border = BoxBorder.Rounded,
+				BorderStyle = new Style(foreground: Color.Cyan1),
+				Padding = new Padding(1, 0, 1, 0),
+				Expand = true
+			};
+
+			mainWindow.AddControl(new SpectreRenderableControl(titlePanel)
+			{
+				HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment.Stretch
+			});
+
+			// Main content
 			mainWindow.AddControl(new MarkupControl(new List<string>
 			{
-				"[cyan bold]╔═══════════════════════════════════════════════════════════════════════════════════════╗[/]",
-				"[cyan bold]║[/]                            [yellow bold]Start Menu System Demo[/]                              [cyan bold]║[/]",
-				"[cyan bold]╚═══════════════════════════════════════════════════════════════════════════════════════╝[/]",
 				"",
 				"[white bold]Welcome to the Start Menu Demo![/]",
 				"",
@@ -161,7 +173,7 @@ class Program
 				"",
 				"[white bold]How to Use:[/]",
 				"",
-				"  [yellow]1. Press Ctrl+M[/] to open the Start menu",
+				"  [yellow]1. Press Ctrl+Space[/] to open the Start menu",
 				"  [yellow]2. Click the ☰ Start button[/] in the bottom-left corner",
 				"  [yellow]3. Navigate with arrow keys[/]",
 				"  [yellow]4. Press Enter[/] to select an item",
@@ -189,7 +201,7 @@ class Program
 				"This window appears in the Start menu's",
 				"Windows category.",
 				"",
-				"Try pressing [yellow]Ctrl+M[/] and navigating to",
+				"Try pressing [yellow]Ctrl+Space[/] and navigating to",
 				"[cyan]Windows > Secondary Window[/]"
 			}));
 			windowSystem.AddWindow(window2);

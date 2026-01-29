@@ -28,7 +28,8 @@ class Program
                 new NetConsoleDriver(RenderMode.Buffer),
                 options: new ConsoleWindowSystemOptions(
                     StatusBarOptions: new StatusBarOptions(
-                        ShowTaskBar: true
+                        ShowTaskBar: true,
+                        ShowStartButton: true
                     )
                 ))
             {
