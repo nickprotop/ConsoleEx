@@ -14,12 +14,37 @@ namespace SharpConsoleUI.Dialogs;
 /// </summary>
 public static class StartMenuDialog
 {
+	// Debounce: track last invocation time to prevent double-trigger from mouse events
+	private static DateTime _lastInvocation = DateTime.MinValue;
+	private static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(200);
+
 	/// <summary>
 	/// Shows the Start menu with system actions, plugins, user actions, and windows.
+	/// If the Start menu is already open, it will be closed (toggle behavior).
 	/// </summary>
 	/// <param name="windowSystem">The window system to show the dialog in.</param>
 	public static void Show(ConsoleWindowSystem windowSystem)
 	{
+		// Debounce: Ignore rapid repeated calls (e.g., from Button1Pressed + Button1Clicked)
+		var now = DateTime.Now;
+		if (now - _lastInvocation < DebounceInterval)
+		{
+			return;
+		}
+		_lastInvocation = now;
+
+		// Check if a start menu overlay is already open
+		var existingOverlay = windowSystem.Windows.Values
+			.OfType<OverlayWindow>()
+			.FirstOrDefault();
+
+		if (existingOverlay != null)
+		{
+			// Start menu already open - close it (toggle behavior)
+			existingOverlay.Dismiss();
+			return;
+		}
+
 		var theme = windowSystem.Theme;
 
 		// Determine menu position based on status bar location
@@ -268,7 +293,7 @@ public static class StartMenuDialog
 			return;
 
 		var topLevelWindows = windowSystem.Windows.Values
-			.Where(w => w.ParentWindow == null)
+			.Where(w => w.ParentWindow == null && !(w is OverlayWindow))  // Exclude overlay windows
 			.ToList();
 
 		if (topLevelWindows.Count == 0)

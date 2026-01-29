@@ -9,7 +9,9 @@ public record StatusBarOptions(
     StatusBarLocation StartButtonLocation = StatusBarLocation.Bottom,
     StartButtonPosition StartButtonPosition = StartButtonPosition.Left,
     string StartButtonText = "☰ Start",
-    ConsoleKey StartMenuShortcutKey = ConsoleKey.M,
+    // Note: Ctrl+M doesn't work in terminals (interpreted as Enter/CR)
+    // Using Ctrl+Spacebar as default which works reliably
+    ConsoleKey StartMenuShortcutKey = ConsoleKey.Spacebar,
     ConsoleModifiers StartMenuShortcutModifiers = ConsoleModifiers.Control,
 
     // Start menu content
