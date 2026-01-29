@@ -1043,6 +1043,11 @@ namespace SharpConsoleUI
 		private bool HandleStartMenuShortcut(ConsoleKeyInfo key)
 		{
 			var options = _options.StatusBar;
+
+			// Only handle shortcut if Start button is enabled
+			if (!options.ShowStartButton)
+				return false;
+
 			if (key.Key == options.StartMenuShortcutKey &&
 				key.Modifiers == options.StartMenuShortcutModifiers)
 			{
