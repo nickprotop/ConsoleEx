@@ -109,14 +109,17 @@ class Program
 					Left = 20,
 					Top = 10
 				};
-				window.AddControl(new MarkupControl(new List<string>
-				{
-					"[yellow]Calculator Tool[/]",
-					"",
-					"2 + 2 = 4",
-					"",
-					"This demonstrates a tool action."
-				}));
+
+				// Using fluent builder pattern for PanelControl
+				window.AddControl(PanelControl.Create()
+					.WithContent("[yellow bold]Calculator[/]\n\n2 + 2 = [green]4[/]")
+					.WithHeader("Result")
+					.HeaderCenter()
+					.Rounded()
+					.WithBorderColor(Color.Yellow)
+					.WithPadding(2, 1)
+					.Build());
+
 				windowSystem.AddWindow(window);
 				windowSystem.SetActiveWindow(window);
 			}, category: "Tools", order: 10);
@@ -131,17 +134,12 @@ class Program
 				Top = 3
 			};
 
-			// Title panel using Spectre Panel
-			var titlePanel = new Panel(new Markup("[yellow bold]Start Menu System Demo[/]"))
+			// Title panel using our new PanelControl
+			mainWindow.AddControl(new PanelControl("[yellow bold]Start Menu System Demo[/]")
 			{
-				Border = BoxBorder.Rounded,
-				BorderStyle = new Style(foreground: Color.Cyan1),
+				BorderStyle = BorderStyle.Rounded,
+				BorderColor = Color.Cyan1,
 				Padding = new Padding(1, 0, 1, 0),
-				Expand = true
-			};
-
-			mainWindow.AddControl(new SpectreRenderableControl(titlePanel)
-			{
 				HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment.Stretch
 			});
 
@@ -185,25 +183,42 @@ class Program
 
 			windowSystem.AddWindow(mainWindow);
 
-			// Create a second window to demonstrate window list
+			// Create a second window to demonstrate PanelControl styles
 			var window2 = new Window(windowSystem)
 			{
-				Title = "Secondary Window",
+				Title = "Panel Styles Demo",
 				Width = 50,
-				Height = 15,
+				Height = 20,
 				Left = 100,
 				Top = 5
 			};
-			window2.AddControl(new MarkupControl(new List<string>
+
+			// Showcase different panel styles
+			window2.AddControl(new PanelControl("[green]Rounded Border[/]")
 			{
-				"[green]Secondary Window[/]",
-				"",
-				"This window appears in the Start menu's",
-				"Windows category.",
-				"",
-				"Try pressing [yellow]Ctrl+Space[/] and navigating to",
-				"[cyan]Windows > Secondary Window[/]"
-			}));
+				BorderStyle = BorderStyle.Rounded,
+				BorderColor = Color.Green,
+				Header = "Style 1",
+				Margin = new Margin(0, 0, 0, 1)
+			});
+
+			window2.AddControl(new PanelControl("[cyan]Double Line Border[/]")
+			{
+				BorderStyle = BorderStyle.DoubleLine,
+				BorderColor = Color.Cyan1,
+				Header = "Style 2",
+				HeaderAlignment = Justify.Center,
+				Margin = new Margin(0, 0, 0, 1)
+			});
+
+			window2.AddControl(new PanelControl("[yellow]Single Line Border[/]")
+			{
+				BorderStyle = BorderStyle.Single,
+				BorderColor = Color.Yellow,
+				Header = "Style 3",
+				HeaderAlignment = Justify.Right
+			});
+
 			windowSystem.AddWindow(window2);
 
 			// Set main window as active

@@ -57,6 +57,7 @@ Controls for displaying formatted content.
 | **[FigleControl](controls/FigleControl.md)** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
 | **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
 | **[SpectreRenderableControl](controls/SpectreRenderableControl.md)** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
+| **PanelControl** | Bordered content panel | Headers, multiple border styles, padding, mouse support |
 | **[RuleControl](controls/RuleControl.md)** | Horizontal rule/separator | Optional title, colors, horizontal line |
 | **SparklineControl** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
 | **BarGraphControl** | Horizontal bar graph | Gradient color thresholds, labels, value display |

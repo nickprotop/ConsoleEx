@@ -425,6 +425,64 @@ Controls.RuleBuilder()
     .Build();
 ```
 
+### PanelBuilder
+
+```csharp
+// Basic panel with content
+Controls.Panel()
+    .WithContent("[yellow bold]Panel Title[/]")
+    .WithHeader("Header Text")
+    .Rounded()  // Use rounded border
+    .WithBorderColor(Color.Cyan1)
+    .WithPadding(2, 1)
+    .Build();
+
+// Different border styles
+Controls.Panel()
+    .WithContent("Double line border")
+    .DoubleLine()
+    .Build();
+
+Controls.Panel()
+    .WithContent("Single line border")
+    .SingleLine()
+    .Build();
+
+Controls.Panel()
+    .WithContent("No border")
+    .NoBorder()
+    .Build();
+
+// Panel that fills available height
+Controls.Panel()
+    .WithContent("Stretches vertically")
+    .FillVertical()
+    .Build();
+
+// With header alignment
+Controls.Panel()
+    .WithContent("Content here")
+    .WithHeader("Centered Header")
+    .HeaderCenter()
+    .Build();
+```
+
+**Border Styles:**
+- `Rounded()` - Rounded corners (╭─╮│╰╯)
+- `DoubleLine()` - Double-line border (╔═╗║╚╝)
+- `SingleLine()` - Single-line border (┌─┐│└┘)
+- `NoBorder()` - No visible border
+
+**Key Methods:**
+- `WithContent(string)` - Set text content (supports Spectre markup)
+- `WithContent(IRenderable)` - Set any Spectre renderable as content
+- `WithHeader(string)` - Add header text to border
+- `HeaderLeft()` / `HeaderCenter()` / `HeaderRight()` - Header alignment
+- `WithPadding(int)` or `WithPadding(left, top, right, bottom)` - Inner padding
+- `WithBorderColor(Color)` - Border color
+- `FillVertical()` - Stretch panel to fill available height
+- `WithHeight(int)` - Set explicit height
+
 ## Controls Static Factory
 
 The `Controls` static class provides convenient factory methods.
@@ -463,6 +521,8 @@ Controls.MultilineEdit()            // MultilineEditControlBuilder
 Controls.Figle(text)                // FigleControlBuilder
 Controls.SpectreRenderable(widget)  // SpectreRenderableBuilder
 Controls.RuleBuilder()              // RuleBuilder
+Controls.Panel()                    // PanelBuilder (for bordered content panels)
+Controls.Panel(text)                // PanelControl directly with text content
 new SparklineBuilder()              // SparklineBuilder (for time-series graphs)
 new BarGraphBuilder()               // BarGraphBuilder (for horizontal bar graphs)
 ```
