@@ -77,7 +77,7 @@ public static class StartMenuDialog
 		menuBuilder.AddSeparator();
 		menuBuilder.AddItem("Exit Application", () =>
 		{
-			overlay.CloseAndInvalidate();
+			overlay.Close(force: true);
 			windowSystem.Shutdown(0);
 		});
 

@@ -566,10 +566,17 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                 }
                 else
                 {
-                    // Open dropdown
+                    // Open dropdown or execute action
                     CloseAllMenus();
                     if (hitItem.HasChildren)
+                    {
                         OpenDropdownInternal(hitItem);
+                    }
+                    else
+                    {
+                        // Top-level item without children - execute action
+                        ExecuteMenuItem(hitItem);
+                    }
                 }
             }
             // Submenu item with children
