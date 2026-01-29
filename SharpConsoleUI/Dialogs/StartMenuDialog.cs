@@ -312,12 +312,15 @@ public static class StartMenuDialog
 					? $"{minIndicator}{window.Title}{minEnd}"
 					: $"{minIndicator}{window.Title}{minEnd}";
 
+				// Capture window in local variable for closure
+				var targetWindow = window;
 				windowsMenu.AddItem(text, shortcut, () =>
 				{
-					windowSystem.SetActiveWindow(window);
-					if (window.State == WindowState.Minimized)
-						window.State = WindowState.Normal;
+					// Close overlay first, then activate window
 					overlay.CloseAndInvalidate();
+					windowSystem.SetActiveWindow(targetWindow);
+					if (targetWindow.State == WindowState.Minimized)
+						targetWindow.State = WindowState.Normal;
 				});
 			}
 		});
