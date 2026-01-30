@@ -24,6 +24,9 @@ namespace SharpConsoleUI
 	{
 		private ConsoleWindowSystem _consoleWindowSystem;
 
+		// Performance optimization: cache fill strings to avoid repeated string allocations
+		private readonly Dictionary<(char, int), string> _fillStringCache = new Dictionary<(char, int), string>();
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Renderer"/> class.
 		/// </summary>
@@ -31,6 +34,25 @@ namespace SharpConsoleUI
 		public Renderer(ConsoleWindowSystem consoleWindowSystem)
 		{
 			_consoleWindowSystem = consoleWindowSystem;
+		}
+
+		/// <summary>
+		/// Gets a cached fill string or creates one if not in cache.
+		/// Cache is limited to 100 entries to prevent memory leak.
+		/// </summary>
+		private string GetFillString(char character, int width)
+		{
+			var key = (character, width);
+			if (_fillStringCache.TryGetValue(key, out string? cached))
+				return cached;
+
+			// Limit cache size to prevent memory leak
+			if (_fillStringCache.Count > 100)
+				_fillStringCache.Clear();
+
+			string result = new string(character, width);
+			_fillStringCache[key] = result;
+			return result;
 		}
 
 		/// <summary>
@@ -65,7 +87,7 @@ namespace SharpConsoleUI
 				if (effectiveWidth <= 0)
 					continue;
 
-				_consoleWindowSystem.ConsoleDriver.WriteToConsole(left, top + _consoleWindowSystem.DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{new string(character, effectiveWidth)}", effectiveWidth, 1, false, backgroundColor, foregroundColor)[0]);
+				_consoleWindowSystem.ConsoleDriver.WriteToConsole(left, top + _consoleWindowSystem.DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(GetFillString(character, effectiveWidth), effectiveWidth, 1, false, backgroundColor, foregroundColor)[0]);
 			}
 		}
 

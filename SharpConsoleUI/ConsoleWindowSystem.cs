@@ -87,6 +87,11 @@ namespace SharpConsoleUI
 		private readonly object _renderLock = new();
 		private readonly object _consoleLock = new(); // Shared lock for ALL Console I/O operations
 		private readonly VisibleRegions _visibleRegions;
+
+		// Performance optimization: cached collections to avoid allocations in hot paths
+		private readonly HashSet<Window> _windowsToRender = new HashSet<Window>();
+		private readonly List<Window> _sortedWindows = new List<Window>();
+
 		private string? _cachedBottomStatus;
 		private string? _cachedTopStatus;
 		private bool _showTopStatus = true;
@@ -1565,7 +1570,11 @@ namespace SharpConsoleUI
 
 		private bool AnyWindowDirty()
 		{
-			return Windows.Values.Any(window => window.IsDirty);
+			foreach (var window in Windows.Values)
+		{
+			if (window.IsDirty) return true;
+		}
+		return false;
 		}
 
 		private void TrackPerformanceFrame(double frameTimeMs)
@@ -2488,7 +2497,13 @@ namespace SharpConsoleUI
 			// 4. BottomStatus
 			// 5. Flush
 
-			var windowsToRender = new HashSet<Window>();
+			// Reuse cached HashSet to avoid allocation
+			_windowsToRender.Clear();
+
+			// Build sorted window list for rendering (avoid LINQ allocations)
+			_sortedWindows.Clear();
+			_sortedWindows.AddRange(Windows.Values);
+			_sortedWindows.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
 
 			// Identify dirty windows and only overlapping windows with higher Z-index
 			// This prevents unnecessary redraws of windows below the dirty window
@@ -2508,7 +2523,7 @@ namespace SharpConsoleUI
 				if (IsCompletelyCovered(window))
 					continue;
 
-				windowsToRender.Add(window);
+				_windowsToRender.Add(window);
 
 					// OPTIMIZATION: Don't add overlapping windows to render list
 					// VisibleRegions.CalculateVisibleRegions() already clips each window's rendering
@@ -2539,12 +2554,13 @@ namespace SharpConsoleUI
 					*/
 				}
 
-				// PASS 1: Render normal (non-AlwaysOnTop) windows based on their ZIndex
-				foreach (var window in Windows.Values
-					.Where(w => !w.AlwaysOnTop)
-					.OrderBy(w => w.ZIndex))
+				// PASS 1: Render normal (non-AlwaysOnTop) windows based on their ZIndex (no LINQ)
+				for (int i = 0; i < _sortedWindows.Count; i++)
 				{
-					if (window != ActiveWindow && windowsToRender.Contains(window))
+					var window = _sortedWindows[i];
+					if (window.AlwaysOnTop) continue;
+
+					if (window != ActiveWindow && _windowsToRender.Contains(window))
 					{
 						// Skip windows with invalid dimensions
 						if (window.Width > 0 && window.Height > 0)
@@ -2557,7 +2573,7 @@ namespace SharpConsoleUI
 				// Check if any of the overlapping windows is overlapping the active window
 				if (ActiveWindow != null && !ActiveWindow.AlwaysOnTop)
 				{
-					if (windowsToRender.Contains(ActiveWindow))
+					if (_windowsToRender.Contains(ActiveWindow))
 					{
 						// Skip windows with invalid dimensions
 						if (ActiveWindow.Width > 0 && ActiveWindow.Height > 0)
@@ -2571,7 +2587,7 @@ namespace SharpConsoleUI
 
 						foreach (var overlappingWindow in overlappingWindows)
 						{
-							if (windowsToRender.Contains(overlappingWindow))
+							if (_windowsToRender.Contains(overlappingWindow))
 							{
 								// Skip windows with invalid dimensions
 								if (ActiveWindow.Width > 0 && ActiveWindow.Height > 0)
@@ -2583,13 +2599,15 @@ namespace SharpConsoleUI
 					}
 				}
 
-				// PASS 2: Render AlwaysOnTop windows (always last, on top of everything)
-				foreach (var window in Windows.Values
-					.Where(w => w.AlwaysOnTop && w.State != WindowState.Minimized)
-					.OrderBy(w => w.ZIndex))
+				// PASS 2: Render AlwaysOnTop windows (always last, on top of everything) (no LINQ)
+				for (int i = 0; i < _sortedWindows.Count; i++)
 				{
+					var window = _sortedWindows[i];
+					if (!window.AlwaysOnTop) continue;
+					if (window.State == WindowState.Minimized) continue;
+
 					// AlwaysOnTop windows always render if dirty or in windowsToRender
-					if (window.IsDirty || windowsToRender.Contains(window))
+					if (window.IsDirty || _windowsToRender.Contains(window))
 					{
 						// Skip windows with invalid dimensions
 						if (window.Width > 0 && window.Height > 0)

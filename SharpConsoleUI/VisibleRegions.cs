@@ -18,6 +18,10 @@ namespace SharpConsoleUI
 	{
 		private readonly ConsoleWindowSystem _consoleWindowSystem;
 
+		// Performance optimization: dual-buffer pooling to avoid List allocations
+		private readonly List<Rectangle> _regionsBuffer1 = new List<Rectangle>(8);
+		private readonly List<Rectangle> _regionsBuffer2 = new List<Rectangle>(8);
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="VisibleRegions"/> class.
 		/// </summary>
@@ -35,11 +39,12 @@ namespace SharpConsoleUI
 		/// <returns>A list of rectangles representing the visible portions of the window.</returns>
 		public List<Rectangle> CalculateVisibleRegions(Window window, List<Window> overlappingWindows)
 		{
-			// Start with the entire window as visible
-			var regions = new List<Rectangle>
-			{
-				new Rectangle(window.Left, window.Top, window.Width, window.Height)
-			};
+			// Use pooled buffers to avoid allocations
+			_regionsBuffer1.Clear();
+			_regionsBuffer1.Add(new Rectangle(window.Left, window.Top, window.Width, window.Height));
+
+			var current = _regionsBuffer1;
+			var next = _regionsBuffer2;
 
 			// For each overlapping window, subtract its area from the visible regions
 			foreach (var other in overlappingWindows)
@@ -50,10 +55,17 @@ namespace SharpConsoleUI
 					other.Width,
 					other.Height);
 
-				regions = SubtractRectangle(regions, overlappingRect);
+				next.Clear();
+				SubtractRectangle(current, overlappingRect, next);
+
+				// Swap buffers for next iteration
+				var temp = current;
+				current = next;
+				next = temp;
 			}
 
-			return regions;
+			// Return copy for caller (they expect ownership)
+			return new List<Rectangle>(current);
 		}
 
 		private bool DoRectanglesIntersect(Rectangle r1, Rectangle r2)
@@ -78,9 +90,9 @@ namespace SharpConsoleUI
 				Math.Max(0, bottom - top));
 		}
 
-		private List<Rectangle> SubtractRectangle(List<Rectangle> regions, Rectangle subtract)
+		private void SubtractRectangle(List<Rectangle> regions, Rectangle subtract, List<Rectangle> result)
 		{
-			var result = new List<Rectangle>();
+			// result is pre-cleared by caller
 
 			foreach (var region in regions)
 			{
@@ -143,7 +155,6 @@ namespace SharpConsoleUI
 				}
 			}
 
-			return result;
-		}
+			}
 	}
 }

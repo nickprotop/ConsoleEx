@@ -161,6 +161,13 @@ namespace SharpConsoleUI
 		// List to store interactive contents
 		private List<string> _cachedContent = new();
 
+		// Border string caching for performance
+		internal string? _cachedTopBorder;
+		internal string? _cachedBottomBorder;
+		internal string? _cachedVerticalBorder;
+		internal int _cachedBorderWidth = -1;
+		internal bool _cachedBorderIsActive;
+
 		private string _guid;
 		private Color? _inactiveBorderForegroundColor;
 		private Color? _inactiveTitleForegroundColor;
@@ -367,6 +374,7 @@ namespace SharpConsoleUI
 				if (_height != value)
 				{
 					_height = value;
+					InvalidateBorderCache();
 					UpdateControlLayout();
 					Invalidate(true);
 				}
@@ -658,6 +666,7 @@ namespace SharpConsoleUI
 				if (_width != value)
 				{
 					_width = value;
+					InvalidateBorderCache();
 					UpdateControlLayout();
 					Invalidate(true);
 				}
@@ -682,6 +691,7 @@ namespace SharpConsoleUI
 				if (_borderStyle != value)
 				{
 					_borderStyle = value;
+					InvalidateBorderCache();
 					Invalidate(false);
 				}
 			}
@@ -1873,6 +1883,17 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Invalidates cached border strings, forcing them to be regenerated on next render.
+		/// Called when properties affecting border rendering change (width, height, title, border style, active state).
+		/// </summary>
+		internal void InvalidateBorderCache()
+		{
+			_cachedTopBorder = null;
+			_cachedBottomBorder = null;
+			_cachedVerticalBorder = null;
+		}
+
+		/// <summary>
 		/// Forces a complete rebuild of the DOM tree. Use this when the control hierarchy changes
 		/// structurally (e.g., adding/removing columns in a grid) rather than just property changes.
 		/// This is more expensive than Invalidate() but necessary for structural changes.
@@ -2776,6 +2797,7 @@ namespace SharpConsoleUI
 			}
 
 			_isActive = value;
+		InvalidateBorderCache();
 
 			if (_lastFocusedControl != null)
 			{
