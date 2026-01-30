@@ -375,6 +375,7 @@ namespace SharpConsoleUI
 				{
 					_height = value;
 					InvalidateBorderCache();
+					_windowSystem?.InvalidateCoverageCache(this);
 					UpdateControlLayout();
 					Invalidate(true);
 				}
@@ -434,6 +435,11 @@ namespace SharpConsoleUI
 		/// Gets or sets a value indicating whether the window needs to be redrawn.
 		/// </summary>
 		private bool _isDirty = true;
+
+		/// <summary>
+		/// Gets or sets a value indicating whether the window needs to be redrawn.
+		/// When true, the window will be rendered on the next frame update.
+		/// </summary>
 		public bool IsDirty
 		{
 			get => _isDirty;
@@ -667,6 +673,7 @@ namespace SharpConsoleUI
 				{
 					_width = value;
 					InvalidateBorderCache();
+					_windowSystem?.InvalidateCoverageCache(this);
 					UpdateControlLayout();
 					Invalidate(true);
 				}

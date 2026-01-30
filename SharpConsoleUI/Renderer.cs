@@ -614,15 +614,35 @@ namespace SharpConsoleUI
 				rightPadding = availableSpace - leftPadding;
 			}
 
-			var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{borderColor}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
-			var bottomBorderWidth = window.Width - 2;
-			var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightChar}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+			// Check if border cache is valid, rebuild if necessary
+			bool isActive = window.GetIsActive();
+			if (window._cachedTopBorder == null ||
+				window._cachedBorderWidth != window.Width ||
+				window._cachedBorderIsActive != isActive)
+			{
+				// Rebuild cached border strings
+				var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{borderColor}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+				var bottomBorderWidth = window.Width - 2;
+				var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightChar}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+				var vertBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+
+				// Update cache
+				window._cachedTopBorder = topBorder;
+				window._cachedBottomBorder = bottomBorder;
+				window._cachedVerticalBorder = vertBorder;
+				window._cachedBorderWidth = window.Width;
+				window._cachedBorderIsActive = isActive;
+			}
+
+			// Use cached borders for rendering
+			var cachedTopBorder = window._cachedTopBorder!;
+			var cachedBottomBorder = window._cachedBottomBorder!;
+			var cachedVerticalBorderAnsi = window._cachedVerticalBorder!;
 
 			var contentHeight = window.TotalLines;
 			var visibleHeight = window.Height - 2;
 
 			var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
-			var verticalBorderAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
 
 			foreach (var region in visibleRegions ?? [])
 			{
@@ -633,7 +653,7 @@ namespace SharpConsoleUI
 					int borderWidth = Math.Min(region.Width, window.Left + window.Width - borderStartX);
 					if (borderWidth > 0)
 					{
-						string borderSegment = AnsiConsoleHelper.SubstringAnsi(topBorder, borderStartX - window.Left, borderWidth);
+						string borderSegment = AnsiConsoleHelper.SubstringAnsi(cachedTopBorder, borderStartX - window.Left, borderWidth);
 						_consoleWindowSystem.ConsoleDriver.WriteToConsole(borderStartX, region.Top + _consoleWindowSystem.DesktopUpperLeft.Y, borderSegment);
 					}
 				}
@@ -645,7 +665,7 @@ namespace SharpConsoleUI
 					int borderWidth = Math.Min(region.Width, window.Left + window.Width - borderStartX);
 					if (borderWidth > 0)
 					{
-						string borderSegment = AnsiConsoleHelper.SubstringAnsi(bottomBorder, borderStartX - window.Left, borderWidth);
+						string borderSegment = AnsiConsoleHelper.SubstringAnsi(cachedBottomBorder, borderStartX - window.Left, borderWidth);
 						_consoleWindowSystem.ConsoleDriver.WriteToConsole(borderStartX, window.Top + window.Height - 1 + _consoleWindowSystem.DesktopUpperLeft.Y, borderSegment);
 					}
 				}
@@ -665,7 +685,7 @@ namespace SharpConsoleUI
 
 						if (isLeftBorderVisible)
 						{
-							_consoleWindowSystem.ConsoleDriver.WriteToConsole(window.Left, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, verticalBorderAnsi);
+							_consoleWindowSystem.ConsoleDriver.WriteToConsole(window.Left, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, cachedVerticalBorderAnsi);
 						}
 
 						if (isRightBorderVisible)
@@ -676,7 +696,7 @@ namespace SharpConsoleUI
 							}
 							else
 							{
-								_consoleWindowSystem.ConsoleDriver.WriteToConsole(rightBorderPos, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, verticalBorderAnsi);
+								_consoleWindowSystem.ConsoleDriver.WriteToConsole(rightBorderPos, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, cachedVerticalBorderAnsi);
 							}
 						}
 					}

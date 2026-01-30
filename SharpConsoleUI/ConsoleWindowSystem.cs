@@ -91,9 +91,14 @@ namespace SharpConsoleUI
 		// Performance optimization: cached collections to avoid allocations in hot paths
 		private readonly HashSet<Window> _windowsToRender = new HashSet<Window>();
 		private readonly List<Window> _sortedWindows = new List<Window>();
+		private readonly Dictionary<string, bool> _coverageCache = new Dictionary<string, bool>();
 
+		// Status bar caching
 		private string? _cachedBottomStatus;
 		private string? _cachedTopStatus;
+		private string? _cachedTaskBar;
+		private int _taskBarWindowCount;
+		private int _taskBarStateHash;
 		private bool _showTopStatus = true;
 		private bool _showBottomStatus = true;
 		private IConsoleDriver _consoleDriver;
@@ -2309,7 +2314,47 @@ namespace SharpConsoleUI
 			return false;
 		}
 
+		/// <summary>
+		/// Invalidates the coverage cache for a specific window or all windows.
+		/// Called when window positions, sizes, or Z-order changes.
+		/// </summary>
+		internal void InvalidateCoverageCache(Window? window = null)
+		{
+			if (window == null)
+				_coverageCache.Clear();
+			else
+				_coverageCache.Remove(window.Guid);
+		}
+
+		/// <summary>
+		/// Computes a hash representing the current state of windows for task bar caching.
+		/// Includes window titles, states, and count to detect changes.
+		/// </summary>
+		private int ComputeTaskBarStateHash(List<Window> windows)
+		{
+			int hash = 0;
+			foreach (var w in windows)
+			{
+				hash ^= w.Title.GetHashCode();
+				hash ^= w.State.GetHashCode();
+				hash ^= w.GetIsActive().GetHashCode();
+			}
+			return hash;
+		}
+
 		private bool IsCompletelyCovered(Window window)
+		{
+			// Check cache first
+			if (_coverageCache.TryGetValue(window.Guid, out bool cached))
+				return cached;
+
+			// Calculate coverage
+			bool result = CalculateIsCompletelyCovered(window);
+			_coverageCache[window.Guid] = result;
+			return result;
+		}
+
+		private bool CalculateIsCompletelyCovered(Window window)
 		{
 			foreach (var otherWindow in Windows.Values)
 			{
@@ -2362,6 +2407,9 @@ namespace SharpConsoleUI
 			// FINALLY: Invalidate the window which will cause it to redraw at its new position
 			// (The actual position/size change happens in the calling HandleMoveInput method)
 			window.Invalidate(false);
+
+			// Invalidate coverage cache since window position/size changed
+			InvalidateCoverageCache();
 		}
 
 		private void ProcessInput()
@@ -2683,11 +2731,37 @@ namespace SharpConsoleUI
 					.Where(w => w.ParentWindow == null && !(w is Windows.OverlayWindow))
 					.ToList();
 
-				var taskBar = _options.StatusBar.ShowTaskBar ? $"{string.Join(" | ", topLevelWindows.Select((w, i) => {
-					var minIndicator = w.State == WindowState.Minimized ? "[dim]" : "";
-					var minEnd = w.State == WindowState.Minimized ? "[/]" : "";
-					return $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";
-				}))} | " : string.Empty;
+				// Check if task bar cache is valid
+				string taskBar;
+				if (_options.StatusBar.ShowTaskBar)
+				{
+					int stateHash = ComputeTaskBarStateHash(topLevelWindows);
+					if (_cachedTaskBar != null &&
+						_taskBarWindowCount == topLevelWindows.Count &&
+						_taskBarStateHash == stateHash)
+					{
+						// Use cached task bar
+						taskBar = _cachedTaskBar;
+					}
+					else
+					{
+						// Rebuild task bar
+						taskBar = $"{string.Join(" | ", topLevelWindows.Select((w, i) => {
+							var minIndicator = w.State == WindowState.Minimized ? "[dim]" : "";
+							var minEnd = w.State == WindowState.Minimized ? "[/]" : "";
+							return $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";
+						}))} | ";
+
+						// Update cache
+						_cachedTaskBar = taskBar;
+						_taskBarWindowCount = topLevelWindows.Count;
+						_taskBarStateHash = stateHash;
+					}
+				}
+				else
+				{
+					taskBar = string.Empty;
+				}
 
 				// Build start button if configured for bottom
 				var startButton = string.Empty;
