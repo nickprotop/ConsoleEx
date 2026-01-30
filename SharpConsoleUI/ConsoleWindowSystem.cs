@@ -2635,12 +2635,16 @@ namespace SharpConsoleUI
 
 						foreach (var overlappingWindow in overlappingWindows)
 						{
-							if (_windowsToRender.Contains(overlappingWindow))
+							// Only render active window if overlapping window is ABOVE it (higher Z-index)
+							// Windows below the active window can't affect its visible pixels
+							if (overlappingWindow.ZIndex > ActiveWindow.ZIndex &&
+							    _windowsToRender.Contains(overlappingWindow))
 							{
 								// Skip windows with invalid dimensions
 								if (ActiveWindow.Width > 0 && ActiveWindow.Height > 0)
 								{
 									_renderer.RenderWindow(ActiveWindow);
+									break;  // Only need to render once
 								}
 							}
 						}
