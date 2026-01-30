@@ -239,12 +239,19 @@ namespace SharpConsoleUI.Controls
 		{
 			// Calculate the natural size based on content
 			int maxWidth = 0;
+			int totalLines = 0;
 			foreach (var line in _content)
 			{
-				int length = AnsiConsoleHelper.StripSpectreLength(line);
-				if (length > maxWidth) maxWidth = length;
+				// Split by embedded newlines to count actual rendered lines
+				var subLines = line.Split('\n');
+				foreach (var subLine in subLines)
+				{
+					int length = AnsiConsoleHelper.StripSpectreLength(subLine);
+					if (length > maxWidth) maxWidth = length;
+				}
+				totalLines += subLines.Length;
 			}
-			return new System.Drawing.Size(maxWidth, _content.Count);
+			return new System.Drawing.Size(maxWidth, totalLines);
 		}
 
 		/// <summary>
@@ -337,17 +344,22 @@ namespace SharpConsoleUI.Controls
 
 			foreach (var line in _content)
 			{
-				int lineWidth = AnsiConsoleHelper.StripSpectreLength(line);
-				maxContentWidth = Math.Max(maxContentWidth, lineWidth);
+				// Split by embedded newlines to count actual rendered lines
+				var subLines = line.Split('\n');
+				foreach (var subLine in subLines)
+				{
+					int lineWidth = AnsiConsoleHelper.StripSpectreLength(subLine);
+					maxContentWidth = Math.Max(maxContentWidth, lineWidth);
 
-				if (_wrap && lineWidth > targetWidth && targetWidth > 0)
-				{
-					// Estimate wrapped lines
-					totalLines += (int)Math.Ceiling((double)lineWidth / targetWidth);
-				}
-				else
-				{
-					totalLines++;
+					if (_wrap && lineWidth > targetWidth && targetWidth > 0)
+					{
+						// Estimate wrapped lines
+						totalLines += (int)Math.Ceiling((double)lineWidth / targetWidth);
+					}
+					else
+					{
+						totalLines++;
+					}
 				}
 			}
 
