@@ -6,6 +6,12 @@
 
 A modern console window system for .NET 9 with fluent builders, async patterns, and built-in state services.
 
+## Showcase
+
+![SharpConsoleUI Demo](docs/images/showcase.gif)
+
+*SharpConsoleUI in action - rich controls, multiple windows, smooth gradients, real-time updates, and full-screen capabilities*
+
 ## Quick Start
 
 ```csharp
