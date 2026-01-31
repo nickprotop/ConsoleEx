@@ -208,11 +208,51 @@ internal class Program
             .Column(col =>
                 col.Add(Controls.Markup("[grey70 bold]CPU Usage[/]").WithMargin(1, 1, 0, 0).Build())
                     .Add(
-                        SpectreRenderableControl
-                            .Create()
-                            .WithRenderable(BuildCpuChart(0, 0, 0))
-                            .WithName("cpuChart")
-                            .WithMargin(1, 1, 0, 1)
+                        new BarGraphBuilder()
+                            .WithName("cpuUserBar")
+                            .WithLabel("User")
+                            .WithLabelWidth(6)
+                            .WithValue(0)
+                            .WithMaxValue(100)
+                            .WithBarWidth(12)
+                            .WithUnfilledColor(Color.Grey35)
+                            .ShowLabel()
+                            .ShowValue()
+                            .WithValueFormat("F1")
+                            .WithMargin(1, 0, 0, 0)
+                            .WithSmoothGradient(Color.Green, Color.Yellow, Color.Red)
+                            .Build()
+                    )
+                    .Add(
+                        new BarGraphBuilder()
+                            .WithName("cpuSystemBar")
+                            .WithLabel("System")
+                            .WithLabelWidth(6)
+                            .WithValue(0)
+                            .WithMaxValue(100)
+                            .WithBarWidth(12)
+                            .WithUnfilledColor(Color.Grey35)
+                            .ShowLabel()
+                            .ShowValue()
+                            .WithValueFormat("F1")
+                            .WithMargin(1, 0, 0, 0)
+                            .WithSmoothGradient(Color.Cyan1, Color.Yellow, Color.Orange1)
+                            .Build()
+                    )
+                    .Add(
+                        new BarGraphBuilder()
+                            .WithName("cpuIoWaitBar")
+                            .WithLabel("IOwait")
+                            .WithLabelWidth(6)
+                            .WithValue(0)
+                            .WithMaxValue(100)
+                            .WithBarWidth(12)
+                            .WithUnfilledColor(Color.Grey35)
+                            .ShowLabel()
+                            .ShowValue()
+                            .WithValueFormat("F1")
+                            .WithMargin(1, 0, 0, 1)
+                            .WithSmoothGradient(Color.Blue, Color.Cyan1, Color.Yellow)
                             .Build()
                     )
             )
@@ -225,11 +265,51 @@ internal class Program
                             .Build()
                     )
                     .Add(
-                        SpectreRenderableControl
-                            .Create()
-                            .WithRenderable(BuildMemoryChart(0, 0, 0))
-                            .WithName("memChart")
-                            .WithMargin(1, 1, 1, 1)
+                        new BarGraphBuilder()
+                            .WithName("memUsedBar")
+                            .WithLabel("Used %")
+                            .WithLabelWidth(12)
+                            .WithValue(0)
+                            .WithMaxValue(100)
+                            .WithBarWidth(12)
+                            .WithUnfilledColor(Color.Grey35)
+                            .ShowLabel()
+                            .ShowValue()
+                            .WithValueFormat("F1")
+                            .WithMargin(1, 0, 1, 0)
+                            .WithSmoothGradient(Color.Green, Color.Yellow, Color.Red)
+                            .Build()
+                    )
+                    .Add(
+                        new BarGraphBuilder()
+                            .WithName("memCachedBar")
+                            .WithLabel("Cached %")
+                            .WithLabelWidth(12)
+                            .WithValue(0)
+                            .WithMaxValue(100)
+                            .WithBarWidth(12)
+                            .WithUnfilledColor(Color.Grey35)
+                            .ShowLabel()
+                            .ShowValue()
+                            .WithValueFormat("F1")
+                            .WithMargin(1, 0, 1, 0)
+                            .WithSmoothGradient(Color.Blue, Color.Cyan1, Color.Green)
+                            .Build()
+                    )
+                    .Add(
+                        new BarGraphBuilder()
+                            .WithName("memIoBar")
+                            .WithLabel("Disk/IO est %")
+                            .WithLabelWidth(12)
+                            .WithValue(0)
+                            .WithMaxValue(100)
+                            .WithBarWidth(12)
+                            .WithUnfilledColor(Color.Grey35)
+                            .ShowLabel()
+                            .ShowValue()
+                            .WithValueFormat("F1")
+                            .WithMargin(1, 0, 1, 1)
+                            .WithSmoothGradient(Color.Grey50, Color.Yellow, Color.Orange1)
                             .Build()
                     )
             )
@@ -237,11 +317,35 @@ internal class Program
             .Column(col =>
                 col.Add(Controls.Markup("[grey70 bold]Network[/]").WithMargin(1, 1, 1, 0).Build())
                     .Add(
-                        SpectreRenderableControl
-                            .Create()
-                            .WithRenderable(BuildNetworkChart(0, 0))
-                            .WithName("netChart")
-                            .WithMargin(1, 1, 1, 1)
+                        new BarGraphBuilder()
+                            .WithName("netUploadBar")
+                            .WithLabel("Upload")
+                            .WithLabelWidth(8)
+                            .WithValue(0)
+                            .WithMaxValue(100)
+                            .WithBarWidth(12)
+                            .WithUnfilledColor(Color.Grey35)
+                            .ShowLabel()
+                            .ShowValue()
+                            .WithValueFormat("F1")
+                            .WithMargin(1, 0, 1, 0)
+                            .WithSmoothGradient("cool")
+                            .Build()
+                    )
+                    .Add(
+                        new BarGraphBuilder()
+                            .WithName("netDownloadBar")
+                            .WithLabel("Download")
+                            .WithLabelWidth(8)
+                            .WithValue(0)
+                            .WithMaxValue(100)
+                            .WithBarWidth(12)
+                            .WithUnfilledColor(Color.Grey35)
+                            .ShowLabel()
+                            .ShowValue()
+                            .WithValueFormat("F1")
+                            .WithMargin(1, 0, 1, 1)
+                            .WithSmoothGradient("warm")
                             .Build()
                     )
             )
@@ -637,31 +741,37 @@ internal class Program
                     clock.SetContent(new List<string> { $"[grey70]{timeStr}[/]" });
                 }
 
-                // Update CPU chart
-                var cpuChart = window.FindControl<SpectreRenderableControl>("cpuChart");
-                cpuChart?.SetRenderable(
-                    BuildCpuChart(snapshot.Cpu.User, snapshot.Cpu.System, snapshot.Cpu.IoWait)
-                );
+                // Update CPU bars
+                var cpuUserBar = window.FindControl<BarGraphControl>("cpuUserBar");
+                if (cpuUserBar != null) cpuUserBar.Value = snapshot.Cpu.User;
 
-                // Update memory chart
+                var cpuSystemBar = window.FindControl<BarGraphControl>("cpuSystemBar");
+                if (cpuSystemBar != null) cpuSystemBar.Value = snapshot.Cpu.System;
+
+                var cpuIoWaitBar = window.FindControl<BarGraphControl>("cpuIoWaitBar");
+                if (cpuIoWaitBar != null) cpuIoWaitBar.Value = snapshot.Cpu.IoWait;
+
+                // Update memory bars
                 var ioScaled = Math.Min(
                     100,
                     Math.Max(snapshot.Network.UpMbps, snapshot.Network.DownMbps)
                 );
-                var memChart = window.FindControl<SpectreRenderableControl>("memChart");
-                memChart?.SetRenderable(
-                    BuildMemoryChart(
-                        snapshot.Memory.UsedPercent,
-                        snapshot.Memory.CachedPercent,
-                        ioScaled
-                    )
-                );
 
-                // Update network chart
-                var netChart = window.FindControl<SpectreRenderableControl>("netChart");
-                netChart?.SetRenderable(
-                    BuildNetworkChart(snapshot.Network.UpMbps, snapshot.Network.DownMbps)
-                );
+                var memUsedBar = window.FindControl<BarGraphControl>("memUsedBar");
+                if (memUsedBar != null) memUsedBar.Value = snapshot.Memory.UsedPercent;
+
+                var memCachedBar = window.FindControl<BarGraphControl>("memCachedBar");
+                if (memCachedBar != null) memCachedBar.Value = snapshot.Memory.CachedPercent;
+
+                var memIoBar = window.FindControl<BarGraphControl>("memIoBar");
+                if (memIoBar != null) memIoBar.Value = Math.Min(100, ioScaled);
+
+                // Update network bars
+                var netUploadBar = window.FindControl<BarGraphControl>("netUploadBar");
+                if (netUploadBar != null) netUploadBar.Value = snapshot.Network.UpMbps;
+
+                var netDownloadBar = window.FindControl<BarGraphControl>("netDownloadBar");
+                if (netDownloadBar != null) netDownloadBar.Value = snapshot.Network.DownMbps;
 
                 // Update process list
                 var processList = window.FindControl<ListControl>("processList");
@@ -753,44 +863,6 @@ internal class Program
         }
     }
 
-    private static BarChart BuildCpuChart(double user, double sys, double io)
-    {
-        return new BarChart()
-            .Label("[bold]CPU load[/]")
-            .LeftAlignLabel()
-            .WithMaxValue(100)
-            .AddItem("User", user, Color.Cyan1)
-            .AddItem("System", sys, Color.Grey50)
-            .AddItem("IOwait", io, Color.Grey70);
-    }
-
-    private static BarChart BuildMemoryChart(double used, double cached, double ioScaled)
-    {
-        var chart = new BarChart()
-            .Label("[bold]Memory / IO[/]")
-            .LeftAlignLabel()
-            .WithMaxValue(100)
-            .AddItem("Used %", used, Color.Cyan1)
-            .AddItem("Cached %", cached, Color.Grey50);
-
-        var ioPercent = Math.Min(100, ioScaled);
-        chart.AddItem("Disk/IO est %", Math.Round(ioPercent, 1), Color.Grey70);
-        return chart;
-    }
-
-    private static BarChart BuildNetworkChart(double up, double down)
-    {
-        // Dynamic scale: find max and round up to nearest 10 MB/s
-        var maxMbps = Math.Max(Math.Max(up, down), 1); // Min 1 MB/s for scale
-        var scale = Math.Ceiling(maxMbps / 10) * 10;
-
-        return new BarChart()
-            .Label("[bold]Network[/]")
-            .LeftAlignLabel()
-            .WithMaxValue(scale)
-            .AddItem("Upload", Math.Round(up, 1), Color.Cyan1)
-            .AddItem("Download", Math.Round(down, 1), Color.Grey50);
-    }
 
     private static string BuildProgressBar(double percent, int width = 20)
     {
@@ -1242,7 +1314,7 @@ internal class Program
                 .Build()
         );
 
-        // RAM Usage Bar - with gradient (green at low usage, yellow at medium, red at high)
+        // RAM Usage Bar - smooth warm gradient (cool at low, warm at high)
         // LabelWidth 9 aligns all memory bars (longest label: "Swap Used")
         panel.AddControl(
             new BarGraphBuilder()
@@ -1257,11 +1329,11 @@ internal class Program
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithStandardGradient()
+                .WithSmoothGradient(Color.Green, Color.Yellow, Color.Orange1, Color.Red)  // Smooth gradient
                 .Build()
         );
 
-        // RAM Free Bar - inverse gradient (more free = greener)
+        // RAM Free Bar - reversed smooth gradient (more free = greener)
         var freePercent = (mem.AvailableMb / mem.TotalMb) * 100;
         panel.AddControl(
             new BarGraphBuilder()
@@ -1276,15 +1348,11 @@ internal class Program
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithGradient(
-                    new ColorThreshold(0, Color.Red),
-                    new ColorThreshold(20, Color.Yellow),
-                    new ColorThreshold(50, Color.Green)
-                )
+                .WithSmoothGradient(Color.Red, Color.Orange1, Color.Yellow, Color.Green)  // Red → Green
                 .Build()
         );
 
-        // Swap Usage Bar - with gradient (any swap usage is potentially concerning)
+        // Swap Usage Bar - smooth gradient (any swap usage is potentially concerning)
         double swapPercent = mem.SwapTotalMb > 0 ? (mem.SwapUsedMb / mem.SwapTotalMb * 100) : 0;
         panel.AddControl(
             new BarGraphBuilder()
@@ -1299,11 +1367,7 @@ internal class Program
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 2)
-                .WithGradient(
-                    new ColorThreshold(0, Color.Green),
-                    new ColorThreshold(25, Color.Yellow),
-                    new ColorThreshold(50, Color.Red)
-                )
+                .WithSmoothGradient("warm")  // Predefined warm gradient
                 .Build()
         );
 
@@ -1327,51 +1391,60 @@ internal class Program
                 .Build()
         );
 
-        // Used sparkline - using braille mode for smoother appearance
+        // Used sparkline - with cool gradient (blue→cyan) and baseline
         var usedSparkline = new SparklineBuilder()
             .WithName("memoryUsedSparkline")
-            .WithTitle("Memory Used %", Color.Cyan1)
+            .WithTitle("Memory Used %")
+            .WithTitleColor(Color.Cyan1)
             .WithTitlePosition(TitlePosition.Bottom)
             .WithHeight(6)
             .WithMaxValue(100)
-            .WithBarColor(Color.Cyan1)
+            .WithGradient("cool")  // Predefined cool gradient (blue→cyan)
             .WithBackgroundColor(Color.Grey15)
             .WithBorder(BorderStyle.None)
             .WithMode(SparklineMode.Braille) // Use braille patterns for smoother rendering
+            .WithBaseline(true, position: TitlePosition.Bottom)
+            .WithInlineTitleBaseline(true)  // Compact: "Memory Used % ┈┈┈"
             .WithMargin(2, 0, 1, 0)
             .WithData(_memoryUsedHistory)
             .Build();
         panel.AddControl(usedSparkline);
 
-        // Cached sparkline
+        // Cached sparkline - with warm gradient
         panel.AddControl(
             new SparklineBuilder()
                 .WithName("memoryCachedSparkline")
-                .WithTitle("Memory Cached %", Color.Yellow)
+                .WithTitle("Memory Cached %")
+                .WithTitleColor(Color.Yellow)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(6)
                 .WithMaxValue(100)
-                .WithBarColor(Color.Yellow)
+                .WithGradient(Color.Yellow, Color.Orange1)  // Yellow→Orange gradient
                 .WithBackgroundColor(Color.Grey15)
                 .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.Braille)
+                .WithBaseline(true, position: TitlePosition.Bottom)
+                .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
                 .WithData(_memoryCachedHistory)
                 .Build()
         );
 
-        // Free sparkline
+        // Free sparkline - with spectrum gradient
         panel.AddControl(
             new SparklineBuilder()
                 .WithName("memoryFreeSparkline")
-                .WithTitle("Memory Available %", Color.Green)
+                .WithTitle("Memory Available %")
+                .WithTitleColor(Color.Green)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(6)
                 .WithMaxValue(100)
-                .WithBarColor(Color.Green)
+                .WithGradient(Color.Blue, Color.Green)  // Blue→Green gradient
                 .WithBackgroundColor(Color.Grey15)
                 .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.Braille)
+                .WithBaseline(true, position: TitlePosition.Bottom)
+                .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
                 .WithData(_memoryAvailableHistory)
                 .Build()
@@ -1908,18 +1981,21 @@ internal class Program
             }
         }
 
-        // Update left column text stats
-        if (grid.Columns.Count > 0)
+        // Update left column per-core bars
+        if (grid.Columns.Count > 0 && cpu.PerCoreSamples != null)
         {
             var leftCol = grid.Columns[0];
             var leftPanel = leftCol.Contents.FirstOrDefault() as ScrollablePanelControl;
-            if (leftPanel != null && leftPanel.Children.Count > 0)
+            if (leftPanel != null)
             {
-                var markup = leftPanel.Children[0] as MarkupControl;
-                if (markup != null)
+                foreach (var core in cpu.PerCoreSamples)
                 {
-                    var lines = BuildCpuTextContent(snapshot);
-                    markup.SetContent(lines);
+                    double coreTotal = core.User + core.System + core.IoWait;
+                    var coreBar = leftPanel.Children.FirstOrDefault(c => c.Name == $"cpuCoreLeftBar{core.CoreIndex}") as BarGraphControl;
+                    if (coreBar != null)
+                    {
+                        coreBar.Value = coreTotal;
+                    }
                 }
             }
         }
@@ -1949,8 +2025,6 @@ internal class Program
 
     private static HorizontalGridControl BuildWideCpuGridInitial(SystemSnapshot snapshot)
     {
-        var lines = BuildCpuTextContent(snapshot);
-
         var grid = Controls
             .HorizontalGrid()
             .WithName("cpuPanel")
@@ -1958,7 +2032,7 @@ internal class Program
             .WithAlignment(HorizontalAlignment.Stretch)
             .WithMargin(1, 0, 1, 1)
             .Visible(false) // Hidden by default
-            // Left column: Scrollable text info (fixed width)
+            // Left column: Scrollable panel with controls (fixed width)
             .Column(col =>
             {
                 col.Width(40); // Fixed width for text stats
@@ -1969,13 +2043,7 @@ internal class Program
                     .Build();
                 leftPanel.BackgroundColor = Color.Grey11;
                 leftPanel.ForegroundColor = Color.Grey93;
-
-                var markup = Controls.Markup();
-                foreach (var line in lines)
-                {
-                    markup = markup.AddLine(line);
-                }
-                leftPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+                BuildCpuLeftPanelContent(leftPanel, snapshot);
                 col.Add(leftPanel);
             })
             // Middle column: Separator (1 char wide)
@@ -2012,8 +2080,6 @@ internal class Program
 
     private static HorizontalGridControl BuildNarrowCpuGridInitial(SystemSnapshot snapshot)
     {
-        var lines = BuildCpuTextContent(snapshot);
-
         var grid = Controls
             .HorizontalGrid()
             .WithName("cpuPanel")
@@ -2032,13 +2098,8 @@ internal class Program
                 scrollPanel.BackgroundColor = Color.Grey11;
                 scrollPanel.ForegroundColor = Color.Grey93;
 
-                // Add text content
-                var markup = Controls.Markup();
-                foreach (var line in lines)
-                {
-                    markup = markup.AddLine(line);
-                }
-                scrollPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+                // Add left panel content with BarGraphControls
+                BuildCpuLeftPanelContent(scrollPanel, snapshot);
 
                 // Add separator
                 scrollPanel.AddControl(
@@ -2065,103 +2126,105 @@ internal class Program
         return grid;
     }
 
-    private static List<string> BuildCpuTextContent(SystemSnapshot snapshot)
+
+    private static void BuildCpuLeftPanelContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
         var cpu = snapshot.Cpu;
-        int coreCount = cpu.PerCoreSamples?.Count ?? Environment.ProcessorCount;
+        int coreCount = cpu.PerCoreSamples != null && cpu.PerCoreSamples.Count > 0
+            ? cpu.PerCoreSamples.Count
+            : Environment.ProcessorCount;
         double totalCpu = cpu.User + cpu.System + cpu.IoWait;
         double idleCpu = Math.Max(0, 100 - totalCpu);
 
         // Get top 5 CPU consumers
         var topCpuProcs = snapshot.Processes.OrderByDescending(p => p.CpuPercent).Take(5).ToList();
 
-        var lines = new List<string>
-        {
-            "",
-            $"[cyan1 bold]System CPU ({coreCount} cores)[/]",
-            "",
-            "[grey70 bold]Aggregate Usage[/]",
-            $"  [grey70]User:[/]      [red]{cpu.User:F1}%[/]",
-            $"  [grey70]System:[/]    [yellow]{cpu.System:F1}%[/]",
-            $"  [grey70]IoWait:[/]    [blue]{cpu.IoWait:F1}%[/] [grey50](Linux only)[/]",
-            $"  [grey70]Total:[/]     [cyan1]{totalCpu:F1}%[/]",
-            $"  [grey70]Idle:[/]      [green]{idleCpu:F1}%[/]",
-            "",
-            "[grey70 bold]Per-Core Usage[/]",
-        };
+        // Header and aggregate stats
+        panel.AddControl(
+            Controls
+                .Markup()
+                .AddLine("")
+                .AddLine($"[cyan1 bold]System CPU ({coreCount} cores)[/]")
+                .AddLine("")
+                .AddLine("[grey70 bold]Aggregate Usage[/]")
+                .AddLine($"  [grey70]User:[/]      [red]{cpu.User:F1}%[/]")
+                .AddLine($"  [grey70]System:[/]    [yellow]{cpu.System:F1}%[/]")
+                .AddLine($"  [grey70]IoWait:[/]    [blue]{cpu.IoWait:F1}%[/] [grey50](Linux only)[/]")
+                .AddLine($"  [grey70]Total:[/]     [cyan1]{totalCpu:F1}%[/]")
+                .AddLine($"  [grey70]Idle:[/]      [green]{idleCpu:F1}%[/]")
+                .AddLine("")
+                .AddLine("[grey70 bold]Per-Core Usage[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .Build()
+        );
 
-        // Add per-core usage with inline bar charts
+        // Per-core BarGraphControls
         if (cpu.PerCoreSamples != null && cpu.PerCoreSamples.Count > 0)
         {
             foreach (var core in cpu.PerCoreSamples)
             {
                 double coreTotal = core.User + core.System + core.IoWait;
-                string bar = BuildInlineBar(coreTotal, 10);
-
-                // Calculate gradient color for this core
-                double ratio = coreCount > 1 ? (double)core.CoreIndex / (coreCount - 1) : 0;
-                string color = GetGradientColorMarkup(ratio);
-
-                lines.Add($"  [grey70]C{core.CoreIndex,2}:[/] {bar} [{color}]{coreTotal,5:F1}%[/]");
+                panel.AddControl(
+                    new BarGraphBuilder()
+                        .WithName($"cpuCoreLeftBar{core.CoreIndex}")
+                        .WithLabel($"C{core.CoreIndex,2}")
+                        .WithLabelWidth(3)
+                        .WithValue(coreTotal)
+                        .WithMaxValue(100)
+                        .WithBarWidth(16)
+                        .WithUnfilledColor(Color.Grey35)
+                        .ShowLabel()
+                        .ShowValue()
+                        .WithValueFormat("F1")
+                        .WithMargin(0, 0, 0, 0)
+                        .WithSmoothGradient(Color.Green, Color.Yellow, Color.Red)
+                        .Build()
+                );
             }
         }
         else
         {
-            // Show placeholder cores if data not yet available
+            // Show placeholder bars if data not yet available
             for (int i = 0; i < coreCount; i++)
             {
-                string bar = BuildInlineBar(0, 10);
-                lines.Add($"  [grey70]C{i,2}:[/] {bar} [grey50]{0.0,5:F1}%[/]");
+                panel.AddControl(
+                    new BarGraphBuilder()
+                        .WithName($"cpuCoreLeftBar{i}")
+                        .WithLabel($"C{i,2}")
+                        .WithLabelWidth(3)
+                        .WithValue(0)
+                        .WithMaxValue(100)
+                        .WithBarWidth(16)
+                        .WithUnfilledColor(Color.Grey35)
+                        .ShowLabel()
+                        .ShowValue()
+                        .WithValueFormat("F1")
+                        .WithMargin(0, 0, 0, 0)
+                        .WithSmoothGradient(Color.Green, Color.Yellow, Color.Red)
+                        .Build()
+                );
             }
         }
 
-        lines.Add("");
-        lines.Add("[grey70 bold]Top CPU Consumers[/]");
-
+        // Top CPU Consumers
+        var markup = Controls.Markup()
+            .AddLine("")
+            .AddLine("[grey70 bold]Top CPU Consumers[/]");
         foreach (var p in topCpuProcs)
         {
-            lines.Add($"  [cyan1]{p.CpuPercent,5:F1}%[/]  [grey70]{p.Pid,6}[/]  {p.Command}");
+            markup = markup.AddLine($"  [cyan1]{p.CpuPercent,5:F1}%[/]  [grey70]{p.Pid,6}[/]  {p.Command}");
         }
 
-        return lines;
-    }
-
-    private static string BuildInlineBar(double percent, int width)
-    {
-        int filled = (int)Math.Round((percent / 100.0) * width);
-        filled = Math.Clamp(filled, 0, width);
-        int empty = width - filled;
-
-        string filledBar = new string('█', filled);
-        string emptyBar = new string('░', empty);
-
-        return $"[cyan1]{filledBar}[/][grey35]{emptyBar}[/]";
-    }
-
-    private static string GetGradientColorMarkup(double ratio)
-    {
-        // Green (0.0) → Yellow (0.5) → Red (1.0)
-        if (ratio < 0.5)
-        {
-            // Green to Yellow
-            return "green";
-        }
-        else if (ratio < 0.75)
-        {
-            // Yellow
-            return "yellow";
-        }
-        else
-        {
-            // Red
-            return "red";
-        }
+        panel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
     }
 
     private static void BuildCpuGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
         var cpu = snapshot.Cpu;
         double totalCpu = cpu.User + cpu.System + cpu.IoWait;
+        int coreCount = cpu.PerCoreSamples != null && cpu.PerCoreSamples.Count > 0
+            ? cpu.PerCoreSamples.Count
+            : Environment.ProcessorCount;
 
         // Title
         panel.AddControl(
@@ -2186,7 +2249,7 @@ internal class Program
         );
 
         // LabelWidth 10 aligns all CPU bars (longest label: "System CPU")
-        // User CPU Bar - gradient shows high user CPU as concerning
+        // User CPU Bar - smooth spectrum gradient
         panel.AddControl(
             new BarGraphBuilder()
                 .WithName("cpuUserBar")
@@ -2200,11 +2263,11 @@ internal class Program
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithStandardGradient()
+                .WithSmoothGradient("spectrum")  // Blue→Green→Yellow→Red
                 .Build()
         );
 
-        // System CPU Bar - gradient shows high system CPU as concerning
+        // System CPU Bar - smooth warm gradient
         panel.AddControl(
             new BarGraphBuilder()
                 .WithName("cpuSystemBar")
@@ -2218,15 +2281,11 @@ internal class Program
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithGradient(
-                    new ColorThreshold(0, Color.Green),
-                    new ColorThreshold(30, Color.Yellow),
-                    new ColorThreshold(50, Color.Red)
-                )
+                .WithSmoothGradient("warm")  // Yellow→Orange→Red
                 .Build()
         );
 
-        // IoWait CPU Bar - any significant IoWait is concerning
+        // IoWait CPU Bar - cool gradient (high IoWait is concerning)
         panel.AddControl(
             new BarGraphBuilder()
                 .WithName("cpuIoWaitBar")
@@ -2240,15 +2299,11 @@ internal class Program
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithGradient(
-                    new ColorThreshold(0, Color.Green),
-                    new ColorThreshold(10, Color.Yellow),
-                    new ColorThreshold(25, Color.Red)
-                )
+                .WithSmoothGradient(Color.Cyan1, Color.Yellow, Color.Red)  // Cyan→Yellow→Red
                 .Build()
         );
 
-        // Total CPU Bar - with gradient (green at low load, yellow at medium, red at high)
+        // Total CPU Bar - smooth gradient (green→yellow→red)
         panel.AddControl(
             new BarGraphBuilder()
                 .WithName("cpuTotalBar")
@@ -2262,7 +2317,7 @@ internal class Program
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 2)
-                .WithStandardGradient()
+                .WithSmoothGradient(Color.Green, Color.Yellow, Color.Orange1, Color.Red)
                 .Build()
         );
 
@@ -2286,62 +2341,66 @@ internal class Program
                 .Build()
         );
 
-        // User CPU sparkline
+        // User CPU sparkline - with warm gradient and inline baseline
         panel.AddControl(
             new SparklineBuilder()
                 .WithName("cpuUserSparkline")
-                .WithTitle("User CPU %", Color.Red)
+                .WithTitle("User CPU %")
+                .WithTitleColor(Color.Red)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(6)
                 .WithMaxValue(100)
-                .WithBarColor(Color.Red)
+                .WithGradient("warm")  // Yellow→Orange→Red gradient
                 .WithBackgroundColor(Color.Grey15)
                 .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.Braille)
+                .WithBaseline(true, position: TitlePosition.Bottom)
+                .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
                 .WithData(_cpuUserHistory)
                 .Build()
         );
 
-        // System CPU sparkline
+        // System CPU sparkline - with cool gradient
         panel.AddControl(
             new SparklineBuilder()
                 .WithName("cpuSystemSparkline")
-                .WithTitle("System CPU %", Color.Yellow)
+                .WithTitle("System CPU %")
+                .WithTitleColor(Color.Yellow)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(6)
                 .WithMaxValue(100)
-                .WithBarColor(Color.Yellow)
+                .WithGradient(Color.Yellow, Color.Orange1, Color.Red)  // Custom gradient
                 .WithBackgroundColor(Color.Grey15)
                 .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.Braille)
+                .WithBaseline(true, position: TitlePosition.Bottom)
+                .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
                 .WithData(_cpuSystemHistory)
                 .Build()
         );
 
-        // Total CPU sparkline - using braille mode for smoother appearance
+        // Total CPU sparkline - with spectrum gradient and inline baseline
         var totalSparkline = new SparklineBuilder()
             .WithName("cpuTotalSparkline")
-            .WithTitle("Total CPU %", Color.Cyan1)
+            .WithTitle("Total CPU %")
+            .WithTitleColor(Color.Cyan1)
             .WithTitlePosition(TitlePosition.Bottom)
             .WithHeight(6)
             .WithMaxValue(100)
-            .WithBarColor(Color.Cyan1)
+            .WithGradient("spectrum")  // Blue→Green→Yellow→Red gradient
             .WithBackgroundColor(Color.Grey15)
             .WithBorder(BorderStyle.None)
             .WithMode(SparklineMode.Braille) // Use braille patterns for smoother rendering
+            .WithBaseline(true, position: TitlePosition.Bottom)
+            .WithInlineTitleBaseline(true)
             .WithMargin(2, 0, 1, 0)
             .WithData(_cpuTotalHistory)
             .Build();
         panel.AddControl(totalSparkline);
 
         // Per-Core History Section
-        // Use actual core count if available, otherwise use Environment.ProcessorCount
-        int coreCount = cpu.PerCoreSamples != null && cpu.PerCoreSamples.Count > 0
-            ? cpu.PerCoreSamples.Count
-            : Environment.ProcessorCount;
-
         if (coreCount > 0)
         {
             // Separator
@@ -2380,14 +2439,17 @@ internal class Program
                 panel.AddControl(
                     new SparklineBuilder()
                         .WithName($"cpuCore{coreIndex}Sparkline")
-                        .WithTitle($"Core {coreIndex}", coreColor)
+                        .WithTitle($"Core {coreIndex}")
+                        .WithTitleColor(coreColor)
                         .WithTitlePosition(TitlePosition.Bottom)
                         .WithHeight(4) // Smaller height for per-core
                         .WithMaxValue(100)
-                        .WithBarColor(coreColor)
+                        .WithGradient(Color.Blue, Color.Cyan1, Color.Yellow, Color.Red)  // Cool→Warm gradient
                         .WithBackgroundColor(Color.Grey15)
                         .WithBorder(BorderStyle.None)
                         .WithMode(SparklineMode.Braille) // Braille works better at small heights
+                        .WithBaseline(true, position: TitlePosition.Bottom)
+                        .WithInlineTitleBaseline(true)
                         .WithMargin(2, 0, 1, 0)
                         .WithData(coreData)
                         .Build()
@@ -2455,9 +2517,7 @@ internal class Program
     {
         _windowSystem?.LogService.LogDebug("BuildWideCpuColumns: Starting", "CPU");
 
-        var lines = BuildCpuTextContent(snapshot);
-
-        // Left column: Scrollable text info
+        // Left column: Scrollable panel with controls
         var leftPanel = Controls
             .ScrollablePanel()
             .WithVerticalAlignment(VerticalAlignment.Fill)
@@ -2465,13 +2525,7 @@ internal class Program
             .Build();
         leftPanel.BackgroundColor = Color.Grey11;
         leftPanel.ForegroundColor = Color.Grey93;
-
-        var markup = Controls.Markup();
-        foreach (var line in lines)
-        {
-            markup = markup.AddLine(line);
-        }
-        leftPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+        BuildCpuLeftPanelContent(leftPanel, snapshot);
 
         var leftCol = new ColumnContainer(grid);
         leftCol.Width = 40;
@@ -2509,8 +2563,6 @@ internal class Program
     {
         _windowSystem?.LogService.LogDebug("BuildNarrowCpuColumns: Starting", "CPU");
 
-        var lines = BuildCpuTextContent(snapshot);
-
         // Single column with all content
         var scrollPanel = Controls
             .ScrollablePanel()
@@ -2520,13 +2572,8 @@ internal class Program
         scrollPanel.BackgroundColor = Color.Grey11;
         scrollPanel.ForegroundColor = Color.Grey93;
 
-        // Add text content
-        var markup = Controls.Markup();
-        foreach (var line in lines)
-        {
-            markup = markup.AddLine(line);
-        }
-        scrollPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+        // Add left panel content with BarGraphControls
+        BuildCpuLeftPanelContent(scrollPanel, snapshot);
 
         // Add separator
         scrollPanel.AddControl(
@@ -2900,7 +2947,7 @@ internal class Program
         double maxRate = Math.Max(Math.Max(_peakUpMbps, _peakDownMbps), 1.0);
         double barMax = Math.Ceiling(maxRate / 10) * 10; // Round up to nearest 10
 
-        // Upload Bar - Cyan color
+        // Upload Bar - with cool gradient (blue→cyan)
         panel.AddControl(
             new BarGraphBuilder()
                 .WithName("netUploadBar")
@@ -2909,16 +2956,16 @@ internal class Program
                 .WithValue(net.UpMbps)
                 .WithMaxValue(barMax)
                 .WithBarWidth(35)
-                .WithFilledColor(Color.Cyan1)
                 .WithUnfilledColor(Color.Grey35)
                 .ShowLabel()
                 .ShowValue()
                 .WithValueFormat("F2")
                 .WithMargin(2, 0, 2, 0)
+                .WithSmoothGradient("cool")  // Blue→Cyan gradient
                 .Build()
         );
 
-        // Download Bar - Green color
+        // Download Bar - with spectrum gradient
         panel.AddControl(
             new BarGraphBuilder()
                 .WithName("netDownloadBar")
@@ -2927,12 +2974,12 @@ internal class Program
                 .WithValue(net.DownMbps)
                 .WithMaxValue(barMax)
                 .WithBarWidth(35)
-                .WithFilledColor(Color.Green)
                 .WithUnfilledColor(Color.Grey35)
                 .ShowLabel()
                 .ShowValue()
                 .WithValueFormat("F2")
                 .WithMargin(2, 0, 2, 2)
+                .WithSmoothGradient(Color.Blue, Color.Green, Color.Yellow)  // Blue→Green→Yellow
                 .Build()
         );
 
@@ -2956,23 +3003,26 @@ internal class Program
                 .Build()
         );
 
-        // Combined upload/download sparkline using bidirectional mode
+        // Combined download/upload sparkline using bidirectional mode with separate gradients
         panel.AddControl(
             new SparklineBuilder()
                 .WithName("netCombinedSparkline")
-                .WithTitle("↑ Upload  ↓ Download", Color.Grey70)
+                .WithTitle("↓ Download  ↑ Upload")
+                .WithTitleColor(Color.Grey70)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(10) // Taller to accommodate both directions
-                .WithMaxValue(Math.Max(_peakUpMbps, 1.0))
-                .WithSecondaryMaxValue(Math.Max(_peakDownMbps, 1.0))
-                .WithBarColor(Color.Cyan1)           // Upload color
-                .WithSecondaryBarColor(Color.Green) // Download color
+                .WithMaxValue(Math.Max(_peakDownMbps, 1.0))
+                .WithSecondaryMaxValue(Math.Max(_peakUpMbps, 1.0))
+                .WithGradient("warm")                      // Download: yellow→orange→red (warm colors) on top
+                .WithSecondaryGradient("cool")             // Upload: blue→cyan (cool colors) on bottom
                 .WithBackgroundColor(Color.Grey15)
                 .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.BidirectionalBraille)
+                .WithBaseline(true, position: TitlePosition.Bottom)
+                .WithInlineTitleBaseline(true)  // Compact layout: "↓ Download  ↑ Upload ┈┈┈"
                 .WithAlignment(HorizontalAlignment.Stretch)
                 .WithMargin(2, 0, 1, 0)
-                .WithBidirectionalData(_networkUpHistory, _networkDownHistory)
+                .WithBidirectionalData(_networkDownHistory, _networkUpHistory)
                 .Build()
         );
 
@@ -3028,23 +3078,26 @@ internal class Program
                     ? _networkPerInterfaceDownHistory[iface.InterfaceName]
                     : new List<double>();
 
-                // Combined bidirectional sparkline for this interface
+                // Combined bidirectional sparkline for this interface with gradients
                 panel.AddControl(
                     new SparklineBuilder()
                         .WithName($"net{iface.InterfaceName}Sparkline")
-                        .WithTitle(ifaceNameDisplay, Color.Grey70)
+                        .WithTitle(ifaceNameDisplay)
+                        .WithTitleColor(Color.Grey70)
                         .WithTitlePosition(TitlePosition.Bottom)
                         .WithHeight(6) // Height for bidirectional display
-                        .WithMaxValue(Math.Max(_peakUpMbps, 0.1))
-                        .WithSecondaryMaxValue(Math.Max(_peakDownMbps, 0.1))
-                        .WithBarColor(upColor)           // Upload color
-                        .WithSecondaryBarColor(downColor) // Download color
+                        .WithMaxValue(Math.Max(_peakDownMbps, 0.1))
+                        .WithSecondaryMaxValue(Math.Max(_peakUpMbps, 0.1))
+                        .WithGradient(Color.Green, Color.Yellow)      // Download: green→yellow on top
+                        .WithSecondaryGradient(Color.Blue, Color.Cyan1)  // Upload: blue→cyan on bottom
                         .WithBackgroundColor(Color.Grey15)
                         .WithBorder(BorderStyle.None)
                         .WithMode(SparklineMode.BidirectionalBraille)
+                        .WithBaseline(true, position: TitlePosition.Bottom)
+                        .WithInlineTitleBaseline(true)
                         .WithAlignment(HorizontalAlignment.Stretch)
                         .WithMargin(2, 0, 1, 0)
-                        .WithBidirectionalData(upData, downData)
+                        .WithBidirectionalData(downData, upData)
                         .Build()
                 );
 
