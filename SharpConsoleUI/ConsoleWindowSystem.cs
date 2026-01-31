@@ -2088,6 +2088,27 @@ namespace SharpConsoleUI
 			// Resize grip is at the bottom-right corner, position (width-1, height-1)
 			return relativePoint.Y == window.Height - 1 && relativePoint.X == window.Width - 1;
 		}
+		/// <summary>
+		/// Moves a window to a new position with proper invalidation (used by both mouse and keyboard moves)
+		/// </summary>
+		private void MoveWindowTo(Window window, int newLeft, int newTop)
+		{
+			if (window == null) return;
+
+			// Only update if position actually changed
+			if (newLeft == window.Left && newTop == window.Top)
+				return;
+
+			var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
+
+			_pendingDesktopClears.Add(oldBounds);
+			window.SetPosition(new Point(newLeft, newTop));
+			window.Invalidate(true);
+
+			// Invalidate windows that were underneath (now exposed)
+			InvalidateExposedRegions(window, oldBounds);
+		}
+
 
 		private void HandleWindowMove(Point currentMousePos)
 		{
@@ -2096,8 +2117,6 @@ namespace SharpConsoleUI
 
 			var window = dragState.Window;
 
-			// Store the current window bounds before moving
-			var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
 
 			// Calculate the offset from the start position
 			int deltaX = currentMousePos.X - dragState.StartMousePos.X;
@@ -2111,27 +2130,8 @@ namespace SharpConsoleUI
 			newLeft = Math.Max(0, Math.Min(newLeft, DesktopDimensions.Width - window.Width));
 			newTop = Math.Max(0, Math.Min(newTop, DesktopDimensions.Height - window.Height));
 
-			// Only update if position actually changed
-			if (newLeft != window.Left || newTop != window.Top)
-			{
-				// Add old position to pending clears (will be cleared atomically in UpdateDisplay)
-				_pendingDesktopClears.Add(oldBounds);
 
-				// Apply the new position
-				window.SetPosition(new Point(newLeft, newTop));
-
-				// FINALLY: Force redraw of the window at its new position
-				window.Invalidate(true);
-
-				// Mark this window for region update (clipping recalculation)
-				_windowsNeedingRegionUpdate.Add(window);
-
-				// Mark overlapping windows for region update (their visibleRegions changed)
-				AddOverlappingWindowsForRegionUpdate(window);
-
-				// And invalidate exposed regions to redraw any windows that were underneath
-				InvalidateExposedRegions(window, oldBounds);
-			}
+			MoveWindowTo(window, newLeft, newTop);
 		}
 
 		private void HandleWindowResize(Point currentMousePos)
@@ -2241,25 +2241,25 @@ namespace SharpConsoleUI
 			{
 				case ConsoleKey.UpArrow:
 					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Up);
-					ActiveWindow?.SetPosition(new Point(ActiveWindow?.Left ?? 0, Math.Max(0, (ActiveWindow?.Top ?? 0) - 1)));
+					if (ActiveWindow != null) MoveWindowTo(ActiveWindow, ActiveWindow.Left, Math.Max(0, ActiveWindow.Top - 1));
 					handled = true;
 					break;
 
 				case ConsoleKey.DownArrow:
 					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Down);
-					ActiveWindow?.SetPosition(new Point(ActiveWindow?.Left ?? 0, Math.Min(DesktopDimensions.Height - (ActiveWindow?.Height ?? 0), (ActiveWindow?.Top ?? 0) + 1)));
+					if (ActiveWindow != null) MoveWindowTo(ActiveWindow, ActiveWindow.Left, Math.Min(DesktopDimensions.Height - ActiveWindow.Height, ActiveWindow.Top + 1));
 					handled = true;
 					break;
 
 				case ConsoleKey.LeftArrow:
 					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Left);
-					ActiveWindow?.SetPosition(new Point(Math.Max(0, (ActiveWindow?.Left ?? 0) - 1), ActiveWindow?.Top ?? 0));
+					if (ActiveWindow != null) MoveWindowTo(ActiveWindow, Math.Max(0, ActiveWindow.Left - 1), ActiveWindow.Top);
 					handled = true;
 					break;
 
 				case ConsoleKey.RightArrow:
 					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Right);
-					ActiveWindow?.SetPosition(new Point(Math.Min(DesktopDimensions.Width - (ActiveWindow?.Width ?? 0), (ActiveWindow?.Left ?? 0) + 1), ActiveWindow?.Top ?? 0));
+					if (ActiveWindow != null) MoveWindowTo(ActiveWindow, Math.Min(DesktopDimensions.Width - ActiveWindow.Width, ActiveWindow.Left + 1), ActiveWindow.Top);
 					handled = true;
 					break;
 
@@ -2559,11 +2559,6 @@ namespace SharpConsoleUI
 			_sortedWindows.AddRange(Windows.Values);
 			_sortedWindows.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
 
-			// Ensure coverage cache is fresh before selecting windows to render
-			// This is critical after window moves/resizes to prevent using stale visibility data
-			if (_windowsNeedingRegionUpdate.Count > 0 || _pendingDesktopClears.Count > 0)
-				InvalidateCoverageCache();
-
 			// Identify dirty windows and only overlapping windows with higher Z-index
 			// This prevents unnecessary redraws of windows below the dirty window
 			foreach (var window in Windows.Values)
@@ -2579,12 +2574,7 @@ namespace SharpConsoleUI
 				if (!window.IsDirty)
 					continue;
 
-				// ALWAYS render windows being dragged or resized (prevents blank window bug)
-				// Coverage check can be stale during interaction due to race conditions
-				bool isInteracting = _windowStateService.CurrentDrag?.Window == window ||
-				                     _windowStateService.CurrentResize?.Window == window;
-
-				if (!isInteracting && IsCompletelyCovered(window))
+				if (IsCompletelyCovered(window))
 					continue;
 
 				_windowsToRender.Add(window);
