@@ -4,9 +4,11 @@
   <img src="docs/images/logo.svg" alt="ConsoleEx Logo" width="400">
 </p>
 
-![Version](https://img.shields.io/badge/version-2.0-blue)
-![.NET](https://img.shields.io/badge/.NET-9.0-purple)
-![License](https://img.shields.io/badge/license-MIT-green)
+<p align="center">
+  <img src="https://img.shields.io/badge/version-2.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/.NET-9.0-purple" alt=".NET">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+</p>
 
 A modern console window system for .NET 9 with fluent builders, async patterns, and built-in state services.
 
