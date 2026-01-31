@@ -35,6 +35,11 @@ namespace SharpConsoleUI.Controls
 		private IInteractiveControl? _focusedChild = null;
 		private bool _focusFromBackward = false;
 
+		// Click target tracking for double-click consistency
+		private IWindowControl? _lastClickTarget = null;
+		private DateTime _lastClickTime;
+		private System.Drawing.Point _lastClickPosition;
+
 		// Configurable options
 		private bool _showScrollbar = true;
 		private ScrollbarPosition _scrollbarPosition = ScrollbarPosition.Right;
@@ -529,6 +534,55 @@ namespace SharpConsoleUI.Controls
 		public bool CanFocusWithMouse => CanReceiveFocus;
 
 		/// <inheritdoc/>
+		/// <summary>
+		/// Gets the target child control for a click event, using cached target for double-click sequences.
+		/// This prevents the same logical double-click from being dispatched to different children
+		/// when scroll position changes between clicks.
+		/// </summary>
+		private IWindowControl? GetClickTargetChild(MouseEventArgs args, int contentWidth)
+		{
+			var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
+			var positionChanged = _lastClickPosition != args.Position;
+
+			bool isSequentialClick =
+				timeSinceLastClick < Configuration.ControlDefaults.DefaultDoubleClickThresholdMs &&
+				!positionChanged;
+
+			// Reuse cached target for double-click sequences
+			if (isSequentialClick && _lastClickTarget != null)
+			{
+				// Verify child still exists
+				if (_children.Contains(_lastClickTarget))
+					return _lastClickTarget;
+			}
+
+			// New click sequence - perform fresh hit test using current scroll offset
+			int contentY = args.Position.Y - _margin.Top + _verticalScrollOffset;
+			int currentY = 0;
+
+			foreach (var child in _children.Where(c => c.Visible))
+			{
+				int childHeight = MeasureChildHeight(child, contentWidth);
+
+				if (contentY >= currentY && contentY < currentY + childHeight)
+				{
+					// Found the clicked child
+					_lastClickTarget = child;
+					_lastClickTime = DateTime.Now;
+					_lastClickPosition = args.Position;
+					return child;
+				}
+
+				currentY += childHeight;
+			}
+
+			// No child found at this position
+			_lastClickTarget = null;
+			_lastClickTime = DateTime.Now;
+			_lastClickPosition = args.Position;
+			return null;
+		}
+
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			if (args.Handled) return false;
@@ -560,7 +614,12 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Handle click events for child focus
-			if (args.HasAnyFlag(Drivers.MouseFlags.Button1Clicked, Drivers.MouseFlags.Button1Pressed))
+			if (args.HasAnyFlag(Drivers.MouseFlags.Button1Clicked, Drivers.MouseFlags.Button1Pressed,
+				Drivers.MouseFlags.Button1Released, Drivers.MouseFlags.Button1DoubleClicked, Drivers.MouseFlags.Button1TripleClicked,
+				Drivers.MouseFlags.Button2Clicked, Drivers.MouseFlags.Button2Pressed, Drivers.MouseFlags.Button2Released,
+				Drivers.MouseFlags.Button2DoubleClicked, Drivers.MouseFlags.Button2TripleClicked,
+				Drivers.MouseFlags.Button3Clicked, Drivers.MouseFlags.Button3Pressed, Drivers.MouseFlags.Button3Released,
+				Drivers.MouseFlags.Button3DoubleClicked, Drivers.MouseFlags.Button3TripleClicked))
 			{
 				// Calculate content width (accounting for scrollbar)
 				int contentWidth = _viewportWidth;
@@ -568,64 +627,62 @@ namespace SharpConsoleUI.Controls
 				if (needsScrollbar)
 					contentWidth -= 2;
 
-				// Translate mouse position to content-relative coordinates
-				// NOTE: args.Position is already control-relative (includes margin area)
-				// Subtract margin to get viewport position, then add scroll offset to get content position
+				// Translate mouse position to viewport coordinates
 				int viewportX = args.Position.X - _margin.Left;
-				int contentY = args.Position.Y - _margin.Top + _verticalScrollOffset;
 
 				// Check if click is within content area (not in scrollbar or margins)
 				if (viewportX >= 0 && viewportX < contentWidth && args.Position.Y >= _margin.Top)
 				{
-					// Find which child was clicked
-					int currentY = 0;
-					int childIndex = 0;
-					foreach (var child in _children.Where(c => c.Visible))
+					// Use click target caching to ensure double-clicks go to the same child
+					// even if scroll position changes between clicks
+					var child = GetClickTargetChild(args, contentWidth);
+
+					if (child != null)
 					{
-						int childHeight = MeasureChildHeight(child, contentWidth);
-
-						if (contentY >= currentY && contentY < currentY + childHeight)
+						// Set focus on clicked child (if focusable)
+						if (child is IFocusableControl focusable && focusable.CanReceiveFocus)
 						{
-							// Found the clicked child - handle focus and forward event
-							// Set focus on clicked child (if focusable)
-							if (child is IFocusableControl focusable && focusable.CanReceiveFocus)
+							// Clear focus from other children
+							foreach (var otherChild in _children)
 							{
-								// Clear focus from other children
-								foreach (var otherChild in _children)
+								if (otherChild != child && otherChild is IFocusableControl fc && fc.HasFocus)
 								{
-									if (otherChild != child && otherChild is IFocusableControl fc && fc.HasFocus)
-									{
-										fc.SetFocus(false, FocusReason.Mouse);
-									}
-								}
-
-								// Set focus on clicked child
-								focusable.SetFocus(true, FocusReason.Mouse);
-								if (child is IInteractiveControl interactive)
-									_focusedChild = interactive;
-							}
-
-							// Forward mouse event to child (if it handles mouse events)
-							if (child is IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
-							{
-								// Translate coordinates to child-relative
-								var childPosition = new System.Drawing.Point(viewportX, contentY - currentY);
-								var childArgs = args.WithPosition(childPosition);
-
-								// Forward event to child
-								if (mouseAware.ProcessMouseEvent(childArgs))
-								{
-									args.Handled = true;
-									return true;
+									fc.SetFocus(false, FocusReason.Mouse);
 								}
 							}
 
-							// Event was within child bounds but child didn't handle it
-							break;
+							// Set focus on clicked child
+							focusable.SetFocus(true, FocusReason.Mouse);
+							if (child is IInteractiveControl interactive)
+								_focusedChild = interactive;
 						}
 
-						currentY += childHeight;
-						childIndex++;
+						// Forward mouse event to child (if it handles mouse events)
+						if (child is IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
+						{
+							// Calculate child-relative Y position
+							// We need to recalculate the child's position in the current scroll state
+							int contentY = args.Position.Y - _margin.Top + _verticalScrollOffset;
+							int currentY = 0;
+							foreach (var c in _children.Where(c => c.Visible))
+							{
+								if (c == child)
+								{
+									// Translate coordinates to child-relative
+									var childPosition = new System.Drawing.Point(viewportX, contentY - currentY);
+									var childArgs = args.WithPosition(childPosition);
+
+									// Forward event to child
+									if (mouseAware.ProcessMouseEvent(childArgs))
+									{
+										args.Handled = true;
+										return true;
+									}
+									break;
+								}
+								currentY += MeasureChildHeight(c, contentWidth);
+							}
+						}
 					}
 				}
 			}

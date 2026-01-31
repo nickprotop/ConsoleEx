@@ -1853,7 +1853,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Handle double-click event from driver
+			// Handle double-click event from driver (preferred method)
 			if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickActivates)
 			{
 				if (relativeY >= 0 && relativeY < _items.Count)
@@ -1861,6 +1861,10 @@ namespace SharpConsoleUI.Controls
 					int clickedIndex = _scrollOffset + relativeY;
 					if (clickedIndex >= 0 && clickedIndex < _items.Count)
 					{
+						// Reset tracking state since driver handled the gesture
+						_lastClickTime = DateTime.MinValue;
+						_lastClickIndex = -1;
+
 						// Commit highlight to selection
 						if (_selectedIndex != clickedIndex)
 						{

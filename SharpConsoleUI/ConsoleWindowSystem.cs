@@ -637,20 +637,30 @@ namespace SharpConsoleUI
 			// Activate the next window (UnregisterWindow updates state but doesn't call SetIsActive)
 			if (wasActive)
 			{
+				Window? targetWindow = null;
+
 				if (activateParent && parentWindow != null && Windows.ContainsKey(parentWindow.Guid))
 				{
-					// Activate the parent window
-					SetActiveWindow(parentWindow);
+					// Let ModalStateService resolve correct target (may redirect to modal child)
+					// This prevents the "black hole" bug when closing a modal that has other modals stacked
+					targetWindow = _modalStateService.GetEffectiveActivationTarget(parentWindow);
 				}
 				else if (Windows.Count > 0)
 				{
 					// Activate window with highest Z-Index
 					int maxZIndex = Windows.Values.Max(w => w.ZIndex);
 					var nextWindow = Windows.Values.FirstOrDefault(w => w.ZIndex == maxZIndex);
+
 					if (nextWindow != null)
 					{
-						SetActiveWindow(nextWindow);
+						// Use GetEffectiveActivationTarget to handle modal redirection
+						targetWindow = _modalStateService.GetEffectiveActivationTarget(nextWindow);
 					}
+				}
+
+				if (targetWindow != null)
+				{
+					SetActiveWindow(targetWindow);
 				}
 			}
 

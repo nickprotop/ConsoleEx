@@ -924,14 +924,18 @@ namespace SharpConsoleUI.Controls
 
 					// Handle double-click detection (two methods like ListControl)
 
-					// Method 1: Direct flag detection from driver
+					// Method 1: Direct flag detection from driver (preferred method)
 					if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickEnabled)
 					{
+						// Reset tracking state since driver handled the gesture
+						_lastClickTime = DateTime.MinValue;
+						_lastClickPosition = Point.Empty;
+
 						MouseDoubleClick?.Invoke(this, contentArgs);
 						return true;
 					}
 
-					// Method 2: Manual timer-based detection
+					// Method 2: Manual timer-based detection (fallback)
 					if (args.HasFlag(MouseFlags.Button1Clicked))
 					{
 						// Detect double-click

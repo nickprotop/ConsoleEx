@@ -205,6 +205,11 @@ namespace SharpConsoleUI
 		// Mouse tracking for enter/leave events
 		private Controls.IWindowControl? _lastMouseOverControl;
 
+		// Click target tracking for double-click consistency
+		private IWindowControl? _lastClickTarget;
+		private DateTime _lastClickTime;
+		private Point _lastClickPosition;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Window"/> class with an async background task.
 		/// </summary>
@@ -1178,6 +1183,38 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <summary>
+		/// Gets the target control for a click event, using cached target for double-click sequences.
+		/// This prevents the same logical double-click from being dispatched to different controls
+		/// when layout changes (e.g., scroll) occur between the two clicks.
+		/// </summary>
+		private IWindowControl? GetClickTarget(Events.MouseEventArgs args)
+		{
+			var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
+			var positionChanged = _lastClickPosition != args.WindowPosition;
+
+			bool isSequentialClick =
+				timeSinceLastClick < Configuration.ControlDefaults.DefaultDoubleClickThresholdMs &&
+				!positionChanged;
+
+			// Reuse cached target for double-click sequences
+			// We trust the cached target without validation since it's only used for a short time (< 500ms)
+			// and prevents double-click events from being dispatched to different controls when layout changes
+			if (isSequentialClick && _lastClickTarget != null)
+			{
+				return _lastClickTarget;
+			}
+
+			// New click sequence - perform fresh hit test
+			var targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
+
+			_lastClickTarget = targetControl;
+			_lastClickTime = DateTime.Now;
+			_lastClickPosition = args.WindowPosition;
+
+			return targetControl;
+		}
+
 	/// <summary>
 		/// Handles mouse events for this window and propagates them to controls
 		/// </summary>
@@ -1222,8 +1259,43 @@ namespace SharpConsoleUI
 				// Check if the click is within the window content area (not borders/title)
 				if (IsClickInWindowContent(args.WindowPosition))
 				{
-					// Single hit test - used for both focus and event routing
-					var targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
+					// Hit test - use cached target for click sequences to prevent double-click bugs
+					IWindowControl? targetControl;
+
+					// For click events, use cached target to maintain consistency across double-click sequences
+					// This prevents the same logical double-click from dispatching to different controls
+					// when layout changes (e.g., scroll) occur between clicks
+					bool isClickEvent = args.HasAnyFlag(
+						MouseFlags.Button1Pressed,
+						MouseFlags.Button1Released,
+						MouseFlags.Button1Clicked,
+						MouseFlags.Button1DoubleClicked,
+						MouseFlags.Button1TripleClicked,
+						MouseFlags.Button2Pressed,
+						MouseFlags.Button2Released,
+						MouseFlags.Button2Clicked,
+						MouseFlags.Button2DoubleClicked,
+						MouseFlags.Button2TripleClicked,
+						MouseFlags.Button3Pressed,
+						MouseFlags.Button3Released,
+						MouseFlags.Button3Clicked,
+						MouseFlags.Button3DoubleClicked,
+						MouseFlags.Button3TripleClicked,
+						MouseFlags.Button4Pressed,
+						MouseFlags.Button4Released,
+						MouseFlags.Button4Clicked,
+						MouseFlags.Button4DoubleClicked,
+						MouseFlags.Button4TripleClicked);
+
+					if (isClickEvent)
+					{
+						targetControl = GetClickTarget(args);
+					}
+					else
+					{
+						// For non-click events (scroll, move), always use fresh hit test
+						targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
+					}
 
 					// === NEW: SCROLL EVENT BUBBLING ===
 					// For scroll events, try bubbling up the parent chain

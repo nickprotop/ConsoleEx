@@ -274,14 +274,18 @@ namespace SharpConsoleUI.Controls
 		if (!WantsMouseEvents || args.Handled)
 		return false;
 
-		// Handle double-click (driver-level detection)
+		// Handle double-click (driver-level detection - preferred method)
 		if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickEnabled)
 		{
+		// Reset tracking state since driver handled the gesture
+		_lastClickTime = DateTime.MinValue;
+		_lastClickPosition = Point.Empty;
+
 		MouseDoubleClick?.Invoke(this, args);
 		return true;
 		}
 
-		// Handle click with manual double-click detection
+		// Handle click with manual double-click detection (fallback)
 		if (args.HasFlag(MouseFlags.Button1Clicked))
 		{
 		// Detect double-click
@@ -291,6 +295,7 @@ namespace SharpConsoleUI.Controls
 							 args.Position == _lastClickPosition &&
 							 timeSince <= _doubleClickThresholdMs;
 
+		// Always update tracking state
 		_lastClickTime = now;
 		_lastClickPosition = args.Position;
 
