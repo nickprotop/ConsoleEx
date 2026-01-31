@@ -191,26 +191,40 @@ namespace SharpConsoleUI.Drivers
 		/// After rendering, the front buffer is synchronized with the back buffer.
 		/// The cursor is hidden during rendering to prevent flickering.
 		/// </remarks>
-		public void Render()
+	public void Render()
+	{
+		if (Lock)
+			return;
+
+		// Lock Console I/O to prevent concurrent input operations from being corrupted
+		lock (_consoleLock ?? new object())
 		{
-			if (Lock)
-				return;
+			Console.CursorVisible = false;
 
-			// Lock Console I/O to prevent concurrent input operations from being corrupted
-			lock (_consoleLock ?? new object())
+			// Build entire screen in one string for atomic output
+			// This eliminates flickering by doing a single write instead of multiple cursor moves
+			var screenBuilder = new StringBuilder();
+
+			for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
 			{
-				Console.CursorVisible = false;
+				if (!IsLineDirty(y))
+					continue;
 
-				for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
-				{
-					if (!IsLineDirty(y))
-						continue;
+				// Add ANSI absolute positioning: ESC[row;colH (1-based)
+				screenBuilder.Append($"\x1b[{y + 1};1H");
 
-					Console.SetCursorPosition(0, y);
-					RenderLine(y);
-				}
+				// Append this line's content to the screen builder
+				AppendLineToBuilder(y, screenBuilder);
+			}
+
+			// Single atomic write of entire screen - no cursor jumps, no flicker!
+			if (screenBuilder.Length > 0)
+			{
+				Console.Write(screenBuilder.ToString());
 			}
 		}
+	}
+
 
 		private void ClearArea(int x, int y, int length)
 		{
@@ -255,9 +269,9 @@ namespace SharpConsoleUI.Drivers
 		private bool IsValidPosition(int x, int y)
 			=> x >= 0 && x < _width && y >= 0 && y < _height;
 
-		private void RenderLine(int y)
+		private void AppendLineToBuilder(int y, StringBuilder builder)
 		{
-			_renderBuilder.Clear();
+			// DO NOT clear - we are appending to the screen builder
 			int consecutiveUnchanged = 0;
 
 			for (int x = 0; x < _width; x++)
@@ -272,17 +286,17 @@ namespace SharpConsoleUI.Drivers
 					{
 						if (consecutiveUnchanged == 1)
 						{
-							_renderBuilder.Append(CursorForward);
+							builder.Append(CursorForward);
 						}
 						else
 						{
-							_renderBuilder.Append($"\u001b[{consecutiveUnchanged}C");
+							builder.Append($"\u001b[{consecutiveUnchanged}C");
 						}
 						consecutiveUnchanged = 0;
 					}
 
-					_renderBuilder.Append(backCell.AnsiEscape);
-					_renderBuilder.Append(backCell.Character);
+					builder.Append(backCell.AnsiEscape);
+					builder.Append(backCell.Character);
 					frontCell.CopyFrom(backCell);
 					backCell.IsDirty = false;
 				}
@@ -297,16 +311,16 @@ namespace SharpConsoleUI.Drivers
 			{
 				if (consecutiveUnchanged == 1)
 				{
-					_renderBuilder.Append(CursorForward);
+					builder.Append(CursorForward);
 				}
 				else
 				{
-					_renderBuilder.Append($"\u001b[{consecutiveUnchanged}C");
+					builder.Append($"\u001b[{consecutiveUnchanged}C");
 				}
 			}
 
 			// Write all changes at once
-			Console.Write(_renderBuilder);
+		// Content appended to builder (removed Console.Write for atomic rendering)
 		}
 
 		// Use struct for better memory layout and performance
