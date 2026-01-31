@@ -2123,6 +2123,12 @@ namespace SharpConsoleUI
 				// FINALLY: Force redraw of the window at its new position
 				window.Invalidate(true);
 
+				// Mark this window for region update (clipping recalculation)
+				_windowsNeedingRegionUpdate.Add(window);
+
+				// Mark overlapping windows for region update (their visibleRegions changed)
+				AddOverlappingWindowsForRegionUpdate(window);
+
 				// And invalidate exposed regions to redraw any windows that were underneath
 				InvalidateExposedRegions(window, oldBounds);
 			}
@@ -2553,6 +2559,11 @@ namespace SharpConsoleUI
 			_sortedWindows.AddRange(Windows.Values);
 			_sortedWindows.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
 
+			// Ensure coverage cache is fresh before selecting windows to render
+			// This is critical after window moves/resizes to prevent using stale visibility data
+			if (_windowsNeedingRegionUpdate.Count > 0 || _pendingDesktopClears.Count > 0)
+				InvalidateCoverageCache();
+
 			// Identify dirty windows and only overlapping windows with higher Z-index
 			// This prevents unnecessary redraws of windows below the dirty window
 			foreach (var window in Windows.Values)
@@ -2568,7 +2579,12 @@ namespace SharpConsoleUI
 				if (!window.IsDirty)
 					continue;
 
-				if (IsCompletelyCovered(window))
+				// ALWAYS render windows being dragged or resized (prevents blank window bug)
+				// Coverage check can be stale during interaction due to race conditions
+				bool isInteracting = _windowStateService.CurrentDrag?.Window == window ||
+				                     _windowStateService.CurrentResize?.Window == window;
+
+				if (!isInteracting && IsCompletelyCovered(window))
 					continue;
 
 				_windowsToRender.Add(window);

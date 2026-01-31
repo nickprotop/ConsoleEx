@@ -478,6 +478,32 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool AlwaysOnTop { get; set; } = false;
 
+	private bool _renderLock = false;
+
+	/// <summary>
+	/// Gets or sets a value indicating whether rendering to screen is locked.
+	/// When true, the window performs all internal work (measure, layout, paint to buffer)
+	/// but does not output to the render pipeline. Useful for batching multiple updates
+	/// to appear atomically. When unlocked, automatically invalidates to trigger render.
+	/// </summary>
+	public bool RenderLock
+	{
+		get => _renderLock;
+		set
+		{
+			if (_renderLock != value)
+			{
+				_renderLock = value;
+
+				// When unlocking, force re-render to show accumulated changes
+				if (!_renderLock)
+				{
+					IsDirty = true;
+				}
+			}
+		}
+	}
+
 		/// <summary>
 		/// Gets or sets the left position of the window in character columns.
 		/// </summary>

@@ -178,6 +178,26 @@ namespace SharpConsoleUI
 			{
 				return;
 			}
+		
+		// Skip screen output if render lock is enabled, but still do internal work
+		if (window.RenderLock)
+		{
+			// Trigger internal work if dirty (keeps CharacterBuffer up-to-date)
+			if (window.IsDirty)
+			{
+				// Create dummy region covering entire window for internal rendering
+				var fullRegion = new List<Rectangle> 
+				{ 
+					new Rectangle(window.Left, window.Top, window.Width, window.Height) 
+				};
+				
+				// This calls window's internal measure/layout/paint but we discard the output
+				window.RenderAndGetVisibleContent(fullRegion);
+				window.IsDirty = false;
+			}
+			
+			return;  // Don't output to screen
+		}
 
 			var visibleRegions = new List<Rectangle> { region };
 
@@ -215,6 +235,26 @@ namespace SharpConsoleUI
 			{
 				return;
 			}
+		
+		// Skip screen output if render lock is enabled, but still do internal work
+		if (window.RenderLock)
+		{
+			// Trigger internal work if dirty (keeps CharacterBuffer up-to-date)
+			if (window.IsDirty)
+			{
+				// Create dummy region covering entire window for internal rendering
+				var fullRegion = new List<Rectangle> 
+				{ 
+					new Rectangle(window.Left, window.Top, window.Width, window.Height) 
+				};
+				
+				// This calls window's internal measure/layout/paint but we discard the output
+				window.RenderAndGetVisibleContent(fullRegion);
+				window.IsDirty = false;
+			}
+			
+			return;  // Don't output to screen
+		}
 			// Special rendering for OverlayWindow
 			if (window is OverlayWindow overlay)
 			{
