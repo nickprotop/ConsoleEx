@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -263,6 +264,92 @@ namespace SharpConsoleUI.Builders
 		public SparklineBuilder WithMode(SparklineMode mode)
 		{
 			_control.Mode = mode;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the color gradient for vertical color interpolation.
+		/// </summary>
+		public SparklineBuilder WithGradient(ColorGradient gradient)
+		{
+			_control.Gradient = gradient;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the color gradient from a gradient specification string.
+		/// Supports predefined gradients (cool, warm, spectrum, grayscale),
+		/// arrow notation (blue→cyan→green), and :reverse suffix.
+		/// </summary>
+		public SparklineBuilder WithGradient(string gradientSpec)
+		{
+			_control.Gradient = ColorGradient.Parse(gradientSpec);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the color gradient from an array of colors.
+		/// </summary>
+		public SparklineBuilder WithGradient(params Color[] colors)
+		{
+			_control.Gradient = ColorGradient.FromColors(colors);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the secondary color gradient for bidirectional mode.
+		/// </summary>
+		public SparklineBuilder WithSecondaryGradient(ColorGradient gradient)
+		{
+			_control.SecondaryGradient = gradient;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the secondary color gradient from a gradient specification string.
+		/// Supports predefined gradients (cool, warm, spectrum, grayscale),
+		/// arrow notation (blue→cyan→green), and :reverse suffix.
+		/// </summary>
+		public SparklineBuilder WithSecondaryGradient(string gradientSpec)
+		{
+			_control.SecondaryGradient = ColorGradient.Parse(gradientSpec);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the secondary color gradient from an array of colors.
+		/// </summary>
+		public SparklineBuilder WithSecondaryGradient(params Color[] colors)
+		{
+			_control.SecondaryGradient = ColorGradient.FromColors(colors);
+			return this;
+		}
+
+		/// <summary>
+		/// Enables or disables the dotted baseline with optional customization.
+		/// </summary>
+		/// <param name="show">Whether to show the baseline.</param>
+		/// <param name="baselineChar">Character to use for the baseline (default: ┈).</param>
+		/// <param name="color">Color for the baseline (default: Grey50).</param>
+		/// <param name="position">Position of the baseline (Top or Bottom, default: Bottom).</param>
+		public SparklineBuilder WithBaseline(bool show = true, char baselineChar = '┈', Color? color = null, TitlePosition position = TitlePosition.Bottom)
+		{
+			_control.ShowBaseline = show;
+			_control.BaselineChar = baselineChar;
+			_control.BaselinePosition = position;
+			if (color.HasValue)
+				_control.BaselineColor = color.Value;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets whether to show the title inline with the baseline.
+		/// Only applies when TitlePosition and BaselinePosition are the same (both Top or both Bottom).
+		/// Format: "Title ┈┈┈┈┈┈┈┈┈" (title followed by baseline fill).
+		/// </summary>
+		public SparklineBuilder WithInlineTitleBaseline(bool inline = true)
+		{
+			_control.InlineTitleWithBaseline = inline;
 			return this;
 		}
 

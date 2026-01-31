@@ -55,6 +55,9 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		// Gradient support
+		private ColorGradient? _smoothGradient;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="BarGraphControl"/> class.
 		/// </summary>
@@ -255,6 +258,22 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(true);
 		}
 
+		/// <summary>
+		/// Gets or sets the smooth color gradient for horizontal color interpolation.
+		/// When set, the bar smoothly transitions from start to end color based on fill percentage.
+		/// This is in addition to (not replacement of) threshold-based gradients.
+		/// Threshold gradients take precedence when both are set.
+		/// </summary>
+		public ColorGradient? SmoothGradient
+		{
+			get => _smoothGradient;
+			set
+			{
+				_smoothGradient = value;
+				Container?.Invalidate(true);
+			}
+		}
+
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
@@ -448,15 +467,28 @@ namespace SharpConsoleUI.Controls
 			int filledChars = (int)Math.Round(percent * _barWidth);
 			int unfilledChars = _barWidth - filledChars;
 
-			// Resolve the fill color based on thresholds
+			// Resolve the fill color based on thresholds (used for value text)
 			Color resolvedFilledColor = GetFilledColorForPercent(percent * 100);
 
-			// Filled portion
+			// Filled portion (with per-character gradient support)
 			for (int i = 0; i < filledChars; i++)
 			{
+				Color charColor;
+				if (_smoothGradient != null && (_colorThresholds == null || _colorThresholds.Count == 0))
+				{
+					// Per-character gradient (smoother than per-bar)
+					double charPercent = (double)(i + 1) / _barWidth;
+					charColor = _smoothGradient.Interpolate(charPercent);
+				}
+				else
+				{
+					// Use existing threshold logic (or solid color)
+					charColor = resolvedFilledColor;
+				}
+
 				if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 				{
-					buffer.SetCell(currentX, paintY, FILLED_CHAR, resolvedFilledColor, bgColor);
+					buffer.SetCell(currentX, paintY, FILLED_CHAR, charColor, bgColor);
 				}
 				currentX++;
 			}
@@ -515,17 +547,26 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The color to use for the filled portion.</returns>
 		private Color GetFilledColorForPercent(double percent)
 		{
-			if (_colorThresholds == null || _colorThresholds.Count == 0)
-				return _filledColor;
-
-			// Find highest threshold that value meets or exceeds
-			Color result = _filledColor;
-			foreach (var threshold in _colorThresholds)
+			// Priority 1: Threshold-based gradients (existing functionality)
+			if (_colorThresholds != null && _colorThresholds.Count > 0)
 			{
-				if (percent >= threshold.Threshold)
-					result = threshold.Color;
+				Color result = _filledColor;
+				foreach (var threshold in _colorThresholds)
+				{
+					if (percent >= threshold.Threshold)
+						result = threshold.Color;
+				}
+				return result;
 			}
-			return result;
+
+			// Priority 2: Smooth gradient (new functionality)
+			if (_smoothGradient != null)
+			{
+				return _smoothGradient.Interpolate(percent / 100.0);
+			}
+
+			// Default: Solid color
+			return _filledColor;
 		}
 
 		#endregion

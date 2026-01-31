@@ -115,6 +115,17 @@ namespace SharpConsoleUI.Controls
 		private Color _secondaryBarColor = Color.Green;
 		private double? _secondaryMaxValue;
 
+		// Gradient support
+		private ColorGradient? _gradient;
+		private ColorGradient? _secondaryGradient;
+
+		// Baseline support
+		private bool _showBaseline = false;
+		private char _baselineChar = '┈'; // U+2508 dotted line
+		private Color _baselineColor = Color.Grey50;
+		private TitlePosition _baselinePosition = TitlePosition.Bottom;
+		private bool _inlineTitleWithBaseline = false;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SparklineControl"/> class.
 		/// </summary>
@@ -338,6 +349,103 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the color gradient for vertical color interpolation.
+		/// When set, each bar column gets a color based on its height.
+		/// When null, uses the solid BarColor.
+		/// </summary>
+		public ColorGradient? Gradient
+		{
+			get => _gradient;
+			set
+			{
+				_gradient = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the color gradient for the secondary series in bidirectional mode.
+		/// When null in bidirectional mode, uses SecondaryBarColor or the primary Gradient.
+		/// </summary>
+		public ColorGradient? SecondaryGradient
+		{
+			get => _secondaryGradient;
+			set
+			{
+				_secondaryGradient = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether to show a dotted baseline at the bottom of the graph.
+		/// </summary>
+		public bool ShowBaseline
+		{
+			get => _showBaseline;
+			set
+			{
+				_showBaseline = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the character used for the baseline (default: ┈).
+		/// </summary>
+		public char BaselineChar
+		{
+			get => _baselineChar;
+			set
+			{
+				_baselineChar = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the color of the baseline (default: Grey50).
+		/// </summary>
+		public Color BaselineColor
+		{
+			get => _baselineColor;
+			set
+			{
+				_baselineColor = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the position of the baseline (Top or Bottom, default: Bottom).
+		/// When set to Top, baseline appears above the graph.
+		/// </summary>
+		public TitlePosition BaselinePosition
+		{
+			get => _baselinePosition;
+			set
+			{
+				_baselinePosition = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether to show the title inline with the baseline.
+		/// Only applies when TitlePosition and BaselinePosition are the same (both Top or both Bottom).
+		/// Format: "Title ┈┈┈┈┈┈┈┈┈" (title followed by baseline fill).
+		/// </summary>
+		public bool InlineTitleWithBaseline
+		{
+			get => _inlineTitleWithBaseline;
+			set
+			{
+				_inlineTitleWithBaseline = value;
+				Container?.Invalidate(true);
+			}
+		}
+
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
@@ -443,7 +551,20 @@ namespace SharpConsoleUI.Controls
 		public LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int borderSize = _borderStyle != BorderStyle.None ? 2 : 0;
-			int titleHeight = !string.IsNullOrEmpty(_title) ? 1 : 0;
+
+			// Check if bidirectional mode
+			bool isBidirectional = _mode == SparklineMode.Bidirectional || _mode == SparklineMode.BidirectionalBraille;
+
+			// When title is inline with baseline, don't count title height separately
+			bool titleAndBaselineInline = _inlineTitleWithBaseline &&
+			                              _titlePosition == _baselinePosition &&
+			                              _showBaseline;
+
+			int titleHeight = !string.IsNullOrEmpty(_title) && !titleAndBaselineInline ? 1 : 0;
+
+			// In bidirectional mode, baseline is in the middle (doesn't add height)
+			// In standard mode, baseline adds height if not inline with title
+			int baselineHeight = _showBaseline && !isBidirectional ? 1 : 0;
 
 			// Calculate minimum width needed for title (visible chars only, not markup)
 			int titleWidth = 0;
@@ -456,7 +577,7 @@ namespace SharpConsoleUI.Controls
 			int dataWidth = _width ?? _dataPoints.Count;
 			int contentWidth = Math.Max(dataWidth, titleWidth);
 			int width = contentWidth + _margin.Left + _margin.Right + borderSize;
-			int height = _graphHeight + _margin.Top + _margin.Bottom + borderSize + titleHeight;
+			int height = _graphHeight + _margin.Top + _margin.Bottom + borderSize + titleHeight + baselineHeight;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -481,13 +602,23 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Calculate content area (after margins, including border and title)
+			// Calculate content area (after margins, including border, title, and baseline)
 			int borderSize = _borderStyle != BorderStyle.None ? 1 : 0;
-			int titleHeight = !string.IsNullOrEmpty(_title) ? 1 : 0;
+
+			// When title is inline with baseline, don't count title height separately
+			bool titleAndBaselineInline = _inlineTitleWithBaseline &&
+			                              _titlePosition == _baselinePosition &&
+			                              _showBaseline;
+
+			int titleHeight = !string.IsNullOrEmpty(_title) && !titleAndBaselineInline ? 1 : 0;
+
+			// Baseline height will be determined after we know if bidirectional mode
+			int baselineHeight = 0;  // Will be set later
+
 			int startX = bounds.X + _margin.Left;
 			int startY = bounds.Y + _margin.Top;
 			int contentWidth = bounds.Width - _margin.Left - _margin.Right;
-			int contentHeight = _graphHeight + (borderSize * 2) + titleHeight;
+			int contentHeight = _graphHeight + (borderSize * 2) + titleHeight + baselineHeight;
 
 			// Fill content area with control background
 			for (int y = startY; y < startY + contentHeight && y < bounds.Bottom; y++)
@@ -563,6 +694,90 @@ namespace SharpConsoleUI.Controls
 			bool isBidirectional = _mode == SparklineMode.Bidirectional || _mode == SparklineMode.BidirectionalBraille;
 			bool useBraille = _mode == SparklineMode.Braille || _mode == SparklineMode.BidirectionalBraille;
 
+			// Now that we know if bidirectional, set baseline height
+			// In bidirectional mode, baseline is in the middle (doesn't add height)
+			// In standard mode, baseline adds height if not inline with title
+			baselineHeight = _showBaseline && !isBidirectional ? 1 : 0;
+
+			// Draw baseline BEFORE graph data so data can draw over it
+			if (_showBaseline)
+			{
+				// Determine baseline Y position based on mode and BaselinePosition
+				int baselineY;
+
+				if (isBidirectional)
+				{
+					// In bidirectional mode, baseline is ALWAYS at the middle (centerline)
+					// This is the horizontal line between upload (top) and download (bottom)
+					int halfHeight = _graphHeight / 2;
+					baselineY = graphStartY + halfHeight;
+				}
+				else if (_baselinePosition == TitlePosition.Top)
+				{
+					// Standard mode: Baseline at top (before graph, after title if title is also on top)
+					baselineY = _titlePosition == TitlePosition.Top && !string.IsNullOrEmpty(_title) && !titleAndBaselineInline
+						? startY + borderSize + 1  // After title
+						: startY + borderSize;      // No title or title at bottom or inline
+				}
+				else
+				{
+					// Standard mode: Baseline at bottom (after graph, before title if title is also at bottom)
+					baselineY = graphBottom + 1;
+					// If title is at bottom and not inline, baseline comes first
+					if (_titlePosition == TitlePosition.Bottom && !string.IsNullOrEmpty(_title) && !titleAndBaselineInline)
+					{
+						baselineY = graphBottom + 1;
+					}
+				}
+
+				if (baselineY >= clipRect.Y && baselineY < clipRect.Bottom)
+				{
+					// Check if we should inline title with baseline
+					// Inline only when title and baseline are on the same side (both top or both bottom)
+					bool shouldInlineTitle = titleAndBaselineInline && !string.IsNullOrEmpty(_title);
+
+					int baselineStartX = graphStartX;
+
+					if (shouldInlineTitle)
+					{
+						// Render title at start of baseline
+						int titlePadding = borderSize > 0 ? 1 : 0;
+						int titleX = startX + borderSize + titlePadding;
+
+						// Convert title markup to ANSI
+						string processedTitle = _title!;
+						if (_titleColor.HasValue)
+						{
+							string colorName = $"rgb({_titleColor.Value.R},{_titleColor.Value.G},{_titleColor.Value.B})";
+							processedTitle = $"[{colorName}]{_title}[/]";
+						}
+
+						var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+							processedTitle, graphWidth, 1, false, bgColor, _foregroundColorValue ?? fgColor);
+
+						if (ansiLines.Count > 0)
+						{
+							var cells = AnsiParser.Parse(ansiLines[0], fgColor, bgColor).ToList();
+							buffer.WriteCellsClipped(titleX, baselineY, cells, clipRect);
+
+							// Advance baseline start position past title
+							int titleWidth = cells.Count;
+							baselineStartX = titleX + titleWidth + 1; // +1 for space after title
+						}
+					}
+
+					// Fill rest of line with baseline characters
+					for (int x = baselineStartX; x < graphStartX + graphWidth; x++)
+					{
+						if (x >= clipRect.X && x < clipRect.Right)
+						{
+							buffer.SetCell(x, baselineY, _baselineChar, _baselineColor, bgColor);
+						}
+					}
+				}
+			}
+
+			// Paint graph data AFTER baseline so data can draw over it
 			if (isBidirectional)
 			{
 				PaintBidirectional(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, graphBottom, clipRect, bgColor, useBraille);
@@ -617,7 +832,21 @@ namespace SharpConsoleUI.Controls
 
 					// Determine cell color based on whether the character is "empty"
 					bool isEmpty = useBraille ? displayChar == BRAILLE_CHARS[0] : displayChar == ' ';
-					Color cellColor = isEmpty ? Color.Grey19 : _barColor;
+					Color cellColor;
+					if (isEmpty)
+					{
+						cellColor = Color.Grey19;
+					}
+					else if (_gradient != null)
+					{
+						// Vertical gradient: color based on row position (bottom to top)
+						double rowHeightNormalized = (double)(y + 1) / graphHeight;
+						cellColor = _gradient.Interpolate(rowHeightNormalized);
+					}
+					else
+					{
+						cellColor = _barColor;
+					}
 					buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
 				}
 			}
@@ -668,7 +897,20 @@ namespace SharpConsoleUI.Controls
 
 						char displayChar = GetBarChar(barHeight, y, useBraille);
 						bool isEmpty = useBraille ? displayChar == BRAILLE_CHARS[0] : displayChar == ' ';
-						Color cellColor = isEmpty ? Color.Grey19 : _barColor;
+						Color cellColor;
+						if (isEmpty)
+						{
+							cellColor = Color.Grey19;
+						}
+						else if (_gradient != null)
+						{
+							double rowHeightNormalized = (double)(y + 1) / halfHeight;
+							cellColor = _gradient.Interpolate(rowHeightNormalized);
+						}
+						else
+						{
+							cellColor = _barColor;
+						}
 						buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
 					}
 				}
@@ -683,14 +925,34 @@ namespace SharpConsoleUI.Controls
 
 					for (int y = 0; y < halfHeight; y++)
 					{
-						int paintY = middleY + y; // Paint downward from middle
+						int paintY = middleY + 1 + y; // Paint downward from middle (skip baseline row)
 						if (paintY < clipRect.Y || paintY >= clipRect.Bottom)
 							continue;
 
 						// For downward bars, we use inverted block chars (▔▀ style) or just fill from top
 						char displayChar = GetBarCharInverted(barHeight, y, useBraille);
 						bool isEmpty = useBraille ? displayChar == BRAILLE_CHARS[0] : displayChar == ' ';
-						Color cellColor = isEmpty ? Color.Grey19 : _secondaryBarColor;
+						Color cellColor;
+						if (isEmpty)
+						{
+							cellColor = Color.Grey19;
+						}
+						else if (_secondaryGradient != null)
+						{
+							// Secondary has its own gradient
+							double rowHeightNormalized = (double)(y + 1) / halfHeight;
+							cellColor = _secondaryGradient.Interpolate(rowHeightNormalized);
+						}
+						else if (_gradient != null)
+						{
+							// Fall back to primary gradient if no secondary gradient
+							double rowHeightNormalized = (double)(y + 1) / halfHeight;
+							cellColor = _gradient.Interpolate(rowHeightNormalized);
+						}
+						else
+						{
+							cellColor = _secondaryBarColor;
+						}
 						buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
 					}
 				}

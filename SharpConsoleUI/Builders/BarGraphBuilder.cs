@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -233,6 +234,39 @@ namespace SharpConsoleUI.Builders
 				new ColorThreshold(50, Color.Yellow),
 				new ColorThreshold(80, Color.Red)
 			);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the smooth color gradient for horizontal color interpolation.
+		/// When set, the bar smoothly transitions from start to end color based on fill percentage.
+		/// Note: Threshold-based gradients (WithGradient) take precedence over smooth gradients.
+		/// </summary>
+		public BarGraphBuilder WithSmoothGradient(ColorGradient gradient)
+		{
+			_control.SmoothGradient = gradient;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the smooth color gradient from a gradient specification string.
+		/// Supports predefined gradients (cool, warm, spectrum, grayscale),
+		/// arrow notation (blue→cyan→green), and :reverse suffix.
+		/// Note: Threshold-based gradients (WithGradient) take precedence over smooth gradients.
+		/// </summary>
+		public BarGraphBuilder WithSmoothGradient(string gradientSpec)
+		{
+			_control.SmoothGradient = ColorGradient.Parse(gradientSpec);
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the smooth color gradient from an array of colors.
+		/// Note: Threshold-based gradients (WithGradient) take precedence over smooth gradients.
+		/// </summary>
+		public BarGraphBuilder WithSmoothGradient(params Color[] colors)
+		{
+			_control.SmoothGradient = ColorGradient.FromColors(colors);
 			return this;
 		}
 
