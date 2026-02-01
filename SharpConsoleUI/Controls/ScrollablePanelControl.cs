@@ -583,7 +583,8 @@ namespace SharpConsoleUI.Controls
 			return null;
 		}
 
-		public bool ProcessMouseEvent(MouseEventArgs args)
+		/// <inheritdoc />
+	public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			if (args.Handled) return false;
 

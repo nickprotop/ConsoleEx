@@ -339,11 +339,10 @@ namespace SharpConsoleUI.Controls
 				UseSafeBorder = _useSafeBorder
 			};
 
-			// Set explicit height if provided (for Fill alignment) or from Height property
-			var heightToUse = renderHeight ?? _height;
-			if (heightToUse.HasValue)
+			// Set explicit height if provided (already accounts for margins)
+			if (renderHeight.HasValue)
 			{
-				panel.Height = heightToUse.Value;
+				panel.Height = renderHeight.Value;
 			}
 
 			if (!string.IsNullOrEmpty(_header))
@@ -440,6 +439,7 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.ReportMousePosition))
 			{
 				MouseMove?.Invoke(this, args);
+				return true;
 			}
 
 			return false;
@@ -534,18 +534,21 @@ namespace SharpConsoleUI.Controls
 				);
 			}
 
-			int targetWidth = _width ?? constraints.MaxWidth - _margin.Left - _margin.Right;
+			// If explicit width is set, it represents total control width (including margins)
+			// Otherwise, use available width from constraints
+			int totalWidth = _width ?? constraints.MaxWidth;
+			int targetWidth = totalWidth - _margin.Left - _margin.Right;
 
 			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(panel, targetWidth, null, bgColor);
 
-			int maxWidth = content.Count > 0 ? content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)) : 0;
-			int width = maxWidth + _margin.Left + _margin.Right;
+			// If explicit width is set, use it; otherwise measure actual content
+			int width = _width ?? (content.Count > 0 ? content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)) + _margin.Left + _margin.Right : _margin.Left + _margin.Right);
 			int height = content.Count + _margin.Top + _margin.Bottom;
 
 			// If explicit height is set, use that
 			if (_height.HasValue)
 			{
-				height = _height.Value + _margin.Top + _margin.Bottom;
+				height = _height.Value;
 			}
 
 			return new LayoutSize(
@@ -572,18 +575,18 @@ namespace SharpConsoleUI.Controls
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
 
-			// Determine render height: use explicit Height, or if Fill alignment, use available height
-			int? panelRenderHeight = _height;
-			if (!panelRenderHeight.HasValue && _verticalAlignment == VerticalAlignment.Fill)
+			// Determine render height: use targetHeight if explicit Height is set or Fill alignment
+			int? panelRenderHeight = null;
+			if (_height.HasValue || _verticalAlignment == VerticalAlignment.Fill)
 			{
 				panelRenderHeight = targetHeight;
 			}
 
-			var panel = CreateSpectrePanel(_width ?? targetWidth, panelRenderHeight, bgColor, fgColor);
+			// Always use targetWidth for rendering (bounds.Width already accounts for explicit _width)
+			var panel = CreateSpectrePanel(targetWidth, panelRenderHeight, bgColor, fgColor);
 			if (panel != null)
 			{
-				int renderWidth = _width ?? targetWidth;
-				var renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(panel, renderWidth, panelRenderHeight, bgColor);
+				var renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(panel, targetWidth, panelRenderHeight, bgColor);
 
 				int contentHeight = renderedContent.Count;
 				int availableHeight = targetHeight;
