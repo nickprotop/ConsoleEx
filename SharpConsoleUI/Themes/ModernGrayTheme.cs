@@ -327,5 +327,31 @@ namespace SharpConsoleUI.Themes
 		/// Gets or sets the color for the percentage text display on progress bars.
 		/// </summary>
 		public Color ProgressBarPercentageColor { get; set; } = Color.Grey93;
+
+		/// <summary>
+		/// Gets or sets the background color for table controls.
+		/// </summary>
+		public Color TableBackgroundColor { get; set; } = Color.Grey15;
+
+		/// <summary>
+		/// Gets or sets the foreground color for table controls.
+		/// </summary>
+		public Color TableForegroundColor { get; set; } = Color.Grey93;
+
+		/// <summary>
+		/// Gets or sets the border color for table controls.
+		/// Null means falls back to active window border color.
+		/// </summary>
+		public Color? TableBorderColor { get; set; } = Color.Cyan1;
+
+		/// <summary>
+		/// Gets or sets the background color for table headers.
+		/// </summary>
+		public Color TableHeaderBackgroundColor { get; set; } = Color.Grey19;
+
+		/// <summary>
+		/// Gets or sets the foreground color for table headers.
+		/// </summary>
+		public Color TableHeaderForegroundColor { get; set; } = Color.Cyan1;
 	}
 }

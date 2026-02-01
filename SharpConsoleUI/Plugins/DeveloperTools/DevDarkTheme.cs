@@ -199,4 +199,19 @@ public class DevDarkTheme : ITheme
 
 	/// <inheritdoc />
 	public Color ProgressBarPercentageColor { get; set; } = Color.Grey78;
+
+	/// <inheritdoc />
+	public Color TableBackgroundColor { get; set; } = Color.Grey11;
+
+	/// <inheritdoc />
+	public Color TableForegroundColor { get; set; } = Color.Grey78;
+
+	/// <inheritdoc />
+	public Color? TableBorderColor { get; set; } = Color.Green;
+
+	/// <inheritdoc />
+	public Color TableHeaderBackgroundColor { get; set; } = Color.Grey15;
+
+	/// <inheritdoc />
+	public Color TableHeaderForegroundColor { get; set; } = Color.Green;
 }

@@ -331,5 +331,31 @@ namespace SharpConsoleUI.Themes
 		/// </summary>
 		public Color ProgressBarPercentageColor { get; set; } = Color.White;
 
+		/// <summary>
+		/// Gets or sets the background color for table controls.
+		/// </summary>
+		public Color TableBackgroundColor { get; set; } = Color.Navy;
+
+		/// <summary>
+		/// Gets or sets the foreground color for table controls.
+		/// </summary>
+		public Color TableForegroundColor { get; set; } = Color.White;
+
+		/// <summary>
+		/// Gets or sets the border color for table controls.
+		/// Null means falls back to active window border color.
+		/// </summary>
+		public Color? TableBorderColor { get; set; } = Color.Green;
+
+		/// <summary>
+		/// Gets or sets the background color for table headers.
+		/// </summary>
+		public Color TableHeaderBackgroundColor { get; set; } = Color.Blue;
+
+		/// <summary>
+		/// Gets or sets the foreground color for table headers.
+		/// </summary>
+		public Color TableHeaderForegroundColor { get; set; } = Color.White;
+
 	}
 }

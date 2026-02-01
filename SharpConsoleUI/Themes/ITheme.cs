@@ -323,4 +323,30 @@ public interface ITheme
     /// </summary>
     Color ProgressBarPercentageColor { get; }
 
+    /// <summary>
+    /// Gets the background color for table controls.
+    /// </summary>
+    Color TableBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for table controls.
+    /// </summary>
+    Color TableForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the border color for table controls.
+    /// Null means falls back to active window border color.
+    /// </summary>
+    Color? TableBorderColor { get; }
+
+    /// <summary>
+    /// Gets the background color for table headers.
+    /// </summary>
+    Color TableHeaderBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for table headers.
+    /// </summary>
+    Color TableHeaderForegroundColor { get; }
+
 }
