@@ -63,9 +63,10 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
         var cpu = ReadCpu();
         var memory = ReadMemory();
         var network = ReadNetwork();
+        var storage = ReadStorage();
         var processes = ReadTopProcesses();
 
-        return new SystemSnapshot(cpu, memory, network, processes);
+        return new SystemSnapshot(cpu, memory, network, storage, processes);
     }
 
     public ProcessExtra? ReadProcessExtra(int pid)
@@ -488,4 +489,116 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
     }
 
     private record ProcessCpuInfo(TimeSpan TotalProcessorTime, DateTime SampleTime);
+
+    private StorageSample ReadStorage()
+    {
+        var disks = new List<DiskSample>();
+        double totalCapacity = 0;
+        double totalUsed = 0;
+        double totalFree = 0;
+        double totalRead = 0;
+        double totalWrite = 0;
+
+        try
+        {
+            var drives = DriveInfo.GetDrives();
+
+            foreach (var drive in drives)
+            {
+                try
+                {
+                    // Skip drives that aren't ready (e.g., empty CD-ROM)
+                    if (!drive.IsReady)
+                        continue;
+
+                    // Filter out non-physical and non-removable drives
+                    // We want: Fixed (internal drives) and Removable (USB drives)
+                    if (drive.DriveType != DriveType.Fixed && drive.DriveType != DriveType.Removable)
+                        continue;
+
+                    double totalGb = drive.TotalSize / (1024.0 * 1024.0 * 1024.0);
+                    double freeGb = drive.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0);
+                    double usedGb = totalGb - freeGb;
+                    double usedPercent = totalGb > 0 ? (usedGb / totalGb * 100) : 0;
+
+                    // Get I/O rates (Windows implementation)
+                    var (readMbps, writeMbps) = GetDiskIoRates(drive.Name);
+
+                    // Get volume label
+                    string? label = null;
+                    try
+                    {
+                        label = string.IsNullOrEmpty(drive.VolumeLabel) ? null : drive.VolumeLabel;
+                    }
+                    catch { }
+
+                    // Get filesystem type
+                    string fsType = "Unknown";
+                    try
+                    {
+                        fsType = drive.DriveFormat;
+                    }
+                    catch { }
+
+                    bool isRemovable = drive.DriveType == DriveType.Removable;
+
+                    var disk = new DiskSample(
+                        MountPoint: drive.Name,          // "C:\", "D:\", etc.
+                        DeviceName: drive.Name,          // Same as mount point on Windows
+                        FileSystemType: fsType,
+                        Label: label,
+                        MountOptions: null,              // Not applicable on Windows
+                        TotalGb: totalGb,
+                        UsedGb: usedGb,
+                        FreeGb: freeGb,
+                        UsedPercent: usedPercent,
+                        ReadMbps: readMbps,
+                        WriteMbps: writeMbps,
+                        IsRemovable: isRemovable
+                    );
+
+                    disks.Add(disk);
+
+                    totalCapacity += totalGb;
+                    totalUsed += usedGb;
+                    totalFree += freeGb;
+                    totalRead += readMbps;
+                    totalWrite += writeMbps;
+                }
+                catch
+                {
+                    // Skip this drive if any error occurs
+                    continue;
+                }
+            }
+        }
+        catch
+        {
+            // If any error occurs, return empty storage data
+        }
+
+        double totalPercent = totalCapacity > 0 ? (totalUsed / totalCapacity * 100) : 0;
+
+        return new StorageSample(
+            TotalCapacityGb: totalCapacity,
+            TotalUsedGb: totalUsed,
+            TotalFreeGb: totalFree,
+            TotalUsedPercent: totalPercent,
+            TotalReadMbps: totalRead,
+            TotalWriteMbps: totalWrite,
+            Disks: disks
+        );
+    }
+
+    private (double readMbps, double writeMbps) GetDiskIoRates(string driveName)
+    {
+        // For Windows, getting real-time I/O rates requires PerformanceCounter
+        // which needs elevated privileges and is complex to set up correctly.
+        // For now, return 0 to avoid permission issues.
+        // A full implementation would use:
+        // - PerformanceCounter for "PhysicalDisk" or "LogicalDisk"
+        // - Counters: "Disk Read Bytes/sec" and "Disk Write Bytes/sec"
+        // This would require tracking previous samples and calculating deltas.
+        return (0, 0);
+    }
 }

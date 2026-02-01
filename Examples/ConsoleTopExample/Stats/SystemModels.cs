@@ -60,12 +60,42 @@ internal record NetworkSample(
 internal record ProcessSample(int Pid, double CpuPercent, double MemPercent, string Command);
 
 /// <summary>
+/// Storage/disk usage for a single filesystem/volume
+/// </summary>
+internal record DiskSample(
+    string MountPoint,       // "/" or "C:\"
+    string DeviceName,       // "/dev/sda1" or "C:"
+    string FileSystemType,   // "ext4", "ntfs", "xfs", "btrfs", etc.
+    string? Label,           // Optional volume label/name
+    string? MountOptions,    // "rw,relatime" or null
+    double TotalGb,          // Total capacity in GB
+    double UsedGb,           // Used space in GB
+    double FreeGb,           // Free space in GB
+    double UsedPercent,      // Used percentage (0-100)
+    double ReadMbps,         // Current read rate in MB/s
+    double WriteMbps,        // Current write rate in MB/s
+    bool IsRemovable);       // True for USB/external drives
+
+/// <summary>
+/// Aggregate storage statistics
+/// </summary>
+internal record StorageSample(
+    double TotalCapacityGb,     // Sum of all disk capacities
+    double TotalUsedGb,         // Sum of all used space
+    double TotalFreeGb,         // Sum of all free space
+    double TotalUsedPercent,    // Overall usage percentage
+    double TotalReadMbps,       // Sum of all read rates
+    double TotalWriteMbps,      // Sum of all write rates
+    IReadOnlyList<DiskSample> Disks);
+
+/// <summary>
 /// Complete snapshot of all system statistics
 /// </summary>
 internal record SystemSnapshot(
     CpuSample Cpu,
     MemorySample Memory,
     NetworkSample Network,
+    StorageSample Storage,
     IReadOnlyList<ProcessSample> Processes);
 
 /// <summary>

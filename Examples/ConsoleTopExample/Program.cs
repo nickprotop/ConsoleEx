@@ -41,6 +41,7 @@ internal class Program
         Memory,
         Cpu,
         Network,
+        Storage,
     }
 
     private static TabMode _activeTab = TabMode.Processes;
@@ -97,6 +98,15 @@ internal class Program
     private enum NetworkLayoutMode { Wide, Narrow }
     private static NetworkLayoutMode _currentNetworkLayout = NetworkLayoutMode.Wide;
     private const int NETWORK_LAYOUT_THRESHOLD_WIDTH = 80; // Switch to narrow below this width
+
+    // Storage history for sparkline graphs (per-disk tracking)
+    private static readonly Dictionary<string, List<double>> _diskReadHistory = new();
+    private static readonly Dictionary<string, List<double>> _diskWriteHistory = new();
+
+    // Responsive layout tracking for storage panel
+    private enum StorageLayoutMode { Wide, Narrow }
+    private static StorageLayoutMode _currentStorageLayout = StorageLayoutMode.Wide;
+    private const int STORAGE_LAYOUT_THRESHOLD_WIDTH = 90; // Switch to narrow below this width
 
     static async Task<int> Main(string[] args)
     {
@@ -423,6 +433,18 @@ internal class Program
                         }
                     )
             )
+            .AddButton(
+                Controls
+                    .Button("Storage")
+                    .WithName("tabStorage")
+                    .OnClick(
+                        (s, e) =>
+                        {
+                            _activeTab = TabMode.Storage;
+                            UpdateDisplay();
+                        }
+                    )
+            )
             .WithSpacing(1)
             .Build();
         mainWindow.AddControl(tabToolbar);
@@ -499,6 +521,7 @@ internal class Program
                     }
                 }
             )
+            .SimpleMode()
             .Build();
 
         var mainGrid = Controls
@@ -595,6 +618,11 @@ internal class Program
         var networkPanelInitial = BuildResponsiveNetworkGrid(mainWindow.Width, initialSnapshot);
         mainWindow.AddControl(networkPanelInitial);
 
+        // === STORAGE PANEL (RESPONSIVE LAYOUT) ===
+        // Build Storage panel at startup with responsive layout based on window width
+        var storagePanelInitial = BuildResponsiveStorageGrid(mainWindow.Width, initialSnapshot);
+        mainWindow.AddControl(storagePanelInitial);
+
         // === BOTTOM STATUS BAR ===
         mainWindow.AddControl(
             Controls.RuleBuilder().StickyBottom().WithColor(Color.Grey23).Build()
@@ -659,6 +687,7 @@ internal class Program
         {
             case TabMode.Processes:
                 // Show process panel, hide others
+                var storagePanel1 = _mainWindow?.FindControl<HorizontalGridControl>("storagePanel");
                 if (processPanel != null)
                     processPanel.Visible = true;
                 if (memoryPanel != null)
@@ -667,6 +696,8 @@ internal class Program
                     cpuPanel.Visible = false;
                 if (networkPanel != null)
                     networkPanel.Visible = false;
+                if (storagePanel1 != null)
+                    storagePanel1.Visible = false;
 
                 // Update process detail content
                 UpdateHighlightedProcess();
@@ -674,6 +705,7 @@ internal class Program
 
             case TabMode.Memory:
                 // Hide process panel, show memory panel, hide CPU and network panels
+                var storagePanel2 = _mainWindow?.FindControl<HorizontalGridControl>("storagePanel");
                 if (processPanel != null)
                     processPanel.Visible = false;
                 if (memoryPanel != null)
@@ -682,6 +714,8 @@ internal class Program
                     cpuPanel.Visible = false;
                 if (networkPanel != null)
                     networkPanel.Visible = false;
+                if (storagePanel2 != null)
+                    storagePanel2.Visible = false;
 
                 // Update memory panel content
                 UpdateMemoryPanel();
@@ -689,6 +723,7 @@ internal class Program
 
             case TabMode.Cpu:
                 // Hide process, memory, and network panels, show CPU panel
+                var storagePanel3 = _mainWindow?.FindControl<HorizontalGridControl>("storagePanel");
                 if (processPanel != null)
                     processPanel.Visible = false;
                 if (memoryPanel != null)
@@ -697,6 +732,8 @@ internal class Program
                     cpuPanel.Visible = true;
                 if (networkPanel != null)
                     networkPanel.Visible = false;
+                if (storagePanel3 != null)
+                    storagePanel3.Visible = false;
 
                 // Update CPU panel content
                 UpdateCpuPanel();
@@ -704,6 +741,7 @@ internal class Program
 
             case TabMode.Network:
                 // Hide process, memory, and CPU panels, show network panel
+                var storagePanel4 = _mainWindow?.FindControl<HorizontalGridControl>("storagePanel");
                 if (processPanel != null)
                     processPanel.Visible = false;
                 if (memoryPanel != null)
@@ -712,9 +750,29 @@ internal class Program
                     cpuPanel.Visible = false;
                 if (networkPanel != null)
                     networkPanel.Visible = true;
+                if (storagePanel4 != null)
+                    storagePanel4.Visible = false;
 
                 // Update network panel content
                 UpdateNetworkPanel();
+                break;
+
+            case TabMode.Storage:
+                // Hide all other panels, show storage panel
+                var storagePanel = _mainWindow?.FindControl<HorizontalGridControl>("storagePanel");
+                if (processPanel != null)
+                    processPanel.Visible = false;
+                if (memoryPanel != null)
+                    memoryPanel.Visible = false;
+                if (cpuPanel != null)
+                    cpuPanel.Visible = false;
+                if (networkPanel != null)
+                    networkPanel.Visible = false;
+                if (storagePanel != null)
+                    storagePanel.Visible = true;
+
+                // Update storage panel content
+                UpdateStoragePanel();
                 break;
         }
 
@@ -812,6 +870,12 @@ internal class Program
                     UpdateNetworkPanel();
                 }
 
+                // Update Storage panel (Storage tab)
+                if (_activeTab == TabMode.Storage)
+                {
+                    UpdateStoragePanel();
+                }
+
                 // Update bottom stats legend
                 var statsLegend = window.FindControl<MarkupControl>("statsLegend");
                 if (statsLegend != null)
@@ -888,8 +952,11 @@ internal class Program
 
         foreach (var p in sorted)
         {
-            var line =
-                $"  {p.Pid, 5}  [grey70]{p.CpuPercent, 4:F1}%[/]  [grey70]{p.MemPercent, 4:F1}%[/]  [cyan1]{p.Command}[/]";
+            // Format values with consistent padding before applying markup
+            var pidStr = p.Pid.ToString().PadLeft(8);
+            var cpuStr = $"{p.CpuPercent,5:F1}%".PadLeft(7);
+            var memStr = $"{p.MemPercent,5:F1}%".PadLeft(7);
+            var line = $"{pidStr}  [grey70]{cpuStr}[/]  [grey70]{memStr}[/]  [cyan1]{p.Command}[/]";
             var item = new ListItem(line) { Tag = p };
             items.Add(item);
         }
@@ -1402,7 +1469,7 @@ internal class Program
             .WithGradient("cool")  // Predefined cool gradient (blue→cyan)
             .WithBackgroundColor(Color.Grey15)
             .WithBorder(BorderStyle.None)
-            .WithMode(SparklineMode.Braille) // Use braille patterns for smoother rendering
+            .WithMode(SparklineMode.Block) // 8 levels for better detail and readability
             .WithBaseline(true, position: TitlePosition.Bottom)
             .WithInlineTitleBaseline(true)  // Compact: "Memory Used % ┈┈┈"
             .WithMargin(2, 0, 1, 0)
@@ -1422,7 +1489,7 @@ internal class Program
                 .WithGradient(Color.Yellow, Color.Orange1)  // Yellow→Orange gradient
                 .WithBackgroundColor(Color.Grey15)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Braille)
+                .WithMode(SparklineMode.Block)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -1442,7 +1509,7 @@ internal class Program
                 .WithGradient(Color.Blue, Color.Green)  // Blue→Green gradient
                 .WithBackgroundColor(Color.Grey15)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Braille)
+                .WithMode(SparklineMode.Block)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -2353,7 +2420,7 @@ internal class Program
                 .WithGradient("warm")  // Yellow→Orange→Red gradient
                 .WithBackgroundColor(Color.Grey15)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Braille)
+                .WithMode(SparklineMode.Block)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -2373,7 +2440,7 @@ internal class Program
                 .WithGradient(Color.Yellow, Color.Orange1, Color.Red)  // Custom gradient
                 .WithBackgroundColor(Color.Grey15)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Braille)
+                .WithMode(SparklineMode.Block)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -2392,7 +2459,7 @@ internal class Program
             .WithGradient("spectrum")  // Blue→Green→Yellow→Red gradient
             .WithBackgroundColor(Color.Grey15)
             .WithBorder(BorderStyle.None)
-            .WithMode(SparklineMode.Braille) // Use braille patterns for smoother rendering
+            .WithMode(SparklineMode.Block) // 8 levels for better detail on CPU trends
             .WithBaseline(true, position: TitlePosition.Bottom)
             .WithInlineTitleBaseline(true)
             .WithMargin(2, 0, 1, 0)
@@ -3258,5 +3325,436 @@ internal class Program
         grid.AddColumn(col);
 
         _windowSystem?.LogService.LogDebug($"BuildNarrowNetworkColumns: Added 1 column with full content", "Network");
+    }
+
+    // ========================================================================
+    // STORAGE PANEL METHODS
+    // ========================================================================
+
+    private static HorizontalGridControl BuildResponsiveStorageGrid(int windowWidth, SystemSnapshot snapshot)
+    {
+        var desiredLayout = windowWidth >= STORAGE_LAYOUT_THRESHOLD_WIDTH
+            ? StorageLayoutMode.Wide
+            : StorageLayoutMode.Narrow;
+
+        _currentStorageLayout = desiredLayout;
+
+        _windowSystem?.LogService.LogDebug(
+            $"BuildResponsiveStorageGrid: Building initial layout in {desiredLayout} mode (width={windowWidth})",
+            "Storage");
+
+        if (desiredLayout == StorageLayoutMode.Wide)
+        {
+            return BuildWideStorageGridInitial(snapshot);
+        }
+        else
+        {
+            return BuildNarrowStorageGridInitial(snapshot);
+        }
+    }
+
+    private static HorizontalGridControl BuildWideStorageGridInitial(SystemSnapshot snapshot)
+    {
+        var lines = BuildStorageTextContent(snapshot);
+
+        var grid = Controls
+            .HorizontalGrid()
+            .WithName("storagePanel")
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithMargin(1, 0, 1, 1)
+            .Visible(false) // Hidden by default
+            // Left column: Scrollable text info (fixed width)
+            .Column(col =>
+            {
+                col.Width(40); // Fixed width for text stats
+                var leftPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                leftPanel.BackgroundColor = Color.Grey11;
+                leftPanel.ForegroundColor = Color.Grey93;
+
+                var markup = Controls.Markup();
+                foreach (var line in lines)
+                {
+                    markup = markup.AddLine(line);
+                }
+                leftPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+                col.Add(leftPanel);
+            })
+            // Middle column: Separator (1 char wide)
+            .Column(col =>
+            {
+                col.Width(1);
+                col.Add(new SeparatorControl
+                {
+                    ForegroundColor = Color.Grey23,
+                    VerticalAlignment = VerticalAlignment.Fill
+                });
+            })
+            // Right column: Scrollable graphs (fills remaining space)
+            .Column(col =>
+            {
+                // No width set - fills remaining space responsively
+                var rightPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                rightPanel.BackgroundColor = Color.Grey11;
+                rightPanel.ForegroundColor = Color.Grey93;
+                BuildStorageGraphsContent(rightPanel, snapshot);
+                col.Add(rightPanel);
+            })
+            .Build();
+
+        grid.BackgroundColor = Color.Grey11;
+        grid.ForegroundColor = Color.Grey93;
+
+        return grid;
+    }
+
+    private static HorizontalGridControl BuildNarrowStorageGridInitial(SystemSnapshot snapshot)
+    {
+        var lines = BuildStorageTextContent(snapshot);
+
+        var grid = Controls
+            .HorizontalGrid()
+            .WithName("storagePanel")
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithMargin(1, 0, 1, 1)
+            .Visible(false) // Hidden by default
+            // Single column: Scrollable panel with ALL content (text + graphs)
+            .Column(col =>
+            {
+                var scrollPanel = Controls
+                    .ScrollablePanel()
+                    .WithVerticalAlignment(VerticalAlignment.Fill)
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .Build();
+                scrollPanel.BackgroundColor = Color.Grey11;
+                scrollPanel.ForegroundColor = Color.Grey93;
+
+                // Add text content
+                var markup = Controls.Markup();
+                foreach (var line in lines)
+                {
+                    markup = markup.AddLine(line);
+                }
+                scrollPanel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+
+                // Add separator
+                scrollPanel.AddControl(
+                    Controls
+                        .Markup()
+                        .AddLine("")
+                        .AddLine("[grey23]────────────────────────────────────────[/]")
+                        .AddLine("")
+                        .WithAlignment(HorizontalAlignment.Left)
+                        .WithMargin(2, 1, 2, 0)
+                        .Build()
+                );
+
+                // Add all graphs (same as wide mode right panel)
+                BuildStorageGraphsContent(scrollPanel, snapshot);
+
+                col.Add(scrollPanel);
+            })
+            .Build();
+
+        grid.BackgroundColor = Color.Grey11;
+        grid.ForegroundColor = Color.Grey93;
+
+        return grid;
+    }
+
+    private static List<string> BuildStorageTextContent(SystemSnapshot snapshot)
+    {
+        var lines = new List<string>();
+        var storage = snapshot.Storage;
+
+        // Aggregate section
+        lines.Add("[bold cyan1]Total Storage[/]");
+        lines.Add($"  Capacity:  {storage.TotalCapacityGb,6:F1} GB");
+        lines.Add($"  Used:      {storage.TotalUsedGb,6:F1} GB ([cyan1]{storage.TotalUsedPercent:F1}%[/])");
+        lines.Add($"  Free:      {storage.TotalFreeGb,6:F1} GB");
+        lines.Add("");
+
+        lines.Add("[bold grey70]Mounted Filesystems[/]");
+        lines.Add("");
+
+        // Per-disk details
+        foreach (var disk in storage.Disks)
+        {
+            var mountIcon = disk.IsRemovable ? "📀" : "💾";
+            lines.Add($"[cyan1]{mountIcon} {disk.MountPoint}[/] [grey50]({Path.GetFileName(disk.DeviceName)})[/]");
+            lines.Add($"  Type:    [grey70]{disk.FileSystemType}[/]");
+
+            if (!string.IsNullOrEmpty(disk.Label))
+                lines.Add($"  Label:   [yellow]{disk.Label}[/]");
+
+            lines.Add($"  Size:    {disk.TotalGb,6:F1} GB");
+            lines.Add($"  Used:    {disk.UsedGb,6:F1} GB ([cyan1]{disk.UsedPercent:F1}%[/])");
+            lines.Add($"  Free:    {disk.FreeGb,6:F1} GB");
+
+            if (!string.IsNullOrEmpty(disk.MountOptions))
+                lines.Add($"  Options: [grey50]{disk.MountOptions}[/]");
+
+            lines.Add("");
+        }
+
+        if (storage.Disks.Count == 0)
+        {
+            lines.Add("[grey50]No storage devices found[/]");
+        }
+
+        return lines;
+    }
+
+    private static void BuildStorageGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
+    {
+        var storage = snapshot.Storage;
+
+        if (storage.Disks.Count == 0)
+        {
+            panel.AddControl(
+                Controls.Markup()
+                    .AddLine("[grey50]No storage devices to display[/]")
+                    .WithMargin(2, 1, 1, 0)
+                    .Build()
+            );
+            return;
+        }
+
+        foreach (var disk in storage.Disks)
+        {
+            // Use device name as key for history tracking
+            var deviceKey = disk.DeviceName;
+
+            // Disk header
+            var headerText = !string.IsNullOrEmpty(disk.Label)
+                ? $"[bold cyan1]{disk.MountPoint}[/] [grey50]({Path.GetFileName(disk.DeviceName)} - {disk.FileSystemType} - \"{disk.Label}\")[/]"
+                : $"[bold cyan1]{disk.MountPoint}[/] [grey50]({Path.GetFileName(disk.DeviceName)} - {disk.FileSystemType})[/]";
+
+            panel.AddControl(
+                Controls.Markup()
+                    .AddLine(headerText)
+                    .WithMargin(2, 1, 1, 0)
+                    .Build()
+            );
+
+            // Usage bar with gradient (disk space)
+            panel.AddControl(
+                new BarGraphBuilder()
+                    .WithName($"disk_{deviceKey}_usage")
+                    .WithLabel("Used %")
+                    .WithLabelWidth(10)
+                    .WithValue(disk.UsedPercent)
+                    .WithMaxValue(100)
+                    .ShowValue()
+                    .WithValueFormat("F1")
+                    .WithSmoothGradient(Color.Green, Color.Yellow, Color.Orange1, Color.Red)
+                    .WithMargin(2, 1, 1, 0)
+                    .Build()
+            );
+
+            // Current Read bar
+            panel.AddControl(
+                new BarGraphBuilder()
+                    .WithName($"disk_{deviceKey}_read_current")
+                    .WithLabel("Read MB/s")
+                    .WithLabelWidth(10)
+                    .WithValue(disk.ReadMbps)
+                    .WithMaxValue(100) // Will auto-scale based on actual values
+                    .ShowValue()
+                    .WithValueFormat("F1")
+                    .WithSmoothGradient(Color.Blue, Color.Cyan1)
+                    .WithMargin(2, 0, 1, 0)
+                    .Build()
+            );
+
+            // Current Write bar
+            panel.AddControl(
+                new BarGraphBuilder()
+                    .WithName($"disk_{deviceKey}_write_current")
+                    .WithLabel("Write MB/s")
+                    .WithLabelWidth(10)
+                    .WithValue(disk.WriteMbps)
+                    .WithMaxValue(100) // Will auto-scale based on actual values
+                    .ShowValue()
+                    .WithValueFormat("F1")
+                    .WithSmoothGradient(Color.Yellow, Color.Orange1, Color.Red)
+                    .WithMargin(2, 0, 1, 0)
+                    .Build()
+            );
+
+            // Initialize history if needed
+            if (!_diskReadHistory.ContainsKey(deviceKey))
+            {
+                _diskReadHistory[deviceKey] = new List<double>();
+                _diskWriteHistory[deviceKey] = new List<double>();
+            }
+
+            // Calculate dynamic max values for bidirectional sparkline
+            double maxRead = Math.Max(10, _diskReadHistory[deviceKey].DefaultIfEmpty(0).Max());
+            double maxWrite = Math.Max(10, _diskWriteHistory[deviceKey].DefaultIfEmpty(0).Max());
+
+            // Bidirectional sparkline: Read (up) / Write (down)
+            panel.AddControl(
+                new SparklineBuilder()
+                    .WithName($"disk_{deviceKey}_io")
+                    .WithTitle("↑ Read  ↓ Write")
+                    .WithTitleColor(Color.Grey70)
+                    .WithTitlePosition(TitlePosition.Bottom)
+                    .WithHeight(8) // Taller for bidirectional
+                    .WithMaxValue(maxRead)
+                    .WithSecondaryMaxValue(maxWrite)
+                    .WithGradient("cool")  // Read: blue→cyan
+                    .WithSecondaryGradient("warm")  // Write: yellow→orange→red
+                    .WithBackgroundColor(Color.Grey15)
+                    .WithBorder(BorderStyle.None)
+                    .WithMode(SparklineMode.BidirectionalBraille)
+                    .WithBaseline(true, position: TitlePosition.Bottom)
+                    .WithInlineTitleBaseline(true)
+                    .WithMargin(2, 1, 1, 0)
+                    .WithBidirectionalData(_diskReadHistory[deviceKey], _diskWriteHistory[deviceKey])
+                    .Build()
+            );
+
+            // Separator between disks
+            panel.AddControl(
+                Controls.Markup()
+                    .AddLine("[grey23]────────────────────────────────[/]")
+                    .WithMargin(2, 1, 1, 0)
+                    .Build()
+            );
+        }
+    }
+
+    private static void UpdateStoragePanel()
+    {
+        if (_mainWindow == null)
+            return;
+
+        // Find the storage panel grid
+        var storagePanel = _mainWindow.FindControl<HorizontalGridControl>("storagePanel");
+        if (storagePanel == null)
+        {
+            _windowSystem?.LogService.LogWarning("UpdateStoragePanel: Panel not found", "Storage");
+            return;
+        }
+
+        var snapshot = _lastSnapshot ?? _stats.ReadSnapshot();
+        UpdateStorageHistory(snapshot.Storage);
+
+        // Update the graph controls with new data
+        UpdateStorageGraphControls(storagePanel, snapshot);
+
+        // Update left column text stats
+        if (storagePanel.Columns.Count > 0)
+        {
+            var leftCol = storagePanel.Columns[0];
+            var leftPanel = leftCol.Contents.FirstOrDefault() as ScrollablePanelControl;
+            if (leftPanel != null && leftPanel.Children.Count > 0)
+            {
+                var markup = leftPanel.Children[0] as MarkupControl;
+                if (markup != null)
+                {
+                    var lines = BuildStorageTextContent(snapshot);
+                    markup.SetContent(lines);
+                }
+            }
+        }
+    }
+
+    private static void UpdateStorageHistory(StorageSample storage)
+    {
+        foreach (var disk in storage.Disks)
+        {
+            var key = disk.DeviceName;
+
+            if (!_diskReadHistory.ContainsKey(key))
+            {
+                _diskReadHistory[key] = new List<double>();
+                _diskWriteHistory[key] = new List<double>();
+            }
+
+            _diskReadHistory[key].Add(disk.ReadMbps);
+            _diskWriteHistory[key].Add(disk.WriteMbps);
+
+            while (_diskReadHistory[key].Count > MAX_HISTORY_POINTS)
+                _diskReadHistory[key].RemoveAt(0);
+            while (_diskWriteHistory[key].Count > MAX_HISTORY_POINTS)
+                _diskWriteHistory[key].RemoveAt(0);
+        }
+    }
+
+    private static void UpdateStorageGraphControls(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        var storage = snapshot.Storage;
+
+        // Find the right panel (column 2 in wide mode, column 0 in narrow mode)
+        ScrollablePanelControl? rightPanel = null;
+
+        if (_currentStorageLayout == StorageLayoutMode.Wide && grid.Columns.Count >= 3)
+        {
+            var rightCol = grid.Columns[2];
+            rightPanel = rightCol.Contents.FirstOrDefault() as ScrollablePanelControl;
+        }
+        else if (_currentStorageLayout == StorageLayoutMode.Narrow && grid.Columns.Count >= 1)
+        {
+            var singleCol = grid.Columns[0];
+            rightPanel = singleCol.Contents.FirstOrDefault() as ScrollablePanelControl;
+        }
+
+        if (rightPanel == null)
+        {
+            _windowSystem?.LogService.LogDebug("UpdateStorageGraphControls: Right panel not found", "Storage");
+            return;
+        }
+
+        _windowSystem?.LogService.LogDebug($"UpdateStorageGraphControls: Right panel has {rightPanel.Children.Count} children", "Storage");
+
+        // Update per-disk graphs
+        foreach (var disk in storage.Disks)
+        {
+            var deviceKey = disk.DeviceName;
+
+            // Update usage bar (disk space)
+            var usageBar = rightPanel.Children.FirstOrDefault(c => c.Name == $"disk_{deviceKey}_usage") as BarGraphControl;
+            if (usageBar != null)
+            {
+                _windowSystem?.LogService.LogDebug($"UpdateStorageGraphControls: Updating {deviceKey} usage to {disk.UsedPercent:F1}%", "Storage");
+                usageBar.Value = disk.UsedPercent;
+            }
+            else
+            {
+                _windowSystem?.LogService.LogDebug($"UpdateStorageGraphControls: Usage bar for {deviceKey} not found", "Storage");
+            }
+
+            // Update read bar (current rate)
+            var readBar = rightPanel.Children.FirstOrDefault(c => c.Name == $"disk_{deviceKey}_read_current") as BarGraphControl;
+            if (readBar != null)
+            {
+                readBar.Value = disk.ReadMbps;
+            }
+
+            // Update write bar (current rate)
+            var writeBar = rightPanel.Children.FirstOrDefault(c => c.Name == $"disk_{deviceKey}_write_current") as BarGraphControl;
+            if (writeBar != null)
+            {
+                writeBar.Value = disk.WriteMbps;
+            }
+
+            // Update bidirectional sparkline
+            var ioSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == $"disk_{deviceKey}_io") as SparklineControl;
+            if (ioSparkline != null && _diskReadHistory.ContainsKey(deviceKey) && _diskWriteHistory.ContainsKey(deviceKey))
+            {
+                ioSparkline.SetBidirectionalData(_diskReadHistory[deviceKey], _diskWriteHistory[deviceKey]);
+            }
+        }
     }
 }

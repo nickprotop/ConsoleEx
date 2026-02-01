@@ -21,14 +21,17 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
     private Dictionary<int, CpuTimes> _previousPerCoreCpu = new();
     private Dictionary<string, NetCounters>? _previousNet;
     private DateTime _previousNetSample = DateTime.MinValue;
+    private Dictionary<string, DiskIoCounters> _previousDiskIo = new();
+    private DateTime _previousDiskSample = DateTime.MinValue;
 
     public SystemSnapshot ReadSnapshot()
     {
         var cpu = ReadCpu();
         var mem = ReadMemory();
         var net = ReadNetwork();
+        var storage = ReadStorage();
         var procs = ReadTopProcesses();
-        return new SystemSnapshot(cpu, mem, net, procs);
+        return new SystemSnapshot(cpu, mem, net, storage, procs);
     }
 
     public ProcessExtra? ReadProcessExtra(int pid)
@@ -399,5 +402,264 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
         public long IoWait { get; init; }
         public long Idle { get; init; }
         public long Steal { get; init; }
+    }
+
+    private sealed record DiskIoCounters(long ReadSectors, long WriteSectors);
+
+    private StorageSample ReadStorage()
+    {
+        var disks = new List<DiskSample>();
+        double totalCapacity = 0;
+        double totalUsed = 0;
+        double totalFree = 0;
+        double totalRead = 0;
+        double totalWrite = 0;
+
+        // Capture sample time once for all disks
+        var now = DateTime.UtcNow;
+        var elapsed = _previousDiskSample == DateTime.MinValue ? 0 : (now - _previousDiskSample).TotalSeconds;
+
+        try
+        {
+            // Read /proc/mounts to get mounted filesystems
+            if (!File.Exists("/proc/mounts"))
+                return new StorageSample(0, 0, 0, 0, 0, 0, Array.Empty<DiskSample>());
+
+            var mounts = File.ReadAllLines("/proc/mounts");
+
+            foreach (var line in mounts)
+            {
+                var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 4) continue;
+
+                var device = parts[0];
+                var mountPoint = parts[1];
+                var fsType = parts[2];
+                var options = parts[3];
+
+                // Filter pseudo filesystems
+                if (IsPseudoFilesystem(fsType, device))
+                    continue;
+
+                // Get disk space stats
+                var diskInfo = GetDiskInfo(mountPoint);
+                if (diskInfo == null) continue;
+
+                // Get I/O stats
+                var (readMbps, writeMbps) = GetDiskIoRates(device, elapsed);
+
+                // Determine if removable
+                bool isRemovable = IsRemovableDrive(device);
+
+                // Get volume label
+                string? label = GetVolumeLabel(device);
+
+                var disk = new DiskSample(
+                    MountPoint: mountPoint,
+                    DeviceName: device,
+                    FileSystemType: fsType,
+                    Label: label,
+                    MountOptions: options,
+                    TotalGb: diskInfo.TotalGb,
+                    UsedGb: diskInfo.UsedGb,
+                    FreeGb: diskInfo.FreeGb,
+                    UsedPercent: diskInfo.UsedPercent,
+                    ReadMbps: readMbps,
+                    WriteMbps: writeMbps,
+                    IsRemovable: isRemovable
+                );
+
+                disks.Add(disk);
+
+                totalCapacity += diskInfo.TotalGb;
+                totalUsed += diskInfo.UsedGb;
+                totalFree += diskInfo.FreeGb;
+                totalRead += readMbps;
+                totalWrite += writeMbps;
+            }
+        }
+        catch
+        {
+            // If any error occurs, return empty storage data
+        }
+
+        double totalPercent = totalCapacity > 0 ? (totalUsed / totalCapacity * 100) : 0;
+
+        // Update sample timestamp for next iteration
+        _previousDiskSample = now;
+
+        return new StorageSample(
+            TotalCapacityGb: totalCapacity,
+            TotalUsedGb: totalUsed,
+            TotalFreeGb: totalFree,
+            TotalUsedPercent: totalPercent,
+            TotalReadMbps: totalRead,
+            TotalWriteMbps: totalWrite,
+            Disks: disks
+        );
+    }
+
+    private bool IsPseudoFilesystem(string fsType, string device)
+    {
+        // Filter out pseudo/virtual filesystems
+        var pseudoTypes = new[] {
+            "proc", "sysfs", "devtmpfs", "tmpfs", "devpts",
+            "securityfs", "cgroup", "cgroup2", "pstore",
+            "bpf", "configfs", "debugfs", "tracefs", "fusectl",
+            "hugetlbfs", "mqueue", "autofs"
+        };
+
+        if (pseudoTypes.Contains(fsType))
+            return true;
+
+        // Filter devices that don't start with /dev/
+        if (!device.StartsWith("/dev/"))
+            return true;
+
+        return false;
+    }
+
+    private sealed record DiskInfo(double TotalGb, double UsedGb, double FreeGb, double UsedPercent);
+
+    private DiskInfo? GetDiskInfo(string mountPoint)
+    {
+        try
+        {
+            var driveInfo = new DriveInfo(mountPoint);
+            if (!driveInfo.IsReady)
+                return null;
+
+            double totalGb = driveInfo.TotalSize / (1024.0 * 1024.0 * 1024.0);
+            double freeGb = driveInfo.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0);
+            double usedGb = totalGb - freeGb;
+            double usedPercent = totalGb > 0 ? (usedGb / totalGb * 100) : 0;
+
+            return new DiskInfo(totalGb, usedGb, freeGb, usedPercent);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string NormalizeBlockDevice(string device)
+    {
+        // Loop devices: Don't normalize - keep loop0, loop1 separate
+        if (device.StartsWith("loop"))
+            return device;
+
+        // Handle NVMe devices: nvme0n1p1 -> nvme0n1p1 (keep partition number for per-partition stats)
+        // Handle MMC/SD cards: mmcblk0p1 -> mmcblk0p1 (keep partition number)
+        // Handle traditional disks: sda1 -> sda1 (keep partition number)
+
+        // Actually, we should track per-partition I/O, not per-device!
+        // Each partition has its own I/O stats in /proc/diskstats
+        return device;
+    }
+
+    private (double readMbps, double writeMbps) GetDiskIoRates(string device, double elapsed)
+    {
+        try
+        {
+            // Extract device name (e.g., "sda" from "/dev/sda1")
+            var deviceName = Path.GetFileName(device);
+            if (string.IsNullOrEmpty(deviceName))
+                return (0, 0);
+
+            // Keep device name as-is - each partition has its own I/O stats in /proc/diskstats
+            deviceName = NormalizeBlockDevice(deviceName);
+            if (string.IsNullOrEmpty(deviceName))
+                return (0, 0);
+
+            // Read /proc/diskstats
+            if (!File.Exists("/proc/diskstats"))
+                return (0, 0);
+
+            var diskStats = File.ReadAllLines("/proc/diskstats");
+            foreach (var line in diskStats)
+            {
+                var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 14) continue;
+                if (parts[2] != deviceName) continue;
+
+                long readSectors = long.Parse(parts[5]);   // sectors read
+                long writeSectors = long.Parse(parts[9]);  // sectors written
+
+                if (_previousDiskIo.TryGetValue(deviceName, out var last) && elapsed > 0)
+                {
+                    // Calculate delta
+                    long readDelta = readSectors - last.ReadSectors;
+                    long writeDelta = writeSectors - last.WriteSectors;
+
+                    // Sectors are typically 512 bytes
+                    double readMbps = (readDelta * 512.0) / (1024.0 * 1024.0 * elapsed);
+                    double writeMbps = (writeDelta * 512.0) / (1024.0 * 1024.0 * elapsed);
+
+                    _previousDiskIo[deviceName] = new DiskIoCounters(readSectors, writeSectors);
+
+                    return (Math.Max(0, readMbps), Math.Max(0, writeMbps));
+                }
+
+                // First sample - store counters, return 0 rates
+                _previousDiskIo[deviceName] = new DiskIoCounters(readSectors, writeSectors);
+                return (0, 0);
+            }
+        }
+        catch { }
+
+        return (0, 0);
+    }
+
+    private bool IsRemovableDrive(string device)
+    {
+        try
+        {
+            var deviceName = Path.GetFileName(device);
+            if (string.IsNullOrEmpty(deviceName))
+                return false;
+
+            // Remove partition number
+            deviceName = new string(deviceName.TakeWhile(c => !char.IsDigit(c)).ToArray());
+            if (string.IsNullOrEmpty(deviceName))
+                return false;
+
+            var removablePath = $"/sys/block/{deviceName}/removable";
+            if (File.Exists(removablePath))
+            {
+                var content = File.ReadAllText(removablePath).Trim();
+                return content == "1";
+            }
+        }
+        catch { }
+
+        return false;
+    }
+
+    private string? GetVolumeLabel(string device)
+    {
+        try
+        {
+            // Try to read label using blkid command
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "blkid",
+                    Arguments = $"-s LABEL -o value {device}",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            process.Start();
+            var label = process.StandardOutput.ReadToEnd().Trim();
+            process.WaitForExit();
+
+            return string.IsNullOrEmpty(label) ? null : label;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
