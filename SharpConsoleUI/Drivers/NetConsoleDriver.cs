@@ -90,43 +90,6 @@ namespace SharpConsoleUI.Drivers
 
 		// ===== FIX TOGGLES =====
 
-		private const bool FIX23_LOG_MOUSE_INPUT = true;  // Log all mouse input sequences at driver level
-		// ===== FIX26: P/Invoke for terminal echo control =====
-	private const bool FIX26_DISABLE_ECHO_TCSETATTR = true;  // Use P/Invoke tcsetattr to disable terminal echo (like curses)
-
-	// P/Invoke for terminal control (Linux/Unix)
-	[StructLayout(LayoutKind.Sequential)]
-	private struct Termios
-	{
-		public uint c_iflag;    // Input flags
-		public uint c_oflag;    // Output flags
-		public uint c_cflag;    // Control flags
-		public uint c_lflag;    // Local flags
-		public byte c_line;     // Line discipline
-		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-		public byte[] c_cc;     // Control characters
-		public uint c_ispeed;   // Input speed
-		public uint c_ospeed;   // Output speed
-	}
-
-	// Terminal local flags
-	private const uint ECHO = 0x0008;    // Enable echo
-	private const uint ICANON = 0x0002;  // Canonical mode
-
-	// tcsetattr actions
-	private const int TCSANOW = 0;       // Change immediately
-	private const int TCSADRAIN = 1;     // Change after output drains
-	private const int TCSAFLUSH = 2;     // Flush input and change
-
-	[DllImport("libc", SetLastError = true)]
-	private static extern int tcgetattr(int fd, ref Termios termios);
-
-	[DllImport("libc", SetLastError = true)]
-	private static extern int tcsetattr(int fd, int optional_actions, ref Termios termios);
-
-	private Termios _originalTermios;
-	private bool _termiosModified = false;
-
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private object? _consoleLock; // Shared lock for thread-safe Console I/O
 		private readonly nint _errorHandle;
@@ -333,7 +296,7 @@ namespace SharpConsoleUI.Drivers
 		{
 			if (RenderMode.Buffer == RenderMode)
 			{
-				_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleLock);
+				_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleWindowSystem?.Options, _consoleLock);
 			}
 
 			_running = true;
@@ -349,45 +312,6 @@ namespace SharpConsoleUI.Drivers
 				Console.CursorVisible = false;
 			}
 
-
-		// FIX26: Disable terminal echo using tcsetattr (like curses.noecho())
-		// This prevents .NET Console.ReadKey() echo behavior from displaying mouse sequences
-		if (FIX26_DISABLE_ECHO_TCSETATTR && (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()))
-		{
-			try
-			{
-				const int STDIN_FILENO = 0;
-				_originalTermios = new Termios();
-				
-				// Get current terminal attributes
-				if (tcgetattr(STDIN_FILENO, ref _originalTermios) == 0)
-				{
-					var newTermios = _originalTermios;
-					
-					// Disable ECHO and ICANON (like curses raw mode)
-					newTermios.c_lflag &= ~(ECHO | ICANON);
-					
-					// Apply immediately
-					if (tcsetattr(STDIN_FILENO, TCSANOW, ref newTermios) == 0)
-					{
-						_termiosModified = true;
-						ConsoleBuffer.LogDiagnostic("[FIX26] Terminal echo disabled via tcsetattr (ECHO | ICANON)");
-					}
-					else
-					{
-						ConsoleBuffer.LogDiagnostic($"[FIX26] Failed to set terminal attributes: errno={Marshal.GetLastWin32Error()}");
-					}
-				}
-				else
-				{
-					ConsoleBuffer.LogDiagnostic($"[FIX26] Failed to get terminal attributes: errno={Marshal.GetLastWin32Error()}");
-				}
-			}
-			catch (Exception ex)
-			{
-				ConsoleBuffer.LogDiagnostic($"[FIX26] Exception disabling echo: {ex.Message}");
-			}
-		}
 
 			// Enable mouse reporting in proper order: basic -> extended modes -> drag tracking
 			Console.Out.Write("\x1b[?1000h");  // Enable basic mouse reporting
@@ -472,29 +396,6 @@ namespace SharpConsoleUI.Drivers
 			Console.Out.Flush();
 			Console.ResetColor();
 
-		// FIX26: Restore original terminal settings
-		if (FIX26_DISABLE_ECHO_TCSETATTR && _termiosModified && (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()))
-		{
-			try
-			{
-				const int STDIN_FILENO = 0;
-				if (tcsetattr(STDIN_FILENO, TCSANOW, ref _originalTermios) == 0)
-				{
-					ConsoleBuffer.LogDiagnostic("[FIX26] Terminal settings restored");
-					_termiosModified = false;
-				}
-				else
-				{
-					ConsoleBuffer.LogDiagnostic($"[FIX26] Failed to restore terminal: errno={Marshal.GetLastWin32Error()}");
-				}
-			}
-			catch (Exception ex)
-			{
-				ConsoleBuffer.LogDiagnostic($"[FIX26] Exception restoring terminal: {ex.Message}");
-			}
-		}
-
-
 			Thread.Sleep(50);
 
 			Cleanup();
@@ -562,7 +463,6 @@ namespace SharpConsoleUI.Drivers
 					if ((y == 3 || y == 10 || y == 14 || y == 67) && value.Contains('─'))
 					{
 						var logValue = value.Replace("\x1b", "<ESC>");
-						ConsoleBuffer.LogDiagnostic($"[BOX_WRITE] x={x}, y={y}, len={value.Length}, value={logValue}");
 					}
 					_consoleBuffer?.AddContent(x, y, value);
 					break;
@@ -781,10 +681,8 @@ namespace SharpConsoleUI.Drivers
 								if (ansiSequence.ToString().StartsWith("<") && (ansiSequence.ToString().EndsWith("M") || ansiSequence.ToString().EndsWith("m")))
 								{
 									// FIX23: Log mouse sequence detection
-									if (FIX23_LOG_MOUSE_INPUT)
 									{
 										string mouseSeq = ansiSequence.ToString();
-										ConsoleBuffer.LogDiagnostic($"[FIX23-INPUT] Mouse READ from stdin: ESC[{mouseSeq}");
 									}
 
 									// Use SequenceHelper for SGR mouse parsing (supports unlimited coordinates)
@@ -798,12 +696,10 @@ namespace SharpConsoleUI.Drivers
 									if (mouseFlags.Count > 0)
 									{
 										MouseEvent?.Invoke(this, mouseFlags, pos);
-										if (FIX23_LOG_MOUSE_INPUT) ConsoleBuffer.LogDiagnostic($"[FIX23-INPUT] Mouse PROCESSED: flags={mouseFlags.Count}, pos=({pos.X},{pos.Y})");
 										continue;
 									}
 									else
 									{
-										if (FIX23_LOG_MOUSE_INPUT) ConsoleBuffer.LogDiagnostic($"[FIX23-INPUT] ⚠️  Mouse FAILED to parse: ESC[{ansiSequence}");
 									}
 								}
 
@@ -1132,7 +1028,7 @@ namespace SharpConsoleUI.Drivers
 					if (RenderMode.Buffer == RenderMode)
 					{
 						_consoleBuffer!.Lock = true;
-						_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleLock);
+						_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleWindowSystem?.Options, _consoleLock);
 						_consoleBuffer.Lock = false;
 					}
 
