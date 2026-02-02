@@ -4,11 +4,13 @@
 
 ### Files Changed
 ```
+M  SharpConsoleUI/Configuration/ConsoleWindowSystemOptions.cs (FIX20 removed, FIX27 configured)
 M  SharpConsoleUI/Controls/MarkupControl.cs         (FIX11 applied)
-M  SharpConsoleUI/Controls/ScrollablePanelControl.cs (FIX20 applied)
-M  SharpConsoleUI/Drivers/ConsoleBuffer.cs          (FIX1-FIX7, FIX12-FIX15, diagnostics)
-M  SharpConsoleUI/Drivers/NetConsoleDriver.cs       (Diagnostic logging)
+M  SharpConsoleUI/Controls/ScrollablePanelControl.cs (FIX20 removed)
+M  SharpConsoleUI/Drivers/ConsoleBuffer.cs          (FIX1-FIX7, FIX12-FIX13, FIX15, FIX27 with platform check, diagnostics removed)
+M  SharpConsoleUI/Drivers/NetConsoleDriver.cs       (Passes options to ConsoleBuffer)
 M  SharpConsoleUI/Renderer.cs                       (FIX11 applied)
+D  SharpConsoleUI/Diagnostics/                      (Entire directory removed)
 ```
 
 ## FIX1-FIX7: Double-Buffering Optimizations (ConsoleBuffer.cs)
@@ -24,11 +26,11 @@ M  SharpConsoleUI/Renderer.cs                       (FIX11 applied)
 | FIX7 | `CLEARAREA_CONDITIONAL` | ✅ ENABLED | Only clears cells if not already empty |
 | FIX12 | `RESET_AFTER_LINE` | ✅ ENABLED | Appends ANSI reset after each line to prevent edge artifacts |
 | FIX13 | `OPTIMIZE_ANSI_OUTPUT` | ✅ ENABLED | Only outputs ANSI when it changes (prevents massive bloat) |
-| FIX14 | `LOG_FRAME_STATS` | ✅ ENABLED | Enhanced frame and per-line diagnostics |
+| ~~FIX14~~ | ~~`LOG_FRAME_STATS`~~ | ❌ **REMOVED** | **Diagnostic logging removed - frame statistics no longer logged** |
 | **FIX15** | **`FIX_BUFFER_SYNC_BUG`** | ✅ **ENABLED** | **CRITICAL: Fixed infinite re-render bug (skip only malformed ANSI, always sync buffers)** |
 | ~~FIX20~~ | ~~`CLEAR_ON_SCROLL`~~ | ❌ **REMOVED** | **Was bypass for mouse leak bug (fixed by FIX27) - completely removed** |
-| **FIX21** | **`LOG_MOUSE_ANSI`** | ✅ **ENABLED** | **Detect and log mouse ANSI sequences in output buffer (diagnostic)** |
-| **FIX23** | **`LOG_MOUSE_INPUT`** | ✅ **ENABLED** | **Log mouse input sequences at driver level (diagnostic)** |
+| ~~FIX21~~ | ~~`LOG_MOUSE_ANSI`~~ | ❌ **REMOVED** | **Diagnostic logging removed** |
+| ~~FIX23~~ | ~~`LOG_MOUSE_INPUT`~~ | ❌ **REMOVED** | **Diagnostic logging removed** |
 | **FIX24** | **`DRAIN_INPUT_BEFORE_RENDER`** | ❌ **DISABLED** | **Drain input buffer before rendering (didn't work alone)** |
 | **FIX25** | **`DISABLE_MOUSE_DURING_RENDER`** | ❌ **DISABLED** | **Disable mouse tracking during rendering (didn't work - sequences already echoed)** |
 | ~~FIX26~~ | ~~`DISABLE_ECHO_TCSETATTR`~~ | ❌ **REMOVED** | **Terminal echo disable via tcsetattr - removed, FIX27 handles leaks** |
@@ -161,48 +163,9 @@ After analyzing all 15 controls that use Spectre conversion:
 - **Renderer** creates borders with markup tags AND passes color parameters
 - **Other controls** (Button, List, Tree, etc.) pass content as-is with color parameters - this is correct behavior
 
-## FIX14: Frame Statistics (Double-Buffer Verification)
+## FIX14: Frame Statistics (REMOVED)
 
-### Purpose
-Logs comprehensive frame statistics to verify double-buffering is working and understand rendering efficiency.
-
-### Metrics Logged - ENHANCED (2026-02-02)
-```
-[FRAME] dirty=4391/43452 (10.1%), lines=52/213, totalBytes=84111 (pos=520, content=83591), avg=1607b/line, cells/line=84.4
-[PER-LINE] y=5: dirty=45/204 (22.1%), bytes=892, ansi=12, avgB/cell=19.8, ansiOverhead%=27
-```
-
-**Per Frame:**
-- `totalCells`: Total buffer size (width × height)
-- `dirtyCells`: How many cells changed (should be LOW with double-buffering)
-- `dirtyPercent`: Percentage of screen updated (should be 1-5% typically)
-- `totalBytes`: Total output including position sequences
-- `pos`: Estimated position sequence overhead (lines × 10 bytes)
-- `content`: Content bytes (ANSI + characters + cursor movements)
-- `avgBytesPerLine`: Average content bytes per line rendered
-
-**Per Line (NEW):**
-- `dirty=45/204`: Dirty cells on this line (with percentage)
-- `bytes=892`: Total output bytes for this line
-- `ansi=12`: Number of ANSI sequence changes
-- `avgB/cell=19.8`: Average bytes per dirty cell (includes ANSI overhead)
-- `ansiOverhead%=27`: Estimated percentage of bytes due to ANSI sequences
-
-### What Good Numbers Look Like
-- **Without double-buffering**: dirtyCells = 100%, outputBytes = 50,000+
-- **With double-buffering**: dirtyCells = 1-5%, outputBytes = 500-2,000
-- **Line length**: Should be < 500 bytes per line typically
-- **Per-line dirty**: Varies by content (100% for full updates, <10% for minimal changes)
-
-### Implementation
-**ConsoleBuffer.cs** (line 44):
-```csharp
-private const bool FIX14_LOG_FRAME_STATS = true;
-```
-
-Applied in:
-- `Render()` (lines 316-327): Enhanced frame statistics
-- `AppendLineToBuilder()` (lines 506-517): Per-line diagnostics
+**STATUS: ❌ REMOVED** - All diagnostic logging code has been removed from the codebase. Frame statistics and per-line diagnostics are no longer logged. The diagnostic code was useful during bug hunting but is no longer needed in production code.
 
 ## FIX15: Critical Buffer Sync Bug (CRITICAL - 2026-02-02)
 
@@ -459,49 +422,9 @@ FIX20 was a workaround that cleared the entire panel on every scroll, which:
 
 The code has been completely removed and FIX27 now handles the mouse leak issue properly.
 
-## FIX23: Mouse Input Debugging (Driver Level - 2026-02-02)
+## FIX23 & FIX21: Mouse Debugging (REMOVED)
 
-### Purpose
-Comprehensive driver-level logging to track mouse input sequences and diagnose the mouse ANSI leak issue.
-
-### Root Cause Being Investigated
-Mouse ANSI sequences like `\x1b[<64;59;37M` appearing as visible text on screen, particularly at the bottom and inside list controls where content is being actively updated.
-
-### Implementation
-**NetConsoleDriver.cs:**
-- Line 93: `FIX23_LOG_MOUSE_INPUT = true`
-- Lines 686-691: Log when SGR mouse sequences are detected in input stream
-- Line 704: Log when mouse events are successfully processed
-- Lines 707-710: Log when mouse sequences fail to parse (potential leak source)
-
-**ConsoleBuffer.cs (FIX21 enhancement):**
-- Line 47: `FIX21_LOG_MOUSE_ANSI = true` (already existed)
-- Line 141: Enhanced to mark sequences at bottom of screen (last 5 lines) with 🔴 BOTTOM indicator
-
-### Log Output
-```
-[FIX23-INPUT] Mouse READ from stdin: ESC[<65;28;35M
-[FIX23-INPUT] Mouse PROCESSED: flags=1, pos=(27,34)
-```
-↑ Normal flow: mouse read → parsed → processed
-
-```
-[FIX23-INPUT] ⚠️  Mouse FAILED to parse: ESC[<0;85;35M
-```
-↑ Problem: mouse sequence detected but parsing failed
-
-```
-[FIX21] 🔴 MOUSE ANSI WRITTEN TO BUFFER at (85,208) 🔴 BOTTOM: ESC[<0;85;35M
-```
-↑ CRITICAL: Mouse ANSI appearing in OUTPUT buffer
-
-### Results from Testing
-- ✅ All mouse sequences successfully read and processed
-- ✅ Zero failed parsing attempts
-- ✅ **ZERO mouse ANSI detected in output buffer** (grep "FIX21" shows 0 results)
-- ⚠️ But visual leaks still observed by user
-
-**Conclusion:** Our code is working correctly - we never write mouse ANSI to output. The leaks must be from external source (terminal echo or race condition).
+**STATUS: ❌ REMOVED** - All diagnostic logging code (FIX21 and FIX23) has been removed from the codebase. This included mouse input logging and mouse ANSI detection in output buffers. The diagnostic code was useful for debugging the mouse leak issue but is no longer needed now that FIX27 properly handles the problem.
 
 ## FIX24: Input Buffer Draining Before Render (CRITICAL - 2026-02-02)
 
@@ -691,15 +614,18 @@ The "M" character appearing at the right edge is related to:
 
 This requires separate investigation (see FIX6_WIDTH_LIMIT and scrollbar rendering).
 
-## Diagnostic Logging (FIX8, FIX9, FIX10) - Now Disabled
+## Diagnostic Logging (FIX8, FIX9, FIX10, FIX14, FIX21, FIX23) - REMOVED
 
-**ConsoleBuffer.cs** - File logging to `/tmp/consolebuffer_diagnostics.log`:
-- **FIX8**: Logs writes near right edge (x >= width-2)
-- **FIX9**: Logs final line output for first 5 lines
-- **FIX10**: Snapshots rightmost cell state after AddContent
+**STATUS: ❌ REMOVED** - All diagnostic logging code has been completely removed from the codebase:
+- **FIX8**: Edge write logging (removed)
+- **FIX9**: Line output logging (removed)
+- **FIX10**: Cell state snapshots (removed)
+- **FIX14**: Frame statistics (removed)
+- **FIX21**: Mouse ANSI detection in output (removed)
+- **FIX23**: Mouse input logging (removed)
+- **SharpConsoleUI/Diagnostics/** directory deleted
 
-**NetConsoleDriver.cs** - Additional diagnostics:
-- Logs writes containing box-drawing characters at problem lines
+The diagnostic code was useful during bug hunting but has been removed to keep the codebase clean.
 
 ## Expected Results
 
