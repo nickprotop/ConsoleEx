@@ -30,8 +30,6 @@ namespace SharpConsoleUI.Drivers
 		private const bool FIX1_DISABLE_PRECLEAR = true;         // Disable pre-clearing to reduce dirty cells
 		private const bool FIX2_CONDITIONAL_DIRTY = true;        // Only mark cells dirty if content changed
 		private const bool FIX3_NO_ANSI_ACCUMULATION = true;   // TEMP DISABLED Prevent ANSI escape sequence accumulation (ENABLED)
-		private const bool FIX4_ISLINEDIRTY_EQUALS = true;   // TEMP DISABLED Use Equals comparison in IsLineDirty
-		private const bool FIX5_APPENDLINE_EQUALS = true;   // TEMP DISABLED Use Equals comparison in AppendLineToBuilder
 		private const bool FIX6_WIDTH_LIMIT = false;  // TEMP DISABLED Limit rendering to Console.WindowWidth
 		private const bool FIX7_CLEARAREA_CONDITIONAL = true;    // Only clear cells if they're not already empty
 		private const bool FIX12_RESET_AFTER_LINE = true;        // Add ANSI reset after line to prevent edge artifacts
@@ -48,6 +46,8 @@ namespace SharpConsoleUI.Drivers
 		private const bool FIX24_DRAIN_INPUT_BEFORE_RENDER = false; // Drain input buffer before rendering to prevent race condition
 
 		private const bool FIX25_DISABLE_MOUSE_DURING_RENDER = false; // Temporarily disable mouse tracking during rendering to prevent echo
+		private const bool FIX27_PERIODIC_FULL_REDRAW = true; // Force full redraw every 1 second to clear any leaks
+		private const double FIX27_REDRAW_INTERVAL_SECONDS = 1.0; // Redraw interval in seconds
 
 		// Diagnostic log file path
 		private const string DIAGNOSTIC_LOG_FILE = "/tmp/consolebuffer_diagnostics.log";
@@ -91,6 +91,8 @@ namespace SharpConsoleUI.Drivers
 
 		private readonly int _width;
 		private readonly object? _consoleLock; // Shared lock for thread-safe Console I/O
+		// FIX27: Track last full redraw time for periodic leak clearing
+		private DateTime _lastFullRedraw = DateTime.Now;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleBuffer"/> class with the specified dimensions.
@@ -214,7 +216,6 @@ namespace SharpConsoleUI.Drivers
 					{
 						cell.Character = newChar;
 						cell.AnsiEscape = newAnsi;
-						cell.IsDirty = true;
 					}
 				}
 				else
@@ -231,7 +232,6 @@ namespace SharpConsoleUI.Drivers
 
 				cell.Character = newChar;
 				cell.AnsiEscape = newAnsi;
-					cell.IsDirty = true;
 				}
 					contentPos++;
 					bufferX++;
@@ -249,7 +249,7 @@ namespace SharpConsoleUI.Drivers
 			if (edge >= 0 && y < _height)
 			{
 				ref var cell = ref _backBuffer[edge, y];
-				LogDiagnostic($"[FIX10] EdgeCell[{edge},{y}]: char='{cell.Character}', ansi='{cell.AnsiEscape.Replace("\x1b", "\\e")}', dirty={cell.IsDirty}");
+				LogDiagnostic($"[FIX10] EdgeCell[{edge},{y}]: char='{cell.Character}', ansi='{cell.AnsiEscape.Replace("\x1b", "\\e")}'");
 			}
 		}
 		}
@@ -282,11 +282,26 @@ namespace SharpConsoleUI.Drivers
 			{
 				for (int x = 0; x < _width; x++)
 				{
-					if (_backBuffer[x, y].IsDirty)
+					if (!_frontBuffer[x, y].Equals(_backBuffer[x, y]))
 						count++;
 				}
 			}
 			return count;
+		}
+
+		/// <summary>
+		/// Checks if a specific cell is dirty (front buffer differs from back buffer).
+		/// Pure double-buffering: compares buffer content, no state tracking.
+		/// </summary>
+		/// <param name="x">The x coordinate of the cell</param>
+		/// <param name="y">The y coordinate of the cell</param>
+		/// <returns>True if the cell content differs between front and back buffers</returns>
+		public bool IsCellDirty(int x, int y)
+		{
+			if (!IsValidPosition(x, y))
+				return false;
+
+			return !_frontBuffer[x, y].Equals(_backBuffer[x, y]);
 		}
 
 		/// <summary>
@@ -344,6 +359,40 @@ namespace SharpConsoleUI.Drivers
 				LogDiagnostic("[FIX25] Mouse tracking disabled for rendering");
 			}
 
+
+		// FIX27: Periodic redraw of clean cells to clear terminal echo leaks
+		// Check if 1 second has elapsed since last full redraw (time-based, not frame-based)
+		if (FIX27_PERIODIC_FULL_REDRAW)
+		{
+			var elapsed = (DateTime.Now - _lastFullRedraw).TotalSeconds;
+			if (elapsed >= FIX27_REDRAW_INTERVAL_SECONDS)
+			{
+				int cleanCellsMarkedDirty = 0;
+				
+				// Mark only CLEAN (non-dirty) cells as dirty
+				// Dirty cells will be redrawn anyway, so no need to touch them
+				for (int y = 0; y < _height; y++)
+				{
+					for (int x = 0; x < _width; x++)
+					{
+						ref var frontCell = ref _frontBuffer[x, y];
+						ref var backCell = ref _backBuffer[x, y];
+						
+						// If cell is clean (front == back), modify front to force redraw
+						if (frontCell.Equals(backCell))
+						{
+							// Make front != back by changing front character
+							// Back buffer has correct content and will be rendered
+							frontCell.Character = (char)0;  // Dummy value to trigger !Equals()
+							cleanCellsMarkedDirty++;
+						}
+				}
+				}
+				
+				_lastFullRedraw = DateTime.Now;
+				LogDiagnostic($"[FIX27] Periodic redraw: marked {cleanCellsMarkedDirty} clean cells dirty (elapsed: {elapsed:F1}s)");
+			}
+		}
 
 			// Build entire screen in one string for atomic output
 			// This eliminates flickering by doing a single write instead of multiple cursor moves
@@ -475,7 +524,6 @@ namespace SharpConsoleUI.Drivers
 					{
 						cell.Character = ' ';
 						cell.AnsiEscape = string.Empty;
-						cell.IsDirty = true;
 					}
 				}
 				else
@@ -483,7 +531,6 @@ namespace SharpConsoleUI.Drivers
 					// Original: always mark dirty
 					cell.Character = ' ';
 					cell.AnsiEscape = string.Empty;
-					cell.IsDirty = true;
 				}
 			}
 		}
@@ -510,12 +557,8 @@ namespace SharpConsoleUI.Drivers
 				ref readonly var frontCell = ref _frontBuffer[x, y];
 				ref readonly var backCell = ref _backBuffer[x, y];
 
-			// FIX4: Use Equals comparison only (true double-buffering) or include IsDirty flag
-			bool isDirty = FIX4_ISLINEDIRTY_EQUALS
-				? !frontCell.Equals(backCell)  // Only check content changes
-				: (backCell.IsDirty || !frontCell.Equals(backCell));  // Original: check IsDirty flag too
-
-			if (isDirty)
+				// Pure double-buffering: compare buffer content
+				if (!frontCell.Equals(backCell))
 					return true;
 			}
 			return false;
@@ -544,12 +587,10 @@ namespace SharpConsoleUI.Drivers
 				ref var frontCell = ref _frontBuffer[x, y];
 				ref var backCell = ref _backBuffer[x, y];
 
-			// FIX5: Use Equals comparison only (true double-buffering) or include IsDirty flag
-			bool shouldWrite = FIX5_APPENDLINE_EQUALS
-				? !frontCell.Equals(backCell)  // Only check content changes
-				: (backCell.IsDirty || !frontCell.Equals(backCell));  // Original: check IsDirty flag too
+				// Pure double-buffering: compare buffer content
+				bool shouldWrite = !frontCell.Equals(backCell);
 
-			if (shouldWrite)
+				if (shouldWrite)
 				{
 					// If we have pending cursor forward movements, append them first
 					if (consecutiveUnchanged > 0)
@@ -647,7 +688,6 @@ namespace SharpConsoleUI.Drivers
 					builder.Append(backCell.Character);
 					cellsWritten++;  // FIX14: Count cells written
 					frontCell.CopyFrom(backCell);
-					backCell.IsDirty = false;
 				}
 				else
 				{
@@ -693,20 +733,17 @@ namespace SharpConsoleUI.Drivers
 		{
 			public string AnsiEscape;
 			public char Character;
-			public bool IsDirty;
 
 			public Cell()
 			{
 				AnsiEscape = string.Empty;
 				Character = ' ';
-				IsDirty = true;
 			}
 
 			public void CopyFrom(in Cell other)
 			{
 				Character = other.Character;
 				AnsiEscape = other.AnsiEscape;
-				IsDirty = other.IsDirty;
 			}
 
 			public bool Equals(in Cell other)
@@ -716,7 +753,6 @@ namespace SharpConsoleUI.Drivers
 			{
 				Character = ' ';
 				AnsiEscape = string.Empty;
-				IsDirty = true;
 			}
 		}
 	}

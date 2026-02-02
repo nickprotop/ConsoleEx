@@ -24,7 +24,7 @@ namespace SharpConsoleUI.Controls
 	public class ScrollablePanelControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDOMPaintable, IDirectionalFocusControl
 	{
 		// ===== FIX TOGGLES =====
-		private const bool FIX20_CLEAR_ON_SCROLL = true;  // Clear panel background before painting to prevent scroll leaks
+		private const bool FIX20_CLEAR_ON_SCROLL = false;  // Disabled - was bypass for mouse leak bug (fixed by FIX27)
 
 		private readonly List<IWindowControl> _children = new();
 		private int _verticalScrollOffset = 0;

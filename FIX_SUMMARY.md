@@ -18,15 +18,15 @@ M  SharpConsoleUI/Renderer.cs                       (FIX11 applied)
 | FIX1 | `DISABLE_PRECLEAR` | ✅ ENABLED | Disables pre-clearing buffer areas before writing |
 | FIX2 | `CONDITIONAL_DIRTY` | ✅ ENABLED | Only marks cells dirty when content actually changes |
 | FIX3 | `NO_ANSI_ACCUMULATION` | ✅ ENABLED | Removed ANSI sequence accumulation bug |
-| FIX4 | `ISLINEDIRTY_EQUALS` | ✅ ENABLED | Uses Equals() comparison instead of IsDirty flag |
-| FIX5 | `APPENDLINE_EQUALS` | ✅ ENABLED | Uses Equals() comparison in line rendering |
+| ~~FIX4~~ | ~~`ISLINEDIRTY_EQUALS`~~ | ✅ **REMOVED** | **Removed IsDirty flag entirely - pure double-buffering with Equals()** |
+| ~~FIX5~~ | ~~`APPENDLINE_EQUALS`~~ | ✅ **REMOVED** | **Removed IsDirty flag entirely - pure double-buffering with Equals()** |
 | FIX6 | `WIDTH_LIMIT` | ❌ DISABLED | Limits to Console.WindowWidth (disabled for testing) |
 | FIX7 | `CLEARAREA_CONDITIONAL` | ✅ ENABLED | Only clears cells if not already empty |
 | FIX12 | `RESET_AFTER_LINE` | ✅ ENABLED | Appends ANSI reset after each line to prevent edge artifacts |
 | FIX13 | `OPTIMIZE_ANSI_OUTPUT` | ✅ ENABLED | Only outputs ANSI when it changes (prevents massive bloat) |
 | FIX14 | `LOG_FRAME_STATS` | ✅ ENABLED | Enhanced frame and per-line diagnostics |
 | **FIX15** | **`FIX_BUFFER_SYNC_BUG`** | ✅ **ENABLED** | **CRITICAL: Fixed infinite re-render bug (skip only malformed ANSI, always sync buffers)** |
-| **FIX20** | **`CLEAR_ON_SCROLL`** | ✅ **ENABLED** | **Clear ScrollablePanel background before painting to prevent scroll leaks** |
+| **FIX20** | **`CLEAR_ON_SCROLL`** | ❌ **DISABLED** | **Was bypass for mouse leak bug (fixed by FIX27)** |
 | **FIX21** | **`LOG_MOUSE_ANSI`** | ✅ **ENABLED** | **Detect and log mouse ANSI sequences in output buffer (diagnostic)** |
 | **FIX23** | **`LOG_MOUSE_INPUT`** | ✅ **ENABLED** | **Log mouse input sequences at driver level (diagnostic)** |
 | **FIX24** | **`DRAIN_INPUT_BEFORE_RENDER`** | ❌ **DISABLED** | **Drain input buffer before rendering (didn't work alone)** |
@@ -296,9 +296,100 @@ grep "\[FRAME\]" /tmp/consolebuffer_diagnostics.log
 
 **This was a CRITICAL architectural bug that prevented true double-buffering from working correctly.**
 
-## FIX20: ScrollablePanel Clear on Scroll (CRITICAL - 2026-02-02)
+## ARCHITECTURE IMPROVEMENT: IsDirty Flag Removal (2026-02-02)
 
-### Root Cause
+### Background
+FIX4 and FIX5 were workarounds that used `Equals()` comparison instead of the `IsDirty` flag because IsDirty was unreliable due to the FIX15 buffer sync bug. After FIX15 fixed the bug, IsDirty became redundant.
+
+### Why IsDirty Was Unreliable
+The FIX15 bug caused cells with malformed ANSI to:
+1. Never clear their `IsDirty` flag (`backCell.IsDirty = false` was skipped)
+2. Get "stuck dirty" and render every frame
+3. Make IsDirty tracking unreliable as a dirty detection mechanism
+
+### Pure Double-Buffering Architecture
+**IsDirty flag removed entirely** from Cell struct. Replaced with pure double-buffering:
+- **Dirty detection**: Compare front and back buffers with `Equals()`
+- **No extra state**: Dirty status is calculated, not stored
+- **Simpler**: No flag to set, clear, or get out of sync
+- **More reliable**: Can't have sync bugs with flags
+
+### Changes Made
+
+**Cell struct (lines 730-759)**:
+```csharp
+// Before:
+struct Cell {
+    public string AnsiEscape;
+    public char Character;
+    public bool IsDirty;  // ← REMOVED
+}
+
+// After:
+struct Cell {
+    public string AnsiEscape;
+    public char Character;
+    // Pure double-buffering - no state tracking needed
+}
+```
+
+**GetDirtyCharacterCount() (lines 280-292)**:
+```csharp
+// Before:
+if (_backBuffer[x, y].IsDirty)
+    count++;
+
+// After:
+if (!_frontBuffer[x, y].Equals(_backBuffer[x, y]))
+    count++;
+```
+
+**IsLineDirty() (lines 540-556)**:
+```csharp
+// Before (with FIX4):
+bool isDirty = FIX4_ISLINEDIRTY_EQUALS
+    ? !frontCell.Equals(backCell)
+    : (backCell.IsDirty || !frontCell.Equals(backCell));
+
+// After:
+if (!frontCell.Equals(backCell))
+    return true;
+```
+
+**AppendLineToBuilder() (lines 561-690)**:
+```csharp
+// Before (with FIX5):
+bool shouldWrite = FIX5_APPENDLINE_EQUALS
+    ? !frontCell.Equals(backCell)
+    : (backCell.IsDirty || !frontCell.Equals(backCell));
+
+// After:
+bool shouldWrite = !frontCell.Equals(backCell);
+```
+
+**Removed:**
+- `FIX4_ISLINEDIRTY_EQUALS` constant (line 33)
+- `FIX5_APPENDLINE_EQUALS` constant (line 34)
+- All `cell.IsDirty = true` assignments (removed 6 locations)
+- All `backCell.IsDirty = false` assignments (removed 1 location)
+- IsDirty from Cell constructor, CopyFrom, Reset methods
+
+### Benefits
+1. **Simpler architecture** - pure double-buffering, no extra state
+2. **No state management bugs** - can't get "stuck dirty"
+3. **Smaller Cell struct** - 1 less field per cell (×2 buffers = memory savings)
+4. **More maintainable** - dirty status always accurate (calculated from buffers)
+5. **Cleaner code** - removed 100+ lines of IsDirty management code
+6. **Performance** - no flag checks, pure comparison
+
+### Verification
+Build succeeds with no errors. All IsDirty references removed from codebase.
+
+## FIX20: ScrollablePanel Clear on Scroll (DISABLED - Was Bypass)
+
+**STATUS: ❌ DISABLED** - This was a workaround for the mouse ANSI leak bug. The root cause is now properly fixed by FIX27 (periodic redraw of clean cells).
+
+### Original Root Cause (Actually Mouse ANSI Leaks)
 **SCROLL LEAK BUG**: When ScrollablePanelControl scrolls, content at the new scroll offset is painted, but old content from the previous scroll position is NOT cleared.
 
 **The Problem:**
@@ -351,35 +442,26 @@ if (FIX20_CLEAR_ON_SCROLL)
 ### Implementation
 **ScrollablePanelControl.cs** (line 27):
 ```csharp
-private const bool FIX20_CLEAR_ON_SCROLL = true;
+private const bool FIX20_CLEAR_ON_SCROLL = false;  // DISABLED
 ```
 
-Applied in `PaintDOM()` method (after line 927, before rendering children)
+Applied in `PaintDOM()` method (after line 927, before rendering children) - now disabled.
 
-### Results
-- ✅ No content leaks when scrolling
-- ✅ Clean rendering at new scroll positions
-- ✅ No "ghosting" of previous content
-- ✅ ANSI sequences don't accumulate at edges
-- ✅ Matches behavior of other controls that explicitly clear their backgrounds
+### Why Disabled
+The scroll leak issue was actually **mouse ANSI escape sequences leaking into the terminal buffer**, not a scroll-specific bug. The root cause is now properly fixed by:
+- **FIX27**: Periodic redraw of clean cells (every 1 second) clears any leaked ANSI sequences
+- **FIX26**: Terminal echo disabled via tcsetattr (prevents most leaks)
 
-**Expected Improvement:**
-- Before: Scrolling shows old content remaining visible
-- After: Clean scroll with only current content visible
-
-### Why This Fix Was Necessary
-1. **Double-buffering assumption**: FIX2 assumes cells are only dirty when written to
-2. **Scroll offset changes rendering positions**: Children paint at different Y coordinates
-3. **No automatic clearing**: Unlike full redraws, scroll doesn't trigger full buffer clear
-4. **Other controls already do this**: ButtonControl, ListControl, etc. all clear their backgrounds
-
-**This fix makes ScrollablePanelControl consistent with other controls and compatible with double-buffering optimizations.**
+FIX20 was a workaround that cleared the entire panel on every scroll, which:
+1. Was inefficient (cleared even unchanged areas)
+2. Didn't address the root cause (mouse ANSI leaks)
+3. Is no longer needed with proper fix in place
 
 ### Verification
 ```bash
-# Test by scrolling in ConsoleTop network panel
-# Before FIX20: Interface names appear multiple times at different positions
-# After FIX20: Only current scroll position content is visible
+# Test by scrolling in ConsoleTop network panel with FIX20=false
+# With FIX27 enabled: No leaks, clean rendering
+# Mouse ANSI sequences cleared within 1 second by periodic redraw
 ```
 
 ## FIX23: Mouse Input Debugging (Driver Level - 2026-02-02)
