@@ -40,6 +40,10 @@ namespace SharpConsoleUI.Controls
 		private int _doubleClickThresholdMs = Configuration.ControlDefaults.DefaultDoubleClickThresholdMs;
 		private bool _doubleClickEnabled = true;
 
+
+		// ===== FIX TOGGLES =====
+		// FIX11: Prevent ANSI doubling by not passing foregroundColor when markup already has color tags
+		private const bool FIX11_NO_FOREGROUND_IN_MARKUP = true;
 		/// <summary>
 		/// Initializes a new instance of the <see cref="MarkupControl"/> class with the specified lines of text.
 		/// </summary>
@@ -423,8 +427,9 @@ namespace SharpConsoleUI.Controls
 					processedLine = $"[{fgName} on {bgName}]{line}[/]";
 				}
 
+				// FIX11: Don't pass fgColor - processedLine already has color tags, passing it causes ANSI doubling
 				var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					processedLine, renderWidth, null, _wrap, bgColor, fgColor);
+					processedLine, renderWidth, null, _wrap, FIX11_NO_FOREGROUND_IN_MARKUP ? null : bgColor, FIX11_NO_FOREGROUND_IN_MARKUP ? null : fgColor);
 				renderedLines.AddRange(ansiLines);
 			}
 

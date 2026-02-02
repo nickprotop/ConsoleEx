@@ -27,6 +27,10 @@ namespace SharpConsoleUI
 		// Performance optimization: cache fill strings to avoid repeated string allocations
 		private readonly Dictionary<(char, int), string> _fillStringCache = new Dictionary<(char, int), string>();
 
+
+		// ===== FIX TOGGLES =====
+		// FIX11: Prevent ANSI doubling by not passing foregroundColor when markup already has color tags
+		private const bool FIX11_NO_FOREGROUND_IN_MARKUP = true;
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Renderer"/> class.
 		/// </summary>
@@ -579,7 +583,7 @@ namespace SharpConsoleUI
 			}
 			else scrollbarChar = verticalBorder;
 
-			_consoleWindowSystem.ConsoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{scrollbarChar}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0]);
+			_consoleWindowSystem.ConsoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{scrollbarChar}{resetColor}", 1, 1, false, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.BackgroundColor, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.ForegroundColor)[0]);
 		}
 
 		private void DrawWindowBorders(Window window, List<Rectangle> visibleRegions)
@@ -661,10 +665,10 @@ namespace SharpConsoleUI
 				window._cachedBorderIsActive != isActive)
 			{
 				// Rebuild cached border strings
-				var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{borderColor}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+				var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{borderColor}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.BackgroundColor, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.ForegroundColor)[0];
 				var bottomBorderWidth = window.Width - 2;
-				var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightChar}{resetColor}", window.Width, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
-				var vertBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, window.BackgroundColor, window.ForegroundColor)[0];
+				var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightChar}{resetColor}", window.Width, 1, false, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.BackgroundColor, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.ForegroundColor)[0];
+				var vertBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.BackgroundColor, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.ForegroundColor)[0];
 
 				// Update cache
 				window._cachedTopBorder = topBorder;

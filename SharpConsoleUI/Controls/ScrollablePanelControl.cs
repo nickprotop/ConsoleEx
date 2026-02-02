@@ -23,6 +23,9 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public class ScrollablePanelControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDOMPaintable, IDirectionalFocusControl
 	{
+		// ===== FIX TOGGLES =====
+		private const bool FIX20_CLEAR_ON_SCROLL = true;  // Clear panel background before painting to prevent scroll leaks
+
 		private readonly List<IWindowControl> _children = new();
 		private int _verticalScrollOffset = 0;
 		private int _horizontalScrollOffset = 0;
@@ -921,6 +924,21 @@ namespace SharpConsoleUI.Controls
 			if (needsScrollbar)
 			{
 				contentWidth -= 2;  // Reserve 2 columns: 1 for gap, 1 for scrollbar
+			}
+
+			// FIX20: Clear the entire panel area before painting children
+			// This prevents "leaks" when scrolling - old content at previous scroll positions
+			// must be explicitly cleared because double-buffering optimization (FIX2) only
+			// marks cells dirty when written to, not when they should be blank
+			if (FIX20_CLEAR_ON_SCROLL)
+			{
+				for (int y = bounds.Y; y < bounds.Bottom; y++)
+				{
+					if (y >= clipRect.Y && y < clipRect.Bottom)
+					{
+						buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+					}
+				}
 			}
 
 			// Render children with scroll offsets applied
