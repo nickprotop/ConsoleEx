@@ -32,7 +32,7 @@ M  SharpConsoleUI/Renderer.cs                       (FIX11 applied)
 | **FIX24** | **`DRAIN_INPUT_BEFORE_RENDER`** | ❌ **DISABLED** | **Drain input buffer before rendering (didn't work alone)** |
 | **FIX25** | **`DISABLE_MOUSE_DURING_RENDER`** | ❌ **DISABLED** | **Disable mouse tracking during rendering (didn't work - sequences already echoed)** |
 | ~~FIX26~~ | ~~`DISABLE_ECHO_TCSETATTR`~~ | ❌ **REMOVED** | **Terminal echo disable via tcsetattr - removed, FIX27 handles leaks** |
-| **FIX27** | **`PERIODIC_FULL_REDRAW`** | ✅ **ENABLED** | **Periodic redraw of clean cells every 1 second (Linux/macOS only) to clear mouse ANSI leaks** |
+| **FIX27** | **`PERIODIC_FULL_REDRAW`** | ✅ **ENABLED** | **Periodic redraw of clean cells every 1 second (Linux/macOS only) to clear mouse ANSI leaks. Platform check enforced in code via RuntimeInformation.IsOSPlatform()** |
 
 ## FIX13: ANSI Output Optimization (THE BIG ONE)
 
