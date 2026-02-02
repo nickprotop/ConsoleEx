@@ -20,8 +20,6 @@ D  SharpConsoleUI/Diagnostics/                      (Entire directory removed)
 | FIX1 | `DISABLE_PRECLEAR` | ✅ ENABLED | Disables pre-clearing buffer areas before writing |
 | FIX2 | `CONDITIONAL_DIRTY` | ✅ ENABLED | Only marks cells dirty when content actually changes |
 | FIX3 | `NO_ANSI_ACCUMULATION` | ✅ ENABLED | Removed ANSI sequence accumulation bug |
-| ~~FIX4~~ | ~~`ISLINEDIRTY_EQUALS`~~ | ✅ **REMOVED** | **Removed IsDirty flag entirely - pure double-buffering with Equals()** |
-| ~~FIX5~~ | ~~`APPENDLINE_EQUALS`~~ | ✅ **REMOVED** | **Removed IsDirty flag entirely - pure double-buffering with Equals()** |
 | FIX6 | `WIDTH_LIMIT` | ❌ DISABLED | Limits to Console.WindowWidth (disabled for testing) |
 | FIX7 | `CLEARAREA_CONDITIONAL` | ✅ ENABLED | Only clears cells if not already empty |
 | FIX12 | `RESET_AFTER_LINE` | ✅ ENABLED | Appends ANSI reset after each line to prevent edge artifacts |
@@ -251,95 +249,6 @@ grep "\[FRAME\]" /tmp/consolebuffer_diagnostics.log
 
 **This was a CRITICAL architectural bug that prevented true double-buffering from working correctly.**
 
-## ARCHITECTURE IMPROVEMENT: IsDirty Flag Removal (2026-02-02)
-
-### Background
-FIX4 and FIX5 were workarounds that used `Equals()` comparison instead of the `IsDirty` flag because IsDirty was unreliable due to the FIX15 buffer sync bug. After FIX15 fixed the bug, IsDirty became redundant.
-
-### Why IsDirty Was Unreliable
-The FIX15 bug caused cells with malformed ANSI to:
-1. Never clear their `IsDirty` flag (`backCell.IsDirty = false` was skipped)
-2. Get "stuck dirty" and render every frame
-3. Make IsDirty tracking unreliable as a dirty detection mechanism
-
-### Pure Double-Buffering Architecture
-**IsDirty flag removed entirely** from Cell struct. Replaced with pure double-buffering:
-- **Dirty detection**: Compare front and back buffers with `Equals()`
-- **No extra state**: Dirty status is calculated, not stored
-- **Simpler**: No flag to set, clear, or get out of sync
-- **More reliable**: Can't have sync bugs with flags
-
-### Changes Made
-
-**Cell struct (lines 730-759)**:
-```csharp
-// Before:
-struct Cell {
-    public string AnsiEscape;
-    public char Character;
-    public bool IsDirty;  // ← REMOVED
-}
-
-// After:
-struct Cell {
-    public string AnsiEscape;
-    public char Character;
-    // Pure double-buffering - no state tracking needed
-}
-```
-
-**GetDirtyCharacterCount() (lines 280-292)**:
-```csharp
-// Before:
-if (_backBuffer[x, y].IsDirty)
-    count++;
-
-// After:
-if (!_frontBuffer[x, y].Equals(_backBuffer[x, y]))
-    count++;
-```
-
-**IsLineDirty() (lines 540-556)**:
-```csharp
-// Before (with FIX4):
-bool isDirty = FIX4_ISLINEDIRTY_EQUALS
-    ? !frontCell.Equals(backCell)
-    : (backCell.IsDirty || !frontCell.Equals(backCell));
-
-// After:
-if (!frontCell.Equals(backCell))
-    return true;
-```
-
-**AppendLineToBuilder() (lines 561-690)**:
-```csharp
-// Before (with FIX5):
-bool shouldWrite = FIX5_APPENDLINE_EQUALS
-    ? !frontCell.Equals(backCell)
-    : (backCell.IsDirty || !frontCell.Equals(backCell));
-
-// After:
-bool shouldWrite = !frontCell.Equals(backCell);
-```
-
-**Removed:**
-- `FIX4_ISLINEDIRTY_EQUALS` constant (line 33)
-- `FIX5_APPENDLINE_EQUALS` constant (line 34)
-- All `cell.IsDirty = true` assignments (removed 6 locations)
-- All `backCell.IsDirty = false` assignments (removed 1 location)
-- IsDirty from Cell constructor, CopyFrom, Reset methods
-
-### Benefits
-1. **Simpler architecture** - pure double-buffering, no extra state
-2. **No state management bugs** - can't get "stuck dirty"
-3. **Smaller Cell struct** - 1 less field per cell (×2 buffers = memory savings)
-4. **More maintainable** - dirty status always accurate (calculated from buffers)
-5. **Cleaner code** - removed 100+ lines of IsDirty management code
-6. **Performance** - no flag checks, pure comparison
-
-### Verification
-Build succeeds with no errors. All IsDirty references removed from codebase.
-
 ## FIX24: Input Buffer Draining Before Render (CRITICAL - 2026-02-02)
 
 ### Root Cause
@@ -566,7 +475,7 @@ This requires separate investigation (see FIX6_WIDTH_LIMIT and scrollbar renderi
 
 **Symptom:** Old content remains visible when windows move or content changes
 
-**Cause:** Double-buffering optimizations (FIX2, FIX4, FIX5) only update changed cells. If old content isn't explicitly cleared, it persists.
+**Cause:** Double-buffering optimizations only update changed cells. If old content isn't explicitly cleared, it persists.
 
 **Potential Solutions:**
 1. Verify FIX7 (CLEARAREA_CONDITIONAL) is working correctly
