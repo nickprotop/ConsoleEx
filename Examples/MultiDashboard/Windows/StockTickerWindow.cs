@@ -37,11 +37,11 @@ public class StockTickerWindow : IDisposable
     {
         if (_window == null) return;
 
-        // Stock table
+        // Stock table placeholder (will be replaced in update loop)
         _window.AddControl(
-            SpectreRenderableControl
+            MarkupControl
                 .Create()
-                .WithRenderable(new Panel("[grey]Loading stock data...[/]"))
+                .AddLine("[grey]Loading stock data...[/]")
                 .WithName("stockTable")
                 .Build()
         );
@@ -55,19 +55,18 @@ public class StockTickerWindow : IDisposable
             {
                 var quotes = _stockService.GetLatestQuotes();
 
-                var table = new Table()
-                    .Border(TableBorder.Rounded)
-                    .AddColumn(new TableColumn("[bold]Symbol[/]").Centered())
-                    .AddColumn(new TableColumn("[bold]Price[/]").RightAligned())
-                    .AddColumn(new TableColumn("[bold]Change[/]").RightAligned())
-                    .AddColumn(new TableColumn("[bold]%[/]").RightAligned());
+                var builder = TableControl.Create()
+                    .AddColumn("[bold]Symbol[/]", Justify.Center, 10)
+                    .AddColumn("[bold]Price[/]", Justify.Right, 10)
+                    .AddColumn("[bold]Change[/]", Justify.Right, 10)
+                    .AddColumn("[bold]%[/]", Justify.Right, 10);
 
                 foreach (var quote in quotes)
                 {
                     var color = quote.Change > 0 ? "green" :
                                quote.Change < 0 ? "red" : "grey";
 
-                    table.AddRow(
+                    builder.AddRow(
                         $"[bold]{quote.Symbol}[/]",
                         $"${quote.Price:F2}",
                         $"[{color}]{quote.Change:+0.00;-0.00}[/]",
@@ -75,8 +74,15 @@ public class StockTickerWindow : IDisposable
                     );
                 }
 
-                window.FindControl<SpectreRenderableControl>("stockTable")
-                      ?.SetRenderable(table);
+                // Replace the stock table control
+                var oldTable = window.FindControl<IWindowControl>("stockTable");
+                if (oldTable != null)
+                {
+                    window.RemoveContent(oldTable);
+                }
+                var table = builder.Rounded().Build();
+                table.Name = "stockTable";
+                window.AddControl(table);
 
                 await Task.Delay(2000, ct);
             }

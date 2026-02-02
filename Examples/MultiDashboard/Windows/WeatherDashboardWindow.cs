@@ -47,11 +47,11 @@ public class WeatherDashboardWindow : IDisposable
                 .Build()
         );
 
-        // Forecast table
+        // Forecast table placeholder (will be replaced in update loop)
         _window.AddControl(
-            SpectreRenderableControl
+            MarkupControl
                 .Create()
-                .WithRenderable(new Panel("[grey]Forecast loading...[/]"))
+                .AddLine("[grey]Forecast loading...[/]")
                 .WithName("forecast")
                 .Build()
         );
@@ -89,10 +89,15 @@ public class WeatherDashboardWindow : IDisposable
                 window.FindControl<SpectreRenderableControl>("currentWeather")
                       ?.SetRenderable(panel);
 
-                // Update forecast table
+                // Update forecast table - replace control
+                var oldForecast = window.FindControl<IWindowControl>("forecast");
+                if (oldForecast != null)
+                {
+                    window.RemoveContent(oldForecast);
+                }
                 var table = BuildForecastTable(weather.Forecast);
-                window.FindControl<SpectreRenderableControl>("forecast")
-                      ?.SetRenderable(table);
+                table.Name = "forecast";
+                window.AddControl(table);
 
                 // Update location with timestamp
                 var locationControl = window.FindControl<MarkupControl>("location");
@@ -114,18 +119,17 @@ public class WeatherDashboardWindow : IDisposable
         }
     }
 
-    private Table BuildForecastTable(List<DayForecast> forecast)
+    private TableControl BuildForecastTable(List<DayForecast> forecast)
     {
-        var table = new Table()
-            .Border(TableBorder.Rounded)
-            .AddColumn(new TableColumn("[bold]Day[/]").Centered())
-            .AddColumn(new TableColumn("[bold]High[/]").Centered())
-            .AddColumn(new TableColumn("[bold]Low[/]").Centered())
-            .AddColumn(new TableColumn("[bold]Condition[/]"));
+        var builder = TableControl.Create()
+            .AddColumn("[bold]Day[/]", Justify.Center, 12)
+            .AddColumn("[bold]High[/]", Justify.Center, 8)
+            .AddColumn("[bold]Low[/]", Justify.Center, 8)
+            .AddColumn("[bold]Condition[/]", Justify.Left, 15);
 
         foreach (var day in forecast)
         {
-            table.AddRow(
+            builder.AddRow(
                 $"[cyan]{day.Day}[/]",
                 $"[red]{day.High}°[/]",
                 $"[blue]{day.Low}°[/]",
@@ -133,7 +137,7 @@ public class WeatherDashboardWindow : IDisposable
             );
         }
 
-        return table;
+        return builder.Rounded().Build();
     }
 
     public void Show()
