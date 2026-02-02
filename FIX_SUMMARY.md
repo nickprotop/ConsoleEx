@@ -26,14 +26,9 @@ D  SharpConsoleUI/Diagnostics/                      (Entire directory removed)
 | FIX7 | `CLEARAREA_CONDITIONAL` | ✅ ENABLED | Only clears cells if not already empty |
 | FIX12 | `RESET_AFTER_LINE` | ✅ ENABLED | Appends ANSI reset after each line to prevent edge artifacts |
 | FIX13 | `OPTIMIZE_ANSI_OUTPUT` | ✅ ENABLED | Only outputs ANSI when it changes (prevents massive bloat) |
-| ~~FIX14~~ | ~~`LOG_FRAME_STATS`~~ | ❌ **REMOVED** | **Diagnostic logging removed - frame statistics no longer logged** |
 | **FIX15** | **`FIX_BUFFER_SYNC_BUG`** | ✅ **ENABLED** | **CRITICAL: Fixed infinite re-render bug (skip only malformed ANSI, always sync buffers)** |
-| ~~FIX20~~ | ~~`CLEAR_ON_SCROLL`~~ | ❌ **REMOVED** | **Was bypass for mouse leak bug (fixed by FIX27) - completely removed** |
-| ~~FIX21~~ | ~~`LOG_MOUSE_ANSI`~~ | ❌ **REMOVED** | **Diagnostic logging removed** |
-| ~~FIX23~~ | ~~`LOG_MOUSE_INPUT`~~ | ❌ **REMOVED** | **Diagnostic logging removed** |
 | **FIX24** | **`DRAIN_INPUT_BEFORE_RENDER`** | ❌ **DISABLED** | **Drain input buffer before rendering (didn't work alone)** |
 | **FIX25** | **`DISABLE_MOUSE_DURING_RENDER`** | ❌ **DISABLED** | **Disable mouse tracking during rendering (didn't work - sequences already echoed)** |
-| ~~FIX26~~ | ~~`DISABLE_ECHO_TCSETATTR`~~ | ❌ **REMOVED** | **Terminal echo disable via tcsetattr - removed, FIX27 handles leaks** |
 | **FIX27** | **`PERIODIC_FULL_REDRAW`** | ✅ **ENABLED** | **Periodic redraw of clean cells every 1 second (Linux/macOS only) to clear mouse ANSI leaks. Platform check enforced in code via RuntimeInformation.IsOSPlatform()** |
 
 ## FIX13: ANSI Output Optimization (THE BIG ONE)
@@ -162,10 +157,6 @@ After analyzing all 15 controls that use Spectre conversion:
 - **MarkupControl** is the ONLY control that wraps user content with color tags AND passes color parameters
 - **Renderer** creates borders with markup tags AND passes color parameters
 - **Other controls** (Button, List, Tree, etc.) pass content as-is with color parameters - this is correct behavior
-
-## FIX14: Frame Statistics (REMOVED)
-
-**STATUS: ❌ REMOVED** - All diagnostic logging code has been removed from the codebase. Frame statistics and per-line diagnostics are no longer logged. The diagnostic code was useful during bug hunting but is no longer needed in production code.
 
 ## FIX15: Critical Buffer Sync Bug (CRITICAL - 2026-02-02)
 
@@ -348,83 +339,6 @@ bool shouldWrite = !frontCell.Equals(backCell);
 
 ### Verification
 Build succeeds with no errors. All IsDirty references removed from codebase.
-
-## FIX20: ScrollablePanel Clear on Scroll (REMOVED)
-
-**STATUS: ❌ REMOVED** - This was a workaround for the mouse ANSI leak bug. The root cause is now properly fixed by FIX27 (periodic redraw of clean cells). Code has been completely removed from the codebase.
-
-### Original Root Cause (Actually Mouse ANSI Leaks)
-**SCROLL LEAK BUG**: When ScrollablePanelControl scrolls, content at the new scroll offset is painted, but old content from the previous scroll position is NOT cleared.
-
-**The Problem:**
-1. Double-buffering optimization (FIX2_CONDITIONAL_DIRTY) only marks cells dirty when they're written to
-2. When scrolling, children are painted at new positions (with scroll offset applied)
-3. But cells at old positions are never written to → remain unchanged
-4. Result: Old content "leaks" and remains visible on screen
-
-**Example Scenario:**
-```
-Initial state (scrollOffset=0):
-  Line 10: "Interface eth0"
-  Line 11: "Interface wlan0"
-
-User scrolls down (scrollOffset=5):
-  Line 5: "Interface eth0"   (painted at new position)
-  Line 6: "Interface wlan0"  (painted at new position)
-  Line 10: "Interface eth0"  ← OLD CONTENT LEAKED! (never cleared)
-  Line 11: "Interface wlan0" ← OLD CONTENT LEAKED! (never cleared)
-```
-
-**This explained the visible artifacts:**
-- Content appearing in multiple locations after scrolling
-- "Ghosting" of previous scroll positions
-- ANSI sequences leaking at screen edges
-
-### Solution
-Clear the entire ScrollablePanel background **before** painting children:
-
-```csharp
-// FIX20: Clear the entire panel area before painting children
-if (FIX20_CLEAR_ON_SCROLL)
-{
-    for (int y = bounds.Y; y < bounds.Bottom; y++)
-    {
-        if (y >= clipRect.Y && y < clipRect.Bottom)
-        {
-            buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
-        }
-    }
-}
-```
-
-**Key Points:**
-1. Clears entire panel area with background color before painting
-2. Respects clip rectangle boundaries for efficiency
-3. Ensures no old content remains after scroll operations
-4. Follows same pattern used by other controls (ButtonControl, ListControl, etc.)
-
-### Implementation
-**ConsoleWindowSystemOptions.cs**:
-- FIX20 parameter removed from configuration record
-
-**ScrollablePanelControl.cs**:
-- Clear-on-scroll code block (lines 926-939) completely removed
-- No longer references FIX20 configuration
-
-### Why Removed
-The scroll leak issue was actually **mouse ANSI escape sequences leaking into the terminal buffer**, not a scroll-specific bug. The root cause is now properly fixed by:
-- **FIX27**: Periodic redraw of clean cells (every 1 second, Linux/macOS only) clears any leaked ANSI sequences
-
-FIX20 was a workaround that cleared the entire panel on every scroll, which:
-1. Was inefficient (cleared even unchanged areas)
-2. Didn't address the root cause (mouse ANSI leaks)
-3. Is no longer needed with proper fix in place
-
-The code has been completely removed and FIX27 now handles the mouse leak issue properly.
-
-## FIX23 & FIX21: Mouse Debugging (REMOVED)
-
-**STATUS: ❌ REMOVED** - All diagnostic logging code (FIX21 and FIX23) has been removed from the codebase. This included mouse input logging and mouse ANSI detection in output buffers. The diagnostic code was useful for debugging the mouse leak issue but is no longer needed now that FIX27 properly handles the problem.
 
 ## FIX24: Input Buffer Draining Before Render (CRITICAL - 2026-02-02)
 
@@ -614,19 +528,6 @@ The "M" character appearing at the right edge is related to:
 
 This requires separate investigation (see FIX6_WIDTH_LIMIT and scrollbar rendering).
 
-## Diagnostic Logging (FIX8, FIX9, FIX10, FIX14, FIX21, FIX23) - REMOVED
-
-**STATUS: ❌ REMOVED** - All diagnostic logging code has been completely removed from the codebase:
-- **FIX8**: Edge write logging (removed)
-- **FIX9**: Line output logging (removed)
-- **FIX10**: Cell state snapshots (removed)
-- **FIX14**: Frame statistics (removed)
-- **FIX21**: Mouse ANSI detection in output (removed)
-- **FIX23**: Mouse input logging (removed)
-- **SharpConsoleUI/Diagnostics/** directory deleted
-
-The diagnostic code was useful during bug hunting but has been removed to keep the codebase clean.
-
 ## Expected Results
 
 ### With FIX11 Enabled (Current State)
@@ -654,13 +555,7 @@ The diagnostic code was useful during bug hunting but has been removed to keep t
    dotnet run
    ```
 
-3. **Check logs** for ANSI sequences:
-   ```bash
-   # Should see single sequences, not doubled
-   grep "\[FIX9\] Line\[3\]" /tmp/consolebuffer_diagnostics.log | tail -1
-   ```
-
-4. **Look for artifacts:**
+3. **Look for artifacts:**
    - Right edge should be clean (no box-drawing chars where they shouldn't be)
    - Borders should render correctly
    - Content should not have visual glitches
@@ -681,22 +576,19 @@ The diagnostic code was useful during bug hunting but has been removed to keep t
 
 ### Next Steps for Leaks
 - Identify specific scenarios where leaks occur (window movement, resizing, content updates)
-- Add diagnostic logging to track window position changes
+- Track window position changes
 - Implement targeted clearing for specific leak scenarios
-- Consider FIX12: Track and clear window previous positions
 
 ## Toggling Fixes
 
-All fixes can be toggled by changing the boolean constants:
+Fixes are configured via ConsoleWindowSystemOptions. To change fix behavior, modify the options when creating the window system:
 
 ```csharp
-// To disable FIX11 and see original behavior:
-private const bool FIX11_NO_FOREGROUND_IN_MARKUP = false;
-
-// To disable double-buffering optimizations:
-private const bool FIX2_CONDITIONAL_DIRTY = false;
-private const bool FIX4_ISLINEDIRTY_EQUALS = false;
-private const bool FIX5_APPENDLINE_EQUALS = false;
+var options = new ConsoleWindowSystemOptions(
+    Fix1_DisablePreclear: false,  // Disable a specific fix
+    Fix27_PeriodicFullRedraw: false  // Disable periodic redraw
+);
+var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer, options);
 ```
 
 Then rebuild and test.
