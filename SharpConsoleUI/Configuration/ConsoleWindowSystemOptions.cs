@@ -7,7 +7,28 @@ public record ConsoleWindowSystemOptions(
     bool EnablePerformanceMetrics = false,
     bool EnableFrameRateLimiting = true,
     int TargetFPS = 60,
-    StatusBarOptions? StatusBarOptions = null
+    StatusBarOptions? StatusBarOptions = null,
+
+    // ===== RENDERING FIX TOGGLES =====
+    // Double-buffering optimizations
+    bool Fix1_DisablePreclear = true,
+    bool Fix2_ConditionalDirty = true,
+    bool Fix3_NoAnsiAccumulation = true,
+    bool Fix6_WidthLimit = false,
+    bool Fix7_ClearAreaConditional = true,
+
+    // ANSI output optimizations
+    bool Fix12_ResetAfterLine = true,
+    bool Fix13_OptimizeAnsiOutput = true,
+    bool Fix15_FixBufferSyncBug = true,
+
+    // Input handling (disabled)
+    bool Fix24_DrainInputBeforeRender = false,
+    bool Fix25_DisableMouseDuringRender = false,
+
+    // Periodic redraw to clear leaks (Linux/macOS only)
+    bool Fix27_PeriodicFullRedraw = true,
+    double Fix27_RedrawIntervalSeconds = 1.0
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

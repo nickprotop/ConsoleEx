@@ -26,12 +26,13 @@ M  SharpConsoleUI/Renderer.cs                       (FIX11 applied)
 | FIX13 | `OPTIMIZE_ANSI_OUTPUT` | ✅ ENABLED | Only outputs ANSI when it changes (prevents massive bloat) |
 | FIX14 | `LOG_FRAME_STATS` | ✅ ENABLED | Enhanced frame and per-line diagnostics |
 | **FIX15** | **`FIX_BUFFER_SYNC_BUG`** | ✅ **ENABLED** | **CRITICAL: Fixed infinite re-render bug (skip only malformed ANSI, always sync buffers)** |
-| **FIX20** | **`CLEAR_ON_SCROLL`** | ❌ **DISABLED** | **Was bypass for mouse leak bug (fixed by FIX27)** |
+| ~~FIX20~~ | ~~`CLEAR_ON_SCROLL`~~ | ❌ **REMOVED** | **Was bypass for mouse leak bug (fixed by FIX27) - completely removed** |
 | **FIX21** | **`LOG_MOUSE_ANSI`** | ✅ **ENABLED** | **Detect and log mouse ANSI sequences in output buffer (diagnostic)** |
 | **FIX23** | **`LOG_MOUSE_INPUT`** | ✅ **ENABLED** | **Log mouse input sequences at driver level (diagnostic)** |
 | **FIX24** | **`DRAIN_INPUT_BEFORE_RENDER`** | ❌ **DISABLED** | **Drain input buffer before rendering (didn't work alone)** |
 | **FIX25** | **`DISABLE_MOUSE_DURING_RENDER`** | ❌ **DISABLED** | **Disable mouse tracking during rendering (didn't work - sequences already echoed)** |
-| **FIX26** | **`DISABLE_ECHO_TCSETATTR`** | ✅ **ENABLED** | **CRITICAL: Use P/Invoke tcsetattr to disable terminal echo at POSIX level (like curses)** |
+| ~~FIX26~~ | ~~`DISABLE_ECHO_TCSETATTR`~~ | ❌ **REMOVED** | **Terminal echo disable via tcsetattr - removed, FIX27 handles leaks** |
+| **FIX27** | **`PERIODIC_FULL_REDRAW`** | ✅ **ENABLED** | **Periodic redraw of clean cells every 1 second (Linux/macOS only) to clear mouse ANSI leaks** |
 
 ## FIX13: ANSI Output Optimization (THE BIG ONE)
 
@@ -385,9 +386,9 @@ bool shouldWrite = !frontCell.Equals(backCell);
 ### Verification
 Build succeeds with no errors. All IsDirty references removed from codebase.
 
-## FIX20: ScrollablePanel Clear on Scroll (DISABLED - Was Bypass)
+## FIX20: ScrollablePanel Clear on Scroll (REMOVED)
 
-**STATUS: ❌ DISABLED** - This was a workaround for the mouse ANSI leak bug. The root cause is now properly fixed by FIX27 (periodic redraw of clean cells).
+**STATUS: ❌ REMOVED** - This was a workaround for the mouse ANSI leak bug. The root cause is now properly fixed by FIX27 (periodic redraw of clean cells). Code has been completely removed from the codebase.
 
 ### Original Root Cause (Actually Mouse ANSI Leaks)
 **SCROLL LEAK BUG**: When ScrollablePanelControl scrolls, content at the new scroll offset is painted, but old content from the previous scroll position is NOT cleared.
@@ -440,29 +441,23 @@ if (FIX20_CLEAR_ON_SCROLL)
 4. Follows same pattern used by other controls (ButtonControl, ListControl, etc.)
 
 ### Implementation
-**ScrollablePanelControl.cs** (line 27):
-```csharp
-private const bool FIX20_CLEAR_ON_SCROLL = false;  // DISABLED
-```
+**ConsoleWindowSystemOptions.cs**:
+- FIX20 parameter removed from configuration record
 
-Applied in `PaintDOM()` method (after line 927, before rendering children) - now disabled.
+**ScrollablePanelControl.cs**:
+- Clear-on-scroll code block (lines 926-939) completely removed
+- No longer references FIX20 configuration
 
-### Why Disabled
+### Why Removed
 The scroll leak issue was actually **mouse ANSI escape sequences leaking into the terminal buffer**, not a scroll-specific bug. The root cause is now properly fixed by:
-- **FIX27**: Periodic redraw of clean cells (every 1 second) clears any leaked ANSI sequences
-- **FIX26**: Terminal echo disabled via tcsetattr (prevents most leaks)
+- **FIX27**: Periodic redraw of clean cells (every 1 second, Linux/macOS only) clears any leaked ANSI sequences
 
 FIX20 was a workaround that cleared the entire panel on every scroll, which:
 1. Was inefficient (cleared even unchanged areas)
 2. Didn't address the root cause (mouse ANSI leaks)
 3. Is no longer needed with proper fix in place
 
-### Verification
-```bash
-# Test by scrolling in ConsoleTop network panel with FIX20=false
-# With FIX27 enabled: No leaks, clean rendering
-# Mouse ANSI sequences cleared within 1 second by periodic redraw
-```
+The code has been completely removed and FIX27 now handles the mouse leak issue properly.
 
 ## FIX23: Mouse Input Debugging (Driver Level - 2026-02-02)
 
