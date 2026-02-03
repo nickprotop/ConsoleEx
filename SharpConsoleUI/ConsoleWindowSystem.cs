@@ -130,9 +130,6 @@ namespace SharpConsoleUI
 		private readonly InputStateService _inputStateService;
 		private readonly NotificationStateService _notificationStateService;
 
-		// Track windows currently being flashed to prevent concurrent flashes
-		private readonly HashSet<Window> _flashingWindows = new();
-
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
 
@@ -144,6 +141,9 @@ namespace SharpConsoleUI
 
 		// Start menu coordination
 		private readonly StartMenuCoordinator _startMenuCoordinator;
+
+		// Window lifecycle coordination
+		private WindowLifecycleManager _windowLifecycleManager = null!; // Initialized in constructor after renderer
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
@@ -230,6 +230,16 @@ namespace SharpConsoleUI
 				this,
 				_options,
 				_performanceTracker);
+
+			// Initialize window lifecycle manager (manages window add, close, flash, etc.)
+			_windowLifecycleManager = new WindowLifecycleManager(
+				_logService,
+				_windowStateService,
+				_modalStateService,
+				_focusStateService,
+				_renderer,
+				_consoleDriver,
+				() => this);
 
 			// NOW initialize driver with 'this' reference (after services exist)
 			_consoleDriver.Initialize(this);
@@ -546,26 +556,7 @@ namespace SharpConsoleUI
 		/// <returns>The added window.</returns>
 		public Window AddWindow(Window window, bool activateWindow = true)
 		{
-			_logService.LogDebug($"Adding window: {window.Title} (GUID: {window.Guid})", "Window");
-
-			// Delegate to window state service for window registration
-			// The service handles ZIndex assignment and adding to collection
-			_windowStateService.RegisterWindow(window, activate: false);
-
-			// Register modal windows with the modal state service
-			if (window.Mode == WindowMode.Modal)
-			{
-				_modalStateService.PushModal(window, window.ParentWindow);
-				_logService.LogDebug($"Modal window pushed: {window.Title}", "Modal");
-			}
-
-			// Activate the window if needed (through SetActiveWindow for modal logic)
-			if (ActiveWindow == null || activateWindow) SetActiveWindow(window);
-
-			window.WindowIsAdded();
-
-			_logService.LogDebug($"Window added successfully: {window.Title}", "Window");
-			return window;
+			return _windowLifecycleManager.AddWindow(window, activateWindow);
 		}
 
 		/// <summary>
@@ -574,23 +565,7 @@ namespace SharpConsoleUI
 		/// <param name="modalWindow">The modal window to close. If null or not a modal window, the method returns without action.</param>
 		public void CloseModalWindow(Window? modalWindow)
 		{
-			if (modalWindow == null || modalWindow.Mode != WindowMode.Modal)
-				return;
-
-			_logService.LogDebug($"Closing modal window: {modalWindow.Title}", "Modal");
-
-			// Store the parent window before closing
-			Window? parentWindow = modalWindow.ParentWindow;
-
-			// Close the modal window
-			if (CloseWindow(modalWindow))
-			{
-				// If we have a parent window, ensure it becomes active
-				if (parentWindow != null && Windows.ContainsKey(parentWindow.Guid))
-				{
-					SetActiveWindow(parentWindow);
-				}
-			}
+			_windowLifecycleManager.CloseModalWindow(modalWindow);
 		}
 
 		/// <summary>
@@ -602,78 +577,7 @@ namespace SharpConsoleUI
 		/// <returns>True if the window was closed successfully; false otherwise.</returns>
 		public bool CloseWindow(Window? window, bool activateParent = true, bool force = false)
 		{
-			if (window == null) return false;
-			if (!Windows.ContainsKey(window.Guid)) return false;
-
-			_logService.LogDebug($"Closing window: {window.Title} (GUID: {window.Guid}, Force: {force})", "Window");
-
-			// STEP 1: Check if close is allowed BEFORE any state changes
-			// This fires OnClosing and respects IsClosable (unless forced)
-			if (!window.TryClose(force))
-			{
-				_logService.LogDebug($"Window close cancelled by OnClosing handler: {window.Title}", "Window");
-				return false;
-			}
-
-			// STEP 2: Close is allowed - now safe to remove from system
-			Window? parentWindow = window.ParentWindow;
-			bool wasActive = (window == ActiveWindow);
-
-			// Unregister modal window from modal state service
-			if (window.Mode == WindowMode.Modal)
-			{
-				_modalStateService.PopModal(window);
-			}
-
-			// Clear focus state for this window
-			_focusStateService.ClearFocus(window);
-
-			// Remove from window collection via service
-			// This prevents race condition where render thread tries to render disposed controls
-			_windowStateService.UnregisterWindow(window);
-
-			// Activate the next window (UnregisterWindow updates state but doesn't call SetIsActive)
-			if (wasActive)
-			{
-				Window? targetWindow = null;
-
-				if (activateParent && parentWindow != null && Windows.ContainsKey(parentWindow.Guid))
-				{
-					// Let ModalStateService resolve correct target (may redirect to modal child)
-					// This prevents the "black hole" bug when closing a modal that has other modals stacked
-					targetWindow = _modalStateService.GetEffectiveActivationTarget(parentWindow);
-				}
-				else if (Windows.Count > 0)
-				{
-					// Activate window with highest Z-Index
-					int maxZIndex = Windows.Values.Max(w => w.ZIndex);
-					var nextWindow = Windows.Values.FirstOrDefault(w => w.ZIndex == maxZIndex);
-
-					if (nextWindow != null)
-					{
-						// Use GetEffectiveActivationTarget to handle modal redirection
-						targetWindow = _modalStateService.GetEffectiveActivationTarget(nextWindow);
-					}
-				}
-
-				if (targetWindow != null)
-				{
-					SetActiveWindow(targetWindow);
-				}
-			}
-
-			// STEP 3: Complete the close (fire OnClosed, dispose controls)
-			window.CompleteClose();
-
-			// Redraw the screen
-			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height,
-							  Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-			foreach (var w in Windows.Values)
-			{
-				w.Invalidate(true);
-			}
-
-			return true;
+			return _windowLifecycleManager.CloseWindow(window, activateParent, force);
 		}
 
 		/// <summary>
@@ -714,48 +618,7 @@ namespace SharpConsoleUI
 		/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses the theme's ModalFlashColor.</param>
 		public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 150, Color? flashBackgroundColor = null)
 		{
-			if (window == null) return;
-
-			// Prevent multiple concurrent flashes on the same window
-			lock (_flashingWindows)
-			{
-				if (_flashingWindows.Contains(window)) return;
-				_flashingWindows.Add(window);
-			}
-
-			var originalBackgroundColor = window.BackgroundColor;
-			var flashColor = flashBackgroundColor ?? Theme.ModalFlashColor;
-
-			// Use ThreadPool with synchronous sleep for reliable timing
-			ThreadPool.QueueUserWorkItem(_ =>
-			{
-				try
-				{
-					for (int i = 0; i < flashCount; i++)
-					{
-						window.BackgroundColor = flashColor;
-						window.Invalidate(true);
-						Thread.Sleep(flashDuration);
-
-						window.BackgroundColor = originalBackgroundColor;
-						window.Invalidate(true);
-
-						// Only delay between flashes, not after the last one
-						if (i < flashCount - 1)
-						{
-							Thread.Sleep(flashDuration);
-						}
-					}
-				}
-				finally
-				{
-					// Always remove from tracking to allow future flashes
-					lock (_flashingWindows)
-					{
-						_flashingWindows.Remove(window);
-					}
-				}
-			});
+			_windowLifecycleManager.FlashWindow(window, flashCount, flashDuration, flashBackgroundColor);
 		}
 
 		/// <summary>
@@ -1945,18 +1808,7 @@ namespace SharpConsoleUI
 	/// </summary>
 	public void ActivateNextNonMinimizedWindow(Window minimizedWindow)
 	{
-		if (minimizedWindow == null) return;
-
-		// Find the next non-minimized window to activate
-		var nextWindow = Windows.Values
-			.Where(w => w != minimizedWindow && w.State != WindowState.Minimized)
-			.OrderByDescending(w => w.ZIndex)
-			.FirstOrDefault();
-
-		if (nextWindow != null)
-		{
-			SetActiveWindow(nextWindow);
-		}
+		_windowLifecycleManager.ActivateNextNonMinimizedWindow(minimizedWindow);
 	}
 
 	/// <summary>
@@ -1964,11 +1816,7 @@ namespace SharpConsoleUI
 	/// </summary>
 	public void DeactivateCurrentWindow()
 	{
-		if (ActiveWindow != null)
-		{
-			ActiveWindow.SetIsActive(false);
-			ActiveWindow.Invalidate(true);
-		}
+		_windowLifecycleManager.DeactivateCurrentWindow();
 	}
 
 	#endregion
