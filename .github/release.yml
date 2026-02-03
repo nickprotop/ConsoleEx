@@ -1,0 +1,53 @@
+# GitHub Release Notes Configuration
+# Controls how automatic release notes are generated
+
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - dependencies
+      - duplicate
+    authors:
+      - dependabot
+
+  categories:
+    - title: 🚀 New Features
+      labels:
+        - enhancement
+        - feature
+        - new
+
+    - title: 🐛 Bug Fixes
+      labels:
+        - bug
+        - bugfix
+        - fix
+
+    - title: 📚 Documentation
+      labels:
+        - documentation
+        - docs
+
+    - title: 🔧 Maintenance
+      labels:
+        - chore
+        - refactor
+        - maintenance
+
+    - title: ⚡ Performance
+      labels:
+        - performance
+        - optimization
+
+    - title: 🧪 Testing
+      labels:
+        - test
+        - tests
+
+    - title: 🔒 Security
+      labels:
+        - security
+
+    - title: Other Changes
+      labels:
+        - "*"

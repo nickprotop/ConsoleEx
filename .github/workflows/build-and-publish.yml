@@ -23,34 +23,58 @@ jobs:
       with:
         dotnet-version: '9.0.x'
         
-    - name: Install GitVersion
-      uses: gittools/actions/gitversion/setup@v1
-      with:
-        versionSpec: '5.x'
-        
     - name: Determine Version
-      id: gitversion
-      uses: gittools/actions/gitversion/execute@v1
-      with:
-        useConfigFile: true
-        
-    - name: Display GitVersion outputs
+      id: version
       run: |
-        echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
-        echo "NuGetVersionV2: ${{ steps.gitversion.outputs.nuGetVersionV2 }}"
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          # Extract version from tag (refs/tags/v2.1.0 -> 2.1.0)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "📦 Release version: $VERSION"
+        else
+          # Get latest tag and use as base for dev version
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          BASE_VERSION=${LATEST_TAG#v}
+          VERSION="${BASE_VERSION}-dev.${{ github.run_number }}"
+          echo "🔧 Dev version: $VERSION (based on ${LATEST_TAG})"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Display Version
+      run: |
+        echo "Package Version: ${{ steps.version.outputs.version }}"
         
     - name: Restore dependencies
       run: dotnet restore SharpConsoleUI/SharpConsoleUI.csproj
       
     - name: Build
-      run: dotnet build SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-restore /p:Version=${{ steps.gitversion.outputs.nuGetVersionV2 }}
+      run: dotnet build SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-restore /p:Version=${{ steps.version.outputs.version }}
       
     - name: Test
       run: dotnet test SharpConsoleUI/SharpConsoleUI.csproj --no-build --verbosity normal
       
     - name: Package
-      run: dotnet pack SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-build --output ./nupkgs /p:Version=${{ steps.gitversion.outputs.nuGetVersionV2 }}
-      
+      run: dotnet pack SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-build --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
+
+    - name: Create GitHub Release
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./nupkgs/*.nupkg
+        generate_release_notes: true
+        body: |
+          ## SharpConsoleUI ${{ steps.version.outputs.version }}
+
+          **NuGet Package:** https://www.nuget.org/packages/SharpConsoleUI/${{ steps.version.outputs.version }}
+
+          ### Installation
+          ```bash
+          dotnet add package SharpConsoleUI --version ${{ steps.version.outputs.version }}
+          ```
+
+          ### What's Changed
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
