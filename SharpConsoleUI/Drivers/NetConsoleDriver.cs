@@ -91,7 +91,7 @@ namespace SharpConsoleUI.Drivers
 		// ===== FIX TOGGLES =====
 
 		private ConsoleWindowSystem? _consoleWindowSystem;
-		private object? _consoleLock; // Shared lock for thread-safe Console I/O
+		private object _consoleLock = new object(); // Shared lock for thread-safe Console I/O (initialized to prevent race conditions)
 		private readonly nint _errorHandle;
 		private readonly nint _inputHandle;
 		private readonly uint _originalErrorConsoleMode;
@@ -593,7 +593,7 @@ namespace SharpConsoleUI.Drivers
 			{
 				// CRITICAL: Acquire lock BEFORE checking Console.KeyAvailable to prevent
 				// concurrent Console I/O from corrupting ANSI sequence parsing
-				lock (_consoleLock ?? new object())
+				lock (_consoleLock)
 				{
 					if (Console.KeyAvailable)
 					{

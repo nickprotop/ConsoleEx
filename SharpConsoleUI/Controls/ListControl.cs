@@ -90,8 +90,9 @@ namespace SharpConsoleUI.Controls
 
 		// Mouse interaction state
 		private int _hoveredIndex = -1;                        // Mouse hover tracking
-		private DateTime _lastClickTime = DateTime.MinValue;   // Double-click detection
-		private int _lastClickIndex = -1;                      // Double-click detection
+		private readonly object _clickLock = new object();     // Thread safety for double-click detection
+		private DateTime _lastClickTime = DateTime.MinValue;   // Double-click detection (protected by _clickLock)
+		private int _lastClickIndex = -1;                      // Double-click detection (protected by _clickLock)
 
 		// Selection mode configuration
 		private ListSelectionMode _selectionMode = ListSelectionMode.Complex;
@@ -942,8 +943,20 @@ namespace SharpConsoleUI.Controls
 			// Setting Container to null triggers unsubscription via property setter
 			Container = null;
 
-			// Clear event handlers to prevent memory leaks
+			// Clear all event handlers to prevent memory leaks
+			SelectedIndexChanged = null;
+			SelectedItemChanged = null;
+			SelectedValueChanged = null;
+			ItemActivated = null;
 			HighlightChanged = null;
+			MouseClick = null;
+			MouseEnter = null;
+			MouseLeave = null;
+			MouseMove = null;
+			ItemHovered = null;
+			MouseDoubleClick = null;
+			GotFocus = null;
+			LostFocus = null;
 		}
 
 		/// <inheritdoc/>
@@ -1901,15 +1914,19 @@ namespace SharpConsoleUI.Controls
 					int clickedIndex = _scrollOffset + relativeY;
 					if (clickedIndex >= 0 && clickedIndex < _items.Count)
 					{
-						// Detect double-click
-						var now = DateTime.UtcNow;
-						var timeSince = (now - _lastClickTime).TotalMilliseconds;
-						bool isDoubleClick = _doubleClickActivates &&
-											 clickedIndex == _lastClickIndex &&
-											 timeSince <= _doubleClickThresholdMs;
+						// Detect double-click (thread-safe)
+						bool isDoubleClick;
+						lock (_clickLock)
+						{
+							var now = DateTime.UtcNow;
+							var timeSince = (now - _lastClickTime).TotalMilliseconds;
+							isDoubleClick = _doubleClickActivates &&
+											clickedIndex == _lastClickIndex &&
+											timeSince <= _doubleClickThresholdMs;
 
-						_lastClickTime = now;
-						_lastClickIndex = clickedIndex;
+							_lastClickTime = now;
+							_lastClickIndex = clickedIndex;
+						}
 
 						// ✅ FIX: Behavior depends on SelectionMode
 						if (_selectionMode == ListSelectionMode.Simple)

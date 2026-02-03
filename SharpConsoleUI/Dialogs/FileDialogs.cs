@@ -203,8 +203,19 @@ public static class FileDialogs
 					var patterns = filter.Split(';', StringSplitOptions.RemoveEmptyEntries);
 					files = files.Where(f => patterns.Any(p =>
 					{
-						var pattern = p.Trim().Replace("*", "").Replace(".", "");
-						return string.IsNullOrEmpty(pattern) || f.Extension.EndsWith(pattern, StringComparison.OrdinalIgnoreCase);
+						var pattern = p.Trim();
+						// Handle wildcard patterns: *.txt, *.cs, *.*, etc.
+						if (pattern == "*" || pattern == "*.*")
+							return true;
+
+						if (pattern.StartsWith("*."))
+						{
+							var extension = pattern.Substring(1); // Remove leading *
+							return f.Extension.Equals(extension, StringComparison.OrdinalIgnoreCase);
+						}
+
+						// Fallback: exact filename match
+						return f.Name.Equals(pattern, StringComparison.OrdinalIgnoreCase);
 					})).ToArray();
 				}
 
@@ -483,8 +494,19 @@ public static class FileDialogs
 					var patterns = filter.Split(';', StringSplitOptions.RemoveEmptyEntries);
 					files = files.Where(f => patterns.Any(p =>
 					{
-						var pattern = p.Trim().Replace("*", "").Replace(".", "");
-						return string.IsNullOrEmpty(pattern) || f.Extension.EndsWith(pattern, StringComparison.OrdinalIgnoreCase);
+						var pattern = p.Trim();
+						// Handle wildcard patterns: *.txt, *.cs, *.*, etc.
+						if (pattern == "*" || pattern == "*.*")
+							return true;
+
+						if (pattern.StartsWith("*."))
+						{
+							var extension = pattern.Substring(1); // Remove leading *
+							return f.Extension.Equals(extension, StringComparison.OrdinalIgnoreCase);
+						}
+
+						// Fallback: exact filename match
+						return f.Name.Equals(pattern, StringComparison.OrdinalIgnoreCase);
 					})).ToArray();
 				}
 
