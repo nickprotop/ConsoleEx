@@ -145,6 +145,9 @@ namespace SharpConsoleUI
 		// Window lifecycle coordination
 		private WindowLifecycleManager _windowLifecycleManager = null!; // Initialized in constructor after renderer
 
+		// Window positioning coordination
+		private WindowPositioningManager _windowPositioningManager = null!; // Initialized in constructor after renderer
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
 		/// </summary>
@@ -239,6 +242,12 @@ namespace SharpConsoleUI
 				_focusStateService,
 				_renderer,
 				_consoleDriver,
+				() => this);
+
+			// Initialize window positioning manager (manages window move, resize, bounds)
+			_windowPositioningManager = new WindowPositioningManager(
+				_renderer,
+				_renderCoordinator,
 				() => this);
 
 			// NOW initialize driver with 'this' reference (after services exist)
@@ -1569,20 +1578,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public void MoveWindowTo(Window window, int newLeft, int newTop)
 		{
-			if (window == null) return;
-
-			// Only update if position actually changed
-			if (newLeft == window.Left && newTop == window.Top)
-				return;
-
-			var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
-
-			_renderCoordinator.AddPendingDesktopClear(oldBounds);
-			window.SetPosition(new Point(newLeft, newTop));
-			window.Invalidate(true);
-
-			// Invalidate windows that were underneath (now exposed)
-			InvalidateExposedRegions(window, oldBounds);
+			_windowPositioningManager.MoveWindowTo(window, newLeft, newTop);
 		}
 		// Helper method to check if a window is a child of another
 		private bool IsChildWindow(Window potentialChild, Window potentialParent)
@@ -1615,40 +1611,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void MoveOrResizeOperation(Window? window, WindowTopologyAction windowTopologyAction, Direction direction)
 		{
-			if (window == null) return;
-
-			// Store the current window bounds before any operation
-			var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
-
-			// FIRST: Clear the old window position completely (same as mouse operations)
-			_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
-				Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-
-			// No need for direction-specific clearing since we clear the entire window
-
-			// Redraw the necessary regions that were underneath the window
-			foreach (var w in Windows.Values.OrderBy(w => w.ZIndex))
-			{
-				// Skip minimized windows - they're invisible
-				if (w.State == WindowState.Minimized)
-					continue;
-
-				if (w != window && DoesRectangleOverlapWindow(oldBounds, w))
-				{
-					// Redraw the parts of underlying windows that were covered
-					var intersection = GetRectangleIntersection(oldBounds,
-						new Rectangle(w.Left, w.Top, w.Width, w.Height));
-					
-					if (!intersection.IsEmpty)
-					{
-						_renderer.RenderRegion(w, intersection);
-					}
-				}
-			}
-
-			// FINALLY: Invalidate the window which will cause it to redraw at its new position
-			// (The actual position/size change happens in the calling HandleMoveInput method)
-			window.Invalidate(false);
+			_windowPositioningManager.MoveOrResizeOperation(window, windowTopologyAction, direction);
 
 			// Invalidate coverage cache since window position/size changed
 			InvalidateCoverageCache();
@@ -1730,16 +1693,7 @@ namespace SharpConsoleUI
 	/// </summary>
 	public void MoveWindowBy(Window window, int deltaX, int deltaY)
 	{
-		if (window == null) return;
-
-		int newLeft = window.Left + deltaX;
-		int newTop = window.Top + deltaY;
-
-		// Constrain to desktop bounds
-		newLeft = Math.Max(0, Math.Min(newLeft, DesktopDimensions.Width - window.Width));
-		newTop = Math.Max(0, Math.Min(newTop, DesktopDimensions.Height - window.Height));
-
-		MoveWindowTo(window, newLeft, newTop);
+		_windowPositioningManager.MoveWindowBy(window, deltaX, deltaY);
 	}
 
 	/// <summary>
@@ -1747,38 +1701,7 @@ namespace SharpConsoleUI
 	/// </summary>
 	public void ResizeWindowTo(Window window, int newLeft, int newTop, int newWidth, int newHeight)
 	{
-		if (window == null) return;
-
-		// Store the current window bounds before resizing
-		var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
-
-		// Constrain to minimum/maximum sizes and desktop bounds
-		newWidth = Math.Max(10, newWidth); // Minimum width
-		newHeight = Math.Max(3, newHeight); // Minimum height
-
-		// Constrain to desktop bounds
-		newLeft = Math.Max(0, Math.Min(newLeft, DesktopDimensions.Width - newWidth));
-		newTop = Math.Max(0, Math.Min(newTop, DesktopDimensions.Height - newHeight));
-
-		// Ensure the window doesn't resize beyond desktop bounds
-		newWidth = Math.Min(newWidth, DesktopDimensions.Width - newLeft);
-		newHeight = Math.Min(newHeight, DesktopDimensions.Height - newTop);
-
-		// Only update if position or size actually changed
-		if (newLeft != window.Left || newTop != window.Top ||
-			newWidth != window.Width || newHeight != window.Height)
-		{
-			// Add old bounds to pending clears
-			_renderCoordinator.AddPendingDesktopClear(oldBounds);
-
-			// Apply the new position and size
-			window.SetPosition(new Point(newLeft, newTop));
-			window.SetSize(newWidth, newHeight);
-			window.Invalidate(true);
-
-			// Invalidate windows that were underneath (now exposed)
-			InvalidateExposedRegions(window, oldBounds);
-		}
+		_windowPositioningManager.ResizeWindowTo(window, newLeft, newTop, newWidth, newHeight);
 	}
 
 	/// <summary>
@@ -1786,12 +1709,7 @@ namespace SharpConsoleUI
 	/// </summary>
 	public void ResizeWindowBy(Window window, int deltaWidth, int deltaHeight)
 	{
-		if (window == null) return;
-
-		int newWidth = window.Width + deltaWidth;
-		int newHeight = window.Height + deltaHeight;
-
-		ResizeWindowTo(window, window.Left, window.Top, newWidth, newHeight);
+		_windowPositioningManager.ResizeWindowBy(window, deltaWidth, deltaHeight);
 	}
 
 	/// <summary>
