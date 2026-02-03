@@ -646,6 +646,44 @@ namespace SharpConsoleUI
 		/// Starts the main event loop of the window system. Blocks until <see cref="Shutdown"/> is called.
 		/// </summary>
 		/// <returns>The exit code set by <see cref="Shutdown"/> or 1 if an unhandled exception occurred.</returns>
+	/// <summary>
+	/// Handles screen resize events by adjusting window positions and sizes.
+	/// </summary>
+	private void HandleScreenResize(object? sender, Size size)
+	{
+		lock (_renderLock)
+		{
+			Helpers.Size desktopSize = DesktopDimensions;
+
+			_consoleDriver.Clear();
+
+			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+
+			foreach (var window in Windows.Values)
+			{
+				if (window.State == WindowState.Maximized)
+				{
+					window.SetSize(desktopSize.Width, desktopSize.Height);
+					window.SetPosition(new Point(0, 0));
+				}
+				else
+				{
+					if (window.Left + window.Width > desktopSize.Width)
+					{
+						window.Left = Math.Max(0, desktopSize.Width - window.Width);
+					}
+					if (window.Top + window.Height > desktopSize.Height)
+					{
+						window.Top = Math.Max(1, desktopSize.Height - window.Height);
+					}
+				}
+
+				window.Invalidate(true);
+			}
+
+			_renderCoordinator.InvalidateStatusCache();
+		}
+	}
 		public int Run()
 		{
 			_logService.LogDebug("Console window system starting");
@@ -659,41 +697,7 @@ namespace SharpConsoleUI
 			};
 			// Handler registered later via InputCoordinator.RegisterEventHandlers()
 
-			_screenResizedHandler = (sender, size) =>
-			{
-				lock (_renderLock)
-				{
-					Helpers.Size desktopSize = DesktopDimensions;
-
-					_consoleDriver.Clear();
-
-					_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-
-					foreach (var window in Windows.Values)
-					{
-						if (window.State == WindowState.Maximized)
-						{
-							window.SetSize(desktopSize.Width, desktopSize.Height);
-							window.SetPosition(new Point(0, 0));
-						}
-						else
-						{
-							if (window.Left + window.Width > desktopSize.Width)
-							{
-								window.Left = Math.Max(0, desktopSize.Width - window.Width);
-							}
-							if (window.Top + window.Height > desktopSize.Height)
-							{
-								window.Top = Math.Max(1, desktopSize.Height - window.Height);
-							}
-						}
-
-						window.Invalidate(true);
-					}
-
-					_renderCoordinator.InvalidateStatusCache();
-				}
-			};
+		_screenResizedHandler = HandleScreenResize;
 			_consoleDriver.ScreenResized += _screenResizedHandler;
 
 			// Register input coordinator event handlers
@@ -1177,14 +1181,6 @@ namespace SharpConsoleUI
 			
 		}
 
-		/// <summary>
-		/// <summary>
-		/// <summary>
-		/// <summary>
-		/// <summary>
-		/// Handles window clicks - activates inactive windows or propagates to active windows
-		/// </summary>
-		/// <summary>
 		/// Handles window click for activation and mouse event propagation.
 		/// </summary>
 		public void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
