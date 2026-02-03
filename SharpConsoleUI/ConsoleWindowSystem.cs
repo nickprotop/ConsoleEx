@@ -21,6 +21,7 @@ using SharpConsoleUI.Windows;
 using SharpConsoleUI.Models;
 using SharpConsoleUI.Rendering;
 using SharpConsoleUI.Performance;
+using SharpConsoleUI.StartMenu;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -141,8 +142,8 @@ namespace SharpConsoleUI
 		// Render coordination
 		private RenderCoordinator _renderCoordinator = null!; // Initialized in constructor after renderer
 
-		// Start menu system
-		private readonly List<StartMenuAction> _startMenuActions = new();
+		// Start menu coordination
+		private readonly StartMenuCoordinator _startMenuCoordinator;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
@@ -216,6 +217,9 @@ namespace SharpConsoleUI
 
 			// Initialize performance tracker (tracks frame timing and metrics)
 			_performanceTracker = new PerformanceTracker();
+
+			// Initialize start menu coordinator (manages start menu actions)
+			_startMenuCoordinator = new StartMenuCoordinator(() => this);
 
 			// Initialize render coordinator (needs renderer, performance tracker, and other services)
 			_renderCoordinator = new RenderCoordinator(
@@ -1025,8 +1029,7 @@ namespace SharpConsoleUI
 		/// <param name="order">Sort order within category (lower = earlier).</param>
 		public void RegisterStartMenuAction(string name, Action callback, string? category = null, int order = 0)
 		{
-			var action = new StartMenuAction(name, callback, category, order);
-			_startMenuActions.Add(action);
+			_startMenuCoordinator.RegisterAction(name, callback, category, order);
 		}
 
 		/// <summary>
@@ -1035,20 +1038,20 @@ namespace SharpConsoleUI
 		/// <param name="name">Name of the action to remove.</param>
 		public void UnregisterStartMenuAction(string name)
 		{
-			_startMenuActions.RemoveAll(a => a.Name == name);
+			_startMenuCoordinator.UnregisterAction(name);
 		}
 
 		/// <summary>
 		/// Gets all registered Start menu actions.
 		/// </summary>
-		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _startMenuActions.AsReadOnly();
+		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _startMenuCoordinator.GetActions();
 
 		/// <summary>
 		/// Shows the Start menu dialog.
 		/// </summary>
 		public void ShowStartMenu()
 		{
-			Dialogs.StartMenuDialog.Show(this);
+			_startMenuCoordinator.ShowMenu();
 		}
 
 		/// <summary>
