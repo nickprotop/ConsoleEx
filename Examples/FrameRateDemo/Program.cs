@@ -51,36 +51,36 @@ class Program
 			switch (e.KeyInfo.Key)
 			{
 				case ConsoleKey.D1:
-					windowSystem.SetTargetFPS(15);
+					windowSystem.Performance.SetTargetFPS(15);
 					e.Handled = true;
 					break;
 				case ConsoleKey.D2:
-					windowSystem.SetTargetFPS(30);
+					windowSystem.Performance.SetTargetFPS(30);
 					e.Handled = true;
 					break;
 				case ConsoleKey.D3:
-					windowSystem.SetTargetFPS(60);
+					windowSystem.Performance.SetTargetFPS(60);
 					e.Handled = true;
 					break;
 				case ConsoleKey.D4:
-					windowSystem.SetTargetFPS(120);
+					windowSystem.Performance.SetTargetFPS(120);
 					e.Handled = true;
 					break;
 				case ConsoleKey.D5:
-					windowSystem.SetTargetFPS(144);
+					windowSystem.Performance.SetTargetFPS(144);
 					e.Handled = true;
 					break;
 				case ConsoleKey.E:
-					windowSystem.SetFrameRateLimiting(true);
+					windowSystem.Performance.SetFrameRateLimiting(true);
 					e.Handled = true;
 					break;
 				case ConsoleKey.D:
-					windowSystem.SetFrameRateLimiting(false);
+					windowSystem.Performance.SetFrameRateLimiting(false);
 					e.Handled = true;
 					break;
 				case ConsoleKey.M:
-					var current = windowSystem.IsPerformanceMetricsEnabled();
-					windowSystem.SetPerformanceMetrics(!current);
+					var current = windowSystem.Performance.IsPerformanceMetricsEnabled;
+					windowSystem.Performance.SetPerformanceMetrics(!current);
 					e.Handled = true;
 					break;
 			}
@@ -204,10 +204,10 @@ class Program
 			// Update rendering statistics using SetContent
 			if (_renderStatsControl != null)
 			{
-				var actualFps = windowSystem.GetCurrentFPS();
-				var frameTime = windowSystem.GetCurrentFrameTime();
-				var dirtyChars = windowSystem.GetDirtyCharCount();
-				var targetFps = windowSystem.GetTargetFPS();
+				var actualFps = windowSystem.Performance.CurrentFPS;
+				var frameTime = windowSystem.Performance.CurrentFrameTimeMs;
+				var dirtyChars = windowSystem.Performance.CurrentDirtyChars;
+				var targetFps = windowSystem.Performance.TargetFPS;
 
 				_renderStatsControl.SetContent(new List<string>
 				{
@@ -226,9 +226,9 @@ class Program
 			// Update stats window using SetContent
 			if (_statsControl != null)
 			{
-				var targetFps = windowSystem.GetTargetFPS();
-				var limitingEnabled = windowSystem.IsFrameRateLimitingEnabled();
-				var metricsEnabled = windowSystem.IsPerformanceMetricsEnabled();
+				var targetFps = windowSystem.Performance.TargetFPS;
+				var limitingEnabled = windowSystem.Performance.IsFrameRateLimitingEnabled;
+				var metricsEnabled = windowSystem.Performance.IsPerformanceMetricsEnabled;
 
 				_statsControl.SetContent(new List<string>
 				{
