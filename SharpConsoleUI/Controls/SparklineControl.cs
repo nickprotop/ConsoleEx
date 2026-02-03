@@ -73,10 +73,16 @@ namespace SharpConsoleUI.Controls
 		private const int DEFAULT_HEIGHT = 8;
 		private const int DEFAULT_MAX_DATA_POINTS = 50;
 
-		// Block mode: 9 levels (0-8) using box drawing vertical bar characters
+		// Block mode: 9 levels (0-8) using box drawing vertical bar characters (bottom-up)
 		private static readonly char[] VERTICAL_CHARS = { ' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█' };
 
-		// Braille mode: 5 levels (0-4) using left column of braille patterns
+		// Block mode inverted: 9 levels (0-8) filling from top-down
+		// Unicode lacks upper fractional blocks, so we reverse the array conceptually:
+		// Index 0=empty, 1=▔(1/8 from top), 4=▀(1/2 from top), 8=█(full)
+		// Approximation: ' ', '▔', '▔', '▀', '▀', '▀', '▆', '▇', '█'
+		private static readonly char[] VERTICAL_CHARS_INVERTED = { ' ', '▔', '▔', '▀', '▀', '▀', '▆', '▇', '█' };
+
+		// Braille mode: 5 levels (0-4) using left column of braille patterns (bottom-up)
 		// Unicode braille: dots are numbered 1,2,3,7 for left column (top to bottom: 1,2,3,7)
 		// Dot positions: 1=top-left, 2=mid-upper-left, 3=mid-lower-left, 7=bottom-left
 		private static readonly char[] BRAILLE_CHARS =
@@ -85,6 +91,17 @@ namespace SharpConsoleUI.Controls
 			'\u2840', // ⡀ dot 7 (bottom)
 			'\u2844', // ⡄ dots 3,7
 			'\u2846', // ⡆ dots 2,3,7
+			'\u2847', // ⡇ dots 1,2,3,7 (full left column)
+		};
+
+		// Braille mode inverted: 5 levels (0-4) filling from top-down
+		// Dot positions filled from top: 1, then 1+2, then 1+2+3, then 1+2+3+7
+		private static readonly char[] BRAILLE_CHARS_INVERTED =
+		{
+			'\u2800', // ⠀ empty (0 dots)
+			'\u2801', // ⠁ dot 1 (top)
+			'\u2803', // ⠃ dots 1,2
+			'\u2807', // ⠇ dots 1,2,3
 			'\u2847', // ⡇ dots 1,2,3,7 (full left column)
 		};
 
@@ -999,30 +1016,29 @@ namespace SharpConsoleUI.Controls
 			if (useBraille)
 			{
 				if (barHeight >= rowTopThreshold)
-					return BRAILLE_CHARS[4]; // Full
+					return BRAILLE_CHARS_INVERTED[4]; // Full
 				else if (barHeight > rowBottomThreshold)
 				{
 					double fraction = barHeight - rowBottomThreshold;
 					int charIndex = (int)Math.Round(fraction * 4);
-					// Invert the char index for top-down fill
-					return BRAILLE_CHARS[Math.Clamp(charIndex, 0, 4)];
+					// Use inverted braille chars for top-down fill
+					return BRAILLE_CHARS_INVERTED[Math.Clamp(charIndex, 0, 4)];
 				}
-				return BRAILLE_CHARS[0]; // Empty
+				return BRAILLE_CHARS_INVERTED[0]; // Empty
 			}
 			else
 			{
 				// For block mode, use upper block characters for downward bars
-				// ▀ (upper half block) and similar
 				if (barHeight >= rowTopThreshold)
-					return '█'; // Full
+					return VERTICAL_CHARS_INVERTED[8]; // Full
 				else if (barHeight > rowBottomThreshold)
 				{
 					double fraction = barHeight - rowBottomThreshold;
 					int charIndex = (int)Math.Round(fraction * 8);
-					// Use same vertical chars but the visual effect is top-down
-					return VERTICAL_CHARS[Math.Clamp(charIndex, 0, 8)];
+					// Use inverted vertical chars for top-down fill
+					return VERTICAL_CHARS_INVERTED[Math.Clamp(charIndex, 0, 8)];
 				}
-				return ' '; // Empty
+				return VERTICAL_CHARS_INVERTED[0]; // Empty
 			}
 		}
 
