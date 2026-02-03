@@ -13,6 +13,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Input;
 using SharpConsoleUI.Logging;
 using SharpConsoleUI.Plugins;
 using SharpConsoleUI.Configuration;
@@ -81,7 +82,7 @@ namespace SharpConsoleUI
 	/// The main window system that manages console windows, input processing, and rendering.
 	/// Provides window management, focus handling, theming, and event processing for console applications.
 	/// </summary>
-	public class ConsoleWindowSystem
+	public class ConsoleWindowSystem : IWindowSystemContext
 	{
 		private readonly Renderer _renderer;
 		private readonly object _renderLock = new();
@@ -146,6 +147,9 @@ namespace SharpConsoleUI
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
 
+		// Input coordination
+		private readonly InputCoordinator _inputCoordinator;
+
 		// Start menu system
 		private readonly List<StartMenuAction> _startMenuActions = new();
 		private Rectangle _topStatusBarBounds = Rectangle.Empty;
@@ -204,6 +208,14 @@ namespace SharpConsoleUI
 
 			// Initialize plugin state service
 			_pluginStateService = new PluginStateService(this, _logService, pluginConfiguration);
+
+			// Initialize input coordinator (handles all mouse and keyboard input)
+			_inputCoordinator = new InputCoordinator(
+				_consoleDriver,
+				_inputStateService,
+				_windowStateService,
+				_logService,
+				this);
 
 			// Provide log service to InvalidationManager for error logging
 			InvalidationManager.Instance.LogService = _logService;
@@ -679,6 +691,15 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Explicit interface implementation for IWindowSystemContext.CloseWindow.
+		/// Calls the full CloseWindow method with default parameters.
+		/// </summary>
+		bool IWindowSystemContext.CloseWindow(Window window)
+		{
+			return CloseWindow(window, activateParent: true, force: false);
+		}
+
+		/// <summary>
 		/// Clears a rectangular area with the desktop background
 		/// </summary>
 		public void ClearArea(int left, int top, int width, int height)
@@ -840,7 +861,7 @@ namespace SharpConsoleUI
 			{
 				_inputStateService.EnqueueKey(key);
 			};
-			_consoleDriver.KeyPressed += _keyPressedHandler;
+			// Handler registered later via InputCoordinator.RegisterEventHandlers()
 
 			_screenResizedHandler = (sender, size) =>
 			{
@@ -880,7 +901,8 @@ namespace SharpConsoleUI
 			};
 			_consoleDriver.ScreenResized += _screenResizedHandler;
 
-			_consoleDriver.MouseEvent += HandleMouseEvent;
+			// Register input coordinator event handlers
+			_inputCoordinator.RegisterEventHandlers(_keyPressedHandler);
 
 			// Start the console driver
 			_consoleDriver.Start();
@@ -895,7 +917,7 @@ namespace SharpConsoleUI
 				// Main loop
 				while (_running)
 				{
-					ProcessInput();
+					_inputCoordinator.ProcessInput();
 
 					var now = DateTime.UtcNow;
 					var elapsed = (now - _lastRenderTime).TotalMilliseconds;
@@ -1001,7 +1023,7 @@ namespace SharpConsoleUI
 			// Unsubscribe from console driver events to prevent memory leaks
 			if (_keyPressedHandler != null)
 			{
-				_consoleDriver.KeyPressed -= _keyPressedHandler;
+				_inputCoordinator.UnregisterEventHandlers(_keyPressedHandler);
 				_keyPressedHandler = null;
 			}
 
@@ -1010,8 +1032,6 @@ namespace SharpConsoleUI
 				_consoleDriver.ScreenResized -= _screenResizedHandler;
 				_screenResizedHandler = null;
 			}
-
-			_consoleDriver.MouseEvent -= HandleMouseEvent;
 		}
 
 		#region Start Menu API
@@ -1060,7 +1080,10 @@ namespace SharpConsoleUI
 			return $"[bold cyan]{text}[/] ";
 		}
 
-		private bool HandleStartMenuShortcut(ConsoleKeyInfo key)
+		/// <summary>
+		/// Handles start menu keyboard shortcut (Alt+key or configured shortcut).
+		/// </summary>
+		public bool HandleStartMenuShortcut(ConsoleKeyInfo key)
 		{
 			var options = _options.StatusBar;
 
@@ -1108,7 +1131,10 @@ namespace SharpConsoleUI
 			}
 		}
 
-		private bool HandleStatusBarMouseClick(int x, int y)
+		/// <summary>
+		/// Handles status bar mouse click (e.g., start button).
+		/// </summary>
+		public bool HandleStatusBarMouseClick(int x, int y)
 		{
 			// Check if click is on Start button
 			if (_startButtonBounds.Contains(x, y))
@@ -1128,7 +1154,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public void ProcessOnce()
 		{
-			ProcessInput();
+			_inputCoordinator.ProcessInput();
 			UpdateDisplay();
 			UpdateCursor();
 		}
@@ -1326,9 +1352,6 @@ namespace SharpConsoleUI
 			_windowsNeedingRegionUpdate.Add(w);
 		}
 	}
-
-
-
 	private void InvalidateExposedRegions(Window movedWindow, Rectangle oldBounds)
 	{
 		// BRUTE FORCE FIX: Instead of trying to render tiny exposed regions (which causes blanks),
@@ -1524,7 +1547,10 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Handles window clicks - activates inactive windows or propagates to active windows
 		/// </summary>
-		private void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
+		/// <summary>
+		/// Handles window click for activation and mouse event propagation.
+		/// </summary>
+		public void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
 		{
 			if (window != ActiveWindow)
 			{
@@ -1548,7 +1574,10 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Propagates mouse events to the specified window
 		/// </summary>
-		private void PropagateMouseEventToWindow(Window window, List<MouseFlags> flags, Point point)
+		/// <summary>
+		/// Propagates a mouse event to the specified window.
+		/// </summary>
+		public void PropagateMouseEventToWindow(Window window, List<MouseFlags> flags, Point point)
 		{
 			// Calculate window-relative coordinates
 			var windowPosition = TranslateToRelative(window, point);
@@ -1632,7 +1661,10 @@ namespace SharpConsoleUI
 				   $"[dim]DirtyChars:{_displayedDirtyChars}[/]";
 		}
 
-		private void CycleActiveWindow()
+		/// <summary>
+		/// Cycles to the next active window (Ctrl+T handler).
+		/// </summary>
+		public void CycleActiveWindow()
 		{
 			// Delegate to service - it handles window cycling and restoring minimized windows
 			_windowStateService.ActivateNextWindow();
@@ -1691,7 +1723,10 @@ namespace SharpConsoleUI
 			return targetWindow;
 		}
 
-		private Window? GetWindowAtPoint(Point point)
+		/// <summary>
+		/// Finds the topmost window at the specified point.
+		/// </summary>
+		public Window? GetWindowAtPoint(Point point)
 		{
 			List<Window> windows = Windows.Values
 				.Where(window =>
@@ -1730,7 +1765,10 @@ namespace SharpConsoleUI
 			return null;
 		}
 
-		private bool HandleAltInput(ConsoleKeyInfo key)
+		/// <summary>
+		/// Handles Alt+1-9 window selection by index.
+		/// </summary>
+		public bool HandleAltInput(ConsoleKeyInfo key)
 		{
 			bool handled = false;
 			if (key.KeyChar >= (char)ConsoleKey.D1 && key.KeyChar <= (char)ConsoleKey.D9)
@@ -1755,353 +1793,10 @@ namespace SharpConsoleUI
 			return handled;
 		}
 
-		private void HandleMouseEvent(object sender, List<MouseFlags> flags, Point point)
-		{
-			// Check for Start button click first
-			if (flags.Contains(MouseFlags.Button1Pressed))
-			{
-				if (HandleStatusBarMouseClick(point.X, point.Y))
-				{
-					return;
-				}
-			}
-
-			// Handle mouse button release first (end drag/resize) - highest priority
-			if (flags.Contains(MouseFlags.Button1Released))
-			{
-				if (IsDragging || IsResizing)
-				{
-					// Invalidate the window that was moved/resized for a final clean redraw
-					DragWindow?.Invalidate(true);
-
-					// End interaction via service
-					if (IsDragging)
-					{
-						_logService.LogDebug($"Drag ended: {DragWindow?.Title}", "Interaction");
-						_windowStateService.EndDrag();
-					}
-					else if (IsResizing)
-					{
-						_logService.LogDebug($"Resize ended: {DragWindow?.Title}", "Interaction");
-						_windowStateService.EndResize();
-					}
-
-					return;
-				}
-			}
-
-			// Handle mouse movement during drag/resize operations - second priority
-			if ((IsDragging || IsResizing) && DragWindow != null)
-			{
-				// Handle any mouse movement when in drag/resize mode
-				if (IsDragging)
-				{
-					HandleWindowMove(point);
-					return;
-				}
-				else if (IsResizing)
-				{
-					HandleWindowResize(point);
-					return;
-				}
-			}
-
-			// Handle mouse button press (start drag/resize) - third priority
-			if (flags.Contains(MouseFlags.Button1Pressed) && !IsDragging && !IsResizing)
-			{
-				var window = GetWindowAtPoint(point);
-				if (window != null)
-				{
-					// Activate the window if it's not already active
-					if (window != ActiveWindow)
-					{
-						SetActiveWindow(window);
-					}
-
-					// IMPORTANT: Check if clicking on an interactive control first
-					// Controls should have priority over resize/drag operations
-					var contentControl = window.GetContentFromWindowCoordinates(TranslateToRelative(window, point));
-					bool clickingOnControl = contentControl is Controls.IMouseAwareControl mouseAware
-											  && mouseAware.WantsMouseEvents;
-
-					// Only check resize/drag if NOT clicking on an interactive control
-					if (!clickingOnControl)
-					{
-						// Check if we're starting a resize operation
-						var resizeDirection = GetResizeDirection(window, point);
-						if (resizeDirection != ResizeDirection.None && window.IsResizable)
-						{
-							// Start resize via service
-							_logService.LogDebug($"Resize started: {window.Title} ({resizeDirection})", "Interaction");
-							_windowStateService.StartResize(window, resizeDirection, point);
-							return;
-						}
-
-						// Check if we're starting a move operation (title bar area)
-						if (IsInTitleBar(window, point) && window.IsMovable)
-						{
-							// Start drag via service
-							_logService.LogDebug($"Drag started: {window.Title}", "Interaction");
-							_windowStateService.StartDrag(window, point);
-							return;
-						}
-					}
-				}
-			}
-
-			// Handle mouse clicks for window activation and event propagation (when not dragging) - lowest priority
-			if (flags.Contains(MouseFlags.Button1Clicked) && !IsDragging && !IsResizing)
-			{
-				var window = GetWindowAtPoint(point);
-				if (window != null)
-				{
-					// Check if close button was clicked
-					if (IsOnCloseButton(window, point))
-					{
-						CloseWindow(window);
-						return;
-					}
-
-					// Check if maximize button was clicked
-					if (IsOnMaximizeButton(window, point))
-					{
-						if (window.State == WindowState.Maximized)
-						{
-							window.Restore();
-						}
-						else
-						{
-							window.Maximize();
-						}
-						return;
-					}
-
-					// Check if minimize button was clicked
-					if (IsOnMinimizeButton(window, point))
-					{
-						window.Minimize();
-						// If the minimized window was active, activate another window
-						if (ActiveWindow == window)
-						{
-							// Find the next highest z-index window that isn't minimized
-							var nextWindow = Windows.Values
-								.Where(w => w != window && w.State != WindowState.Minimized)
-								.OrderByDescending(w => w.ZIndex)
-								.FirstOrDefault();
-							if (nextWindow != null)
-							{
-								SetActiveWindow(nextWindow);
-							}
-							else
-							{
-								// No windows left - deactivate via service
-								_windowStateService.ActivateWindow(null);
-							}
-						}
-						return;
-					}
-
-					HandleWindowClick(window, flags, point);
-					return; // Event handled, prevent double-propagation
-				}
-				else
-				{
-					// Clicked on empty desktop background - deactivate active window
-					if (ActiveWindow != null)
-					{
-						ActiveWindow.SetIsActive(false);
-						ActiveWindow.Invalidate(true);
-						_windowStateService.ActivateWindow(null);
-					}
-				}
-			}
-
-			// Handle other mouse events for active window propagation
-			if (ActiveWindow != null && !IsDragging && !IsResizing)
-			{
-				// Check if mouse event is over the active window
-				var windowAtPoint = GetWindowAtPoint(point);
-
-				if (windowAtPoint == ActiveWindow)
-				{
-					// Propagate mouse event to the active window
-					PropagateMouseEventToWindow(ActiveWindow, flags, point);
-				}
-			}
-		}
-
-		private ResizeDirection GetResizeDirection(Window window, Point point)
-		{
-			// Borderless windows cannot be resized from borders
-			if (window.BorderStyle == BorderStyle.None)
-			{
-				return ResizeDirection.None;
-			}
-
-			// Convert to window-relative coordinates
-			var relativePoint = TranslateToRelative(window, point);
-			
-			// Define resize border thickness
-			const int borderThickness = 1;  // Border is exactly 1 row/column thick
-			const int cornerSize = 3; // Must match title bar corner exclusion
-			
-			// Check if point is within expanded window bounds for resize detection
-			if (relativePoint.X < -borderThickness || relativePoint.X >= window.Width + borderThickness ||
-				relativePoint.Y < -borderThickness || relativePoint.Y >= window.Height + borderThickness)
-			{
-				return ResizeDirection.None;
-			}
-
-			// IMPORTANT: Exclude title bar area (Y=0) from TOP resize detection to allow window moving
-			// Only allow top resize when NOT in the title bar row
-			bool onLeftBorder = relativePoint.X < borderThickness;
-			bool onRightBorder = relativePoint.X >= window.Width - borderThickness;
-			bool onTopBorder = relativePoint.Y < borderThickness && relativePoint.Y != 0; // Exclude title bar
-			bool onBottomBorder = relativePoint.Y >= window.Height - borderThickness;
-			
-			// For corner detection, only allow top corners when NOT in title bar center area
-			bool inTitleBarCorner = relativePoint.Y == 0 && 
-									   (relativePoint.X < cornerSize || relativePoint.X >= window.Width - cornerSize);
-
-			// Corner resize areas (only allow top corners in title bar corner zones)
-			if (relativePoint.Y == 0)
-			{
-				// In title bar row - only allow corner resize in the corner zones
-				if (inTitleBarCorner && onLeftBorder) return ResizeDirection.TopLeft;
-				if (inTitleBarCorner && onRightBorder) return ResizeDirection.TopRight;
-			}
-			else
-			{
-				// Not in title bar - allow all corner combinations
-				if (onTopBorder && onLeftBorder) return ResizeDirection.TopLeft;
-				if (onTopBorder && onRightBorder) return ResizeDirection.TopRight;
-			}
-			
-			// Bottom corners work normally
-			if (onBottomBorder && onLeftBorder) return ResizeDirection.BottomLeft;
-			if (onBottomBorder && onRightBorder) return ResizeDirection.BottomRight;
-
-			// Resize grip at bottom-right (width-2, height-1) also triggers BottomRight resize
-			if (IsOnResizeGrip(window, point)) return ResizeDirection.BottomRight;
-
-			// Edge resize areas
-			if (onTopBorder) return ResizeDirection.Top; // This won't trigger for Y=0 due to exclusion above
-			if (onBottomBorder) return ResizeDirection.Bottom;
-			if (onLeftBorder) return ResizeDirection.Left;
-			if (onRightBorder) return ResizeDirection.Right;
-
-			return ResizeDirection.None;
-		}
-
-		private bool IsInTitleBar(Window window, Point point)
-		{
-			// Borderless windows have no title bar
-			if (window.BorderStyle == BorderStyle.None)
-			{
-				return false;
-			}
-
-			var relativePoint = TranslateToRelative(window, point);
-
-			// Must be in the top row
-			if (relativePoint.Y != 0)
-				return false;
-
-			// Must be within window bounds
-			if (relativePoint.X < 0 || relativePoint.X >= window.Width)
-				return false;
-
-			// Exclude left corner for resize
-			const int cornerSize = 3;
-			if (relativePoint.X < cornerSize)
-				return false;
-
-			// Exclude button area on the right (close, maximize, minimize buttons + corner)
-			int closeButtonWidth = window.IsClosable ? 3 : 0;
-			int maximizeButtonWidth = window.IsMaximizable ? 3 : 0;
-			int minimizeButtonWidth = window.IsMinimizable ? 3 : 0;
-			int rightExcludeWidth = 1 + closeButtonWidth + maximizeButtonWidth + minimizeButtonWidth; // +1 for corner
-
-			if (relativePoint.X >= window.Width - rightExcludeWidth)
-				return false;
-
-			return true;
-		}
-
-		private bool IsOnCloseButton(Window window, Point point)
-		{
-			if (!window.IsClosable)
-				return false;
-
-			var relativePoint = TranslateToRelative(window, point);
-
-			// Top row only
-			if (relativePoint.Y != 0)
-				return false;
-
-			// Close button [X] is 3 characters wide, positioned just before the corner at (width-1)
-			// Button spans positions: (width-4), (width-3), (width-2)
-			int closeButtonStart = window.Width - 4;
-			int closeButtonEnd = window.Width - 2;
-
-			return relativePoint.X >= closeButtonStart && relativePoint.X <= closeButtonEnd;
-		}
-
-		private bool IsOnMaximizeButton(Window window, Point point)
-		{
-			if (!window.IsMaximizable)
-				return false;
-
-			var relativePoint = TranslateToRelative(window, point);
-
-			// Top row only
-			if (relativePoint.Y != 0)
-				return false;
-
-			// Calculate maximize button position
-			// Button order from right: corner(width-1), close[X](3 chars if present), maximize[+](3 chars), minimize[_]
-			int closeButtonWidth = window.IsClosable ? 3 : 0;
-			int maximizeButtonEnd = window.Width - 2 - closeButtonWidth;
-			int maximizeButtonStart = maximizeButtonEnd - 2;
-
-			return relativePoint.X >= maximizeButtonStart && relativePoint.X <= maximizeButtonEnd;
-		}
-
-		private bool IsOnMinimizeButton(Window window, Point point)
-		{
-			if (!window.IsMinimizable)
-				return false;
-
-			var relativePoint = TranslateToRelative(window, point);
-
-			// Top row only
-			if (relativePoint.Y != 0)
-				return false;
-
-			// Calculate minimize button position
-			// Button order from right: corner(width-1), close[X](3 chars if present), maximize[+](3 chars if present), minimize[_](3 chars)
-			int closeButtonWidth = window.IsClosable ? 3 : 0;
-			int maximizeButtonWidth = window.IsMaximizable ? 3 : 0;
-			int minimizeButtonEnd = window.Width - 2 - closeButtonWidth - maximizeButtonWidth;
-			int minimizeButtonStart = minimizeButtonEnd - 2;
-
-			return relativePoint.X >= minimizeButtonStart && relativePoint.X <= minimizeButtonEnd;
-		}
-
-		private bool IsOnResizeGrip(Window window, Point point)
-		{
-			if (!window.IsResizable)
-				return false;
-
-			var relativePoint = TranslateToRelative(window, point);
-
-			// Resize grip is at the bottom-right corner, position (width-1, height-1)
-			return relativePoint.Y == window.Height - 1 && relativePoint.X == window.Width - 1;
-		}
 		/// <summary>
 		/// Moves a window to a new position with proper invalidation (used by both mouse and keyboard moves)
 		/// </summary>
-		private void MoveWindowTo(Window window, int newLeft, int newTop)
+		public void MoveWindowTo(Window window, int newLeft, int newTop)
 		{
 			if (window == null) return;
 
@@ -2118,205 +1813,6 @@ namespace SharpConsoleUI
 			// Invalidate windows that were underneath (now exposed)
 			InvalidateExposedRegions(window, oldBounds);
 		}
-
-
-		private void HandleWindowMove(Point currentMousePos)
-		{
-			var dragState = _windowStateService.CurrentDrag;
-			if (dragState == null) return;
-
-			var window = dragState.Window;
-
-
-			// Calculate the offset from the start position
-			int deltaX = currentMousePos.X - dragState.StartMousePos.X;
-			int deltaY = currentMousePos.Y - dragState.StartMousePos.Y;
-
-			// Calculate new position
-			int newLeft = dragState.StartWindowPos.X + deltaX;
-			int newTop = dragState.StartWindowPos.Y + deltaY;
-
-			// Constrain to desktop bounds (window positions are desktop-relative, not screen-absolute)
-			newLeft = Math.Max(0, Math.Min(newLeft, DesktopDimensions.Width - window.Width));
-			newTop = Math.Max(0, Math.Min(newTop, DesktopDimensions.Height - window.Height));
-
-
-			MoveWindowTo(window, newLeft, newTop);
-		}
-
-		private void HandleWindowResize(Point currentMousePos)
-		{
-			var resizeState = _windowStateService.CurrentResize;
-			if (resizeState == null) return;
-
-			var window = resizeState.Window;
-
-			// Store the current window bounds before resizing
-			var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
-
-			// Calculate the offset from the start position
-			int deltaX = currentMousePos.X - resizeState.StartMousePos.X;
-			int deltaY = currentMousePos.Y - resizeState.StartMousePos.Y;
-
-			// Calculate new position and size based on resize direction
-			int newLeft = resizeState.StartWindowPos.X;
-			int newTop = resizeState.StartWindowPos.Y;
-			int newWidth = resizeState.StartWindowSize.Width;
-			int newHeight = resizeState.StartWindowSize.Height;
-
-			switch (resizeState.Direction)
-			{
-				case ResizeDirection.Top:
-					newTop = resizeState.StartWindowPos.Y + deltaY;
-					newHeight = resizeState.StartWindowSize.Height - deltaY;
-					break;
-
-				case ResizeDirection.Bottom:
-					newHeight = resizeState.StartWindowSize.Height + deltaY;
-					break;
-
-				case ResizeDirection.Left:
-					newLeft = resizeState.StartWindowPos.X + deltaX;
-					newWidth = resizeState.StartWindowSize.Width - deltaX;
-					break;
-
-				case ResizeDirection.Right:
-					newWidth = resizeState.StartWindowSize.Width + deltaX;
-					break;
-
-				case ResizeDirection.TopLeft:
-					newLeft = resizeState.StartWindowPos.X + deltaX;
-					newTop = resizeState.StartWindowPos.Y + deltaY;
-					newWidth = resizeState.StartWindowSize.Width - deltaX;
-					newHeight = resizeState.StartWindowSize.Height - deltaY;
-					break;
-
-				case ResizeDirection.TopRight:
-					newTop = resizeState.StartWindowPos.Y + deltaY;
-					newWidth = resizeState.StartWindowSize.Width + deltaX;
-					newHeight = resizeState.StartWindowSize.Height - deltaY;
-					break;
-
-				case ResizeDirection.BottomLeft:
-					newLeft = resizeState.StartWindowPos.X + deltaX;
-					newWidth = resizeState.StartWindowSize.Width - deltaX;
-					newHeight = resizeState.StartWindowSize.Height + deltaY;
-					break;
-
-				case ResizeDirection.BottomRight:
-					newWidth = resizeState.StartWindowSize.Width + deltaX;
-					newHeight = resizeState.StartWindowSize.Height + deltaY;
-					break;
-			}
-
-			// Constrain to minimum/maximum sizes and desktop bounds
-			newWidth = Math.Max(10, newWidth); // Minimum width
-			newHeight = Math.Max(3, newHeight); // Minimum height
-
-			// Constrain to desktop bounds (window positions are desktop-relative, not screen-absolute)
-			newLeft = Math.Max(0, Math.Min(newLeft, DesktopDimensions.Width - newWidth));
-			newTop = Math.Max(0, Math.Min(newTop, DesktopDimensions.Height - newHeight));
-
-			// Ensure the window doesn't resize beyond desktop bounds
-			newWidth = Math.Min(newWidth, DesktopDimensions.Width - newLeft);
-			newHeight = Math.Min(newHeight, DesktopDimensions.Height - newTop);
-
-			// Only update if position or size actually changed
-			if (newLeft != window.Left || newTop != window.Top ||
-				newWidth != window.Width || newHeight != window.Height)
-			{
-			// Add old bounds to pending clears (will be cleared atomically in UpdateDisplay)
-			_pendingDesktopClears.Add(oldBounds);
-
-			// Apply the new position and size
-				window.SetPosition(new Point(newLeft, newTop));
-				window.SetSize(newWidth, newHeight);
-
-				// OPTIMIZATION: Don't invalidate during resize - keep using cached content
-				// Only mark for region update (clipping recalculation)
-				_windowsNeedingRegionUpdate.Add(window);
-
-				// Mark overlapping windows for region update (their visibleRegions changed)
-				AddOverlappingWindowsForRegionUpdate(window);
-
-				// And invalidate exposed regions to redraw any windows that were underneath
-				InvalidateExposedRegions(window, oldBounds);
-			}
-		}
-
-		private bool HandleMoveInput(ConsoleKeyInfo key)
-		{
-			bool handled = false;
-			switch (key.Key)
-			{
-				case ConsoleKey.UpArrow:
-					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Up);
-					if (ActiveWindow != null) MoveWindowTo(ActiveWindow, ActiveWindow.Left, Math.Max(0, ActiveWindow.Top - 1));
-					handled = true;
-					break;
-
-				case ConsoleKey.DownArrow:
-					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Down);
-					if (ActiveWindow != null) MoveWindowTo(ActiveWindow, ActiveWindow.Left, Math.Min(DesktopDimensions.Height - ActiveWindow.Height, ActiveWindow.Top + 1));
-					handled = true;
-					break;
-
-				case ConsoleKey.LeftArrow:
-					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Left);
-					if (ActiveWindow != null) MoveWindowTo(ActiveWindow, Math.Max(0, ActiveWindow.Left - 1), ActiveWindow.Top);
-					handled = true;
-					break;
-
-				case ConsoleKey.RightArrow:
-					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Right);
-					if (ActiveWindow != null) MoveWindowTo(ActiveWindow, Math.Min(DesktopDimensions.Width - ActiveWindow.Width, ActiveWindow.Left + 1), ActiveWindow.Top);
-					handled = true;
-					break;
-
-				case ConsoleKey.X:
-					if (ActiveWindow?.IsClosable ?? false)
-					{
-						CloseWindow(ActiveWindow);
-					}
-					handled = true;
-					break;
-			}
-			return handled;
-		}
-
-		private bool HandleResizeInput(ConsoleKeyInfo key)
-		{
-			bool handled = false;
-			switch (key.Key)
-			{
-				case ConsoleKey.UpArrow:
-					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Resize, Direction.Up);
-					ActiveWindow?.SetSize(ActiveWindow.Width, Math.Max(1, ActiveWindow.Height - 1));
-					handled = true;
-					break;
-
-				case ConsoleKey.DownArrow:
-					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Resize, Direction.Down);
-					ActiveWindow?.SetSize(ActiveWindow.Width, Math.Min(DesktopDimensions.Height - ActiveWindow.Top, ActiveWindow.Height + 1));
-					handled = true;
-					break;
-
-				case ConsoleKey.LeftArrow:
-					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Left);
-					ActiveWindow?.SetSize(Math.Max(1, ActiveWindow.Width - 1), ActiveWindow.Height);
-					handled = true;
-					break;
-
-				case ConsoleKey.RightArrow:
-					MoveOrResizeOperation(ActiveWindow, WindowTopologyAction.Move, Direction.Right);
-					ActiveWindow?.SetSize(Math.Min(DesktopDimensions.Width - ActiveWindow.Left, ActiveWindow.Width + 1), ActiveWindow.Height);
-					handled = true;
-					break;
-			}
-
-			return handled;
-		}
-
 		// Helper method to check if a window is a child of another
 		private bool IsChildWindow(Window potentialChild, Window potentialParent)
 		{
@@ -2428,50 +1924,6 @@ namespace SharpConsoleUI
 			InvalidateCoverageCache();
 		}
 
-		private void ProcessInput()
-		{
-			ConsoleKeyInfo? key;
-			while ((key = _inputStateService.DequeueKey()) != null)
-			{
-				var keyInfo = key.Value;
-
-				// Check for Start menu shortcut first
-				if (HandleStartMenuShortcut(keyInfo))
-				{
-					continue;
-				}
-
-				if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && keyInfo.Key == ConsoleKey.T)
-				{
-					CycleActiveWindow();
-				}
-				else if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && keyInfo.Key == ConsoleKey.Q)
-				{
-					_exitCode = 0;
-					_running = false;
-				}
-				else if (ActiveWindow != null)
-				{
-					bool handled = ActiveWindow.ProcessInput(keyInfo);
-
-					if (!handled)
-					{
-						if ((keyInfo.Modifiers & ConsoleModifiers.Shift) != 0 && ActiveWindow.IsResizable)
-						{
-							handled = HandleResizeInput(keyInfo);
-						}
-						else if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && ActiveWindow.IsMovable)
-						{
-							handled = HandleMoveInput(keyInfo);
-						}
-						else if ((keyInfo.Modifiers & ConsoleModifiers.Alt) != 0)
-						{
-							handled = HandleAltInput(keyInfo);
-						}
-					}
-				}
-			}
-		}
 
 		private void UpdateCursor()
 		{
@@ -2836,6 +2288,120 @@ namespace SharpConsoleUI
 			_windowsNeedingRegionUpdate.Clear();
 			_consoleDriver.Flush();
 		}
+
+
+	#region IWindowSystemContext Implementation - Additional Methods
+
+	/// <summary>
+	/// Moves the specified window by a relative delta.
+	/// </summary>
+	public void MoveWindowBy(Window window, int deltaX, int deltaY)
+	{
+		if (window == null) return;
+
+		int newLeft = window.Left + deltaX;
+		int newTop = window.Top + deltaY;
+
+		// Constrain to desktop bounds
+		newLeft = Math.Max(0, Math.Min(newLeft, DesktopDimensions.Width - window.Width));
+		newTop = Math.Max(0, Math.Min(newTop, DesktopDimensions.Height - window.Height));
+
+		MoveWindowTo(window, newLeft, newTop);
+	}
+
+	/// <summary>
+	/// Resizes the specified window to a new size and position.
+	/// </summary>
+	public void ResizeWindowTo(Window window, int newLeft, int newTop, int newWidth, int newHeight)
+	{
+		if (window == null) return;
+
+		// Store the current window bounds before resizing
+		var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
+
+		// Constrain to minimum/maximum sizes and desktop bounds
+		newWidth = Math.Max(10, newWidth); // Minimum width
+		newHeight = Math.Max(3, newHeight); // Minimum height
+
+		// Constrain to desktop bounds
+		newLeft = Math.Max(0, Math.Min(newLeft, DesktopDimensions.Width - newWidth));
+		newTop = Math.Max(0, Math.Min(newTop, DesktopDimensions.Height - newHeight));
+
+		// Ensure the window doesn't resize beyond desktop bounds
+		newWidth = Math.Min(newWidth, DesktopDimensions.Width - newLeft);
+		newHeight = Math.Min(newHeight, DesktopDimensions.Height - newTop);
+
+		// Only update if position or size actually changed
+		if (newLeft != window.Left || newTop != window.Top ||
+			newWidth != window.Width || newHeight != window.Height)
+		{
+			// Add old bounds to pending clears
+			_pendingDesktopClears.Add(oldBounds);
+
+			// Apply the new position and size
+			window.SetPosition(new Point(newLeft, newTop));
+			window.SetSize(newWidth, newHeight);
+			window.Invalidate(true);
+
+			// Invalidate windows that were underneath (now exposed)
+			InvalidateExposedRegions(window, oldBounds);
+		}
+	}
+
+	/// <summary>
+	/// Resizes the specified window by a relative delta.
+	/// </summary>
+	public void ResizeWindowBy(Window window, int deltaWidth, int deltaHeight)
+	{
+		if (window == null) return;
+
+		int newWidth = window.Width + deltaWidth;
+		int newHeight = window.Height + deltaHeight;
+
+		ResizeWindowTo(window, window.Left, window.Top, newWidth, newHeight);
+	}
+
+	/// <summary>
+	/// Requests the window system to exit with the specified exit code.
+	/// </summary>
+	public void RequestExit(int exitCode)
+	{
+		_exitCode = exitCode;
+		_running = false;
+	}
+
+	/// <summary>
+	/// Activates the next non-minimized window after the specified window is minimized.
+	/// </summary>
+	public void ActivateNextNonMinimizedWindow(Window minimizedWindow)
+	{
+		if (minimizedWindow == null) return;
+
+		// Find the next non-minimized window to activate
+		var nextWindow = Windows.Values
+			.Where(w => w != minimizedWindow && w.State != WindowState.Minimized)
+			.OrderByDescending(w => w.ZIndex)
+			.FirstOrDefault();
+
+		if (nextWindow != null)
+		{
+			SetActiveWindow(nextWindow);
+		}
+	}
+
+	/// <summary>
+	/// Deactivates the current active window (e.g., when clicking on empty desktop).
+	/// </summary>
+	public void DeactivateCurrentWindow()
+	{
+		if (ActiveWindow != null)
+		{
+			ActiveWindow.SetIsActive(false);
+			ActiveWindow.Invalidate(true);
+		}
+	}
+
+	#endregion
 
 	}
 }
