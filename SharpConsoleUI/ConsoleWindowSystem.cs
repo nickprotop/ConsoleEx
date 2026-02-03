@@ -30,56 +30,6 @@ using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI
 {
-	/// <summary>
-	/// Specifies the direction of movement or navigation.
-	/// </summary>
-	public enum Direction
-	{
-		/// <summary>Upward direction.</summary>
-		Up,
-		/// <summary>Downward direction.</summary>
-		Down,
-		/// <summary>Leftward direction.</summary>
-		Left,
-		/// <summary>Rightward direction.</summary>
-		Right
-	}
-
-	/// <summary>
-	/// Specifies the type of window topology operation.
-	/// </summary>
-	public enum WindowTopologyAction
-	{
-		/// <summary>Resize the window.</summary>
-		Resize,
-		/// <summary>Move the window.</summary>
-		Move
-	}
-
-	/// <summary>
-	/// Specifies the direction from which a window is being resized.
-	/// </summary>
-	public enum ResizeDirection
-	{
-		/// <summary>No resize operation.</summary>
-		None,
-		/// <summary>Resize from the top edge.</summary>
-		Top,
-		/// <summary>Resize from the bottom edge.</summary>
-		Bottom,
-		/// <summary>Resize from the left edge.</summary>
-		Left,
-		/// <summary>Resize from the right edge.</summary>
-		Right,
-		/// <summary>Resize from the top-left corner.</summary>
-		TopLeft,
-		/// <summary>Resize from the top-right corner.</summary>
-		TopRight,
-		/// <summary>Resize from the bottom-left corner.</summary>
-		BottomLeft,
-		/// <summary>Resize from the bottom-right corner.</summary>
-		BottomRight
-	}
 
 	/// <summary>
 	/// The main window system that manages console windows, input processing, and rendering.
@@ -611,7 +561,7 @@ namespace SharpConsoleUI
 			{
 				var windowRect = new Rectangle(window.Left, window.Top, window.Width, window.Height);
 				var clearRect = new Rectangle(left, top, width, height);
-				if (DoesRectangleIntersect(windowRect, clearRect))
+				if (GeometryHelpers.DoesRectangleIntersect(windowRect, clearRect))
 				{
 					window.Invalidate(true);
 				}
@@ -1187,7 +1137,7 @@ namespace SharpConsoleUI
 				continue; // Only invalidate windows that were underneath
 
 			// Check if this window overlaps with the OLD position
-			if (DoesRectangleOverlapWindow(oldBounds, window))
+			if (GeometryHelpers.DoesRectangleOverlapWindow(oldBounds, window))
 			{
 				window.Invalidate(true);
 			}
@@ -1195,35 +1145,7 @@ namespace SharpConsoleUI
 	}
 
 		/// <summary>
-		/// Optimize exposed regions by merging small adjacent rectangles
-		/// </summary>
-		private List<Rectangle> OptimizeExposedRegions(List<Rectangle> regions)
-		{
-			// For now, just return the original regions
-			// Could be enhanced later to merge adjacent rectangles
-			return regions.Where(r => r.Width > 0 && r.Height > 0).ToList();
-		}
-
 		/// <summary>
-		/// Calculate regions that were covered by oldBounds but are not covered by newBounds
-		/// </summary>
-		private List<Rectangle> CalculateExposedRegions(Rectangle oldBounds, Rectangle newBounds)
-		{
-			// If the old and new bounds are the same, no exposed regions
-			if (oldBounds.Equals(newBounds))
-				return new List<Rectangle>();
-			
-			// If there's no overlap between old and new, the entire old bounds is exposed
-			if (!DoesRectangleIntersect(oldBounds, newBounds))
-				return new List<Rectangle> { oldBounds };
-			
-			// Start with the old bounds
-			var regions = new List<Rectangle> { oldBounds };
-			
-			// Subtract the new bounds from the old bounds to get exposed areas
-			return SubtractRectangleFromRegions(regions, newBounds);
-		}
-
 		/// <summary>
 		/// Redraw a specific exposed region by finding what should be visible there
 		/// </summary>
@@ -1232,7 +1154,7 @@ namespace SharpConsoleUI
 			// Find all windows that could be visible in this region (with lower Z-index than the moved window)
 			var candidateWindows = Windows.Values
 				.Where(w => w.ZIndex < movedWindowZIndex) // Only windows that were underneath
-				.Where(w => DoesRectangleOverlapWindow(exposedRegion, w))
+				.Where(w => GeometryHelpers.DoesRectangleOverlapWindow(exposedRegion, w))
 				.OrderBy(w => w.ZIndex) // Process in Z-order (bottom to top)
 				.ToList();
 
@@ -1243,7 +1165,7 @@ namespace SharpConsoleUI
 			// Redraw each candidate window in the exposed region (in Z-order)
 			foreach (var candidateWindow in candidateWindows)
 			{
-				var intersection = GetRectangleIntersection(exposedRegion,
+				var intersection = GeometryHelpers.GetRectangleIntersection(exposedRegion,
 					new Rectangle(candidateWindow.Left, candidateWindow.Top, candidateWindow.Width, candidateWindow.Height));
 				
 				if (!intersection.IsEmpty)
@@ -1255,7 +1177,7 @@ namespace SharpConsoleUI
 						.ToList();
 
 					// Calculate which parts of the intersection are not covered by windows above
-					var uncoveredRegions = CalculateUncoveredRegions(intersection, windowsAbove);
+					var uncoveredRegions = GeometryHelpers.CalculateUncoveredRegions(intersection, windowsAbove);
 
 					// Render only the uncovered parts of this window
 					foreach (var uncoveredRegion in uncoveredRegions)
@@ -1268,102 +1190,9 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Helper method to check if a rectangle overlaps with a window
-		/// </summary>
-		private bool DoesRectangleOverlapWindow(Rectangle rect, Window window)
-		{
-			return rect.X < window.Left + window.Width &&
-				   rect.X + rect.Width > window.Left &&
-				   rect.Y < window.Top + window.Height &&
-				   rect.Y + rect.Height > window.Top;
-		}
-
 		/// <summary>
-		/// Subtract a rectangle from a list of regions, similar to VisibleRegions.SubtractRectangle but simpler
-		/// </summary>
-		private List<Rectangle> SubtractRectangleFromRegions(List<Rectangle> regions, Rectangle subtract)
-		{
-			var result = new List<Rectangle>();
-
-			foreach (var region in regions)
-			{
-				// If regions don't intersect, keep the original region
-				if (!DoesRectangleIntersect(region, subtract))
-				{
-					result.Add(region);
-					continue;
-				}
-
-				// Calculate the intersection
-				var intersection = GetRectangleIntersection(region, subtract);
-
-				// If region is completely covered, skip it
-				if (intersection.Width == region.Width && intersection.Height == region.Height)
-				{
-					continue;
-				}
-
-				// Split the region into up to 4 sub-regions around the intersection
-
-				// Region above the intersection
-				if (intersection.Y > region.Y)
-				{
-					result.Add(new Rectangle(region.X, region.Y, region.Width, intersection.Y - region.Y));
-				}
-
-				// Region below the intersection
-				if (intersection.Y + intersection.Height < region.Y + region.Height)
-				{
-					result.Add(new Rectangle(region.X, intersection.Y + intersection.Height, region.Width,
-						region.Y + region.Height - (intersection.Y + intersection.Height)));
-				}
-
-				// Region to the left of the intersection
-				if (intersection.X > region.X)
-				{
-					result.Add(new Rectangle(region.X, intersection.Y, intersection.X - region.X, intersection.Height));
-				}
-
-				// Region to the right of the intersection
-				if (intersection.X + intersection.Width < region.X + region.Width)
-				{
-					result.Add(new Rectangle(intersection.X + intersection.Width, intersection.Y,
-						region.X + region.Width - (intersection.X + intersection.Width), intersection.Height));
-				}
-			}
-
-			return result;
-		}
-
 		/// <summary>
-		/// Helper method to check if two rectangles intersect
-		/// </summary>
-		private bool DoesRectangleIntersect(Rectangle rect1, Rectangle rect2)
-		{
-			return rect1.X < rect2.X + rect2.Width &&
-				   rect1.X + rect1.Width > rect2.X &&
-				   rect1.Y < rect2.Y + rect2.Height &&
-				   rect1.Y + rect1.Height > rect2.Y;
-		}
-
 		/// <summary>
-		/// Calculate which parts of a region are not covered by a list of windows
-		/// </summary>
-		private List<Rectangle> CalculateUncoveredRegions(Rectangle region, List<Window> coveringWindows)
-		{
-			// Start with the entire region
-			var regions = new List<Rectangle> { region };
-
-			// Subtract each covering window's area
-			foreach (var window in coveringWindows)
-			{
-				var windowRect = new Rectangle(window.Left, window.Top, window.Width, window.Height);
-				regions = SubtractRectangleFromRegions(regions, windowRect);
-			}
-
-			return regions;
-		}
-
 		/// <summary>
 		/// Handles window clicks - activates inactive windows or propagates to active windows
 		/// </summary>
@@ -1416,21 +1245,6 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Helper method to calculate intersection of two rectangles
-		/// </summary>
-		private Rectangle GetRectangleIntersection(Rectangle rect1, Rectangle rect2)
-		{
-			int left = Math.Max(rect1.X, rect2.X);
-			int top = Math.Max(rect1.Y, rect2.Y);
-			int right = Math.Min(rect1.X + rect1.Width, rect2.X + rect2.Width);
-			int bottom = Math.Min(rect1.Y + rect1.Height, rect2.Y + rect2.Height);
-
-			if (left < right && top < bottom)
-				return new Rectangle(left, top, right - left, bottom - top);
-			else
-				return Rectangle.Empty;
-		}
-
 
 		private bool AnyWindowDirty()
 		{
@@ -1450,103 +1264,16 @@ namespace SharpConsoleUI
 			_windowStateService.ActivateNextWindow();
 		}
 
-		// Helper method to find the deepest modal child window with the highest Z-index
-		private Window? FindDeepestModalChild(Window window)
-		{
-			// Get all direct modal children of the window, ordered by Z-index (highest first)
-			var modalChildren = Windows.Values
-				.Where(w => w.ParentWindow == window && w.Mode == WindowMode.Modal)
-				.OrderByDescending(w => w.ZIndex)
-				.ToList();
+	/// <summary>
+	/// Finds the topmost window at the specified point.
+	/// </summary>
+	/// <param name="point">The point in absolute screen coordinates.</param>
+	/// <returns>The topmost window at the point, or null if none found.</returns>
+	public Window? GetWindowAtPoint(Point point)
+	{
+		return WindowQueryHelper.GetWindowAtPoint(point, this);
+	}
 
-			// If no direct modal children, return null
-			if (modalChildren.Count == 0)
-			{
-				return null;
-			}
-
-			// Take the highest Z-index modal child
-			Window highestModalChild = modalChildren.First();
-
-			// Check if this modal child itself has modal children
-			Window? deeperModalChild = FindDeepestModalChild(highestModalChild);
-
-			// If deeper modal child found, return it, otherwise return the highest modal child
-			return deeperModalChild ?? highestModalChild;
-		}
-
-		// Helper method to find the appropriate window to activate based on modality rules
-		private Window FindWindowToActivate(Window targetWindow)
-		{
-			// First, check if there's already an active modal child - prioritize it
-			var activeModalChild = Windows.Values
-				.Where(w => w.ParentWindow == targetWindow && w.Mode == WindowMode.Modal && w.GetIsActive())
-				.FirstOrDefault();
-
-			if (activeModalChild != null)
-			{
-				// Found an already active modal child, prioritize it
-				FlashWindow(activeModalChild);
-				return FindWindowToActivate(activeModalChild); // Recursively check if this active modal has active modal children
-			}
-
-			// No already active modal child, check for any modal children
-			var modalChild = FindDeepestModalChild(targetWindow);
-			if (modalChild != null)
-			{
-				// Found a modal child, activate it instead
-				FlashWindow(modalChild);
-				return modalChild;
-			}
-
-			// No modal children, return the target window itself
-			return targetWindow;
-		}
-
-		/// <summary>
-		/// Finds the topmost window at the specified point.
-		/// </summary>
-		public Window? GetWindowAtPoint(Point point)
-		{
-			List<Window> windows = Windows.Values
-				.Where(window =>
-					point.X >= window.Left &&
-					point.X < window.Left + window.Width &&
-					point.Y - DesktopUpperLeft.Y >= window.Top &&
-					point.Y - DesktopUpperLeft.Y < window.Top + window.Height)
-				.OrderBy(window => window.ZIndex).ToList();
-
-			// Iterate from topmost (highest ZIndex) to bottom
-			// Return the first window that doesn't have a child at this point
-			for (int i = windows.Count - 1; i >= 0; i--)
-			{
-				var window = windows[i];
-
-				// Check if any higher-ZIndex window in the list is a child of this window
-				bool hasChildAtPoint = false;
-				for (int j = i + 1; j < windows.Count; j++)
-				{
-					var higherWindow = windows[j];
-
-					// Check if this higher window is a modal child of current window
-					if (higherWindow.Mode == WindowMode.Modal && higherWindow.ParentWindow == window)
-					{
-						hasChildAtPoint = true;
-						break;
-					}
-				}
-
-				if (!hasChildAtPoint)
-				{
-					return window;
-				}
-			}
-
-			return null;
-		}
-
-		/// <summary>
-		/// Handles Alt+1-9 window selection by index.
 		/// </summary>
 		public bool HandleAltInput(ConsoleKeyInfo key)
 		{
@@ -1580,19 +1307,6 @@ namespace SharpConsoleUI
 		{
 			_windowPositioningManager.MoveWindowTo(window, newLeft, newTop);
 		}
-		// Helper method to check if a window is a child of another
-		private bool IsChildWindow(Window potentialChild, Window potentialParent)
-		{
-			Window? current = potentialChild;
-			while (current?.ParentWindow != null)
-			{
-				if (current.ParentWindow.Equals(potentialParent))
-					return true;
-				current = current.ParentWindow;
-			}
-			return false;
-		}
-
 		/// <summary>
 		/// Invalidates the coverage cache for a specific window or all windows.
 		/// Called when window positions, sizes, or Z-order changes.

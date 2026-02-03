@@ -177,10 +177,10 @@ namespace SharpConsoleUI.Windows
 				if (w.State == WindowState.Minimized)
 					continue;
 
-				if (w != window && DoesRectangleOverlapWindow(oldBounds, w))
+				if (w != window && GeometryHelpers.DoesRectangleOverlapWindow(oldBounds, w))
 				{
 					// Redraw the parts of underlying windows that were covered
-					var intersection = GetRectangleIntersection(oldBounds,
+					var intersection = GeometryHelpers.GetRectangleIntersection(oldBounds,
 						new Rectangle(w.Left, w.Top, w.Width, w.Height));
 
 					if (!intersection.IsEmpty)
@@ -219,45 +219,13 @@ namespace SharpConsoleUI.Windows
 					continue; // Only invalidate windows that were underneath
 
 				// Check if this window overlaps with the OLD position
-				if (DoesRectangleOverlapWindow(oldBounds, window))
+				if (GeometryHelpers.DoesRectangleOverlapWindow(oldBounds, window))
 				{
 					window.Invalidate(true);
 				}
 			}
 		}
 
-		/// <summary>
-		/// Checks if a rectangle overlaps with a window.
-		/// </summary>
-		/// <param name="rect">The rectangle to check.</param>
-		/// <param name="window">The window to check against.</param>
-		/// <returns>True if the rectangle overlaps the window; false otherwise.</returns>
-		private bool DoesRectangleOverlapWindow(Rectangle rect, Window window)
-		{
-			return rect.X < window.Left + window.Width &&
-				   rect.X + rect.Width > window.Left &&
-				   rect.Y < window.Top + window.Height &&
-				   rect.Y + rect.Height > window.Top;
-		}
-
-		/// <summary>
-		/// Calculates the intersection of two rectangles.
-		/// </summary>
-		/// <param name="rect1">The first rectangle.</param>
-		/// <param name="rect2">The second rectangle.</param>
-		/// <returns>The intersection rectangle, or Rectangle.Empty if no intersection.</returns>
-		private Rectangle GetRectangleIntersection(Rectangle rect1, Rectangle rect2)
-		{
-			int left = Math.Max(rect1.X, rect2.X);
-			int top = Math.Max(rect1.Y, rect2.Y);
-			int right = Math.Min(rect1.X + rect1.Width, rect2.X + rect2.Width);
-			int bottom = Math.Min(rect1.Y + rect1.Height, rect2.Y + rect2.Height);
-
-			if (left < right && top < bottom)
-				return new Rectangle(left, top, right - left, bottom - top);
-			else
-				return Rectangle.Empty;
-		}
 
 		#endregion
 	}
