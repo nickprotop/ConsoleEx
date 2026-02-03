@@ -20,6 +20,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Windows;
 using SharpConsoleUI.Models;
 using SharpConsoleUI.Rendering;
+using SharpConsoleUI.Performance;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -107,12 +108,10 @@ namespace SharpConsoleUI
 
 		// Frame rate limiting (configured via ConsoleWindowSystemOptions)
 		private DateTime _lastRenderTime = DateTime.UtcNow;
-		private DateTime _lastFrameTime = DateTime.UtcNow;
 
-		// Performance metrics tracking - now delegated to RenderCoordinator
+		// Performance metrics tracking - delegated to PerformanceTracker
 		private ConsoleWindowSystemOptions _options;
-		private int _metricsUpdateCounter = 0;
-		private const int MetricsUpdateInterval = 15; // Update display every 15 frames (~250ms at 60fps)
+		private readonly PerformanceTracker _performanceTracker;
 
 		// Event handlers stored for proper cleanup
 		private EventHandler<ConsoleKeyInfo>? _keyPressedHandler;
@@ -215,14 +214,18 @@ namespace SharpConsoleUI
 			// Initialize the renderer
 			_renderer = new Renderer(this);
 
-			// Initialize render coordinator (needs renderer and other services)
+			// Initialize performance tracker (tracks frame timing and metrics)
+			_performanceTracker = new PerformanceTracker();
+
+			// Initialize render coordinator (needs renderer, performance tracker, and other services)
 			_renderCoordinator = new RenderCoordinator(
 				_consoleDriver,
 				_renderer,
 				_windowStateService,
 				_logService,
 				this,
-				_options);
+				_options,
+				_performanceTracker);
 
 			// NOW initialize driver with 'this' reference (after services exist)
 			_consoleDriver.Initialize(this);
@@ -813,17 +816,17 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the current actual frame time in milliseconds.
 		/// </summary>
-		public double GetCurrentFrameTime() => _renderCoordinator.CurrentFrameTimeMs;
+		public double GetCurrentFrameTime() => _performanceTracker.CurrentFrameTimeMs;
 
 		/// <summary>
 		/// Gets the current actual FPS based on frame time.
 		/// </summary>
-		public double GetCurrentFPS() => _renderCoordinator.CurrentFPS;
+		public double GetCurrentFPS() => _performanceTracker.CurrentFPS;
 
 		/// <summary>
 		/// Gets the number of dirty characters (changed cells) in the last frame.
 		/// </summary>
-		public int GetDirtyCharCount() => _renderCoordinator.CurrentDirtyChars;
+		public int GetDirtyCharCount() => _performanceTracker.CurrentDirtyChars;
 
 		/// <summary>
 		/// Starts the main event loop of the window system. Blocks until <see cref="Shutdown"/> is called.
@@ -904,17 +907,16 @@ namespace SharpConsoleUI
 					bool metricsNeedUpdate = false;
 					if (_options.EnablePerformanceMetrics)
 					{
-						var frameElapsed = (now - _lastFrameTime).TotalMilliseconds;
-						TrackPerformanceFrame(frameElapsed);
-						_lastFrameTime = now;
-
-						// Check if metrics display needs updating (every N frames)
-						if (++_metricsUpdateCounter >= MetricsUpdateInterval)
+						metricsNeedUpdate = _performanceTracker.BeginFrame();
+						if (metricsNeedUpdate)
 						{
-							_metricsUpdateCounter = 0;
 							_renderCoordinator.InvalidateStatusCache();
-							metricsNeedUpdate = true; // Force render
 						}
+
+						_performanceTracker.UpdateMetrics(
+							Windows.Count,
+							Windows.Values.Count(w => w.IsDirty)
+						);
 					}
 
 					// Frame pacing: render if windows are dirty OR metrics need update
@@ -1562,11 +1564,6 @@ namespace SharpConsoleUI
 			if (window.IsDirty) return true;
 		}
 		return false;
-		}
-
-		private void TrackPerformanceFrame(double frameTimeMs)
-		{
-			_renderCoordinator.TrackPerformanceFrame(frameTimeMs);
 		}
 
 		/// <summary>

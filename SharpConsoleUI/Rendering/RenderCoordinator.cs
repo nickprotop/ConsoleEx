@@ -11,6 +11,7 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Logging;
+using SharpConsoleUI.Performance;
 using SharpConsoleUI.Themes;
 using System.Drawing;
 
@@ -30,6 +31,7 @@ namespace SharpConsoleUI.Rendering
 		private readonly ILogService _logService;
 		private readonly IWindowSystemContext _windowSystemContext;
 		private readonly ConsoleWindowSystemOptions _options;
+		private readonly PerformanceTracker _performanceTracker;
 
 		// Performance optimization: cached collections to avoid allocations in hot paths
 		private readonly HashSet<Window> _windowsToRender = new HashSet<Window>();
@@ -51,15 +53,6 @@ namespace SharpConsoleUI.Rendering
 		private Rectangle _bottomStatusBarBounds = Rectangle.Empty;
 		private Rectangle _startButtonBounds = Rectangle.Empty;
 
-		// Performance metrics
-		private double _currentFrameTimeMs;
-		private int _currentWindowCount;
-		private int _currentDirtyCount;
-		private int _currentDirtyChars;
-		private int _displayedDirtyChars;
-		private DateTime _lastDirtyCharsChange = DateTime.UtcNow;
-		private const int DirtyCharsHoldTimeMs = 1000;
-
 		// Render lock for thread safety
 		private readonly object _renderLock = new object();
 
@@ -75,13 +68,15 @@ namespace SharpConsoleUI.Rendering
 		/// <param name="logService">Service for debug logging.</param>
 		/// <param name="windowSystemContext">Context providing access to window system properties.</param>
 		/// <param name="options">Configuration options for the window system.</param>
+		/// <param name="performanceTracker">Performance metrics tracker.</param>
 		public RenderCoordinator(
 			IConsoleDriver consoleDriver,
 			Renderer renderer,
 			WindowStateService windowStateService,
 			ILogService logService,
 			IWindowSystemContext windowSystemContext,
-			ConsoleWindowSystemOptions options)
+			ConsoleWindowSystemOptions options,
+			PerformanceTracker performanceTracker)
 		{
 			_consoleDriver = consoleDriver ?? throw new ArgumentNullException(nameof(consoleDriver));
 			_renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
@@ -89,29 +84,10 @@ namespace SharpConsoleUI.Rendering
 			_logService = logService ?? throw new ArgumentNullException(nameof(logService));
 			_windowSystemContext = windowSystemContext ?? throw new ArgumentNullException(nameof(windowSystemContext));
 			_options = options ?? throw new ArgumentNullException(nameof(options));
+			_performanceTracker = performanceTracker ?? throw new ArgumentNullException(nameof(performanceTracker));
 		}
 
 		#region Public Properties
-
-		/// <summary>
-		/// Gets the most recent frame time in milliseconds.
-		/// </summary>
-		public double CurrentFrameTimeMs => _currentFrameTimeMs;
-
-		/// <summary>
-		/// Gets the current frames per second (FPS).
-		/// </summary>
-		public double CurrentFPS => _currentFrameTimeMs > 0 ? 1000.0 / _currentFrameTimeMs : 0;
-
-		/// <summary>
-		/// Gets the displayed dirty character count (held for visibility).
-		/// </summary>
-		public int CurrentDirtyChars => _displayedDirtyChars;
-
-		/// <summary>
-		/// Gets the current window count.
-		/// </summary>
-		public int CurrentWindowCount => _currentWindowCount;
 
 		/// <summary>
 		/// Gets the top status bar bounds for mouse hit testing.
@@ -175,37 +151,6 @@ namespace SharpConsoleUI.Rendering
 		public void SetShowBottomStatus(bool show)
 		{
 			_showBottomStatus = show;
-		}
-
-		/// <summary>
-		/// Tracks performance metrics for the current frame.
-		/// </summary>
-		/// <param name="frameTimeMs">The frame time in milliseconds.</param>
-		public void TrackPerformanceFrame(double frameTimeMs)
-		{
-			// Update current frame metrics - real-time, no aggregation
-			_currentFrameTimeMs = frameTimeMs;
-			_currentWindowCount = _windowSystemContext.Windows.Count;
-			_currentDirtyCount = _windowSystemContext.Windows.Values.Count(w => w.IsDirty);
-			// NOTE: _currentDirtyChars is captured in UpdateDisplay() before Flush()
-
-			// Handle DirtyChars hold logic: preserve last non-zero value for visibility
-			if (_currentDirtyChars != _displayedDirtyChars)
-			{
-				// Value changed - update immediately
-				_displayedDirtyChars = _currentDirtyChars;
-				_lastDirtyCharsChange = DateTime.UtcNow;
-			}
-			else if (_currentDirtyChars == 0)
-			{
-				// Value is 0 - check if hold time expired
-				var elapsed = (DateTime.UtcNow - _lastDirtyCharsChange).TotalMilliseconds;
-				if (elapsed >= DirtyCharsHoldTimeMs)
-				{
-					_displayedDirtyChars = 0; // Reset to 0 after hold period
-				}
-				// else: preserve last non-zero value
-			}
 		}
 
 		/// <summary>
@@ -300,7 +245,7 @@ namespace SharpConsoleUI.Rendering
 				// This measures window rendering work without including TopStatus itself
 				if (_options.EnablePerformanceMetrics)
 				{
-					_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
+					_performanceTracker.SetDirtyChars(_consoleDriver.GetDirtyCharacterCount());
 				}
 
 				RenderTopStatus();
@@ -355,19 +300,6 @@ namespace SharpConsoleUI.Rendering
 		/// <summary>
 		/// Formats the performance metrics string for display.
 		/// </summary>
-		private string FormatPerformanceMetrics()
-		{
-			if (_currentFrameTimeMs <= 0)
-				return string.Empty;
-
-			// Format: " | Frame:16ms Win:3 Dirty:1 DirtyChars:234"
-			return $" [dim]|[/] " +
-				   $"[dim]Frame:{_currentFrameTimeMs:F0}ms[/] " +
-				   $"[dim]Win:{_currentWindowCount}[/] " +
-				   $"[dim]Dirty:{_currentDirtyCount}[/] " +
-				   $"[dim]DirtyChars:{_displayedDirtyChars}[/]";
-		}
-
 		/// <summary>
 		/// Computes a hash of the task bar state to detect changes.
 		/// </summary>
@@ -536,7 +468,7 @@ namespace SharpConsoleUI.Rendering
 			// Build complete TopStatus with metrics appended
 			var baseStatus = _windowSystemContext.TopStatus ?? string.Empty;
 			var metricsString = _options.EnablePerformanceMetrics
-				? FormatPerformanceMetrics()
+				? _performanceTracker.FormatMetrics()
 				: string.Empty;
 			var completeTopStatus = baseStatus + metricsString;
 
