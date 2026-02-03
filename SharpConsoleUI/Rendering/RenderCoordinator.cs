@@ -145,6 +145,14 @@ namespace SharpConsoleUI.Rendering
 			_showTopStatus = show;
 		}
 
+
+	/// <summary>
+	/// Gets whether the top status bar is shown.
+	/// </summary>
+	public bool GetShowTopStatus()
+	{
+		return _showTopStatus;
+	}
 		/// <summary>
 		/// Sets whether the bottom status bar should be shown.
 		/// </summary>
@@ -152,6 +160,14 @@ namespace SharpConsoleUI.Rendering
 		{
 			_showBottomStatus = show;
 		}
+
+	/// <summary>
+	/// Gets whether the bottom status bar is shown.
+	/// </summary>
+	public bool GetShowBottomStatus()
+	{
+		return _showBottomStatus;
+	}
 
 		/// <summary>
 		/// Updates the status bar bounds based on current screen size and configuration.

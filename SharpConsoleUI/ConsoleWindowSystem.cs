@@ -42,16 +42,6 @@ namespace SharpConsoleUI
 		private readonly object _consoleLock = new(); // Shared lock for ALL Console I/O operations
 		private readonly VisibleRegions _visibleRegions;
 
-		// Performance optimization: cached collections to avoid allocations in hot paths
-		// NOTE: These have been moved to RenderCoordinator but kept here for backward compatibility
-		// with existing references. These are now unused.
-		private readonly HashSet<Window> _windowsToRender = new HashSet<Window>();
-		private readonly List<Window> _sortedWindows = new List<Window>();
-		private readonly Dictionary<string, bool> _coverageCache = new Dictionary<string, bool>();
-
-		// Status bar visibility flags - accessed by public properties
-		private bool _showTopStatus = true;
-		private bool _showBottomStatus = true;
 		private IConsoleDriver _consoleDriver;
 		private int _exitCode;
 		private int _idleTime = 10;
@@ -388,12 +378,11 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool ShowTopStatus
 		{
-			get => _showTopStatus;
+			get => _renderCoordinator.GetShowTopStatus();
 			set
 			{
-				if (_showTopStatus != value)
+				if (_renderCoordinator.GetShowTopStatus() != value)
 				{
-					_showTopStatus = value;
 					_renderCoordinator.SetShowTopStatus(value);
 					_renderCoordinator.InvalidateStatusCache();
 					// Invalidate all windows to recalculate bounds
@@ -411,12 +400,11 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool ShowBottomStatus
 		{
-			get => _showBottomStatus;
+			get => _renderCoordinator.GetShowBottomStatus();
 			set
 			{
-				if (_showBottomStatus != value)
+				if (_renderCoordinator.GetShowBottomStatus() != value)
 				{
-					_showBottomStatus = value;
 					_renderCoordinator.SetShowBottomStatus(value);
 					_renderCoordinator.InvalidateStatusCache();
 					// Invalidate all windows to recalculate bounds
@@ -1308,18 +1296,6 @@ namespace SharpConsoleUI
 			_windowPositioningManager.MoveWindowTo(window, newLeft, newTop);
 		}
 		/// <summary>
-		/// Invalidates the coverage cache for a specific window or all windows.
-		/// Called when window positions, sizes, or Z-order changes.
-		/// </summary>
-		internal void InvalidateCoverageCache(Window? window = null)
-		{
-			if (window == null)
-				_coverageCache.Clear();
-			else
-				_coverageCache.Remove(window.Guid);
-		}
-
-		/// <summary>
 		/// Computes a hash representing the current state of windows for task bar caching.
 		/// Includes window titles, states, and count to detect changes.
 		/// </summary>
@@ -1327,8 +1303,6 @@ namespace SharpConsoleUI
 		{
 			_windowPositioningManager.MoveOrResizeOperation(window, windowTopologyAction, direction);
 
-			// Invalidate coverage cache since window position/size changed
-			InvalidateCoverageCache();
 		}
 
 

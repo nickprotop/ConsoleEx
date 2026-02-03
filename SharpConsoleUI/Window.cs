@@ -380,7 +380,6 @@ namespace SharpConsoleUI
 				{
 					_height = value;
 					InvalidateBorderCache();
-					_windowSystem?.InvalidateCoverageCache(this);
 					UpdateControlLayout();
 					Invalidate(true);
 				}
@@ -704,7 +703,6 @@ namespace SharpConsoleUI
 				{
 					_width = value;
 					InvalidateBorderCache();
-					_windowSystem?.InvalidateCoverageCache(this);
 					UpdateControlLayout();
 					Invalidate(true);
 				}
