@@ -78,21 +78,6 @@ namespace SharpConsoleUI.Core
 		/// <returns>True if the input was handled; false otherwise.</returns>
 		bool HandleAltInput(ConsoleKeyInfo key);
 
-		/// <summary>
-		/// Handles window click for activation and mouse event propagation.
-		/// </summary>
-		/// <param name="window">The window that was clicked.</param>
-		/// <param name="flags">The mouse button flags.</param>
-		/// <param name="point">The click point in absolute coordinates.</param>
-		void HandleWindowClick(Window window, List<MouseFlags> flags, Point point);
-
-		/// <summary>
-		/// Propagates a mouse event to the specified window.
-		/// </summary>
-		/// <param name="window">The target window.</param>
-		/// <param name="flags">The mouse event flags.</param>
-		/// <param name="point">The mouse point in absolute coordinates.</param>
-		void PropagateMouseEventToWindow(Window window, List<MouseFlags> flags, Point point);
 
 		/// <summary>
 		/// Activates the next non-minimized window after the specified window is minimized.

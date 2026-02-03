@@ -88,6 +88,8 @@ namespace SharpConsoleUI
 		// Window positioning coordination
 		private WindowPositioningManager _windowPositioningManager = null!; // Initialized in constructor after renderer
 
+	// Region invalidation helper
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
 		/// </summary>
@@ -1074,9 +1076,9 @@ namespace SharpConsoleUI
 		/// <returns>A tuple containing the absolute screen coordinates (absoluteLeft, absoluteTop).</returns>
 		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, Point point)
 		{
-			int absoluteLeft = window.Left + point.X;
-			int absoluteTop = window.Top + DesktopUpperLeft.Y + point.Y;
-			return (absoluteLeft, absoluteTop);
+	{
+		return GeometryHelpers.TranslateToAbsolute(window, point, DesktopUpperLeft.Y);
+	}
 		}
 
 		/// <summary>
@@ -1087,149 +1089,15 @@ namespace SharpConsoleUI
 		/// <returns>The point in window-relative coordinates. Returns (0,0) if point is null.</returns>
 		public Point TranslateToRelative(Window window, Point? point)
 		{
-			if (point == null) return new Point(0, 0);
-
-			int relativeLeft = (point?.X ?? 0) - window.Left;
-			int relativeTop = (point?.Y ?? 0) - window.Top - DesktopUpperLeft.Y;
-			return new Point(relativeLeft, relativeTop);
+	{
+		return GeometryHelpers.TranslateToRelative(window, point, DesktopUpperLeft.Y);
+	}
 		}
 
-		/// <summary>
-		/// Invalidates only the regions that are newly exposed after a window move/resize operation
-		/// This happens AFTER the window is already in its new position
-		/// </summary>
+
 	/// <summary>
-	/// Adds overlapping windows to the region update set (without invalidating them).
-	/// This allows them to recalculate clipping without repainting content.
+	/// Checks if any window has the dirty flag set.
 	/// </summary>
-	private void AddOverlappingWindowsForRegionUpdate(Window movingWindow)
-	{
-		var overlapping = Windows.Values
-			.Where(w => w != movingWindow && _renderer.IsOverlapping(movingWindow, w))
-			.ToList();
-
-
-		foreach (var w in overlapping)
-		{
-			_renderCoordinator.AddWindowNeedingRegionUpdate(w);
-		}
-	}
-	private void InvalidateExposedRegions(Window movedWindow, Rectangle oldBounds)
-	{
-		// BRUTE FORCE FIX: Instead of trying to render tiny exposed regions (which causes blanks),
-		// just invalidate all windows that were underneath the old position.
-		// They'll render normally with proper visibleRegions in the next UpdateDisplay.
-
-		foreach (var window in Windows.Values)
-		{
-			if (window == movedWindow)
-				continue; // Skip the window that moved
-
-			if (window.ZIndex >= movedWindow.ZIndex)
-				continue; // Only invalidate windows that were underneath
-
-			// Check if this window overlaps with the OLD position
-			if (GeometryHelpers.DoesRectangleOverlapWindow(oldBounds, window))
-			{
-				window.Invalidate(true);
-			}
-		}
-	}
-
-		/// <summary>
-		/// <summary>
-		/// <summary>
-		/// Redraw a specific exposed region by finding what should be visible there
-		/// </summary>
-		private void RedrawExposedRegion(Rectangle exposedRegion, int movedWindowZIndex)
-		{
-			// Find all windows that could be visible in this region (with lower Z-index than the moved window)
-			var candidateWindows = Windows.Values
-				.Where(w => w.ZIndex < movedWindowZIndex) // Only windows that were underneath
-				.Where(w => GeometryHelpers.DoesRectangleOverlapWindow(exposedRegion, w))
-				.OrderBy(w => w.ZIndex) // Process in Z-order (bottom to top)
-				.ToList();
-
-			// Start by clearing the region with desktop background
-			_renderer.FillRect(exposedRegion.X, exposedRegion.Y, exposedRegion.Width, exposedRegion.Height,
-				Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-
-			// Redraw each candidate window in the exposed region (in Z-order)
-			foreach (var candidateWindow in candidateWindows)
-			{
-				var intersection = GeometryHelpers.GetRectangleIntersection(exposedRegion,
-					new Rectangle(candidateWindow.Left, candidateWindow.Top, candidateWindow.Width, candidateWindow.Height));
-				
-				if (!intersection.IsEmpty)
-				{
-					// Calculate what part of this window should be visible in the intersection
-					// (considering other windows that might be on top of it)
-					var windowsAbove = candidateWindows
-						.Where(w => w.ZIndex > candidateWindow.ZIndex && w.ZIndex < movedWindowZIndex)
-						.ToList();
-
-					// Calculate which parts of the intersection are not covered by windows above
-					var uncoveredRegions = GeometryHelpers.CalculateUncoveredRegions(intersection, windowsAbove);
-
-					// Render only the uncovered parts of this window
-					foreach (var uncoveredRegion in uncoveredRegions)
-					{
-						_renderer.RenderRegion(candidateWindow, uncoveredRegion);
-					}
-				}
-			}
-			
-		}
-
-		/// Handles window click for activation and mouse event propagation.
-		/// </summary>
-		public void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
-		{
-			if (window != ActiveWindow)
-			{
-				// Window is not active - activate it
-				SetActiveWindow(window);
-
-				// Special case: OverlayWindow needs mouse events even on first click
-				// for click-outside-to-dismiss handling
-				if (window is Windows.OverlayWindow)
-				{
-					PropagateMouseEventToWindow(window, flags, point);
-				}
-			}
-			else
-			{
-				// Window is already active - propagate the click event
-				PropagateMouseEventToWindow(window, flags, point);
-			}
-		}
-
-		/// <summary>
-		/// Propagates mouse events to the specified window
-		/// </summary>
-		/// <summary>
-		/// Propagates a mouse event to the specified window.
-		/// </summary>
-		public void PropagateMouseEventToWindow(Window window, List<MouseFlags> flags, Point point)
-		{
-			// Calculate window-relative coordinates
-			var windowPosition = TranslateToRelative(window, point);
-
-			// Create mouse event arguments
-			var mouseArgs = new Events.MouseEventArgs(
-				flags,
-				windowPosition, // This will be recalculated for control-relative coordinates in the window
-				point, // Absolute desktop coordinates
-				windowPosition, // Window-relative coordinates
-				window
-			);
-
-			// Propagate to the window
-			window.ProcessWindowMouseEvent(mouseArgs);
-		}
-
-		/// <summary>
-
 		private bool AnyWindowDirty()
 		{
 			foreach (var window in Windows.Values)
@@ -1258,7 +1126,9 @@ namespace SharpConsoleUI
 		return WindowQueryHelper.GetWindowAtPoint(point, this);
 	}
 
-		/// </summary>
+	/// <summary>
+	/// Handles Alt+Number keyboard shortcuts for quick window switching.
+	/// </summary>
 		public bool HandleAltInput(ConsoleKeyInfo key)
 		{
 			bool handled = false;

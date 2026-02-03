@@ -258,7 +258,7 @@ namespace SharpConsoleUI.Input
 						return;
 					}
 
-					_context.HandleWindowClick(window, flags, point);
+					HandleWindowClick(window, flags, point);
 					return;
 				}
 				else
@@ -274,7 +274,7 @@ namespace SharpConsoleUI.Input
 				var windowAtPoint = GetWindowAtPoint(point);
 				if (windowAtPoint == _context.ActiveWindow)
 				{
-					_context.PropagateMouseEventToWindow(_context.ActiveWindow, flags, point);
+					PropagateMouseEventToWindow(_context.ActiveWindow, flags, point);
 				}
 			}
 		}
@@ -660,6 +660,55 @@ namespace SharpConsoleUI.Input
 		}
 
 		#endregion
+
+	#region Mouse Event Propagation
+
+	/// <summary>
+	/// Handles window click for activation and mouse event propagation.
+	/// </summary>
+	private void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
+	{
+		if (window != _context.ActiveWindow)
+		{
+			// Window is not active - activate it
+			_context.SetActiveWindow(window);
+
+			// Special case: OverlayWindow needs mouse events even on first click
+			// for click-outside-to-dismiss handling
+			if (window is Windows.OverlayWindow)
+			{
+				PropagateMouseEventToWindow(window, flags, point);
+			}
+		}
+		else
+		{
+			// Window is already active - propagate the click event
+			PropagateMouseEventToWindow(window, flags, point);
+		}
+	}
+
+	/// <summary>
+	/// Propagates a mouse event to the specified window.
+	/// </summary>
+	private void PropagateMouseEventToWindow(Window window, List<MouseFlags> flags, Point point)
+	{
+		// Calculate window-relative coordinates
+		var windowPosition = _context.TranslateToRelative(window, point);
+
+		// Create mouse event arguments
+		var mouseArgs = new Events.MouseEventArgs(
+			flags,
+			windowPosition, // This will be recalculated for control-relative coordinates in the window
+			point, // Absolute desktop coordinates
+			windowPosition, // Window-relative coordinates
+			window
+		);
+
+		// Propagate to the window
+		window.ProcessWindowMouseEvent(mouseArgs);
+	}
+
+	#endregion
 
 		#region Properties (Delegation to Services)
 

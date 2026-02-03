@@ -181,5 +181,35 @@ namespace SharpConsoleUI.Helpers
 			// Could be enhanced later to merge adjacent rectangles
 			return regions.Where(r => r.Width > 0 && r.Height > 0).ToList();
 		}
+
+	/// <summary>
+	/// Translates a window-relative point to absolute screen coordinates.
+	/// </summary>
+	/// <param name="window">The window containing the point.</param>
+	/// <param name="point">The point in window-relative coordinates.</param>
+	/// <param name="desktopTopOffset">The Y offset of the desktop (from status bars).</param>
+	/// <returns>A tuple containing the absolute screen coordinates (absoluteLeft, absoluteTop).</returns>
+	public static (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, Point point, int desktopTopOffset)
+	{
+		int absoluteLeft = window.Left + point.X;
+		int absoluteTop = window.Top + desktopTopOffset + point.Y;
+		return (absoluteLeft, absoluteTop);
+	}
+
+	/// <summary>
+	/// Translates an absolute screen point to window-relative coordinates.
+	/// </summary>
+	/// <param name="window">The window to translate coordinates relative to.</param>
+	/// <param name="point">The point in absolute screen coordinates, or null.</param>
+	/// <param name="desktopTopOffset">The Y offset of the desktop (from status bars).</param>
+	/// <returns>The point in window-relative coordinates. Returns (0,0) if point is null.</returns>
+	public static Point TranslateToRelative(Window window, Point? point, int desktopTopOffset)
+	{
+		if (point == null) return new Point(0, 0);
+
+		int relativeLeft = (point?.X ?? 0) - window.Left;
+		int relativeTop = (point?.Y ?? 0) - window.Top - desktopTopOffset;
+		return new Point(relativeLeft, relativeTop);
+	}
 	}
 }
