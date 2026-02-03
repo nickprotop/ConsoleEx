@@ -19,6 +19,7 @@ using SharpConsoleUI.Plugins;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Windows;
 using SharpConsoleUI.Models;
+using SharpConsoleUI.Rendering;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -90,16 +91,13 @@ namespace SharpConsoleUI
 		private readonly VisibleRegions _visibleRegions;
 
 		// Performance optimization: cached collections to avoid allocations in hot paths
+		// NOTE: These have been moved to RenderCoordinator but kept here for backward compatibility
+		// with existing references. These are now unused.
 		private readonly HashSet<Window> _windowsToRender = new HashSet<Window>();
 		private readonly List<Window> _sortedWindows = new List<Window>();
 		private readonly Dictionary<string, bool> _coverageCache = new Dictionary<string, bool>();
 
-		// Status bar caching
-		private string? _cachedBottomStatus;
-		private string? _cachedTopStatus;
-		private string? _cachedTaskBar;
-		private int _taskBarWindowCount;
-		private int _taskBarStateHash;
+		// Status bar visibility flags - accessed by public properties
 		private bool _showTopStatus = true;
 		private bool _showBottomStatus = true;
 		private IConsoleDriver _consoleDriver;
@@ -111,15 +109,8 @@ namespace SharpConsoleUI
 		private DateTime _lastRenderTime = DateTime.UtcNow;
 		private DateTime _lastFrameTime = DateTime.UtcNow;
 
-		// Performance metrics tracking - real-time, no aggregation
+		// Performance metrics tracking - now delegated to RenderCoordinator
 		private ConsoleWindowSystemOptions _options;
-		private double _currentFrameTimeMs;
-		private int _currentWindowCount;
-		private int _currentDirtyCount;
-		private int _currentDirtyChars;
-		private int _displayedDirtyChars; // Preserved value for display
-		private DateTime _lastDirtyCharsChange = DateTime.UtcNow;
-		private const int DirtyCharsHoldTimeMs = 1000; // Hold last value for 1 second
 		private int _metricsUpdateCounter = 0;
 		private const int MetricsUpdateInterval = 15; // Update display every 15 frames (~250ms at 60fps)
 
@@ -141,8 +132,6 @@ namespace SharpConsoleUI
 
 		// Track windows currently being flashed to prevent concurrent flashes
 		private readonly HashSet<Window> _flashingWindows = new();
-		private readonly HashSet<Window> _windowsNeedingRegionUpdate = new();
-		private readonly List<Rectangle> _pendingDesktopClears = new(); // Areas to clear atomically in UpdateDisplay
 
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
@@ -150,11 +139,11 @@ namespace SharpConsoleUI
 		// Input coordination
 		private readonly InputCoordinator _inputCoordinator;
 
+		// Render coordination
+		private RenderCoordinator _renderCoordinator = null!; // Initialized in constructor after renderer
+
 		// Start menu system
 		private readonly List<StartMenuAction> _startMenuActions = new();
-		private Rectangle _topStatusBarBounds = Rectangle.Empty;
-		private Rectangle _bottomStatusBarBounds = Rectangle.Empty;
-		private Rectangle _startButtonBounds = Rectangle.Empty;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleWindowSystem"/> class with the default theme.
@@ -225,6 +214,15 @@ namespace SharpConsoleUI
 
 			// Initialize the renderer
 			_renderer = new Renderer(this);
+
+			// Initialize render coordinator (needs renderer and other services)
+			_renderCoordinator = new RenderCoordinator(
+				_consoleDriver,
+				_renderer,
+				_windowStateService,
+				_logService,
+				this,
+				_options);
 
 			// NOW initialize driver with 'this' reference (after services exist)
 			_consoleDriver.Initialize(this);
@@ -365,7 +363,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		private int GetTopStatusHeight()
 		{
-			return ShouldRenderTopStatus() ? 1 : 0;
+			return _renderCoordinator.GetTopStatusHeight();
 		}
 
 		/// <summary>
@@ -374,28 +372,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		private int GetBottomStatusHeight()
 		{
-			return ShouldRenderBottomStatus() ? 1 : 0;
-		}
-
-		/// <summary>
-		/// Returns true if the top status bar should be rendered.
-		/// </summary>
-		private bool ShouldRenderTopStatus()
-		{
-			return _showTopStatus && (!string.IsNullOrEmpty(TopStatus) || _options.EnablePerformanceMetrics);
-		}
-
-		/// <summary>
-		/// Returns true if the bottom status bar should be rendered.
-		/// </summary>
-		private bool ShouldRenderBottomStatus()
-		{
-			// Render if we have status text OR if task bar (window list) is enabled
-			bool hasContent = !string.IsNullOrEmpty(BottomStatus) || _options.StatusBar.ShowTaskBar;
-			bool hasStartButton = _options.StatusBar.ShowStartButton &&
-			                      _options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom;
-
-			return _showBottomStatus && (hasContent || hasStartButton);
+			return _renderCoordinator.GetBottomStatusHeight();
 		}
 
 
@@ -441,7 +418,8 @@ namespace SharpConsoleUI
 				if (_showTopStatus != value)
 				{
 					_showTopStatus = value;
-					_cachedTopStatus = null; // Force re-render
+					_renderCoordinator.SetShowTopStatus(value);
+					_renderCoordinator.InvalidateStatusCache();
 					// Invalidate all windows to recalculate bounds
 					foreach (var w in Windows.Values)
 					{
@@ -463,7 +441,8 @@ namespace SharpConsoleUI
 				if (_showBottomStatus != value)
 				{
 					_showBottomStatus = value;
-					_cachedBottomStatus = null; // Force re-render
+					_renderCoordinator.SetShowBottomStatus(value);
+					_renderCoordinator.InvalidateStatusCache();
 					// Invalidate all windows to recalculate bounds
 					foreach (var w in Windows.Values)
 					{
@@ -822,7 +801,7 @@ namespace SharpConsoleUI
 		public void SetPerformanceMetrics(bool enabled)
 		{
 			_options = _options with { EnablePerformanceMetrics = enabled };
-			_cachedTopStatus = null; // Force status bar refresh
+			_renderCoordinator.InvalidateStatusCache();
 			_logService?.Log(LogLevel.Information, "System", $"Performance metrics {(enabled ? "enabled" : "disabled")}");
 		}
 
@@ -834,17 +813,17 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the current actual frame time in milliseconds.
 		/// </summary>
-		public double GetCurrentFrameTime() => _currentFrameTimeMs;
+		public double GetCurrentFrameTime() => _renderCoordinator.CurrentFrameTimeMs;
 
 		/// <summary>
 		/// Gets the current actual FPS based on frame time.
 		/// </summary>
-		public double GetCurrentFPS() => _currentFrameTimeMs > 0 ? 1000.0 / _currentFrameTimeMs : 0;
+		public double GetCurrentFPS() => _renderCoordinator.CurrentFPS;
 
 		/// <summary>
 		/// Gets the number of dirty characters (changed cells) in the last frame.
 		/// </summary>
-		public int GetDirtyCharCount() => _currentDirtyChars;
+		public int GetDirtyCharCount() => _renderCoordinator.CurrentDirtyChars;
 
 		/// <summary>
 		/// Starts the main event loop of the window system. Blocks until <see cref="Shutdown"/> is called.
@@ -895,8 +874,7 @@ namespace SharpConsoleUI
 						window.Invalidate(true);
 					}
 
-					_cachedBottomStatus = null;
-					_cachedTopStatus = null;
+					_renderCoordinator.InvalidateStatusCache();
 				}
 			};
 			_consoleDriver.ScreenResized += _screenResizedHandler;
@@ -934,7 +912,7 @@ namespace SharpConsoleUI
 						if (++_metricsUpdateCounter >= MetricsUpdateInterval)
 						{
 							_metricsUpdateCounter = 0;
-							_cachedTopStatus = null; // Invalidate cache
+							_renderCoordinator.InvalidateStatusCache();
 							metricsNeedUpdate = true; // Force render
 						}
 					}
@@ -1071,15 +1049,6 @@ namespace SharpConsoleUI
 			Dialogs.StartMenuDialog.Show(this);
 		}
 
-		private string BuildStartButton()
-		{
-			if (!_options.StatusBar.ShowStartButton)
-				return string.Empty;
-
-			var text = _options.StatusBar.StartButtonText;
-			return $"[bold cyan]{text}[/] ";
-		}
-
 		/// <summary>
 		/// Handles start menu keyboard shortcut (Alt+key or configured shortcut).
 		/// </summary>
@@ -1102,33 +1071,7 @@ namespace SharpConsoleUI
 
 		private void UpdateStatusBarBounds()
 		{
-			if (_showTopStatus)
-				_topStatusBarBounds = new Rectangle(0, 0, _consoleDriver.ScreenSize.Width, 1);
-
-			if (_showBottomStatus)
-				_bottomStatusBarBounds = new Rectangle(0, _consoleDriver.ScreenSize.Height - 1,
-					_consoleDriver.ScreenSize.Width, 1);
-
-			if (_options.StatusBar.ShowStartButton)
-			{
-				int y = _options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Top
-					? 0
-					: (_consoleDriver.ScreenSize.Height - 1);
-
-				int x;
-				int width = AnsiConsoleHelper.StripSpectreLength(_options.StatusBar.StartButtonText) + 1;
-
-				if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
-				{
-					x = 0;
-				}
-				else
-				{
-					x = _consoleDriver.ScreenSize.Width - width;
-				}
-
-				_startButtonBounds = new Rectangle(x, y, width, 1);
-			}
+			_renderCoordinator.UpdateStatusBarBounds();
 		}
 
 		/// <summary>
@@ -1137,7 +1080,7 @@ namespace SharpConsoleUI
 		public bool HandleStatusBarMouseClick(int x, int y)
 		{
 			// Check if click is on Start button
-			if (_startButtonBounds.Contains(x, y))
+			if (_renderCoordinator.StartButtonBounds.Contains(x, y))
 			{
 				ShowStartMenu();
 				return true;
@@ -1349,7 +1292,7 @@ namespace SharpConsoleUI
 
 		foreach (var w in overlapping)
 		{
-			_windowsNeedingRegionUpdate.Add(w);
+			_renderCoordinator.AddWindowNeedingRegionUpdate(w);
 		}
 	}
 	private void InvalidateExposedRegions(Window movedWindow, Rectangle oldBounds)
@@ -1623,42 +1566,7 @@ namespace SharpConsoleUI
 
 		private void TrackPerformanceFrame(double frameTimeMs)
 		{
-			// Update current frame metrics - real-time, no aggregation
-			_currentFrameTimeMs = frameTimeMs;
-			_currentWindowCount = Windows.Count;
-			_currentDirtyCount = Windows.Values.Count(w => w.IsDirty);
-			// NOTE: _currentDirtyChars is captured in UpdateDisplay() before Flush()
-
-			// Handle DirtyChars hold logic: preserve last non-zero value for visibility
-			if (_currentDirtyChars != _displayedDirtyChars)
-			{
-				// Value changed - update immediately
-				_displayedDirtyChars = _currentDirtyChars;
-				_lastDirtyCharsChange = DateTime.UtcNow;
-			}
-			else if (_currentDirtyChars == 0)
-			{
-				// Value is 0 - check if hold time expired
-				var elapsed = (DateTime.UtcNow - _lastDirtyCharsChange).TotalMilliseconds;
-				if (elapsed >= DirtyCharsHoldTimeMs)
-				{
-					_displayedDirtyChars = 0; // Reset to 0 after hold period
-				}
-				// else: preserve last non-zero value
-			}
-		}
-
-		private string FormatPerformanceMetrics()
-		{
-			if (_currentFrameTimeMs <= 0)
-				return string.Empty;
-
-			// Format: " | Frame:16ms Win:3 Dirty:1 DirtyChars:234"
-			return $" [dim]|[/] " +
-				   $"[dim]Frame:{_currentFrameTimeMs:F0}ms[/] " +
-				   $"[dim]Win:{_currentWindowCount}[/] " +
-				   $"[dim]Dirty:{_currentDirtyCount}[/] " +
-				   $"[dim]DirtyChars:{_displayedDirtyChars}[/]";
+			_renderCoordinator.TrackPerformanceFrame(frameTimeMs);
 		}
 
 		/// <summary>
@@ -1806,7 +1714,7 @@ namespace SharpConsoleUI
 
 			var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
 
-			_pendingDesktopClears.Add(oldBounds);
+			_renderCoordinator.AddPendingDesktopClear(oldBounds);
 			window.SetPosition(new Point(newLeft, newTop));
 			window.Invalidate(true);
 
@@ -1842,47 +1750,6 @@ namespace SharpConsoleUI
 		/// Computes a hash representing the current state of windows for task bar caching.
 		/// Includes window titles, states, and count to detect changes.
 		/// </summary>
-		private int ComputeTaskBarStateHash(List<Window> windows)
-		{
-			int hash = 0;
-			foreach (var w in windows)
-			{
-				hash ^= w.Title.GetHashCode();
-				hash ^= w.State.GetHashCode();
-				hash ^= w.GetIsActive().GetHashCode();
-			}
-			return hash;
-		}
-
-		private bool IsCompletelyCovered(Window window)
-		{
-			// Check cache first
-			if (_coverageCache.TryGetValue(window.Guid, out bool cached))
-				return cached;
-
-			// Calculate coverage
-			bool result = CalculateIsCompletelyCovered(window);
-			_coverageCache[window.Guid] = result;
-			return result;
-		}
-
-		private bool CalculateIsCompletelyCovered(Window window)
-		{
-			foreach (var otherWindow in Windows.Values)
-			{
-				if (otherWindow != window && _renderer.IsOverlapping(window, otherWindow) && otherWindow.ZIndex > window.ZIndex)
-				{
-					if (otherWindow.Left <= window.Left && otherWindow.Top <= window.Top &&
-						otherWindow.Left + otherWindow.Width >= window.Left + window.Width &&
-						otherWindow.Top + otherWindow.Height >= window.Top + window.Height)
-					{
-						return true;
-					}
-				}
-			}
-			return false;
-		}
-
 		private void MoveOrResizeOperation(Window? window, WindowTopologyAction windowTopologyAction, Direction direction)
 		{
 			if (window == null) return;
@@ -1989,304 +1856,7 @@ namespace SharpConsoleUI
 
 		private void UpdateDisplay()
 		{
-			lock (_renderLock)
-			{
-			// ATOMIC DESKTOP CLEARING: Clear old window positions before rendering
-			// This prevents traces from rapid moves between frames
-			if (_pendingDesktopClears.Count > 0)
-			{
-				// Copy list to avoid race condition (mouse events can add during iteration)
-				var clearsCopy = _pendingDesktopClears.ToList();
-				_pendingDesktopClears.Clear();
-
-				foreach (var rect in clearsCopy)
-				{
-					_renderer.FillRect(rect.Left, rect.Top, rect.Width, rect.Height,
-						Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-				}
-			}
-
-			// RENDERING ORDER:
-			// 1. Windows first (so we can measure their dirty chars)
-			// 2. Capture dirty chars (after windows, before TopStatus)
-			// 3. TopStatus (with captured metrics, doesn't pollute measurement)
-			// 4. BottomStatus
-			// 5. Flush
-
-			// Reuse cached HashSet to avoid allocation
-			_windowsToRender.Clear();
-
-			// Build sorted window list for rendering (avoid LINQ allocations)
-			_sortedWindows.Clear();
-			_sortedWindows.AddRange(Windows.Values);
-			_sortedWindows.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
-
-			// Identify dirty windows and only overlapping windows with higher Z-index
-			// This prevents unnecessary redraws of windows below the dirty window
-			foreach (var window in Windows.Values)
-			{
-				// Skip minimized windows - they're invisible
-				if (window.State == WindowState.Minimized)
-					continue;
-
-				// Skip windows with invalid dimensions (can happen during rapid resize)
-				if (window.Width <= 0 || window.Height <= 0)
-					continue;
-
-				if (!window.IsDirty)
-					continue;
-
-				if (IsCompletelyCovered(window))
-					continue;
-
-				_windowsToRender.Add(window);
-
-					// OPTIMIZATION: Don't add overlapping windows to render list
-					// VisibleRegions.CalculateVisibleRegions() already clips each window's rendering
-					// to exclude areas covered by higher Z-index windows, so overlapping windows
-					// don't need re-rendering when a window beneath them changes.
-
-					// COMMENTED OUT: Previous behavior that re-rendered all overlapping windows
-					// Uncomment this block to rollback the optimization if issues are found
-					/*
-					// Only add overlapping windows with HIGHER Z-index (drawn on top)
-					foreach (var other in Windows.Values)
-					{
-						if (other.State == WindowState.Minimized)
-							continue;
-
-						// Skip windows with invalid dimensions
-						if (other.Width <= 0 || other.Height <= 0)
-							continue;
-
-						if (other.ZIndex <= window.ZIndex)
-							continue; // Skip windows below or at same level
-
-						if (!_renderer.IsOverlapping(window, other))
-							continue;
-
-						windowsToRender.Add(other);
-					}
-					*/
-				}
-
-				// PASS 1: Render normal (non-AlwaysOnTop) windows based on their ZIndex (no LINQ)
-				for (int i = 0; i < _sortedWindows.Count; i++)
-				{
-					var window = _sortedWindows[i];
-					if (window.AlwaysOnTop) continue;
-
-					if (window != ActiveWindow && _windowsToRender.Contains(window))
-					{
-						// Skip windows with invalid dimensions
-						if (window.Width > 0 && window.Height > 0)
-						{
-							_renderer.RenderWindow(window);
-						}
-					}
-				}
-
-				// Check if any of the overlapping windows is overlapping the active window
-				if (ActiveWindow != null && !ActiveWindow.AlwaysOnTop)
-				{
-					if (_windowsToRender.Contains(ActiveWindow))
-					{
-						// Skip windows with invalid dimensions
-						if (ActiveWindow.Width > 0 && ActiveWindow.Height > 0)
-						{
-							_renderer.RenderWindow(ActiveWindow);
-						}
-					}
-					else
-					{
-						var overlappingWindows = _renderer.GetOverlappingWindows(ActiveWindow);
-
-						foreach (var overlappingWindow in overlappingWindows)
-						{
-							// Only render active window if overlapping window is ABOVE it (higher Z-index)
-							// Windows below the active window can't affect its visible pixels
-							if (overlappingWindow.ZIndex > ActiveWindow.ZIndex &&
-							    _windowsToRender.Contains(overlappingWindow))
-							{
-								// Skip windows with invalid dimensions
-								if (ActiveWindow.Width > 0 && ActiveWindow.Height > 0)
-								{
-									_renderer.RenderWindow(ActiveWindow);
-									break;  // Only need to render once
-								}
-							}
-						}
-					}
-				}
-
-				// PASS 2: Render AlwaysOnTop windows (always last, on top of everything) (no LINQ)
-				for (int i = 0; i < _sortedWindows.Count; i++)
-				{
-					var window = _sortedWindows[i];
-					if (!window.AlwaysOnTop) continue;
-					if (window.State == WindowState.Minimized) continue;
-
-					// AlwaysOnTop windows always render if dirty or in windowsToRender
-					if (window.IsDirty || _windowsToRender.Contains(window))
-					{
-						// Skip windows with invalid dimensions
-						if (window.Width > 0 && window.Height > 0)
-						{
-							_renderer.RenderWindow(window);
-						}
-					}
-				}
-			}
-
-			// CRITICAL: Capture dirty chars AFTER windows rendered, BEFORE TopStatus
-			// This measures window rendering work without including TopStatus itself
-			if (_options.EnablePerformanceMetrics)
-			{
-				_currentDirtyChars = _consoleDriver.GetDirtyCharacterCount();
-			}
-
-			// Render TopStatus with captured metrics (this won't pollute the measurement)
-			if (ShouldRenderTopStatus())
-			{
-				// Build complete TopStatus with metrics appended
-				var baseStatus = TopStatus ?? string.Empty;
-				var metricsString = _options.EnablePerformanceMetrics
-					? FormatPerformanceMetrics()
-					: string.Empty;
-				var completeTopStatus = baseStatus + metricsString;
-
-				// Build start button if configured for top
-				var startButton = string.Empty;
-				if (_options.StatusBar.ShowStartButton &&
-					_options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Top)
-				{
-					startButton = BuildStartButton();
-				}
-
-				string topRow;
-				if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
-				{
-					topRow = $"{startButton}{completeTopStatus}";
-				}
-				else
-				{
-					// Right position - add start button at the end
-					var contentLength = AnsiConsoleHelper.StripSpectreLength(completeTopStatus);
-					var startButtonLength = AnsiConsoleHelper.StripSpectreLength(startButton);
-					var availableSpace = _consoleDriver.ScreenSize.Width - startButtonLength;
-
-					var content = completeTopStatus;
-					if (contentLength > availableSpace)
-					{
-						content = AnsiConsoleHelper.TruncateSpectre(content, availableSpace);
-					}
-
-					content += new string(' ', availableSpace - AnsiConsoleHelper.StripSpectreLength(content));
-					topRow = $"{content}{startButton}";
-				}
-
-				// Cache includes start button for proper invalidation
-				if (topRow != _cachedTopStatus)
-				{
-					var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
-					var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
-					_consoleDriver.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.TopBarForegroundColor}]{paddedTopRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.TopBarBackgroundColor, null)[0]);
-
-					_cachedTopStatus = topRow;
-				}
-			}
-
-			if (ShouldRenderBottomStatus())
-			{
-				// Filter out sub-windows and overlay windows from the bottom status bar
-				var topLevelWindows = Windows.Values
-					.Where(w => w.ParentWindow == null && !(w is Windows.OverlayWindow))
-					.ToList();
-
-				// Check if task bar cache is valid
-				string taskBar;
-				if (_options.StatusBar.ShowTaskBar)
-				{
-					int stateHash = ComputeTaskBarStateHash(topLevelWindows);
-					if (_cachedTaskBar != null &&
-						_taskBarWindowCount == topLevelWindows.Count &&
-						_taskBarStateHash == stateHash)
-					{
-						// Use cached task bar
-						taskBar = _cachedTaskBar;
-					}
-					else
-					{
-						// Rebuild task bar
-						taskBar = $"{string.Join(" | ", topLevelWindows.Select((w, i) => {
-							var minIndicator = w.State == WindowState.Minimized ? "[dim]" : "";
-							var minEnd = w.State == WindowState.Minimized ? "[/]" : "";
-							return $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";
-						}))} | ";
-
-						// Update cache
-						_cachedTaskBar = taskBar;
-						_taskBarWindowCount = topLevelWindows.Count;
-						_taskBarStateHash = stateHash;
-					}
-				}
-				else
-				{
-					taskBar = string.Empty;
-				}
-
-				// Build start button if configured for bottom
-				var startButton = string.Empty;
-				if (_options.StatusBar.ShowStartButton &&
-					_options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom)
-				{
-					startButton = BuildStartButton();
-				}
-
-				string bottomRow;
-				if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
-				{
-					bottomRow = $"{startButton}{taskBar}{BottomStatus}";
-				}
-				else
-				{
-					// Right position - add start button at the end
-					var content = $"{taskBar}{BottomStatus}";
-					var contentLength = AnsiConsoleHelper.StripSpectreLength(content);
-					var startButtonLength = AnsiConsoleHelper.StripSpectreLength(startButton);
-					var availableSpace = _consoleDriver.ScreenSize.Width - startButtonLength;
-
-					if (contentLength > availableSpace)
-					{
-						content = AnsiConsoleHelper.TruncateSpectre(content, availableSpace);
-					}
-
-					content += new string(' ', availableSpace - AnsiConsoleHelper.StripSpectreLength(content));
-					bottomRow = $"{content}{startButton}";
-				}
-
-				// Display the list of window titles in the bottom row
-				if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > _consoleDriver.ScreenSize.Width)
-				{
-					bottomRow = AnsiConsoleHelper.TruncateSpectre(bottomRow, _consoleDriver.ScreenSize.Width);
-				}
-
-				bottomRow += new string(' ', _consoleDriver.ScreenSize.Width - AnsiConsoleHelper.StripSpectreLength(bottomRow));
-
-				if (_cachedBottomStatus != bottomRow)
-				{   //add padding to the bottom row
-					_consoleDriver.WriteToConsole(0, _consoleDriver.ScreenSize.Height - 1, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"[{Theme.BottomBarForegroundColor}]{bottomRow}[/]", _consoleDriver.ScreenSize.Width, 1, false, Theme.BottomBarBackgroundColor, null)[0]);
-
-					_cachedBottomStatus = bottomRow;
-				}
-			}
-
-			// Update status bar bounds for mouse click detection
-			UpdateStatusBarBounds();
-
-			// Clear the region update set for next frame
-			_windowsNeedingRegionUpdate.Clear();
-			_consoleDriver.Flush();
+			_renderCoordinator.UpdateDisplay();
 		}
 
 
@@ -2336,7 +1906,7 @@ namespace SharpConsoleUI
 			newWidth != window.Width || newHeight != window.Height)
 		{
 			// Add old bounds to pending clears
-			_pendingDesktopClears.Add(oldBounds);
+			_renderCoordinator.AddPendingDesktopClear(oldBounds);
 
 			// Apply the new position and size
 			window.SetPosition(new Point(newLeft, newTop));

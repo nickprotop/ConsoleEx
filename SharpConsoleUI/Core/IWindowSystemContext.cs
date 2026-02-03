@@ -8,6 +8,8 @@
 
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Models;
+using SharpConsoleUI.Themes;
 using System.Drawing;
 using Size = SharpConsoleUI.Helpers.Size;
 
@@ -151,5 +153,40 @@ namespace SharpConsoleUI.Core
 		/// <param name="deltaWidth">The width change delta.</param>
 		/// <param name="deltaHeight">The height change delta.</param>
 		void ResizeWindowBy(Window window, int deltaWidth, int deltaHeight);
+
+		/// <summary>
+		/// Gets the current theme.
+		/// </summary>
+		ITheme Theme { get; }
+
+		/// <summary>
+		/// Gets the desktop upper left coordinate.
+		/// </summary>
+		Point DesktopUpperLeft { get; }
+
+		/// <summary>
+		/// Gets the desktop bottom right coordinate.
+		/// </summary>
+		Point DesktopBottomRight { get; }
+
+		/// <summary>
+		/// Gets or sets the top status bar text.
+		/// </summary>
+		string? TopStatus { get; set; }
+
+		/// <summary>
+		/// Gets or sets the bottom status bar text.
+		/// </summary>
+		string? BottomStatus { get; set; }
+
+		/// <summary>
+		/// Gets the list of start menu actions.
+		/// </summary>
+		IReadOnlyList<StartMenuAction> GetStartMenuActions();
+
+		/// <summary>
+		/// Gets the collection of all windows indexed by GUID.
+		/// </summary>
+		IReadOnlyDictionary<string, Window> Windows { get; }
 	}
 }
