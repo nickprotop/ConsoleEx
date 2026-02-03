@@ -52,7 +52,7 @@ namespace SharpConsoleUI
 
 		// Performance metrics tracking - delegated to PerformanceTracker
 		private ConsoleWindowSystemOptions _options;
-		private readonly PerformanceTracker _performanceTracker;
+		public PerformanceTracker Performance;
 
 		// Event handlers stored for proper cleanup
 		private EventHandler<ConsoleKeyInfo>? _keyPressedHandler;
@@ -74,19 +74,18 @@ namespace SharpConsoleUI
 		private readonly PluginStateService _pluginStateService;
 
 		// Input coordination
-		private readonly InputCoordinator _inputCoordinator;
+		public InputCoordinator Input;
 
 		// Render coordination
-		private RenderCoordinator _renderCoordinator = null!; // Initialized in constructor after renderer
+		private RenderCoordinator Render = null!; // Initialized in constructor after renderer
 
 		// Start menu coordination
 		private readonly StartMenuCoordinator _startMenuCoordinator;
 
 		// Window lifecycle coordination
-		private WindowLifecycleManager _windowLifecycleManager = null!; // Initialized in constructor after renderer
 
 		// Window positioning coordination
-		private WindowPositioningManager _windowPositioningManager = null!; // Initialized in constructor after renderer
+		private WindowPositioningManager Positioning = null!; // Initialized in constructor after renderer
 
 	// Region invalidation helper
 
@@ -130,7 +129,6 @@ namespace SharpConsoleUI
 
 			// Initialize state services BEFORE driver.Initialize() call
 			_cursorStateService = new CursorStateService(_consoleDriver);
-			_windowStateService = new WindowStateService(_logService);
 			_focusStateService = new FocusStateService(_logService);
 			_modalStateService = new ModalStateService(_logService);
 			_themeStateService = new ThemeStateService(_theme);
@@ -143,8 +141,18 @@ namespace SharpConsoleUI
 			// Initialize plugin state service
 			_pluginStateService = new PluginStateService(this, _logService, pluginConfiguration);
 
+
+		// Initialize WindowStateService (merged from WindowLifecycleManager)
+		// Note: Renderer is set later via property after it is created
+		_windowStateService = new WindowStateService(
+			_logService,
+			() => this,
+			_modalStateService,
+			_focusStateService,
+			null, // Renderer not yet created
+			_consoleDriver);
 			// Initialize input coordinator (handles all mouse and keyboard input)
-			_inputCoordinator = new InputCoordinator(
+			Input = new InputCoordinator(
 				_consoleDriver,
 				_inputStateService,
 				_windowStateService,
@@ -160,36 +168,36 @@ namespace SharpConsoleUI
 			// Initialize the renderer
 			_renderer = new Renderer(this);
 
+		// Set renderer on WindowStateService for screen redraws during window close
+		_windowStateService.SetRenderer(_renderer);
+
+
 			// Initialize performance tracker (tracks frame timing and metrics)
-			_performanceTracker = new PerformanceTracker();
+			Performance = new PerformanceTracker(
+				() => _options,
+				(opts) => _options = opts,
+				_logService,
+				() => Render?.InvalidateStatusCache());
 
 			// Initialize start menu coordinator (manages start menu actions)
 			_startMenuCoordinator = new StartMenuCoordinator(() => this);
 
 			// Initialize render coordinator (needs renderer, performance tracker, and other services)
-			_renderCoordinator = new RenderCoordinator(
+			Render = new RenderCoordinator(
 				_consoleDriver,
 				_renderer,
 				_windowStateService,
 				_logService,
 				this,
 				_options,
-				_performanceTracker);
+				Performance);
 
 			// Initialize window lifecycle manager (manages window add, close, flash, etc.)
-			_windowLifecycleManager = new WindowLifecycleManager(
-				_logService,
-				_windowStateService,
-				_modalStateService,
-				_focusStateService,
-				_renderer,
-				_consoleDriver,
-				() => this);
 
 			// Initialize window positioning manager (manages window move, resize, bounds)
-			_windowPositioningManager = new WindowPositioningManager(
+			Positioning = new WindowPositioningManager(
 				_renderer,
-				_renderCoordinator,
+				Render,
 				() => this);
 
 			// NOW initialize driver with 'this' reference (after services exist)
@@ -331,7 +339,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		private int GetTopStatusHeight()
 		{
-			return _renderCoordinator.GetTopStatusHeight();
+			return Render.GetTopStatusHeight();
 		}
 
 		/// <summary>
@@ -340,14 +348,18 @@ namespace SharpConsoleUI
 		/// </summary>
 		private int GetBottomStatusHeight()
 		{
-			return _renderCoordinator.GetBottomStatusHeight();
+			return Render.GetBottomStatusHeight();
 		}
 
 
 		/// <summary>
-		/// Gets the current console window system options.
+		/// Gets or sets the current console window system options.
 		/// </summary>
-		public ConsoleWindowSystemOptions Options => _options;
+		public ConsoleWindowSystemOptions Options
+		{
+			get => _options;
+			set => _options = value;
+		}
 
 		/// <summary>
 		/// Gets a value indicating whether the window system is currently running.
@@ -380,13 +392,13 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool ShowTopStatus
 		{
-			get => _renderCoordinator.GetShowTopStatus();
+			get => Render.GetShowTopStatus();
 			set
 			{
-				if (_renderCoordinator.GetShowTopStatus() != value)
+				if (Render.GetShowTopStatus() != value)
 				{
-					_renderCoordinator.SetShowTopStatus(value);
-					_renderCoordinator.InvalidateStatusCache();
+					Render.SetShowTopStatus(value);
+					Render.InvalidateStatusCache();
 					// Invalidate all windows to recalculate bounds
 					foreach (var w in Windows.Values)
 					{
@@ -402,13 +414,13 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool ShowBottomStatus
 		{
-			get => _renderCoordinator.GetShowBottomStatus();
+			get => Render.GetShowBottomStatus();
 			set
 			{
-				if (_renderCoordinator.GetShowBottomStatus() != value)
+				if (Render.GetShowBottomStatus() != value)
 				{
-					_renderCoordinator.SetShowBottomStatus(value);
-					_renderCoordinator.InvalidateStatusCache();
+					Render.SetShowBottomStatus(value);
+					Render.InvalidateStatusCache();
 					// Invalidate all windows to recalculate bounds
 					foreach (var w in Windows.Values)
 					{
@@ -505,7 +517,7 @@ namespace SharpConsoleUI
 		/// <returns>The added window.</returns>
 		public Window AddWindow(Window window, bool activateWindow = true)
 		{
-			return _windowLifecycleManager.AddWindow(window, activateWindow);
+			return _windowStateService.AddWindow(window, activateWindow);
 		}
 
 		/// <summary>
@@ -514,7 +526,7 @@ namespace SharpConsoleUI
 		/// <param name="modalWindow">The modal window to close. If null or not a modal window, the method returns without action.</param>
 		public void CloseModalWindow(Window? modalWindow)
 		{
-			_windowLifecycleManager.CloseModalWindow(modalWindow);
+			_windowStateService.CloseModalWindow(modalWindow);
 		}
 
 		/// <summary>
@@ -526,7 +538,7 @@ namespace SharpConsoleUI
 		/// <returns>True if the window was closed successfully; false otherwise.</returns>
 		public bool CloseWindow(Window? window, bool activateParent = true, bool force = false)
 		{
-			return _windowLifecycleManager.CloseWindow(window, activateParent, force);
+			return _windowStateService.CloseWindow(window, activateParent, force);
 		}
 
 		/// <summary>
@@ -567,7 +579,7 @@ namespace SharpConsoleUI
 		/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses the theme's ModalFlashColor.</param>
 		public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 150, Color? flashBackgroundColor = null)
 		{
-			_windowLifecycleManager.FlashWindow(window, flashCount, flashDuration, flashBackgroundColor);
+			_windowStateService.FlashWindow(window, flashCount, flashDuration, flashBackgroundColor);
 		}
 
 		/// <summary>
@@ -580,69 +592,6 @@ namespace SharpConsoleUI
 			return _windowStateService.GetWindow(guid);
 		}
 
-		/// <summary>
-		/// Sets the target frames per second for rendering.
-		/// </summary>
-		/// <param name="fps">Target FPS (must be greater than 0). Common values: 15, 30, 60, 120, 144.</param>
-		public void SetTargetFPS(int fps)
-		{
-			if (fps <= 0)
-				throw new ArgumentException("FPS must be greater than 0", nameof(fps));
-
-			_options = _options with { TargetFPS = fps };
-			_logService?.Log(LogLevel.Information, "System", $"Target FPS changed to {fps}");
-		}
-
-		/// <summary>
-		/// Gets the current target frames per second.
-		/// </summary>
-		public int GetTargetFPS() => _options.TargetFPS;
-
-		/// <summary>
-		/// Enables or disables frame rate limiting.
-		/// </summary>
-		/// <param name="enabled">True to enable frame rate limiting (cap at TargetFPS), false to render as fast as possible.</param>
-		public void SetFrameRateLimiting(bool enabled)
-		{
-			_options = _options with { EnableFrameRateLimiting = enabled };
-			_logService?.Log(LogLevel.Information, "System", $"Frame rate limiting {(enabled ? "enabled" : "disabled")}");
-		}
-
-		/// <summary>
-		/// Gets whether frame rate limiting is currently enabled.
-		/// </summary>
-		public bool IsFrameRateLimitingEnabled() => _options.EnableFrameRateLimiting;
-
-		/// <summary>
-		/// Enables or disables performance metrics display in the top status bar.
-		/// </summary>
-		/// <param name="enabled">True to show performance metrics, false to hide them.</param>
-		public void SetPerformanceMetrics(bool enabled)
-		{
-			_options = _options with { EnablePerformanceMetrics = enabled };
-			_renderCoordinator.InvalidateStatusCache();
-			_logService?.Log(LogLevel.Information, "System", $"Performance metrics {(enabled ? "enabled" : "disabled")}");
-		}
-
-		/// <summary>
-		/// Gets whether performance metrics are currently enabled.
-		/// </summary>
-		public bool IsPerformanceMetricsEnabled() => _options.EnablePerformanceMetrics;
-
-		/// <summary>
-		/// Gets the current actual frame time in milliseconds.
-		/// </summary>
-		public double GetCurrentFrameTime() => _performanceTracker.CurrentFrameTimeMs;
-
-		/// <summary>
-		/// Gets the current actual FPS based on frame time.
-		/// </summary>
-		public double GetCurrentFPS() => _performanceTracker.CurrentFPS;
-
-		/// <summary>
-		/// Gets the number of dirty characters (changed cells) in the last frame.
-		/// </summary>
-		public int GetDirtyCharCount() => _performanceTracker.CurrentDirtyChars;
 
 		/// <summary>
 		/// Starts the main event loop of the window system. Blocks until <see cref="Shutdown"/> is called.
@@ -683,7 +632,7 @@ namespace SharpConsoleUI
 				window.Invalidate(true);
 			}
 
-			_renderCoordinator.InvalidateStatusCache();
+			Render.InvalidateStatusCache();
 		}
 	}
 		public int Run()
@@ -703,7 +652,7 @@ namespace SharpConsoleUI
 			_consoleDriver.ScreenResized += _screenResizedHandler;
 
 			// Register input coordinator event handlers
-			_inputCoordinator.RegisterEventHandlers(_keyPressedHandler);
+			Input.RegisterEventHandlers(_keyPressedHandler);
 
 			// Start the console driver
 			_consoleDriver.Start();
@@ -718,22 +667,22 @@ namespace SharpConsoleUI
 				// Main loop
 				while (_running)
 				{
-					_inputCoordinator.ProcessInput();
+					Input.ProcessInput();
 
 					var now = DateTime.UtcNow;
 					var elapsed = (now - _lastRenderTime).TotalMilliseconds;
 
 					// Track performance metrics on EVERY iteration (independent of rendering)
 					bool metricsNeedUpdate = false;
-					if (_options.EnablePerformanceMetrics)
+					if (Performance.IsPerformanceMetricsEnabled)
 					{
-						metricsNeedUpdate = _performanceTracker.BeginFrame();
+						metricsNeedUpdate = Performance.BeginFrame();
 						if (metricsNeedUpdate)
 						{
-							_renderCoordinator.InvalidateStatusCache();
+							Render.InvalidateStatusCache();
 						}
 
-						_performanceTracker.UpdateMetrics(
+						Performance.UpdateMetrics(
 							Windows.Count,
 							Windows.Values.Count(w => w.IsDirty)
 						);
@@ -742,14 +691,14 @@ namespace SharpConsoleUI
 					// Frame pacing: render if windows are dirty OR metrics need update
 					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate;
 
-					if (_options.EnableFrameRateLimiting)
+					if (Performance.IsFrameRateLimitingEnabled)
 					{
 						// Frame rate limiting enabled: only render if enough time elapsed
-						if (shouldRender && elapsed >= _options.MinFrameTime)
+						if (shouldRender && elapsed >= Performance.MinFrameTime)
 						{
 							UpdateDisplay();
 							_lastRenderTime = now;
-							_idleTime = _options.MinFrameTime;
+							_idleTime = (int)Performance.MinFrameTime;
 						}
 						else
 						{
@@ -823,7 +772,7 @@ namespace SharpConsoleUI
 			// Unsubscribe from console driver events to prevent memory leaks
 			if (_keyPressedHandler != null)
 			{
-				_inputCoordinator.UnregisterEventHandlers(_keyPressedHandler);
+				Input.UnregisterEventHandlers(_keyPressedHandler);
 				_keyPressedHandler = null;
 			}
 
@@ -892,7 +841,7 @@ namespace SharpConsoleUI
 
 		private void UpdateStatusBarBounds()
 		{
-			_renderCoordinator.UpdateStatusBarBounds();
+			Render.UpdateStatusBarBounds();
 		}
 
 		/// <summary>
@@ -901,7 +850,7 @@ namespace SharpConsoleUI
 		public bool HandleStatusBarMouseClick(int x, int y)
 		{
 			// Check if click is on Start button
-			if (_renderCoordinator.StartButtonBounds.Contains(x, y))
+			if (Render.StartButtonBounds.Contains(x, y))
 			{
 				ShowStartMenu();
 				return true;
@@ -918,7 +867,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public void ProcessOnce()
 		{
-			_inputCoordinator.ProcessInput();
+			Input.ProcessInput();
 			UpdateDisplay();
 			UpdateCursor();
 		}
@@ -927,65 +876,10 @@ namespace SharpConsoleUI
 		/// Sets the specified window as the active window, handling modal window logic and focus.
 		/// </summary>
 		/// <param name="window">The window to activate. If null, the method returns without action.</param>
-		public void SetActiveWindow(Window window)
-		{
-			if (window == null)
-			{
-				return;
-			}
-
-			// Check if activation is blocked by modal service
-			if (_modalStateService.IsActivationBlocked(window))
-			{
-				_logService.LogTrace($"Window activation blocked by modal: {window.Title}", "Modal");
-				var blockingModal = _modalStateService.GetBlockingModal(window);
-				if (blockingModal != null && blockingModal != ActiveWindow)
-				{
-					FlashWindow(blockingModal);
-				}
-				else if (ActiveWindow != null)
-				{
-					FlashWindow(ActiveWindow);
-				}
-				return;
-			}
-
-			// Get the effective activation target (handles modal children)
-			Window windowToActivate = _modalStateService.GetEffectiveActivationTarget(window) ?? window;
-
-			// If a different modal should be activated, flash it
-			if (windowToActivate != window && windowToActivate.Mode == WindowMode.Modal)
-			{
-				FlashWindow(windowToActivate);
-			}
-
-			var previousActiveWindow = ActiveWindow;
-
-			// Invalidate previous active window
-			previousActiveWindow?.Invalidate(true);
-
-			// Delegate activation to the service
-			// The service handles: SetIsActive, ZIndex update, and state tracking
-			_windowStateService.ActivateWindow(windowToActivate);
-
-			// Update focus state via FocusStateService
-			_focusStateService.SetWindowFocus(windowToActivate);
-
-			// Invalidate new active window
-			windowToActivate.Invalidate(true);
-
-			// Unfocus the currently focused control of other windows
-			foreach (var w in Windows.Values)
-			{
-				if (w != ActiveWindow)
-				{
-					w.UnfocusCurrentControl();
-					_focusStateService.ClearFocus(w);
-				}
-			}
-
-			_logService.LogTrace($"Window activated: {windowToActivate.Title}", "Window");
-		}
+	public void SetActiveWindow(Window window)
+	{
+		_windowStateService.SetActiveWindow(window);
+	}
 
 		/// <summary>
 		/// Activates an existing window by name, or creates it using the factory if not found.
@@ -1155,19 +1049,12 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Moves a window to a new position with proper invalidation (used by both mouse and keyboard moves)
-		/// </summary>
-		public void MoveWindowTo(Window window, int newLeft, int newTop)
-		{
-			_windowPositioningManager.MoveWindowTo(window, newLeft, newTop);
-		}
-		/// <summary>
 		/// Computes a hash representing the current state of windows for task bar caching.
 		/// Includes window titles, states, and count to detect changes.
 		/// </summary>
 		private void MoveOrResizeOperation(Window? window, WindowTopologyAction windowTopologyAction, Direction direction)
 		{
-			_windowPositioningManager.MoveOrResizeOperation(window, windowTopologyAction, direction);
+			Positioning.MoveOrResizeOperation(window, windowTopologyAction, direction);
 
 		}
 
@@ -1236,18 +1123,26 @@ namespace SharpConsoleUI
 
 		private void UpdateDisplay()
 		{
-			_renderCoordinator.UpdateDisplay();
+			Render.UpdateDisplay();
 		}
 
 
 	#region IWindowSystemContext Implementation - Additional Methods
 
 	/// <summary>
+	/// Moves the specified window to a new position.
+	/// </summary>
+	public void MoveWindowTo(Window window, int newLeft, int newTop)
+	{
+		Positioning.MoveWindowTo(window, newLeft, newTop);
+	}
+
+	/// <summary>
 	/// Moves the specified window by a relative delta.
 	/// </summary>
 	public void MoveWindowBy(Window window, int deltaX, int deltaY)
 	{
-		_windowPositioningManager.MoveWindowBy(window, deltaX, deltaY);
+		Positioning.MoveWindowBy(window, deltaX, deltaY);
 	}
 
 	/// <summary>
@@ -1255,7 +1150,7 @@ namespace SharpConsoleUI
 	/// </summary>
 	public void ResizeWindowTo(Window window, int newLeft, int newTop, int newWidth, int newHeight)
 	{
-		_windowPositioningManager.ResizeWindowTo(window, newLeft, newTop, newWidth, newHeight);
+		Positioning.ResizeWindowTo(window, newLeft, newTop, newWidth, newHeight);
 	}
 
 	/// <summary>
@@ -1263,8 +1158,9 @@ namespace SharpConsoleUI
 	/// </summary>
 	public void ResizeWindowBy(Window window, int deltaWidth, int deltaHeight)
 	{
-		_windowPositioningManager.ResizeWindowBy(window, deltaWidth, deltaHeight);
+		Positioning.ResizeWindowBy(window, deltaWidth, deltaHeight);
 	}
+
 
 	/// <summary>
 	/// Requests the window system to exit with the specified exit code.
@@ -1280,7 +1176,7 @@ namespace SharpConsoleUI
 	/// </summary>
 	public void ActivateNextNonMinimizedWindow(Window minimizedWindow)
 	{
-		_windowLifecycleManager.ActivateNextNonMinimizedWindow(minimizedWindow);
+		_windowStateService.ActivateNextNonMinimizedWindow(minimizedWindow);
 	}
 
 	/// <summary>
@@ -1288,7 +1184,7 @@ namespace SharpConsoleUI
 	/// </summary>
 	public void DeactivateCurrentWindow()
 	{
-		_windowLifecycleManager.DeactivateCurrentWindow();
+		_windowStateService.DeactivateCurrentWindow();
 	}
 
 	#endregion
