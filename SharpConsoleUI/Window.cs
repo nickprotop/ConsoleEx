@@ -150,6 +150,7 @@ namespace SharpConsoleUI
 
 		private readonly Window? _parentWindow;
 		private readonly WindowLayoutManager _layoutManager;
+	private readonly Windows.WindowContentManager _contentManager;
 		private Color? _activeBorderForegroundColor;
 		private Color? _activeTitleForegroundColor;
 		private int _bottomStickyHeight;
@@ -224,6 +225,13 @@ namespace SharpConsoleUI
 			_windowSystem = windowSystem;
 			_layoutManager = new WindowLayoutManager(this);
 
+		// Initialize content manager for control collection management
+		_contentManager = new Windows.WindowContentManager(
+			() => Title,
+			_windowSystem?.LogService,
+			() => Invalidate(true),
+			() => _rootNode = null);
+
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
 
@@ -260,6 +268,14 @@ namespace SharpConsoleUI
 			_windowSystem = windowSystem;
 			_parentWindow = parentWindow;
 			_layoutManager = new WindowLayoutManager(this);
+
+		// Initialize content manager for control collection management
+		_contentManager = new Windows.WindowContentManager(
+			() => Title,
+			_windowSystem?.LogService,
+			() => Invalidate(true),
+			() => _rootNode = null);
+
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -750,61 +766,55 @@ namespace SharpConsoleUI
 			}
 		}
 
-		/// <inheritdoc/>
-		public void AddControl(IWindowControl content)
+	/// <inheritdoc/>
+	public void AddControl(IWindowControl content)
+	{
+		lock (_lock)
 		{
-			lock (_lock)
+			// Delegate to content manager for core collection management
+			_contentManager.AddControl(_controls, _interactiveContents, content, this);
+
+			// Handle focus logic for interactive controls
+			if (content is IInteractiveControl interactiveContent)
 			{
-				_windowSystem?.LogService?.LogDebug($"Control added to window '{Title}': {content.GetType().Name}", "Window");
-
-				content.Container = this;
-				_controls.Add(content);
-
-				// Register the control with the InvalidationManager for proper coordination
-				InvalidationManager.Instance.RegisterControl(content);
-
-				// Invalidate DOM tree so it gets rebuilt with the new control
-				_rootNode = null;
-
-				_invalidated = true;
-
-				if (content is IInteractiveControl interactiveContent)
+				if (_interactiveContents.Where(p => p.HasFocus).Count() == 0)
 				{
-					_interactiveContents.Add(interactiveContent);
-
-					if (_interactiveContents.Where(p => p.HasFocus).Count() == 0)
-					{
-						interactiveContent.HasFocus = true;
-						_lastFocusedControl = interactiveContent;
-						// Sync with FocusStateService
-						FocusService?.SetFocus(this, interactiveContent, FocusChangeReason.Programmatic);
-					}
+					interactiveContent.HasFocus = true;
+					_lastFocusedControl = interactiveContent;
+					// Sync with FocusStateService
+					FocusService?.SetFocus(this, interactiveContent, FocusChangeReason.Programmatic);
 				}
-
-				RenderAndGetVisibleContent();
-
-				if (content.StickyPosition == StickyPosition.None && _interactiveContents.Where(p => p.HasFocus).Count() == 0) GoToBottom();
 			}
-		}
 
-		/// <summary>
-		/// Removes all controls from the window.
-		/// </summary>
-		public void ClearControls()
+			// Trigger re-render
+			RenderAndGetVisibleContent();
+
+			// Auto-scroll to bottom for non-sticky controls if nothing is focused
+			if (content.StickyPosition == StickyPosition.None && _interactiveContents.Where(p => p.HasFocus).Count() == 0)
+				GoToBottom();
+		}
+	}
+	/// <summary>
+	/// Removes all controls from the window.
+	/// </summary>
+	public void ClearControls()
+	{
+		lock (_lock)
 		{
-			lock (_lock)
+			// Dispose all controls first
+			foreach (var content in _controls.ToList())
 			{
-				foreach (var content in _controls.ToList())
-				{
-					RemoveContent(content);
-				}
-
-				// Invalidate DOM tree
-				_rootNode = null;
-
-				Invalidate(true);
+				content.Dispose();
 			}
+
+			// Clear focus tracking
+			_lastFocusedControl = null;
+			FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
+
+			// Delegate to content manager for core clearing
+			_contentManager.ClearControls(_controls, _interactiveContents);
 		}
+	}
 
 		/// <summary>
 		/// Checks if the window can be closed by firing the OnClosing event.
@@ -2342,45 +2352,52 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Removes a control from this window and disposes it.
-		/// </summary>
-		/// <param name="content">The control to remove.</param>
-		public void RemoveContent(IWindowControl content)
+	/// <summary>
+	/// Removes a control from this window and disposes it.
+	/// </summary>
+	/// <param name="content">The control to remove.</param>
+	public void RemoveContent(IWindowControl content)
+	{
+		lock (_lock)
 		{
-			lock (_lock)
+			// Handle focus logic before removing
+			if (content is IInteractiveControl interactiveControl)
 			{
-				if (_controls.Remove(content))
+				// If the removed content was the last focused control, clear it
+				if (_lastFocusedControl == interactiveControl)
 				{
-					_windowSystem?.LogService?.LogDebug($"Control removed from window '{Title}': {content.GetType().Name}", "Window");
-					if (content is IInteractiveControl interactiveContent)
+					_lastFocusedControl = null;
+					FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
+				}
+
+				// If the removed content had focus, switch focus to the next one
+				if (interactiveControl.HasFocus && _interactiveContents.Count > 1)
+				{
+					// Find next interactive control (after removal)
+					var nextControl = _interactiveContents.FirstOrDefault(ic => ic != interactiveControl);
+					if (nextControl != null)
 					{
-						_interactiveContents.Remove(interactiveContent);
-
-						// If the removed content was the last focused control, clear it
-						if (_lastFocusedControl == interactiveContent)
-						{
-							_lastFocusedControl = null;
-							FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
-						}
-
-						// If the removed content had focus, switch focus to the next one
-						if (interactiveContent.HasFocus && _interactiveContents.Count > 0)
-						{
-							_interactiveContents[0].HasFocus = true;
-							_lastFocusedControl = _interactiveContents[0];
-							FocusService?.SetFocus(this, _interactiveContents[0], FocusChangeReason.Programmatic);
-						}
+						nextControl.HasFocus = true;
+						_lastFocusedControl = nextControl;
+						FocusService?.SetFocus(this, nextControl, FocusChangeReason.Programmatic);
 					}
-					_invalidated = true;
-					RenderAndGetVisibleContent();
-
-					// Unregister the control from the InvalidationManager
-					InvalidationManager.Instance.UnregisterControl(content);
-					content.Dispose();
-					GoToBottom();
 				}
 			}
+
+			// Delegate to content manager for core removal
+			if (_contentManager.RemoveControl(_controls, _interactiveContents, content))
+			{
+				// Dispose the control
+				content.Dispose();
+
+				// Trigger re-render
+				RenderAndGetVisibleContent();
+
+				// Auto-scroll to bottom
+				GoToBottom();
+			}
 		}
+	}
 
 		/// <summary>
 		/// Renders the window content and returns the visible lines.
