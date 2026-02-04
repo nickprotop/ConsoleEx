@@ -59,12 +59,42 @@ jobs:
     - name: Package
       run: dotnet pack SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-build --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
 
+    - name: Generate Release Notes
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      id: release_notes
+      run: |
+        # Get previous tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+        # Generate commit list
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "### What's Changed" > release_notes.md
+          echo "" >> release_notes.md
+          git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges >> release_notes.md
+        else
+          echo "### What's Changed" > release_notes.md
+          echo "" >> release_notes.md
+          echo "Initial release" >> release_notes.md
+        fi
+
+        echo "" >> release_notes.md
+        echo "" >> release_notes.md
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...v${{ steps.version.outputs.version }}" >> release_notes.md
+        fi
+
+        # Set output
+        {
+          echo 'notes<<EOF'
+          cat release_notes.md
+          echo EOF
+        } >> $GITHUB_OUTPUT
+
     - name: Create GitHub Release
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
       with:
         files: ./nupkgs/*.nupkg
-        generate_release_notes: true
         body: |
           ## SharpConsoleUI ${{ steps.version.outputs.version }}
 
@@ -75,7 +105,7 @@ jobs:
           dotnet add package SharpConsoleUI --version ${{ steps.version.outputs.version }}
           ```
 
-          ### What's Changed
+          ${{ steps.release_notes.outputs.notes }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
