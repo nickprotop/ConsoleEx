@@ -61,11 +61,9 @@ class Program
                 )
             );
 
-            _windowSystem = new ConsoleWindowSystem(driver, options: options)
-            {
-                TopStatus = "[bold cyan]HighFreqDemo[/] - Multi-frequency Update Showcase",
-                BottomStatus = "[grey]Ctrl+C: Exit | Ctrl+Space: Start Menu[/]"
-            };
+            _windowSystem = new ConsoleWindowSystem(driver, options: options);
+            _windowSystem.StatusBarStateService.TopStatus = "[bold cyan]HighFreqDemo[/] - Multi-frequency Update Showcase";
+            _windowSystem.StatusBarStateService.BottomStatus = "[grey]Ctrl+C: Exit | Ctrl+Space: Start Menu[/]";
 
             Console.CancelKeyPress += (sender, e) =>
             {

@@ -36,10 +36,8 @@ internal class Program
                         ShowTaskBar: false,
                         ShowBottomStatus: false
                     )
-                ))
-            {
-                TopStatus = "AgentStudio - TUI Showcase",
-            };
+                ));
+            windowSystem.StatusBarStateService.TopStatus = "AgentStudio - TUI Showcase";
 
             // Setup graceful shutdown
             Console.CancelKeyPress += (sender, e) =>

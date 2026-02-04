@@ -46,8 +46,6 @@ namespace SharpConsoleUI.Rendering
 		private string? _cachedTaskBar;
 		private int _taskBarWindowCount;
 		private int _taskBarStateHash;
-		private bool _showTopStatus = true;
-		private bool _showBottomStatus = true;
 
 		// Render lock for thread safety
 		private readonly object _renderLock = new object();
@@ -113,7 +111,7 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public int GetTopStatusHeight()
 		{
-			return _statusBarStateService.GetTopStatusHeight(_showTopStatus, _options.EnablePerformanceMetrics);
+			return _statusBarStateService.GetTopStatusHeight(_statusBarStateService.ShowTopStatus, _options.EnablePerformanceMetrics);
 		}
 
 		/// <summary>
@@ -122,7 +120,7 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public int GetBottomStatusHeight()
 		{
-			return _statusBarStateService.GetBottomStatusHeight(_showBottomStatus, _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation);
+			return _statusBarStateService.GetBottomStatusHeight(_statusBarStateService.ShowBottomStatus, _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation);
 		}
 
 		/// <summary>
@@ -137,36 +135,6 @@ namespace SharpConsoleUI.Rendering
 		}
 
 		/// <summary>
-		/// Sets whether the top status bar should be shown.
-		/// </summary>
-		public void SetShowTopStatus(bool show)
-		{
-			_showTopStatus = show;
-		}
-
-
-	/// <summary>
-	/// Gets whether the top status bar is shown.
-	/// </summary>
-	public bool GetShowTopStatus()
-	{
-		return _showTopStatus;
-	}
-		/// <summary>
-		/// Sets whether the bottom status bar should be shown.
-		/// </summary>
-		public void SetShowBottomStatus(bool show)
-		{
-			_showBottomStatus = show;
-		}
-
-	/// <summary>
-	/// Gets whether the bottom status bar is shown.
-	/// </summary>
-	public bool GetShowBottomStatus()
-	{
-		return _showBottomStatus;
-	}
 
 		/// <summary>
 		/// Updates the status bar bounds based on current screen size and configuration.
@@ -177,8 +145,8 @@ namespace SharpConsoleUI.Rendering
 			_statusBarStateService.UpdateStatusBarBounds(
 				_consoleDriver.ScreenSize.Width,
 				_consoleDriver.ScreenSize.Height,
-				_showTopStatus,
-				_showBottomStatus,
+				_statusBarStateService.ShowTopStatus,
+				_statusBarStateService.ShowBottomStatus,
 				_options.StatusBar);
 		}
 
@@ -263,7 +231,7 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		private bool ShouldRenderTopStatus()
 		{
-			return _showTopStatus && (!string.IsNullOrEmpty(_statusBarStateService.TopStatus) || _options.EnablePerformanceMetrics);
+			return _statusBarStateService.ShowTopStatus && (!string.IsNullOrEmpty(_statusBarStateService.TopStatus) || _options.EnablePerformanceMetrics);
 		}
 
 		/// <summary>
@@ -276,7 +244,7 @@ namespace SharpConsoleUI.Rendering
 			bool hasStartButton = _options.StatusBar.ShowStartButton &&
 								  _options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom;
 
-			return _showBottomStatus && (hasContent || hasStartButton);
+			return _statusBarStateService.ShowBottomStatus && (hasContent || hasStartButton);
 		}
 
 		/// <summary>

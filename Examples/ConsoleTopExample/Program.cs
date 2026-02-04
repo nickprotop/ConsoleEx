@@ -118,10 +118,8 @@ internal class Program
                     StatusBarOptions: new StatusBarOptions(
                         ShowTaskBar: false
                     )
-                ))
-            {
-                TopStatus = $"ConsoleTop - System Monitor ({SystemStatsFactory.GetPlatformName()})",
-            };
+                ));
+            _windowSystem.StatusBarStateService.TopStatus = $"ConsoleTop - System Monitor ({SystemStatsFactory.GetPlatformName()})";
 
             Console.CancelKeyPress += (sender, e) =>
             {

@@ -27,8 +27,8 @@ class Program
 			);
 
 			var windowSystem = new ConsoleWindowSystem(driver, options: options);
-			windowSystem.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+Space[/] or click [yellow]☰ Start[/] button";
-			windowSystem.BottomStatus = "";
+			windowSystem.StatusBarStateService.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+Space[/] or click [yellow]☰ Start[/] button";
+			windowSystem.StatusBarStateService.BottomStatus = "";
 
 			// Graceful shutdown
 			Console.CancelKeyPress += (sender, e) =>

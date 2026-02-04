@@ -5,11 +5,9 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
 
-var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
-{
-	TopStatus = "PanelControl Demo - Mouse Event Handling",
-	BottomStatus = "Click panels to see events | Mouse wheel bubbles to scrollable parent | ESC: Close"
-};
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
+windowSystem.StatusBarStateService.TopStatus = "PanelControl Demo - Mouse Event Handling";
+windowSystem.StatusBarStateService.BottomStatus = "Click panels to see events | Mouse wheel bubbles to scrollable parent | ESC: Close";
 
 // Status display
 var statusControl = new MarkupControl(new List<string> { "[dim]Waiting for interaction...[/]" })

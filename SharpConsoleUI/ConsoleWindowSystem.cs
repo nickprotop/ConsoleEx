@@ -79,7 +79,7 @@ namespace SharpConsoleUI
 		public InputCoordinator Input;
 
 		// Render coordination
-		private RenderCoordinator Render = null!; // Initialized in constructor after renderer
+		public RenderCoordinator Render { get; private set; } = null!; // Initialized in constructor after renderer
 
 		// Window lifecycle coordination
 
@@ -326,17 +326,17 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the upper-left coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopUpperLeft => new Point(0, _statusBarStateService.GetTopStatusHeight(Render.GetShowTopStatus(), _options.EnablePerformanceMetrics));
+		public Point DesktopUpperLeft => new Point(0, _statusBarStateService.GetTopStatusHeight(_statusBarStateService.ShowTopStatus, _options.EnablePerformanceMetrics));
 
 		/// <summary>
 		/// Gets the bottom-right coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - _statusBarStateService.GetTopStatusHeight(Render.GetShowTopStatus(), _options.EnablePerformanceMetrics) - _statusBarStateService.GetBottomStatusHeight(Render.GetShowBottomStatus(), _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation));
+		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - _statusBarStateService.GetTopStatusHeight(_statusBarStateService.ShowTopStatus, _options.EnablePerformanceMetrics) - _statusBarStateService.GetBottomStatusHeight(_statusBarStateService.ShowBottomStatus, _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation));
 
 		/// <summary>
 		/// Gets the dimensions of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - _statusBarStateService.GetTopStatusHeight(Render.GetShowTopStatus(), _options.EnablePerformanceMetrics) - _statusBarStateService.GetBottomStatusHeight(Render.GetShowBottomStatus(), _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation));
+		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - _statusBarStateService.GetTopStatusHeight(_statusBarStateService.ShowTopStatus, _options.EnablePerformanceMetrics) - _statusBarStateService.GetBottomStatusHeight(_statusBarStateService.ShowBottomStatus, _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation));
 
 		/// <summary>
 		/// Gets the visible regions manager for calculating window visibility.
@@ -345,71 +345,6 @@ namespace SharpConsoleUI
 
 		#endregion
 
-		#region Status Bar
-
-		/// <summary>
-		/// Gets or sets the text displayed in the top status bar.
-		/// </summary>
-		public string? TopStatus
-		{
-			get => _statusBarStateService.TopStatus;
-			set => _statusBarStateService.TopStatus = value ?? "";
-		}
-
-		/// <summary>
-		/// Gets or sets the text displayed in the bottom status bar.
-		/// </summary>
-		public string? BottomStatus
-		{
-			get => _statusBarStateService.BottomStatus;
-			set => _statusBarStateService.BottomStatus = value ?? "";
-		}
-
-		/// <summary>
-		/// Gets or sets whether the top status bar is shown.
-		/// Changing this affects desktop dimensions and all window coordinates.
-		/// </summary>
-		public bool ShowTopStatus
-		{
-			get => Render.GetShowTopStatus();
-			set
-			{
-				if (Render.GetShowTopStatus() != value)
-				{
-					Render.SetShowTopStatus(value);
-					Render.InvalidateStatusCache();
-					// Invalidate all windows to recalculate bounds
-					foreach (var w in Windows.Values)
-					{
-						w.Invalidate(true);
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets whether the bottom status bar is shown.
-		/// Changing this affects desktop dimensions and all window coordinates.
-		/// </summary>
-		public bool ShowBottomStatus
-		{
-			get => Render.GetShowBottomStatus();
-			set
-			{
-				if (Render.GetShowBottomStatus() != value)
-				{
-					Render.SetShowBottomStatus(value);
-					Render.InvalidateStatusCache();
-					// Invalidate all windows to recalculate bounds
-					foreach (var w in Windows.Values)
-					{
-						w.Invalidate(true);
-					}
-				}
-			}
-		}
-
-		#endregion
 
 		#region Window Properties
 
@@ -696,6 +631,18 @@ namespace SharpConsoleUI
 			_exitCode = exitCode;
 			_running = false;
 		}
+
+	/// <summary>
+	/// Invalidates all windows and status bars after status bar visibility changes.
+	/// </summary>
+	public void InvalidateAllWindows()
+	{
+		Render.InvalidateStatusCache();
+		foreach (var w in Windows.Values)
+		{
+			w.Invalidate(true);
+		}
+	}
 
 		#endregion
 

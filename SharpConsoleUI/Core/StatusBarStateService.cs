@@ -27,6 +27,8 @@ namespace SharpConsoleUI.Core
 		// Status bar state
 		private string _topStatus = "";
 		private string _bottomStatus = "";
+	private bool _showTopStatus = true;
+	private bool _showBottomStatus = true;
 
 		// Status bar bounds (updated during rendering)
 		private Rectangle _topStatusBarBounds = Rectangle.Empty;
@@ -63,6 +65,40 @@ namespace SharpConsoleUI.Core
 			get => _bottomStatus;
 			set => _bottomStatus = value ?? "";
 		}
+
+	/// <summary>
+	/// Gets or sets whether the top status bar is visible.
+	/// Changing this affects desktop dimensions and triggers window invalidation.
+	/// </summary>
+	public bool ShowTopStatus
+	{
+		get => _showTopStatus;
+		set
+		{
+			if (_showTopStatus != value)
+			{
+				_showTopStatus = value;
+				_getWindowSystem().InvalidateAllWindows();
+			}
+		}
+	}
+
+	/// <summary>
+	/// Gets or sets whether the bottom status bar is visible.
+	/// Changing this affects desktop dimensions and triggers window invalidation.
+	/// </summary>
+	public bool ShowBottomStatus
+	{
+		get => _showBottomStatus;
+		set
+		{
+			if (_showBottomStatus != value)
+			{
+				_showBottomStatus = value;
+				_getWindowSystem().InvalidateAllWindows();
+			}
+		}
+	}
 
 		/// <summary>
 		/// Gets the top status bar bounds for mouse hit testing.

@@ -66,6 +66,11 @@ namespace SharpConsoleUI.Core
 		/// <param name="exitCode">The exit code to return.</param>
 		void RequestExit(int exitCode);
 
+	/// <summary>
+	/// Invalidates all windows and status bars after status bar visibility changes.
+	/// </summary>
+	void InvalidateAllWindows();
+
 		/// <summary>
 		/// Finds the topmost window at the specified point.
 		/// </summary>
@@ -103,15 +108,6 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		Point DesktopBottomRight { get; }
 
-		/// <summary>
-		/// Gets or sets the top status bar text.
-		/// </summary>
-		string? TopStatus { get; set; }
-
-		/// <summary>
-		/// Gets or sets the bottom status bar text.
-		/// </summary>
-		string? BottomStatus { get; set; }
 
 		/// <summary>
 		/// Gets the collection of all windows indexed by GUID.

@@ -24,7 +24,7 @@ class Program
 			TargetFPS: 60
 		);
 		var windowSystem = new ConsoleWindowSystem(driver, options: options);
-		windowSystem.TopStatus = "[bold cyan]Frame Rate Demo[/] - Change FPS with 1-5, Toggle limiting with E/D, Toggle metrics with M, Quit with Ctrl+Q";
+		windowSystem.StatusBarStateService.TopStatus = "[bold cyan]Frame Rate Demo[/] - Change FPS with 1-5, Toggle limiting with E/D, Toggle metrics with M, Quit with Ctrl+Q";
 
 		// Create control panel window
 		var controlWindow = CreateControlPanel(windowSystem);

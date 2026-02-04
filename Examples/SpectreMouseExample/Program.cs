@@ -36,10 +36,8 @@ internal class Program
 				new NetConsoleDriver(RenderMode.Buffer),
 				options: new ConsoleWindowSystemOptions(
 					StatusBarOptions: new StatusBarOptions(ShowTaskBar: true)
-				))
-			{
-				TopStatus = "Spectre Renderable Mouse Demo - Press ESC to close window",
-			};
+				));
+			_windowSystem.StatusBarStateService.TopStatus = "Spectre Renderable Mouse Demo - Press ESC to close window";
 
 			// Setup graceful shutdown
 			Console.CancelKeyPress += (sender, e) =>

@@ -35,10 +35,8 @@ internal class Program
                     StatusBarOptions: new StatusBarOptions(
                         ShowTaskBar: false  // Hide taskbar for true full-screen experience
                     )
-                ))
-            {
-                TopStatus = "Full Screen Example - Press F10 to Exit",
-            };
+                ));
+            _windowSystem.StatusBarStateService.TopStatus = "Full Screen Example - Press F10 to Exit";
 
             // Setup graceful shutdown handler for Ctrl+C
             Console.CancelKeyPress += (sender, e) =>

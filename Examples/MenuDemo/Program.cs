@@ -26,12 +26,10 @@ class Program
                     StatusBarOptions: new StatusBarOptions(
                         ShowTaskBar: true
                     )
-                ))
-            {
-                TopStatus = "MenuControl Demo - Full-Featured Menu with Keyboard & Mouse Support",
-                BottomStatus =
-                    "Use Arrow Keys, Enter, Escape, Home/End, or Mouse | Tab to focus menu | ESC to close | Ctrl+C to Quit",
-            };
+                ));
+            _windowSystem.StatusBarStateService.TopStatus = "MenuControl Demo - Full-Featured Menu with Keyboard & Mouse Support";
+            _windowSystem.StatusBarStateService.BottomStatus =
+                "Use Arrow Keys, Enter, Escape, Home/End, or Mouse | Tab to focus menu | ESC to close | Ctrl+C to Quit";
 
             // Graceful shutdown
             Console.CancelKeyPress += (sender, e) =>

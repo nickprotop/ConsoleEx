@@ -31,11 +31,9 @@ class Program
                         ShowTaskBar: true,
                         ShowStartButton: true
                     )
-                ))
-            {
-                TopStatus = "Multi-Dashboard Showcase - ConsoleEx Unique Capabilities Demo",
-                BottomStatus = "F1-F6: Toggle Windows | ESC: Close Window | F10: Close All | Ctrl+C: Quit",
-            };
+                ));
+            _windowSystem.StatusBarStateService.TopStatus = "Multi-Dashboard Showcase - ConsoleEx Unique Capabilities Demo";
+            _windowSystem.StatusBarStateService.BottomStatus = "F1-F6: Toggle Windows | ESC: Close Window | F10: Close All | Ctrl+C: Quit";
 
             // 2. Graceful shutdown
             Console.CancelKeyPress += (sender, e) =>
