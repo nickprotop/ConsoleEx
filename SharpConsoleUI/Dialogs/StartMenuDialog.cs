@@ -239,7 +239,7 @@ public static class StartMenuDialog
 
 	private static void BuildUserActionsCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem, OverlayWindow overlay)
 	{
-		var userActions = windowSystem.GetStartMenuActions();
+		var userActions = windowSystem.StatusBarStateService.GetStartMenuActions();
 		if (userActions.Count == 0)
 			return;
 

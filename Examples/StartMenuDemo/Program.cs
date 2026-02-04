@@ -48,7 +48,7 @@ class Program
 			}
 
 			// Register user actions - File category
-			windowSystem.RegisterStartMenuAction("New Document", () =>
+			windowSystem.StatusBarStateService.RegisterStartMenuAction("New Document", () =>
 			{
 				var window = new Window(windowSystem)
 				{
@@ -69,7 +69,7 @@ class Program
 				windowSystem.SetActiveWindow(window);
 			}, category: "File", order: 10);
 
-			windowSystem.RegisterStartMenuAction("Open File", () =>
+			windowSystem.StatusBarStateService.RegisterStartMenuAction("Open File", () =>
 			{
 				var window = new Window(windowSystem)
 				{
@@ -89,7 +89,7 @@ class Program
 				windowSystem.SetActiveWindow(window);
 			}, category: "File", order: 20);
 
-			windowSystem.RegisterStartMenuAction("Save File", () =>
+			windowSystem.StatusBarStateService.RegisterStartMenuAction("Save File", () =>
 			{
 				windowSystem.NotificationStateService.ShowNotification(
 					"Save",
@@ -99,7 +99,7 @@ class Program
 			}, category: "File", order: 30);
 
 			// Register user actions - Tools category
-			windowSystem.RegisterStartMenuAction("Calculator", () =>
+			windowSystem.StatusBarStateService.RegisterStartMenuAction("Calculator", () =>
 			{
 				var window = new Window(windowSystem)
 				{

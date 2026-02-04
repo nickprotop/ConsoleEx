@@ -69,7 +69,7 @@ internal class Program
             SetupMainWindowKeyHandlers();
 
             // Activate wellcome window
-            _windowSystem.TryActivate("WelcomeWindow");
+            _windowSystem.WindowStateService.TryActivate("WelcomeWindow");
 
             // Run the application
             _windowSystem.LogService.LogInfo("Starting Modern SharpConsoleUI Demo");

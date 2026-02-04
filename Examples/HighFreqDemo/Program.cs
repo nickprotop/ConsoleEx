@@ -94,7 +94,7 @@ class Program
     {
         if (_windowSystem == null) return;
 
-        _windowSystem.RegisterStartMenuAction("Reset Counters", () =>
+        _windowSystem.StatusBarStateService.RegisterStartMenuAction("Reset Counters", () =>
         {
             _eventCounter = 0;
             _alertCounter = 0;
@@ -102,14 +102,14 @@ class Program
                 "Reset", "Counters reset to zero", NotificationSeverity.Info);
         }, category: "Tools", order: 10);
 
-        _windowSystem.RegisterStartMenuAction("Spike CPU", () =>
+        _windowSystem.StatusBarStateService.RegisterStartMenuAction("Spike CPU", () =>
         {
             _cpuValue = 95;
             _windowSystem.NotificationStateService.ShowNotification(
                 "CPU Spike", "Simulated CPU spike triggered", NotificationSeverity.Warning);
         }, category: "Tools", order: 20);
 
-        _windowSystem.RegisterStartMenuAction("Clear History", () =>
+        _windowSystem.StatusBarStateService.RegisterStartMenuAction("Clear History", () =>
         {
             _cpuHistory.Clear();
             _memoryHistory.Clear();

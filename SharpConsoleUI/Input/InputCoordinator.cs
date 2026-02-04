@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Logging;
 using System.Drawing;
 using Color = Spectre.Console.Color;
@@ -81,7 +82,7 @@ namespace SharpConsoleUI.Input
 				var keyInfo = key.Value;
 
 				// Check for Start menu shortcut first
-				if (_context.HandleStartMenuShortcut(keyInfo))
+				if (HandleStartMenuShortcut(keyInfo))
 				{
 					continue;
 				}
@@ -134,7 +135,7 @@ namespace SharpConsoleUI.Input
 			// Check for Start button click first
 			if (flags.Contains(MouseFlags.Button1Pressed))
 			{
-				if (_context.HandleStatusBarMouseClick(point.X, point.Y))
+				if (_context.StatusBarStateService.HandleStatusBarClick(point.X, point.Y))
 				{
 					return;
 				}
@@ -192,7 +193,7 @@ namespace SharpConsoleUI.Input
 					}
 
 					// Check if clicking on an interactive control first
-					var contentControl = window.EventDispatcher?.GetControlAtPosition(_context.TranslateToRelative(window, point));
+					var contentControl = window.EventDispatcher?.GetControlAtPosition(GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y));
 					bool clickingOnControl = contentControl is Controls.IMouseAwareControl mouseAware
 											  && mouseAware.WantsMouseEvents;
 
@@ -253,7 +254,7 @@ namespace SharpConsoleUI.Input
 						// If the minimized window was active, activate another window
 						if (_context.ActiveWindow == window)
 						{
-							_context.ActivateNextNonMinimizedWindow(window);
+							_context.WindowStateService.ActivateNextNonMinimizedWindow(window);
 						}
 						return;
 					}
@@ -264,7 +265,7 @@ namespace SharpConsoleUI.Input
 				else
 				{
 					// Clicked on empty desktop - deactivate active window
-					_context.DeactivateCurrentWindow();
+					_context.WindowStateService.DeactivateCurrentWindow();
 				}
 			}
 
@@ -294,7 +295,7 @@ namespace SharpConsoleUI.Input
 				return ResizeDirection.None;
 			}
 
-			var relativePoint = _context.TranslateToRelative(window, point);
+			var relativePoint = GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y);
 
 			const int borderThickness = 1;
 			const int cornerSize = 3;
@@ -352,7 +353,7 @@ namespace SharpConsoleUI.Input
 				return false;
 			}
 
-			var relativePoint = _context.TranslateToRelative(window, point);
+			var relativePoint = GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y);
 
 			// Must be in the top row
 			if (relativePoint.Y != 0)
@@ -387,7 +388,7 @@ namespace SharpConsoleUI.Input
 			if (!window.IsClosable)
 				return false;
 
-			var relativePoint = _context.TranslateToRelative(window, point);
+			var relativePoint = GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y);
 
 			if (relativePoint.Y != 0)
 				return false;
@@ -406,7 +407,7 @@ namespace SharpConsoleUI.Input
 			if (!window.IsMaximizable)
 				return false;
 
-			var relativePoint = _context.TranslateToRelative(window, point);
+			var relativePoint = GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y);
 
 			if (relativePoint.Y != 0)
 				return false;
@@ -428,7 +429,7 @@ namespace SharpConsoleUI.Input
 			if (!window.IsMinimizable)
 				return false;
 
-			var relativePoint = _context.TranslateToRelative(window, point);
+			var relativePoint = GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y);
 
 			if (relativePoint.Y != 0)
 				return false;
@@ -451,7 +452,7 @@ namespace SharpConsoleUI.Input
 			if (!window.IsResizable)
 				return false;
 
-			var relativePoint = _context.TranslateToRelative(window, point);
+			var relativePoint = GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y);
 
 			return relativePoint.X == window.Width - 1 && relativePoint.Y == window.Height - 1;
 		}
@@ -488,7 +489,7 @@ namespace SharpConsoleUI.Input
 			newLeft = Math.Max(0, Math.Min(newLeft, desktopDimensions.Width - window.Width));
 			newTop = Math.Max(0, Math.Min(newTop, desktopDimensions.Height - window.Height));
 
-			_context.MoveWindowTo(window, newLeft, newTop);
+			_context.Positioning.MoveWindowTo(window, newLeft, newTop);
 		}
 
 		/// <summary>
@@ -578,7 +579,7 @@ namespace SharpConsoleUI.Input
 			newLeft = Math.Max(0, Math.Min(newLeft, desktopDimensions.Width - newWidth));
 			newTop = Math.Max(0, Math.Min(newTop, desktopDimensions.Height - newHeight));
 
-			_context.ResizeWindowTo(window, newLeft, newTop, newWidth, newHeight);
+			_context.Positioning.ResizeWindowTo(window, newLeft, newTop, newWidth, newHeight);
 		}
 
 		#endregion
@@ -596,19 +597,19 @@ namespace SharpConsoleUI.Input
 			switch (key.Key)
 			{
 				case ConsoleKey.UpArrow:
-					_context.MoveWindowBy(activeWindow, 0, -1);
+					_context.Positioning.MoveWindowBy(activeWindow, 0, -1);
 					return true;
 
 				case ConsoleKey.DownArrow:
-					_context.MoveWindowBy(activeWindow, 0, 1);
+					_context.Positioning.MoveWindowBy(activeWindow, 0, 1);
 					return true;
 
 				case ConsoleKey.LeftArrow:
-					_context.MoveWindowBy(activeWindow, -1, 0);
+					_context.Positioning.MoveWindowBy(activeWindow, -1, 0);
 					return true;
 
 				case ConsoleKey.RightArrow:
-					_context.MoveWindowBy(activeWindow, 1, 0);
+					_context.Positioning.MoveWindowBy(activeWindow, 1, 0);
 					return true;
 
 				case ConsoleKey.X:
@@ -631,19 +632,19 @@ namespace SharpConsoleUI.Input
 			switch (key.Key)
 			{
 				case ConsoleKey.UpArrow:
-					_context.ResizeWindowBy(activeWindow, 0, -1);
+					_context.Positioning.ResizeWindowBy(activeWindow, 0, -1);
 					return true;
 
 				case ConsoleKey.DownArrow:
-					_context.ResizeWindowBy(activeWindow, 0, 1);
+					_context.Positioning.ResizeWindowBy(activeWindow, 0, 1);
 					return true;
 
 				case ConsoleKey.LeftArrow:
-					_context.ResizeWindowBy(activeWindow, -1, 0);
+					_context.Positioning.ResizeWindowBy(activeWindow, -1, 0);
 					return true;
 
 				case ConsoleKey.RightArrow:
-					_context.ResizeWindowBy(activeWindow, 1, 0);
+					_context.Positioning.ResizeWindowBy(activeWindow, 1, 0);
 					return true;
 
 				default:
@@ -652,11 +653,48 @@ namespace SharpConsoleUI.Input
 		}
 
 		/// <summary>
+		/// Handles start menu keyboard shortcut.
+		/// </summary>
+		private bool HandleStartMenuShortcut(ConsoleKeyInfo key)
+		{
+			var options = _context.Options.StatusBar;
+
+			// Only handle shortcut if Start button is enabled
+			if (!options.ShowStartButton)
+				return false;
+
+			if (key.Key == options.StartMenuShortcutKey &&
+				key.Modifiers == options.StartMenuShortcutModifiers)
+			{
+				_context.StatusBarStateService.ShowStartMenu();
+				return true;
+			}
+			return false;
+		}
+
+		/// <summary>
 		/// Handles Alt+1-9 window selection by index.
 		/// </summary>
 		private bool HandleAltInput(ConsoleKeyInfo key)
 		{
-			return _context.HandleAltInput(key);
+			if (key.KeyChar >= (char)ConsoleKey.D1 && key.KeyChar <= (char)ConsoleKey.D9)
+			{
+				// Get only top-level windows to match what's displayed in bottom status bar
+				var topLevelWindows = _context.Windows.Values
+					.Where(w => w.ParentWindow == null)
+					.ToList();
+
+				int index = key.KeyChar - (char)ConsoleKey.D1;
+				if (index < topLevelWindows.Count)
+				{
+					var newActiveWindow = topLevelWindows[index];
+					_context.SetActiveWindow(newActiveWindow);
+					if (newActiveWindow.State == WindowState.Minimized)
+						newActiveWindow.State = WindowState.Normal;
+					return true;
+				}
+			}
+			return false;
 		}
 
 		#endregion
@@ -693,7 +731,7 @@ namespace SharpConsoleUI.Input
 	private void PropagateMouseEventToWindow(Window window, List<MouseFlags> flags, Point point)
 	{
 		// Calculate window-relative coordinates
-		var windowPosition = _context.TranslateToRelative(window, point);
+		var windowPosition = GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y);
 
 		// Create mouse event arguments
 		var mouseArgs = new Events.MouseEventArgs(

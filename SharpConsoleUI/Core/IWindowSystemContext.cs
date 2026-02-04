@@ -11,6 +11,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Models;
 using SharpConsoleUI.Themes;
+using SharpConsoleUI.Windows;
 using System.Drawing;
 using Size = SharpConsoleUI.Helpers.Size;
 
@@ -38,13 +39,13 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		void CycleActiveWindow();
 
-	/// <summary>
-	/// Adds a window to the window system.
-	/// </summary>
-	/// <param name="window">The window to add.</param>
-	/// <param name="activateWindow">Whether to activate the window after adding.</param>
-	/// <returns>The added window.</returns>
-	Window AddWindow(Window window, bool activateWindow = true);
+		/// <summary>
+		/// Adds a window to the window system.
+		/// </summary>
+		/// <param name="window">The window to add.</param>
+		/// <param name="activateWindow">Whether to activate the window after adding.</param>
+		/// <returns>The added window.</returns>
+		Window AddWindow(Window window, bool activateWindow = true);
 
 		/// <summary>
 		/// Sets the specified window as the active window.
@@ -66,48 +67,6 @@ namespace SharpConsoleUI.Core
 		void RequestExit(int exitCode);
 
 		/// <summary>
-		/// Handles start menu keyboard shortcut (Alt+key or configured shortcut).
-		/// </summary>
-		/// <param name="key">The key pressed.</param>
-		/// <returns>True if the shortcut was handled; false otherwise.</returns>
-		bool HandleStartMenuShortcut(ConsoleKeyInfo key);
-
-		/// <summary>
-		/// Handles status bar mouse click (e.g., start button).
-		/// </summary>
-		/// <param name="x">The X coordinate.</param>
-		/// <param name="y">The Y coordinate.</param>
-		/// <returns>True if the click was handled; false otherwise.</returns>
-		bool HandleStatusBarMouseClick(int x, int y);
-
-		/// <summary>
-		/// Handles Alt+1-9 window selection by index.
-		/// </summary>
-		/// <param name="key">The key pressed.</param>
-		/// <returns>True if the input was handled; false otherwise.</returns>
-		bool HandleAltInput(ConsoleKeyInfo key);
-
-
-		/// <summary>
-		/// Activates the next non-minimized window after the specified window is minimized.
-		/// </summary>
-		/// <param name="minimizedWindow">The window that was just minimized.</param>
-		void ActivateNextNonMinimizedWindow(Window minimizedWindow);
-
-		/// <summary>
-		/// Deactivates the current active window (e.g., when clicking on empty desktop).
-		/// </summary>
-		void DeactivateCurrentWindow();
-
-		/// <summary>
-		/// Translates absolute screen coordinates to window-relative coordinates.
-		/// </summary>
-		/// <param name="window">The window to translate coordinates relative to.</param>
-		/// <param name="point">The point in absolute screen coordinates.</param>
-		/// <returns>The point in window-relative coordinates.</returns>
-		Point TranslateToRelative(Window window, Point? point);
-
-		/// <summary>
 		/// Finds the topmost window at the specified point.
 		/// </summary>
 		/// <param name="point">The point in absolute screen coordinates.</param>
@@ -115,24 +74,19 @@ namespace SharpConsoleUI.Core
 		Window? GetWindowAtPoint(Point point);
 
 		/// <summary>
-		/// Moves the specified window to a new position.
+		/// Gets the window state service for window lifecycle and state management.
 		/// </summary>
-		void MoveWindowTo(Window window, int newLeft, int newTop);
+		WindowStateService WindowStateService { get; }
 
 		/// <summary>
-		/// Moves the specified window by a relative delta.
+		/// Gets the status bar state service for status bar and Start menu management.
 		/// </summary>
-		void MoveWindowBy(Window window, int deltaX, int deltaY);
+		StatusBarStateService StatusBarStateService { get; }
 
 		/// <summary>
-		/// Resizes the specified window to a new size and position.
+		/// Gets the window positioning manager for move and resize operations.
 		/// </summary>
-		void ResizeWindowTo(Window window, int newLeft, int newTop, int newWidth, int newHeight);
-
-		/// <summary>
-		/// Resizes the specified window by a relative delta.
-		/// </summary>
-		void ResizeWindowBy(Window window, int deltaWidth, int deltaHeight);
+		WindowPositioningManager Positioning { get; }
 
 		/// <summary>
 		/// Gets the current theme.

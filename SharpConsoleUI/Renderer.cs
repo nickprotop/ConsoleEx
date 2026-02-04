@@ -95,6 +95,32 @@ namespace SharpConsoleUI
 			}
 		}
 
+	/// <summary>
+	/// Clears a rectangular area with the desktop background.
+	/// </summary>
+	/// <param name="left">The left coordinate.</param>
+	/// <param name="top">The top coordinate.</param>
+	/// <param name="width">The width of the area.</param>
+	/// <param name="height">The height of the area.</param>
+	/// <param name="theme">The theme to use for background colors.</param>
+	/// <param name="windows">The collection of windows to invalidate if they overlap.</param>
+	public void ClearArea(int left, int top, int width, int height, Themes.ITheme theme, IReadOnlyDictionary<string, Window> windows)
+	{
+		FillRect(left, top, width, height,
+			theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+
+		// Invalidate any windows that overlap with this area to redraw them
+		foreach (var window in windows.Values)
+		{
+			var windowRect = new Rectangle(window.Left, window.Top, window.Width, window.Height);
+			var clearRect = new Rectangle(left, top, width, height);
+			if (GeometryHelpers.DoesRectangleIntersect(windowRect, clearRect))
+			{
+				window.Invalidate(true);
+			}
+		}
+	}
+
 		/// <summary>
 		/// Gets the rectangular regions where two windows overlap.
 		/// </summary>

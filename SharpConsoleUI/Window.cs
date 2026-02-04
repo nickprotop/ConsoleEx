@@ -9,6 +9,7 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Core;
 using System.Drawing;
@@ -641,7 +642,7 @@ namespace SharpConsoleUI
 				{
 					case WindowState.Minimized:
 						// Clear the window area before minimizing
-						_windowSystem?.ClearArea(Left, Top, Width, Height);
+						_windowSystem?.Renderer?.ClearArea(Left, Top, Width, Height, _windowSystem.Theme, _windowSystem.Windows);
 						Invalidate(true);
 						break;
 
@@ -666,7 +667,7 @@ namespace SharpConsoleUI
 						if (previous_state == WindowState.Maximized)
 						{
 							// Clear the old maximized area before restoring
-							_windowSystem?.ClearArea(Left, Top, Width, Height);
+							_windowSystem?.Renderer?.ClearArea(Left, Top, Width, Height, _windowSystem.Theme, _windowSystem.Windows);
 
 							Top = OriginalTop;
 							Left = OriginalLeft;
@@ -1200,15 +1201,12 @@ namespace SharpConsoleUI
 			lock (_lock)
 			{
 				if (point == null) return null;
+				if (_windowSystem == null) return null;
 
 				// Translate the coordinates to the relative position within the window
-				var relativePosition = _windowSystem?.TranslateToRelative(this, point);
-				if (relativePosition == null)
-				{
-					return null;
-				}
+				var relativePosition = GeometryHelpers.TranslateToRelative(this, point, _windowSystem.DesktopUpperLeft.Y);
 
-				return _eventDispatcher?.GetControlAtPosition(relativePosition.Value);
+				return _eventDispatcher?.GetControlAtPosition(relativePosition);
 			}
 		}
 

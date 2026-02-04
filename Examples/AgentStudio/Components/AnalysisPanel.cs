@@ -23,8 +23,8 @@ public static class AnalysisPanel
             BorderStyle = new Style(foreground: Color.Grey50)
         };
 
-        table.AddColumn(new TableColumn("[grey70]Severity[/]").Width(10));
-        table.AddColumn(new TableColumn("[grey70]Finding[/]"));
+        table.AddColumn(new Spectre.Console.TableColumn("[grey70]Severity[/]").Width(10));
+        table.AddColumn(new Spectre.Console.TableColumn("[grey70]Finding[/]"));
 
         foreach (var finding in findings)
         {

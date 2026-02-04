@@ -84,9 +84,9 @@ namespace SharpConsoleUI
 		// Window lifecycle coordination
 
 		// Window positioning coordination
-		private WindowPositioningManager Positioning = null!; // Initialized in constructor after renderer
+		public WindowPositioningManager Positioning { get; private set; } = null!; // Initialized in constructor after renderer
 
-	// Region invalidation helper
+		// Region invalidation helper
 
 		private ITheme _theme = null!; // Initialized in constructor - kept for backward compatibility in internal code
 
@@ -153,15 +153,15 @@ namespace SharpConsoleUI
 			_pluginStateService = new PluginStateService(this, _logService, pluginConfiguration);
 
 
-		// Initialize WindowStateService (merged from WindowLifecycleManager)
-		// Note: Renderer is set later via property after it is created
-		_windowStateService = new WindowStateService(
-			_logService,
-			() => this,
-			_modalStateService,
-			_focusStateService,
-			null, // Renderer not yet created
-			_consoleDriver);
+			// Initialize WindowStateService (merged from WindowLifecycleManager)
+			// Note: Renderer is set later via property after it is created
+			_windowStateService = new WindowStateService(
+				_logService,
+				() => this,
+				_modalStateService,
+				_focusStateService,
+				null, // Renderer not yet created
+				_consoleDriver);
 			// Initialize input coordinator (handles all mouse and keyboard input)
 			Input = new InputCoordinator(
 				_consoleDriver,
@@ -179,8 +179,8 @@ namespace SharpConsoleUI
 			// Initialize the renderer
 			_renderer = new Renderer(this);
 
-		// Set renderer on WindowStateService for screen redraws during window close
-		_windowStateService.SetRenderer(_renderer);
+			// Set renderer on WindowStateService for screen redraws during window close
+			_windowStateService.SetRenderer(_renderer);
 
 
 			// Initialize performance tracker (tracks frame timing and metrics)
@@ -258,6 +258,11 @@ namespace SharpConsoleUI
 		/// Console.KeyAvailable from returning incorrect values during concurrent Console.Write operations.
 		/// </remarks>
 		internal object ConsoleLock => _consoleLock;
+
+		/// <summary>
+		/// Gets the renderer for drawing operations.
+		/// </summary>
+		public Renderer Renderer => _renderer;
 
 		#endregion
 
@@ -477,47 +482,6 @@ namespace SharpConsoleUI
 			_windowStateService.CloseModalWindow(modalWindow);
 		}
 
-		/// <summary>
-		/// Gets a window by its GUID.
-		/// </summary>
-		/// <param name="guid">The GUID of the window to find.</param>
-		/// <returns>The window with the specified GUID, or null if not found.</returns>
-		public Window? GetWindow(string guid)
-		{
-			return _windowStateService.GetWindow(guid);
-		}
-
-		/// <summary>
-		/// Flashes a window to draw user attention by briefly changing its background color.
-		/// </summary>
-		/// <param name="window">The window to flash. If null, the method returns without action.</param>
-		/// <param name="flashCount">The number of times to flash. Defaults to 1.</param>
-		/// <param name="flashDuration">The duration of each flash in milliseconds. Defaults to 150.</param>
-		/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses the theme's ModalFlashColor.</param>
-		public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 150, Color? flashBackgroundColor = null)
-		{
-			_windowStateService.FlashWindow(window, flashCount, flashDuration, flashBackgroundColor);
-		}
-
-		/// <summary>
-		/// Clears a rectangular area with the desktop background
-		/// </summary>
-		public void ClearArea(int left, int top, int width, int height)
-		{
-			_renderer.FillRect(left, top, width, height,
-				Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-
-			// Invalidate any windows that overlap with this area to redraw them
-			foreach (var window in Windows.Values)
-			{
-				var windowRect = new Rectangle(window.Left, window.Top, window.Width, window.Height);
-				var clearRect = new Rectangle(left, top, width, height);
-				if (GeometryHelpers.DoesRectangleIntersect(windowRect, clearRect))
-				{
-					window.Invalidate(true);
-				}
-			}
-		}
 
 		#endregion
 
@@ -527,10 +491,10 @@ namespace SharpConsoleUI
 		/// Sets the specified window as the active window, handling modal window logic and focus.
 		/// </summary>
 		/// <param name="window">The window to activate. If null, the method returns without action.</param>
-	public void SetActiveWindow(Window window)
-	{
-		_windowStateService.SetActiveWindow(window);
-	}
+		public void SetActiveWindow(Window window)
+		{
+			_windowStateService.SetActiveWindow(window);
+		}
 
 		/// <summary>
 		/// Cycles to the next active window (Ctrl+T handler).
@@ -541,138 +505,11 @@ namespace SharpConsoleUI
 			_windowStateService.ActivateNextWindow();
 		}
 
-		/// <summary>
-		/// Activates an existing window by name, or creates it using the factory if not found.
-		/// </summary>
-		/// <param name="name">The window name to find/create</param>
-		/// <param name="factory">Factory function to create the window if it doesn't exist</param>
-		/// <returns>The activated or newly created window</returns>
-		public Window ActivateOrCreate(string name, Func<Window> factory)
-		{
-			if (string.IsNullOrEmpty(name))
-				throw new ArgumentException("Window name cannot be null or empty", nameof(name));
-			if (factory == null)
-				throw new ArgumentNullException(nameof(factory));
-
-			var existing = _windowStateService.FindWindowByName(name);
-			if (existing != null)
-			{
-				SetActiveWindow(existing);
-				return existing;
-			}
-
-			var window = factory();
-			window.Name = name;
-			AddWindow(window);
-			return window;
-		}
-
-		/// <summary>
-		/// Activates an existing window by GUID, or creates it using the factory if not found.
-		/// </summary>
-		/// <param name="guid">The window GUID to find/create</param>
-		/// <param name="factory">Factory function to create the window if it doesn't exist</param>
-		/// <returns>The activated or newly created window</returns>
-		public Window ActivateOrCreateByGuid(string guid, Func<Window> factory)
-		{
-			if (string.IsNullOrEmpty(guid))
-				throw new ArgumentException("Window GUID cannot be null or empty", nameof(guid));
-			if (factory == null)
-				throw new ArgumentNullException(nameof(factory));
-
-			var existing = _windowStateService.GetWindow(guid);
-			if (existing != null)
-			{
-				SetActiveWindow(existing);
-				return existing;
-			}
-
-			var window = factory();
-			AddWindow(window);
-			return window;
-		}
-
-		/// <summary>
-		/// Activates an existing window by name if found, otherwise returns null.
-		/// </summary>
-		/// <param name="name">The window name to find</param>
-		/// <returns>The activated window, or null if not found</returns>
-		public Window? TryActivate(string name)
-		{
-			var existing = _windowStateService.FindWindowByName(name);
-			if (existing != null)
-			{
-				SetActiveWindow(existing);
-			}
-			return existing;
-		}
-
-		/// <summary>
-		/// Activates an existing window by GUID if found, otherwise returns null.
-		/// </summary>
-		/// <param name="guid">The window GUID to find</param>
-		/// <returns>The activated window, or null if not found</returns>
-		public Window? TryActivateByGuid(string guid)
-		{
-			var existing = _windowStateService.GetWindow(guid);
-			if (existing != null)
-			{
-				SetActiveWindow(existing);
-			}
-			return existing;
-		}
-
-		/// <summary>
-		/// Activates the next non-minimized window after the specified window is minimized.
-		/// </summary>
-		public void ActivateNextNonMinimizedWindow(Window minimizedWindow)
-		{
-			_windowStateService.ActivateNextNonMinimizedWindow(minimizedWindow);
-		}
-
-		/// <summary>
-		/// Deactivates the current active window (e.g., when clicking on empty desktop).
-		/// </summary>
-		public void DeactivateCurrentWindow()
-		{
-			_windowStateService.DeactivateCurrentWindow();
-		}
 
 		#endregion
 
 		#region Window Operations
 
-		/// <summary>
-		/// Moves the specified window to a new position.
-		/// </summary>
-		public void MoveWindowTo(Window window, int newLeft, int newTop)
-		{
-			Positioning.MoveWindowTo(window, newLeft, newTop);
-		}
-
-		/// <summary>
-		/// Moves the specified window by a relative delta.
-		/// </summary>
-		public void MoveWindowBy(Window window, int deltaX, int deltaY)
-		{
-			Positioning.MoveWindowBy(window, deltaX, deltaY);
-		}
-
-		/// <summary>
-		/// Resizes the specified window to a new size and position.
-		/// </summary>
-		public void ResizeWindowTo(Window window, int newLeft, int newTop, int newWidth, int newHeight)
-		{
-			Positioning.ResizeWindowTo(window, newLeft, newTop, newWidth, newHeight);
-		}
-
-		/// <summary>
-		/// Resizes the specified window by a relative delta.
-		/// </summary>
-		public void ResizeWindowBy(Window window, int deltaWidth, int deltaHeight)
-		{
-			Positioning.ResizeWindowBy(window, deltaWidth, deltaHeight);
-		}
 
 		/// <summary>
 		/// Finds the topmost window at the specified point.
@@ -682,168 +519,6 @@ namespace SharpConsoleUI
 		public Window? GetWindowAtPoint(Point point)
 		{
 			return WindowQueryHelper.GetWindowAtPoint(point, this);
-		}
-
-		#endregion
-
-		#region Coordinate Translation
-
-		/// <summary>
-		/// Translates a window-relative point to absolute screen coordinates.
-		/// </summary>
-		/// <param name="window">The window containing the point.</param>
-		/// <param name="point">The point in window-relative coordinates.</param>
-		/// <returns>A tuple containing the absolute screen coordinates (absoluteLeft, absoluteTop).</returns>
-		public (int absoluteLeft, int absoluteTop) TranslateToAbsolute(Window window, Point point)
-		{
-	{
-		return GeometryHelpers.TranslateToAbsolute(window, point, DesktopUpperLeft.Y);
-	}
-		}
-
-		/// <summary>
-		/// Translates an absolute screen point to window-relative coordinates.
-		/// </summary>
-		/// <param name="window">The window to translate coordinates relative to.</param>
-		/// <param name="point">The point in absolute screen coordinates, or null.</param>
-		/// <returns>The point in window-relative coordinates. Returns (0,0) if point is null.</returns>
-		public Point TranslateToRelative(Window window, Point? point)
-		{
-	{
-		return GeometryHelpers.TranslateToRelative(window, point, DesktopUpperLeft.Y);
-	}
-		}
-
-		#endregion
-
-		#region Input Handling
-
-		/// <summary>
-		/// Handles Alt+Number keyboard shortcuts for quick window switching.
-		/// </summary>
-		public bool HandleAltInput(ConsoleKeyInfo key)
-		{
-			bool handled = false;
-			if (key.KeyChar >= (char)ConsoleKey.D1 && key.KeyChar <= (char)ConsoleKey.D9)
-			{
-				// Get only top-level windows to match what's displayed in the bottom status bar
-				var topLevelWindows = Windows.Values
-					.Where(w => w.ParentWindow == null)
-					.ToList();
-
-				int index = key.KeyChar - (char)ConsoleKey.D1;
-				if (index < topLevelWindows.Count)
-				{
-					var newActiveWindow = topLevelWindows[index];
-
-					SetActiveWindow(newActiveWindow);
-					if (newActiveWindow.State == WindowState.Minimized)
-						newActiveWindow.State = WindowState.Normal;
-					handled = true;
-				}
-			}
-
-			return handled;
-		}
-
-		/// <summary>
-		/// Handles start menu keyboard shortcut (Alt+key or configured shortcut).
-		/// </summary>
-		public bool HandleStartMenuShortcut(ConsoleKeyInfo key)
-		{
-			var options = _options.StatusBar;
-
-			// Only handle shortcut if Start button is enabled
-			if (!options.ShowStartButton)
-				return false;
-
-			if (key.Key == options.StartMenuShortcutKey &&
-				key.Modifiers == options.StartMenuShortcutModifiers)
-			{
-				_statusBarStateService.ShowStartMenu();
-				return true;
-			}
-			return false;
-		}
-
-		/// <summary>
-		/// Handles status bar mouse click (e.g., start button).
-		/// </summary>
-		public bool HandleStatusBarMouseClick(int x, int y)
-		{
-			return _statusBarStateService.HandleStatusBarClick(x, y);
-		}
-
-		#endregion
-
-		#region Dialogs
-
-	/// <summary>
-	/// Shows a folder picker dialog for selecting a directory.
-	/// </summary>
-	/// <param name="startPath">The initial directory path to display. Defaults to current directory.</param>
-	/// <param name="parentWindow">Optional parent window for the dialog</param>
-	/// <returns>A task that completes with the selected folder path, or null if cancelled.</returns>
-	public Task<string?> ShowFolderPickerDialogAsync(string? startPath = null, Window? parentWindow = null)
-		=> Dialogs.FileDialogs.ShowFolderPickerAsync(this, startPath, parentWindow);
-
-	/// <summary>
-	/// Shows a file picker dialog for selecting a file.
-	/// </summary>
-	/// <param name="startPath">The initial directory path to display. Defaults to current directory.</param>
-	/// <param name="filter">Optional file filter (e.g., "*.txt", "*.cs;*.txt"). Null shows all files.</param>
-	/// <param name="parentWindow">Optional parent window. If specified, the dialog will be modal to this window only.</param>
-	/// <returns>A task that completes with the selected file path, or null if cancelled.</returns>
-	public Task<string?> ShowFilePickerDialogAsync(string? startPath = null, string? filter = null, Window? parentWindow = null)
-		=> Dialogs.FileDialogs.ShowFilePickerAsync(this, startPath, filter, parentWindow);
-
-	/// <summary>
-	/// Shows a save file dialog for specifying a file to save.
-	/// </summary>
-	/// <param name="startPath">The initial directory path to display. Defaults to current directory.</param>
-	/// <param name="filter">Optional file filter (e.g., "*.txt", "*.cs;*.txt"). Null shows all files.</param>
-	/// <param name="defaultFileName">Default filename to pre-populate in the input field.</param>
-	/// <param name="parentWindow">Optional parent window. If specified, the dialog will be modal to this window only.</param>
-	/// <returns>A task that completes with the specified file path, or null if cancelled.</returns>
-	public Task<string?> ShowSaveFileDialogAsync(string? startPath = null, string? filter = null, string? defaultFileName = null, Window? parentWindow = null)
-		=> Dialogs.FileDialogs.ShowSaveFileAsync(this, startPath, filter, defaultFileName, parentWindow);
-
-		#endregion
-
-		#region Start Menu
-
-		/// <summary>
-		/// Registers a user-defined action in the Start menu.
-		/// </summary>
-		/// <param name="name">Display name for the action (supports Spectre markup).</param>
-		/// <param name="callback">Action to execute when selected.</param>
-		/// <param name="category">Optional category (defaults to "User Actions").</param>
-		/// <param name="order">Sort order within category (lower = earlier).</param>
-		public void RegisterStartMenuAction(string name, Action callback, string? category = null, int order = 0)
-		{
-			_statusBarStateService.RegisterStartMenuAction(name, callback, category, order);
-		}
-
-		/// <summary>
-		/// Unregisters a Start menu action by name.
-		/// </summary>
-		/// <param name="name">Name of the action to remove.</param>
-		public void UnregisterStartMenuAction(string name)
-		{
-			_statusBarStateService.UnregisterStartMenuAction(name);
-		}
-
-		/// <summary>
-		/// Gets all registered Start menu actions.
-		/// </summary>
-		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _statusBarStateService.GetStartMenuActions();
-
-		/// <summary>
-		/// Shows the Start menu dialog.
-		/// </summary>
-		public void ShowStartMenu()
-		{
-			_statusBarStateService.ShowStartMenu();
 		}
 
 		#endregion
@@ -867,7 +542,7 @@ namespace SharpConsoleUI
 			};
 			// Handler registered later via InputCoordinator.RegisterEventHandlers()
 
-		_screenResizedHandler = HandleScreenResize;
+			_screenResizedHandler = HandleScreenResize;
 			_consoleDriver.ScreenResized += _screenResizedHandler;
 
 			// Register input coordinator event handlers
@@ -1030,60 +705,59 @@ namespace SharpConsoleUI
 
 		#region Event Handlers
 
-	/// <summary>
-	/// Handles screen resize events by adjusting window positions and sizes.
-	/// </summary>
-	private void HandleScreenResize(object? sender, Size size)
-	{
-		lock (_renderLock)
+		/// <summary>
+		/// Handles screen resize events by adjusting window positions and sizes.
+		/// </summary>
+		private void HandleScreenResize(object? sender, Size size)
 		{
-			Helpers.Size desktopSize = DesktopDimensions;
-
-			_consoleDriver.Clear();
-
-			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
-
-			foreach (var window in Windows.Values)
+			lock (_renderLock)
 			{
-				if (window.State == WindowState.Maximized)
+				Helpers.Size desktopSize = DesktopDimensions;
+
+				_consoleDriver.Clear();
+
+				_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+
+				foreach (var window in Windows.Values)
 				{
-					window.SetSize(desktopSize.Width, desktopSize.Height);
-					window.SetPosition(new Point(0, 0));
-				}
-				else
-				{
-					if (window.Left + window.Width > desktopSize.Width)
+					if (window.State == WindowState.Maximized)
 					{
-						window.Left = Math.Max(0, desktopSize.Width - window.Width);
+						window.SetSize(desktopSize.Width, desktopSize.Height);
+						window.SetPosition(new Point(0, 0));
 					}
-					if (window.Top + window.Height > desktopSize.Height)
+					else
 					{
-						window.Top = Math.Max(1, desktopSize.Height - window.Height);
+						if (window.Left + window.Width > desktopSize.Width)
+						{
+							window.Left = Math.Max(0, desktopSize.Width - window.Width);
+						}
+						if (window.Top + window.Height > desktopSize.Height)
+						{
+							window.Top = Math.Max(1, desktopSize.Height - window.Height);
+						}
 					}
+
+					window.Invalidate(true);
 				}
 
-				window.Invalidate(true);
+				Render.InvalidateStatusCache();
 			}
-
-			Render.InvalidateStatusCache();
 		}
-	}
 
 		#endregion
 
 		#region Helper Methods
 
-
-	/// <summary>
-	/// Checks if any window has the dirty flag set.
-	/// </summary>
+		/// <summary>
+		/// Checks if any window has the dirty flag set.
+		/// </summary>
 		private bool AnyWindowDirty()
 		{
 			foreach (var window in Windows.Values)
-		{
-			if (window.IsDirty) return true;
-		}
-		return false;
+			{
+				if (window.IsDirty) return true;
+			}
+			return false;
 		}
 
 		/// <summary>
@@ -1100,7 +774,7 @@ namespace SharpConsoleUI
 		{
 			if (ActiveWindow != null && ActiveWindow.EventDispatcher != null && ActiveWindow.EventDispatcher.HasInteractiveContent(out var cursorPosition))
 			{
-				var (absoluteLeft, absoluteTop) = TranslateToAbsolute(ActiveWindow, new Point(cursorPosition.X, cursorPosition.Y));
+				var (absoluteLeft, absoluteTop) = GeometryHelpers.TranslateToAbsolute(ActiveWindow, new Point(cursorPosition.X, cursorPosition.Y), DesktopUpperLeft.Y);
 
 				// Check if the cursor position is within the console window boundaries
 				// and within the active window's boundaries

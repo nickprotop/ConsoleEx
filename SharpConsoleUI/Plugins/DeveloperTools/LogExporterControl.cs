@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
@@ -236,7 +237,7 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 			var parentWindow = this.GetParentWindow();
 
 			var defaultFileName = $"logs-{DateTime.Now:yyyyMMdd-HHmmss}.txt";
-			var filePath = await windowSystem.ShowSaveFileDialogAsync(Environment.CurrentDirectory, "*.txt", defaultFileName, parentWindow);
+			var filePath = await FileDialogs.ShowSaveFileAsync(windowSystem, Environment.CurrentDirectory, "*.txt", defaultFileName, parentWindow);
 			if (filePath != null)
 			{
 				ExportLogs(filePath);
