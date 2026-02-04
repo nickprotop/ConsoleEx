@@ -21,7 +21,6 @@ using SharpConsoleUI.Windows;
 using SharpConsoleUI.Models;
 using SharpConsoleUI.Rendering;
 using SharpConsoleUI.Performance;
-using SharpConsoleUI.StartMenu;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
@@ -71,6 +70,7 @@ namespace SharpConsoleUI
 		private readonly ThemeStateService _themeStateService;
 		private readonly InputStateService _inputStateService;
 		private readonly NotificationStateService _notificationStateService;
+		private readonly StatusBarStateService _statusBarStateService;
 
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
@@ -80,9 +80,6 @@ namespace SharpConsoleUI
 
 		// Render coordination
 		private RenderCoordinator Render = null!; // Initialized in constructor after renderer
-
-		// Start menu coordination
-		private readonly StartMenuCoordinator _startMenuCoordinator;
 
 		// Window lifecycle coordination
 
@@ -147,6 +144,7 @@ namespace SharpConsoleUI
 			_modalStateService = new ModalStateService(_logService);
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
+			_statusBarStateService = new StatusBarStateService(_logService, () => this);
 
 			// Initialize notification service (needs 'this' reference)
 			_notificationStateService = new NotificationStateService(this, _logService);
@@ -192,14 +190,12 @@ namespace SharpConsoleUI
 				_logService,
 				() => Render?.InvalidateStatusCache());
 
-			// Initialize start menu coordinator (manages start menu actions)
-			_startMenuCoordinator = new StartMenuCoordinator(() => this);
-
 			// Initialize render coordinator (needs renderer, performance tracker, and other services)
 			Render = new RenderCoordinator(
 				_consoleDriver,
 				_renderer,
 				_windowStateService,
+				_statusBarStateService,
 				_logService,
 				this,
 				_options,
@@ -308,6 +304,11 @@ namespace SharpConsoleUI
 		public PluginStateService PluginStateService => _pluginStateService;
 
 		/// <summary>
+		/// Gets the status bar state service for managing status bars and Start menu.
+		/// </summary>
+		public StatusBarStateService StatusBarStateService => _statusBarStateService;
+
+		/// <summary>
 		/// Gets the library-managed logging service.
 		/// Subscribe to LogAdded event or call GetRecentLogs() to access internal logs.
 		/// </summary>
@@ -320,17 +321,17 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the upper-left coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopUpperLeft => new Point(0, GetTopStatusHeight());
+		public Point DesktopUpperLeft => new Point(0, _statusBarStateService.GetTopStatusHeight(Render.GetShowTopStatus(), _options.EnablePerformanceMetrics));
 
 		/// <summary>
 		/// Gets the bottom-right coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - GetTopStatusHeight() - GetBottomStatusHeight());
+		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - _statusBarStateService.GetTopStatusHeight(Render.GetShowTopStatus(), _options.EnablePerformanceMetrics) - _statusBarStateService.GetBottomStatusHeight(Render.GetShowBottomStatus(), _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation));
 
 		/// <summary>
 		/// Gets the dimensions of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - GetTopStatusHeight() - GetBottomStatusHeight());
+		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - _statusBarStateService.GetTopStatusHeight(Render.GetShowTopStatus(), _options.EnablePerformanceMetrics) - _statusBarStateService.GetBottomStatusHeight(Render.GetShowBottomStatus(), _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation));
 
 		/// <summary>
 		/// Gets the visible regions manager for calculating window visibility.
@@ -344,12 +345,20 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets or sets the text displayed in the top status bar.
 		/// </summary>
-		public string TopStatus { get; set; } = "";
+		public string? TopStatus
+		{
+			get => _statusBarStateService.TopStatus;
+			set => _statusBarStateService.TopStatus = value ?? "";
+		}
 
 		/// <summary>
 		/// Gets or sets the text displayed in the bottom status bar.
 		/// </summary>
-		public string BottomStatus { get; set; } = "";
+		public string? BottomStatus
+		{
+			get => _statusBarStateService.BottomStatus;
+			set => _statusBarStateService.BottomStatus = value ?? "";
+		}
 
 		/// <summary>
 		/// Gets or sets whether the top status bar is shown.
@@ -751,7 +760,7 @@ namespace SharpConsoleUI
 			if (key.Key == options.StartMenuShortcutKey &&
 				key.Modifiers == options.StartMenuShortcutModifiers)
 			{
-				ShowStartMenu();
+				_statusBarStateService.ShowStartMenu();
 				return true;
 			}
 			return false;
@@ -762,14 +771,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool HandleStatusBarMouseClick(int x, int y)
 		{
-			// Check if click is on Start button
-			if (Render.StartButtonBounds.Contains(x, y))
-			{
-				ShowStartMenu();
-				return true;
-			}
-
-			return false;
+			return _statusBarStateService.HandleStatusBarClick(x, y);
 		}
 
 		#endregion
@@ -819,7 +821,7 @@ namespace SharpConsoleUI
 		/// <param name="order">Sort order within category (lower = earlier).</param>
 		public void RegisterStartMenuAction(string name, Action callback, string? category = null, int order = 0)
 		{
-			_startMenuCoordinator.RegisterAction(name, callback, category, order);
+			_statusBarStateService.RegisterStartMenuAction(name, callback, category, order);
 		}
 
 		/// <summary>
@@ -828,20 +830,20 @@ namespace SharpConsoleUI
 		/// <param name="name">Name of the action to remove.</param>
 		public void UnregisterStartMenuAction(string name)
 		{
-			_startMenuCoordinator.UnregisterAction(name);
+			_statusBarStateService.UnregisterStartMenuAction(name);
 		}
 
 		/// <summary>
 		/// Gets all registered Start menu actions.
 		/// </summary>
-		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _startMenuCoordinator.GetActions();
+		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _statusBarStateService.GetStartMenuActions();
 
 		/// <summary>
 		/// Shows the Start menu dialog.
 		/// </summary>
 		public void ShowStartMenu()
 		{
-			_startMenuCoordinator.ShowMenu();
+			_statusBarStateService.ShowStartMenu();
 		}
 
 		#endregion
@@ -1071,23 +1073,6 @@ namespace SharpConsoleUI
 
 		#region Helper Methods
 
-		/// <summary>
-		/// Gets the height occupied by the top status bar (0 or 1).
-		/// Accounts for both status text and performance metrics.
-		/// </summary>
-		private int GetTopStatusHeight()
-		{
-			return Render.GetTopStatusHeight();
-		}
-
-		/// <summary>
-		/// Gets the height occupied by the bottom status bar (0 or 1).
-		/// Accounts for both status text and Start button.
-		/// </summary>
-		private int GetBottomStatusHeight()
-		{
-			return Render.GetBottomStatusHeight();
-		}
 
 	/// <summary>
 	/// Checks if any window has the dirty flag set.

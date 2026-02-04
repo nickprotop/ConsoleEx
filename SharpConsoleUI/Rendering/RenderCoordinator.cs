@@ -28,6 +28,7 @@ namespace SharpConsoleUI.Rendering
 		private readonly IConsoleDriver _consoleDriver;
 		private readonly Renderer _renderer;
 		private readonly WindowStateService _windowStateService;
+		private readonly StatusBarStateService _statusBarStateService;
 		private readonly ILogService _logService;
 		private readonly IWindowSystemContext _windowSystemContext;
 		private readonly ConsoleWindowSystemOptions _options;
@@ -48,11 +49,6 @@ namespace SharpConsoleUI.Rendering
 		private bool _showTopStatus = true;
 		private bool _showBottomStatus = true;
 
-		// Bounds
-		private Rectangle _topStatusBarBounds = Rectangle.Empty;
-		private Rectangle _bottomStatusBarBounds = Rectangle.Empty;
-		private Rectangle _startButtonBounds = Rectangle.Empty;
-
 		// Render lock for thread safety
 		private readonly object _renderLock = new object();
 
@@ -65,6 +61,7 @@ namespace SharpConsoleUI.Rendering
 		/// <param name="consoleDriver">Console driver for low-level I/O.</param>
 		/// <param name="renderer">Renderer for window and content rendering.</param>
 		/// <param name="windowStateService">Service managing window state and Z-order.</param>
+		/// <param name="statusBarStateService">Service managing status bar state and Start menu.</param>
 		/// <param name="logService">Service for debug logging.</param>
 		/// <param name="windowSystemContext">Context providing access to window system properties.</param>
 		/// <param name="options">Configuration options for the window system.</param>
@@ -73,6 +70,7 @@ namespace SharpConsoleUI.Rendering
 			IConsoleDriver consoleDriver,
 			Renderer renderer,
 			WindowStateService windowStateService,
+			StatusBarStateService statusBarStateService,
 			ILogService logService,
 			IWindowSystemContext windowSystemContext,
 			ConsoleWindowSystemOptions options,
@@ -81,6 +79,7 @@ namespace SharpConsoleUI.Rendering
 			_consoleDriver = consoleDriver ?? throw new ArgumentNullException(nameof(consoleDriver));
 			_renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
 			_windowStateService = windowStateService ?? throw new ArgumentNullException(nameof(windowStateService));
+			_statusBarStateService = statusBarStateService ?? throw new ArgumentNullException(nameof(statusBarStateService));
 			_logService = logService ?? throw new ArgumentNullException(nameof(logService));
 			_windowSystemContext = windowSystemContext ?? throw new ArgumentNullException(nameof(windowSystemContext));
 			_options = options ?? throw new ArgumentNullException(nameof(options));
@@ -92,17 +91,17 @@ namespace SharpConsoleUI.Rendering
 		/// <summary>
 		/// Gets the top status bar bounds for mouse hit testing.
 		/// </summary>
-		public Rectangle TopStatusBarBounds => _topStatusBarBounds;
+		public Rectangle TopStatusBarBounds => _statusBarStateService.TopStatusBarBounds;
 
 		/// <summary>
 		/// Gets the bottom status bar bounds for mouse hit testing.
 		/// </summary>
-		public Rectangle BottomStatusBarBounds => _bottomStatusBarBounds;
+		public Rectangle BottomStatusBarBounds => _statusBarStateService.BottomStatusBarBounds;
 
 		/// <summary>
 		/// Gets the start button bounds for mouse hit testing.
 		/// </summary>
-		public Rectangle StartButtonBounds => _startButtonBounds;
+		public Rectangle StartButtonBounds => _statusBarStateService.StartButtonBounds;
 
 		#endregion
 
@@ -114,7 +113,7 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public int GetTopStatusHeight()
 		{
-			return ShouldRenderTopStatus() ? 1 : 0;
+			return _statusBarStateService.GetTopStatusHeight(_showTopStatus, _options.EnablePerformanceMetrics);
 		}
 
 		/// <summary>
@@ -123,7 +122,7 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public int GetBottomStatusHeight()
 		{
-			return ShouldRenderBottomStatus() ? 1 : 0;
+			return _statusBarStateService.GetBottomStatusHeight(_showBottomStatus, _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation);
 		}
 
 		/// <summary>
@@ -175,33 +174,12 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public void UpdateStatusBarBounds()
 		{
-			if (_showTopStatus)
-				_topStatusBarBounds = new Rectangle(0, 0, _consoleDriver.ScreenSize.Width, 1);
-
-			if (_showBottomStatus)
-				_bottomStatusBarBounds = new Rectangle(0, _consoleDriver.ScreenSize.Height - 1,
-					_consoleDriver.ScreenSize.Width, 1);
-
-			if (_options.StatusBar.ShowStartButton)
-			{
-				int y = _options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Top
-					? 0
-					: (_consoleDriver.ScreenSize.Height - 1);
-
-				int x;
-				int width = AnsiConsoleHelper.StripSpectreLength(_options.StatusBar.StartButtonText) + 1;
-
-				if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
-				{
-					x = 0;
-				}
-				else
-				{
-					x = _consoleDriver.ScreenSize.Width - width;
-				}
-
-				_startButtonBounds = new Rectangle(x, y, width, 1);
-			}
+			_statusBarStateService.UpdateStatusBarBounds(
+				_consoleDriver.ScreenSize.Width,
+				_consoleDriver.ScreenSize.Height,
+				_showTopStatus,
+				_showBottomStatus,
+				_options.StatusBar);
 		}
 
 		/// <summary>
@@ -285,7 +263,7 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		private bool ShouldRenderTopStatus()
 		{
-			return _showTopStatus && (!string.IsNullOrEmpty(_windowSystemContext.TopStatus) || _options.EnablePerformanceMetrics);
+			return _showTopStatus && (!string.IsNullOrEmpty(_statusBarStateService.TopStatus) || _options.EnablePerformanceMetrics);
 		}
 
 		/// <summary>
@@ -294,7 +272,7 @@ namespace SharpConsoleUI.Rendering
 		private bool ShouldRenderBottomStatus()
 		{
 			// Render if we have status text OR if task bar (window list) is enabled
-			bool hasContent = !string.IsNullOrEmpty(_windowSystemContext.BottomStatus) || _options.StatusBar.ShowTaskBar;
+			bool hasContent = !string.IsNullOrEmpty(_statusBarStateService.BottomStatus) || _options.StatusBar.ShowTaskBar;
 			bool hasStartButton = _options.StatusBar.ShowStartButton &&
 								  _options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom;
 
@@ -482,7 +460,7 @@ namespace SharpConsoleUI.Rendering
 				return;
 
 			// Build complete TopStatus with metrics appended
-			var baseStatus = _windowSystemContext.TopStatus ?? string.Empty;
+			var baseStatus = _statusBarStateService.TopStatus ?? string.Empty;
 			var metricsString = _options.EnablePerformanceMetrics
 				? _performanceTracker.FormatMetrics()
 				: string.Empty;
@@ -588,12 +566,12 @@ namespace SharpConsoleUI.Rendering
 			string bottomRow;
 			if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
 			{
-				bottomRow = $"{startButton}{taskBar}{_windowSystemContext.BottomStatus}";
+				bottomRow = $"{startButton}{taskBar}{_statusBarStateService.BottomStatus}";
 			}
 			else
 			{
 				// Right position - add start button at the end
-				var content = $"{taskBar}{_windowSystemContext.BottomStatus}";
+				var content = $"{taskBar}{_statusBarStateService.BottomStatus}";
 				var contentLength = AnsiConsoleHelper.StripSpectreLength(content);
 				var startButtonLength = AnsiConsoleHelper.StripSpectreLength(startButton);
 				var availableSpace = _consoleDriver.ScreenSize.Width - startButtonLength;
