@@ -23,7 +23,7 @@ namespace SharpConsoleUI.Core
 	{
 		private readonly object _lock = new();
 		private readonly ILogService? _logService;
-		private readonly Func<IWindowSystemContext>? _getWindowSystem;
+		private readonly Func<ConsoleWindowSystem>? _getWindowSystem;
 		private readonly ModalStateService? _modalStateService;
 		private readonly FocusStateService? _focusStateService;
 		private Renderer? _renderer;
@@ -48,7 +48,7 @@ namespace SharpConsoleUI.Core
 		/// <param name="consoleDriver">Optional console driver (for lifecycle methods).</param>
 		public WindowStateService(
 			ILogService? logService = null,
-			Func<IWindowSystemContext>? getWindowSystem = null,
+			Func<ConsoleWindowSystem>? getWindowSystem = null,
 			ModalStateService? modalStateService = null,
 			FocusStateService? focusStateService = null,
 			Renderer? renderer = null,

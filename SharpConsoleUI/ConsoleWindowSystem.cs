@@ -34,7 +34,7 @@ namespace SharpConsoleUI
 	/// The main window system that manages console windows, input processing, and rendering.
 	/// Provides window management, focus handling, theming, and event processing for console applications.
 	/// </summary>
-	public class ConsoleWindowSystem : IWindowSystemContext
+	public class ConsoleWindowSystem
 	{
 		#region Fields
 
@@ -397,15 +397,6 @@ namespace SharpConsoleUI
 		public bool CloseWindow(Window? window, bool activateParent = true, bool force = false)
 		{
 			return _windowStateService.CloseWindow(window, activateParent, force);
-		}
-
-		/// <summary>
-		/// Explicit interface implementation for IWindowSystemContext.CloseWindow.
-		/// Calls the full CloseWindow method with default parameters.
-		/// </summary>
-		bool IWindowSystemContext.CloseWindow(Window window)
-		{
-			return CloseWindow(window, activateParent: true, force: false);
 		}
 
 		/// <summary>

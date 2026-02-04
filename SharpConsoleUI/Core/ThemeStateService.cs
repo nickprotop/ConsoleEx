@@ -180,7 +180,7 @@ namespace SharpConsoleUI.Core
 		private const int MaxHistorySize = 10;
 		private bool _isDisposed;
 		private readonly ILogService? _logService;
-		private Func<IWindowSystemContext>? _getWindowSystemContext;
+		private Func<ConsoleWindowSystem>? _getWindowSystemContext;
 
 		/// <summary>
 		/// Creates a new theme state service with the default theme
@@ -202,7 +202,7 @@ namespace SharpConsoleUI.Core
 		/// Sets the window system context for window invalidation during theme changes.
 		/// Must be called after ConsoleWindowSystem is fully initialized.
 		/// </summary>
-		public void SetWindowSystemContext(Func<IWindowSystemContext> getContext)
+		public void SetWindowSystemContext(Func<ConsoleWindowSystem> getContext)
 		{
 			_getWindowSystemContext = getContext;
 		}

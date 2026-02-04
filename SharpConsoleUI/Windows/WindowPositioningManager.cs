@@ -23,7 +23,7 @@ namespace SharpConsoleUI.Windows
 	{
 		private readonly Renderer _renderer;
 		private readonly RenderCoordinator _renderCoordinator;
-		private readonly Func<IWindowSystemContext> _getWindowSystem;
+		private readonly Func<ConsoleWindowSystem> _getWindowSystem;
 
 		/// <summary>
 		/// Initializes a new instance of the WindowPositioningManager class.
@@ -34,7 +34,7 @@ namespace SharpConsoleUI.Windows
 		public WindowPositioningManager(
 			Renderer renderer,
 			RenderCoordinator renderCoordinator,
-			Func<IWindowSystemContext> getWindowSystem)
+			Func<ConsoleWindowSystem> getWindowSystem)
 		{
 			_renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
 			_renderCoordinator = renderCoordinator ?? throw new ArgumentNullException(nameof(renderCoordinator));

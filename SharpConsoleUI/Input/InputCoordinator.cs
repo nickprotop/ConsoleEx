@@ -26,7 +26,7 @@ namespace SharpConsoleUI.Input
 		private readonly InputStateService _inputStateService;
 		private readonly WindowStateService _windowStateService;
 		private readonly ILogService _logService;
-		private readonly IWindowSystemContext _context;
+		private readonly ConsoleWindowSystem _context;
 
 		/// <summary>
 		/// Initializes a new instance of the InputCoordinator class.
@@ -41,7 +41,7 @@ namespace SharpConsoleUI.Input
 			InputStateService inputStateService,
 			WindowStateService windowStateService,
 			ILogService logService,
-			IWindowSystemContext context)
+			ConsoleWindowSystem context)
 		{
 			_consoleDriver = consoleDriver ?? throw new ArgumentNullException(nameof(consoleDriver));
 			_inputStateService = inputStateService ?? throw new ArgumentNullException(nameof(inputStateService));

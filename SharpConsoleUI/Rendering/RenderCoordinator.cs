@@ -30,7 +30,7 @@ namespace SharpConsoleUI.Rendering
 		private readonly WindowStateService _windowStateService;
 		private readonly StatusBarStateService _statusBarStateService;
 		private readonly ILogService _logService;
-		private readonly IWindowSystemContext _windowSystemContext;
+		private readonly ConsoleWindowSystem _windowSystemContext;
 		private readonly ConsoleWindowSystemOptions _options;
 		private readonly PerformanceTracker _performanceTracker;
 
@@ -70,7 +70,7 @@ namespace SharpConsoleUI.Rendering
 			WindowStateService windowStateService,
 			StatusBarStateService statusBarStateService,
 			ILogService logService,
-			IWindowSystemContext windowSystemContext,
+			ConsoleWindowSystem windowSystemContext,
 			ConsoleWindowSystemOptions options,
 			PerformanceTracker performanceTracker)
 		{

@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Core
 	public class StatusBarStateService
 	{
 		private readonly ILogService _logService;
-		private readonly Func<IWindowSystemContext> _getWindowSystem;
+		private readonly Func<ConsoleWindowSystem> _getWindowSystem;
 		private readonly List<StartMenuAction> _startMenuActions = new();
 
 		// Status bar state
@@ -40,7 +40,7 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		/// <param name="logService">Service for debug logging.</param>
 		/// <param name="getWindowSystem">Function to get the window system (lazy to avoid circular dependency).</param>
-		public StatusBarStateService(ILogService logService, Func<IWindowSystemContext> getWindowSystem)
+		public StatusBarStateService(ILogService logService, Func<ConsoleWindowSystem> getWindowSystem)
 		{
 			_logService = logService ?? throw new ArgumentNullException(nameof(logService));
 			_getWindowSystem = getWindowSystem ?? throw new ArgumentNullException(nameof(getWindowSystem));

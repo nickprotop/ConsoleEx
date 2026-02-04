@@ -23,7 +23,7 @@ namespace SharpConsoleUI.Windows
 		/// <param name="window">The parent window to search for modal children.</param>
 		/// <param name="context">The window system context.</param>
 		/// <returns>The deepest modal child, or null if none found.</returns>
-		public static Window? FindDeepestModalChild(Window window, IWindowSystemContext context)
+		public static Window? FindDeepestModalChild(Window window, ConsoleWindowSystem context)
 		{
 			// Get all direct modal children of the window, ordered by Z-index (highest first)
 			var modalChildren = context.Windows.Values
@@ -55,7 +55,7 @@ namespace SharpConsoleUI.Windows
 		/// <param name="context">The window system context.</param>
 		/// <param name="flashWindow">Action to flash a window for user feedback.</param>
 		/// <returns>The window that should actually be activated.</returns>
-		public static Window FindWindowToActivate(Window targetWindow, IWindowSystemContext context, Action<Window> flashWindow)
+		public static Window FindWindowToActivate(Window targetWindow, ConsoleWindowSystem context, Action<Window> flashWindow)
 		{
 			// First, check if there's already an active modal child - prioritize it
 			var activeModalChild = context.Windows.Values
@@ -89,7 +89,7 @@ namespace SharpConsoleUI.Windows
 		/// <param name="point">The point in absolute screen coordinates.</param>
 		/// <param name="context">The window system context.</param>
 		/// <returns>The topmost window at the point, or null if none found.</returns>
-		public static Window? GetWindowAtPoint(Point point, IWindowSystemContext context)
+		public static Window? GetWindowAtPoint(Point point, ConsoleWindowSystem context)
 		{
 			List<Window> windows = context.Windows.Values
 				.Where(window =>
