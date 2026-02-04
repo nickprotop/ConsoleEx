@@ -297,6 +297,12 @@ namespace SharpConsoleUI.Drivers
 			if (RenderMode.Buffer == RenderMode)
 			{
 				_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleWindowSystem?.Options, _consoleLock);
+
+				// Connect diagnostics if enabled
+				if (_consoleWindowSystem?.RenderingDiagnostics != null)
+				{
+					_consoleBuffer.Diagnostics = _consoleWindowSystem.RenderingDiagnostics;
+				}
 			}
 
 			_running = true;
@@ -1029,6 +1035,13 @@ namespace SharpConsoleUI.Drivers
 					{
 						_consoleBuffer!.Lock = true;
 						_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleWindowSystem?.Options, _consoleLock);
+
+						// Connect diagnostics if enabled
+						if (_consoleWindowSystem?.RenderingDiagnostics != null)
+						{
+							_consoleBuffer.Diagnostics = _consoleWindowSystem.RenderingDiagnostics;
+						}
+
 						_consoleBuffer.Lock = false;
 					}
 

@@ -43,6 +43,18 @@ namespace SharpConsoleUI.Drivers
 		// FIX27: Track last full redraw time for periodic leak clearing
 		private DateTime _lastFullRedraw = DateTime.Now;
 
+		// Diagnostics support (optional, for testing and debugging)
+		private Diagnostics.RenderingDiagnostics? _diagnostics;
+
+		/// <summary>
+		/// Gets or sets the diagnostics system for capturing rendering metrics.
+		/// </summary>
+		public Diagnostics.RenderingDiagnostics? Diagnostics
+		{
+			get => _diagnostics;
+			set => _diagnostics = value;
+		}
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleBuffer"/> class with the specified dimensions.
 		/// </summary>
@@ -238,6 +250,16 @@ namespace SharpConsoleUI.Drivers
 		// Lock Console I/O to prevent concurrent input operations from being corrupted
 		lock (_consoleLock ?? new object())
 		{
+			// Diagnostics: Begin metrics capture
+			var metrics = _diagnostics?.IsEnabled == true ? new Diagnostics.RenderingMetrics() : null;
+			var renderStartTime = metrics != null ? DateTime.UtcNow : default;
+
+			// Diagnostics: Capture console buffer state before rendering
+			if (_diagnostics?.IsEnabled == true && _diagnostics.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.ConsoleBuffer))
+			{
+				CaptureConsoleBufferSnapshot();
+			}
+
 			Console.CursorVisible = false;
 
 			// FIX24: Drain input buffer to prevent mouse sequences from being echoed during rendering
@@ -329,9 +351,29 @@ namespace SharpConsoleUI.Drivers
 
 
 			// Single atomic write of entire screen - no cursor jumps, no flicker!
-			if (screenBuilder.Length > 0)
+			var output = screenBuilder.ToString();
+			if (output.Length > 0)
 			{
-				Console.Write(screenBuilder.ToString());
+				Console.Write(output);
+			}
+
+			// Diagnostics: Capture output metrics
+			if (metrics != null)
+			{
+				metrics.BytesWritten = output.Length;
+				metrics.AnsiEscapeSequences = CountAnsiSequences(output);
+				metrics.CursorMovements = CountCursorMoves(output);
+				metrics.CellsActuallyRendered = linesRendered * _width; // Approximate
+				metrics.DirtyCellsMarked = GetDirtyCharacterCount();
+
+				// Capture output snapshot
+				if (_diagnostics?.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.ConsoleOutput) == true)
+				{
+					_diagnostics.CaptureConsoleOutput(output);
+				}
+
+				// Record metrics
+				_diagnostics?.RecordMetrics(metrics);
 			}
 
 			// FIX25: Re-enable mouse tracking after rendering completes
@@ -537,6 +579,54 @@ namespace SharpConsoleUI.Drivers
 	}
 
 		// Use struct for better memory layout and performance
+		#region Diagnostics Helper Methods
+
+		/// <summary>
+		/// Captures a snapshot of the console buffer state for diagnostics.
+		/// </summary>
+		private void CaptureConsoleBufferSnapshot()
+		{
+			if (_diagnostics == null) return;
+
+			// Deep copy buffers to ConsoleCell arrays
+			var frontCopy = new Diagnostics.Snapshots.ConsoleCell[_width, _height];
+			var backCopy = new Diagnostics.Snapshots.ConsoleCell[_width, _height];
+
+			for (int y = 0; y < _height; y++)
+			{
+				for (int x = 0; x < _width; x++)
+				{
+					frontCopy[x, y] = new Diagnostics.Snapshots.ConsoleCell(
+						_frontBuffer[x, y].Character,
+						_frontBuffer[x, y].AnsiEscape ?? string.Empty);
+
+					backCopy[x, y] = new Diagnostics.Snapshots.ConsoleCell(
+						_backBuffer[x, y].Character,
+						_backBuffer[x, y].AnsiEscape ?? string.Empty);
+				}
+			}
+
+			_diagnostics.CaptureConsoleBufferState(frontCopy, backCopy, _width, _height);
+		}
+
+		/// <summary>
+		/// Counts ANSI escape sequences in output string.
+		/// </summary>
+		private int CountAnsiSequences(string output)
+		{
+			return _ansiRegex.Matches(output).Count;
+		}
+
+		/// <summary>
+		/// Counts cursor positioning commands in output string.
+		/// </summary>
+		private int CountCursorMoves(string output)
+		{
+			return Regex.Matches(output, @"\x1b\[\d+;\d+H").Count;
+		}
+
+		#endregion
+
 		private struct Cell
 		{
 			public string AnsiEscape;

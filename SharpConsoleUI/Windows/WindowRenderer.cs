@@ -295,6 +295,13 @@ namespace SharpConsoleUI.Windows
 
 			// Paint the tree with the provided clip rect
 			_rootNode.Paint(_buffer, clipRect);
+
+			// Diagnostics: Capture CharacterBuffer snapshot after painting
+			var diagnostics = _window._windowSystem?.RenderingDiagnostics;
+			if (diagnostics?.IsEnabled == true && diagnostics.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.CharacterBuffer))
+			{
+				diagnostics.CaptureCharacterBuffer(_buffer);
+			}
 		}
 
 		/// <summary>
@@ -307,6 +314,13 @@ namespace SharpConsoleUI.Windows
 		{
 			if (_buffer == null)
 				return new List<string>();
+
+			// Connect diagnostics to CharacterBuffer if needed
+			var diagnostics = _window._windowSystem?.RenderingDiagnostics;
+			if (diagnostics != null && _buffer.Diagnostics == null)
+			{
+				_buffer.Diagnostics = diagnostics;
+			}
 
 			return _buffer.ToLines(foregroundColor, backgroundColor);
 		}

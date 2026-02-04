@@ -27,6 +27,18 @@ namespace SharpConsoleUI.Layout
 		private readonly Color _defaultBackground;
 		private LayoutRect _dirtyRegion = LayoutRect.Empty;
 
+		// Diagnostics support (optional, for testing and debugging)
+		private Diagnostics.RenderingDiagnostics? _diagnostics;
+
+		/// <summary>
+		/// Gets or sets the diagnostics system for capturing rendering metrics.
+		/// </summary>
+		public Diagnostics.RenderingDiagnostics? Diagnostics
+		{
+			get => _diagnostics;
+			set => _diagnostics = value;
+		}
+
 		/// <summary>
 		/// Gets the width of the buffer.
 		/// </summary>
@@ -512,6 +524,12 @@ namespace SharpConsoleUI.Layout
 				// Reset colors at end of line
 				sb.Append("\x1b[0m");
 				lines.Add(sb.ToString());
+			}
+
+			// Diagnostics: Capture ANSI lines snapshot
+			if (_diagnostics?.IsEnabled == true && _diagnostics.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.AnsiLines))
+			{
+				_diagnostics.CaptureAnsiLines(lines);
 			}
 
 			return lines;
