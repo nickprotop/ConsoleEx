@@ -197,11 +197,8 @@ namespace SharpConsoleUI
 		private string? _name;
 		private TimeSpan _asyncThreadCleanupTimeout = TimeSpan.FromSeconds(5);
 
-		// DOM-based layout system
-		private LayoutNode? _rootNode;
-		private WindowContentLayout? _windowContentLayout;
-		private CharacterBuffer? _buffer;
-		private readonly Dictionary<IWindowControl, LayoutNode> _controlToNodeMap = new();
+		// DOM-based layout system (delegated to WindowRenderer)
+		private Windows.WindowRenderer? _renderer;
 
 		// Mouse tracking for enter/leave events
 		private Controls.IWindowControl? _lastMouseOverControl;
@@ -225,12 +222,17 @@ namespace SharpConsoleUI
 			_windowSystem = windowSystem;
 			_layoutManager = new WindowLayoutManager(this);
 
+		// Initialize renderer for DOM-based layout
+		_renderer = new Windows.WindowRenderer(
+			this,
+			_windowSystem?.LogService);
+
 		// Initialize content manager for control collection management
 		_contentManager = new Windows.WindowContentManager(
 			() => Title,
 			_windowSystem?.LogService,
 			() => Invalidate(true),
-			() => _rootNode = null);
+			() => _renderer?.InvalidateDOM());
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -269,12 +271,17 @@ namespace SharpConsoleUI
 			_parentWindow = parentWindow;
 			_layoutManager = new WindowLayoutManager(this);
 
+		// Initialize renderer for DOM-based layout
+		_renderer = new Windows.WindowRenderer(
+			this,
+			_windowSystem?.LogService);
+
 		// Initialize content manager for control collection management
 		_contentManager = new Windows.WindowContentManager(
 			() => Title,
 			_windowSystem?.LogService,
 			() => Invalidate(true),
-			() => _rootNode = null);
+			() => _renderer?.InvalidateDOM());
 
 
 			// Set position relative to parent if this is a subwindow
@@ -574,13 +581,11 @@ namespace SharpConsoleUI
 		/// </summary>
 		public int ScrollOffset
 		{
-			get => _windowContentLayout != null
-				? _windowContentLayout.ScrollOffset
-				: _scrollOffset;
+			get => _renderer?.ScrollOffset ?? _scrollOffset;
 			set
 			{
-				if (_windowContentLayout != null)
-					_windowContentLayout.ScrollOffset = value;
+				if (_renderer != null)
+					_renderer.ScrollOffset = value;
 				else
 					_scrollOffset = value;
 			}
@@ -696,10 +701,10 @@ namespace SharpConsoleUI
 		{
 			get
 			{
-				if (_windowContentLayout != null)
+				if (_renderer != null)
 				{
 					// DOM mode: return total scrollable content height
-					return _windowContentLayout.ScrollableContentHeight;
+					return _renderer.ScrollableContentHeight;
 				}
 				return _cachedContent.Count + _topStickyHeight;
 			}
@@ -1368,18 +1373,18 @@ namespace SharpConsoleUI
 				}
 
 				// Handle mouse wheel scrolling in DOM mode
-				if (_windowContentLayout != null)
+				if (_renderer != null)
 				{
 					if (args.HasFlag(MouseFlags.WheeledUp))
 					{
-						_windowContentLayout.ScrollBy(-3);
+						_renderer.ScrollBy(-3);
 						_invalidated = true;
 						IsDirty = true;
 						return true;
 					}
 					else if (args.HasFlag(MouseFlags.WheeledDown))
 					{
-						_windowContentLayout.ScrollBy(3);
+						_renderer.ScrollBy(3);
 						_invalidated = true;
 						IsDirty = true;
 						return true;
@@ -1416,7 +1421,8 @@ namespace SharpConsoleUI
 		private Point GetControlRelativePosition(IWindowControl control, Point windowPosition)
 		{
 		// Use DOM bounds if available (for sticky and container controls)
-		if (_controlToNodeMap.TryGetValue(control, out var node))
+		var node = _renderer?.GetLayoutNode(control);
+		if (node != null)
 		{
 		  // Convert window position to content position
 			var contentPos = GetContentCoordinates(windowPosition);
@@ -1515,16 +1521,17 @@ namespace SharpConsoleUI
 				var availableHeight = Height - 2; // Account for borders
 
 				// Ensure DOM tree is built
-				if (_rootNode == null)
+				if (_renderer?.RootLayoutNode == null)
 				{
 					RebuildDOMTree();
 				}
 
 				// Update layout bounds from DOM nodes
-				foreach (var kvp in _controlToNodeMap)
+				foreach (var control in _controls)
 				{
-					var control = kvp.Key;
-					var node = kvp.Value;
+					var node = _renderer?.GetLayoutNode(control);
+					if (node == null)
+						continue;
 
 					if (!control.Visible)
 						continue;
@@ -1743,7 +1750,7 @@ namespace SharpConsoleUI
 		/// <param name="control">The control to scroll into view</param>
 		public void ScrollToControl(IWindowControl control)
 		{
-			if (_layoutManager == null || _windowContentLayout == null) return;
+			if (_layoutManager == null || _renderer == null) return;
 
 			try
 			{
@@ -1786,7 +1793,7 @@ namespace SharpConsoleUI
 				{
 					// Widget bottom is cut off - scroll down to show widget
 					int absoluteTopY = currentScrollOffset + contentTop;
-					int newOffset = Math.Min(absoluteTopY, _windowContentLayout.MaxScrollOffset);
+					int newOffset = Math.Min(absoluteTopY, _renderer.MaxScrollOffset);
 					ScrollOffset = Math.Max(0, newOffset);
 					Invalidate(true);
 				}
@@ -1975,19 +1982,20 @@ namespace SharpConsoleUI
 				{
 					// Invalidate measurements without rebuilding the tree
 					// This preserves runtime state like splitter positions
-					_rootNode?.InvalidateMeasure();
+					_renderer?.InvalidateDOMLayout();
 				}
 				else if (callerControl != null)
 				{
 					// Specific control invalidation
-					if (_controlToNodeMap.TryGetValue(callerControl, out var node))
+					var node = _renderer?.GetLayoutNode(callerControl);
+					if (node != null)
 					{
 						node.InvalidateMeasure();
 					}
 					else
 					{
 						// Fallback: invalidate entire tree
-						_rootNode?.InvalidateMeasure();
+						_renderer?.InvalidateDOMLayout();
 					}
 				}
 			}
@@ -2015,7 +2023,7 @@ namespace SharpConsoleUI
 		{
 			lock (_lock)
 			{
-				_rootNode = null; // Force rebuild on next render
+				_renderer?.InvalidateDOM(); // Force rebuild on next render
 			}
 			IsDirty = true;
 			_invalidated = true;
@@ -2108,7 +2116,8 @@ namespace SharpConsoleUI
 		private int GetControlHeight(IWindowControl control)
 		{
 			// Try to get from DOM node first
-			if (_controlToNodeMap.TryGetValue(control, out var node))
+			var node = _renderer?.GetLayoutNode(control);
+			if (node != null)
 			{
 				return node.AbsoluteBounds.Height;
 			}
@@ -2272,9 +2281,9 @@ namespace SharpConsoleUI
 						{
 							case ConsoleKey.UpArrow:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_windowContentLayout != null)
+								if (_renderer != null)
 								{
-									_windowContentLayout.ScrollBy(-1);
+									_renderer.ScrollBy(-1);
 									_invalidated = true;
 								}
 								else
@@ -2287,9 +2296,9 @@ namespace SharpConsoleUI
 
 							case ConsoleKey.DownArrow:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_windowContentLayout != null)
+								if (_renderer != null)
 								{
-									_windowContentLayout.ScrollBy(1);
+									_renderer.ScrollBy(1);
 									_invalidated = true;
 								}
 								else
@@ -2302,9 +2311,9 @@ namespace SharpConsoleUI
 
 							case ConsoleKey.PageUp:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_windowContentLayout != null)
+								if (_renderer != null)
 								{
-									_windowContentLayout.PageUp();
+									_renderer.PageUp();
 									_invalidated = true;
 									IsDirty = true;
 									windowHandled = true;
@@ -2313,9 +2322,9 @@ namespace SharpConsoleUI
 
 							case ConsoleKey.PageDown:
 								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_windowContentLayout != null)
+								if (_renderer != null)
 								{
-									_windowContentLayout.PageDown();
+									_renderer.PageDown();
 									_invalidated = true;
 									IsDirty = true;
 									windowHandled = true;
@@ -2323,9 +2332,9 @@ namespace SharpConsoleUI
 								break;
 
 							case ConsoleKey.Home:
-								if (key.Modifiers == ConsoleModifiers.Control && _windowContentLayout != null)
+								if (key.Modifiers == ConsoleModifiers.Control && _renderer != null)
 								{
-									_windowContentLayout.ScrollToTop();
+									_renderer.ScrollToTop();
 									_invalidated = true;
 									IsDirty = true;
 									windowHandled = true;
@@ -2333,9 +2342,9 @@ namespace SharpConsoleUI
 								break;
 
 							case ConsoleKey.End:
-								if (key.Modifiers == ConsoleModifiers.Control && _windowContentLayout != null)
+								if (key.Modifiers == ConsoleModifiers.Control && _renderer != null)
 								{
-									_windowContentLayout.ScrollToBottom();
+									_renderer.ScrollToBottom();
 									_invalidated = true;
 									IsDirty = true;
 									windowHandled = true;
@@ -2464,7 +2473,7 @@ namespace SharpConsoleUI
 		/// Gets the root layout node for the window's DOM tree.
 		/// Used internally for layout traversal (e.g., collecting control bounds for overlay rendering).
 		/// </summary>
-		internal LayoutNode? GetRootLayoutNode() => _rootNode;
+		internal LayoutNode? GetRootLayoutNode() => _renderer?.RootLayoutNode;
 
 		/// <summary>
 		/// Gets the LayoutNode associated with a control.
@@ -2473,7 +2482,7 @@ namespace SharpConsoleUI
 		/// <returns>The LayoutNode for the control, or null if not found.</returns>
 		public LayoutNode? GetLayoutNode(IWindowControl control)
 		{
-			return _controlToNodeMap.TryGetValue(control, out var node) ? node : null;
+			return _renderer?.GetLayoutNode(control);
 		}
 
 		/// <summary>
@@ -2486,51 +2495,11 @@ namespace SharpConsoleUI
 		/// <returns>The portal LayoutNode for later removal, or null if owner not found.</returns>
 		public LayoutNode? CreatePortal(IWindowControl ownerControl, IWindowControl portalContent)
 		{
-			// Note: ownerControl may be nested inside another control (e.g., dropdown inside toolbar)
-			// and not directly registered in _controlToNodeMap. We don't actually need the owner node
-			// for portal creation - the portal bounds come from the portal content itself.
-			// So we allow portal creation even for nested controls.
-
-			var portalNode = new LayoutNode(portalContent);
-			portalNode.IsVisible = true; // Ensure portal is visible
-
-			// Measure the portal to get its size
-			var contentWidth = Width - 2;
-			var contentHeight = Height - 2;
-			var constraints = LayoutConstraints.Loose(contentWidth, contentHeight);
-			portalNode.Measure(constraints);
-
-			// Get the portal's desired position
-			// For portal content with custom bounds, use GetPortalBounds() if available
-			Rectangle portalBounds;
-			if (portalContent is MenuPortalContent menuPortal)
+			var portalNode = _renderer?.CreatePortal(ownerControl, portalContent);
+			if (portalNode != null)
 			{
-				portalBounds = menuPortal.GetPortalBounds();
+				Invalidate(false);
 			}
-			else if (portalContent is Controls.DropdownPortalContent dropdownPortal)
-			{
-				portalBounds = dropdownPortal.GetPortalBounds();
-			}
-			else
-			{
-				// Fallback: position at (0,0) with measured size
-				portalBounds = new Rectangle(0, 0, portalNode.DesiredSize.Width, portalNode.DesiredSize.Height);
-			}
-
-			var portalRect = new LayoutRect(portalBounds.X, portalBounds.Y, portalBounds.Width, portalBounds.Height);
-
-			// Arrange the portal at its absolute position
-			portalNode.Arrange(portalRect);
-
-			// CRITICAL: Add portal to ROOT node, not owner node
-			// This ensures portals paint AFTER all regular content
-			if (_rootNode != null)
-			{
-				_rootNode.AddPortalChild(portalNode);
-				_controlToNodeMap[portalContent] = portalNode;
-			}
-
-			Invalidate(false);
 			return portalNode;
 		}
 
@@ -2541,21 +2510,14 @@ namespace SharpConsoleUI
 		/// <param name="portalNode">The portal LayoutNode returned by CreatePortal().</param>
 		public void RemovePortal(IWindowControl ownerControl, LayoutNode portalNode)
 		{
-			// Remove from root node (where it was added in CreatePortal)
-			if (_rootNode != null)
-			{
-				var removed = _rootNode.RemovePortalChild(portalNode);
-				if (portalNode.Control != null)
-					_controlToNodeMap.Remove(portalNode.Control);
-			}
-
+			_renderer?.RemovePortal(ownerControl, portalNode);
 			Invalidate(false);
 		}
 
 		/// <summary>
 		/// Gets the root layout node for this window.
 		/// </summary>
-		public LayoutNode? RootLayoutNode => _rootNode;
+		public LayoutNode? RootLayoutNode => _renderer?.RootLayoutNode;
 
 		/// <summary>
 		/// Gets whether DOM-based layout is enabled.
@@ -2571,141 +2533,26 @@ namespace SharpConsoleUI
 		{
 			var contentWidth = Width - 2;
 			var contentHeight = Height - 2;
-
-			// Create the character buffer if needed
-			if (_buffer == null || _buffer.Width != contentWidth || _buffer.Height != contentHeight)
-			{
-				_buffer = new CharacterBuffer(contentWidth, contentHeight);
-			}
-
-			// Create root node with WindowContentLayout, preserving scroll offset
-			int previousScrollOffset = _windowContentLayout?.ScrollOffset ?? 0;
-			_windowContentLayout = new WindowContentLayout { ScrollOffset = previousScrollOffset };
-			_rootNode = new LayoutNode(null, _windowContentLayout);
-			_controlToNodeMap.Clear();
-
-			// Add ALL controls as children (not just visible ones)
-			// The node's IsVisible property will control whether it participates in layout
-			foreach (var control in _controls)
-			{
-				var node = CreateLayoutNode(control);
-				node.IsVisible = control.Visible; // Set visibility on the node
-				_rootNode.AddChild(node);
-				_controlToNodeMap[control] = node;
-			}
-
-			// Perform initial layout
-			PerformDOMLayout();
+			_renderer?.RebuildDOMTree(_controls, contentWidth, contentHeight);
 		}
 
-		/// <summary>
-		/// Creates a LayoutNode for a control, handling container controls recursively.
-		/// </summary>
-		private LayoutNode CreateLayoutNode(IWindowControl control)
-		{
-			ILayoutContainer? layout = null;
-			IEnumerable<IWindowControl>? children = null;
-
-			// Determine layout type and get children based on control type
-			if (control is Controls.ColumnContainer columnContainer)
-			{
-				layout = new VerticalStackLayout();
-				children = columnContainer.Contents;
-			}
-			else if (control is Controls.HorizontalGridControl horizontalGrid)
-			{
-				layout = new HorizontalLayout();
-				// Build ordered list of columns and splitters
-				var orderedChildren = new List<IWindowControl>();
-				for (int i = 0; i < horizontalGrid.Columns.Count; i++)
-				{
-					orderedChildren.Add(horizontalGrid.Columns[i]);
-					// Add splitter after this column if one exists
-					var splitter = horizontalGrid.Splitters.FirstOrDefault(s => horizontalGrid.GetSplitterLeftColumnIndex(s) == i);
-					if (splitter != null)
-					{
-						orderedChildren.Add(splitter);
-					}
-				}
-				children = orderedChildren;
-			}
-			else if (control is Controls.ScrollablePanelControl scrollablePanel)
-			{
-				// ScrollablePanelControl is a self-painting container that manages its own children's
-				// rendering with scroll offsets. Do NOT add children to DOM tree - the panel's PaintDOM
-				// handles all child painting. Adding children here would cause double-painting.
-				layout = null;
-				children = null;
-			}
-
-			var node = new LayoutNode(control, layout);
-
-			// Handle container controls with children
-			// Create nodes for ALL children and set their visibility
-			if (children != null)
-			{
-				foreach (var child in children)
-				{
-					var childNode = CreateLayoutNode(child);
-					childNode.IsVisible = child.Visible; // Set visibility on the node
-					node.AddChild(childNode);
-					_controlToNodeMap[child] = childNode;
-				}
-			}
-
-			return node;
-		}
 
 		/// <summary>
 		/// Performs the measure and arrange passes on the DOM tree.
 		/// </summary>
 		private void PerformDOMLayout()
 		{
-			if (_rootNode == null) return;
-
-			// Sync node visibility with control visibility before layout
-			SyncNodeVisibility();
-
 			var contentWidth = Width - 2;
 			var contentHeight = Height - 2;
-
-			// Measure pass - use Loose constraints so children can measure smaller
-			var constraints = LayoutConstraints.Loose(contentWidth, contentHeight);
-
-			_rootNode.Measure(constraints);
-
-			// Arrange pass
-			_rootNode.Arrange(new LayoutRect(0, 0, contentWidth, contentHeight));
+			_renderer?.PerformDOMLayout(contentWidth, contentHeight);
 		}
 
-		/// <summary>
-		/// Syncs all layout node properties with their corresponding control properties.
-		/// This includes visibility and explicit width (important for dynamic sizing like splitters).
-		/// </summary>
-		private void SyncNodeVisibility()
-		{
-			foreach (var pair in _controlToNodeMap)
-			{
-				// Sync visibility
-				pair.Value.IsVisible = pair.Key.Visible;
-
-				// Sync explicit width (critical for splitter-resized columns!)
-				pair.Value.ExplicitWidth = pair.Key.Width;
-
-				if (pair.Key is Controls.ColumnContainer column)
-				{
-				}
-			}
-		}
 		/// <param name="x">X coordinate relative to window content area.</param>
 		/// <param name="y">Y coordinate relative to window content area.</param>
 		/// <returns>The control at the specified position, or null if none found.</returns>
 		private IWindowControl? HitTestDOM(int x, int y)
 		{
-			if (_rootNode == null) return null;
-
-			var hitNode = _rootNode.HitTest(x, y);
-			return hitNode?.Control;
+			return _renderer?.HitTestDOM(x, y);
 		}
 
 		/// <summary>
@@ -2714,13 +2561,7 @@ namespace SharpConsoleUI
 		/// <param name="clipRect">The clipping rectangle in window-space coordinates. Only content within this rect will be painted.</param>
 		private void PaintDOM(LayoutRect clipRect)
 		{
-			if (_rootNode == null || _buffer == null) return;
-
-			// Clear buffer (could optimize to only clear clipRect region, but full clear is simpler)
-			_buffer.Clear(BackgroundColor);
-
-			// Paint the tree with the provided clip rect
-			_rootNode.Paint(_buffer, clipRect);
+			_renderer?.PaintDOM(clipRect, BackgroundColor);
 		}
 
 		/// <summary>
@@ -2728,71 +2569,9 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void InvalidateDOMLayout()
 		{
-			_rootNode?.InvalidateMeasure();
+			_renderer?.InvalidateDOMLayout();
 		}
 
-		/// <summary>
-		/// Converts screen-space visible regions to a window-space clipping rectangle.
-		/// This optimization prevents painting occluded areas that are covered by overlapping windows.
-		/// </summary>
-		/// <param name="visibleRegions">Screen-space rectangles representing visible portions of the window.</param>
-		/// <returns>A window-space LayoutRect representing the bounding box of all visible regions, or empty rect if nothing is visible.</returns>
-		private LayoutRect ConvertVisibleRegionsToClipRect(List<Rectangle> visibleRegions)
-		{
-			if (visibleRegions == null || !visibleRegions.Any())
-			{
-				// No visible regions - return empty clipRect
-				return new LayoutRect(0, 0, 0, 0);
-			}
-
-			// Convert screen-space rectangles to window-space coordinates
-			// Screen coords: absolute positions on console
-			// Window coords: relative to window content area (0,0 = top-left of content, excluding border)
-
-			int windowContentLeft = Left + 1;  // +1 for left border
-			int windowContentTop = Top + (ShowTitle ? 2 : 1);  // +1 or +2 for border/title
-
-			// Find bounding box of all visible regions in window space
-			int minX = int.MaxValue;
-			int minY = int.MaxValue;
-			int maxX = int.MinValue;
-			int maxY = int.MinValue;
-
-			int contentWidth = Width - 2;  // Available content width
-			int contentHeight = Height - 2;  // Available content height
-
-			foreach (var region in visibleRegions)
-			{
-				// Convert to window-relative coordinates
-				int relLeft = region.Left - windowContentLeft;
-				int relTop = region.Top - windowContentTop;
-				int relRight = relLeft + region.Width;
-				int relBottom = relTop + region.Height;
-
-				// Clamp to window content bounds
-				relLeft = Math.Max(0, Math.Min(relLeft, contentWidth));
-				relTop = Math.Max(0, Math.Min(relTop, contentHeight));
-				relRight = Math.Max(0, Math.Min(relRight, contentWidth));
-				relBottom = Math.Max(0, Math.Min(relBottom, contentHeight));
-
-				// Skip if region has no area after clamping
-				if (relLeft < relRight && relTop < relBottom)
-				{
-					minX = Math.Min(minX, relLeft);
-					minY = Math.Min(minY, relTop);
-					maxX = Math.Max(maxX, relRight);
-					maxY = Math.Max(maxY, relBottom);
-				}
-			}
-
-			if (minX == int.MaxValue)
-			{
-				// No valid regions after conversion
-				return new LayoutRect(0, 0, 0, 0);
-			}
-
-			return new LayoutRect(minX, minY, maxX - minX, maxY - minY);
-		}
 
 		/// <summary>
 		/// Rebuilds the content cache using DOM-based layout.
@@ -2800,54 +2579,31 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void RebuildContentCacheDOM(int availableWidth, int availableHeight, List<Rectangle>? visibleRegions = null)
 		{
-			// Ensure DOM tree exists
-			if (_rootNode == null)
+			if (_renderer == null)
 			{
-				RebuildDOMTree();
+				_cachedContent = new List<string>();
+				_invalidated = false;
+				return;
 			}
 
-			// Ensure buffer is sized correctly - invalidate measure if size changed (text wrapping may change)
-			if (_buffer == null || _buffer.Width != availableWidth || _buffer.Height != availableHeight)
-			{
-				_buffer = new CharacterBuffer(availableWidth, availableHeight);
-				_rootNode?.InvalidateMeasure(); // Size changed, need to re-measure (text wrapping)
-			}
+			// Delegate to renderer for complete rendering pipeline
+			_cachedContent = _renderer.RebuildContentCacheDOM(
+				_controls,
+				availableWidth,
+				availableHeight,
+				visibleRegions,
+				Left,
+				Top,
+				ShowTitle,
+				ForegroundColor,
+				BackgroundColor);
 
-			// Always perform layout (arrange pass uses scroll offset)
-			PerformDOMLayout();
-
-			// Calculate clip rect from visible regions (optimization to avoid painting occluded areas)
-			LayoutRect clipRect;
-			if (visibleRegions != null && visibleRegions.Any())
-			{
-				clipRect = ConvertVisibleRegionsToClipRect(visibleRegions);
-
-				// If no visible area, skip painting entirely
-				if (clipRect.Width == 0 || clipRect.Height == 0)
-				{
-					_cachedContent = new List<string>();
-					_invalidated = false;
-					return;
-				}
-			}
-			else
-			{
-				// No visible regions provided - paint entire window (fallback for non-optimized calls)
-				clipRect = new LayoutRect(0, 0, availableWidth, availableHeight);
-			}
-
-			// Paint to buffer with clip rect
-			PaintDOM(clipRect);
-
-			// Convert buffer to lines for compatibility with existing render system
+			// Clear sticky tracking (DOM handles sticky internally)
 			_topStickyLines.Clear();
 			_topStickyHeight = 0;
 			_bottomStickyLines.Clear();
 			_bottomStickyHeight = 0;
 			_controlPositions.Clear();
-
-			// Convert the entire buffer to lines (DOM handles sticky internally)
-			_cachedContent = _buffer.ToLines(ForegroundColor, BackgroundColor);
 
 			_invalidated = false;
 		}
