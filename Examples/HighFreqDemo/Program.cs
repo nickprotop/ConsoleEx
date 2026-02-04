@@ -165,19 +165,19 @@ class Program
             .AddItem("Performance", m => m
                 .AddItem("Toggle Metrics", () =>
                 {
-                    var current = _windowSystem!.IsPerformanceMetricsEnabled();
-                    _windowSystem.SetPerformanceMetrics(!current);
+                    var current = _windowSystem!.Performance.IsPerformanceMetricsEnabled;
+                    _windowSystem.Performance.SetPerformanceMetrics(!current);
                 })
                 .AddItem("Frame Rate", sub => sub
-                    .AddItem("15 FPS", () => _windowSystem?.SetTargetFPS(15))
-                    .AddItem("30 FPS", () => _windowSystem?.SetTargetFPS(30))
-                    .AddItem("60 FPS (Default)", () => _windowSystem?.SetTargetFPS(60))
-                    .AddItem("120 FPS", () => _windowSystem?.SetTargetFPS(120))
-                    .AddItem("144 FPS", () => _windowSystem?.SetTargetFPS(144))
+                    .AddItem("15 FPS", () => _windowSystem?.Performance.SetTargetFPS(15))
+                    .AddItem("30 FPS", () => _windowSystem?.Performance.SetTargetFPS(30))
+                    .AddItem("60 FPS (Default)", () => _windowSystem?.Performance.SetTargetFPS(60))
+                    .AddItem("120 FPS", () => _windowSystem?.Performance.SetTargetFPS(120))
+                    .AddItem("144 FPS", () => _windowSystem?.Performance.SetTargetFPS(144))
                 )
                 .AddItem("Frame Limiting", sub => sub
-                    .AddItem("Enable", () => _windowSystem?.SetFrameRateLimiting(true))
-                    .AddItem("Disable", () => _windowSystem?.SetFrameRateLimiting(false))
+                    .AddItem("Enable", () => _windowSystem?.Performance.SetFrameRateLimiting(true))
+                    .AddItem("Disable", () => _windowSystem?.Performance.SetFrameRateLimiting(false))
                 )
                 .AddSeparator()
                 .AddItem("Performance Dialog...", () => PerformanceDialog.Show(_windowSystem!, _mainWindow))
@@ -673,9 +673,9 @@ class Program
         var statusRight = window.FindControl<MarkupControl>("statusRight");
         if (statusRight != null && _windowSystem != null)
         {
-            var fps = _windowSystem.GetCurrentFPS();
-            var targetFps = _windowSystem.GetTargetFPS();
-            var frameTime = _windowSystem.GetCurrentFrameTime();
+            var fps = _windowSystem.Performance.CurrentFPS;
+            var targetFps = _windowSystem.Performance.TargetFPS;
+            var frameTime = _windowSystem.Performance.CurrentFrameTimeMs;
 
             statusRight.SetContent(new List<string>
             {

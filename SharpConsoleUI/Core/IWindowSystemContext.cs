@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Models;
@@ -36,6 +37,14 @@ namespace SharpConsoleUI.Core
 		/// Cycles to the next active window (Ctrl+T handler).
 		/// </summary>
 		void CycleActiveWindow();
+
+	/// <summary>
+	/// Adds a window to the window system.
+	/// </summary>
+	/// <param name="window">The window to add.</param>
+	/// <param name="activateWindow">Whether to activate the window after adding.</param>
+	/// <returns>The added window.</returns>
+	Window AddWindow(Window window, bool activateWindow = true);
 
 		/// <summary>
 		/// Sets the specified window as the active window.
@@ -108,35 +117,21 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Moves the specified window to a new position.
 		/// </summary>
-		/// <param name="window">The window to move.</param>
-		/// <param name="newLeft">The new left coordinate.</param>
-		/// <param name="newTop">The new top coordinate.</param>
 		void MoveWindowTo(Window window, int newLeft, int newTop);
 
 		/// <summary>
 		/// Moves the specified window by a relative delta.
 		/// </summary>
-		/// <param name="window">The window to move.</param>
-		/// <param name="deltaX">The horizontal movement delta.</param>
-		/// <param name="deltaY">The vertical movement delta.</param>
 		void MoveWindowBy(Window window, int deltaX, int deltaY);
 
 		/// <summary>
 		/// Resizes the specified window to a new size and position.
 		/// </summary>
-		/// <param name="window">The window to resize.</param>
-		/// <param name="newLeft">The new left coordinate.</param>
-		/// <param name="newTop">The new top coordinate.</param>
-		/// <param name="newWidth">The new width.</param>
-		/// <param name="newHeight">The new height.</param>
 		void ResizeWindowTo(Window window, int newLeft, int newTop, int newWidth, int newHeight);
 
 		/// <summary>
 		/// Resizes the specified window by a relative delta.
 		/// </summary>
-		/// <param name="window">The window to resize.</param>
-		/// <param name="deltaWidth">The width change delta.</param>
-		/// <param name="deltaHeight">The height change delta.</param>
 		void ResizeWindowBy(Window window, int deltaWidth, int deltaHeight);
 
 		/// <summary>
@@ -165,13 +160,13 @@ namespace SharpConsoleUI.Core
 		string? BottomStatus { get; set; }
 
 		/// <summary>
-		/// Gets the list of start menu actions.
-		/// </summary>
-		IReadOnlyList<StartMenuAction> GetStartMenuActions();
-
-		/// <summary>
 		/// Gets the collection of all windows indexed by GUID.
 		/// </summary>
 		IReadOnlyDictionary<string, Window> Windows { get; }
+
+		/// <summary>
+		/// Gets or sets the console window system options.
+		/// </summary>
+		ConsoleWindowSystemOptions Options { get; set; }
 	}
 }

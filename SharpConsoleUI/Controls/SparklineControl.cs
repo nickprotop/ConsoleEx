@@ -874,8 +874,9 @@ namespace SharpConsoleUI.Controls
 			// In bidirectional mode:
 			// - Primary series (upload) goes UP from the middle
 			// - Secondary series (download) goes DOWN from the middle
-			int halfHeight = graphHeight / 2;
-			int middleY = graphStartY + halfHeight;
+			int topHalfHeight = graphHeight / 2;
+			int bottomHalfHeight = graphHeight - topHalfHeight - 1; // -1 for baseline row
+			int middleY = graphStartY + topHalfHeight;
 
 			// Calculate scales for both series
 			double primaryMax = _maxValue ?? (_dataPoints.Count > 0 ? Math.Max(_dataPoints.Max(), 0.001) : 1.0);
@@ -904,9 +905,9 @@ namespace SharpConsoleUI.Controls
 				{
 					double value = _dataPoints[primaryDataIndex];
 					double normalized = Math.Clamp(value / primaryMax, 0, 1);
-					double barHeight = normalized * halfHeight;
+					double barHeight = normalized * topHalfHeight;
 
-					for (int y = 0; y < halfHeight; y++)
+					for (int y = 0; y < topHalfHeight; y++)
 					{
 						int paintY = middleY - 1 - y; // Paint upward from middle
 						if (paintY < clipRect.Y || paintY >= clipRect.Bottom)
@@ -921,7 +922,7 @@ namespace SharpConsoleUI.Controls
 						}
 						else if (_gradient != null)
 						{
-							double rowHeightNormalized = (double)(y + 1) / halfHeight;
+							double rowHeightNormalized = (double)(y + 1) / topHalfHeight;
 							cellColor = _gradient.Interpolate(rowHeightNormalized);
 						}
 						else
@@ -938,9 +939,9 @@ namespace SharpConsoleUI.Controls
 				{
 					double value = _secondaryDataPoints[secondaryDataIndex];
 					double normalized = Math.Clamp(value / secondaryMax, 0, 1);
-					double barHeight = normalized * halfHeight;
+					double barHeight = normalized * bottomHalfHeight;
 
-					for (int y = 0; y < halfHeight; y++)
+					for (int y = 0; y < bottomHalfHeight; y++)
 					{
 						int paintY = middleY + 1 + y; // Paint downward from middle (skip baseline row)
 						if (paintY < clipRect.Y || paintY >= clipRect.Bottom)
@@ -957,13 +958,13 @@ namespace SharpConsoleUI.Controls
 						else if (_secondaryGradient != null)
 						{
 							// Secondary has its own gradient
-							double rowHeightNormalized = (double)(y + 1) / halfHeight;
+							double rowHeightNormalized = (double)(y + 1) / bottomHalfHeight;
 							cellColor = _secondaryGradient.Interpolate(rowHeightNormalized);
 						}
 						else if (_gradient != null)
 						{
 							// Fall back to primary gradient if no secondary gradient
-							double rowHeightNormalized = (double)(y + 1) / halfHeight;
+							double rowHeightNormalized = (double)(y + 1) / bottomHalfHeight;
 							cellColor = _gradient.Interpolate(rowHeightNormalized);
 						}
 						else

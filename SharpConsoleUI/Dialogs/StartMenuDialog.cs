@@ -128,22 +128,22 @@ public static class StartMenuDialog
 			// Performance submenu
 			systemMenu.AddItem("Performance", perfMenu =>
 			{
-				var metricsEnabled = windowSystem.IsPerformanceMetricsEnabled();
+				var metricsEnabled = windowSystem.Performance.IsPerformanceMetricsEnabled;
 				perfMenu.AddItem(
 					$"Toggle Metrics {(metricsEnabled ? "[ON]" : "[OFF]")}",
 					() =>
 					{
-						windowSystem.SetPerformanceMetrics(!windowSystem.IsPerformanceMetricsEnabled());
+						windowSystem.Performance.SetPerformanceMetrics(!windowSystem.Performance.IsPerformanceMetricsEnabled);
 						overlay.CloseAndInvalidate();
 					}
 				);
 
-				var frameLimitingEnabled = windowSystem.IsFrameRateLimitingEnabled();
+				var frameLimitingEnabled = windowSystem.Performance.IsFrameRateLimitingEnabled;
 				perfMenu.AddItem(
 					$"Toggle Frame Limiting {(frameLimitingEnabled ? "[ON]" : "[OFF]")}",
 					() =>
 					{
-						windowSystem.SetFrameRateLimiting(!windowSystem.IsFrameRateLimitingEnabled());
+						windowSystem.Performance.SetFrameRateLimiting(!windowSystem.Performance.IsFrameRateLimitingEnabled);
 						overlay.CloseAndInvalidate();
 					}
 				);

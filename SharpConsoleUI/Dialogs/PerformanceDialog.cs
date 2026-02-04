@@ -63,9 +63,9 @@ public static class PerformanceDialog
 			.Build();
 
 		// Build option items
-		var metricsEnabled = windowSystem.IsPerformanceMetricsEnabled();
-		var frameLimitingEnabled = windowSystem.IsFrameRateLimitingEnabled();
-		var targetFPS = windowSystem.GetTargetFPS();
+		var metricsEnabled = windowSystem.Performance.IsPerformanceMetricsEnabled;
+		var frameLimitingEnabled = windowSystem.Performance.IsFrameRateLimitingEnabled;
+		var targetFPS = windowSystem.Performance.TargetFPS;
 
 		optionsList.AddItem(new ListItem(
 			$"Performance Metrics Display: {(metricsEnabled ? "[green]Enabled[/]" : "[red]Disabled[/]")}")
@@ -103,11 +103,11 @@ public static class PerformanceDialog
 			switch (action)
 			{
 				case "toggle-metrics":
-					windowSystem.SetPerformanceMetrics(!windowSystem.IsPerformanceMetricsEnabled());
+					windowSystem.Performance.SetPerformanceMetrics(!windowSystem.Performance.IsPerformanceMetricsEnabled);
 					break;
 
 				case "toggle-limiting":
-					windowSystem.SetFrameRateLimiting(!windowSystem.IsFrameRateLimitingEnabled());
+					windowSystem.Performance.SetFrameRateLimiting(!windowSystem.Performance.IsFrameRateLimitingEnabled);
 					break;
 
 				case "set-fps":
@@ -188,7 +188,7 @@ public static class PerformanceDialog
 			.Build();
 
 		var fpsOptions = new[] { 30, 60, 120, 144 };
-		var currentFPS = windowSystem.GetTargetFPS();
+		var currentFPS = windowSystem.Performance.TargetFPS;
 
 		foreach (var fps in fpsOptions)
 		{
@@ -224,7 +224,7 @@ public static class PerformanceDialog
 		{
 			if (item?.Tag is int fps)
 			{
-				windowSystem.SetTargetFPS(fps);
+				windowSystem.Performance.SetTargetFPS(fps);
 				fpsModal.Close();
 				parentWindow.Close();
 				Show(windowSystem);
