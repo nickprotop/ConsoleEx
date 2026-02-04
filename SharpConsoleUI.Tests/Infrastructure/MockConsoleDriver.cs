@@ -1,0 +1,227 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using System.Drawing;
+using Size = SharpConsoleUI.Helpers.Size;
+
+namespace SharpConsoleUI.Tests.Infrastructure;
+
+/// <summary>
+/// Mock console driver for testing that captures output instead of writing to the real console.
+/// Provides inspection methods for validating rendering output.
+/// </summary>
+public class MockConsoleDriver : IConsoleDriver
+{
+	private readonly List<string> _outputHistory = new();
+	private Size _screenSize;
+	private Point _cursorPosition;
+	private bool _cursorVisible;
+	private ConsoleWindowSystem? _windowSystem;
+
+	/// <summary>
+	/// Gets the history of all WriteToConsole calls.
+	/// </summary>
+	public IReadOnlyList<string> OutputHistory => _outputHistory;
+
+	/// <summary>
+	/// Gets the number of WriteToConsole calls made.
+	/// </summary>
+	public int WriteCallCount => _outputHistory.Count;
+
+	/// <summary>
+	/// Gets the total number of bytes written across all calls.
+	/// </summary>
+	public int TotalBytesWritten => _outputHistory.Sum(s => s.Length);
+
+	/// <summary>
+	/// Gets the concatenated output from all calls.
+	/// </summary>
+	public string FullOutput => string.Join("", _outputHistory);
+
+	/// <summary>
+	/// Gets or sets the cursor position.
+	/// </summary>
+	public Point CursorPosition
+	{
+		get => _cursorPosition;
+		set => _cursorPosition = value;
+	}
+
+	/// <summary>
+	/// Gets or sets the cursor visibility.
+	/// </summary>
+	public bool CursorVisible
+	{
+		get => _cursorVisible;
+		set => _cursorVisible = value;
+	}
+
+	// IConsoleDriver events
+	public event EventHandler<ConsoleKeyInfo>? KeyPressed;
+	public event IConsoleDriver.MouseEventHandler? MouseEvent;
+	public event EventHandler<Size>? ScreenResized;
+
+	/// <summary>
+	/// Creates a new mock console driver with default size 200x50.
+	/// </summary>
+	public MockConsoleDriver() : this(200, 50)
+	{
+	}
+
+	/// <summary>
+	/// Creates a new mock console driver with specified size.
+	/// </summary>
+	public MockConsoleDriver(int width, int height)
+	{
+		_screenSize = new Size(width, height);
+	}
+
+	/// <summary>
+	/// Gets the screen size.
+	/// </summary>
+	public Size ScreenSize => _screenSize;
+
+	/// <summary>
+	/// Clears the output history.
+	/// </summary>
+	public void Clear()
+	{
+		_outputHistory.Clear();
+	}
+
+	/// <summary>
+	/// Does nothing (no buffering in mock driver).
+	/// </summary>
+	public void Flush()
+	{
+		// No-op for mock driver
+	}
+
+	/// <summary>
+	/// Starts the driver (no-op for mock).
+	/// </summary>
+	public void Start()
+	{
+		// No-op for mock driver
+	}
+
+	/// <summary>
+	/// Stops the driver (no-op for mock).
+	/// </summary>
+	public void Stop()
+	{
+		// No-op for mock driver
+	}
+
+	/// <summary>
+	/// Sets the cursor position.
+	/// </summary>
+	public void SetCursorPosition(int x, int y)
+	{
+		_cursorPosition = new Point(x, y);
+	}
+
+	/// <summary>
+	/// Sets the cursor visibility.
+	/// </summary>
+	public void SetCursorVisible(bool visible)
+	{
+		_cursorVisible = visible;
+	}
+
+	/// <summary>
+	/// Sets the cursor shape (no-op for mock).
+	/// </summary>
+	public void SetCursorShape(CursorShape shape)
+	{
+		// No-op for mock driver
+	}
+
+	/// <summary>
+	/// Resets the cursor shape (no-op for mock).
+	/// </summary>
+	public void ResetCursorShape()
+	{
+		// No-op for mock driver
+	}
+
+	/// <summary>
+	/// Initializes the driver with a reference to the window system.
+	/// </summary>
+	public void Initialize(ConsoleWindowSystem windowSystem)
+	{
+		_windowSystem = windowSystem;
+	}
+
+	/// <summary>
+	/// Captures the output instead of writing to the console.
+	/// </summary>
+	public void WriteToConsole(int x, int y, string value)
+	{
+		_outputHistory.Add(value);
+	}
+
+	/// <summary>
+	/// Returns 0 (mock driver doesn't track dirty characters).
+	/// </summary>
+	public int GetDirtyCharacterCount()
+	{
+		return 0;
+	}
+
+	/// <summary>
+	/// Simulates a key press event.
+	/// </summary>
+	public void SimulateKeyPress(ConsoleKeyInfo keyInfo)
+	{
+		KeyPressed?.Invoke(this, keyInfo);
+	}
+
+	/// <summary>
+	/// Simulates a mouse event.
+	/// </summary>
+	public void SimulateMouseEvent(List<MouseFlags> flags, Point point)
+	{
+		MouseEvent?.Invoke(this, flags, point);
+	}
+
+	/// <summary>
+	/// Simulates a screen resize event.
+	/// </summary>
+	public void SimulateScreenResize(int width, int height)
+	{
+		_screenSize = new Size(width, height);
+		ScreenResized?.Invoke(this, _screenSize);
+	}
+
+	/// <summary>
+	/// Clears the output history (alias for Clear()).
+	/// </summary>
+	public void ClearHistory()
+	{
+		_outputHistory.Clear();
+	}
+
+	/// <summary>
+	/// Gets the most recent output string.
+	/// </summary>
+	public string? GetLastOutput()
+	{
+		return _outputHistory.Count > 0 ? _outputHistory[^1] : null;
+	}
+
+	/// <summary>
+	/// Gets output from a specific call index.
+	/// </summary>
+	public string? GetOutput(int index)
+	{
+		return index >= 0 && index < _outputHistory.Count ? _outputHistory[index] : null;
+	}
+}
