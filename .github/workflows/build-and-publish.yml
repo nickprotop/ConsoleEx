@@ -9,6 +9,10 @@ on:
     branches: [ main, master ]
   workflow_dispatch:  # Allow manual trigger
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
