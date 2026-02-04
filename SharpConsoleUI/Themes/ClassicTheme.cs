@@ -91,7 +91,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the background color for list items when highlighted but the control is unfocused.
 		/// </summary>
-		public Color ListUnfocusedHighlightBackgroundColor { get; set; } = Color.Grey27;
+		public Color ListUnfocusedHighlightBackgroundColor { get; set; } = Color.Navy;
 
 		/// <summary>
 		/// Gets or sets the foreground color for list items when highlighted but the control is unfocused.
@@ -294,7 +294,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the background color for dropdown control lists.
 		/// </summary>
-		public Color DropdownBackgroundColor { get; set; } = Color.Grey23;
+		public Color DropdownBackgroundColor { get; set; } = Color.Navy;
 
 		/// <summary>
 		/// Gets or sets the foreground color for dropdown control list items.
