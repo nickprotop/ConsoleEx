@@ -1098,7 +1098,7 @@ namespace SharpConsoleUI
 
 		private void UpdateCursor()
 		{
-			if (ActiveWindow != null && ActiveWindow.HasInteractiveContent(out var cursorPosition))
+			if (ActiveWindow != null && ActiveWindow.EventDispatcher != null && ActiveWindow.EventDispatcher.HasInteractiveContent(out var cursorPosition))
 			{
 				var (absoluteLeft, absoluteTop) = TranslateToAbsolute(ActiveWindow, new Point(cursorPosition.X, cursorPosition.Y));
 
@@ -1116,7 +1116,7 @@ namespace SharpConsoleUI
 					IWindowControl? ownerControl = null;
 					CursorShape cursorShape = CursorShape.Block;
 
-					if (ActiveWindow.HasActiveInteractiveContent(out var interactiveContent) &&
+					if (ActiveWindow.EventDispatcher != null && ActiveWindow.EventDispatcher.HasActiveInteractiveContent(out var interactiveContent) &&
 						interactiveContent is IWindowControl windowControl)
 					{
 						ownerControl = windowControl;

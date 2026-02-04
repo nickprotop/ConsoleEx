@@ -99,7 +99,7 @@ namespace SharpConsoleUI.Input
 				// Route to active window
 				else if (_context.ActiveWindow != null)
 				{
-					bool handled = _context.ActiveWindow.ProcessInput(keyInfo);
+					bool handled = _context.ActiveWindow.EventDispatcher?.ProcessInput(keyInfo) ?? false;
 
 					if (!handled)
 					{
@@ -192,7 +192,7 @@ namespace SharpConsoleUI.Input
 					}
 
 					// Check if clicking on an interactive control first
-					var contentControl = window.GetContentFromWindowCoordinates(_context.TranslateToRelative(window, point));
+					var contentControl = window.EventDispatcher?.GetControlAtPosition(_context.TranslateToRelative(window, point));
 					bool clickingOnControl = contentControl is Controls.IMouseAwareControl mouseAware
 											  && mouseAware.WantsMouseEvents;
 
@@ -705,7 +705,7 @@ namespace SharpConsoleUI.Input
 		);
 
 		// Propagate to the window
-		window.ProcessWindowMouseEvent(mouseArgs);
+		window.EventDispatcher?.ProcessMouseEvent(mouseArgs);
 	}
 
 	#endregion

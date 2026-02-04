@@ -144,42 +144,42 @@ namespace SharpConsoleUI
 	/// </summary>
 	public class Window : IContainer
 	{
-		private readonly List<IWindowControl> _controls = new();
-		private readonly List<IInteractiveControl> _interactiveContents = new();
-		private readonly object _lock = new();
+		internal readonly List<IWindowControl> _controls = new();
+		internal readonly List<IInteractiveControl> _interactiveContents = new();
+		internal readonly object _lock = new();
 
 		private readonly Window? _parentWindow;
-		private readonly WindowLayoutManager _layoutManager;
+		internal readonly WindowLayoutManager _layoutManager;
 	private readonly Windows.WindowContentManager _contentManager;
 		private Color? _activeBorderForegroundColor;
 		private Color? _activeTitleForegroundColor;
-		private int _bottomStickyHeight;
+		internal int _bottomStickyHeight;
 		private List<string> _bottomStickyLines = new List<string>();
 
 		// Track control positions within scrollable content (startLine, lineCount)
 		private readonly Dictionary<IWindowControl, (int StartLine, int LineCount)> _controlPositions = new();
 
 		// List to store interactive contents
-		private List<string> _cachedContent = new();
+		internal List<string> _cachedContent = new();
 
 		private string _guid;
 		private Color? _inactiveBorderForegroundColor;
 		private Color? _inactiveTitleForegroundColor;
-		private bool _invalidated = false;
+		internal bool _invalidated = false;
 		private bool _isActive;
-		private IInteractiveControl? _lastFocusedControl;
+		internal IInteractiveControl? _lastFocusedControl;
 
 		// Convenience property to access FocusStateService
-		private FocusStateService? FocusService => _windowSystem?.FocusStateService;
+		internal FocusStateService? FocusService => _windowSystem?.FocusStateService;
 		private int? _minimumHeight = 3;
 		private int? _minimumWidth = 10;
 		private WindowMode _mode = WindowMode.Normal;
-		private int _scrollOffset;
+		internal int _scrollOffset;
 		private WindowState _state;
 		private object? _tag;
-		private int _topStickyHeight;
+		internal int _topStickyHeight;
 		private List<string> _topStickyLines = new List<string>();
-		private ConsoleWindowSystem? _windowSystem;
+		internal ConsoleWindowSystem? _windowSystem;
 		private Task? _windowTask;
 		private WindowThreadDelegateAsync? _windowThreadMethodAsync;
 		private CancellationTokenSource? _windowThreadCts;
@@ -191,18 +191,13 @@ namespace SharpConsoleUI
 		private TimeSpan _asyncThreadCleanupTimeout = TimeSpan.FromSeconds(5);
 
 		// DOM-based layout system (delegated to WindowRenderer)
-		private Windows.WindowRenderer? _renderer;
+		internal Windows.WindowRenderer? _renderer;
 
 		// Border rendering (delegated to BorderRenderer)
 		private Windows.BorderRenderer? _borderRenderer;
 
-		// Mouse tracking for enter/leave events
-		private Controls.IWindowControl? _lastMouseOverControl;
-
-		// Click target tracking for double-click consistency
-		private IWindowControl? _lastClickTarget;
-		private DateTime _lastClickTime;
-		private Point _lastClickPosition;
+		// Event dispatching (delegated to WindowEventDispatcher)
+		private Windows.WindowEventDispatcher? _eventDispatcher;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Window"/> class with an async background task.
@@ -236,6 +231,9 @@ namespace SharpConsoleUI
 			() => _windowSystem?.ConsoleDriver!,
 			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
 			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
+
+		// Initialize event dispatcher
+		_eventDispatcher = new Windows.WindowEventDispatcher(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -292,6 +290,9 @@ namespace SharpConsoleUI
 			() => _windowSystem?.ConsoleDriver!,
 			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
 			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
+
+		// Initialize event dispatcher
+		_eventDispatcher = new Windows.WindowEventDispatcher(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -350,6 +351,14 @@ namespace SharpConsoleUI
 		/// Used by specialized windows (e.g., OverlayWindow) to detect clicks outside content.
 		/// </summary>
 		public event EventHandler<Events.MouseEventArgs>? UnhandledMouseClick;
+
+		/// <summary>
+		/// Raises the UnhandledMouseClick event. Internal helper for WindowEventDispatcher.
+		/// </summary>
+		internal void RaiseUnhandledMouseClick(Events.MouseEventArgs args)
+		{
+			UnhandledMouseClick?.Invoke(this, args);
+		}
 
 		/// <summary>
 		/// Gets or sets the foreground color of the window border when active.
@@ -422,7 +431,7 @@ namespace SharpConsoleUI
 				{
 					_height = value;
 					InvalidateBorderCache();
-					UpdateControlLayout();
+					// Layout will be updated lazily on next event
 					Invalidate(true);
 				}
 			}
@@ -760,7 +769,7 @@ namespace SharpConsoleUI
 				{
 					_width = value;
 					InvalidateBorderCache();
-					UpdateControlLayout();
+					// Layout will be updated lazily on next event
 					Invalidate(true);
 				}
 			}
@@ -1199,397 +1208,7 @@ namespace SharpConsoleUI
 					return null;
 				}
 
-				return GetContentFromWindowCoordinates(relativePosition.Value);
-			}
-		}
-
-		/// <summary>
-		/// Gets the control at the specified window-relative coordinates.
-		/// Handles conversion from window coords to content coords internally.
-		/// </summary>
-		/// <param name="point">The window-relative coordinates to check.</param>
-		/// <returns>The control at the specified position, or null if none found or outside content area.</returns>
-		public IWindowControl? GetContentFromWindowCoordinates(Point? point)
-		{
-			lock (_lock)
-			{
-				if (point == null) return null;
-
-				var windowPoint = point.Value;
-
-				// Convert window coords to content coords (subtract border offset)
-				// Title bar is at window Y=0, content starts at Y=1
-				var contentX = windowPoint.X - 1;
-				var contentY = windowPoint.Y - 1;
-
-				// Return null if outside content area (title bar, borders)
-				if (contentX < 0 || contentY < 0 ||
-				    contentX >= Width - 2 || contentY >= Height - 2)
-					return null;
-
-				// Use DOM tree hit-testing for correct nested control detection
-				return HitTestDOM(contentX, contentY);
-			}
-		}
-
-		/// <summary>
-		/// Gets the target control for a click event, using cached target for double-click sequences.
-		/// This prevents the same logical double-click from being dispatched to different controls
-		/// when layout changes (e.g., scroll) occur between the two clicks.
-		/// </summary>
-		private IWindowControl? GetClickTarget(Events.MouseEventArgs args)
-		{
-			var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
-			var positionChanged = _lastClickPosition != args.WindowPosition;
-
-			bool isSequentialClick =
-				timeSinceLastClick < Configuration.ControlDefaults.DefaultDoubleClickThresholdMs &&
-				!positionChanged;
-
-			// Reuse cached target for double-click sequences
-			// We trust the cached target without validation since it's only used for a short time (< 500ms)
-			// and prevents double-click events from being dispatched to different controls when layout changes
-			if (isSequentialClick && _lastClickTarget != null)
-			{
-				return _lastClickTarget;
-			}
-
-			// New click sequence - perform fresh hit test
-			var targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
-
-			_lastClickTarget = targetControl;
-			_lastClickTime = DateTime.Now;
-			_lastClickPosition = args.WindowPosition;
-
-			return targetControl;
-		}
-
-	/// <summary>
-		/// Handles mouse events for this window and propagates them to controls
-		/// </summary>
-		/// <param name="args">Mouse event arguments with window-relative coordinates</param>
-		/// <returns>True if the event was handled</returns>
-		public bool ProcessWindowMouseEvent(Events.MouseEventArgs args)
-		{
-			lock (_lock)
-			{
-				// Ensure layout is current before processing mouse events
-				UpdateControlLayout();
-
-				// Find the control at the current mouse position
-				Controls.IWindowControl? currentControl = null;
-				if (IsClickInWindowContent(args.WindowPosition))
-				{
-					currentControl = GetContentFromWindowCoordinates(args.WindowPosition);
-				}
-
-				// Generate enter/leave events when control under mouse changes
-				if (currentControl != _lastMouseOverControl)
-				{
-					// Send leave event to previous control
-					if (_lastMouseOverControl != null && _lastMouseOverControl is Controls.IMouseAwareControl leavingControl && leavingControl.WantsMouseEvents)
-					{
-						var leavePosition = GetControlRelativePosition(_lastMouseOverControl, args.WindowPosition);
-						var leaveArgs = args.WithPosition(leavePosition).WithFlags(MouseFlags.MouseLeave);
-						leavingControl.ProcessMouseEvent(leaveArgs);
-					}
-
-					// Send enter event to new control
-					if (currentControl != null && currentControl is Controls.IMouseAwareControl enteringControl && enteringControl.WantsMouseEvents)
-					{
-						var enterPosition = GetControlRelativePosition(currentControl, args.WindowPosition);
-						var enterArgs = args.WithPosition(enterPosition).WithFlags(MouseFlags.MouseEnter);
-						enteringControl.ProcessMouseEvent(enterArgs);
-					}
-
-					_lastMouseOverControl = currentControl;
-				}
-
-				// Check if the click is within the window content area (not borders/title)
-				if (IsClickInWindowContent(args.WindowPosition))
-				{
-					// Hit test - use cached target for click sequences to prevent double-click bugs
-					IWindowControl? targetControl;
-
-					// For click events, use cached target to maintain consistency across double-click sequences
-					// This prevents the same logical double-click from dispatching to different controls
-					// when layout changes (e.g., scroll) occur between clicks
-					bool isClickEvent = args.HasAnyFlag(
-						MouseFlags.Button1Pressed,
-						MouseFlags.Button1Released,
-						MouseFlags.Button1Clicked,
-						MouseFlags.Button1DoubleClicked,
-						MouseFlags.Button1TripleClicked,
-						MouseFlags.Button2Pressed,
-						MouseFlags.Button2Released,
-						MouseFlags.Button2Clicked,
-						MouseFlags.Button2DoubleClicked,
-						MouseFlags.Button2TripleClicked,
-						MouseFlags.Button3Pressed,
-						MouseFlags.Button3Released,
-						MouseFlags.Button3Clicked,
-						MouseFlags.Button3DoubleClicked,
-						MouseFlags.Button3TripleClicked,
-						MouseFlags.Button4Pressed,
-						MouseFlags.Button4Released,
-						MouseFlags.Button4Clicked,
-						MouseFlags.Button4DoubleClicked,
-						MouseFlags.Button4TripleClicked);
-
-					if (isClickEvent)
-					{
-						targetControl = GetClickTarget(args);
-					}
-					else
-					{
-						// For non-click events (scroll, move), always use fresh hit test
-						targetControl = GetContentFromWindowCoordinates(args.WindowPosition);
-					}
-
-					// === NEW: SCROLL EVENT BUBBLING ===
-					// For scroll events, try bubbling up the parent chain
-					if (args.HasAnyFlag(MouseFlags.WheeledUp, MouseFlags.WheeledDown))
-					{
-						// Build parent chain from deepest to shallowest
-						var parentChain = new List<IWindowControl>();
-						var current = targetControl;
-						while (current != null)
-						{
-							parentChain.Add(current);
-							current = current.Container as IWindowControl;
-						}
-
-						// Try each control in chain (deepest first)
-						foreach (var control in parentChain)
-						{
-							if (control is Controls.IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
-							{
-								// Calculate relative position for this control
-								var controlPosition = GetControlRelativePosition(control, args.WindowPosition);
-								var controlArgs = args.WithPosition(controlPosition);
-
-								if (mouseAware.ProcessMouseEvent(controlArgs))
-								{
-									return true; // Event consumed
-								}
-							}
-						}
-					}
-					else
-					{
-						// === EXISTING: NON-SCROLL EVENTS (clicks, etc.) ===
-						// Centralized focus handling on click
-						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
-						{
-							HandleClickFocus(targetControl);
-						}
-
-						// Propagate mouse event to control if applicable
-						if (targetControl != null && targetControl is Controls.IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
-						{
-							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
-							var controlArgs = args.WithPosition(controlPosition);
-
-							return mouseAware.ProcessMouseEvent(controlArgs);
-						}
-
-						// Click was handled (focus change or hit on non-mouse control)
-						if (targetControl != null)
-						{
-							return true;
-						}
-
-						// Fire UnhandledMouseClick event for clicks on empty space
-						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
-						{
-							UnhandledMouseClick?.Invoke(this, args);
-							return true; // Considered handled after event fires
-						}
-					}
-				}
-
-				// Handle mouse wheel scrolling in DOM mode
-				if (_renderer != null)
-				{
-					if (args.HasFlag(MouseFlags.WheeledUp))
-					{
-						_renderer.ScrollBy(-3);
-						_invalidated = true;
-						IsDirty = true;
-						return true;
-					}
-					else if (args.HasFlag(MouseFlags.WheeledDown))
-					{
-						_renderer.ScrollBy(3);
-						_invalidated = true;
-						IsDirty = true;
-						return true;
-					}
-				}
-
-				return false; // Event not handled
-			}
-		}
-
-		/// <summary>
-		/// Checks if a window-relative position is within the content area (not title bar or borders)
-		/// </summary>
-		private bool IsClickInWindowContent(Point windowPosition)
-		{
-			// Window content starts at (1,1) to account for borders
-			// Title bar is at Y=0, so content starts at Y=1
-			return windowPosition.X >= 1 && windowPosition.X < Width - 1 &&
-				   windowPosition.Y >= 1 && windowPosition.Y < Height - 1;
-		}
-
-		/// <summary>
-		/// Converts window-relative coordinates to content coordinates (accounting for borders and scroll)
-		/// </summary>
-		private Point GetContentCoordinates(Point windowPosition)
-		{
-			// Subtract border offset only - DOM layout handles scroll offset in absolute bounds
-			return new Point(windowPosition.X - 1, windowPosition.Y - 1);
-		}
-
-		/// <summary>
-		/// Calculates the position relative to a specific control using the new layout system
-		/// </summary>
-		private Point GetControlRelativePosition(IWindowControl control, Point windowPosition)
-		{
-		// Use DOM bounds if available (for sticky and container controls)
-		var node = _renderer?.GetLayoutNode(control);
-		if (node != null)
-		{
-		  // Convert window position to content position
-			var contentPos = GetContentCoordinates(windowPosition);
-			
-			// Make relative to control's AbsoluteBounds
-			return new Point(
-				contentPos.X - node.AbsoluteBounds.X,
-				contentPos.Y - node.AbsoluteBounds.Y
-			);
-		}
-		
-		// Fallback to layout manager for controls not in DOM
-		var bounds = _layoutManager.GetOrCreateControlBounds(control);
-		return bounds.WindowToControl(windowPosition);
-	}
-
-		/// <summary>
-		/// Centralized focus handling for mouse clicks.
-		/// Single decision point for all focus changes triggered by clicking.
-		/// </summary>
-		/// <param name="clickedControl">The control at click position, or null if clicked on empty space</param>
-		private void HandleClickFocus(IWindowControl? clickedControl)
-		{
-			// Determine what should be focused after this click
-			var newFocusTarget = DetermineFocusTarget(clickedControl);
-
-			// No change needed
-			if (newFocusTarget == _lastFocusedControl)
-				return;
-
-			// DEFENSIVE: Unfocus ALL controls that have HasFocus=true, not just _lastFocusedControl
-			// This handles cases where SetFocus() was called directly on a control, bypassing _lastFocusedControl tracking
-			foreach (var control in _interactiveContents)
-			{
-				if (control.HasFocus && control != newFocusTarget && control is Controls.IFocusableControl focusable)
-				{
-					focusable.SetFocus(false, Controls.FocusReason.Mouse);
-				}
-			}
-
-			if (newFocusTarget != null && newFocusTarget is Controls.IFocusableControl newFocusable)
-			{
-				newFocusable.SetFocus(true, Controls.FocusReason.Mouse);
-
-				if (newFocusTarget is IInteractiveControl interactive)
-				{
-					_lastFocusedControl = interactive;
-					FocusService?.SetFocus(this, interactive, FocusChangeReason.Mouse);
-				}
-			}
-			else
-			{
-				_lastFocusedControl = null;
-				FocusService?.ClearControlFocus(FocusChangeReason.Mouse);
-			}
-		}
-
-		/// <summary>
-		/// Determines what control should receive focus based on what was clicked.
-		/// Returns null to indicate focus should be cleared.
-		/// Returns current focused control to indicate no change (e.g., portal click).
-		/// </summary>
-		private IWindowControl? DetermineFocusTarget(IWindowControl? clickedControl)
-		{
-			// Case 1: Clicked on empty space → clear focus
-			if (clickedControl == null)
-				return null;
-
-			// Case 2: Clicked on portal/overlay content (CanFocusWithMouse = false)
-			// These are controls that receive mouse events but shouldn't change focus
-			// (e.g., MenuPortalContent, DropdownPortalContent)
-			// The portal's owner should keep focus - return current to signal no change
-			if (clickedControl is Controls.IMouseAwareControl mouseAware &&
-				!mouseAware.CanFocusWithMouse)
-			{
-				return _lastFocusedControl as IWindowControl;
-			}
-
-			// Case 3: Clicked on non-focusable control → clear focus
-			if (clickedControl is not Controls.IFocusableControl focusable || !focusable.CanReceiveFocus)
-				return null;
-
-			// Case 4: Clicked on focusable control → focus it
-			return clickedControl;
-		}
-
-		/// <summary>
-		/// Updates the layout manager with current control positions and bounds
-		/// using DOM-based layout information.
-		/// </summary>
-		private void UpdateControlLayout()
-		{
-			lock (_lock)
-			{
-				var availableWidth = Width - 2; // Account for borders
-				var availableHeight = Height - 2; // Account for borders
-
-				// Ensure DOM tree is built
-				if (_renderer?.RootLayoutNode == null)
-				{
-					RebuildDOMTree();
-				}
-
-				// Update layout bounds from DOM nodes
-				foreach (var control in _controls)
-				{
-					var node = _renderer?.GetLayoutNode(control);
-					if (node == null)
-						continue;
-
-					if (!control.Visible)
-						continue;
-
-					var bounds = _layoutManager.GetOrCreateControlBounds(control);
-					var nodeBounds = node.AbsoluteBounds;
-
-					bounds.ControlContentBounds = new Rectangle(
-						nodeBounds.X,
-						nodeBounds.Y,
-						nodeBounds.Width,
-						nodeBounds.Height
-					);
-
-
-					bounds.ViewportSize = new Size(availableWidth, availableHeight);
-					bounds.HasInternalScrolling = control is MultilineEditControl;
-					bounds.ScrollOffset = control.StickyPosition == StickyPosition.None
-						? new Point(0, ScrollOffset)
-						: Point.Empty;
-					bounds.IsVisible = true;
-				}
+				return _eventDispatcher?.GetControlAtPosition(relativePosition.Value);
 			}
 		}
 
@@ -1845,7 +1464,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Finds the deepest focused control by recursively checking containers
 		/// </summary>
-		private IWindowControl? FindDeepestFocusedControl(IInteractiveControl control)
+		internal IWindowControl? FindDeepestFocusedControl(IInteractiveControl control)
 		{
 			// If this is a container with a focused child, recurse deeper
 			if (control is Controls.HorizontalGridControl grid)
@@ -1874,76 +1493,13 @@ namespace SharpConsoleUI
 		/// </summary>
 		/// <param name="interactiveContent">When returning true, contains the focused interactive control.</param>
 		/// <returns>True if there is a focused interactive control; otherwise false.</returns>
-		public bool HasActiveInteractiveContent(out IInteractiveControl? interactiveContent)
-		{
-			// First try to find focused control in _interactiveContents (direct children)
-			interactiveContent = _interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
-
-			// Fallback to _lastFocusedControl if it has focus (for nested controls in containers)
-			if (interactiveContent == null && _lastFocusedControl != null && _lastFocusedControl.HasFocus && _lastFocusedControl.IsEnabled)
-			{
-				interactiveContent = _lastFocusedControl;
-			}
-
-			return interactiveContent != null;
-		}
-
-		/// <summary>
-		/// Determines whether there is interactive content that needs cursor display.
-		/// </summary>
-		/// <param name="cursorPosition">When returning true, contains the cursor position in window coordinates.</param>
-		/// <returns>True if cursor should be displayed; otherwise false.</returns>
-		public bool HasInteractiveContent(out Point cursorPosition)
-		{
-
-			if (HasActiveInteractiveContent(out var activeInteractiveContent))
-			{
-				if (activeInteractiveContent is IWindowControl control)
-				{
-
-					// Find the deepest focused control to walk from
-					var deepestControl = FindDeepestFocusedControl(activeInteractiveContent);
-					if (deepestControl != null)
-					{
-						control = deepestControl;
-					}
-
-					// Use the new layout manager for coordinate translation
-					var windowCursorPos = _layoutManager.TranslateLogicalCursorToWindow(control);
-					if (windowCursorPos != null)
-					{
-						cursorPosition = windowCursorPos.Value;
-
-
-						// Check if the cursor position is actually visible in the window
-						if (IsCursorPositionVisible(cursorPosition, control))
-						{
-							return true;
-						}
-						else
-						{
-						}
-					}
-					else
-					{
-					}
-				}
-			}
-			else
-			{
-			}
-
-			cursorPosition = new Point(0, 0);
-			return false;
-		}
-
 		/// <summary>
 		/// Checks if a cursor position is visible within the current window viewport
 		/// </summary>
 		/// <param name="cursorPosition">The cursor position in window coordinates</param>
 		/// <param name="control">The control that owns the cursor</param>
 		/// <returns>True if the cursor position is visible</returns>
-		private bool IsCursorPositionVisible(Point cursorPosition, IWindowControl control)
+		internal bool IsCursorPositionVisible(Point cursorPosition, IWindowControl control)
 		{
 
 			// Get the control's bounds to understand its positioning
@@ -2052,6 +1608,11 @@ namespace SharpConsoleUI
 		/// Gets the BorderRenderer instance for this window.
 		/// </summary>
 		internal Windows.BorderRenderer? BorderRenderer => _borderRenderer;
+
+		/// <summary>
+		/// Gets the WindowEventDispatcher instance for this window.
+		/// </summary>
+		internal Windows.WindowEventDispatcher? EventDispatcher => _eventDispatcher;
 
 		/// <summary>
 		/// Gets or sets the cached top border string (exposed for Renderer.cs access).
@@ -2330,121 +1891,6 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Processes keyboard input for this window.
-		/// </summary>
-		/// <param name="key">The key information to process.</param>
-		/// <returns>True if the input was handled; otherwise false.</returns>
-		public bool ProcessInput(ConsoleKeyInfo key)
-		{
-			lock (_lock)
-			{
-				bool contentKeyHandled = false;
-				bool windowHandled = false;
-
-				if (HasActiveInteractiveContent(out var activeInteractiveContent))
-				{
-					contentKeyHandled = activeInteractiveContent!.ProcessKey(key);
-				}
-
-				// Continue with key handling only if not handled by the focused interactive content
-				if (!contentKeyHandled)
-				{
-					if (key.Key == ConsoleKey.Tab && key.Modifiers.HasFlag(ConsoleModifiers.Shift))
-					{
-						SwitchFocus(true); // Pass true to indicate backward focus switch
-						windowHandled = true;
-					}
-					else if (key.Key == ConsoleKey.Tab)
-					{
-						SwitchFocus(false); // Pass false to indicate forward focus switch
-						windowHandled = true;
-					}
-					else
-					{
-						switch (key.Key)
-						{
-							case ConsoleKey.UpArrow:
-								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_renderer != null)
-								{
-									_renderer.ScrollBy(-1);
-									_invalidated = true;
-								}
-								else
-								{
-									_scrollOffset = Math.Max(0, _scrollOffset - 1);
-								}
-								IsDirty = true;
-								windowHandled = true;
-								break;
-
-							case ConsoleKey.DownArrow:
-								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_renderer != null)
-								{
-									_renderer.ScrollBy(1);
-									_invalidated = true;
-								}
-								else
-								{
-									_scrollOffset = Math.Min((_cachedContent?.Count ?? Height) - (Height - 2 - _topStickyHeight), _scrollOffset + 1);
-								}
-								IsDirty = true;
-								windowHandled = true;
-								break;
-
-							case ConsoleKey.PageUp:
-								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_renderer != null)
-								{
-									_renderer.PageUp();
-									_invalidated = true;
-									IsDirty = true;
-									windowHandled = true;
-								}
-								break;
-
-							case ConsoleKey.PageDown:
-								if (key.Modifiers != ConsoleModifiers.None) break;
-								if (_renderer != null)
-								{
-									_renderer.PageDown();
-									_invalidated = true;
-									IsDirty = true;
-									windowHandled = true;
-								}
-								break;
-
-							case ConsoleKey.Home:
-								if (key.Modifiers == ConsoleModifiers.Control && _renderer != null)
-								{
-									_renderer.ScrollToTop();
-									_invalidated = true;
-									IsDirty = true;
-									windowHandled = true;
-								}
-								break;
-
-							case ConsoleKey.End:
-								if (key.Modifiers == ConsoleModifiers.Control && _renderer != null)
-								{
-									_renderer.ScrollToBottom();
-									_invalidated = true;
-									IsDirty = true;
-									windowHandled = true;
-								}
-								break;
-						}
-					}
-				}
-
-				var handled = OnKeyPressed(key, contentKeyHandled || windowHandled);
-
-				return (handled || contentKeyHandled || windowHandled);
-			}
-		}
-
-		/// <summary>
 	/// <summary>
 	/// Removes a control from this window and disposes it.
 	/// </summary>
@@ -2511,7 +1957,7 @@ namespace SharpConsoleUI
 				// Only recalculate content if it's been invalidated
 				if (_invalidated)
 				{
-					UpdateControlLayout();
+					// Layout will be updated lazily on next event
 					RebuildContentCache(visibleRegions);
 
 					// Check if visibleRegions is null or empty (window not in rendering pipeline yet)
@@ -2613,7 +2059,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Rebuilds the DOM tree from the current controls.
 		/// </summary>
-		private void RebuildDOMTree()
+		internal void RebuildDOMTree()
 		{
 			var contentWidth = Width - 2;
 			var contentHeight = Height - 2;
@@ -2629,14 +2075,6 @@ namespace SharpConsoleUI
 			var contentWidth = Width - 2;
 			var contentHeight = Height - 2;
 			_renderer?.PerformDOMLayout(contentWidth, contentHeight);
-		}
-
-		/// <param name="x">X coordinate relative to window content area.</param>
-		/// <param name="y">Y coordinate relative to window content area.</param>
-		/// <returns>The control at the specified position, or null if none found.</returns>
-		private IWindowControl? HitTestDOM(int x, int y)
-		{
-			return _renderer?.HitTestDOM(x, y);
 		}
 
 		/// <summary>
@@ -2808,8 +2246,7 @@ namespace SharpConsoleUI
 			// IMPORTANT: Invalidate controls FIRST so they clear their caches
 			Invalidate(true);
 
-			// Then recalculate layout with fresh rendering
-			UpdateControlLayout();
+			// Layout will be updated lazily on next event
 
 			if (_scrollOffset > (_cachedContent?.Count ?? Height) - (Height - 2))
 			{
@@ -2823,85 +2260,13 @@ namespace SharpConsoleUI
 		/// Switches focus to the next or previous interactive control in the window.
 		/// </summary>
 		/// <param name="backward">True to move focus backward; false to move forward.</param>
+		/// <summary>
+		/// Switches focus to the next or previous interactive control.
+		/// </summary>
+		/// <param name="backward">True to switch backward; false to switch forward.</param>
 		public void SwitchFocus(bool backward = false)
 		{
-			lock (_lock)
-			{
-				if (_interactiveContents.Count == 0) return;
-
-				// Find the currently focused content
-				var currentIndex = _interactiveContents.FindIndex(ic => ic.HasFocus);
-
-				// If no control is focused but we have a last focused control, use that as a starting point
-				if (currentIndex == -1 && _lastFocusedControl != null)
-				{
-					currentIndex = _interactiveContents.IndexOf(_lastFocusedControl);
-				}
-
-				// Remove focus from the current content if there is one
-				if (currentIndex != -1)
-				{
-					_lastFocusedControl = _interactiveContents[currentIndex]; // Remember the last focused control
-					_interactiveContents[currentIndex].HasFocus = false;
-				}
-
-				// Find the next focusable control
-				int nextIndex = currentIndex;
-				int attempts = 0;
-				do
-				{
-					// Calculate the next index
-					if (backward)
-					{
-						nextIndex = (nextIndex - 1 + _interactiveContents.Count) % _interactiveContents.Count;
-					}
-					else
-					{
-						nextIndex = (nextIndex + 1) % _interactiveContents.Count;
-					}
-
-					attempts++;
-
-					// Check if this control can receive focus
-					var control = _interactiveContents[nextIndex];
-					bool canFocus = true;
-
-					// Check CanReceiveFocus if the control implements IFocusableControl
-					if (control is Controls.IFocusableControl focusable)
-					{
-						canFocus = focusable.CanReceiveFocus;
-					}
-
-					// If we found a focusable control, set focus
-					if (canFocus)
-					{
-						// Use directional focus for container controls that support it
-						if (control is Controls.IDirectionalFocusControl directional)
-						{
-							directional.SetFocusWithDirection(true, backward);
-						}
-						else if (control is Controls.IFocusableControl focusableControl)
-						{
-							focusableControl.SetFocus(true, Controls.FocusReason.Keyboard);
-						}
-						else
-						{
-							control.HasFocus = true;
-						}
-
-						_lastFocusedControl = control; // Update last focused control
-
-						// Sync with FocusStateService
-						FocusService?.SetFocus(this, control, FocusChangeReason.Keyboard);
-
-						_windowSystem?.LogService?.LogTrace($"Focus switched in '{Title}': {_lastFocusedControl?.GetType().Name}", "Focus");
-
-						BringIntoFocus(nextIndex);
-						break;
-					}
-
-				} while (attempts < _interactiveContents.Count && nextIndex != currentIndex);
-			}
+			_eventDispatcher?.SwitchFocus(backward);
 		}
 
 		/// <summary>
@@ -2950,7 +2315,7 @@ namespace SharpConsoleUI
 		/// <param name="key">The key information.</param>
 		/// <param name="alreadyHandled">Indicates whether the key was already handled.</param>
 		/// <returns>True if the event was handled; otherwise false.</returns>
-		protected virtual bool OnKeyPressed(ConsoleKeyInfo key, bool alreadyHandled)
+		protected internal virtual bool OnKeyPressed(ConsoleKeyInfo key, bool alreadyHandled)
 		{
 			var handler = KeyPressed;
 			if (handler != null)
@@ -2969,47 +2334,6 @@ namespace SharpConsoleUI
 		protected virtual void OnStateChanged(WindowState newState)
 		{
 			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
-		}
-
-		private void BringIntoFocus(int nextIndex)
-		{
-			// Ensure the focused content is within the visible window
-			var focusedContent = _interactiveContents[nextIndex] as IWindowControl;
-
-			if (focusedContent != null)
-			{
-				var bounds = _layoutManager.GetOrCreateControlBounds(focusedContent);
-				var controlBounds = bounds.ControlContentBounds;
-				
-				int contentTop = controlBounds.Y;
-				int contentHeight = controlBounds.Height;
-				int contentBottom = contentTop + contentHeight;
-
-				if (focusedContent.StickyPosition == StickyPosition.None)
-				{
-					// Calculate the visible region boundaries
-					int visibleTop = _scrollOffset + _topStickyHeight;
-					int visibleBottom = _scrollOffset + (Height - 2 - _bottomStickyHeight);
-
-					if (contentTop < visibleTop)
-					{
-						// Ensure we never set a negative scroll offset
-						_scrollOffset = Math.Max(0, contentTop - _topStickyHeight);
-					}
-					else if (contentBottom > visibleBottom)
-					{
-						// Calculate how much we need to scroll to show the bottom of the content
-						int newOffset = contentBottom - (Height - 2 - _bottomStickyHeight);
-
-						// Ensure we don't scroll beyond the maximum available content
-						int maxOffset = Math.Max(0, (_cachedContent?.Count ?? 0) - (Height - 2 - _topStickyHeight));
-						_scrollOffset = Math.Min(newOffset, maxOffset);
-					}
-				}
-			}
-
-			// Invalidate the window to update the display
-			Invalidate(true);
 		}
 
 		// Helper method to set up initial position for subwindows

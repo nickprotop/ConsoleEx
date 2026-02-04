@@ -1680,7 +1680,7 @@ namespace SharpConsoleUI.Controls
 				containerWindow.GoToTop();
 				for (int i = 0; i < _containerScrollOffsetBeforeDrop; i++)
 				{
-					containerWindow.ProcessInput(new ConsoleKeyInfo(
+					containerWindow.EventDispatcher?.ProcessInput(new ConsoleKeyInfo(
 						'\0', ConsoleKey.DownArrow, false, false, false));
 				}
 			}
