@@ -1,0 +1,44 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../../",
+          "files": ["SharpConsoleUI/SharpConsoleUI.csproj"]
+        }
+      ],
+      "dest": "api",
+      "disableGitFeatures": false,
+      "disableDefaultFilter": false
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": ["api/**.yml", "api/index.md"]
+      },
+      {
+        "files": ["*.md", "toc.yml"]
+      },
+      {
+        "src": "../",
+        "files": ["*.md"],
+        "exclude": ["**/obj/**", "**/bin/**", "docfx/**"]
+      }
+    ],
+    "resource": [
+      {
+        "src": "../",
+        "files": ["images/**"]
+      }
+    ],
+    "output": "_site",
+    "globalMetadata": {
+      "_appTitle": "SharpConsoleUI Documentation",
+      "_appFooter": "SharpConsoleUI - A modern .NET 9 console windowing system",
+      "_enableSearch": true
+    },
+    "template": ["default", "modern"],
+    "postProcessors": ["ExtractSearchIndex"]
+  }
+}

@@ -5,12 +5,19 @@
 </p>
 
 <p align="center">
+  <a href="https://nickprotop.github.io/ConsoleEx/"><img src="https://img.shields.io/badge/docs-latest-blue" alt="Documentation"></a>
+  <a href="https://www.nuget.org/packages/SharpConsoleUI/"><img src="https://img.shields.io/nuget/v/SharpConsoleUI.svg" alt="NuGet"></a>
+  <img src="https://github.com/nickprotop/ConsoleEx/workflows/Build/badge.svg" alt="Build">
   <img src="https://img.shields.io/badge/version-2.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/.NET-9.0-purple" alt=".NET">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
 A modern console window system for .NET 9 with fluent builders, async patterns, and built-in state services.
+
+## 📚 Documentation
+
+**Visit the project website: [nickprotop.github.io/ConsoleEx](https://nickprotop.github.io/ConsoleEx/)**
 
 ## Showcase
 

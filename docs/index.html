@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharpConsoleUI - Modern .NET Console Windowing System</title>
+    <meta name="description" content="A modern .NET 9.0 console windowing system with fluent builders, async patterns, and comprehensive state services.">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 0 60px 0;
+        }
+
+        .logo {
+            max-width: 400px;
+            width: 100%;
+            height: auto;
+            margin: 0 auto 30px auto;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+        }
+
+        h1 {
+            font-size: 3rem;
+            color: #00d4ff;
+            margin-bottom: 15px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .tagline {
+            font-size: 1.3rem;
+            color: #a0a0a0;
+            margin-bottom: 30px;
+        }
+
+        .quick-links {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 30px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .btn-primary {
+            background: #00d4ff;
+            color: #1e1e1e;
+        }
+
+        .btn-primary:hover {
+            background: #00b8e6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #00d4ff;
+            border-color: #00d4ff;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 212, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .showcase {
+            text-align: center;
+            margin: 60px 0;
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .showcase img {
+            max-width: 100%;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin: 60px 0;
+        }
+
+        .feature-card {
+            background: #252525;
+            padding: 30px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+
+        .feature-desc {
+            color: #b0b0b0;
+            line-height: 1.7;
+        }
+
+        .code-section {
+            background: #1a1a1a;
+            border-radius: 10px;
+            padding: 30px;
+            margin: 40px 0;
+            border: 1px solid #333;
+        }
+
+        .code-section h2 {
+            color: #00d4ff;
+            margin-bottom: 20px;
+        }
+
+        pre {
+            background: #0d0d0d;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid #222;
+        }
+
+        code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #00ff88;
+            font-size: 0.95rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: #606060;
+            border-top: 1px solid #333;
+            margin-top: 60px;
+        }
+
+        .badges {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .badge {
+            height: 20px;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .tagline {
+                font-size: 1.1rem;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="images/logo.svg" alt="SharpConsoleUI Logo" class="logo">
+            <h1>SharpConsoleUI</h1>
+            <p class="tagline">A modern .NET 9.0 console windowing system</p>
+
+            <div class="badges">
+                <img src="https://img.shields.io/nuget/v/SharpConsoleUI.svg" alt="NuGet" class="badge">
+                <img src="https://img.shields.io/badge/docs-latest-blue" alt="Documentation" class="badge">
+                <img src="https://github.com/nickprotop/ConsoleEx/actions/workflows/build-and-publish.yml/badge.svg" alt="Build" class="badge">
+            </div>
+
+            <div class="quick-links">
+                <a href="docfx/_site/BUILDERS.html" class="btn btn-primary">Get Started</a>
+                <a href="docfx/_site/api/SharpConsoleUI.html" class="btn btn-secondary">API Reference</a>
+                <a href="https://github.com/nickprotop/ConsoleEx" class="btn btn-secondary">GitHub</a>
+            </div>
+        </header>
+
+        <section class="showcase">
+            <img src="images/showcase.gif" alt="SharpConsoleUI Demo" />
+        </section>
+
+        <section class="features">
+            <div class="feature-card">
+                <div class="feature-icon">🪟</div>
+                <h3 class="feature-title">Multiple Windows</h3>
+                <p class="feature-desc">Overlapping windows with full Z-order management, drag & drop, resize, minimize, and maximize support.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <h3 class="feature-title">25+ Controls</h3>
+                <p class="feature-desc">Rich UI controls including buttons, lists, trees, tables, text inputs, menus, and more with full mouse support.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🏗️</div>
+                <h3 class="feature-title">Fluent Builders</h3>
+                <p class="feature-desc">Modern API with method chaining and fluent builders for intuitive, readable code.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3 class="feature-title">Async/Await</h3>
+                <p class="feature-desc">Full async support throughout the library for responsive, non-blocking UIs.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔌</div>
+                <h3 class="feature-title">Plugin System</h3>
+                <p class="feature-desc">Extensible architecture with plugin support for custom controls and functionality.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎭</div>
+                <h3 class="feature-title">Theming</h3>
+                <p class="feature-desc">Built-in themes and complete customization support for branded applications.</p>
+            </div>
+        </section>
+
+        <section class="code-section">
+            <h2>Quick Start</h2>
+            <pre><code>dotnet add package SharpConsoleUI</code></pre>
+            <pre><code>using SharpConsoleUI;
+
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
+var window = new WindowBuilder(windowSystem)
+    .WithTitle("Hello World")
+    .WithSize(60, 20)
+    .Centered()
+    .Build();
+
+windowSystem.AddWindow(window);
+windowSystem.Run();</code></pre>
+        </section>
+
+        <section class="quick-links">
+            <a href="docfx/_site/CONTROLS.html" class="btn btn-secondary">Controls Documentation</a>
+            <a href="docfx/_site/STATE-SERVICES.html" class="btn btn-secondary">State Services</a>
+            <a href="docfx/_site/THEMES.html" class="btn btn-secondary">Theming Guide</a>
+            <a href="docfx/_site/PLUGINS.html" class="btn btn-secondary">Plugin Development</a>
+        </section>
+
+        <footer>
+            <p>Built with ❤️ by Nikolaos Protopapas</p>
+            <p>Licensed under MIT | <a href="https://github.com/nickprotop/ConsoleEx" style="color: #00d4ff;">View on GitHub</a></p>
+        </footer>
+    </div>
+</body>
+</html>
