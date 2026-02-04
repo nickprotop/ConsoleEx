@@ -315,13 +315,6 @@ namespace SharpConsoleUI
 
 		#endregion
 
-		#region Coordinators
-
-		// Input coordinator - public field defined in Fields region
-		// Performance tracker - public field defined in Fields region
-
-		#endregion
-
 		#region Desktop Properties
 
 		/// <summary>
