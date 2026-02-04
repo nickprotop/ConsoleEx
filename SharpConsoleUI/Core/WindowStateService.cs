@@ -1087,6 +1087,10 @@ namespace SharpConsoleUI.Core
 		{
 			context.ActiveWindow.SetIsActive(false);
 			context.ActiveWindow.Invalidate(true);
+
+			// Clear ActiveWindow so clicking the same window again will re-activate it
+			var newState = CreateStateSnapshot() with { ActiveWindow = null };
+			UpdateStateInternal(newState);
 		}
 	}
 
