@@ -136,9 +136,9 @@ namespace SharpConsoleUI.Themes
 		public Color InactiveTitleForegroundColor { get; set; } = Color.Grey;
 
 		/// <summary>
-		/// Gets or sets the background color for modal dialog windows. Typically slightly darker than regular windows.
+		/// Gets or sets the background color for modal dialog windows. Uses darker blue to distinguish from regular windows.
 		/// </summary>
-		public Color ModalBackgroundColor { get; set; } = Color.Grey19;
+		public Color ModalBackgroundColor { get; set; } = Color.DarkBlue;
 
 		/// <summary>
 		/// Gets or sets the foreground color for the border of modal dialog windows.
