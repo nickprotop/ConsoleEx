@@ -24,6 +24,7 @@ public class MockConsoleDriver : IConsoleDriver
 	private Point _cursorPosition;
 	private bool _cursorVisible;
 	private ConsoleWindowSystem? _windowSystem;
+	private ConsoleBuffer? _consoleBuffer;
 
 	/// <summary>
 	/// Gets the history of all WriteToConsole calls.
@@ -97,11 +98,11 @@ public class MockConsoleDriver : IConsoleDriver
 	}
 
 	/// <summary>
-	/// Does nothing (no buffering in mock driver).
+	/// Flushes the console buffer, triggering actual rendering with diagnostics capture.
 	/// </summary>
 	public void Flush()
 	{
-		// No-op for mock driver
+		_consoleBuffer?.Render();
 	}
 
 	/// <summary>
@@ -158,22 +159,34 @@ public class MockConsoleDriver : IConsoleDriver
 	public void Initialize(ConsoleWindowSystem windowSystem)
 	{
 		_windowSystem = windowSystem;
+
+		// Create ConsoleBuffer for buffered rendering with diagnostics support
+		_consoleBuffer = new ConsoleBuffer(_screenSize.Width, _screenSize.Height, windowSystem.Options, null);
+
+		// Connect diagnostics to ConsoleBuffer
+		if (windowSystem.RenderingDiagnostics != null)
+		{
+			_consoleBuffer.Diagnostics = windowSystem.RenderingDiagnostics;
+		}
 	}
 
 	/// <summary>
-	/// Captures the output instead of writing to the console.
+	/// Writes content to the console buffer for buffered rendering.
 	/// </summary>
 	public void WriteToConsole(int x, int y, string value)
 	{
 		_outputHistory.Add(value);
+
+		// Add content to console buffer for double-buffered rendering
+		_consoleBuffer?.AddContent(x, y, value);
 	}
 
 	/// <summary>
-	/// Returns 0 (mock driver doesn't track dirty characters).
+	/// Returns the count of dirty characters from the ConsoleBuffer.
 	/// </summary>
 	public int GetDirtyCharacterCount()
 	{
-		return 0;
+		return _consoleBuffer?.GetDirtyCharacterCount() ?? 0;
 	}
 
 	/// <summary>

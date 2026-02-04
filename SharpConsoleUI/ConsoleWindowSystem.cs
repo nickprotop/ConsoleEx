@@ -225,7 +225,13 @@ namespace SharpConsoleUI
 				Render,
 				() => this);
 
-			// NOW initialize driver with 'this' reference (after services exist)
+			// Initialize diagnostics BEFORE driver.Initialize() so driver can connect them
+			if (_options.EnableDiagnostics)
+			{
+				_renderingDiagnostics = new Diagnostics.RenderingDiagnostics(_options);
+			}
+
+			// NOW initialize driver with 'this' reference (after services and diagnostics exist)
 			_consoleDriver.Initialize(this);
 
 			// Set window system context on ThemeStateService for window invalidation
@@ -235,12 +241,6 @@ namespace SharpConsoleUI
 			if (pluginConfiguration?.AutoLoad == true)
 			{
 				_pluginStateService.LoadPluginsFromDirectory(pluginConfiguration.GetEffectivePluginsDirectory());
-			}
-
-			// Initialize diagnostics if enabled (for testing and debugging)
-			if (_options.EnableDiagnostics)
-			{
-				_renderingDiagnostics = new Diagnostics.RenderingDiagnostics(_options);
 			}
 		}
 
@@ -549,7 +549,7 @@ namespace SharpConsoleUI
 						// Frame rate limiting enabled: only render if enough time elapsed
 						if (shouldRender && elapsed >= Performance.MinFrameTime)
 						{
-							UpdateDisplay();
+							Render.UpdateDisplay();
 							_lastRenderTime = now;
 							_idleTime = (int)Performance.MinFrameTime;
 						}
@@ -564,7 +564,7 @@ namespace SharpConsoleUI
 						// Frame rate limiting disabled: render immediately when dirty
 						if (shouldRender)
 						{
-							UpdateDisplay();
+							Render.UpdateDisplay();
 							_lastRenderTime = now;
 							_idleTime = Configuration.SystemDefaults.FastLoopIdleMs; // Fast loop when dirty, no frame rate cap
 						}
@@ -643,7 +643,7 @@ namespace SharpConsoleUI
 		public void ProcessOnce()
 		{
 			Input.ProcessInput();
-			UpdateDisplay();
+			Render.UpdateDisplay();
 			UpdateCursor();
 		}
 
@@ -790,11 +790,6 @@ namespace SharpConsoleUI
 					_consoleDriver.ScreenSize.Width,
 					_consoleDriver.ScreenSize.Height);
 			}
-		}
-
-		private void UpdateDisplay()
-		{
-			Render.UpdateDisplay();
 		}
 
 		private void UpdateStatusBarBounds()

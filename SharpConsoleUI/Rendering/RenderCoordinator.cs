@@ -186,6 +186,9 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public void UpdateDisplay()
 		{
+			// Begin new frame for diagnostics tracking
+			_windowSystemContext.RenderingDiagnostics?.BeginFrame();
+
 			lock (_renderLock)
 			{
 				// ATOMIC DESKTOP CLEARING: Clear old window positions before rendering

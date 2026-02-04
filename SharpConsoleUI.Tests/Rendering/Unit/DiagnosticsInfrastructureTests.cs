@@ -53,8 +53,9 @@ public class DiagnosticsInfrastructureTests
 		// Assert
 		var snapshot = system.RenderingDiagnostics?.LastBufferSnapshot;
 		Assert.NotNull(snapshot);
-		Assert.Equal(50, snapshot.Width);
-		Assert.Equal(25, snapshot.Height);
+		// Window content buffer is 2 chars narrower/shorter due to borders
+		Assert.Equal(48, snapshot.Width);
+		Assert.Equal(23, snapshot.Height);
 	}
 
 	[Fact]
@@ -100,14 +101,15 @@ public class DiagnosticsInfrastructureTests
 		var window = new Window(system) { Width = 40, Height = 20 };
 		var markup = new MarkupControl(new List<string> { "Frame 1" });
 		window.AddControl(markup);
+		system.WindowStateService.AddWindow(window);
 
 		// Act - Render frame 1
-		window.RenderAndGetVisibleContent();
+		system.Render.UpdateDisplay();
 		var frame1Number = system.RenderingDiagnostics!.CurrentFrameNumber;
 
 		// Render frame 2 (invalidate and render again)
 		window.Invalidate(true);
-		window.RenderAndGetVisibleContent();
+		system.Render.UpdateDisplay();
 		var frame2Number = system.RenderingDiagnostics.CurrentFrameNumber;
 
 		// Assert
@@ -142,9 +144,10 @@ public class DiagnosticsInfrastructureTests
 		var window = new Window(system) { Width = 40, Height = 20 };
 		var markup = new MarkupControl(new List<string> { "Test Metrics" });
 		window.AddControl(markup);
+		system.WindowStateService.AddWindow(window);
 
-		// Act
-		window.RenderAndGetVisibleContent();
+		// Act - Full render pipeline to trigger metrics capture
+		system.Render.UpdateDisplay();
 
 		// Assert
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
@@ -160,9 +163,10 @@ public class DiagnosticsInfrastructureTests
 		var window = new Window(system) { Width = 40, Height = 20 };
 		var markup = new MarkupControl(new List<string> { "Quality Test" });
 		window.AddControl(markup);
+		system.WindowStateService.AddWindow(window);
 
-		// Act
-		window.RenderAndGetVisibleContent();
+		// Act - Full render pipeline to trigger quality analysis
+		system.Render.UpdateDisplay();
 
 		// Assert
 		var qualityReport = system.RenderingDiagnostics?.LastQualityReport;
