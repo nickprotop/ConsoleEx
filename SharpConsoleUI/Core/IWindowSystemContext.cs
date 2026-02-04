@@ -10,6 +10,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Models;
+using SharpConsoleUI.Rendering;
 using SharpConsoleUI.Themes;
 using SharpConsoleUI.Windows;
 using System.Drawing;
@@ -66,11 +67,6 @@ namespace SharpConsoleUI.Core
 		/// <param name="exitCode">The exit code to return.</param>
 		void RequestExit(int exitCode);
 
-	/// <summary>
-	/// Invalidates all windows and status bars after status bar visibility changes.
-	/// </summary>
-	void InvalidateAllWindows();
-
 		/// <summary>
 		/// Finds the topmost window at the specified point.
 		/// </summary>
@@ -92,6 +88,11 @@ namespace SharpConsoleUI.Core
 		/// Gets the window positioning manager for move and resize operations.
 		/// </summary>
 		WindowPositioningManager Positioning { get; }
+
+		/// <summary>
+		/// Gets the render coordinator for rendering operations and invalidation.
+		/// </summary>
+		RenderCoordinator Render { get; }
 
 		/// <summary>
 		/// Gets the current theme.

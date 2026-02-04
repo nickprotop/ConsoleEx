@@ -632,17 +632,6 @@ namespace SharpConsoleUI
 			_running = false;
 		}
 
-	/// <summary>
-	/// Invalidates all windows and status bars after status bar visibility changes.
-	/// </summary>
-	public void InvalidateAllWindows()
-	{
-		Render.InvalidateStatusCache();
-		foreach (var w in Windows.Values)
-		{
-			w.Invalidate(true);
-		}
-	}
 
 		#endregion
 

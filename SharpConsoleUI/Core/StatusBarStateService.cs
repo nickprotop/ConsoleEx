@@ -78,7 +78,7 @@ namespace SharpConsoleUI.Core
 			if (_showTopStatus != value)
 			{
 				_showTopStatus = value;
-				_getWindowSystem().InvalidateAllWindows();
+				_getWindowSystem().Render.InvalidateAllWindows();
 			}
 		}
 	}
@@ -95,7 +95,7 @@ namespace SharpConsoleUI.Core
 			if (_showBottomStatus != value)
 			{
 				_showBottomStatus = value;
-				_getWindowSystem().InvalidateAllWindows();
+				_getWindowSystem().Render.InvalidateAllWindows();
 			}
 		}
 	}

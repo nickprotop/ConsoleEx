@@ -273,7 +273,8 @@ namespace SharpConsoleUI.Core
 				FireThemeChanged(previousTheme, newTheme);
 
 				// Invalidate all windows to apply new theme
-				InvalidateAllWindows();
+				var context = _getWindowSystemContext?.Invoke();
+				context?.Render.InvalidateAllWindows();
 			}
 		}
 
@@ -317,25 +318,10 @@ namespace SharpConsoleUI.Core
 			});
 
 			// Invalidate all windows to apply property changes
-			InvalidateAllWindows();
-		}
-
-		/// <summary>
-		/// Invalidates all windows to force complete redraw.
-		/// Called automatically after theme changes.
-		/// </summary>
-		private void InvalidateAllWindows()
-		{
 			var context = _getWindowSystemContext?.Invoke();
-			if (context == null)
-				return;
-
-			// Get all windows and invalidate them
-			foreach (var window in context.Windows.Values)
-			{
-				window.Invalidate(true); // Deep invalidate (controls too)
-			}
+			context?.Render.InvalidateAllWindows();
 		}
+
 
 		#endregion
 

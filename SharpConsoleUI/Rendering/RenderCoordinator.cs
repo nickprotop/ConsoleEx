@@ -135,6 +135,17 @@ namespace SharpConsoleUI.Rendering
 		}
 
 		/// <summary>
+		/// Invalidates all windows and status bars, forcing a complete redraw.
+		/// Call this after theme changes, status bar visibility changes, or other global UI updates.
+		/// </summary>
+		public void InvalidateAllWindows()
+		{
+			InvalidateStatusCache();
+			foreach (var w in _windowSystemContext.Windows.Values)
+			{
+				w.Invalidate(true);
+			}
+		}
 
 		/// <summary>
 		/// Updates the status bar bounds based on current screen size and configuration.
