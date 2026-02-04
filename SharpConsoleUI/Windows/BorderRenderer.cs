@@ -39,6 +39,9 @@ namespace SharpConsoleUI.Windows
 		internal bool _cachedBorderIsActive;
 
 		// FIX11: Prevent ANSI doubling by not passing foregroundColor when markup already has color tags
+		// DEPRECATED: This flag caused color bleeding bugs where borders inherited background colors from
+		// previous ANSI output. We now ALWAYS pass explicit backgroundColor and foregroundColor to prevent
+		// ANSI state bleeding. The markup's color tags control foreground, explicit params ensure background.
 		private const bool FIX11_NO_FOREGROUND_IN_MARKUP = true;
 
 		/// <summary>
@@ -118,8 +121,8 @@ namespace SharpConsoleUI.Windows
 				AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
 					$"{borderColor}{scrollbarChar}{resetColor}",
 					1, 1, false,
-					FIX11_NO_FOREGROUND_IN_MARKUP ? null : _window.BackgroundColor,
-					FIX11_NO_FOREGROUND_IN_MARKUP ? null : _window.ForegroundColor)[0]);
+					_window.BackgroundColor,  // Explicit background prevents color bleeding
+					_window.ForegroundColor)[0]);  // Explicit foreground as safety net
 		}
 
 		/// <summary>
@@ -201,24 +204,26 @@ namespace SharpConsoleUI.Windows
 				_cachedBorderIsActive != isActive)
 			{
 				// Rebuild cached border strings
+				// IMPORTANT: Always pass explicit backgroundColor and foregroundColor to prevent ANSI color bleeding
+				// from previous console output. Without these, borders inherit stale colors from overlapping windows.
 				var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
 					$"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{borderColor}{topRightCorner}{resetColor}",
 					Math.Min(_window.Width, desktopBottomRight.X - _window.Left + 1), 1, false,
-					FIX11_NO_FOREGROUND_IN_MARKUP ? null : _window.BackgroundColor,
-					FIX11_NO_FOREGROUND_IN_MARKUP ? null : _window.ForegroundColor)[0];
+					_window.BackgroundColor,  // Explicit background prevents color bleeding
+					_window.ForegroundColor)[0];  // Explicit foreground as safety net
 
 				var bottomBorderWidth = _window.Width - 2;
 				var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
 					$"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightChar}{resetColor}",
 					_window.Width, 1, false,
-					FIX11_NO_FOREGROUND_IN_MARKUP ? null : _window.BackgroundColor,
-					FIX11_NO_FOREGROUND_IN_MARKUP ? null : _window.ForegroundColor)[0];
+					_window.BackgroundColor,  // Explicit background prevents color bleeding
+					_window.ForegroundColor)[0];  // Explicit foreground as safety net
 
 				var vertBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
 					$"{borderColor}{verticalBorder}{resetColor}",
 					1, 1, false,
-					FIX11_NO_FOREGROUND_IN_MARKUP ? null : _window.BackgroundColor,
-					FIX11_NO_FOREGROUND_IN_MARKUP ? null : _window.ForegroundColor)[0];
+					_window.BackgroundColor,  // Explicit background prevents color bleeding
+					_window.ForegroundColor)[0];  // Explicit foreground as safety net
 
 				// Update cache
 				_cachedTopBorder = topBorder;
