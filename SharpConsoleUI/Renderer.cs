@@ -213,7 +213,7 @@ namespace SharpConsoleUI
 
 			// Draw window borders - these might be partially hidden but the drawing functions
 			// will handle clipping against screen boundaries
-			DrawWindowBorders(window, visibleRegions);
+			window.BorderRenderer?.RenderBorders(visibleRegions);
 
 			// Pass visible regions to window rendering so it only paints visible areas (optimization)
 			// OPTION C FIX: Force rebuild for exposed regions to ensure cache contains correct content
@@ -303,7 +303,7 @@ namespace SharpConsoleUI
 
 			// Draw window borders - these might be partially hidden but the drawing functions
 			// will handle clipping against screen boundaries
-			DrawWindowBorders(window, visibleRegions);
+			window.BorderRenderer?.RenderBorders(visibleRegions);
 
 			// Pass visible regions to window rendering so it only paints visible areas (optimization)
 			var lines = window.RenderAndGetVisibleContent(visibleRegions);
@@ -410,7 +410,7 @@ namespace SharpConsoleUI
 				FillRect(region.Left, region.Top, region.Width, region.Height, ' ', window.BackgroundColor, null);
 			}
 
-			DrawWindowBorders(window, visibleRegions);
+			window.BorderRenderer?.RenderBorders(visibleRegions);
 
 			var windowLines = window.RenderAndGetVisibleContent(visibleRegions);
 			window.IsDirty = false;
@@ -553,7 +553,7 @@ namespace SharpConsoleUI
 
 			// Draw window borders - these might be partially hidden but the drawing functions
 			// will handle clipping against screen boundaries
-			DrawWindowBorders(window, visibleRegions);
+			window.BorderRenderer?.RenderBorders(visibleRegions);
 
 			// Pass visible regions to window rendering so it only paints visible areas (optimization)
 			var lines = window.RenderAndGetVisibleContent(visibleRegions);
@@ -561,294 +561,6 @@ namespace SharpConsoleUI
 
 			// Render content only for visible parts
 			RenderVisibleWindowContent(window, lines, visibleRegions);
-		}
-
-		private void DrawScrollbar(Window window, int y, string borderColor, char verticalBorder, string resetColor)
-		{
-			var scrollbarChar = '░';
-			var contentHeight = window.TotalLines;
-			var visibleHeight = window.Height - 2;
-
-			if (window.IsScrollable && contentHeight > visibleHeight)
-			{
-				if (window.Height > 2)
-				{
-					var scrollPosition = (float)window.ScrollOffset / Math.Max(1, contentHeight - visibleHeight);
-					var scrollbarPosition = (int)(scrollPosition * (visibleHeight - 1));
-					if (y - 1 == scrollbarPosition)
-					{
-						scrollbarChar = '█';
-					}
-				}
-			}
-			else scrollbarChar = verticalBorder;
-
-			_consoleWindowSystem.ConsoleDriver.WriteToConsole(window.Left + window.Width - 1, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{scrollbarChar}{resetColor}", 1, 1, false, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.BackgroundColor, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.ForegroundColor)[0]);
-		}
-
-		private void DrawWindowBorders(Window window, List<Rectangle> visibleRegions)
-		{
-			// Handle borderless windows
-			if (window.BorderStyle == BorderStyle.None)
-			{
-				DrawInvisibleBorders(window, visibleRegions);
-				return;
-			}
-
-			// Get border characters using BoxChars abstraction
-			// DoubleLine style uses active state to switch between double (active) and single (inactive)
-			var chars = BoxChars.FromBorderStyle(window.BorderStyle, window.GetIsActive());
-			char horizontalBorder = chars.Horizontal;
-			char verticalBorder = chars.Vertical;
-			char topLeftCorner = chars.TopLeft;
-			char topRightCorner = chars.TopRight;
-			char bottomLeftCorner = chars.BottomLeft;
-			char bottomRightCorner = chars.BottomRight;
-
-			var borderColor = window.GetIsActive() ? $"[{window.ActiveBorderForegroundColor}]" : $"[{window.InactiveBorderForegroundColor}]";
-			var titleColor = window.GetIsActive() ? $"[{window.ActiveTitleForegroundColor}]" : $"[{window.InactiveTitleForegroundColor}]";
-			var buttonColor = window.GetIsActive() ? "[yellow]" : $"[{window.InactiveBorderForegroundColor}]";
-			var closeButtonColor = window.GetIsActive() ? "[red]" : $"[{window.InactiveBorderForegroundColor}]";
-
-			var resetColor = "[/]";
-
-			// Window control buttons: [_] minimize, [+]/[-] maximize/restore, [X] close
-			// Each button takes 3 characters
-			var minimizeButtonWidth = window.IsMinimizable ? 3 : 0;
-			var maximizeButtonWidth = window.IsMaximizable ? 3 : 0;
-			var closeButtonWidth = (window.IsClosable && window.ShowCloseButton) ? 3 : 0;
-			var totalButtonWidth = minimizeButtonWidth + maximizeButtonWidth + closeButtonWidth;
-
-			var minimizeButton = window.IsMinimizable ? $"{buttonColor}[_]" : "";
-			// + for maximize, - for restore (when already maximized)
-			var maximizeSymbol = window.State == WindowState.Maximized ? "-" : "+";
-			var maximizeButton = window.IsMaximizable ? $"{buttonColor}[{maximizeSymbol}]" : "";
-			var closeButton = (window.IsClosable && window.ShowCloseButton) ? $"{closeButtonColor}[X]" : "";
-			var windowButtons = $"{minimizeButton}{maximizeButton}{closeButton}{resetColor}";
-
-			// Resize grip replaces bottom-right corner when window is resizable: ◢
-			var bottomRightChar = window.IsResizable ? "◢" : bottomRightCorner.ToString();
-
-			// Build title section (only if ShowTitle is true and title is not empty)
-			string title;
-			int titleLength;
-			int leftPadding;
-			int rightPadding;
-
-			if (window.ShowTitle && !string.IsNullOrEmpty(window.Title))
-			{
-				// Ensure we have enough space for the title, with safety margins
-				var maxTitleSpace = Math.Max(0, window.Width - 8 - totalButtonWidth); // Reserve space for corners, padding, buttons, and safety
-				var truncatedTitle = StringHelper.TrimWithEllipsis(window.Title, maxTitleSpace, maxTitleSpace / 2);
-				// Don't escape - title is plain text, not parsed as markup when concatenated
-				// Calculate visible length directly from plain text
-				titleLength = 4 + truncatedTitle.Length; // "| " + title + " |" = 4 extra chars
-				title = $"{titleColor}| {truncatedTitle} |{resetColor}";
-				var availableSpace = Math.Max(0, window.Width - 2 - titleLength - totalButtonWidth);
-				leftPadding = Math.Min(1, availableSpace);
-				rightPadding = Math.Max(0, availableSpace - leftPadding);
-			}
-			else
-			{
-				// No title - just border and buttons
-				title = "";
-				titleLength = 0;
-				var availableSpace = Math.Max(0, window.Width - 2 - totalButtonWidth);
-				leftPadding = availableSpace / 2;
-				rightPadding = availableSpace - leftPadding;
-			}
-
-			// Check if border cache is valid, rebuild if necessary
-			bool isActive = window.GetIsActive();
-			if (window._cachedTopBorder == null ||
-				window._cachedBorderWidth != window.Width ||
-				window._cachedBorderIsActive != isActive)
-			{
-				// Rebuild cached border strings
-				var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{borderColor}{topRightCorner}{resetColor}", Math.Min(window.Width, _consoleWindowSystem.DesktopBottomRight.X - window.Left + 1), 1, false, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.BackgroundColor, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.ForegroundColor)[0];
-				var bottomBorderWidth = window.Width - 2;
-				var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightChar}{resetColor}", window.Width, 1, false, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.BackgroundColor, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.ForegroundColor)[0];
-				var vertBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi($"{borderColor}{verticalBorder}{resetColor}", 1, 1, false, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.BackgroundColor, FIX11_NO_FOREGROUND_IN_MARKUP ? null : window.ForegroundColor)[0];
-
-				// Update cache
-				window._cachedTopBorder = topBorder;
-				window._cachedBottomBorder = bottomBorder;
-				window._cachedVerticalBorder = vertBorder;
-				window._cachedBorderWidth = window.Width;
-				window._cachedBorderIsActive = isActive;
-			}
-
-			// Use cached borders for rendering
-			var cachedTopBorder = window._cachedTopBorder!;
-			var cachedBottomBorder = window._cachedBottomBorder!;
-			var cachedVerticalBorderAnsi = window._cachedVerticalBorder!;
-
-			var contentHeight = window.TotalLines;
-			var visibleHeight = window.Height - 2;
-
-			var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
-
-			foreach (var region in visibleRegions ?? [])
-			{
-				if (region.Top == window.Top)
-				{
-					// Ensure we don't write beyond the region boundaries
-					int borderStartX = Math.Max(region.Left, window.Left);
-					int borderWidth = Math.Min(region.Width, window.Left + window.Width - borderStartX);
-					if (borderWidth > 0)
-					{
-						string borderSegment = AnsiConsoleHelper.SubstringAnsi(cachedTopBorder, borderStartX - window.Left, borderWidth);
-						_consoleWindowSystem.ConsoleDriver.WriteToConsole(borderStartX, region.Top + _consoleWindowSystem.DesktopUpperLeft.Y, borderSegment);
-					}
-				}
-
-				if (region.Top + region.Height == window.Top + window.Height)
-				{
-					// Ensure we don't write beyond the region boundaries for bottom border
-					int borderStartX = Math.Max(region.Left, window.Left);
-					int borderWidth = Math.Min(region.Width, window.Left + window.Width - borderStartX);
-					if (borderWidth > 0)
-					{
-						string borderSegment = AnsiConsoleHelper.SubstringAnsi(cachedBottomBorder, borderStartX - window.Left, borderWidth);
-						_consoleWindowSystem.ConsoleDriver.WriteToConsole(borderStartX, window.Top + window.Height - 1 + _consoleWindowSystem.DesktopUpperLeft.Y, borderSegment);
-					}
-				}
-			}
-
-			for (var y = 1; y < window.Height - 1; y++)
-			{
-				if (window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y - 1 >= _consoleWindowSystem.DesktopBottomRight.Y) break;
-
-				foreach (var region in visibleRegions ?? [])
-				{
-					if (window.Top + y >= region.Top && window.Top + y < region.Top + region.Height)
-					{
-						bool isLeftBorderVisible = window.Left >= region.Left && window.Left < region.Left + region.Width;
-						int rightBorderPos = window.Left + window.Width - 1;
-						bool isRightBorderVisible = rightBorderPos >= region.Left && rightBorderPos < region.Left + region.Width;
-
-						if (isLeftBorderVisible)
-						{
-							_consoleWindowSystem.ConsoleDriver.WriteToConsole(window.Left, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, cachedVerticalBorderAnsi);
-						}
-
-						if (isRightBorderVisible)
-						{
-							if (scrollbarVisible)
-							{
-								DrawScrollbar(window, y, borderColor, verticalBorder, resetColor);
-							}
-							else
-							{
-								_consoleWindowSystem.ConsoleDriver.WriteToConsole(rightBorderPos, window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y, cachedVerticalBorderAnsi);
-							}
-						}
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Renders invisible borders by filling border areas with spaces.
-		/// Preserves layout (border space exists) while making borders visually disappear.
-		/// </summary>
-		private void DrawInvisibleBorders(Window window, List<Rectangle> visibleRegions)
-		{
-			var backgroundColor = window.BackgroundColor;
-			var foregroundColor = window.ForegroundColor;
-
-			// Create space character with window background color
-			var spaceAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-				" ", 1, 1, false, backgroundColor, foregroundColor)[0];
-
-			foreach (var region in visibleRegions ?? new List<Rectangle>())
-			{
-				// Top border row (Y=0)
-				if (region.Top == window.Top)
-				{
-					int startX = Math.Max(region.Left, window.Left);
-					int width = Math.Min(region.Width, window.Left + window.Width - startX);
-
-					for (int x = 0; x < width; x++)
-					{
-						_consoleWindowSystem.ConsoleDriver.WriteToConsole(
-							startX + x,
-							region.Top + _consoleWindowSystem.DesktopUpperLeft.Y,
-							spaceAnsi);
-					}
-				}
-
-				// Bottom border row (Y=height-1)
-				if (region.Top + region.Height == window.Top + window.Height)
-				{
-					int startX = Math.Max(region.Left, window.Left);
-					int width = Math.Min(region.Width, window.Left + window.Width - startX);
-
-					for (int x = 0; x < width; x++)
-					{
-						_consoleWindowSystem.ConsoleDriver.WriteToConsole(
-							startX + x,
-							window.Top + window.Height - 1 + _consoleWindowSystem.DesktopUpperLeft.Y,
-							spaceAnsi);
-					}
-				}
-			}
-
-			// Left and right border columns
-			for (var y = 1; y < window.Height - 1; y++)
-			{
-				if (window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y >=
-					_consoleWindowSystem.DesktopBottomRight.Y)
-					break;
-
-				foreach (var region in visibleRegions ?? new List<Rectangle>())
-				{
-					if (window.Top + y >= region.Top &&
-						window.Top + y < region.Top + region.Height)
-					{
-						// Left border
-						if (window.Left >= region.Left &&
-							window.Left < region.Left + region.Width)
-						{
-							_consoleWindowSystem.ConsoleDriver.WriteToConsole(
-								window.Left,
-								window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y,
-								spaceAnsi);
-						}
-
-						// Right border (includes scrollbar position)
-						int rightPos = window.Left + window.Width - 1;
-						if (rightPos >= region.Left &&
-							rightPos < region.Left + region.Width)
-						{
-							// Check if scrollbar should be visible
-							var contentHeight = window.TotalLines;
-							var visibleHeight = window.Height - 2;
-							var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
-
-							if (scrollbarVisible)
-							{
-								// Render scrollbar (same as DrawWindowBorders does)
-								var borderColor = window.GetIsActive()
-									? $"[{window.ActiveBorderForegroundColor}]"
-									: $"[{window.InactiveBorderForegroundColor}]";
-								var verticalBorder = window.GetIsActive() ? '║' : '│';
-								var resetColor = "[/]";
-
-								DrawScrollbar(window, y, borderColor, verticalBorder, resetColor);
-							}
-							else
-							{
-								// No scrollbar - render as space
-								_consoleWindowSystem.ConsoleDriver.WriteToConsole(
-									rightPos,
-									window.Top + _consoleWindowSystem.DesktopUpperLeft.Y + y,
-									spaceAnsi);
-							}
-						}
-					}
-				}
-			}
 		}
 
 		private bool IsWindowOutOfBounds(Window window, Point desktopTopLeftCorner, Point desktopBottomRightCorner)

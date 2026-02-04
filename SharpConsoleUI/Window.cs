@@ -162,13 +162,6 @@ namespace SharpConsoleUI
 		// List to store interactive contents
 		private List<string> _cachedContent = new();
 
-		// Border string caching for performance
-		internal string? _cachedTopBorder;
-		internal string? _cachedBottomBorder;
-		internal string? _cachedVerticalBorder;
-		internal int _cachedBorderWidth = -1;
-		internal bool _cachedBorderIsActive;
-
 		private string _guid;
 		private Color? _inactiveBorderForegroundColor;
 		private Color? _inactiveTitleForegroundColor;
@@ -199,6 +192,9 @@ namespace SharpConsoleUI
 
 		// DOM-based layout system (delegated to WindowRenderer)
 		private Windows.WindowRenderer? _renderer;
+
+		// Border rendering (delegated to BorderRenderer)
+		private Windows.BorderRenderer? _borderRenderer;
 
 		// Mouse tracking for enter/leave events
 		private Controls.IWindowControl? _lastMouseOverControl;
@@ -233,6 +229,13 @@ namespace SharpConsoleUI
 			_windowSystem?.LogService,
 			() => Invalidate(true),
 			() => _renderer?.InvalidateDOM());
+
+		// Initialize border renderer
+		_borderRenderer = new Windows.BorderRenderer(
+			this,
+			() => _windowSystem?.ConsoleDriver!,
+			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
+			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -283,6 +286,12 @@ namespace SharpConsoleUI
 			() => Invalidate(true),
 			() => _renderer?.InvalidateDOM());
 
+		// Initialize border renderer
+		_borderRenderer = new Windows.BorderRenderer(
+			this,
+			() => _windowSystem?.ConsoleDriver!,
+			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
+			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -2036,9 +2045,57 @@ namespace SharpConsoleUI
 		/// </summary>
 		internal void InvalidateBorderCache()
 		{
-			_cachedTopBorder = null;
-			_cachedBottomBorder = null;
-			_cachedVerticalBorder = null;
+			_borderRenderer?.InvalidateCache();
+		}
+
+		/// <summary>
+		/// Gets the BorderRenderer instance for this window.
+		/// </summary>
+		internal Windows.BorderRenderer? BorderRenderer => _borderRenderer;
+
+		/// <summary>
+		/// Gets or sets the cached top border string (exposed for Renderer.cs access).
+		/// </summary>
+		internal string? _cachedTopBorder
+		{
+			get => _borderRenderer?._cachedTopBorder;
+			set { if (_borderRenderer != null) _borderRenderer._cachedTopBorder = value; }
+		}
+
+		/// <summary>
+		/// Gets or sets the cached bottom border string (exposed for Renderer.cs access).
+		/// </summary>
+		internal string? _cachedBottomBorder
+		{
+			get => _borderRenderer?._cachedBottomBorder;
+			set { if (_borderRenderer != null) _borderRenderer._cachedBottomBorder = value; }
+		}
+
+		/// <summary>
+		/// Gets or sets the cached vertical border string (exposed for Renderer.cs access).
+		/// </summary>
+		internal string? _cachedVerticalBorder
+		{
+			get => _borderRenderer?._cachedVerticalBorder;
+			set { if (_borderRenderer != null) _borderRenderer._cachedVerticalBorder = value; }
+		}
+
+		/// <summary>
+		/// Gets or sets the cached border width (exposed for Renderer.cs access).
+		/// </summary>
+		internal int _cachedBorderWidth
+		{
+			get => _borderRenderer?._cachedBorderWidth ?? -1;
+			set { if (_borderRenderer != null) _borderRenderer._cachedBorderWidth = value; }
+		}
+
+		/// <summary>
+		/// Gets or sets the cached border active state (exposed for Renderer.cs access).
+		/// </summary>
+		internal bool _cachedBorderIsActive
+		{
+			get => _borderRenderer?._cachedBorderIsActive ?? false;
+			set { if (_borderRenderer != null) _borderRenderer._cachedBorderIsActive = value; }
 		}
 
 		/// <summary>
