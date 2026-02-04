@@ -506,13 +506,49 @@ namespace SharpConsoleUI.Windows
 		/// <returns>The created portal node, or null if the owner control has no layout node</returns>
 		public LayoutNode? CreatePortal(IWindowControl ownerControl, IWindowControl portalContent)
 		{
-			if (!_controlToNodeMap.TryGetValue(ownerControl, out var ownerNode))
-				return null;
+			// Note: ownerControl may be nested inside another control (e.g., dropdown inside toolbar)
+			// and not directly registered in _controlToNodeMap. We don't actually need the owner node
+			// for portal creation - the portal bounds come from the portal content itself.
+			// So we allow portal creation even for nested controls.
 
 			var portalNode = new LayoutNode(portalContent);
-			portalNode.IsVisible = true;
-			ownerNode.AddPortalChild(portalNode);  // FIXED: Use AddPortalChild, not AddChild
-			_controlToNodeMap[portalContent] = portalNode;
+			portalNode.IsVisible = true; // Ensure portal is visible
+
+			// Measure the portal to get its size
+			var contentWidth = _window.Width - 2;
+			var contentHeight = _window.Height - 2;
+			var constraints = LayoutConstraints.Loose(contentWidth, contentHeight);
+			portalNode.Measure(constraints);
+
+			// Get the portal's desired position
+			// For portal content with custom bounds, use GetPortalBounds() if available
+			Rectangle portalBounds;
+			if (portalContent is MenuPortalContent menuPortal)
+			{
+				portalBounds = menuPortal.GetPortalBounds();
+			}
+			else if (portalContent is Controls.DropdownPortalContent dropdownPortal)
+			{
+				portalBounds = dropdownPortal.GetPortalBounds();
+			}
+			else
+			{
+				// Fallback: position at (0,0) with measured size
+				portalBounds = new Rectangle(0, 0, portalNode.DesiredSize.Width, portalNode.DesiredSize.Height);
+			}
+
+			var portalRect = new LayoutRect(portalBounds.X, portalBounds.Y, portalBounds.Width, portalBounds.Height);
+
+			// Arrange the portal at its absolute position
+			portalNode.Arrange(portalRect);
+
+			// CRITICAL: Add portal to ROOT node, not owner node
+			// This ensures portals paint AFTER all regular content
+			if (_rootNode != null)
+			{
+				_rootNode.AddPortalChild(portalNode);
+				_controlToNodeMap[portalContent] = portalNode;
+			}
 
 			return portalNode;
 		}
@@ -524,16 +560,12 @@ namespace SharpConsoleUI.Windows
 		/// <param name="portalNode">The portal node to remove</param>
 		public void RemovePortal(IWindowControl ownerControl, LayoutNode portalNode)
 		{
-			if (!_controlToNodeMap.TryGetValue(ownerControl, out var ownerNode))
-				return;
-
-			ownerNode.RemovePortalChild(portalNode);  // FIXED: Use RemovePortalChild, not RemoveChild
-
-			// Remove from map
-			var portalControl = portalNode.Control;
-			if (portalControl != null)
+			// Remove from root node (where it was added in CreatePortal)
+			if (_rootNode != null)
 			{
-				_controlToNodeMap.Remove(portalControl);
+				var removed = _rootNode.RemovePortalChild(portalNode);
+				if (portalNode.Control != null)
+					_controlToNodeMap.Remove(portalNode.Control);
 			}
 		}
 
