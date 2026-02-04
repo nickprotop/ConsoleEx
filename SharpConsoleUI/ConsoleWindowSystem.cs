@@ -131,8 +131,7 @@ namespace SharpConsoleUI
 			_cursorStateService = new CursorStateService(_consoleDriver);
 			_focusStateService = new FocusStateService(_logService);
 			_modalStateService = new ModalStateService(_logService);
-			_themeStateService = new ThemeStateService(_theme);
-			_themeStateService.ShowThemeSelectorCallback = ShowThemeSelectorDialog;
+			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
 
 			// Initialize notification service (needs 'this' reference)
@@ -203,9 +202,8 @@ namespace SharpConsoleUI
 			// NOW initialize driver with 'this' reference (after services exist)
 			_consoleDriver.Initialize(this);
 
-			// Subscribe to theme changes for automatic window invalidation
-			_themeStateService.ThemeChanged += OnThemeChanged;
-			_themeStateService.ThemePropertyChanged += OnThemePropertyChanged;
+			// Set window system context on ThemeStateService for window invalidation
+			_themeStateService.SetWindowSystemContext(() => this);
 
 			// Auto-load plugins if configured
 			if (pluginConfiguration?.AutoLoad == true)
@@ -214,63 +212,6 @@ namespace SharpConsoleUI
 			}
 		}
 
-		/// <summary>
-		/// Handles theme change events and automatically invalidates all windows.
-		/// </summary>
-		private void OnThemeChanged(object? sender, ThemeChangedEventArgs e)
-		{
-			_logService?.Log(LogLevel.Information, "Theme",
-				$"Theme changed from '{e.PreviousTheme?.Name}' to '{e.NewTheme.Name}'");
-			InvalidateAllWindows();
-		}
-
-		/// <summary>
-		/// Handles theme property change events and automatically invalidates all windows.
-		/// </summary>
-		private void OnThemePropertyChanged(object? sender, EventArgs e)
-		{
-			_logService?.Log(LogLevel.Debug, "Theme",
-				"Theme property changed");
-			InvalidateAllWindows();
-		}
-
-		/// <summary>
-		/// Switches to a theme by name and automatically invalidates all windows.
-		/// </summary>
-		/// <param name="themeName">Name of the theme to switch to.</param>
-		/// <returns>True if theme was found and applied, false otherwise.</returns>
-		public bool SwitchTheme(string themeName)
-		{
-			var newTheme = ThemeRegistry.GetTheme(themeName);
-			if (newTheme == null)
-			{
-				_logService?.Log(LogLevel.Warning, "Theme",
-					$"Theme '{themeName}' not found in registry");
-				return false;
-			}
-
-			Theme = newTheme;
-			return true;
-		}
-
-		/// <summary>
-		/// Invalidates all windows to force complete redraw.
-		/// Called automatically after theme changes.
-		/// </summary>
-		private void InvalidateAllWindows()
-		{
-			// Get all windows and invalidate them
-			var windows = _windowStateService.GetWindowsByZOrder();
-			foreach (var window in windows)
-			{
-				window.Invalidate(true); // Deep invalidate (controls too)
-			}
-		}
-
-		/// <summary>
-		/// Shows the theme selector dialog for interactive theme selection.
-		/// </summary>
-		public void ShowThemeSelectorDialog() => Dialogs.ThemeSelectorDialog.Show(this);
 
 	#region File/Folder Picker Dialogs
 
@@ -366,20 +307,13 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool IsRunning => _running;
 
-		private ITheme _theme = null!; // Initialized in constructor
+		private ITheme _theme = null!; // Initialized in constructor - kept for backward compatibility in internal code
 
 		/// <summary>
-		/// Gets or sets the theme used for styling windows and controls.
+		/// Gets the theme used for styling windows and controls.
+		/// Use ThemeStateService.CurrentTheme or ThemeStateService.SetTheme() for theme management.
 		/// </summary>
-		public ITheme Theme
-		{
-			get => _theme;
-			set
-			{
-				_theme = value ?? throw new ArgumentNullException(nameof(value));
-				_themeStateService.SetTheme(_theme);
-			}
-		}
+		public ITheme Theme => _themeStateService.CurrentTheme;
 
 		/// <summary>
 		/// Gets or sets the text displayed in the top status bar.

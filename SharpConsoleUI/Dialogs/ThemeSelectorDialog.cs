@@ -123,7 +123,7 @@ public static class ThemeSelectorDialog
 			{
 				logService?.Log(LogLevel.Information, "Theme",
 					$"Theme selected via double-click: {themeName}");
-				windowSystem.SwitchTheme(themeName);
+				windowSystem.ThemeStateService.SwitchTheme(themeName);
 				modal.Close();
 			}
 		};
@@ -139,7 +139,7 @@ public static class ThemeSelectorDialog
 				{
 					logService?.Log(LogLevel.Information, "Theme",
 						$"Theme selected via Enter: {themeName}");
-					windowSystem.SwitchTheme(themeName);
+					windowSystem.ThemeStateService.SwitchTheme(themeName);
 					modal.Close();
 				}
 				e.Handled = true;

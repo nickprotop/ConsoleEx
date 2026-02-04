@@ -8,6 +8,7 @@
 
 using System.Collections.Concurrent;
 using SharpConsoleUI.Themes;
+using SharpConsoleUI.Logging;
 using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Core
@@ -178,6 +179,8 @@ namespace SharpConsoleUI.Core
 		private readonly ConcurrentQueue<ITheme> _themeHistory = new();
 		private const int MaxHistorySize = 10;
 		private bool _isDisposed;
+		private readonly ILogService? _logService;
+		private Func<IWindowSystemContext>? _getWindowSystemContext;
 
 		/// <summary>
 		/// Creates a new theme state service with the default theme
@@ -189,9 +192,19 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Creates a new theme state service with the specified theme
 		/// </summary>
-		public ThemeStateService(ITheme initialTheme)
+		public ThemeStateService(ITheme initialTheme, ILogService? logService = null)
 		{
 			_currentTheme = initialTheme ?? throw new ArgumentNullException(nameof(initialTheme));
+			_logService = logService;
+		}
+
+		/// <summary>
+		/// Sets the window system context for window invalidation during theme changes.
+		/// Must be called after ConsoleWindowSystem is fully initialized.
+		/// </summary>
+		public void SetWindowSystemContext(Func<IWindowSystemContext> getContext)
+		{
+			_getWindowSystemContext = getContext;
 		}
 
 		#region Properties
@@ -252,9 +265,35 @@ namespace SharpConsoleUI.Core
 					_themeHistory.TryDequeue(out _);
 				}
 
+				// Log theme change
+				_logService?.Log(LogLevel.Information, "Theme",
+					$"Theme changed from '{previousTheme?.Name}' to '{newTheme.Name}'");
+
 				// Fire events
 				FireThemeChanged(previousTheme, newTheme);
+
+				// Invalidate all windows to apply new theme
+				InvalidateAllWindows();
 			}
+		}
+
+		/// <summary>
+		/// Switches to a theme by name and automatically invalidates all windows.
+		/// </summary>
+		/// <param name="themeName">Name of the theme to switch to.</param>
+		/// <returns>True if theme was found and applied, false otherwise.</returns>
+		public bool SwitchTheme(string themeName)
+		{
+			var newTheme = ThemeRegistry.GetTheme(themeName);
+			if (newTheme == null)
+			{
+				_logService?.Log(LogLevel.Warning, "Theme",
+					$"Theme '{themeName}' not found in registry");
+				return false;
+			}
+
+			SetTheme(newTheme);
+			return true;
 		}
 
 		/// <summary>
@@ -263,6 +302,8 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public void NotifyPropertyChanged()
 		{
+			_logService?.Log(LogLevel.Debug, "Theme", "Theme property changed");
+
 			ThreadPool.QueueUserWorkItem(_ =>
 			{
 				try
@@ -274,6 +315,26 @@ namespace SharpConsoleUI.Core
 					// Swallow exceptions from event handlers
 				}
 			});
+
+			// Invalidate all windows to apply property changes
+			InvalidateAllWindows();
+		}
+
+		/// <summary>
+		/// Invalidates all windows to force complete redraw.
+		/// Called automatically after theme changes.
+		/// </summary>
+		private void InvalidateAllWindows()
+		{
+			var context = _getWindowSystemContext?.Invoke();
+			if (context == null)
+				return;
+
+			// Get all windows and invalidate them
+			foreach (var window in context.Windows.Values)
+			{
+				window.Invalidate(true); // Deep invalidate (controls too)
+			}
 		}
 
 		#endregion
@@ -384,18 +445,15 @@ namespace SharpConsoleUI.Core
 	#region Theme Dialog
 
 	/// <summary>
-	/// Action to invoke when the theme selector dialog should be shown.
-	/// Set this to ConsoleWindowSystem.ShowThemeSelectorDialog to enable UI-based theme selection.
-	/// </summary>
-	public Action? ShowThemeSelectorCallback { get; set; }
-
-	/// <summary>
-	/// Shows the theme selector dialog by invoking the registered callback.
-	/// If no callback is registered, this method does nothing.
+	/// Shows the theme selector dialog for interactive theme selection.
 	/// </summary>
 	public void ShowThemeSelector()
 	{
-		ShowThemeSelectorCallback?.Invoke();
+		var context = _getWindowSystemContext?.Invoke();
+		if (context is ConsoleWindowSystem windowSystem)
+		{
+			Dialogs.ThemeSelectorDialog.Show(windowSystem);
+		}
 	}
 
 	#endregion

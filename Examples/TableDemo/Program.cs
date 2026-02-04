@@ -50,18 +50,18 @@ window.KeyPressed += (s, e) =>
 	switch (e.KeyInfo.Key)
 	{
 		case ConsoleKey.F1:
-			windowSystem.Theme = new SharpConsoleUI.Themes.ModernGrayTheme();
+			windowSystem.ThemeStateService.SetTheme(new SharpConsoleUI.Themes.ModernGrayTheme());
 			break;
 
 		case ConsoleKey.F2:
-			windowSystem.Theme = new SharpConsoleUI.Themes.ClassicTheme();
+			windowSystem.ThemeStateService.SetTheme(new SharpConsoleUI.Themes.ClassicTheme());
 			break;
 
 		case ConsoleKey.F3:
 			var devDarkType = Type.GetType("SharpConsoleUI.Plugins.DeveloperTools.DevDarkTheme, SharpConsoleUI");
 			if (devDarkType != null && Activator.CreateInstance(devDarkType) is SharpConsoleUI.Themes.ITheme theme)
 			{
-				windowSystem.Theme = theme;
+				windowSystem.ThemeStateService.SetTheme(theme);
 			}
 			break;
 	}

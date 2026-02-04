@@ -156,7 +156,7 @@ internal class Program
         };
 
         var themeLabel = new MarkupControl(
-            new List<string> { $"[dim]Current Theme:[/] [cyan]{_windowSystem.Theme.Name}[/]" }
+            new List<string> { $"[dim]Current Theme:[/] [cyan]{_windowSystem.ThemeStateService.CurrentTheme.Name}[/]" }
         )
         {
             Margin = new Margin(0, 0, 2, 0),
@@ -169,10 +169,10 @@ internal class Program
         var themeButton = new ButtonControl { Text = "Change Theme", Width = 16 };
         themeButton.Click += (sender, btn) =>
         {
-            _windowSystem?.ShowThemeSelectorDialog();
+            _windowSystem?.ThemeStateService.ShowThemeSelector();
             // Update theme label after dialog closes
             themeLabel.SetContent(
-                new List<string> { $"[dim]Current Theme:[/] [cyan]{_windowSystem?.Theme.Name}[/]" }
+                new List<string> { $"[dim]Current Theme:[/] [cyan]{_windowSystem?.ThemeStateService.CurrentTheme.Name}[/]" }
             );
         };
 

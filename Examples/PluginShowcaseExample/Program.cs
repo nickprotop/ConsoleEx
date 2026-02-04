@@ -32,7 +32,7 @@ windowSystem.LogService.MinimumLevel = LogLevel.Trace;
 windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
 
 // Switch to DevDark theme (provided by the plugin)
-windowSystem.SwitchTheme("DevDark");
+windowSystem.ThemeStateService.SwitchTheme("DevDark");
 
 // Create the main window (not closable - this is the main app window)
 var mainWindow = new WindowBuilder(windowSystem)
