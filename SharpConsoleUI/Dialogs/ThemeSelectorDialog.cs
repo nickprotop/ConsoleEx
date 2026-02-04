@@ -33,7 +33,6 @@ public static class ThemeSelectorDialog
 		var themes = ThemeRegistry.GetAvailableThemes();
 		var currentThemeName = windowSystem.Theme.Name;
 		var logService = windowSystem.LogService;
-		var theme = windowSystem.Theme;
 
 		// Log available themes
 		logService?.Log(LogLevel.Information, "Theme",
@@ -41,7 +40,7 @@ public static class ThemeSelectorDialog
 		logService?.Log(LogLevel.Information, "Theme",
 			$"Current theme: {currentThemeName}");
 
-		// Create modal window using WindowBuilder
+		// Create modal window using WindowBuilder (no explicit colors - use theme defaults)
 		var builder = new WindowBuilder(windowSystem)
 			.WithTitle("Theme Selector")
 			.Centered()
@@ -50,8 +49,7 @@ public static class ThemeSelectorDialog
 			.Resizable(true)
 			.Minimizable(false)
 			.Maximizable(true)
-			.Movable(true)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor);
+			.Movable(true);
 
 		if (parentWindow != null)
 			builder.WithParent(parentWindow);
@@ -71,13 +69,10 @@ public static class ThemeSelectorDialog
 			.WithColor(Color.Grey23)
 			.Build());
 
-		// Theme list
+		// Theme list (no explicit colors - inherit from theme)
 		var themeList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithFocusedColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithHighlightColors(Color.Grey35, Color.White)
 			.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.Build();
