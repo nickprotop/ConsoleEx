@@ -1,6 +1,26 @@
 namespace SharpConsoleUI.Configuration;
 
 /// <summary>
+/// Flags for controlling which diagnostics layers are captured.
+/// </summary>
+[Flags]
+public enum DiagnosticsLayers
+{
+	/// <summary>No diagnostics captured.</summary>
+	None = 0,
+	/// <summary>CharacterBuffer snapshots (DOM layer).</summary>
+	CharacterBuffer = 1 << 0,
+	/// <summary>ANSI lines snapshots (ANSI generation layer).</summary>
+	AnsiLines = 1 << 1,
+	/// <summary>ConsoleBuffer snapshots (double-buffering layer).</summary>
+	ConsoleBuffer = 1 << 2,
+	/// <summary>Console output snapshots (final output).</summary>
+	ConsoleOutput = 1 << 3,
+	/// <summary>All diagnostics layers.</summary>
+	All = CharacterBuffer | AnsiLines | ConsoleBuffer | ConsoleOutput
+}
+
+/// <summary>
 /// Configuration options for ConsoleWindowSystem behavior.
 /// </summary>
 public record ConsoleWindowSystemOptions(
@@ -28,7 +48,15 @@ public record ConsoleWindowSystemOptions(
 
     // Periodic redraw to clear leaks (Linux/macOS only)
     bool Fix27_PeriodicFullRedraw = true,
-    double Fix27_RedrawIntervalSeconds = 1.0
+    double Fix27_RedrawIntervalSeconds = 1.0,
+
+    // ===== DIAGNOSTICS & TESTING =====
+    // Rendering diagnostics for testing and debugging (default: false, zero overhead when disabled)
+    bool EnableDiagnostics = false,
+    int DiagnosticsRetainFrames = 1,
+    DiagnosticsLayers DiagnosticsLayers = DiagnosticsLayers.All,
+    bool EnableQualityAnalysis = false,
+    bool EnablePerformanceProfiling = false
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

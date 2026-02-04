@@ -79,6 +79,9 @@ namespace SharpConsoleUI
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
 
+		// Diagnostics system (optional, for testing and debugging)
+		private Diagnostics.RenderingDiagnostics? _renderingDiagnostics;
+
 		// Input coordination
 		/// <summary>
 		/// Gets the input coordinator for managing keyboard and mouse input across windows.
@@ -233,6 +236,12 @@ namespace SharpConsoleUI
 			{
 				_pluginStateService.LoadPluginsFromDirectory(pluginConfiguration.GetEffectivePluginsDirectory());
 			}
+
+			// Initialize diagnostics if enabled (for testing and debugging)
+			if (_options.EnableDiagnostics)
+			{
+				_renderingDiagnostics = new Diagnostics.RenderingDiagnostics(_options);
+			}
 		}
 
 		#endregion
@@ -331,6 +340,12 @@ namespace SharpConsoleUI
 		/// Subscribe to LogAdded event or call GetRecentLogs() to access internal logs.
 		/// </summary>
 		public ILogService LogService => _logService;
+
+		/// <summary>
+		/// Gets the rendering diagnostics system for testing and debugging.
+		/// Only available when EnableDiagnostics is true in options.
+		/// </summary>
+		public Diagnostics.RenderingDiagnostics? RenderingDiagnostics => _renderingDiagnostics;
 
 		#endregion
 
