@@ -511,7 +511,7 @@ namespace SharpConsoleUI.Windows
 
 			var portalNode = new LayoutNode(portalContent);
 			portalNode.IsVisible = true;
-			ownerNode.AddChild(portalNode);
+			ownerNode.AddPortalChild(portalNode);  // FIXED: Use AddPortalChild, not AddChild
 			_controlToNodeMap[portalContent] = portalNode;
 
 			return portalNode;
@@ -527,7 +527,7 @@ namespace SharpConsoleUI.Windows
 			if (!_controlToNodeMap.TryGetValue(ownerControl, out var ownerNode))
 				return;
 
-			ownerNode.RemoveChild(portalNode);
+			ownerNode.RemovePortalChild(portalNode);  // FIXED: Use RemovePortalChild, not RemoveChild
 
 			// Remove from map
 			var portalControl = portalNode.Control;
