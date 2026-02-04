@@ -121,6 +121,24 @@ namespace SharpConsoleUI
 		}
 	}
 
+	/// <summary>
+	/// Fills the entire desktop area with the theme's background character and colors.
+	/// Used for initializing the desktop background.
+	/// </summary>
+	/// <param name="theme">The theme to use for desktop colors.</param>
+	/// <param name="screenWidth">The width of the screen.</param>
+	/// <param name="screenHeight">The height of the screen.</param>
+	public void FillDesktopBackground(Themes.ITheme theme, int screenWidth, int screenHeight)
+	{
+		FillRect(
+			0, 0,
+			screenWidth,
+			screenHeight,
+			theme.DesktopBackgroundChar,
+			theme.DesktopBackgroundColor,
+			theme.DesktopForegroundColor);
+	}
+
 		/// <summary>
 		/// Gets the rectangular regions where two windows overlap.
 		/// </summary>

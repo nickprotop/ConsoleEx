@@ -172,8 +172,8 @@ namespace SharpConsoleUI
 
 		// Convenience property to access FocusStateService
 		internal FocusStateService? FocusService => _windowSystem?.FocusStateService;
-		private int? _minimumHeight = 3;
-		private int? _minimumWidth = 10;
+		private int? _minimumHeight = Configuration.ControlDefaults.DefaultWindowMinimumHeight;
+		private int? _minimumWidth = Configuration.ControlDefaults.DefaultWindowMinimumWidth;
 		private WindowMode _mode = WindowMode.Normal;
 		internal int _scrollOffset;
 		private WindowState _state;
@@ -187,9 +187,9 @@ namespace SharpConsoleUI
 		private BorderStyle _borderStyle = BorderStyle.DoubleLine;
 		private bool _showTitle = true;
 		private bool _showCloseButton = true;
-		private bool _isClosing = false;
+		internal volatile bool _isClosing = false;
 		private string? _name;
-		private TimeSpan _asyncThreadCleanupTimeout = TimeSpan.FromSeconds(5);
+		private TimeSpan _asyncThreadCleanupTimeout = TimeSpan.FromSeconds(Configuration.ControlDefaults.AsyncCleanupTimeoutSeconds);
 
 		// DOM-based layout system (delegated to WindowRenderer)
 		internal Windows.WindowRenderer? _renderer;
@@ -418,7 +418,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public string Guid => _guid.ToString();
 
-		private int _height = 20;
+		private int _height = Configuration.ControlDefaults.DefaultWindowHeight;
 
 		/// <summary>
 		/// Gets or sets the height of the window in character rows.
@@ -488,24 +488,19 @@ namespace SharpConsoleUI
 		public bool IsContentVisible { get; set; } = true;
 
 		/// <summary>
-		/// Gets or sets a value indicating whether the window needs to be redrawn.
+		/// Thread-safe flag indicating whether the window needs to be redrawn (1 = true, 0 = false).
 		/// </summary>
-		private bool _isDirty = true;
+		private int _isDirtyFlag = 1; // 1 = true initially
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the window needs to be redrawn.
 		/// When true, the window will be rendered on the next frame update.
+		/// Thread-safe using Interlocked operations.
 		/// </summary>
 		public bool IsDirty
 		{
-			get => _isDirty;
-			set
-			{
-				if (_isDirty != value)
-				{
-					_isDirty = value;
-				}
-			}
+			get => Interlocked.CompareExchange(ref _isDirtyFlag, 0, 0) == 1;
+			set => Interlocked.Exchange(ref _isDirtyFlag, value ? 1 : 0);
 		}
 
 		/// <summary>
@@ -756,7 +751,7 @@ namespace SharpConsoleUI
 			}
 		}
 
-		private int _width = 40;
+		private int _width = Configuration.ControlDefaults.DefaultWindowWidth;
 
 		/// <summary>
 		/// Gets or sets the width of the window in character columns.
@@ -828,7 +823,7 @@ namespace SharpConsoleUI
 			// Handle focus logic for interactive controls
 			if (content is IInteractiveControl interactiveContent)
 			{
-				if (_interactiveContents.Where(p => p.HasFocus).Count() == 0)
+				if (!_interactiveContents.Any(p => p.HasFocus))
 				{
 					interactiveContent.HasFocus = true;
 					_lastFocusedControl = interactiveContent;
@@ -841,7 +836,7 @@ namespace SharpConsoleUI
 			RenderAndGetVisibleContent();
 
 			// Auto-scroll to bottom for non-sticky controls if nothing is focused
-			if (content.StickyPosition == StickyPosition.None && _interactiveContents.Where(p => p.HasFocus).Count() == 0)
+			if (content.StickyPosition == StickyPosition.None && !_interactiveContents.Any(p => p.HasFocus))
 				GoToBottom();
 		}
 	}
@@ -956,106 +951,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void BeginGracePeriodClose(Task windowTask, CancellationTokenSource cts)
 		{
-			var originalTitle = Title;
-			Title = $"{originalTitle} [Closing...]";
-
-			// Add status indicator
-			var statusControl = new MarkupControl(new List<string>
-			{
-				"[yellow on grey11] ⏳ Waiting for window thread to stop... [/]"
-			});
-			AddControl(statusControl);
-
-			// Lock down window during grace period
-			IsResizable = false;
-			IsMovable = false;
-			var wasClosable = IsClosable;
-			IsClosable = false;
-			Invalidate(true);
-
-			// Start countdown timer
-			var remainingSeconds = (int)AsyncThreadCleanupTimeout.TotalSeconds;
-			var countdownTimer = new System.Timers.Timer(1000);
-			countdownTimer.Elapsed += (s, e) =>
-			{
-				remainingSeconds--;
-
-				// After 2 seconds, show countdown
-				if (remainingSeconds <= 3)
-				{
-					statusControl.SetContent(new List<string>
-					{
-						$"[yellow on grey11] ⏳ Waiting for thread to stop... ({remainingSeconds}s remaining) [/]"
-					});
-					Invalidate(true);
-				}
-			};
-			countdownTimer.Start();
-
-			// Wait for completion or timeout
-			_ = Task.Run(async () =>
-			{
-				try
-				{
-					var completedTask = await Task.WhenAny(
-						windowTask,
-						Task.Delay(AsyncThreadCleanupTimeout)
-					);
-
-					countdownTimer.Stop();
-					countdownTimer.Dispose();
-
-					if (completedTask == windowTask)
-					{
-						// SUCCESS: Thread stopped gracefully
-						await windowTask; // Propagate exceptions
-
-						// Remove status control and restore window
-						RemoveContent(statusControl);
-						Title = originalTitle;
-
-						// Close via system (handles removal and CompleteClose)
-						// If not in system (orphan or already removed), call CompleteClose directly
-						if (_windowSystem == null || !_windowSystem.CloseWindow(this, force: true))
-						{
-							CompleteClose();
-						}
-
-						_windowSystem?.LogService?.LogDebug(
-							$"Window thread stopped gracefully within timeout",
-							"Window");
-					}
-					else
-					{
-						// TIMEOUT: Thread hung - transform to error window
-						statusControl.SetContent(new List<string>
-						{
-							"[red on yellow] ⚠ Thread did not respond - transforming to error state... [/]"
-						});
-						Invalidate(true);
-
-						await Task.Delay(500); // Brief pause so user sees message
-
-						TransformToErrorWindow(statusControl);
-					}
-				}
-				catch (Exception ex)
-				{
-					_windowSystem?.LogService?.LogError(
-						$"Error during grace period: {ex.Message}",
-						ex, "Window");
-
-					// Fallback: force close via system or directly if not in system
-					if (_windowSystem == null || !_windowSystem.CloseWindow(this, force: true))
-					{
-						CompleteClose();
-					}
-				}
-				finally
-				{
-					cts?.Dispose();
-				}
-			});
+			Windows.WindowLifecycleHelper.BeginGracePeriodClose(this, windowTask, cts);
 		}
 
 		/// <summary>
@@ -1078,104 +974,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void TransformToErrorWindow(IWindowControl? statusControl)
 		{
-			try
-			{
-				var originalTitle = Title.Replace("[Closing...]", "").Trim();
-
-				// 1. Build error message
-				var errorLines = new List<string>
-				{
-					"",
-					"[bold red]⚠ WINDOW THREAD HUNG ⚠[/]",
-					"",
-					$"[yellow]Window:[/] {originalTitle}",
-					$"[yellow]Timeout:[/] {(int)AsyncThreadCleanupTimeout.TotalSeconds} seconds",
-					"",
-					"[white]The window's background thread did not respond to[/]",
-					"[white]cancellation within the timeout period.[/]",
-					"",
-					"[bold cyan]Cause:[/]",
-					"[white]• Infinite loop without checking CancellationToken[/]",
-					"[white]• Blocking operation ignoring cancellation[/]",
-					"",
-					"[bold cyan]How to fix:[/]",
-					"[white]1. Check [cyan]ct.IsCancellationRequested[/] in loops[/]",
-					"[white]2. Pass token: [cyan]await Task.Delay(ms, ct)[/][/]",
-					"[white]3. Use [cyan]ct.ThrowIfCancellationRequested()[/][/]",
-					"",
-					"[grey]Move this window aside to continue debugging.[/]",
-					""
-				};
-
-				// 2. Calculate required size (strip markup for length calculation)
-				var maxLineLength = errorLines
-					.Select(line => Helpers.AnsiConsoleHelper.StripSpectreLength(line))
-					.Max();
-
-				var requiredWidth = Math.Max(50, maxLineLength + 4); // Min 50, +4 for borders
-				var requiredHeight = errorLines.Count + 6; // +6 for borders, spacing, button
-
-				// 3. Remove ALL existing controls
-				foreach (var control in _controls.ToList())
-				{
-					RemoveContent(control);
-					try { (control as IDisposable)?.Dispose(); }
-					catch { /* Ignore disposal errors */ }
-				}
-
-				// 4. Resize and center window
-				Width = requiredWidth;
-				Height = requiredHeight;
-				if (_windowSystem != null)
-				{
-					Left = Math.Max(0, (_windowSystem.DesktopDimensions.Width - requiredWidth) / 2);
-					Top = Math.Max(0, (_windowSystem.DesktopDimensions.Height - requiredHeight) / 2);
-				}
-
-				// 5. Add error content
-				var errorControl = new MarkupControl(errorLines);
-				AddControl(errorControl);
-
-				// 6. Add quit button
-				var quitButton = new ButtonControl
-				{
-					Text = "[white on red] Force Quit Application [/]"
-				};
-				quitButton.Click += (sender, e) =>
-				{
-					_windowSystem?.LogService?.LogCritical(
-						"User force quit application due to hung window thread",
-						null, "Window");
-					_windowSystem?.Shutdown(1);
-				};
-				AddControl(quitButton);
-
-				// 7. Configure window behavior
-				_isClosing = false;         // Allow window to live
-				IsResizable = false;        // Can't resize (content is fixed)
-				IsClosable = false;         // Can't close (would hide error!)
-				IsMovable = true;           // ✅ CAN MOVE - user can move it aside
-				AlwaysOnTop = true;         // ✅ ALWAYS VISIBLE - can't hide the error
-				Title = "⚠ HUNG THREAD ERROR";
-				BackgroundColor = Color.Red;
-				ForegroundColor = Color.White;
-
-				// 8. Bring to front
-				_windowSystem?.WindowStateService.BringToFront(this);
-				Invalidate(true);
-
-				_windowSystem?.LogService?.LogCritical(
-					$"Window thread hung and did not respond to cancellation. " +
-					$"Original window '{originalTitle}' transformed to error boundary (AlwaysOnTop, movable).",
-					null, "Window");
-			}
-			catch (Exception ex)
-			{
-				// If transformation fails, fallback to logging
-				_windowSystem?.LogService?.LogCritical(
-					$"Failed to transform hung window to error state: {ex.Message}",
-					ex, "Window");
-			}
+			Windows.WindowLifecycleHelper.TransformToErrorWindow(this, statusControl);
 		}
 
 		/// <summary>
@@ -1382,7 +1181,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public void GoToBottom()
 		{
-			_scrollOffset = Math.Max(0, (_cachedContent?.Count ?? Height) - (Height - 2));
+			_scrollOffset = Math.Max(0, (_cachedContent?.Count ?? 0) - (Height - 2));
 			Invalidate(true);
 		}
 
@@ -1410,9 +1209,6 @@ namespace SharpConsoleUI
 				// CRITICAL: Force layout update to get fresh widget positions
 				// Without this, we get stale cached bounds from before the previous scroll
 				Invalidate(true);
-
-				// Allow the layout to update (process pending invalidations)
-				System.Threading.Thread.Sleep(1);
 
 				var bounds = _layoutManager.GetOrCreateControlBounds(control);
 				if (bounds == null) return;
@@ -1487,11 +1283,6 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Determines whether this window has an active interactive control with focus.
-		/// </summary>
-		/// <param name="interactiveContent">When returning true, contains the focused interactive control.</param>
-		/// <returns>True if there is a focused interactive control; otherwise false.</returns>
-		/// <summary>
 		/// Checks if a cursor position is visible within the current window viewport
 		/// </summary>
 		/// <param name="cursorPosition">The cursor position in window coordinates</param>
@@ -1502,6 +1293,7 @@ namespace SharpConsoleUI
 
 			// Get the control's bounds to understand its positioning
 			var bounds = _layoutManager.GetOrCreateControlBounds(control);
+			if (bounds == null) return false;
 			var controlBounds = bounds.ControlContentBounds;
 
 			// Convert cursor position from window coordinates to window content coordinates
@@ -1889,11 +1681,10 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-	/// <summary>
-	/// Removes a control from this window and disposes it.
-	/// </summary>
-	/// <param name="content">The control to remove.</param>
-	public void RemoveContent(IWindowControl content)
+		/// Removes a control from this window and disposes it.
+		/// </summary>
+		/// <param name="content">The control to remove.</param>
+		public void RemoveContent(IWindowControl content)
 	{
 		lock (_lock)
 		{
@@ -2258,10 +2049,6 @@ namespace SharpConsoleUI
 		/// Switches focus to the next or previous interactive control in the window.
 		/// </summary>
 		/// <param name="backward">True to move focus backward; false to move forward.</param>
-		/// <summary>
-		/// Switches focus to the next or previous interactive control.
-		/// </summary>
-		/// <param name="backward">True to switch backward; false to switch forward.</param>
 		public void SwitchFocus(bool backward = false)
 		{
 			_eventDispatcher?.SwitchFocus(backward);
@@ -2353,8 +2140,8 @@ namespace SharpConsoleUI
 				{
 					// Use a smaller offset for modal windows to make them look more like dialogs
 					// Ensure the window fits within the parent window bounds
-					Left = Math.Max(0, _parentWindow.Left + 5);
-					Top = Math.Max(0, _parentWindow.Top + 3);
+					Left = Math.Max(0, _parentWindow.Left + Configuration.ControlDefaults.ModalWindowLeftOffset);
+					Top = Math.Max(0, _parentWindow.Top + Configuration.ControlDefaults.ModalWindowTopOffset);
 
 					// Make sure the window isn't too large for the parent
 					if (_windowSystem != null)

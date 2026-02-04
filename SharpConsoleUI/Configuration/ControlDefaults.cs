@@ -126,5 +126,70 @@ namespace SharpConsoleUI.Configuration
 		/// Maximum time between clicks to register as double-click in milliseconds (default: 500ms)
 		/// </summary>
 		public const int DefaultDoubleClickThresholdMs = 500;
+
+		// Window defaults
+		/// <summary>
+		/// Minimum height for windows in character rows (default: 3)
+		/// </summary>
+		public const int DefaultWindowMinimumHeight = 3;
+
+		/// <summary>
+		/// Minimum width for windows in character columns (default: 10)
+		/// </summary>
+		public const int DefaultWindowMinimumWidth = 10;
+
+		/// <summary>
+		/// Default height for new windows (default: 20 lines)
+		/// </summary>
+		public const int DefaultWindowHeight = 20;
+
+		/// <summary>
+		/// Default width for new windows (default: 40 characters)
+		/// </summary>
+		public const int DefaultWindowWidth = 40;
+
+		// Window lifecycle defaults
+		/// <summary>
+		/// Timeout for async window thread cleanup in seconds (default: 5)
+		/// </summary>
+		public const int AsyncCleanupTimeoutSeconds = 5;
+
+		/// <summary>
+		/// Warning threshold during grace period in seconds (default: 3)
+		/// Shows countdown when remaining time falls below this
+		/// </summary>
+		public const int GracePeriodWarningThresholdSeconds = 3;
+
+		/// <summary>
+		/// Delay before transforming hung window to error state in milliseconds (default: 500ms)
+		/// </summary>
+		public const int ErrorTransformDelayMs = 500;
+
+		// Error window layout defaults
+		/// <summary>
+		/// Minimum width for error windows (default: 50 characters)
+		/// </summary>
+		public const int MinimumErrorWindowWidth = 50;
+
+		/// <summary>
+		/// Border offset for error window sizing (default: 4)
+		/// </summary>
+		public const int ErrorWindowBorderOffset = 4;
+
+		/// <summary>
+		/// Spacing offset for error window sizing (default: 6)
+		/// </summary>
+		public const int ErrorWindowSpacingOffset = 6;
+
+		// Modal window positioning defaults
+		/// <summary>
+		/// Left offset for modal window positioning relative to parent (default: 5)
+		/// </summary>
+		public const int ModalWindowLeftOffset = 5;
+
+		/// <summary>
+		/// Top offset for modal window positioning relative to parent (default: 3)
+		/// </summary>
+		public const int ModalWindowTopOffset = 3;
 	}
 }

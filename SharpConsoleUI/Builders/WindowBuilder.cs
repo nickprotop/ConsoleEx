@@ -88,7 +88,7 @@ public sealed class WindowBuilder
 
     /// <summary>
     /// Sets the window name for singleton window patterns.
-    /// Windows can be found and activated by name using <see cref="ConsoleWindowSystem.ActivateOrCreate"/>.
+    /// Windows can be found and activated by name.
     /// </summary>
     /// <param name="name">The unique window name used for identification.</param>
     /// <returns>The current builder instance for method chaining.</returns>

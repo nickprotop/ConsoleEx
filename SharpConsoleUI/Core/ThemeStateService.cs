@@ -409,7 +409,7 @@ namespace SharpConsoleUI.Core
 
 		#region Private Helpers
 
-		private void FireThemeChanged(ITheme previousTheme, ITheme newTheme)
+		private void FireThemeChanged(ITheme? previousTheme, ITheme newTheme)
 		{
 			var args = new ThemeChangedEventArgs(previousTheme, newTheme);
 			ThreadPool.QueueUserWorkItem(_ =>

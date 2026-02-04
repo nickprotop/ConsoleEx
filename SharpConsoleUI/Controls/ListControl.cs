@@ -315,7 +315,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Occurs when the mouse enters the control area.
 		/// </summary>
+#pragma warning disable CS0414 // Field is assigned but never used - reserved for future implementation
 		public event EventHandler<MouseEventArgs>? MouseEnter;
+#pragma warning restore CS0414
 
 		/// <summary>
 		/// Occurs when the mouse leaves the control area.

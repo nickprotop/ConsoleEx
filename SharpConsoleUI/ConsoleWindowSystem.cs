@@ -44,15 +44,19 @@ namespace SharpConsoleUI
 		private readonly VisibleRegions _visibleRegions;
 
 		private IConsoleDriver _consoleDriver;
-		private int _exitCode;
-		private int _idleTime = 10;
-		private bool _running;
+		private volatile int _exitCode;
+		private volatile int _idleTime = Configuration.SystemDefaults.DefaultIdleTimeMs;
+		private volatile bool _running;
 
 		// Frame rate limiting (configured via ConsoleWindowSystemOptions)
 		private DateTime _lastRenderTime = DateTime.UtcNow;
 
 		// Performance metrics tracking - delegated to PerformanceTracker
 		private ConsoleWindowSystemOptions _options;
+
+		/// <summary>
+		/// Gets the performance tracker for monitoring frame rates and render times.
+		/// </summary>
 		public PerformanceTracker Performance;
 
 		// Event handlers stored for proper cleanup
@@ -76,14 +80,23 @@ namespace SharpConsoleUI
 		private readonly PluginStateService _pluginStateService;
 
 		// Input coordination
+		/// <summary>
+		/// Gets the input coordinator for managing keyboard and mouse input across windows.
+		/// </summary>
 		public InputCoordinator Input;
 
 		// Render coordination
+		/// <summary>
+		/// Gets the render coordinator for managing window rendering and invalidation.
+		/// </summary>
 		public RenderCoordinator Render { get; private set; } = null!; // Initialized in constructor after renderer
 
 		// Window lifecycle coordination
 
 		// Window positioning coordination
+		/// <summary>
+		/// Gets the window positioning manager for handling window movement and resizing.
+		/// </summary>
 		public WindowPositioningManager Positioning { get; private set; } = null!; // Initialized in constructor after renderer
 
 		// Region invalidation helper
@@ -478,7 +491,7 @@ namespace SharpConsoleUI
 			_consoleDriver.Start();
 
 			// Initialize the console window system with background color and character
-			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+			_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);
 
 			Exception? fatalException = null;
 
@@ -511,6 +524,11 @@ namespace SharpConsoleUI
 					// Frame pacing: render if windows are dirty OR metrics need update
 					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate;
 
+					// Calculate recommended sleep duration once (used in both branches)
+					var recommendedSleep = _inputStateService.GetRecommendedSleepDuration(
+						Configuration.SystemDefaults.MinSleepDurationMs,
+						Configuration.SystemDefaults.MaxSleepDurationMs);
+
 					if (Performance.IsFrameRateLimitingEnabled)
 					{
 						// Frame rate limiting enabled: only render if enough time elapsed
@@ -523,7 +541,7 @@ namespace SharpConsoleUI
 						else
 						{
 							_inputStateService.UpdateIdleState();
-							_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
+							_idleTime = recommendedSleep;
 						}
 					}
 					else
@@ -533,12 +551,12 @@ namespace SharpConsoleUI
 						{
 							UpdateDisplay();
 							_lastRenderTime = now;
-							_idleTime = 10; // Fast loop when dirty, no frame rate cap
+							_idleTime = Configuration.SystemDefaults.FastLoopIdleMs; // Fast loop when dirty, no frame rate cap
 						}
 						else
 						{
 							_inputStateService.UpdateIdleState();
-							_idleTime = _inputStateService.GetRecommendedSleepDuration(10, 100);
+							_idleTime = recommendedSleep;
 						}
 					}
 
@@ -643,7 +661,7 @@ namespace SharpConsoleUI
 
 				_consoleDriver.Clear();
 
-				_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height, Theme.DesktopBackgroundChar, Theme.DesktopBackgroundColor, Theme.DesktopForegroundColor);
+				_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);
 
 				foreach (var window in Windows.Values)
 				{
