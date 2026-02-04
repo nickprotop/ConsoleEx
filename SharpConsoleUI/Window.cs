@@ -346,13 +346,13 @@ namespace SharpConsoleUI
 		/// Gets or sets the foreground color of the window border when active.
 		/// </summary>
 		public Color ActiveBorderForegroundColor
-		{ get => _activeBorderForegroundColor ?? _windowSystem?.Theme.ActiveBorderForegroundColor ?? Color.White; set { _activeBorderForegroundColor = value; Invalidate(false); } }
+		{ get => _activeBorderForegroundColor ?? _windowSystem?.Theme.ActiveBorderForegroundColor ?? Color.White; set { _activeBorderForegroundColor = value; InvalidateBorderCache(); Invalidate(false); } }
 
 		/// <summary>
 		/// Gets or sets the foreground color of the window title when active.
 		/// </summary>
 		public Color ActiveTitleForegroundColor
-		{ get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; Invalidate(false); } }
+		{ get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; InvalidateBorderCache(); Invalidate(false); } }
 
 		private Color? _backgroundColor;
 		private Color? _foregroundColor;
@@ -366,7 +366,12 @@ namespace SharpConsoleUI
 			get => _backgroundColor ?? (Mode == WindowMode.Modal
 				? _windowSystem?.Theme.ModalBackgroundColor
 				: _windowSystem?.Theme.WindowBackgroundColor) ?? Color.Black;
-			set => _backgroundColor = value;
+			set
+			{
+				_backgroundColor = value;
+				InvalidateBorderCache();
+				Invalidate(false);
+			}
 		}
 
 		/// <summary>
@@ -376,7 +381,12 @@ namespace SharpConsoleUI
 		public Color ForegroundColor
 		{
 			get => _foregroundColor ?? _windowSystem?.Theme.WindowForegroundColor ?? Color.White;
-			set => _foregroundColor = value;
+			set
+			{
+				_foregroundColor = value;
+				InvalidateBorderCache();
+				Invalidate(false);
+			}
 		}
 
 		/// <summary>
@@ -413,13 +423,13 @@ namespace SharpConsoleUI
 		/// Gets or sets the foreground color of the window border when inactive.
 		/// </summary>
 		public Color InactiveBorderForegroundColor
-		{ get => _inactiveBorderForegroundColor ?? _windowSystem?.Theme.InactiveBorderForegroundColor ?? Color.White; set { _inactiveBorderForegroundColor = value; Invalidate(false); } }
+		{ get => _inactiveBorderForegroundColor ?? _windowSystem?.Theme.InactiveBorderForegroundColor ?? Color.White; set { _inactiveBorderForegroundColor = value; InvalidateBorderCache(); Invalidate(false); } }
 
 		/// <summary>
 		/// Gets or sets the foreground color of the window title when inactive.
 		/// </summary>
 		public Color InactiveTitleForegroundColor
-		{ get => _inactiveTitleForegroundColor ?? _windowSystem?.Theme.InactiveTitleForegroundColor ?? Color.White; set { _inactiveTitleForegroundColor = value; Invalidate(false); } }
+		{ get => _inactiveTitleForegroundColor ?? _windowSystem?.Theme.InactiveTitleForegroundColor ?? Color.White; set { _inactiveTitleForegroundColor = value; InvalidateBorderCache(); Invalidate(false); } }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the window can be closed by the user.
@@ -666,7 +676,24 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets or sets the title displayed in the window's title bar.
 		/// </summary>
-		public string Title { get; set; } = "Window";
+		private string _title = "Window";
+
+		/// <summary>
+		/// Gets or sets the title displayed in the window's title bar.
+		/// </summary>
+		public string Title
+		{
+			get => _title;
+			set
+			{
+				if (_title != value)
+				{
+					_title = value;
+					InvalidateBorderCache();
+					Invalidate(false);
+				}
+			}
+		}
 
 		/// <summary>
 		/// Optional unique name for finding/identifying this window.
