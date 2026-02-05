@@ -21,6 +21,36 @@ public enum DiagnosticsLayers
 }
 
 /// <summary>
+/// Dirty tracking granularity for double-buffering optimization.
+/// </summary>
+public enum DirtyTrackingMode
+{
+	/// <summary>
+	/// Track dirty at line-level granularity.
+	/// When any cell in a line changes, render the entire line.
+	/// Pros: Simpler, fewer cursor moves, proven stable.
+	/// Cons: Outputs entire line (~200 cells) even for single character change.
+	/// </summary>
+	Line = 0,
+
+	/// <summary>
+	/// Track dirty at cell/region-level granularity.
+	/// Only render the specific changed regions within lines.
+	/// Pros: Minimal output, optimal for small changes.
+	/// Cons: More cursor moves, slightly more complex.
+	/// </summary>
+	Cell = 1,
+
+	/// <summary>
+	/// Smart adaptive mode - chooses LINE or CELL strategy per line based on heuristics.
+	/// Analyzes dirty pattern (coverage + fragmentation) and selects optimal rendering strategy.
+	/// Pros: Best of both worlds, automatic optimization, no configuration needed.
+	/// Cons: Slight decision overhead (optimized single-pass), more complex logic.
+	/// </summary>
+	Smart = 2
+}
+
+/// <summary>
 /// Configuration options for ConsoleWindowSystem behavior.
 /// </summary>
 public record ConsoleWindowSystemOptions(
@@ -37,10 +67,20 @@ public record ConsoleWindowSystemOptions(
     bool Fix6_WidthLimit = false,
     bool Fix7_ClearAreaConditional = true,
 
+    // Dirty tracking granularity (Smart = adaptive [default], Cell = minimal output, Line = fewer cursor moves)
+    DirtyTrackingMode DirtyTrackingMode = DirtyTrackingMode.Smart,
+
+    // Smart mode tuning parameters (only used when DirtyTrackingMode = Smart)
+    float SmartModeCoverageThreshold = 0.6f,      // >60% dirty cells → use LINE mode
+    int SmartModeFragmentationThreshold = 5,      // >5 separate regions → use LINE mode
+
     // ANSI output optimizations
     bool Fix12_ResetAfterLine = true,
     bool Fix13_OptimizeAnsiOutput = true,
     bool Fix15_FixBufferSyncBug = true,
+
+    // Window rendering optimizations
+    bool ClearDestinationOnWindowMove = true,
 
     // Input handling (disabled)
     bool Fix24_DrainInputBeforeRender = false,
