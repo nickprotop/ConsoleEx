@@ -536,8 +536,8 @@ namespace SharpConsoleUI
 						);
 					}
 
-					// Frame pacing: render if windows are dirty OR metrics need update
-					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate;
+					// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render
+					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender;
 
 					// Calculate recommended sleep duration once (used in both branches)
 					var recommendedSleep = _inputStateService.GetRecommendedSleepDuration(

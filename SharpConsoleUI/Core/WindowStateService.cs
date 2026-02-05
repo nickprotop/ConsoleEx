@@ -1007,23 +1007,27 @@ namespace SharpConsoleUI.Core
 		// STEP 3: Complete the close (fire OnClosed, dispose controls)
 		window.CompleteClose();
 
-		// Redraw the screen
+		// Clear only the closed window's area (not entire screen!)
 		if (_renderer != null && _consoleDriver != null)
 		{
 			var theme = context.Theme;
-			_renderer.FillRect(0, 0, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height,
+			// BUG FIX: Only clear the window's rectangle, not entire desktop
+			_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
 							  theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+
+			// Invalidate remaining windows in case they were partially occluded
 			foreach (var w in context.Windows.Values)
 			{
 				w.Invalidate(true);
 			}
 
-			// Force flush when no windows remain - the main loop won't render
-			// because AnyWindowDirty() returns false with an empty window collection
-			if (context.Windows.Count == 0)
-			{
-				_consoleDriver.Flush();
-			}
+			// BUG FIX: Removed immediate Flush() - let normal render cycle handle it
+			// The next UpdateDisplay() will detect the changes and output clearing
+			// This maintains frame-based rendering consistency
+
+			// CRITICAL: Force next render even if no windows remain
+			// Without this, Run() loop won't call UpdateDisplay() when AnyWindowDirty() returns false
+			context.Render.DesktopNeedsRender = true;
 		}
 
 		return true;

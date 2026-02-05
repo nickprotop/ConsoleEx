@@ -14,6 +14,7 @@ using SharpConsoleUI.Logging;
 using SharpConsoleUI.Performance;
 using SharpConsoleUI.Themes;
 using System.Drawing;
+using System.Linq;
 
 namespace SharpConsoleUI.Rendering
 {
@@ -39,6 +40,21 @@ namespace SharpConsoleUI.Rendering
 		private readonly List<Window> _sortedWindows = new List<Window>();
 		private readonly Dictionary<string, bool> _coverageCache = new Dictionary<string, bool>();
 		private readonly List<Rectangle> _pendingDesktopClears = new List<Rectangle>();
+
+		// Desktop rendering flag - forces render even when no windows are dirty
+		// Used when desktop background changes (e.g., after closing last window)
+		private bool _desktopNeedsRender = false;
+
+		/// <summary>
+		/// Gets or sets whether the desktop needs to render on the next frame.
+		/// This forces UpdateDisplay() to run even when no windows are dirty.
+		/// Automatically cleared after rendering.
+		/// </summary>
+		public bool DesktopNeedsRender
+		{
+			get => _desktopNeedsRender;
+			set => _desktopNeedsRender = value;
+		}
 
 		// Status bar caching
 		private string? _cachedBottomStatus;
@@ -191,22 +207,38 @@ namespace SharpConsoleUI.Rendering
 
 			lock (_renderLock)
 			{
-				// ATOMIC DESKTOP CLEARING: Clear old window positions before rendering
-				// This prevents traces from rapid moves between frames
-				if (_pendingDesktopClears.Count > 0)
-				{
-					// Copy list to avoid race condition (mouse events can add during iteration)
-					var clearsCopy = _pendingDesktopClears.ToList();
-					_pendingDesktopClears.Clear();
+			// ATOMIC DESKTOP CLEARING: Clear old window positions before rendering
+			// FIX: Calculate visible regions to avoid overwriting windows below (prevents empty regions bug)
+			if (_pendingDesktopClears.Count > 0)
+			{
+				// Copy list to avoid race condition (mouse events can add during iteration)
+				var clearsCopy = _pendingDesktopClears.ToList();
+				_pendingDesktopClears.Clear();
 
-					foreach (var rect in clearsCopy)
+				foreach (var clearRect in clearsCopy)
+				{
+					// Find all visible windows that overlap with clear area
+					var overlappingWindows = _windowSystemContext.Windows.Values
+						.Where(w => 
+						           w.State != WindowState.Minimized &&
+						           GeometryHelpers.DoesRectangleIntersect(clearRect, 
+						               new Rectangle(w.Left, w.Top, w.Width, w.Height)))
+						.ToList();
+
+					// Calculate visible regions (areas NOT covered by windows)
+					var visibleRegions = _windowSystemContext.VisibleRegions
+						.CalculateVisibleRegions(clearRect, overlappingWindows);
+
+					// Only clear visible regions (never overwrite windows!)
+					foreach (var region in visibleRegions)
 					{
-						_renderer.FillRect(rect.Left, rect.Top, rect.Width, rect.Height,
+						_renderer.FillRect(region.Left, region.Top, region.Width, region.Height,
 							_windowSystemContext.Theme.DesktopBackgroundChar,
 							_windowSystemContext.Theme.DesktopBackgroundColor,
 							_windowSystemContext.Theme.DesktopForegroundColor);
 					}
 				}
+			}
 
 				// RENDERING ORDER:
 				// 1. Windows first (so we can measure their dirty chars)
@@ -233,6 +265,10 @@ namespace SharpConsoleUI.Rendering
 				// Clear the region update set for next frame
 				_windowsNeedingRegionUpdate.Clear();
 				_consoleDriver.Flush();
+
+				// Clear desktop render flag now that we've rendered
+				// (always clear it, as it was used to trigger this render if no windows were dirty)
+				_desktopNeedsRender = false;
 			}
 		}
 
