@@ -25,13 +25,22 @@ public static class TestWindowSystemBuilder
 	/// <returns>A configured ConsoleWindowSystem instance ready for testing.</returns>
 	public static ConsoleWindowSystem CreateTestSystem(Action<ConsoleWindowSystemOptions>? configure = null)
 	{
+		// Disable status bars by default in tests to isolate core rendering logic
+		var statusBarOptions = new Configuration.StatusBarOptions(
+			ShowTopStatus: false,
+			ShowBottomStatus: false,
+			ShowTaskBar: false,
+			ShowStartButton: false
+		);
+
 		var options = new ConsoleWindowSystemOptions(
 			EnableDiagnostics: true,
 			DiagnosticsRetainFrames: 10,
 			DiagnosticsLayers: DiagnosticsLayers.All,
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
-			EnablePerformanceMetrics: false
+			EnablePerformanceMetrics: false,
+			StatusBarOptions: statusBarOptions
 		);
 
 		// Allow caller to customize options
@@ -57,13 +66,22 @@ public static class TestWindowSystemBuilder
 	{
 		var mockDriver = new MockConsoleDriver(width, height);
 
+		// Disable status bars by default in tests to isolate core rendering logic
+		var statusBarOptions = new Configuration.StatusBarOptions(
+			ShowTopStatus: false,
+			ShowBottomStatus: false,
+			ShowTaskBar: false,
+			ShowStartButton: false
+		);
+
 		var options = new ConsoleWindowSystemOptions(
 			EnableDiagnostics: true,
 			DiagnosticsRetainFrames: 10,
 			DiagnosticsLayers: DiagnosticsLayers.All,
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
-			EnablePerformanceMetrics: false
+			EnablePerformanceMetrics: false,
+			StatusBarOptions: statusBarOptions
 		);
 
 		return new ConsoleWindowSystem(mockDriver, options: options);
@@ -82,6 +100,68 @@ public static class TestWindowSystemBuilder
 			EnablePerformanceMetrics: false
 		);
 
+		return new ConsoleWindowSystem(mockDriver, options: options);
+	}
+
+	/// <summary>
+	/// Creates a test window system with line-level dirty tracking mode.
+	/// </summary>
+	public static ConsoleWindowSystem CreateTestSystemWithLineMode()
+	{
+		// Disable status bars by default in tests to isolate core rendering logic
+		var statusBarOptions = new Configuration.StatusBarOptions(
+			ShowTopStatus: false,
+			ShowBottomStatus: false,
+			ShowTaskBar: false,
+			ShowStartButton: false
+		);
+
+		var options = new ConsoleWindowSystemOptions(
+			EnableDiagnostics: true,
+			DiagnosticsRetainFrames: 10,
+			DiagnosticsLayers: DiagnosticsLayers.All,
+			EnableQualityAnalysis: true,
+			EnableFrameRateLimiting: false,
+			EnablePerformanceMetrics: false,
+			StatusBarOptions: statusBarOptions,
+			DirtyTrackingMode: Configuration.DirtyTrackingMode.Line  // LINE MODE
+		);
+
+		// Create mock console driver
+		var mockDriver = new MockConsoleDriver();
+
+		// Create window system
+		return new ConsoleWindowSystem(mockDriver, options: options);
+	}
+
+	/// <summary>
+	/// Creates a test window system with cell-level dirty tracking mode.
+	/// </summary>
+	public static ConsoleWindowSystem CreateTestSystemWithCellMode()
+	{
+		// Disable status bars by default in tests to isolate core rendering logic
+		var statusBarOptions = new Configuration.StatusBarOptions(
+			ShowTopStatus: false,
+			ShowBottomStatus: false,
+			ShowTaskBar: false,
+			ShowStartButton: false
+		);
+
+		var options = new ConsoleWindowSystemOptions(
+			EnableDiagnostics: true,
+			DiagnosticsRetainFrames: 10,
+			DiagnosticsLayers: DiagnosticsLayers.All,
+			EnableQualityAnalysis: true,
+			EnableFrameRateLimiting: false,
+			EnablePerformanceMetrics: false,
+			StatusBarOptions: statusBarOptions,
+			DirtyTrackingMode: Configuration.DirtyTrackingMode.Cell  // CELL MODE
+		);
+
+		// Create mock console driver
+		var mockDriver = new MockConsoleDriver();
+
+		// Create window system
 		return new ConsoleWindowSystem(mockDriver, options: options);
 	}
 }
