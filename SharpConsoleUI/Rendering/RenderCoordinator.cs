@@ -334,6 +334,9 @@ namespace SharpConsoleUI.Rendering
 			// Reuse cached HashSet to avoid allocation
 			_windowsToRender.Clear();
 
+			// Clear coverage cache - Z-indices may have changed since last frame
+			_coverageCache.Clear();
+
 			// Build sorted window list for rendering (avoid LINQ allocations)
 			_sortedWindows.Clear();
 			_sortedWindows.AddRange(_windowSystemContext.Windows.Values);

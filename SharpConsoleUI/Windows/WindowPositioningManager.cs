@@ -58,7 +58,7 @@ namespace SharpConsoleUI.Windows
 			var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
 
 			_renderCoordinator.AddPendingDesktopClear(oldBounds);
-			window.SetPosition(new Point(newLeft, newTop));
+			window.SetPositionDirect(new Point(newLeft, newTop));  // Use direct setter to avoid recursion
 			window.Invalidate(true);
 
 			// Invalidate windows that were underneath (now exposed)

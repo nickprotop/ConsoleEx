@@ -618,7 +618,8 @@ namespace SharpConsoleUI.Core
 		#region Z-Order Management
 
 		/// <summary>
-		/// Brings a window to the front (highest Z-index).
+		/// Brings a window to the front (highest Z-index) and activates it.
+		/// This matches typical windowing system behavior where bringing a window to front makes it active.
 		/// </summary>
 		/// <param name="window">The window to bring to front.</param>
 		public void BringToFront(Window window)
@@ -628,12 +629,9 @@ namespace SharpConsoleUI.Core
 
 			lock (_lock)
 			{
-				window.ZIndex = GetMaxZIndex() + 1;
-				UpdateStateInternal(CreateStateSnapshot());
-
-				// Invalidate window when z-order changes because visibleRegions change
-				// Window may now have more visible area and needs to repaint with new clipRect
-				window.Invalidate(true);
+				// Activate window (which also brings it to front with highest Z-index)
+				// This ensures the window is both visually on top and receives input
+				ActivateWindow(window);
 
 				FireWindowEvent(window, WindowEventType.ZOrderChanged);
 			}
@@ -641,6 +639,7 @@ namespace SharpConsoleUI.Core
 
 		/// <summary>
 		/// Sends a window to the back (lowest Z-index).
+		/// If the window was active, activates the next available window.
 		/// </summary>
 		/// <param name="window">The window to send to back.</param>
 		public void SendToBack(Window window)
@@ -650,6 +649,8 @@ namespace SharpConsoleUI.Core
 
 			lock (_lock)
 			{
+				var wasActive = _currentState.ActiveWindow == window;
+
 				var minZIndex = _windows.Count > 0 ? _windows.Values.Min(w => w.ZIndex) : 0;
 				window.ZIndex = minZIndex - 1;
 				UpdateStateInternal(CreateStateSnapshot());
@@ -657,6 +658,13 @@ namespace SharpConsoleUI.Core
 				// Invalidate window when z-order changes because visibleRegions change
 				// Window may now have less visible area and needs to repaint with new clipRect
 				window.Invalidate(true);
+
+				// If this was the active window, activate the next one
+				if (wasActive)
+				{
+					var nextWindow = FindNextActiveWindow(window);
+					ActivateWindow(nextWindow);
+				}
 
 				FireWindowEvent(window, WindowEventType.ZOrderChanged);
 			}
@@ -825,6 +833,28 @@ namespace SharpConsoleUI.Core
 					// Swallow exceptions from event handlers
 				}
 			});
+		}
+
+		/// <summary>
+		/// Invalidates all windows that overlap with the specified window.
+		/// Used after z-order changes to ensure proper rendering of affected windows.
+		/// </summary>
+		private void InvalidateOverlappingWindows(Window window)
+		{
+			if (window == null) return;
+
+			var windowRect = new System.Drawing.Rectangle(window.Left, window.Top, window.Width, window.Height);
+
+			foreach (var other in _windows.Values)
+			{
+				if (other == window) continue;
+
+				// Invalidate any window that overlaps with the moved window
+				if (Helpers.GeometryHelpers.DoesRectangleOverlapWindow(windowRect, other))
+				{
+					other.Invalidate(true);
+				}
+			}
 		}
 
 		#endregion
