@@ -49,6 +49,36 @@ namespace SharpConsoleUI.Windows
 			_logService = logService;
 		}
 
+		#region Public Events
+
+		/// <summary>
+		/// Delegate for buffer post-processing after painting but before ANSI conversion.
+		/// </summary>
+		/// <param name="buffer">The character buffer that was just painted.</param>
+		/// <param name="dirtyRegion">The region that was painted (or full bounds if entire buffer).</param>
+		/// <param name="clipRect">The clipping rectangle used during paint.</param>
+		public delegate void PostBufferPaintDelegate(
+			CharacterBuffer buffer,
+			LayoutRect dirtyRegion,
+			LayoutRect clipRect);
+
+		/// <summary>
+		/// Raised after painting controls to the buffer but before converting to ANSI strings.
+		/// </summary>
+		/// <remarks>
+		/// This event allows custom effects, transitions, filters, or compositor-style
+		/// manipulations on the rendered buffer. The buffer can be safely modified here.
+		///
+		/// Example use cases:
+		/// - Fade in/out transitions
+		/// - Blur effects for modal backgrounds
+		/// - Glow effects around focused controls
+		/// - Custom overlays and effects
+		/// </remarks>
+		public event PostBufferPaintDelegate? PostBufferPaint;
+
+		#endregion
+
 		#region Public Properties
 
 		/// <summary>
@@ -120,6 +150,15 @@ namespace SharpConsoleUI.Windows
 		{
 			_windowContentLayout?.PageDown();
 		}
+
+		/// <summary>
+		/// Gets the current character buffer for this window.
+		/// </summary>
+		/// <remarks>
+		/// CAUTION: Direct buffer manipulation should only be done via PostBufferPaint event
+		/// to avoid race conditions. Reading is safe at any time.
+		/// </remarks>
+		public CharacterBuffer? Buffer => _buffer;
 
 		#endregion
 
@@ -377,7 +416,7 @@ namespace SharpConsoleUI.Windows
 			// Window coords: relative to window content area (0,0 = top-left of content, excluding border)
 
 			int windowContentLeft = windowLeft + 1;  // +1 for left border
-			int windowContentTop = windowTop + (showTitle ? 2 : 1);  // +1 or +2 for border/title
+			int windowContentTop = windowTop + 1;  // +1 for border (title is inline with border)
 
 			// Find bounding box of all visible regions in window space
 			int minX = int.MaxValue;
@@ -492,6 +531,13 @@ namespace SharpConsoleUI.Windows
 
 			// Paint to buffer with clip rect
 			PaintDOM(clipRect, backgroundColor);
+
+			// Fire post-paint event for custom effects (e.g., transitions, filters)
+			if (PostBufferPaint != null && _buffer != null)
+			{
+				var dirtyRegion = new LayoutRect(0, 0, _buffer.Width, _buffer.Height);
+				PostBufferPaint.Invoke(_buffer, dirtyRegion, clipRect);
+			}
 
 			// Convert buffer to lines for compatibility with existing render system
 			return BufferToLines(foregroundColor, backgroundColor);
