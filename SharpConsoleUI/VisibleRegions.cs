@@ -68,6 +68,44 @@ namespace SharpConsoleUI
 			return new List<Rectangle>(current);
 		}
 
+	/// <summary>
+	/// Calculates visible regions of an arbitrary rectangle by subtracting overlapping windows.
+	/// Used for desktop clears to avoid overwriting visible windows.
+	/// </summary>
+	/// <param name="area">The rectangle area to calculate visibility for.</param>
+	/// <param name="overlappingWindows">Windows that overlap with the area.</param>
+	/// <returns>List of rectangles representing visible portions (not covered by windows).</returns>
+	public List<Rectangle> CalculateVisibleRegions(Rectangle area, List<Window> overlappingWindows)
+	{
+		// Use pooled buffers to avoid allocations
+		_regionsBuffer1.Clear();
+		_regionsBuffer1.Add(area);  // Start with full area
+
+		var current = _regionsBuffer1;
+		var next = _regionsBuffer2;
+
+		// For each overlapping window, subtract its area from the visible regions
+		foreach (var other in overlappingWindows)
+		{
+			var overlappingRect = new Rectangle(
+				other.Left,
+				other.Top,
+				other.Width,
+				other.Height);
+
+			next.Clear();
+			SubtractRectangle(current, overlappingRect, next);
+
+			// Swap buffers for next iteration
+			var temp = current;
+			current = next;
+			next = temp;
+		}
+
+		// Return copy for caller (they expect ownership)
+		return new List<Rectangle>(current);
+	}
+
 		private bool DoRectanglesIntersect(Rectangle r1, Rectangle r2)
 		{
 			return r1.Left < r2.Left + r2.Width &&

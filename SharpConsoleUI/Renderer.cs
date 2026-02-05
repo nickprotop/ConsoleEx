@@ -341,9 +341,13 @@ namespace SharpConsoleUI
 			}
 
 			// Fill the background only for the visible regions
-			foreach (var region in visibleRegions)
+			// Can be disabled via ClearDestinationOnWindowMove option to reduce flicker during moves
+			if (_consoleWindowSystem.Options.ClearDestinationOnWindowMove)
 			{
-				FillRect(region.Left, region.Top, region.Width, region.Height, ' ', window.BackgroundColor, null);
+				foreach (var region in visibleRegions)
+				{
+					FillRect(region.Left, region.Top, region.Width, region.Height, ' ', window.BackgroundColor, null);
+				}
 			}
 
 			// Draw window borders - these might be partially hidden but the drawing functions
