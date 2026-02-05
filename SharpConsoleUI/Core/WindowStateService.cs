@@ -35,7 +35,24 @@ namespace SharpConsoleUI.Core
 		private bool _isDisposed;
 
 		// Track windows currently being flashed to prevent concurrent flashes
-		private readonly HashSet<Window> _flashingWindows = new();
+		private readonly Dictionary<Window, FlashState> _flashingWindows = new();
+
+		/// <summary>
+		/// Tracks the state of a window flash animation.
+		/// </summary>
+		private class FlashState
+		{
+			public System.Timers.Timer? Timer { get; set; }
+			public float Intensity { get; set; }  // 0.0 to 1.0
+			public Spectre.Console.Color FlashColor { get; set; }
+			public DateTime StartTime { get; set; }
+			public int DurationMs { get; set; }
+			public float MaxIntensity { get; set; } = 0.3f;  // 30% overlay
+			public int CurrentFlashIndex { get; set; }
+			public int TotalFlashes { get; set; }
+			public Windows.WindowRenderer.BufferPaintDelegate? PaintHandler { get; set; }
+			public EventHandler<ClosingEventArgs>? CleanupHandler { get; set; }
+		}
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="WindowStateService"/> class.
@@ -1034,7 +1051,8 @@ namespace SharpConsoleUI.Core
 	}
 
 	/// <summary>
-	/// Flashes a window to draw user attention by briefly changing its background color.
+	/// Flashes a window to draw user attention using a smooth pulse animation effect.
+	/// Uses PostBufferPaint to apply a color overlay without modifying window properties.
 	/// </summary>
 	/// <param name="window">The window to flash. If null, the method returns without action.</param>
 	/// <param name="flashCount">The number of times to flash. Defaults to 1.</param>
@@ -1042,7 +1060,7 @@ namespace SharpConsoleUI.Core
 	/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses the theme's ModalFlashColor.</param>
 	public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 150, Spectre.Console.Color? flashBackgroundColor = null)
 	{
-		if (window == null) return;
+		if (window?.Renderer == null) return;
 		if (_getWindowSystem == null)
 			throw new InvalidOperationException("WindowSystemContext is not set");
 
@@ -1051,43 +1069,154 @@ namespace SharpConsoleUI.Core
 		// Prevent multiple concurrent flashes on the same window
 		lock (_flashingWindows)
 		{
-			if (_flashingWindows.Contains(window)) return;
-			_flashingWindows.Add(window);
+			if (_flashingWindows.ContainsKey(window)) return;
 		}
 
-		var originalBackgroundColor = window.BackgroundColor;
 		var flashColor = flashBackgroundColor ?? context.Theme.ModalFlashColor;
+		int totalDuration = flashDuration * 2;  // Duration for fade up + fade down
 
-		// Use ThreadPool with synchronous sleep for reliable timing
-		ThreadPool.QueueUserWorkItem(_ =>
+		var state = new FlashState
 		{
-			try
+			FlashColor = flashColor,
+			StartTime = DateTime.Now,
+			DurationMs = totalDuration,
+			CurrentFlashIndex = 0,
+			TotalFlashes = flashCount,
+			Timer = new System.Timers.Timer(16)  // ~60 FPS
+		};
+
+		// PostBufferPaint handler that applies the flash overlay
+		void FlashOverlay(Layout.CharacterBuffer buffer, Layout.LayoutRect dirtyRegion, Layout.LayoutRect clipRect)
+		{
+			ApplyFlashOverlay(buffer, flashColor, state.Intensity);
+		}
+
+		state.PaintHandler = FlashOverlay;
+
+		// Timer tick handler - updates intensity using sine wave
+		state.Timer.Elapsed += (sender, e) =>
+		{
+			var elapsed = (DateTime.Now - state.StartTime).TotalMilliseconds;
+			var progress = (float)(elapsed / totalDuration);
+
+			if (progress >= 1.0f)
 			{
-				for (int i = 0; i < flashCount; i++)
+				// Single flash complete
+				state.CurrentFlashIndex++;
+
+				if (state.CurrentFlashIndex < state.TotalFlashes)
 				{
-					window.BackgroundColor = flashColor;
-					window.Invalidate(true);
-					Thread.Sleep(flashDuration);
-
-					window.BackgroundColor = originalBackgroundColor;
-					window.Invalidate(true);
-
-					// Only delay between flashes, not after the last one
-					if (i < flashCount - 1)
-					{
-						Thread.Sleep(flashDuration);
-					}
+					// Start next flash with delay
+					state.StartTime = DateTime.Now.AddMilliseconds(flashDuration);
+					state.Intensity = 0f;
+				}
+				else
+				{
+					// All flashes complete - cleanup
+					CleanupFlash(window, state);
 				}
 			}
-			finally
+			else
 			{
-				// Always remove from tracking to allow future flashes
-				lock (_flashingWindows)
-				{
-					_flashingWindows.Remove(window);
-				}
+				// Update intensity using sine wave for smooth pulse
+				state.Intensity = MathF.Sin(progress * MathF.PI) * state.MaxIntensity;
+				window.Invalidate(redrawAll: true);
 			}
-		});
+		};
+
+		// Cleanup handler if window closes during flash
+		state.CleanupHandler = (s, e) => CleanupFlash(window, state);
+
+		// Subscribe to events
+		window.Renderer.PostBufferPaint += FlashOverlay;
+		window.OnClosing += state.CleanupHandler;
+
+		lock (_flashingWindows)
+		{
+			_flashingWindows[window] = state;
+		}
+
+		state.Timer.Start();
+	}
+
+	/// <summary>
+	/// Applies a color overlay to the entire buffer for the flash effect.
+	/// </summary>
+	/// <param name="buffer">The character buffer to modify.</param>
+	/// <param name="flashColor">The color to blend toward.</param>
+	/// <param name="intensity">The intensity of the effect (0.0 to 1.0).</param>
+	private void ApplyFlashOverlay(Layout.CharacterBuffer buffer, Spectre.Console.Color flashColor, float intensity)
+	{
+		if (intensity <= 0.001f) return;  // Skip if negligible
+
+		for (int y = 0; y < buffer.Height; y++)
+		{
+			for (int x = 0; x < buffer.Width; x++)
+			{
+				var cell = buffer.GetCell(x, y);
+
+				// Blend background toward flash color at full intensity
+				var newBg = BlendColor(cell.Background, flashColor, intensity);
+
+				// Blend foreground toward flash color at half intensity for subtlety
+				var newFg = BlendColor(cell.Foreground, flashColor, intensity * 0.5f);
+
+				buffer.SetCell(x, y, cell.Character, newFg, newBg);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Blends two colors together by the specified amount.
+	/// </summary>
+	/// <param name="original">The original color.</param>
+	/// <param name="target">The target color to blend toward.</param>
+	/// <param name="amount">The blend amount (0.0 = original, 1.0 = target).</param>
+	/// <returns>The blended color.</returns>
+	private Spectre.Console.Color BlendColor(Spectre.Console.Color original, Spectre.Console.Color target, float amount)
+	{
+		return new Spectre.Console.Color(
+			(byte)(original.R + (target.R - original.R) * amount),
+			(byte)(original.G + (target.G - original.G) * amount),
+			(byte)(original.B + (target.B - original.B) * amount)
+		);
+	}
+
+	/// <summary>
+	/// Cleans up a flash animation by disposing resources and unsubscribing events.
+	/// </summary>
+	/// <param name="window">The window being flashed.</param>
+	/// <param name="state">The flash state to clean up.</param>
+	private void CleanupFlash(Window window, FlashState state)
+	{
+		// Stop and dispose timer
+		if (state.Timer != null)
+		{
+			state.Timer.Stop();
+			state.Timer.Dispose();
+			state.Timer = null;
+		}
+
+		// Unsubscribe from PostBufferPaint
+		if (window.Renderer != null && state.PaintHandler != null)
+		{
+			window.Renderer.PostBufferPaint -= state.PaintHandler;
+		}
+
+		// Unsubscribe from OnClosing
+		if (state.CleanupHandler != null)
+		{
+			window.OnClosing -= state.CleanupHandler;
+		}
+
+		// Remove from tracking
+		lock (_flashingWindows)
+		{
+			_flashingWindows.Remove(window);
+		}
+
+		// Final invalidation to clear any remaining overlay
+		window.Invalidate(redrawAll: true);
 	}
 
 	/// <summary>
