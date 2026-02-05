@@ -254,6 +254,13 @@ namespace SharpConsoleUI.Drivers
 			var metrics = _diagnostics?.IsEnabled == true ? new Diagnostics.RenderingMetrics() : null;
 			var renderStartTime = metrics != null ? DateTime.UtcNow : default;
 
+			// Diagnostics: Capture dirty count BEFORE rendering (before buffers sync)
+			int dirtyCountBeforeRender = 0;
+			if (metrics != null)
+			{
+				dirtyCountBeforeRender = GetDirtyCharacterCount();
+			}
+
 			// Diagnostics: Capture console buffer state before rendering
 			if (_diagnostics?.IsEnabled == true && _diagnostics.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.ConsoleBuffer))
 			{
@@ -331,15 +338,42 @@ namespace SharpConsoleUI.Drivers
 			// This eliminates flickering by doing a single write instead of multiple cursor moves
 			var screenBuilder = new StringBuilder();
 
-			// FIX14: Track rendering statistics
-			int linesRendered = 0;
+		// FIX14: Track rendering statistics
+		int linesRendered = 0;
+		int cellsRendered = 0;
 
+		// Choose rendering strategy based on configured dirty tracking mode
+		if (_options.DirtyTrackingMode == Configuration.DirtyTrackingMode.Cell)
+		{
+			// CELL-LEVEL: Always render only changed regions within lines (minimal output)
+			for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
+			{
+				var dirtyRegions = GetDirtyRegionsInLine(y);
+				if (dirtyRegions.Count == 0)
+					continue;
+
+				linesRendered++;
+
+				foreach (var (startX, endX) in dirtyRegions)
+				{
+					// Position cursor at start of dirty region
+					screenBuilder.Append($"\x1b[{y + 1};{startX + 1}H");
+
+					// Append only the dirty region
+					AppendRegionToBuilder(y, startX, endX, screenBuilder);
+
+					cellsRendered += (endX - startX + 1);
+				}
+			}
+		}
+		else if (_options.DirtyTrackingMode == Configuration.DirtyTrackingMode.Line)
+		{
+			// LINE-LEVEL: Always render entire line when any cell changes
 			for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
 			{
 				if (!IsLineDirty(y))
 					continue;
 
-				// FIX14: Count lines rendered
 				linesRendered++;
 
 				// Add ANSI absolute positioning: ESC[row;colH (1-based)
@@ -347,7 +381,40 @@ namespace SharpConsoleUI.Drivers
 
 				// Append this line's content to the screen builder
 				AppendLineToBuilder(y, screenBuilder);
+
+				cellsRendered += _width;
 			}
+		}
+		else  // DirtyTrackingMode.Smart
+		{
+			// SMART MODE: Analyze each line and choose optimal strategy per line
+			for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
+			{
+				var (isDirty, useLineMode, dirtyRegions) = AnalyzeLine(y);
+				if (!isDirty)
+					continue;
+
+				linesRendered++;
+
+				if (useLineMode)
+				{
+					// Use LINE strategy for this line (high coverage or fragmented)
+					screenBuilder.Append($"\x1b[{y + 1};1H");
+					AppendLineToBuilder(y, screenBuilder);
+					cellsRendered += _width;
+				}
+				else
+				{
+					// Use CELL strategy for this line (low coverage, not fragmented)
+					foreach (var (startX, endX) in dirtyRegions)
+					{
+						screenBuilder.Append($"\x1b[{y + 1};{startX + 1}H");
+						AppendRegionToBuilder(y, startX, endX, screenBuilder);
+						cellsRendered += (endX - startX + 1);
+					}
+				}
+			}
+		}
 
 
 			// Single atomic write of entire screen - no cursor jumps, no flicker!
@@ -363,8 +430,9 @@ namespace SharpConsoleUI.Drivers
 				metrics.BytesWritten = output.Length;
 				metrics.AnsiEscapeSequences = CountAnsiSequences(output);
 				metrics.CursorMovements = CountCursorMoves(output);
-				metrics.CellsActuallyRendered = linesRendered * _width; // Approximate
-				metrics.DirtyCellsMarked = GetDirtyCharacterCount();
+				metrics.CellsActuallyRendered = cellsRendered; // Actual cells rendered (mode-aware)
+				metrics.DirtyCellsMarked = dirtyCountBeforeRender; // Captured before rendering
+				metrics.CharactersChanged = dirtyCountBeforeRender; // Number of characters that changed
 
 				// Capture output snapshot
 				if (_diagnostics?.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.ConsoleOutput) == true)
@@ -443,8 +511,150 @@ namespace SharpConsoleUI.Drivers
 			return false;
 		}
 
-		private bool IsValidPosition(int x, int y)
-			=> x >= 0 && x < _width && y >= 0 && y < _height;
+
+	/// <summary>
+	/// Gets dirty regions (contiguous changed cells) within a line.
+	/// Returns list of (startX, endX) tuples representing dirty regions.
+	/// Used for cell-level dirty tracking mode.
+	/// </summary>
+	private List<(int startX, int endX)> GetDirtyRegionsInLine(int y)
+	{
+		var regions = new List<(int, int)>();
+		int? regionStart = null;
+
+		for (int x = 0; x < _width; x++)
+		{
+			ref readonly var frontCell = ref _frontBuffer[x, y];
+			ref readonly var backCell = ref _backBuffer[x, y];
+
+			bool isDirty = !frontCell.Equals(backCell);
+
+			if (isDirty)
+			{
+				// Start new region or continue existing
+				regionStart ??= x;
+			}
+			else if (regionStart.HasValue)
+			{
+				// End of dirty region
+				regions.Add((regionStart.Value, x - 1));
+				regionStart = null;
+			}
+		}
+
+		// Close final region if line ends dirty
+		if (regionStart.HasValue)
+		{
+			regions.Add((regionStart.Value, _width - 1));
+		}
+
+		return regions;
+	}
+
+	/// <summary>
+	/// Smart mode: Analyzes a line in a single pass to determine:
+	/// 1. Is the line dirty?
+	/// 2. If dirty, should we use LINE or CELL rendering strategy?
+	/// Returns (isDirty, useLineMode, dirtyRegions).
+	/// Optimized to avoid double-scanning the line.
+	/// </summary>
+	private (bool isDirty, bool useLineMode, List<(int startX, int endX)> dirtyRegions) AnalyzeLine(int y)
+	{
+		var regions = new List<(int startX, int endX)>();
+		int? regionStart = null;
+		int dirtyCells = 0;
+		int dirtyRuns = 0;
+
+		for (int x = 0; x < _width; x++)
+		{
+			ref readonly var frontCell = ref _frontBuffer[x, y];
+			ref readonly var backCell = ref _backBuffer[x, y];
+
+			bool isDirty = !frontCell.Equals(backCell);
+
+			if (isDirty)
+			{
+				dirtyCells++;
+				if (!regionStart.HasValue)
+				{
+					// Start new dirty region
+					regionStart = x;
+					dirtyRuns++;
+				}
+			}
+			else if (regionStart.HasValue)
+			{
+				// End of dirty region
+				regions.Add((regionStart.Value, x - 1));
+				regionStart = null;
+			}
+		}
+
+		// Close final region if line ends dirty
+		if (regionStart.HasValue)
+		{
+			regions.Add((regionStart.Value, _width - 1));
+		}
+
+		// No dirty cells? Return early
+		if (dirtyCells == 0)
+			return (false, false, regions);
+
+		// Decision heuristics for Smart mode:
+		float coverage = (float)dirtyCells / _width;
+
+		// 1. High coverage (>threshold%) → LINE mode (too much to render cell-by-cell)
+		if (coverage > _options.SmartModeCoverageThreshold)
+			return (true, true, regions);
+
+		// 2. Highly fragmented (>threshold separate runs) → LINE mode (too many cursor moves)
+		if (dirtyRuns > _options.SmartModeFragmentationThreshold)
+			return (true, true, regions);
+
+		// 3. Full line dirty → LINE mode (same output, fewer cursor moves)
+		if (dirtyCells == _width)
+			return (true, true, regions);
+
+		// 4. Low coverage + low fragmentation → CELL mode (minimal output)
+		return (true, false, regions);
+	}
+
+	private bool IsValidPosition(int x, int y)
+		=> x >= 0 && x < _width && y >= 0 && y < _height;
+
+	/// <summary>
+	/// Appends a specific region of a line to the builder (cell-level tracking).
+	/// Only outputs cells from startX to endX (inclusive).
+	/// </summary>
+	private void AppendRegionToBuilder(int y, int startX, int endX, StringBuilder builder)
+	{
+		string lastOutputAnsi = string.Empty;
+
+		for (int x = startX; x <= endX && x < _width; x++)
+		{
+			ref var backCell = ref _backBuffer[x, y];
+			ref var frontCell = ref _frontBuffer[x, y];
+
+			// Output ANSI only if it changed
+			if (backCell.AnsiEscape != lastOutputAnsi)
+			{
+				builder.Append(backCell.AnsiEscape);
+				lastOutputAnsi = backCell.AnsiEscape;
+			}
+
+			// Output character
+			builder.Append(backCell.Character);
+
+			// Sync buffers
+			frontCell.CopyFrom(backCell);
+		}
+
+		// Reset ANSI at end of region
+		if (!string.IsNullOrEmpty(lastOutputAnsi))
+		{
+			builder.Append("\x1b[0m");
+		}
+	}
 
 		private void AppendLineToBuilder(int y, StringBuilder builder)
 		{
