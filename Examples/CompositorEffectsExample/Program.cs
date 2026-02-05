@@ -1,6 +1,7 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 using Spectre.Console;
 
 namespace CompositorEffectsExample;
@@ -9,16 +10,17 @@ class Program
 {
 	static void Main(string[] args)
 	{
-		var windowSystem = new ConsoleWindowSystem(new SharpConsoleUI.Drivers.NetConsoleDriver(SharpConsoleUI.Drivers.RenderMode.Buffer));
+		// Use ClassicTheme for blue modals matching window colors
+		var windowSystem = new ConsoleWindowSystem(
+			new SharpConsoleUI.Drivers.NetConsoleDriver(SharpConsoleUI.Drivers.RenderMode.Buffer),
+			new ClassicTheme());
 
 		// Create main menu window
 		var mainWindow = new Window(windowSystem)
 		{
 			Title = "Compositor Effects - Main Menu",
 			Width = 75,
-			Height = 28,
-			BackgroundColor = Color.DarkBlue,
-			ForegroundColor = Color.White
+			Height = 28
 		};
 
 		// Center the window
@@ -112,10 +114,32 @@ class Program
 
 		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
 
-		// Button 4: Open All
+		// Button 4: Fractal Explorer
+		var fractalButton = new ButtonControl
+		{
+			Text = "► 4. Animated Fractal Explorer",
+			Width = 65
+		};
+		fractalButton.Click += (sender, e) =>
+		{
+			var window = new FractalWindow(windowSystem);
+			window.Left = (Console.WindowWidth - window.Width) / 2;
+			window.Top = (Console.WindowHeight - window.Height) / 2;
+			windowSystem.AddWindow(window);
+		};
+		mainWindow.AddControl(fractalButton);
+
+		mainWindow.AddControl(new MarkupControl(new List<string>
+		{
+			"[dim]   Real-time Mandelbrot/Julia fractal with color animation[/]"
+		}));
+
+		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
+
+		// Button 5: Open All
 		var openAllButton = new ButtonControl
 		{
-			Text = "► 4. Open All Examples (Cascading)",
+			Text = "► 5. Open All Examples (Cascading)",
 			Width = 65
 		};
 		openAllButton.Click += (sender, e) =>
@@ -148,7 +172,7 @@ class Program
 		// Instructions
 		mainWindow.AddControl(new MarkupControl(new List<string>
 		{
-			"[dim]Press number keys 1-4 to launch demos | Tab/arrows to navigate[/]",
+			"[dim]Press number keys 1-5 to launch demos | Tab/arrows to navigate[/]",
 			"[dim]Enter or click to activate button | Press Q to quit | Esc closes windows[/]"
 		}));
 
@@ -179,6 +203,13 @@ class Program
 					e.Handled = true;
 					break;
 				case '4':
+					var fractalWin = new FractalWindow(windowSystem);
+					fractalWin.Left = (Console.WindowWidth - fractalWin.Width) / 2;
+					fractalWin.Top = (Console.WindowHeight - fractalWin.Height) / 2;
+					windowSystem.AddWindow(fractalWin);
+					e.Handled = true;
+					break;
+				case '5':
 					OpenAllExamples(windowSystem);
 					e.Handled = true;
 					break;

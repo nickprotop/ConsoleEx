@@ -20,8 +20,6 @@ public class FadeInWindow : Window
 		Title = "Fade-In Effect Demo";
 		Width = 60;
 		Height = 20;
-		BackgroundColor = Color.DarkBlue;
-		ForegroundColor = Color.White;
 
 		// Add content
 		var markup = new MarkupControl(new List<string>

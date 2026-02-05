@@ -19,8 +19,6 @@ public class ModalBlurWindow : Window
 		Title = "Blur Effect Demo";
 		Width = 70;
 		Height = 22;
-		BackgroundColor = Color.Navy;
-		ForegroundColor = Color.White;
 
 		// Add colorful content
 		var markup = new MarkupControl(new List<string>

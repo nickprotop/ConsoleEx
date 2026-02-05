@@ -1,6 +1,7 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
 using System.Text;
@@ -20,8 +21,6 @@ public class ScreenshotWindow : Window
 		Title = "Screenshot Demo";
 		Width = 70;
 		Height = 22;
-		BackgroundColor = Color.DarkBlue;
-		ForegroundColor = Color.White;
 
 		// Add content
 		var markup = new MarkupControl(new List<string>
@@ -56,40 +55,53 @@ public class ScreenshotWindow : Window
 			}
 			else if (e.KeyInfo.Key == ConsoleKey.F12)
 			{
-				TakeScreenshot();
+				_ = TakeScreenshotAsync();
 				e.Handled = true;
 			}
 			else if (e.KeyInfo.KeyChar == 's' || e.KeyInfo.KeyChar == 'S')
 			{
-				TakeScreenshot();
+				_ = TakeScreenshotAsync();
 				e.Handled = true;
 			}
 		};
 	}
 
-	private void TakeScreenshot()
+	private async Task TakeScreenshotAsync()
 	{
 		var buffer = Renderer?.Buffer;
 		if (buffer == null)
 		{
-			GetConsoleWindowSystem.NotificationStateService.ShowNotification(
+			GetConsoleWindowSystem?.NotificationStateService.ShowNotification(
 				"Error",
 				"Buffer not available",
 				NotificationSeverity.Danger);
 			return;
 		}
 
+		// Create snapshot first (before dialog opens)
+		var snapshot = buffer.CreateSnapshot();
+
+		// Generate default filename
+		_screenshotCount++;
+		var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+		var defaultFilename = $"screenshot_{_screenshotCount}_{timestamp}.txt";
+
+		// Show save dialog
+		var filepath = await FileDialogs.ShowSaveFileAsync(
+			GetConsoleWindowSystem!,
+			Environment.CurrentDirectory,
+			"*.txt",
+			defaultFilename,
+			this);
+
+		if (string.IsNullOrEmpty(filepath))
+		{
+			// User cancelled
+			return;
+		}
+
 		try
 		{
-			// Create snapshot
-			var snapshot = buffer.CreateSnapshot();
-
-			// Generate filename
-			_screenshotCount++;
-			var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-			var filename = $"screenshot_{_screenshotCount}_{timestamp}.txt";
-			var filepath = Path.Combine(Environment.CurrentDirectory, filename);
-
 			// Convert snapshot to text lines
 			var lines = new List<string>
 			{
@@ -116,14 +128,14 @@ public class ScreenshotWindow : Window
 			File.WriteAllLines(filepath, lines);
 
 			// Show success notification
-			GetConsoleWindowSystem.NotificationStateService.ShowNotification(
+			GetConsoleWindowSystem?.NotificationStateService.ShowNotification(
 				"Screenshot Saved",
-				$"Saved to: {filename}",
+				$"Saved to: {Path.GetFileName(filepath)}",
 				NotificationSeverity.Success);
 		}
 		catch (Exception ex)
 		{
-			GetConsoleWindowSystem.NotificationStateService.ShowNotification(
+			GetConsoleWindowSystem?.NotificationStateService.ShowNotification(
 				"Screenshot Failed",
 				ex.Message,
 				NotificationSeverity.Danger);
