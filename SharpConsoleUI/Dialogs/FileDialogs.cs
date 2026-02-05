@@ -71,8 +71,6 @@ public static class FileDialogs
 		if (!Directory.Exists(currentPath))
 			currentPath = Environment.CurrentDirectory;
 
-		var theme = windowSystem.Theme;
-
 		// Create modal window
 		var builder = new WindowBuilder(windowSystem)
 			.WithTitle(title)
@@ -82,8 +80,7 @@ public static class FileDialogs
 			.Resizable(true)
 			.Minimizable(false)
 			.Maximizable(true)
-			.Movable(true)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor);
+			.Movable(true);
 
 		if (parentWindow != null)
 			builder.WithParent(parentWindow);
@@ -101,17 +98,13 @@ public static class FileDialogs
 
 		// Separator
 		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.Build());
+						.Build());
 
 		// Create folder list
 		var folderList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithFocusedColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithHighlightColors(Color.Grey35, Color.White)
-			.SimpleMode()
+									.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.WithName("FolderList")
 			.Build();
@@ -123,9 +116,6 @@ public static class FileDialogs
 			fileList = Ctl.List()
 				.WithAlignment(HorizontalAlignment.Stretch)
 				.WithVerticalAlignment(VerticalAlignment.Fill)
-				.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-				.WithFocusedColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-				.WithHighlightColors(Color.Grey35, Color.White)
 				.SimpleMode()
 				.WithDoubleClickActivation(true)
 				.WithName("FileList")
@@ -256,8 +246,7 @@ public static class FileDialogs
 
 		// Bottom separator
 		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.StickyBottom()
+						.StickyBottom()
 			.Build());
 
 		// Footer with instructions
@@ -367,8 +356,6 @@ public static class FileDialogs
 		if (!Directory.Exists(currentPath))
 			currentPath = Environment.CurrentDirectory;
 
-		var theme = windowSystem.Theme;
-
 		// Create modal window
 		var builder = new WindowBuilder(windowSystem)
 			.WithTitle(title)
@@ -378,8 +365,7 @@ public static class FileDialogs
 			.Resizable(true)
 			.Minimizable(false)
 			.Maximizable(true)
-			.Movable(true)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor);
+			.Movable(true);
 
 		if (parentWindow != null)
 			builder.WithParent(parentWindow);
@@ -397,17 +383,13 @@ public static class FileDialogs
 
 		// Separator
 		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.Build());
+						.Build());
 
 		// Folder list (left panel)
 		var folderList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithFocusedColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithHighlightColors(Color.Grey35, Color.White)
-			.SimpleMode()
+									.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.WithName("FolderList")
 			.Build();
@@ -416,10 +398,7 @@ public static class FileDialogs
 		var fileList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithFocusedColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithHighlightColors(Color.Grey35, Color.White)
-			.SimpleMode()
+									.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.WithName("FileList")
 			.Build();
@@ -538,8 +517,7 @@ public static class FileDialogs
 
 		// Bottom separator
 		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.StickyBottom()
+						.StickyBottom()
 			.Build());
 
 		// Filename label and input
@@ -553,8 +531,7 @@ public static class FileDialogs
 
 		// Footer separator
 		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.StickyBottom()
+						.StickyBottom()
 			.Build());
 
 		// Footer with instructions

@@ -1017,6 +1017,13 @@ namespace SharpConsoleUI.Core
 			{
 				w.Invalidate(true);
 			}
+
+			// Force flush when no windows remain - the main loop won't render
+			// because AnyWindowDirty() returns false with an empty window collection
+			if (context.Windows.Count == 0)
+			{
+				_consoleDriver.Flush();
+			}
 		}
 
 		return true;

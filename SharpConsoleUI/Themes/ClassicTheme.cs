@@ -113,7 +113,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the background color for the desktop area behind all windows.
 		/// </summary>
-		public Color DesktopBackgroundColor { get; set; } = Color.Black;
+		public Color DesktopBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <summary>
 		/// Gets or sets the character used to fill the desktop background area.
@@ -123,7 +123,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for the desktop background character pattern.
 		/// </summary>
-		public Color DesktopForegroundColor { get; set; } = Color.White;
+		public Color DesktopForegroundColor { get; set; } = Color.Grey23;
 
 		/// <summary>
 		/// Gets or sets the foreground color for the border of inactive (unfocused) windows.

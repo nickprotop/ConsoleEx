@@ -52,22 +52,37 @@ namespace SharpConsoleUI.Windows
 		#region Public Events
 
 		/// <summary>
-		/// Delegate for buffer post-processing after painting but before ANSI conversion.
+		/// Delegate for buffer painting events.
 		/// </summary>
-		/// <param name="buffer">The character buffer that was just painted.</param>
-		/// <param name="dirtyRegion">The region that was painted (or full bounds if entire buffer).</param>
+		/// <param name="buffer">The character buffer to paint to.</param>
+		/// <param name="dirtyRegion">The region being painted (or full bounds if entire buffer).</param>
 		/// <param name="clipRect">The clipping rectangle used during paint.</param>
-		public delegate void PostBufferPaintDelegate(
+		public delegate void BufferPaintDelegate(
 			CharacterBuffer buffer,
 			LayoutRect dirtyRegion,
 			LayoutRect clipRect);
 
 		/// <summary>
-		/// Raised after painting controls to the buffer but before converting to ANSI strings.
+		/// Raised BEFORE painting controls to the buffer.
+		/// </summary>
+		/// <remarks>
+		/// This event allows painting backgrounds, game graphics, or other content
+		/// that should appear BEHIND the controls. Controls will paint on top.
+		///
+		/// Example use cases:
+		/// - Game rendering (fractals, animations, sprites)
+		/// - Custom backgrounds
+		/// - Gradients or patterns behind UI
+		/// </remarks>
+		public event BufferPaintDelegate? PreBufferPaint;
+
+		/// <summary>
+		/// Raised AFTER painting controls to the buffer but before converting to ANSI strings.
 		/// </summary>
 		/// <remarks>
 		/// This event allows custom effects, transitions, filters, or compositor-style
 		/// manipulations on the rendered buffer. The buffer can be safely modified here.
+		/// Content painted here will appear ON TOP of controls.
 		///
 		/// Example use cases:
 		/// - Fade in/out transitions
@@ -75,7 +90,7 @@ namespace SharpConsoleUI.Windows
 		/// - Glow effects around focused controls
 		/// - Custom overlays and effects
 		/// </remarks>
-		public event PostBufferPaintDelegate? PostBufferPaint;
+		public event BufferPaintDelegate? PostBufferPaint;
 
 		#endregion
 
@@ -332,6 +347,18 @@ namespace SharpConsoleUI.Windows
 			// Clear buffer (could optimize to only clear clipRect region, but full clear is simpler)
 			_buffer.Clear(backgroundColor);
 
+			PaintDOMWithoutClear(clipRect);
+		}
+
+		/// <summary>
+		/// Paints the DOM tree to the character buffer WITHOUT clearing first.
+		/// Used internally when PreBufferPaint has already painted content to preserve.
+		/// </summary>
+		/// <param name="clipRect">The clipping rectangle in window-space coordinates.</param>
+		private void PaintDOMWithoutClear(LayoutRect clipRect)
+		{
+			if (_rootNode == null || _buffer == null) return;
+
 			// Paint the tree with the provided clip rect
 			_rootNode.Paint(_buffer, clipRect);
 
@@ -529,8 +556,18 @@ namespace SharpConsoleUI.Windows
 				clipRect = new LayoutRect(0, 0, availableWidth, availableHeight);
 			}
 
-			// Paint to buffer with clip rect
-			PaintDOM(clipRect, backgroundColor);
+			// Clear buffer first (before any painting)
+			_buffer.Clear(backgroundColor);
+
+			// Fire pre-paint event for background rendering (games, custom backgrounds)
+			if (PreBufferPaint != null)
+			{
+				var dirtyRegion = new LayoutRect(0, 0, _buffer.Width, _buffer.Height);
+				PreBufferPaint.Invoke(_buffer, dirtyRegion, clipRect);
+			}
+
+			// Paint controls to buffer with clip rect (on top of pre-paint content)
+			PaintDOMWithoutClear(clipRect);
 
 			// Fire post-paint event for custom effects (e.g., transitions, filters)
 			if (PostBufferPaint != null && _buffer != null)
