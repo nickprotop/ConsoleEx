@@ -190,9 +190,21 @@ namespace SharpConsoleUI
 		internal volatile bool _isClosing = false;
 		private string? _name;
 		private TimeSpan _asyncThreadCleanupTimeout = TimeSpan.FromSeconds(Configuration.ControlDefaults.AsyncCleanupTimeoutSeconds);
+		private int _left;
+		private int _top;
 
 		// DOM-based layout system (delegated to WindowRenderer)
 		internal Windows.WindowRenderer? _renderer;
+
+		/// <summary>
+		/// Gets the window's renderer, providing access to rendering internals.
+		/// </summary>
+		/// <remarks>
+		/// Exposes the renderer for advanced scenarios like custom buffer effects,
+		/// transitions, and compositor-style manipulations. Use the PostBufferPaint event
+		/// on the renderer to safely manipulate the character buffer after painting.
+		/// </remarks>
+		public Windows.WindowRenderer? Renderer => _renderer;
 
 		// Border rendering (delegated to BorderRenderer)
 		private Windows.BorderRenderer? _borderRenderer;
@@ -557,8 +569,35 @@ namespace SharpConsoleUI
 
 		/// <summary>
 		/// Gets or sets the left position of the window in character columns.
+		/// When set, automatically invalidates exposed regions for proper rendering.
 		/// </summary>
-		public int Left { get; set; }
+		public int Left
+		{
+			get => _left;
+			set
+			{
+				if (_left == value) return;
+
+				// Use WindowPositioningManager for proper invalidation when system is initialized
+				if (_windowSystem?.Positioning != null)
+				{
+					_windowSystem.Positioning.MoveWindowTo(this, value, _top);
+				}
+				else
+				{
+					// Fallback for initialization (before windowSystem is set)
+					_left = value;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Internal setter for Left that bypasses invalidation logic (used by WindowPositioningManager).
+		/// </summary>
+		internal void SetLeftDirect(int value)
+		{
+			_left = value;
+		}
 
 		/// <summary>
 		/// Gets or sets the window mode (Normal or Modal).
@@ -732,8 +771,35 @@ namespace SharpConsoleUI
 
 		/// <summary>
 		/// Gets or sets the top position of the window in character rows.
+		/// When set, automatically invalidates exposed regions for proper rendering.
 		/// </summary>
-		public int Top { get; set; }
+		public int Top
+		{
+			get => _top;
+			set
+			{
+				if (_top == value) return;
+
+				// Use WindowPositioningManager for proper invalidation when system is initialized
+				if (_windowSystem?.Positioning != null)
+				{
+					_windowSystem.Positioning.MoveWindowTo(this, _left, value);
+				}
+				else
+				{
+					// Fallback for initialization (before windowSystem is set)
+					_top = value;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Internal setter for Top that bypasses invalidation logic (used by WindowPositioningManager).
+		/// </summary>
+		internal void SetTopDirect(int value)
+		{
+			_top = value;
+		}
 
 		/// <summary>
 		/// Gets the total number of content lines including sticky headers.
@@ -1986,6 +2052,9 @@ namespace SharpConsoleUI
 			_isActive = value;
 		InvalidateBorderCache();
 
+			// Invalidate window to redraw border with new active/inactive colors
+			Invalidate(false);  // Border-only invalidation (redrawAll=false)
+
 			if (_lastFocusedControl != null)
 			{
 				_lastFocusedControl.HasFocus = value;
@@ -2005,8 +2074,21 @@ namespace SharpConsoleUI
 		{
 			if (point.X < 0 || point.Y < 0) return;
 
+			// Use public setters which go through WindowPositioningManager for proper invalidation
 			Left = point.X;
 			Top = point.Y;
+		}
+
+		/// <summary>
+		/// Internal method to set position directly without triggering invalidation logic.
+		/// Used by WindowPositioningManager to avoid recursion.
+		/// </summary>
+		internal void SetPositionDirect(Point point)
+		{
+			if (point.X < 0 || point.Y < 0) return;
+
+			_left = point.X;
+			_top = point.Y;
 		}
 
 		/// <summary>

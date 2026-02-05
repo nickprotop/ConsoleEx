@@ -17,6 +17,29 @@ namespace SharpConsoleUI.Layout
 	public readonly record struct CellChange(int X, int Y, Cell Cell);
 
 	/// <summary>
+	/// Immutable snapshot of a CharacterBuffer at a point in time.
+	/// </summary>
+	/// <param name="Width">The width of the captured buffer.</param>
+	/// <param name="Height">The height of the captured buffer.</param>
+	/// <param name="Cells">The deep copy of all cells in the buffer.</param>
+	public readonly record struct BufferSnapshot(int Width, int Height, Cell[,] Cells)
+	{
+		/// <summary>
+		/// Gets the cell at the specified position.
+		/// </summary>
+		/// <param name="x">The X coordinate.</param>
+		/// <param name="y">The Y coordinate.</param>
+		/// <returns>The cell at the specified position.</returns>
+		/// <exception cref="ArgumentOutOfRangeException">Thrown when position is out of bounds.</exception>
+		public Cell GetCell(int x, int y)
+		{
+			if (x < 0 || x >= Width || y < 0 || y >= Height)
+				throw new ArgumentOutOfRangeException($"Position ({x}, {y}) is out of bounds");
+			return Cells[x, y];
+		}
+	}
+
+	/// <summary>
 	/// A 2D buffer of character cells for rendering.
 	/// Supports double-buffering for efficient diff-based output.
 	/// </summary>
@@ -468,6 +491,28 @@ namespace SharpConsoleUI.Layout
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Creates an immutable snapshot of the current buffer state.
+		/// </summary>
+		/// <returns>A BufferSnapshot containing a deep copy of all cells.</returns>
+		/// <remarks>
+		/// This method performs a deep copy of all cells, making the snapshot
+		/// independent of the original buffer. Useful for screenshots, recording,
+		/// compositing, or capturing state for diagnostics.
+		/// </remarks>
+		public BufferSnapshot CreateSnapshot()
+		{
+			var cells = new Cell[Width, Height];
+			for (int y = 0; y < Height; y++)
+			{
+				for (int x = 0; x < Width; x++)
+				{
+					cells[x, y] = _cells[x, y];
+				}
+			}
+			return new BufferSnapshot(Width, Height, cells);
 		}
 
 		/// <summary>

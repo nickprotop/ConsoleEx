@@ -111,15 +111,9 @@ public class RenderingDiagnostics
 		if (!IsEnabled || !_enabledLayers.HasFlag(DiagnosticsLayers.CharacterBuffer))
 			return;
 
-		// Deep copy the cell array
-		var cells = new Cell[buffer.Width, buffer.Height];
-		for (int y = 0; y < buffer.Height; y++)
-		{
-			for (int x = 0; x < buffer.Width; x++)
-			{
-				cells[x, y] = buffer.GetCell(x, y);
-			}
-		}
+		// Use built-in snapshot functionality for deep copy
+		var coreSnapshot = buffer.CreateSnapshot();
+		var cells = coreSnapshot.Cells;
 
 		// Capture dirty cells
 		var dirtyCellsList = buffer.GetDirtyCells().ToList();
