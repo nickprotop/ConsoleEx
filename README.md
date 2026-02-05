@@ -100,6 +100,8 @@ dotnet add package SharpConsoleUI
 - **Double Buffering**: Smooth rendering without flicker
 - **Dirty Regions**: Efficient partial updates
 - **Render Modes**: Direct and buffered rendering
+- **Compositor Effects**: Post-processing buffer manipulation for transitions, blur, and filters
+- **BufferSnapshot API**: Immutable buffer capture for screenshots and recording
 - **Themes**: Multiple built-in themes (Classic, ModernGray) with runtime switching
 - **Plugins**: Extensible architecture with DeveloperTools plugin
 - **Status Bars**: Top and bottom status bar support
@@ -569,6 +571,51 @@ public class MyDarkTheme : ITheme
 // Apply theme
 windowSystem.Theme = new MyDarkTheme();
 ```
+
+### Compositor Effects
+
+SharpConsoleUI v2.0+ exposes the rendering buffer for post-processing effects, enabling compositor-style visual enhancements:
+
+```csharp
+// Apply fade-in transition effect
+public class FadeInWindow : Window
+{
+    private float _fadeProgress = 0f;
+
+    public FadeInWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
+    {
+        // Subscribe to post-paint event
+        Renderer.PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
+        {
+            // Manipulate buffer after painting, before display
+            for (int y = 0; y < buffer.Height; y++)
+            {
+                for (int x = 0; x < buffer.Width; x++)
+                {
+                    var cell = buffer.GetCell(x, y);
+                    var fadedFg = BlendColor(Color.Black, cell.Foreground, _fadeProgress);
+                    var fadedBg = BlendColor(Color.Black, cell.Background, _fadeProgress);
+                    buffer.SetCell(x, y, cell.Character, fadedFg, fadedBg);
+                }
+            }
+        };
+    }
+}
+```
+
+**Use Cases:**
+- **Transitions**: Fade-in/fade-out, slide, dissolve effects
+- **Filters**: Blur, sharpen, color grading, sepia tone
+- **Overlays**: Glow effects, borders, highlights on focused controls
+- **Screenshots**: Capture immutable buffer snapshots with `buffer.CreateSnapshot()`
+- **Recording**: Frame-by-frame capture for replay or analysis
+
+**Example Application:**
+```bash
+dotnet run --project Examples/CompositorEffectsExample
+```
+
+See the [Compositor Effects Guide](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPOSITOR_EFFECTS.html) for complete documentation and examples.
 
 ## Contributing
 

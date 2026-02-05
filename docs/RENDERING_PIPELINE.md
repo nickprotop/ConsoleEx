@@ -34,6 +34,7 @@ SharpConsoleUI uses a sophisticated multi-stage rendering pipeline optimized for
 │            Window Content Rendering (DOM-based)             │
 │  • Measure → Arrange → Paint (layout stages)                │
 │  • CharacterBuffer (window-level buffer)                    │
+│  • PostBufferPaint hook (compositor effects)                │
 │  • ANSI serialization with color optimization               │
 └──────────────────────┬──────────────────────────────────────┘
                        │
@@ -451,6 +452,61 @@ public interface ICharacterBuffer
     void DrawText(int x, int y, string text, Color fg, Color bg);
 }
 ```
+
+#### Stage 3.5: PostBufferPaint Hook (Compositor Effects)
+*File: `Windows/WindowRenderer.cs`*
+
+**NEW**: After painting controls but before ANSI conversion, the `PostBufferPaint` event fires, allowing compositor-style buffer manipulation.
+
+```csharp
+private List<string> RebuildContentCacheDOM(...)
+{
+    // Stage 1-3: Measure, Arrange, Paint
+    RebuildDOMTree();
+    PerformDOMLayout();
+    PaintDOM(clipRect, backgroundColor);
+
+    // ◄── POST-PAINT HOOK POINT
+    if (PostBufferPaint != null && _buffer != null)
+    {
+        var dirtyRegion = new LayoutRect(0, 0, _buffer.Width, _buffer.Height);
+        PostBufferPaint.Invoke(_buffer, dirtyRegion, clipRect);
+    }
+
+    // Continue to ANSI serialization
+    return BufferToLines(foregroundColor, backgroundColor);
+}
+```
+
+**Purpose**: Enables advanced visual effects without modifying the core rendering pipeline:
+- **Transitions**: Fade in/out, slide, wipe effects
+- **Filters**: Blur, desaturate, brightness adjustments
+- **Overlays**: Glow effects, highlights, custom decorations
+- **Capture**: Screenshots, recording via `BufferSnapshot`
+
+**API:**
+```csharp
+// Subscribe to event
+window.Renderer.PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
+{
+    // Apply custom effects to buffer
+    for (int y = 0; y < buffer.Height; y++)
+    {
+        for (int x = 0; x < buffer.Width; x++)
+        {
+            var cell = buffer.GetCell(x, y);
+            // Modify cell colors, characters, etc.
+            buffer.SetCell(x, y, cell.Character, modifiedFg, modifiedBg);
+        }
+    }
+};
+```
+
+**Thread Safety**: Event fires within existing `_renderLock`, ensuring safe buffer manipulation.
+
+**Performance**: Zero overhead when event not subscribed. Only process dirty regions for optimal performance.
+
+See [Compositor Effects](COMPOSITOR_EFFECTS.md) for comprehensive examples and best practices.
 
 ---
 
@@ -996,6 +1052,13 @@ WINDOW CONTENT (Window.RenderAndGetVisibleContent)
   └────────────────────┬───────────────────────────┘
                        │
   ┌────────────────────▼───────────────────────────┐
+  │ 9.5 PostBufferPaint Event (Optional)           │
+  │ • Fire compositor effects hook                 │  ← COMPOSITOR EFFECTS
+  │ • Buffer manipulation allowed                  │
+  │ • Transitions, filters, overlays, snapshots    │
+  └────────────────────┬───────────────────────────┘
+                       │
+  ┌────────────────────▼───────────────────────────┐
   │ 10. Serialize to ANSI                          │
   │ _contentBuffer.ToLines()                       │  ← ANSI generation
   │ • Color optimization (minimize escape codes)   │
@@ -1219,6 +1282,37 @@ Pass 3: AlwaysOnTop (overlays all)
 - Guarantees correct visual order
 - Avoids complex Z-order sorting
 - Predictable rendering behavior
+
+### 7. Compositor Effects Hook
+
+**NEW**: Event-based buffer manipulation for post-processing effects.
+
+```csharp
+// Zero-cost when not used
+if (PostBufferPaint != null && _buffer != null)
+{
+    PostBufferPaint.Invoke(_buffer, dirtyRegion, clipRect);
+}
+```
+
+**Benefits:**
+- Enables transitions, filters, and overlays without core changes
+- Fires within render lock (thread-safe)
+- Only processes subscribed windows
+- Provides dirty region for optimization
+
+**Use Cases:**
+- Fade in/out transitions
+- Blur effects for modal backgrounds
+- Glow effects around focused controls
+- Screenshot capture via `BufferSnapshot`
+
+**Performance:**
+- Zero overhead when event not subscribed
+- Event fires after painting, before ANSI conversion (optimal timing)
+- Can use dirty region to minimize processing area
+
+See [Compositor Effects](COMPOSITOR_EFFECTS.md) for comprehensive guide.
 
 ---
 
