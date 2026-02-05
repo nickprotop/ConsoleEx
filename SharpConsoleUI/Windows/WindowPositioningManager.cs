@@ -152,6 +152,7 @@ namespace SharpConsoleUI.Windows
 		/// <summary>
 		/// Performs a move or resize operation with desktop clearing and window invalidation.
 		/// Used for keyboard-based window operations.
+		/// Uses the same queued rendering approach as mouse drag for consistency.
 		/// </summary>
 		/// <param name="window">The window to move or resize.</param>
 		/// <param name="windowTopologyAction">The type of operation (Move or Resize).</param>
@@ -160,55 +161,37 @@ namespace SharpConsoleUI.Windows
 		{
 			if (window == null) return;
 
-			var context = _getWindowSystem();
-			var theme = context.Theme;
-
 			// Store the current window bounds before any operation
 			var oldBounds = new Rectangle(window.Left, window.Top, window.Width, window.Height);
 
-			// FIRST: Clear the old window position completely (same as mouse operations)
-			_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
-				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+			// Use the same queued approach as mouse move for consistent rendering.
+			// The pending desktop clear will be processed at the start of UpdateDisplay().
+			_renderCoordinator.AddPendingDesktopClear(oldBounds);
 
-			// Redraw the necessary regions that were underneath the window
-			foreach (var w in context.Windows.Values.OrderBy(w => w.ZIndex))
-			{
-				// Skip minimized windows - they're invisible
-				if (w.State == WindowState.Minimized)
-					continue;
-
-				if (w != window && GeometryHelpers.DoesRectangleOverlapWindow(oldBounds, w))
-				{
-					// Redraw the parts of underlying windows that were covered
-					var intersection = GeometryHelpers.GetRectangleIntersection(oldBounds,
-						new Rectangle(w.Left, w.Top, w.Width, w.Height));
-
-					if (!intersection.IsEmpty)
-					{
-						_renderer.RenderRegion(w, intersection);
-					}
-				}
-			}
-
-			// FINALLY: Invalidate the window which will cause it to redraw at its new position
+			// Invalidate the window which will cause it to redraw at its new position
 			// (The actual position/size change happens in the calling HandleMoveInput method)
-			window.Invalidate(false);
+			window.Invalidate(true);
+
+			// Invalidate windows that were underneath (now exposed) and at new position
+			InvalidateExposedRegions(window, oldBounds);
 		}
 
 		#region Private Helper Methods
 
 		/// <summary>
-		/// Invalidates windows that were underneath the moved window and are now exposed.
+		/// Invalidates windows that were underneath the moved window and are now exposed,
+		/// as well as windows at the new position that need to re-render with updated occlusion.
 		/// </summary>
 		/// <param name="movedWindow">The window that was moved.</param>
 		/// <param name="oldBounds">The old bounds of the moved window.</param>
 		private void InvalidateExposedRegions(Window movedWindow, Rectangle oldBounds)
 		{
-			// BRUTE FORCE FIX: Instead of trying to render tiny exposed regions (which causes blanks),
-			// just invalidate all windows that were underneath the old position.
-			// They'll render normally with proper visibleRegions in the next UpdateDisplay.
+			// Invalidate windows at both OLD position (now exposed) and NEW position (now covered).
+			// This ensures proper re-rendering in both areas affected by the move.
 
 			var context = _getWindowSystem();
+			var newBounds = new Rectangle(movedWindow.Left, movedWindow.Top,
+			                               movedWindow.Width, movedWindow.Height);
 
 			foreach (var window in context.Windows.Values)
 			{
@@ -218,8 +201,10 @@ namespace SharpConsoleUI.Windows
 				if (window.ZIndex >= movedWindow.ZIndex)
 					continue; // Only invalidate windows that were underneath
 
-				// Check if this window overlaps with the OLD position
-				if (GeometryHelpers.DoesRectangleOverlapWindow(oldBounds, window))
+				// Check overlap with OLD position (exposed regions that need re-rendering)
+				// AND NEW position (newly covered regions that need refresh when uncovered)
+				if (GeometryHelpers.DoesRectangleOverlapWindow(oldBounds, window) ||
+				    GeometryHelpers.DoesRectangleOverlapWindow(newBounds, window))
 				{
 					window.Invalidate(true);
 				}

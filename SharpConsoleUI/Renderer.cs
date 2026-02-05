@@ -334,8 +334,9 @@ namespace SharpConsoleUI
 
 			if (!visibleRegions.Any())
 			{
-				// Window is completely covered - no need to render
-				window.IsDirty = false;
+				// Window is completely covered - skip rendering but keep dirty.
+				// When the covering window moves away and exposes this window,
+				// InvalidateExposedRegions will trigger a re-render where visible regions will exist.
 				return;
 			}
 
@@ -584,8 +585,9 @@ namespace SharpConsoleUI
 
 			if (!visibleRegions.Any())
 			{
-				// Window is completely covered - no need to render
-				window.IsDirty = false;
+				// Window is completely covered - skip rendering but keep dirty.
+				// When the covering window moves away and exposes this window,
+				// InvalidateExposedRegions will trigger a re-render where visible regions will exist.
 				return;
 			}
 

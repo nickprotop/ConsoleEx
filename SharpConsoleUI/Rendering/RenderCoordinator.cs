@@ -368,6 +368,19 @@ namespace SharpConsoleUI.Rendering
 				// don't need re-rendering when a window beneath them changes.
 			}
 
+			// Safety: Always ensure the window being dragged is in the render list.
+			// This prevents the dragging window from going invisible if an edge case
+			// causes it to be skipped (e.g., marked clean prematurely or covered check race).
+			var dragState = _windowStateService.CurrentDrag;
+			if (dragState != null && dragState.Window != null &&
+			    dragState.Window.State != WindowState.Minimized &&
+			    dragState.Window.Width > 0 && dragState.Window.Height > 0 &&
+			    !_windowsToRender.Contains(dragState.Window))
+			{
+				dragState.Window.Invalidate(true);
+				_windowsToRender.Add(dragState.Window);
+			}
+
 			// PASS 1: Render normal (non-AlwaysOnTop) windows based on their ZIndex (no LINQ)
 			for (int i = 0; i < _sortedWindows.Count; i++)
 			{
