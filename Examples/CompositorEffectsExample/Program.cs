@@ -20,7 +20,7 @@ class Program
 		{
 			Title = "Compositor Effects - Main Menu",
 			Width = 75,
-			Height = 28
+			Height = 26
 		};
 
 		// Center the window
@@ -136,10 +136,54 @@ class Program
 
 		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
 
-		// Button 5: Open All
+		// Button 5: Particle System
+		var particleButton = new ButtonControl
+		{
+			Text = "► 5. Particle System (Weather Effects)",
+			Width = 65
+		};
+		particleButton.Click += (sender, e) =>
+		{
+			var window = new ParticleSystemWindow(windowSystem);
+			window.Left = (Console.WindowWidth - window.Width) / 2;
+			window.Top = (Console.WindowHeight - window.Height) / 2;
+			windowSystem.AddWindow(window);
+		};
+		mainWindow.AddControl(particleButton);
+
+		mainWindow.AddControl(new MarkupControl(new List<string>
+		{
+			"[dim]   Physics-based snow, rain, sparks, and confetti[/]"
+		}));
+
+		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
+
+		// Button 6: Wipe Transitions
+		var wipeButton = new ButtonControl
+		{
+			Text = "► 6. Wipe Transition Effects",
+			Width = 65
+		};
+		wipeButton.Click += (sender, e) =>
+		{
+			var window = new WipeTransitionWindow(windowSystem);
+			window.Left = (Console.WindowWidth - window.Width) / 2;
+			window.Top = (Console.WindowHeight - window.Height) / 2;
+			windowSystem.AddWindow(window);
+		};
+		mainWindow.AddControl(wipeButton);
+
+		mainWindow.AddControl(new MarkupControl(new List<string>
+		{
+			"[dim]   Various wipe patterns for content transitions[/]"
+		}));
+
+		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
+
+		// Button 7: Open All
 		var openAllButton = new ButtonControl
 		{
-			Text = "► 5. Open All Examples (Cascading)",
+			Text = "► 7. Open All Examples (Cascading)",
 			Width = 65
 		};
 		openAllButton.Click += (sender, e) =>
@@ -172,7 +216,7 @@ class Program
 		// Instructions
 		mainWindow.AddControl(new MarkupControl(new List<string>
 		{
-			"[dim]Press number keys 1-5 to launch demos | Tab/arrows to navigate[/]",
+			"[dim]Press number keys 1-7 to launch demos | Tab/arrows to navigate[/]",
 			"[dim]Enter or click to activate button | Press Q to quit | Esc closes windows[/]"
 		}));
 
@@ -210,6 +254,20 @@ class Program
 					e.Handled = true;
 					break;
 				case '5':
+					var particleWin = new ParticleSystemWindow(windowSystem);
+					particleWin.Left = (Console.WindowWidth - particleWin.Width) / 2;
+					particleWin.Top = (Console.WindowHeight - particleWin.Height) / 2;
+					windowSystem.AddWindow(particleWin);
+					e.Handled = true;
+					break;
+				case '6':
+					var wipeWin = new WipeTransitionWindow(windowSystem);
+					wipeWin.Left = (Console.WindowWidth - wipeWin.Width) / 2;
+					wipeWin.Top = (Console.WindowHeight - wipeWin.Height) / 2;
+					windowSystem.AddWindow(wipeWin);
+					e.Handled = true;
+					break;
+				case '7':
 					OpenAllExamples(windowSystem);
 					e.Handled = true;
 					break;
@@ -230,17 +288,32 @@ class Program
 		// Open all examples in a cascading layout
 		var fadeWindow = new FadeInWindow(windowSystem);
 		fadeWindow.Left = 5;
-		fadeWindow.Top = 3;
+		fadeWindow.Top = 2;
 		windowSystem.AddWindow(fadeWindow);
 
 		var blurWindow = new ModalBlurWindow(windowSystem);
 		blurWindow.Left = 10;
-		blurWindow.Top = 6;
+		blurWindow.Top = 4;
 		windowSystem.AddWindow(blurWindow);
 
 		var screenshotWindow = new ScreenshotWindow(windowSystem);
 		screenshotWindow.Left = 15;
-		screenshotWindow.Top = 9;
+		screenshotWindow.Top = 6;
 		windowSystem.AddWindow(screenshotWindow);
+
+		var fractalWindow = new FractalWindow(windowSystem);
+		fractalWindow.Left = 20;
+		fractalWindow.Top = 8;
+		windowSystem.AddWindow(fractalWindow);
+
+		var particleWindow = new ParticleSystemWindow(windowSystem);
+		particleWindow.Left = 25;
+		particleWindow.Top = 10;
+		windowSystem.AddWindow(particleWindow);
+
+		var wipeWindow = new WipeTransitionWindow(windowSystem);
+		wipeWindow.Left = 30;
+		wipeWindow.Top = 12;
+		windowSystem.AddWindow(wipeWindow);
 	}
 }

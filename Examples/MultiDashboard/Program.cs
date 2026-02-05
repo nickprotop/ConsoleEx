@@ -27,13 +27,13 @@ class Program
             _windowSystem = new ConsoleWindowSystem(
                 new NetConsoleDriver(RenderMode.Buffer),
                 options: new ConsoleWindowSystemOptions(
-                    StatusBarOptions: new StatusBarOptions(
-                        ShowTaskBar: true,
-                        ShowStartButton: true
-                    )
-                ));
-            _windowSystem.StatusBarStateService.TopStatus = "Multi-Dashboard Showcase - ConsoleEx Unique Capabilities Demo";
-            _windowSystem.StatusBarStateService.BottomStatus = "F1-F6: Toggle Windows | ESC: Close Window | F10: Close All | Ctrl+C: Quit";
+                    StatusBarOptions: new StatusBarOptions(ShowTaskBar: true, ShowStartButton: true)
+                )
+            );
+            _windowSystem.StatusBarStateService.TopStatus =
+                "Multi-Dashboard Showcase - ConsoleEx Unique Capabilities Demo";
+            _windowSystem.StatusBarStateService.BottomStatus =
+                "F1-F6: Toggle Windows | ESC: Close Window | F10: Close All | Ctrl+C: Quit";
 
             // 2. Graceful shutdown
             Console.CancelKeyPress += (sender, e) =>
@@ -131,7 +131,8 @@ class Program
         }
     }
 
-    static void ToggleWindow<T>(ref T? window, Func<T> factory) where T : class, IDisposable
+    static void ToggleWindow<T>(ref T? window, Func<T> factory)
+        where T : class, IDisposable
     {
         if (window != null)
         {
@@ -231,10 +232,14 @@ class Program
                 .AddLine("framework can do while integrating Spectre.Console!")
                 .AddLine("")
                 .AddLine("[yellow]Dashboard Windows & Refresh Rates:[/]")
-                .AddLine("[cyan]F1[/] - Weather Dashboard    ([green]5s[/])  - Async I/O simulation")
+                .AddLine(
+                    "[cyan]F1[/] - Weather Dashboard    ([green]5s[/])  - Async I/O simulation"
+                )
                 .AddLine("[cyan]F2[/] - System Monitor       ([green]1s[/])  - Fast metrics update")
                 .AddLine("[cyan]F3[/] - Stock Ticker         ([green]2s[/])  - Medium refresh")
-                .AddLine("[cyan]F4[/] - News Feed           ([green]10s[/])  - Slow independence test")
+                .AddLine(
+                    "[cyan]F4[/] - News Feed           ([green]10s[/])  - Slow independence test"
+                )
                 .AddLine("[cyan]F5[/] - Digital Clock        ([green]1s[/])  - Continuous time")
                 .AddLine("[cyan]F6[/] - Log Stream        ([green]500ms[/]) - Stress test")
                 .AddLine("")
