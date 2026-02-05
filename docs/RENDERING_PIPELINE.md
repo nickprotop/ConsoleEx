@@ -453,20 +453,32 @@ public interface ICharacterBuffer
 }
 ```
 
-#### Stage 3.5: PostBufferPaint Hook (Compositor Effects)
+#### Stage 3.5: Pre/Post Buffer Paint Hooks (Compositor Effects)
 *File: `Windows/WindowRenderer.cs`*
 
-**NEW**: After painting controls but before ANSI conversion, the `PostBufferPaint` event fires, allowing compositor-style buffer manipulation.
+Two compositor-style hooks allow buffer manipulation at different points in the rendering pipeline:
 
 ```csharp
 private List<string> RebuildContentCacheDOM(...)
 {
-    // Stage 1-3: Measure, Arrange, Paint
+    // Stage 1-2: Measure, Arrange
     RebuildDOMTree();
     PerformDOMLayout();
-    PaintDOM(clipRect, backgroundColor);
 
-    // ◄── POST-PAINT HOOK POINT
+    // Clear buffer with background color
+    _buffer.Clear(backgroundColor);
+
+    // ◄── PRE-PAINT HOOK POINT (backgrounds, fractals)
+    if (PreBufferPaint != null && _buffer != null)
+    {
+        var dirtyRegion = new LayoutRect(0, 0, _buffer.Width, _buffer.Height);
+        PreBufferPaint.Invoke(_buffer, dirtyRegion, clipRect);
+    }
+
+    // Stage 3: Paint controls ON TOP of pre-paint content
+    PaintDOMWithoutClear(clipRect);
+
+    // ◄── POST-PAINT HOOK POINT (effects, overlays)
     if (PostBufferPaint != null && _buffer != null)
     {
         var dirtyRegion = new LayoutRect(0, 0, _buffer.Width, _buffer.Height);
@@ -478,7 +490,12 @@ private List<string> RebuildContentCacheDOM(...)
 }
 ```
 
-**Purpose**: Enables advanced visual effects without modifying the core rendering pipeline:
+**PreBufferPaint** - Fires after buffer clear, before controls paint:
+- **Custom backgrounds**: Animated patterns, gradients
+- **Full-buffer graphics**: Fractals, visualizations
+- Controls render ON TOP of pre-paint content
+
+**PostBufferPaint** - Fires after controls paint, before ANSI conversion:
 - **Transitions**: Fade in/out, slide, wipe effects
 - **Filters**: Blur, desaturate, brightness adjustments
 - **Overlays**: Glow effects, highlights, custom decorations
@@ -486,25 +503,24 @@ private List<string> RebuildContentCacheDOM(...)
 
 **API:**
 ```csharp
-// Subscribe to event
+// Pre-paint: custom backgrounds (controls render on top)
+window.Renderer.PreBufferPaint += (buffer, dirtyRegion, clipRect) =>
+{
+    // Draw animated fractal or pattern
+    RenderFractal(buffer);
+};
+
+// Post-paint: effects applied to final content
 window.Renderer.PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
 {
-    // Apply custom effects to buffer
-    for (int y = 0; y < buffer.Height; y++)
-    {
-        for (int x = 0; x < buffer.Width; x++)
-        {
-            var cell = buffer.GetCell(x, y);
-            // Modify cell colors, characters, etc.
-            buffer.SetCell(x, y, cell.Character, modifiedFg, modifiedBg);
-        }
-    }
+    // Apply fade or blur effect
+    ApplyFadeEffect(buffer, _fadeProgress);
 };
 ```
 
-**Thread Safety**: Event fires within existing `_renderLock`, ensuring safe buffer manipulation.
+**Thread Safety**: Both events fire within existing `_renderLock`, ensuring safe buffer manipulation.
 
-**Performance**: Zero overhead when event not subscribed. Only process dirty regions for optimal performance.
+**Performance**: Zero overhead when events not subscribed. Only process dirty regions for optimal performance.
 
 See [Compositor Effects](COMPOSITOR_EFFECTS.md) for comprehensive examples and best practices.
 
@@ -1045,16 +1061,27 @@ WINDOW CONTENT (Window.RenderAndGetVisibleContent)
   └────────────────────┬───────────────────────────┘
                        │
   ┌────────────────────▼───────────────────────────┐
-  │ 9. Three-Stage Layout                          │
+  │ 9. Layout & Measure                            │
   │ • MEASURE: Calculate desired sizes             │  ← DOM layout
   │ • ARRANGE: Assign final positions              │
-  │ • PAINT: Draw to CharacterBuffer               │
+  │ • Buffer cleared with background color         │
   └────────────────────┬───────────────────────────┘
                        │
   ┌────────────────────▼───────────────────────────┐
-  │ 9.5 PostBufferPaint Event (Optional)           │
-  │ • Fire compositor effects hook                 │  ← COMPOSITOR EFFECTS
-  │ • Buffer manipulation allowed                  │
+  │ 9.5a PreBufferPaint Event (Optional)           │
+  │ • Fire pre-paint hook                          │  ← BACKGROUNDS
+  │ • Custom backgrounds, fractals, patterns       │
+  │ • Controls will render ON TOP                  │
+  └────────────────────┬───────────────────────────┘
+                       │
+  ┌────────────────────▼───────────────────────────┐
+  │ 9.5b Paint Controls                            │
+  │ • PAINT: Draw controls to CharacterBuffer      │
+  └────────────────────┬───────────────────────────┘
+                       │
+  ┌────────────────────▼───────────────────────────┐
+  │ 9.5c PostBufferPaint Event (Optional)          │
+  │ • Fire post-paint hook                         │  ← EFFECTS
   │ • Transitions, filters, overlays, snapshots    │
   └────────────────────┬───────────────────────────┘
                        │

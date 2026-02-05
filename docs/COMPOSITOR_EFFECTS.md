@@ -20,7 +20,8 @@ The compositor effects system allows you to manipulate the rendered buffer **aft
 
 ### Key Features
 
-- **Post-Paint Hook**: `PostBufferPaint` event fires after painting, before ANSI conversion
+- **Pre-Paint Hook**: `PreBufferPaint` event fires after buffer clear, before controls paint (for backgrounds)
+- **Post-Paint Hook**: `PostBufferPaint` event fires after painting, before ANSI conversion (for effects)
 - **Direct Buffer Access**: Full `CharacterBuffer` API for cell-level manipulation
 - **Immutable Snapshots**: `BufferSnapshot` for safe buffer capture (screenshots, recording)
 - **Zero Overhead**: Event system has no cost when not used
@@ -40,12 +41,21 @@ Window Rendering Pipeline:
 └──────────┬──────────┘
            │
 ┌──────────▼──────────┐
+│ Buffer.Clear()      │  Clear buffer with background color
+└──────────┬──────────┘
+           │
+┌──────────▼──────────────────────┐
+│ PreBufferPaint Event Fires      │  ◄── BACKGROUNDS GO HERE
+│ (Paint backgrounds, fractals)   │      (before controls)
+└──────────┬──────────────────────┘
+           │
+┌──────────▼──────────┐
 │ PaintDOM()          │  Paint controls to CharacterBuffer
 └──────────┬──────────┘
            │
 ┌──────────▼──────────────────────┐
-│ PostBufferPaint Event Fires     │  ◄── YOUR EFFECTS GO HERE
-│ (Buffer manipulation allowed)   │
+│ PostBufferPaint Event Fires     │  ◄── EFFECTS GO HERE
+│ (Fade, blur, overlays)          │      (after controls)
 └──────────┬──────────────────────┘
            │
 ┌──────────▼──────────┐
@@ -73,17 +83,40 @@ public CharacterBuffer? Buffer { get; }
 
 **CAUTION**: Direct buffer manipulation should only be done via the `PostBufferPaint` event to avoid race conditions. Reading is safe at any time.
 
-### 3. WindowRenderer.PostBufferPaint Event
+### 3. WindowRenderer.PreBufferPaint Event
 
-Event that fires after painting controls but before converting to ANSI strings.
+Event that fires after the buffer is cleared but before controls are painted. Ideal for custom backgrounds.
 
 ```csharp
-public delegate void PostBufferPaintDelegate(
+public delegate void BufferPaintDelegate(
     CharacterBuffer buffer,
     LayoutRect dirtyRegion,
     LayoutRect clipRect);
 
-public event PostBufferPaintDelegate? PostBufferPaint;
+public event BufferPaintDelegate? PreBufferPaint;
+```
+
+**Parameters**:
+- `buffer`: The character buffer (cleared with background color)
+- `dirtyRegion`: The region being painted (or full bounds if entire buffer)
+- `clipRect`: The clipping rectangle used during paint
+
+**Use cases**:
+- Animated backgrounds (fractals, patterns)
+- Custom window backgrounds
+- Full-buffer graphics that controls render ON TOP of
+
+### 4. WindowRenderer.PostBufferPaint Event
+
+Event that fires after painting controls but before converting to ANSI strings.
+
+```csharp
+public delegate void BufferPaintDelegate(
+    CharacterBuffer buffer,
+    LayoutRect dirtyRegion,
+    LayoutRect clipRect);
+
+public event BufferPaintDelegate? PostBufferPaint;
 ```
 
 **Parameters**:
@@ -91,7 +124,12 @@ public event PostBufferPaintDelegate? PostBufferPaint;
 - `dirtyRegion`: The region that was painted (or full bounds if entire buffer)
 - `clipRect`: The clipping rectangle used during paint
 
-### 4. BufferSnapshot
+**Use cases**:
+- Transitions (fade in/out)
+- Filters (blur, color grading)
+- Overlays (glow, highlights)
+
+### 5. BufferSnapshot
 
 Immutable snapshot of a CharacterBuffer at a point in time.
 

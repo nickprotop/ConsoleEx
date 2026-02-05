@@ -574,20 +574,35 @@ windowSystem.Theme = new MyDarkTheme();
 
 ### Compositor Effects
 
-SharpConsoleUI v2.0+ exposes the rendering buffer for post-processing effects, enabling compositor-style visual enhancements:
+SharpConsoleUI v2.0+ exposes the rendering buffer for custom backgrounds and post-processing effects via `PreBufferPaint` and `PostBufferPaint` events:
 
 ```csharp
-// Apply fade-in transition effect
+// Custom animated background (renders BEFORE controls)
+public class FractalWindow : Window
+{
+    public FractalWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
+    {
+        // PreBufferPaint: fires after clear, before controls paint
+        Renderer.PreBufferPaint += (buffer, dirtyRegion, clipRect) =>
+        {
+            // Render fractal/gradient/pattern - controls appear on top
+            for (int y = 0; y < buffer.Height; y++)
+                for (int x = 0; x < buffer.Width; x++)
+                    buffer.SetCell(x, y, '█', ComputeFractalColor(x, y), Color.Black);
+        };
+    }
+}
+
+// Post-processing effect (renders AFTER controls)
 public class FadeInWindow : Window
 {
     private float _fadeProgress = 0f;
 
     public FadeInWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
     {
-        // Subscribe to post-paint event
+        // PostBufferPaint: fires after controls paint, before display
         Renderer.PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
         {
-            // Manipulate buffer after painting, before display
             for (int y = 0; y < buffer.Height; y++)
             {
                 for (int x = 0; x < buffer.Width; x++)
@@ -604,8 +619,9 @@ public class FadeInWindow : Window
 ```
 
 **Use Cases:**
-- **Transitions**: Fade-in/fade-out, slide, dissolve effects
-- **Filters**: Blur, sharpen, color grading, sepia tone
+- **Custom Backgrounds**: Animated fractals, gradients, patterns (PreBufferPaint)
+- **Transitions**: Fade-in/fade-out, slide, dissolve effects (PostBufferPaint)
+- **Filters**: Blur, sharpen, color grading, sepia tone (PostBufferPaint)
 - **Overlays**: Glow effects, borders, highlights on focused controls
 - **Screenshots**: Capture immutable buffer snapshots with `buffer.CreateSnapshot()`
 - **Recording**: Frame-by-frame capture for replay or analysis
