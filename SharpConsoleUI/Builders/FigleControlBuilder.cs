@@ -29,6 +29,10 @@ public sealed class FigleControlBuilder
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
+	private bool _rightPadded = true;
+	private FigletSize _size = FigletSize.Medium;
+	private FigletFont? _customFont;
+	private string? _fontPath;
 
 	/// <summary>
 	/// Sets the FIGlet text to render
@@ -185,6 +189,70 @@ public sealed class FigleControlBuilder
 	}
 
 	/// <summary>
+	/// Sets whether the right side should be padded
+	/// </summary>
+	/// <param name="rightPadded">Whether to pad the right side</param>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder WithRightPadded(bool rightPadded)
+	{
+		_rightPadded = rightPadded;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the FIGlet text size
+	/// </summary>
+	/// <param name="size">The font size</param>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder WithSize(FigletSize size)
+	{
+		_size = size;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the FIGlet text to use small font
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder Small()
+	{
+		_size = FigletSize.Small;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the FIGlet text to use large font
+	/// </summary>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder Large()
+	{
+		_size = FigletSize.Large;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets a custom FigletFont instance
+	/// </summary>
+	/// <param name="font">The custom font</param>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder WithCustomFont(FigletFont font)
+	{
+		_customFont = font;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the path to a custom .flf font file
+	/// </summary>
+	/// <param name="fontPath">Path to the .flf font file</param>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder WithFontPath(string fontPath)
+	{
+		_fontPath = fontPath;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the Figlet control
 	/// </summary>
 	/// <returns>The configured Figlet control</returns>
@@ -200,7 +268,11 @@ public sealed class FigleControlBuilder
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			RightPadded = _rightPadded,
+			Size = _size,
+			CustomFont = _customFont,
+			FontPath = _fontPath
 		};
 
 		if (_color.HasValue)

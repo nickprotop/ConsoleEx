@@ -17,6 +17,24 @@ using Color = Spectre.Console.Color;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
+	/// FIGlet text size based on embedded fonts.
+	/// </summary>
+	public enum FigletSize
+	{
+		/// <summary>Small font (~4 lines height)</summary>
+		Small,
+
+		/// <summary>Medium/Standard font (~6 lines height)</summary>
+		Medium,
+
+		/// <summary>Large/Banner font (~8 lines height)</summary>
+		Large,
+
+		/// <summary>Custom font provided by user</summary>
+		Custom
+	}
+
+	/// <summary>
 	/// A control that renders text using FIGlet ASCII art fonts.
 	/// Wraps the Spectre.Console FigletText component for large decorative text display.
 	/// </summary>
@@ -30,6 +48,10 @@ namespace SharpConsoleUI.Controls
 		private string? _text;
 		private bool _visible = true;
 		private int? _width;
+		private bool _rightPadded = true;
+		private FigletSize _size = FigletSize.Medium;
+		private FigletFont? _customFont;
+		private string? _fontPath;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="FigleControl"/> class.
@@ -46,7 +68,7 @@ namespace SharpConsoleUI.Controls
 				if (string.IsNullOrEmpty(_text)) return _margin.Left + _margin.Right;
 
 				// Calculate width by rendering to get actual FIGlet dimensions
-				FigletText figletText = new FigletText(_text);
+				FigletText figletText = new FigletText(GetFont(), _text);
 				var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
 				var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? 80, null, bgColor);
 
@@ -114,6 +136,43 @@ namespace SharpConsoleUI.Controls
 			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
+		/// <summary>
+		/// Gets or sets whether the right side should be padded.
+		/// </summary>
+		public bool RightPadded
+		{
+			get => _rightPadded;
+			set => PropertySetterHelper.SetProperty(ref _rightPadded, value, Container);
+		}
+
+		/// <summary>
+		/// Gets or sets the FIGlet text size (uses embedded fonts).
+		/// </summary>
+		public FigletSize Size
+		{
+			get => _size;
+			set => PropertySetterHelper.SetEnumProperty(ref _size, value, Container);
+		}
+
+		/// <summary>
+		/// Gets or sets a custom FigletFont. Takes precedence over Size.
+		/// </summary>
+		public FigletFont? CustomFont
+		{
+			get => _customFont;
+			set => PropertySetterHelper.SetProperty(ref _customFont, value, Container);
+		}
+
+		/// <summary>
+		/// Gets or sets the path to a custom .flf font file.
+		/// Takes precedence over Size but lower than CustomFont.
+		/// </summary>
+		public string? FontPath
+		{
+			get => _fontPath;
+			set => PropertySetterHelper.SetProperty(ref _fontPath, value, Container);
+		}
+
 		/// <inheritdoc/>
 		public void Dispose()
 		{
@@ -133,7 +192,7 @@ namespace SharpConsoleUI.Controls
 				return new System.Drawing.Size(_margin.Left + _margin.Right, _margin.Top + _margin.Bottom);
 
 			// For Figlet text, we need to render to get the size
-			FigletText figletText = new FigletText(_text);
+			FigletText figletText = new FigletText(GetFont(), _text);
 			var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
 			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? 80, null, bgColor);
 
@@ -164,6 +223,68 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(true);
 		}
 
+		/// <summary>
+		/// Gets the FigletFont to use based on Size, FontPath, or CustomFont.
+		/// </summary>
+		private FigletFont GetFont()
+		{
+			// Priority: CustomFont > FontPath > Size-based > Default
+			if (_customFont != null)
+				return _customFont;
+
+			if (!string.IsNullOrEmpty(_fontPath) && File.Exists(_fontPath))
+			{
+				try
+				{
+					using var stream = File.OpenRead(_fontPath);
+					return FigletFont.Load(stream);
+				}
+				catch
+				{
+					// Fall through to size-based
+				}
+			}
+
+			return GetFontForSize(_size);
+		}
+
+		/// <summary>
+		/// Loads embedded font based on size.
+		/// </summary>
+		private static FigletFont GetFontForSize(FigletSize size)
+		{
+			return size switch
+			{
+				FigletSize.Small => LoadEmbeddedFont("small.flf"),
+				FigletSize.Medium => LoadEmbeddedFont("standard.flf"),
+				FigletSize.Large => LoadEmbeddedFont("banner.flf"),
+				FigletSize.Custom => FigletFont.Default,
+				_ => FigletFont.Default
+			};
+		}
+
+		/// <summary>
+		/// Loads embedded font resource.
+		/// </summary>
+		private static FigletFont LoadEmbeddedFont(string fileName)
+		{
+			var assembly = typeof(FigleControl).Assembly;
+			var resourceName = $"SharpConsoleUI.Resources.Fonts.{fileName}";
+
+			try
+			{
+				using var stream = assembly.GetManifestResourceStream(resourceName);
+				if (stream != null)
+					return FigletFont.Load(stream);
+			}
+			catch
+			{
+				// Fall back to default if embedded font not found
+			}
+
+			return FigletFont.Default;
+		}
+
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
@@ -178,7 +299,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// For Figlet text, we need to render to get the size
-			FigletText figletText = new FigletText(_text);
+			FigletText figletText = new FigletText(GetFont(), _text);
 			var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
 			int targetWidth = _width ?? constraints.MaxWidth - _margin.Left - _margin.Right;
 			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, targetWidth, null, bgColor);
@@ -211,8 +332,15 @@ namespace SharpConsoleUI.Controls
 			if (!string.IsNullOrEmpty(_text))
 			{
 				// Render the FIGlet text
-				FigletText figletText = new FigletText(_text);
+				FigletText figletText = new FigletText(GetFont(), _text);
 				figletText.Color = fgColor;
+				figletText.Justification = _horizontalAlignment switch
+				{
+					HorizontalAlignment.Left => Justify.Left,
+					HorizontalAlignment.Center => Justify.Center,
+					HorizontalAlignment.Right => Justify.Right,
+					_ => Justify.Left
+				};
 
 				int figletWidth = _width ?? targetWidth;
 				var renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, figletWidth, null, bgColor);
@@ -231,39 +359,9 @@ namespace SharpConsoleUI.Controls
 							buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, bgColor);
 						}
 
-						// Calculate alignment
-						int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent[i]);
-						int alignOffset = 0;
-						if (lineWidth < targetWidth)
-						{
-							switch (_horizontalAlignment)
-							{
-								case HorizontalAlignment.Center:
-									alignOffset = (targetWidth - lineWidth) / 2;
-									break;
-								case HorizontalAlignment.Right:
-									alignOffset = targetWidth - lineWidth;
-									break;
-							}
-						}
-
-						// Fill left alignment padding
-						if (alignOffset > 0)
-						{
-							buffer.FillRect(new LayoutRect(startX, paintY, alignOffset, 1), ' ', fgColor, bgColor);
-						}
-
-						// Parse and write the FIGlet line
+						// Parse and write the FIGlet line (Spectre handles justification)
 						var cells = AnsiParser.Parse(renderedContent[i], fgColor, bgColor);
-						buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
-
-						// Fill right padding
-						int rightPadStart = startX + alignOffset + lineWidth;
-						int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
-						if (rightPadWidth > 0)
-						{
-							buffer.FillRect(new LayoutRect(rightPadStart, paintY, rightPadWidth, 1), ' ', fgColor, bgColor);
-						}
+						buffer.WriteCellsClipped(startX, paintY, cells, clipRect);
 
 						// Fill right margin
 						if (_margin.Right > 0)
