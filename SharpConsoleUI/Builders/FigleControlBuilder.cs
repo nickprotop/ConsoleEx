@@ -30,7 +30,7 @@ public sealed class FigleControlBuilder
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private bool _rightPadded = true;
-	private FigletSize _size = FigletSize.Medium;
+	private FigletSize _size = FigletSize.Default;
 	private FigletFont? _customFont;
 	private string? _fontPath;
 	private ShadowStyle _shadowStyle = ShadowStyle.None;

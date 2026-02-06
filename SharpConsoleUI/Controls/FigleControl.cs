@@ -42,8 +42,8 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Small font (~4 lines height)</summary>
 		Small,
 
-		/// <summary>Medium/Standard font (~6 lines height)</summary>
-		Medium,
+		/// <summary>Default/Standard font (~6 lines height) - Spectre's default FIGlet font</summary>
+		Default,
 
 		/// <summary>Large/Banner font (~8 lines height)</summary>
 		Large,
@@ -67,7 +67,7 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 		private bool _rightPadded = true;
-		private FigletSize _size = FigletSize.Medium;
+		private FigletSize _size = FigletSize.Default;
 		private FigletFont? _customFont;
 		private string? _fontPath;
 		private ShadowStyle _shadowStyle = ShadowStyle.None;
@@ -329,7 +329,7 @@ namespace SharpConsoleUI.Controls
 			return size switch
 			{
 				FigletSize.Small => LoadEmbeddedFont("small.flf"),
-				FigletSize.Medium => LoadEmbeddedFont("standard.flf"),
+				FigletSize.Default => LoadEmbeddedFont("standard.flf"),
 				FigletSize.Large => LoadEmbeddedFont("banner.flf"),
 				FigletSize.Custom => FigletFont.Default,
 				_ => FigletFont.Default
@@ -604,8 +604,20 @@ namespace SharpConsoleUI.Controls
 						}
 
 						// Parse and write the FIGlet line (Spectre handles justification)
-						var cells = AnsiParser.Parse(renderedContent[i], fgColor, bgColor);
-						buffer.WriteCellsClipped(startX, paintY, cells, clipRect);
+						// Only write non-space characters to avoid overwriting shadow
+						var plainText = AnsiConsoleHelper.StripAnsi(renderedContent[i]);
+						for (int charIdx = 0; charIdx < plainText.Length; charIdx++)
+						{
+							char ch = plainText[charIdx];
+							if (ch != ' ')
+							{
+								int x = startX + charIdx;
+								if (x >= clipRect.X && x < clipRect.Right)
+								{
+									buffer.SetCell(x, paintY, ch, fgColor, bgColor);
+								}
+							}
+						}
 
 						// Fill right margin
 						if (_margin.Right > 0)

@@ -42,7 +42,7 @@ class Program
 		var descMarkup = new MarkupControl(new List<string>
 		{
 			"[white]Demonstrates FIGlet ASCII art text with:[/]",
-			"[white]• Multiple font sizes (Small, Medium, Large)[/]",
+			"[white]• Multiple font sizes (Small, Default, Large)[/]",
 			"[white]• Shadow effects (Drop shadow, Outline, 3D extrusion)[/]",
 			"[white]• Text alignment options[/]",
 			"[white]• Animated transitions[/]"
@@ -54,7 +54,7 @@ class Program
 		// Button 1: Font Sizes
 		var sizesButton = new ButtonControl
 		{
-			Text = "► 1. Font Sizes (Small, Medium, Large)",
+			Text = "► 1. Font Sizes (Small, Default, Large)",
 			Width = 65
 		};
 		sizesButton.Click += (sender, e) =>
@@ -221,15 +221,15 @@ class FontSizesWindow : Window
 
 		AddControl(new MarkupControl(new List<string> { "" }));
 
-		// Medium font
-		AddControl(new MarkupControl(new List<string> { "[yellow]Medium Font (Default):[/]" }));
-		var mediumFigle = new FigleControl
+		// Default font
+		AddControl(new MarkupControl(new List<string> { "[yellow]Default Font (Standard):[/]" }));
+		var defaultFigle = new FigleControl
 		{
-			Text = "MEDIUM",
-			Size = FigletSize.Medium,
+			Text = "DEFAULT",
+			Size = FigletSize.Default,
 			Color = Spectre.Console.Color.Blue
 		};
-		AddControl(mediumFigle);
+		AddControl(defaultFigle);
 
 		AddControl(new MarkupControl(new List<string> { "" }));
 
@@ -424,7 +424,7 @@ class RainbowAnimationWindow : Window
 		_animatedText = new FigleControl
 		{
 			Text = "RAINBOW",
-			Size = FigletSize.Medium,
+			Size = FigletSize.Default,
 			Color = _rainbowColors[0],
 			HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment.Center,
 			Width = 65,
