@@ -495,6 +495,20 @@ namespace SharpConsoleUI.Helpers
 			return ansiStripped.Length;
 		}
 
+		/// <summary>
+		/// Strips ANSI escape sequences from a string and returns the plain text.
+		/// </summary>
+		/// <param name="input">String that may contain ANSI codes</param>
+		/// <returns>Plain text without ANSI codes</returns>
+		public static string StripAnsi(string input)
+		{
+			if (string.IsNullOrEmpty(input))
+				return input ?? string.Empty;
+
+			// Remove ANSI escape sequences
+			return Regex.Replace(input, @"\x1B\[[0-9;]*[a-zA-Z]", string.Empty);
+		}
+
 	/// <summary>
 	/// Calculates the visible length of text by stripping Spectre.Console markup tags
 	/// </summary>

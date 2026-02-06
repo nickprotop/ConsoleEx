@@ -399,8 +399,20 @@ namespace SharpConsoleUI.Controls
 				int paintY = shadowY + i;
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 				{
-					var cells = AnsiParser.Parse(renderedContent[i], shadowColor, bgColor);
-					buffer.WriteCellsClipped(shadowX, paintY, cells, clipRect);
+					// Strip ANSI codes and render solid shadow color
+					var plainText = AnsiConsoleHelper.StripAnsi(renderedContent[i]);
+					for (int charIdx = 0; charIdx < plainText.Length; charIdx++)
+					{
+						char ch = plainText[charIdx];
+						if (ch != ' ') // Only render non-space characters
+						{
+							int x = shadowX + charIdx;
+							if (x >= clipRect.X && x < clipRect.Right)
+							{
+								buffer.SetCell(x, paintY, ch, shadowColor, bgColor);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -425,8 +437,20 @@ namespace SharpConsoleUI.Controls
 					int paintY = outlineY + i;
 					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 					{
-						var cells = AnsiParser.Parse(renderedContent[i], shadowColor, bgColor);
-						buffer.WriteCellsClipped(outlineX, paintY, cells, clipRect);
+						// Strip ANSI codes and render solid shadow color
+						var plainText = AnsiConsoleHelper.StripAnsi(renderedContent[i]);
+						for (int charIdx = 0; charIdx < plainText.Length; charIdx++)
+						{
+							char ch = plainText[charIdx];
+							if (ch != ' ')
+							{
+								int x = outlineX + charIdx;
+								if (x >= clipRect.X && x < clipRect.Right)
+								{
+									buffer.SetCell(x, paintY, ch, shadowColor, bgColor);
+								}
+							}
+						}
 					}
 				}
 			}
@@ -456,8 +480,20 @@ namespace SharpConsoleUI.Controls
 					int paintY = layerY + i;
 					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 					{
-						var cells = AnsiParser.Parse(renderedContent[i], layerColor, bgColor);
-						buffer.WriteCellsClipped(layerX, paintY, cells, clipRect);
+						// Strip ANSI codes and render solid layer color
+						var plainText = AnsiConsoleHelper.StripAnsi(renderedContent[i]);
+						for (int charIdx = 0; charIdx < plainText.Length; charIdx++)
+						{
+							char ch = plainText[charIdx];
+							if (ch != ' ')
+							{
+								int x = layerX + charIdx;
+								if (x >= clipRect.X && x < clipRect.Right)
+								{
+									buffer.SetCell(x, paintY, ch, layerColor, bgColor);
+								}
+							}
+						}
 					}
 				}
 			}
