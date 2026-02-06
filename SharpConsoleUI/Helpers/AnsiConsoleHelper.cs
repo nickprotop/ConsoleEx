@@ -556,7 +556,7 @@ namespace SharpConsoleUI.Helpers
 				}
 
 				// Track this sequence if it's before our start position
-				if (visibleIndex <= startIndex)
+				if (visibleIndex < startIndex)
 				{
 					string sequence = match.Value;
 					if (IsResetSequence(sequence))
