@@ -43,8 +43,9 @@ class Program
 		{
 			"[white]Demonstrates FIGlet ASCII art text with:[/]",
 			"[white]• Multiple font sizes (Small, Default, Large)[/]",
+			"[white]• Custom font loading from files[/]",
 			"[white]• Text alignment options[/]",
-			"[white]• Animated color transitions[/]"
+			"[white]• Animated colors + PostBufferPaint effects[/]"
 		});
 		mainWindow.AddControl(descMarkup);
 
@@ -90,10 +91,30 @@ class Program
 
 		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
 
-		// Button 3: Animated Rainbow
+		// Button 3: Custom Fonts
+		var customFontsButton = new ButtonControl
+		{
+			Text = "► 3. Custom Font Loading",
+			Width = 65
+		};
+		customFontsButton.Click += (sender, e) =>
+		{
+			var window = new CustomFontsWindow(windowSystem);
+			windowSystem.AddWindow(window);
+		};
+		mainWindow.AddControl(customFontsButton);
+
+		mainWindow.AddControl(new MarkupControl(new List<string>
+		{
+			"[dim]   Load fonts from .flf files with FontPath[/]"
+		}));
+
+		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
+
+		// Button 4: Animated Rainbow
 		var rainbowButton = new ButtonControl
 		{
-			Text = "► 3. Animated Rainbow Colors",
+			Text = "► 4. Animated Rainbow + Background",
 			Width = 65
 		};
 		rainbowButton.Click += (sender, e) =>
@@ -105,7 +126,7 @@ class Program
 
 		mainWindow.AddControl(new MarkupControl(new List<string>
 		{
-			"[dim]   Color cycling animation with FIGlet text[/]"
+			"[dim]   Color cycling + PostBufferPaint wave animation[/]"
 		}));
 
 		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
@@ -127,7 +148,7 @@ class Program
 		// Instructions
 		var instructionMarkup = new MarkupControl(new List<string>
 		{
-			"[dim]Press number keys 1-3 to launch demos | Tab/arrows to navigate[/]",
+			"[dim]Press number keys 1-4 to launch demos | Tab/arrows to navigate[/]",
 			"[dim]Enter or click to activate button | Press Q to quit | Esc closes windows[/]"
 		});
 		mainWindow.AddControl(instructionMarkup);
@@ -148,6 +169,11 @@ class Program
 					e.Handled = true;
 					break;
 				case '3':
+					var customWin = new CustomFontsWindow(windowSystem);
+					windowSystem.AddWindow(customWin);
+					e.Handled = true;
+					break;
+				case '4':
 					var rainbowWin = new RainbowAnimationWindow(windowSystem);
 					windowSystem.AddWindow(rainbowWin);
 					e.Handled = true;
@@ -283,12 +309,70 @@ class AlignmentWindow : Window
 	}
 }
 
-// Window 3: Rainbow Animation
+// Window 3: Custom Font Loading
+class CustomFontsWindow : Window
+{
+	public CustomFontsWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
+	{
+		Title = "Custom Font Loading Demo";
+		Width = 70;
+		Height = 28;
+		Left = (Console.WindowWidth - Width) / 2;
+		Top = (Console.WindowHeight - Height) / 2;
+
+		// Header
+		AddControl(new MarkupControl(new List<string>
+		{
+			"[bold cyan]Loading Custom Fonts from Files[/]",
+			"[dim]Demonstrates FontPath property[/]",
+			""
+		}));
+
+		// Cyberlarge font
+		AddControl(new MarkupControl(new List<string> { "[yellow]Cyberlarge Font:[/]" }));
+		var cyberFont = new FigleControl
+		{
+			Text = "CYBER",
+			FontPath = "Fonts/cyberlarge.flf",
+			Color = Spectre.Console.Color.Green
+		};
+		AddControl(cyberFont);
+
+		AddControl(new MarkupControl(new List<string> { "" }));
+
+		// Isometric font
+		AddControl(new MarkupControl(new List<string> { "[yellow]Isometric1 Font:[/]" }));
+		var isoFont = new FigleControl
+		{
+			Text = "ISO",
+			FontPath = "Fonts/isometric1.flf",
+			Color = Spectre.Console.Color.Blue
+		};
+		AddControl(isoFont);
+
+		AddControl(new MarkupControl(new List<string> { "" }));
+
+		// Star Wars font
+		AddControl(new MarkupControl(new List<string> { "[yellow]Star Wars Font:[/]" }));
+		var swFont = new FigleControl
+		{
+			Text = "WARS",
+			FontPath = "Fonts/starwars.flf",
+			Color = Spectre.Console.Color.Yellow
+		};
+		AddControl(swFont);
+
+		AddControl(new MarkupControl(new List<string> { "", "[dim]Fonts loaded from Fonts/*.flf files | Press ESC to close[/]" }));
+	}
+}
+
+// Window 4: Rainbow Animation
 class RainbowAnimationWindow : Window
 {
 	private FigleControl? _animatedText;
 	private System.Timers.Timer? _animationTimer;
 	private int _colorIndex = 0;
+	private float _waveOffset = 0;
 	private readonly Spectre.Console.Color[] _rainbowColors = new[]
 	{
 		Spectre.Console.Color.Red,
@@ -326,17 +410,56 @@ class RainbowAnimationWindow : Window
 		};
 		AddControl(_animatedText);
 
-		AddControl(new MarkupControl(new List<string> { "", "[dim]Colors cycle automatically | Press ESC to close[/]" }));
+		AddControl(new MarkupControl(new List<string> { "", "[dim]Colors cycle + animated background | Press ESC to close[/]" }));
+
+		// Add animated background using PostBufferPaint
+		if (Renderer != null)
+		{
+			Renderer.PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
+			{
+				// Create animated wave pattern in background
+				for (int y = 0; y < buffer.Height; y++)
+				{
+					for (int x = 0; x < buffer.Width; x++)
+					{
+						var cell = buffer.GetCell(x, y);
+
+						// Only modify background of empty cells
+						if (cell.Character == ' ')
+						{
+							// Create wave pattern
+							float wave = (float)Math.Sin((x * 0.2) + (y * 0.3) + _waveOffset) * 0.5f + 0.5f;
+							int colorIdx = (int)(wave * _rainbowColors.Length) % _rainbowColors.Length;
+							var bgColor = _rainbowColors[colorIdx];
+
+							// Darken the background color
+							var darkBg = new Spectre.Console.Color(
+								(byte)(bgColor.R * 0.2),
+								(byte)(bgColor.G * 0.2),
+								(byte)(bgColor.B * 0.2)
+							);
+
+							buffer.SetCell(x, y, ' ', cell.Foreground, darkBg);
+						}
+					}
+				}
+			};
+		}
 
 		// Start animation timer (using window's thread support)
-		_animationTimer = new System.Timers.Timer(300); // Change color every 300ms
+		_animationTimer = new System.Timers.Timer(50); // Update every 50ms for smooth animation
 		_animationTimer.Elapsed += (sender, e) =>
 		{
 			_colorIndex = (_colorIndex + 1) % _rainbowColors.Length;
+			_waveOffset += 0.1f;
+
 			if (_animatedText != null)
 			{
 				_animatedText.Color = _rainbowColors[_colorIndex];
 			}
+
+			// Invalidate to trigger redraw with new background
+			Invalidate(true);
 		};
 		_animationTimer.Start();
 
