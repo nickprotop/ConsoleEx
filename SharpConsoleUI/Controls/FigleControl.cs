@@ -366,7 +366,8 @@ namespace SharpConsoleUI.Controls
 		{
 			if (_shadowStyle == ShadowStyle.None) return;
 
-			var shadowColor = _shadowColor ?? DarkenColor(bgColor, 0.5f);
+			// Default shadow color: dark grey instead of darkened background (which might already be black)
+			var shadowColor = _shadowColor ?? new Color(64, 64, 64);
 
 			switch (_shadowStyle)
 			{

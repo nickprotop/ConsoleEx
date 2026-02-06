@@ -38,4 +38,10 @@
 	  </None>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <EmbeddedResource Include="Resources\Fonts\small.flf" />
+	  <EmbeddedResource Include="Resources\Fonts\standard.flf" />
+	  <EmbeddedResource Include="Resources\Fonts\banner.flf" />
+	</ItemGroup>
+
 </Project>
