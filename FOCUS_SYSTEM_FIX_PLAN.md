@@ -5,9 +5,44 @@ Comprehensive fix for focus system bugs discovered during deep analysis. Impleme
 
 **Timeline**: Week 3 - Days 2-4 (aligned with TEST_IMPLEMENTATION_PLAN.md Phase 6)
 **Approach**: Fix → Test → Verify (parallel workflow)
-**Total Bugs**: 10 bugs identified and documented
+**Total Bugs**: 14 bugs (10 original + 4 found during deep analysis)
 **Total Tests**: ~128 new tests across 11 test files
 **Expected Result**: 401 tests passing (273 current + 128 new)
+**Critical Discovery**: 3 containers (ColumnContainer, MenuControl, ToolbarControl) have broken/inconsistent focus behavior
+
+---
+
+## 🔴 CRITICAL FINDINGS - Container Focus Inconsistencies
+
+**Deep analysis revealed existing containers have broken/inconsistent focus behavior:**
+
+### ✅ ScrollablePanelControl (GOOD)
+- Has IDirectionalFocusControl ✅
+- SetFocus correctly focuses first/last child based on direction
+- Has scroll methods: `ScrollVerticalBy()`, `ScrollVerticalTo()`, `ScrollHorizontalBy()`
+- **Missing**: `ScrollChildIntoView(IWindowControl child)` - needed for BringIntoFocus
+
+### ✅ HorizontalGridControl (GOOD)
+- Has IDirectionalFocusControl ✅
+- HasFocus setter calls `FocusChanged()` which correctly focuses first/last child
+- No scrolling (relies on columns)
+
+### ⚠️ ToolbarControl (INCONSISTENT)
+- **Missing** IDirectionalFocusControl ❌
+- HasFocus setter ONLY focuses first item (line 138)
+- **Problem**: Ignores backward direction - should focus last item on Shift+Tab
+
+### 🔴 ColumnContainer (BROKEN)
+- **Missing** IDirectionalFocusControl ❌
+- SetFocus just sets HasFocus, **NO child focusing at all!**
+- **Problem**: Container gets focus but children never do - focus appears "lost"
+
+### 🔴 MenuControl (BROKEN)
+- **Missing** IDirectionalFocusControl ❌
+- HasFocus setter just sets field, **NO child focusing at all!**
+- **Problem**: Same as ColumnContainer - completely broken
+
+**Impact**: Tasks #9, #10, #11 are CRITICAL fixes, not just enhancements!
 
 ---
 
@@ -17,11 +52,15 @@ Comprehensive fix for focus system bugs discovered during deep analysis. Impleme
 - **Bug #1**: Window._interactiveContents only contains top-level controls
 - **Bug #2**: No IContainerControl interface to expose children ← ROOT CAUSE
 - **Bug #7**: No recursive collection mechanism
+- **Bug #11 (NEW)**: ColumnContainer doesn't focus children when receiving focus
+- **Bug #12 (NEW)**: MenuControl doesn't focus children when receiving focus
+- **Bug #13 (NEW)**: No IScrollableContainer interface for parent notification
 
 ### HIGH Priority
 - **Bug #3**: Missing IDirectionalFocusControl on ToolbarControl, MenuControl, ColumnContainer
 - **Bug #4**: Invisible controls can receive Tab focus (no Visible check)
 - **Bug #8**: BringIntoFocus uses wrong index after flattening
+- **Bug #14 (NEW)**: ToolbarControl only focuses first item (ignores backward direction)
 
 ### MEDIUM Priority
 - **Bug #5**: Mouse unfocus loop only checks top-level controls
@@ -31,16 +70,22 @@ Comprehensive fix for focus system bugs discovered during deep analysis. Impleme
 ### LOW Priority
 - **Bug #10**: Sticky controls edge case in scroll calculation
 
+**Total Bugs**: 14 (was 10, found 4 more during analysis)
+
 ---
 
 ## Phase 1: Architectural Foundation
 
-### Task #4: Create IContainerControl Interface ⏳ IN PROGRESS
-**Status**: Not Started
-**Bug**: #2 (ROOT CAUSE)
-**File**: `SharpConsoleUI/Controls/IContainerControl.cs`
+### Task #4: Create IContainerControl and IScrollableContainer Interfaces ⏳ IN PROGRESS
+**Status**: In Progress
+**Bug**: #2, #13 (ROOT CAUSE)
+**Files**:
+- `SharpConsoleUI/Controls/IContainerControl.cs`
+- `SharpConsoleUI/Controls/IScrollableContainer.cs`
 
 **Implementation**:
+
+**IContainerControl.cs**:
 ```csharp
 namespace SharpConsoleUI.Controls
 {
@@ -60,10 +105,31 @@ namespace SharpConsoleUI.Controls
 }
 ```
 
+**IScrollableContainer.cs** (NEW):
+```csharp
+namespace SharpConsoleUI.Controls
+{
+    /// <summary>
+    /// Interface for containers that can scroll to bring children into view.
+    /// Used by BringIntoFocus to notify parent containers when nested child receives focus.
+    /// </summary>
+    public interface IScrollableContainer
+    {
+        /// <summary>
+        /// Scrolls the container to bring the specified child control into view.
+        /// Should also show/highlight scrollbars if applicable.
+        /// </summary>
+        /// <param name="child">The child control to bring into view</param>
+        void ScrollChildIntoView(IWindowControl child);
+    }
+}
+```
+
 **Verification**:
-- [ ] Interface compiles without errors
+- [ ] Both interfaces compile without errors
 - [ ] Can be implemented by container controls
 - [ ] Follows standard GUI framework patterns (WPF, WinForms, Qt)
+- [ ] IScrollableContainer enables parent notification on focus
 
 ---
 
@@ -101,9 +167,47 @@ public IReadOnlyList<IWindowControl> GetChildren()
 
 3. **ScrollablePanelControl.cs** (line ~30)
 ```csharp
+// Add IScrollableContainer to interface list
+public class ScrollablePanelControl : IWindowControl, IInteractiveControl, IFocusableControl,
+                                      IMouseAwareControl, IDirectionalFocusControl, ILayoutAware,
+                                      IDOMPaintable, IContainerControl, IScrollableContainer
+
 public IReadOnlyList<IWindowControl> GetChildren()
 {
     return _children.AsReadOnly();
+}
+
+// NEW: Implement IScrollableContainer
+public void ScrollChildIntoView(IWindowControl child)
+{
+    if (!_children.Contains(child)) return;
+
+    // Calculate child's Y position in content
+    int childY = 0;
+    foreach (var c in _children.Where(c => c.Visible))
+    {
+        if (c == child) break;
+        childY += c.GetLogicalContentSize().Height;
+    }
+
+    int childHeight = child.GetLogicalContentSize().Height;
+
+    // Check if child is above viewport
+    if (childY < _verticalScrollOffset)
+    {
+        ScrollVerticalTo(childY);
+    }
+    // Check if child is below viewport
+    else if (childY + childHeight > _verticalScrollOffset + _viewportHeight)
+    {
+        ScrollVerticalTo(childY + childHeight - _viewportHeight);
+    }
+
+    // Show/highlight scrollbars
+    if (_showScrollbar)
+    {
+        Invalidate(true);
+    }
 }
 ```
 
@@ -480,9 +584,24 @@ private void BringIntoFocus(IWindowControl focusedControl)
 {
     if (focusedControl == null) return;
 
+    // CRITICAL: Walk up parent chain and notify containers
+    // This allows ScrollablePanels to scroll child into view and show scrollbars
+    var current = focusedControl;
+    while (current != null)
+    {
+        if (current.Container is IScrollableContainer scrollable)
+        {
+            scrollable.ScrollChildIntoView(current);
+        }
+
+        // Move up to parent
+        current = current.Container as IWindowControl;
+    }
+
+    // Then handle window-level scrolling
     var bounds = _window._layoutManager.GetOrCreateControlBounds(focusedControl);
     var controlBounds = bounds.ControlContentBounds;
-    // ... rest of method uses focusedControl directly
+    // ... rest of existing method for window scroll
 }
 ```
 
@@ -688,8 +807,11 @@ interactiveContent = focusedControls.FirstOrDefault();
 - [ ] All tests pass (401/401)
 - [ ] No regressions in Phase 1-5 tests
 - [ ] Build succeeds with 0 errors
-- [ ] All 10 bugs fixed
+- [ ] All 14 bugs fixed (10 original + 4 found during analysis)
 - [ ] Manual testing shows improved focus behavior
+- [ ] Nested controls receive focus correctly
+- [ ] ScrollablePanels scroll children into view
+- [ ] All containers focus children properly
 
 ---
 
@@ -700,9 +822,9 @@ interactiveContent = focusedControls.FirstOrDefault();
 ```
 Phase 6: Fix focus system with comprehensive test coverage
 
-BUGS FIXED (10 total):
+BUGS FIXED (14 total - 10 original + 4 found during deep analysis):
 - Bug #1,#7: Incomplete focus list, no recursive collection (CRITICAL)
-- Bug #2: Missing IContainerControl interface (ROOT CAUSE)
+- Bug #2,#13: Missing IContainerControl and IScrollableContainer interfaces (ROOT CAUSE)
 - Bug #3: Missing IDirectionalFocusControl on 3 containers (HIGH)
 - Bug #4: Invisible controls could receive Tab focus (HIGH)
 - Bug #5: Mouse unfocus incomplete for nested controls (MEDIUM)
@@ -710,6 +832,9 @@ BUGS FIXED (10 total):
 - Bug #8: BringIntoFocus index mismatch after flattening (HIGH)
 - Bug #9: Bounds incorrect for nested controls (MEDIUM)
 - Bug #10: Sticky controls edge case (LOW)
+- Bug #11: ColumnContainer doesn't focus children (CRITICAL - found during analysis)
+- Bug #12: MenuControl doesn't focus children (CRITICAL - found during analysis)
+- Bug #14: ToolbarControl only focuses first item (HIGH - found during analysis)
 
 ARCHITECTURAL CHANGES:
 - Add IContainerControl interface for child exposure
@@ -760,9 +885,10 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 ## Current Status
 
 **Phase**: Phase 1 - Architectural Foundation
-**Current Task**: Task #4 - Create IContainerControl Interface ⏳ IN PROGRESS
+**Current Task**: Task #4 - Create IContainerControl and IScrollableContainer Interfaces ⏳ IN PROGRESS
 **Tasks Complete**: 0 / 15 (0%)
 **Tests Passing**: 273 / 401 (68% - Phase 5 baseline)
+**Bugs Found**: 14 (10 original + 4 during deep analysis)
 
 **Next Steps**:
 1. Create IContainerControl interface
@@ -779,7 +905,18 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 - **Regression Protection**: 128 new tests ensure bugs don't return
 - **Aligns with TEST_IMPLEMENTATION_PLAN.md**: Phase 6 Focus & Input Tests
 - **No Breaking Changes**: All changes are fixes, not API changes
-- **Comprehensive**: Covers all 10 identified bugs
+- **Comprehensive**: Covers all 14 identified bugs (10 original + 4 found during analysis)
+
+### Critical Discoveries During Analysis
+
+**Deep analysis of existing container code revealed 4 additional critical bugs:**
+
+1. **ColumnContainer** (line 599-609): SetFocus doesn't delegate to children - focus appears "lost"
+2. **MenuControl** (line 337-345): HasFocus setter doesn't delegate to children - same issue
+3. **ToolbarControl** (line 124-154): Only focuses first item, ignores backward direction
+4. **Missing IScrollableContainer**: No mechanism for parent containers to be notified when nested child receives focus
+
+These findings validate the need for comprehensive testing and demonstrate why Phase 6 is critical for TUI usability.
 
 ---
 
