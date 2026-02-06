@@ -54,11 +54,12 @@ namespace SharpConsoleUI.Core
 		public int WindowCount => Windows.Count;
 
 		/// <summary>
-		/// Gets windows ordered by Z-index (back to front)
+		/// Gets windows ordered by Z-index (front to back).
+		/// Higher Z-index means closer to front/top.
 		/// </summary>
 		public IReadOnlyList<Window> GetWindowsByZOrder()
 		{
-			return Windows.Values.OrderBy(w => w.ZIndex).ToList();
+			return Windows.Values.OrderByDescending(w => w.ZIndex).ToList();
 		}
 
 		/// <summary>

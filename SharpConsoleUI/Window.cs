@@ -998,10 +998,13 @@ namespace SharpConsoleUI
 			// No async thread - delegate to CloseWindow if window is in a system
 			if (_windowSystem != null)
 			{
-				return _windowSystem.CloseWindow(this, force: force);
+				bool closedBySystem = _windowSystem.CloseWindow(this, force: force);
+				if (closedBySystem)
+					return true;
+				// Window wasn't registered in system - fall through to orphan handling
 			}
 
-			// Orphan window (not in a system) - handle locally
+			// Orphan window (not in a system OR system couldn't close it) - handle locally
 			if (!TryClose(force))
 			{
 				return false;  // Close cancelled - nothing changed
@@ -2082,11 +2085,10 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Internal method to set position directly without triggering invalidation logic.
 		/// Used by WindowPositioningManager to avoid recursion.
+		/// Note: Negative coordinates are allowed - rendering pipeline handles them safely.
 		/// </summary>
 		internal void SetPositionDirect(Point point)
 		{
-			if (point.X < 0 || point.Y < 0) return;
-
 			_left = point.X;
 			_top = point.Y;
 		}

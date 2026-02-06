@@ -266,12 +266,13 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Gets all windows ordered by Z-index (back to front).
+		/// Gets all windows ordered by Z-index (front to back).
+		/// Higher Z-index means closer to front/top.
 		/// </summary>
-		/// <returns>A read-only list of windows ordered by Z-index.</returns>
+		/// <returns>A read-only list of windows ordered by Z-index (front to back).</returns>
 		public IReadOnlyList<Window> GetWindowsByZOrder()
 		{
-			return _windows.Values.OrderBy(w => w.ZIndex).ToList();
+			return _windows.Values.OrderByDescending(w => w.ZIndex).ToList();
 		}
 
 		/// <summary>
@@ -1283,6 +1284,13 @@ namespace SharpConsoleUI.Core
 
 		var context = _getWindowSystem();
 
+		// Check if window is registered in the system
+		if (!context.Windows.ContainsKey(window.Guid))
+		{
+			_logService?.LogTrace($"Cannot activate unregistered window: {window.Title}", "WindowState");
+			return;
+		}
+
 		// Check if activation is blocked by modal service
 		if (_modalStateService != null && _modalStateService.IsActivationBlocked(window))
 		{
@@ -1301,6 +1309,12 @@ namespace SharpConsoleUI.Core
 
 		// Get the effective activation target (handles modal children)
 		Window windowToActivate = _modalStateService?.GetEffectiveActivationTarget(window) ?? window;
+
+		// Restore if minimized (typical windowing system behavior)
+		if (windowToActivate.State == WindowState.Minimized)
+		{
+			windowToActivate.State = WindowState.Normal;
+		}
 
 		// If a different modal should be activated, flash it
 		if (windowToActivate != window && windowToActivate.Mode == WindowMode.Modal)

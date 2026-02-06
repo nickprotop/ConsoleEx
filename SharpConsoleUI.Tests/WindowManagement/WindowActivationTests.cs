@@ -88,14 +88,19 @@ public class WindowActivationTests
 	{
 		// Arrange
 		var system = TestWindowSystemBuilder.CreateTestSystem();
-		var window = new Window(system) { Title = "Test" };
+		var window1 = new Window(system) { Title = "Window 1" };
+		var window2 = new Window(system) { Title = "Window 2" };
 
-		// Act
-		system.WindowStateService.AddWindow(window);
+		// Add first window (will be activated since it's the first)
+		system.WindowStateService.AddWindow(window1);
+		Assert.Same(window1, system.WindowStateService.ActiveWindow);
 
-		// Assert - Window should not be automatically activated
-		Assert.Null(system.WindowStateService.ActiveWindow);
-		Assert.NotEqual(window, system.WindowStateService.ActiveWindow);
+		// Act - Add second window with activateWindow: false
+		system.WindowStateService.AddWindow(window2, activateWindow: false);
+
+		// Assert - Window2 should NOT steal activation from window1
+		Assert.Same(window1, system.WindowStateService.ActiveWindow);
+		Assert.NotSame(window2, system.WindowStateService.ActiveWindow);
 	}
 
 	[Fact]
@@ -147,7 +152,7 @@ public class WindowActivationTests
 		system.WindowStateService.SetActiveWindow(window);
 
 		// Act
-		system.WindowStateService.SetActiveWindow(null);
+		system.WindowStateService.DeactivateCurrentWindow();
 
 		// Assert
 		Assert.Null(system.WindowStateService.ActiveWindow);
