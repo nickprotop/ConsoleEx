@@ -262,7 +262,6 @@ namespace SharpConsoleUI
 			// Pass visible regions to window rendering so it only paints visible areas (optimization)
 			// OPTION C FIX: Force rebuild for exposed regions to ensure cache contains correct content
 			// Exposed regions may request areas that weren't in the previous cache (stale regional cache bug)
-			window.Invalidate(true);
 
 			var lines = window.RenderAndGetVisibleContent(visibleRegions);
 			window.IsDirty = false;

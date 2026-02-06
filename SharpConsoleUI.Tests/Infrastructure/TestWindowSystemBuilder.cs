@@ -40,7 +40,12 @@ public static class TestWindowSystemBuilder
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
-			StatusBarOptions: statusBarOptions
+			StatusBarOptions: statusBarOptions,
+
+			// CRITICAL: Disable periodic redraw for tests - breaks zero-output guarantee
+			// Fix27 forces full redraw every second to clear terminal echo leaks,
+			// but this breaks the critical static content = zero bytes optimization
+			Fix27_PeriodicFullRedraw: false
 		);
 
 		// Allow caller to customize options
@@ -81,7 +86,12 @@ public static class TestWindowSystemBuilder
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
-			StatusBarOptions: statusBarOptions
+			StatusBarOptions: statusBarOptions,
+
+			// CRITICAL: Disable periodic redraw for tests - breaks zero-output guarantee
+			// Fix27 forces full redraw every second to clear terminal echo leaks,
+			// but this breaks the critical static content = zero bytes optimization
+			Fix27_PeriodicFullRedraw: false
 		);
 
 		return new ConsoleWindowSystem(mockDriver, options: options);
@@ -124,7 +134,10 @@ public static class TestWindowSystemBuilder
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
 			StatusBarOptions: statusBarOptions,
-			DirtyTrackingMode: Configuration.DirtyTrackingMode.Line  // LINE MODE
+			DirtyTrackingMode: Configuration.DirtyTrackingMode.Line,  // LINE MODE
+
+			// CRITICAL: Disable periodic redraw for tests - breaks zero-output guarantee
+			Fix27_PeriodicFullRedraw: false
 		);
 
 		// Create mock console driver
@@ -155,7 +168,10 @@ public static class TestWindowSystemBuilder
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
 			StatusBarOptions: statusBarOptions,
-			DirtyTrackingMode: Configuration.DirtyTrackingMode.Cell  // CELL MODE
+			DirtyTrackingMode: Configuration.DirtyTrackingMode.Cell,  // CELL MODE
+
+			// CRITICAL: Disable periodic redraw for tests - breaks zero-output guarantee
+			Fix27_PeriodicFullRedraw: false
 		);
 
 		// Create mock console driver

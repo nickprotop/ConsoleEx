@@ -346,7 +346,7 @@ namespace SharpConsoleUI.Drivers
 		if (_options.DirtyTrackingMode == Configuration.DirtyTrackingMode.Cell)
 		{
 			// CELL-LEVEL: Always render only changed regions within lines (minimal output)
-			for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
+			for (int y = 0; y < _height; y++)
 			{
 				var dirtyRegions = GetDirtyRegionsInLine(y);
 				if (dirtyRegions.Count == 0)
@@ -369,7 +369,7 @@ namespace SharpConsoleUI.Drivers
 		else if (_options.DirtyTrackingMode == Configuration.DirtyTrackingMode.Line)
 		{
 			// LINE-LEVEL: Always render entire line when any cell changes
-			for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
+			for (int y = 0; y < _height; y++)
 			{
 				if (!IsLineDirty(y))
 					continue;
@@ -388,7 +388,7 @@ namespace SharpConsoleUI.Drivers
 		else  // DirtyTrackingMode.Smart
 		{
 			// SMART MODE: Analyze each line and choose optimal strategy per line
-			for (int y = 0; y < Math.Min(_height, Console.WindowHeight); y++)
+			for (int y = 0; y < _height; y++)
 			{
 				var (isDirty, useLineMode, dirtyRegions) = AnalyzeLine(y);
 				if (!isDirty)
