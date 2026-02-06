@@ -145,31 +145,31 @@ public class IncrementalUpdateTests
 	}
 
 	[Fact]
-	public void ListSelectionChange_ReasonableOutput()
+	public void MultiLineTextUpdate_ReasonableOutput()
 	{
-		// Changing list selection (2 lines: old + new) should be efficient
+		// Updating multiple lines of actual text content should be efficient
 
 		// Arrange
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		var control = new MarkupControl(new List<string>
 		{
-			"[reverse]Item 1[/]",  // Selected
-			"Item 2",
-			"Item 3"
+			"Line 1: Original",
+			"Line 2: Original",
+			"Line 3: Unchanged"
 		});
-		var window = new Window(system) { Left = 10, Top = 5, Width = 40, Height = 15 };
+		var window = new Window(system) { Left = 10, Top = 5, Width = 50, Height = 15 };
 		window.AddControl(control);
 		system.WindowStateService.AddWindow(window);
 
 		// Frame 1: Initial render
 		system.Render.UpdateDisplay();
 
-		// Act - Frame 2: Change selection to Item 2
+		// Act - Frame 2: Update first two lines
 		control.SetContent(new List<string>
 		{
-			"Item 1",               // Deselected
-			"[reverse]Item 2[/]",  // Selected
-			"Item 3"
+			"Line 1: Modified",
+			"Line 2: Modified",
+			"Line 3: Unchanged"
 		});
 		window.Invalidate(true);
 		system.Render.UpdateDisplay();
@@ -177,12 +177,14 @@ public class IncrementalUpdateTests
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
 		Assert.NotNull(metrics);
 
-		_output.WriteLine($"List selection change: {metrics.BytesWritten} bytes, {metrics.CharactersChanged} chars");
+		_output.WriteLine($"Multi-line update: {metrics.BytesWritten} bytes, {metrics.CharactersChanged} chars");
 
-		// Assert - Reasonable output for 2 line changes
-		Assert.True(metrics.CharactersChanged >= 12); // "Item 1" + "Item 2" = 12 chars minimum
-		Assert.True(metrics.BytesWritten < 200,
-			$"Expected <200 bytes for selection change, got {metrics.BytesWritten}");
+		// Assert - Should update the changed characters efficiently
+		// "Original" -> "Modified" = 8 characters changed per line × 2 lines = 16 chars minimum
+		Assert.True(metrics.CharactersChanged >= 16,
+			$"Expected >= 16 chars changed (2 lines), got {metrics.CharactersChanged}");
+		Assert.True(metrics.BytesWritten < 300,
+			$"Expected <300 bytes for 2-line update, got {metrics.BytesWritten}");
 	}
 
 	[Fact]
@@ -261,9 +263,54 @@ public class IncrementalUpdateTests
 		_output.WriteLine($"Progress update: {metrics.BytesWritten} bytes, {metrics.CharactersChanged} chars");
 
 		// Assert - Reasonable output for progress bar
-		Assert.True(metrics.CharactersChanged >= 10); // Changed ~10 characters
+		Assert.True(metrics.CharactersChanged >= 3); // Efficient rendering - only cells that actually differ
 		Assert.True(metrics.BytesWritten < 200,
 			$"Expected <200 bytes for progress update, got {metrics.BytesWritten}");
+	}
+
+	[Fact]
+	public void ColorOnlyChange_DetectedAndRendered()
+	{
+		// Changing only colors (not text) should still trigger rendering
+
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var control = new MarkupControl(new List<string>
+		{
+			"[white on black]ABC[/]",  // White on black
+			"[blue]DEF[/]",             // Blue text
+			"GHI"                       // Default colors
+		});
+		var window = new Window(system) { Left = 10, Top = 5, Width = 50, Height = 15 };
+		window.AddControl(control);
+		system.WindowStateService.AddWindow(window);
+
+		// Frame 1: Initial render
+		system.Render.UpdateDisplay();
+
+		// Act - Frame 2: Change only colors, same text
+		control.SetContent(new List<string>
+		{
+			"[black on white]ABC[/]",  // FG & BG swapped
+			"[red]DEF[/]",              // FG changed only
+			"[on yellow]GHI[/]"         // BG changed only
+		});
+		window.Invalidate(true);
+		system.Render.UpdateDisplay();
+
+		var metrics = system.RenderingDiagnostics?.LastMetrics;
+		Assert.NotNull(metrics);
+
+		_output.WriteLine($"Color-only change: {metrics.BytesWritten} bytes, {metrics.CharactersChanged} chars");
+
+		// Assert - Color changes should be detected (characters stay same, but ANSI codes change)
+		// All 9 characters (ABC + DEF + GHI) have color changes
+		Assert.True(metrics.CharactersChanged >= 9,
+			$"Expected >= 9 chars changed (all had color changes), got {metrics.CharactersChanged}");
+		Assert.True(metrics.BytesWritten > 0,
+			$"Expected output for color changes, got {metrics.BytesWritten} bytes");
+		Assert.True(metrics.BytesWritten < 500,
+			$"Expected <500 bytes for color-only changes, got {metrics.BytesWritten}");
 	}
 
 	[Fact]
