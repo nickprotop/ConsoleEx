@@ -17,24 +17,6 @@ using Color = Spectre.Console.Color;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
-	/// Shadow rendering style for FIGlet text.
-	/// </summary>
-	public enum ShadowStyle
-	{
-		/// <summary>No shadow</summary>
-		None,
-
-		/// <summary>Drop shadow to the bottom-right</summary>
-		DropShadow,
-
-		/// <summary>Outline around the text</summary>
-		Outline,
-
-		/// <summary>3D extrusion effect</summary>
-		Extrude3D
-	}
-
-	/// <summary>
 	/// FIGlet text size based on embedded fonts.
 	/// </summary>
 	public enum FigletSize
@@ -70,10 +52,6 @@ namespace SharpConsoleUI.Controls
 		private FigletSize _size = FigletSize.Default;
 		private FigletFont? _customFont;
 		private string? _fontPath;
-		private ShadowStyle _shadowStyle = ShadowStyle.None;
-		private Color? _shadowColor;
-		private int _shadowOffsetX = 1;
-		private int _shadowOffsetY = 1;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="FigleControl"/> class.
@@ -195,42 +173,6 @@ namespace SharpConsoleUI.Controls
 			set => PropertySetterHelper.SetProperty(ref _fontPath, value, Container);
 		}
 
-		/// <summary>
-		/// Gets or sets the shadow style.
-		/// </summary>
-		public ShadowStyle ShadowStyle
-		{
-			get => _shadowStyle;
-			set => PropertySetterHelper.SetEnumProperty(ref _shadowStyle, value, Container);
-		}
-
-		/// <summary>
-		/// Gets or sets the shadow color (defaults to darker version of background).
-		/// </summary>
-		public Color? ShadowColor
-		{
-			get => _shadowColor;
-			set => PropertySetterHelper.SetProperty(ref _shadowColor, value, Container);
-		}
-
-		/// <summary>
-		/// Gets or sets the horizontal shadow offset (pixels).
-		/// </summary>
-		public int ShadowOffsetX
-		{
-			get => _shadowOffsetX;
-			set => PropertySetterHelper.SetProperty(ref _shadowOffsetX, value, Container);
-		}
-
-		/// <summary>
-		/// Gets or sets the vertical shadow offset (pixels).
-		/// </summary>
-		public int ShadowOffsetY
-		{
-			get => _shadowOffsetY;
-			set => PropertySetterHelper.SetProperty(ref _shadowOffsetY, value, Container);
-		}
-
 		/// <inheritdoc/>
 		public void Dispose()
 		{
@@ -257,21 +199,6 @@ namespace SharpConsoleUI.Controls
 			int maxWidth = content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line));
 			int width = maxWidth + _margin.Left + _margin.Right;
 			int height = content.Count + _margin.Top + _margin.Bottom;
-
-			// Add shadow bounds
-			if (_shadowStyle != ShadowStyle.None)
-			{
-				if (_shadowStyle == ShadowStyle.DropShadow || _shadowStyle == ShadowStyle.Extrude3D)
-				{
-					width += Math.Abs(_shadowOffsetX);
-					height += Math.Abs(_shadowOffsetY);
-				}
-				else if (_shadowStyle == ShadowStyle.Outline)
-				{
-					width += 2;
-					height += 2;
-				}
-			}
 
 			return new System.Drawing.Size(width, height);
 		}
@@ -358,159 +285,6 @@ namespace SharpConsoleUI.Controls
 			return FigletFont.Default;
 		}
 
-		/// <summary>
-		/// Renders shadow based on the shadow style.
-		/// </summary>
-		private void RenderShadow(CharacterBuffer buffer, List<string> renderedContent,
-			int startX, int startY, LayoutRect bounds, LayoutRect clipRect, Color fgColor, Color bgColor)
-		{
-			if (_shadowStyle == ShadowStyle.None) return;
-
-			// Default shadow color: light grey for visibility on dark backgrounds
-			var shadowColor = _shadowColor ?? new Color(180, 180, 180);
-
-			switch (_shadowStyle)
-			{
-				case ShadowStyle.DropShadow:
-					RenderDropShadow(buffer, renderedContent, startX, startY, bounds, clipRect, shadowColor, bgColor);
-					break;
-
-				case ShadowStyle.Outline:
-					RenderOutline(buffer, renderedContent, startX, startY, bounds, clipRect, shadowColor, bgColor);
-					break;
-
-				case ShadowStyle.Extrude3D:
-					RenderExtrude3D(buffer, renderedContent, startX, startY, bounds, clipRect, shadowColor, bgColor);
-					break;
-			}
-		}
-
-		/// <summary>
-		/// Renders drop shadow effect.
-		/// </summary>
-		private void RenderDropShadow(CharacterBuffer buffer, List<string> renderedContent,
-			int startX, int startY, LayoutRect bounds, LayoutRect clipRect, Color shadowColor, Color bgColor)
-		{
-			int shadowX = startX + _shadowOffsetX;
-			int shadowY = startY + _shadowOffsetY;
-
-			for (int i = 0; i < renderedContent.Count; i++)
-			{
-				int paintY = shadowY + i;
-				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
-				{
-					// Strip ANSI codes and render solid shadow color
-					var plainText = AnsiConsoleHelper.StripAnsi(renderedContent[i]);
-					for (int charIdx = 0; charIdx < plainText.Length; charIdx++)
-					{
-						char ch = plainText[charIdx];
-						if (ch != ' ') // Only render non-space characters
-						{
-							int x = shadowX + charIdx;
-							if (x >= clipRect.X && x < clipRect.Right)
-							{
-								buffer.SetCell(x, paintY, ch, shadowColor, bgColor);
-							}
-						}
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Renders outline effect.
-		/// </summary>
-		private void RenderOutline(CharacterBuffer buffer, List<string> renderedContent,
-			int startX, int startY, LayoutRect bounds, LayoutRect clipRect, Color shadowColor, Color bgColor)
-		{
-			// Render in 8 directions around the text
-			int[] offsetsX = { -1, 0, 1, -1, 1, -1, 0, 1 };
-			int[] offsetsY = { -1, -1, -1, 0, 0, 1, 1, 1 };
-
-			for (int dir = 0; dir < 8; dir++)
-			{
-				int outlineX = startX + offsetsX[dir];
-				int outlineY = startY + offsetsY[dir];
-
-				for (int i = 0; i < renderedContent.Count; i++)
-				{
-					int paintY = outlineY + i;
-					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
-					{
-						// Strip ANSI codes and render solid shadow color
-						var plainText = AnsiConsoleHelper.StripAnsi(renderedContent[i]);
-						for (int charIdx = 0; charIdx < plainText.Length; charIdx++)
-						{
-							char ch = plainText[charIdx];
-							if (ch != ' ')
-							{
-								int x = outlineX + charIdx;
-								if (x >= clipRect.X && x < clipRect.Right)
-								{
-									buffer.SetCell(x, paintY, ch, shadowColor, bgColor);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Renders 3D extrusion effect.
-		/// </summary>
-		private void RenderExtrude3D(CharacterBuffer buffer, List<string> renderedContent,
-			int startX, int startY, LayoutRect bounds, LayoutRect clipRect, Color shadowColor, Color bgColor)
-		{
-			// Render multiple layers with progressively darker colors
-			int depth = Math.Max(Math.Abs(_shadowOffsetX), Math.Abs(_shadowOffsetY));
-			int dirX = Math.Sign(_shadowOffsetX);
-			int dirY = Math.Sign(_shadowOffsetY);
-
-			for (int layer = depth; layer > 0; layer--)
-			{
-				float darkenAmount = (float)layer / depth;
-				var layerColor = DarkenColor(shadowColor, darkenAmount);
-
-				int layerX = startX + (dirX * layer);
-				int layerY = startY + (dirY * layer);
-
-				for (int i = 0; i < renderedContent.Count; i++)
-				{
-					int paintY = layerY + i;
-					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
-					{
-						// Strip ANSI codes and render solid layer color
-						var plainText = AnsiConsoleHelper.StripAnsi(renderedContent[i]);
-						for (int charIdx = 0; charIdx < plainText.Length; charIdx++)
-						{
-							char ch = plainText[charIdx];
-							if (ch != ' ')
-							{
-								int x = layerX + charIdx;
-								if (x >= clipRect.X && x < clipRect.Right)
-								{
-									buffer.SetCell(x, paintY, ch, layerColor, bgColor);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Darkens a color by a specified amount.
-		/// </summary>
-		private Color DarkenColor(Color color, float amount)
-		{
-			return new Color(
-				(byte)(color.R * (1 - amount)),
-				(byte)(color.G * (1 - amount)),
-				(byte)(color.B * (1 - amount))
-			);
-		}
-
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
@@ -533,21 +307,6 @@ namespace SharpConsoleUI.Controls
 			int maxWidth = content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line));
 			int width = maxWidth + _margin.Left + _margin.Right;
 			int height = content.Count + _margin.Top + _margin.Bottom;
-
-			// Add shadow bounds
-			if (_shadowStyle != ShadowStyle.None)
-			{
-				if (_shadowStyle == ShadowStyle.DropShadow || _shadowStyle == ShadowStyle.Extrude3D)
-				{
-					width += Math.Abs(_shadowOffsetX);
-					height += Math.Abs(_shadowOffsetY);
-				}
-				else if (_shadowStyle == ShadowStyle.Outline)
-				{
-					width += 2;  // Outline adds 1 pixel on each side
-					height += 2;
-				}
-			}
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -588,9 +347,6 @@ namespace SharpConsoleUI.Controls
 
 				int figletHeight = renderedContent.Count;
 				int availableHeight = bounds.Height - _margin.Top - _margin.Bottom;
-
-				// Render shadow first (so it appears behind the text)
-				RenderShadow(buffer, renderedContent, startX, startY, bounds, clipRect, fgColor, bgColor);
 
 				for (int i = 0; i < Math.Min(figletHeight, availableHeight); i++)
 				{

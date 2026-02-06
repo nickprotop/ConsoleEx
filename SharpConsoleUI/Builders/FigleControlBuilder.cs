@@ -33,10 +33,6 @@ public sealed class FigleControlBuilder
 	private FigletSize _size = FigletSize.Default;
 	private FigletFont? _customFont;
 	private string? _fontPath;
-	private ShadowStyle _shadowStyle = ShadowStyle.None;
-	private Color? _shadowColor;
-	private int _shadowOffsetX = 1;
-	private int _shadowOffsetY = 1;
 
 	/// <summary>
 	/// Sets the FIGlet text to render
@@ -257,71 +253,6 @@ public sealed class FigleControlBuilder
 	}
 
 	/// <summary>
-	/// Sets the shadow style
-	/// </summary>
-	/// <param name="style">The shadow style</param>
-	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithShadow(ShadowStyle style)
-	{
-		_shadowStyle = style;
-		return this;
-	}
-
-	/// <summary>
-	/// Adds drop shadow effect
-	/// </summary>
-	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithDropShadow()
-	{
-		_shadowStyle = ShadowStyle.DropShadow;
-		return this;
-	}
-
-	/// <summary>
-	/// Adds outline effect
-	/// </summary>
-	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithOutline()
-	{
-		_shadowStyle = ShadowStyle.Outline;
-		return this;
-	}
-
-	/// <summary>
-	/// Adds 3D extrusion effect
-	/// </summary>
-	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder With3D()
-	{
-		_shadowStyle = ShadowStyle.Extrude3D;
-		return this;
-	}
-
-	/// <summary>
-	/// Sets the shadow color
-	/// </summary>
-	/// <param name="color">The shadow color</param>
-	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithShadowColor(Color color)
-	{
-		_shadowColor = color;
-		return this;
-	}
-
-	/// <summary>
-	/// Sets the shadow offset
-	/// </summary>
-	/// <param name="offsetX">Horizontal offset</param>
-	/// <param name="offsetY">Vertical offset</param>
-	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithShadowOffset(int offsetX, int offsetY)
-	{
-		_shadowOffsetX = offsetX;
-		_shadowOffsetY = offsetY;
-		return this;
-	}
-
-	/// <summary>
 	/// Builds the Figlet control
 	/// </summary>
 	/// <returns>The configured Figlet control</returns>
@@ -341,11 +272,7 @@ public sealed class FigleControlBuilder
 			RightPadded = _rightPadded,
 			Size = _size,
 			CustomFont = _customFont,
-			FontPath = _fontPath,
-			ShadowStyle = _shadowStyle,
-			ShadowColor = _shadowColor,
-			ShadowOffsetX = _shadowOffsetX,
-			ShadowOffsetY = _shadowOffsetY
+			FontPath = _fontPath
 		};
 
 		if (_color.HasValue)

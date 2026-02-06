@@ -43,9 +43,8 @@ class Program
 		{
 			"[white]Demonstrates FIGlet ASCII art text with:[/]",
 			"[white]• Multiple font sizes (Small, Default, Large)[/]",
-			"[white]• Shadow effects (Drop shadow, Outline, 3D extrusion)[/]",
 			"[white]• Text alignment options[/]",
-			"[white]• Animated transitions[/]"
+			"[white]• Animated color transitions[/]"
 		});
 		mainWindow.AddControl(descMarkup);
 
@@ -71,30 +70,10 @@ class Program
 
 		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
 
-		// Button 2: Shadow Effects
-		var shadowButton = new ButtonControl
-		{
-			Text = "► 2. Shadow Effects (Drop, Outline, 3D)",
-			Width = 65
-		};
-		shadowButton.Click += (sender, e) =>
-		{
-			var window = new ShadowEffectsWindow(windowSystem);
-			windowSystem.AddWindow(window);
-		};
-		mainWindow.AddControl(shadowButton);
-
-		mainWindow.AddControl(new MarkupControl(new List<string>
-		{
-			"[dim]   See drop shadows, outlines, and 3D extrusion[/]"
-		}));
-
-		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
-
-		// Button 3: Alignments
+		// Button 2: Alignments
 		var alignButton = new ButtonControl
 		{
-			Text = "► 3. Text Alignment Demo",
+			Text = "► 2. Text Alignment Demo",
 			Width = 65
 		};
 		alignButton.Click += (sender, e) =>
@@ -111,10 +90,10 @@ class Program
 
 		mainWindow.AddControl(new MarkupControl(new List<string> { "" }));
 
-		// Button 4: Animated Rainbow
+		// Button 3: Animated Rainbow
 		var rainbowButton = new ButtonControl
 		{
-			Text = "► 4. Animated Rainbow Colors",
+			Text = "► 3. Animated Rainbow Colors",
 			Width = 65
 		};
 		rainbowButton.Click += (sender, e) =>
@@ -148,7 +127,7 @@ class Program
 		// Instructions
 		var instructionMarkup = new MarkupControl(new List<string>
 		{
-			"[dim]Press number keys 1-4 to launch demos | Tab/arrows to navigate[/]",
+			"[dim]Press number keys 1-3 to launch demos | Tab/arrows to navigate[/]",
 			"[dim]Enter or click to activate button | Press Q to quit | Esc closes windows[/]"
 		});
 		mainWindow.AddControl(instructionMarkup);
@@ -164,16 +143,11 @@ class Program
 					e.Handled = true;
 					break;
 				case '2':
-					var shadowWin = new ShadowEffectsWindow(windowSystem);
-					windowSystem.AddWindow(shadowWin);
-					e.Handled = true;
-					break;
-				case '3':
 					var alignWin = new AlignmentWindow(windowSystem);
 					windowSystem.AddWindow(alignWin);
 					e.Handled = true;
 					break;
-				case '4':
+				case '3':
 					var rainbowWin = new RainbowAnimationWindow(windowSystem);
 					windowSystem.AddWindow(rainbowWin);
 					e.Handled = true;
@@ -247,86 +221,7 @@ class FontSizesWindow : Window
 	}
 }
 
-// Window 2: Shadow Effects Showcase
-class ShadowEffectsWindow : Window
-{
-	public ShadowEffectsWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
-	{
-		Title = "FIGlet Shadow Effects";
-		Width = 70;
-		Height = 32;
-		Left = (Console.WindowWidth - Width) / 2;
-		Top = (Console.WindowHeight - Height) / 2;
-
-		// Header
-		AddControl(new MarkupControl(new List<string>
-		{
-			"[bold cyan]Shadow & 3D Effects[/]",
-			""
-		}));
-
-		// No shadow
-		AddControl(new MarkupControl(new List<string> { "[yellow]No Shadow:[/]" }));
-		var noShadow = new FigleControl
-		{
-			Text = "PLAIN",
-			Size = FigletSize.Small,
-			Color = Spectre.Console.Color.White,
-			ShadowStyle = ShadowStyle.None
-		};
-		AddControl(noShadow);
-
-		AddControl(new MarkupControl(new List<string> { "" }));
-
-		// Drop shadow
-		AddControl(new MarkupControl(new List<string> { "[yellow]Drop Shadow:[/]" }));
-		var dropShadow = new FigleControl
-		{
-			Text = "SHADOW",
-			Size = FigletSize.Small,
-			Color = Spectre.Console.Color.Aqua,
-			ShadowStyle = ShadowStyle.DropShadow,
-			ShadowOffsetX = 2,
-			ShadowOffsetY = 1,
-			ShadowColor = Spectre.Console.Color.Grey
-		};
-		AddControl(dropShadow);
-
-		AddControl(new MarkupControl(new List<string> { "" }));
-
-		// Outline
-		AddControl(new MarkupControl(new List<string> { "[yellow]Outline:[/]" }));
-		var outline = new FigleControl
-		{
-			Text = "OUTLINE",
-			Size = FigletSize.Small,
-			Color = Spectre.Console.Color.Yellow,
-			ShadowStyle = ShadowStyle.Outline,
-			ShadowColor = Spectre.Console.Color.Blue
-		};
-		AddControl(outline);
-
-		AddControl(new MarkupControl(new List<string> { "" }));
-
-		// 3D Extrusion
-		AddControl(new MarkupControl(new List<string> { "[yellow]3D Extrusion:[/]" }));
-		var extrude3D = new FigleControl
-		{
-			Text = "3D TEXT",
-			Size = FigletSize.Small,
-			Color = Spectre.Console.Color.Red,
-			ShadowStyle = ShadowStyle.Extrude3D,
-			ShadowOffsetX = 3,
-			ShadowOffsetY = 2,
-			ShadowColor = Spectre.Console.Color.Maroon
-		};
-		AddControl(extrude3D);
-
-		AddControl(new MarkupControl(new List<string> { "", "[dim]Press ESC to close[/]" }));
-	}
-}
-
-// Window 3: Alignment Showcase
+// Window 2: Alignment Showcase
 class AlignmentWindow : Window
 {
 	public AlignmentWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
@@ -388,7 +283,7 @@ class AlignmentWindow : Window
 	}
 }
 
-// Window 4: Rainbow Animation
+// Window 3: Rainbow Animation
 class RainbowAnimationWindow : Window
 {
 	private FigleControl? _animatedText;
@@ -427,10 +322,7 @@ class RainbowAnimationWindow : Window
 			Size = FigletSize.Default,
 			Color = _rainbowColors[0],
 			HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment.Center,
-			Width = 65,
-			ShadowStyle = ShadowStyle.DropShadow,
-			ShadowOffsetX = 2,
-			ShadowOffsetY = 1
+			Width = 65
 		};
 		AddControl(_animatedText);
 
