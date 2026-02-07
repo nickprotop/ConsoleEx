@@ -30,6 +30,10 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public class DropdownControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
 	{
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -184,7 +188,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets the actual rendered height of the control based on cached content.
 		/// </summary>
 		/// <returns>The total number of lines including header, items, and margins, or null if not rendered.</returns>
-		public int? ActualHeight
+		public int? ContentHeight
 		{
 			get
 			{
@@ -198,7 +202,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets the actual rendered width of the control based on cached content.
 		/// </summary>
 		/// <returns>The maximum line width in characters, or null if content has not been rendered.</returns>
-		public int? ActualWidth
+		public int? ContentWidth
 		{
 			get
 			{
@@ -216,6 +220,11 @@ namespace SharpConsoleUI.Controls
 				return dropdownWidth + _margin.Left + _margin.Right;
 			}
 		}
+
+		public int ActualX => _actualX;
+		public int ActualY => _actualY;
+		public int ActualWidth => _actualWidth;
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -662,8 +671,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			int width = ActualWidth ?? 0;
-			int height = ActualHeight ?? 1;
+			int width = ContentWidth ?? 0;
+			int height = ContentHeight ?? 1;
 			return new System.Drawing.Size(width, height);
 		}
 
@@ -1116,6 +1125,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			// Store bounds for portal positioning
 			_lastLayoutBounds = bounds;
 
@@ -1745,6 +1759,10 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	internal class DropdownPortalContent : IWindowControl, IDOMPaintable, IMouseAwareControl
 	{
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
 		private readonly DropdownControl _owner;
 
 		public DropdownPortalContent(DropdownControl owner)
@@ -1787,8 +1805,14 @@ namespace SharpConsoleUI.Controls
 
 		#region IWindowControl Implementation
 
-		public int? ActualWidth => _owner.GetPortalBounds().Width;
-		public int? ActualHeight => _owner.GetPortalBounds().Height;
+		public int? ContentWidth => _owner.GetPortalBounds().Width;
+		public int? ContentHeight => _owner.GetPortalBounds().Height;
+
+		public int ActualX => _actualX;
+		public int ActualY => _actualY;
+		public int ActualWidth => _actualWidth;
+		public int ActualHeight => _actualHeight;
+
 		public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
 		public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.Top;
 		public IContainer? Container { get; set; }
@@ -1836,6 +1860,11 @@ namespace SharpConsoleUI.Controls
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
 							 Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			_owner.PaintDropdownListInternal(buffer, clipRect);
 		}
 

@@ -61,6 +61,11 @@ namespace SharpConsoleUI.Controls
 		private Color _foregroundColor = Color.White;
 		private bool _isDirty = true;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ScrollablePanelControl"/> class.
 		/// </summary>
@@ -196,10 +201,22 @@ namespace SharpConsoleUI.Controls
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
-		public int? ActualHeight => null;  // Fill available space
+		public int? ContentHeight => null;  // Fill available space
 
 		/// <inheritdoc/>
-		public int? ActualWidth => _width;
+		public int? ContentWidth => _width;
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -960,6 +977,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			var bgColor = _backgroundColor;
 			var fgColor = _foregroundColor;
 
@@ -1162,7 +1184,7 @@ namespace SharpConsoleUI.Controls
 		private int CalculateContentWidth()
 		{
 			var visibleChildren = _children.Where(c => c.Visible).ToList();
-			return visibleChildren.Any() ? visibleChildren.Max(c => c.ActualWidth ?? 0) : 0;
+			return visibleChildren.Any() ? visibleChildren.Max(c => c.GetLogicalContentSize().Width) : 0;
 		}
 
 		/// <summary>

@@ -21,6 +21,11 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 {
     #region Fields
 
+    private int _actualX;
+    private int _actualY;
+    private int _actualWidth;
+    private int _actualHeight;
+
     // Configuration
     private MenuOrientation _orientation = MenuOrientation.Horizontal;
     private bool _isSticky;
@@ -288,7 +293,12 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     }
 
     /// <inheritdoc/>
-    public int? ActualWidth => null;
+    public int? ContentWidth => null;
+
+    public int ActualX => _actualX;
+    public int ActualY => _actualY;
+    public int ActualWidth => _actualWidth;
+    public int ActualHeight => _actualHeight;
 
     /// <inheritdoc/>
     public void Dispose()
@@ -797,6 +807,11 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     /// <inheritdoc/>
     public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
     {
+        _actualX = bounds.X;
+        _actualY = bounds.Y;
+        _actualWidth = bounds.Width;
+        _actualHeight = bounds.Height;
+
         _lastBounds = bounds;
 
         Color windowBg = Container?.BackgroundColor ?? defaultBg;
@@ -2227,6 +2242,11 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareCon
     private readonly MenuControl _owner;
     private readonly MenuDropdown _dropdown;
 
+    private int _actualX;
+    private int _actualY;
+    private int _actualWidth;
+    private int _actualHeight;
+
     public MenuPortalContent(MenuControl owner, MenuDropdown dropdown)
     {
         _owner = owner;
@@ -2287,8 +2307,12 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareCon
     #endregion
 
     // IWindowControl minimal implementation
-    public int? ActualWidth => _dropdown.Bounds.Width;
-    public int? ActualHeight => _dropdown.Bounds.Height;
+    public int? ContentWidth => _dropdown.Bounds.Width;
+    public int? ContentHeight => _dropdown.Bounds.Height;
+    public int ActualX => _actualX;
+    public int ActualY => _actualY;
+    public int ActualWidth => _actualWidth;
+    public int ActualHeight => _actualHeight;
     public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
     public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.Top;
     public IContainer? Container { get; set; }
@@ -2331,6 +2355,11 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareCon
     public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
                          Color defaultFg, Color defaultBg)
     {
+        _actualX = bounds.X;
+        _actualY = bounds.Y;
+        _actualWidth = bounds.Width;
+        _actualHeight = bounds.Height;
+
         // Delegate painting to the owner MenuControl
         _owner.PaintDropdownInternal(buffer, _dropdown, clipRect);
     }

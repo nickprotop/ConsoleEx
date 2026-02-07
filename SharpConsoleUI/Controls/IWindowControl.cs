@@ -30,8 +30,12 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public interface IWindowControl : IDisposable
 	{
-		/// <summary>Gets the actual rendered width of the control, or null if not yet rendered.</summary>
-		int? ActualWidth { get; }
+		/// <summary>
+		/// Gets the minimum width needed to display the control's content, including margins.
+		/// Returns null if width cannot be determined. This is calculated based on content
+		/// (text length, child controls, etc.) and represents the natural/intrinsic size.
+		/// </summary>
+		int? ContentWidth { get; }
 
 		/// <summary>Gets or sets the horizontal alignment of the control within its container.</summary>
 		HorizontalAlignment HorizontalAlignment { get; set; }
@@ -59,6 +63,30 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Gets or sets the explicit width of the control, or null for automatic sizing.</summary>
 		int? Width { get; set; }
+
+		/// <summary>
+		/// Gets the actual X coordinate where the control was last rendered.
+		/// Returns 0 if the control has not been rendered yet.
+		/// </summary>
+		int ActualX { get; }
+
+		/// <summary>
+		/// Gets the actual Y coordinate where the control was last rendered.
+		/// Returns 0 if the control has not been rendered yet.
+		/// </summary>
+		int ActualY { get; }
+
+		/// <summary>
+		/// Gets the actual width at which the control was last rendered.
+		/// Returns 0 if the control has not been rendered yet.
+		/// </summary>
+		int ActualWidth { get; }
+
+		/// <summary>
+		/// Gets the actual height at which the control was last rendered.
+		/// Returns 0 if the control has not been rendered yet.
+		/// </summary>
+		int ActualHeight { get; }
 
 		/// <summary>
 		/// Gets the logical size of the control's content without rendering.

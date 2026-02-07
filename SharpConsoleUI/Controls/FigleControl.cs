@@ -53,6 +53,11 @@ namespace SharpConsoleUI.Controls
 		private FigletFont? _customFont;
 		private string? _fontPath;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="FigleControl"/> class.
 		/// </summary>
@@ -61,7 +66,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public int? ActualWidth
+		public int? ContentWidth
 		{
 			get
 			{
@@ -81,6 +86,18 @@ namespace SharpConsoleUI.Controls
 				return maxLength + _margin.Left + _margin.Right;
 			}
 		}
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -191,13 +208,13 @@ namespace SharpConsoleUI.Controls
 			if (string.IsNullOrEmpty(_text))
 				return new System.Drawing.Size(_margin.Left + _margin.Right, _margin.Top + _margin.Bottom);
 
-			// For Figlet text, we need to render to get the size
+			// Reuse ContentWidth for width calculation
+			int width = ContentWidth ?? 0;
+
+			// Calculate height by rendering
 			FigletText figletText = new FigletText(GetFont(), _text);
 			var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
 			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, _width ?? 80, null, bgColor);
-
-			int maxWidth = content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line));
-			int width = maxWidth + _margin.Left + _margin.Right;
 			int height = content.Count + _margin.Top + _margin.Bottom;
 
 			return new System.Drawing.Size(width, height);
@@ -317,6 +334,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = _color ?? Container?.ForegroundColor ?? defaultFg;
 			int targetWidth = bounds.Width - _margin.Left - _margin.Right;

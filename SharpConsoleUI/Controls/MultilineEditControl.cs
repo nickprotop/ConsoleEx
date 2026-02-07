@@ -54,6 +54,10 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public class MultilineEditControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, IDOMPaintable
 	{
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 
@@ -139,7 +143,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered width of the control content in characters.
 		/// </summary>
-		public int? ActualWidth
+		public int? ContentWidth
 		{
 			get
 			{
@@ -151,6 +155,11 @@ namespace SharpConsoleUI.Controls
 				return maxLength + _margin.Left + _margin.Right;
 			}
 		}
+
+		public int ActualX => _actualX;
+		public int ActualY => _actualY;
+		public int ActualWidth => _actualWidth;
+		public int ActualHeight => _actualHeight;
 
 		/// <summary>
 		/// Gets or sets the text alignment within the control.
@@ -1813,6 +1822,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			Color bgColor = _hasFocus
 				? (_isEditing ? FocusedBackgroundColor : Container?.GetConsoleWindowSystem?.Theme?.TextEditFocusedNotEditing ?? Color.LightSlateGrey)
 				: BackgroundColor;

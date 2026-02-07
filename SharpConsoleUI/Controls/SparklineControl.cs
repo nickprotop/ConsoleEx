@@ -143,6 +143,11 @@ namespace SharpConsoleUI.Controls
 		private TitlePosition _baselinePosition = TitlePosition.Bottom;
 		private bool _inlineTitleWithBaseline = false;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SparklineControl"/> class.
 		/// </summary>
@@ -466,7 +471,19 @@ namespace SharpConsoleUI.Controls
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
-		public int? ActualWidth => _width ?? (_dataPoints.Count + _margin.Left + _margin.Right);
+		public int? ContentWidth => _width ?? (_dataPoints.Count + _margin.Left + _margin.Right);
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public IContainer? Container
@@ -549,7 +566,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Size GetLogicalContentSize()
 		{
-			int width = _dataPoints.Count + _margin.Left + _margin.Right;
+			int width = ContentWidth ?? 0;
 			int height = _graphHeight + _margin.Top + _margin.Bottom;
 			return new Size(width, height);
 		}
@@ -605,6 +622,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			// Resolve colors
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;

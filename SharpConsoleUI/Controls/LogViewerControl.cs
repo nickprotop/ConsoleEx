@@ -48,6 +48,11 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
     private string? _title;
     private volatile bool _disposed = false;
 
+    private int _actualX;
+    private int _actualY;
+    private int _actualWidth;
+    private int _actualHeight;
+
     /// <summary>
     /// Creates a new LogViewerControl bound to the specified log service
     /// </summary>
@@ -126,13 +131,25 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
     /// <summary>
     /// Gets the actual rendered width of the control content in characters.
     /// </summary>
-    public int? ActualWidth
+    public int? ContentWidth
     {
         get
         {
             return _width ?? 80 + _margin.Left + _margin.Right;
         }
     }
+
+    /// <inheritdoc/>
+    public int ActualX => _actualX;
+
+    /// <inheritdoc/>
+    public int ActualY => _actualY;
+
+    /// <inheritdoc/>
+    public int ActualWidth => _actualWidth;
+
+    /// <inheritdoc/>
+    public int ActualHeight => _actualHeight;
 
     /// <inheritdoc/>
     public HorizontalAlignment HorizontalAlignment
@@ -307,10 +324,14 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
     /// <inheritdoc/>
     public System.Drawing.Size GetLogicalContentSize()
     {
+        // Reuse ContentWidth to include margins consistently
+        int width = ContentWidth ?? 0;
+
         int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
         var panelSize = _scrollPanel.GetLogicalContentSize();
-        int width = _width ?? 80;
-        return new System.Drawing.Size(width, titleHeight + panelSize.Height);
+        int height = titleHeight + panelSize.Height;
+
+        return new System.Drawing.Size(width, height);
     }
 
     /// <inheritdoc/>
@@ -525,6 +546,11 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
     /// <inheritdoc/>
     public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
     {
+        _actualX = bounds.X;
+        _actualY = bounds.Y;
+        _actualWidth = bounds.Width;
+        _actualHeight = bounds.Height;
+
         // Process pending entries on UI thread
         ProcessPendingEntries();
 

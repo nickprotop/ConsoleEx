@@ -27,6 +27,10 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public class TreeControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
 	{
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
 		private readonly List<TreeNode> _rootNodes = new();
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -71,7 +75,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered width in characters.
 		/// </summary>
-		public int? ActualWidth
+		public int? ContentWidth
 		{
 			get
 			{
@@ -91,6 +95,11 @@ namespace SharpConsoleUI.Controls
 				return maxLength + _margin.Left + _margin.Right;
 			}
 		}
+
+		public int ActualX => _actualX;
+		public int ActualY => _actualY;
+		public int ActualWidth => _actualWidth;
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -475,21 +484,9 @@ namespace SharpConsoleUI.Controls
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			UpdateFlattenedNodes();
-			int maxWidth = 0;
-			var guideChars = GetGuideChars();
-			foreach (var node in _flattenedNodes)
-			{
-				int depth = GetNodeDepth(node);
-				string prefix = BuildTreePrefix(depth, IsLastChildInParent(node), guideChars);
-				string displayText = node.Text ?? string.Empty;
-				string expandIndicator = node.Children.Count > 0 ? " [-]" : "";
-				int width = GetCachedTextLength(prefix + displayText + expandIndicator);
-				if (width > maxWidth) maxWidth = width;
-			}
-			return new System.Drawing.Size(
-				maxWidth + _margin.Left + _margin.Right,
-				_flattenedNodes.Count + _margin.Top + _margin.Bottom
-			);
+			int width = ContentWidth ?? 0;
+			int height = _flattenedNodes.Count + _margin.Top + _margin.Bottom;
+			return new System.Drawing.Size(width, height);
 		}
 
 		/// <inheritdoc/>
@@ -1421,6 +1418,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
 			int contentWidth = bounds.Width - _margin.Left - _margin.Right;

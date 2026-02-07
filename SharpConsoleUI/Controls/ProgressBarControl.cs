@@ -58,6 +58,11 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ProgressBarControl"/> class.
 		/// </summary>
@@ -247,7 +252,19 @@ namespace SharpConsoleUI.Controls
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
-		public int? ActualWidth => _width;
+		public int? ContentWidth => _width;
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public IContainer? Container
@@ -377,6 +394,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			// Resolve colors
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
 			Color filledColor = FilledColor ?? Color.Cyan1;

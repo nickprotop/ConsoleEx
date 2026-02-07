@@ -36,6 +36,10 @@ namespace SharpConsoleUI.Controls
 		/// Event fired when input text changes (modern standardized event)
 		/// </summary>
 		public event EventHandler<string>? InputChanged;
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
 		private string _input = string.Empty;
 		private Color? _inputBackgroundColor;
 		private Color? _inputFocusedBackgroundColor;
@@ -65,7 +69,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered width of the control content in characters.
 		/// </summary>
-		public int? ActualWidth
+		public int? ContentWidth
 		{
 			get
 			{
@@ -74,6 +78,11 @@ namespace SharpConsoleUI.Controls
 				return promptLength + inputLength + _margin.Left + _margin.Right;
 			}
 		}
+
+		public int ActualX => _actualX;
+		public int ActualY => _actualY;
+		public int ActualWidth => _actualWidth;
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -482,6 +491,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = Container?.ForegroundColor ?? defaultFg;
 			int targetWidth = bounds.Width - _margin.Left - _margin.Right;

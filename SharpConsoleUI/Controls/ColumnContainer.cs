@@ -49,6 +49,11 @@ namespace SharpConsoleUI.Controls
 		private int _doubleClickThresholdMs = Configuration.ControlDefaults.DefaultDoubleClickThresholdMs;
 		private bool _doubleClickEnabled = true;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ColumnContainer"/> class.
 		/// </summary>
@@ -293,7 +298,19 @@ namespace SharpConsoleUI.Controls
 		#endregion
 
 		/// <inheritdoc/>
-		public int? ActualWidth => GetActualWidth();
+		public int? ContentWidth => GetContentWidth();
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -407,7 +424,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets the actual rendered width of this column based on content.
 		/// </summary>
 		/// <returns>The maximum width required by content, or null if no content.</returns>
-		public int? GetActualWidth()
+		public int? GetContentWidth()
 		{
 			// If explicit width is set, return that (includes margins already accounted for in Width)
 			if (_width.HasValue)
@@ -419,7 +436,7 @@ namespace SharpConsoleUI.Controls
 			int maxWidth = 0;
 			foreach (var content in _contents.Where(c => c.Visible))
 			{
-				int contentWidth = content.ActualWidth ?? content.Width ?? 0;
+				int contentWidth = content.ContentWidth ?? content.Width ?? 0;
 				maxWidth = Math.Max(maxWidth, contentWidth);
 			}
 			return maxWidth + _margin.Left + _margin.Right;
@@ -840,6 +857,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			// NOTE: Container controls should NOT paint their children here.
 			// Children are painted by the DOM tree's child LayoutNodes.
 			// This method only paints the container's own content (background, margins).

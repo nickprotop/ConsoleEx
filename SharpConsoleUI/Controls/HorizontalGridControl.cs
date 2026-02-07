@@ -94,6 +94,11 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="HorizontalGridControl"/> class.
 		/// </summary>
@@ -194,14 +199,14 @@ namespace SharpConsoleUI.Controls
 		#endregion
 
 		/// <inheritdoc/>
-		public int? ActualWidth
+		public int? ContentWidth
 		{
 			get
 			{
 				int totalWidth = _margin.Left + _margin.Right;
 				foreach (var column in _columns)
 				{
-					totalWidth += column.ActualWidth ?? column.Width ?? 0;
+					totalWidth += column.ContentWidth ?? column.Width ?? 0;
 				}
 				foreach (var splitter in _splitters)
 				{
@@ -210,6 +215,18 @@ namespace SharpConsoleUI.Controls
 				return totalWidth;
 			}
 	}
+
+	/// <inheritdoc/>
+	public int ActualX => _actualX;
+
+	/// <inheritdoc/>
+	public int ActualY => _actualY;
+
+	/// <inheritdoc/>
+	public int ActualWidth => _actualWidth;
+
+	/// <inheritdoc/>
+	public int ActualHeight => _actualHeight;
 
 	/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -238,7 +255,22 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public IReadOnlyList<IWindowControl> GetChildren()
 		{
-			return _columns.Cast<IWindowControl>().ToList().AsReadOnly();
+			var children = new List<IWindowControl>();
+
+		for (int i = 0; i < _columns.Count; i++)
+		{
+			// Add the column
+			children.Add(_columns[i]);
+
+			// Add splitter after this column if it exists
+			var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+			if (splitter != null)
+			{
+				children.Add(splitter);
+			}
+		}
+
+		return children.AsReadOnly();
 		}
 
 		/// <summary>
@@ -969,7 +1001,7 @@ namespace SharpConsoleUI.Controls
 				{
 					// Check if click is within this column
 					var column = (ColumnContainer)control;
-					int actualColumnWidth = column.GetActualWidth() ?? controlWidth;
+					int actualColumnWidth = column.GetContentWidth() ?? controlWidth;
 					
 					if (position.X >= currentX && position.X < currentX + actualColumnWidth)
 					{
@@ -1019,7 +1051,7 @@ namespace SharpConsoleUI.Controls
 					return new Point(gridPosition.X - currentX, gridPosition.Y);
 				}
 				
-				currentX += isSplitter ? controlWidth : ((ColumnContainer)displayControl).GetActualWidth() ?? controlWidth;
+				currentX += isSplitter ? controlWidth : ((ColumnContainer)displayControl).GetContentWidth() ?? controlWidth;
 			}
 
 			return gridPosition; // Fallback
@@ -1044,7 +1076,7 @@ namespace SharpConsoleUI.Controls
 					return currentX;
 				}
 				
-				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetActualWidth() ?? controlWidth;
+				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetContentWidth() ?? controlWidth;
 			}
 
 			return 0; // Fallback
@@ -1069,7 +1101,7 @@ namespace SharpConsoleUI.Controls
 					return currentX;
 				}
 				
-				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetActualWidth() ?? controlWidth;
+				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetContentWidth() ?? controlWidth;
 			}
 
 			return 0; // Fallback
@@ -1088,8 +1120,8 @@ namespace SharpConsoleUI.Controls
 			for (int i = 0; i < _columns.Count; i++)
 			{
 				var column = _columns[i];
-				// Use GetActualWidth for accurate position calculations after rendering
-				int columnWidth = column.GetActualWidth() ?? column.Width ?? 0;
+				// Use GetContentWidth for accurate position calculations after rendering
+				int columnWidth = column.GetContentWidth() ?? column.Width ?? 0;
 				displayControls.Add((false, column, columnWidth));
 
 				// If there's a splitter after this column, add it
@@ -1265,6 +1297,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			// NOTE: Container controls should NOT paint their children here.
 			// Children (columns, splitters) are painted by the DOM tree's child LayoutNodes.
 			// This method only paints the container's own content (background, margins).

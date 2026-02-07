@@ -26,6 +26,10 @@ namespace SharpConsoleUI.Controls
 	public class CheckboxControl : IWindowControl, IInteractiveControl,
 		IFocusableControl, IMouseAwareControl, IDOMPaintable
 	{
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Color? _backgroundColorValue;
@@ -95,7 +99,12 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// Gets the actual rendered width of the control based on content.
 		/// </summary>
-		public int? ActualWidth => GetCheckboxWidth() + _margin.Left + _margin.Right;
+		public int? ContentWidth => GetCheckboxWidth() + _margin.Left + _margin.Right;
+
+		public int ActualX => _actualX;
+		public int ActualY => _actualY;
+		public int ActualWidth => _actualWidth;
+		public int ActualHeight => _actualHeight;
 
 		private int GetCheckboxWidth()
 		{
@@ -328,8 +337,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			int width = GetCheckboxWidth() + _margin.Left + _margin.Right;
-			return new System.Drawing.Size(width, 1 + _margin.Top + _margin.Bottom);
+			int width = ContentWidth ?? 0;
+			int height = 1 + _margin.Top + _margin.Bottom;
+			return new System.Drawing.Size(width, height);
 		}
 
 		/// <summary>
@@ -504,6 +514,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 		// Store bounds for mouse handling
 		_lastLayoutBounds = bounds;
 

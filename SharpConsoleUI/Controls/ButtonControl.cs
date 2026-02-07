@@ -25,6 +25,10 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public class ButtonControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
 	{
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _enabled = true;
@@ -45,7 +49,12 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered width of the button in characters.
 		/// </summary>
-		public int? ActualWidth => GetButtonWidth() + _margin.Left + _margin.Right;
+		public int? ContentWidth => GetButtonWidth() + _margin.Left + _margin.Right;
+
+		public int ActualX => _actualX;
+		public int ActualY => _actualY;
+		public int ActualWidth => _actualWidth;
+		public int ActualHeight => _actualHeight;
 
 		private int GetButtonWidth()
 		{
@@ -141,8 +150,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			int buttonWidth = GetButtonWidth();
-			return new System.Drawing.Size(buttonWidth + _margin.Left + _margin.Right, 1 + _margin.Top + _margin.Bottom);
+			int width = ContentWidth ?? 0;
+			int height = 1 + _margin.Top + _margin.Bottom;
+			return new System.Drawing.Size(width, height);
 		}
 
 		/// <inheritdoc/>
@@ -288,6 +298,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			Color backgroundColor = Container?.BackgroundColor ?? defaultBg;
 			Color foregroundColor = Container?.ForegroundColor ?? defaultFg;
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;

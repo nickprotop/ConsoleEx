@@ -43,6 +43,11 @@ namespace SharpConsoleUI.Controls
 		private DateTime _lastClickTime = DateTime.MinValue;
 		private int _clickCount = 0;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SpectreRenderableControl"/> class.
 		/// </summary>
@@ -60,7 +65,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public int? ActualWidth
+		public int? ContentWidth
 		{
 			get
 			{
@@ -78,6 +83,18 @@ namespace SharpConsoleUI.Controls
 				return maxLength + _margin.Left + _margin.Right;
 			}
 		}
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -313,14 +330,15 @@ namespace SharpConsoleUI.Controls
 			if (_renderable == null)
 				return new System.Drawing.Size(_margin.Left + _margin.Right, _margin.Top + _margin.Bottom);
 
+			// Reuse ContentWidth for width
+			int width = ContentWidth ?? 0;
+
+			// Calculate height
 			var bgColor = BackgroundColor;
 			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, _width ?? 80, null, bgColor);
+			int height = content.Count + _margin.Top + _margin.Bottom;
 
-			int maxWidth = content.Count > 0 ? content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)) : 0;
-			return new System.Drawing.Size(
-				maxWidth + _margin.Left + _margin.Right,
-				content.Count + _margin.Top + _margin.Bottom
-			);
+			return new System.Drawing.Size(width, height);
 		}
 
 		/// <summary>
@@ -365,6 +383,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
 			int targetWidth = bounds.Width - _margin.Left - _margin.Right;

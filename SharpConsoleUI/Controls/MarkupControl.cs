@@ -40,6 +40,10 @@ namespace SharpConsoleUI.Controls
 		private int _doubleClickThresholdMs = Configuration.ControlDefaults.DefaultDoubleClickThresholdMs;
 		private bool _doubleClickEnabled = true;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
 
 		// ===== FIX TOGGLES =====
 		// FIX11: Prevent ANSI doubling by not passing foregroundColor when markup already has color tags
@@ -66,7 +70,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets the actual rendered width of the control based on content.
 		/// </summary>
 		/// <returns>The maximum line width in characters.</returns>
-		public int? ActualWidth
+		public int? ContentWidth
 		{
 			get
 			{
@@ -79,6 +83,18 @@ namespace SharpConsoleUI.Controls
 				return maxLength + _margin.Left + _margin.Right;
 			}
 		}
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -241,21 +257,18 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			// Calculate the natural size based on content
-			int maxWidth = 0;
+			// Reuse ContentWidth for width calculation
+			int width = ContentWidth ?? 0;
+
+			// Calculate total lines (including splits)
 			int totalLines = 0;
 			foreach (var line in _content)
 			{
-				// Split by embedded newlines to count actual rendered lines
 				var subLines = line.Split('\n');
-				foreach (var subLine in subLines)
-				{
-					int length = AnsiConsoleHelper.StripSpectreLength(subLine);
-					if (length > maxWidth) maxWidth = length;
-				}
 				totalLines += subLines.Length;
 			}
-			return new System.Drawing.Size(maxWidth, totalLines);
+
+			return new System.Drawing.Size(width, totalLines);
 		}
 
 		/// <summary>
@@ -390,6 +403,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			Color bgColor = Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = Container?.ForegroundColor ?? defaultFg;
 

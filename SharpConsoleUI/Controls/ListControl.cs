@@ -56,6 +56,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _autoAdjustWidth = false;
@@ -344,7 +348,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered height in lines.
 		/// </summary>
-		public int? ActualHeight
+		public int? ContentHeight
 		{
 			get
 			{
@@ -368,7 +372,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered width in characters.
 		/// </summary>
-		public int? ActualWidth
+		public int? ContentWidth
 		{
 			get
 			{
@@ -388,6 +392,11 @@ namespace SharpConsoleUI.Controls
 				return width + _margin.Left + _margin.Right;
 			}
 		}
+
+		public int ActualX => _actualX;
+		public int ActualY => _actualY;
+		public int ActualWidth => _actualWidth;
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -1431,6 +1440,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			Color backgroundColor;
 			Color foregroundColor;
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;

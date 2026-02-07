@@ -50,6 +50,11 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width = DEFAULT_WIDTH;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SplitterControl"/> class.
 		/// </summary>
@@ -74,7 +79,19 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<SplitterMovedEventArgs>? SplitterMoved;
 
 		/// <inheritdoc/>
-		public int? ActualWidth => _width;
+		public int? ContentWidth => _width;
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -359,6 +376,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			Color bgColor, fgColor;
 
 			// Always use double vertical line - color indicates focus/dragging state
@@ -478,14 +500,14 @@ namespace SharpConsoleUI.Controls
 				return;
 
 			// Get the current left column width
-			int leftColumnWidth = _leftColumn.Width ?? _leftColumn.GetActualWidth() ?? 10;
+			int leftColumnWidth = _leftColumn.Width ?? _leftColumn.GetContentWidth() ?? 10;
 
 			// Calculate new left width
 			int newLeftWidth = leftColumnWidth + delta;
 
 			// Get the total AVAILABLE width from the parent grid
 			// This is critical - we need the actual available space, not the sum of rendered column widths
-			int totalAvailableWidth = _parentGrid?.ActualWidth ?? (leftColumnWidth + (_rightColumn.ActualWidth ?? 10));
+			int totalAvailableWidth = _parentGrid?.GetLogicalContentSize().Width ?? (leftColumnWidth + (_rightColumn.GetLogicalContentSize().Width));
 
 
 			// Enforce minimum widths (at least 10% of total available or 5 characters)

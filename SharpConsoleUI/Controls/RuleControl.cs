@@ -32,6 +32,11 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="RuleControl"/> class.
 		/// </summary>
@@ -40,7 +45,19 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public int? ActualWidth => (_width ?? 80) + _margin.Left + _margin.Right;
+		public int? ContentWidth => (_width ?? 80) + _margin.Left + _margin.Right;
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <inheritdoc/>
 		public HorizontalAlignment HorizontalAlignment
@@ -153,9 +170,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
-			// Rules are typically one line and take the available width
-			int width = _width ?? 80; // Default width if not specified
-			return new System.Drawing.Size(width, 1 + _margin.Top + _margin.Bottom);
+			// Reuse ContentWidth to include margins consistently
+			int width = ContentWidth ?? 0;
+			int height = 1 + _margin.Top + _margin.Bottom;
+			return new System.Drawing.Size(width, height);
 		}
 
 		#region IDOMPaintable Implementation
@@ -175,6 +193,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = Container?.ForegroundColor ?? defaultFg;
 			var ruleColor = _color ?? fgColor;

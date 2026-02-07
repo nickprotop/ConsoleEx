@@ -44,6 +44,11 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 
 	private ILogService? _logService;
 
+	private int _actualX;
+	private int _actualY;
+	private int _actualWidth;
+	private int _actualHeight;
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="LogExporterControl"/> class.
 	/// </summary>
@@ -63,12 +68,24 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	/// <summary>
 	/// Gets the actual rendered width of the control.
 	/// </summary>
-	public int? ActualWidth => GetControlWidth() + _margin.Left + _margin.Right;
+	public int? ContentWidth => GetControlWidth() + _margin.Left + _margin.Right;
 
 	private int GetControlWidth()
 	{
 		return _width ?? 40;
 	}
+
+	/// <inheritdoc/>
+	public int ActualX => _actualX;
+
+	/// <inheritdoc/>
+	public int ActualY => _actualY;
+
+	/// <inheritdoc/>
+	public int ActualWidth => _actualWidth;
+
+	/// <inheritdoc/>
+	public int ActualHeight => _actualHeight;
 
 	/// <inheritdoc/>
 	public HorizontalAlignment HorizontalAlignment
@@ -346,6 +363,11 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	/// <inheritdoc/>
 	public void PaintDOM(CharacterBuffer buffer, LayoutRect contentRect, LayoutRect clipRect, Color foregroundColor, Color backgroundColor)
 	{
+		_actualX = contentRect.X;
+		_actualY = contentRect.Y;
+		_actualWidth = contentRect.Width;
+		_actualHeight = contentRect.Height;
+
 		if (!_visible) return;
 
 		var theme = Container?.GetConsoleWindowSystem?.Theme;

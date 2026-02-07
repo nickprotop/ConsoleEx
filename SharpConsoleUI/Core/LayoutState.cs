@@ -170,7 +170,7 @@ namespace SharpConsoleUI.Core
 		public int? AvailableHeight { get; init; }
 
 		/// <summary>What was actually rendered (read-only result)</summary>
-		public int? ActualWidth { get; init; }
+		public int? ContentWidth { get; init; }
 
 		/// <summary>What was actually rendered (read-only result)</summary>
 		public int? ActualHeight { get; init; }
@@ -199,7 +199,7 @@ namespace SharpConsoleUI.Core
 				return true;
 
 			// If we have a fixed width requirement but actual doesn't match, need re-render
-			if (Requirements.Width.HasValue && ActualWidth != Requirements.Width)
+			if (Requirements.Width.HasValue && ContentWidth != Requirements.Width)
 				return true;
 
 			return false;

@@ -36,6 +36,11 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width = null;  // null = use measured width (includes margins)
 
+		private int _actualX;
+		private int _actualY;
+		private int _actualWidth;
+		private int _actualHeight;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SeparatorControl"/> class.
 		/// </summary>
@@ -44,7 +49,19 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public int? ActualWidth => _width;
+		public int? ContentWidth => _width;
+
+		/// <inheritdoc/>
+		public int ActualX => _actualX;
+
+		/// <inheritdoc/>
+		public int ActualY => _actualY;
+
+		/// <inheritdoc/>
+		public int ActualWidth => _actualWidth;
+
+		/// <inheritdoc/>
+		public int ActualHeight => _actualHeight;
 
 		/// <summary>
 		/// Gets or sets the background color of the separator.
@@ -198,6 +215,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			_actualX = bounds.X;
+			_actualY = bounds.Y;
+			_actualWidth = bounds.Width;
+			_actualHeight = bounds.Height;
+
 			// Resolve colors with fallback chain:
 			// Control color -> Theme color -> Container color -> Default
 			var theme = Container?.GetConsoleWindowSystem?.Theme;
