@@ -693,7 +693,7 @@ namespace SharpConsoleUI.Windows
 
 						_window._windowSystem?.LogService?.LogTrace($"Focus switched in '{_window.Title}': {_window._lastFocusedControl?.GetType().Name}", "Focus");
 
-						BringIntoFocus(nextIndex);
+						BringIntoFocus(control as IWindowControl);
 						break;
 					}
 
@@ -704,10 +704,9 @@ namespace SharpConsoleUI.Windows
 		/// <summary>
 		/// Brings the focused control into view by adjusting scroll position.
 		/// </summary>
-		private void BringIntoFocus(int nextIndex)
+		private void BringIntoFocus(IWindowControl? focusedContent)
 		{
 			// Ensure the focused content is within the visible window
-			var focusedContent = _window._interactiveContents[nextIndex] as IWindowControl;
 
 			if (focusedContent != null)
 			{
