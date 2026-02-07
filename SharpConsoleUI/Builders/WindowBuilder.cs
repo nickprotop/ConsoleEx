@@ -36,7 +36,7 @@ public sealed class WindowBuilder
     private WindowBounds? _bounds;
     private SpectreColor? _backgroundColor;
     private SpectreColor? _foregroundColor;
-    private WindowMode _mode = WindowMode.Normal;
+    private bool _isModal = false;
     private WindowState _state = WindowState.Normal;
     private bool _isResizable = true;
     private bool _isClosable = true;
@@ -212,24 +212,23 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets the window mode (normal or modal).
+    /// Makes the window modal, blocking input to other windows until closed.
     /// </summary>
-    /// <param name="mode">The window mode to apply.</param>
+    /// <param name="isModal">True to make the window modal, false for normal mode.</param>
     /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithMode(WindowMode mode)
+    public WindowBuilder WithModal(bool isModal = true)
     {
-        _mode = mode;
+        _isModal = isModal;
         return this;
     }
 
     /// <summary>
     /// Makes the window modal, blocking input to other windows until closed.
-    /// Equivalent to calling <see cref="WithMode"/> with <see cref="WindowMode.Modal"/>.
     /// </summary>
     /// <returns>The current builder instance for method chaining.</returns>
     public WindowBuilder AsModal()
     {
-        _mode = WindowMode.Modal;
+        _isModal = true;
         return this;
     }
 
@@ -666,7 +665,7 @@ public sealed class WindowBuilder
         if (_foregroundColor.HasValue)
             window.ForegroundColor = _foregroundColor.Value;
 
-        window.Mode = _mode;
+        window.IsModal = _isModal;
         window.State = _state;
         window.IsResizable = _isResizable;
         window.IsClosable = _isClosable;

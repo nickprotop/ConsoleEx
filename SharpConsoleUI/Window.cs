@@ -18,21 +18,6 @@ using Color = Spectre.Console.Color;
 namespace SharpConsoleUI
 {
 	/// <summary>
-	/// Specifies the display mode of a window.
-	/// </summary>
-	public enum WindowMode
-	{
-		/// <summary>
-		/// Normal window that can be deactivated when other windows are selected.
-		/// </summary>
-		Normal,
-		/// <summary>
-		/// Modal window that blocks input to other windows until closed.
-		/// </summary>
-		Modal
-	}
-
-	/// <summary>
 	/// Specifies the current state of a window.
 	/// </summary>
 	public enum WindowState
@@ -174,7 +159,7 @@ namespace SharpConsoleUI
 		internal FocusStateService? FocusService => _windowSystem?.FocusStateService;
 		private int? _minimumHeight = Configuration.ControlDefaults.DefaultWindowMinimumHeight;
 		private int? _minimumWidth = Configuration.ControlDefaults.DefaultWindowMinimumWidth;
-		private WindowMode _mode = WindowMode.Normal;
+		private bool _isModal = false;
 		internal int _scrollOffset;
 		private WindowState _state;
 		private object? _tag;
@@ -394,7 +379,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public Color BackgroundColor
 		{
-			get => _backgroundColor ?? (Mode == WindowMode.Modal
+			get => _backgroundColor ?? (IsModal
 				? _windowSystem?.Theme.ModalBackgroundColor
 				: _windowSystem?.Theme.WindowBackgroundColor) ?? Color.Black;
 			set
@@ -600,12 +585,12 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Gets or sets the window mode (Normal or Modal).
+		/// Gets or sets whether this window is modal (blocks input to other windows).
 		/// </summary>
-		public WindowMode Mode
+		public bool IsModal
 		{
-			get => _mode;
-			set { _mode = value; }
+			get => _isModal;
+			set { _isModal = value; }
 		}
 
 		/// <summary>
@@ -2287,7 +2272,7 @@ namespace SharpConsoleUI
 				Top = Math.Max(0, parentCenterY - (Height / 2));
 
 				// If we're a modal window, ensure we're visible and properly centered
-				if (Mode == WindowMode.Modal)
+				if (IsModal)
 				{
 					// Use a smaller offset for modal windows to make them look more like dialogs
 					// Ensure the window fits within the parent window bounds

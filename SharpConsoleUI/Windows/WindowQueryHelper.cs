@@ -27,7 +27,7 @@ namespace SharpConsoleUI.Windows
 		{
 			// Get all direct modal children of the window, ordered by Z-index (highest first)
 			var modalChildren = context.Windows.Values
-				.Where(w => w.ParentWindow == window && w.Mode == WindowMode.Modal)
+				.Where(w => w.ParentWindow == window && w.IsModal)
 				.OrderByDescending(w => w.ZIndex)
 				.ToList();
 
@@ -59,7 +59,7 @@ namespace SharpConsoleUI.Windows
 		{
 			// First, check if there's already an active modal child - prioritize it
 			var activeModalChild = context.Windows.Values
-				.Where(w => w.ParentWindow == targetWindow && w.Mode == WindowMode.Modal && w.GetIsActive())
+				.Where(w => w.ParentWindow == targetWindow && w.IsModal && w.GetIsActive())
 				.FirstOrDefault();
 
 			if (activeModalChild != null)
@@ -112,7 +112,7 @@ namespace SharpConsoleUI.Windows
 					var higherWindow = windows[j];
 
 					// Check if this higher window is a modal child of current window
-					if (higherWindow.Mode == WindowMode.Modal && higherWindow.ParentWindow == window)
+					if (higherWindow.IsModal && higherWindow.ParentWindow == window)
 					{
 						hasChildAtPoint = true;
 						break;

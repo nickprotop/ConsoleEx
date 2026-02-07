@@ -34,7 +34,7 @@ public class OverlayWindow : Window
 
 		// Remove all window chrome
 		BorderStyle = BorderStyle.None;
-		Mode = WindowMode.Modal;
+		IsModal = true;
 		IsResizable = false;
 		IsMovable = false;
 		ShowTitle = false;

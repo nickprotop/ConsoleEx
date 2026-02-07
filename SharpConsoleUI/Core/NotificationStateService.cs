@@ -368,7 +368,7 @@ namespace SharpConsoleUI.Core
 
 			if (blockUi)
 			{
-				notificationWindow.Mode = WindowMode.Modal;
+				notificationWindow.IsModal = true;
 			}
 
 			// Add content

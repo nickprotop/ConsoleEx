@@ -902,7 +902,7 @@ namespace SharpConsoleUI.Core
 		RegisterWindow(window, activate: false);
 
 		// Register modal windows with the modal state service
-		if (window.Mode == WindowMode.Modal && _modalStateService != null)
+		if (window.IsModal && _modalStateService != null)
 		{
 			_modalStateService.PushModal(window, window.ParentWindow);
 			_logService?.LogDebug($"Modal window pushed: {window.Title}", "Modal");
@@ -926,7 +926,7 @@ namespace SharpConsoleUI.Core
 	/// <param name="modalWindow">The modal window to close. If null or not a modal window, the method returns without action.</param>
 	public void CloseModalWindow(Window? modalWindow)
 	{
-		if (modalWindow == null || modalWindow.Mode != WindowMode.Modal)
+		if (modalWindow == null || !modalWindow.IsModal)
 			return;
 		if (_getWindowSystem == null)
 			throw new InvalidOperationException("WindowSystemContext is not set");
@@ -980,7 +980,7 @@ namespace SharpConsoleUI.Core
 		bool wasActive = (window == context.ActiveWindow);
 
 		// Unregister modal window from modal state service
-		if (window.Mode == WindowMode.Modal && _modalStateService != null)
+		if (window.IsModal && _modalStateService != null)
 		{
 			_modalStateService.PopModal(window);
 		}
@@ -1317,7 +1317,7 @@ namespace SharpConsoleUI.Core
 		}
 
 		// If a different modal should be activated, flash it
-		if (windowToActivate != window && windowToActivate.Mode == WindowMode.Modal)
+		if (windowToActivate != window && windowToActivate.IsModal)
 		{
 			FlashWindow(windowToActivate);
 		}
