@@ -928,11 +928,78 @@ namespace SharpConsoleUI
 		}
 	}
 
-		/// <summary>
-		/// Checks if the window can be closed by firing the OnClosing event.
-		/// Does not modify any state - only queries whether close is allowed.
+	/// <summary>
+	/// Gets a flattened list of all focusable controls by recursively traversing IContainerControl children.
+		/// Containers with CanReceiveFocus=false are skipped, but their children are included.
 		/// </summary>
-		/// <param name="force">If true, bypasses IsClosable check and ignores Allow from OnClosing.
+		internal List<IInteractiveControl> GetAllFocusableControlsFlattened()
+		{
+			var result = new List<IInteractiveControl>();
+
+			void RecursiveAdd(IWindowControl control)
+			{
+				// If this is a container, recurse into its children
+				if (control is Controls.IContainerControl container)
+				{
+					// Check if the container itself is focusable
+					bool isFocusable = false;
+					if (control is Controls.IFocusableControl fc)
+					{
+						isFocusable = fc.CanReceiveFocus;
+					}
+					else if (control is IInteractiveControl ic)
+					{
+						isFocusable = ic.IsEnabled;
+					}
+
+					// Add container if it's focusable
+					if (isFocusable && control is IInteractiveControl interactiveContainer)
+					{
+						result.Add(interactiveContainer);
+					}
+
+					// Recurse into children regardless
+					foreach (var child in container.GetChildren())
+					{
+						RecursiveAdd(child);
+					}
+				}
+				// Leaf control - check if it's interactive/focusable
+				else if (control is IInteractiveControl interactive)
+				{
+					// Check if it's focusable
+					if (control is Controls.IFocusableControl fc)
+					{
+						if (fc.CanReceiveFocus)
+						{
+							result.Add(interactive);
+						}
+					}
+					else
+					{
+						// Not IFocusableControl, so add if enabled
+						if (interactive.IsEnabled)
+						{
+							result.Add(interactive);
+						}
+					}
+				}
+			}
+
+			// Start from top-level controls
+			foreach (var control in _controls.Where(c => c.Visible))
+			{
+				RecursiveAdd(control);
+			}
+
+			return result;
+		}
+
+	/// <summary>
+	/// Checks if the window can be closed by firing the OnClosing event.
+	/// Does not modify any state - only queries whether close is allowed.
+	/// </summary>
+	/// <param name="force">If true, bypasses IsClosable check and ignores Allow from OnClosing.
 		/// The OnClosing event is still fired so handlers can perform pre-close work.</param>
 		/// <returns>True if the window can be closed; false if close was cancelled (only when force=false).</returns>
 		public bool TryClose(bool force = false)

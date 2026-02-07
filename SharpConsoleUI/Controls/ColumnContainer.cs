@@ -25,7 +25,7 @@ namespace SharpConsoleUI.Controls
 	/// A container control that holds child controls vertically within a column of a <see cref="HorizontalGridControl"/>.
 	/// Supports layout constraints, focus management, and dynamic content sizing.
 	/// </summary>
-	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILayoutAware, IDOMPaintable
+	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILayoutAware, IDOMPaintable, IContainerControl
 	{
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Fill;
@@ -373,6 +373,15 @@ namespace SharpConsoleUI.Controls
 		public IReadOnlyList<IWindowControl> Contents => _contents;
 
 		/// <summary>
+		/// Gets the children of this container for Tab navigation traversal.
+		/// Required by IContainerControl interface.
+		/// </summary>
+		public IReadOnlyList<IWindowControl> GetChildren()
+		{
+			return _contents;
+		}
+
+		/// <summary>
 		/// Adds a child control to this column.
 		/// </summary>
 		/// <param name="content">The control to add.</param>
@@ -587,7 +596,11 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public bool CanReceiveFocus => IsEnabled;
+		/// <summary>
+		/// ColumnContainer is a layout container and should not be directly focusable.
+		/// Focus should go to the controls within this column instead.
+		/// </summary>
+		public bool CanReceiveFocus => false;
 
 		/// <inheritdoc/>
 		public event EventHandler? GotFocus;

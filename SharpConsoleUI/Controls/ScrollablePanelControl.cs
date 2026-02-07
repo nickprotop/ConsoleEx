@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	/// A scrollable panel control that can host child controls with automatic scrolling support.
 	/// Supports vertical and horizontal scrolling, mouse wheel, and visual scrollbars.
 	/// </summary>
-	public class ScrollablePanelControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDOMPaintable, IDirectionalFocusControl
+	public class ScrollablePanelControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDOMPaintable, IDirectionalFocusControl, IContainerControl, IScrollableContainer
 	{
 		private readonly List<IWindowControl> _children = new();
 		private int _verticalScrollOffset = 0;
@@ -447,17 +447,23 @@ namespace SharpConsoleUI.Controls
 		#region IFocusableControl Implementation
 
 		/// <inheritdoc/>
+		/// <summary>
+		/// ScrollablePanel is focusable ONLY if it needs scrolling but has no focusable children.
+		/// This allows keyboard scrolling for text-only content while keeping children in Tab order.
+		/// Pattern follows standard TUI frameworks (Cursive, Textual, GTK, Qt).
+		/// </summary>
 		public bool CanReceiveFocus
 		{
 			get
 			{
-				if (!_visible) return false;
+				if (!_visible || !_isEnabled) return false;
 
-				// Can receive focus if we need scrolling OR have focusable children
 				bool needsScrolling = NeedsScrolling();
 				bool hasFocusableChildren = HasFocusableChildren();
 
-				return needsScrolling || hasFocusableChildren;
+				// Focusable ONLY if we need scrolling but have NO focusable children
+				// If we have focusable children, THEY are in Tab order, not us
+				return needsScrolling && !hasFocusableChildren;
 			}
 		}
 
@@ -797,6 +803,65 @@ namespace SharpConsoleUI.Controls
 		/// Gets the collection of child controls.
 		/// </summary>
 		public IReadOnlyList<IWindowControl> Children => _children.AsReadOnly();
+
+		#endregion
+
+		#region IContainerControl Implementation
+
+		/// <summary>
+		/// Gets the children of this container for Tab navigation traversal.
+		/// Required by IContainerControl interface.
+		/// </summary>
+		public IReadOnlyList<IWindowControl> GetChildren()
+		{
+			return _children.AsReadOnly();
+		}
+
+		#endregion
+
+		#region IScrollableContainer Implementation
+
+		/// <summary>
+		/// Automatically scrolls to bring a child control into view when it receives focus.
+		/// This is called by the focus system when a child within this panel gains focus.
+		/// </summary>
+		public void ScrollChildIntoView(IWindowControl child)
+		{
+			if (!_children.Contains(child))
+				return; // Not our child
+
+			// Calculate child's position within our content
+			int childContentY = 0;
+			int contentWidth = _viewportWidth;
+			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight)
+				contentWidth -= 2;
+
+			// Find child's Y position by measuring all children before it
+			foreach (var c in _children.Where(c => c.Visible))
+			{
+				if (c == child)
+					break;
+
+				childContentY += MeasureChildHeight(c, contentWidth);
+			}
+
+			int childHeight = MeasureChildHeight(child, contentWidth);
+
+			// Scroll vertically if child is outside viewport
+			if (childContentY < _verticalScrollOffset)
+			{
+				// Child is above viewport - scroll up to show it at top
+				ScrollVerticalTo(childContentY);
+			}
+			else if (childContentY + childHeight > _verticalScrollOffset + _viewportHeight)
+			{
+				// Child is below viewport - scroll down to show it at bottom
+				ScrollVerticalTo(childContentY + childHeight - _viewportHeight);
+			}
+			// If child is already visible, don't scroll
+
+			// Note: Horizontal scrolling not implemented for children (children typically fit width)
+		}
 
 		#endregion
 

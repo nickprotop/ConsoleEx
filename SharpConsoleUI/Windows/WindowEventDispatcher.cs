@@ -621,22 +621,25 @@ namespace SharpConsoleUI.Windows
 		{
 			lock (_window._lock)
 			{
-				if (_window._interactiveContents.Count == 0) return;
+				// Get flattened list of ALL focusable controls (including nested ones)
+				var focusableControls = _window.GetAllFocusableControlsFlattened();
+
+				if (focusableControls.Count == 0) return;
 
 				// Find the currently focused content
-				var currentIndex = _window._interactiveContents.FindIndex(ic => ic.HasFocus);
+				var currentIndex = focusableControls.FindIndex(ic => ic.HasFocus);
 
 				// If no control is focused but we have a last focused control, use that as a starting point
 				if (currentIndex == -1 && _window._lastFocusedControl != null)
 				{
-					currentIndex = _window._interactiveContents.IndexOf(_window._lastFocusedControl);
+					currentIndex = focusableControls.IndexOf(_window._lastFocusedControl);
 				}
 
 				// Remove focus from the current content if there is one
 				if (currentIndex != -1)
 				{
-					_window._lastFocusedControl = _window._interactiveContents[currentIndex]; // Remember the last focused control
-					_window._interactiveContents[currentIndex].HasFocus = false;
+					_window._lastFocusedControl = focusableControls[currentIndex]; // Remember the last focused control
+					focusableControls[currentIndex].HasFocus = false;
 				}
 
 				// Find the next focusable control
@@ -647,17 +650,17 @@ namespace SharpConsoleUI.Windows
 					// Calculate the next index
 					if (backward)
 					{
-						nextIndex = (nextIndex - 1 + _window._interactiveContents.Count) % _window._interactiveContents.Count;
+						nextIndex = (nextIndex - 1 + focusableControls.Count) % focusableControls.Count;
 					}
 					else
 					{
-						nextIndex = (nextIndex + 1) % _window._interactiveContents.Count;
+						nextIndex = (nextIndex + 1) % focusableControls.Count;
 					}
 
 					attempts++;
 
 					// Check if this control can receive focus
-					var control = _window._interactiveContents[nextIndex];
+					var control = focusableControls[nextIndex];
 					bool canFocus = true;
 
 					// Check CanReceiveFocus if the control implements IFocusableControl
@@ -694,7 +697,7 @@ namespace SharpConsoleUI.Windows
 						break;
 					}
 
-				} while (attempts < _window._interactiveContents.Count && nextIndex != currentIndex);
+				} while (attempts < focusableControls.Count && nextIndex != currentIndex);
 			}
 		}
 

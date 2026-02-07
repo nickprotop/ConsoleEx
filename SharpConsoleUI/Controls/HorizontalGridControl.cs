@@ -75,7 +75,7 @@ namespace SharpConsoleUI.Controls
 	/// Window.cs during tree building. Users don't interact with HorizontalLayout directly.
 	/// </para>
 	/// </summary>
-	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IDOMPaintable
+	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IDOMPaintable, IContainerControl
 	{
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -231,6 +231,15 @@ namespace SharpConsoleUI.Controls
 		/// Gets the list of splitters in this grid.
 		/// </summary>
 		public IReadOnlyList<SplitterControl> Splitters => _splitters;
+
+		/// <summary>
+		/// Gets the children of this container for Tab navigation traversal.
+		/// Required by IContainerControl interface.
+		/// </summary>
+		public IReadOnlyList<IWindowControl> GetChildren()
+		{
+			return _columns.Cast<IWindowControl>().ToList().AsReadOnly();
+		}
 
 		/// <summary>
 		/// Gets the index of the column to the left of the specified splitter.
@@ -770,7 +779,11 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public bool CanReceiveFocus => IsEnabled;
+		/// <summary>
+		/// HorizontalGridControl is a layout container and should not be directly focusable.
+		/// Focus should go to the controls within the columns instead.
+		/// </summary>
+		public bool CanReceiveFocus => false;
 
 		/// <inheritdoc/>
 		public event EventHandler? GotFocus;

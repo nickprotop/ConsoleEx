@@ -25,7 +25,7 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal toolbar control that contains buttons, separators, and other controls.
 	/// Supports Tab navigation between focusable items and Enter key activation of buttons.
 	/// </summary>
-	public class ToolbarControl : IWindowControl, IContainer, IDOMPaintable, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	public class ToolbarControl : IWindowControl, IContainer, IDOMPaintable, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl
 	{
 		private Color? _backgroundColorValue;
 		private IContainer? _container;
@@ -75,7 +75,11 @@ namespace SharpConsoleUI.Controls
 		public bool CanFocusWithMouse => IsEnabled;
 
 		/// <inheritdoc/>
-		public bool CanReceiveFocus => IsEnabled && GetFocusableItems().Any();
+		/// <summary>
+		/// ToolbarControl is a container and should not be directly focusable.
+		/// Focus should go to the toolbar items instead.
+		/// </summary>
+		public bool CanReceiveFocus => false;
 
 		/// <inheritdoc/>
 		public IContainer? Container
@@ -186,6 +190,15 @@ namespace SharpConsoleUI.Controls
 		/// Gets the items in the toolbar.
 		/// </summary>
 		public IReadOnlyList<IWindowControl> Items => _items.AsReadOnly();
+
+		/// <summary>
+		/// Gets the children of this container for Tab navigation traversal.
+		/// Required by IContainerControl interface.
+		/// </summary>
+		public IReadOnlyList<IWindowControl> GetChildren()
+		{
+			return _items.AsReadOnly();
+		}
 
 		/// <summary>
 		/// Gets or sets the spacing between items. Defaults to 0.
