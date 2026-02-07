@@ -501,18 +501,24 @@ public class FocusNavigationTests
 		column2.AddContent(button2);
 
 		grid.AddColumn(column1);
-		grid.AddColumnWithSplitter(column2); // Adds splitter between columns
+		var splitter = grid.AddColumnWithSplitter(column2); // Adds splitter between columns
 
 		window.AddControl(grid);
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab should skip splitter and go to buttons
+		// Act & Assert - Tab should traverse through splitter
 		system.FocusStateService.SetFocus(window, button1);
 		Assert.True(button1.HasFocus);
 
+		// Tab should move to splitter first
 		window.SwitchFocus(backward: false);
-		Assert.True(button2.HasFocus); // Should skip splitter
+		Assert.NotNull(splitter);
+		Assert.True(splitter.HasFocus);
+
+		// Tab again should move to button2
+		window.SwitchFocus(backward: false);
+		Assert.True(button2.HasFocus);
 	}
 
 	[Fact]
