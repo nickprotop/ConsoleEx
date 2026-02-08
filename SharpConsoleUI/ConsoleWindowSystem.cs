@@ -744,6 +744,7 @@ namespace SharpConsoleUI
 					absoluteLeft >= ActiveWindow.Left && absoluteLeft < ActiveWindow.Left + ActiveWindow.Width &&
 					absoluteTop >= ActiveWindow.Top && absoluteTop < ActiveWindow.Top + ActiveWindow.Height;
 
+
 				if (isWithinBounds)
 				{
 					// Get the owner control if available
@@ -755,8 +756,16 @@ namespace SharpConsoleUI
 					{
 						ownerControl = windowControl;
 
-						// Check if control provides a preferred cursor shape
-						if (windowControl is ICursorShapeProvider shapeProvider &&
+							// Find the deepest focused control for cursor shape (e.g., PromptControl inside ScrollablePanel)
+						var deepestControl = ActiveWindow.FindDeepestFocusedControl(interactiveContent);
+
+						// Check deepest control first, then fall back to top-level control
+						if (deepestControl is ICursorShapeProvider deepShapeProvider &&
+							deepShapeProvider.PreferredCursorShape.HasValue)
+						{
+							cursorShape = deepShapeProvider.PreferredCursorShape.Value;
+						}
+						else if (windowControl is ICursorShapeProvider shapeProvider &&
 							shapeProvider.PreferredCursorShape.HasValue)
 						{
 							cursorShape = shapeProvider.PreferredCursorShape.Value;

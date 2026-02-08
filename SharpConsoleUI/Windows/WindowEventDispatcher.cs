@@ -34,6 +34,9 @@ namespace SharpConsoleUI.Windows
 		private DateTime _lastClickTime;
 		private Point _lastClickPosition;
 
+		// Escape key tracking: remembers control for Tab restore after Escape
+		private IInteractiveControl? _escapedFromControl;
+
 		/// <summary>
 		/// Initializes a new instance of the WindowEventDispatcher class.
 		/// </summary>
@@ -296,6 +299,8 @@ namespace SharpConsoleUI.Windows
 			// Determine what should be focused after this click
 			var newFocusTarget = DetermineFocusTarget(clickedControl);
 
+			_window._windowSystem?.LogService?.LogTrace($"HandleClickFocus: clicked={clickedControl?.GetType().Name ?? "null"} target={newFocusTarget?.GetType().Name ?? "null"} _lastFocused={_window._lastFocusedControl?.GetType().Name ?? "null"} sameAsLast={newFocusTarget == _window._lastFocusedControl}", "Focus");
+
 			// No change needed
 			if (newFocusTarget == _window._lastFocusedControl)
 				return;
@@ -336,7 +341,10 @@ namespace SharpConsoleUI.Windows
 		{
 			// Case 1: Clicked on empty space → clear focus
 			if (clickedControl == null)
+			{
+				_window._windowSystem?.LogService?.LogTrace("DetermineFocusTarget: Case 1 - empty space → null", "Focus");
 				return null;
+			}
 
 			// Case 2: Clicked on portal/overlay content (CanFocusWithMouse = false)
 			// These are controls that receive mouse events but shouldn't change focus
@@ -345,14 +353,19 @@ namespace SharpConsoleUI.Windows
 			if (clickedControl is Controls.IMouseAwareControl mouseAware &&
 				!mouseAware.CanFocusWithMouse)
 			{
+				_window._windowSystem?.LogService?.LogTrace($"DetermineFocusTarget: Case 2 - portal/CanFocusWithMouse=false ({clickedControl.GetType().Name}) → _lastFocused={_window._lastFocusedControl?.GetType().Name ?? "null"}", "Focus");
 				return _window._lastFocusedControl as IWindowControl;
 			}
 
 			// Case 3: Clicked on non-focusable control → clear focus
 			if (clickedControl is not Controls.IFocusableControl focusable || !focusable.CanReceiveFocus)
+			{
+				_window._windowSystem?.LogService?.LogTrace($"DetermineFocusTarget: Case 3 - non-focusable ({clickedControl.GetType().Name}, CanReceiveFocus={((clickedControl as Controls.IFocusableControl)?.CanReceiveFocus)}) → null", "Focus");
 				return null;
+			}
 
 			// Case 4: Clicked on focusable control → focus it
+			_window._windowSystem?.LogService?.LogTrace($"DetermineFocusTarget: Case 4 - focusable ({clickedControl.GetType().Name}) → focus it", "Focus");
 			return clickedControl;
 		}
 
@@ -470,6 +483,18 @@ namespace SharpConsoleUI.Windows
 						SwitchFocus(false); // Pass false to indicate forward focus switch
 						windowHandled = true;
 					}
+					else if (key.Key == ConsoleKey.Escape && _window._lastFocusedControl != null)
+					{
+						// Escape unfocuses the current control (for regular controls, not inside ScrollablePanel
+						// which handles Escape internally via ProcessKey returning contentKeyHandled=true)
+						_window._windowSystem?.LogService?.LogTrace($"WindowEventDispatcher: Escape → unfocusing {_window._lastFocusedControl.GetType().Name}", "Focus");
+						_escapedFromControl = _window._lastFocusedControl;
+						if (_escapedFromControl is Controls.IFocusableControl focusableEsc)
+							focusableEsc.SetFocus(false, Controls.FocusReason.Programmatic);
+						_window._lastFocusedControl = null;
+						_window.FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
+						windowHandled = true;
+					}
 					else
 					{
 						switch (key.Key)
@@ -581,12 +606,10 @@ namespace SharpConsoleUI.Windows
 		/// <returns>True if cursor should be displayed; otherwise false.</returns>
 		public bool HasInteractiveContent(out Point cursorPosition)
 		{
-
 			if (HasActiveInteractiveContent(out var activeInteractiveContent))
 			{
 				if (activeInteractiveContent is IWindowControl control)
 				{
-
 					// Find the deepest focused control to walk from
 					var deepestControl = _window.FindDeepestFocusedControl(activeInteractiveContent);
 					if (deepestControl != null)
@@ -621,8 +644,33 @@ namespace SharpConsoleUI.Windows
 		{
 			lock (_window._lock)
 			{
+				// Tab restore after Escape: re-focus the escaped control instead of advancing
+				if (_escapedFromControl != null)
+				{
+					var restoreTarget = _escapedFromControl;
+					_escapedFromControl = null;
+
+					_window._windowSystem?.LogService?.LogTrace($"SwitchFocus: restoring escaped control {restoreTarget.GetType().Name}", "Focus");
+
+					if (restoreTarget is Controls.IFocusableControl restoreFocusable && restoreFocusable.CanReceiveFocus)
+					{
+						if (restoreTarget is Controls.IDirectionalFocusControl directionalRestore)
+							directionalRestore.SetFocusWithDirection(true, backward);
+						else
+							restoreFocusable.SetFocus(true, Controls.FocusReason.Keyboard);
+
+						_window._lastFocusedControl = restoreTarget;
+						_window.FocusService?.SetFocus(_window, restoreTarget, FocusChangeReason.Keyboard);
+
+						BringIntoFocus(restoreTarget as IWindowControl);
+					}
+					return;
+				}
+
 				// Get flattened list of ALL focusable controls (including nested ones)
 				var focusableControls = _window.GetAllFocusableControlsFlattened();
+
+				_window._windowSystem?.LogService?.LogTrace($"SwitchFocus(backward={backward}): focusableCount={focusableControls.Count} controls=[{string.Join(", ", focusableControls.Select(c => c.GetType().Name))}] _lastFocused={_window._lastFocusedControl?.GetType().Name ?? "null"}", "Focus");
 
 				if (focusableControls.Count == 0) return;
 
@@ -703,6 +751,7 @@ namespace SharpConsoleUI.Windows
 
 		/// <summary>
 		/// Brings the focused control into view by adjusting scroll position.
+		/// Also walks up the container chain to scroll any IScrollableContainer parents.
 		/// </summary>
 		private void BringIntoFocus(IWindowControl? focusedContent)
 		{
@@ -737,6 +786,17 @@ namespace SharpConsoleUI.Windows
 						int maxOffset = Math.Max(0, (_window._cachedContent?.Count ?? 0) - (_window.Height - 2 - _window._topStickyHeight));
 						_window._scrollOffset = Math.Min(newOffset, maxOffset);
 					}
+				}
+
+				// Walk up container chain to scroll nested IScrollableContainer parents
+				var current = focusedContent;
+				while (current != null)
+				{
+					if (current.Container is Controls.IScrollableContainer scrollable)
+					{
+						scrollable.ScrollChildIntoView(current);
+					}
+					current = current.Container as IWindowControl;
 				}
 			}
 

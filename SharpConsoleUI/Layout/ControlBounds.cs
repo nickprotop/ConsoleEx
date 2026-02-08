@@ -210,15 +210,11 @@ namespace SharpConsoleUI.Layout
 		public Point? TranslateLogicalCursorToWindow(Controls.IWindowControl control)
 		{
 			if (control is not Controls.ILogicalCursorProvider cursorProvider)
-			{
 				return null;
-			}
 
 			var logicalPosition = cursorProvider.GetLogicalCursorPosition();
 			if (logicalPosition == null)
-			{
 				return null;
-			}
 
 			// Get control's bounds (which are already absolute window-content coordinates from DOM)
 			var bounds = GetOrCreateControlBounds(control);

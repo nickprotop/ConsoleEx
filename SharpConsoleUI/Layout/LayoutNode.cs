@@ -86,6 +86,15 @@ namespace SharpConsoleUI.Layout
 		public LayoutRect AbsoluteBounds { get; private set; }
 
 		/// <summary>
+		/// Sets the absolute bounds externally for nodes managed by self-painting containers
+		/// (e.g., ScrollablePanelControl children that are not part of DOM layout).
+		/// </summary>
+		internal void SetAbsoluteBounds(LayoutRect bounds)
+		{
+			AbsoluteBounds = bounds;
+		}
+
+		/// <summary>
 		/// Gets whether this node needs to be measured.
 		/// </summary>
 		public bool NeedsMeasure { get; set; } = true;

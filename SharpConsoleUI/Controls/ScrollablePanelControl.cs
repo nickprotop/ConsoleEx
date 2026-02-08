@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
@@ -14,7 +15,6 @@ using Color = Spectre.Console.Color;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
-using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -33,6 +33,7 @@ namespace SharpConsoleUI.Controls
 		private bool _hasFocus = false;
 		private bool _isEnabled = true;
 		private IInteractiveControl? _focusedChild = null;
+		private IInteractiveControl? _lastInternalFocusedChild = null;
 		private bool _focusFromBackward = false;
 
 		// Click target tracking for double-click consistency
@@ -333,6 +334,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+			var log = GetConsoleWindowSystem?.LogService;
+			log?.LogTrace($"ScrollPanel.ProcessKey({key.Key}): _hasFocus={_hasFocus} _isEnabled={_isEnabled} _focusedChild={_focusedChild?.GetType().Name ?? "null"} _focusedChild.HasFocus={(_focusedChild as IFocusableControl)?.HasFocus}", "Focus");
+
 			if (!_hasFocus || !_isEnabled) return false;
 
 			// FIRST: Delegate to focused child if we have one
@@ -341,18 +345,53 @@ namespace SharpConsoleUI.Controls
 				return true; // Child handled it
 			}
 
+			// Handle Escape: unfocus child, enter scroll mode (panel stays focused)
+			if (key.Key == ConsoleKey.Escape && _focusedChild != null)
+			{
+				log?.LogTrace($"ScrollPanel.ProcessKey: Escape → unfocusing child {_focusedChild.GetType().Name}, entering scroll mode", "Focus");
+				_lastInternalFocusedChild = _focusedChild;
+				if (_focusedChild is IFocusableControl escapeFc)
+					escapeFc.SetFocus(false, FocusReason.Programmatic);
+				_focusedChild = null;
+				Container?.Invalidate(true);
+				return true;
+			}
+
+			// Handle Escape in scroll mode (no child focused): let it propagate to unfocus panel
+			if (key.Key == ConsoleKey.Escape && _focusedChild == null)
+			{
+				log?.LogTrace("ScrollPanel.ProcessKey: Escape in scroll mode → propagating to parent", "Focus");
+				_lastInternalFocusedChild = null;
+				return false; // Let parent handle (will unfocus panel)
+			}
+
 			// SECOND: Handle Tab navigation through children
 			if (key.Key == ConsoleKey.Tab)
 			{
+				bool shiftPressed = (key.Modifiers & ConsoleModifiers.Shift) != 0;
+
+				// Tab in scroll mode: restore last focused child
+				if (_focusedChild == null && _lastInternalFocusedChild != null)
+				{
+					log?.LogTrace($"ScrollPanel.ProcessKey: Tab in scroll mode → restoring {_lastInternalFocusedChild.GetType().Name}", "Focus");
+					_focusedChild = _lastInternalFocusedChild;
+					_lastInternalFocusedChild = null;
+					if (_focusedChild is IFocusableControl restoreFc)
+						restoreFc.SetFocus(true, FocusReason.Keyboard);
+					if (_focusedChild is IWindowControl focusedWindow)
+						ScrollChildIntoView(focusedWindow);
+					Container?.Invalidate(true);
+					return true;
+				}
+
 				var focusableChildren = _children
 					.Where(c => c is IFocusableControl fc && fc.CanReceiveFocus)
 					.Cast<IInteractiveControl>()
 					.ToList();
 
-				if (focusableChildren.Count > 1)
+				if (focusableChildren.Count > 0)
 				{
 					int currentIndex = _focusedChild != null ? focusableChildren.IndexOf(_focusedChild) : -1;
-					bool shiftPressed = (key.Modifiers & ConsoleModifiers.Shift) != 0;
 
 					int newIndex;
 					if (shiftPressed)
@@ -378,6 +417,10 @@ namespace SharpConsoleUI.Controls
 					_focusedChild = focusableChildren[newIndex];
 					if (_focusedChild is IFocusableControl newFc)
 						newFc.SetFocus(true, FocusReason.Keyboard);
+
+					// Scroll newly focused child into view
+					if (_focusedChild is IWindowControl newlyFocusedWindow)
+						ScrollChildIntoView(newlyFocusedWindow);
 
 					Container?.Invalidate(true);
 					return true;
@@ -465,9 +508,9 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		/// <summary>
-		/// ScrollablePanel is focusable ONLY if it needs scrolling but has no focusable children.
-		/// This allows keyboard scrolling for text-only content while keeping children in Tab order.
-		/// Pattern follows standard TUI frameworks (Cursive, Textual, GTK, Qt).
+		/// ScrollablePanel is focusable when it has anything to interact with:
+		/// either scrollable content or focusable children. The panel acts as an
+		/// opaque focus container — it owns its children's focus lifecycle entirely.
 		/// </summary>
 		public bool CanReceiveFocus
 		{
@@ -478,9 +521,9 @@ namespace SharpConsoleUI.Controls
 				bool needsScrolling = NeedsScrolling();
 				bool hasFocusableChildren = HasFocusableChildren();
 
-				// Focusable ONLY if we need scrolling but have NO focusable children
-				// If we have focusable children, THEY are in Tab order, not us
-				return needsScrolling && !hasFocusableChildren;
+				var result = needsScrolling || hasFocusableChildren;
+				GetConsoleWindowSystem?.LogService?.LogTrace($"ScrollPanel.CanReceiveFocus: needsScrolling={needsScrolling} hasFocusableChildren={hasFocusableChildren} result={result}", "Focus");
+				return result;
 			}
 		}
 
@@ -494,6 +537,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
+			var log = GetConsoleWindowSystem?.LogService;
+			log?.LogTrace($"ScrollPanel.SetFocus({focus}, {reason}): _hasFocus={_hasFocus} _focusedChild={_focusedChild?.GetType().Name ?? "null"}", "Focus");
+
 			if (_hasFocus == focus) return;
 
 			var hadFocus = _hasFocus;
@@ -513,6 +559,8 @@ namespace SharpConsoleUI.Controls
 						? focusableChildren.Last() as IInteractiveControl
 						: focusableChildren.First() as IInteractiveControl;
 
+					log?.LogTrace($"ScrollPanel.SetFocus: delegating to child {_focusedChild?.GetType().Name} (backward={_focusFromBackward})", "Focus");
+
 					if (_focusedChild is IFocusableControl fc)
 					{
 						if (_focusedChild is IDirectionalFocusControl dfc)
@@ -521,7 +569,10 @@ namespace SharpConsoleUI.Controls
 							fc.SetFocus(true, reason);
 					}
 				}
-				// If no focusable children, panel itself is focused (for scrolling)
+				else
+				{
+					log?.LogTrace("ScrollPanel.SetFocus: no focusable children, panel focused for scrolling", "Focus");
+				}
 
 				GotFocus?.Invoke(this, EventArgs.Empty);
 			}
@@ -530,9 +581,11 @@ namespace SharpConsoleUI.Controls
 				// Losing focus - unfocus any focused child
 				if (_focusedChild != null && _focusedChild is IFocusableControl fc)
 				{
+					log?.LogTrace($"ScrollPanel.SetFocus(false): unfocusing child {_focusedChild.GetType().Name}", "Focus");
 					fc.SetFocus(false, reason);
 				}
 				_focusedChild = null;
+				_lastInternalFocusedChild = null;
 
 				LostFocus?.Invoke(this, EventArgs.Empty);
 			}
@@ -554,7 +607,15 @@ namespace SharpConsoleUI.Controls
 		public bool WantsMouseEvents => true;  // Always want mouse events for child focus
 
 		/// <inheritdoc/>
-		public bool CanFocusWithMouse => CanReceiveFocus;
+		public bool CanFocusWithMouse
+		{
+			get
+			{
+				var result = CanReceiveFocus;
+				GetConsoleWindowSystem?.LogService?.LogTrace($"ScrollPanel.CanFocusWithMouse: {result}", "Focus");
+				return result;
+			}
+		}
 
 		/// <inheritdoc/>
 		/// <summary>
@@ -609,6 +670,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc />
 	public bool ProcessMouseEvent(MouseEventArgs args)
 		{
+			var log = GetConsoleWindowSystem?.LogService;
+
 			if (args.Handled) return false;
 
 			// Handle mouse wheel scrolling
@@ -645,6 +708,7 @@ namespace SharpConsoleUI.Controls
 				Drivers.MouseFlags.Button3Clicked, Drivers.MouseFlags.Button3Pressed, Drivers.MouseFlags.Button3Released,
 				Drivers.MouseFlags.Button3DoubleClicked, Drivers.MouseFlags.Button3TripleClicked))
 			{
+				log?.LogTrace($"ScrollPanel.ProcessMouseEvent: click pos={args.Position} _hasFocus={_hasFocus} _focusedChild={_focusedChild?.GetType().Name ?? "null"}", "Focus");
 				// Calculate content width (accounting for scrollbar)
 				int contentWidth = _viewportWidth;
 				bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
@@ -660,6 +724,7 @@ namespace SharpConsoleUI.Controls
 					// Use click target caching to ensure double-clicks go to the same child
 					// even if scroll position changes between clicks
 					var child = GetClickTargetChild(args, contentWidth);
+					log?.LogTrace($"ScrollPanel.ProcessMouseEvent: GetClickTargetChild={child?.GetType().Name ?? "null (empty space)"}", "Focus");
 
 					if (child != null)
 					{
@@ -679,6 +744,8 @@ namespace SharpConsoleUI.Controls
 							focusable.SetFocus(true, FocusReason.Mouse);
 							if (child is IInteractiveControl interactive)
 								_focusedChild = interactive;
+							_lastInternalFocusedChild = null;
+							log?.LogTrace($"ScrollPanel.ProcessMouseEvent: focused child {child.GetType().Name}, _focusedChild={_focusedChild?.GetType().Name}", "Focus");
 						}
 
 						// Forward mouse event to child (if it handles mouse events)
@@ -707,6 +774,23 @@ namespace SharpConsoleUI.Controls
 								currentY += MeasureChildHeight(c, contentWidth);
 							}
 						}
+					}
+					else
+					{
+						// Clicked on empty space or non-focusable content:
+						// Unfocus all children, clear _focusedChild so arrow keys scroll
+						log?.LogTrace("ScrollPanel.ProcessMouseEvent: click on empty space → unfocusing children", "Focus");
+						foreach (var otherChild in _children)
+						{
+							if (otherChild is IFocusableControl fc && fc.HasFocus)
+							{
+								fc.SetFocus(false, FocusReason.Mouse);
+							}
+						}
+						_focusedChild = null;
+						_lastInternalFocusedChild = null;
+						Container?.Invalidate(true);
+						return true;
 					}
 				}
 			}
@@ -801,6 +885,10 @@ namespace SharpConsoleUI.Controls
 					fc.SetFocus(false, FocusReason.Programmatic);
 				_focusedChild = null;
 			}
+
+			// Clear remembered child if it's being removed
+			if (_lastInternalFocusedChild == control as IInteractiveControl)
+				_lastInternalFocusedChild = null;
 
 			if (_children.Remove(control))
 			{
@@ -1014,6 +1102,10 @@ namespace SharpConsoleUI.Controls
 			// Render children with scroll offsets applied
 			int currentY = -_verticalScrollOffset;
 
+			// Get renderer for registering child bounds (needed for cursor position lookups)
+			var parentWindow = this.GetParentWindow();
+			var renderer = parentWindow?.Renderer;
+
 			foreach (var child in _children.ToList())
 			{
 				if (!child.Visible) continue;
@@ -1033,6 +1125,14 @@ namespace SharpConsoleUI.Controls
 				{
 					childHeight = child.GetLogicalContentSize().Height;
 				}
+
+				// Register child bounds for cursor position lookups (even if off-viewport)
+				var childBoundsForCursor = new LayoutRect(
+					bounds.X + _margin.Left,
+					bounds.Y + _margin.Top + currentY,
+					contentWidth,
+					childHeight);
+				renderer?.UpdateChildBounds(child, childBoundsForCursor);
 
 				// Only render if in viewport
 				if (currentY + childHeight > 0 && currentY < _viewportHeight)

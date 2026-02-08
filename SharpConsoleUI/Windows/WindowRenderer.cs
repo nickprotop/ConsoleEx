@@ -246,13 +246,21 @@ namespace SharpConsoleUI.Windows
 				}
 				children = orderedChildren;
 			}
-			else if (control is Controls.ScrollablePanelControl)
+			else if (control is Controls.ScrollablePanelControl scrollablePanel)
 			{
 				// ScrollablePanelControl is a self-painting container that manages its own children's
 				// rendering with scroll offsets. Do NOT add children to DOM tree - the panel's PaintDOM
 				// handles all child painting. Adding children here would cause double-painting.
 				layout = null;
 				children = null;
+
+				// BUT: register children in _controlToNodeMap for cursor position lookups.
+				// Their AbsoluteBounds will be updated by the panel during PaintDOM.
+				foreach (var child in scrollablePanel.Children)
+				{
+					var childNode = CreateLayoutNode(child);
+					_controlToNodeMap[child] = childNode;
+				}
 			}
 
 			var node = new LayoutNode(control, layout);
@@ -593,6 +601,21 @@ namespace SharpConsoleUI.Windows
 		{
 			_controlToNodeMap.TryGetValue(control, out var node);
 			return node;
+		}
+
+		/// <summary>
+		/// Updates the absolute bounds for a control managed by a self-painting container.
+		/// Used by ScrollablePanelControl to register child bounds during PaintDOM.
+		/// </summary>
+		internal void UpdateChildBounds(IWindowControl child, LayoutRect bounds)
+		{
+			if (!_controlToNodeMap.TryGetValue(child, out var node))
+			{
+				// Child not yet registered (e.g., added after DOM build) — create a placeholder node
+				node = new LayoutNode(child);
+				_controlToNodeMap[child] = node;
+			}
+			node.SetAbsoluteBounds(bounds);
 		}
 
 		/// <summary>

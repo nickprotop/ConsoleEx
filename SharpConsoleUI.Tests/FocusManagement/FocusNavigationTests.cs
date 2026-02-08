@@ -182,15 +182,21 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab through panel children
-		system.FocusStateService.SetFocus(window, button1);
-		Assert.True(button1.HasFocus);
+		// Panel is auto-focused by AddControl (first interactive control)
+		// which delegates focus to its first child (button1)
+		Assert.True(panel.HasFocus, "Panel should be auto-focused after AddControl");
+		Assert.True(button1.HasFocus, "First child should be focused via delegation");
 
-		window.SwitchFocus(backward: false);
-		Assert.True(button2.HasFocus);
+		// Internal Tab within panel: button1 → button2 (panel handles this)
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		panel.ProcessKey(tabKey);
+		Assert.True(panel.HasFocus, "Panel should still have focus during internal Tab");
+		Assert.True(button2.HasFocus, "Second child should be focused via internal Tab");
 
+		// SwitchFocus advances past panel → buttonAfter
 		window.SwitchFocus(backward: false);
-		Assert.True(buttonAfter.HasFocus);
+		Assert.True(buttonAfter.HasFocus, "Control after panel should be focused");
+		Assert.False(panel.HasFocus, "Panel should have lost focus");
 	}
 
 	[Fact]
@@ -378,15 +384,17 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Initially, button2 is reachable
+		// Initially, button2 is reachable through panel
 		system.FocusStateService.SetFocus(window, button1);
 		window.SwitchFocus(backward: false);
-		Assert.True(button2.HasFocus);
+		// Panel is opaque: panel gets focus and delegates to button2
+		Assert.True(panel.HasFocus, "Panel should be focused");
+		Assert.True(button2.HasFocus, "Button2 should be focused via panel delegation");
 
 		// Act - Hide panel
 		panel.Visible = false;
 
-		// Assert - After hiding, button2 should not be reachable
+		// Assert - After hiding, panel and its children should not be reachable
 		system.FocusStateService.SetFocus(window, button1);
 		window.SwitchFocus(backward: false);
 		Assert.False(button2.HasFocus); // Skipped
@@ -398,7 +406,7 @@ public class FocusNavigationTests
 	#region ScrollablePanel Smart Focus Tests
 
 	[Fact]
-	public void ScrollablePanel_WithFocusableChildren_ChildrenGetFocus()
+	public void ScrollablePanel_WithFocusableChildren_PanelAndChildGetFocus()
 	{
 		// Arrange
 		var system = TestWindowSystemBuilder.CreateTestSystem();
@@ -412,10 +420,10 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Child gets focus, not panel
+		// Act & Assert - Panel is an opaque container: it gets focus AND delegates to child
 		window.SwitchFocus(backward: false);
-		Assert.True(button.HasFocus);
-		Assert.False(panel.HasFocus); // Panel should not be focusable when has focusable children
+		Assert.True(panel.HasFocus, "Panel should be focused (opaque container)");
+		Assert.True(button.HasFocus, "Child should be focused via panel delegation");
 	}
 
 	[Fact]
@@ -555,12 +563,14 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab should traverse into panel, then to next column
-		system.FocusStateService.SetFocus(window, button1);
-		Assert.True(button1.HasFocus);
+		// Grid auto-focuses → delegates to panel → delegates to button1
+		Assert.True(panel.HasFocus, "Panel should be auto-focused via grid delegation");
+		Assert.True(button1.HasFocus, "Button1 should be focused via panel delegation");
 
+		// SwitchFocus advances past panel → button2
 		window.SwitchFocus(backward: false);
-		Assert.True(button2.HasFocus);
+		Assert.True(button2.HasFocus, "Button in second column should be focused");
+		Assert.False(panel.HasFocus, "Panel should have lost focus");
 	}
 
 	[Fact]
@@ -638,12 +648,15 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab should traverse sticky controls normally
-		system.FocusStateService.SetFocus(window, stickyButton);
-		Assert.True(stickyButton.HasFocus);
-
+		// Act & Assert - Tab reaches panel, which delegates to first child (stickyButton)
 		window.SwitchFocus(backward: false);
-		Assert.True(normalButton.HasFocus);
+		Assert.True(panel.HasFocus, "Panel should be focused");
+		Assert.True(stickyButton.HasFocus, "Sticky button should be focused via delegation");
+
+		// Internal Tab within panel: stickyButton → normalButton
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		panel.ProcessKey(tabKey);
+		Assert.True(normalButton.HasFocus, "Normal button should be focused via internal Tab");
 	}
 
 	[Fact]
@@ -665,10 +678,15 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab should include sticky bottom controls
-		system.FocusStateService.SetFocus(window, normalButton);
+		// Act & Assert - Tab reaches panel, delegates to first child (normalButton)
 		window.SwitchFocus(backward: false);
-		Assert.True(stickyButton.HasFocus);
+		Assert.True(panel.HasFocus, "Panel should be focused");
+		Assert.True(normalButton.HasFocus, "Normal button should be focused via delegation");
+
+		// Internal Tab: normalButton → stickyButton
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		panel.ProcessKey(tabKey);
+		Assert.True(stickyButton.HasFocus, "Sticky bottom button should be focused via internal Tab");
 	}
 
 	[Fact]
@@ -692,13 +710,19 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab should traverse all in order
-		system.FocusStateService.SetFocus(window, stickyTop);
+		// Act & Assert - Tab reaches panel, delegates to first child (stickyTop)
 		window.SwitchFocus(backward: false);
-		Assert.True(normal.HasFocus);
+		Assert.True(panel.HasFocus, "Panel should be focused");
+		Assert.True(stickyTop.HasFocus, "Sticky top should be focused via delegation");
 
-		window.SwitchFocus(backward: false);
-		Assert.True(stickyBottom.HasFocus);
+		// Internal Tab: stickyTop → normal
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		panel.ProcessKey(tabKey);
+		Assert.True(normal.HasFocus, "Normal button should be focused via internal Tab");
+
+		// Internal Tab: normal → stickyBottom
+		panel.ProcessKey(tabKey);
+		Assert.True(stickyBottom.HasFocus, "Sticky bottom should be focused via internal Tab");
 	}
 
 	#endregion
@@ -736,19 +760,22 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Tab order: button1 (panel1) → button2 (panel1) → splitter → button3 (column2)
-		system.FocusStateService.SetFocus(window, button1);
+		// Grid auto-focuses → delegates to panel1 → delegates to button1
+		Assert.True(panel1.HasFocus, "Panel should be auto-focused via grid delegation");
+		Assert.True(button1.HasFocus, "First child should be focused via delegation");
 
-		// Tab 1: button1 → button2
-		window.SwitchFocus(backward: false);
-		Assert.True(button2.HasFocus);
+		// Internal Tab: button1 → button2 (panel handles this)
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		panel1.ProcessKey(tabKey);
+		Assert.True(panel1.HasFocus, "Panel should still have focus during internal Tab");
+		Assert.True(button2.HasFocus, "Second child should be focused via internal Tab");
 
-		// Tab 2: button2 → splitter
+		// SwitchFocus advances past panel → splitter
 		window.SwitchFocus(backward: false);
-		Assert.False(button2.HasFocus);
+		Assert.False(panel1.HasFocus, "Panel should have lost focus");
 		Assert.False(button3.HasFocus); // Splitter should have focus
 
-		// Tab 3: splitter → button3
+		// Tab: splitter → button3
 		window.SwitchFocus(backward: false);
 		Assert.True(button3.HasFocus);
 	}
@@ -777,10 +804,15 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert
-		system.FocusStateService.SetFocus(window, stickyTop);
+		// Act & Assert - Tab reaches panel, delegates to stickyTop
 		window.SwitchFocus(backward: false);
-		Assert.True(normal.HasFocus);
+		Assert.True(panel.HasFocus, "Panel should be focused");
+		Assert.True(stickyTop.HasFocus, "Sticky top should be focused via delegation");
+
+		// Internal Tab: stickyTop → normal
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		panel.ProcessKey(tabKey);
+		Assert.True(normal.HasFocus, "Normal button should be focused via internal Tab");
 	}
 
 	[Fact]

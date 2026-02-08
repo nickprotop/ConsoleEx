@@ -935,7 +935,9 @@ namespace SharpConsoleUI
 
 	/// <summary>
 	/// Gets a flattened list of all focusable controls by recursively traversing IContainerControl children.
-		/// Containers with CanReceiveFocus=false are skipped, but their children are included.
+		/// Focusable containers are "opaque" — they are added to the list but their children are NOT
+		/// included (the container handles internal Tab navigation for its children).
+		/// Non-focusable containers are "transparent" — they are skipped but their children are included.
 		/// </summary>
 		internal List<IInteractiveControl> GetAllFocusableControlsFlattened()
 		{
@@ -943,10 +945,9 @@ namespace SharpConsoleUI
 
 			void RecursiveAdd(IWindowControl control)
 			{
-				// If this is a container, recurse into its children
+				// If this is a container, check if it's focusable
 				if (control is Controls.IContainerControl container)
 				{
-					// Check if the container itself is focusable
 					bool isFocusable = false;
 					if (control is Controls.IFocusableControl fc)
 					{
@@ -957,13 +958,14 @@ namespace SharpConsoleUI
 						isFocusable = ic.IsEnabled;
 					}
 
-					// Add container if it's focusable
+					// Focusable container: add it and STOP (it handles internal Tab)
 					if (isFocusable && control is IInteractiveControl interactiveContainer)
 					{
 						result.Add(interactiveContainer);
+						return; // Don't recurse — container is opaque
 					}
 
-					// Recurse into children regardless
+					// Non-focusable container: transparent — recurse into children
 					foreach (var child in container.GetChildren())
 					{
 						RecursiveAdd(child);
@@ -972,7 +974,6 @@ namespace SharpConsoleUI
 				// Leaf control - check if it's interactive/focusable
 				else if (control is IInteractiveControl interactive)
 				{
-					// Check if it's focusable
 					if (control is Controls.IFocusableControl fc)
 					{
 						if (fc.CanReceiveFocus)
@@ -982,7 +983,6 @@ namespace SharpConsoleUI
 					}
 					else
 					{
-						// Not IFocusableControl, so add if enabled
 						if (interactive.IsEnabled)
 						{
 							result.Add(interactive);
@@ -1428,7 +1428,6 @@ namespace SharpConsoleUI
 		/// <returns>True if the cursor position is visible</returns>
 		internal bool IsCursorPositionVisible(Point cursorPosition, IWindowControl control)
 		{
-
 			// Get the control's bounds to understand its positioning
 			var bounds = _layoutManager.GetOrCreateControlBounds(control);
 			if (bounds == null) return false;
@@ -1449,9 +1448,7 @@ namespace SharpConsoleUI
 			// Window content coordinates (used by ControlContentBounds) have content at (0,0)
 			var cursorInContentCoords = new Point(cursorPosition.X - 1, cursorPosition.Y - 1);
 
-
 			// Check if cursor is within the control's actual content bounds
-			// This is more accurate than hard-coded border checks
 			if (cursorInContentCoords.X < controlBounds.X ||
 				cursorInContentCoords.X >= controlBounds.X + controlBounds.Width ||
 				cursorInContentCoords.Y < controlBounds.Y ||
@@ -1778,10 +1775,12 @@ namespace SharpConsoleUI
 		/// <param name="control">The control that gained focus.</param>
 		public void NotifyControlGainedFocus(IInteractiveControl control)
 		{
-			if (control != null && _interactiveContents.Contains(control))
+			bool isTopLevel = control != null && _interactiveContents.Contains(control);
+			_windowSystem?.LogService?.LogTrace($"NotifyControlGainedFocus: {control?.GetType().Name} isTopLevel={isTopLevel} (only top-level updates _lastFocusedControl)", "Focus");
+			if (isTopLevel)
 			{
 				_lastFocusedControl = control;
-				FocusService?.SetFocus(this, control, FocusChangeReason.Programmatic);
+				FocusService?.SetFocus(this, control!, FocusChangeReason.Programmatic);
 			}
 		}
 
@@ -1792,8 +1791,10 @@ namespace SharpConsoleUI
 		/// <param name="control">The control that lost focus.</param>
 		public void NotifyControlLostFocus(IInteractiveControl control)
 		{
+			bool isTracked = control != null && _lastFocusedControl == control;
+			_windowSystem?.LogService?.LogTrace($"NotifyControlLostFocus: {control?.GetType().Name} isTracked={isTracked} _lastFocused={_lastFocusedControl?.GetType().Name ?? "null"}", "Focus");
 			// Clear tracking if this was the last focused control
-			if (control != null && _lastFocusedControl == control)
+			if (isTracked)
 			{
 				_lastFocusedControl = null;
 				FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
