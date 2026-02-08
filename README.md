@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
-A modern console window system for .NET 9 with fluent builders, async patterns, and built-in state services.
+**SharpConsoleUI** is a modern .NET 9 TUI framework that combines Spectre.Console's rich markup with true multi-window capabilities. **Cross-platform from the ground up.** Each window can run on its own dedicated thread, updating independently without blocking others. **Build beautiful UIs with familiar [markup] syntax everywhere.** No complex styling APIs, just `[bold red]text[/]` and it works. The double-buffered console driver built on .NET's native Console API eliminates flicker and ensures smooth rendering. **Any Spectre.Console widget (Tables, BarCharts, Trees, Panels) works as a window control.** Wrap any `IRenderable` and it just works. Direct CharacterBuffer access with PreBufferPaint/PostBufferPaint hooks lets you build custom rendering, visual effects, or even games (the Snake example renders its canvas this way). Fluent builders for windows, controls, and layouts.
 
 ## 📚 Documentation
 
@@ -632,6 +632,28 @@ dotnet run --project Examples/CompositorEffectsExample
 ```
 
 See the [Compositor Effects Guide](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPOSITOR_EFFECTS.html) for complete documentation and examples.
+
+## Troubleshooting
+
+### Known Issues
+
+#### Linux: Input Echo Leak During Concurrent Screen Updates
+
+**Affected platforms**: Linux, macOS (not Windows)
+
+**Symptoms**: Occasional garbage characters or ANSI escape sequences appearing on screen when moving the mouse while background windows are updating.
+
+**Root cause**: This is a limitation in .NET's `Console.ReadKey` implementation on Unix platforms. The .NET runtime toggles terminal echo settings (`tcsetattr`) on and off with every keystroke rather than keeping echo disabled for the session. When `ReadKey` receives input, it briefly re-enables echo before the application can call `ReadKey` again. During this brief window (~10ms), any concurrent output from other threads can leak to the terminal as raw characters.
+
+This race condition is more visible in SharpConsoleUI than single-threaded TUI frameworks because our independent window threads can write to the screen at any moment during input processing.
+
+**Related .NET issues**:
+- [dotnet/runtime#29662](https://github.com/dotnet/runtime/issues/29662) - No way to turn off tty echo via corefx API
+- [dotnet/runtime#24456](https://github.com/dotnet/runtime/issues/24456) - Console.ReadLine echoes first few hundred milliseconds of input
+
+**Workaround**: SharpConsoleUI performs a periodic full screen redraw to clear any leaked characters. This has minimal performance impact due to the double-buffered rendering architecture.
+
+**Why ncurses doesn't have this issue**: ncurses disables echo once at initialization and restores it only at shutdown, eliminating the race window entirely.
 
 ## Contributing
 
