@@ -168,7 +168,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (key.Key == ConsoleKey.Enter)
+			if (key.Key == ConsoleKey.Enter || key.Key == ConsoleKey.Spacebar)
 			{
 				// Trigger the click event
 				TriggerClick(new MouseEventArgs(

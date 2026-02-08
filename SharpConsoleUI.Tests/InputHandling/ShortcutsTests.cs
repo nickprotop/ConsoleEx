@@ -7,6 +7,8 @@ namespace SharpConsoleUI.Tests.InputHandling;
 
 public class ShortcutsTests
 {
+
+
     [Fact]
     public void CtrlQ_ExitsApplication()
     {
@@ -68,15 +70,15 @@ public class ShortcutsTests
             system.WindowStateService.AddWindow(window);
         }
 
-        // Alt+0 activates first window (index 0)
-        var alt0 = new ConsoleKeyInfo('0', ConsoleKey.D0, false, true, false);
-        system.InputStateService.EnqueueKey(alt0);
+        // Alt+1 activates first window (index 0)
+        var alt1 = new ConsoleKeyInfo('1', ConsoleKey.D1, false, true, false);
+        system.InputStateService.EnqueueKey(alt1);
         system.Input.ProcessInput();
         Assert.Equal(windows[0], system.WindowStateService.ActiveWindow);
 
-        // Alt+3 activates fourth window (index 3)
-        var alt3 = new ConsoleKeyInfo('3', ConsoleKey.D3, false, true, false);
-        system.InputStateService.EnqueueKey(alt3);
+        // Alt+4 activates fourth window (index 3)
+        var alt4 = new ConsoleKeyInfo('4', ConsoleKey.D4, false, true, false);
+        system.InputStateService.EnqueueKey(alt4);
         system.Input.ProcessInput();
         Assert.Equal(windows[3], system.WindowStateService.ActiveWindow);
     }

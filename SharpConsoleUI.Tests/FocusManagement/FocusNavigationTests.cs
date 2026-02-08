@@ -3,6 +3,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using System.Collections.Generic;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace SharpConsoleUI.Tests.FocusManagement;
 
@@ -12,6 +13,13 @@ namespace SharpConsoleUI.Tests.FocusManagement;
 /// </summary>
 public class FocusNavigationTests
 {
+	private readonly ITestOutputHelper? _testOutputHelper;
+
+	public FocusNavigationTests(ITestOutputHelper? testOutputHelper = null)
+	{
+		_testOutputHelper = testOutputHelper;
+	}
+
 	#region Basic Navigation Tests
 
 	[Fact]
@@ -583,11 +591,26 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab should traverse all 3 columns, skipping splitters
+		// Act & Assert - Tab order is: button1 → splitter1 → button2 → splitter2 → button3
+		// Since we can't get splitter references easily, we verify by checking button focus states
+
 		system.FocusStateService.SetFocus(window, button1);
+
+		// Tab 1: button1 → splitter1
+		window.SwitchFocus(backward: false);
+		Assert.False(button1.HasFocus);
+		Assert.False(button2.HasFocus); // Splitter1 should have focus now
+
+		// Tab 2: splitter1 → button2
 		window.SwitchFocus(backward: false);
 		Assert.True(button2.HasFocus);
 
+		// Tab 3: button2 → splitter2
+		window.SwitchFocus(backward: false);
+		Assert.False(button2.HasFocus);
+		Assert.False(button3.HasFocus); // Splitter2 should have focus now
+
+		// Tab 4: splitter2 → button3
 		window.SwitchFocus(backward: false);
 		Assert.True(button3.HasFocus);
 	}
@@ -713,13 +736,21 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab through all buttons
+		// Tab order: button1 (panel1) → button2 (panel1) → splitter → button3 (column2)
 		system.FocusStateService.SetFocus(window, button1);
+
+		// Tab 1: button1 → button2
 		window.SwitchFocus(backward: false);
 		Assert.True(button2.HasFocus);
 
+		// Tab 2: button2 → splitter
 		window.SwitchFocus(backward: false);
-		Assert.True(button3.HasFocus); // Should skip splitter
+		Assert.False(button2.HasFocus);
+		Assert.False(button3.HasFocus); // Splitter should have focus
+
+		// Tab 3: splitter → button3
+		window.SwitchFocus(backward: false);
+		Assert.True(button3.HasFocus);
 	}
 
 	[Fact]

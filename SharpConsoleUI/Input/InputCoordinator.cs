@@ -682,6 +682,7 @@ namespace SharpConsoleUI.Input
 				// Get only top-level windows to match what's displayed in bottom status bar
 				var topLevelWindows = _context.Windows.Values
 					.Where(w => w.ParentWindow == null)
+					.OrderBy(w => w.CreationOrder)
 					.ToList();
 
 				int index = key.KeyChar - (char)ConsoleKey.D1;

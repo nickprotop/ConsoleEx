@@ -555,6 +555,7 @@ namespace SharpConsoleUI.Rendering
 			// Filter out sub-windows and overlay windows from the bottom status bar
 			var topLevelWindows = _windowSystemContext.Windows.Values
 				.Where(w => w.ParentWindow == null && !(w is SharpConsoleUI.Windows.OverlayWindow))
+				.OrderBy(w => w.CreationOrder)
 				.ToList();
 
 			// Check if task bar cache is valid

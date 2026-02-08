@@ -134,6 +134,10 @@ namespace SharpConsoleUI
 		internal readonly List<IInteractiveControl> _interactiveContents = new();
 		internal readonly object _lock = new();
 
+		private static int _nextCreationOrder = 0;
+		private static readonly object _creationOrderLock = new();
+		private readonly int _creationOrder;
+
 		private readonly Window? _parentWindow;
 		internal readonly WindowLayoutManager _layoutManager;
 	private readonly Windows.WindowContentManager _contentManager;
@@ -207,6 +211,11 @@ namespace SharpConsoleUI
 		{
 			_guid = System.Guid.NewGuid().ToString();
 
+			lock (_creationOrderLock)
+			{
+				_creationOrder = _nextCreationOrder++;
+			}
+
 			_parentWindow = parentWindow;
 			_windowSystem = windowSystem;
 			_layoutManager = new WindowLayoutManager(this);
@@ -265,6 +274,11 @@ namespace SharpConsoleUI
 		public Window(ConsoleWindowSystem windowSystem, Window? parentWindow = null)
 		{
 			_guid = System.Guid.NewGuid().ToString();
+
+			lock (_creationOrderLock)
+			{
+				_creationOrder = _nextCreationOrder++;
+			}
 
 			_windowSystem = windowSystem;
 			_parentWindow = parentWindow;
@@ -414,6 +428,12 @@ namespace SharpConsoleUI
 		/// Gets the unique identifier for this window instance.
 		/// </summary>
 		public string Guid => _guid.ToString();
+
+		/// <summary>
+		/// Gets the creation order of this window. Windows are numbered sequentially as they're created.
+		/// This provides a stable ordering for features like Alt+number shortcuts.
+		/// </summary>
+		public int CreationOrder => _creationOrder;
 
 		private int _height = Configuration.ControlDefaults.DefaultWindowHeight;
 
