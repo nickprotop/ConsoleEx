@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Diagnostics.CodeAnalysis;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Logging;
@@ -346,6 +347,7 @@ namespace SharpConsoleUI.Core
 		/// If no path is specified, uses the "plugins" subdirectory of the application's base directory.
 		/// </summary>
 		/// <param name="pluginsPath">Optional path to the plugins directory.</param>
+		[RequiresUnreferencedCode("Plugin loading from files uses Assembly.LoadFrom which is not compatible with trimming.")]
 		public void LoadPluginsFromDirectory(string? pluginsPath = null)
 		{
 			pluginsPath ??= Path.Combine(AppContext.BaseDirectory, "plugins");
@@ -366,6 +368,7 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		/// <param name="dllPath">The path to the plugin DLL file.</param>
 		/// <exception cref="ArgumentNullException">Thrown if dllPath is null or empty.</exception>
+		[RequiresUnreferencedCode("Plugin loading from files uses Assembly.LoadFrom which is not compatible with trimming.")]
 		public void LoadPlugin(string dllPath)
 		{
 			if (string.IsNullOrWhiteSpace(dllPath))
@@ -375,19 +378,35 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Internal helper method to load all IPlugin implementations from a DLL file.
+		/// Internal helper method to load plugins from a DLL file using the convention-based entry point.
+		/// The plugin assembly must contain a public static class named "PluginEntry" with a static
+		/// method "CreatePlugins()" returning IEnumerable&lt;IPlugin&gt;.
 		/// </summary>
 		/// <param name="dllPath">The path to the DLL file.</param>
+		[RequiresUnreferencedCode("Plugin loading from files uses Assembly.LoadFrom which is not compatible with trimming.")]
 		private void LoadPluginFromFile(string dllPath)
 		{
 			try
 			{
 				var assembly = System.Reflection.Assembly.LoadFrom(dllPath);
-				foreach (var type in assembly.GetTypes().Where(t =>
-					typeof(IPlugin).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface))
+				var entryType = assembly.GetType(PluginEntryConvention.EntryClassName);
+				if (entryType == null)
 				{
-					var plugin = (IPlugin?)Activator.CreateInstance(type);
-					if (plugin != null)
+					_logService?.LogWarning($"No {PluginEntryConvention.EntryClassName} class found in {Path.GetFileName(dllPath)}", "Plugins");
+					return;
+				}
+
+				var method = entryType.GetMethod(PluginEntryConvention.FactoryMethodName,
+					System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+				if (method == null)
+				{
+					_logService?.LogWarning($"{PluginEntryConvention.EntryClassName}.{PluginEntryConvention.FactoryMethodName}() not found in {Path.GetFileName(dllPath)}", "Plugins");
+					return;
+				}
+
+				if (method.Invoke(null, null) is IEnumerable<IPlugin> plugins)
+				{
+					foreach (var plugin in plugins)
 					{
 						LoadPlugin(plugin);
 						_logService?.LogInfo($"Loaded plugin: {plugin.Info.Name} v{plugin.Info.Version} from {Path.GetFileName(dllPath)}", "Plugins");
