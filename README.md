@@ -15,9 +15,9 @@
 
 **SharpConsoleUI** is a modern .NET 9 TUI framework that combines Spectre.Console's rich markup with true multi-window capabilities. **Cross-platform from the ground up.** Each window can run on its own dedicated thread, updating independently without blocking others. **Build beautiful UIs with familiar [markup] syntax everywhere.** No complex styling APIs, just `[bold red]text[/]` and it works. The double-buffered console driver built on .NET's native Console API eliminates flicker and ensures smooth rendering. **Any Spectre.Console widget (Tables, BarCharts, Trees, Panels) works as a window control.** Wrap any `IRenderable` and it just works. Direct CharacterBuffer access with PreBufferPaint/PostBufferPaint hooks lets you build custom rendering, visual effects, or even games (the Snake example renders its canvas this way). Fluent builders for windows, controls, and layouts.
 
-## 📚 Documentation
-
 **Visit the project website: [nickprotop.github.io/ConsoleEx](https://nickprotop.github.io/ConsoleEx/)**
+
+**Browse examples with screenshots: [EXAMPLES.md](docs/EXAMPLES.md)**
 
 ## Showcase
 
