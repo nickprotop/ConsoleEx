@@ -1381,26 +1381,23 @@ namespace SharpConsoleUI
 		/// </summary>
 		internal IWindowControl? FindDeepestFocusedControl(IInteractiveControl control)
 		{
-			// If this is a container with a focused child, recurse deeper
-			if (control is Controls.HorizontalGridControl grid)
+			// Search all container children recursively — HasFocus does NOT propagate
+			// upward through containers, so we must traverse into every container to find
+			// the deepest leaf control that actually has focus.
+			if (control is Controls.IContainerControl container)
 			{
-				// Access the focused content through reflection
-				var focusedField = typeof(Controls.HorizontalGridControl).GetField("_focusedContent",
-					System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-				if (focusedField != null)
+				foreach (var child in container.GetChildren())
 				{
-					var focusedContent = focusedField.GetValue(grid);
-					if (focusedContent is IInteractiveControl focusedInteractive && focusedInteractive.HasFocus)
+					if (child is IInteractiveControl interactive)
 					{
-						// Recursively find the deepest focused control
-						var deeper = FindDeepestFocusedControl(focusedInteractive);
-						return deeper ?? (focusedContent as IWindowControl);
+						var result = FindDeepestFocusedControl(interactive);
+						if (result != null)
+							return result;
 					}
 				}
 			}
 
-			// This is the deepest focused control
-			return control as IWindowControl;
+			return control.HasFocus ? control as IWindowControl : null;
 		}
 
 		/// <summary>
@@ -1416,6 +1413,16 @@ namespace SharpConsoleUI
 			var bounds = _layoutManager.GetOrCreateControlBounds(control);
 			if (bounds == null) return false;
 			var controlBounds = bounds.ControlContentBounds;
+
+			// For nested controls, ControlContentBounds is never populated (only top-level controls get it).
+			// Fall back to the DOM node's AbsoluteBounds which tracks all controls including nested ones.
+			if (controlBounds.Width == 0 && controlBounds.Height == 0)
+			{
+				var node = _renderer?.GetLayoutNode(control);
+				if (node == null) return false;
+				var ab = node.AbsoluteBounds;
+				controlBounds = new Rectangle(ab.X, ab.Y, ab.Width, ab.Height);
+			}
 
 			// Convert cursor position from window coordinates to window content coordinates
 			// Window coordinates have border at (0,0), content starts at (1,1)

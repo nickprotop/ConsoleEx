@@ -77,7 +77,7 @@ namespace SharpConsoleUI.Controls
 					case ConsoleKey.DownArrow:
 						// Scroll content down if not at bottom
 						int totalLines = GetTotalWrappedLineCount();
-						if (_verticalScrollOffset < totalLines - _viewportHeight)
+						if (_verticalScrollOffset < totalLines - GetEffectiveViewportHeight())
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset++;
@@ -88,7 +88,7 @@ namespace SharpConsoleUI.Controls
 
 					case ConsoleKey.PageUp:
 						// Page up scrolling - move view up by viewport height
-						int pageUpAmount = Math.Min(_viewportHeight, _verticalScrollOffset);
+						int pageUpAmount = Math.Min(GetEffectiveViewportHeight(), _verticalScrollOffset);
 						if (pageUpAmount > 0)
 						{
 							_skipUpdateScrollPositionsInRender = true;
@@ -101,7 +101,8 @@ namespace SharpConsoleUI.Controls
 					case ConsoleKey.PageDown:
 						// Page down scrolling - move view down by viewport height
 						int totalWrappedLines = GetTotalWrappedLineCount();
-						int pageDownAmount = Math.Min(_viewportHeight, totalWrappedLines - _verticalScrollOffset - _viewportHeight);
+						int evh = GetEffectiveViewportHeight();
+						int pageDownAmount = Math.Min(evh, totalWrappedLines - _verticalScrollOffset - evh);
 						if (pageDownAmount > 0)
 						{
 							_skipUpdateScrollPositionsInRender = true;
@@ -125,7 +126,7 @@ namespace SharpConsoleUI.Controls
 
 					case ConsoleKey.End:
 						// Scroll to bottom of document
-						int endOffset = Math.Max(0, GetTotalWrappedLineCount() - _viewportHeight);
+						int endOffset = Math.Max(0, GetTotalWrappedLineCount() - GetEffectiveViewportHeight());
 						if (_verticalScrollOffset != endOffset)
 						{
 							_skipUpdateScrollPositionsInRender = true;
@@ -347,7 +348,7 @@ namespace SharpConsoleUI.Controls
 						if (idx >= 0)
 						{
 							int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
-							int targetIdx = Math.Max(0, idx - _viewportHeight);
+							int targetIdx = Math.Max(0, idx - GetEffectiveViewportHeight());
 							var target = wrappedLines[targetIdx];
 							_cursorY = target.SourceLineIndex;
 							_cursorX = target.SourceCharOffset + Math.Min(visualX, target.Length);
@@ -355,7 +356,7 @@ namespace SharpConsoleUI.Controls
 					}
 					else
 					{
-						_cursorY = Math.Max(0, _cursorY - _viewportHeight);
+						_cursorY = Math.Max(0, _cursorY - GetEffectiveViewportHeight());
 						_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
 					}
 					break;
@@ -368,7 +369,7 @@ namespace SharpConsoleUI.Controls
 						if (idx >= 0)
 						{
 							int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
-							int targetIdx = Math.Min(wrappedLines.Count - 1, idx + _viewportHeight);
+							int targetIdx = Math.Min(wrappedLines.Count - 1, idx + GetEffectiveViewportHeight());
 							var target = wrappedLines[targetIdx];
 							_cursorY = target.SourceLineIndex;
 							_cursorX = target.SourceCharOffset + Math.Min(visualX, target.Length);
@@ -376,7 +377,7 @@ namespace SharpConsoleUI.Controls
 					}
 					else
 					{
-						_cursorY = Math.Min(_lines.Count - 1, _cursorY + _viewportHeight);
+						_cursorY = Math.Min(_lines.Count - 1, _cursorY + GetEffectiveViewportHeight());
 						_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
 					}
 					break;
@@ -737,6 +738,14 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 			}
 
+			// If content changed, invalidate caches and commit undo BEFORE ensuring cursor visibility
+			// so EnsureCursorVisible works with fresh wrap data (not stale cached wrapped lines)
+			if (contentChanged)
+			{
+				CommitUndoAction();
+				InvalidateWrappedLinesCache();
+			}
+
 			// If cursor position changed, ensure it's visible
 			if (_cursorX != oldCursorX || _cursorY != oldCursorY)
 			{
@@ -744,11 +753,9 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 			}
 
-			// If content changed, commit undo, notify listeners and invalidate
+			// If content changed, notify listeners and invalidate
 			if (contentChanged)
 			{
-				CommitUndoAction();
-				InvalidateWrappedLinesCache();
 				Container?.Invalidate(true);
 				ContentChanged?.Invoke(this, GetContent());
 			}

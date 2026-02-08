@@ -57,6 +57,7 @@ public sealed class MultilineEditControlBuilder
 	private bool _showWhitespace;
 	private bool _showLineNumbers;
 	private Color? _lineNumberColor;
+	private bool _showEditingHints;
 	private ISyntaxHighlighter? _syntaxHighlighter;
 
 	// Event handlers
@@ -551,6 +552,17 @@ public sealed class MultilineEditControlBuilder
 	}
 
 	/// <summary>
+	/// Enables editing mode hints at the bottom-right of the viewport
+	/// </summary>
+	/// <param name="show">Whether to show editing hints</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithEditingHints(bool show = true)
+	{
+		_showEditingHints = show;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the syntax highlighter for content colorization
 	/// </summary>
 	/// <param name="highlighter">The syntax highlighter implementation</param>
@@ -691,6 +703,7 @@ public sealed class MultilineEditControlBuilder
 			HighlightCurrentLine = _highlightCurrentLine,
 			ShowWhitespace = _showWhitespace,
 			ShowLineNumbers = _showLineNumbers,
+			ShowEditingHints = _showEditingHints,
 			SyntaxHighlighter = _syntaxHighlighter
 		};
 

@@ -190,10 +190,11 @@ namespace SharpConsoleUI.Controls
 				int wrappedIndex = FindWrappedLineForCursor(wrappedLines);
 				if (wrappedIndex >= 0)
 				{
+					int evh = GetEffectiveViewportHeight();
 					if (wrappedIndex < _verticalScrollOffset)
 						_verticalScrollOffset = wrappedIndex;
-					else if (wrappedIndex >= _verticalScrollOffset + _viewportHeight)
-						_verticalScrollOffset = wrappedIndex - _viewportHeight + 1;
+					else if (wrappedIndex >= _verticalScrollOffset + evh)
+						_verticalScrollOffset = wrappedIndex - evh + 1;
 				}
 
 				// In wrap mode, we don't need horizontal scrolling as lines are wrapped
@@ -201,14 +202,15 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
+				int evh = GetEffectiveViewportHeight();
 				// Standard vertical scrolling for non-wrapped text
 				if (_cursorY < _verticalScrollOffset)
 				{
 					_verticalScrollOffset = _cursorY;
 				}
-				else if (_cursorY >= _verticalScrollOffset + _viewportHeight)
+				else if (_cursorY >= _verticalScrollOffset + evh)
 				{
-					_verticalScrollOffset = _cursorY - _viewportHeight + 1;
+					_verticalScrollOffset = _cursorY - evh + 1;
 				}
 
 				// Standard horizontal scrolling for non-wrapped text

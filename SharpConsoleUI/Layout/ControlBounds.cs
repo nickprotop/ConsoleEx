@@ -222,18 +222,27 @@ namespace SharpConsoleUI.Layout
 
 			// Get control's bounds (which are already absolute window-content coordinates from DOM)
 			var bounds = GetOrCreateControlBounds(control);
+			var contentBounds = bounds.ControlContentBounds;
 
+			// For nested controls, ControlContentBounds is never populated (only top-level controls get it).
+			// Fall back to the DOM node's AbsoluteBounds which tracks all controls including nested ones.
+			if (contentBounds.Width == 0 && contentBounds.Height == 0)
+			{
+				var node = _window._renderer?.GetLayoutNode(control);
+				if (node == null) return null;
+				var ab = node.AbsoluteBounds;
+				contentBounds = new Rectangle(ab.X, ab.Y, ab.Width, ab.Height);
+			}
 
 			// ControlContentBounds are already absolute window-content coordinates (from DOM rendering)
 			// Just add the logical position to the bounds, then add window border offset
 			var windowContentPosition = new Point(
-				bounds.ControlContentBounds.X + logicalPosition.Value.X,
-				bounds.ControlContentBounds.Y + logicalPosition.Value.Y
+				contentBounds.X + logicalPosition.Value.X,
+				contentBounds.Y + logicalPosition.Value.Y
 			);
 
 			// Add window border offset (+1, +1)
 			var finalPosition = new Point(windowContentPosition.X + 1, windowContentPosition.Y + 1);
-
 
 			return finalPosition;
 		}

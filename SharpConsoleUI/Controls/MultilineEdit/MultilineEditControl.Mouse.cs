@@ -127,7 +127,7 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.WheeledDown))
 			{
 				int totalLines = GetTotalWrappedLineCount();
-				int maxScroll = Math.Max(0, totalLines - _viewportHeight);
+				int maxScroll = Math.Max(0, totalLines - GetEffectiveViewportHeight());
 				int scrollAmount = Math.Min(ControlDefaults.DefaultScrollWheelLines, maxScroll - _verticalScrollOffset);
 				if (scrollAmount > 0)
 				{

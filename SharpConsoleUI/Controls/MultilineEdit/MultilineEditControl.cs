@@ -105,6 +105,9 @@ namespace SharpConsoleUI.Controls
 		private bool _showLineNumbers;
 		private Color? _lineNumberColorValue;
 
+		// Editing hints
+		private bool _showEditingHints;
+
 		// Syntax highlighting
 		private ISyntaxHighlighter? _syntaxHighlighter;
 		private Dictionary<int, IReadOnlyList<SyntaxToken>>? _syntaxTokenCache;
@@ -481,6 +484,18 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Returns the effective viewport height, accounting for VerticalAlignment.Fill.
+		/// When Fill is active and the control has been laid out, uses the actual
+		/// layout bounds instead of the fixed ViewportHeight.
+		/// </summary>
+		private int GetEffectiveViewportHeight()
+		{
+			if (_verticalAlignment != VerticalAlignment.Fill || _actualHeight <= 0)
+				return _viewportHeight;
+			return Math.Max(_viewportHeight, _actualHeight - _margin.Top - _margin.Bottom);
+		}
+
 		/// <inheritdoc/>
 		public bool Visible
 		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
@@ -669,6 +684,21 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_lineNumberColorValue = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether editing mode hints are shown at the bottom-right of the viewport.
+		/// When enabled, shows "Enter to edit" in browse mode and "Esc to stop editing" in editing mode.
+		/// </summary>
+		public bool ShowEditingHints
+		{
+			get => _showEditingHints;
+			set
+			{
+				if (_showEditingHints == value) return;
+				_showEditingHints = value;
 				Container?.Invalidate(true);
 			}
 		}

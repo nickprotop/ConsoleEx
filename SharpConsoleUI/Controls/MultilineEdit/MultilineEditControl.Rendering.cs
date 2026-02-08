@@ -22,12 +22,17 @@ namespace SharpConsoleUI.Controls
 		public LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int baseWidth = _width ?? constraints.MaxWidth - _margin.Left - _margin.Right;
-			int contentHeight = _viewportHeight;
+
+			// When VerticalAlignment is Fill, use the max available height from constraints
+			int effectiveViewport = _verticalAlignment == VerticalAlignment.Fill
+				? Math.Max(_viewportHeight, constraints.MaxHeight - _margin.Top - _margin.Bottom)
+				: _viewportHeight;
+			int contentHeight = effectiveViewport;
 
 			// Account for vertical scrollbar and gutter taking columns from content area
 			bool needsVerticalScrollbar = _verticalScrollbarVisibility == ScrollbarVisibility.Always ||
 				(_verticalScrollbarVisibility == ScrollbarVisibility.Auto &&
-				 GetTotalWrappedLineCount() > _viewportHeight);
+				 GetTotalWrappedLineCount() > effectiveViewport);
 			int scrollbarWidth = needsVerticalScrollbar ? 1 : 0;
 			int gutterWidth = GetGutterWidth();
 			int contentWidth = baseWidth - scrollbarWidth - gutterWidth;
@@ -70,13 +75,18 @@ namespace SharpConsoleUI.Controls
 			int startX = bounds.X + _margin.Left;
 			int startY = bounds.Y + _margin.Top;
 
+			// When VerticalAlignment is Fill, use the actual layout bounds instead of fixed viewport height
+			int effectiveViewport = _verticalAlignment == VerticalAlignment.Fill
+				? Math.Max(_viewportHeight, bounds.Height - _margin.Top - _margin.Bottom)
+				: _viewportHeight;
+
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBgColor);
 
 			// Determine if scrollbars will be shown
 			bool needsVerticalScrollbar = _verticalScrollbarVisibility == ScrollbarVisibility.Always ||
 				(_verticalScrollbarVisibility == ScrollbarVisibility.Auto &&
-				 GetTotalWrappedLineCount() > _viewportHeight);
+				 GetTotalWrappedLineCount() > effectiveViewport);
 
 			bool needsHorizontalScrollbar = _wrapMode == WrapMode.NoWrap &&
 				(_horizontalScrollbarVisibility == ScrollbarVisibility.Always ||
@@ -102,17 +112,17 @@ namespace SharpConsoleUI.Controls
 			{
 				if (wrappedLineWithCursor < _verticalScrollOffset)
 					_verticalScrollOffset = wrappedLineWithCursor;
-				else if (wrappedLineWithCursor >= _verticalScrollOffset + _viewportHeight)
-					_verticalScrollOffset = wrappedLineWithCursor - _viewportHeight + 1;
-				_skipUpdateScrollPositionsInRender = false;
+				else if (wrappedLineWithCursor >= _verticalScrollOffset + effectiveViewport)
+					_verticalScrollOffset = wrappedLineWithCursor - effectiveViewport + 1;
 			}
+			_skipUpdateScrollPositionsInRender = false;
 
 			// Get selection bounds
 			var (selStartX, selStartY, selEndX, selEndY) = GetOrderedSelectionBounds();
 
 			// Paint visible lines
 			int availableHeight = bounds.Height - _margin.Top - _margin.Bottom - (needsHorizontalScrollbar ? 1 : 0);
-			int linesToPaint = Math.Min(_viewportHeight, availableHeight);
+			int linesToPaint = Math.Min(effectiveViewport, availableHeight);
 
 			// Determine if placeholder should be shown
 			bool showPlaceholder = !string.IsNullOrEmpty(_placeholderText) && !_isEditing &&
@@ -124,10 +134,10 @@ namespace SharpConsoleUI.Controls
 			if (needsVerticalScrollbar)
 			{
 				totalWrappedLineCount = GetTotalWrappedLineCount();
-				vThumbHeight = Math.Max(1, (_viewportHeight * _viewportHeight) / Math.Max(1, totalWrappedLineCount));
-				int maxThumbPos = _viewportHeight - vThumbHeight;
-				vThumbPos = totalWrappedLineCount > _viewportHeight
-					? (int)Math.Round((double)_verticalScrollOffset / (totalWrappedLineCount - _viewportHeight) * maxThumbPos)
+				vThumbHeight = Math.Max(1, (effectiveViewport * effectiveViewport) / Math.Max(1, totalWrappedLineCount));
+				int maxThumbPos = effectiveViewport - vThumbHeight;
+				vThumbPos = totalWrappedLineCount > effectiveViewport
+					? (int)Math.Round((double)_verticalScrollOffset / (totalWrappedLineCount - effectiveViewport) * maxThumbPos)
 					: 0;
 			}
 
@@ -316,7 +326,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill remaining viewport height with empty lines
-			for (int i = linesToPaint; i < _viewportHeight && startY + i < bounds.Bottom; i++)
+			for (int i = linesToPaint; i < effectiveViewport && startY + i < bounds.Bottom; i++)
 			{
 				int paintY = startY + i;
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom)
@@ -354,7 +364,7 @@ namespace SharpConsoleUI.Controls
 			// Paint horizontal scrollbar
 			if (needsHorizontalScrollbar)
 			{
-				int scrollY = startY + _viewportHeight;
+				int scrollY = startY + effectiveViewport;
 				if (scrollY >= clipRect.Y && scrollY < clipRect.Bottom && scrollY < bounds.Bottom)
 				{
 					if (_margin.Left > 0)
@@ -401,8 +411,31 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			// Render editing mode hint overlay at bottom-right of viewport
+			if (_showEditingHints && _hasFocus)
+			{
+				string hintText = _isEditing
+					? ControlDefaults.EditingModeHint
+					: ControlDefaults.BrowseModeHint;
+
+				int lastVisibleRow = startY + linesToPaint - 1;
+				if (hintText.Length <= effectiveWidth && lastVisibleRow >= clipRect.Y && lastVisibleRow < clipRect.Bottom)
+				{
+					int hintStartX = contentStartX + effectiveWidth - hintText.Length;
+					Color hintFg = Color.Grey50;
+					Color hintBg = bgColor;
+
+					for (int c = 0; c < hintText.Length; c++)
+					{
+						int cellX = hintStartX + c;
+						if (cellX >= clipRect.X && cellX < clipRect.Right)
+							buffer.SetCell(cellX, lastVisibleRow, hintText[c], hintFg, hintBg);
+					}
+				}
+			}
+
 			// Fill bottom margin
-			int contentEndY = startY + _viewportHeight + (needsHorizontalScrollbar ? 1 : 0);
+			int contentEndY = startY + effectiveViewport + (needsHorizontalScrollbar ? 1 : 0);
 			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, fgColor, windowBgColor);
 		}
 

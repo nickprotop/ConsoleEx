@@ -222,6 +222,16 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int LineNumberGutterPadding = 1;
 
+		/// <summary>
+		/// Hint text shown when the editor is focused but not in editing mode
+		/// </summary>
+		public const string BrowseModeHint = "Enter to edit";
+
+		/// <summary>
+		/// Hint text shown when the editor is in editing mode
+		/// </summary>
+		public const string EditingModeHint = "Esc to stop editing";
+
 		// Modal window positioning defaults
 		/// <summary>
 		/// Left offset for modal window positioning relative to parent (default: 5)
