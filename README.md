@@ -25,6 +25,10 @@
 
 *SharpConsoleUI in action - rich controls, multiple windows, smooth gradients, real-time updates, and full-screen capabilities*
 
+## Development Notes
+
+SharpConsoleUI was initially developed manually with core windowing functionality and double-buffered rendering. The project evolved to include modern features (DOM-based layout system, fluent builders, plugin architecture, theme system) with AI assistance. Architectural decisions and feature design came from the project author, while AI generated code implementations based on those decisions. The development process involved code generation, review sessions, debugging, and manual refinements. This collaborative approach enabled rapid iteration on complex features while maintaining architectural coherence.
+
 ## Quick Start
 
 ```csharp
@@ -53,6 +57,7 @@ windowSystem.Run();
 
 ## Table of Contents
 
+- [Development Notes](#development-notes)
 - [Installation](#installation)
 - [Core Features](#core-features)
 - [API Usage](#api-usage)
@@ -780,12 +785,6 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 - Built on [Spectre.Console](https://github.com/spectreconsole/spectre.console) for rich console output
 - Inspired by traditional GUI frameworks adapted for console applications
-
-## Development Notes
-
-SharpConsoleUI was initially developed manually with core windowing functionality and double-buffered rendering. The project evolved to include modern features (DOM-based layout system, fluent builders, plugin architecture, theme system) with AI assistance. Architectural decisions and feature design came from the project author, while AI generated code implementations based on those decisions. The development process involved code generation, review sessions, debugging, and manual refinements. This collaborative approach enabled rapid iteration on complex features while maintaining architectural coherence.
-
----
 
 ## Documentation
 
