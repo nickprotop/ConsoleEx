@@ -11,12 +11,47 @@ dotnet run --project Examples/<ExampleName>
 
 ---
 
+## 🏆 Real-World Applications
+
+### ServerHub
+Production-ready Linux server control panel built with SharpConsoleUI.
+
+![ServerHub Dashboard](images/examples/serverhub-main.png)
+
+**Project:** [github.com/nickprotop/ServerHub](https://github.com/nickprotop/ServerHub)
+
+**Description:** Terminal-based control panel for Linux servers and homelabs with 14 bundled widgets for monitoring CPU, memory, disk, network, Docker containers, systemd services, and more.
+
+**Key Features:**
+- Real-time system monitoring dashboard
+- Widget-based architecture with 14 built-in widgets
+- Network traffic visualization with historical trends
+- Widget browser with search and filtering
+- Custom widget support (any language)
+- Context-aware actions system
+
+**Screenshots:**
+
+| Main Dashboard | Network Traffic | Widget Browser |
+|----------------|-----------------|----------------|
+| ![Main](images/examples/serverhub-main.png) | ![Network](images/examples/serverhub-network.png) | ![Widgets](images/examples/serverhub-widgets.png) |
+
+**What it demonstrates:**
+- SharpConsoleUI powering a production application
+- Complex multi-widget dashboard layouts
+- Real-time data visualization with sparklines
+- Professional UI/UX in a TUI environment
+
+---
+
 ## Examples by Category
 
 ### 🎮 Interactive Applications
 
 #### SnakeGame
 Classic Snake game demonstrating direct frame buffer manipulation.
+
+![Snake Game](images/examples/snakegame.png)
 
 ```bash
 dotnet run --project Examples/SnakeGame
@@ -36,6 +71,8 @@ dotnet run --project Examples/SnakeGame
 #### AgentStudio
 OpenCode-inspired TUI showcase demonstrating an AI coding agent interface aesthetic.
 
+![AgentStudio](images/examples/agentstudio.png)
+
 ```bash
 dotnet run --project Examples/AgentStudio
 ```
@@ -52,6 +89,14 @@ dotnet run --project Examples/AgentStudio
 
 #### ConsoleTopExample
 ntop/btop-inspired live system monitoring dashboard.
+
+| Processes | Memory | CPU |
+|-----------|--------|-----|
+| ![Processes](images/examples/consoletop-processes.png) | ![Memory](images/examples/consoletop-memory.png) | ![CPU](images/examples/consoletop-cpu.png) |
+
+| Network | Storage |
+|---------|---------|
+| ![Network](images/examples/consoletop-network.png) | ![Storage](images/examples/consoletop-storage.png) |
 
 ```bash
 dotnet run --project Examples/ConsoleTopExample
@@ -72,6 +117,8 @@ dotnet run --project Examples/ConsoleTopExample
 #### MultiDashboard
 Showcases multiple windows with independent async update threads.
 
+![MultiDashboard](images/examples/multidashboard.png)
+
 ```bash
 dotnet run --project Examples/MultiDashboard
 ```
@@ -88,6 +135,8 @@ dotnet run --project Examples/MultiDashboard
 
 #### HighFreqDemo
 Multi-frequency update showcase with various control update rates.
+
+![HighFreqDemo](images/examples/highfreqdemo.png)
 
 ```bash
 dotnet run --project Examples/HighFreqDemo
@@ -107,6 +156,8 @@ dotnet run --project Examples/HighFreqDemo
 
 #### CompositorEffectsExample
 Demonstrates compositor-style buffer manipulation capabilities.
+
+![Compositor Effects](images/examples/compositor-fractal.png)
 
 ```bash
 dotnet run --project Examples/CompositorEffectsExample
@@ -143,6 +194,26 @@ dotnet run --project Examples/FrameRateDemo
 
 ---
 
+#### FigletShowcaseExample
+ASCII art font showcase demonstrating Figlet font rendering.
+
+![Figlet Showcase](images/examples/figletshowcase.png)
+
+```bash
+dotnet run --project Examples/FigleShowcaseExample
+```
+
+**Key Features:**
+- Multiple Figlet ASCII art fonts (Star Wars, Graffiti, etc.)
+- Font size comparison demo
+- Color cycling with animated background
+- Direct font loading from FLF (FigletFont) files
+- Text alignment and positioning options
+
+**Controls:** Number keys to switch examples, Esc to close
+
+---
+
 ### 🖱️ Controls & Interactions
 
 #### DemoApp
@@ -168,6 +239,8 @@ dotnet run --project Examples/DemoApp
 
 #### MenuDemo
 Full-featured horizontal menu bar with keyboard and mouse support.
+
+![MenuDemo](images/examples/menudemo.png)
 
 ```bash
 dotnet run --project Examples/MenuDemo
@@ -247,6 +320,26 @@ dotnet run --project Examples/SpectreMouseExample
 
 ---
 
+#### TextEditorExample
+Multiline text editor with syntax highlighting and file browser.
+
+![Text Editor](images/examples/texteditor.png)
+
+```bash
+dotnet run --project Examples/TextEditorExample
+```
+
+**Key Features:**
+- Multiline edit control with scrolling
+- File browser dialog integration
+- Syntax highlighting support
+- Save/load functionality
+- Line numbers and cursor position
+
+**Controls:** Ctrl+O to open file, Ctrl+S to save, arrow keys to navigate
+
+---
+
 ### 🪟 Window Features
 
 #### FullScreenExample
@@ -321,6 +414,8 @@ dotnet run --project Examples/PluginShowcaseExample
 | PanelDemo | | | ✅ | | | |
 | SnakeGame | | ✅ | | | | ✅ |
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
+| TextEditorExample | | | | | | |
+| FigletShowcaseExample | | | | | | |
 
 ---
 
@@ -340,7 +435,7 @@ dotnet run --project Examples/PluginShowcaseExample
 | `BarGraphControl` | HighFreqDemo |
 | `ProgressBarControl` | DemoApp |
 | `PromptControl` | DemoApp (Command Window) |
-| `MultilineEditControl` | DemoApp |
+| `MultilineEditControl` | DemoApp, TextEditorExample |
 | `LogViewerControl` | DemoApp |
 | `HorizontalGridControl` | Most examples |
 | `SpectreRenderableControl` | SpectreMouseExample |
