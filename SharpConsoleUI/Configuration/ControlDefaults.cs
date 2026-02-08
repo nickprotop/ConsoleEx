@@ -181,6 +181,47 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int ErrorWindowSpacingOffset = 6;
 
+		// MultilineEditControl defaults
+		/// <summary>
+		/// Fallback width for multiline editor when effective width is unknown (default: 80)
+		/// </summary>
+		public const int DefaultEditorWidth = 80;
+
+		/// <summary>
+		/// Default viewport height for multiline editor in lines (default: 10)
+		/// </summary>
+		public const int DefaultEditorViewportHeight = 10;
+
+		/// <summary>
+		/// Number of lines to scroll per mouse wheel tick (default: 3)
+		/// </summary>
+		public const int DefaultScrollWheelLines = 3;
+
+		/// <summary>
+		/// Default tab size in spaces for multiline editor (default: 4)
+		/// </summary>
+		public const int DefaultTabSize = 4;
+
+		/// <summary>
+		/// Maximum allowed tab size in spaces (default: 8)
+		/// </summary>
+		public const int MaxTabSize = 8;
+
+		/// <summary>
+		/// Default maximum undo history depth (default: 100)
+		/// </summary>
+		public const int DefaultUndoLimit = 100;
+
+		/// <summary>
+		/// Character displayed for space characters when visible whitespace is enabled (middle dot U+00B7)
+		/// </summary>
+		public const char WhitespaceSpaceChar = '\u00B7';
+
+		/// <summary>
+		/// Number of spaces after line numbers in the gutter (default: 1)
+		/// </summary>
+		public const int LineNumberGutterPadding = 1;
+
 		// Modal window positioning defaults
 		/// <summary>
 		/// Left offset for modal window positioning relative to parent (default: 5)

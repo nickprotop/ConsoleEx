@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Builders;
 /// </summary>
 public sealed class MultilineEditControlBuilder
 {
-	private int _viewportHeight = 10;
+	private int _viewportHeight = Configuration.ControlDefaults.DefaultEditorViewportHeight;
 	private string? _content;
 	private int? _width;
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
@@ -46,11 +46,27 @@ public sealed class MultilineEditControlBuilder
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private string? _name;
 	private object? _tag;
+	private int _tabSize = Configuration.ControlDefaults.DefaultTabSize;
+	private int _undoLimit = Configuration.ControlDefaults.DefaultUndoLimit;
+	private string? _placeholderText;
+	private int? _maxLength;
+	private bool _overwriteMode;
+	private bool _autoIndent;
+	private bool _highlightCurrentLine;
+	private Color? _currentLineHighlightColor;
+	private bool _showWhitespace;
+	private bool _showLineNumbers;
+	private Color? _lineNumberColor;
+	private ISyntaxHighlighter? _syntaxHighlighter;
 
 	// Event handlers
 	private EventHandler<string>? _contentChangedHandler;
 	private EventHandler? _gotFocusHandler;
 	private EventHandler? _lostFocusHandler;
+	private EventHandler<(int Line, int Column)>? _cursorPositionChangedHandler;
+	private EventHandler<string>? _selectionChangedHandler;
+	private EventHandler<bool>? _editingModeChangedHandler;
+	private EventHandler<bool>? _overwriteModeChangedHandler;
 	private WindowEventHandler<string>? _contentChangedWithWindowHandler;
 	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
 	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
@@ -106,7 +122,7 @@ public sealed class MultilineEditControlBuilder
 	/// <returns>The builder for chaining</returns>
 	public MultilineEditControlBuilder WithWidth(int width)
 	{
-		_width = width;
+		_width = Math.Max(1, width);
 		return this;
 	}
 
@@ -403,6 +419,149 @@ public sealed class MultilineEditControlBuilder
 	}
 
 	/// <summary>
+	/// Sets the tab size in spaces (1-8)
+	/// </summary>
+	/// <param name="tabSize">The number of spaces per tab</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithTabSize(int tabSize)
+	{
+		_tabSize = Math.Clamp(tabSize, 1, Configuration.ControlDefaults.MaxTabSize);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the maximum undo history depth
+	/// </summary>
+	/// <param name="limit">The maximum number of undo actions</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithUndoLimit(int limit)
+	{
+		_undoLimit = Math.Max(1, limit);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the placeholder text shown when empty and not editing
+	/// </summary>
+	/// <param name="placeholderText">The placeholder text</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithPlaceholder(string placeholderText)
+	{
+		_placeholderText = placeholderText;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the maximum total character length
+	/// </summary>
+	/// <param name="maxLength">The maximum character count</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithMaxLength(int maxLength)
+	{
+		_maxLength = Math.Max(0, maxLength);
+		return this;
+	}
+
+	/// <summary>
+	/// Enables or disables overwrite mode (typed characters replace existing text)
+	/// </summary>
+	/// <param name="overwrite">Whether overwrite mode is active</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithOverwriteMode(bool overwrite = true)
+	{
+		_overwriteMode = overwrite;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the overwrite mode changed event handler
+	/// </summary>
+	/// <param name="handler">Handler receiving true for overwrite mode, false for insert mode</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder OnOverwriteModeChanged(EventHandler<bool> handler)
+	{
+		_overwriteModeChangedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables or disables auto-indent (new lines inherit leading whitespace)
+	/// </summary>
+	/// <param name="autoIndent">Whether auto-indent is enabled</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithAutoIndent(bool autoIndent = true)
+	{
+		_autoIndent = autoIndent;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables or disables current line highlighting
+	/// </summary>
+	/// <param name="highlight">Whether to highlight the current line</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithHighlightCurrentLine(bool highlight = true)
+	{
+		_highlightCurrentLine = highlight;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the background color for current line highlighting
+	/// </summary>
+	/// <param name="color">The highlight background color</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithCurrentLineHighlightColor(Color color)
+	{
+		_currentLineHighlightColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables or disables visible whitespace markers
+	/// </summary>
+	/// <param name="show">Whether to show whitespace characters</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithShowWhitespace(bool show = true)
+	{
+		_showWhitespace = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables or disables line number display in the gutter
+	/// </summary>
+	/// <param name="show">Whether to show line numbers</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithLineNumbers(bool show = true)
+	{
+		_showLineNumbers = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the foreground color for line numbers
+	/// </summary>
+	/// <param name="color">The line number color</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithLineNumberColor(Color color)
+	{
+		_lineNumberColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the syntax highlighter for content colorization
+	/// </summary>
+	/// <param name="highlighter">The syntax highlighter implementation</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithSyntaxHighlighter(ISyntaxHighlighter highlighter)
+	{
+		_syntaxHighlighter = highlighter;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the content changed event handler
 	/// </summary>
 	/// <param name="handler">The event handler</param>
@@ -469,6 +628,39 @@ public sealed class MultilineEditControlBuilder
 	}
 
 	/// <summary>
+	/// Sets the cursor position changed event handler
+	/// </summary>
+	/// <param name="handler">Handler receiving (Line, Column) as 1-based indices</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder OnCursorPositionChanged(EventHandler<(int Line, int Column)> handler)
+	{
+		_cursorPositionChangedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the selection changed event handler
+	/// </summary>
+	/// <param name="handler">Handler receiving the selected text or empty string</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder OnSelectionChanged(EventHandler<string> handler)
+	{
+		_selectionChangedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the editing mode changed event handler
+	/// </summary>
+	/// <param name="handler">Handler receiving true when entering edit mode, false when leaving</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder OnEditingModeChanged(EventHandler<bool> handler)
+	{
+		_editingModeChangedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the multiline edit control
 	/// </summary>
 	/// <returns>The configured multiline edit control</returns>
@@ -489,7 +681,17 @@ public sealed class MultilineEditControlBuilder
 			StickyPosition = _stickyPosition,
 			Width = _width,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			TabSize = _tabSize,
+			UndoLimit = _undoLimit,
+			PlaceholderText = _placeholderText,
+			MaxLength = _maxLength,
+			OverwriteMode = _overwriteMode,
+			AutoIndent = _autoIndent,
+			HighlightCurrentLine = _highlightCurrentLine,
+			ShowWhitespace = _showWhitespace,
+			ShowLineNumbers = _showLineNumbers,
+			SyntaxHighlighter = _syntaxHighlighter
 		};
 
 		// Set optional colors
@@ -511,6 +713,10 @@ public sealed class MultilineEditControlBuilder
 			control.ScrollbarColor = _scrollbarColor.Value;
 		if (_scrollbarThumbColor.HasValue)
 			control.ScrollbarThumbColor = _scrollbarThumbColor.Value;
+		if (_currentLineHighlightColor.HasValue)
+			control.CurrentLineHighlightColor = _currentLineHighlightColor.Value;
+		if (_lineNumberColor.HasValue)
+			control.LineNumberColor = _lineNumberColor.Value;
 
 		// Set content if provided
 		if (_content != null)
@@ -523,6 +729,14 @@ public sealed class MultilineEditControlBuilder
 			control.GotFocus += _gotFocusHandler;
 		if (_lostFocusHandler != null)
 			control.LostFocus += _lostFocusHandler;
+		if (_cursorPositionChangedHandler != null)
+			control.CursorPositionChanged += _cursorPositionChangedHandler;
+		if (_selectionChangedHandler != null)
+			control.SelectionChanged += _selectionChangedHandler;
+		if (_editingModeChangedHandler != null)
+			control.EditingModeChanged += _editingModeChangedHandler;
+		if (_overwriteModeChangedHandler != null)
+			control.OverwriteModeChanged += _overwriteModeChangedHandler;
 
 		// Attach window-aware event handlers
 		if (_contentChangedWithWindowHandler != null)

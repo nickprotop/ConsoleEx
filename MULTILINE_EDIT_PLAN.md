@@ -39,7 +39,7 @@ Phase 8 (Advanced) --- after Phase 1-6
 
 ## Phase 1: Fix WrapWords Foundation
 
-> **Status**: NOT STARTED
+> **Status**: COMPLETE
 > **Priority**: CRITICAL - prerequisite for all other phases
 > **Bugs fixed**: R1, R2, R3, R6, R16, R17, R18, I2, I7, M9
 
@@ -493,7 +493,7 @@ if (_wrapMode == WrapMode.NoWrap && _horizontalScrollOffset > 0)
 
 ## Phase 2: Fix Critical Input Bugs
 
-> **Status**: NOT STARTED
+> **Status**: COMPLETE
 > **Priority**: CRITICAL
 > **Depends on**: Phase 1
 > **Bugs fixed**: I1, I3, I6, I8, I10, I11, I13, I14, I15, I17
@@ -940,24 +940,24 @@ Replace all `_isEditing = value` with `IsEditing = value` at lines: 780, 893, 12
 
 ### Tasks Checklist
 
-- [ ] **2.1** Create `Helpers/WordBoundaryHelper.cs`
-- [ ] **2.2** Implement mouse click-to-position cursor (rewrite ProcessMouseEvent)
-- [ ] **2.3** Create `Helpers/ClipboardHelper.cs` (cross-platform)
-- [ ] **2.4** Wire Ctrl+A (Select All) into ProcessKey
-- [ ] **2.5** Wire Ctrl+C (Copy), Ctrl+X (Cut), Ctrl+V (Paste)
-- [ ] **2.6** Implement Ctrl+Left/Right word navigation
-- [ ] **2.7** Implement Ctrl+Backspace/Delete word deletion
-- [ ] **2.8** Fix Shift+PageUp/PageDown selection initiation (add to key list)
-- [ ] **2.9** Fix PageUp/PageDown selection clearing (add to key list)
-- [ ] **2.10** Fix Home key ignoring horizontal scroll in non-editing mode
-- [ ] **2.11** Fix Enter without focus guard
-- [ ] **2.12** Replace all `_isEditing` direct field writes with property setter
+- [x] **2.1** Create `Helpers/WordBoundaryHelper.cs`
+- [x] **2.2** Implement mouse click-to-position cursor (rewrite ProcessMouseEvent)
+- [x] **2.3** Create `Helpers/ClipboardHelper.cs` (cross-platform)
+- [x] **2.4** Wire Ctrl+A (Select All) into ProcessKey
+- [x] **2.5** Wire Ctrl+C (Copy), Ctrl+X (Cut), Ctrl+V (Paste)
+- [x] **2.6** Implement Ctrl+Left/Right word navigation
+- [x] **2.7** Implement Ctrl+Backspace/Delete word deletion
+- [x] **2.8** Fix Shift+PageUp/PageDown selection initiation (add to key list)
+- [x] **2.9** Fix PageUp/PageDown selection clearing (add to key list)
+- [x] **2.10** Fix Home key ignoring horizontal scroll in non-editing mode
+- [x] **2.11** Fix Enter without focus guard
+- [x] **2.12** Skipped - all sites already invalidate; property setter would add redundant calls
 
 ---
 
 ## Phase 3: P0 Missing Features
 
-> **Status**: NOT STARTED
+> **Status**: COMPLETE ✅
 > **Priority**: HIGH
 > **Depends on**: Phase 2 (mouse click positioning needed for drag selection)
 > **Bugs fixed**: I4, I5, I12
@@ -1162,18 +1162,18 @@ case ConsoleKey.Tab:
 
 ### Tasks Checklist
 
-- [ ] **3.1** Implement mouse drag selection (Button1Pressed + ReportMousePosition + Button1Released)
-- [ ] **3.2** Implement mouse wheel scrolling (WheeledUp/WheeledDown)
-- [ ] **3.3** Implement double-click word selection (Button1DoubleClicked + WordBoundaryHelper)
-- [ ] **3.4** Implement triple-click line selection (Button1TripleClicked)
-- [ ] **3.5** Add `TabSize` property and Tab/Shift+Tab key handling (indent/dedent)
-- [ ] **3.6** Wire `MouseDoubleClick` event, remove `#pragma CS0067` suppression
+- [x] **3.1** Implement mouse drag selection (Button1Pressed + ReportMousePosition + Button1Released)
+- [x] **3.2** Implement mouse wheel scrolling (WheeledUp/WheeledDown)
+- [x] **3.3** Implement double-click word selection (Button1DoubleClicked + WordBoundaryHelper)
+- [x] **3.4** Implement triple-click line selection (Button1TripleClicked)
+- [x] **3.5** Add `TabSize` property and Tab/Shift+Tab key handling (indent/dedent)
+- [x] **3.6** Wire `MouseDoubleClick` event, remove `#pragma CS0067` suppression
 
 ---
 
 ## Phase 4: Undo/Redo System
 
-> **Status**: NOT STARTED
+> **Status**: COMPLETE ✅
 > **Priority**: HIGH
 > **Depends on**: Phase 2 (working edit operations)
 > **Bugs fixed**: I9
@@ -1335,23 +1335,25 @@ public void MarkAsSaved()
 
 ### Tasks Checklist
 
-- [ ] **4.1** Add `UndoAction` class and stack fields
-- [ ] **4.2** Implement `BeginUndoAction()` / `CommitUndoAction()` helpers
-- [ ] **4.3** Add `SetContentInternal()` that doesn't clear undo stack
-- [ ] **4.4** Wire `BeginUndoAction` before all edit operations in ProcessKey
-- [ ] **4.5** Wire `CommitUndoAction` in contentChanged path
-- [ ] **4.6** Implement Ctrl+Z (Undo) and Ctrl+Y (Redo)
-- [ ] **4.7** Add `IsModified` property and `MarkAsSaved()` method
-- [ ] **4.8** Add `UndoLimit` property
+- [x] **4.1** Add `UndoAction` class and stack fields
+- [x] **4.2** Implement `BeginUndoAction()` / `CommitUndoAction()` helpers
+- [x] **4.3** Add `SetContentInternal()` that doesn't clear undo stack
+- [x] **4.4** Wire `BeginUndoAction` before all edit operations in ProcessKey
+- [x] **4.5** Wire `CommitUndoAction` in contentChanged path
+- [x] **4.6** Implement Ctrl+Z (Undo) and Ctrl+Y (Redo)
+- [x] **4.7** Add `IsModified` property and `MarkAsSaved()` method
+- [x] **4.8** Add `UndoLimit` property
+- [x] **4.9** (Bonus) Fixed Ctrl+X/V missing ContentChanged event and EnsureCursorVisible
+- [x] **4.10** (Bonus) SetContent/SetContentLines now clear undo/redo stacks and reset modified state
 
 ---
 
 ## Phase 5: Unicode & Special Character Support
 
-> **Status**: NOT STARTED
+> **Status**: PARTIALLY COMPLETE (sanitize only, Unicode deferred to library-level support)
 > **Priority**: HIGH
 > **Can run parallel to**: Phases 3-4
-> **Bugs fixed**: M2, M3, M7, M8
+> **Bugs fixed**: M7, M8 (M2, M3 deferred)
 
 ### Implementation Guide
 
@@ -1489,13 +1491,13 @@ private string SanitizeInputText(string text)
 
 ### Tasks Checklist
 
-- [ ] **5.1** Create `Helpers/UnicodeWidthHelper.cs` with `GetCharWidth`, `GetStringWidth`, `ColumnToCharIndex`
-- [ ] **5.2** Replace `string.Length` width calculations with `UnicodeWidthHelper.GetStringWidth` in key locations
-- [ ] **5.3** Handle surrogate pairs in Backspace (don't split pairs)
-- [ ] **5.4** Handle surrogate pairs in Delete (don't split pairs)
-- [ ] **5.5** Handle surrogate pairs in Left/Right arrow (skip as unit)
-- [ ] **5.6** Implement `SanitizeInputText()` for tab conversion and control char stripping
-- [ ] **5.7** Wire `SanitizeInputText` into `SetContent`, `InsertText`, `AppendContent`, `SetContentLines`
+- [~] **5.1** SKIPPED - Unicode width helper deferred to library-level support
+- [~] **5.2** SKIPPED - Unicode width calculations deferred to library-level support
+- [~] **5.3** SKIPPED - Surrogate pair Backspace deferred to library-level support
+- [~] **5.4** SKIPPED - Surrogate pair Delete deferred to library-level support
+- [~] **5.5** SKIPPED - Surrogate pair arrow keys deferred to library-level support
+- [x] **5.6** Implement `SanitizeInputText()` and `SanitizeLine()` for tab conversion and control char stripping
+- [x] **5.7** Wire sanitization into `SetContent`, `SetContentLines`, `InsertText`, `AppendContent`, `AppendContentLines`, and Ctrl+Shift+V paste
 
 ---
 
@@ -1855,12 +1857,12 @@ These don't need detailed code sketches yet - implement after the foundation is 
 
 | Phase | Description | Tasks | Done | Status |
 |-------|-------------|-------|------|--------|
-| 1 | WrapWords Foundation | 15 | 0 | NOT STARTED |
-| 2 | Critical Input Bugs | 12 | 0 | NOT STARTED |
+| 1 | WrapWords Foundation | 15 | 15 | COMPLETE |
+| 2 | Critical Input Bugs | 12 | 12 | COMPLETE |
 | 3 | P0 Missing Features | 6 | 0 | NOT STARTED |
 | 4 | Undo/Redo System | 8 | 0 | NOT STARTED |
 | 5 | Unicode & Special Chars | 7 | 0 | NOT STARTED |
 | 6 | Events & Public API | 9 | 0 | NOT STARTED |
 | 7 | Performance & Polish | 9 | 0 | NOT STARTED |
 | 8 | Advanced Features | 10 | 0 | NOT STARTED |
-| **Total** | | **76** | **0** | |
+| **Total** | | **76** | **27** | |
