@@ -295,9 +295,13 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     /// <inheritdoc/>
     public int? ContentWidth => null;
 
+    /// <inheritdoc/>
     public int ActualX => _actualX;
+    /// <inheritdoc/>
     public int ActualY => _actualY;
+    /// <inheritdoc/>
     public int ActualWidth => _actualWidth;
+    /// <inheritdoc/>
     public int ActualHeight => _actualHeight;
 
     /// <inheritdoc/>
@@ -2309,9 +2313,13 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareCon
     // IWindowControl minimal implementation
     public int? ContentWidth => _dropdown.Bounds.Width;
     public int? ContentHeight => _dropdown.Bounds.Height;
+    /// <inheritdoc/>
     public int ActualX => _actualX;
+    /// <inheritdoc/>
     public int ActualY => _actualY;
+    /// <inheritdoc/>
     public int ActualWidth => _actualWidth;
+    /// <inheritdoc/>
     public int ActualHeight => _actualHeight;
     public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
     public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.Top;

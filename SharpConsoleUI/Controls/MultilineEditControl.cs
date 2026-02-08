@@ -156,9 +156,13 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public int ActualX => _actualX;
+		/// <inheritdoc/>
 		public int ActualY => _actualY;
+		/// <inheritdoc/>
 		public int ActualWidth => _actualWidth;
+		/// <inheritdoc/>
 		public int ActualHeight => _actualHeight;
 
 		/// <summary>
