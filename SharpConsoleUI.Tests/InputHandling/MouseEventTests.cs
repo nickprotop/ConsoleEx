@@ -39,9 +39,13 @@ public class MouseEventTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         // Trigger render to populate ActualX/ActualY
         system.Render.UpdateDisplay();
+
+        // Set focus to the button so it can receive mouse events
+        system.FocusStateService.SetFocus(window, button);
 
         bool clicked = false;
         button.Click += (s, e) => clicked = true;
@@ -101,6 +105,7 @@ public class MouseEventTests
         var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsMovable = true };
 
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         // Click on title bar (Y = window.Top, which is the title bar)
         var pressFlags = new List<MouseFlags> { MouseFlags.Button1Pressed };
@@ -119,6 +124,7 @@ public class MouseEventTests
         var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsMovable = true };
 
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         // Start drag on title bar
         var pressFlags = new List<MouseFlags> { MouseFlags.Button1Pressed };
@@ -151,6 +157,7 @@ public class MouseEventTests
         var window = new Window(system) { Top = 10, Width = 40, Height = 20, ShowCloseButton = true };
 
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         bool closingFired = false;
         window.OnClosing += (s, e) => closingFired = true;
@@ -175,6 +182,7 @@ public class MouseEventTests
         var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsMaximizable = true };
 
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         // Maximize button is left of close button
         var maximizeButtonX = 10 + 40 - 4;
@@ -195,6 +203,7 @@ public class MouseEventTests
         var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsMinimizable = true };
 
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         // Minimize button is left of maximize button
         var minimizeButtonX = 10 + 40 - 6;
@@ -215,6 +224,7 @@ public class MouseEventTests
         var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsResizable = true };
 
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         // Click on bottom-right corner (resize handle)
         var cornerX = 10 + 40 - 1;
@@ -236,6 +246,7 @@ public class MouseEventTests
         var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsResizable = true };
 
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         var initialWidth = window.Width;
         var initialHeight = window.Height;
@@ -269,6 +280,7 @@ public class MouseEventTests
 
         system.WindowStateService.AddWindow(window1);
         system.WindowStateService.AddWindow(window2); // window2 is on top
+        system.WindowStateService.SetActiveWindow(window2);
 
         bool window1Clicked = false;
         bool window2Clicked = false;
@@ -313,6 +325,7 @@ public class MouseEventTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         // Trigger render to populate ActualX/ActualY
         system.Render.UpdateDisplay();
@@ -341,6 +354,7 @@ public class MouseEventTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
 
         // Trigger render to populate ActualX/ActualY
         system.Render.UpdateDisplay();
