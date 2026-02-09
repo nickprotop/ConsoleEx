@@ -99,7 +99,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Mouse drag: extend selection
-			if (args.HasFlag(MouseFlags.ReportMousePosition) && _isDragging)
+			if (args.HasFlag(MouseFlags.Button1Dragged) && _isDragging)
 			{
 				PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
 				_selectionEndX = _cursorX;

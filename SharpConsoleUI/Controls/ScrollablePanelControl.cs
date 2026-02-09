@@ -41,6 +41,11 @@ namespace SharpConsoleUI.Controls
 		private DateTime _lastClickTime;
 		private System.Drawing.Point _lastClickPosition;
 
+		// Scrollbar drag state
+		private bool _isScrollbarDragging = false;
+		private int _scrollbarDragStartY = 0;
+		private int _scrollbarDragStartOffset = 0;
+
 		// Configurable options
 		private bool _showScrollbar = true;
 		private ScrollbarPosition _scrollbarPosition = ScrollbarPosition.Right;
@@ -700,6 +705,85 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			// Handle scrollbar drag-in-progress
+			// Button1Dragged = real mouse movement; Button1Pressed = synthetic continuous-press repeats
+			if (_isScrollbarDragging && args.HasAnyFlag(Drivers.MouseFlags.Button1Dragged, Drivers.MouseFlags.Button1Pressed))
+			{
+				var (_, sbTop, sbHeight, _, sbThumbHeight) = GetScrollbarGeometry();
+				int deltaY = args.Position.Y - _scrollbarDragStartY;
+				int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
+				int trackRange = Math.Max(1, sbHeight - sbThumbHeight);
+				int newOffset = _scrollbarDragStartOffset + (int)(deltaY * (double)maxScroll / trackRange);
+				ScrollVerticalTo(newOffset);
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle scrollbar drag end
+			if (args.HasFlag(Drivers.MouseFlags.Button1Released) && _isScrollbarDragging)
+			{
+				_isScrollbarDragging = false;
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle scrollbar click/press interactions
+			{
+				bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
+				if (needsScrollbar)
+				{
+					var (sbRelX, sbTop, sbHeight, sbThumbY, sbThumbHeight) = GetScrollbarGeometry();
+					int viewportX = args.Position.X - _margin.Left;
+					int contentWidth = _viewportWidth - 2;
+					bool isOnScrollbar = viewportX >= contentWidth;
+
+					if (isOnScrollbar && args.HasFlag(Drivers.MouseFlags.Button1Pressed))
+					{
+						int relY = args.Position.Y - sbTop;
+						int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
+
+						if (relY == 0 && _verticalScrollOffset > 0)
+						{
+							// Arrow up
+							ScrollVerticalBy(-3);
+						}
+						else if (relY == sbHeight - 1 && _verticalScrollOffset < maxScroll)
+						{
+							// Arrow down
+							ScrollVerticalBy(3);
+						}
+						else if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
+						{
+							// Thumb: start drag
+							_isScrollbarDragging = true;
+							_scrollbarDragStartY = args.Position.Y;
+							_scrollbarDragStartOffset = _verticalScrollOffset;
+						}
+						else if (relY < sbThumbY)
+						{
+							// Track above thumb: page up
+							ScrollVerticalBy(-_viewportHeight);
+						}
+						else
+						{
+							// Track below thumb: page down
+							ScrollVerticalBy(_viewportHeight);
+						}
+						args.Handled = true;
+						return true;
+					}
+
+					if (isOnScrollbar && args.HasAnyFlag(Drivers.MouseFlags.Button1Clicked,
+						Drivers.MouseFlags.Button1Released, Drivers.MouseFlags.Button1DoubleClicked,
+						Drivers.MouseFlags.Button1TripleClicked))
+					{
+						// Consume scrollbar click events to prevent propagation to children
+						args.Handled = true;
+						return true;
+					}
+				}
+			}
+
 			// Handle click events for child focus
 			if (args.HasAnyFlag(Drivers.MouseFlags.Button1Clicked, Drivers.MouseFlags.Button1Pressed,
 				Drivers.MouseFlags.Button1Released, Drivers.MouseFlags.Button1DoubleClicked, Drivers.MouseFlags.Button1TripleClicked,
@@ -1181,35 +1265,36 @@ namespace SharpConsoleUI.Controls
 			_isDirty = false;
 		}
 
-		private void DrawVerticalScrollbar(CharacterBuffer buffer, LayoutRect bounds, Color fgColor, Color bgColor)
+		private (int scrollbarRelX, int scrollbarTop, int scrollbarHeight, int thumbY, int thumbHeight) GetScrollbarGeometry()
 		{
-			// Calculate contentWidth (must match PaintDOM calculation!)
-			int contentWidth = _viewportWidth;
-			if (_contentHeight > _viewportHeight)
-			{
-				// Reserve 2 columns: 1 for gap, 1 for scrollbar
-				contentWidth = _viewportWidth - 2;
-			}
+			// scrollbarRelX is control-relative (offset from bounds.X)
+			// For Right position: last column of the control = margin.Left + viewport + margin.Right - 1
+			// This matches the old DrawVerticalScrollbar which used bounds.Right - 1 = bounds.X + bounds.Width - 1
+			int scrollbarRelX = _scrollbarPosition == ScrollbarPosition.Right
+				? _margin.Left + _viewportWidth + _margin.Right - 1
+				: _margin.Left;
+			int scrollbarTop = _margin.Top;
+			int scrollbarHeight = _viewportHeight;
 
-			// Determine scrollbar X position - at the last column of the panel
-			// This should be bounds.Right - 1 (last valid column within panel bounds)
-			int scrollbarX = _scrollbarPosition == ScrollbarPosition.Right
-				? bounds.Right - 1  // Draw at last column of panel
-				: bounds.X + _margin.Left;
-
-			int scrollbarTop = bounds.Y + _margin.Top;
-			int scrollbarHeight = bounds.Height - _margin.Top - _margin.Bottom;
-
-			// Calculate scrollbar thumb position and size
 			double viewportRatio = (double)_viewportHeight / _contentHeight;
 			int thumbHeight = Math.Max(1, (int)(scrollbarHeight * viewportRatio));
-
 			double scrollRatio = _contentHeight > _viewportHeight
 				? (double)_verticalScrollOffset / (_contentHeight - _viewportHeight)
 				: 0;
 			int thumbY = (int)((scrollbarHeight - thumbHeight) * scrollRatio);
 
-			// Draw scrollbar track and thumb
+			return (scrollbarRelX, scrollbarTop, scrollbarHeight, thumbY, thumbHeight);
+		}
+
+		private void DrawVerticalScrollbar(CharacterBuffer buffer, LayoutRect bounds, Color fgColor, Color bgColor)
+		{
+			var (scrollbarRelX, scrollbarTop, scrollbarHeight, thumbY, thumbHeight) = GetScrollbarGeometry();
+
+			// Convert control-relative coordinates to buffer-absolute coordinates
+			int scrollbarX = bounds.X + scrollbarRelX;
+			int scrollbarAbsTop = bounds.Y + scrollbarTop;
+
+			// Colors
 			Color thumbColor = _hasFocus ? Color.Cyan1 : Color.Grey;
 			Color trackColor = _hasFocus ? Color.Grey : Color.Grey23;
 
@@ -1220,28 +1305,26 @@ namespace SharpConsoleUI.Controls
 
 				if (y >= thumbY && y < thumbY + thumbHeight)
 				{
-					// Thumb
 					color = thumbColor;
 					ch = '█';
 				}
 				else
 				{
-					// Track
 					color = trackColor;
 					ch = '│';
 				}
 
-				buffer.SetCell(scrollbarX, scrollbarTop + y, ch, color, bgColor);
+				buffer.SetCell(scrollbarX, scrollbarAbsTop + y, ch, color, bgColor);
 			}
 
 			// Draw scroll indicators at top/bottom
 			if (_verticalScrollOffset > 0)
 			{
-				buffer.SetCell(scrollbarX, scrollbarTop, '▲', thumbColor, bgColor);
+				buffer.SetCell(scrollbarX, scrollbarAbsTop, '▲', thumbColor, bgColor);
 			}
 			if (_verticalScrollOffset < _contentHeight - _viewportHeight)
 			{
-				buffer.SetCell(scrollbarX, scrollbarTop + scrollbarHeight - 1, '▼', thumbColor, bgColor);
+				buffer.SetCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '▼', thumbColor, bgColor);
 			}
 		}
 

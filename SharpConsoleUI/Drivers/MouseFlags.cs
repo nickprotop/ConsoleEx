@@ -52,6 +52,9 @@ namespace SharpConsoleUI.Drivers
 		/// <summary>The first mouse button was triple-clicked.</summary>
 		Button1TripleClicked = 0x10,
 
+		/// <summary>The first mouse button is being dragged (held down while moving).</summary>
+		Button1Dragged = 0x20,
+
 		/// <summary>The second mouse button was pressed.</summary>
 		Button2Pressed = 0x80,
 
@@ -67,6 +70,9 @@ namespace SharpConsoleUI.Drivers
 		/// <summary>The second mouse button was triple-clicked.</summary>
 		Button2TripleClicked = 0x400,
 
+		/// <summary>The second mouse button is being dragged (held down while moving).</summary>
+		Button2Dragged = 0x800,
+
 		/// <summary>The third mouse button was pressed.</summary>
 		Button3Pressed = 0x2000,
 
@@ -81,6 +87,9 @@ namespace SharpConsoleUI.Drivers
 
 		/// <summary>The third mouse button was triple-clicked.</summary>
 		Button3TripleClicked = 0x10000,
+
+		/// <summary>The third mouse button is being dragged (held down while moving).</summary>
+		Button3Dragged = 0x20000,
 
 		/// <summary>The fourth mouse button was pressed.</summary>
 		Button4Pressed = 0x80000,

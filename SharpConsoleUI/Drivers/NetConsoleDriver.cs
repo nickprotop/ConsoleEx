@@ -919,9 +919,9 @@ namespace SharpConsoleUI.Drivers
 					int dragButton = buttonCode & 0x03;
 					switch (dragButton)
 					{
-						case 0: mouseFlags.Add(MouseFlags.Button1Pressed); break;
-						case 1: mouseFlags.Add(MouseFlags.Button2Pressed); break;
-						case 2: mouseFlags.Add(MouseFlags.Button3Pressed); break;
+						case 0: mouseFlags.Add(MouseFlags.Button1Pressed); mouseFlags.Add(MouseFlags.Button1Dragged); break;
+						case 1: mouseFlags.Add(MouseFlags.Button2Pressed); mouseFlags.Add(MouseFlags.Button2Dragged); break;
+						case 2: mouseFlags.Add(MouseFlags.Button3Pressed); mouseFlags.Add(MouseFlags.Button3Dragged); break;
 					}
 					MouseEvent?.Invoke(this, mouseFlags, position); // Raise the MouseEvent
 					return true;
