@@ -34,6 +34,9 @@ namespace SharpConsoleUI.Windows
 		private DateTime _lastClickTime;
 		private Point _lastClickPosition;
 
+		// Mouse capture: routes drag/release events to the control that received Button1Pressed
+		private IWindowControl? _mouseCaptureControl;
+
 		// Escape key tracking: remembers control for Tab restore after Escape
 		private IInteractiveControl? _escapedFromControl;
 
@@ -89,6 +92,26 @@ namespace SharpConsoleUI.Windows
 			{
 				// Ensure layout is current before processing mouse events
 				UpdateControlLayout();
+
+				// Route drag/release events to the captured control (mouse capture).
+				// This must run before enter/leave tracking to prevent synthetic
+				// enter/leave events from interfering with active drags.
+				// Include Button1Pressed because SGR mouse format uses Button1Pressed+ReportMousePosition
+				// for drag events (without Button1Dragged flag).
+				if (_mouseCaptureControl != null && args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged, MouseFlags.Button1Released))
+				{
+					var capturedControl = _mouseCaptureControl;
+
+					if (args.HasFlag(MouseFlags.Button1Released))
+						_mouseCaptureControl = null;
+
+					if (capturedControl is Controls.IMouseAwareControl mouseCapture && mouseCapture.WantsMouseEvents)
+					{
+						var controlPosition = GetControlRelativePosition(capturedControl, args.WindowPosition);
+						var controlArgs = args.WithPosition(controlPosition);
+						return mouseCapture.ProcessMouseEvent(controlArgs);
+					}
+				}
 
 				// Find the control at the current mouse position
 				Controls.IWindowControl? currentControl = null;
@@ -201,6 +224,10 @@ namespace SharpConsoleUI.Windows
 						// Propagate mouse event to control if applicable
 						if (targetControl != null && targetControl is Controls.IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
 						{
+							// Set mouse capture on Button1Pressed so drag/release events route here
+							if (args.HasFlag(MouseFlags.Button1Pressed))
+								_mouseCaptureControl = targetControl;
+
 							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
 							var controlArgs = args.WithPosition(controlPosition);
 

@@ -14,6 +14,8 @@ using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
@@ -21,7 +23,7 @@ namespace SharpConsoleUI.Controls
 	/// A vertical splitter control that allows users to resize adjacent columns in a <see cref="HorizontalGridControl"/>.
 	/// Supports keyboard-based resizing with arrow keys and provides visual feedback during focus and dragging.
 	/// </summary>
-	public class SplitterControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable
+	public class SplitterControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable, IMouseAwareControl
 	{
 		private const int DEFAULT_WIDTH = 1;
 		private const float MIN_COLUMN_PERCENTAGE = 0.1f; // Minimum 10% width for any column
@@ -39,6 +41,8 @@ namespace SharpConsoleUI.Controls
 		private bool _hasFocus;
 		private bool _isDragging;
 		private bool _isEnabled = true;
+		private bool _isMouseDragging = false;
+		private int _lastMouseX = 0;
 
 		// References to the columns on either side of this splitter
 		private ColumnContainer? _leftColumn;
@@ -238,6 +242,11 @@ namespace SharpConsoleUI.Controls
 		/// Gets a value indicating whether the splitter is currently being dragged.
 		/// </summary>
 		public bool IsDragging => _isDragging;
+
+		/// <summary>
+		/// Gets a value indicating whether the splitter is currently being dragged by the mouse.
+		/// </summary>
+		public bool IsMouseDragging => _isMouseDragging;
 
 		/// <inheritdoc/>
 		public bool IsEnabled
@@ -447,6 +456,84 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
+		#region IMouseAwareControl Implementation
+
+		/// <inheritdoc/>
+		public bool WantsMouseEvents => IsEnabled;
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse => true;
+
+		#pragma warning disable CS0067
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseMove;
+		#pragma warning restore CS0067
+
+		/// <inheritdoc/>
+		public bool ProcessMouseEvent(MouseEventArgs args)
+		{
+			if (!IsEnabled) return false;
+
+			// Ignore synthetic enter/leave events — they carry the original press/drag
+			// flags and would incorrectly start or process a drag.
+			if (args.HasAnyFlag(MouseFlags.MouseEnter, MouseFlags.MouseLeave))
+				return false;
+
+			// Use WindowPosition for delta computation because the splitter physically
+			// moves as it resizes, making control-relative Position unreliable.
+			int mouseX = args.WindowPosition.X;
+
+			// Handle drag-in-progress
+			if (_isMouseDragging && args.HasAnyFlag(MouseFlags.Button1Dragged, MouseFlags.Button1Pressed))
+			{
+				int deltaX = mouseX - _lastMouseX;
+				if (deltaX != 0 && _leftColumn != null && _rightColumn != null)
+				{
+					MoveSplitter(deltaX);
+					_lastMouseX = mouseX;
+				}
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle drag end
+			if (args.HasFlag(MouseFlags.Button1Released) && _isMouseDragging)
+			{
+				_isMouseDragging = false;
+				_isDragging = false;
+				Container?.Invalidate(true);
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle press to start drag
+			if (args.HasFlag(MouseFlags.Button1Pressed) && !_isMouseDragging)
+			{
+				_isMouseDragging = true;
+				_lastMouseX = mouseX;
+				_isDragging = true;
+				Container?.Invalidate(true);
+				args.Handled = true;
+				return true;
+			}
+
+			return false;
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Sets the columns that this splitter will resize
 		/// </summary>
@@ -480,6 +567,7 @@ namespace SharpConsoleUI.Controls
 			if (!focus && _isDragging)
 			{
 				_isDragging = false;
+				_isMouseDragging = false;
 				Container?.Invalidate(true);  // Force redraw with normal colors
 			}
 

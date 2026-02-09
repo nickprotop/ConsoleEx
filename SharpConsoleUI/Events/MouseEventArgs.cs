@@ -60,19 +60,24 @@ namespace SharpConsoleUI.Events
 		}
 
 		/// <summary>
-		/// Convenience method to check if specific mouse flags are present
+		/// Convenience method to check if specific mouse flags are present.
+		/// Uses bitwise checking to support both separate list entries (X10)
+		/// and combined flag values (SGR).
 		/// </summary>
 		public bool HasFlag(MouseFlags flag)
 		{
-			return Flags.Contains(flag);
+			if (flag == MouseFlags.None) return false;
+			return Flags.Any(f => (f & flag) == flag);
 		}
 
 		/// <summary>
-		/// Convenience method to check if any of the specified flags are present
+		/// Convenience method to check if any of the specified flags are present.
+		/// Uses bitwise checking to support both separate list entries (X10)
+		/// and combined flag values (SGR).
 		/// </summary>
 		public bool HasAnyFlag(params MouseFlags[] flags)
 		{
-			return flags.Any(flag => Flags.Contains(flag));
+			return flags.Any(flag => Flags.Any(f => (f & flag) == flag));
 		}
 
 		/// <summary>
