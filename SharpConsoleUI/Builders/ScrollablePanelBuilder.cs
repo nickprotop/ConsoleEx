@@ -37,6 +37,7 @@ public sealed class ScrollablePanelBuilder
 	private Margin _margin = new(0, 0, 0, 0);
 	private bool _visible = true;
 	private int? _width;
+	private int? _height;
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
@@ -256,6 +257,17 @@ public sealed class ScrollablePanelBuilder
 	}
 
 	/// <summary>
+	/// Sets the height
+	/// </summary>
+	/// <param name="height">The height</param>
+	/// <returns>The builder for chaining</returns>
+	public ScrollablePanelBuilder WithHeight(int height)
+	{
+		_height = height;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the control name for FindControl queries
 	/// </summary>
 	/// <param name="name">The control name</param>
@@ -362,6 +374,7 @@ public sealed class ScrollablePanelBuilder
 			Margin = _margin,
 			Visible = _visible,
 			Width = _width,
+			Height = _height,
 			Name = _name,
 			Tag = _tag,
 			StickyPosition = _stickyPosition,

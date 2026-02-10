@@ -61,6 +61,7 @@ namespace SharpConsoleUI.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
+		private int? _height;
 
 		// IContainer properties
 		private Color _backgroundColor = Color.Black;
@@ -207,7 +208,7 @@ namespace SharpConsoleUI.Controls
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
-		public int? ContentHeight => null;  // Fill available space
+		public int? ContentHeight => _height;
 
 		/// <inheritdoc/>
 		public int? ContentWidth => _width;
@@ -287,6 +288,13 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _width;
 			set { _width = value; Container?.Invalidate(true); }
+		}
+
+		/// <inheritdoc/>
+		public int? Height
+		{
+			get => _height;
+			set => PropertySetterHelper.SetDimensionProperty(ref _height, value, Container);
 		}
 
 		/// <inheritdoc/>
@@ -1137,12 +1145,23 @@ namespace SharpConsoleUI.Controls
 			int width = _width ?? constraints.MaxWidth;
 			int availableWidth = Math.Max(1, width - _margin.Left - _margin.Right);
 
-			// Pass the actual available width to CalculateContentHeight
-			int height = CalculateContentHeight(availableWidth);
+			// Determine height
+			int height;
+			if (_height.HasValue)
+			{
+				// Explicit height set - use it directly
+				height = _height.Value;
+			}
+			else
+			{
+				// No explicit height - calculate from content
+				int contentHeight = CalculateContentHeight(availableWidth);
+				height = contentHeight + _margin.Top + _margin.Bottom;
+			}
 
 			return new LayoutSize(
 				Math.Clamp(width + _margin.Left + _margin.Right, constraints.MinWidth, constraints.MaxWidth),
-				Math.Clamp(height + _margin.Top + _margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
 			);
 		}
 
