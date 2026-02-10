@@ -30,8 +30,8 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-	private Color? _backgroundColorValue;
-	private Color? _foregroundColorValue;
+	private Color? _backgroundColorValue = Color.Default;
+	private Color? _foregroundColorValue = Color.Default;
 	private Margin _margin = new Margin(0, 0, 0, 0);
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private bool _visible = true;
@@ -43,8 +43,8 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	private List<TableRow> _rows = new();
 	private BorderStyle _borderStyle = BorderStyle.Single;
 	private Color? _borderColorValue;
-	private Color? _headerBackgroundColorValue;
-	private Color? _headerForegroundColorValue;
+	private Color? _headerBackgroundColorValue = Color.Default;
+	private Color? _headerForegroundColorValue = Color.Default;
 	private bool _showHeader = true;
 	private bool _showRowSeparators = false;
 	private bool _useSafeBorder = false;
@@ -485,41 +485,66 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 
 	#region Color Resolution Methods
 
+	/// <summary>
+	/// Three-state resolution: null = inherit from container,
+	/// Color.Default = use theme, explicit color = use as-is.
+	/// </summary>
 	private Color ResolveBackgroundColor(Color defaultBg)
 	{
-		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return _backgroundColorValue
-			?? theme?.TableBackgroundColor
-			?? Container?.BackgroundColor
-			?? defaultBg;
+		if (_backgroundColorValue == null)
+			return Container?.BackgroundColor ?? defaultBg;
+		if (_backgroundColorValue.Value == Color.Default)
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.TableBackgroundColor
+				?? Container?.BackgroundColor
+				?? defaultBg;
+		}
+		return _backgroundColorValue.Value;
 	}
 
 	private Color ResolveForegroundColor(Color defaultFg)
 	{
-		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return _foregroundColorValue
-			?? theme?.TableForegroundColor
-			?? Container?.ForegroundColor
-			?? defaultFg;
+		if (_foregroundColorValue == null)
+			return Container?.ForegroundColor ?? defaultFg;
+		if (_foregroundColorValue.Value == Color.Default)
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.TableForegroundColor
+				?? Container?.ForegroundColor
+				?? defaultFg;
+		}
+		return _foregroundColorValue.Value;
 	}
 
 	private Color ResolveHeaderBackgroundColor()
 	{
-		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return _headerBackgroundColorValue
-			?? theme?.TableHeaderBackgroundColor
-			?? theme?.TableBackgroundColor
-			?? Container?.BackgroundColor
-			?? Color.Black;
+		if (_headerBackgroundColorValue == null)
+			return Container?.BackgroundColor ?? Color.Black;
+		if (_headerBackgroundColorValue.Value == Color.Default)
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.TableHeaderBackgroundColor
+				?? theme?.TableBackgroundColor
+				?? Container?.BackgroundColor
+				?? Color.Black;
+		}
+		return _headerBackgroundColorValue.Value;
 	}
 
 	private Color ResolveHeaderForegroundColor()
 	{
-		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return _headerForegroundColorValue
-			?? theme?.TableHeaderForegroundColor
-			?? theme?.TableForegroundColor
-			?? Color.White;
+		if (_headerForegroundColorValue == null)
+			return Container?.ForegroundColor ?? Color.White;
+		if (_headerForegroundColorValue.Value == Color.Default)
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.TableHeaderForegroundColor
+				?? theme?.TableForegroundColor
+				?? Container?.ForegroundColor
+				?? Color.White;
+		}
+		return _headerForegroundColorValue.Value;
 	}
 
 	private Color ResolveBorderColor()

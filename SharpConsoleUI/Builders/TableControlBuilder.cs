@@ -26,8 +26,8 @@ public sealed class TableControlBuilder
 	private readonly List<TableRow> _rows = new();
 	private BorderStyle _borderStyle = BorderStyle.Single;
 	private Color? _borderColor;
-	private Color? _headerBackgroundColor;
-	private Color? _headerForegroundColor;
+	private Color? _headerBackgroundColor = Color.Default;
+	private Color? _headerForegroundColor = Color.Default;
 	private bool _showHeader = true;
 	private bool _showRowSeparators = false;
 	private bool _useSafeBorder = false;
@@ -44,8 +44,8 @@ public sealed class TableControlBuilder
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
-	private Color? _backgroundColor;
-	private Color? _foregroundColor;
+	private Color? _backgroundColor = Color.Default;
+	private Color? _foregroundColor = Color.Default;
 
 	#region Column Configuration
 
@@ -387,25 +387,25 @@ public sealed class TableControlBuilder
 	/// <summary>
 	/// Sets the background color.
 	/// </summary>
-	public TableControlBuilder WithBackgroundColor(Color color)
+	public TableControlBuilder WithBackgroundColor(Color? color)
 	{
 		_backgroundColor = color;
 		return this;
 	}
 
 	/// <summary>
-	/// Sets the foreground (text) color.
+	/// Sets the foreground (text) color. Pass null to inherit from container.
 	/// </summary>
-	public TableControlBuilder WithForegroundColor(Color color)
+	public TableControlBuilder WithForegroundColor(Color? color)
 	{
 		_foregroundColor = color;
 		return this;
 	}
 
 	/// <summary>
-	/// Sets both foreground and background colors.
+	/// Sets both foreground and background colors. Pass null to inherit from container.
 	/// </summary>
-	public TableControlBuilder WithColors(Color foreground, Color background)
+	public TableControlBuilder WithColors(Color? foreground, Color? background)
 	{
 		_foregroundColor = foreground;
 		_backgroundColor = background;
