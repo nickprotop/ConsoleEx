@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 using System;
@@ -66,6 +67,7 @@ namespace SharpConsoleUI.Helpers
 		{
 			if (width <= 0)
 				return string.Empty;
+			width = Math.Min(width, LayoutDefaults.MaxSafeRenderWidth);
 			return ConvertSpectreMarkupToAnsi($"{new string(' ', width)}", width, 1, false, backgroundColor, null)[0];
 		}
 

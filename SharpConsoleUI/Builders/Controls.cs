@@ -247,6 +247,12 @@ public static class Controls
 	public static ProgressBarBuilder ProgressBar() => new ProgressBarBuilder();
 
 	/// <summary>
+	/// Creates a new table control builder
+	/// </summary>
+	/// <returns>A new table control builder</returns>
+	public static TableControlBuilder Table() => new TableControlBuilder();
+
+	/// <summary>
 	/// Creates a new panel builder for bordered content panels
 	/// </summary>
 	/// <returns>A new panel builder</returns>

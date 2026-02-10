@@ -743,7 +743,8 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	/// <inheritdoc/>
 	public System.Drawing.Size GetLogicalContentSize()
 	{
-		var constraints = new LayoutConstraints(0, int.MaxValue, 0, int.MaxValue);
+		int maxWidth = _width ?? LayoutDefaults.DefaultUnboundedMeasureWidth;
+		var constraints = new LayoutConstraints(0, maxWidth, 0, int.MaxValue);
 		var size = MeasureDOM(constraints);
 		return new System.Drawing.Size(size.Width, size.Height);
 	}

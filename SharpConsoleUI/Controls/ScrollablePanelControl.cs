@@ -997,6 +997,29 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Removes all child controls from the panel.
+		/// </summary>
+		public void ClearContents()
+		{
+			if (_focusedChild is IFocusableControl fc)
+				fc.SetFocus(false, FocusReason.Programmatic);
+			_focusedChild = null;
+			_lastInternalFocusedChild = null;
+
+			foreach (var child in _children)
+			{
+				child.Container = null;
+				child.Dispose();
+			}
+			_children.Clear();
+
+			if (_hasFocus && !CanReceiveFocus)
+				SetFocus(false, FocusReason.Programmatic);
+
+			Invalidate(true);
+		}
+
+		/// <summary>
 		/// Gets the collection of child controls.
 		/// </summary>
 		public IReadOnlyList<IWindowControl> Children => _children.AsReadOnly();
