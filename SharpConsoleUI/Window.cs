@@ -2144,7 +2144,11 @@ namespace SharpConsoleUI
 				// Sync with FocusStateService
 				if (value)
 				{
-					FocusService?.SetFocus(this, _lastFocusedControl, FocusChangeReason.Programmatic);
+					FocusService?.SetFocus(this, _lastFocusedControl, FocusChangeReason.WindowActivation);
+				}
+				else
+				{
+					FocusService?.ClearFocus(this, FocusChangeReason.WindowActivation);
 				}
 			}
 		}

@@ -198,6 +198,28 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Maps a relative Y line position (within the item area) to an item index,
+		/// accounting for multi-line items. Returns -1 if the position is out of bounds.
+		/// </summary>
+		private int GetItemIndexAtRelativeY(int relativeY)
+		{
+			if (relativeY < 0) return -1;
+
+			int scrollOffset = CurrentScrollOffset;
+			int linesSoFar = 0;
+
+			for (int i = scrollOffset; i < _items.Count; i++)
+			{
+				int itemHeight = _items[i].Lines.Count;
+				if (relativeY < linesSoFar + itemHeight)
+					return i;
+				linesSoFar += itemHeight;
+			}
+
+			return -1;
+		}
+
+		/// <summary>
 		/// Initializes a new ListControl with a title and string items.
 		/// </summary>
 		/// <param name="title">The title displayed at the top of the list.</param>
@@ -1840,11 +1862,10 @@ namespace SharpConsoleUI.Controls
 
 			// Get visible height to properly calculate item index
 			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
-			if (relativeY >= 0 && relativeY < Math.Min(_items.Count, effectiveMaxVisibleItems))
+			int totalVisibleLines = CalculateTotalVisibleItemsHeight();
+			if (relativeY >= 0 && relativeY < totalVisibleLines)
 			{
-				hoveredIndex = _scrollOffset + relativeY;
-				if (hoveredIndex >= _items.Count)
-					hoveredIndex = -1;
+				hoveredIndex = GetItemIndexAtRelativeY(relativeY);
 			}
 
 			// Update hover state (visual feedback only, doesn't change highlight/selection)
@@ -1889,34 +1910,31 @@ namespace SharpConsoleUI.Controls
 			// Handle double-click event from driver (preferred method)
 			if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickActivates)
 			{
-				if (relativeY >= 0 && relativeY < _items.Count)
+				int clickedIndex = GetItemIndexAtRelativeY(relativeY);
+				if (clickedIndex >= 0)
 				{
-					int clickedIndex = _scrollOffset + relativeY;
-					if (clickedIndex >= 0 && clickedIndex < _items.Count)
+					// Reset tracking state since driver handled the gesture
+					_lastClickTime = DateTime.MinValue;
+					_lastClickIndex = -1;
+
+					// Commit highlight to selection
+					if (_selectedIndex != clickedIndex)
 					{
-						// Reset tracking state since driver handled the gesture
-						_lastClickTime = DateTime.MinValue;
-						_lastClickIndex = -1;
-
-						// Commit highlight to selection
-						if (_selectedIndex != clickedIndex)
-						{
-							SelectedIndex = clickedIndex;
-						}
-
-						MouseDoubleClick?.Invoke(this, args);
-
-						// Fire ItemActivated
-						var item = _items[clickedIndex];
-						if (item.IsEnabled)
-						{
-							ItemActivated?.Invoke(this, item);
-						}
-
-						Container?.Invalidate(true);
-						args.Handled = true;
-						return true;
+						SelectedIndex = clickedIndex;
 					}
+
+					MouseDoubleClick?.Invoke(this, args);
+
+					// Fire ItemActivated
+					var item = _items[clickedIndex];
+					if (item.IsEnabled)
+					{
+						ItemActivated?.Invoke(this, item);
+					}
+
+					Container?.Invalidate(true);
+					args.Handled = true;
+					return true;
 				}
 			}
 
@@ -1929,10 +1947,9 @@ namespace SharpConsoleUI.Controls
 					SetFocus(true, FocusReason.Mouse);
 				}
 
-				if (relativeY >= 0 && relativeY < _items.Count)
 				{
-					int clickedIndex = _scrollOffset + relativeY;
-					if (clickedIndex >= 0 && clickedIndex < _items.Count)
+					int clickedIndex = GetItemIndexAtRelativeY(relativeY);
+					if (clickedIndex >= 0)
 					{
 						// Detect double-click (thread-safe)
 						bool isDoubleClick;
@@ -1948,7 +1965,7 @@ namespace SharpConsoleUI.Controls
 							_lastClickIndex = clickedIndex;
 						}
 
-						// ✅ FIX: Behavior depends on SelectionMode
+						// Behavior depends on SelectionMode
 						if (_selectionMode == ListSelectionMode.Simple)
 						{
 							// Simple mode: Merged state, set both
