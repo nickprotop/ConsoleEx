@@ -467,14 +467,16 @@ namespace SharpConsoleUI.Rendering
 			}
 
 			// PASS 2: Render AlwaysOnTop windows (always last, on top of everything) (no LINQ)
+			// IMPORTANT: AlwaysOnTop windows render whenever ANY window is dirty to ensure they stay on top
+			bool anyWindowsDirty = _windowsToRender.Count > 0;
 			for (int i = 0; i < _sortedWindows.Count; i++)
 			{
 				var window = _sortedWindows[i];
 				if (!window.AlwaysOnTop) continue;
 				if (window.State == WindowState.Minimized) continue;
 
-				// AlwaysOnTop windows always render if dirty or in windowsToRender
-				if (window.IsDirty || _windowsToRender.Contains(window))
+				// AlwaysOnTop windows render if: they're dirty, OR any other window is dirty (to stay on top)
+				if (window.IsDirty || anyWindowsDirty)
 				{
 					// Skip windows with invalid dimensions
 					if (window.Width > 0 && window.Height > 0)
