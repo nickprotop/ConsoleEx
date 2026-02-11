@@ -197,6 +197,8 @@ namespace SharpConsoleUI.Core
 				// Add to collection
 				_windows[window.Guid] = window;
 
+				EnsureAlwaysOnTopZOrder();
+
 				// Update state
 				var newState = CreateStateSnapshot();
 				if (activate || _currentState.ActiveWindow == null)
@@ -297,6 +299,39 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
+		/// Ensures all AlwaysOnTop windows have ZIndex above all normal windows.
+		/// Call after any ZIndex change to maintain the invariant.
+		/// </summary>
+		private void EnsureAlwaysOnTopZOrder()
+		{
+			int maxNormalZIndex = 0;
+			bool hasNormal = false;
+
+			foreach (var w in _windows.Values)
+			{
+				if (!w.AlwaysOnTop && w.ZIndex > maxNormalZIndex)
+				{
+					maxNormalZIndex = w.ZIndex;
+					hasNormal = true;
+				}
+			}
+
+			if (!hasNormal) return;
+
+			// Sort by current ZIndex to preserve relative order among AlwaysOnTop windows
+			var onTopWindows = _windows.Values
+				.Where(w => w.AlwaysOnTop && w.ZIndex <= maxNormalZIndex)
+				.OrderBy(w => w.ZIndex)
+				.ToList();
+
+			foreach (var w in onTopWindows)
+			{
+				w.ZIndex = ++maxNormalZIndex;
+				w.Invalidate(true);
+			}
+		}
+
+		/// <summary>
 		/// Finds a window by its Name property.
 		/// </summary>
 		/// <param name="name">The window name to search for.</param>
@@ -365,6 +400,8 @@ namespace SharpConsoleUI.Core
 					// Invalidate window when z-order changes because visibleRegions change
 					// Window may now have more visible area and needs to repaint with new clipRect
 					window.Invalidate(true);
+
+					EnsureAlwaysOnTopZOrder();
 				}
 
 				// Update state
