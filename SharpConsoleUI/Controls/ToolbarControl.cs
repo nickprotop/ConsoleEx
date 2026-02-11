@@ -92,11 +92,7 @@ namespace SharpConsoleUI.Controls
 		public bool CanFocusWithMouse => IsEnabled;
 
 		/// <inheritdoc/>
-		/// <summary>
-		/// ToolbarControl is a container and should not be directly focusable.
-		/// Focus should go to the toolbar items instead.
-		/// </summary>
-		public bool CanReceiveFocus => false;
+		public bool CanReceiveFocus => _isEnabled && GetFocusableItems().Any();
 
 		/// <inheritdoc/>
 		public IContainer? Container
