@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	/// A scrollable panel control that can host child controls with automatic scrolling support.
 	/// Supports vertical and horizontal scrolling, mouse wheel, and visual scrollbars.
 	/// </summary>
-	public class ScrollablePanelControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDOMPaintable, IDirectionalFocusControl, IContainerControl, IScrollableContainer
+	public class ScrollablePanelControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDOMPaintable, IDirectionalFocusControl, IContainerControl, IScrollableContainer, IFocusTrackingContainer
 	{
 		private readonly List<IWindowControl> _children = new();
 		private int _verticalScrollOffset = 0;
@@ -202,6 +202,50 @@ namespace SharpConsoleUI.Controls
 		/// Gets the current horizontal scroll offset in characters.
 		/// </summary>
 		public int HorizontalScrollOffset => _horizontalScrollOffset;
+
+		/// <summary>
+		/// Gets the total height of the scrollable content area in lines.
+		/// Unlike <see cref="ContentHeight"/> (which returns the control's own height),
+		/// this returns the height of the inner content that may extend beyond the viewport.
+		/// </summary>
+		public int TotalContentHeight => _contentHeight;
+
+		/// <summary>
+		/// Gets the total width of the scrollable content area in characters.
+		/// Unlike <see cref="ContentWidth"/> (which returns the control's own width),
+		/// this returns the width of the inner content that may extend beyond the viewport.
+		/// </summary>
+		public int TotalContentWidth => _contentWidth;
+
+		/// <summary>
+		/// Gets the height of the visible viewport area in lines.
+		/// </summary>
+		public int ViewportHeight => _viewportHeight;
+
+		/// <summary>
+		/// Gets the width of the visible viewport area in characters.
+		/// </summary>
+		public int ViewportWidth => _viewportWidth;
+
+		/// <summary>
+		/// Gets whether the content can be scrolled upward (vertical offset is greater than zero).
+		/// </summary>
+		public bool CanScrollUp => _verticalScrollOffset > 0;
+
+		/// <summary>
+		/// Gets whether the content can be scrolled downward (more content exists below the viewport).
+		/// </summary>
+		public bool CanScrollDown => _verticalScrollOffset < Math.Max(0, _contentHeight - _viewportHeight);
+
+		/// <summary>
+		/// Gets whether the content can be scrolled left (horizontal offset is greater than zero).
+		/// </summary>
+		public bool CanScrollLeft => _horizontalScrollOffset > 0;
+
+		/// <summary>
+		/// Gets whether the content can be scrolled right (more content exists beyond the viewport width).
+		/// </summary>
+		public bool CanScrollRight => _horizontalScrollOffset < Math.Max(0, _contentWidth - _viewportWidth);
 
 		#endregion
 
@@ -1039,6 +1083,35 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
+		#region IFocusTrackingContainer Implementation
+
+		/// <inheritdoc/>
+		public void NotifyChildFocusChanged(IInteractiveControl child, bool hasFocus)
+		{
+			if (hasFocus)
+			{
+				if (_focusedChild != null && _focusedChild != child && _focusedChild is IFocusableControl oldFc)
+					oldFc.HasFocus = false;
+
+				_focusedChild = child;
+				_lastInternalFocusedChild = child;
+
+				if (!_hasFocus)
+				{
+					_hasFocus = true;
+					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
+			}
+			else if (_focusedChild == child)
+			{
+				_focusedChild = null;
+			}
+
+			Container?.Invalidate(true);
+		}
+
+		#endregion
+
 		#region IScrollableContainer Implementation
 
 		/// <summary>
@@ -1087,7 +1160,13 @@ namespace SharpConsoleUI.Controls
 
 		#region Scrolling Methods
 
-		private void ScrollVerticalBy(int lines)
+		/// <summary>
+		/// Scrolls the content vertically by the specified number of lines.
+		/// Positive values scroll down, negative values scroll up.
+		/// The offset is clamped to valid bounds automatically.
+		/// </summary>
+		/// <param name="lines">Number of lines to scroll (positive = down, negative = up).</param>
+		public void ScrollVerticalBy(int lines)
 		{
 			int oldOffset = _verticalScrollOffset;
 			int maxOffset = Math.Max(0, _contentHeight - _viewportHeight);
@@ -1122,7 +1201,13 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		private void ScrollHorizontalBy(int chars)
+		/// <summary>
+		/// Scrolls the content horizontally by the specified number of characters.
+		/// Positive values scroll right, negative values scroll left.
+		/// The offset is clamped to valid bounds automatically.
+		/// </summary>
+		/// <param name="chars">Number of characters to scroll (positive = right, negative = left).</param>
+		public void ScrollHorizontalBy(int chars)
 		{
 			int oldOffset = _horizontalScrollOffset;
 			_horizontalScrollOffset = Math.Clamp(_horizontalScrollOffset + chars, 0, Math.Max(0, _contentWidth - _viewportWidth));

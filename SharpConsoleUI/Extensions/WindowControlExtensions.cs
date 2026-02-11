@@ -44,8 +44,9 @@ public static class WindowControlExtensions
 	}
 
 	/// <summary>
-	/// Notifies the parent Window that this control's focus has changed.
-	/// Call this after updating HasFocus to keep Window's focus tracking in sync.
+	/// Notifies intermediate containers and the parent Window that this control's focus has changed.
+	/// Walks up the container hierarchy, notifying each IFocusTrackingContainer along the way,
+	/// then notifies the Window with the outermost container as the focus target.
 	/// </summary>
 	/// <param name="control">The control whose focus changed</param>
 	/// <param name="hasFocus">Whether the control now has focus</param>
@@ -54,15 +55,31 @@ public static class WindowControlExtensions
 		if (control is not IInteractiveControl interactiveControl)
 			return;
 
-		// Find parent Window
-		var window = GetParentWindow(control);
-		if (window == null)
-			return;
+		IContainer? container = (control as IWindowControl)?.Container;
+		IInteractiveControl currentNotifyTarget = interactiveControl;
 
-		// Notify Window to update its focus tracking
-		if (hasFocus)
-			window.NotifyControlGainedFocus(interactiveControl);
-		else
-			window.NotifyControlLostFocus(interactiveControl);
+		while (container != null)
+		{
+			if (container is IFocusTrackingContainer tracker)
+			{
+				tracker.NotifyChildFocusChanged(currentNotifyTarget, hasFocus);
+				if (container is IInteractiveControl containerAsInteractive)
+					currentNotifyTarget = containerAsInteractive;
+			}
+
+			if (container is Window window)
+			{
+				if (hasFocus)
+					window.NotifyControlGainedFocus(currentNotifyTarget);
+				else
+					window.NotifyControlLostFocus(currentNotifyTarget);
+				break;
+			}
+
+			if (container is IWindowControl parentControl)
+				container = parentControl.Container;
+			else
+				break;
+		}
 	}
 }

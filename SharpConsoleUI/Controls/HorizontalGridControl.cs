@@ -75,7 +75,7 @@ namespace SharpConsoleUI.Controls
 	/// Window.cs during tree building. Users don't interact with HorizontalLayout directly.
 	/// </para>
 	/// </summary>
-	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IDOMPaintable, IContainerControl
+	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IDOMPaintable, IContainerControl, IFocusTrackingContainer
 	{
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -1207,6 +1207,39 @@ namespace SharpConsoleUI.Controls
 				control.HasFocus = focus;
 			}
 		}
+
+		#region IFocusTrackingContainer Implementation
+
+		/// <inheritdoc/>
+		public void NotifyChildFocusChanged(IInteractiveControl child, bool hasFocus)
+		{
+			if (hasFocus)
+			{
+				if (_focusedContent != null && _focusedContent != child)
+				{
+					if (_focusedContent is IFocusableControl oldFc)
+						oldFc.HasFocus = false;
+					else
+						_focusedContent.HasFocus = false;
+				}
+
+				_focusedContent = child;
+
+				if (!_hasFocus)
+				{
+					_hasFocus = true;
+					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
+			}
+			else if (_focusedContent == child)
+			{
+				_focusedContent = null;
+			}
+
+			Container?.Invalidate(true);
+		}
+
+		#endregion
 
 		private void OnSplitterMoved(object? sender, SplitterMovedEventArgs e)
 		{

@@ -25,7 +25,7 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal toolbar control that contains buttons, separators, and other controls.
 	/// Supports Tab navigation between focusable items and Enter key activation of buttons.
 	/// </summary>
-	public class ToolbarControl : IWindowControl, IContainer, IDOMPaintable, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl
+	public class ToolbarControl : IWindowControl, IContainer, IDOMPaintable, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, IFocusTrackingContainer
 	{
 		private Color? _backgroundColorValue;
 		private IContainer? _container;
@@ -621,6 +621,34 @@ namespace SharpConsoleUI.Controls
 
 				currentX += itemWidth + _itemSpacing;
 			}
+		}
+
+		#endregion
+
+		#region IFocusTrackingContainer Implementation
+
+		/// <inheritdoc/>
+		public void NotifyChildFocusChanged(IInteractiveControl child, bool hasFocus)
+		{
+			if (hasFocus)
+			{
+				if (_focusedItem != null && _focusedItem != child)
+					_focusedItem.HasFocus = false;
+
+				_focusedItem = child;
+
+				if (!_hasFocus)
+				{
+					_hasFocus = true;
+					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
+			}
+			else if (_focusedItem == child)
+			{
+				_focusedItem = null;
+			}
+
+			Container?.Invalidate(true);
 		}
 
 		#endregion
