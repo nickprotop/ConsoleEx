@@ -44,6 +44,29 @@ Production-ready Linux server control panel built with SharpConsoleUI.
 
 ---
 
+### lazydotnet
+A lazygit-inspired TUI for managing .NET solutions and projects.
+
+**Project:** [github.com/nickprotop/lazydotnet](https://github.com/nickprotop/lazydotnet)
+
+**Description:** Keyboard-driven terminal interface for common .NET development tasks — build, run, test, manage NuGet packages and project references — all without leaving the terminal.
+
+**Key Features:**
+- Hierarchical solution explorer with vim-style navigation
+- Build, run, and stop projects with live log streaming
+- NuGet package management with color-coded update indicators
+- Automatic test discovery (xUnit, NUnit, MSTest)
+- Workspace management for multiple solutions
+- Editor integration (Zed, VS Code, Cursor)
+
+**What it demonstrates:**
+- SharpConsoleUI powering a developer productivity tool
+- Complex keyboard-driven navigation patterns
+- Real-time log streaming and process management
+- Professional TUI design inspired by lazygit
+
+---
+
 ## Examples by Category
 
 ### 🎮 Interactive Applications
