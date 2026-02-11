@@ -38,6 +38,12 @@ namespace SharpConsoleUI.Controls
 		private string _text = "Button";
 		private bool _visible = true;
 		private int? _width;
+		private Color? _backgroundColor;
+		private Color? _foregroundColor;
+		private Color? _focusedBackgroundColor;
+		private Color? _focusedForegroundColor;
+		private Color? _disabledBackgroundColor;
+		private Color? _disabledForegroundColor;
 
 		/// <summary>
 		/// Initializes a new instance of the ButtonControl class with default settings.
@@ -143,6 +149,60 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _width;
 			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
+		}
+
+		/// <summary>
+		/// Gets or sets the background color of the button in its normal state.
+		/// </summary>
+		public Color BackgroundColor
+		{
+			get => ColorResolver.ResolveButtonBackground(_backgroundColor, Container);
+			set { _backgroundColor = value; Container?.Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Gets or sets the foreground color of the button in its normal state.
+		/// </summary>
+		public Color ForegroundColor
+		{
+			get => ColorResolver.ResolveButtonForeground(_foregroundColor, Container);
+			set { _foregroundColor = value; Container?.Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Gets or sets the background color when the button has focus.
+		/// </summary>
+		public Color FocusedBackgroundColor
+		{
+			get => ColorResolver.ResolveButtonFocusedBackground(_focusedBackgroundColor, Container);
+			set { _focusedBackgroundColor = value; Container?.Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Gets or sets the foreground color when the button has focus.
+		/// </summary>
+		public Color FocusedForegroundColor
+		{
+			get => ColorResolver.ResolveButtonFocusedForeground(_focusedForegroundColor, Container);
+			set { _focusedForegroundColor = value; Container?.Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Gets or sets the background color when the button is disabled.
+		/// </summary>
+		public Color DisabledBackgroundColor
+		{
+			get => ColorResolver.ResolveButtonDisabledBackground(_disabledBackgroundColor, Container);
+			set { _disabledBackgroundColor = value; Container?.Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Gets or sets the foreground color when the button is disabled.
+		/// </summary>
+		public Color DisabledForegroundColor
+		{
+			get => ColorResolver.ResolveButtonDisabledForeground(_disabledForegroundColor, Container);
+			set { _disabledForegroundColor = value; Container?.Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
@@ -307,29 +367,24 @@ namespace SharpConsoleUI.Controls
 			_actualWidth = bounds.Width;
 			_actualHeight = bounds.Height;
 
-			Color backgroundColor = Container?.BackgroundColor ?? defaultBg;
-			Color foregroundColor = Container?.ForegroundColor ?? defaultFg;
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 
-			// Get theme colors
-			if (Container?.GetConsoleWindowSystem?.Theme != null)
+			Color backgroundColor;
+			Color foregroundColor;
+			if (!_enabled)
 			{
-				var theme = Container.GetConsoleWindowSystem.Theme;
-				if (!_enabled)
-				{
-					foregroundColor = theme.ButtonDisabledForegroundColor;
-					backgroundColor = theme.ButtonDisabledBackgroundColor;
-				}
-				else if (_focused)
-				{
-					foregroundColor = theme.ButtonFocusedForegroundColor;
-					backgroundColor = theme.ButtonFocusedBackgroundColor;
-				}
-				else
-				{
-					foregroundColor = theme.ButtonForegroundColor;
-					backgroundColor = theme.ButtonBackgroundColor;
-				}
+				foregroundColor = DisabledForegroundColor;
+				backgroundColor = DisabledBackgroundColor;
+			}
+			else if (_focused)
+			{
+				foregroundColor = FocusedForegroundColor;
+				backgroundColor = FocusedBackgroundColor;
+			}
+			else
+			{
+				foregroundColor = ForegroundColor;
+				backgroundColor = BackgroundColor;
 			}
 
 			int targetWidth = bounds.Width - _margin.Left - _margin.Right;

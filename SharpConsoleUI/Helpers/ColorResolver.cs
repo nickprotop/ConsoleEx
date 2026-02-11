@@ -102,5 +102,107 @@ namespace SharpConsoleUI.Helpers
 				?? container?.ForegroundColor
 				?? defaultColor;
 		}
+
+		/// <summary>
+		/// Resolves button background color: explicit → theme button bg → container bg → default.
+		/// </summary>
+		public static Color ResolveButtonBackground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.Black;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.ButtonBackgroundColor
+				?? container?.BackgroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves button foreground color: explicit → theme button fg → container fg → default.
+		/// </summary>
+		public static Color ResolveButtonForeground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.White;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor
+				?? container?.ForegroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves focused button background color: explicit → theme focused bg → container bg → default.
+		/// </summary>
+		public static Color ResolveButtonFocusedBackground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.Black;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor
+				?? container?.BackgroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves focused button foreground color: explicit → theme focused fg → container fg → default.
+		/// </summary>
+		public static Color ResolveButtonFocusedForeground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.White;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor
+				?? container?.ForegroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves disabled button background color: explicit → theme disabled bg → container bg → default.
+		/// </summary>
+		public static Color ResolveButtonDisabledBackground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.Black;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor
+				?? container?.BackgroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves disabled button foreground color: explicit → theme disabled fg → container fg → default.
+		/// </summary>
+		public static Color ResolveButtonDisabledForeground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.White;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor
+				?? container?.ForegroundColor
+				?? defaultColor;
+		}
 	}
 }

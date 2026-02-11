@@ -31,6 +31,12 @@ public sealed class ButtonBuilder
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
+	private Color? _backgroundColor;
+	private Color? _foregroundColor;
+	private Color? _focusedBackgroundColor;
+	private Color? _focusedForegroundColor;
+	private Color? _disabledBackgroundColor;
+	private Color? _disabledForegroundColor;
 	private EventHandler<ButtonControl>? _clickHandler;
 	private WindowEventHandler<ButtonControl>? _clickWithWindowHandler;
 	private EventHandler? _gotFocusHandler;
@@ -203,6 +209,98 @@ public sealed class ButtonBuilder
 	}
 
 	/// <summary>
+	/// Sets the normal-state background color
+	/// </summary>
+	/// <param name="color">The background color</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithBackgroundColor(Color color)
+	{
+		_backgroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the normal-state foreground color
+	/// </summary>
+	/// <param name="color">The foreground color</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithForegroundColor(Color color)
+	{
+		_foregroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the focused-state background color
+	/// </summary>
+	/// <param name="color">The background color when focused</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithFocusedBackgroundColor(Color color)
+	{
+		_focusedBackgroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the focused-state foreground color
+	/// </summary>
+	/// <param name="color">The foreground color when focused</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithFocusedForegroundColor(Color color)
+	{
+		_focusedForegroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the disabled-state background color
+	/// </summary>
+	/// <param name="color">The background color when disabled</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithDisabledBackgroundColor(Color color)
+	{
+		_disabledBackgroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the disabled-state foreground color
+	/// </summary>
+	/// <param name="color">The foreground color when disabled</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithDisabledForegroundColor(Color color)
+	{
+		_disabledForegroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets both normal-state background and foreground colors
+	/// </summary>
+	/// <param name="backgroundColor">The background color</param>
+	/// <param name="foregroundColor">The foreground color</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithColors(Color backgroundColor, Color foregroundColor)
+	{
+		_backgroundColor = backgroundColor;
+		_foregroundColor = foregroundColor;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets both focused-state background and foreground colors
+	/// </summary>
+	/// <param name="backgroundColor">The background color when focused</param>
+	/// <param name="foregroundColor">The foreground color when focused</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithFocusedColors(Color backgroundColor, Color foregroundColor)
+	{
+		_focusedBackgroundColor = backgroundColor;
+		_focusedForegroundColor = foregroundColor;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the click event handler
 	/// </summary>
 	/// <param name="handler">The click handler</param>
@@ -287,6 +385,13 @@ public sealed class ButtonBuilder
 			Tag = _tag,
 			StickyPosition = _stickyPosition
 		};
+
+		if (_backgroundColor.HasValue) button.BackgroundColor = _backgroundColor.Value;
+		if (_foregroundColor.HasValue) button.ForegroundColor = _foregroundColor.Value;
+		if (_focusedBackgroundColor.HasValue) button.FocusedBackgroundColor = _focusedBackgroundColor.Value;
+		if (_focusedForegroundColor.HasValue) button.FocusedForegroundColor = _focusedForegroundColor.Value;
+		if (_disabledBackgroundColor.HasValue) button.DisabledBackgroundColor = _disabledBackgroundColor.Value;
+		if (_disabledForegroundColor.HasValue) button.DisabledForegroundColor = _disabledForegroundColor.Value;
 
 		// Attach standard handler
 		if (_clickHandler != null)
