@@ -1822,4 +1822,380 @@ public class TabControlTests
 	}
 
 	#endregion
+
+	#region Focus State Preservation
+
+	[Fact]
+	public void FocusPreservation_SwitchTab_RestoresPreviousFocus()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		var btnA3 = new ButtonControl { Text = "A3" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+		pageA.AddControl(btnA3);
+		var pageB = tc.AddTab("B");
+		pageB.AddControl(new ButtonControl { Text = "B1" });
+
+		// Paint to establish dimensions
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		// Focus Tab A → btnA1 gets focus
+		tc.SetFocus(true, FocusReason.Keyboard);
+		Assert.True(btnA1.HasFocus);
+
+		// Navigate to btnA2
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA2.HasFocus);
+
+		// Switch to Tab B
+		tc.SelectedTabIndex = 1;
+		Assert.False(btnA2.HasFocus);
+
+		// Switch back to Tab A → btnA2 should be restored
+		tc.SelectedTabIndex = 0;
+		Assert.True(btnA2.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_SwitchTab_RestoresDeepFocus()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		var btnA3 = new ButtonControl { Text = "A3" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+		pageA.AddControl(btnA3);
+		var pageB = tc.AddTab("B");
+		pageB.AddControl(new ButtonControl { Text = "B1" });
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		tc.SetFocus(true, FocusReason.Keyboard);
+		// Navigate to btnA3 (the last one)
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA3.HasFocus);
+
+		// Switch away and back
+		tc.SelectedTabIndex = 1;
+		tc.SelectedTabIndex = 0;
+
+		Assert.True(btnA3.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_FirstVisit_NoSavedState_FocusesFirstChild()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		pageA.AddControl(new ButtonControl { Text = "A1" });
+		var pageB = tc.AddTab("B");
+		var btnB1 = new ButtonControl { Text = "B1" };
+		var btnB2 = new ButtonControl { Text = "B2" };
+		pageB.AddControl(btnB1);
+		pageB.AddControl(btnB2);
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		tc.SetFocus(true, FocusReason.Keyboard);
+
+		// First time visiting Tab B — should focus first child
+		tc.SelectedTabIndex = 1;
+		Assert.True(btnB1.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_RemovedChild_FallsBackToFirst()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+		var pageB = tc.AddTab("B");
+		pageB.AddControl(new ButtonControl { Text = "B1" });
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		tc.SetFocus(true, FocusReason.Keyboard);
+		// Focus btnA2
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA2.HasFocus);
+
+		// Switch to Tab B
+		tc.SelectedTabIndex = 1;
+
+		// Remove btnA2 from Tab A while we're on Tab B
+		pageA.RemoveControl(btnA2);
+
+		// Switch back — saved child is gone, should focus btnA1
+		tc.SelectedTabIndex = 0;
+		Assert.True(btnA1.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_DisabledChild_FallsBackToFirst()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+		var pageB = tc.AddTab("B");
+		pageB.AddControl(new ButtonControl { Text = "B1" });
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		tc.SetFocus(true, FocusReason.Keyboard);
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA2.HasFocus);
+
+		// Switch away, disable btnA2
+		tc.SelectedTabIndex = 1;
+		btnA2.IsEnabled = false;
+
+		// Switch back — saved child is disabled, should focus btnA1
+		tc.SelectedTabIndex = 0;
+		Assert.True(btnA1.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_CtrlTab_PreservesFocus()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+		var pageB = tc.AddTab("B");
+		pageB.AddControl(new ButtonControl { Text = "B1" });
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		tc.SetFocus(true, FocusReason.Keyboard);
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA2.HasFocus);
+
+		// Ctrl+Tab to switch to B
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab, ConsoleModifiers.Control));
+		Assert.Equal(1, tc.SelectedTabIndex);
+
+		// Ctrl+Shift+Tab to switch back
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab, ConsoleModifiers.Control | ConsoleModifiers.Shift));
+		Assert.Equal(0, tc.SelectedTabIndex);
+		Assert.True(btnA2.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_MultipleTabs_IndependentState()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+		var pageB = tc.AddTab("B");
+		var btnB1 = new ButtonControl { Text = "B1" };
+		var btnB2 = new ButtonControl { Text = "B2" };
+		pageB.AddControl(btnB1);
+		pageB.AddControl(btnB2);
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		tc.SetFocus(true, FocusReason.Keyboard);
+
+		// Tab A: navigate to btnA2
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA2.HasFocus);
+
+		// Switch to Tab B, repaint (so Tab B's panel has valid dimensions), navigate to btnB2
+		tc.SelectedTabIndex = 1;
+		PaintControl(tc, buffer, bounds, bounds);
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnB2.HasFocus);
+
+		// Switch back to Tab A → btnA2
+		tc.SelectedTabIndex = 0;
+		Assert.True(btnA2.HasFocus);
+
+		// Switch to Tab B → btnB2
+		tc.SelectedTabIndex = 1;
+		Assert.True(btnB2.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_RemoveTab_ClearsSavedState()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+		var pageB = tc.AddTab("B");
+		pageB.AddControl(new ButtonControl { Text = "B1" });
+		var pageC = tc.AddTab("C");
+		pageC.AddControl(new ButtonControl { Text = "C1" });
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		tc.SetFocus(true, FocusReason.Keyboard);
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA2.HasFocus);
+
+		// Switch to B, then remove A
+		tc.SelectedTabIndex = 1;
+		tc.RemoveTab(pageA);
+
+		// Re-add a new Tab A with same buttons
+		var newPageA = new TabPage("A-new");
+		var newBtnA1 = new ButtonControl { Text = "NewA1" };
+		var newBtnA2 = new ButtonControl { Text = "NewA2" };
+		newPageA.AddControl(newBtnA1);
+		newPageA.AddControl(newBtnA2);
+		tc.InsertTab(0, newPageA);
+
+		PaintControl(tc, buffer, bounds, bounds);
+
+		// Switch to new Tab A — no saved state, should focus first child
+		tc.SelectedTabIndex = 0;
+		Assert.True(newBtnA1.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_ClearTabs_ClearsAllSavedState()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		tc.SetFocus(true, FocusReason.Keyboard);
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA2.HasFocus);
+		tc.SetFocus(false, FocusReason.Programmatic);
+
+		// Clear all and re-add
+		tc.ClearTabs();
+		var newPage = tc.AddTab("A");
+		var newBtn1 = new ButtonControl { Text = "New1" };
+		var newBtn2 = new ButtonControl { Text = "New2" };
+		newPage.AddControl(newBtn1);
+		newPage.AddControl(newBtn2);
+
+		PaintControl(tc, buffer, bounds, bounds);
+		tc.SetFocus(true, FocusReason.Keyboard);
+
+		// No saved state — should focus first child
+		Assert.True(newBtn1.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_LoseFocusAndRegain_CtrlTab_RestoresSavedState()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+		var pageB = tc.AddTab("B");
+		pageB.AddControl(new ButtonControl { Text = "B1" });
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		// Focus and navigate to btnA2
+		tc.SetFocus(true, FocusReason.Keyboard);
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA2.HasFocus);
+
+		// Lose focus entirely (external navigation)
+		tc.SetFocus(false, FocusReason.Programmatic);
+
+		// Regain focus — saved state restores btnA2
+		tc.SetFocus(true, FocusReason.Keyboard);
+		Assert.True(btnA2.HasFocus);
+
+		// Ctrl+Tab to B and back — still restores btnA2
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab, ConsoleModifiers.Control));
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab, ConsoleModifiers.Control | ConsoleModifiers.Shift));
+		Assert.True(btnA2.HasFocus);
+	}
+
+	[Fact]
+	public void FocusPreservation_TabStripMode_SwitchAndBack_Restores()
+	{
+		var tc = new TabControl();
+		var pageA = tc.AddTab("A");
+		var btnA1 = new ButtonControl { Text = "A1" };
+		var btnA2 = new ButtonControl { Text = "A2" };
+		pageA.AddControl(btnA1);
+		pageA.AddControl(btnA2);
+		var pageB = tc.AddTab("B");
+		pageB.AddControl(new ButtonControl { Text = "B1" });
+
+		var buffer = CreateBuffer();
+		var bounds = CreateBounds();
+		PaintControl(tc, buffer, bounds, bounds);
+
+		tc.SetFocus(true, FocusReason.Keyboard);
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+		Assert.True(btnA2.HasFocus);
+
+		// Enter tab-strip mode (two Escapes)
+		tc.ProcessKey(MakeKey(ConsoleKey.Escape));
+		tc.ProcessKey(MakeKey(ConsoleKey.Escape));
+		Assert.True(tc.IsTabStripFocused);
+
+		// Navigate to Tab B and select it
+		tc.ProcessKey(MakeKey(ConsoleKey.RightArrow));
+		tc.ProcessKey(MakeKey(ConsoleKey.Enter));
+		Assert.Equal(1, tc.SelectedTabIndex);
+
+		// Navigate back to Tab A and select
+		tc.ProcessKey(MakeKey(ConsoleKey.LeftArrow));
+		tc.ProcessKey(MakeKey(ConsoleKey.Enter));
+		Assert.Equal(0, tc.SelectedTabIndex);
+
+		// Enter content — Tab from strip mode
+		tc.ProcessKey(MakeKey(ConsoleKey.Tab));
+
+		// Should restore btnA2
+		Assert.True(btnA2.HasFocus);
+	}
+
+	#endregion
 }

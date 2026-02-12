@@ -64,6 +64,7 @@ namespace SharpConsoleUI.Controls
 		IContainer, IDOMPaintable, IDirectionalFocusControl, IContainerControl, IFocusTrackingContainer
 	{
 		private readonly List<TabPage> _tabPages = new();
+		private readonly Dictionary<TabPage, IWindowControl?> _savedFocusPerTab = new();
 		private int _selectedTabIndex = -1;
 		private bool _tabStripFocused = false;
 		private int _focusedTabHeaderIndex = 0;
@@ -402,6 +403,7 @@ namespace SharpConsoleUI.Controls
 				page.Owner = null;
 			}
 			_tabPages.Clear();
+			_savedFocusPerTab.Clear();
 			_selectedTabIndex = -1;
 			_container = null;
 		}
@@ -486,14 +488,16 @@ namespace SharpConsoleUI.Controls
 					// Tab: enter content of selected tab
 					if (_selectedTabIndex >= 0 && _selectedTabIndex < _tabPages.Count)
 					{
-						var contentPanel = _tabPages[_selectedTabIndex].Content;
+						var page = _tabPages[_selectedTabIndex];
+						var contentPanel = page.Content;
 						bool hasFocusableContent = contentPanel.Children.Any(c =>
 							c is IFocusableControl fc && fc.CanReceiveFocus);
 
 						if (hasFocusableContent)
 						{
 							_tabStripFocused = false;
-							contentPanel.SetFocus(true, FocusReason.Keyboard);
+							if (!TryRestoreSavedFocus(page))
+								contentPanel.SetFocus(true, FocusReason.Keyboard);
 							_container?.Invalidate(true);
 							return true;
 						}
@@ -594,7 +598,8 @@ namespace SharpConsoleUI.Controls
 				// Try to focus content
 				if (_selectedTabIndex >= 0 && _selectedTabIndex < _tabPages.Count)
 				{
-					var contentPanel = _tabPages[_selectedTabIndex].Content;
+					var page = _tabPages[_selectedTabIndex];
+					var contentPanel = page.Content;
 					bool hasFocusableContent = contentPanel.Children.Any(c =>
 						c is IFocusableControl fc && fc.CanReceiveFocus);
 
@@ -602,10 +607,14 @@ namespace SharpConsoleUI.Controls
 					{
 						_tabStripFocused = false;
 
-						if (contentPanel is IDirectionalFocusControl dfc)
-							dfc.SetFocusWithDirection(true, _focusFromBackward);
-						else
-							contentPanel.SetFocus(true, reason);
+						// Try saved state first, then direction-based
+						if (!TryRestoreSavedFocus(page))
+						{
+							if (contentPanel is IDirectionalFocusControl dfc)
+								dfc.SetFocusWithDirection(true, _focusFromBackward);
+							else
+								contentPanel.SetFocus(true, reason);
+						}
 					}
 					else
 					{
@@ -624,10 +633,18 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				// Losing focus — unfocus content
+				// Losing focus — save focus state and unfocus content
 				if (_selectedTabIndex >= 0 && _selectedTabIndex < _tabPages.Count)
 				{
-					var contentPanel = _tabPages[_selectedTabIndex].Content;
+					var page = _tabPages[_selectedTabIndex];
+					var contentPanel = page.Content;
+
+					// Save which child had focus
+					var focusedChild = contentPanel.Children
+						.FirstOrDefault(c => c is IFocusableControl fc && fc.HasFocus);
+					if (focusedChild != null)
+						_savedFocusPerTab[page] = focusedChild;
+
 					if (contentPanel.HasFocus)
 					{
 						contentPanel.SetFocus(false, reason);
@@ -1116,6 +1133,17 @@ namespace SharpConsoleUI.Controls
 			{
 				_tabStripFocused = false;
 
+				// Live-track focused child for focus preservation across tab switches.
+				// This captures the state before Escape/scroll-mode can clear it.
+				if (_selectedTabIndex >= 0 && _selectedTabIndex < _tabPages.Count)
+				{
+					var page = _tabPages[_selectedTabIndex];
+					var focusedChild = page.Content.Children
+						.FirstOrDefault(c => c is IFocusableControl fc && fc.HasFocus);
+					if (focusedChild != null)
+						_savedFocusPerTab[page] = focusedChild;
+				}
+
 				if (!_hasFocus)
 				{
 					_hasFocus = true;
@@ -1211,6 +1239,7 @@ namespace SharpConsoleUI.Controls
 
 			page.Content.Container = null;
 			page.Owner = null;
+			_savedFocusPerTab.Remove(page);
 			_tabPages.RemoveAt(index);
 
 			// Adjust selection
@@ -1254,6 +1283,7 @@ namespace SharpConsoleUI.Controls
 				page.Owner = null;
 			}
 			_tabPages.Clear();
+			_savedFocusPerTab.Clear();
 			_selectedTabIndex = -1;
 
 			Invalidate(true);
@@ -1321,10 +1351,18 @@ namespace SharpConsoleUI.Controls
 			int oldIndex = _selectedTabIndex;
 			if (oldIndex == newIndex) return;
 
-			// Unfocus old tab's content
+			// Save focus state and unfocus old tab's content
 			if (oldIndex >= 0 && oldIndex < _tabPages.Count)
 			{
-				var oldContent = _tabPages[oldIndex].Content;
+				var oldPage = _tabPages[oldIndex];
+				var oldContent = oldPage.Content;
+
+				// Save which child had focus before switching away
+				var focusedChild = oldContent.Children
+					.FirstOrDefault(c => c is IFocusableControl fc && fc.HasFocus);
+				if (focusedChild != null)
+					_savedFocusPerTab[oldPage] = focusedChild;
+
 				if (oldContent.HasFocus)
 				{
 					oldContent.SetFocus(false, FocusReason.Programmatic);
@@ -1336,18 +1374,54 @@ namespace SharpConsoleUI.Controls
 			// If we have focus and are in content mode, focus the new tab's content
 			if (_hasFocus && !_tabStripFocused && newIndex >= 0 && newIndex < _tabPages.Count)
 			{
-				var newContent = _tabPages[newIndex].Content;
-				bool hasFocusableContent = newContent.Children.Any(c =>
-					c is IFocusableControl fc && fc.CanReceiveFocus);
+				var newPage = _tabPages[newIndex];
 
-				if (hasFocusableContent)
+				// Try to restore previously focused child
+				if (!TryRestoreSavedFocus(newPage))
 				{
-					newContent.SetFocus(true, FocusReason.Keyboard);
+					// Default: delegate to content panel (focuses first/last child)
+					var newContent = newPage.Content;
+					bool hasFocusableContent = newContent.Children.Any(c =>
+						c is IFocusableControl fc && fc.CanReceiveFocus);
+
+					if (hasFocusableContent)
+					{
+						newContent.SetFocus(true, FocusReason.Keyboard);
+					}
 				}
 			}
 
 			_container?.Invalidate(true);
 			SelectedTabChanged?.Invoke(this, new TabSelectedEventArgs(oldIndex, newIndex));
+		}
+
+		/// <summary>
+		/// Attempts to restore focus to the previously focused child in the given tab page.
+		/// Returns true if focus was successfully restored.
+		/// </summary>
+		private bool TryRestoreSavedFocus(TabPage page)
+		{
+			if (!_savedFocusPerTab.TryGetValue(page, out var savedChild) || savedChild == null)
+				return false;
+
+			// Validate the saved child is still in the tab and focusable
+			if (!page.Content.Children.Contains(savedChild))
+			{
+				_savedFocusPerTab.Remove(page);
+				return false;
+			}
+
+			if (savedChild is not IFocusableControl fc || !fc.CanReceiveFocus)
+			{
+				_savedFocusPerTab.Remove(page);
+				return false;
+			}
+
+			// Focus the saved child directly — the notification chain
+			// (NotifyParentWindowOfFocusChange) updates ScrollablePanelControl._focusedChild
+			// and TabControl state automatically.
+			fc.SetFocus(true, FocusReason.Programmatic);
+			return true;
 		}
 
 		private void SelectFirstAvailableTab()
