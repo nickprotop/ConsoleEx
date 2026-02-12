@@ -659,6 +659,8 @@ namespace SharpConsoleUI.Controls
 		{
 			foreach (var item in _items)
 			{
+				if (!item.Visible) continue;
+
 				if (item is IFocusableControl focusable && focusable.CanReceiveFocus)
 				{
 					yield return item as IInteractiveControl ?? throw new InvalidCastException();
