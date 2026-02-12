@@ -575,9 +575,16 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	/// <summary>
 	/// Creates a Spectre.Console Table with theme-aware styling.
 	/// </summary>
-	private Spectre.Console.Table CreateSpectreTable(int targetWidth)
+	private Spectre.Console.Table CreateSpectreTable()
 	{
 		var table = new Spectre.Console.Table();
+
+		// Set Expand when HorizontalAlignment is Stretch
+		// Spectre handles the actual stretching when rendering
+		if (_horizontalAlignment == HorizontalAlignment.Stretch)
+		{
+			table.Expand = true;
+		}
 
 		// Border style with theme-aware color
 		table.Border = ConvertBorderStyle(_borderStyle);
@@ -660,18 +667,41 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	/// <inheritdoc/>
 	public LayoutSize MeasureDOM(LayoutConstraints constraints)
 	{
-		int availableWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
-		var table = CreateSpectreTable(availableWidth);
+		// Use explicit width if set, otherwise use available width
+		int targetWidth = _width ?? constraints.MaxWidth;
+		int contentWidth = targetWidth - _margin.Left - _margin.Right;
 
+		var table = CreateSpectreTable();
+
+		// Pass the content width to Spectre for rendering
+		// Spectre's Expand property (if set) will make it stretch to this width
 		var lines = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(
-			table, availableWidth, null, ResolveBackgroundColor(Color.Black));
+			table, contentWidth, null, ResolveBackgroundColor(Color.Black));
 
-		int width = lines.Count > 0
+		// Measure actual rendered dimensions
+		int measuredWidth = lines.Count > 0
 			? lines.Max(l => AnsiConsoleHelper.StripAnsiStringLength(l))
 			: 0;
 		int height = lines.Count;
 
-		width += _margin.Left + _margin.Right;
+		// Calculate final width
+		int width;
+		if (_width.HasValue)
+		{
+			// Explicit width: return width + margins (margins are additional)
+			width = _width.Value + _margin.Left + _margin.Right;
+		}
+		else if (_horizontalAlignment == HorizontalAlignment.Stretch)
+		{
+			// Stretch: request full available width
+			width = constraints.MaxWidth;
+		}
+		else
+		{
+			// Natural sizing: return measured width + margins
+			width = measuredWidth + _margin.Left + _margin.Right;
+		}
+
 		height += _margin.Top + _margin.Bottom;
 
 		return new LayoutSize(
@@ -695,8 +725,9 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + _margin.Top, fgColor, bgColor);
 
 		int targetWidth = bounds.Width - _margin.Left - _margin.Right;
-		var table = CreateSpectreTable(targetWidth);
+		var table = CreateSpectreTable();
 
+		// Pass the allocated width to Spectre - it will handle stretching via Expand property
 		var lines = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(table, targetWidth, null, bgColor);
 
 		int startX = bounds.X + _margin.Left;
