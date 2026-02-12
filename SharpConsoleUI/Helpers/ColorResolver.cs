@@ -204,5 +204,124 @@ namespace SharpConsoleUI.Helpers
 				?? container?.ForegroundColor
 				?? defaultColor;
 		}
+
+		/// <summary>
+		/// Resolves active tab header background color: explicit → theme → container bg → default.
+		/// </summary>
+		public static Color ResolveTabHeaderActiveBackground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.Blue;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderActiveBackgroundColor
+				?? container?.BackgroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves active tab header foreground color: explicit → theme → container fg → default.
+		/// </summary>
+		public static Color ResolveTabHeaderActiveForeground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.White;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderActiveForegroundColor
+				?? container?.ForegroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves inactive tab header background color: explicit → theme → container bg → default.
+		/// </summary>
+		public static Color ResolveTabHeaderBackground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.Black;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderBackgroundColor
+				?? container?.BackgroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves inactive tab header foreground color: explicit → theme → container fg → default.
+		/// </summary>
+		public static Color ResolveTabHeaderForeground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.Silver;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderForegroundColor
+				?? container?.ForegroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves disabled tab header background color: explicit → theme → container bg → default.
+		/// </summary>
+		public static Color ResolveTabHeaderDisabledBackground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.Black;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderDisabledBackgroundColor
+				?? container?.BackgroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves disabled tab header foreground color: explicit → theme → container fg → default.
+		/// </summary>
+		public static Color ResolveTabHeaderDisabledForeground(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.Grey;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderDisabledForegroundColor
+				?? container?.ForegroundColor
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves tab content border color: explicit → theme → active border → default.
+		/// </summary>
+		public static Color ResolveTabContentBorder(
+			Color? explicitValue,
+			IContainer? container,
+			Color defaultColor = default)
+		{
+			if (defaultColor == default)
+				defaultColor = Color.Grey;
+
+			return explicitValue
+				?? container?.GetConsoleWindowSystem?.Theme?.TabContentBorderColor
+				?? container?.GetConsoleWindowSystem?.Theme?.ActiveBorderForegroundColor
+				?? defaultColor;
+		}
 	}
 }

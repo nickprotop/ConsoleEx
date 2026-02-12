@@ -349,4 +349,44 @@ public interface ITheme
     /// </summary>
     Color TableHeaderForegroundColor { get; }
 
+    /// <summary>
+    /// Gets the background color for the active (selected) tab header.
+    /// </summary>
+    Color TabHeaderActiveBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for the active (selected) tab header.
+    /// </summary>
+    Color TabHeaderActiveForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for inactive tab headers.
+    /// </summary>
+    Color TabHeaderBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for inactive tab headers.
+    /// </summary>
+    Color TabHeaderForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for disabled tab headers.
+    /// </summary>
+    Color TabHeaderDisabledForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for disabled tab headers.
+    /// </summary>
+    Color TabHeaderDisabledBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the border color for the TabControl content area. Null means use active window border color.
+    /// </summary>
+    Color? TabContentBorderColor { get; }
+
+    /// <summary>
+    /// Gets the background color for the TabControl content area. Null means inherit from container.
+    /// </summary>
+    Color? TabContentBackgroundColor { get; }
+
 }

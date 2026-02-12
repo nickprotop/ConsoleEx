@@ -357,5 +357,45 @@ namespace SharpConsoleUI.Themes
 		/// </summary>
 		public Color TableHeaderForegroundColor { get; set; } = Color.White;
 
+		/// <summary>
+		/// Gets or sets the background color for the active (selected) tab header.
+		/// </summary>
+		public Color TabHeaderActiveBackgroundColor { get; set; } = Color.Blue;
+
+		/// <summary>
+		/// Gets or sets the foreground color for the active (selected) tab header.
+		/// </summary>
+		public Color TabHeaderActiveForegroundColor { get; set; } = Color.White;
+
+		/// <summary>
+		/// Gets or sets the background color for inactive tab headers.
+		/// </summary>
+		public Color TabHeaderBackgroundColor { get; set; } = Color.Navy;
+
+		/// <summary>
+		/// Gets or sets the foreground color for inactive tab headers.
+		/// </summary>
+		public Color TabHeaderForegroundColor { get; set; } = Color.Silver;
+
+		/// <summary>
+		/// Gets or sets the foreground color for disabled tab headers.
+		/// </summary>
+		public Color TabHeaderDisabledForegroundColor { get; set; } = Color.Grey;
+
+		/// <summary>
+		/// Gets or sets the background color for disabled tab headers.
+		/// </summary>
+		public Color TabHeaderDisabledBackgroundColor { get; set; } = Color.Navy;
+
+		/// <summary>
+		/// Gets or sets the border color for the TabControl content area.
+		/// </summary>
+		public Color? TabContentBorderColor { get; set; } = Color.Green;
+
+		/// <summary>
+		/// Gets or sets the background color for the TabControl content area.
+		/// </summary>
+		public Color? TabContentBackgroundColor { get; set; } = null;
+
 	}
 }

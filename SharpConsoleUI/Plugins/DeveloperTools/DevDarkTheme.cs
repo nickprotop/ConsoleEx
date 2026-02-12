@@ -214,4 +214,28 @@ public class DevDarkTheme : ITheme
 
 	/// <inheritdoc />
 	public Color TableHeaderForegroundColor { get; set; } = Color.Green;
+
+	/// <inheritdoc />
+	public Color TabHeaderActiveBackgroundColor { get; set; } = Color.Grey23;
+
+	/// <inheritdoc />
+	public Color TabHeaderActiveForegroundColor { get; set; } = Color.Green;
+
+	/// <inheritdoc />
+	public Color TabHeaderBackgroundColor { get; set; } = Color.Grey11;
+
+	/// <inheritdoc />
+	public Color TabHeaderForegroundColor { get; set; } = Color.Grey58;
+
+	/// <inheritdoc />
+	public Color TabHeaderDisabledForegroundColor { get; set; } = Color.Grey27;
+
+	/// <inheritdoc />
+	public Color TabHeaderDisabledBackgroundColor { get; set; } = Color.Grey11;
+
+	/// <inheritdoc />
+	public Color? TabContentBorderColor { get; set; } = Color.Green;
+
+	/// <inheritdoc />
+	public Color? TabContentBackgroundColor { get; set; } = null;
 }
