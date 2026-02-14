@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.IO;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
@@ -709,10 +710,12 @@ namespace SharpConsoleUI.Controls
 		private bool NavigateFocus(bool backward)
 		{
 			var focusableItems = GetFocusableItems().ToList();
+
 			if (focusableItems.Count == 0)
 				return false;
 
 			int currentIndex = _focusedItem != null ? focusableItems.IndexOf(_focusedItem) : -1;
+
 			int newIndex;
 
 			if (backward)

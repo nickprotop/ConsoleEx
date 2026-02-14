@@ -1793,8 +1793,10 @@ namespace SharpConsoleUI
 		{
 			bool isTracked = control != null && _lastFocusedControl == control;
 			_windowSystem?.LogService?.LogTrace($"NotifyControlLostFocus: {control?.GetType().Name} isTracked={isTracked} _lastFocused={_lastFocusedControl?.GetType().Name ?? "null"}", "Focus");
-			// Clear tracking if this was the last focused control
-			if (isTracked)
+
+			// Clear tracking if this was the last focused control AND it actually lost focus
+			// (not just a child inside it losing focus while the container maintains focus)
+			if (isTracked && control is Controls.IFocusableControl focusable && !focusable.HasFocus)
 			{
 				_lastFocusedControl = null;
 				FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
