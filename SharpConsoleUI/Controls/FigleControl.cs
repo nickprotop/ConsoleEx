@@ -181,7 +181,8 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets or sets the path to a custom .flf font file.
+		/// Gets or sets the name of a custom .flf font file (without extension).
+		/// The font must be located in the 'fonts' directory relative to the application base directory.
 		/// Takes precedence over Size but lower than CustomFont.
 		/// </summary>
 		public string? FontPath
@@ -249,16 +250,45 @@ namespace SharpConsoleUI.Controls
 			if (_customFont != null)
 				return _customFont;
 
-			if (!string.IsNullOrEmpty(_fontPath) && File.Exists(_fontPath))
+			if (!string.IsNullOrEmpty(_fontPath))
 			{
 				try
 				{
-					using var stream = File.OpenRead(_fontPath);
-					return FigletFont.Load(stream);
+					// Security: Validate font path to prevent path traversal attacks
+					// Check for suspicious patterns in the input
+					string normalizedInput = _fontPath.Replace('\\', '/');
+					if (normalizedInput.Contains("../") || normalizedInput.Contains("..\\") ||
+					    Path.IsPathFullyQualified(_fontPath))
+					{
+						throw new ArgumentException($"Invalid font path: path traversal detected in '{_fontPath}'");
+					}
+
+					string fontsDir = Path.Combine(AppContext.BaseDirectory, "fonts");
+					string fontFileName = _fontPath.EndsWith(".flf") ? _fontPath : _fontPath + ".flf";
+					string safePath = Path.GetFullPath(Path.Combine(fontsDir, fontFileName));
+
+					// Ensure the resolved path is within the fonts directory
+					string normalizedFontsDir = Path.GetFullPath(fontsDir);
+					if (!safePath.StartsWith(normalizedFontsDir + Path.DirectorySeparatorChar) &&
+					    safePath != normalizedFontsDir)
+					{
+						throw new ArgumentException($"Invalid font path: path traversal detected in '{_fontPath}'");
+					}
+
+					if (File.Exists(safePath))
+					{
+						using var stream = File.OpenRead(safePath);
+						return FigletFont.Load(stream);
+					}
+				}
+				catch (ArgumentException)
+				{
+					// Re-throw security exceptions
+					throw;
 				}
 				catch
 				{
-					// Fall through to size-based
+					// Fall through to size-based for other errors
 				}
 			}
 
