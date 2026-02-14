@@ -210,7 +210,6 @@ namespace SharpConsoleUI.Helpers
 			char[] kChar = GetKeyCharArray(cki);
 
 			// PERF: This loop could benefit from use of Spans and other strategies to avoid copies.
-			//System.Diagnostics.Debug.WriteLine ($"kChar: {new string (kChar)}");
 			for (var i = 0; i < kChar.Length; i++)
 			{
 				// PERF: Copy
@@ -620,9 +619,7 @@ namespace SharpConsoleUI.Helpers
 
 			//buttonState = mouseFlags;
 
-			//System.Diagnostics.Debug.WriteLine ($"buttonState: {buttonState} X: {pos.X} Y: {pos.Y}");
 			//foreach (var mf in mouseFlags) {
-			//	System.Diagnostics.Debug.WriteLine ($"mouseFlags: {mf} X: {pos.X} Y: {pos.Y}");
 			//}
 		}
 

@@ -1218,10 +1218,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             }
         }
 
-        // DEBUG: Log before clamping
-        int originalX = x;
-        int originalY = y;
-
         // Clamp to window's content buffer bounds (window-relative coordinates)
         // Window buffer is sized to (Width-2) × (Height-2) by design
         Window? parentWindow = Container as Window;
