@@ -815,7 +815,7 @@ Real-world applications built with SharpConsoleUI:
 | Project | Description |
 |---------|-------------|
 | **[ServerHub](https://github.com/nickprotop/ServerHub)** | A terminal-based control panel for Linux servers and homelabs. Features 14 bundled widgets for monitoring CPU, memory, disk, network, Docker containers, systemd services, and more. Supports custom widgets in any language and context-aware actions. |
-| **[lazydotnet](https://github.com/nickprotop/lazydotnet)** | A lazygit-inspired TUI for managing .NET solutions and projects. Keyboard-driven interface for building, running, testing, NuGet package management, and project reference management with live log streaming and vim-style navigation. |
+| **[LazyNuGet](https://github.com/nickprotop/lazynuget)** | A terminal-based NuGet package manager for .NET solutions. Search, install, update, and manage NuGet dependencies across projects with multi-source support, dependency tree visualization, and cross-platform binaries. |
 
 *Using SharpConsoleUI in your project? Open a PR to add it to this list!*
 
