@@ -31,7 +31,8 @@ public static class FileDialogs
 	/// <returns>A task that completes with the selected folder path, or null if cancelled.</returns>
 	public static Task<string?> ShowFolderPickerAsync(ConsoleWindowSystem windowSystem, string? startPath = null, Window? parentWindow = null)
 	{
-		return ShowFilePickerInternalAsync(windowSystem, "Select Folder", startPath, null, foldersOnly: true, parentWindow);
+		// Delegate to dedicated folder picker with proper UI/UX
+		return FolderPickerDialog.ShowAsync(windowSystem, startPath, "Select Folder", parentWindow);
 	}
 
 	/// <summary>
