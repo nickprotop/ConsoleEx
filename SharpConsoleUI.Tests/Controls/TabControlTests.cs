@@ -618,4 +618,584 @@ public class TabControlTests
 	}
 
 	#endregion
+
+	#region Event Tests
+
+	[Fact]
+	public void TabChanged_FiresWhenActiveTabChanges()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		TabChangedEventArgs? eventArgs = null;
+		tabControl.TabChanged += (s, e) => eventArgs = e;
+
+		// Act
+		tabControl.ActiveTabIndex = 1;
+
+		// Assert
+		Assert.NotNull(eventArgs);
+		Assert.Equal(0, eventArgs.OldIndex);
+		Assert.Equal(1, eventArgs.NewIndex);
+		Assert.Equal("Tab 1", eventArgs.OldTab?.Title);
+		Assert.Equal("Tab 2", eventArgs.NewTab?.Title);
+	}
+
+	[Fact]
+	public void TabChanging_FiresBeforeTabChanges()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		TabChangingEventArgs? eventArgs = null;
+		tabControl.TabChanging += (s, e) => eventArgs = e;
+
+		// Act
+		tabControl.ActiveTabIndex = 1;
+
+		// Assert
+		Assert.NotNull(eventArgs);
+		Assert.Equal(0, eventArgs.OldIndex);
+		Assert.Equal(1, eventArgs.NewIndex);
+	}
+
+	[Fact]
+	public void TabChanging_CanCancelTabChange()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		tabControl.TabChanging += (s, e) => e.Cancel = true;
+
+		// Act
+		tabControl.ActiveTabIndex = 1;
+
+		// Assert
+		Assert.Equal(0, tabControl.ActiveTabIndex); // Should stay on tab 0
+	}
+
+	[Fact]
+	public void TabAdded_FiresWhenTabAdded()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		TabEventArgs? eventArgs = null;
+		tabControl.TabAdded += (s, e) => eventArgs = e;
+
+		// Act
+		var content = CreateLabel("Content");
+		tabControl.AddTab("Tab 1", content);
+
+		// Assert
+		Assert.NotNull(eventArgs);
+		Assert.Equal("Tab 1", eventArgs.TabPage.Title);
+		Assert.Equal(0, eventArgs.Index);
+	}
+
+	[Fact]
+	public void TabRemoved_FiresWhenTabRemoved()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		TabEventArgs? eventArgs = null;
+		tabControl.TabRemoved += (s, e) => eventArgs = e;
+
+		// Act
+		tabControl.RemoveTab(0);
+
+		// Assert
+		Assert.NotNull(eventArgs);
+		Assert.Equal("Tab 1", eventArgs.TabPage.Title);
+		Assert.Equal(0, eventArgs.Index);
+	}
+
+	#endregion
+
+	#region Convenience Property Tests
+
+	[Fact]
+	public void ActiveTab_ReturnsCurrentlyActiveTab()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		// Act
+		var activeTab = tabControl.ActiveTab;
+
+		// Assert
+		Assert.NotNull(activeTab);
+		Assert.Equal("Tab 1", activeTab.Title);
+	}
+
+	[Fact]
+	public void ActiveTab_ReturnsNullWhenNoTabs()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+
+		// Act
+		var activeTab = tabControl.ActiveTab;
+
+		// Assert
+		Assert.Null(activeTab);
+	}
+
+	[Fact]
+	public void TabCount_ReturnsNumberOfTabs()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.AddTab("Tab 3", CreateLabel("Content 3"));
+
+		// Act & Assert
+		Assert.Equal(3, tabControl.TabCount);
+	}
+
+	[Fact]
+	public void HasTabs_ReflectsTabPresence()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+
+		// Assert - no tabs
+		Assert.False(tabControl.HasTabs);
+
+		// Act - add tab
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+
+		// Assert - has tabs
+		Assert.True(tabControl.HasTabs);
+	}
+
+	[Fact]
+	public void TabTitles_ReturnsAllTitles()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.AddTab("Tab 3", CreateLabel("Content 3"));
+
+		// Act
+		var titles = tabControl.TabTitles.ToList();
+
+		// Assert
+		Assert.Equal(3, titles.Count);
+		Assert.Contains("Tab 1", titles);
+		Assert.Contains("Tab 2", titles);
+		Assert.Contains("Tab 3", titles);
+	}
+
+	#endregion
+
+	#region Remove Tab Tests
+
+	[Fact]
+	public void RemoveTab_RemovesTabAtIndex()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		// Act
+		tabControl.RemoveTab(0);
+
+		// Assert
+		Assert.Equal(1, tabControl.TabCount);
+		Assert.Equal("Tab 2", tabControl.TabPages[0].Title);
+	}
+
+	[Fact]
+	public void RemoveTab_RemovesActiveTab_SwitchesToNext()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.AddTab("Tab 3", CreateLabel("Content 3"));
+		tabControl.ActiveTabIndex = 1; // Active on Tab 2
+
+		// Act
+		tabControl.RemoveTab(1); // Remove Tab 2
+
+		// Assert
+		Assert.Equal(1, tabControl.ActiveTabIndex); // Now on Tab 3 (index 1 after removal)
+		Assert.Equal("Tab 3", tabControl.ActiveTab?.Title);
+	}
+
+	[Fact]
+	public void RemoveTab_RemovesLastTab_SwitchesToPrevious()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.ActiveTabIndex = 1; // Active on Tab 2 (last tab)
+
+		// Act
+		tabControl.RemoveTab(1);
+
+		// Assert
+		Assert.Equal(0, tabControl.ActiveTabIndex);
+		Assert.Equal("Tab 1", tabControl.ActiveTab?.Title);
+	}
+
+	[Fact]
+	public void RemoveTabByTitle_RemovesFirstMatch()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.AddTab("Tab 1", CreateLabel("Content 3")); // Duplicate title
+
+		// Act
+		var removed = tabControl.RemoveTab("Tab 1");
+
+		// Assert
+		Assert.True(removed);
+		Assert.Equal(2, tabControl.TabCount);
+		Assert.Equal("Tab 2", tabControl.TabPages[0].Title);
+		Assert.Equal("Tab 1", tabControl.TabPages[1].Title); // Duplicate still exists
+	}
+
+	[Fact]
+	public void RemoveTabByTitle_ReturnsFalseWhenNotFound()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+
+		// Act
+		var removed = tabControl.RemoveTab("Nonexistent");
+
+		// Assert
+		Assert.False(removed);
+		Assert.Equal(1, tabControl.TabCount);
+	}
+
+	[Fact]
+	public void ClearTabs_RemovesAllTabs()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.AddTab("Tab 3", CreateLabel("Content 3"));
+
+		// Act
+		tabControl.ClearTabs();
+
+		// Assert
+		Assert.Equal(0, tabControl.TabCount);
+		Assert.False(tabControl.HasTabs);
+	}
+
+	#endregion
+
+	#region Query Method Tests
+
+	[Fact]
+	public void FindTab_ReturnsTabByTitle()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		// Act
+		var tab = tabControl.FindTab("Tab 2");
+
+		// Assert
+		Assert.NotNull(tab);
+		Assert.Equal("Tab 2", tab.Title);
+	}
+
+	[Fact]
+	public void FindTab_ReturnsNullWhenNotFound()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+
+		// Act
+		var tab = tabControl.FindTab("Nonexistent");
+
+		// Assert
+		Assert.Null(tab);
+	}
+
+	[Fact]
+	public void GetTab_ReturnsTabAtIndex()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		// Act
+		var tab = tabControl.GetTab(1);
+
+		// Assert
+		Assert.NotNull(tab);
+		Assert.Equal("Tab 2", tab.Title);
+	}
+
+	[Fact]
+	public void GetTab_ReturnsNullForInvalidIndex()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+
+		// Act & Assert
+		Assert.Null(tabControl.GetTab(-1));
+		Assert.Null(tabControl.GetTab(10));
+	}
+
+	[Fact]
+	public void HasTab_ReturnsTrueWhenTabExists()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+
+		// Act & Assert
+		Assert.True(tabControl.HasTab("Tab 1"));
+		Assert.False(tabControl.HasTab("Nonexistent"));
+	}
+
+	#endregion
+
+	#region Navigation Method Tests
+
+	[Fact]
+	public void NextTab_SwitchesToNextTab()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.AddTab("Tab 3", CreateLabel("Content 3"));
+
+		// Act
+		tabControl.NextTab();
+
+		// Assert
+		Assert.Equal(1, tabControl.ActiveTabIndex);
+	}
+
+	[Fact]
+	public void NextTab_WrapsAroundToFirst()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.ActiveTabIndex = 1; // Last tab
+
+		// Act
+		tabControl.NextTab();
+
+		// Assert
+		Assert.Equal(0, tabControl.ActiveTabIndex);
+	}
+
+	[Fact]
+	public void PreviousTab_SwitchesToPreviousTab()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.ActiveTabIndex = 1;
+
+		// Act
+		tabControl.PreviousTab();
+
+		// Assert
+		Assert.Equal(0, tabControl.ActiveTabIndex);
+	}
+
+	[Fact]
+	public void PreviousTab_WrapsAroundToLast()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.ActiveTabIndex = 0; // First tab
+
+		// Act
+		tabControl.PreviousTab();
+
+		// Assert
+		Assert.Equal(1, tabControl.ActiveTabIndex);
+	}
+
+	[Fact]
+	public void SwitchToTab_SwitchesToTabByTitle()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		// Act
+		var result = tabControl.SwitchToTab("Tab 2");
+
+		// Assert
+		Assert.True(result);
+		Assert.Equal(1, tabControl.ActiveTabIndex);
+	}
+
+	[Fact]
+	public void SwitchToTab_ReturnsFalseWhenNotFound()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+
+		// Act
+		var result = tabControl.SwitchToTab("Nonexistent");
+
+		// Assert
+		Assert.False(result);
+		Assert.Equal(0, tabControl.ActiveTabIndex);
+	}
+
+	#endregion
+
+	#region Modification Method Tests
+
+	[Fact]
+	public void SetTabTitle_ChangesTabTitle()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Old Title", CreateLabel("Content"));
+
+		// Act
+		tabControl.SetTabTitle(0, "New Title");
+
+		// Assert
+		Assert.Equal("New Title", tabControl.TabPages[0].Title);
+	}
+
+	[Fact]
+	public void SetTabContent_ReplacesContent()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		var oldContent = CreateLabel("Old Content");
+		tabControl.AddTab("Tab 1", oldContent);
+
+		// Act
+		var newContent = CreateLabel("New Content");
+		tabControl.SetTabContent(0, newContent);
+
+		// Assert
+		Assert.Equal(newContent, tabControl.TabPages[0].Content);
+	}
+
+	[Fact]
+	public void InsertTab_InsertsAtPosition()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 3", CreateLabel("Content 3"));
+
+		// Act
+		tabControl.InsertTab(1, "Tab 2", CreateLabel("Content 2"));
+
+		// Assert
+		Assert.Equal(3, tabControl.TabCount);
+		Assert.Equal("Tab 1", tabControl.TabPages[0].Title);
+		Assert.Equal("Tab 2", tabControl.TabPages[1].Title);
+		Assert.Equal("Tab 3", tabControl.TabPages[2].Title);
+	}
+
+	[Fact]
+	public void InsertTab_AdjustsActiveIndex()
+	{
+		// Arrange
+		var tabControl = new TabControl();
+		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
+		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
+		tabControl.ActiveTabIndex = 1;
+
+		// Act - Insert before active tab
+		tabControl.InsertTab(0, "Tab 0", CreateLabel("Content 0"));
+
+		// Assert
+		Assert.Equal(2, tabControl.ActiveTabIndex); // Shifted
+	}
+
+	#endregion
+
+	#region Builder Enhancement Tests
+
+	[Fact]
+	public void Builder_AddTabs_AddMultipleTabs()
+	{
+		// Act
+		var tabControl = TabControl()
+			.AddTabs(
+				("Tab 1", CreateLabel("Content 1")),
+				("Tab 2", CreateLabel("Content 2")),
+				("Tab 3", CreateLabel("Content 3"))
+			)
+			.Build();
+
+		// Assert
+		Assert.Equal(3, tabControl.TabCount);
+		Assert.Equal("Tab 1", tabControl.TabPages[0].Title);
+		Assert.Equal("Tab 2", tabControl.TabPages[1].Title);
+		Assert.Equal("Tab 3", tabControl.TabPages[2].Title);
+	}
+
+	[Fact]
+	public void Builder_AddTabIf_AddsWhenTrue()
+	{
+		// Act
+		var tabControl = TabControl()
+			.AddTabIf(true, "Tab 1", CreateLabel("Content 1"))
+			.AddTabIf(false, "Tab 2", CreateLabel("Content 2"))
+			.Build();
+
+		// Assert
+		Assert.Equal(1, tabControl.TabCount);
+		Assert.Equal("Tab 1", tabControl.TabPages[0].Title);
+	}
+
+	[Fact]
+	public void Builder_AddTabIf_WithLambda_AddsWhenTrue()
+	{
+		// Act
+		var tabControl = TabControl()
+			.AddTabIf(true, "Tab 1", () => CreateLabel("Content 1"))
+			.AddTabIf(false, "Tab 2", () => CreateLabel("Content 2"))
+			.Build();
+
+		// Assert
+		Assert.Equal(1, tabControl.TabCount);
+		Assert.Equal("Tab 1", tabControl.TabPages[0].Title);
+	}
+
+	#endregion
 }

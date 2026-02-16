@@ -57,6 +57,52 @@ public sealed class TabControlBuilder
 	}
 
 	/// <summary>
+	/// Adds multiple tabs at once
+	/// </summary>
+	/// <param name="tabs">Tuples of (title, content) for each tab</param>
+	/// <returns>The builder for chaining</returns>
+	public TabControlBuilder AddTabs(params (string title, IWindowControl content)[] tabs)
+	{
+		foreach (var (title, content) in tabs)
+		{
+			_control.AddTab(title, content);
+		}
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a tab only if the condition is true
+	/// </summary>
+	/// <param name="condition">Whether to add the tab</param>
+	/// <param name="title">The title displayed in the tab header</param>
+	/// <param name="content">The control to display when this tab is active</param>
+	/// <returns>The builder for chaining</returns>
+	public TabControlBuilder AddTabIf(bool condition, string title, IWindowControl content)
+	{
+		if (condition)
+		{
+			_control.AddTab(title, content);
+		}
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a tab only if the condition is true, using a builder function
+	/// </summary>
+	/// <param name="condition">Whether to add the tab</param>
+	/// <param name="title">The title displayed in the tab header</param>
+	/// <param name="contentBuilder">A function that builds the tab content</param>
+	/// <returns>The builder for chaining</returns>
+	public TabControlBuilder AddTabIf(bool condition, string title, Func<IWindowControl> contentBuilder)
+	{
+		if (condition)
+		{
+			_control.AddTab(title, contentBuilder());
+		}
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the initially active tab index (0-based)
 	/// </summary>
 	/// <param name="index">The index of the tab to activate initially</param>

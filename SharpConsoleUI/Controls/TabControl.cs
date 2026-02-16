@@ -14,6 +14,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using Spectre.Console;
 using Color = Spectre.Console.Color;
+using System.Linq;
 
 namespace SharpConsoleUI.Controls
 {
@@ -62,11 +63,14 @@ namespace SharpConsoleUI.Controls
 		/// <param name="content">The control to display when this tab is active.</param>
 		public void AddTab(string title, IWindowControl content)
 		{
-			_tabPages.Add(new TabPage { Title = title, Content = content });
+			var tabPage = new TabPage { Title = title, Content = content };
+			_tabPages.Add(tabPage);
 			content.Container = this;
 
 			// Set visibility based on whether this is the active tab
 			content.Visible = _tabPages.Count - 1 == _activeTabIndex;
+
+			TabAdded?.Invoke(this, new TabEventArgs(tabPage, _tabPages.Count - 1));
 
 			Invalidate(true);
 		}
@@ -77,26 +81,292 @@ namespace SharpConsoleUI.Controls
 		public int ActiveTabIndex
 		{
 			get => _activeTabIndex;
-			set
+		set
+		{
+			if (_activeTabIndex != value && value >= 0 && value < _tabPages.Count)
 			{
-				if (_activeTabIndex != value && value >= 0 && value < _tabPages.Count)
-				{
-					// Toggle visibility
-					if (_activeTabIndex < _tabPages.Count)
-						_tabPages[_activeTabIndex].Content.Visible = false;
+				// Raise TabChanging event (can be canceled)
+				var oldTab = _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count ? _tabPages[_activeTabIndex] : null;
+				var newTab = value >= 0 && value < _tabPages.Count ? _tabPages[value] : null;
+				var changingArgs = new TabChangingEventArgs(_activeTabIndex, value, oldTab, newTab);
+				TabChanging?.Invoke(this, changingArgs);
 
-					_activeTabIndex = value;
-					_tabPages[_activeTabIndex].Content.Visible = true;
+				if (changingArgs.Cancel)
+					return;
 
-					Invalidate(true);
-				}
+				// Toggle visibility
+				if (_activeTabIndex < _tabPages.Count)
+					_tabPages[_activeTabIndex].Content.Visible = false;
+
+				_activeTabIndex = value;
+				_tabPages[_activeTabIndex].Content.Visible = true;
+
+				// Raise TabChanged event
+				var changedArgs = new TabChangedEventArgs(changingArgs.OldIndex, changingArgs.NewIndex, changingArgs.OldTab, changingArgs.NewTab);
+				TabChanged?.Invoke(this, changedArgs);
+
+				Invalidate(true);
 			}
+		}
 		}
 
 		/// <summary>
 		/// Gets the read-only list of tab pages.
 		/// </summary>
 		public IReadOnlyList<TabPage> TabPages => _tabPages.AsReadOnly();
+
+	#region Events
+
+	/// <summary>
+	/// Raised before the active tab changes. Can be canceled.
+	/// </summary>
+	public event EventHandler<TabChangingEventArgs>? TabChanging;
+
+	/// <summary>
+	/// Raised after the active tab has changed.
+	/// </summary>
+	public event EventHandler<TabChangedEventArgs>? TabChanged;
+
+	/// <summary>
+	/// Raised when a tab is added to the control.
+	/// </summary>
+	public event EventHandler<TabEventArgs>? TabAdded;
+
+	/// <summary>
+	/// Raised when a tab is removed from the control.
+	/// </summary>
+	public event EventHandler<TabEventArgs>? TabRemoved;
+
+	#endregion
+
+	#region Convenience Properties
+
+	/// <summary>
+	/// Gets the currently active tab page, or null if no tabs exist.
+	/// </summary>
+	public TabPage? ActiveTab => _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count
+		? _tabPages[_activeTabIndex]
+		: null;
+
+	/// <summary>
+	/// Gets the number of tabs in the control.
+	/// </summary>
+	public int TabCount => _tabPages.Count;
+
+	/// <summary>
+	/// Gets whether the control has any tabs.
+	/// </summary>
+	public bool HasTabs => _tabPages.Count > 0;
+
+	/// <summary>
+	/// Gets the titles of all tabs.
+	/// </summary>
+	public IEnumerable<string> TabTitles => _tabPages.Select(t => t.Title);
+
+	#endregion
+
+	#region Tab Management Methods
+
+	/// <summary>
+	/// Removes a tab at the specified index.
+	/// </summary>
+	/// <param name="index">The index of the tab to remove.</param>
+	public void RemoveTab(int index)
+	{
+		if (index < 0 || index >= _tabPages.Count)
+			return;
+
+		var tabPage = _tabPages[index];
+		_tabPages.RemoveAt(index);
+		tabPage.Content.Dispose();
+
+		// Adjust active tab index
+		if (_tabPages.Count == 0)
+		{
+			_activeTabIndex = 0;
+		}
+		else if (index == _activeTabIndex)
+		{
+			// Removing active tab
+			if (_activeTabIndex >= _tabPages.Count)
+			{
+				// Was last tab, go to previous
+				_activeTabIndex = _tabPages.Count - 1;
+			}
+			// else: stay at same index (next tab slides into position)
+			_tabPages[_activeTabIndex].Content.Visible = true;
+		}
+		else if (index < _activeTabIndex)
+		{
+			// Removing tab before active, decrement index
+			_activeTabIndex--;
+		}
+
+		TabRemoved?.Invoke(this, new TabEventArgs(tabPage, index));
+		Invalidate(true);
+	}
+
+	/// <summary>
+	/// Removes a tab at the specified index.
+	/// </summary>
+	/// <param name="index">The index of the tab to remove.</param>
+	public void RemoveTabAt(int index) => RemoveTab(index);
+
+	/// <summary>
+	/// Removes the first tab with the specified title.
+	/// </summary>
+	/// <param name="title">The title of the tab to remove.</param>
+	/// <returns>True if a tab was removed, false otherwise.</returns>
+	public bool RemoveTab(string title)
+	{
+		int index = _tabPages.FindIndex(t => t.Title == title);
+		if (index >= 0)
+		{
+			RemoveTab(index);
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Removes all tabs from the control.
+	/// </summary>
+	public void ClearTabs()
+	{
+		while (_tabPages.Count > 0)
+		{
+			RemoveTab(0);
+		}
+	}
+
+	/// <summary>
+	/// Finds a tab by title.
+	/// </summary>
+	/// <param name="title">The title to search for.</param>
+	/// <returns>The tab page, or null if not found.</returns>
+	public TabPage? FindTab(string title)
+	{
+		return _tabPages.FirstOrDefault(t => t.Title == title);
+	}
+
+	/// <summary>
+	/// Gets a tab by index.
+	/// </summary>
+	/// <param name="index">The index of the tab.</param>
+	/// <returns>The tab page, or null if index is out of range.</returns>
+	public TabPage? GetTab(int index)
+	{
+		return index >= 0 && index < _tabPages.Count ? _tabPages[index] : null;
+	}
+
+	/// <summary>
+	/// Checks if a tab with the specified title exists.
+	/// </summary>
+	/// <param name="title">The title to search for.</param>
+	/// <returns>True if a tab with the title exists, false otherwise.</returns>
+	public bool HasTab(string title)
+	{
+		return _tabPages.Any(t => t.Title == title);
+	}
+
+	/// <summary>
+	/// Switches to the next tab (wraps around to first tab).
+	/// </summary>
+	public void NextTab()
+	{
+		if (_tabPages.Count > 0)
+		{
+			ActiveTabIndex = (_activeTabIndex + 1) % _tabPages.Count;
+		}
+	}
+
+	/// <summary>
+	/// Switches to the previous tab (wraps around to last tab).
+	/// </summary>
+	public void PreviousTab()
+	{
+		if (_tabPages.Count > 0)
+		{
+			ActiveTabIndex = (_activeTabIndex - 1 + _tabPages.Count) % _tabPages.Count;
+		}
+	}
+
+	/// <summary>
+	/// Switches to a tab by title.
+	/// </summary>
+	/// <param name="title">The title of the tab to switch to.</param>
+	/// <returns>True if the tab was found and switched to, false otherwise.</returns>
+	public bool SwitchToTab(string title)
+	{
+		int index = _tabPages.FindIndex(t => t.Title == title);
+		if (index >= 0)
+		{
+			ActiveTabIndex = index;
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Sets the title of a tab at the specified index.
+	/// </summary>
+	/// <param name="index">The index of the tab.</param>
+	/// <param name="newTitle">The new title.</param>
+	public void SetTabTitle(int index, string newTitle)
+	{
+		if (index >= 0 && index < _tabPages.Count)
+		{
+			_tabPages[index].Title = newTitle;
+			Invalidate(true);
+		}
+	}
+
+	/// <summary>
+	/// Sets the content of a tab at the specified index.
+	/// </summary>
+	/// <param name="index">The index of the tab.</param>
+	/// <param name="newContent">The new content control.</param>
+	public void SetTabContent(int index, IWindowControl newContent)
+	{
+		if (index >= 0 && index < _tabPages.Count)
+		{
+			var oldContent = _tabPages[index].Content;
+			oldContent.Dispose();
+			_tabPages[index].Content = newContent;
+			newContent.Container = this;
+			newContent.Visible = index == _activeTabIndex;
+			Invalidate(true);
+		}
+	}
+
+	/// <summary>
+	/// Inserts a new tab at the specified index.
+	/// </summary>
+	/// <param name="index">The index where the tab should be inserted.</param>
+	/// <param name="title">The title displayed in the tab header.</param>
+	/// <param name="content">The control to display when this tab is active.</param>
+	public void InsertTab(int index, string title, IWindowControl content)
+	{
+		if (index < 0 || index > _tabPages.Count)
+			return;
+
+		var tabPage = new TabPage { Title = title, Content = content };
+		_tabPages.Insert(index, tabPage);
+		content.Container = this;
+		content.Visible = false;
+
+		// Adjust active tab index if needed
+		if (index <= _activeTabIndex)
+		{
+			_activeTabIndex++;
+		}
+
+		TabAdded?.Invoke(this, new TabEventArgs(tabPage, index));
+		Invalidate(true);
+	}
+
+	#endregion
+
 
 		#region IWindowControl Implementation
 
@@ -502,5 +772,22 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the control displayed when this tab is active.
 		/// </summary>
 		public IWindowControl Content { get; set; } = null!;
+
+		/// <summary>
+		/// Gets or sets custom metadata associated with this tab.
+		/// </summary>
+		public object? Tag { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether this tab can be closed by the user.
+		/// Future feature: close button in tab header.
+		/// </summary>
+		public bool IsClosable { get; set; }
+
+		/// <summary>
+		/// Gets or sets the tooltip text shown when hovering over the tab header.
+		/// Future feature: tooltip display on hover.
+		/// </summary>
+		public string? Tooltip { get; set; }
 	}
 }
