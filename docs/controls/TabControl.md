@@ -13,18 +13,61 @@ TabControl is a container control that displays multiple pages of content (tabs)
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `ActiveTabIndex` | `int` | `0` | Index of currently active tab (0-based) |
+| `ActiveTab` | `TabPage?` | - | Currently active tab page (read-only) |
 | `TabPages` | `IReadOnlyList<TabPage>` | empty | Read-only collection of all tabs |
+| `TabCount` | `int` | `0` | Number of tabs in the control (read-only) |
+| `HasTabs` | `bool` | `false` | Whether control has any tabs (read-only) |
+| `TabTitles` | `IEnumerable<string>` | - | All tab titles (read-only) |
 | `Height` | `int?` | `null` | Fixed height (minimum 2: 1 header + 1 content) |
 | `Width` | `int?` | `null` | Fixed width (auto-sized if null) |
 | `BackgroundColor` | `Color` | `Color.Black` | Background color for control |
 | `ForegroundColor` | `Color` | `Color.White` | Foreground color for control |
 | `IsEnabled` | `bool` | `true` | Enable/disable tab control |
 
+## Events
+
+| Event | Arguments | Description |
+|-------|-----------|-------------|
+| `TabChanging` | `TabChangingEventArgs` | Raised before tab changes (cancelable) |
+| `TabChanged` | `TabChangedEventArgs` | Raised after tab has changed |
+| `TabAdded` | `TabEventArgs` | Raised when a tab is added |
+| `TabRemoved` | `TabEventArgs` | Raised when a tab is removed |
+
 ## Methods
 
-| Method | Parameters | Description |
-|--------|------------|-------------|
-| `AddTab` | `string title, IWindowControl content` | Add a new tab with title and content |
+### Tab Management
+
+| Method | Description |
+|--------|-------------|
+| `AddTab(string title, IWindowControl content)` | Add a new tab |
+| `RemoveTab(int index)` | Remove tab by index |
+| `RemoveTab(string title)` | Remove first tab with matching title |
+| `RemoveTabAt(int index)` | Remove tab by index (alias) |
+| `ClearTabs()` | Remove all tabs |
+| `InsertTab(int index, string title, IWindowControl content)` | Insert tab at position |
+
+### Navigation
+
+| Method | Description |
+|--------|-------------|
+| `NextTab()` | Switch to next tab (wraps around) |
+| `PreviousTab()` | Switch to previous tab (wraps around) |
+| `SwitchToTab(string title)` | Switch to tab by title |
+
+### Query
+
+| Method | Description |
+|--------|-------------|
+| `FindTab(string title)` | Find tab by title (returns TabPage?) |
+| `GetTab(int index)` | Get tab by index (returns TabPage?) |
+| `HasTab(string title)` | Check if tab exists |
+
+### Modification
+
+| Method | Description |
+|--------|-------------|
+| `SetTabTitle(int index, string newTitle)` | Change tab title |
+| `SetTabContent(int index, IWindowControl newContent)` | Replace tab content |
 
 ## Creating TabControl
 
@@ -271,6 +314,148 @@ window.AddControl(Controls.HorizontalGrid()
             })
             .Build()))
     .Build());
+```
+
+### Using Events
+
+```csharp
+var tabControl = Controls.TabControl()
+    .AddTab("Tab 1", content1)
+    .AddTab("Tab 2", content2)
+    .Build();
+
+// TabChanged - after tab switches
+tabControl.TabChanged += (sender, e) =>
+{
+    Console.WriteLine($"Switched from {e.OldTab?.Title} to {e.NewTab?.Title}");
+};
+
+// TabChanging - before tab switches (cancelable)
+tabControl.TabChanging += (sender, e) =>
+{
+    if (HasUnsavedChanges())
+    {
+        e.Cancel = true; // Prevent tab switch
+        ShowSaveDialog();
+    }
+};
+
+// Tab collection events
+tabControl.TabAdded += (sender, e) =>
+    Console.WriteLine($"Added: {e.TabPage.Title} at index {e.Index}");
+
+tabControl.TabRemoved += (sender, e) =>
+    Console.WriteLine($"Removed: {e.TabPage.Title}");
+```
+
+### Helper Methods - Navigation
+
+```csharp
+// Next/Previous with wrapping
+tabControl.NextTab(); //Goes to next tab (wraps to first from last)
+tabControl.PreviousTab(); // Goes to previous tab (wraps to last from first)
+
+// Switch by title
+if (tabControl.SwitchToTab("Settings"))
+{
+    Console.WriteLine("Switched to Settings");
+}
+
+// Access active tab
+var currentTab = tabControl.ActiveTab;
+Console.WriteLine($"Current: {currentTab?.Title}");
+```
+
+### Helper Methods - Tab Management
+
+```csharp
+// Remove tabs
+tabControl.RemoveTab(0); // By index
+tabControl.RemoveTab("Obsolete Tab"); // By title
+tabControl.RemoveTabAt(2); // Alias for RemoveTab(int)
+
+// Clear all tabs
+tabControl.ClearTabs();
+
+// Insert at position
+tabControl.InsertTab(1, "New Tab", newContent);
+
+// Query tabs
+if (tabControl.HasTab("Settings"))
+{
+    var tab = tabControl.FindTab("Settings");
+    // Modify tab...
+}
+
+var tab = tabControl.GetTab(2); // Safe get by index
+
+// Modify existing tabs
+tabControl.SetTabTitle(0, "Overview (Updated)");
+tabControl.SetTabContent(1, newContent);
+
+// Use convenience properties
+Console.WriteLine($"Total tabs: {tabControl.TabCount}");
+Console.WriteLine($"Has tabs: {tabControl.HasTabs}");
+foreach (var title in tabControl.TabTitles)
+{
+    Console.WriteLine($"- {title}");
+}
+```
+
+### Builder Enhancements - Batch Add
+
+```csharp
+var tabControl = Controls.TabControl()
+    .AddTabs(
+        ("Overview", overviewPanel),
+        ("Settings", settingsPanel),
+        ("Help", helpPanel)
+    )
+    .WithHeight(25)
+    .Build();
+```
+
+### Builder Enhancements - Conditional Tabs
+
+```csharp
+var isAdmin = CheckAdminStatus();
+var hasDebugMode = Config.DebugEnabled;
+
+var tabControl = Controls.TabControl()
+    .AddTab("Home", homeContent)
+    .AddTab("Data", dataContent)
+    .AddTabIf(isAdmin, "Admin", adminPanel)
+    .AddTabIf(hasDebugMode, "Debug", () => CreateDebugPanel())
+    .WithHeight(25)
+    .Build();
+```
+
+### Dynamic Tab Management
+
+```csharp
+// Add tabs based on user data
+foreach (var project in userProjects)
+{
+    var panel = CreateProjectPanel(project);
+    tabControl.AddTab(project.Name, panel);
+}
+
+// Remove tab on user action
+window.AddControl(Controls.Button("Close Tab")
+    .OnClick((s, e, w) =>
+    {
+        if (tabControl.TabCount > 1)
+        {
+            tabControl.RemoveTab(tabControl.ActiveTabIndex);
+        }
+    }));
+
+// Navigate with buttons
+window.AddControl(Controls.HorizontalGrid()
+    .Column(col => col.Add(Controls.Button("< Prev")
+        .OnClick((s, e, w) => tabControl.PreviousTab())))
+    .Column(col => col.Add(Controls.Button("Next >")
+        .OnClick((s, e, w) => tabControl.NextTab()))));
 ```
 
 ## Best Practices
