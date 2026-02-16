@@ -297,6 +297,25 @@ dotnet run --project Examples/StartMenuDemo
 
 ---
 
+#### TabControlDemo
+Multi-page tab control with interactive content demonstration.
+
+```bash
+dotnet run --project Examples/TabControlDemo
+```
+
+**Key Features:**
+- Multi-page tab navigation with headers
+- Tab switching via mouse clicks and keyboard shortcuts (Ctrl+Tab, Ctrl+Shift+Tab)
+- ScrollablePanel integration for scrollable content
+- Interactive controls with state preservation across tabs
+- TableControl integration showing data in tabs
+- Comprehensive help/documentation system
+
+**Controls:** Click tab headers to switch, Ctrl+Tab for next tab, Ctrl+Shift+Tab for previous tab, Esc to quit
+
+---
+
 #### TableDemo
 TableControl with theme support demonstration.
 
@@ -438,6 +457,7 @@ dotnet run --project Examples/PluginShowcaseExample
 | SnakeGame | | ✅ | | | | ✅ |
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
 | TextEditorExample | | | | | | |
+| TabControlDemo | | | ✅ | | | |
 | FigletShowcaseExample | | | | | | |
 
 ---
@@ -460,6 +480,7 @@ dotnet run --project Examples/PluginShowcaseExample
 | `PromptControl` | DemoApp (Command Window) |
 | `MultilineEditControl` | DemoApp, TextEditorExample |
 | `LogViewerControl` | DemoApp |
+| `TabControl` | TabControlDemo |
 | `HorizontalGridControl` | Most examples |
 | `SpectreRenderableControl` | SpectreMouseExample |
 

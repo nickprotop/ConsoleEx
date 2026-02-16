@@ -72,6 +72,7 @@ Controls for organizing other controls.
 | **[ScrollablePanelControl](controls/ScrollablePanelControl.md)** | Scrollable content area | Vertical scrolling, contains multiple controls |
 | **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
 | **[SplitterControl](controls/SplitterControl.md)** | Resizable divider | Drag to resize adjacent columns |
+| **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
 | **[ToolbarControl](controls/ToolbarControl.md)** | Horizontal button toolbar | Quick access buttons, separators |
 | **[SeparatorControl](controls/SeparatorControl.md)** | Visual separator | Simple horizontal line |
 
