@@ -246,6 +246,11 @@ namespace SharpConsoleUI.Windows
 				}
 				children = orderedChildren;
 			}
+			else if (control is Controls.TabControl tabControl)
+			{
+				layout = new TabLayout();
+				children = tabControl.TabPages.Select(tp => tp.Content);
+			}
 			else if (control is Controls.ScrollablePanelControl scrollablePanel)
 			{
 				// ScrollablePanelControl is a self-painting container that manages its own children's

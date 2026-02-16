@@ -223,6 +223,12 @@ public static class Controls
 	public static ScrollablePanelBuilder ScrollablePanel() => new ScrollablePanelBuilder();
 
 	/// <summary>
+	/// Creates a new tab control builder
+	/// </summary>
+	/// <returns>A new tab control builder</returns>
+	public static TabControlBuilder TabControl() => new TabControlBuilder();
+
+	/// <summary>
 	/// Creates a new rule builder for horizontal separator lines
 	/// </summary>
 	/// <returns>A new rule builder</returns>
