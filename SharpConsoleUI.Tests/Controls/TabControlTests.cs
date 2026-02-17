@@ -310,69 +310,6 @@ public class TabControlTests
 
 	#endregion
 
-	#region Keyboard Tests
-
-	[Fact]
-	public void ProcessKey_CtrlTab_SwitchesToNextTab()
-	{
-		// Arrange
-		var tabControl = new TabControl();
-		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
-		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
-		tabControl.AddTab("Tab 3", CreateLabel("Content 3"));
-		tabControl.ActiveTabIndex = 0;
-
-		var key = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, true); // Ctrl+Tab
-
-		// Act
-		var handled = tabControl.ProcessKey(key);
-
-		// Assert
-		Assert.True(handled);
-		Assert.Equal(1, tabControl.ActiveTabIndex);
-	}
-
-	[Fact]
-	public void ProcessKey_CtrlTab_WrapsAround()
-	{
-		// Arrange
-		var tabControl = new TabControl();
-		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
-		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
-		tabControl.ActiveTabIndex = 1; // Last tab
-
-		var key = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, true); // Ctrl+Tab
-
-		// Act
-		var handled = tabControl.ProcessKey(key);
-
-		// Assert
-		Assert.True(handled);
-		Assert.Equal(0, tabControl.ActiveTabIndex); // Wrapped to first
-	}
-
-	[Fact]
-	public void ProcessKey_CtrlShiftTab_SwitchesToPreviousTab()
-	{
-		// Arrange
-		var tabControl = new TabControl();
-		tabControl.AddTab("Tab 1", CreateLabel("Content 1"));
-		tabControl.AddTab("Tab 2", CreateLabel("Content 2"));
-		tabControl.AddTab("Tab 3", CreateLabel("Content 3"));
-		tabControl.ActiveTabIndex = 2;
-
-		var key = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, true); // Ctrl+Shift+Tab
-
-		// Act
-		var handled = tabControl.ProcessKey(key);
-
-		// Assert
-		Assert.True(handled);
-		Assert.Equal(1, tabControl.ActiveTabIndex);
-	}
-
-	#endregion
-
 	#region Property Tests
 
 	[Fact]

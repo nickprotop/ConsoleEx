@@ -76,7 +76,7 @@ public class EventPropagationTests
     public void MouseClick_PropagatesFromControlToWindow()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20 };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20 };
         var label = new MarkupControl(new List<string> { "Click Me" });
 
         window.AddControl(label);
@@ -88,8 +88,9 @@ public class EventPropagationTests
         bool windowReceived = false;
         window.UnhandledMouseClick += (s, e) => windowReceived = true;
 
-        var clickX = label.ActualX + 2;
-        var clickY = label.ActualY;
+        // Convert content-relative ActualX/ActualY to absolute screen coords
+        var clickX = window.Left + 1 + label.ActualX + 2;
+        var clickY = window.Top + 1 + label.ActualY;
 
         var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
         var driver = (MockConsoleDriver)system.ConsoleDriver;
@@ -359,7 +360,7 @@ public class EventPropagationTests
     public void MouseMove_GeneratesEnterLeaveSequence()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20 };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20 };
         var button1 = new ButtonControl { Text = "Button1" };
         var button2 = new ButtonControl { Text = "Button2" };
 
@@ -376,15 +377,15 @@ public class EventPropagationTests
         button2.MouseEnter += (s, e) => events.Add("Button2 Enter");
         button2.MouseLeave += (s, e) => events.Add("Button2 Leave");
 
-        // Move over button1
+        // Move over button1 (convert content-relative to absolute screen coords)
         var move1Flags = new List<MouseFlags> { MouseFlags.ReportMousePosition };
         var driver = (MockConsoleDriver)system.ConsoleDriver;
-        driver.SimulateMouseEvent(move1Flags, new Point(button1.ActualX + 2, button1.ActualY));
+        driver.SimulateMouseEvent(move1Flags, new Point(window.Left + 1 + button1.ActualX + 2, window.Top + 1 + button1.ActualY));
         system.Input.ProcessInput();
 
         // Move over button2
         var move2Flags = new List<MouseFlags> { MouseFlags.ReportMousePosition };
-        driver.SimulateMouseEvent(move2Flags, new Point(button2.ActualX + 2, button2.ActualY));
+        driver.SimulateMouseEvent(move2Flags, new Point(window.Left + 1 + button2.ActualX + 2, window.Top + 1 + button2.ActualY));
         system.Input.ProcessInput();
 
         Assert.Equal(3, events.Count);

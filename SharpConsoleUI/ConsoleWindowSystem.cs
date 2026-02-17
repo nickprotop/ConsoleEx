@@ -494,7 +494,6 @@ namespace SharpConsoleUI
 			{
 				_inputStateService.EnqueueKey(key);
 			};
-			// Handler registered later via InputCoordinator.RegisterEventHandlers()
 
 			_screenResizedHandler = HandleScreenResize;
 			_consoleDriver.ScreenResized += _screenResizedHandler;

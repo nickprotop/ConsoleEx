@@ -317,16 +317,20 @@ namespace SharpConsoleUI.Controls
 		_lastClickPosition = args.Position;
 
 		// Mutually exclusive: Fire either MouseDoubleClick OR MouseClick
-		if (isDoubleClick)
+		// Only consider handled if there are subscribers
+		if (isDoubleClick && MouseDoubleClick != null)
 		{
-		MouseDoubleClick?.Invoke(this, args);
+		MouseDoubleClick.Invoke(this, args);
+		return true;
 		}
-		else
+		else if (!isDoubleClick && MouseClick != null)
 		{
-		MouseClick?.Invoke(this, args);
+		MouseClick.Invoke(this, args);
+		return true;
 		}
 
-		return true;
+		// No subscribers - let the event propagate (e.g., to UnhandledMouseClick)
+		return false;
 		}
 
 		// Handle mouse enter

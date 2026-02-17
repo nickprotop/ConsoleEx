@@ -263,6 +263,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+		#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
@@ -272,13 +273,25 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			if (!IsEnabled || !WantsMouseEvents)
 				return false;
+
+			// Handle mouse enter/leave
+			if (args.HasFlag(MouseFlags.MouseEnter))
+			{
+				MouseEnter?.Invoke(this, args);
+				return true;
+			}
+
+			if (args.HasFlag(MouseFlags.MouseLeave))
+			{
+				MouseLeave?.Invoke(this, args);
+				return true;
+			}
 
 			// Handle mouse clicks
 			if (args.HasFlag(MouseFlags.Button1Clicked))

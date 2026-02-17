@@ -9,6 +9,7 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Input;
 
 namespace SharpConsoleUI.Tests.Infrastructure;
 
@@ -18,6 +19,20 @@ namespace SharpConsoleUI.Tests.Infrastructure;
 /// </summary>
 public static class TestWindowSystemBuilder
 {
+	/// <summary>
+	/// Registers input event handlers on the system so that mouse and keyboard
+	/// events are processed during tests (normally this happens inside Run()).
+	/// </summary>
+	private static ConsoleWindowSystem WithInputHandlers(ConsoleWindowSystem system)
+	{
+		EventHandler<ConsoleKeyInfo> keyHandler = (sender, key) =>
+		{
+			system.InputStateService.EnqueueKey(key);
+		};
+		system.Input.RegisterEventHandlers(keyHandler);
+		return system;
+	}
+
 	/// <summary>
 	/// Creates a test window system with diagnostics enabled and a mock console driver.
 	/// </summary>
@@ -60,8 +75,8 @@ public static class TestWindowSystemBuilder
 		// Create mock console driver
 		var mockDriver = new MockConsoleDriver();
 
-		// Create window system
-		return new ConsoleWindowSystem(mockDriver, options: options);
+		// Create window system with input handlers registered
+		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));
 	}
 
 	/// <summary>
@@ -94,7 +109,7 @@ public static class TestWindowSystemBuilder
 			Fix27_PeriodicFullRedraw: false
 		);
 
-		return new ConsoleWindowSystem(mockDriver, options: options);
+		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));
 	}
 
 	/// <summary>
@@ -110,7 +125,7 @@ public static class TestWindowSystemBuilder
 			EnablePerformanceMetrics: false
 		);
 
-		return new ConsoleWindowSystem(mockDriver, options: options);
+		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));
 	}
 
 	/// <summary>
@@ -144,7 +159,7 @@ public static class TestWindowSystemBuilder
 		var mockDriver = new MockConsoleDriver();
 
 		// Create window system
-		return new ConsoleWindowSystem(mockDriver, options: options);
+		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));
 	}
 
 	/// <summary>
@@ -178,6 +193,6 @@ public static class TestWindowSystemBuilder
 		var mockDriver = new MockConsoleDriver();
 
 		// Create window system
-		return new ConsoleWindowSystem(mockDriver, options: options);
+		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));
 	}
 }

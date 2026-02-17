@@ -63,19 +63,17 @@ public class ModalFocusTests
         var parentWindow = new Window(system) { Title = "Parent" };
         var modalWindow = new Window(system) { Title = "Modal", IsModal = true };
 
-        bool stateChangedFired = false;
+        using var eventSignal = new System.Threading.ManualResetEventSlim(false);
         system.ModalStateService.StateChanged += (sender, args) =>
         {
-            stateChangedFired = true;
+            eventSignal.Set();
         };
 
         system.WindowStateService.AddWindow(parentWindow);
         system.ModalStateService.PushModal(modalWindow, parentWindow);
 
-        // Give event time to fire (it's queued on ThreadPool)
-        System.Threading.Thread.Sleep(100);
-
-        Assert.True(stateChangedFired);
+        // Wait for ThreadPool-queued event with generous timeout
+        Assert.True(eventSignal.Wait(TimeSpan.FromSeconds(5)));
     }
 
     [Fact]
@@ -85,19 +83,17 @@ public class ModalFocusTests
         var parentWindow = new Window(system) { Title = "Parent" };
         var modalWindow = new Window(system) { Title = "Modal", IsModal = true };
 
-        bool modalOpenedFired = false;
+        using var eventSignal = new System.Threading.ManualResetEventSlim(false);
         system.ModalStateService.ModalOpened += (sender, args) =>
         {
-            modalOpenedFired = true;
+            eventSignal.Set();
         };
 
         system.WindowStateService.AddWindow(parentWindow);
         system.ModalStateService.PushModal(modalWindow, parentWindow);
 
-        // Give event time to fire (events are queued on ThreadPool)
-        System.Threading.Thread.Sleep(200);
-
-        Assert.True(modalOpenedFired);
+        // Wait for ThreadPool-queued event with generous timeout
+        Assert.True(eventSignal.Wait(TimeSpan.FromSeconds(5)));
     }
 
     [Fact]
@@ -110,20 +106,15 @@ public class ModalFocusTests
         system.WindowStateService.AddWindow(parentWindow);
         system.ModalStateService.PushModal(modalWindow, parentWindow);
 
-        // Give push event time to fire
-        System.Threading.Thread.Sleep(100);
-
-        bool modalClosedFired = false;
+        using var eventSignal = new System.Threading.ManualResetEventSlim(false);
         system.ModalStateService.ModalClosed += (sender, args) =>
         {
-            modalClosedFired = true;
+            eventSignal.Set();
         };
 
         system.ModalStateService.PopModal(modalWindow);
 
-        // Give event time to fire (events are queued on ThreadPool)
-        System.Threading.Thread.Sleep(200);
-
-        Assert.True(modalClosedFired);
+        // Wait for ThreadPool-queued event with generous timeout
+        Assert.True(eventSignal.Wait(TimeSpan.FromSeconds(5)));
     }
 }

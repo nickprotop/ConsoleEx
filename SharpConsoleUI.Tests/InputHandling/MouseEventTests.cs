@@ -14,8 +14,8 @@ public class MouseEventTests
     public void MouseClick_ActivatesWindowAtPosition()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window1 = new Window(system) { Top = 10, Width = 30, Height = 20, Title = "Window1" };
-        var window2 = new Window(system) { Top = 10, Width = 30, Height = 20, Title = "Window2" };
+        var window1 = new Window(system) { Left = 10, Top = 10, Width = 30, Height = 20, Title = "Window1" };
+        var window2 = new Window(system) { Left = 50, Top = 10, Width = 30, Height = 20, Title = "Window2" };
 
         system.WindowStateService.AddWindow(window1);
         system.WindowStateService.AddWindow(window2);
@@ -34,7 +34,7 @@ public class MouseEventTests
     public void MouseClick_OnButton_TriggersClickEvent()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20 };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20 };
         var button = new ButtonControl { Text = "Click Me" };
 
         window.AddControl(button);
@@ -50,9 +50,10 @@ public class MouseEventTests
         bool clicked = false;
         button.Click += (s, e) => clicked = true;
 
-        // Calculate absolute position using rendered coordinates
-        var clickX = button.ActualX + 2; // Click near center of button
-        var clickY = button.ActualY;
+        // Calculate absolute screen position from content-relative ActualX/ActualY
+        // ActualX/ActualY are relative to the window content area (inside borders)
+        var clickX = window.Left + 1 + button.ActualX + 2; // +1 for border, +2 to click near center
+        var clickY = window.Top + 1 + button.ActualY;
 
         var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
         var driver = (MockConsoleDriver)system.ConsoleDriver;
@@ -67,7 +68,7 @@ public class MouseEventTests
     //public void MouseDoubleClick_OnControl_TriggersDoubleClickEvent()
     //{
     //    var system = TestWindowSystemBuilder.CreateTestSystem();
-    //    var window = new Window(system) { Top = 10, Width = 40, Height = 20 };
+    //    var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20 };
     //    var list = new ListControl();
     //    list.AddItem("Item 1");
     //    list.AddItem("Item 2");
@@ -102,7 +103,7 @@ public class MouseEventTests
     public void MouseClick_OnTitleBar_StartsDrag()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsMovable = true };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20, IsMovable = true };
 
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
@@ -121,7 +122,7 @@ public class MouseEventTests
     public void MouseDrag_MovesWindow()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsMovable = true };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20, IsMovable = true };
 
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
@@ -154,7 +155,7 @@ public class MouseEventTests
     public void MouseClick_OnCloseButton_ClosesWindow()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20, ShowCloseButton = true };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20, ShowCloseButton = true };
 
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
@@ -179,13 +180,13 @@ public class MouseEventTests
     public void MouseClick_OnMaximizeButton_MaximizesWindow()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsMaximizable = true };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20, IsMaximizable = true };
 
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
 
-        // Maximize button is left of close button
-        var maximizeButtonX = 10 + 40 - 4;
+        // Maximize button is left of close button (close takes 3 chars)
+        var maximizeButtonX = 10 + 40 - 4 - 3;
         var maximizeButtonY = 10;
 
         var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
@@ -200,13 +201,13 @@ public class MouseEventTests
     public void MouseClick_OnMinimizeButton_MinimizesWindow()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsMinimizable = true };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20, IsMinimizable = true };
 
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
 
-        // Minimize button is left of maximize button
-        var minimizeButtonX = 10 + 40 - 6;
+        // Minimize button is left of maximize and close buttons (each takes 3 chars)
+        var minimizeButtonX = 10 + 40 - 4 - 3 - 3;
         var minimizeButtonY = 10;
 
         var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
@@ -221,7 +222,7 @@ public class MouseEventTests
     public void MouseClick_OnBorder_StartsResize()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsResizable = true };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20, IsResizable = true };
 
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
@@ -243,7 +244,7 @@ public class MouseEventTests
     public void MouseResize_ChangesWindowDimensions()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsResizable = true };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20, IsResizable = true };
 
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
@@ -275,8 +276,8 @@ public class MouseEventTests
     public void MouseClick_OnOverlappingWindows_TopmostReceivesEvent()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window1 = new Window(system) { Top = 10, Width = 30, Height = 20, Title = "Window1" };
-        var window2 = new Window(system) { Top = 10, Width = 30, Height = 20, Title = "Window2" };
+        var window1 = new Window(system) { Left = 10, Top = 10, Width = 30, Height = 20, Title = "Window1" };
+        var window2 = new Window(system) { Left = 10, Top = 10, Width = 30, Height = 20, Title = "Window2" };
 
         system.WindowStateService.AddWindow(window1);
         system.WindowStateService.AddWindow(window2); // window2 is on top
@@ -302,7 +303,7 @@ public class MouseEventTests
     public void MouseClick_OnEmptyDesktop_DeactivatesActiveWindow()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 30, Height = 20 };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 30, Height = 20 };
 
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
@@ -320,7 +321,7 @@ public class MouseEventTests
     public void MouseEnter_OnControl_FiresEnterEvent()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20 };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20 };
         var button = new ButtonControl { Text = "Hover Me" };
 
         window.AddControl(button);
@@ -333,9 +334,9 @@ public class MouseEventTests
         bool mouseEntered = false;
         button.MouseEnter += (s, e) => mouseEntered = true;
 
-        // Move mouse over button
-        var clickX = button.ActualX + 2;
-        var clickY = button.ActualY;
+        // Move mouse over button (convert content-relative to absolute screen coords)
+        var clickX = window.Left + 1 + button.ActualX + 2;
+        var clickY = window.Top + 1 + button.ActualY;
 
         var moveFlags = new List<MouseFlags> { MouseFlags.ReportMousePosition };
         var driver = (MockConsoleDriver)system.ConsoleDriver;
@@ -349,7 +350,7 @@ public class MouseEventTests
     public void MouseLeave_OnControl_FiresLeaveEvent()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20 };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20 };
         var button = new ButtonControl { Text = "Hover Me" };
 
         window.AddControl(button);
@@ -362,8 +363,9 @@ public class MouseEventTests
         bool mouseLeft = false;
         button.MouseLeave += (s, e) => mouseLeft = true;
 
-        var clickX = button.ActualX + 2;
-        var clickY = button.ActualY;
+        // Convert content-relative to absolute screen coords
+        var clickX = window.Left + 1 + button.ActualX + 2;
+        var clickY = window.Top + 1 + button.ActualY;
 
         // Enter button
         var enterFlags = new List<MouseFlags> { MouseFlags.ReportMousePosition };
@@ -371,7 +373,7 @@ public class MouseEventTests
         driver.SimulateMouseEvent(enterFlags, new Point(clickX, clickY));
         system.Input.ProcessInput();
 
-        // Leave button
+        // Leave button (move far right, still inside window)
         var leaveFlags = new List<MouseFlags> { MouseFlags.ReportMousePosition };
         driver.SimulateMouseEvent(leaveFlags, new Point(clickX + 20, clickY));
         system.Input.ProcessInput();
@@ -383,7 +385,7 @@ public class MouseEventTests
     public void MouseClick_OnDisabledButton_DoesNotTriggerClick()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20 };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20 };
         var button = new ButtonControl { Text = "Disabled", IsEnabled = false };
 
         window.AddControl(button);
@@ -395,8 +397,9 @@ public class MouseEventTests
         bool clicked = false;
         button.Click += (s, e) => clicked = true;
 
-        var clickX = button.ActualX + 2;
-        var clickY = button.ActualY;
+        // Convert content-relative to absolute screen coords
+        var clickX = window.Left + 1 + button.ActualX + 2;
+        var clickY = window.Top + 1 + button.ActualY;
 
         var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
         var driver = (MockConsoleDriver)system.ConsoleDriver;
@@ -410,7 +413,7 @@ public class MouseEventTests
     public void MouseClick_OnNonMovableWindow_DoesNotStartDrag()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsMovable = false };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20, IsMovable = false };
 
         system.WindowStateService.AddWindow(window);
 
@@ -427,7 +430,7 @@ public class MouseEventTests
     public void MouseClick_OnNonResizableWindow_DoesNotStartResize()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system) { Top = 10, Width = 40, Height = 20, IsResizable = false };
+        var window = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20, IsResizable = false };
 
         system.WindowStateService.AddWindow(window);
 
@@ -444,7 +447,7 @@ public class MouseEventTests
     public void MouseClick_DuringModalWindow_BlockedForParentWindow()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var parentWindow = new Window(system) { Top = 10, Width = 40, Height = 20 };
+        var parentWindow = new Window(system) { Left = 10, Top = 10, Width = 40, Height = 20 };
         var modalWindow = new Window(system) { Top = 15, Width = 30, Height = 15, IsModal = true };
 
         system.WindowStateService.AddWindow(parentWindow);

@@ -375,6 +375,9 @@ public class ShortcutsTests
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
 
+        // Trigger render so layout is computed and scroll range is known
+        system.Render.UpdateDisplay();
+
         var endKey = new ConsoleKeyInfo('\0', ConsoleKey.End, false, false, false);
         system.InputStateService.EnqueueKey(endKey);
         system.Input.ProcessInput();

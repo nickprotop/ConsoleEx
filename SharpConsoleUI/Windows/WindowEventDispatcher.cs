@@ -231,16 +231,18 @@ namespace SharpConsoleUI.Windows
 							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
 							var controlArgs = args.WithPosition(controlPosition);
 
-							return mouseAware.ProcessMouseEvent(controlArgs);
+							if (mouseAware.ProcessMouseEvent(controlArgs))
+								return true;
+							// Control didn't handle it — fall through to UnhandledMouseClick
 						}
 
-						// Click was handled (focus change or hit on non-mouse control)
-						if (targetControl != null)
+						// Click was handled (focus change or hit on non-mouse control that isn't mouse-aware)
+						if (targetControl != null && targetControl is not Controls.IMouseAwareControl)
 						{
 							return true;
 						}
 
-						// Fire UnhandledMouseClick event for clicks on empty space
+						// Fire UnhandledMouseClick event for clicks on empty/unhandled space
 						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
 						{
 							_window.RaiseUnhandledMouseClick(args);
@@ -579,7 +581,7 @@ namespace SharpConsoleUI.Windows
 								break;
 
 							case ConsoleKey.Home:
-								if (key.Modifiers == ConsoleModifiers.Control && _window._renderer != null)
+								if ((key.Modifiers == ConsoleModifiers.None || key.Modifiers == ConsoleModifiers.Control) && _window._renderer != null)
 								{
 									_window._renderer.ScrollToTop();
 									_window._invalidated = true;
@@ -589,7 +591,7 @@ namespace SharpConsoleUI.Windows
 								break;
 
 							case ConsoleKey.End:
-								if (key.Modifiers == ConsoleModifiers.Control && _window._renderer != null)
+								if ((key.Modifiers == ConsoleModifiers.None || key.Modifiers == ConsoleModifiers.Control) && _window._renderer != null)
 								{
 									_window._renderer.ScrollToBottom();
 									_window._invalidated = true;

@@ -707,6 +707,14 @@ namespace SharpConsoleUI.Input
 	/// </summary>
 	private void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
 	{
+		// Block clicks on windows that are blocked by a modal — flash the modal instead
+		var blockingModal = _context.ModalStateService.GetBlockingModal(window);
+		if (blockingModal != null)
+		{
+			_windowStateService.FlashWindow(blockingModal);
+			return;
+		}
+
 		if (window != _context.ActiveWindow)
 		{
 			// Window is not active - activate it

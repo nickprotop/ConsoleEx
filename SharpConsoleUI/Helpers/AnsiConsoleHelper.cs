@@ -214,7 +214,7 @@ namespace SharpConsoleUI.Helpers
             var console = AnsiConsole.Create(new AnsiConsoleSettings
             {
                 Ansi = AnsiSupport.Yes,
-                ColorSystem = ColorSystemSupport.Detect,
+                ColorSystem = ColorSystemSupport.TrueColor,
                 Out = consoleOutput,
                 Interactive = InteractionSupport.No,
                 Enrichment = new ProfileEnrichment

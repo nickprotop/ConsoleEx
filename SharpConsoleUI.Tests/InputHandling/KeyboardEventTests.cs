@@ -218,8 +218,11 @@ public class KeyboardEventTests
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
 
-        // Scroll down first
-        window.ScrollToControl(null);
+        // Trigger render so layout is computed
+        system.Render.UpdateDisplay();
+
+        // Scroll down first by setting offset directly
+        window.ScrollOffset = 10;
         var initialScroll = window.ScrollOffset;
 
         // Press Up arrow
