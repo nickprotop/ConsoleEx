@@ -6,14 +6,13 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.Diagnostics;
 using System.Globalization;
 
 namespace ConsoleTopExample.Stats;
 
 /// <summary>
 /// Linux-specific implementation of system statistics collection.
-/// Reads from /proc filesystem and ps command for CPU, memory, network, and process information.
+/// Reads exclusively from /proc and /sys — no external processes required.
 /// </summary>
 internal sealed class LinuxSystemStats : ISystemStatsProvider
 {
@@ -23,6 +22,9 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
     private DateTime _previousNetSample = DateTime.MinValue;
     private Dictionary<string, DiskIoCounters> _previousDiskIo = new();
     private DateTime _previousDiskSample = DateTime.MinValue;
+    private Dictionary<int, long> _previousProcessCpuTicks = new();
+    private DateTime _previousProcessSample = DateTime.MinValue;
+    private long _totalMemKb;
 
     public SystemSnapshot ReadSnapshot()
     {
@@ -233,6 +235,8 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
 
         if (total <= 0) return new MemorySample(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
+        _totalMemKb = (long)total;
+
         var used = Math.Max(0, total - available);
         var usedPercent = Percent(used, total);
         var cachedPercent = Percent(cached, total);
@@ -324,54 +328,79 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
 
     private List<ProcessSample> ReadTopProcesses()
     {
+        // Linux CLK_TCK — clock ticks per second; 100 is the standard on all modern kernels.
+        const double ClkTck = 100.0;
+
+        var now = DateTime.UtcNow;
+        var elapsed = _previousProcessSample == DateTime.MinValue
+            ? 0.0
+            : Math.Max(0.1, (now - _previousProcessSample).TotalSeconds);
+
+        var result = new List<ProcessSample>();
+        var currentTicks = new Dictionary<int, long>();
+
         try
         {
-            var psPath = File.Exists("/bin/ps") ? "/bin/ps" : "ps";
-            var startInfo = new ProcessStartInfo
+            foreach (var pidDir in Directory.GetDirectories("/proc"))
             {
-                FileName = psPath,
-                Arguments = "-eo pid,pcpu,pmem,comm --sort=-pcpu",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+                var dirName = Path.GetFileName(pidDir);
+                if (!int.TryParse(dirName, out int pid)) continue;
 
-            using var proc = Process.Start(startInfo);
-            if (proc == null) return new List<ProcessSample>();
+                try
+                {
+                    // /proc/{pid}/stat: "pid (comm) state ... utime stime ..."
+                    // comm may contain spaces/parens; split on last ')' to be safe.
+                    var statText = File.ReadAllText($"/proc/{pid}/stat");
+                    var lastParen = statText.LastIndexOf(')');
+                    if (lastParen < 0) continue;
 
-            // Read with a timeout — ps can hang on WSL/slow systems
-            var readTask = Task.Run(() => proc.StandardOutput.ReadToEnd());
-            bool completed = readTask.Wait(TimeSpan.FromMilliseconds(800));
-            if (!completed)
-            {
-                try { proc.Kill(true); } catch { }
-                return new List<ProcessSample>();
+                    var afterParen = statText.Substring(lastParen + 2)
+                        .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    // Fields after ')': [0]=state [11]=utime [12]=stime
+                    if (afterParen.Length < 13) continue;
+
+                    long utime = ParseLong(afterParen[11]);
+                    long stime = ParseLong(afterParen[12]);
+                    long totalTicks = utime + stime;
+                    currentTicks[pid] = totalTicks;
+
+                    // /proc/{pid}/status: Name and VmRSS
+                    string name = dirName;
+                    long vmRssKb = 0;
+                    foreach (var line in File.ReadLines($"/proc/{pid}/status"))
+                    {
+                        if (line.StartsWith("Name:"))
+                            name = line.Substring(5).Trim();
+                        else if (line.StartsWith("VmRSS:"))
+                            vmRssKb = ParseLongSafe(line);
+                    }
+
+                    double cpuPct = 0;
+                    if (elapsed > 0 && _previousProcessCpuTicks.TryGetValue(pid, out var prevTicks))
+                    {
+                        var delta = Math.Max(0, totalTicks - prevTicks);
+                        cpuPct = Math.Round(delta / (elapsed * ClkTck) * 100.0, 1);
+                    }
+
+                    double memPct = _totalMemKb > 0
+                        ? Math.Round(vmRssKb / (double)_totalMemKb * 100.0, 1)
+                        : 0;
+
+                    result.Add(new ProcessSample(pid, cpuPct, memPct, name));
+                }
+                catch
+                {
+                    // Process exited or inaccessible; skip.
+                }
             }
-            var output = readTask.Result;
-            proc.WaitForExit(200);
-
-            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Skip(1);
-            var result = new List<ProcessSample>();
-
-            foreach (var line in lines)
-            {
-                var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 4) continue;
-
-                if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid)) continue;
-                if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var cpu)) cpu = 0;
-                if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var mem)) mem = 0;
-                var cmd = string.Join(' ', parts.Skip(3));
-
-                result.Add(new ProcessSample(pid, cpu, mem, cmd));
-            }
-
-            return result;
         }
-        catch
-        {
-            return new List<ProcessSample>();
-        }
+        catch { }
+
+        _previousProcessCpuTicks = currentTicks;
+        _previousProcessSample = now;
+
+        result.Sort((a, b) => b.CpuPercent.CompareTo(a.CpuPercent));
+        return result;
     }
 
     private static double ExtractKb(string line)
@@ -643,31 +672,24 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
         return false;
     }
 
-    private string? GetVolumeLabel(string device)
+    private static string? GetVolumeLabel(string device)
     {
         try
         {
-            // Try to read label using blkid command
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "blkid",
-                    Arguments = $"-s LABEL -o value {device}",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-            process.Start();
-            var label = process.StandardOutput.ReadToEnd().Trim();
-            process.WaitForExit();
+            // Resolve labels from /dev/disk/by-label/ symlinks — no external process needed.
+            const string labelDir = "/dev/disk/by-label";
+            if (!Directory.Exists(labelDir)) return null;
 
-            return string.IsNullOrEmpty(label) ? null : label;
+            var deviceName = Path.GetFileName(device);
+            foreach (var labelPath in Directory.GetFiles(labelDir))
+            {
+                var target = new FileInfo(labelPath).ResolveLinkTarget(returnFinalTarget: true);
+                if (target != null && Path.GetFileName(target.FullName) == deviceName)
+                    return Path.GetFileName(labelPath);
+            }
         }
-        catch
-        {
-            return null;
-        }
+        catch { }
+
+        return null;
     }
 }
