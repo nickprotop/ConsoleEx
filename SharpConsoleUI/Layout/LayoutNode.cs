@@ -372,6 +372,50 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
+		/// Paints this node and all its children to the buffer with specified default colors.
+		/// Used by ScrollablePanelControl to propagate resolved fg/bg colors through subtrees.
+		/// </summary>
+		public void Paint(CharacterBuffer buffer, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		{
+			if (!IsVisible)
+			{
+				return;
+			}
+
+			// Calculate visible area (intersection of our bounds with clip rect)
+			var visibleBounds = AbsoluteBounds.Intersect(clipRect);
+			if (visibleBounds.IsEmpty)
+			{
+				return;
+			}
+
+			// Paint control content with specified colors
+			if (Control != null)
+			{
+				PaintControl(buffer, visibleBounds, defaultFg, defaultBg);
+			}
+
+			// Paint children
+			foreach (var child in _children)
+			{
+				var childClipRect = visibleBounds;
+				if (Layout is IRegionClippingLayout regionLayout)
+				{
+					childClipRect = regionLayout.GetPaintClipRect(child, visibleBounds);
+				}
+				child.Paint(buffer, childClipRect, defaultFg, defaultBg);
+			}
+
+			// Paint portal children last (on top)
+			foreach (var portal in _portalChildren)
+			{
+				portal.Paint(buffer, clipRect, defaultFg, defaultBg);
+			}
+
+			NeedsPaint = false;
+		}
+
+		/// <summary>
 		/// Paints the control's content to the buffer.
 		/// </summary>
 		protected virtual void PaintControl(CharacterBuffer buffer, LayoutRect clipRect)

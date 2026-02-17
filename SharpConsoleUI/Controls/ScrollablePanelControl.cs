@@ -935,20 +935,15 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Measures the height of a child control.
+		/// Measures the height of a child control using the layout pipeline.
 		/// </summary>
 		private int MeasureChildHeight(IWindowControl child, int availableWidth)
 		{
-			if (child is IDOMPaintable measurable)
-			{
-				var constraints = new LayoutConstraints(
-					MinWidth: 1,
-					MaxWidth: availableWidth,
-					MinHeight: 1,
-					MaxHeight: int.MaxValue);
-				return measurable.MeasureDOM(constraints).Height;
-			}
-			return child.GetLogicalContentSize().Height;
+			var childNode = LayoutNodeFactory.CreateSubtree(child);
+			childNode.IsVisible = true;
+			var constraints = new LayoutConstraints(1, availableWidth, 1, int.MaxValue);
+			childNode.Measure(constraints);
+			return childNode.DesiredSize.Height;
 		}
 
 		#endregion
@@ -1321,21 +1316,14 @@ namespace SharpConsoleUI.Controls
 			{
 				if (!child.Visible) continue;
 
-				// Calculate child height using MeasureDOM if available (to account for wrapping)
-				int childHeight;
-				if (child is IDOMPaintable measurable)
-				{
-					var constraints = new LayoutConstraints(
-						MinWidth: 1,
-						MaxWidth: contentWidth,
-						MinHeight: 1,
-						MaxHeight: int.MaxValue);
-					childHeight = measurable.MeasureDOM(constraints).Height;
-				}
-				else
-				{
-					childHeight = child.GetLogicalContentSize().Height;
-				}
+				// Build layout subtree (handles containers like TabControl, HorizontalGrid)
+				var childNode = LayoutNodeFactory.CreateSubtree(child);
+				childNode.IsVisible = true;
+
+				// Measure using full layout pipeline
+				var constraints = new LayoutConstraints(1, contentWidth, 1, int.MaxValue);
+				childNode.Measure(constraints);
+				int childHeight = childNode.DesiredSize.Height;
 
 				// Register child bounds for cursor position lookups (even if off-viewport)
 				var childBoundsForCursor = new LayoutRect(
@@ -1353,6 +1341,9 @@ namespace SharpConsoleUI.Controls
 						bounds.Y + _margin.Top + currentY,
 						contentWidth,
 						childHeight);
+
+					// Arrange in screen coordinates (so AbsoluteBounds are correct)
+					childNode.Arrange(childBounds);
 
 					// Create clipped clipRect for child that excludes scrollbar area and clips to viewport
 					var viewportRect = new LayoutRect(
@@ -1374,10 +1365,8 @@ namespace SharpConsoleUI.Controls
 							childClipRect.Height));
 					}
 
-					if (child is IDOMPaintable paintable)
-					{
-						paintable.PaintDOM(buffer, childBounds, childClipRect, fgColor, bgColor);
-					}
+					// Paint through layout pipeline (headers + children properly)
+					childNode.Paint(buffer, childClipRect, fgColor, bgColor);
 				}
 
 				currentY += childHeight;
@@ -1469,23 +1458,11 @@ namespace SharpConsoleUI.Controls
 			int totalHeight = 0;
 			foreach (var child in _children.Where(c => c.Visible).ToList())
 			{
-				// For DOM-paintable controls, use MeasureDOM to get actual rendered height (including wrapping)
-				if (child is IDOMPaintable measurable)
-				{
-					var constraints = new LayoutConstraints(
-						MinWidth: 1,
-						MaxWidth: availableWidth,
-						MinHeight: 1,
-						MaxHeight: int.MaxValue);
-					var size = measurable.MeasureDOM(constraints);
-					totalHeight += size.Height;
-				}
-				else
-				{
-					// Fallback to logical size for non-DOM controls
-					var logicalSize = child.GetLogicalContentSize();
-					totalHeight += logicalSize.Height;
-				}
+				var childNode = LayoutNodeFactory.CreateSubtree(child);
+				childNode.IsVisible = true;
+				var constraints = new LayoutConstraints(1, availableWidth, 1, int.MaxValue);
+				childNode.Measure(constraints);
+				totalHeight += childNode.DesiredSize.Height;
 			}
 
 			return totalHeight;

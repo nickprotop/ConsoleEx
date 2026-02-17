@@ -220,70 +220,36 @@ namespace SharpConsoleUI.Windows
 		/// </summary>
 		private LayoutNode CreateLayoutNode(IWindowControl control)
 		{
-			ILayoutContainer? layout = null;
-			IEnumerable<IWindowControl>? children = null;
-
-			// Determine layout type and get children based on control type
-			if (control is Controls.ColumnContainer columnContainer)
+			// Special case: ScrollablePanel children registered but NOT added to DOM tree
+			if (control is Controls.ScrollablePanelControl scrollablePanel)
 			{
-				layout = new VerticalStackLayout();
-				children = columnContainer.Contents;
-			}
-			else if (control is Controls.HorizontalGridControl horizontalGrid)
-			{
-				layout = new HorizontalLayout();
-				// Build ordered list of columns and splitters
-				var orderedChildren = new List<IWindowControl>();
-				for (int i = 0; i < horizontalGrid.Columns.Count; i++)
-				{
-					orderedChildren.Add(horizontalGrid.Columns[i]);
-					// Add splitter after this column if one exists
-					var splitter = horizontalGrid.Splitters.FirstOrDefault(s => horizontalGrid.GetSplitterLeftColumnIndex(s) == i);
-					if (splitter != null)
-					{
-						orderedChildren.Add(splitter);
-					}
-				}
-				children = orderedChildren;
-			}
-			else if (control is Controls.TabControl tabControl)
-			{
-				layout = new TabLayout();
-				children = tabControl.TabPages.Select(tp => tp.Content);
-			}
-			else if (control is Controls.ScrollablePanelControl scrollablePanel)
-			{
-				// ScrollablePanelControl is a self-painting container that manages its own children's
-				// rendering with scroll offsets. Do NOT add children to DOM tree - the panel's PaintDOM
-				// handles all child painting. Adding children here would cause double-painting.
-				layout = null;
-				children = null;
-
-				// BUT: register children in _controlToNodeMap for cursor position lookups.
-				// Their AbsoluteBounds will be updated by the panel during PaintDOM.
+				var node = new LayoutNode(control, null);
 				foreach (var child in scrollablePanel.Children)
 				{
 					var childNode = CreateLayoutNode(child);
 					_controlToNodeMap[child] = childNode;
 				}
+				return node;
 			}
 
-			var node = new LayoutNode(control, layout);
+			// Use shared factory for all other control types
+			var subtree = LayoutNodeFactory.CreateSubtree(control);
 
-			// Handle container controls with children
-			// Create nodes for ALL children and set their visibility
-			if (children != null)
-			{
-				foreach (var child in children)
-				{
-					var childNode = CreateLayoutNode(child);
-					childNode.IsVisible = child.Visible; // Set visibility on the node
-					node.AddChild(childNode);
-					_controlToNodeMap[child] = childNode;
-				}
-			}
+			// Register all nodes in the subtree in our control-to-node map
+			RegisterSubtreeInMap(subtree);
 
-			return node;
+			return subtree;
+		}
+
+		/// <summary>
+		/// Recursively registers all nodes in a subtree in the control-to-node map.
+		/// </summary>
+		private void RegisterSubtreeInMap(LayoutNode node)
+		{
+			if (node.Control != null)
+				_controlToNodeMap[node.Control] = node;
+			foreach (var child in node.Children)
+				RegisterSubtreeInMap(child);
 		}
 
 		#endregion

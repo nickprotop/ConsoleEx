@@ -627,7 +627,10 @@ namespace SharpConsoleUI.Controls
 			Color defaultFg, Color defaultBg)
 		{
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColor, Container, defaultBg);
-			int x = bounds.X;
+			int headerLeft = bounds.X;
+			int headerRight = bounds.X + bounds.Width;
+			int headerY = bounds.Y + _margin.Top;
+			int x = headerLeft;
 
 			for (int i = 0; i < _tabPages.Count; i++)
 			{
@@ -638,25 +641,25 @@ namespace SharpConsoleUI.Controls
 				// Draw tab title
 				foreach (char c in title)
 				{
-					if (x - bounds.X < bounds.Width)  // Fixed: use relative position
+					if (x < headerRight)
 					{
-						buffer.SetCell(x, bounds.Y, c, tabColor, bgColor);
+						buffer.SetCell(x, headerY, c, tabColor, bgColor);
 						x++;
 					}
 				}
 
 				// Draw separator
-				if (x - bounds.X < bounds.Width && i < _tabPages.Count - 1)  // Fixed: use relative position
+				if (x < headerRight && i < _tabPages.Count - 1)
 				{
-					buffer.SetCell(x, bounds.Y, '│', Color.Grey, bgColor);
+					buffer.SetCell(x, headerY, '│', Color.Grey, bgColor);
 					x++;
 				}
 			}
 
 			// Fill remaining header space
-			while (x - bounds.X < bounds.Width)  // Fixed: use relative position
+			while (x < headerRight)
 			{
-				buffer.SetCell(x, bounds.Y, '─', Color.Grey, bgColor);
+				buffer.SetCell(x, headerY, '─', Color.Grey, bgColor);
 				x++;
 			}
 		}
@@ -703,8 +706,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
-			// Only handle clicks on tab headers (Y=0 relative to control)
-			if (args.Position.Y == 0)
+			// Only handle clicks on tab headers (account for top margin)
+			if (args.Position.Y == _margin.Top)
 			{
 				// Calculate which tab was clicked
 				int clickX = args.Position.X;

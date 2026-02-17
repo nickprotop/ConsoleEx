@@ -18,18 +18,27 @@ namespace SharpConsoleUI.Layout
 
 		/// <summary>
 		/// Measures all children within the container and returns the desired size.
-		/// Reserves space for tab headers at the top.
+		/// Reserves space for tab headers and the control's margins.
 		/// </summary>
 		public LayoutSize MeasureChildren(LayoutNode node, LayoutConstraints constraints)
 		{
-			// Reserve space for tab headers
-			int availableHeight = Math.Max(0, constraints.MaxHeight - TAB_HEADER_HEIGHT);
+			// Get the TabControl's margin
+			var margin = (node.Control as SharpConsoleUI.Controls.TabControl)?.Margin
+				?? new Controls.Margin(0, 0, 0, 0);
 
-			// Create child constraints (reduced height for header)
+			int marginH = margin.Top + margin.Bottom;
+			int marginW = margin.Left + margin.Right;
+
+			// Reserve space for tab headers and margins
+			int verticalOverhead = TAB_HEADER_HEIGHT + marginH;
+			int availableHeight = Math.Max(0, constraints.MaxHeight - verticalOverhead);
+			int availableWidth = Math.Max(0, constraints.MaxWidth - marginW);
+
+			// Create child constraints (reduced for header + margins)
 			var childConstraints = new LayoutConstraints(
-				constraints.MinWidth,
-				constraints.MaxWidth,
-				Math.Max(0, constraints.MinHeight - TAB_HEADER_HEIGHT),
+				Math.Max(0, constraints.MinWidth - marginW),
+				availableWidth,
+				Math.Max(0, constraints.MinHeight - verticalOverhead),
 				availableHeight
 			);
 
@@ -53,30 +62,36 @@ namespace SharpConsoleUI.Layout
 				tabControlWidth = Math.Max(maxWidth, tabControl.ContentWidth ?? maxWidth);
 			}
 
-			// Return total size (header + content)
+			// Return total size (margins + header + content)
 			return new LayoutSize(
-				Math.Max(tabControlWidth, constraints.MinWidth),
-				TAB_HEADER_HEIGHT + maxHeight
+				Math.Max(tabControlWidth + marginW, constraints.MinWidth),
+				verticalOverhead + maxHeight
 			);
 		}
 
 		/// <summary>
 		/// Arranges all children within the container's final bounds.
 		/// Active tab is positioned below header, inactive tabs are collapsed.
+		/// Accounts for the TabControl's margins.
 		/// </summary>
 		public void ArrangeChildren(LayoutNode node, LayoutRect bounds)
 		{
-			int contentHeight = Math.Max(0, bounds.Height - TAB_HEADER_HEIGHT);
+			var margin = (node.Control as SharpConsoleUI.Controls.TabControl)?.Margin
+				?? new Controls.Margin(0, 0, 0, 0);
+
+			int contentTop = margin.Top + TAB_HEADER_HEIGHT;
+			int contentHeight = Math.Max(0, bounds.Height - contentTop - margin.Bottom);
+			int contentWidth = Math.Max(0, bounds.Width - margin.Left - margin.Right);
 
 			foreach (var child in node.Children)
 			{
 				if (child.IsVisible)
 				{
-					// Active tab: arrange below header
+					// Active tab: arrange below header, inset by margins
 					var childBounds = new LayoutRect(
-						bounds.X,
-						bounds.Y + TAB_HEADER_HEIGHT,
-						bounds.Width,
+						bounds.X + margin.Left,
+						bounds.Y + contentTop,
+						contentWidth,
 						contentHeight
 					);
 					child.Arrange(childBounds);
