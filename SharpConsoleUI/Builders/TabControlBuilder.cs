@@ -114,6 +114,17 @@ public sealed class TabControlBuilder
 	}
 
 	/// <summary>
+	/// Sets the header style for the tab control
+	/// </summary>
+	/// <param name="style">The header style to use</param>
+	/// <returns>The builder for chaining</returns>
+	public TabControlBuilder WithHeaderStyle(TabHeaderStyle style)
+	{
+		_control.HeaderStyle = style;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the height of the tab control
 	/// </summary>
 	/// <param name="height">The height in lines (minimum 2)</param>

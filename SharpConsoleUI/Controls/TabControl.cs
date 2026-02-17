@@ -19,6 +19,19 @@ using System.Linq;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
+	/// Controls how the tab header area is rendered.
+	/// </summary>
+	public enum TabHeaderStyle
+	{
+		/// <summary>Single row: tab titles followed by ─ fill to the right.</summary>
+		Classic,
+		/// <summary>Two rows: tab titles row, then a plain ─ separator line below.</summary>
+		Separator,
+		/// <summary>Two rows: tab titles row, then a separator line with ═ under the active tab (╡/╞ connectors).</summary>
+		AccentedSeparator
+	}
+
+	/// <summary>
 	/// A tab control that displays multiple pages of content, with tab headers for switching between them.
 	/// Uses visibility toggling to show/hide tab content efficiently.
 	/// </summary>
@@ -27,7 +40,7 @@ namespace SharpConsoleUI.Controls
 	{
 		private readonly List<TabPage> _tabPages = new();
 		private int _activeTabIndex = 0;
-		private const int TAB_HEADER_HEIGHT = 1;
+		private TabHeaderStyle _headerStyle = TabHeaderStyle.Classic;
 
 		// IWindowControl properties
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
@@ -48,6 +61,20 @@ namespace SharpConsoleUI.Controls
 		private int _actualY;
 		private int _actualWidth;
 		private int _actualHeight;
+
+		/// <summary>
+		/// Gets or sets the visual style used to render the tab header area.
+		/// </summary>
+		public TabHeaderStyle HeaderStyle
+		{
+			get => _headerStyle;
+			set { _headerStyle = value; Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Returns the number of rows consumed by the tab header (1 for Classic, 2 for Separator/AccentedSeparator).
+		/// </summary>
+		public int TabHeaderHeight => _headerStyle == TabHeaderStyle.Classic ? 1 : 2;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="TabControl"/> class.
@@ -503,13 +530,13 @@ namespace SharpConsoleUI.Controls
 		public System.Drawing.Size GetLogicalContentSize()
 		{
 			int width = _width ?? ContentWidth ?? 0;
-			int height = _height ?? (TAB_HEADER_HEIGHT + 10); // Default height if not specified
+			int height = _height ?? (TabHeaderHeight + 10); // Default height if not specified
 
 			if (!_height.HasValue && _activeTabIndex < _tabPages.Count)
 			{
 				// Dynamic sizing based on active tab
 				var activeTabSize = _tabPages[_activeTabIndex].Content.GetLogicalContentSize();
-				height = TAB_HEADER_HEIGHT + activeTabSize.Height;
+				height = TabHeaderHeight + activeTabSize.Height;
 			}
 
 			return new System.Drawing.Size(width, height);
@@ -602,7 +629,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// Layout system handles this via TabLayout
 			// This won't be called directly, but provide fallback
-			int height = _height ?? (TAB_HEADER_HEIGHT + 10); // Default height
+			int height = _height ?? (TabHeaderHeight + 10); // Default height
 			int width = _width ?? constraints.MaxWidth;
 			return new LayoutSize(width, height);
 		}
@@ -632,11 +659,17 @@ namespace SharpConsoleUI.Controls
 			int headerY = bounds.Y + _margin.Top;
 			int x = headerLeft;
 
+			int activeTabStartX = -1;
+			int activeTabEndX = -1;
+
 			for (int i = 0; i < _tabPages.Count; i++)
 			{
 				bool isActive = i == _activeTabIndex;
 				var tabColor = isActive ? Color.Cyan1 : Color.Grey;
 				var title = $" {_tabPages[i].Title} ";
+
+				if (isActive)
+					activeTabStartX = x;
 
 				// Draw tab title
 				foreach (char c in title)
@@ -648,6 +681,9 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 
+				if (isActive)
+					activeTabEndX = x;
+
 				// Draw separator
 				if (x < headerRight && i < _tabPages.Count - 1)
 				{
@@ -656,11 +692,52 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Fill remaining header space
-			while (x < headerRight)
+			if (_headerStyle == TabHeaderStyle.Classic)
 			{
-				buffer.SetCell(x, headerY, '─', Color.Grey, bgColor);
-				x++;
+				// Fill remaining header space with ─
+				while (x < headerRight)
+				{
+					buffer.SetCell(x, headerY, '─', Color.Grey, bgColor);
+					x++;
+				}
+			}
+			else
+			{
+				// Fill remaining row 1 space with spaces
+				while (x < headerRight)
+				{
+					buffer.SetCell(x, headerY, ' ', Color.Grey, bgColor);
+					x++;
+				}
+
+				// Draw row 2 separator line
+				int separatorY = headerY + 1;
+				if (_headerStyle == TabHeaderStyle.Separator)
+				{
+					for (int x2 = headerLeft; x2 < headerRight; x2++)
+						buffer.SetCell(x2, separatorY, '─', Color.Grey, bgColor);
+				}
+				else // AccentedSeparator
+				{
+					for (int x2 = headerLeft; x2 < headerRight; x2++)
+					{
+						char c2 = '─';
+						if (activeTabStartX >= 0 && activeTabEndX > activeTabStartX)
+						{
+							bool isLeftBoundary = x2 == activeTabStartX;
+							bool isRightBoundary = x2 == activeTabEndX - 1;
+							bool isInner = x2 > activeTabStartX && x2 < activeTabEndX - 1;
+
+							if (isLeftBoundary)
+								c2 = x2 > headerLeft ? '╡' : '─';
+							else if (isRightBoundary)
+								c2 = x2 < headerRight - 1 ? '╞' : '─';
+							else if (isInner)
+								c2 = '═';
+						}
+						buffer.SetCell(x2, separatorY, c2, Color.Grey, bgColor);
+					}
+				}
 			}
 		}
 

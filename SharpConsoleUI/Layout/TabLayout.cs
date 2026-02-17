@@ -14,7 +14,8 @@ namespace SharpConsoleUI.Layout
 	/// </summary>
 	public class TabLayout : ILayoutContainer
 	{
-		private const int TAB_HEADER_HEIGHT = 1;
+		private static int GetHeaderHeight(LayoutNode node) =>
+			(node.Control as SharpConsoleUI.Controls.TabControl)?.TabHeaderHeight ?? 1;
 
 		/// <summary>
 		/// Measures all children within the container and returns the desired size.
@@ -30,7 +31,7 @@ namespace SharpConsoleUI.Layout
 			int marginW = margin.Left + margin.Right;
 
 			// Reserve space for tab headers and margins
-			int verticalOverhead = TAB_HEADER_HEIGHT + marginH;
+			int verticalOverhead = GetHeaderHeight(node) + marginH;
 			int availableHeight = Math.Max(0, constraints.MaxHeight - verticalOverhead);
 			int availableWidth = Math.Max(0, constraints.MaxWidth - marginW);
 
@@ -79,7 +80,7 @@ namespace SharpConsoleUI.Layout
 			var margin = (node.Control as SharpConsoleUI.Controls.TabControl)?.Margin
 				?? new Controls.Margin(0, 0, 0, 0);
 
-			int contentTop = margin.Top + TAB_HEADER_HEIGHT;
+			int contentTop = margin.Top + GetHeaderHeight(node);
 			int contentHeight = Math.Max(0, bounds.Height - contentTop - margin.Bottom);
 			int contentWidth = Math.Max(0, bounds.Width - margin.Left - margin.Right);
 
