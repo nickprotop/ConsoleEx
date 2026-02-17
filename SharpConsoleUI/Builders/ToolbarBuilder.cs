@@ -32,6 +32,7 @@ public sealed class ToolbarBuilder
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
+	private bool _wrap;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
 	private EventHandler? _gotFocusHandler;
@@ -220,6 +221,17 @@ public sealed class ToolbarBuilder
 	}
 
 	/// <summary>
+	/// Enables item wrapping. Items that don't fit on the current row flow to the next row.
+	/// </summary>
+	/// <param name="wrap">Whether to enable wrapping (default true)</param>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder WithWrap(bool wrap = true)
+	{
+		_wrap = wrap;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the visibility
 	/// </summary>
 	/// <param name="visible">Whether the toolbar is visible</param>
@@ -363,6 +375,7 @@ public sealed class ToolbarBuilder
 			VerticalAlignment = _verticalAlignment,
 			Height = _height,
 			Width = _width,
+			Wrap = _wrap,
 			Visible = _visible,
 			Name = _name,
 			Tag = _tag,

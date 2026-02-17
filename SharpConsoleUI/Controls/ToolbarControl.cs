@@ -44,6 +44,7 @@ namespace SharpConsoleUI.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _visible = true;
+		private bool _wrap;
 		private int? _width;
 
 		private int _actualX;
@@ -280,6 +281,21 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether toolbar items wrap to the next row when they exceed the available width.
+		/// When false (default), items are laid out in a single row and may be clipped.
+		/// When true, items that don't fit on the current row flow to the next row.
+		/// </summary>
+		public bool Wrap
+		{
+			get => _wrap;
+			set
+			{
+				_wrap = value;
+				Container?.Invalidate(true);
+			}
+		}
+
 		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
 
@@ -394,7 +410,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public int? GetVisibleHeightForControl(IWindowControl control)
 		{
-			// Toolbar items always have the full toolbar height visible
+			// Each item gets a single row height, regardless of total toolbar height
 			return _height ?? 1;
 		}
 
@@ -423,6 +439,12 @@ namespace SharpConsoleUI.Controls
 			if (key.Key == ConsoleKey.RightArrow)
 			{
 				return NavigateFocus(backward: false);
+			}
+
+			// Up/Down arrow navigation between rows (only when wrapping)
+			if (_wrap && (key.Key == ConsoleKey.UpArrow || key.Key == ConsoleKey.DownArrow))
+			{
+				return NavigateFocusVertical(key.Key == ConsoleKey.UpArrow);
 			}
 
 			return false;
@@ -510,31 +532,25 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int totalWidth = _margin.Left + _margin.Right;
-			int height = (_height ?? 1) + _margin.Top + _margin.Bottom;
+			int rowHeight = _height ?? 1;
+			int availableContentWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
 
-			for (int i = 0; i < _items.Count; i++)
+			var layout = ComputeRowLayout(availableContentWidth, rowHeight, out int rowCount);
+
+			// Total width is the widest row extent plus margins
+			int maxRowRight = 0;
+			foreach (var item in layout)
 			{
-				var item = _items[i];
-				if (!item.Visible) continue;
-
-				if (item is IDOMPaintable paintable)
-				{
-					var itemSize = paintable.MeasureDOM(new LayoutConstraints(0, constraints.MaxWidth, 0, height));
-					totalWidth += item.Width ?? itemSize.Width;
-				}
-				else
-				{
-					totalWidth += item.Width ?? item.GetLogicalContentSize().Width;
-				}
-
-				if (i < _items.Count - 1)
-					totalWidth += _itemSpacing;
+				int right = item.X + item.Width;
+				if (right > maxRowRight) maxRowRight = right;
 			}
+			int totalWidth = maxRowRight + _margin.Left + _margin.Right;
+
+			int totalHeight = (rowCount * rowHeight) + _margin.Top + _margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(totalWidth, constraints.MinWidth, constraints.MaxWidth),
-				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+				Math.Clamp(totalHeight, constraints.MinHeight, constraints.MaxHeight)
 			);
 		}
 
@@ -596,19 +612,15 @@ namespace SharpConsoleUI.Controls
 					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, containerBg);
 			}
 
-			// Paint items
-			int currentX = contentX;
-			foreach (var item in _items)
+			// Paint items using shared layout computation
+			int rowHeight = _height ?? 1;
+			var layout = ComputeRowLayout(contentWidth, rowHeight, out _);
+
+			foreach (var entry in layout)
 			{
-				if (!item.Visible) continue;
-
-				int itemWidth;
-				if (item is IDOMPaintable paintable)
+				if (entry.Item is IDOMPaintable paintable)
 				{
-					var itemSize = paintable.MeasureDOM(new LayoutConstraints(0, contentWidth, 0, contentHeight));
-					itemWidth = item.Width ?? itemSize.Width;
-
-					var itemBounds = new LayoutRect(currentX, contentY, itemWidth, contentHeight);
+					var itemBounds = new LayoutRect(contentX + entry.X, contentY + entry.Y, entry.Width, rowHeight);
 					var itemClip = itemBounds.Intersect(clipRect);
 
 					if (itemClip.Width > 0 && itemClip.Height > 0)
@@ -616,12 +628,6 @@ namespace SharpConsoleUI.Controls
 						paintable.PaintDOM(buffer, itemBounds, itemClip, fgColor, bgColor);
 					}
 				}
-				else
-				{
-					itemWidth = item.Width ?? item.GetLogicalContentSize().Width;
-				}
-
-				currentX += itemWidth + _itemSpacing;
 			}
 		}
 
@@ -667,30 +673,18 @@ namespace SharpConsoleUI.Controls
 			if (childPosition == null)
 				return null;
 
-			// Calculate the X offset of the focused item within the toolbar,
-			// matching the layout logic in PaintDOM
-			int offsetX = _margin.Left;
-			foreach (var item in _items)
+			int contentWidth = _actualWidth - _margin.Left - _margin.Right;
+			int rowHeight = _height ?? 1;
+			var layout = ComputeRowLayout(contentWidth, rowHeight, out _);
+
+			foreach (var entry in layout)
 			{
-				if (!item.Visible) continue;
-
-				if (item == _focusedItem)
+				if (entry.Item == _focusedItem)
 				{
-					return new Point(offsetX + childPosition.Value.X, _margin.Top + childPosition.Value.Y);
+					return new Point(
+						_margin.Left + entry.X + childPosition.Value.X,
+						_margin.Top + entry.Y + childPosition.Value.Y);
 				}
-
-				int itemWidth;
-				if (item is IDOMPaintable paintable)
-				{
-					var itemSize = paintable.MeasureDOM(new LayoutConstraints(0, _actualWidth, 0, _actualHeight));
-					itemWidth = item.Width ?? itemSize.Width;
-				}
-				else
-				{
-					itemWidth = item.Width ?? item.GetLogicalContentSize().Width;
-				}
-
-				offsetX += itemWidth + _itemSpacing;
 			}
 
 			return null;
@@ -709,6 +703,73 @@ namespace SharpConsoleUI.Controls
 		#endregion
 
 		#region Private Methods
+
+		/// <summary>
+		/// Describes the position and size of a single item in the toolbar layout.
+		/// </summary>
+		private readonly struct ItemLayout
+		{
+			public readonly IWindowControl Item;
+			public readonly int X;
+			public readonly int Y;
+			public readonly int Width;
+			public readonly int Row;
+
+			public ItemLayout(IWindowControl item, int x, int y, int width, int row)
+			{
+				Item = item;
+				X = x;
+				Y = y;
+				Width = width;
+				Row = row;
+			}
+		}
+
+		/// <summary>
+		/// Computes the layout of all visible items, handling wrapping when enabled.
+		/// This is the single source of truth for item positioning — used by
+		/// MeasureDOM, PaintDOM, GetLogicalCursorPosition, and GetItemAtPosition.
+		/// </summary>
+		/// <param name="availableWidth">The available content width for laying out items.</param>
+		/// <param name="rowHeight">The height of a single row.</param>
+		/// <param name="rowCount">Output: the total number of rows.</param>
+		/// <returns>List of item layouts with positions relative to content origin (0,0).</returns>
+		private List<ItemLayout> ComputeRowLayout(int availableWidth, int rowHeight, out int rowCount)
+		{
+			var result = new List<ItemLayout>();
+			int currentX = 0;
+			int currentRow = 0;
+
+			for (int i = 0; i < _items.Count; i++)
+			{
+				var item = _items[i];
+				if (!item.Visible) continue;
+
+				int itemWidth;
+				if (item is IDOMPaintable paintable)
+				{
+					var itemSize = paintable.MeasureDOM(new LayoutConstraints(0, availableWidth, 0, rowHeight));
+					itemWidth = item.Width ?? itemSize.Width;
+				}
+				else
+				{
+					itemWidth = item.Width ?? item.GetLogicalContentSize().Width;
+				}
+
+				// Wrap to next row if enabled and item doesn't fit
+				if (_wrap && currentX > 0 && currentX + itemWidth > availableWidth)
+				{
+					currentRow++;
+					currentX = 0;
+				}
+
+				result.Add(new ItemLayout(item, currentX, currentRow * rowHeight, itemWidth, currentRow));
+				currentX += itemWidth + _itemSpacing;
+			}
+
+			rowCount = currentRow + 1;
+			return result;
+		}
 
 		private IEnumerable<IInteractiveControl> GetFocusableItems()
 		{
@@ -729,33 +790,20 @@ namespace SharpConsoleUI.Controls
 
 		private (IWindowControl? Item, LayoutRect Bounds) GetItemAtPosition(Point position)
 		{
-			int currentX = _margin.Left;
-			int contentHeight = (_height ?? 1);
+			int contentWidth = _actualWidth - _margin.Left - _margin.Right;
+			int rowHeight = _height ?? 1;
+			var layout = ComputeRowLayout(contentWidth, rowHeight, out _);
 
-			foreach (var item in _items)
+			foreach (var entry in layout)
 			{
-				if (!item.Visible) continue;
+				int itemX = _margin.Left + entry.X;
+				int itemY = _margin.Top + entry.Y;
 
-				int itemWidth;
-				if (item is IDOMPaintable paintable)
+				if (position.X >= itemX && position.X < itemX + entry.Width &&
+					position.Y >= itemY && position.Y < itemY + rowHeight)
 				{
-					var size = paintable.MeasureDOM(new LayoutConstraints(0, int.MaxValue, 0, contentHeight));
-					itemWidth = item.Width ?? size.Width;
+					return (entry.Item, new LayoutRect(itemX, itemY, entry.Width, rowHeight));
 				}
-				else
-				{
-					itemWidth = item.Width ?? item.GetLogicalContentSize().Width;
-				}
-
-				var itemBounds = new LayoutRect(currentX, _margin.Top, itemWidth, contentHeight);
-
-				if (position.X >= currentX && position.X < currentX + itemWidth &&
-					position.Y >= _margin.Top && position.Y < _margin.Top + contentHeight)
-				{
-					return (item, itemBounds);
-				}
-
-				currentX += itemWidth + _itemSpacing;
 			}
 
 			return (null, default);
@@ -794,6 +842,63 @@ namespace SharpConsoleUI.Controls
 			// Set new focus
 			_focusedItem = focusableItems[newIndex];
 			SetItemFocus(_focusedItem, true);
+
+			Container?.Invalidate(true);
+			return true;
+		}
+
+		private bool NavigateFocusVertical(bool up)
+		{
+			if (_focusedItem == null) return false;
+
+			int contentWidth = _actualWidth - _margin.Left - _margin.Right;
+			int rowHeight = _height ?? 1;
+			var layout = ComputeRowLayout(contentWidth, rowHeight, out int rowCount);
+
+			if (rowCount <= 1) return false;
+
+			// Find the current item's layout entry
+			ItemLayout? currentEntry = null;
+			foreach (var entry in layout)
+			{
+				if (entry.Item == _focusedItem)
+				{
+					currentEntry = entry;
+					break;
+				}
+			}
+			if (currentEntry == null) return false;
+
+			int targetRow = currentEntry.Value.Row + (up ? -1 : 1);
+			if (targetRow < 0 || targetRow >= rowCount) return false;
+
+			// Find the closest focusable item on the target row by X overlap
+			int currentMidX = currentEntry.Value.X + currentEntry.Value.Width / 2;
+			IWindowControl? bestItem = null;
+			int bestDistance = int.MaxValue;
+
+			foreach (var entry in layout)
+			{
+				if (entry.Row != targetRow) continue;
+				if (entry.Item is not IInteractiveControl interactive) continue;
+				if (entry.Item is IFocusableControl fc && !fc.CanReceiveFocus) continue;
+				if (!interactive.IsEnabled) continue;
+
+				int itemMidX = entry.X + entry.Width / 2;
+				int distance = Math.Abs(itemMidX - currentMidX);
+				if (distance < bestDistance)
+				{
+					bestDistance = distance;
+					bestItem = entry.Item;
+				}
+			}
+
+			if (bestItem == null) return false;
+
+			SetItemFocus(_focusedItem, false);
+			_focusedItem = bestItem as IInteractiveControl;
+			if (_focusedItem != null)
+				SetItemFocus(_focusedItem, true);
 
 			Container?.Invalidate(true);
 			return true;
