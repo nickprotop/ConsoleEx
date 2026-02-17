@@ -26,7 +26,7 @@ public class StockTickerWindow : IDisposable
             .WithTitle("Stock Ticker [2s refresh]")
             .WithSize(52, 14)
             .AtPosition(2, 20)
-            .WithColors(Color.Black, Color.White)
+            .WithColors(Color.White, Color.Black)
             .WithAsyncWindowThread(UpdateLoopAsync)
             .Build();
 

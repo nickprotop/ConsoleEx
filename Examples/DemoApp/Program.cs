@@ -632,7 +632,7 @@ internal class Program
             .WithTitle("Interactive Command Window")
             .WithSize(80, 25)
             .AtPosition(2, 2)
-            .WithColors(SpectreColor.Grey15, SpectreColor.Grey93)
+            .WithColors(SpectreColor.Grey93, SpectreColor.Grey15)
             .Build();
 
         // Create prompt control for command input
@@ -982,7 +982,7 @@ internal class Program
             .WithTitle("ListView Demo")
             .WithSize(65, 22)
             .AtPosition(6, 6)
-            .WithColors(SpectreColor.Grey19, SpectreColor.Grey93)
+            .WithColors(SpectreColor.Grey93, SpectreColor.Grey19)
             .Build();
 
         // Add title

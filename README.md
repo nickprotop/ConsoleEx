@@ -46,7 +46,7 @@ var window = new WindowBuilder(windowSystem)
     .WithTitle("Hello World")
     .WithSize(50, 15)
     .Centered()
-    .WithColors(Color.DarkBlue, Color.White)
+    .WithColors(Color.White, Color.DarkBlue)
     .Build();
 
 // Show a notification
@@ -157,7 +157,7 @@ var mainWindow = new WindowBuilder(windowSystem)
     .WithTitle("Modern Application")
     .WithSize(80, 25)
     .Centered()
-    .WithColors(Color.DarkBlue, Color.White)
+    .WithColors(Color.White, Color.DarkBlue)
     .Resizable()
     .Movable()
     .WithMinimumSize(60, 20)
@@ -382,7 +382,7 @@ internal class Program
             .WithTitle("Task Manager")
             .WithSize(80, 25)
             .Centered()
-            .WithColors(Color.DarkBlue, Color.White)
+            .WithColors(Color.White, Color.DarkBlue)
             .Build();
 
         // Add controls

@@ -26,7 +26,7 @@ public class SystemMonitorWindow : IDisposable
             .WithTitle("System Monitor [1s refresh]")
             .WithSize(60, 18)
             .AtPosition(54, 2)
-            .WithColors(Color.Grey11, Color.Grey93)
+            .WithColors(Color.Grey93, Color.Grey11)
             .WithAsyncWindowThread(UpdateLoopAsync)
             .Build();
 

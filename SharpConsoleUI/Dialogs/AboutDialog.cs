@@ -31,7 +31,7 @@ public static class AboutDialog
 			.Minimizable(false)
 			.Maximizable(false)
 			.Movable(true)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor);
+			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor);
 
 		if (parentWindow != null)
 			builder.WithParent(parentWindow);

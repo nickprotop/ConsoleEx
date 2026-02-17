@@ -27,7 +27,7 @@ var window = new WindowBuilder(windowSystem)
     .WithTitle("Hello World")
     .WithSize(60, 20)
     .Centered()
-    .WithColors(Color.DarkBlue, Color.White)
+    .WithColors(Color.White, Color.DarkBlue)
     .AddControl(new MarkupControl(new List<string>
     {
         "[bold yellow]Welcome to SharpConsoleUI![/]",

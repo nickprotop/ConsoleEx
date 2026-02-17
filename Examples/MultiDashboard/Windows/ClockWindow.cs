@@ -23,7 +23,7 @@ public class ClockWindow : IDisposable
             .WithTitle("Digital Clock [1s refresh]")
             .WithSize(40, 12)
             .AtPosition(120, 2)
-            .WithColors(Color.Black, Color.Cyan1)
+            .WithColors(Color.Cyan1, Color.Black)
             .WithAsyncWindowThread(UpdateLoopAsync)
             .Build();
 

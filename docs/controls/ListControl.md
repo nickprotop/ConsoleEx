@@ -41,7 +41,7 @@ var list = Controls.List()
     .AddItem("Date")
     .AddItem("Elderberry")
     .WithHeight(10)
-    .WithColors(Color.Grey15, Color.White)
+    .WithColors(Color.White, Color.Grey15)
     .WithName("fruitList")
     .OnItemActivated((sender, item, window) =>
     {

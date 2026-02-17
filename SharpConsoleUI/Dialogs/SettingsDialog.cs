@@ -32,7 +32,7 @@ public static class SettingsDialog
 			.Minimizable(false)
 			.Maximizable(false)
 			.Movable(true)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor);
+			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor);
 
 		if (parentWindow != null)
 			builder.WithParent(parentWindow);
@@ -55,9 +55,9 @@ public static class SettingsDialog
 		var settingsList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithFocusedColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithHighlightColors(Color.Grey35, Color.White)
+			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
+			.WithFocusedColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
+			.WithHighlightColors(Color.White, Color.Grey35)
 			.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.Build();

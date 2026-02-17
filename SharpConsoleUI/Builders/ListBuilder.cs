@@ -266,12 +266,12 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
-	/// Sets both background and foreground colors
+	/// Sets both foreground and background colors
 	/// </summary>
-	public ListBuilder WithColors(Color background, Color foreground)
+	public ListBuilder WithColors(Color foreground, Color background)
 	{
-		_backgroundColor = background;
 		_foregroundColor = foreground;
+		_backgroundColor = background;
 		return this;
 	}
 
@@ -294,12 +294,12 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
-	/// Sets both focused background and foreground colors
+	/// Sets both focused foreground and background colors
 	/// </summary>
-	public ListBuilder WithFocusedColors(Color background, Color foreground)
+	public ListBuilder WithFocusedColors(Color foreground, Color background)
 	{
-		_focusedBackgroundColor = background;
 		_focusedForegroundColor = foreground;
+		_focusedBackgroundColor = background;
 		return this;
 	}
 
@@ -322,12 +322,12 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
-	/// Sets both highlight background and foreground colors for selected items
+	/// Sets both highlight foreground and background colors for selected items
 	/// </summary>
-	public ListBuilder WithHighlightColors(Color background, Color foreground)
+	public ListBuilder WithHighlightColors(Color foreground, Color background)
 	{
-		_highlightBackgroundColor = background;
 		_highlightForegroundColor = foreground;
+		_highlightBackgroundColor = background;
 		return this;
 	}
 

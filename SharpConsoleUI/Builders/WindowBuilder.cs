@@ -199,15 +199,15 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
-    /// Sets both the background and foreground colors for the window.
+    /// Sets both the foreground and background colors for the window.
     /// </summary>
-    /// <param name="backgroundColor">The background color for the window content area.</param>
     /// <param name="foregroundColor">The foreground color for text in the window content area.</param>
+    /// <param name="backgroundColor">The background color for the window content area.</param>
     /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithColors(SpectreColor backgroundColor, SpectreColor foregroundColor)
+    public WindowBuilder WithColors(SpectreColor foregroundColor, SpectreColor backgroundColor)
     {
-        _backgroundColor = backgroundColor;
         _foregroundColor = foregroundColor;
+        _backgroundColor = backgroundColor;
         return this;
     }
 
@@ -745,7 +745,7 @@ public sealed class WindowBuilder
         if (theme == null)
             return this;
 
-        return WithColors(theme.WindowBackgroundColor, theme.WindowForegroundColor);
+        return WithColors(theme.WindowForegroundColor, theme.WindowBackgroundColor);
     }
 
     /// <summary>

@@ -27,7 +27,7 @@ public class NewsFeedWindow : IDisposable
             .WithTitle("News Feed [10s refresh]")
             .WithSize(62, 20)
             .AtPosition(56, 20)
-            .WithColors(Color.Grey15, Color.White)
+            .WithColors(Color.White, Color.Grey15)
             .WithAsyncWindowThread(UpdateLoopAsync)
             .Build();
 

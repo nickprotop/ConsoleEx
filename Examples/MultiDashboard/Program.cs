@@ -216,7 +216,7 @@ class Program
             .WithTitle("Multi-Dashboard Showcase")
             .WithSize(70, 30)
             .Centered()
-            .WithColors(Spectre.Console.Color.Grey11, Spectre.Console.Color.White)
+            .WithColors(Spectre.Console.Color.White, Spectre.Console.Color.Grey11)
             .Build();
 
         _helpWindow.AddControl(

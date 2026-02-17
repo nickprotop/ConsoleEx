@@ -126,7 +126,7 @@ class Program
 
         _mainWindow = new WindowBuilder(_windowSystem)
             .WithTitle("HighFreqDemo - Controls Showcase")
-            .WithColors(Color.Grey11, Color.Grey93)
+            .WithColors(Color.Grey93, Color.Grey11)
             .Maximized()
             .Resizable(true)
             .Movable(true)

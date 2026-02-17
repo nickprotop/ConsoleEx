@@ -32,7 +32,7 @@ public static class CommandPaletteModal
             .Borderless()
             .Resizable(false)
             .Movable(false)
-            .WithColors(Color.Grey15, Color.Grey93)
+            .WithColors(Color.Grey93, Color.Grey15)
             .Build();
 
         // Header
@@ -51,9 +51,9 @@ public static class CommandPaletteModal
         var commandList = Controls.List()
             .WithAlignment(HorizontalAlignment.Stretch)
             .WithVerticalAlignment(VerticalAlignment.Fill)
-            .WithColors(Color.Grey15, Color.Grey93)
-            .WithFocusedColors(Color.Grey15, Color.Grey93)
-            .WithHighlightColors(Color.Grey35, Color.White)  // Subtle gray highlight instead of bright blue
+            .WithColors(Color.Grey93, Color.Grey15)
+            .WithFocusedColors(Color.Grey93, Color.Grey15)
+            .WithHighlightColors(Color.White, Color.Grey35)  // Subtle gray highlight instead of bright blue
             .SimpleMode()  // Clean, no markers
             .WithDoubleClickActivation(true)  // Double-click selects and closes modal
             .Build();

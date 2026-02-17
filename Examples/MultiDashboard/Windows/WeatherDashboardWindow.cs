@@ -27,7 +27,7 @@ public class WeatherDashboardWindow : IDisposable
             .WithTitle("Weather Dashboard [5s refresh]")
             .WithSize(50, 16)
             .AtPosition(2, 2)
-            .WithColors(Color.DarkBlue, Color.White)
+            .WithColors(Color.White, Color.DarkBlue)
             .WithAsyncWindowThread(UpdateLoopAsync)
             .Build();
 

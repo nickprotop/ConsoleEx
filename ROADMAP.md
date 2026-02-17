@@ -8,17 +8,9 @@ Findings from an honest architectural review of the framework. Organized by prio
 
 These are the things that will burn every new user on day one.
 
-### Color Parameter Ordering
+### ~~Color Parameter Ordering~~ (Done)
 
-`WithColors(bg, fg)` on ListBuilder but `WithColors(fg, bg)` on ScrollablePanelBuilder. Pick one convention and apply it everywhere. Recommendation: `fg, bg` — it matches how people think ("white text on black background") and how CSS orders it.
-
-**Affected builders:**
-- `ListBuilder.WithColors(Color background, Color foreground)` — bg first
-- `ListBuilder.WithHighlightColors(Color background, Color foreground)` — bg first
-- `ListBuilder.WithFocusedColors(Color background, Color foreground)` — bg first
-- `ScrollablePanelBuilder.WithColors(Color foreground, Color background)` — fg first
-
-Unify all of them. This is a breaking change but it's v0.0.1 — break it now.
+All `WithColors`, `WithFocusedColors`, and `WithHighlightColors` methods now consistently use `(foreground, background)` parameter ordering across all builders: ListBuilder, ButtonBuilder, WindowBuilder, and SpectreRenderableBuilder.
 
 ### Method Naming
 
@@ -137,12 +129,9 @@ ListControl, TreeControl, and TableControl appear to hold all items in memory. F
 
 ## 7. Driver Abstraction (Medium Priority)
 
-### Headless/Test Driver
+### ~~Headless/Test Driver~~ (Done)
 
-The `MockConsoleDriver` in the test project should be promoted to the main library. A proper headless driver enables:
-- Automated UI testing without a terminal
-- Screenshot/snapshot testing
-- CI/CD test execution
+`HeadlessConsoleDriver` is now in the main library (`SharpConsoleUI.Drivers`). `MockConsoleDriver` in the test project is a thin subclass.
 
 ### Consider Additional Backends
 
@@ -198,7 +187,7 @@ Current tests focus heavily on rendering (23 of 51 files). Areas with less cover
 | Medium | Thread.Sleep -> waitable event | Small | Input responsiveness |
 | Medium | Missing common controls | Large | Feature completeness |
 | Medium | Data virtualization | Medium | Large dataset support |
-| Medium | Headless driver in main library | Small | Testing story |
+| ~~Medium~~ | ~~Headless driver in main library~~ | ~~Small~~ | ~~Done~~ |
 | Low | Documentation gaps | Medium | Adoption |
 | Low | Testing gaps | Large | Reliability confidence |
 | Low | Minor code cleanup | Small | Code quality |

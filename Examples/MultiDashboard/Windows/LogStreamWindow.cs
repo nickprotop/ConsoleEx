@@ -30,7 +30,7 @@ public class LogStreamWindow : IDisposable
             .WithTitle("Log Stream [500ms refresh]")
             .WithSize(100, 12)
             .AtPosition(20, 36)
-            .WithColors(Color.Black, Color.Grey93)
+            .WithColors(Color.Grey93, Color.Black)
             .WithAsyncWindowThread(UpdateLoopAsync)
             .Build();
 

@@ -32,7 +32,7 @@ public static class PerformanceDialog
 			.Minimizable(false)
 			.Maximizable(false)
 			.Movable(true)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor);
+			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor);
 
 		if (parentWindow != null)
 			builder.WithParent(parentWindow);
@@ -55,9 +55,9 @@ public static class PerformanceDialog
 		var optionsList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithFocusedColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithHighlightColors(Color.Grey35, Color.White)
+			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
+			.WithFocusedColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
+			.WithHighlightColors(Color.White, Color.Grey35)
 			.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.Build();
@@ -161,7 +161,7 @@ public static class PerformanceDialog
 			.Minimizable(false)
 			.Maximizable(false)
 			.Movable(true)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor);
+			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor);
 
 		var fpsModal = builder.Build();
 
@@ -180,9 +180,9 @@ public static class PerformanceDialog
 		var fpsList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithFocusedColors(theme.ModalBackgroundColor, theme.WindowForegroundColor)
-			.WithHighlightColors(Color.Grey35, Color.White)
+			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
+			.WithFocusedColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
+			.WithHighlightColors(Color.White, Color.Grey35)
 			.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.Build();

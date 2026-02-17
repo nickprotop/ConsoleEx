@@ -275,28 +275,28 @@ public sealed class ButtonBuilder
 	}
 
 	/// <summary>
-	/// Sets both normal-state background and foreground colors
+	/// Sets both normal-state foreground and background colors
 	/// </summary>
-	/// <param name="backgroundColor">The background color</param>
 	/// <param name="foregroundColor">The foreground color</param>
+	/// <param name="backgroundColor">The background color</param>
 	/// <returns>The builder for chaining</returns>
-	public ButtonBuilder WithColors(Color backgroundColor, Color foregroundColor)
+	public ButtonBuilder WithColors(Color foregroundColor, Color backgroundColor)
 	{
-		_backgroundColor = backgroundColor;
 		_foregroundColor = foregroundColor;
+		_backgroundColor = backgroundColor;
 		return this;
 	}
 
 	/// <summary>
-	/// Sets both focused-state background and foreground colors
+	/// Sets both focused-state foreground and background colors
 	/// </summary>
-	/// <param name="backgroundColor">The background color when focused</param>
 	/// <param name="foregroundColor">The foreground color when focused</param>
+	/// <param name="backgroundColor">The background color when focused</param>
 	/// <returns>The builder for chaining</returns>
-	public ButtonBuilder WithFocusedColors(Color backgroundColor, Color foregroundColor)
+	public ButtonBuilder WithFocusedColors(Color foregroundColor, Color backgroundColor)
 	{
-		_focusedBackgroundColor = backgroundColor;
 		_focusedForegroundColor = foregroundColor;
+		_focusedBackgroundColor = backgroundColor;
 		return this;
 	}
 

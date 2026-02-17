@@ -40,7 +40,7 @@ var window = new WindowBuilder(windowSystem)
 
 ```csharp
 .WithTitle(title)                                // Set window title
-.WithColors(background, foreground)              // Set colors
+.WithColors(foreground, background)              // Set colors
 .Borderless()                                    // Remove border
 ```
 
@@ -105,7 +105,7 @@ var mainWindow = new WindowBuilder(windowSystem)
     .WithTitle("Task Manager")
     .WithSize(80, 25)
     .Centered()
-    .WithColors(Color.DarkBlue, Color.White)
+    .WithColors(Color.White, Color.DarkBlue)
     .Resizable()
     .Movable()
     .WithMinimumSize(60, 20)
@@ -147,7 +147,7 @@ Controls.List()
     .AddItem("Item 2")
     .AddItem("Item 3")
     .WithHeight(10)
-    .WithColors(Color.Grey15, Color.White)
+    .WithColors(Color.White, Color.Grey15)
     .OnItemActivated((sender, item, window) =>
     {
         // Item double-clicked or Enter pressed
@@ -633,7 +633,7 @@ var mainWindow = new WindowBuilder(windowSystem)
     .WithTitle("Contact Form")
     .WithSize(60, 20)
     .Centered()
-    .WithColors(Color.DarkBlue, Color.White)
+    .WithColors(Color.White, Color.DarkBlue)
     .Build();
 
 // Header

@@ -79,9 +79,9 @@ internal sealed class ProcessTab : ITab
             .WithName("processList")
             .WithAlignment(HorizontalAlignment.Stretch)
             .WithVerticalAlignment(VerticalAlignment.Fill)
-            .WithColors(UIConstants.WindowBackground, UIConstants.WindowForeground)
-            .WithFocusedColors(UIConstants.WindowBackground, UIConstants.WindowForeground)
-            .WithHighlightColors(UIConstants.ProcessHighlightBg, UIConstants.ProcessHighlightFg)
+            .WithColors(UIConstants.WindowForeground, UIConstants.WindowBackground)
+            .WithFocusedColors(UIConstants.WindowForeground, UIConstants.WindowBackground)
+            .WithHighlightColors(UIConstants.ProcessHighlightFg, UIConstants.ProcessHighlightBg)
             .WithMargin(1, 0, 0, 1)
             .OnHighlightChanged((_, idx) =>
             {
@@ -376,7 +376,7 @@ internal sealed class ProcessTab : ITab
             .Borderless()
             .Resizable(false)
             .Movable(false)
-            .WithColors(UIConstants.MetricsBoxBackground, UIConstants.WindowForeground)
+            .WithColors(UIConstants.WindowForeground, UIConstants.MetricsBoxBackground)
             .Build();
 
         modal.AddControl(

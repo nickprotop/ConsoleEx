@@ -59,7 +59,7 @@ public class AgentStudioWindow : IDisposable
     {
         _window = new WindowBuilder(_windowSystem)
             .WithTitle("AgentStudio")
-            .WithColors(Color.Grey11, Color.Grey93)
+            .WithColors(Color.Grey93, Color.Grey11)
             .AtPosition(0, 0)
             .WithSize(80, 24)
             .WithAsyncWindowThread(WindowThreadMethodAsync)

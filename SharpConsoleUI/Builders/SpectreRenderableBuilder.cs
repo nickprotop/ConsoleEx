@@ -228,15 +228,15 @@ public sealed class SpectreRenderableBuilder
 	}
 
 	/// <summary>
-	/// Sets both background and foreground colors
+	/// Sets both foreground and background colors
 	/// </summary>
-	/// <param name="background">The background color</param>
 	/// <param name="foreground">The foreground color</param>
+	/// <param name="background">The background color</param>
 	/// <returns>The builder for chaining</returns>
-	public SpectreRenderableBuilder WithColors(Color background, Color foreground)
+	public SpectreRenderableBuilder WithColors(Color foreground, Color background)
 	{
-		_backgroundColor = background;
 		_foregroundColor = foreground;
+		_backgroundColor = background;
 		return this;
 	}
 

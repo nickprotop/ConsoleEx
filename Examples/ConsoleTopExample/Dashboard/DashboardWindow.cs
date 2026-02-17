@@ -36,7 +36,7 @@ internal sealed class DashboardWindow
     {
         _mainWindow = new WindowBuilder(_windowSystem)
             .WithTitle("ConsoleTop - Live System Pulse")
-            .WithColors(UIConstants.WindowBackground, UIConstants.WindowForeground)
+            .WithColors(UIConstants.WindowForeground, UIConstants.WindowBackground)
             .Borderless()
             .Maximized()
             .Resizable(false)
