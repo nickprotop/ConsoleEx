@@ -271,12 +271,8 @@ internal abstract class BaseResponsiveTab : ITab
     internal static void AddNarrowSeparator(ScrollablePanelControl panel)
     {
         panel.AddControl(
-            Controls.Markup()
-                .AddLine("")
-                .AddLine(UIConstants.SectionSeparator)
-                .AddLine("")
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 1, 2, 0)
+            Controls.RuleBuilder()
+                .WithColor(UIConstants.RuleColor)
                 .Build()
         );
     }
@@ -284,10 +280,8 @@ internal abstract class BaseResponsiveTab : ITab
     protected static void AddSectionSeparator(ScrollablePanelControl panel)
     {
         panel.AddControl(
-            Controls.Markup()
-                .AddLine(UIConstants.SectionSeparator)
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 0, 2, 0)
+            Controls.RuleBuilder()
+                .WithColor(UIConstants.RuleColor)
                 .Build()
         );
     }

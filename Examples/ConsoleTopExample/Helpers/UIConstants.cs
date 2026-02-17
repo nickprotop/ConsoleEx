@@ -108,9 +108,14 @@ internal static class UIConstants
 
     #endregion
 
-    #region Separator Markup
+    #region Threshold Colors
 
-    public const string SectionSeparator = "[grey23]────────────────────────────────────────[/]";
+    public static string ThresholdColor(double value) => value switch
+    {
+        < 60 => "green",
+        < 85 => "yellow1",
+        _    => "red"
+    };
 
     #endregion
 }

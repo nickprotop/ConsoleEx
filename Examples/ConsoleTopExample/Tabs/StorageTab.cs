@@ -156,12 +156,7 @@ internal sealed class StorageTab : BaseResponsiveTab
                     .Build()
             );
 
-            panel.AddControl(
-                Controls.Markup()
-                    .AddLine("[grey23]────────────────────────────────[/]")
-                    .WithMargin(2, 1, 1, 0)
-                    .Build()
-            );
+            AddSectionSeparator(panel);
         }
     }
 

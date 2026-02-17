@@ -21,6 +21,7 @@ internal sealed class ProcessTab : ITab
     private readonly ConsoleWindowSystem _windowSystem;
     private readonly ISystemStatsProvider _stats;
     private ProcessSortMode _sortMode = ProcessSortMode.Cpu;
+    private string _searchFilter = string.Empty;
     private ProcessSample? _lastHighlightedProcess;
     private SystemSnapshot? _lastSnapshot;
 
@@ -41,6 +42,18 @@ internal sealed class ProcessTab : ITab
             .Toolbar()
             .WithName("processSortToolbar")
             .WithMargin(1, 0, 0, 0)
+            .Add(
+                Controls.Prompt()
+                    .WithName("processSearch")
+                    .WithPrompt("Filter: ")
+                    .WithAlignment(HorizontalAlignment.Stretch)
+                    .OnInputChanged((_, text) =>
+                    {
+                        _searchFilter = text;
+                        UpdateProcessList();
+                    })
+                    .Build()
+            )
             .Add(
                 Controls.Dropdown()
                     .WithName("processSortDropdown")
@@ -171,6 +184,21 @@ internal sealed class ProcessTab : ITab
 
     public void HandleResize(int newWidth, int newHeight) { }
 
+    public void CycleSortMode()
+    {
+        _sortMode = _sortMode switch
+        {
+            ProcessSortMode.Cpu    => ProcessSortMode.Memory,
+            ProcessSortMode.Memory => ProcessSortMode.Pid,
+            ProcessSortMode.Pid    => ProcessSortMode.Name,
+            _                      => ProcessSortMode.Cpu
+        };
+        var dropdown = FindMainWindow()?.FindControl<DropdownControl>("processSortDropdown");
+        if (dropdown != null)
+            dropdown.SelectedIndex = (int)_sortMode;
+        UpdateProcessList();
+    }
+
     #region Post-Build Setup
 
     public void ApplyDetailPanelColors(Window mainWindow)
@@ -196,13 +224,17 @@ internal sealed class ProcessTab : ITab
 
     private List<ListItem> BuildProcessList(IReadOnlyList<ProcessSample> processes)
     {
+        IEnumerable<ProcessSample> source = string.IsNullOrEmpty(_searchFilter)
+            ? processes
+            : processes.Where(p => p.Command.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase));
+
         var sorted = _sortMode switch
         {
-            ProcessSortMode.Cpu => processes.OrderByDescending(p => p.CpuPercent),
-            ProcessSortMode.Memory => processes.OrderByDescending(p => p.MemPercent),
-            ProcessSortMode.Pid => processes.OrderBy(p => p.Pid),
-            ProcessSortMode.Name => processes.OrderBy(p => p.Command, StringComparer.OrdinalIgnoreCase),
-            _ => processes.OrderByDescending(p => p.CpuPercent)
+            ProcessSortMode.Cpu    => source.OrderByDescending(p => p.CpuPercent),
+            ProcessSortMode.Memory => source.OrderByDescending(p => p.MemPercent),
+            ProcessSortMode.Pid    => source.OrderBy(p => p.Pid),
+            ProcessSortMode.Name   => source.OrderBy(p => p.Command, StringComparer.OrdinalIgnoreCase),
+            _                      => source.OrderByDescending(p => p.CpuPercent)
         };
 
         var items = new List<ListItem>();
@@ -211,7 +243,9 @@ internal sealed class ProcessTab : ITab
             var pidStr = p.Pid.ToString().PadLeft(UIConstants.PidPadLeft);
             var cpuStr = $"{p.CpuPercent,5:F1}%".PadLeft(UIConstants.CpuPercentPadLeft);
             var memStr = $"{p.MemPercent,5:F1}%".PadLeft(UIConstants.MemPercentPadLeft);
-            var line = $"{pidStr}  [grey70]{cpuStr}[/]  [grey70]{memStr}[/]  [cyan1]{p.Command}[/]";
+            var cpuColor = UIConstants.ThresholdColor(p.CpuPercent);
+            var memColor = UIConstants.ThresholdColor(p.MemPercent);
+            var line = $"{pidStr}  [{cpuColor}]{cpuStr}[/]  [{memColor}]{memStr}[/]  [cyan1]{p.Command}[/]";
             items.Add(new ListItem(line) { Tag = p });
         }
 
@@ -280,25 +314,24 @@ internal sealed class ProcessTab : ITab
         var liveProc = snapshot.Processes.FirstOrDefault(p => p.Pid == processToShow.Pid) ?? processToShow;
         var extra = _stats.ReadProcessExtra(liveProc.Pid) ?? new ProcessExtra("?", 0, 0, 0, 0, "");
 
+        var exeDisplay = extra.ExePath.Length > 24
+            ? "…" + extra.ExePath[^23..]
+            : extra.ExePath;
+
         detailContent.SetContent(new List<string>
         {
             "",
             $"[cyan1 bold]{liveProc.Command}[/]",
             "",
             $"[grey70]PID:[/] [cyan1]{liveProc.Pid}[/]",
-            $"[grey70]Executable:[/] [cyan1]{extra.ExePath}[/]",
+            $"[grey70]Executable:[/] [cyan1]{exeDisplay}[/]",
             "",
             $"[grey70 bold]Process Metrics[/]",
-            $"  [grey70]CPU:[/] [cyan1]{liveProc.CpuPercent:F1}%[/]",
-            $"  [grey70]Memory:[/] [cyan1]{liveProc.MemPercent:F1}%[/]",
+            $"  [grey70]CPU:[/] [{UIConstants.ThresholdColor(liveProc.CpuPercent)}]{liveProc.CpuPercent:F1}%[/]",
+            $"  [grey70]Memory:[/] [{UIConstants.ThresholdColor(liveProc.MemPercent)}]{liveProc.MemPercent:F1}%[/]",
             $"  [grey70]State:[/] [cyan1]{extra.State}[/]  [grey70]Threads:[/] [cyan1]{extra.Threads}[/]",
             $"  [grey70]RSS:[/] [cyan1]{extra.RssMb:F1} MB[/]",
-            $"  [grey70]I/O:[/] [cyan1]↑{extra.ReadKb:F0} / ↓{extra.WriteKb:F0} KB/s[/]",
-            "",
-            $"[grey70 bold]System Snapshot[/]",
-            $"  [grey70]CPU:[/] usr [cyan1]{snapshot.Cpu.User:F1}%[/] / sys [cyan1]{snapshot.Cpu.System:F1}%[/] / io [cyan1]{snapshot.Cpu.IoWait:F1}%[/]",
-            $"  [grey70]Memory:[/] used [cyan1]{snapshot.Memory.UsedPercent:F1}%[/] / cached [cyan1]{snapshot.Memory.CachedPercent:F1}%[/]",
-            $"  [grey70]Network:[/] ↑[cyan1]{snapshot.Network.UpMbps:F1}[/] / ↓[cyan1]{snapshot.Network.DownMbps:F1}[/] MB/s",
+            $"  [grey70]I/O:[/] [cyan1]R:{extra.ReadKb:F0} / W:{extra.WriteKb:F0} KB/s[/]",
         });
     }
 
@@ -353,7 +386,7 @@ internal sealed class ProcessTab : ITab
                 .AddLine($"[grey70]CPU:[/] [cyan1]{liveProc.CpuPercent:F1}%[/]  [grey70]Memory:[/] [cyan1]{liveProc.MemPercent:F1}%[/]")
                 .AddLine($"[grey70]State:[/] [cyan1]{extra.State}[/]  [grey70]Threads:[/] [cyan1]{extra.Threads}[/]")
                 .AddLine($"[grey70]RSS:[/] [cyan1]{extra.RssMb:F1} MB[/]")
-                .AddLine($"[grey70]I/O:[/] [cyan1]↑{extra.ReadKb:F0} / ↓{extra.WriteKb:F0} KB/s[/]")
+                .AddLine($"[grey70]I/O:[/] [cyan1]R:{extra.ReadKb:F0} / W:{extra.WriteKb:F0} KB/s[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(1, 1, 1, 1)
                 .Build()

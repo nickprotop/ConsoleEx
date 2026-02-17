@@ -56,6 +56,13 @@ internal sealed class DashboardWindow
 
                 if (HandleTabShortcut(e.KeyInfo.Key))
                     e.Handled = true;
+
+                if (e.KeyInfo.Key == ConsoleKey.S &&
+                    _tabs.ElementAtOrDefault(_tabControl?.ActiveTabIndex ?? -1) is ProcessTab pt)
+                {
+                    pt.CycleSortMode();
+                    e.Handled = true;
+                }
             })
             .Build();
 
@@ -291,7 +298,7 @@ internal sealed class DashboardWindow
             .WithAlignment(HorizontalAlignment.Stretch)
             .Column(col =>
                 col.Add(Controls.Markup()
-                    .AddLine("[grey70]F1-F5: Tabs • F10/ESC: Exit • Click: Select • Double-Click: Actions[/]")
+                    .AddLine("[grey70]F1-F5/←→: Tabs • S: Sort • Tab: Navigate • F10/ESC: Exit[/]")
                     .WithAlignment(HorizontalAlignment.Left)
                     .WithMargin(1, 0, 0, 0)
                     .Build()))
@@ -410,9 +417,12 @@ internal sealed class DashboardWindow
         var statsLegend = window.FindControl<MarkupControl>("statsLegend");
         if (statsLegend != null)
         {
+            var totalCpu = snapshot.Cpu.User + snapshot.Cpu.System;
+            var cpuColor = UIConstants.ThresholdColor(totalCpu);
+            var memColor = UIConstants.ThresholdColor(snapshot.Memory.UsedPercent);
             statsLegend.SetContent(new List<string>
             {
-                $"[grey70]CPU [cyan1]{snapshot.Cpu.User:F1}%[/] • MEM [cyan1]{snapshot.Memory.UsedPercent:F1}%[/] • NET ↑[cyan1]{snapshot.Network.UpMbps:F1}[/]/↓[cyan1]{snapshot.Network.DownMbps:F1}[/] MB/s[/]"
+                $"[grey70]CPU [{cpuColor}]{totalCpu:F1}%[/] • MEM [{memColor}]{snapshot.Memory.UsedPercent:F1}%[/] • NET ↑[cyan1]{snapshot.Network.UpMbps:F1}[/]/↓[cyan1]{snapshot.Network.DownMbps:F1}[/] MB/s[/]"
             });
         }
     }
