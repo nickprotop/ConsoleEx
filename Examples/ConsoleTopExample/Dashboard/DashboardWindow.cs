@@ -258,11 +258,11 @@ internal sealed class DashboardWindow
             builder = builder.AddTab(tab.Name, tab.BuildPanel(initialSnapshot, mainWindow.Width));
 
         _tabControl = builder.Build();
+        _tabControl.BackgroundColor = UIConstants.WindowBackground;
+        mainWindow.AddControl(_tabControl);
 
         if (_tabs.FirstOrDefault(t => t is ProcessTab) is ProcessTab processTab)
             processTab.ApplyDetailPanelColors(mainWindow);
-
-        mainWindow.AddControl(_tabControl);
     }
 
     private bool HandleTabShortcut(ConsoleKey key)
