@@ -45,8 +45,8 @@ internal sealed class MemoryTab : BaseResponsiveTab
             "",
             "[grey70 bold]Swap[/]",
             $"  [grey70]Total:[/] [cyan1]{mem.SwapTotalMb:F0} MB[/]",
-            $"  [grey70]Used:[/]  [cyan1]{mem.SwapUsedMb:F0} MB[/]",
-            $"  [grey70]Free:[/]  [cyan1]{mem.SwapFreeMb:F0} MB[/]",
+            GetSwapUsedLine(mem),
+            GetSwapFreeLine(mem),
             "",
             "[grey70 bold]Top Memory Consumers[/]",
         };
@@ -56,6 +56,18 @@ internal sealed class MemoryTab : BaseResponsiveTab
 
         return lines;
     }
+
+    private static string GetSwapUsedLine(MemorySample mem)
+    {
+        if (mem.SwapTotalMb <= 0)
+            return "  [grey70]Used:[/]  [grey50]N/A[/]";
+        var pct = mem.SwapUsedMb / mem.SwapTotalMb * 100;
+        var color = pct > 0 ? UIConstants.ThresholdColor(pct) : "cyan1";
+        return $"  [grey70]Used:[/]  [{color}]{mem.SwapUsedMb:F0} MB ({pct:F0}%)[/]";
+    }
+
+    private static string GetSwapFreeLine(MemorySample mem) =>
+        $"  [grey70]Free:[/]  [cyan1]{mem.SwapFreeMb:F0} MB[/]";
 
     protected override void BuildGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {

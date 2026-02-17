@@ -182,11 +182,14 @@ internal sealed class StorageTab : BaseResponsiveTab
             var usageBar = rightPanel.Children.FirstOrDefault(c => c.Name == $"disk_{deviceKey}_usage") as BarGraphControl;
             if (usageBar != null) usageBar.Value = disk.UsedPercent;
 
+            double readMax  = Math.Max(10, _readHistory.Get(deviceKey).DefaultIfEmpty(0).Max());
+            double writeMax = Math.Max(10, _writeHistory.Get(deviceKey).DefaultIfEmpty(0).Max());
+
             var readBar = rightPanel.Children.FirstOrDefault(c => c.Name == $"disk_{deviceKey}_read_current") as BarGraphControl;
-            if (readBar != null) readBar.Value = disk.ReadMbps;
+            if (readBar != null) { readBar.Value = disk.ReadMbps; readBar.MaxValue = readMax; }
 
             var writeBar = rightPanel.Children.FirstOrDefault(c => c.Name == $"disk_{deviceKey}_write_current") as BarGraphControl;
-            if (writeBar != null) writeBar.Value = disk.WriteMbps;
+            if (writeBar != null) { writeBar.Value = disk.WriteMbps; writeBar.MaxValue = writeMax; }
 
             var ioSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == $"disk_{deviceKey}_io") as SparklineControl;
             if (ioSparkline != null)

@@ -24,6 +24,7 @@ internal sealed class ProcessTab : ITab
     private string _searchFilter = string.Empty;
     private ProcessSample? _lastHighlightedProcess;
     private SystemSnapshot? _lastSnapshot;
+    private readonly Dictionary<int, ProcessExtra> _processExtraCache = new();
 
     public ProcessTab(ConsoleWindowSystem windowSystem, ISystemStatsProvider stats)
     {
@@ -154,6 +155,7 @@ internal sealed class ProcessTab : ITab
     public void UpdatePanel(SystemSnapshot snapshot)
     {
         _lastSnapshot = snapshot;
+        _processExtraCache.Clear();
         var mainWindow = FindMainWindow();
         if (mainWindow == null) return;
 
@@ -245,7 +247,11 @@ internal sealed class ProcessTab : ITab
             var memStr = $"{p.MemPercent,5:F1}%".PadLeft(UIConstants.MemPercentPadLeft);
             var cpuColor = UIConstants.ThresholdColor(p.CpuPercent);
             var memColor = UIConstants.ThresholdColor(p.MemPercent);
-            var line = $"{pidStr}  [{cpuColor}]{cpuStr}[/]  [{memColor}]{memStr}[/]  [cyan1]{p.Command}[/]";
+            var memMb = (_lastSnapshot?.Memory.TotalMb ?? 0) > 0
+                ? p.MemPercent / 100.0 * _lastSnapshot!.Memory.TotalMb
+                : 0;
+            string memMbPart = memMb > 0 ? $" [grey50]{memMb:F0}M[/]" : "";
+            var line = $"{pidStr}  [{cpuColor}]{cpuStr}[/]  [{memColor}]{memStr}[/]{memMbPart}  [cyan1]{p.Command}[/]";
             items.Add(new ListItem(line) { Tag = p });
         }
 
@@ -312,7 +318,11 @@ internal sealed class ProcessTab : ITab
 
         var snapshot = _lastSnapshot ?? _stats.ReadSnapshot();
         var liveProc = snapshot.Processes.FirstOrDefault(p => p.Pid == processToShow.Pid) ?? processToShow;
-        var extra = _stats.ReadProcessExtra(liveProc.Pid) ?? new ProcessExtra("?", 0, 0, 0, 0, "");
+        if (!_processExtraCache.TryGetValue(liveProc.Pid, out var extra))
+        {
+            extra = _stats.ReadProcessExtra(liveProc.Pid) ?? new ProcessExtra("?", 0, 0, 0, 0, "");
+            _processExtraCache[liveProc.Pid] = extra;
+        }
 
         var exeDisplay = extra.ExePath.Length > 24
             ? "…" + extra.ExePath[^23..]
@@ -328,7 +338,7 @@ internal sealed class ProcessTab : ITab
             "",
             $"[grey70 bold]Process Metrics[/]",
             $"  [grey70]CPU:[/] [{UIConstants.ThresholdColor(liveProc.CpuPercent)}]{liveProc.CpuPercent:F1}%[/]",
-            $"  [grey70]Memory:[/] [{UIConstants.ThresholdColor(liveProc.MemPercent)}]{liveProc.MemPercent:F1}%[/]",
+            $"  [grey70]Memory:[/] [{UIConstants.ThresholdColor(liveProc.MemPercent)}]{liveProc.MemPercent:F1}%[/] [grey50]({extra.RssMb:F0} MB RSS)[/]",
             $"  [grey70]State:[/] [cyan1]{extra.State}[/]  [grey70]Threads:[/] [cyan1]{extra.Threads}[/]",
             $"  [grey70]RSS:[/] [cyan1]{extra.RssMb:F1} MB[/]",
             $"  [grey70]I/O:[/] [cyan1]R:{extra.ReadKb:F0} / W:{extra.WriteKb:F0} KB/s[/]",
@@ -457,6 +467,15 @@ internal sealed class ProcessTab : ITab
                     parentWindow: FindMainWindow());
             }
         }
+        catch (ArgumentException)
+        {
+            _windowSystem.NotificationStateService.ShowNotification(
+                $"Process {pid} no longer exists",
+                $"{command} (PID {pid}) has already exited",
+                NotificationSeverity.Info,
+                blockUi: false, timeout: UIConstants.NotificationTimeoutShortMs,
+                parentWindow: FindMainWindow());
+        }
         catch (Exception ex)
         {
             _windowSystem.NotificationStateService.ShowNotification(
@@ -480,6 +499,15 @@ internal sealed class ProcessTab : ITab
             _windowSystem.NotificationStateService.ShowNotification(
                 $"✓ {killMethod} {pid}",
                 $"{command} (PID {pid}) force terminated",
+                NotificationSeverity.Info,
+                blockUi: false, timeout: UIConstants.NotificationTimeoutShortMs,
+                parentWindow: FindMainWindow());
+        }
+        catch (ArgumentException)
+        {
+            _windowSystem.NotificationStateService.ShowNotification(
+                $"Process {pid} no longer exists",
+                $"{command} (PID {pid}) has already exited",
                 NotificationSeverity.Info,
                 blockUi: false, timeout: UIConstants.NotificationTimeoutShortMs,
                 parentWindow: FindMainWindow());

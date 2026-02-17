@@ -17,6 +17,7 @@ internal sealed class NetworkTab : BaseResponsiveTab
     private readonly KeyedHistoryTracker<string> _perInterfaceDownHistory = new();
     private double _peakUpMbps;
     private double _peakDownMbps;
+    private HashSet<string> _knownInterfaces = new();
 
     public NetworkTab(ConsoleWindowSystem windowSystem, ISystemStatsProvider stats)
         : base(windowSystem, stats) { }
@@ -214,43 +215,70 @@ internal sealed class NetworkTab : BaseResponsiveTab
                 _perInterfaceUpHistory.Add(iface.InterfaceName, iface.UpMbps);
                 _perInterfaceDownHistory.Add(iface.InterfaceName, iface.DownMbps);
             }
+
+            // Seed _knownInterfaces from the first history update so the initial
+            // UpdateGraphControls call doesn't trigger a spurious rebuild.
+            if (_knownInterfaces.Count == 0)
+                _knownInterfaces = new HashSet<string>(net.PerInterfaceSamples.Select(i => i.InterfaceName));
         }
     }
 
+    private static double RollingMax(HistoryTracker history, double floor = 1.0) =>
+        Math.Max(floor, history.Data.Count > 0 ? history.Data.Max() : 0.0);
+
     protected override void UpdateGraphControls(HorizontalGridControl grid, SystemSnapshot snapshot)
     {
+        var net = snapshot.Network;
+
+        // Detect interface set changes and trigger a full panel rebuild when they occur
+        var currentInterfaces = net.PerInterfaceSamples != null
+            ? new HashSet<string>(net.PerInterfaceSamples.Select(i => i.InterfaceName))
+            : new HashSet<string>();
+        if (!currentInterfaces.SetEquals(_knownInterfaces))
+        {
+            _knownInterfaces = currentInterfaces;
+            TriggerRebuild();
+            return;
+        }
+
         var rightPanel = FindGraphPanel(grid);
         if (rightPanel == null)
             return;
 
-        var net = snapshot.Network;
+        double rollingUpMax   = RollingMax(_upHistory);
+        double rollingDownMax = RollingMax(_downHistory);
+        double barMax = Math.Ceiling(Math.Max(rollingUpMax, rollingDownMax) / 10.0) * 10;
+        barMax = Math.Max(barMax, 1.0);
 
         var uploadBar = rightPanel.Children.FirstOrDefault(c => c.Name == "netUploadBar") as BarGraphControl;
-        if (uploadBar != null) uploadBar.Value = net.UpMbps;
+        if (uploadBar != null) { uploadBar.Value = net.UpMbps; uploadBar.MaxValue = barMax; }
 
         var downloadBar = rightPanel.Children.FirstOrDefault(c => c.Name == "netDownloadBar") as BarGraphControl;
-        if (downloadBar != null) downloadBar.Value = net.DownMbps;
+        if (downloadBar != null) { downloadBar.Value = net.DownMbps; downloadBar.MaxValue = barMax; }
 
         var combinedSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == "netCombinedSparkline") as SparklineControl;
         if (combinedSparkline != null)
         {
             combinedSparkline.SetBidirectionalData(_upHistory.DataMutable, _downHistory.DataMutable);
-            combinedSparkline.MaxValue = Math.Max(_peakUpMbps, 1.0);
-            combinedSparkline.SecondaryMaxValue = Math.Max(_peakDownMbps, 1.0);
+            combinedSparkline.MaxValue = rollingUpMax;
+            combinedSparkline.SecondaryMaxValue = rollingDownMax;
         }
 
         if (net.PerInterfaceSamples != null)
         {
             foreach (var iface in net.PerInterfaceSamples)
             {
+                var upData   = _perInterfaceUpHistory.GetMutable(iface.InterfaceName);
+                var downData = _perInterfaceDownHistory.GetMutable(iface.InterfaceName);
+                double ifaceUpMax   = Math.Max(0.1, upData.Count > 0 ? upData.Max() : 0.1);
+                double ifaceDownMax = Math.Max(0.1, downData.Count > 0 ? downData.Max() : 0.1);
+
                 var ifaceSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == $"net{iface.InterfaceName}Sparkline") as SparklineControl;
                 if (ifaceSparkline != null)
                 {
-                    ifaceSparkline.SetBidirectionalData(
-                        _perInterfaceUpHistory.GetMutable(iface.InterfaceName),
-                        _perInterfaceDownHistory.GetMutable(iface.InterfaceName));
-                    ifaceSparkline.MaxValue = Math.Max(_peakUpMbps, 0.1);
-                    ifaceSparkline.SecondaryMaxValue = Math.Max(_peakDownMbps, 0.1);
+                    ifaceSparkline.SetBidirectionalData(downData, upData);
+                    ifaceSparkline.MaxValue = ifaceDownMax;
+                    ifaceSparkline.SecondaryMaxValue = ifaceUpMax;
                 }
             }
         }

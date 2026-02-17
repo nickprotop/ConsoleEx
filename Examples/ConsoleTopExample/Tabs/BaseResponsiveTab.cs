@@ -301,6 +301,12 @@ internal abstract class BaseResponsiveTab : ITab
 
     #region Window Access
 
+    protected void TriggerRebuild()
+    {
+        var grid = FindMainWindow()?.FindControl<HorizontalGridControl>(PanelControlName);
+        if (grid != null) RebuildColumns(grid);
+    }
+
     private HorizontalGridControl? FindPanel()
     {
         return FindMainWindow()?.FindControl<HorizontalGridControl>(PanelControlName);
