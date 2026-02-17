@@ -655,8 +655,8 @@ namespace SharpConsoleUI.Controls
 			Color defaultFg, Color defaultBg)
 		{
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColor, Container, defaultBg);
-			int headerLeft = bounds.X;
-			int headerRight = bounds.X + bounds.Width;
+			int headerLeft = bounds.X + _margin.Left;
+			int headerRight = bounds.X + bounds.Width - _margin.Right;
 			int headerY = bounds.Y + _margin.Top;
 			int x = headerLeft;
 
@@ -706,6 +706,11 @@ namespace SharpConsoleUI.Controls
 					x++;
 				}
 			}
+
+			const string navHint = " ← → ";
+			bool showHint = _hasFocus && _tabPages.Count > 1;
+			int hintStartX = headerRight - navHint.Length;
+			int tabsEndX = x; // capture before fill loops modify x
 
 			if (_headerStyle == TabHeaderStyle.Classic)
 			{
@@ -777,6 +782,13 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 			}
+
+			// Navigation hint at the right edge of the header row
+			if (showHint && hintStartX >= tabsEndX - 1)
+			{
+				for (int h = 0; h < navHint.Length; h++)
+					buffer.SetCell(hintStartX + h, headerY, navHint[h], Color.Grey, bgColor);
+			}
 		}
 
 		private int CalculateHeaderWidth()
@@ -824,9 +836,9 @@ namespace SharpConsoleUI.Controls
 			// Only handle clicks on tab headers (account for top margin)
 			if (args.Position.Y == _margin.Top)
 			{
-				// Calculate which tab was clicked
+				// Calculate which tab was clicked (account for left margin)
 				int clickX = args.Position.X;
-				int currentX = 0;
+				int currentX = _margin.Left;
 
 				for (int i = 0; i < _tabPages.Count; i++)
 				{
