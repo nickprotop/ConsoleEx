@@ -6,6 +6,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace ConsoleTopExample.Tabs;
 
@@ -29,6 +30,72 @@ internal sealed class CpuTab : BaseResponsiveTab
         // CPU tab uses left-panel controls (BarGraphControls), not plain text.
         // Return empty list; left panel content is built via BuildLeftPanelContent.
         return new List<string>();
+    }
+
+    public override IWindowControl BuildPanel(SystemSnapshot initialSnapshot, int windowWidth)
+    {
+        _currentLayout = windowWidth >= UIConstants.CpuLayoutThresholdWidth
+            ? ResponsiveLayoutMode.Wide
+            : ResponsiveLayoutMode.Narrow;
+
+        if (_currentLayout == ResponsiveLayoutMode.Wide)
+        {
+            var grid = Controls.HorizontalGrid()
+                .WithName(PanelControlName)
+                .WithVerticalAlignment(VerticalAlignment.Fill)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 1)
+                .Visible(false)
+                .Column(col =>
+                {
+                    col.Width(UIConstants.FixedTextColumnWidth);
+                    var leftPanel = BuildScrollablePanel();
+                    BuildLeftPanelContent(leftPanel, initialSnapshot);
+                    col.Add(leftPanel);
+                })
+                .Column(col =>
+                {
+                    col.Width(UIConstants.SeparatorColumnWidth);
+                    col.Add(new SeparatorControl
+                    {
+                        ForegroundColor = UIConstants.SeparatorColor,
+                        VerticalAlignment = VerticalAlignment.Fill
+                    });
+                })
+                .Column(col =>
+                {
+                    var rightPanel = BuildScrollablePanel();
+                    BuildGraphsContentPublic(rightPanel, initialSnapshot);
+                    col.Add(rightPanel);
+                })
+                .Build();
+
+            grid.BackgroundColor = UIConstants.WindowBackground;
+            grid.ForegroundColor = UIConstants.WindowForeground;
+            return grid;
+        }
+        else
+        {
+            var grid = Controls.HorizontalGrid()
+                .WithName(PanelControlName)
+                .WithVerticalAlignment(VerticalAlignment.Fill)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 1)
+                .Visible(false)
+                .Column(col =>
+                {
+                    var scrollPanel = BuildScrollablePanel();
+                    BuildLeftPanelContent(scrollPanel, initialSnapshot);
+                    AddNarrowSeparator(scrollPanel);
+                    BuildGraphsContentPublic(scrollPanel, initialSnapshot);
+                    col.Add(scrollPanel);
+                })
+                .Build();
+
+            grid.BackgroundColor = UIConstants.WindowBackground;
+            grid.ForegroundColor = UIConstants.WindowForeground;
+            return grid;
+        }
     }
 
     protected override void BuildGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)

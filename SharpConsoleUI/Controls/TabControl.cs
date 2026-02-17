@@ -36,7 +36,8 @@ namespace SharpConsoleUI.Controls
 	/// Uses visibility toggling to show/hide tab content efficiently.
 	/// </summary>
 	public class TabControl : IWindowControl, IContainer, IDOMPaintable,
-		IMouseAwareControl, IInteractiveControl, IContainerControl
+		IMouseAwareControl, IInteractiveControl, IContainerControl,
+		IFocusableControl, IFocusableContainerWithHeader
 	{
 		private readonly List<TabPage> _tabPages = new();
 		private int _activeTabIndex = 0;
@@ -665,8 +666,22 @@ namespace SharpConsoleUI.Controls
 			for (int i = 0; i < _tabPages.Count; i++)
 			{
 				bool isActive = i == _activeTabIndex;
-				var tabColor = isActive ? Color.Cyan1 : Color.Grey;
 				var title = $" {_tabPages[i].Title} ";
+
+				// When the tab strip has keyboard focus, render the active tab in reverse-video
+				// (black text on cyan background) so the user can see focus and knows that
+				// Left/Right arrows will switch tabs.
+				Color tileFg, tileBg;
+				if (isActive)
+				{
+					tileFg = _hasFocus ? bgColor    : Color.Cyan1;
+					tileBg = _hasFocus ? Color.Cyan1 : bgColor;
+				}
+				else
+				{
+					tileFg = Color.Grey;
+					tileBg = bgColor;
+				}
 
 				if (isActive)
 					activeTabStartX = x;
@@ -676,7 +691,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (x < headerRight)
 					{
-						buffer.SetCell(x, headerY, c, tabColor, bgColor);
+						buffer.SetCell(x, headerY, c, tileFg, tileBg);
 						x++;
 					}
 				}
@@ -714,14 +729,22 @@ namespace SharpConsoleUI.Controls
 				int separatorY = headerY + 1;
 				if (_headerStyle == TabHeaderStyle.Separator)
 				{
+					var sepColor = _hasFocus ? Color.Cyan1 : Color.Grey;
 					for (int x2 = headerLeft; x2 < headerRight; x2++)
-						buffer.SetCell(x2, separatorY, '─', Color.Grey, bgColor);
+						buffer.SetCell(x2, separatorY, '─', sepColor, bgColor);
 				}
 				else // AccentedSeparator
 				{
+					// When the tab strip has keyboard focus the entire separator row is
+					// drawn in the accent colour so it stands out as a highlighted band.
+					var sepColor = _hasFocus ? Color.Cyan1 : Color.Grey;
+					var accentColor = Color.Cyan1;
+
 					for (int x2 = headerLeft; x2 < headerRight; x2++)
 					{
 						char c2 = '─';
+						Color c2Color = sepColor;
+
 						if (activeTabStartX >= 0 && activeTabEndX > activeTabStartX)
 						{
 							bool isLeftBoundary = x2 == activeTabStartX;
@@ -729,13 +752,28 @@ namespace SharpConsoleUI.Controls
 							bool isInner = x2 > activeTabStartX && x2 < activeTabEndX - 1;
 
 							if (isLeftBoundary)
-								c2 = x2 > headerLeft ? '╡' : '─';
+							{
+								// '╡' connects a ─ on the left to ═ on the right; only valid when
+								// there is actually a ─ segment to the left.  At the very left
+								// edge of the control there is nothing to connect, so draw '═'.
+								c2 = x2 > headerLeft ? '╡' : '═';
+								c2Color = accentColor;
+							}
 							else if (isRightBoundary)
-								c2 = x2 < headerRight - 1 ? '╞' : '─';
+							{
+								// '╞' connects ═ on the left to ─ on the right; only valid when
+								// there is a ─ segment to the right.
+								c2 = x2 < headerRight - 1 ? '╞' : '═';
+								c2Color = accentColor;
+							}
 							else if (isInner)
+							{
 								c2 = '═';
+								c2Color = accentColor;
+							}
 						}
-						buffer.SetCell(x2, separatorY, c2, Color.Grey, bgColor);
+
+						buffer.SetCell(x2, separatorY, c2, c2Color, bgColor);
 					}
 				}
 			}
@@ -811,29 +849,60 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		#region IInteractiveControl Implementation
+		#region IInteractiveControl / IFocusableControl / IFocusableContainerWithHeader Implementation
+
+		private bool _hasFocus;
 
 		/// <inheritdoc/>
-		public bool HasFocus { get; set; }
+		public bool HasFocus
+		{
+			get => _hasFocus;
+			set
+			{
+				if (_hasFocus == value) return;
+				_hasFocus = value;
+				Invalidate(true);
+			}
+		}
 
 		/// <inheritdoc/>
 		public bool IsEnabled { get; set; } = true;
 
 		/// <inheritdoc/>
+		// Left/Right change the active tab; everything else is unhandled so Tab/Shift+Tab
+		// propagate to SwitchFocus and land on the active tab's content controls.
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			// Optional: Ctrl+Tab to switch tabs (with or without Shift)
-			if ((key.Modifiers & ConsoleModifiers.Control) != 0 && key.Key == ConsoleKey.Tab)
+			if (!_hasFocus) return false;
+
+			if (key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow)
 			{
-				bool shiftPressed = (key.Modifiers & ConsoleModifiers.Shift) != 0;
-				int newIndex = shiftPressed
-					? (_activeTabIndex - 1 + _tabPages.Count) % _tabPages.Count
-					: (_activeTabIndex + 1) % _tabPages.Count;
-				ActiveTabIndex = newIndex;
+				if (key.Key == ConsoleKey.RightArrow)
+					ActiveTabIndex = (_activeTabIndex + 1) % _tabPages.Count;
+				else
+					ActiveTabIndex = (_activeTabIndex - 1 + _tabPages.Count) % _tabPages.Count;
 				return true;
 			}
+
 			return false;
 		}
+
+		// IFocusableControl — the header row is a real Tab focus stop.
+		/// <inheritdoc/>
+		public bool CanReceiveFocus => _tabPages.Count > 0;
+
+		/// <inheritdoc/>
+		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
+		{
+			HasFocus = focus;
+		}
+
+#pragma warning disable CS0067
+		/// <inheritdoc/>
+		public event EventHandler? GotFocus;
+		/// <inheritdoc/>
+		public event EventHandler? LostFocus;
+#pragma warning restore CS0067
 
 		#endregion
 	}

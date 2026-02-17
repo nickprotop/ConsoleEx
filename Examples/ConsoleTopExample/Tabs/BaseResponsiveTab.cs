@@ -16,7 +16,7 @@ internal abstract class BaseResponsiveTab : ITab
 {
     protected readonly ConsoleWindowSystem WindowSystem;
     protected readonly ISystemStatsProvider Stats;
-    private ResponsiveLayoutMode _currentLayout = ResponsiveLayoutMode.Wide;
+    protected ResponsiveLayoutMode _currentLayout = ResponsiveLayoutMode.Wide;
 
     protected BaseResponsiveTab(ConsoleWindowSystem windowSystem, ISystemStatsProvider stats)
     {
@@ -38,7 +38,7 @@ internal abstract class BaseResponsiveTab : ITab
 
     #region ITab Implementation
 
-    public IWindowControl BuildPanel(SystemSnapshot initialSnapshot, int windowWidth)
+    public virtual IWindowControl BuildPanel(SystemSnapshot initialSnapshot, int windowWidth)
     {
         _currentLayout = windowWidth >= LayoutThresholdWidth
             ? ResponsiveLayoutMode.Wide

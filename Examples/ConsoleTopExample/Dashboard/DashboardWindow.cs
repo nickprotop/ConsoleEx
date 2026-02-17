@@ -6,11 +6,9 @@ using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace ConsoleTopExample.Dashboard;
 
@@ -22,7 +20,7 @@ internal sealed class DashboardWindow
 
     private Window? _mainWindow;
     private readonly List<ITab> _tabs = new();
-    private ITab? _activeTab;
+    private TabControl? _tabControl;
 
     public DashboardWindow(
         ConsoleWindowSystem windowSystem,
@@ -71,11 +69,8 @@ internal sealed class DashboardWindow
         mainWindow.AddControl(Controls.RuleBuilder().WithColor(UIConstants.RuleColor).Build());
 
         CreateTabs();
-        BuildTabToolbar(mainWindow);
-        mainWindow.AddControl(Controls.RuleBuilder().WithColor(UIConstants.RuleColor).Build());
-
         var initialSnapshot = _stats.ReadSnapshot();
-        BuildTabPanels(mainWindow, initialSnapshot);
+        BuildTabSection(mainWindow, initialSnapshot);
 
         BuildBottomStatusBar(mainWindow);
 
@@ -243,124 +238,24 @@ internal sealed class DashboardWindow
             _tabs.Add(new NetworkTab(_windowSystem, _stats));
         if (_config.ShowStorageTab)
             _tabs.Add(new StorageTab(_windowSystem, _stats));
-
-        _activeTab = _tabs.FirstOrDefault();
     }
 
-    private void BuildTabToolbar(Window mainWindow)
+    private void BuildTabSection(Window mainWindow, SystemSnapshot initialSnapshot)
     {
-        var toolbarBuilder = Controls.Toolbar()
-            .WithName("tabToolbar")
-            .WithAlignment(HorizontalAlignment.Left)
-            .WithMargin(1, 1, 1, 1)
-            .WithSpacing(1);
+        var builder = new TabControlBuilder()
+            .WithHeaderStyle(TabHeaderStyle.AccentedSeparator)
+            .Fill()
+            .WithAlignment(HorizontalAlignment.Stretch);
 
-        for (int i = 0; i < _tabs.Count; i++)
-        {
-            var capturedTab = _tabs[i];
-            int fKey = i + 1;
-            toolbarBuilder = toolbarBuilder.AddButton(
-                Controls.Button($"F{fKey} {capturedTab.Name}")
-                    .WithName($"tab{capturedTab.Name}")
-                    .OnClick((s, e) => SwitchTab(capturedTab))
-            );
-        }
-
-        mainWindow.AddControl(toolbarBuilder.Build());
-    }
-
-    private void BuildTabPanels(Window mainWindow, SystemSnapshot initialSnapshot)
-    {
         foreach (var tab in _tabs)
-        {
-            IWindowControl panel;
+            builder = builder.AddTab(tab.Name, tab.BuildPanel(initialSnapshot, mainWindow.Width));
 
-            if (tab is CpuTab cpuTab)
-            {
-                panel = BuildCpuPanel(cpuTab, initialSnapshot, mainWindow.Width);
-            }
-            else
-            {
-                panel = tab.BuildPanel(initialSnapshot, mainWindow.Width);
-            }
+        _tabControl = builder.Build();
 
-            mainWindow.AddControl(panel);
-        }
-
-        // Apply process tab specific styling after panels are added
         if (_tabs.FirstOrDefault(t => t is ProcessTab) is ProcessTab processTab)
             processTab.ApplyDetailPanelColors(mainWindow);
 
-        // Show initial tab
-        ShowActiveTab();
-    }
-
-    private IWindowControl BuildCpuPanel(CpuTab cpuTab, SystemSnapshot snapshot, int windowWidth)
-    {
-        // CPU tab needs special handling: its left panel uses BarGraphControls
-        // We need to build the panel manually to inject BuildLeftPanelContent
-        var desiredLayout = windowWidth >= UIConstants.CpuLayoutThresholdWidth
-            ? ResponsiveLayoutMode.Wide
-            : ResponsiveLayoutMode.Narrow;
-
-        if (desiredLayout == ResponsiveLayoutMode.Wide)
-        {
-            var grid = Controls.HorizontalGrid()
-                .WithName(cpuTab.PanelControlName)
-                .WithVerticalAlignment(VerticalAlignment.Fill)
-                .WithAlignment(HorizontalAlignment.Stretch)
-                .WithMargin(1, 0, 1, 1)
-                .Visible(false)
-                .Column(col =>
-                {
-                    col.Width(UIConstants.FixedTextColumnWidth);
-                    var leftPanel = BaseResponsiveTab.BuildScrollablePanel();
-                    cpuTab.BuildLeftPanelContent(leftPanel, snapshot);
-                    col.Add(leftPanel);
-                })
-                .Column(col =>
-                {
-                    col.Width(UIConstants.SeparatorColumnWidth);
-                    col.Add(new SeparatorControl
-                    {
-                        ForegroundColor = UIConstants.SeparatorColor,
-                        VerticalAlignment = VerticalAlignment.Fill
-                    });
-                })
-                .Column(col =>
-                {
-                    var rightPanel = BaseResponsiveTab.BuildScrollablePanel();
-                    cpuTab.BuildGraphsContentPublic(rightPanel, snapshot);
-                    col.Add(rightPanel);
-                })
-                .Build();
-
-            grid.BackgroundColor = UIConstants.WindowBackground;
-            grid.ForegroundColor = UIConstants.WindowForeground;
-            return grid;
-        }
-        else
-        {
-            var grid = Controls.HorizontalGrid()
-                .WithName(cpuTab.PanelControlName)
-                .WithVerticalAlignment(VerticalAlignment.Fill)
-                .WithAlignment(HorizontalAlignment.Stretch)
-                .WithMargin(1, 0, 1, 1)
-                .Visible(false)
-                .Column(col =>
-                {
-                    var scrollPanel = BaseResponsiveTab.BuildScrollablePanel();
-                    cpuTab.BuildLeftPanelContent(scrollPanel, snapshot);
-                    BaseResponsiveTab.AddNarrowSeparator(scrollPanel);
-                    cpuTab.BuildGraphsContentPublic(scrollPanel, snapshot);
-                    col.Add(scrollPanel);
-                })
-                .Build();
-
-            grid.BackgroundColor = UIConstants.WindowBackground;
-            grid.ForegroundColor = UIConstants.WindowForeground;
-            return grid;
-        }
+        mainWindow.AddControl(_tabControl);
     }
 
     private bool HandleTabShortcut(ConsoleKey key)
@@ -378,40 +273,9 @@ internal sealed class DashboardWindow
         if (index < 0 || index >= _tabs.Count)
             return false;
 
-        SwitchTab(_tabs[index]);
+        if (_tabControl != null)
+            _tabControl.ActiveTabIndex = index;
         return true;
-    }
-
-    private void SwitchTab(ITab tab)
-    {
-        _activeTab = tab;
-        ShowActiveTab();
-        FocusTabButton(tab);
-        _mainWindow?.Invalidate(true);
-    }
-
-    private void FocusTabButton(ITab tab)
-    {
-        if (_mainWindow == null) return;
-
-        var btn = _mainWindow.FindControl<ButtonControl>($"tab{tab.Name}");
-        btn?.SetFocus(true, FocusReason.Programmatic);
-    }
-
-    private void ShowActiveTab()
-    {
-        if (_mainWindow == null) return;
-
-        foreach (var tab in _tabs)
-        {
-            var panel = _mainWindow.FindControl<HorizontalGridControl>(tab.PanelControlName);
-            if (panel != null)
-                panel.Visible = (tab == _activeTab);
-        }
-
-        // Trigger initial content update for active tab
-        if (_activeTab is ProcessTab processTab)
-            processTab.UpdateHighlightedProcess();
     }
 
     #endregion
@@ -535,7 +399,10 @@ internal sealed class DashboardWindow
 
     private void UpdateActiveTab(SystemSnapshot snapshot)
     {
-        _activeTab?.UpdatePanel(snapshot);
+        if (_tabControl == null) return;
+        var i = _tabControl.ActiveTabIndex;
+        if (i >= 0 && i < _tabs.Count)
+            _tabs[i].UpdatePanel(snapshot);
     }
 
     private static void UpdateBottomStats(Window window, SystemSnapshot snapshot)
@@ -552,7 +419,8 @@ internal sealed class DashboardWindow
 
     private void UpdateActionButton(Window window, SystemSnapshot snapshot)
     {
-        if (_activeTab is not ProcessTab) return;
+        if (_tabControl == null) return;
+        if (_tabs.ElementAtOrDefault(_tabControl.ActiveTabIndex) is not ProcessTab) return;
 
         var processList = window.FindControl<ListControl>("processList");
         var actionButton = window.FindControl<ButtonControl>("actionButton");

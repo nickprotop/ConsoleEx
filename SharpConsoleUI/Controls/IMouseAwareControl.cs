@@ -92,6 +92,13 @@ namespace SharpConsoleUI.Controls
 	}
 
 	/// <summary>
+	/// A focusable container whose header row is itself a Tab focus stop, but whose visible
+	/// children are also exposed to Tab traversal immediately after it. This produces the
+	/// natural flow: Tab → header (arrows switch content) → Tab → first child control.
+	/// </summary>
+	public interface IFocusableContainerWithHeader { }
+
+	/// <summary>
 	/// Interface for controls that support directional focus (for container controls with children)
 	/// </summary>
 	public interface IDirectionalFocusControl

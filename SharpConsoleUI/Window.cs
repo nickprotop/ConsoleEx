@@ -958,17 +958,25 @@ namespace SharpConsoleUI
 						isFocusable = ic.IsEnabled;
 					}
 
-					// Focusable container: add it and STOP (it handles internal Tab)
+					// Focusable container: add it; then also recurse for header-style containers
 					if (isFocusable && control is IInteractiveControl interactiveContainer)
 					{
 						result.Add(interactiveContainer);
-						return; // Don't recurse — container is opaque
+						// IFocusableContainerWithHeader: header is a focus stop AND visible children
+						// also appear in Tab order immediately after it (e.g. TabControl).
+						if (container is Controls.IFocusableContainerWithHeader)
+						{
+							foreach (var child in container.GetChildren())
+								if (child.Visible) RecursiveAdd(child);
+						}
+						return; // Don't recurse for regular opaque containers
 					}
 
-					// Non-focusable container: transparent — recurse into children
+					// Non-focusable container: transparent — recurse into visible children only
 					foreach (var child in container.GetChildren())
 					{
-						RecursiveAdd(child);
+						if (child.Visible)
+							RecursiveAdd(child);
 					}
 				}
 				// Leaf control - check if it's interactive/focusable
@@ -1267,6 +1275,7 @@ namespace SharpConsoleUI
 				HorizontalGridControl grid => grid.Columns.SelectMany(c => c.Contents),
 				ColumnContainer column => column.Contents,
 			ScrollablePanelControl panel => panel.Children,
+				TabControl tabControl => tabControl.TabPages.Select(tp => tp.Content),
 				_ => null
 			};
 		}

@@ -339,8 +339,16 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
             using var proc = Process.Start(startInfo);
             if (proc == null) return new List<ProcessSample>();
 
-            var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(500);
+            // Read with a timeout — ps can hang on WSL/slow systems
+            var readTask = Task.Run(() => proc.StandardOutput.ReadToEnd());
+            bool completed = readTask.Wait(TimeSpan.FromMilliseconds(800));
+            if (!completed)
+            {
+                try { proc.Kill(true); } catch { }
+                return new List<ProcessSample>();
+            }
+            var output = readTask.Result;
+            proc.WaitForExit(200);
 
             var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Skip(1);
             var result = new List<ProcessSample>();
