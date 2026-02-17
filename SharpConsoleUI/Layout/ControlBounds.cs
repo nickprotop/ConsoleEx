@@ -225,7 +225,29 @@ namespace SharpConsoleUI.Layout
 			if (contentBounds.Width == 0 && contentBounds.Height == 0)
 			{
 				var node = _window._renderer?.GetLayoutNode(control);
-				if (node == null) return null;
+
+				// If this control has no LayoutNode, it lives inside a self-painting container
+				// (e.g. ToolbarControl). Walk up through Container to find the nearest ancestor
+				// that has a LayoutNode and can provide a cursor position.
+				if (node == null)
+				{
+					var current = control.Container as Controls.IWindowControl;
+					while (current != null)
+					{
+						node = _window._renderer?.GetLayoutNode(current);
+						if (node != null && current is Controls.ILogicalCursorProvider parentCursor)
+						{
+							// The parent's GetLogicalCursorPosition() already accumulates the
+							// child's offset within the parent, so use it instead.
+							logicalPosition = parentCursor.GetLogicalCursorPosition();
+							if (logicalPosition == null) return null;
+							break;
+						}
+						current = current.Container as Controls.IWindowControl;
+					}
+					if (node == null) return null;
+				}
+
 				var ab = node.AbsoluteBounds;
 				contentBounds = new Rectangle(ab.X, ab.Y, ab.Width, ab.Height);
 			}

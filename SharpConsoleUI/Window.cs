@@ -1447,7 +1447,21 @@ namespace SharpConsoleUI
 			if (controlBounds.Width == 0 && controlBounds.Height == 0)
 			{
 				var node = _renderer?.GetLayoutNode(control);
-				if (node == null) return false;
+
+				// If this control has no LayoutNode (lives inside a self-painting container),
+				// walk up through Container to find the nearest ancestor with a LayoutNode.
+				if (node == null)
+				{
+					var current = control.Container as IWindowControl;
+					while (current != null)
+					{
+						node = _renderer?.GetLayoutNode(current);
+						if (node != null) break;
+						current = current.Container as IWindowControl;
+					}
+					if (node == null) return false;
+				}
+
 				var ab = node.AbsoluteBounds;
 				controlBounds = new Rectangle(ab.X, ab.Y, ab.Width, ab.Height);
 			}

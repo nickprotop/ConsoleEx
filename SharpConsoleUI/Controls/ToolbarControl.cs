@@ -18,6 +18,7 @@ using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Size = System.Drawing.Size;
 using Point = System.Drawing.Point;
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 namespace SharpConsoleUI.Controls
@@ -26,7 +27,7 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal toolbar control that contains buttons, separators, and other controls.
 	/// Supports Tab navigation between focusable items and Enter key activation of buttons.
 	/// </summary>
-	public class ToolbarControl : IWindowControl, IContainer, IDOMPaintable, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, IFocusTrackingContainer
+	public class ToolbarControl : IWindowControl, IContainer, IDOMPaintable, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, IFocusTrackingContainer, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		private Color? _backgroundColorValue;
 		private IContainer? _container;
@@ -651,6 +652,59 @@ namespace SharpConsoleUI.Controls
 
 			Container?.Invalidate(true);
 		}
+
+		#endregion
+
+		#region ILogicalCursorProvider / ICursorShapeProvider
+
+		/// <inheritdoc/>
+		public Point? GetLogicalCursorPosition()
+		{
+			if (_focusedItem is not ILogicalCursorProvider cursorProvider)
+				return null;
+
+			var childPosition = cursorProvider.GetLogicalCursorPosition();
+			if (childPosition == null)
+				return null;
+
+			// Calculate the X offset of the focused item within the toolbar,
+			// matching the layout logic in PaintDOM
+			int offsetX = _margin.Left;
+			foreach (var item in _items)
+			{
+				if (!item.Visible) continue;
+
+				if (item == _focusedItem)
+				{
+					return new Point(offsetX + childPosition.Value.X, _margin.Top + childPosition.Value.Y);
+				}
+
+				int itemWidth;
+				if (item is IDOMPaintable paintable)
+				{
+					var itemSize = paintable.MeasureDOM(new LayoutConstraints(0, _actualWidth, 0, _actualHeight));
+					itemWidth = item.Width ?? itemSize.Width;
+				}
+				else
+				{
+					itemWidth = item.Width ?? item.GetLogicalContentSize().Width;
+				}
+
+				offsetX += itemWidth + _itemSpacing;
+			}
+
+			return null;
+		}
+
+		/// <inheritdoc/>
+		public void SetLogicalCursorPosition(Point position)
+		{
+			// Not applicable for toolbar - cursor is managed by child controls
+		}
+
+		/// <inheritdoc/>
+		public CursorShape? PreferredCursorShape =>
+			(_focusedItem as ICursorShapeProvider)?.PreferredCursorShape;
 
 		#endregion
 
