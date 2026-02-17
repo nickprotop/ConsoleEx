@@ -85,199 +85,85 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// If control is selectable, we handle both scrolling and selection
-			int highlightedIndex = CurrentHighlightedIndex;
+			// If control is selectable, handle navigation and selection
 			switch (key.Key)
 			{
 				case ConsoleKey.DownArrow:
-					// Clear hover when switching to keyboard navigation
-					if (_hoveredIndex != -1)
+					if (_hoveredIndex != -1) { _hoveredIndex = -1; ItemHovered?.Invoke(this, -1); }
+					if (_selectedIndex < _items.Count - 1)
 					{
-						_hoveredIndex = -1;
-						ItemHovered?.Invoke(this, -1);
-					}
-
-					if (_selectionMode == ListSelectionMode.Simple)
-					{
-						// Simple mode: Move selection + highlight together
-						if (_selectedIndex < _items.Count - 1)
-						{
-							SelectedIndex = _selectedIndex + 1;
-							_highlightedIndex = _selectedIndex;
-							EnsureHighlightedItemVisible();
-							Container?.Invalidate(true);
-							return true;
-						}
-					}
-					else
-					{
-						// Complex mode: Move highlight only
-						if (highlightedIndex < _items.Count - 1)
-						{
-							_highlightedIndex = highlightedIndex + 1;
-							HighlightChanged?.Invoke(this, _highlightedIndex);
-							EnsureHighlightedItemVisible();
-							Container?.Invalidate(true);
-							return true;
-						}
+						SelectedIndex = _selectedIndex + 1;
+						return true;
 					}
 					return false;
 
 				case ConsoleKey.UpArrow:
-					// Clear hover when switching to keyboard navigation
-					if (_hoveredIndex != -1)
+					if (_hoveredIndex != -1) { _hoveredIndex = -1; ItemHovered?.Invoke(this, -1); }
+					if (_selectedIndex > 0)
 					{
-						_hoveredIndex = -1;
-						ItemHovered?.Invoke(this, -1);
-					}
-
-					if (_selectionMode == ListSelectionMode.Simple)
-					{
-						// Simple mode: Move selection + highlight together
-						if (_selectedIndex > 0)
-						{
-							SelectedIndex = _selectedIndex - 1;
-							_highlightedIndex = _selectedIndex;
-							EnsureHighlightedItemVisible();
-							Container?.Invalidate(true);
-							return true;
-						}
-					}
-					else
-					{
-						// Complex mode: Move highlight only
-						if (highlightedIndex > 0)
-						{
-							_highlightedIndex = highlightedIndex - 1;
-							HighlightChanged?.Invoke(this, _highlightedIndex);
-							EnsureHighlightedItemVisible();
-							Container?.Invalidate(true);
-							return true;
-						}
+						SelectedIndex = _selectedIndex - 1;
+						return true;
 					}
 					return false;
 
 				case ConsoleKey.Enter:
-					if (highlightedIndex >= 0 && highlightedIndex < _items.Count)
+					if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
 					{
-						if (_selectionMode == ListSelectionMode.Simple)
-						{
-							// Simple mode: Already selected (highlight = selection), just activate
-							var item = _items[highlightedIndex];
-							if (item.IsEnabled)
-							{
-								ItemActivated?.Invoke(this, item);
-							}
-						}
-						else
-						{
-							// Complex mode: Two-step Enter
-							// First Enter: If highlight != selection, commit to selection (no activate)
-							// Second Enter: If highlight == selection, activate
-
-							if (_selectedIndex != highlightedIndex)
-							{
-								// First Enter: Commit highlight to selection (browse → selected)
-								SelectedIndex = highlightedIndex;
-								// Don't fire ItemActivated yet!
-							}
-							else
-							{
-								// Second Enter: Already selected, now activate
-								var item = _items[highlightedIndex];
-								if (item.IsEnabled)
-								{
-									ItemActivated?.Invoke(this, item);
-								}
-							}
-						}
+						var item = _items[_selectedIndex];
+						if (item.IsEnabled)
+							ItemActivated?.Invoke(this, item);
 						return true;
 					}
 					else if (_items.Count > 0)
 					{
-						// Nothing highlighted: First Enter initializes highlight
-						if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
-						{
-							_highlightedIndex = _selectedIndex;
-						}
-						else
-						{
-							_highlightedIndex = 0;  // Highlight first item
-						}
-						HighlightChanged?.Invoke(this, _highlightedIndex);
+						// Nothing selected yet: select first item
+						SelectedIndex = 0;
+						return true;
+					}
+					return false;
+
+				case ConsoleKey.Spacebar when _checkboxMode:
+					if (_selectedIndex >= 0 && _selectedIndex < _items.Count && _items[_selectedIndex].IsEnabled)
+					{
+						_items[_selectedIndex].IsChecked = !_items[_selectedIndex].IsChecked;
+						CheckedItemsChanged?.Invoke(this, EventArgs.Empty);
 						Container?.Invalidate(true);
 						return true;
 					}
 					return false;
 
 				case ConsoleKey.Home:
-					// Clear hover when switching to keyboard navigation
-					if (_hoveredIndex != -1)
-					{
-						_hoveredIndex = -1;
-						ItemHovered?.Invoke(this, -1);
-					}
-
+					if (_hoveredIndex != -1) { _hoveredIndex = -1; ItemHovered?.Invoke(this, -1); }
 					if (_items.Count > 0)
 					{
-						_highlightedIndex = 0;
-					HighlightChanged?.Invoke(this, _highlightedIndex);
-						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
+						SelectedIndex = 0;
 						return true;
 					}
 					return false;
 
 				case ConsoleKey.End:
-					// Clear hover when switching to keyboard navigation
-					if (_hoveredIndex != -1)
-					{
-						_hoveredIndex = -1;
-						ItemHovered?.Invoke(this, -1);
-					}
-
+					if (_hoveredIndex != -1) { _hoveredIndex = -1; ItemHovered?.Invoke(this, -1); }
 					if (_items.Count > 0)
 					{
-						_highlightedIndex = _items.Count - 1;
-					HighlightChanged?.Invoke(this, _highlightedIndex);
-						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
+						SelectedIndex = _items.Count - 1;
 						return true;
 					}
 					return false;
 
 				case ConsoleKey.PageUp:
-					// Clear hover when switching to keyboard navigation
-					if (_hoveredIndex != -1)
+					if (_hoveredIndex != -1) { _hoveredIndex = -1; ItemHovered?.Invoke(this, -1); }
+					if (_selectedIndex > 0)
 					{
-						_hoveredIndex = -1;
-						ItemHovered?.Invoke(this, -1);
-					}
-
-					if (highlightedIndex > 0)
-					{
-						_highlightedIndex = Math.Max(0, highlightedIndex - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
-					HighlightChanged?.Invoke(this, _highlightedIndex);
-						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
+						SelectedIndex = Math.Max(0, _selectedIndex - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
 						return true;
 					}
 					return false;
 
 				case ConsoleKey.PageDown:
-					// Clear hover when switching to keyboard navigation
-					if (_hoveredIndex != -1)
+					if (_hoveredIndex != -1) { _hoveredIndex = -1; ItemHovered?.Invoke(this, -1); }
+					if (_selectedIndex < _items.Count - 1)
 					{
-						_hoveredIndex = -1;
-						ItemHovered?.Invoke(this, -1);
-					}
-
-					if (highlightedIndex < _items.Count - 1)
-					{
-						_highlightedIndex = Math.Min(_items.Count - 1, highlightedIndex + (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
-					HighlightChanged?.Invoke(this, _highlightedIndex);
-						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
+						SelectedIndex = Math.Min(_items.Count - 1, _selectedIndex + (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1));
 						return true;
 					}
 					return false;
@@ -288,15 +174,9 @@ namespace SharpConsoleUI.Controls
 					{
 						// Check if this is part of a search sequence or new search
 						if ((DateTime.Now - _lastKeyTime) > _searchResetDelay)
-						{
 							_searchBuilder.Clear();
-							_searchBuilder.Append(key.KeyChar);
-						}
-						else
-						{
-							_searchBuilder.Append(key.KeyChar);
-						}
 
+						_searchBuilder.Append(key.KeyChar);
 						_searchText = _searchBuilder.ToString();
 						_lastKeyTime = DateTime.Now;
 
@@ -305,10 +185,7 @@ namespace SharpConsoleUI.Controls
 						{
 							if (_items[i].Text.StartsWith(_searchText, StringComparison.OrdinalIgnoreCase))
 							{
-								_highlightedIndex = i;
-							HighlightChanged?.Invoke(this, _highlightedIndex);
-								EnsureHighlightedItemVisible();
-								Container?.Invalidate(true);
+								SelectedIndex = i;
 								return true;
 							}
 						}

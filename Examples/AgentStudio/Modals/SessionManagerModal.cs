@@ -55,7 +55,7 @@ public static class SessionManagerModal
             .WithColors(Color.Grey93, Color.Grey15)
             .WithFocusedColors(Color.Grey93, Color.Grey15)
             .WithHighlightColors(Color.White, Color.Grey35)  // Subtle gray highlight instead of bright blue
-            .SimpleMode()  // Clean, no markers
+
             .WithDoubleClickActivation(true)  // Double-click selects and closes modal
             .Build();
 

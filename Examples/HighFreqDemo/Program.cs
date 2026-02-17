@@ -260,7 +260,6 @@ class Program
             .WithAlignment(HorizontalAlignment.Stretch)
             .WithVerticalAlignment(VerticalAlignment.Fill)
             .MaxVisibleItems(12)
-            .SimpleMode()
             .Build();
 
         // Seed with initial items
@@ -279,7 +278,6 @@ class Program
             .WithAlignment(HorizontalAlignment.Stretch)
             .WithVerticalAlignment(VerticalAlignment.Fill)
             .MaxVisibleItems(8)
-            .SimpleMode()
             .Build();
 
         list.AddItem(new ListItem("[green]System nominal[/]"));

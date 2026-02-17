@@ -105,7 +105,6 @@ public static class FileDialogs
 		var folderList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-									.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.WithName("FolderList")
 			.Build();
@@ -117,7 +116,6 @@ public static class FileDialogs
 			fileList = Ctl.List()
 				.WithAlignment(HorizontalAlignment.Stretch)
 				.WithVerticalAlignment(VerticalAlignment.Fill)
-				.SimpleMode()
 				.WithDoubleClickActivation(true)
 				.WithName("FileList")
 				.Build();
@@ -390,7 +388,6 @@ public static class FileDialogs
 		var folderList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-									.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.WithName("FolderList")
 			.Build();
@@ -399,7 +396,6 @@ public static class FileDialogs
 		var fileList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-									.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.WithName("FileList")
 			.Build();

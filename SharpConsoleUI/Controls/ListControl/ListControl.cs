@@ -70,9 +70,8 @@ namespace SharpConsoleUI.Controls
 		private int _scrollOffset = 0;
 		private IContainer? _container;
 
-		// Local state - controls own their selection/highlight state
+		// Local state
 		private int _selectedIndex = -1;
-		private int _highlightedIndex = -1;
 
 		// Mouse interaction state
 		private int _hoveredIndex = -1;                        // Mouse hover tracking
@@ -80,21 +79,19 @@ namespace SharpConsoleUI.Controls
 		private DateTime _lastClickTime = DateTime.MinValue;   // Double-click detection (protected by _clickLock)
 		private int _lastClickIndex = -1;                      // Double-click detection (protected by _clickLock)
 
-		// Selection mode configuration
-		private ListSelectionMode _selectionMode = ListSelectionMode.Complex;
+		// Interaction configuration
+		private bool _checkboxMode = false;
 		private bool _hoverHighlightsItems = true;
 		private bool _autoHighlightOnFocus = true;
 		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultMinimumVisibleItems;
 		private bool _doubleClickActivates = true;
 		private int _doubleClickThresholdMs = ControlDefaults.DefaultDoubleClickThresholdMs;
-		private bool _showSelectionMarkers = true;  // Show [x]/[ ] markers
 
 		// Performance: Cache for expensive text measurement operations
 		private readonly TextMeasurementCache _textMeasurementCache = new(AnsiConsoleHelper.StripSpectreLength);
 
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
-		private int CurrentHighlightedIndex => _highlightedIndex;
 		private int CurrentScrollOffset => _scrollOffset;
 
 		#endregion
@@ -242,13 +239,6 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when an item is activated (Enter or double-click).
 		/// </summary>
 		public event EventHandler<ListItem>? ItemActivated;
-
-		/// <summary>
-		/// Occurs when the highlighted index changes due to arrow key navigation.
-		/// Fires before the item is selected/activated. Use this for real-time
-		/// preview updates as the user browses through items.
-		/// </summary>
-		public event EventHandler<int>? HighlightChanged;
 
 		/// <summary>
 		/// Occurs when the control is clicked with the mouse.
@@ -529,12 +519,6 @@ namespace SharpConsoleUI.Controls
 
 				_selectedIndex = value;
 
-				// Sync highlight in Simple mode
-				if (_selectionMode == ListSelectionMode.Simple)
-				{
-					_highlightedIndex = value;
-				}
-
 				// Fire events ONCE
 				SelectedIndexChanged?.Invoke(this, value);
 
@@ -555,19 +539,34 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets or sets the selection mode (Simple or Complex).
-		/// Simple: Highlight and selection are merged (like TreeControl).
-		/// Complex: Highlight and selection are separate (like DropdownControl).
-		/// Default: Complex (backward compatible).
+		/// Gets or sets whether items display checkboxes ([x]/[ ]) and Space toggles checked state.
 		/// </summary>
-		public ListSelectionMode SelectionMode
+		public bool CheckboxMode
 		{
-			get => _selectionMode;
-			set
-			{
-				_selectionMode = value;
-				Container?.Invalidate(true);
-			}
+			get => _checkboxMode;
+			set { _checkboxMode = value; Container?.Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Occurs when the checked state of any item changes.
+		/// </summary>
+		public event EventHandler<EventArgs>? CheckedItemsChanged;
+
+		/// <summary>
+		/// Returns all items where IsChecked is true.
+		/// </summary>
+		public List<ListItem> GetCheckedItems()
+			=> _items.Where(i => i.IsChecked).ToList();
+
+		/// <summary>
+		/// Sets all items' IsChecked state and fires CheckedItemsChanged once.
+		/// </summary>
+		public void SetAllChecked(bool value)
+		{
+			foreach (var item in _items)
+				item.IsChecked = value;
+			CheckedItemsChanged?.Invoke(this, EventArgs.Empty);
+			Container?.Invalidate(true);
 		}
 
 		/// <summary>
@@ -729,7 +728,6 @@ namespace SharpConsoleUI.Controls
 
 			// Clear state via services (single source of truth)
 			_selectedIndex = -1;
-		_highlightedIndex = -1;
 			SetScrollOffset(0);
 
 			Container?.Invalidate(true);
@@ -757,7 +755,7 @@ namespace SharpConsoleUI.Controls
 			SelectedItemChanged = null;
 			SelectedValueChanged = null;
 			ItemActivated = null;
-			HighlightChanged = null;
+			CheckedItemsChanged = null;
 			MouseClick = null;
 			MouseEnter = null;
 			MouseLeave = null;
@@ -795,34 +793,20 @@ namespace SharpConsoleUI.Controls
 
 			if (focus && !hadFocus)
 			{
-				// Initialize highlight on focus gain
-				if (_autoHighlightOnFocus && _highlightedIndex == -1)
+				// Auto-select first item on focus gain if nothing is selected
+				if (_autoHighlightOnFocus && _isSelectable && _selectedIndex == -1 && _items.Count > 0)
 				{
-					if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
-					{
-						_highlightedIndex = _selectedIndex;
-					}
-					else if (_items.Count > 0)
-					{
-						_highlightedIndex = 0;  // Highlight first item
-					}
-
-					if (_highlightedIndex >= 0)
-					{
-						HighlightChanged?.Invoke(this, _highlightedIndex);
-					}
+					_selectedIndex = 0;
+					SelectedIndexChanged?.Invoke(this, 0);
+					SelectedItemChanged?.Invoke(this, SelectedItem);
+					SelectedValueChanged?.Invoke(this, SelectedValue);
+					EnsureSelectedItemVisible();
 				}
 
 				GotFocus?.Invoke(this, EventArgs.Empty);
 			}
 			else if (!focus && hadFocus)
 			{
-				// Reset highlight to selection on focus loss (DropdownControl pattern)
-				if (_selectionMode == ListSelectionMode.Complex)
-				{
-					_highlightedIndex = _selectedIndex;
-				}
-
 				// Clear hover state
 				if (_hoveredIndex != -1)
 				{

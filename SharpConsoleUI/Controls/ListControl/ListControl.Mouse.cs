@@ -218,25 +218,8 @@ namespace SharpConsoleUI.Controls
 							_lastClickIndex = clickedIndex;
 						}
 
-						// Behavior depends on SelectionMode
-						if (_selectionMode == ListSelectionMode.Simple)
-						{
-							// Simple mode: Merged state, set both
-							SelectedIndex = clickedIndex;
-							_highlightedIndex = clickedIndex;
-						}
-						else
-						{
-							// Complex mode: Click is browsing action (like arrow keys)
-							// Clear any existing selection and highlight clicked item
-							if (_selectedIndex != -1)
-							{
-								_selectedIndex = -1;
-								SelectedIndexChanged?.Invoke(this, -1);
-							}
-							_highlightedIndex = clickedIndex;
-							HighlightChanged?.Invoke(this, clickedIndex);
-						}
+						// Set selection directly
+						SelectedIndex = clickedIndex;
 
 						// Double click: Commit to selection and activate
 						if (isDoubleClick)

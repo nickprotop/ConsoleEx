@@ -73,7 +73,6 @@ public static class ThemeSelectorDialog
 		var themeList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.Build();
 

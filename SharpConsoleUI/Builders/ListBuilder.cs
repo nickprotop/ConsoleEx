@@ -53,13 +53,12 @@ public sealed class ListBuilder
 	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
 	private EventHandler? _lostFocusHandler;
 	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
-	private EventHandler<int>? _highlightChangedHandler;
-	private WindowEventHandler<int>? _highlightChangedWithWindowHandler;
+	private EventHandler<EventArgs>? _checkedItemsChangedHandler;
+	private bool _checkboxMode = false;
 	private EventHandler<int>? _itemHoveredHandler;
 	private WindowEventHandler<int>? _itemHoveredWithWindowHandler;
 	private EventHandler<MouseEventArgs>? _mouseDoubleClickHandler;
 	private WindowEventHandler<MouseEventArgs>? _mouseDoubleClickWithWindowHandler;
-	private ListSelectionMode _selectionMode = ListSelectionMode.Complex;
 	private bool _hoverHighlightsItems = true;
 	private bool _autoHighlightOnFocus = true;
 	private int _mouseWheelScrollSpeed = 3;
@@ -332,35 +331,6 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
-	/// Sets the selection mode (Simple or Complex).
-	/// Simple: Highlight and selection are merged (like TreeControl).
-	/// Complex: Highlight and selection are separate (like DropdownControl). Default.
-	/// </summary>
-	public ListBuilder WithSelectionMode(ListSelectionMode mode)
-	{
-		_selectionMode = mode;
-		return this;
-	}
-
-	/// <summary>
-	/// Enables Simple selection mode (merged highlight/selection, no markers).
-	/// </summary>
-	public ListBuilder SimpleMode()
-	{
-		_selectionMode = ListSelectionMode.Simple;
-		return this;
-	}
-
-	/// <summary>
-	/// Enables Complex selection mode (separate highlight/selection with [x]/[ ] markers). Default.
-	/// </summary>
-	public ListBuilder ComplexMode()
-	{
-		_selectionMode = ListSelectionMode.Complex;
-		return this;
-	}
-
-	/// <summary>
 	/// Sets whether mouse hover highlights items visually.
 	/// Default: true.
 	/// </summary>
@@ -563,27 +533,20 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
-	/// Sets the highlight changed event handler for arrow key navigation.
-	/// Fires when the highlighted index changes (before selection/activation).
-	/// Use this for real-time preview updates as the user browses items.
+	/// Enables checkbox mode — items display [x]/[ ] prefixes and Space toggles checked state.
 	/// </summary>
-	/// <param name="handler">The event handler to invoke when highlight changes</param>
-	/// <returns>The builder for chaining</returns>
-	public ListBuilder OnHighlightChanged(EventHandler<int> handler)
+	public ListBuilder WithCheckboxMode(bool enabled = true)
 	{
-		_highlightChangedHandler = handler;
+		_checkboxMode = enabled;
 		return this;
 	}
 
 	/// <summary>
-	/// Sets the highlight changed event handler with window access.
-	/// Fires when the highlighted index changes (before selection/activation).
+	/// Sets the handler called when any item's checked state changes.
 	/// </summary>
-	/// <param name="handler">Handler receiving sender, index, and window</param>
-	/// <returns>The builder for chaining</returns>
-	public ListBuilder OnHighlightChanged(WindowEventHandler<int> handler)
+	public ListBuilder OnCheckedItemsChanged(EventHandler<EventArgs> handler)
 	{
-		_highlightChangedWithWindowHandler = handler;
+		_checkedItemsChangedHandler = handler;
 		return this;
 	}
 
@@ -605,8 +568,8 @@ public sealed class ListBuilder
 			Name = _name,
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
-			// Apply new modernization properties
-			SelectionMode = _selectionMode,
+			// Apply interaction properties
+			CheckboxMode = _checkboxMode,
 			HoverHighlightsItems = _hoverHighlightsItems,
 			AutoHighlightOnFocus = _autoHighlightOnFocus,
 			MouseWheelScrollSpeed = _mouseWheelScrollSpeed,
@@ -716,20 +679,10 @@ public sealed class ListBuilder
 			};
 		}
 
-		// Attach HighlightChanged handlers
-		if (_highlightChangedHandler != null)
+		// Attach CheckedItemsChanged handler
+		if (_checkedItemsChangedHandler != null)
 		{
-			list.HighlightChanged += _highlightChangedHandler;
-		}
-
-		if (_highlightChangedWithWindowHandler != null)
-		{
-			list.HighlightChanged += (sender, index) =>
-			{
-				var window = (sender as IWindowControl)?.GetParentWindow();
-				if (window != null)
-					_highlightChangedWithWindowHandler(sender, index, window);
-			};
+			list.CheckedItemsChanged += _checkedItemsChangedHandler;
 		}
 
 		// Attach ItemHovered handlers

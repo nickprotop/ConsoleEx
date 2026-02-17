@@ -76,7 +76,6 @@ public static class FolderPickerDialog
 		var folderList = Ctl.List()
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.WithName("FolderList")
 			.Build();

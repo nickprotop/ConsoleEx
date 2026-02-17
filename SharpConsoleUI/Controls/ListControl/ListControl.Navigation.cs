@@ -11,14 +11,6 @@ namespace SharpConsoleUI.Controls
 	public partial class ListControl
 	{
 		/// <summary>
-		/// Gets the index of the currently highlighted item (for arrow key navigation). -1 if no item is highlighted.
-		/// </summary>
-		public int HighlightedIndex
-		{
-			get => _highlightedIndex;
-		}
-
-		/// <summary>
 		/// Gets or sets whether to auto-highlight on focus gain.
 		/// When true, the control will highlight the selected item (or first item) when focused.
 		/// Default: true (fixes UX issue where focus had no visual feedback).
@@ -84,25 +76,6 @@ namespace SharpConsoleUI.Controls
 
 			// Ultimate fallback
 			return Math.Min(10, _items.Count);
-		}
-
-		private void EnsureHighlightedItemVisible()
-		{
-			int highlightedIndex = CurrentHighlightedIndex;
-			if (highlightedIndex < 0)
-				return;
-
-			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
-			int scrollOffset = CurrentScrollOffset;
-
-			if (highlightedIndex < scrollOffset)
-			{
-				SetScrollOffset(highlightedIndex);
-			}
-			else if (highlightedIndex >= scrollOffset + effectiveMaxVisibleItems)
-			{
-				SetScrollOffset(highlightedIndex - effectiveMaxVisibleItems + 1);
-			}
 		}
 
 		private void EnsureSelectedItemVisible()

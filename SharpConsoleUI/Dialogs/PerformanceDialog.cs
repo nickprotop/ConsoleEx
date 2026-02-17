@@ -58,7 +58,6 @@ public static class PerformanceDialog
 			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
 			.WithFocusedColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
 			.WithHighlightColors(Color.White, Color.Grey35)
-			.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.Build();
 
@@ -183,7 +182,6 @@ public static class PerformanceDialog
 			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
 			.WithFocusedColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
 			.WithHighlightColors(Color.White, Color.Grey35)
-			.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.Build();
 

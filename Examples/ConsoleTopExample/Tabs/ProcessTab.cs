@@ -83,7 +83,7 @@ internal sealed class ProcessTab : ITab
             .WithFocusedColors(UIConstants.WindowForeground, UIConstants.WindowBackground)
             .WithHighlightColors(UIConstants.ProcessHighlightFg, UIConstants.ProcessHighlightBg)
             .WithMargin(1, 0, 0, 1)
-            .OnHighlightChanged((_, idx) =>
+            .OnSelectionChanged((_, idx) =>
             {
                 var processList = FindMainWindow()?.FindControl<ListControl>("processList");
                 if (processList != null && idx >= 0 && idx < processList.Items.Count)
@@ -96,7 +96,6 @@ internal sealed class ProcessTab : ITab
                 if (item?.Tag is ProcessSample ps)
                     ShowProcessActionsDialog(ps);
             })
-            .SimpleMode()
             .Build();
 
         var mainGrid = Controls
@@ -179,7 +178,7 @@ internal sealed class ProcessTab : ITab
         var actionButton = mainWindow.FindControl<ButtonControl>("actionButton");
         if (actionButton != null)
         {
-            bool hasProcess = (processList?.HighlightedIndex >= 0) || (_lastHighlightedProcess != null);
+            bool hasProcess = (processList?.SelectedIndex >= 0) || (_lastHighlightedProcess != null);
             actionButton.IsEnabled = hasProcess;
         }
     }
@@ -301,8 +300,8 @@ internal sealed class ProcessTab : ITab
             return;
 
         ProcessSample? processToShow = null;
-        if (processList.HighlightedIndex >= 0 && processList.HighlightedIndex < processList.Items.Count)
-            processToShow = processList.Items[processList.HighlightedIndex].Tag as ProcessSample;
+        if (processList.SelectedIndex >= 0 && processList.SelectedIndex < processList.Items.Count)
+            processToShow = processList.Items[processList.SelectedIndex].Tag as ProcessSample;
         else if (_lastHighlightedProcess != null)
             processToShow = _lastHighlightedProcess;
 
@@ -356,8 +355,8 @@ internal sealed class ProcessTab : ITab
         {
             var mainWindow = FindMainWindow();
             var processList = mainWindow?.FindControl<ListControl>("processList");
-            if (processList != null && processList.HighlightedIndex >= 0 && processList.HighlightedIndex < processList.Items.Count)
-                sample = processList.Items[processList.HighlightedIndex].Tag as ProcessSample;
+            if (processList != null && processList.SelectedIndex >= 0 && processList.SelectedIndex < processList.Items.Count)
+                sample = processList.Items[processList.SelectedIndex].Tag as ProcessSample;
             sample ??= _lastHighlightedProcess;
         }
 

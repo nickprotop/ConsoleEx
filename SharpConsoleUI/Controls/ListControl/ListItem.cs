@@ -49,6 +49,11 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled { get; set; } = true;
 
 		/// <summary>
+		/// Gets or sets whether this item is checked (used in CheckboxMode).
+		/// </summary>
+		public bool IsChecked { get; set; } = false;
+
+		/// <summary>
 		/// Gets the text split into separate lines for multi-line items.
 		/// </summary>
 		public List<string> Lines => _lines ?? new List<string> { Text };

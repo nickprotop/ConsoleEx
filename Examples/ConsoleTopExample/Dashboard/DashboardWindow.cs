@@ -436,7 +436,7 @@ internal sealed class DashboardWindow
         var actionButton = window.FindControl<ButtonControl>("actionButton");
         if (actionButton != null && processList != null)
         {
-            actionButton.IsEnabled = processList.HighlightedIndex >= 0;
+            actionButton.IsEnabled = processList.SelectedIndex >= 0;
         }
     }
 

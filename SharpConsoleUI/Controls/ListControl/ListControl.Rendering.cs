@@ -57,8 +57,8 @@ namespace SharpConsoleUI.Controls
 					if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 				}
 
-				// Calculate indicator space: only needed in Complex mode with markers
-				int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 5 : 0;
+				// Calculate indicator space: needed in CheckboxMode
+				int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
 				int titleLength = string.IsNullOrEmpty(_title) ? 0 : GetCachedTextLength(_title) + 5;
 
 				int width = _width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
@@ -113,8 +113,8 @@ namespace SharpConsoleUI.Controls
 			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + visibleItems < _items.Count;
 			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + _margin.Top + _margin.Bottom;
 
-			// Calculate indicator space: only needed in Complex mode with markers
-			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 5 : 0;
+			// Calculate indicator space: needed in CheckboxMode
+			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
 			int maxItemWidth = 0;
 			foreach (var item in _items)
 			{
@@ -134,8 +134,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			// Calculate indicator space: only needed in Complex mode with markers
-			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 5 : 0;
+			// Calculate indicator space: needed in CheckboxMode
+			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
 
 			// Calculate max item width
 			int maxItemWidth = 0;
@@ -276,8 +276,8 @@ namespace SharpConsoleUI.Controls
 				foregroundColor = ForegroundColor;
 			}
 
-			// Calculate indicator space: only needed in Complex mode with markers
-			int indicatorSpace = (_isSelectable && _selectionMode == ListSelectionMode.Complex && _showSelectionMarkers) ? 5 : 0;
+			// Calculate indicator space: needed in CheckboxMode
+			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
 			int listWidth = bounds.Width - _margin.Left - _margin.Right;
 			if (listWidth <= 0) return;
 
@@ -291,7 +291,6 @@ namespace SharpConsoleUI.Controls
 			bool hasTitle = !string.IsNullOrEmpty(_title);
 			int scrollOffset = CurrentScrollOffset;
 			int selectedIndex = CurrentSelectedIndex;
-			int highlightedIndex = CurrentHighlightedIndex;
 
 			// Note: Highlight initialization moved to SetFocus to avoid firing events during render
 
@@ -404,12 +403,12 @@ namespace SharpConsoleUI.Controls
 							itemBg = theme?.ListHoverBackgroundColor ?? HighlightBackgroundColor;
 							itemFg = theme?.ListHoverForegroundColor ?? HighlightForegroundColor;
 						}
-						else if (_isSelectable && itemIndex == highlightedIndex && _hasFocus)
+						else if (_isSelectable && itemIndex == selectedIndex && _hasFocus)
 						{
 							itemBg = HighlightBackgroundColor;
 							itemFg = HighlightForegroundColor;
 						}
-						else if (_isSelectable && itemIndex == highlightedIndex && !_hasFocus)
+						else if (_isSelectable && itemIndex == selectedIndex && !_hasFocus)
 						{
 							itemBg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightBackgroundColor ?? HighlightBackgroundColor;
 							itemFg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
@@ -420,29 +419,13 @@ namespace SharpConsoleUI.Controls
 							itemFg = foregroundColor;
 						}
 
-						// Build item content with selection markers
+						// Build item content with checkbox markers
 						string selectionIndicator = "";
-						if (_isSelectable && lineIndex == 0)
+						if (_isSelectable && _checkboxMode)
 						{
-							// Show markers only in Complex mode
-							if (_selectionMode == ListSelectionMode.Complex && _showSelectionMarkers)
-							{
-								if (itemIndex == selectedIndex)
-									selectionIndicator = "[ x ] ";
-								else if (itemIndex == highlightedIndex && _hasFocus)
-									selectionIndicator = "[ > ] ";
-								else
-									selectionIndicator = "     ";
-							}
-							// In Simple mode, no markers
-						}
-						else if (_isSelectable && lineIndex > 0)
-						{
-							// Continuation lines: add spacing if Complex mode
-							if (_selectionMode == ListSelectionMode.Complex && _showSelectionMarkers)
-							{
-								selectionIndicator = "     ";
-							}
+							selectionIndicator = lineIndex == 0
+								? (_items[itemIndex].IsChecked ? "[x]  " : "[ ]  ")
+								: "     ";
 						}
 
 						string itemContent;

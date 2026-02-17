@@ -58,7 +58,6 @@ public static class SettingsDialog
 			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
 			.WithFocusedColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
 			.WithHighlightColors(Color.White, Color.Grey35)
-			.SimpleMode()
 			.WithDoubleClickActivation(true)
 			.Build();
 
