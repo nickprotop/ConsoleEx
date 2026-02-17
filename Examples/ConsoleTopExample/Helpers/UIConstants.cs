@@ -69,6 +69,7 @@ internal static class UIConstants
     public const int PidPadLeft = 8;
     public const int CpuPercentPadLeft = 7;
     public const int MemPercentPadLeft = 7;
+    public const int MemMbPadLeft = 6;
     public const int TopConsumerCount = 5;
     public const int InterfaceNameMaxLength = 15;
     public const int InterfaceNameTruncLength = 12;

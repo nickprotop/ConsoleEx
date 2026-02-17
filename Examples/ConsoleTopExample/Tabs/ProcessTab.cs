@@ -250,8 +250,9 @@ internal sealed class ProcessTab : ITab
             var memMb = (_lastSnapshot?.Memory.TotalMb ?? 0) > 0
                 ? p.MemPercent / 100.0 * _lastSnapshot!.Memory.TotalMb
                 : 0;
-            string memMbPart = memMb > 0 ? $" [grey50]{memMb:F0}M[/]" : "";
-            var line = $"{pidStr}  [{cpuColor}]{cpuStr}[/]  [{memColor}]{memStr}[/]{memMbPart}  [cyan1]{p.Command}[/]";
+            string memMbRaw = memMb > 0 ? $"{memMb:F0}M" : "";
+            string memMbPadded = memMbRaw.PadLeft(UIConstants.MemMbPadLeft);
+            var line = $"{pidStr}  [{cpuColor}]{cpuStr}[/]  [{memColor}]{memStr}[/] [grey50]{memMbPadded}[/]  [cyan1]{p.Command}[/]";
             items.Add(new ListItem(line) { Tag = p });
         }
 
