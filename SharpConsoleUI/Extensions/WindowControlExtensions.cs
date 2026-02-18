@@ -57,6 +57,7 @@ public static class WindowControlExtensions
 
 		IContainer? container = (control as IWindowControl)?.Container;
 		IInteractiveControl currentNotifyTarget = interactiveControl;
+		IInteractiveControl originalControl = interactiveControl;  // leaf; never overwritten
 
 		while (container != null)
 		{
@@ -65,12 +66,13 @@ public static class WindowControlExtensions
 				tracker.NotifyChildFocusChanged(currentNotifyTarget, hasFocus);
 				if (container is IInteractiveControl containerAsInteractive)
 					currentNotifyTarget = containerAsInteractive;
+					// originalControl intentionally NOT updated
 			}
 
 			if (container is Window window)
 			{
 				if (hasFocus)
-					window.NotifyControlGainedFocus(currentNotifyTarget);
+					window.NotifyControlGainedFocus(currentNotifyTarget, originalControl);
 				else
 					window.NotifyControlLostFocus(currentNotifyTarget);
 				break;

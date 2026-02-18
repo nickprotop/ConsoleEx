@@ -765,8 +765,13 @@ namespace SharpConsoleUI.Windows
 
 						_window._lastFocusedControl = control; // Update last focused control
 
-						// Sync with FocusStateService
-						_window.FocusService?.SetFocus(_window, control, FocusChangeReason.Keyboard);
+						// Sync with FocusStateService - prefer the deep leaf tracked by NotifyControlGainedFocus
+						// (SetFocusWithDirection may have already set _lastDeepFocusedControl to the true leaf
+						//  e.g. ListControl inside ScrollablePanel; using `control` would overwrite it)
+						var leafForFocus = (_window._lastDeepFocusedControl is Controls.IFocusableControl leafFc && leafFc.HasFocus)
+							? _window._lastDeepFocusedControl
+							: control;
+						_window.FocusService?.SetFocus(_window, leafForFocus, FocusChangeReason.Keyboard);
 
 						_window._windowSystem?.LogService?.LogTrace($"Focus switched in '{_window.Title}': {_window._lastFocusedControl?.GetType().Name}", "Focus");
 

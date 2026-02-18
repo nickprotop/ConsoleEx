@@ -852,6 +852,7 @@ namespace SharpConsoleUI.Controls
 			if (_focusedItem == null) return false;
 
 			int contentWidth = _actualWidth - _margin.Left - _margin.Right;
+			if (contentWidth <= 0) return false;  // not yet laid out
 			int rowHeight = _height ?? 1;
 			var layout = ComputeRowLayout(contentWidth, rowHeight, out int rowCount);
 

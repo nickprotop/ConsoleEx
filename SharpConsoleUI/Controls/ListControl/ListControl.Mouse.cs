@@ -204,6 +204,20 @@ namespace SharpConsoleUI.Controls
 					int clickedIndex = GetItemIndexAtRelativeY(relativeY);
 					if (clickedIndex >= 0)
 					{
+						// Checkbox mode: clicking the [ ]/[x] prefix (first 5 columns) toggles without selecting
+						if (_checkboxMode && _items[clickedIndex].IsEnabled)
+						{
+							int relativeX = args.Position.X - _margin.Left;
+							if (relativeX >= 0 && relativeX < 5)
+							{
+								_items[clickedIndex].IsChecked = !_items[clickedIndex].IsChecked;
+								CheckedItemsChanged?.Invoke(this, EventArgs.Empty);
+								Container?.Invalidate(true);
+								args.Handled = true;
+								return true;
+							}
+						}
+
 						// Detect double-click (thread-safe)
 						bool isDoubleClick;
 						lock (_clickLock)

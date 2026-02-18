@@ -158,6 +158,7 @@ namespace SharpConsoleUI
 		internal bool _invalidated = false;
 		private bool _isActive;
 		internal IInteractiveControl? _lastFocusedControl;
+		internal IInteractiveControl? _lastDeepFocusedControl;  // actual leaf control
 
 		// Convenience property to access FocusStateService
 		internal FocusStateService? FocusService => _windowSystem?.FocusStateService;
@@ -926,6 +927,7 @@ namespace SharpConsoleUI
 
 			// Clear focus tracking
 			_lastFocusedControl = null;
+			_lastDeepFocusedControl = null;
 			FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
 
 			// Delegate to content manager for core clearing
@@ -1796,15 +1798,33 @@ namespace SharpConsoleUI
 		/// Updates Window's focus tracking to keep _lastFocusedControl in sync.
 		/// </summary>
 		/// <param name="control">The control that gained focus.</param>
-		public void NotifyControlGainedFocus(IInteractiveControl control)
+		/// <param name="actualFocusedControl">The actual leaf control that gained focus (may differ from control when nested).</param>
+		public void NotifyControlGainedFocus(IInteractiveControl control,
+			IInteractiveControl? actualFocusedControl = null)
 		{
 			bool isTopLevel = control != null && _interactiveContents.Contains(control);
 			_windowSystem?.LogService?.LogTrace($"NotifyControlGainedFocus: {control?.GetType().Name} isTopLevel={isTopLevel} (only top-level updates _lastFocusedControl)", "Focus");
+			// _lastFocusedControl: only update for top-level Tab-cycle entries (direct _interactiveContents members)
 			if (isTopLevel)
-			{
 				_lastFocusedControl = control;
-				FocusService?.SetFocus(this, control!, FocusChangeReason.Programmatic);
+
+			// _lastDeepFocusedControl and FocusStateService must always be updated — the outermost
+			// container reached by the walk (e.g. ScrollablePanelControl inside HorizontalGrid)
+			// is NOT in _interactiveContents, so isTopLevel would be false, but the leaf still needs tracking.
+			bool isIntermediateContainer = actualFocusedControl is Controls.IFocusTrackingContainer;
+			bool hasValidLeaf = _lastDeepFocusedControl is Controls.IFocusableControl leafFc && leafFc.HasFocus;
+			if (!isIntermediateContainer)
+			{
+				// True leaf (ListControl, ButtonControl, etc.) — always prefer it
+				_lastDeepFocusedControl = actualFocusedControl ?? control;
 			}
+			else if (!hasValidLeaf)
+			{
+				// No valid leaf tracked — use the intermediate container as fallback
+				_lastDeepFocusedControl = actualFocusedControl ?? control;
+			}
+			// else: intermediate container notified, valid leaf already tracked — preserve it
+			FocusService?.SetFocus(this, _lastDeepFocusedControl ?? control, FocusChangeReason.Programmatic);
 		}
 
 		/// <summary>
@@ -1822,6 +1842,7 @@ namespace SharpConsoleUI
 			if (isTracked && control is Controls.IFocusableControl focusable && !focusable.HasFocus)
 			{
 				_lastFocusedControl = null;
+				_lastDeepFocusedControl = null;
 				FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
 			}
 		}
@@ -1869,6 +1890,7 @@ namespace SharpConsoleUI
 				if (_lastFocusedControl == interactiveControl)
 				{
 					_lastFocusedControl = null;
+					_lastDeepFocusedControl = null;
 					FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
 				}
 
@@ -1881,6 +1903,7 @@ namespace SharpConsoleUI
 					{
 						nextControl.HasFocus = true;
 						_lastFocusedControl = nextControl;
+						_lastDeepFocusedControl = nextControl;
 						FocusService?.SetFocus(this, nextControl, FocusChangeReason.Programmatic);
 					}
 				}
@@ -2169,7 +2192,7 @@ namespace SharpConsoleUI
 				// Sync with FocusStateService
 				if (value)
 				{
-					FocusService?.SetFocus(this, _lastFocusedControl, FocusChangeReason.WindowActivation);
+					FocusService?.SetFocus(this, _lastDeepFocusedControl ?? _lastFocusedControl, FocusChangeReason.WindowActivation);
 				}
 				else
 				{

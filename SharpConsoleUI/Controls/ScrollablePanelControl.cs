@@ -442,7 +442,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				var focusableChildren = _children
-					.Where(c => c is IFocusableControl fc && fc.CanReceiveFocus)
+					.Where(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus)
 					.Cast<IInteractiveControl>()
 					.ToList();
 
@@ -606,7 +606,7 @@ namespace SharpConsoleUI.Controls
 			{
 				// Getting focus - find first/last focusable child if we have any
 				var focusableChildren = _children
-					.Where(c => c is IFocusableControl fc && fc.CanReceiveFocus)
+					.Where(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus)
 					.ToList();
 
 				if (focusableChildren.Any())
@@ -1496,7 +1496,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private bool HasFocusableChildren()
 		{
-			return _children.Any(c => c is IFocusableControl fc && fc.CanReceiveFocus);
+			return _children.Any(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus);
 		}
 
 		/// <summary>

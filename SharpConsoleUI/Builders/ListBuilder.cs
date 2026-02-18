@@ -533,6 +533,16 @@ public sealed class ListBuilder
 	}
 
 	/// <summary>
+	/// Configures the list for simple display without checkbox prefixes (the default mode).
+	/// Explicitly ensures no checkbox markers are rendered.
+	/// </summary>
+	public ListBuilder SimpleMode()
+	{
+		_checkboxMode = false;
+		return this;
+	}
+
+	/// <summary>
 	/// Enables checkbox mode — items display [x]/[ ] prefixes and Space toggles checked state.
 	/// </summary>
 	public ListBuilder WithCheckboxMode(bool enabled = true)
