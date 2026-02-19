@@ -1813,6 +1813,7 @@ namespace SharpConsoleUI
 			// is NOT in _interactiveContents, so isTopLevel would be false, but the leaf still needs tracking.
 			bool isIntermediateContainer = actualFocusedControl is Controls.IFocusTrackingContainer;
 			bool hasValidLeaf = _lastDeepFocusedControl is Controls.IFocusableControl leafFc && leafFc.HasFocus;
+			var prevDeep = _lastDeepFocusedControl;
 			if (!isIntermediateContainer)
 			{
 				// True leaf (ListControl, ButtonControl, etc.) — always prefer it

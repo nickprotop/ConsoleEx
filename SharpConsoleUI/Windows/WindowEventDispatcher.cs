@@ -351,7 +351,13 @@ namespace SharpConsoleUI.Windows
 				if (newFocusTarget is IInteractiveControl interactive)
 				{
 					_window._lastFocusedControl = interactive;
-					_window.FocusService?.SetFocus(_window, interactive, FocusChangeReason.Mouse);
+					// Prefer the deep leaf tracked by NCGF (same pattern as SwitchFocus).
+					// SetFocus(container) would clear the leaf child's HasFocus, causing
+					// it to ignore key events even though it's the actual focused control.
+					var leafForFocus = (_window._lastDeepFocusedControl is Controls.IFocusableControl leafFc && leafFc.HasFocus)
+						? _window._lastDeepFocusedControl
+						: interactive;
+					_window.FocusService?.SetFocus(_window, leafForFocus, FocusChangeReason.Mouse);
 				}
 			}
 			else
@@ -621,6 +627,15 @@ namespace SharpConsoleUI.Windows
 
 			// Fallback to _lastFocusedControl if it has focus (for nested controls in containers)
 			if (interactiveContent == null && _window._lastFocusedControl != null && _window._lastFocusedControl.HasFocus && _window._lastFocusedControl.IsEnabled)
+			{
+				interactiveContent = _window._lastFocusedControl;
+			}
+
+			// Fallback: container's HasFocus was cleared by FocusService.SetFocus(leaf) in NCGF,
+			// but the leaf itself still has focus. Use _lastFocusedControl as the routing target.
+			if (interactiveContent == null &&
+				_window._lastFocusedControl != null && _window._lastFocusedControl.IsEnabled &&
+				_window._lastDeepFocusedControl is Controls.IFocusableControl deepFc && deepFc.HasFocus)
 			{
 				interactiveContent = _window._lastFocusedControl;
 			}

@@ -1000,6 +1000,18 @@ namespace SharpConsoleUI.Controls
 		{
 			_children.Add(control);
 			control.Container = this;
+			// If the panel has focus but no focused child yet, focus the new control
+			// if it's focusable. Restores focus routing after ClearContents.
+			if (_hasFocus && _focusedChild == null &&
+				control.Visible &&
+				control is IFocusableControl fc && fc.CanReceiveFocus)
+			{
+				_focusedChild = control as IInteractiveControl;
+				if (control is IDirectionalFocusControl dfc)
+					dfc.SetFocusWithDirection(true, false);
+				else
+					fc.SetFocus(true, FocusReason.Programmatic);
+			}
 			Invalidate(true);
 		}
 
@@ -1051,9 +1063,6 @@ namespace SharpConsoleUI.Controls
 				child.Dispose();
 			}
 			_children.Clear();
-
-			if (_hasFocus && !CanReceiveFocus)
-				SetFocus(false, FocusReason.Programmatic);
 
 			Invalidate(true);
 		}
