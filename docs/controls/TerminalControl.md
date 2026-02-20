@@ -2,22 +2,26 @@
 
 PTY-backed terminal emulator control that embeds a fully interactive shell or process inside any window.
 
-> **Platform:** Linux only. The control throws `PlatformNotSupportedException` on other operating systems.
+> **Platform:** Linux and Windows 10 1809+ (build 17763). The control throws `PlatformNotSupportedException` on other operating systems.
 
 ## Overview
 
 `TerminalControl` opens a real pseudo-terminal (PTY), spawns a child process inside it, and renders the VT100/xterm-256color screen directly into the SharpConsoleUI buffer. Keyboard and mouse input are forwarded to the process. The terminal resizes automatically when the window is resized.
 
-## Critical Setup Requirement
+On **Linux** the control uses `openpty` and an in-process shim. On **Windows** it uses the ConPTY API (`CreatePseudoConsole`) introduced in Windows 10 1809.
 
-`TerminalControl` relies on an in-process PTY shim — the host executable re-launches itself as the slave-side process. **You must add the following as the very first line of your `Main` method**, before any UI initialisation:
+## Critical Setup Requirement (Linux only)
+
+On Linux, `TerminalControl` relies on an in-process PTY shim — the host executable re-launches itself as the slave-side process. **You must add the following as the very first line of your `Main` method**, before any UI initialisation:
 
 ```csharp
 // Program.cs
 if (SharpConsoleUI.PtyShim.RunIfShim(args)) return 127;
 ```
 
-Without this line the PTY will open but the child process will never start, leaving the terminal blank.
+Without this line on Linux the PTY will open but the child process will never start, leaving the terminal blank.
+
+On **Windows** no shim is required. `PtyShim.RunIfShim` is a no-op on Windows (returns `false` immediately), so the call is safe to keep in cross-platform code.
 
 ## Properties
 
@@ -37,14 +41,16 @@ Without this line the PTY will open but the child process will never start, leav
 ### Using the Builder — Quick Open (Recommended)
 
 ```csharp
-// Open a bash terminal in a new auto-sized window
+// Open the default shell in a new auto-sized window
+// (bash on Linux, cmd.exe on Windows)
 Controls.Terminal().Open(ws);
 
 // Specify an explicit size (cols × rows)
 Controls.Terminal().Open(ws, width: 120, height: 40);
 
-// Open a different program
-Controls.Terminal("/usr/bin/htop").Open(ws);
+// Open a specific program
+Controls.Terminal("/usr/bin/htop").Open(ws);          // Linux
+Controls.Terminal("pwsh").Open(ws);                   // Windows – PowerShell
 
 // Pass arguments
 Controls.Terminal("/usr/bin/vim")
@@ -59,7 +65,7 @@ Controls.Terminal("/usr/bin/vim")
 Use `Build()` when you need full control over the window configuration:
 
 ```csharp
-var terminal = Controls.Terminal("/bin/bash").Build();
+var terminal = Controls.Terminal().Build();
 
 var window = new WindowBuilder(ws)
     .WithTitle(terminal.Title)
@@ -77,7 +83,7 @@ ws.AddWindow(window);
 
 ```csharp
 var terminal = new TerminalBuilder()
-    .WithExe("/bin/bash")
+    .WithExe("/bin/bash")   // Linux
     .Build();
 ```
 
@@ -85,7 +91,7 @@ var terminal = new TerminalBuilder()
 
 | Method | Description |
 |--------|-------------|
-| `WithExe(string exe)` | Set the executable to launch (default: `/bin/bash`) |
+| `WithExe(string exe)` | Set the executable to launch (default: `bash` on Linux, `cmd.exe` on Windows) |
 | `WithArgs(params string[] args)` | Pass arguments to the executable |
 | `Build()` | Create the `TerminalControl` (PTY is opened immediately) |
 | `Open(ConsoleWindowSystem ws, int? width, int? height)` | Build and open in a new centered window |
@@ -131,22 +137,50 @@ Both X10 and SGR (1006) mouse encoding protocols are supported, selected by what
 
 ## Lifecycle
 
-1. **Constructor** — PTY is opened, shim process is started, read thread begins.
+1. **Constructor** — PTY backend is opened, child process is started, read thread begins.
 2. **PaintDOM** — Terminal is resized to match the layout bounds on the first paint and on every subsequent resize.
-3. **Child process exits** — Read thread detects EOF, closes the master fd, waits for the shim to exit, then closes the containing window automatically.
-4. **Dispose** — Closes the master fd, which signals the child process to terminate.
+3. **Child process exits** — Read thread detects EOF, disposes the PTY backend, then closes the containing window automatically.
+4. **Dispose** — Disposes the PTY backend, which signals the child process to terminate (closes the master fd on Linux; closes the ConPTY and pipes on Windows).
+
+## How It Works
+
+### Linux — openpty + in-process shim
+
+1. `PtyNative.Open()` creates a PTY master/slave fd pair.
+2. The host re-launches **itself** (`Environment.ProcessPath`) with `--pty-shim <slaveFd> <exe> [args]`.
+3. `PtyShim.RunIfShim` detects these arguments, calls `setsid`/`ioctl(TIOCSCTTY)`, redirects stdin/stdout/stderr to the slave fd, and `execvp`s the target — replacing the shim process entirely.
+4. The original process reads from the master fd in a background thread, feeds bytes to the `VT100Machine`, and calls `Invalidate` after each read.
+5. Keyboard/mouse input is written back to the master fd as escape sequences.
+
+This design requires no external binaries and works with any process that supports a TTY.
+
+### Windows — ConPTY (Windows 10 1809+)
+
+1. Two anonymous pipes are created: one for keyboard input, one for terminal output.
+2. `CreatePseudoConsole` (kernel32) is called with those pipe handles, creating a Windows pseudoconsole.
+3. `CreateProcess` is called with `EXTENDED_STARTUPINFO_PRESENT` and the `PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE` attribute, connecting the child's console I/O to the ConPTY.
+4. The original process reads from the output pipe in a background thread, feeds bytes to the `VT100Machine`, and calls `Invalidate`.
+5. Keyboard/mouse input is written to the input pipe as escape sequences.
+
+No shim or self-relaunch is needed on Windows.
 
 ## Examples
 
-### Default Bash Terminal
+### Default Shell (cross-platform)
 
 ```csharp
-// Program.cs — REQUIRED before any UI code
+// Program.cs — required on Linux; safe no-op on Windows
 if (SharpConsoleUI.PtyShim.RunIfShim(args)) return 127;
 
 // ...
 
 Controls.Terminal().Open(ws);
+```
+
+### Windows-specific: PowerShell
+
+```csharp
+Controls.Terminal("pwsh").Open(ws);
 ```
 
 ### Specific Program
@@ -172,7 +206,7 @@ Controls.Terminal("/usr/bin/vim")
 ### Terminal Alongside Other Controls
 
 ```csharp
-var terminal = Controls.Terminal("/bin/bash").Build();
+var terminal = Controls.Terminal().Build();
 
 var window = new WindowBuilder(ws)
     .WithTitle("Debug Console")
@@ -199,21 +233,9 @@ ws.GlobalKeyPressed += (sender, e) =>
 };
 ```
 
-## How It Works
-
-`TerminalControl` uses a **in-process PTY shim** pattern to avoid the need for a separate helper binary:
-
-1. The host process calls `PtyNative.Open()` to create a PTY master/slave pair.
-2. It re-launches **itself** (`Environment.ProcessPath`) with `--pty-shim <slaveFd> <exe> [args]` as arguments.
-3. `PtyShim.RunIfShim` detects these arguments, calls `setsid`/`ioctl(TIOCSCTTY)`, redirects stdin/stdout/stderr to the slave fd, and `exec`s the target executable — replacing the shim process entirely.
-4. The original process reads from the master fd in a background thread, feeds bytes to the `VT100Machine`, and calls `Invalidate` after each read so the UI repaints.
-5. Keyboard/mouse input is written back to the master fd as escape sequences.
-
-This design requires no external binaries and works with any process that supports a TTY.
-
 ## Best Practices
 
-- **Always add `PtyShim.RunIfShim(args)` first** — it must run before any console or UI initialisation.
+- **Linux: always add `PtyShim.RunIfShim(args)` first** — it must run before any console or UI initialisation. The call is a safe no-op on Windows.
 - **Let the window close itself** — when the child exits, the window closes automatically; do not force-close it from outside.
 - **Prefer `Open()`** for simple cases; use `Build()` only when you need custom window configuration.
 - **Do not set `HasFocus = false`** while the terminal is the only control — keyboard input will stop being forwarded.
