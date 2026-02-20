@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Threading;
 using Spectre.Console;
@@ -17,6 +18,7 @@ namespace SharpConsoleUI.Controls.Terminal;
 /// spawns the shim process, and starts a background read thread. Add to any window
 /// with .AddControl(). No WithAsyncWindowThread needed.
 /// </summary>
+[SupportedOSPlatform("linux")]
 public sealed class TerminalControl
     : IWindowControl, IDOMPaintable, IInteractiveControl, IMouseAwareControl, IDisposable
 {
@@ -28,6 +30,7 @@ public sealed class TerminalControl
     private int _disposed = 0;
     private int _actualX, _actualY, _actualWidth, _actualHeight;
 
+    /// <summary>Window title derived from the launched executable name.</summary>
     public string Title { get; }
 
     internal TerminalControl(string exe, string[]? args)
@@ -73,6 +76,7 @@ public sealed class TerminalControl
         (Container as Window)?.TryClose(force: true);
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
@@ -81,9 +85,12 @@ public sealed class TerminalControl
 
     // ── IInteractiveControl ──────────────────────────────────────────────────
 
+    /// <inheritdoc/>
     public bool HasFocus   { get; set; } = true;
+    /// <inheritdoc/>
     public bool IsEnabled  { get; set; } = true;
 
+    /// <inheritdoc/>
     public bool ProcessKey(ConsoleKeyInfo key)
     {
         bool appCursor;
@@ -99,17 +106,25 @@ public sealed class TerminalControl
 
     // ── IMouseAwareControl ───────────────────────────────────────────────────
 
+    /// <inheritdoc/>
     public bool WantsMouseEvents  => true;
+    /// <inheritdoc/>
     public bool CanFocusWithMouse => false;
 
 #pragma warning disable CS0067
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseClick;
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseEnter;
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseLeave;
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseMove;
 #pragma warning restore CS0067
 
+    /// <inheritdoc/>
     public bool ProcessMouseEvent(MouseEventArgs args)
     {
         int mouseMode; bool mouseSgr;
@@ -180,34 +195,52 @@ public sealed class TerminalControl
 
     // ── IWindowControl ───────────────────────────────────────────────────────
 
+    /// <inheritdoc/>
     public int?                ContentWidth        { get; } = null;
+    /// <inheritdoc/>
     public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Stretch;
+    /// <inheritdoc/>
     public VerticalAlignment   VerticalAlignment   { get; set; } = VerticalAlignment.Fill;
+    /// <inheritdoc/>
     public IContainer?         Container           { get; set; }
+    /// <inheritdoc/>
     public Margin              Margin              { get; set; } = new Margin(0, 0, 0, 0);
+    /// <inheritdoc/>
     public StickyPosition      StickyPosition      { get; set; } = StickyPosition.None;
+    /// <inheritdoc/>
     public string?             Name                { get; set; }
+    /// <inheritdoc/>
     public object?             Tag                 { get; set; }
+    /// <inheritdoc/>
     public bool                Visible             { get; set; } = true;
+    /// <inheritdoc/>
     public int?                Width               { get; set; }
 
+    /// <inheritdoc/>
     public int ActualX      => _actualX;
+    /// <inheritdoc/>
     public int ActualY      => _actualY;
+    /// <inheritdoc/>
     public int ActualWidth  => _actualWidth;
+    /// <inheritdoc/>
     public int ActualHeight => _actualHeight;
 
+    /// <inheritdoc/>
     public System.Drawing.Size GetLogicalContentSize()
         => new(_vt.Width, _vt.Height);
 
+    /// <inheritdoc/>
     public void Invalidate() => Container?.Invalidate(true);
 
     // ── IDOMPaintable ────────────────────────────────────────────────────────
 
+    /// <inheritdoc/>
     public LayoutSize MeasureDOM(LayoutConstraints constraints)
         => new(
             Math.Clamp(_vt.Width,  constraints.MinWidth,  constraints.MaxWidth),
             Math.Clamp(_vt.Height, constraints.MinHeight, constraints.MaxHeight));
 
+    /// <inheritdoc/>
     public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
                          Color defaultFg, Color defaultBg)
     {

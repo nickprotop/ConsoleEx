@@ -401,6 +401,42 @@ new BarGraphBuilder()
 - `WithGradient(params ColorThreshold[])` - Set custom color thresholds
 - `WithStandardGradient()` - Convenience method for green/yellow/red at 0/50/80%
 
+### TerminalBuilder
+
+> **Platform:** Linux only. Requires `PtyShim.RunIfShim(args)` at the start of `Main` — see [TerminalControl](controls/TerminalControl.md#critical-setup-requirement).
+
+```csharp
+// Quick open — auto-sized window
+Controls.Terminal().Open(ws);
+
+// Explicit size (cols × rows)
+Controls.Terminal().Open(ws, width: 120, height: 40);
+
+// Different executable
+Controls.Terminal("/usr/bin/htop").Open(ws);
+
+// With arguments, manual window
+var terminal = Controls.Terminal("/usr/bin/vim")
+    .WithArgs("/etc/hosts")
+    .Build();
+
+var window = new WindowBuilder(ws)
+    .WithTitle(terminal.Title)
+    .WithSize(102, 42)
+    .Centered()
+    .Closable(true)
+    .AddControl(terminal)
+    .Build();
+
+ws.AddWindow(window);
+```
+
+**Methods:**
+- `WithExe(string)` — Executable to launch (default: `/bin/bash`)
+- `WithArgs(params string[])` — Arguments passed to the executable
+- `Build()` — Opens the PTY and returns a `TerminalControl`
+- `Open(ws, width?, height?)` — Build and open in a new centered window
+
 ### SpectreRenderableBuilder
 
 ```csharp
@@ -523,6 +559,7 @@ Controls.SpectreRenderable(widget)  // SpectreRenderableBuilder
 Controls.RuleBuilder()              // RuleBuilder
 Controls.Panel()                    // PanelBuilder (for bordered content panels)
 Controls.Panel(text)                // PanelControl directly with text content
+Controls.Terminal(exe?)             // TerminalBuilder — Linux only, requires PtyShim setup
 new SparklineBuilder()              // SparklineBuilder (for time-series graphs)
 new BarGraphBuilder()               // BarGraphBuilder (for horizontal bar graphs)
 ```

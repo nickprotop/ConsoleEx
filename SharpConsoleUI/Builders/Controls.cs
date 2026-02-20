@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Runtime.Versioning;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
@@ -272,6 +273,7 @@ public static class Controls
 	public static PanelControl Panel(string content) => new PanelControl(content);
 
 	/// <summary>Creates a terminal builder for a PTY-backed terminal control.</summary>
+	[SupportedOSPlatform("linux")]
 	public static TerminalBuilder Terminal(string exe = "/bin/bash")
 		=> new TerminalBuilder().WithExe(exe);
 }

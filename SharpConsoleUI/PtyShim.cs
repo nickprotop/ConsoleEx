@@ -2,6 +2,10 @@ using SharpConsoleUI.Controls.Terminal;
 
 namespace SharpConsoleUI;
 
+/// <summary>
+/// Entry-point helper that detects and runs the in-process PTY shim mode.
+/// Call <see cref="RunIfShim"/> at the very start of <c>Main</c> before any UI initialisation.
+/// </summary>
 public static class PtyShim
 {
     /// <summary>

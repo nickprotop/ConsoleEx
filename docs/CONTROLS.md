@@ -84,6 +84,7 @@ Special-purpose controls.
 |---------|-------------|---------|
 | **RuleControl** | Titled horizontal rule | Section dividers with optional title |
 | **SeparatorControl** | Plain horizontal line | Visual spacing |
+| **[TerminalControl](controls/TerminalControl.md)** | PTY-backed terminal emulator | Full xterm-256color, keyboard/mouse passthrough, auto-resize. **Linux only.** |
 
 ## Interfaces
 
@@ -284,6 +285,7 @@ Browse detailed documentation for specific controls:
 - [TreeControl](controls/TreeControl.md) - Hierarchical data
 - [HorizontalGridControl](controls/HorizontalGridControl.md) - Multi-column layouts
 - [SpectreRenderableControl](controls/SpectreRenderableControl.md) - Spectre.Console widgets
+- [TerminalControl](controls/TerminalControl.md) - Embedded PTY terminal (Linux)
 
 ---
 
