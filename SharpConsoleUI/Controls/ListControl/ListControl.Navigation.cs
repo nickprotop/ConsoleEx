@@ -33,10 +33,15 @@ namespace SharpConsoleUI.Controls
 
 			if (actualVisibleHeight.HasValue && actualVisibleHeight.Value > 0)
 			{
-				// Account for title bar and scroll indicator
+				// Account for title bar
 				int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
-				int scrollIndicatorHeight = 1; // Assume scroll indicator present when scrolling
-				int availableForItems = Math.Max(1, actualVisibleHeight.Value - titleHeight - scrollIndicatorHeight);
+				int fullAvailableHeight = actualVisibleHeight.Value - titleHeight;
+
+				// Check if all items fit without a scroll indicator
+				int totalItemsHeight = 0;
+				for (int j = 0; j < _items.Count; j++) totalItemsHeight += _items[j].Lines.Count;
+				bool needsScrollIndicator = totalItemsHeight > fullAvailableHeight;
+				int availableForItems = Math.Max(1, needsScrollIndicator ? fullAvailableHeight - 1 : fullAvailableHeight);
 
 				// Count how many items actually fit based on their line heights
 				// Start from current scroll offset to match what's actually visible

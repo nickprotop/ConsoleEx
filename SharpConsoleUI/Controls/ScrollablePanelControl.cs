@@ -734,26 +734,40 @@ namespace SharpConsoleUI.Controls
 			// Handle mouse wheel scrolling
 			if (_enableMouseWheel)
 			{
-				if (args.HasFlag(Drivers.MouseFlags.WheeledUp))
+				bool isWheel = args.HasFlag(Drivers.MouseFlags.WheeledUp) || args.HasFlag(Drivers.MouseFlags.WheeledDown);
+				if (isWheel)
 				{
-					if (_verticalScrollOffset > 0)
+					// Forward to focused child first (e.g. ListControl with internal scroll).
+					// This lets the child handle its own item scrolling before SPC attempts
+					// to scroll the panel viewport.
+					if (_focusedChild is IMouseAwareControl childMouse && childMouse.WantsMouseEvents)
 					{
-						ScrollVerticalBy(-3);
-						args.Handled = true;
-						return true;
+						if (childMouse.ProcessMouseEvent(args))
+							return true;
 					}
-					return false;
-				}
-				else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
-				{
-					int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
-					if (_verticalScrollOffset < maxScroll)
+
+					// Fall back to SPC viewport scroll
+					if (args.HasFlag(Drivers.MouseFlags.WheeledUp))
 					{
-						ScrollVerticalBy(3);
-						args.Handled = true;
-						return true;
+						if (_verticalScrollOffset > 0)
+						{
+							ScrollVerticalBy(-3);
+							args.Handled = true;
+							return true;
+						}
+						return false;
 					}
-					return false;
+					else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
+					{
+						int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
+						if (_verticalScrollOffset < maxScroll)
+						{
+							ScrollVerticalBy(3);
+							args.Handled = true;
+							return true;
+						}
+						return false;
+					}
 				}
 			}
 
@@ -880,6 +894,10 @@ namespace SharpConsoleUI.Controls
 							focusable.SetFocus(true, FocusReason.Mouse);
 							if (child is IInteractiveControl interactive)
 								_focusedChild = interactive;
+							// Mark panel as focused so ProcessKey routes keys to _focusedChild.
+							// Tab focus calls SetFocus(true) which sets _hasFocus; mouse click
+							// skips that path, leaving _hasFocus=false without this line.
+							_hasFocus = true;
 							_lastInternalFocusedChild = null;
 							log?.LogTrace($"ScrollPanel.ProcessMouseEvent: focused child {child.GetType().Name}, _focusedChild={_focusedChild?.GetType().Name}", "Focus");
 						}
@@ -941,7 +959,8 @@ namespace SharpConsoleUI.Controls
 		{
 			var childNode = LayoutNodeFactory.CreateSubtree(child);
 			childNode.IsVisible = true;
-			var constraints = new LayoutConstraints(1, availableWidth, 1, int.MaxValue);
+			int maxH = _viewportHeight > 0 ? _viewportHeight : int.MaxValue;
+			var constraints = new LayoutConstraints(1, availableWidth, 1, maxH);
 			childNode.Measure(constraints);
 			return childNode.DesiredSize.Height;
 		}
@@ -1292,7 +1311,7 @@ namespace SharpConsoleUI.Controls
 			_viewportWidth = bounds.Width - _margin.Left - _margin.Right;
 
 			// Calculate content dimensions from children
-			_contentHeight = CalculateContentHeight(_viewportWidth);
+			_contentHeight = CalculateContentHeight(_viewportWidth, _viewportHeight);
 			_contentWidth = CalculateContentWidth();
 
 			// AutoScroll: scroll to bottom on any repaint when enabled
@@ -1329,8 +1348,11 @@ namespace SharpConsoleUI.Controls
 				var childNode = LayoutNodeFactory.CreateSubtree(child);
 				childNode.IsVisible = true;
 
-				// Measure using full layout pipeline
-				var constraints = new LayoutConstraints(1, contentWidth, 1, int.MaxValue);
+				// Measure using full layout pipeline.
+				// Cap MaxHeight to _viewportHeight so Fill-aligned children measure to the
+				// visible area rather than falling back to an arbitrary small default.
+				int maxChildHeight = _viewportHeight > 0 ? _viewportHeight : int.MaxValue;
+				var constraints = new LayoutConstraints(1, contentWidth, 1, maxChildHeight);
 				childNode.Measure(constraints);
 				int childHeight = childNode.DesiredSize.Height;
 
@@ -1453,9 +1475,10 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		private int CalculateContentHeight(int viewportWidth)
+		private int CalculateContentHeight(int viewportWidth, int maxHeight = 0)
 		{
 			int availableWidth = viewportWidth;
+			int maxH = maxHeight > 0 ? maxHeight : int.MaxValue;
 
 			// Reserve space for scrollbar if we might need it
 			// This is an approximation - we'll recalculate if needed
@@ -1469,7 +1492,7 @@ namespace SharpConsoleUI.Controls
 			{
 				var childNode = LayoutNodeFactory.CreateSubtree(child);
 				childNode.IsVisible = true;
-				var constraints = new LayoutConstraints(1, availableWidth, 1, int.MaxValue);
+				var constraints = new LayoutConstraints(1, availableWidth, 1, maxH);
 				childNode.Measure(constraints);
 				totalHeight += childNode.DesiredSize.Height;
 			}

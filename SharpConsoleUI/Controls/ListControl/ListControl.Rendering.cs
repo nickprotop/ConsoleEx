@@ -200,20 +200,34 @@ namespace SharpConsoleUI.Controls
 				else
 				{
 					// When VerticalAlignment.Fill with bounded constraints, use available height
-					int availableContentHeight = constraints.MaxHeight - titleHeight - _margin.Top - _margin.Bottom - 1;
-					effectiveMaxVisibleItems = 0;
-					int heightUsed = 0;
-					for (int i = scrollOffset; i < _items.Count; i++)
+					int fullAvailableHeight = constraints.MaxHeight - titleHeight - _margin.Top - _margin.Bottom;
+
+					// Check if ALL items fit without needing a scroll indicator
+					int totalItemsHeight = 0;
+					for (int j = 0; j < _items.Count; j++) totalItemsHeight += _items[j].Lines.Count;
+					bool needsScrollIndicator = totalItemsHeight > fullAvailableHeight;
+
+					if (!needsScrollIndicator)
 					{
-						int itemHeight = _items[i].Lines.Count;
-						if (heightUsed + itemHeight <= availableContentHeight)
-						{
-							effectiveMaxVisibleItems++;
-							heightUsed += itemHeight;
-						}
-						else break;
+						effectiveMaxVisibleItems = _items.Count;
 					}
-					effectiveMaxVisibleItems = Math.Max(1, effectiveMaxVisibleItems);
+					else
+					{
+						int availableContentHeight = fullAvailableHeight - 1;
+						effectiveMaxVisibleItems = 0;
+						int heightUsed = 0;
+						for (int i = scrollOffset; i < _items.Count; i++)
+						{
+							int itemHeight = _items[i].Lines.Count;
+							if (heightUsed + itemHeight <= availableContentHeight)
+							{
+								effectiveMaxVisibleItems++;
+								heightUsed += itemHeight;
+							}
+							else break;
+						}
+						effectiveMaxVisibleItems = Math.Max(1, effectiveMaxVisibleItems);
+					}
 				}
 			}
 			else
@@ -326,7 +340,13 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Calculate effective visible items
-			int availableContentHeight = bounds.Height - _margin.Top - _margin.Bottom - (hasTitle ? 1 : 0) - 1;
+			int fullAvailableContentHeight = bounds.Height - _margin.Top - _margin.Bottom - (hasTitle ? 1 : 0);
+
+			// Check if all items fit without scroll indicator
+			int totalItemsHeight = 0;
+			for (int j = 0; j < _items.Count; j++) totalItemsHeight += _items[j].Lines.Count;
+			bool needsScrollIndicator = totalItemsHeight > fullAvailableContentHeight;
+			int availableContentHeight = needsScrollIndicator ? fullAvailableContentHeight - 1 : fullAvailableContentHeight;
 			int effectiveMaxVisibleItems;
 
 			if (_maxVisibleItems.HasValue)
@@ -355,14 +375,14 @@ namespace SharpConsoleUI.Controls
 			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - scrollOffset);
 
 			// Render each visible item
-			for (int i = 0; i < itemsToShow && currentY < bounds.Bottom - _margin.Bottom - 1; i++)
+			for (int i = 0; i < itemsToShow && currentY < bounds.Bottom - _margin.Bottom - (needsScrollIndicator ? 1 : 0); i++)
 			{
 				int itemIndex = i + scrollOffset;
 				if (itemIndex >= _items.Count) break;
 
 				List<string> itemLines = _items[itemIndex].Lines;
 
-				for (int lineIndex = 0; lineIndex < itemLines.Count && currentY < bounds.Bottom - _margin.Bottom - 1; lineIndex++)
+				for (int lineIndex = 0; lineIndex < itemLines.Count && currentY < bounds.Bottom - _margin.Bottom - (needsScrollIndicator ? 1 : 0); lineIndex++)
 				{
 					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					{
@@ -472,7 +492,7 @@ namespace SharpConsoleUI.Controls
 			// Fill empty lines if VerticalAlignment.Fill
 			if (_verticalAlignment == VerticalAlignment.Fill)
 			{
-				int scrollIndicatorY = bounds.Bottom - _margin.Bottom - 1;
+				int scrollIndicatorY = bounds.Bottom - _margin.Bottom - (needsScrollIndicator ? 1 : 0);
 				while (currentY < scrollIndicatorY)
 				{
 					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
