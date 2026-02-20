@@ -134,10 +134,7 @@ class Program
         _gameWindow.AddControl(_mainGrid);
 
         // Hook into rendering pipeline
-        if (_gameWindow.Renderer != null)
-        {
-            _gameWindow.Renderer.PostBufferPaint += RenderGame;
-        }
+        _gameWindow.PostBufferPaint += RenderGame;
 
         // Handle keyboard
         _gameWindow.KeyPressed += HandleKeyPress;

@@ -47,10 +47,7 @@ public class MatrixRainWindow : Window
 		}));
 
 		// Hook into PreBufferPaint AFTER all controls are added
-		if (Renderer != null)
-		{
-			Renderer.PreBufferPaint += RenderMatrixRain;
-		}
+		PreBufferPaint += RenderMatrixRain;
 
 		// Start animation (exactly like FadeInWindow)
 		_animationTimer = new System.Timers.Timer(33); // ~30 FPS
@@ -68,10 +65,7 @@ public class MatrixRainWindow : Window
 			_animationTimer?.Stop();
 			_animationTimer?.Dispose();
 
-			if (Renderer != null)
-			{
-				Renderer.PreBufferPaint -= RenderMatrixRain;
-			}
+			PreBufferPaint -= RenderMatrixRain;
 		};
 	}
 

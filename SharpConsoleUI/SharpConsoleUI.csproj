@@ -44,4 +44,10 @@
 	  <EmbeddedResource Include="Resources\Fonts\banner.flf" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+	    <_Parameter1>SharpConsoleUI.Tests</_Parameter1>
+	  </AssemblyAttribute>
+	</ItemGroup>
+
 </Project>

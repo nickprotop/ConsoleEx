@@ -58,10 +58,7 @@ public class FractalWindow : Window
         AddControl(help);
 
         // Hook into rendering - PreBufferPaint so controls render ON TOP of fractal
-        if (Renderer != null)
-        {
-            Renderer.PreBufferPaint += RenderFractal;
-        }
+        PreBufferPaint += RenderFractal;
 
         // Keyboard controls
         KeyPressed += HandleKey;
@@ -71,10 +68,7 @@ public class FractalWindow : Window
 
         OnClosing += (s, e) =>
         {
-            if (Renderer != null)
-            {
-                Renderer.PreBufferPaint -= RenderFractal;
-            }
+            PreBufferPaint -= RenderFractal;
         };
     }
 

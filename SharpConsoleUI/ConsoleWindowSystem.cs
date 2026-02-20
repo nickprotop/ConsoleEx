@@ -86,13 +86,13 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the input coordinator for managing keyboard and mouse input across windows.
 		/// </summary>
-		public InputCoordinator Input;
+		internal InputCoordinator Input;
 
 		// Render coordination
 		/// <summary>
 		/// Gets the render coordinator for managing window rendering and invalidation.
 		/// </summary>
-		public RenderCoordinator Render { get; private set; } = null!; // Initialized in constructor after renderer
+		internal RenderCoordinator Render { get; private set; } = null!; // Initialized in constructor after renderer
 
 		// Window lifecycle coordination
 
@@ -100,7 +100,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the window positioning manager for handling window movement and resizing.
 		/// </summary>
-		public WindowPositioningManager Positioning { get; private set; } = null!; // Initialized in constructor after renderer
+		internal WindowPositioningManager Positioning { get; private set; } = null!; // Initialized in constructor after renderer
 
 		// Region invalidation helper
 
@@ -284,7 +284,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the renderer for drawing operations.
 		/// </summary>
-		public Renderer Renderer => _renderer;
+		internal Renderer Renderer => _renderer;
 
 		#endregion
 
@@ -293,7 +293,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the cursor state service for managing cursor visibility and position.
 		/// </summary>
-		public CursorStateService CursorStateService => _cursorStateService;
+		internal CursorStateService CursorStateService => _cursorStateService;
 
 		/// <summary>
 		/// Gets the window state service for managing window lifecycle and state.
@@ -318,7 +318,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the input state service for managing input queue and idle state.
 		/// </summary>
-		public InputStateService InputStateService => _inputStateService;
+		internal InputStateService InputStateService => _inputStateService;
 
 		/// <summary>
 		/// Gets the notification state service for managing notifications and toasts.
@@ -342,10 +342,24 @@ namespace SharpConsoleUI
 		public ILogService LogService => _logService;
 
 		/// <summary>
+		/// Gets a value indicating whether the input system is currently idle (no input for the configured threshold).
+		/// </summary>
+		public bool IsIdle => _inputStateService.IsIdle;
+
+		/// <summary>
+		/// Raised when the input idle state changes (idle started or ended).
+		/// </summary>
+		public event EventHandler<Core.IdleStateEventArgs>? IdleStateChanged
+		{
+			add    { _inputStateService.IdleStateChanged += value; }
+			remove { _inputStateService.IdleStateChanged -= value; }
+		}
+
+		/// <summary>
 		/// Gets the rendering diagnostics system for testing and debugging.
 		/// Only available when EnableDiagnostics is true in options.
 		/// </summary>
-		public Diagnostics.RenderingDiagnostics? RenderingDiagnostics => _renderingDiagnostics;
+		internal Diagnostics.RenderingDiagnostics? RenderingDiagnostics => _renderingDiagnostics;
 
 		#endregion
 
@@ -369,7 +383,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the visible regions manager for calculating window visibility.
 		/// </summary>
-		public VisibleRegions VisibleRegions => _visibleRegions;
+		internal VisibleRegions VisibleRegions => _visibleRegions;
 
 		#endregion
 

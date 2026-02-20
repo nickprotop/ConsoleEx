@@ -71,10 +71,7 @@ public class WipeTransitionWindow : Window
 		};
 
 		// Hook into PostBufferPaint
-		if (Renderer != null)
-		{
-			Renderer.PostBufferPaint += ApplyWipeEffect;
-		}
+		PostBufferPaint += ApplyWipeEffect;
 
 		RebuildContent();
 
@@ -85,10 +82,7 @@ public class WipeTransitionWindow : Window
 			_transitionCts?.Dispose();
 			_transitionCts = null;
 
-			if (Renderer != null)
-			{
-				Renderer.PostBufferPaint -= ApplyWipeEffect;
-			}
+			PostBufferPaint -= ApplyWipeEffect;
 		};
 	}
 
@@ -154,9 +148,9 @@ public class WipeTransitionWindow : Window
 		if (_isTransitioning) return;
 
 		// Capture current buffer state as "old" content
-		if (Renderer?.Buffer != null)
+		if (Buffer != null)
 		{
-			var snapshot = Renderer.Buffer.CreateSnapshot();
+			var snapshot = Buffer.CreateSnapshot();
 			_previousContent = new CharacterBuffer(snapshot.Width, snapshot.Height);
 
 			// Copy snapshot to buffer

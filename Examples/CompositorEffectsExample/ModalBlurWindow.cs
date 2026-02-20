@@ -40,10 +40,7 @@ public class ModalBlurWindow : Window
 		AddControl(markup);
 
 		// Subscribe to post-paint event
-		if (Renderer != null)
-		{
-			Renderer.PostBufferPaint += ApplyBlurEffect;
-		}
+		PostBufferPaint += ApplyBlurEffect;
 
 		// Handle keyboard
 		KeyPressed += (sender, e) =>
@@ -76,10 +73,7 @@ public class ModalBlurWindow : Window
 		// Cleanup
 		OnClosing += (sender, e) =>
 		{
-			if (Renderer != null)
-			{
-				Renderer.PostBufferPaint -= ApplyBlurEffect;
-			}
+			PostBufferPaint -= ApplyBlurEffect;
 		};
 	}
 

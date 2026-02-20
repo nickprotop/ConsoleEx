@@ -41,10 +41,7 @@ public class FadeInWindow : Window
 		AddControl(markup);
 
 		// Subscribe to post-paint event for fade effect
-		if (Renderer != null)
-		{
-			Renderer.PostBufferPaint += ApplyFadeEffect;
-		}
+		PostBufferPaint += ApplyFadeEffect;
 
 		// Start fade animation
 		_fadeTimer = new System.Timers.Timer(16); // ~60 FPS
@@ -87,10 +84,7 @@ public class FadeInWindow : Window
 		{
 			_fadeTimer?.Stop();
 			_fadeTimer?.Dispose();
-			if (Renderer != null)
-			{
-				Renderer.PostBufferPaint -= ApplyFadeEffect;
-			}
+			PostBufferPaint -= ApplyFadeEffect;
 		};
 	}
 

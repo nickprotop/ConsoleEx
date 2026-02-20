@@ -413,10 +413,8 @@ class RainbowAnimationWindow : Window
 		AddControl(new MarkupControl(new List<string> { "", "[dim]Colors cycle + animated background | Press ESC to close[/]" }));
 
 		// Add animated background using PostBufferPaint
-		if (Renderer != null)
+		PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
 		{
-			Renderer.PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
-			{
 				// Create animated wave pattern in background
 				for (int y = 0; y < buffer.Height; y++)
 				{
@@ -443,8 +441,7 @@ class RainbowAnimationWindow : Window
 						}
 					}
 				}
-			};
-		}
+		};
 
 		// Start animation timer (using window's thread support)
 		_animationTimer = new System.Timers.Timer(50); // Update every 50ms for smooth animation

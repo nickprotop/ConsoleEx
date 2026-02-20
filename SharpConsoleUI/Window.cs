@@ -186,15 +186,33 @@ namespace SharpConsoleUI
 		// DOM-based layout system (delegated to WindowRenderer)
 		internal Windows.WindowRenderer? _renderer;
 
+		internal Windows.WindowRenderer? Renderer => _renderer;
+
 		/// <summary>
-		/// Gets the window's renderer, providing access to rendering internals.
+		/// Raised before the window content is painted to the character buffer.
+		/// Attach a handler here to modify or initialize the buffer before normal rendering.
 		/// </summary>
-		/// <remarks>
-		/// Exposes the renderer for advanced scenarios like custom buffer effects,
-		/// transitions, and compositor-style manipulations. Use the PostBufferPaint event
-		/// on the renderer to safely manipulate the character buffer after painting.
-		/// </remarks>
-		public Windows.WindowRenderer? Renderer => _renderer;
+		public event Windows.WindowRenderer.BufferPaintDelegate? PreBufferPaint
+		{
+			add    { if (_renderer != null) _renderer.PreBufferPaint  += value; }
+			remove { if (_renderer != null) _renderer.PreBufferPaint  -= value; }
+		}
+
+		/// <summary>
+		/// Raised after the window content is painted to the character buffer.
+		/// Attach a handler here to apply post-processing effects (blur, fade, overlays, etc.).
+		/// </summary>
+		public event Windows.WindowRenderer.BufferPaintDelegate? PostBufferPaint
+		{
+			add    { if (_renderer != null) _renderer.PostBufferPaint += value; }
+			remove { if (_renderer != null) _renderer.PostBufferPaint -= value; }
+		}
+
+		/// <summary>
+		/// Gets the current character buffer for this window, or null if not yet initialized.
+		/// Useful for capturing buffer snapshots in transition effects.
+		/// </summary>
+		public Layout.CharacterBuffer? Buffer => _renderer?.Buffer;
 
 		// Border rendering (delegated to BorderRenderer)
 		private Windows.BorderRenderer? _borderRenderer;
@@ -521,10 +539,7 @@ namespace SharpConsoleUI
 			set => Interlocked.Exchange(ref _isDirtyFlag, value ? 1 : 0);
 		}
 
-		/// <summary>
-		/// Gets or sets a value indicating whether the window is currently being dragged.
-		/// </summary>
-		public bool IsDragging { get; set; }
+		internal bool IsDragging { get; set; }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the window can be moved by the user.
@@ -549,13 +564,7 @@ namespace SharpConsoleUI
 
 	private bool _renderLock = false;
 
-	/// <summary>
-	/// Gets or sets a value indicating whether rendering to screen is locked.
-	/// When true, the window performs all internal work (measure, layout, paint to buffer)
-	/// but does not output to the render pipeline. Useful for batching multiple updates
-	/// to appear atomically. When unlocked, automatically invalidates to trigger render.
-	/// </summary>
-	public bool RenderLock
+	internal bool RenderLock
 	{
 		get => _renderLock;
 		set
@@ -614,25 +623,10 @@ namespace SharpConsoleUI
 			set { _isModal = value; }
 		}
 
-		/// <summary>
-		/// Gets or sets the original height before maximizing, used for restore.
-		/// </summary>
-		public int OriginalHeight { get; set; }
-
-		/// <summary>
-		/// Gets or sets the original left position before maximizing, used for restore.
-		/// </summary>
-		public int OriginalLeft { get; set; }
-
-		/// <summary>
-		/// Gets or sets the original top position before maximizing, used for restore.
-		/// </summary>
-		public int OriginalTop { get; set; }
-
-		/// <summary>
-		/// Gets or sets the original width before maximizing, used for restore.
-		/// </summary>
-		public int OriginalWidth { get; set; }
+		internal int OriginalHeight { get; set; }
+		internal int OriginalLeft { get; set; }
+		internal int OriginalTop { get; set; }
+		internal int OriginalWidth { get; set; }
 
 		/// <summary>
 		/// Gets the parent window if this is a subwindow, otherwise null.
@@ -897,10 +891,16 @@ namespace SharpConsoleUI
 			{
 				if (!_interactiveContents.Any(p => p.HasFocus))
 				{
+					// Snapshot before setting HasFocus so we can detect whether a container
+					// (e.g. ScrollablePanelControl) already synced FocusStateService via
+					// NotifyControlGainedFocus. Calling SetFocus again would clear the child's HasFocus.
+					var deepFocusBefore = _lastDeepFocusedControl;
 					interactiveContent.HasFocus = true;
 					_lastFocusedControl = interactiveContent;
-					// Sync with FocusStateService
-					FocusService?.SetFocus(this, interactiveContent, FocusChangeReason.Programmatic);
+					// Only call SetFocus if the notification chain didn't run (no delegation happened).
+					// If _lastDeepFocusedControl changed, NotifyControlGainedFocus already called SetFocus.
+					if (_lastDeepFocusedControl == deepFocusBefore)
+						FocusService?.SetFocus(this, interactiveContent, FocusChangeReason.Programmatic);
 				}
 			}
 
@@ -1847,6 +1847,7 @@ namespace SharpConsoleUI
 				FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
 			}
 		}
+
 
 		/// <summary>
 		/// Sets focus to the specified control in this window.

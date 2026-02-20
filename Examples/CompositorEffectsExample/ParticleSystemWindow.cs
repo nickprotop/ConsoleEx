@@ -264,10 +264,7 @@ public class ParticleSystemWindow : Window
 		}));
 
 		// Hook into PostBufferPaint AFTER all controls are added
-		if (Renderer != null)
-		{
-			Renderer.PostBufferPaint += RenderParticles;
-		}
+		PostBufferPaint += RenderParticles;
 
 		// Start animation (exactly like FadeInWindow)
 		_updateTimer = new System.Timers.Timer(16); // ~60 FPS
@@ -289,10 +286,7 @@ public class ParticleSystemWindow : Window
 			_updateTimer?.Stop();
 			_updateTimer?.Dispose();
 
-			if (Renderer != null)
-			{
-				Renderer.PostBufferPaint -= RenderParticles;
-			}
+			PostBufferPaint -= RenderParticles;
 		};
 	}
 

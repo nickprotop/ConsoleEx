@@ -136,13 +136,8 @@ public sealed class WindowBuilder
         return this;
     }
 
-    /// <summary>
-    /// Sets the window position without changing its size. Alias for AtPosition.
-    /// If no size has been set, defaults to 80x25 characters.
-    /// </summary>
-    /// <param name="x">The X coordinate of the window's left edge.</param>
-    /// <param name="y">The Y coordinate of the window's top edge.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
+    /// <summary>Use <see cref="AtPosition"/> instead.</summary>
+    [Obsolete("Use AtPosition() instead.")]
     public WindowBuilder WithPosition(int x, int y) => AtPosition(x, y);
 
     /// <summary>
@@ -211,11 +206,8 @@ public sealed class WindowBuilder
         return this;
     }
 
-    /// <summary>
-    /// Makes the window modal, blocking input to other windows until closed.
-    /// </summary>
-    /// <param name="isModal">True to make the window modal, false for normal mode.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
+    /// <summary>Use <see cref="AsModal"/> instead.</summary>
+    [Obsolete("Use AsModal() instead.")]
     public WindowBuilder WithModal(bool isModal = true)
     {
         _isModal = isModal;
@@ -619,6 +611,7 @@ public sealed class WindowBuilder
     /// <param name="enabled">This parameter is ignored. DOM layout is always enabled.</param>
     /// <returns>The current builder instance for method chaining.</returns>
     [Obsolete("DOM layout is now always enabled. This method will be removed.")]
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public WindowBuilder WithDOMLayout(bool enabled = true)
     {
         // DOM layout is always enabled - this method is kept for backward compatibility
