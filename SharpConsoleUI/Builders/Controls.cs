@@ -272,8 +272,14 @@ public static class Controls
 	/// <returns>A configured panel control</returns>
 	public static PanelControl Panel(string content) => new PanelControl(content);
 
-	/// <summary>Creates a terminal builder for a PTY-backed terminal control.</summary>
-	[SupportedOSPlatform("linux")]
-	public static TerminalBuilder Terminal(string exe = "/bin/bash")
-		=> new TerminalBuilder().WithExe(exe);
+	/// <summary>
+	/// Creates a terminal builder for a PTY-backed terminal control.
+	/// Supported platforms: Linux (openpty), Windows 10 1809+ (ConPTY).
+	/// The default shell is <c>bash</c> on Linux and <c>cmd.exe</c> on Windows.
+	/// Pass <paramref name="exe"/> to launch a different program (e.g. <c>"pwsh"</c>).
+	/// </summary>
+	[System.Runtime.Versioning.SupportedOSPlatform("linux")]
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+	public static TerminalBuilder Terminal(string? exe = null)
+		=> exe is null ? new TerminalBuilder() : new TerminalBuilder().WithExe(exe);
 }

@@ -130,7 +130,8 @@ internal sealed class VT100Machine
             case ParseState.Csi:
             case ParseState.CsiPrivate:  ProcessCsi(b);       break;
             case ParseState.OscString:
-                if (b == 0x07 || b == 0x1B) _state = ParseState.Normal; // BEL or ESC ends OSC
+                if (b == 0x07)       _state = ParseState.Normal;  // BEL ends OSC
+                else if (b == 0x1B) _state = ParseState.Escape;   // ESC \ (ST) — consume the \ via ProcessEscape
                 break;
             case ParseState.DesigCharset:
                 // Byte following ESC ( ) * + is the charset name:

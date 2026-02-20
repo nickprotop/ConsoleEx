@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Text;
-using System.Threading;
 using Spectre.Console;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
@@ -15,16 +14,19 @@ namespace SharpConsoleUI.Controls.Terminal;
 
 /// <summary>
 /// A self-contained PTY-backed terminal control. The constructor opens the PTY,
-/// spawns the shim process, and starts a background read thread. Add to any window
+/// spawns the target process, and starts a background read thread. Add to any window
 /// with .AddControl(). No WithAsyncWindowThread needed.
+/// <para>
+/// Supported platforms: Linux (openpty + shim), Windows 10 1809+ (ConPTY).
+/// </para>
 /// </summary>
 [SupportedOSPlatform("linux")]
+[SupportedOSPlatform("windows")]
 public sealed class TerminalControl
     : IWindowControl, IDOMPaintable, IInteractiveControl, IMouseAwareControl, IDisposable
 {
+    private readonly IPtyBackend _pty;
     private readonly VT100Machine _vt;
-    private readonly int _masterFd;
-    private readonly Process _shimProc;
     private readonly Thread _readThread;
     private readonly object _lock = new();
     private int _disposed = 0;
@@ -35,23 +37,23 @@ public sealed class TerminalControl
 
     internal TerminalControl(string exe, string[]? args)
     {
-        if (!OperatingSystem.IsLinux())
-            throw new PlatformNotSupportedException("TerminalControl requires Linux.");
-
-        int rows = 24;
-        int cols = 80;
-        _vt = new VT100Machine(cols, rows);
-        (_masterFd, int slave) = PtyNative.Open(rows, cols);
-
-        // Spawn shim: this-exe --pty-shim <slave> <exe> [args]
-        var shimArgs = new List<string> { "--pty-shim", slave.ToString(), exe };
-        if (args != null) shimArgs.AddRange(args);
-        var psi = new ProcessStartInfo(Environment.ProcessPath ?? "/proc/self/exe")
-            { UseShellExecute = false };
-        psi.Environment["TERM"] = "xterm-256color";
-        foreach (var a in shimArgs) psi.ArgumentList.Add(a);
-        _shimProc = Process.Start(psi) ?? throw new InvalidOperationException("PTY shim failed");
-        PtyNative.close(slave);  // parent closes its copy
+        if (OperatingSystem.IsLinux())
+        {
+            int rows = 24, cols = 80;
+            _vt  = new VT100Machine(cols, rows);
+            _pty = new LinuxPtyBackend(exe, args, rows, cols);
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            int rows = 24, cols = 80;
+            _vt  = new VT100Machine(cols, rows);
+            _pty = new WindowsPtyBackend(exe, args, rows, cols);
+        }
+        else
+        {
+            throw new PlatformNotSupportedException(
+                "TerminalControl requires Linux or Windows 10 1809+.");
+        }
 
         Title = $"  Terminal — {Path.GetFileName(exe)}";
 
@@ -64,15 +66,13 @@ public sealed class TerminalControl
         var buf = new byte[4096];
         while (true)
         {
-            int n = PtyNative.read(_masterFd, buf, buf.Length);
+            int n = _pty.Read(buf, buf.Length);
             if (n <= 0) break;
             lock (_lock) _vt.Process(buf.AsSpan(0, n));
             Container?.Invalidate(true);
         }
-        // EOF or fd closed: clean up and close window
-        if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            try { PtyNative.close(_masterFd); } catch { }
-        try { _shimProc.WaitForExit(500); } catch { }
+        // EOF or backend closed — clean up and close the containing window.
+        Dispose();
         (Container as Window)?.TryClose(force: true);
     }
 
@@ -80,7 +80,7 @@ public sealed class TerminalControl
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            try { PtyNative.close(_masterFd); } catch { }
+            _pty.Dispose();
     }
 
     // ── IInteractiveControl ──────────────────────────────────────────────────
@@ -99,8 +99,7 @@ public sealed class TerminalControl
         var bytes = EncodeKey(key, appCursor);
         if (bytes.Length == 0) return false;
 
-        try { PtyNative.write(_masterFd, bytes, bytes.Length); }
-        catch { /* master closed */ }
+        _pty.Write(bytes, bytes.Length);
         return true;
     }
 
@@ -190,7 +189,7 @@ public sealed class TerminalControl
             seq = [0x1B, (byte)'[', (byte)'M',
                    (byte)(32 + b), (byte)(32 + col), (byte)(32 + row)];
         }
-        try { PtyNative.write(_masterFd, seq, seq.Length); } catch { }
+        _pty.Write(seq, seq.Length);
     }
 
     // ── IWindowControl ───────────────────────────────────────────────────────
@@ -254,7 +253,7 @@ public sealed class TerminalControl
             if (bounds.Width != _vt.Width || bounds.Height != _vt.Height)
             {
                 _vt.Resize(bounds.Width, bounds.Height);
-                PtyNative.Resize(_masterFd, bounds.Height, bounds.Width);
+                _pty.Resize(bounds.Height, bounds.Width);
             }
 
             buffer.CopyFrom(

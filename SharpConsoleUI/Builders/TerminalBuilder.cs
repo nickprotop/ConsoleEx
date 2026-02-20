@@ -3,11 +3,16 @@ using SharpConsoleUI.Controls.Terminal;
 
 namespace SharpConsoleUI.Builders;
 
-/// <summary>Fluent builder for creating a <see cref="TerminalControl"/>.</summary>
+/// <summary>
+/// Fluent builder for creating a <see cref="TerminalControl"/>.
+/// Supported platforms: Linux (openpty), Windows 10 1809+ (ConPTY).
+/// </summary>
 [SupportedOSPlatform("linux")]
+[SupportedOSPlatform("windows")]
 public class TerminalBuilder
 {
-    private string _exe = "/bin/bash";
+    // Default shell: bash on Linux/macOS, cmd.exe on Windows.
+    private string _exe = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash";
     private string[]? _args;
 
     /// <summary>Sets the executable to launch inside the terminal.</summary>
