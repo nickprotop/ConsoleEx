@@ -3,7 +3,6 @@
 // Demonstrates all features with modern patterns adapted from the original examples
 // -----------------------------------------------------------------------
 
-using System.Diagnostics;
 using System.IO;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
@@ -40,6 +39,8 @@ internal class Program
     /// <returns>Exit code</returns>
     static async Task<int> Main(string[] args)
     {
+        if (SharpConsoleUI.PtyShim.RunIfShim(args)) return 127;
+
         try
         {
             // Initialize console window system with modern patterns
@@ -224,8 +225,8 @@ internal class Program
                     "[yellow]F6[/] - [bold]Interactive Demo[/]",
                     "       Shows modern control interactions",
                     "",
-                    "[cyan]F7[/] - [bold]Command Window[/]",
-                    "       Interactive command prompt with async I/O",
+                    "[cyan]F7[/] - [bold]Terminal (bash)[/]",
+                    "       PTY-backed embedded terminal",
                     "",
                     "[white]F8[/] - [bold]Dropdown Demo[/]",
                     "       Country selection with styled dropdowns",
@@ -285,7 +286,7 @@ internal class Program
                         e.Handled = true;
                         break;
                     case ConsoleKey.F7:
-                        _ = CreateCommandWindow();
+                        Controls.Terminal().Open(_windowSystem!);
                         e.Handled = true;
                         break;
                     case ConsoleKey.F8:
@@ -618,243 +619,6 @@ internal class Program
         }
 
         return info;
-    }
-
-    /// <summary>
-    /// Create command window with interactive command prompt (adapted from CommandWindow.cs)
-    /// </summary>
-    private static Task CreateCommandWindow()
-    {
-        if (_windowSystem == null)
-            return Task.CompletedTask;
-
-        var commandWindow = new WindowBuilder(_windowSystem)
-            .WithTitle("Interactive Command Window")
-            .WithSize(80, 25)
-            .AtPosition(2, 2)
-            .WithColors(SpectreColor.Grey93, SpectreColor.Grey15)
-            .Build();
-
-        // Create prompt control for command input
-        var promptControl = new PromptControl
-        {
-            Prompt = "CMD> ",
-            UnfocusOnEnter = false,
-            StickyPosition = StickyPosition.Top,
-            HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment.Stretch
-        };
-
-        // Create multiline output control
-        var outputControl = new MultilineEditControl
-        {
-            ViewportHeight = commandWindow.Height - 4, // Leave space for prompt and borders
-            WrapMode = WrapMode.Wrap,
-            ReadOnly = true,
-        };
-
-        // Add controls to window
-        commandWindow.AddControl(promptControl);
-        commandWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Top });
-        commandWindow.AddControl(outputControl);
-
-        // Setup window resize handler
-        commandWindow.OnResize += (sender, args) =>
-        {
-            outputControl.ViewportHeight = commandWindow.Height - 4;
-        };
-
-        // Add initial welcome message
-        outputControl.AppendContent(
-            "Interactive command prompt started. Modern async implementation.\n"
-        );
-        outputControl.AppendContent("Type 'help' for available commands, 'exit' to close.\n");
-
-        // Setup command execution with modern async patterns
-        promptControl.Entered += async (sender, command) =>
-        {
-            try
-            {
-                // Display the command in output
-                outputControl.AppendContent($"\n> {command}\n");
-
-                // Handle built-in commands first
-                if (await HandleBuiltInCommand(command.Trim(), outputControl, commandWindow))
-                {
-                    promptControl.SetInput(string.Empty);
-                    return;
-                }
-
-                // Execute external command with proper async handling
-                await ExecuteExternalCommand(command, outputControl);
-
-                promptControl.SetInput(string.Empty);
-            }
-            catch (Exception ex)
-            {
-                outputControl.AppendContent($"Error: {ex.Message}\n");
-                _windowSystem?.LogService.LogError($"Error executing command: {command}", ex);
-            }
-            finally
-            {
-                outputControl.GoToEnd();
-            }
-        };
-
-        // Setup ESC key handler
-        commandWindow.KeyPressed += (sender, e) =>
-        {
-            if (e.KeyInfo.Key == ConsoleKey.Escape)
-            {
-                _windowSystem?.CloseWindow(commandWindow);
-                e.Handled = true;
-            }
-        };
-
-        _windowSystem.AddWindow(commandWindow);
-        _windowSystem?.LogService.LogInfo("Command window created with modern async patterns");
-
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Handle built-in commands that don't need external process execution
-    /// </summary>
-    private static async Task<bool> HandleBuiltInCommand(
-        string command,
-        MultilineEditControl output,
-        Window window
-    )
-    {
-        await Task.Delay(10); // Simulate async operation
-
-        switch (command.ToLowerInvariant())
-        {
-            case "help":
-                output.AppendContent("Built-in commands:\n");
-                output.AppendContent("  help     - Show this help\n");
-                output.AppendContent("  clear    - Clear the output\n");
-                output.AppendContent("  date     - Show current date and time\n");
-                output.AppendContent("  version  - Show application version\n");
-                output.AppendContent("  exit     - Close this window\n");
-                output.AppendContent("  sysinfo  - Show system information\n");
-                output.AppendContent(
-                    "\nAll other commands will be executed as external processes.\n"
-                );
-                return true;
-
-            case "clear":
-                output.SetContent("");
-                output.AppendContent(
-                    "Interactive command prompt started. Modern async implementation.\n"
-                );
-                return true;
-
-            case "date":
-                output.AppendContent($"{DateTime.Now:F}\n");
-                return true;
-
-            case "version":
-                output.AppendContent("Modern SharpConsoleUI Demo v1.0\n");
-                output.AppendContent($".NET Version: {Environment.Version}\n");
-                return true;
-
-            case "exit":
-                _windowSystem?.CloseWindow(window);
-                return true;
-
-            case "sysinfo":
-                output.AppendContent($"OS: {Environment.OSVersion}\n");
-                output.AppendContent($"Machine: {Environment.MachineName}\n");
-                output.AppendContent($"User: {Environment.UserName}\n");
-                output.AppendContent($"Processors: {Environment.ProcessorCount}\n");
-                output.AppendContent(
-                    $"Working Set: {Environment.WorkingSet / (1024 * 1024):N0} MB\n"
-                );
-                return true;
-
-            default:
-                return false; // Not a built-in command
-        }
-    }
-
-    /// <summary>
-    /// Execute external command using modern async patterns
-    /// </summary>
-    private static async Task ExecuteExternalCommand(string command, MultilineEditControl output)
-    {
-        try
-        {
-            using var process = new System.Diagnostics.Process();
-
-            // Setup process for cross-platform compatibility
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-            {
-                process.StartInfo.FileName = "cmd.exe";
-                process.StartInfo.Arguments = $"/c {command}";
-            }
-            else
-            {
-                process.StartInfo.FileName = "/bin/bash";
-                process.StartInfo.Arguments = $"-c \"{command}\"";
-            }
-
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.RedirectStandardError = true;
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.CreateNoWindow = true;
-
-            // Start process and read output asynchronously
-            process.Start();
-
-            // Read both output and error streams concurrently
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
-
-            // Wait for process to complete with timeout
-            var processTask = process.WaitForExitAsync();
-            var timeoutTask = Task.Delay(30000); // 30 second timeout
-
-            var completedTask = await Task.WhenAny(processTask, timeoutTask);
-
-            if (completedTask == timeoutTask)
-            {
-                process.Kill();
-                output.AppendContent("Command timed out after 30 seconds.\n");
-                return;
-            }
-
-            // Get the results
-            var outputText = await outputTask;
-            var errorText = await errorTask;
-
-            // Display results
-            if (!string.IsNullOrEmpty(outputText))
-            {
-                output.AppendContent(outputText);
-                if (!outputText.EndsWith('\n'))
-                    output.AppendContent("\n");
-            }
-
-            if (!string.IsNullOrEmpty(errorText))
-            {
-                output.AppendContent($"Error: {errorText}");
-                if (!errorText.EndsWith('\n'))
-                    output.AppendContent("\n");
-            }
-
-            if (string.IsNullOrEmpty(outputText) && string.IsNullOrEmpty(errorText))
-            {
-                output.AppendContent($"Command completed with exit code: {process.ExitCode}\n");
-            }
-        }
-        catch (Exception ex)
-        {
-            output.AppendContent($"Failed to execute command: {ex.Message}\n");
-            _windowSystem?.LogService.LogError(
-                $"Failed to execute external command: {command}",
-                ex
-            );
-        }
     }
 
     /// <summary>

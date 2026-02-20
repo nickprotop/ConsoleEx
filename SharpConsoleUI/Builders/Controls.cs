@@ -270,4 +270,8 @@ public static class Controls
 	/// <param name="content">The text content (supports Spectre markup)</param>
 	/// <returns>A configured panel control</returns>
 	public static PanelControl Panel(string content) => new PanelControl(content);
+
+	/// <summary>Creates a terminal builder for a PTY-backed terminal control.</summary>
+	public static TerminalBuilder Terminal(string exe = "/bin/bash")
+		=> new TerminalBuilder().WithExe(exe);
 }
