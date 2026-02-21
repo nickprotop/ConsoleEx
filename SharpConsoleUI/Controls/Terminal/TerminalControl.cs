@@ -5,6 +5,7 @@ using Spectre.Console;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 using Color = Spectre.Console.Color;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -23,7 +24,7 @@ namespace SharpConsoleUI.Controls.Terminal;
 [SupportedOSPlatform("linux")]
 [SupportedOSPlatform("windows")]
 public sealed class TerminalControl
-    : IWindowControl, IDOMPaintable, IInteractiveControl, IMouseAwareControl, IDisposable
+    : IWindowControl, IDOMPaintable, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDisposable
 {
     private readonly IPtyBackend _pty;
     private readonly VT100Machine _vt;
@@ -76,6 +77,9 @@ public sealed class TerminalControl
         (Container as Window)?.TryClose(force: true);
     }
 
+    /// Gets whether this terminal's PTY process has exited and the control has been disposed.
+    public bool IsDisposed => _disposed != 0;
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -83,12 +87,45 @@ public sealed class TerminalControl
             _pty.Dispose();
     }
 
-    // ── IInteractiveControl ──────────────────────────────────────────────────
+    // ── IInteractiveControl / IFocusableControl ──────────────────────────────
+
+    private bool _hasFocus;
 
     /// <inheritdoc/>
-    public bool HasFocus   { get; set; } = true;
+    public bool HasFocus
+    {
+        get => _hasFocus;
+        set
+        {
+            if (_hasFocus == value) return;
+            _hasFocus = value;
+            if (value) GotFocus?.Invoke(this, EventArgs.Empty);
+            else       LostFocus?.Invoke(this, EventArgs.Empty);
+            Container?.Invalidate(true);
+        }
+    }
+
     /// <inheritdoc/>
     public bool IsEnabled  { get; set; } = true;
+
+    /// <inheritdoc/>
+    public bool CanReceiveFocus => IsEnabled;
+
+    /// <inheritdoc/>
+    public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
+    {
+        bool hadFocus = _hasFocus;
+        HasFocus = focus;
+        if (hadFocus != focus)
+            this.NotifyParentWindowOfFocusChange(focus);
+    }
+
+#pragma warning disable CS0067
+    /// <inheritdoc/>
+    public event EventHandler? GotFocus;
+    /// <inheritdoc/>
+    public event EventHandler? LostFocus;
+#pragma warning restore CS0067
 
     /// <inheritdoc/>
     public bool ProcessKey(ConsoleKeyInfo key)

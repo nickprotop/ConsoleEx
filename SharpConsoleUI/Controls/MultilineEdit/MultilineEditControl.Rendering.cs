@@ -61,9 +61,7 @@ namespace SharpConsoleUI.Controls
 			_actualWidth = bounds.Width;
 			_actualHeight = bounds.Height;
 
-			Color bgColor = _hasFocus
-				? (_isEditing ? FocusedBackgroundColor : Container?.GetConsoleWindowSystem?.Theme?.TextEditFocusedNotEditing ?? Color.LightSlateGrey)
-				: BackgroundColor;
+			Color bgColor = _hasFocus ? FocusedBackgroundColor : BackgroundColor;
 			Color fgColor = _hasFocus ? FocusedForegroundColor : ForegroundColor;
 			Color selBgColor = SelectionBackgroundColor;
 			Color selFgColor = SelectionForegroundColor;

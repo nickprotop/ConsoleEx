@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -100,6 +101,8 @@ namespace SharpConsoleUI.Controls
 
 			TabAdded?.Invoke(this, new TabEventArgs(tabPage, _tabPages.Count - 1));
 
+			// New content control must be added to the DOM layout tree
+			this.GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(true);
 		}
 
@@ -231,6 +234,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		TabRemoved?.Invoke(this, new TabEventArgs(tabPage, index));
+		this.GetParentWindow()?.ForceRebuildLayout();
 		Invalidate(true);
 	}
 
