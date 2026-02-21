@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Debugging;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
@@ -1112,7 +1111,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void NotifyChildFocusChanged(IInteractiveControl child, bool hasFocus)
 		{
-			FocusDebug.Log($"SPC.NotifyChildFocusChanged: child={child?.GetType().Name} hasFocus={hasFocus} _focusedChild={_focusedChild?.GetType().Name ?? "null"}");
 			if (hasFocus)
 			{
 				if (_focusedChild != null && _focusedChild != child && _focusedChild is IFocusableControl oldFc)
