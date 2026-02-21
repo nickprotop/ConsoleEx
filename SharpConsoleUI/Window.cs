@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Debugging;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
@@ -896,14 +895,12 @@ namespace SharpConsoleUI
 					// (e.g. ScrollablePanelControl) already synced FocusStateService via
 					// NotifyControlGainedFocus. Calling SetFocus again would clear the child's HasFocus.
 					var deepFocusBefore = _lastDeepFocusedControl;
-					FocusDebug.Log($"AddControl: {interactiveContent.GetType().Name} deepFocusBefore={deepFocusBefore?.GetType().Name ?? "null"}");
 					interactiveContent.HasFocus = true;
 					_lastFocusedControl = interactiveContent;
 					// Only call SetFocus if the notification chain didn't run (no delegation happened).
 					// If _lastDeepFocusedControl changed, NotifyControlGainedFocus already called SetFocus.
 					if (_lastDeepFocusedControl == deepFocusBefore)
 						FocusService?.SetFocus(this, interactiveContent, FocusChangeReason.Programmatic);
-					FocusDebug.Log($"AddControl: after → _lastFocused={_lastFocusedControl?.GetType().Name ?? "null"} _lastDeep={_lastDeepFocusedControl?.GetType().Name ?? "null"} chainRan={_lastDeepFocusedControl != deepFocusBefore}");
 				}
 			}
 
@@ -1807,7 +1804,6 @@ namespace SharpConsoleUI
 		{
 			bool isTopLevel = control != null && _interactiveContents.Contains(control);
 			_windowSystem?.LogService?.LogTrace($"NotifyControlGainedFocus: {control?.GetType().Name} isTopLevel={isTopLevel} (only top-level updates _lastFocusedControl)", "Focus");
-			FocusDebug.Log($"NCGF: control={control?.GetType().Name} actual={actualFocusedControl?.GetType().Name ?? "null"} isTopLevel={isTopLevel} _lastFocused={_lastFocusedControl?.GetType().Name ?? "null"} _lastDeep={_lastDeepFocusedControl?.GetType().Name ?? "null"}");
 			// _lastFocusedControl: only update for top-level Tab-cycle entries (direct _interactiveContents members)
 			if (isTopLevel)
 				_lastFocusedControl = control;
@@ -1830,7 +1826,6 @@ namespace SharpConsoleUI
 			}
 			// else: intermediate container notified, valid leaf already tracked — preserve it
 			FocusService?.SetFocus(this, _lastDeepFocusedControl ?? control, FocusChangeReason.Programmatic);
-			FocusDebug.Log($"NCGF after: _lastFocused={_lastFocusedControl?.GetType().Name ?? "null"} _lastDeep={_lastDeepFocusedControl?.GetType().Name ?? "null"}");
 		}
 
 		/// <summary>
@@ -1842,7 +1837,6 @@ namespace SharpConsoleUI
 		{
 			bool isTracked = control != null && _lastFocusedControl == control;
 			_windowSystem?.LogService?.LogTrace($"NotifyControlLostFocus: {control?.GetType().Name} isTracked={isTracked} _lastFocused={_lastFocusedControl?.GetType().Name ?? "null"}", "Focus");
-			FocusDebug.Log($"NCLF: control={control?.GetType().Name} isTracked={isTracked} _lastFocused={_lastFocusedControl?.GetType().Name ?? "null"}");
 
 			// Clear tracking if this was the last focused control AND it actually lost focus
 			// (not just a child inside it losing focus while the container maintains focus)
@@ -2194,7 +2188,6 @@ namespace SharpConsoleUI
 			// Invalidate window to redraw border with new active/inactive colors
 			Invalidate(false);  // Border-only invalidation (redrawAll=false)
 
-			FocusDebug.Log($"SetIsActive: value={value} _lastFocused={_lastFocusedControl?.GetType().Name ?? "null"} _lastDeep={_lastDeepFocusedControl?.GetType().Name ?? "null"}");
 		if (_lastFocusedControl != null)
 			{
 				_lastFocusedControl.HasFocus = value;
@@ -2287,8 +2280,12 @@ namespace SharpConsoleUI
 			if (_lastFocusedControl != null && _lastFocusedControl is Controls.IFocusableControl focusable)
 			{
 				focusable.SetFocus(false, Controls.FocusReason.Programmatic);
-				// Sync with FocusStateService
-				FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
+				// Guard: only clear FSS if this window is currently the focused window.
+				// Without this, deactivating a background window wipes the active window's focus.
+				if (FocusService?.FocusedWindow == this)
+				{
+					FocusService.ClearControlFocus(FocusChangeReason.Programmatic);
+				}
 			}
 		}
 

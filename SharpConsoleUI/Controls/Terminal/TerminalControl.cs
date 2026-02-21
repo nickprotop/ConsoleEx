@@ -145,7 +145,7 @@ public sealed class TerminalControl
     /// <inheritdoc/>
     public bool WantsMouseEvents  => true;
     /// <inheritdoc/>
-    public bool CanFocusWithMouse => false;
+    public bool CanFocusWithMouse => true;
 
 #pragma warning disable CS0067
     /// <inheritdoc/>
