@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Debugging;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -909,6 +910,7 @@ namespace SharpConsoleUI.Controls
 
 		private void FocusChanged()
 		{
+			FocusDebug.Log($"HGC.FocusChanged: _hasFocus={_hasFocus} _focusedContent={_focusedContent?.GetType().Name ?? "null"}");
 			if (_hasFocus)
 			{
 				// Only rebuild interactive contents dictionary when columns have changed
@@ -1213,6 +1215,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void NotifyChildFocusChanged(IInteractiveControl child, bool hasFocus)
 		{
+			FocusDebug.Log($"HGC.NotifyChildFocusChanged: child={child?.GetType().Name} hasFocus={hasFocus} _focusedContent={_focusedContent?.GetType().Name ?? "null"}");
 			if (hasFocus)
 			{
 				if (_focusedContent != null && _focusedContent != child)

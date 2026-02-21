@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Debugging;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -889,6 +890,7 @@ namespace SharpConsoleUI.Controls
 		// propagate to SwitchFocus and land on the active tab's content controls.
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+			FocusDebug.Log($"TabControl.ProcessKey: _hasFocus={_hasFocus} key={key.Key} mod={key.Modifiers}");
 			if (!_hasFocus) return false;
 
 			if (key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow)

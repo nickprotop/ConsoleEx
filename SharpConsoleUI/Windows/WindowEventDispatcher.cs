@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Debugging;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
@@ -502,7 +503,13 @@ namespace SharpConsoleUI.Windows
 
 				if (HasActiveInteractiveContent(out var activeInteractiveContent))
 				{
+					FocusDebug.Log($"ProcessKey: key={key.Key} mod={key.Modifiers} → dispatching to {activeInteractiveContent!.GetType().Name}");
 					contentKeyHandled = activeInteractiveContent!.ProcessKey(key);
+					FocusDebug.Log($"ProcessKey: result contentKeyHandled={contentKeyHandled}");
+				}
+				else
+				{
+					FocusDebug.Log($"ProcessKey: key={key.Key} mod={key.Modifiers} → no activeInteractiveContent (lastFocused={_window._lastFocusedControl?.GetType().Name ?? "null"} lastDeep={_window._lastDeepFocusedControl?.GetType().Name ?? "null"})");
 				}
 
 				// Continue with key handling only if not handled by the focused interactive content
@@ -624,11 +631,13 @@ namespace SharpConsoleUI.Windows
 		{
 			// First try to find focused control in _interactiveContents (direct children)
 			interactiveContent = _window._interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
+			if (interactiveContent != null) FocusDebug.Log($"HAIC: priority-1 (interactiveContents) → {interactiveContent.GetType().Name}");
 
 			// Fallback to _lastFocusedControl if it has focus (for nested controls in containers)
 			if (interactiveContent == null && _window._lastFocusedControl != null && _window._lastFocusedControl.HasFocus && _window._lastFocusedControl.IsEnabled)
 			{
 				interactiveContent = _window._lastFocusedControl;
+				FocusDebug.Log($"HAIC: priority-2 (lastFocusedControl) → {interactiveContent.GetType().Name}");
 			}
 
 			// Fallback: container's HasFocus was cleared by FocusService.SetFocus(leaf) in NCGF,
@@ -638,7 +647,11 @@ namespace SharpConsoleUI.Windows
 				_window._lastDeepFocusedControl is Controls.IFocusableControl deepFc && deepFc.HasFocus)
 			{
 				interactiveContent = _window._lastFocusedControl;
+				FocusDebug.Log($"HAIC: priority-3 (fallback lastFocusedControl, leaf={_window._lastDeepFocusedControl?.GetType().Name}) → {interactiveContent.GetType().Name}");
 			}
+
+			if (interactiveContent == null)
+				FocusDebug.Log($"HAIC: no match (lastFocused={_window._lastFocusedControl?.GetType().Name ?? "null"} lastDeep={_window._lastDeepFocusedControl?.GetType().Name ?? "null"})");
 
 			return interactiveContent != null;
 		}

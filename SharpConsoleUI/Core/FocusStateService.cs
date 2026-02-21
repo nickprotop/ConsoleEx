@@ -8,6 +8,7 @@
 
 using System.Collections.Concurrent;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Debugging;
 using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Core
@@ -112,6 +113,7 @@ namespace SharpConsoleUI.Core
 				var previousControl = previousState.FocusedControl;
 
 				_logService?.LogTrace($"Focus change: {previousControl?.GetType().Name ?? "None"} -> {control?.GetType().Name ?? "None"} ({reason})", "Focus");
+				FocusDebug.Log($"FSS.SetFocus: {previousControl?.GetType().Name ?? "None"} → {control?.GetType().Name ?? "None"} reason={reason}");
 
 				// Update the actual control's HasFocus property
 				if (previousControl != null && previousControl != control)
