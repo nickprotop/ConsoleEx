@@ -14,7 +14,7 @@ internal sealed class LinuxPtyBackend : IPtyBackend
     private readonly Process _shimProc;
     private int _disposed = 0;
 
-    public LinuxPtyBackend(string exe, string[]? args, int rows, int cols)
+    public LinuxPtyBackend(string exe, string[]? args, int rows, int cols, string? workingDirectory = null)
     {
         (_masterFd, int slave) = PtyNative.Open(rows, cols);
 
@@ -24,6 +24,8 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 
         var psi = new ProcessStartInfo(Environment.ProcessPath ?? "/proc/self/exe")
             { UseShellExecute = false };
+        if (workingDirectory != null)
+            psi.WorkingDirectory = workingDirectory;
         psi.Environment["TERM"] = "xterm-256color";
         foreach (var a in shimArgs) psi.ArgumentList.Add(a);
 

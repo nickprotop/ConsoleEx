@@ -36,19 +36,22 @@ public sealed class TerminalControl
     /// <summary>Window title derived from the launched executable name.</summary>
     public string Title { get; }
 
-    internal TerminalControl(string exe, string[]? args)
+    /// <summary>Raised on the PTY read thread when the spawned process exits.</summary>
+    public event EventHandler? ProcessExited;
+
+    internal TerminalControl(string exe, string[]? args, string? workingDirectory = null)
     {
         if (OperatingSystem.IsLinux())
         {
             int rows = 24, cols = 80;
             _vt  = new VT100Machine(cols, rows);
-            _pty = new LinuxPtyBackend(exe, args, rows, cols);
+            _pty = new LinuxPtyBackend(exe, args, rows, cols, workingDirectory);
         }
         else if (OperatingSystem.IsWindows())
         {
             int rows = 24, cols = 80;
             _vt  = new VT100Machine(cols, rows);
-            _pty = new WindowsPtyBackend(exe, args, rows, cols);
+            _pty = new WindowsPtyBackend(exe, args, rows, cols, workingDirectory);
         }
         else
         {
@@ -74,6 +77,7 @@ public sealed class TerminalControl
         }
         // EOF or backend closed — clean up and close the containing window.
         Dispose();
+        ProcessExited?.Invoke(this, EventArgs.Empty);
         (Container as Window)?.TryClose(force: true);
     }
 

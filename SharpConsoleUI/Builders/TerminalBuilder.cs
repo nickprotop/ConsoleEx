@@ -14,14 +14,17 @@ public class TerminalBuilder
     // Default shell: bash on Linux/macOS, cmd.exe on Windows.
     private string _exe = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash";
     private string[]? _args;
+    private string? _workingDirectory;
 
     /// <summary>Sets the executable to launch inside the terminal.</summary>
     public TerminalBuilder WithExe(string exe)         { _exe = exe; return this; }
     /// <summary>Sets the arguments passed to the executable.</summary>
     public TerminalBuilder WithArgs(params string[] a) { _args = a;  return this; }
+    /// <summary>Sets the working directory for the spawned process.</summary>
+    public TerminalBuilder WithWorkingDirectory(string? dir) { _workingDirectory = dir; return this; }
 
     /// <summary>Returns a self-contained TerminalControl (PTY open, shim running, read loop active).</summary>
-    public TerminalControl Build() => new TerminalControl(_exe, _args);
+    public TerminalControl Build() => new TerminalControl(_exe, _args, _workingDirectory);
 
     /// <summary>
     /// Convenience: builds a TerminalControl and opens a default centered window.

@@ -20,7 +20,7 @@ internal sealed class WindowsPtyBackend : IPtyBackend
     private Stream? _outputStream;  // parent reads terminal output from here
     private int _disposed = 0;
 
-    public WindowsPtyBackend(string exe, string[]? args, int rows, int cols)
+    public WindowsPtyBackend(string exe, string[]? args, int rows, int cols, string? workingDirectory = null)
     {
         // ── 1. Create anonymous pipes ─────────────────────────────────────────
         //   Input pipe:  parent writes → ConPTY reads (keyboard input)
@@ -83,7 +83,7 @@ internal sealed class WindowsPtyBackend : IPtyBackend
                     IntPtr.Zero, IntPtr.Zero,
                     false,
                     WinPtyNative.EXTENDED_STARTUPINFO_PRESENT,
-                    IntPtr.Zero, null,
+                    IntPtr.Zero, workingDirectory,
                     ref siEx, out var pi))
             {
                 throw new InvalidOperationException(
