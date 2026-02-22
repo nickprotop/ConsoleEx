@@ -1349,9 +1349,10 @@ namespace SharpConsoleUI.Controls
 				childNode.IsVisible = true;
 
 				// Measure using full layout pipeline.
-				// Cap MaxHeight to _viewportHeight so Fill-aligned children measure to the
-				// visible area rather than falling back to an arbitrary small default.
-				int maxChildHeight = _viewportHeight > 0 ? _viewportHeight : int.MaxValue;
+				// Fill-aligned children: cap to viewport so they fill the visible area.
+				// Content-sized children: measure unbounded for correct scroll positioning.
+				int maxChildHeight = (_viewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill)
+					? _viewportHeight : int.MaxValue;
 				var constraints = new LayoutConstraints(1, contentWidth, 1, maxChildHeight);
 				childNode.Measure(constraints);
 				int childHeight = childNode.DesiredSize.Height;
@@ -1492,7 +1493,11 @@ namespace SharpConsoleUI.Controls
 			{
 				var childNode = LayoutNodeFactory.CreateSubtree(child);
 				childNode.IsVisible = true;
-				var constraints = new LayoutConstraints(1, availableWidth, 1, maxH);
+				// Fill-aligned children: measure with viewport constraint so they fill the visible area.
+				// Content-sized children: measure unbounded to get natural height for scroll range.
+				int childMaxH = (child.VerticalAlignment == VerticalAlignment.Fill && maxH < int.MaxValue)
+					? maxH : int.MaxValue;
+				var constraints = new LayoutConstraints(1, availableWidth, 1, childMaxH);
 				childNode.Measure(constraints);
 				totalHeight += childNode.DesiredSize.Height;
 			}
