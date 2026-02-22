@@ -39,6 +39,7 @@ public sealed class WindowBuilder
     private bool _isModal = false;
     private WindowState _state = WindowState.Normal;
     private bool _isResizable = true;
+    private ResizeBorderDirections _resizeDirections = ResizeBorderDirections.All;
     private bool _isClosable = true;
     private bool _isMovable = true;
     private bool _isMinimizable = true;
@@ -254,6 +255,16 @@ public sealed class WindowBuilder
     public WindowBuilder Resizable(bool resizable = true)
     {
         _isResizable = resizable;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets per-border movement permissions for resizing. Implies <c>Resizable(true)</c>.
+    /// </summary>
+    public WindowBuilder WithResizeDirections(ResizeBorderDirections directions)
+    {
+        _isResizable = true;
+        _resizeDirections = directions;
         return this;
     }
 
@@ -661,6 +672,7 @@ public sealed class WindowBuilder
         window.IsModal = _isModal;
         window.State = _state;
         window.IsResizable = _isResizable;
+        window.AllowedResizeDirections = _resizeDirections;
         window.IsClosable = _isClosable;
         window.IsMovable = _isMovable;
         window.IsMinimizable = _isMinimizable;

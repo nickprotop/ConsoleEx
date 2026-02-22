@@ -552,6 +552,12 @@ namespace SharpConsoleUI
 		public bool IsResizable { get; set; } = true;
 
 		/// <summary>
+		/// Gets or sets per-border movement permissions for resizing. Only meaningful when
+		/// <see cref="IsResizable"/> is <c>true</c>. Defaults to <see cref="ResizeBorderDirections.All"/>.
+		/// </summary>
+		public ResizeBorderDirections AllowedResizeDirections { get; set; } = ResizeBorderDirections.All;
+
+		/// <summary>
 		/// Gets or sets a value indicating whether the window content is scrollable.
 		/// </summary>
 		public bool IsScrollable { get; set; } = true;

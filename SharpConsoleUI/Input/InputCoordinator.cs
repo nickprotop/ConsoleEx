@@ -319,28 +319,66 @@ namespace SharpConsoleUI.Input
 			// Corner resize areas
 			if (relativePoint.Y == 0)
 			{
-				if (inTitleBarCorner && onLeftBorder) return ResizeDirection.TopLeft;
-				if (inTitleBarCorner && onRightBorder) return ResizeDirection.TopRight;
+				if (inTitleBarCorner && onLeftBorder) return AllowedDirection(window, ResizeDirection.TopLeft);
+				if (inTitleBarCorner && onRightBorder) return AllowedDirection(window, ResizeDirection.TopRight);
 			}
 			else
 			{
-				if (onTopBorder && onLeftBorder) return ResizeDirection.TopLeft;
-				if (onTopBorder && onRightBorder) return ResizeDirection.TopRight;
+				if (onTopBorder && onLeftBorder) return AllowedDirection(window, ResizeDirection.TopLeft);
+				if (onTopBorder && onRightBorder) return AllowedDirection(window, ResizeDirection.TopRight);
 			}
 
-			if (onBottomBorder && onLeftBorder) return ResizeDirection.BottomLeft;
-			if (onBottomBorder && onRightBorder) return ResizeDirection.BottomRight;
+			if (onBottomBorder && onLeftBorder) return AllowedDirection(window, ResizeDirection.BottomLeft);
+			if (onBottomBorder && onRightBorder) return AllowedDirection(window, ResizeDirection.BottomRight);
 
 			// Resize grip at bottom-right
-			if (IsOnResizeGrip(window, point)) return ResizeDirection.BottomRight;
+			if (IsOnResizeGrip(window, point)) return AllowedDirection(window, ResizeDirection.BottomRight);
 
 			// Edge resize areas
-			if (onTopBorder) return ResizeDirection.Top;
-			if (onBottomBorder) return ResizeDirection.Bottom;
-			if (onLeftBorder) return ResizeDirection.Left;
-			if (onRightBorder) return ResizeDirection.Right;
+			if (onTopBorder) return AllowedDirection(window, ResizeDirection.Top);
+			if (onBottomBorder) return AllowedDirection(window, ResizeDirection.Bottom);
+			if (onLeftBorder) return AllowedDirection(window, ResizeDirection.Left);
+			if (onRightBorder) return AllowedDirection(window, ResizeDirection.Right);
 
 			return ResizeDirection.None;
+		}
+
+		/// <summary>
+		/// Returns <paramref name="direction"/> if it is permitted by the window's
+		/// <see cref="Window.AllowedResizeDirections"/> (a border is active when at least one of
+		/// its two movement directions is enabled); otherwise <see cref="ResizeDirection.None"/>.
+		/// </summary>
+		private static ResizeDirection AllowedDirection(Window window, ResizeDirection direction)
+		{
+			var d = window.AllowedResizeDirections;
+			bool topActive    = d.HasFlag(ResizeBorderDirections.TopExpand)    || d.HasFlag(ResizeBorderDirections.TopContract);
+			bool bottomActive = d.HasFlag(ResizeBorderDirections.BottomExpand) || d.HasFlag(ResizeBorderDirections.BottomContract);
+			bool leftActive   = d.HasFlag(ResizeBorderDirections.LeftExpand)   || d.HasFlag(ResizeBorderDirections.LeftContract);
+			bool rightActive  = d.HasFlag(ResizeBorderDirections.RightExpand)  || d.HasFlag(ResizeBorderDirections.RightContract);
+
+			bool allowed = direction switch
+			{
+				ResizeDirection.Top         => topActive,
+				ResizeDirection.Bottom      => bottomActive,
+				ResizeDirection.Left        => leftActive,
+				ResizeDirection.Right       => rightActive,
+				ResizeDirection.TopLeft     => topActive    && leftActive,
+				ResizeDirection.TopRight    => topActive    && rightActive,
+				ResizeDirection.BottomLeft  => bottomActive && leftActive,
+				ResizeDirection.BottomRight => bottomActive && rightActive,
+				_                           => true
+			};
+			return allowed ? direction : ResizeDirection.None;
+		}
+
+		/// <summary>
+		/// Clamps a resize delta to zero when the movement direction is not permitted.
+		/// </summary>
+		private static int ClampResizeDelta(int delta, bool allowNegative, bool allowPositive)
+		{
+			if (delta < 0 && !allowNegative) return 0;
+			if (delta > 0 && !allowPositive) return 0;
+			return delta;
 		}
 
 		/// <summary>
@@ -509,40 +547,57 @@ namespace SharpConsoleUI.Input
 			int newWidth = currentResize.StartWindowSize.Width;
 			int newHeight = currentResize.StartWindowSize.Height;
 
-			// Apply resize based on direction
+			// Apply resize based on direction, clamping each axis to allowed movement directions
+			var dirs = window.AllowedResizeDirections;
 			switch (currentResize.Direction)
 			{
 				case ResizeDirection.Left:
+					// deltaX < 0 = left border expands left; deltaX > 0 = contracts right
+					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.LeftExpand), dirs.HasFlag(ResizeBorderDirections.LeftContract));
 					newLeft += deltaX;
 					newWidth -= deltaX;
 					break;
 				case ResizeDirection.Right:
+					// deltaX > 0 = right border expands right; deltaX < 0 = contracts left
+					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.RightContract), dirs.HasFlag(ResizeBorderDirections.RightExpand));
 					newWidth += deltaX;
 					break;
 				case ResizeDirection.Top:
+					// deltaY < 0 = top border expands up; deltaY > 0 = contracts down
+					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.TopExpand), dirs.HasFlag(ResizeBorderDirections.TopContract));
 					newTop += deltaY;
 					newHeight -= deltaY;
 					break;
 				case ResizeDirection.Bottom:
+					// deltaY > 0 = bottom border expands down; deltaY < 0 = contracts up
+					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.BottomContract), dirs.HasFlag(ResizeBorderDirections.BottomExpand));
 					newHeight += deltaY;
 					break;
 				case ResizeDirection.TopLeft:
+					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.LeftExpand),   dirs.HasFlag(ResizeBorderDirections.LeftContract));
+					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.TopExpand),    dirs.HasFlag(ResizeBorderDirections.TopContract));
 					newLeft += deltaX;
 					newWidth -= deltaX;
 					newTop += deltaY;
 					newHeight -= deltaY;
 					break;
 				case ResizeDirection.TopRight:
+					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.RightContract), dirs.HasFlag(ResizeBorderDirections.RightExpand));
+					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.TopExpand),     dirs.HasFlag(ResizeBorderDirections.TopContract));
 					newWidth += deltaX;
 					newTop += deltaY;
 					newHeight -= deltaY;
 					break;
 				case ResizeDirection.BottomLeft:
+					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.LeftExpand),    dirs.HasFlag(ResizeBorderDirections.LeftContract));
+					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.BottomContract), dirs.HasFlag(ResizeBorderDirections.BottomExpand));
 					newLeft += deltaX;
 					newWidth -= deltaX;
 					newHeight += deltaY;
 					break;
 				case ResizeDirection.BottomRight:
+					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.RightContract), dirs.HasFlag(ResizeBorderDirections.RightExpand));
+					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.BottomContract), dirs.HasFlag(ResizeBorderDirections.BottomExpand));
 					newWidth += deltaX;
 					newHeight += deltaY;
 					break;
@@ -626,25 +681,32 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private bool HandleResizeInput(ConsoleKeyInfo key)
 		{
-			var activeWindow = _context.ActiveWindow;
-			if (activeWindow == null) return false;
+			var w = _context.ActiveWindow;
+			if (w == null) return false;
 
+			var dirs = w.AllowedResizeDirections;
+
+			// Each arrow key moves the natural border outward (expand only)
 			switch (key.Key)
 			{
 				case ConsoleKey.UpArrow:
-					_context.Positioning.ResizeWindowBy(activeWindow, 0, -1);
+					if (!dirs.HasFlag(ResizeBorderDirections.TopExpand)) return false;
+					_context.Positioning.ResizeWindowTo(w, w.Left, w.Top - 1, w.Width, w.Height + 1);
 					return true;
 
 				case ConsoleKey.DownArrow:
-					_context.Positioning.ResizeWindowBy(activeWindow, 0, 1);
+					if (!dirs.HasFlag(ResizeBorderDirections.BottomExpand)) return false;
+					_context.Positioning.ResizeWindowTo(w, w.Left, w.Top, w.Width, w.Height + 1);
 					return true;
 
 				case ConsoleKey.LeftArrow:
-					_context.Positioning.ResizeWindowBy(activeWindow, -1, 0);
+					if (!dirs.HasFlag(ResizeBorderDirections.LeftExpand)) return false;
+					_context.Positioning.ResizeWindowTo(w, w.Left - 1, w.Top, w.Width + 1, w.Height);
 					return true;
 
 				case ConsoleKey.RightArrow:
-					_context.Positioning.ResizeWindowBy(activeWindow, 1, 0);
+					if (!dirs.HasFlag(ResizeBorderDirections.RightExpand)) return false;
+					_context.Positioning.ResizeWindowTo(w, w.Left, w.Top, w.Width + 1, w.Height);
 					return true;
 
 				default:

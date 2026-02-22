@@ -165,8 +165,12 @@ namespace SharpConsoleUI.Windows
 			var closeButton = (_window.IsClosable && _window.ShowCloseButton) ? $"{closeButtonColor}[X]" : "";
 			var windowButtons = $"{minimizeButton}{maximizeButton}{closeButton}{resetColor}";
 
-			// Resize grip replaces bottom-right corner when window is resizable: ◢
-			var bottomRightChar = _window.IsResizable ? "◢" : bottomRightCorner.ToString();
+			// Resize grip replaces bottom-right corner when bottom-right dragging is allowed: ◢
+			var resizeDirs = _window.AllowedResizeDirections;
+			bool showResizeGrip = _window.IsResizable &&
+				(resizeDirs.HasFlag(ResizeBorderDirections.BottomExpand) || resizeDirs.HasFlag(ResizeBorderDirections.BottomContract)) &&
+				(resizeDirs.HasFlag(ResizeBorderDirections.RightExpand)  || resizeDirs.HasFlag(ResizeBorderDirections.RightContract));
+			var bottomRightChar = showResizeGrip ? "◢" : bottomRightCorner.ToString();
 
 			// Build title section (only if ShowTitle is true and title is not empty)
 			string title;
