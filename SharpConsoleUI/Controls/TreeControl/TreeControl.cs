@@ -92,7 +92,8 @@ namespace SharpConsoleUI.Controls
 				foreach (var node in _flattenedNodes)
 				{
 					int depth = GetNodeDepth(node);
-					string prefix = BuildTreePrefix(depth, IsLastChildInParent(node), guideChars);
+					bool[] ancestorIsLast = GetAncestorIsLastArray(node);
+					string prefix = BuildTreePrefix(depth, ancestorIsLast, guideChars);
 					string displayText = node.Text ?? string.Empty;
 					string expandIndicator = node.Children.Count > 0 ? " [-]" : "";
 					int length = GetCachedTextLength(prefix + displayText + expandIndicator);

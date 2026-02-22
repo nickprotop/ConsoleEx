@@ -21,25 +21,27 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Build the tree prefix for a node based on its depth and position
 		/// </summary>
-		private string BuildTreePrefix(int depth, bool isLast, (string cross, string corner, string tee, string vertical, string horizontal) guides)
+		private string BuildTreePrefix(int depth, bool[] ancestorIsLast, (string cross, string corner, string tee, string vertical, string horizontal) guides)
 		{
 			if (depth == 0)
 				return "";
 
 			StringBuilder prefix = new StringBuilder();
 
-			// Add indentation based on depth
+			// For each ancestor level, draw a vertical continuation line if that ancestor
+			// still has siblings below it, or spaces if it was the last child.
 			for (int i = 0; i < depth - 1; i++)
 			{
+				prefix.Append(ancestorIsLast[i] ? " " : guides.vertical);
 				prefix.Append(_indent);
 			}
 
 			// Add appropriate connector for the current node
+			bool isLast = ancestorIsLast[depth - 1];
 			string connector = isLast ? guides.corner : guides.tee;
-			string horizontalLine = guides.horizontal;
 
 			prefix.Append(connector);
-			prefix.Append(horizontalLine);
+			prefix.Append(guides.horizontal);
 			prefix.Append(" ");
 
 			return prefix.ToString();
@@ -53,14 +55,14 @@ namespace SharpConsoleUI.Controls
 					return ("+", "\\", "+", "|", "-");
 
 				case var _ when _guide == TreeGuide.DoubleLine:
-					return ("╬", "╚", "╚", "║", "═");
+					return ("╬", "╚", "╠", "║", "═");
 
 				case var _ when _guide == TreeGuide.BoldLine:
-					return ("┿", "┗", "┗", "┃", "━");
+					return ("┿", "┗", "┣", "┃", "━");
 
 				case var _ when _guide == TreeGuide.Line:
 				default:
-					return ("┼", "└", "└", "│", "─");
+					return ("┼", "└", "├", "│", "─");
 			}
 		}
 
@@ -76,8 +78,8 @@ namespace SharpConsoleUI.Controls
 
 			var guideChars = GetGuideChars();
 			int depth = GetNodeDepth(node);
-			bool isLast = IsLastChildInParent(node);
-			string prefix = BuildTreePrefix(depth, isLast, guideChars);
+			bool[] ancestorIsLast = GetAncestorIsLastArray(node);
+			string prefix = BuildTreePrefix(depth, ancestorIsLast, guideChars);
 			return _margin.Left + GetCachedTextLength(prefix);
 		}
 
@@ -96,7 +98,8 @@ namespace SharpConsoleUI.Controls
 			foreach (var node in _flattenedNodes)
 			{
 				int depth = GetNodeDepth(node);
-				string prefix = BuildTreePrefix(depth, IsLastChildInParent(node), guideChars);
+				bool[] ancestorIsLast = GetAncestorIsLastArray(node);
+				string prefix = BuildTreePrefix(depth, ancestorIsLast, guideChars);
 				string displayText = node.Text ?? string.Empty;
 				string expandIndicator = node.Children.Count > 0 ? "[-] " : "";
 				int itemWidth = GetCachedTextLength(prefix + expandIndicator + displayText);
@@ -212,8 +215,8 @@ namespace SharpConsoleUI.Controls
 
 				// Calculate node depth and build prefix
 				int depth = GetNodeDepth(node);
-				bool isLast = IsLastChildInParent(node);
-				string prefix = BuildTreePrefix(depth, isLast, guideChars);
+				bool[] ancestorIsLast = GetAncestorIsLastArray(node);
+				string prefix = BuildTreePrefix(depth, ancestorIsLast, guideChars);
 
 				// Get node text and colors
 				string displayText = node.Text ?? string.Empty;

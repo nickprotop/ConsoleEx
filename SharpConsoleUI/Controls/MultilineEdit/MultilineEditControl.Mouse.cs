@@ -59,32 +59,74 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Mouse button pressed: start potential drag
+			// Mouse drag: extend selection.
+			// Checked before Button1Pressed because SGR mouse format emits Button1Pressed|Button1Dragged
+			// together for every motion-while-button-held event.
+			if (args.HasFlag(MouseFlags.Button1Dragged) && _isDragging)
+			{
+				PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
+				_selectionEndX = _cursorX;
+				_selectionEndY = _cursorY;
+				_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
+				EnsureCursorVisible();
+				Container?.Invalidate(true);
+				return true;
+			}
+
+			// Mouse button pressed: start new selection or extend as SGR drag.
+			// SGR mouse format sends Button1Pressed|ReportMousePosition (no Button1Dragged)
+			// for every motion-while-held event. When _isDragging is already true we are in
+			// a drag continuation, so extend the selection instead of resetting the anchor.
 			if (args.HasFlag(MouseFlags.Button1Pressed))
 			{
 				if (_hasFocus && !_readOnly)
 				{
 					IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
-					_hasSelection = true;
-					_selectionStartX = _cursorX;
-					_selectionStartY = _cursorY;
-					_selectionEndX = _cursorX;
-					_selectionEndY = _cursorY;
-					_isDragging = true;
+					if (_isDragging)
+					{
+						// SGR drag continuation — extend selection end
+						_selectionEndX = _cursorX;
+						_selectionEndY = _cursorY;
+						_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
+					}
+					else
+					{
+						// Fresh press — anchor the selection start
+						_hasSelection = true;
+						_selectionStartX = _cursorX;
+						_selectionStartY = _cursorY;
+						_selectionEndX = _cursorX;
+						_selectionEndY = _cursorY;
+						_isDragging = true;
+					}
 					EnsureCursorVisible();
 					Container?.Invalidate(true);
 				}
 				return true;
 			}
 
-			// Single click
+			// Single click / end of drag
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
 				if (_hasFocus && !_readOnly)
 				{
 					IsEditing = true;
-					PositionCursorFromMouse(args.Position.X, args.Position.Y);
+					if (_isDragging && (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY))
+					{
+						// Release after drag: finalise selection end at release point
+						PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
+						_selectionEndX = _cursorX;
+						_selectionEndY = _cursorY;
+						_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
+						EnsureCursorVisible();
+						Container?.Invalidate(true);
+					}
+					else
+					{
+						// Simple click: place cursor and clear any stale selection
+						PositionCursorFromMouse(args.Position.X, args.Position.Y);
+					}
 				}
 				_isDragging = false;
 				MouseClick?.Invoke(this, args);
@@ -95,18 +137,6 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.Button1Released))
 			{
 				_isDragging = false;
-				return true;
-			}
-
-			// Mouse drag: extend selection
-			if (args.HasFlag(MouseFlags.Button1Dragged) && _isDragging)
-			{
-				PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
-				_selectionEndX = _cursorX;
-				_selectionEndY = _cursorY;
-				_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
-				EnsureCursorVisible();
-				Container?.Invalidate(true);
 				return true;
 			}
 

@@ -223,6 +223,26 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Builds an array where each element indicates whether the node at that depth level
+		/// is the last child of its parent. Index 0 is the root-level ancestor, last index is
+		/// the node itself. Used by BuildTreePrefix to draw correct vertical continuation lines.
+		/// </summary>
+		private bool[] GetAncestorIsLastArray(TreeNode node)
+		{
+			int depth = GetNodeDepth(node);
+			if (depth == 0) return Array.Empty<bool>();
+
+			bool[] result = new bool[depth];
+			TreeNode? current = node;
+			for (int i = depth - 1; i >= 0; i--)
+			{
+				result[i] = IsLastChildInParent(current!);
+				current = FindParentNode(current!);
+			}
+			return result;
+		}
+
+		/// <summary>
 		/// Determines if a node is the last child within its parent
 		/// </summary>
 		/// <param name="node">The node to check</param>
