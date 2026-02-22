@@ -447,20 +447,51 @@ namespace SharpConsoleUI.Controls
 		private Color GetSyntaxColor(int lineIndex, int charIndex, Color defaultColor)
 		{
 			if (_syntaxHighlighter == null) return defaultColor;
-
-			_syntaxTokenCache ??= new Dictionary<int, IReadOnlyList<SyntaxToken>>();
-
-			if (!_syntaxTokenCache.TryGetValue(lineIndex, out var tokens))
-			{
-				tokens = _syntaxHighlighter.Tokenize(_lines[lineIndex], lineIndex);
-				_syntaxTokenCache[lineIndex] = tokens;
-			}
+			var tokens = GetOrComputeTokens(lineIndex);
 			foreach (var token in tokens)
-			{
 				if (charIndex >= token.StartIndex && charIndex < token.StartIndex + token.Length)
 					return token.ForegroundColor;
-			}
 			return defaultColor;
+		}
+
+		private IReadOnlyList<SyntaxToken> GetOrComputeTokens(int lineIndex)
+		{
+			_syntaxTokenCache ??= new Dictionary<int, IReadOnlyList<SyntaxToken>>();
+			_lineStateCache   ??= new Dictionary<int, SyntaxLineState>();
+
+			if (_syntaxTokenCache.TryGetValue(lineIndex, out var cached))
+				return cached;
+
+			EnsureStateUpToLine(lineIndex);
+			return _syntaxTokenCache.TryGetValue(lineIndex, out var result)
+				? result : Array.Empty<SyntaxToken>();
+		}
+
+		private void EnsureStateUpToLine(int lineIndex)
+		{
+			_syntaxTokenCache ??= new Dictionary<int, IReadOnlyList<SyntaxToken>>();
+			_lineStateCache   ??= new Dictionary<int, SyntaxLineState>();
+
+			// Find the furthest line whose start-state is already known
+			int startFrom = lineIndex;
+			while (startFrom > 0 && !_lineStateCache.ContainsKey(startFrom))
+				startFrom--;
+
+			for (int i = startFrom; i <= lineIndex; i++)
+			{
+				if (_syntaxTokenCache.ContainsKey(i))
+					continue; // tokens already computed; end-state is stored as cache[i+1]
+
+				var startState = (i == 0)
+					? SyntaxLineState.Initial
+					: (_lineStateCache.TryGetValue(i, out var s) ? s : SyntaxLineState.Initial);
+
+				var lineText = i < _lines.Count ? _lines[i] : string.Empty;
+				var (tokens, endState) = _syntaxHighlighter!.Tokenize(lineText, i, startState);
+
+				_syntaxTokenCache[i]   = tokens;
+				_lineStateCache[i + 1] = endState; // state at the START of the next line
+			}
 		}
 
 		#endregion

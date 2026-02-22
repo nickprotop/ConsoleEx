@@ -125,7 +125,8 @@ namespace SharpConsoleUI.Controls
 		private void InvalidateWrappedLinesCache()
 		{
 			_wrappedLinesCache = null;
-			_syntaxTokenCache = null;
+			_syntaxTokenCache  = null;
+			_lineStateCache    = null;
 		}
 
 		/// <summary>
@@ -319,6 +320,23 @@ namespace SharpConsoleUI.Controls
 			_hasSelection = false;
 			_selectionStartX = _selectionEndX = _cursorX;
 			_selectionStartY = _selectionEndY = _cursorY;
+		}
+
+		/// <summary>
+		/// Selects the range (startLine, startCol) to (endLine, endCol), 0-based.
+		/// Moves cursor to the end of the selection and scrolls it into view.
+		/// </summary>
+		public void SelectRange(int startLine, int startCol, int endLine, int endCol)
+		{
+			_selectionStartY = Math.Clamp(startLine, 0, _lines.Count - 1);
+			_selectionStartX = Math.Clamp(startCol,  0, _lines[_selectionStartY].Length);
+			_selectionEndY   = Math.Clamp(endLine,   0, _lines.Count - 1);
+			_selectionEndX   = Math.Clamp(endCol,    0, _lines[_selectionEndY].Length);
+			_hasSelection    = true;
+			_cursorY = _selectionEndY;
+			_cursorX = _selectionEndX;
+			EnsureCursorVisible();
+			Container?.Invalidate(true);
 		}
 
 		private (int startX, int startY, int endX, int endY) GetOrderedSelectionBounds()

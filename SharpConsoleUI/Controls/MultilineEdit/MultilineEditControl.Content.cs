@@ -13,6 +13,24 @@ namespace SharpConsoleUI.Controls
 {
 	public partial class MultilineEditControl
 	{
+		#region Syntax Cache Helpers
+
+		// Removes cached tokens for lines >= lineIndex and cached states for lines > lineIndex.
+		// State at lineIndex itself (= end-state of line lineIndex-1) is preserved so that
+		// EnsureStateUpToLine can resume from there without re-scanning from 0.
+		private void InvalidateSyntaxFromLine(int lineIndex)
+		{
+			if (_syntaxTokenCache != null)
+				foreach (var k in _syntaxTokenCache.Keys.Where(k => k >= lineIndex).ToList())
+					_syntaxTokenCache.Remove(k);
+
+			if (_lineStateCache != null)
+				foreach (var k in _lineStateCache.Keys.Where(k => k > lineIndex).ToList())
+					_lineStateCache.Remove(k);
+		}
+
+		#endregion
+
 		#region Content CRUD
 
 		/// <summary>
@@ -25,6 +43,8 @@ namespace SharpConsoleUI.Controls
 				return;
 
 			content = SanitizeInputText(content);
+			int dirtyFromLine = Math.Max(0, _lines.Count - 1);
+			InvalidateSyntaxFromLine(dirtyFromLine);
 
 			// Split the content into lines
 			var newLines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
@@ -85,6 +105,8 @@ namespace SharpConsoleUI.Controls
 				return;
 
 			lines = lines.Select(SanitizeLine).ToList();
+			int dirtyFromLine = Math.Max(0, _lines.Count - 1);
+			InvalidateSyntaxFromLine(dirtyFromLine);
 
 			// If the last line in existing content is empty, replace it with first line of new content
 			if (_lines.Count > 0 && string.IsNullOrEmpty(_lines[_lines.Count - 1]))
@@ -164,6 +186,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			InvalidateSyntaxFromLine(0);
 			InvalidateWrappedLinesCache();
 			ClearSelection();
 			_undoStack.Clear();
@@ -206,6 +229,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			InvalidateSyntaxFromLine(0);
 			InvalidateWrappedLinesCache();
 			ClearSelection();
 			_undoStack.Clear();
@@ -255,7 +279,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void InsertTextAtCursor(string text)
 		{
+			int dirtyCursorY = _cursorY;
 			var textLines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+			InvalidateSyntaxFromLine(dirtyCursorY);
 
 			if (textLines.Length == 1)
 			{
@@ -287,6 +313,7 @@ namespace SharpConsoleUI.Controls
 			if (!_hasSelection) return;
 			if (_lines.Count == 0) return;
 
+			InvalidateSyntaxFromLine(Math.Min(_selectionStartY, _selectionEndY));
 			var (startX, startY, endX, endY) = GetOrderedSelectionBounds();
 
 			// Validate bounds
@@ -479,6 +506,7 @@ namespace SharpConsoleUI.Controls
 			_lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
 			if (_lines.Count == 0)
 				_lines.Add(string.Empty);
+			InvalidateSyntaxFromLine(0);
 			InvalidateWrappedLinesCache();
 		}
 

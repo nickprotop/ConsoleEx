@@ -44,7 +44,13 @@ public class CSharpSyntaxHighlighter : ISyntaxHighlighter
         @"|\b[a-zA-Z_]\w*\b",               // Identifiers/keywords
         RegexOptions.Compiled | RegexOptions.Multiline);
 
-    public IReadOnlyList<SyntaxToken> Tokenize(string line, int lineIndex)
+    public (IReadOnlyList<SyntaxToken> Tokens, SyntaxLineState EndState)
+        Tokenize(string line, int lineIndex, SyntaxLineState startState)
+    {
+        return (TokenizeInternal(line, lineIndex), SyntaxLineState.Initial);
+    }
+
+    private IReadOnlyList<SyntaxToken> TokenizeInternal(string line, int lineIndex)
     {
         var tokens = new List<SyntaxToken>();
         int commentStart = -1;

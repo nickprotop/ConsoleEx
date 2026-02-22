@@ -111,6 +111,7 @@ namespace SharpConsoleUI.Controls
 		// Syntax highlighting
 		private ISyntaxHighlighter? _syntaxHighlighter;
 		private Dictionary<int, IReadOnlyList<SyntaxToken>>? _syntaxTokenCache;
+		private Dictionary<int, SyntaxLineState>? _lineStateCache;
 
 		// Wrapping cache - invalidated on content change, resize, or wrap mode change
 		private List<WrappedLineInfo>? _wrappedLinesCache;
@@ -714,6 +715,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_syntaxHighlighter = value;
 				_syntaxTokenCache = null;
+				_lineStateCache = null;
 				Container?.Invalidate(true);
 			}
 		}
