@@ -64,6 +64,23 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Returns the display-column width of the expand/collapse indicator for a node at the given index.
+		/// Used by the mouse handler to detect clicks on the indicator.
+		/// </summary>
+		internal int GetIndicatorStartColumn(int nodeIndex)
+		{
+			if (nodeIndex < 0 || nodeIndex >= _flattenedNodes.Count) return -1;
+			var node = _flattenedNodes[nodeIndex];
+			if (node.Children.Count == 0) return -1;
+
+			var guideChars = GetGuideChars();
+			int depth = GetNodeDepth(node);
+			bool isLast = IsLastChildInParent(node);
+			string prefix = BuildTreePrefix(depth, isLast, guideChars);
+			return _margin.Left + GetCachedTextLength(prefix);
+		}
+
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
@@ -81,8 +98,8 @@ namespace SharpConsoleUI.Controls
 				int depth = GetNodeDepth(node);
 				string prefix = BuildTreePrefix(depth, IsLastChildInParent(node), guideChars);
 				string displayText = node.Text ?? string.Empty;
-				string expandIndicator = node.Children.Count > 0 ? " [-]" : "";
-				int itemWidth = GetCachedTextLength(prefix + displayText + expandIndicator);
+				string expandIndicator = node.Children.Count > 0 ? "[-] " : "";
+				int itemWidth = GetCachedTextLength(prefix + expandIndicator + displayText);
 				if (itemWidth > maxItemWidth) maxItemWidth = itemWidth;
 			}
 
@@ -178,10 +195,6 @@ namespace SharpConsoleUI.Controls
 				_scrollOffset = scrollOffset;
 			}
 
-			// Ensure selected item is visible
-			EnsureSelectedItemVisible();
-			scrollOffset = CurrentScrollOffset;
-
 			// Get guide characters
 			var guideChars = GetGuideChars();
 			int selectedIndex = CurrentSelectedIndex;
@@ -224,24 +237,20 @@ namespace SharpConsoleUI.Controls
 					nodeBgColor = bgColor;
 				}
 
-				// Add expand/collapse indicator (escaped for Spectre markup)
-				string expandIndicator = "";
-				if (node.Children.Count > 0)
-				{
-					expandIndicator = node.IsExpanded ? " [-]" : " [+]";
-				}
+				// Add expand/collapse indicator on the left side
+				string expandIndicator = node.Children.Count > 0 ? (node.IsExpanded ? "[-] " : "[+] ") : "";
 
 				// Build full node text
-				string nodeText = prefix + displayText + expandIndicator;
+				string nodeText = prefix + expandIndicator + displayText;
 				int visibleLength = GetCachedTextLength(nodeText);
 
 				// Truncate if necessary
 				if (visibleLength > contentWidth)
 				{
 					nodeText = TextTruncationHelper.TruncateWithFixedParts(
-						prefix,
+						prefix + expandIndicator,
 						displayText,
-						expandIndicator,
+						string.Empty,
 						contentWidth,
 						_textMeasurementCache);
 					visibleLength = GetCachedTextLength(nodeText);

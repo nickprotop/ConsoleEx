@@ -3,6 +3,7 @@ using System.Drawing;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -26,10 +27,21 @@ public class IdeApp : IDisposable
     private EditorManager? _editorManager;
     private OutputPanel? _outputPanel;
 
-    // Status bar MarkupControls
-    private MarkupControl? _gitStatus;
-    private MarkupControl? _errorCount;
+    // Status bar
+    private MarkupControl? _statusLeft;   // git + error combined
     private MarkupControl? _cursorStatus;
+    private string _gitMarkup   = "[dim] git: --[/]";
+    private string _errorMarkup = "";
+    private MarkupControl? _dashboard;
+
+    // Panel visibility state
+    private ColumnContainer? _explorerCol;
+    private SplitterControl? _explorerSplitter;
+    private bool _explorerVisible = true;
+    private bool _outputVisible = true;
+
+    // System bottom status bar
+    private readonly IdeStatusBar _bottomBar = new();
 
     // Thread-safe queues for streaming build/test output
     private readonly ConcurrentQueue<string> _buildLines = new();
@@ -39,11 +51,15 @@ public class IdeApp : IDisposable
 
     public IdeApp(string projectPath)
     {
-        _ws = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
+        _ws = new ConsoleWindowSystem(
+            new NetConsoleDriver(RenderMode.Buffer),
+            options: new ConsoleWindowSystemOptions(
+                StatusBarOptions: new StatusBarOptions(ShowTaskBar: false)));
         _projectService = new ProjectService(projectPath);
         _buildService = new BuildService();
         _gitService = new GitService();
 
+        InitBottomStatus();  // Must be before CreateLayout so DesktopDimensions accounts for the bar
         CreateLayout();
 
         // Async post-init: git status + optional LSP
@@ -94,7 +110,8 @@ public class IdeApp : IDisposable
     {
         _mainWindow = new WindowBuilder(_ws)
             .HideTitle()
-            .Borderless()
+            .WithBorderStyle(BorderStyle.Single)
+            .HideTitleButtons()
             .WithSize(width, height)
             .AtPosition(0, 0)
             .Resizable(false)
@@ -105,6 +122,7 @@ public class IdeApp : IDisposable
             .Build();
 
         AddMenuBar();
+        _mainWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Top });
         AddToolbar();
         _mainWindow.AddControl(new RuleControl { StickyPosition = StickyPosition.Top });
         AddMainContentArea();
@@ -118,6 +136,8 @@ public class IdeApp : IDisposable
             .Horizontal()
             .Sticky()
             .AddItem("File", m => m
+                .AddItem("Open Folder...", () => _ = OpenFolderAsync())
+                .AddSeparator()
                 .AddItem("Save", "Ctrl+S", () => _editorManager?.SaveCurrent())
                 .AddItem("Close Tab", "Ctrl+W", () => CloseCurrentTab())
                 .AddSeparator()
@@ -133,6 +153,9 @@ public class IdeApp : IDisposable
             .AddItem("Run", m => m
                 .AddItem("Run", "F5", () => RunProject())
                 .AddItem("Stop", "F4", () => _buildService.Cancel()))
+            .AddItem("View", m => m
+                .AddItem("Toggle Explorer", "Ctrl+B", () => ToggleExplorer())
+                .AddItem("Toggle Output Panel", "Ctrl+J", () => ToggleOutput()))
             .AddItem("Git", m => m
                 .AddItem("Refresh Status", () => _ = RefreshGitStatusAsync())
                 .AddItem("Pull", () => _ = GitCommandAsync("pull"))
@@ -154,8 +177,9 @@ public class IdeApp : IDisposable
             .AddButton("Build F6", (_, _) => _ = BuildProjectAsync())
             .AddButton("Test F7", (_, _) => _ = TestProjectAsync())
             .AddButton("Stop F4", (_, _) => _buildService.Cancel())
-            .AddSeparator()
             .AddButton("Shell F8", (_, _) => OpenShell())
+            .AddButton("Explorer", (_, _) => ToggleExplorer())
+            .AddButton("Output", (_, _) => ToggleOutput())
             .StickyTop()
             .Build();
 
@@ -170,22 +194,32 @@ public class IdeApp : IDisposable
             VerticalAlignment = VerticalAlignment.Fill
         };
 
-        var explorerCol = new ColumnContainer(mainContent)
+        _explorerCol = new ColumnContainer(mainContent)
         {
             Width = 26,
             VerticalAlignment = VerticalAlignment.Fill
         };
-        explorerCol.AddContent(_explorer!.Control);
-        mainContent.AddColumn(explorerCol);
+        _explorerCol.AddContent(_explorer!.Control);
+        mainContent.AddColumn(_explorerCol);
 
         var editorCol = new ColumnContainer(mainContent)
         {
             VerticalAlignment = VerticalAlignment.Fill
         };
+
+        _dashboard = new MarkupControl(GetDashboardLines())
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Fill
+        };
+        editorCol.AddContent(_dashboard);
         editorCol.AddContent(_editorManager!.TabControl);
+        _editorManager.TabControl.Visible = false;
+
         mainContent.AddColumn(editorCol);
 
-        mainContent.AddSplitter(0, new SplitterControl());
+        _explorerSplitter = new SplitterControl();
+        mainContent.AddSplitter(0, _explorerSplitter);
 
         _mainWindow!.AddControl(mainContent);
     }
@@ -198,25 +232,13 @@ public class IdeApp : IDisposable
             StickyPosition = StickyPosition.Bottom
         };
 
-        var gitCol = new ColumnContainer(statusBar) { Width = 40 };
-        _gitStatus = new MarkupControl(new List<string> { "[dim] git: --[/]" });
-        gitCol.AddContent(_gitStatus);
-        statusBar.AddColumn(gitCol);
+        // Left fill: git info + | + error count rendered as one MarkupControl
+        var leftCol = new ColumnContainer(statusBar); // fill
+        _statusLeft = new MarkupControl(new List<string> { "[dim] git: --[/]" });
+        leftCol.AddContent(_statusLeft);
+        statusBar.AddColumn(leftCol);
 
-        var sepCol1 = new ColumnContainer(statusBar) { Width = 2 };
-        sepCol1.AddContent(new MarkupControl(new List<string> { "[dim]|[/]" }));
-        statusBar.AddColumn(sepCol1);
-
-        var errorCol = new ColumnContainer(statusBar) { Width = 22 };
-        _errorCount = new MarkupControl(new List<string> { "" });
-        errorCol.AddContent(_errorCount);
-        statusBar.AddColumn(errorCol);
-
-        // Spacer
-        var spacer = new ColumnContainer(statusBar);
-        spacer.AddContent(new MarkupControl(new List<string> { "" }));
-        statusBar.AddColumn(spacer);
-
+        // Right fixed: cursor position
         var cursorCol = new ColumnContainer(statusBar) { Width = 22 };
         _cursorStatus = new MarkupControl(new List<string> { "Ln 1 Col 1 | UTF-8" })
         {
@@ -226,6 +248,16 @@ public class IdeApp : IDisposable
         statusBar.AddColumn(cursorCol);
 
         _mainWindow!.AddControl(statusBar);
+    }
+
+    private void UpdateInlineStatus()
+    {
+        var bar = new IdeStatusBar();
+        bar.AddSegment(_gitMarkup, " ");
+        if (!string.IsNullOrEmpty(_errorMarkup))
+            bar.AddSegment("[dim] | [/]", " | ")
+               .AddSegment(_errorMarkup, " ");
+        _statusLeft?.SetContent(new List<string> { bar.Render() });
     }
 
     private void BuildOutputWindow(int width, int height, int topOffset)
@@ -269,17 +301,46 @@ public class IdeApp : IDisposable
             _outputPanel.SwitchToProblemsTab();
         };
 
+        _editorManager!.OpenFilesStateChanged += (_, _) =>
+        {
+            bool hasFiles = _editorManager.HasOpenFiles;
+            _editorManager.TabControl.Visible = hasFiles;
+            _dashboard!.Visible = !hasFiles;
+        };
+
         _mainWindow!.KeyPressed += OnMainWindowKeyPressed;
+    }
+
+    private void InitBottomStatus()
+    {
+        _bottomBar
+            .AddHint("F5",     "Run",   RunProject)
+            .AddHint("F6",     "Build", () => _ = BuildProjectAsync())
+            .AddHint("F7",     "Test",  () => _ = TestProjectAsync())
+            .AddHint("F8",     "Shell", OpenShell)
+            .AddSegment("[dim]| [/]", "| ")
+            .AddHint("Ctrl+S", "Save",  () => _editorManager?.SaveCurrent())
+            .AddHint("Ctrl+W", "Close", CloseCurrentTab);
+
+        _ws.StatusBarStateService.BottomStatus = _bottomBar.Render();
+        _ws.StatusBarStateService.BottomStatusClickHandler = x => _bottomBar.HandleClick(x);
     }
 
     private void OnScreenResized(object? sender, SharpConsoleUI.Helpers.Size size)
     {
         var desktop = _ws.DesktopDimensions;
-        int mainH = (int)(desktop.Height * 0.68);
-        int outH = desktop.Height - mainH;
-        _mainWindow?.SetSize(desktop.Width, mainH);
-        _outputWindow?.SetSize(desktop.Width, outH);
-        _outputWindow?.SetPosition(new Point(0, mainH));
+        if (_outputVisible)
+        {
+            int mainH = (int)(desktop.Height * 0.68);
+            int outH = desktop.Height - mainH;
+            _mainWindow?.SetSize(desktop.Width, mainH);
+            _outputWindow?.SetSize(desktop.Width, outH);
+            _outputWindow?.SetPosition(new Point(0, mainH));
+        }
+        else
+        {
+            _mainWindow?.SetSize(desktop.Width, desktop.Height);
+        }
     }
 
     private void OnMainWindowKeyPressed(object? sender, KeyPressedEventArgs e)
@@ -320,6 +381,16 @@ public class IdeApp : IDisposable
         else if (key == ConsoleKey.F4 && mods == 0)
         {
             _buildService.Cancel();
+            e.Handled = true;
+        }
+        else if (key == ConsoleKey.B && mods == ConsoleModifiers.Control)
+        {
+            ToggleExplorer();
+            e.Handled = true;
+        }
+        else if (key == ConsoleKey.J && mods == ConsoleModifiers.Control)
+        {
+            ToggleOutput();
             e.Handled = true;
         }
         else if (key == ConsoleKey.K && mods == ConsoleModifiers.Control)
@@ -471,6 +542,31 @@ public class IdeApp : IDisposable
         _outputWindow.FocusControl(terminal);
     }
 
+    private async Task OpenFolderAsync()
+    {
+        var selected = await SharpConsoleUI.Dialogs.FileDialogs.ShowFolderPickerAsync(
+            _ws, _projectService.RootPath, _mainWindow);
+        if (string.IsNullOrEmpty(selected)) return;
+
+        _projectService.ChangeRootPath(selected);
+        _editorManager?.CloseAll();
+        _explorer?.Refresh();
+        _ = RefreshGitStatusAsync();
+
+        if (_lsp != null)
+        {
+            await _lsp.ShutdownAsync();
+            _lsp = null;
+            var lspServer = LspDetector.Find(selected);
+            if (lspServer != null)
+            {
+                _lsp = new LspClient();
+                _lsp.DiagnosticsReceived += OnLspDiagnostics;
+                await _lsp.StartAsync(lspServer, selected);
+            }
+        }
+    }
+
     private async Task RefreshGitStatusAsync()
     {
         var branch = await _gitService.GetBranchAsync(_projectService.RootPath);
@@ -503,7 +599,8 @@ public class IdeApp : IDisposable
             }
         }
 
-        _gitStatus?.SetContent(new List<string> { bar.Render() });
+        _gitMarkup = bar.Render();
+        UpdateInlineStatus();
     }
 
     private async Task GitCommandAsync(string command)
@@ -527,26 +624,39 @@ public class IdeApp : IDisposable
     {
         if (_editorManager == null) return;
 
-        // Auto-save if dirty (avoids modal blocking the event loop)
         if (_editorManager.IsCurrentTabDirty())
-            _editorManager.SaveCurrent();
+        {
+            var fileName = _editorManager.CurrentFilePath != null
+                ? Path.GetFileName(_editorManager.CurrentFilePath)
+                : "Untitled";
+            ConfirmSaveDialog.Show(_ws, fileName, result =>
+            {
+                if (result == DialogResult.Cancel) return;
+                if (result == DialogResult.Save) _editorManager.SaveCurrent();
+                _editorManager.CloseCurrentTab();
+            });
+            return;
+        }
 
         _editorManager.CloseCurrentTab();
     }
 
     private void ShowNuGetDialog()
     {
-        var (packageName, version) = NuGetDialog.Show(_ws);
-        if (string.IsNullOrEmpty(packageName)) return;
+        NuGetDialog.Show(_ws, result =>
+        {
+            var (packageName, version) = result;
+            if (string.IsNullOrEmpty(packageName)) return;
 
-        var target = _projectService.FindBuildTarget();
-        if (target == null || !target.EndsWith(".csproj")) return;
+            var target = _projectService.FindBuildTarget();
+            if (target == null || !target.EndsWith(".csproj")) return;
 
-        var cmdArgs = version != null
-            ? $"add {target} package {packageName} --version {version}"
-            : $"add {target} package {packageName}";
+            var cmdArgs = version != null
+                ? $"add {target} package {packageName} --version {version}"
+                : $"add {target} package {packageName}";
 
-        _ = RunNuGetAsync(cmdArgs);
+            _ = RunNuGetAsync(cmdArgs);
+        });
     }
 
     private async Task RunNuGetAsync(string args)
@@ -558,6 +668,40 @@ public class IdeApp : IDisposable
             "dotnet " + args,
             line => _buildLines.Enqueue(line),
             _cts.Token);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Panel toggle
+    // ──────────────────────────────────────────────────────────────
+
+    private void ToggleExplorer()
+    {
+        _explorerVisible = !_explorerVisible;
+        if (_explorerCol != null)
+            _explorerCol.Visible = _explorerVisible;
+        if (_explorerSplitter != null)
+            _explorerSplitter.Visible = _explorerVisible;
+        _mainWindow?.ForceRebuildLayout();
+        _mainWindow?.Invalidate(true);
+    }
+
+    private void ToggleOutput()
+    {
+        _outputVisible = !_outputVisible;
+        var desktop = _ws.DesktopDimensions;
+        if (_outputVisible)
+        {
+            int mainH = (int)(desktop.Height * 0.68);
+            int outH = desktop.Height - mainH;
+            _mainWindow?.SetSize(desktop.Width, mainH);
+            _outputWindow?.SetSize(desktop.Width, outH);
+            _outputWindow?.SetPosition(new Point(0, mainH));
+        }
+        else
+        {
+            _mainWindow?.SetSize(desktop.Width, desktop.Height);
+            _outputWindow?.SetPosition(new Point(0, desktop.Height + 100));
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -614,6 +758,21 @@ public class IdeApp : IDisposable
     // Status bar updates
     // ──────────────────────────────────────────────────────────────
 
+    private static List<string> GetDashboardLines() => new()
+    {
+        "",
+        "",
+        "[bold dim]  .NET IDE[/]",
+        "",
+        "[dim]  Open a file from the explorer[/]",
+        "[dim]  on the left to start editing.[/]",
+        "",
+        "[dim]  ────────────────────────────[/]",
+        "[dim]  F5  Run       F6  Build[/]",
+        "[dim]  F7  Test      F8  Shell[/]",
+        "[dim]  Ctrl+S  Save  Ctrl+W  Close[/]",
+    };
+
     private void UpdateErrorCount(List<BuildDiagnostic> diagnostics)
     {
         int errors = diagnostics.Count(d => d.Severity == "error");
@@ -629,6 +788,7 @@ public class IdeApp : IDisposable
         else
             text = "[green]✓ Build OK[/]";
 
-        _errorCount?.SetContent(new List<string> { text });
+        _errorMarkup = text;
+        UpdateInlineStatus();
     }
 }

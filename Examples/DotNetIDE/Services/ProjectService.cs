@@ -7,7 +7,7 @@ public record FileNode(string Name, string FullPath, bool IsDirectory, List<File
 
 public class ProjectService
 {
-    private readonly string _rootPath;
+    private string _rootPath;
 
     private static readonly HashSet<string> SkippedDirs = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -27,6 +27,8 @@ public class ProjectService
     }
 
     public string RootPath => _rootPath;
+
+    public void ChangeRootPath(string newPath) => _rootPath = newPath;
 
     public FileNode BuildTree()
     {

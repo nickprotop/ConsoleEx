@@ -60,7 +60,8 @@ public class OutputPanel
         _tabControl = new TabControl
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Fill
+            VerticalAlignment = VerticalAlignment.Fill,
+            HeaderStyle = TabHeaderStyle.Separator
         };
         _tabControl.AddTab("Output", _logViewer);
         _tabControl.AddTab("Build", _buildPanel);

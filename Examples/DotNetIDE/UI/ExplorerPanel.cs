@@ -28,6 +28,7 @@ public class ExplorerPanel
             Guide = TreeGuide.Line,
             HighlightBackgroundColor = Color.SteelBlue,
             HighlightForegroundColor = Color.White,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Fill
         };
 
@@ -39,7 +40,7 @@ public class ExplorerPanel
         };
         _panel.AddControl(_tree);
 
-        _tree.SelectedNodeChanged += OnNodeSelected;
+        _tree.NodeActivated += OnNodeActivated;
         BuildTree();
     }
 
@@ -88,16 +89,17 @@ public class ExplorerPanel
 
     private static string GetIcon(FileNode node)
     {
-        if (node.IsDirectory) return "[D]";
+        if (node.IsDirectory) return "📁";
         return Path.GetExtension(node.Name).ToLowerInvariant() switch
         {
-            ".cs" => "[C]",
-            ".csproj" => "[P]",
-            ".sln" => "[S]",
-            ".json" => "[J]",
-            ".md" => "[M]",
-            ".yaml" or ".yml" => "[Y]",
-            _ => "[-]"
+            ".cs" => "📝",
+            ".csproj" => "⚙",
+            ".sln" => "🔧",
+            ".json" => "📋",
+            ".md" => "📖",
+            ".yaml" or ".yml" => "📋",
+            ".txt" => "📄",
+            _ => "📄"
         };
     }
 
@@ -112,7 +114,7 @@ public class ExplorerPanel
             _ => Color.White
         };
 
-    private void OnNodeSelected(object? sender, TreeNodeEventArgs args)
+    private void OnNodeActivated(object? sender, TreeNodeEventArgs args)
     {
         if (args.Node?.Tag is string path && File.Exists(path))
             FileOpenRequested?.Invoke(this, path);

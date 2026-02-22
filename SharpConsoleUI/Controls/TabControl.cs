@@ -90,9 +90,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		/// <param name="title">The title displayed in the tab header.</param>
 		/// <param name="content">The control to display when this tab is active.</param>
-		public void AddTab(string title, IWindowControl content)
+		/// <param name="isClosable">When true, a × close button is shown in the tab header.</param>
+		public void AddTab(string title, IWindowControl content, bool isClosable = false)
 		{
-			var tabPage = new TabPage { Title = title, Content = content };
+			var tabPage = new TabPage { Title = title, Content = content, IsClosable = isClosable };
 			_tabPages.Add(tabPage);
 			content.Container = this;
 
@@ -167,6 +168,12 @@ namespace SharpConsoleUI.Controls
 	/// Raised when a tab is removed from the control.
 	/// </summary>
 	public event EventHandler<TabEventArgs>? TabRemoved;
+
+	/// <summary>
+	/// Raised when the user clicks the close (×) button on a closable tab.
+	/// The tab is NOT automatically removed — subscribe and call RemoveTab to close it.
+	/// </summary>
+	public event EventHandler<TabEventArgs>? TabCloseRequested;
 
 	#endregion
 
@@ -700,6 +707,13 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 
+				// Draw close button (×) for closable tabs
+				if (_tabPages[i].IsClosable && x < headerRight)
+				{
+					buffer.SetCell(x, headerY, '×', tileFg, tileBg);
+					x++;
+				}
+
 				if (isActive)
 					activeTabEndX = x;
 
@@ -801,6 +815,8 @@ namespace SharpConsoleUI.Controls
 			for (int i = 0; i < _tabPages.Count; i++)
 			{
 				width += _tabPages[i].Title.Length + 2; // " title "
+				if (_tabPages[i].IsClosable)
+					width += 1; // ×
 				if (i < _tabPages.Count - 1)
 					width += 1; // separator
 			}
@@ -846,16 +862,23 @@ namespace SharpConsoleUI.Controls
 
 				for (int i = 0; i < _tabPages.Count; i++)
 				{
-					int tabWidth = _tabPages[i].Title.Length + 2 + 1; // " title " + separator
-					if (clickX >= currentX && clickX < currentX + tabWidth - 1)
+					int innerWidth = _tabPages[i].Title.Length + 2 + (_tabPages[i].IsClosable ? 1 : 0); // " title " or " title ×"
+					if (clickX >= currentX && clickX < currentX + innerWidth)
 					{
 						if (args.HasFlag(MouseFlags.Button1Clicked))
 						{
+							// Check if click landed on the close button
+							if (_tabPages[i].IsClosable && clickX == currentX + _tabPages[i].Title.Length + 2)
+							{
+								TabCloseRequested?.Invoke(this, new TabEventArgs(_tabPages[i], i));
+								args.Handled = true;
+								return true;
+							}
 							ActiveTabIndex = i;
 							return true;
 						}
 					}
-					currentX += tabWidth;
+					currentX += innerWidth + 1; // + separator
 				}
 			}
 

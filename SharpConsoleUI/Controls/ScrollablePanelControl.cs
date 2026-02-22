@@ -64,7 +64,7 @@ namespace SharpConsoleUI.Controls
 		private int? _height;
 
 		// IContainer properties
-		private Color _backgroundColor = Color.Black;
+		private Color? _backgroundColorValue;
 		private Color _foregroundColor = Color.White;
 		private bool _isDirty = true;
 
@@ -972,8 +972,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Color BackgroundColor
 		{
-			get => _backgroundColor;
-			set { _backgroundColor = value; Invalidate(true); }
+			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+			set { _backgroundColorValue = value; Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
@@ -1304,7 +1304,7 @@ namespace SharpConsoleUI.Controls
 			_actualWidth = bounds.Width;
 			_actualHeight = bounds.Height;
 
-			var bgColor = _backgroundColor;
+			var bgColor = BackgroundColor;
 			var fgColor = _foregroundColor;
 
 			_viewportHeight = bounds.Height - _margin.Top - _margin.Bottom;

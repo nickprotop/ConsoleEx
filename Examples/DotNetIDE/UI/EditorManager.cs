@@ -26,16 +26,21 @@ public class EditorManager
 
     public TabControl TabControl => _tabControl;
 
+    public bool HasOpenFiles => _tabControl.TabCount > 0;
+    public event EventHandler? OpenFilesStateChanged;
+
     public EditorManager(ConsoleWindowSystem ws)
     {
         _ws = ws;
         _tabControl = new TabControl
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Fill
+            VerticalAlignment = VerticalAlignment.Fill,
+            HeaderStyle = TabHeaderStyle.Separator
         };
 
         _tabControl.TabChanged += OnTabChanged;
+        _tabControl.TabCloseRequested += OnTabCloseRequested;
     }
 
     public void OpenFile(string path)
@@ -83,16 +88,23 @@ public class EditorManager
 
     private void AddTab(string path, IWindowControl content, MultilineEditControl? editor, bool isDirty)
     {
+        bool wasEmpty = _tabControl.TabCount == 0;
         var tabTitle = Path.GetFileName(path);
-        _tabControl.AddTab(tabTitle, content);
+        _tabControl.AddTab(tabTitle, content, isClosable: true);
         var tabIndex = _tabControl.TabCount - 1;
         _openFiles[path] = tabIndex;
 
-        // Store placeholder editor when content is not an editor (binary/error views)
+        // Now that the editor has a Container, sync FocusedBackgroundColor to match view-mode bg
+        if (editor != null)
+            editor.FocusedBackgroundColor = editor.BackgroundColor;
+
         var storedEditor = editor ?? new MultilineEditControl();
         _tabData[tabIndex] = (path, storedEditor, isDirty);
 
         _tabControl.ActiveTabIndex = tabIndex;
+
+        if (wasEmpty)
+            OpenFilesStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private MultilineEditControl CreateEditor(string path, string content)
@@ -189,6 +201,27 @@ public class EditorManager
         foreach (var kv in newOpenFiles) _openFiles[kv.Key] = kv.Value;
         _tabData.Clear();
         foreach (var kv in newTabData) _tabData[kv.Key] = kv.Value;
+
+        if (_tabControl.TabCount == 0)
+            OpenFilesStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void CloseAll()
+    {
+        while (_tabControl.TabCount > 0)
+            CloseCurrentTab();
+    }
+
+    public void CloseTabAt(int index)
+    {
+        if (index < 0 || index >= _tabControl.TabCount) return;
+        _tabControl.ActiveTabIndex = index;
+        CloseCurrentTab();
+    }
+
+    private void OnTabCloseRequested(object? sender, SharpConsoleUI.Events.TabEventArgs args)
+    {
+        CloseTabAt(args.Index);
     }
 
     public void GoToLine(int line)

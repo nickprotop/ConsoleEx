@@ -10,24 +10,25 @@ public enum DialogResult { Save, DontSave, Cancel }
 
 public static class ConfirmSaveDialog
 {
-    public static DialogResult Show(ConsoleWindowSystem ws, string fileName)
+    public static void Show(ConsoleWindowSystem ws, string fileName, Action<DialogResult> onResult)
     {
-        var result = DialogResult.Cancel;
-        var closed = new System.Threading.ManualResetEventSlim(false);
+        // Guard: onResult fires exactly once regardless of close path
+        bool fired = false;
+        void FireResult(DialogResult r) { if (fired) return; fired = true; onResult(r); }
 
-        var saveBtn = new ButtonControl { Text = "Save", Width = 10 };
+        var saveBtn    = new ButtonControl { Text = "Save",       Width = 10 };
         var dontSaveBtn = new ButtonControl { Text = "Don't Save", Width = 14 };
-        var cancelBtn = new ButtonControl { Text = "Cancel", Width = 10 };
+        var cancelBtn  = new ButtonControl { Text = "Cancel",     Width = 10 };
 
         Window? dialog = null;
 
-        saveBtn.Click += (_, _) => { result = DialogResult.Save; dialog?.Close(); closed.Set(); };
-        dontSaveBtn.Click += (_, _) => { result = DialogResult.DontSave; dialog?.Close(); closed.Set(); };
-        cancelBtn.Click += (_, _) => { result = DialogResult.Cancel; dialog?.Close(); closed.Set(); };
+        saveBtn.Click    += (_, _) => { FireResult(DialogResult.Save);     dialog?.Close(); };
+        dontSaveBtn.Click += (_, _) => { FireResult(DialogResult.DontSave); dialog?.Close(); };
+        cancelBtn.Click  += (_, _) => { FireResult(DialogResult.Cancel);   dialog?.Close(); };
 
         var buttonRow = new HorizontalGridControl { HorizontalAlignment = HorizontalAlignment.Left };
-        var saveCol = new ColumnContainer(buttonRow); saveCol.AddContent(saveBtn); buttonRow.AddColumn(saveCol);
-        var dontCol = new ColumnContainer(buttonRow); dontCol.AddContent(dontSaveBtn); buttonRow.AddColumn(dontCol);
+        var saveCol   = new ColumnContainer(buttonRow); saveCol.AddContent(saveBtn);     buttonRow.AddColumn(saveCol);
+        var dontCol   = new ColumnContainer(buttonRow); dontCol.AddContent(dontSaveBtn); buttonRow.AddColumn(dontCol);
         var cancelCol = new ColumnContainer(buttonRow); cancelCol.AddContent(cancelBtn); buttonRow.AddColumn(cancelCol);
         buttonRow.StickyPosition = StickyPosition.Bottom;
 
@@ -36,7 +37,9 @@ public static class ConfirmSaveDialog
             .WithSize(50, 8)
             .Centered()
             .AsModal()
-            .Closable(false)
+            .Resizable(false)
+            .Minimizable(false)
+            .Maximizable(false)
             .AddControl(new MarkupControl(new List<string>
             {
                 "",
@@ -48,10 +51,17 @@ public static class ConfirmSaveDialog
             .AddControl(buttonRow)
             .Build();
 
-        dialog.OnClosed += (_, _) => closed.Set();
+        // X button or Escape = Cancel
+        dialog.OnClosed += (_, _) => FireResult(DialogResult.Cancel);
+        dialog.KeyPressed += (_, e) =>
+        {
+            if (e.KeyInfo.Key == ConsoleKey.Escape)
+            {
+                dialog.Close();
+                e.Handled = true;
+            }
+        };
 
         ws.AddWindow(dialog);
-        closed.Wait(TimeSpan.FromMinutes(5));
-        return result;
     }
 }

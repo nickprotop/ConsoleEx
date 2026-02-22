@@ -120,10 +120,18 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.Enter:
 					if (SelectedNode != null)
 					{
-						// Toggle expand/collapse
-						SelectedNode.IsExpanded = !SelectedNode.IsExpanded;
-						NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
-						UpdateFlattenedNodes();
+						if (SelectedNode.Children.Count > 0)
+						{
+							// Toggle expand/collapse on directories
+							SelectedNode.IsExpanded = !SelectedNode.IsExpanded;
+							NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
+							UpdateFlattenedNodes();
+						}
+						else
+						{
+							// Activate leaf node (open file)
+							NodeActivated?.Invoke(this, new TreeNodeEventArgs(SelectedNode));
+						}
 						Container?.Invalidate(true);
 						return true;
 					}

@@ -258,6 +258,18 @@ namespace SharpConsoleUI.Core
 		/// <param name="x">X coordinate of click.</param>
 		/// <param name="y">Y coordinate of click.</param>
 		/// <returns>True if the click was handled; false otherwise.</returns>
+		/// <summary>
+		/// Optional handler invoked when the top status bar area is clicked.
+		/// Receives the raw screen X coordinate of the click.
+		/// </summary>
+		public Action<int>? TopStatusClickHandler { get; set; }
+
+		/// <summary>
+		/// Optional handler invoked when the bottom status bar area (excluding the Start button) is clicked.
+		/// Receives the raw screen X coordinate of the click.
+		/// </summary>
+		public Action<int>? BottomStatusClickHandler { get; set; }
+
 		public bool HandleStatusBarClick(int x, int y)
 		{
 			// Check if click is on Start button
@@ -265,6 +277,20 @@ namespace SharpConsoleUI.Core
 			{
 				_logService.LogDebug($"Start button clicked at ({x}, {y})", category: "StartMenu");
 				ShowStartMenu();
+				return true;
+			}
+
+			// Forward top status bar clicks to optional external handler
+			if (_topStatusBarBounds.Contains(x, y) && TopStatusClickHandler != null)
+			{
+				TopStatusClickHandler(x);
+				return true;
+			}
+
+			// Forward bottom status bar clicks to optional external handler
+			if (_bottomStatusBarBounds.Contains(x, y) && BottomStatusClickHandler != null)
+			{
+				BottomStatusClickHandler(x);
 				return true;
 			}
 

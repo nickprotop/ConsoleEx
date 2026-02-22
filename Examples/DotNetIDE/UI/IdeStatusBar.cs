@@ -61,9 +61,9 @@ public class IdeStatusBar : ClickableBar
                 item.StartX = cursor;
                 item.EndX   = cursor + plainLength - 1;
 
-                sb.Append($"[cyan1]{item.Shortcut}[/][grey70]:{item.Label}  [/]");
+                sb.Append($"[cyan1]{item.Shortcut}[/][grey70]:{item.Label} [/]");
 
-                cursor += plainLength + 2; // +2 for trailing two-space separator
+                cursor += plainLength + 1; // +1 for trailing space
             }
         }
 
@@ -78,4 +78,9 @@ public class IdeStatusBar : ClickableBar
     /// </summary>
     public bool HandleClick(int x, int windowWidth, int rightMargin = 1) =>
         HandleClickAt(x - (windowWidth - rightMargin - TotalRenderedLength));
+
+    /// <summary>
+    /// Maps a raw mouse X to a clickable hint for a left-aligned bar (content starts at x=0).
+    /// </summary>
+    public bool HandleClick(int x) => HandleClickAt(x);
 }

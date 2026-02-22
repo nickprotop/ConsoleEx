@@ -255,6 +255,14 @@ namespace SharpConsoleUI.Helpers
 			{
 				if (input[i] == '[')
 				{
+					// Already-escaped bracket [[ — pass through unchanged so this function is idempotent
+					if (i + 1 < length && input[i + 1] == '[')
+					{
+						result.Append("[[");
+						i += 2;
+						continue;
+					}
+
 					int start = i;
 					int j = i + 1;
 					bool tagClosed = false;
@@ -294,6 +302,13 @@ namespace SharpConsoleUI.Helpers
 				}
 				else if (input[i] == ']')
 				{
+					// Already-escaped bracket ]] — pass through unchanged so this function is idempotent
+					if (i + 1 < length && input[i + 1] == ']')
+					{
+						result.Append("]]");
+						i += 2;
+						continue;
+					}
 					// Escape lone ']'
 					result.Append("]]");
 					i++;

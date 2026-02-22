@@ -53,6 +53,18 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseMove;
 
+		/// <summary>
+		/// Selects a node by index without adjusting the scroll offset.
+		/// Used for mouse-click selection where the item is already visible on screen.
+		/// </summary>
+		private void SelectNodeNoScroll(int nodeIndex)
+		{
+			if (_selectedIndex == nodeIndex) return;
+			if (nodeIndex < 0 || nodeIndex >= _flattenedNodes.Count) return;
+			_selectedIndex = nodeIndex;
+			OnSelectionChanged(nodeIndex);
+		}
+
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
@@ -116,7 +128,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Handle double-click - toggle expand/collapse
+			// Handle double-click - toggle expand/collapse or activate leaf
 			if (args.HasFlag(MouseFlags.Button1DoubleClicked))
 			{
 				if (nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
@@ -128,25 +140,21 @@ namespace SharpConsoleUI.Controls
 						_lastClickIndex = -1;
 					}
 
-					// Select the node
-					if (_selectedIndex != nodeIndex)
-					{
-						SelectionStateHelper.UpdateSelectionWithScroll(
-							ref _selectedIndex,
-							nodeIndex,
-							_flattenedNodes.Count,
-							ref _scrollOffset,
-							_calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10,
-							OnSelectionChanged);
-					}
+					// Select without scrolling — item is already visible
+					SelectNodeNoScroll(nodeIndex);
 
-					// Toggle expand/collapse
 					var node = _flattenedNodes[nodeIndex];
 					if (node.Children.Count > 0)
 					{
+						// Toggle expand/collapse on directories
 						node.IsExpanded = !node.IsExpanded;
 						NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(node));
 						UpdateFlattenedNodes();
+					}
+					else
+					{
+						// Activate leaf node (open file)
+						NodeActivated?.Invoke(this, new TreeNodeEventArgs(node));
 					}
 
 					MouseDoubleClick?.Invoke(this, args);
@@ -167,45 +175,66 @@ namespace SharpConsoleUI.Controls
 
 				if (nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
 				{
-					// Detect double-click (thread-safe)
-					bool isDoubleClick;
-					lock (_clickLock)
+					// Check if click was on the expand/collapse indicator
+					int indicatorStart = GetIndicatorStartColumn(nodeIndex);
+					bool clickedIndicator = indicatorStart >= 0 &&
+						args.Position.X >= indicatorStart &&
+						args.Position.X < indicatorStart + 4; // "[-] " / "[+] " is 4 chars
+
+					// Select without scrolling — item is already visible (user just clicked it)
+					SelectNodeNoScroll(nodeIndex);
+
+					if (clickedIndicator)
 					{
-						var now = DateTime.UtcNow;
-						var timeSince = (now - _lastClickTime).TotalMilliseconds;
-						isDoubleClick = nodeIndex == _lastClickIndex &&
-										timeSince <= ControlDefaults.DefaultDoubleClickThresholdMs;
-
-						_lastClickTime = now;
-						_lastClickIndex = nodeIndex;
-					}
-
-					// Select the clicked node
-					int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-					SelectionStateHelper.UpdateSelectionWithScroll(
-						ref _selectedIndex,
-						nodeIndex,
-						_flattenedNodes.Count,
-						ref _scrollOffset,
-						effectiveMaxVisibleItems,
-						OnSelectionChanged);
-
-					if (isDoubleClick)
-					{
-						// Toggle expand/collapse on double-click
+						// Single click on indicator: toggle expand/collapse
 						var node = _flattenedNodes[nodeIndex];
-						if (node.Children.Count > 0)
+						node.IsExpanded = !node.IsExpanded;
+						NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(node));
+						UpdateFlattenedNodes();
+						// Reset double-click tracking so next click isn't misdetected
+						lock (_clickLock)
 						{
-							node.IsExpanded = !node.IsExpanded;
-							NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(node));
-							UpdateFlattenedNodes();
+							_lastClickTime = DateTime.MinValue;
+							_lastClickIndex = -1;
 						}
-
-						MouseDoubleClick?.Invoke(this, args);
 					}
 					else
 					{
-						MouseClick?.Invoke(this, args);
+						// Detect double-click on non-indicator area (thread-safe)
+						bool isDoubleClick;
+						lock (_clickLock)
+						{
+							var now = DateTime.UtcNow;
+							var timeSince = (now - _lastClickTime).TotalMilliseconds;
+							isDoubleClick = nodeIndex == _lastClickIndex &&
+											timeSince <= ControlDefaults.DefaultDoubleClickThresholdMs;
+
+							_lastClickTime = now;
+							_lastClickIndex = nodeIndex;
+						}
+
+						if (isDoubleClick)
+						{
+							var node = _flattenedNodes[nodeIndex];
+							if (node.Children.Count > 0)
+							{
+								// Double-click on directory: toggle expand/collapse
+								node.IsExpanded = !node.IsExpanded;
+								NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(node));
+								UpdateFlattenedNodes();
+							}
+							else
+							{
+								// Double-click on leaf: activate (open file)
+								NodeActivated?.Invoke(this, new TreeNodeEventArgs(node));
+							}
+
+							MouseDoubleClick?.Invoke(this, args);
+						}
+						else
+						{
+							MouseClick?.Invoke(this, args);
+						}
 					}
 
 					Container?.Invalidate(true);

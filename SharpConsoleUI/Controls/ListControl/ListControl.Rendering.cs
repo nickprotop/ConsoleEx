@@ -51,7 +51,8 @@ namespace SharpConsoleUI.Controls
 			{
 				// Calculate based on content
 				int maxItemWidth = 0;
-				foreach (var item in _items)
+				var itemSnapshot = _items.ToList();
+				foreach (var item in itemSnapshot)
 				{
 					int itemLength = GetCachedTextLength(item.Text + "    ");
 					if (itemLength > maxItemWidth) maxItemWidth = itemLength;

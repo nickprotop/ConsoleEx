@@ -264,6 +264,11 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<TreeNodeEventArgs>? SelectedNodeChanged;
 
 		/// <summary>
+		/// Event that fires when a node is activated (double-clicked or Enter pressed on a leaf node).
+		/// </summary>
+		public event EventHandler<TreeNodeEventArgs>? NodeActivated;
+
+		/// <summary>
 		/// Gets the collection of root nodes in the tree.
 		/// </summary>
 		public ReadOnlyCollection<TreeNode> RootNodes => _rootNodes.AsReadOnly();
@@ -290,6 +295,7 @@ namespace SharpConsoleUI.Controls
 						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
 						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
 					}
+						EnsureSelectedItemVisible();
 						Container?.Invalidate(true);
 					}
 				}
@@ -545,6 +551,7 @@ namespace SharpConsoleUI.Controls
 					_selectedIndex = index;
 					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(node));
 				}
+				EnsureSelectedItemVisible();
 				Container?.Invalidate(true);
 				return true;
 			}
@@ -566,6 +573,7 @@ namespace SharpConsoleUI.Controls
 					var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
 					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
 				}
+					EnsureSelectedItemVisible();
 					Container?.Invalidate(true);
 					return true;
 				}
@@ -590,24 +598,11 @@ namespace SharpConsoleUI.Controls
 			var hadFocus = _hasFocus;
 			_hasFocus = focus;
 
-			// When gaining focus, make sure the selected node is visible
-			if (focus && SelectedNode != null)
+			// When gaining focus via keyboard/programmatic, scroll to show the selected node.
+			// For mouse focus, the user is clicking a specific item - don't touch the scroll.
+			if (focus && SelectedNode != null && reason != FocusReason.Mouse)
 			{
-				// Ensure the selected node is visible (expand parent nodes if needed)
-				EnsureNodeVisible(SelectedNode);
-
-				// Position the selected node in the middle of the visible area when gaining focus
-				int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-				int selectedIndex = CurrentSelectedIndex;
-
-				// Try to position the selected item in the middle of the viewport
-				int desiredPosition = Math.Max(0, effectiveMaxVisibleItems / 2);
-				int newScrollOffset = Math.Max(0, selectedIndex - desiredPosition);
-
-				// Make sure we don't scroll past the end
-				int maxScrollOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
-				int validScrollOffset = Math.Min(newScrollOffset, maxScrollOffset);
-				_scrollOffset = validScrollOffset;
+				EnsureSelectedItemVisible();
 			}
 
 			Container?.Invalidate(true);
