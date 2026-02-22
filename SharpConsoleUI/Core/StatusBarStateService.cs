@@ -253,12 +253,6 @@ namespace SharpConsoleUI.Core
 		#region Mouse Click Handling
 
 		/// <summary>
-		/// Handles status bar mouse click (e.g., start button).
-		/// </summary>
-		/// <param name="x">X coordinate of click.</param>
-		/// <param name="y">Y coordinate of click.</param>
-		/// <returns>True if the click was handled; false otherwise.</returns>
-		/// <summary>
 		/// Optional handler invoked when the top status bar area is clicked.
 		/// Receives the raw screen X coordinate of the click.
 		/// </summary>
@@ -270,6 +264,12 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public Action<int>? BottomStatusClickHandler { get; set; }
 
+		/// <summary>
+		/// Handles status bar mouse click (e.g., start button).
+		/// </summary>
+		/// <param name="x">X coordinate of click.</param>
+		/// <param name="y">Y coordinate of click.</param>
+		/// <returns>True if the click was handled; false otherwise.</returns>
 		public bool HandleStatusBarClick(int x, int y)
 		{
 			// Check if click is on Start button
