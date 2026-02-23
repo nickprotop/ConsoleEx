@@ -500,6 +500,12 @@ namespace SharpConsoleUI.Windows
 				bool contentKeyHandled = false;
 				bool windowHandled = false;
 
+				// PreviewKeyPressed fires before any control sees the key.
+				// If a handler marks it handled, skip control processing entirely.
+				bool previewHandled = _window.OnPreviewKeyPressed(key);
+				if (previewHandled)
+					return true;
+
 				if (HasActiveInteractiveContent(out var activeInteractiveContent))
 				{
 					contentKeyHandled = activeInteractiveContent!.ProcessKey(key);

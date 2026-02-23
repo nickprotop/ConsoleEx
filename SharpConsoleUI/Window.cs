@@ -348,6 +348,12 @@ namespace SharpConsoleUI
 		public event EventHandler? Deactivated;
 
 		/// <summary>
+		/// Occurs before a key is dispatched to the focused control.
+		/// Set <see cref="KeyPressedEventArgs.Handled"/> to true to prevent controls from seeing the key.
+		/// </summary>
+		public event EventHandler<KeyPressedEventArgs>? PreviewKeyPressed;
+
+		/// <summary>
 		/// Occurs when a key is pressed while the window has focus.
 		/// </summary>
 		public event EventHandler<KeyPressedEventArgs>? KeyPressed;
@@ -2320,6 +2326,22 @@ namespace SharpConsoleUI
 		public void WindowIsAdded()
 		{
 			OnShown?.Invoke(this, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Raises the PreviewKeyPressed event before the key reaches any control.
+		/// </summary>
+		/// <returns>True if a handler set Handled=true (prevents control processing).</returns>
+		protected internal virtual bool OnPreviewKeyPressed(ConsoleKeyInfo key)
+		{
+			var handler = PreviewKeyPressed;
+			if (handler != null)
+			{
+				var args = new KeyPressedEventArgs(key, false);
+				handler(this, args);
+				return args.Handled;
+			}
+			return false;
 		}
 
 		/// <summary>

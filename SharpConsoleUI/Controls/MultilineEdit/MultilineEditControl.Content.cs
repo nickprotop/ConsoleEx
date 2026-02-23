@@ -274,6 +274,27 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Deletes up to <paramref name="count"/> characters immediately before the cursor on the current line.
+		/// Stops at column 0 (does not merge lines).
+		/// </summary>
+		public void DeleteCharsBefore(int count)
+		{
+			if (_readOnly || count <= 0) return;
+
+			int toDelete = Math.Min(count, _cursorX);
+			if (toDelete == 0) return;
+
+			_lines[_cursorY] = _lines[_cursorY].Remove(_cursorX - toDelete, toDelete);
+			_cursorX -= toDelete;
+
+			InvalidateSyntaxFromLine(_cursorY);
+			InvalidateWrappedLinesCache();
+			EnsureCursorVisible();
+			Container?.Invalidate(true);
+			ContentChanged?.Invoke(this, GetContent());
+		}
+
+		/// <summary>
 		/// Inserts text at the current cursor position without firing events or invalidating.
 		/// Used internally by ProcessKey (Ctrl+V) where the caller manages events.
 		/// </summary>

@@ -564,6 +564,21 @@ namespace SharpConsoleUI.Controls
 		public int CurrentColumn => _cursorX + 1;
 
 		/// <summary>
+		/// Gets the current vertical scroll offset (lines scrolled from top of document).
+		/// </summary>
+		public int VerticalScrollOffset => _verticalScrollOffset;
+
+		/// <summary>
+		/// Gets the current horizontal scroll offset (columns scrolled from left of document).
+		/// </summary>
+		public int HorizontalScrollOffset => _horizontalScrollOffset;
+
+		/// <summary>
+		/// Gets the width of the line-number gutter in columns (0 when ShowLineNumbers is false).
+		/// </summary>
+		public int GutterWidth => GetGutterWidth();
+
+		/// <summary>
 		/// Gets the total number of lines in the content.
 		/// </summary>
 		public int LineCount => _lines.Count;

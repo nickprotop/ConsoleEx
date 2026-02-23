@@ -68,7 +68,7 @@ public class ScreenshotWindow : Window
 
 	private async Task TakeScreenshotAsync()
 	{
-		var buffer = Renderer?.Buffer;
+		var buffer = Buffer;
 		if (buffer == null)
 		{
 			GetConsoleWindowSystem?.NotificationStateService.ShowNotification(

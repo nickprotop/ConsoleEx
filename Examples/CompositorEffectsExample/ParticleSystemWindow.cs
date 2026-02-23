@@ -174,7 +174,7 @@ public class ParticleSystem
 
 	public void Render(CharacterBuffer buffer)
 	{
-		foreach (var p in _particles)
+		foreach (var p in _particles.ToArray())
 		{
 			int x = (int)p.Position.X;
 			int y = (int)p.Position.Y;

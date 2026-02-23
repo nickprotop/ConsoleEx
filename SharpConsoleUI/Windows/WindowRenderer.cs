@@ -612,9 +612,14 @@ namespace SharpConsoleUI.Windows
 			portalNode.Measure(constraints);
 
 			// Get the portal's desired position
-			// For portal content with custom bounds, use GetPortalBounds() if available
+			// IHasPortalBounds allows any external portal content to supply its own bounds.
+			// The existing specific-type checks are kept for backward compatibility.
 			Rectangle portalBounds;
-			if (portalContent is MenuPortalContent menuPortal)
+			if (portalContent is IHasPortalBounds positioned)
+			{
+				portalBounds = positioned.GetPortalBounds();
+			}
+			else if (portalContent is MenuPortalContent menuPortal)
 			{
 				portalBounds = menuPortal.GetPortalBounds();
 			}
