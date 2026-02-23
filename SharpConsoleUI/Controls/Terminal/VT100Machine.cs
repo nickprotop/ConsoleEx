@@ -1,4 +1,5 @@
 using Spectre.Console;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls.Terminal;
@@ -7,7 +8,7 @@ namespace SharpConsoleUI.Controls.Terminal;
 /// A VT100/xterm-256color terminal emulator that renders output into a CharacterBuffer.
 /// Handles: cursor motion, SGR colors (16/256/24-bit), erase ops, scroll regions,
 /// DEC Special Graphics charset (box-drawing characters used by ncurses/htop),
-/// and UTF-8 multi-byte sequences.
+/// UTF-8 multi-byte sequences, scrollback history, and alternate screen buffer.
 /// Thread safety: all public methods must be called under the caller's lock.
 /// </summary>
 internal sealed class VT100Machine
@@ -34,6 +35,16 @@ internal sealed class VT100Machine
     private readonly byte[] _utf8Buf  = new byte[4];
     private int              _utf8Pos  = 0;
     private int              _utf8Need = 0;
+
+    // Scrollback ring buffer: stores lines that scroll off the top of the screen
+    private readonly Cell[][] _scrollbackLines;
+    private int _scrollbackHead;   // next write position in ring buffer
+    private int _scrollbackCount;  // number of lines stored (0..capacity)
+
+    // Alternate screen buffer (used by vim, btop, less, etc.)
+    private bool _alternateScreen;
+    private CharacterBuffer? _savedMainScreen;
+    private int _savedMainCx, _savedMainCy;
 
     // Parser state machine
     private enum ParseState
@@ -87,8 +98,13 @@ internal sealed class VT100Machine
     // SGR extended mouse encoding (ESC[?1006h)
     public bool MouseSgr  { get; private set; } = false;
 
+    public int  ScrollbackCapacity { get; }
+    public int  ScrollbackCount    => _scrollbackCount;
+    public bool AlternateScreen    => _alternateScreen;
+
     public VT100Machine(int width, int height,
-        Color? defaultFg = null, Color? defaultBg = null)
+        Color? defaultFg = null, Color? defaultBg = null,
+        int scrollbackCapacity = ControlDefaults.DefaultTerminalScrollbackLines)
     {
         Width  = width;
         Height = height;
@@ -99,6 +115,23 @@ internal sealed class VT100Machine
         _scrollTop    = 0;
         _scrollBottom = height - 1;
         _screen = new CharacterBuffer(width, height, _defaultBg);
+
+        ScrollbackCapacity = scrollbackCapacity;
+        _scrollbackLines   = new Cell[scrollbackCapacity][];
+    }
+
+    /// <summary>
+    /// Gets a scrollback line by index. Index 0 is the most recently scrolled-off line,
+    /// index ScrollbackCount-1 is the oldest retained line.
+    /// Returns null if index is out of range or the line's width doesn't match current width.
+    /// </summary>
+    public Cell[]? GetScrollbackLine(int index)
+    {
+        if (index < 0 || index >= _scrollbackCount) return null;
+        // _scrollbackHead points to the next write slot.
+        // Most recent line is at (_scrollbackHead - 1), oldest at (_scrollbackHead - _scrollbackCount).
+        int pos = ((_scrollbackHead - 1 - index) % ScrollbackCapacity + ScrollbackCapacity) % ScrollbackCapacity;
+        return _scrollbackLines[pos];
     }
 
     public void Resize(int newWidth, int newHeight)
@@ -338,6 +371,11 @@ internal sealed class VT100Machine
 
     private void ScrollUp()
     {
+        // Capture the top row into scrollback before it's overwritten,
+        // but only for full-screen scrolls on the main screen buffer.
+        if (_scrollTop == 0 && !_alternateScreen && ScrollbackCapacity > 0)
+            CaptureTopRowToScrollback();
+
         for (int y = _scrollTop; y < _scrollBottom; y++)
             for (int x = 0; x < Width; x++)
             {
@@ -345,6 +383,18 @@ internal sealed class VT100Machine
                 _screen.SetCell(x, y, c.Character, c.Foreground, c.Background);
             }
         FillRow(_scrollBottom);
+    }
+
+    private void CaptureTopRowToScrollback()
+    {
+        var row = new Cell[Width];
+        for (int x = 0; x < Width; x++)
+            row[x] = _screen.GetCell(x, _scrollTop);
+
+        _scrollbackLines[_scrollbackHead] = row;
+        _scrollbackHead = (_scrollbackHead + 1) % ScrollbackCapacity;
+        if (_scrollbackCount < ScrollbackCapacity)
+            _scrollbackCount++;
     }
 
     private void ScrollDown()
@@ -434,7 +484,68 @@ internal sealed class VT100Machine
             case 1002: MouseMode = set ? 1002 : 0;    break;  // button-event mouse tracking
             case 1003: MouseMode = set ? 1003 : 0;    break;  // any-event mouse tracking
             case 1006: MouseSgr  = set;                break;  // SGR extended coordinates
-            // 47/1047/1049 = alternate screen – ignore for now
+
+            case 47:
+            case 1047:
+                if (set) EnterAlternateScreen(saveCursor: false);
+                else     LeaveAlternateScreen(restoreCursor: false);
+                break;
+
+            case 1049:
+                // 1049 = save cursor + enter alt screen / leave alt screen + restore cursor
+                if (set) EnterAlternateScreen(saveCursor: true);
+                else     LeaveAlternateScreen(restoreCursor: true);
+                break;
+        }
+    }
+
+    private void EnterAlternateScreen(bool saveCursor)
+    {
+        if (_alternateScreen) return;
+        _alternateScreen = true;
+
+        if (saveCursor)
+        {
+            _savedMainCx = _cx;
+            _savedMainCy = _cy;
+        }
+
+        // Save main screen contents
+        _savedMainScreen = new CharacterBuffer(Width, Height, _defaultBg);
+        for (int y = 0; y < Height; y++)
+            for (int x = 0; x < Width; x++)
+            {
+                var c = _screen.GetCell(x, y);
+                _savedMainScreen.SetCell(x, y, c.Character, c.Foreground, c.Background);
+            }
+
+        // Clear the screen for the alternate buffer
+        for (int y = 0; y < Height; y++) FillRow(y);
+    }
+
+    private void LeaveAlternateScreen(bool restoreCursor)
+    {
+        if (!_alternateScreen) return;
+        _alternateScreen = false;
+
+        // Restore main screen contents
+        if (_savedMainScreen != null)
+        {
+            int h = Math.Min(Height, _savedMainScreen.Height);
+            int w = Math.Min(Width, _savedMainScreen.Width);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    var c = _savedMainScreen.GetCell(x, y);
+                    _screen.SetCell(x, y, c.Character, c.Foreground, c.Background);
+                }
+            _savedMainScreen = null;
+        }
+
+        if (restoreCursor)
+        {
+            _cx = Math.Clamp(_savedMainCx, 0, Width - 1);
+            _cy = Math.Clamp(_savedMainCy, 0, Height - 1);
         }
     }
 

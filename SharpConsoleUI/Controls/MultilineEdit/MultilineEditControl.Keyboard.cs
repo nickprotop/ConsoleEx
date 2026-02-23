@@ -610,16 +610,14 @@ namespace SharpConsoleUI.Controls
 								}
 								return true;
 
-							// Clipboard and undo operations use Ctrl+Shift to avoid
-							// conflicting with terminal OS-level shortcuts (Ctrl+C = SIGINT, etc.)
+							// Ctrl+C/X/V/Z/Y: standard clipboard and undo shortcuts
+							// Ctrl+C is safe because TreatControlCAsInput = true in NetConsoleDriver
 							case ConsoleKey.C:
-								if (!isShiftPressed) break;
 								if (_hasSelection)
 									ClipboardHelper.SetText(GetSelectedText());
 								return true;
 
 							case ConsoleKey.X:
-								if (!isShiftPressed) break;
 								if (!_readOnly && _hasSelection)
 								{
 									ClipboardHelper.SetText(GetSelectedText());
@@ -633,7 +631,6 @@ namespace SharpConsoleUI.Controls
 								return true;
 
 							case ConsoleKey.V:
-								if (!isShiftPressed) break;
 								if (!_readOnly)
 								{
 									string clipText = ClipboardHelper.GetText();
@@ -656,7 +653,6 @@ namespace SharpConsoleUI.Controls
 								return true;
 
 							case ConsoleKey.Z:
-								if (!isShiftPressed) break;
 								if (_undoStack.Count > 0)
 								{
 									var action = _undoStack.Pop();
@@ -673,7 +669,6 @@ namespace SharpConsoleUI.Controls
 								return true;
 
 							case ConsoleKey.Y:
-								if (!isShiftPressed) break;
 								if (_redoStack.Count > 0)
 								{
 									var action = _redoStack.Pop();

@@ -124,6 +124,13 @@ namespace SharpConsoleUI.Drivers
 
 			Console.OutputEncoding = Encoding.UTF8;
 
+			// Prevent Ctrl+C (SIGINT) from terminating the process so it can be used as Copy
+			Console.TreatControlCAsInput = true;
+
+			// Prevent Ctrl+Z (SIGTSTP) from suspending the process so it can be used as Undo
+			if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+				SuppressUnixSignal(SigTstp);
+
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 			{
 				_inputHandle = GetStdHandle(STD_INPUT_HANDLE);
@@ -592,6 +599,17 @@ namespace SharpConsoleUI.Drivers
 
 		[DllImport("kernel32.dll")]
 		private static extern bool SetConsoleMode(nint hConsoleHandle, uint dwMode);
+
+		// Unix: suppress SIGTSTP (20) so Ctrl+Z reaches the editor as the Undo key
+		private const int SigTstp = 20;
+
+		private static void SuppressUnixSignal(int signum)
+		{
+			try { _unixSignal(signum, new IntPtr(1)); } catch { }
+		}
+
+		[DllImport("libc", EntryPoint = "signal")]
+		private static extern IntPtr _unixSignal(int signum, IntPtr handler);
 
 		private void InputLoop()
 		{

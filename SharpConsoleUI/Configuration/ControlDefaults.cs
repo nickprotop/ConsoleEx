@@ -242,5 +242,16 @@ namespace SharpConsoleUI.Configuration
 		/// Top offset for modal window positioning relative to parent (default: 3)
 		/// </summary>
 		public const int ModalWindowTopOffset = 3;
+
+		// Terminal defaults
+		/// <summary>
+		/// Default number of scrollback lines retained by the terminal control (default: 1000)
+		/// </summary>
+		public const int DefaultTerminalScrollbackLines = 1000;
+
+		/// <summary>
+		/// Number of lines to scroll per mouse wheel tick in the terminal control (default: 3)
+		/// </summary>
+		public const int DefaultTerminalScrollWheelLines = 3;
 	}
 }

@@ -90,6 +90,10 @@ namespace SharpConsoleUI.Controls
 		// Performance: Cache for expensive text measurement operations
 		private readonly TextMeasurementCache _textMeasurementCache = new(AnsiConsoleHelper.StripSpectreLength);
 
+		// Thread-safety: _items may be modified from background threads (async build callbacks, etc.)
+		// while the render loop reads from the main thread.
+		private readonly object _itemsLock = new();
+
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
 		private int CurrentScrollOffset => _scrollOffset;
@@ -450,7 +454,7 @@ namespace SharpConsoleUI.Controls
 			get => _items;
 			set
 			{
-				_items = value;
+				lock (_itemsLock) { _items = value; }
 				_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 				// Adjust selection if out of bounds
 				int currentSel = CurrentSelectedIndex;
@@ -693,7 +697,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="item">The item to add.</param>
 		public void AddItem(ListItem item)
 		{
-			_items.Add(item);
+			lock (_itemsLock) { _items.Add(item); }
 			_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 			Container?.Invalidate(true);
 		}
@@ -723,7 +727,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearItems()
 		{
-			_items.Clear();
+			lock (_itemsLock) { _items.Clear(); }
 			_textMeasurementCache.InvalidateCache(); // Clear cache when items cleared
 
 			// Clear state via services (single source of truth)

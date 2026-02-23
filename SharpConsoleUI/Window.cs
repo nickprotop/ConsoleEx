@@ -1878,9 +1878,18 @@ namespace SharpConsoleUI
 			// Focus new control
 			if (control != null && control is Controls.IFocusableControl newFocusable && newFocusable.CanReceiveFocus)
 			{
-				// SetFocus() will call NotifyParentWindowOfFocusChange(), which handles tracking
+				// If the control has stale focus (e.g. window deactivation only cleared the container's
+				// HasFocus, not the deep leaf), reset it first so GotFocus fires and IsEditing is restored.
+				if (newFocusable.HasFocus)
+					newFocusable.SetFocus(false, Controls.FocusReason.Programmatic);
+
 				newFocusable.SetFocus(true, Controls.FocusReason.Programmatic);
-				// Notification system now handles _lastFocusedControl and FocusService updates
+
+				// Explicitly update _lastFocusedControl so keyboard routing (HasActiveInteractiveContent
+				// fallback 2) reaches this control directly. Controls nested inside containers (e.g.
+				// MultilineEditControl inside TabControl) are not in _interactiveContents, so
+				// NotifyControlGainedFocus won't update _lastFocusedControl for them.
+				_lastFocusedControl = control;
 			}
 			else
 			{

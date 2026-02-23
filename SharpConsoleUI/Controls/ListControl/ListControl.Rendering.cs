@@ -51,9 +51,11 @@ namespace SharpConsoleUI.Controls
 			{
 				// Calculate based on content
 				int maxItemWidth = 0;
-				var itemSnapshot = _items.ToList();
+				List<ListItem> itemSnapshot;
+				lock (_itemsLock) { itemSnapshot = _items.ToList(); }
 				foreach (var item in itemSnapshot)
 				{
+					if (item == null) continue; // defensive: guard against concurrent modification
 					int itemLength = GetCachedTextLength(item.Text + "    ");
 					if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 				}
@@ -138,10 +140,13 @@ namespace SharpConsoleUI.Controls
 			// Calculate indicator space: needed in CheckboxMode
 			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
 
-			// Calculate max item width
+			// Calculate max item width (thread-safe snapshot)
 			int maxItemWidth = 0;
-			foreach (var item in _items)
+			List<ListItem> measureSnapshot;
+			lock (_itemsLock) { measureSnapshot = _items.ToList(); }
+			foreach (var item in measureSnapshot)
 			{
+				if (item == null) continue;
 				int itemLength = GetCachedTextLength(item.Text + "    ");
 				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 			}
@@ -270,6 +275,10 @@ namespace SharpConsoleUI.Controls
 			_actualWidth = bounds.Width;
 			_actualHeight = bounds.Height;
 
+			// Thread-safe snapshot: _items may be modified concurrently from background threads
+			List<ListItem> items;
+			lock (_itemsLock) { items = _items.ToList(); }
+
 			Color backgroundColor;
 			Color foregroundColor;
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
@@ -345,7 +354,7 @@ namespace SharpConsoleUI.Controls
 
 			// Check if all items fit without scroll indicator
 			int totalItemsHeight = 0;
-			for (int j = 0; j < _items.Count; j++) totalItemsHeight += _items[j].Lines.Count;
+			for (int j = 0; j < items.Count; j++) totalItemsHeight += items[j].Lines.Count;
 			bool needsScrollIndicator = totalItemsHeight > fullAvailableContentHeight;
 			int availableContentHeight = needsScrollIndicator ? fullAvailableContentHeight - 1 : fullAvailableContentHeight;
 			int effectiveMaxVisibleItems;
@@ -358,9 +367,9 @@ namespace SharpConsoleUI.Controls
 			{
 				effectiveMaxVisibleItems = 0;
 				int heightUsed = 0;
-				for (int i = scrollOffset; i < _items.Count; i++)
+				for (int i = scrollOffset; i < items.Count; i++)
 				{
-					int itemHeight = _items[i].Lines.Count;
+					int itemHeight = items[i].Lines.Count;
 					if (heightUsed + itemHeight <= availableContentHeight)
 					{
 						effectiveMaxVisibleItems++;
@@ -373,15 +382,15 @@ namespace SharpConsoleUI.Controls
 
 			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
-			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - scrollOffset);
+			int itemsToShow = Math.Min(effectiveMaxVisibleItems, items.Count - scrollOffset);
 
 			// Render each visible item
 			for (int i = 0; i < itemsToShow && currentY < bounds.Bottom - _margin.Bottom - (needsScrollIndicator ? 1 : 0); i++)
 			{
 				int itemIndex = i + scrollOffset;
-				if (itemIndex >= _items.Count) break;
+				if (itemIndex >= items.Count) break;
 
-				List<string> itemLines = _items[itemIndex].Lines;
+				List<string> itemLines = items[itemIndex].Lines;
 
 				for (int lineIndex = 0; lineIndex < itemLines.Count && currentY < bounds.Bottom - _margin.Bottom - (needsScrollIndicator ? 1 : 0); lineIndex++)
 				{
@@ -396,7 +405,7 @@ namespace SharpConsoleUI.Controls
 						string lineText = itemLines[lineIndex];
 						if (lineIndex == 0 && _itemFormatter != null)
 						{
-							lineText = _itemFormatter(_items[itemIndex], itemIndex == selectedIndex, _hasFocus);
+							lineText = _itemFormatter(items[itemIndex], itemIndex == selectedIndex, _hasFocus);
 						}
 
 						// Truncate if necessary
@@ -445,15 +454,15 @@ namespace SharpConsoleUI.Controls
 						if (_isSelectable && _checkboxMode)
 						{
 							selectionIndicator = lineIndex == 0
-								? (_items[itemIndex].IsChecked ? "[x]  " : "[ ]  ")
+								? (items[itemIndex].IsChecked ? "[x]  " : "[ ]  ")
 								: "     ";
 						}
 
 						string itemContent;
-						if (lineIndex == 0 && _items[itemIndex].Icon != null)
+						if (lineIndex == 0 && items[itemIndex].Icon != null)
 						{
-							string iconText = _items[itemIndex].Icon!;
-							Color iconColor = _items[itemIndex].IconColor ?? itemFg;
+							string iconText = items[itemIndex].Icon!;
+							Color iconColor = items[itemIndex].IconColor ?? itemFg;
 							string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
 							int iconVisibleLength = GetCachedTextLength(iconText) + 1;
 							itemContent = selectionIndicator + iconMarkup + lineText;
@@ -464,9 +473,9 @@ namespace SharpConsoleUI.Controls
 						else
 						{
 							string indent = "";
-							if (lineIndex > 0 && _items[itemIndex].Icon != null)
+							if (lineIndex > 0 && items[itemIndex].Icon != null)
 							{
-								string iconText = _items[itemIndex].Icon!;
+								string iconText = items[itemIndex].Icon!;
 								int iconWidth = GetCachedTextLength(iconText) + 1;
 								indent = new string(' ', iconWidth);
 							}
@@ -513,7 +522,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Render scroll indicators
-			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count;
+			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + itemsToShow < items.Count;
 			if (hasScrollIndicator && currentY < bounds.Bottom - _margin.Bottom)
 			{
 				if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
@@ -527,7 +536,7 @@ namespace SharpConsoleUI.Controls
 					scrollIndicator += scrollOffset > 0 ? "▲" : " ";
 					int scrollPadding = listWidth - 2;
 					if (scrollPadding > 0) scrollIndicator += new string(' ', scrollPadding);
-					scrollIndicator += (scrollOffset + itemsToShow < _items.Count) ? "▼" : " ";
+					scrollIndicator += (scrollOffset + itemsToShow < items.Count) ? "▼" : " ";
 
 					var scrollAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(scrollIndicator, listWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? "";
 					var scrollCells = AnsiParser.Parse(scrollAnsi, foregroundColor, backgroundColor);

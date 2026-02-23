@@ -33,6 +33,9 @@ public sealed class TerminalControl
     private int _disposed = 0;
     private int _actualX, _actualY, _actualWidth, _actualHeight;
 
+    // Scrollback viewport: 0 = live/bottom, positive = lines scrolled back into history
+    private int _scrollOffset;
+
     /// <summary>Window title derived from the launched executable name.</summary>
     public string Title { get; }
 
@@ -72,7 +75,12 @@ public sealed class TerminalControl
         {
             int n = _pty.Read(buf, buf.Length);
             if (n <= 0) break;
-            lock (_lock) _vt.Process(buf.AsSpan(0, n));
+            lock (_lock)
+            {
+                _vt.Process(buf.AsSpan(0, n));
+                // Snap viewport to bottom when new output arrives
+                _scrollOffset = 0;
+            }
             Container?.Invalidate(true);
         }
         // EOF or backend closed — clean up and close the containing window.
@@ -134,6 +142,41 @@ public sealed class TerminalControl
     /// <inheritdoc/>
     public bool ProcessKey(ConsoleKeyInfo key)
     {
+        // Shift+PageUp/Down: scroll through scrollback history
+        if (key.Modifiers.HasFlag(ConsoleModifiers.Shift))
+        {
+            if (key.Key == ConsoleKey.PageUp)
+            {
+                lock (_lock)
+                {
+                    int pageSize = Math.Max(1, _vt.Height);
+                    _scrollOffset = Math.Min(_scrollOffset + pageSize, _vt.ScrollbackCount);
+                }
+                Container?.Invalidate(true);
+                return true;
+            }
+            if (key.Key == ConsoleKey.PageDown)
+            {
+                lock (_lock)
+                {
+                    int pageSize = Math.Max(1, _vt.Height);
+                    _scrollOffset = Math.Max(0, _scrollOffset - pageSize);
+                }
+                Container?.Invalidate(true);
+                return true;
+            }
+        }
+
+        // Any other key while scrolled back: snap to bottom first
+        lock (_lock)
+        {
+            if (_scrollOffset > 0)
+            {
+                _scrollOffset = 0;
+                Container?.Invalidate(true);
+            }
+        }
+
         bool appCursor;
         lock (_lock) appCursor = _vt.AppCursorKeys;
 
@@ -170,7 +213,28 @@ public sealed class TerminalControl
         int mouseMode; bool mouseSgr;
         lock (_lock) { mouseMode = _vt.MouseMode; mouseSgr = _vt.MouseSgr; }
 
-        if (mouseMode == 0) return false;
+        // When terminal app has NOT enabled mouse reporting, use wheel for scrollback
+        if (mouseMode == 0)
+        {
+            if (args.HasFlag(MouseFlags.WheeledUp))
+            {
+                lock (_lock)
+                    _scrollOffset = Math.Min(
+                        _scrollOffset + Configuration.ControlDefaults.DefaultTerminalScrollWheelLines,
+                        _vt.ScrollbackCount);
+                Container?.Invalidate(true);
+                return true;
+            }
+            if (args.HasFlag(MouseFlags.WheeledDown))
+            {
+                lock (_lock)
+                    _scrollOffset = Math.Max(0,
+                        _scrollOffset - Configuration.ControlDefaults.DefaultTerminalScrollWheelLines);
+                Container?.Invalidate(true);
+                return true;
+            }
+            return false;
+        }
 
         int col = args.Position.X + 1;
         int row = args.Position.Y + 1;
@@ -295,24 +359,76 @@ public sealed class TerminalControl
             {
                 _vt.Resize(bounds.Width, bounds.Height);
                 _pty.Resize(bounds.Height, bounds.Width);
+                // Clamp scroll offset after resize
+                _scrollOffset = Math.Min(_scrollOffset, _vt.ScrollbackCount);
             }
 
-            buffer.CopyFrom(
-                _vt.Screen,
-                new LayoutRect(0, 0,
-                    Math.Min(bounds.Width,  _vt.Width),
-                    Math.Min(bounds.Height, _vt.Height)),
-                bounds.X, bounds.Y);
-
-            if (_vt.CursorVisible)
+            if (_scrollOffset == 0)
             {
-                int cx = _vt.CursorX, cy = _vt.CursorY;
-                if (cx < bounds.Width && cy < bounds.Height)
+                // Live view: render directly from screen buffer
+                buffer.CopyFrom(
+                    _vt.Screen,
+                    new LayoutRect(0, 0,
+                        Math.Min(bounds.Width,  _vt.Width),
+                        Math.Min(bounds.Height, _vt.Height)),
+                    bounds.X, bounds.Y);
+
+                if (_vt.CursorVisible)
                 {
-                    var cell = _vt.Screen.GetCell(cx, cy);
-                    buffer.SetCell(bounds.X + cx, bounds.Y + cy,
-                                   cell.Character, cell.Background, cell.Foreground);
+                    int cx = _vt.CursorX, cy = _vt.CursorY;
+                    if (cx < bounds.Width && cy < bounds.Height)
+                    {
+                        var cell = _vt.Screen.GetCell(cx, cy);
+                        buffer.SetCell(bounds.X + cx, bounds.Y + cy,
+                                       cell.Character, cell.Background, cell.Foreground);
+                    }
                 }
+            }
+            else
+            {
+                // Scrolled back: composite scrollback lines + top of screen buffer.
+                // scrollOffset lines from scrollback at top, rest from screen.
+                int scrollbackRows = Math.Min(_scrollOffset, bounds.Height);
+                int screenRows     = bounds.Height - scrollbackRows;
+                int vtWidth        = Math.Min(bounds.Width, _vt.Width);
+
+                // Top portion: scrollback lines (most recent scrollback at bottom of this section)
+                for (int row = 0; row < scrollbackRows; row++)
+                {
+                    // scrollbackRows-1-row: row 0 gets the oldest of the visible scrollback lines
+                    int scrollbackIndex = _scrollOffset - 1 - row;
+                    var line = _vt.GetScrollbackLine(scrollbackIndex);
+                    if (line != null)
+                    {
+                        int lineWidth = Math.Min(vtWidth, line.Length);
+                        for (int x = 0; x < lineWidth; x++)
+                        {
+                            var c = line[x];
+                            buffer.SetCell(bounds.X + x, bounds.Y + row,
+                                           c.Character, c.Foreground, c.Background);
+                        }
+                        // Fill remainder if line is narrower than current width
+                        for (int x = lineWidth; x < bounds.Width; x++)
+                            buffer.SetCell(bounds.X + x, bounds.Y + row, ' ', defaultFg, defaultBg);
+                    }
+                    else
+                    {
+                        // No scrollback data for this row — blank it
+                        for (int x = 0; x < bounds.Width; x++)
+                            buffer.SetCell(bounds.X + x, bounds.Y + row, ' ', defaultFg, defaultBg);
+                    }
+                }
+
+                // Bottom portion: top rows of the live screen buffer
+                if (screenRows > 0)
+                {
+                    buffer.CopyFrom(
+                        _vt.Screen,
+                        new LayoutRect(0, 0, vtWidth, screenRows),
+                        bounds.X, bounds.Y + scrollbackRows);
+                }
+
+                // No cursor shown when scrolled back — user is viewing history
             }
         }
     }
