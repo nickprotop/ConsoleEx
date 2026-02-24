@@ -41,7 +41,7 @@ namespace SharpConsoleUI.Controls
 		IFocusableControl, IFocusableContainerWithHeader
 	{
 		private readonly List<TabPage> _tabPages = new();
-		private int _activeTabIndex = 0;
+		private int _activeTabIndex = -1;
 		private TabHeaderStyle _headerStyle = TabHeaderStyle.Classic;
 
 		// IWindowControl properties
@@ -127,7 +127,7 @@ namespace SharpConsoleUI.Controls
 					return;
 
 				// Toggle visibility
-				if (_activeTabIndex < _tabPages.Count)
+				if (_activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
 					_tabPages[_activeTabIndex].Content.Visible = false;
 
 				_activeTabIndex = value;
@@ -221,7 +221,7 @@ namespace SharpConsoleUI.Controls
 		// Adjust active tab index
 		if (_tabPages.Count == 0)
 		{
-			_activeTabIndex = 0;
+			_activeTabIndex = -1;
 		}
 		else if (index == _activeTabIndex)
 		{
@@ -544,7 +544,7 @@ namespace SharpConsoleUI.Controls
 			int width = _width ?? ContentWidth ?? 0;
 			int height = _height ?? (TabHeaderHeight + 10); // Default height if not specified
 
-			if (!_height.HasValue && _activeTabIndex < _tabPages.Count)
+			if (!_height.HasValue && _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
 			{
 				// Dynamic sizing based on active tab
 				var activeTabSize = _tabPages[_activeTabIndex].Content.GetLogicalContentSize();
