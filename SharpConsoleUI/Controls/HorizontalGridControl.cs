@@ -90,6 +90,7 @@ namespace SharpConsoleUI.Controls
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private Dictionary<IInteractiveControl, int> _splitterControls = new Dictionary<IInteractiveControl, int>();
 		private List<SplitterControl> _splitters = new List<SplitterControl>();
+		private Dictionary<ColumnContainer, int?> _savedColumnWidths = new Dictionary<ColumnContainer, int?>();
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
@@ -206,10 +207,12 @@ namespace SharpConsoleUI.Controls
 				int totalWidth = _margin.Left + _margin.Right;
 				foreach (var column in _columns)
 				{
+					if (!column.Visible) continue;
 					totalWidth += column.ContentWidth ?? column.Width ?? 0;
 				}
 				foreach (var splitter in _splitters)
 				{
+					if (!splitter.Visible) continue;
 					totalWidth += splitter.Width ?? 1;
 				}
 				return totalWidth;
@@ -259,12 +262,14 @@ namespace SharpConsoleUI.Controls
 
 		for (int i = 0; i < _columns.Count; i++)
 		{
+			if (!_columns[i].Visible) continue;
+
 			// Add the column
 			children.Add(_columns[i]);
 
 			// Add splitter after this column if it exists
 			var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
-			if (splitter != null)
+			if (splitter != null && splitter.Visible)
 			{
 				children.Add(splitter);
 			}
@@ -565,6 +570,7 @@ namespace SharpConsoleUI.Controls
 
 			foreach (var column in _columns)
 			{
+				if (!column.Visible) continue;
 				var size = column.GetLogicalContentSize();
 				totalWidth += size.Width;
 				maxHeight = Math.Max(maxHeight, size.Height);
@@ -572,6 +578,7 @@ namespace SharpConsoleUI.Controls
 
 			foreach (var splitter in _splitters)
 			{
+				if (!splitter.Visible) continue;
 				totalWidth += splitter.Width ?? 1;
 			}
 
@@ -587,18 +594,75 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Invalidate()
 		{
+			AdjustColumnWidthsForVisibility();
 
 			foreach (var column in _columns)
 			{
+				if (!column.Visible) continue;
 				column.InvalidateOnlyColumnContents(this);
 			}
 
 			foreach (var splitter in _splitters)
 			{
+				if (!splitter.Visible) continue;
 				splitter.Invalidate();
 			}
 
 			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// When a column adjacent to a splitter is hidden, the other column may have an
+		/// explicit Width set by a previous splitter drag. Clear it so the column can flex
+		/// to fill the freed space. Restore the width when both columns become visible again.
+		/// </summary>
+		private void AdjustColumnWidthsForVisibility()
+		{
+			foreach (var entry in _splitterControls)
+			{
+				var splitter = (SplitterControl)entry.Key;
+				int leftIndex = entry.Value;
+				int rightIndex = leftIndex + 1;
+
+				if (leftIndex < 0 || rightIndex >= _columns.Count)
+					continue;
+
+				var leftCol = _columns[leftIndex];
+				var rightCol = _columns[rightIndex];
+
+				if (!leftCol.Visible && rightCol.Visible)
+				{
+					// Left column hidden — release right column's explicit width
+					if (rightCol.Width.HasValue && !_savedColumnWidths.ContainsKey(rightCol))
+					{
+						_savedColumnWidths[rightCol] = rightCol.Width;
+						rightCol.Width = null;
+					}
+				}
+				else if (leftCol.Visible && !rightCol.Visible)
+				{
+					// Right column hidden — release left column's explicit width
+					if (leftCol.Width.HasValue && !_savedColumnWidths.ContainsKey(leftCol))
+					{
+						_savedColumnWidths[leftCol] = leftCol.Width;
+						leftCol.Width = null;
+					}
+				}
+				else if (leftCol.Visible && rightCol.Visible)
+				{
+					// Both visible — restore any saved widths
+					if (_savedColumnWidths.TryGetValue(leftCol, out var savedLeft))
+					{
+						leftCol.Width = savedLeft;
+						_savedColumnWidths.Remove(leftCol);
+					}
+					if (_savedColumnWidths.TryGetValue(rightCol, out var savedRight))
+					{
+						rightCol.Width = savedRight;
+						_savedColumnWidths.Remove(rightCol);
+					}
+				}
+			}
 		}
 
 		/// <inheritdoc/>
@@ -624,6 +688,8 @@ namespace SharpConsoleUI.Controls
 				for (int i = 0; i < _columns.Count; i++)
 				{
 					var column = _columns[i];
+					if (!column.Visible) continue;
+
 					var interactiveContents = column.GetInteractiveContents();
 
 					if (!columnControls.ContainsKey(i))
@@ -635,7 +701,7 @@ namespace SharpConsoleUI.Controls
 
 					// Find if this column has a splitter to the right
 					var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
-					if (splitter != null)
+					if (splitter != null && splitter.Visible)
 					{
 						// Add the splitter right after this column's controls
 						columnControls[i].Add(splitter);
@@ -1116,17 +1182,19 @@ namespace SharpConsoleUI.Controls
 		{
 			var displayControls = new List<(bool IsSplitter, object Control, int Width)>();
 
-			// Add all columns and their splitters
+			// Add all columns and their splitters (skip hidden ones)
 			for (int i = 0; i < _columns.Count; i++)
 			{
 				var column = _columns[i];
+				if (!column.Visible) continue;
+
 				// Use GetContentWidth for accurate position calculations after rendering
 				int columnWidth = column.GetContentWidth() ?? column.Width ?? 0;
 				displayControls.Add((false, column, columnWidth));
 
 				// If there's a splitter after this column, add it
 				var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
-				if (splitter != null)
+				if (splitter != null && splitter.Visible)
 				{
 					displayControls.Add((true, splitter, splitter.Width ?? 1));
 				}
@@ -1272,10 +1340,12 @@ namespace SharpConsoleUI.Controls
             int totalWidth = _margin.Left + _margin.Right;
             int maxHeight = 0;
 
-            // Measure each column and sum actual widths
+            // Measure each column and sum actual widths (skip hidden ones)
             for (int i = 0; i < _columns.Count; i++)
             {
                 var column = _columns[i];
+                if (!column.Visible) continue;
+
                 int columnWidth;
                 int columnHeight = 0;
 
@@ -1314,7 +1384,7 @@ namespace SharpConsoleUI.Controls
 
                 // Add splitter width if present after this column
                 var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
-                if (splitter != null)
+                if (splitter != null && splitter.Visible)
                 {
                     totalWidth += splitter.Width ?? 1;
                 }

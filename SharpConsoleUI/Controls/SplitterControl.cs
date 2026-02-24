@@ -587,15 +587,19 @@ namespace SharpConsoleUI.Controls
 			if (_leftColumn == null || _rightColumn == null)
 				return;
 
-			// Get the current left column width
-			int leftColumnWidth = _leftColumn.Width ?? _leftColumn.GetContentWidth() ?? 10;
+			// Get the current column widths:
+			// - Prefer explicit Width (always fresh, set by previous MoveSplitter calls)
+			// - Fall back to ActualWidth (rendered size, correct for flexing columns with no explicit Width)
+			// - Last resort: GetContentWidth or default
+			int leftColumnWidth = _leftColumn.Width ?? (_leftColumn.ActualWidth > 0 ? _leftColumn.ActualWidth : (_leftColumn.GetContentWidth() ?? 10));
+			int rightColumnWidth = _rightColumn.Width ?? (_rightColumn.ActualWidth > 0 ? _rightColumn.ActualWidth : (_rightColumn.GetContentWidth() ?? 10));
 
 			// Calculate new left width
 			int newLeftWidth = leftColumnWidth + delta;
 
-			// Get the total AVAILABLE width from the parent grid
-			// This is critical - we need the actual available space, not the sum of rendered column widths
-			int totalAvailableWidth = _parentGrid?.GetLogicalContentSize().Width ?? (leftColumnWidth + (_rightColumn.GetLogicalContentSize().Width));
+			// Total available width is the combined space of the two adjacent columns
+			// Using actual rendered widths ensures correctness when columns flex or when other columns are hidden
+			int totalAvailableWidth = leftColumnWidth + rightColumnWidth;
 
 
 			// Enforce minimum widths (at least 10% of total available or 5 characters)
