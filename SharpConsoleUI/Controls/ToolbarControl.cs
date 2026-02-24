@@ -27,52 +27,29 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal toolbar control that contains buttons, separators, and other controls.
 	/// Supports Tab navigation between focusable items and Enter key activation of buttons.
 	/// </summary>
-	public class ToolbarControl : IWindowControl, IContainer, IDOMPaintable, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, IFocusTrackingContainer, ILogicalCursorProvider, ICursorShapeProvider
+	public class ToolbarControl : BaseControl, IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, IFocusTrackingContainer, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		private Color? _backgroundColorValue;
-		private IContainer? _container;
 		private IInteractiveControl? _focusedItem;
 		private Color? _foregroundColorValue;
 		private bool _isDirty;
 		private bool _hasFocus;
 		private int? _height = 1;
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Stretch;
 		private bool _isEnabled = true;
 		private readonly List<IWindowControl> _items = new();
 		private int _itemSpacing = 0;
-		private Margin _margin = new Margin(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-		private bool _visible = true;
 		private bool _wrap;
-		private int? _width;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ToolbarControl"/> class.
 		/// </summary>
 		public ToolbarControl()
 		{
+			HorizontalAlignment = HorizontalAlignment.Stretch;
 		}
 
 		/// <inheritdoc/>
-		public int? ContentWidth => _width;
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
+		public override int? ContentWidth => Width;
 
 		/// <summary>
 		/// Gets or sets the background color of the toolbar.
@@ -81,13 +58,13 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => _backgroundColorValue
-				?? _container?.GetConsoleWindowSystem?.Theme?.ToolbarBackgroundColor
-				?? _container?.BackgroundColor
+				?? Container?.GetConsoleWindowSystem?.Theme?.ToolbarBackgroundColor
+				?? Container?.BackgroundColor
 				?? Color.Black;
 			set
 			{
 				_backgroundColorValue = value;
-				_container?.Invalidate(true);
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -98,23 +75,23 @@ namespace SharpConsoleUI.Controls
 		public bool CanReceiveFocus => _isEnabled && GetFocusableItems().Any();
 
 		/// <inheritdoc/>
-		public IContainer? Container
+		public override IContainer? Container
 		{
-			get => _container;
+			get => base.Container;
 			set
 			{
-				_container = value;
+				base.Container = value;
 				// Propagate container to all items - toolbar is now the container
 				foreach (var item in _items)
 				{
 					item.Container = this;
 				}
-				_container?.Invalidate(true);
+				base.Container?.Invalidate(true);
 			}
 		}
 
 		/// <inheritdoc/>
-		public ConsoleWindowSystem? GetConsoleWindowSystem => _container?.GetConsoleWindowSystem;
+		public ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
 
 		/// <inheritdoc/>
 		public bool IsDirty
@@ -130,13 +107,13 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue
-				?? _container?.GetConsoleWindowSystem?.Theme?.ToolbarForegroundColor
-				?? _container?.ForegroundColor
+				?? Container?.GetConsoleWindowSystem?.Theme?.ToolbarForegroundColor
+				?? Container?.ForegroundColor
 				?? Color.White;
 			set
 			{
 				_foregroundColorValue = value;
-				_container?.Invalidate(true);
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -189,13 +166,6 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{
-			get => _horizontalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
@@ -230,56 +200,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set
-			{
-				_margin = value;
-				Container?.Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public bool Visible
-		{
-			get => _visible;
-			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
-		}
-
-		/// <inheritdoc/>
 		public bool WantsMouseEvents => IsEnabled;
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
-			set
-			{
-				_width = value;
-				Container?.Invalidate(true);
-			}
-		}
 
 		/// <summary>
 		/// Gets or sets whether toolbar items wrap to the next row when they exceed the available width.
@@ -351,18 +272,17 @@ namespace SharpConsoleUI.Controls
 		public static ToolbarBuilder Create() => new ToolbarBuilder();
 
 		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
 			foreach (var item in _items)
 			{
 				item.Dispose();
 			}
 			_items.Clear();
-			Container = null;
 		}
 
 		/// <inheritdoc/>
-		public Size GetLogicalContentSize()
+		public override Size GetLogicalContentSize()
 		{
 			int totalWidth = 0;
 			int maxHeight = _height ?? 1;
@@ -395,7 +315,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate()
+		public new void Invalidate()
 		{
 			Invalidate(false, null);
 		}
@@ -404,7 +324,7 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
 		{
 			_isDirty = true;
-			_container?.Invalidate(redrawAll, callerControl ?? this as IWindowControl);
+			Container?.Invalidate(redrawAll, callerControl ?? this as IWindowControl);
 		}
 
 		/// <inheritdoc/>
@@ -530,10 +450,10 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int rowHeight = _height ?? 1;
-			int availableContentWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
+			int availableContentWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
 
 			var layout = ComputeRowLayout(availableContentWidth, rowHeight, out int rowCount);
 
@@ -544,9 +464,9 @@ namespace SharpConsoleUI.Controls
 				int right = item.X + item.Width;
 				if (right > maxRowRight) maxRowRight = right;
 			}
-			int totalWidth = maxRowRight + _margin.Left + _margin.Right;
+			int totalWidth = maxRowRight + Margin.Left + Margin.Right;
 
-			int totalHeight = (rowCount * rowHeight) + _margin.Top + _margin.Bottom;
+			int totalHeight = (rowCount * rowHeight) + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(totalWidth, constraints.MinWidth, constraints.MaxWidth),
@@ -555,12 +475,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			// Resolve colors with fallback chain
 			var theme = Container?.GetConsoleWindowSystem?.Theme;
@@ -576,10 +493,10 @@ namespace SharpConsoleUI.Controls
 				?? defaultFg;
 
 			// Fill toolbar background
-			int contentX = bounds.X + _margin.Left;
-			int contentY = bounds.Y + _margin.Top;
-			int contentWidth = bounds.Width - _margin.Left - _margin.Right;
-			int contentHeight = bounds.Height - _margin.Top - _margin.Bottom;
+			int contentX = bounds.X + Margin.Left;
+			int contentY = bounds.Y + Margin.Top;
+			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
+			int contentHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
 			// Fill margins with container background
 			Color containerBg = Container?.BackgroundColor ?? defaultBg;
@@ -593,15 +510,15 @@ namespace SharpConsoleUI.Controls
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
 					// Left margin
-					if (_margin.Left > 0)
-						buffer.FillRect(new LayoutRect(bounds.X, y, _margin.Left, 1), ' ', fgColor, containerBg);
+					if (Margin.Left > 0)
+						buffer.FillRect(new LayoutRect(bounds.X, y, Margin.Left, 1), ' ', fgColor, containerBg);
 
 					// Toolbar background
 					buffer.FillRect(new LayoutRect(contentX, y, contentWidth, 1), ' ', fgColor, bgColor);
 
 					// Right margin
-					if (_margin.Right > 0)
-						buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, y, _margin.Right, 1), ' ', fgColor, containerBg);
+					if (Margin.Right > 0)
+						buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), ' ', fgColor, containerBg);
 				}
 			}
 
@@ -614,9 +531,9 @@ namespace SharpConsoleUI.Controls
 
 			// Paint items using shared layout computation
 			int rowHeight = _height ?? 1;
-			var layout = ComputeRowLayout(contentWidth, rowHeight, out _);
+			var layoutEntries = ComputeRowLayout(contentWidth, rowHeight, out _);
 
-			foreach (var entry in layout)
+			foreach (var entry in layoutEntries)
 			{
 				if (entry.Item is IDOMPaintable paintable)
 				{
@@ -673,7 +590,7 @@ namespace SharpConsoleUI.Controls
 			if (childPosition == null)
 				return null;
 
-			int contentWidth = _actualWidth - _margin.Left - _margin.Right;
+			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
 			int rowHeight = _height ?? 1;
 			var layout = ComputeRowLayout(contentWidth, rowHeight, out _);
 
@@ -682,8 +599,8 @@ namespace SharpConsoleUI.Controls
 				if (entry.Item == _focusedItem)
 				{
 					return new Point(
-						_margin.Left + entry.X + childPosition.Value.X,
-						_margin.Top + entry.Y + childPosition.Value.Y);
+						Margin.Left + entry.X + childPosition.Value.X,
+						Margin.Top + entry.Y + childPosition.Value.Y);
 				}
 			}
 
@@ -790,14 +707,14 @@ namespace SharpConsoleUI.Controls
 
 		private (IWindowControl? Item, LayoutRect Bounds) GetItemAtPosition(Point position)
 		{
-			int contentWidth = _actualWidth - _margin.Left - _margin.Right;
+			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
 			int rowHeight = _height ?? 1;
 			var layout = ComputeRowLayout(contentWidth, rowHeight, out _);
 
 			foreach (var entry in layout)
 			{
-				int itemX = _margin.Left + entry.X;
-				int itemY = _margin.Top + entry.Y;
+				int itemX = Margin.Left + entry.X;
+				int itemY = Margin.Top + entry.Y;
 
 				if (position.X >= itemX && position.X < itemX + entry.Width &&
 					position.Y >= itemY && position.Y < itemY + rowHeight)
@@ -851,7 +768,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (_focusedItem == null) return false;
 
-			int contentWidth = _actualWidth - _margin.Left - _margin.Right;
+			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
 			if (contentWidth <= 0) return false;  // not yet laid out
 			int rowHeight = _height ?? 1;
 			var layout = ComputeRowLayout(contentWidth, rowHeight, out int rowCount);

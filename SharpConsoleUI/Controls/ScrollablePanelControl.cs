@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	/// A scrollable panel control that can host child controls with automatic scrolling support.
 	/// Supports vertical and horizontal scrolling, mouse wheel, and visual scrollbars.
 	/// </summary>
-	public class ScrollablePanelControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDOMPaintable, IDirectionalFocusControl, IContainerControl, IScrollableContainer, IFocusTrackingContainer
+	public class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDirectionalFocusControl, IContainerControl, IScrollableContainer, IFocusTrackingContainer
 	{
 		private readonly List<IWindowControl> _children = new();
 		private int _verticalScrollOffset = 0;
@@ -54,24 +54,12 @@ namespace SharpConsoleUI.Controls
 		private bool _enableMouseWheel = true;
 		private bool _autoScroll = false;
 
-		// IWindowControl properties
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-		private Margin _margin = new Margin(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private bool _visible = true;
-		private int? _width;
 		private int? _height;
 
 		// IContainer properties
 		private Color? _backgroundColorValue;
 		private Color _foregroundColor = Color.White;
 		private bool _isDirty = true;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ScrollablePanelControl"/> class.
@@ -249,89 +237,31 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		#region IWindowControl Implementation
+		#region Properties from IWindowControl (overrides and additional)
 
 		/// <inheritdoc/>
 		public int? ContentHeight => _height;
 
 		/// <inheritdoc/>
-		public int? ContentWidth => _width;
+		public override int? ContentWidth => Width;
 
 		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
+		public override bool Visible
 		{
-			get => _horizontalAlignment;
-			set { _horizontalAlignment = value; Container?.Invalidate(true); }
-		}
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set { _verticalAlignment = value; Container?.Invalidate(true); }
-		}
-
-		/// <inheritdoc/>
-		public IContainer? Container { get; set; }
-
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set { _margin = value; Container?.Invalidate(true); }
-		}
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set { _stickyPosition = value; Container?.Invalidate(true); }
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public bool Visible
-		{
-			get => _visible;
+			get => base.Visible;
 			set
 			{
-				if (_visible != value)
+				if (base.Visible != value)
 				{
-					_visible = value;
+					base.Visible = value;
 
 					// If becoming invisible and we have focus, lose it
-					if (!_visible && _hasFocus)
+					if (!Visible && _hasFocus)
 					{
 						SetFocus(false, FocusReason.Programmatic);
 					}
-
-					Container?.Invalidate(true);
 				}
 			}
-		}
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
-			set { _width = value; Container?.Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
@@ -342,28 +272,21 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			int height = _children.Where(c => c.Visible).ToList().Sum(c => c.GetLogicalContentSize().Height);
-			int width = _width ?? 80;
+			int width = Width ?? 80;
 			return new System.Drawing.Size(width, height);
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
-		}
-
-		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
 			foreach (var child in _children.ToList())
 			{
 				child.Dispose();
 			}
 			_children.Clear();
-			Container = null;
 		}
 
 		#endregion
@@ -573,7 +496,7 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				if (!_visible || !_isEnabled) return false;
+				if (!Visible || !_isEnabled) return false;
 
 				bool needsScrolling = NeedsScrolling();
 				bool hasFocusableChildren = HasFocusableChildren();
@@ -698,7 +621,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// New click sequence - perform fresh hit test using current scroll offset
-			int contentY = args.Position.Y - _margin.Top + _verticalScrollOffset;
+			int contentY = args.Position.Y - Margin.Top + _verticalScrollOffset;
 			int currentY = 0;
 
 			foreach (var child in _children.Where(c => c.Visible))
@@ -799,7 +722,7 @@ namespace SharpConsoleUI.Controls
 				if (needsScrollbar)
 				{
 					var (sbRelX, sbTop, sbHeight, sbThumbY, sbThumbHeight) = GetScrollbarGeometry();
-					int viewportX = args.Position.X - _margin.Left;
+					int viewportX = args.Position.X - Margin.Left;
 					int contentWidth = _viewportWidth - 2;
 					bool isOnScrollbar = viewportX >= contentWidth;
 
@@ -866,10 +789,10 @@ namespace SharpConsoleUI.Controls
 					contentWidth -= 2;
 
 				// Translate mouse position to viewport coordinates
-				int viewportX = args.Position.X - _margin.Left;
+				int viewportX = args.Position.X - Margin.Left;
 
 				// Check if click is within content area (not in scrollbar or margins)
-				if (viewportX >= 0 && viewportX < contentWidth && args.Position.Y >= _margin.Top)
+				if (viewportX >= 0 && viewportX < contentWidth && args.Position.Y >= Margin.Top)
 				{
 					// Use click target caching to ensure double-clicks go to the same child
 					// even if scroll position changes between clicks
@@ -907,7 +830,7 @@ namespace SharpConsoleUI.Controls
 						{
 							// Calculate child-relative Y position
 							// We need to recalculate the child's position in the current scroll state
-							int contentY = args.Position.Y - _margin.Top + _verticalScrollOffset;
+							int contentY = args.Position.Y - Margin.Top + _verticalScrollOffset;
 							int currentY = 0;
 							foreach (var c in _children.Where(c => c.Visible))
 							{
@@ -1270,11 +1193,11 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			// Calculate available width from constraints, not from stale _viewportWidth
-			int width = _width ?? constraints.MaxWidth;
-			int availableWidth = Math.Max(1, width - _margin.Left - _margin.Right);
+			int width = Width ?? constraints.MaxWidth;
+			int availableWidth = Math.Max(1, width - Margin.Left - Margin.Right);
 
 			// Determine height
 			int height;
@@ -1287,28 +1210,25 @@ namespace SharpConsoleUI.Controls
 			{
 				// No explicit height - calculate from content
 				int contentHeight = CalculateContentHeight(availableWidth);
-				height = contentHeight + _margin.Top + _margin.Bottom;
+				height = contentHeight + Margin.Top + Margin.Bottom;
 			}
 
 			return new LayoutSize(
-				Math.Clamp(width + _margin.Left + _margin.Right, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(width + Margin.Left + Margin.Right, constraints.MinWidth, constraints.MaxWidth),
 				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
 			);
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			var bgColor = BackgroundColor;
 			var fgColor = _foregroundColor;
 
-			_viewportHeight = bounds.Height - _margin.Top - _margin.Bottom;
-			_viewportWidth = bounds.Width - _margin.Left - _margin.Right;
+			_viewportHeight = bounds.Height - Margin.Top - Margin.Bottom;
+			_viewportWidth = bounds.Width - Margin.Left - Margin.Right;
 
 			// Calculate content dimensions from children
 			_contentHeight = CalculateContentHeight(_viewportWidth, _viewportHeight);
@@ -1359,8 +1279,8 @@ namespace SharpConsoleUI.Controls
 
 				// Register child bounds for cursor position lookups (even if off-viewport)
 				var childBoundsForCursor = new LayoutRect(
-					bounds.X + _margin.Left,
-					bounds.Y + _margin.Top + currentY,
+					bounds.X + Margin.Left,
+					bounds.Y + Margin.Top + currentY,
 					contentWidth,
 					childHeight);
 				renderer?.UpdateChildBounds(child, childBoundsForCursor);
@@ -1369,8 +1289,8 @@ namespace SharpConsoleUI.Controls
 				if (currentY + childHeight > 0 && currentY < _viewportHeight)
 				{
 					var childBounds = new LayoutRect(
-						bounds.X + _margin.Left,
-						bounds.Y + _margin.Top + currentY,
+						bounds.X + Margin.Left,
+						bounds.Y + Margin.Top + currentY,
 						contentWidth,
 						childHeight);
 
@@ -1379,8 +1299,8 @@ namespace SharpConsoleUI.Controls
 
 					// Create clipped clipRect for child that excludes scrollbar area and clips to viewport
 					var viewportRect = new LayoutRect(
-						bounds.X + _margin.Left,
-						bounds.Y + _margin.Top,
+						bounds.X + Margin.Left,
+						bounds.Y + Margin.Top,
 						needsScrollbar ? contentWidth + 1 : contentWidth, // +1 for gap if scrollbar visible
 						_viewportHeight);
 
@@ -1389,7 +1309,7 @@ namespace SharpConsoleUI.Controls
 					if (needsScrollbar)
 					{
 						// Further restrict to exclude scrollbar columns
-						int maxRight = bounds.X + _margin.Left + contentWidth + 1; // +1 for gap
+						int maxRight = bounds.X + Margin.Left + contentWidth + 1; // +1 for gap
 						childClipRect = childClipRect.Intersect(new LayoutRect(
 							childClipRect.X,
 							childClipRect.Y,
@@ -1419,9 +1339,9 @@ namespace SharpConsoleUI.Controls
 			// For Right position: last column of the control = margin.Left + viewport + margin.Right - 1
 			// This matches the old DrawVerticalScrollbar which used bounds.Right - 1 = bounds.X + bounds.Width - 1
 			int scrollbarRelX = _scrollbarPosition == ScrollbarPosition.Right
-				? _margin.Left + _viewportWidth + _margin.Right - 1
-				: _margin.Left;
-			int scrollbarTop = _margin.Top;
+				? Margin.Left + _viewportWidth + Margin.Right - 1
+				: Margin.Left;
+			int scrollbarTop = Margin.Top;
 			int scrollbarHeight = _viewportHeight;
 
 			double viewportRatio = (double)_viewportHeight / _contentHeight;

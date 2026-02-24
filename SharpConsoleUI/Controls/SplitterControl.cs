@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -23,13 +23,11 @@ namespace SharpConsoleUI.Controls
 	/// A vertical splitter control that allows users to resize adjacent columns in a <see cref="HorizontalGridControl"/>.
 	/// Supports keyboard-based resizing with arrow keys and provides visual feedback during focus and dragging.
 	/// </summary>
-	public class SplitterControl : IWindowControl, IInteractiveControl, IFocusableControl, IDOMPaintable, IMouseAwareControl
+	public class SplitterControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
 		private const int DEFAULT_WIDTH = 1;
 		private const float MIN_COLUMN_PERCENTAGE = 0.1f; // Minimum 10% width for any column
 
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Fill;
 		private Color? _backgroundColorValue;
 		private Color _borderColor = Color.White;
 		private IContainer? _container;
@@ -47,23 +45,16 @@ namespace SharpConsoleUI.Controls
 		// References to the columns on either side of this splitter
 		private ColumnContainer? _leftColumn;
 
-		private Margin _margin = new Margin(0, 0, 0, 0);
 		private HorizontalGridControl? _parentGrid;
 		private ColumnContainer? _rightColumn;
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private bool _visible = true;
-		private int? _width = DEFAULT_WIDTH;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SplitterControl"/> class.
 		/// </summary>
 		public SplitterControl()
 		{
+			VerticalAlignment = VerticalAlignment.Fill;
+			Width = DEFAULT_WIDTH;
 		}
 
 		/// <summary>
@@ -73,6 +64,8 @@ namespace SharpConsoleUI.Controls
 		/// <param name="rightColumn">The column to the right of the splitter.</param>
 		public SplitterControl(ColumnContainer leftColumn, ColumnContainer rightColumn)
 		{
+			VerticalAlignment = VerticalAlignment.Fill;
+			Width = DEFAULT_WIDTH;
 			_leftColumn = leftColumn;
 			_rightColumn = rightColumn;
 		}
@@ -83,32 +76,17 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<SplitterMovedEventArgs>? SplitterMoved;
 
 		/// <inheritdoc/>
-		public int? ContentWidth => _width;
+		public override int? ContentWidth => Width;
 
 		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
+		public override IContainer? Container
 		{
-			get => _horizontalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
+			get => _container;
+			set
+			{
+				_container = value;
+				Container?.Invalidate(true);
+			}
 		}
 
 		/// <summary>
@@ -133,17 +111,6 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_borderColor = value;
-				Container?.Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public IContainer? Container
-		{
-			get => _container;
-			set
-			{
-				_container = value;
 				Container?.Invalidate(true);
 			}
 		}
@@ -256,67 +223,25 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public Margin Margin
+		public override int? Width
 		{
-			get => _margin;
-			set
-			{
-				_margin = value;
-				Container?.Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public bool Visible
-		{
-			get => _visible;
-			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
+			get => base.Width;
 			set
 			{
 				var validatedValue = value.HasValue ? Math.Max(1, value.Value) : value;
-				if (_width != validatedValue)
-				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
-				}
+				base.Width = validatedValue;
 			}
 		}
 
 		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
-			Container = null;
 		}
 
 		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
-			return new System.Drawing.Size(_width ?? 1, 1);
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(false);
+			return new System.Drawing.Size(Width ?? 1, 1);
 		}
 
 		/// <inheritdoc/>
@@ -367,14 +292,14 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int splitterWidth = _width ?? 1;
-			int width = splitterWidth + _margin.Left + _margin.Right;
+			int splitterWidth = Width ?? 1;
+			int width = splitterWidth + Margin.Left + Margin.Right;
 			// Report minimal height during measurement.
 			// The splitter will be given full height during arrangement.
 			// This prevents integer overflow when measured with unbounded height.
-			int height = 1 + _margin.Top + _margin.Bottom;
+			int height = 1 + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -383,12 +308,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			Color bgColor, fgColor;
 
@@ -414,9 +336,9 @@ namespace SharpConsoleUI.Controls
 				fgColor = ForegroundColor;
 			}
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
-			int splitterHeight = bounds.Height - _margin.Top - _margin.Bottom;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
+			int splitterHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
 			// Fill margins with background color
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
@@ -431,9 +353,9 @@ namespace SharpConsoleUI.Controls
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 				{
 					// Fill left margin
-					if (_margin.Left > 0)
+					if (Margin.Left > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, windowBackground);
+						buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', fgColor, windowBackground);
 					}
 
 					// Paint splitter character
@@ -443,9 +365,9 @@ namespace SharpConsoleUI.Controls
 					}
 
 					// Fill right margin
-					if (_margin.Right > 0)
+					if (Margin.Right > 0)
 					{
-						buffer.FillRect(new LayoutRect(startX + 1, paintY, _margin.Right, 1), ' ', fgColor, windowBackground);
+						buffer.FillRect(new LayoutRect(startX + 1, paintY, Margin.Right, 1), ' ', fgColor, windowBackground);
 					}
 				}
 			}

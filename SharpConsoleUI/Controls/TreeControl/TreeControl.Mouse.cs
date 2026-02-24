@@ -260,7 +260,7 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The node index, or -1 if the position is outside the node area.</returns>
 		private int GetNodeIndexAtPosition(int mouseY)
 		{
-			int relativeY = mouseY - _margin.Top;
+			int relativeY = mouseY - Margin.Top;
 			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
 
 			if (relativeY < 0 || relativeY >= effectiveMaxVisibleItems)

@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 		private bool IsOnVerticalScrollbar(int mouseX)
 		{
 			if (!_needsVerticalScrollbar) return false;
-			int scrollbarX = _margin.Left + GetGutterWidth() + _effectiveWidth;
+			int scrollbarX = Margin.Left + GetGutterWidth() + _effectiveWidth;
 			return mouseX == scrollbarX;
 		}
 
@@ -31,7 +31,7 @@ namespace SharpConsoleUI.Controls
 		private bool IsOnHorizontalScrollbar(int mouseY)
 		{
 			if (!_needsHorizontalScrollbar) return false;
-			int scrollbarY = _margin.Top + _effectiveViewportHeight;
+			int scrollbarY = Margin.Top + _effectiveViewportHeight;
 			return mouseY == scrollbarY;
 		}
 
@@ -97,7 +97,7 @@ namespace SharpConsoleUI.Controls
 				if (IsOnVerticalScrollbar(args.Position.X))
 				{
 					_scrollbarInteracted = true;
-					int relY = args.Position.Y - _margin.Top;
+					int relY = args.Position.Y - Margin.Top;
 					var (trackHeight, sbThumbY, sbThumbHeight) = GetVerticalScrollbarGeometry();
 					int effectiveViewport = trackHeight;
 					int totalLines = GetTotalWrappedLineCount();
@@ -148,7 +148,7 @@ namespace SharpConsoleUI.Controls
 				if (IsOnHorizontalScrollbar(args.Position.Y))
 				{
 					_scrollbarInteracted = true;
-					int relX = args.Position.X - _margin.Left - GetGutterWidth();
+					int relX = args.Position.X - Margin.Left - GetGutterWidth();
 					var (trackWidth, sbThumbX, sbThumbWidth) = GetHorizontalScrollbarGeometry();
 					int maxLineLength = GetMaxLineLength();
 					int maxScroll = Math.Max(0, maxLineLength - _effectiveWidth);
@@ -366,8 +366,8 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void PositionCursorFromMouseCore(int mouseX, int mouseY)
 		{
-			int relX = mouseX - _margin.Left - GetGutterWidth();
-			int relY = mouseY - _margin.Top;
+			int relX = mouseX - Margin.Left - GetGutterWidth();
+			int relY = mouseY - Margin.Top;
 
 			if (relX < 0) relX = 0;
 			if (relY < 0) relY = 0;

@@ -68,7 +68,7 @@ namespace SharpConsoleUI.Controls
 	/// A vertical column/sparkline graph control for visualizing time-series data.
 	/// Displays vertical bars showing historical values over time.
 	/// </summary>
-	public class SparklineControl : IWindowControl, IDOMPaintable
+	public class SparklineControl : BaseControl
 	{
 		private const int DEFAULT_HEIGHT = 8;
 		private const int DEFAULT_MAX_DATA_POINTS = 50;
@@ -114,18 +114,12 @@ namespace SharpConsoleUI.Controls
 		private List<double> _dataPoints = new();
 		private Color? _foregroundColorValue;
 		private int _graphHeight = DEFAULT_HEIGHT;
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private Margin _margin = new Margin(0, 0, 0, 0);
 		private int _maxDataPoints = DEFAULT_MAX_DATA_POINTS;
 		private double? _maxValue;
 		private double? _minValue;
-		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string? _title;
 		private Color? _titleColor;
 		private TitlePosition _titlePosition = TitlePosition.Top;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-		private bool _visible = true;
-		private int? _width;
 
 		// Secondary data series (for bidirectional mode)
 		private List<double> _secondaryDataPoints = new();
@@ -142,11 +136,6 @@ namespace SharpConsoleUI.Controls
 		private Color _baselineColor = Color.Grey50;
 		private TitlePosition _baselinePosition = TitlePosition.Bottom;
 		private bool _inlineTitleWithBaseline = false;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SparklineControl"/> class.
@@ -471,22 +460,10 @@ namespace SharpConsoleUI.Controls
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
-		public int? ContentWidth => _width ?? (_dataPoints.Count + _margin.Left + _margin.Right);
+		public override int? ContentWidth => Width ?? (_dataPoints.Count + Margin.Left + Margin.Right);
 
 		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public IContainer? Container
+		public override IContainer? Container
 		{
 			get => _container;
 			set
@@ -497,84 +474,31 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
+		public override int? Width
 		{
-			get => _horizontalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set
-			{
-				_margin = value;
-				Container?.Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public bool Visible
-		{
-			get => _visible;
-			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
+			get => base.Width;
 			set
 			{
 				var validatedValue = value.HasValue ? Math.Max(1, value.Value) : (int?)null;
-				if (_width != validatedValue)
+				if (base.Width != validatedValue)
 				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
+					base.Width = validatedValue;
 				}
 			}
 		}
 
 		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
 			_dataPoints.Clear();
-			Container = null;
 		}
 
 		/// <inheritdoc/>
-		public Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			int width = ContentWidth ?? 0;
-			int height = _graphHeight + _margin.Top + _margin.Bottom;
-			return new Size(width, height);
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(false);
+			int height = _graphHeight + Margin.Top + Margin.Bottom;
+			return new System.Drawing.Size(width, height);
 		}
 
 		#endregion
@@ -582,7 +506,7 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int borderSize = _borderStyle != BorderStyle.None ? 2 : 0;
 
@@ -608,10 +532,10 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Width should be max of: explicit width, data points, or title width
-			int dataWidth = _width ?? _dataPoints.Count;
+			int dataWidth = Width ?? _dataPoints.Count;
 			int contentWidth = Math.Max(dataWidth, titleWidth);
-			int width = contentWidth + _margin.Left + _margin.Right + borderSize;
-			int height = _graphHeight + _margin.Top + _margin.Bottom + borderSize + titleHeight + baselineHeight;
+			int width = contentWidth + Margin.Left + Margin.Right + borderSize;
+			int height = _graphHeight + Margin.Top + Margin.Bottom + borderSize + titleHeight + baselineHeight;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -620,12 +544,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			// Resolve colors
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
@@ -654,9 +575,9 @@ namespace SharpConsoleUI.Controls
 			// Baseline height will be determined after we know if bidirectional mode
 			int baselineHeight = 0;  // Will be set later
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
-			int contentWidth = bounds.Width - _margin.Left - _margin.Right;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
+			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
 			int contentHeight = _graphHeight + (borderSize * 2) + titleHeight + baselineHeight;
 
 			// Fill content area with control background

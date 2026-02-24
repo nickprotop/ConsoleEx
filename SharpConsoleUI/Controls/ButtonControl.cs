@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -23,21 +23,11 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A clickable button control that supports keyboard and mouse interaction.
 	/// </summary>
-	public class ButtonControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
+	public class ButtonControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _enabled = true;
 		private bool _focused;
-		private Margin _margin = new Margin(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string _text = "Button";
-		private bool _visible = true;
-		private int? _width;
 		private Color? _backgroundColor;
 		private Color? _foregroundColor;
 		private Color? _focusedBackgroundColor;
@@ -55,33 +45,13 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered width of the button in characters.
 		/// </summary>
-		public int? ContentWidth => GetButtonWidth() + _margin.Left + _margin.Right;
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
+		public override int? ContentWidth => GetButtonWidth() + Margin.Left + Margin.Right;
 
 		private int GetButtonWidth()
 		{
 			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
-			return _width ?? (AnsiConsoleHelper.StripSpectreLength(text) + 4);
+			return Width ?? (AnsiConsoleHelper.StripSpectreLength(text) + 4);
 		}
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public IContainer? Container { get; set; }
 
 		/// <inheritdoc/>
 		public bool HasFocus
@@ -107,26 +77,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
 		/// <summary>
 		/// Gets or sets the text displayed on the button.
 		/// </summary>
@@ -138,17 +88,6 @@ namespace SharpConsoleUI.Controls
 				_text = value;
 				Container?.Invalidate(true);
 			}
-		}
-
-		/// <inheritdoc/>
-		public bool Visible
-		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
 		/// <summary>
@@ -203,26 +142,6 @@ namespace SharpConsoleUI.Controls
 		{
 			get => ColorResolver.ResolveButtonDisabledForeground(_disabledForegroundColor, Container);
 			set { _disabledForegroundColor = value; Container?.Invalidate(true); }
-		}
-
-		/// <inheritdoc/>
-		public void Dispose()
-		{
-			Container = null;
-		}
-
-		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
-		{
-			int width = ContentWidth ?? 0;
-			int height = 1 + _margin.Top + _margin.Bottom;
-			return new System.Drawing.Size(width, height);
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -357,14 +276,14 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
-			int buttonWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - _margin.Left - _margin.Right : AnsiConsoleHelper.StripSpectreLength(text) + 4);
+			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - Margin.Left - Margin.Right : AnsiConsoleHelper.StripSpectreLength(text) + 4);
 			buttonWidth = Math.Max(4, buttonWidth);
 
-			int width = buttonWidth + _margin.Left + _margin.Right;
-			int height = 1 + _margin.Top + _margin.Bottom;
+			int width = buttonWidth + Margin.Left + Margin.Right;
+			int height = 1 + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -373,12 +292,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 
@@ -400,11 +316,11 @@ namespace SharpConsoleUI.Controls
 				backgroundColor = BackgroundColor;
 			}
 
-			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
 
 			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
-			int buttonWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : Math.Min(AnsiConsoleHelper.StripSpectreLength(text) + 4, targetWidth));
+			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : Math.Min(AnsiConsoleHelper.StripSpectreLength(text) + 4, targetWidth));
 			buttonWidth = Math.Max(4, buttonWidth);
 			int maxTextLength = buttonWidth - 4;
 
@@ -427,14 +343,14 @@ namespace SharpConsoleUI.Controls
 				buttonText = buttonText + new string(' ', buttonWidth - visibleLen);
 			}
 
-			int startY = bounds.Y + _margin.Top;
-			int startX = bounds.X + _margin.Left;
+			int startY = bounds.Y + Margin.Top;
+			int startX = bounds.X + Margin.Left;
 
 			// Calculate alignment offset
 			int alignOffset = 0;
 			if (buttonWidth < targetWidth)
 			{
-				switch (_horizontalAlignment)
+				switch (HorizontalAlignment)
 				{
 					case HorizontalAlignment.Center:
 						alignOffset = (targetWidth - buttonWidth) / 2;
@@ -452,9 +368,9 @@ namespace SharpConsoleUI.Controls
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
 			{
 				// Fill left margin
-				if (_margin.Left > 0)
+				if (Margin.Left > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, startY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+					buffer.FillRect(new LayoutRect(bounds.X, startY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
 				}
 
 				// Fill alignment padding (left side)
@@ -470,16 +386,16 @@ namespace SharpConsoleUI.Controls
 
 				// Fill alignment padding (right side)
 				int rightPadStart = startX + alignOffset + buttonWidth;
-				int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
 				if (rightPadWidth > 0)
 				{
 					buffer.FillRect(new LayoutRect(rightPadStart, startY, rightPadWidth, 1), ' ', foregroundColor, windowBackground);
 				}
 
 				// Fill right margin
-				if (_margin.Right > 0)
+				if (Margin.Right > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, startY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
 				}
 			}
 

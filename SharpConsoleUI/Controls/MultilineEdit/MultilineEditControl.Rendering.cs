@@ -19,13 +19,13 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int baseWidth = _width ?? constraints.MaxWidth - _margin.Left - _margin.Right;
+			int baseWidth = Width ?? constraints.MaxWidth - Margin.Left - Margin.Right;
 
 			// When VerticalAlignment is Fill, use the max available height from constraints
-			int effectiveViewport = _verticalAlignment == VerticalAlignment.Fill
-				? Math.Max(_viewportHeight, constraints.MaxHeight - _margin.Top - _margin.Bottom)
+			int effectiveViewport = VerticalAlignment == VerticalAlignment.Fill
+				? Math.Max(_viewportHeight, constraints.MaxHeight - Margin.Top - Margin.Bottom)
 				: _viewportHeight;
 			int contentHeight = effectiveViewport;
 
@@ -57,8 +57,8 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			int width = baseWidth + _margin.Left + _margin.Right;
-			int height = contentHeight + _margin.Top + _margin.Bottom;
+			int width = baseWidth + Margin.Left + Margin.Right;
+			int height = contentHeight + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -67,12 +67,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			Color bgColor = _hasFocus ? FocusedBackgroundColor : BackgroundColor;
 			Color fgColor = _hasFocus ? FocusedForegroundColor : ForegroundColor;
@@ -80,15 +77,15 @@ namespace SharpConsoleUI.Controls
 			Color selFgColor = SelectionForegroundColor;
 			Color windowBgColor = Container?.BackgroundColor ?? defaultBg;
 
-			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) { _skipUpdateScrollPositionsInRender = false; return; }
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
 
 			// When VerticalAlignment is Fill, use the actual layout bounds instead of fixed viewport height
-			int effectiveViewport = _verticalAlignment == VerticalAlignment.Fill
-				? Math.Max(_viewportHeight, bounds.Height - _margin.Top - _margin.Bottom)
+			int effectiveViewport = VerticalAlignment == VerticalAlignment.Fill
+				? Math.Max(_viewportHeight, bounds.Height - Margin.Top - Margin.Bottom)
 				: _viewportHeight;
 
 			// Fill top margin
@@ -152,7 +149,7 @@ namespace SharpConsoleUI.Controls
 			var (selStartX, selStartY, selEndX, selEndY) = GetOrderedSelectionBounds();
 
 			// Paint visible lines
-			int availableHeight = bounds.Height - _margin.Top - _margin.Bottom - (needsHorizontalScrollbar ? 1 : 0);
+			int availableHeight = bounds.Height - Margin.Top - Margin.Bottom - (needsHorizontalScrollbar ? 1 : 0);
 			int linesToPaint = Math.Min(effectiveViewport, availableHeight);
 
 			// Determine if placeholder should be shown
@@ -185,9 +182,9 @@ namespace SharpConsoleUI.Controls
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 				{
 					// Fill left margin
-					if (_margin.Left > 0)
+					if (Margin.Left > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, windowBgColor);
+						buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', fgColor, windowBgColor);
 					}
 
 					int wrappedIndex = i + _verticalScrollOffset;
@@ -368,10 +365,10 @@ namespace SharpConsoleUI.Controls
 					}
 
 					// Fill right margin
-					if (_margin.Right > 0)
+					if (Margin.Right > 0)
 					{
 						int rightMarginX = contentStartX + effectiveWidth + scrollbarWidth;
-						buffer.FillRect(new LayoutRect(rightMarginX, paintY, _margin.Right, 1), ' ', fgColor, windowBgColor);
+						buffer.FillRect(new LayoutRect(rightMarginX, paintY, Margin.Right, 1), ' ', fgColor, windowBgColor);
 					}
 				}
 			}
@@ -382,8 +379,8 @@ namespace SharpConsoleUI.Controls
 				int paintY = startY + i;
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom)
 				{
-					if (_margin.Left > 0)
-						buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, windowBgColor);
+					if (Margin.Left > 0)
+						buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', fgColor, windowBgColor);
 
 					// Fill gutter area for empty rows
 					if (gutterWidth > 0)
@@ -422,10 +419,10 @@ namespace SharpConsoleUI.Controls
 						}
 					}
 
-					if (_margin.Right > 0)
+					if (Margin.Right > 0)
 					{
 						int rightMarginX = contentStartX + effectiveWidth + scrollbarWidth;
-						buffer.FillRect(new LayoutRect(rightMarginX, paintY, _margin.Right, 1), ' ', fgColor, windowBgColor);
+						buffer.FillRect(new LayoutRect(rightMarginX, paintY, Margin.Right, 1), ' ', fgColor, windowBgColor);
 					}
 				}
 			}
@@ -436,8 +433,8 @@ namespace SharpConsoleUI.Controls
 				int scrollY = startY + effectiveViewport;
 				if (scrollY >= clipRect.Y && scrollY < clipRect.Bottom && scrollY < bounds.Bottom)
 				{
-					if (_margin.Left > 0)
-						buffer.FillRect(new LayoutRect(bounds.X, scrollY, _margin.Left, 1), ' ', fgColor, windowBgColor);
+					if (Margin.Left > 0)
+						buffer.FillRect(new LayoutRect(bounds.X, scrollY, Margin.Left, 1), ' ', fgColor, windowBgColor);
 
 					// Fill gutter area under horizontal scrollbar
 					if (gutterWidth > 0)
@@ -491,10 +488,10 @@ namespace SharpConsoleUI.Controls
 						}
 					}
 
-					if (_margin.Right > 0)
+					if (Margin.Right > 0)
 					{
 						int rightMarginX = contentStartX + effectiveWidth + scrollbarWidth;
-						buffer.FillRect(new LayoutRect(rightMarginX, scrollY, _margin.Right, 1), ' ', fgColor, windowBgColor);
+						buffer.FillRect(new LayoutRect(rightMarginX, scrollY, Margin.Right, 1), ' ', fgColor, windowBgColor);
 					}
 				}
 			}

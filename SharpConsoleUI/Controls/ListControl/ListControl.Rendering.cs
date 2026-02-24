@@ -38,14 +38,14 @@ namespace SharpConsoleUI.Controls
 						itemsHeight += _items[itemIndex].Lines.Count;
 				}
 				bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + visibleItems < _items.Count;
-				return titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + _margin.Top + _margin.Bottom;
+				return titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + Margin.Top + Margin.Bottom;
 			}
 		}
 
 		/// <summary>
 		/// Gets the actual rendered width in characters.
 		/// </summary>
-		public int? ContentWidth
+		public override int? ContentWidth
 		{
 			get
 			{
@@ -64,8 +64,8 @@ namespace SharpConsoleUI.Controls
 				int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
 				int titleLength = string.IsNullOrEmpty(_title) ? 0 : GetCachedTextLength(_title) + 5;
 
-				int width = _width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
-				return width + _margin.Left + _margin.Right;
+				int width = Width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
+				return width + Margin.Left + Margin.Right;
 			}
 		}
 
@@ -97,7 +97,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			// Calculate content size directly
 			bool hasTitle = !string.IsNullOrEmpty(_title);
@@ -114,7 +114,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + visibleItems < _items.Count;
-			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + _margin.Top + _margin.Bottom;
+			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + Margin.Top + Margin.Bottom;
 
 			// Calculate indicator space: needed in CheckboxMode
 			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
@@ -126,8 +126,8 @@ namespace SharpConsoleUI.Controls
 			}
 
 			int titleLength = string.IsNullOrEmpty(_title) ? 0 : GetCachedTextLength(_title) + 5;
-			int width = _width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
-			width += _margin.Left + _margin.Right;
+			int width = Width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);
+			width += Margin.Left + Margin.Right;
 
 			return new System.Drawing.Size(width, height);
 		}
@@ -135,7 +135,7 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			// Calculate indicator space: needed in CheckboxMode
 			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
@@ -153,13 +153,13 @@ namespace SharpConsoleUI.Controls
 
 			// Calculate list width
 			int listWidth;
-			if (_width.HasValue)
+			if (Width.HasValue)
 			{
-				listWidth = _width.Value;
+				listWidth = Width.Value;
 			}
-			else if (_horizontalAlignment == HorizontalAlignment.Stretch)
+			else if (HorizontalAlignment == HorizontalAlignment.Stretch)
 			{
-				listWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
+				listWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
 			}
 			else
 			{
@@ -179,7 +179,7 @@ namespace SharpConsoleUI.Controls
 				listWidth = Math.Max(listWidth, contentWidth + indicatorSpace + 4);
 			}
 
-			int width = listWidth + _margin.Left + _margin.Right;
+			int width = listWidth + Margin.Left + Margin.Right;
 
 			// Calculate height
 			bool hasTitle = !string.IsNullOrEmpty(_title);
@@ -191,7 +191,7 @@ namespace SharpConsoleUI.Controls
 			{
 				effectiveMaxVisibleItems = _maxVisibleItems.Value;
 			}
-			else if (_verticalAlignment == VerticalAlignment.Fill)
+			else if (VerticalAlignment == VerticalAlignment.Fill)
 			{
 				// Check if we have unbounded constraints
 				bool isUnbounded = constraints.MaxHeight >= int.MaxValue / 2;
@@ -206,7 +206,7 @@ namespace SharpConsoleUI.Controls
 				else
 				{
 					// When VerticalAlignment.Fill with bounded constraints, use available height
-					int fullAvailableHeight = constraints.MaxHeight - titleHeight - _margin.Top - _margin.Bottom;
+					int fullAvailableHeight = constraints.MaxHeight - titleHeight - Margin.Top - Margin.Bottom;
 
 					// Check if ALL items fit without needing a scroll indicator
 					int totalItemsHeight = 0;
@@ -253,7 +253,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count;
-			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + _margin.Top + _margin.Bottom;
+			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + Margin.Top + Margin.Bottom;
 
 			// VerticalAlignment.Fill is handled during arrangement, not measurement.
 			// Measurement should return actual content height, not constraints.MaxHeight.
@@ -268,12 +268,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			// Thread-safe snapshot: _items may be modified concurrently from background threads
 			List<ListItem> items;
@@ -302,11 +299,11 @@ namespace SharpConsoleUI.Controls
 
 			// Calculate indicator space: needed in CheckboxMode
 			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
-			int listWidth = bounds.Width - _margin.Left - _margin.Right;
+			int listWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (listWidth <= 0) return;
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
 			int currentY = startY;
 
 			// Fill top margin
@@ -324,9 +321,9 @@ namespace SharpConsoleUI.Controls
 				if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 				{
 					// Fill left margin
-					if (_margin.Left > 0)
+					if (Margin.Left > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+						buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
 					}
 
 					string titleBarContent = _title;
@@ -341,16 +338,16 @@ namespace SharpConsoleUI.Controls
 					buffer.WriteCellsClipped(startX, currentY, titleCells, clipRect);
 
 					// Fill right margin
-					if (_margin.Right > 0)
+					if (Margin.Right > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+						buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
 					}
 				}
 				currentY++;
 			}
 
 			// Calculate effective visible items
-			int fullAvailableContentHeight = bounds.Height - _margin.Top - _margin.Bottom - (hasTitle ? 1 : 0);
+			int fullAvailableContentHeight = bounds.Height - Margin.Top - Margin.Bottom - (hasTitle ? 1 : 0);
 
 			// Check if all items fit without scroll indicator
 			int totalItemsHeight = 0;
@@ -385,21 +382,21 @@ namespace SharpConsoleUI.Controls
 			int itemsToShow = Math.Min(effectiveMaxVisibleItems, items.Count - scrollOffset);
 
 			// Render each visible item
-			for (int i = 0; i < itemsToShow && currentY < bounds.Bottom - _margin.Bottom - (needsScrollIndicator ? 1 : 0); i++)
+			for (int i = 0; i < itemsToShow && currentY < bounds.Bottom - Margin.Bottom - (needsScrollIndicator ? 1 : 0); i++)
 			{
 				int itemIndex = i + scrollOffset;
 				if (itemIndex >= items.Count) break;
 
 				List<string> itemLines = items[itemIndex].Lines;
 
-				for (int lineIndex = 0; lineIndex < itemLines.Count && currentY < bounds.Bottom - _margin.Bottom - (needsScrollIndicator ? 1 : 0); lineIndex++)
+				for (int lineIndex = 0; lineIndex < itemLines.Count && currentY < bounds.Bottom - Margin.Bottom - (needsScrollIndicator ? 1 : 0); lineIndex++)
 				{
 					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					{
 						// Fill left margin
-						if (_margin.Left > 0)
+						if (Margin.Left > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+							buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
 						}
 
 						string lineText = itemLines[lineIndex];
@@ -490,9 +487,9 @@ namespace SharpConsoleUI.Controls
 						buffer.WriteCellsClipped(startX, currentY, itemCells, clipRect);
 
 						// Fill right margin
-						if (_margin.Right > 0)
+						if (Margin.Right > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+							buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
 						}
 					}
 					currentY++;
@@ -500,21 +497,21 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill empty lines if VerticalAlignment.Fill
-			if (_verticalAlignment == VerticalAlignment.Fill)
+			if (VerticalAlignment == VerticalAlignment.Fill)
 			{
-				int scrollIndicatorY = bounds.Bottom - _margin.Bottom - (needsScrollIndicator ? 1 : 0);
+				int scrollIndicatorY = bounds.Bottom - Margin.Bottom - (needsScrollIndicator ? 1 : 0);
 				while (currentY < scrollIndicatorY)
 				{
 					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					{
-						if (_margin.Left > 0)
+						if (Margin.Left > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+							buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
 						}
 						buffer.FillRect(new LayoutRect(startX, currentY, listWidth, 1), ' ', foregroundColor, backgroundColor);
-						if (_margin.Right > 0)
+						if (Margin.Right > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+							buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
 						}
 					}
 					currentY++;
@@ -523,13 +520,13 @@ namespace SharpConsoleUI.Controls
 
 			// Render scroll indicators
 			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + itemsToShow < items.Count;
-			if (hasScrollIndicator && currentY < bounds.Bottom - _margin.Bottom)
+			if (hasScrollIndicator && currentY < bounds.Bottom - Margin.Bottom)
 			{
 				if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 				{
-					if (_margin.Left > 0)
+					if (Margin.Left > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+						buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
 					}
 
 					string scrollIndicator = "";
@@ -542,9 +539,9 @@ namespace SharpConsoleUI.Controls
 					var scrollCells = AnsiParser.Parse(scrollAnsi, foregroundColor, backgroundColor);
 					buffer.WriteCellsClipped(startX, currentY, scrollCells, clipRect);
 
-					if (_margin.Right > 0)
+					if (Margin.Right > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+						buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
 					}
 				}
 				currentY++;

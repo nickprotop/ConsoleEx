@@ -369,8 +369,8 @@ namespace SharpConsoleUI.Controls
 			if (_wrapMode == WrapMode.NoWrap)
 			{
 				return new Point(
-					_margin.Left + gutterWidth + _cursorX - _horizontalScrollOffset,
-					_margin.Top + _cursorY - _verticalScrollOffset);
+					Margin.Left + gutterWidth + _cursorX - _horizontalScrollOffset,
+					Margin.Top + _cursorY - _verticalScrollOffset);
 			}
 			else
 			{
@@ -382,12 +382,12 @@ namespace SharpConsoleUI.Controls
 				int visualY = wrappedIndex - _verticalScrollOffset;
 				int visualX = _cursorX - wrappedLines[wrappedIndex].SourceCharOffset;
 
-				return new Point(_margin.Left + gutterWidth + visualX, _margin.Top + visualY);
+				return new Point(Margin.Left + gutterWidth + visualX, Margin.Top + visualY);
 			}
 		}
 
 		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			if (_wrapMode != WrapMode.NoWrap)
 			{

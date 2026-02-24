@@ -9,8 +9,6 @@
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using Spectre.Console;
@@ -36,33 +34,19 @@ namespace SharpConsoleUI.Controls
 	/// A tab control that displays multiple pages of content, with tab headers for switching between them.
 	/// Uses visibility toggling to show/hide tab content efficiently.
 	/// </summary>
-	public class TabControl : IWindowControl, IContainer, IDOMPaintable,
+	public class TabControl : BaseControl, IContainer,
 		IMouseAwareControl, IInteractiveControl, IContainerControl,
 		IFocusableControl, IFocusableContainerWithHeader
 	{
 		private readonly List<TabPage> _tabPages = new();
 		private int _activeTabIndex = -1;
 		private TabHeaderStyle _headerStyle = TabHeaderStyle.Classic;
-
-		// IWindowControl properties
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-		private Margin _margin = new Margin(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private bool _visible = true;
-		private int? _width;
 		private int? _height;
 
 		// IContainer properties
-		private IContainer? _container;
 		private Color _backgroundColor = Color.Black;
 		private Color _foregroundColor = Color.White;
 		private bool _isDirty = true;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Gets or sets the visual style used to render the tab header area.
@@ -407,10 +391,10 @@ namespace SharpConsoleUI.Controls
 	#endregion
 
 
-		#region IWindowControl Implementation
+		#region IWindowControl Implementation (overrides from BaseControl)
 
 		/// <inheritdoc/>
-		public int? ContentWidth
+		public override int? ContentWidth
 		{
 			get
 			{
@@ -428,96 +412,16 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
+		public override IContainer? Container
 		{
-			get => _horizontalAlignment;
+			get => base.Container;
 			set
 			{
-				_horizontalAlignment = value;
-				Container?.Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set
-			{
-				_verticalAlignment = value;
-				Container?.Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public IContainer? Container
-		{
-			get => _container;
-			set
-			{
-				_container = value;
+				base.Container = value;
 				// Update container for all tab content
 				foreach (var tab in _tabPages)
 				{
 					tab.Content.Container = value;
-				}
-			}
-		}
-
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public bool Visible
-		{
-			get => _visible;
-			set
-			{
-				_visible = value;
-				Container?.Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
-			set
-			{
-				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-				if (_width != validatedValue)
-				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
 				}
 			}
 		}
@@ -539,9 +443,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
-			int width = _width ?? ContentWidth ?? 0;
+			int width = Width ?? ContentWidth ?? 0;
 			int height = _height ?? (TabHeaderHeight + 10); // Default height if not specified
 
 			if (!_height.HasValue && _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
@@ -555,21 +459,13 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			_isDirty = true;
-			Container?.Invalidate(true);
-		}
-
-		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
 			foreach (var tab in _tabPages)
 			{
 				tab.Content.Dispose();
 			}
 			_tabPages.Clear();
-			Container = null;
 		}
 
 		#endregion
@@ -583,7 +479,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColor = value;
-				Invalidate();
+				Invalidate(true);
 			}
 		}
 
@@ -594,7 +490,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColor = value;
-				Invalidate();
+				Invalidate(true);
 			}
 		}
 
@@ -637,23 +533,20 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			// Layout system handles this via TabLayout
 			// This won't be called directly, but provide fallback
 			int height = _height ?? (TabHeaderHeight + 10); // Default height
-			int width = _width ?? constraints.MaxWidth;
+			int width = Width ?? constraints.MaxWidth;
 			return new LayoutSize(width, height);
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds,
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds,
 			LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			// Paint tab headers at Y=0
 			PaintTabHeaders(buffer, bounds, defaultFg, defaultBg);
@@ -666,9 +559,9 @@ namespace SharpConsoleUI.Controls
 			Color defaultFg, Color defaultBg)
 		{
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColor, Container, defaultBg);
-			int headerLeft = bounds.X + _margin.Left;
-			int headerRight = bounds.X + bounds.Width - _margin.Right;
-			int headerY = bounds.Y + _margin.Top;
+			int headerLeft = bounds.X + Margin.Left;
+			int headerRight = bounds.X + bounds.Width - Margin.Right;
+			int headerY = bounds.Y + Margin.Top;
 			int x = headerLeft;
 
 			int activeTabStartX = -1;
@@ -854,11 +747,11 @@ namespace SharpConsoleUI.Controls
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			// Only handle clicks on tab headers (account for top margin)
-			if (args.Position.Y == _margin.Top)
+			if (args.Position.Y == Margin.Top)
 			{
 				// Calculate which tab was clicked (account for left margin)
 				int clickX = args.Position.X;
-				int currentX = _margin.Left;
+				int currentX = Margin.Left;
 
 				for (int i = 0; i < _tabPages.Count; i++)
 				{

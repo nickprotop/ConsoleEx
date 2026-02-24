@@ -6,13 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using Color = Spectre.Console.Color;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Size = System.Drawing.Size;
-using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI.Controls
 {
@@ -21,7 +19,7 @@ namespace SharpConsoleUI.Controls
 	/// Unlike <see cref="SplitterControl"/>, this is non-interactive and non-focusable.
 	/// Uses a single vertical line character for a subtle appearance.
 	/// </summary>
-	public class SeparatorControl : IWindowControl, IDOMPaintable
+	public class SeparatorControl : BaseControl
 	{
 		private const char DEFAULT_CHARACTER = '│';
 
@@ -29,39 +27,17 @@ namespace SharpConsoleUI.Controls
 		private char _character = DEFAULT_CHARACTER;
 		private IContainer? _container;
 		private Color? _foregroundColorValue;
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private Margin _margin = new Margin(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Fill;
-		private bool _visible = true;
-		private int? _width = null;  // null = use measured width (includes margins)
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SeparatorControl"/> class.
 		/// </summary>
 		public SeparatorControl()
 		{
+			VerticalAlignment = VerticalAlignment.Fill;
 		}
 
 		/// <inheritdoc/>
-		public int? ContentWidth => _width;
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
+		public override int? ContentWidth => Width;
 
 		/// <summary>
 		/// Gets or sets the background color of the separator.
@@ -92,7 +68,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public IContainer? Container
+		public override IContainer? Container
 		{
 			get => _container;
 			set
@@ -117,94 +93,36 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
+		public override int? Width
 		{
-			get => _horizontalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set
-			{
-				_margin = value;
-				Container?.Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public bool Visible
-		{
-			get => _visible;
-			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
+			get => base.Width;
 			set
 			{
 				// Allow null (use measured width) or explicit positive value
 				var validatedValue = value.HasValue ? Math.Max(1, value.Value) : (int?)null;
-				if (_width != validatedValue)
+				if (base.Width != validatedValue)
 				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
+					base.Width = validatedValue;
 				}
 			}
 		}
 
 		/// <inheritdoc/>
-		public void Dispose()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
-			Container = null;
-		}
-
-		/// <inheritdoc/>
-		public Size GetLogicalContentSize()
-		{
-			return new Size(_width ?? 1, 1);
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(false);
+			return new System.Drawing.Size(Width ?? 1, 1);
 		}
 
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int separatorWidth = _width ?? 1;
-			int width = separatorWidth + _margin.Left + _margin.Right;
+			int separatorWidth = Width ?? 1;
+			int width = separatorWidth + Margin.Left + Margin.Right;
 			// Report minimal height during measurement.
 			// The separator will be given full height during arrangement if VerticalAlignment is Fill.
-			int height = 1 + _margin.Top + _margin.Bottom;
+			int height = 1 + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -213,12 +131,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			// Resolve colors with fallback chain:
 			// Control color -> Theme color -> Container color -> Default
@@ -234,9 +149,9 @@ namespace SharpConsoleUI.Controls
 				?? Container?.BackgroundColor
 				?? defaultBg;
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
-			int separatorHeight = bounds.Height - _margin.Top - _margin.Bottom;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
+			int separatorHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
 			// Fill margins with container background color
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
@@ -251,9 +166,9 @@ namespace SharpConsoleUI.Controls
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 				{
 					// Fill left margin
-					if (_margin.Left > 0)
+					if (Margin.Left > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, windowBackground);
+						buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', fgColor, windowBackground);
 					}
 
 					// Paint separator character
@@ -263,9 +178,9 @@ namespace SharpConsoleUI.Controls
 					}
 
 					// Fill right margin
-					if (_margin.Right > 0)
+					if (Margin.Right > 0)
 					{
-						buffer.FillRect(new LayoutRect(startX + 1, paintY, _margin.Right, 1), ' ', fgColor, windowBackground);
+						buffer.FillRect(new LayoutRect(startX + 1, paintY, Margin.Right, 1), ' ', fgColor, windowBackground);
 					}
 				}
 			}

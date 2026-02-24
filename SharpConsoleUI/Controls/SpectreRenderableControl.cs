@@ -24,17 +24,11 @@ namespace SharpConsoleUI.Controls
 	/// A control that wraps any Spectre.Console IRenderable for display within the window system.
 	/// Provides a bridge between Spectre.Console's rich rendering and the SharpConsoleUI framework.
 	/// </summary>
-	public class SpectreRenderableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
+	public class SpectreRenderableControl : BaseControl, IMouseAwareControl
 	{
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Color? _backgroundColorValue;
 		private Color? _foregroundColorValue;
-		private Margin _margin = new Margin(0, 0, 0, 0);
 		private IRenderable? _renderable;
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private bool _visible = true;
-		private int? _width;
 
 		// Mouse interaction state
 		private bool _wantsMouseEvents = true;
@@ -42,11 +36,6 @@ namespace SharpConsoleUI.Controls
 		private bool _isMouseInside = false;
 		private DateTime _lastClickTime = DateTime.MinValue;
 		private int _clickCount = 0;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SpectreRenderableControl"/> class.
@@ -65,14 +54,14 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public int? ContentWidth
+		public override int? ContentWidth
 		{
 			get
 			{
-				if (_renderable == null) return _margin.Left + _margin.Right;
+				if (_renderable == null) return Margin.Left + Margin.Right;
 
 				var bgColor = BackgroundColor;
-				var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, _width ?? 80, null, bgColor);
+				var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, Width ?? 80, null, bgColor);
 
 				int maxLength = 0;
 				foreach (var line in content)
@@ -80,29 +69,9 @@ namespace SharpConsoleUI.Controls
 					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 					if (length > maxLength) maxLength = length;
 				}
-				return maxLength + _margin.Left + _margin.Right;
+				return maxLength + Margin.Left + Margin.Right;
 			}
 		}
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets the background color for rendering.
@@ -118,9 +87,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public IContainer? Container { get; set; }
-
 		/// <summary>
 		/// Gets or sets the foreground color for rendering.
 		/// Falls back to theme colors if not explicitly set.
@@ -135,42 +101,11 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-		}
-
 		/// <summary>
 		/// Gets or sets the Spectre.Console renderable to display.
 		/// </summary>
 		public IRenderable? Renderable
 		{ get => _renderable; set { _renderable = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public bool Visible
-		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
-		}
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents
@@ -297,7 +232,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
 			// Clear mouse event handlers to prevent memory leaks
 			MouseClick = null;
@@ -305,8 +240,6 @@ namespace SharpConsoleUI.Controls
 			MouseEnter = null;
 			MouseLeave = null;
 			MouseMove = null;
-
-			Container = null;
 		}
 
 		/// <summary>
@@ -319,24 +252,18 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
-		}
-
-		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			if (_renderable == null)
-				return new System.Drawing.Size(_margin.Left + _margin.Right, _margin.Top + _margin.Bottom);
+				return new System.Drawing.Size(Margin.Left + Margin.Right, Margin.Top + Margin.Bottom);
 
 			// Reuse ContentWidth for width
 			int width = ContentWidth ?? 0;
 
 			// Calculate height
 			var bgColor = BackgroundColor;
-			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, _width ?? 80, null, bgColor);
-			int height = content.Count + _margin.Top + _margin.Bottom;
+			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, Width ?? 80, null, bgColor);
+			int height = content.Count + Margin.Top + Margin.Bottom;
 
 			return new System.Drawing.Size(width, height);
 		}
@@ -354,24 +281,24 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-        public LayoutSize MeasureDOM(LayoutConstraints constraints)
+        public override LayoutSize MeasureDOM(LayoutConstraints constraints)
         {
             if (_renderable == null)
             {
                 return new LayoutSize(
-                    Math.Clamp(_margin.Left + _margin.Right, constraints.MinWidth, constraints.MaxWidth),
-                    Math.Clamp(_margin.Top + _margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
+                    Math.Clamp(Margin.Left + Margin.Right, constraints.MinWidth, constraints.MaxWidth),
+                    Math.Clamp(Margin.Top + Margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
                 );
             }
 
             var bgColor = BackgroundColor;
-            int targetWidth = _width ?? constraints.MaxWidth - _margin.Left - _margin.Right;
+            int targetWidth = Width ?? constraints.MaxWidth - Margin.Left - Margin.Right;
 
             var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, targetWidth, null, bgColor);
 
             int maxWidth = content.Count > 0 ? content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)) : 0;
-            int width = maxWidth + _margin.Left + _margin.Right;
-            int height = content.Count + _margin.Top + _margin.Bottom;
+            int width = maxWidth + Margin.Left + Margin.Right;
+            int height = content.Count + Margin.Top + Margin.Bottom;
 
             return new LayoutSize(
                 Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -381,32 +308,29 @@ namespace SharpConsoleUI.Controls
 
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
-			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 
 			if (targetWidth <= 0) return;
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
 
 			if (_renderable != null)
 			{
-				int renderWidth = _width ?? targetWidth;
+				int renderWidth = Width ?? targetWidth;
 				var renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, renderWidth, null, bgColor);
 
 				int contentHeight = renderedContent.Count;
-				int availableHeight = bounds.Height - _margin.Top - _margin.Bottom;
+				int availableHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
 				for (int i = 0; i < Math.Min(contentHeight, availableHeight); i++)
 				{
@@ -414,9 +338,9 @@ namespace SharpConsoleUI.Controls
 					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 					{
 						// Fill left margin
-						if (_margin.Left > 0)
+						if (Margin.Left > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, bgColor);
+							buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', fgColor, bgColor);
 						}
 
 						// Calculate alignment
@@ -424,7 +348,7 @@ namespace SharpConsoleUI.Controls
 						int alignOffset = 0;
 						if (lineWidth < targetWidth)
 						{
-							switch (_horizontalAlignment)
+							switch (HorizontalAlignment)
 							{
 								case HorizontalAlignment.Center:
 									alignOffset = (targetWidth - lineWidth) / 2;
@@ -447,22 +371,22 @@ namespace SharpConsoleUI.Controls
 
 						// Fill right padding
 						int rightPadStart = startX + alignOffset + lineWidth;
-						int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+						int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
 						if (rightPadWidth > 0)
 						{
 							buffer.FillRect(new LayoutRect(rightPadStart, paintY, rightPadWidth, 1), ' ', fgColor, bgColor);
 						}
 
 						// Fill right margin
-						if (_margin.Right > 0)
+						if (Margin.Right > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, paintY, _margin.Right, 1), ' ', fgColor, bgColor);
+							buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), ' ', fgColor, bgColor);
 						}
 					}
 				}
 
 				// Fill any remaining height after content
-				for (int y = startY + contentHeight; y < bounds.Bottom - _margin.Bottom; y++)
+				for (int y = startY + contentHeight; y < bounds.Bottom - Margin.Bottom; y++)
 				{
 					if (y >= clipRect.Y && y < clipRect.Bottom)
 					{
@@ -472,7 +396,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - _margin.Bottom, fgColor, bgColor);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor);
 		}
 
 		#endregion

@@ -17,25 +17,14 @@ namespace SharpConsoleUI.Controls;
 /// A full-featured menu control supporting horizontal (menu bar) and vertical (sidebar) orientations,
 /// unlimited submenu nesting, keyboard and mouse navigation, and overlay rendering.
 /// </summary>
-public class MenuControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable, IContainer
+public class MenuControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer
 {
     #region Fields
-
-    private int _actualX;
-    private int _actualY;
-    private int _actualWidth;
-    private int _actualHeight;
 
     // Configuration
     private MenuOrientation _orientation = MenuOrientation.Horizontal;
     private bool _isSticky;
-    private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-    private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-    private Margin _margin = new Margin(0, 0, 0, 0);
-    private StickyPosition _stickyPosition = StickyPosition.None;
-    private bool _visible = true;
     private bool _enabled = true;
-    private int? _width;
 
     // Menu items
     private readonly List<MenuItem> _items = new();
@@ -229,48 +218,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     #region IWindowControl Implementation
 
     /// <inheritdoc/>
-    public IContainer? Container { get; set; }
-    /// <inheritdoc/>
-    public string? Name { get; set; }
-    /// <inheritdoc/>
-    public object? Tag { get; set; }
-
-    /// <inheritdoc/>
-    public HorizontalAlignment HorizontalAlignment
-    {
-        get => _horizontalAlignment;
-        set { _horizontalAlignment = value; Container?.Invalidate(true); }
-    }
-
-    /// <inheritdoc/>
-    public VerticalAlignment VerticalAlignment
-    {
-        get => _verticalAlignment;
-        set { _verticalAlignment = value; Container?.Invalidate(true); }
-    }
-
-    /// <inheritdoc/>
-    public Margin Margin
-    {
-        get => _margin;
-        set { _margin = value; Container?.Invalidate(true); }
-    }
-
-    /// <inheritdoc/>
-    public StickyPosition StickyPosition
-    {
-        get => _stickyPosition;
-        set { _stickyPosition = value; Container?.Invalidate(true); }
-    }
-
-    /// <inheritdoc/>
-    public bool Visible
-    {
-        get => _visible;
-        set { _visible = value; Container?.Invalidate(true); }
-    }
-
-    /// <inheritdoc/>
     public bool IsEnabled
     {
         get => _enabled;
@@ -278,42 +225,17 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     }
 
     /// <inheritdoc/>
-    public int? Width
-    {
-        get => _width;
-        set
-        {
-            var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-            if (_width != validatedValue)
-            {
-                _width = validatedValue;
-                Container?.Invalidate(true);
-            }
-        }
-    }
+    public override int? ContentWidth => null;
 
     /// <inheritdoc/>
-    public int? ContentWidth => null;
-
-    /// <inheritdoc/>
-    public int ActualX => _actualX;
-    /// <inheritdoc/>
-    public int ActualY => _actualY;
-    /// <inheritdoc/>
-    public int ActualWidth => _actualWidth;
-    /// <inheritdoc/>
-    public int ActualHeight => _actualHeight;
-
-    /// <inheritdoc/>
-    public void Dispose()
+    protected override void OnDisposing()
     {
         CloseAllMenus();
         _items.Clear();
-        Container = null;
     }
 
     /// <inheritdoc/>
-    public Size GetLogicalContentSize()
+    public override Size GetLogicalContentSize()
     {
         if (_orientation == MenuOrientation.Horizontal)
         {
@@ -323,7 +245,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                 if (!item.IsSeparator)
                     totalWidth += AnsiConsoleHelper.StripSpectreLength(item.Text) + 4; // Padding
             }
-            return new Size(totalWidth + _margin.Left + _margin.Right, 1 + _margin.Top + _margin.Bottom);
+            return new Size(totalWidth + Margin.Left + Margin.Right, 1 + Margin.Top + Margin.Bottom);
         }
         else
         {
@@ -333,14 +255,8 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                 if (!item.IsSeparator)
                     maxWidth = Math.Max(maxWidth, AnsiConsoleHelper.StripSpectreLength(item.Text));
             }
-            return new Size(maxWidth + 4 + _margin.Left + _margin.Right, _items.Count + _margin.Top + _margin.Bottom);
+            return new Size(maxWidth + 4 + Margin.Left + Margin.Right, _items.Count + Margin.Top + Margin.Bottom);
         }
-    }
-
-    /// <inheritdoc/>
-    public void Invalidate()
-    {
-        Container?.Invalidate(true);
     }
 
     #endregion
@@ -767,7 +683,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     #region IDOMPaintable Implementation
 
     /// <inheritdoc/>
-    public LayoutSize MeasureDOM(LayoutConstraints constraints)
+    public override LayoutSize MeasureDOM(LayoutConstraints constraints)
     {
         int width, height;
 
@@ -781,7 +697,7 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                     totalWidth += AnsiConsoleHelper.StripSpectreLength(item.Text) + 4; // Add padding
             }
 
-            width = _width ?? totalWidth;
+            width = Width ?? totalWidth;
             height = 1;
         }
         else // Vertical
@@ -794,13 +710,13 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
                     maxWidth = Math.Max(maxWidth, AnsiConsoleHelper.StripSpectreLength(item.Text));
             }
 
-            width = _width ?? (maxWidth + 4);
+            width = Width ?? (maxWidth + 4);
             height = _items.Count;
         }
 
         // Add margins
-        width += _margin.Left + _margin.Right;
-        height += _margin.Top + _margin.Bottom;
+        width += Margin.Left + Margin.Right;
+        height += Margin.Top + Margin.Bottom;
 
         return new LayoutSize(
             Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -809,12 +725,9 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
     }
 
     /// <inheritdoc/>
-    public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+    public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
     {
-        _actualX = bounds.X;
-        _actualY = bounds.Y;
-        _actualWidth = bounds.Width;
-        _actualHeight = bounds.Height;
+        SetActualBounds(bounds);
 
         _lastBounds = bounds;
 
@@ -1044,7 +957,6 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
         // Calculate dropdown bounds (will be implemented in rendering phase)
         dropdown.Bounds = CalculateDropdownBounds(item);
-        dropdown.Direction = CalculateSubmenuDirection(item);
 
         _openDropdowns.Add(dropdown);
 
@@ -1154,15 +1066,14 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
         }
 
         // Calculate dropdown size
-        // Width: text + shortcut + padding(4) + indicator(3) + spacing(1) + borders(2) = +10 total
-        int dropdownWidth = maxTextWidth + maxShortcutWidth + 10; // +8 for padding/indicator/margins, +2 for borders
-        dropdownWidth = Math.Max(dropdownWidth, 15); // Minimum width
-        dropdownWidth = Math.Min(dropdownWidth, 50); // Maximum width
+        int dropdownWidth = maxTextWidth + maxShortcutWidth + 10;
+        dropdownWidth = Math.Max(dropdownWidth, 15);
+        dropdownWidth = Math.Min(dropdownWidth, 50);
 
-        int dropdownHeight = Math.Min(itemCount + 2, MaxDropdownHeight + 2); // +2 for borders
+        int dropdownHeight = Math.Min(itemCount + 2, MaxDropdownHeight + 2);
 
-        // Get screen dimensions - item.Bounds are in absolute screen coordinates
-        int screenWidth = 160; // Default
+        // Get screen dimensions
+        int screenWidth = 160;
         int screenHeight = 40;
 
         if (Container?.GetConsoleWindowSystem != null)
@@ -1173,174 +1084,70 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
             screenHeight = dimensions.Height;
         }
 
-        // Calculate position based on direction
-        var direction = CalculateSubmenuDirection(item);
-        int x, y;
+        // Determine screen bounds for clamping
+        // Use window buffer bounds if available (portals use window-relative coordinates)
+        Rectangle screenBounds;
+        Window? parentWindow = Container as Window;
+        if (parentWindow != null)
+        {
+            int bufferWidth = parentWindow.Width - 2;
+            int bufferHeight = parentWindow.Height - 2;
+            screenBounds = new Rectangle(0, 0, bufferWidth, bufferHeight);
+        }
+        else
+        {
+            screenBounds = new Rectangle(0, 0, screenWidth, screenHeight);
+        }
 
-        // Determine if this is a top-level item in this menu
         bool isTopLevel = (item.Parent == null);
+        var itemBounds = item.Bounds;
 
-        // Use item.Bounds directly - they are already in window-content-relative coordinates
-        // The portal system will automatically convert to screen-absolute by adding parent's AbsoluteBounds
-        int relativeX = item.Bounds.X;
-        int relativeY = item.Bounds.Y;
-        int relativeRight = item.Bounds.Right;
-        int relativeBottom = item.Bounds.Bottom;
-
-        // For top-level items, direction depends on menu orientation
-        // For nested submenus, always use Right/Left regardless of parent menu orientation
+        // Determine placement based on context
+        PortalPlacement placement;
         if (isTopLevel && _orientation == MenuOrientation.Horizontal)
         {
             // Horizontal menu bar - top-level dropdowns open Below/Above
-            if (direction == SubmenuDirection.Below)
+            // Use screen coordinates for direction check
+            int contentTop = 0;
+            if (parentWindow != null)
             {
-                x = relativeX;
-                y = relativeBottom;
+                contentTop = parentWindow.Top + (parentWindow.ShowTitle ? 2 : 1);
             }
-            else // Above
-            {
-                x = relativeX;
-                y = relativeY - dropdownHeight;
-            }
+            int screenBottom = contentTop + itemBounds.Bottom;
+            int screenTop = contentTop + itemBounds.Top;
+
+            bool fitsBelow = (screenBottom + dropdownHeight <= screenHeight);
+            bool fitsAbove = (screenTop - dropdownHeight >= 0);
+
+            placement = (!fitsBelow && fitsAbove) ? PortalPlacement.Above : PortalPlacement.Below;
         }
         else
         {
             // Vertical menu OR nested submenu - opens Right/Left
-            if (direction == SubmenuDirection.Right)
+            int contentLeft = 0;
+            if (parentWindow != null)
             {
-                x = relativeRight;
-                y = relativeY;
+                contentLeft = parentWindow.Left + 1;
             }
-            else // Left
-            {
-                x = relativeX - dropdownWidth;
-                y = relativeY;
-            }
+            int screenRight = contentLeft + itemBounds.Right;
+            int screenLeft = contentLeft + itemBounds.Left;
+
+            bool fitsRight = (screenRight + dropdownWidth <= screenWidth);
+            bool fitsLeft = (screenLeft - dropdownWidth >= 0);
+
+            placement = (!fitsRight && fitsLeft) ? PortalPlacement.Left : PortalPlacement.Right;
         }
 
-        // Clamp to window's content buffer bounds (window-relative coordinates)
-        // Window buffer is sized to (Width-2) × (Height-2) by design
-        Window? parentWindow = Container as Window;
-        if (parentWindow != null)
-        {
-            // Buffer dimensions (always Width-2 and Height-2 by design)
-            int bufferWidth = parentWindow.Width - 2;
-            int bufferHeight = parentWindow.Height - 2;
+        // Use PortalPositioner for final placement and clamping
+        var request = new PortalPositionRequest(
+            Anchor: new Rectangle(itemBounds.X, itemBounds.Y, itemBounds.Width, itemBounds.Height),
+            ContentSize: new Size(dropdownWidth, dropdownHeight),
+            ScreenBounds: screenBounds,
+            Placement: placement
+        );
 
-            // Clamp to buffer bounds (0,0 to bufferWidth, bufferHeight)
-            if (x + dropdownWidth > bufferWidth)
-            {
-                x = Math.Max(0, bufferWidth - dropdownWidth);
-            }
-
-            if (y + dropdownHeight > bufferHeight)
-            {
-                y = Math.Max(0, bufferHeight - dropdownHeight);
-            }
-
-            // Ensure not pushed off top-left edge
-            x = Math.Max(0, x);
-            y = Math.Max(0, y);
-        }
-
-        return new Rectangle(x, y, dropdownWidth, dropdownHeight);
-    }
-
-    private SubmenuDirection CalculateSubmenuDirection(MenuItem item)
-    {
-        // Get screen dimensions
-        int screenWidth = 160; // Default
-        int screenHeight = 40;
-
-        if (Container?.GetConsoleWindowSystem != null)
-        {
-            var ws = Container.GetConsoleWindowSystem;
-            var dimensions = ws.DesktopDimensions;
-            screenWidth = dimensions.Width;
-            screenHeight = dimensions.Height;
-        }
-
-        // Calculate submenu dimensions (same logic as CalculateDropdownBounds)
-        int maxTextWidth = 0;
-        int maxShortcutWidth = 0;
-        int itemCount = 0;
-
-        foreach (var child in item.Children)
-        {
-            if (child.IsSeparator)
-            {
-                itemCount++;
-                continue;
-            }
-
-            int textWidth = AnsiConsoleHelper.StripSpectreLength(child.Text);
-            maxTextWidth = Math.Max(maxTextWidth, textWidth);
-
-            if (!string.IsNullOrEmpty(child.Shortcut))
-            {
-                int shortcutWidth = AnsiConsoleHelper.StripSpectreLength(child.Shortcut);
-                maxShortcutWidth = Math.Max(maxShortcutWidth, shortcutWidth);
-            }
-
-            itemCount++;
-        }
-
-        int submenuWidth = maxTextWidth + maxShortcutWidth + 10; // +8 for padding/indicator/margins, +2 for borders
-        submenuWidth = Math.Max(submenuWidth, 15); // Minimum width
-        submenuWidth = Math.Min(submenuWidth, 50); // Maximum width
-
-        int submenuHeight = Math.Min(itemCount + 2, MaxDropdownHeight + 2); // +2 for borders
-
-        var itemBounds = item.Bounds;
-        bool isTopLevel = (item.Parent == null);
-
-        // For direction calculation, we need to check if submenu fits on screen
-        // Convert item bounds to screen coordinates for this check
-        int contentLeft = 0;
-        int contentTop = 0;
-
-        if (Container is Window parentWindow)
-        {
-            int borderOffsetX = 1;
-            int borderOffsetY = parentWindow.ShowTitle ? 2 : 1;
-            contentLeft = parentWindow.Left + borderOffsetX;
-            contentTop = parentWindow.Top + borderOffsetY;
-        }
-
-        // Screen coordinates for direction checking
-        int screenTop = contentTop + itemBounds.Top;
-        int screenBottom = contentTop + itemBounds.Bottom;
-        int screenLeft = contentLeft + itemBounds.Left;
-        int screenRight = contentLeft + itemBounds.Right;
-
-        // For top-level items in HORIZONTAL menu: open Below/Above
-        if (isTopLevel && _orientation == MenuOrientation.Horizontal)
-        {
-            // Try below first
-            int belowY = screenBottom;
-            if (belowY + submenuHeight <= screenHeight)
-                return SubmenuDirection.Below;
-
-            // Try above
-            int aboveY = screenTop - submenuHeight;
-            if (aboveY >= 0)
-                return SubmenuDirection.Above;
-
-            return SubmenuDirection.Below; // Best effort
-        }
-
-        // For top-level items in VERTICAL menu OR nested submenus: open Right/Left
-        // Try right first
-        int rightX = screenRight;
-        if (rightX + submenuWidth <= screenWidth)
-            return SubmenuDirection.Right;
-
-        // Try left
-        int leftX = screenLeft - submenuWidth;
-        if (leftX >= 0)
-            return SubmenuDirection.Left;
-
-        return SubmenuDirection.Right; // Best effort
+        var result = PortalPositioner.Calculate(request);
+        return result.Bounds;
     }
 
     private bool IsTopLevelItem(MenuItem item)
@@ -1401,8 +1208,8 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     private void PaintHorizontalMenuBar(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color fg, Color bg)
     {
-        int x = bounds.X + _margin.Left;
-        int y = bounds.Y + _margin.Top;
+        int x = bounds.X + Margin.Left;
+        int y = bounds.Y + Margin.Top;
 
         foreach (var item in _items)
         {
@@ -1422,9 +1229,9 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 
     private void PaintVerticalMenu(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color fg, Color bg)
     {
-        int x = bounds.X + _margin.Left;
-        int y = bounds.Y + _margin.Top;
-        int width = bounds.Width - _margin.Left - _margin.Right;
+        int x = bounds.X + Margin.Left;
+        int y = bounds.Y + Margin.Top;
+        int width = bounds.Width - Margin.Left - Margin.Right;
 
         foreach (var item in _items)
         {
@@ -2237,15 +2044,10 @@ public class MenuControl : IWindowControl, IInteractiveControl, IFocusableContro
 /// This control is created by MenuControl when a dropdown opens and is added as a portal child
 /// to render outside the normal bounds of the menu control.
 /// </summary>
-internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareControl
+internal class MenuPortalContent : PortalContentBase
 {
     private readonly MenuControl _owner;
     private readonly MenuDropdown _dropdown;
-
-    private int _actualX;
-    private int _actualY;
-    private int _actualWidth;
-    private int _actualHeight;
 
     public MenuPortalContent(MenuControl owner, MenuDropdown dropdown)
     {
@@ -2253,118 +2055,19 @@ internal class MenuPortalContent : IWindowControl, IDOMPaintable, IMouseAwareCon
         _dropdown = dropdown;
     }
 
-    #region IMouseAwareControl Implementation
+    /// <inheritdoc/>
+    public override Rectangle GetPortalBounds() => _dropdown.Bounds;
 
-    /// <summary>
-    /// Whether this control wants to receive mouse events.
-    /// </summary>
-    public bool WantsMouseEvents => true;
-
-    /// <summary>
-    /// Whether this control can receive focus via mouse clicks.
-    /// Portal content should not steal focus from owner.
-    /// </summary>
-    public bool CanFocusWithMouse => false;
-
-    #pragma warning disable CS0067  // Event never raised (interface requirement)
-    /// <summary>
-    /// Event fired when the control is clicked.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseClick;
-
-    /// <summary>
-    /// Event fired when the control is double-clicked.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseDoubleClick;
-
-    /// <summary>
-    /// Event fired when the mouse enters the control area.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseEnter;
-
-    /// <summary>
-    /// Event fired when the mouse leaves the control area.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseLeave;
-
-    /// <summary>
-    /// Event fired when the mouse moves over the control.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseMove;
-    #pragma warning restore CS0067
-
-    /// <summary>
-    /// Processes mouse events for this portal content and delegates to owner MenuControl.
-    /// </summary>
-    /// <param name="args">Mouse event arguments with portal-relative coordinates.</param>
-    /// <returns>True if the event was handled.</returns>
-    public bool ProcessMouseEvent(MouseEventArgs args)
+    /// <inheritdoc/>
+    public override bool ProcessMouseEvent(MouseEventArgs args)
     {
-        // Delegate to owner MenuControl for handling
         return _owner.ProcessDropdownMouseEvent(_dropdown, args);
     }
 
-    #endregion
-
-    // IWindowControl minimal implementation
-    public int? ContentWidth => _dropdown.Bounds.Width;
-    public int? ContentHeight => _dropdown.Bounds.Height;
     /// <inheritdoc/>
-    public int ActualX => _actualX;
-    /// <inheritdoc/>
-    public int ActualY => _actualY;
-    /// <inheritdoc/>
-    public int ActualWidth => _actualWidth;
-    /// <inheritdoc/>
-    public int ActualHeight => _actualHeight;
-    public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
-    public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.Top;
-    public IContainer? Container { get; set; }
-    public Margin Margin { get; set; } = new Margin(0, 0, 0, 0);
-    public StickyPosition StickyPosition { get; set; } = StickyPosition.None;
-    public string? Name { get; set; }
-    public object? Tag { get; set; }
-    public bool Visible { get; set; } = true;
-    public int? Width { get; set; }
-
-    public Size GetLogicalContentSize()
+    protected override void PaintPortalContent(CharacterBuffer buffer, LayoutRect bounds,
+        LayoutRect clipRect, Color defaultFg, Color defaultBg)
     {
-        return new Size(_dropdown.Bounds.Width, _dropdown.Bounds.Height);
-    }
-
-    /// <summary>
-    /// Gets the absolute bounds for portal positioning.
-    /// </summary>
-    public Rectangle GetPortalBounds()
-    {
-        return _dropdown.Bounds;
-    }
-
-    public void Invalidate()
-    {
-        Container?.Invalidate(true);
-    }
-
-    public void Dispose()
-    {
-        // Nothing to dispose
-    }
-
-    // IDOMPaintable implementation
-    public LayoutSize MeasureDOM(LayoutConstraints constraints)
-    {
-        return new LayoutSize(_dropdown.Bounds.Width, _dropdown.Bounds.Height);
-    }
-
-    public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
-                         Color defaultFg, Color defaultBg)
-    {
-        _actualX = bounds.X;
-        _actualY = bounds.Y;
-        _actualWidth = bounds.Width;
-        _actualHeight = bounds.Height;
-
-        // Delegate painting to the owner MenuControl
         _owner.PaintDropdownInternal(buffer, _dropdown, clipRect);
     }
 }

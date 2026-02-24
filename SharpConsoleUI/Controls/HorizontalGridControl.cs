@@ -75,30 +75,18 @@ namespace SharpConsoleUI.Controls
 	/// Window.cs during tree building. Users don't interact with HorizontalLayout directly.
 	/// </para>
 	/// </summary>
-	public class HorizontalGridControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IDOMPaintable, IContainerControl, IFocusTrackingContainer
+	public class HorizontalGridControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IContainerControl, IFocusTrackingContainer
 	{
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
-		private IContainer? _container;
 		private IInteractiveControl? _focusedContent;
 		private bool _hasFocus;
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
 		private bool _interactiveContentsDirty = true;
 		private bool _focusFromBackward = false;
 		private bool _isEnabled = true;
-		private Margin _margin = new Margin(0, 0, 0, 0);
 		private Dictionary<IInteractiveControl, int> _splitterControls = new Dictionary<IInteractiveControl, int>();
 		private List<SplitterControl> _splitters = new List<SplitterControl>();
 		private Dictionary<ColumnContainer, int?> _savedColumnWidths = new Dictionary<ColumnContainer, int?>();
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private bool _visible = true;
-		private int? _width;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="HorizontalGridControl"/> class.
@@ -200,11 +188,11 @@ namespace SharpConsoleUI.Controls
 		#endregion
 
 		/// <inheritdoc/>
-		public int? ContentWidth
+		public override int? ContentWidth
 		{
 			get
 			{
-				int totalWidth = _margin.Left + _margin.Right;
+				int totalWidth = Margin.Left + Margin.Right;
 				foreach (var column in _columns)
 				{
 					if (!column.Visible) continue;
@@ -220,24 +208,12 @@ namespace SharpConsoleUI.Controls
 	}
 
 	/// <inheritdoc/>
-	public int ActualX => _actualX;
-
-	/// <inheritdoc/>
-	public int ActualY => _actualY;
-
-	/// <inheritdoc/>
-	public int ActualWidth => _actualWidth;
-
-	/// <inheritdoc/>
-	public int ActualHeight => _actualHeight;
-
-	/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
+		public override HorizontalAlignment HorizontalAlignment
+		{ get => base.HorizontalAlignment; set { base.HorizontalAlignment = value; } }
 
 		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
+		public override VerticalAlignment VerticalAlignment
+		{ get => base.VerticalAlignment; set { base.VerticalAlignment = value; } }
 
 		/// <inheritdoc/>
 		public Color? BackgroundColor { get; set; }
@@ -289,12 +265,12 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public IContainer? Container
+		public override IContainer? Container
 		{
-			get { return _container; }
+			get { return base.Container; }
 			set
 			{
-				_container = value;
+				base.Container = value;
 					foreach (var column in _columns)
 				{
 					column.GetConsoleWindowSystem = value?.GetConsoleWindowSystem;
@@ -343,41 +319,17 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-		}
+		public override bool Visible
+		{ get => base.Visible; set { base.Visible = value; } }
 
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public bool Visible
-		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-	public int? Width
+	/// <inheritdoc/>
+	public override int? Width
 	{
-		get => _width;
+		get => base.Width;
 		set
 		{
 			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-			if (_width != validatedValue)
-			{
-				_width = validatedValue;
-				Container?.Invalidate(true);
-			}
+			base.Width = validatedValue;
 		}
 	}
 
@@ -529,14 +481,13 @@ namespace SharpConsoleUI.Controls
 		#endregion
 
 		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
 			// Clean up event handlers from splitters
 			foreach (var splitter in _splitters)
 			{
 				splitter.SplitterMoved -= OnSplitterMoved;
 			}
-			Container = null;
 		}
 
 		/// <inheritdoc/>
@@ -563,9 +514,9 @@ namespace SharpConsoleUI.Controls
 			(_focusedContent as ICursorShapeProvider)?.PreferredCursorShape;
 
 		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
-			int totalWidth = _margin.Left + _margin.Right;
+			int totalWidth = Margin.Left + Margin.Right;
 			int maxHeight = 0;
 
 			foreach (var column in _columns)
@@ -582,7 +533,7 @@ namespace SharpConsoleUI.Controls
 				totalWidth += splitter.Width ?? 1;
 			}
 
-			return new System.Drawing.Size(totalWidth, maxHeight + _margin.Top + _margin.Bottom);
+			return new System.Drawing.Size(totalWidth, maxHeight + Margin.Top + Margin.Bottom);
 		}
 
 		/// <inheritdoc/>
@@ -592,7 +543,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate()
+		public new void Invalidate()
 		{
 			AdjustColumnWidthsForVisibility();
 
@@ -956,7 +907,7 @@ namespace SharpConsoleUI.Controls
 					// Calculate control-relative coordinates
 					var controlPosition = GetControlRelativePosition(clickedControl, args.Position);
 					var controlArgs = args.WithPosition(controlPosition);
-					
+
 					return mouseAware.ProcessMouseEvent(controlArgs);
 				}
 
@@ -996,8 +947,8 @@ namespace SharpConsoleUI.Controls
 				if (_focusedContent == null)
 				{
 					// Find first or last focusable control based on focus direction
-					_focusedContent = _focusFromBackward 
-						? FindLastFocusableControl() 
+					_focusedContent = _focusFromBackward
+						? FindLastFocusableControl()
 						: FindFirstFocusableControl();
 					_focusFromBackward = false; // Reset after use
 				}
@@ -1006,7 +957,7 @@ namespace SharpConsoleUI.Controls
 				if (_focusedContent != null)
 				{
 					SetControlFocus(_focusedContent, true);
-					
+
 					if (_interactiveContents.ContainsKey(_focusedContent))
 					{
 						_interactiveContents[_focusedContent].Invalidate(true);
@@ -1053,7 +1004,7 @@ namespace SharpConsoleUI.Controls
 			for (int i = 0; i < displayControls.Count; i++)
 			{
 				var (isSplitter, control, controlWidth) = displayControls[i];
-				
+
 				if (isSplitter)
 				{
 					// Check if click is on splitter
@@ -1068,7 +1019,7 @@ namespace SharpConsoleUI.Controls
 					// Check if click is within this column
 					var column = (ColumnContainer)control;
 					int actualColumnWidth = column.GetContentWidth() ?? controlWidth;
-					
+
 					if (position.X >= currentX && position.X < currentX + actualColumnWidth)
 					{
 						// Find the control within this column at the relative position
@@ -1098,7 +1049,7 @@ namespace SharpConsoleUI.Controls
 					// Calculate the column's offset within the grid
 					var columnOffset = GetColumnOffset(column);
 					var columnRelativePosition = new Point(gridPosition.X - columnOffset, gridPosition.Y);
-					
+
 					// Get the control's position within the column
 					return column.GetControlRelativePosition(control, columnRelativePosition);
 				}
@@ -1111,12 +1062,12 @@ namespace SharpConsoleUI.Controls
 			for (int i = 0; i < displayControls.Count; i++)
 			{
 				var (isSplitter, displayControl, controlWidth) = displayControls[i];
-				
+
 				if (isSplitter && displayControl == control)
 				{
 					return new Point(gridPosition.X - currentX, gridPosition.Y);
 				}
-				
+
 				currentX += isSplitter ? controlWidth : ((ColumnContainer)displayControl).GetContentWidth() ?? controlWidth;
 			}
 
@@ -1136,12 +1087,12 @@ namespace SharpConsoleUI.Controls
 			for (int i = 0; i < displayControls.Count; i++)
 			{
 				var (isSplitter, control, controlWidth) = displayControls[i];
-				
+
 				if (isSplitter && control == targetSplitter)
 				{
 					return currentX;
 				}
-				
+
 				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetContentWidth() ?? controlWidth;
 			}
 
@@ -1161,12 +1112,12 @@ namespace SharpConsoleUI.Controls
 			for (int i = 0; i < displayControls.Count; i++)
 			{
 				var (isSplitter, control, controlWidth) = displayControls[i];
-				
+
 				if (!isSplitter && control == targetColumn)
 				{
 					return currentX;
 				}
-				
+
 				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetContentWidth() ?? controlWidth;
 			}
 
@@ -1335,9 +1286,9 @@ namespace SharpConsoleUI.Controls
 		/// how HorizontalLayout.MeasureChildren works in the DOM system. Space distribution
 		/// happens during arrangement, not measurement.
 		/// </remarks>
-        public LayoutSize MeasureDOM(LayoutConstraints constraints)
+        public override LayoutSize MeasureDOM(LayoutConstraints constraints)
         {
-            int totalWidth = _margin.Left + _margin.Right;
+            int totalWidth = Margin.Left + Margin.Right;
             int maxHeight = 0;
 
             // Measure each column and sum actual widths (skip hidden ones)
@@ -1392,18 +1343,15 @@ namespace SharpConsoleUI.Controls
 
             return new LayoutSize(
                 Math.Clamp(totalWidth, constraints.MinWidth, constraints.MaxWidth),
-                Math.Clamp(maxHeight + _margin.Top + _margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
+                Math.Clamp(maxHeight + Margin.Top + Margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
             );
         }
 
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			// NOTE: Container controls should NOT paint their children here.
 			// Children (columns, splitters) are painted by the DOM tree's child LayoutNodes.

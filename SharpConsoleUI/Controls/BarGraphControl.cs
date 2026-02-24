@@ -28,7 +28,7 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal bar graph control for visualizing percentage-based data.
 	/// Displays a filled/unfilled bar with optional label, value, and custom colors.
 	/// </summary>
-	public class BarGraphControl : IWindowControl, IDOMPaintable
+	public class BarGraphControl : BaseControl
 	{
 		private const int DEFAULT_BAR_WIDTH = 20;
 		private const char FILLED_CHAR = '█';
@@ -39,29 +39,18 @@ namespace SharpConsoleUI.Controls
 		private IContainer? _container;
 		private Color _filledColor = Color.Cyan1;
 		private Color? _foregroundColorValue;
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private string _label = string.Empty;
 		private int? _labelWidth;
-		private Margin _margin = new Margin(0, 0, 0, 0);
 		private double _maxValue = 100.0;
 		private bool _showLabel = true;
 		private bool _showValue = true;
-		private StickyPosition _stickyPosition = StickyPosition.None;
 		private Color _unfilledColor = Color.Grey35;
 		private double _value;
 		private string _valueFormat = "F1";
 		private List<ColorThreshold>? _colorThresholds;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-		private bool _visible = true;
-		private int? _width;
 
 		// Gradient support
 		private ColorGradient? _smoothGradient;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="BarGraphControl"/> class.
@@ -279,25 +268,13 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		#region IWindowControl Implementation
+		#region BaseControl Overrides
 
 		/// <inheritdoc/>
-		public int? ContentWidth => _width;
+		public override int? ContentWidth => Width;
 
 		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public IContainer? Container
+		public override IContainer? Container
 		{
 			get => _container;
 			set
@@ -308,82 +285,34 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
+		public override Margin Margin
 		{
-			get => _horizontalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
+			get => base.Margin;
 			set
 			{
-				_margin = value;
-				Container?.Invalidate(true);
+				base.Margin = value;
 			}
 		}
 
 		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
+		public override int? Width
 		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public bool Visible
-		{
-			get => _visible;
-			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
+			get => base.Width;
 			set
 			{
 				var validatedValue = value.HasValue ? Math.Max(1, value.Value) : (int?)null;
-				if (_width != validatedValue)
+				if (base.Width != validatedValue)
 				{
-					_width = validatedValue;
-					Container?.Invalidate(true);
+					base.Width = validatedValue;
 				}
 			}
 		}
 
 		/// <inheritdoc/>
-		public void Dispose()
-		{
-			Container = null;
-		}
-
-		/// <inheritdoc/>
-		public Size GetLogicalContentSize()
+		public override Size GetLogicalContentSize()
 		{
 			int contentWidth = CalculateContentWidth();
-			return new Size(contentWidth + _margin.Left + _margin.Right, 1 + _margin.Top + _margin.Bottom);
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(false);
+			return new Size(contentWidth + Margin.Left + Margin.Right, 1 + Margin.Top + Margin.Bottom);
 		}
 
 		#endregion
@@ -391,11 +320,11 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int contentWidth = CalculateContentWidth();
-			int width = contentWidth + _margin.Left + _margin.Right;
-			int height = 1 + _margin.Top + _margin.Bottom;
+			int width = contentWidth + Margin.Left + Margin.Right;
+			int height = 1 + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -404,19 +333,16 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			// Resolve colors
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
 			int paintY = startY;
 
 			if (paintY < clipRect.Y || paintY >= clipRect.Bottom || paintY >= bounds.Bottom)

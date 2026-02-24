@@ -25,7 +25,7 @@ namespace SharpConsoleUI.Controls
 	/// A single-line text input control with optional prompt text.
 	/// Supports text editing, cursor navigation, and horizontal scrolling for overflow text.
 	/// </summary>
-	public class PromptControl : IWindowControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider, IDOMPaintable
+	public class PromptControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		/// <summary>
 		/// Event fired when Enter is pressed (modern standardized event)
@@ -36,23 +36,13 @@ namespace SharpConsoleUI.Controls
 		/// Event fired when input text changes (modern standardized event)
 		/// </summary>
 		public event EventHandler<string>? InputChanged;
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 		private string _input = string.Empty;
 		private Color? _inputBackgroundColor;
 		private Color? _inputFocusedBackgroundColor;
 		private Color? _inputFocusedForegroundColor;
 		private Color? _inputForegroundColor;
 		private int? _inputWidth;
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-		private Margin _margin = new Margin(0, 0, 0, 0);
 		private string? _prompt;
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private bool _visible = true;
-		private int? _width;
 
 		// Local edit state - controls own their edit state
 		private int _cursorPosition = 0;
@@ -69,36 +59,16 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered width of the control content in characters.
 		/// </summary>
-		public int? ContentWidth
+		public override int? ContentWidth
 		{
 			get
 			{
 				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
 				int inputLength = _inputWidth ?? _input.Length;
-				return promptLength + inputLength + _margin.Left + _margin.Right;
+				return promptLength + inputLength + Margin.Left + Margin.Right;
 			}
 		}
 
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public IContainer? Container { get; set; }
-		
 		private bool _hasFocus;
 
 		/// <inheritdoc/>
@@ -216,33 +186,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool IsEnabled { get; set; } = true;
 
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-		}
-
-
-
 		/// <summary>
 		/// Gets or sets the prompt text displayed before the input area.
 		/// </summary>
 		public string? Prompt
 		{ get => _prompt; set { _prompt = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
 
 		/// <summary>
 		/// Gets or sets whether the control loses focus when Enter is pressed.
@@ -250,20 +198,8 @@ namespace SharpConsoleUI.Controls
 		public bool UnfocusOnEnter { get; set; } = true;
 
 		/// <inheritdoc/>
-		public bool Visible
-		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public int? Width
+		protected override void OnDisposing()
 		{
-			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public void Dispose()
-		{
-			Container = null;
 		}
 
 		/// <inheritdoc/>
@@ -278,18 +214,18 @@ namespace SharpConsoleUI.Controls
 			// Return the visual cursor position within the input field
 			// Account for scroll offset, margins, and alignment offset to get the position relative to visible content
 			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
-			int visualCursorX = _margin.Left + _lastAlignOffset + promptLength + (CurrentCursorPosition - CurrentScrollOffset);
-			var pos = new Point(visualCursorX, _margin.Top);
+			int visualCursorX = Margin.Left + _lastAlignOffset + promptLength + (CurrentCursorPosition - CurrentScrollOffset);
+			var pos = new Point(visualCursorX, Margin.Top);
 
 			return pos;
 		}
 
 		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			// Return the size of the prompt content (prompt + input area)
 			string fullContent = (_prompt ?? string.Empty) + _input;
-			int width = Math.Max(AnsiConsoleHelper.StripSpectreLength(fullContent), _width ?? 0);
+			int width = Math.Max(AnsiConsoleHelper.StripSpectreLength(fullContent), Width ?? 0);
 			return new System.Drawing.Size(width, 1); // Single line control
 		}
 
@@ -319,12 +255,6 @@ namespace SharpConsoleUI.Controls
 			}
 
 			Container?.Invalidate(false, this);
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -426,7 +356,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
-		
+
 		/// <summary>
 		/// Occurs when the control receives focus.
 		/// </summary>
@@ -436,7 +366,7 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the control loses focus.
 		/// </summary>
 		public event EventHandler? LostFocus;
-		
+
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
@@ -478,13 +408,13 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
 			int inputFieldWidth = _inputWidth ?? Math.Max(_input.Length, 10);
 			int contentWidth = promptLength + inputFieldWidth;
-			int width = (_width ?? contentWidth) + _margin.Left + _margin.Right;
-			int height = 1 + _margin.Top + _margin.Bottom;
+			int width = (Width ?? contentWidth) + Margin.Left + Margin.Right;
+			int height = 1 + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -493,21 +423,18 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = Container?.ForegroundColor ?? defaultFg;
-			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 
 			if (targetWidth <= 0) return;
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
@@ -516,9 +443,9 @@ namespace SharpConsoleUI.Controls
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
 			{
 				// Fill left margin
-				if (_margin.Left > 0)
+				if (Margin.Left > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, startY, _margin.Left, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(bounds.X, startY, Margin.Left, 1), ' ', fgColor, bgColor);
 				}
 
 				// Calculate colors
@@ -538,7 +465,7 @@ namespace SharpConsoleUI.Controls
 				int alignOffset = 0;
 				if (totalContentWidth < targetWidth)
 				{
-					switch (_horizontalAlignment)
+					switch (HorizontalAlignment)
 					{
 						case HorizontalAlignment.Center:
 							alignOffset = (targetWidth - totalContentWidth) / 2;
@@ -593,7 +520,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Render input field with background color
-				int remainingWidth = bounds.Right - currentX - _margin.Right;
+				int remainingWidth = bounds.Right - currentX - Margin.Right;
 				int inputDisplayWidth = _inputWidth ?? Math.Max(remainingWidth, 0);
 				inputDisplayWidth = Math.Min(inputDisplayWidth, remainingWidth);
 
@@ -611,12 +538,12 @@ namespace SharpConsoleUI.Controls
 				// Fill remaining input field with background color
 				int inputEndX = currentX + visibleInput.Length;
 				int fillWidth = inputDisplayWidth - visibleInput.Length;
-				if (fillWidth > 0 && inputEndX < bounds.Right - _margin.Right)
+				if (fillWidth > 0 && inputEndX < bounds.Right - Margin.Right)
 				{
 					for (int i = 0; i < fillWidth; i++)
 					{
 						int x = inputEndX + i;
-						if (x >= clipRect.X && x < clipRect.Right && x < bounds.Right - _margin.Right)
+						if (x >= clipRect.X && x < clipRect.Right && x < bounds.Right - Margin.Right)
 						{
 							buffer.SetCell(x, startY, ' ', inputForegroundColor, inputBackgroundColor);
 						}
@@ -625,16 +552,16 @@ namespace SharpConsoleUI.Controls
 
 				// Fill right padding (after input field, before margin)
 				int rightPadStart = currentX + inputDisplayWidth;
-				int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
 				if (rightPadWidth > 0)
 				{
 					buffer.FillRect(new LayoutRect(rightPadStart, startY, rightPadWidth, 1), ' ', fgColor, bgColor);
 				}
 
 				// Fill right margin
-				if (_margin.Right > 0)
+				if (Margin.Right > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, startY, _margin.Right, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), ' ', fgColor, bgColor);
 				}
 			}
 

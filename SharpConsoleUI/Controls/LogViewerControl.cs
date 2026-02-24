@@ -10,7 +10,6 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Logging;
 using Spectre.Console;
 using Color = Spectre.Console.Color;
@@ -25,7 +24,7 @@ namespace SharpConsoleUI.Controls;
 /// Uses ScrollablePanelControl internally for scrolling with AutoScroll support.
 /// Thread-safe: log events can be received from any thread.
 /// </summary>
-public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
+public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 {
     private readonly ILogService _logService;
     private readonly ScrollablePanelControl _scrollPanel;
@@ -39,19 +38,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
     private bool _hasFocus;
     private LogLevel _filterLevel = LogLevel.Trace;
     private string? _filterCategory;
-    private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-    private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-    private Margin _margin = new Margin(0, 0, 0, 0);
-    private StickyPosition _stickyPosition = StickyPosition.None;
-    private bool _visible = true;
-    private int? _width;
     private string? _title;
-    private volatile bool _disposed = false;
-
-    private int _actualX;
-    private int _actualY;
-    private int _actualWidth;
-    private int _actualHeight;
 
     /// <summary>
     /// Creates a new LogViewerControl bound to the specified log service
@@ -126,108 +113,30 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
 
     #endregion
 
-    #region IWindowControl Properties
+    #region BaseControl Overrides
 
     /// <summary>
     /// Gets the actual rendered width of the control content in characters.
     /// </summary>
-    public int? ContentWidth
+    public override int? ContentWidth
     {
         get
         {
-            return _width ?? 80 + _margin.Left + _margin.Right;
+            return Width ?? 80 + Margin.Left + Margin.Right;
         }
     }
 
     /// <inheritdoc/>
-    public int ActualX => _actualX;
-
-    /// <inheritdoc/>
-    public int ActualY => _actualY;
-
-    /// <inheritdoc/>
-    public int ActualWidth => _actualWidth;
-
-    /// <inheritdoc/>
-    public int ActualHeight => _actualHeight;
-
-    /// <inheritdoc/>
-    public HorizontalAlignment HorizontalAlignment
+    public override System.Drawing.Size GetLogicalContentSize()
     {
-        get => _horizontalAlignment;
-        set
-        {
-            _horizontalAlignment = value;
-            Container?.Invalidate(true);
-        }
-    }
+        // Reuse ContentWidth to include margins consistently
+        int width = ContentWidth ?? 0;
 
-    /// <inheritdoc/>
-    public VerticalAlignment VerticalAlignment
-    {
-        get => _verticalAlignment;
-        set
-        {
-            _verticalAlignment = value;
-            Container?.Invalidate(true);
-        }
-    }
+        int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
+        var panelSize = _scrollPanel.GetLogicalContentSize();
+        int height = titleHeight + panelSize.Height;
 
-    /// <inheritdoc/>
-    public IContainer? Container { get; set; }
-
-    /// <inheritdoc/>
-    public Margin Margin
-    {
-        get => _margin;
-        set
-        {
-            _margin = value;
-            Container?.Invalidate(true);
-        }
-    }
-
-    /// <inheritdoc/>
-    public StickyPosition StickyPosition
-    {
-        get => _stickyPosition;
-        set
-        {
-            _stickyPosition = value;
-            Container?.Invalidate(true);
-        }
-    }
-
-    /// <inheritdoc/>
-    public string? Name { get; set; }
-
-    /// <inheritdoc/>
-    public object? Tag { get; set; }
-
-    /// <inheritdoc/>
-    public bool Visible
-    {
-        get => _visible;
-        set
-        {
-            _visible = value;
-            Container?.Invalidate(true);
-        }
-    }
-
-    /// <inheritdoc/>
-    public int? Width
-    {
-        get => _width;
-        set
-        {
-            var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-            if (_width != validatedValue)
-            {
-                _width = validatedValue;
-                Container?.Invalidate(true);
-            }
-        }
+        return new System.Drawing.Size(width, height);
     }
 
     #endregion
@@ -252,7 +161,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
     #region IFocusableControl Properties
 
     /// <inheritdoc/>
-    public bool CanReceiveFocus => _visible && IsEnabled;
+    public bool CanReceiveFocus => Visible && IsEnabled;
 
     #endregion
 
@@ -319,37 +228,14 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
 
     #endregion
 
-    #region IWindowControl Methods
+    #region Dispose
 
     /// <inheritdoc/>
-    public System.Drawing.Size GetLogicalContentSize()
+    protected override void OnDisposing()
     {
-        // Reuse ContentWidth to include margins consistently
-        int width = ContentWidth ?? 0;
-
-        int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
-        var panelSize = _scrollPanel.GetLogicalContentSize();
-        int height = titleHeight + panelSize.Height;
-
-        return new System.Drawing.Size(width, height);
-    }
-
-    /// <inheritdoc/>
-    public void Invalidate()
-    {
-        Container?.Invalidate(true);
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-
         _logService.LogAdded -= OnLogAdded;
         _logService.LogsCleared -= OnLogsCleared;
         _scrollPanel.Dispose();
-        Container = null;
     }
 
     #endregion
@@ -414,8 +300,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
 
     private void OnLogAdded(object? sender, LogEntry entry)
     {
-        if (_disposed) return;
-
         // Check if entry passes filter
         if (entry.Level < _filterLevel)
             return;
@@ -432,8 +316,6 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
 
     private void OnLogsCleared(object? sender, EventArgs e)
     {
-        if (_disposed) return;
-
         // Signal clear - will be processed on UI thread during paint
         _pendingClear = true;
 
@@ -517,12 +399,12 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
     #region IDOMPaintable Implementation
 
     /// <inheritdoc/>
-    public LayoutSize MeasureDOM(LayoutConstraints constraints)
+    public override LayoutSize MeasureDOM(LayoutConstraints constraints)
     {
         // Process pending entries before measuring
         ProcessPendingEntries();
 
-        int contentWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
+        int contentWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
         int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
 
         // Measure the scroll panel
@@ -530,12 +412,12 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
             MinWidth: 1,
             MaxWidth: contentWidth,
             MinHeight: 1,
-            MaxHeight: Math.Max(1, constraints.MaxHeight - titleHeight - _margin.Top - _margin.Bottom)
+            MaxHeight: Math.Max(1, constraints.MaxHeight - titleHeight - Margin.Top - Margin.Bottom)
         );
         var panelSize = (_scrollPanel as IDOMPaintable).MeasureDOM(panelConstraints);
 
-        int totalHeight = titleHeight + panelSize.Height + _margin.Top + _margin.Bottom;
-        int width = (_width ?? contentWidth) + _margin.Left + _margin.Right;
+        int totalHeight = titleHeight + panelSize.Height + Margin.Top + Margin.Bottom;
+        int width = (Width ?? contentWidth) + Margin.Left + Margin.Right;
 
         return new LayoutSize(
             Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -544,24 +426,21 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
     }
 
     /// <inheritdoc/>
-    public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+    public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
     {
-        _actualX = bounds.X;
-        _actualY = bounds.Y;
-        _actualWidth = bounds.Width;
-        _actualHeight = bounds.Height;
+        SetActualBounds(bounds);
 
         // Process pending entries on UI thread
         ProcessPendingEntries();
 
         var bgColor = Container?.BackgroundColor ?? defaultBg;
         var fgColor = Container?.ForegroundColor ?? defaultFg;
-        int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+        int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 
         if (targetWidth <= 0) return;
 
-        int startX = bounds.X + _margin.Left;
-        int startY = bounds.Y + _margin.Top;
+        int startX = bounds.X + Margin.Left;
+        int startY = bounds.Y + Margin.Top;
         int currentY = startY;
 
         // Fill top margin
@@ -575,9 +454,9 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
             if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
             {
                 // Fill left margin
-                if (_margin.Left > 0)
+                if (Margin.Left > 0)
                 {
-                    buffer.FillRect(new LayoutRect(bounds.X, currentY, _margin.Left, 1), ' ', fgColor, bgColor);
+                    buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', fgColor, bgColor);
                 }
 
                 var titleColor = _hasFocus ? Color.Cyan1 : Color.Grey;
@@ -587,7 +466,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
                 int alignOffset = 0;
                 if (titleText.Length < targetWidth)
                 {
-                    switch (_horizontalAlignment)
+                    switch (HorizontalAlignment)
                     {
                         case HorizontalAlignment.Center:
                             alignOffset = (targetWidth - titleText.Length) / 2;
@@ -616,23 +495,23 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
 
                 // Fill right padding
                 int rightPadStart = startX + alignOffset + titleText.Length;
-                int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+                int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
                 if (rightPadWidth > 0)
                 {
                     buffer.FillRect(new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), ' ', fgColor, bgColor);
                 }
 
                 // Fill right margin
-                if (_margin.Right > 0)
+                if (Margin.Right > 0)
                 {
-                    buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, currentY, _margin.Right, 1), ' ', fgColor, bgColor);
+                    buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', fgColor, bgColor);
                 }
             }
             currentY++;
         }
 
         // Render scroll panel
-        int panelHeight = bounds.Height - _margin.Top - _margin.Bottom - titleHeight;
+        int panelHeight = bounds.Height - Margin.Top - Margin.Bottom - titleHeight;
         if (panelHeight > 0)
         {
             var panelBounds = new LayoutRect(startX, currentY, targetWidth, panelHeight);
@@ -647,7 +526,7 @@ public class LogViewerControl : IWindowControl, IInteractiveControl, IFocusableC
         }
 
         // Fill bottom margin
-        ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - _margin.Bottom, fgColor, bgColor);
+        ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor);
     }
 
     #endregion

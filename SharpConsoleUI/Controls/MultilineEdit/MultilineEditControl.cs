@@ -27,16 +27,9 @@ namespace SharpConsoleUI.Controls
 	/// A multiline text editing control with support for text selection, scrolling, and word wrap.
 	/// Provides full cursor navigation, cut/copy/paste-like operations, and configurable scrollbars.
 	/// </summary>
-	public partial class MultilineEditControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, IDOMPaintable
+	public partial class MultilineEditControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		#region Fields
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 
 		// Color properties
 		private Color? _backgroundColorValue;
@@ -58,7 +51,6 @@ namespace SharpConsoleUI.Controls
 		private bool _isEditing = false;
 		private bool _isEnabled = true;
 		private List<string> _lines = new List<string>() { string.Empty };
-		private Margin _margin = new Margin(0, 0, 0, 0);
 		private bool _readOnly = false;
 		private Color? _scrollbarColorValue;
 		private Color? _scrollbarThumbColorValue;
@@ -69,12 +61,9 @@ namespace SharpConsoleUI.Controls
 		private int _selectionStartX = 0;
 		private int _selectionStartY = 0;
 		private bool _skipUpdateScrollPositionsInRender = false;
-		private StickyPosition _stickyPosition = StickyPosition.None;
 		private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 		private int _verticalScrollOffset = 0;
 		private int _viewportHeight;
-		private bool _visible = true;
-		private int? _width;
 		private WrapMode _wrapMode = WrapMode.Wrap;
 		private bool _isDragging = false;
 
@@ -221,7 +210,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered width of the control content in characters.
 		/// </summary>
-		public int? ContentWidth
+		public override int? ContentWidth
 		{
 			get
 			{
@@ -230,28 +219,9 @@ namespace SharpConsoleUI.Controls
 				{
 					if (line.Length > maxLength) maxLength = line.Length;
 				}
-				return maxLength + _margin.Left + _margin.Right;
+				return maxLength + Margin.Left + Margin.Right;
 			}
 		}
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <summary>
-		/// Gets or sets the text alignment within the control.
-		/// </summary>
-		public HorizontalAlignment HorizontalAlignment
-		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets the background color when the control is not focused.
@@ -280,7 +250,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public IContainer? Container { get; set; }
+		public override IContainer? Container { get; set; }
 
 		/// <summary>
 		/// Gets or sets the text content as a single string with line breaks.
@@ -382,12 +352,6 @@ namespace SharpConsoleUI.Controls
 			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
 		}
 
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-		}
 
 		/// <summary>
 		/// Gets or sets whether the control is in read-only mode.
@@ -455,18 +419,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
 
 		/// <summary>
 		/// Gets or sets when the vertical scrollbar is displayed.
@@ -505,29 +457,21 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private int GetEffectiveViewportHeight()
 		{
-			if (_verticalAlignment != VerticalAlignment.Fill || _actualHeight <= 0)
+			if (VerticalAlignment != VerticalAlignment.Fill || ActualHeight <= 0)
 				return _viewportHeight;
-			return Math.Max(_viewportHeight, _actualHeight - _margin.Top - _margin.Bottom);
+			return Math.Max(_viewportHeight, ActualHeight - Margin.Top - Margin.Bottom);
 		}
 
 		/// <inheritdoc/>
-		public bool Visible
-		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-	public int? Width
-	{
-		get => _width;
-		set
+		public override int? Width
 		{
-			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-			if (_width != validatedValue)
+			get => base.Width;
+			set
 			{
-				_width = validatedValue;
-				Container?.Invalidate(true);
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				base.Width = validatedValue;
 			}
 		}
-	}
 
 		/// <summary>
 		/// Gets or sets the text wrapping mode.
@@ -759,18 +703,12 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		#region Dispose / Invalidate
+		#region Dispose
 
 		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
-			Container = null;
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
+			// No additional cleanup needed; base clears Container.
 		}
 
 		#endregion

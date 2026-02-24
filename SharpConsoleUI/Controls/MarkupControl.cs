@@ -21,15 +21,9 @@ namespace SharpConsoleUI.Controls
 	/// A control that displays rich text content using Spectre.Console markup syntax.
 	/// Supports text alignment, margins, word wrapping, and sticky positioning.
 	/// </summary>
-	public class MarkupControl : IWindowControl, IDOMPaintable, IMouseAwareControl
+	public class MarkupControl : BaseControl, IMouseAwareControl
 	{
 		private List<string> _content;
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-		private Margin _margin = new Margin(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private bool _visible = true;
-		private int? _width;
 		private bool _wrap = true;
 		private Color? _backgroundColor = null;
 		private Color? _foregroundColor = null;
@@ -39,11 +33,6 @@ namespace SharpConsoleUI.Controls
 		private Point _lastClickPosition = Point.Empty;
 		private int _doubleClickThresholdMs = Configuration.ControlDefaults.DefaultDoubleClickThresholdMs;
 		private bool _doubleClickEnabled = true;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		// ===== FIX TOGGLES =====
 		// FIX11: Prevent ANSI doubling by not passing foregroundColor when markup already has color tags
@@ -70,7 +59,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets the actual rendered width of the control based on content.
 		/// </summary>
 		/// <returns>The maximum line width in characters.</returns>
-		public int? ContentWidth
+		public override int? ContentWidth
 		{
 			get
 			{
@@ -80,54 +69,9 @@ namespace SharpConsoleUI.Controls
 					int length = AnsiConsoleHelper.StripSpectreLength(line);
 					if (length > maxLength) maxLength = length;
 				}
-				return maxLength + _margin.Left + _margin.Right;
+				return maxLength + Margin.Left + Margin.Right;
 			}
 		}
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public IContainer? Container { get; set; }
-
-		/// <summary>
-		/// Gets or sets the margin around the control content.
-		/// </summary>
-		public Margin Margin
-		{
-			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
 
 		/// <summary>
 		/// Gets or sets the text content as a single string with newline separators.
@@ -140,19 +84,6 @@ namespace SharpConsoleUI.Controls
 				_content = value.Split('\n').ToList();
 				Container?.Invalidate(true);
 			}
-		}
-
-		/// <inheritdoc/>
-		public bool Visible
-		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
-
-		/// <summary>
-		/// Gets or sets the fixed width of the control. When null, the control uses available width.
-		/// </summary>
-		public int? Width
-		{
-			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
 		/// <summary>
@@ -240,22 +171,8 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-	/// <inheritdoc/>
-	public void Dispose()
-	{
-		Container = null;
-	}
-
-		/// <summary>
-		/// Invalidates the control, forcing a re-render on the next draw.
-		/// </summary>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
-		}
-
 		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			// Reuse ContentWidth for width calculation
 			int width = ContentWidth ?? 0;
@@ -360,9 +277,9 @@ namespace SharpConsoleUI.Controls
 	#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int targetWidth = _width ?? constraints.MaxWidth;
+			int targetWidth = Width ?? constraints.MaxWidth;
 
 			// Calculate content dimensions
 			int maxContentWidth = 0;
@@ -392,11 +309,11 @@ namespace SharpConsoleUI.Controls
 			// Account for margins
 			// For Stretch alignment, request full available width
 			// For other alignments, request only what content needs
-			int contentBasedWidth = maxContentWidth + _margin.Left + _margin.Right;
-			int width = _horizontalAlignment == HorizontalAlignment.Stretch
-				? targetWidth + _margin.Left + _margin.Right
+			int contentBasedWidth = maxContentWidth + Margin.Left + Margin.Right;
+			int width = HorizontalAlignment == HorizontalAlignment.Stretch
+				? targetWidth + Margin.Left + Margin.Right
 				: Math.Min(targetWidth, contentBasedWidth);
-			int height = totalLines + _margin.Top + _margin.Bottom;
+			int height = totalLines + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -405,24 +322,21 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			Color bgColor = Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = Container?.ForegroundColor ?? defaultFg;
 
-			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
 
 			// Calculate content width for alignment
 			int maxContentWidth = 0;
 			foreach (var line in _content)
 			{
-				int length = AnsiConsoleHelper.StripSpectreLength(line);
+				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 				maxContentWidth = Math.Max(maxContentWidth, length);
 			}
 
@@ -430,7 +344,7 @@ namespace SharpConsoleUI.Controls
 			var renderedLines = new List<string>();
 			foreach (var line in _content)
 			{
-				int renderWidth = (_horizontalAlignment == HorizontalAlignment.Center || _horizontalAlignment == HorizontalAlignment.Right)
+				int renderWidth = (HorizontalAlignment == HorizontalAlignment.Center || HorizontalAlignment == HorizontalAlignment.Right)
 					? Math.Min(maxContentWidth, targetWidth)
 					: targetWidth;
 
@@ -456,8 +370,8 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Paint with margins
-			int startY = bounds.Y + _margin.Top;
-			int startX = bounds.X + _margin.Left;
+			int startY = bounds.Y + Margin.Top;
+			int startX = bounds.X + Margin.Left;
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
@@ -476,7 +390,7 @@ namespace SharpConsoleUI.Controls
 				int alignOffset = 0;
 				if (lineWidth < targetWidth)
 				{
-					switch (_horizontalAlignment)
+					switch (HorizontalAlignment)
 					{
 						case HorizontalAlignment.Center:
 							alignOffset = (targetWidth - lineWidth) / 2;
@@ -488,9 +402,9 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Fill left margin
-				if (_margin.Left > 0)
+				if (Margin.Left > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, _margin.Left, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(bounds.X, y, Margin.Left, 1), ' ', fgColor, bgColor);
 				}
 
 				// Fill alignment padding (left side)
@@ -505,7 +419,7 @@ namespace SharpConsoleUI.Controls
 
 				// Fill remaining space (right side)
 				int rightPadStart = startX + alignOffset + lineWidth;
-				int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
 				if (rightPadWidth > 0)
 				{
 					// Use the control's background color if set, otherwise container's
@@ -514,9 +428,9 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Fill right margin
-				if (_margin.Right > 0)
+				if (Margin.Right > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, y, _margin.Right, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), ' ', fgColor, bgColor);
 				}
 			}
 

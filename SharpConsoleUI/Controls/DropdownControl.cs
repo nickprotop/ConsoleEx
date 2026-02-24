@@ -28,15 +28,9 @@ namespace SharpConsoleUI.Controls
 	/// A dropdown/combobox control that displays a list of selectable items.
 	/// Supports keyboard navigation, type-ahead search, and custom item formatting.
 	/// </summary>
-	public class DropdownControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
+	public class DropdownControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _autoAdjustWidth = true;
 		private Color? _backgroundColorValue;
 		private int _containerScrollOffsetBeforeDrop = 0;
@@ -51,14 +45,10 @@ namespace SharpConsoleUI.Controls
 		private ItemFormatterEvent? _itemFormatter;
 		private List<DropdownItem> _items = new List<DropdownItem>();
 		private DateTime _lastKeyTime = DateTime.MinValue;
-		private Margin _margin = new Margin(0, 0, 0, 0);
 		private int _maxVisibleItems = 5;
 		private string _prompt = "Select an item:";
 		private readonly StringBuilder _searchBuilder = new();
 		private string _searchText = string.Empty;
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private bool _visible = true;
-		private int? _width;
 
 		// Local state - controls own their selection/highlight state
 		private int _selectedIndex = -1;
@@ -194,15 +184,12 @@ namespace SharpConsoleUI.Controls
 			{
 				// Constant height - header (1 line) plus margins
 				// Dropdown items render via portal overlay, not affecting control height
-				return 1 + _margin.Top + _margin.Bottom;
+				return 1 + Margin.Top + Margin.Bottom;
 			}
 		}
 
-		/// <summary>
-		/// Gets the actual rendered width of the control based on cached content.
-		/// </summary>
-		/// <returns>The maximum line width in characters, or null if content has not been rendered.</returns>
-		public int? ContentWidth
+		/// <inheritdoc/>
+		public override int? ContentWidth
 		{
 			get
 			{
@@ -217,26 +204,9 @@ namespace SharpConsoleUI.Controls
 				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt) + 5;
 				int dropdownWidth = Math.Max(promptLength, maxItemWidth);
 
-				return dropdownWidth + _margin.Left + _margin.Right;
+				return dropdownWidth + Margin.Left + Margin.Right;
 			}
 		}
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{ get => _horizontalAlignment; set { _horizontalAlignment = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{ get => _verticalAlignment; set { _verticalAlignment = value; Container?.Invalidate(true); } }
 
 		/// <summary>
 		/// Gets or sets whether the control automatically adjusts its width to fit content.
@@ -264,8 +234,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public IContainer? Container { get; set; }
+		// Container inherited from BaseControl
 
 		/// <summary>
 		/// Gets or sets the background color when the control has focus.
@@ -422,14 +391,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the margin around the control content.
-		/// </summary>
-		public Margin Margin
-		{
-			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-		}
+		// Margin inherited from BaseControl
 
 		/// <summary>
 		/// Gets or sets the maximum number of items visible in the dropdown list without scrolling.
@@ -550,12 +512,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
+		// StickyPosition inherited from BaseControl
 
 		/// <summary>
 		/// Gets or sets the items as a list of strings for simplified access.
@@ -584,24 +541,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public bool Visible
-		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
-
-		/// <summary>
-		/// Gets or sets the fixed width of the control. When null, the control auto-sizes based on content.
-		/// </summary>
-		public int? Width
-		{
-			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
-		}
+		// Name, Tag, Visible, Width inherited from BaseControl
 
 		/// <summary>
 		/// Adds a new item to the dropdown list.
@@ -667,25 +607,11 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Dispose()
-		{
-			Container = null;
-		}
-
-		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			int width = ContentWidth ?? 0;
 			int height = ContentHeight ?? 1;
 			return new System.Drawing.Size(width, height);
-		}
-
-		/// <summary>
-		/// Invalidates the cached content, forcing a re-render on the next draw.
-		/// </summary>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true, this);
 		}
 
 		/// <inheritdoc/>
@@ -879,10 +805,10 @@ namespace SharpConsoleUI.Controls
 			// Validate click is within content area (not in margins)
 			// Margins are non-interactive spacing around the control
 			int contentHeight = (_lastLayoutBounds.Height > 0 ? _lastLayoutBounds.Height : 1);
-			if (args.Position.Y < _margin.Top ||
-			    args.Position.Y >= contentHeight - _margin.Bottom ||
-			    args.Position.X < _margin.Left ||
-			    args.Position.X >= (_lastLayoutBounds.Width - _margin.Right))
+			if (args.Position.Y < Margin.Top ||
+			    args.Position.Y >= contentHeight - Margin.Bottom ||
+			    args.Position.X < Margin.Left ||
+			    args.Position.X >= (_lastLayoutBounds.Width - Margin.Right))
 			{
 				// Click is in margin area - not interactive
 				return false;
@@ -890,7 +816,7 @@ namespace SharpConsoleUI.Controls
 
 			// Check if click is on header row (accounts for top margin)
 			// The header is painted at margin.Top, not at Y=0
-			bool isOnHeader = args.Position.Y == _margin.Top;
+			bool isOnHeader = args.Position.Y == Margin.Top;
 
 			// Handle mouse move
 			if (args.HasAnyFlag(MouseFlags.ReportMousePosition))
@@ -1094,10 +1020,10 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int dropdownWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch
-				? constraints.MaxWidth - _margin.Left - _margin.Right
+			int dropdownWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch
+				? constraints.MaxWidth - Margin.Left - Margin.Right
 				: calculateOptimalWidth(constraints.MaxWidth));
 
 			// Ensure width can accommodate content
@@ -1116,9 +1042,9 @@ namespace SharpConsoleUI.Controls
 			dropdownWidth = Math.Max(dropdownWidth, minWidth);
 
 			// Calculate height - constant (header only), dropdown items render via portal
-			int height = 1 + _margin.Top + _margin.Bottom;
+			int height = 1 + Margin.Top + Margin.Bottom;
 
-			int width = dropdownWidth + _margin.Left + _margin.Right;
+			int width = dropdownWidth + Margin.Left + Margin.Right;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -1127,12 +1053,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			// Store bounds for portal positioning
 			_lastLayoutBounds = bounds;
@@ -1157,17 +1080,17 @@ namespace SharpConsoleUI.Controls
 				foregroundColor = ForegroundColor;
 			}
 
-			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground);
 
 			// Calculate dropdown width
-			int dropdownWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
+			int dropdownWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
 			int maxItemWidth = 0;
 			foreach (var item in _items)
 			{
@@ -1185,7 +1108,7 @@ namespace SharpConsoleUI.Controls
 			int alignOffset = 0;
 			if (dropdownWidth < targetWidth)
 			{
-				switch (_horizontalAlignment)
+				switch (HorizontalAlignment)
 				{
 					case HorizontalAlignment.Center:
 						alignOffset = (targetWidth - dropdownWidth) / 2;
@@ -1217,8 +1140,8 @@ namespace SharpConsoleUI.Controls
 
 			if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 			{
-				if (_margin.Left > 0)
-					buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', foregroundColor, windowBackground);
+				if (Margin.Left > 0)
+					buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
 
 				if (alignOffset > 0)
 					buffer.FillRect(new LayoutRect(startX, paintY, alignOffset, 1), ' ', foregroundColor, windowBackground);
@@ -1228,12 +1151,12 @@ namespace SharpConsoleUI.Controls
 				buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
 
 				int rightFillStart = startX + alignOffset + dropdownWidth;
-				int rightFillWidth = bounds.Right - rightFillStart - _margin.Right;
+				int rightFillWidth = bounds.Right - rightFillStart - Margin.Right;
 				if (rightFillWidth > 0)
 					buffer.FillRect(new LayoutRect(rightFillStart, paintY, rightFillWidth, 1), ' ', foregroundColor, windowBackground);
 
-				if (_margin.Right > 0)
-					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, paintY, _margin.Right, 1), ' ', foregroundColor, windowBackground);
+				if (Margin.Right > 0)
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
 			}
 			paintY++;
 
@@ -1348,21 +1271,21 @@ namespace SharpConsoleUI.Controls
 
 			// Calculate dropdown dimensions
 			int dropdownWidth = CalculateDropdownWidth();
-			int effectiveMaxVisibleItems =  _maxVisibleItems;
+			int effectiveMaxVisibleItems = _maxVisibleItems;
 			int visibleItems = Math.Min(effectiveMaxVisibleItems, _items.Count);
 			int hasScrollIndicator = (_items.Count > visibleItems) ? 1 : 0;
 			int dropdownHeight = visibleItems + hasScrollIndicator;
 
 			// Calculate header position from last layout bounds
-			int headerX = _lastLayoutBounds.X + _margin.Left;
-			int headerY = _lastLayoutBounds.Y + _margin.Top;
+			int headerX = _lastLayoutBounds.X + Margin.Left;
+			int headerY = _lastLayoutBounds.Y + Margin.Top;
 
 			// Calculate alignment offset (same logic as PaintDOM)
-			int targetWidth = _lastLayoutBounds.Width - _margin.Left - _margin.Right;
+			int targetWidth = _lastLayoutBounds.Width - Margin.Left - Margin.Right;
 			int alignOffset = 0;
 			if (dropdownWidth < targetWidth)
 			{
-				switch (_horizontalAlignment)
+				switch (HorizontalAlignment)
 				{
 					case HorizontalAlignment.Center:
 						alignOffset = (targetWidth - dropdownWidth) / 2;
@@ -1373,37 +1296,17 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			int dropdownX = headerX + alignOffset;
+			// Use PortalPositioner for placement with auto-flip
+			var request = new PortalPositionRequest(
+				Anchor: new Rectangle(headerX + alignOffset, headerY, dropdownWidth, 1),
+				ContentSize: new Size(dropdownWidth, dropdownHeight),
+				ScreenBounds: new Rectangle(0, 0, screenWidth, screenHeight),
+				Placement: PortalPlacement.BelowOrAbove
+			);
 
-			// Check if dropdown fits below or needs to flip upward
-			int spaceBelow = screenHeight - (headerY + 1); // +1 for header height
-			int spaceAbove = headerY;
-
-			if (dropdownHeight > spaceBelow && spaceAbove > spaceBelow)
-			{
-				// Flip upward
-				_opensUpward = true;
-				int dropdownY = headerY - dropdownHeight;
-				// Clamp to screen bounds
-				if (dropdownY < 0)
-				{
-					dropdownHeight += dropdownY; // Reduce height
-					dropdownY = 0;
-				}
-				_dropdownBounds = new Rectangle(dropdownX, dropdownY, dropdownWidth, dropdownHeight);
-			}
-			else
-			{
-				// Open downward (default)
-				_opensUpward = false;
-				int dropdownY = headerY + 1; // Below header
-				// Clamp height to available space
-				if (dropdownY + dropdownHeight > screenHeight)
-				{
-					dropdownHeight = screenHeight - dropdownY;
-				}
-				_dropdownBounds = new Rectangle(dropdownX, dropdownY, dropdownWidth, dropdownHeight);
-			}
+			var result = PortalPositioner.Calculate(request);
+			_opensUpward = (result.ActualPlacement == PortalPlacement.Above);
+			_dropdownBounds = result.Bounds;
 		}
 
 		/// <summary>
@@ -1411,10 +1314,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private int CalculateDropdownWidth()
 		{
-			int targetWidth = _lastLayoutBounds.Width - _margin.Left - _margin.Right;
+			int targetWidth = _lastLayoutBounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) targetWidth = 20;
 
-			int dropdownWidth = _width ?? (_horizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
+			int dropdownWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
 
 			int maxItemWidth = 0;
 			foreach (var item in _items)
@@ -1579,13 +1482,13 @@ namespace SharpConsoleUI.Controls
 			int minWidth = Math.Max(headerLength, maxItemWidth);
 
 			// If width is specified, use it as minimum
-			if (_width.HasValue)
+			if (Width.HasValue)
 			{
-				minWidth = Math.Max(minWidth, _width.Value);
+				minWidth = Math.Max(minWidth, Width.Value);
 			}
 
 			// If stretch alignment and available width is provided, use available width
-			if (_horizontalAlignment == HorizontalAlignment.Stretch && availableWidth.HasValue)
+			if (HorizontalAlignment == HorizontalAlignment.Stretch && availableWidth.HasValue)
 			{
 				return availableWidth.Value;
 			}
@@ -1761,12 +1664,8 @@ namespace SharpConsoleUI.Controls
 	/// This control is created by DropdownControl when the dropdown opens and is added as a portal child
 	/// to render outside the normal bounds of the dropdown control.
 	/// </summary>
-	internal class DropdownPortalContent : IWindowControl, IDOMPaintable, IMouseAwareControl
+	internal class DropdownPortalContent : PortalContentBase
 	{
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 		private readonly DropdownControl _owner;
 
 		public DropdownPortalContent(DropdownControl owner)
@@ -1774,108 +1673,23 @@ namespace SharpConsoleUI.Controls
 			_owner = owner;
 		}
 
-		#region IMouseAwareControl Implementation
-
 		/// <inheritdoc/>
-		public bool WantsMouseEvents => true;
-
-		/// <inheritdoc/>
-		public bool CanFocusWithMouse => false;
-
-		#pragma warning disable CS0067  // Event never raised (interface requirement)
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseClick;
-
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
-
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseEnter;
-
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseLeave;
-
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
-
-		/// <inheritdoc/>
-		public bool ProcessMouseEvent(MouseEventArgs args)
-		{
-			return _owner.ProcessPortalMouseEvent(args);
-		}
-
-		#endregion
-
-		#region IWindowControl Implementation
-
-		public int? ContentWidth => _owner.GetPortalBounds().Width;
-		public int? ContentHeight => _owner.GetPortalBounds().Height;
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
-		public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.Top;
-		public IContainer? Container { get; set; }
-		public Margin Margin { get; set; } = new Margin(0, 0, 0, 0);
-		public StickyPosition StickyPosition { get; set; } = StickyPosition.None;
-		public string? Name { get; set; }
-		public object? Tag { get; set; }
-		public bool Visible { get; set; } = true;
-		public int? Width { get; set; }
-
-		public Size GetLogicalContentSize()
-		{
-			var bounds = _owner.GetPortalBounds();
-			return new Size(bounds.Width, bounds.Height);
-		}
-
-		/// <summary>
-		/// Gets the absolute bounds for portal positioning.
-		/// </summary>
-		public Rectangle GetPortalBounds()
+		public override Rectangle GetPortalBounds()
 		{
 			return _owner.GetPortalBounds();
 		}
 
-		public void Invalidate()
+		/// <inheritdoc/>
+		public override bool ProcessMouseEvent(MouseEventArgs args)
 		{
-			Container?.Invalidate(true);
+			return _owner.ProcessPortalMouseEvent(args);
 		}
 
-		public void Dispose()
+		/// <inheritdoc/>
+		protected override void PaintPortalContent(CharacterBuffer buffer, LayoutRect bounds,
+			LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			// Nothing to dispose
-		}
-
-		#endregion
-
-		#region IDOMPaintable Implementation
-
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
-		{
-			var bounds = _owner.GetPortalBounds();
-			return new LayoutSize(bounds.Width, bounds.Height);
-		}
-
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
-							 Color defaultFg, Color defaultBg)
-		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
-
 			_owner.PaintDropdownListInternal(buffer, clipRect);
 		}
-
-		#endregion
 	}
 }

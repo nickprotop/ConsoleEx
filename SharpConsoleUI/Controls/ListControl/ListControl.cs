@@ -12,8 +12,6 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System.Text;
 using Color = Spectre.Console.Color;
@@ -24,7 +22,7 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A scrollable list control that supports selection, highlighting, and keyboard navigation.
 	/// </summary>
-	public partial class ListControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
+	public partial class ListControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
 		/// <summary>
 		/// Creates a fluent builder for constructing a ListControl.
@@ -38,12 +36,6 @@ namespace SharpConsoleUI.Controls
 		#region Fields
 
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private bool _autoAdjustWidth = false;
 		private Color? _backgroundColorValue;
 		private int? _calculatedMaxVisibleItems;
@@ -58,17 +50,12 @@ namespace SharpConsoleUI.Controls
 		private ItemFormatterEvent? _itemFormatter;
 		private List<ListItem> _items = new List<ListItem>();
 		private DateTime _lastKeyTime = DateTime.MinValue;
-		private Margin _margin = new Margin(0, 0, 0, 0);
 		private int? _maxVisibleItems = null;
 
 		private readonly StringBuilder _searchBuilder = new();
 		private string _searchText = string.Empty;
-		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string _title = "List";
-		private bool _visible = true;
-		private int? _width;
 		private int _scrollOffset = 0;
-		private IContainer? _container;
 
 		// Local state
 		private int _selectedIndex = -1;
@@ -283,39 +270,6 @@ namespace SharpConsoleUI.Controls
 
 		#region Properties
 
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{
-			get => _horizontalAlignment;
-			set
-			{
-				if (_horizontalAlignment == value) return;
-				_horizontalAlignment = value;
-				Container?.Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set
-			{
-				if (_verticalAlignment == value) return;
-				_verticalAlignment = value;
-				Container?.Invalidate(true);
-			}
-		}
-
 		/// <summary>
 		/// Gets or sets the background color of the list control.
 		/// </summary>
@@ -327,14 +281,6 @@ namespace SharpConsoleUI.Controls
 				_backgroundColorValue = value;
 				Container?.Invalidate(true);
 			}
-		}
-
-		/// <inheritdoc/>
-		/// <inheritdoc/>
-		public IContainer? Container
-		{
-			get => _container;
-			set => _container = value;
 		}
 
 		/// <summary>
@@ -474,17 +420,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set
-			{
-				_margin = value;
-				Container?.Invalidate(true);
-			}
-		}
-
 		/// <summary>
 		/// Gets or sets the maximum number of items visible at once. If null, calculated from available height.
 		/// </summary>
@@ -620,13 +555,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
 		/// <summary>
 		/// Gets or sets the list items as simple strings.
 		/// </summary>
@@ -654,12 +582,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
 		/// <summary>
 		/// Gets or sets the title displayed at the top of the list.
 		/// </summary>
@@ -671,20 +593,6 @@ namespace SharpConsoleUI.Controls
 				_title = value;
 				Container?.Invalidate(true);
 			}
-		}
-
-		/// <inheritdoc/>
-		public bool Visible
-		{
-			get => _visible;
-			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 		}
 
 		#endregion
@@ -749,11 +657,8 @@ namespace SharpConsoleUI.Controls
 		#region Lifecycle
 
 		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
-			// Setting Container to null triggers unsubscription via property setter
-			Container = null;
-
 			// Clear all event handlers to prevent memory leaks
 			SelectedIndexChanged = null;
 			SelectedItemChanged = null;
@@ -768,12 +673,6 @@ namespace SharpConsoleUI.Controls
 			MouseDoubleClick = null;
 			GotFocus = null;
 			LostFocus = null;
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
 		}
 
 		#endregion

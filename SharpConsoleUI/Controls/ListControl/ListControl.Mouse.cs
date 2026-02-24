@@ -110,7 +110,7 @@ namespace SharpConsoleUI.Controls
 			// Calculate which item the mouse is over
 			// args.Position.Y is control-relative (includes margin), so subtract both margin and title
 			int titleOffset = string.IsNullOrEmpty(_title) ? 0 : 1;
-			int relativeY = args.Position.Y - _margin.Top - titleOffset;
+			int relativeY = args.Position.Y - Margin.Top - titleOffset;
 			int hoveredIndex = -1;
 
 			// Get visible height to properly calculate item index
@@ -207,7 +207,7 @@ namespace SharpConsoleUI.Controls
 						// Checkbox mode: clicking the [ ]/[x] prefix (first 5 columns) toggles without selecting
 						if (_checkboxMode && _items[clickedIndex].IsEnabled)
 						{
-							int relativeX = args.Position.X - _margin.Left;
+							int relativeX = args.Position.X - Margin.Left;
 							if (relativeX >= 0 && relativeX < 5)
 							{
 								_items[clickedIndex].IsChecked = !_items[clickedIndex].IsChecked;

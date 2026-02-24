@@ -24,18 +24,12 @@ namespace SharpConsoleUI.Controls;
 /// A table control that wraps Spectre.Console's Table widget.
 /// Provides read-only display of tabular data with theming support.
 /// </summary>
-public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
+public class TableControl : BaseControl, IMouseAwareControl
 {
 	#region Fields
 
-	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Color? _backgroundColorValue = Color.Default;
 	private Color? _foregroundColorValue = Color.Default;
-	private Margin _margin = new Margin(0, 0, 0, 0);
-	private StickyPosition _stickyPosition = StickyPosition.None;
-	private bool _visible = true;
-	private int? _width;
 	private int? _height;
 
 	// Table-specific fields
@@ -57,11 +51,6 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	// Mouse support (minimal - for bubbling only)
 	private bool _wantsMouseEvents = true;
 
-	private int _actualX;
-	private int _actualY;
-	private int _actualWidth;
-	private int _actualHeight;
-
 	#endregion
 
 	#region Constructors
@@ -76,25 +65,15 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 
 	#endregion
 
-	#region IWindowControl Properties
+	#region Properties
 
 	/// <inheritdoc/>
-	public int? ContentWidth => _width;
+	public override int? ContentWidth => Width;
 
-	/// <inheritdoc/>
+	/// <summary>
+	/// Gets the content height.
+	/// </summary>
 	public int? ContentHeight => _height;
-
-	/// <inheritdoc/>
-	public int ActualX => _actualX;
-
-	/// <inheritdoc/>
-	public int ActualY => _actualY;
-
-	/// <inheritdoc/>
-	public int ActualWidth => _actualWidth;
-
-	/// <inheritdoc/>
-	public int ActualHeight => _actualHeight;
 
 	/// <inheritdoc/>
 	public Color? BackgroundColor
@@ -104,68 +83,19 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	}
 
 	/// <inheritdoc/>
-	public IContainer? Container { get; set; }
-
-	/// <inheritdoc/>
 	public Color? ForegroundColor
 	{
 		get => _foregroundColorValue;
 		set => PropertySetterHelper.SetColorProperty(ref _foregroundColorValue, value, Container);
 	}
 
-	/// <inheritdoc/>
+	/// <summary>
+	/// Gets or sets the explicit height.
+	/// </summary>
 	public int? Height
 	{
 		get => _height;
 		set => PropertySetterHelper.SetDimensionProperty(ref _height, value, Container);
-	}
-
-	/// <inheritdoc/>
-	public HorizontalAlignment HorizontalAlignment
-	{
-		get => _horizontalAlignment;
-		set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
-	}
-
-	/// <inheritdoc/>
-	public Margin Margin
-	{
-		get => _margin;
-		set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-	}
-
-	/// <inheritdoc/>
-	public string? Name { get; set; }
-
-	/// <inheritdoc/>
-	public StickyPosition StickyPosition
-	{
-		get => _stickyPosition;
-		set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-	}
-
-	/// <inheritdoc/>
-	public object? Tag { get; set; }
-
-	/// <inheritdoc/>
-	public VerticalAlignment VerticalAlignment
-	{
-		get => _verticalAlignment;
-		set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
-	}
-
-	/// <inheritdoc/>
-	public bool Visible
-	{
-		get => _visible;
-		set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
-	}
-
-	/// <inheritdoc/>
-	public int? Width
-	{
-		get => _width;
-		set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
 	}
 
 	#endregion
@@ -581,7 +511,7 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 
 		// Set Expand when HorizontalAlignment is Stretch
 		// Spectre handles the actual stretching when rendering
-		if (_horizontalAlignment == HorizontalAlignment.Stretch)
+		if (HorizontalAlignment == HorizontalAlignment.Stretch)
 		{
 			table.Expand = true;
 		}
@@ -665,11 +595,11 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	#region IDOMPaintable Implementation
 
 	/// <inheritdoc/>
-	public LayoutSize MeasureDOM(LayoutConstraints constraints)
+	public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 	{
 		// Use explicit width if set, otherwise use available width
-		int targetWidth = _width ?? constraints.MaxWidth;
-		int contentWidth = targetWidth - _margin.Left - _margin.Right;
+		int targetWidth = Width ?? constraints.MaxWidth;
+		int contentWidth = targetWidth - Margin.Left - Margin.Right;
 
 		var table = CreateSpectreTable();
 
@@ -686,12 +616,12 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 
 		// Calculate final width
 		int width;
-		if (_width.HasValue)
+		if (Width.HasValue)
 		{
 			// Explicit width: return width + margins (margins are additional)
-			width = _width.Value + _margin.Left + _margin.Right;
+			width = Width.Value + Margin.Left + Margin.Right;
 		}
-		else if (_horizontalAlignment == HorizontalAlignment.Stretch)
+		else if (HorizontalAlignment == HorizontalAlignment.Stretch)
 		{
 			// Stretch: request full available width
 			width = constraints.MaxWidth;
@@ -699,10 +629,10 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 		else
 		{
 			// Natural sizing: return measured width + margins
-			width = measuredWidth + _margin.Left + _margin.Right;
+			width = measuredWidth + Margin.Left + Margin.Right;
 		}
 
-		height += _margin.Top + _margin.Bottom;
+		height += Margin.Top + Margin.Bottom;
 
 		return new LayoutSize(
 			Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -711,27 +641,24 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 	}
 
 	/// <inheritdoc/>
-	public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+	public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 	{
-		_actualX = bounds.X;
-		_actualY = bounds.Y;
-		_actualWidth = bounds.Width;
-		_actualHeight = bounds.Height;
+		SetActualBounds(bounds);
 
 		Color bgColor = ResolveBackgroundColor(defaultBg);
 		Color fgColor = ResolveForegroundColor(defaultFg);
 
 		// Fill margins
-		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + _margin.Top, fgColor, bgColor);
+		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, bgColor);
 
-		int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+		int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 		var table = CreateSpectreTable();
 
 		// Pass the allocated width to Spectre - it will handle stretching via Expand property
 		var lines = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(table, targetWidth, null, bgColor);
 
-		int startX = bounds.X + _margin.Left;
-		int startY = bounds.Y + _margin.Top;
+		int startX = bounds.X + Margin.Left;
+		int startY = bounds.Y + Margin.Top;
 
 		for (int i = 0; i < lines.Count; i++)
 		{
@@ -742,7 +669,7 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 			buffer.WriteCellsClipped(startX, y, cells, clipRect);
 		}
 
-		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - _margin.Bottom, fgColor, bgColor);
+		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor);
 	}
 
 	#endregion
@@ -794,27 +721,15 @@ public class TableControl : IWindowControl, IDOMPaintable, IMouseAwareControl
 
 	#endregion
 
-	#region IWindowControl Additional Methods
+	#region Overrides
 
 	/// <inheritdoc/>
-	public System.Drawing.Size GetLogicalContentSize()
+	public override System.Drawing.Size GetLogicalContentSize()
 	{
-		int maxWidth = _width ?? LayoutDefaults.DefaultUnboundedMeasureWidth;
+		int maxWidth = Width ?? LayoutDefaults.DefaultUnboundedMeasureWidth;
 		var constraints = new LayoutConstraints(0, maxWidth, 0, int.MaxValue);
 		var size = MeasureDOM(constraints);
 		return new System.Drawing.Size(size.Width, size.Height);
-	}
-
-	/// <inheritdoc/>
-	public void Invalidate()
-	{
-		Container?.Invalidate(true);
-	}
-
-	/// <inheritdoc/>
-	public void Dispose()
-	{
-		// No resources to dispose
 	}
 
 	#endregion

@@ -8,10 +8,7 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
-using System.Drawing;
 using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
@@ -20,22 +17,11 @@ namespace SharpConsoleUI.Controls
 	/// A control that renders a horizontal rule (divider line) with optional title text.
 	/// Wraps the Spectre.Console Rule component.
 	/// </summary>
-	public class RuleControl : IWindowControl, IDOMPaintable
+	public class RuleControl : BaseControl
 	{
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Color? _color;
-		private Margin _margin = new Margin(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
 		private string? _title;
 		private Justify _titleAlignment = Justify.Left;
-		private bool _visible = true;
-		private int? _width;
-
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="RuleControl"/> class.
@@ -45,33 +31,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public int? ContentWidth => (_width ?? 80) + _margin.Left + _margin.Right;
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{
-			get => _horizontalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
-		}
+		public override int? ContentWidth => (Width ?? 80) + Margin.Left + Margin.Right;
 
 		/// <summary>
 		/// Gets or sets the color of the rule line.
@@ -85,29 +45,6 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 			}
 		}
-
-		/// <inheritdoc/>
-		public IContainer? Container { get; set; }
-
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
 
 		/// <summary>
 		/// Gets or sets the title text displayed within the rule.
@@ -135,23 +72,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public bool Visible
-		{ get => _visible; set { _visible = value; Container?.Invalidate(true); } }
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public void Dispose()
-		{
-			Container = null;
-		}
-
 		/// <summary>
 		/// Creates a new builder for configuring a RuleControl
 		/// </summary>
@@ -161,53 +81,35 @@ namespace SharpConsoleUI.Controls
 			return new Builders.RuleBuilder();
 		}
 
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
-		}
-
-		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
-		{
-			// Reuse ContentWidth to include margins consistently
-			int width = ContentWidth ?? 0;
-			int height = 1 + _margin.Top + _margin.Bottom;
-			return new System.Drawing.Size(width, height);
-		}
-
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int width = _width ?? constraints.MaxWidth;
-			int height = 1 + _margin.Top + _margin.Bottom;
+			int width = Width ?? constraints.MaxWidth;
+			int height = 1 + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
-				Math.Clamp(width + _margin.Left + _margin.Right, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(width + Margin.Left + Margin.Right, constraints.MinWidth, constraints.MaxWidth),
 				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
 			);
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = Container?.ForegroundColor ?? defaultFg;
 			var ruleColor = _color ?? fgColor;
 
-			int targetWidth = bounds.Width - _margin.Left - _margin.Right;
+			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
 
-			int ruleWidth = _width ?? targetWidth;
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
+			int ruleWidth = Width ?? targetWidth;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
@@ -216,9 +118,9 @@ namespace SharpConsoleUI.Controls
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
 			{
 				// Fill left margin
-				if (_margin.Left > 0)
+				if (Margin.Left > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, startY, _margin.Left, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(bounds.X, startY, Margin.Left, 1), ' ', fgColor, bgColor);
 				}
 
 				// Render using Spectre's Rule and parse the output
@@ -234,9 +136,9 @@ namespace SharpConsoleUI.Controls
 				buffer.WriteCellsClipped(startX, startY, cells, clipRect);
 
 				// Fill right margin
-				if (_margin.Right > 0)
+				if (Margin.Right > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, startY, _margin.Right, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), ' ', fgColor, bgColor);
 				}
 			}
 

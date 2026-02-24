@@ -80,17 +80,17 @@ namespace SharpConsoleUI.Controls
 			int depth = GetNodeDepth(node);
 			bool[] ancestorIsLast = GetAncestorIsLastArray(node);
 			string prefix = BuildTreePrefix(depth, ancestorIsLast, guideChars);
-			return _margin.Left + GetCachedTextLength(prefix);
+			return Margin.Left + GetCachedTextLength(prefix);
 		}
 
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			UpdateFlattenedNodes();
 
-			int contentWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
+			int contentWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
 
 			// Calculate max item width
 			int maxItemWidth = 0;
@@ -107,11 +107,11 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Calculate width based on content or explicit width
-			int contentBasedWidth = (_width ?? maxItemWidth) + _margin.Left + _margin.Right;
+			int contentBasedWidth = (Width ?? maxItemWidth) + Margin.Left + Margin.Right;
 
 			// For Stretch alignment, request full available width
 			// For other alignments, request only what content needs
-			int width = _horizontalAlignment == HorizontalAlignment.Stretch
+			int width = HorizontalAlignment == HorizontalAlignment.Stretch
 				? constraints.MaxWidth
 				: contentBasedWidth;
 
@@ -123,18 +123,18 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (_height.HasValue)
 			{
-				effectiveMaxVisibleItems = _height.Value - _margin.Top - _margin.Bottom;
+				effectiveMaxVisibleItems = _height.Value - Margin.Top - Margin.Bottom;
 			}
 			else
 			{
-				effectiveMaxVisibleItems = Math.Min(_flattenedNodes.Count, constraints.MaxHeight - _margin.Top - _margin.Bottom - 1);
+				effectiveMaxVisibleItems = Math.Min(_flattenedNodes.Count, constraints.MaxHeight - Margin.Top - Margin.Bottom - 1);
 			}
 
 			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
 			bool hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
 			int contentHeight = Math.Min(_flattenedNodes.Count, effectiveMaxVisibleItems);
-			int height = contentHeight + _margin.Top + _margin.Bottom + (hasScrollIndicator ? 1 : 0);
+			int height = contentHeight + Margin.Top + Margin.Bottom + (hasScrollIndicator ? 1 : 0);
 
 			if (_height.HasValue)
 			{
@@ -148,22 +148,19 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
-			_actualX = bounds.X;
-			_actualY = bounds.Y;
-			_actualWidth = bounds.Width;
-			_actualHeight = bounds.Height;
+			SetActualBounds(bounds);
 
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
-			int contentWidth = bounds.Width - _margin.Left - _margin.Right;
-			int contentHeight = bounds.Height - _margin.Top - _margin.Bottom;
+			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
+			int contentHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
 			if (contentWidth <= 0 || contentHeight <= 0) return;
 
-			int startX = bounds.X + _margin.Left;
-			int startY = bounds.Y + _margin.Top;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
@@ -174,7 +171,7 @@ namespace SharpConsoleUI.Controls
 			// Determine visible items
 			// For VerticalAlignment.Fill controls, use the actual content height from bounds, not the cached measurement
 			int effectiveMaxVisibleItems;
-			if (_verticalAlignment == VerticalAlignment.Fill)
+			if (VerticalAlignment == VerticalAlignment.Fill)
 			{
 				// VerticalAlignment.Fill: use all available space
 				effectiveMaxVisibleItems = MaxVisibleItems ?? contentHeight;
@@ -260,16 +257,16 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Fill left margin
-				if (_margin.Left > 0)
+				if (Margin.Left > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, paintY, _margin.Left, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', fgColor, bgColor);
 				}
 
 				// Calculate alignment offset
 				int alignOffset = 0;
 				if (visibleLength < contentWidth)
 				{
-					switch (_horizontalAlignment)
+					switch (HorizontalAlignment)
 					{
 						case HorizontalAlignment.Center:
 							alignOffset = (contentWidth - visibleLength) / 2;
@@ -301,16 +298,16 @@ namespace SharpConsoleUI.Controls
 
 				// Fill right padding
 				int rightPadStart = startX + alignOffset + visibleLength;
-				int rightPadWidth = bounds.Right - rightPadStart - _margin.Right;
+				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
 				if (rightPadWidth > 0)
 				{
 					buffer.FillRect(new LayoutRect(rightPadStart, paintY, rightPadWidth, 1), ' ', textColor, nodeBgColor);
 				}
 
 				// Fill right margin
-				if (_margin.Right > 0)
+				if (Margin.Right > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.Right - _margin.Right, paintY, _margin.Right, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), ' ', fgColor, bgColor);
 				}
 			}
 
@@ -344,7 +341,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - _margin.Bottom, fgColor, bgColor);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor);
 		}
 
 		#endregion

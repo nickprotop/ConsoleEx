@@ -11,8 +11,6 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using System.Collections.ObjectModel;
 using System.Drawing;
@@ -25,15 +23,9 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A hierarchical tree control that displays nodes in a collapsible tree structure with keyboard navigation.
 	/// </summary>
-	public partial class TreeControl : IWindowControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IDOMPaintable
+	public partial class TreeControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
 		private readonly List<TreeNode> _rootNodes = new();
-		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
-		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Color? _backgroundColorValue;
 		private int? _calculatedMaxVisibleItems;
 		private List<TreeNode> _flattenedNodes = new();
@@ -43,10 +35,6 @@ namespace SharpConsoleUI.Controls
 		private int? _height;
 		private string _indent = "  ";
 		private bool _isEnabled = true;
-		private Margin _margin = new(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
-		private bool _visible = true;
-		private int? _width;
 
 		// Local selection state
 		private int _selectedIndex = 0;
@@ -81,11 +69,11 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the actual rendered width in characters.
 		/// </summary>
-		public int? ContentWidth
+		public override int? ContentWidth
 		{
 			get
 			{
-				if (_flattenedNodes.Count == 0) return _margin.Left + _margin.Right;
+				if (_flattenedNodes.Count == 0) return Margin.Left + Margin.Right;
 
 				int maxLength = 0;
 				var guideChars = GetGuideChars();
@@ -99,35 +87,7 @@ namespace SharpConsoleUI.Controls
 					int length = GetCachedTextLength(prefix + displayText + expandIndicator);
 					if (length > maxLength) maxLength = length;
 				}
-				return maxLength + _margin.Left + _margin.Right;
-			}
-		}
-
-		/// <inheritdoc/>
-		public int ActualX => _actualX;
-		/// <inheritdoc/>
-		public int ActualY => _actualY;
-		/// <inheritdoc/>
-		public int ActualWidth => _actualWidth;
-		/// <inheritdoc/>
-		public int ActualHeight => _actualHeight;
-
-		/// <inheritdoc/>
-		public HorizontalAlignment HorizontalAlignment
-		{
-			get => _horizontalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public VerticalAlignment VerticalAlignment
-		{
-			get => _verticalAlignment;
-			set
-			{
-				if (_verticalAlignment == value) return;
-				_verticalAlignment = value;
-				Container?.Invalidate(true);
+				return maxLength + Margin.Left + Margin.Right;
 			}
 		}
 
@@ -143,9 +103,6 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 			}
 		}
-
-		/// <inheritdoc/>
-		public IContainer? Container { get; set; }
 
 		/// <summary>
 		/// Gets or sets the foreground color of the tree control.
@@ -237,17 +194,6 @@ namespace SharpConsoleUI.Controls
 			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
 		}
 
-		/// <inheritdoc/>
-		public Margin Margin
-		{
-			get => _margin;
-			set
-			{
-				_margin = value;
-				Container?.Invalidate(true);
-			}
-		}
-
 		/// <summary>
 		/// Gets or sets the maximum number of items to display at once.
 		/// If null, shows as many as will fit in available height.
@@ -317,33 +263,6 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public StickyPosition StickyPosition
-		{
-			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public string? Name { get; set; }
-
-		/// <inheritdoc/>
-		public object? Tag { get; set; }
-
-		/// <inheritdoc/>
-		public bool Visible
-		{
-			get => _visible;
-			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
-		}
-
-		/// <inheritdoc/>
-		public int? Width
-		{
-			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
-		}
-
 		/// <summary>
 		/// Adds a root node to the tree control.
 		/// </summary>
@@ -404,9 +323,8 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Dispose()
+		protected override void OnDisposing()
 		{
-			Container = null;
 		}
 
 		/// <summary>
@@ -500,18 +418,12 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public System.Drawing.Size GetLogicalContentSize()
+		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			UpdateFlattenedNodes();
 			int width = ContentWidth ?? 0;
-			int height = _flattenedNodes.Count + _margin.Top + _margin.Bottom;
+			int height = _flattenedNodes.Count + Margin.Top + Margin.Bottom;
 			return new System.Drawing.Size(width, height);
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
 		}
 
 		/// <summary>
