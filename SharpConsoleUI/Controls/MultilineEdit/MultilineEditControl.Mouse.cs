@@ -15,11 +15,190 @@ namespace SharpConsoleUI.Controls
 {
 	public partial class MultilineEditControl
 	{
+		/// <summary>
+		/// Tests whether a mouse position falls on the vertical scrollbar column.
+		/// </summary>
+		private bool IsOnVerticalScrollbar(int mouseX)
+		{
+			if (!_needsVerticalScrollbar) return false;
+			int scrollbarX = _margin.Left + GetGutterWidth() + _effectiveWidth;
+			return mouseX == scrollbarX;
+		}
+
+		/// <summary>
+		/// Tests whether a mouse position falls on the horizontal scrollbar row.
+		/// </summary>
+		private bool IsOnHorizontalScrollbar(int mouseY)
+		{
+			if (!_needsHorizontalScrollbar) return false;
+			int scrollbarY = _margin.Top + _effectiveViewportHeight;
+			return mouseY == scrollbarY;
+		}
+
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			if (!IsEnabled || !WantsMouseEvents)
 				return false;
+
+			// --- Scrollbar drag-in-progress (must be checked before text drag) ---
+
+			if (_isVerticalScrollbarDragging &&
+				args.HasAnyFlag(MouseFlags.Button1Dragged, MouseFlags.Button1Pressed))
+			{
+				var (trackHeight, _, sbThumbHeight) = GetVerticalScrollbarGeometry();
+				int deltaY = args.Position.Y - _verticalScrollbarDragStartY;
+				int totalLines = GetTotalWrappedLineCount();
+				int effectiveViewport = GetEffectiveViewportHeight();
+				int maxScroll = Math.Max(0, totalLines - effectiveViewport);
+				int trackRange = Math.Max(1, trackHeight - sbThumbHeight);
+				int newOffset = _verticalScrollbarDragStartOffset +
+					(int)(deltaY * (double)maxScroll / trackRange);
+				newOffset = Math.Clamp(newOffset, 0, maxScroll);
+				_skipUpdateScrollPositionsInRender = true;
+				_verticalScrollOffset = newOffset;
+				Container?.Invalidate(true);
+				return true;
+			}
+
+			if (_isHorizontalScrollbarDragging &&
+				args.HasAnyFlag(MouseFlags.Button1Dragged, MouseFlags.Button1Pressed))
+			{
+				var (trackWidth, _, sbThumbWidth) = GetHorizontalScrollbarGeometry();
+				int deltaX = args.Position.X - _horizontalScrollbarDragStartX;
+				int maxLineLength = GetMaxLineLength();
+				int maxScroll = Math.Max(0, maxLineLength - _effectiveWidth);
+				int trackRange = Math.Max(1, trackWidth - sbThumbWidth);
+				int newOffset = _horizontalScrollbarDragStartOffset +
+					(int)(deltaX * (double)maxScroll / trackRange);
+				newOffset = Math.Clamp(newOffset, 0, maxScroll);
+				_horizontalScrollOffset = newOffset;
+				Container?.Invalidate(true);
+				return true;
+			}
+
+			// --- Scrollbar drag end ---
+
+			if (args.HasFlag(MouseFlags.Button1Released))
+			{
+				if (_isVerticalScrollbarDragging || _isHorizontalScrollbarDragging)
+				{
+					_isVerticalScrollbarDragging = false;
+					_isHorizontalScrollbarDragging = false;
+					return true;
+				}
+			}
+
+			// --- Scrollbar click detection (before text handling) ---
+
+			if (args.HasFlag(MouseFlags.Button1Pressed) && _hasFocus)
+			{
+				// Vertical scrollbar interaction
+				if (IsOnVerticalScrollbar(args.Position.X))
+				{
+					_scrollbarInteracted = true;
+					int relY = args.Position.Y - _margin.Top;
+					var (trackHeight, sbThumbY, sbThumbHeight) = GetVerticalScrollbarGeometry();
+					int effectiveViewport = trackHeight;
+					int totalLines = GetTotalWrappedLineCount();
+					int maxScroll = Math.Max(0, totalLines - effectiveViewport);
+
+					if (relY >= 0 && relY < trackHeight)
+					{
+						if (relY == 0 && _verticalScrollOffset > 0)
+						{
+							// Arrow up
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset = Math.Max(0, _verticalScrollOffset - ControlDefaults.DefaultScrollWheelLines);
+							Container?.Invalidate(true);
+						}
+						else if (relY == trackHeight - 1 && _verticalScrollOffset < maxScroll)
+						{
+							// Arrow down
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset = Math.Min(maxScroll, _verticalScrollOffset + ControlDefaults.DefaultScrollWheelLines);
+							Container?.Invalidate(true);
+						}
+						else if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
+						{
+							// Thumb: start drag
+							_isVerticalScrollbarDragging = true;
+							_verticalScrollbarDragStartY = args.Position.Y;
+							_verticalScrollbarDragStartOffset = _verticalScrollOffset;
+						}
+						else if (relY < sbThumbY)
+						{
+							// Track above thumb: page up
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset = Math.Max(0, _verticalScrollOffset - effectiveViewport);
+							Container?.Invalidate(true);
+						}
+						else
+						{
+							// Track below thumb: page down
+							_skipUpdateScrollPositionsInRender = true;
+							_verticalScrollOffset = Math.Min(maxScroll, _verticalScrollOffset + effectiveViewport);
+							Container?.Invalidate(true);
+						}
+						return true;
+					}
+				}
+
+				// Horizontal scrollbar interaction
+				if (IsOnHorizontalScrollbar(args.Position.Y))
+				{
+					_scrollbarInteracted = true;
+					int relX = args.Position.X - _margin.Left - GetGutterWidth();
+					var (trackWidth, sbThumbX, sbThumbWidth) = GetHorizontalScrollbarGeometry();
+					int maxLineLength = GetMaxLineLength();
+					int maxScroll = Math.Max(0, maxLineLength - _effectiveWidth);
+
+					if (relX >= 0 && relX < trackWidth)
+					{
+						if (relX == 0 && _horizontalScrollOffset > 0)
+						{
+							// Arrow left
+							_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - ControlDefaults.DefaultScrollWheelLines);
+							Container?.Invalidate(true);
+						}
+						else if (relX == trackWidth - 1 && _horizontalScrollOffset < maxScroll)
+						{
+							// Arrow right
+							_horizontalScrollOffset = Math.Min(maxScroll, _horizontalScrollOffset + ControlDefaults.DefaultScrollWheelLines);
+							Container?.Invalidate(true);
+						}
+						else if (relX >= sbThumbX && relX < sbThumbX + sbThumbWidth)
+						{
+							// Thumb: start drag
+							_isHorizontalScrollbarDragging = true;
+							_horizontalScrollbarDragStartX = args.Position.X;
+							_horizontalScrollbarDragStartOffset = _horizontalScrollOffset;
+						}
+						else if (relX < sbThumbX)
+						{
+							// Track left of thumb: page left
+							_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - _effectiveWidth);
+							Container?.Invalidate(true);
+						}
+						else
+						{
+							// Track right of thumb: page right
+							_horizontalScrollOffset = Math.Min(maxScroll, _horizontalScrollOffset + _effectiveWidth);
+							Container?.Invalidate(true);
+						}
+						return true;
+					}
+				}
+			}
+
+			// Consume other mouse events on scrollbar areas to prevent text cursor positioning
+			if (args.HasAnyFlag(MouseFlags.Button1Clicked, MouseFlags.Button1Released,
+				MouseFlags.Button1DoubleClicked, MouseFlags.Button1TripleClicked,
+				MouseFlags.Button1Dragged))
+			{
+				if (IsOnVerticalScrollbar(args.Position.X) || IsOnHorizontalScrollbar(args.Position.Y))
+					return true;
+			}
 
 			// Triple-click: select entire line
 			if (args.HasFlag(MouseFlags.Button1TripleClicked))
@@ -93,6 +272,7 @@ namespace SharpConsoleUI.Controls
 					else
 					{
 						// Fresh press — anchor the selection start
+						_scrollbarInteracted = false;
 						_hasSelection = true;
 						_selectionStartX = _cursorX;
 						_selectionStartY = _cursorY;
@@ -146,6 +326,7 @@ namespace SharpConsoleUI.Controls
 				int scrollAmount = Math.Min(ControlDefaults.DefaultScrollWheelLines, _verticalScrollOffset);
 				if (scrollAmount > 0)
 				{
+					_scrollbarInteracted = true;
 					_skipUpdateScrollPositionsInRender = true;
 					_verticalScrollOffset -= scrollAmount;
 					Container?.Invalidate(true);
@@ -161,6 +342,7 @@ namespace SharpConsoleUI.Controls
 				int scrollAmount = Math.Min(ControlDefaults.DefaultScrollWheelLines, maxScroll - _verticalScrollOffset);
 				if (scrollAmount > 0)
 				{
+					_scrollbarInteracted = true;
 					_skipUpdateScrollPositionsInRender = true;
 					_verticalScrollOffset += scrollAmount;
 					Container?.Invalidate(true);
@@ -213,6 +395,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void PositionCursorFromMouse(int mouseX, int mouseY)
 		{
+			_scrollbarInteracted = false;
 			PositionCursorFromMouseCore(mouseX, mouseY);
 			ClearSelection();
 			EnsureCursorVisible();

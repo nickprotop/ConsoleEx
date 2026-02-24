@@ -42,7 +42,20 @@ namespace SharpConsoleUI.Controls
 				(_horizontalScrollbarVisibility == ScrollbarVisibility.Always ||
 				 (_horizontalScrollbarVisibility == ScrollbarVisibility.Auto &&
 				  GetMaxLineLength() > contentWidth));
-			if (needsHorizontalScrollbar) contentHeight++;
+			if (needsHorizontalScrollbar)
+			{
+				contentHeight++; // extra row for horizontal scrollbar
+
+				// Horizontal scrollbar reduces viewport by 1, which may trigger vertical scrollbar
+				if (!needsVerticalScrollbar &&
+					_verticalScrollbarVisibility == ScrollbarVisibility.Auto &&
+					GetTotalWrappedLineCount() > effectiveViewport - 1)
+				{
+					needsVerticalScrollbar = true;
+					scrollbarWidth = 1;
+					contentWidth = baseWidth - scrollbarWidth - gutterWidth;
+				}
+			}
 
 			int width = baseWidth + _margin.Left + _margin.Right;
 			int height = contentHeight + _margin.Top + _margin.Bottom;
@@ -82,19 +95,39 @@ namespace SharpConsoleUI.Controls
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBgColor);
 
 			// Determine if scrollbars will be shown
+			int gutterWidth = GetGutterWidth();
+
 			bool needsVerticalScrollbar = _verticalScrollbarVisibility == ScrollbarVisibility.Always ||
 				(_verticalScrollbarVisibility == ScrollbarVisibility.Auto &&
 				 GetTotalWrappedLineCount() > effectiveViewport);
 
+			int scrollbarWidth = needsVerticalScrollbar ? 1 : 0;
+			int effectiveWidth = targetWidth - scrollbarWidth - gutterWidth;
+
 			bool needsHorizontalScrollbar = _wrapMode == WrapMode.NoWrap &&
 				(_horizontalScrollbarVisibility == ScrollbarVisibility.Always ||
 				 (_horizontalScrollbarVisibility == ScrollbarVisibility.Auto &&
-				  GetMaxLineLength() > targetWidth));
+				  GetMaxLineLength() > effectiveWidth));
 
-			int scrollbarWidth = needsVerticalScrollbar ? 1 : 0;
-			int gutterWidth = GetGutterWidth();
-			int effectiveWidth = targetWidth - scrollbarWidth - gutterWidth;
+			// Horizontal scrollbar takes 1 row from viewport, which may trigger vertical scrollbar
+			if (needsHorizontalScrollbar)
+			{
+				effectiveViewport = Math.Max(1, effectiveViewport - 1);
+
+				if (!needsVerticalScrollbar &&
+					_verticalScrollbarVisibility == ScrollbarVisibility.Auto &&
+					GetTotalWrappedLineCount() > effectiveViewport)
+				{
+					needsVerticalScrollbar = true;
+					scrollbarWidth = 1;
+					effectiveWidth = targetWidth - scrollbarWidth - gutterWidth;
+				}
+			}
+
 			_effectiveWidth = effectiveWidth;
+			_effectiveViewportHeight = effectiveViewport;
+			_needsHorizontalScrollbar = needsHorizontalScrollbar;
+			_needsVerticalScrollbar = needsVerticalScrollbar;
 
 			if (effectiveWidth <= 0) { _skipUpdateScrollPositionsInRender = false; return; }
 
@@ -106,7 +139,7 @@ namespace SharpConsoleUI.Controls
 				? FindWrappedLineForCursor(wrappedLines)
 				: _cursorY;
 
-			if (wrappedLineWithCursor >= 0 && !_skipUpdateScrollPositionsInRender)
+			if (wrappedLineWithCursor >= 0 && !_skipUpdateScrollPositionsInRender && !_scrollbarInteracted)
 			{
 				if (wrappedLineWithCursor < _verticalScrollOffset)
 					_verticalScrollOffset = wrappedLineWithCursor;
@@ -139,8 +172,10 @@ namespace SharpConsoleUI.Controls
 					: 0;
 			}
 
-			// Pre-compute scrollbar background color (fixed, not focus-dependent)
-			Color scrollbarBg = BackgroundColor;
+			// Focus-aware scrollbar colors (matching ScrollablePanelControl)
+			Color scrollbarBg = bgColor;
+			Color activeThumbColor = _hasFocus ? Color.Cyan1 : Color.Grey;
+			Color activeTrackColor = _hasFocus ? Color.Grey : Color.Grey23;
 
 				int contentStartX = startX + gutterWidth;
 
@@ -306,11 +341,29 @@ namespace SharpConsoleUI.Controls
 						int scrollX = contentStartX + effectiveWidth;
 						if (scrollX >= clipRect.X && scrollX < clipRect.Right)
 						{
-							bool isThumb = i >= vThumbPos && i < vThumbPos + vThumbHeight;
-							char scrollChar = isThumb ? '█' : '│';
-							buffer.SetCell(scrollX, paintY, scrollChar,
-								isThumb ? ScrollbarThumbColor : ScrollbarColor,
-								scrollbarBg);
+							char scrollChar;
+							Color scrollFg;
+							if (i == 0 && _verticalScrollOffset > 0)
+							{
+								scrollChar = '▲';
+								scrollFg = activeThumbColor;
+							}
+							else if (i == effectiveViewport - 1 && _verticalScrollOffset < totalWrappedLineCount - effectiveViewport)
+							{
+								scrollChar = '▼';
+								scrollFg = activeThumbColor;
+							}
+							else if (i >= vThumbPos && i < vThumbPos + vThumbHeight)
+							{
+								scrollChar = '█';
+								scrollFg = activeThumbColor;
+							}
+							else
+							{
+								scrollChar = '│';
+								scrollFg = activeTrackColor;
+							}
+							buffer.SetCell(scrollX, paintY, scrollChar, scrollFg, scrollbarBg);
 						}
 					}
 
@@ -343,11 +396,29 @@ namespace SharpConsoleUI.Controls
 						int scrollX = contentStartX + effectiveWidth;
 						if (scrollX >= clipRect.X && scrollX < clipRect.Right)
 						{
-							bool isThumb = i >= vThumbPos && i < vThumbPos + vThumbHeight;
-							char scrollChar = isThumb ? '█' : '│';
-							buffer.SetCell(scrollX, paintY, scrollChar,
-								isThumb ? ScrollbarThumbColor : ScrollbarColor,
-								scrollbarBg);
+							char scrollChar;
+							Color scrollFg;
+							if (i == 0 && _verticalScrollOffset > 0)
+							{
+								scrollChar = '▲';
+								scrollFg = activeThumbColor;
+							}
+							else if (i == effectiveViewport - 1 && _verticalScrollOffset < totalWrappedLineCount - effectiveViewport)
+							{
+								scrollChar = '▼';
+								scrollFg = activeThumbColor;
+							}
+							else if (i >= vThumbPos && i < vThumbPos + vThumbHeight)
+							{
+								scrollChar = '█';
+								scrollFg = activeThumbColor;
+							}
+							else
+							{
+								scrollChar = '│';
+								scrollFg = activeTrackColor;
+							}
+							buffer.SetCell(scrollX, paintY, scrollChar, scrollFg, scrollbarBg);
 						}
 					}
 
@@ -373,6 +444,7 @@ namespace SharpConsoleUI.Controls
 						buffer.FillRect(new LayoutRect(startX, scrollY, gutterWidth, 1), ' ', fgColor, bgColor);
 
 					int maxLineLength = GetMaxLineLength();
+					int hMaxScroll = Math.Max(0, maxLineLength - effectiveWidth);
 					int thumbWidth = Math.Max(1, (effectiveWidth * effectiveWidth) / Math.Max(1, maxLineLength));
 					int maxThumbPos = effectiveWidth - thumbWidth;
 					int thumbPos = maxLineLength > effectiveWidth
@@ -384,11 +456,29 @@ namespace SharpConsoleUI.Controls
 						int cellX = contentStartX + x;
 						if (cellX >= clipRect.X && cellX < clipRect.Right)
 						{
-							bool isThumb = x >= thumbPos && x < thumbPos + thumbWidth;
-							char scrollChar = isThumb ? '█' : '─';
-							buffer.SetCell(cellX, scrollY, scrollChar,
-								isThumb ? ScrollbarThumbColor : ScrollbarColor,
-								bgColor);
+							char scrollChar;
+							Color scrollFg;
+							if (x == 0 && _horizontalScrollOffset > 0)
+							{
+								scrollChar = '◄';
+								scrollFg = activeThumbColor;
+							}
+							else if (x == effectiveWidth - 1 && _horizontalScrollOffset < hMaxScroll)
+							{
+								scrollChar = '►';
+								scrollFg = activeThumbColor;
+							}
+							else if (x >= thumbPos && x < thumbPos + thumbWidth)
+							{
+								scrollChar = '▬';
+								scrollFg = activeThumbColor;
+							}
+							else
+							{
+								scrollChar = '─';
+								scrollFg = activeTrackColor;
+							}
+							buffer.SetCell(cellX, scrollY, scrollChar, scrollFg, scrollbarBg);
 						}
 					}
 
@@ -397,7 +487,7 @@ namespace SharpConsoleUI.Controls
 						int cornerX = contentStartX + effectiveWidth;
 						if (cornerX >= clipRect.X && cornerX < clipRect.Right)
 						{
-							buffer.SetCell(cornerX, scrollY, '┘', ScrollbarColor, bgColor);
+							buffer.SetCell(cornerX, scrollY, '┘', activeTrackColor, scrollbarBg);
 						}
 					}
 
@@ -442,6 +532,37 @@ namespace SharpConsoleUI.Controls
 			if (!_showLineNumbers) return 0;
 			int digits = Math.Max(1, (int)Math.Floor(Math.Log10(Math.Max(1, _lines.Count))) + 1);
 			return digits + ControlDefaults.LineNumberGutterPadding;
+		}
+
+		/// <summary>
+		/// Computes vertical scrollbar geometry for hit-testing and rendering.
+		/// Returns (trackHeight, thumbY, thumbHeight) relative to the viewport top.
+		/// </summary>
+		private (int trackHeight, int thumbY, int thumbHeight) GetVerticalScrollbarGeometry()
+		{
+			int effectiveViewport = _effectiveViewportHeight > 0 ? _effectiveViewportHeight : GetEffectiveViewportHeight();
+			int totalLines = GetTotalWrappedLineCount();
+			int thumbHeight = Math.Max(1, (effectiveViewport * effectiveViewport) / Math.Max(1, totalLines));
+			int maxThumbPos = effectiveViewport - thumbHeight;
+			int thumbY = totalLines > effectiveViewport
+				? (int)Math.Round((double)_verticalScrollOffset / (totalLines - effectiveViewport) * maxThumbPos)
+				: 0;
+			return (effectiveViewport, thumbY, thumbHeight);
+		}
+
+		/// <summary>
+		/// Computes horizontal scrollbar geometry for hit-testing and rendering.
+		/// Returns (trackWidth, thumbX, thumbWidth) relative to the content start.
+		/// </summary>
+		private (int trackWidth, int thumbX, int thumbWidth) GetHorizontalScrollbarGeometry()
+		{
+			int maxLineLength = GetMaxLineLength();
+			int thumbWidth = Math.Max(1, (_effectiveWidth * _effectiveWidth) / Math.Max(1, maxLineLength));
+			int maxThumbPos = _effectiveWidth - thumbWidth;
+			int thumbX = maxLineLength > _effectiveWidth
+				? (int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - _effectiveWidth) * maxThumbPos)
+				: 0;
+			return (_effectiveWidth, thumbX, thumbWidth);
 		}
 
 		private Color GetSyntaxColor(int lineIndex, int charIndex, Color defaultColor)

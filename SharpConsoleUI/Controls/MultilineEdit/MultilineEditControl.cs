@@ -45,6 +45,9 @@ namespace SharpConsoleUI.Controls
 		private int _cursorX = 0;
 		private int _cursorY = 0;
 		private int _effectiveWidth;
+		private int _effectiveViewportHeight;
+		private bool _needsHorizontalScrollbar;
+		private bool _needsVerticalScrollbar;
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
@@ -74,6 +77,16 @@ namespace SharpConsoleUI.Controls
 		private int? _width;
 		private WrapMode _wrapMode = WrapMode.Wrap;
 		private bool _isDragging = false;
+
+		// Scrollbar drag state
+		private bool _scrollbarInteracted = false;
+		private bool _isVerticalScrollbarDragging = false;
+		private int _verticalScrollbarDragStartY = 0;
+		private int _verticalScrollbarDragStartOffset = 0;
+		private bool _isHorizontalScrollbarDragging = false;
+		private int _horizontalScrollbarDragStartX = 0;
+		private int _horizontalScrollbarDragStartOffset = 0;
+
 		private int _tabSize = ControlDefaults.DefaultTabSize;
 		private string? _placeholderText;
 		private int? _maxLength;

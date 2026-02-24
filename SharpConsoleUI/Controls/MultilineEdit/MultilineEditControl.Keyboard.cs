@@ -27,6 +27,9 @@ namespace SharpConsoleUI.Controls
 		{
 			if (!_isEnabled) return false;
 
+			// Any keyboard action clears manual scroll override so cursor-follow resumes
+			_scrollbarInteracted = false;
+
 			// When focused but not editing, only handle specific navigation keys
 			// All other keys (including Ctrl/Alt/Shift combinations) bubble up
 			if (_hasFocus && !_isEditing)
