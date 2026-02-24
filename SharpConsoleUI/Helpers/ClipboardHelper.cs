@@ -34,7 +34,7 @@ namespace SharpConsoleUI.Helpers
 
 	/// <summary>
 	/// Cross-platform clipboard helper for console applications.
-	/// On Linux tries wl-clipboard, xclip, xsel (in that order).
+	/// On Linux tries wl-clipboard, xclip, xsel.
 	/// Falls back to an in-process buffer when no external tool is available.
 	/// Operations are best-effort and will not throw on failure.
 	/// </summary>
