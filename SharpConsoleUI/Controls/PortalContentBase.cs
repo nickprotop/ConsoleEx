@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Drawing;
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 using Color = Spectre.Console.Color;
@@ -26,6 +27,19 @@ namespace SharpConsoleUI.Controls
 		private int _actualY;
 		private int _actualWidth;
 		private int _actualHeight;
+
+		/// <summary>
+		/// When set, PaintDOM draws a border using these characters and shrinks the
+		/// inner bounds by 1 on each side before calling <see cref="PaintPortalContent"/>.
+		/// Mouse coordinates are automatically adjusted by (-1,-1) for the border offset.
+		/// </summary>
+		public BoxChars? BorderStyle { get; set; }
+
+		/// <summary>Foreground color for the border characters. Falls back to the default foreground.</summary>
+		public Color? BorderColor { get; set; }
+
+		/// <summary>Background color for the border and fill area. Falls back to the default background.</summary>
+		public Color? BorderBackgroundColor { get; set; }
 
 		#region IHasPortalBounds
 
@@ -79,7 +93,25 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseMove;
 		#pragma warning restore CS0067
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Explicit interface implementation that adjusts mouse coordinates for the border
+		/// offset before delegating to the public virtual <see cref="ProcessMouseEvent"/>.
+		/// </summary>
+		bool IMouseAwareControl.ProcessMouseEvent(MouseEventArgs args)
+		{
+			if (BorderStyle.HasValue)
+			{
+				var adjusted = args.WithPosition(
+					new System.Drawing.Point(args.Position.X - 1, args.Position.Y - 1));
+				return ProcessMouseEvent(adjusted);
+			}
+			return ProcessMouseEvent(args);
+		}
+
+		/// <summary>
+		/// Processes a mouse event. When <see cref="BorderStyle"/> is set, coordinates
+		/// are already adjusted for the border offset.
+		/// </summary>
 		public abstract bool ProcessMouseEvent(MouseEventArgs args);
 
 		#endregion
@@ -167,7 +199,18 @@ namespace SharpConsoleUI.Controls
 			_actualWidth = bounds.Width;
 			_actualHeight = bounds.Height;
 
-			PaintPortalContent(buffer, bounds, clipRect, defaultFg, defaultBg);
+			if (BorderStyle is { } border)
+			{
+				buffer.DrawBox(bounds, border, BorderColor ?? defaultFg,
+					BorderBackgroundColor ?? defaultBg);
+				var inner = new LayoutRect(bounds.X + 1, bounds.Y + 1,
+					Math.Max(0, bounds.Width - 2), Math.Max(0, bounds.Height - 2));
+				PaintPortalContent(buffer, inner, clipRect, defaultFg, defaultBg);
+			}
+			else
+			{
+				PaintPortalContent(buffer, bounds, clipRect, defaultFg, defaultBg);
+			}
 		}
 
 		/// <summary>

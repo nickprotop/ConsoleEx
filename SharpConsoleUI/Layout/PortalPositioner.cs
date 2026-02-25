@@ -161,6 +161,38 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
+		/// Calculates the optimal position for a portal anchored at a single point
+		/// (e.g. a cursor position) rather than a rectangle.
+		/// </summary>
+		/// <param name="anchor">The point anchor (e.g. cursor position).</param>
+		/// <param name="contentSize">The desired size of the portal content.</param>
+		/// <param name="screenBounds">The available screen/window area to position within.</param>
+		/// <param name="placement">Preferred placement direction (default: BelowOrAbove).</param>
+		/// <param name="minSize">Minimum dimensions to enforce on the result.</param>
+		/// <returns>The calculated position result.</returns>
+		public static PortalPositionResult CalculateFromPoint(
+			Point anchor, Size contentSize, Rectangle screenBounds,
+			PortalPlacement placement = PortalPlacement.BelowOrAbove,
+			Size minSize = default)
+		{
+			// Point anchor → zero-width, 1-height rect (cursor occupies 1 row)
+			var anchorRect = new Rectangle(anchor.X, anchor.Y, 0, 1);
+			var result = Calculate(new PortalPositionRequest(anchorRect, contentSize, screenBounds, placement));
+
+			// Enforce minimum dimensions
+			if (minSize.Width > 0 || minSize.Height > 0)
+			{
+				var b = result.Bounds;
+				int w = Math.Max(b.Width, minSize.Width);
+				int h = Math.Max(b.Height, minSize.Height);
+				if (w != b.Width || h != b.Height)
+					return new PortalPositionResult(
+						new Rectangle(b.X, b.Y, w, h), result.ActualPlacement, result.WasClamped);
+			}
+			return result;
+		}
+
+		/// <summary>
 		/// Resolves a composite placement (e.g. BelowOrAbove) into a concrete direction
 		/// based on available space.
 		/// </summary>
