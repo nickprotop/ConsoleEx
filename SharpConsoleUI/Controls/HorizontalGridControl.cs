@@ -880,6 +880,9 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
 		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
 		/// <inheritdoc/>
@@ -915,6 +918,12 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// No control was clicked, but we might want to handle grid-level events
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
+				return true;
+			}
+
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
 				MouseClick?.Invoke(this, args);

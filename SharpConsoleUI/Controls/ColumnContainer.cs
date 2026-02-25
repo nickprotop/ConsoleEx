@@ -892,6 +892,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
 		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
@@ -956,6 +959,13 @@ namespace SharpConsoleUI.Controls
 					// Adjust position to be relative to content area (exclude margins)
 					var contentPosition = new Point(args.Position.X - _margin.Left, args.Position.Y - _margin.Top);
 					var contentArgs = args.WithPosition(contentPosition);
+
+					// Handle right-click
+					if (args.HasFlag(MouseFlags.Button3Clicked))
+					{
+						MouseRightClick?.Invoke(this, contentArgs);
+						return true;
+					}
 
 					// Handle double-click detection (two methods like ListControl)
 

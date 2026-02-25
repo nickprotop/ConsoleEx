@@ -200,6 +200,8 @@ public sealed class TerminalControl
     /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseDoubleClick;
     /// <inheritdoc/>
+    public event EventHandler<MouseEventArgs>? MouseRightClick;
+    /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseEnter;
     /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseLeave;
@@ -231,6 +233,11 @@ public sealed class TerminalControl
                     _scrollOffset = Math.Max(0,
                         _scrollOffset - Configuration.ControlDefaults.DefaultTerminalScrollWheelLines);
                 Container?.Invalidate(true);
+                return true;
+            }
+            if (args.HasFlag(MouseFlags.Button3Clicked))
+            {
+                MouseRightClick?.Invoke(this, args);
                 return true;
             }
             return false;

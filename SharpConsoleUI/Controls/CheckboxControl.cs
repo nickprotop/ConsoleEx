@@ -87,6 +87,11 @@ namespace SharpConsoleUI.Controls
 	public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
 	/// <summary>
+	/// Occurs when the checkbox is right-clicked with the mouse.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+	/// <summary>
 	/// Gets the actual rendered width of the control based on content.
 		/// </summary>
 		public override int? ContentWidth => GetCheckboxWidth() + Margin.Left + Margin.Right;
@@ -346,6 +351,13 @@ namespace SharpConsoleUI.Controls
 		if (args.HasAnyFlag(MouseFlags.ReportMousePosition))
 		{
 			MouseMove?.Invoke(this, args);
+			return true;
+		}
+
+		// Handle right-click
+		if (args.HasFlag(MouseFlags.Button3Clicked))
+		{
+			MouseRightClick?.Invoke(this, args);
 			return true;
 		}
 

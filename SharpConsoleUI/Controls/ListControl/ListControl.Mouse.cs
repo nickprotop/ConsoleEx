@@ -160,6 +160,13 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			// Handle right-click
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
+				return true;
+			}
+
 			// Handle double-click event from driver (preferred method)
 			if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickActivates)
 			{

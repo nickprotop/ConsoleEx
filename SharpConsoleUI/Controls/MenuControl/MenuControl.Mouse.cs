@@ -22,6 +22,11 @@ public partial class MenuControl
     #pragma warning disable CS0067  // Event never raised (interface requirement)
     /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+    /// <summary>
+    /// Occurs when the control is right-clicked with the mouse.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseRightClick;
     /// <inheritdoc/>
     public event EventHandler<MouseEventArgs>? MouseMove;
     #pragma warning restore CS0067
@@ -31,6 +36,15 @@ public partial class MenuControl
     {
         if (!_enabled)
             return false;
+
+
+        // Handle right-click
+        if (args.HasFlag(MouseFlags.Button3Clicked))
+        {
+            CloseAllMenus();
+            MouseRightClick?.Invoke(this, args);
+            return true;
+        }
 
         // Handle mouse leave event - clear hover if unfocused
         if (args.HasFlag(MouseFlags.MouseLeave))

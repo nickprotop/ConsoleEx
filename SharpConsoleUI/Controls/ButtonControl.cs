@@ -184,6 +184,11 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 		#pragma warning restore CS0067
 
+		/// <summary>
+		/// Occurs when the button is right-clicked with the mouse.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
@@ -209,6 +214,13 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.MouseLeave))
 			{
 				MouseLeave?.Invoke(this, args);
+				return true;
+			}
+
+			// Handle right-click
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
 				return true;
 			}
 

@@ -200,6 +200,13 @@ namespace SharpConsoleUI.Controls
 					return true;
 			}
 
+			// Handle right-click
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
+				return true;
+			}
+
 			// Triple-click: select entire line
 			if (args.HasFlag(MouseFlags.Button1TripleClicked))
 			{

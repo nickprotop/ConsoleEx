@@ -136,6 +136,9 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
 		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
 		/// <inheritdoc/>
@@ -171,6 +174,14 @@ namespace SharpConsoleUI.Controls
 				_isMouseInside = true;
 				MouseEnter?.Invoke(this, args);
 				Container?.Invalidate(true);
+			}
+
+			// Handle right-click
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
+				args.Handled = true;
+				return true;
 			}
 
 			// Scroll events - ALWAYS bubble up (don't consume)
@@ -237,6 +248,7 @@ namespace SharpConsoleUI.Controls
 			// Clear mouse event handlers to prevent memory leaks
 			MouseClick = null;
 			MouseDoubleClick = null;
+			MouseRightClick = null;
 			MouseEnter = null;
 			MouseLeave = null;
 			MouseMove = null;

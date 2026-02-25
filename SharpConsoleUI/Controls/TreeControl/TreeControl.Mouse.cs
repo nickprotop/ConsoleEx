@@ -36,6 +36,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
+		/// <summary>
+		/// Occurs when the control is right-clicked with the mouse.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
 		#pragma warning disable CS0067 // Event never raised (interface requirement)
 		/// <summary>
 		/// Occurs when the mouse enters the control area.
@@ -126,6 +131,13 @@ namespace SharpConsoleUI.Controls
 				{
 					return false; // Allow parent to handle
 				}
+			}
+
+			// Handle right-click
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
+				return true;
 			}
 
 			// Handle double-click - toggle expand/collapse or activate leaf

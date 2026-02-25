@@ -220,6 +220,27 @@ namespace SharpConsoleUI.Input
 				}
 			}
 
+			// Handle right-click window activation (no drag/resize, no chrome actions)
+			if (flags.Contains(MouseFlags.Button3Pressed) && !IsDragging && !IsResizing)
+			{
+				var window = GetWindowAtPoint(point);
+				if (window != null && window != _context.ActiveWindow)
+				{
+					_context.SetActiveWindow(window);
+				}
+			}
+
+			// Handle right-click event propagation
+			if (flags.Contains(MouseFlags.Button3Clicked) && !IsDragging && !IsResizing)
+			{
+				var window = GetWindowAtPoint(point);
+				if (window != null)
+				{
+					HandleWindowClick(window, flags, point);
+					return;
+				}
+			}
+
 			// Handle mouse clicks for window activation and event propagation - lowest priority
 			if (flags.Contains(MouseFlags.Button1Clicked) && !IsDragging && !IsResizing)
 			{

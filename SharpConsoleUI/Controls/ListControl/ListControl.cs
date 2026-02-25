@@ -266,6 +266,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
+		/// <summary>
+		/// Occurs when the control is right-clicked with the mouse.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
 		#endregion
 
 		#region Properties
@@ -671,6 +676,7 @@ namespace SharpConsoleUI.Controls
 			MouseMove = null;
 			ItemHovered = null;
 			MouseDoubleClick = null;
+			MouseRightClick = null;
 			GotFocus = null;
 			LostFocus = null;
 		}

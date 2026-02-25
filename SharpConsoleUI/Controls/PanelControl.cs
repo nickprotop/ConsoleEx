@@ -236,6 +236,9 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
 		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
 		/// <inheritdoc/>
@@ -329,6 +332,14 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 			}
 
+			// Handle right-click
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
+				args.Handled = true;
+				return true;
+			}
+
 			// Scroll events - ALWAYS bubble up (don't consume)
 			if (args.HasFlag(MouseFlags.WheeledUp) || args.HasFlag(MouseFlags.WheeledDown) ||
 				args.HasFlag(MouseFlags.WheeledLeft) || args.HasFlag(MouseFlags.WheeledRight))
@@ -400,6 +411,7 @@ namespace SharpConsoleUI.Controls
 		{
 			MouseClick = null;
 			MouseDoubleClick = null;
+			MouseRightClick = null;
 			MouseEnter = null;
 			MouseLeave = null;
 			MouseMove = null;

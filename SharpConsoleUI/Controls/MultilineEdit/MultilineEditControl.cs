@@ -176,6 +176,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
+		/// <summary>
+		/// Occurs when the control is right-clicked with the mouse.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
 		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;

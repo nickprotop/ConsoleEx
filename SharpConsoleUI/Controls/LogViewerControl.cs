@@ -13,6 +13,7 @@ using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using SharpConsoleUI.Logging;
 using Spectre.Console;
 using Color = Spectre.Console.Color;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using System.Collections.Concurrent;
 
@@ -94,6 +95,11 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
     /// Occurs when the control is double-clicked.
     /// </summary>
     public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+    /// <summary>
+    /// Occurs when the control is right-clicked with the mouse.
+    /// </summary>
+    public event EventHandler<MouseEventArgs>? MouseRightClick;
 
     /// <summary>
     /// Occurs when the mouse enters the control area.
@@ -290,6 +296,14 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
     /// <inheritdoc/>
     public bool ProcessMouseEvent(MouseEventArgs args)
     {
+
+        // Handle right-click
+        if (args.HasFlag(MouseFlags.Button3Clicked))
+        {
+            MouseRightClick?.Invoke(this, args);
+            return true;
+        }
+
         // Delegate mouse handling to scroll panel
         return _scrollPanel.ProcessMouseEvent(args);
     }

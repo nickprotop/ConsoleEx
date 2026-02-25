@@ -215,8 +215,9 @@ namespace SharpConsoleUI.Windows
 					else
 					{
 						// === EXISTING: NON-SCROLL EVENTS (clicks, etc.) ===
-						// Centralized focus handling on click
-						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+						// Centralized focus handling on click (left-click and right-click)
+						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
+						                    MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
 						{
 							HandleClickFocus(targetControl);
 						}
@@ -240,7 +241,8 @@ namespace SharpConsoleUI.Windows
 						// Fire UnhandledMouseClick so listeners (e.g., MenuControl) can dismiss
 						if (targetControl != null && targetControl is not Controls.IMouseAwareControl)
 						{
-							if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+							if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
+							                    MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
 							{
 								_window.RaiseUnhandledMouseClick(args);
 							}
@@ -248,7 +250,8 @@ namespace SharpConsoleUI.Windows
 						}
 
 						// Fire UnhandledMouseClick event for clicks on empty/unhandled space
-						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
+						                    MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
 						{
 							_window.RaiseUnhandledMouseClick(args);
 							return true; // Considered handled after event fires

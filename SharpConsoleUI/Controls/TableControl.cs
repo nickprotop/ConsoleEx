@@ -228,6 +228,9 @@ public class TableControl : BaseControl, IMouseAwareControl
 	public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
 	/// <inheritdoc/>
+	public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseEnter;
 
 	/// <inheritdoc/>
@@ -695,6 +698,12 @@ public class TableControl : BaseControl, IMouseAwareControl
 		if (args.HasFlag(MouseFlags.ReportMousePosition))
 		{
 			MouseMove?.Invoke(this, args);
+			return true;
+		}
+
+		if (args.HasFlag(MouseFlags.Button3Clicked))
+		{
+			MouseRightClick?.Invoke(this, args);
 			return true;
 		}
 

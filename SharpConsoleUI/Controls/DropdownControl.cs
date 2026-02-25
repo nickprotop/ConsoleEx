@@ -156,6 +156,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
+		/// <summary>
+		/// Occurs when the control is right-clicked with the mouse.
+		/// </summary>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
@@ -822,6 +827,13 @@ namespace SharpConsoleUI.Controls
 			if (args.HasAnyFlag(MouseFlags.ReportMousePosition))
 			{
 				MouseMove?.Invoke(this, args);
+				return true;
+			}
+
+			// Handle right-click
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
 				return true;
 			}
 

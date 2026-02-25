@@ -197,6 +197,9 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
 	/// <inheritdoc/>
+	public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseEnter;
 
 	/// <inheritdoc/>
@@ -215,6 +218,13 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	public bool ProcessMouseEvent(MouseEventArgs e)
 	{
 		if (!_enabled) return false;
+
+		if (e.HasFlag(MouseFlags.Button3Clicked))
+		{
+			MouseRightClick?.Invoke(this, e);
+			e.Handled = true;
+			return true;
+		}
 
 		if (e.HasFlag(MouseFlags.Button1Clicked))
 		{
