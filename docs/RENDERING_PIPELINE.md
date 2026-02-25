@@ -216,6 +216,8 @@ private List<Window> BuildRenderList()
 
 This ensures correct visual stacking regardless of Z-order values.
 
+Within each window, [portal overlays](PORTAL_SYSTEM.md) (dropdowns, context menus, tooltips) render after all normal controls, appearing on top of the window's content.
+
 #### Phase 4: Screen Flush
 - Calls `_driver.Render()` to commit all buffered changes
 - **Single flush per frame**: All windows rendered before screen update

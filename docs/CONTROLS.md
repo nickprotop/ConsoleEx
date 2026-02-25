@@ -75,6 +75,7 @@ Controls for organizing other controls.
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
 | **[ToolbarControl](controls/ToolbarControl.md)** | Horizontal button toolbar | Quick access buttons, separators |
 | **[SeparatorControl](controls/SeparatorControl.md)** | Visual separator | Simple horizontal line |
+| **PortalContentContainer** | Portal overlay container | Host child controls in [portal overlays](PORTAL_SYSTEM.md), mouse/keyboard routing, focus tracking |
 
 ## Utility Controls
 

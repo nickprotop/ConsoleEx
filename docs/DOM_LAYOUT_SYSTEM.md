@@ -493,10 +493,12 @@ The `CursorStateService` translates logical positions to screen coordinates usin
 - `ControlBounds.cs` still exists for legacy hit-testing (can be removed when Window.cs is fully updated)
 
 ### Potential Enhancements
-- Portal system for dropdowns (render outside allocated bounds)
 - Virtual scrolling for large lists (only create nodes for visible items)
 - Dirty region tracking for partial updates
 - Animation support with interpolated layout
+
+### Implemented
+- [Portal system](PORTAL_SYSTEM.md) for dropdowns, menus, and arbitrary overlay content (render outside allocated bounds)
 
 ---
 

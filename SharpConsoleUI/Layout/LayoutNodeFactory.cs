@@ -51,6 +51,11 @@ namespace SharpConsoleUI.Layout
 				// Self-painting container - do not recurse into children
 				return (null, null);
 			}
+			else if (control is PortalContentContainer)
+			{
+				// Self-painting container - owns its layout
+				return (null, null);
+			}
 
 			// Leaf control
 			return (null, null);
