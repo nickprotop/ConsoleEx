@@ -14,6 +14,7 @@ SharpConsoleUI's portal system enables overlay rendering — content that floats
 - [Building a Custom Portal](#building-a-custom-portal)
 - [Mouse and Keyboard Routing](#mouse-and-keyboard-routing)
 - [Nested Containers](#nested-containers)
+- [Dismiss on Outside Click](#dismiss-on-outside-click)
 - [Lifecycle Management](#lifecycle-management)
 - [Quick Reference](#quick-reference)
 
@@ -400,6 +401,61 @@ This works because:
 - **Mouse**: Portal forwards to child, child does its own internal hit-testing for nested children
 - **Focus**: `IFocusTrackingContainer` ensures focus tracking through nesting
 
+## Dismiss on Outside Click
+
+Portals can opt in to automatic dismissal when the user clicks outside their bounds. This is useful for dropdowns, context menus, and other transient overlays.
+
+### Enabling
+
+Set `DismissOnOutsideClick` on the portal content:
+
+```csharp
+// Via PortalContentBase subclass
+var portal = new PortalContentContainer();
+portal.DismissOnOutsideClick = true;
+
+// Or via IHasPortalBounds (default-implemented as false)
+public bool DismissOnOutsideClick => true;
+```
+
+### DismissRequested Event
+
+`PortalContentBase` exposes a `DismissRequested` event that fires **before** the portal is removed. Use it for cleanup:
+
+```csharp
+portal.DismissRequested += (sender, e) =>
+{
+    // Clean up state, close related UI, etc.
+    _portalNode = null;
+    _portal = null;
+};
+portal.DismissOnOutsideClick = true;
+
+_portalNode = window.CreatePortal(this, portal);
+```
+
+### How It Works
+
+Portals with `DismissOnOutsideClick = true` are dismissed in two scenarios:
+
+**Outside click:**
+1. On left-click or right-click, `WindowEventDispatcher` walks all portal nodes
+2. For each matching portal, it checks if the click is outside `GetPortalBounds()`
+3. Matching portals are collected first (to avoid modifying the tree during iteration)
+4. `DismissRequested` fires on each, then `RemovePortal()` removes it
+5. Normal click processing continues — the click is **not** consumed
+
+**Window deactivation:**
+1. When the window loses focus (another window is activated, or the user clicks the desktop)
+2. All portals with `DismissOnOutsideClick = true` are dismissed immediately
+3. `DismissRequested` fires before removal, same as outside-click dismissal
+
+### Defaults
+
+- `IHasPortalBounds.DismissOnOutsideClick` defaults to `false` (default interface implementation)
+- `PortalContentBase.DismissOnOutsideClick` is a settable property, also defaulting to `false`
+- Existing portals are completely unaffected unless they explicitly opt in
+
 ## Lifecycle Management
 
 1. **Create** portal content and set bounds
@@ -418,7 +474,7 @@ Always remove portals before disposing the owner control. Portals that outlive t
 | `Window.RemovePortal()` | `Window.cs` | Remove a portal overlay |
 | `PortalContentBase` | `Controls/PortalContentBase.cs` | Abstract base for portal content |
 | `PortalContentContainer` | `Controls/PortalContentContainer.cs` | Container for child controls in portals |
-| `IHasPortalBounds` | `Controls/IHasPortalBounds.cs` | Interface for portal bounds |
+| `IHasPortalBounds` | `Layout/IHasPortalBounds.cs` | Interface for portal bounds and dismiss opt-in |
 | `PortalPositioner` | `Layout/PortalPositioner.cs` | Smart positioning with flip/clamp |
 | `PortalPositionRequest` | `Layout/PortalPositioner.cs` | Positioning request record |
 | `PortalPositionResult` | `Layout/PortalPositioner.cs` | Positioning result record |

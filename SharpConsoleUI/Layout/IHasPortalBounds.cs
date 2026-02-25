@@ -14,5 +14,10 @@ namespace SharpConsoleUI.Layout
 		/// where this portal overlay should be rendered.
 		/// </summary>
 		Rectangle GetPortalBounds();
+
+		/// <summary>
+		/// When true, the portal is automatically dismissed when the user clicks outside its bounds.
+		/// </summary>
+		bool DismissOnOutsideClick => false;
 	}
 }

@@ -214,6 +214,9 @@ namespace SharpConsoleUI.Windows
 					}
 					else
 					{
+						// === DISMISS PORTALS ON OUTSIDE CLICK ===
+						DismissOutsideClickPortals(args);
+
 						// === EXISTING: NON-SCROLL EVENTS (clicks, etc.) ===
 						// Centralized focus handling on click (left-click and right-click)
 						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
@@ -279,6 +282,50 @@ namespace SharpConsoleUI.Windows
 				}
 
 				return false; // Event not handled
+			}
+		}
+
+		/// <summary>
+		/// Dismisses portals that have DismissOnOutsideClick enabled when a click lands outside their bounds.
+		/// Collects targets first to avoid modifying collections during iteration.
+		/// </summary>
+		private void DismissOutsideClickPortals(MouseEventArgs args)
+		{
+			var root = _window.RootLayoutNode;
+			if (root == null) return;
+
+			if (!args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
+			                     MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
+				return;
+
+			var contentPos = GetContentCoordinates(args.WindowPosition);
+			var toDismiss = new List<LayoutNode>();
+
+			root.Visit(node =>
+			{
+				foreach (var portal in node.PortalChildren)
+				{
+					if (portal.Control is IHasPortalBounds hasPortalBounds
+						&& hasPortalBounds.DismissOnOutsideClick)
+					{
+						var bounds = hasPortalBounds.GetPortalBounds();
+						if (!bounds.Contains(contentPos))
+						{
+							toDismiss.Add(portal);
+						}
+					}
+				}
+			});
+
+			foreach (var portal in toDismiss)
+			{
+				if (portal.Control is PortalContentBase portalContent)
+					portalContent.RaiseDismissRequested();
+
+				// Window.RemovePortal always removes from root node regardless of ownerControl,
+				// so we pass the portal's own control as a placeholder.
+				if (portal.Control != null)
+					_window.RemovePortal(portal.Control, portal);
 			}
 		}
 

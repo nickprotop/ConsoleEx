@@ -2054,6 +2054,38 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Dismisses all portals that have DismissOnOutsideClick enabled.
+		/// Called on window deactivation and can be called programmatically.
+		/// </summary>
+		internal void DismissAutoClosePortals()
+		{
+			var root = RootLayoutNode;
+			if (root == null) return;
+
+			var toDismiss = new List<LayoutNode>();
+
+			root.Visit(node =>
+			{
+				foreach (var portal in node.PortalChildren)
+				{
+					if (portal.Control is Layout.IHasPortalBounds hasPortalBounds
+						&& hasPortalBounds.DismissOnOutsideClick)
+					{
+						toDismiss.Add(portal);
+					}
+				}
+			});
+
+			foreach (var portal in toDismiss)
+			{
+				if (portal.Control is Controls.PortalContentBase portalContent)
+					portalContent.RaiseDismissRequested();
+				if (portal.Control != null)
+					RemovePortal(portal.Control, portal);
+			}
+		}
+
+		/// <summary>
 		/// Gets the root layout node for this window.
 		/// </summary>
 		public LayoutNode? RootLayoutNode => _renderer?.RootLayoutNode;
@@ -2200,6 +2232,7 @@ namespace SharpConsoleUI
 			}
 			else
 			{
+				DismissAutoClosePortals();
 				Deactivated?.Invoke(this, EventArgs.Empty);
 			}
 

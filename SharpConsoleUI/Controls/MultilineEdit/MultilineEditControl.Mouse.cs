@@ -200,9 +200,16 @@ namespace SharpConsoleUI.Controls
 					return true;
 			}
 
-			// Handle right-click
+			// Handle right-click: move cursor to click position first, then fire event
 			if (args.HasFlag(MouseFlags.Button3Clicked))
 			{
+				if (_hasFocus)
+				{
+					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
+					ClearSelection();
+					EnsureCursorVisible();
+					Container?.Invalidate(true);
+				}
 				MouseRightClick?.Invoke(this, args);
 				return true;
 			}

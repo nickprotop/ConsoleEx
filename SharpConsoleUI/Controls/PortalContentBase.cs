@@ -35,6 +35,20 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public abstract Rectangle GetPortalBounds();
 
+		/// <inheritdoc/>
+		public bool DismissOnOutsideClick { get; set; }
+
+		/// <summary>
+		/// Raised when the portal is about to be dismissed due to an outside click.
+		/// Consumers can use this to perform cleanup before the portal is removed.
+		/// </summary>
+		public event EventHandler? DismissRequested;
+
+		/// <summary>
+		/// Raises the <see cref="DismissRequested"/> event.
+		/// </summary>
+		internal void RaiseDismissRequested() => DismissRequested?.Invoke(this, EventArgs.Empty);
+
 		#endregion
 
 		#region IMouseAwareControl Implementation
