@@ -253,5 +253,36 @@ namespace SharpConsoleUI.Configuration
 		/// Number of lines to scroll per mouse wheel tick in the terminal control (default: 3)
 		/// </summary>
 		public const int DefaultTerminalScrollWheelLines = 3;
+
+		// Menu control defaults
+		/// <summary>
+		/// Delay in milliseconds before a submenu opens on hover (default: 150ms)
+		/// </summary>
+		public const int MenuSubmenuHoverDelayMs = 150;
+
+		/// <summary>
+		/// Maximum number of items visible in a dropdown before scrolling (default: 20)
+		/// </summary>
+		public const int MenuMaxDropdownHeight = 20;
+
+		/// <summary>
+		/// Minimum width for a dropdown menu in characters (default: 15)
+		/// </summary>
+		public const int MenuDropdownMinWidth = 15;
+
+		/// <summary>
+		/// Maximum width for a dropdown menu in characters (default: 50)
+		/// </summary>
+		public const int MenuDropdownMaxWidth = 50;
+
+		/// <summary>
+		/// Horizontal padding added to each menu bar item: " text " (default: 4, 2 each side)
+		/// </summary>
+		public const int MenuItemHorizontalPadding = 4;
+
+		/// <summary>
+		/// Extra padding for dropdown item width calculation including shortcut spacing (default: 10)
+		/// </summary>
+		public const int MenuItemDropdownPadding = 10;
 	}
 }
