@@ -35,6 +35,17 @@ public partial class MenuControl
 
         _openDropdowns.Add(dropdown);
 
+        // Subscribe to dismiss events when first dropdown opens
+        if (_openDropdowns.Count == 1)
+        {
+            var parentWindow = this.GetParentWindow();
+            if (parentWindow != null)
+            {
+                parentWindow.UnhandledMouseClick += OnWindowUnhandledMouseClick;
+                parentWindow.Deactivated += OnWindowDeactivated;
+            }
+        }
+
         // Create portal for dropdown overlay
         var portalContent = new MenuPortalContent(this, dropdown);
         var window = this.GetParentWindow();

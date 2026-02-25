@@ -250,6 +250,17 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// <inheritdoc/>
     protected override void OnDisposing()
     {
+        // Safety unsubscribe in case CloseAllMenus doesn't cover it
+        if (_openDropdowns.Count > 0)
+        {
+            var parentWindow = this.GetParentWindow();
+            if (parentWindow != null)
+            {
+                parentWindow.UnhandledMouseClick -= OnWindowUnhandledMouseClick;
+                parentWindow.Deactivated -= OnWindowDeactivated;
+            }
+        }
+
         CloseAllMenus();
         _items.Clear();
     }
@@ -490,6 +501,13 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public void CloseAllMenus()
     {
         var window = this.GetParentWindow();
+
+        // Unsubscribe from dismiss events
+        if (_openDropdowns.Count > 0 && window != null)
+        {
+            window.UnhandledMouseClick -= OnWindowUnhandledMouseClick;
+            window.Deactivated -= OnWindowDeactivated;
+        }
 
         foreach (var dropdown in _openDropdowns)
         {

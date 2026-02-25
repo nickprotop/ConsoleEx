@@ -360,6 +360,22 @@ public partial class MenuControl
 
     #endregion
 
+    #region Window Background Click Handler
+
+    private void OnWindowUnhandledMouseClick(object? sender, MouseEventArgs args)
+    {
+        if (_openDropdowns.Count > 0)
+            CloseAllMenus();
+    }
+
+    private void OnWindowDeactivated(object? sender, EventArgs args)
+    {
+        if (_openDropdowns.Count > 0)
+            CloseAllMenus();
+    }
+
+    #endregion
+
     #region Hit Testing
 
     private MenuItem? HitTest(int controlRelativeX, int controlRelativeY)

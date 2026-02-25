@@ -236,9 +236,14 @@ namespace SharpConsoleUI.Windows
 							// Control didn't handle it — fall through to UnhandledMouseClick
 						}
 
-						// Click was handled (focus change or hit on non-mouse control that isn't mouse-aware)
+						// Click was on a non-mouse-aware control (focus already handled above)
+						// Fire UnhandledMouseClick so listeners (e.g., MenuControl) can dismiss
 						if (targetControl != null && targetControl is not Controls.IMouseAwareControl)
 						{
+							if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked))
+							{
+								_window.RaiseUnhandledMouseClick(args);
+							}
 							return true;
 						}
 
