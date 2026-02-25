@@ -47,7 +47,7 @@ namespace SharpConsoleUI.Controls
 		private int _lastClickIndex = -1;
 
 		// Performance: Cache for expensive text measurement operations
-		private readonly TextMeasurementCache _textMeasurementCache = new(AnsiConsoleHelper.StripAnsiStringLength);
+		private readonly TextMeasurementCache _textMeasurementCache = new(AnsiConsoleHelper.StripSpectreLength);
 
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
@@ -83,7 +83,7 @@ namespace SharpConsoleUI.Controls
 					bool[] ancestorIsLast = GetAncestorIsLastArray(node);
 					string prefix = BuildTreePrefix(depth, ancestorIsLast, guideChars);
 					string displayText = node.Text ?? string.Empty;
-					string expandIndicator = node.Children.Count > 0 ? " [-]" : "";
+					string expandIndicator = node.Children.Count > 0 ? " [[-]]" : "";
 					int length = GetCachedTextLength(prefix + displayText + expandIndicator);
 					if (length > maxLength) maxLength = length;
 				}

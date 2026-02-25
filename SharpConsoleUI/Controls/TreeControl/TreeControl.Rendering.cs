@@ -101,7 +101,7 @@ namespace SharpConsoleUI.Controls
 				bool[] ancestorIsLast = GetAncestorIsLastArray(node);
 				string prefix = BuildTreePrefix(depth, ancestorIsLast, guideChars);
 				string displayText = node.Text ?? string.Empty;
-				string expandIndicator = node.Children.Count > 0 ? "[-] " : "";
+				string expandIndicator = node.Children.Count > 0 ? "[[-]] " : "";
 				int itemWidth = GetCachedTextLength(prefix + expandIndicator + displayText);
 				if (itemWidth > maxItemWidth) maxItemWidth = itemWidth;
 			}
@@ -238,7 +238,8 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Add expand/collapse indicator on the left side
-				string expandIndicator = node.Children.Count > 0 ? (node.IsExpanded ? "[-] " : "[+] ") : "";
+				// Escape brackets so Spectre markup in displayText (e.g. colored badges) is processed correctly
+				string expandIndicator = node.Children.Count > 0 ? (node.IsExpanded ? "[[-]] " : "[[+]] ") : "";
 
 				// Build full node text
 				string nodeText = prefix + expandIndicator + displayText;
