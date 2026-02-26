@@ -289,8 +289,17 @@ namespace SharpConsoleUI.Helpers
 						string tagContent = input.Substring(start + 1, j - start - 1);
 						if (IsValidTagContent(tagContent))
 						{
-							// Append the entire tag as is
-							result.Append(input, start, j - start + 1);
+							// Normalize underscores in color names for Spectre compatibility.
+							// Spectre.Console's ColorTable uses concatenated names (e.g. "darkcyan")
+							// but callers may write "dark_cyan".  Style keywords (bold, italic, etc.)
+							// and structural tokens (/, on) don't contain underscores, so stripping
+							// them only affects color name segments.
+							string normalized = tagContent.Contains('_')
+								? tagContent.Replace("_", "")
+								: tagContent;
+							result.Append('[');
+							result.Append(normalized);
+							result.Append(']');
 							i = j + 1;
 							continue;
 						}
@@ -866,46 +875,45 @@ namespace SharpConsoleUI.Helpers
 			if (string.IsNullOrWhiteSpace(colorName))
 				return false;
 
-			// Basic set of standard colors supported by Spectre.Console
+			// Spectre.Console color names — uses concatenated lowercase with NO underscores.
+			// The lookup is case-insensitive.  This set covers the basic 16 colors, their
+			// common aliases, and frequently-used extended 256-color palette names.
 			var standardColors = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 			{
-				"default", "black", "blue", "cyan", "dark_blue", "dark_cyan",
-				"dark_green", "dark_grey", "dark_magenta", "dark_red", "dark_yellow",
-				"grey", "gray", "green", "magenta", "maroon", "navy", "purple",
-				"red", "silver", "teal", "white", "yellow",
-				"brightblack", "bright_black", "brightblue", "bright_blue",
-				"brightcyan", "bright_cyan", "brightgreen", "bright_green",
-				"brightmagenta", "bright_magenta", "brightred", "bright_red",
-				"brightwhite", "bright_white", "brightyellow", "bright_yellow",
-				"steelblue", "steel_blue", "darkorange", "dark_orange",
-				"lime", "olive", "aqua", "fuchsia", "darkgrey", "dark_grey",
-				"lightgrey", "light_grey", "lightblue", "light_blue",
-				"lightgreen", "light_green", "lightcyan", "light_cyan",
-				"lightred", "light_red", "lightmagenta", "light_magenta",
-				"lightyellow", "light_yellow", "cornflowerblue", "cornflower_blue",
-				"hotpink", "hot_pink", "pink", "deeppink", "deep_pink"
+				// Basic 16 colors
+				"default", "black", "maroon", "green", "olive", "navy", "purple",
+				"teal", "silver", "grey", "red", "lime", "yellow", "blue",
+				"fuchsia", "aqua", "white",
+				// Aliases for basic colors
+				"gray", "magenta", "cyan",
+				// Common extended palette names (no underscores — matches Spectre's ColorTable)
+				"darkblue", "darkgreen", "darkcyan", "darkred", "darkmagenta",
+				"darkviolet", "darkorange", "darkturquoise", "darkolivegreen",
+				"darkgoldenrod", "darkseagreen", "darkslategray", "darkkhaki",
+				"deeppink", "deepskyblue",
+				"lightblue", "lightcyan", "lightgreen", "lightcoral",
+				"lightgoldenrodyellow", "lightpink", "lightsalmon", "lightseagreen",
+				"lightskyblue", "lightslategray", "lightsteelblue", "lightyellow",
+				"mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue",
+				"mediumspringgreen", "mediumturquoise", "mediumvioletred",
+				"hotpink", "cornflowerblue", "steelblue", "cadetblue", "rosybrown",
+				"plum", "orchid", "violet", "thistle", "indianred",
+				"palegreen", "paleturquoise", "palevioletred",
+				"springgreen", "chartreuse", "blueviolet", "greenyellow",
+				"navyblue", "navajowhite", "mistyrose", "honeydew", "khaki",
+				"wheat", "salmon", "sandybrown", "tan", "pink",
 			};
 
-			// Check for basic color names first
-			if (standardColors.Contains(colorName))
-				return true;
+			// Normalize: strip underscores and spaces so callers can use
+			// "dark_cyan", "dark cyan", or "darkcyan" interchangeably.
+			string normalizedName = colorName.Replace("_", "").Replace(" ", "").ToLowerInvariant();
 
-			// Check for web colors with underscores or camelCase (e.g., "dark_blue" or "darkblue")
-			string normalizedName = colorName.Replace("_", "").ToLowerInvariant();
 			if (standardColors.Contains(normalizedName))
 				return true;
 
-			// Check for numbered color variants (e.g., "grey46", "orange3")
-			if (Regex.IsMatch(colorName, @"^[a-z]+\d+$", RegexOptions.IgnoreCase))
+			// Numbered color variants (e.g., "grey46", "orange3", "dodgerblue2")
+			if (Regex.IsMatch(normalizedName, @"^[a-z]+\d+$", RegexOptions.IgnoreCase))
 				return true;
-
-			// Check for color names with spaces (e.g., "hot pink", "light blue")
-			if (colorName.Contains(" "))
-			{
-				string spacelessName = colorName.Replace(" ", "").ToLowerInvariant();
-				if (standardColors.Contains(spacelessName))
-					return true;
-			}
 
 			return false;
 		}
