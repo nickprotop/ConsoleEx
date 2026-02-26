@@ -420,7 +420,7 @@ namespace SharpConsoleUI.Core
 		{
 			lock (_lock)
 			{
-				var windows = _windows.Values.ToList();
+				var windows = _windows.Values.OrderBy(w => w.ZIndex).ToList();
 				if (windows.Count == 0)
 					return;
 
@@ -445,7 +445,7 @@ namespace SharpConsoleUI.Core
 		{
 			lock (_lock)
 			{
-				var windows = _windows.Values.ToList();
+				var windows = _windows.Values.OrderBy(w => w.ZIndex).ToList();
 				if (windows.Count == 0)
 					return;
 

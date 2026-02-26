@@ -86,6 +86,10 @@ namespace SharpConsoleUI.Controls
 
 			TabAdded?.Invoke(this, new TabEventArgs(tabPage, _tabPages.Count - 1));
 
+			// Auto-activate the first tab added (standard UI framework behavior)
+			if (_tabPages.Count == 1)
+				ActiveTabIndex = 0;
+
 			// New content control must be added to the DOM layout tree
 			this.GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(true);

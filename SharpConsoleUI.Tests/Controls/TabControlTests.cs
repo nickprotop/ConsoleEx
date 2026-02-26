@@ -57,7 +57,7 @@ public class TabControlTests
 		// Assert
 		Assert.NotNull(tabControl);
 		Assert.Empty(tabControl.TabPages);
-		Assert.Equal(0, tabControl.ActiveTabIndex);
+		Assert.Equal(-1, tabControl.ActiveTabIndex);
 	}
 
 	[Fact]
