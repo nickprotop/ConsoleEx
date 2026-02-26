@@ -67,6 +67,7 @@ namespace SharpConsoleUI.Controls
 		private int _lastClickIndex = -1;                      // Double-click detection (protected by _clickLock)
 
 		// Interaction configuration
+		private bool _selectOnRightClick = false;
 		private bool _checkboxMode = false;
 		private bool _hoverHighlightsItems = true;
 		private bool _autoHighlightOnFocus = true;

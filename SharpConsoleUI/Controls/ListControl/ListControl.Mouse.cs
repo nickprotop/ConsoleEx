@@ -59,6 +59,17 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Gets or sets whether a right-click selects the item under the mouse cursor
+		/// before firing the <see cref="MouseRightClick"/> event.
+		/// Default: false (preserves backward compatibility).
+		/// </summary>
+		public bool SelectOnRightClick
+		{
+			get => _selectOnRightClick;
+			set => _selectOnRightClick = value;
+		}
+
+		/// <summary>
 		/// Gets or sets whether double-click activates items.
 		/// Default: true.
 		/// </summary>
@@ -163,6 +174,11 @@ namespace SharpConsoleUI.Controls
 			// Handle right-click
 			if (args.HasFlag(MouseFlags.Button3Clicked))
 			{
+				if (_selectOnRightClick && hoveredIndex >= 0 && hoveredIndex < _items.Count)
+				{
+					SelectedIndex = hoveredIndex;
+					Container?.Invalidate(true);
+				}
 				MouseRightClick?.Invoke(this, args);
 				return true;
 			}

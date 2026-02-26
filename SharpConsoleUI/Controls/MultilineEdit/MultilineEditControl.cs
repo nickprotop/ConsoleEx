@@ -103,6 +103,10 @@ namespace SharpConsoleUI.Controls
 		// Visible whitespace
 		private bool _showWhitespace;
 
+		// Gutter renderers
+		private readonly List<IGutterRenderer> _gutterRenderers = new();
+		private LineNumberGutterRenderer? _builtInLineNumberRenderer;
+
 		// Line numbers
 		private bool _showLineNumbers;
 		private Color? _lineNumberColorValue;
@@ -640,6 +644,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Gets or sets whether line numbers are displayed in a gutter on the left side.
+		/// When enabled, a built-in <see cref="LineNumberGutterRenderer"/> is inserted at index 0.
 		/// </summary>
 		public bool ShowLineNumbers
 		{
@@ -648,6 +653,23 @@ namespace SharpConsoleUI.Controls
 			{
 				if (_showLineNumbers == value) return;
 				_showLineNumbers = value;
+
+				if (value)
+				{
+					_builtInLineNumberRenderer = new LineNumberGutterRenderer();
+					if (_lineNumberColorValue.HasValue)
+						_builtInLineNumberRenderer.LineNumberColor = _lineNumberColorValue.Value;
+					_gutterRenderers.Insert(0, _builtInLineNumberRenderer);
+				}
+				else
+				{
+					if (_builtInLineNumberRenderer != null)
+					{
+						_gutterRenderers.Remove(_builtInLineNumberRenderer);
+						_builtInLineNumberRenderer = null;
+					}
+				}
+
 				InvalidateWrappedLinesCache();
 				Container?.Invalidate(true);
 			}
@@ -662,8 +684,65 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_lineNumberColorValue = value;
+				if (_builtInLineNumberRenderer != null)
+					_builtInLineNumberRenderer.LineNumberColor = value;
 				Container?.Invalidate(true);
 			}
+		}
+
+		/// <summary>
+		/// Gets the list of gutter renderers, rendered left-to-right.
+		/// </summary>
+		public IReadOnlyList<IGutterRenderer> GutterRenderers => _gutterRenderers;
+
+		/// <summary>
+		/// Adds a gutter renderer to the end of the renderer list.
+		/// </summary>
+		public void AddGutterRenderer(IGutterRenderer renderer)
+		{
+			_gutterRenderers.Add(renderer);
+			InvalidateWrappedLinesCache();
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Inserts a gutter renderer at the specified index.
+		/// </summary>
+		public void InsertGutterRenderer(int index, IGutterRenderer renderer)
+		{
+			_gutterRenderers.Insert(index, renderer);
+			InvalidateWrappedLinesCache();
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Removes a gutter renderer from the list.
+		/// </summary>
+		public bool RemoveGutterRenderer(IGutterRenderer renderer)
+		{
+			bool removed = _gutterRenderers.Remove(renderer);
+			if (removed)
+			{
+				InvalidateWrappedLinesCache();
+				Container?.Invalidate(true);
+			}
+			return removed;
+		}
+
+		/// <summary>
+		/// Removes all gutter renderers.
+		/// Also clears the built-in line number renderer if present.
+		/// </summary>
+		public void ClearGutterRenderers()
+		{
+			_gutterRenderers.Clear();
+			if (_builtInLineNumberRenderer != null)
+			{
+				_builtInLineNumberRenderer = null;
+				_showLineNumbers = false;
+			}
+			InvalidateWrappedLinesCache();
+			Container?.Invalidate(true);
 		}
 
 		/// <summary>

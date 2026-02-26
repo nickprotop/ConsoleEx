@@ -136,6 +136,11 @@ namespace SharpConsoleUI.Controls
 			// Handle right-click
 			if (args.HasFlag(MouseFlags.Button3Clicked))
 			{
+				if (_selectOnRightClick && nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
+				{
+					SelectNodeNoScroll(nodeIndex);
+					Container?.Invalidate(true);
+				}
 				MouseRightClick?.Invoke(this, args);
 				return true;
 			}

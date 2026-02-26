@@ -189,35 +189,47 @@ namespace SharpConsoleUI.Controls
 
 					int wrappedIndex = i + _verticalScrollOffset;
 
-					// Render gutter (line numbers)
+					// Render gutter via pluggable renderers
 					if (gutterWidth > 0)
 					{
-						Color gutterBg = bgColor;
-						Color gutterFg = LineNumberColor;
-						string gutterText;
+						int gutterX = startX;
+						int sourceLineIndex;
+						bool isFirstSegment;
+						bool isCursorLine;
 
 						if (wrappedIndex < wrappedLines.Count)
 						{
 							var gwl = wrappedLines[wrappedIndex];
-							bool isFirstWrappedSegment = gwl.SourceCharOffset == 0;
-							bool isCurrentLineGutter = _highlightCurrentLine && _isEditing && gwl.SourceLineIndex == _cursorY;
-							if (isCurrentLineGutter)
-								gutterFg = fgColor;
-
-							if (isFirstWrappedSegment)
-								gutterText = (gwl.SourceLineIndex + 1).ToString().PadLeft(gutterWidth - ControlDefaults.LineNumberGutterPadding).PadRight(gutterWidth);
-							else
-								gutterText = new string(' ', gutterWidth);
+							sourceLineIndex = gwl.SourceLineIndex;
+							isFirstSegment = gwl.SourceCharOffset == 0;
+							isCursorLine = _highlightCurrentLine && _isEditing && gwl.SourceLineIndex == _cursorY;
 						}
 						else
 						{
-							gutterText = new string(' ', gutterWidth);
+							sourceLineIndex = -1;
+							isFirstSegment = false;
+							isCursorLine = false;
 						}
 
-						for (int g = 0; g < gutterWidth && startX + g < clipRect.Right; g++)
+						for (int r = 0; r < _gutterRenderers.Count; r++)
 						{
-							if (startX + g >= clipRect.X)
-								buffer.SetCell(startX + g, paintY, gutterText[g], gutterFg, gutterBg);
+							int rWidth = _gutterRenderers[r].GetWidth(_lines.Count);
+							if (rWidth <= 0) continue;
+							var ctx = new GutterRenderContext
+							{
+								Buffer = buffer,
+								X = gutterX,
+								Y = paintY,
+								SourceLineIndex = sourceLineIndex,
+								IsFirstWrappedSegment = isFirstSegment,
+								IsCursorLine = isCursorLine,
+								HasFocus = _hasFocus,
+								ForegroundColor = fgColor,
+								BackgroundColor = bgColor,
+								TotalLineCount = _lines.Count
+							};
+							_gutterRenderers[r].Render(in ctx, rWidth);
+							gutterX += rWidth;
 						}
 					}
 
@@ -382,9 +394,31 @@ namespace SharpConsoleUI.Controls
 					if (Margin.Left > 0)
 						buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', fgColor, windowBgColor);
 
-					// Fill gutter area for empty rows
+					// Render gutter for empty rows via pluggable renderers
 					if (gutterWidth > 0)
-						buffer.FillRect(new LayoutRect(startX, paintY, gutterWidth, 1), ' ', fgColor, bgColor);
+					{
+						int gutterX = startX;
+						for (int r = 0; r < _gutterRenderers.Count; r++)
+						{
+							int rWidth = _gutterRenderers[r].GetWidth(_lines.Count);
+							if (rWidth <= 0) continue;
+							var ctx = new GutterRenderContext
+							{
+								Buffer = buffer,
+								X = gutterX,
+								Y = paintY,
+								SourceLineIndex = -1,
+								IsFirstWrappedSegment = false,
+								IsCursorLine = false,
+								HasFocus = _hasFocus,
+								ForegroundColor = fgColor,
+								BackgroundColor = bgColor,
+								TotalLineCount = _lines.Count
+							};
+							_gutterRenderers[r].Render(in ctx, rWidth);
+							gutterX += rWidth;
+						}
+					}
 
 					buffer.FillRect(new LayoutRect(contentStartX, paintY, effectiveWidth, 1), ' ', fgColor, bgColor);
 
@@ -526,9 +560,11 @@ namespace SharpConsoleUI.Controls
 
 		private int GetGutterWidth()
 		{
-			if (!_showLineNumbers) return 0;
-			int digits = Math.Max(1, (int)Math.Floor(Math.Log10(Math.Max(1, _lines.Count))) + 1);
-			return digits + ControlDefaults.LineNumberGutterPadding;
+			if (_gutterRenderers.Count == 0) return 0;
+			int total = 0;
+			for (int r = 0; r < _gutterRenderers.Count; r++)
+				total += _gutterRenderers[r].GetWidth(_lines.Count);
+			return total;
 		}
 
 		/// <summary>

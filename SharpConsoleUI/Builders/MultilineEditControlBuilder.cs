@@ -59,6 +59,7 @@ public sealed class MultilineEditControlBuilder
 	private Color? _lineNumberColor;
 	private bool _showEditingHints;
 	private ISyntaxHighlighter? _syntaxHighlighter;
+	private List<IGutterRenderer>? _gutterRenderers;
 
 	// Event handlers
 	private EventHandler<string>? _contentChangedHandler;
@@ -574,6 +575,19 @@ public sealed class MultilineEditControlBuilder
 	}
 
 	/// <summary>
+	/// Adds a gutter renderer that will be appended after line numbers (if enabled).
+	/// Renderers are painted left-to-right in the order they are added.
+	/// </summary>
+	/// <param name="renderer">The gutter renderer to add</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithGutterRenderer(IGutterRenderer renderer)
+	{
+		_gutterRenderers ??= new List<IGutterRenderer>();
+		_gutterRenderers.Add(renderer);
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the content changed event handler
 	/// </summary>
 	/// <param name="handler">The event handler</param>
@@ -730,6 +744,13 @@ public sealed class MultilineEditControlBuilder
 			control.CurrentLineHighlightColor = _currentLineHighlightColor.Value;
 		if (_lineNumberColor.HasValue)
 			control.LineNumberColor = _lineNumberColor.Value;
+
+		// Add custom gutter renderers (after ShowLineNumbers has inserted its renderer at index 0)
+		if (_gutterRenderers != null)
+		{
+			foreach (var renderer in _gutterRenderers)
+				control.AddGutterRenderer(renderer);
+		}
 
 		// Set content if provided
 		if (_content != null)

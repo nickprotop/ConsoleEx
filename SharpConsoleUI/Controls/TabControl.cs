@@ -42,6 +42,7 @@ namespace SharpConsoleUI.Controls
 		private int _activeTabIndex = -1;
 		private TabHeaderStyle _headerStyle = TabHeaderStyle.Classic;
 		private int? _height;
+		private bool _selectOnRightClick = false;
 
 		// IContainer properties
 		private Color _backgroundColor = Color.Black;
@@ -55,6 +56,17 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _headerStyle;
 			set { _headerStyle = value; Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Gets or sets whether a right-click on a tab header selects that tab
+		/// before firing the <see cref="MouseRightClick"/> event.
+		/// Default: false (preserves backward compatibility).
+		/// </summary>
+		public bool SelectOnRightClick
+		{
+			get => _selectOnRightClick;
+			set => _selectOnRightClick = value;
 		}
 
 		/// <summary>
@@ -752,12 +764,37 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseMove;
 		#pragma warning restore CS0067
 
+		/// <summary>
+		/// Returns the tab index at the given control-relative X position on the header row,
+		/// or -1 if the position does not fall on any tab.
+		/// </summary>
+		private int GetTabIndexAtX(int clickX)
+		{
+			int currentX = Margin.Left;
+			for (int i = 0; i < _tabPages.Count; i++)
+			{
+				int innerWidth = _tabPages[i].Title.Length + 2 + (_tabPages[i].IsClosable ? 1 : 0);
+				if (clickX >= currentX && clickX < currentX + innerWidth)
+					return i;
+				currentX += innerWidth + 1; // + separator
+			}
+			return -1;
+		}
+
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			// Handle right-click
 			if (args.HasFlag(MouseFlags.Button3Clicked))
 			{
+				if (_selectOnRightClick && args.Position.Y == Margin.Top)
+				{
+					int tabIndex = GetTabIndexAtX(args.Position.X);
+					if (tabIndex >= 0)
+					{
+						ActiveTabIndex = tabIndex;
+					}
+				}
 				MouseRightClick?.Invoke(this, args);
 				return true;
 			}
@@ -767,27 +804,23 @@ namespace SharpConsoleUI.Controls
 			{
 				// Calculate which tab was clicked (account for left margin)
 				int clickX = args.Position.X;
-				int currentX = Margin.Left;
+				int tabIndex = GetTabIndexAtX(clickX);
 
-				for (int i = 0; i < _tabPages.Count; i++)
+				if (tabIndex >= 0 && args.HasFlag(MouseFlags.Button1Clicked))
 				{
-					int innerWidth = _tabPages[i].Title.Length + 2 + (_tabPages[i].IsClosable ? 1 : 0); // " title " or " title ×"
-					if (clickX >= currentX && clickX < currentX + innerWidth)
+					// Check if click landed on the close button
+					int currentX = Margin.Left;
+					for (int j = 0; j < tabIndex; j++)
+						currentX += _tabPages[j].Title.Length + 2 + (_tabPages[j].IsClosable ? 1 : 0) + 1;
+
+					if (_tabPages[tabIndex].IsClosable && clickX == currentX + _tabPages[tabIndex].Title.Length + 2)
 					{
-						if (args.HasFlag(MouseFlags.Button1Clicked))
-						{
-							// Check if click landed on the close button
-							if (_tabPages[i].IsClosable && clickX == currentX + _tabPages[i].Title.Length + 2)
-							{
-								TabCloseRequested?.Invoke(this, new TabEventArgs(_tabPages[i], i));
-								args.Handled = true;
-								return true;
-							}
-							ActiveTabIndex = i;
-							return true;
-						}
+						TabCloseRequested?.Invoke(this, new TabEventArgs(_tabPages[tabIndex], tabIndex));
+						args.Handled = true;
+						return true;
 					}
-					currentX += innerWidth + 1; // + separator
+					ActiveTabIndex = tabIndex;
+					return true;
 				}
 			}
 

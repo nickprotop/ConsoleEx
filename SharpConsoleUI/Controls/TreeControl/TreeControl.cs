@@ -42,6 +42,7 @@ namespace SharpConsoleUI.Controls
 
 		// Mouse interaction state
 		private int _hoveredIndex = -1;
+		private bool _selectOnRightClick = false;
 		private readonly object _clickLock = new object();
 		private DateTime _lastClickTime = DateTime.MinValue;
 		private int _lastClickIndex = -1;
@@ -199,6 +200,17 @@ namespace SharpConsoleUI.Controls
 		/// If null, shows as many as will fit in available height.
 		/// </summary>
 		public int? MaxVisibleItems { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether a right-click selects the node under the mouse cursor
+		/// before firing the <see cref="MouseRightClick"/> event.
+		/// Default: false (preserves backward compatibility).
+		/// </summary>
+		public bool SelectOnRightClick
+		{
+			get => _selectOnRightClick;
+			set => _selectOnRightClick = value;
+		}
 
 		/// <summary>
 		/// Event that fires when a tree node is expanded or collapsed.
