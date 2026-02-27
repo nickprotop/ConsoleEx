@@ -44,6 +44,7 @@ namespace SharpConsoleUI.Controls
 		private bool _isEnabled = true;
 		private ItemFormatterEvent? _itemFormatter;
 		private List<DropdownItem> _items = new List<DropdownItem>();
+		private readonly object _dropdownLock = new();
 		private DateTime _lastKeyTime = DateTime.MinValue;
 		private int _maxVisibleItems = 5;
 		private string _prompt = "Select an item:";
@@ -374,10 +375,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public List<DropdownItem> Items
 		{
-			get => _items;
+			get { lock (_dropdownLock) { return _items; } }
 			set
 			{
-				_items = value;
+				lock (_dropdownLock) { _items = value; }
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
 				{
@@ -524,10 +525,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public List<string> StringItems
 		{
-			get => _items.Select(i => i.Text).ToList();
+			get { lock (_dropdownLock) { return _items.Select(i => i.Text).ToList(); } }
 			set
 			{
-				_items = value.Select(text => new DropdownItem(text)).ToList();
+				lock (_dropdownLock) { _items = value.Select(text => new DropdownItem(text)).ToList(); }
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
 				{
@@ -554,14 +555,19 @@ namespace SharpConsoleUI.Controls
 		/// <param name="item">The dropdown item to add.</param>
 		public void AddItem(DropdownItem item)
 		{
-			_items.Add(item);
-			if (CurrentSelectedIndex == -1 && _items.Count == 1)
+			int count;
+			lock (_dropdownLock)
+			{
+				_items.Add(item);
+				count = _items.Count;
+			}
+			if (CurrentSelectedIndex == -1 && count == 1)
 			{
 				_selectedIndex = 0;
 				_highlightedIndex = 0;
 				SelectedIndexChanged?.Invoke(this, 0);
-				SelectedItemChanged?.Invoke(this, _items[0]);
-				SelectedValueChanged?.Invoke(this, _items[0].Text);
+				SelectedItemChanged?.Invoke(this, item);
+				SelectedValueChanged?.Invoke(this, item.Text);
 			}
 			Container?.Invalidate(true);
 		}
@@ -591,7 +597,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearItems()
 		{
-			_items.Clear();
+			lock (_dropdownLock) { _items.Clear(); }
 
 			// Clear local selection state
 			int oldIndex = _selectedIndex;
@@ -1040,7 +1046,9 @@ namespace SharpConsoleUI.Controls
 
 			// Ensure width can accommodate content
 			int maxItemWidth = 0;
-			foreach (var item in _items)
+			List<DropdownItem> measureSnapshot;
+			lock (_dropdownLock) { measureSnapshot = _items.ToList(); }
+			foreach (var item in measureSnapshot)
 			{
 				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
 				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
@@ -1104,7 +1112,9 @@ namespace SharpConsoleUI.Controls
 			// Calculate dropdown width
 			int dropdownWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
 			int maxItemWidth = 0;
-			foreach (var item in _items)
+			List<DropdownItem> paintSnapshot;
+			lock (_dropdownLock) { paintSnapshot = _items.ToList(); }
+			foreach (var item in paintSnapshot)
 			{
 				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
 				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
@@ -1136,7 +1146,7 @@ namespace SharpConsoleUI.Controls
 			int dropdownScroll = CurrentDropdownScrollOffset;
 
 			// Render header
-			string selectedText = selectedIdx >= 0 && selectedIdx < _items.Count ? _items[selectedIdx].Text : "(None)";
+			string selectedText = selectedIdx >= 0 && selectedIdx < paintSnapshot.Count ? paintSnapshot[selectedIdx].Text : "(None)";
 			// Arrow shows direction: ▲ when open upward, ▼ when closed or open downward
 			string arrow = _isDropdownOpen && _opensUpward ? "▲" : "▼";
 			int maxSelectedTextLength = dropdownWidth - promptLength - 5;
@@ -1361,7 +1371,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		internal void PaintDropdownListInternal(CharacterBuffer buffer, LayoutRect clipRect)
 		{
-			if (_items.Count == 0) return;
+			List<DropdownItem> items;
+			lock (_dropdownLock) { items = _items.ToList(); }
+			if (items.Count == 0) return;
 
 			// Get colors for dropdown list (uses dedicated dropdown theme colors)
 			Color backgroundColor;
@@ -1390,11 +1402,11 @@ namespace SharpConsoleUI.Controls
 			int paintY = _dropdownBounds.Y;
 
 			int effectiveMaxVisibleItems =  _maxVisibleItems;
-			int itemsToShow = Math.Min(effectiveMaxVisibleItems, _items.Count - dropdownScroll);
+			int itemsToShow = Math.Min(effectiveMaxVisibleItems, items.Count - dropdownScroll);
 
 			// Clamp to available height in bounds
 			int availableHeight = _dropdownBounds.Height;
-			bool hasScrollIndicator = (_items.Count > effectiveMaxVisibleItems);
+			bool hasScrollIndicator = (items.Count > effectiveMaxVisibleItems);
 			int maxItemsInBounds = hasScrollIndicator ? availableHeight - 1 : availableHeight;
 			itemsToShow = Math.Min(itemsToShow, maxItemsInBounds);
 
@@ -1403,11 +1415,11 @@ namespace SharpConsoleUI.Controls
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom)
 				{
 					int itemIndex = i + dropdownScroll;
-					if (itemIndex >= _items.Count) break;
+					if (itemIndex >= items.Count) break;
 
 					string itemText = _itemFormatter != null
-						? _itemFormatter(_items[itemIndex], itemIndex == selectedIdx, _hasFocus)
-						: _items[itemIndex].Text;
+						? _itemFormatter(items[itemIndex], itemIndex == selectedIdx, _hasFocus)
+						: items[itemIndex].Text;
 
 					if (AnsiConsoleHelper.StripSpectreLength(itemText) > dropdownWidth - 4)
 						itemText = itemText.Substring(0, Math.Max(0, dropdownWidth - 7)) + "...";
@@ -1445,7 +1457,7 @@ namespace SharpConsoleUI.Controls
 					int scrollPadding = dropdownWidth - 2;
 					if (scrollPadding > 0)
 						scrollIndicator += new string(' ', scrollPadding);
-					scrollIndicator += (dropdownScroll + itemsToShow < _items.Count ? "▼" : " ");
+					scrollIndicator += (dropdownScroll + itemsToShow < items.Count ? "▼" : " ");
 
 					var scrollAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(scrollIndicator, dropdownWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
 					var scrollCells = AnsiParser.Parse(scrollAnsi, foregroundColor, backgroundColor);
@@ -1462,7 +1474,9 @@ namespace SharpConsoleUI.Controls
 		{
 			// Calculate maximum item width including icons, selection indicators, and padding
 			int maxItemWidth = 0;
-			foreach (var item in _items)
+			List<DropdownItem> snapshot;
+			lock (_dropdownLock) { snapshot = _items.ToList(); }
+			foreach (var item in snapshot)
 			{
 				// Base length includes text plus basic padding
 				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text);

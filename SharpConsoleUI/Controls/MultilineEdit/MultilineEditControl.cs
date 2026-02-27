@@ -31,6 +31,8 @@ namespace SharpConsoleUI.Controls
 	{
 		#region Fields
 
+		private readonly object _contentLock = new();
+
 		// Color properties
 		private Color? _backgroundColorValue;
 
@@ -223,8 +225,10 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
+				List<string> linesSnapshot;
+				lock (_contentLock) { linesSnapshot = _lines.ToList(); }
 				int maxLength = 0;
-				foreach (var line in _lines)
+				foreach (var line in linesSnapshot)
 				{
 					if (line.Length > maxLength) maxLength = line.Length;
 				}
@@ -547,7 +551,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the total number of lines in the content.
 		/// </summary>
-		public int LineCount => _lines.Count;
+		public int LineCount { get { lock (_contentLock) { return _lines.Count; } } }
 
 		/// <summary>
 		/// Gets or sets the placeholder text shown when the control is empty and not editing.
@@ -654,6 +658,8 @@ namespace SharpConsoleUI.Controls
 				if (_showLineNumbers == value) return;
 				_showLineNumbers = value;
 
+				lock (_contentLock)
+			{
 				if (value)
 				{
 					_builtInLineNumberRenderer = new LineNumberGutterRenderer();
@@ -669,6 +675,7 @@ namespace SharpConsoleUI.Controls
 						_builtInLineNumberRenderer = null;
 					}
 				}
+			}
 
 				InvalidateWrappedLinesCache();
 				Container?.Invalidate(true);
@@ -700,7 +707,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void AddGutterRenderer(IGutterRenderer renderer)
 		{
-			_gutterRenderers.Add(renderer);
+			lock (_contentLock) { _gutterRenderers.Add(renderer); }
 			InvalidateWrappedLinesCache();
 			Container?.Invalidate(true);
 		}
@@ -710,7 +717,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void InsertGutterRenderer(int index, IGutterRenderer renderer)
 		{
-			_gutterRenderers.Insert(index, renderer);
+			lock (_contentLock) { _gutterRenderers.Insert(index, renderer); }
 			InvalidateWrappedLinesCache();
 			Container?.Invalidate(true);
 		}
@@ -720,7 +727,8 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public bool RemoveGutterRenderer(IGutterRenderer renderer)
 		{
-			bool removed = _gutterRenderers.Remove(renderer);
+			bool removed;
+			lock (_contentLock) { removed = _gutterRenderers.Remove(renderer); }
 			if (removed)
 			{
 				InvalidateWrappedLinesCache();
@@ -735,11 +743,14 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearGutterRenderers()
 		{
-			_gutterRenderers.Clear();
-			if (_builtInLineNumberRenderer != null)
+			lock (_contentLock)
 			{
-				_builtInLineNumberRenderer = null;
-				_showLineNumbers = false;
+				_gutterRenderers.Clear();
+				if (_builtInLineNumberRenderer != null)
+				{
+					_builtInLineNumberRenderer = null;
+					_showLineNumbers = false;
+				}
 			}
 			InvalidateWrappedLinesCache();
 			Container?.Invalidate(true);
@@ -769,9 +780,12 @@ namespace SharpConsoleUI.Controls
 			get => _syntaxHighlighter;
 			set
 			{
-				_syntaxHighlighter = value;
-				_syntaxTokenCache = null;
-				_lineStateCache = null;
+				lock (_contentLock)
+				{
+					_syntaxHighlighter = value;
+					_syntaxTokenCache = null;
+					_lineStateCache = null;
+				}
 				Container?.Invalidate(true);
 			}
 		}

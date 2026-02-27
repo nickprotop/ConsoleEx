@@ -254,21 +254,23 @@ public partial class MenuControl
 
     private void MoveToPreviousTopLevel()
     {
-        if (_items.Count == 0)
+        List<MenuItem> snapshot;
+        lock (_menuLock) { snapshot = _items.ToList(); }
+        if (snapshot.Count == 0)
             return;
 
         // Find starting point: if focused item is top-level, use it; otherwise use current dropdown parent
         int currentIndex;
-        if (_focusedItem != null && _items.Contains(_focusedItem))
+        if (_focusedItem != null && snapshot.Contains(_focusedItem))
         {
-            currentIndex = _items.IndexOf(_focusedItem);
+            currentIndex = snapshot.IndexOf(_focusedItem);
         }
         else if (_openDropdowns.Count > 0)
         {
             var parentItem = _openDropdowns[0].ParentItem;
             if (parentItem != null)
             {
-                currentIndex = _items.IndexOf(parentItem);
+                currentIndex = snapshot.IndexOf(parentItem);
             }
             else
             {
@@ -286,9 +288,9 @@ public partial class MenuControl
         {
             currentIndex--;
             if (currentIndex < 0)
-                currentIndex = _items.Count - 1;
+                currentIndex = snapshot.Count - 1;
 
-            var item = _items[currentIndex];
+            var item = snapshot[currentIndex];
             if (!item.IsSeparator && item.IsEnabled)
             {
                 _focusedItem = item;
@@ -310,21 +312,23 @@ public partial class MenuControl
 
     private void MoveToNextTopLevel()
     {
-        if (_items.Count == 0)
+        List<MenuItem> snapshot;
+        lock (_menuLock) { snapshot = _items.ToList(); }
+        if (snapshot.Count == 0)
             return;
 
         // Find starting point: if focused item is top-level, use it; otherwise use current dropdown parent
         int currentIndex;
-        if (_focusedItem != null && _items.Contains(_focusedItem))
+        if (_focusedItem != null && snapshot.Contains(_focusedItem))
         {
-            currentIndex = _items.IndexOf(_focusedItem);
+            currentIndex = snapshot.IndexOf(_focusedItem);
         }
         else if (_openDropdowns.Count > 0)
         {
             var parentItem = _openDropdowns[0].ParentItem;
             if (parentItem != null)
             {
-                currentIndex = _items.IndexOf(parentItem);
+                currentIndex = snapshot.IndexOf(parentItem);
             }
             else
             {
@@ -341,10 +345,10 @@ public partial class MenuControl
         do
         {
             currentIndex++;
-            if (currentIndex >= _items.Count)
+            if (currentIndex >= snapshot.Count)
                 currentIndex = 0;
 
-            var item = _items[currentIndex];
+            var item = snapshot[currentIndex];
             if (!item.IsSeparator && item.IsEnabled)
             {
                 _focusedItem = item;
@@ -439,7 +443,7 @@ public partial class MenuControl
         }
         else
         {
-            items = _items;
+            lock (_menuLock) { items = _items.ToList(); }
         }
 
         var firstItem = items.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled);
@@ -467,7 +471,7 @@ public partial class MenuControl
         }
         else
         {
-            items = _items;
+            lock (_menuLock) { items = _items.ToList(); }
         }
 
         var lastItem = items.LastOrDefault(i => !i.IsSeparator && i.IsEnabled);
@@ -495,7 +499,7 @@ public partial class MenuControl
         }
         else
         {
-            items = _items;
+            lock (_menuLock) { items = _items.ToList(); }
         }
 
         // Find first item starting with this letter (case-insensitive)
@@ -529,9 +533,13 @@ public partial class MenuControl
             _focusedItem = lastDropdown.VisibleItems.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled)
                          ?? lastDropdown.ParentItem;
         }
-        else if (_items.Count > 0)
+        else
         {
-            _focusedItem = _items.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled);
+            lock (_menuLock)
+            {
+                if (_items.Count > 0)
+                    _focusedItem = _items.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled);
+            }
         }
 
         Container?.Invalidate(true);

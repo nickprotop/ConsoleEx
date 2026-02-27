@@ -35,6 +35,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 	// Table-specific fields
 	private List<TableColumn> _columns = new();
 	private List<TableRow> _rows = new();
+	private readonly object _tableLock = new();
 	private BorderStyle _borderStyle = BorderStyle.Single;
 	private Color? _borderColorValue;
 	private Color? _headerBackgroundColorValue = Color.Default;
@@ -105,22 +106,22 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// <summary>
 	/// Gets the read-only list of columns.
 	/// </summary>
-	public IReadOnlyList<TableColumn> Columns => _columns;
+	public IReadOnlyList<TableColumn> Columns { get { lock (_tableLock) { return _columns.ToList().AsReadOnly(); } } }
 
 	/// <summary>
 	/// Gets the read-only list of rows.
 	/// </summary>
-	public IReadOnlyList<TableRow> Rows => _rows;
+	public IReadOnlyList<TableRow> Rows { get { lock (_tableLock) { return _rows.ToList().AsReadOnly(); } } }
 
 	/// <summary>
 	/// Gets the number of rows in the table.
 	/// </summary>
-	public int RowCount => _rows.Count;
+	public int RowCount { get { lock (_tableLock) { return _rows.Count; } } }
 
 	/// <summary>
 	/// Gets the number of columns in the table.
 	/// </summary>
-	public int ColumnCount => _columns.Count;
+	public int ColumnCount { get { lock (_tableLock) { return _columns.Count; } } }
 
 	/// <summary>
 	/// Gets or sets the border style.
@@ -248,7 +249,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void AddColumn(string header, Justify alignment = Justify.Left, int? width = null)
 	{
-		_columns.Add(new TableColumn(header, alignment, width));
+		lock (_tableLock) { _columns.Add(new TableColumn(header, alignment, width)); }
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
 	}
@@ -258,7 +259,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void AddColumn(TableColumn column)
 	{
-		_columns.Add(column);
+		lock (_tableLock) { _columns.Add(column); }
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
 	}
@@ -268,12 +269,15 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void RemoveColumn(int index)
 	{
-		if (index >= 0 && index < _columns.Count)
+		lock (_tableLock)
 		{
-			_columns.RemoveAt(index);
-			_measurementCache.InvalidateCache();
-			Container?.Invalidate(true);
+			if (index >= 0 && index < _columns.Count)
+				_columns.RemoveAt(index);
+			else
+				return;
 		}
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
 	}
 
 	/// <summary>
@@ -281,7 +285,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void ClearColumns()
 	{
-		_columns.Clear();
+		lock (_tableLock) { _columns.Clear(); }
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
 	}
@@ -291,11 +295,14 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void SetColumnWidth(int index, int? width)
 	{
-		if (index >= 0 && index < _columns.Count)
+		lock (_tableLock)
 		{
-			_columns[index].Width = width;
-			Container?.Invalidate(true);
+			if (index >= 0 && index < _columns.Count)
+				_columns[index].Width = width;
+			else
+				return;
 		}
+		Container?.Invalidate(true);
 	}
 
 	/// <summary>
@@ -303,11 +310,14 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void SetColumnAlignment(int index, Justify alignment)
 	{
-		if (index >= 0 && index < _columns.Count)
+		lock (_tableLock)
 		{
-			_columns[index].Alignment = alignment;
-			Container?.Invalidate(true);
+			if (index >= 0 && index < _columns.Count)
+				_columns[index].Alignment = alignment;
+			else
+				return;
 		}
+		Container?.Invalidate(true);
 	}
 
 	#endregion
@@ -319,7 +329,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void AddRow(params string[] cells)
 	{
-		_rows.Add(new TableRow(cells));
+		lock (_tableLock) { _rows.Add(new TableRow(cells)); }
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
 	}
@@ -329,7 +339,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void AddRow(TableRow row)
 	{
-		_rows.Add(row);
+		lock (_tableLock) { _rows.Add(row); }
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
 	}
@@ -339,7 +349,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void AddRows(IEnumerable<TableRow> rows)
 	{
-		_rows.AddRange(rows);
+		lock (_tableLock) { _rows.AddRange(rows); }
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
 	}
@@ -349,12 +359,15 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void RemoveRow(int index)
 	{
-		if (index >= 0 && index < _rows.Count)
+		lock (_tableLock)
 		{
-			_rows.RemoveAt(index);
-			_measurementCache.InvalidateCache();
-			Container?.Invalidate(true);
+			if (index >= 0 && index < _rows.Count)
+				_rows.RemoveAt(index);
+			else
+				return;
 		}
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
 	}
 
 	/// <summary>
@@ -362,7 +375,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void ClearRows()
 	{
-		_rows.Clear();
+		lock (_tableLock) { _rows.Clear(); }
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
 	}
@@ -372,12 +385,15 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void UpdateCell(int row, int column, string value)
 	{
-		if (row >= 0 && row < _rows.Count && column >= 0 && column < _rows[row].Cells.Count)
+		lock (_tableLock)
 		{
-			_rows[row].Cells[column] = value;
-			_measurementCache.InvalidateCachedEntry(value);
-			Container?.Invalidate(true);
+			if (row >= 0 && row < _rows.Count && column >= 0 && column < _rows[row].Cells.Count)
+				_rows[row].Cells[column] = value;
+			else
+				return;
 		}
+		_measurementCache.InvalidateCachedEntry(value);
+		Container?.Invalidate(true);
 	}
 
 	/// <summary>
@@ -385,9 +401,12 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public string GetCell(int row, int column)
 	{
-		if (row >= 0 && row < _rows.Count && column >= 0 && column < _rows[row].Cells.Count)
-			return _rows[row].Cells[column];
-		return string.Empty;
+		lock (_tableLock)
+		{
+			if (row >= 0 && row < _rows.Count && column >= 0 && column < _rows[row].Cells.Count)
+				return _rows[row].Cells[column];
+			return string.Empty;
+		}
 	}
 
 	/// <summary>
@@ -395,9 +414,12 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public TableRow GetRow(int index)
 	{
-		if (index >= 0 && index < _rows.Count)
-			return _rows[index];
-		throw new ArgumentOutOfRangeException(nameof(index));
+		lock (_tableLock)
+		{
+			if (index >= 0 && index < _rows.Count)
+				return _rows[index];
+			throw new ArgumentOutOfRangeException(nameof(index));
+		}
 	}
 
 	/// <summary>
@@ -405,7 +427,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public void SetData(IEnumerable<TableRow> rows)
 	{
-		_rows = new List<TableRow>(rows);
+		lock (_tableLock) { _rows = new List<TableRow>(rows); }
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
 	}
@@ -510,6 +532,14 @@ public class TableControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	private Spectre.Console.Table CreateSpectreTable()
 	{
+		List<TableColumn> colSnapshot;
+		List<TableRow> rowSnapshot;
+		lock (_tableLock)
+		{
+			colSnapshot = _columns.ToList();
+			rowSnapshot = _rows.ToList();
+		}
+
 		var table = new Spectre.Console.Table();
 
 		// Set Expand when HorizontalAlignment is Stretch
@@ -547,7 +577,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 		Color colHeaderBg = ResolveHeaderBackgroundColor();
 		Color colHeaderFg = ResolveHeaderForegroundColor();
 
-		foreach (var col in _columns)
+		foreach (var col in colSnapshot)
 		{
 			var colStyle = new Style(colHeaderFg, colHeaderBg);
 			var tableCol = new Spectre.Console.TableColumn(col.Header);
@@ -562,11 +592,11 @@ public class TableControl : BaseControl, IMouseAwareControl
 		}
 
 		// Add rows with theme-aware colors
-		for (int i = 0; i < _rows.Count; i++)
+		for (int i = 0; i < rowSnapshot.Count; i++)
 		{
-			var row = _rows[i];
-			Color rowBg = GetRowBackgroundColor(i);
-			Color rowFg = GetRowForegroundColor(i);
+			var row = rowSnapshot[i];
+			Color rowBg = row.BackgroundColor ?? ResolveBackgroundColor(Color.Black);
+			Color rowFg = row.ForegroundColor ?? ResolveForegroundColor(Color.White);
 
 			var styledCells = row.Cells.Select(cell =>
 				new Markup(cell, new Style(rowFg, rowBg))

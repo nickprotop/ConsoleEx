@@ -37,6 +37,7 @@ namespace SharpConsoleUI.Controls
 		private int? _height = 1;
 		private bool _isEnabled = true;
 		private readonly List<IWindowControl> _items = new();
+		private readonly object _toolbarLock = new();
 		private int _itemSpacing = 0;
 		private bool _wrap;
 
@@ -82,7 +83,9 @@ namespace SharpConsoleUI.Controls
 			{
 				base.Container = value;
 				// Propagate container to all items - toolbar is now the container
-				foreach (var item in _items)
+				List<IWindowControl> snapshot;
+				lock (_toolbarLock) { snapshot = _items.ToList(); }
+				foreach (var item in snapshot)
 				{
 					item.Container = this;
 				}
@@ -175,7 +178,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the items in the toolbar.
 		/// </summary>
-		public IReadOnlyList<IWindowControl> Items => _items.AsReadOnly();
+		public IReadOnlyList<IWindowControl> Items
+		{
+			get { lock (_toolbarLock) { return _items.ToList().AsReadOnly(); } }
+		}
 
 		/// <summary>
 		/// Gets the children of this container for Tab navigation traversal.
@@ -183,7 +189,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public IReadOnlyList<IWindowControl> GetChildren()
 		{
-			return _items.AsReadOnly();
+			lock (_toolbarLock) { return _items.ToList().AsReadOnly(); }
 		}
 
 		/// <summary>
@@ -251,7 +257,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="item">The item to add.</param>
 		public void AddItem(IWindowControl item)
 		{
-			_items.Add(item);
+			lock (_toolbarLock) { _items.Add(item); }
 			item.Container = this;
 			Invalidate(true);
 		}
@@ -261,11 +267,16 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void Clear()
 		{
-			foreach (var item in _items)
+			List<IWindowControl> snapshot;
+			lock (_toolbarLock)
+			{
+				snapshot = _items.ToList();
+				_items.Clear();
+			}
+			foreach (var item in snapshot)
 			{
 				item.Container = null;
 			}
-			_items.Clear();
 			_focusedItem = null;
 			Invalidate(true);
 		}
@@ -279,11 +290,16 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
-			foreach (var item in _items)
+			List<IWindowControl> snapshot;
+			lock (_toolbarLock)
+			{
+				snapshot = _items.ToList();
+				_items.Clear();
+			}
+			foreach (var item in snapshot)
 			{
 				item.Dispose();
 			}
-			_items.Clear();
 		}
 
 		/// <inheritdoc/>
@@ -314,7 +330,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="item">The item to insert.</param>
 		public void InsertItem(int index, IWindowControl item)
 		{
-			_items.Insert(Math.Clamp(index, 0, _items.Count), item);
+			lock (_toolbarLock) { _items.Insert(Math.Clamp(index, 0, _items.Count), item); }
 			item.Container = this;
 			Invalidate(true);
 		}
@@ -435,7 +451,9 @@ namespace SharpConsoleUI.Controls
 		/// <param name="item">The item to remove.</param>
 		public void RemoveItem(IWindowControl item)
 		{
-			if (_items.Remove(item))
+			bool removed;
+			lock (_toolbarLock) { removed = _items.Remove(item); }
+			if (removed)
 			{
 				item.Container = null;
 				if (_focusedItem == item as IInteractiveControl)
@@ -669,9 +687,12 @@ namespace SharpConsoleUI.Controls
 			int currentX = 0;
 			int currentRow = 0;
 
-			for (int i = 0; i < _items.Count; i++)
+			List<IWindowControl> snapshot;
+			lock (_toolbarLock) { snapshot = _items.ToList(); }
+
+			for (int i = 0; i < snapshot.Count; i++)
 			{
-				var item = _items[i];
+				var item = snapshot[i];
 				if (!item.Visible) continue;
 
 				int itemWidth;
@@ -702,7 +723,9 @@ namespace SharpConsoleUI.Controls
 
 		private IEnumerable<IInteractiveControl> GetFocusableItems()
 		{
-			foreach (var item in _items)
+			List<IWindowControl> snapshot;
+			lock (_toolbarLock) { snapshot = _items.ToList(); }
+			foreach (var item in snapshot)
 			{
 				if (!item.Visible) continue;
 

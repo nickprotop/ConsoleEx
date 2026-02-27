@@ -39,6 +39,7 @@ namespace SharpConsoleUI.Controls
 		IFocusableControl, IFocusableContainerWithHeader
 	{
 		private readonly List<TabPage> _tabPages = new();
+		private readonly object _tabLock = new();
 		private int _activeTabIndex = -1;
 		private TabHeaderStyle _headerStyle = TabHeaderStyle.Classic;
 		private int? _height;
@@ -90,16 +91,21 @@ namespace SharpConsoleUI.Controls
 		public void AddTab(string title, IWindowControl content, bool isClosable = false)
 		{
 			var tabPage = new TabPage { Title = title, Content = content, IsClosable = isClosable };
-			_tabPages.Add(tabPage);
+			int count;
+			lock (_tabLock)
+			{
+				_tabPages.Add(tabPage);
+				count = _tabPages.Count;
+			}
 			content.Container = this;
 
 			// Set visibility based on whether this is the active tab
-			content.Visible = _tabPages.Count - 1 == _activeTabIndex;
+			content.Visible = count - 1 == _activeTabIndex;
 
-			TabAdded?.Invoke(this, new TabEventArgs(tabPage, _tabPages.Count - 1));
+			TabAdded?.Invoke(this, new TabEventArgs(tabPage, count - 1));
 
 			// Auto-activate the first tab added (standard UI framework behavior)
-			if (_tabPages.Count == 1)
+			if (count == 1)
 				ActiveTabIndex = 0;
 
 			// New content control must be added to the DOM layout tree
@@ -115,6 +121,8 @@ namespace SharpConsoleUI.Controls
 			get => _activeTabIndex;
 		set
 		{
+			lock (_tabLock)
+			{
 			if (_activeTabIndex != value && value >= 0 && value < _tabPages.Count)
 			{
 				// Raise TabChanging event (can be canceled)
@@ -139,13 +147,14 @@ namespace SharpConsoleUI.Controls
 
 				Invalidate(true);
 			}
+			}
 		}
 		}
 
 		/// <summary>
 		/// Gets the read-only list of tab pages.
 		/// </summary>
-		public IReadOnlyList<TabPage> TabPages => _tabPages.AsReadOnly();
+		public IReadOnlyList<TabPage> TabPages { get { lock (_tabLock) { return _tabPages.ToList().AsReadOnly(); } } }
 
 	#region Events
 
@@ -182,24 +191,33 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// Gets the currently active tab page, or null if no tabs exist.
 	/// </summary>
-	public TabPage? ActiveTab => _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count
-		? _tabPages[_activeTabIndex]
-		: null;
+	public TabPage? ActiveTab
+	{
+		get
+		{
+			lock (_tabLock)
+			{
+				return _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count
+					? _tabPages[_activeTabIndex]
+					: null;
+			}
+		}
+	}
 
 	/// <summary>
 	/// Gets the number of tabs in the control.
 	/// </summary>
-	public int TabCount => _tabPages.Count;
+	public int TabCount { get { lock (_tabLock) { return _tabPages.Count; } } }
 
 	/// <summary>
 	/// Gets whether the control has any tabs.
 	/// </summary>
-	public bool HasTabs => _tabPages.Count > 0;
+	public bool HasTabs { get { lock (_tabLock) { return _tabPages.Count > 0; } } }
 
 	/// <summary>
 	/// Gets the titles of all tabs.
 	/// </summary>
-	public IEnumerable<string> TabTitles => _tabPages.Select(t => t.Title);
+	public IEnumerable<string> TabTitles { get { lock (_tabLock) { return _tabPages.Select(t => t.Title).ToList(); } } }
 
 	#endregion
 
@@ -211,33 +229,37 @@ namespace SharpConsoleUI.Controls
 	/// <param name="index">The index of the tab to remove.</param>
 	public void RemoveTab(int index)
 	{
-		if (index < 0 || index >= _tabPages.Count)
-			return;
-
-		var tabPage = _tabPages[index];
-		_tabPages.RemoveAt(index);
-		tabPage.Content.Dispose();
-
-		// Adjust active tab index
-		if (_tabPages.Count == 0)
+		TabPage tabPage;
+		lock (_tabLock)
 		{
-			_activeTabIndex = -1;
-		}
-		else if (index == _activeTabIndex)
-		{
-			// Removing active tab
-			if (_activeTabIndex >= _tabPages.Count)
+			if (index < 0 || index >= _tabPages.Count)
+				return;
+
+			tabPage = _tabPages[index];
+			_tabPages.RemoveAt(index);
+			tabPage.Content.Dispose();
+
+			// Adjust active tab index
+			if (_tabPages.Count == 0)
 			{
-				// Was last tab, go to previous
-				_activeTabIndex = _tabPages.Count - 1;
+				_activeTabIndex = -1;
 			}
-			// else: stay at same index (next tab slides into position)
-			_tabPages[_activeTabIndex].Content.Visible = true;
-		}
-		else if (index < _activeTabIndex)
-		{
-			// Removing tab before active, decrement index
-			_activeTabIndex--;
+			else if (index == _activeTabIndex)
+			{
+				// Removing active tab
+				if (_activeTabIndex >= _tabPages.Count)
+				{
+					// Was last tab, go to previous
+					_activeTabIndex = _tabPages.Count - 1;
+				}
+				// else: stay at same index (next tab slides into position)
+				_tabPages[_activeTabIndex].Content.Visible = true;
+			}
+			else if (index < _activeTabIndex)
+			{
+				// Removing tab before active, decrement index
+				_activeTabIndex--;
+			}
 		}
 
 		TabRemoved?.Invoke(this, new TabEventArgs(tabPage, index));
@@ -258,7 +280,8 @@ namespace SharpConsoleUI.Controls
 	/// <returns>True if a tab was removed, false otherwise.</returns>
 	public bool RemoveTab(string title)
 	{
-		int index = _tabPages.FindIndex(t => t.Title == title);
+		int index;
+		lock (_tabLock) { index = _tabPages.FindIndex(t => t.Title == title); }
 		if (index >= 0)
 		{
 			RemoveTab(index);
@@ -285,7 +308,7 @@ namespace SharpConsoleUI.Controls
 	/// <returns>The tab page, or null if not found.</returns>
 	public TabPage? FindTab(string title)
 	{
-		return _tabPages.FirstOrDefault(t => t.Title == title);
+		lock (_tabLock) { return _tabPages.FirstOrDefault(t => t.Title == title); }
 	}
 
 	/// <summary>
@@ -295,7 +318,7 @@ namespace SharpConsoleUI.Controls
 	/// <returns>The tab page, or null if index is out of range.</returns>
 	public TabPage? GetTab(int index)
 	{
-		return index >= 0 && index < _tabPages.Count ? _tabPages[index] : null;
+		lock (_tabLock) { return index >= 0 && index < _tabPages.Count ? _tabPages[index] : null; }
 	}
 
 	/// <summary>
@@ -305,7 +328,7 @@ namespace SharpConsoleUI.Controls
 	/// <returns>True if a tab with the title exists, false otherwise.</returns>
 	public bool HasTab(string title)
 	{
-		return _tabPages.Any(t => t.Title == title);
+		lock (_tabLock) { return _tabPages.Any(t => t.Title == title); }
 	}
 
 	/// <summary>
@@ -313,9 +336,12 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public void NextTab()
 	{
-		if (_tabPages.Count > 0)
+		lock (_tabLock)
 		{
-			ActiveTabIndex = (_activeTabIndex + 1) % _tabPages.Count;
+			if (_tabPages.Count > 0)
+			{
+				ActiveTabIndex = (_activeTabIndex + 1) % _tabPages.Count;
+			}
 		}
 	}
 
@@ -324,9 +350,12 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public void PreviousTab()
 	{
-		if (_tabPages.Count > 0)
+		lock (_tabLock)
 		{
-			ActiveTabIndex = (_activeTabIndex - 1 + _tabPages.Count) % _tabPages.Count;
+			if (_tabPages.Count > 0)
+			{
+				ActiveTabIndex = (_activeTabIndex - 1 + _tabPages.Count) % _tabPages.Count;
+			}
 		}
 	}
 
@@ -337,7 +366,8 @@ namespace SharpConsoleUI.Controls
 	/// <returns>True if the tab was found and switched to, false otherwise.</returns>
 	public bool SwitchToTab(string title)
 	{
-		int index = _tabPages.FindIndex(t => t.Title == title);
+		int index;
+		lock (_tabLock) { index = _tabPages.FindIndex(t => t.Title == title); }
 		if (index >= 0)
 		{
 			ActiveTabIndex = index;
@@ -353,11 +383,18 @@ namespace SharpConsoleUI.Controls
 	/// <param name="newTitle">The new title.</param>
 	public void SetTabTitle(int index, string newTitle)
 	{
-		if (index >= 0 && index < _tabPages.Count)
+		lock (_tabLock)
 		{
-			_tabPages[index].Title = newTitle;
-			Invalidate(true);
+			if (index >= 0 && index < _tabPages.Count)
+			{
+				_tabPages[index].Title = newTitle;
+			}
+			else
+			{
+				return;
+			}
 		}
+		Invalidate(true);
 	}
 
 	/// <summary>
@@ -367,15 +404,22 @@ namespace SharpConsoleUI.Controls
 	/// <param name="newContent">The new content control.</param>
 	public void SetTabContent(int index, IWindowControl newContent)
 	{
-		if (index >= 0 && index < _tabPages.Count)
+		lock (_tabLock)
 		{
-			var oldContent = _tabPages[index].Content;
-			oldContent.Dispose();
-			_tabPages[index].Content = newContent;
-			newContent.Container = this;
-			newContent.Visible = index == _activeTabIndex;
-			Invalidate(true);
+			if (index >= 0 && index < _tabPages.Count)
+			{
+				var oldContent = _tabPages[index].Content;
+				oldContent.Dispose();
+				_tabPages[index].Content = newContent;
+				newContent.Container = this;
+				newContent.Visible = index == _activeTabIndex;
+			}
+			else
+			{
+				return;
+			}
 		}
+		Invalidate(true);
 	}
 
 	/// <summary>
@@ -386,18 +430,22 @@ namespace SharpConsoleUI.Controls
 	/// <param name="content">The control to display when this tab is active.</param>
 	public void InsertTab(int index, string title, IWindowControl content)
 	{
-		if (index < 0 || index > _tabPages.Count)
-			return;
-
-		var tabPage = new TabPage { Title = title, Content = content };
-		_tabPages.Insert(index, tabPage);
-		content.Container = this;
-		content.Visible = false;
-
-		// Adjust active tab index if needed
-		if (index <= _activeTabIndex)
+		TabPage tabPage;
+		lock (_tabLock)
 		{
-			_activeTabIndex++;
+			if (index < 0 || index > _tabPages.Count)
+				return;
+
+			tabPage = new TabPage { Title = title, Content = content };
+			_tabPages.Insert(index, tabPage);
+			content.Container = this;
+			content.Visible = false;
+
+			// Adjust active tab index if needed
+			if (index <= _activeTabIndex)
+			{
+				_activeTabIndex++;
+			}
 		}
 
 		TabAdded?.Invoke(this, new TabEventArgs(tabPage, index));
@@ -415,10 +463,12 @@ namespace SharpConsoleUI.Controls
 			get
 			{
 				// Calculate based on tab headers or content width
-				int headerWidth = CalculateHeaderWidth();
+				List<TabPage> snapshot;
+				lock (_tabLock) { snapshot = _tabPages.ToList(); }
+				int headerWidth = CalculateHeaderWidth(snapshot);
 				int maxContentWidth = 0;
 
-				foreach (var tab in _tabPages)
+				foreach (var tab in snapshot)
 				{
 					maxContentWidth = Math.Max(maxContentWidth, tab.Content.ContentWidth ?? 0);
 				}
@@ -435,7 +485,9 @@ namespace SharpConsoleUI.Controls
 			{
 				base.Container = value;
 				// Update container for all tab content
-				foreach (var tab in _tabPages)
+				List<TabPage> snapshot;
+				lock (_tabLock) { snapshot = _tabPages.ToList(); }
+				foreach (var tab in snapshot)
 				{
 					tab.Content.Container = value;
 				}
@@ -464,11 +516,14 @@ namespace SharpConsoleUI.Controls
 			int width = Width ?? ContentWidth ?? 0;
 			int height = _height ?? (TabHeaderHeight + 10); // Default height if not specified
 
-			if (!_height.HasValue && _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
+			lock (_tabLock)
 			{
-				// Dynamic sizing based on active tab
-				var activeTabSize = _tabPages[_activeTabIndex].Content.GetLogicalContentSize();
-				height = TabHeaderHeight + activeTabSize.Height;
+				if (!_height.HasValue && _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
+				{
+					// Dynamic sizing based on active tab
+					var activeTabSize = _tabPages[_activeTabIndex].Content.GetLogicalContentSize();
+					height = TabHeaderHeight + activeTabSize.Height;
+				}
 			}
 
 			return new System.Drawing.Size(width, height);
@@ -477,11 +532,14 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
-			foreach (var tab in _tabPages)
+			lock (_tabLock)
 			{
-				tab.Content.Dispose();
+				foreach (var tab in _tabPages)
+				{
+					tab.Content.Dispose();
+				}
+				_tabPages.Clear();
 			}
-			_tabPages.Clear();
 		}
 
 		#endregion
@@ -541,7 +599,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public IReadOnlyList<IWindowControl> GetChildren()
 		{
-			return _tabPages.Select(tp => tp.Content).ToList();
+			lock (_tabLock) { return _tabPages.Select(tp => tp.Content).ToList(); }
 		}
 
 		#endregion
@@ -574,6 +632,9 @@ namespace SharpConsoleUI.Controls
 		private void PaintTabHeaders(CharacterBuffer buffer, LayoutRect bounds,
 			Color defaultFg, Color defaultBg)
 		{
+			List<TabPage> snapshot;
+			int activeIdx;
+			lock (_tabLock) { snapshot = _tabPages.ToList(); activeIdx = _activeTabIndex; }
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColor, Container, defaultBg);
 			int headerLeft = bounds.X + Margin.Left;
 			int headerRight = bounds.X + bounds.Width - Margin.Right;
@@ -583,10 +644,10 @@ namespace SharpConsoleUI.Controls
 			int activeTabStartX = -1;
 			int activeTabEndX = -1;
 
-			for (int i = 0; i < _tabPages.Count; i++)
+			for (int i = 0; i < snapshot.Count; i++)
 			{
-				bool isActive = i == _activeTabIndex;
-				var title = $" {_tabPages[i].Title} ";
+				bool isActive = i == activeIdx;
+				var title = $" {snapshot[i].Title} ";
 
 				// When the tab strip has keyboard focus, render the active tab in reverse-video
 				// (black text on cyan background) so the user can see focus and knows that
@@ -617,7 +678,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Draw close button (×) for closable tabs
-				if (_tabPages[i].IsClosable && x < headerRight)
+				if (snapshot[i].IsClosable && x < headerRight)
 				{
 					buffer.SetCell(x, headerY, '×', tileFg, tileBg);
 					x++;
@@ -627,7 +688,7 @@ namespace SharpConsoleUI.Controls
 					activeTabEndX = x;
 
 				// Draw separator
-				if (x < headerRight && i < _tabPages.Count - 1)
+				if (x < headerRight && i < snapshot.Count - 1)
 				{
 					buffer.SetCell(x, headerY, '│', Color.Grey, bgColor);
 					x++;
@@ -635,7 +696,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			const string navHint = " ← → ";
-			bool showHint = _hasFocus && _tabPages.Count > 1;
+			bool showHint = _hasFocus && snapshot.Count > 1;
 			int hintStartX = headerRight - navHint.Length;
 			int tabsEndX = x; // capture before fill loops modify x
 
@@ -720,13 +781,20 @@ namespace SharpConsoleUI.Controls
 
 		private int CalculateHeaderWidth()
 		{
+			List<TabPage> snapshot;
+			lock (_tabLock) { snapshot = _tabPages.ToList(); }
+			return CalculateHeaderWidth(snapshot);
+		}
+
+		private int CalculateHeaderWidth(List<TabPage> tabs)
+		{
 			int width = 0;
-			for (int i = 0; i < _tabPages.Count; i++)
+			for (int i = 0; i < tabs.Count; i++)
 			{
-				width += _tabPages[i].Title.Length + 2; // " title "
-				if (_tabPages[i].IsClosable)
+				width += tabs[i].Title.Length + 2; // " title "
+				if (tabs[i].IsClosable)
 					width += 1; // ×
-				if (i < _tabPages.Count - 1)
+				if (i < tabs.Count - 1)
 					width += 1; // separator
 			}
 			return width;
@@ -770,10 +838,17 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private int GetTabIndexAtX(int clickX)
 		{
+			List<TabPage> snapshot;
+			lock (_tabLock) { snapshot = _tabPages.ToList(); }
+			return GetTabIndexAtX(clickX, snapshot);
+		}
+
+		private int GetTabIndexAtX(int clickX, List<TabPage> tabs)
+		{
 			int currentX = Margin.Left;
-			for (int i = 0; i < _tabPages.Count; i++)
+			for (int i = 0; i < tabs.Count; i++)
 			{
-				int innerWidth = _tabPages[i].Title.Length + 2 + (_tabPages[i].IsClosable ? 1 : 0);
+				int innerWidth = tabs[i].Title.Length + 2 + (tabs[i].IsClosable ? 1 : 0);
 				if (clickX >= currentX && clickX < currentX + innerWidth)
 					return i;
 				currentX += innerWidth + 1; // + separator
@@ -784,12 +859,15 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
+			List<TabPage> snapshot;
+			lock (_tabLock) { snapshot = _tabPages.ToList(); }
+
 			// Handle right-click
 			if (args.HasFlag(MouseFlags.Button3Clicked))
 			{
 				if (_selectOnRightClick && args.Position.Y == Margin.Top)
 				{
-					int tabIndex = GetTabIndexAtX(args.Position.X);
+					int tabIndex = GetTabIndexAtX(args.Position.X, snapshot);
 					if (tabIndex >= 0)
 					{
 						ActiveTabIndex = tabIndex;
@@ -804,18 +882,18 @@ namespace SharpConsoleUI.Controls
 			{
 				// Calculate which tab was clicked (account for left margin)
 				int clickX = args.Position.X;
-				int tabIndex = GetTabIndexAtX(clickX);
+				int tabIndex = GetTabIndexAtX(clickX, snapshot);
 
 				if (tabIndex >= 0 && args.HasFlag(MouseFlags.Button1Clicked))
 				{
 					// Check if click landed on the close button
 					int currentX = Margin.Left;
 					for (int j = 0; j < tabIndex; j++)
-						currentX += _tabPages[j].Title.Length + 2 + (_tabPages[j].IsClosable ? 1 : 0) + 1;
+						currentX += snapshot[j].Title.Length + 2 + (snapshot[j].IsClosable ? 1 : 0) + 1;
 
-					if (_tabPages[tabIndex].IsClosable && clickX == currentX + _tabPages[tabIndex].Title.Length + 2)
+					if (snapshot[tabIndex].IsClosable && clickX == currentX + snapshot[tabIndex].Title.Length + 2)
 					{
-						TabCloseRequested?.Invoke(this, new TabEventArgs(_tabPages[tabIndex], tabIndex));
+						TabCloseRequested?.Invoke(this, new TabEventArgs(snapshot[tabIndex], tabIndex));
 						args.Handled = true;
 						return true;
 					}
@@ -858,10 +936,14 @@ namespace SharpConsoleUI.Controls
 
 			if (key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow)
 			{
-				if (key.Key == ConsoleKey.RightArrow)
-					ActiveTabIndex = (_activeTabIndex + 1) % _tabPages.Count;
-				else
-					ActiveTabIndex = (_activeTabIndex - 1 + _tabPages.Count) % _tabPages.Count;
+				lock (_tabLock)
+				{
+					if (_tabPages.Count == 0) return false;
+					if (key.Key == ConsoleKey.RightArrow)
+						ActiveTabIndex = (_activeTabIndex + 1) % _tabPages.Count;
+					else
+						ActiveTabIndex = (_activeTabIndex - 1 + _tabPages.Count) % _tabPages.Count;
+				}
 				return true;
 			}
 
@@ -870,7 +952,7 @@ namespace SharpConsoleUI.Controls
 
 		// IFocusableControl — the header row is a real Tab focus stop.
 		/// <inheritdoc/>
-		public bool CanReceiveFocus => _tabPages.Count > 0;
+		public bool CanReceiveFocus { get { lock (_tabLock) { return _tabPages.Count > 0; } } }
 
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)

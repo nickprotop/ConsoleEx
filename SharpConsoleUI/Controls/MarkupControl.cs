@@ -24,6 +24,7 @@ namespace SharpConsoleUI.Controls
 	public class MarkupControl : BaseControl, IMouseAwareControl
 	{
 		private List<string> _content;
+		private readonly object _contentLock = new();
 		private bool _wrap = true;
 		private Color? _backgroundColor = null;
 		private Color? _foregroundColor = null;
@@ -43,7 +44,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="lines">The lines of text to display, supporting Spectre.Console markup syntax.</param>
 		public MarkupControl(List<string> lines)
 		{
-			_content = lines;
+			lock (_contentLock) { _content = lines; }
 		}
 
 		/// <summary>
@@ -63,8 +64,10 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
+				List<string> snapshot;
+				lock (_contentLock) { snapshot = _content.ToList(); }
 				int maxLength = 0;
-				foreach (var line in _content)
+				foreach (var line in snapshot)
 				{
 					int length = AnsiConsoleHelper.StripSpectreLength(line);
 					if (length > maxLength) maxLength = length;
@@ -78,10 +81,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public string Text
 		{
-			get => string.Join("\n", _content);
+			get { lock (_contentLock) { return string.Join("\n", _content); } }
 			set
 			{
-				_content = value.Split('\n').ToList();
+				lock (_contentLock) { _content = value.Split('\n').ToList(); }
 				Container?.Invalidate(true);
 			}
 		}
@@ -183,8 +186,10 @@ namespace SharpConsoleUI.Controls
 			int width = ContentWidth ?? 0;
 
 			// Calculate total lines (including splits)
+			List<string> snapshot;
+			lock (_contentLock) { snapshot = _content.ToList(); }
 			int totalLines = 0;
-			foreach (var line in _content)
+			foreach (var line in snapshot)
 			{
 				var subLines = line.Split('\n');
 				totalLines += subLines.Length;
@@ -199,7 +204,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="lines">The lines of text to display, supporting Spectre.Console markup syntax.</param>
 		public void SetContent(List<string> lines)
 		{
-		_content = lines;
+		lock (_contentLock) { _content = lines; }
 		Container?.Invalidate(true);
 		}
 
@@ -294,10 +299,12 @@ namespace SharpConsoleUI.Controls
 			int targetWidth = Width ?? constraints.MaxWidth;
 
 			// Calculate content dimensions
+			List<string> snapshot;
+			lock (_contentLock) { snapshot = _content.ToList(); }
 			int maxContentWidth = 0;
 			int totalLines = 0;
 
-			foreach (var line in _content)
+			foreach (var line in snapshot)
 			{
 				// Split by embedded newlines to count actual rendered lines
 				var subLines = line.Split('\n');
@@ -344,9 +351,12 @@ namespace SharpConsoleUI.Controls
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
 
+			List<string> snapshot;
+			lock (_contentLock) { snapshot = _content.ToList(); }
+
 			// Calculate content width for alignment
 			int maxContentWidth = 0;
-			foreach (var line in _content)
+			foreach (var line in snapshot)
 			{
 				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
 				maxContentWidth = Math.Max(maxContentWidth, length);
@@ -354,7 +364,7 @@ namespace SharpConsoleUI.Controls
 
 			// Render content lines
 			var renderedLines = new List<string>();
-			foreach (var line in _content)
+			foreach (var line in snapshot)
 			{
 				int renderWidth = (HorizontalAlignment == HorizontalAlignment.Center || HorizontalAlignment == HorizontalAlignment.Right)
 					? Math.Min(maxContentWidth, targetWidth)

@@ -34,44 +34,47 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private List<WrappedLineInfo> GetWrappedLines(int effectiveWidth)
 		{
-			if (_wrappedLinesCache != null && _wrappedLinesCacheWidth == effectiveWidth)
-				return _wrappedLinesCache;
-
-			var result = new List<WrappedLineInfo>();
-			int safeWidth = Math.Max(1, effectiveWidth);
-
-			for (int i = 0; i < _lines.Count; i++)
+			lock (_contentLock)
 			{
-				string line = _lines[i];
+				if (_wrappedLinesCache != null && _wrappedLinesCacheWidth == effectiveWidth)
+					return _wrappedLinesCache;
 
-				if (_wrapMode == WrapMode.NoWrap)
+				var result = new List<WrappedLineInfo>();
+				int safeWidth = Math.Max(1, effectiveWidth);
+
+				for (int i = 0; i < _lines.Count; i++)
 				{
-					result.Add(new WrappedLineInfo(i, 0, line.Length, line));
-				}
-				else if (_wrapMode == WrapMode.Wrap)
-				{
-					if (line.Length == 0)
+					string line = _lines[i];
+
+					if (_wrapMode == WrapMode.NoWrap)
 					{
-						result.Add(new WrappedLineInfo(i, 0, 0, string.Empty));
+						result.Add(new WrappedLineInfo(i, 0, line.Length, line));
 					}
-					else
+					else if (_wrapMode == WrapMode.Wrap)
 					{
-						for (int j = 0; j < line.Length; j += safeWidth)
+						if (line.Length == 0)
 						{
-							int len = Math.Min(safeWidth, line.Length - j);
-							result.Add(new WrappedLineInfo(i, j, len, line.Substring(j, len)));
+							result.Add(new WrappedLineInfo(i, 0, 0, string.Empty));
+						}
+						else
+						{
+							for (int j = 0; j < line.Length; j += safeWidth)
+							{
+								int len = Math.Min(safeWidth, line.Length - j);
+								result.Add(new WrappedLineInfo(i, j, len, line.Substring(j, len)));
+							}
 						}
 					}
+					else // WrapWords
+					{
+						BuildWordWrappedLines(result, line, i, safeWidth);
+					}
 				}
-				else // WrapWords
-				{
-					BuildWordWrappedLines(result, line, i, safeWidth);
-				}
-			}
 
-			_wrappedLinesCache = result;
-			_wrappedLinesCacheWidth = effectiveWidth;
-			return result;
+				_wrappedLinesCache = result;
+				_wrappedLinesCacheWidth = effectiveWidth;
+				return result;
+			}
 		}
 
 		/// <summary>
@@ -124,6 +127,8 @@ namespace SharpConsoleUI.Controls
 
 		private void InvalidateWrappedLinesCache()
 		{
+			// Note: callers that already hold _contentLock can call this safely
+			// since this only nulls references (no collection iteration)
 			_wrappedLinesCache = null;
 			_syntaxTokenCache  = null;
 			_lineStateCache    = null;
@@ -161,7 +166,9 @@ namespace SharpConsoleUI.Controls
 		private int GetTotalWrappedLineCount()
 		{
 			if (_wrapMode == WrapMode.NoWrap)
-				return _lines.Count;
+			{
+				lock (_contentLock) { return _lines.Count; }
+			}
 			return GetWrappedLines(SafeEffectiveWidth).Count;
 		}
 
@@ -234,10 +241,13 @@ namespace SharpConsoleUI.Controls
 		/// <param name="lineNumber">The 1-based line number to navigate to.</param>
 		public void GoToLine(int lineNumber)
 		{
-			int targetLine = Math.Clamp(lineNumber - 1, 0, _lines.Count - 1);
-			ClearSelection();
-			_cursorY = targetLine;
-			_cursorX = 0;
+			lock (_contentLock)
+			{
+				int targetLine = Math.Clamp(lineNumber - 1, 0, _lines.Count - 1);
+				ClearSelection();
+				_cursorY = targetLine;
+				_cursorX = 0;
+			}
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
 			CursorPositionChanged?.Invoke(this, (CurrentLine, CurrentColumn));
@@ -248,14 +258,17 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void GoToEnd()
 		{
-			// Set cursor to the last line
-			_cursorY = _lines.Count - 1;
+			lock (_contentLock)
+			{
+				// Set cursor to the last line
+				_cursorY = _lines.Count - 1;
 
-			// Set cursor to the end of the last line
-			_cursorX = _lines[_cursorY].Length;
+				// Set cursor to the end of the last line
+				_cursorX = _lines[_cursorY].Length;
 
-			// Clear any selection
-			ClearSelection();
+				// Clear any selection
+				ClearSelection();
+			}
 
 			// Ensure the cursor is visible in the viewport
 			EnsureCursorVisible();
@@ -275,41 +288,45 @@ namespace SharpConsoleUI.Controls
 		public string GetSelectedText()
 		{
 			if (!_hasSelection) return string.Empty;
-			if (_lines.Count == 0) return string.Empty;
 
-			// Ensure start is before end
-			(int startX, int startY, int endX, int endY) = GetOrderedSelectionBounds();
-
-			// Validate bounds
-			if (startY < 0 || startY >= _lines.Count || endY < 0 || endY >= _lines.Count)
-				return string.Empty;
-
-			// Clamp X positions to line lengths
-			startX = Math.Max(0, Math.Min(startX, _lines[startY].Length));
-			endX = Math.Max(0, Math.Min(endX, _lines[endY].Length));
-
-			if (startY == endY)
+			lock (_contentLock)
 			{
-				// Selection on same line
-				if (startX >= endX) return string.Empty;
-				return _lines[startY].Substring(startX, endX - startX);
+				if (_lines.Count == 0) return string.Empty;
+
+				// Ensure start is before end
+				(int startX, int startY, int endX, int endY) = GetOrderedSelectionBounds();
+
+				// Validate bounds
+				if (startY < 0 || startY >= _lines.Count || endY < 0 || endY >= _lines.Count)
+					return string.Empty;
+
+				// Clamp X positions to line lengths
+				startX = Math.Max(0, Math.Min(startX, _lines[startY].Length));
+				endX = Math.Max(0, Math.Min(endX, _lines[endY].Length));
+
+				if (startY == endY)
+				{
+					// Selection on same line
+					if (startX >= endX) return string.Empty;
+					return _lines[startY].Substring(startX, endX - startX);
+				}
+
+				var result = new StringBuilder();
+
+				// First line
+				result.AppendLine(_lines[startY].Substring(startX));
+
+				// Middle lines (if any)
+				for (int i = startY + 1; i < endY; i++)
+				{
+					result.AppendLine(_lines[i]);
+				}
+
+				// Last line
+				result.Append(_lines[endY].Substring(0, endX));
+
+				return result.ToString();
 			}
-
-			var result = new StringBuilder();
-
-			// First line
-			result.AppendLine(_lines[startY].Substring(startX));
-
-			// Middle lines (if any)
-			for (int i = startY + 1; i < endY; i++)
-			{
-				result.AppendLine(_lines[i]);
-			}
-
-			// Last line
-			result.Append(_lines[endY].Substring(0, endX));
-
-			return result.ToString();
 		}
 
 		/// <summary>
@@ -328,13 +345,16 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void SelectRange(int startLine, int startCol, int endLine, int endCol)
 		{
-			_selectionStartY = Math.Clamp(startLine, 0, _lines.Count - 1);
-			_selectionStartX = Math.Clamp(startCol,  0, _lines[_selectionStartY].Length);
-			_selectionEndY   = Math.Clamp(endLine,   0, _lines.Count - 1);
-			_selectionEndX   = Math.Clamp(endCol,    0, _lines[_selectionEndY].Length);
-			_hasSelection    = true;
-			_cursorY = _selectionEndY;
-			_cursorX = _selectionEndX;
+			lock (_contentLock)
+			{
+				_selectionStartY = Math.Clamp(startLine, 0, _lines.Count - 1);
+				_selectionStartX = Math.Clamp(startCol,  0, _lines[_selectionStartY].Length);
+				_selectionEndY   = Math.Clamp(endLine,   0, _lines.Count - 1);
+				_selectionEndX   = Math.Clamp(endCol,    0, _lines[_selectionEndY].Length);
+				_hasSelection    = true;
+				_cursorY = _selectionEndY;
+				_cursorX = _selectionEndX;
+			}
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
 		}
@@ -397,22 +417,27 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				int maxWidth = _lines.Count > 0 ? _lines.Max(line => line.Length) : 0;
-				return new System.Drawing.Size(maxWidth, _lines.Count);
+				List<string> linesSnapshot;
+				lock (_contentLock) { linesSnapshot = _lines.ToList(); }
+				int maxWidth = linesSnapshot.Count > 0 ? linesSnapshot.Max(line => line.Length) : 0;
+				return new System.Drawing.Size(maxWidth, linesSnapshot.Count);
 			}
 		}
 
 		/// <inheritdoc/>
 		public void SetLogicalCursorPosition(Point position)
 		{
-			// Set the logical cursor position and ensure it's valid
-			_cursorX = Math.Max(0, position.X);
-			_cursorY = Math.Max(0, Math.Min(position.Y, _lines.Count - 1));
-
-			// Ensure X position is within the current line bounds
-			if (_cursorY < _lines.Count)
+			lock (_contentLock)
 			{
-				_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+				// Set the logical cursor position and ensure it's valid
+				_cursorX = Math.Max(0, position.X);
+				_cursorY = Math.Max(0, Math.Min(position.Y, _lines.Count - 1));
+
+				// Ensure X position is within the current line bounds
+				if (_cursorY < _lines.Count)
+				{
+					_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+				}
 			}
 
 			// Update visual scroll position to ensure cursor is visible

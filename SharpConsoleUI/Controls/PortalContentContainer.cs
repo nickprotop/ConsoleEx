@@ -26,6 +26,7 @@ namespace SharpConsoleUI.Controls
 	{
 		#region Fields
 
+		private readonly object _childrenLock = new();
 		private readonly List<IWindowControl> _children = new();
 		private IInteractiveControl? _focusedChild;
 		private Rectangle _portalBounds;
@@ -63,7 +64,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void AddChild(IWindowControl child)
 		{
-			_children.Add(child);
+			lock (_childrenLock)
+			{
+				_children.Add(child);
+			}
 			child.Container = this;
 			Invalidate();
 		}
@@ -73,11 +77,14 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void RemoveChild(IWindowControl child)
 		{
-			if (!_children.Remove(child))
-				return;
+			lock (_childrenLock)
+			{
+				if (!_children.Remove(child))
+					return;
 
-			if (_focusedChild == child as IInteractiveControl)
-				_focusedChild = null;
+				if (_focusedChild == child as IInteractiveControl)
+					_focusedChild = null;
+			}
 
 			child.Container = null;
 			Invalidate();
@@ -88,20 +95,34 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearChildren()
 		{
-			_focusedChild = null;
-			foreach (var child in _children)
+			List<IWindowControl> snapshot;
+			lock (_childrenLock)
+			{
+				_focusedChild = null;
+				snapshot = new List<IWindowControl>(_children);
+				_children.Clear();
+			}
+			foreach (var child in snapshot)
 			{
 				child.Container = null;
 				child.Dispose();
 			}
-			_children.Clear();
 			Invalidate();
 		}
 
 		/// <summary>
 		/// Gets the child controls in this container.
 		/// </summary>
-		public IReadOnlyList<IWindowControl> Children => _children.AsReadOnly();
+		public IReadOnlyList<IWindowControl> Children
+		{
+			get
+			{
+				lock (_childrenLock)
+				{
+					return new List<IWindowControl>(_children);
+				}
+			}
+		}
 
 		#endregion
 
@@ -148,7 +169,13 @@ namespace SharpConsoleUI.Controls
 		#region IContainerControl Implementation
 
 		/// <inheritdoc/>
-		public IReadOnlyList<IWindowControl> GetChildren() => _children.AsReadOnly();
+		public IReadOnlyList<IWindowControl> GetChildren()
+		{
+			lock (_childrenLock)
+			{
+				return new List<IWindowControl>(_children);
+			}
+		}
 
 		#endregion
 
@@ -264,8 +291,13 @@ namespace SharpConsoleUI.Controls
 
 		private List<IInteractiveControl> GetFocusableChildren()
 		{
+			List<IWindowControl> snapshot;
+			lock (_childrenLock)
+			{
+				snapshot = new List<IWindowControl>(_children);
+			}
 			var result = new List<IInteractiveControl>();
-			foreach (var child in _children)
+			foreach (var child in snapshot)
 			{
 				if (child.Visible && child is IFocusableControl fc && fc.CanReceiveFocus && child is IInteractiveControl ic)
 					result.Add(ic);
@@ -345,7 +377,13 @@ namespace SharpConsoleUI.Controls
 			int contentY = position.Y;
 			int currentY = 0;
 
-			foreach (var child in _children)
+			List<IWindowControl> snapshot;
+			lock (_childrenLock)
+			{
+				snapshot = new List<IWindowControl>(_children);
+			}
+
+			foreach (var child in snapshot)
 			{
 				if (!child.Visible) continue;
 
@@ -393,8 +431,14 @@ namespace SharpConsoleUI.Controls
 			var parentWindow = ((IWindowControl)this).GetParentWindow();
 			var renderer = parentWindow?.Renderer;
 
+			List<IWindowControl> childrenSnapshot;
+			lock (_childrenLock)
+			{
+				childrenSnapshot = new List<IWindowControl>(_children);
+			}
+
 			int currentY = 0;
-			foreach (var child in _children.ToList())
+			foreach (var child in childrenSnapshot)
 			{
 				if (!child.Visible) continue;
 

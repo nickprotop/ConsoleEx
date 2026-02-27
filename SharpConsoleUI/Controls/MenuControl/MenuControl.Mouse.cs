@@ -399,7 +399,9 @@ public partial class MenuControl
         int boundsY = controlRelativeY + _lastBounds.Y;
 
         // Check top-level items
-        foreach (var item in _items)
+        List<MenuItem> snapshot;
+        lock (_menuLock) { snapshot = _items.ToList(); }
+        foreach (var item in snapshot)
         {
             if (item.Bounds.Contains(boundsX, boundsY))
             {
@@ -432,7 +434,7 @@ public partial class MenuControl
 
     private bool IsTopLevelItem(MenuItem item)
     {
-        return _items.Contains(item);
+        lock (_menuLock) { return _items.Contains(item); }
     }
 
     #endregion

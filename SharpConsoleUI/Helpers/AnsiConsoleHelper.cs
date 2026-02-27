@@ -912,7 +912,9 @@ namespace SharpConsoleUI.Helpers
 				return true;
 
 			// Numbered color variants (e.g., "grey46", "orange3", "dodgerblue2")
-			if (Regex.IsMatch(normalizedName, @"^[a-z]+\d+$", RegexOptions.IgnoreCase))
+			// Only match single-word names — multi-word inputs like "Run F5" that
+			// normalize to "runf5" are not valid Spectre color names.
+			if (!colorName.Contains(' ') && Regex.IsMatch(normalizedName, @"^[a-z]+\d+$", RegexOptions.IgnoreCase))
 				return true;
 
 			return false;

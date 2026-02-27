@@ -25,6 +25,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 
     // Menu items
     private readonly List<MenuItem> _items = new();
+    private readonly object _menuLock = new();
 
     // State tracking
     private MenuItem? _focusedItem;              // Keyboard focus
@@ -46,7 +47,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     private LayoutRect _lastBounds;
 
     // Measurement cache (avoid repeated StripSpectreLength calls per frame)
-    private readonly Dictionary<string, int> _measurementCache = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _measurementCache = new();
 
     #endregion
 
@@ -77,7 +78,10 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// <summary>
     /// Gets the list of top-level menu items.
     /// </summary>
-    public IReadOnlyList<MenuItem> Items => _items.AsReadOnly();
+    public IReadOnlyList<MenuItem> Items
+    {
+        get { lock (_menuLock) { return _items.ToList().AsReadOnly(); } }
+    }
 
     // Menu bar colors (nullable for theme fallback)
     private Color? _menuBarBackgroundColor;
@@ -220,12 +224,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 
     private int MeasureText(string text)
     {
-        if (_measurementCache.TryGetValue(text, out int cached))
-            return cached;
-
-        int width = AnsiConsoleHelper.StripSpectreLength(text);
-        _measurementCache[text] = width;
-        return width;
+        return _measurementCache.GetOrAdd(text, t => AnsiConsoleHelper.StripSpectreLength(t));
     }
 
     private void InvalidateMeasurementCache()
@@ -262,16 +261,19 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
         }
 
         CloseAllMenus();
-        _items.Clear();
+        lock (_menuLock) { _items.Clear(); }
     }
 
     /// <inheritdoc/>
     public override Size GetLogicalContentSize()
     {
+        List<MenuItem> snapshot;
+        lock (_menuLock) { snapshot = _items.ToList(); }
+
         if (_orientation == MenuOrientation.Horizontal)
         {
             int totalWidth = 0;
-            foreach (var item in _items)
+            foreach (var item in snapshot)
             {
                 if (!item.IsSeparator)
                     totalWidth += MeasureText(item.Text) + Configuration.ControlDefaults.MenuItemHorizontalPadding;
@@ -281,12 +283,12 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
         else
         {
             int maxWidth = 0;
-            foreach (var item in _items)
+            foreach (var item in snapshot)
             {
                 if (!item.IsSeparator)
                     maxWidth = Math.Max(maxWidth, MeasureText(item.Text));
             }
-            return new Size(maxWidth + Configuration.ControlDefaults.MenuItemHorizontalPadding + Margin.Left + Margin.Right, _items.Count + Margin.Top + Margin.Bottom);
+            return new Size(maxWidth + Configuration.ControlDefaults.MenuItemHorizontalPadding + Margin.Left + Margin.Right, snapshot.Count + Margin.Top + Margin.Bottom);
         }
     }
 
@@ -329,9 +331,13 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
             }
 
             // When gaining focus, focus first item if nothing focused
-            if (_focusedItem == null && _items.Count > 0)
+            if (_focusedItem == null)
             {
-                _focusedItem = _items.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled);
+                lock (_menuLock)
+                {
+                    if (_items.Count > 0)
+                        _focusedItem = _items.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled);
+                }
             }
             GotFocus?.Invoke(this, EventArgs.Empty);
         }
@@ -411,7 +417,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
         if (item == null)
             throw new ArgumentNullException(nameof(item));
 
-        _items.Add(item);
+        lock (_menuLock) { _items.Add(item); }
         InvalidateMeasurementCache();
         Container?.Invalidate(true);
     }
@@ -421,7 +427,9 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// </summary>
     public void RemoveItem(MenuItem item)
     {
-        if (_items.Remove(item))
+        bool removed;
+        lock (_menuLock) { removed = _items.Remove(item); }
+        if (removed)
         {
             if (_focusedItem == item)
                 _focusedItem = null;
@@ -440,7 +448,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// </summary>
     public void ClearItems()
     {
-        _items.Clear();
+        lock (_menuLock) { _items.Clear(); }
         _focusedItem = null;
         _hoveredItem = null;
         _pressedItem = null;
@@ -456,7 +464,8 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     {
         var parts = path.Split('/');
         MenuItem? current = null;
-        var searchList = _items;
+        List<MenuItem> searchList;
+        lock (_menuLock) { searchList = _items.ToList(); }
 
         foreach (var part in parts)
         {
@@ -487,7 +496,8 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// </summary>
     public void OpenDropdown(string itemText)
     {
-        var item = _items.FirstOrDefault(i => i.Text == itemText);
+        MenuItem? item;
+        lock (_menuLock) { item = _items.FirstOrDefault(i => i.Text == itemText); }
         if (item != null && item.HasChildren)
         {
             CloseAllMenus();

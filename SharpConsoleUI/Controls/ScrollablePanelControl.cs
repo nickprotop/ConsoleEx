@@ -24,6 +24,7 @@ namespace SharpConsoleUI.Controls
 	public class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDirectionalFocusControl, IContainerControl, IScrollableContainer, IFocusTrackingContainer
 	{
 		private readonly List<IWindowControl> _children = new();
+		private readonly object _childrenLock = new();
 		private int _verticalScrollOffset = 0;
 		private int _horizontalScrollOffset = 0;
 		private int _contentHeight = 0;
@@ -279,7 +280,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override System.Drawing.Size GetLogicalContentSize()
 		{
-			int height = _children.Where(c => c.Visible).ToList().Sum(c => c.GetLogicalContentSize().Height);
+			List<IWindowControl> snapshot;
+			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
+			int height = snapshot.Where(c => c.Visible).Sum(c => c.GetLogicalContentSize().Height);
 			int width = Width ?? 80;
 			return new System.Drawing.Size(width, height);
 		}
@@ -287,11 +290,16 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
-			foreach (var child in _children.ToList())
+			List<IWindowControl> snapshot;
+			lock (_childrenLock)
+			{
+				snapshot = new List<IWindowControl>(_children);
+				_children.Clear();
+			}
+			foreach (var child in snapshot)
 			{
 				child.Dispose();
 			}
-			_children.Clear();
 		}
 
 		#endregion
@@ -369,7 +377,9 @@ namespace SharpConsoleUI.Controls
 					return true;
 				}
 
-				var focusableChildren = _children
+				List<IWindowControl> childrenSnapshot;
+				lock (_childrenLock) { childrenSnapshot = new List<IWindowControl>(_children); }
+				var focusableChildren = childrenSnapshot
 					.Where(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus)
 					.Cast<IInteractiveControl>()
 					.ToList();
@@ -533,7 +543,9 @@ namespace SharpConsoleUI.Controls
 			if (focus)
 			{
 				// Getting focus - find first/last focusable child if we have any
-				var focusableChildren = _children
+				List<IWindowControl> childrenSnap;
+				lock (_childrenLock) { childrenSnap = new List<IWindowControl>(_children); }
+				var focusableChildren = childrenSnap
 					.Where(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus)
 					.ToList();
 
@@ -618,10 +630,13 @@ namespace SharpConsoleUI.Controls
 				!positionChanged;
 
 			// Reuse cached target for double-click sequences
+			List<IWindowControl> snapshot;
+			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
+
 			if (isSequentialClick && _lastClickTarget != null)
 			{
 				// Verify child still exists
-				if (_children.Contains(_lastClickTarget))
+				if (snapshot.Contains(_lastClickTarget))
 					return _lastClickTarget;
 			}
 
@@ -629,7 +644,7 @@ namespace SharpConsoleUI.Controls
 			int contentY = args.Position.Y - Margin.Top + _verticalScrollOffset;
 			int currentY = 0;
 
-			foreach (var child in _children.Where(c => c.Visible))
+			foreach (var child in snapshot.Where(c => c.Visible))
 			{
 				int childHeight = MeasureChildHeight(child, contentWidth);
 
@@ -810,7 +825,9 @@ namespace SharpConsoleUI.Controls
 						if (child is IFocusableControl focusable && focusable.CanReceiveFocus)
 						{
 							// Clear focus from other children
-							foreach (var otherChild in _children)
+							List<IWindowControl> mouseSnapshot;
+							lock (_childrenLock) { mouseSnapshot = new List<IWindowControl>(_children); }
+							foreach (var otherChild in mouseSnapshot)
 							{
 								if (otherChild != child && otherChild is IFocusableControl fc && fc.HasFocus)
 								{
@@ -837,7 +854,9 @@ namespace SharpConsoleUI.Controls
 							// We need to recalculate the child's position in the current scroll state
 							int contentY = args.Position.Y - Margin.Top + _verticalScrollOffset;
 							int currentY = 0;
-							foreach (var c in _children.Where(c => c.Visible))
+							List<IWindowControl> childSnap;
+							lock (_childrenLock) { childSnap = new List<IWindowControl>(_children); }
+							foreach (var c in childSnap.Where(c => c.Visible))
 							{
 								if (c == child)
 								{
@@ -862,7 +881,9 @@ namespace SharpConsoleUI.Controls
 						// Clicked on empty space or non-focusable content:
 						// Unfocus all children, clear _focusedChild so arrow keys scroll
 						log?.LogTrace("ScrollPanel.ProcessMouseEvent: click on empty space → unfocusing children", "Focus");
-						foreach (var otherChild in _children)
+						List<IWindowControl> emptySpaceSnap;
+						lock (_childrenLock) { emptySpaceSnap = new List<IWindowControl>(_children); }
+						foreach (var otherChild in emptySpaceSnap)
 						{
 							if (otherChild is IFocusableControl fc && fc.HasFocus)
 							{
@@ -945,7 +966,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void AddControl(IWindowControl control)
 		{
-			_children.Add(control);
+			lock (_childrenLock)
+			{
+				_children.Add(control);
+			}
 			control.Container = this;
 			// If the panel has focus but no focused child yet, focus the new control
 			// if it's focusable. Restores focus routing after ClearContents.
@@ -980,7 +1004,13 @@ namespace SharpConsoleUI.Controls
 			if (_lastInternalFocusedChild == control as IInteractiveControl)
 				_lastInternalFocusedChild = null;
 
-			if (_children.Remove(control))
+			bool removed;
+			lock (_childrenLock)
+			{
+				removed = _children.Remove(control);
+			}
+
+			if (removed)
 			{
 				control.Container = null;
 
@@ -1004,12 +1034,18 @@ namespace SharpConsoleUI.Controls
 			_focusedChild = null;
 			_lastInternalFocusedChild = null;
 
-			foreach (var child in _children)
+			List<IWindowControl> snapshot;
+			lock (_childrenLock)
+			{
+				snapshot = new List<IWindowControl>(_children);
+				_children.Clear();
+			}
+
+			foreach (var child in snapshot)
 			{
 				child.Container = null;
 				child.Dispose();
 			}
-			_children.Clear();
 
 			Invalidate(true);
 		}
@@ -1017,7 +1053,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the collection of child controls.
 		/// </summary>
-		public IReadOnlyList<IWindowControl> Children => _children.AsReadOnly();
+		public IReadOnlyList<IWindowControl> Children
+		{
+			get { lock (_childrenLock) { return new List<IWindowControl>(_children); } }
+		}
 
 		#endregion
 
@@ -1029,7 +1068,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public IReadOnlyList<IWindowControl> GetChildren()
 		{
-			return _children.AsReadOnly();
+			lock (_childrenLock) { return new List<IWindowControl>(_children); }
 		}
 
 		#endregion
@@ -1071,7 +1110,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ScrollChildIntoView(IWindowControl child)
 		{
-			if (!_children.Contains(child))
+			List<IWindowControl> snapshot;
+			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
+
+			if (!snapshot.Contains(child))
 				return; // Not our child
 
 			// Calculate child's position within our content
@@ -1081,7 +1123,7 @@ namespace SharpConsoleUI.Controls
 				contentWidth -= 2;
 
 			// Find child's Y position by measuring all children before it
-			foreach (var c in _children.Where(c => c.Visible))
+			foreach (var c in snapshot.Where(c => c.Visible))
 			{
 				if (c == child)
 					break;
@@ -1265,7 +1307,9 @@ namespace SharpConsoleUI.Controls
 			var parentWindow = this.GetParentWindow();
 			var renderer = parentWindow?.Renderer;
 
-			foreach (var child in _children.ToList())
+			List<IWindowControl> paintSnapshot;
+			lock (_childrenLock) { paintSnapshot = new List<IWindowControl>(_children); }
+			foreach (var child in paintSnapshot)
 			{
 				if (!child.Visible) continue;
 
@@ -1414,7 +1458,9 @@ namespace SharpConsoleUI.Controls
 			}
 
 			int totalHeight = 0;
-			foreach (var child in _children.Where(c => c.Visible).ToList())
+			List<IWindowControl> calcSnapshot;
+			lock (_childrenLock) { calcSnapshot = new List<IWindowControl>(_children); }
+			foreach (var child in calcSnapshot.Where(c => c.Visible))
 			{
 				var childNode = LayoutNodeFactory.CreateSubtree(child);
 				childNode.IsVisible = true;
@@ -1432,7 +1478,9 @@ namespace SharpConsoleUI.Controls
 
 		private int CalculateContentWidth()
 		{
-			var visibleChildren = _children.Where(c => c.Visible).ToList();
+			List<IWindowControl> snapshot;
+			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
+			var visibleChildren = snapshot.Where(c => c.Visible).ToList();
 			return visibleChildren.Any() ? visibleChildren.Max(c => c.GetLogicalContentSize().Width) : 0;
 		}
 
@@ -1458,7 +1506,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private bool HasFocusableChildren()
 		{
-			return _children.Any(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus);
+			List<IWindowControl> snapshot;
+			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
+			return snapshot.Any(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus);
 		}
 
 		/// <summary>

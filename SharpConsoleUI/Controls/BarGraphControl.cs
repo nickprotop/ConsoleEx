@@ -47,6 +47,7 @@ namespace SharpConsoleUI.Controls
 		private Color _unfilledColor = Color.Grey35;
 		private double _value;
 		private string _valueFormat = "F1";
+		private readonly object _thresholdsLock = new();
 		private List<ColorThreshold>? _colorThresholds;
 
 		// Gradient support
@@ -222,7 +223,16 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the current color thresholds for gradient effect.
 		/// </summary>
-		public IReadOnlyList<ColorThreshold>? ColorThresholds => _colorThresholds?.AsReadOnly();
+		public IReadOnlyList<ColorThreshold>? ColorThresholds
+		{
+			get
+			{
+				lock (_thresholdsLock)
+				{
+					return _colorThresholds != null ? new List<ColorThreshold>(_colorThresholds) : null;
+				}
+			}
+		}
 
 		/// <summary>
 		/// Sets color thresholds for gradient effect.
@@ -232,13 +242,16 @@ namespace SharpConsoleUI.Controls
 		/// <param name="thresholds">Color thresholds ordered by percentage. Will be auto-sorted.</param>
 		public void SetColorThresholds(params ColorThreshold[] thresholds)
 		{
-			if (thresholds == null || thresholds.Length == 0)
+			lock (_thresholdsLock)
 			{
-				_colorThresholds = null;
-			}
-			else
-			{
-				_colorThresholds = thresholds.OrderBy(t => t.Threshold).ToList();
+				if (thresholds == null || thresholds.Length == 0)
+				{
+					_colorThresholds = null;
+				}
+				else
+				{
+					_colorThresholds = thresholds.OrderBy(t => t.Threshold).ToList();
+				}
 			}
 			Container?.Invalidate(true);
 		}
@@ -248,7 +261,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearColorThresholds()
 		{
-			_colorThresholds = null;
+			lock (_thresholdsLock)
+			{
+				_colorThresholds = null;
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -415,14 +431,21 @@ namespace SharpConsoleUI.Controls
 			int filledChars = (int)Math.Round(percent * _barWidth);
 			int unfilledChars = _barWidth - filledChars;
 
+			// Snapshot thresholds for thread safety
+			List<ColorThreshold>? thresholdsSnapshot;
+			lock (_thresholdsLock)
+			{
+				thresholdsSnapshot = _colorThresholds != null ? new List<ColorThreshold>(_colorThresholds) : null;
+			}
+
 			// Resolve the fill color based on thresholds (used for value text)
-			Color resolvedFilledColor = GetFilledColorForPercent(percent * 100);
+			Color resolvedFilledColor = GetFilledColorForPercent(percent * 100, thresholdsSnapshot);
 
 			// Filled portion (with per-character gradient support)
 			for (int i = 0; i < filledChars; i++)
 			{
 				Color charColor;
-				if (_smoothGradient != null && (_colorThresholds == null || _colorThresholds.Count == 0))
+				if (_smoothGradient != null && (thresholdsSnapshot == null || thresholdsSnapshot.Count == 0))
 				{
 					// Per-character gradient (smoother than per-bar)
 					double charPercent = (double)(i + 1) / _barWidth;
@@ -492,14 +515,15 @@ namespace SharpConsoleUI.Controls
 		/// Gets the appropriate fill color based on the current percentage and thresholds.
 		/// </summary>
 		/// <param name="percent">Current value as percentage (0-100).</param>
+		/// <param name="colorThresholds">Snapshot of color thresholds to use.</param>
 		/// <returns>The color to use for the filled portion.</returns>
-		private Color GetFilledColorForPercent(double percent)
+		private Color GetFilledColorForPercent(double percent, List<ColorThreshold>? colorThresholds)
 		{
 			// Priority 1: Threshold-based gradients (existing functionality)
-			if (_colorThresholds != null && _colorThresholds.Count > 0)
+			if (colorThresholds != null && colorThresholds.Count > 0)
 			{
 				Color result = _filledColor;
-				foreach (var threshold in _colorThresholds)
+				foreach (var threshold in colorThresholds)
 				{
 					if (percent >= threshold.Threshold)
 						result = threshold.Color;

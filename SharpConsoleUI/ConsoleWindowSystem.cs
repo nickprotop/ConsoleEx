@@ -48,6 +48,10 @@ namespace SharpConsoleUI
 		private volatile int _idleTime = Configuration.SystemDefaults.DefaultIdleTimeMs;
 		private volatile bool _running;
 
+		// UI thread action queue - allows background threads to schedule work on the main thread
+		private readonly ConcurrentQueue<Action> _uiActionQueue = new();
+		private volatile bool _uiActionsPending;
+
 		// Frame rate limiting (configured via ConsoleWindowSystemOptions)
 		private DateTime _lastRenderTime = DateTime.UtcNow;
 
@@ -416,6 +420,18 @@ namespace SharpConsoleUI
 
 		#region Public Methods
 
+		/// <summary>
+		/// Enqueues an action to be executed on the UI thread during the next main loop iteration.
+		/// Safe to call from any thread. Actions run between input processing and rendering.
+		/// </summary>
+		/// <param name="action">The action to execute on the UI thread.</param>
+		public void EnqueueOnUIThread(Action action)
+		{
+			ArgumentNullException.ThrowIfNull(action);
+			_uiActionQueue.Enqueue(action);
+			_uiActionsPending = true;
+		}
+
 		#region Window Management
 
 		/// <summary>
@@ -529,6 +545,7 @@ namespace SharpConsoleUI
 				while (_running)
 				{
 					Input.ProcessInput();
+					DrainUIActionQueue();
 
 					var now = DateTime.UtcNow;
 					var elapsed = (now - _lastRenderTime).TotalMilliseconds;
@@ -589,6 +606,8 @@ namespace SharpConsoleUI
 					}
 
 					UpdateCursor();
+					if (_uiActionsPending && _idleTime > Configuration.SystemDefaults.MinSleepDurationMs)
+						_idleTime = Configuration.SystemDefaults.MinSleepDurationMs;
 					Thread.Sleep(_idleTime);
 				}
 			}
@@ -720,6 +739,34 @@ namespace SharpConsoleUI
 		#endregion
 
 		#region Helper Methods
+
+		/// <summary>
+		/// Drains all pending UI actions from the queue. Called on the main thread.
+		/// </summary>
+		private void DrainUIActionQueue()
+		{
+			if (!_uiActionsPending) return;
+			_uiActionsPending = false;
+			bool anyDrained = false;
+
+			while (_uiActionQueue.TryDequeue(out var action))
+			{
+				anyDrained = true;
+				try
+				{
+					action();
+				}
+				catch (Exception ex)
+				{
+					LogService?.LogError($"Error in EnqueueOnUIThread action: {ex.Message}", ex, "System");
+				}
+			}
+
+			if (anyDrained)
+			{
+				Render.DesktopNeedsRender = true;
+			}
+		}
 
 		/// <summary>
 		/// Checks if any window has the dirty flag set.

@@ -73,6 +73,8 @@ namespace SharpConsoleUI.Controls
 		private const int DEFAULT_HEIGHT = 8;
 		private const int DEFAULT_MAX_DATA_POINTS = 50;
 
+		private readonly object _dataLock = new();
+
 		// Block mode: 9 levels (0-8) using box drawing vertical bar characters (bottom-up)
 		private static readonly char[] VERTICAL_CHARS = { ' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█' };
 
@@ -215,7 +217,16 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the data points collection.
 		/// </summary>
-		public IReadOnlyList<double> DataPoints => _dataPoints.AsReadOnly();
+		public IReadOnlyList<double> DataPoints
+		{
+			get
+			{
+				lock (_dataLock)
+				{
+					return new List<double>(_dataPoints);
+				}
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the foreground color for labels.
@@ -253,8 +264,11 @@ namespace SharpConsoleUI.Controls
 			get => _maxDataPoints;
 			set
 			{
-				_maxDataPoints = Math.Max(1, value);
-				TrimDataPoints();
+				lock (_dataLock)
+				{
+					_maxDataPoints = Math.Max(1, value);
+					TrimDataPoints();
+				}
 				Container?.Invalidate(true);
 			}
 		}
@@ -331,7 +345,16 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the secondary data points collection (for bidirectional mode).
 		/// </summary>
-		public IReadOnlyList<double> SecondaryDataPoints => _secondaryDataPoints.AsReadOnly();
+		public IReadOnlyList<double> SecondaryDataPoints
+		{
+			get
+			{
+				lock (_dataLock)
+				{
+					return new List<double>(_secondaryDataPoints);
+				}
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the color for the secondary bars (in bidirectional mode).
@@ -460,7 +483,18 @@ namespace SharpConsoleUI.Controls
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
-		public override int? ContentWidth => Width ?? (_dataPoints.Count + Margin.Left + Margin.Right);
+		public override int? ContentWidth
+		{
+			get
+			{
+				List<double> snapshot;
+				lock (_dataLock)
+				{
+					snapshot = _dataPoints;
+				}
+				return Width ?? (snapshot.Count + Margin.Left + Margin.Right);
+			}
+		}
 
 		/// <inheritdoc/>
 		public override IContainer? Container
@@ -490,7 +524,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
-			_dataPoints.Clear();
+			lock (_dataLock)
+			{
+				_dataPoints.Clear();
+			}
 		}
 
 		/// <inheritdoc/>
@@ -532,7 +569,12 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Width should be max of: explicit width, data points, or title width
-			int dataWidth = Width ?? _dataPoints.Count;
+			int dataCount;
+			lock (_dataLock)
+			{
+				dataCount = _dataPoints.Count;
+			}
+			int dataWidth = Width ?? dataCount;
 			int contentWidth = Math.Max(dataWidth, titleWidth);
 			int width = contentWidth + Margin.Left + Margin.Right + borderSize;
 			int height = _graphHeight + Margin.Top + Margin.Bottom + borderSize + titleHeight + baselineHeight;
@@ -647,7 +689,16 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			if (_dataPoints.Count == 0 && _secondaryDataPoints.Count == 0)
+			// Snapshot data points under lock for thread safety
+			List<double> dataPointsSnapshot;
+			List<double> secondaryDataPointsSnapshot;
+			lock (_dataLock)
+			{
+				dataPointsSnapshot = new List<double>(_dataPoints);
+				secondaryDataPointsSnapshot = new List<double>(_secondaryDataPoints);
+			}
+
+			if (dataPointsSnapshot.Count == 0 && secondaryDataPointsSnapshot.Count == 0)
 				return;
 
 			// Check if we're in bidirectional mode
@@ -740,22 +791,22 @@ namespace SharpConsoleUI.Controls
 			// Paint graph data AFTER baseline so data can draw over it
 			if (isBidirectional)
 			{
-				PaintBidirectional(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, graphBottom, clipRect, bgColor, useBraille);
+				PaintBidirectional(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, graphBottom, clipRect, bgColor, useBraille, dataPointsSnapshot, secondaryDataPointsSnapshot);
 			}
 			else
 			{
-				PaintStandard(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, graphBottom, clipRect, bgColor, useBraille);
+				PaintStandard(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, graphBottom, clipRect, bgColor, useBraille, dataPointsSnapshot);
 			}
 		}
 
-		private void PaintStandard(CharacterBuffer buffer, int graphStartX, int graphStartY, int graphWidth, int graphHeight, int graphBottom, LayoutRect clipRect, Color bgColor, bool useBraille)
+		private void PaintStandard(CharacterBuffer buffer, int graphStartX, int graphStartY, int graphWidth, int graphHeight, int graphBottom, LayoutRect clipRect, Color bgColor, bool useBraille, List<double> dataPoints)
 		{
-			if (_dataPoints.Count == 0)
+			if (dataPoints.Count == 0)
 				return;
 
 			// Calculate scale
-			double min = _minValue ?? Math.Min(0, _dataPoints.Min());
-			double max = _maxValue ?? Math.Max(_dataPoints.Max(), min + 1.0);
+			double min = _minValue ?? Math.Min(0, dataPoints.Min());
+			double max = _maxValue ?? Math.Max(dataPoints.Max(), min + 1.0);
 			double range = max - min;
 
 			if (range < 0.001)
@@ -763,17 +814,17 @@ namespace SharpConsoleUI.Controls
 
 			// Determine which data points to display
 			int availableWidth = graphWidth;
-			int displayCount = Math.Min(_dataPoints.Count, availableWidth);
-			int startIndex = Math.Max(0, _dataPoints.Count - displayCount);
+			int displayCount = Math.Min(dataPoints.Count, availableWidth);
+			int startIndex = Math.Max(0, dataPoints.Count - displayCount);
 
 			// Paint vertical bars
 			for (int i = 0; i < displayCount; i++)
 			{
 				int dataIndex = startIndex + i;
-				if (dataIndex >= _dataPoints.Count)
+				if (dataIndex >= dataPoints.Count)
 					break;
 
-				double value = _dataPoints[dataIndex];
+				double value = dataPoints[dataIndex];
 				double normalized = (value - min) / range; // 0.0 to 1.0
 				double barHeight = normalized * graphHeight;
 
@@ -812,7 +863,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		private void PaintBidirectional(CharacterBuffer buffer, int graphStartX, int graphStartY, int graphWidth, int graphHeight, int graphBottom, LayoutRect clipRect, Color bgColor, bool useBraille)
+		private void PaintBidirectional(CharacterBuffer buffer, int graphStartX, int graphStartY, int graphWidth, int graphHeight, int graphBottom, LayoutRect clipRect, Color bgColor, bool useBraille, List<double> dataPoints, List<double> secondaryDataPoints)
 		{
 			// In bidirectional mode:
 			// - Primary series (upload) goes UP from the middle
@@ -822,13 +873,13 @@ namespace SharpConsoleUI.Controls
 			int middleY = graphStartY + topHalfHeight;
 
 			// Calculate scales for both series
-			double primaryMax = _maxValue ?? (_dataPoints.Count > 0 ? Math.Max(_dataPoints.Max(), 0.001) : 1.0);
-			double secondaryMax = _secondaryMaxValue ?? (_secondaryDataPoints.Count > 0 ? Math.Max(_secondaryDataPoints.Max(), 0.001) : primaryMax);
+			double primaryMax = _maxValue ?? (dataPoints.Count > 0 ? Math.Max(dataPoints.Max(), 0.001) : 1.0);
+			double secondaryMax = _secondaryMaxValue ?? (secondaryDataPoints.Count > 0 ? Math.Max(secondaryDataPoints.Max(), 0.001) : primaryMax);
 
 			// Determine display count based on larger dataset
 			int availableWidth = graphWidth;
-			int primaryCount = _dataPoints.Count;
-			int secondaryCount = _secondaryDataPoints.Count;
+			int primaryCount = dataPoints.Count;
+			int secondaryCount = secondaryDataPoints.Count;
 			int maxDataCount = Math.Max(primaryCount, secondaryCount);
 			int displayCount = Math.Min(maxDataCount, availableWidth);
 
@@ -846,7 +897,7 @@ namespace SharpConsoleUI.Controls
 				int primaryDataIndex = primaryStartIndex + i;
 				if (primaryDataIndex < primaryCount)
 				{
-					double value = _dataPoints[primaryDataIndex];
+					double value = dataPoints[primaryDataIndex];
 					double normalized = Math.Clamp(value / primaryMax, 0, 1);
 					double barHeight = normalized * topHalfHeight;
 
@@ -880,7 +931,7 @@ namespace SharpConsoleUI.Controls
 				int secondaryDataIndex = secondaryStartIndex + i;
 				if (secondaryDataIndex < secondaryCount)
 				{
-					double value = _secondaryDataPoints[secondaryDataIndex];
+					double value = secondaryDataPoints[secondaryDataIndex];
 					double normalized = Math.Clamp(value / secondaryMax, 0, 1);
 					double barHeight = normalized * bottomHalfHeight;
 
@@ -996,8 +1047,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void AddDataPoint(double value)
 		{
-			_dataPoints.Add(value);
-			TrimDataPoints();
+			lock (_dataLock)
+			{
+				_dataPoints.Add(value);
+				TrimDataPoints();
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -1006,7 +1060,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearDataPoints()
 		{
-			_dataPoints.Clear();
+			lock (_dataLock)
+			{
+				_dataPoints.Clear();
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -1015,8 +1072,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void SetDataPoints(IEnumerable<double> dataPoints)
 		{
-			_dataPoints = new List<double>(dataPoints);
-			TrimDataPoints();
+			lock (_dataLock)
+			{
+				_dataPoints = new List<double>(dataPoints);
+				TrimDataPoints();
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -1026,8 +1086,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void AddSecondaryDataPoint(double value)
 		{
-			_secondaryDataPoints.Add(value);
-			TrimSecondaryDataPoints();
+			lock (_dataLock)
+			{
+				_secondaryDataPoints.Add(value);
+				TrimSecondaryDataPoints();
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -1036,7 +1099,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearSecondaryDataPoints()
 		{
-			_secondaryDataPoints.Clear();
+			lock (_dataLock)
+			{
+				_secondaryDataPoints.Clear();
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -1045,8 +1111,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void SetSecondaryDataPoints(IEnumerable<double> dataPoints)
 		{
-			_secondaryDataPoints = new List<double>(dataPoints);
-			TrimSecondaryDataPoints();
+			lock (_dataLock)
+			{
+				_secondaryDataPoints = new List<double>(dataPoints);
+				TrimSecondaryDataPoints();
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -1056,10 +1125,13 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void SetBidirectionalData(IEnumerable<double> primaryData, IEnumerable<double> secondaryData)
 		{
-			_dataPoints = new List<double>(primaryData);
-			_secondaryDataPoints = new List<double>(secondaryData);
-			TrimDataPoints();
-			TrimSecondaryDataPoints();
+			lock (_dataLock)
+			{
+				_dataPoints = new List<double>(primaryData);
+				_secondaryDataPoints = new List<double>(secondaryData);
+				TrimDataPoints();
+				TrimSecondaryDataPoints();
+			}
 			Container?.Invalidate(true);
 		}
 

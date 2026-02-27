@@ -16,11 +16,14 @@ public partial class MenuControl
     {
         int width, height;
 
+        List<MenuItem> snapshot;
+        lock (_menuLock) { snapshot = _items.ToList(); }
+
         if (_orientation == MenuOrientation.Horizontal)
         {
             // Calculate total width of all menu items
             int totalWidth = 0;
-            foreach (var item in _items)
+            foreach (var item in snapshot)
             {
                 if (!item.IsSeparator)
                     totalWidth += MeasureText(item.Text) + Configuration.ControlDefaults.MenuItemHorizontalPadding;
@@ -33,14 +36,14 @@ public partial class MenuControl
         {
             // Calculate max width and total height
             int maxWidth = 0;
-            foreach (var item in _items)
+            foreach (var item in snapshot)
             {
                 if (!item.IsSeparator)
                     maxWidth = Math.Max(maxWidth, MeasureText(item.Text));
             }
 
             width = Width ?? (maxWidth + Configuration.ControlDefaults.MenuItemHorizontalPadding);
-            height = _items.Count;
+            height = snapshot.Count;
         }
 
         // Add margins
@@ -85,7 +88,9 @@ public partial class MenuControl
         int x = bounds.X + Margin.Left;
         int y = bounds.Y + Margin.Top;
 
-        foreach (var item in _items)
+        List<MenuItem> snapshot;
+        lock (_menuLock) { snapshot = _items.ToList(); }
+        foreach (var item in snapshot)
         {
             if (item.IsSeparator)
                 continue;
@@ -107,7 +112,9 @@ public partial class MenuControl
         int y = bounds.Y + Margin.Top;
         int width = bounds.Width - Margin.Left - Margin.Right;
 
-        foreach (var item in _items)
+        List<MenuItem> snapshot;
+        lock (_menuLock) { snapshot = _items.ToList(); }
+        foreach (var item in snapshot)
         {
             if (item.IsSeparator)
             {

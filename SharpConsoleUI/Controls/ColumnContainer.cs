@@ -33,6 +33,7 @@ namespace SharpConsoleUI.Controls
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private IContainer? _container;
 		private List<IWindowControl> _contents = new List<IWindowControl>();
+		private readonly object _contentsLock = new();
 		private Color? _foregroundColorValue;
 		private bool _hasFocus;
 		private HorizontalGridControl _horizontalGridContent;
@@ -104,7 +105,9 @@ namespace SharpConsoleUI.Controls
 					_propagatingWindowSystem = true;
 					try
 					{
-						foreach (IWindowControl control in _contents)
+						List<IWindowControl> snapshot;
+						lock (_contentsLock) { snapshot = new List<IWindowControl>(_contents); }
+						foreach (IWindowControl control in snapshot)
 						{
 							if (control is HorizontalGridControl nestedGrid)
 							{
@@ -123,7 +126,9 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Invalidate contents
-				foreach (IWindowControl control in _contents)
+				List<IWindowControl> invalidateSnapshot;
+				lock (_contentsLock) { invalidateSnapshot = new List<IWindowControl>(_contents); }
+				foreach (IWindowControl control in invalidateSnapshot)
 				{
 					control.Invalidate();
 				}
@@ -260,11 +265,13 @@ namespace SharpConsoleUI.Controls
 			{
 				// Calculate minimum width from content if not explicitly set
 				int? effectiveMinWidth = _minWidth;
-				if (!effectiveMinWidth.HasValue && _contents.Count > 0)
+				List<IWindowControl> layoutSnapshot;
+				lock (_contentsLock) { layoutSnapshot = new List<IWindowControl>(_contents); }
+				if (!effectiveMinWidth.HasValue && layoutSnapshot.Count > 0)
 				{
 					// Get the maximum required width from all content controls
 					int maxContentWidth = 0;
-					foreach (var content in _contents)
+					foreach (var content in layoutSnapshot)
 					{
 						// Check if content has an explicit Width requirement
 						if (content.Width.HasValue)
@@ -387,7 +394,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the list of child controls in this column.
 		/// </summary>
-		public IReadOnlyList<IWindowControl> Contents => _contents;
+		public IReadOnlyList<IWindowControl> Contents
+		{
+			get { lock (_contentsLock) { return new List<IWindowControl>(_contents); } }
+		}
 
 		/// <summary>
 		/// Gets the children of this container for Tab navigation traversal.
@@ -395,7 +405,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public IReadOnlyList<IWindowControl> GetChildren()
 		{
-			return _contents;
+			lock (_contentsLock) { return new List<IWindowControl>(_contents); }
 		}
 
 		/// <summary>
@@ -405,7 +415,10 @@ namespace SharpConsoleUI.Controls
 		public void AddContent(IWindowControl content)
 		{
 			content.Container = this;
-			_contents.Add(content);
+			lock (_contentsLock)
+			{
+				_contents.Add(content);
+			}
 
 			// Update MinWidth if content has explicit Width and it's larger than current MinWidth
 			// This ensures the column gets enough space during layout distribution
@@ -430,11 +443,13 @@ namespace SharpConsoleUI.Controls
 			if (_width.HasValue)
 				return _width.Value;
 
-			if (_contents.Count == 0) return _margin.Left + _margin.Right;
+			List<IWindowControl> snapshot;
+			lock (_contentsLock) { snapshot = new List<IWindowControl>(_contents); }
+			if (snapshot.Count == 0) return _margin.Left + _margin.Right;
 
 			// Calculate width from visible content controls
 			int maxWidth = 0;
-			foreach (var content in _contents.Where(c => c.Visible))
+			foreach (var content in snapshot.Where(c => c.Visible))
 			{
 				int contentWidth = content.ContentWidth ?? content.Width ?? 0;
 				maxWidth = Math.Max(maxWidth, contentWidth);
@@ -448,8 +463,10 @@ namespace SharpConsoleUI.Controls
 		/// <returns>A list of interactive controls.</returns>
 		public List<IInteractiveControl> GetInteractiveContents()
 		{
+			List<IWindowControl> snapshot;
+			lock (_contentsLock) { snapshot = new List<IWindowControl>(_contents); }
 			List<IInteractiveControl> interactiveContents = new List<IInteractiveControl>();
-			foreach (var content in _contents)
+			foreach (var content in snapshot)
 			{
 				if (content is IInteractiveControl interactiveContent)
 				{
@@ -515,7 +532,9 @@ namespace SharpConsoleUI.Controls
 			_invalidatingContainers.Value!.Add(this);
 			try
 			{
-				foreach (var content in _contents)
+				List<IWindowControl> snapshot;
+				lock (_contentsLock) { snapshot = new List<IWindowControl>(_contents); }
+				foreach (var content in snapshot)
 				{
 					// Prevent infinite recursion by not invalidating:
 					// 1. The horizontal grid content if it's the caller
@@ -538,7 +557,13 @@ namespace SharpConsoleUI.Controls
 		/// <param name="content">The control to remove.</param>
 		public void RemoveContent(IWindowControl content)
 		{
-			if (_contents.Remove(content))
+			bool removed;
+			lock (_contentsLock)
+			{
+				removed = _contents.Remove(content);
+			}
+
+			if (removed)
 			{
 				content.Container = null;
 				content.Dispose();
@@ -555,12 +580,18 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearContents()
 		{
-			foreach (var content in _contents)
+			List<IWindowControl> snapshot;
+			lock (_contentsLock)
+			{
+				snapshot = new List<IWindowControl>(_contents);
+				_contents.Clear();
+			}
+
+			foreach (var content in snapshot)
 			{
 				content.Container = null;
 				content.Dispose();
 			}
-			_contents.Clear();
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(true);
@@ -641,12 +672,14 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()
 		{
+			List<IWindowControl> snapshot;
+			lock (_contentsLock) { snapshot = new List<IWindowControl>(_contents); }
 			int totalHeight = _margin.Top + _margin.Bottom;
 			int maxWidth = 0;
 			int fillChildCount = 0;
 
 			// First pass: sum non-fill children
-			foreach (var content in _contents.Where(c => c.Visible))
+			foreach (var content in snapshot.Where(c => c.Visible))
 			{
 				if (content.VerticalAlignment == VerticalAlignment.Fill)
 				{
@@ -664,7 +697,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Get width from all children
-			foreach (var content in _contents.Where(c => c.Visible))
+			foreach (var content in snapshot.Where(c => c.Visible))
 			{
 				var size = content.GetLogicalContentSize();
 				maxWidth = Math.Max(maxWidth, size.Width);
@@ -686,8 +719,10 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The control at the position, or null if no control found.</returns>
 		public IInteractiveControl? GetControlAtPosition(Point position)
 		{
+			List<IWindowControl> snapshot;
+			lock (_contentsLock) { snapshot = new List<IWindowControl>(_contents); }
 			int currentY = _margin.Top;
-			foreach (var content in _contents.Where(c => c.Visible))
+			foreach (var content in snapshot.Where(c => c.Visible))
 			{
 				var size = content.GetLogicalContentSize();
 				int contentHeight = size.Height;
@@ -714,7 +749,10 @@ namespace SharpConsoleUI.Controls
 		/// <returns>True if the control is in this column; otherwise, false.</returns>
 		public bool ContainsControl(IInteractiveControl control)
 		{
-			return control is IWindowControl windowControl && _contents.Contains(windowControl);
+			lock (_contentsLock)
+			{
+				return control is IWindowControl windowControl && _contents.Contains(windowControl);
+			}
 		}
 
 		/// <summary>
@@ -725,8 +763,10 @@ namespace SharpConsoleUI.Controls
 		/// <returns>Position relative to the control.</returns>
 		public Point GetControlRelativePosition(IInteractiveControl control, Point columnPosition)
 		{
+			List<IWindowControl> snapshot;
+			lock (_contentsLock) { snapshot = new List<IWindowControl>(_contents); }
 			int currentY = _margin.Top;
-			foreach (var content in _contents.Where(c => c.Visible))
+			foreach (var content in snapshot.Where(c => c.Visible))
 			{
 				if (content == control)
 				{
@@ -767,7 +807,10 @@ namespace SharpConsoleUI.Controls
             int fillCount = 0;
             var childSizes = new Dictionary<IWindowControl, LayoutSize>();
 
-            foreach (var content in _contents.Where(c => c.Visible))
+            List<IWindowControl> measureSnapshot;
+            lock (_contentsLock) { measureSnapshot = new List<IWindowControl>(_contents); }
+
+            foreach (var content in measureSnapshot.Where(c => c.Visible))
             {
                 if (content.VerticalAlignment == VerticalAlignment.Fill)
                 {
@@ -805,7 +848,7 @@ namespace SharpConsoleUI.Controls
             int remainingHeight = Math.Max(0, constraints.MaxHeight - fixedHeight);
             int fillHeight = fillCount > 0 ? remainingHeight / fillCount : 0;
 
-            foreach (var content in _contents.Where(c => c.Visible))
+            foreach (var content in measureSnapshot.Where(c => c.Visible))
             {
                 if (content.VerticalAlignment == VerticalAlignment.Fill)
                 {
@@ -921,8 +964,10 @@ namespace SharpConsoleUI.Controls
 			bool childHandled = false;
 
 			// Find which child control was clicked
+			List<IWindowControl> mouseSnapshot;
+			lock (_contentsLock) { mouseSnapshot = new List<IWindowControl>(_contents); }
 			int currentY = _margin.Top;
-			foreach (var content in _contents.Where(c => c.Visible))
+			foreach (var content in mouseSnapshot.Where(c => c.Visible))
 			{
 				var size = content.GetLogicalContentSize();
 				int contentHeight = size.Height;
@@ -1016,11 +1061,16 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Dispose()
 		{
-			foreach (var content in _contents)
+			List<IWindowControl> snapshot;
+			lock (_contentsLock)
+			{
+				snapshot = new List<IWindowControl>(_contents);
+				_contents.Clear();
+			}
+			foreach (var content in snapshot)
 			{
 				content.Dispose();
 			}
-			_contents.Clear();
 		}
 	}
 }

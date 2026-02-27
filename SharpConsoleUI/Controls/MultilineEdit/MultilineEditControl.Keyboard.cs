@@ -156,14 +156,25 @@ namespace SharpConsoleUI.Controls
 			}
 
 			bool contentChanged = false;
-			BeginUndoAction();
 			bool isShiftPressed = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
 			bool isCtrlPressed = key.Modifiers.HasFlag(ConsoleModifiers.Control);
-			int oldCursorX = _cursorX;
-			int oldCursorY = _cursorY;
-			bool oldHasSelection = _hasSelection;
-			int oldSelEndX = _selectionEndX;
-			int oldSelEndY = _selectionEndY;
+			int oldCursorX;
+			int oldCursorY;
+			bool oldHasSelection;
+			int oldSelEndX;
+			int oldSelEndY;
+			bool cursorMoved;
+			bool selectionChanged;
+			bool keyWasHandled;
+
+		  lock (_contentLock)
+		  {
+			BeginUndoAction();
+			oldCursorX = _cursorX;
+			oldCursorY = _cursorY;
+			oldHasSelection = _hasSelection;
+			oldSelEndX = _selectionEndX;
+			oldSelEndY = _selectionEndY;
 
 			// If starting selection with Shift key
 			if (isShiftPressed && !_hasSelection &&
@@ -751,19 +762,21 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 			}
 
-			// If content changed, notify listeners and invalidate
+			// Only consume the key if we actually did something with it
+			// Check if content, cursor position, or selection state changed
+			cursorMoved = (_cursorX != oldCursorX || _cursorY != oldCursorY);
+			selectionChanged = (_hasSelection != oldHasSelection) ||
+				(_hasSelection && (_selectionEndX != oldSelEndX || _selectionEndY != oldSelEndY));
+			keyWasHandled = contentChanged || cursorMoved || selectionChanged;
+
+		  } // end lock (_contentLock)
+
+			// Fire events outside the lock to avoid potential deadlocks
 			if (contentChanged)
 			{
 				Container?.Invalidate(true);
 				ContentChanged?.Invoke(this, GetContent());
 			}
-
-			// Only consume the key if we actually did something with it
-			// Check if content, cursor position, or selection state changed
-			bool cursorMoved = (_cursorX != oldCursorX || _cursorY != oldCursorY);
-			bool selectionChanged = (_hasSelection != oldHasSelection) ||
-				(_hasSelection && (_selectionEndX != oldSelEndX || _selectionEndY != oldSelEndY));
-			bool keyWasHandled = contentChanged || cursorMoved || selectionChanged;
 
 			// Fire cursor position changed event
 			if (cursorMoved)

@@ -72,8 +72,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		internal int GetIndicatorStartColumn(int nodeIndex)
 		{
-			if (nodeIndex < 0 || nodeIndex >= _flattenedNodes.Count) return -1;
-			var node = _flattenedNodes[nodeIndex];
+			List<TreeNode> snapshot;
+			lock (_treeLock) { snapshot = _flattenedNodes.ToList(); }
+			if (nodeIndex < 0 || nodeIndex >= snapshot.Count) return -1;
+			var node = snapshot[nodeIndex];
 			if (node.Children.Count == 0) return -1;
 
 			var guideChars = GetGuideChars();
@@ -88,14 +90,19 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			UpdateFlattenedNodes();
+			List<TreeNode> snapshot;
+			lock (_treeLock)
+			{
+				UpdateFlattenedNodes();
+				snapshot = _flattenedNodes.ToList();
+			}
 
 			int contentWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
 
 			// Calculate max item width
 			int maxItemWidth = 0;
 			var guideChars = GetGuideChars();
-			foreach (var node in _flattenedNodes)
+			foreach (var node in snapshot)
 			{
 				int depth = GetNodeDepth(node);
 				bool[] ancestorIsLast = GetAncestorIsLastArray(node);
@@ -127,13 +134,13 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				effectiveMaxVisibleItems = Math.Min(_flattenedNodes.Count, constraints.MaxHeight - Margin.Top - Margin.Bottom - 1);
+				effectiveMaxVisibleItems = Math.Min(snapshot.Count, constraints.MaxHeight - Margin.Top - Margin.Bottom - 1);
 			}
 
 			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
-			bool hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
-			int contentHeight = Math.Min(_flattenedNodes.Count, effectiveMaxVisibleItems);
+			bool hasScrollIndicator = snapshot.Count > effectiveMaxVisibleItems;
+			int contentHeight = Math.Min(snapshot.Count, effectiveMaxVisibleItems);
 			int height = contentHeight + Margin.Top + Margin.Bottom + (hasScrollIndicator ? 1 : 0);
 
 			if (_height.HasValue)
@@ -165,8 +172,13 @@ namespace SharpConsoleUI.Controls
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
 
-			// Update flattened nodes
-			UpdateFlattenedNodes();
+			// Thread-safe snapshot of flattened nodes
+			List<TreeNode> snapshot;
+			lock (_treeLock)
+			{
+				UpdateFlattenedNodes();
+				snapshot = _flattenedNodes.ToList();
+			}
 
 			// Determine visible items
 			// For VerticalAlignment.Fill controls, use the actual content height from bounds, not the cached measurement
@@ -181,14 +193,14 @@ namespace SharpConsoleUI.Controls
 				// Normal: use cached measurement or content height
 				effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? contentHeight;
 			}
-			bool hasScrollIndicator = _flattenedNodes.Count > effectiveMaxVisibleItems;
+			bool hasScrollIndicator = snapshot.Count > effectiveMaxVisibleItems;
 			int visibleItemsHeight = hasScrollIndicator ? contentHeight - 1 : contentHeight;
 			effectiveMaxVisibleItems = Math.Min(effectiveMaxVisibleItems, visibleItemsHeight);
 			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
 			// Get and validate scroll offset
 			int scrollOffset = CurrentScrollOffset;
-			int maxScrollOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
+			int maxScrollOffset = Math.Max(0, snapshot.Count - effectiveMaxVisibleItems);
 			if (scrollOffset < 0 || scrollOffset > maxScrollOffset)
 			{
 				scrollOffset = Math.Max(0, Math.Min(scrollOffset, maxScrollOffset));
@@ -200,11 +212,11 @@ namespace SharpConsoleUI.Controls
 			int selectedIndex = CurrentSelectedIndex;
 
 			// Render visible nodes
-			int endIndex = Math.Min(scrollOffset + effectiveMaxVisibleItems, _flattenedNodes.Count);
+			int endIndex = Math.Min(scrollOffset + effectiveMaxVisibleItems, snapshot.Count);
 			int paintRow = 0;
 			for (int i = scrollOffset; i < endIndex && paintRow < visibleItemsHeight; i++, paintRow++)
 			{
-				var node = _flattenedNodes[i];
+				var node = snapshot[i];
 				int paintY = startY + paintRow;
 
 				if (paintY < clipRect.Y || paintY >= clipRect.Bottom || paintY >= bounds.Bottom)
@@ -336,7 +348,7 @@ namespace SharpConsoleUI.Controls
 					buffer.SetCell(startX, scrollY, upArrow, fgColor, bgColor);
 
 					// Down arrow
-					char downArrow = scrollOffset + effectiveMaxVisibleItems < _flattenedNodes.Count ? '▼' : ' ';
+					char downArrow = scrollOffset + effectiveMaxVisibleItems < snapshot.Count ? '▼' : ' ';
 					buffer.SetCell(startX + contentWidth - 1, scrollY, downArrow, fgColor, bgColor);
 				}
 			}

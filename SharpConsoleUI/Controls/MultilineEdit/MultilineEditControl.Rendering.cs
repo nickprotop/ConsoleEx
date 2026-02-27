@@ -71,6 +71,15 @@ namespace SharpConsoleUI.Controls
 		{
 			SetActualBounds(bounds);
 
+			// Snapshot collections under lock for thread safety
+			List<string> linesSnapshot;
+			List<IGutterRenderer> gutterSnapshot;
+			lock (_contentLock)
+			{
+				linesSnapshot = _lines.ToList();
+				gutterSnapshot = _gutterRenderers.ToList();
+			}
+
 			Color bgColor = _hasFocus ? FocusedBackgroundColor : BackgroundColor;
 			Color fgColor = _hasFocus ? FocusedForegroundColor : ForegroundColor;
 			Color selBgColor = SelectionBackgroundColor;
@@ -154,7 +163,7 @@ namespace SharpConsoleUI.Controls
 
 			// Determine if placeholder should be shown
 			bool showPlaceholder = !string.IsNullOrEmpty(_placeholderText) && !_isEditing &&
-				_lines.Count == 1 && _lines[0].Length == 0;
+				linesSnapshot.Count == 1 && linesSnapshot[0].Length == 0;
 
 			// Pre-compute vertical scrollbar thumb position (avoid per-row recalculation)
 			int vThumbHeight = 0, vThumbPos = 0;
@@ -211,9 +220,9 @@ namespace SharpConsoleUI.Controls
 							isCursorLine = false;
 						}
 
-						for (int r = 0; r < _gutterRenderers.Count; r++)
+						for (int r = 0; r < gutterSnapshot.Count; r++)
 						{
-							int rWidth = _gutterRenderers[r].GetWidth(_lines.Count);
+							int rWidth = gutterSnapshot[r].GetWidth(linesSnapshot.Count);
 							if (rWidth <= 0) continue;
 							var ctx = new GutterRenderContext
 							{
@@ -226,9 +235,9 @@ namespace SharpConsoleUI.Controls
 								HasFocus = _hasFocus,
 								ForegroundColor = fgColor,
 								BackgroundColor = bgColor,
-								TotalLineCount = _lines.Count
+								TotalLineCount = linesSnapshot.Count
 							};
-							_gutterRenderers[r].Render(in ctx, rWidth);
+							gutterSnapshot[r].Render(in ctx, rWidth);
 							gutterX += rWidth;
 						}
 					}
@@ -398,9 +407,9 @@ namespace SharpConsoleUI.Controls
 					if (gutterWidth > 0)
 					{
 						int gutterX = startX;
-						for (int r = 0; r < _gutterRenderers.Count; r++)
+						for (int r = 0; r < gutterSnapshot.Count; r++)
 						{
-							int rWidth = _gutterRenderers[r].GetWidth(_lines.Count);
+							int rWidth = gutterSnapshot[r].GetWidth(linesSnapshot.Count);
 							if (rWidth <= 0) continue;
 							var ctx = new GutterRenderContext
 							{
@@ -413,9 +422,9 @@ namespace SharpConsoleUI.Controls
 								HasFocus = _hasFocus,
 								ForegroundColor = fgColor,
 								BackgroundColor = bgColor,
-								TotalLineCount = _lines.Count
+								TotalLineCount = linesSnapshot.Count
 							};
-							_gutterRenderers[r].Render(in ctx, rWidth);
+							gutterSnapshot[r].Render(in ctx, rWidth);
 							gutterX += rWidth;
 						}
 					}
@@ -560,11 +569,14 @@ namespace SharpConsoleUI.Controls
 
 		private int GetGutterWidth()
 		{
-			if (_gutterRenderers.Count == 0) return 0;
-			int total = 0;
-			for (int r = 0; r < _gutterRenderers.Count; r++)
-				total += _gutterRenderers[r].GetWidth(_lines.Count);
-			return total;
+			lock (_contentLock)
+			{
+				if (_gutterRenderers.Count == 0) return 0;
+				int total = 0;
+				for (int r = 0; r < _gutterRenderers.Count; r++)
+					total += _gutterRenderers[r].GetWidth(_lines.Count);
+				return total;
+			}
 		}
 
 		/// <summary>
@@ -610,41 +622,51 @@ namespace SharpConsoleUI.Controls
 
 		private IReadOnlyList<SyntaxToken> GetOrComputeTokens(int lineIndex)
 		{
-			_syntaxTokenCache ??= new Dictionary<int, IReadOnlyList<SyntaxToken>>();
-			_lineStateCache   ??= new Dictionary<int, SyntaxLineState>();
+			lock (_contentLock)
+			{
+				_syntaxTokenCache ??= new Dictionary<int, IReadOnlyList<SyntaxToken>>();
+				_lineStateCache   ??= new Dictionary<int, SyntaxLineState>();
 
-			if (_syntaxTokenCache.TryGetValue(lineIndex, out var cached))
-				return cached;
+				if (_syntaxTokenCache.TryGetValue(lineIndex, out var cached))
+					return cached;
+			}
 
 			EnsureStateUpToLine(lineIndex);
-			return _syntaxTokenCache.TryGetValue(lineIndex, out var result)
-				? result : Array.Empty<SyntaxToken>();
+
+			lock (_contentLock)
+			{
+				return _syntaxTokenCache != null && _syntaxTokenCache.TryGetValue(lineIndex, out var result)
+					? result : Array.Empty<SyntaxToken>();
+			}
 		}
 
 		private void EnsureStateUpToLine(int lineIndex)
 		{
-			_syntaxTokenCache ??= new Dictionary<int, IReadOnlyList<SyntaxToken>>();
-			_lineStateCache   ??= new Dictionary<int, SyntaxLineState>();
-
-			// Find the furthest line whose start-state is already known
-			int startFrom = lineIndex;
-			while (startFrom > 0 && !_lineStateCache.ContainsKey(startFrom))
-				startFrom--;
-
-			for (int i = startFrom; i <= lineIndex; i++)
+			lock (_contentLock)
 			{
-				if (_syntaxTokenCache.ContainsKey(i))
-					continue; // tokens already computed; end-state is stored as cache[i+1]
+				_syntaxTokenCache ??= new Dictionary<int, IReadOnlyList<SyntaxToken>>();
+				_lineStateCache   ??= new Dictionary<int, SyntaxLineState>();
 
-				var startState = (i == 0)
-					? SyntaxLineState.Initial
-					: (_lineStateCache.TryGetValue(i, out var s) ? s : SyntaxLineState.Initial);
+				// Find the furthest line whose start-state is already known
+				int startFrom = lineIndex;
+				while (startFrom > 0 && !_lineStateCache.ContainsKey(startFrom))
+					startFrom--;
 
-				var lineText = i < _lines.Count ? _lines[i] : string.Empty;
-				var (tokens, endState) = _syntaxHighlighter!.Tokenize(lineText, i, startState);
+				for (int i = startFrom; i <= lineIndex; i++)
+				{
+					if (_syntaxTokenCache.ContainsKey(i))
+						continue; // tokens already computed; end-state is stored as cache[i+1]
 
-				_syntaxTokenCache[i]   = tokens;
-				_lineStateCache[i + 1] = endState; // state at the START of the next line
+					var startState = (i == 0)
+						? SyntaxLineState.Initial
+						: (_lineStateCache.TryGetValue(i, out var s) ? s : SyntaxLineState.Initial);
+
+					var lineText = i < _lines.Count ? _lines[i] : string.Empty;
+					var (tokens, endState) = _syntaxHighlighter!.Tokenize(lineText, i, startState);
+
+					_syntaxTokenCache[i]   = tokens;
+					_lineStateCache[i + 1] = endState; // state at the START of the next line
+				}
 			}
 		}
 

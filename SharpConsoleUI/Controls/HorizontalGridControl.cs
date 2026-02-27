@@ -78,6 +78,7 @@ namespace SharpConsoleUI.Controls
 	public class HorizontalGridControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IContainerControl, IFocusTrackingContainer
 	{
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
+		private readonly object _gridLock = new();
 		private IInteractiveControl? _focusedContent;
 		private bool _hasFocus;
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
@@ -192,13 +193,20 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
+				List<ColumnContainer> columns;
+				List<SplitterControl> splitters;
+				lock (_gridLock)
+				{
+					columns = new List<ColumnContainer>(_columns);
+					splitters = new List<SplitterControl>(_splitters);
+				}
 				int totalWidth = Margin.Left + Margin.Right;
-				foreach (var column in _columns)
+				foreach (var column in columns)
 				{
 					if (!column.Visible) continue;
 					totalWidth += column.ContentWidth ?? column.Width ?? 0;
 				}
-				foreach (var splitter in _splitters)
+				foreach (var splitter in splitters)
 				{
 					if (!splitter.Visible) continue;
 					totalWidth += splitter.Width ?? 1;
@@ -221,12 +229,18 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the list of columns contained in this grid.
 		/// </summary>
-		public List<ColumnContainer> Columns => _columns;
+		public List<ColumnContainer> Columns
+		{
+			get { lock (_gridLock) { return new List<ColumnContainer>(_columns); } }
+		}
 
 		/// <summary>
 		/// Gets the list of splitters in this grid.
 		/// </summary>
-		public IReadOnlyList<SplitterControl> Splitters => _splitters;
+		public IReadOnlyList<SplitterControl> Splitters
+		{
+			get { lock (_gridLock) { return new List<SplitterControl>(_splitters); } }
+		}
 
 		/// <summary>
 		/// Gets the children of this container for Tab navigation traversal.
@@ -236,15 +250,25 @@ namespace SharpConsoleUI.Controls
 		{
 			var children = new List<IWindowControl>();
 
-		for (int i = 0; i < _columns.Count; i++)
+		List<ColumnContainer> columns;
+		List<SplitterControl> splitters;
+		Dictionary<IInteractiveControl, int> splitterControls;
+		lock (_gridLock)
 		{
-			if (!_columns[i].Visible) continue;
+			columns = new List<ColumnContainer>(_columns);
+			splitters = new List<SplitterControl>(_splitters);
+			splitterControls = new Dictionary<IInteractiveControl, int>(_splitterControls);
+		}
+
+		for (int i = 0; i < columns.Count; i++)
+		{
+			if (!columns[i].Visible) continue;
 
 			// Add the column
-			children.Add(_columns[i]);
+			children.Add(columns[i]);
 
 			// Add splitter after this column if it exists
-			var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+			var splitter = splitters.FirstOrDefault(s => splitterControls[s] == i);
 			if (splitter != null && splitter.Visible)
 			{
 				children.Add(splitter);
@@ -261,7 +285,10 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The index of the left column, or -1 if not found.</returns>
 		public int GetSplitterLeftColumnIndex(SplitterControl splitter)
 		{
-			return _splitterControls.TryGetValue(splitter, out int index) ? index : -1;
+			lock (_gridLock)
+			{
+				return _splitterControls.TryGetValue(splitter, out int index) ? index : -1;
+			}
 		}
 
 		/// <inheritdoc/>
@@ -271,14 +298,21 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				base.Container = value;
-					foreach (var column in _columns)
+				List<ColumnContainer> columns;
+				List<SplitterControl> splitters;
+				lock (_gridLock)
+				{
+					columns = new List<ColumnContainer>(_columns);
+					splitters = new List<SplitterControl>(_splitters);
+				}
+				foreach (var column in columns)
 				{
 					column.GetConsoleWindowSystem = value?.GetConsoleWindowSystem;
 					column.Invalidate(true);
 				}
 
 				// Update container for all splitters as well
-				foreach (var splitter in _splitters)
+				foreach (var splitter in splitters)
 				{
 					splitter.Container = value;
 				}
@@ -340,8 +374,11 @@ namespace SharpConsoleUI.Controls
 		public void AddColumn(ColumnContainer column)
 		{
 			column.GetConsoleWindowSystem = Container?.GetConsoleWindowSystem;
-			_columns.Add(column);
-			_interactiveContentsDirty = true;
+			lock (_gridLock)
+			{
+				_columns.Add(column);
+				_interactiveContentsDirty = true;
+			}
 
 			// Force DOM rebuild for runtime addition
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
@@ -367,22 +404,28 @@ namespace SharpConsoleUI.Controls
 		public SplitterControl? AddColumnWithSplitter(ColumnContainer column)
 		{
 			// Only add a splitter if there's at least one column already
-			if (_columns.Count > 0)
+			bool hasColumns;
+			lock (_gridLock) { hasColumns = _columns.Count > 0; }
+
+			if (hasColumns)
 			{
 				var splitter = new SplitterControl();
 				column.GetConsoleWindowSystem = Container?.GetConsoleWindowSystem;
-				_columns.Add(column);
+				lock (_gridLock)
+				{
+					_columns.Add(column);
 
-				// Set up the splitter
-				splitter.Container = Container;
-				splitter.SetColumns(_columns[_columns.Count - 2], column);
-				_splitters.Add(splitter);
-				_splitterControls[splitter] = _columns.Count - 2;
+					// Set up the splitter
+					splitter.Container = Container;
+					splitter.SetColumns(_columns[_columns.Count - 2], column);
+					_splitters.Add(splitter);
+					_splitterControls[splitter] = _columns.Count - 2;
+
+					_interactiveContentsDirty = true;
+				}
 
 				// Subscribe to splitter's move event
 				splitter.SplitterMoved += OnSplitterMoved;
-
-				_interactiveContentsDirty = true;
 
 				// Force DOM rebuild for runtime addition
 				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
@@ -406,22 +449,26 @@ namespace SharpConsoleUI.Controls
 		/// <returns>True if the splitter was added successfully; false if the column index is invalid.</returns>
 		public bool AddSplitter(int leftColumnIndex, SplitterControl splitterControl)
 		{
-			// Verify the column indices are valid
-			if (leftColumnIndex < 0 || leftColumnIndex >= _columns.Count - 1)
-				return false;
+			lock (_gridLock)
+			{
+				// Verify the column indices are valid
+				if (leftColumnIndex < 0 || leftColumnIndex >= _columns.Count - 1)
+					return false;
 
-			// Set the columns that this splitter will control
-			splitterControl.Container = Container;
-			splitterControl.SetColumns(_columns[leftColumnIndex], _columns[leftColumnIndex + 1], this);
+				// Set the columns that this splitter will control
+				splitterControl.Container = Container;
+				splitterControl.SetColumns(_columns[leftColumnIndex], _columns[leftColumnIndex + 1], this);
 
-			// Add the splitter and register it for key handling
-			_splitters.Add(splitterControl);
-			_splitterControls[splitterControl] = leftColumnIndex;
+				// Add the splitter and register it for key handling
+				_splitters.Add(splitterControl);
+				_splitterControls[splitterControl] = leftColumnIndex;
+
+				_interactiveContentsDirty = true;
+			}
 
 			// Subscribe to splitter's move event
 			splitterControl.SplitterMoved += OnSplitterMoved;
 
-			_interactiveContentsDirty = true;
 			Invalidate();
 			return true;
 		}
@@ -446,7 +493,8 @@ namespace SharpConsoleUI.Controls
 		/// </example>
 		public bool AddSplitterAfter(ColumnContainer column, SplitterControl? splitter = null)
 		{
-			int columnIndex = _columns.IndexOf(column);
+			int columnIndex;
+			lock (_gridLock) { columnIndex = _columns.IndexOf(column); }
 			if (columnIndex < 0)
 				return false;
 
@@ -471,7 +519,8 @@ namespace SharpConsoleUI.Controls
 		/// </example>
 		public bool AddSplitterBefore(ColumnContainer column, SplitterControl? splitter = null)
 		{
-			int columnIndex = _columns.IndexOf(column);
+			int columnIndex;
+			lock (_gridLock) { columnIndex = _columns.IndexOf(column); }
 			if (columnIndex <= 0)
 				return false;
 
@@ -483,8 +532,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
+			List<SplitterControl> splitters;
+			lock (_gridLock) { splitters = new List<SplitterControl>(_splitters); }
 			// Clean up event handlers from splitters
-			foreach (var splitter in _splitters)
+			foreach (var splitter in splitters)
 			{
 				splitter.SplitterMoved -= OnSplitterMoved;
 			}
@@ -516,10 +567,18 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override System.Drawing.Size GetLogicalContentSize()
 		{
+			List<ColumnContainer> columns;
+			List<SplitterControl> splitters;
+			lock (_gridLock)
+			{
+				columns = new List<ColumnContainer>(_columns);
+				splitters = new List<SplitterControl>(_splitters);
+			}
+
 			int totalWidth = Margin.Left + Margin.Right;
 			int maxHeight = 0;
 
-			foreach (var column in _columns)
+			foreach (var column in columns)
 			{
 				if (!column.Visible) continue;
 				var size = column.GetLogicalContentSize();
@@ -527,7 +586,7 @@ namespace SharpConsoleUI.Controls
 				maxHeight = Math.Max(maxHeight, size.Height);
 			}
 
-			foreach (var splitter in _splitters)
+			foreach (var splitter in splitters)
 			{
 				if (!splitter.Visible) continue;
 				totalWidth += splitter.Width ?? 1;
@@ -547,13 +606,21 @@ namespace SharpConsoleUI.Controls
 		{
 			AdjustColumnWidthsForVisibility();
 
-			foreach (var column in _columns)
+			List<ColumnContainer> columns;
+			List<SplitterControl> splitters;
+			lock (_gridLock)
+			{
+				columns = new List<ColumnContainer>(_columns);
+				splitters = new List<SplitterControl>(_splitters);
+			}
+
+			foreach (var column in columns)
 			{
 				if (!column.Visible) continue;
 				column.InvalidateOnlyColumnContents(this);
 			}
 
-			foreach (var splitter in _splitters)
+			foreach (var splitter in splitters)
 			{
 				if (!splitter.Visible) continue;
 				splitter.Invalidate();
@@ -569,48 +636,51 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void AdjustColumnWidthsForVisibility()
 		{
-			foreach (var entry in _splitterControls)
+			lock (_gridLock)
 			{
-				var splitter = (SplitterControl)entry.Key;
-				int leftIndex = entry.Value;
-				int rightIndex = leftIndex + 1;
-
-				if (leftIndex < 0 || rightIndex >= _columns.Count)
-					continue;
-
-				var leftCol = _columns[leftIndex];
-				var rightCol = _columns[rightIndex];
-
-				if (!leftCol.Visible && rightCol.Visible)
+				foreach (var entry in _splitterControls)
 				{
-					// Left column hidden — release right column's explicit width
-					if (rightCol.Width.HasValue && !_savedColumnWidths.ContainsKey(rightCol))
+					var splitter = (SplitterControl)entry.Key;
+					int leftIndex = entry.Value;
+					int rightIndex = leftIndex + 1;
+
+					if (leftIndex < 0 || rightIndex >= _columns.Count)
+						continue;
+
+					var leftCol = _columns[leftIndex];
+					var rightCol = _columns[rightIndex];
+
+					if (!leftCol.Visible && rightCol.Visible)
 					{
-						_savedColumnWidths[rightCol] = rightCol.Width;
-						rightCol.Width = null;
+						// Left column hidden — release right column's explicit width
+						if (rightCol.Width.HasValue && !_savedColumnWidths.ContainsKey(rightCol))
+						{
+							_savedColumnWidths[rightCol] = rightCol.Width;
+							rightCol.Width = null;
+						}
 					}
-				}
-				else if (leftCol.Visible && !rightCol.Visible)
-				{
-					// Right column hidden — release left column's explicit width
-					if (leftCol.Width.HasValue && !_savedColumnWidths.ContainsKey(leftCol))
+					else if (leftCol.Visible && !rightCol.Visible)
 					{
-						_savedColumnWidths[leftCol] = leftCol.Width;
-						leftCol.Width = null;
+						// Right column hidden — release left column's explicit width
+						if (leftCol.Width.HasValue && !_savedColumnWidths.ContainsKey(leftCol))
+						{
+							_savedColumnWidths[leftCol] = leftCol.Width;
+							leftCol.Width = null;
+						}
 					}
-				}
-				else if (leftCol.Visible && rightCol.Visible)
-				{
-					// Both visible — restore any saved widths
-					if (_savedColumnWidths.TryGetValue(leftCol, out var savedLeft))
+					else if (leftCol.Visible && rightCol.Visible)
 					{
-						leftCol.Width = savedLeft;
-						_savedColumnWidths.Remove(leftCol);
-					}
-					if (_savedColumnWidths.TryGetValue(rightCol, out var savedRight))
-					{
-						rightCol.Width = savedRight;
-						_savedColumnWidths.Remove(rightCol);
+						// Both visible — restore any saved widths
+						if (_savedColumnWidths.TryGetValue(leftCol, out var savedLeft))
+						{
+							leftCol.Width = savedLeft;
+							_savedColumnWidths.Remove(leftCol);
+						}
+						if (_savedColumnWidths.TryGetValue(rightCol, out var savedRight))
+						{
+							rightCol.Width = savedRight;
+							_savedColumnWidths.Remove(rightCol);
+						}
 					}
 				}
 			}
@@ -630,15 +700,25 @@ namespace SharpConsoleUI.Controls
 			if (key.Key == ConsoleKey.Tab)
 			{
 				// Build a properly ordered list of interactive controls
+				List<ColumnContainer> tabColumns;
+				List<SplitterControl> tabSplitters;
+				Dictionary<IInteractiveControl, int> tabSplitterControls;
+				lock (_gridLock)
+				{
+					tabColumns = new List<ColumnContainer>(_columns);
+					tabSplitters = new List<SplitterControl>(_splitters);
+					tabSplitterControls = new Dictionary<IInteractiveControl, int>(_splitterControls);
+				}
+
 				var orderedInteractiveControls = new List<IInteractiveControl>();
 
 				// Start by collecting all the interactive controls from columns and their associated splitters
 				var columnControls = new Dictionary<int, List<IInteractiveControl>>();
 
 				// First, gather all interactive controls by column
-				for (int i = 0; i < _columns.Count; i++)
+				for (int i = 0; i < tabColumns.Count; i++)
 				{
-					var column = _columns[i];
+					var column = tabColumns[i];
 					if (!column.Visible) continue;
 
 					var interactiveContents = column.GetInteractiveContents();
@@ -651,7 +731,7 @@ namespace SharpConsoleUI.Controls
 					columnControls[i].AddRange(interactiveContents);
 
 					// Find if this column has a splitter to the right
-					var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+					var splitter = tabSplitters.FirstOrDefault(s => tabSplitterControls[s] == i);
 					if (splitter != null && splitter.Visible)
 					{
 						// Add the splitter right after this column's controls
@@ -660,7 +740,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Now flatten the dictionary into a single ordered list
-				for (int i = 0; i < _columns.Count; i++)
+				for (int i = 0; i < tabColumns.Count; i++)
 				{
 					if (columnControls.ContainsKey(i))
 					{
@@ -754,11 +834,16 @@ namespace SharpConsoleUI.Controls
 		/// <param name="column">The column container to remove.</param>
 		public void RemoveColumn(ColumnContainer column)
 		{
-			int index = _columns.IndexOf(column);
-			if (index >= 0)
+			List<SplitterControl> splittersToRemove;
+
+			lock (_gridLock)
 			{
+				int index = _columns.IndexOf(column);
+				if (index < 0)
+					return;
+
 				// Remove any splitters connected to this column
-				var splittersToRemove = new List<SplitterControl>();
+				splittersToRemove = new List<SplitterControl>();
 
 				foreach (var entry in _splitterControls)
 				{
@@ -774,7 +859,6 @@ namespace SharpConsoleUI.Controls
 				{
 					_splitters.Remove(splitter);
 					_splitterControls.Remove(splitter);
-					splitter.SplitterMoved -= OnSplitterMoved;
 				}
 
 				// Now remove the column
@@ -799,12 +883,18 @@ namespace SharpConsoleUI.Controls
 				_splitterControls = updatedSplitters;
 
 				_interactiveContentsDirty = true;
-
-				// Force DOM rebuild for runtime removal
-				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
-
-				Invalidate();
 			}
+
+			// Unsubscribe events outside lock
+			foreach (var splitter in splittersToRemove)
+			{
+				splitter.SplitterMoved -= OnSplitterMoved;
+			}
+
+			// Force DOM rebuild for runtime removal
+			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+
+			Invalidate();
 		}
 
 		/// <summary>
@@ -812,16 +902,22 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearColumns()
 		{
-			foreach (var splitter in _splitters)
+			List<SplitterControl> splittersSnapshot;
+			lock (_gridLock)
+			{
+				splittersSnapshot = new List<SplitterControl>(_splitters);
+				_columns.Clear();
+				_splitters.Clear();
+				_splitterControls.Clear();
+				_savedColumnWidths.Clear();
+				_interactiveContentsDirty = true;
+			}
+			_focusedContent = null;
+
+			foreach (var splitter in splittersSnapshot)
 			{
 				splitter.SplitterMoved -= OnSplitterMoved;
 			}
-
-			_columns.Clear();
-			_splitters.Clear();
-			_splitterControls.Clear();
-			_interactiveContentsDirty = true;
-			_focusedContent = null;
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 			Invalidate();
@@ -940,15 +1036,18 @@ namespace SharpConsoleUI.Controls
 				// Only rebuild interactive contents dictionary when columns have changed
 				if (_interactiveContentsDirty)
 				{
-					_interactiveContents.Clear();
-					foreach (var column in _columns)
+					lock (_gridLock)
 					{
-						foreach (var interactiveContent in column.GetInteractiveContents())
+						_interactiveContents.Clear();
+						foreach (var column in _columns)
 						{
-							_interactiveContents.Add(interactiveContent, column);
+							foreach (var interactiveContent in column.GetInteractiveContents())
+							{
+								_interactiveContents.Add(interactiveContent, column);
+							}
 						}
+						_interactiveContentsDirty = false;
 					}
-					_interactiveContentsDirty = false;
 				}
 
 				if (_interactiveContents.Count == 0 && _splitterControls.Count == 0) return;
@@ -1051,7 +1150,9 @@ namespace SharpConsoleUI.Controls
 		private Point GetControlRelativePosition(IInteractiveControl control, Point gridPosition)
 		{
 			// Find the column that contains this control
-			foreach (var column in _columns)
+			List<ColumnContainer> columns;
+			lock (_gridLock) { columns = new List<ColumnContainer>(_columns); }
+			foreach (var column in columns)
 			{
 				if (column.ContainsControl(control))
 				{
@@ -1140,12 +1241,22 @@ namespace SharpConsoleUI.Controls
 		/// <returns>List of display controls with their metadata</returns>
 		private List<(bool IsSplitter, object Control, int Width)> BuildDisplayControlsList()
 		{
+			List<ColumnContainer> columns;
+			List<SplitterControl> splitters;
+			Dictionary<IInteractiveControl, int> splitterControls;
+			lock (_gridLock)
+			{
+				columns = new List<ColumnContainer>(_columns);
+				splitters = new List<SplitterControl>(_splitters);
+				splitterControls = new Dictionary<IInteractiveControl, int>(_splitterControls);
+			}
+
 			var displayControls = new List<(bool IsSplitter, object Control, int Width)>();
 
 			// Add all columns and their splitters (skip hidden ones)
-			for (int i = 0; i < _columns.Count; i++)
+			for (int i = 0; i < columns.Count; i++)
 			{
-				var column = _columns[i];
+				var column = columns[i];
 				if (!column.Visible) continue;
 
 				// Use GetContentWidth for accurate position calculations after rendering
@@ -1153,7 +1264,7 @@ namespace SharpConsoleUI.Controls
 				displayControls.Add((false, column, columnWidth));
 
 				// If there's a splitter after this column, add it
-				var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+				var splitter = splitters.FirstOrDefault(s => splitterControls[s] == i);
 				if (splitter != null && splitter.Visible)
 				{
 					displayControls.Add((true, splitter, splitter.Width ?? 1));
@@ -1279,7 +1390,9 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Invalidate the entire grid when a splitter moves
-			foreach (var column in _columns)
+			List<ColumnContainer> columns;
+			lock (_gridLock) { columns = new List<ColumnContainer>(_columns); }
+			foreach (var column in columns)
 			{
 				column.Invalidate(true);
 			}
@@ -1297,13 +1410,23 @@ namespace SharpConsoleUI.Controls
 		/// </remarks>
         public override LayoutSize MeasureDOM(LayoutConstraints constraints)
         {
+            List<ColumnContainer> measureColumns;
+            List<SplitterControl> measureSplitters;
+            Dictionary<IInteractiveControl, int> measureSplitterControls;
+            lock (_gridLock)
+            {
+                measureColumns = new List<ColumnContainer>(_columns);
+                measureSplitters = new List<SplitterControl>(_splitters);
+                measureSplitterControls = new Dictionary<IInteractiveControl, int>(_splitterControls);
+            }
+
             int totalWidth = Margin.Left + Margin.Right;
             int maxHeight = 0;
 
             // Measure each column and sum actual widths (skip hidden ones)
-            for (int i = 0; i < _columns.Count; i++)
+            for (int i = 0; i < measureColumns.Count; i++)
             {
-                var column = _columns[i];
+                var column = measureColumns[i];
                 if (!column.Visible) continue;
 
                 int columnWidth;
@@ -1343,7 +1466,7 @@ namespace SharpConsoleUI.Controls
                 maxHeight = Math.Max(maxHeight, columnHeight);
 
                 // Add splitter width if present after this column
-                var splitter = _splitters.FirstOrDefault(s => _splitterControls[s] == i);
+                var splitter = measureSplitters.FirstOrDefault(s => measureSplitterControls[s] == i);
                 if (splitter != null && splitter.Visible)
                 {
                     totalWidth += splitter.Width ?? 1;

@@ -29,6 +29,10 @@ namespace SharpConsoleUI.Controls
 		private Color? _backgroundColorValue;
 		private int? _calculatedMaxVisibleItems;
 		private List<TreeNode> _flattenedNodes = new();
+
+		// Thread-safety: _rootNodes and _flattenedNodes may be modified from background threads
+		// while the render loop reads from the main thread.
+		private readonly object _treeLock = new();
 		private Color? _foregroundColorValue;
 		private TreeGuide _guide = TreeGuide.Line;
 		private bool _hasFocus = false;
@@ -74,11 +78,14 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				if (_flattenedNodes.Count == 0) return Margin.Left + Margin.Right;
+				List<TreeNode> snapshot;
+				lock (_treeLock) { snapshot = _flattenedNodes.ToList(); }
+
+				if (snapshot.Count == 0) return Margin.Left + Margin.Right;
 
 				int maxLength = 0;
 				var guideChars = GetGuideChars();
-				foreach (var node in _flattenedNodes)
+				foreach (var node in snapshot)
 				{
 					int depth = GetNodeDepth(node);
 					bool[] ancestorIsLast = GetAncestorIsLastArray(node);
@@ -230,7 +237,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the collection of root nodes in the tree.
 		/// </summary>
-		public ReadOnlyCollection<TreeNode> RootNodes => _rootNodes.AsReadOnly();
+		public ReadOnlyCollection<TreeNode> RootNodes { get { lock (_treeLock) { return _rootNodes.ToList().AsReadOnly(); } } }
 
 		/// <summary>
 		/// Gets or sets the currently selected node index in the flattened nodes list.
@@ -240,22 +247,24 @@ namespace SharpConsoleUI.Controls
 			get => CurrentSelectedIndex;
 			set
 			{
-				if (_flattenedNodes.Count > 0)
+				lock (_treeLock)
 				{
-					int newValue = Math.Max(0, Math.Min(value, _flattenedNodes.Count - 1));
-					int currentSel = CurrentSelectedIndex;
-					if (currentSel != newValue)
+					if (_flattenedNodes.Count > 0)
 					{
-						// Write to state service (single source of truth)
-						int oldIndex = _selectedIndex;
-					_selectedIndex = newValue;
-					if (oldIndex != _selectedIndex)
-					{
-						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
-					}
-						EnsureSelectedItemVisible();
-						Container?.Invalidate(true);
+						int newValue = Math.Max(0, Math.Min(value, _flattenedNodes.Count - 1));
+						int currentSel = CurrentSelectedIndex;
+						if (currentSel != newValue)
+						{
+							int oldIndex = _selectedIndex;
+							_selectedIndex = newValue;
+							if (oldIndex != _selectedIndex)
+							{
+								var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+								SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+							}
+							EnsureSelectedItemVisible();
+							Container?.Invalidate(true);
+						}
 					}
 				}
 			}
@@ -268,10 +277,13 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				int idx = CurrentSelectedIndex;
-				return _flattenedNodes.Count > 0 && idx >= 0 && idx < _flattenedNodes.Count
-					? _flattenedNodes[idx]
-					: null;
+				lock (_treeLock)
+				{
+					int idx = CurrentSelectedIndex;
+					return _flattenedNodes.Count > 0 && idx >= 0 && idx < _flattenedNodes.Count
+						? _flattenedNodes[idx]
+						: null;
+				}
 			}
 		}
 
@@ -284,8 +296,11 @@ namespace SharpConsoleUI.Controls
 			if (node == null)
 				return;
 
-			_rootNodes.Add(node);
-			UpdateFlattenedNodes();
+			lock (_treeLock)
+			{
+				_rootNodes.Add(node);
+				UpdateFlattenedNodes();
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -297,8 +312,11 @@ namespace SharpConsoleUI.Controls
 		public TreeNode AddRootNode(string text)
 		{
 			var node = new TreeNode(text);
-			_rootNodes.Add(node);
-			UpdateFlattenedNodes();
+			lock (_treeLock)
+			{
+				_rootNodes.Add(node);
+				UpdateFlattenedNodes();
+			}
 			Container?.Invalidate(true);
 			return node;
 		}
@@ -308,18 +326,21 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void Clear()
 		{
-			_rootNodes.Clear();
-			_flattenedNodes.Clear();
-			_textMeasurementCache.InvalidateCache(); // Clear cache when tree cleared
+			lock (_treeLock)
+			{
+				_rootNodes.Clear();
+				_flattenedNodes.Clear();
+				_textMeasurementCache.InvalidateCache(); // Clear cache when tree cleared
 
-			// Clear state via services (single source of truth)
-			int oldIndex = _selectedIndex;
-		_selectedIndex = -1;
-		if (oldIndex != _selectedIndex)
-		{
-			SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(null));
-		}
-			_scrollOffset = 0;
+				// Clear state via services (single source of truth)
+				int oldIndex = _selectedIndex;
+				_selectedIndex = -1;
+				if (oldIndex != _selectedIndex)
+				{
+					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(null));
+				}
+				_scrollOffset = 0;
+			}
 
 			Container?.Invalidate(true);
 		}
@@ -329,8 +350,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void CollapseAll()
 		{
-			CollapseNodes(_rootNodes);
-			UpdateFlattenedNodes();
+			lock (_treeLock)
+			{
+				CollapseNodes(_rootNodes);
+				UpdateFlattenedNodes();
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -349,20 +373,23 @@ namespace SharpConsoleUI.Controls
 			if (targetNode == null)
 				return false;
 
-			// Try to find the node and its path in the tree
-			var path = new Stack<TreeNode>();
-			if (FindNodePath(targetNode, _rootNodes, path))
+			lock (_treeLock)
 			{
-				// Expand all parent nodes
-				while (path.Count > 0)
+				// Try to find the node and its path in the tree
+				var path = new Stack<TreeNode>();
+				if (FindNodePath(targetNode, _rootNodes, path))
 				{
-					var node = path.Pop();
-					node.IsExpanded = true;
-				}
+					// Expand all parent nodes
+					while (path.Count > 0)
+					{
+						var node = path.Pop();
+						node.IsExpanded = true;
+					}
 
-				UpdateFlattenedNodes();
-				Container?.Invalidate(true);
-				return true;
+					UpdateFlattenedNodes();
+					Container?.Invalidate(true);
+					return true;
+				}
 			}
 
 			return false;
@@ -373,8 +400,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ExpandAll()
 		{
-			ExpandNodes(_rootNodes);
-			UpdateFlattenedNodes();
+			lock (_treeLock)
+			{
+				ExpandNodes(_rootNodes);
+				UpdateFlattenedNodes();
+			}
 			Container?.Invalidate(true);
 		}
 
@@ -388,7 +418,10 @@ namespace SharpConsoleUI.Controls
 			if (tag == null)
 				return null;
 
-			return FindNodeByTagRecursive(tag, _rootNodes);
+			lock (_treeLock)
+			{
+				return FindNodeByTagRecursive(tag, _rootNodes);
+			}
 		}
 
 		/// <summary>
@@ -418,12 +451,15 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				// Search all nodes
-				foreach (var node in _rootNodes)
+				lock (_treeLock)
 				{
-					var found = FindNodeByText(text, node);
-					if (found != null)
-						return found;
+					// Search all nodes
+					foreach (var node in _rootNodes)
+					{
+						var found = FindNodeByText(text, node);
+						if (found != null)
+							return found;
+					}
 				}
 				return null;
 			}
@@ -432,10 +468,13 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override System.Drawing.Size GetLogicalContentSize()
 		{
-			UpdateFlattenedNodes();
-			int width = ContentWidth ?? 0;
-			int height = _flattenedNodes.Count + Margin.Top + Margin.Bottom;
-			return new System.Drawing.Size(width, height);
+			lock (_treeLock)
+			{
+				UpdateFlattenedNodes();
+				int width = ContentWidth ?? 0;
+				int height = _flattenedNodes.Count + Margin.Top + Margin.Bottom;
+				return new System.Drawing.Size(width, height);
+			}
 		}
 
 		/// <summary>
@@ -445,13 +484,23 @@ namespace SharpConsoleUI.Controls
 		/// <returns>True if the node was found and removed, false otherwise.</returns>
 		public bool RemoveRootNode(TreeNode node)
 		{
-			if (node == null || !_rootNodes.Contains(node))
+			if (node == null)
 				return false;
 
-			bool result = _rootNodes.Remove(node);
+			bool result;
+			lock (_treeLock)
+			{
+				if (!_rootNodes.Contains(node))
+					return false;
+
+				result = _rootNodes.Remove(node);
+				if (result)
+				{
+					UpdateFlattenedNodes();
+				}
+			}
 			if (result)
 			{
-				UpdateFlattenedNodes();
 				Container?.Invalidate(true);
 			}
 			return result;
@@ -467,40 +516,51 @@ namespace SharpConsoleUI.Controls
 			if (node == null)
 				return false;
 
-			// Make sure the node is in our flattened list (which means it's visible)
-			int index = _flattenedNodes.IndexOf(node);
-			if (index >= 0)
+			lock (_treeLock)
 			{
-				if (_selectedIndex != index)
-				{
-					_selectedIndex = index;
-					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(node));
-				}
-				EnsureSelectedItemVisible();
-				Container?.Invalidate(true);
-				return true;
-			}
-
-			// Node might be hidden (collapsed parent), try to expand parents
-			if (EnsureNodeVisible(node))
-			{
-				// Update flattened nodes after expanding
-				UpdateFlattenedNodes();
-
-				// Try to find the node again
-				index = _flattenedNodes.IndexOf(node);
+				// Make sure the node is in our flattened list (which means it's visible)
+				int index = _flattenedNodes.IndexOf(node);
 				if (index >= 0)
 				{
-					int oldIndex = _selectedIndex;
-					_selectedIndex = index;
-				if (oldIndex != _selectedIndex)
-				{
-					var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
-				}
+					if (_selectedIndex != index)
+					{
+						_selectedIndex = index;
+						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(node));
+					}
 					EnsureSelectedItemVisible();
 					Container?.Invalidate(true);
 					return true;
+				}
+
+				// Node might be hidden (collapsed parent), try to expand parents
+				// Try to find the node and its path in the tree
+				var path = new Stack<TreeNode>();
+				if (FindNodePath(node, _rootNodes, path))
+				{
+					// Expand all parent nodes
+					while (path.Count > 0)
+					{
+						var parentNode = path.Pop();
+						parentNode.IsExpanded = true;
+					}
+
+					UpdateFlattenedNodes();
+
+					// Try to find the node again
+					index = _flattenedNodes.IndexOf(node);
+					if (index >= 0)
+					{
+						int oldIndex = _selectedIndex;
+						_selectedIndex = index;
+						if (oldIndex != _selectedIndex)
+						{
+							var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
+							SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+						}
+						EnsureSelectedItemVisible();
+						Container?.Invalidate(true);
+						return true;
+					}
 				}
 			}
 
@@ -525,9 +585,15 @@ namespace SharpConsoleUI.Controls
 
 			// When gaining focus via keyboard/programmatic, scroll to show the selected node.
 			// For mouse focus, the user is clicking a specific item - don't touch the scroll.
-			if (focus && SelectedNode != null && reason != FocusReason.Mouse)
+			if (focus && reason != FocusReason.Mouse)
 			{
-				EnsureSelectedItemVisible();
+				lock (_treeLock)
+				{
+					if (SelectedNode != null)
+					{
+						EnsureSelectedItemVisible();
+					}
+				}
 			}
 
 			Container?.Invalidate(true);

@@ -43,29 +43,19 @@ namespace SharpConsoleUI.Controls
 				return;
 
 			content = SanitizeInputText(content);
-			int dirtyFromLine = Math.Max(0, _lines.Count - 1);
-			InvalidateSyntaxFromLine(dirtyFromLine);
 
-			// Split the content into lines
-			var newLines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-
-			// If the last line in existing content is empty, replace it with first line of new content
-			if (_lines.Count > 0 && string.IsNullOrEmpty(_lines[_lines.Count - 1]))
+			lock (_contentLock)
 			{
-				_lines[_lines.Count - 1] = newLines[0];
+				int dirtyFromLine = Math.Max(0, _lines.Count - 1);
+				InvalidateSyntaxFromLine(dirtyFromLine);
 
-				// Add remaining lines
-				for (int i = 1; i < newLines.Length; i++)
+				// Split the content into lines
+				var newLines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+				// If the last line in existing content is empty, replace it with first line of new content
+				if (_lines.Count > 0 && string.IsNullOrEmpty(_lines[_lines.Count - 1]))
 				{
-					_lines.Add(newLines[i]);
-				}
-			}
-			else
-			{
-				// If the last line isn't empty, append the first new line to it
-				if (_lines.Count > 0 && newLines.Length > 0)
-				{
-					_lines[_lines.Count - 1] += newLines[0];
+					_lines[_lines.Count - 1] = newLines[0];
 
 					// Add remaining lines
 					for (int i = 1; i < newLines.Length; i++)
@@ -75,12 +65,26 @@ namespace SharpConsoleUI.Controls
 				}
 				else
 				{
-					// Just add all lines if we don't have content yet
-					_lines.AddRange(newLines);
-				}
-			}
+					// If the last line isn't empty, append the first new line to it
+					if (_lines.Count > 0 && newLines.Length > 0)
+					{
+						_lines[_lines.Count - 1] += newLines[0];
 
-			InvalidateWrappedLinesCache();
+						// Add remaining lines
+						for (int i = 1; i < newLines.Length; i++)
+						{
+							_lines.Add(newLines[i]);
+						}
+					}
+					else
+					{
+						// Just add all lines if we don't have content yet
+						_lines.AddRange(newLines);
+					}
+				}
+
+				InvalidateWrappedLinesCache();
+			}
 
 			// Reset flag to ensure scroll positions are updated properly
 			_skipUpdateScrollPositionsInRender = false;
@@ -105,44 +109,48 @@ namespace SharpConsoleUI.Controls
 				return;
 
 			lines = lines.Select(SanitizeLine).ToList();
-			int dirtyFromLine = Math.Max(0, _lines.Count - 1);
-			InvalidateSyntaxFromLine(dirtyFromLine);
 
-			// If the last line in existing content is empty, replace it with first line of new content
-			if (_lines.Count > 0 && string.IsNullOrEmpty(_lines[_lines.Count - 1]))
+			lock (_contentLock)
 			{
-				if (lines.Count > 0)
-				{
-					_lines[_lines.Count - 1] = lines[0];
+				int dirtyFromLine = Math.Max(0, _lines.Count - 1);
+				InvalidateSyntaxFromLine(dirtyFromLine);
 
-					// Add remaining lines
-					for (int i = 1; i < lines.Count; i++)
-					{
-						_lines.Add(lines[i]);
-					}
-				}
-			}
-			else
-			{
-				// If the last line isn't empty, append the first new line to it
-				if (_lines.Count > 0 && lines.Count > 0)
+				// If the last line in existing content is empty, replace it with first line of new content
+				if (_lines.Count > 0 && string.IsNullOrEmpty(_lines[_lines.Count - 1]))
 				{
-					_lines[_lines.Count - 1] += lines[0];
-
-					// Add remaining lines
-					for (int i = 1; i < lines.Count; i++)
+					if (lines.Count > 0)
 					{
-						_lines.Add(lines[i]);
+						_lines[_lines.Count - 1] = lines[0];
+
+						// Add remaining lines
+						for (int i = 1; i < lines.Count; i++)
+						{
+							_lines.Add(lines[i]);
+						}
 					}
 				}
 				else
 				{
-					// Just add all lines if we don't have content yet
-					_lines.AddRange(lines);
-				}
-			}
+					// If the last line isn't empty, append the first new line to it
+					if (_lines.Count > 0 && lines.Count > 0)
+					{
+						_lines[_lines.Count - 1] += lines[0];
 
-			InvalidateWrappedLinesCache();
+						// Add remaining lines
+						for (int i = 1; i < lines.Count; i++)
+						{
+							_lines.Add(lines[i]);
+						}
+					}
+					else
+					{
+						// Just add all lines if we don't have content yet
+						_lines.AddRange(lines);
+					}
+				}
+
+				InvalidateWrappedLinesCache();
+			}
 
 			// Reset flag to ensure scroll positions are updated properly
 			_skipUpdateScrollPositionsInRender = false;
@@ -163,7 +171,9 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The complete text content.</returns>
 		public string GetContent()
 		{
-			return string.Join(Environment.NewLine, _lines);
+			List<string> linesSnapshot;
+			lock (_contentLock) { linesSnapshot = _lines.ToList(); }
+			return string.Join(Environment.NewLine, linesSnapshot);
 		}
 
 		/// <summary>
@@ -172,33 +182,36 @@ namespace SharpConsoleUI.Controls
 		/// <param name="content">The text content to set.</param>
 		public void SetContent(string content)
 		{
-			if (content == null)
+			lock (_contentLock)
 			{
-				_lines = new List<string>() { string.Empty };
-			}
-			else
-			{
-				content = SanitizeInputText(content);
-				_lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
-				if (_lines.Count == 0)
+				if (content == null)
 				{
-					_lines.Add(string.Empty);
+					_lines = new List<string>() { string.Empty };
 				}
+				else
+				{
+					content = SanitizeInputText(content);
+					_lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
+					if (_lines.Count == 0)
+					{
+						_lines.Add(string.Empty);
+					}
+				}
+
+				InvalidateSyntaxFromLine(0);
+				InvalidateWrappedLinesCache();
+				ClearSelection();
+				_undoStack.Clear();
+				_redoStack.Clear();
+				_isModified = false;
+				_savedContent = null;
+				_pendingUndoBefore = null;
+
+				_cursorX = 0;
+				_cursorY = 0;
+				_horizontalScrollOffset = 0;
+				_verticalScrollOffset = 0;
 			}
-
-			InvalidateSyntaxFromLine(0);
-			InvalidateWrappedLinesCache();
-			ClearSelection();
-			_undoStack.Clear();
-			_redoStack.Clear();
-			_isModified = false;
-			_savedContent = null;
-			_pendingUndoBefore = null;
-
-			_cursorX = 0;
-			_cursorY = 0;
-			_horizontalScrollOffset = 0;
-			_verticalScrollOffset = 0;
 
 			EnsureCursorVisible();
 
@@ -216,32 +229,35 @@ namespace SharpConsoleUI.Controls
 		/// <param name="lines">The lines to set as content.</param>
 		public void SetContentLines(List<string> lines)
 		{
-			if (lines == null || lines.Count == 0)
+			lock (_contentLock)
 			{
-				_lines = new List<string>() { string.Empty };
-			}
-			else
-			{
-				_lines = lines.Select(SanitizeLine).ToList();
-				if (_lines.Count == 0)
+				if (lines == null || lines.Count == 0)
 				{
-					_lines.Add(string.Empty);
+					_lines = new List<string>() { string.Empty };
 				}
+				else
+				{
+					_lines = lines.Select(SanitizeLine).ToList();
+					if (_lines.Count == 0)
+					{
+						_lines.Add(string.Empty);
+					}
+				}
+
+				InvalidateSyntaxFromLine(0);
+				InvalidateWrappedLinesCache();
+				ClearSelection();
+				_undoStack.Clear();
+				_redoStack.Clear();
+				_isModified = false;
+				_savedContent = null;
+				_pendingUndoBefore = null;
+
+				_cursorX = 0;
+				_cursorY = 0;
+				_horizontalScrollOffset = 0;
+				_verticalScrollOffset = 0;
 			}
-
-			InvalidateSyntaxFromLine(0);
-			InvalidateWrappedLinesCache();
-			ClearSelection();
-			_undoStack.Clear();
-			_redoStack.Clear();
-			_isModified = false;
-			_savedContent = null;
-			_pendingUndoBefore = null;
-
-			_cursorX = 0;
-			_cursorY = 0;
-			_horizontalScrollOffset = 0;
-			_verticalScrollOffset = 0;
 
 			EnsureCursorVisible();
 
@@ -261,13 +277,18 @@ namespace SharpConsoleUI.Controls
 			if (_readOnly || string.IsNullOrEmpty(text))
 				return;
 
-			text = TruncateToMaxLength(SanitizeInputText(text));
-			if (text.Length == 0)
-				return;
+			text = SanitizeInputText(text);
 
-			InsertTextAtCursor(text);
+			lock (_contentLock)
+			{
+				text = TruncateToMaxLength(text);
+				if (text.Length == 0)
+					return;
 
-			InvalidateWrappedLinesCache();
+				InsertTextAtCursor(text);
+				InvalidateWrappedLinesCache();
+			}
+
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
 			ContentChanged?.Invoke(this, GetContent());
@@ -281,14 +302,18 @@ namespace SharpConsoleUI.Controls
 		{
 			if (_readOnly || count <= 0) return;
 
-			int toDelete = Math.Min(count, _cursorX);
-			if (toDelete == 0) return;
+			lock (_contentLock)
+			{
+				int toDelete = Math.Min(count, _cursorX);
+				if (toDelete == 0) return;
 
-			_lines[_cursorY] = _lines[_cursorY].Remove(_cursorX - toDelete, toDelete);
-			_cursorX -= toDelete;
+				_lines[_cursorY] = _lines[_cursorY].Remove(_cursorX - toDelete, toDelete);
+				_cursorX -= toDelete;
 
-			InvalidateSyntaxFromLine(_cursorY);
-			InvalidateWrappedLinesCache();
+				InvalidateSyntaxFromLine(_cursorY);
+				InvalidateWrappedLinesCache();
+			}
+
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
 			ContentChanged?.Invoke(this, GetContent());
@@ -425,8 +450,10 @@ namespace SharpConsoleUI.Controls
 
 		private int GetMaxLineLength()
 		{
+			List<string> linesSnapshot;
+			lock (_contentLock) { linesSnapshot = _lines.ToList(); }
 			int maxLength = 0;
-			foreach (var line in _lines)
+			foreach (var line in linesSnapshot)
 			{
 				if (line.Length > maxLength)
 					maxLength = line.Length;
@@ -524,11 +551,14 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void SetContentInternal(string content)
 		{
-			_lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
-			if (_lines.Count == 0)
-				_lines.Add(string.Empty);
-			InvalidateSyntaxFromLine(0);
-			InvalidateWrappedLinesCache();
+			lock (_contentLock)
+			{
+				_lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
+				if (_lines.Count == 0)
+					_lines.Add(string.Empty);
+				InvalidateSyntaxFromLine(0);
+				InvalidateWrappedLinesCache();
+			}
 		}
 
 		/// <summary>

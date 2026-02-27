@@ -221,12 +221,15 @@ namespace SharpConsoleUI.Controls
 				{
 					IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
-					_hasSelection = true;
-					_selectionStartX = 0;
-					_selectionStartY = _cursorY;
-					_selectionEndX = _lines[_cursorY].Length;
-					_selectionEndY = _cursorY;
-					_cursorX = _lines[_cursorY].Length;
+					lock (_contentLock)
+					{
+						_hasSelection = true;
+						_selectionStartX = 0;
+						_selectionStartY = _cursorY;
+						_selectionEndX = _lines[_cursorY].Length;
+						_selectionEndY = _cursorY;
+						_cursorX = _lines[_cursorY].Length;
+					}
 					Container?.Invalidate(true);
 				}
 				return true;
@@ -239,13 +242,16 @@ namespace SharpConsoleUI.Controls
 				{
 					IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
-					var (wordStart, wordEnd) = WordBoundaryHelper.FindWordAt(_lines[_cursorY], _cursorX);
-					_hasSelection = wordStart != wordEnd;
-					_selectionStartX = wordStart;
-					_selectionStartY = _cursorY;
-					_selectionEndX = wordEnd;
-					_selectionEndY = _cursorY;
-					_cursorX = wordEnd;
+					lock (_contentLock)
+					{
+						var (wordStart, wordEnd) = WordBoundaryHelper.FindWordAt(_lines[_cursorY], _cursorX);
+						_hasSelection = wordStart != wordEnd;
+						_selectionStartX = wordStart;
+						_selectionStartY = _cursorY;
+						_selectionEndX = wordEnd;
+						_selectionEndY = _cursorY;
+						_cursorX = wordEnd;
+					}
 					Container?.Invalidate(true);
 				}
 				MouseDoubleClick?.Invoke(this, args);
@@ -386,20 +392,23 @@ namespace SharpConsoleUI.Controls
 			if (relX < 0) relX = 0;
 			if (relY < 0) relY = 0;
 
-			if (_wrapMode == WrapMode.NoWrap)
+			lock (_contentLock)
 			{
-				_cursorY = Math.Min(_lines.Count - 1, relY + _verticalScrollOffset);
-				_cursorX = Math.Min(_lines[_cursorY].Length, relX + _horizontalScrollOffset);
-			}
-			else
-			{
-				var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
-				int wrappedIndex = Math.Clamp(relY + _verticalScrollOffset, 0, wrappedLines.Count - 1);
+				if (_wrapMode == WrapMode.NoWrap)
+				{
+					_cursorY = Math.Min(_lines.Count - 1, relY + _verticalScrollOffset);
+					_cursorX = Math.Min(_lines[_cursorY].Length, relX + _horizontalScrollOffset);
+				}
+				else
+				{
+					var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
+					int wrappedIndex = Math.Clamp(relY + _verticalScrollOffset, 0, wrappedLines.Count - 1);
 
-				var wl = wrappedLines[wrappedIndex];
-				_cursorY = wl.SourceLineIndex;
-				_cursorX = Math.Min(wl.SourceCharOffset + relX, wl.SourceCharOffset + wl.Length);
-				_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+					var wl = wrappedLines[wrappedIndex];
+					_cursorY = wl.SourceLineIndex;
+					_cursorX = Math.Min(wl.SourceCharOffset + relX, wl.SourceCharOffset + wl.Length);
+					_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+				}
 			}
 		}
 
