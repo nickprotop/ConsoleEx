@@ -288,7 +288,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Updates the flattened nodes list for easier navigation
+		/// Updates the flattened nodes list for easier navigation.
+		/// Note: This method is always called inside _treeLock. It defers SelectedNodeChanged
+		/// events via _deferredSelectionChanged to avoid deadlocks from event handlers
+		/// re-entering the lock.
 		/// </summary>
 		private void UpdateFlattenedNodes()
 		{
@@ -309,18 +312,17 @@ namespace SharpConsoleUI.Controls
 					if (oldIndex != _selectedIndex)
 					{
 						var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-						SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+						_deferredSelectionChanged = new TreeNodeEventArgs(selectedNode);
 					}
 				}
 			}
 			else if (selectedIndex != -1)
 			{
 				int oldIndex = _selectedIndex;
-					_selectedIndex = -1;
+				_selectedIndex = -1;
 				if (oldIndex != _selectedIndex)
 				{
-					var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;
-					SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(selectedNode));
+					_deferredSelectionChanged = new TreeNodeEventArgs(null);
 				}
 			}
 		}

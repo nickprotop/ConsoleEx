@@ -61,13 +61,16 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Selects a node by index without adjusting the scroll offset.
 		/// Used for mouse-click selection where the item is already visible on screen.
+		/// Captures deferred selection event instead of firing directly.
 		/// </summary>
 		private void SelectNodeNoScroll(int nodeIndex)
 		{
 			if (_selectedIndex == nodeIndex) return;
 			if (nodeIndex < 0 || nodeIndex >= _flattenedNodes.Count) return;
 			_selectedIndex = nodeIndex;
-			OnSelectionChanged(nodeIndex);
+			// Defer selection changed event
+			var selectedNode = nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count ? _flattenedNodes[nodeIndex] : null;
+			_deferredSelectionChanged = new TreeNodeEventArgs(selectedNode);
 		}
 
 		/// <inheritdoc/>
@@ -90,6 +93,18 @@ namespace SharpConsoleUI.Controls
 				MouseLeave?.Invoke(this, args);
 				return true;
 			}
+
+			// Reset deferred events
+			_deferredSelectionChanged = null;
+			_deferredExpandCollapse = null;
+			_deferredNodeActivated = null;
+
+			// Collect mouse events to fire outside the lock
+			MouseEventArgs? fireMouseRightClick = null;
+			MouseEventArgs? fireMouseDoubleClick = null;
+			MouseEventArgs? fireMouseClick = null;
+			MouseEventArgs? fireMouseMove = null;
+			bool result = false;
 
 			lock (_treeLock)
 			{
@@ -143,12 +158,11 @@ namespace SharpConsoleUI.Controls
 						SelectNodeNoScroll(nodeIndex);
 						Container?.Invalidate(true);
 					}
-					MouseRightClick?.Invoke(this, args);
-					return true;
+					fireMouseRightClick = args;
+					result = true;
 				}
-
 				// Handle double-click - toggle expand/collapse or activate leaf
-				if (args.HasFlag(MouseFlags.Button1DoubleClicked))
+				else if (args.HasFlag(MouseFlags.Button1DoubleClicked))
 				{
 					if (nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
 					{
@@ -167,24 +181,23 @@ namespace SharpConsoleUI.Controls
 						{
 							// Toggle expand/collapse on directories
 							node.IsExpanded = !node.IsExpanded;
-							NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(node));
+							_deferredExpandCollapse = new TreeNodeEventArgs(node);
 							UpdateFlattenedNodes();
 						}
 						else
 						{
 							// Activate leaf node (open file)
-							NodeActivated?.Invoke(this, new TreeNodeEventArgs(node));
+							_deferredNodeActivated = new TreeNodeEventArgs(node);
 						}
 
-						MouseDoubleClick?.Invoke(this, args);
+						fireMouseDoubleClick = args;
 						Container?.Invalidate(true);
 						args.Handled = true;
-						return true;
+						result = true;
 					}
 				}
-
 				// Handle mouse click - select node
-				if (args.HasFlag(MouseFlags.Button1Clicked))
+				else if (args.HasFlag(MouseFlags.Button1Clicked))
 				{
 					// Set focus on click
 					if (!HasFocus && CanFocusWithMouse)
@@ -208,7 +221,7 @@ namespace SharpConsoleUI.Controls
 							// Single click on indicator: toggle expand/collapse
 							var node = _flattenedNodes[nodeIndex];
 							node.IsExpanded = !node.IsExpanded;
-							NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(node));
+							_deferredExpandCollapse = new TreeNodeEventArgs(node);
 							UpdateFlattenedNodes();
 							// Reset double-click tracking so next click isn't misdetected
 							lock (_clickLock)
@@ -239,20 +252,20 @@ namespace SharpConsoleUI.Controls
 								{
 									// Double-click on directory: toggle expand/collapse
 									node.IsExpanded = !node.IsExpanded;
-									NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(node));
+									_deferredExpandCollapse = new TreeNodeEventArgs(node);
 									UpdateFlattenedNodes();
 								}
 								else
 								{
 									// Double-click on leaf: activate (open file)
-									NodeActivated?.Invoke(this, new TreeNodeEventArgs(node));
+									_deferredNodeActivated = new TreeNodeEventArgs(node);
 								}
 
-								MouseDoubleClick?.Invoke(this, args);
+								fireMouseDoubleClick = args;
 							}
 							else
 							{
-								MouseClick?.Invoke(this, args);
+								fireMouseClick = args;
 							}
 						}
 
@@ -260,17 +273,34 @@ namespace SharpConsoleUI.Controls
 					}
 
 					args.Handled = true;
-					return true;
+					result = true;
 				}
-
 				// Handle mouse movement
-				if (args.HasFlag(MouseFlags.ReportMousePosition))
+				else if (args.HasFlag(MouseFlags.ReportMousePosition))
 				{
-					MouseMove?.Invoke(this, args);
+					fireMouseMove = args;
 				}
 			}
 
-			return false;
+			// Fire all deferred events outside the lock
+			if (_deferredSelectionChanged != null)
+				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
+			if (_deferredExpandCollapse != null)
+				NodeExpandCollapse?.Invoke(this, _deferredExpandCollapse);
+			if (_deferredNodeActivated != null)
+				NodeActivated?.Invoke(this, _deferredNodeActivated);
+
+			// Fire mouse events outside the lock
+			if (fireMouseRightClick != null)
+				MouseRightClick?.Invoke(this, fireMouseRightClick);
+			if (fireMouseDoubleClick != null)
+				MouseDoubleClick?.Invoke(this, fireMouseDoubleClick);
+			if (fireMouseClick != null)
+				MouseClick?.Invoke(this, fireMouseClick);
+			if (fireMouseMove != null)
+				MouseMove?.Invoke(this, fireMouseMove);
+
+			return result;
 		}
 
 		/// <summary>

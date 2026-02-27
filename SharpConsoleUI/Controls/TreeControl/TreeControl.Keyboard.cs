@@ -13,11 +13,22 @@ namespace SharpConsoleUI.Controls
 {
 	public partial class TreeControl
 	{
+		// Deferred event tracking for keyboard processing
+		private TreeNodeEventArgs? _deferredSelectionChanged;
+		private TreeNodeEventArgs? _deferredExpandCollapse;
+		private TreeNodeEventArgs? _deferredNodeActivated;
+
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!IsEnabled)
 				return false;
+
+			// Reset deferred events
+			_deferredSelectionChanged = null;
+			_deferredExpandCollapse = null;
+			_deferredNodeActivated = null;
+			bool result = false;
 
 			lock (_treeLock)
 			{
@@ -39,10 +50,10 @@ namespace SharpConsoleUI.Controls
 							count,
 							ref _scrollOffset,
 							effectiveMaxVisibleItems,
-							OnSelectionChanged))
+							DeferSelectionChanged))
 						{
 							Container?.Invalidate(true);
-							return true;
+							result = true;
 						}
 						break;
 
@@ -53,10 +64,10 @@ namespace SharpConsoleUI.Controls
 							count,
 							ref _scrollOffset,
 							effectiveMaxVisibleItems,
-							OnSelectionChanged))
+							DeferSelectionChanged))
 						{
 							Container?.Invalidate(true);
-							return true;
+							result = true;
 						}
 						break;
 
@@ -70,10 +81,10 @@ namespace SharpConsoleUI.Controls
 							count,
 							ref _scrollOffset,
 							effectiveMaxVisibleItems,
-							OnSelectionChanged))
+							DeferSelectionChanged))
 						{
 							Container?.Invalidate(true);
-							return true;
+							result = true;
 						}
 						break;
 					}
@@ -88,10 +99,10 @@ namespace SharpConsoleUI.Controls
 							count,
 							ref _scrollOffset,
 							effectiveMaxVisibleItems,
-							OnSelectionChanged))
+							DeferSelectionChanged))
 						{
 							Container?.Invalidate(true);
-							return true;
+							result = true;
 						}
 						break;
 					}
@@ -102,10 +113,10 @@ namespace SharpConsoleUI.Controls
 						if (selNode != null && !selNode.IsExpanded)
 						{
 							selNode.IsExpanded = true;
-							NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(selNode));
+							_deferredExpandCollapse = new TreeNodeEventArgs(selNode);
 							UpdateFlattenedNodes();
 							Container?.Invalidate(true);
-							return true;
+							result = true;
 						}
 						break;
 					}
@@ -119,10 +130,10 @@ namespace SharpConsoleUI.Controls
 							{
 								// Collapse the expanded node
 								selNode.IsExpanded = false;
-								NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(selNode));
+								_deferredExpandCollapse = new TreeNodeEventArgs(selNode);
 								UpdateFlattenedNodes();
 								Container?.Invalidate(true);
-								return true;
+								result = true;
 							}
 						}
 						break;
@@ -138,16 +149,16 @@ namespace SharpConsoleUI.Controls
 							{
 								// Toggle expand/collapse on directories
 								selNode.IsExpanded = !selNode.IsExpanded;
-								NodeExpandCollapse?.Invoke(this, new TreeNodeEventArgs(selNode));
+								_deferredExpandCollapse = new TreeNodeEventArgs(selNode);
 								UpdateFlattenedNodes();
 							}
 							else
 							{
 								// Activate leaf node (open file)
-								NodeActivated?.Invoke(this, new TreeNodeEventArgs(selNode));
+								_deferredNodeActivated = new TreeNodeEventArgs(selNode);
 							}
 							Container?.Invalidate(true);
-							return true;
+							result = true;
 						}
 						break;
 					}
@@ -159,10 +170,10 @@ namespace SharpConsoleUI.Controls
 							count,
 							ref _scrollOffset,
 							effectiveMaxVisibleItems,
-							OnSelectionChanged))
+							DeferSelectionChanged))
 						{
 							Container?.Invalidate(true);
-							return true;
+							result = true;
 						}
 						break;
 
@@ -173,16 +184,31 @@ namespace SharpConsoleUI.Controls
 							count,
 							ref _scrollOffset,
 							effectiveMaxVisibleItems,
-							OnSelectionChanged))
+							DeferSelectionChanged))
 						{
 							Container?.Invalidate(true);
-							return true;
+							result = true;
 						}
 						break;
 				}
 			}
 
-			return false;
+			// Fire deferred events outside the lock
+			if (_deferredSelectionChanged != null)
+				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
+			if (_deferredExpandCollapse != null)
+				NodeExpandCollapse?.Invoke(this, _deferredExpandCollapse);
+			if (_deferredNodeActivated != null)
+				NodeActivated?.Invoke(this, _deferredNodeActivated);
+
+			return result;
+		}
+
+		// Deferred version of OnSelectionChanged (captures event args instead of firing)
+		private void DeferSelectionChanged(int newIndex)
+		{
+			var selectedNode = newIndex >= 0 && newIndex < _flattenedNodes.Count ? _flattenedNodes[newIndex] : null;
+			_deferredSelectionChanged = new TreeNodeEventArgs(selectedNode);
 		}
 
 		// Helper method to invoke selection changed event (called by SelectionStateHelper)

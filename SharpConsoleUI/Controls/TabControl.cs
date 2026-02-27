@@ -121,32 +121,50 @@ namespace SharpConsoleUI.Controls
 			get => _activeTabIndex;
 		set
 		{
+			TabChangingEventArgs? changingArgs = null;
+			TabChangedEventArgs? changedArgs = null;
+
+			// Phase 1: Validate and prepare event args under lock
 			lock (_tabLock)
 			{
-			if (_activeTabIndex != value && value >= 0 && value < _tabPages.Count)
-			{
-				// Raise TabChanging event (can be canceled)
-				var oldTab = _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count ? _tabPages[_activeTabIndex] : null;
-				var newTab = value >= 0 && value < _tabPages.Count ? _tabPages[value] : null;
-				var changingArgs = new TabChangingEventArgs(_activeTabIndex, value, oldTab, newTab);
-				TabChanging?.Invoke(this, changingArgs);
-
-				if (changingArgs.Cancel)
-					return;
-
-				// Toggle visibility
-				if (_activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
-					_tabPages[_activeTabIndex].Content.Visible = false;
-
-				_activeTabIndex = value;
-				_tabPages[_activeTabIndex].Content.Visible = true;
-
-				// Raise TabChanged event
-				var changedArgs = new TabChangedEventArgs(changingArgs.OldIndex, changingArgs.NewIndex, changingArgs.OldTab, changingArgs.NewTab);
-				TabChanged?.Invoke(this, changedArgs);
-
-				Invalidate(true);
+				if (_activeTabIndex != value && value >= 0 && value < _tabPages.Count)
+				{
+					var oldTab = _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count ? _tabPages[_activeTabIndex] : null;
+					var newTab = value >= 0 && value < _tabPages.Count ? _tabPages[value] : null;
+					changingArgs = new TabChangingEventArgs(_activeTabIndex, value, oldTab, newTab);
+				}
 			}
+
+			if (changingArgs == null)
+				return;
+
+			// Phase 2: Fire TabChanging event outside lock (can be canceled)
+			TabChanging?.Invoke(this, changingArgs);
+			if (changingArgs.Cancel)
+				return;
+
+			// Phase 3: Commit the change under lock
+			lock (_tabLock)
+			{
+				// Re-validate in case state changed while we were outside the lock
+				if (value >= 0 && value < _tabPages.Count)
+				{
+					// Toggle visibility
+					if (_activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
+						_tabPages[_activeTabIndex].Content.Visible = false;
+
+					_activeTabIndex = value;
+					_tabPages[_activeTabIndex].Content.Visible = true;
+
+					changedArgs = new TabChangedEventArgs(changingArgs.OldIndex, changingArgs.NewIndex, changingArgs.OldTab, changingArgs.NewTab);
+				}
+			}
+
+			// Phase 4: Fire TabChanged event outside lock
+			if (changedArgs != null)
+			{
+				TabChanged?.Invoke(this, changedArgs);
+				Invalidate(true);
 			}
 		}
 		}

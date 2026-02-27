@@ -375,3 +375,4 @@ docs/docfx/api/
 docs/docfx/obj/
 docs/docfx/_site/
 docs/docfx/.manifest
+.lazydotide.workspace
