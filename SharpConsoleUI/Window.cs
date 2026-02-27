@@ -925,6 +925,18 @@ namespace SharpConsoleUI
 		}
 	}
 	/// <summary>
+	/// Inserts a control at the specified index.
+	/// </summary>
+	public void InsertControl(int index, IWindowControl content)
+	{
+		lock (_lock)
+		{
+			_contentManager.InsertControl(_controls, _interactiveContents, index, content, this);
+			RenderAndGetVisibleContent();
+		}
+	}
+
+	/// <summary>
 	/// Removes all controls from the window.
 	/// </summary>
 	public void ClearControls()

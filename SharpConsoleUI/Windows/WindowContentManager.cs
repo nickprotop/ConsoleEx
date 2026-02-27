@@ -81,6 +81,34 @@ namespace SharpConsoleUI.Windows
 		}
 
 		/// <summary>
+		/// Inserts a control at the specified index.
+		/// </summary>
+		public void InsertControl(
+			List<IWindowControl> controls,
+			List<IInteractiveControl> interactiveControls,
+			int index,
+			IWindowControl control,
+			IContainer container)
+		{
+			if (control == null)
+				throw new ArgumentNullException(nameof(control));
+
+			_logService?.LogDebug($"Control inserted into window '{_getWindowTitle()}' at index {index}: {control.GetType().Name}", "Window");
+
+			control.Container = container;
+			controls.Insert(index, control);
+
+			if (control is IInteractiveControl interactiveControl)
+			{
+				interactiveControls.Add(interactiveControl);
+			}
+
+			InvalidationManager.Instance.RegisterControl(control);
+			_invalidateLayoutCallback();
+			_invalidateCallback();
+		}
+
+		/// <summary>
 		/// Removes a control from the control list.
 		/// </summary>
 		/// <param name="controls">The control list to remove from</param>
