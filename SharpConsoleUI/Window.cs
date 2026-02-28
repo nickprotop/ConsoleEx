@@ -1552,27 +1552,37 @@ namespace SharpConsoleUI
 		{
 			_invalidated = true;
 
-			lock (_lock)
+			// Use TryEnter to avoid blocking when the render thread holds the lock.
+			// If we can't acquire it, _invalidated + IsDirty are still set, so the
+			// render loop will do a full layout rebuild on the next frame.
+			if (Monitor.TryEnter(_lock))
 			{
-				if (redrawAll)
+				try
 				{
-					// Invalidate measurements without rebuilding the tree
-					// This preserves runtime state like splitter positions
-					_renderer?.InvalidateDOMLayout();
-				}
-				else if (callerControl != null)
-				{
-					// Specific control invalidation
-					var node = _renderer?.GetLayoutNode(callerControl);
-					if (node != null)
+					if (redrawAll)
 					{
-						node.InvalidateMeasure();
-					}
-					else
-					{
-						// Fallback: invalidate entire tree
+						// Invalidate measurements without rebuilding the tree
+						// This preserves runtime state like splitter positions
 						_renderer?.InvalidateDOMLayout();
 					}
+					else if (callerControl != null)
+					{
+						// Specific control invalidation
+						var node = _renderer?.GetLayoutNode(callerControl);
+						if (node != null)
+						{
+							node.InvalidateMeasure();
+						}
+						else
+						{
+							// Fallback: invalidate entire tree
+							_renderer?.InvalidateDOMLayout();
+						}
+					}
+				}
+				finally
+				{
+					Monitor.Exit(_lock);
 				}
 			}
 
