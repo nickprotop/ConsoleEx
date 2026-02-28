@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.Concurrent;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -46,22 +47,16 @@ namespace SharpConsoleUI.Core
 		int TotalShown,
 		int TotalDismissed)
 	{
-		/// <summary>
-		/// Gets an empty notification state.
-		/// </summary>
+		/// <summary>Gets an empty notification state.</summary>
 		public static NotificationState Empty => new(
 			Array.Empty<NotificationInfo>(),
 			0,
 			0);
 
-		/// <summary>
-		/// Gets a value indicating whether there are any active notifications.
-		/// </summary>
+		/// <summary>Gets a value indicating whether there are any active notifications.</summary>
 		public bool HasNotifications => ActiveNotifications.Count > 0;
 
-		/// <summary>
-		/// Gets the number of active notifications.
-		/// </summary>
+		/// <summary>Gets the number of active notifications.</summary>
 		public int ActiveCount => ActiveNotifications.Count;
 	}
 
@@ -70,27 +65,18 @@ namespace SharpConsoleUI.Core
 	/// </summary>
 	public class NotificationEventArgs : EventArgs
 	{
-		/// <summary>
-		/// Gets the notification that triggered the event.
-		/// </summary>
+		/// <summary>Gets the notification that triggered the event.</summary>
 		public NotificationInfo Notification { get; }
 
-		/// <summary>
-		/// Gets the previous notification state.
-		/// </summary>
+		/// <summary>Gets the previous notification state.</summary>
 		public NotificationState PreviousState { get; }
 
-		/// <summary>
-		/// Gets the current notification state.
-		/// </summary>
+		/// <summary>Gets the current notification state.</summary>
 		public NotificationState CurrentState { get; }
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="NotificationEventArgs"/> class.
 		/// </summary>
-		/// <param name="notification">The notification that triggered the event.</param>
-		/// <param name="previousState">The previous notification state.</param>
-		/// <param name="currentState">The current notification state.</param>
 		public NotificationEventArgs(NotificationInfo notification, NotificationState previousState, NotificationState currentState)
 		{
 			Notification = notification;
@@ -112,6 +98,7 @@ namespace SharpConsoleUI.Core
 		private readonly List<NotificationInfo> _activeNotifications = new();
 		private readonly ConcurrentQueue<NotificationState> _stateHistory = new();
 		private readonly Dictionary<string, CancellationTokenSource> _timeoutCancellations = new();
+		private readonly HashSet<string> _dismissingIds = new();
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
 		private int _notificationCounter;
@@ -119,9 +106,6 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Initializes a new instance of the <see cref="NotificationStateService"/> class.
 		/// </summary>
-		/// <param name="windowSystem">The console window system to display notifications in.</param>
-		/// <param name="logService">Optional log service for diagnostic logging.</param>
-		/// <exception cref="ArgumentNullException">Thrown when <paramref name="windowSystem"/> is null.</exception>
 		public NotificationStateService(ConsoleWindowSystem windowSystem, ILogService? logService = null)
 		{
 			_windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
@@ -130,9 +114,7 @@ namespace SharpConsoleUI.Core
 
 		#region Properties
 
-		/// <summary>
-		/// Gets the current notification state.
-		/// </summary>
+		/// <summary>Gets the current notification state.</summary>
 		public NotificationState CurrentState
 		{
 			get
@@ -144,43 +126,29 @@ namespace SharpConsoleUI.Core
 			}
 		}
 
-		/// <summary>
-		/// Gets a value indicating whether any notifications are currently displayed.
-		/// </summary>
+		/// <summary>Gets a value indicating whether any notifications are currently displayed.</summary>
 		public bool HasNotifications => CurrentState.HasNotifications;
 
-		/// <summary>
-		/// Gets the number of active notifications.
-		/// </summary>
+		/// <summary>Gets the number of active notifications.</summary>
 		public int ActiveCount => CurrentState.ActiveCount;
 
-		/// <summary>
-		/// Gets all active notifications.
-		/// </summary>
+		/// <summary>Gets all active notifications.</summary>
 		public IReadOnlyList<NotificationInfo> ActiveNotifications => CurrentState.ActiveNotifications;
 
 		#endregion
 
 		#region Events
 
-		/// <summary>
-		/// Occurs when a notification is shown.
-		/// </summary>
+		/// <summary>Occurs when a notification is shown.</summary>
 		public event EventHandler<NotificationEventArgs>? NotificationShown;
 
-		/// <summary>
-		/// Occurs when a notification is dismissed.
-		/// </summary>
+		/// <summary>Occurs when a notification is dismissed.</summary>
 		public event EventHandler<NotificationEventArgs>? NotificationDismissed;
 
-		/// <summary>
-		/// Occurs when all notifications are dismissed.
-		/// </summary>
+		/// <summary>Occurs when all notifications are dismissed.</summary>
 		public event EventHandler? AllNotificationsDismissed;
 
-		/// <summary>
-		/// Occurs when notification state changes.
-		/// </summary>
+		/// <summary>Occurs when notification state changes.</summary>
 		public event EventHandler<NotificationState>? StateChanged;
 
 		#endregion
@@ -202,7 +170,7 @@ namespace SharpConsoleUI.Core
 			string message,
 			NotificationSeverity severity,
 			bool blockUi = false,
-			int? timeout = 5000,
+			int? timeout = ControlDefaults.NotificationDefaultTimeoutMs,
 			Window? parentWindow = null)
 		{
 			lock (_lock)
@@ -213,7 +181,7 @@ namespace SharpConsoleUI.Core
 				_logService?.LogDebug($"Showing notification: {title} (ID: {id}, Severity: {severity.Name})", "Notification");
 
 				// Create the notification window
-				var notificationWindow = CreateNotificationWindow(title, message, severity, blockUi, parentWindow);
+				var notificationWindow = CreateNotificationWindow(id, title, message, severity, blockUi, parentWindow);
 
 				// Create notification info
 				var notificationInfo = new NotificationInfo(
@@ -232,9 +200,6 @@ namespace SharpConsoleUI.Core
 				// Add the window to the system
 				_windowSystem.AddWindow(notificationWindow);
 				_windowSystem.SetActiveWindow(notificationWindow);
-
-				// Set up close button handler
-				SetupCloseHandler(notificationWindow, id);
 
 				// Set up timeout if specified
 				if (timeout.HasValue && timeout.Value > 0)
@@ -256,12 +221,14 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Dismisses a notification by ID.
 		/// </summary>
-		/// <param name="notificationId">The notification ID to dismiss.</param>
 		/// <returns>True if the notification was found and dismissed; otherwise, false.</returns>
 		public bool DismissNotification(string notificationId)
 		{
 			lock (_lock)
 			{
+				if (_dismissingIds.Contains(notificationId))
+					return true;
+
 				var notification = _activeNotifications.FirstOrDefault(n => n.Id == notificationId);
 				if (notification == null)
 					return false;
@@ -273,7 +240,6 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Dismisses a notification by its window.
 		/// </summary>
-		/// <param name="window">The notification window to dismiss.</param>
 		/// <returns>True if the notification was found and dismissed; otherwise, false.</returns>
 		public bool DismissNotification(Window window)
 		{
@@ -283,13 +249,14 @@ namespace SharpConsoleUI.Core
 				if (notification == null)
 					return false;
 
+				if (_dismissingIds.Contains(notification.Id))
+					return true;
+
 				return DismissNotificationInternal(notification);
 			}
 		}
 
-		/// <summary>
-		/// Dismisses all active notifications.
-		/// </summary>
+		/// <summary>Dismisses all active notifications.</summary>
 		public void DismissAll()
 		{
 			lock (_lock)
@@ -299,7 +266,6 @@ namespace SharpConsoleUI.Core
 
 				_logService?.LogDebug($"Dismissing all notifications ({_activeNotifications.Count} active)", "Notification");
 
-				// Copy list to avoid modification during iteration
 				var notificationsToDismiss = _activeNotifications.ToList();
 
 				foreach (var notification in notificationsToDismiss)
@@ -311,11 +277,7 @@ namespace SharpConsoleUI.Core
 			}
 		}
 
-		/// <summary>
-		/// Gets a notification by ID.
-		/// </summary>
-		/// <param name="notificationId">The notification ID to find.</param>
-		/// <returns>The notification info if found; otherwise, null.</returns>
+		/// <summary>Gets a notification by ID, or null if not found.</summary>
 		public NotificationInfo? GetNotification(string notificationId)
 		{
 			lock (_lock)
@@ -324,11 +286,7 @@ namespace SharpConsoleUI.Core
 			}
 		}
 
-		/// <summary>
-		/// Checks if a notification with the given ID exists.
-		/// </summary>
-		/// <param name="notificationId">The notification ID to check.</param>
-		/// <returns>True if the notification exists; otherwise, false.</returns>
+		/// <summary>Checks if a notification with the given ID exists.</summary>
 		public bool NotificationExists(string notificationId)
 		{
 			return GetNotification(notificationId) != null;
@@ -344,19 +302,23 @@ namespace SharpConsoleUI.Core
 		}
 
 		private Window CreateNotificationWindow(
+			string notificationId,
 			string title,
 			string message,
 			NotificationSeverity severity,
 			bool blockUi,
 			Window? parentWindow)
 		{
+			var messageWidth = AnsiConsoleHelper.StripSpectreLength(message) + ControlDefaults.NotificationHorizontalPadding;
+			var messageHeight = message.Split('\n').Length + ControlDefaults.NotificationVerticalPadding;
+
 			var notificationWindow = new Window(_windowSystem, parentWindow)
 			{
 				Title = string.IsNullOrWhiteSpace(title) ? severity.Name ?? "Notification" : title,
-				Left = _windowSystem.DesktopDimensions.Width / 2 - (AnsiConsoleHelper.StripSpectreLength(message) + 8) / 2,
+				Left = _windowSystem.DesktopDimensions.Width / 2 - messageWidth / 2,
 				Top = _windowSystem.DesktopDimensions.Height / 2 - 2,
-				Width = AnsiConsoleHelper.StripSpectreLength(message) + 8,
-				Height = message.Split('\n').Length + 5,
+				Width = messageWidth,
+				Height = messageHeight,
 				BackgroundColor = severity.WindowBackgroundColor(_windowSystem),
 				ForegroundColor = _windowSystem.Theme.WindowForegroundColor,
 				ActiveBorderForegroundColor = severity.ActiveBorderForegroundColor(_windowSystem),
@@ -371,6 +333,23 @@ namespace SharpConsoleUI.Core
 				notificationWindow.IsModal = true;
 			}
 
+			// Hook OnClosing to ensure notification state cleanup regardless of close path
+			notificationWindow.OnClosing += (sender, e) =>
+			{
+				// DismissNotification handles re-entrancy via _dismissingIds
+				DismissNotification(notificationId);
+			};
+
+			// Allow Escape key to dismiss the notification
+			notificationWindow.PreviewKeyPressed += (sender, e) =>
+			{
+				if (e.KeyInfo.Key == ConsoleKey.Escape)
+				{
+					e.Handled = true;
+					notificationWindow.Close();
+				}
+			};
+
 			// Add content
 			var notificationContent = new MarkupControl(new List<string>()
 			{
@@ -381,31 +360,20 @@ namespace SharpConsoleUI.Core
 			};
 			notificationWindow.AddControl(notificationContent);
 
-			// Add close button
+			// Add close button that triggers window close
 			var closeButton = new ButtonControl()
 			{
 				Text = "Close",
 				StickyPosition = StickyPosition.Bottom,
 				Margin = new Margin() { Left = 1 }
 			};
+			closeButton.Click += (sender, e) =>
+			{
+				notificationWindow.Close();
+			};
 			notificationWindow.AddControl(closeButton);
 
 			return notificationWindow;
-		}
-
-		private void SetupCloseHandler(Window notificationWindow, string notificationId)
-		{
-			// Find the close button and attach handler
-			var closeButton = notificationWindow.GetControlsByType<ButtonControl>()
-				.FirstOrDefault(b => b.Text == "Close");
-
-			if (closeButton != null)
-			{
-				closeButton.Click += (sender, e) =>
-				{
-					DismissNotification(notificationId);
-				};
-			}
 		}
 
 		private void SetupTimeout(string notificationId, int timeoutMs)
@@ -432,35 +400,46 @@ namespace SharpConsoleUI.Core
 
 		private bool DismissNotificationInternal(NotificationInfo notification, bool suppressEvents = false)
 		{
-			var previousState = _currentState;
+			// Re-entrancy guard: if already dismissing this notification, skip
+			if (!_dismissingIds.Add(notification.Id))
+				return true;
 
-			_logService?.LogDebug($"Dismissing notification: {notification.Title} (ID: {notification.Id})", "Notification");
-
-			// Cancel timeout if active
-			if (_timeoutCancellations.TryGetValue(notification.Id, out var cts))
+			try
 			{
-				cts.Cancel();
-				cts.Dispose();
-				_timeoutCancellations.Remove(notification.Id);
+				var previousState = _currentState;
+
+				_logService?.LogDebug($"Dismissing notification: {notification.Title} (ID: {notification.Id})", "Notification");
+
+				// Cancel timeout if active
+				if (_timeoutCancellations.TryGetValue(notification.Id, out var cts))
+				{
+					cts.Cancel();
+					cts.Dispose();
+					_timeoutCancellations.Remove(notification.Id);
+				}
+
+				// Remove from active list
+				_activeNotifications.Remove(notification);
+
+				// Close the window (may re-enter via OnClosing, but _dismissingIds guards against that)
+				_windowSystem.CloseWindow(notification.Window);
+
+				// Update state
+				UpdateStateInternal();
+
+				// Fire events
+				if (!suppressEvents)
+				{
+					var args = new NotificationEventArgs(notification, previousState, _currentState);
+					NotificationDismissed?.Invoke(this, args);
+				}
+
+				return true;
 			}
-
-			// Remove from active list
-			_activeNotifications.Remove(notification);
-
-			// Close the window
-			_windowSystem.CloseWindow(notification.Window);
-
-			// Update state
-			UpdateStateInternal();
-
-			// Fire events
-			if (!suppressEvents)
+			finally
 			{
-				var args = new NotificationEventArgs(notification, previousState, _currentState);
-				NotificationDismissed?.Invoke(this, args);
+				_dismissingIds.Remove(notification.Id);
 			}
-
-			return true;
 		}
 
 		private void UpdateStateInternal()

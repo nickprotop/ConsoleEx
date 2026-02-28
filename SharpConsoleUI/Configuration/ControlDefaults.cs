@@ -284,5 +284,21 @@ namespace SharpConsoleUI.Configuration
 		/// Extra padding for dropdown item width calculation including shortcut spacing (default: 10)
 		/// </summary>
 		public const int MenuItemDropdownPadding = 10;
+
+		// Notification defaults
+		/// <summary>
+		/// Horizontal padding added to notification window width beyond message length (default: 8)
+		/// </summary>
+		public const int NotificationHorizontalPadding = 8;
+
+		/// <summary>
+		/// Vertical padding added to notification window height beyond message line count (default: 5)
+		/// </summary>
+		public const int NotificationVerticalPadding = 5;
+
+		/// <summary>
+		/// Default auto-dismiss timeout for notifications in milliseconds (default: 5000)
+		/// </summary>
+		public const int NotificationDefaultTimeoutMs = 5000;
 	}
 }
