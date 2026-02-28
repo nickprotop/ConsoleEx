@@ -325,7 +325,9 @@ namespace SharpConsoleUI.Core
 				InactiveBorderForegroundColor = severity.InactiveBorderForegroundColor(_windowSystem),
 				ActiveTitleForegroundColor = severity.ActiveTitleForegroundColor(_windowSystem),
 				InactiveTitleForegroundColor = severity.InactiveTitleForegroundColor(_windowSystem),
-				IsResizable = false
+				IsResizable = false,
+				IsMaximizable = false,
+				IsMinimizable = false
 			};
 
 			if (blockUi)
