@@ -644,23 +644,19 @@ See the [Compositor Effects Guide](https://nickprotop.github.io/ConsoleEx/docfx/
 
 ### Known Issues
 
-#### Linux: Input Echo Leak During Concurrent Screen Updates
+#### Linux: Input Echo Leak (Resolved)
 
 **Affected platforms**: Linux, macOS (not Windows)
 
-**Symptoms**: Occasional garbage characters or ANSI escape sequences appearing on screen when moving the mouse while background windows are updating.
+**Status**: Fixed. On Unix, SharpConsoleUI bypasses .NET's Console infrastructure entirely using raw libc I/O for both input (`read` from stdin fd 0) and output (`write` to stdout fd 1). The terminal is put into raw mode via `tcgetattr`/`tcsetattr`, and `Console.Out` is redirected to `/dev/null` to prevent any .NET runtime code from touching terminal settings. This eliminates the echo leak at its root.
 
-**Root cause**: This is a limitation in .NET's `Console.ReadKey` implementation on Unix platforms. The .NET runtime toggles terminal echo settings (`tcsetattr`) on and off with every keystroke rather than keeping echo disabled for the session. When `ReadKey` receives input, it briefly re-enables echo before the application can call `ReadKey` again. During this brief window (~10ms), any concurrent output from other threads can leak to the terminal as raw characters.
+**Root cause**: .NET's `ConsolePal.Unix` calls `tcsetattr` on virtually every `Console.*` access — not just `ReadKey`, but also `SetCursorPosition`, `CursorVisible`, `WindowWidth`, and even `OutputEncoding`. Each call briefly toggles the ECHO flag, creating windows where raw ANSI sequences leak to the screen.
 
-This race condition is more visible in SharpConsoleUI than single-threaded TUI frameworks because our independent window threads can write to the screen at any moment during input processing.
+**Solution approach inspired by [Terminal.Gui v2](https://github.com/gui-cs/Terminal.Gui)**, which solved the same problem by avoiding all .NET Console APIs on Unix. The fix can be disabled via `ConsoleWindowSystemOptions(UseDirectAnsi: false)` to fall back to .NET Console APIs if needed.
 
 **Related .NET issues**:
 - [dotnet/runtime#29662](https://github.com/dotnet/runtime/issues/29662) - No way to turn off tty echo via corefx API
 - [dotnet/runtime#24456](https://github.com/dotnet/runtime/issues/24456) - Console.ReadLine echoes first few hundred milliseconds of input
-
-**Workaround**: SharpConsoleUI performs a periodic full screen redraw to clear any leaked characters. This has minimal performance impact due to the double-buffered rendering architecture.
-
-**Why ncurses doesn't have this issue**: ncurses disables echo once at initialization and restores it only at shutdown, eliminating the race window entirely.
 
 ## Contributing
 
