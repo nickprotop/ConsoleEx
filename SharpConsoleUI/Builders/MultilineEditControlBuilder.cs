@@ -59,6 +59,7 @@ public sealed class MultilineEditControlBuilder
 	private Color? _lineNumberColor;
 	private bool _showEditingHints;
 	private ISyntaxHighlighter? _syntaxHighlighter;
+	private bool _escapeExitsEditMode = true;
 	private List<IGutterRenderer>? _gutterRenderers;
 
 	// Event handlers
@@ -564,6 +565,18 @@ public sealed class MultilineEditControlBuilder
 	}
 
 	/// <summary>
+	/// Controls whether pressing Escape exits editing mode.
+	/// Set to false for IDE-style editors where Escape is used for other purposes.
+	/// </summary>
+	/// <param name="exits">Whether Escape exits editing mode (default: true)</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithEscapeExitsEditMode(bool exits = true)
+	{
+		_escapeExitsEditMode = exits;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the syntax highlighter for content colorization
 	/// </summary>
 	/// <param name="highlighter">The syntax highlighter implementation</param>
@@ -718,6 +731,7 @@ public sealed class MultilineEditControlBuilder
 			ShowWhitespace = _showWhitespace,
 			ShowLineNumbers = _showLineNumbers,
 			ShowEditingHints = _showEditingHints,
+			EscapeExitsEditMode = _escapeExitsEditMode,
 			SyntaxHighlighter = _syntaxHighlighter
 		};
 

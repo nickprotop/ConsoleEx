@@ -542,6 +542,10 @@ namespace SharpConsoleUI.Controls
 						IsEditing = false;
 						return true;
 					}
+					// When EscapeExitsEditMode is false, consume ESC to prevent
+					// WindowEventDispatcher from unfocusing this control.
+					if (_isEditing && !EscapeExitsEditMode)
+						return true;
 					return false;
 
 				case ConsoleKey.Tab:
