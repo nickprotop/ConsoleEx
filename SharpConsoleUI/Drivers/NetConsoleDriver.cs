@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drivers.Input;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Themes;
 using System;
@@ -92,6 +93,8 @@ namespace SharpConsoleUI.Drivers
 
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private object _consoleLock = new object(); // Shared lock for thread-safe Console I/O (initialized to prevent race conditions)
+		private bool _useDirectAnsi; // True on Unix when raw mode active — bypasses ConsolePal
+		private CancellationTokenSource? _rawInputCts;
 		private readonly nint _errorHandle;
 		private readonly nint _inputHandle;
 		private readonly uint _originalErrorConsoleMode;
@@ -122,14 +125,28 @@ namespace SharpConsoleUI.Drivers
 			Options = options ?? throw new ArgumentNullException(nameof(options));
 			RenderMode = options.RenderMode;
 
-			Console.OutputEncoding = Encoding.UTF8;
-
-			// Prevent Ctrl+C (SIGINT) from terminating the process so it can be used as Copy
-			Console.TreatControlCAsInput = true;
-
-			// Prevent Ctrl+Z (SIGTSTP) from suspending the process so it can be used as Undo
-			if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+			{
+				// Windows: safe to use Console.* APIs
+				Console.OutputEncoding = Encoding.UTF8;
+				Console.TreatControlCAsInput = true;
+			}
+			else if (options.UseDirectAnsi)
+			{
+				// Unix with direct ANSI: avoid ALL Console.* calls to prevent
+				// ConsolePal initialization which saves termios state with ECHO on.
+				// .NET's signal handlers then periodically restore to that state,
+				// re-enabling ECHO behind our back. Use raw signal suppression instead.
+				SuppressUnixSignal(SigInt);   // Ctrl+C — ISIG off in raw mode handles this too
+				SuppressUnixSignal(SigTstp);  // Ctrl+Z
+			}
+			else
+			{
+				// Unix without direct ANSI: use Console.* (ConsolePal, may leak)
+				Console.OutputEncoding = Encoding.UTF8;
+				Console.TreatControlCAsInput = true;
 				SuppressUnixSignal(SigTstp);
+			}
 
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 			{
@@ -233,8 +250,25 @@ namespace SharpConsoleUI.Drivers
 		/// </remarks>
 		public RenderMode RenderMode { get; }
 
+		/// <summary>
+		/// Whether direct ANSI mode is active (bypassing ConsolePal).
+		/// Used by ConsoleBuffer to skip FIX24/FIX27 and use ANSI cursor hide.
+		/// </summary>
+		internal bool UseDirectAnsi => _useDirectAnsi;
+
 		/// <inheritdoc/>
-		public Size ScreenSize => new Size(Console.WindowWidth, Console.WindowHeight);
+		public Size ScreenSize
+		{
+			get
+			{
+				if (_useDirectAnsi)
+				{
+					var (w, h) = TerminalRawMode.GetWindowSize();
+					return new Size(w, h);
+				}
+				return new Size(Console.WindowWidth, Console.WindowHeight);
+			}
+		}
 
 		/// <summary>
 		/// Restores the console to its original configuration.
@@ -301,9 +335,34 @@ namespace SharpConsoleUI.Drivers
 		/// <inheritdoc/>
 		public void Start()
 		{
+			// Determine if we should use direct ANSI mode (Unix + UseDirectAnsi option)
+			bool isUnix = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+			_useDirectAnsi = isUnix && Options.UseDirectAnsi;
+
+			// Enter raw mode before creating console buffer (so ioctl is available)
+			if (_useDirectAnsi)
+			{
+				if (!TerminalRawMode.EnterRawMode())
+				{
+					_useDirectAnsi = false; // Fallback to ConsolePal if raw mode fails
+					_consoleWindowSystem?.LogService?.Log(
+						Logging.LogLevel.Warning,
+						"Raw mode failed to enter — falling back to ConsolePal (echo leak possible)",
+						"Input");
+				}
+				else
+				{
+					_consoleWindowSystem?.LogService?.Log(
+						Logging.LogLevel.Debug,
+						"Raw terminal mode active — ConsolePal bypassed on hot path",
+						"Input");
+				}
+			}
+
+			var screenSize = ScreenSize; // Uses ioctl if _useDirectAnsi
 			if (RenderMode.Buffer == RenderMode)
 			{
-				_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleWindowSystem?.Options, _consoleLock);
+				_consoleBuffer = new ConsoleBuffer(screenSize.Width, screenSize.Height, _consoleWindowSystem?.Options, _consoleLock);
 
 				// Connect diagnostics if enabled
 				if (_consoleWindowSystem?.RenderingDiagnostics != null)
@@ -318,28 +377,59 @@ namespace SharpConsoleUI.Drivers
 			if (_consoleWindowSystem != null)
 			{
 				_consoleWindowSystem.CursorStateService.HideCursor();
-				_consoleWindowSystem.CursorStateService.ApplyCursorToConsole(Console.WindowWidth, Console.WindowHeight);
+				_consoleWindowSystem.CursorStateService.ApplyCursorToConsole(screenSize.Width, screenSize.Height);
 			}
 			else
 			{
-				Console.CursorVisible = false;
+				SetCursorVisible(false);
 			}
 
 
+			// Enter alternate screen buffer (like Terminal.Gui v2)
+			// Provides clean slate and separates our output from the main screen
+			if (_useDirectAnsi)
+				WriteOutput("\x1b[?1049h");
+
 			// Enable mouse reporting in proper order: basic -> extended modes -> drag tracking
-			Console.Out.Write("\x1b[?1000h");  // Enable basic mouse reporting
-			Console.Out.Write("\x1b[?1006h");  // Enable SGR extended mouse mode
-			Console.Out.Write("\x1b[?1015h");  // Enable urxvt extended mouse mode
-			Console.Out.Write("\x1b[?1002h");  // Enable button event tracking (drag mode)
-			Console.Out.Write("\x1b[?1003h");  // Enable any event mouse (motion tracking)
+			WriteOutput("\x1b[?1000h");  // Enable basic mouse reporting
+			WriteOutput("\x1b[?1006h");  // Enable SGR extended mouse mode
+			WriteOutput("\x1b[?1015h");  // Enable urxvt extended mouse mode
+			WriteOutput("\x1b[?1002h");  // Enable button event tracking (drag mode)
+			WriteOutput("\x1b[?1003h");  // Enable any event mouse (motion tracking)
 
 			// Disable autowrap to prevent terminal scroll when writing to bottom-right corner
-			Console.Out.Write("\x1b[?7l");
+			WriteOutput("\x1b[?7l");
 
-			_lastConsoleWidth = Console.WindowWidth;
-			_lastConsoleHeight = Console.WindowHeight;
+			_lastConsoleWidth = screenSize.Width;
+			_lastConsoleHeight = screenSize.Height;
 
-			var inputTask = Task.Run(InputLoop);
+			if (_useDirectAnsi)
+			{
+				// Unix: use raw /dev/tty reader — zero ConsolePal on hot path
+				_rawInputCts = new CancellationTokenSource();
+				var ttyStream = TerminalRawMode.TtyInputStream;
+				if (ttyStream != null)
+				{
+					var parser = new AnsiInputParser();
+					var reader = new UnixStdinReader(ttyStream, parser);
+					var cts = _rawInputCts;
+					var inputTask = Task.Run(() => reader.ReadLoop(
+						cts.Token,
+						onKey: key => KeyPressed?.Invoke(this, key),
+						onMouse: (flags, pos) => MouseEvent?.Invoke(this, flags, pos),
+						continuousButtonPressedHandler: (flag, pos) =>
+						{
+							var continuousFlags = new List<MouseFlags> { flag };
+							MouseEvent?.Invoke(this, continuousFlags, pos);
+						}));
+				}
+			}
+			else
+			{
+				// Windows or fallback: use Console.ReadKey-based InputLoop
+				var inputTask = Task.Run(InputLoop);
+			}
+
 			var resizeTask = Task.Run(ResizeLoop);
 		}
 
@@ -348,6 +438,38 @@ namespace SharpConsoleUI.Drivers
 		{
 			_running = false;
 
+			// Cancel raw input reader if active
+			try { _rawInputCts?.Cancel(); } catch { }
+
+			bool wasDirectAnsi = _useDirectAnsi;
+
+			// Write cleanup sequences BEFORE restoring terminal (while raw write still works)
+			if (_useDirectAnsi)
+			{
+				var mouseDisable =
+					"\x1b[?1003l" +  // Disable any event mouse
+					"\x1b[?1002l" +  // Disable button event tracking
+					"\x1b[?1015l" +  // Disable urxvt extended mouse mode
+					"\x1b[?1006l" +  // Disable SGR extended mouse mode
+					"\x1b[?1000l";   // Disable basic mouse reporting
+
+				// Disable mouse, show cursor, leave alternate screen — all via raw write
+				TerminalRawMode.WriteStdout(mouseDisable);
+				TerminalRawMode.WriteStdout(mouseDisable); // Second time
+				TerminalRawMode.WriteStdout(mouseDisable); // Third time
+				TerminalRawMode.WriteStdout("\x1b[?7h");   // Re-enable autowrap
+				TerminalRawMode.WriteStdout("\x1b[0m");    // Reset ANSI attributes
+				TerminalRawMode.WriteStdout("\x1b[?25h");  // Make cursor visible
+				TerminalRawMode.WriteStdout("\x1b[?1049l"); // Leave alternate screen buffer
+			}
+
+			// Restore terminal from raw mode (restores termios + Console.Out)
+			if (_useDirectAnsi)
+			{
+				TerminalRawMode.RestoreTerminal();
+				_useDirectAnsi = false;
+			}
+
 			// Unregister emergency handler - we're doing proper cleanup now
 			if (_processExitHandler != null)
 			{
@@ -355,25 +477,24 @@ namespace SharpConsoleUI.Drivers
 				_processExitHandler = null;
 			}
 
-			// Soft terminal reset first
+			// Post-restore cleanup via Console (now that Console.Out is back)
 			var resetSequence = "\x1b[!p";  // Soft reset (RIS)
 
-			// TRIPLE-SEND the mouse disable sequences
-			var mouseDisable =
-				"\x1b[?1003l" +  // Disable any event mouse
-				"\x1b[?1002l" +  // Disable button event tracking
-				"\x1b[?1015l" +  // Disable urxvt extended mouse mode
-				"\x1b[?1006l" +  // Disable SGR extended mouse mode
-				"\x1b[?1000l";   // Disable basic mouse reporting
+			var mouseDisablePost =
+				"\x1b[?1003l" +
+				"\x1b[?1002l" +
+				"\x1b[?1015l" +
+				"\x1b[?1006l" +
+				"\x1b[?1000l";
 
 			var cleanupSequence =
 				resetSequence +
-				mouseDisable +
-				mouseDisable +  // Second time
-				mouseDisable +  // Third time
-				"\x1b[?7h" +    // Re-enable autowrap
-				"\x1b[0m" +     // Reset ANSI attributes
-				"\x1b[?25h" +   // Make cursor visible
+				mouseDisablePost +
+				mouseDisablePost +
+				mouseDisablePost +
+				"\x1b[?7h" +
+				"\x1b[0m" +
+				"\x1b[?25h" +
 				"\n";
 
 			// Write to /dev/tty on Unix
@@ -423,41 +544,43 @@ namespace SharpConsoleUI.Drivers
 		/// <inheritdoc/>
 		public void SetCursorPosition(int x, int y)
 		{
-			Console.SetCursorPosition(x, y);
+			if (_useDirectAnsi)
+				WriteOutput($"\x1b[{y + 1};{x + 1}H");
+			else
+				Console.SetCursorPosition(x, y);
 		}
 
 		/// <inheritdoc/>
 		public void SetCursorVisible(bool visible)
 		{
-			Console.CursorVisible = visible;
+			if (_useDirectAnsi)
+				WriteOutput(visible ? "\x1b[?25h" : "\x1b[?25l");
+			else
+				Console.CursorVisible = visible;
 		}
 
 		/// <inheritdoc/>
 		public void SetCursorShape(Core.CursorShape shape)
 		{
-			// ANSI escape sequence for cursor shape: ESC [ n SP q
-			// Shape codes: 1=blinking block, 2=steady block, 3=blinking underline,
-			// 4=steady underline, 5=blinking bar, 6=steady bar
 			int shapeCode = shape switch
 			{
-				Core.CursorShape.Block => 2,        // Steady block
-				Core.CursorShape.Underline => 4,    // Steady underline
-				Core.CursorShape.VerticalBar => 6,  // Steady bar
-				Core.CursorShape.Hidden => 0,       // Will be handled by SetCursorVisible
-				_ => 2  // Default to steady block
+				Core.CursorShape.Block => 2,
+				Core.CursorShape.Underline => 4,
+				Core.CursorShape.VerticalBar => 6,
+				Core.CursorShape.Hidden => 0,
+				_ => 2
 			};
 
 			if (shapeCode > 0)
 			{
-				Console.Write($"\x1b[{shapeCode} q");
+				WriteOutput($"\x1b[{shapeCode} q");
 			}
 		}
 
 		/// <inheritdoc/>
 		public void ResetCursorShape()
 		{
-			// Reset to default: ESC [ 0 SP q
-			Console.Write("\x1b[0 q");
+			WriteOutput("\x1b[0 q");
 		}
 
 		/// <inheritdoc/>
@@ -466,8 +589,16 @@ namespace SharpConsoleUI.Drivers
 			switch (RenderMode)
 			{
 				case RenderMode.Direct:
-					Console.SetCursorPosition(x, y);
-					Console.Write(value);
+					if (_useDirectAnsi)
+					{
+						WriteOutput($"\x1b[{y + 1};{x + 1}H");
+						WriteOutput(value);
+					}
+					else
+					{
+						Console.SetCursorPosition(x, y);
+						Console.Out.Write(value);
+					}
 					break;
 
 
@@ -524,25 +655,35 @@ namespace SharpConsoleUI.Drivers
 		{
 			try
 			{
-				// Soft terminal reset first
-				var resetSequence = "\x1b[!p";  // Soft reset (RIS)
+				// Write cleanup via raw write BEFORE restoring terminal
+				if (TerminalRawMode.IsRawModeActive)
+				{
+					var mouseDisable =
+						"\x1b[?1003l\x1b[?1002l\x1b[?1015l\x1b[?1006l\x1b[?1000l";
+					try
+					{
+						TerminalRawMode.WriteStdout(mouseDisable);
+						TerminalRawMode.WriteStdout("\x1b[?7h\x1b[0m\x1b[?25h");
+						TerminalRawMode.WriteStdout("\x1b[?1049l"); // Leave alternate screen
+					}
+					catch { }
+				}
 
-				// TRIPLE-SEND the mouse disable sequences
-				var mouseDisable =
-					"\x1b[?1003l" +  // Disable any event mouse
-					"\x1b[?1002l" +  // Disable button event tracking
-					"\x1b[?1015l" +  // Disable urxvt extended mouse mode
-					"\x1b[?1006l" +  // Disable SGR extended mouse mode
-					"\x1b[?1000l";   // Disable basic mouse reporting
+				// Restore terminal from raw mode
+				TerminalRawMode.RestoreTerminal();
+
+				var resetSequence = "\x1b[!p";
+				var mouseDisablePost =
+					"\x1b[?1003l\x1b[?1002l\x1b[?1015l\x1b[?1006l\x1b[?1000l";
 
 				var cleanupSequence =
 					resetSequence +
-					mouseDisable +
-					mouseDisable +  // Second time
-					mouseDisable +  // Third time
-					"\x1b[?7h" +    // Re-enable autowrap
-					"\x1b[0m" +     // Reset ANSI attributes
-					"\x1b[?25h" +   // Make cursor visible
+					mouseDisablePost +
+					mouseDisablePost +
+					mouseDisablePost +
+					"\x1b[?7h" +
+					"\x1b[0m" +
+					"\x1b[?25h" +
 					"\n";
 
 				// Write to /dev/tty on Unix
@@ -578,7 +719,7 @@ namespace SharpConsoleUI.Drivers
 				Console.Out.Flush();
 				Console.ResetColor();
 
-				try { Console.CursorVisible = true; } catch { }
+				try { Console.Out.Write("\x1b[?25h"); Console.Out.Flush(); } catch { }
 
 				Thread.Sleep(50);
 			}
@@ -586,6 +727,19 @@ namespace SharpConsoleUI.Drivers
 			{
 				// Swallow all errors - exiting anyway
 			}
+		}
+
+		/// <summary>
+		/// Writes output using raw libc write() when direct ANSI mode is active,
+		/// or Console.Out.Write as fallback. Raw write completely bypasses .NET's
+		/// Console/StreamWriter/SyncTextWriter infrastructure.
+		/// </summary>
+		private void WriteOutput(string text)
+		{
+			if (_useDirectAnsi)
+				TerminalRawMode.WriteStdout(text);
+			else
+				Console.Out.Write(text);
 		}
 
 		[DllImport("kernel32.dll")]
@@ -600,8 +754,9 @@ namespace SharpConsoleUI.Drivers
 		[DllImport("kernel32.dll")]
 		private static extern bool SetConsoleMode(nint hConsoleHandle, uint dwMode);
 
-		// Unix: suppress SIGTSTP (20) so Ctrl+Z reaches the editor as the Undo key
-		private const int SigTstp = 20;
+		// Unix signal constants for direct suppression via libc signal()
+		private const int SigInt = 2;     // Ctrl+C
+		private const int SigTstp = 20;   // Ctrl+Z
 
 		private static void SuppressUnixSignal(int signum)
 		{
@@ -1047,12 +1202,13 @@ namespace SharpConsoleUI.Drivers
 		{
 			while (_running == true)
 			{
-				if (Console.WindowWidth != _lastConsoleWidth || Console.WindowHeight != _lastConsoleHeight)
+				var currentSize = ScreenSize; // Uses ioctl when _useDirectAnsi
+				if (currentSize.Width != _lastConsoleWidth || currentSize.Height != _lastConsoleHeight)
 				{
 					if (RenderMode.Buffer == RenderMode)
 					{
 						_consoleBuffer!.Lock = true;
-						_consoleBuffer = new ConsoleBuffer(Console.WindowWidth, Console.WindowHeight, _consoleWindowSystem?.Options, _consoleLock);
+						_consoleBuffer = new ConsoleBuffer(currentSize.Width, currentSize.Height, _consoleWindowSystem?.Options, _consoleLock);
 
 						// Connect diagnostics if enabled
 						if (_consoleWindowSystem?.RenderingDiagnostics != null)
@@ -1063,10 +1219,10 @@ namespace SharpConsoleUI.Drivers
 						_consoleBuffer.Lock = false;
 					}
 
-					ScreenResized?.Invoke(this, ScreenSize);
+					ScreenResized?.Invoke(this, currentSize);
 
-					_lastConsoleWidth = Console.WindowWidth;
-					_lastConsoleHeight = Console.WindowHeight;
+					_lastConsoleWidth = currentSize.Width;
+					_lastConsoleHeight = currentSize.Height;
 				}
 				Thread.Sleep(50);
 			}

@@ -90,6 +90,11 @@ public record ConsoleWindowSystemOptions(
     bool Fix27_PeriodicFullRedraw = true,
     double Fix27_RedrawIntervalSeconds = 1.0,
 
+    // ===== PLATFORM-SPECIFIC =====
+    // When true on Unix, bypasses .NET Console entirely using raw libc I/O
+    // to eliminate the input echo leak. Has no effect on Windows.
+    bool UseDirectAnsi = true,
+
     // ===== DIAGNOSTICS & TESTING =====
     // Rendering diagnostics for testing and debugging (default: false, zero overhead when disabled)
     bool EnableDiagnostics = false,

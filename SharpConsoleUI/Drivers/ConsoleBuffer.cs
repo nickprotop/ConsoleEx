@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drivers.Input;
 using SharpConsoleUI.Helpers;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -119,7 +120,7 @@ namespace SharpConsoleUI.Drivers
 
 			// Single-pass state machine parser for ANSI sequences
 		// FIX6: Also limit width in AddContent to prevent writing beyond console
-		int maxBufferX = _options.Fix6_WidthLimit ? Math.Min(_width, Console.WindowWidth) : _width;
+		int maxBufferX = _options.Fix6_WidthLimit ? Math.Min(_width, GetCurrentWindowWidth()) : _width;
 			while (contentPos < content.Length && bufferX < maxBufferX)
 			{
 				// State machine: detect ESC character
@@ -267,12 +268,13 @@ namespace SharpConsoleUI.Drivers
 				CaptureConsoleBufferSnapshot();
 			}
 
-			Console.CursorVisible = false;
+			// Hide cursor during render — use raw write on Unix to bypass .NET entirely
+			WriteOutput("\x1b[?25l");
 
 			// FIX24: Drain input buffer to prevent mouse sequences from being echoed during rendering
-			// Race condition: If mouse events arrive while we're outputting cursor positioning,
-			// they get echoed at our current cursor position, mixing with our content
-			if (_options.Fix24_DrainInputBeforeRender)
+			// Skip when raw mode active — no echo means nothing to drain, and Console.ReadKey/KeyAvailable
+			// would go through ConsolePal which we're trying to avoid
+			if (_options.Fix24_DrainInputBeforeRender && !TerminalRawMode.IsRawModeActive)
 			{
 				int drained = 0;
 				while (Console.KeyAvailable)
@@ -291,19 +293,19 @@ namespace SharpConsoleUI.Drivers
 			// FIX25: Temporarily disable mouse tracking during rendering
 			// Problem: .NET Console.ReadKey() toggles echo on/off, creating windows where mouse sequences get echoed
 			// Solution: Disable mouse tracking entirely during render to prevent new events from arriving
-			if (_options.Fix25_DisableMouseDuringRender)
+			// FIX25: Disable mouse tracking during render — skip in raw mode (unnecessary)
+			if (_options.Fix25_DisableMouseDuringRender && !TerminalRawMode.IsRawModeActive)
 			{
-				// Disable all mouse tracking modes (reverse order of enable)
-				Console.Out.Write("\x1b[?1003l");  // Disable any event mouse
-				Console.Out.Write("\x1b[?1002l");  // Disable button event tracking
-				Console.Out.Write("\x1b[?1000l");  // Disable basic mouse reporting
-				Console.Out.Flush();
+				WriteOutput("\x1b[?1003l");  // Disable any event mouse
+				WriteOutput("\x1b[?1002l");  // Disable button event tracking
+				WriteOutput("\x1b[?1000l");  // Disable basic mouse reporting
+				FlushOutput();
 			}
 
 
 		// FIX27: Periodic redraw of clean cells to clear terminal echo leaks (Linux/macOS only)
-		// Check if 1 second has elapsed since last full redraw (time-based, not frame-based)
-		if (_options.Fix27_PeriodicFullRedraw && !RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+		// Keep active even in raw mode as a visual cleanup backstop
+		if (_options.Fix27_PeriodicFullRedraw && !RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && !TerminalRawMode.IsRawModeActive)
 		{
 			var elapsed = (DateTime.Now - _lastFullRedraw).TotalSeconds;
 			if (elapsed >= _options.Fix27_RedrawIntervalSeconds)
@@ -417,11 +419,12 @@ namespace SharpConsoleUI.Drivers
 		}
 
 
-			// Single atomic write of entire screen - no cursor jumps, no flicker!
+			// Single atomic write of entire screen via raw libc write() on Unix
+			// Completely bypasses .NET's Console/StreamWriter/SyncTextWriter
 			var output = screenBuilder.ToString();
 			if (output.Length > 0)
 			{
-				Console.Write(output);
+				WriteOutput(output);
 			}
 
 			// Diagnostics: Capture output metrics
@@ -445,13 +448,12 @@ namespace SharpConsoleUI.Drivers
 			}
 
 			// FIX25: Re-enable mouse tracking after rendering completes
-			if (_options.Fix25_DisableMouseDuringRender)
+			if (_options.Fix25_DisableMouseDuringRender && !TerminalRawMode.IsRawModeActive)
 			{
-				// Re-enable mouse tracking in same order as NetConsoleDriver initialization
-				Console.Out.Write("\x1b[?1000h");  // Enable basic mouse reporting
-				Console.Out.Write("\x1b[?1002h");  // Enable button event tracking
-				Console.Out.Write("\x1b[?1003h");  // Enable any event mouse
-				Console.Out.Flush();
+				WriteOutput("\x1b[?1000h");  // Enable basic mouse reporting
+				WriteOutput("\x1b[?1002h");  // Enable button event tracking
+				WriteOutput("\x1b[?1003h");  // Enable any event mouse
+				FlushOutput();
 			}
 		}
 	}
@@ -619,6 +621,37 @@ namespace SharpConsoleUI.Drivers
 		return (true, false, regions);
 	}
 
+	/// <summary>
+	/// Writes output using raw libc write() when raw mode is active, or Console.Out.Write as fallback.
+	/// Raw write completely bypasses .NET's Console/StreamWriter/SyncTextWriter infrastructure,
+	/// eliminating any possibility of .NET runtime code touching termios during output.
+	/// </summary>
+	private static void WriteOutput(string text)
+	{
+		if (TerminalRawMode.IsRawModeActive)
+			TerminalRawMode.WriteStdout(text);
+		else
+			Console.Out.Write(text);
+	}
+
+	/// <summary>
+	/// Flushes stdout. No-op when raw mode is active (raw write is unbuffered).
+	/// </summary>
+	private static void FlushOutput()
+	{
+		if (!TerminalRawMode.IsRawModeActive)
+			Console.Out.Flush();
+	}
+
+	/// <summary>
+	/// Gets current window width using ioctl when raw mode is active, avoiding ConsolePal.
+	/// </summary>
+	private int GetCurrentWindowWidth()
+	{
+		var (w, _) = TerminalRawMode.GetWindowSize();
+		return w;
+	}
+
 	private bool IsValidPosition(int x, int y)
 		=> x >= 0 && x < _width && y >= 0 && y < _height;
 
@@ -668,7 +701,7 @@ namespace SharpConsoleUI.Drivers
 			int cellsWritten = 0;  // Count cells written
 
 			// FIX6: Limit to console window width to prevent writing beyond visible area
-			int maxWidth = _options.Fix6_WidthLimit ? Math.Min(_width, Console.WindowWidth) : _width;
+			int maxWidth = _options.Fix6_WidthLimit ? Math.Min(_width, GetCurrentWindowWidth()) : _width;
 			for (int x = 0; x < maxWidth; x++)
 			{
 				ref var frontCell = ref _frontBuffer[x, y];
