@@ -47,20 +47,34 @@ namespace SharpConsoleUI.Drivers
 	}
 
 	/// <summary>
-	/// Provides a cross-platform console driver implementation using .NET Console APIs.
+	/// Provides a cross-platform console driver implementation.
 	/// </summary>
 	/// <remarks>
 	/// <para>
-	/// This driver supports both Windows and Unix-like platforms, handling platform-specific
-	/// console mode configuration for mouse input, virtual terminal processing, and other features.
-	/// </para>
-	/// <para>
-	/// On Windows, the driver configures console modes using Win32 API calls to enable
+	/// <b>Windows:</b> Uses .NET Console APIs with Win32 console mode configuration for
 	/// virtual terminal input/output and mouse reporting.
 	/// </para>
 	/// <para>
-	/// Mouse events are parsed from ANSI escape sequences in both X10 and SGR formats,
-	/// supporting button presses, releases, clicks, double-clicks, triple-clicks, and wheel events.
+	/// <b>Unix (UseDirectAnsi=true):</b> Bypasses .NET's Console infrastructure entirely,
+	/// using raw libc I/O for both input (read from stdin fd 0) and output (write to stdout fd 1).
+	/// Terminal is put into raw mode via tcgetattr/tcsetattr (cfmakeraw equivalent), and an
+	/// alternate screen buffer is used for clean display. Console.Out is redirected to /dev/null
+	/// to prevent .NET runtime code from touching stdout. Window size is queried via ioctl
+	/// TIOCGWINSZ instead of Console.WindowWidth/Height. SIGINT/SIGTSTP are suppressed via
+	/// signal() instead of Console.TreatControlCAsInput.
+	/// </para>
+	/// <para>
+	/// <b>Why:</b> .NET's ConsolePal.Unix calls tcsetattr on every Console.ReadKey, Console.SetCursorPosition,
+	/// Console.CursorVisible, and even Console.OutputEncoding access. Each tcsetattr briefly toggles
+	/// the ECHO flag, creating windows where raw mouse/keyboard ANSI sequences leak to the screen.
+	/// The only reliable fix is to never touch any Console.* property on the hot path.
+	/// </para>
+	/// <para>
+	/// <b>Approach inspired by Terminal.Gui v2</b> (https://github.com/gui-cs/Terminal.Gui),
+	/// which solved the same problem in their Unix NetDriver by using raw file descriptor I/O
+	/// and avoiding all .NET Console APIs on Unix. Key techniques adopted: reading from stdin fd 0
+	/// directly (not /dev/tty, to avoid byte competition with .NET's internal fd 0 reader),
+	/// tcflush to clear pending input, and alternate screen buffer usage.
 	/// </para>
 	/// </remarks>
 	public class NetConsoleDriver : IConsoleDriver
