@@ -44,26 +44,56 @@ Production-ready Linux server control panel built with SharpConsoleUI.
 
 ---
 
-### lazydotnet
-A lazygit-inspired TUI for managing .NET solutions and projects.
+### LazyNuGet
+A lazygit-inspired terminal UI for managing NuGet packages across .NET solutions.
 
-**Project:** [github.com/nickprotop/lazydotnet](https://github.com/nickprotop/lazydotnet)
+![LazyNuGet Dashboard](images/examples/lazynuget-dashboard.png)
 
-**Description:** Keyboard-driven terminal interface for common .NET development tasks — build, run, test, manage NuGet packages and project references — all without leaving the terminal.
+**Project:** [github.com/nickprotop/lazynuget](https://github.com/nickprotop/lazynuget)
+
+**Description:** Keyboard-driven TUI for browsing projects, checking for updates, installing/removing/updating packages, searching NuGet.org, and managing multiple package sources. Cross-platform (Windows, Linux, macOS).
 
 **Key Features:**
-- Hierarchical solution explorer with vim-style navigation
-- Build, run, and stop projects with live log streaming
-- NuGet package management with color-coded update indicators
-- Automatic test discovery (xUnit, NUnit, MSTest)
-- Workspace management for multiple solutions
-- Editor integration (Zed, VS Code, Cursor)
+- Interactive dashboard with project and package browsing
+- NuGet.org search with package details and dependency trees
+- Update strategies (latest stable, latest including prerelease, by constraint)
+- Multi-source support with credential management
+- CPM (Central Package Management) migration wizard
+- Operation history with undo support
+
+**Screenshots:**
+
+| Dashboard | Search NuGet.org | Dependency Tree |
+|-----------|-----------------|-----------------|
+| ![Dashboard](images/examples/lazynuget-dashboard.png) | ![Search](images/examples/lazynuget-search.png) | ![Deps](images/examples/lazynuget-deps.png) |
 
 **What it demonstrates:**
 - SharpConsoleUI powering a developer productivity tool
-- Complex keyboard-driven navigation patterns
-- Real-time log streaming and process management
+- Complex multi-panel dashboard layouts
+- Real-time NuGet API integration
 - Professional TUI design inspired by lazygit
+
+---
+
+### LazyDotIDE
+A lightweight console-based .NET IDE with LSP IntelliSense.
+
+**Project:** [github.com/nickprotop/lazydotide](https://github.com/nickprotop/lazydotide)
+
+**Description:** Console-based .NET IDE with LSP-powered IntelliSense, built-in terminal, and git integration. Works over SSH, in containers, anywhere you have a console.
+
+**Key Features:**
+- LSP IntelliSense with code completion and diagnostics
+- Built-in terminal emulator (PTY-based)
+- Git integration
+- Multi-file editing with tab navigation
+- Works over SSH and in containers
+
+**What it demonstrates:**
+- SharpConsoleUI powering a full IDE
+- Terminal emulator control (TerminalControl with PTY)
+- LSP protocol integration
+- Complex multi-panel editor layouts
 
 ---
 
