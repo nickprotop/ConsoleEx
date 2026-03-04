@@ -7,15 +7,21 @@
 <p align="center">
   <a href="https://nickprotop.github.io/ConsoleEx/"><img src="https://img.shields.io/badge/docs-latest-blue" alt="Documentation"></a>
   <a href="https://www.nuget.org/packages/SharpConsoleUI/"><img src="https://img.shields.io/nuget/v/SharpConsoleUI.svg" alt="NuGet"></a>
-  <img src="https://github.com/nickprotop/ConsoleEx/workflows/Build/badge.svg" alt="Build">
-  <img src="https://img.shields.io/badge/version-2.0-blue" alt="Version">
+  <a href="https://www.nuget.org/packages/SharpConsoleUI/"><img src="https://img.shields.io/nuget/dt/SharpConsoleUI.svg" alt="NuGet Downloads"></a>
+  <img src="https://github.com/nickprotop/ConsoleEx/actions/workflows/build-and-publish.yml/badge.svg" alt="Build">
   <img src="https://img.shields.io/badge/.NET-9.0-purple" alt=".NET">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
-**SharpConsoleUI** is a modern .NET 9 TUI framework that combines Spectre.Console's rich markup with true multi-window capabilities. **Cross-platform from the ground up.** Each window can run on its own dedicated thread, updating independently without blocking others. **Build beautiful UIs with familiar [markup] syntax everywhere.** No complex styling APIs, just `[bold red]text[/]` and it works. The double-buffered console driver built on .NET's native Console API eliminates flicker and ensures smooth rendering. **Any Spectre.Console widget (Tables, BarCharts, Trees, Panels) works as a window control.** Wrap any `IRenderable` and it just works. Direct CharacterBuffer access with PreBufferPaint/PostBufferPaint hooks lets you build custom rendering, visual effects, or even games (the Snake example renders its canvas this way). Fluent builders for windows, controls, and layouts.
+**SharpConsoleUI** is a multi-window TUI framework for .NET 9 that combines Spectre.Console's rich markup with true overlapping window capabilities. Cross-platform (Windows, Linux, macOS).
 
-> **Note:** This project is still in early days — work in progress and not production-stable yet. Feedback and contributions welcome.
+- **Multi-window with per-window threads** — each window updates independently without blocking others
+- **Spectre.Console markup everywhere** — just `[bold red]text[/]` and it works, no complex styling APIs
+- **Any Spectre.Console widget works as a control** — Tables, BarCharts, Trees, Panels — wrap any `IRenderable`
+- **Double-buffered, flicker-free rendering** with dirty region tracking
+- **30+ built-in controls** — buttons, lists, trees, tables, text editors, dropdowns, menus, tabs, and more
+- **Compositor effects** — PreBufferPaint/PostBufferPaint hooks for custom rendering, transitions, or even games
+- **Fluent builders** for windows, controls, and layouts
 
 **Visit the project website: [nickprotop.github.io/ConsoleEx](https://nickprotop.github.io/ConsoleEx/)**
 
@@ -26,10 +32,6 @@
 ![SharpConsoleUI Demo](docs/images/showcase.gif)
 
 *SharpConsoleUI in action - rich controls, multiple windows, smooth gradients, real-time updates, and full-screen capabilities*
-
-## Development Notes
-
-SharpConsoleUI was initially developed manually with core windowing functionality and double-buffered rendering. The project evolved to include modern features (DOM-based layout system, fluent builders, plugin architecture, theme system) with AI assistance. Architectural decisions and feature design came from the project author, while AI generated code implementations based on those decisions. The development process involved code generation, review sessions, debugging, and manual refinements. This collaborative approach enabled rapid iteration on complex features while maintaining architectural coherence.
 
 ## Quick Start
 
@@ -57,34 +59,10 @@ windowSystem.AddWindow(window);
 windowSystem.Run();
 ```
 
-## Table of Contents
-
-- [Development Notes](#development-notes)
-- [Installation](#installation)
-- [Core Features](#core-features)
-- [API Usage](#api-usage)
-- [Architecture Overview](#architecture-overview)
-- [Examples](#examples)
-- [Advanced Features](#advanced-features)
-- [Contributing](#contributing)
-- [Documentation](#documentation)
-- [Projects Using SharpConsoleUI](#projects-using-sharpconsoleui)
-
 ## Installation
 
-### Package Manager
-```bash
-Install-Package SharpConsoleUI
-```
-
-### .NET CLI
 ```bash
 dotnet add package SharpConsoleUI
-```
-
-### PackageReference
-```xml
-<PackageReference Include="SharpConsoleUI" Version="2.0.0" />
 ```
 
 ## Core Features
@@ -113,14 +91,16 @@ dotnet add package SharpConsoleUI
 - **Plugins**: Extensible architecture with DeveloperTools plugin
 - **Status Bars**: Top and bottom status bar support
 
-### Controls Library
-- **MarkupControl**: Rich text with Spectre.Console markup
-- **ButtonControl**: Interactive buttons with events
-- **CheckboxControl**: Toggle controls
-- **MultilineEditControl**: Text editing with scrolling
-- **TreeControl**: Hierarchical data display
-- **ListControl**: List display and selection
-- **HorizontalGridControl**: Tabular data display
+### Controls Library (30+)
+
+| Category | Controls |
+|----------|----------|
+| **Text & Display** | MarkupControl, FigleControl, RuleControl, SeparatorControl, SparklineControl, BarGraphControl, LogViewerControl |
+| **Input** | ButtonControl, CheckboxControl, PromptControl, DropdownControl, MultilineEditControl |
+| **Data** | ListControl, TreeControl, TableControl, HorizontalGridControl |
+| **Navigation** | MenuControl, ToolbarControl, TabControl |
+| **Layout** | ColumnContainer, SplitterControl, ScrollablePanelControl, PanelControl |
+| **Advanced** | SpectreRenderableControl (wraps any Spectre.Console `IRenderable`), ProgressBarControl, TerminalControl |
 
 ## API Usage
 
@@ -650,7 +630,7 @@ See the [Compositor Effects Guide](https://nickprotop.github.io/ConsoleEx/docfx/
 
 **Status**: Fixed. On Unix, SharpConsoleUI bypasses .NET's Console infrastructure entirely using raw libc I/O for both input (`read` from stdin fd 0) and output (`write` to stdout fd 1). The terminal is put into raw mode via `tcgetattr`/`tcsetattr`, and `Console.Out` is redirected to `/dev/null` to prevent any .NET runtime code from touching terminal settings. This eliminates the echo leak at its root.
 
-**Root cause**: .NET's `ConsolePal.Unix` calls `tcsetattr` on virtually every `Console.*` access — not just `ReadKey`, but also `SetCursorPosition`, `CursorVisible`, `WindowWidth`, and even `OutputEncoding`. Each call briefly toggles the ECHO flag, creating windows where raw ANSI sequences leak to the screen.
+**Root cause**: .NET's `ConsolePal.Unix` calls `tcsetattr` when `Console.ReadKey`/`KeyAvailable` is used, briefly toggling the ECHO terminal flag. During these brief windows, raw ANSI input sequences (especially mouse reports) leak to the screen as visible garbage characters.
 
 **Solution approach inspired by [Terminal.Gui v2](https://github.com/gui-cs/Terminal.Gui)**, which solved the same problem by avoiding all .NET Console APIs on Unix. The fix can be disabled via `ConsoleWindowSystemOptions(UseDirectAnsi: false)` to fall back to .NET Console APIs if needed.
 
@@ -700,15 +680,17 @@ ConsoleEx/
 │   ├── Helpers/              # Utility classes
 │   ├── Drivers/              # Console abstraction layer
 │   └── Themes/               # Theming system
-├── Examples/                 # Example applications
+├── Examples/                 # 20 example applications
 │   ├── DemoApp/              # Comprehensive demo
 │   ├── ConsoleTopExample/    # System monitoring dashboard
 │   ├── FullScreenExample/    # Full screen demo
 │   ├── PluginShowcaseExample/# Plugin system demo
-│   ├── AgentStudio/          # Advanced agent demo
-│   ├── MultiDashboard/       # Multi-window dashboard
-│   ├── MenuDemo/             # Menu system demo
-│   └── BorderStyleDemo/      # Border style demo
+│   ├── SnakeGame/            # Snake game (compositor effects)
+│   ├── TextEditorExample/    # Multi-line text editor
+│   ├── TabControlDemo/       # Tab control showcase
+│   ├── TableDemo/            # Table control showcase
+│   ├── CompositorEffectsExample/ # Visual effects demo
+│   └── ...                   # And more (see Examples/)
 └── Tests/                    # Unit tests
 ```
 
@@ -719,61 +701,8 @@ ConsoleEx/
 - Add unit tests for new features
 - Maintain backward compatibility
 
-### Critical: Console Output & Logging
-**NEVER use console-based output in SharpConsoleUI applications - it corrupts the display!**
-
-**❌ Avoid These (corrupt UI rendering):**
-- `Console.WriteLine()`, `Console.Write()`, `Console.Clear()`
-- `builder.AddConsole()` in logging configuration
-- Any output that writes directly to console
-
-**✅ Use These Alternatives:**
-- **UI Updates**: `window.AddControl(new MarkupControl("message"))`
-- **File Logging**: File-based or database logging providers
-- **Debug Logging**: Only in development, not console output
-- **Event Logging**: Windows Event Log or similar
-
-**Use the built-in logging instead:**
-```bash
-# Enable debug logging via environment variables
-export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
-export SHARPCONSOLEUI_DEBUG_LEVEL=Debug
-```
-
-### Built-in Debug Logging
-
-The library includes a built-in debug logging system for troubleshooting, controlled via environment variables:
-
-```bash
-# Enable debug logging to file
-export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
-
-# Set minimum log level (Trace, Debug, Information, Warning, Error, Critical)
-export SHARPCONSOLEUI_DEBUG_LEVEL=Debug
-```
-
-Access logs programmatically:
-```csharp
-// Subscribe to log events
-windowSystem.LogService.LogAdded += (s, entry) => { /* handle entry */ };
-
-// Get recent logs
-var logs = windowSystem.LogService.GetRecentLogs(50);
-```
-
-### Notifications
-
-Display notifications using the built-in notification service:
-```csharp
-windowSystem.NotificationStateService.ShowNotification(
-    title: "Success",
-    message: "Operation completed",
-    severity: NotificationSeverity.Success,
-    blockUi: false,
-    timeout: 5000);
-```
-
-Severity levels: `Info`, `Success`, `Warning`, `Danger`, `None`
+### Important: No Console Output
+**Do not use `Console.WriteLine()`, `Console.Write()`, or console logging providers** — they corrupt the UI rendering. Use the built-in `LogService` or file-based logging instead.
 
 ## License
 
@@ -781,21 +710,26 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ## Acknowledgments
 
-- Built on [Spectre.Console](https://github.com/spectreconsole/spectre.console) for rich console output
-- Inspired by traditional GUI frameworks adapted for console applications
+- Built on [Spectre.Console](https://github.com/spectreconsole/spectre.console) for rich console rendering
+- Unix raw I/O approach inspired by [Terminal.Gui v2](https://github.com/gui-cs/Terminal.Gui)
 
 ## Documentation
 
 Detailed documentation is available in separate guides:
 
-- **[Configuration Guide](docs/CONFIGURATION.md)** - Complete system configuration reference
-- **[Status System](docs/STATUS_SYSTEM.md)** - Status bars, window task bar, and Start Menu
-- **[Controls Reference](docs/CONTROLS.md)** - Complete guide to all 25+ UI controls
-- **[Built-in Dialogs](docs/DIALOGS.md)** - File pickers, folder browsers, and system dialogs
-- **[Theme System](docs/THEMES.md)** - Built-in themes, custom themes, and runtime switching
-- **[Plugin Development](docs/PLUGINS.md)** - Creating custom plugins and using the plugin architecture
-- **[State Services](docs/STATE-SERVICES.md)** - Window state, focus, modal, and notification services
+- **[Examples Gallery](docs/EXAMPLES.md)** - All examples with screenshots
 - **[Fluent Builders](docs/BUILDERS.md)** - WindowBuilder and control builder APIs
+- **[Controls Reference](docs/CONTROLS.md)** - Complete guide to all 30+ UI controls
+- **[Built-in Dialogs](docs/DIALOGS.md)** - File pickers, folder browsers, and system dialogs
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Complete system configuration reference
+- **[Theme System](docs/THEMES.md)** - Built-in themes, custom themes, and runtime switching
+- **[State Services](docs/STATE-SERVICES.md)** - Window state, focus, modal, and notification services
+- **[Plugin Development](docs/PLUGINS.md)** - Creating custom plugins and using the plugin architecture
+- **[Compositor Effects](docs/COMPOSITOR_EFFECTS.md)** - Buffer manipulation, transitions, and visual effects
+- **[Portal System](docs/PORTAL_SYSTEM.md)** - Floating portals and overlay system
+- **[DOM Layout System](docs/DOM_LAYOUT_SYSTEM.md)** - Layout engine internals
+- **[Rendering Pipeline](docs/RENDERING_PIPELINE.md)** - Rendering architecture details
+- **[Status System](docs/STATUS_SYSTEM.md)** - Status bars, window task bar, and Start Menu
 
 ## Links
 
@@ -812,8 +746,13 @@ Real-world applications built with SharpConsoleUI:
 |---------|-------------|
 | **[ServerHub](https://github.com/nickprotop/ServerHub)** | A terminal-based control panel for Linux servers and homelabs. Features 14 bundled widgets for monitoring CPU, memory, disk, network, Docker containers, systemd services, and more. Supports custom widgets in any language and context-aware actions. |
 | **[LazyNuGet](https://github.com/nickprotop/lazynuget)** | A terminal-based NuGet package manager for .NET solutions. Search, install, update, and manage NuGet dependencies across projects with multi-source support, dependency tree visualization, and cross-platform binaries. |
+| **[LazyDotIDE](https://github.com/nickprotop/lazydotide)** | A lightweight console-based .NET IDE with LSP IntelliSense, built-in terminal, and git integration. Works over SSH, in containers, anywhere you have a console. |
 
 *Using SharpConsoleUI in your project? Open a PR to add it to this list!*
+
+## Development Notes
+
+SharpConsoleUI was initially developed manually with core windowing functionality and double-buffered rendering. The project evolved to include modern features (DOM-based layout system, fluent builders, plugin architecture, theme system) with AI assistance. Architectural decisions and feature design came from the project author, while AI generated code implementations based on those decisions.
 
 ---
 
