@@ -799,7 +799,7 @@ namespace SharpConsoleUI.Drivers
 					if (key.Key == ConsoleKey.D2 && (key.Modifiers & ConsoleModifiers.Control) != 0 && key.KeyChar == '\0')
 					{
 						var normalizedKey = new ConsoleKeyInfo(
-							' ',                          // Spacebar character
+							'\0',                         // NUL char (matches raw byte, prevents isTypingKey misdetection)
 							ConsoleKey.Spacebar,          // Spacebar key
 							false,                        // shift
 							false,                        // alt

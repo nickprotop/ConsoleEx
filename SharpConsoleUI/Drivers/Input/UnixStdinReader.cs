@@ -79,7 +79,10 @@ namespace SharpConsoleUI.Drivers.Input
 
 				var events = _parser.Parse(buffer.AsSpan(), bytesRead);
 
-				// ESC timeout: if we got a lone ESC byte, wait briefly for follow-up
+				// ESC timeout: if we got a lone ESC byte, wait briefly for follow-up.
+				// We use ReadAsync + Wait(timeout). If the timeout expires, we MUST
+				// await the ReadAsync to completion before continuing so that the
+				// pending async read doesn't race with the next synchronous Read.
 				if (events.Count == 0 && bytesRead == 1 && buffer[0] == 0x1B)
 				{
 					var escWaitStart = DateTime.UtcNow;
@@ -96,6 +99,33 @@ namespace SharpConsoleUI.Drivers.Input
 								events.AddRange(_parser.Parse(buffer.AsSpan(), moreBytes));
 								gotMore = true;
 							}
+						}
+						else
+						{
+							// Timeout expired — flush ESC as standalone key, but the
+							// ReadAsync is still pending and will capture the next byte.
+							// We must await it so we don't lose that byte.
+							events.AddRange(_parser.Flush());
+							gotMore = true; // skip second Flush below
+
+							// Dispatch the standalone ESC now
+							foreach (var evt in events)
+							{
+								if (cancellationToken.IsCancellationRequested) break;
+								if (evt is KeyInputEvent keyEvt)
+									onKey(keyEvt.KeyInfo);
+							}
+							events.Clear();
+
+							// Now wait for the pending ReadAsync to complete — this will
+							// capture the next keypress that would otherwise be lost
+							try
+							{
+								int moreBytes = readTask.GetAwaiter().GetResult();
+								if (moreBytes > 0)
+									events.AddRange(_parser.Parse(buffer.AsSpan(), moreBytes));
+							}
+							catch { }
 						}
 					}
 					catch { }

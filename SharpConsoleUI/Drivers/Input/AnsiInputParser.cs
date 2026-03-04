@@ -24,6 +24,7 @@ namespace SharpConsoleUI.Drivers.Input
 	{
 		private const int MaxPendingBytes = 256;
 		private const int Utf8MaxBytes = 4;
+		private const int X10MouseByteCount = 3; // button, x, y
 
 		private enum State
 		{
@@ -31,7 +32,8 @@ namespace SharpConsoleUI.Drivers.Input
 			Escape,
 			CsiParam,
 			Ss3,
-			Utf8
+			Utf8,
+			X10Mouse // Collecting 3 raw bytes after CSI M (legacy X10 format)
 		}
 
 		private State _state = State.Ground;
@@ -41,6 +43,8 @@ namespace SharpConsoleUI.Drivers.Input
 		private int _utf8Remaining;
 		private readonly byte[] _utf8Buffer = new byte[Utf8MaxBytes];
 		private int _utf8Index;
+		private readonly byte[] _x10MouseBuffer = new byte[X10MouseByteCount];
+		private int _x10MouseIndex;
 
 		/// <summary>
 		/// Parses raw bytes from stdin into a list of input events.
@@ -74,6 +78,10 @@ namespace SharpConsoleUI.Drivers.Input
 
 					case State.Utf8:
 						ProcessUtf8(b, events);
+						break;
+
+					case State.X10Mouse:
+						ProcessX10Mouse(b, events);
 						break;
 				}
 			}
@@ -111,6 +119,14 @@ namespace SharpConsoleUI.Drivers.Input
 				_utf8Remaining = 0;
 				_state = State.Ground;
 			}
+			else if (_state == State.X10Mouse)
+			{
+				// Incomplete X10 mouse — emit as unknown
+				events.Add(new UnknownSequenceEvent(_pending.ToArray()));
+				_pending.Clear();
+				_x10MouseIndex = 0;
+				_state = State.Ground;
+			}
 
 			return events;
 		}
@@ -126,10 +142,20 @@ namespace SharpConsoleUI.Drivers.Input
 			_csiIsSgr = false;
 			_utf8Remaining = 0;
 			_utf8Index = 0;
+			_x10MouseIndex = 0;
 		}
 
 		private void ProcessGround(byte b, List<InputEvent> events)
 		{
+			// Ctrl+Space (Ctrl+@) = NUL byte — must check before the ESC/control ranges
+			// KeyChar must be '\0' to match Console.ReadKey behavior (not ' ')
+			// so that isControl/isTypingKey checks work correctly downstream
+			if (b == 0x00)
+			{
+				events.Add(new KeyInputEvent(new ConsoleKeyInfo('\0', ConsoleKey.Spacebar, false, false, true)));
+				return;
+			}
+
 			if (b == 0x1B)
 			{
 				_state = State.Escape;
@@ -154,9 +180,6 @@ namespace SharpConsoleUI.Drivers.Input
 						return;
 					case 0x08: // Ctrl+H / Backspace
 						events.Add(new KeyInputEvent(new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false)));
-						return;
-					case 0x00: // Ctrl+Space (Ctrl+@)
-						events.Add(new KeyInputEvent(new ConsoleKeyInfo(' ', ConsoleKey.Spacebar, false, false, true)));
 						return;
 					default:
 						// Ctrl+Letter: map 0x01→A, 0x02→B, etc.
@@ -264,9 +287,13 @@ namespace SharpConsoleUI.Drivers.Input
 			if (b >= 0x40 && b <= 0x7E)
 			{
 				DispatchCsi((char)b, events);
-				_state = State.Ground;
-				_pending.Clear();
-				_csiParams.Clear();
+				// DispatchCsi may set a new state (e.g. X10Mouse) — don't overwrite it
+				if (_state == State.CsiParam)
+				{
+					_state = State.Ground;
+					_pending.Clear();
+					_csiParams.Clear();
+				}
 				return;
 			}
 
@@ -337,6 +364,71 @@ namespace SharpConsoleUI.Drivers.Input
 			}
 		}
 
+		private void ProcessX10Mouse(byte b, List<InputEvent> events)
+		{
+			_x10MouseBuffer[_x10MouseIndex++] = b;
+
+			if (_x10MouseIndex < X10MouseByteCount)
+				return; // Need more bytes
+
+			// All 3 bytes collected: button, x, y (each offset by 32)
+			int buttonCode = _x10MouseBuffer[0] - 32;
+			int x = Math.Max(0, _x10MouseBuffer[1] - 33); // 1-based + offset 32 → 0-based
+			int y = Math.Max(0, _x10MouseBuffer[2] - 33);
+			var pos = new Point(x, y);
+			var flags = new List<MouseFlags>();
+
+			// Modifier flags
+			if ((buttonCode & 0x04) != 0) flags.Add(MouseFlags.ButtonShift);
+			if ((buttonCode & 0x08) != 0) flags.Add(MouseFlags.ButtonAlt);
+			if ((buttonCode & 0x10) != 0) flags.Add(MouseFlags.ButtonCtrl);
+
+			bool motion = (buttonCode & 0x20) != 0;
+			bool wheel = (buttonCode & 0x40) != 0;
+			int baseButton = buttonCode & 0x03;
+
+			if (wheel)
+			{
+				switch (baseButton)
+				{
+					case 0: flags.Add(MouseFlags.WheeledUp); break;
+					case 1: flags.Add(MouseFlags.WheeledDown); break;
+					case 2: flags.Add(MouseFlags.WheeledLeft); break;
+					case 3: flags.Add(MouseFlags.WheeledRight); break;
+				}
+			}
+			else if (motion)
+			{
+				flags.Add(MouseFlags.ReportMousePosition);
+				switch (baseButton)
+				{
+					case 0: flags.Add(MouseFlags.Button1Pressed); flags.Add(MouseFlags.Button1Dragged); break;
+					case 1: flags.Add(MouseFlags.Button2Pressed); flags.Add(MouseFlags.Button2Dragged); break;
+					case 2: flags.Add(MouseFlags.Button3Pressed); flags.Add(MouseFlags.Button3Dragged); break;
+				}
+			}
+			else if (baseButton == 3)
+			{
+				// X10: button 3 in non-SGR means "button released" (no per-button release info)
+				flags.Add(MouseFlags.Button1Released);
+			}
+			else
+			{
+				// Button press
+				switch (baseButton)
+				{
+					case 0: flags.Add(MouseFlags.Button1Pressed); break;
+					case 1: flags.Add(MouseFlags.Button2Pressed); break;
+					case 2: flags.Add(MouseFlags.Button3Pressed); break;
+				}
+			}
+
+			events.Add(new MouseInputEvent(flags, pos));
+			_x10MouseIndex = 0;
+			_pending.Clear();
+			_state = State.Ground;
+		}
+
 		private void DispatchCsi(char finalByte, List<InputEvent> events)
 		{
 			string paramStr = _csiParams.ToString();
@@ -379,10 +471,16 @@ namespace SharpConsoleUI.Drivers.Input
 					DispatchTilde(numericPart, shift, alt, ctrl, events);
 					break;
 
-				// Legacy X10 mouse
+				// Legacy X10 mouse: CSI M <button> <x> <y> (3 raw bytes follow)
 				case 'M':
-					if (!_csiIsSgr)
-						events.Add(new UnknownSequenceEvent(_pending.ToArray()));
+					if (!_csiIsSgr && string.IsNullOrEmpty(paramStr))
+					{
+						_x10MouseIndex = 0;
+						_state = State.X10Mouse;
+						// Caller checks _state != CsiParam and skips cleanup
+						break;
+					}
+					events.Add(new UnknownSequenceEvent(_pending.ToArray()));
 					break;
 
 				default:
