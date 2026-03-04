@@ -33,6 +33,8 @@ internal sealed class LinuxPtyBackend : IPtyBackend
         PtyNative.close(slave);  // parent closes its copy of the slave fd
     }
 
+    public int ChildProcessId => _shimProc.Id;
+
     public int Read(byte[] buf, int count) => PtyNative.read(_masterFd, buf, count);
 
     public void Write(byte[] buf, int count) => PtyNative.write(_masterFd, buf, count);

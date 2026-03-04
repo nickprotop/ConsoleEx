@@ -39,6 +39,9 @@ public sealed class TerminalControl
     /// <summary>Window title derived from the launched executable name.</summary>
     public string Title { get; }
 
+    /// <summary>The OS process ID of the child process running inside the PTY.</summary>
+    public int ProcessId => _pty.ChildProcessId;
+
     /// <summary>Raised on the PTY read thread when the spawned process exits.</summary>
     public event EventHandler? ProcessExited;
 

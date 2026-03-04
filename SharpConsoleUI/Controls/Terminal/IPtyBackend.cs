@@ -17,4 +17,7 @@ internal interface IPtyBackend : IDisposable
 
     /// <summary>Write keyboard/mouse bytes to the PTY.</summary>
     void Write(byte[] buf, int count);
+
+    /// <summary>The OS process ID of the child process running inside the PTY.</summary>
+    int ChildProcessId { get; }
 }

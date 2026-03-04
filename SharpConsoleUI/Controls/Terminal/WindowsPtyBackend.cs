@@ -16,6 +16,7 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 {
     private IntPtr  _hPcon    = IntPtr.Zero;
     private IntPtr  _hProcess = IntPtr.Zero;
+    private int     _processId;
     private Stream? _inputStream;   // parent writes keyboard input here
     private Stream? _outputStream;  // parent reads terminal output from here
     private int _disposed = 0;
@@ -91,6 +92,7 @@ internal sealed class WindowsPtyBackend : IPtyBackend
             }
 
             _hProcess = pi.hProcess;
+            _processId = pi.dwProcessId;
             WinPtyNative.CloseHandle(pi.hThread); // we don't need the thread handle
         }
         finally
@@ -101,6 +103,8 @@ internal sealed class WindowsPtyBackend : IPtyBackend
     }
 
     // ── IPtyBackend ──────────────────────────────────────────────────────────
+
+    public int ChildProcessId => _processId;
 
     public int Read(byte[] buf, int count)
     {
