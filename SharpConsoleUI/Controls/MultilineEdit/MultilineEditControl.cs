@@ -68,6 +68,7 @@ namespace SharpConsoleUI.Controls
 		private int _viewportHeight;
 		private WrapMode _wrapMode = WrapMode.Wrap;
 		private bool _isDragging = false;
+		private bool _gutterPressed = false;
 
 		// Scrollbar drag state
 		private bool _scrollbarInteracted = false;
@@ -101,6 +102,9 @@ namespace SharpConsoleUI.Controls
 		// Current line highlight
 		private bool _highlightCurrentLine;
 		private Color? _currentLineHighlightColorValue;
+
+		// Per-line background highlights (source line index → color)
+		private Dictionary<int, Color> _lineHighlights = new();
 
 		// Visible whitespace
 		private bool _showWhitespace;
@@ -213,6 +217,11 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the control loses focus.
 		/// </summary>
 		public event EventHandler? LostFocus;
+
+		/// <summary>
+		/// Occurs when the user clicks on the gutter area (left of the text).
+		/// </summary>
+		public event EventHandler<GutterClickEventArgs>? GutterClick;
 
 		#endregion
 
@@ -336,6 +345,12 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		/// <summary>
+		/// When true, pressing Escape will not exit editing mode.
+		/// Useful for IDE-style editors where Escape is used for other purposes (e.g. dismissing popups).
+		/// </summary>
+		public bool EscapeExitsEditMode { get; set; } = true;
 
 		/// <summary>
 		/// Gets or sets whether the control is currently in text editing mode.
@@ -798,6 +813,41 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool CanFocusWithMouse => IsEnabled;
+
+		/// <summary>
+		/// Gets or sets per-line background highlights keyed by 0-based source line index.
+		/// </summary>
+		public Dictionary<int, Color> LineHighlights
+		{
+			get => _lineHighlights;
+			set
+			{
+				_lineHighlights = value ?? new();
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Sets or clears a background highlight for a specific source line.
+		/// Pass null to clear the highlight for that line.
+		/// </summary>
+		public void SetLineHighlight(int sourceLineIndex, Color? color)
+		{
+			if (color.HasValue)
+				_lineHighlights[sourceLineIndex] = color.Value;
+			else
+				_lineHighlights.Remove(sourceLineIndex);
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Clears all per-line background highlights.
+		/// </summary>
+		public void ClearLineHighlights()
+		{
+			_lineHighlights.Clear();
+			Container?.Invalidate(true);
+		}
 
 		#endregion
 

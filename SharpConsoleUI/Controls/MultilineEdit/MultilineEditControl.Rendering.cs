@@ -288,9 +288,15 @@ namespace SharpConsoleUI.Controls
 
 						int hScrollForCalc = (_wrapMode == WrapMode.NoWrap) ? _horizontalScrollOffset : 0;
 
-						// Determine current line highlight
+						// Determine current line highlight (custom line highlights take precedence)
 						bool isCurrentLine = _highlightCurrentLine && _isEditing && wl.SourceLineIndex == _cursorY;
-						Color lineBg = isCurrentLine ? CurrentLineHighlightColor : bgColor;
+						Color lineBg;
+						if (_lineHighlights.TryGetValue(wl.SourceLineIndex, out var customLineBg))
+							lineBg = customLineBg;
+						else if (isCurrentLine)
+							lineBg = CurrentLineHighlightColor;
+						else
+							lineBg = bgColor;
 
 						// Paint each character with selection, syntax, and whitespace handling
 						for (int charPos = 0; charPos < effectiveWidth; charPos++)

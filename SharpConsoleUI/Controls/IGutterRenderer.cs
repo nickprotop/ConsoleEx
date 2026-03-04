@@ -55,6 +55,21 @@ namespace SharpConsoleUI.Controls
 	}
 
 	/// <summary>
+	/// Event arguments for a mouse click in the gutter area.
+	/// </summary>
+	public class GutterClickEventArgs : EventArgs
+	{
+		/// <summary>The 0-based source line index that was clicked, or -1 if beyond content.</summary>
+		public int SourceLineIndex { get; init; }
+
+		/// <summary>The X coordinate within the gutter (relative to gutter start).</summary>
+		public int GutterX { get; init; }
+
+		/// <summary>The original mouse event arguments.</summary>
+		public Events.MouseEventArgs MouseEventArgs { get; init; } = null!;
+	}
+
+	/// <summary>
 	/// Defines a pluggable gutter renderer for <see cref="MultilineEditControl"/>.
 	/// Multiple renderers are stacked left-to-right in the gutter area.
 	/// </summary>

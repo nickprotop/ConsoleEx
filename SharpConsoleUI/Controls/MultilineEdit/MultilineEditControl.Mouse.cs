@@ -200,6 +200,47 @@ namespace SharpConsoleUI.Controls
 					return true;
 			}
 
+			// Handle gutter clicks: fire GutterClick on the first Button1Pressed only,
+			// use _gutterPressed guard to prevent re-fire during SGR drag continuation,
+			// and consume all Button1 events in gutter area to prevent text selection.
+			if (GutterClick != null)
+			{
+				int gutterWidth = GetGutterWidth();
+				int gutterX = args.Position.X - Margin.Left;
+				bool inGutter = gutterX >= 0 && gutterX < gutterWidth;
+
+				if (inGutter && args.HasFlag(MouseFlags.Button1Pressed) && !_gutterPressed)
+				{
+					// First press in gutter — fire GutterClick immediately
+					_gutterPressed = true;
+					_isDragging = false;
+
+					int sourceLineIndex = -1;
+					int clickRow = args.Position.Y - Margin.Top + _verticalScrollOffset;
+					var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
+					if (clickRow >= 0 && clickRow < wrappedLines.Count)
+						sourceLineIndex = wrappedLines[clickRow].SourceLineIndex;
+
+					GutterClick.Invoke(this, new GutterClickEventArgs
+					{
+						SourceLineIndex = sourceLineIndex,
+						GutterX = gutterX,
+						MouseEventArgs = args
+					});
+					return true;
+				}
+
+				// Consume all other Button1 events in gutter while pressed
+				if (inGutter && args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged,
+					MouseFlags.Button1Released, MouseFlags.Button1Clicked))
+				{
+					if (args.HasAnyFlag(MouseFlags.Button1Released, MouseFlags.Button1Clicked))
+						_gutterPressed = false;
+					_isDragging = false;
+					return true;
+				}
+			}
+
 			// Handle right-click: move cursor to click position first, then fire event
 			if (args.HasFlag(MouseFlags.Button3Clicked))
 			{
@@ -333,10 +374,11 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Mouse button released: end drag
+			// Mouse button released: end drag and reset gutter press guard
 			if (args.HasFlag(MouseFlags.Button1Released))
 			{
 				_isDragging = false;
+				_gutterPressed = false;
 				return true;
 			}
 

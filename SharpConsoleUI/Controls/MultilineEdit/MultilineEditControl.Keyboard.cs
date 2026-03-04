@@ -537,7 +537,7 @@ namespace SharpConsoleUI.Controls
 						Container?.Invalidate(true);
 						return true;
 					}
-					if (_isEditing)
+					if (_isEditing && EscapeExitsEditMode)
 					{
 						IsEditing = false;
 						return true;
