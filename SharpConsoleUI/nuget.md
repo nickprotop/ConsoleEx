@@ -1,10 +1,11 @@
 # SharpConsoleUI
 
-![Version](https://img.shields.io/badge/version-2.3-blue)
+[![NuGet](https://img.shields.io/nuget/v/SharpConsoleUI.svg)](https://www.nuget.org/packages/SharpConsoleUI/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/SharpConsoleUI.svg)](https://www.nuget.org/packages/SharpConsoleUI/)
 ![.NET](https://img.shields.io/badge/.NET-9.0-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-A modern console window system for .NET 9 with fluent builders, async patterns, and built-in state services.
+Multi-window TUI framework for .NET 9. Combines Spectre.Console rich markup with true overlapping windows, per-window threads, and double-buffered rendering. Cross-platform (Windows, Linux, macOS).
 
 ## Quick Start
 
@@ -349,7 +350,7 @@ var window = new WindowBuilder(system)
 ## Requirements
 
 - **.NET 9.0** or later
-- **Spectre.Console** 0.49.1 or later
+- **Spectre.Console** 0.54.0 or later
 - **Terminal with ANSI support** (Windows Terminal, iTerm2, etc.)
 
 ## Resources

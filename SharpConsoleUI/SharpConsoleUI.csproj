@@ -17,15 +17,17 @@
 		<PackageId>SharpConsoleUI</PackageId>
 		<Version>0.0.1</Version>
 		<Authors>Nikolaos Protopapas</Authors>
-		<Description>A console window system library that provides controls like TreeControl, ListControl, and HorizontalGridControl for creating TUI applications.</Description>
+		<Description>Multi-window TUI framework for .NET 9. Combines Spectre.Console rich markup with true overlapping windows, per-window threads, and double-buffered rendering. Cross-platform (Windows, Linux, macOS).</Description>
 		<PackageReleaseNotes>Bug fixes and performance improvements</PackageReleaseNotes>
-		<Copyright>Copyright © 2025</Copyright>
+		<Copyright>Copyright © 2025-2026 Nikolaos Protopapas</Copyright>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageProjectUrl>https://github.com/nickprotop/ConsoleEx</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/nickprotop/ConsoleEx</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
-		<PackageTags>console extension tui ui interface controls windows</PackageTags>
+		<PackageTags>tui terminal-ui console-ui dotnet csharp spectre-console multi-window windowing framework cross-platform linux windows macos</PackageTags>
 		<PackageReadmeFile>nuget.md</PackageReadmeFile>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -34,6 +36,10 @@
 
 	<ItemGroup>
 	  <None Update="nuget.md">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
+	  <None Include="icon.png">
 	    <Pack>True</Pack>
 	    <PackagePath>\</PackagePath>
 	  </None>
