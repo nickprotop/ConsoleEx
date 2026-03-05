@@ -28,9 +28,6 @@ namespace SharpConsoleUI
 		private readonly Dictionary<(char, int), string> _fillStringCache = new Dictionary<(char, int), string>();
 
 
-		// ===== FIX TOGGLES =====
-		// FIX11: Prevent ANSI doubling by not passing foregroundColor when markup already has color tags
-		private const bool FIX11_NO_FOREGROUND_IN_MARKUP = true;
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Renderer"/> class.
 		/// </summary>

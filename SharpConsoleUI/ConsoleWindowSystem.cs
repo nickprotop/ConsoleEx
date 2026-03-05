@@ -121,7 +121,7 @@ namespace SharpConsoleUI
 		#region Constructors
 
 		/// <summary>
-		/// Initializes a new instance with a render mode. UseDirectAnsi is read from options.
+		/// Initializes a new instance with a render mode.
 		/// </summary>
 		/// <param name="renderMode">The rendering mode to use.</param>
 		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
@@ -133,11 +133,9 @@ namespace SharpConsoleUI
 
 		private static NetConsoleDriver CreateDriver(RenderMode renderMode, ConsoleWindowSystemOptions? options)
 		{
-			var opts = options ?? ConsoleWindowSystemOptions.Default;
 			return new NetConsoleDriver(new NetConsoleDriverOptions
 			{
-				RenderMode = renderMode,
-				UseDirectAnsi = opts.UseDirectAnsi
+				RenderMode = renderMode
 			});
 		}
 

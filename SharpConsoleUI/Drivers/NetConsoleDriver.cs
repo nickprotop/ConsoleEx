@@ -55,7 +55,7 @@ namespace SharpConsoleUI.Drivers
 	/// virtual terminal input/output and mouse reporting.
 	/// </para>
 	/// <para>
-	/// <b>Unix (UseDirectAnsi=true):</b> Bypasses .NET's Console infrastructure entirely,
+	/// <b>Unix:</b> Bypasses .NET's Console infrastructure entirely,
 	/// using raw libc I/O for both input (read from stdin fd 0) and output (write to stdout fd 1).
 	/// Terminal is put into raw mode via tcgetattr/tcsetattr (cfmakeraw equivalent), and an
 	/// alternate screen buffer is used for clean display. Console.Out is redirected to /dev/null
@@ -145,20 +145,10 @@ namespace SharpConsoleUI.Drivers
 				Console.OutputEncoding = Encoding.UTF8;
 				Console.TreatControlCAsInput = true;
 			}
-			else if (options.UseDirectAnsi)
-			{
-				// Unix with direct ANSI: avoid ALL Console.* calls to prevent
-				// ConsolePal initialization which saves termios state with ECHO on.
-				// .NET's signal handlers then periodically restore to that state,
-				// re-enabling ECHO behind our back. Use raw signal suppression instead.
-				SuppressUnixSignal(SigInt);   // Ctrl+C — ISIG off in raw mode handles this too
-				SuppressUnixSignal(SigTstp);  // Ctrl+Z
-			}
 			else
 			{
-				// Unix without direct ANSI: use Console.* (ConsolePal, may leak)
-				Console.OutputEncoding = Encoding.UTF8;
-				Console.TreatControlCAsInput = true;
+				// Unix: avoid ALL Console.* calls to prevent ConsolePal initialization
+				SuppressUnixSignal(SigInt);
 				SuppressUnixSignal(SigTstp);
 			}
 
@@ -266,7 +256,6 @@ namespace SharpConsoleUI.Drivers
 
 		/// <summary>
 		/// Whether direct ANSI mode is active (bypassing ConsolePal).
-		/// Used by ConsoleBuffer to skip FIX24/FIX27 and use ANSI cursor hide.
 		/// </summary>
 		internal bool UseDirectAnsi => _useDirectAnsi;
 
@@ -349,9 +338,9 @@ namespace SharpConsoleUI.Drivers
 		/// <inheritdoc/>
 		public void Start()
 		{
-			// Determine if we should use direct ANSI mode (Unix + UseDirectAnsi option)
+			// Unix always uses raw mode to bypass ConsolePal
 			bool isUnix = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-			_useDirectAnsi = isUnix && Options.UseDirectAnsi;
+			_useDirectAnsi = isUnix;
 
 			// Enter raw mode before creating console buffer (so ioctl is available)
 			if (_useDirectAnsi)
@@ -361,7 +350,7 @@ namespace SharpConsoleUI.Drivers
 					_useDirectAnsi = false; // Fallback to ConsolePal if raw mode fails
 					_consoleWindowSystem?.LogService?.Log(
 						Logging.LogLevel.Warning,
-						"Raw mode failed to enter — falling back to ConsolePal (echo leak possible)",
+						"Raw mode failed to enter — falling back to ConsolePal",
 						"Input");
 				}
 				else
@@ -873,7 +862,6 @@ namespace SharpConsoleUI.Drivers
 								// Check if this is a SGR mouse sequence (format: ESC[<button;x;y M/m)
 								if (ansiSequence.ToString().StartsWith("<") && (ansiSequence.ToString().EndsWith("M") || ansiSequence.ToString().EndsWith("m")))
 								{
-									// FIX23: Log mouse sequence detection
 									{
 										string mouseSeq = ansiSequence.ToString();
 									}

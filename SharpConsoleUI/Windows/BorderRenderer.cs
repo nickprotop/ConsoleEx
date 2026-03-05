@@ -38,12 +38,6 @@ namespace SharpConsoleUI.Windows
 		internal int _cachedBorderWidth = -1;
 		internal bool _cachedBorderIsActive;
 
-		// FIX11: Prevent ANSI doubling by not passing foregroundColor when markup already has color tags
-		// DEPRECATED: This flag caused color bleeding bugs where borders inherited background colors from
-		// previous ANSI output. We now ALWAYS pass explicit backgroundColor and foregroundColor to prevent
-		// ANSI state bleeding. The markup's color tags control foreground, explicit params ensure background.
-		private const bool FIX11_NO_FOREGROUND_IN_MARKUP = true;
-
 		/// <summary>
 		/// Initializes a new instance of the BorderRenderer class.
 		/// </summary>

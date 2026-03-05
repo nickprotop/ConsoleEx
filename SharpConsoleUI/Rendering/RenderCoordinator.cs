@@ -41,6 +41,9 @@ namespace SharpConsoleUI.Rendering
 		private readonly Dictionary<string, bool> _coverageCache = new Dictionary<string, bool>();
 		private readonly List<Rectangle> _pendingDesktopClears = new List<Rectangle>();
 
+		// Coverage cache invalidation: only recompute when window layout changes
+		private long _lastCoverageLayoutHash;
+
 		// Desktop rendering flag - forces render even when no windows are dirty
 		// Used when desktop background changes (e.g., after closing last window)
 		private bool _desktopNeedsRender = false;
@@ -363,6 +366,29 @@ namespace SharpConsoleUI.Rendering
 		}
 
 		/// <summary>
+		/// Computes a hash of window layout state (positions, sizes, z-order, visibility).
+		/// Used to detect when coverage cache needs invalidation.
+		/// </summary>
+		private long ComputeWindowLayoutHash()
+		{
+			unchecked
+			{
+				long hash = 17;
+				foreach (var window in _windowSystemContext.Windows.Values)
+				{
+					hash = hash * 31 + window.Left;
+					hash = hash * 31 + window.Top;
+					hash = hash * 31 + window.Width;
+					hash = hash * 31 + window.Height;
+					hash = hash * 31 + window.ZIndex;
+					hash = hash * 31 + (int)window.State;
+				}
+				hash = hash * 31 + _windowSystemContext.Windows.Count;
+				return hash;
+			}
+		}
+
+		/// <summary>
 		/// Renders all dirty windows in proper Z-order.
 		/// </summary>
 		private void RenderWindows()
@@ -370,8 +396,13 @@ namespace SharpConsoleUI.Rendering
 			// Reuse cached HashSet to avoid allocation
 			_windowsToRender.Clear();
 
-			// Clear coverage cache - Z-indices may have changed since last frame
-			_coverageCache.Clear();
+			// Only clear coverage cache when window layout actually changed
+			long layoutHash = ComputeWindowLayoutHash();
+			if (layoutHash != _lastCoverageLayoutHash)
+			{
+				_coverageCache.Clear();
+				_lastCoverageLayoutHash = layoutHash;
+			}
 
 			// Build sorted window list for rendering (avoid LINQ allocations)
 			_sortedWindows.Clear();

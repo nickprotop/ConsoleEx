@@ -59,13 +59,7 @@ public record ConsoleWindowSystemOptions(
     int TargetFPS = 60,
     StatusBarOptions? StatusBarOptions = null,
 
-    // ===== RENDERING FIX TOGGLES =====
-    // Double-buffering optimizations
-    bool Fix1_DisablePreclear = true,
-    bool Fix2_ConditionalDirty = true,
-    bool Fix3_NoAnsiAccumulation = true,
-    bool Fix6_WidthLimit = false,
-    bool Fix7_ClearAreaConditional = true,
+    bool ClampToWindowWidth = false,
 
     // Dirty tracking granularity (Smart = adaptive [default], Cell = minimal output, Line = fewer cursor moves)
     DirtyTrackingMode DirtyTrackingMode = DirtyTrackingMode.Smart,
@@ -74,26 +68,8 @@ public record ConsoleWindowSystemOptions(
     float SmartModeCoverageThreshold = 0.6f,      // >60% dirty cells → use LINE mode
     int SmartModeFragmentationThreshold = 5,      // >5 separate regions → use LINE mode
 
-    // ANSI output optimizations
-    bool Fix12_ResetAfterLine = true,
-    bool Fix13_OptimizeAnsiOutput = true,
-    bool Fix15_FixBufferSyncBug = true,
-
     // Window rendering optimizations
     bool ClearDestinationOnWindowMove = true,
-
-    // Input handling (disabled)
-    bool Fix24_DrainInputBeforeRender = false,
-    bool Fix25_DisableMouseDuringRender = false,
-
-    // Periodic redraw to clear leaks (Linux/macOS only)
-    bool Fix27_PeriodicFullRedraw = true,
-    double Fix27_RedrawIntervalSeconds = 1.0,
-
-    // ===== PLATFORM-SPECIFIC =====
-    // When true on Unix, bypasses .NET Console entirely using raw libc I/O
-    // to eliminate the input echo leak. Has no effect on Windows.
-    bool UseDirectAnsi = true,
 
     // ===== DIAGNOSTICS & TESTING =====
     // Rendering diagnostics for testing and debugging (default: false, zero overhead when disabled)
