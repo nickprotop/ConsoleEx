@@ -620,6 +620,68 @@ namespace SharpConsoleUI.Controls
 		/// This prevents the same logical double-click from being dispatched to different children
 		/// when scroll position changes between clicks.
 		/// </summary>
+		/// <summary>
+		/// Finds the child control at the given mouse position, accounting for scroll offset and margins.
+		/// Used for routing scroll events to the child under the cursor (not just the focused child).
+		/// </summary>
+		private IWindowControl? GetChildAtContentPosition(System.Drawing.Point mousePosition)
+		{
+			bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
+			int contentWidth = _viewportWidth;
+			if (needsScrollbar)
+				contentWidth -= 2;
+
+			int viewportX = mousePosition.X - Margin.Left;
+			if (viewportX < 0 || viewportX >= contentWidth || mousePosition.Y < Margin.Top)
+				return null;
+
+			int contentY = mousePosition.Y - Margin.Top + _verticalScrollOffset;
+			int currentY = 0;
+
+			List<IWindowControl> snapshot;
+			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
+
+			foreach (var child in snapshot.Where(c => c.Visible))
+			{
+				int childHeight = MeasureChildHeight(child, contentWidth);
+				if (contentY >= currentY && contentY < currentY + childHeight)
+					return child;
+				currentY += childHeight;
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Creates a MouseEventArgs with coordinates translated to be relative to the given child control.
+		/// </summary>
+		private MouseEventArgs? CreateChildRelativeArgs(MouseEventArgs args, IWindowControl child)
+		{
+			bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
+			int contentWidth = _viewportWidth;
+			if (needsScrollbar)
+				contentWidth -= 2;
+
+			int viewportX = args.Position.X - Margin.Left;
+			int contentY = args.Position.Y - Margin.Top + _verticalScrollOffset;
+			int currentY = 0;
+
+			List<IWindowControl> snapshot;
+			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
+
+			foreach (var c in snapshot.Where(c => c.Visible))
+			{
+				if (c == child)
+				{
+					var childPosition = new System.Drawing.Point(viewportX, contentY - currentY);
+					return args.WithPosition(childPosition);
+				}
+				currentY += MeasureChildHeight(c, contentWidth);
+			}
+
+			return null;
+		}
+
 		private IWindowControl? GetClickTargetChild(MouseEventArgs args, int contentWidth)
 		{
 			var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
@@ -675,42 +737,49 @@ namespace SharpConsoleUI.Controls
 			if (args.Handled) return false;
 
 			// Handle mouse wheel scrolling
-			if (_enableMouseWheel)
 			{
 				bool isWheel = args.HasFlag(Drivers.MouseFlags.WheeledUp) || args.HasFlag(Drivers.MouseFlags.WheeledDown);
 				if (isWheel)
 				{
-					// Forward to focused child first (e.g. ListControl with internal scroll).
+					// Forward to child under mouse cursor first (e.g. ListControl with internal scroll).
 					// This lets the child handle its own item scrolling before SPC attempts
-					// to scroll the panel viewport.
-					if (_focusedChild is IMouseAwareControl childMouse && childMouse.WantsMouseEvents)
+					// to scroll the panel viewport. Uses hit-testing by position rather than
+					// focus state, consistent with how HorizontalGridControl routes scroll events.
+					var childUnderMouse = GetChildAtContentPosition(args.Position);
+					if (childUnderMouse is IMouseAwareControl childMouse && childMouse.WantsMouseEvents)
 					{
-						if (childMouse.ProcessMouseEvent(args))
+						var childArgs = CreateChildRelativeArgs(args, childUnderMouse);
+						if (childArgs != null && childMouse.ProcessMouseEvent(childArgs))
 							return true;
 					}
 
-					// Fall back to SPC viewport scroll
-					if (args.HasFlag(Drivers.MouseFlags.WheeledUp))
+					// Fall back to SPC viewport scroll (only if mouse wheel scrolling is enabled)
+					if (_enableMouseWheel)
 					{
-						if (_verticalScrollOffset > 0)
+						if (args.HasFlag(Drivers.MouseFlags.WheeledUp))
 						{
-							ScrollVerticalBy(-3);
-							args.Handled = true;
-							return true;
+							if (_verticalScrollOffset > 0)
+							{
+								ScrollVerticalBy(-3);
+								args.Handled = true;
+								return true;
+							}
+							return false;
 						}
-						return false;
-					}
-					else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
-					{
-						int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
-						if (_verticalScrollOffset < maxScroll)
+						else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
 						{
-							ScrollVerticalBy(3);
-							args.Handled = true;
-							return true;
+							int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
+							if (_verticalScrollOffset < maxScroll)
+							{
+								ScrollVerticalBy(3);
+								args.Handled = true;
+								return true;
+							}
+							return false;
 						}
-						return false;
 					}
+
+					return false;
 				}
 			}
 
