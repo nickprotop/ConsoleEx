@@ -1309,6 +1309,24 @@ namespace SharpConsoleUI.Controls
 
 			List<IWindowControl> paintSnapshot;
 			lock (_childrenLock) { paintSnapshot = new List<IWindowControl>(_children); }
+
+			// Two-pass: measure non-Fill children first to determine remaining space for Fill children.
+			int fixedHeight = 0;
+			if (_viewportHeight > 0)
+			{
+				foreach (var child in paintSnapshot)
+				{
+					if (!child.Visible || child.VerticalAlignment == VerticalAlignment.Fill) continue;
+					var node = LayoutNodeFactory.CreateSubtree(child);
+					node.IsVisible = true;
+					node.Measure(new LayoutConstraints(1, contentWidth, 1, int.MaxValue));
+					fixedHeight += node.DesiredSize.Height;
+				}
+			}
+			int fillCount = paintSnapshot.Count(c => c.Visible && c.VerticalAlignment == VerticalAlignment.Fill);
+			int perFillHeight = (_viewportHeight > 0 && fillCount > 0)
+				? Math.Max(0, (_viewportHeight - fixedHeight) / fillCount) : _viewportHeight;
+
 			foreach (var child in paintSnapshot)
 			{
 				if (!child.Visible) continue;
@@ -1318,10 +1336,10 @@ namespace SharpConsoleUI.Controls
 				childNode.IsVisible = true;
 
 				// Measure using full layout pipeline.
-				// Fill-aligned children: cap to viewport so they fill the visible area.
+				// Fill-aligned children: get remaining space after fixed children.
 				// Content-sized children: measure unbounded for correct scroll positioning.
 				int maxChildHeight = (_viewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill)
-					? _viewportHeight : int.MaxValue;
+					? perFillHeight : int.MaxValue;
 				var constraints = new LayoutConstraints(1, contentWidth, 1, maxChildHeight);
 				childNode.Measure(constraints);
 				int childHeight = childNode.DesiredSize.Height;
@@ -1457,18 +1475,36 @@ namespace SharpConsoleUI.Controls
 				availableWidth = Math.Max(1, viewportWidth - 1);
 			}
 
-			int totalHeight = 0;
 			List<IWindowControl> calcSnapshot;
 			lock (_childrenLock) { calcSnapshot = new List<IWindowControl>(_children); }
-			foreach (var child in calcSnapshot.Where(c => c.Visible))
+			var visible = calcSnapshot.Where(c => c.Visible).ToList();
+
+			// Two-pass measurement: fixed children first, then Fill children get remaining space.
+			// Pass 1: measure non-Fill children to determine fixed height.
+			int fixedHeight = 0;
+			foreach (var child in visible)
 			{
+				if (child.VerticalAlignment == VerticalAlignment.Fill) continue;
 				var childNode = LayoutNodeFactory.CreateSubtree(child);
 				childNode.IsVisible = true;
-				// Fill-aligned children: measure with viewport constraint so they fill the visible area.
-				// Content-sized children: measure unbounded to get natural height for scroll range.
-				int childMaxH = (child.VerticalAlignment == VerticalAlignment.Fill && maxH < int.MaxValue)
-					? maxH : int.MaxValue;
-				var constraints = new LayoutConstraints(1, availableWidth, 1, childMaxH);
+				var constraints = new LayoutConstraints(1, availableWidth, 1, int.MaxValue);
+				childNode.Measure(constraints);
+				fixedHeight += childNode.DesiredSize.Height;
+			}
+
+			// Pass 2: measure Fill children with remaining space.
+			int fillCount = visible.Count(c => c.VerticalAlignment == VerticalAlignment.Fill);
+			int remainingHeight = (maxH < int.MaxValue) ? Math.Max(0, maxH - fixedHeight) : int.MaxValue;
+			int perFillHeight = (fillCount > 0 && remainingHeight < int.MaxValue)
+				? Math.Max(0, remainingHeight / fillCount) : int.MaxValue;
+
+			int totalHeight = fixedHeight;
+			foreach (var child in visible)
+			{
+				if (child.VerticalAlignment != VerticalAlignment.Fill) continue;
+				var childNode = LayoutNodeFactory.CreateSubtree(child);
+				childNode.IsVisible = true;
+				var constraints = new LayoutConstraints(1, availableWidth, 1, perFillHeight);
 				childNode.Measure(constraints);
 				totalHeight += childNode.DesiredSize.Height;
 			}

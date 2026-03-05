@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -149,9 +150,18 @@ namespace SharpConsoleUI.Controls
 				// Re-validate in case state changed while we were outside the lock
 				if (value >= 0 && value < _tabPages.Count)
 				{
-					// Toggle visibility
+					// Toggle visibility and release focus from old tab's content
 					if (_activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
-						_tabPages[_activeTabIndex].Content.Visible = false;
+					{
+						var oldContent = _tabPages[_activeTabIndex].Content;
+						oldContent.Visible = false;
+
+						// If the focused control lives inside the old tab, clear focus
+						var window = this.GetParentWindow();
+						var focused = window?.FocusService?.FocusedControl as IWindowControl;
+						if (focused != null && ContainsFocusedControl(oldContent, focused))
+							window!.FocusService!.ClearControlFocus(FocusChangeReason.Programmatic);
+					}
 
 					_activeTabIndex = value;
 					_tabPages[_activeTabIndex].Content.Visible = true;
@@ -986,6 +996,25 @@ namespace SharpConsoleUI.Controls
 #pragma warning restore CS0067
 
 		#endregion
+
+		/// <summary>
+		/// Checks whether the target control exists anywhere in the subtree
+		/// rooted at the given ancestor, using top-down child enumeration.
+		/// </summary>
+		private static bool ContainsFocusedControl(IWindowControl root, IWindowControl target)
+		{
+			if (ReferenceEquals(root, target))
+				return true;
+			if (root is IContainerControl container)
+			{
+				foreach (var child in container.GetChildren())
+				{
+					if (ContainsFocusedControl(child, target))
+						return true;
+				}
+			}
+			return false;
+		}
 	}
 
 	/// <summary>
