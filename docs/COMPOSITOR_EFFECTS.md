@@ -13,6 +13,7 @@ SharpConsoleUI provides a powerful compositor-style buffer manipulation API that
 7. [Performance Considerations](#performance-considerations)
 8. [Thread Safety](#thread-safety)
 9. [API Reference](#api-reference)
+10. [CanvasControl: Per-Control Drawing Surface](#canvascontrol-per-control-drawing-surface)
 
 ## Overview
 
@@ -793,8 +794,60 @@ namespace SharpConsoleUI.Layout
 }
 ```
 
+## CanvasControl: Per-Control Drawing Surface
+
+While compositor effects operate on the **entire window buffer**, [`CanvasControl`](controls/CanvasControl.md) provides a self-contained drawing surface **within a single control**. It exposes the same `CharacterBuffer` drawing primitives (lines, circles, polygons, gradients, text) through a `CanvasGraphics` wrapper that translates to canvas-local coordinates.
+
+### When to Use Each Approach
+
+| | Compositor Effects | CanvasControl |
+|---|---|---|
+| **Scope** | Entire window buffer | Single control region |
+| **Coordinates** | Absolute buffer positions | Local (0,0 = top-left of canvas) |
+| **Persistence** | Runs each frame | Internal buffer retains content |
+| **Threading** | Fires within render lock | `BeginPaint()`/`EndPaint()` from any thread |
+| **Drawing API** | Raw `CharacterBuffer` cell access | `CanvasGraphics` with 30+ methods |
+| **Best for** | Post-processing (blur, fade, color grading), custom backgrounds | Games, visualizations, interactive drawing, animated graphics |
+
+### Combined Usage
+
+You can use both in the same window. For example, a `CanvasControl` for the main drawing area with a `PostBufferPaint` effect applied to the entire window:
+
+```csharp
+// Canvas for interactive drawing
+var canvas = new CanvasControl
+{
+    HorizontalAlignment = HorizontalAlignment.Stretch,
+    VerticalAlignment = VerticalAlignment.Fill,
+    AutoSize = true
+};
+
+canvas.Paint += (sender, e) =>
+{
+    var g = e.Graphics;
+    g.DrawCircle(e.CanvasWidth / 2, e.CanvasHeight / 2, 8, '*', Color.Cyan, Color.Black);
+};
+
+// Window-level fade effect on top
+window.Renderer.PostBufferPaint += (buffer, dirty, clip) =>
+{
+    // Fade the entire window including the canvas
+    for (int y = dirty.Top; y < dirty.Bottom; y++)
+        for (int x = dirty.Left; x < dirty.Right; x++)
+        {
+            var cell = buffer.GetCell(x, y);
+            buffer.SetCell(x, y, cell.Character,
+                BlendColor(cell.Foreground, Color.Black, 0.3f),
+                BlendColor(cell.Background, Color.Black, 0.3f));
+        }
+};
+```
+
+See the [CanvasControl documentation](controls/CanvasControl.md) for the full API reference and examples.
+
 ## See Also
 
+- [CanvasControl](controls/CanvasControl.md) - Per-control drawing surface with local coordinates
 - [Rendering Pipeline](RENDERING_PIPELINE.md) - Understanding the rendering flow
 - [Controls Documentation](CONTROLS.md) - Building UI with controls
 - [Themes Guide](THEMES.md) - Customizing visual appearance

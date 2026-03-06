@@ -300,5 +300,21 @@ namespace SharpConsoleUI.Configuration
 		/// Default auto-dismiss timeout for notifications in milliseconds (default: 5000)
 		/// </summary>
 		public const int NotificationDefaultTimeoutMs = 5000;
+
+		// Canvas control defaults
+		/// <summary>
+		/// Default canvas width in characters (default: 40).
+		/// </summary>
+		public const int DefaultCanvasWidth = 40;
+
+		/// <summary>
+		/// Default canvas height in characters (default: 20).
+		/// </summary>
+		public const int DefaultCanvasHeight = 20;
+
+		/// <summary>
+		/// Minimum allowed canvas dimension in either axis (default: 1).
+		/// </summary>
+		public const int MinCanvasSize = 1;
 	}
 }

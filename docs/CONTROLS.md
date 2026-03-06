@@ -8,6 +8,7 @@ SharpConsoleUI provides 25+ built-in UI controls for building rich console appli
 - [Basic Input Controls](#basic-input-controls)
 - [Selection Controls](#selection-controls)
 - [Display Controls](#display-controls)
+- [Drawing Controls](#drawing-controls)
 - [Layout Controls](#layout-controls)
 - [Utility Controls](#utility-controls)
 - [Interfaces](#interfaces)
@@ -32,9 +33,9 @@ Controls for user input and interaction.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **[ButtonControl](controls/ButtonControl.md)** | Clickable button with text | Click events, keyboard/mouse support |
-| **[CheckboxControl](controls/CheckboxControl.md)** | Toggle checkbox with label | Checked/unchecked state, change events |
+| **CheckboxControl** | Toggle checkbox with label | Checked/unchecked state, change events |
 | **[PromptControl](controls/PromptControl.md)** | Single-line text input | Enter key events, input validation, max length |
-| **[MultilineEditControl](controls/MultilineEditControl.md)** | Multi-line text editor | Scrolling, word wrap, text selection |
+| **MultilineEditControl** | Multi-line text editor | Scrolling, word wrap, text selection |
 
 ## Selection Controls
 
@@ -43,9 +44,9 @@ Controls for selecting items from lists or hierarchies.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **[ListControl](controls/ListControl.md)** | Scrollable list with selection | Single selection, item activation, keyboard navigation |
-| **[TreeControl](controls/TreeControl.md)** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
-| **[DropdownControl](controls/DropdownControl.md)** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
-| **[MenuControl](controls/MenuControl.md)** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |
+| **TreeControl** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
+| **DropdownControl** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
+| **MenuControl** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |
 
 ## Display Controls
 
@@ -54,13 +55,21 @@ Controls for displaying formatted content.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **[MarkupControl](controls/MarkupControl.md)** | Rich text with Spectre markup | Colors, bold, italic, links using `[markup]` syntax |
-| **[FigleControl](controls/FigleControl.md)** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
-| **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
-| **[SpectreRenderableControl](controls/SpectreRenderableControl.md)** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
+| **FigletControl** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
+| **LogViewerControl** | Log message viewer | Auto-scroll, filtering, severity colors |
+| **SpectreRenderableControl** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
 | **PanelControl** | Bordered content panel | Headers, multiple border styles, padding, mouse support |
-| **[RuleControl](controls/RuleControl.md)** | Horizontal rule/separator | Optional title, colors, horizontal line |
+| **RuleControl** | Horizontal rule/separator | Optional title, colors, horizontal line |
 | **SparklineControl** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
 | **BarGraphControl** | Horizontal bar graph | Gradient color thresholds, labels, value display |
+
+## Drawing Controls
+
+Controls for custom graphics and free-form drawing.
+
+| Control | Description | Details |
+|---------|-------------|---------|
+| **[CanvasControl](controls/CanvasControl.md)** | Free-form drawing surface | 30+ drawing primitives, retained & immediate modes, thread-safe async painting |
 
 ## Layout Controls
 
@@ -68,13 +77,13 @@ Controls for organizing other controls.
 
 | Control | Description | Details |
 |---------|-------------|---------|
-| **[ColumnContainer](controls/ColumnContainer.md)** | Vertical stack container | Stack controls vertically, padding, alignment |
-| **[ScrollablePanelControl](controls/ScrollablePanelControl.md)** | Scrollable content area | Vertical scrolling, contains multiple controls |
-| **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
-| **[SplitterControl](controls/SplitterControl.md)** | Resizable divider | Drag to resize adjacent columns |
+| **ColumnContainer** | Vertical stack container | Stack controls vertically, padding, alignment |
+| **ScrollablePanelControl** | Scrollable content area | Vertical scrolling, contains multiple controls |
+| **HorizontalGridControl** | Multi-column layout | Variable-width columns, alignment, splitters |
+| **SplitterControl** | Resizable divider | Drag to resize adjacent columns |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
-| **[ToolbarControl](controls/ToolbarControl.md)** | Horizontal button toolbar | Quick access buttons, separators |
-| **[SeparatorControl](controls/SeparatorControl.md)** | Visual separator | Simple horizontal line |
+| **ToolbarControl** | Horizontal button toolbar | Quick access buttons, separators |
+| **SeparatorControl** | Visual separator | Simple horizontal line |
 | **PortalContentContainer** | Portal overlay container | Host child controls in [portal overlays](PORTAL_SYSTEM.md), mouse/keyboard routing, focus tracking |
 
 ## Utility Controls
@@ -121,7 +130,7 @@ public interface IInteractiveControl : IWindowControl
 }
 ```
 
-Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Dropdown, Menu
+Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Dropdown, Menu, Canvas
 
 ### IFocusableControl
 
@@ -138,7 +147,7 @@ public interface IFocusableControl : IInteractiveControl
 }
 ```
 
-Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Dropdown
+Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Dropdown, Canvas
 
 ### IMouseAwareControl
 
@@ -157,7 +166,7 @@ public interface IMouseAwareControl : IWindowControl
 }
 ```
 
-Implemented by: Button, List, Tree, Dropdown, Menu, Toolbar, ScrollablePanel
+Implemented by: Button, List, Tree, Dropdown, Menu, Toolbar, ScrollablePanel, Canvas
 
 ### IContainer
 
@@ -197,6 +206,9 @@ button.OnClick += (s, e) => { };
 // Using static helpers
 var label = Controls.Label("Simple text");
 var header = Controls.Header("Title");
+
+// Canvas control
+var canvas = new CanvasControl(80, 24);
 ```
 
 ### Adding to Windows
@@ -282,10 +294,8 @@ Browse detailed documentation for specific controls:
 - [MarkupControl](controls/MarkupControl.md) - Formatted text
 
 ### Advanced Controls
-- [MenuControl](controls/MenuControl.md) - Menu systems
-- [TreeControl](controls/TreeControl.md) - Hierarchical data
-- [HorizontalGridControl](controls/HorizontalGridControl.md) - Multi-column layouts
-- [SpectreRenderableControl](controls/SpectreRenderableControl.md) - Spectre.Console widgets
+- [TabControl](controls/TabControl.md) - Multi-page tab container
+- [CanvasControl](controls/CanvasControl.md) - Free-form drawing surface
 - [TerminalControl](controls/TerminalControl.md) - Embedded PTY terminal (Linux)
 
 ---

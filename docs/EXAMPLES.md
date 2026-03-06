@@ -207,6 +207,32 @@ dotnet run --project Examples/HighFreqDemo
 
 ### 🎨 Visual Effects
 
+#### CanvasDemo
+Three animated windows showcasing the `CanvasControl` drawing surface with real-time graphics.
+
+![Canvas Demo](images/examples/canvasdemo.png)
+
+```bash
+dotnet run --project Examples/CanvasDemo
+```
+
+**Key Features:**
+- **Starfield:** 120 stars in 3 parallax layers with particle bursts on click
+- **Plasma:** Per-cell HSV sine plasma with expanding ripple effects on click, combined retained + event-driven painting
+- **Geometry:** Rotating polygon, orbiting triangle, pulsing circles, breathing ellipse, sweeping arc, radiating lines, bouncing box, gradient bar, expanding ring effects on click
+
+**APIs Demonstrated:**
+- `CanvasControl` with `BeginPaint()`/`EndPaint()` (retained mode)
+- `Paint` event with `CanvasGraphics` (immediate mode)
+- Combined retained + event overlay painting
+- `AutoSize` with `Stretch`/`Fill` for responsive canvases
+- Canvas-local mouse click events (`CanvasMouseClick`)
+- Full `CanvasGraphics` API: circles, polygons, gradients, ellipses, arcs, lines, text
+
+**Controls:** Click inside canvases for interactive effects, resize windows, Esc to quit
+
+---
+
 #### CompositorEffectsExample
 Demonstrates compositor-style buffer manipulation capabilities.
 
@@ -470,6 +496,7 @@ dotnet run --project Examples/PluginShowcaseExample
 
 | Example | Async Windows | Buffer Paint | Mouse Events | Themes | Plugins | Games |
 |---------|--------------|--------------|--------------|--------|---------|-------|
+| CanvasDemo | ✅ | ✅ | ✅ | | | |
 | DemoApp | ✅ | | | ✅ | | |
 | StartMenuDemo | | | ✅ | | ✅ | |
 | FullScreenExample | | | ✅ | | | |
@@ -511,6 +538,7 @@ dotnet run --project Examples/PluginShowcaseExample
 | `MultilineEditControl` | DemoApp, TextEditorExample |
 | `LogViewerControl` | DemoApp |
 | `TabControl` | TabControlDemo |
+| `CanvasControl` | CanvasDemo |
 | `HorizontalGridControl` | Most examples |
 | `SpectreRenderableControl` | SpectreMouseExample |
 
@@ -544,6 +572,28 @@ new WindowBuilder(windowSystem)
         }
     })
     .Build();
+```
+
+### Canvas Drawing
+```csharp
+// Retained mode — draw from any thread, content persists
+var canvas = new CanvasControl { AutoSize = true };
+var g = canvas.BeginPaint();
+g.DrawCircle(30, 10, 8, '*', Color.Cyan, Color.Black);
+g.GradientFillRect(0, 0, 60, 20, Color.DarkBlue, Color.Black, horizontal: false);
+canvas.EndPaint();
+
+// Immediate mode — redraw each frame
+canvas.Paint += (sender, e) => {
+    e.Graphics.WriteStringCentered(10, "Hello!", Color.White, Color.Black);
+};
+
+// Interactive — canvas-local mouse coordinates
+canvas.CanvasMouseClick += (sender, e) => {
+    var g2 = canvas.BeginPaint();
+    g2.FillCircle(e.CanvasX, e.CanvasY, 2, '*', Color.Red, Color.Black);
+    canvas.EndPaint();
+};
 ```
 
 ### Buffer Paint Hooks
