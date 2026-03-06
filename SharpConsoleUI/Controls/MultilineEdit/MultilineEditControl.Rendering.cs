@@ -319,7 +319,7 @@ namespace SharpConsoleUI.Controls
 							char c = charPos < visibleLine.Length ? visibleLine[charPos] : ' ';
 							bool isContentChar = charPos + hScrollForCalc < wl.DisplayText.Length;
 
-							// Color priority: Selection > Syntax > Visible whitespace > Default
+							// Color priority: Selection > Search Match > Syntax > Visible whitespace > Default
 							Color charFg;
 							Color charBg;
 							if (isSelected)
@@ -329,20 +329,30 @@ namespace SharpConsoleUI.Controls
 							}
 							else
 							{
-								charBg = lineBg;
-
-								if (_showWhitespace && c == ' ' && isContentChar)
+								// Check search match highlighting
+								var (isSearchMatch, isCurrentSearchMatch) = GetSearchMatchState(wl.SourceLineIndex, actualCharPos);
+								if (isSearchMatch)
 								{
-									c = ControlDefaults.WhitespaceSpaceChar;
-									charFg = Color.Grey37;
-								}
-								else if (_syntaxHighlighter != null)
-								{
-									charFg = GetSyntaxColor(wl.SourceLineIndex, actualCharPos, fgColor);
+									charBg = isCurrentSearchMatch ? Color.Orange1 : Color.Yellow;
+									charFg = Color.Black;
 								}
 								else
 								{
-									charFg = fgColor;
+									charBg = lineBg;
+
+									if (_showWhitespace && c == ' ' && isContentChar)
+									{
+										c = ControlDefaults.WhitespaceSpaceChar;
+										charFg = Color.Grey37;
+									}
+									else if (_syntaxHighlighter != null)
+									{
+										charFg = GetSyntaxColor(wl.SourceLineIndex, actualCharPos, fgColor);
+									}
+									else
+									{
+										charFg = fgColor;
+									}
 								}
 							}
 

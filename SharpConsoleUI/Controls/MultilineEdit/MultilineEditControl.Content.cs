@@ -95,6 +95,8 @@ namespace SharpConsoleUI.Controls
 			// Go to the end of the content
 			GoToEnd();
 
+			RefreshSearchMatches();
+
 			// Notify that content has changed
 			ContentChanged?.Invoke(this, GetContent());
 		}
@@ -161,6 +163,8 @@ namespace SharpConsoleUI.Controls
 			// Go to the end of the content
 			GoToEnd();
 
+			RefreshSearchMatches();
+
 			// Notify that content has changed
 			ContentChanged?.Invoke(this, GetContent());
 		}
@@ -214,6 +218,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			EnsureCursorVisible();
+			RefreshSearchMatches();
 
 			Container?.Invalidate(false);
 
@@ -260,6 +265,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			EnsureCursorVisible();
+			RefreshSearchMatches();
 
 			Container?.Invalidate(false);
 
@@ -290,6 +296,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			EnsureCursorVisible();
+			RefreshSearchMatches();
 			Container?.Invalidate(true);
 			ContentChanged?.Invoke(this, GetContent());
 		}
@@ -315,6 +322,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			EnsureCursorVisible();
+			RefreshSearchMatches();
 			Container?.Invalidate(true);
 			ContentChanged?.Invoke(this, GetContent());
 		}

@@ -255,7 +255,33 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.UpArrow:
-					if (_wrapMode != WrapMode.NoWrap)
+					if (key.Modifiers.HasFlag(ConsoleModifiers.Alt) && !_readOnly)
+					{
+						// Alt+Up: Move line(s) up
+						if (_hasSelection)
+						{
+							var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
+							if (sY > 0)
+							{
+								var removed = _lines[sY - 1];
+								_lines.RemoveAt(sY - 1);
+								_lines.Insert(eY - 1, removed);
+								_selectionStartY = _selectionStartY == sY ? sY - 1 : _selectionStartY - 1;
+								_selectionEndY = _selectionEndY == sY ? sY - 1 : _selectionEndY - 1;
+								_cursorY--;
+								InvalidateSyntaxFromLine(sY - 1);
+								contentChanged = true;
+							}
+						}
+						else if (_cursorY > 0)
+						{
+							(_lines[_cursorY], _lines[_cursorY - 1]) = (_lines[_cursorY - 1], _lines[_cursorY]);
+							_cursorY--;
+							InvalidateSyntaxFromLine(_cursorY);
+							contentChanged = true;
+						}
+					}
+					else if (_wrapMode != WrapMode.NoWrap)
 					{
 						var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
 						int idx = FindWrappedLineForCursor(wrappedLines);
@@ -279,7 +305,33 @@ namespace SharpConsoleUI.Controls
 					break;
 
 				case ConsoleKey.DownArrow:
-					if (_wrapMode != WrapMode.NoWrap)
+					if (key.Modifiers.HasFlag(ConsoleModifiers.Alt) && !_readOnly)
+					{
+						// Alt+Down: Move line(s) down
+						if (_hasSelection)
+						{
+							var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
+							if (eY < _lines.Count - 1)
+							{
+								var removed = _lines[eY + 1];
+								_lines.RemoveAt(eY + 1);
+								_lines.Insert(sY, removed);
+								_selectionStartY = _selectionStartY == sY ? sY + 1 : _selectionStartY + 1;
+								_selectionEndY = _selectionEndY == sY ? sY + 1 : _selectionEndY + 1;
+								_cursorY++;
+								InvalidateSyntaxFromLine(sY);
+								contentChanged = true;
+							}
+						}
+						else if (_cursorY < _lines.Count - 1)
+						{
+							(_lines[_cursorY], _lines[_cursorY + 1]) = (_lines[_cursorY + 1], _lines[_cursorY]);
+							_cursorY++;
+							InvalidateSyntaxFromLine(_cursorY - 1);
+							contentChanged = true;
+						}
+					}
+					else if (_wrapMode != WrapMode.NoWrap)
 					{
 						var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
 						int idx = FindWrappedLineForCursor(wrappedLines);
@@ -686,7 +738,41 @@ namespace SharpConsoleUI.Controls
 								}
 								return true;
 
-							case ConsoleKey.Y:
+							case ConsoleKey.D:
+								// Ctrl+D: Duplicate line(s)
+								if (!_readOnly)
+								{
+									if (_hasSelection)
+									{
+										var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
+										int lineCount = eY - sY + 1;
+										// Check MaxLength capacity
+										int neededCapacity = 0;
+										for (int ln = sY; ln <= eY; ln++)
+											neededCapacity += _lines[ln].Length + Environment.NewLine.Length;
+										if (GetRemainingCapacity() >= neededCapacity)
+										{
+											for (int ln = 0; ln < lineCount; ln++)
+												_lines.Insert(eY + 1 + ln, _lines[sY + ln]);
+											InvalidateSyntaxFromLine(eY + 1);
+											contentChanged = true;
+										}
+									}
+									else
+									{
+										int neededCapacity = _lines[_cursorY].Length + Environment.NewLine.Length;
+										if (GetRemainingCapacity() >= neededCapacity)
+										{
+											_lines.Insert(_cursorY + 1, _lines[_cursorY]);
+											_cursorY++;
+											InvalidateSyntaxFromLine(_cursorY);
+											contentChanged = true;
+										}
+									}
+								}
+								return true;
+
+						case ConsoleKey.Y:
 								if (_redoStack.Count > 0)
 								{
 									var action = _redoStack.Pop();
@@ -757,6 +843,7 @@ namespace SharpConsoleUI.Controls
 			{
 				CommitUndoAction();
 				InvalidateWrappedLinesCache();
+				RefreshSearchMatches();
 			}
 
 			// If cursor position changed, ensure it's visible
