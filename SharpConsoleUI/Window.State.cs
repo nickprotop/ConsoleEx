@@ -215,7 +215,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public void GoToBottom()
 		{
-			_scrollOffset = Math.Max(0, (_cachedContent?.Count ?? 0) - (Height - 2));
+			_scrollOffset = Math.Max(0, ContentLineCount - (Height - 2));
 			Invalidate(true);
 		}
 
@@ -568,7 +568,7 @@ namespace SharpConsoleUI
 
 			// Layout will be updated lazily on next event
 
-			if (_scrollOffset > (_cachedContent?.Count ?? Height) - (Height - 2))
+			if (_scrollOffset > ContentLineCount - (Height - 2))
 			{
 				GoToBottom();
 			}

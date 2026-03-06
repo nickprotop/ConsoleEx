@@ -183,7 +183,7 @@ public class WindowRendererTests
 	}
 
 	[Fact]
-	public void WindowRenderer_BufferToLines_GeneratesAnsiOutput()
+	public void WindowRenderer_RenderAndGetVisibleContent_GeneratesAnsiOutput()
 	{
 		// Arrange
 		var system = TestWindowSystemBuilder.CreateTestSystem();

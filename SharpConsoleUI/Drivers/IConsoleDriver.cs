@@ -7,12 +7,14 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Color = Spectre.Console.Color;
 using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI.Drivers
@@ -111,17 +113,43 @@ namespace SharpConsoleUI.Drivers
 		public void Initialize(ConsoleWindowSystem windowSystem);
 
 		/// <summary>
-		/// Writes a string value to the console at the specified position.
+		/// Sets a single cell at the specified position with the given character and colors.
 		/// </summary>
-		/// <param name="x">The horizontal position (column) to write at.</param>
-		/// <param name="y">The vertical position (row) to write at.</param>
-		/// <param name="value">The string value to write, which may include ANSI escape sequences.</param>
-		public void WriteToConsole(int x, int y, string value);
+		/// <param name="x">The horizontal position (column).</param>
+		/// <param name="y">The vertical position (row).</param>
+		/// <param name="character">The character to write.</param>
+		/// <param name="fg">The foreground color.</param>
+		/// <param name="bg">The background color.</param>
+		public void SetCell(int x, int y, char character, Color fg, Color bg);
+
+		/// <summary>
+		/// Fills a horizontal run of cells at the specified position with the given character and colors.
+		/// </summary>
+		/// <param name="x">The starting horizontal position (column).</param>
+		/// <param name="y">The vertical position (row).</param>
+		/// <param name="width">The number of cells to fill.</param>
+		/// <param name="character">The character to fill with.</param>
+		/// <param name="fg">The foreground color.</param>
+		/// <param name="bg">The background color.</param>
+		public void FillCells(int x, int y, int width, char character, Color fg, Color bg);
 
 		/// <summary>
 		/// Gets the count of dirty characters in the rendering buffer.
 		/// </summary>
 		/// <returns>The number of dirty characters, or 0 if not using buffered rendering.</returns>
 		public int GetDirtyCharacterCount();
+
+		/// <summary>
+		/// Copies a horizontal strip of cells from a <see cref="CharacterBuffer"/> directly
+		/// to the console output buffer, bypassing ANSI string serialization and parsing.
+		/// </summary>
+		/// <param name="destX">Destination screen X position.</param>
+		/// <param name="destY">Destination screen Y position.</param>
+		/// <param name="source">The source CharacterBuffer.</param>
+		/// <param name="srcX">Source X offset within the buffer.</param>
+		/// <param name="srcY">Source Y (row) within the buffer.</param>
+		/// <param name="width">Number of cells to write.</param>
+		/// <param name="fallbackBg">Background color for padding when source is out of bounds.</param>
+		public void WriteBufferRegion(int destX, int destY, CharacterBuffer source, int srcX, int srcY, int width, Color fallbackBg);
 	}
 }

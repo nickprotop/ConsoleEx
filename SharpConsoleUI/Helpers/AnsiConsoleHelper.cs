@@ -560,153 +560,7 @@ namespace SharpConsoleUI.Helpers
 		}).ToList();
 
 		return lines.Max();
-	}		/// <summary>
-		/// Extracts a substring from an ANSI-encoded string, preserving ANSI escape sequences
-		/// </summary>
-		/// <param name="input">The ANSI-encoded string</param>
-		/// <param name="startIndex">The position to start extraction (refers to visible characters, not including escape sequences)</param>
-		/// <param name="length">The number of visible characters to extract</param>
-		/// <returns>The extracted substring with all relevant ANSI escape sequences preserved</returns>
-		public static string SubstringAnsi(string input, int startIndex, int length)
-		{
-			if (string.IsNullOrEmpty(input) || startIndex < 0 || length <= 0)
-				return string.Empty;
-
-			var output = new StringBuilder();
-			int visibleCharCount = 0;
-			int visibleIndex = 0;
-			int i = 0;
-
-			// Keep track of all active ANSI sequences
-			var activeSequences = new List<string>();
-			var matches = TruncateAnsiRegex.Matches(input);
-			int lastSequenceEnd = 0;
-
-			// First pass: Find all escape sequences before our start position
-			// and track which ones are active at our starting point
-			foreach (Match match in matches)
-			{
-				if (match.Index > lastSequenceEnd)
-				{
-					// Count visible characters between sequences
-					int charCount = match.Index - lastSequenceEnd;
-					if (visibleIndex + charCount > startIndex)
-						break;
-					visibleIndex += charCount;
-				}
-
-				// Track this sequence if it's before our start position
-				if (visibleIndex < startIndex)
-				{
-					string sequence = match.Value;
-					if (IsResetSequence(sequence))
-					{
-						// Reset clears all active sequences
-						activeSequences.Clear();
-					}
-					else if (!IsClosingSequence(sequence))
-					{
-						// Add to active sequences if it's an opening sequence
-						activeSequences.Add(sequence);
-					}
-					else
-					{
-						// Remove the corresponding opening sequence if possible
-						RemoveMatchingSequence(activeSequences, sequence);
-					}
-				}
-
-				lastSequenceEnd = match.Index + match.Length;
-			}
-
-			// Add all active sequences to the beginning of our output
-			foreach (var sequence in activeSequences)
-			{
-				output.Append(sequence);
-			}
-
-			// Second pass: Extract the actual substring
-			visibleCharCount = 0;
-			visibleIndex = 0;
-			i = 0;
-
-			while (i < input.Length && visibleCharCount < length)
-			{
-				// Check if we're at the start of an ANSI escape sequence
-				var match = matches.Cast<Match>().FirstOrDefault(m => m.Index == i);
-
-				if (match != null)
-				{
-					// Found an escape sequence - include it if we're in the extraction range
-					if (visibleIndex >= startIndex)
-					{
-						output.Append(match.Value);
-					}
-
-					i += match.Length;
-				}
-				else
-				{
-					// Regular character
-					if (visibleIndex >= startIndex && visibleCharCount < length)
-					{
-						output.Append(input[i]);
-						visibleCharCount++;
-					}
-
-					visibleIndex++;
-					i++;
-				}
-			}
-
-			// Add reset sequence at the end to ensure clean termination
-			if (output.Length > 0 && !output.ToString().EndsWith("\u001b[0m"))
-			{
-				output.Append("\u001b[0m");
-			}
-
-			return output.ToString();
-		}
-
-		/// <summary>
-		/// Truncates an ANSI-formatted string to a maximum visible length while preserving escape sequences.
-		/// </summary>
-		/// <param name="input">The ANSI-formatted string to truncate.</param>
-		/// <param name="maxVisibleLength">The maximum number of visible characters to keep.</param>
-		/// <returns>A truncated string with ANSI escape sequences preserved and properly terminated.</returns>
-		public static string TruncateAnsiString(string input, int maxVisibleLength)
-		{
-			if (string.IsNullOrEmpty(input) || maxVisibleLength <= 0)
-				return string.Empty;
-
-			return SubstringAnsi(input, 0, maxVisibleLength);
-		}
-
-		/// <summary>
-		/// Extracts a substring from an ANSI-encoded string and pads to the requested length if shorter.
-		/// </summary>
-		/// <param name="input">The ANSI-encoded string</param>
-		/// <param name="startIndex">The position to start extraction (refers to visible characters)</param>
-		/// <param name="length">The desired number of visible characters</param>
-		/// <param name="backgroundColor">Background color for padding spaces</param>
-		/// <returns>The extracted substring padded to exactly the specified length</returns>
-		public static string SubstringAnsiWithPadding(string input, int startIndex, int length, Color backgroundColor)
-		{
-			if (length <= 0)
-				return string.Empty;
-
-			var result = SubstringAnsi(input, startIndex, length);
-			int actualLength = StripAnsiStringLength(result);
-
-			if (actualLength < length)
-			{
-				// Pad with spaces using the background color
-				result += AnsiEmptySpace(length - actualLength, backgroundColor);
-			}
-
-			return result;
-		}
-
+	}
 		/// <summary>
 		/// Truncates a Spectre.Console markup string to a maximum visible length while preserving valid markup tags.
 		/// </summary>
@@ -856,15 +710,6 @@ namespace SharpConsoleUI.Helpers
 			return activeStyle.ToString();
 		}
 
-		private static bool IsClosingSequence(string sequence)
-		{
-			// Check if this is a closing/resetting sequence
-			return sequence.Contains("22m") || // bold off
-				   sequence.Contains("24m") || // underline off
-				   sequence.Contains("39m") || // default foreground
-				   sequence.Contains("49m");   // default background
-		}
-
 		/// <summary>
 		/// Checks if the provided color name is a valid Spectre.Console color name.
 		/// </summary>
@@ -918,12 +763,6 @@ namespace SharpConsoleUI.Helpers
 				return true;
 
 			return false;
-		}
-
-		// Helper methods for SubstringAnsi
-		private static bool IsResetSequence(string sequence)
-		{
-			return sequence == "\u001b[0m";
 		}
 
 		/// <summary>
@@ -1078,25 +917,5 @@ namespace SharpConsoleUI.Helpers
 			return false;
 		}
 
-		private static void RemoveMatchingSequence(List<string> sequences, string closingSequence)
-		{
-			// Remove the corresponding opening sequence when a closing one is found
-			if (closingSequence.Contains("22m"))
-			{
-				sequences.RemoveAll(s => s.Contains("1m"));
-			}
-			else if (closingSequence.Contains("24m"))
-			{
-				sequences.RemoveAll(s => s.Contains("4m"));
-			}
-			else if (closingSequence.Contains("39m"))
-			{
-				sequences.RemoveAll(s => s.Contains("3") && s.EndsWith("m"));
-			}
-			else if (closingSequence.Contains("49m"))
-			{
-				sequences.RemoveAll(s => s.Contains("4") && s.EndsWith("m"));
-			}
-		}
 	}
 }

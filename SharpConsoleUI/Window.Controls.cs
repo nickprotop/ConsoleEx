@@ -41,8 +41,8 @@ namespace SharpConsoleUI
 				}
 			}
 
-			// Trigger re-render
-			RenderAndGetVisibleContent();
+			// Trigger DOM rebuild so layout is ready for focus/scroll calculations
+			EnsureContentReady();
 
 			// Auto-scroll to bottom for non-sticky controls if nothing is focused
 			if (content.StickyPosition == StickyPosition.None && !_interactiveContents.Any(p => p.HasFocus))
@@ -57,7 +57,7 @@ namespace SharpConsoleUI
 		lock (_lock)
 		{
 			_contentManager.InsertControl(_controls, _interactiveContents, index, content, this);
-			RenderAndGetVisibleContent();
+			EnsureContentReady();
 		}
 	}
 
@@ -124,8 +124,8 @@ namespace SharpConsoleUI
 				// Dispose the control
 				content.Dispose();
 
-				// Trigger re-render
-				RenderAndGetVisibleContent();
+				// Trigger DOM rebuild
+				EnsureContentReady();
 
 				// Auto-scroll to bottom
 				GoToBottom();

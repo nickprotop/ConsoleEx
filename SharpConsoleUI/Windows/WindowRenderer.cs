@@ -349,26 +349,6 @@ namespace SharpConsoleUI.Windows
 			}
 		}
 
-		/// <summary>
-		/// Converts the character buffer to a list of ANSI-formatted strings.
-		/// </summary>
-		/// <param name="foregroundColor">Default foreground color</param>
-		/// <param name="backgroundColor">Default background color</param>
-		/// <returns>List of ANSI-formatted strings</returns>
-		public List<string> BufferToLines(Color foregroundColor, Color backgroundColor)
-		{
-			if (_buffer == null)
-				return new List<string>();
-
-			// Connect diagnostics to CharacterBuffer if needed
-			var diagnostics = _window._windowSystem?.RenderingDiagnostics;
-			if (diagnostics != null && _buffer.Diagnostics == null)
-			{
-				_buffer.Diagnostics = diagnostics;
-			}
-
-			return _buffer.ToLines(foregroundColor, backgroundColor);
-		}
 
 		#endregion
 
@@ -471,8 +451,9 @@ namespace SharpConsoleUI.Windows
 		#region Complete Rendering Pipeline
 
 		/// <summary>
-		/// Rebuilds the content cache using DOM-based layout.
-		/// This is the main entry point for the complete rendering pipeline.
+		/// Rebuilds the content buffer using DOM-based layout.
+		/// Performs DOM tree building, layout, and painting to the CharacterBuffer
+		/// but does NOT convert to ANSI strings. The buffer is accessible via the Buffer property.
 		/// </summary>
 		/// <param name="controls">The window's control list</param>
 		/// <param name="availableWidth">Available content width</param>
@@ -481,10 +462,9 @@ namespace SharpConsoleUI.Windows
 		/// <param name="windowLeft">Window left position</param>
 		/// <param name="windowTop">Window top position</param>
 		/// <param name="showTitle">Whether the window shows a title bar</param>
-		/// <param name="foregroundColor">Window foreground color</param>
 		/// <param name="backgroundColor">Window background color</param>
-		/// <returns>List of rendered lines as ANSI strings</returns>
-		public List<string> RebuildContentCacheDOM(
+		/// <returns>True if the buffer was painted; false if completely occluded.</returns>
+		public bool RebuildContentBuffer(
 			IReadOnlyList<IWindowControl> controls,
 			int availableWidth,
 			int availableHeight,
@@ -492,7 +472,6 @@ namespace SharpConsoleUI.Windows
 			int windowLeft,
 			int windowTop,
 			bool showTitle,
-			Color foregroundColor,
 			Color backgroundColor)
 		{
 			// Ensure DOM tree exists
@@ -526,7 +505,7 @@ namespace SharpConsoleUI.Windows
 				// If no visible area, skip painting entirely
 				if (clipRect.Width == 0 || clipRect.Height == 0)
 				{
-					return new List<string>();
+					return false;
 				}
 			}
 			else
@@ -555,9 +534,21 @@ namespace SharpConsoleUI.Windows
 				PostBufferPaint.Invoke(_buffer, dirtyRegion, clipRect);
 			}
 
-			// Convert buffer to lines for compatibility with existing render system
-			return BufferToLines(foregroundColor, backgroundColor);
+			// Diagnostics: If ANSI line capture is enabled, generate lines for diagnostic snapshot only.
+			// This is NOT used for rendering (the buffer path bypasses ANSI strings entirely).
+			var diagnostics = _window._windowSystem?.RenderingDiagnostics;
+			if (diagnostics?.IsEnabled == true &&
+				diagnostics.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.AnsiLines) &&
+				_buffer != null)
+			{
+				if (_buffer.Diagnostics == null)
+					_buffer.Diagnostics = diagnostics;
+				_buffer.ToLines(_window.ForegroundColor, backgroundColor);
+			}
+
+			return true;
 		}
+
 
 		#endregion
 

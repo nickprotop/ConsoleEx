@@ -568,10 +568,14 @@ namespace SharpConsoleUI.Rendering
 			{
 				var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
 				var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
-				_consoleDriver.WriteToConsole(0, 0, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
 					$"[{_windowSystemContext.Theme.TopBarForegroundColor}]{paddedTopRow}[/]",
 					_consoleDriver.ScreenSize.Width, 1, false,
-					_windowSystemContext.Theme.TopBarBackgroundColor, null)[0]);
+					_windowSystemContext.Theme.TopBarBackgroundColor, null)[0];
+				var statusBuffer = AnsiLineToBuffer(ansiLine, _consoleDriver.ScreenSize.Width,
+					_windowSystemContext.Theme.TopBarForegroundColor, _windowSystemContext.Theme.TopBarBackgroundColor);
+				_consoleDriver.WriteBufferRegion(0, 0, statusBuffer, 0, 0, statusBuffer.Width,
+					_windowSystemContext.Theme.TopBarBackgroundColor);
 
 				_cachedTopStatus = topRow;
 			}
@@ -663,15 +667,28 @@ namespace SharpConsoleUI.Rendering
 
 			if (_cachedBottomStatus != bottomRow)
 			{
-				//add padding to the bottom row
-				_consoleDriver.WriteToConsole(0, _consoleDriver.ScreenSize.Height - 1,
-					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						$"[{_windowSystemContext.Theme.BottomBarForegroundColor}]{bottomRow}[/]",
-						_consoleDriver.ScreenSize.Width, 1, false,
-						_windowSystemContext.Theme.BottomBarBackgroundColor, null)[0]);
+				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
+					$"[{_windowSystemContext.Theme.BottomBarForegroundColor}]{bottomRow}[/]",
+					_consoleDriver.ScreenSize.Width, 1, false,
+					_windowSystemContext.Theme.BottomBarBackgroundColor, null)[0];
+				var statusBuffer = AnsiLineToBuffer(ansiLine, _consoleDriver.ScreenSize.Width,
+					_windowSystemContext.Theme.BottomBarForegroundColor, _windowSystemContext.Theme.BottomBarBackgroundColor);
+				_consoleDriver.WriteBufferRegion(0, _consoleDriver.ScreenSize.Height - 1,
+					statusBuffer, 0, 0, statusBuffer.Width, _windowSystemContext.Theme.BottomBarBackgroundColor);
 
 				_cachedBottomStatus = bottomRow;
 			}
+		}
+
+		/// <summary>
+		/// Converts a single ANSI-formatted line to a CharacterBuffer using AnsiParser.
+		/// </summary>
+		private static Layout.CharacterBuffer AnsiLineToBuffer(string ansiLine, int width,
+			Spectre.Console.Color defaultFg, Spectre.Console.Color defaultBg)
+		{
+			var buffer = new Layout.CharacterBuffer(width, 1, defaultBg);
+			buffer.WriteCells(0, 0, Layout.AnsiParser.Parse(ansiLine, defaultFg, defaultBg));
+			return buffer;
 		}
 
 		#endregion

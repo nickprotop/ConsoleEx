@@ -149,8 +149,10 @@ namespace SharpConsoleUI
 		// Track control positions within scrollable content (startLine, lineCount)
 		private readonly Dictionary<IWindowControl, (int StartLine, int LineCount)> _controlPositions = new();
 
-		// List to store interactive contents
-		internal List<string> _cachedContent = new();
+		/// <summary>
+		/// Gets the number of content lines from the buffer (used for scroll calculations).
+		/// </summary>
+		internal int ContentLineCount => _renderer?.Buffer?.Height ?? 0;
 
 		private string _guid;
 		private Color? _inactiveBorderForegroundColor;
@@ -759,7 +761,7 @@ namespace SharpConsoleUI
 					// DOM mode: return total scrollable content height
 					return _renderer.ScrollableContentHeight;
 				}
-				return _cachedContent.Count + _topStickyHeight;
+				return ContentLineCount + _topStickyHeight;
 			}
 		}
 

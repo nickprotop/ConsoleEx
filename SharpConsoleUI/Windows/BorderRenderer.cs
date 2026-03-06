@@ -9,6 +9,7 @@
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
@@ -31,20 +32,15 @@ namespace SharpConsoleUI.Windows
 		private readonly Func<Point> _getDesktopUpperLeft;
 		private readonly Func<Point> _getDesktopBottomRight;
 
-		// Border cache (moved from Window.cs)
-		internal string? _cachedTopBorder;
-		internal string? _cachedBottomBorder;
-		internal string? _cachedVerticalBorder;
+		// Border cache: CharacterBuffers for top and bottom border lines
+		internal CharacterBuffer? _cachedTopBorder;
+		internal CharacterBuffer? _cachedBottomBorder;
 		internal int _cachedBorderWidth = -1;
 		internal bool _cachedBorderIsActive;
 
 		/// <summary>
 		/// Initializes a new instance of the BorderRenderer class.
 		/// </summary>
-		/// <param name="window">The window this renderer serves</param>
-		/// <param name="getDriver">Delegate to get the console driver</param>
-		/// <param name="getDesktopUpperLeft">Delegate to get desktop upper left point</param>
-		/// <param name="getDesktopBottomRight">Delegate to get desktop bottom right point</param>
 		public BorderRenderer(
 			Window window,
 			Func<IConsoleDriver> getDriver,
@@ -64,16 +60,13 @@ namespace SharpConsoleUI.Windows
 		{
 			_cachedTopBorder = null;
 			_cachedBottomBorder = null;
-			_cachedVerticalBorder = null;
 		}
 
 		/// <summary>
 		/// Renders window borders for the specified visible regions.
 		/// </summary>
-		/// <param name="visibleRegions">List of visible screen regions where borders should be drawn</param>
 		public void RenderBorders(List<Rectangle> visibleRegions)
 		{
-			// Handle borderless windows
 			if (_window.BorderStyle == BorderStyle.None)
 			{
 				DrawInvisibleBorders(visibleRegions);
@@ -84,9 +77,9 @@ namespace SharpConsoleUI.Windows
 		}
 
 		/// <summary>
-		/// Draws scrollbar at the specified vertical position.
+		/// Draws scrollbar at the specified vertical position using direct cell writes.
 		/// </summary>
-		private void DrawScrollbar(int y, string borderColor, char verticalBorder, string resetColor)
+		private void DrawScrollbar(int y, Color borderFg, Color bg, char verticalBorder)
 		{
 			var driver = _getDriver();
 			var desktopUpperLeft = _getDesktopUpperLeft();
@@ -109,18 +102,130 @@ namespace SharpConsoleUI.Windows
 			}
 			else scrollbarChar = verticalBorder;
 
-			driver.WriteToConsole(
+			driver.SetCell(
 				_window.Left + _window.Width - 1,
 				_window.Top + desktopUpperLeft.Y + y,
-				AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					$"{borderColor}{scrollbarChar}{resetColor}",
-					1, 1, false,
-					_window.BackgroundColor,  // Explicit background prevents color bleeding
-					_window.ForegroundColor)[0]);  // Explicit foreground as safety net
+				scrollbarChar, borderFg, bg);
 		}
 
 		/// <summary>
-		/// Draws visible borders (non-None BorderStyle).
+		/// Builds the top border CharacterBuffer with title and buttons.
+		/// </summary>
+		private CharacterBuffer BuildTopBorder(BoxChars chars, Color borderFg, Color titleFg, Color buttonFg, Color closeFg, Color bg)
+		{
+			var buffer = new CharacterBuffer(_window.Width, 1, bg);
+
+			// Window control buttons
+			var minimizeButtonWidth = _window.IsMinimizable ? 3 : 0;
+			var maximizeButtonWidth = _window.IsMaximizable ? 3 : 0;
+			var closeButtonWidth = (_window.IsClosable && _window.ShowCloseButton) ? 3 : 0;
+			var totalButtonWidth = minimizeButtonWidth + maximizeButtonWidth + closeButtonWidth;
+
+			// Build title section
+			int titleLength;
+			string truncatedTitle;
+			int leftPadding;
+			int rightPadding;
+
+			if (_window.ShowTitle && !string.IsNullOrEmpty(_window.Title))
+			{
+				var maxTitleSpace = Math.Max(0, _window.Width - 8 - totalButtonWidth);
+				truncatedTitle = StringHelper.TrimWithEllipsis(_window.Title, maxTitleSpace, maxTitleSpace / 2);
+				titleLength = 4 + truncatedTitle.Length; // "| " + title + " |"
+				var availableSpace = Math.Max(0, _window.Width - 2 - titleLength - totalButtonWidth);
+				leftPadding = Math.Min(1, availableSpace);
+				rightPadding = Math.Max(0, availableSpace - leftPadding);
+			}
+			else
+			{
+				truncatedTitle = "";
+				titleLength = 0;
+				var availableSpace = Math.Max(0, _window.Width - 2 - totalButtonWidth);
+				leftPadding = availableSpace / 2;
+				rightPadding = availableSpace - leftPadding;
+			}
+
+			int x = 0;
+
+			// Top-left corner
+			buffer.SetCell(x++, 0, chars.TopLeft, borderFg, bg);
+
+			// Left horizontal padding
+			for (int i = 0; i < leftPadding; i++)
+				buffer.SetCell(x++, 0, chars.Horizontal, borderFg, bg);
+
+			// Title
+			if (titleLength > 0)
+			{
+				buffer.SetCell(x++, 0, '|', titleFg, bg);
+				buffer.SetCell(x++, 0, ' ', titleFg, bg);
+				foreach (var ch in truncatedTitle)
+					buffer.SetCell(x++, 0, ch, titleFg, bg);
+				buffer.SetCell(x++, 0, ' ', titleFg, bg);
+				buffer.SetCell(x++, 0, '|', titleFg, bg);
+			}
+
+			// Right horizontal padding
+			for (int i = 0; i < rightPadding; i++)
+				buffer.SetCell(x++, 0, chars.Horizontal, borderFg, bg);
+
+			// Buttons
+			if (_window.IsMinimizable)
+			{
+				buffer.SetCell(x++, 0, '[', buttonFg, bg);
+				buffer.SetCell(x++, 0, '_', buttonFg, bg);
+				buffer.SetCell(x++, 0, ']', buttonFg, bg);
+			}
+			if (_window.IsMaximizable)
+			{
+				var sym = _window.State == WindowState.Maximized ? '-' : '+';
+				buffer.SetCell(x++, 0, '[', buttonFg, bg);
+				buffer.SetCell(x++, 0, sym, buttonFg, bg);
+				buffer.SetCell(x++, 0, ']', buttonFg, bg);
+			}
+			if (_window.IsClosable && _window.ShowCloseButton)
+			{
+				buffer.SetCell(x++, 0, '[', closeFg, bg);
+				buffer.SetCell(x++, 0, 'X', closeFg, bg);
+				buffer.SetCell(x++, 0, ']', closeFg, bg);
+			}
+
+			// Top-right corner
+			if (x < _window.Width)
+				buffer.SetCell(x, 0, chars.TopRight, borderFg, bg);
+
+			return buffer;
+		}
+
+		/// <summary>
+		/// Builds the bottom border CharacterBuffer.
+		/// </summary>
+		private CharacterBuffer BuildBottomBorder(BoxChars chars, Color borderFg, Color bg)
+		{
+			var buffer = new CharacterBuffer(_window.Width, 1, bg);
+
+			// Bottom-left corner
+			buffer.SetCell(0, 0, chars.BottomLeft, borderFg, bg);
+
+			// Horizontal line
+			for (int x = 1; x < _window.Width - 1; x++)
+				buffer.SetCell(x, 0, chars.Horizontal, borderFg, bg);
+
+			// Resize grip or bottom-right corner
+			var resizeDirs = _window.AllowedResizeDirections;
+			bool showResizeGrip = _window.IsResizable &&
+				(resizeDirs.HasFlag(ResizeBorderDirections.BottomExpand) || resizeDirs.HasFlag(ResizeBorderDirections.BottomContract)) &&
+				(resizeDirs.HasFlag(ResizeBorderDirections.RightExpand) || resizeDirs.HasFlag(ResizeBorderDirections.RightContract));
+
+			var bottomRightChar = showResizeGrip ? '◢' : chars.BottomRight;
+			if (_window.Width > 1)
+				buffer.SetCell(_window.Width - 1, 0, bottomRightChar, borderFg, bg);
+
+			return buffer;
+		}
+
+		/// <summary>
+		/// Draws visible borders using cached CharacterBuffers and direct cell writes.
 		/// </summary>
 		private void DrawVisibleBorders(List<Rectangle> visibleRegions)
 		{
@@ -128,146 +233,61 @@ namespace SharpConsoleUI.Windows
 			var desktopUpperLeft = _getDesktopUpperLeft();
 			var desktopBottomRight = _getDesktopBottomRight();
 
-			// Get border characters using BoxChars abstraction
-			// DoubleLine style uses active state to switch between double (active) and single (inactive)
+			// Get border characters
 			var chars = BoxChars.FromBorderStyle(_window.BorderStyle, _window.GetIsActive());
-			char horizontalBorder = chars.Horizontal;
-			char verticalBorder = chars.Vertical;
-			char topLeftCorner = chars.TopLeft;
-			char topRightCorner = chars.TopRight;
-			char bottomLeftCorner = chars.BottomLeft;
-			char bottomRightCorner = chars.BottomRight;
 
-			var borderColor = _window.GetIsActive() ? $"[{_window.ActiveBorderForegroundColor}]" : $"[{_window.InactiveBorderForegroundColor}]";
-			var titleColor = _window.GetIsActive() ? $"[{_window.ActiveTitleForegroundColor}]" : $"[{_window.InactiveTitleForegroundColor}]";
-			var buttonColor = _window.GetIsActive() ? "[yellow]" : $"[{_window.InactiveBorderForegroundColor}]";
-			var closeButtonColor = _window.GetIsActive() ? "[red]" : $"[{_window.InactiveBorderForegroundColor}]";
-
-			var resetColor = "[/]";
-
-			// Window control buttons: [_] minimize, [+]/[-] maximize/restore, [X] close
-			// Each button takes 3 characters
-			var minimizeButtonWidth = _window.IsMinimizable ? 3 : 0;
-			var maximizeButtonWidth = _window.IsMaximizable ? 3 : 0;
-			var closeButtonWidth = (_window.IsClosable && _window.ShowCloseButton) ? 3 : 0;
-			var totalButtonWidth = minimizeButtonWidth + maximizeButtonWidth + closeButtonWidth;
-
-			var minimizeButton = _window.IsMinimizable ? $"{buttonColor}[_]" : "";
-			// + for maximize, - for restore (when already maximized)
-			var maximizeSymbol = _window.State == WindowState.Maximized ? "-" : "+";
-			var maximizeButton = _window.IsMaximizable ? $"{buttonColor}[{maximizeSymbol}]" : "";
-			var closeButton = (_window.IsClosable && _window.ShowCloseButton) ? $"{closeButtonColor}[X]" : "";
-			var windowButtons = $"{minimizeButton}{maximizeButton}{closeButton}{resetColor}";
-
-			// Resize grip replaces bottom-right corner when bottom-right dragging is allowed: ◢
-			var resizeDirs = _window.AllowedResizeDirections;
-			bool showResizeGrip = _window.IsResizable &&
-				(resizeDirs.HasFlag(ResizeBorderDirections.BottomExpand) || resizeDirs.HasFlag(ResizeBorderDirections.BottomContract)) &&
-				(resizeDirs.HasFlag(ResizeBorderDirections.RightExpand)  || resizeDirs.HasFlag(ResizeBorderDirections.RightContract));
-			var bottomRightChar = showResizeGrip ? "◢" : bottomRightCorner.ToString();
-
-			// Build title section (only if ShowTitle is true and title is not empty)
-			string title;
-			int titleLength;
-			int leftPadding;
-			int rightPadding;
-
-			if (_window.ShowTitle && !string.IsNullOrEmpty(_window.Title))
-			{
-				// Ensure we have enough space for the title, with safety margins
-				var maxTitleSpace = Math.Max(0, _window.Width - 8 - totalButtonWidth); // Reserve space for corners, padding, buttons, and safety
-				var truncatedTitle = StringHelper.TrimWithEllipsis(_window.Title, maxTitleSpace, maxTitleSpace / 2);
-				// Don't escape - title is plain text, not parsed as markup when concatenated
-				// Calculate visible length directly from plain text
-				titleLength = 4 + truncatedTitle.Length; // "| " + title + " |" = 4 extra chars
-				title = $"{titleColor}| {truncatedTitle} |{resetColor}";
-				var availableSpace = Math.Max(0, _window.Width - 2 - titleLength - totalButtonWidth);
-				leftPadding = Math.Min(1, availableSpace);
-				rightPadding = Math.Max(0, availableSpace - leftPadding);
-			}
-			else
-			{
-				// No title - just border and buttons
-				title = "";
-				titleLength = 0;
-				var availableSpace = Math.Max(0, _window.Width - 2 - totalButtonWidth);
-				leftPadding = availableSpace / 2;
-				rightPadding = availableSpace - leftPadding;
-			}
-
-			// Check if border cache is valid, rebuild if necessary
 			bool isActive = _window.GetIsActive();
+			var borderFg = isActive ? _window.ActiveBorderForegroundColor : _window.InactiveBorderForegroundColor;
+			var titleFg = isActive ? _window.ActiveTitleForegroundColor : _window.InactiveTitleForegroundColor;
+			var buttonFg = isActive ? Color.Yellow : _window.InactiveBorderForegroundColor;
+			var closeFg = isActive ? Color.Red : _window.InactiveBorderForegroundColor;
+			var bg = _window.BackgroundColor;
+
+			// Rebuild cached border buffers if necessary
 			if (_cachedTopBorder == null ||
 				_cachedBorderWidth != _window.Width ||
 				_cachedBorderIsActive != isActive)
 			{
-				// Rebuild cached border strings
-				// IMPORTANT: Always pass explicit backgroundColor and foregroundColor to prevent ANSI color bleeding
-				// from previous console output. Without these, borders inherit stale colors from overlapping windows.
-				var topBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					$"{borderColor}{topLeftCorner}{new string(horizontalBorder, leftPadding)}{title}{new string(horizontalBorder, rightPadding)}{windowButtons}{borderColor}{topRightCorner}{resetColor}",
-					Math.Min(_window.Width, desktopBottomRight.X - _window.Left + 1), 1, false,
-					_window.BackgroundColor,  // Explicit background prevents color bleeding
-					_window.ForegroundColor)[0];  // Explicit foreground as safety net
-
-				var bottomBorderWidth = _window.Width - 2;
-				var bottomBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					$"{borderColor}{bottomLeftCorner}{new string(horizontalBorder, bottomBorderWidth)}{bottomRightChar}{resetColor}",
-					_window.Width, 1, false,
-					_window.BackgroundColor,  // Explicit background prevents color bleeding
-					_window.ForegroundColor)[0];  // Explicit foreground as safety net
-
-				var vertBorder = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					$"{borderColor}{verticalBorder}{resetColor}",
-					1, 1, false,
-					_window.BackgroundColor,  // Explicit background prevents color bleeding
-					_window.ForegroundColor)[0];  // Explicit foreground as safety net
-
-				// Update cache
-				_cachedTopBorder = topBorder;
-				_cachedBottomBorder = bottomBorder;
-				_cachedVerticalBorder = vertBorder;
+				_cachedTopBorder = BuildTopBorder(chars, borderFg, titleFg, buttonFg, closeFg, bg);
+				_cachedBottomBorder = BuildBottomBorder(chars, borderFg, bg);
 				_cachedBorderWidth = _window.Width;
 				_cachedBorderIsActive = isActive;
 			}
 
-			// Use cached borders for rendering
-			var cachedTopBorder = _cachedTopBorder!;
-			var cachedBottomBorder = _cachedBottomBorder!;
-			var cachedVerticalBorderAnsi = _cachedVerticalBorder!;
-
 			var contentHeight = _window.TotalLines;
 			var visibleHeight = _window.Height - 2;
-
 			var scrollbarVisible = _window.IsScrollable && contentHeight > visibleHeight;
 
 			foreach (var region in visibleRegions ?? new List<Rectangle>())
 			{
+				// Top border
 				if (region.Top == _window.Top)
 				{
-					// Ensure we don't write beyond the region boundaries
 					int borderStartX = Math.Max(region.Left, _window.Left);
 					int borderWidth = Math.Min(region.Width, _window.Left + _window.Width - borderStartX);
 					if (borderWidth > 0)
 					{
-						string borderSegment = AnsiConsoleHelper.SubstringAnsi(cachedTopBorder, borderStartX - _window.Left, borderWidth);
-						driver.WriteToConsole(borderStartX, region.Top + desktopUpperLeft.Y, borderSegment);
+						int srcX = borderStartX - _window.Left;
+						driver.WriteBufferRegion(borderStartX, region.Top + desktopUpperLeft.Y,
+							_cachedTopBorder, srcX, 0, borderWidth, bg);
 					}
 				}
 
+				// Bottom border
 				if (region.Top + region.Height == _window.Top + _window.Height)
 				{
-					// Ensure we don't write beyond the region boundaries for bottom border
 					int borderStartX = Math.Max(region.Left, _window.Left);
 					int borderWidth = Math.Min(region.Width, _window.Left + _window.Width - borderStartX);
 					if (borderWidth > 0)
 					{
-						string borderSegment = AnsiConsoleHelper.SubstringAnsi(cachedBottomBorder, borderStartX - _window.Left, borderWidth);
-						driver.WriteToConsole(borderStartX, _window.Top + _window.Height - 1 + desktopUpperLeft.Y, borderSegment);
+						int srcX = borderStartX - _window.Left;
+						driver.WriteBufferRegion(borderStartX, _window.Top + _window.Height - 1 + desktopUpperLeft.Y,
+							_cachedBottomBorder!, srcX, 0, borderWidth, bg);
 					}
 				}
 			}
 
+			// Vertical borders
 			for (var y = 1; y < _window.Height - 1; y++)
 			{
 				if (_window.Top + desktopUpperLeft.Y + y - 1 >= desktopBottomRight.Y) break;
@@ -282,18 +302,20 @@ namespace SharpConsoleUI.Windows
 
 						if (isLeftBorderVisible)
 						{
-							driver.WriteToConsole(_window.Left, _window.Top + desktopUpperLeft.Y + y, cachedVerticalBorderAnsi);
+							driver.SetCell(_window.Left, _window.Top + desktopUpperLeft.Y + y,
+								chars.Vertical, borderFg, bg);
 						}
 
 						if (isRightBorderVisible)
 						{
 							if (scrollbarVisible)
 							{
-								DrawScrollbar(y, borderColor, verticalBorder, resetColor);
+								DrawScrollbar(y, borderFg, bg, chars.Vertical);
 							}
 							else
 							{
-								driver.WriteToConsole(rightBorderPos, _window.Top + desktopUpperLeft.Y + y, cachedVerticalBorderAnsi);
+								driver.SetCell(rightBorderPos, _window.Top + desktopUpperLeft.Y + y,
+									chars.Vertical, borderFg, bg);
 							}
 						}
 					}
@@ -302,8 +324,7 @@ namespace SharpConsoleUI.Windows
 		}
 
 		/// <summary>
-		/// Renders invisible borders by filling border areas with spaces.
-		/// Preserves layout (border space exists) while making borders visually disappear.
+		/// Renders invisible borders by filling border areas with spaces using direct cell writes.
 		/// </summary>
 		private void DrawInvisibleBorders(List<Rectangle> visibleRegions)
 		{
@@ -311,42 +332,30 @@ namespace SharpConsoleUI.Windows
 			var desktopUpperLeft = _getDesktopUpperLeft();
 			var desktopBottomRight = _getDesktopBottomRight();
 
-			var backgroundColor = _window.BackgroundColor;
-			var foregroundColor = _window.ForegroundColor;
-
-			// Create space character with window background color
-			var spaceAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-				" ", 1, 1, false, backgroundColor, foregroundColor)[0];
+			var bg = _window.BackgroundColor;
+			var fg = _window.ForegroundColor;
 
 			foreach (var region in visibleRegions ?? new List<Rectangle>())
 			{
-				// Top border row (Y=0)
+				// Top border row
 				if (region.Top == _window.Top)
 				{
 					int startX = Math.Max(region.Left, _window.Left);
 					int width = Math.Min(region.Width, _window.Left + _window.Width - startX);
-
-					for (int x = 0; x < width; x++)
+					if (width > 0)
 					{
-						driver.WriteToConsole(
-							startX + x,
-							region.Top + desktopUpperLeft.Y,
-							spaceAnsi);
+						driver.FillCells(startX, region.Top + desktopUpperLeft.Y, width, ' ', fg, bg);
 					}
 				}
 
-				// Bottom border row (Y=height-1)
+				// Bottom border row
 				if (region.Top + region.Height == _window.Top + _window.Height)
 				{
 					int startX = Math.Max(region.Left, _window.Left);
 					int width = Math.Min(region.Width, _window.Left + _window.Width - startX);
-
-					for (int x = 0; x < width; x++)
+					if (width > 0)
 					{
-						driver.WriteToConsole(
-							startX + x,
-							_window.Top + _window.Height - 1 + desktopUpperLeft.Y,
-							spaceAnsi);
+						driver.FillCells(startX, _window.Top + _window.Height - 1 + desktopUpperLeft.Y, width, ' ', fg, bg);
 					}
 				}
 			}
@@ -354,8 +363,7 @@ namespace SharpConsoleUI.Windows
 			// Left and right border columns
 			for (var y = 1; y < _window.Height - 1; y++)
 			{
-				if (_window.Top + desktopUpperLeft.Y + y >=
-					desktopBottomRight.Y)
+				if (_window.Top + desktopUpperLeft.Y + y >= desktopBottomRight.Y)
 					break;
 
 				foreach (var region in visibleRegions ?? new List<Rectangle>())
@@ -367,13 +375,10 @@ namespace SharpConsoleUI.Windows
 						if (_window.Left >= region.Left &&
 							_window.Left < region.Left + region.Width)
 						{
-							driver.WriteToConsole(
-								_window.Left,
-								_window.Top + desktopUpperLeft.Y + y,
-								spaceAnsi);
+							driver.SetCell(_window.Left, _window.Top + desktopUpperLeft.Y + y, ' ', fg, bg);
 						}
 
-						// Right border (includes scrollbar position)
+						// Right border
 						int rightPos = _window.Left + _window.Width - 1;
 						if (rightPos >= region.Left &&
 							rightPos < region.Left + region.Width)
@@ -385,22 +390,16 @@ namespace SharpConsoleUI.Windows
 
 							if (scrollbarVisible)
 							{
-								// Render scrollbar (same as DrawVisibleBorders does)
-								var borderColor = _window.GetIsActive()
-									? $"[{_window.ActiveBorderForegroundColor}]"
-									: $"[{_window.InactiveBorderForegroundColor}]";
+								var borderFg = _window.GetIsActive()
+									? _window.ActiveBorderForegroundColor
+									: _window.InactiveBorderForegroundColor;
 								var verticalBorder = _window.GetIsActive() ? '║' : '│';
-								var resetColor = "[/]";
 
-								DrawScrollbar(y, borderColor, verticalBorder, resetColor);
+								DrawScrollbar(y, borderFg, bg, verticalBorder);
 							}
 							else
 							{
-								// No scrollbar - render as space
-								driver.WriteToConsole(
-									rightPos,
-									_window.Top + desktopUpperLeft.Y + y,
-									spaceAnsi);
+								driver.SetCell(rightPos, _window.Top + desktopUpperLeft.Y + y, ' ', fg, bg);
 							}
 						}
 					}

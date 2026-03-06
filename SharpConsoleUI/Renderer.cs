@@ -6,11 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Windows;
-using Spectre.Console;
 using System.Drawing;
 using Color = Spectre.Console.Color;
 
@@ -24,10 +22,6 @@ namespace SharpConsoleUI
 	{
 		private ConsoleWindowSystem _consoleWindowSystem;
 
-		// Performance optimization: cache fill strings to avoid repeated string allocations
-		private readonly Dictionary<(char, int), string> _fillStringCache = new Dictionary<(char, int), string>();
-
-
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Renderer"/> class.
 		/// </summary>
@@ -35,25 +29,6 @@ namespace SharpConsoleUI
 		public Renderer(ConsoleWindowSystem consoleWindowSystem)
 		{
 			_consoleWindowSystem = consoleWindowSystem;
-		}
-
-		/// <summary>
-		/// Gets a cached fill string or creates one if not in cache.
-		/// Cache is limited to 100 entries to prevent memory leak.
-		/// </summary>
-		private string GetFillString(char character, int width)
-		{
-			var key = (character, width);
-			if (_fillStringCache.TryGetValue(key, out string? cached))
-				return cached;
-
-			// Limit cache size to prevent memory leak
-			if (_fillStringCache.Count > 100)
-				_fillStringCache.Clear();
-
-			string result = new string(character, width);
-			_fillStringCache[key] = result;
-			return result;
 		}
 
 		/// <summary>
@@ -79,6 +54,9 @@ namespace SharpConsoleUI
 			if (top >= _consoleWindowSystem.DesktopDimensions.Height)
 				return;
 
+			var fg = foregroundColor ?? Color.White;
+			var bg = backgroundColor ?? Color.Black;
+
 			for (var y = 0; y < height; y++)
 			{
 				if (top + y >= _consoleWindowSystem.DesktopDimensions.Height) break;
@@ -88,7 +66,7 @@ namespace SharpConsoleUI
 				if (effectiveWidth <= 0)
 					continue;
 
-				_consoleWindowSystem.ConsoleDriver.WriteToConsole(left, top + _consoleWindowSystem.DesktopUpperLeft.Y + y, AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(GetFillString(character, effectiveWidth), effectiveWidth, 1, false, backgroundColor, foregroundColor)[0]);
+				_consoleWindowSystem.ConsoleDriver.FillCells(left, top + _consoleWindowSystem.DesktopUpperLeft.Y + y, effectiveWidth, character, fg, bg);
 			}
 		}
 
@@ -236,8 +214,8 @@ namespace SharpConsoleUI
 					new Rectangle(window.Left, window.Top, window.Width, window.Height) 
 				};
 				
-				// This calls window's internal measure/layout/paint but we discard the output
-				window.RenderAndGetVisibleContent(fullRegion);
+				// Trigger internal measure/layout/paint but don't output to screen
+				window.EnsureContentReady(fullRegion);
 				window.IsDirty = false;
 			}
 			
@@ -256,15 +234,14 @@ namespace SharpConsoleUI
 			// will handle clipping against screen boundaries
 			window.BorderRenderer?.RenderBorders(visibleRegions);
 
-			// Pass visible regions to window rendering so it only paints visible areas (optimization)
-			// OPTION C FIX: Force rebuild for exposed regions to ensure cache contains correct content
-			// Exposed regions may request areas that weren't in the previous cache (stale regional cache bug)
-
-			var lines = window.RenderAndGetVisibleContent(visibleRegions);
+			// Optimized path: rebuild buffer only and render cells directly
+			var buffer = window.EnsureContentReady(visibleRegions);
 			window.IsDirty = false;
 
-			// Render content only for visible parts
-			RenderVisibleWindowContent(window, lines, visibleRegions);
+			if (buffer != null)
+			{
+				RenderVisibleWindowContentFromBuffer(window, buffer, visibleRegions);
+			}
 		}
 
 		/// <summary>
@@ -292,8 +269,8 @@ namespace SharpConsoleUI
 					new Rectangle(window.Left, window.Top, window.Width, window.Height) 
 				};
 				
-				// This calls window's internal measure/layout/paint but we discard the output
-				window.RenderAndGetVisibleContent(fullRegion);
+				// Trigger internal measure/layout/paint but don't output to screen
+				window.EnsureContentReady(fullRegion);
 				window.IsDirty = false;
 			}
 			
@@ -350,12 +327,14 @@ namespace SharpConsoleUI
 			// will handle clipping against screen boundaries
 			window.BorderRenderer?.RenderBorders(visibleRegions);
 
-			// Pass visible regions to window rendering so it only paints visible areas (optimization)
-			var lines = window.RenderAndGetVisibleContent(visibleRegions);
+			// Optimized path: rebuild buffer only (no ANSI serialization) and render cells directly
+			var buffer = window.EnsureContentReady(visibleRegions);
 			window.IsDirty = false;
 
-			// Render content only for visible parts
-			RenderVisibleWindowContent(window, lines, visibleRegions);
+			if (buffer != null)
+			{
+				RenderVisibleWindowContentFromBuffer(window, buffer, visibleRegions);
+			}
 		}
 
 		/// <summary>
@@ -392,8 +371,11 @@ namespace SharpConsoleUI
 			}
 
 			// Trigger overlay content rebuild (populates buffer and performs layout)
-			var lines = overlay.RenderAndGetVisibleContent();
+			var buffer = overlay.EnsureContentReady();
 			overlay.IsDirty = false;
+
+			if (buffer == null)
+				return;
 
 			// Get control bounds - these are the only regions we need to render
 			var controlBounds = overlay.GetControlBounds();
@@ -414,8 +396,8 @@ namespace SharpConsoleUI
 
 			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(overlay, overlappingWindows);
 
-			// Render only the control regions from the buffer
-			RenderOverlayControlRegions(overlay, lines, controlBounds, visibleRegions);
+			// Render only the control regions from the buffer (direct cell path)
+			RenderOverlayControlRegionsFromBuffer(overlay, buffer, controlBounds, visibleRegions);
 		}
 
 		/// <summary>
@@ -457,26 +439,31 @@ namespace SharpConsoleUI
 
 			window.BorderRenderer?.RenderBorders(visibleRegions);
 
-			var windowLines = window.RenderAndGetVisibleContent(visibleRegions);
+			var buffer = window.EnsureContentReady(visibleRegions);
 			window.IsDirty = false;
 
-			RenderVisibleWindowContent(window, windowLines, visibleRegions);
+			if (buffer != null)
+			{
+				RenderVisibleWindowContentFromBuffer(window, buffer, visibleRegions);
+			}
 		}
 
 
 		/// <summary>
 		/// Renders only the specified control regions from the overlay buffer.
 		/// Areas without controls are not rendered, allowing underlying content to show through.
+		/// Uses direct cell copy from CharacterBuffer (no ANSI serialization).
 		/// </summary>
-		private void RenderOverlayControlRegions(
+		private void RenderOverlayControlRegionsFromBuffer(
 			OverlayWindow overlay,
-			List<string> lines,
+			CharacterBuffer buffer,
 			List<LayoutRect> controlBounds,
 			List<Rectangle> visibleRegions)
 		{
 			var windowLeft = overlay.Left;
 			var windowTop = overlay.Top;
 			var desktopUpperLeftY = _consoleWindowSystem.DesktopUpperLeft.Y;
+			var bufferHeight = buffer.Height;
 
 			// For each control bounds, render that portion of the buffer
 			foreach (var bounds in controlBounds)
@@ -487,37 +474,24 @@ namespace SharpConsoleUI
 					int bufferY = bounds.Y + localY;
 
 					// Skip if outside buffer
-					if (bufferY < 0 || bufferY >= lines.Count)
-					{
+					if (bufferY < 0 || bufferY >= bufferHeight)
 						continue;
-					}
 
-					// Check if outside desktop area (use same calculation as RenderVisibleWindowContent)
-					// windowTop + bufferY is the window-relative Y, compare to DesktopBottomRight.Y
+					// Check if outside desktop area
 					if (windowTop + bufferY >= _consoleWindowSystem.DesktopBottomRight.Y)
-					{
 						break;
-					}
 
-					// Screen Y for rendering: window content starts at windowTop + 1 (border offset)
-					// Plus desktopUpperLeftY for status bar
+					// Screen Y: window content starts at windowTop + 1 (border offset)
 					int screenY = windowTop + 1 + bufferY;
-
-					var line = lines[bufferY];
+					int screenYWithOffset = screenY + desktopUpperLeftY;
 
 					// Check each visible region to see if this line intersects
 					foreach (var region in visibleRegions)
 					{
-						// Visible regions are in screen coordinates (include desktopUpperLeftY)
-						// Check vertical intersection
-						int screenYWithOffset = screenY + desktopUpperLeftY;
 						if (screenYWithOffset < region.Top || screenYWithOffset >= region.Top + region.Height)
-						{
 							continue;
-						}
 
-						// Calculate horizontal bounds for this control
-						// Control X in buffer space, convert to screen space
+						// Calculate horizontal bounds for this control in screen space
 						int controlScreenLeft = windowLeft + 1 + bounds.X;
 						int controlScreenRight = controlScreenLeft + bounds.Width;
 
@@ -527,20 +501,16 @@ namespace SharpConsoleUI
 						int renderWidth = renderRight - renderLeft;
 
 						if (renderWidth <= 0)
-						{
 							continue;
-						}
 
-						// Calculate offset within the line to extract
-						int lineOffset = renderLeft - (windowLeft + 1);
+						// Calculate buffer X offset
+						int srcX = renderLeft - (windowLeft + 1);
 
-						// Get the substring to render
-						string portion = AnsiConsoleHelper.SubstringAnsiWithPadding(
-							line, lineOffset, renderWidth, overlay.BackgroundColor);
-
-						// Write to console
-						_consoleWindowSystem.ConsoleDriver.WriteToConsole(
-							renderLeft, screenYWithOffset, portion);
+						// Write cells directly from buffer to console driver
+						_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
+							renderLeft, screenYWithOffset,
+							buffer, srcX, bufferY, renderWidth,
+							overlay.BackgroundColor);
 					}
 				}
 			}
@@ -601,12 +571,14 @@ namespace SharpConsoleUI
 			// will handle clipping against screen boundaries
 			window.BorderRenderer?.RenderBorders(visibleRegions);
 
-			// Pass visible regions to window rendering so it only paints visible areas (optimization)
-			var lines = window.RenderAndGetVisibleContent(visibleRegions);
+			// Optimized path: rebuild buffer only and render cells directly
+			var buffer = window.EnsureContentReady(visibleRegions);
 			window.IsDirty = false;
 
-			// Render content only for visible parts
-			RenderVisibleWindowContent(window, lines, visibleRegions);
+			if (buffer != null)
+			{
+				RenderVisibleWindowContentFromBuffer(window, buffer, visibleRegions);
+			}
 		}
 
 		private bool IsWindowOutOfBounds(Window window, Point desktopTopLeftCorner, Point desktopBottomRightCorner)
@@ -615,22 +587,22 @@ namespace SharpConsoleUI
 				   window.Left >= desktopBottomRightCorner.X || window.Top + _consoleWindowSystem.DesktopUpperLeft.Y >= desktopBottomRightCorner.Y;
 		}
 
-		private void RenderVisibleWindowContent(Window window, List<string> lines, List<Rectangle> visibleRegions)
+		/// <summary>
+		/// Renders visible window content by copying cells directly from the CharacterBuffer
+		/// to the console driver, bypassing ANSI string serialization and parsing.
+		/// </summary>
+		private void RenderVisibleWindowContentFromBuffer(Window window, CharacterBuffer buffer, List<Rectangle> visibleRegions)
 		{
-			var screenWidth = _consoleWindowSystem.ConsoleDriver.ScreenSize.Width;
-			var screenHeight = _consoleWindowSystem.ConsoleDriver.ScreenSize.Height;
 			var windowLeft = window.Left;
 			var windowTop = window.Top;
 			var windowWidth = window.Width;
 			var desktopUpperLeftY = _consoleWindowSystem.DesktopUpperLeft.Y;
+			var bufferHeight = buffer.Height;
 
-			for (var y = 0; y < lines.Count; y++)
+			for (var y = 0; y < bufferHeight; y++)
 			{
 				// Skip if this line is outside the desktop area
 				if (windowTop + y >= _consoleWindowSystem.DesktopBottomRight.Y) break;
-
-				// Get the current line
-				var line = lines[y];
 
 				// Check if this line is in any visible region
 				foreach (var region in visibleRegions)
@@ -639,26 +611,28 @@ namespace SharpConsoleUI
 					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 < region.Top + region.Height)
 					{
 						// Calculate content boundaries within the window
-						// Content area is between left border (windowLeft + 1) and right border (windowLeft + windowWidth - 1)
-						// Content right boundary (exclusive) should be windowLeft + windowWidth - 1
 						int contentLeft = Math.Max(windowLeft + 1, region.Left);
 						int contentRight = Math.Min(windowLeft + windowWidth - 1, region.Left + region.Width);
 						int contentWidth = contentRight - contentLeft;
 
 						if (contentWidth <= 0) continue;
 
-						// Calculate the portion of the line to render
-						int startOffset = contentLeft - (windowLeft + 1);
-						startOffset = Math.Max(0, startOffset);
+						// Calculate the portion of the buffer to render
+						int startOffset = Math.Max(0, contentLeft - (windowLeft + 1));
 
-						// Get the substring of the line to render, padding to full width if shorter
-						string visiblePortion = AnsiConsoleHelper.SubstringAnsiWithPadding(line, startOffset, contentWidth, window.BackgroundColor);
-
-						// Write the visible portion to the console
-						_consoleWindowSystem.ConsoleDriver.WriteToConsole(contentLeft, windowTop + desktopUpperLeftY + y + 1, visiblePortion);
+						// Write cells directly from buffer to console driver
+						_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
+							contentLeft,
+							windowTop + desktopUpperLeftY + y + 1,
+							buffer,
+							startOffset,
+							y,
+							contentWidth,
+							window.BackgroundColor);
 					}
 				}
 			}
 		}
+
 	}
 }

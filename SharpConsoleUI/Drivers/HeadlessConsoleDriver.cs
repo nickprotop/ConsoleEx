@@ -7,7 +7,9 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Layout;
 using System.Drawing;
+using Color = Spectre.Console.Color;
 using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI.Drivers;
@@ -29,12 +31,12 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	private bool _disposed;
 
 	/// <summary>
-	/// Gets the history of all WriteToConsole calls.
+	/// Gets the history of output operations (legacy, no longer populated).
 	/// </summary>
 	public IReadOnlyList<string> OutputHistory => _outputHistory;
 
 	/// <summary>
-	/// Gets the number of WriteToConsole calls made.
+	/// Gets the number of output operations recorded (legacy, no longer populated).
 	/// </summary>
 	public int WriteCallCount => _outputHistory.Count;
 
@@ -174,15 +176,23 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 		}
 	}
 
-	/// <summary>
-	/// Writes content to the console buffer for buffered rendering.
-	/// </summary>
-	public void WriteToConsole(int x, int y, string value)
+	/// <inheritdoc />
+	public void SetCell(int x, int y, char character, Color fg, Color bg)
 	{
-		_outputHistory.Add(value);
+		_consoleBuffer?.SetCell(x, y, character, fg, bg);
+	}
 
-		// Add content to console buffer for double-buffered rendering
-		_consoleBuffer?.AddContent(x, y, value);
+	/// <inheritdoc />
+	public void FillCells(int x, int y, int width, char character, Color fg, Color bg)
+	{
+		_consoleBuffer?.FillCells(x, y, width, character, fg, bg);
+	}
+
+	/// <inheritdoc />
+	public void WriteBufferRegion(int destX, int destY, CharacterBuffer source, int srcX, int srcY, int width, Color fallbackBg)
+	{
+		// Route through ConsoleBuffer for double-buffered rendering
+		_consoleBuffer?.SetCellsFromBuffer(destX, destY, source, srcX, srcY, width, fallbackBg);
 	}
 
 	/// <summary>

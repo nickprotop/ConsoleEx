@@ -622,7 +622,7 @@ namespace SharpConsoleUI.Windows
 								}
 								else
 								{
-									_window._scrollOffset = Math.Min((_window._cachedContent?.Count ?? _window.Height) - (_window.Height - 2 - _window._topStickyHeight), _window._scrollOffset + 1);
+									_window._scrollOffset = Math.Min(_window.ContentLineCount - (_window.Height - 2 - _window._topStickyHeight), _window._scrollOffset + 1);
 								}
 								_window.IsDirty = true;
 								windowHandled = true;
@@ -897,7 +897,7 @@ namespace SharpConsoleUI.Windows
 						int newOffset = contentBottom - (_window.Height - 2 - _window._bottomStickyHeight);
 
 						// Ensure we don't scroll beyond the maximum available content
-						int maxOffset = Math.Max(0, (_window._cachedContent?.Count ?? 0) - (_window.Height - 2 - _window._topStickyHeight));
+						int maxOffset = Math.Max(0, _window.ContentLineCount - (_window.Height - 2 - _window._topStickyHeight));
 						_window._scrollOffset = Math.Min(newOffset, maxOffset);
 					}
 				}

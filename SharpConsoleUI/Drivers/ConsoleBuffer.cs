@@ -7,9 +7,10 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Drivers.Input;
-using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using System.Text;
 using System.Text.RegularExpressions;
+using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Drivers
 {
@@ -33,9 +34,8 @@ namespace SharpConsoleUI.Drivers
 		private readonly Cell[,] _frontBuffer;
 		private readonly int _height;
 
-		// Reusable StringBuilders to minimize allocations in hot paths
+		// Reusable StringBuilder for screen output
 		private readonly StringBuilder _screenBuilder = new(8192);
-		private readonly StringBuilder _ansiSequenceBuilder = new(64);
 
 		private readonly int _width;
 		private readonly object? _consoleLock; // Shared lock for thread-safe Console I/O
@@ -83,73 +83,126 @@ namespace SharpConsoleUI.Drivers
 		/// </remarks>
 		public bool Lock { get; set; } = false;
 
+		// Cache for FormatCellAnsi to avoid repeated string allocations
+		private string _lastCellAnsi = string.Empty;
+		private Color _lastCellFg;
+		private Color _lastCellBg;
+
 		/// <summary>
-		/// Adds content to the back buffer at the specified position.
+		/// Formats an ANSI escape sequence for the given foreground and background colors.
+		/// Caches the last result for consecutive cells with the same colors (common case).
 		/// </summary>
-		/// <param name="x">The horizontal position (column) to start writing at.</param>
-		/// <param name="y">The vertical position (row) to write to.</param>
-		/// <param name="content">The content to write, which may include ANSI escape sequences for formatting.</param>
-		/// <remarks>
-		/// ANSI escape sequences in the content are parsed and associated with the appropriate cells,
-		/// ensuring proper formatting when rendered. Content that extends beyond the buffer width is truncated.
-		/// </remarks>
-		public void AddContent(int x, int y, string content)
+		private string FormatCellAnsi(Color fg, Color bg)
 		{
-			// Early exit conditions
-			if (!IsValidPosition(x, y) || string.IsNullOrEmpty(content))
+			if (fg.Equals(_lastCellFg) && bg.Equals(_lastCellBg))
+				return _lastCellAnsi;
+
+			_lastCellAnsi = $"\x1b[38;2;{fg.R};{fg.G};{fg.B};48;2;{bg.R};{bg.G};{bg.B}m";
+			_lastCellFg = fg;
+			_lastCellBg = bg;
+			return _lastCellAnsi;
+		}
+
+		/// <summary>
+		/// Sets a single cell in the back buffer with the specified character and colors.
+		/// </summary>
+		/// <param name="x">The horizontal position (column).</param>
+		/// <param name="y">The vertical position (row).</param>
+		/// <param name="character">The character to write.</param>
+		/// <param name="fg">The foreground color.</param>
+		/// <param name="bg">The background color.</param>
+		public void SetCell(int x, int y, char character, Color fg, Color bg)
+		{
+			if (!IsValidPosition(x, y))
 				return;
 
-			// Remove trailing reset sequence if present
-			if (content.EndsWith(ResetSequence))
-				content = content[..^ResetSequence.Length];
-
-			_ansiSequenceBuilder.Clear();
-			int contentPos = 0;
-			int bufferX = x;
-
-			// Single-pass state machine parser for ANSI sequences
-			int maxBufferX = _options.ClampToWindowWidth ? Math.Min(_width, GetCurrentWindowWidth()) : _width;
-			while (contentPos < content.Length && bufferX < maxBufferX)
+			string ansi = FormatCellAnsi(fg, bg);
+			ref var cell = ref _backBuffer[x, y];
+			if (cell.Character != character || cell.AnsiEscape != ansi)
 			{
-				// State machine: detect ESC character
-				if (content[contentPos] == '\x1B' &&
-					contentPos + 1 < content.Length &&
-					content[contentPos + 1] == '[')
+				cell.Character = character;
+				cell.AnsiEscape = ansi;
+			}
+		}
+
+		/// <summary>
+		/// Fills a horizontal run of cells in the back buffer with the specified character and colors.
+		/// </summary>
+		/// <param name="x">The starting horizontal position (column).</param>
+		/// <param name="y">The vertical position (row).</param>
+		/// <param name="width">The number of cells to fill.</param>
+		/// <param name="character">The character to fill with.</param>
+		/// <param name="fg">The foreground color.</param>
+		/// <param name="bg">The background color.</param>
+		public void FillCells(int x, int y, int width, char character, Color fg, Color bg)
+		{
+			if (!IsValidPosition(x, y) || width <= 0)
+				return;
+
+			int maxWidth = Math.Min(width, _width - x);
+			if (_options.ClampToWindowWidth)
+				maxWidth = Math.Min(maxWidth, GetCurrentWindowWidth() - x);
+
+			string ansi = FormatCellAnsi(fg, bg);
+			for (int i = 0; i < maxWidth; i++)
+			{
+				ref var cell = ref _backBuffer[x + i, y];
+				if (cell.Character != character || cell.AnsiEscape != ansi)
 				{
-					// Parse ANSI sequence inline
-					int seqStart = contentPos;
-					contentPos += 2;  // Skip ESC[
+					cell.Character = character;
+					cell.AnsiEscape = ansi;
+				}
+			}
+		}
 
-					// Read parameters and command (consume all non-letter characters)
-					while (contentPos < content.Length &&
-						   !char.IsLetter(content[contentPos]))
-					{
-						contentPos++;
-					}
+		/// <summary>
+		/// Copies a horizontal strip of cells from a <see cref="CharacterBuffer"/> directly into the back buffer,
+		/// bypassing ANSI string serialization and parsing entirely.
+		/// </summary>
+		/// <param name="destX">Destination X position in this buffer.</param>
+		/// <param name="destY">Destination Y position in this buffer.</param>
+		/// <param name="source">The source CharacterBuffer to read cells from.</param>
+		/// <param name="srcX">Source X offset within the CharacterBuffer.</param>
+		/// <param name="srcY">Source Y (row) within the CharacterBuffer.</param>
+		/// <param name="width">Number of cells to copy.</param>
+		/// <param name="fallbackBg">Background color to use for padding when source is out of bounds.</param>
+		public void SetCellsFromBuffer(int destX, int destY, CharacterBuffer source, int srcX, int srcY, int width, Color fallbackBg)
+		{
+			if (!IsValidPosition(destX, destY) || width <= 0)
+				return;
 
-					// Include the terminating command letter
-					if (contentPos < content.Length)
+			int maxWidth = Math.Min(width, _width - destX);
+			if (_options.ClampToWindowWidth)
+				maxWidth = Math.Min(maxWidth, GetCurrentWindowWidth() - destX);
+
+			int sourceWidth = source.Width;
+			int sourceHeight = source.Height;
+
+			for (int i = 0; i < maxWidth; i++)
+			{
+				int sx = srcX + i;
+				ref var destCell = ref _backBuffer[destX + i, destY];
+
+				if (sx >= 0 && sx < sourceWidth && srcY >= 0 && srcY < sourceHeight)
+				{
+					var srcCell = source.GetCell(sx, srcY);
+					string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background);
+
+					if (destCell.Character != srcCell.Character || destCell.AnsiEscape != ansi)
 					{
-						contentPos++;  // Include terminator
-						_ansiSequenceBuilder.Append(content, seqStart, contentPos - seqStart);
+						destCell.Character = srcCell.Character;
+						destCell.AnsiEscape = ansi;
 					}
 				}
 				else
 				{
-					// Regular character - write to buffer
-					ref var cell = ref _backBuffer[bufferX, y];
-
-					char newChar = content[contentPos];
-					string newAnsi = _ansiSequenceBuilder.ToString();
-
-					if (cell.Character != newChar || cell.AnsiEscape != newAnsi)
+					// Out of bounds: write padding space with fallback background
+					string ansi = FormatCellAnsi(Color.White, fallbackBg);
+					if (destCell.Character != ' ' || destCell.AnsiEscape != ansi)
 					{
-						cell.Character = newChar;
-						cell.AnsiEscape = newAnsi;
+						destCell.Character = ' ';
+						destCell.AnsiEscape = ansi;
 					}
-
-					contentPos++;
-					bufferX++;
 				}
 			}
 		}

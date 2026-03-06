@@ -587,31 +587,87 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <inheritdoc/>
-		public void WriteToConsole(int x, int y, string value)
+		public void SetCell(int x, int y, char character, Spectre.Console.Color fg, Spectre.Console.Color bg)
 		{
 			switch (RenderMode)
 			{
 				case RenderMode.Direct:
+					var ansi = $"\x1b[38;2;{fg.R};{fg.G};{fg.B};48;2;{bg.R};{bg.G};{bg.B}m{character}\x1b[0m";
 					if (_useDirectAnsi)
 					{
 						WriteOutput($"\x1b[{y + 1};{x + 1}H");
-						WriteOutput(value);
+						WriteOutput(ansi);
 					}
 					else
 					{
 						Console.SetCursorPosition(x, y);
-						Console.Out.Write(value);
+						Console.Out.Write(ansi);
 					}
 					break;
 
+				case RenderMode.Buffer:
+					_consoleBuffer?.SetCell(x, y, character, fg, bg);
+					break;
+			}
+		}
+
+		/// <inheritdoc/>
+		public void FillCells(int x, int y, int width, char character, Spectre.Console.Color fg, Spectre.Console.Color bg)
+		{
+			switch (RenderMode)
+			{
+				case RenderMode.Direct:
+					var sb = new StringBuilder();
+					sb.Append($"\x1b[38;2;{fg.R};{fg.G};{fg.B};48;2;{bg.R};{bg.G};{bg.B}m");
+					sb.Append(character, width);
+					sb.Append("\x1b[0m");
+					if (_useDirectAnsi)
+					{
+						WriteOutput($"\x1b[{y + 1};{x + 1}H");
+						WriteOutput(sb.ToString());
+					}
+					else
+					{
+						Console.SetCursorPosition(x, y);
+						Console.Out.Write(sb.ToString());
+					}
+					break;
 
 				case RenderMode.Buffer:
-					// DIAGNOSTIC: Log any write containing box-drawing char at problematic lines
-					if ((y == 3 || y == 10 || y == 14 || y == 67) && value.Contains('─'))
+					_consoleBuffer?.FillCells(x, y, width, character, fg, bg);
+					break;
+			}
+		}
+
+		/// <inheritdoc/>
+		public void WriteBufferRegion(int destX, int destY, Layout.CharacterBuffer source, int srcX, int srcY, int width, Spectre.Console.Color fallbackBg)
+		{
+			switch (RenderMode)
+			{
+				case RenderMode.Direct:
+					// Fallback: format ANSI string and write directly
+					var sb = new StringBuilder();
+					for (int i = 0; i < width; i++)
 					{
-						var logValue = value.Replace("\x1b", "<ESC>");
+						var cell = source.GetCell(srcX + i, srcY);
+						sb.Append($"\x1b[38;2;{cell.Foreground.R};{cell.Foreground.G};{cell.Foreground.B};48;2;{cell.Background.R};{cell.Background.G};{cell.Background.B}m");
+						sb.Append(cell.Character);
 					}
-					_consoleBuffer?.AddContent(x, y, value);
+					sb.Append("\x1b[0m");
+					if (_useDirectAnsi)
+					{
+						WriteOutput($"\x1b[{destY + 1};{destX + 1}H");
+						WriteOutput(sb.ToString());
+					}
+					else
+					{
+						Console.SetCursorPosition(destX, destY);
+						Console.Out.Write(sb.ToString());
+					}
+					break;
+
+				case RenderMode.Buffer:
+					_consoleBuffer?.SetCellsFromBuffer(destX, destY, source, srcX, srcY, width, fallbackBg);
 					break;
 			}
 		}

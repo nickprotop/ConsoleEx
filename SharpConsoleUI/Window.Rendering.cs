@@ -15,57 +15,57 @@ namespace SharpConsoleUI
 	public partial class Window
 	{
 		/// <summary>
-		/// Renders the window content and returns the visible lines.
+		/// Ensures the window's content buffer is up to date by rebuilding DOM + painting
+		/// if the window has been invalidated. Does NOT convert to ANSI strings.
+		/// Used by the optimized cell-level rendering path in <see cref="Renderer"/>.
 		/// </summary>
-		/// <param name="visibleRegions">Optional list of screen-space rectangles representing visible portions of the window.
-		/// If provided, only these regions will be painted (optimization to avoid painting occluded areas).</param>
-		/// <returns>A list of rendered content lines visible within the window viewport.</returns>
-		public List<string> RenderAndGetVisibleContent(List<Rectangle>? visibleRegions = null)
+		/// <param name="visibleRegions">Optional list of screen-space rectangles for clipping optimization.</param>
+		/// <returns>The content buffer, or null if the window is minimized.</returns>
+		internal CharacterBuffer? EnsureContentReady(List<Rectangle>? visibleRegions = null)
 		{
-			// Return empty list if window is minimized
 			if (_state == WindowState.Minimized)
-			{
-				return new List<string>();
-			}
+				return null;
 
 			lock (_lock)
 			{
-				// Only recalculate content if it's been invalidated
 				if (_invalidated)
 				{
-					// Layout will be updated lazily on next event
-					RebuildContentCache(visibleRegions);
+					var availableWidth = Width - 2;
+					var availableHeight = Height - 2;
+					RebuildContentBufferOnly(availableWidth, availableHeight, visibleRegions);
 
-					// Check if visibleRegions is null or empty (window not in rendering pipeline yet)
 					bool isInRenderingPipeline = visibleRegions != null && visibleRegions.Count > 0;
-
-					// If we rendered without visible regions (during window creation),
-					// keep _invalidated=true so we re-render when actually in the pipeline
 					if (!isInRenderingPipeline)
-					{
 						_invalidated = true;
-					}
 				}
 
-				return BuildVisibleContent();
+				return _renderer?.Buffer;
 			}
 		}
 
-		private void RebuildContentCache(List<Rectangle>? visibleRegions = null)
+		/// <summary>
+		/// Gets the current content buffer without triggering a rebuild.
+		/// Returns null if no buffer has been created yet.
+		/// </summary>
+		internal CharacterBuffer? ContentBuffer => _renderer?.Buffer;
+
+		/// <summary>
+		/// Renders the window content and returns ANSI-formatted lines.
+		/// This rebuilds the buffer via <see cref="EnsureContentReady"/> and then
+		/// serializes to ANSI strings. Prefer <see cref="EnsureContentReady"/> +
+		/// direct buffer access for rendering (avoids ANSI round-trip).
+		/// </summary>
+		/// <param name="visibleRegions">Optional list of screen-space rectangles representing visible portions of the window.</param>
+		/// <returns>A list of rendered content lines visible within the window viewport.</returns>
+		public List<string> RenderAndGetVisibleContent(List<Rectangle>? visibleRegions = null)
 		{
-			var availableWidth = Width - 2; // Account for borders
-			var availableHeight = Height - 2; // Account for borders
+			var buffer = EnsureContentReady(visibleRegions);
+			if (buffer == null)
+				return new List<string>();
 
-			// Always use DOM-based layout
-			RebuildContentCacheDOM(availableWidth, availableHeight, visibleRegions);
-		}
-
-		private List<string> BuildVisibleContent()
-		{
-			var availableHeight = Height - 2; // Account for borders
-
-			// DOM mode: _cachedContent already contains the viewport-sized content
-			var result = _cachedContent?.Take(availableHeight).ToList() ?? new List<string>();
+			var availableHeight = Height - 2;
+			var lines = buffer.ToLines(ForegroundColor, BackgroundColor);
+			var result = lines.Take(availableHeight).ToList();
 			while (result.Count < availableHeight)
 			{
 				result.Add(string.Empty);
@@ -82,51 +82,6 @@ namespace SharpConsoleUI
 		/// Gets the WindowEventDispatcher instance for this window.
 		/// </summary>
 		internal Windows.WindowEventDispatcher? EventDispatcher => _eventDispatcher;
-
-		/// <summary>
-		/// Gets or sets the cached top border string (exposed for Renderer.cs access).
-		/// </summary>
-		internal string? _cachedTopBorder
-		{
-			get => _borderRenderer?._cachedTopBorder;
-			set { if (_borderRenderer != null) _borderRenderer._cachedTopBorder = value; }
-		}
-
-		/// <summary>
-		/// Gets or sets the cached bottom border string (exposed for Renderer.cs access).
-		/// </summary>
-		internal string? _cachedBottomBorder
-		{
-			get => _borderRenderer?._cachedBottomBorder;
-			set { if (_borderRenderer != null) _borderRenderer._cachedBottomBorder = value; }
-		}
-
-		/// <summary>
-		/// Gets or sets the cached vertical border string (exposed for Renderer.cs access).
-		/// </summary>
-		internal string? _cachedVerticalBorder
-		{
-			get => _borderRenderer?._cachedVerticalBorder;
-			set { if (_borderRenderer != null) _borderRenderer._cachedVerticalBorder = value; }
-		}
-
-		/// <summary>
-		/// Gets or sets the cached border width (exposed for Renderer.cs access).
-		/// </summary>
-		internal int _cachedBorderWidth
-		{
-			get => _borderRenderer?._cachedBorderWidth ?? -1;
-			set { if (_borderRenderer != null) _borderRenderer._cachedBorderWidth = value; }
-		}
-
-		/// <summary>
-		/// Gets or sets the cached border active state (exposed for Renderer.cs access).
-		/// </summary>
-		internal bool _cachedBorderIsActive
-		{
-			get => _borderRenderer?._cachedBorderIsActive ?? false;
-			set { if (_borderRenderer != null) _borderRenderer._cachedBorderIsActive = value; }
-		}
 
 		/// <summary>
 		/// Forces a complete rebuild of the DOM tree. Use this when the control hierarchy changes

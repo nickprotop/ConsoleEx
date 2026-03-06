@@ -146,20 +146,17 @@ namespace SharpConsoleUI
 
 
 		/// <summary>
-		/// Rebuilds the content cache using DOM-based layout.
-		/// Converts the CharacterBuffer output to line-based format for compatibility.
+		/// Rebuilds the content buffer (DOM + paint) without converting to ANSI strings.
 		/// </summary>
-		private void RebuildContentCacheDOM(int availableWidth, int availableHeight, List<Rectangle>? visibleRegions = null)
+		private void RebuildContentBufferOnly(int availableWidth, int availableHeight, List<Rectangle>? visibleRegions = null)
 		{
 			if (_renderer == null)
 			{
-				_cachedContent = new List<string>();
 				_invalidated = false;
 				return;
 			}
 
-			// Delegate to renderer for complete rendering pipeline
-			_cachedContent = _renderer.RebuildContentCacheDOM(
+			_renderer.RebuildContentBuffer(
 				_controls,
 				availableWidth,
 				availableHeight,
@@ -167,9 +164,13 @@ namespace SharpConsoleUI
 				Left,
 				Top,
 				ShowTitle,
-				ForegroundColor,
 				BackgroundColor);
 
+			PostRebuildCleanup();
+		}
+
+		private void PostRebuildCleanup()
+		{
 			// Clear sticky tracking (DOM handles sticky internally)
 			_topStickyLines.Clear();
 			_topStickyHeight = 0;
