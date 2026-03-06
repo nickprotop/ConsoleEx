@@ -31,9 +31,13 @@ The rendering engine follows the same architecture as desktop GUI frameworks lik
 
 ## Showcase
 
+[![SharpConsoleUI Video Demo](https://img.youtube.com/vi/sl5C9jrJknM/maxresdefault.jpg)](https://www.youtube.com/watch?v=sl5C9jrJknM)
+
+*Watch SharpConsoleUI in action on YouTube*
+
 ![SharpConsoleUI Demo](docs/images/showcase.gif)
 
-*SharpConsoleUI in action - rich controls, multiple windows, smooth gradients, real-time updates, and full-screen capabilities*
+*Rich controls, multiple windows, smooth gradients, real-time updates, and full-screen capabilities*
 
 ## Quick Start
 

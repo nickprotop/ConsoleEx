@@ -2,6 +2,12 @@
 
 This document provides an overview of all example applications demonstrating SharpConsoleUI capabilities.
 
+## Video Demo
+
+[![SharpConsoleUI Video Demo](https://img.youtube.com/vi/sl5C9jrJknM/maxresdefault.jpg)](https://www.youtube.com/watch?v=sl5C9jrJknM)
+
+*Watch SharpConsoleUI examples in action on YouTube*
+
 ## Quick Start
 
 Run any example with:
