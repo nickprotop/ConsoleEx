@@ -13,12 +13,14 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
-**SharpConsoleUI** is a multi-window TUI framework for .NET 9 that combines Spectre.Console's rich markup with true overlapping window capabilities. Cross-platform (Windows, Linux, macOS).
+**SharpConsoleUI** is a terminal GUI framework for .NET — not just a TUI library, but a full **retained-mode GUI framework** that targets the terminal as its display surface. Cross-platform (Windows, Linux, macOS).
 
+The rendering engine follows the same architecture as desktop GUI frameworks like WPF and Avalonia: a **Measure → Arrange → Paint** layout pipeline, **double-buffered compositing** with occlusion culling, and a **unified cell pipeline** where ANSI never crosses layer boundaries. The terminal is just the rasterization target.
+
+- **GUI-grade rendering engine** — DOM-based layout, three-level dirty tracking, occlusion culling, adaptive Cell/Line/Smart rendering modes
 - **Multi-window with per-window threads** — each window updates independently without blocking others
 - **Spectre.Console markup everywhere** — just `[bold red]text[/]` and it works, no complex styling APIs
 - **Any Spectre.Console widget works as a control** — Tables, BarCharts, Trees, Panels — wrap any `IRenderable`
-- **Double-buffered, flicker-free rendering** with dirty region tracking
 - **30+ built-in controls** — buttons, lists, trees, tables, text editors, dropdowns, menus, tabs, and more
 - **Compositor effects** — PreBufferPaint/PostBufferPaint hooks for custom rendering, transitions, or even games
 - **Fluent builders** for windows, controls, and layouts
@@ -80,12 +82,15 @@ dotnet add package SharpConsoleUI
 - **Mouse Support**: Click, drag, and mouse event handling
 - **Input Queue**: Efficient input processing system
 
-### Rendering System
-- **Spectre.Console Foundation**: Leverages Spectre's perfect rendering engine for rich TUI widgets
-- **Double Buffering**: Smooth rendering without flicker
-- **Dirty Regions**: Efficient partial updates
-- **Render Modes**: Direct and buffered rendering
-- **Compositor Effects**: Post-processing buffer manipulation for transitions, blur, and filters
+### Rendering Engine
+- **Retained-Mode GUI Pipeline**: Measure → Arrange → Paint layout passes, DOM-based control tree with persistent state — same architecture as WPF/Avalonia
+- **Unified Cell Pipeline**: All rendering flows through typed `Cell` structs (char + fg + bg). ANSI is only generated once at the terminal output boundary — no format conversions in the hot path
+- **Two-Level Double Buffering**: CharacterBuffer (window-level) + ConsoleBuffer (screen-level) with front/back buffer diff detection
+- **Three-Level Dirty Tracking**: Window-level (did anything change?), cell-level (which cells?), screen-level (front vs back buffer comparison)
+- **Adaptive Rendering**: Smart mode analyzes each line and chooses Cell or Line rendering based on coverage and fragmentation heuristics
+- **Occlusion Culling**: Rectangle subtraction algorithm computes visible regions per window — occluded content is never rendered
+- **Multi-Pass Compositing**: Normal → Active → AlwaysOnTop rendering passes with proper Z-order stacking
+- **Compositor Effects**: PreBufferPaint/PostBufferPaint hooks for custom backgrounds, transitions, filters, and overlays
 - **BufferSnapshot API**: Immutable buffer capture for screenshots and recording
 - **Themes**: Multiple built-in themes (Classic, ModernGray) with runtime switching
 - **Plugins**: Extensible architecture with DeveloperTools plugin
@@ -286,14 +291,12 @@ This enables **pure declarative UIs** where all control interactions happen thro
 
 ## Architecture Overview
 
-### Core Components
+### Core Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    SharpConsoleUI Architecture              │
-├─────────────────────────────────────────────────────────────┤
 │  Application Layer (Your Code)                              │
-│  └── Window Builders & Event Handlers                       │
+│  └── Window Builders, Event Handlers, Controls              │
 ├─────────────────────────────────────────────────────────────┤
 │  Framework Layer                                            │
 │  ├── Window Builders (Fluent API)                           │
@@ -301,29 +304,42 @@ This enables **pure declarative UIs** where all control interactions happen thro
 │  ├── Logging Service (ILogService)                          │
 │  └── Resource Management (DisposableManager)                │
 ├─────────────────────────────────────────────────────────────┤
-│  Core UI Layer                                              │
-│  ├── ConsoleWindowSystem (Window Management)                │
-│  ├── Window (Container & Rendering)                         │
-│  ├── Controls (UI Components)                               │
-│  └── Themes (Appearance)                                    │
+│  Layout Layer                                               │
+│  ├── DOM Tree (LayoutNode hierarchy)                        │
+│  ├── Measure → Arrange → Paint passes                       │
+│  └── Layout containers (Stack, Column, Absolute, Fill)      │
+├─────────────────────────────────────────────────────────────┤
+│  Rendering Layer                                            │
+│  ├── Multi-pass renderer (Normal → Active → AlwaysOnTop)    │
+│  ├── Occlusion culling (visible region calculation)         │
+│  ├── Border caching (CharacterBuffer-based)                 │
+│  └── Portal system (floating overlays, dropdowns)           │
+├─────────────────────────────────────────────────────────────┤
+│  Buffering Layer                                            │
+│  ├── CharacterBuffer (window-level cell buffer)             │
+│  ├── ConsoleBuffer (screen-level double buffer)             │
+│  └── Adaptive dirty tracking (Cell/Line/Smart modes)        │
 ├─────────────────────────────────────────────────────────────┤
 │  Driver Layer                                               │
-│  ├── IConsoleDriver (Abstraction)                           │
-│  ├── NetConsoleDriver (Implementation)                      │
-│  └── Input/Output Handling                                  │
+│  ├── IConsoleDriver abstraction                             │
+│  ├── NetConsoleDriver (production)                          │
+│  ├── HeadlessConsoleDriver (testing)                        │
+│  └── Raw libc I/O (Unix) / Console API (Windows)            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
+The terminal is the rasterization target. CharacterBuffer is the framebuffer. ConsoleBuffer is the display controller that diff-scans and outputs only changed cells — like a GPU compositor, but with characters instead of pixels.
+
 ### Spectre.Console Integration
 
-SharpConsoleUI uses **Spectre.Console as its rendering foundation**, combining Spectre's beautiful rendering with a complete windowing system:
+SharpConsoleUI uses **Spectre.Console for rich text markup**, but the rendering engine is independent:
 
-1. **Capture Spectre Output**: `AnsiConsoleHelper` captures Spectre's ANSI rendering into our CharacterBuffer
-2. **Wrap Any Spectre Widget**: `SpectreRenderableControl` makes any `IRenderable` (Tables, Trees, Panels, Charts) work as a window control
-3. **Combine with Windows**: Multiple Spectre-rendered controls + interactive controls + independent window threads
-4. **Result**: Best of both worlds - Spectre's rich rendering + full windowing system + multi-threading
+1. **Markup as Input**: Controls use Spectre markup (`[bold red]text[/]`) as a convenient authoring format
+2. **ANSI as Intermediate**: Spectre renders markup to ANSI strings, which `AnsiParser` converts to typed `Cell` structs (char + foreground + background)
+3. **Cells as Pipeline**: From that point, everything flows as cells through CharacterBuffer → ConsoleBuffer → terminal output
+4. **Any Spectre Widget**: `SpectreRenderableControl` wraps any `IRenderable` (Tables, Trees, Charts) as a window control
 
-This architecture allows using Spectre's perfect rendering engine while adding features Spectre.Console doesn't provide: overlapping windows, Z-order management, independent window threads, and a complete event-driven UI system.
+ANSI exists only within the control paint phase — it never reaches the screen buffer. The unified cell pipeline ensures type-safe rendering from control to terminal, with no format conversions in the hot path.
 
 ### Modern C# Features Used
 - **Records**: Immutable data structures (WindowBounds, InputEvent, etc.)
