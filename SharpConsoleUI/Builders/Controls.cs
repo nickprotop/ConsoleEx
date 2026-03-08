@@ -10,6 +10,7 @@ using System.Runtime.Versioning;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Imaging;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Builders;
@@ -279,4 +280,11 @@ public static class Controls
 	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	public static TerminalBuilder Terminal(string? exe = null)
 		=> exe is null ? new TerminalBuilder() : new TerminalBuilder().WithExe(exe);
+
+	/// <summary>
+	/// Creates an ImageControl displaying the specified pixel buffer.
+	/// </summary>
+	/// <param name="source">The pixel buffer to display.</param>
+	/// <returns>A configured image control.</returns>
+	public static ImageControl Image(PixelBuffer source) => new ImageControl { Source = source };
 }

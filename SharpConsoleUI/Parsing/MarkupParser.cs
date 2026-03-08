@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Parsing
@@ -26,6 +27,9 @@ namespace SharpConsoleUI.Parsing
 		{
 			if (string.IsNullOrEmpty(markup))
 				return new List<Cell>();
+
+			// Pre-process gradient tags before normal parsing
+			markup = PreProcessGradientTags(markup, defaultFg, defaultBg, out var gradientSpans);
 
 			var cells = new List<Cell>();
 			var styleStack = new Stack<MarkupStyle>();
@@ -120,6 +124,12 @@ namespace SharpConsoleUI.Parsing
 					cells.Add(new Cell(markup[i], currentFg, currentBg, currentDec));
 					i++;
 				}
+			}
+
+			// Apply gradient foreground colors to gradient spans
+			if (gradientSpans != null)
+			{
+				ApplyGradientSpans(cells, gradientSpans);
 			}
 
 			return cells;
@@ -500,6 +510,185 @@ namespace SharpConsoleUI.Parsing
 				start = wordBreak;
 				while (start < cells.Count && cells[start].Character == ' ')
 					start++;
+			}
+		}
+
+		#endregion
+
+		#region Gradient Processing
+
+		/// <summary>
+		/// Represents a gradient span to be applied after initial parsing.
+		/// </summary>
+		private readonly struct GradientSpan
+		{
+			public readonly int CellStart;
+			public readonly int CellCount;
+			public readonly ColorGradient Gradient;
+
+			public GradientSpan(int cellStart, int cellCount, ColorGradient gradient)
+			{
+				CellStart = cellStart;
+				CellCount = cellCount;
+				Gradient = gradient;
+			}
+		}
+
+		/// <summary>
+		/// Pre-processes gradient tags by extracting their spans and replacing them
+		/// with their inner content for normal parsing. Uses two-pass approach:
+		/// first measures visible text length, then records span for post-parse coloring.
+		/// </summary>
+		private static string PreProcessGradientTags(
+			string markup,
+			Color defaultFg,
+			Color defaultBg,
+			out List<GradientSpan>? spans)
+		{
+			spans = null;
+
+			// Quick check: does the markup contain any gradient tags?
+			if (!markup.Contains("gradient=", StringComparison.OrdinalIgnoreCase))
+				return markup;
+
+			var sb = new System.Text.StringBuilder(markup.Length);
+			var gradientSpans = new List<GradientSpan>();
+			int i = 0;
+			int len = markup.Length;
+
+			while (i < len)
+			{
+				if (markup[i] == '[' && i + 1 < len && markup[i + 1] != '[')
+				{
+					int tagEnd = markup.IndexOf(']', i + 1);
+					if (tagEnd < 0)
+					{
+						sb.Append(markup[i]);
+						i++;
+						continue;
+					}
+
+					string tagContent = markup.Substring(i + 1, tagEnd - i - 1);
+
+					if (tagContent.StartsWith("gradient=", StringComparison.OrdinalIgnoreCase))
+					{
+						string gradientSpec = tagContent.Substring("gradient=".Length);
+						var gradient = ColorGradient.Parse(gradientSpec);
+
+						if (gradient != null)
+						{
+							// Find matching [/] for this gradient tag
+							int innerStart = tagEnd + 1;
+							int closeTagIndex = FindMatchingCloseTag(markup, innerStart);
+
+							if (closeTagIndex >= 0)
+							{
+								string innerMarkup = markup.Substring(innerStart, closeTagIndex - innerStart);
+
+								// Measure visible length of inner content
+								int innerVisibleLen = StripLengthSingleLine(innerMarkup);
+
+								// Calculate visible char offset by measuring what we've built so far
+								int currentVisibleOffset = StripLengthSingleLine(sb.ToString());
+
+								// Record the gradient span
+								gradientSpans.Add(new GradientSpan(currentVisibleOffset, innerVisibleLen, gradient));
+
+								// Append inner markup as-is (it may contain nested style tags)
+								sb.Append(innerMarkup);
+
+								// Skip past the closing [/]
+								i = closeTagIndex + 3; // past [/]
+								continue;
+							}
+						}
+					}
+
+					// Not a gradient tag or failed to parse — pass through
+					sb.Append(markup, i, tagEnd - i + 1);
+					i = tagEnd + 1;
+				}
+				else
+				{
+					sb.Append(markup[i]);
+					i++;
+				}
+			}
+
+			if (gradientSpans.Count > 0)
+				spans = gradientSpans;
+
+			return sb.ToString();
+		}
+
+		/// <summary>
+		/// Finds the matching [/] close tag, respecting nesting depth.
+		/// </summary>
+		private static int FindMatchingCloseTag(string markup, int startIndex)
+		{
+			int depth = 1;
+			int i = startIndex;
+			int len = markup.Length;
+
+			while (i < len)
+			{
+				if (markup[i] == '[')
+				{
+					if (i + 1 < len && markup[i + 1] == '[')
+					{
+						i += 2; // escaped
+						continue;
+					}
+
+					int tagEnd = markup.IndexOf(']', i + 1);
+					if (tagEnd < 0) break;
+
+					string tag = markup.Substring(i + 1, tagEnd - i - 1);
+					if (tag == "/")
+					{
+						depth--;
+						if (depth == 0)
+							return i;
+					}
+					else if (!string.IsNullOrEmpty(tag))
+					{
+						depth++;
+					}
+					i = tagEnd + 1;
+				}
+				else
+				{
+					i++;
+				}
+			}
+
+			return -1;
+		}
+
+		/// <summary>
+		/// Applies gradient colors to cells for recorded gradient spans.
+		/// Each span overwrites the foreground color with interpolated gradient colors.
+		/// Inner decorations and background colors are preserved.
+		/// </summary>
+		private static void ApplyGradientSpans(List<Cell> cells, List<GradientSpan> spans)
+		{
+			foreach (var span in spans)
+			{
+				if (span.CellCount <= 0 || span.CellStart >= cells.Count)
+					continue;
+
+				int end = Math.Min(span.CellStart + span.CellCount, cells.Count);
+
+				for (int j = span.CellStart; j < end; j++)
+				{
+					double t = span.CellCount <= 1
+						? 0.0
+						: (double)(j - span.CellStart) / (span.CellCount - 1);
+
+					var gradientColor = span.Gradient.Interpolate(t);
+					var cell = cells[j];
+					cells[j] = new Cell(cell.Character, gradientColor, cell.Background, cell.Decorations);
+				}
 			}
 		}
 

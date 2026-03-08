@@ -12,6 +12,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Rendering;
 using System.Drawing;
 
 namespace SharpConsoleUI
@@ -427,6 +428,23 @@ namespace SharpConsoleUI
 				_backgroundColor = value;
 				InvalidateBorderCache();
 				Invalidate(false);
+			}
+		}
+
+		private GradientBackground? _backgroundGradient;
+
+		/// <summary>
+		/// Gets or sets the gradient background for this window.
+		/// When set, the gradient is rendered over the solid background color before controls are painted.
+		/// Set to null to disable gradient background.
+		/// </summary>
+		public GradientBackground? BackgroundGradient
+		{
+			get => _backgroundGradient;
+			set
+			{
+				_backgroundGradient = value;
+				Invalidate(true);
 			}
 		}
 

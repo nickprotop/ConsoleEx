@@ -68,10 +68,12 @@ namespace SharpConsoleUI.Helpers
             {
                 gradient = predefined;
             }
-            // Try arrow notation (e.g., "blue→cyan→green")
-            else if (spec.Contains('→'))
+            // Try arrow notation (e.g., "blue→cyan→green" or "blue->cyan->green")
+            else if (spec.Contains('→') || spec.Contains("->", StringComparison.Ordinal))
             {
-                var colorNames = spec.Split('→', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                // Normalize ASCII arrow to Unicode arrow for unified splitting
+                var normalized = spec.Replace("->", "→");
+                var colorNames = normalized.Split('→', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 if (colorNames.Length >= 2)
                 {
                     var colors = new List<Color>();

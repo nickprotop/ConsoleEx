@@ -16,6 +16,7 @@ using SharpConsoleUI.Input;
 using SharpConsoleUI.Logging;
 using SharpConsoleUI.Plugins;
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Animation;
 using SharpConsoleUI.Windows;
 using SharpConsoleUI.Models;
 using SharpConsoleUI.Rendering;
@@ -103,6 +104,11 @@ namespace SharpConsoleUI
 		/// Gets the window positioning manager for handling window movement and resizing.
 		/// </summary>
 		internal WindowPositioningManager Positioning { get; private set; } = null!; // Initialized in constructor after renderer
+
+		/// <summary>
+		/// Gets the animation manager for creating and controlling tweened animations.
+		/// </summary>
+		public AnimationManager Animations { get; } = new();
 
 		// Region invalidation helper
 
@@ -583,8 +589,14 @@ namespace SharpConsoleUI
 						);
 					}
 
-					// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render
-					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender;
+					// Advance animations before rendering
+					if (Animations.HasActiveAnimations)
+					{
+						Animations.Update(TimeSpan.FromMilliseconds(elapsed));
+					}
+
+					// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render OR animations active
+					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations;
 
 					// Calculate recommended sleep duration once (used in both branches)
 					var recommendedSleep = _inputStateService.GetRecommendedSleepDuration(

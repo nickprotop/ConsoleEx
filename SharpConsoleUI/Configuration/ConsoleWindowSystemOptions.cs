@@ -68,6 +68,9 @@ public record ConsoleWindowSystemOptions(
     float SmartModeCoverageThreshold = 0.6f,      // >60% dirty cells → use LINE mode
     int SmartModeFragmentationThreshold = 5,      // >5 separate regions → use LINE mode
 
+    // Animation system
+    bool EnableAnimations = true,
+
     // Window rendering optimizations
     bool ClearDestinationOnWindowMove = true,
 

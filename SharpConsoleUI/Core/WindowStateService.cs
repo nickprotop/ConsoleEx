@@ -8,6 +8,8 @@
 
 using System.Collections.Concurrent;
 using System.Drawing;
+using SharpConsoleUI.Animation;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Logging;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Rendering;
@@ -42,14 +44,9 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		private class FlashState
 		{
-			public System.Timers.Timer? Timer { get; set; }
-			public float Intensity { get; set; }  // 0.0 to 1.0
+			public float Intensity { get; set; }
 			public Color FlashColor { get; set; }
-			public DateTime StartTime { get; set; }
-			public int DurationMs { get; set; }
-			public float MaxIntensity { get; set; } = 0.3f;  // 30% overlay
-			public int CurrentFlashIndex { get; set; }
-			public int TotalFlashes { get; set; }
+			public IAnimation? Animation { get; set; }
 			public Windows.WindowRenderer.BufferPaintDelegate? PaintHandler { get; set; }
 			public EventHandler<ClosingEventArgs>? CleanupHandler { get; set; }
 		}
@@ -1091,12 +1088,13 @@ namespace SharpConsoleUI.Core
 	/// <summary>
 	/// Flashes a window to draw user attention using a smooth pulse animation effect.
 	/// Uses PostBufferPaint to apply a color overlay without modifying window properties.
+	/// The animation is driven by the AnimationManager in the main Run() loop.
 	/// </summary>
 	/// <param name="window">The window to flash. If null, the method returns without action.</param>
 	/// <param name="flashCount">The number of times to flash. Defaults to 1.</param>
-	/// <param name="flashDuration">The duration of each flash in milliseconds. Defaults to 150.</param>
+	/// <param name="flashDuration">The duration of each flash pulse in milliseconds. Defaults to AnimationDefaults.DefaultFlashPulseDurationMs.</param>
 	/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses the theme's ModalFlashColor.</param>
-	public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 150, Color? flashBackgroundColor = null)
+	public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 0, Color? flashBackgroundColor = null)
 	{
 		if (window?.Renderer == null) return;
 		if (_getWindowSystem == null)
@@ -1111,16 +1109,11 @@ namespace SharpConsoleUI.Core
 		}
 
 		var flashColor = flashBackgroundColor ?? context.Theme.ModalFlashColor;
-		int totalDuration = flashDuration * 2;  // Duration for fade up + fade down
+		int pulseDurationMs = flashDuration > 0 ? flashDuration : AnimationDefaults.DefaultFlashPulseDurationMs;
 
 		var state = new FlashState
 		{
-			FlashColor = flashColor,
-			StartTime = DateTime.Now,
-			DurationMs = totalDuration,
-			CurrentFlashIndex = 0,
-			TotalFlashes = flashCount,
-			Timer = new System.Timers.Timer(16)  // ~60 FPS
+			FlashColor = flashColor
 		};
 
 		// PostBufferPaint handler that applies the flash overlay
@@ -1130,37 +1123,6 @@ namespace SharpConsoleUI.Core
 		}
 
 		state.PaintHandler = FlashOverlay;
-
-		// Timer tick handler - updates intensity using sine wave
-		state.Timer.Elapsed += (sender, e) =>
-		{
-			var elapsed = (DateTime.Now - state.StartTime).TotalMilliseconds;
-			var progress = (float)(elapsed / totalDuration);
-
-			if (progress >= 1.0f)
-			{
-				// Single flash complete
-				state.CurrentFlashIndex++;
-
-				if (state.CurrentFlashIndex < state.TotalFlashes)
-				{
-					// Start next flash with delay
-					state.StartTime = DateTime.Now.AddMilliseconds(flashDuration);
-					state.Intensity = 0f;
-				}
-				else
-				{
-					// All flashes complete - cleanup
-					CleanupFlash(window, state);
-				}
-			}
-			else
-			{
-				// Update intensity using sine wave for smooth pulse
-				state.Intensity = MathF.Sin(progress * MathF.PI) * state.MaxIntensity;
-				window.Invalidate(redrawAll: true);
-			}
-		};
 
 		// Cleanup handler if window closes during flash
 		state.CleanupHandler = (s, e) => CleanupFlash(window, state);
@@ -1174,50 +1136,64 @@ namespace SharpConsoleUI.Core
 			_flashingWindows[window] = state;
 		}
 
-		state.Timer.Start();
+		// Start the flash animation chain via AnimationManager
+		StartFlashPulse(window, state, context.Animations, pulseDurationMs, flashCount, currentPulse: 0);
+	}
+
+	/// <summary>
+	/// Starts a single flash pulse tween via the AnimationManager.
+	/// Chains to the next pulse on completion, or cleans up when all pulses are done.
+	/// </summary>
+	private void StartFlashPulse(
+		Window window,
+		FlashState state,
+		AnimationManager animationManager,
+		int pulseDurationMs,
+		int totalPulses,
+		int currentPulse)
+	{
+		var pulseDuration = TimeSpan.FromMilliseconds(pulseDurationMs);
+
+		state.Animation = animationManager.Animate(
+			from: 0.0f,
+			to: AnimationDefaults.FlashMaxIntensity,
+			duration: pulseDuration,
+			easing: EasingFunctions.SinePulse,
+			onUpdate: intensity =>
+			{
+				state.Intensity = intensity;
+				window.Invalidate(redrawAll: true);
+			},
+			onComplete: () =>
+			{
+				state.Intensity = 0f;
+				int nextPulse = currentPulse + 1;
+
+				if (nextPulse < totalPulses)
+				{
+					// Chain next pulse after a brief delay tween
+					var delayDuration = TimeSpan.FromMilliseconds(AnimationDefaults.FlashInterPulseDelayMs);
+					state.Animation = animationManager.Animate(
+						from: 0.0f,
+						to: 0.0f,
+						duration: delayDuration,
+						easing: EasingFunctions.Linear,
+						onComplete: () => StartFlashPulse(window, state, animationManager, pulseDurationMs, totalPulses, nextPulse));
+				}
+				else
+				{
+					CleanupFlash(window, state);
+				}
+			});
 	}
 
 	/// <summary>
 	/// Applies a color overlay to the entire buffer for the flash effect.
+	/// Delegates to the shared ColorBlendHelper to avoid code duplication.
 	/// </summary>
-	/// <param name="buffer">The character buffer to modify.</param>
-	/// <param name="flashColor">The color to blend toward.</param>
-	/// <param name="intensity">The intensity of the effect (0.0 to 1.0).</param>
 	private void ApplyFlashOverlay(Layout.CharacterBuffer buffer, Color flashColor, float intensity)
 	{
-		if (intensity <= 0.001f) return;  // Skip if negligible
-
-		for (int y = 0; y < buffer.Height; y++)
-		{
-			for (int x = 0; x < buffer.Width; x++)
-			{
-				var cell = buffer.GetCell(x, y);
-
-				// Blend background toward flash color at full intensity
-				var newBg = BlendColor(cell.Background, flashColor, intensity);
-
-				// Blend foreground toward flash color at half intensity for subtlety
-				var newFg = BlendColor(cell.Foreground, flashColor, intensity * 0.5f);
-
-				buffer.SetCell(x, y, cell.Character, newFg, newBg);
-			}
-		}
-	}
-
-	/// <summary>
-	/// Blends two colors together by the specified amount.
-	/// </summary>
-	/// <param name="original">The original color.</param>
-	/// <param name="target">The target color to blend toward.</param>
-	/// <param name="amount">The blend amount (0.0 = original, 1.0 = target).</param>
-	/// <returns>The blended color.</returns>
-	private Color BlendColor(Color original, Color target, float amount)
-	{
-		return new Color(
-			(byte)(original.R + (target.R - original.R) * amount),
-			(byte)(original.G + (target.G - original.G) * amount),
-			(byte)(original.B + (target.B - original.B) * amount)
-		);
+		Helpers.ColorBlendHelper.ApplyColorOverlay(buffer, flashColor, intensity);
 	}
 
 	/// <summary>
@@ -1227,13 +1203,10 @@ namespace SharpConsoleUI.Core
 	/// <param name="state">The flash state to clean up.</param>
 	private void CleanupFlash(Window window, FlashState state)
 	{
-		// Stop and dispose timer
-		if (state.Timer != null)
-		{
-			state.Timer.Stop();
-			state.Timer.Dispose();
-			state.Timer = null;
-		}
+		// Cancel the animation if still running
+		state.Animation?.Cancel();
+		state.Animation = null;
+		state.Intensity = 0f;
 
 		// Unsubscribe from PostBufferPaint
 		if (window.Renderer != null && state.PaintHandler != null)
@@ -1495,6 +1468,17 @@ namespace SharpConsoleUI.Core
 				return;
 
 			_isDisposed = true;
+
+			// Cancel any active flash animations
+			lock (_flashingWindows)
+			{
+				foreach (var kvp in _flashingWindows)
+				{
+					kvp.Value.Animation?.Cancel();
+				}
+				_flashingWindows.Clear();
+			}
+
 			ClearHistory();
 			_windows.Clear();
 

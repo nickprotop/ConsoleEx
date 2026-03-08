@@ -210,38 +210,24 @@ private void TakeScreenshot()
 
 ### 1. Transition Effects
 
-Apply fade-in, fade-out, slide, or wipe transitions between states.
+For fade and slide transitions, use the built-in [Animation Framework](ANIMATIONS.md) which handles timing, easing, and cleanup automatically:
 
-**Example**: Fade-in effect
 ```csharp
-private float _fadeProgress = 0f;
+// Fade in
+WindowAnimations.FadeIn(window);
 
-private void ApplyFadeEffect(CharacterBuffer buffer, LayoutRect dirtyRegion, LayoutRect clipRect)
-{
-    if (_fadeProgress >= 1.0f) return;
+// Fade out and close
+WindowAnimations.FadeOut(window, onComplete: () =>
+    ws.CloseWindow(window));
 
-    for (int y = 0; y < buffer.Height; y++)
-    {
-        for (int x = 0; x < buffer.Width; x++)
-        {
-            var cell = buffer.GetCell(x, y);
+// Slide in from left
+WindowAnimations.SlideIn(window, SlideDirection.Left);
+```
 
-            // Blend from black to target color based on progress
-            var newFg = BlendColor(Color.Black, cell.Foreground, _fadeProgress);
-            var newBg = BlendColor(Color.Black, cell.Background, _fadeProgress);
+These use `PostBufferPaint` hooks internally. For custom transition effects, you can use the same pattern with `ColorBlendHelper`:
 
-            buffer.SetCell(x, y, cell.Character, newFg, newBg);
-        }
-    }
-}
-
-private Color BlendColor(Color from, Color to, float t)
-{
-    return Color.FromArgb(
-        (byte)(from.R + (to.R - from.R) * t),
-        (byte)(from.G + (to.G - from.G) * t),
-        (byte)(from.B + (to.B - from.B) * t));
-}
+```csharp
+ColorBlendHelper.ApplyColorOverlay(buffer, Color.Black, intensity, foregroundBlendRatio: 1.0f);
 ```
 
 ### 2. Blur and Filter Effects
@@ -847,6 +833,9 @@ See the [CanvasControl documentation](controls/CanvasControl.md) for the full AP
 
 ## See Also
 
+- [Animation Framework](ANIMATIONS.md) - Time-based tweened animations with easing
+- [Gradients](GRADIENTS.md) - Gradient text and backgrounds
+- [Image Rendering](IMAGE_RENDERING.md) - Half-block image rendering
 - [CanvasControl](controls/CanvasControl.md) - Per-control drawing surface with local coordinates
 - [Rendering Pipeline](RENDERING_PIPELINE.md) - Understanding the rendering flow
 - [Controls Documentation](CONTROLS.md) - Building UI with controls

@@ -9,6 +9,7 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
+using SharpConsoleUI.Rendering;
 using System.Drawing;
 
 namespace SharpConsoleUI.Windows
@@ -515,6 +516,13 @@ namespace SharpConsoleUI.Windows
 
 			// Clear buffer first (before any painting)
 			_buffer.Clear(backgroundColor);
+
+			// Apply gradient background if configured
+			if (_window.BackgroundGradient is { } gradient)
+			{
+				var bufferRect = new LayoutRect(0, 0, _buffer.Width, _buffer.Height);
+				GradientRenderer.FillGradientBackground(_buffer, bufferRect, gradient.Gradient, gradient.Direction);
+			}
 
 			// Fire pre-paint event for background rendering (games, custom backgrounds)
 			if (PreBufferPaint != null)

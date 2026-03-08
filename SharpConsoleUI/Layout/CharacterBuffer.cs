@@ -324,12 +324,25 @@ namespace SharpConsoleUI.Layout
 					cell.Character = ' ';
 					cell.Foreground = Color.White;
 					cell.Background = background;
+					cell.Decorations = TextDecoration.None;
 					cell.Dirty = true;
 				}
 			}
 
 			// Mark entire buffer as dirty
 			_dirtyRegion = new LayoutRect(0, 0, Width, Height);
+		}
+
+		/// <summary>
+		/// Fills a rectangle with a gradient applied to cell background colors.
+		/// Existing characters and foreground colors are preserved.
+		/// </summary>
+		/// <param name="rect">The rectangle to fill.</param>
+		/// <param name="gradient">The color gradient to apply.</param>
+		/// <param name="direction">The direction of the gradient.</param>
+		public void FillGradient(LayoutRect rect, Helpers.ColorGradient gradient, Rendering.GradientDirection direction)
+		{
+			Rendering.GradientRenderer.FillGradientBackground(this, rect, gradient, direction);
 		}
 
 		/// <summary>

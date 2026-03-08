@@ -8,6 +8,8 @@
 
 using System.Drawing;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Rendering;
 using SharpConsoleUI.Themes;
 using DrawingSize = System.Drawing.Size;
 
@@ -64,6 +66,7 @@ public sealed class WindowBuilder
     private bool _showCloseButton = true;
     private Color? _activeBorderColor;
     private Color? _inactiveBorderColor;
+    private GradientBackground? _backgroundGradient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WindowBuilder"/> class.
@@ -413,6 +416,20 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
+    /// Sets a gradient background for the window, rendered before controls are painted.
+    /// </summary>
+    /// <param name="gradient">The color gradient to apply.</param>
+    /// <param name="direction">The direction of the gradient. Defaults to Horizontal.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithBackgroundGradient(
+        ColorGradient gradient,
+        GradientDirection direction = Configuration.GradientDefaults.DefaultDirection)
+    {
+        _backgroundGradient = new GradientBackground(gradient, direction);
+        return this;
+    }
+
+    /// <summary>
     /// Sets the border foreground color for both active and inactive states.
     /// </summary>
     /// <param name="color">The color to use for the border.</param>
@@ -686,6 +703,9 @@ public sealed class WindowBuilder
 
         if (_inactiveBorderColor.HasValue)
             window.InactiveBorderForegroundColor = _inactiveBorderColor.Value;
+
+        if (_backgroundGradient != null)
+            window.BackgroundGradient = _backgroundGradient;
 
         // DOM layout is now always enabled - no need to set
 

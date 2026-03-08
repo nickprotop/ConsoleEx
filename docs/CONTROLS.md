@@ -70,6 +70,7 @@ Controls for custom graphics and free-form drawing.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **[CanvasControl](controls/CanvasControl.md)** | Free-form drawing surface | 30+ drawing primitives, retained & immediate modes, thread-safe async painting |
+| **[ImageControl](IMAGE_RENDERING.md)** | Half-block image renderer | Displays PixelBuffer as 2-pixels-per-cell image with Fit/Fill/Stretch/None scaling |
 
 ## Layout Controls
 

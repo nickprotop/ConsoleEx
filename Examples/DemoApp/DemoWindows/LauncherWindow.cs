@@ -89,6 +89,13 @@ public static class LauncherWindow
         dataViz.IsExpanded = true;
         dataViz.AddChild("Graphs & Charts");
 
+        var rendering = tree.AddRootNode("Rendering");
+        rendering.TextColor = Color.Orange1;
+        rendering.IsExpanded = true;
+        rendering.AddChild("Gradients");
+        rendering.AddChild("Animations");
+        rendering.AddChild("Image Rendering");
+
         var utilities = tree.AddRootNode("Utilities");
         utilities.TextColor = Color.Magenta1;
         utilities.IsExpanded = true;
@@ -118,6 +125,9 @@ public static class LauncherWindow
             "Nerd Fonts" => NerdFontWindow.Create(ws),
             "Markup Syntax" => MarkupSyntaxWindow.Create(ws),
             "Graphs & Charts" => GraphsWindow.Create(ws),
+            "Gradients" => GradientDemoWindow.Create(ws),
+            "Animations" => AnimationDemoWindow.Create(ws),
+            "Image Rendering" => ImageDemoWindow.Create(ws),
             "Built-in Dialogs" => DialogsWindow.Create(ws),
             "Digital Clock" => ClockWindow.Create(ws),
             "Log Viewer" => LogViewerWindow.Create(ws),
@@ -259,6 +269,48 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - SparklineControl (Block, Braille, Bidirectional)",
                 "  - BarGraphControl, ProgressBarControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Gradients" => new List<string>
+            {
+                "[bold cyan]Gradient Demo[/]",
+                "",
+                "Showcases gradient text markup and gradient",
+                "window backgrounds with direction cycling.",
+                "",
+                "[dim]Features:[/]",
+                "  - Gradient markup: spectrum, warm, cool, custom",
+                "  - Background gradient with direction toggle",
+                "  - Decorative gradient bars",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Animations" => new List<string>
+            {
+                "[bold cyan]Animation Demo[/]",
+                "",
+                "Shows window animations including fade and slide",
+                "transitions with selectable easing functions.",
+                "",
+                "[dim]Features:[/]",
+                "  - Fade in/out animations",
+                "  - Slide from all four directions",
+                "  - 6 easing functions (Linear to Elastic)",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Image Rendering" => new List<string>
+            {
+                "[bold cyan]Image Rendering Demo[/]",
+                "",
+                "Displays programmatic pixel art using half-block",
+                "characters for 2-pixel-per-cell resolution.",
+                "",
+                "[dim]Features:[/]",
+                "  - Rainbow bars, checkerboard, shapes",
+                "  - Scale modes: Fit, Fill, Stretch, None",
+                "  - ImageControl with PixelBuffer source",
                 "",
                 "[green][[Enter]] Launch Demo[/]"
             },
