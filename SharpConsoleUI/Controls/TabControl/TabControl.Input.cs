@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Parsing;
 using System.Linq;
 
 namespace SharpConsoleUI.Controls
@@ -60,7 +61,7 @@ namespace SharpConsoleUI.Controls
 			int currentX = Margin.Left;
 			for (int i = 0; i < tabs.Count; i++)
 			{
-				int innerWidth = tabs[i].Title.Length + 2 + (tabs[i].IsClosable ? 1 : 0);
+				int innerWidth = MarkupParser.StripLength(tabs[i].Title) + 2 + (tabs[i].IsClosable ? 1 : 0);
 				if (clickX >= currentX && clickX < currentX + innerWidth)
 					return i;
 				currentX += innerWidth + 1; // + separator
@@ -101,9 +102,9 @@ namespace SharpConsoleUI.Controls
 					// Check if click landed on the close button
 					int currentX = Margin.Left;
 					for (int j = 0; j < tabIndex; j++)
-						currentX += snapshot[j].Title.Length + 2 + (snapshot[j].IsClosable ? 1 : 0) + 1;
+						currentX += MarkupParser.StripLength(snapshot[j].Title) + 2 + (snapshot[j].IsClosable ? 1 : 0) + 1;
 
-					if (snapshot[tabIndex].IsClosable && clickX == currentX + snapshot[tabIndex].Title.Length + 2)
+					if (snapshot[tabIndex].IsClosable && clickX == currentX + MarkupParser.StripLength(snapshot[tabIndex].Title) + 2)
 					{
 						TabCloseRequested?.Invoke(this, new TabEventArgs(snapshot[tabIndex], tabIndex));
 						args.Handled = true;

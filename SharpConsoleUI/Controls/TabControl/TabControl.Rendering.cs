@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Parsing;
 using System.Linq;
 
 namespace SharpConsoleUI.Controls
@@ -77,15 +78,11 @@ namespace SharpConsoleUI.Controls
 				if (isActive)
 					activeTabStartX = x;
 
-				// Draw tab title
-				foreach (char c in title)
-				{
-					if (x < headerRight)
-					{
-						buffer.SetCell(x, headerY, c, tileFg, tileBg);
-						x++;
-					}
-				}
+				// Draw tab title with markup support
+				var titleCells = MarkupParser.Parse(title, tileFg, tileBg);
+				var titleClip = new LayoutRect(headerLeft, headerY, headerRight - headerLeft, 1);
+				buffer.WriteCellsClipped(x, headerY, titleCells, titleClip);
+				x += titleCells.Count;
 
 				// Draw close button (×) for closable tabs
 				if (snapshot[i].IsClosable && x < headerRight)
@@ -201,7 +198,7 @@ namespace SharpConsoleUI.Controls
 			int width = 0;
 			for (int i = 0; i < tabs.Count; i++)
 			{
-				width += tabs[i].Title.Length + 2; // " title "
+				width += MarkupParser.StripLength(tabs[i].Title) + 2; // " title "
 				if (tabs[i].IsClosable)
 					width += 1; // ×
 				if (i < tabs.Count - 1)

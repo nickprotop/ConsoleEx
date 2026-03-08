@@ -92,8 +92,10 @@ public static class LauncherWindow
         var utilities = tree.AddRootNode("Utilities");
         utilities.TextColor = Color.Magenta1;
         utilities.IsExpanded = true;
+        utilities.AddChild("Built-in Dialogs");
         utilities.AddChild("Digital Clock");
         utilities.AddChild("Log Viewer");
+        utilities.AddChild("Notifications");
         utilities.AddChild("System Info");
         utilities.AddChild("Terminal");
         utilities.AddChild("Welcome Banner");
@@ -116,8 +118,10 @@ public static class LauncherWindow
             "Nerd Fonts" => NerdFontWindow.Create(ws),
             "Markup Syntax" => MarkupSyntaxWindow.Create(ws),
             "Graphs & Charts" => GraphsWindow.Create(ws),
+            "Built-in Dialogs" => DialogsWindow.Create(ws),
             "Digital Clock" => ClockWindow.Create(ws),
             "Log Viewer" => LogViewerWindow.Create(ws),
+            "Notifications" => NotificationsWindow.Create(ws),
             "System Info" => SystemInfoWindow.Create(ws),
             "Terminal" => TerminalWindow.Create(ws),
             "Welcome Banner" => WelcomeWindow.Create(ws),
@@ -258,6 +262,21 @@ public static class LauncherWindow
                 "",
                 "[green][[Enter]] Launch Demo[/]"
             },
+            "Built-in Dialogs" => new List<string>
+            {
+                "[bold cyan]Built-in Dialogs[/]",
+                "",
+                "Showcases all built-in dialog types: file pickers,",
+                "folder picker, save dialog, about, settings,",
+                "performance, and theme selector.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - ButtonControl, MarkupControl",
+                "  - FileDialogs, AboutDialog, SettingsDialog",
+                "  - PerformanceDialog, ThemeSelectorDialog",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
             "Digital Clock" => new List<string>
             {
                 "[bold cyan]Digital Clock[/]",
@@ -279,6 +298,20 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - LogViewerControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Notifications" => new List<string>
+            {
+                "[bold cyan]Notifications[/]",
+                "",
+                "Demonstrates the notification system with all",
+                "severity levels: info, success, warning, danger.",
+                "Includes modal, persistent, and multiline variants.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - ButtonControl, MarkupControl",
+                "  - NotificationStateService",
                 "",
                 "[green][[Enter]] Launch Demo[/]"
             },
