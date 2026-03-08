@@ -3,7 +3,7 @@ using MultiDashboard.Services;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
-using Spectre.Console;
+using SharpConsoleUI.Layout;
 
 namespace MultiDashboard.Windows;
 
@@ -38,28 +38,22 @@ public class WeatherDashboardWindow : IDisposable
     {
         if (_window == null) return;
 
-        // Current weather panel
         _window.AddControl(
-            SpectreRenderableControl
-                .Create()
-                .WithRenderable(new Panel("[yellow]Loading weather data...[/]"))
+            MarkupControl.Create()
+                .AddLine("[yellow]Loading weather data...[/]")
                 .WithName("currentWeather")
                 .Build()
         );
 
-        // Forecast table placeholder (will be replaced in update loop)
         _window.AddControl(
-            MarkupControl
-                .Create()
+            MarkupControl.Create()
                 .AddLine("[grey]Forecast loading...[/]")
                 .WithName("forecast")
                 .Build()
         );
 
-        // Location info
         _window.AddControl(
-            MarkupControl
-                .Create()
+            MarkupControl.Create()
                 .AddLine("[dim]San Francisco, CA[/]")
                 .WithName("location")
                 .Build()
@@ -72,34 +66,34 @@ public class WeatherDashboardWindow : IDisposable
         {
             try
             {
-                // Simulate API call with delay
                 var weather = await _weatherService.GetWeatherAsync();
 
-                // Update current weather panel
-                var panel = new Panel(
-                    $"[yellow]Temperature:[/] {weather.Temp}°F\n" +
-                    $"[cyan]Conditions:[/] {weather.Condition}\n" +
-                    $"[grey]Humidity:[/] {weather.Humidity}%"
-                )
-                {
-                    Border = BoxBorder.Rounded,
-                    Header = new PanelHeader(" Current Weather ")
-                };
+                // Update current weather as a panel
+                var oldWeather = window.FindControl<IWindowControl>("currentWeather");
+                if (oldWeather != null)
+                    window.RemoveContent(oldWeather);
 
-                window.FindControl<SpectreRenderableControl>("currentWeather")
-                      ?.SetRenderable(panel);
+                var weatherPanel = PanelControl.Create()
+                    .WithContent(
+                        $"[yellow]Temperature:[/] {weather.Temp}°F\n" +
+                        $"[cyan]Conditions:[/] {weather.Condition}\n" +
+                        $"[grey]Humidity:[/] {weather.Humidity}%")
+                    .WithBorderStyle(BorderStyle.Rounded)
+                    .WithHeader(" Current Weather ")
+                    .WithName("currentWeather")
+                    .Build();
+                window.AddControl(weatherPanel);
 
-                // Update forecast table - replace control
+                // Update forecast table
                 var oldForecast = window.FindControl<IWindowControl>("forecast");
                 if (oldForecast != null)
-                {
                     window.RemoveContent(oldForecast);
-                }
+
                 var table = BuildForecastTable(weather.Forecast);
                 table.Name = "forecast";
                 window.AddControl(table);
 
-                // Update location with timestamp
+                // Update location
                 var locationControl = window.FindControl<MarkupControl>("location");
                 locationControl?.SetContent(new List<string>
                 {
@@ -122,10 +116,10 @@ public class WeatherDashboardWindow : IDisposable
     private TableControl BuildForecastTable(List<DayForecast> forecast)
     {
         var builder = TableControl.Create()
-            .AddColumn("[bold]Day[/]", Justify.Center, 12)
-            .AddColumn("[bold]High[/]", Justify.Center, 8)
-            .AddColumn("[bold]Low[/]", Justify.Center, 8)
-            .AddColumn("[bold]Condition[/]", Justify.Left, 15);
+            .AddColumn("[bold]Day[/]", TextJustification.Center, 12)
+            .AddColumn("[bold]High[/]", TextJustification.Center, 8)
+            .AddColumn("[bold]Low[/]", TextJustification.Center, 8)
+            .AddColumn("[bold]Condition[/]", TextJustification.Left, 15);
 
         foreach (var day in forecast)
         {

@@ -6,11 +6,10 @@
 
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 
 namespace NotificationDemo;
 
@@ -176,8 +175,7 @@ class Program
 		catch (Exception ex)
 		{
 			Console.Clear();
-			Console.WriteLine($"Fatal error: {ex.Message}");
-			Console.WriteLine(ex.StackTrace);
+			ExceptionFormatter.WriteException(ex);
 			return 1;
 		}
 	}

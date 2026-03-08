@@ -16,7 +16,10 @@ using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 using System.Drawing;
+using System.Text;
+using System.Text.RegularExpressions;
 using Color = Spectre.Console.Color;
+using NativeColor = SharpConsoleUI.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -61,12 +64,12 @@ namespace SharpConsoleUI.Controls
 				if (_renderable == null) return Margin.Left + Margin.Right;
 
 				var bgColor = BackgroundColor;
-				var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, Width ?? 80, null, bgColor);
+				var content = RenderToAnsi(_renderable, Width ?? 80, null, bgColor);
 
 				int maxLength = 0;
 				foreach (var line in content)
 				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
+					int length = StripAnsiLength(line);
 					if (length > maxLength) maxLength = length;
 				}
 				return maxLength + Margin.Left + Margin.Right;
@@ -274,7 +277,7 @@ namespace SharpConsoleUI.Controls
 
 			// Calculate height
 			var bgColor = BackgroundColor;
-			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, Width ?? 80, null, bgColor);
+			var content = RenderToAnsi(_renderable, Width ?? 80, null, bgColor);
 			int height = content.Count + Margin.Top + Margin.Bottom;
 
 			return new System.Drawing.Size(width, height);
@@ -306,9 +309,9 @@ namespace SharpConsoleUI.Controls
             var bgColor = BackgroundColor;
             int targetWidth = Width ?? constraints.MaxWidth - Margin.Left - Margin.Right;
 
-            var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, targetWidth, null, bgColor);
+            var content = RenderToAnsi(_renderable, targetWidth, null, bgColor);
 
-            int maxWidth = content.Count > 0 ? content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)) : 0;
+            int maxWidth = content.Count > 0 ? content.Max(line => StripAnsiLength(line)) : 0;
             int width = maxWidth + Margin.Left + Margin.Right;
             int height = content.Count + Margin.Top + Margin.Bottom;
 
@@ -339,7 +342,7 @@ namespace SharpConsoleUI.Controls
 			if (_renderable != null)
 			{
 				int renderWidth = Width ?? targetWidth;
-				var renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(_renderable, renderWidth, null, bgColor);
+				var renderedContent = RenderToAnsi(_renderable, renderWidth, null, bgColor);
 
 				int contentHeight = renderedContent.Count;
 				int availableHeight = bounds.Height - Margin.Top - Margin.Bottom;
@@ -356,7 +359,7 @@ namespace SharpConsoleUI.Controls
 						}
 
 						// Calculate alignment
-						int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent[i]);
+						int lineWidth = StripAnsiLength(renderedContent[i]);
 						int alignOffset = 0;
 						if (lineWidth < targetWidth)
 						{
@@ -378,7 +381,7 @@ namespace SharpConsoleUI.Controls
 						}
 
 						// Parse and write the content line
-						var cells = AnsiParser.Parse(renderedContent[i], fgColor, bgColor);
+						var cells = ParseAnsiToCells(renderedContent[i], fgColor, bgColor);
 						buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
 
 						// Fill right padding
@@ -409,6 +412,297 @@ namespace SharpConsoleUI.Controls
 
 			// Fill bottom margin
 			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor);
+		}
+
+		#endregion
+
+		#region Spectre Rendering Helpers
+
+		/// <summary>
+		/// Converts a Spectre.Console IRenderable to ANSI-formatted strings, padded to width.
+		/// This is the only place in the codebase that renders Spectre IRenderable objects.
+		/// </summary>
+		private static List<string> RenderToAnsi(IRenderable renderable, int? width, int? height, Color backgroundColor)
+		{
+			if (renderable == null) return new List<string>();
+
+			var writer = new StringWriter();
+			var console = CreateCaptureConsole(writer, width, height);
+
+			if (width.HasValue) console.Profile.Width = width.Value;
+			if (height.HasValue) console.Profile.Height = height.Value;
+
+			console.Write(renderable);
+
+			var lines = writer.ToString()
+				.Split('\n')
+				.Select(line => line.Replace("\r", "").Replace("\n", ""))
+				.ToList();
+
+			// Pad each line to width with spaces using the background color
+			if (width.HasValue && width.Value > 0)
+			{
+				for (int i = 0; i < lines.Count; i++)
+				{
+					string line = lines[i];
+					int visibleLength = StripAnsiLength(line);
+					if (visibleLength < width.Value)
+					{
+						int paddingSize = width.Value - visibleLength;
+						paddingSize = Math.Min(paddingSize, LayoutDefaults.MaxSafeRenderWidth);
+						string padding = CreateAnsiPadding(paddingSize, backgroundColor);
+						lines[i] = line + padding;
+					}
+				}
+			}
+
+			return lines;
+		}
+
+		/// <summary>
+		/// Creates ANSI-formatted padding spaces with the given background color.
+		/// </summary>
+		private static string CreateAnsiPadding(int width, Color backgroundColor)
+		{
+			if (width <= 0) return string.Empty;
+
+			var writer = new StringWriter();
+			var console = CreateCaptureConsole(writer, width, 1);
+			console.Profile.Width = width;
+
+			var markup = new Markup(new string(' ', width), new Style(background: backgroundColor));
+			console.Write(markup);
+
+			var result = writer.ToString().Split('\n');
+			return result.Length > 0 ? result[0].Replace("\r", "") : string.Empty;
+		}
+
+		/// <summary>
+		/// Creates an IAnsiConsole that captures output to a TextWriter.
+		/// </summary>
+		private static IAnsiConsole CreateCaptureConsole(TextWriter writer, int? width, int? height)
+		{
+			var consoleOutput = new AnsiConsoleOutput(writer);
+			consoleOutput.SetEncoding(Encoding.UTF8);
+
+			var console = AnsiConsole.Create(new AnsiConsoleSettings
+			{
+				Ansi = AnsiSupport.Yes,
+				ColorSystem = ColorSystemSupport.TrueColor,
+				Out = consoleOutput,
+				Interactive = InteractionSupport.No,
+				Enrichment = new ProfileEnrichment
+				{
+					UseDefaultEnrichers = false
+				}
+			});
+
+			if (width.HasValue) console.Profile.Width = width.Value;
+			if (height.HasValue) console.Profile.Height = height.Value;
+
+			return console;
+		}
+
+		#endregion
+
+		#region ANSI Parsing (Spectre IRenderable bridge)
+
+		// These methods exist solely to convert ANSI escape sequences produced by
+		// Spectre.Console's IRenderable.Write() into Cell arrays. No other code
+		// in the framework needs ANSI parsing — all other controls use MarkupParser.
+
+		private static readonly Regex AnsiEscapePattern =
+			new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
+
+		private static readonly NativeColor[] StandardAnsiColors =
+		[
+			NativeColor.Black, NativeColor.Maroon, NativeColor.Green, NativeColor.Olive,
+			NativeColor.Navy, NativeColor.Purple, NativeColor.Teal, NativeColor.Silver
+		];
+
+		private static readonly NativeColor[] BrightAnsiColors =
+		[
+			NativeColor.Grey, NativeColor.Red, NativeColor.Lime, NativeColor.Yellow,
+			NativeColor.Blue, NativeColor.Fuchsia, NativeColor.Aqua, NativeColor.White
+		];
+
+		private static int StripAnsiLength(string input)
+		{
+			if (string.IsNullOrEmpty(input))
+				return 0;
+
+			return AnsiEscapePattern.Replace(input, string.Empty).Length;
+		}
+
+		private static IEnumerable<Cell> ParseAnsiToCells(string ansiString, Color defaultFg, Color defaultBg)
+		{
+			if (string.IsNullOrEmpty(ansiString))
+				yield break;
+
+			NativeColor currentFg = defaultFg;
+			NativeColor currentBg = defaultBg;
+			var isBold = false;
+
+			int i = 0;
+			while (i < ansiString.Length)
+			{
+				if (ansiString[i] == '\x1b' && i + 1 < ansiString.Length && ansiString[i + 1] == '[')
+				{
+					i += 2; // Skip ESC[
+
+					var paramsBuilder = new StringBuilder();
+					while (i < ansiString.Length && (char.IsDigit(ansiString[i]) || ansiString[i] == ';'))
+					{
+						paramsBuilder.Append(ansiString[i]);
+						i++;
+					}
+
+					if (i < ansiString.Length)
+					{
+						char command = ansiString[i];
+						i++;
+
+						if (command == 'm')
+						{
+							var paramsStr = paramsBuilder.ToString();
+							if (string.IsNullOrEmpty(paramsStr))
+							{
+								currentFg = defaultFg;
+								currentBg = defaultBg;
+								isBold = false;
+							}
+							else
+							{
+								ProcessSgrParams(paramsStr, ref currentFg, ref currentBg, ref isBold,
+									(NativeColor)defaultFg, (NativeColor)defaultBg);
+							}
+						}
+					}
+				}
+				else
+				{
+					yield return new Cell(ansiString[i], currentFg, currentBg);
+					i++;
+				}
+			}
+		}
+
+		private static void ProcessSgrParams(string paramsStr, ref NativeColor fg, ref NativeColor bg,
+			ref bool isBold, NativeColor defaultFg, NativeColor defaultBg)
+		{
+			var codes = paramsStr.Split(';', StringSplitOptions.RemoveEmptyEntries);
+			int codeIndex = 0;
+
+			while (codeIndex < codes.Length)
+			{
+				if (!int.TryParse(codes[codeIndex], out int code))
+				{
+					codeIndex++;
+					continue;
+				}
+
+				switch (code)
+				{
+					case 0:
+						fg = defaultFg;
+						bg = defaultBg;
+						isBold = false;
+						break;
+					case 1:
+						isBold = true;
+						break;
+					case 22:
+						isBold = false;
+						break;
+					case >= 30 and <= 37:
+						fg = isBold ? BrightAnsiColors[code - 30] : StandardAnsiColors[code - 30];
+						break;
+					case 38:
+						codeIndex++;
+						fg = ParseExtendedAnsiColor(codes, ref codeIndex) ?? fg;
+						continue;
+					case 39:
+						fg = defaultFg;
+						break;
+					case >= 40 and <= 47:
+						bg = StandardAnsiColors[code - 40];
+						break;
+					case 48:
+						codeIndex++;
+						bg = ParseExtendedAnsiColor(codes, ref codeIndex) ?? bg;
+						continue;
+					case 49:
+						bg = defaultBg;
+						break;
+					case >= 90 and <= 97:
+						fg = BrightAnsiColors[code - 90];
+						break;
+					case >= 100 and <= 107:
+						bg = BrightAnsiColors[code - 100];
+						break;
+				}
+
+				codeIndex++;
+			}
+		}
+
+		private static NativeColor? ParseExtendedAnsiColor(string[] codes, ref int index)
+		{
+			if (index >= codes.Length)
+				return null;
+
+			if (!int.TryParse(codes[index], out int mode))
+				return null;
+
+			index++;
+
+			switch (mode)
+			{
+				case 5: // 256-color
+					if (index < codes.Length && int.TryParse(codes[index], out int colorIndex))
+					{
+						index++;
+						return Get256Color(colorIndex);
+					}
+					break;
+				case 2: // 24-bit RGB
+					if (index + 2 < codes.Length &&
+						int.TryParse(codes[index], out int r) &&
+						int.TryParse(codes[index + 1], out int g) &&
+						int.TryParse(codes[index + 2], out int b))
+					{
+						index += 3;
+						return new NativeColor(
+							(byte)Math.Clamp(r, 0, 255),
+							(byte)Math.Clamp(g, 0, 255),
+							(byte)Math.Clamp(b, 0, 255));
+					}
+					break;
+			}
+
+			return null;
+		}
+
+		private static NativeColor Get256Color(int index)
+		{
+			if (index < 8) return StandardAnsiColors[index];
+			if (index < 16) return BrightAnsiColors[index - 8];
+
+			if (index < 232)
+			{
+				int ci = index - 16;
+				int r = ci / 36, g = (ci % 36) / 6, b = ci % 6;
+				byte ToComp(int v) => v == 0 ? (byte)0 : (byte)(55 + v * 40);
+				return new NativeColor(ToComp(r), ToComp(g), ToComp(b));
+			}
+
+			if (index < 256)
+			{
+				byte gray = (byte)Math.Clamp(8 + (index - 232) * 10, 0, 255);
+				return new NativeColor(gray, gray, gray);
+			}
+
+			return NativeColor.White;
 		}
 
 		#endregion

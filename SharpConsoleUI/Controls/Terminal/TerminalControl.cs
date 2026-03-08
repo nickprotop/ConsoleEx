@@ -1,15 +1,11 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Text;
-using Spectre.Console;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
-using Color = Spectre.Console.Color;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace SharpConsoleUI.Controls.Terminal;
 

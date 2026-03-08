@@ -10,16 +10,28 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using System;
 using System.Drawing;
-using Color = Spectre.Console.Color;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Extensions;
+#pragma warning disable CS1591
+
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// Defines the border style for a button control.
+	/// </summary>
+	public enum ButtonBorderStyle
+	{
+		/// <summary>No border — text with space padding on each side.</summary>
+		None,
+		/// <summary>Pipe border — │ text │ on a single line.</summary>
+		Pipe,
+		/// <summary>Full box border — ┌──┐ / │text│ / └──┘ across 3 lines.</summary>
+		Full
+	}
+
 	/// <summary>
 	/// A clickable button control that supports keyboard and mouse interaction.
 	/// </summary>
@@ -28,12 +40,14 @@ namespace SharpConsoleUI.Controls
 		private bool _enabled = true;
 		private bool _focused;
 		private string _text = "Button";
+		private ButtonBorderStyle _borderStyle = ButtonBorderStyle.None;
 		private Color? _backgroundColor;
 		private Color? _foregroundColor;
 		private Color? _focusedBackgroundColor;
 		private Color? _focusedForegroundColor;
 		private Color? _disabledBackgroundColor;
 		private Color? _disabledForegroundColor;
+		private Color? _borderColor;
 
 		/// <summary>
 		/// Initializes a new instance of the ButtonControl class with default settings.
@@ -49,8 +63,13 @@ namespace SharpConsoleUI.Controls
 
 		private int GetButtonWidth()
 		{
-			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
-			return Width ?? (AnsiConsoleHelper.StripSpectreLength(text) + 4);
+			int chrome = _borderStyle == ButtonBorderStyle.None ? 2 : 4; // None: 1 space each side; Pipe/Full: │ + space each side
+			return Width ?? (Parsing.MarkupParser.StripLength(_text) + chrome);
+		}
+
+		private int GetButtonHeight()
+		{
+			return _borderStyle == ButtonBorderStyle.Full ? 3 : 1;
 		}
 
 		/// <inheritdoc/>
@@ -142,6 +161,18 @@ namespace SharpConsoleUI.Controls
 		{
 			get => ColorResolver.ResolveButtonDisabledForeground(_disabledForegroundColor, Container);
 			set { _disabledForegroundColor = value; Container?.Invalidate(true); }
+		}
+
+		public ButtonBorderStyle ButtonBorder
+		{
+			get => _borderStyle;
+			set { _borderStyle = value; Container?.Invalidate(true); }
+		}
+
+		public Color? BorderColor
+		{
+			get => _borderColor;
+			set { _borderColor = value; Container?.Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
@@ -290,12 +321,13 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
-			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - Margin.Left - Margin.Right : AnsiConsoleHelper.StripSpectreLength(text) + 4);
-			buttonWidth = Math.Max(4, buttonWidth);
+			int chrome = _borderStyle == ButtonBorderStyle.None ? 2 : 4;
+			int minWidth = _borderStyle == ButtonBorderStyle.None ? 2 : 4;
+			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - Margin.Left - Margin.Right : Parsing.MarkupParser.StripLength(_text) + chrome);
+			buttonWidth = Math.Max(minWidth, buttonWidth);
 
 			int width = buttonWidth + Margin.Left + Margin.Right;
-			int height = 1 + Margin.Top + Margin.Bottom;
+			int height = GetButtonHeight() + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -328,35 +360,25 @@ namespace SharpConsoleUI.Controls
 				backgroundColor = BackgroundColor;
 			}
 
+			Color borderFg = _borderColor ?? foregroundColor;
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
 
-			string text = $"{(_focused ? ">" : "")}{_text}{(_focused ? "<" : "")}";
-			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : Math.Min(AnsiConsoleHelper.StripSpectreLength(text) + 4, targetWidth));
-			buttonWidth = Math.Max(4, buttonWidth);
-			int maxTextLength = buttonWidth - 4;
+			int chrome = _borderStyle == ButtonBorderStyle.None ? 2 : 4;
+			int minWidth = _borderStyle == ButtonBorderStyle.None ? 2 : 4;
+			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : Math.Min(Parsing.MarkupParser.StripLength(_text) + chrome, targetWidth));
+			buttonWidth = Math.Max(minWidth, buttonWidth);
 
-			// Truncate text if needed
-			if (maxTextLength > 0)
-			{
-				text = TextTruncationHelper.Truncate(text, maxTextLength);
-			}
-			else
-			{
-				text = string.Empty;
-			}
-
-			// Build button text with padding
-			int padding = Math.Max(0, (buttonWidth - AnsiConsoleHelper.StripSpectreLength(text) - 2) / 2);
-			string buttonText = $"[{new string(' ', padding)}{text}{new string(' ', padding)}]";
-			int visibleLen = AnsiConsoleHelper.StripSpectreLength(buttonText);
-			if (visibleLen < buttonWidth)
-			{
-				buttonText = buttonText + new string(' ', buttonWidth - visibleLen);
-			}
+			int innerWidth = buttonWidth - chrome;
+			string text = innerWidth > 0 ? TextTruncationHelper.Truncate(_text, innerWidth) : string.Empty;
+			int textLen = Parsing.MarkupParser.StripLength(text);
+			int totalInnerPad = Math.Max(0, innerWidth - textLen);
+			int leftInnerPad = totalInnerPad / 2;
+			int rightInnerPad = totalInnerPad - leftInnerPad;
 
 			int startY = bounds.Y + Margin.Top;
 			int startX = bounds.X + Margin.Left;
+			int buttonHeight = GetButtonHeight();
 
 			// Calculate alignment offset
 			int alignOffset = 0;
@@ -373,46 +395,76 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			int bx = startX + alignOffset;
+
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground);
 
-			// Paint button line
-			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
+			for (int row = 0; row < buttonHeight; row++)
 			{
-				// Fill left margin
-				if (Margin.Left > 0)
+				int y = startY + row;
+				if (y < clipRect.Y || y >= clipRect.Bottom || y >= bounds.Bottom)
+					continue;
+
+				// Fill left margin + alignment padding
+				int leftFillWidth = Margin.Left + alignOffset;
+				if (leftFillWidth > 0)
+					buffer.FillRect(new LayoutRect(bounds.X, y, leftFillWidth, 1), ' ', foregroundColor, windowBackground);
+
+				if (_borderStyle == ButtonBorderStyle.Full)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, startY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
+					if (row == 0)
+					{
+						// Top border: ┌──┐
+						buffer.SetCell(bx, y, BoxChars.Single.TopLeft, borderFg, backgroundColor);
+						for (int x = 1; x < buttonWidth - 1; x++)
+							buffer.SetCell(bx + x, y, BoxChars.Single.Horizontal, borderFg, backgroundColor);
+						buffer.SetCell(bx + buttonWidth - 1, y, BoxChars.Single.TopRight, borderFg, backgroundColor);
+					}
+					else if (row == 2)
+					{
+						// Bottom border: └──┘
+						buffer.SetCell(bx, y, BoxChars.Single.BottomLeft, borderFg, backgroundColor);
+						for (int x = 1; x < buttonWidth - 1; x++)
+							buffer.SetCell(bx + x, y, BoxChars.Single.Horizontal, borderFg, backgroundColor);
+						buffer.SetCell(bx + buttonWidth - 1, y, BoxChars.Single.BottomRight, borderFg, backgroundColor);
+					}
+					else
+					{
+						// Middle row: │ text │
+						buffer.SetCell(bx, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+						string padded = $" {new string(' ', leftInnerPad)}{text}{new string(' ', rightInnerPad)} ";
+						var cells = Parsing.MarkupParser.Parse(padded, foregroundColor, backgroundColor);
+						buffer.WriteCellsClipped(bx + 1, y, cells, clipRect);
+						buffer.SetCell(bx + buttonWidth - 1, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+					}
+				}
+				else if (_borderStyle == ButtonBorderStyle.Pipe)
+				{
+					// │ text │
+					buffer.SetCell(bx, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+					string padded = $" {new string(' ', leftInnerPad)}{text}{new string(' ', rightInnerPad)} ";
+					var cells = Parsing.MarkupParser.Parse(padded, foregroundColor, backgroundColor);
+					buffer.WriteCellsClipped(bx + 1, y, cells, clipRect);
+					buffer.SetCell(bx + buttonWidth - 1, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+				}
+				else
+				{
+					// None: space + text + space
+					string padded = $"{new string(' ', leftInnerPad + 1)}{text}{new string(' ', rightInnerPad + 1)}";
+					var cells = Parsing.MarkupParser.Parse(padded, foregroundColor, backgroundColor);
+					buffer.WriteCellsClipped(bx, y, cells, clipRect);
 				}
 
-				// Fill alignment padding (left side)
-				if (alignOffset > 0)
-				{
-					buffer.FillRect(new LayoutRect(startX, startY, alignOffset, 1), ' ', foregroundColor, windowBackground);
-				}
-
-				// Render button text
-				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(buttonText, buttonWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
-				var cells = AnsiParser.Parse(ansiLine, foregroundColor, backgroundColor);
-				buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
-
-				// Fill alignment padding (right side)
-				int rightPadStart = startX + alignOffset + buttonWidth;
-				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
-				if (rightPadWidth > 0)
-				{
-					buffer.FillRect(new LayoutRect(rightPadStart, startY, rightPadWidth, 1), ' ', foregroundColor, windowBackground);
-				}
-
-				// Fill right margin
-				if (Margin.Right > 0)
-				{
-					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
-				}
+				// Fill right alignment padding + right margin
+				int rightPadStart = bx + buttonWidth;
+				int rightFillWidth = bounds.Right - rightPadStart;
+				if (rightFillWidth > 0)
+					buffer.FillRect(new LayoutRect(rightPadStart, y, rightFillWidth, 1), ' ', foregroundColor, windowBackground);
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, foregroundColor, windowBackground);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + buttonHeight, foregroundColor, windowBackground);
 		}
 
 		#endregion

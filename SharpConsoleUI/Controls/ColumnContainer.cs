@@ -10,14 +10,10 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
-using Spectre.Console;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {

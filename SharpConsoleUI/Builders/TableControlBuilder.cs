@@ -8,10 +8,6 @@
 
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using TableColumn = SharpConsoleUI.Controls.TableColumn;
 using TableRow = SharpConsoleUI.Controls.TableRow;
 
@@ -32,7 +28,7 @@ public sealed class TableControlBuilder
 	private bool _showRowSeparators = false;
 	private bool _useSafeBorder = false;
 	private string? _title;
-	private Justify _titleAlignment = Justify.Center;
+	private TextJustification _titleAlignment = TextJustification.Center;
 
 	// Base properties
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
@@ -52,7 +48,7 @@ public sealed class TableControlBuilder
 	/// <summary>
 	/// Adds a column to the table.
 	/// </summary>
-	public TableControlBuilder AddColumn(string header, Justify alignment = Justify.Left, int? width = null)
+	public TableControlBuilder AddColumn(string header, TextJustification alignment = TextJustification.Left, int? width = null)
 	{
 		_columns.Add(new TableColumn(header, alignment, width));
 		return this;
@@ -219,7 +215,7 @@ public sealed class TableControlBuilder
 	/// <summary>
 	/// Sets the table title.
 	/// </summary>
-	public TableControlBuilder WithTitle(string title, Justify alignment = Justify.Center)
+	public TableControlBuilder WithTitle(string title, TextJustification alignment = TextJustification.Center)
 	{
 		_title = title;
 		_titleAlignment = alignment;

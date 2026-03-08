@@ -1,8 +1,6 @@
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using Ctl = SharpConsoleUI.Builders.Controls;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 
 namespace SharpConsoleUI.Dialogs;
 

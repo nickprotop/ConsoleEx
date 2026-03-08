@@ -6,34 +6,20 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using Spectre.Console;
+#pragma warning disable CS1591
 
 namespace SharpConsoleUI.Layout
 {
 	/// <summary>
 	/// Represents a single character cell in the character buffer.
-	/// Contains the character, foreground color, background color, and dirty state.
+	/// Contains the character, foreground color, background color, decorations, and dirty state.
 	/// </summary>
 	public struct Cell : IEquatable<Cell>
 	{
-		/// <summary>
-		/// The character to display.
-		/// </summary>
 		public char Character;
-
-		/// <summary>
-		/// The foreground color.
-		/// </summary>
 		public Color Foreground;
-
-		/// <summary>
-		/// The background color.
-		/// </summary>
 		public Color Background;
-
-		/// <summary>
-		/// Whether this cell has been modified since the last render.
-		/// </summary>
+		public TextDecoration Decorations;
 		public bool Dirty;
 
 		/// <summary>
@@ -44,6 +30,19 @@ namespace SharpConsoleUI.Layout
 			Character = character;
 			Foreground = foreground;
 			Background = background;
+			Decorations = TextDecoration.None;
+			Dirty = true;
+		}
+
+		/// <summary>
+		/// Creates a new cell with the specified values and decorations.
+		/// </summary>
+		public Cell(char character, Color foreground, Color background, TextDecoration decorations)
+		{
+			Character = character;
+			Foreground = foreground;
+			Background = background;
+			Decorations = decorations;
 			Dirty = true;
 		}
 
@@ -91,20 +90,22 @@ namespace SharpConsoleUI.Layout
 		public bool VisuallyEquals(Cell other) =>
 			Character == other.Character &&
 			Foreground.Equals(other.Foreground) &&
-			Background.Equals(other.Background);
+			Background.Equals(other.Background) &&
+			Decorations == other.Decorations;
 
 		/// <summary>Determines whether this cell equals another cell.</summary>
 		public bool Equals(Cell other) =>
 			Character == other.Character &&
 			Foreground.Equals(other.Foreground) &&
 			Background.Equals(other.Background) &&
+			Decorations == other.Decorations &&
 			Dirty == other.Dirty;
 
 		/// <summary>Determines whether this cell equals another object.</summary>
 		public override bool Equals(object? obj) => obj is Cell other && Equals(other);
 
 		/// <summary>Gets the hash code for this cell.</summary>
-		public override int GetHashCode() => HashCode.Combine(Character, Foreground, Background, Dirty);
+		public override int GetHashCode() => HashCode.Combine(Character, Foreground, Background, Decorations, Dirty);
 
 		/// <summary>Equality operator.</summary>
 		public static bool operator ==(Cell left, Cell right) => left.Equals(right);
@@ -112,7 +113,10 @@ namespace SharpConsoleUI.Layout
 		public static bool operator !=(Cell left, Cell right) => !left.Equals(right);
 
 		/// <summary>Returns a string representation of this cell.</summary>
-		public override string ToString() =>
-			$"Cell('{(Character == ' ' ? "SP" : Character)}', {Foreground}, {Background}{(Dirty ? ", dirty" : "")})";
+		public override string ToString()
+		{
+			var dec = Decorations != TextDecoration.None ? $", {Decorations}" : "";
+			return $"Cell('{(Character == ' ' ? "SP" : Character)}', {Foreground}, {Background}{dec}{(Dirty ? ", dirty" : "")})";
+		}
 	}
 }

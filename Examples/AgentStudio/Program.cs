@@ -11,7 +11,7 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
-using Spectre.Console;
+using SharpConsoleUI.Helpers;
 
 namespace AgentStudio;
 
@@ -58,7 +58,7 @@ internal class Program
         catch (Exception ex)
         {
             Console.Clear();
-            AnsiConsole.WriteException(ex);
+            ExceptionFormatter.WriteException(ex);
             return 1;
         }
     }

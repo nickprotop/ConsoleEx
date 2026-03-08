@@ -12,7 +12,7 @@ public class TextMeasurementCache
 	/// <summary>
 	/// Creates a new text measurement cache with the specified measurement function.
 	/// </summary>
-	/// <param name="measurementFunc">Function to measure text width (e.g., AnsiConsoleHelper.StripSpectreLength)</param>
+	/// <param name="measurementFunc">Function to measure text width (e.g., Parsing.MarkupParser.StripLength)</param>
 	public TextMeasurementCache(Func<string, int> measurementFunc)
 	{
 		_measurementFunc = measurementFunc ?? throw new ArgumentNullException(nameof(measurementFunc));

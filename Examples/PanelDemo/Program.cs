@@ -3,7 +3,6 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 windowSystem.StatusBarStateService.TopStatus = "PanelControl Demo - Mouse Event Handling";

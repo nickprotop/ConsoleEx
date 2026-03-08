@@ -11,7 +11,6 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
-using SpectreJustify = Spectre.Console.Justify;
 
 namespace SharpConsoleUI.Tests.Controls;
 
@@ -72,13 +71,13 @@ public class TableControlTests
 		var table = new TableControl();
 
 		// Act
-		table.AddColumn("Name", SpectreJustify.Left);
+		table.AddColumn("Name", TextJustification.Left);
 
 		// Assert
 		Assert.Single(table.Columns);
 		Assert.Equal(1, table.ColumnCount);
 		Assert.Equal("Name", table.Columns[0].Header);
-		Assert.Equal(SpectreJustify.Left, table.Columns[0].Alignment);
+		Assert.Equal(TextJustification.Left, table.Columns[0].Alignment);
 	}
 
 	[Fact]
@@ -88,7 +87,7 @@ public class TableControlTests
 		var table = new TableControl();
 
 		// Act
-		table.AddColumn("ID", SpectreJustify.Right, width: 10);
+		table.AddColumn("ID", TextJustification.Right, width: 10);
 
 		// Assert
 		Assert.Single(table.Columns);
@@ -180,13 +179,13 @@ public class TableControlTests
 	{
 		// Arrange
 		var table = new TableControl();
-		table.AddColumn("Col1", SpectreJustify.Left);
+		table.AddColumn("Col1", TextJustification.Left);
 
 		// Act
-		table.SetColumnAlignment(0, SpectreJustify.Center);
+		table.SetColumnAlignment(0, TextJustification.Center);
 
 		// Assert
-		Assert.Equal(SpectreJustify.Center, table.Columns[0].Alignment);
+		Assert.Equal(TextJustification.Center, table.Columns[0].Alignment);
 	}
 
 	#endregion
@@ -413,7 +412,7 @@ public class TableControlTests
 		var table = new TableControl();
 
 		// Assert
-		Assert.Equal(SpectreJustify.Center, table.TitleAlignment);
+		Assert.Equal(TextJustification.Center, table.TitleAlignment);
 	}
 
 	[Fact]
@@ -515,8 +514,8 @@ public class TableControlTests
 		var window = new Window(system) { Width = 100, Height = 30 };
 
 		var table = TableControl.Create()
-			.AddColumn("ID", SpectreJustify.Right, 5)
-			.AddColumn("Name", SpectreJustify.Left, 10)
+			.AddColumn("ID", TextJustification.Right, 5)
+			.AddColumn("Name", TextJustification.Left, 10)
 			.AddRow("1", "Alice")
 			.Build();
 
@@ -545,8 +544,8 @@ public class TableControlTests
 		var window = new Window(system) { Width = 100, Height = 30 };
 
 		var table = TableControl.Create()
-			.AddColumn("ID", SpectreJustify.Right, 5)
-			.AddColumn("Name", SpectreJustify.Left, 10)
+			.AddColumn("ID", TextJustification.Right, 5)
+			.AddColumn("Name", TextJustification.Left, 10)
 			.AddRow("1", "Alice")
 			.WithWidth(50)
 			.Build();
@@ -569,8 +568,8 @@ public class TableControlTests
 		var window = new Window(system) { Width = 100, Height = 30 };
 
 		var table = TableControl.Create()
-			.AddColumn("ID", SpectreJustify.Right, 5)
-			.AddColumn("Name", SpectreJustify.Left, 10)
+			.AddColumn("ID", TextJustification.Right, 5)
+			.AddColumn("Name", TextJustification.Left, 10)
 			.AddRow("1", "Alice")
 			.WithHorizontalAlignment(HorizontalAlignment.Stretch)
 			.Build();
@@ -593,8 +592,8 @@ public class TableControlTests
 		var window = new Window(system) { Width = 100, Height = 30 };
 
 		var table = TableControl.Create()
-			.AddColumn("ID", SpectreJustify.Right, 5)
-			.AddColumn("Name", SpectreJustify.Left, 10)
+			.AddColumn("ID", TextJustification.Right, 5)
+			.AddColumn("Name", TextJustification.Left, 10)
 			.AddRow("1", "Alice")
 			.WithWidth(60)
 			.WithHorizontalAlignment(HorizontalAlignment.Stretch)
@@ -618,8 +617,8 @@ public class TableControlTests
 		var window = new Window(system) { Width = 100, Height = 30 };
 
 		var table = TableControl.Create()
-			.AddColumn("ID", SpectreJustify.Right, 5)
-			.AddColumn("Name", SpectreJustify.Left, 10)
+			.AddColumn("ID", TextJustification.Right, 5)
+			.AddColumn("Name", TextJustification.Left, 10)
 			.AddRow("1", "Alice")
 			.WithWidth(50)
 			.WithMargin(2, 1, 3, 1)
@@ -647,7 +646,7 @@ public class TableControlTests
 		var window = new Window(system) { Width = 80, Height = 20 };
 
 		var table = TableControl.Create()
-			.AddColumn("Name", SpectreJustify.Left)
+			.AddColumn("Name", TextJustification.Left)
 			.AddRow("Alice")
 			.Build();
 
@@ -786,8 +785,8 @@ public class TableControlTests
 	{
 		// Act
 		var table = TableControl.Create()
-			.AddColumn("ID", SpectreJustify.Right, 5)
-			.AddColumn("Name", SpectreJustify.Left, 20)
+			.AddColumn("ID", TextJustification.Right, 5)
+			.AddColumn("Name", TextJustification.Left, 20)
 			.AddRow("1", "Alice")
 			.AddRow("2", "Bob")
 			.WithTitle("Users")
@@ -836,9 +835,9 @@ public class TableControlTests
 
 		// Act - Build table using fluent API
 		var table = TableControl.Create()
-			.AddColumn("ID", SpectreJustify.Right, 8)
-			.AddColumn("Name", SpectreJustify.Left, 20)
-			.AddColumn("Status", SpectreJustify.Center, 15)
+			.AddColumn("ID", TextJustification.Right, 8)
+			.AddColumn("Name", TextJustification.Left, 20)
+			.AddColumn("Status", TextJustification.Center, 15)
 			.AddRow("1", "Alice Johnson", "[green]Active[/]")
 			.AddRow("2", "Bob Smith", "[yellow]Pending[/]")
 			.AddRow("3", "Charlie Brown", "[red]Inactive[/]")

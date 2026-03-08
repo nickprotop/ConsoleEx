@@ -6,12 +6,10 @@
 
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
-using Spectre.Console;
+using SharpConsoleUI.Helpers;
 
 namespace BorderStyleDemo;
 
@@ -57,7 +55,7 @@ internal class Program
         catch (Exception ex)
         {
             Console.Clear();
-            AnsiConsole.WriteException(ex);
+            ExceptionFormatter.WriteException(ex);
             return 1;
         }
     }

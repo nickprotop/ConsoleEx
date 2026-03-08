@@ -1,4 +1,4 @@
-using Spectre.Console;
+using SharpConsoleUI;
 
 namespace ConsoleTopExample.Helpers;
 

@@ -13,7 +13,6 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Core;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI
 {

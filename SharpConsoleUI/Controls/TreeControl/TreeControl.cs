@@ -11,11 +11,9 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using System.Collections.ObjectModel;
 using System.Drawing;
 using System.Text;
-using Color = Spectre.Console.Color;
 
 using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
@@ -52,7 +50,7 @@ namespace SharpConsoleUI.Controls
 		private int _lastClickIndex = -1;
 
 		// Performance: Cache for expensive text measurement operations
-		private readonly TextMeasurementCache _textMeasurementCache = new(AnsiConsoleHelper.StripSpectreLength);
+		private readonly TextMeasurementCache _textMeasurementCache = new(Parsing.MarkupParser.StripLength);
 
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;

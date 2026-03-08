@@ -2,9 +2,10 @@ using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Layout;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Plugins.DeveloperTools;
-using Spectre.Console;
 
 namespace StartMenuDemo;
 
@@ -44,7 +45,7 @@ class Program
 			}
 			catch (Exception ex)
 			{
-				AnsiConsole.MarkupLine($"[yellow]Note: DeveloperTools plugin not available: {ex.Message}[/]");
+				Console.WriteLine($"\x1b[33mNote: DeveloperTools plugin not available: {ex.Message}\x1b[0m");
 			}
 
 			// Register user actions - File category
@@ -207,7 +208,7 @@ class Program
 				BorderStyle = BorderStyle.DoubleLine,
 				BorderColor = Color.Cyan1,
 				Header = "Style 2",
-				HeaderAlignment = Justify.Center,
+				HeaderAlignment = TextJustification.Center,
 				Margin = new Margin(0, 0, 0, 1)
 			});
 
@@ -216,7 +217,7 @@ class Program
 				BorderStyle = BorderStyle.Single,
 				BorderColor = Color.Yellow,
 				Header = "Style 3",
-				HeaderAlignment = Justify.Right
+				HeaderAlignment = TextJustification.Right
 			});
 
 			windowSystem.AddWindow(window2);
@@ -232,7 +233,7 @@ class Program
 		catch (Exception ex)
 		{
 			Console.Clear();
-			AnsiConsole.WriteException(ex);
+			ExceptionFormatter.WriteException(ex);
 			return 1;
 		}
 	}

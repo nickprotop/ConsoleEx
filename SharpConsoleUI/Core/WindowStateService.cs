@@ -44,7 +44,7 @@ namespace SharpConsoleUI.Core
 		{
 			public System.Timers.Timer? Timer { get; set; }
 			public float Intensity { get; set; }  // 0.0 to 1.0
-			public Spectre.Console.Color FlashColor { get; set; }
+			public Color FlashColor { get; set; }
 			public DateTime StartTime { get; set; }
 			public int DurationMs { get; set; }
 			public float MaxIntensity { get; set; } = 0.3f;  // 30% overlay
@@ -1096,7 +1096,7 @@ namespace SharpConsoleUI.Core
 	/// <param name="flashCount">The number of times to flash. Defaults to 1.</param>
 	/// <param name="flashDuration">The duration of each flash in milliseconds. Defaults to 150.</param>
 	/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses the theme's ModalFlashColor.</param>
-	public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 150, Spectre.Console.Color? flashBackgroundColor = null)
+	public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 150, Color? flashBackgroundColor = null)
 	{
 		if (window?.Renderer == null) return;
 		if (_getWindowSystem == null)
@@ -1183,7 +1183,7 @@ namespace SharpConsoleUI.Core
 	/// <param name="buffer">The character buffer to modify.</param>
 	/// <param name="flashColor">The color to blend toward.</param>
 	/// <param name="intensity">The intensity of the effect (0.0 to 1.0).</param>
-	private void ApplyFlashOverlay(Layout.CharacterBuffer buffer, Spectre.Console.Color flashColor, float intensity)
+	private void ApplyFlashOverlay(Layout.CharacterBuffer buffer, Color flashColor, float intensity)
 	{
 		if (intensity <= 0.001f) return;  // Skip if negligible
 
@@ -1211,9 +1211,9 @@ namespace SharpConsoleUI.Core
 	/// <param name="target">The target color to blend toward.</param>
 	/// <param name="amount">The blend amount (0.0 = original, 1.0 = target).</param>
 	/// <returns>The blended color.</returns>
-	private Spectre.Console.Color BlendColor(Spectre.Console.Color original, Spectre.Console.Color target, float amount)
+	private Color BlendColor(Color original, Color target, float amount)
 	{
-		return new Spectre.Console.Color(
+		return new Color(
 			(byte)(original.R + (target.R - original.R) * amount),
 			(byte)(original.G + (target.G - original.G) * amount),
 			(byte)(original.B + (target.B - original.B) * amount)

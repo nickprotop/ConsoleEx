@@ -11,12 +11,8 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
 using System.Drawing;
 using System.Text;
-using Color = Spectre.Console.Color;
 using Size = SharpConsoleUI.Helpers.Size;
 
 using SharpConsoleUI.Configuration;

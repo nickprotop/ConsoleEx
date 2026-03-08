@@ -12,9 +12,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using System.Text;
-using Color = Spectre.Console.Color;
 
 using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
@@ -76,7 +74,7 @@ namespace SharpConsoleUI.Controls
 		private int _doubleClickThresholdMs = ControlDefaults.DefaultDoubleClickThresholdMs;
 
 		// Performance: Cache for expensive text measurement operations
-		private readonly TextMeasurementCache _textMeasurementCache = new(AnsiConsoleHelper.StripSpectreLength);
+		private readonly TextMeasurementCache _textMeasurementCache = new(Parsing.MarkupParser.StripLength);
 
 		// Thread-safety: _items may be modified from background threads (async build callbacks, etc.)
 		// while the render loop reads from the main thread.

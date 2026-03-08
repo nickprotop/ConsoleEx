@@ -1,5 +1,4 @@
 using SharpConsoleUI.Tests.Infrastructure;
-using Spectre.Console;
 using Xunit;
 using Xunit.Abstractions;
 

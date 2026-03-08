@@ -1,7 +1,6 @@
 using AgentStudio.Models;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 
 namespace AgentStudio.Services;
 

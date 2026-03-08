@@ -15,11 +15,9 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace CanvasDemo;
 
@@ -68,7 +66,7 @@ class Program
 		catch (Exception ex)
 		{
 			Console.Clear();
-			AnsiConsole.WriteException(ex);
+			ExceptionFormatter.WriteException(ex);
 			return 1;
 		}
 	}

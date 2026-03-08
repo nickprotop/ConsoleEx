@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using Spectre.Console;
 using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Plugins.DeveloperTools;

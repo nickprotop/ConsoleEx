@@ -6,22 +6,23 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
+using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
 	/// A control that renders a horizontal rule (divider line) with optional title text.
-	/// Wraps the Spectre.Console Rule component.
+	/// Renders directly to CharacterBuffer using BoxChars.
 	/// </summary>
 	public class RuleControl : BaseControl
 	{
 		private Color? _color;
 		private string? _title;
-		private Justify _titleAlignment = Justify.Left;
+		private TextJustification _titleAlignment = TextJustification.Left;
+		private BorderStyle _borderStyle = BorderStyle.Single;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="RuleControl"/> class.
@@ -62,12 +63,25 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the horizontal alignment of the title within the rule.
 		/// </summary>
-		public Justify TitleAlignment
+		public TextJustification TitleAlignment
 		{
 			get => _titleAlignment;
 			set
 			{
 				_titleAlignment = value;
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the border style for the rule line characters.
+		/// </summary>
+		public BorderStyle BorderStyle
+		{
+			get => _borderStyle;
+			set
+			{
+				_borderStyle = value;
 				Container?.Invalidate(true);
 			}
 		}
@@ -123,17 +137,99 @@ namespace SharpConsoleUI.Controls
 					buffer.FillRect(new LayoutRect(bounds.X, startY, Margin.Left, 1), ' ', fgColor, bgColor);
 				}
 
-				// Render using Spectre's Rule and parse the output
-				Rule rule = new Rule()
-				{
-					Title = string.IsNullOrEmpty(_title) ? null : _title,
-					Style = new Style(ruleColor, background: bgColor),
-					Justification = _titleAlignment
-				};
+				var box = BoxChars.FromBorderStyle(_borderStyle);
+				char horizChar = box.Horizontal;
 
-				var ansiLine = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(rule, ruleWidth, 1, bgColor).FirstOrDefault() ?? string.Empty;
-				var cells = AnsiParser.Parse(ansiLine, ruleColor, bgColor);
-				buffer.WriteCellsClipped(startX, startY, cells, clipRect);
+				if (string.IsNullOrEmpty(_title))
+				{
+					// No title — fill entire line with horizontal chars
+					for (int x = 0; x < ruleWidth; x++)
+					{
+						int px = startX + x;
+						if (px >= clipRect.X && px < clipRect.Right)
+						{
+							buffer.SetCell(px, startY, horizChar, ruleColor, bgColor);
+						}
+					}
+				}
+				else
+				{
+					// Parse title to get styled cells and measure visible length
+					var titleCells = MarkupParser.Parse(_title, ruleColor, bgColor);
+					int titleLen = titleCells.Count;
+
+					// Add spaces around title: ─ Title ─
+					int titleWithSpaces = titleLen + 2; // space before and after title
+					int dashSpace = ruleWidth - titleWithSpaces;
+
+					if (dashSpace < 2)
+					{
+						// Not enough room for dashes — just fill with horizontal chars
+						for (int x = 0; x < ruleWidth; x++)
+						{
+							int px = startX + x;
+							if (px >= clipRect.X && px < clipRect.Right)
+							{
+								buffer.SetCell(px, startY, horizChar, ruleColor, bgColor);
+							}
+						}
+					}
+					else
+					{
+						int leftDashes, rightDashes;
+						switch (_titleAlignment)
+						{
+							case TextJustification.Center:
+								leftDashes = dashSpace / 2;
+								rightDashes = dashSpace - leftDashes;
+								break;
+							case TextJustification.Right:
+								leftDashes = dashSpace - 1;
+								rightDashes = 1;
+								break;
+							default: // Left
+								leftDashes = 1;
+								rightDashes = dashSpace - 1;
+								break;
+						}
+
+						int writeX = startX;
+
+						// Left dashes
+						for (int i = 0; i < leftDashes; i++)
+						{
+							if (writeX >= clipRect.X && writeX < clipRect.Right)
+								buffer.SetCell(writeX, startY, horizChar, ruleColor, bgColor);
+							writeX++;
+						}
+
+						// Space before title
+						if (writeX >= clipRect.X && writeX < clipRect.Right)
+							buffer.SetCell(writeX, startY, ' ', ruleColor, bgColor);
+						writeX++;
+
+						// Title cells (with their own colors from markup)
+						foreach (var cell in titleCells)
+						{
+							if (writeX >= clipRect.X && writeX < clipRect.Right)
+								buffer.SetCell(writeX, startY, cell.Character, cell.Foreground, cell.Background);
+							writeX++;
+						}
+
+						// Space after title
+						if (writeX >= clipRect.X && writeX < clipRect.Right)
+							buffer.SetCell(writeX, startY, ' ', ruleColor, bgColor);
+						writeX++;
+
+						// Right dashes
+						for (int i = 0; i < rightDashes; i++)
+						{
+							if (writeX >= clipRect.X && writeX < clipRect.Right)
+								buffer.SetCell(writeX, startY, horizChar, ruleColor, bgColor);
+							writeX++;
+						}
+					}
+				}
 
 				// Fill right margin
 				if (Margin.Right > 0)

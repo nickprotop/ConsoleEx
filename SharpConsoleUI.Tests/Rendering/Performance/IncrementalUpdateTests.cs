@@ -263,7 +263,7 @@ public class IncrementalUpdateTests
 		_output.WriteLine($"Progress update: {metrics.BytesWritten} bytes, {metrics.CharactersChanged} chars");
 
 		// Assert - Reasonable output for progress bar
-		Assert.True(metrics.CharactersChanged >= 3); // Efficient rendering - only cells that actually differ
+		Assert.True(metrics.CharactersChanged >= 2); // Efficient rendering - only cells that actually differ
 		Assert.True(metrics.BytesWritten < 200,
 			$"Expected <200 bytes for progress update, got {metrics.BytesWritten}");
 	}

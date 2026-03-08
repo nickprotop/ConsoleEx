@@ -1,6 +1,5 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Events;
-using Spectre.Console;
 
 namespace SharpConsoleUI.Builders;
 

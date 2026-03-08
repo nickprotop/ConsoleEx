@@ -1,5 +1,4 @@
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using System.Drawing;
 
 namespace SharpConsoleUI.Windows;
@@ -43,7 +42,7 @@ public class OverlayWindow : Window
 		ShowCloseButton = false;
 
 		// Default to dark dimmed background
-		BackgroundColor = Spectre.Console.Color.Grey11;
+		BackgroundColor = Color.Grey11;
 
 		// Set up event handlers
 		KeyPressed += OnKeyPressed;
@@ -54,7 +53,7 @@ public class OverlayWindow : Window
 	/// Sets the background color for the overlay (typically dark/dimmed).
 	/// </summary>
 	/// <param name="color">The background color.</param>
-	public void SetOverlayBackground(Spectre.Console.Color color)
+	public void SetOverlayBackground(Color color)
 	{
 		BackgroundColor = color;
 	}

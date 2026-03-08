@@ -549,30 +549,26 @@ namespace SharpConsoleUI.Rendering
 			else
 			{
 				// Right position - add start button at the end
-				var contentLength = AnsiConsoleHelper.StripSpectreLength(completeTopStatus);
-				var startButtonLength = AnsiConsoleHelper.StripSpectreLength(startButton);
+				var contentLength = Parsing.MarkupParser.StripLength(completeTopStatus);
+				var startButtonLength = Parsing.MarkupParser.StripLength(startButton);
 				var availableSpace = _consoleDriver.ScreenSize.Width - startButtonLength;
 
 				var content = completeTopStatus;
 				if (contentLength > availableSpace)
 				{
-					content = AnsiConsoleHelper.TruncateSpectre(content, availableSpace);
+					content = Parsing.MarkupParser.Truncate(content, availableSpace);
 				}
 
-				content += new string(' ', availableSpace - AnsiConsoleHelper.StripSpectreLength(content));
+				content += new string(' ', availableSpace - Parsing.MarkupParser.StripLength(content));
 				topRow = $"{content}{startButton}";
 			}
 
 			// Cache includes start button for proper invalidation
 			if (topRow != _cachedTopStatus)
 			{
-				var effectiveLength = AnsiConsoleHelper.StripSpectreLength(topRow);
+				var effectiveLength = Parsing.MarkupParser.StripLength(topRow);
 				var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
-				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					$"[{_windowSystemContext.Theme.TopBarForegroundColor}]{paddedTopRow}[/]",
-					_consoleDriver.ScreenSize.Width, 1, false,
-					_windowSystemContext.Theme.TopBarBackgroundColor, null)[0];
-				var statusBuffer = AnsiLineToBuffer(ansiLine, _consoleDriver.ScreenSize.Width,
+				var statusBuffer = MarkupLineToBuffer(paddedTopRow, _consoleDriver.ScreenSize.Width,
 					_windowSystemContext.Theme.TopBarForegroundColor, _windowSystemContext.Theme.TopBarBackgroundColor);
 				_consoleDriver.WriteBufferRegion(0, 0, statusBuffer, 0, 0, statusBuffer.Width,
 					_windowSystemContext.Theme.TopBarBackgroundColor);
@@ -644,34 +640,30 @@ namespace SharpConsoleUI.Rendering
 			{
 				// Right position - add start button at the end
 				var content = $"{taskBar}{_statusBarStateService.BottomStatus}";
-				var contentLength = AnsiConsoleHelper.StripSpectreLength(content);
-				var startButtonLength = AnsiConsoleHelper.StripSpectreLength(startButton);
+				var contentLength = Parsing.MarkupParser.StripLength(content);
+				var startButtonLength = Parsing.MarkupParser.StripLength(startButton);
 				var availableSpace = _consoleDriver.ScreenSize.Width - startButtonLength;
 
 				if (contentLength > availableSpace)
 				{
-					content = AnsiConsoleHelper.TruncateSpectre(content, availableSpace);
+					content = Parsing.MarkupParser.Truncate(content, availableSpace);
 				}
 
-				content += new string(' ', availableSpace - AnsiConsoleHelper.StripSpectreLength(content));
+				content += new string(' ', availableSpace - Parsing.MarkupParser.StripLength(content));
 				bottomRow = $"{content}{startButton}";
 			}
 
 			// Display the list of window titles in the bottom row
-			if (AnsiConsoleHelper.StripSpectreLength(bottomRow) > _consoleDriver.ScreenSize.Width)
+			if (Parsing.MarkupParser.StripLength(bottomRow) > _consoleDriver.ScreenSize.Width)
 			{
-				bottomRow = AnsiConsoleHelper.TruncateSpectre(bottomRow, _consoleDriver.ScreenSize.Width);
+				bottomRow = Parsing.MarkupParser.Truncate(bottomRow, _consoleDriver.ScreenSize.Width);
 			}
 
-			bottomRow += new string(' ', _consoleDriver.ScreenSize.Width - AnsiConsoleHelper.StripSpectreLength(bottomRow));
+			bottomRow += new string(' ', _consoleDriver.ScreenSize.Width - Parsing.MarkupParser.StripLength(bottomRow));
 
 			if (_cachedBottomStatus != bottomRow)
 			{
-				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					$"[{_windowSystemContext.Theme.BottomBarForegroundColor}]{bottomRow}[/]",
-					_consoleDriver.ScreenSize.Width, 1, false,
-					_windowSystemContext.Theme.BottomBarBackgroundColor, null)[0];
-				var statusBuffer = AnsiLineToBuffer(ansiLine, _consoleDriver.ScreenSize.Width,
+				var statusBuffer = MarkupLineToBuffer(bottomRow, _consoleDriver.ScreenSize.Width,
 					_windowSystemContext.Theme.BottomBarForegroundColor, _windowSystemContext.Theme.BottomBarBackgroundColor);
 				_consoleDriver.WriteBufferRegion(0, _consoleDriver.ScreenSize.Height - 1,
 					statusBuffer, 0, 0, statusBuffer.Width, _windowSystemContext.Theme.BottomBarBackgroundColor);
@@ -681,13 +673,13 @@ namespace SharpConsoleUI.Rendering
 		}
 
 		/// <summary>
-		/// Converts a single ANSI-formatted line to a CharacterBuffer using AnsiParser.
+		/// Converts a markup string to a CharacterBuffer using MarkupParser.
 		/// </summary>
-		private static Layout.CharacterBuffer AnsiLineToBuffer(string ansiLine, int width,
-			Spectre.Console.Color defaultFg, Spectre.Console.Color defaultBg)
+		private static Layout.CharacterBuffer MarkupLineToBuffer(string markup, int width,
+			Color defaultFg, Color defaultBg)
 		{
 			var buffer = new Layout.CharacterBuffer(width, 1, defaultBg);
-			buffer.WriteCells(0, 0, Layout.AnsiParser.Parse(ansiLine, defaultFg, defaultBg));
+			buffer.WriteCells(0, 0, Parsing.MarkupParser.Parse(markup, defaultFg, defaultBg));
 			return buffer;
 		}
 

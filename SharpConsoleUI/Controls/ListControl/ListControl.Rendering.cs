@@ -9,10 +9,6 @@
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -333,8 +329,7 @@ namespace SharpConsoleUI.Controls
 						titleBarContent += new string(' ', listWidth - titleLen);
 					}
 
-					var titleAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(titleBarContent, listWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? "";
-					var titleCells = AnsiParser.Parse(titleAnsi, foregroundColor, backgroundColor);
+					var titleCells = Parsing.MarkupParser.Parse(titleBarContent, foregroundColor, backgroundColor);
 					buffer.WriteCellsClipped(startX, currentY, titleCells, clipRect);
 
 					// Fill right margin
@@ -482,8 +477,7 @@ namespace SharpConsoleUI.Controls
 							if (paddingNeeded > 0) itemContent += new string(' ', paddingNeeded);
 						}
 
-						var itemAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(itemContent, listWidth, 1, false, itemBg, itemFg).FirstOrDefault() ?? "";
-						var itemCells = AnsiParser.Parse(itemAnsi, itemFg, itemBg);
+						var itemCells = Parsing.MarkupParser.Parse(itemContent, itemFg, itemBg);
 						buffer.WriteCellsClipped(startX, currentY, itemCells, clipRect);
 
 						// Fill right margin
@@ -535,8 +529,7 @@ namespace SharpConsoleUI.Controls
 					if (scrollPadding > 0) scrollIndicator += new string(' ', scrollPadding);
 					scrollIndicator += (scrollOffset + itemsToShow < items.Count) ? "▼" : " ";
 
-					var scrollAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(scrollIndicator, listWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? "";
-					var scrollCells = AnsiParser.Parse(scrollAnsi, foregroundColor, backgroundColor);
+					var scrollCells = Parsing.MarkupParser.Parse(scrollIndicator, foregroundColor, backgroundColor);
 					buffer.WriteCellsClipped(startX, currentY, scrollCells, clipRect);
 
 					if (Margin.Right > 0)

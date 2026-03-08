@@ -14,7 +14,6 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Color = Spectre.Console.Color;
 using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI.Drivers

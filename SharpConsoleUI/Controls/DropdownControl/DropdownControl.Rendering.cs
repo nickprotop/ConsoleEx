@@ -9,9 +9,6 @@
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -32,14 +29,14 @@ namespace SharpConsoleUI.Controls
 			lock (_dropdownLock) { measureSnapshot = _items.ToList(); }
 			foreach (var item in measureSnapshot)
 			{
-				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
+				int itemLength = Parsing.MarkupParser.StripLength(item.Text) + 4;
 				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 			}
 
 			if (_autoAdjustWidth)
 				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
 
-			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
+			int promptLength = Parsing.MarkupParser.StripLength(_prompt);
 			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
 			dropdownWidth = Math.Max(dropdownWidth, minWidth);
 
@@ -98,13 +95,13 @@ namespace SharpConsoleUI.Controls
 			lock (_dropdownLock) { paintSnapshot = _items.ToList(); }
 			foreach (var item in paintSnapshot)
 			{
-				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
+				int itemLength = Parsing.MarkupParser.StripLength(item.Text) + 4;
 				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 			}
 			if (_autoAdjustWidth)
 				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
 
-			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
+			int promptLength = Parsing.MarkupParser.StripLength(_prompt);
 			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
 			dropdownWidth = Math.Min(Math.Max(dropdownWidth, minWidth), targetWidth);
 
@@ -136,7 +133,7 @@ namespace SharpConsoleUI.Controls
 				selectedText = selectedText.Substring(0, Math.Max(0, maxSelectedTextLength - 3)) + "...";
 
 			string headerContent = $"{_prompt} {selectedText} {arrow}";
-			int headerVisibleLength = AnsiConsoleHelper.StripSpectreLength(headerContent);
+			int headerVisibleLength = Parsing.MarkupParser.StripLength(headerContent);
 			if (headerVisibleLength < dropdownWidth)
 				headerContent += new string(' ', dropdownWidth - headerVisibleLength);
 
@@ -150,8 +147,7 @@ namespace SharpConsoleUI.Controls
 				if (alignOffset > 0)
 					buffer.FillRect(new LayoutRect(startX, paintY, alignOffset, 1), ' ', foregroundColor, windowBackground);
 
-				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(headerContent, dropdownWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
-				var cells = AnsiParser.Parse(ansiLine, foregroundColor, backgroundColor);
+				var cells = Parsing.MarkupParser.Parse(headerContent, foregroundColor, backgroundColor);
 				buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
 
 				int rightFillStart = startX + alignOffset + dropdownWidth;

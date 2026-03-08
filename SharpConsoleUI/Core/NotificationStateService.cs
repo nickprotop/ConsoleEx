@@ -309,7 +309,7 @@ namespace SharpConsoleUI.Core
 			bool blockUi,
 			Window? parentWindow)
 		{
-			var messageWidth = AnsiConsoleHelper.StripSpectreLength(message) + ControlDefaults.NotificationHorizontalPadding;
+			var messageWidth = Parsing.MarkupParser.StripLength(message) + ControlDefaults.NotificationHorizontalPadding;
 			var messageHeight = message.Split('\n').Length + ControlDefaults.NotificationVerticalPadding;
 
 			var notificationWindow = new Window(_windowSystem, parentWindow)

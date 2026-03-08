@@ -13,7 +13,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
-using Spectre.Console;
 
 namespace SharpConsoleUI.Windows
 {
@@ -210,7 +209,7 @@ namespace SharpConsoleUI.Windows
 		private static (int width, int height) CalculateRequiredSize(List<string> errorLines)
 		{
 			var maxLineLength = errorLines
-				.Select(line => Helpers.AnsiConsoleHelper.StripSpectreLength(line))
+				.Select(line => Parsing.MarkupParser.StripLength(line))
 				.Max();
 
 			var requiredWidth = Math.Max(

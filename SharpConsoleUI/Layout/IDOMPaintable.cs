@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Layout
 {

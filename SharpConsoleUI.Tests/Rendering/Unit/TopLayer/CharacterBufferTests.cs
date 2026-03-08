@@ -8,7 +8,6 @@
 
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;

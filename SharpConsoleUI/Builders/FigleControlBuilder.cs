@@ -8,9 +8,7 @@
 
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
+using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Builders;
 

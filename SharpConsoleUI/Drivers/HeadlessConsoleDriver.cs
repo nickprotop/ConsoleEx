@@ -9,7 +9,6 @@
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Layout;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI.Drivers;

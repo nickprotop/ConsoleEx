@@ -8,10 +8,7 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 
@@ -66,7 +63,7 @@ namespace SharpConsoleUI.Controls
 				int maxLength = 0;
 				foreach (var line in snapshot)
 				{
-					int length = AnsiConsoleHelper.StripSpectreLength(line);
+					int length = Parsing.MarkupParser.StripLength(line);
 					if (length > maxLength) maxLength = length;
 				}
 				return maxLength + Margin.Left + Margin.Right;
@@ -307,7 +304,7 @@ namespace SharpConsoleUI.Controls
 				var subLines = line.Split('\n');
 				foreach (var subLine in subLines)
 				{
-					int lineWidth = AnsiConsoleHelper.StripSpectreLength(subLine);
+					int lineWidth = Parsing.MarkupParser.StripLength(subLine);
 					maxContentWidth = Math.Max(maxContentWidth, lineWidth);
 
 					if (_wrap && lineWidth > targetWidth && targetWidth > 0)
@@ -355,36 +352,30 @@ namespace SharpConsoleUI.Controls
 			int maxContentWidth = 0;
 			foreach (var line in snapshot)
 			{
-				int length = AnsiConsoleHelper.StripAnsiStringLength(line);
+				int length = Parsing.MarkupParser.StripLength(line);
 				maxContentWidth = Math.Max(maxContentWidth, length);
 			}
 
 			// Render content lines
-			var renderedLines = new List<string>();
+			Color effectiveFg = _foregroundColor ?? fgColor;
+			Color effectiveBg = _backgroundColor ?? bgColor;
+			var renderedCellLines = new List<List<Cell>>();
 			foreach (var line in snapshot)
 			{
 				int renderWidth = (HorizontalAlignment == HorizontalAlignment.Center || HorizontalAlignment == HorizontalAlignment.Right)
 					? Math.Min(maxContentWidth, targetWidth)
 					: targetWidth;
 
-				// Wrap the line with control's colors if set
-				string processedLine = line;
-				if (_backgroundColor.HasValue || _foregroundColor.HasValue)
+				if (_wrap)
 				{
-					Color fg = _foregroundColor ?? fgColor;
-					Color bg = _backgroundColor ?? bgColor;
-
-					// Convert colors to Spectre.Console color names
-					string fgName = ColorToSpectreString(fg);
-					string bgName = ColorToSpectreString(bg);
-
-					// Wrap: [foreground on background]original content[/]
-					processedLine = $"[{fgName} on {bgName}]{line}[/]";
+					var wrappedLines = Parsing.MarkupParser.ParseLines(line, renderWidth, effectiveFg, effectiveBg);
+					renderedCellLines.AddRange(wrappedLines);
 				}
-
-				var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					processedLine, renderWidth, null, _wrap, null, null);
-				renderedLines.AddRange(ansiLines);
+				else
+				{
+					var cells = Parsing.MarkupParser.Parse(line, effectiveFg, effectiveBg);
+					renderedCellLines.Add(cells);
+				}
 			}
 
 			// Paint with margins
@@ -395,14 +386,14 @@ namespace SharpConsoleUI.Controls
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
 
 			// Paint content lines
-			for (int i = 0; i < renderedLines.Count && startY + i < bounds.Bottom; i++)
+			for (int i = 0; i < renderedCellLines.Count && startY + i < bounds.Bottom; i++)
 			{
 				int y = startY + i;
 				if (y < clipRect.Y || y >= clipRect.Bottom)
 					continue;
 
-				string line = renderedLines[i];
-				int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(line);
+				var cellLine = renderedCellLines[i];
+				int lineWidth = cellLine.Count;
 
 				// Calculate alignment offset
 				int alignOffset = 0;
@@ -432,8 +423,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Paint the line content
-				var cells = AnsiParser.Parse(line, fgColor, bgColor);
-				buffer.WriteCellsClipped(startX + alignOffset, y, cells, clipRect);
+				buffer.WriteCellsClipped(startX + alignOffset, y, cellLine, clipRect);
 
 				// Fill remaining space (right side)
 				int rightPadStart = startX + alignOffset + lineWidth;
@@ -453,7 +443,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill bottom margin and remaining space
-			int contentEndY = startY + renderedLines.Count;
+			int contentEndY = startY + renderedCellLines.Count;
 			for (int y = contentEndY; y < bounds.Bottom; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
@@ -461,17 +451,6 @@ namespace SharpConsoleUI.Controls
 					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
 				}
 			}
-		}
-
-		/// <summary>
-		/// Converts a Spectre.Console Color to its string representation for markup.
-		/// </summary>
-		/// <param name="color">The color to convert</param>
-		/// <returns>RGB string representation in format "rgb(r,g,b)"</returns>
-		private static string ColorToSpectreString(Color color)
-		{
-			// Use RGB format for consistency - Spectre.Console supports both named colors and rgb(r,g,b)
-			return $"rgb({color.R},{color.G},{color.B})";
 		}
 
 		#endregion

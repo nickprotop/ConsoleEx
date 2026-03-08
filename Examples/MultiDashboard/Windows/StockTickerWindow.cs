@@ -2,7 +2,7 @@ using MultiDashboard.Services;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
-using Spectre.Console;
+using SharpConsoleUI.Layout;
 
 namespace MultiDashboard.Windows;
 
@@ -56,10 +56,10 @@ public class StockTickerWindow : IDisposable
                 var quotes = _stockService.GetLatestQuotes();
 
                 var builder = TableControl.Create()
-                    .AddColumn("[bold]Symbol[/]", Justify.Center, 10)
-                    .AddColumn("[bold]Price[/]", Justify.Right, 10)
-                    .AddColumn("[bold]Change[/]", Justify.Right, 10)
-                    .AddColumn("[bold]%[/]", Justify.Right, 10);
+                    .AddColumn("[bold]Symbol[/]", TextJustification.Center, 10)
+                    .AddColumn("[bold]Price[/]", TextJustification.Right, 10)
+                    .AddColumn("[bold]Change[/]", TextJustification.Right, 10)
+                    .AddColumn("[bold]%[/]", TextJustification.Right, 10);
 
                 foreach (var quote in quotes)
                 {

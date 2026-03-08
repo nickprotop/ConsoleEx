@@ -2,7 +2,6 @@ using MultiDashboard.Services;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
-using Spectre.Console;
 
 namespace MultiDashboard.Windows;
 
@@ -37,28 +36,37 @@ public class SystemMonitorWindow : IDisposable
     {
         if (_window == null) return;
 
-        // CPU chart
-        _window.AddControl(
-            SpectreRenderableControl
-                .Create()
-                .WithRenderable(new Panel("[grey]Initializing CPU monitor...[/]"))
-                .WithName("cpuChart")
-                .Build()
-        );
+        // CPU label
+        _window.AddControl(MarkupControl.Create()
+            .AddLine("[bold]CPU Usage[/]")
+            .WithName("cpuLabel")
+            .Build());
 
-        // Memory chart
-        _window.AddControl(
-            SpectreRenderableControl
-                .Create()
-                .WithRenderable(new Panel("[grey]Initializing memory monitor...[/]"))
-                .WithName("memChart")
-                .Build()
-        );
+        // CPU bars
+        _window.AddControl(new BarGraphBuilder()
+            .WithLabel("User").WithFilledColor(Color.Green).WithMaxValue(100).WithName("cpuUser").Build());
+        _window.AddControl(new BarGraphBuilder()
+            .WithLabel("System").WithFilledColor(Color.Blue).WithMaxValue(100).WithName("cpuSystem").Build());
+        _window.AddControl(new BarGraphBuilder()
+            .WithLabel("IO Wait").WithFilledColor(Color.Yellow).WithMaxValue(100).WithName("cpuIo").Build());
+
+        // Memory label
+        _window.AddControl(MarkupControl.Create()
+            .AddLine("[bold]Memory Usage[/]")
+            .WithName("memLabel")
+            .Build());
+
+        // Memory bars
+        _window.AddControl(new BarGraphBuilder()
+            .WithLabel("Used").WithFilledColor(Color.Red).WithMaxValue(100).WithName("memUsed").Build());
+        _window.AddControl(new BarGraphBuilder()
+            .WithLabel("Cached").WithFilledColor(Color.Aqua).WithMaxValue(100).WithName("memCached").Build());
+        _window.AddControl(new BarGraphBuilder()
+            .WithLabel("Free").WithFilledColor(Color.Grey).WithMaxValue(100).WithName("memFree").Build());
 
         // Disk stats
         _window.AddControl(
-            MarkupControl
-                .Create()
+            MarkupControl.Create()
                 .AddLine("[dim]Disk I/O: Loading...[/]")
                 .WithName("diskStats")
                 .Build()
@@ -73,27 +81,15 @@ public class SystemMonitorWindow : IDisposable
             {
                 var stats = _statsService.GetCurrentStats();
 
-                // Update CPU chart
-                var cpuChart = new BarChart()
-                    .Label("[bold]CPU Usage[/]")
-                    .WithMaxValue(100)
-                    .AddItem("User", stats.CpuUser, Color.Green)
-                    .AddItem("System", stats.CpuSystem, Color.Blue)
-                    .AddItem("IO Wait", stats.CpuIo, Color.Yellow);
+                // Update CPU bars
+                window.FindControl<BarGraphControl>("cpuUser")!.Value = stats.CpuUser;
+                window.FindControl<BarGraphControl>("cpuSystem")!.Value = stats.CpuSystem;
+                window.FindControl<BarGraphControl>("cpuIo")!.Value = stats.CpuIo;
 
-                window.FindControl<SpectreRenderableControl>("cpuChart")
-                      ?.SetRenderable(cpuChart);
-
-                // Update memory chart
-                var memChart = new BarChart()
-                    .Label("[bold]Memory Usage[/]")
-                    .WithMaxValue(100)
-                    .AddItem("Used", stats.MemoryUsed, Color.Red)
-                    .AddItem("Cached", stats.MemoryCached, Color.Aqua)
-                    .AddItem("Free", 100 - stats.MemoryUsed - stats.MemoryCached, Color.Grey);
-
-                window.FindControl<SpectreRenderableControl>("memChart")
-                      ?.SetRenderable(memChart);
+                // Update memory bars
+                window.FindControl<BarGraphControl>("memUsed")!.Value = stats.MemoryUsed;
+                window.FindControl<BarGraphControl>("memCached")!.Value = stats.MemoryCached;
+                window.FindControl<BarGraphControl>("memFree")!.Value = 100 - stats.MemoryUsed - stats.MemoryCached;
 
                 // Update disk stats
                 var diskControl = window.FindControl<MarkupControl>("diskStats");

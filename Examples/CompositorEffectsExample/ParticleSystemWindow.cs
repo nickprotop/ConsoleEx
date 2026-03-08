@@ -1,7 +1,6 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using System.Numerics;
 
 namespace CompositorEffectsExample;

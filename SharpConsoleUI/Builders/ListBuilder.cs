@@ -11,9 +11,6 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Drivers;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
 
 namespace SharpConsoleUI.Builders;
 

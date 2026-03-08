@@ -3,7 +3,6 @@ using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 
 namespace MultiDashboard.Windows;
 
@@ -38,10 +37,9 @@ public class NewsFeedWindow : IDisposable
     {
         if (_window == null) return;
 
-        // Create scrollable panel for news items
         var newsPanel = new ScrollablePanelControl
         {
-            VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment.Fill,
+            VerticalAlignment = VerticalAlignment.Fill,
             Name = "newsPanel"
         };
         _window.AddControl(newsPanel);
@@ -58,32 +56,24 @@ public class NewsFeedWindow : IDisposable
 
                 if (panel != null)
                 {
-                    // Remove existing controls one by one
                     var existingControls = panel.Children.ToList();
                     foreach (var control in existingControls)
                     {
                         panel.RemoveControl(control);
                     }
 
-                    // Add new news items
                     foreach (var item in news)
                     {
-                        var newsPanel = new Panel(
-                            $"[bold yellow]{item.Headline}[/]\n" +
-                            $"[grey]{item.Source} • {item.Time:HH:mm}[/]"
-                        )
-                        {
-                            Border = BoxBorder.Rounded,
-                            BorderStyle = new Style(Color.Grey35),
-                            Padding = new Padding(1, 0, 1, 0)
-                        };
-
-                        var newsControl = SpectreRenderableControl
-                            .Create()
-                            .WithRenderable(newsPanel)
+                        var newsPanel = PanelControl.Create()
+                            .WithContent(
+                                $"[bold yellow]{item.Headline}[/]\n" +
+                                $"[grey]{item.Source} • {item.Time:HH:mm}[/]")
+                            .WithBorderStyle(BorderStyle.Rounded)
+                            .WithBorderColor(Color.Grey35)
+                            .WithPadding(1, 0, 1, 0)
                             .Build();
 
-                        panel.AddControl(newsControl);
+                        panel.AddControl(newsPanel);
                     }
 
                     panel.ScrollToBottom();

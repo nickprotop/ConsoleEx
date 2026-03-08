@@ -1,7 +1,6 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
-using Spectre.Console;
 
 namespace MultiDashboard.Windows;
 

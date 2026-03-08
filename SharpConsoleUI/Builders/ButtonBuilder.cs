@@ -10,9 +10,8 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
+
+#pragma warning disable CS1591
 
 namespace SharpConsoleUI.Builders;
 
@@ -37,6 +36,8 @@ public sealed class ButtonBuilder
 	private Color? _focusedForegroundColor;
 	private Color? _disabledBackgroundColor;
 	private Color? _disabledForegroundColor;
+	private Color? _borderColor;
+	private ButtonBorderStyle _borderStyle = ButtonBorderStyle.None;
 	private EventHandler<ButtonControl>? _clickHandler;
 	private WindowEventHandler<ButtonControl>? _clickWithWindowHandler;
 	private EventHandler? _gotFocusHandler;
@@ -275,11 +276,22 @@ public sealed class ButtonBuilder
 	}
 
 	/// <summary>
-	/// Sets both normal-state foreground and background colors
+	/// Sets the button border style
 	/// </summary>
-	/// <param name="foregroundColor">The foreground color</param>
-	/// <param name="backgroundColor">The background color</param>
+	/// <param name="style">The border style</param>
 	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithBorder(ButtonBorderStyle style)
+	{
+		_borderStyle = style;
+		return this;
+	}
+
+	public ButtonBuilder WithBorderColor(Color color)
+	{
+		_borderColor = color;
+		return this;
+	}
+
 	public ButtonBuilder WithColors(Color foregroundColor, Color backgroundColor)
 	{
 		_foregroundColor = foregroundColor;
@@ -383,7 +395,8 @@ public sealed class ButtonBuilder
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			ButtonBorder = _borderStyle
 		};
 
 		if (_backgroundColor.HasValue) button.BackgroundColor = _backgroundColor.Value;
@@ -392,6 +405,7 @@ public sealed class ButtonBuilder
 		if (_focusedForegroundColor.HasValue) button.FocusedForegroundColor = _focusedForegroundColor.Value;
 		if (_disabledBackgroundColor.HasValue) button.DisabledBackgroundColor = _disabledBackgroundColor.Value;
 		if (_disabledForegroundColor.HasValue) button.DisabledForegroundColor = _disabledForegroundColor.Value;
+		if (_borderColor.HasValue) button.BorderColor = _borderColor.Value;
 
 		// Attach standard handler
 		if (_clickHandler != null)

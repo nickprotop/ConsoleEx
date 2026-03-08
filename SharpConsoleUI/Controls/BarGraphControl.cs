@@ -8,10 +8,6 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls
@@ -380,20 +376,18 @@ namespace SharpConsoleUI.Controls
 			{
 				string labelContent = _label;
 				string suffix = ": ";
-				int targetWidth = _labelWidth ?? AnsiConsoleHelper.StripSpectreLength(labelContent);
+				int targetWidth = _labelWidth ?? Parsing.MarkupParser.StripLength(labelContent);
 
 				// Truncate label if it exceeds target width (handles markup correctly)
-				int visibleLength = AnsiConsoleHelper.StripSpectreLength(labelContent);
+				int visibleLength = Parsing.MarkupParser.StripLength(labelContent);
 				if (visibleLength > targetWidth)
 				{
 					labelContent = TextTruncationHelper.Truncate(labelContent, targetWidth);
-					visibleLength = AnsiConsoleHelper.StripSpectreLength(labelContent);
+					visibleLength = Parsing.MarkupParser.StripLength(labelContent);
 				}
 
-				// Convert markup to ANSI and write label
-				var labelCells = AnsiParser.Parse(
-					AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(labelContent, targetWidth, 1, false, bgColor, fgColor).FirstOrDefault() ?? labelContent,
-					fgColor, bgColor);
+				// Convert markup to cells and write label
+				var labelCells = Parsing.MarkupParser.Parse(labelContent, fgColor, bgColor);
 
 				foreach (var cell in labelCells)
 				{

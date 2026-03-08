@@ -9,9 +9,6 @@
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace SharpConsoleUI.Controls
 {

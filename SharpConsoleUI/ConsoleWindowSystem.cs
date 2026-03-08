@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using Spectre.Console;
 using System.Collections.Concurrent;
 using SharpConsoleUI.Themes;
 using SharpConsoleUI.Helpers;
@@ -24,7 +23,6 @@ using SharpConsoleUI.Performance;
 using static SharpConsoleUI.Window;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI

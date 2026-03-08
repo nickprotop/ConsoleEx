@@ -1,7 +1,5 @@
 // -----------------------------------------------------------------------
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 // Comprehensive Layout Window - Complete Application UI Demo
 // Demonstrates a complete UI form with proper window class architecture
 // -----------------------------------------------------------------------
@@ -9,9 +7,7 @@ using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
-using Spectre.Console;
 using System.Diagnostics;
-using SpectreColor = Spectre.Console.Color;
 
 namespace ModernExample;
 
@@ -308,8 +304,8 @@ public class ComprehensiveLayoutWindow : IDisposable
             Margin = new Margin(1, 1, 1, 1),
             HorizontalAlignment = HorizontalAlignment.Left,
             Guide = TreeGuide.Line,
-            HighlightBackgroundColor = SpectreColor.Blue,
-            HighlightForegroundColor = SpectreColor.White
+            HighlightBackgroundColor = Color.Blue,
+            HighlightForegroundColor = Color.White
         };
 
         BuildProjectStructure();
@@ -325,28 +321,28 @@ public class ComprehensiveLayoutWindow : IDisposable
         if (_projectTree == null) return;
 
         var projectRoot = _projectTree.AddRootNode("MyProject");
-        projectRoot.TextColor = SpectreColor.Yellow;
+        projectRoot.TextColor = Color.Yellow;
         projectRoot.IsExpanded = true;
 
         var srcFolder = projectRoot.AddChild("src");
-        srcFolder.TextColor = SpectreColor.Cyan1;
+        srcFolder.TextColor = Color.Cyan1;
         srcFolder.IsExpanded = true;
 
         var mainFile = srcFolder.AddChild("Program.cs");
-        mainFile.TextColor = SpectreColor.Green;
+        mainFile.TextColor = Color.Green;
 
         var modelsFolder = srcFolder.AddChild("Models");
-        modelsFolder.TextColor = SpectreColor.Cyan1;
-        modelsFolder.AddChild("User.cs").TextColor = SpectreColor.Green;
-        modelsFolder.AddChild("Product.cs").TextColor = SpectreColor.Green;
+        modelsFolder.TextColor = Color.Cyan1;
+        modelsFolder.AddChild("User.cs").TextColor = Color.Green;
+        modelsFolder.AddChild("Product.cs").TextColor = Color.Green;
 
         var testsFolder = projectRoot.AddChild("Tests");
-        testsFolder.TextColor = SpectreColor.Cyan1;
-        testsFolder.AddChild("UserTests.cs").TextColor = SpectreColor.Yellow;
+        testsFolder.TextColor = Color.Cyan1;
+        testsFolder.AddChild("UserTests.cs").TextColor = Color.Yellow;
 
         var docsFolder = projectRoot.AddChild("docs");
-        docsFolder.TextColor = SpectreColor.Cyan1;
-        docsFolder.AddChild("README.md").TextColor = SpectreColor.Magenta1;
+        docsFolder.TextColor = Color.Cyan1;
+        docsFolder.AddChild("README.md").TextColor = Color.Magenta1;
     }
 
     /// <summary>

@@ -587,7 +587,7 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <inheritdoc/>
-		public void SetCell(int x, int y, char character, Spectre.Console.Color fg, Spectre.Console.Color bg)
+		public void SetCell(int x, int y, char character, Color fg, Color bg)
 		{
 			switch (RenderMode)
 			{
@@ -612,7 +612,7 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <inheritdoc/>
-		public void FillCells(int x, int y, int width, char character, Spectre.Console.Color fg, Spectre.Console.Color bg)
+		public void FillCells(int x, int y, int width, char character, Color fg, Color bg)
 		{
 			switch (RenderMode)
 			{
@@ -640,7 +640,7 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <inheritdoc/>
-		public void WriteBufferRegion(int destX, int destY, Layout.CharacterBuffer source, int srcX, int srcY, int width, Spectre.Console.Color fallbackBg)
+		public void WriteBufferRegion(int destX, int destY, Layout.CharacterBuffer source, int srcX, int srcY, int width, Color fallbackBg)
 		{
 			switch (RenderMode)
 			{

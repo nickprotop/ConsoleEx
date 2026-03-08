@@ -11,14 +11,10 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Text;
-using Color = Spectre.Console.Color;
 using Size = System.Drawing.Size;
 
 using SharpConsoleUI.Extensions;
@@ -203,11 +199,11 @@ namespace SharpConsoleUI.Controls
 				int maxItemWidth = 0;
 				foreach (var item in _items)
 				{
-					int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
+					int itemLength = Parsing.MarkupParser.StripLength(item.Text) + 4;
 					if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 				}
 
-				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt) + 5;
+				int promptLength = Parsing.MarkupParser.StripLength(_prompt) + 5;
 				int dropdownWidth = Math.Max(promptLength, maxItemWidth);
 
 				return dropdownWidth + Margin.Left + Margin.Right;
@@ -669,7 +665,7 @@ namespace SharpConsoleUI.Controls
 			foreach (var item in snapshot)
 			{
 				// Base length includes text plus basic padding
-				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text);
+				int itemLength = Parsing.MarkupParser.StripLength(item.Text);
 
 				// Add space for selection indicator (2 chars: "● " or "  ")
 				itemLength += 2;
@@ -677,7 +673,7 @@ namespace SharpConsoleUI.Controls
 				// Add space for icon if present
 				if (item.Icon != null)
 				{
-					itemLength += AnsiConsoleHelper.StripSpectreLength(item.Icon) + 1; // +1 for space after icon
+					itemLength += Parsing.MarkupParser.StripLength(item.Icon) + 1; // +1 for space after icon
 				}
 
 				// Add some padding for comfortable viewing
@@ -688,7 +684,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Consider prompt length for header row
-			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
+			int promptLength = Parsing.MarkupParser.StripLength(_prompt);
 
 			// Calculate header length: prompt + space + selected text + arrow
 			// Allow at least 10 chars for selected text display

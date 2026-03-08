@@ -12,8 +12,6 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
 using System.Linq;
 
 namespace SharpConsoleUI.Controls

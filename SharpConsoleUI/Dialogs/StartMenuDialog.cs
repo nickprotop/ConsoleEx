@@ -3,9 +3,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Models;
 using SharpConsoleUI.Windows;
-using Spectre.Console;
 using Ctl = SharpConsoleUI.Builders.Controls;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 
 namespace SharpConsoleUI.Dialogs;
 

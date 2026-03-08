@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Drawing;
-using Spectre.Console;
 
 namespace SharpConsoleUI.Layout
 {
@@ -220,7 +219,7 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
-		/// Writes cells from an enumerable, typically from AnsiParser.
+		/// Writes cells from an enumerable.
 		/// </summary>
 		public void WriteCells(int x, int y, IEnumerable<Cell> cells)
 		{

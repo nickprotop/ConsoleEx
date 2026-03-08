@@ -5,15 +5,13 @@
 
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace HighFreqDemo;
 
@@ -83,7 +81,7 @@ class Program
         catch (Exception ex)
         {
             Console.Clear();
-            AnsiConsole.WriteException(ex);
+            ExceptionFormatter.WriteException(ex);
             return 1;
         }
     }

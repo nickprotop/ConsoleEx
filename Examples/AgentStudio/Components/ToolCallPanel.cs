@@ -3,7 +3,9 @@ using SharpConsoleUI.Layout;
 using AgentStudio.Models;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using Color = SharpConsoleUI.Color;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
+using Padding = Spectre.Console.Padding;
 
 namespace AgentStudio.Components;
 

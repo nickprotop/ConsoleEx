@@ -3,7 +3,6 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 windowSystem.StatusBarStateService.TopStatus = "TableControl Demo - Press F1-F3 to switch themes";
@@ -11,10 +10,10 @@ windowSystem.StatusBarStateService.BottomStatus = "Read-only table display | F1=
 
 // Create table with sample data
 var table = TableControl.Create()
-	.AddColumn("ID", Justify.Right, 8)
-	.AddColumn("Name", Justify.Left, 20)
-	.AddColumn("Status", Justify.Center, 15)
-	.AddColumn("Score", Justify.Right, 10)
+	.AddColumn("ID", TextJustification.Right, 8)
+	.AddColumn("Name", TextJustification.Left, 20)
+	.AddColumn("Status", TextJustification.Center, 15)
+	.AddColumn("Score", TextJustification.Right, 10)
 	.AddRow("1", "Alice Johnson", "[green]Active[/]", "95")
 	.AddRow("2", "Bob Smith", "[yellow]Pending[/]", "87")
 	.AddRow("3", "Charlie Brown", "[green]Active[/]", "92")

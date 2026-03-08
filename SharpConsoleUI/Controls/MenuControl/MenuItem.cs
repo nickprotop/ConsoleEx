@@ -1,5 +1,4 @@
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using System.Drawing;
 
 namespace SharpConsoleUI.Controls;
@@ -24,7 +23,7 @@ public class MenuItem
     /// Gets or sets the custom foreground color for this menu item.
     /// If set, this color will be used instead of the default menu colors (unless item is disabled or highlighted).
     /// </summary>
-    public Spectre.Console.Color? ForegroundColor { get; set; }
+    public Color? ForegroundColor { get; set; }
 
     /// <summary>
     /// Gets or sets whether this menu item is enabled. Disabled items are shown but cannot be selected.

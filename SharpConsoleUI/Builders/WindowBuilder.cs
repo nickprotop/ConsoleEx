@@ -9,7 +9,6 @@
 using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Themes;
-using SpectreColor = Spectre.Console.Color;
 using DrawingSize = System.Drawing.Size;
 
 namespace SharpConsoleUI.Builders;
@@ -34,8 +33,8 @@ public sealed class WindowBuilder
     private string? _title;
     private string? _name;
     private WindowBounds? _bounds;
-    private SpectreColor? _backgroundColor;
-    private SpectreColor? _foregroundColor;
+    private Color? _backgroundColor;
+    private Color? _foregroundColor;
     private bool _isModal = false;
     private WindowState _state = WindowState.Normal;
     private bool _isResizable = true;
@@ -63,8 +62,8 @@ public sealed class WindowBuilder
     private BorderStyle _borderStyle = BorderStyle.DoubleLine;
     private bool _showTitle = true;
     private bool _showCloseButton = true;
-    private SpectreColor? _activeBorderColor;
-    private SpectreColor? _inactiveBorderColor;
+    private Color? _activeBorderColor;
+    private Color? _inactiveBorderColor;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WindowBuilder"/> class.
@@ -177,7 +176,7 @@ public sealed class WindowBuilder
     /// </summary>
     /// <param name="color">The background color for the window content area.</param>
     /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithBackgroundColor(SpectreColor color)
+    public WindowBuilder WithBackgroundColor(Color color)
     {
         _backgroundColor = color;
         return this;
@@ -188,7 +187,7 @@ public sealed class WindowBuilder
     /// </summary>
     /// <param name="color">The foreground color for the window content area.</param>
     /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithForegroundColor(SpectreColor color)
+    public WindowBuilder WithForegroundColor(Color color)
     {
         _foregroundColor = color;
         return this;
@@ -200,7 +199,7 @@ public sealed class WindowBuilder
     /// <param name="foregroundColor">The foreground color for text in the window content area.</param>
     /// <param name="backgroundColor">The background color for the window content area.</param>
     /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithColors(SpectreColor foregroundColor, SpectreColor backgroundColor)
+    public WindowBuilder WithColors(Color foregroundColor, Color backgroundColor)
     {
         _foregroundColor = foregroundColor;
         _backgroundColor = backgroundColor;
@@ -396,7 +395,7 @@ public sealed class WindowBuilder
     /// </summary>
     /// <param name="color">The color to use for the active border.</param>
     /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithActiveBorderColor(SpectreColor color)
+    public WindowBuilder WithActiveBorderColor(Color color)
     {
         _activeBorderColor = color;
         return this;
@@ -407,7 +406,7 @@ public sealed class WindowBuilder
     /// </summary>
     /// <param name="color">The color to use for the inactive border.</param>
     /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithInactiveBorderColor(SpectreColor color)
+    public WindowBuilder WithInactiveBorderColor(Color color)
     {
         _inactiveBorderColor = color;
         return this;
@@ -418,7 +417,7 @@ public sealed class WindowBuilder
     /// </summary>
     /// <param name="color">The color to use for the border.</param>
     /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithBorderColor(SpectreColor color)
+    public WindowBuilder WithBorderColor(Color color)
     {
         _activeBorderColor = color;
         _inactiveBorderColor = color;

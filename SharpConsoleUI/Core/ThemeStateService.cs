@@ -9,7 +9,6 @@
 using System.Collections.Concurrent;
 using SharpConsoleUI.Themes;
 using SharpConsoleUI.Logging;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Core
 {

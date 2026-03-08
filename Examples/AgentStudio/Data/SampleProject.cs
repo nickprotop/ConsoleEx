@@ -2,9 +2,8 @@
 // SampleProject - Mock project structure data
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI;
 using SharpConsoleUI.Controls;
-using Spectre.Console;
-using TreeNode = SharpConsoleUI.Controls.TreeNode;
 
 namespace AgentStudio.Data;
 

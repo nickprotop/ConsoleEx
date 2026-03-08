@@ -8,11 +8,6 @@
 
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
-using Spectre.Console.Rendering;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Builders;
 
@@ -21,12 +16,12 @@ namespace SharpConsoleUI.Builders;
 /// </summary>
 public sealed class PanelBuilder
 {
-	private IRenderable? _content;
+	private string? _content;
 	private BorderStyle _borderStyle = BorderStyle.Single;
 	private Color? _borderColor;
 	private string? _header;
-	private Justify _headerAlignment = Justify.Left;
-	private Spectre.Console.Padding _padding = new Spectre.Console.Padding(1, 0, 1, 0);
+	private TextJustification _headerAlignment = TextJustification.Left;
+	private Padding _padding = new Padding(1, 0, 1, 0);
 	private bool _useSafeBorder = false;
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -41,24 +36,13 @@ public sealed class PanelBuilder
 	private Color? _foregroundColor;
 
 	/// <summary>
-	/// Sets the content to display inside the panel.
-	/// </summary>
-	/// <param name="content">The Spectre renderable content.</param>
-	/// <returns>The builder for chaining.</returns>
-	public PanelBuilder WithContent(IRenderable content)
-	{
-		_content = content;
-		return this;
-	}
-
-	/// <summary>
 	/// Sets the content to display inside the panel using markup text.
 	/// </summary>
-	/// <param name="text">The text to display (supports Spectre markup).</param>
+	/// <param name="text">The text to display (supports markup).</param>
 	/// <returns>The builder for chaining.</returns>
 	public PanelBuilder WithContent(string text)
 	{
-		_content = new Markup(text);
+		_content = text;
 		return this;
 	}
 
@@ -140,7 +124,7 @@ public sealed class PanelBuilder
 	/// </summary>
 	/// <param name="alignment">The header alignment.</param>
 	/// <returns>The builder for chaining.</returns>
-	public PanelBuilder WithHeaderAlignment(Justify alignment)
+	public PanelBuilder WithHeaderAlignment(TextJustification alignment)
 	{
 		_headerAlignment = alignment;
 		return this;
@@ -152,7 +136,7 @@ public sealed class PanelBuilder
 	/// <returns>The builder for chaining.</returns>
 	public PanelBuilder HeaderLeft()
 	{
-		_headerAlignment = Justify.Left;
+		_headerAlignment = TextJustification.Left;
 		return this;
 	}
 
@@ -162,7 +146,7 @@ public sealed class PanelBuilder
 	/// <returns>The builder for chaining.</returns>
 	public PanelBuilder HeaderCenter()
 	{
-		_headerAlignment = Justify.Center;
+		_headerAlignment = TextJustification.Center;
 		return this;
 	}
 
@@ -172,7 +156,7 @@ public sealed class PanelBuilder
 	/// <returns>The builder for chaining.</returns>
 	public PanelBuilder HeaderRight()
 	{
-		_headerAlignment = Justify.Right;
+		_headerAlignment = TextJustification.Right;
 		return this;
 	}
 
@@ -186,7 +170,7 @@ public sealed class PanelBuilder
 	/// <returns>The builder for chaining.</returns>
 	public PanelBuilder WithPadding(int left, int top, int right, int bottom)
 	{
-		_padding = new Spectre.Console.Padding(left, top, right, bottom);
+		_padding = new Padding(left, top, right, bottom);
 		return this;
 	}
 
@@ -197,7 +181,7 @@ public sealed class PanelBuilder
 	/// <returns>The builder for chaining.</returns>
 	public PanelBuilder WithPadding(int padding)
 	{
-		_padding = new Spectre.Console.Padding(padding);
+		_padding = new Padding(padding);
 		return this;
 	}
 
@@ -209,7 +193,7 @@ public sealed class PanelBuilder
 	/// <returns>The builder for chaining.</returns>
 	public PanelBuilder WithPadding(int horizontal, int vertical)
 	{
-		_padding = new Spectre.Console.Padding(horizontal, vertical);
+		_padding = new Padding(horizontal, vertical);
 		return this;
 	}
 

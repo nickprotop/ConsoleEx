@@ -8,8 +8,6 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
 using System.Linq;
 
 namespace SharpConsoleUI.Controls

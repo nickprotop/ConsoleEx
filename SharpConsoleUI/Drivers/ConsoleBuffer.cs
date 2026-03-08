@@ -10,7 +10,6 @@ using SharpConsoleUI.Drivers.Input;
 using SharpConsoleUI.Layout;
 using System.Text;
 using System.Text.RegularExpressions;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Drivers
 {

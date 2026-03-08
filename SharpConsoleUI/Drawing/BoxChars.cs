@@ -18,32 +18,37 @@ namespace SharpConsoleUI.Drawing
 		char BottomLeft,
 		char BottomRight,
 		char Horizontal,
-		char Vertical)
+		char Vertical,
+		char TopTee,
+		char BottomTee,
+		char LeftTee,
+		char RightTee,
+		char Cross)
 	{
 		/// <summary>
 		/// Single-line box characters.
 		/// </summary>
-		public static BoxChars Single => new('┌', '┐', '└', '┘', '─', '│');
+		public static BoxChars Single => new('┌', '┐', '└', '┘', '─', '│', '┬', '┴', '├', '┤', '┼');
 
 		/// <summary>
 		/// Double-line box characters.
 		/// </summary>
-		public static BoxChars Double => new('╔', '╗', '╚', '╝', '═', '║');
+		public static BoxChars Double => new('╔', '╗', '╚', '╝', '═', '║', '╦', '╩', '╠', '╣', '╬');
 
 		/// <summary>
 		/// Rounded box characters (single-line with rounded corners).
 		/// </summary>
-		public static BoxChars Rounded => new('╭', '╮', '╰', '╯', '─', '│');
+		public static BoxChars Rounded => new('╭', '╮', '╰', '╯', '─', '│', '┬', '┴', '├', '┤', '┼');
 
 		/// <summary>
 		/// ASCII box characters for terminals with limited character support.
 		/// </summary>
-		public static BoxChars Ascii => new('+', '+', '+', '+', '-', '|');
+		public static BoxChars Ascii => new('+', '+', '+', '+', '-', '|', '+', '+', '+', '+', '+');
 
 		/// <summary>
 		/// Empty box characters (spaces) for invisible borders that preserve layout.
 		/// </summary>
-		public static BoxChars None => new(' ', ' ', ' ', ' ', ' ', ' ');
+		public static BoxChars None => new(' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
 
 		/// <summary>
 		/// Gets BoxChars for the specified BorderStyle.

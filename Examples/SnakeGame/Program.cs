@@ -9,9 +9,8 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 
 namespace SnakeGame;
 
@@ -89,7 +88,7 @@ class Program
         catch (Exception ex)
         {
             Console.Clear();
-            AnsiConsole.WriteException(ex);
+            ExceptionFormatter.WriteException(ex);
             return 1;
         }
         finally

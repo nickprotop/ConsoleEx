@@ -6,9 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using Spectre.Console;
 using System.Collections.ObjectModel;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {

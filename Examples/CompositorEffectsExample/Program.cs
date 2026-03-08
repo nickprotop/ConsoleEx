@@ -2,7 +2,6 @@ using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Themes;
-using Spectre.Console;
 
 namespace CompositorEffectsExample;
 

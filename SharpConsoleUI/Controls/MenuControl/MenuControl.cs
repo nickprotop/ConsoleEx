@@ -2,9 +2,7 @@ using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 using Size = System.Drawing.Size;
 
 using SharpConsoleUI.Extensions;
@@ -46,7 +44,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     // Cached layout data
     private LayoutRect _lastBounds;
 
-    // Measurement cache (avoid repeated StripSpectreLength calls per frame)
+    // Measurement cache (avoid repeated Parsing.MarkupParser.StripLength calls per frame)
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _measurementCache = new();
 
     #endregion
@@ -224,7 +222,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 
     private int MeasureText(string text)
     {
-        return _measurementCache.GetOrAdd(text, t => AnsiConsoleHelper.StripSpectreLength(t));
+        return _measurementCache.GetOrAdd(text, t => Parsing.MarkupParser.StripLength(t));
     }
 
     private void InvalidateMeasurementCache()

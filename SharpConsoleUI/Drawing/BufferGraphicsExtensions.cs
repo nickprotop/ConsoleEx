@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 
 namespace SharpConsoleUI.Drawing
 {

@@ -11,7 +11,6 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 using System.Drawing;
 using Size = System.Drawing.Size;
 

@@ -8,11 +8,7 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
 using System.Text;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -49,21 +45,13 @@ namespace SharpConsoleUI.Controls
 
 		private (string cross, string corner, string tee, string vertical, string horizontal) GetGuideChars()
 		{
-			switch (_guide)
+			return _guide switch
 			{
-				case var _ when _guide == TreeGuide.Ascii:
-					return ("+", "\\", "+", "|", "-");
-
-				case var _ when _guide == TreeGuide.DoubleLine:
-					return ("╬", "╚", "╠", "║", "═");
-
-				case var _ when _guide == TreeGuide.BoldLine:
-					return ("┿", "┗", "┣", "┃", "━");
-
-				case var _ when _guide == TreeGuide.Line:
-				default:
-					return ("┼", "└", "├", "│", "─");
-			}
+				TreeGuide.Ascii => ("+", "\\", "+", "|", "-"),
+				TreeGuide.DoubleLine => ("╬", "╚", "╠", "║", "═"),
+				TreeGuide.BoldLine => ("┿", "┗", "┣", "┃", "━"),
+				_ => ("┼", "└", "├", "│", "─"),
+			};
 		}
 
 		/// <summary>
@@ -297,16 +285,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Render the node text
-				string formattedNode = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-					nodeText,
-					visibleLength,
-					1,
-					false,
-					nodeBgColor,
-					textColor
-				).FirstOrDefault() ?? string.Empty;
-
-				var cells = AnsiParser.Parse(formattedNode, textColor, nodeBgColor);
+				var cells = Parsing.MarkupParser.Parse(nodeText, textColor, nodeBgColor);
 				buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
 
 				// Fill right padding

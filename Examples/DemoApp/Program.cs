@@ -8,12 +8,10 @@ using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
-using Spectre.Console;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using SpectreColor = Spectre.Console.Color;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
+using SharpConsoleUI.Layout;
 
 namespace ModernExample;
 
@@ -81,7 +79,7 @@ internal class Program
         {
             // If console system is corrupted, use Spectre.Console to output error
             Console.Clear();
-            AnsiConsole.WriteException(ex);
+            ExceptionFormatter.WriteException(ex);
             return 1;
         }
     }
@@ -655,13 +653,13 @@ internal class Program
 
         // Create dropdown control
         var countryDropdown = new DropdownControl("Select a country:");
-        countryDropdown.AddItem("USA", "★", SpectreColor.Cyan1);
-        countryDropdown.AddItem("Canada", "♦", SpectreColor.Red);
-        countryDropdown.AddItem("UK", "♠", SpectreColor.Cyan1);
-        countryDropdown.AddItem("France", "♣", SpectreColor.Red);
-        countryDropdown.AddItem("Germany", "■", SpectreColor.Yellow);
-        countryDropdown.AddItem("Japan", "●", SpectreColor.Red);
-        countryDropdown.AddItem("Australia", "◆", SpectreColor.Green);
+        countryDropdown.AddItem("USA", "★", Color.Cyan1);
+        countryDropdown.AddItem("Canada", "♦", Color.Red);
+        countryDropdown.AddItem("UK", "♠", Color.Cyan1);
+        countryDropdown.AddItem("France", "♣", Color.Red);
+        countryDropdown.AddItem("Germany", "■", Color.Yellow);
+        countryDropdown.AddItem("Japan", "●", Color.Red);
+        countryDropdown.AddItem("Australia", "◆", Color.Green);
         countryDropdown.SelectedIndex = 0;
 
         // Add dropdown to window
@@ -746,7 +744,7 @@ internal class Program
             .WithTitle("ListView Demo")
             .WithSize(65, 22)
             .AtPosition(6, 6)
-            .WithColors(SpectreColor.Grey93, SpectreColor.Grey19)
+            .WithColors(Color.Grey93, Color.Grey19)
             .Build();
 
         // Add title
@@ -784,14 +782,14 @@ internal class Program
         };
 
         // Add diverse items to demonstrate features
-        listControl.AddItem(new ListItem("Text Document", "●", SpectreColor.Green));
-        listControl.AddItem(new ListItem("Image File\nJPEG format", "■", SpectreColor.Yellow));
-        listControl.AddItem(new ListItem("Spreadsheet", "★", SpectreColor.Blue));
+        listControl.AddItem(new ListItem("Text Document", "●", Color.Green));
+        listControl.AddItem(new ListItem("Image File\nJPEG format", "■", Color.Yellow));
+        listControl.AddItem(new ListItem("Spreadsheet", "★", Color.Blue));
         listControl.AddItem("Folder Item");
-        listControl.AddItem(new ListItem("Music File", "♦", SpectreColor.Red));
+        listControl.AddItem(new ListItem("Music File", "♦", Color.Red));
         listControl.AddItem("Plain Text Item");
-        listControl.AddItem(new ListItem("Video File", "♥", SpectreColor.Magenta1));
-        listControl.AddItem(new ListItem("Archive\nZipped content", "◆", SpectreColor.Cyan1));
+        listControl.AddItem(new ListItem("Video File", "♥", Color.Magenta1));
+        listControl.AddItem(new ListItem("Archive\nZipped content", "◆", Color.Cyan1));
         listControl.AddItem("Tool Item");
         listControl.AddItem("Contact Entry");
 
@@ -917,8 +915,8 @@ internal class Program
         {
             Margin = new Margin(1, 1, 1, 1),
             HorizontalAlignment = HorizontalAlignment.Left,
-            HighlightBackgroundColor = SpectreColor.Blue,
-            HighlightForegroundColor = SpectreColor.White,
+            HighlightBackgroundColor = Color.Blue,
+            HighlightForegroundColor = Color.White,
             Guide = TreeGuide.Line,
             VerticalAlignment = VerticalAlignment.Fill,
         };
@@ -970,7 +968,7 @@ internal class Program
         {
             var currentDir = new DirectoryInfo(Environment.CurrentDirectory);
             var rootNode = fileTree.AddRootNode($"[{currentDir.Name}]");
-            rootNode.TextColor = SpectreColor.Yellow;
+            rootNode.TextColor = Color.Yellow;
             rootNode.Tag = currentDir;
 
             // Add placeholder for expansion
@@ -1023,7 +1021,7 @@ internal class Program
                     foreach (var subdir in subdirs)
                     {
                         var childNode = args.Node.AddChild($"[{subdir.Name}]");
-                        childNode.TextColor = SpectreColor.Yellow;
+                        childNode.TextColor = Color.Yellow;
                         childNode.Tag = subdir;
 
                         if (HasSubdirectories(subdir))
@@ -1059,7 +1057,7 @@ internal class Program
             {
                 var currentDir = new DirectoryInfo(Environment.CurrentDirectory);
                 var rootNode = fileTree.AddRootNode($"[{currentDir.Name}]");
-                rootNode.TextColor = SpectreColor.Yellow;
+                rootNode.TextColor = Color.Yellow;
                 rootNode.Tag = currentDir;
                 UpdateFileList(currentDir, fileList, statusControl);
             }
@@ -1134,7 +1132,7 @@ internal class Program
 
             if (!files.Any())
             {
-                fileList.AddItem("No files in this folder", "i", SpectreColor.Grey);
+                fileList.AddItem("No files in this folder", "i", Color.Grey);
                 return;
             }
 
@@ -1161,7 +1159,7 @@ internal class Program
         catch (Exception ex)
         {
             fileList.ClearItems();
-            fileList.AddItem("Error: " + ex.Message, "!", SpectreColor.Red);
+            fileList.AddItem("Error: " + ex.Message, "!", Color.Red);
             statusControl.SetContent(
                 new List<string> { $"[red]Error loading files: {ex.Message}[/]" }
             );
@@ -1190,17 +1188,17 @@ internal class Program
     /// <summary>
     /// Get appropriate color for file extension
     /// </summary>
-    private static SpectreColor GetFileColor(string extension)
+    private static Color GetFileColor(string extension)
     {
         return extension.ToLowerInvariant() switch
         {
-            ".exe" or ".bat" or ".cmd" => SpectreColor.Green,
-            ".dll" or ".lib" => SpectreColor.Blue,
-            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" => SpectreColor.Magenta1,
-            ".txt" or ".log" or ".md" => SpectreColor.Yellow,
-            ".doc" or ".docx" or ".pdf" => SpectreColor.Cyan1,
-            ".zip" or ".rar" or ".7z" => SpectreColor.Red,
-            _ => SpectreColor.White,
+            ".exe" or ".bat" or ".cmd" => Color.Green,
+            ".dll" or ".lib" => Color.Blue,
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" => Color.Magenta1,
+            ".txt" or ".log" or ".md" => Color.Yellow,
+            ".doc" or ".docx" or ".pdf" => Color.Cyan1,
+            ".zip" or ".rar" or ".7z" => Color.Red,
+            _ => Color.White,
         };
     }
 

@@ -1,12 +1,11 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace TextEditorExample;
 
@@ -80,7 +79,7 @@ namespace HelloWorld
         catch (Exception ex)
         {
             Console.Clear();
-            AnsiConsole.WriteException(ex);
+            ExceptionFormatter.WriteException(ex);
             return 1;
         }
     }

@@ -8,16 +8,12 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Core;
-using Spectre.Console;
 using System.ComponentModel.Design;
 using System.Data.Common;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 
 using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls

@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
+using SharpConsoleUI;
 using SharpConsoleUI.Controls;
-using Spectre.Console;
 
 namespace TextEditorExample;
 

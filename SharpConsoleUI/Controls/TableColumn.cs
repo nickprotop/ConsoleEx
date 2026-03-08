@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using Spectre.Console;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls;
 
@@ -23,7 +23,7 @@ public class TableColumn
 	/// <summary>
 	/// Gets or sets the text alignment for cells in this column.
 	/// </summary>
-	public Justify Alignment { get; set; } = Justify.Left;
+	public TextJustification Alignment { get; set; } = TextJustification.Left;
 
 	/// <summary>
 	/// Gets or sets the fixed width for this column. Null means auto-width.
@@ -73,7 +73,7 @@ public class TableColumn
 	/// <summary>
 	/// Initializes a new instance of the <see cref="TableColumn"/> class with the specified header and alignment.
 	/// </summary>
-	public TableColumn(string header, Justify alignment)
+	public TableColumn(string header, TextJustification alignment)
 	{
 		Header = header;
 		Alignment = alignment;
@@ -82,7 +82,7 @@ public class TableColumn
 	/// <summary>
 	/// Initializes a new instance of the <see cref="TableColumn"/> class with the specified header, alignment, and width.
 	/// </summary>
-	public TableColumn(string header, Justify alignment, int? width)
+	public TableColumn(string header, TextJustification alignment, int? width)
 	{
 		Header = header;
 		Alignment = alignment;

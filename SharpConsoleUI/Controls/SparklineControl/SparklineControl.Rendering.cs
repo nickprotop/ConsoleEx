@@ -9,8 +9,6 @@
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -41,7 +39,7 @@ namespace SharpConsoleUI.Controls
 			int titleWidth = 0;
 			if (!string.IsNullOrEmpty(_title))
 			{
-				titleWidth = Helpers.AnsiConsoleHelper.StripSpectreLength(_title);
+				titleWidth = Parsing.MarkupParser.StripLength(_title);
 			}
 
 			// Width should be max of: explicit width, data points, or title width
@@ -148,20 +146,9 @@ namespace SharpConsoleUI.Controls
 						processedTitle = $"[{colorName}]{_title}[/]";
 					}
 
-					// Convert markup to ANSI
-					var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-						processedTitle, maxTitleWidth, 1, false, bgColor, fgColor);
-
-					if (ansiLines.Count > 0)
-					{
-						string ansiTitle = ansiLines[0];
-
-						// Parse ANSI string into cells
-						var cells = AnsiParser.Parse(ansiTitle, fgColor, bgColor);
-
-						// Write cells to buffer
-						buffer.WriteCellsClipped(titleX, titleY, cells, clipRect);
-					}
+					// Parse markup to cells
+					var cells = Parsing.MarkupParser.Parse(processedTitle, fgColor, bgColor);
+					buffer.WriteCellsClipped(titleX, titleY, cells, clipRect);
 				}
 			}
 
@@ -239,18 +226,12 @@ namespace SharpConsoleUI.Controls
 							processedTitle = $"[{colorName}]{_title}[/]";
 						}
 
-						var ansiLines = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(
-							processedTitle, graphWidth, 1, false, bgColor, _foregroundColorValue ?? fgColor);
+						var cells = Parsing.MarkupParser.Parse(processedTitle, _foregroundColorValue ?? fgColor, bgColor);
+						buffer.WriteCellsClipped(titleX, baselineY, cells, clipRect);
 
-						if (ansiLines.Count > 0)
-						{
-							var cells = AnsiParser.Parse(ansiLines[0], fgColor, bgColor).ToList();
-							buffer.WriteCellsClipped(titleX, baselineY, cells, clipRect);
-
-							// Advance baseline start position past title
-							int titleWidth = cells.Count;
-							baselineStartX = titleX + titleWidth + 1; // +1 for space after title
-						}
+						// Advance baseline start position past title
+						int titleWidth = cells.Count;
+						baselineStartX = titleX + titleWidth + 1; // +1 for space after title
 					}
 
 					// Fill rest of line with baseline characters

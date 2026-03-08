@@ -176,7 +176,7 @@ namespace SharpConsoleUI.Core
 					: (screenHeight - 1);
 
 				int x;
-				int width = Helpers.AnsiConsoleHelper.StripSpectreLength(options.StartButtonText) + 1;
+				int width = Parsing.MarkupParser.StripLength(options.StartButtonText) + 1;
 
 				if (options.StartButtonPosition == StartButtonPosition.Left)
 				{

@@ -7,7 +7,6 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 windowSystem.StatusBarStateService.TopStatus = "TabControl Demo - Press Ctrl+Tab to switch tabs";
@@ -185,10 +184,10 @@ static IWindowControl CreateDataTableTab()
 		.Build();
 
 	var table = TableControl.Create()
-		.AddColumn("ID", Justify.Right, 8)
-		.AddColumn("Name", Justify.Left, 20)
-		.AddColumn("Status", Justify.Center, 12)
-		.AddColumn("Score", Justify.Right, 10)
+		.AddColumn("ID", TextJustification.Right, 8)
+		.AddColumn("Name", TextJustification.Left, 20)
+		.AddColumn("Status", TextJustification.Center, 12)
+		.AddColumn("Score", TextJustification.Right, 10)
 		.AddRow("001", "Alice Johnson", "[green]Active[/]", "95.5")
 		.AddRow("002", "Bob Smith", "[yellow]Pending[/]", "87.2")
 		.AddRow("003", "Charlie Brown", "[green]Active[/]", "92.8")

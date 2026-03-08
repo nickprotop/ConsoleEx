@@ -12,12 +12,8 @@ using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
 using System;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Controls
 {
@@ -63,7 +59,7 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+				int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
 				int inputLength = _inputWidth ?? _input.Length;
 				return promptLength + inputLength + Margin.Left + Margin.Right;
 			}
@@ -213,7 +209,7 @@ namespace SharpConsoleUI.Controls
 
 			// Return the visual cursor position within the input field
 			// Account for scroll offset, margins, and alignment offset to get the position relative to visible content
-			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+			int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
 			int visualCursorX = Margin.Left + _lastAlignOffset + promptLength + (CurrentCursorPosition - CurrentScrollOffset);
 			var pos = new Point(visualCursorX, Margin.Top);
 
@@ -225,7 +221,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// Return the size of the prompt content (prompt + input area)
 			string fullContent = (_prompt ?? string.Empty) + _input;
-			int width = Math.Max(AnsiConsoleHelper.StripSpectreLength(fullContent), Width ?? 0);
+			int width = Math.Max(Parsing.MarkupParser.StripLength(fullContent), Width ?? 0);
 			return new System.Drawing.Size(width, 1); // Single line control
 		}
 
@@ -233,7 +229,7 @@ namespace SharpConsoleUI.Controls
 		public void SetLogicalCursorPosition(Point position)
 		{
 			// Calculate cursor position within the input field (excluding prompt length)
-			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+			int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
 			int inputCursorPos = Math.Max(0, position.X - promptLength);
 
 			// Clamp to valid input range
@@ -410,7 +406,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+			int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
 			int inputFieldWidth = _inputWidth ?? Math.Max(_input.Length, 10);
 			int contentWidth = promptLength + inputFieldWidth;
 			int width = (Width ?? contentWidth) + Margin.Left + Margin.Right;
@@ -457,7 +453,7 @@ namespace SharpConsoleUI.Controls
 					: InputForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
 
 				int currentX = startX;
-				int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt ?? string.Empty);
+				int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
 
 				// Calculate alignment offset
 				int inputFieldWidth = _inputWidth ?? (targetWidth - promptLength);
@@ -489,8 +485,7 @@ namespace SharpConsoleUI.Controls
 				// Render prompt text (if any)
 				if (!string.IsNullOrEmpty(_prompt))
 				{
-					var promptAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(_prompt, promptLength, 1, false, bgColor, fgColor).FirstOrDefault() ?? string.Empty;
-					var promptCells = AnsiParser.Parse(promptAnsi, fgColor, bgColor);
+					var promptCells = Parsing.MarkupParser.Parse(_prompt, fgColor, bgColor);
 					buffer.WriteCellsClipped(currentX, startY, promptCells, clipRect);
 					currentX += promptLength;
 				}

@@ -8,9 +8,7 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
+using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls
 {
@@ -22,7 +20,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Small font (~4 lines height)</summary>
 		Small,
 
-		/// <summary>Default/Standard font (~6 lines height) - Spectre's default FIGlet font</summary>
+		/// <summary>Default/Standard font (~6 lines height) - default FIGlet font</summary>
 		Default,
 
 		/// <summary>Large/Banner font (~8 lines height)</summary>
@@ -34,7 +32,7 @@ namespace SharpConsoleUI.Controls
 
 	/// <summary>
 	/// A control that renders text using FIGlet ASCII art fonts.
-	/// Wraps the Spectre.Console FigletText component for large decorative text display.
+	/// Uses a custom FIGlet parser for direct rendering without Spectre.Console dependency.
 	/// </summary>
 	public class FigleControl : BaseControl
 	{
@@ -44,6 +42,11 @@ namespace SharpConsoleUI.Controls
 		private FigletSize _size = FigletSize.Default;
 		private FigletFont? _customFont;
 		private string? _fontPath;
+
+		// Cache the loaded font to avoid re-parsing on every render
+		private FigletFont? _cachedFont;
+		private FigletSize _cachedFontSize;
+		private string? _cachedFontPath;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="FigleControl"/> class.
@@ -59,18 +62,14 @@ namespace SharpConsoleUI.Controls
 			{
 				if (string.IsNullOrEmpty(_text)) return Margin.Left + Margin.Right;
 
-				// Calculate width by rendering to get actual FIGlet dimensions
-				FigletText figletText = new FigletText(GetFont(), _text);
-				var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
-				var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, Width ?? 80, null, bgColor);
-
-				int maxLength = 0;
-				foreach (var line in content)
+				var font = GetFont();
+				var lines = FigletRenderer.Render(_text, font);
+				int maxWidth = 0;
+				foreach (var line in lines)
 				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-					if (length > maxLength) maxLength = length;
+					if (line.Length > maxWidth) maxWidth = line.Length;
 				}
-				return maxLength + Margin.Left + Margin.Right;
+				return maxWidth + Margin.Left + Margin.Right;
 			}
 		}
 
@@ -101,7 +100,7 @@ namespace SharpConsoleUI.Controls
 		public FigletSize Size
 		{
 			get => _size;
-			set => PropertySetterHelper.SetEnumProperty(ref _size, value, Container);
+			set { PropertySetterHelper.SetEnumProperty(ref _size, value, Container); InvalidateFontCache(); }
 		}
 
 		/// <summary>
@@ -110,7 +109,7 @@ namespace SharpConsoleUI.Controls
 		public FigletFont? CustomFont
 		{
 			get => _customFont;
-			set => PropertySetterHelper.SetProperty(ref _customFont, value, Container);
+			set { PropertySetterHelper.SetProperty(ref _customFont, value, Container); InvalidateFontCache(); }
 		}
 
 		/// <summary>
@@ -121,7 +120,7 @@ namespace SharpConsoleUI.Controls
 		public string? FontPath
 		{
 			get => _fontPath;
-			set => PropertySetterHelper.SetProperty(ref _fontPath, value, Container);
+			set { PropertySetterHelper.SetProperty(ref _fontPath, value, Container); InvalidateFontCache(); }
 		}
 
 		/// <inheritdoc/>
@@ -130,14 +129,11 @@ namespace SharpConsoleUI.Controls
 			if (string.IsNullOrEmpty(_text))
 				return new System.Drawing.Size(Margin.Left + Margin.Right, Margin.Top + Margin.Bottom);
 
-			// Reuse ContentWidth for width calculation
 			int width = ContentWidth ?? 0;
 
-			// Calculate height by rendering
-			FigletText figletText = new FigletText(GetFont(), _text);
-			var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
-			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, Width ?? 80, null, bgColor);
-			int height = content.Count + Margin.Top + Margin.Bottom;
+			var font = GetFont();
+			var lines = FigletRenderer.Render(_text, font);
+			int height = lines.Count + Margin.Top + Margin.Bottom;
 
 			return new System.Drawing.Size(width, height);
 		}
@@ -162,6 +158,11 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(true);
 		}
 
+		private void InvalidateFontCache()
+		{
+			_cachedFont = null;
+		}
+
 		/// <summary>
 		/// Gets the FigletFont to use based on Size, FontPath, or CustomFont.
 		/// </summary>
@@ -173,10 +174,13 @@ namespace SharpConsoleUI.Controls
 
 			if (!string.IsNullOrEmpty(_fontPath))
 			{
+				// Check cache
+				if (_cachedFont != null && _cachedFontPath == _fontPath)
+					return _cachedFont;
+
 				try
 				{
 					// Security: Validate font path to prevent path traversal attacks
-					// Check for suspicious patterns in the input
 					string normalizedInput = _fontPath.Replace('\\', '/');
 					if (normalizedInput.Contains("../") || normalizedInput.Contains("..\\") ||
 					    Path.IsPathFullyQualified(_fontPath))
@@ -188,7 +192,6 @@ namespace SharpConsoleUI.Controls
 					string fontFileName = _fontPath.EndsWith(".flf") ? _fontPath : _fontPath + ".flf";
 					string safePath = Path.GetFullPath(Path.Combine(fontsDir, fontFileName));
 
-					// Ensure the resolved path is within the fonts directory
 					string normalizedFontsDir = Path.GetFullPath(fontsDir);
 					if (!safePath.StartsWith(normalizedFontsDir + Path.DirectorySeparatorChar) &&
 					    safePath != normalizedFontsDir)
@@ -199,12 +202,13 @@ namespace SharpConsoleUI.Controls
 					if (File.Exists(safePath))
 					{
 						using var stream = File.OpenRead(safePath);
-						return FigletFont.Load(stream);
+						_cachedFont = FigletFont.Load(stream);
+						_cachedFontPath = _fontPath;
+						return _cachedFont;
 					}
 				}
 				catch (ArgumentException)
 				{
-					// Re-throw security exceptions
 					throw;
 				}
 				catch
@@ -219,16 +223,24 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Loads embedded font based on size.
 		/// </summary>
-		private static FigletFont GetFontForSize(FigletSize size)
+		private FigletFont GetFontForSize(FigletSize size)
 		{
-			return size switch
+			// Check cache
+			if (_cachedFont != null && _cachedFontSize == size && _cachedFontPath == null && _customFont == null)
+				return _cachedFont;
+
+			var font = size switch
 			{
 				FigletSize.Small => LoadEmbeddedFont("small.flf"),
 				FigletSize.Default => LoadEmbeddedFont("standard.flf"),
 				FigletSize.Large => LoadEmbeddedFont("banner.flf"),
-				FigletSize.Custom => FigletFont.Default,
-				_ => FigletFont.Default
+				_ => LoadEmbeddedFont("standard.flf")
 			};
+
+			_cachedFont = font;
+			_cachedFontSize = size;
+			_cachedFontPath = null;
+			return font;
 		}
 
 		/// <summary>
@@ -247,10 +259,23 @@ namespace SharpConsoleUI.Controls
 			}
 			catch
 			{
-				// Fall back to default if embedded font not found
+				// Fall back to a minimal font if embedded font not found
 			}
 
-			return FigletFont.Default;
+			// Create a minimal fallback font
+			return CreateFallbackFont();
+		}
+
+		private static FigletFont CreateFallbackFont()
+		{
+			// Create a trivial 1-height font where each character is just itself
+			var fontData = "flf2a$ 1 1 1 0 0\n";
+			for (int c = 32; c <= 126; c++)
+			{
+				fontData += (char)c + "@@\n";
+			}
+			using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(fontData));
+			return FigletFont.Load(stream);
 		}
 
 		#region IDOMPaintable Implementation
@@ -266,15 +291,18 @@ namespace SharpConsoleUI.Controls
 				);
 			}
 
-			// For Figlet text, we need to render to get the size
-			FigletText figletText = new FigletText(GetFont(), _text);
-			var bgColor = Container?.BackgroundColor ?? Spectre.Console.Color.Black;
+			var font = GetFont();
 			int targetWidth = Width ?? constraints.MaxWidth - Margin.Left - Margin.Right;
-			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, targetWidth, null, bgColor);
+			var lines = FigletRenderer.Render(_text, font, targetWidth);
 
-			int maxWidth = content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line));
+			int maxWidth = 0;
+			foreach (var line in lines)
+			{
+				if (line.Length > maxWidth) maxWidth = line.Length;
+			}
+
 			int width = maxWidth + Margin.Left + Margin.Right;
-			int height = content.Count + Margin.Top + Margin.Bottom;
+			int height = lines.Count + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -301,21 +329,20 @@ namespace SharpConsoleUI.Controls
 
 			if (!string.IsNullOrEmpty(_text))
 			{
-				// Render the FIGlet text
-				FigletText figletText = new FigletText(GetFont(), _text);
-				figletText.Color = fgColor;
-				figletText.Justification = HorizontalAlignment switch
+				var font = GetFont();
+				int figletWidth = Width ?? targetWidth;
+
+				// Map HorizontalAlignment to TextJustification for the renderer
+				var justification = HorizontalAlignment switch
 				{
-					HorizontalAlignment.Left => Justify.Left,
-					HorizontalAlignment.Center => Justify.Center,
-					HorizontalAlignment.Right => Justify.Right,
-					_ => Justify.Left
+					HorizontalAlignment.Center => TextJustification.Center,
+					HorizontalAlignment.Right => TextJustification.Right,
+					_ => TextJustification.Left
 				};
 
-				int figletWidth = Width ?? targetWidth;
-				var renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(figletText, figletWidth, null, bgColor);
+				var renderedLines = FigletRenderer.RenderJustified(_text, font, figletWidth, justification);
 
-				int figletHeight = renderedContent.Count;
+				int figletHeight = renderedLines.Count;
 				int availableHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
 				for (int i = 0; i < Math.Min(figletHeight, availableHeight); i++)
@@ -329,9 +356,8 @@ namespace SharpConsoleUI.Controls
 							buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', fgColor, bgColor);
 						}
 
-						// Parse and write the FIGlet line (Spectre handles justification)
-						// Only write non-space characters to avoid overwriting shadow
-						var plainText = AnsiConsoleHelper.StripAnsi(renderedContent[i]);
+						// Write non-space characters to avoid overwriting shadow
+						var plainText = renderedLines[i];
 						for (int charIdx = 0; charIdx < plainText.Length; charIdx++)
 						{
 							char ch = plainText[charIdx];

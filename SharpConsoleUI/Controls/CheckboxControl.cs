@@ -10,11 +10,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 
 using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
@@ -100,11 +96,9 @@ namespace SharpConsoleUI.Controls
 		{
 		// Build content with decorators (same as rendering)
 		string checkmark = _checked ? "X" : " ";
-		string content = _hasFocus
-		  ? $">[{checkmark}] {_label}<"
-			: $" [{checkmark}] {_label} ";
+		string content = $" [[{checkmark}]] {_label} ";
 
-		int minWidth = AnsiConsoleHelper.StripSpectreLength(content);
+		int minWidth = Parsing.MarkupParser.StripLength(content);
 		return Width ?? minWidth;
 	}
 
@@ -423,11 +417,9 @@ namespace SharpConsoleUI.Controls
 		{
 		// Build content with decorators (same as rendering)
 		string checkmark = _checked ? "X" : " ";
-		string content = _hasFocus
-			? $">[{checkmark}] {_label}<"
-		 : $" [{checkmark}] {_label} ";
+		string content = $" [[{checkmark}]] {_label} ";
 
-		int minWidth = AnsiConsoleHelper.StripSpectreLength(content);
+		int minWidth = Parsing.MarkupParser.StripLength(content);
 		int checkboxWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - Margin.Left - Margin.Right : minWidth);
 		checkboxWidth = Math.Max(minWidth, checkboxWidth);
 
@@ -474,33 +466,23 @@ namespace SharpConsoleUI.Controls
 
 			// Build checkbox content
 			string checkmark = _checked ? "X" : " ";
-			string tempContent = _hasFocus
-			 ? $">[{checkmark}] {_label}<"
-			: $" [{checkmark}] {_label} ";
+			string tempContent = $" [[{checkmark}]] {_label} ";
 
 			// Calculate checkbox width with decorators
-		int minWidth = AnsiConsoleHelper.StripSpectreLength(tempContent);
+		int minWidth = Parsing.MarkupParser.StripLength(tempContent);
 		int checkboxWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : minWidth);
 		checkboxWidth = Math.Min(Math.Max(minWidth, checkboxWidth), targetWidth);
 			string checkboxContent;
 
-			if (_hasFocus)
-			{
-				checkboxContent = $">[{checkmark}] {_label}<";
-			}
-			else
-			{
-				checkboxContent = $" [{checkmark}] {_label} ";
-			}
+			// Build checkmark display with optional color markup
+			string checkmarkDisplay = _checked
+				? $"[{CheckmarkColor.ToMarkup()}]{checkmark}[/]"
+				: checkmark;
 
-			// Add checkmark color if checked
-			if (_checked)
-			{
-				checkboxContent = checkboxContent.Replace(checkmark, $"[{CheckmarkColor.ToMarkup()}]{checkmark}[/]");
-			}
+			checkboxContent = $" [[{checkmarkDisplay}]] {_label} ";
 
 			// Pad to checkboxWidth
-			int visibleLen = AnsiConsoleHelper.StripSpectreLength(checkboxContent);
+			int visibleLen = Parsing.MarkupParser.StripLength(checkboxContent);
 			if (visibleLen < checkboxWidth)
 			{
 				checkboxContent = checkboxContent + new string(' ', checkboxWidth - visibleLen);
@@ -543,8 +525,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Render checkbox content
-				var ansiLine = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(checkboxContent, checkboxWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
-				var cells = AnsiParser.Parse(ansiLine, foregroundColor, backgroundColor);
+				var cells = Parsing.MarkupParser.Parse(checkboxContent, foregroundColor, backgroundColor);
 				buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
 
 				// Fill alignment padding (right side)

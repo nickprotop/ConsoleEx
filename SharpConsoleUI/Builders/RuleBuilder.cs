@@ -8,10 +8,6 @@
 
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
 
 namespace SharpConsoleUI.Builders;
 
@@ -21,8 +17,9 @@ namespace SharpConsoleUI.Builders;
 public sealed class RuleBuilder
 {
 	private string? _title;
-	private Justify _titleAlignment = Justify.Left;
+	private TextJustification _titleAlignment = TextJustification.Left;
 	private Color? _color;
+	private BorderStyle _borderStyle = BorderStyle.Single;
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
@@ -48,7 +45,7 @@ public sealed class RuleBuilder
 	/// </summary>
 	/// <param name="alignment">The title alignment</param>
 	/// <returns>The builder for chaining</returns>
-	public RuleBuilder WithTitleAlignment(Justify alignment)
+	public RuleBuilder WithTitleAlignment(TextJustification alignment)
 	{
 		_titleAlignment = alignment;
 		return this;
@@ -60,7 +57,7 @@ public sealed class RuleBuilder
 	/// <returns>The builder for chaining</returns>
 	public RuleBuilder TitleLeft()
 	{
-		_titleAlignment = Justify.Left;
+		_titleAlignment = TextJustification.Left;
 		return this;
 	}
 
@@ -70,7 +67,7 @@ public sealed class RuleBuilder
 	/// <returns>The builder for chaining</returns>
 	public RuleBuilder TitleCenter()
 	{
-		_titleAlignment = Justify.Center;
+		_titleAlignment = TextJustification.Center;
 		return this;
 	}
 
@@ -80,7 +77,7 @@ public sealed class RuleBuilder
 	/// <returns>The builder for chaining</returns>
 	public RuleBuilder TitleRight()
 	{
-		_titleAlignment = Justify.Right;
+		_titleAlignment = TextJustification.Right;
 		return this;
 	}
 
@@ -92,6 +89,17 @@ public sealed class RuleBuilder
 	public RuleBuilder WithColor(Color color)
 	{
 		_color = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the border style for the rule line characters
+	/// </summary>
+	/// <param name="style">The border style</param>
+	/// <returns>The builder for chaining</returns>
+	public RuleBuilder WithBorderStyle(BorderStyle style)
+	{
+		_borderStyle = style;
 		return this;
 	}
 
@@ -239,6 +247,7 @@ public sealed class RuleBuilder
 			Title = _title,
 			TitleAlignment = _titleAlignment,
 			Color = _color,
+			BorderStyle = _borderStyle,
 			HorizontalAlignment = _alignment,
 			VerticalAlignment = _verticalAlignment,
 			Margin = _margin,

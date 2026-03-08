@@ -9,10 +9,7 @@
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using Spectre.Console;
 using System.Drawing;
-using Color = Spectre.Console.Color;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls
@@ -139,14 +136,14 @@ namespace SharpConsoleUI.Controls
 			int maxItemWidth = 0;
 			foreach (var item in _items)
 			{
-				int itemLength = AnsiConsoleHelper.StripSpectreLength(item.Text) + 4;
+				int itemLength = Parsing.MarkupParser.StripLength(item.Text) + 4;
 				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
 			}
 
 			if (_autoAdjustWidth)
 				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
 
-			int promptLength = AnsiConsoleHelper.StripSpectreLength(_prompt);
+			int promptLength = Parsing.MarkupParser.StripLength(_prompt);
 			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
 			dropdownWidth = Math.Min(Math.Max(dropdownWidth, minWidth), targetWidth);
 
@@ -216,7 +213,7 @@ namespace SharpConsoleUI.Controls
 						? _itemFormatter(items[itemIndex], itemIndex == selectedIdx, _hasFocus)
 						: items[itemIndex].Text;
 
-					if (AnsiConsoleHelper.StripSpectreLength(itemText) > dropdownWidth - 4)
+					if (Parsing.MarkupParser.StripLength(itemText) > dropdownWidth - 4)
 						itemText = itemText.Substring(0, Math.Max(0, dropdownWidth - 7)) + "...";
 
 					Color itemBg = (itemIndex == selectedIdx) ? HighlightBackgroundColor : backgroundColor;
@@ -231,13 +228,12 @@ namespace SharpConsoleUI.Controls
 
 					string selectionIndicator = itemIndex == highlightedIdx ? "● " : "  ";
 					string itemContent = selectionIndicator + itemText;
-					int visibleTextLength = 2 + AnsiConsoleHelper.StripSpectreLength(itemText);
+					int visibleTextLength = 2 + Parsing.MarkupParser.StripLength(itemText);
 					int paddingNeeded = Math.Max(0, dropdownWidth - visibleTextLength);
 					if (paddingNeeded > 0)
 						itemContent += new string(' ', paddingNeeded);
 
-					var itemAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(itemContent, dropdownWidth, 1, false, itemBg, itemFg).FirstOrDefault() ?? string.Empty;
-					var itemCells = AnsiParser.Parse(itemAnsi, itemFg, itemBg);
+					var itemCells = Parsing.MarkupParser.Parse(itemContent, itemFg, itemBg);
 					buffer.WriteCellsClipped(startX, paintY, itemCells, clipRect);
 				}
 				paintY++;
@@ -254,8 +250,7 @@ namespace SharpConsoleUI.Controls
 						scrollIndicator += new string(' ', scrollPadding);
 					scrollIndicator += (dropdownScroll + itemsToShow < items.Count ? "▼" : " ");
 
-					var scrollAnsi = AnsiConsoleHelper.ConvertSpectreMarkupToAnsi(scrollIndicator, dropdownWidth, 1, false, backgroundColor, foregroundColor).FirstOrDefault() ?? string.Empty;
-					var scrollCells = AnsiParser.Parse(scrollAnsi, foregroundColor, backgroundColor);
+					var scrollCells = Parsing.MarkupParser.Parse(scrollIndicator, foregroundColor, backgroundColor);
 					buffer.WriteCellsClipped(startX, paintY, scrollCells, clipRect);
 				}
 			}

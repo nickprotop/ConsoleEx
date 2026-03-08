@@ -7,21 +7,18 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
-using Spectre.Console;
-using Spectre.Console.Rendering;
-using Color = Spectre.Console.Color;
+using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
 	/// A control that renders a bordered panel with content.
-	/// Wraps Spectre.Console's Panel with SharpConsoleUI patterns.
+	/// Renders directly to CharacterBuffer using BoxChars and MarkupParser.
 	/// </summary>
 	public class PanelControl : BaseControl, IMouseAwareControl
 	{
@@ -30,12 +27,12 @@ namespace SharpConsoleUI.Controls
 		private int? _height;
 
 		// Panel-specific properties
-		private IRenderable? _content;
+		private string? _content;
 		private BorderStyle _borderStyle = BorderStyle.Single;
 		private Color? _borderColorValue;
 		private string? _header;
-		private Justify _headerAlignment = Justify.Left;
-		private Spectre.Console.Padding _padding = new Spectre.Console.Padding(1, 0, 1, 0);
+		private TextJustification _headerAlignment = TextJustification.Left;
+		private Padding _padding = new Padding(1, 0, 1, 0);
 		private bool _useSafeBorder = false;
 
 		// Mouse interaction state
@@ -53,21 +50,12 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="PanelControl"/> class with content.
-		/// </summary>
-		/// <param name="content">The content to display inside the panel.</param>
-		public PanelControl(IRenderable content)
-		{
-			_content = content;
-		}
-
-		/// <summary>
 		/// Initializes a new instance of the <see cref="PanelControl"/> class with text content.
 		/// </summary>
-		/// <param name="text">The text to display inside the panel (supports Spectre markup).</param>
+		/// <param name="text">The text to display inside the panel (supports markup).</param>
 		public PanelControl(string text)
 		{
-			_content = new Markup(text);
+			_content = text;
 		}
 
 		#region Properties
@@ -77,18 +65,14 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				var panel = CreateSpectrePanel(null, null, Color.Black, Color.White);
-				if (panel == null) return Margin.Left + Margin.Right;
+				int borderWidth = _borderStyle == BorderStyle.None ? 0 : 2;
+				int innerPad = _padding.Left + _padding.Right;
 
-				var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(panel, Width ?? 80, null, Color.Black);
+				if (string.IsNullOrEmpty(_content))
+					return borderWidth + innerPad + Margin.Left + Margin.Right;
 
-				int maxLength = 0;
-				foreach (var line in content)
-				{
-					int length = AnsiConsoleHelper.StripAnsiStringLength(line);
-					if (length > maxLength) maxLength = length;
-				}
-				return maxLength + Margin.Left + Margin.Right;
+				int contentWidth = MarkupParser.StripLength(_content);
+				return contentWidth + borderWidth + innerPad + Margin.Left + Margin.Right;
 			}
 		}
 
@@ -128,9 +112,9 @@ namespace SharpConsoleUI.Controls
 		#region Panel-specific Properties
 
 		/// <summary>
-		/// Gets or sets the content to display inside the panel.
+		/// Gets or sets the content to display inside the panel (supports markup).
 		/// </summary>
-		public IRenderable? Content
+		public string? Content
 		{
 			get => _content;
 			set
@@ -171,7 +155,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the horizontal alignment of the header text.
 		/// </summary>
-		public Justify HeaderAlignment
+		public TextJustification HeaderAlignment
 		{
 			get => _headerAlignment;
 			set
@@ -184,7 +168,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the padding inside the panel border.
 		/// </summary>
-		public Spectre.Console.Padding Padding
+		public Padding Padding
 		{
 			get => _padding;
 			set
@@ -249,54 +233,189 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		#region Private Methods
+		#region Private Rendering Methods
+
+		private BoxChars GetBoxChars()
+		{
+			if (_useSafeBorder)
+				return BoxChars.Ascii;
+			return BoxChars.FromBorderStyle(_borderStyle);
+		}
 
 		/// <summary>
-		/// Converts SharpConsoleUI BorderStyle to Spectre.Console BoxBorder.
+		/// Draws the top border line with optional header text embedded.
 		/// </summary>
-		private static BoxBorder ConvertBorderStyle(BorderStyle style) => style switch
+		private void DrawTopBorder(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect, BoxChars box, Color borderColor, Color bgColor)
 		{
-			BorderStyle.DoubleLine => BoxBorder.Double,
-			BorderStyle.Single => BoxBorder.Square,
-			BorderStyle.Rounded => BoxBorder.Rounded,
-			BorderStyle.None => BoxBorder.None,
-			_ => BoxBorder.Square
-		};
+			if (y < clipRect.Y || y >= clipRect.Bottom) return;
+
+			int innerWidth = width - 2; // minus corners
+
+			// Left corner
+			if (x >= clipRect.X && x < clipRect.Right)
+				buffer.SetCell(x, y, box.TopLeft, borderColor, bgColor);
+
+			if (string.IsNullOrEmpty(_header) || innerWidth < 4)
+			{
+				// No header — fill with horizontal chars
+				for (int i = 0; i < innerWidth; i++)
+				{
+					int px = x + 1 + i;
+					if (px >= clipRect.X && px < clipRect.Right)
+						buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+				}
+			}
+			else
+			{
+				// Parse header and calculate position
+				var headerCells = MarkupParser.Parse(_header, borderColor, bgColor);
+				int headerLen = headerCells.Count;
+				int headerWithSpaces = headerLen + 2; // space before and after
+
+				if (headerWithSpaces > innerWidth)
+				{
+					// Header too long — just fill with horizontal
+					for (int i = 0; i < innerWidth; i++)
+					{
+						int px = x + 1 + i;
+						if (px >= clipRect.X && px < clipRect.Right)
+							buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+					}
+				}
+				else
+				{
+					int dashSpace = innerWidth - headerWithSpaces;
+					int leftDashes, rightDashes;
+
+					switch (_headerAlignment)
+					{
+						case TextJustification.Center:
+							leftDashes = dashSpace / 2;
+							rightDashes = dashSpace - leftDashes;
+							break;
+						case TextJustification.Right:
+							leftDashes = dashSpace - 1;
+							rightDashes = 1;
+							break;
+						default: // Left
+							leftDashes = 1;
+							rightDashes = dashSpace - 1;
+							break;
+					}
+
+					int writeX = x + 1;
+
+					// Left dashes
+					for (int i = 0; i < leftDashes; i++)
+					{
+						if (writeX >= clipRect.X && writeX < clipRect.Right)
+							buffer.SetCell(writeX, y, box.Horizontal, borderColor, bgColor);
+						writeX++;
+					}
+
+					// Space + header + space
+					if (writeX >= clipRect.X && writeX < clipRect.Right)
+						buffer.SetCell(writeX, y, ' ', borderColor, bgColor);
+					writeX++;
+
+					foreach (var cell in headerCells)
+					{
+						if (writeX >= clipRect.X && writeX < clipRect.Right)
+							buffer.SetCell(writeX, y, cell.Character, cell.Foreground, cell.Background);
+						writeX++;
+					}
+
+					if (writeX >= clipRect.X && writeX < clipRect.Right)
+						buffer.SetCell(writeX, y, ' ', borderColor, bgColor);
+					writeX++;
+
+					// Right dashes
+					for (int i = 0; i < rightDashes; i++)
+					{
+						if (writeX >= clipRect.X && writeX < clipRect.Right)
+							buffer.SetCell(writeX, y, box.Horizontal, borderColor, bgColor);
+						writeX++;
+					}
+				}
+			}
+
+			// Right corner
+			int rightX = x + width - 1;
+			if (rightX >= clipRect.X && rightX < clipRect.Right)
+				buffer.SetCell(rightX, y, box.TopRight, borderColor, bgColor);
+		}
 
 		/// <summary>
-		/// Creates the underlying Spectre.Console Panel with current settings.
+		/// Draws the bottom border line.
 		/// </summary>
-		/// <param name="renderWidth">Optional width for rendering (overrides Width property).</param>
-		/// <param name="renderHeight">Optional height for rendering (for Fill alignment).</param>
-		/// <param name="bgColor">Resolved background color.</param>
-		/// <param name="fgColor">Resolved foreground color.</param>
-		private Panel? CreateSpectrePanel(int? renderWidth, int? renderHeight, Color bgColor, Color fgColor)
+		private void DrawBottomBorder(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect, BoxChars box, Color borderColor, Color bgColor)
 		{
-			if (_content == null) return null;
+			if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
-			var borderColor = _borderColorValue ?? fgColor;
+			if (x >= clipRect.X && x < clipRect.Right)
+				buffer.SetCell(x, y, box.BottomLeft, borderColor, bgColor);
 
-			var panel = new Panel(_content)
+			int innerWidth = width - 2;
+			for (int i = 0; i < innerWidth; i++)
 			{
-				Border = ConvertBorderStyle(_borderStyle),
-				BorderStyle = new Style(borderColor, bgColor),
-				Expand = true, // Always true - our control system handles width constraints
-				Padding = _padding,
-				UseSafeBorder = _useSafeBorder
-			};
-
-			// Set explicit height if provided (already accounts for margins)
-			if (renderHeight.HasValue)
-			{
-				panel.Height = renderHeight.Value;
+				int px = x + 1 + i;
+				if (px >= clipRect.X && px < clipRect.Right)
+					buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
 			}
 
-			if (!string.IsNullOrEmpty(_header))
+			int rightX = x + width - 1;
+			if (rightX >= clipRect.X && rightX < clipRect.Right)
+				buffer.SetCell(rightX, y, box.BottomRight, borderColor, bgColor);
+		}
+
+		/// <summary>
+		/// Draws a row with vertical borders and content between them.
+		/// </summary>
+		private void DrawBorderedRow(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect, BoxChars box, Color borderColor, Color bgColor, List<Cell>? contentCells = null, int contentOffset = 0)
+		{
+			if (y < clipRect.Y || y >= clipRect.Bottom) return;
+
+			int innerWidth = width - 2;
+
+			// Left border
+			if (x >= clipRect.X && x < clipRect.Right)
+				buffer.SetCell(x, y, box.Vertical, borderColor, bgColor);
+
+			// Inner area
+			int innerX = x + 1;
+			for (int i = 0; i < innerWidth; i++)
 			{
-				panel.Header = new PanelHeader(_header, _headerAlignment);
+				int px = innerX + i;
+				if (px >= clipRect.X && px < clipRect.Right)
+				{
+					int contentIdx = i - _padding.Left;
+					if (contentCells != null && contentIdx >= 0 && contentIdx < contentCells.Count)
+					{
+						var cell = contentCells[contentIdx];
+						buffer.SetCell(px, y, cell.Character, cell.Foreground, cell.Background);
+					}
+					else
+					{
+						buffer.SetCell(px, y, ' ', borderColor, bgColor);
+					}
+				}
 			}
 
-			return panel;
+			// Right border
+			int rightX = x + width - 1;
+			if (rightX >= clipRect.X && rightX < clipRect.Right)
+				buffer.SetCell(rightX, y, box.Vertical, borderColor, bgColor);
+		}
+
+		/// <summary>
+		/// Calculates content lines for the given inner width.
+		/// </summary>
+		private List<List<Cell>> GetContentLines(int innerContentWidth, Color fgColor, Color bgColor)
+		{
+			if (string.IsNullOrEmpty(_content) || innerContentWidth <= 0)
+				return new List<List<Cell>> { new List<Cell>() };
+
+			return MarkupParser.ParseLines(_content, innerContentWidth, fgColor, bgColor);
 		}
 
 		#endregion
@@ -429,39 +548,32 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override System.Drawing.Size GetLogicalContentSize()
 		{
-			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? Color.Black;
-
-			var panel = CreateSpectrePanel(null, null, bgColor, Color.White);
-			if (panel == null)
-				return new System.Drawing.Size(Margin.Left + Margin.Right, Margin.Top + Margin.Bottom);
-
-			// Reuse ContentWidth for width
 			int width = ContentWidth ?? 0;
+			int borderHeight = _borderStyle == BorderStyle.None ? 0 : 2;
+			int contentLineCount = 1;
 
-			// Calculate height
-			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(panel, Width ?? 80, null, bgColor);
-			int height = content.Count + Margin.Top + Margin.Bottom;
+			if (!string.IsNullOrEmpty(_content))
+			{
+				int innerWidth = (Width ?? 80) - (_borderStyle == BorderStyle.None ? 0 : 2) - _padding.Left - _padding.Right;
+				if (innerWidth > 0)
+				{
+					Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? Color.Black;
+					Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? Color.White;
+					contentLineCount = GetContentLines(innerWidth, fgColor, bgColor).Count;
+				}
+			}
 
+			int height = contentLineCount + borderHeight + _padding.Top + _padding.Bottom + Margin.Top + Margin.Bottom;
 			return new System.Drawing.Size(width, height);
 		}
 
 		/// <summary>
-		/// Sets the content to display inside the panel using text (supports Spectre markup).
+		/// Sets the content to display inside the panel using text (supports markup).
 		/// </summary>
 		/// <param name="text">The text to display.</param>
 		public void SetContent(string text)
 		{
-			_content = new Markup(text);
-			Container?.Invalidate(true);
-		}
-
-		/// <summary>
-		/// Sets the content to display inside the panel.
-		/// </summary>
-		/// <param name="renderable">The renderable to display.</param>
-		public void SetContent(IRenderable renderable)
-		{
-			_content = renderable;
+			_content = text;
 			Container?.Invalidate(true);
 		}
 
@@ -475,27 +587,39 @@ namespace SharpConsoleUI.Controls
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? Color.Black;
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? Color.White;
 
-			var panel = CreateSpectrePanel(null, null, bgColor, fgColor);
-			if (panel == null)
+			bool hasBorder = _borderStyle != BorderStyle.None;
+			int borderWidth = hasBorder ? 2 : 0;
+			int borderHeight = hasBorder ? 2 : 0;
+
+			int totalWidth = Width ?? constraints.MaxWidth;
+			int innerContentWidth = totalWidth - Margin.Left - Margin.Right - borderWidth - _padding.Left - _padding.Right;
+
+			int contentLineCount = 0;
+			int maxContentWidth = 0;
+
+			if (!string.IsNullOrEmpty(_content) && innerContentWidth > 0)
 			{
-				return new LayoutSize(
-					Math.Clamp(Margin.Left + Margin.Right, constraints.MinWidth, constraints.MaxWidth),
-					Math.Clamp(Margin.Top + Margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
-				);
+				var lines = GetContentLines(innerContentWidth, fgColor, bgColor);
+				contentLineCount = lines.Count;
+				foreach (var line in lines)
+				{
+					if (line.Count > maxContentWidth)
+						maxContentWidth = line.Count;
+				}
 			}
 
-			// If explicit width is set, it represents total control width (including margins)
-			// Otherwise, use available width from constraints
-			int totalWidth = Width ?? constraints.MaxWidth;
-			int targetWidth = totalWidth - Margin.Left - Margin.Right;
+			int width;
+			if (Width.HasValue)
+			{
+				width = Width.Value + Margin.Left + Margin.Right;
+			}
+			else
+			{
+				width = maxContentWidth + borderWidth + _padding.Left + _padding.Right + Margin.Left + Margin.Right;
+			}
 
-			var content = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(panel, targetWidth, null, bgColor);
+			int height = contentLineCount + borderHeight + _padding.Top + _padding.Bottom + Margin.Top + Margin.Bottom;
 
-			// If explicit width is set, use it; otherwise measure actual content
-			int width = Width ?? (content.Count > 0 ? content.Max(line => AnsiConsoleHelper.StripAnsiStringLength(line)) + Margin.Left + Margin.Right : Margin.Left + Margin.Right);
-			int height = content.Count + Margin.Top + Margin.Bottom;
-
-			// If explicit height is set, use that
 			if (_height.HasValue)
 			{
 				height = _height.Value;
@@ -515,6 +639,7 @@ namespace SharpConsoleUI.Controls
 			// Resolve colors using standard fallback chain
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
+			Color borderColor = _borderColorValue ?? fgColor;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			int targetHeight = bounds.Height - Margin.Top - Margin.Bottom;
@@ -527,83 +652,126 @@ namespace SharpConsoleUI.Controls
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
 
-			// Determine render height: use targetHeight if explicit Height is set or Fill alignment
-			int? panelRenderHeight = null;
+			bool hasBorder = _borderStyle != BorderStyle.None;
+			var box = GetBoxChars();
+
+			// Determine actual render height
+			int renderHeight = targetHeight;
 			if (_height.HasValue || VerticalAlignment == VerticalAlignment.Fill)
 			{
-				panelRenderHeight = targetHeight;
+				renderHeight = targetHeight;
 			}
 
-			// Always use targetWidth for rendering (bounds.Width already accounts for explicit _width)
-			var panel = CreateSpectrePanel(targetWidth, panelRenderHeight, bgColor, fgColor);
-			if (panel != null)
+			int currentY = startY;
+
+			if (hasBorder)
 			{
-				var renderedContent = AnsiConsoleHelper.ConvertSpectreRenderableToAnsi(panel, targetWidth, panelRenderHeight, bgColor);
-
-				int contentHeight = renderedContent.Count;
-				int availableHeight = targetHeight;
-
-				for (int i = 0; i < Math.Min(contentHeight, availableHeight); i++)
+				// Top border with optional header
+				if (currentY < startY + renderHeight)
 				{
-					int paintY = startY + i;
-					if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
+					// Fill left margin on this row
+					if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+						buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', fgColor, bgColor);
+
+					DrawTopBorder(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, bgColor);
+
+					// Fill right margin
+					if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+						buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', fgColor, bgColor);
+
+					currentY++;
+				}
+			}
+
+			// Padding top rows
+			for (int i = 0; i < _padding.Top && currentY < startY + renderHeight; i++)
+			{
+				if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', fgColor, bgColor);
+
+				if (hasBorder)
+					DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, bgColor);
+				else if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(startX, currentY, targetWidth, 1), ' ', fgColor, bgColor);
+
+				if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', fgColor, bgColor);
+
+				currentY++;
+			}
+
+			// Content rows
+			int innerContentWidth = targetWidth - (hasBorder ? 2 : 0) - _padding.Left - _padding.Right;
+			var contentLines = GetContentLines(innerContentWidth, fgColor, bgColor);
+			int maxContentRows = renderHeight - (hasBorder ? 2 : 0) - _padding.Top - _padding.Bottom;
+
+			for (int i = 0; i < contentLines.Count && i < maxContentRows && currentY < startY + renderHeight; i++)
+			{
+				if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', fgColor, bgColor);
+
+				if (hasBorder)
+					DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, bgColor, contentLines[i]);
+				else
+				{
+					// No border — just draw content with padding
+					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					{
-						// Fill left margin
-						if (Margin.Left > 0)
+						buffer.FillRect(new LayoutRect(startX, currentY, targetWidth, 1), ' ', fgColor, bgColor);
+						int contentX = startX + _padding.Left;
+						foreach (var cell in contentLines[i])
 						{
-							buffer.FillRect(new LayoutRect(bounds.X, paintY, Margin.Left, 1), ' ', fgColor, bgColor);
-						}
-
-						// Calculate alignment
-						int lineWidth = AnsiConsoleHelper.StripAnsiStringLength(renderedContent[i]);
-						int alignOffset = 0;
-						if (lineWidth < targetWidth)
-						{
-							switch (HorizontalAlignment)
-							{
-								case HorizontalAlignment.Center:
-									alignOffset = (targetWidth - lineWidth) / 2;
-									break;
-								case HorizontalAlignment.Right:
-									alignOffset = targetWidth - lineWidth;
-									break;
-							}
-						}
-
-						// Fill left alignment padding
-						if (alignOffset > 0)
-						{
-							buffer.FillRect(new LayoutRect(startX, paintY, alignOffset, 1), ' ', fgColor, bgColor);
-						}
-
-						// Parse and write the content line
-						var cells = AnsiParser.Parse(renderedContent[i], fgColor, bgColor);
-						buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
-
-						// Fill right padding
-						int rightPadStart = startX + alignOffset + lineWidth;
-						int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
-						if (rightPadWidth > 0)
-						{
-							buffer.FillRect(new LayoutRect(rightPadStart, paintY, rightPadWidth, 1), ' ', fgColor, bgColor);
-						}
-
-						// Fill right margin
-						if (Margin.Right > 0)
-						{
-							buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), ' ', fgColor, bgColor);
+							if (contentX >= clipRect.X && contentX < clipRect.Right)
+								buffer.SetCell(contentX, currentY, cell.Character, cell.Foreground, cell.Background);
+							contentX++;
 						}
 					}
 				}
 
-				// Fill any remaining height after content
-				for (int y = startY + contentHeight; y < bounds.Bottom - Margin.Bottom; y++)
-				{
-					if (y >= clipRect.Y && y < clipRect.Bottom)
-					{
-						buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
-					}
-				}
+				if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', fgColor, bgColor);
+
+				currentY++;
+			}
+
+			// Fill remaining content area (empty rows)
+			int bottomBorderRow = startY + renderHeight - (hasBorder ? 1 : 0);
+			while (currentY < bottomBorderRow)
+			{
+				if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', fgColor, bgColor);
+
+				if (hasBorder)
+					DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, bgColor);
+				else if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(startX, currentY, targetWidth, 1), ' ', fgColor, bgColor);
+
+				if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', fgColor, bgColor);
+
+				currentY++;
+			}
+
+			if (hasBorder && currentY < startY + renderHeight)
+			{
+				// Bottom border
+				if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', fgColor, bgColor);
+
+				DrawBottomBorder(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, bgColor);
+
+				if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', fgColor, bgColor);
+
+				currentY++;
+			}
+
+			// Fill any remaining height
+			while (currentY < bounds.Bottom - Margin.Bottom)
+			{
+				if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
+					buffer.FillRect(new LayoutRect(bounds.X, currentY, bounds.Width, 1), ' ', fgColor, bgColor);
+				currentY++;
 			}
 
 			// Fill bottom margin

@@ -2,7 +2,6 @@ using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
-using Spectre.Console;
 using System.Timers;
 
 namespace FrameRateDemo;

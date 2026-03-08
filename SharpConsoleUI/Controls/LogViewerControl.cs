@@ -9,10 +9,7 @@
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using SharpConsoleUI.Logging;
-using Spectre.Console;
-using Color = Spectre.Console.Color;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using System.Collections.Concurrent;

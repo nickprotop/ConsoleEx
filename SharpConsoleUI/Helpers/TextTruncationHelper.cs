@@ -34,7 +34,7 @@ public static class TextTruncationHelper
 			return string.Empty;
 
 		// Measure actual visible width (cache if available)
-		int textWidth = cache?.GetCachedLength(text) ?? AnsiConsoleHelper.StripSpectreLength(text);
+		int textWidth = cache?.GetCachedLength(text) ?? Parsing.MarkupParser.StripLength(text);
 
 		// No truncation needed
 		if (textWidth <= maxWidth)
@@ -54,11 +54,11 @@ public static class TextTruncationHelper
 		{
 			// Not enough room for MIN_CONTENT + ellipsis
 			// Show content only without ellipsis (e.g., "abcde" instead of "ab...")
-			return AnsiConsoleHelper.TruncateSpectre(text, maxWidth);
+			return Parsing.MarkupParser.Truncate(text, maxWidth);
 		}
 
 		// Normal case: truncate content and add ellipsis
-		return AnsiConsoleHelper.TruncateSpectre(text, availableForContent) + ellipsis;
+		return Parsing.MarkupParser.Truncate(text, availableForContent) + ellipsis;
 	}
 
 	/// <summary>
