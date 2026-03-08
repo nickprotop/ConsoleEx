@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Nick Protopsaltis",
+  "classifications": ["Console", "TUI", "Terminal"],
+  "identity": "SharpConsoleUI.TuiMultiWindow",
+  "name": "SharpConsoleUI TUI Multi-Window App",
+  "shortName": "tui-multiwindow",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "sourceName": "TuiMultiWindow",
+  "preferNameDirectory": true,
+  "postActions": [
+    {
+      "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+      "condition": true,
+      "continueOnError": true,
+      "description": "Restore NuGet packages",
+      "manualInstructions": [
+        { "text": "Run 'dotnet restore'" }
+      ]
+    }
+  ]
+}

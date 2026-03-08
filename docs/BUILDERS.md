@@ -510,7 +510,7 @@ Controls.Panel()
 - `NoBorder()` - No visible border
 
 **Key Methods:**
-- `WithContent(string)` - Set text content (supports Spectre markup)
+- `WithContent(string)` - Set text content (supports markup syntax)
 - `WithContent(IRenderable)` - Set any Spectre renderable as content
 - `WithHeader(string)` - Add header text to border
 - `HeaderLeft()` / `HeaderCenter()` / `HeaderRight()` - Header alignment

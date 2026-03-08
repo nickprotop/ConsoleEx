@@ -1,0 +1,357 @@
+using SharpConsoleUI;
+using SharpConsoleUI.Builders;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI.Layout;
+
+namespace DemoApp.DemoWindows;
+
+public static class LauncherWindow
+{
+    private static readonly List<string> DetailPlaceholder = new()
+    {
+        "[bold]Welcome to SharpConsoleUI[/]",
+        "",
+        "Select a demo from the tree to see its description.",
+        "",
+        "[dim]Press Enter to launch, Ctrl+P for command palette.[/]"
+    };
+
+    public static Window Create(ConsoleWindowSystem ws)
+    {
+        // Build controls first
+        var demoTree = Controls.Tree()
+            .WithGuide(TreeGuide.Line)
+            .WithHighlightColors(Color.White, Color.Blue)
+            .Build();
+
+        BuildDemoTree(demoTree);
+
+        var detailPane = Controls.Markup()
+            .AddLines(DetailPlaceholder.ToArray())
+            .WithMargin(1, 1, 1, 1)
+            .Build();
+
+        // Update detail pane when tree selection changes
+        demoTree.SelectedNodeChanged += (sender, args) =>
+        {
+            if (args.Node != null)
+            {
+                var info = GetDemoInfo(args.Node.Text);
+                if (info != null)
+                    detailPane.SetContent(info);
+            }
+        };
+
+        // Launch demo on double-click / Enter
+        demoTree.NodeActivated += (sender, args) =>
+        {
+            if (args.Node != null)
+                LaunchSelectedDemo(ws, demoTree);
+        };
+
+        var grid = Controls.HorizontalGrid()
+            .Column(col => col.Width(30).Add(demoTree))
+            .Column(col => col.Add(detailPane))
+            .WithSplitterAfter(0)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .Build();
+
+        return new WindowBuilder(ws)
+            .WithTitle("SharpConsoleUI Demo")
+            .WithSize(90, 30)
+            .Centered()
+            .AddControl(grid)
+            .OnKeyPressed((sender, e) =>
+            {
+                if (e.KeyInfo.Key == ConsoleKey.P &&
+                    e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+                {
+                    OpenCommandPalette(ws, (Window)sender!);
+                    e.Handled = true;
+                }
+            })
+            .BuildAndShow();
+    }
+
+    private static void BuildDemoTree(TreeControl tree)
+    {
+        var layout = tree.AddRootNode("Layout & Windows");
+        layout.TextColor = Color.Cyan1;
+        layout.IsExpanded = true;
+        layout.AddChild("IDE Layout");
+        layout.AddChild("File Explorer");
+        layout.AddChild("Multi-Tab Demo");
+
+        var controls = tree.AddRootNode("Controls");
+        controls.TextColor = Color.Green;
+        controls.IsExpanded = true;
+        controls.AddChild("Interactive Demo");
+        controls.AddChild("Dropdown");
+        controls.AddChild("List View");
+        controls.AddChild("Table");
+        controls.AddChild("Nerd Fonts");
+        controls.AddChild("Markup Syntax");
+
+        var dataViz = tree.AddRootNode("Data Visualization");
+        dataViz.TextColor = Color.Yellow;
+        dataViz.IsExpanded = true;
+        dataViz.AddChild("Graphs & Charts");
+
+        var utilities = tree.AddRootNode("Utilities");
+        utilities.TextColor = Color.Magenta1;
+        utilities.IsExpanded = true;
+        utilities.AddChild("Digital Clock");
+        utilities.AddChild("Log Viewer");
+        utilities.AddChild("System Info");
+        utilities.AddChild("Terminal");
+        utilities.AddChild("Welcome Banner");
+    }
+
+    private static void LaunchSelectedDemo(ConsoleWindowSystem ws, TreeControl tree)
+    {
+        var node = tree.SelectedNode;
+        if (node == null || node.Children.Count > 0) return;
+
+        _ = node.Text switch
+        {
+            "IDE Layout" => IdeLayoutWindow.Create(ws),
+            "File Explorer" => FileExplorerWindow.Create(ws),
+            "Multi-Tab Demo" => TabDemoWindow.Create(ws),
+            "Interactive Demo" => InteractiveWindow.Create(ws),
+            "Dropdown" => DropdownWindow.Create(ws),
+            "List View" => ListViewWindow.Create(ws),
+            "Table" => TableDemoWindow.Create(ws),
+            "Nerd Fonts" => NerdFontWindow.Create(ws),
+            "Markup Syntax" => MarkupSyntaxWindow.Create(ws),
+            "Graphs & Charts" => GraphsWindow.Create(ws),
+            "Digital Clock" => ClockWindow.Create(ws),
+            "Log Viewer" => LogViewerWindow.Create(ws),
+            "System Info" => SystemInfoWindow.Create(ws),
+            "Terminal" => TerminalWindow.Create(ws),
+            "Welcome Banner" => WelcomeWindow.Create(ws),
+            _ => (Window?)null
+        };
+    }
+
+    private static void OpenCommandPalette(ConsoleWindowSystem ws, Window window)
+    {
+        var palette = CommandPaletteControl.Create()
+            .AddItem("IDE Layout", () => { IdeLayoutWindow.Create(ws); }, category: "Layout & Windows")
+            .AddItem("File Explorer", () => { FileExplorerWindow.Create(ws); }, category: "Layout & Windows")
+            .AddItem("Multi-Tab Demo", () => { TabDemoWindow.Create(ws); }, category: "Layout & Windows")
+            .AddItem("Interactive Demo", () => { InteractiveWindow.Create(ws); }, category: "Controls")
+            .AddItem("Dropdown", () => { DropdownWindow.Create(ws); }, category: "Controls")
+            .AddItem("List View", () => { ListViewWindow.Create(ws); }, category: "Controls")
+            .AddItem("Table", () => { TableDemoWindow.Create(ws); }, category: "Controls")
+            .AddItem("Nerd Fonts", () => { NerdFontWindow.Create(ws); }, category: "Controls")
+            .AddItem("Markup Syntax", () => { MarkupSyntaxWindow.Create(ws); }, category: "Controls")
+            .AddItem("Graphs & Charts", () => { GraphsWindow.Create(ws); }, category: "Data Visualization")
+            .AddItem("Digital Clock", () => { ClockWindow.Create(ws); }, category: "Utilities")
+            .AddItem("Log Viewer", () => { LogViewerWindow.Create(ws); }, category: "Utilities")
+            .AddItem("System Info", () => { SystemInfoWindow.Create(ws); }, category: "Utilities")
+            .AddItem("Terminal", () => { TerminalWindow.Create(ws); }, category: "Utilities")
+            .AddItem("Welcome Banner", () => { WelcomeWindow.Create(ws); }, category: "Utilities")
+            .WithShowCategories()
+            .Build();
+
+        window.AddControl(palette);
+        palette.Show();
+    }
+
+    private static List<string>? GetDemoInfo(string demoName)
+    {
+        return demoName switch
+        {
+            "IDE Layout" => new List<string>
+            {
+                "[bold cyan]IDE Layout[/]",
+                "",
+                "A complete IDE-like application UI with menu bar,",
+                "toolbar, project explorer, tabbed editor, and status bar.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - MenuControl, ToolbarControl",
+                "  - TreeControl, MultilineEditControl",
+                "  - SplitterControl, HorizontalGridControl",
+                "  - ButtonControl, MarkupControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "File Explorer" => new List<string>
+            {
+                "[bold cyan]File Explorer[/]",
+                "",
+                "Browse the filesystem with a tree view for directories",
+                "and a list view for files with icons and sizes.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - TreeControl, ListControl",
+                "  - SplitterControl, HorizontalGridControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Multi-Tab Demo" => new List<string>
+            {
+                "[bold cyan]Multi-Tab Demo[/]",
+                "",
+                "Demonstrates the TabControl with multiple tabs",
+                "containing different types of content.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - TabControl, MarkupControl",
+                "  - ScrollablePanelControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Interactive Demo" => new List<string>
+            {
+                "[bold cyan]Interactive Demo[/]",
+                "",
+                "Shows real-time key press event handling.",
+                "Press any key to see its details displayed.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - MarkupControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Dropdown" => new List<string>
+            {
+                "[bold cyan]Dropdown Demo[/]",
+                "",
+                "Demonstrates dropdown controls with searchable",
+                "selection from a list of items.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - DropdownControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "List View" => new List<string>
+            {
+                "[bold cyan]List View[/]",
+                "",
+                "A scrollable list with diverse item types,",
+                "selection, and keyboard navigation.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - ListControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Table" => new List<string>
+            {
+                "[bold cyan]Table Demo[/]",
+                "",
+                "Displays tabular data with columns, rows,",
+                "and rounded borders.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - TableControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Nerd Fonts" => new List<string>
+            {
+                "[bold cyan]Nerd Font Showcase[/]",
+                "",
+                "Displays NerdFont icon families with auto-detection",
+                "and ASCII fallback support.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - MarkupControl, HorizontalGridControl",
+                "  - NerdFontHelper, Icons",
+                "",
+                "[green]\\[Enter] Launch Demo[/]"
+            },
+            "Markup Syntax" => new List<string>
+            {
+                "[bold cyan]Markup Syntax Showcase[/]",
+                "",
+                "Demonstrates the rich markup system with colors,",
+                "RGB/hex support, text decorations, backgrounds,",
+                "nested tags, gradients, and escaping.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - MarkupControl, ScrollablePanelControl",
+                "  - RuleControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Graphs & Charts" => new List<string>
+            {
+                "[bold cyan]Graphs & Charts[/]",
+                "",
+                "Live sparklines, bar graphs, and progress bars",
+                "with animated real-time updates.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - SparklineControl (Block, Braille, Bidirectional)",
+                "  - BarGraphControl, ProgressBarControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Digital Clock" => new List<string>
+            {
+                "[bold cyan]Digital Clock[/]",
+                "",
+                "A FIGlet-rendered digital clock that updates",
+                "every second using async window thread.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - FigleControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Log Viewer" => new List<string>
+            {
+                "[bold cyan]Log Viewer[/]",
+                "",
+                "Real-time log display with simulated entries",
+                "and severity-based coloring.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - LogViewerControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "System Info" => new List<string>
+            {
+                "[bold cyan]System Information[/]",
+                "",
+                "Displays OS, runtime, memory, and processor",
+                "details in a formatted view.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - MarkupControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Terminal" => new List<string>
+            {
+                "[bold cyan]Terminal[/]",
+                "",
+                "A PTY-backed terminal emulator running",
+                "the system shell.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - TerminalControl (PTY)",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Welcome Banner" => new List<string>
+            {
+                "[bold cyan]Welcome Banner[/]",
+                "",
+                "FIGlet ASCII art banner with project info.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - FigleControl, MarkupControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            _ => null
+        };
+    }
+}

@@ -151,11 +151,13 @@ namespace SharpConsoleUI.Layout
 			ref var cell = ref _cells[x, y];
 			if (cell.Character != character ||
 				!cell.Foreground.Equals(foreground) ||
-				!cell.Background.Equals(background))
+				!cell.Background.Equals(background) ||
+				cell.Decorations != TextDecoration.None)
 			{
 				cell.Character = character;
 				cell.Foreground = foreground;
 				cell.Background = background;
+				cell.Decorations = TextDecoration.None;
 				cell.Dirty = true;
 
 				// Expand dirty region to include this cell
@@ -175,11 +177,38 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
-		/// Sets a cell at the specified position.
+		/// Sets a cell at the specified position, preserving all attributes including decorations.
 		/// </summary>
 		public void SetCell(int x, int y, Cell cell)
 		{
-			SetCell(x, y, cell.Character, cell.Foreground, cell.Background);
+			if (x < 0 || x >= Width || y < 0 || y >= Height)
+				return;
+
+			ref var existing = ref _cells[x, y];
+			if (existing.Character != cell.Character ||
+				!existing.Foreground.Equals(cell.Foreground) ||
+				!existing.Background.Equals(cell.Background) ||
+				existing.Decorations != cell.Decorations)
+			{
+				existing.Character = cell.Character;
+				existing.Foreground = cell.Foreground;
+				existing.Background = cell.Background;
+				existing.Decorations = cell.Decorations;
+				existing.Dirty = true;
+
+				if (_dirtyRegion.IsEmpty)
+				{
+					_dirtyRegion = new LayoutRect(x, y, 1, 1);
+				}
+				else
+				{
+					int minX = Math.Min(_dirtyRegion.X, x);
+					int minY = Math.Min(_dirtyRegion.Y, y);
+					int maxX = Math.Max(_dirtyRegion.Right, x + 1);
+					int maxY = Math.Max(_dirtyRegion.Bottom, y + 1);
+					_dirtyRegion = new LayoutRect(minX, minY, maxX - minX, maxY - minY);
+				}
+			}
 		}
 
 		/// <summary>
@@ -531,17 +560,31 @@ namespace SharpConsoleUI.Layout
 				sb.Clear();
 				Color? lastFg = null;
 				Color? lastBg = null;
+				TextDecoration lastDec = TextDecoration.None;
+				bool firstCell = true;
 
 				for (int x = 0; x < Width; x++)
 				{
 					var cell = _cells[x, y];
 					bool fgChanged = lastFg == null || !cell.Foreground.Equals(lastFg.Value);
 					bool bgChanged = lastBg == null || !cell.Background.Equals(lastBg.Value);
+					bool decChanged = !firstCell && cell.Decorations != lastDec;
 
-					if (fgChanged || bgChanged)
+					if (fgChanged || bgChanged || decChanged || (firstCell && cell.Decorations != TextDecoration.None))
 					{
-						// Build ANSI escape sequence for color change
-						// Use 24-bit RGB: \e[38;2;R;G;Bm (foreground) and \e[48;2;R;G;Bm (background)
+						// When decorations change, emit reset first to clear previous decorations,
+						// then re-emit all attributes. This is simpler and more reliable than
+						// tracking individual decoration on/off codes.
+						if (decChanged && lastDec != TextDecoration.None)
+						{
+							sb.Append("\x1b[0m");
+							// Full reset clears colors too - force re-emission
+							lastFg = null;
+							lastBg = null;
+							fgChanged = true;
+							bgChanged = true;
+						}
+
 						sb.Append("\x1b[");
 						if (fgChanged && bgChanged)
 						{
@@ -552,20 +595,33 @@ namespace SharpConsoleUI.Layout
 						{
 							sb.Append($"38;2;{cell.Foreground.R};{cell.Foreground.G};{cell.Foreground.B}");
 						}
-						else
+						else if (bgChanged)
 						{
 							sb.Append($"48;2;{cell.Background.R};{cell.Background.G};{cell.Background.B}");
+						}
+						// Append decoration SGR codes
+						if (cell.Decorations != TextDecoration.None)
+						{
+							if ((cell.Decorations & TextDecoration.Bold) != 0) sb.Append(";1");
+							if ((cell.Decorations & TextDecoration.Dim) != 0) sb.Append(";2");
+							if ((cell.Decorations & TextDecoration.Italic) != 0) sb.Append(";3");
+							if ((cell.Decorations & TextDecoration.Underline) != 0) sb.Append(";4");
+							if ((cell.Decorations & TextDecoration.Blink) != 0) sb.Append(";5");
+							if ((cell.Decorations & TextDecoration.Invert) != 0) sb.Append(";7");
+							if ((cell.Decorations & TextDecoration.Strikethrough) != 0) sb.Append(";9");
 						}
 						sb.Append('m');
 
 						lastFg = cell.Foreground;
 						lastBg = cell.Background;
+						lastDec = cell.Decorations;
 					}
 
+					firstCell = false;
 					sb.Append(cell.Character);
 				}
 
-				// Reset colors at end of line
+				// Reset at end of line
 				sb.Append("\x1b[0m");
 				lines.Add(sb.ToString());
 			}

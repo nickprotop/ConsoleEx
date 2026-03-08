@@ -19,7 +19,7 @@ The rendering engine follows the same architecture as desktop GUI frameworks lik
 
 - **GUI-grade rendering engine** — DOM-based layout, three-level dirty tracking, occlusion culling, adaptive Cell/Line/Smart rendering modes
 - **Multi-window with per-window threads** — each window updates independently without blocking others
-- **Spectre.Console markup everywhere** — just `[bold red]text[/]` and it works, no complex styling APIs
+- **Rich markup everywhere** — just `[bold red]text[/]` and it works, no complex styling APIs
 - **Any Spectre.Console widget works as a control** — Tables, BarCharts, Trees, Panels — wrap any `IRenderable`
 - **30+ built-in controls** — buttons, lists, trees, tables, text editors, dropdowns, menus, tabs, and more
 - **Compositor effects** — PreBufferPaint/PostBufferPaint hooks for custom rendering, transitions, or even games
@@ -71,6 +71,20 @@ windowSystem.Run();
 dotnet add package SharpConsoleUI
 ```
 
+### Project Templates
+
+Get a running TUI app in 30 seconds with `dotnet new` templates:
+
+```bash
+dotnet new install SharpConsoleUI.Templates
+
+dotnet new tui-app -n MyApp            # Starter app with list, button, notification
+dotnet new tui-dashboard -n MyDash     # Fullscreen dashboard with tabs and live metrics
+dotnet new tui-multiwindow -n MyApp    # Two windows with master-detail pattern
+
+cd MyApp && dotnet run
+```
+
 ## Core Features
 
 ### Window Management
@@ -108,7 +122,9 @@ dotnet add package SharpConsoleUI
 | **Input** | ButtonControl, CheckboxControl, PromptControl, DropdownControl, MultilineEditControl |
 | **Data** | ListControl, TreeControl, TableControl, HorizontalGridControl |
 | **Navigation** | MenuControl, ToolbarControl, TabControl |
+| **Selection** | CommandPaletteControl |
 | **Layout** | ColumnContainer, SplitterControl, ScrollablePanelControl, PanelControl |
+| **Drawing** | CanvasControl |
 | **Advanced** | SpectreRenderableControl (wraps any Spectre.Console `IRenderable`), ProgressBarControl, TerminalControl |
 
 ## API Usage
@@ -334,16 +350,16 @@ This enables **pure declarative UIs** where all control interactions happen thro
 
 The terminal is the rasterization target. CharacterBuffer is the framebuffer. ConsoleBuffer is the display controller that diff-scans and outputs only changed cells — like a GPU compositor, but with characters instead of pixels.
 
-### Spectre.Console Integration
+### Markup & Color System
 
-SharpConsoleUI uses **Spectre.Console for rich text markup**, but the rendering engine is independent:
+SharpConsoleUI has a **native markup parser** (`MarkupParser`) that converts `[bold red]text[/]` syntax directly into typed `Cell` structs -- no ANSI intermediate format, no external dependencies:
 
-1. **Markup as Input**: Controls use Spectre markup (`[bold red]text[/]`) as a convenient authoring format
-2. **ANSI as Intermediate**: Spectre renders markup to ANSI strings, which `AnsiParser` converts to typed `Cell` structs (char + foreground + background)
-3. **Cells as Pipeline**: From that point, everything flows as cells through CharacterBuffer → ConsoleBuffer → terminal output
-4. **Any Spectre Widget**: `SpectreRenderableControl` wraps any `IRenderable` (Tables, Trees, Charts) as a window control
+1. **Markup as Input**: Controls use `[bold red]text[/]` syntax as the authoring format
+2. **Direct Parsing**: `MarkupParser.Parse()` converts markup directly to `Cell` structs (char + foreground + background + decoration)
+3. **Cells as Pipeline**: Everything flows as cells through CharacterBuffer → ConsoleBuffer → terminal output
+4. **Any Spectre Widget**: `SpectreRenderableControl` wraps any Spectre.Console `IRenderable` (Tables, Trees, Charts) as a window control
 
-ANSI exists only within the control paint phase — it never reaches the screen buffer. The unified cell pipeline ensures type-safe rendering from control to terminal, with no format conversions in the hot path.
+The unified cell pipeline ensures type-safe rendering from control to terminal, with no format conversions in the hot path. See the [Markup Syntax Reference](docs/MARKUP_SYNTAX.md) for the full syntax guide.
 
 ### Modern C# Features Used
 - **Records**: Immutable data structures (WindowBounds, InputEvent, etc.)
@@ -730,7 +746,7 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ## Acknowledgments
 
-- Built on [Spectre.Console](https://github.com/spectreconsole/spectre.console) for rich console rendering
+- [Spectre.Console](https://github.com/spectreconsole/spectre.console) integration available via SpectreRenderableControl for widget wrapping
 - Unix raw I/O approach inspired by [Terminal.Gui v2](https://github.com/gui-cs/Terminal.Gui)
 
 ## Documentation
@@ -739,6 +755,7 @@ Detailed documentation is available in separate guides:
 
 - **[Examples Gallery](docs/EXAMPLES.md)** - All examples with screenshots
 - **[Fluent Builders](docs/BUILDERS.md)** - WindowBuilder and control builder APIs
+- **[Markup Syntax](docs/MARKUP_SYNTAX.md)** - Markup tags, colors, decorations, and programmatic API
 - **[Controls Reference](docs/CONTROLS.md)** - Complete guide to all 30+ UI controls
 - **[Built-in Dialogs](docs/DIALOGS.md)** - File pickers, folder browsers, and system dialogs
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Complete system configuration reference

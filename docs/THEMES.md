@@ -115,8 +115,8 @@ windowSystem.ShowThemeSelectorDialog();
 Implement the `ITheme` interface to create custom themes:
 
 ```csharp
+using SharpConsoleUI;
 using SharpConsoleUI.Themes;
-using Spectre.Console;
 
 public class MyCustomTheme : ITheme
 {
@@ -160,9 +160,9 @@ windowSystem.ThemeRegistry.SetTheme("MyCustomTheme");
 
 ```csharp
 using SharpConsoleUI;
+using SharpConsoleUI;
 using SharpConsoleUI.Themes;
 using SharpConsoleUI.Drivers;
-using Spectre.Console;
 
 public class SolarizedDarkTheme : ITheme
 {
@@ -307,9 +307,9 @@ mainWindow.KeyPressed += (sender, e) =>
 - Active Border: Medium-dark colors
 - Inactive Border: Light gray (Grey70-Grey85)
 
-### Spectre.Console Color Support
+### Color Support
 
-SharpConsoleUI uses Spectre.Console colors. Available color types:
+SharpConsoleUI provides a 24-bit Color type. Available color types:
 
 ```csharp
 // Named colors

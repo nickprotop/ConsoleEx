@@ -1,10 +1,10 @@
 # MarkupControl
 
-Display rich formatted text using Spectre.Console markup syntax.
+Display rich formatted text using SharpConsoleUI markup syntax.
 
 ## Overview
 
-MarkupControl displays multi-line text with rich formatting using Spectre.Console's markup syntax. Supports colors, styles (bold, italic, underline), and more.
+MarkupControl displays multi-line text with rich formatting using SharpConsoleUI's markup syntax. Supports colors, styles (bold, italic, underline), and more.
 
 ## Properties
 
@@ -63,7 +63,7 @@ window.AddControl(Controls.Success("Success"));       // Green
 
 ## Markup Syntax
 
-SharpConsoleUI uses Spectre.Console markup syntax:
+SharpConsoleUI uses its own markup syntax (Spectre-compatible):
 
 ### Colors
 
@@ -431,7 +431,7 @@ window.AddControl(
 
 ## Color Reference
 
-Common colors available in Spectre.Console:
+Common colors available in SharpConsoleUI:
 
 - **Basic**: red, green, blue, yellow, cyan, magenta, white, black
 - **Grays**: grey, grey0-grey100 (0=black, 100=white)
@@ -440,6 +440,7 @@ Common colors available in Spectre.Console:
 
 ## See Also
 
+- [Markup Syntax Reference](../MARKUP_SYNTAX.md) - Complete markup syntax guide with all colors and decorations
 - [FigleControl](FigleControl.md) - For large ASCII art text
 - [SpectreRenderableControl](SpectreRenderableControl.md) - For Spectre.Console widgets
 - [LogViewerControl](LogViewerControl.md) - For log display with filtering

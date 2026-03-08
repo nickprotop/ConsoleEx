@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\SharpConsoleUI\SharpConsoleUI.csproj" />
+    <PackageReference Include="SharpConsoleUI" Version="2.4.40" />
   </ItemGroup>
 
 </Project>

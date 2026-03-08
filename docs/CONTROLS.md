@@ -1,6 +1,6 @@
 # Controls Reference
 
-SharpConsoleUI provides 25+ built-in UI controls for building rich console applications.
+SharpConsoleUI provides 30+ built-in UI controls for building rich console applications.
 
 ## Table of Contents
 
@@ -47,6 +47,7 @@ Controls for selecting items from lists or hierarchies.
 | **TreeControl** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
 | **DropdownControl** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
 | **MenuControl** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |
+| **CommandPaletteControl** | Searchable command palette | Fuzzy search, categorized actions, keyboard-driven |
 
 ## Display Controls
 
@@ -54,7 +55,7 @@ Controls for displaying formatted content.
 
 | Control | Description | Details |
 |---------|-------------|---------|
-| **[MarkupControl](controls/MarkupControl.md)** | Rich text with Spectre markup | Colors, bold, italic, links using `[markup]` syntax |
+| **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, links using `[markup]` syntax |
 | **FigletControl** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
 | **LogViewerControl** | Log message viewer | Auto-scroll, filtering, severity colors |
 | **SpectreRenderableControl** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |

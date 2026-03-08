@@ -188,7 +188,7 @@ dotnet run --project Examples/MultiDashboard
 - Demonstrates async window threads with `IDisposable` pattern
 - Window toggle functionality (F1-F6)
 
-**What makes it unique:** Each window has its own async update thread running independently - something no other .NET console framework can do while integrating Spectre.Console.
+**What makes it unique:** Each window has its own async update thread running independently.
 
 ---
 

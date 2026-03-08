@@ -650,7 +650,15 @@ namespace SharpConsoleUI.Drivers
 					for (int i = 0; i < width; i++)
 					{
 						var cell = source.GetCell(srcX + i, srcY);
-						sb.Append($"\x1b[38;2;{cell.Foreground.R};{cell.Foreground.G};{cell.Foreground.B};48;2;{cell.Background.R};{cell.Background.G};{cell.Background.B}m");
+						sb.Append($"\x1b[38;2;{cell.Foreground.R};{cell.Foreground.G};{cell.Foreground.B};48;2;{cell.Background.R};{cell.Background.G};{cell.Background.B}");
+						if ((cell.Decorations & TextDecoration.Bold) != 0) sb.Append(";1");
+						if ((cell.Decorations & TextDecoration.Dim) != 0) sb.Append(";2");
+						if ((cell.Decorations & TextDecoration.Italic) != 0) sb.Append(";3");
+						if ((cell.Decorations & TextDecoration.Underline) != 0) sb.Append(";4");
+						if ((cell.Decorations & TextDecoration.Blink) != 0) sb.Append(";5");
+						if ((cell.Decorations & TextDecoration.Invert) != 0) sb.Append(";7");
+						if ((cell.Decorations & TextDecoration.Strikethrough) != 0) sb.Append(";9");
+						sb.Append('m');
 						sb.Append(cell.Character);
 					}
 					sb.Append("\x1b[0m");

@@ -44,7 +44,7 @@ var windowSystem = new ConsoleWindowSystem(
     new NetConsoleDriver(RenderMode.Buffer),
     options: options);
 
-// Set top status text (supports Spectre.Console markup)
+// Set top status text (supports markup syntax)
 windowSystem.TopStatus = "[bold cyan]My Application[/] - [yellow]Connected[/]";
 ```
 

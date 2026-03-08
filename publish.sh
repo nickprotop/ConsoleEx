@@ -132,6 +132,23 @@ case $VERSION_TYPE in
 esac
 
 NEW_TAG="v${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}"
+NEW_VERSION="${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}"
+
+# Update template SharpConsoleUI dependency to new version
+TEMPLATES_UPDATED=false
+for TEMPLATE_CSPROJ in templates/content/*/*.csproj; do
+    if [ -f "$TEMPLATE_CSPROJ" ]; then
+        sed -i "s|<PackageReference Include=\"SharpConsoleUI\" Version=\"[^\"]*\"|<PackageReference Include=\"SharpConsoleUI\" Version=\"${NEW_VERSION}\"|" "$TEMPLATE_CSPROJ"
+        TEMPLATES_UPDATED=true
+    fi
+done
+
+if [ "$TEMPLATES_UPDATED" = true ] && ! git diff --quiet templates/; then
+    git add templates/
+    git commit -m "Update template SharpConsoleUI dependency to ${NEW_VERSION}"
+    git push origin "$(git branch --show-current)"
+    echo -e "${GREEN}✓ Updated template dependencies to ${NEW_VERSION}${NC}"
+fi
 
 echo -e "${GREEN}✓ Version type: ${YELLOW}$VERSION_TYPE${NC}"
 echo -e "  ${LATEST_TAG} -> ${GREEN}${NEW_TAG}${NC}"
@@ -152,7 +169,7 @@ echo ""
 echo -e "${YELLOW}This will trigger GitHub Actions to:${NC}"
 echo -e "  1. Build the solution"
 echo -e "  2. Run tests"
-echo -e "  3. Create NuGet package (SharpConsoleUI ${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH})"
+echo -e "  3. Create NuGet packages (SharpConsoleUI + SharpConsoleUI.Templates ${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH})"
 echo -e "  4. Publish to NuGet.org"
 echo ""
 

@@ -28,7 +28,7 @@ SharpConsoleUI/
 │   ├── LayoutSize.cs            # Width/Height size struct
 │   ├── CharacterBuffer.cs       # 2D cell array render target
 │   ├── Cell.cs                  # Character + fg/bg colors
-│   ├── AnsiParser.cs            # Parse ANSI sequences to cells
+│   ├── MarkupParser.cs           # Parse markup to cells (in Parsing/)
 │   ├── VerticalStackLayout.cs   # Vertical stacking algorithm
 │   └── IDOMPaintable.cs         # Interface for DOM-aware controls
 ├── Controls/
@@ -391,22 +391,32 @@ public class MyControl : IWindowControl, IDOMPaintable
 
 ---
 
-## AnsiParser
+## MarkupParser
 
-Converts ANSI escape sequences to Cell arrays for rendering:
+Parses `[style]text[/]` markup directly into Cell arrays for rendering:
 
 ```csharp
-public static class AnsiParser
+public static class MarkupParser
 {
     /// <summary>
-    /// Parses an ANSI string into a sequence of cells with colors.
+    /// Parses markup into a sequence of cells with colors and decorations.
     /// </summary>
-    public static IEnumerable<Cell> Parse(string ansiString,
-                                           Color defaultFg, Color defaultBg);
+    public static List<Cell> Parse(string markup, Color defaultFg, Color defaultBg);
+
+    /// <summary>
+    /// Returns the visible character length of a markup string (strips all tags).
+    /// </summary>
+    public static int StripLength(string markup);
+
+    /// <summary>
+    /// Truncates a markup string to maxLength visible characters,
+    /// preserving and properly closing all tags.
+    /// </summary>
+    public static string Truncate(string markup, int maxLength);
 }
 ```
 
-Used when controls render Spectre.Console markup or other ANSI-formatted content.
+Used by all controls that display markup-formatted content. Located in `Parsing/MarkupParser.cs`.
 
 ---
 
@@ -512,7 +522,7 @@ The `CursorStateService` translates logical positions to screen coordinates usin
 | `VerticalStackLayout` | `Layout/VerticalStackLayout.cs` | Vertical stacking algorithm |
 | `HorizontalAlignment` | `Layout/ILayoutContainer.cs` | Left/Center/Right/Stretch |
 | `VerticalAlignment` | `Layout/ILayoutContainer.cs` | Top/Center/Bottom/Fill |
-| `AnsiParser` | `Helpers/AnsiParser.cs` | ANSI → Cell conversion |
+| `MarkupParser` | `Parsing/MarkupParser.cs` | Markup → Cell conversion |
 
 ---
 

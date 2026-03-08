@@ -116,8 +116,8 @@ public class MyPlugin : IPlugin
 Create custom themes for your plugin:
 
 ```csharp
+using SharpConsoleUI;
 using SharpConsoleUI.Themes;
-using Spectre.Console;
 
 public class MyTheme : ITheme
 {
@@ -610,9 +610,9 @@ Here's a complete example of a plugin that provides everything:
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI;
 using SharpConsoleUI.Plugins;
 using SharpConsoleUI.Themes;
-using Spectre.Console;
 
 // Custom theme
 public class CorporateTheme : ITheme

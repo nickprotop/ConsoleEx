@@ -1393,13 +1393,13 @@ Window content:   CharacterBuffer → SetCellsFromBuffer() → ConsoleBuffer
 Border lines:     CharacterBuffer → SetCellsFromBuffer() → ConsoleBuffer
 Vertical borders: SetCell(x, y, char, fg, bg)            → ConsoleBuffer
 Background fills: FillCells(x, y, width, char, fg, bg)   → ConsoleBuffer
-Status bars:      Spectre markup → AnsiParser → CharacterBuffer → SetCellsFromBuffer()
+Status bars:      Markup → MarkupParser → CharacterBuffer → SetCellsFromBuffer()
 ```
 
-**Where ANSI strings still exist (but never reach ConsoleBuffer):**
-- Controls use `ConvertSpectreMarkupToAnsi` → `AnsiParser.Parse` → cells → `CharacterBuffer`
-- Status bars use the same pattern: Spectre markup → ANSI → `AnsiParser` → `CharacterBuffer`
-- This is the **paint phase** inside controls — ANSI is an intermediate format between Spectre's rendering engine and the cell model. By the time data reaches ConsoleBuffer, it is always cells.
+**Markup parsing (never reaches ConsoleBuffer as strings):**
+- Controls use `MarkupParser.Parse` → cells → `CharacterBuffer`
+- Status bars use the same pattern: markup → `MarkupParser` → `CharacterBuffer`
+- This is the **paint phase** inside controls — markup is parsed directly into cells. By the time data reaches ConsoleBuffer, it is always cells.
 
 **ANSI color cache** exploits spatial locality:
 - Adjacent cells typically share the same foreground/background colors
@@ -1686,7 +1686,7 @@ var windowSystem = new ConsoleWindowSystem(RenderMode.Direct);
 | **ANSI Codes** | `Rendering/AnsiCodes.cs` | ANSI escape sequence generation |
 | **Color Helpers** | `Helpers/ColorResolver.cs` | Color resolution and inheritance |
 | **Layout Rect** | `Models/ImmutableModels.cs` | Immutable rectangle structure |
-| **Spectre Integration** | `Helpers/AnsiConsoleHelper.cs` | Spectre.Console markup parsing |
+| **Markup Parsing** | `Parsing/MarkupParser.cs` | Markup parsing and text measurement |
 
 ---
 
@@ -1849,12 +1849,12 @@ public class ClockControl : IWindowControl
 When calculating text widths for layout, strip ANSI codes:
 
 ```csharp
-using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Parsing;
 
 public int MeasureTextWidth(string markupText)
 {
-    // Strip Spectre.Console markup: "[red]Hello[/]" → "Hello"
-    int visualWidth = AnsiConsoleHelper.StripSpectreLength(markupText);
+    // Strip markup tags: "[red]Hello[/]" → "Hello"
+    int visualWidth = MarkupParser.StripLength(markupText);
     return visualWidth;
 }
 ```

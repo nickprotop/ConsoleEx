@@ -36,6 +36,9 @@ namespace SharpConsoleUI.Drivers
 		// Reusable StringBuilder for screen output
 		private readonly StringBuilder _screenBuilder = new(8192);
 
+		// Reusable StringBuilder for FormatCellAnsi to avoid allocations
+		private readonly StringBuilder _formatBuilder = new(64);
+
 		private readonly int _width;
 		private readonly object? _consoleLock; // Shared lock for thread-safe Console I/O
 		private readonly Configuration.ConsoleWindowSystemOptions _options;
@@ -86,19 +89,46 @@ namespace SharpConsoleUI.Drivers
 		private string _lastCellAnsi = string.Empty;
 		private Color _lastCellFg;
 		private Color _lastCellBg;
+		private TextDecoration _lastCellDecorations;
 
 		/// <summary>
-		/// Formats an ANSI escape sequence for the given foreground and background colors.
-		/// Caches the last result for consecutive cells with the same colors (common case).
+		/// Formats an ANSI escape sequence for the given foreground color, background color,
+		/// and text decorations. Caches the last result for consecutive cells with identical
+		/// attributes (common case).
 		/// </summary>
-		private string FormatCellAnsi(Color fg, Color bg)
+		private string FormatCellAnsi(Color fg, Color bg, TextDecoration decorations = TextDecoration.None)
 		{
-			if (fg.Equals(_lastCellFg) && bg.Equals(_lastCellBg))
+			if (fg.Equals(_lastCellFg) && bg.Equals(_lastCellBg) && decorations == _lastCellDecorations)
 				return _lastCellAnsi;
 
-			_lastCellAnsi = $"\x1b[38;2;{fg.R};{fg.G};{fg.B};48;2;{bg.R};{bg.G};{bg.B}m";
+			var sb = _formatBuilder;
+			sb.Clear();
+			// Always reset first so decorations from previous cells don't leak
+			sb.Append("\x1b[0;38;2;");
+			sb.Append(fg.R); sb.Append(';');
+			sb.Append(fg.G); sb.Append(';');
+			sb.Append(fg.B); sb.Append(";48;2;");
+			sb.Append(bg.R); sb.Append(';');
+			sb.Append(bg.G); sb.Append(';');
+			sb.Append(bg.B);
+
+			if (decorations != TextDecoration.None)
+			{
+				if ((decorations & TextDecoration.Bold) != 0) sb.Append(";1");
+				if ((decorations & TextDecoration.Dim) != 0) sb.Append(";2");
+				if ((decorations & TextDecoration.Italic) != 0) sb.Append(";3");
+				if ((decorations & TextDecoration.Underline) != 0) sb.Append(";4");
+				if ((decorations & TextDecoration.Blink) != 0) sb.Append(";5");
+				if ((decorations & TextDecoration.Invert) != 0) sb.Append(";7");
+				if ((decorations & TextDecoration.Strikethrough) != 0) sb.Append(";9");
+			}
+
+			sb.Append('m');
+
+			_lastCellAnsi = sb.ToString();
 			_lastCellFg = fg;
 			_lastCellBg = bg;
+			_lastCellDecorations = decorations;
 			return _lastCellAnsi;
 		}
 
@@ -185,7 +215,7 @@ namespace SharpConsoleUI.Drivers
 				if (sx >= 0 && sx < sourceWidth && srcY >= 0 && srcY < sourceHeight)
 				{
 					var srcCell = source.GetCell(sx, srcY);
-					string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background);
+					string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background, srcCell.Decorations);
 
 					if (destCell.Character != srcCell.Character || destCell.AnsiEscape != ansi)
 					{
