@@ -47,7 +47,6 @@ Controls for selecting items from lists or hierarchies.
 | **TreeControl** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
 | **DropdownControl** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
 | **MenuControl** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |
-| **CommandPaletteControl** | Searchable command palette | Fuzzy search, categorized actions, keyboard-driven |
 
 ## Display Controls
 

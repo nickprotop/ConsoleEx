@@ -17,7 +17,7 @@ internal class Program
             var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
             using var disposables = new DisposableManager();
 
-            windowSystem.StatusBarStateService.TopStatus = "SharpConsoleUI Demo | Ctrl+P: Command Palette | Ctrl+T: Theme Selector";
+            windowSystem.StatusBarStateService.TopStatus = "SharpConsoleUI Demo | Ctrl+T: Theme Selector";
 
             LauncherWindow.Create(windowSystem);
 

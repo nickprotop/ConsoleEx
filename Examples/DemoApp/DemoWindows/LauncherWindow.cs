@@ -13,7 +13,7 @@ public static class LauncherWindow
         "",
         "Select a demo from the tree to see its description.",
         "",
-        "[dim]Press Enter to launch, Ctrl+P for command palette.[/]"
+        "[dim]Press Enter to launch a demo.[/]"
     };
 
     public static Window Create(ConsoleWindowSystem ws)
@@ -62,15 +62,6 @@ public static class LauncherWindow
             .WithSize(90, 30)
             .Centered()
             .AddControl(grid)
-            .OnKeyPressed((sender, e) =>
-            {
-                if (e.KeyInfo.Key == ConsoleKey.P &&
-                    e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
-                {
-                    OpenCommandPalette(ws, (Window)sender!);
-                    e.Handled = true;
-                }
-            })
             .BuildAndShow();
     }
 
@@ -132,31 +123,6 @@ public static class LauncherWindow
             "Welcome Banner" => WelcomeWindow.Create(ws),
             _ => (Window?)null
         };
-    }
-
-    private static void OpenCommandPalette(ConsoleWindowSystem ws, Window window)
-    {
-        var palette = CommandPaletteControl.Create()
-            .AddItem("IDE Layout", () => { IdeLayoutWindow.Create(ws); }, category: "Layout & Windows")
-            .AddItem("File Explorer", () => { FileExplorerWindow.Create(ws); }, category: "Layout & Windows")
-            .AddItem("Multi-Tab Demo", () => { TabDemoWindow.Create(ws); }, category: "Layout & Windows")
-            .AddItem("Interactive Demo", () => { InteractiveWindow.Create(ws); }, category: "Controls")
-            .AddItem("Dropdown", () => { DropdownWindow.Create(ws); }, category: "Controls")
-            .AddItem("List View", () => { ListViewWindow.Create(ws); }, category: "Controls")
-            .AddItem("Table", () => { TableDemoWindow.Create(ws); }, category: "Controls")
-            .AddItem("Nerd Fonts", () => { NerdFontWindow.Create(ws); }, category: "Controls")
-            .AddItem("Markup Syntax", () => { MarkupSyntaxWindow.Create(ws); }, category: "Controls")
-            .AddItem("Graphs & Charts", () => { GraphsWindow.Create(ws); }, category: "Data Visualization")
-            .AddItem("Digital Clock", () => { ClockWindow.Create(ws); }, category: "Utilities")
-            .AddItem("Log Viewer", () => { LogViewerWindow.Create(ws); }, category: "Utilities")
-            .AddItem("System Info", () => { SystemInfoWindow.Create(ws); }, category: "Utilities")
-            .AddItem("Terminal", () => { TerminalWindow.Create(ws); }, category: "Utilities")
-            .AddItem("Welcome Banner", () => { WelcomeWindow.Create(ws); }, category: "Utilities")
-            .WithShowCategories()
-            .Build();
-
-        window.AddControl(palette);
-        palette.Show();
     }
 
     private static List<string>? GetDemoInfo(string demoName)

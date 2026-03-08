@@ -122,7 +122,6 @@ cd MyApp && dotnet run
 | **Input** | ButtonControl, CheckboxControl, PromptControl, DropdownControl, MultilineEditControl |
 | **Data** | ListControl, TreeControl, TableControl, HorizontalGridControl |
 | **Navigation** | MenuControl, ToolbarControl, TabControl |
-| **Selection** | CommandPaletteControl |
 | **Layout** | ColumnContainer, SplitterControl, ScrollablePanelControl, PanelControl |
 | **Drawing** | CanvasControl |
 | **Advanced** | SpectreRenderableControl (wraps any Spectre.Console `IRenderable`), ProgressBarControl, TerminalControl |
