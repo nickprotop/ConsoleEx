@@ -42,6 +42,7 @@ namespace SharpConsoleUI.Controls
 		private FigletSize _size = FigletSize.Default;
 		private FigletFont? _customFont;
 		private string? _fontPath;
+		private WrapMode _wrapMode = WrapMode.NoWrap;
 
 		// Cache the loaded font to avoid re-parsing on every render
 		private FigletFont? _cachedFont;
@@ -61,6 +62,10 @@ namespace SharpConsoleUI.Controls
 			get
 			{
 				if (string.IsNullOrEmpty(_text)) return Margin.Left + Margin.Right;
+
+				// When wrapping is enabled, the control fills available width
+				if (_wrapMode != WrapMode.NoWrap)
+					return null;
 
 				var font = GetFont();
 				var lines = FigletRenderer.Render(_text, font);
@@ -121,6 +126,15 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _fontPath;
 			set { PropertySetterHelper.SetProperty(ref _fontPath, value, Container); InvalidateFontCache(); }
+		}
+
+		/// <summary>
+		/// Gets or sets the wrap mode for FIGlet text when it exceeds available width.
+		/// </summary>
+		public WrapMode WrapMode
+		{
+			get => _wrapMode;
+			set { PropertySetterHelper.SetEnumProperty(ref _wrapMode, value, Container); }
 		}
 
 		/// <inheritdoc/>
@@ -293,7 +307,12 @@ namespace SharpConsoleUI.Controls
 
 			var font = GetFont();
 			int targetWidth = Width ?? constraints.MaxWidth - Margin.Left - Margin.Right;
-			var lines = FigletRenderer.Render(_text, font, targetWidth);
+
+			List<string> lines;
+			if (_wrapMode != WrapMode.NoWrap)
+				lines = FigletRenderer.RenderWrapped(_text, font, targetWidth, _wrapMode);
+			else
+				lines = FigletRenderer.Render(_text, font, targetWidth);
 
 			int maxWidth = 0;
 			foreach (var line in lines)
@@ -340,7 +359,11 @@ namespace SharpConsoleUI.Controls
 					_ => TextJustification.Left
 				};
 
-				var renderedLines = FigletRenderer.RenderJustified(_text, font, figletWidth, justification);
+				List<string> renderedLines;
+				if (_wrapMode != WrapMode.NoWrap)
+					renderedLines = FigletRenderer.RenderWrappedJustified(_text, font, figletWidth, _wrapMode, justification);
+				else
+					renderedLines = FigletRenderer.RenderJustified(_text, font, figletWidth, justification);
 
 				int figletHeight = renderedLines.Count;
 				int availableHeight = bounds.Height - Margin.Top - Margin.Bottom;

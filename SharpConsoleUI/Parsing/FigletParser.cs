@@ -99,6 +99,7 @@ namespace SharpConsoleUI.Parsing
 		private static string[]? ReadCharacterLines(StreamReader reader, int height, char hardBlank)
 		{
 			var lines = new string[height];
+			int maxWidth = 0;
 
 			for (int i = 0; i < height; i++)
 			{
@@ -116,6 +117,15 @@ namespace SharpConsoleUI.Parsing
 				cleaned = cleaned.Replace(hardBlank, ' ');
 
 				lines[i] = cleaned;
+				if (cleaned.Length > maxWidth)
+					maxWidth = cleaned.Length;
+			}
+
+			// Pad all lines to the same width so characters align when concatenated
+			for (int i = 0; i < height; i++)
+			{
+				if (lines[i].Length < maxWidth)
+					lines[i] = lines[i].PadRight(maxWidth);
 			}
 
 			return lines;
@@ -192,17 +202,252 @@ namespace SharpConsoleUI.Parsing
 				}
 			}
 
-			// Trim trailing spaces from each line and apply maxWidth
-			var result = new List<string>(height);
+			// Find the consistent width across all lines (before trimming)
+			// so that justification alignment works correctly
+			int consistentWidth = 0;
 			for (int i = 0; i < height; i++)
 			{
-				string line = outputLines[i].TrimEnd();
+				if (outputLines[i].Length > consistentWidth)
+					consistentWidth = outputLines[i].Length;
+			}
+
+			// Apply maxWidth constraint, then trim trailing spaces
+			// but pad shorter lines to the trimmed max width for alignment
+			if (maxWidth > 0 && consistentWidth > maxWidth)
+				consistentWidth = maxWidth;
+
+			var result = new List<string>(height);
+			int trimmedMax = 0;
+			for (int i = 0; i < height; i++)
+			{
+				string line = outputLines[i];
 				if (maxWidth > 0 && line.Length > maxWidth)
 					line = line[..maxWidth];
-				result.Add(line);
+				string trimmed = line.TrimEnd();
+				if (trimmed.Length > trimmedMax)
+					trimmedMax = trimmed.Length;
+				result.Add(trimmed);
+			}
+
+			// Pad all lines to the same trimmed max width for consistent alignment
+			for (int i = 0; i < result.Count; i++)
+			{
+				if (result[i].Length < trimmedMax)
+					result[i] = result[i].PadRight(trimmedMax);
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// Renders text with wrapping support. Each wrapped "row" consists of font.Height lines.
+		/// </summary>
+		/// <param name="text">The text to render.</param>
+		/// <param name="font">The FIGlet font to use.</param>
+		/// <param name="maxWidth">Maximum output width for wrapping.</param>
+		/// <param name="wrapMode">The wrapping mode to apply.</param>
+		/// <returns>A list of output lines (multiple rows of font.Height lines each).</returns>
+		public static List<string> RenderWrapped(string text, FigletFont font, int maxWidth, Controls.WrapMode wrapMode)
+		{
+			if (string.IsNullOrEmpty(text) || font.Height <= 0 || maxWidth <= 0)
+				return Render(text, font, maxWidth);
+
+			if (wrapMode == Controls.WrapMode.NoWrap)
+				return Render(text, font, maxWidth);
+
+			if (wrapMode == Controls.WrapMode.WrapWords)
+				return RenderWrapWords(text, font, maxWidth);
+
+			return RenderWrapChars(text, font, maxWidth);
+		}
+
+		/// <summary>
+		/// Renders text with wrapping and justification applied per row.
+		/// </summary>
+		public static List<string> RenderWrappedJustified(string text, FigletFont font, int maxWidth, Controls.WrapMode wrapMode, Layout.TextJustification justification)
+		{
+			if (wrapMode == Controls.WrapMode.NoWrap)
+				return RenderJustified(text, font, maxWidth, justification);
+
+			var lines = RenderWrapped(text, font, maxWidth, wrapMode);
+
+			if (justification == Layout.TextJustification.Left || maxWidth <= 0)
+				return lines;
+
+			for (int i = 0; i < lines.Count; i++)
+			{
+				int lineLen = lines[i].Length;
+				if (lineLen >= maxWidth) continue;
+
+				int padding = justification == Layout.TextJustification.Center
+					? (maxWidth - lineLen) / 2
+					: maxWidth - lineLen; // Right
+
+				if (padding > 0)
+					lines[i] = new string(' ', padding) + lines[i];
+			}
+
+			return lines;
+		}
+
+		private static List<string> RenderWrapChars(string text, FigletFont font, int maxWidth)
+		{
+			int height = font.Height;
+			var allLines = new List<string>();
+
+			// Current row accumulator (one string per font line)
+			var rowLines = new string[height];
+			for (int i = 0; i < height; i++) rowLines[i] = string.Empty;
+			int currentRowWidth = 0;
+
+			foreach (char c in text)
+			{
+				var charBitmap = font.GetCharacter(c);
+				int charWidth = 0;
+				for (int r = 0; r < height; r++)
+				{
+					string cl = r < charBitmap.Length ? charBitmap[r] : string.Empty;
+					if (cl.Length > charWidth) charWidth = cl.Length;
+				}
+
+				// If adding this char exceeds maxWidth, finalize current row
+				if (currentRowWidth > 0 && currentRowWidth + charWidth > maxWidth)
+				{
+					FinalizeRow(allLines, rowLines, height);
+					rowLines = new string[height];
+					for (int i = 0; i < height; i++) rowLines[i] = string.Empty;
+					currentRowWidth = 0;
+				}
+
+				// Append char to current row
+				for (int r = 0; r < height; r++)
+				{
+					string cl = r < charBitmap.Length ? charBitmap[r] : string.Empty;
+					rowLines[r] += cl;
+				}
+				currentRowWidth += charWidth;
+			}
+
+			// Finalize last row
+			if (currentRowWidth > 0)
+				FinalizeRow(allLines, rowLines, height);
+
+			return allLines;
+		}
+
+		private static List<string> RenderWrapWords(string text, FigletFont font, int maxWidth)
+		{
+			int height = font.Height;
+			var allLines = new List<string>();
+			var words = SplitIntoWords(text);
+
+			var rowLines = new string[height];
+			for (int i = 0; i < height; i++) rowLines[i] = string.Empty;
+			int currentRowWidth = 0;
+
+			foreach (var word in words)
+			{
+				// Measure word width
+				int wordWidth = MeasureTextWidth(word, font);
+
+				// If a single word exceeds maxWidth, char-wrap it
+				if (wordWidth > maxWidth)
+				{
+					// Flush current row first
+					if (currentRowWidth > 0)
+					{
+						FinalizeRow(allLines, rowLines, height);
+						rowLines = new string[height];
+						for (int i = 0; i < height; i++) rowLines[i] = string.Empty;
+						currentRowWidth = 0;
+					}
+
+					// Char-wrap this long word
+					var charWrapped = RenderWrapChars(word, font, maxWidth);
+					allLines.AddRange(charWrapped);
+					continue;
+				}
+
+				// If adding this word exceeds maxWidth, wrap
+				if (currentRowWidth > 0 && currentRowWidth + wordWidth > maxWidth)
+				{
+					FinalizeRow(allLines, rowLines, height);
+					rowLines = new string[height];
+					for (int i = 0; i < height; i++) rowLines[i] = string.Empty;
+					currentRowWidth = 0;
+				}
+
+				// Append word to current row
+				foreach (char c in word)
+				{
+					var charBitmap = font.GetCharacter(c);
+					for (int r = 0; r < height; r++)
+					{
+						string cl = r < charBitmap.Length ? charBitmap[r] : string.Empty;
+						rowLines[r] += cl;
+					}
+				}
+				currentRowWidth += wordWidth;
+			}
+
+			if (currentRowWidth > 0)
+				FinalizeRow(allLines, rowLines, height);
+
+			return allLines;
+		}
+
+		private static int MeasureTextWidth(string text, FigletFont font)
+		{
+			int width = 0;
+			foreach (char c in text)
+			{
+				var charBitmap = font.GetCharacter(c);
+				int charWidth = 0;
+				for (int r = 0; r < charBitmap.Length; r++)
+				{
+					if (charBitmap[r].Length > charWidth) charWidth = charBitmap[r].Length;
+				}
+				width += charWidth;
+			}
+			return width;
+		}
+
+		private static List<string> SplitIntoWords(string text)
+		{
+			// Split on spaces, keeping spaces attached to the following word
+			// so that spacing is preserved when words are placed on the same row
+			var words = new List<string>();
+			int i = 0;
+			while (i < text.Length)
+			{
+				// Skip leading spaces and attach them to the next word
+				int start = i;
+				while (i < text.Length && text[i] == ' ') i++;
+				while (i < text.Length && text[i] != ' ') i++;
+				if (i > start)
+					words.Add(text[start..i]);
+			}
+			return words;
+		}
+
+		private static void FinalizeRow(List<string> allLines, string[] rowLines, int height)
+		{
+			// Trim trailing spaces and normalize widths within the row
+			int trimmedMax = 0;
+			var trimmed = new string[height];
+			for (int i = 0; i < height; i++)
+			{
+				trimmed[i] = rowLines[i].TrimEnd();
+				if (trimmed[i].Length > trimmedMax)
+					trimmedMax = trimmed[i].Length;
+			}
+
+			for (int i = 0; i < height; i++)
+			{
+				if (trimmed[i].Length < trimmedMax)
+					trimmed[i] = trimmed[i].PadRight(trimmedMax);
+				allLines.Add(trimmed[i]);
+			}
 		}
 
 		/// <summary>

@@ -31,6 +31,7 @@ public sealed class FigleControlBuilder
 	private FigletSize _size = FigletSize.Default;
 	private FigletFont? _customFont;
 	private string? _fontPath;
+	private WrapMode _wrapMode = WrapMode.NoWrap;
 
 	/// <summary>
 	/// Sets the FIGlet text to render
@@ -251,6 +252,17 @@ public sealed class FigleControlBuilder
 	}
 
 	/// <summary>
+	/// Sets the wrap mode for FIGlet text when it exceeds available width.
+	/// </summary>
+	/// <param name="wrapMode">The wrap mode to apply.</param>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder WithWrapMode(WrapMode wrapMode)
+	{
+		_wrapMode = wrapMode;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the Figlet control
 	/// </summary>
 	/// <returns>The configured Figlet control</returns>
@@ -270,7 +282,8 @@ public sealed class FigleControlBuilder
 			RightPadded = _rightPadded,
 			Size = _size,
 			CustomFont = _customFont,
-			FontPath = _fontPath
+			FontPath = _fontPath,
+			WrapMode = _wrapMode
 		};
 
 		if (_color.HasValue)
