@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Collections.Specialized;
 using System.Drawing;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
@@ -82,6 +83,16 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private int _sortColumnIndex = -1;
 	private SortDirection _sortDirection = SortDirection.None;
 	private int[]? _sortIndexMap; // maps display index -> data index when sorted
+
+	// Filtering
+	internal bool _filteringEnabled = false;
+	internal FilterMode _filterMode = FilterMode.None;
+	internal string _filterBuffer = string.Empty;
+	internal int _filterCursorPosition = 0;
+	internal int[]? _filterIndexMap; // maps display index -> data index when filtered (may include sort)
+	internal int _unfilteredRowCount = 0;
+	internal CompoundFilterExpression? _activeFilter;
+	internal bool _fuzzyFilterEnabled = false;
 
 	// Editing
 	private bool _inlineEditingEnabled = false;
@@ -219,6 +230,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		get
 		{
+			if (_filterIndexMap != null) return _filterIndexMap.Length;
 			if (_dataSource != null) return _dataSource.RowCount;
 			lock (_tableLock) { return _rows.Count; }
 		}
@@ -328,12 +340,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		set
 		{
 			if (_dataSource != null)
-				_dataSource.DataChanged -= OnDataSourceChanged;
+				_dataSource.CollectionChanged -= OnDataSourceCollectionChanged;
 
 			_dataSource = value;
 
 			if (_dataSource != null)
-				_dataSource.DataChanged += OnDataSourceChanged;
+				_dataSource.CollectionChanged += OnDataSourceCollectionChanged;
 
 			InvalidateColumnWidths();
 			_measurementCache.InvalidateCache();
@@ -344,11 +356,15 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_sortColumnIndex = -1;
 			_sortDirection = SortDirection.None;
 			_sortIndexMap = null;
+			_filterIndexMap = null;
+			_filterMode = FilterMode.None;
+			_filterBuffer = string.Empty;
+			_activeFilter = null;
 			Container?.Invalidate(true);
 		}
 	}
 
-	private void OnDataSourceChanged(object? sender, EventArgs e)
+	private void OnDataSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
 	{
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
@@ -640,6 +656,10 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_horizontalScrollOffset = 0;
 		_selectedRowIndices.Clear();
 		_sortIndexMap = null;
+		_filterIndexMap = null;
+		_filterMode = FilterMode.None;
+		_filterBuffer = string.Empty;
+		_activeFilter = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		SelectedRowChanged?.Invoke(this, -1);
@@ -1021,16 +1041,26 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// </summary>
 	internal int MapDisplayToData(int displayIndex)
 	{
+		if (_filterIndexMap != null && displayIndex >= 0 && displayIndex < _filterIndexMap.Length)
+			return _filterIndexMap[displayIndex];
 		if (_sortIndexMap != null && displayIndex >= 0 && displayIndex < _sortIndexMap.Length)
 			return _sortIndexMap[displayIndex];
 		return displayIndex;
 	}
 
 	/// <summary>
-	/// Maps a data row index to the display row index, accounting for sorting.
+	/// Maps a data row index to the display row index, accounting for filtering and sorting.
 	/// </summary>
 	internal int MapDataToDisplay(int dataIndex)
 	{
+		if (_filterIndexMap != null)
+		{
+			for (int i = 0; i < _filterIndexMap.Length; i++)
+			{
+				if (_filterIndexMap[i] == dataIndex) return i;
+			}
+			return dataIndex;
+		}
 		if (_sortIndexMap == null) return dataIndex;
 		for (int i = 0; i < _sortIndexMap.Length; i++)
 		{
@@ -1161,7 +1191,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	protected override void OnDisposing()
 	{
 		if (_dataSource != null)
-			_dataSource.DataChanged -= OnDataSourceChanged;
+			_dataSource.CollectionChanged -= OnDataSourceCollectionChanged;
 
 		SelectedRowChanged = null;
 		SelectedRowItemChanged = null;

@@ -44,7 +44,7 @@ Controls for selecting items from lists or hierarchies.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **[ListControl](controls/ListControl.md)** | Scrollable list with selection | Single selection, item activation, keyboard navigation |
-| **[TableControl](controls/TableControl.md)** | Interactive data grid | Virtual data, sorting, inline editing, multi-select, cell navigation, scrollbars |
+| **[TableControl](controls/TableControl.md)** | Interactive data grid | Virtual data, sorting, filtering (AND/OR), inline editing, multi-select, cell navigation, scrollbars |
 | **TreeControl** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
 | **DropdownControl** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
 | **MenuControl** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |

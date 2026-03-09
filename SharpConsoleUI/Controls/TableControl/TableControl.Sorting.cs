@@ -94,10 +94,17 @@ public partial class TableControl
 		{
 			_sortColumnIndex = -1;
 			_sortIndexMap = null;
+			// If filter is active, recompute without sort
+			if (_filterIndexMap != null && _activeFilter != null)
+				RecomputeDisplayMap();
 		}
 		else
 		{
-			ApplySort();
+			// If filter is active, recompute combined map
+			if (_filterIndexMap != null && _activeFilter != null)
+				RecomputeDisplayMap();
+			else
+				ApplySort();
 		}
 
 		// Restore selection by tag
@@ -128,6 +135,9 @@ public partial class TableControl
 		_sortColumnIndex = -1;
 		_sortDirection = SortDirection.None;
 		_sortIndexMap = null;
+		// If filter is active, recompute without sort
+		if (_filterIndexMap != null && _activeFilter != null)
+			RecomputeDisplayMap();
 		Container?.Invalidate(true);
 	}
 

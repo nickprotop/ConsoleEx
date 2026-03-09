@@ -102,6 +102,10 @@ public partial class TableControl
 		if (ShouldShowHorizontalScrollbar())
 			usedHeight++;
 
+		// Reserve space for filter status bar (separator + status row)
+		if (_filteringEnabled && !_readOnly)
+			usedHeight += 2;
+
 		return Math.Max(1, totalHeight - usedHeight);
 	}
 
@@ -273,7 +277,7 @@ public partial class TableControl
 			int absX = startX + trackLeft + xOff;
 			if (xOff >= thumbX && xOff < thumbX + thumbWidth)
 			{
-				buffer.SetCell(absX, y, '\u2588', thumbColor, bgColor); // █ thumb
+				buffer.SetCell(absX, y, '\u25ac', thumbColor, bgColor); // ▬ thumb
 			}
 			else
 			{

@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Collections.Specialized;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls;
@@ -24,11 +25,24 @@ public enum SortDirection
 }
 
 /// <summary>
+/// Filter operator for column-specific filtering.
+/// </summary>
+public enum FilterOperator
+{
+	/// <summary>Contains substring match.</summary>
+	Contains,
+	/// <summary>Greater than numeric comparison.</summary>
+	GreaterThan,
+	/// <summary>Less than numeric comparison.</summary>
+	LessThan
+}
+
+/// <summary>
 /// Interface for virtual/lazy data binding to a TableControl.
 /// Enables large datasets (millions of rows) without memory overhead
 /// by querying only visible rows on demand.
 /// </summary>
-public interface ITableDataSource
+public interface ITableDataSource : INotifyCollectionChanged
 {
 	/// <summary>
 	/// Gets the total number of rows in the data source.
@@ -91,7 +105,17 @@ public interface ITableDataSource
 	void Sort(int columnIndex, SortDirection direction) { }
 
 	/// <summary>
-	/// Event fired when the data has changed and the control should re-render.
+	/// Gets whether the data source supports server-side filtering.
 	/// </summary>
-	event EventHandler? DataChanged;
+	bool CanFilter => false;
+
+	/// <summary>
+	/// Applies a filter to the data source.
+	/// </summary>
+	void ApplyFilter(string filterText, string? columnName, FilterOperator op) { }
+
+	/// <summary>
+	/// Clears any active filter on the data source.
+	/// </summary>
+	void ClearFilter() { }
 }

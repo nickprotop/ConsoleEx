@@ -39,6 +39,8 @@ public sealed class TableControlBuilder
 	private bool _sortingEnabled = false;
 	private bool _columnResizeEnabled = false;
 	private bool _inlineEditingEnabled = false;
+	private bool _filteringEnabled = false;
+	private bool _fuzzyFilterEnabled = false;
 	private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private ITableDataSource? _dataSource;
@@ -540,6 +542,27 @@ public sealed class TableControlBuilder
 	}
 
 	/// <summary>
+	/// Enables inline filtering with '/' key. Implies Interactive().
+	/// </summary>
+	public TableControlBuilder WithFiltering()
+	{
+		_filteringEnabled = true;
+		_readOnly = false;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables fuzzy (character-subsequence) filter matching. Implies WithFiltering().
+	/// </summary>
+	public TableControlBuilder WithFuzzyFilter()
+	{
+		_fuzzyFilterEnabled = true;
+		_filteringEnabled = true;
+		_readOnly = false;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the vertical scrollbar visibility.
 	/// </summary>
 	public TableControlBuilder WithVerticalScrollbar(ScrollbarVisibility visibility)
@@ -640,6 +663,8 @@ public sealed class TableControlBuilder
 			SortingEnabled = _sortingEnabled,
 			ColumnResizeEnabled = _columnResizeEnabled,
 			InlineEditingEnabled = _inlineEditingEnabled,
+			FilteringEnabled = _filteringEnabled,
+			FuzzyFilterEnabled = _fuzzyFilterEnabled,
 			VerticalScrollbarVisibility = _verticalScrollbarVisibility,
 			HorizontalScrollbarVisibility = _horizontalScrollbarVisibility,
 

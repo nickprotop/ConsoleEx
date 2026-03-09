@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -15,10 +16,11 @@ internal class ProductDataSource : ITableDataSource
 {
     private readonly List<ProductRecord> _records = new();
     private int[]? _sortIndexMap;
+    private int[]? _filterIndexMap;
     private int _sortColumn = -1;
     private SortDirection _sortDirection = SortDirection.None;
 
-    public event EventHandler? DataChanged;
+    public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
     private static readonly string[] Categories = { "Electronics", "Clothing", "Food", "Books", "Tools", "Sports", "Home", "Garden", "Auto", "Toys" };
     private static readonly string[] Statuses = { "[green]In Stock[/]", "[yellow]Low Stock[/]", "[red]Out of Stock[/]", "[cyan]On Order[/]" };
@@ -43,7 +45,7 @@ internal class ProductDataSource : ITableDataSource
         }
     }
 
-    public int RowCount => _records.Count;
+    public int RowCount => _filterIndexMap?.Length ?? _records.Count;
     public int ColumnCount => 8;
 
     private static readonly string[] Headers = { "ID", "Product Name", "Category", "Price", "Qty", "Status", "Warehouse", "Rating" };
@@ -69,9 +71,19 @@ internal class ProductDataSource : ITableDataSource
         _ => null
     };
 
+    private int MapToDataIndex(int rowIndex)
+    {
+        int idx = rowIndex;
+        if (_filterIndexMap != null)
+            idx = _filterIndexMap[idx];
+        if (_sortIndexMap != null && _filterIndexMap == null)
+            idx = _sortIndexMap[idx];
+        return idx;
+    }
+
     public string GetCellValue(int rowIndex, int columnIndex)
     {
-        int dataIndex = _sortIndexMap != null ? _sortIndexMap[rowIndex] : rowIndex;
+        int dataIndex = MapToDataIndex(rowIndex);
         var r = _records[dataIndex];
         return columnIndex switch
         {
@@ -89,7 +101,7 @@ internal class ProductDataSource : ITableDataSource
 
     public Color? GetRowForegroundColor(int rowIndex)
     {
-        int dataIndex = _sortIndexMap != null ? _sortIndexMap[rowIndex] : rowIndex;
+        int dataIndex = MapToDataIndex(rowIndex);
         var r = _records[dataIndex];
         if (r.Quantity == 0) return Color.Grey;
         return null;
@@ -107,10 +119,29 @@ internal class ProductDataSource : ITableDataSource
         if (direction == SortDirection.None)
         {
             _sortIndexMap = null;
+            // Re-apply filter if active
+            if (_filterIndexMap != null)
+                RecomputeFilterWithSort();
             return;
         }
 
-        var indices = Enumerable.Range(0, _records.Count).ToArray();
+        if (_filterIndexMap != null)
+        {
+            // Sort within filtered set
+            RecomputeFilterWithSort();
+        }
+        else
+        {
+            var indices = Enumerable.Range(0, _records.Count).ToArray();
+            SortIndicesArray(indices);
+            _sortIndexMap = indices;
+        }
+    }
+
+    private void SortIndicesArray(int[] indices)
+    {
+        int columnIndex = _sortColumn;
+        var direction = _sortDirection;
         Array.Sort(indices, (a, b) =>
         {
             int result = columnIndex switch
@@ -127,12 +158,26 @@ internal class ProductDataSource : ITableDataSource
             };
             return direction == SortDirection.Descending ? -result : result;
         });
-        _sortIndexMap = indices;
+    }
+
+    public bool CanFilter => false; // Let the control handle filtering internally
+
+    public void ApplyFilter(string filterText, string? columnName, FilterOperator op) { }
+
+    public void ClearFilter() { }
+
+    private void RecomputeFilterWithSort()
+    {
+        // _filterIndexMap contains data indices; re-sort them
+        if (_filterIndexMap != null && _sortDirection != SortDirection.None)
+        {
+            SortIndicesArray(_filterIndexMap);
+        }
     }
 
     public void UpdateRecord(int displayIndex, int columnIndex, string newValue)
     {
-        int dataIndex = _sortIndexMap != null ? _sortIndexMap[displayIndex] : displayIndex;
+        int dataIndex = MapToDataIndex(displayIndex);
         var r = _records[dataIndex];
         switch (columnIndex)
         {
@@ -142,7 +187,7 @@ internal class ProductDataSource : ITableDataSource
             case 4: if (int.TryParse(newValue, out int q)) r.Quantity = q; break;
             case 6: r.Warehouse = newValue; break;
         }
-        DataChanged?.Invoke(this, EventArgs.Empty);
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, newValue, newValue, displayIndex));
     }
 
     public void AddRecord()
@@ -163,20 +208,23 @@ internal class ProductDataSource : ITableDataSource
         // Re-apply sort if active
         if (_sortDirection != SortDirection.None)
             Sort(_sortColumn, _sortDirection);
-        DataChanged?.Invoke(this, EventArgs.Empty);
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     public void DeleteRecord(int displayIndex)
     {
-        if (displayIndex < 0 || displayIndex >= _records.Count) return;
-        int dataIndex = _sortIndexMap != null ? _sortIndexMap[displayIndex] : displayIndex;
+        if (displayIndex < 0 || displayIndex >= RowCount) return;
+        int dataIndex = MapToDataIndex(displayIndex);
         _records.RemoveAt(dataIndex);
         // Rebuild sort index map
         if (_sortDirection != SortDirection.None)
             Sort(_sortColumn, _sortDirection);
         else
+        {
             _sortIndexMap = null;
-        DataChanged?.Invoke(this, EventArgs.Empty);
+            _filterIndexMap = null;
+        }
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     private class ProductRecord
@@ -205,6 +253,7 @@ public static class DataGridWindow
             .Interactive()
             .WithCellNavigation()
             .WithSorting()
+            .WithFiltering()
             .WithColumnResize()
             .WithInlineEditing()
             .WithHeaderColors(Color.White, Color.DarkBlue)
@@ -237,6 +286,16 @@ public static class DataGridWindow
                 "  [yellow]Esc[/] Deselect cell (row mode)",
                 "  [yellow]Drag border[/] Resize column",
                 "",
+                "[dim]Filtering:[/]",
+                "  [yellow]/[/] Enter filter mode",
+                "  [yellow]text[/] Filter all columns",
+                "  [yellow]col:value[/] Filter specific column",
+                "  [yellow]col>value[/] Numeric comparison",
+                "  [yellow]a b[/] AND (space-separated)",
+                "  [yellow]a|b[/] OR (pipe-separated)",
+                "  [yellow]col:a|b[/] OR within column",
+                "  [yellow]Enter[/] Confirm, [yellow]Esc[/] Clear",
+                "",
                 "[dim]Scrolling:[/]",
                 "  [yellow]Mouse wheel[/] Vertical scroll",
                 "  [yellow]Shift+wheel[/] Horizontal scroll",
@@ -261,6 +320,7 @@ public static class DataGridWindow
             .AddRow("Column Sorting", "[green]\u2713 Click Header[/]")
             .AddRow("Inline Editing", "[green]\u2713 F2 to Edit[/]")
             .AddRow("Column Resize", "[green]\u2713 Drag Border[/]")
+            .AddRow("Inline Filter", "[green]\u2713 / to Filter[/]")
             .AddRow("Scrollbar Drag", "[green]\u2713 Smooth[/]")
             .AddRow("Markup Support", "[green]\u2713 Rich Text[/]")
             .AddRow("ReadOnly Mode", "[green]\u2713 Configurable[/]")
@@ -270,7 +330,7 @@ public static class DataGridWindow
             .Build();
 
         // Status bar
-        var statusBar = Controls.Markup("[dim]Esc: Close | \u2191\u2193: Navigate | Tab: Cell Nav | F2: Edit | Click Header: Sort | Drag Scrollbar[/]")
+        var statusBar = Controls.Markup("[dim]Esc: Close | \u2191\u2193: Navigate | Tab: Cell Nav | F2: Edit | /: Filter | Click Header: Sort[/]")
             .StickyBottom()
             .Build();
 
@@ -290,7 +350,7 @@ public static class DataGridWindow
             {
                 string name = dataSource.GetCellValue(rowIdx, 1);
                 string price = dataSource.GetCellValue(rowIdx, 3);
-                statusBar.SetContent(new List<string> { $"[dim]Row {rowIdx + 1}: {name} ({price}) | Esc: Close | F2: Edit | Click Header: Sort[/]" });
+                statusBar.SetContent(new List<string> { $"[dim]Row {rowIdx + 1}: {name} ({price}) | Esc: Close | F2: Edit | /: Filter[/]" });
             }
         };
 

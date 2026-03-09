@@ -34,6 +34,8 @@ By default, `ReadOnly = true` preserves backward-compatible static table renderi
 | `HeaderForegroundColor` | `Color?` | `Color.Default` | Header row text color |
 | `HasFocus` | `bool` | `false` | Whether table has keyboard focus |
 | `IsEditing` | `bool` | `false` | Whether a cell is currently being edited |
+| `FilteringEnabled` | `bool` | `false` | Enable inline filtering (press `/`) |
+| `FuzzyFilterEnabled` | `bool` | `false` | Enable fuzzy matching as fallback |
 | `AutoHighlightOnFocus` | `bool` | `true` | Auto-select first row on focus |
 
 ## Events
@@ -187,6 +189,17 @@ var grid = Controls.Table()
 | **Enter** | Commit edit |
 | **Escape** | Cancel edit |
 | **Left/Right** | Move cursor within edit buffer |
+| **Home/End** | Move cursor to start/end |
+| **Backspace/Delete** | Delete character |
+
+### Inline Filtering (when enabled)
+
+| Key | Action |
+|-----|--------|
+| **/** | Enter filter mode |
+| **Enter** | Confirm filter |
+| **Escape** | Cancel/clear filter |
+| **Left/Right** | Move cursor within filter |
 | **Home/End** | Move cursor to start/end |
 | **Backspace/Delete** | Delete character |
 
@@ -375,6 +388,71 @@ var window = new WindowBuilder(ws)
     .AddControls(table)
     .BuildAndShow();
 ```
+
+## Filtering
+
+When `FilteringEnabled = true`, press `/` to enter filter mode. Type a filter expression and press Enter to confirm, or Escape to cancel.
+
+### Filter Syntax
+
+| Syntax | Meaning | Example |
+|--------|---------|---------|
+| `text` | Match any column containing text | `apple` |
+| `col:value` | Match specific column | `category:fruit` |
+| `col>value` | Numeric greater than | `price>500` |
+| `col<value` | Numeric less than | `qty<10` |
+| `term1 term2` | AND — all terms must match | `fruit NYC` |
+| `a\|b` | OR — any alternative matches | `apple\|banana` |
+| `col:a\|b` | OR within a column | `category:fruit\|vegetable` |
+
+### Compound Expressions
+
+Space-separated terms are combined with AND (all must match). Pipe-separated alternatives within a term are combined with OR (any must match).
+
+```
+category:electronics price>500          → category contains "electronics" AND price > 500
+category:electronics|clothing           → category contains "electronics" OR "clothing"
+category:electronics|clothing price>500 → (electronics OR clothing) AND price > 500
+```
+
+When using `|` with a column prefix, subsequent alternatives without their own prefix inherit the column and operator from the first:
+- `category:fruit|vegetable` → both target "category" column
+- `category:fruit|warehouse:NYC` → first targets "category", second targets "warehouse"
+
+### Programmatic API
+
+```csharp
+// Simple text filter
+table.ApplyFilter("fruit");
+
+// Column-specific filter
+table.FilterByColumn(1, "fruit");
+
+// Compound expression
+table.ApplyFilter("category:fruit|vegetable price>1.00");
+
+// Clear filter
+table.ClearFilter();
+
+// Check filter state
+bool isFiltering = table.IsFiltering;
+string? filterText = table.ActiveFilterText;
+```
+
+### Builder Methods
+
+| Method | Description |
+|--------|-------------|
+| `.WithFiltering()` | Enable inline filtering (also sets Interactive) |
+| `.WithFuzzyFilter()` | Enable filtering with fuzzy fallback |
+
+### Events
+
+| Event | Description |
+|-------|-------------|
+| `FilterApplied` | Fired when filter is confirmed |
+| `FilterCleared` | Fired when filter is cleared |
+| `FilterTextChanged` | Fired during live typing |
 
 ## Sorting
 

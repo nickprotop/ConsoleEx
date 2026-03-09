@@ -859,4 +859,927 @@ public class TableControlTests
 	}
 
 	#endregion
+
+	#region Filter Expression Parsing Tests
+
+	[Fact]
+	public void ParseFilter_PlainText_AllColumnsContains()
+	{
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddColumn("Status");
+		table.FilteringEnabled = true;
+
+		var expr = table.ParseFilterExpression("product");
+
+		Assert.NotNull(expr);
+		Assert.Null(expr!.ColumnName);
+		Assert.Equal("product", expr.Value);
+		Assert.Equal(FilterOperator.Contains, expr.Operator);
+	}
+
+	[Fact]
+	public void ParseFilter_ColumnColon_TargetsColumn()
+	{
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddColumn("Status");
+		table.FilteringEnabled = true;
+
+		var expr = table.ParseFilterExpression("status:stock");
+
+		Assert.NotNull(expr);
+		Assert.Equal("status", expr!.ColumnName);
+		Assert.Equal("stock", expr.Value);
+		Assert.Equal(FilterOperator.Contains, expr.Operator);
+	}
+
+	[Fact]
+	public void ParseFilter_GreaterThan_NumericOp()
+	{
+		var table = new TableControl();
+		table.AddColumn("Price");
+		table.FilteringEnabled = true;
+
+		var expr = table.ParseFilterExpression("price>500");
+
+		Assert.NotNull(expr);
+		Assert.Equal("price", expr!.ColumnName);
+		Assert.Equal("500", expr.Value);
+		Assert.Equal(FilterOperator.GreaterThan, expr.Operator);
+	}
+
+	[Fact]
+	public void ParseFilter_LessThan_NumericOp()
+	{
+		var table = new TableControl();
+		table.AddColumn("Qty");
+		table.FilteringEnabled = true;
+
+		var expr = table.ParseFilterExpression("qty<10");
+
+		Assert.NotNull(expr);
+		Assert.Equal("qty", expr!.ColumnName);
+		Assert.Equal("10", expr.Value);
+		Assert.Equal(FilterOperator.LessThan, expr.Operator);
+	}
+
+	[Fact]
+	public void ParseFilter_EmptyString_ReturnsNull()
+	{
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.FilteringEnabled = true;
+
+		var expr = table.ParseFilterExpression("");
+
+		Assert.Null(expr);
+	}
+
+	[Fact]
+	public void ParseFilter_ColumnNameCaseInsensitive()
+	{
+		var table = new TableControl();
+		table.AddColumn("Status");
+		table.FilteringEnabled = true;
+
+		var expr = table.ParseFilterExpression("STATUS:stock");
+
+		Assert.NotNull(expr);
+		Assert.Equal("STATUS", expr!.ColumnName);
+		Assert.Equal("stock", expr.Value);
+	}
+
+	#endregion
+
+	#region Filtering (In-Memory Mode) Tests
+
+	private TableControl CreateFilterTestTable()
+	{
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddColumn("Category");
+		table.AddColumn("Price");
+		table.FilteringEnabled = true;
+		table.ReadOnly = false;
+
+		table.AddRow("Apple", "Fruit", "1.50");
+		table.AddRow("Banana", "Fruit", "0.75");
+		table.AddRow("Carrot", "Vegetable", "2.00");
+		table.AddRow("Donut", "Pastry", "3.50");
+		table.AddRow("Eggplant", "Vegetable", "4.00");
+		return table;
+	}
+
+	[Fact]
+	public void Filter_PlainText_MatchesAcrossAllColumns()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("Fruit");
+
+		Assert.Equal(2, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_ColumnSpecific_MatchesOnlyTargetColumn()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("category:Vegetable");
+
+		Assert.Equal(2, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_CaseInsensitive_Matches()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("APPLE");
+
+		Assert.Equal(1, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_NoMatches_RowCountZero()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("xyz_no_match");
+
+		Assert.Equal(0, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_ClearFilter_RestoresAllRows()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("Fruit");
+		Assert.Equal(2, table.RowCount);
+
+		table.ClearFilter();
+		Assert.Equal(5, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_RowCount_ReflectsFilteredCount()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("Vegetable");
+
+		Assert.Equal(2, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_MapDisplayToData_UsesFilterMap()
+	{
+		var table = CreateFilterTestTable();
+		// Carrot is at data index 2, Eggplant at data index 4
+		table.ApplyFilter("Vegetable");
+
+		Assert.Equal(2, table.MapDisplayToData(0)); // Carrot
+		Assert.Equal(4, table.MapDisplayToData(1)); // Eggplant
+	}
+
+	[Fact]
+	public void Filter_GreaterThan_NumericComparison()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("price>2.00");
+
+		// Donut 3.50, Eggplant 4.00
+		Assert.Equal(2, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_LessThan_NumericComparison()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("price<1.00");
+
+		// Banana 0.75
+		Assert.Equal(1, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_StripMarkup_MatchesPlainText()
+	{
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddColumn("Status");
+		table.FilteringEnabled = true;
+		table.ReadOnly = false;
+
+		table.AddRow("Widget", "[green]In Stock[/]");
+		table.AddRow("Gadget", "[red]Out of Stock[/]");
+
+		table.ApplyFilter("In Stock");
+
+		Assert.Equal(1, table.RowCount);
+	}
+
+	#endregion
+
+	#region Programmatic Filter API Tests
+
+	[Fact]
+	public void ApplyFilter_String_SetsConfirmedMode()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("Fruit");
+
+		Assert.Equal(FilterMode.Confirmed, table.CurrentFilterMode);
+	}
+
+	[Fact]
+	public void ApplyFilter_Expression_AppliesCorrectly()
+	{
+		var table = CreateFilterTestTable();
+		var expr = new FilterExpression
+		{
+			RawText = "Apple",
+			ColumnName = null,
+			Value = "Apple",
+			Operator = FilterOperator.Contains
+		};
+		table.ApplyFilter(expr);
+
+		Assert.Equal(1, table.RowCount);
+		Assert.Equal(FilterMode.Confirmed, table.CurrentFilterMode);
+	}
+
+	[Fact]
+	public void FilterByColumn_Index_FiltersCorrectColumn()
+	{
+		var table = CreateFilterTestTable();
+		table.FilterByColumn(1, "Fruit");
+
+		Assert.Equal(2, table.RowCount);
+	}
+
+	[Fact]
+	public void ClearFilter_Programmatic_RestoresRows()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("Fruit");
+		table.ClearFilter();
+
+		Assert.Equal(5, table.RowCount);
+		Assert.Equal(FilterMode.None, table.CurrentFilterMode);
+	}
+
+	[Fact]
+	public void ApplyFilter_WhileAlreadyFiltered_ReplacesFilter()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("Fruit");
+		Assert.Equal(2, table.RowCount);
+
+		table.ApplyFilter("Pastry");
+		Assert.Equal(1, table.RowCount);
+	}
+
+	[Fact]
+	public void ApplyFilter_PreservesSort()
+	{
+		var table = CreateFilterTestTable();
+		table.SortingEnabled = true;
+		// Make columns sortable
+		foreach (var col in table.Columns)
+			col.IsSortable = true;
+
+		// Sort by Name descending
+		table.SortByColumn(0); // Ascending
+		table.SortByColumn(0); // Descending
+
+		// Now filter
+		table.ApplyFilter("Fruit");
+		Assert.Equal(2, table.RowCount);
+
+		// Check order: Banana should come before Apple in descending name sort
+		int first = table.MapDisplayToData(0);
+		int second = table.MapDisplayToData(1);
+		Assert.Equal(1, first);  // Banana (data index 1)
+		Assert.Equal(0, second); // Apple (data index 0)
+	}
+
+	#endregion
+
+	#region Filter + Sort Composition Tests
+
+	[Fact]
+	public void Filter_ThenSort_RowOrderCorrect()
+	{
+		var table = CreateFilterTestTable();
+		table.SortingEnabled = true;
+		foreach (var col in table.Columns)
+			col.IsSortable = true;
+
+		// Filter first
+		table.ApplyFilter("Fruit");
+		Assert.Equal(2, table.RowCount);
+
+		// Then sort by Name descending
+		table.SortByColumn(0); // Ascending
+		table.SortByColumn(0); // Descending
+
+		int first = table.MapDisplayToData(0);
+		int second = table.MapDisplayToData(1);
+		Assert.Equal(1, first);  // Banana
+		Assert.Equal(0, second); // Apple
+	}
+
+	[Fact]
+	public void Sort_ThenFilter_RowOrderCorrect()
+	{
+		var table = CreateFilterTestTable();
+		table.SortingEnabled = true;
+		foreach (var col in table.Columns)
+			col.IsSortable = true;
+
+		// Sort first by Name descending
+		table.SortByColumn(0); // Ascending
+		table.SortByColumn(0); // Descending
+
+		// Then filter
+		table.ApplyFilter("Fruit");
+		Assert.Equal(2, table.RowCount);
+
+		int first = table.MapDisplayToData(0);
+		int second = table.MapDisplayToData(1);
+		Assert.Equal(1, first);  // Banana
+		Assert.Equal(0, second); // Apple
+	}
+
+	[Fact]
+	public void Filter_ClearSort_KeepsFilter()
+	{
+		var table = CreateFilterTestTable();
+		table.SortingEnabled = true;
+		foreach (var col in table.Columns)
+			col.IsSortable = true;
+
+		table.ApplyFilter("Fruit");
+		table.SortByColumn(0);
+		table.ClearSort();
+
+		Assert.Equal(2, table.RowCount); // Filter still active
+		Assert.True(table.IsFiltering);
+	}
+
+	[Fact]
+	public void Sort_ClearFilter_KeepsSort()
+	{
+		var table = CreateFilterTestTable();
+		table.SortingEnabled = true;
+		foreach (var col in table.Columns)
+			col.IsSortable = true;
+
+		table.SortByColumn(0); // Sort ascending
+		table.ApplyFilter("Fruit");
+		table.ClearFilter();
+
+		Assert.Equal(5, table.RowCount); // All rows
+		Assert.Equal(SortDirection.Ascending, table.CurrentSortDirection);
+	}
+
+	[Fact]
+	public void Filter_SortByColumn_RecomputesMap()
+	{
+		var table = CreateFilterTestTable();
+		table.SortingEnabled = true;
+		foreach (var col in table.Columns)
+			col.IsSortable = true;
+
+		table.ApplyFilter("Fruit");
+		int countBefore = table.RowCount;
+
+		table.SortByColumn(0);
+		Assert.Equal(countBefore, table.RowCount); // Same filtered count
+	}
+
+	#endregion
+
+	#region Filter + Selection Tests
+
+	[Fact]
+	public void Filter_ResetsSelectionToZero()
+	{
+		var table = CreateFilterTestTable();
+		table.SelectedRowIndex = 3;
+		table.ApplyFilter("Fruit");
+
+		Assert.Equal(0, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void Filter_ResetsScrollToZero()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("Fruit");
+
+		Assert.Equal(0, table.ScrollOffset);
+	}
+
+	[Fact]
+	public void Filter_MultiSelect_ClearsSelection()
+	{
+		var table = CreateFilterTestTable();
+		table.MultiSelectEnabled = true;
+		table.ApplyFilter("Fruit");
+
+		// Multi-select indices should be cleared on filter
+		Assert.Empty(table.GetSelectedRows());
+	}
+
+	#endregion
+
+	#region Keyboard Filter Input Tests
+
+	[Fact]
+	public void ProcessKey_Slash_EntersFilterMode()
+	{
+		var table = CreateFilterTestTable();
+		table.HasFocus = true;
+
+		var key = new ConsoleKeyInfo('/', ConsoleKey.Oem2, false, false, false);
+		bool handled = table.ProcessKey(key);
+
+		Assert.True(handled);
+		Assert.Equal(FilterMode.Typing, table.CurrentFilterMode);
+	}
+
+	[Fact]
+	public void ProcessKey_Slash_ReadOnly_Ignored()
+	{
+		var table = CreateFilterTestTable();
+		table.ReadOnly = true;
+		table.HasFocus = true;
+
+		var key = new ConsoleKeyInfo('/', ConsoleKey.Oem2, false, false, false);
+		bool handled = table.ProcessKey(key);
+
+		Assert.False(handled);
+		Assert.Equal(FilterMode.None, table.CurrentFilterMode);
+	}
+
+	[Fact]
+	public void ProcessKey_Slash_FilterDisabled_Ignored()
+	{
+		var table = CreateFilterTestTable();
+		table.FilteringEnabled = false;
+		table.HasFocus = true;
+
+		var key = new ConsoleKeyInfo('/', ConsoleKey.Oem2, false, false, false);
+		bool handled = table.ProcessKey(key);
+
+		Assert.False(handled);
+		Assert.Equal(FilterMode.None, table.CurrentFilterMode);
+	}
+
+	[Fact]
+	public void ProcessKey_FilterTyping_CharsAppendToBuffer()
+	{
+		var table = CreateFilterTestTable();
+		table.HasFocus = true;
+		table.EnterFilterMode();
+
+		table.ProcessFilterKey(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('b', ConsoleKey.B, false, false, false));
+
+		Assert.Equal("ab", table._filterBuffer);
+	}
+
+	[Fact]
+	public void ProcessKey_FilterTyping_Backspace_RemovesChar()
+	{
+		var table = CreateFilterTestTable();
+		table.HasFocus = true;
+		table.EnterFilterMode();
+
+		table.ProcessFilterKey(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('b', ConsoleKey.B, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false));
+
+		Assert.Equal("a", table._filterBuffer);
+	}
+
+	[Fact]
+	public void ProcessKey_FilterTyping_Enter_ConfirmsFilter()
+	{
+		var table = CreateFilterTestTable();
+		table.HasFocus = true;
+		table.EnterFilterMode();
+
+		table.ProcessFilterKey(new ConsoleKeyInfo('F', ConsoleKey.F, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('r', ConsoleKey.R, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('u', ConsoleKey.U, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('i', ConsoleKey.I, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('t', ConsoleKey.T, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
+
+		Assert.Equal(FilterMode.Confirmed, table.CurrentFilterMode);
+	}
+
+	[Fact]
+	public void ProcessKey_FilterTyping_Escape_CancelsFilter()
+	{
+		var table = CreateFilterTestTable();
+		table.HasFocus = true;
+		table.EnterFilterMode();
+
+		table.ProcessFilterKey(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
+
+		Assert.Equal(FilterMode.None, table.CurrentFilterMode);
+		Assert.Equal(5, table.RowCount); // All rows restored
+	}
+
+	[Fact]
+	public void ProcessKey_FilterConfirmed_Escape_ClearsFilter()
+	{
+		var table = CreateFilterTestTable();
+		table.HasFocus = true;
+		table.ApplyFilter("Fruit");
+		Assert.Equal(FilterMode.Confirmed, table.CurrentFilterMode);
+
+		var key = new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false);
+		table.ProcessKey(key);
+
+		Assert.Equal(FilterMode.None, table.CurrentFilterMode);
+		Assert.Equal(5, table.RowCount);
+	}
+
+	[Fact]
+	public void ProcessKey_FilterConfirmed_Navigation_Works()
+	{
+		var table = CreateFilterTestTable();
+		table.HasFocus = true;
+		table.ApplyFilter("Fruit");
+
+		// Arrow down should work
+		var key = new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false);
+		bool handled = table.ProcessKey(key);
+
+		Assert.True(handled);
+		Assert.Equal(1, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void ProcessKey_FilterTyping_LiveUpdate()
+	{
+		var table = CreateFilterTestTable();
+		table.HasFocus = true;
+		table.EnterFilterMode();
+
+		// Type "Fruit" one char at a time
+		table.ProcessFilterKey(new ConsoleKeyInfo('F', ConsoleKey.F, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('r', ConsoleKey.R, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('u', ConsoleKey.U, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('i', ConsoleKey.I, false, false, false));
+		table.ProcessFilterKey(new ConsoleKeyInfo('t', ConsoleKey.T, false, false, false));
+
+		// Live filter should show 2 rows
+		Assert.Equal(2, table.RowCount);
+	}
+
+	#endregion
+
+	#region ITableDataSource Filter + INotifyCollectionChanged Tests
+
+	private class TestDataSource : ITableDataSource
+	{
+		private readonly string[,] _data;
+		private readonly string[] _headers;
+
+		public event System.Collections.Specialized.NotifyCollectionChangedEventHandler? CollectionChanged;
+
+		public TestDataSource(string[] headers, string[,] data)
+		{
+			_headers = headers;
+			_data = data;
+		}
+
+		public int RowCount => _data.GetLength(0);
+		public int ColumnCount => _headers.Length;
+		public string GetColumnHeader(int columnIndex) => _headers[columnIndex];
+		public string GetCellValue(int rowIndex, int columnIndex) => _data[rowIndex, columnIndex];
+		public bool CanFilter => false;
+
+		public void FireReset()
+		{
+			CollectionChanged?.Invoke(this,
+				new System.Collections.Specialized.NotifyCollectionChangedEventArgs(
+					System.Collections.Specialized.NotifyCollectionChangedAction.Reset));
+		}
+
+		public void FireAdd()
+		{
+			CollectionChanged?.Invoke(this,
+				new System.Collections.Specialized.NotifyCollectionChangedEventArgs(
+					System.Collections.Specialized.NotifyCollectionChangedAction.Reset));
+		}
+	}
+
+	[Fact]
+	public void DataSource_CanFilter_DefaultFalse()
+	{
+		var ds = new TestDataSource(new[] { "A" }, new string[,] { { "1" } });
+		Assert.False(ds.CanFilter);
+	}
+
+	[Fact]
+	public void DataSource_ApplyFilter_FallbackToInternal()
+	{
+		var ds = new TestDataSource(
+			new[] { "Name", "Type" },
+			new string[,] { { "Apple", "Fruit" }, { "Carrot", "Vegetable" }, { "Banana", "Fruit" } });
+
+		var table = new TableControl();
+		table.FilteringEnabled = true;
+		table.ReadOnly = false;
+		table.DataSource = ds;
+
+		// Since CanFilter=false, table builds its own filter map
+		table.ApplyFilter("Fruit");
+
+		Assert.Equal(2, table.RowCount);
+	}
+
+	[Fact]
+	public void DataSource_ClearFilter_RestoresRows()
+	{
+		var ds = new TestDataSource(
+			new[] { "Name", "Type" },
+			new string[,] { { "Apple", "Fruit" }, { "Carrot", "Vegetable" }, { "Banana", "Fruit" } });
+
+		var table = new TableControl();
+		table.FilteringEnabled = true;
+		table.ReadOnly = false;
+		table.DataSource = ds;
+
+		table.ApplyFilter("Fruit");
+		Assert.Equal(2, table.RowCount);
+
+		table.ClearFilter();
+		Assert.Equal(3, table.RowCount);
+	}
+
+	[Fact]
+	public void DataSource_Filter_RowCountReflectsFiltered()
+	{
+		var ds = new TestDataSource(
+			new[] { "Name" },
+			new string[,] { { "Aa" }, { "Bb" }, { "Cc" }, { "Aa2" } });
+
+		var table = new TableControl();
+		table.FilteringEnabled = true;
+		table.ReadOnly = false;
+		table.DataSource = ds;
+
+		table.ApplyFilter("Aa");
+
+		Assert.Equal(2, table.RowCount);
+	}
+
+	#endregion
+
+	#region Builder Filter Tests
+
+	[Fact]
+	public void Builder_WithFiltering_SetsEnabled()
+	{
+		var table = TableControl.Create()
+			.AddColumn("Name")
+			.WithFiltering()
+			.Build();
+
+		Assert.True(table.FilteringEnabled);
+	}
+
+	[Fact]
+	public void Builder_WithFiltering_SetsInteractive()
+	{
+		var table = TableControl.Create()
+			.AddColumn("Name")
+			.WithFiltering()
+			.Build();
+
+		Assert.False(table.ReadOnly);
+	}
+
+	[Fact]
+	public void Builder_WithFuzzyFilter_SetsEnabled()
+	{
+		var table = TableControl.Create()
+			.AddColumn("Name")
+			.WithFuzzyFilter()
+			.Build();
+
+		Assert.True(table.FilteringEnabled);
+		Assert.True(table.FuzzyFilterEnabled);
+	}
+
+	#endregion
+
+	#region Compound Filter Expression Parsing Tests
+
+	[Fact]
+	public void ParseCompound_SingleTerm_OneTerm()
+	{
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.FilteringEnabled = true;
+
+		var compound = table.ParseCompoundFilterExpression("product");
+
+		Assert.NotNull(compound);
+		Assert.Single(compound!.Terms);
+		Assert.Single(compound.Terms[0].Alternatives);
+		Assert.Null(compound.Terms[0].Alternatives[0].ColumnName);
+		Assert.Equal("product", compound.Terms[0].Alternatives[0].Value);
+	}
+
+	[Fact]
+	public void ParseCompound_SpaceSeparated_MultipleTermsAND()
+	{
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddColumn("Category");
+		table.FilteringEnabled = true;
+
+		var compound = table.ParseCompoundFilterExpression("electronics NYC");
+
+		Assert.NotNull(compound);
+		Assert.Equal(2, compound!.Terms.Count);
+		Assert.Equal("electronics", compound.Terms[0].Alternatives[0].Value);
+		Assert.Equal("NYC", compound.Terms[1].Alternatives[0].Value);
+	}
+
+	[Fact]
+	public void ParseCompound_PipeSeparated_OneTermOR()
+	{
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.FilteringEnabled = true;
+
+		var compound = table.ParseCompoundFilterExpression("electronics|clothing");
+
+		Assert.NotNull(compound);
+		Assert.Single(compound!.Terms);
+		Assert.Equal(2, compound.Terms[0].Alternatives.Count);
+		Assert.Equal("electronics", compound.Terms[0].Alternatives[0].Value);
+		Assert.Equal("clothing", compound.Terms[0].Alternatives[1].Value);
+	}
+
+	[Fact]
+	public void ParseCompound_ColumnPrefixedOR()
+	{
+		var table = new TableControl();
+		table.AddColumn("Category");
+		table.FilteringEnabled = true;
+
+		var compound = table.ParseCompoundFilterExpression("category:electronics|clothing");
+
+		Assert.NotNull(compound);
+		Assert.Single(compound!.Terms);
+		Assert.Equal(2, compound.Terms[0].Alternatives.Count);
+		Assert.Equal("category", compound.Terms[0].Alternatives[0].ColumnName);
+		Assert.Equal("electronics", compound.Terms[0].Alternatives[0].Value);
+		// Second alternative inherits column from first
+		Assert.Equal("category", compound.Terms[0].Alternatives[1].ColumnName);
+		Assert.Equal("clothing", compound.Terms[0].Alternatives[1].Value);
+	}
+
+	[Fact]
+	public void ParseCompound_MixedANDOR()
+	{
+		var table = new TableControl();
+		table.AddColumn("Category");
+		table.AddColumn("Price");
+		table.FilteringEnabled = true;
+
+		var compound = table.ParseCompoundFilterExpression("category:electronics|clothing price>500");
+
+		Assert.NotNull(compound);
+		Assert.Equal(2, compound!.Terms.Count);
+		// First term: 2 alternatives (OR)
+		Assert.Equal(2, compound.Terms[0].Alternatives.Count);
+		Assert.Equal("category", compound.Terms[0].Alternatives[0].ColumnName);
+		Assert.Equal("category", compound.Terms[0].Alternatives[1].ColumnName);
+		// Second term: 1 alternative
+		Assert.Single(compound.Terms[1].Alternatives);
+		Assert.Equal("price", compound.Terms[1].Alternatives[0].ColumnName);
+		Assert.Equal(FilterOperator.GreaterThan, compound.Terms[1].Alternatives[0].Operator);
+	}
+
+	[Fact]
+	public void ParseCompound_MultipleColumnFilters()
+	{
+		var table = new TableControl();
+		table.AddColumn("Category");
+		table.AddColumn("Warehouse");
+		table.FilteringEnabled = true;
+
+		var compound = table.ParseCompoundFilterExpression("category:electronics warehouse:NYC");
+
+		Assert.NotNull(compound);
+		Assert.Equal(2, compound!.Terms.Count);
+		Assert.Equal("category", compound.Terms[0].Alternatives[0].ColumnName);
+		Assert.Equal("electronics", compound.Terms[0].Alternatives[0].Value);
+		Assert.Equal("warehouse", compound.Terms[1].Alternatives[0].ColumnName);
+		Assert.Equal("NYC", compound.Terms[1].Alternatives[0].Value);
+	}
+
+	[Fact]
+	public void ParseCompound_ORWithDifferentColumns()
+	{
+		var table = new TableControl();
+		table.AddColumn("Category");
+		table.AddColumn("Warehouse");
+		table.FilteringEnabled = true;
+
+		var compound = table.ParseCompoundFilterExpression("category:electronics|warehouse:NYC");
+
+		Assert.NotNull(compound);
+		Assert.Single(compound!.Terms);
+		Assert.Equal(2, compound.Terms[0].Alternatives.Count);
+		Assert.Equal("category", compound.Terms[0].Alternatives[0].ColumnName);
+		Assert.Equal("warehouse", compound.Terms[0].Alternatives[1].ColumnName);
+	}
+
+	#endregion
+
+	#region Compound Filtering (In-Memory) Tests
+
+	[Fact]
+	public void Filter_AND_TwoPlainTerms()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("Apple Fruit");
+
+		// Only Apple row matches both terms
+		Assert.Equal(1, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_AND_TwoColumnTerms()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("category:Fruit name:Apple");
+
+		Assert.Equal(1, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_OR_TwoPlainTerms()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("Apple|Banana");
+
+		// Both Apple and Banana rows match
+		Assert.Equal(2, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_OR_ColumnPrefixed()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("category:Fruit|Vegetable");
+
+		// Apple, Banana (Fruit) + Carrot, Eggplant (Vegetable)
+		Assert.Equal(4, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_AND_OR_Combined()
+	{
+		var table = CreateFilterTestTable();
+		// (Fruit OR Vegetable) AND price > 1.00
+		table.ApplyFilter("category:Fruit|Vegetable price>1.00");
+
+		// Fruit: Apple 1.50 (match), Banana 0.75 (no)
+		// Vegetable: Carrot 2.00 (match), Eggplant 4.00 (match)
+		Assert.Equal(3, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_AND_NoOverlap_ZeroResults()
+	{
+		var table = CreateFilterTestTable();
+		// Nothing is both Fruit AND Vegetable in the Category column
+		table.ApplyFilter("category:Fruit category:Vegetable");
+
+		Assert.Equal(0, table.RowCount);
+	}
+
+	[Fact]
+	public void Filter_Compound_ClearRestoresAll()
+	{
+		var table = CreateFilterTestTable();
+		table.ApplyFilter("category:Fruit|Vegetable price>1.00");
+		Assert.Equal(3, table.RowCount);
+
+		table.ClearFilter();
+		Assert.Equal(5, table.RowCount);
+	}
+
+	#endregion
 }

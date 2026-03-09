@@ -92,6 +92,48 @@ public partial class TableControl
 	}
 
 	/// <summary>
+	/// Draws a merged horizontal line (no column separators) — used for status bar borders.
+	/// </summary>
+	private void DrawMergedHorizontalLine(CharacterBuffer buffer, int x, int y, int[] colWidths, LayoutRect clipRect,
+		BoxChars box, Color borderColor, Color bgColor, char left, char right, char fill, bool preserveBg)
+	{
+		if (y < clipRect.Y || y >= clipRect.Bottom) return;
+
+		// Total inner width: all columns + inner borders
+		int innerWidth = 0;
+		foreach (int w in colWidths) innerWidth += w;
+		innerWidth += colWidths.Length - 1; // inner column separators become fill chars
+
+		int writeX = x;
+
+		// Left border char
+		if (writeX >= clipRect.X && writeX < clipRect.Right)
+		{
+			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+			buffer.SetCell(writeX, y, left, borderColor, bg);
+		}
+		writeX++;
+
+		// Fill the entire inner width
+		for (int i = 0; i < innerWidth; i++)
+		{
+			if (writeX >= clipRect.X && writeX < clipRect.Right)
+			{
+				Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+				buffer.SetCell(writeX, y, fill, borderColor, bg);
+			}
+			writeX++;
+		}
+
+		// Right border char
+		if (writeX >= clipRect.X && writeX < clipRect.Right)
+		{
+			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+			buffer.SetCell(writeX, y, right, borderColor, bg);
+		}
+	}
+
+	/// <summary>
 	/// Draws a data row with vertical borders and aligned cell text.
 	/// </summary>
 	private void DrawDataRow(CharacterBuffer buffer, int x, int y, int[] colWidths, LayoutRect clipRect,
@@ -101,7 +143,8 @@ public partial class TableControl
 		bool isSelected = false, int selectedCellIndex = -1, Color? selectedCellBg = null, Color? selectedCellFg = null,
 		bool showCheckbox = false, bool isChecked = false,
 		int editCellIndex = -1, int editCursorPos = -1,
-		bool preserveBg = false)
+		bool preserveBg = false,
+		List<(int Column, int Start, int Length)>? filterMatches = null)
 	{
 		if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
@@ -215,16 +258,41 @@ public partial class TableControl
 					writeX++;
 				}
 
-				// Cell content
+				// Cell content - build match ranges for this column
+				HashSet<int>? highlightIndices = null;
+				if (filterMatches != null && !isSelected)
+				{
+					highlightIndices = new HashSet<int>();
+					foreach (var match in filterMatches)
+					{
+						if (match.Column == c)
+						{
+							for (int hi = match.Start; hi < match.Start + match.Length; hi++)
+								highlightIndices.Add(hi);
+						}
+					}
+					if (highlightIndices.Count == 0) highlightIndices = null;
+				}
+
+				int charIdx = 0;
 				foreach (var cell in cellCells)
 				{
 					if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 					{
 						// Override background for selected/hovered rows
 						Color bg = isSelected ? cellBg : cellPreserveBg ? buffer.GetCell(writeX, y).Background : cell.Background;
-						buffer.SetCell(writeX, y, cell.Character, isSelected ? cellFg : cell.Foreground, bg);
+						Color fg = isSelected ? cellFg : cell.Foreground;
+
+						// Apply filter match highlight
+						if (highlightIndices != null && highlightIndices.Contains(charIdx))
+						{
+							bg = Color.DarkYellow;
+						}
+
+						buffer.SetCell(writeX, y, cell.Character, fg, bg);
 					}
 					writeX++;
+					charIdx++;
 				}
 
 				// Right padding
@@ -366,6 +434,10 @@ public partial class TableControl
 			int visibleDataRows = Math.Min(rowCount, visibleRows);
 			if (visibleDataRows > 1) height += visibleDataRows - 1;
 		}
+
+		// Filter status bar
+		if (_filteringEnabled && !_readOnly)
+			height += 2; // separator + status row
 
 		if (hasBorder) height++; // bottom border
 
@@ -658,6 +730,11 @@ public partial class TableControl
 					rowCells.Add(_editBuffer);
 			}
 
+			// Compute filter match positions for highlighting
+			List<(int Column, int Start, int Length)>? filterMatches = null;
+			if (_filterMode == FilterMode.Confirmed && _activeFilter != null)
+				filterMatches = FindMatchPositions(dataR, _activeFilter);
+
 			FillSideMargins(currentY);
 			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
 				rowCells, colSnapshot, effectiveRowFg, effectiveRowBg, hasBorder,
@@ -665,7 +742,8 @@ public partial class TableControl
 				selectedCellIndex: selectedCell, selectedCellBg: cellHighlightBg, selectedCellFg: cellHighlightFg,
 				showCheckbox: _checkboxMode, isChecked: isChecked,
 				editCellIndex: editCellIndex, editCursorPos: editCursorPos,
-				preserveBg: preserveBg);
+				preserveBg: preserveBg,
+				filterMatches: filterMatches);
 
 			// Update row rendered position for hit testing (for in-memory rows)
 			if (_dataSource == null && rowSnapshot != null && dataR < rowSnapshot.Count)
@@ -677,9 +755,43 @@ public partial class TableControl
 			currentY++;
 		}
 
-		// Bottom border
-		if (hasBorder && currentY < maxY)
+		// Filter status bar (separator + status row + bottom border as one merged section)
+		if (_filteringEnabled && !_readOnly && hasBorder)
 		{
+			// Separator: ├────────────────────────────┤ (no column crosses)
+			if (currentY < maxY)
+			{
+				FillSideMargins(currentY);
+				DrawMergedHorizontalLine(buffer, startX, currentY, colWidths, clipRect,
+					box, borderColor, bgColor, box.LeftTee, box.RightTee, box.Horizontal, preserveBg);
+				currentY++;
+			}
+
+			// Status bar content row
+			if (currentY < maxY)
+			{
+				int statusWidth = 0;
+				foreach (int w in colWidths) statusWidth += w;
+				statusWidth += colWidths.Length + 1; // border overhead
+
+				FillSideMargins(currentY);
+				DrawFilterStatusBar(buffer, startX, currentY, statusWidth, clipRect,
+					fgColor, bgColor, box, borderColor, hasBorder, preserveBg);
+				currentY++;
+			}
+
+			// Bottom border: ╰────────────────────────────╯ (no column tees)
+			if (currentY < maxY)
+			{
+				FillSideMargins(currentY);
+				DrawMergedHorizontalLine(buffer, startX, currentY, colWidths, clipRect,
+					box, borderColor, bgColor, box.BottomLeft, box.BottomRight, box.Horizontal, preserveBg);
+				currentY++;
+			}
+		}
+		else if (hasBorder && currentY < maxY)
+		{
+			// Standard bottom border with column tees
 			FillSideMargins(currentY);
 			DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
 				box.BottomLeft, box.BottomTee, box.BottomRight, box.Horizontal, preserveBg: preserveBg);

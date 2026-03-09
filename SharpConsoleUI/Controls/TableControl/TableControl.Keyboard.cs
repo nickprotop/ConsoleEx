@@ -16,6 +16,10 @@ public partial class TableControl
 		if (!_isEnabled || !_hasFocus)
 			return false;
 
+		// Handle filter typing mode
+		if (_filterMode == FilterMode.Typing)
+			return ProcessFilterKey(key);
+
 		// Handle editing mode (only available when not read-only)
 		if (_isEditing)
 			return ProcessEditKey(key);
@@ -139,6 +143,12 @@ public partial class TableControl
 				return false;
 
 			case ConsoleKey.Escape:
+				// Escape clears confirmed filter
+				if (_filterMode == FilterMode.Confirmed)
+				{
+					ClearFilter();
+					return true;
+				}
 				// Escape deselects cell (back to row mode) when cell is selected
 				if (_cellNavigationEnabled && _selectedColumnIndex >= 0)
 				{
@@ -201,6 +211,12 @@ public partial class TableControl
 				return true;
 
 			default:
+				// '/' enters filter mode
+				if (_filteringEnabled && !_readOnly && key.KeyChar == '/')
+				{
+					EnterFilterMode();
+					return true;
+				}
 				return false;
 		}
 	}
