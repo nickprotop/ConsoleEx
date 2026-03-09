@@ -40,6 +40,11 @@ public class TableRow
 	public bool IsEnabled { get; set; } = true;
 
 	/// <summary>
+	/// Gets or sets whether this row is checked (for multi-select checkbox mode).
+	/// </summary>
+	public bool IsChecked { get; set; }
+
+	/// <summary>
 	/// Gets or sets the rendered Y position (cached for mouse hit testing).
 	/// </summary>
 	internal int RenderedY { get; set; }

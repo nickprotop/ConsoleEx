@@ -81,6 +81,7 @@ public static class LauncherWindow
         controls.AddChild("Dropdown");
         controls.AddChild("List View");
         controls.AddChild("Table");
+        controls.AddChild("DataGrid");
         controls.AddChild("Nerd Fonts");
         controls.AddChild("Markup Syntax");
 
@@ -122,6 +123,7 @@ public static class LauncherWindow
             "Dropdown" => DropdownWindow.Create(ws),
             "List View" => ListViewWindow.Create(ws),
             "Table" => TableDemoWindow.Create(ws),
+            "DataGrid" => DataGridWindow.Create(ws),
             "Nerd Fonts" => NerdFontWindow.Create(ws),
             "Markup Syntax" => MarkupSyntaxWindow.Create(ws),
             "Graphs & Charts" => GraphsWindow.Create(ws),
@@ -229,6 +231,23 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - TableControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "DataGrid" => new List<string>
+            {
+                "[bold cyan]Interactive DataGrid[/]",
+                "",
+                "Full-featured DataGrid with 10,000 virtual rows,",
+                "ITableDataSource, sorting, inline editing,",
+                "cell navigation, column resize, and scrollbar drag.",
+                "",
+                "[dim]Features:[/]",
+                "  - Virtual rendering (only visible rows)",
+                "  - Click header to sort, F2 to edit",
+                "  - Tab/arrows for cell navigation",
+                "  - Drag column borders to resize",
+                "  - Smooth scrollbar dragging",
                 "",
                 "[green][[Enter]] Launch Demo[/]"
             },

@@ -1,0 +1,1192 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using System.Drawing;
+using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
+using SharpConsoleUI.Parsing;
+
+namespace SharpConsoleUI.Controls;
+
+/// <summary>
+/// A table control that renders tabular data directly to CharacterBuffer.
+/// Supports both read-only display and interactive mode with selection,
+/// keyboard navigation, scrolling, sorting, multi-selection, column resizing,
+/// inline editing, draggable scrollbars, and virtual data binding.
+/// </summary>
+public partial class TableControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+{
+	#region Fields
+
+	private Color? _backgroundColorValue = Color.Default;
+	private Color? _foregroundColorValue = Color.Default;
+	private int? _height;
+
+	// Table-specific fields
+	private List<TableColumn> _columns = new();
+	private List<TableRow> _rows = new();
+	internal readonly object _tableLock = new();
+	private BorderStyle _borderStyle = BorderStyle.Single;
+	private Color? _borderColorValue;
+	private Color? _headerBackgroundColorValue = Color.Default;
+	private Color? _headerForegroundColorValue = Color.Default;
+	private bool _showHeader = true;
+	private bool _showRowSeparators = false;
+	private bool _useSafeBorder = false;
+	private string? _title;
+	private TextJustification _titleAlignment = TextJustification.Center;
+
+	// ReadOnly mode (default true = backward compatible)
+	private bool _readOnly = true;
+	private bool _isEnabled = true;
+
+	// Focus
+	private bool _hasFocus = false;
+
+	// Selection
+	private int _selectedRowIndex = -1;
+	private int _selectedColumnIndex = -1;
+	private bool _cellNavigationEnabled = false;
+	private bool _multiSelectEnabled = false;
+	private bool _checkboxMode = false;
+	private HashSet<int> _selectedRowIndices = new();
+
+	// Hover
+	private int _hoveredRowIndex = -1;
+
+	// Scrolling
+	private int _scrollOffset = 0;
+	private int _horizontalScrollOffset = 0;
+	private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
+	private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
+
+	// Scrollbar dragging state
+	private bool _isVerticalScrollbarDragging = false;
+	private bool _isHorizontalScrollbarDragging = false;
+	private int _scrollbarDragStartY = 0;
+	private int _scrollbarDragStartX = 0;
+	private int _scrollbarDragStartOffset = 0;
+
+	// Sorting
+	private bool _sortingEnabled = false;
+	private int _sortColumnIndex = -1;
+	private SortDirection _sortDirection = SortDirection.None;
+	private int[]? _sortIndexMap; // maps display index -> data index when sorted
+
+	// Editing
+	private bool _inlineEditingEnabled = false;
+	private bool _isEditing = false;
+	private string _editBuffer = string.Empty;
+	private int _editCursorPosition = 0;
+
+	// Column resizing
+	private bool _columnResizeEnabled = false;
+	private bool _isResizingColumn = false;
+	private int _resizingColumnIndex = -1;
+	private int _resizeDragStartX = 0;
+	private int _resizeDragStartWidth = 0;
+
+	// Virtual data source
+	private ITableDataSource? _dataSource;
+
+	// Performance caches
+	private readonly TextMeasurementCache _measurementCache;
+	private int[]? _cachedColumnWidths;
+	private int _cachedColumnWidthsForWidth = -1;
+	private int _cachedColumnWidthsScrollOffset = -1;
+
+	// Rendered column geometry (always populated during PaintDOM for hit testing)
+	private int[] _renderedColumnX = Array.Empty<int>();
+	private int[] _renderedColumnWidths = Array.Empty<int>();
+
+	// Column width overrides (for resize in DataSource mode)
+	private readonly Dictionary<int, int> _columnWidthOverrides = new();
+
+	// Mouse support
+	private bool _wantsMouseEvents = true;
+
+	// Double-click detection
+	private readonly object _clickLock = new();
+	private DateTime _lastClickTime = DateTime.MinValue;
+	private int _lastClickRowIndex = -1;
+	private int _doubleClickThresholdMs = ControlDefaults.DefaultDoubleClickThresholdMs;
+
+	// Auto-highlight on focus
+	private bool _autoHighlightOnFocus = true;
+
+	#endregion
+
+	#region Constructors
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="TableControl"/> class.
+	/// </summary>
+	public TableControl()
+	{
+		_measurementCache = new TextMeasurementCache(MarkupParser.StripLength);
+	}
+
+	#endregion
+
+	#region Properties
+
+	/// <inheritdoc/>
+	public override int? ContentWidth => Width;
+
+	/// <summary>
+	/// Gets the content height.
+	/// </summary>
+	public int? ContentHeight => _height;
+
+	/// <inheritdoc/>
+	public Color? BackgroundColor
+	{
+		get => _backgroundColorValue;
+		set => PropertySetterHelper.SetColorProperty(ref _backgroundColorValue, value, Container);
+	}
+
+	/// <inheritdoc/>
+	public Color? ForegroundColor
+	{
+		get => _foregroundColorValue;
+		set => PropertySetterHelper.SetColorProperty(ref _foregroundColorValue, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets the explicit height.
+	/// </summary>
+	public int? Height
+	{
+		get => _height;
+		set => PropertySetterHelper.SetDimensionProperty(ref _height, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets whether the table is read-only.
+	/// When true (default), the table behaves as a static display with no selection or interaction.
+	/// When false, enables selection, keyboard navigation, scrolling, and other interactive features.
+	/// </summary>
+	public bool ReadOnly
+	{
+		get => _readOnly;
+		set
+		{
+			if (_readOnly != value)
+			{
+				_readOnly = value;
+				Container?.Invalidate(true);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Gets or sets whether this control is enabled and can receive input.
+	/// </summary>
+	public bool IsEnabled
+	{
+		get => _isEnabled;
+		set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
+	}
+
+	#endregion
+
+	#region Table Properties
+
+	/// <summary>
+	/// Gets the read-only list of columns.
+	/// </summary>
+	public IReadOnlyList<TableColumn> Columns { get { lock (_tableLock) { return _columns.ToList().AsReadOnly(); } } }
+
+	/// <summary>
+	/// Gets the read-only list of rows.
+	/// </summary>
+	public IReadOnlyList<TableRow> Rows { get { lock (_tableLock) { return _rows.ToList().AsReadOnly(); } } }
+
+	/// <summary>
+	/// Gets the number of rows in the table.
+	/// </summary>
+	public int RowCount
+	{
+		get
+		{
+			if (_dataSource != null) return _dataSource.RowCount;
+			lock (_tableLock) { return _rows.Count; }
+		}
+	}
+
+	/// <summary>
+	/// Gets the number of columns in the table.
+	/// </summary>
+	public int ColumnCount
+	{
+		get
+		{
+			if (_dataSource != null) return _dataSource.ColumnCount;
+			lock (_tableLock) { return _columns.Count; }
+		}
+	}
+
+	/// <summary>
+	/// Gets or sets the border style.
+	/// </summary>
+	public BorderStyle BorderStyle
+	{
+		get => _borderStyle;
+		set { PropertySetterHelper.SetProperty(ref _borderStyle, value, Container); InvalidateColumnWidths(); }
+	}
+
+	/// <summary>
+	/// Gets or sets the border color. Null falls back to theme.
+	/// </summary>
+	public Color? BorderColor
+	{
+		get => _borderColorValue;
+		set => PropertySetterHelper.SetColorProperty(ref _borderColorValue, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets the header background color. Null falls back to theme.
+	/// </summary>
+	public Color? HeaderBackgroundColor
+	{
+		get => _headerBackgroundColorValue;
+		set => PropertySetterHelper.SetColorProperty(ref _headerBackgroundColorValue, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets the header foreground color. Null falls back to theme.
+	/// </summary>
+	public Color? HeaderForegroundColor
+	{
+		get => _headerForegroundColorValue;
+		set => PropertySetterHelper.SetColorProperty(ref _headerForegroundColorValue, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets whether to show the header row.
+	/// </summary>
+	public bool ShowHeader
+	{
+		get => _showHeader;
+		set => PropertySetterHelper.SetBoolProperty(ref _showHeader, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets whether to show row separators.
+	/// </summary>
+	public bool ShowRowSeparators
+	{
+		get => _showRowSeparators;
+		set => PropertySetterHelper.SetBoolProperty(ref _showRowSeparators, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets whether to use safe border characters.
+	/// </summary>
+	public bool UseSafeBorder
+	{
+		get => _useSafeBorder;
+		set => PropertySetterHelper.SetBoolProperty(ref _useSafeBorder, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets the table title.
+	/// </summary>
+	public string? Title
+	{
+		get => _title;
+		set => PropertySetterHelper.SetProperty(ref _title, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets the title alignment.
+	/// </summary>
+	public TextJustification TitleAlignment
+	{
+		get => _titleAlignment;
+		set => PropertySetterHelper.SetEnumProperty(ref _titleAlignment, value, Container);
+	}
+
+	/// <summary>
+	/// Gets or sets the virtual data source. When set, the control ignores internal rows/columns
+	/// and queries only visible rows from the source on demand.
+	/// Mutually exclusive with in-memory rows.
+	/// </summary>
+	public ITableDataSource? DataSource
+	{
+		get => _dataSource;
+		set
+		{
+			if (_dataSource != null)
+				_dataSource.DataChanged -= OnDataSourceChanged;
+
+			_dataSource = value;
+
+			if (_dataSource != null)
+				_dataSource.DataChanged += OnDataSourceChanged;
+
+			InvalidateColumnWidths();
+			_measurementCache.InvalidateCache();
+			_selectedRowIndex = -1;
+			_selectedColumnIndex = -1;
+			_scrollOffset = 0;
+			_horizontalScrollOffset = 0;
+			_sortColumnIndex = -1;
+			_sortDirection = SortDirection.None;
+			_sortIndexMap = null;
+			Container?.Invalidate(true);
+		}
+	}
+
+	private void OnDataSourceChanged(object? sender, EventArgs e)
+	{
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	#endregion
+
+	#region IMouseAwareControl Properties
+
+	/// <inheritdoc/>
+	public bool WantsMouseEvents
+	{
+		get => _wantsMouseEvents;
+		set => PropertySetterHelper.SetBoolProperty(ref _wantsMouseEvents, value, Container);
+	}
+
+	/// <inheritdoc/>
+	public bool CanFocusWithMouse => _isEnabled;
+
+	#endregion
+
+	#region IMouseAwareControl Events
+
+	/// <inheritdoc/>
+	public event EventHandler<MouseEventArgs>? MouseClick;
+
+	/// <inheritdoc/>
+	public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+	/// <inheritdoc/>
+	public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+	/// <inheritdoc/>
+	public event EventHandler<MouseEventArgs>? MouseEnter;
+
+	/// <inheritdoc/>
+	public event EventHandler<MouseEventArgs>? MouseLeave;
+
+	/// <inheritdoc/>
+	public event EventHandler<MouseEventArgs>? MouseMove;
+
+	#endregion
+
+	#region IFocusableControl
+
+	/// <inheritdoc/>
+	public bool HasFocus
+	{
+		get => _hasFocus;
+		set
+		{
+			var hadFocus = _hasFocus;
+			_hasFocus = value;
+			Container?.Invalidate(true);
+
+			if (value && !hadFocus)
+				GotFocus?.Invoke(this, EventArgs.Empty);
+			else if (!value && hadFocus)
+			{
+				if (_hoveredRowIndex != -1)
+				{
+					_hoveredRowIndex = -1;
+				}
+				LostFocus?.Invoke(this, EventArgs.Empty);
+			}
+		}
+	}
+
+	/// <inheritdoc/>
+	public bool CanReceiveFocus => _isEnabled;
+
+	/// <inheritdoc/>
+	public event EventHandler? GotFocus;
+
+	/// <inheritdoc/>
+	public event EventHandler? LostFocus;
+
+	/// <inheritdoc/>
+	public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
+	{
+		var hadFocus = _hasFocus;
+		_hasFocus = focus;
+
+		if (focus && !hadFocus)
+		{
+			// Auto-select first row on focus gain if nothing is selected
+			if (_autoHighlightOnFocus && _selectedRowIndex == -1 && RowCount > 0)
+			{
+				SetSelectedRow(0);
+			}
+
+			GotFocus?.Invoke(this, EventArgs.Empty);
+		}
+		else if (!focus && hadFocus)
+		{
+			// Cancel editing on focus loss
+			if (_isEditing)
+				CancelEdit();
+
+			// Clear hover
+			if (_hoveredRowIndex != -1)
+				_hoveredRowIndex = -1;
+
+			LostFocus?.Invoke(this, EventArgs.Empty);
+		}
+
+		Container?.Invalidate(true);
+
+		if (hadFocus != focus)
+			this.NotifyParentWindowOfFocusChange(focus);
+	}
+
+	#endregion
+
+	#region Public Methods - Column Management
+
+	/// <summary>
+	/// Adds a column with the specified header.
+	/// </summary>
+	public void AddColumn(string header, TextJustification alignment = TextJustification.Left, int? width = null)
+	{
+		if (_dataSource != null)
+			throw new InvalidOperationException("Cannot add columns when DataSource is set.");
+		lock (_tableLock) { _columns.Add(new TableColumn(header, alignment, width)); }
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Adds a column to the table.
+	/// </summary>
+	public void AddColumn(TableColumn column)
+	{
+		if (_dataSource != null)
+			throw new InvalidOperationException("Cannot add columns when DataSource is set.");
+		lock (_tableLock) { _columns.Add(column); }
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Removes the column at the specified index.
+	/// </summary>
+	public void RemoveColumn(int index)
+	{
+		lock (_tableLock)
+		{
+			if (index >= 0 && index < _columns.Count)
+				_columns.RemoveAt(index);
+			else
+				return;
+		}
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Clears all columns.
+	/// </summary>
+	public void ClearColumns()
+	{
+		lock (_tableLock) { _columns.Clear(); }
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Sets the width of a column.
+	/// </summary>
+	public void SetColumnWidth(int index, int? width)
+	{
+		lock (_tableLock)
+		{
+			if (index >= 0 && index < _columns.Count)
+				_columns[index].Width = width;
+			else
+				return;
+		}
+		InvalidateColumnWidths();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Sets the alignment of a column.
+	/// </summary>
+	public void SetColumnAlignment(int index, TextJustification alignment)
+	{
+		lock (_tableLock)
+		{
+			if (index >= 0 && index < _columns.Count)
+				_columns[index].Alignment = alignment;
+			else
+				return;
+		}
+		Container?.Invalidate(true);
+	}
+
+	#endregion
+
+	#region Public Methods - Row Management
+
+	/// <summary>
+	/// Adds a row with the specified cells.
+	/// </summary>
+	public void AddRow(params string[] cells)
+	{
+		if (_dataSource != null)
+			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
+		lock (_tableLock) { _rows.Add(new TableRow(cells)); }
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Adds a row to the table.
+	/// </summary>
+	public void AddRow(TableRow row)
+	{
+		if (_dataSource != null)
+			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
+		lock (_tableLock) { _rows.Add(row); }
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Adds multiple rows to the table.
+	/// </summary>
+	public void AddRows(IEnumerable<TableRow> rows)
+	{
+		if (_dataSource != null)
+			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
+		lock (_tableLock) { _rows.AddRange(rows); }
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Removes the row at the specified index.
+	/// </summary>
+	public void RemoveRow(int index)
+	{
+		lock (_tableLock)
+		{
+			if (index >= 0 && index < _rows.Count)
+				_rows.RemoveAt(index);
+			else
+				return;
+		}
+
+		// Adjust selection
+		if (_selectedRowIndex >= 0)
+		{
+			int rowCount;
+			lock (_tableLock) { rowCount = _rows.Count; }
+			if (_selectedRowIndex == index)
+			{
+				_selectedRowIndex = rowCount > 0 ? Math.Min(_selectedRowIndex, rowCount - 1) : -1;
+				SelectedRowChanged?.Invoke(this, _selectedRowIndex);
+			}
+			else if (_selectedRowIndex > index)
+			{
+				_selectedRowIndex--;
+			}
+		}
+
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Clears all rows.
+	/// </summary>
+	public void ClearRows()
+	{
+		lock (_tableLock) { _rows.Clear(); }
+		_selectedRowIndex = -1;
+		_selectedColumnIndex = -1;
+		_scrollOffset = 0;
+		_horizontalScrollOffset = 0;
+		_selectedRowIndices.Clear();
+		_sortIndexMap = null;
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		SelectedRowChanged?.Invoke(this, -1);
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Updates a cell value.
+	/// </summary>
+	public void UpdateCell(int row, int column, string value)
+	{
+		lock (_tableLock)
+		{
+			if (row >= 0 && row < _rows.Count && column >= 0 && column < _rows[row].Cells.Count)
+				_rows[row].Cells[column] = value;
+			else
+				return;
+		}
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCachedEntry(value);
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Gets a cell value.
+	/// </summary>
+	public string GetCell(int row, int column)
+	{
+		if (_dataSource != null)
+			return _dataSource.GetCellValue(row, column);
+
+		lock (_tableLock)
+		{
+			if (row >= 0 && row < _rows.Count && column >= 0 && column < _rows[row].Cells.Count)
+				return _rows[row].Cells[column];
+			return string.Empty;
+		}
+	}
+
+	/// <summary>
+	/// Gets a row.
+	/// </summary>
+	public TableRow GetRow(int index)
+	{
+		lock (_tableLock)
+		{
+			if (index >= 0 && index < _rows.Count)
+				return _rows[index];
+			throw new ArgumentOutOfRangeException(nameof(index));
+		}
+	}
+
+	/// <summary>
+	/// Sets all rows at once.
+	/// </summary>
+	public void SetData(IEnumerable<TableRow> rows)
+	{
+		lock (_tableLock) { _rows = new List<TableRow>(rows); }
+		_sortIndexMap = null;
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	#endregion
+
+	#region Color Resolution Methods
+
+	/// <summary>
+	/// Three-state resolution: null = inherit from container,
+	/// Color.Default = use theme, explicit color = use as-is.
+	/// </summary>
+	internal Color ResolveBackgroundColor(Color defaultBg)
+	{
+		if (_backgroundColorValue == null)
+			return Container?.BackgroundColor ?? defaultBg;
+		if (_backgroundColorValue.Value == Color.Default)
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.TableBackgroundColor
+				?? Container?.BackgroundColor
+				?? defaultBg;
+		}
+		return _backgroundColorValue.Value;
+	}
+
+	internal Color ResolveForegroundColor(Color defaultFg)
+	{
+		if (_foregroundColorValue == null)
+			return Container?.ForegroundColor ?? defaultFg;
+		if (_foregroundColorValue.Value == Color.Default)
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.TableForegroundColor
+				?? Container?.ForegroundColor
+				?? defaultFg;
+		}
+		return _foregroundColorValue.Value;
+	}
+
+	internal Color ResolveHeaderBackgroundColor()
+	{
+		if (_headerBackgroundColorValue == null)
+			return Container?.BackgroundColor ?? Color.Black;
+		if (_headerBackgroundColorValue.Value == Color.Default)
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.TableHeaderBackgroundColor
+				?? theme?.TableBackgroundColor
+				?? Container?.BackgroundColor
+				?? Color.Black;
+		}
+		return _headerBackgroundColorValue.Value;
+	}
+
+	internal Color ResolveHeaderForegroundColor()
+	{
+		if (_headerForegroundColorValue == null)
+			return Container?.ForegroundColor ?? Color.White;
+		if (_headerForegroundColorValue.Value == Color.Default)
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.TableHeaderForegroundColor
+				?? theme?.TableForegroundColor
+				?? Container?.ForegroundColor
+				?? Color.White;
+		}
+		return _headerForegroundColorValue.Value;
+	}
+
+	internal Color ResolveBorderColor()
+	{
+		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		return _borderColorValue
+			?? theme?.TableBorderColor
+			?? theme?.ActiveBorderForegroundColor
+			?? Color.White;
+	}
+
+	internal Color ResolveSelectionBackgroundColor()
+	{
+		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		return theme?.TableSelectionBackgroundColor ?? Color.Blue;
+	}
+
+	internal Color ResolveSelectionForegroundColor()
+	{
+		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		return theme?.TableSelectionForegroundColor ?? Color.White;
+	}
+
+	internal Color ResolveUnfocusedSelectionBackgroundColor()
+	{
+		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		return theme?.TableUnfocusedSelectionBackgroundColor ?? Color.Navy;
+	}
+
+	internal Color ResolveUnfocusedSelectionForegroundColor()
+	{
+		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		return theme?.TableUnfocusedSelectionForegroundColor ?? Color.Silver;
+	}
+
+	internal Color ResolveHoverBackgroundColor()
+	{
+		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		return theme?.TableHoverBackgroundColor ?? Color.Grey27;
+	}
+
+	internal Color ResolveHoverForegroundColor()
+	{
+		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		return theme?.TableHoverForegroundColor ?? Color.White;
+	}
+
+	internal Color ResolveScrollbarThumbColor()
+	{
+		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		return theme?.TableScrollbarThumbColor ?? (_hasFocus ? Color.Cyan1 : Color.Grey);
+	}
+
+	internal Color ResolveScrollbarTrackColor()
+	{
+		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		return theme?.TableScrollbarTrackColor ?? (_hasFocus ? Color.Grey : Color.Grey23);
+	}
+
+	#endregion
+
+	#region Column Width Calculation
+
+	private void InvalidateColumnWidths()
+	{
+		_cachedColumnWidths = null;
+		_cachedColumnWidthsForWidth = -1;
+		_cachedColumnWidthsScrollOffset = -1;
+		_measurementCache.InvalidateCache();
+	}
+
+	/// <summary>
+	/// Computes column widths for the given total available width.
+	/// Uses sample-based measurement for auto-width columns (visible rows + small buffer).
+	/// </summary>
+	internal int[] ComputeColumnWidths(int availableWidth, List<TableColumn> cols, List<TableRow>? rows, int scrollOffset = 0, int visibleRowCount = 50)
+	{
+		int colCount = cols.Count;
+		if (colCount == 0) return Array.Empty<int>();
+
+		// Check cache - invalidate on significant scroll change
+		int scrollBucket = scrollOffset / Math.Max(1, visibleRowCount / 2);
+		if (_cachedColumnWidths != null && _cachedColumnWidthsForWidth == availableWidth && _cachedColumnWidthsScrollOffset == scrollBucket)
+			return _cachedColumnWidths;
+
+		bool hasBorder = _borderStyle != BorderStyle.None;
+		int borderOverhead = hasBorder ? (colCount + 1) : 0;
+		int contentWidth = availableWidth - borderOverhead;
+		if (contentWidth < colCount) contentWidth = colCount;
+
+		var widths = new int[colCount];
+		int autoCount = 0;
+
+		// Determine sample range for auto-width columns
+		int sampleStart = Math.Max(0, scrollOffset);
+		int sampleEnd = Math.Min(rows?.Count ?? 0, scrollOffset + Math.Max(50, visibleRowCount));
+
+		for (int c = 0; c < colCount; c++)
+		{
+			if (cols[c].Width.HasValue)
+			{
+				widths[c] = cols[c].Width!.Value;
+			}
+			else
+			{
+				// Sample-based measurement: header + visible rows + buffer
+				int maxW = _measurementCache.GetCachedLength(cols[c].Header);
+
+				if (rows != null)
+				{
+					for (int r = sampleStart; r < sampleEnd; r++)
+					{
+						if (c < rows[r].Cells.Count)
+						{
+							int cellW = _measurementCache.GetCachedLength(rows[r].Cells[c]);
+							if (cellW > maxW) maxW = cellW;
+						}
+					}
+				}
+
+				widths[c] = maxW;
+				autoCount++;
+			}
+		}
+
+		// Distribute remaining space
+		int totalNatural = 0;
+		for (int c = 0; c < colCount; c++) totalNatural += widths[c];
+
+		if (HorizontalAlignment == HorizontalAlignment.Stretch && totalNatural < contentWidth)
+		{
+			int remaining = contentWidth - totalNatural;
+			int distributeCount = autoCount > 0 ? autoCount : colCount;
+			int perCol = remaining / distributeCount;
+			int extraCols = remaining % distributeCount;
+
+			for (int c = 0; c < colCount; c++)
+			{
+				bool isAutoCol = !cols[c].Width.HasValue;
+				if (autoCount > 0 && !isAutoCol) continue;
+
+				widths[c] += perCol;
+				if (extraCols > 0) { widths[c]++; extraCols--; }
+			}
+		}
+		else if (totalNatural > contentWidth)
+		{
+			double ratio = (double)contentWidth / totalNatural;
+			int assigned = 0;
+			for (int c = 0; c < colCount - 1; c++)
+			{
+				widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+				assigned += widths[c];
+			}
+			widths[colCount - 1] = Math.Max(1, contentWidth - assigned);
+		}
+
+		// Cache results
+		_cachedColumnWidths = widths;
+		_cachedColumnWidthsForWidth = availableWidth;
+		_cachedColumnWidthsScrollOffset = scrollBucket;
+
+		return widths;
+	}
+
+	/// <summary>
+	/// Computes column widths for DataSource mode.
+	/// </summary>
+	internal int[] ComputeColumnWidthsFromDataSource(int availableWidth, int scrollOffset = 0, int visibleRowCount = 50)
+	{
+		if (_dataSource == null) return Array.Empty<int>();
+
+		int colCount = _dataSource.ColumnCount;
+		if (colCount == 0) return Array.Empty<int>();
+
+		bool hasBorder = _borderStyle != BorderStyle.None;
+		int borderOverhead = hasBorder ? (colCount + 1) : 0;
+		int contentWidth = availableWidth - borderOverhead;
+		if (contentWidth < colCount) contentWidth = colCount;
+
+		var widths = new int[colCount];
+		int autoCount = 0;
+
+		int sampleStart = Math.Max(0, scrollOffset);
+		int sampleEnd = Math.Min(_dataSource.RowCount, scrollOffset + Math.Max(50, visibleRowCount));
+
+		for (int c = 0; c < colCount; c++)
+		{
+			// Check for user resize override first
+			if (_columnWidthOverrides.TryGetValue(c, out int overrideWidth))
+			{
+				widths[c] = overrideWidth;
+			}
+			else if (_dataSource.GetColumnWidth(c) is int colWidth)
+			{
+				widths[c] = colWidth;
+			}
+			else
+			{
+				int maxW = _measurementCache.GetCachedLength(_dataSource.GetColumnHeader(c));
+				for (int r = sampleStart; r < sampleEnd; r++)
+				{
+					int cellW = _measurementCache.GetCachedLength(_dataSource.GetCellValue(r, c));
+					if (cellW > maxW) maxW = cellW;
+				}
+				widths[c] = maxW;
+				autoCount++;
+			}
+		}
+
+		int totalNatural = 0;
+		for (int c = 0; c < colCount; c++) totalNatural += widths[c];
+
+		if (HorizontalAlignment == HorizontalAlignment.Stretch && totalNatural < contentWidth)
+		{
+			int remaining = contentWidth - totalNatural;
+			int distributeCount = autoCount > 0 ? autoCount : colCount;
+			int perCol = remaining / distributeCount;
+			int extraCols = remaining % distributeCount;
+
+			for (int c = 0; c < colCount; c++)
+			{
+				int? colWidth = _dataSource.GetColumnWidth(c);
+				bool isAutoCol = !colWidth.HasValue;
+				if (autoCount > 0 && !isAutoCol) continue;
+				widths[c] += perCol;
+				if (extraCols > 0) { widths[c]++; extraCols--; }
+			}
+		}
+		else if (totalNatural > contentWidth)
+		{
+			double ratio = (double)contentWidth / totalNatural;
+			int assigned = 0;
+			for (int c = 0; c < colCount - 1; c++)
+			{
+				widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+				assigned += widths[c];
+			}
+			widths[colCount - 1] = Math.Max(1, contentWidth - assigned);
+		}
+
+		return widths;
+	}
+
+	#endregion
+
+	#region Internal Helpers
+
+	/// <summary>
+	/// Maps a display row index to the actual data row index, accounting for sorting.
+	/// </summary>
+	internal int MapDisplayToData(int displayIndex)
+	{
+		if (_sortIndexMap != null && displayIndex >= 0 && displayIndex < _sortIndexMap.Length)
+			return _sortIndexMap[displayIndex];
+		return displayIndex;
+	}
+
+	/// <summary>
+	/// Maps a data row index to the display row index, accounting for sorting.
+	/// </summary>
+	internal int MapDataToDisplay(int dataIndex)
+	{
+		if (_sortIndexMap == null) return dataIndex;
+		for (int i = 0; i < _sortIndexMap.Length; i++)
+		{
+			if (_sortIndexMap[i] == dataIndex) return i;
+		}
+		return dataIndex;
+	}
+
+	internal BoxChars GetBoxChars()
+	{
+		if (_useSafeBorder) return BoxChars.Ascii;
+		return BoxChars.FromBorderStyle(_borderStyle);
+	}
+
+	/// <summary>
+	/// Gets the total column width including border overhead.
+	/// </summary>
+	internal int GetTotalColumnsWidth(int[] colWidths)
+	{
+		int total = 0;
+		foreach (int w in colWidths) total += w;
+		bool hasBorder = _borderStyle != BorderStyle.None;
+		if (hasBorder) total += colWidths.Length + 1;
+		return total;
+	}
+
+	/// <summary>
+	/// Gets the total column width from last rendered column widths.
+	/// Used by scrollbar hit-testing when colWidths array is not available.
+	/// </summary>
+	internal int GetTotalColumnsWidth()
+	{
+		// Use rendered column widths (works for both DataSource and in-memory)
+		if (_renderedColumnWidths.Length > 0)
+		{
+			int total = 0;
+			foreach (int w in _renderedColumnWidths) total += w;
+			bool hasBorder = _borderStyle != BorderStyle.None;
+			if (hasBorder) total += _renderedColumnWidths.Length + 1;
+			return total;
+		}
+
+		// Fallback to in-memory columns
+		List<TableColumn> cols;
+		lock (_tableLock) { cols = _columns.ToList(); }
+		if (cols.Count == 0) return 0;
+
+		int total2 = 0;
+		foreach (var col in cols) total2 += col.RenderedWidth;
+		bool hasBorder2 = _borderStyle != BorderStyle.None;
+		if (hasBorder2) total2 += cols.Count + 1;
+		return total2;
+	}
+
+	/// <summary>
+	/// Sets a column width override (used for column resizing in DataSource mode).
+	/// </summary>
+	internal void SetColumnWidthOverride(int columnIndex, int width)
+	{
+		_columnWidthOverrides[columnIndex] = width;
+	}
+
+	/// <summary>
+	/// Calculates the absolute Y position of a rendered row.
+	/// Returns -1 if the row is not currently visible.
+	/// </summary>
+	internal int GetRenderedRowY(int displayRowIndex)
+	{
+		int dataStartY = ActualY + Margin.Top;
+		if (!string.IsNullOrEmpty(_title)) dataStartY++;
+		bool hasBorder = _borderStyle != BorderStyle.None;
+		if (hasBorder) dataStartY++;
+		if (_showHeader) dataStartY++;
+		if (_showHeader && hasBorder) dataStartY++;
+
+		int rowOffset = displayRowIndex - _scrollOffset;
+		if (rowOffset < 0) return -1;
+
+		int rowHeight = (_showRowSeparators && hasBorder) ? 2 : 1;
+		return dataStartY + rowOffset * rowHeight;
+	}
+
+	/// <summary>
+	/// Traverses up the container hierarchy to find the containing Window.
+	/// </summary>
+	internal Window? FindContainingWindow()
+	{
+		IContainer? currentContainer = Container;
+		const int MaxLevels = 10;
+		int level = 0;
+
+		while (currentContainer != null && level < MaxLevels)
+		{
+			if (currentContainer is Window window)
+				return window;
+
+			if (currentContainer is IWindowControl control)
+				currentContainer = control.Container;
+			else if (currentContainer is ColumnContainer columnContainer)
+				currentContainer = columnContainer.HorizontalGridContent.Container;
+			else
+				break;
+
+			level++;
+		}
+
+		return null;
+	}
+
+	#endregion
+
+	#region Overrides
+
+	/// <inheritdoc/>
+	public override System.Drawing.Size GetLogicalContentSize()
+	{
+		int maxWidth = Width ?? LayoutDefaults.DefaultUnboundedMeasureWidth;
+		var constraints = new LayoutConstraints(0, maxWidth, 0, int.MaxValue);
+		var size = MeasureDOM(constraints);
+		return new System.Drawing.Size(size.Width, size.Height);
+	}
+
+	#endregion
+
+	#region Lifecycle
+
+	/// <inheritdoc/>
+	protected override void OnDisposing()
+	{
+		if (_dataSource != null)
+			_dataSource.DataChanged -= OnDataSourceChanged;
+
+		SelectedRowChanged = null;
+		SelectedRowItemChanged = null;
+		RowActivated = null;
+		CellActivated = null;
+		CellEditCompleted = null;
+		CellEditCancelled = null;
+		MouseClick = null;
+		MouseDoubleClick = null;
+		MouseRightClick = null;
+		MouseEnter = null;
+		MouseLeave = null;
+		MouseMove = null;
+		GotFocus = null;
+		LostFocus = null;
+	}
+
+	#endregion
+
+	#region Static Factory
+
+	/// <summary>
+	/// Creates a new TableControlBuilder for fluent configuration.
+	/// </summary>
+	public static Builders.TableControlBuilder Create() => new Builders.TableControlBuilder();
+
+	#endregion
+}

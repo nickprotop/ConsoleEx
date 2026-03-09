@@ -767,13 +767,13 @@ public class TableControlTests
 	}
 
 	[Fact]
-	public void CanFocusWithMouse_DefaultIsFalse()
+	public void CanFocusWithMouse_DefaultIsTrue()
 	{
-		// Arrange
+		// Arrange - tables always support focus for navigation/scrolling
 		var table = new TableControl();
 
 		// Assert
-		Assert.False(table.CanFocusWithMouse);
+		Assert.True(table.CanFocusWithMouse);
 	}
 
 	#endregion

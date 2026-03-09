@@ -46,6 +46,18 @@ public class TableColumn
 	public object? Tag { get; set; }
 
 	/// <summary>
+	/// Gets or sets a custom comparer for sorting this column.
+	/// When null, default string comparison is used.
+	/// </summary>
+	public IComparer<string>? CustomComparer { get; set; }
+
+	/// <summary>
+	/// Gets or sets whether this column supports sorting.
+	/// Default is true.
+	/// </summary>
+	public bool IsSortable { get; set; } = true;
+
+	/// <summary>
 	/// Gets or sets the rendered width (cached for mouse hit testing).
 	/// </summary>
 	internal int RenderedWidth { get; set; }

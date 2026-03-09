@@ -1,6 +1,7 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Layout;
 using DemoApp.Helpers;
 
 namespace DemoApp.DemoWindows;
@@ -35,14 +36,20 @@ public static class FileExplorerWindow
             .WithVerticalAlignment(SharpConsoleUI.Layout.VerticalAlignment.Fill)
             .Build();
 
-        var fileList = Controls.List("Files")
-            .WithName("fileList")
+        var fileTable = Controls.Table()
+            .AddColumn("Name")
+            .AddColumn("Size", TextJustification.Right, 10)
+            .AddColumn("Modified", TextJustification.Right, 18)
+            .NoBorder()
+            .WithHeaderColors(Color.White, Color.DarkSlateGray1)
+            .StretchHorizontal()
             .WithVerticalAlignment(SharpConsoleUI.Layout.VerticalAlignment.Fill)
+            .WithName("fileTable")
             .Build();
 
-        PopulateFileList(fileList, startDir);
+        PopulateFileTable(fileTable, startDir);
 
-        var statusBar = Controls.Markup(FormatStatusText(startDir, fileList.Items.Count))
+        var statusBar = Controls.Markup(FormatStatusText(startDir, fileTable.RowCount))
             .StickyBottom()
             .WithName("statusBar")
             .Build();
@@ -53,8 +60,8 @@ public static class FileExplorerWindow
             {
                 currentDir = path;
                 pathBar.SetContent(new List<string> { $"[bold] {path}[/]" });
-                PopulateFileList(fileList, path);
-                statusBar.SetContent(new List<string> { FormatStatusText(path, fileList.Items.Count) });
+                PopulateFileTable(fileTable, path);
+                statusBar.SetContent(new List<string> { FormatStatusText(path, fileTable.RowCount) });
             }
         };
 
@@ -66,7 +73,7 @@ public static class FileExplorerWindow
 
         var grid = Controls.HorizontalGrid()
             .Column(col => col.Width(TreeColumnWidth).Add(scrollPanel))
-            .Column(col => col.Flex().Add(fileList))
+            .Column(col => col.Flex().Add(fileTable))
             .WithSplitterAfter(0)
             .WithVerticalAlignment(SharpConsoleUI.Layout.VerticalAlignment.Fill)
             .Build();
@@ -90,8 +97,8 @@ public static class FileExplorerWindow
                     {
                         currentDir = parent;
                         pathBar.SetContent(new List<string> { $"[bold] {parent}[/]" });
-                        PopulateFileList(fileList, parent);
-                        statusBar.SetContent(new List<string> { FormatStatusText(parent, fileList.Items.Count) });
+                        PopulateFileTable(fileTable, parent);
+                        statusBar.SetContent(new List<string> { FormatStatusText(parent, fileTable.RowCount) });
                     }
                     e.Handled = true;
                 }
@@ -162,9 +169,9 @@ public static class FileExplorerWindow
         AddLazyChildren(parentNode, dirPath);
     }
 
-    private static void PopulateFileList(ListControl fileList, string dirPath)
+    private static void PopulateFileTable(TableControl fileTable, string dirPath)
     {
-        fileList.ClearItems();
+        fileTable.ClearRows();
 
         try
         {
@@ -175,20 +182,18 @@ public static class FileExplorerWindow
             foreach (var file in files)
             {
                 var info = new FileInfo(file);
-                var name = info.Name;
-                var ext = info.Extension;
-                var icon = FileHelpers.GetFileIcon(ext);
+                var icon = FileHelpers.GetFileIcon(info.Extension);
                 var size = FileHelpers.FormatFileSize(info.Length);
                 var dateStr = info.LastWriteTime.ToString(DateFormat);
-                fileList.AddItem(new ListItem($"{icon} {name}  [dim]{size}  {dateStr}[/]") { Tag = file });
+                fileTable.AddRow(new TableRow($"{icon} {info.Name}", size, $"[dim]{dateStr}[/]") { Tag = file });
             }
 
-            if (fileList.Items.Count == 0)
-                fileList.AddItem(new ListItem("[dim](empty directory)[/]"));
+            if (fileTable.RowCount == 0)
+                fileTable.AddRow("[dim](empty directory)[/]", "", "");
         }
         catch
         {
-            fileList.AddItem(new ListItem("[red]Access denied[/]"));
+            fileTable.AddRow("[red]Access denied[/]", "", "");
         }
     }
 }

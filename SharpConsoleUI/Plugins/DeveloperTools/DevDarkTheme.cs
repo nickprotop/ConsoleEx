@@ -215,6 +215,30 @@ public class DevDarkTheme : ITheme
 	public Color TableHeaderForegroundColor { get; set; } = Color.Green;
 
 	/// <inheritdoc />
+	public Color TableSelectionBackgroundColor { get; set; } = Color.Grey27;
+
+	/// <inheritdoc />
+	public Color TableSelectionForegroundColor { get; set; } = Color.White;
+
+	/// <inheritdoc />
+	public Color TableHoverBackgroundColor { get; set; } = Color.Grey19;
+
+	/// <inheritdoc />
+	public Color TableHoverForegroundColor { get; set; } = Color.Grey93;
+
+	/// <inheritdoc />
+	public Color TableUnfocusedSelectionBackgroundColor { get; set; } = Color.Grey19;
+
+	/// <inheritdoc />
+	public Color TableUnfocusedSelectionForegroundColor { get; set; } = Color.Grey58;
+
+	/// <inheritdoc />
+	public Color TableScrollbarThumbColor { get; set; } = Color.Green;
+
+	/// <inheritdoc />
+	public Color TableScrollbarTrackColor { get; set; } = Color.Grey15;
+
+	/// <inheritdoc />
 	public Color TabHeaderActiveBackgroundColor { get; set; } = Color.Grey23;
 
 	/// <inheritdoc />

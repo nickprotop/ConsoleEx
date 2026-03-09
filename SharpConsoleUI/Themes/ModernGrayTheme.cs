@@ -354,6 +354,46 @@ namespace SharpConsoleUI.Themes
 		public Color TableHeaderForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
+		/// Gets or sets the background color for selected rows in the table when focused.
+		/// </summary>
+		public Color TableSelectionBackgroundColor { get; set; } = Color.Grey35;
+
+		/// <summary>
+		/// Gets or sets the foreground color for selected rows in the table when focused.
+		/// </summary>
+		public Color TableSelectionForegroundColor { get; set; } = Color.White;
+
+		/// <summary>
+		/// Gets or sets the background color for hovered rows in the table.
+		/// </summary>
+		public Color TableHoverBackgroundColor { get; set; } = Color.Grey27;
+
+		/// <summary>
+		/// Gets or sets the foreground color for hovered rows in the table.
+		/// </summary>
+		public Color TableHoverForegroundColor { get; set; } = Color.Grey93;
+
+		/// <summary>
+		/// Gets or sets the background color for selected rows in the table when unfocused.
+		/// </summary>
+		public Color TableUnfocusedSelectionBackgroundColor { get; set; } = Color.Grey23;
+
+		/// <summary>
+		/// Gets or sets the foreground color for selected rows in the table when unfocused.
+		/// </summary>
+		public Color TableUnfocusedSelectionForegroundColor { get; set; } = Color.Grey70;
+
+		/// <summary>
+		/// Gets or sets the color for the table scrollbar thumb.
+		/// </summary>
+		public Color TableScrollbarThumbColor { get; set; } = Color.Cyan1;
+
+		/// <summary>
+		/// Gets or sets the color for the table scrollbar track.
+		/// </summary>
+		public Color TableScrollbarTrackColor { get; set; } = Color.Grey23;
+
+		/// <summary>
 		/// Gets or sets the background color for the active (selected) tab header.
 		/// </summary>
 		public Color TabHeaderActiveBackgroundColor { get; set; } = Color.Grey27;

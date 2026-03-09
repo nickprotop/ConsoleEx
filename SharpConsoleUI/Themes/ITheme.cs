@@ -349,6 +349,46 @@ public interface ITheme
     Color TableHeaderForegroundColor { get; }
 
     /// <summary>
+    /// Gets the background color for selected rows in the table when focused.
+    /// </summary>
+    Color TableSelectionBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for selected rows in the table when focused.
+    /// </summary>
+    Color TableSelectionForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for hovered rows in the table.
+    /// </summary>
+    Color TableHoverBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for hovered rows in the table.
+    /// </summary>
+    Color TableHoverForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for selected rows in the table when unfocused.
+    /// </summary>
+    Color TableUnfocusedSelectionBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for selected rows in the table when unfocused.
+    /// </summary>
+    Color TableUnfocusedSelectionForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the color for the table scrollbar thumb.
+    /// </summary>
+    Color TableScrollbarThumbColor { get; }
+
+    /// <summary>
+    /// Gets the color for the table scrollbar track.
+    /// </summary>
+    Color TableScrollbarTrackColor { get; }
+
+    /// <summary>
     /// Gets the background color for the active (selected) tab header.
     /// </summary>
     Color TabHeaderActiveBackgroundColor { get; }

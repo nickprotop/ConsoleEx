@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
+using ScrollbarVisibility = SharpConsoleUI.Controls.ScrollbarVisibility;
 using TableColumn = SharpConsoleUI.Controls.TableColumn;
 using TableRow = SharpConsoleUI.Controls.TableRow;
 
@@ -29,6 +30,25 @@ public sealed class TableControlBuilder
 	private bool _useSafeBorder = false;
 	private string? _title;
 	private TextJustification _titleAlignment = TextJustification.Center;
+
+	// Interactive properties
+	private bool _readOnly = true;
+	private bool _cellNavigationEnabled = false;
+	private bool _multiSelectEnabled = false;
+	private bool _checkboxMode = false;
+	private bool _sortingEnabled = false;
+	private bool _columnResizeEnabled = false;
+	private bool _inlineEditingEnabled = false;
+	private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
+	private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
+	private ITableDataSource? _dataSource;
+
+	// Event handlers
+	private EventHandler<int>? _onSelectedRowChanged;
+	private EventHandler<int>? _onRowActivated;
+	private EventHandler<(int Row, int Column)>? _onCellActivated;
+	private EventHandler<(int Row, int Column, string OldValue, string NewValue)>? _onCellEditCompleted;
+	private EventHandler<SharpConsoleUI.Events.MouseEventArgs>? _onRightClick;
 
 	// Base properties
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
@@ -450,6 +470,149 @@ public sealed class TableControlBuilder
 
 	#endregion
 
+	#region Interactive Configuration
+
+	/// <summary>
+	/// Enables editing mode (sets ReadOnly to false), allowing inline cell editing and column resizing.
+	/// </summary>
+	public TableControlBuilder Interactive()
+	{
+		_readOnly = false;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables cell-level navigation with Tab/Left/Right keys.
+	/// </summary>
+	public TableControlBuilder WithCellNavigation()
+	{
+		_cellNavigationEnabled = true;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables multi-selection with Ctrl+Click and Shift+Click.
+	/// </summary>
+	public TableControlBuilder WithMultiSelect()
+	{
+		_multiSelectEnabled = true;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables checkbox mode for multi-selection.
+	/// </summary>
+	public TableControlBuilder WithCheckboxMode()
+	{
+		_checkboxMode = true;
+		_multiSelectEnabled = true;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables column sorting by clicking headers.
+	/// </summary>
+	public TableControlBuilder WithSorting()
+	{
+		_sortingEnabled = true;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables column resizing by dragging column borders. Implies Interactive().
+	/// </summary>
+	public TableControlBuilder WithColumnResize()
+	{
+		_columnResizeEnabled = true;
+		_readOnly = false;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables inline cell editing with F2 to start, Enter to commit, Escape to cancel. Implies Interactive().
+	/// </summary>
+	public TableControlBuilder WithInlineEditing()
+	{
+		_inlineEditingEnabled = true;
+		_cellNavigationEnabled = true;
+		_readOnly = false;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the vertical scrollbar visibility.
+	/// </summary>
+	public TableControlBuilder WithVerticalScrollbar(ScrollbarVisibility visibility)
+	{
+		_verticalScrollbarVisibility = visibility;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the horizontal scrollbar visibility.
+	/// </summary>
+	public TableControlBuilder WithHorizontalScrollbar(ScrollbarVisibility visibility)
+	{
+		_horizontalScrollbarVisibility = visibility;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the virtual data source for lazy loading.
+	/// </summary>
+	public TableControlBuilder WithDataSource(ITableDataSource dataSource)
+	{
+		_dataSource = dataSource;
+		return this;
+	}
+
+	/// <summary>
+	/// Wires the SelectedRowChanged event handler.
+	/// </summary>
+	public TableControlBuilder OnSelectedRowChanged(EventHandler<int> handler)
+	{
+		_onSelectedRowChanged = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Wires the RowActivated event handler.
+	/// </summary>
+	public TableControlBuilder OnRowActivated(EventHandler<int> handler)
+	{
+		_onRowActivated = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Wires the CellActivated event handler.
+	/// </summary>
+	public TableControlBuilder OnCellActivated(EventHandler<(int Row, int Column)> handler)
+	{
+		_onCellActivated = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Wires the CellEditCompleted event handler.
+	/// </summary>
+	public TableControlBuilder OnCellEditCompleted(EventHandler<(int Row, int Column, string OldValue, string NewValue)> handler)
+	{
+		_onCellEditCompleted = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Wires the MouseRightClick event handler for context menu support.
+	/// </summary>
+	public TableControlBuilder OnRightClick(EventHandler<SharpConsoleUI.Events.MouseEventArgs> handler)
+	{
+		_onRightClick = handler;
+		return this;
+	}
+
+	#endregion
+
 	#region Build
 
 	/// <summary>
@@ -469,6 +632,17 @@ public sealed class TableControlBuilder
 			Title = _title,
 			TitleAlignment = _titleAlignment,
 
+			// Interactive properties
+			ReadOnly = _readOnly,
+			CellNavigationEnabled = _cellNavigationEnabled,
+			MultiSelectEnabled = _multiSelectEnabled,
+			CheckboxMode = _checkboxMode,
+			SortingEnabled = _sortingEnabled,
+			ColumnResizeEnabled = _columnResizeEnabled,
+			InlineEditingEnabled = _inlineEditingEnabled,
+			VerticalScrollbarVisibility = _verticalScrollbarVisibility,
+			HorizontalScrollbarVisibility = _horizontalScrollbarVisibility,
+
 			// Base properties
 			HorizontalAlignment = _horizontalAlignment,
 			VerticalAlignment = _verticalAlignment,
@@ -483,12 +657,31 @@ public sealed class TableControlBuilder
 			ForegroundColor = _foregroundColor
 		};
 
-		// Add columns and rows
-		foreach (var column in _columns)
-			table.AddColumn(column);
+		// Set data source if provided
+		if (_dataSource != null)
+			table.DataSource = _dataSource;
 
-		foreach (var row in _rows)
-			table.AddRow(row);
+		// Add columns and rows (only if no data source)
+		if (_dataSource == null)
+		{
+			foreach (var column in _columns)
+				table.AddColumn(column);
+
+			foreach (var row in _rows)
+				table.AddRow(row);
+		}
+
+		// Wire events
+		if (_onSelectedRowChanged != null)
+			table.SelectedRowChanged += _onSelectedRowChanged;
+		if (_onRowActivated != null)
+			table.RowActivated += _onRowActivated;
+		if (_onCellActivated != null)
+			table.CellActivated += _onCellActivated;
+		if (_onCellEditCompleted != null)
+			table.CellEditCompleted += _onCellEditCompleted;
+		if (_onRightClick != null)
+			table.MouseRightClick += _onRightClick;
 
 		return table;
 	}
