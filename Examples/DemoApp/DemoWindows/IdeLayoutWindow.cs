@@ -63,6 +63,7 @@ public static class IdeLayoutWindow
             .WithWrapMode(WrapMode.Wrap)
             .AsReadOnly(false)
             .WithAlignment(HorizontalAlignment.Left)
+            .WithVerticalAlignment(VerticalAlignment.Fill)
             .Build();
 
         var editor2 = Controls.MultilineEdit()
@@ -70,6 +71,7 @@ public static class IdeLayoutWindow
             .WithWrapMode(WrapMode.Wrap)
             .AsReadOnly(false)
             .WithAlignment(HorizontalAlignment.Left)
+            .WithVerticalAlignment(VerticalAlignment.Fill)
             .Build();
 
         var editor3 = Controls.MultilineEdit()
@@ -77,6 +79,7 @@ public static class IdeLayoutWindow
             .WithWrapMode(WrapMode.Wrap)
             .AsReadOnly(false)
             .WithAlignment(HorizontalAlignment.Left)
+            .WithVerticalAlignment(VerticalAlignment.Fill)            
             .Build();
 
         var editorTabs = Controls.TabControl()
@@ -93,6 +96,7 @@ public static class IdeLayoutWindow
             .WithHighlightColors(Color.White, Color.Blue)
             .WithMargin(TreeMargin, TreeMargin, TreeMargin, TreeMargin)
             .WithAlignment(HorizontalAlignment.Left)
+            .WithVerticalAlignment(VerticalAlignment.Fill)
             .OnSelectedNodeChanged((sender, args) =>
             {
                 if (args.Node != null)
@@ -244,7 +248,7 @@ public static class IdeLayoutWindow
         Action<string> UpdateFileStatus,
         Action ToggleSidePanel)
     {
-        return Controls.Menu()
+        MenuControl menuControl = Controls.Menu()
             .Horizontal()
             .WithName("mainMenu")
             .Sticky()
@@ -278,6 +282,10 @@ public static class IdeLayoutWindow
                 .AddItem("Documentation", "F1", () => UpdateFileStatus("Documentation..."))
                 .AddItem("About", () => AboutDialog.Show(ws)))
             .Build();
+            
+       menuControl.StickyPosition = StickyPosition.Top;
+                
+        return menuControl;
     }
 
     #endregion
@@ -298,6 +306,7 @@ public static class IdeLayoutWindow
             .AddButton("Save", (s, b) => HandleSaveFile())
             .AddButton("Undo", (s, b) => UpdateFileStatus("[blue]<-[/] Undo"))
             .AddButton("Redo", (s, b) => UpdateFileStatus("[blue]->[/] Redo"))
+            .StickyTop()
             .Build();
     }
 

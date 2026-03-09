@@ -286,6 +286,37 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
+		/// Writes cells clipped to a rectangle, preserving existing background colors for cells
+		/// whose background matches the default. Cells with markup-specified backgrounds (different
+		/// from defaultBg) keep their explicit background.
+		/// </summary>
+		public void WriteCellsClippedPreservingBackground(int x, int y, IEnumerable<Cell> cells, LayoutRect clipRect, Color defaultBg)
+		{
+			if (y < clipRect.Y || y >= clipRect.Bottom)
+				return;
+
+			int cx = x;
+			foreach (var cell in cells)
+			{
+				if (cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width && y >= 0 && y < Height)
+				{
+					if (cell.Background == defaultBg)
+					{
+						var existingBg = _cells[cx, y].Background;
+						var preserved = cell;
+						preserved.Background = existingBg;
+						SetCell(cx, y, preserved);
+					}
+					else
+					{
+						SetCell(cx, y, cell);
+					}
+				}
+				cx++;
+			}
+		}
+
+		/// <summary>
 		/// Fills a rectangle with the specified character and colors.
 		/// </summary>
 		public void FillRect(LayoutRect rect, char character, Color foreground, Color background)
@@ -309,6 +340,27 @@ namespace SharpConsoleUI.Layout
 		public void FillRect(LayoutRect rect, Color background)
 		{
 			FillRect(rect, ' ', Color.White, background);
+		}
+
+		/// <summary>
+		/// Fills a rectangle with space characters and the specified foreground color,
+		/// while preserving the existing background color from the buffer.
+		/// Used by controls to clear margin/padding areas without overwriting gradient backgrounds.
+		/// </summary>
+		public void FillRectPreservingBackground(LayoutRect rect, Color foregroundColor)
+		{
+			var clipped = rect.Intersect(Bounds);
+			if (clipped.IsEmpty)
+				return;
+
+			for (int y = clipped.Y; y < clipped.Bottom; y++)
+			{
+				for (int x = clipped.X; x < clipped.Right; x++)
+				{
+					var existingBg = _cells[x, y].Background;
+					SetCell(x, y, ' ', foregroundColor, existingBg);
+				}
+			}
 		}
 
 		/// <summary>

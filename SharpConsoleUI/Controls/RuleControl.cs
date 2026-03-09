@@ -116,6 +116,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = Container?.ForegroundColor ?? defaultFg;
+			bool preserveBg = Container?.HasGradientBackground ?? false;
 			var ruleColor = _color ?? fgColor;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
@@ -126,7 +127,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
 
 			// Paint the rule line
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
@@ -134,7 +135,7 @@ namespace SharpConsoleUI.Controls
 				// Fill left margin
 				if (Margin.Left > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, startY, Margin.Left, 1), ' ', fgColor, bgColor);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), fgColor, bgColor, preserveBg);
 				}
 
 				var box = BoxChars.FromBorderStyle(_borderStyle);
@@ -234,12 +235,12 @@ namespace SharpConsoleUI.Controls
 				// Fill right margin
 				if (Margin.Right > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), ' ', fgColor, bgColor);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), fgColor, bgColor, preserveBg);
 				}
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, fgColor, bgColor);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, fgColor, bgColor, preserveBg);
 		}
 
 		#endregion

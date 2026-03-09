@@ -138,15 +138,16 @@ namespace SharpConsoleUI.Controls
 
 			Color bgColor = Container?.BackgroundColor ?? defaultBackground;
 			Color fgColor = Container?.ForegroundColor ?? defaultForeground;
+			bool preserveBg = Container?.HasGradientBackground ?? false;
 
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;
 
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
 
 			if (_source == null)
 			{
-				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
+				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
 				return;
 			}
 
@@ -155,7 +156,7 @@ namespace SharpConsoleUI.Controls
 
 			if (availWidth <= 0 || availHeight <= 0)
 			{
-				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
+				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
 				return;
 			}
 
@@ -174,7 +175,7 @@ namespace SharpConsoleUI.Controls
 
 				// Fill left margin
 				if (Margin.Left > 0)
-					buffer.FillRect(new LayoutRect(bounds.X, y, Margin.Left, 1), ' ', fgColor, bgColor);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, bgColor, preserveBg);
 
 				// Paint image cells
 				for (int cx = 0; cx < actualCellWidth && startX + cx < bounds.Right; cx++)
@@ -188,11 +189,11 @@ namespace SharpConsoleUI.Controls
 				int contentEndX = startX + actualCellWidth;
 				int rightPadWidth = bounds.Right - contentEndX;
 				if (rightPadWidth > 0)
-					buffer.FillRect(new LayoutRect(contentEndX, y, rightPadWidth, 1), ' ', fgColor, bgColor);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(contentEndX, y, rightPadWidth, 1), fgColor, bgColor, preserveBg);
 			}
 
 			int contentEndY = startY + actualCellHeight;
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, fgColor, bgColor);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, fgColor, bgColor, preserveBg);
 		}
 
 		private void InvalidateRenderCache()

@@ -443,6 +443,7 @@ namespace SharpConsoleUI.Controls
 		Color backgroundColor;
 			Color foregroundColor;
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
+			bool preserveBg = Container?.HasGradientBackground ?? false;
 
 			// Determine colors based on enabled/focused state
 			if (!_isEnabled)
@@ -507,7 +508,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground, preserveBg);
 
 			// Paint checkbox line
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
@@ -515,36 +516,40 @@ namespace SharpConsoleUI.Controls
 				// Fill left margin
 				if (Margin.Left > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, startY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), foregroundColor, windowBackground, preserveBg);
 				}
 
 				// Fill alignment padding (left side)
 				if (alignOffset > 0)
 				{
-					buffer.FillRect(new LayoutRect(startX, startY, alignOffset, 1), ' ', foregroundColor, windowBackground);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, startY, alignOffset, 1), foregroundColor, windowBackground, preserveBg);
 				}
 
 				// Render checkbox content
 				var cells = Parsing.MarkupParser.Parse(checkboxContent, foregroundColor, backgroundColor);
-				buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
+				// Preserve gradient bg only in normal state (focused/disabled have intentional bg)
+				if (preserveBg && _backgroundColorValue == null && !_hasFocus && _isEnabled)
+					buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, startY, cells, clipRect, backgroundColor);
+				else
+					buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
 
 				// Fill alignment padding (right side)
 				int rightPadStart = startX + alignOffset + checkboxWidth;
 				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
 				if (rightPadWidth > 0)
 				{
-					buffer.FillRect(new LayoutRect(rightPadStart, startY, rightPadWidth, 1), ' ', foregroundColor, windowBackground);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, startY, rightPadWidth, 1), foregroundColor, windowBackground, preserveBg);
 				}
 
 				// Fill right margin
 				if (Margin.Right > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), foregroundColor, windowBackground, preserveBg);
 				}
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, foregroundColor, windowBackground);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, foregroundColor, windowBackground, preserveBg);
 		}
 
 		#endregion

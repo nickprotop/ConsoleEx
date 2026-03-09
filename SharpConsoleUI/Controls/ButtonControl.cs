@@ -341,6 +341,7 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
+			bool preserveBg = Container?.HasGradientBackground ?? false;
 
 			Color backgroundColor;
 			Color foregroundColor;
@@ -398,7 +399,7 @@ namespace SharpConsoleUI.Controls
 			int bx = startX + alignOffset;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground, preserveBg);
 
 			for (int row = 0; row < buttonHeight; row++)
 			{
@@ -409,7 +410,7 @@ namespace SharpConsoleUI.Controls
 				// Fill left margin + alignment padding
 				int leftFillWidth = Margin.Left + alignOffset;
 				if (leftFillWidth > 0)
-					buffer.FillRect(new LayoutRect(bounds.X, y, leftFillWidth, 1), ' ', foregroundColor, windowBackground);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, leftFillWidth, 1), foregroundColor, windowBackground, preserveBg);
 
 				if (_borderStyle == ButtonBorderStyle.Full)
 				{
@@ -460,11 +461,11 @@ namespace SharpConsoleUI.Controls
 				int rightPadStart = bx + buttonWidth;
 				int rightFillWidth = bounds.Right - rightPadStart;
 				if (rightFillWidth > 0)
-					buffer.FillRect(new LayoutRect(rightPadStart, y, rightFillWidth, 1), ' ', foregroundColor, windowBackground);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, y, rightFillWidth, 1), foregroundColor, windowBackground, preserveBg);
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + buttonHeight, foregroundColor, windowBackground);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + buttonHeight, foregroundColor, windowBackground, preserveBg);
 		}
 
 		#endregion

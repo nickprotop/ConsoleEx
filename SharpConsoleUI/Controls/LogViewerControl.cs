@@ -446,6 +446,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 
         var bgColor = Container?.BackgroundColor ?? defaultBg;
         var fgColor = Container?.ForegroundColor ?? defaultFg;
+        bool preserveBg = Container?.HasGradientBackground ?? false;
         int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 
         if (targetWidth <= 0) return;
@@ -455,7 +456,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
         int currentY = startY;
 
         // Fill top margin
-        ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
+        ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
 
         // Render title if set
         int titleHeight = 0;
@@ -467,7 +468,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
                 // Fill left margin
                 if (Margin.Left > 0)
                 {
-                    buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', fgColor, bgColor);
+                    ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, bgColor, preserveBg);
                 }
 
                 var titleColor = _hasFocus ? Color.Cyan1 : Color.Grey;
@@ -491,7 +492,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
                 // Fill left alignment padding
                 if (alignOffset > 0)
                 {
-                    buffer.FillRect(new LayoutRect(startX, currentY, alignOffset, 1), ' ', fgColor, bgColor);
+                    ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, currentY, alignOffset, 1), fgColor, bgColor, preserveBg);
                 }
 
                 // Write title
@@ -509,13 +510,13 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
                 int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
                 if (rightPadWidth > 0)
                 {
-                    buffer.FillRect(new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), ' ', fgColor, bgColor);
+                    ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), fgColor, bgColor, preserveBg);
                 }
 
                 // Fill right margin
                 if (Margin.Right > 0)
                 {
-                    buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', fgColor, bgColor);
+                    ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), fgColor, bgColor, preserveBg);
                 }
             }
             currentY++;
@@ -537,7 +538,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
         }
 
         // Fill bottom margin
-        ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor);
+        ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor, preserveBg);
     }
 
     #endregion

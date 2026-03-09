@@ -1,0 +1,71 @@
+using SharpConsoleUI.Layout;
+using Xunit;
+
+namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
+
+public class CharacterBufferGradientPreserveTests
+{
+	[Fact]
+	public void FillRectPreservingBackground_KeepsExistingBgColor()
+	{
+		var buffer = new CharacterBuffer(5, 1);
+		// Pre-fill with gradient-like distinct backgrounds
+		buffer.SetCell(0, 0, 'X', Color.White, Color.Red);
+		buffer.SetCell(1, 0, 'X', Color.White, Color.Green);
+		buffer.SetCell(2, 0, 'X', Color.White, Color.Blue);
+		buffer.SetCell(3, 0, 'X', Color.White, Color.Yellow);
+		buffer.SetCell(4, 0, 'X', Color.White, Color.Cyan1);
+
+		buffer.FillRectPreservingBackground(new LayoutRect(0, 0, 5, 1), Color.Grey);
+
+		// Background colors should be preserved
+		Assert.Equal(Color.Red, buffer.GetCell(0, 0).Background);
+		Assert.Equal(Color.Green, buffer.GetCell(1, 0).Background);
+		Assert.Equal(Color.Blue, buffer.GetCell(2, 0).Background);
+		Assert.Equal(Color.Yellow, buffer.GetCell(3, 0).Background);
+		Assert.Equal(Color.Cyan1, buffer.GetCell(4, 0).Background);
+	}
+
+	[Fact]
+	public void FillRectPreservingBackground_WritesSpaceCharacters()
+	{
+		var buffer = new CharacterBuffer(3, 1);
+		buffer.WriteString(0, 0, "ABC", Color.White, Color.Black);
+
+		buffer.FillRectPreservingBackground(new LayoutRect(0, 0, 3, 1), Color.White);
+
+		Assert.Equal(' ', buffer.GetCell(0, 0).Character);
+		Assert.Equal(' ', buffer.GetCell(1, 0).Character);
+		Assert.Equal(' ', buffer.GetCell(2, 0).Character);
+	}
+
+	[Fact]
+	public void FillRectPreservingBackground_SetsForegroundColor()
+	{
+		var buffer = new CharacterBuffer(3, 1);
+		buffer.SetCell(0, 0, 'A', Color.White, Color.Red);
+		buffer.SetCell(1, 0, 'B', Color.White, Color.Green);
+		buffer.SetCell(2, 0, 'C', Color.White, Color.Blue);
+
+		var newFg = Color.Yellow;
+		buffer.FillRectPreservingBackground(new LayoutRect(0, 0, 3, 1), newFg);
+
+		Assert.Equal(newFg, buffer.GetCell(0, 0).Foreground);
+		Assert.Equal(newFg, buffer.GetCell(1, 0).Foreground);
+		Assert.Equal(newFg, buffer.GetCell(2, 0).Foreground);
+	}
+
+	[Fact]
+	public void FillRectPreservingBackground_ClipsToBufferBounds()
+	{
+		var buffer = new CharacterBuffer(3, 3);
+		buffer.SetCell(0, 0, 'A', Color.White, Color.Red);
+
+		// Rect extends beyond buffer
+		buffer.FillRectPreservingBackground(new LayoutRect(-1, -1, 10, 10), Color.Grey);
+
+		// Should not throw, and cell within bounds should be updated
+		Assert.Equal(' ', buffer.GetCell(0, 0).Character);
+		Assert.Equal(Color.Red, buffer.GetCell(0, 0).Background);
+	}
+}

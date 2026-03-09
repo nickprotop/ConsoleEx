@@ -40,5 +40,12 @@ namespace SharpConsoleUI.Controls
 		/// <param name="control">The control to check</param>
 		/// <returns>The number of visible lines, or null if unknown</returns>
 		int? GetVisibleHeightForControl(IWindowControl control);
+
+		/// <summary>
+		/// Indicates whether this container has a gradient background that child controls should preserve.
+		/// Containers with no explicit background propagate the gradient from their parent.
+		/// Containers with an explicit background block gradient propagation.
+		/// </summary>
+		bool HasGradientBackground => false;
 	}
 }

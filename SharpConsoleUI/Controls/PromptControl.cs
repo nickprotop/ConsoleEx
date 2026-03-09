@@ -425,6 +425,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = Container?.ForegroundColor ?? defaultFg;
+			bool preserveBg = Container?.HasGradientBackground ?? false;
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 
 			if (targetWidth <= 0) return;
@@ -433,7 +434,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
 
 			// Render the prompt line
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
@@ -441,7 +442,7 @@ namespace SharpConsoleUI.Controls
 				// Fill left margin
 				if (Margin.Left > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, startY, Margin.Left, 1), ' ', fgColor, bgColor);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), fgColor, bgColor, preserveBg);
 				}
 
 				// Calculate colors
@@ -478,7 +479,7 @@ namespace SharpConsoleUI.Controls
 				// Fill left alignment padding
 				if (alignOffset > 0)
 				{
-					buffer.FillRect(new LayoutRect(startX, startY, alignOffset, 1), ' ', fgColor, bgColor);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, startY, alignOffset, 1), fgColor, bgColor, preserveBg);
 					currentX += alignOffset;
 				}
 
@@ -550,18 +551,18 @@ namespace SharpConsoleUI.Controls
 				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
 				if (rightPadWidth > 0)
 				{
-					buffer.FillRect(new LayoutRect(rightPadStart, startY, rightPadWidth, 1), ' ', fgColor, bgColor);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, startY, rightPadWidth, 1), fgColor, bgColor, preserveBg);
 				}
 
 				// Fill right margin
 				if (Margin.Right > 0)
 				{
-					buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), ' ', fgColor, bgColor);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), fgColor, bgColor, preserveBg);
 				}
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, fgColor, bgColor);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, fgColor, bgColor, preserveBg);
 		}
 
 		#endregion

@@ -332,6 +332,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
+		public bool HasGradientBackground =>
+			_backgroundColorValue == null && (Container?.HasGradientBackground ?? false);
+
+		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
 			get => _foregroundColor;

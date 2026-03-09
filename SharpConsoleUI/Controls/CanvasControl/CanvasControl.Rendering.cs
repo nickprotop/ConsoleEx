@@ -48,6 +48,7 @@ namespace SharpConsoleUI.Controls
 
 			Color windowBg = Container?.BackgroundColor ?? defaultBackground;
 			Color fg = ForegroundColor;
+			bool preserveBg = Container?.HasGradientBackground ?? false;
 
 			int contentX = bounds.X + Margin.Left;
 			int contentY = bounds.Y + Margin.Top;
@@ -78,18 +79,18 @@ namespace SharpConsoleUI.Controls
 
 			// Fill margins
 			int startY = bounds.Y + Margin.Top;
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fg, windowBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fg, windowBg, preserveBg);
 
 			for (int y = contentY; y < contentY + contentH && y < bounds.Bottom; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
 					ControlRenderingHelpers.FillHorizontalMargins(buffer, bounds, clipRect,
-						y, contentX, contentW, fg, windowBg);
+						y, contentX, contentW, fg, windowBg, preserveBg);
 				}
 			}
 
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentY + contentH, fg, windowBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentY + contentH, fg, windowBg, preserveBg);
 
 			// Calculate visible region intersection
 			var contentRect = new LayoutRect(contentX, contentY, contentW, contentH);

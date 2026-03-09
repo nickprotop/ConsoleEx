@@ -293,6 +293,8 @@ namespace SharpConsoleUI.Controls
 				foregroundColor = ForegroundColor;
 			}
 
+			bool preserveBg = Container?.HasGradientBackground ?? false;
+
 			// Calculate indicator space: needed in CheckboxMode
 			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
 			int listWidth = bounds.Width - Margin.Left - Margin.Right;
@@ -303,7 +305,7 @@ namespace SharpConsoleUI.Controls
 			int currentY = startY;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground, preserveBg);
 
 			bool hasTitle = !string.IsNullOrEmpty(_title);
 			int scrollOffset = CurrentScrollOffset;
@@ -319,7 +321,7 @@ namespace SharpConsoleUI.Controls
 					// Fill left margin
 					if (Margin.Left > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), foregroundColor, windowBackground, preserveBg);
 					}
 
 					string titleBarContent = _title;
@@ -335,7 +337,7 @@ namespace SharpConsoleUI.Controls
 					// Fill right margin
 					if (Margin.Right > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), foregroundColor, windowBackground, preserveBg);
 					}
 				}
 				currentY++;
@@ -391,7 +393,7 @@ namespace SharpConsoleUI.Controls
 						// Fill left margin
 						if (Margin.Left > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
+							ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), foregroundColor, windowBackground, preserveBg);
 						}
 
 						string lineText = itemLines[lineIndex];
@@ -483,7 +485,7 @@ namespace SharpConsoleUI.Controls
 						// Fill right margin
 						if (Margin.Right > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
+							ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), foregroundColor, windowBackground, preserveBg);
 						}
 					}
 					currentY++;
@@ -500,12 +502,12 @@ namespace SharpConsoleUI.Controls
 					{
 						if (Margin.Left > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
+							ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), foregroundColor, windowBackground, preserveBg);
 						}
 						buffer.FillRect(new LayoutRect(startX, currentY, listWidth, 1), ' ', foregroundColor, backgroundColor);
 						if (Margin.Right > 0)
 						{
-							buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
+							ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), foregroundColor, windowBackground, preserveBg);
 						}
 					}
 					currentY++;
@@ -520,7 +522,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (Margin.Left > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.X, currentY, Margin.Left, 1), ' ', foregroundColor, windowBackground);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), foregroundColor, windowBackground, preserveBg);
 					}
 
 					string scrollIndicator = "";
@@ -534,14 +536,14 @@ namespace SharpConsoleUI.Controls
 
 					if (Margin.Right > 0)
 					{
-						buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), ' ', foregroundColor, windowBackground);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), foregroundColor, windowBackground, preserveBg);
 					}
 				}
 				currentY++;
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, currentY, foregroundColor, windowBackground);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, currentY, foregroundColor, windowBackground, preserveBg);
 		}
 
 		#endregion

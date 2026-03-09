@@ -526,9 +526,10 @@ namespace SharpConsoleUI.Controls
 
 			// Fill margins with container background
 			Color containerBg = Container?.BackgroundColor ?? defaultBg;
+			bool preserveBg = Container?.HasGradientBackground ?? false;
 
 			// Top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, contentY, fgColor, containerBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, contentY, fgColor, containerBg, preserveBg);
 
 			// Content area
 			for (int y = contentY; y < contentY + contentHeight && y < bounds.Bottom; y++)
@@ -537,14 +538,14 @@ namespace SharpConsoleUI.Controls
 				{
 					// Left margin
 					if (Margin.Left > 0)
-						buffer.FillRect(new LayoutRect(bounds.X, y, Margin.Left, 1), ' ', fgColor, containerBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, containerBg, preserveBg);
 
 					// Toolbar background
 					buffer.FillRect(new LayoutRect(contentX, y, contentWidth, 1), ' ', fgColor, bgColor);
 
 					// Right margin
 					if (Margin.Right > 0)
-						buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), ' ', fgColor, containerBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, containerBg, preserveBg);
 				}
 			}
 
@@ -552,7 +553,7 @@ namespace SharpConsoleUI.Controls
 			for (int y = contentY + contentHeight; y < bounds.Bottom; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, containerBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, containerBg, preserveBg);
 			}
 
 			// Paint items using shared layout computation

@@ -448,6 +448,8 @@ namespace SharpConsoleUI
 			}
 		}
 
+		bool IContainer.HasGradientBackground => _backgroundGradient != null;
+
 		/// <summary>
 		/// Gets or sets the default foreground color for window content.
 		/// If not set, uses the theme's WindowForegroundColor.

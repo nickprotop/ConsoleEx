@@ -104,13 +104,18 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = ColorResolver.ResolveBackground(BackgroundColor, Container, defaultBg);
 			var fgColor = ColorResolver.ResolveForeground(ForegroundColor, Container, defaultFg);
+			bool preserveBg = BackgroundColor == null && (Container?.HasGradientBackground ?? false);
 
 			// Fill the entire bounds with background color
 			for (int y = bounds.Y; y < bounds.Bottom; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+					var lineRect = new LayoutRect(bounds.X, y, bounds.Width, 1);
+					if (preserveBg)
+						buffer.FillRectPreservingBackground(lineRect, fgColor);
+					else
+						buffer.FillRect(lineRect, ' ', fgColor, bgColor);
 				}
 			}
 

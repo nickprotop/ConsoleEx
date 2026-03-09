@@ -72,6 +72,10 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
+		public bool HasGradientBackground =>
+			_backgroundColorValue == null && (Container?.HasGradientBackground ?? false);
+
+		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
 			// Inherit foreground color from parent HorizontalGridControl's container (the Window),
@@ -907,6 +911,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
+			bool preserveBg = HasGradientBackground;
 
 			// Fill the entire bounds with background color
 			// This provides the background for the container and any margins
@@ -914,7 +919,11 @@ namespace SharpConsoleUI.Controls
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, y, bounds.Width, 1), ' ', fgColor, bgColor);
+					var lineRect = new LayoutRect(bounds.X, y, bounds.Width, 1);
+					if (preserveBg)
+						buffer.FillRectPreservingBackground(lineRect, fgColor);
+					else
+						buffer.FillRect(lineRect, ' ', fgColor, bgColor);
 				}
 			}
 

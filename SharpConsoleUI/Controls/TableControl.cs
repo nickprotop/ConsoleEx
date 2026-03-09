@@ -849,9 +849,10 @@ public class TableControl : BaseControl, IMouseAwareControl
 		Color borderColor = ResolveBorderColor();
 		Color headerBg = ResolveHeaderBackgroundColor();
 		Color headerFg = ResolveHeaderForegroundColor();
+		bool preserveBg = Container?.HasGradientBackground ?? false;
 
 		// Fill margins
-		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, bgColor);
+		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, bgColor, preserveBg);
 
 		List<TableColumn> colSnapshot;
 		List<TableRow> rowSnapshot;
@@ -864,7 +865,7 @@ public class TableControl : BaseControl, IMouseAwareControl
 		int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 		if (targetWidth <= 0 || colSnapshot.Count == 0)
 		{
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor, preserveBg);
 			return;
 		}
 
@@ -882,9 +883,9 @@ public class TableControl : BaseControl, IMouseAwareControl
 		{
 			if (y < clipRect.Y || y >= clipRect.Bottom) return;
 			if (Margin.Left > 0)
-				buffer.FillRect(new LayoutRect(bounds.X, y, Margin.Left, 1), ' ', fgColor, bgColor);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, bgColor, preserveBg);
 			if (Margin.Right > 0)
-				buffer.FillRect(new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), ' ', fgColor, bgColor);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, bgColor, preserveBg);
 		}
 
 		// Title row
@@ -975,11 +976,11 @@ public class TableControl : BaseControl, IMouseAwareControl
 		while (currentY < maxY)
 		{
 			if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
-				buffer.FillRect(new LayoutRect(bounds.X, currentY, bounds.Width, 1), ' ', fgColor, bgColor);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), fgColor, bgColor, preserveBg);
 			currentY++;
 		}
 
-		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor);
+		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor, preserveBg);
 	}
 
 	#endregion
