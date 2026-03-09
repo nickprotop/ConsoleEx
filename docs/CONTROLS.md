@@ -44,6 +44,7 @@ Controls for selecting items from lists or hierarchies.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **[ListControl](controls/ListControl.md)** | Scrollable list with selection | Single selection, item activation, keyboard navigation |
+| **[TableControl](controls/TableControl.md)** | Interactive data grid | Virtual data, sorting, inline editing, multi-select, cell navigation, scrollbars |
 | **TreeControl** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
 | **DropdownControl** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
 | **MenuControl** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |
@@ -131,7 +132,7 @@ public interface IInteractiveControl : IWindowControl
 }
 ```
 
-Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Dropdown, Menu, Canvas
+Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Table, Dropdown, Menu, Canvas
 
 ### IFocusableControl
 
@@ -148,7 +149,7 @@ public interface IFocusableControl : IInteractiveControl
 }
 ```
 
-Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Dropdown, Canvas
+Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Table, Dropdown, Canvas
 
 ### IMouseAwareControl
 
@@ -167,7 +168,7 @@ public interface IMouseAwareControl : IWindowControl
 }
 ```
 
-Implemented by: Button, List, Tree, Dropdown, Menu, Toolbar, ScrollablePanel, Canvas
+Implemented by: Button, List, Tree, Table, Dropdown, Menu, Toolbar, ScrollablePanel, Canvas
 
 ### IContainer
 
@@ -295,6 +296,7 @@ Browse detailed documentation for specific controls:
 - [MarkupControl](controls/MarkupControl.md) - Formatted text
 
 ### Advanced Controls
+- [TableControl](controls/TableControl.md) - Interactive data grid with virtual data
 - [TabControl](controls/TabControl.md) - Multi-page tab container
 - [CanvasControl](controls/CanvasControl.md) - Free-form drawing surface
 - [TerminalControl](controls/TerminalControl.md) - Embedded PTY terminal (Linux)
