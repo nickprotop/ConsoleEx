@@ -17,16 +17,18 @@ dotnet run --project Examples/<ExampleName>
 
 ---
 
-## 🏆 Real-World Applications
+## Real-World Applications
+
+Production applications built with SharpConsoleUI.
 
 ### ServerHub
-Production-ready Linux server control panel built with SharpConsoleUI.
+Production-ready Linux server control panel.
 
 ![ServerHub Dashboard](images/examples/serverhub-main.png)
 
 **Project:** [github.com/nickprotop/ServerHub](https://github.com/nickprotop/ServerHub)
 
-**Description:** Terminal-based control panel for Linux servers and homelabs with 14 bundled widgets for monitoring CPU, memory, disk, network, Docker containers, systemd services, and more.
+Terminal-based control panel for Linux servers and homelabs with 14 bundled widgets for monitoring CPU, memory, disk, network, Docker containers, systemd services, and more.
 
 **Key Features:**
 - Real-time system monitoring dashboard
@@ -36,17 +38,9 @@ Production-ready Linux server control panel built with SharpConsoleUI.
 - Custom widget support (any language)
 - Context-aware actions system
 
-**Screenshots:**
-
 | Main Dashboard | Network Traffic | Widget Browser |
 |----------------|-----------------|----------------|
 | ![Main](images/examples/serverhub-main.png) | ![Network](images/examples/serverhub-network.png) | ![Widgets](images/examples/serverhub-widgets.png) |
-
-**What it demonstrates:**
-- SharpConsoleUI powering a production application
-- Complex multi-widget dashboard layouts
-- Real-time data visualization with sparklines
-- Professional UI/UX in a TUI environment
 
 ---
 
@@ -57,7 +51,7 @@ A lazygit-inspired terminal UI for managing NuGet packages across .NET solutions
 
 **Project:** [github.com/nickprotop/lazynuget](https://github.com/nickprotop/lazynuget)
 
-**Description:** Keyboard-driven TUI for browsing projects, checking for updates, installing/removing/updating packages, searching NuGet.org, and managing multiple package sources. Cross-platform (Windows, Linux, macOS).
+Keyboard-driven TUI for browsing projects, checking for updates, installing/removing/updating packages, searching NuGet.org, and managing multiple package sources. Cross-platform (Windows, Linux, macOS).
 
 **Key Features:**
 - Interactive dashboard with project and package browsing
@@ -67,17 +61,9 @@ A lazygit-inspired terminal UI for managing NuGet packages across .NET solutions
 - CPM (Central Package Management) migration wizard
 - Operation history with undo support
 
-**Screenshots:**
-
 | Dashboard | Search NuGet.org | Dependency Tree |
 |-----------|-----------------|-----------------|
 | ![Dashboard](images/examples/lazynuget-dashboard.png) | ![Search](images/examples/lazynuget-search.png) | ![Deps](images/examples/lazynuget-deps.png) |
-
-**What it demonstrates:**
-- SharpConsoleUI powering a developer productivity tool
-- Complex multi-panel dashboard layouts
-- Real-time NuGet API integration
-- Professional TUI design inspired by lazygit
 
 ---
 
@@ -86,7 +72,7 @@ A lightweight console-based .NET IDE with LSP IntelliSense.
 
 **Project:** [github.com/nickprotop/lazydotide](https://github.com/nickprotop/lazydotide)
 
-**Description:** Console-based .NET IDE with LSP-powered IntelliSense, built-in terminal, and git integration. Works over SSH, in containers, anywhere you have a console.
+Console-based .NET IDE with LSP-powered IntelliSense, built-in terminal, and git integration. Works over SSH, in containers, anywhere you have a console.
 
 **Key Features:**
 - LSP IntelliSense with code completion and diagnostics
@@ -95,58 +81,62 @@ A lightweight console-based .NET IDE with LSP IntelliSense.
 - Multi-file editing with tab navigation
 - Works over SSH and in containers
 
-**What it demonstrates:**
-- SharpConsoleUI powering a full IDE
-- Terminal emulator control (TerminalControl with PTY)
-- LSP protocol integration
-- Complex multi-panel editor layouts
-
 ---
 
-## Examples by Category
+## Showcase Examples
 
-### 🎮 Interactive Applications
+The best visual demonstrations of SharpConsoleUI capabilities, ordered by impact.
 
-#### SnakeGame
-Classic Snake game demonstrating direct frame buffer manipulation.
+### DemoApp
+The flagship demo — six independent windows running simultaneously.
 
-![Snake Game](images/examples/snakegame.png)
+![DemoApp](images/examples/demoapp.png)
 
 ```bash
-dotnet run --project Examples/SnakeGame
+dotnet run --project Examples/DemoApp
 ```
 
 **Key Features:**
-- Direct `CharacterBuffer` manipulation via `PostBufferPaint`
-- Real-time game loop with `System.Timers.Timer`
-- Sidebar layout using `HorizontalGridControl`
-- Keyboard input handling (arrows/WASD)
-- Game state management (playing, paused, game over)
+- Six independent windows running simultaneously (Terminal, Canvas, DataGrid, System Info, Image Viewer, and the launcher)
+- `TerminalControl` with PTY-backed shell
+- `CanvasControl` with interactive starfield and plasma effects
+- `TableControl` (DataGrid) with 10,000 virtual rows, sorting, filtering, and cell editing
+- `ImageControl` rendering images directly in the terminal
+- Full markup syntax showcase with colors, decorations, and gradients
+- Async window threads with `CancellationToken`
+- Theme switching and window taskbar navigation
 
-**Controls:** Arrow keys or WASD to move, P to pause, R to restart, Esc to quit
+**Controls:** Ctrl+O to open demo windows, Alt+1-6 to switch
 
 ---
 
-#### AgentStudio
-OpenCode-inspired TUI showcase demonstrating an AI coding agent interface aesthetic.
+### CanvasDemo
+Three animated windows showcasing the `CanvasControl` drawing surface with real-time graphics.
 
-![AgentStudio](images/examples/agentstudio.png)
+![Canvas Demo](images/examples/canvasdemo.png)
 
 ```bash
-dotnet run --project Examples/AgentStudio
+dotnet run --project Examples/CanvasDemo
 ```
 
 **Key Features:**
-- Modern TUI design patterns
-- Advanced `NetConsoleDriverOptions` configuration
-- Hidden status bars for immersive experience
-- Custom window class implementation
+- **Starfield:** 120 stars in 3 parallax layers with particle bursts on click
+- **Plasma:** Per-cell HSV sine plasma with expanding ripple effects on click, combined retained + event-driven painting
+- **Geometry:** Rotating polygon, orbiting triangle, pulsing circles, breathing ellipse, sweeping arc, radiating lines, bouncing box, gradient bar, expanding ring effects on click
+
+**APIs Demonstrated:**
+- `CanvasControl` with `BeginPaint()`/`EndPaint()` (retained mode)
+- `Paint` event with `CanvasGraphics` (immediate mode)
+- Combined retained + event overlay painting
+- `AutoSize` with `Stretch`/`Fill` for responsive canvases
+- Canvas-local mouse click events (`CanvasMouseClick`)
+- Full `CanvasGraphics` API: circles, polygons, gradients, ellipses, arcs, lines, text
+
+**Controls:** Click inside canvases for interactive effects, resize windows, Esc to quit
 
 ---
 
-### 📊 Dashboards & Monitoring
-
-#### ConsoleTopExample
+### ConsoleTopExample
 ntop/btop-inspired live system monitoring dashboard.
 
 | Processes | Memory | CPU |
@@ -173,26 +163,7 @@ dotnet run --project Examples/ConsoleTopExample
 
 ---
 
-#### MultiDashboard
-Showcases multiple windows with independent async update threads.
-
-![MultiDashboard](images/examples/multidashboard.png)
-
-```bash
-dotnet run --project Examples/MultiDashboard
-```
-
-**Key Features:**
-- 6 independent dashboard windows updating at different rates
-- Weather (5s), System Monitor (1s), Stock Ticker (2s), News (10s), Clock (1s), Log Stream (500ms)
-- Demonstrates async window threads with `IDisposable` pattern
-- Window toggle functionality (F1-F6)
-
-**What makes it unique:** Each window has its own async update thread running independently.
-
----
-
-#### HighFreqDemo
+### HighFreqDemo
 Multi-frequency update showcase with various control update rates.
 
 ![HighFreqDemo](images/examples/highfreqdemo.png)
@@ -211,35 +182,86 @@ dotnet run --project Examples/HighFreqDemo
 
 ---
 
-### 🎨 Visual Effects
+### CompositorEffectsExample
+Compositor-style buffer manipulation — fractals, blur, particles, and wipe transitions.
 
-#### CanvasDemo
-Three animated windows showcasing the `CanvasControl` drawing surface with real-time graphics.
-
-![Canvas Demo](images/examples/canvasdemo.png)
+![Compositor Effects](images/examples/compositor-fractal.png)
 
 ```bash
-dotnet run --project Examples/CanvasDemo
+dotnet run --project Examples/CompositorEffectsExample
 ```
 
 **Key Features:**
-- **Starfield:** 120 stars in 3 parallax layers with particle bursts on click
-- **Plasma:** Per-cell HSV sine plasma with expanding ripple effects on click, combined retained + event-driven painting
-- **Geometry:** Rotating polygon, orbiting triangle, pulsing circles, breathing ellipse, sweeping arc, radiating lines, bouncing box, gradient bar, expanding ring effects on click
+- **Fade-In Effect:** Smooth color interpolation using `PostBufferPaint`
+- **Blur Effect:** Box blur post-processing algorithm
+- **Screenshot Capture:** `BufferSnapshot` API for capturing window state
+- **Fractal Explorer:** Animated Mandelbrot/Julia fractals using `PreBufferPaint`
 
 **APIs Demonstrated:**
-- `CanvasControl` with `BeginPaint()`/`EndPaint()` (retained mode)
-- `Paint` event with `CanvasGraphics` (immediate mode)
-- Combined retained + event overlay painting
-- `AutoSize` with `Stretch`/`Fill` for responsive canvases
-- Canvas-local mouse click events (`CanvasMouseClick`)
-- Full `CanvasGraphics` API: circles, polygons, gradients, ellipses, arcs, lines, text
-
-**Controls:** Click inside canvases for interactive effects, resize windows, Esc to quit
+- `PreBufferPaint` - Custom backgrounds rendered before controls
+- `PostBufferPaint` - Post-processing effects after controls
+- `BufferSnapshot` - Immutable buffer captures
 
 ---
 
-#### Image Viewer (DemoApp)
+### AgentStudio
+OpenCode-inspired TUI showcase demonstrating an AI coding agent interface aesthetic.
+
+![AgentStudio](images/examples/agentstudio.png)
+
+```bash
+dotnet run --project Examples/AgentStudio
+```
+
+**Key Features:**
+- Modern TUI design patterns
+- Advanced `NetConsoleDriverOptions` configuration
+- Hidden status bars for immersive experience
+- Custom window class implementation
+
+---
+
+### SnakeGame
+Classic Snake game demonstrating direct frame buffer manipulation.
+
+![Snake Game](images/examples/snakegame.png)
+
+```bash
+dotnet run --project Examples/SnakeGame
+```
+
+**Key Features:**
+- Direct `CharacterBuffer` manipulation via `PostBufferPaint`
+- Real-time game loop with `System.Timers.Timer`
+- Sidebar layout using `HorizontalGridControl`
+- Keyboard input handling (arrows/WASD)
+- Game state management (playing, paused, game over)
+
+**Controls:** Arrow keys or WASD to move, P to pause, R to restart, Esc to quit
+
+---
+
+### TextEditorExample
+Multiline text editor with syntax highlighting and file browser.
+
+![Text Editor](images/examples/texteditor.png)
+
+```bash
+dotnet run --project Examples/TextEditorExample
+```
+
+**Key Features:**
+- Multiline edit control with scrolling
+- File browser dialog integration
+- Syntax highlighting support
+- Save/load functionality
+- Line numbers and cursor position
+
+**Controls:** Ctrl+O to open file, Ctrl+S to save, arrow keys to navigate
+
+---
+
+### Image Viewer (DemoApp)
 Load and display real image files in the terminal using half-block Unicode rendering.
 
 ![Image Viewer](images/examples/imageviewer.png)
@@ -264,47 +286,26 @@ dotnet run --project Examples/DemoApp
 
 ---
 
-#### CompositorEffectsExample
-Demonstrates compositor-style buffer manipulation capabilities.
+### MultiDashboard
+Multiple windows with independent async update threads.
 
-![Compositor Effects](images/examples/compositor-fractal.png)
+![MultiDashboard](images/examples/multidashboard.png)
 
 ```bash
-dotnet run --project Examples/CompositorEffectsExample
+dotnet run --project Examples/MultiDashboard
 ```
 
 **Key Features:**
-- **Fade-In Effect:** Smooth color interpolation using `PostBufferPaint`
-- **Blur Effect:** Box blur post-processing algorithm
-- **Screenshot Capture:** `BufferSnapshot` API for capturing window state
-- **Fractal Explorer:** Animated Mandelbrot/Julia fractals using `PreBufferPaint`
+- 6 independent dashboard windows updating at different rates
+- Weather (5s), System Monitor (1s), Stock Ticker (2s), News (10s), Clock (1s), Log Stream (500ms)
+- Demonstrates async window threads with `IDisposable` pattern
+- Window toggle functionality (F1-F6)
 
-**APIs Demonstrated:**
-- `PreBufferPaint` - Custom backgrounds rendered before controls
-- `PostBufferPaint` - Post-processing effects after controls
-- `BufferSnapshot` - Immutable buffer captures
+**What makes it unique:** Each window has its own async update thread running independently.
 
 ---
 
-#### FrameRateDemo
-Frame rate control and performance metrics demonstration.
-
-```bash
-dotnet run --project Examples/FrameRateDemo
-```
-
-**Key Features:**
-- Adjustable target FPS (15, 30, 60, 120, 144)
-- Frame rate limiting toggle
-- Performance metrics display
-- Rotating bar animation to visualize rendering speed
-- Real-time FPS, frame time, and dirty chars display
-
-**Controls:** 1-5 to set FPS, E/D to enable/disable limiting, M to toggle metrics
-
----
-
-#### FigletShowcaseExample
+### FigletShowcaseExample
 ASCII art font showcase demonstrating Figlet font rendering.
 
 ![Figlet Showcase](images/examples/figletshowcase.png)
@@ -324,32 +325,7 @@ dotnet run --project Examples/FigleShowcaseExample
 
 ---
 
-### 🖱️ Controls & Interactions
-
-#### DemoApp
-Comprehensive demo showcasing all major SharpConsoleUI features.
-
-![DemoApp](images/examples/demoapp.png)
-
-```bash
-dotnet run --project Examples/DemoApp
-```
-
-**Key Features:**
-- Six independent windows running simultaneously (Terminal, Canvas, DataGrid, System Info, Image Viewer, and the launcher)
-- `TerminalControl` with PTY-backed shell
-- `CanvasControl` with interactive starfield and plasma effects
-- `TableControl` (DataGrid) with 10,000 virtual rows, sorting, filtering, and cell editing
-- `ImageControl` rendering images directly in the terminal
-- Full markup syntax showcase with colors, decorations, and gradients
-- Async window threads with `CancellationToken`
-- Theme switching and window taskbar navigation
-
-**Windows Available:** Ctrl+O to open demo windows, Alt+1-6 to switch
-
----
-
-#### MenuDemo
+### MenuDemo
 Full-featured horizontal menu bar with keyboard and mouse support.
 
 ![MenuDemo](images/examples/menudemo.png)
@@ -367,188 +343,48 @@ dotnet run --project Examples/MenuDemo
 
 ---
 
-#### StartMenuDemo
-Windows-like Start menu system demonstration.
+## More Examples
 
-```bash
-dotnet run --project Examples/StartMenuDemo
-```
+These examples demonstrate specific features without full screenshots.
 
-**Key Features:**
-- Start button in status bar (☰ Start)
-- Categorized menu items (File, Tools, Windows)
-- Plugin integration (DeveloperTools)
-- System actions (Theme, Settings, About)
-- Window list in Start menu
-- `PanelControl` with various border styles
-
-**Controls:** Ctrl+Space or click Start button to open menu
-
----
-
-#### TabControlDemo
-Multi-page tab control with interactive content demonstration.
-
-```bash
-dotnet run --project Examples/TabControlDemo
-```
-
-**Key Features:**
-- Multi-page tab navigation with headers
-- Tab switching via mouse clicks and keyboard shortcuts (Ctrl+Tab, Ctrl+Shift+Tab)
-- ScrollablePanel integration for scrollable content
-- Interactive controls with state preservation across tabs
-- TableControl integration showing data in tabs
-- Comprehensive help/documentation system
-
-**Controls:** Click tab headers to switch, Ctrl+Tab for next tab, Ctrl+Shift+Tab for previous tab, Esc to quit
-
----
-
-#### TableDemo
-TableControl with theme support demonstration.
-
-```bash
-dotnet run --project Examples/TableDemo
-```
-
-**Key Features:**
-- Read-only tabular data display
-- Fluent builder API with column justification
-- Theme switching (F1=ModernGray, F2=Classic, F3=DevDark)
-- Markup support in cells
-- Rounded borders
-
----
-
-#### PanelDemo
-PanelControl mouse event handling demonstration.
-
-```bash
-dotnet run --project Examples/PanelDemo
-```
-
-**Key Features:**
-- Panel mouse events (click, double-click, enter, leave, move)
-- Event handling vs. bubbling behavior
-- Multiple border styles (Rounded, DoubleLine)
-- Real-time event status display
-
----
-
-#### SpectreMouseExample
-Mouse event support for SpectreRenderableControl.
-
-```bash
-dotnet run --project Examples/SpectreMouseExample
-```
-
-**Key Features:**
-- Click, double-click, enter, leave, and move events
-- Event counter statistics
-- Fluent `SpectreRenderableControl.Create()` builder
-- Interactive Spectre.Console Panel with mouse handling
-
----
-
-#### TextEditorExample
-Multiline text editor with syntax highlighting and file browser.
-
-![Text Editor](images/examples/texteditor.png)
-
-```bash
-dotnet run --project Examples/TextEditorExample
-```
-
-**Key Features:**
-- Multiline edit control with scrolling
-- File browser dialog integration
-- Syntax highlighting support
-- Save/load functionality
-- Line numbers and cursor position
-
-**Controls:** Ctrl+O to open file, Ctrl+S to save, arrow keys to navigate
-
----
-
-### 🪟 Window Features
-
-#### FullScreenExample
-Kiosk-style full-screen window mode demonstration.
-
-```bash
-dotnet run --project Examples/FullScreenExample
-```
-
-**Key Features:**
-- Maximized window filling entire console
-- Disabled resize, move, close, minimize, maximize
-- Hidden taskbar for true full-screen
-- Interactive buttons and status display
-
-**Use Cases:** Kiosk applications, game interfaces, terminal dashboards, embedded UIs
-
----
-
-#### BorderStyleDemo
-Window border style demonstration.
-
-```bash
-dotnet run --project Examples/BorderStyleDemo
-```
-
-**Key Features:**
-- `BorderStyle.DoubleLine` - Classic double-line border (default)
-- `BorderStyle.None` - Borderless window
-- Runtime border style toggling
-- `WindowBuilder.Borderless()` convenience method
-
----
-
-### 🔌 Plugin System
-
-#### PluginShowcaseExample
-DeveloperTools plugin demonstration using agnostic service pattern.
-
-```bash
-dotnet run --project Examples/PluginShowcaseExample
-```
-
-**Key Features:**
-- Plugin loading with `LoadPlugin<T>()`
-- DevDark theme from plugin
-- Debug Console window creation
-- LogExporter control usage
-- Agnostic `IPluginService` pattern (no shared interfaces required)
-- Service discovery and parameterized operations
-- Log level dropdown control
+| Example | What it shows | Run command |
+|---------|--------------|-------------|
+| **FrameRateDemo** | Adjustable FPS (15-144), frame rate limiting, performance metrics | `dotnet run --project Examples/FrameRateDemo` |
+| **FullScreenExample** | Kiosk-style maximized window, hidden taskbar, disabled chrome | `dotnet run --project Examples/FullScreenExample` |
+| **StartMenuDemo** | Windows-like Start menu, plugin integration, categorized items | `dotnet run --project Examples/StartMenuDemo` |
+| **TabControlDemo** | Multi-page tabs, Ctrl+Tab switching, ScrollablePanel integration | `dotnet run --project Examples/TabControlDemo` |
+| **TableDemo** | TableControl with theme switching (F1-F3), markup in cells, rounded borders | `dotnet run --project Examples/TableDemo` |
+| **PanelDemo** | Panel mouse events (click, double-click, enter, leave, move) | `dotnet run --project Examples/PanelDemo` |
+| **BorderStyleDemo** | DoubleLine vs None border styles, runtime toggling | `dotnet run --project Examples/BorderStyleDemo` |
+| **SpectreMouseExample** | Mouse events on SpectreRenderableControl, event counters | `dotnet run --project Examples/SpectreMouseExample` |
+| **PluginShowcaseExample** | Plugin loading, DevDark theme, Debug Console, agnostic services | `dotnet run --project Examples/PluginShowcaseExample` |
 
 ---
 
 ## Feature Matrix
 
 | Example | Async Windows | Buffer Paint | Mouse Events | Themes | Plugins | Games |
-|---------|--------------|--------------|--------------|--------|---------|-------|
+|---------|:---:|:---:|:---:|:---:|:---:|:---:|
+| DemoApp | ✅ | | ✅ | ✅ | | |
 | CanvasDemo | ✅ | ✅ | ✅ | | | |
-| DemoApp | ✅ | | | ✅ | | |
-| StartMenuDemo | | | ✅ | | ✅ | |
-| FullScreenExample | | | ✅ | | | |
-| BorderStyleDemo | | | | | | |
 | ConsoleTopExample | ✅ | | | | | |
-| TableDemo | | | | ✅ | | |
-| SpectreMouseExample | | | ✅ | | | |
-| AgentStudio | | | | | | |
-| MenuDemo | | | ✅ | | | |
-| MultiDashboard | ✅ | | | | | |
-| PluginShowcaseExample | | | | ✅ | ✅ | |
-| HighFreqDemo | ✅ | | | | | |
-| FrameRateDemo | | | | | | |
-| PanelDemo | | | ✅ | | | |
-| SnakeGame | | ✅ | | | | ✅ |
+| HighFreqDemo | ✅ | | ✅ | | | |
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
+| AgentStudio | | | | | | |
+| SnakeGame | | ✅ | | | | ✅ |
 | TextEditorExample | | | | | | |
-| TabControlDemo | | | ✅ | | | |
+| MultiDashboard | ✅ | | | | | |
 | FigletShowcaseExample | | | | | | |
+| MenuDemo | | | ✅ | | | |
+| FrameRateDemo | | | | | | |
+| FullScreenExample | | | ✅ | | | |
+| StartMenuDemo | | | ✅ | | ✅ | |
+| TabControlDemo | | | ✅ | | | |
+| TableDemo | | | | ✅ | | |
+| PanelDemo | | | ✅ | | | |
+| BorderStyleDemo | | | | | | |
+| SpectreMouseExample | | | ✅ | | | |
+| PluginShowcaseExample | | | | ✅ | ✅ | |
 
 ---
 
@@ -562,7 +398,7 @@ dotnet run --project Examples/PluginShowcaseExample
 | `TreeControl` | DemoApp (File Explorer) |
 | `DropdownControl` | DemoApp, PluginShowcaseExample |
 | `MenuControl` | MenuDemo, HighFreqDemo |
-| `TableControl` | TableDemo |
+| `TableControl` | DemoApp, TableDemo |
 | `PanelControl` | StartMenuDemo, PanelDemo, HighFreqDemo |
 | `SparklineControl` | ConsoleTopExample, HighFreqDemo |
 | `BarGraphControl` | HighFreqDemo |
@@ -572,7 +408,7 @@ dotnet run --project Examples/PluginShowcaseExample
 | `LogViewerControl` | DemoApp |
 | `TabControl` | TabControlDemo |
 | `ImageControl` | DemoApp (Image Rendering, Image Viewer) |
-| `CanvasControl` | CanvasDemo |
+| `CanvasControl` | CanvasDemo, DemoApp |
 | `HorizontalGridControl` | Most examples |
 | `SpectreRenderableControl` | SpectreMouseExample |
 
