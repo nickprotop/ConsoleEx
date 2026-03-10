@@ -70,6 +70,8 @@ Keyboard-driven TUI for browsing projects, checking for updates, installing/remo
 ### LazyDotIDE
 A lightweight console-based .NET IDE with LSP IntelliSense.
 
+![LazyDotIDE Editor](images/examples/lazydotide-editor.png)
+
 **Project:** [github.com/nickprotop/lazydotide](https://github.com/nickprotop/lazydotide)
 
 Console-based .NET IDE with LSP-powered IntelliSense, built-in terminal, and git integration. Works over SSH, in containers, anywhere you have a console.
@@ -77,9 +79,13 @@ Console-based .NET IDE with LSP-powered IntelliSense, built-in terminal, and git
 **Key Features:**
 - LSP IntelliSense with code completion and diagnostics
 - Built-in terminal emulator (PTY-based)
-- Git integration
+- Git integration with commit dialog and change tracking
 - Multi-file editing with tab navigation
 - Works over SSH and in containers
+
+| Editor + IntelliSense | Git Integration |
+|----------------------|-----------------|
+| ![IntelliSense](images/examples/lazydotide-intellisense.png) | ![Git](images/examples/lazydotide-git.png) |
 
 ---
 
