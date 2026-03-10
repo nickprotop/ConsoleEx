@@ -84,6 +84,7 @@ public static class LauncherWindow
         controls.AddChild("DataGrid");
         controls.AddChild("Nerd Fonts");
         controls.AddChild("Markup Syntax");
+        controls.AddChild("Data Binding");
 
         var dataViz = tree.AddRootNode("Data Visualization");
         dataViz.TextColor = Color.Yellow;
@@ -126,6 +127,7 @@ public static class LauncherWindow
             "DataGrid" => DataGridWindow.Create(ws),
             "Nerd Fonts" => NerdFontWindow.Create(ws),
             "Markup Syntax" => MarkupSyntaxWindow.Create(ws),
+            "Data Binding" => DataBindingWindow.Create(ws),
             "Graphs & Charts" => GraphsWindow.Create(ws),
             "Gradients" => GradientDemoWindow.Create(ws),
             "Animations" => AnimationDemoWindow.Create(ws),
@@ -275,6 +277,25 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - MarkupControl, ScrollablePanelControl",
                 "  - RuleControl",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Data Binding" => new List<string>
+            {
+                "[bold cyan]MVVM Data Binding[/]",
+                "",
+                "Demonstrates INotifyPropertyChanged-based data",
+                "binding between a ViewModel and UI controls.",
+                "",
+                "[dim]Features:[/]",
+                "  - One-way binding (VM to Control)",
+                "  - One-way with converter (formatting)",
+                "  - Two-way binding (VM and Control in sync)",
+                "  - Live async updates through VM properties",
+                "",
+                "[dim]Controls used:[/]",
+                "  - ProgressBarControl, MarkupControl",
+                "  - CheckboxControl",
                 "",
                 "[green][[Enter]] Launch Demo[/]"
             },
