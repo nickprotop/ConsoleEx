@@ -115,6 +115,13 @@ namespace SharpConsoleUI
 			["darkslategray3"] = Color.DarkSlateGray3,
 			["cyan1"] = Color.Cyan1,
 			["orange3"] = Color.Orange3,
+			["magenta1"] = Color.Magenta1,
+			["dodgerblue2"] = Color.DodgerBlue2,
+			["springgreen2"] = Color.SpringGreen2,
+			["chartreuse2"] = Color.Chartreuse2,
+			["gold1"] = Color.Gold1,
+			["gold3"] = Color.Gold3,
+			["coral"] = Color.Coral,
 
 			// Grey scale
 			["grey0"] = Color.Grey0,

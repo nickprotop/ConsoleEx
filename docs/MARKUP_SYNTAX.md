@@ -49,7 +49,9 @@ SharpConsoleUI includes a native markup parser that uses Spectre-compatible `[ta
 | Color | RGB |
 |-------|-----|
 | `orange1` | (255, 175, 0) |
+| `orange3` | (205, 133, 0) |
 | `darkorange` | (255, 140, 0) |
+| `coral` | (255, 127, 80) |
 | `indianred` | (205, 92, 92) |
 | `hotpink` | (255, 105, 180) |
 | `deeppink1` | (255, 20, 147) |
@@ -59,6 +61,7 @@ SharpConsoleUI includes a native markup parser that uses Spectre-compatible `[ta
 | `royalblue1` | (65, 105, 225) |
 | `cornflowerblue` | (100, 149, 237) |
 | `dodgerblue1` | (30, 144, 255) |
+| `dodgerblue2` | (28, 134, 238) |
 | `deepskyblue1` | (0, 191, 255) |
 | `steelblue` | (70, 130, 180) |
 | `cadetblue` | (95, 158, 160) |
@@ -67,7 +70,9 @@ SharpConsoleUI includes a native markup parser that uses Spectre-compatible `[ta
 | `lightseagreen` | (32, 178, 170) |
 | `mediumspringgreen` | (0, 250, 154) |
 | `springgreen1` | (0, 255, 127) |
+| `springgreen2` | (0, 238, 118) |
 | `chartreuse1` | (127, 255, 0) |
+| `chartreuse2` | (118, 238, 0) |
 | `greenyellow` | (173, 255, 47) |
 | `lightgreen` | (144, 238, 144) |
 | `palegreen1` | (152, 251, 152) |
@@ -77,9 +82,42 @@ SharpConsoleUI includes a native markup parser that uses Spectre-compatible `[ta
 | `salmon1` | (250, 128, 114) |
 | `sandybrown` | (244, 164, 96) |
 | `gold1` | (255, 215, 0) |
+| `gold3` | (205, 173, 0) |
 | `violet` | (238, 130, 238) |
 | `orchid` | (218, 112, 214) |
 | `plum1` | (221, 160, 221) |
+| `magenta1` | (255, 0, 255) |
+| `darkolivegreen1` | (202, 255, 112) |
+| `khaki1` | (240, 230, 140) |
+| `darkkhaki` | (189, 183, 107) |
+| `darkgoldenrod` | (184, 134, 11) |
+| `wheat1` | (245, 222, 179) |
+| `navajowhite1` | (255, 222, 173) |
+| `mistyrose1` | (255, 228, 225) |
+| `lightsalmon1` | (255, 160, 122) |
+| `lightpink1` | (255, 182, 193) |
+| `pink1` | (255, 192, 203) |
+| `thistle1` | (216, 191, 216) |
+| `tan` | (210, 180, 140) |
+| `rosybrown` | (188, 143, 143) |
+| `palevioletred` | (219, 112, 147) |
+| `mediumvioletred` | (199, 21, 133) |
+| `mediumpurple` | (147, 112, 219) |
+| `mediumslateblue` | (123, 104, 238) |
+| `slateblue1` | (106, 90, 205) |
+| `lightsteelblue` | (176, 196, 222) |
+| `lightblue` | (173, 216, 230) |
+| `lightcyan1` | (224, 255, 255) |
+| `paleturquoise1` | (175, 238, 238) |
+| `lightskyblue1` | (135, 206, 250) |
+| `skyblue1` | (135, 206, 235) |
+| `lightslategrey` | (119, 136, 153) |
+| `honeydew2` | (240, 255, 240) |
+| `lightgoldenrodyellow` | (250, 250, 210) |
+| `lightyellow1` | (255, 255, 224) |
+| `darkslategray1` | (47, 79, 79) |
+| `darkslategray3` | (95, 135, 135) |
+| `cyan1` | (0, 255, 255) |
 
 ### Grey Scale
 

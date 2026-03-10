@@ -100,7 +100,12 @@ namespace SharpConsoleUI.Controls
 					fixedHeight += node.DesiredSize.Height;
 				}
 			}
-			int fillCount = paintSnapshot.Count(c => c.Visible && c.VerticalAlignment == VerticalAlignment.Fill);
+			int fillCount = 0;
+			foreach (var c in paintSnapshot)
+			{
+				if (c.Visible && c.VerticalAlignment == VerticalAlignment.Fill)
+					fillCount++;
+			}
 			int perFillHeight = (_viewportHeight > 0 && fillCount > 0)
 				? Math.Max(0, (_viewportHeight - fixedHeight) / fillCount) : _viewportHeight;
 
@@ -262,14 +267,19 @@ namespace SharpConsoleUI.Controls
 
 			List<IWindowControl> calcSnapshot;
 			lock (_childrenLock) { calcSnapshot = new List<IWindowControl>(_children); }
-			var visible = calcSnapshot.Where(c => c.Visible).ToList();
 
 			// Two-pass measurement: fixed children first, then Fill children get remaining space.
 			// Pass 1: measure non-Fill children to determine fixed height.
 			int fixedHeight = 0;
-			foreach (var child in visible)
+			int fillCount = 0;
+			foreach (var child in calcSnapshot)
 			{
-				if (child.VerticalAlignment == VerticalAlignment.Fill) continue;
+				if (!child.Visible) continue;
+				if (child.VerticalAlignment == VerticalAlignment.Fill)
+				{
+					fillCount++;
+					continue;
+				}
 				var childNode = LayoutNodeFactory.CreateSubtree(child);
 				childNode.IsVisible = true;
 				var constraints = new LayoutConstraints(1, availableWidth, 1, int.MaxValue);
@@ -278,15 +288,14 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Pass 2: measure Fill children with remaining space.
-			int fillCount = visible.Count(c => c.VerticalAlignment == VerticalAlignment.Fill);
 			int remainingHeight = (maxH < int.MaxValue) ? Math.Max(0, maxH - fixedHeight) : int.MaxValue;
 			int perFillHeight = (fillCount > 0 && remainingHeight < int.MaxValue)
 				? Math.Max(0, remainingHeight / fillCount) : int.MaxValue;
 
 			int totalHeight = fixedHeight;
-			foreach (var child in visible)
+			foreach (var child in calcSnapshot)
 			{
-				if (child.VerticalAlignment != VerticalAlignment.Fill) continue;
+				if (!child.Visible || child.VerticalAlignment != VerticalAlignment.Fill) continue;
 				var childNode = LayoutNodeFactory.CreateSubtree(child);
 				childNode.IsVisible = true;
 				var constraints = new LayoutConstraints(1, availableWidth, 1, perFillHeight);
@@ -301,8 +310,16 @@ namespace SharpConsoleUI.Controls
 		{
 			List<IWindowControl> snapshot;
 			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
-			var visibleChildren = snapshot.Where(c => c.Visible).ToList();
-			return visibleChildren.Any() ? visibleChildren.Max(c => c.GetLogicalContentSize().Width) : 0;
+			int maxWidth = 0;
+			foreach (var c in snapshot)
+			{
+				if (c.Visible)
+				{
+					int w = c.GetLogicalContentSize().Width;
+					if (w > maxWidth) maxWidth = w;
+				}
+			}
+			return maxWidth;
 		}
 
 		#endregion

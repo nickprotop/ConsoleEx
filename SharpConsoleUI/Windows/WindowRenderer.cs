@@ -391,7 +391,7 @@ namespace SharpConsoleUI.Windows
 			int windowHeight,
 			bool showTitle)
 		{
-			if (visibleRegions == null || !visibleRegions.Any())
+			if (visibleRegions == null || visibleRegions.Count == 0)
 			{
 				// No visible regions - return empty clipRect
 				return new LayoutRect(0, 0, 0, 0);
@@ -492,7 +492,7 @@ namespace SharpConsoleUI.Windows
 
 			// Calculate clip rect from visible regions (optimization to avoid painting occluded areas)
 			LayoutRect clipRect;
-			if (visibleRegions != null && visibleRegions.Any())
+			if (visibleRegions != null && visibleRegions.Count > 0)
 			{
 				clipRect = ConvertVisibleRegionsToClipRect(
 					visibleRegions,

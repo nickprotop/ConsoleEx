@@ -52,6 +52,9 @@ namespace SharpConsoleUI.Controls
 		// Performance: Cache for expensive text measurement operations
 		private readonly TextMeasurementCache _textMeasurementCache = new(Parsing.MarkupParser.StripLength);
 
+		// Pooled StringBuilder to avoid per-node allocations during tree prefix building
+		private readonly System.Text.StringBuilder _prefixBuilder = new();
+
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
 		private int CurrentScrollOffset => _scrollOffset;

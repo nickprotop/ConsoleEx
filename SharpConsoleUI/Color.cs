@@ -158,6 +158,7 @@ namespace SharpConsoleUI
 		public static Color Chartreuse2 => new(118, 238, 0);
 		public static Color Gold1 => new(255, 215, 0);
 		public static Color Gold3 => new(205, 173, 0);
+		public static Color Coral => new(255, 127, 80);
 
 		#endregion
 

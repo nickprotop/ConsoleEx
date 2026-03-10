@@ -144,10 +144,46 @@ namespace SharpConsoleUI.Drivers.Input
 		[DllImport("libc", SetLastError = true)]
 		private static extern unsafe int write(int fd, byte* buf, int count);
 
-		// Reusable buffer for small writes (ANSI sequences, cursor moves)
-		// Thread safety: only used under _consoleLock in all call sites
+		// Reusable byte buffer that grows to fit the largest frame output.
+		// Thread safety: only used under _consoleLock in all call sites.
 		[ThreadStatic]
 		private static byte[]? _writeBuffer;
+
+		/// <summary>
+		/// Ensures _writeBuffer is at least the requested size.
+		/// Grows geometrically to avoid repeated allocations during ramp-up.
+		/// </summary>
+		private static byte[] EnsureWriteBuffer(int requiredBytes)
+		{
+			var buf = _writeBuffer;
+			if (buf != null && buf.Length >= requiredBytes)
+				return buf;
+
+			// Grow to at least double or the required size, whichever is larger
+			int newSize = buf != null
+				? Math.Max(buf.Length * 2, requiredBytes)
+				: Math.Max(4096, requiredBytes);
+			_writeBuffer = new byte[newSize];
+			return _writeBuffer;
+		}
+
+		/// <summary>
+		/// Writes raw bytes to stdout fd 1 via libc write().
+		/// </summary>
+		private static unsafe void WriteBytes(byte[] buffer, int count)
+		{
+			fixed (byte* ptr = buffer)
+			{
+				int offset = 0;
+				while (offset < count)
+				{
+					int written = write(StdoutFd, ptr + offset, count - offset);
+					if (written < 0)
+						break; // EINTR or error — best effort
+					offset += written;
+				}
+			}
+		}
 
 		/// <summary>
 		/// Writes a string directly to stdout fd 1 via libc write(), completely
@@ -161,36 +197,49 @@ namespace SharpConsoleUI.Drivers.Input
 				return;
 
 			int byteCount = Encoding.UTF8.GetByteCount(text);
-
-			// Use thread-local buffer for small writes to avoid allocation
-			const int SmallBufferThreshold = 4096;
-			byte[] buffer;
-			if (byteCount <= SmallBufferThreshold)
-			{
-				_writeBuffer ??= new byte[SmallBufferThreshold];
-				buffer = _writeBuffer;
-			}
-			else
-			{
-				buffer = new byte[byteCount];
-			}
-
+			byte[] buffer = EnsureWriteBuffer(byteCount);
 			int encoded = Encoding.UTF8.GetBytes(text, 0, text.Length, buffer, 0);
+			WriteBytes(buffer, encoded);
+		}
 
-			unsafe
+		/// <summary>
+		/// Writes a StringBuilder directly to stdout fd 1 via libc write(),
+		/// without allocating an intermediate string via ToString().
+		/// Iterates over the StringBuilder's internal chunks and encodes
+		/// each one into the reusable byte buffer.
+		/// </summary>
+		public static void WriteStdout(StringBuilder sb)
+		{
+			if (sb == null || sb.Length == 0)
+				return;
+
+			// Worst case: 3 bytes per char for most text (BMP), 4 for supplementary.
+			// We grow the buffer once and reuse for subsequent chunks.
+			byte[] buffer = EnsureWriteBuffer(sb.Length * 3);
+			var encoder = Encoding.UTF8.GetEncoder();
+
+			foreach (var chunk in sb.GetChunks())
 			{
-				fixed (byte* ptr = buffer)
+				var span = chunk.Span;
+				if (span.Length == 0)
+					continue;
+
+				// Ensure buffer can hold this chunk
+				int maxBytes = Encoding.UTF8.GetMaxByteCount(span.Length);
+				if (buffer.Length < maxBytes)
 				{
-					int offset = 0;
-					while (offset < encoded)
-					{
-						int written = write(StdoutFd, ptr + offset, encoded - offset);
-						if (written < 0)
-							break; // EINTR or error — best effort
-						offset += written;
-					}
+					buffer = EnsureWriteBuffer(maxBytes);
 				}
+
+				encoder.Convert(span, buffer.AsSpan(), flush: false, out _, out int bytesUsed, out _);
+				if (bytesUsed > 0)
+					WriteBytes(buffer, bytesUsed);
 			}
+
+			// Flush any remaining encoder state
+			encoder.Convert(ReadOnlySpan<char>.Empty, buffer.AsSpan(), flush: true, out _, out int finalBytes, out _);
+			if (finalBytes > 0)
+				WriteBytes(buffer, finalBytes);
 		}
 
 		/// <summary>

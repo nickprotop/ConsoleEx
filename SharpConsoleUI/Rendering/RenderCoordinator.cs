@@ -14,7 +14,6 @@ using SharpConsoleUI.Logging;
 using SharpConsoleUI.Performance;
 using SharpConsoleUI.Themes;
 using System.Drawing;
-using System.Linq;
 
 namespace SharpConsoleUI.Rendering
 {
@@ -71,6 +70,11 @@ namespace SharpConsoleUI.Rendering
 
 		// Track windows needing region update
 		private readonly HashSet<Window> _windowsNeedingRegionUpdate = new();
+
+		// Pooled collections to avoid per-frame allocations
+		private readonly List<Rectangle> _clearsCopyPool = new List<Rectangle>();
+		private readonly List<Window> _overlappingClearsPool = new List<Window>();
+		private readonly List<Window> _topLevelWindowsPool = new List<Window>();
 
 		/// <summary>
 		/// Initializes a new instance of the RenderCoordinator class.
@@ -215,18 +219,24 @@ namespace SharpConsoleUI.Rendering
 			if (_pendingDesktopClears.Count > 0)
 			{
 				// Copy list to avoid race condition (mouse events can add during iteration)
-				var clearsCopy = _pendingDesktopClears.ToList();
+				_clearsCopyPool.Clear();
+				_clearsCopyPool.AddRange(_pendingDesktopClears);
 				_pendingDesktopClears.Clear();
 
-				foreach (var clearRect in clearsCopy)
+				foreach (var clearRect in _clearsCopyPool)
 				{
 					// Find all visible windows that overlap with clear area
-					var overlappingWindows = _windowSystemContext.Windows.Values
-						.Where(w => 
-						           w.State != WindowState.Minimized &&
-						           GeometryHelpers.DoesRectangleIntersect(clearRect, 
-						               new Rectangle(w.Left, w.Top, w.Width, w.Height)))
-						.ToList();
+					_overlappingClearsPool.Clear();
+					foreach (var w in _windowSystemContext.Windows.Values)
+					{
+						if (w.State != WindowState.Minimized &&
+						    GeometryHelpers.DoesRectangleIntersect(clearRect,
+						        new Rectangle(w.Left, w.Top, w.Width, w.Height)))
+						{
+							_overlappingClearsPool.Add(w);
+						}
+					}
+					var overlappingWindows = _overlappingClearsPool;
 
 					// Calculate visible regions (areas NOT covered by windows)
 					var visibleRegions = _windowSystemContext.VisibleRegions
@@ -586,18 +596,21 @@ namespace SharpConsoleUI.Rendering
 				return;
 
 			// Filter out sub-windows and overlay windows from the bottom status bar
-			var topLevelWindows = _windowSystemContext.Windows.Values
-				.Where(w => w.ParentWindow == null && !(w is SharpConsoleUI.Windows.OverlayWindow))
-				.OrderBy(w => w.CreationOrder)
-				.ToList();
+			_topLevelWindowsPool.Clear();
+			foreach (var w in _windowSystemContext.Windows.Values)
+			{
+				if (w.ParentWindow == null && !(w is SharpConsoleUI.Windows.OverlayWindow))
+					_topLevelWindowsPool.Add(w);
+			}
+			_topLevelWindowsPool.Sort((a, b) => a.CreationOrder.CompareTo(b.CreationOrder));
 
 			// Check if task bar cache is valid
 			string taskBar;
 			if (_options.StatusBar.ShowTaskBar)
 			{
-				int stateHash = ComputeTaskBarStateHash(topLevelWindows);
+				int stateHash = ComputeTaskBarStateHash(_topLevelWindowsPool);
 				if (_cachedTaskBar != null &&
-					_taskBarWindowCount == topLevelWindows.Count &&
+					_taskBarWindowCount == _topLevelWindowsPool.Count &&
 					_taskBarStateHash == stateHash)
 				{
 					// Use cached task bar
@@ -606,15 +619,19 @@ namespace SharpConsoleUI.Rendering
 				else
 				{
 					// Rebuild task bar
-					taskBar = $"{string.Join(" | ", topLevelWindows.Select((w, i) => {
+					var parts = new string[_topLevelWindowsPool.Count];
+					for (int i = 0; i < _topLevelWindowsPool.Count; i++)
+					{
+						var w = _topLevelWindowsPool[i];
 						var minIndicator = w.State == WindowState.Minimized ? "[dim]" : "";
 						var minEnd = w.State == WindowState.Minimized ? "[/]" : "";
-						return $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";
-					}))} | ";
+						parts[i] = $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";
+					}
+					taskBar = $"{string.Join(" | ", parts)} | ";
 
 					// Update cache
 					_cachedTaskBar = taskBar;
-					_taskBarWindowCount = topLevelWindows.Count;
+					_taskBarWindowCount = _topLevelWindowsPool.Count;
 					_taskBarStateHash = stateHash;
 				}
 			}

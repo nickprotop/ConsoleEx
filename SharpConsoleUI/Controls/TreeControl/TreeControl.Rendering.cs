@@ -8,7 +8,6 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using System.Text;
 
 namespace SharpConsoleUI.Controls
 {
@@ -22,25 +21,25 @@ namespace SharpConsoleUI.Controls
 			if (depth == 0)
 				return "";
 
-			StringBuilder prefix = new StringBuilder();
+			_prefixBuilder.Clear();
 
 			// For each ancestor level, draw a vertical continuation line if that ancestor
 			// still has siblings below it, or spaces if it was the last child.
 			for (int i = 0; i < depth - 1; i++)
 			{
-				prefix.Append(ancestorIsLast[i] ? " " : guides.vertical);
-				prefix.Append(_indent);
+				_prefixBuilder.Append(ancestorIsLast[i] ? " " : guides.vertical);
+				_prefixBuilder.Append(_indent);
 			}
 
 			// Add appropriate connector for the current node
 			bool isLast = ancestorIsLast[depth - 1];
 			string connector = isLast ? guides.corner : guides.tee;
 
-			prefix.Append(connector);
-			prefix.Append(guides.horizontal);
-			prefix.Append(" ");
+			_prefixBuilder.Append(connector);
+			_prefixBuilder.Append(guides.horizontal);
+			_prefixBuilder.Append(" ");
 
-			return prefix.ToString();
+			return _prefixBuilder.ToString();
 		}
 
 		private (string cross, string corner, string tee, string vertical, string horizontal) GetGuideChars()

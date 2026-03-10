@@ -38,7 +38,7 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
-	private Color _backgroundColor = Color.Black;
+	private Color? _backgroundColor;
 	private Color _foregroundColor = Color.White;
 
 	/// <summary>
@@ -375,9 +375,14 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 			Name = _name,
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
-			BackgroundColor = _backgroundColor,
 			ForegroundColor = _foregroundColor
 		};
+
+		// Set background only if explicitly specified (null = transparent, inherits gradient)
+		if (_backgroundColor.HasValue)
+		{
+			control.BackgroundColor = _backgroundColor.Value;
+		}
 
 		// Add all children
 		foreach (var child in _children)

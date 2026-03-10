@@ -21,6 +21,11 @@ namespace SharpConsoleUI
 	{
 		private ConsoleWindowSystem _consoleWindowSystem;
 
+		// Pooled collections to avoid per-frame allocations on hot paths
+		private readonly List<Window> _overlappingWindowsPool = new List<Window>();
+		private readonly List<Window> _underlyingWindowsPool = new List<Window>();
+		private readonly List<Window> _overlayOverlappingPool = new List<Window>();
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Renderer"/> class.
 		/// </summary>
@@ -293,18 +298,23 @@ namespace SharpConsoleUI
 
 			// Get all windows that potentially overlap with this window
 			// Exclude minimized windows - they're invisible and shouldn't block rendering
-			var overlappingWindows = _consoleWindowSystem.Windows.Values
-				.Where(w => w != window &&
-				            w.ZIndex > window.ZIndex &&
-				            w.State != WindowState.Minimized &&
-				            IsOverlapping(window, w))
-				.OrderBy(w => w.ZIndex)
-				.ToList();
+			_overlappingWindowsPool.Clear();
+			foreach (var w in _consoleWindowSystem.Windows.Values)
+			{
+				if (w != window &&
+				    w.ZIndex > window.ZIndex &&
+				    w.State != WindowState.Minimized &&
+				    IsOverlapping(window, w))
+				{
+					_overlappingWindowsPool.Add(w);
+				}
+			}
+			_overlappingWindowsPool.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
 
 			// Calculate visible regions
-			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(window, overlappingWindows);
+			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(window, _overlappingWindowsPool);
 
-			if (!visibleRegions.Any())
+			if (visibleRegions.Count == 0)
 			{
 				// Window is completely covered - skip rendering but keep dirty.
 				// When the covering window moves away and exposes this window,
@@ -346,13 +356,19 @@ namespace SharpConsoleUI
 		private void RenderOverlayWindow(OverlayWindow overlay)
 		{
 			// Get all windows BELOW the overlay (lower Z-index), ordered by z-index
-			var underlyingWindows = _consoleWindowSystem.Windows.Values
-				.Where(w => w != overlay &&
-				            !(w is OverlayWindow) &&  // Skip other overlays
-				            w.ZIndex < overlay.ZIndex &&
-				            w.State != WindowState.Minimized)
-				.OrderBy(w => w.ZIndex)
-				.ToList();
+			_underlyingWindowsPool.Clear();
+			foreach (var w in _consoleWindowSystem.Windows.Values)
+			{
+				if (w != overlay &&
+				    !(w is OverlayWindow) &&
+				    w.ZIndex < overlay.ZIndex &&
+				    w.State != WindowState.Minimized)
+				{
+					_underlyingWindowsPool.Add(w);
+				}
+			}
+			_underlyingWindowsPool.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
+			var underlyingWindows = _underlyingWindowsPool;
 
 			// First, fill the entire desktop area with the desktop background to clear any previous overlay content.
 			// This ensures areas not covered by windows are properly cleared.
@@ -385,15 +401,20 @@ namespace SharpConsoleUI
 			}
 
 			// Calculate visible regions (areas not covered by higher z-index windows)
-			var overlappingWindows = _consoleWindowSystem.Windows.Values
-				.Where(w => w != overlay &&
-				            w.ZIndex > overlay.ZIndex &&
-				            w.State != WindowState.Minimized &&
-				            IsOverlapping(overlay, w))
-				.OrderBy(w => w.ZIndex)
-				.ToList();
+			_overlayOverlappingPool.Clear();
+			foreach (var w in _consoleWindowSystem.Windows.Values)
+			{
+				if (w != overlay &&
+				    w.ZIndex > overlay.ZIndex &&
+				    w.State != WindowState.Minimized &&
+				    IsOverlapping(overlay, w))
+				{
+					_overlayOverlappingPool.Add(w);
+				}
+			}
+			_overlayOverlappingPool.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
 
-			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(overlay, overlappingWindows);
+			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(overlay, _overlayOverlappingPool);
 
 			// Render only the control regions from the buffer (direct cell path)
 			RenderOverlayControlRegionsFromBuffer(overlay, buffer, controlBounds, visibleRegions);
@@ -415,16 +436,22 @@ namespace SharpConsoleUI
 				return;
 
 			// Get overlapping windows from the underlying windows list only (higher z-index among underlying)
-			var overlappingWindows = allUnderlyingWindows
-				.Where(w => w != window &&
-				            w.ZIndex > window.ZIndex &&
-				            IsOverlapping(window, w))
-				.OrderBy(w => w.ZIndex)
-				.ToList();
+			_overlappingWindowsPool.Clear();
+			for (int i = 0; i < allUnderlyingWindows.Count; i++)
+			{
+				var w = allUnderlyingWindows[i];
+				if (w != window &&
+				    w.ZIndex > window.ZIndex &&
+				    IsOverlapping(window, w))
+				{
+					_overlappingWindowsPool.Add(w);
+				}
+			}
+			_overlappingWindowsPool.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
 
-			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(window, overlappingWindows);
+			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(window, _overlappingWindowsPool);
 
-			if (!visibleRegions.Any())
+			if (visibleRegions.Count == 0)
 			{
 				window.IsDirty = false;
 				return;
@@ -512,71 +539,6 @@ namespace SharpConsoleUI
 							overlay.BackgroundColor);
 					}
 				}
-			}
-		}
-
-		/// <summary>
-		/// Normal window rendering (extracted from RenderWindow for reuse).
-		/// </summary>
-		private void RenderNormalWindow(Window window)
-		{
-			if (window.State == WindowState.Minimized)
-			{
-				return;
-			}
-
-			// Skip OverlayWindow (handled separately)
-			if (window is OverlayWindow)
-			{
-				return;
-			}
-
-			Point desktopTopLeftCorner = _consoleWindowSystem.DesktopUpperLeft;
-			Point desktopBottomRightCorner = _consoleWindowSystem.DesktopBottomRight;
-
-			if (IsWindowOutOfBounds(window, desktopTopLeftCorner, desktopBottomRightCorner))
-			{
-				return;
-			}
-
-			// Get all windows that potentially overlap with this window
-			// Exclude minimized windows - they're invisible and shouldn't block rendering
-			var overlappingWindows = _consoleWindowSystem.Windows.Values
-				.Where(w => w != window &&
-				            w.ZIndex > window.ZIndex &&
-				            w.State != WindowState.Minimized &&
-				            IsOverlapping(window, w))
-				.OrderBy(w => w.ZIndex)
-				.ToList();
-
-			// Calculate visible regions
-			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(window, overlappingWindows);
-
-			if (!visibleRegions.Any())
-			{
-				// Window is completely covered - skip rendering but keep dirty.
-				// When the covering window moves away and exposes this window,
-				// InvalidateExposedRegions will trigger a re-render where visible regions will exist.
-				return;
-			}
-
-			// Fill the background only for the visible regions
-			foreach (var region in visibleRegions)
-			{
-				FillRect(region.Left, region.Top, region.Width, region.Height, ' ', window.BackgroundColor, null);
-			}
-
-			// Draw window borders - these might be partially hidden but the drawing functions
-			// will handle clipping against screen boundaries
-			window.BorderRenderer?.RenderBorders(visibleRegions);
-
-			// Optimized path: rebuild buffer only and render cells directly
-			var buffer = window.EnsureContentReady(visibleRegions);
-			window.IsDirty = false;
-
-			if (buffer != null)
-			{
-				RenderVisibleWindowContentFromBuffer(window, buffer, visibleRegions);
 			}
 		}
 

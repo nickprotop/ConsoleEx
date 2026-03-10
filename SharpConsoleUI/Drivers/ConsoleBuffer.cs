@@ -40,8 +40,11 @@ namespace SharpConsoleUI.Drivers
 		private readonly StringBuilder _formatBuilder = new(64);
 
 		private readonly int _width;
-		private readonly object? _consoleLock; // Shared lock for thread-safe Console I/O
+		private readonly object _consoleLock; // Shared lock for thread-safe Console I/O
 		private readonly Configuration.ConsoleWindowSystemOptions _options;
+
+		// Pooled list to avoid per-line allocations during rendering
+		private readonly List<(int startX, int endX)> _dirtyRegionsPool = new List<(int, int)>();
 
 		// Diagnostics support (optional, for testing and debugging)
 		private Diagnostics.RenderingDiagnostics? _diagnostics;
@@ -66,7 +69,7 @@ namespace SharpConsoleUI.Drivers
 		{
 			_width = width;
 			_height = height;
-			_consoleLock = consoleLock;
+			_consoleLock = consoleLock ?? new object();
 			_options = options ?? Configuration.ConsoleWindowSystemOptions.Default;
 			_backBuffer = new Cell[width, height];
 			_frontBuffer = new Cell[width, height];
@@ -301,7 +304,7 @@ namespace SharpConsoleUI.Drivers
 				return;
 
 			// Lock Console I/O to prevent concurrent input operations from being corrupted
-			lock (_consoleLock ?? new object())
+			lock (_consoleLock)
 			{
 				// Diagnostics: Begin metrics capture
 				var metrics = _diagnostics?.IsEnabled == true ? new Diagnostics.RenderingMetrics() : null;
@@ -334,11 +337,11 @@ namespace SharpConsoleUI.Drivers
 					// CELL-LEVEL: Always render only changed regions within lines (minimal output)
 					for (int y = 0; y < _height; y++)
 					{
-						var dirtyRegions = GetDirtyRegionsInLine(y);
-						if (dirtyRegions.Count == 0)
+						GetDirtyRegionsInLine(y);
+						if (_dirtyRegionsPool.Count == 0)
 							continue;
 
-						foreach (var (startX, endX) in dirtyRegions)
+						foreach (var (startX, endX) in _dirtyRegionsPool)
 						{
 							// Position cursor at start of dirty region
 							_screenBuilder.Append($"\x1b[{y + 1};{startX + 1}H");
@@ -372,7 +375,7 @@ namespace SharpConsoleUI.Drivers
 					// SMART MODE: Analyze each line and choose optimal strategy per line
 					for (int y = 0; y < _height; y++)
 					{
-						var (isDirty, useLineMode, dirtyRegions) = AnalyzeLine(y);
+						var (isDirty, useLineMode) = AnalyzeLine(y);
 						if (!isDirty)
 							continue;
 
@@ -386,7 +389,7 @@ namespace SharpConsoleUI.Drivers
 						else
 						{
 							// Use CELL strategy for this line (low coverage, not fragmented)
-							foreach (var (startX, endX) in dirtyRegions)
+							foreach (var (startX, endX) in _dirtyRegionsPool)
 							{
 								_screenBuilder.Append($"\x1b[{y + 1};{startX + 1}H");
 								AppendRegionToBuilder(y, startX, endX, _screenBuilder);
@@ -398,15 +401,16 @@ namespace SharpConsoleUI.Drivers
 
 				// Single atomic write of entire screen via raw libc write() on Unix
 				// Completely bypasses .NET's Console/StreamWriter/SyncTextWriter
-				var output = _screenBuilder.ToString();
-				if (output.Length > 0)
+				if (_screenBuilder.Length > 0)
 				{
-					WriteOutput(output);
+					WriteOutput(_screenBuilder);
 				}
 
 				// Diagnostics: Capture output metrics
 				if (metrics != null)
 				{
+					// Only materialize the string for diagnostics (not on the normal hot path)
+					var output = _screenBuilder.ToString();
 					metrics.BytesWritten = output.Length;
 					metrics.AnsiEscapeSequences = CountAnsiSequences(output);
 					metrics.CursorMovements = CountCursorMoves(output);
@@ -454,13 +458,13 @@ namespace SharpConsoleUI.Drivers
 
 		/// <summary>
 		/// Gets dirty regions (contiguous changed cells) within a line.
-		/// Returns list of (startX, endX) tuples representing dirty regions.
+		/// Populates the pooled _dirtyRegionsPool list with (startX, endX) tuples.
 		/// Used for cell-level dirty tracking mode.
 		/// </summary>
-		private List<(int startX, int endX)> GetDirtyRegionsInLine(int y)
+		private void GetDirtyRegionsInLine(int y)
 		{
-			var regions = new List<(int, int)>();
-			int? regionStart = null;
+			_dirtyRegionsPool.Clear();
+			int regionStart = -1;
 
 			for (int x = 0; x < _width; x++)
 			{
@@ -472,36 +476,34 @@ namespace SharpConsoleUI.Drivers
 				if (isDirty)
 				{
 					// Start new region or continue existing
-					regionStart ??= x;
+					if (regionStart < 0) regionStart = x;
 				}
-				else if (regionStart.HasValue)
+				else if (regionStart >= 0)
 				{
 					// End of dirty region
-					regions.Add((regionStart.Value, x - 1));
-					regionStart = null;
+					_dirtyRegionsPool.Add((regionStart, x - 1));
+					regionStart = -1;
 				}
 			}
 
 			// Close final region if line ends dirty
-			if (regionStart.HasValue)
+			if (regionStart >= 0)
 			{
-				regions.Add((regionStart.Value, _width - 1));
+				_dirtyRegionsPool.Add((regionStart, _width - 1));
 			}
-
-			return regions;
 		}
 
 		/// <summary>
 		/// Smart mode: Analyzes a line in a single pass to determine:
 		/// 1. Is the line dirty?
 		/// 2. If dirty, should we use LINE or CELL rendering strategy?
-		/// Returns (isDirty, useLineMode, dirtyRegions).
+		/// Returns (isDirty, useLineMode). Dirty regions are populated in _dirtyRegionsPool.
 		/// Optimized to avoid double-scanning the line.
 		/// </summary>
-		private (bool isDirty, bool useLineMode, List<(int startX, int endX)> dirtyRegions) AnalyzeLine(int y)
+		private (bool isDirty, bool useLineMode) AnalyzeLine(int y)
 		{
-			var regions = new List<(int startX, int endX)>();
-			int? regionStart = null;
+			_dirtyRegionsPool.Clear();
+			int regionStart = -1;
 			int dirtyCells = 0;
 			int dirtyRuns = 0;
 
@@ -515,48 +517,48 @@ namespace SharpConsoleUI.Drivers
 				if (isDirty)
 				{
 					dirtyCells++;
-					if (!regionStart.HasValue)
+					if (regionStart < 0)
 					{
 						// Start new dirty region
 						regionStart = x;
 						dirtyRuns++;
 					}
 				}
-				else if (regionStart.HasValue)
+				else if (regionStart >= 0)
 				{
 					// End of dirty region
-					regions.Add((regionStart.Value, x - 1));
-					regionStart = null;
+					_dirtyRegionsPool.Add((regionStart, x - 1));
+					regionStart = -1;
 				}
 			}
 
 			// Close final region if line ends dirty
-			if (regionStart.HasValue)
+			if (regionStart >= 0)
 			{
-				regions.Add((regionStart.Value, _width - 1));
+				_dirtyRegionsPool.Add((regionStart, _width - 1));
 			}
 
 			// No dirty cells? Return early
 			if (dirtyCells == 0)
-				return (false, false, regions);
+				return (false, false);
 
 			// Decision heuristics for Smart mode:
 			float coverage = (float)dirtyCells / _width;
 
 			// 1. High coverage (>threshold%) → LINE mode (too much to render cell-by-cell)
 			if (coverage > _options.SmartModeCoverageThreshold)
-				return (true, true, regions);
+				return (true, true);
 
 			// 2. Highly fragmented (>threshold separate runs) → LINE mode (too many cursor moves)
 			if (dirtyRuns > _options.SmartModeFragmentationThreshold)
-				return (true, true, regions);
+				return (true, true);
 
 			// 3. Full line dirty → LINE mode (same output, fewer cursor moves)
 			if (dirtyCells == _width)
-				return (true, true, regions);
+				return (true, true);
 
 			// 4. Low coverage + low fragmentation → CELL mode (minimal output)
-			return (true, false, regions);
+			return (true, false);
 		}
 
 		/// <summary>
@@ -570,6 +572,18 @@ namespace SharpConsoleUI.Drivers
 				TerminalRawMode.WriteStdout(text);
 			else
 				Console.Out.Write(text);
+		}
+
+		/// <summary>
+		/// Writes a StringBuilder directly to stdout, avoiding the intermediate ToString() allocation.
+		/// Falls back to ToString() for the Console.Out path (non-raw mode).
+		/// </summary>
+		private static void WriteOutput(StringBuilder sb)
+		{
+			if (TerminalRawMode.IsRawModeActive)
+				TerminalRawMode.WriteStdout(sb);
+			else
+				Console.Out.Write(sb.ToString());
 		}
 
 		/// <summary>

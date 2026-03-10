@@ -334,10 +334,17 @@ public static class DataGridWindow
             .StickyBottom()
             .Build();
 
+        // Right panel: scrollable info + feature table
+        var infoPanel = Controls.ScrollablePanel()
+            .AddControl(infoMarkup)
+            .AddControl(featureTable)
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .Build();
+
         // Layout: left = data grid, right = info panel
         var grid = Controls.HorizontalGrid()
             .Column(col => col.Add(dataGrid))
-            .Column(col => col.Width(38).Add(infoMarkup).Add(featureTable))
+            .Column(col => col.Width(38).Add(infoPanel))
             .WithSplitterAfter(0)
             .WithAlignment(HorizontalAlignment.Stretch)
             .WithVerticalAlignment(VerticalAlignment.Fill)

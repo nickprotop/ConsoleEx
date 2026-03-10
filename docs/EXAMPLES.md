@@ -304,6 +304,8 @@ dotnet run --project Examples/FigleShowcaseExample
 #### DemoApp
 Comprehensive demo showcasing all major SharpConsoleUI features.
 
+![DemoApp](images/examples/demoapp.png)
+
 ```bash
 dotnet run --project Examples/DemoApp
 ```
