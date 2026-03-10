@@ -336,16 +336,16 @@ dotnet run --project Examples/DemoApp
 ```
 
 **Key Features:**
-- Fluent `WindowBuilder` pattern
-- Multiple window types (Log, System Info, Clock, File Explorer, Command, etc.)
-- `LogViewerControl` with real-time updates
-- `TreeControl` for file system navigation
-- `DropdownControl` with styled items
-- `ListControl` with selection handling
+- Six independent windows running simultaneously (Terminal, Canvas, DataGrid, System Info, Image Viewer, and the launcher)
+- `TerminalControl` with PTY-backed shell
+- `CanvasControl` with interactive starfield and plasma effects
+- `TableControl` (DataGrid) with 10,000 virtual rows, sorting, filtering, and cell editing
+- `ImageControl` rendering images directly in the terminal
+- Full markup syntax showcase with colors, decorations, and gradients
 - Async window threads with `CancellationToken`
-- Theme switching
+- Theme switching and window taskbar navigation
 
-**Windows Available:** F1-F9 to open various demo windows
+**Windows Available:** Ctrl+O to open demo windows, Alt+1-6 to switch
 
 ---
 

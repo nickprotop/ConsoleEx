@@ -111,7 +111,7 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.PageUp:
 					if (_isDropdownOpen && currentHighlight > 0)
 					{
-						int newIndex = Math.Max(0, currentHighlight - ( 1));
+						int newIndex = Math.Max(0, currentHighlight - _maxVisibleItems);
 						_highlightedIndex = newIndex;
 						EnsureHighlightedItemVisible();
 						Container?.Invalidate(true);
@@ -122,7 +122,7 @@ namespace SharpConsoleUI.Controls
 				case ConsoleKey.PageDown:
 					if (_isDropdownOpen && currentHighlight < _items.Count - 1)
 					{
-						int newIndex = Math.Min(_items.Count - 1, currentHighlight + ( 1));
+						int newIndex = Math.Min(_items.Count - 1, currentHighlight + _maxVisibleItems);
 						_highlightedIndex = newIndex;
 						EnsureHighlightedItemVisible();
 						Container?.Invalidate(true);

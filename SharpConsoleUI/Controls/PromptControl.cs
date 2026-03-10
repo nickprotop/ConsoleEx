@@ -249,7 +249,6 @@ namespace SharpConsoleUI.Controls
 					HasFocus = false;
 				}
 				Container?.Invalidate(true);
-				InputChanged?.Invoke(this, _input);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Backspace && cursorPos > 0)
@@ -257,7 +256,7 @@ namespace SharpConsoleUI.Controls
 				_input = _input.Remove(cursorPos - 1, 1);
 				int newCursorPos = cursorPos - 1;
 				_cursorPosition = newCursorPos;
-				if (newCursorPos < scrollOffset + (_inputWidth ?? _input.Length))
+				if (newCursorPos < scrollOffset)
 				{
 					SetScrollOffset(scrollOffset - 1);
 				}
@@ -290,7 +289,7 @@ namespace SharpConsoleUI.Controls
 			{
 				int newCursorPos = cursorPos - 1;
 				_cursorPosition = newCursorPos;
-				if (newCursorPos < scrollOffset + (_inputWidth ?? _input.Length))
+				if (newCursorPos < scrollOffset)
 				{
 					SetScrollOffset(scrollOffset - 1);
 				}
@@ -312,7 +311,6 @@ namespace SharpConsoleUI.Controls
 			{
 				HasFocus = false;
 				Container?.Invalidate(true);
-				InputChanged?.Invoke(this, _input);
 				return true;
 			}
 			else if (!char.IsControl(key.KeyChar))
