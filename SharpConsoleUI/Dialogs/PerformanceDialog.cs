@@ -1,5 +1,4 @@
 using SharpConsoleUI.Builders;
-using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
@@ -18,12 +17,12 @@ public static class PerformanceDialog
 	public static void Show(ConsoleWindowSystem windowSystem, Window? parentWindow = null)
 	{
 		var theme = windowSystem.Theme;
+		var perf = windowSystem.Performance;
 
-		// Create modal window
 		var builder = new WindowBuilder(windowSystem)
 			.WithTitle("Performance Settings")
 			.Centered()
-			.WithSize(70, 18)
+			.WithSize(60, 16)
 			.AsModal()
 			.Resizable(false)
 			.Minimizable(false)
@@ -48,33 +47,53 @@ public static class PerformanceDialog
 			.WithColor(Color.Grey23)
 			.Build());
 
-		// Options list
-		var optionsList = Ctl.List()
-			.WithAlignment(HorizontalAlignment.Stretch)
-			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
-			.WithFocusedColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
-			.WithHighlightColors(Color.White, Color.Grey35)
-			.WithDoubleClickActivation(true)
-			.Build();
+		// Checkboxes
+		modal.AddControl(Ctl.Checkbox("Show Performance Metrics")
+			.Checked(perf.IsPerformanceMetricsEnabled)
+			.WithMargin(1, 0, 1, 0)
+			.OnCheckedChanged((sender, isChecked) =>
+			{
+				perf.SetPerformanceMetrics(isChecked);
+			})
+			.Build());
 
-		// Build option items
-		var metricsEnabled = windowSystem.Performance.IsPerformanceMetricsEnabled;
-		var frameLimitingEnabled = windowSystem.Performance.IsFrameRateLimitingEnabled;
-		var targetFPS = windowSystem.Performance.TargetFPS;
+		modal.AddControl(Ctl.Checkbox("Enable Frame Rate Limiting")
+			.Checked(perf.IsFrameRateLimitingEnabled)
+			.WithMargin(1, 0, 1, 0)
+			.OnCheckedChanged((sender, isChecked) =>
+			{
+				perf.SetFrameRateLimiting(isChecked);
+			})
+			.Build());
 
-		optionsList.AddItem(new ListItem(
-			$"Performance Metrics Display: {(metricsEnabled ? "[green]Enabled[/]" : "[red]Disabled[/]")}")
-		{ Tag = "toggle-metrics" });
+		modal.AddControl(Ctl.RuleBuilder()
+			.WithColor(Color.Grey23)
+			.Build());
 
-		optionsList.AddItem(new ListItem(
-			$"Frame Rate Limiting: {(frameLimitingEnabled ? "[green]Enabled[/]" : "[red]Disabled[/]")}")
-		{ Tag = "toggle-limiting" });
+		// FPS dropdown
+		var fpsOptions = new[] { 30, 60, 120, 144 };
+		var currentFPSIdx = Array.IndexOf(fpsOptions, perf.TargetFPS);
+		if (currentFPSIdx < 0) currentFPSIdx = 1;
 
-		optionsList.AddItem(new ListItem($"Target FPS: [yellow]{targetFPS}[/]")
-		{ Tag = "set-fps" });
+		modal.AddControl(Ctl.Markup()
+			.AddLine("[grey70]Target FPS[/]")
+			.WithAlignment(HorizontalAlignment.Left)
+			.WithMargin(1, 0, 1, 0)
+			.Build());
 
-		modal.AddControl(optionsList);
+		modal.AddControl(Ctl.Dropdown("Target FPS")
+			.AddItem("30 FPS", "30")
+			.AddItem("60 FPS", "60")
+			.AddItem("120 FPS", "120")
+			.AddItem("144 FPS", "144")
+			.SelectedIndex(currentFPSIdx)
+			.WithMargin(1, 0, 1, 0)
+			.OnSelectedValueChanged((sender, value) =>
+			{
+				if (value != null && int.TryParse(value, out var fps))
+					perf.SetTargetFPS(fps);
+			})
+			.Build());
 
 		// Bottom separator
 		modal.AddControl(Ctl.RuleBuilder()
@@ -84,167 +103,23 @@ public static class PerformanceDialog
 
 		// Footer
 		modal.AddControl(Ctl.Markup()
-			.AddLine("[grey70]Enter/Double-click: Toggle/Set  •  Escape: Close[/]")
+			.AddLine("[grey70]Escape: Close[/]")
 			.WithAlignment(HorizontalAlignment.Center)
 			.WithMargin(0, 0, 0, 0)
 			.StickyBottom()
 			.Build());
 
-		// Handle selection
-		void HandleSelection(ListItem? item)
-		{
-			if (item?.Tag is not string action)
-				return;
-
-			switch (action)
-			{
-				case "toggle-metrics":
-					windowSystem.Performance.SetPerformanceMetrics(!windowSystem.Performance.IsPerformanceMetricsEnabled);
-					break;
-
-				case "toggle-limiting":
-					windowSystem.Performance.SetFrameRateLimiting(!windowSystem.Performance.IsFrameRateLimitingEnabled);
-					break;
-
-				case "set-fps":
-					ShowFPSDialog(windowSystem, modal);
-					return;
-			}
-
-			// Refresh the list to show updated values
-			modal.Close();
-			Show(windowSystem, parentWindow);
-		}
-
-		// Handle double-click
-		optionsList.ItemActivated += (sender, item) => HandleSelection(item);
-
-		// Handle Enter and Escape keys
+		// Handle Escape key
 		modal.KeyPressed += (sender, e) =>
 		{
-			if (e.KeyInfo.Key == ConsoleKey.Enter)
-			{
-				HandleSelection(optionsList.SelectedItem);
-				e.Handled = true;
-			}
-			else if (e.KeyInfo.Key == ConsoleKey.Escape)
+			if (e.KeyInfo.Key == ConsoleKey.Escape)
 			{
 				modal.Close();
 				e.Handled = true;
 			}
 		};
 
-		// Add modal to window system and activate it
 		windowSystem.AddWindow(modal);
 		windowSystem.SetActiveWindow(modal);
-
-		// Focus the list
-		optionsList.SetFocus(true, FocusReason.Programmatic);
-	}
-
-	private static void ShowFPSDialog(ConsoleWindowSystem windowSystem, Window parentWindow)
-	{
-		var theme = windowSystem.Theme;
-
-		// Create FPS selection modal
-		var builder = new WindowBuilder(windowSystem)
-			.WithTitle("Set Target FPS")
-			.Centered()
-			.WithSize(50, 15)
-			.AsModal()
-			.WithParent(parentWindow)
-			.Resizable(false)
-			.Minimizable(false)
-			.Maximizable(false)
-			.Movable(true)
-			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor);
-
-		var fpsModal = builder.Build();
-
-		// Header
-		fpsModal.AddControl(Ctl.Markup()
-			.AddLine("[cyan1 bold]Select Target FPS[/]")
-			.WithAlignment(HorizontalAlignment.Center)
-			.WithMargin(1, 0, 1, 0)
-			.Build());
-
-		fpsModal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.Build());
-
-		// FPS options
-		var fpsList = Ctl.List()
-			.WithAlignment(HorizontalAlignment.Stretch)
-			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
-			.WithFocusedColors(theme.WindowForegroundColor, theme.ModalBackgroundColor)
-			.WithHighlightColors(Color.White, Color.Grey35)
-			.WithDoubleClickActivation(true)
-			.Build();
-
-		var fpsOptions = new[] { 30, 60, 120, 144 };
-		var currentFPS = windowSystem.Performance.TargetFPS;
-
-		foreach (var fps in fpsOptions)
-		{
-			var label = fps == currentFPS
-				? $"{fps} FPS [cyan1](current)[/]"
-				: $"{fps} FPS";
-			fpsList.AddItem(new ListItem(label) { Tag = fps });
-		}
-
-		// Set initial selection to current FPS
-		var currentIdx = Array.IndexOf(fpsOptions, currentFPS);
-		if (currentIdx >= 0)
-			fpsList.SelectedIndex = currentIdx;
-
-		fpsModal.AddControl(fpsList);
-
-		// Bottom separator
-		fpsModal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.StickyBottom()
-			.Build());
-
-		// Footer
-		fpsModal.AddControl(Ctl.Markup()
-			.AddLine("[grey70]Enter/Double-click: Select  •  Escape: Cancel[/]")
-			.WithAlignment(HorizontalAlignment.Center)
-			.WithMargin(0, 0, 0, 0)
-			.StickyBottom()
-			.Build());
-
-		// Handle selection
-		void SelectFPS(ListItem? item)
-		{
-			if (item?.Tag is int fps)
-			{
-				windowSystem.Performance.SetTargetFPS(fps);
-				fpsModal.Close();
-				parentWindow.Close();
-				Show(windowSystem);
-			}
-		}
-
-		fpsList.ItemActivated += (sender, item) => SelectFPS(item);
-
-		fpsModal.KeyPressed += (sender, e) =>
-		{
-			if (e.KeyInfo.Key == ConsoleKey.Enter)
-			{
-				SelectFPS(fpsList.SelectedItem);
-				e.Handled = true;
-			}
-			else if (e.KeyInfo.Key == ConsoleKey.Escape)
-			{
-				fpsModal.Close();
-				e.Handled = true;
-			}
-		};
-
-		// Add modal to window system and activate it
-		windowSystem.AddWindow(fpsModal);
-		windowSystem.SetActiveWindow(fpsModal);
-		fpsList.SetFocus(true, FocusReason.Programmatic);
 	}
 }
