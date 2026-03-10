@@ -171,11 +171,16 @@ namespace SharpConsoleUI.Controls
 			if (needsVerticalScrollbar)
 			{
 				totalWrappedLineCount = GetTotalWrappedLineCount();
-				vThumbHeight = Math.Max(1, (effectiveViewport * effectiveViewport) / Math.Max(1, totalWrappedLineCount));
-				int maxThumbPos = effectiveViewport - vThumbHeight;
-				vThumbPos = totalWrappedLineCount > effectiveViewport
-					? (int)Math.Round((double)_verticalScrollOffset / (totalWrappedLineCount - effectiveViewport) * maxThumbPos)
-					: 0;
+				// Reserve arrow positions so thumb never overlaps them
+				int arrowSlots = effectiveViewport >= 3 ? 2 : 0;
+				int thumbTrackHeight = effectiveViewport - arrowSlots;
+				vThumbHeight = Math.Max(1, (int)(thumbTrackHeight * ((double)effectiveViewport / Math.Max(1, totalWrappedLineCount))));
+				vThumbPos = arrowSlots > 0 ? 1 : 0; // start after top arrow
+				if (totalWrappedLineCount > effectiveViewport)
+				{
+					double scrollRatio = (double)_verticalScrollOffset / (totalWrappedLineCount - effectiveViewport);
+					vThumbPos += (int)Math.Round((thumbTrackHeight - vThumbHeight) * scrollRatio);
+				}
 			}
 
 			// Focus-aware scrollbar colors (matching ScrollablePanelControl)
@@ -377,12 +382,12 @@ namespace SharpConsoleUI.Controls
 						{
 							char scrollChar;
 							Color scrollFg;
-							if (i == 0 && _verticalScrollOffset > 0)
+							if (i == 0)
 							{
 								scrollChar = '▲';
 								scrollFg = activeThumbColor;
 							}
-							else if (i == effectiveViewport - 1 && _verticalScrollOffset < totalWrappedLineCount - effectiveViewport)
+							else if (i == effectiveViewport - 1)
 							{
 								scrollChar = '▼';
 								scrollFg = activeThumbColor;
@@ -454,12 +459,12 @@ namespace SharpConsoleUI.Controls
 						{
 							char scrollChar;
 							Color scrollFg;
-							if (i == 0 && _verticalScrollOffset > 0)
+							if (i == 0)
 							{
 								scrollChar = '▲';
 								scrollFg = activeThumbColor;
 							}
-							else if (i == effectiveViewport - 1 && _verticalScrollOffset < totalWrappedLineCount - effectiveViewport)
+							else if (i == effectiveViewport - 1)
 							{
 								scrollChar = '▼';
 								scrollFg = activeThumbColor;
@@ -501,11 +506,16 @@ namespace SharpConsoleUI.Controls
 
 					int maxLineLength = GetMaxLineLength();
 					int hMaxScroll = Math.Max(0, maxLineLength - effectiveWidth);
-					int thumbWidth = Math.Max(1, (effectiveWidth * effectiveWidth) / Math.Max(1, maxLineLength));
-					int maxThumbPos = effectiveWidth - thumbWidth;
-					int thumbPos = maxLineLength > effectiveWidth
-						? (int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - effectiveWidth) * maxThumbPos)
-						: 0;
+					// Reserve arrow positions so thumb never overlaps them
+					int hArrowSlots = effectiveWidth >= 3 ? 2 : 0;
+					int hThumbTrackWidth = effectiveWidth - hArrowSlots;
+					int thumbWidth = Math.Max(1, (hThumbTrackWidth * hThumbTrackWidth) / Math.Max(1, maxLineLength));
+					int thumbPos = hArrowSlots > 0 ? 1 : 0;
+					if (maxLineLength > effectiveWidth)
+					{
+						int maxThumbPos = hThumbTrackWidth - thumbWidth;
+						thumbPos += (int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - effectiveWidth) * maxThumbPos);
+					}
 
 					for (int x = 0; x < effectiveWidth; x++)
 					{
@@ -514,12 +524,12 @@ namespace SharpConsoleUI.Controls
 						{
 							char scrollChar;
 							Color scrollFg;
-							if (x == 0 && _horizontalScrollOffset > 0)
+							if (x == 0)
 							{
 								scrollChar = '◄';
 								scrollFg = activeThumbColor;
 							}
-							else if (x == effectiveWidth - 1 && _horizontalScrollOffset < hMaxScroll)
+							else if (x == effectiveWidth - 1)
 							{
 								scrollChar = '►';
 								scrollFg = activeThumbColor;
@@ -603,11 +613,16 @@ namespace SharpConsoleUI.Controls
 		{
 			int effectiveViewport = _effectiveViewportHeight > 0 ? _effectiveViewportHeight : GetEffectiveViewportHeight();
 			int totalLines = GetTotalWrappedLineCount();
-			int thumbHeight = Math.Max(1, (effectiveViewport * effectiveViewport) / Math.Max(1, totalLines));
-			int maxThumbPos = effectiveViewport - thumbHeight;
-			int thumbY = totalLines > effectiveViewport
-				? (int)Math.Round((double)_verticalScrollOffset / (totalLines - effectiveViewport) * maxThumbPos)
-				: 0;
+			// Reserve arrow positions so thumb never overlaps them
+			int arrowSlots = effectiveViewport >= 3 ? 2 : 0;
+			int thumbTrackHeight = effectiveViewport - arrowSlots;
+			int thumbHeight = Math.Max(1, (thumbTrackHeight * thumbTrackHeight) / Math.Max(1, totalLines));
+			int thumbY = arrowSlots > 0 ? 1 : 0;
+			if (totalLines > effectiveViewport)
+			{
+				int maxThumbPos = thumbTrackHeight - thumbHeight;
+				thumbY += (int)Math.Round((double)_verticalScrollOffset / (totalLines - effectiveViewport) * maxThumbPos);
+			}
 			return (effectiveViewport, thumbY, thumbHeight);
 		}
 
@@ -618,11 +633,16 @@ namespace SharpConsoleUI.Controls
 		private (int trackWidth, int thumbX, int thumbWidth) GetHorizontalScrollbarGeometry()
 		{
 			int maxLineLength = GetMaxLineLength();
-			int thumbWidth = Math.Max(1, (_effectiveWidth * _effectiveWidth) / Math.Max(1, maxLineLength));
-			int maxThumbPos = _effectiveWidth - thumbWidth;
-			int thumbX = maxLineLength > _effectiveWidth
-				? (int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - _effectiveWidth) * maxThumbPos)
-				: 0;
+			// Reserve arrow positions so thumb never overlaps them
+			int arrowSlots = _effectiveWidth >= 3 ? 2 : 0;
+			int thumbTrackWidth = _effectiveWidth - arrowSlots;
+			int thumbWidth = Math.Max(1, (thumbTrackWidth * thumbTrackWidth) / Math.Max(1, maxLineLength));
+			int thumbX = arrowSlots > 0 ? 1 : 0;
+			if (maxLineLength > _effectiveWidth)
+			{
+				int maxThumbPos = thumbTrackWidth - thumbWidth;
+				thumbX += (int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - _effectiveWidth) * maxThumbPos);
+			}
 			return (_effectiveWidth, thumbX, thumbWidth);
 		}
 

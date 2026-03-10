@@ -197,12 +197,18 @@ namespace SharpConsoleUI.Controls
 			int scrollbarTop = Margin.Top;
 			int scrollbarHeight = _viewportHeight;
 
+			// Reserve arrow positions so thumb never overlaps them
+			int arrowSlots = scrollbarHeight >= 3 ? 2 : 0;
+			int thumbTrackHeight = scrollbarHeight - arrowSlots;
 			double viewportRatio = (double)_viewportHeight / _contentHeight;
-			int thumbHeight = Math.Max(1, (int)(scrollbarHeight * viewportRatio));
-			double scrollRatio = _contentHeight > _viewportHeight
-				? (double)_verticalScrollOffset / (_contentHeight - _viewportHeight)
-				: 0;
-			int thumbY = (int)((scrollbarHeight - thumbHeight) * scrollRatio);
+			int thumbHeight = Math.Max(1, (int)(thumbTrackHeight * viewportRatio));
+			int thumbY = arrowSlots > 0 ? 1 : 0;
+			if (_contentHeight > _viewportHeight)
+			{
+				double scrollRatio = (double)_verticalScrollOffset / (_contentHeight - _viewportHeight);
+				int maxThumbPos = thumbTrackHeight - thumbHeight;
+				thumbY += (int)Math.Round(maxThumbPos * scrollRatio);
+			}
 
 			return (scrollbarRelX, scrollbarTop, scrollbarHeight, thumbY, thumbHeight);
 		}
@@ -238,15 +244,9 @@ namespace SharpConsoleUI.Controls
 				buffer.SetCell(scrollbarX, scrollbarAbsTop + y, ch, color, bgColor);
 			}
 
-			// Draw scroll indicators at top/bottom
-			if (_verticalScrollOffset > 0)
-			{
-				buffer.SetCell(scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
-			}
-			if (_verticalScrollOffset < _contentHeight - _viewportHeight)
-			{
-				buffer.SetCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
-			}
+			// Always draw arrows at top/bottom with thumb color
+			buffer.SetCell(scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
+			buffer.SetCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
 		}
 
 		#endregion
