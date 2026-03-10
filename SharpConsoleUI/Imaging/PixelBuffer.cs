@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace SharpConsoleUI.Imaging
 {
@@ -132,6 +134,53 @@ namespace SharpConsoleUI.Imaging
 					buffer._pixels[x, y] = new ImagePixel(r, g, b);
 				}
 			}
+			return buffer;
+		}
+
+		/// <summary>
+		/// Creates a PixelBuffer by loading an image from a file path.
+		/// Supports PNG, JPEG, BMP, GIF, TIFF, TGA, PBM, and WebP formats.
+		/// </summary>
+		/// <param name="filePath">Path to the image file.</param>
+		/// <returns>A PixelBuffer containing the decoded image pixels.</returns>
+		public static PixelBuffer FromFile(string filePath)
+		{
+			using var image = SixLabors.ImageSharp.Image.Load<Rgb24>(filePath);
+			return FromImageSharp(image);
+		}
+
+		/// <summary>
+		/// Creates a PixelBuffer by loading an image from a stream.
+		/// Supports PNG, JPEG, BMP, GIF, TIFF, TGA, PBM, and WebP formats.
+		/// </summary>
+		/// <param name="stream">Stream containing image data.</param>
+		/// <returns>A PixelBuffer containing the decoded image pixels.</returns>
+		public static PixelBuffer FromStream(Stream stream)
+		{
+			using var image = SixLabors.ImageSharp.Image.Load<Rgb24>(stream);
+			return FromImageSharp(image);
+		}
+
+		/// <summary>
+		/// Creates a PixelBuffer from an ImageSharp Image&lt;Rgb24&gt;.
+		/// </summary>
+		public static PixelBuffer FromImageSharp(Image<Rgb24> image)
+		{
+			var buffer = new PixelBuffer(image.Width, image.Height);
+
+			image.ProcessPixelRows(accessor =>
+			{
+				for (int y = 0; y < accessor.Height; y++)
+				{
+					var row = accessor.GetRowSpan(y);
+					for (int x = 0; x < row.Length; x++)
+					{
+						ref var pixel = ref row[x];
+						buffer._pixels[x, y] = new ImagePixel(pixel.R, pixel.G, pixel.B);
+					}
+				}
+			});
+
 			return buffer;
 		}
 
