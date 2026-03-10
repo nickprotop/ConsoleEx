@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Builders;
@@ -14,7 +15,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for rule controls (horizontal separator lines)
 /// </summary>
-public sealed class RuleBuilder
+public sealed class RuleBuilder : IControlBuilder<RuleControl>
 {
 	private string? _title;
 	private TextJustification _titleAlignment = TextJustification.Left;
@@ -258,6 +259,7 @@ public sealed class RuleBuilder
 			StickyPosition = _stickyPosition
 		};
 
+		BindingHelper.ApplyDeferredBindings(this, control);
 		return control;
 	}
 

@@ -71,12 +71,7 @@ namespace SharpConsoleUI.Controls
 		public bool AutoAdjustWidth
 		{
 			get => _autoAdjustWidth;
-			set
-			{
-				if (_autoAdjustWidth == value) return;
-				_autoAdjustWidth = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _autoAdjustWidth, value);
 		}
 
 		/// <summary>
@@ -85,11 +80,7 @@ namespace SharpConsoleUI.Controls
 		public ItemFormatterEvent? ItemFormatter
 		{
 			get => _itemFormatter;
-			set
-			{
-				_itemFormatter = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _itemFormatter, value);
 		}
 
 		/// <inheritdoc/>

@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Builders
@@ -14,7 +15,7 @@ namespace SharpConsoleUI.Builders
 	/// <summary>
 	/// Fluent builder for creating ProgressBarControl instances.
 	/// </summary>
-	public class ProgressBarBuilder
+	public class ProgressBarBuilder : IControlBuilder<ProgressBarControl>
 	{
 		private readonly ProgressBarControl _control;
 
@@ -289,6 +290,7 @@ namespace SharpConsoleUI.Builders
 		/// </summary>
 		public ProgressBarControl Build()
 		{
+			BindingHelper.ApplyDeferredBindings(this, _control);
 			return _control;
 		}
 	}

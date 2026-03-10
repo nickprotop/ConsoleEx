@@ -32,11 +32,7 @@ namespace SharpConsoleUI.Controls
 		public Color SecondaryBarColor
 		{
 			get => _secondaryBarColor;
-			set
-			{
-				_secondaryBarColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _secondaryBarColor, value);
 		}
 
 		/// <summary>
@@ -46,11 +42,7 @@ namespace SharpConsoleUI.Controls
 		public double? SecondaryMaxValue
 		{
 			get => _secondaryMaxValue;
-			set
-			{
-				_secondaryMaxValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _secondaryMaxValue, value);
 		}
 
 		/// <summary>
@@ -60,11 +52,7 @@ namespace SharpConsoleUI.Controls
 		public ColorGradient? SecondaryGradient
 		{
 			get => _secondaryGradient;
-			set
-			{
-				_secondaryGradient = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _secondaryGradient, value);
 		}
 
 		#region Public Methods - Secondary Data

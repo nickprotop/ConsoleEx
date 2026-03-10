@@ -75,6 +75,7 @@ namespace SharpConsoleUI.Controls
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
+				OnPropertyChanged();
 
 				// Fire focus events
 				if (value && !hadFocus)
@@ -101,11 +102,7 @@ namespace SharpConsoleUI.Controls
 		public Color? InputBackgroundColor
 		{
 			get => _inputBackgroundColor;
-			set
-			{
-				_inputBackgroundColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _inputBackgroundColor, value);
 		}
 
 		/// <summary>
@@ -114,11 +111,7 @@ namespace SharpConsoleUI.Controls
 		public Color? InputFocusedBackgroundColor
 		{
 			get => _inputFocusedBackgroundColor;
-			set
-			{
-				_inputFocusedBackgroundColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _inputFocusedBackgroundColor, value);
 		}
 
 		/// <summary>
@@ -127,11 +120,7 @@ namespace SharpConsoleUI.Controls
 		public Color? InputFocusedForegroundColor
 		{
 			get => _inputFocusedForegroundColor;
-			set
-			{
-				_inputFocusedForegroundColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _inputFocusedForegroundColor, value);
 		}
 
 		/// <summary>
@@ -140,11 +129,7 @@ namespace SharpConsoleUI.Controls
 		public Color? InputForegroundColor
 		{
 			get => _inputForegroundColor;
-			set
-			{
-				_inputForegroundColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _inputForegroundColor, value);
 		}
 
 		/// <summary>
@@ -153,11 +138,7 @@ namespace SharpConsoleUI.Controls
 		public int? InputWidth
 		{
 			get => _inputWidth;
-			set
-			{
-				_inputWidth = value.HasValue ? Math.Max(1, value.Value) : value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _inputWidth, value, v => v.HasValue ? Math.Max(1, v.Value) : v);
 		}
 
 		/// <summary>
@@ -167,7 +148,7 @@ namespace SharpConsoleUI.Controls
 		public char? MaskCharacter
 		{
 			get => _maskCharacter;
-			set { _maskCharacter = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _maskCharacter, value);
 		}
 
 		/// <summary>
@@ -186,7 +167,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the prompt text displayed before the input area.
 		/// </summary>
 		public string? Prompt
-		{ get => _prompt; set { _prompt = value; Container?.Invalidate(true); } }
+		{ get => _prompt; set => SetProperty(ref _prompt, value); }
 
 		/// <summary>
 		/// Gets or sets whether the control loses focus when Enter is pressed.

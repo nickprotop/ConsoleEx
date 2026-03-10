@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
@@ -15,7 +16,7 @@ namespace SharpConsoleUI.Builders
 	/// <summary>
 	/// Fluent builder for creating SparklineControl instances.
 	/// </summary>
-	public class SparklineBuilder
+	public class SparklineBuilder : IControlBuilder<SparklineControl>
 	{
 		private readonly SparklineControl _control;
 
@@ -355,6 +356,7 @@ namespace SharpConsoleUI.Builders
 		/// </summary>
 		public SparklineControl Build()
 		{
+			BindingHelper.ApplyDeferredBindings(this, _control);
 			return _control;
 		}
 	}

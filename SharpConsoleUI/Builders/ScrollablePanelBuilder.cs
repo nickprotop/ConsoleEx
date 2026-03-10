@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Builders;
@@ -14,7 +15,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for scrollable panel controls
 /// </summary>
-public sealed class ScrollablePanelBuilder
+public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelControl>
 {
 	private readonly List<IWindowControl> _children = new();
 	private readonly List<EventHandler<ScrollEventArgs>> _scrolledHandlers = new();
@@ -398,6 +399,7 @@ public sealed class ScrollablePanelBuilder
 			control.LostFocus += handler;
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, control);
 		return control;
 	}
 

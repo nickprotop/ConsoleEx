@@ -233,6 +233,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				base.Container = value;
+				OnPropertyChanged();
 				List<ColumnContainer> columns;
 				List<SplitterControl> splitters;
 				lock (_gridLock)
@@ -265,6 +266,7 @@ namespace SharpConsoleUI.Controls
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
+				OnPropertyChanged();
 				FocusChanged();
 				Container?.Invalidate(true);
 
@@ -284,7 +286,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
+			set => SetProperty(ref _isEnabled, value);
 		}
 
 		/// <inheritdoc/>

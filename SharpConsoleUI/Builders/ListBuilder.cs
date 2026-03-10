@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -17,7 +18,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for list controls
 /// </summary>
-public sealed class ListBuilder
+public sealed class ListBuilder : IControlBuilder<ListControl>
 {
 	private readonly List<ListItem> _items = new();
 	private string _title = "List";
@@ -724,6 +725,7 @@ public sealed class ListBuilder
 			};
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, list);
 		return list;
 	}
 

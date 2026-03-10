@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -18,7 +19,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for button controls
 /// </summary>
-public sealed class ButtonBuilder
+public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 {
 	private string _text = "Button";
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
@@ -456,6 +457,7 @@ public sealed class ButtonBuilder
 			};
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, button);
 		return button;
 	}
 

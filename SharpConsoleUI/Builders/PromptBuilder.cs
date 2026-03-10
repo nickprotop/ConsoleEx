@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -16,7 +17,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for prompt controls
 /// </summary>
-public sealed class PromptBuilder
+public sealed class PromptBuilder : IControlBuilder<PromptControl>
 {
 	private string _prompt = "> ";
 	private string _initialInput = "";
@@ -324,6 +325,7 @@ public sealed class PromptBuilder
 			};
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, prompt);
 		return prompt;
 	}
 

@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -17,7 +18,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for tree controls
 /// </summary>
-public sealed class TreeControlBuilder
+public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 {
 	private readonly List<TreeNode> _rootNodes = new();
 	private TreeGuide _guide = TreeGuide.Line;
@@ -500,6 +501,7 @@ public sealed class TreeControlBuilder
 			};
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, tree);
 		return tree;
 	}
 

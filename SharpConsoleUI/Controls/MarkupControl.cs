@@ -79,6 +79,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				lock (_contentLock) { _content = value.Split('\n').ToList(); }
+				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
 		}
@@ -87,7 +88,10 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets whether text should wrap to multiple lines when exceeding available width.
 		/// </summary>
 		public bool Wrap
-		{ get => _wrap; set { _wrap = value; Container?.Invalidate(true); } }
+		{
+			get => _wrap;
+			set => SetProperty(ref _wrap, value);
+		}
 
 		/// <summary>
 		/// Gets or sets whether double-click events are enabled.
@@ -96,7 +100,7 @@ namespace SharpConsoleUI.Controls
 		public bool DoubleClickEnabled
 		{
 			get => _doubleClickEnabled;
-			set => _doubleClickEnabled = value;
+			set { _doubleClickEnabled = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -106,7 +110,7 @@ namespace SharpConsoleUI.Controls
 		public int DoubleClickThresholdMs
 		{
 			get => _doubleClickThresholdMs;
-			set => _doubleClickThresholdMs = Math.Max(100, value);
+			set { _doubleClickThresholdMs = Math.Max(100, value); OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -116,7 +120,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BackgroundColor
 		{
 			get => _backgroundColor;
-			set { _backgroundColor = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _backgroundColor, value);
 		}
 
 		/// <summary>
@@ -125,7 +129,7 @@ namespace SharpConsoleUI.Controls
 		public Color? ForegroundColor
 		{
 			get => _foregroundColor;
-			set { _foregroundColor = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _foregroundColor, value);
 		}
 
 		#region IMouseAwareControl Implementation
@@ -199,6 +203,7 @@ namespace SharpConsoleUI.Controls
 		public void SetContent(List<string> lines)
 		{
 		lock (_contentLock) { _content = lines; }
+		OnPropertyChanged(nameof(Text));
 		Container?.Invalidate(true);
 		}
 

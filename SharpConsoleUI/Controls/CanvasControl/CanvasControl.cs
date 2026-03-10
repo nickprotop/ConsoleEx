@@ -78,6 +78,7 @@ namespace SharpConsoleUI.Controls
 				int clamped = Math.Max(ControlDefaults.MinCanvasSize, value);
 				if (_canvasWidth == clamped) return;
 				_canvasWidth = clamped;
+				OnPropertyChanged();
 				RecreateInternalBuffer();
 				Container?.Invalidate(true);
 			}
@@ -95,6 +96,7 @@ namespace SharpConsoleUI.Controls
 				int clamped = Math.Max(ControlDefaults.MinCanvasSize, value);
 				if (_canvasHeight == clamped) return;
 				_canvasHeight = clamped;
+				OnPropertyChanged();
 				RecreateInternalBuffer();
 				Container?.Invalidate(true);
 			}
@@ -107,7 +109,7 @@ namespace SharpConsoleUI.Controls
 		public bool AutoClear
 		{
 			get => _autoClear;
-			set => _autoClear = value;
+			set { _autoClear = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -118,7 +120,7 @@ namespace SharpConsoleUI.Controls
 		public bool AutoSize
 		{
 			get => _autoSize;
-			set => _autoSize = value;
+			set { _autoSize = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -127,7 +129,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => _backgroundColorValue ?? Container?.BackgroundColor ?? Color.Black;
-			set { _backgroundColorValue = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -136,7 +138,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.ForegroundColor ?? Color.White;
-			set { _foregroundColorValue = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -145,12 +147,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set
-			{
-				if (_isEnabled == value) return;
-				_isEnabled = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _isEnabled, value);
 		}
 
 		#endregion
@@ -273,11 +270,7 @@ namespace SharpConsoleUI.Controls
 		public bool HasFocus
 		{
 			get => _hasFocus;
-			set
-			{
-				_hasFocus = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _hasFocus, value);
 		}
 
 		/// <inheritdoc/>

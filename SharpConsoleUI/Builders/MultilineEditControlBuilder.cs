@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -16,7 +17,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for multiline edit controls
 /// </summary>
-public sealed class MultilineEditControlBuilder
+public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditControl>
 {
 	private int _viewportHeight = Configuration.ControlDefaults.DefaultEditorViewportHeight;
 	private string? _content;
@@ -812,6 +813,7 @@ public sealed class MultilineEditControlBuilder
 			};
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, control);
 		return control;
 	}
 

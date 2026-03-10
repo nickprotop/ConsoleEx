@@ -55,7 +55,7 @@ namespace SharpConsoleUI.Controls
 		public TabHeaderStyle HeaderStyle
 		{
 			get => _headerStyle;
-			set { _headerStyle = value; Invalidate(true); }
+			set { _headerStyle = value; OnPropertyChanged(); Invalidate(true); }
 		}
 
 		/// <summary>
@@ -66,7 +66,7 @@ namespace SharpConsoleUI.Controls
 		public bool SelectOnRightClick
 		{
 			get => _selectOnRightClick;
-			set => _selectOnRightClick = value;
+			set { _selectOnRightClick = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -162,6 +162,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					_activeTabIndex = value;
+					OnPropertyChanged();
 					_tabPages[_activeTabIndex].Content.Visible = true;
 
 					changedArgs = new TabChangedEventArgs(changingArgs.OldIndex, changingArgs.NewIndex, changingArgs.OldTab, changingArgs.NewTab);
@@ -328,6 +329,7 @@ namespace SharpConsoleUI.Controls
 				if (value.HasValue && value.Value < 2)
 					throw new ArgumentException("TabControl minimum height is 2 (1 header + 1 content line)");
 				_height = value;
+				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
 		}
@@ -372,22 +374,14 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => _backgroundColor;
-			set
-			{
-				_backgroundColor = value;
-				Invalidate(true);
-			}
+			set { _backgroundColor = value; OnPropertyChanged(); Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
 			get => _foregroundColor;
-			set
-			{
-				_foregroundColor = value;
-				Invalidate(true);
-			}
+			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(true); }
 		}
 
 		/// <inheritdoc/>

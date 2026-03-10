@@ -82,13 +82,19 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the color of the FIGlet text.
 		/// </summary>
 		public Color? Color
-		{ get => _color; set { _color = value; Container?.Invalidate(true); } }
+		{
+			get => _color;
+			set => SetProperty(ref _color, value);
+		}
 
 		/// <summary>
 		/// Gets or sets the text to render as FIGlet ASCII art.
 		/// </summary>
 		public string? Text
-		{ get => _text; set { _text = value; Container?.Invalidate(true); } }
+		{
+			get => _text;
+			set => SetProperty(ref _text, value);
+		}
 
 		/// <summary>
 		/// Gets or sets whether the right side should be padded.
@@ -96,7 +102,7 @@ namespace SharpConsoleUI.Controls
 		public bool RightPadded
 		{
 			get => _rightPadded;
-			set => PropertySetterHelper.SetProperty(ref _rightPadded, value, Container);
+			set => SetProperty(ref _rightPadded, value);
 		}
 
 		/// <summary>
@@ -105,7 +111,7 @@ namespace SharpConsoleUI.Controls
 		public FigletSize Size
 		{
 			get => _size;
-			set { PropertySetterHelper.SetEnumProperty(ref _size, value, Container); InvalidateFontCache(); }
+			set { if (SetProperty(ref _size, value)) InvalidateFontCache(); }
 		}
 
 		/// <summary>
@@ -114,7 +120,7 @@ namespace SharpConsoleUI.Controls
 		public FigletFont? CustomFont
 		{
 			get => _customFont;
-			set { PropertySetterHelper.SetProperty(ref _customFont, value, Container); InvalidateFontCache(); }
+			set { if (SetProperty(ref _customFont, value)) InvalidateFontCache(); }
 		}
 
 		/// <summary>
@@ -125,7 +131,7 @@ namespace SharpConsoleUI.Controls
 		public string? FontPath
 		{
 			get => _fontPath;
-			set { PropertySetterHelper.SetProperty(ref _fontPath, value, Container); InvalidateFontCache(); }
+			set { if (SetProperty(ref _fontPath, value)) InvalidateFontCache(); }
 		}
 
 		/// <summary>
@@ -134,7 +140,7 @@ namespace SharpConsoleUI.Controls
 		public WrapMode WrapMode
 		{
 			get => _wrapMode;
-			set { PropertySetterHelper.SetEnumProperty(ref _wrapMode, value, Container); }
+			set => SetProperty(ref _wrapMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -158,8 +164,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="color">The color to apply to the text.</param>
 		public void SetColor(Color color)
 		{
-			_color = color;
-			Container?.Invalidate(true);
+			Color = color;
 		}
 
 		/// <summary>
@@ -168,8 +173,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="text">The text to display.</param>
 		public void SetText(string text)
 		{
-			_text = text;
-			Container?.Invalidate(true);
+			Text = text;
 		}
 
 		private void InvalidateFontCache()

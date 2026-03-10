@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Builders;
@@ -14,7 +15,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for creating PanelControl instances.
 /// </summary>
-public sealed class PanelBuilder
+public sealed class PanelBuilder : IControlBuilder<PanelControl>
 {
 	private string? _content;
 	private BorderStyle _borderStyle = BorderStyle.Single;
@@ -422,6 +423,7 @@ public sealed class PanelBuilder
 			ForegroundColor = _foregroundColor
 		};
 
+		BindingHelper.ApplyDeferredBindings(this, control);
 		return control;
 	}
 

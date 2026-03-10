@@ -163,14 +163,14 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public Color? BackgroundColor
 	{
 		get => _backgroundColorValue;
-		set => PropertySetterHelper.SetColorProperty(ref _backgroundColorValue, value, Container);
+		set => SetProperty(ref _backgroundColorValue, value);
 	}
 
 	/// <inheritdoc/>
 	public Color? ForegroundColor
 	{
 		get => _foregroundColorValue;
-		set => PropertySetterHelper.SetColorProperty(ref _foregroundColorValue, value, Container);
+		set => SetProperty(ref _foregroundColorValue, value);
 	}
 
 	/// <summary>
@@ -179,7 +179,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public int? Height
 	{
 		get => _height;
-		set => PropertySetterHelper.SetDimensionProperty(ref _height, value, Container);
+		set => SetProperty(ref _height, value, v => v.HasValue ? Math.Max(0, v.Value) : v);
 	}
 
 	/// <summary>
@@ -195,6 +195,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			if (_readOnly != value)
 			{
 				_readOnly = value;
+				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
 		}
@@ -206,7 +207,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public bool IsEnabled
 	{
 		get => _isEnabled;
-		set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
+		set => SetProperty(ref _isEnabled, value);
 	}
 
 	#endregion
@@ -254,7 +255,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public BorderStyle BorderStyle
 	{
 		get => _borderStyle;
-		set { PropertySetterHelper.SetProperty(ref _borderStyle, value, Container); InvalidateColumnWidths(); }
+		set { if (SetProperty(ref _borderStyle, value)) InvalidateColumnWidths(); }
 	}
 
 	/// <summary>
@@ -263,7 +264,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public Color? BorderColor
 	{
 		get => _borderColorValue;
-		set => PropertySetterHelper.SetColorProperty(ref _borderColorValue, value, Container);
+		set => SetProperty(ref _borderColorValue, value);
 	}
 
 	/// <summary>
@@ -272,7 +273,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public Color? HeaderBackgroundColor
 	{
 		get => _headerBackgroundColorValue;
-		set => PropertySetterHelper.SetColorProperty(ref _headerBackgroundColorValue, value, Container);
+		set => SetProperty(ref _headerBackgroundColorValue, value);
 	}
 
 	/// <summary>
@@ -281,7 +282,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public Color? HeaderForegroundColor
 	{
 		get => _headerForegroundColorValue;
-		set => PropertySetterHelper.SetColorProperty(ref _headerForegroundColorValue, value, Container);
+		set => SetProperty(ref _headerForegroundColorValue, value);
 	}
 
 	/// <summary>
@@ -290,7 +291,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public bool ShowHeader
 	{
 		get => _showHeader;
-		set => PropertySetterHelper.SetBoolProperty(ref _showHeader, value, Container);
+		set => SetProperty(ref _showHeader, value);
 	}
 
 	/// <summary>
@@ -299,7 +300,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public bool ShowRowSeparators
 	{
 		get => _showRowSeparators;
-		set => PropertySetterHelper.SetBoolProperty(ref _showRowSeparators, value, Container);
+		set => SetProperty(ref _showRowSeparators, value);
 	}
 
 	/// <summary>
@@ -308,7 +309,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public bool UseSafeBorder
 	{
 		get => _useSafeBorder;
-		set => PropertySetterHelper.SetBoolProperty(ref _useSafeBorder, value, Container);
+		set => SetProperty(ref _useSafeBorder, value);
 	}
 
 	/// <summary>
@@ -317,7 +318,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public string? Title
 	{
 		get => _title;
-		set => PropertySetterHelper.SetProperty(ref _title, value, Container);
+		set => SetProperty(ref _title, value);
 	}
 
 	/// <summary>
@@ -326,7 +327,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public TextJustification TitleAlignment
 	{
 		get => _titleAlignment;
-		set => PropertySetterHelper.SetEnumProperty(ref _titleAlignment, value, Container);
+		set => SetProperty(ref _titleAlignment, value);
 	}
 
 	/// <summary>
@@ -343,6 +344,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 				_dataSource.CollectionChanged -= OnDataSourceCollectionChanged;
 
 			_dataSource = value;
+			OnPropertyChanged();
 
 			if (_dataSource != null)
 				_dataSource.CollectionChanged += OnDataSourceCollectionChanged;
@@ -379,7 +381,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public bool WantsMouseEvents
 	{
 		get => _wantsMouseEvents;
-		set => PropertySetterHelper.SetBoolProperty(ref _wantsMouseEvents, value, Container);
+		set => SetProperty(ref _wantsMouseEvents, value);
 	}
 
 	/// <inheritdoc/>
@@ -419,6 +421,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		{
 			var hadFocus = _hasFocus;
 			_hasFocus = value;
+			OnPropertyChanged();
 			Container?.Invalidate(true);
 
 			if (value && !hadFocus)

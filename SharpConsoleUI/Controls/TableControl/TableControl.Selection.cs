@@ -72,6 +72,7 @@ public partial class TableControl
 			if (!_cellNavigationEnabled) return;
 			int colCount = ColumnCount;
 			_selectedColumnIndex = Math.Clamp(value, -1, colCount - 1);
+			OnPropertyChanged();
 			Container?.Invalidate(true);
 		}
 	}
@@ -85,6 +86,7 @@ public partial class TableControl
 		set
 		{
 			_cellNavigationEnabled = value;
+			OnPropertyChanged();
 			if (!value) _selectedColumnIndex = -1;
 			Container?.Invalidate(true);
 		}
@@ -99,6 +101,7 @@ public partial class TableControl
 		set
 		{
 			_multiSelectEnabled = value;
+			OnPropertyChanged();
 			if (!value)
 			{
 				_selectedRowIndices.Clear();
@@ -118,6 +121,7 @@ public partial class TableControl
 		set
 		{
 			_checkboxMode = value;
+			OnPropertyChanged();
 			if (value) _multiSelectEnabled = true;
 			Container?.Invalidate(true);
 		}
@@ -130,7 +134,7 @@ public partial class TableControl
 	public bool AutoHighlightOnFocus
 	{
 		get => _autoHighlightOnFocus;
-		set => _autoHighlightOnFocus = value;
+		set { _autoHighlightOnFocus = value; OnPropertyChanged(); }
 	}
 
 	#endregion

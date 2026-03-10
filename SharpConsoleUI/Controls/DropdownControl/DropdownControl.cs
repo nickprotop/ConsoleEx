@@ -216,11 +216,7 @@ namespace SharpConsoleUI.Controls
 		public bool AutoAdjustWidth
 		{
 			get => _autoAdjustWidth;
-			set
-			{
-				_autoAdjustWidth = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _autoAdjustWidth, value);
 		}
 
 		/// <summary>
@@ -229,11 +225,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set
-			{
-				_backgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
 		// Container inherited from BaseControl
@@ -244,11 +236,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedBackgroundColor
 		{
 			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
-			set
-			{
-				_focusedBackgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _focusedBackgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -257,11 +245,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedForegroundColor
 		{
 			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
-			set
-			{
-				_focusedForegroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -270,11 +254,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor ?? Color.White;
-			set
-			{
-				_foregroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
 		/// <inheritdoc/>
@@ -286,6 +266,7 @@ namespace SharpConsoleUI.Controls
 				if (_hasFocus != value)
 				{
 					_hasFocus = value;
+					OnPropertyChanged();
 					// Note: Dropdown closing is handled by SetFocus(), not here
 					// to ensure proper portal cleanup via CloseDropdown()
 					Container?.Invalidate(true);
@@ -302,11 +283,7 @@ namespace SharpConsoleUI.Controls
 		public Color HighlightBackgroundColor
 		{
 			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.DropdownHighlightBackgroundColor ?? Color.Blue;
-			set
-			{
-				_highlightBackgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _highlightBackgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -315,11 +292,7 @@ namespace SharpConsoleUI.Controls
 		public Color HighlightForegroundColor
 		{
 			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.DropdownHighlightForegroundColor ?? Color.White;
-			set
-			{
-				_highlightForegroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _highlightForegroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -350,7 +323,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
+			set => SetProperty(ref _isEnabled, value);
 		}
 
 		/// <summary>
@@ -359,11 +332,7 @@ namespace SharpConsoleUI.Controls
 		public ItemFormatterEvent? ItemFormatter
 		{
 			get => _itemFormatter;
-			set
-			{
-				_itemFormatter = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _itemFormatter, value);
 		}
 
 		/// <summary>
@@ -375,6 +344,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				lock (_dropdownLock) { _items = value; }
+				OnPropertyChanged();
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
 				{
@@ -401,11 +371,7 @@ namespace SharpConsoleUI.Controls
 		public int MaxVisibleItems
 		{
 			get => _maxVisibleItems;
-			set
-			{
-				_maxVisibleItems = Math.Max(1, value);
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _maxVisibleItems, value, v => Math.Max(1, v));
 		}
 
 		/// <summary>
@@ -414,11 +380,7 @@ namespace SharpConsoleUI.Controls
 		public string Prompt
 		{
 			get => _prompt;
-			set
-			{
-				_prompt = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _prompt, value);
 		}
 
 		/// <summary>
@@ -435,6 +397,7 @@ namespace SharpConsoleUI.Controls
 					int oldIndex = currentSel;
 					_selectedIndex = value;
 					_highlightedIndex = value;
+					OnPropertyChanged();
 					Container?.Invalidate(true);
 
 					// Ensure selected item is visible when dropdown is open
@@ -525,6 +488,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				lock (_dropdownLock) { _items = value.Select(text => new DropdownItem(text)).ToList(); }
+				OnPropertyChanged();
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
 				{

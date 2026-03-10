@@ -60,6 +60,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
         set
         {
             _orientation = value;
+            OnPropertyChanged();
             Container?.Invalidate(true);
         }
     }
@@ -70,7 +71,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public bool IsSticky
     {
         get => _isSticky;
-        set => _isSticky = value;
+        set { _isSticky = value; OnPropertyChanged(); }
     }
 
     /// <summary>
@@ -99,7 +100,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color? MenuBarBackgroundColor
     {
         get => _menuBarBackgroundColor;
-        set { _menuBarBackgroundColor = value; Container?.Invalidate(false); }
+        set { _menuBarBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
     }
 
     /// <summary>
@@ -108,7 +109,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color? MenuBarForegroundColor
     {
         get => _menuBarForegroundColor;
-        set { _menuBarForegroundColor = value; Container?.Invalidate(false); }
+        set { _menuBarForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
     }
 
     /// <summary>
@@ -117,7 +118,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color? MenuBarHighlightBackgroundColor
     {
         get => _menuBarHighlightBackgroundColor;
-        set { _menuBarHighlightBackgroundColor = value; Container?.Invalidate(false); }
+        set { _menuBarHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
     }
 
     /// <summary>
@@ -126,7 +127,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color? MenuBarHighlightForegroundColor
     {
         get => _menuBarHighlightForegroundColor;
-        set { _menuBarHighlightForegroundColor = value; Container?.Invalidate(false); }
+        set { _menuBarHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
     }
 
     /// <summary>
@@ -135,7 +136,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color? DropdownBackgroundColor
     {
         get => _dropdownBackgroundColor;
-        set { _dropdownBackgroundColor = value; Container?.Invalidate(false); }
+        set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
     }
 
     /// <summary>
@@ -144,7 +145,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color? DropdownForegroundColor
     {
         get => _dropdownForegroundColor;
-        set { _dropdownForegroundColor = value; Container?.Invalidate(false); }
+        set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
     }
 
     /// <summary>
@@ -153,7 +154,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color? DropdownHighlightBackgroundColor
     {
         get => _dropdownHighlightBackgroundColor;
-        set { _dropdownHighlightBackgroundColor = value; Container?.Invalidate(false); }
+        set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
     }
 
     /// <summary>
@@ -162,7 +163,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color? DropdownHighlightForegroundColor
     {
         get => _dropdownHighlightForegroundColor;
-        set { _dropdownHighlightForegroundColor = value; Container?.Invalidate(false); }
+        set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
     }
 
     // Resolved colors with theme fallback
@@ -183,7 +184,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color BackgroundColor
     {
         get => ResolvedDropdownBackground;
-        set { _dropdownBackgroundColor = value; Container?.Invalidate(true); }
+        set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
     }
 
     /// <summary>
@@ -193,7 +194,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color ForegroundColor
     {
         get => ResolvedDropdownForeground;
-        set { _dropdownForegroundColor = value; Container?.Invalidate(true); }
+        set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
     }
 
     /// <summary>
@@ -203,7 +204,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color HighlightColor
     {
         get => ResolvedDropdownHighlightBackground;
-        set { _dropdownHighlightBackgroundColor = value; Container?.Invalidate(true); }
+        set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
     }
 
     /// <summary>
@@ -213,7 +214,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public Color HighlightForeground
     {
         get => ResolvedDropdownHighlightForeground;
-        set { _dropdownHighlightForegroundColor = value; Container?.Invalidate(true); }
+        set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
     }
 
     #endregion
@@ -238,7 +239,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public bool IsEnabled
     {
         get => _enabled;
-        set { _enabled = value; Container?.Invalidate(true); }
+        set { _enabled = value; OnPropertyChanged(); Container?.Invalidate(true); }
     }
 
     /// <inheritdoc/>
@@ -301,6 +302,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
         set
         {
             _hasFocus = value;
+            OnPropertyChanged();
             Container?.Invalidate(true);
         }
     }

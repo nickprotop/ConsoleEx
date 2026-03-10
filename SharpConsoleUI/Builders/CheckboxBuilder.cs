@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -16,7 +17,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for checkbox controls
 /// </summary>
-public sealed class CheckboxBuilder
+public sealed class CheckboxBuilder : IControlBuilder<CheckboxControl>
 {
 	private string _label = "Checkbox";
 	private bool _isChecked = false;
@@ -278,6 +279,7 @@ public sealed class CheckboxBuilder
 			};
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, checkbox);
 		return checkbox;
 	}
 

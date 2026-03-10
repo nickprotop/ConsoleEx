@@ -74,6 +74,7 @@ public partial class TableControl
 		set
 		{
 			_filteringEnabled = value;
+			OnPropertyChanged();
 			if (!value) ClearFilter();
 			Container?.Invalidate(true);
 		}
@@ -85,7 +86,7 @@ public partial class TableControl
 	public bool FuzzyFilterEnabled
 	{
 		get => _fuzzyFilterEnabled;
-		set => _fuzzyFilterEnabled = value;
+		set { _fuzzyFilterEnabled = value; OnPropertyChanged(); }
 	}
 
 	/// <summary>

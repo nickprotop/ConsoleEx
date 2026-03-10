@@ -76,11 +76,7 @@ namespace SharpConsoleUI.Controls
 		public bool HasFocus
 		{
 			get => _focused;
-			set
-			{
-				_focused = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _focused, value);
 		}
 
 		/// <summary>
@@ -89,11 +85,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _enabled;
-			set
-			{
-				_enabled = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _enabled, value);
 		}
 
 		/// <summary>
@@ -102,11 +94,7 @@ namespace SharpConsoleUI.Controls
 		public string Text
 		{
 			get => _text;
-			set
-			{
-				_text = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _text, value);
 		}
 
 		/// <summary>
@@ -115,7 +103,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveButtonBackground(_backgroundColor, Container);
-			set { _backgroundColor = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _backgroundColor, (Color?)value);
 		}
 
 		/// <summary>
@@ -124,7 +112,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => ColorResolver.ResolveButtonForeground(_foregroundColor, Container);
-			set { _foregroundColor = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _foregroundColor, (Color?)value);
 		}
 
 		/// <summary>
@@ -133,7 +121,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedBackgroundColor
 		{
 			get => ColorResolver.ResolveButtonFocusedBackground(_focusedBackgroundColor, Container);
-			set { _focusedBackgroundColor = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _focusedBackgroundColor, (Color?)value);
 		}
 
 		/// <summary>
@@ -142,7 +130,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedForegroundColor
 		{
 			get => ColorResolver.ResolveButtonFocusedForeground(_focusedForegroundColor, Container);
-			set { _focusedForegroundColor = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _focusedForegroundColor, (Color?)value);
 		}
 
 		/// <summary>
@@ -151,7 +139,7 @@ namespace SharpConsoleUI.Controls
 		public Color DisabledBackgroundColor
 		{
 			get => ColorResolver.ResolveButtonDisabledBackground(_disabledBackgroundColor, Container);
-			set { _disabledBackgroundColor = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _disabledBackgroundColor, (Color?)value);
 		}
 
 		/// <summary>
@@ -160,19 +148,19 @@ namespace SharpConsoleUI.Controls
 		public Color DisabledForegroundColor
 		{
 			get => ColorResolver.ResolveButtonDisabledForeground(_disabledForegroundColor, Container);
-			set { _disabledForegroundColor = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _disabledForegroundColor, (Color?)value);
 		}
 
 		public ButtonBorderStyle ButtonBorder
 		{
 			get => _borderStyle;
-			set { _borderStyle = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _borderStyle, value);
 		}
 
 		public Color? BorderColor
 		{
 			get => _borderColor;
-			set { _borderColor = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _borderColor, value);
 		}
 
 		/// <inheritdoc/>

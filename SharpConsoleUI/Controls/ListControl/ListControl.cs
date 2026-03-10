@@ -280,11 +280,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set
-			{
-				_backgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -293,11 +289,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedBackgroundColor
 		{
 			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
-			set
-			{
-				_focusedBackgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _focusedBackgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -306,11 +298,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedForegroundColor
 		{
 			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
-			set
-			{
-				_focusedForegroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -319,11 +307,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor ?? Color.White;
-			set
-			{
-				_foregroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
 		/// <inheritdoc/>
@@ -334,6 +318,7 @@ namespace SharpConsoleUI.Controls
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
+				OnPropertyChanged();
 				Container?.Invalidate(true);
 
 				// Fire focus events
@@ -354,11 +339,7 @@ namespace SharpConsoleUI.Controls
 		public Color HighlightBackgroundColor
 		{
 			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonSelectedBackgroundColor ?? Color.DarkBlue;
-			set
-			{
-				_highlightBackgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _highlightBackgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -367,11 +348,7 @@ namespace SharpConsoleUI.Controls
 		public Color HighlightForegroundColor
 		{
 			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonSelectedForegroundColor ?? Color.White;
-			set
-			{
-				_highlightForegroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _highlightForegroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -380,7 +357,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
+			set => SetProperty(ref _isEnabled, value);
 		}
 
 		/// <summary>
@@ -389,11 +366,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsSelectable
 		{
 			get => _isSelectable;
-			set
-			{
-				_isSelectable = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _isSelectable, value);
 		}
 
 		/// <summary>
@@ -405,6 +378,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				lock (_itemsLock) { _items = value; }
+				OnPropertyChanged();
 				_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 				// Adjust selection if out of bounds
 				int currentSel = CurrentSelectedIndex;
@@ -430,11 +404,7 @@ namespace SharpConsoleUI.Controls
 		public int? MaxVisibleItems
 		{
 			get => _maxVisibleItems;
-			set
-			{
-				_maxVisibleItems = value.HasValue ? Math.Max(1, value.Value) : null;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _maxVisibleItems, value, v => v.HasValue ? Math.Max(1, v.Value) : null);
 		}
 
 		/// <summary>
@@ -461,6 +431,7 @@ namespace SharpConsoleUI.Controls
 					return;
 
 				_selectedIndex = value;
+				OnPropertyChanged();
 
 				// Fire events ONCE
 				SelectedIndexChanged?.Invoke(this, value);
@@ -487,7 +458,7 @@ namespace SharpConsoleUI.Controls
 		public bool CheckboxMode
 		{
 			get => _checkboxMode;
-			set { _checkboxMode = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _checkboxMode, value);
 		}
 
 		/// <summary>
@@ -568,6 +539,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_items = value.Select(text => new ListItem(text)).ToList();
+				OnPropertyChanged();
 				_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
@@ -592,11 +564,7 @@ namespace SharpConsoleUI.Controls
 		public string Title
 		{
 			get => _title;
-			set
-			{
-				_title = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _title, value);
 		}
 
 		#endregion

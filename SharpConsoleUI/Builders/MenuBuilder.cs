@@ -1,4 +1,5 @@
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 
 namespace SharpConsoleUI.Builders;
@@ -6,7 +7,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for creating MenuControl instances with a clean, chainable API.
 /// </summary>
-public class MenuBuilder
+public class MenuBuilder : IControlBuilder<MenuControl>
 {
     private MenuOrientation _orientation = MenuOrientation.Horizontal;
     private readonly List<MenuItem> _items = new();
@@ -319,6 +320,7 @@ public class MenuBuilder
         if (_itemHoveredHandler != null)
             menu.ItemHovered += _itemHoveredHandler;
 
+        BindingHelper.ApplyDeferredBindings(this, menu);
         return menu;
     }
 

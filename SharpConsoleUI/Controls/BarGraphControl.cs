@@ -63,11 +63,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BackgroundColor
 		{
 			get => _backgroundColorValue;
-			set
-			{
-				_backgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _backgroundColorValue, value);
 		}
 
 		/// <summary>
@@ -76,11 +72,7 @@ namespace SharpConsoleUI.Controls
 		public int BarWidth
 		{
 			get => _barWidth;
-			set
-			{
-				_barWidth = Math.Max(1, value);
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _barWidth, value, v => Math.Max(1, v));
 		}
 
 		/// <summary>
@@ -89,11 +81,7 @@ namespace SharpConsoleUI.Controls
 		public Color FilledColor
 		{
 			get => _filledColor;
-			set
-			{
-				_filledColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _filledColor, value);
 		}
 
 		/// <summary>
@@ -103,11 +91,7 @@ namespace SharpConsoleUI.Controls
 		public Color? ForegroundColor
 		{
 			get => _foregroundColorValue;
-			set
-			{
-				_foregroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _foregroundColorValue, value);
 		}
 
 		/// <summary>
@@ -116,11 +100,7 @@ namespace SharpConsoleUI.Controls
 		public string Label
 		{
 			get => _label;
-			set
-			{
-				_label = value ?? string.Empty;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _label, value, v => v ?? string.Empty);
 		}
 
 		/// <summary>
@@ -131,11 +111,7 @@ namespace SharpConsoleUI.Controls
 		public int? LabelWidth
 		{
 			get => _labelWidth;
-			set
-			{
-				_labelWidth = value.HasValue ? Math.Max(0, value.Value) : null;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _labelWidth, value, v => v.HasValue ? Math.Max(0, v.Value) : null);
 		}
 
 		/// <summary>
@@ -144,11 +120,7 @@ namespace SharpConsoleUI.Controls
 		public double MaxValue
 		{
 			get => _maxValue;
-			set
-			{
-				_maxValue = Math.Max(0.01, value);
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _maxValue, value, v => Math.Max(0.01, v));
 		}
 
 		/// <summary>
@@ -157,11 +129,7 @@ namespace SharpConsoleUI.Controls
 		public bool ShowLabel
 		{
 			get => _showLabel;
-			set
-			{
-				_showLabel = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _showLabel, value);
 		}
 
 		/// <summary>
@@ -170,11 +138,7 @@ namespace SharpConsoleUI.Controls
 		public bool ShowValue
 		{
 			get => _showValue;
-			set
-			{
-				_showValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _showValue, value);
 		}
 
 		/// <summary>
@@ -183,11 +147,7 @@ namespace SharpConsoleUI.Controls
 		public Color UnfilledColor
 		{
 			get => _unfilledColor;
-			set
-			{
-				_unfilledColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _unfilledColor, value);
 		}
 
 		/// <summary>
@@ -196,11 +156,7 @@ namespace SharpConsoleUI.Controls
 		public double Value
 		{
 			get => _value;
-			set
-			{
-				_value = Math.Max(0, value);
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _value, value, v => Math.Max(0, v));
 		}
 
 		/// <summary>
@@ -209,11 +165,7 @@ namespace SharpConsoleUI.Controls
 		public string ValueFormat
 		{
 			get => _valueFormat;
-			set
-			{
-				_valueFormat = value ?? "F1";
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _valueFormat, value, v => v ?? "F1");
 		}
 
 		/// <summary>
@@ -273,11 +225,7 @@ namespace SharpConsoleUI.Controls
 		public ColorGradient? SmoothGradient
 		{
 			get => _smoothGradient;
-			set
-			{
-				_smoothGradient = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _smoothGradient, value);
 		}
 
 		#region BaseControl Overrides
@@ -292,6 +240,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_container = value;
+				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
 		}

@@ -22,6 +22,7 @@ public partial class TableControl
 		set
 		{
 			_sortingEnabled = value;
+			OnPropertyChanged();
 			if (!value) ClearSort();
 			Container?.Invalidate(true);
 		}

@@ -25,6 +25,7 @@ public partial class TableControl
 		{
 			int maxOffset = Math.Max(0, RowCount - GetVisibleRowCount());
 			_scrollOffset = Math.Clamp(value, 0, maxOffset);
+			OnPropertyChanged();
 			Container?.Invalidate(true);
 		}
 	}
@@ -38,6 +39,7 @@ public partial class TableControl
 		set
 		{
 			_horizontalScrollOffset = Math.Max(0, value);
+			OnPropertyChanged();
 			Container?.Invalidate(true);
 		}
 	}
@@ -48,7 +50,7 @@ public partial class TableControl
 	public ScrollbarVisibility VerticalScrollbarVisibility
 	{
 		get => _verticalScrollbarVisibility;
-		set { _verticalScrollbarVisibility = value; Container?.Invalidate(true); }
+		set { _verticalScrollbarVisibility = value; OnPropertyChanged(); Container?.Invalidate(true); }
 	}
 
 	/// <summary>
@@ -57,7 +59,7 @@ public partial class TableControl
 	public ScrollbarVisibility HorizontalScrollbarVisibility
 	{
 		get => _horizontalScrollbarVisibility;
-		set { _horizontalScrollbarVisibility = value; Container?.Invalidate(true); }
+		set { _horizontalScrollbarVisibility = value; OnPropertyChanged(); Container?.Invalidate(true); }
 	}
 
 	#endregion

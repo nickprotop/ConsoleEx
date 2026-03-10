@@ -64,11 +64,7 @@ namespace SharpConsoleUI.Controls
 		public double Value
 		{
 			get => _value;
-			set
-			{
-				_value = Math.Max(0, Math.Min(value, _maxValue));
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _value, value, v => Math.Max(0, Math.Min(v, _maxValue)));
 		}
 
 		/// <summary>
@@ -77,11 +73,7 @@ namespace SharpConsoleUI.Controls
 		public double MaxValue
 		{
 			get => _maxValue;
-			set
-			{
-				_maxValue = Math.Max(0.01, value);
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _maxValue, value, v => Math.Max(0.01, v));
 		}
 
 		#endregion
@@ -99,6 +91,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (_isIndeterminate == value) return;
 				_isIndeterminate = value;
+				OnPropertyChanged();
 
 				if (value)
 					StartAnimation();
@@ -119,6 +112,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_animationInterval = Math.Max(10, value);
+				OnPropertyChanged();
 				if (_animationTimer != null)
 				{
 					_animationTimer.Interval = _animationInterval;
@@ -132,11 +126,7 @@ namespace SharpConsoleUI.Controls
 		public int PulseWidth
 		{
 			get => _pulseWidth;
-			set
-			{
-				_pulseWidth = Math.Max(1, value);
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _pulseWidth, value, v => Math.Max(1, v));
 		}
 
 		#endregion
@@ -150,11 +140,7 @@ namespace SharpConsoleUI.Controls
 		public int? BarWidth
 		{
 			get => _barWidth;
-			set
-			{
-				_barWidth = value.HasValue ? Math.Max(1, value.Value) : null;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _barWidth, value, v => v.HasValue ? Math.Max(1, v.Value) : null);
 		}
 
 		/// <summary>
@@ -164,7 +150,7 @@ namespace SharpConsoleUI.Controls
 		public bool ShowPercentage
 		{
 			get => _showPercentage;
-			set => PropertySetterHelper.SetBoolProperty(ref _showPercentage, value, Container);
+			set => SetProperty(ref _showPercentage, value);
 		}
 
 		/// <summary>
@@ -173,7 +159,7 @@ namespace SharpConsoleUI.Controls
 		public bool ShowHeader
 		{
 			get => _showHeader;
-			set => PropertySetterHelper.SetBoolProperty(ref _showHeader, value, Container);
+			set => SetProperty(ref _showHeader, value);
 		}
 
 		/// <summary>
@@ -182,11 +168,7 @@ namespace SharpConsoleUI.Controls
 		public string? Header
 		{
 			get => _header;
-			set
-			{
-				_header = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _header, value);
 		}
 
 		#endregion
@@ -200,7 +182,7 @@ namespace SharpConsoleUI.Controls
 		public Color? FilledColor
 		{
 			get => _filledColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ProgressBarFilledColor ?? Color.Cyan1;
-			set => PropertySetterHelper.SetColorProperty(ref _filledColorValue, value, Container);
+			set => SetProperty(ref _filledColorValue, value);
 		}
 
 		/// <summary>
@@ -210,7 +192,7 @@ namespace SharpConsoleUI.Controls
 		public Color? UnfilledColor
 		{
 			get => _unfilledColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ProgressBarUnfilledColor ?? Color.Grey35;
-			set => PropertySetterHelper.SetColorProperty(ref _unfilledColorValue, value, Container);
+			set => SetProperty(ref _unfilledColorValue, value);
 		}
 
 		/// <summary>
@@ -220,7 +202,7 @@ namespace SharpConsoleUI.Controls
 		public Color? PercentageColor
 		{
 			get => _percentageColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ProgressBarPercentageColor ?? Color.White;
-			set => PropertySetterHelper.SetColorProperty(ref _percentageColorValue, value, Container);
+			set => SetProperty(ref _percentageColorValue, value);
 		}
 
 		/// <summary>
@@ -230,7 +212,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BackgroundColor
 		{
 			get => _backgroundColorValue;
-			set => PropertySetterHelper.SetColorProperty(ref _backgroundColorValue, value, Container);
+			set => SetProperty(ref _backgroundColorValue, value);
 		}
 
 		#endregion
@@ -251,6 +233,7 @@ namespace SharpConsoleUI.Controls
 					StopAnimation();
 
 				_container = value;
+				OnPropertyChanged();
 				_container?.Invalidate(true);
 			}
 		}

@@ -83,7 +83,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BackgroundColor
 		{
 			get => _backgroundColorValue;
-			set => PropertySetterHelper.SetColorProperty(ref _backgroundColorValue, value, Container);
+			set => SetProperty(ref _backgroundColorValue, value);
 		}
 
 		/// <summary>
@@ -93,7 +93,7 @@ namespace SharpConsoleUI.Controls
 		public Color? ForegroundColor
 		{
 			get => _foregroundColorValue;
-			set => PropertySetterHelper.SetColorProperty(ref _foregroundColorValue, value, Container);
+			set => SetProperty(ref _foregroundColorValue, value);
 		}
 
 		/// <summary>
@@ -104,7 +104,7 @@ namespace SharpConsoleUI.Controls
 		public int? Height
 		{
 			get => _height;
-			set => PropertySetterHelper.SetDimensionProperty(ref _height, value, Container);
+			set => SetProperty(ref _height, value, v => v.HasValue ? Math.Max(0, v.Value) : v);
 		}
 
 		#endregion
@@ -117,11 +117,7 @@ namespace SharpConsoleUI.Controls
 		public string? Content
 		{
 			get => _content;
-			set
-			{
-				_content = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _content, value);
 		}
 
 		/// <summary>
@@ -130,7 +126,7 @@ namespace SharpConsoleUI.Controls
 		public BorderStyle BorderStyle
 		{
 			get => _borderStyle;
-			set => PropertySetterHelper.SetEnumProperty(ref _borderStyle, value, Container);
+			set => SetProperty(ref _borderStyle, value);
 		}
 
 		/// <summary>
@@ -140,7 +136,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BorderColor
 		{
 			get => _borderColorValue;
-			set => PropertySetterHelper.SetColorProperty(ref _borderColorValue, value, Container);
+			set => SetProperty(ref _borderColorValue, value);
 		}
 
 		/// <summary>
@@ -149,7 +145,7 @@ namespace SharpConsoleUI.Controls
 		public string? Header
 		{
 			get => _header;
-			set => PropertySetterHelper.SetStringProperty(ref _header!, value!, Container);
+			set => SetProperty(ref _header, value);
 		}
 
 		/// <summary>
@@ -158,11 +154,7 @@ namespace SharpConsoleUI.Controls
 		public TextJustification HeaderAlignment
 		{
 			get => _headerAlignment;
-			set
-			{
-				_headerAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _headerAlignment, value);
 		}
 
 		/// <summary>
@@ -171,11 +163,7 @@ namespace SharpConsoleUI.Controls
 		public Padding Padding
 		{
 			get => _padding;
-			set
-			{
-				_padding = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _padding, value);
 		}
 
 		/// <summary>
@@ -184,7 +172,7 @@ namespace SharpConsoleUI.Controls
 		public bool UseSafeBorder
 		{
 			get => _useSafeBorder;
-			set => PropertySetterHelper.SetBoolProperty(ref _useSafeBorder, value, Container);
+			set => SetProperty(ref _useSafeBorder, value);
 		}
 
 		#endregion
@@ -573,8 +561,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="text">The text to display.</param>
 		public void SetContent(string text)
 		{
-			_content = text;
-			Container?.Invalidate(true);
+			Content = text;
 		}
 
 		#endregion

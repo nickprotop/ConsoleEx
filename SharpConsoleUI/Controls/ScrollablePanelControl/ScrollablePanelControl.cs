@@ -133,7 +133,7 @@ namespace SharpConsoleUI.Controls
 		public bool ShowScrollbar
 		{
 			get => _showScrollbar;
-			set { _showScrollbar = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _showScrollbar, value);
 		}
 
 		/// <summary>
@@ -142,7 +142,7 @@ namespace SharpConsoleUI.Controls
 		public ScrollbarPosition ScrollbarPosition
 		{
 			get => _scrollbarPosition;
-			set { _scrollbarPosition = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _scrollbarPosition, value);
 		}
 
 		/// <summary>
@@ -151,7 +151,7 @@ namespace SharpConsoleUI.Controls
 		public ScrollMode HorizontalScrollMode
 		{
 			get => _horizontalScrollMode;
-			set { _horizontalScrollMode = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _horizontalScrollMode, value);
 		}
 
 		/// <summary>
@@ -160,7 +160,7 @@ namespace SharpConsoleUI.Controls
 		public ScrollMode VerticalScrollMode
 		{
 			get => _verticalScrollMode;
-			set { _verticalScrollMode = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _verticalScrollMode, value);
 		}
 
 		/// <summary>
@@ -169,7 +169,7 @@ namespace SharpConsoleUI.Controls
 		public bool EnableMouseWheel
 		{
 			get => _enableMouseWheel;
-			set => _enableMouseWheel = value;
+			set { _enableMouseWheel = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -180,7 +180,7 @@ namespace SharpConsoleUI.Controls
 		public bool AutoScroll
 		{
 			get => _autoScroll;
-			set => _autoScroll = value;
+			set { _autoScroll = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -270,7 +270,7 @@ namespace SharpConsoleUI.Controls
 		public int? Height
 		{
 			get => _height;
-			set => PropertySetterHelper.SetDimensionProperty(ref _height, value, Container);
+			set => SetProperty(ref _height, value, v => v.HasValue ? Math.Max(0, v.Value) : v);
 		}
 
 		/// <inheritdoc/>
@@ -317,7 +317,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set { _isEnabled = value; Container?.Invalidate(true); }
+			set => SetProperty(ref _isEnabled, value);
 		}
 
 		#endregion
@@ -328,7 +328,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set { _backgroundColorValue = value; Invalidate(true); }
+			set { _backgroundColorValue = value; OnPropertyChanged(); Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
@@ -339,7 +339,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColor;
-			set { _foregroundColor = value; Invalidate(true); }
+			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
@@ -349,7 +349,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsDirty
 		{
 			get => _isDirty;
-			set => _isDirty = value;
+			set { _isDirty = value; OnPropertyChanged(); }
 		}
 
 		/// <inheritdoc/>

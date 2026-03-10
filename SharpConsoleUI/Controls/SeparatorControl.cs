@@ -43,11 +43,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BackgroundColor
 		{
 			get => _backgroundColorValue;
-			set
-			{
-				_backgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _backgroundColorValue, value);
 		}
 
 		/// <summary>
@@ -57,11 +53,7 @@ namespace SharpConsoleUI.Controls
 		public char Character
 		{
 			get => _character;
-			set
-			{
-				_character = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _character, value);
 		}
 
 		/// <inheritdoc/>
@@ -71,6 +63,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_container = value;
+				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
 		}
@@ -82,11 +75,7 @@ namespace SharpConsoleUI.Controls
 		public Color? ForegroundColor
 		{
 			get => _foregroundColorValue;
-			set
-			{
-				_foregroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _foregroundColorValue, value);
 		}
 
 		/// <inheritdoc/>

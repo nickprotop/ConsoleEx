@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
 using ScrollbarVisibility = SharpConsoleUI.Controls.ScrollbarVisibility;
 using TableColumn = SharpConsoleUI.Controls.TableColumn;
@@ -17,7 +18,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for creating TableControl instances with comprehensive configuration.
 /// </summary>
-public sealed class TableControlBuilder
+public sealed class TableControlBuilder : IControlBuilder<TableControl>
 {
 	private readonly List<TableColumn> _columns = new();
 	private readonly List<TableRow> _rows = new();
@@ -708,6 +709,7 @@ public sealed class TableControlBuilder
 		if (_onRightClick != null)
 			table.MouseRightClick += _onRightClick;
 
+		BindingHelper.ApplyDeferredBindings(this, table);
 		return table;
 	}
 

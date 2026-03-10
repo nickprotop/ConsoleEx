@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Builders;
@@ -14,7 +15,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for tab controls
 /// </summary>
-public sealed class TabControlBuilder
+public sealed class TabControlBuilder : IControlBuilder<TabControl>
 {
 	private readonly TabControl _control = new();
 	private int _initialActiveTab = 0;
@@ -330,6 +331,7 @@ public sealed class TabControlBuilder
 			_control.ActiveTabIndex = _initialActiveTab;
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, _control);
 		return _control;
 	}
 

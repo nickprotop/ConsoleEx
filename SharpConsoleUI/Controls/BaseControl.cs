@@ -6,7 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.ComponentModel;
 using System.Drawing;
+using System.Runtime.CompilerServices;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
@@ -15,8 +18,9 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// Abstract base class for all UI controls, providing shared layout fields, properties,
 	/// and default implementations of <see cref="IWindowControl"/> and <see cref="IDOMPaintable"/>.
+	/// Implements <see cref="INotifyPropertyChanged"/> for MVVM data binding support.
 	/// </summary>
-	public abstract class BaseControl : IWindowControl, IDOMPaintable
+	public abstract class BaseControl : IWindowControl, IDOMPaintable, INotifyPropertyChanged
 	{
 		private int _actualX;
 		private int _actualY;
@@ -29,6 +33,60 @@ namespace SharpConsoleUI.Controls
 		private bool _visible = true;
 		private int? _width;
 		private bool _disposed;
+		private BindingCollection? _bindings;
+
+		/// <inheritdoc/>
+		public event PropertyChangedEventHandler? PropertyChanged;
+
+		/// <summary>
+		/// Gets the binding collection for this control. Lazily allocated on first access.
+		/// </summary>
+		public BindingCollection Bindings => _bindings ??= new BindingCollection();
+
+		/// <summary>
+		/// Raises the <see cref="PropertyChanged"/> event.
+		/// </summary>
+		/// <param name="propertyName">The name of the property that changed.</param>
+		protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+			=> PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+		/// <summary>
+		/// Sets a property value with change detection, notification, and automatic invalidation.
+		/// </summary>
+		/// <typeparam name="T">The property type.</typeparam>
+		/// <param name="field">Reference to the backing field.</param>
+		/// <param name="value">The new value.</param>
+		/// <param name="propertyName">The property name (auto-filled by compiler).</param>
+		/// <returns>True if the value changed.</returns>
+		protected bool SetProperty<T>(ref T field, T value,
+			[CallerMemberName] string? propertyName = null)
+		{
+			if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+			field = value;
+			OnPropertyChanged(propertyName);
+			Container?.Invalidate(true);
+			return true;
+		}
+
+		/// <summary>
+		/// Sets a property value with validation, change detection, notification, and automatic invalidation.
+		/// </summary>
+		/// <typeparam name="T">The property type.</typeparam>
+		/// <param name="field">Reference to the backing field.</param>
+		/// <param name="value">The new value.</param>
+		/// <param name="validate">Validation/transformation function applied before setting.</param>
+		/// <param name="propertyName">The property name (auto-filled by compiler).</param>
+		/// <returns>True if the value changed.</returns>
+		protected bool SetProperty<T>(ref T field, T value, Func<T, T> validate,
+			[CallerMemberName] string? propertyName = null)
+		{
+			var validated = validate(value);
+			if (EqualityComparer<T>.Default.Equals(field, validated)) return false;
+			field = validated;
+			OnPropertyChanged(propertyName);
+			Container?.Invalidate(true);
+			return true;
+		}
 
 		/// <inheritdoc/>
 		public abstract int? ContentWidth { get; }
@@ -49,14 +107,14 @@ namespace SharpConsoleUI.Controls
 		public virtual HorizontalAlignment HorizontalAlignment
 		{
 			get => _horizontalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _horizontalAlignment, value, Container);
+			set => SetProperty(ref _horizontalAlignment, value);
 		}
 
 		/// <inheritdoc/>
 		public virtual VerticalAlignment VerticalAlignment
 		{
 			get => _verticalAlignment;
-			set => PropertySetterHelper.SetEnumProperty(ref _verticalAlignment, value, Container);
+			set => SetProperty(ref _verticalAlignment, value);
 		}
 
 		/// <inheritdoc/>
@@ -66,14 +124,14 @@ namespace SharpConsoleUI.Controls
 		public virtual Margin Margin
 		{
 			get => _margin;
-			set => PropertySetterHelper.SetProperty(ref _margin, value, Container);
+			set => SetProperty(ref _margin, value);
 		}
 
 		/// <inheritdoc/>
 		public virtual StickyPosition StickyPosition
 		{
 			get => _stickyPosition;
-			set => PropertySetterHelper.SetEnumProperty(ref _stickyPosition, value, Container);
+			set => SetProperty(ref _stickyPosition, value);
 		}
 
 		/// <inheritdoc/>
@@ -86,14 +144,14 @@ namespace SharpConsoleUI.Controls
 		public virtual bool Visible
 		{
 			get => _visible;
-			set => PropertySetterHelper.SetBoolProperty(ref _visible, value, Container);
+			set => SetProperty(ref _visible, value);
 		}
 
 		/// <inheritdoc/>
 		public virtual int? Width
 		{
 			get => _width;
-			set => PropertySetterHelper.SetDimensionProperty(ref _width, value, Container);
+			set => SetProperty(ref _width, value, v => v.HasValue ? Math.Max(0, v.Value) : v);
 		}
 
 		/// <inheritdoc/>
@@ -129,6 +187,7 @@ namespace SharpConsoleUI.Controls
 			if (_disposed) return;
 			_disposed = true;
 			OnDisposing();
+			_bindings?.Dispose();
 			Container = null;
 		}
 

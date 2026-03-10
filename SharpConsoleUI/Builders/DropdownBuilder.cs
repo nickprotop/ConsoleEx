@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -16,7 +17,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for dropdown controls
 /// </summary>
-public sealed class DropdownBuilder
+public sealed class DropdownBuilder : IControlBuilder<DropdownControl>
 {
 	private readonly List<DropdownItem> _items = new();
 	private string _prompt = "Select...";
@@ -393,6 +394,7 @@ public sealed class DropdownBuilder
 			};
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, dropdown);
 		return dropdown;
 	}
 

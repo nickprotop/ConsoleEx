@@ -36,6 +36,7 @@ public partial class TableControl
 		set
 		{
 			_inlineEditingEnabled = value;
+			OnPropertyChanged();
 			if (value) _cellNavigationEnabled = true;
 		}
 	}
@@ -51,7 +52,7 @@ public partial class TableControl
 	public bool ColumnResizeEnabled
 	{
 		get => _columnResizeEnabled;
-		set => _columnResizeEnabled = value;
+		set { _columnResizeEnabled = value; OnPropertyChanged(); }
 	}
 
 	#endregion

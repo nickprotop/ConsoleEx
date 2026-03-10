@@ -18,10 +18,7 @@ namespace SharpConsoleUI.Controls
 		public bool AutoHighlightOnFocus
 		{
 			get => _autoHighlightOnFocus;
-			set
-			{
-				_autoHighlightOnFocus = value;
-			}
+			set { _autoHighlightOnFocus = value; OnPropertyChanged(); }
 		}
 
 		// Calculate effective visible items for scroll logic

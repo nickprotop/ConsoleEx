@@ -149,11 +149,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BackgroundColor
 		{
 			get => _backgroundColorValue;
-			set
-			{
-				_backgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _backgroundColorValue, value);
 		}
 
 		/// <summary>
@@ -162,11 +158,7 @@ namespace SharpConsoleUI.Controls
 		public Color BarColor
 		{
 			get => _barColor;
-			set
-			{
-				_barColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _barColor, value);
 		}
 
 		/// <summary>
@@ -175,11 +167,7 @@ namespace SharpConsoleUI.Controls
 		public BorderStyle BorderStyle
 		{
 			get => _borderStyle;
-			set
-			{
-				_borderStyle = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _borderStyle, value);
 		}
 
 		/// <summary>
@@ -189,11 +177,7 @@ namespace SharpConsoleUI.Controls
 		public SparklineMode Mode
 		{
 			get => _mode;
-			set
-			{
-				_mode = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _mode, value);
 		}
 
 		/// <summary>
@@ -203,11 +187,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BorderColor
 		{
 			get => _borderColor;
-			set
-			{
-				_borderColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _borderColor, value);
 		}
 
 		/// <summary>
@@ -231,11 +211,7 @@ namespace SharpConsoleUI.Controls
 		public Color? ForegroundColor
 		{
 			get => _foregroundColorValue;
-			set
-			{
-				_foregroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _foregroundColorValue, value);
 		}
 
 		/// <summary>
@@ -244,11 +220,7 @@ namespace SharpConsoleUI.Controls
 		public int GraphHeight
 		{
 			get => _graphHeight;
-			set
-			{
-				_graphHeight = Math.Max(1, value);
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _graphHeight, value, v => Math.Max(1, v));
 		}
 
 		/// <summary>
@@ -265,6 +237,7 @@ namespace SharpConsoleUI.Controls
 					_maxDataPoints = Math.Max(1, value);
 					TrimDataPoints();
 				}
+				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
 		}
@@ -276,11 +249,7 @@ namespace SharpConsoleUI.Controls
 		public double? MaxValue
 		{
 			get => _maxValue;
-			set
-			{
-				_maxValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _maxValue, value);
 		}
 
 		/// <summary>
@@ -290,11 +259,7 @@ namespace SharpConsoleUI.Controls
 		public double? MinValue
 		{
 			get => _minValue;
-			set
-			{
-				_minValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _minValue, value);
 		}
 
 		/// <summary>
@@ -303,11 +268,7 @@ namespace SharpConsoleUI.Controls
 		public string? Title
 		{
 			get => _title;
-			set
-			{
-				_title = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _title, value);
 		}
 
 		/// <summary>
@@ -317,11 +278,7 @@ namespace SharpConsoleUI.Controls
 		public Color? TitleColor
 		{
 			get => _titleColor;
-			set
-			{
-				_titleColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _titleColor, value);
 		}
 
 		/// <summary>
@@ -331,11 +288,7 @@ namespace SharpConsoleUI.Controls
 		public TitlePosition TitlePosition
 		{
 			get => _titlePosition;
-			set
-			{
-				_titlePosition = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _titlePosition, value);
 		}
 
 		/// <summary>
@@ -346,11 +299,7 @@ namespace SharpConsoleUI.Controls
 		public ColorGradient? Gradient
 		{
 			get => _gradient;
-			set
-			{
-				_gradient = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _gradient, value);
 		}
 
 		/// <summary>
@@ -359,11 +308,7 @@ namespace SharpConsoleUI.Controls
 		public bool ShowBaseline
 		{
 			get => _showBaseline;
-			set
-			{
-				_showBaseline = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _showBaseline, value);
 		}
 
 		/// <summary>
@@ -372,11 +317,7 @@ namespace SharpConsoleUI.Controls
 		public char BaselineChar
 		{
 			get => _baselineChar;
-			set
-			{
-				_baselineChar = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _baselineChar, value);
 		}
 
 		/// <summary>
@@ -385,11 +326,7 @@ namespace SharpConsoleUI.Controls
 		public Color BaselineColor
 		{
 			get => _baselineColor;
-			set
-			{
-				_baselineColor = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _baselineColor, value);
 		}
 
 		/// <summary>
@@ -399,11 +336,7 @@ namespace SharpConsoleUI.Controls
 		public TitlePosition BaselinePosition
 		{
 			get => _baselinePosition;
-			set
-			{
-				_baselinePosition = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _baselinePosition, value);
 		}
 
 		/// <summary>
@@ -414,11 +347,7 @@ namespace SharpConsoleUI.Controls
 		public bool InlineTitleWithBaseline
 		{
 			get => _inlineTitleWithBaseline;
-			set
-			{
-				_inlineTitleWithBaseline = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _inlineTitleWithBaseline, value);
 		}
 
 		#region IWindowControl Implementation
@@ -444,6 +373,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_container = value;
+				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
 		}

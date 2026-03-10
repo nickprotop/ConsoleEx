@@ -40,11 +40,7 @@ namespace SharpConsoleUI.Controls
 		public Color? Color
 		{
 			get => _color;
-			set
-			{
-				_color = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _color, value);
 		}
 
 		/// <summary>
@@ -53,11 +49,7 @@ namespace SharpConsoleUI.Controls
 		public string? Title
 		{
 			get => _title;
-			set
-			{
-				_title = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _title, value);
 		}
 
 		/// <summary>
@@ -66,11 +58,7 @@ namespace SharpConsoleUI.Controls
 		public TextJustification TitleAlignment
 		{
 			get => _titleAlignment;
-			set
-			{
-				_titleAlignment = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _titleAlignment, value);
 		}
 
 		/// <summary>
@@ -79,11 +67,7 @@ namespace SharpConsoleUI.Controls
 		public BorderStyle BorderStyle
 		{
 			get => _borderStyle;
-			set
-			{
-				_borderStyle = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _borderStyle, value);
 		}
 
 		/// <summary>

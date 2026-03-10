@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
@@ -20,7 +21,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for Spectre.Console renderable controls
 /// </summary>
-public sealed class SpectreRenderableBuilder
+public sealed class SpectreRenderableBuilder : IControlBuilder<SpectreRenderableControl>
 {
 	private IRenderable? _renderable;
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
@@ -360,6 +361,7 @@ public sealed class SpectreRenderableBuilder
 		if (_mouseMoveHandler != null)
 			control.MouseMove += _mouseMoveHandler;
 
+		BindingHelper.ApplyDeferredBindings(this, control);
 		return control;
 	}
 

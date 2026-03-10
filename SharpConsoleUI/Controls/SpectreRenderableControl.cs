@@ -83,11 +83,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set
-			{
-				_backgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -97,18 +93,14 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
-			set
-			{
-				_foregroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
 		/// Gets or sets the Spectre.Console renderable to display.
 		/// </summary>
 		public IRenderable? Renderable
-		{ get => _renderable; set { _renderable = value; Container?.Invalidate(true); } }
+		{ get => _renderable; set { _renderable = value; OnPropertyChanged(); Container?.Invalidate(true); } }
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents
@@ -118,6 +110,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (_wantsMouseEvents == value) return;
 				_wantsMouseEvents = value;
+				OnPropertyChanged();
 			}
 		}
 
@@ -129,6 +122,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (_canFocusWithMouse == value) return;
 				_canFocusWithMouse = value;
+				OnPropertyChanged();
 			}
 		}
 

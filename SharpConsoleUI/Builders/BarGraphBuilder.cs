@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
@@ -15,7 +16,7 @@ namespace SharpConsoleUI.Builders
 	/// <summary>
 	/// Fluent builder for creating BarGraphControl instances.
 	/// </summary>
-	public class BarGraphBuilder
+	public class BarGraphBuilder : IControlBuilder<BarGraphControl>
 	{
 		private readonly BarGraphControl _control;
 
@@ -272,6 +273,7 @@ namespace SharpConsoleUI.Builders
 		/// </summary>
 		public BarGraphControl Build()
 		{
+			BindingHelper.ApplyDeferredBindings(this, _control);
 			return _control;
 		}
 	}

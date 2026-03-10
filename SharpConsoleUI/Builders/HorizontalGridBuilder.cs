@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Builders
@@ -24,7 +25,7 @@ namespace SharpConsoleUI.Builders
 	///     .Build();
 	/// </code>
 	/// </example>
-	public class HorizontalGridBuilder
+	public class HorizontalGridBuilder : IControlBuilder<HorizontalGridControl>
 	{
 		private readonly HorizontalGridControl _grid = new();
 		private readonly List<ColumnConfiguration> _columns = new();
@@ -245,6 +246,7 @@ namespace SharpConsoleUI.Builders
 				_grid.AddSplitter(index, new SplitterControl());
 			}
 
+			BindingHelper.ApplyDeferredBindings(this, _grid);
 			return _grid;
 		}
 

@@ -58,11 +58,7 @@ namespace SharpConsoleUI.Controls
 				?? Container?.GetConsoleWindowSystem?.Theme?.ToolbarBackgroundColor
 				?? Container?.BackgroundColor
 				?? Color.Black;
-			set
-			{
-				_backgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
 		/// <inheritdoc/>
@@ -78,6 +74,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				base.Container = value;
+				OnPropertyChanged();
 				// Propagate container to all items - toolbar is now the container
 				List<IWindowControl> snapshot;
 				lock (_toolbarLock) { snapshot = _items.ToList(); }
@@ -96,7 +93,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsDirty
 		{
 			get => _isDirty;
-			set => _isDirty = value;
+			set { _isDirty = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -109,11 +106,7 @@ namespace SharpConsoleUI.Controls
 				?? Container?.GetConsoleWindowSystem?.Theme?.ToolbarForegroundColor
 				?? Container?.ForegroundColor
 				?? Color.White;
-			set
-			{
-				_foregroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
 		/// <inheritdoc/>
@@ -124,6 +117,7 @@ namespace SharpConsoleUI.Controls
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
+				OnPropertyChanged();
 
 				if (value && !hadFocus)
 				{
@@ -157,18 +151,14 @@ namespace SharpConsoleUI.Controls
 		public int? Height
 		{
 			get => _height;
-			set
-			{
-				_height = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _height, value);
 		}
 
 		/// <inheritdoc/>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
+			set => SetProperty(ref _isEnabled, value);
 		}
 
 		/// <summary>
@@ -194,11 +184,7 @@ namespace SharpConsoleUI.Controls
 		public int ItemSpacing
 		{
 			get => _itemSpacing;
-			set
-			{
-				_itemSpacing = Math.Max(0, value);
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _itemSpacing, value, v => Math.Max(0, v));
 		}
 
 		/// <inheritdoc/>
@@ -212,11 +198,7 @@ namespace SharpConsoleUI.Controls
 		public bool Wrap
 		{
 			get => _wrap;
-			set
-			{
-				_wrap = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _wrap, value);
 		}
 
 		/// <inheritdoc/>

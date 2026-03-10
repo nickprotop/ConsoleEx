@@ -108,11 +108,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set
-			{
-				_backgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -126,6 +122,7 @@ namespace SharpConsoleUI.Controls
 				if (_checked != value)
 				{
 					_checked = value;
+					OnPropertyChanged();
 					Container?.Invalidate(true);
 					CheckedChanged?.Invoke(this, _checked);
 				}
@@ -138,11 +135,7 @@ namespace SharpConsoleUI.Controls
 		public Color CheckmarkColor
 		{
 			get => _checkmarkColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.Cyan1;
-			set
-			{
-				_checkmarkColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _checkmarkColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -151,11 +144,7 @@ namespace SharpConsoleUI.Controls
 		public Color DisabledBackgroundColor
 		{
 			get => _disabledBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
-			set
-			{
-				_disabledBackgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _disabledBackgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -164,11 +153,7 @@ namespace SharpConsoleUI.Controls
 		public Color DisabledForegroundColor
 		{
 			get => _disabledForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
-			set
-			{
-				_disabledForegroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _disabledForegroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -177,11 +162,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedBackgroundColor
 		{
 			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
-			set
-			{
-				_focusedBackgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _focusedBackgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -190,11 +171,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedForegroundColor
 		{
 			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
-			set
-			{
-				_focusedForegroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -203,11 +180,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor ?? Color.White;
-			set
-			{
-				_foregroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
 		/// <inheritdoc/>
@@ -219,6 +192,7 @@ namespace SharpConsoleUI.Controls
 				if (_hasFocus != value)
 				{
 					_hasFocus = value;
+					OnPropertyChanged();
 					Container?.Invalidate(true);
 
 					if (value)
@@ -238,7 +212,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
+			set => SetProperty(ref _isEnabled, value);
 		}
 
 		/// <summary>
@@ -247,11 +221,7 @@ namespace SharpConsoleUI.Controls
 		public string Label
 		{
 			get => _label;
-			set
-			{
-				_label = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _label, value);
 		}
 
 		/// <summary>

@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -16,7 +17,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for toolbar controls
 /// </summary>
-public sealed class ToolbarBuilder
+public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 {
 	private readonly List<IWindowControl> _items = new();
 	private int _itemSpacing = 0;
@@ -422,6 +423,7 @@ public sealed class ToolbarBuilder
 			};
 		}
 
+		BindingHelper.ApplyDeferredBindings(this, toolbar);
 		return toolbar;
 	}
 

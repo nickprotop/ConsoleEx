@@ -37,6 +37,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_source = value;
+				OnPropertyChanged();
 				InvalidateRenderCache();
 				Container?.Invalidate(true);
 			}
@@ -50,6 +51,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (_scaleMode == value) return;
 				_scaleMode = value;
+				OnPropertyChanged();
 				InvalidateRenderCache();
 				Container?.Invalidate(true);
 			}

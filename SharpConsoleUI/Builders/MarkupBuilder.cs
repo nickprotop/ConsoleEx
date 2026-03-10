@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -16,7 +17,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for markup controls
 /// </summary>
-public sealed class MarkupBuilder
+public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 {
 	private readonly List<string> _lines = new();
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
@@ -302,6 +303,7 @@ public sealed class MarkupBuilder
 			ForegroundColor = _foregroundColor
 		};
 
+		BindingHelper.ApplyDeferredBindings(this, markup);
 		return markup;
 	}
 

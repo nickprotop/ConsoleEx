@@ -133,6 +133,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (_hasFocus == value) return;
 				_hasFocus = value;
+				OnPropertyChanged();
 				Invalidate(true);
 			}
 		}

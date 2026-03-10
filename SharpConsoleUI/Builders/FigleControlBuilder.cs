@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 
@@ -15,7 +16,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for Figlet ASCII art controls
 /// </summary>
-public sealed class FigleControlBuilder
+public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 {
 	private string? _text;
 	private Color? _color;
@@ -289,6 +290,7 @@ public sealed class FigleControlBuilder
 		if (_color.HasValue)
 			control.Color = _color.Value;
 
+		BindingHelper.ApplyDeferredBindings(this, control);
 		return control;
 	}
 

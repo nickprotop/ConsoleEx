@@ -103,11 +103,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set
-			{
-				_backgroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -116,11 +112,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
-			set
-			{
-				_foregroundColorValue = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
@@ -129,11 +121,7 @@ namespace SharpConsoleUI.Controls
 		public TreeGuide Guide
 		{
 			get => _guide;
-			set
-			{
-				_guide = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _guide, value);
 		}
 
 		/// <inheritdoc/>
@@ -144,6 +132,7 @@ namespace SharpConsoleUI.Controls
 			{
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
+				OnPropertyChanged();
 				Container?.Invalidate(true);
 
 				// Fire focus events
@@ -165,7 +154,7 @@ namespace SharpConsoleUI.Controls
 		public int? Height
 		{
 			get => _height;
-			set => PropertySetterHelper.SetDimensionProperty(ref _height, value, Container);
+			set => SetProperty(ref _height, value, v => v.HasValue ? Math.Max(0, v.Value) : v);
 		}
 
 		/// <summary>
@@ -184,11 +173,7 @@ namespace SharpConsoleUI.Controls
 		public string Indent
 		{
 			get => _indent;
-			set
-			{
-				_indent = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _indent, value);
 		}
 
 		/// <summary>
@@ -197,7 +182,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set => PropertySetterHelper.SetBoolProperty(ref _isEnabled, value, Container);
+			set => SetProperty(ref _isEnabled, value);
 		}
 
 		/// <summary>
@@ -214,7 +199,7 @@ namespace SharpConsoleUI.Controls
 		public bool SelectOnRightClick
 		{
 			get => _selectOnRightClick;
-			set => _selectOnRightClick = value;
+			set { _selectOnRightClick = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -256,6 +241,7 @@ namespace SharpConsoleUI.Controls
 						{
 							int oldIndex = _selectedIndex;
 							_selectedIndex = newValue;
+							OnPropertyChanged();
 							if (oldIndex != _selectedIndex)
 							{
 								var selectedNode = _selectedIndex >= 0 && _selectedIndex < _flattenedNodes.Count ? _flattenedNodes[_selectedIndex] : null;

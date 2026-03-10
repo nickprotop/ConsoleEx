@@ -199,6 +199,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
         set
         {
             _filterLevel = value;
+            OnPropertyChanged();
             RefreshLogs();
         }
     }
@@ -212,6 +213,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
         set
         {
             _filterCategory = value;
+            OnPropertyChanged();
             RefreshLogs();
         }
     }
@@ -222,11 +224,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
     public string? Title
     {
         get => _title;
-        set
-        {
-            _title = value;
-            Container?.Invalidate(true);
-        }
+        set => SetProperty(ref _title, value);
     }
 
     #endregion

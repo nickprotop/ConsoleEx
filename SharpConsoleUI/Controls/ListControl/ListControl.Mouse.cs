@@ -38,11 +38,7 @@ namespace SharpConsoleUI.Controls
 		public bool HoverHighlightsItems
 		{
 			get => _hoverHighlightsItems;
-			set
-			{
-				_hoverHighlightsItems = value;
-				Container?.Invalidate(true);
-			}
+			set => SetProperty(ref _hoverHighlightsItems, value);
 		}
 
 		/// <summary>
@@ -52,10 +48,7 @@ namespace SharpConsoleUI.Controls
 		public int MouseWheelScrollSpeed
 		{
 			get => _mouseWheelScrollSpeed;
-			set
-			{
-				_mouseWheelScrollSpeed = Math.Max(1, value);
-			}
+			set { _mouseWheelScrollSpeed = Math.Max(1, value); OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -66,7 +59,7 @@ namespace SharpConsoleUI.Controls
 		public bool SelectOnRightClick
 		{
 			get => _selectOnRightClick;
-			set => _selectOnRightClick = value;
+			set { _selectOnRightClick = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -76,10 +69,7 @@ namespace SharpConsoleUI.Controls
 		public bool DoubleClickActivates
 		{
 			get => _doubleClickActivates;
-			set
-			{
-				_doubleClickActivates = value;
-			}
+			set { _doubleClickActivates = value; OnPropertyChanged(); }
 		}
 
 		/// <summary>
@@ -89,10 +79,7 @@ namespace SharpConsoleUI.Controls
 		public int DoubleClickThresholdMs
 		{
 			get => _doubleClickThresholdMs;
-			set
-			{
-				_doubleClickThresholdMs = Math.Max(100, value);
-			}
+			set { _doubleClickThresholdMs = Math.Max(100, value); OnPropertyChanged(); }
 		}
 
 		/// <inheritdoc/>
