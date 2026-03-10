@@ -614,12 +614,12 @@ public static class FileDialogs
 	{
 		return extension.ToLowerInvariant() switch
 		{
-			".txt" or ".md" or ".log" => "[grey70]📄[/]",
-			".cs" or ".js" or ".ts" or ".py" or ".java" => "[cyan1]📄[/]",
-			".json" or ".xml" or ".yaml" or ".yml" => "[yellow]📄[/]",
-			".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" => "[green]🖼[/]",
-			".exe" or ".dll" => "[red]⚙[/]",
-			_ => "[grey50]📄[/]"
+			".txt" or ".md" or ".log" => "[grey70]~[/]",
+			".cs" or ".js" or ".ts" or ".py" or ".java" => "[cyan1]#[/]",
+			".json" or ".xml" or ".yaml" or ".yml" => "[yellow]@[/]",
+			".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".webp" or ".tiff" or ".tga" => "[green]*[/]",
+			".exe" or ".dll" => "[red]![/]",
+			_ => "[grey50]-[/]"
 		};
 	}
 
