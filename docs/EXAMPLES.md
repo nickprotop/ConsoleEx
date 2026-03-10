@@ -239,6 +239,31 @@ dotnet run --project Examples/CanvasDemo
 
 ---
 
+#### Image Viewer (DemoApp)
+Load and display real image files in the terminal using half-block Unicode rendering.
+
+![Image Viewer](images/examples/imageviewer.png)
+
+```bash
+dotnet run --project Examples/DemoApp
+# Navigate to Rendering → Image Viewer
+```
+
+**Key Features:**
+- Load PNG, JPEG, BMP, GIF, WebP, TIFF files via file picker dialog
+- Half-block rendering (2 vertical pixels per character cell)
+- Four scale modes: Fit, Fill, Stretch, None
+- Resizable window with live image rescaling
+- Keyboard shortcuts: Ctrl+O to open, S to cycle scale, Esc to close
+
+**APIs Demonstrated:**
+- `PixelBuffer.FromFile()` — decode image files via SixLabors.ImageSharp
+- `ImageControl` with `ScaleMode` switching
+- `FileDialogs.ShowFilePickerAsync()` with format filter
+- `HorizontalGridControl` for toolbar layout
+
+---
+
 #### CompositorEffectsExample
 Demonstrates compositor-style buffer manipulation capabilities.
 
@@ -546,6 +571,7 @@ dotnet run --project Examples/PluginShowcaseExample
 | `MultilineEditControl` | DemoApp, TextEditorExample |
 | `LogViewerControl` | DemoApp |
 | `TabControl` | TabControlDemo |
+| `ImageControl` | DemoApp (Image Rendering, Image Viewer) |
 | `CanvasControl` | CanvasDemo |
 | `HorizontalGridControl` | Most examples |
 | `SpectreRenderableControl` | SpectreMouseExample |

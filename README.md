@@ -124,7 +124,7 @@ cd MyApp && dotnet run
 | **Data** | ListControl, TreeControl, TableControl (interactive DataGrid with virtual data, sorting, editing), HorizontalGridControl |
 | **Navigation** | MenuControl, ToolbarControl, TabControl |
 | **Layout** | ColumnContainer, SplitterControl, ScrollablePanelControl, PanelControl |
-| **Drawing** | CanvasControl |
+| **Drawing** | CanvasControl, ImageControl (PNG/JPEG/BMP/GIF/WebP/TIFF via ImageSharp) |
 | **Advanced** | SpectreRenderableControl (wraps any Spectre.Console `IRenderable`), ProgressBarControl, TerminalControl |
 
 ## API Usage

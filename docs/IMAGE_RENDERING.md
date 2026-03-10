@@ -6,11 +6,12 @@ SharpConsoleUI can render pixel-based images in the console using Unicode half-b
 
 1. [Overview](#overview)
 2. [PixelBuffer](#pixelbuffer)
-3. [ImageControl](#imagecontrol)
-4. [Scale Modes](#scale-modes)
-5. [Alignment and Scale Mode Interaction](#alignment-and-scale-mode-interaction)
-6. [Half-Block Rendering](#half-block-rendering)
-7. [Creating Test Images](#creating-test-images)
+3. [Loading Images from Files](#loading-images-from-files)
+4. [ImageControl](#imagecontrol)
+5. [Scale Modes](#scale-modes)
+6. [Alignment and Scale Mode Interaction](#alignment-and-scale-mode-interaction)
+7. [Half-Block Rendering](#half-block-rendering)
+8. [Creating Test Images](#creating-test-images)
 
 ## Overview
 
@@ -53,6 +54,50 @@ var buffer = PixelBuffer.FromPixelArray(pixelArray, width, height);
 var argbArray = new int[width * height];
 // ... fill array ...
 var buffer = PixelBuffer.FromArgbArray(argbArray, width, height);
+```
+
+## Loading Images from Files
+
+SharpConsoleUI can load real image files using [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp). Supported formats: **PNG, JPEG, BMP, GIF, TIFF, TGA, PBM, WebP**.
+
+### From a File Path
+
+```csharp
+var buffer = PixelBuffer.FromFile("photo.png");
+window.AddControl(Controls.Image(buffer));
+```
+
+### From a Stream
+
+```csharp
+using var stream = File.OpenRead("photo.jpg");
+var buffer = PixelBuffer.FromStream(stream);
+```
+
+### From an ImageSharp Image
+
+If you already have an `Image<Rgb24>` (e.g., after applying ImageSharp processing), convert it directly:
+
+```csharp
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+
+using var image = Image.Load<Rgb24>("photo.png");
+image.Mutate(x => x.Resize(200, 100)); // optional pre-processing
+var buffer = PixelBuffer.FromImageSharp(image);
+```
+
+### With File Picker Dialog
+
+```csharp
+var path = await FileDialogs.ShowFilePickerAsync(windowSystem,
+    filter: "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp;*.tiff");
+
+if (path != null)
+{
+    var buffer = PixelBuffer.FromFile(path);
+    imageControl.Source = buffer;
+}
 ```
 
 ## ImageControl
