@@ -183,7 +183,7 @@ var button = Controls.Button()
 |---|---|---|---|---|
 | **Approach** | Measure/Render | Pos/Dim with arithmetic | Flexbox + Grid + Dock | DOM pipeline (Measure/Arrange/Paint) |
 | **Containers** | Layout (grid cells) | View nesting | VStack, HStack, WrapStack, Grid, DockLayout, ZStack, Splitter, ScrollViewer | HorizontalGrid, ColumnContainer, ScrollablePanel |
-| **Reactive layout** | No | Computed Pos/Dim | **[Bindable] source-generated with dependency tracking** | Event-driven invalidation |
+| **Reactive layout** | No | Computed Pos/Dim | **[Bindable] source-generated with dependency tracking** | MVVM binding with auto-invalidation |
 | **Flexibility** | Low | High (Pos/Dim arithmetic) | **Very high (WPF/Avalonia-level)** | Moderate |
 
 XenoAtom.Terminal.UI has the most sophisticated layout system with a proper `FlexAllocator` (grow/shrink/min/max like CSS Flexbox), full Grid with row/column definitions, and DockLayout. Terminal.Gui's Pos/Dim system with arithmetic composition is also very powerful. SharpConsoleUI's layout is simpler -- it prioritizes the compositor pipeline over layout complexity.
@@ -193,7 +193,7 @@ XenoAtom.Terminal.UI has the most sophisticated layout system with a proper `Fle
 | | Spectre.Console | Terminal.Gui v2 | XenoAtom.Terminal.UI | SharpConsoleUI |
 |---|---|---|---|---|
 | **API style** | Fluent builders | Property assignment | Property assignment + reactive bindings | **Fluent builders** |
-| **Data binding** | None | Manual / events | **Reactive [Bindable] with auto-invalidation** | Manual / events |
+| **Data binding** | None | Manual / events | **Reactive [Bindable] with auto-invalidation** | **MVVM with Bind/BindTwoWay** |
 | **Async support** | Limited (Progress) | Event-driven | Dispatcher-based | **Full async/await, per-window threads** |
 | **Plugin architecture** | No | No | No | **Yes (themes, controls, windows, services)** |
 | **Theming** | No built-in theming | JSON-based Scheme + VisualRole | Theme + 73 per-control style files | **Theme registry with runtime switching** |
@@ -225,7 +225,7 @@ Be honest about the right tool:
 - **Need maximum community and ecosystem?** The bigger libraries have more users, more contributors, more blog posts, and more StackOverflow answers.
 - **Targeting .NET 9 or older?** SharpConsoleUI requires .NET 9. Spectre.Console and Terminal.Gui v1 support .NET Standard 2.0. XenoAtom requires .NET 10.
 - **Need DatePicker, Slider, ColorPicker, or HexView?** Terminal.Gui has these built-in. XenoAtom has Slider and ColorPicker. SharpConsoleUI doesn't (yet).
-- **Need reactive data binding?** XenoAtom's `[Bindable]` source-generated property system with automatic dependency tracking is significantly more sophisticated than manual events.
+- **Need source-generated reactive bindings?** XenoAtom's `[Bindable]` source-generated property system with automatic dependency tracking is more sophisticated than SharpConsoleUI's lambda-based MVVM bindings.
 
 ## When SharpConsoleUI Shines
 
@@ -236,6 +236,7 @@ SharpConsoleUI is the right choice when you need:
 - **Dashboard / monitoring tools** -- independent async window threads mean each panel updates on its own schedule without blocking the UI.
 - **IDE-like tools** -- [LazyDotIDE](https://github.com/nickprotop/LazyDotIDE) is a working .NET IDE built entirely on SharpConsoleUI, proving the framework handles complex, multi-window applications.
 - **Embedded terminal + UI** -- TerminalControl gives you a real PTY-backed terminal emulator inside a window, alongside your UI controls. Unique in the .NET ecosystem.
+- **MVVM data binding** -- `Bind()` and `BindTwoWay()` with lambda expressions, type converters, and standard `INotifyPropertyChanged` ViewModels. All controls support property change notification out of the box.
 - **Spectre.Console integration** -- use `[red bold]markup[/]` in every control, and embed any `IRenderable` (Tables, Charts, BarCharts) as a windowed control. Extends Spectre.Console rather than replacing it.
 - **Live data visualization** -- SparklineControl and BarGraphControl update in real-time with configurable styles.
 - **Plugin-based architectures** -- extend the framework with custom themes, controls, windows, and services.
