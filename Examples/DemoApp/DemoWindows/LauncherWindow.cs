@@ -60,7 +60,7 @@ public static class LauncherWindow
         return new WindowBuilder(ws)
             .WithTitle("SharpConsoleUI Demo")
             .WithSize(90, 30)
-            .Centered()
+            .AtPosition(0, 0)
             .AddControl(grid)
             .BuildAndShow();
     }
@@ -97,6 +97,7 @@ public static class LauncherWindow
         rendering.AddChild("Gradients");
         rendering.AddChild("Animations");
         rendering.AddChild("Image Rendering");
+        rendering.AddChild("Image Viewer");
 
         var utilities = tree.AddRootNode("Utilities");
         utilities.TextColor = Color.Magenta1;
@@ -132,6 +133,7 @@ public static class LauncherWindow
             "Gradients" => GradientDemoWindow.Create(ws),
             "Animations" => AnimationDemoWindow.Create(ws),
             "Image Rendering" => ImageDemoWindow.Create(ws),
+            "Image Viewer" => ImageViewerWindow.Create(ws),
             "Built-in Dialogs" => DialogsWindow.Create(ws),
             "Digital Clock" => ClockWindow.Create(ws),
             "Log Viewer" => LogViewerWindow.Create(ws),
@@ -351,6 +353,23 @@ public static class LauncherWindow
                 "  - Rainbow bars, checkerboard, shapes",
                 "  - Scale modes: Fit, Fill, Stretch, None",
                 "  - ImageControl with PixelBuffer source",
+                "",
+                "[green][[Enter]] Launch Demo[/]"
+            },
+            "Image Viewer" => new List<string>
+            {
+                "[bold cyan]Image Viewer[/]",
+                "",
+                "Load and display real image files (PNG, JPEG, BMP,",
+                "GIF, WebP, TIFF) with half-block Unicode rendering.",
+                "",
+                "[dim]Features:[/]",
+                "  - File picker for loading images",
+                "  - Four scale modes: Fit, Fill, Stretch, None",
+                "  - Keyboard shortcuts: Ctrl+O, S, Esc",
+                "  - Resizable window with live rescaling",
+                "",
+                "[dim]Powered by SixLabors.ImageSharp[/]",
                 "",
                 "[green][[Enter]] Launch Demo[/]"
             },
