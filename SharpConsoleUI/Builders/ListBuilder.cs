@@ -59,6 +59,7 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 	private WindowEventHandler<MouseEventArgs>? _mouseDoubleClickWithWindowHandler;
 	private bool _hoverHighlightsItems = true;
 	private bool _autoHighlightOnFocus = true;
+	private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
 	private int _mouseWheelScrollSpeed = 3;
 	private bool _doubleClickActivates = true;
 	private int _doubleClickThresholdMs = 500;
@@ -343,6 +344,16 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 	/// When true, the control will highlight the selected item (or first item) when focused.
 	/// Default: true.
 	/// </summary>
+	/// <summary>
+	/// Sets when the vertical scrollbar should be displayed.
+	/// Default: Auto (shows only when content exceeds viewport).
+	/// </summary>
+	public ListBuilder WithScrollbarVisibility(ScrollbarVisibility visibility)
+	{
+		_scrollbarVisibility = visibility;
+		return this;
+	}
+
 	public ListBuilder WithAutoHighlightOnFocus(bool enabled = true)
 	{
 		_autoHighlightOnFocus = enabled;
@@ -582,7 +593,8 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 			AutoHighlightOnFocus = _autoHighlightOnFocus,
 			MouseWheelScrollSpeed = _mouseWheelScrollSpeed,
 			DoubleClickActivates = _doubleClickActivates,
-			DoubleClickThresholdMs = _doubleClickThresholdMs
+			DoubleClickThresholdMs = _doubleClickThresholdMs,
+			ScrollbarVisibility = _scrollbarVisibility
 		};
 
 		// Apply colors if specified

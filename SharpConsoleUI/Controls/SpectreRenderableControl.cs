@@ -100,30 +100,20 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the Spectre.Console renderable to display.
 		/// </summary>
 		public IRenderable? Renderable
-		{ get => _renderable; set { _renderable = value; OnPropertyChanged(); Container?.Invalidate(true); } }
+		{ get => _renderable; set => SetProperty(ref _renderable, value); }
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents
 		{
 			get => _wantsMouseEvents;
-			set
-			{
-				if (_wantsMouseEvents == value) return;
-				_wantsMouseEvents = value;
-				OnPropertyChanged();
-			}
+			set => SetProperty(ref _wantsMouseEvents, value);
 		}
 
 		/// <inheritdoc/>
 		public bool CanFocusWithMouse
 		{
 			get => _canFocusWithMouse;
-			set
-			{
-				if (_canFocusWithMouse == value) return;
-				_canFocusWithMouse = value;
-				OnPropertyChanged();
-			}
+			set => SetProperty(ref _canFocusWithMouse, value);
 		}
 
 		/// <inheritdoc/>

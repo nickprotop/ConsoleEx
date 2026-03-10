@@ -287,4 +287,30 @@ public static class Controls
 	/// <param name="source">The pixel buffer to display.</param>
 	/// <returns>A configured image control.</returns>
 	public static ImageControl Image(PixelBuffer source) => new ImageControl { Source = source };
+
+	/// <summary>
+	/// Creates a new image control builder.
+	/// </summary>
+	/// <returns>A new image control builder.</returns>
+	public static ImageControlBuilder Image() => new ImageControlBuilder();
+
+	/// <summary>
+	/// Creates a new canvas control builder.
+	/// </summary>
+	/// <param name="width">Optional canvas width in characters.</param>
+	/// <param name="height">Optional canvas height in characters.</param>
+	/// <returns>A new canvas control builder.</returns>
+	public static CanvasControlBuilder Canvas(int? width = null, int? height = null)
+	{
+		var builder = new CanvasControlBuilder();
+		if (width.HasValue && height.HasValue)
+			builder.WithSize(width.Value, height.Value);
+		return builder;
+	}
+
+	/// <summary>
+	/// Creates a new splitter control builder.
+	/// </summary>
+	/// <returns>A new splitter control builder.</returns>
+	public static SplitterControlBuilder Splitter() => new SplitterControlBuilder();
 }

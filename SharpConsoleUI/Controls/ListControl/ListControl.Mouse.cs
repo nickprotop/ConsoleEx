@@ -10,6 +10,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI.Controls
 {
@@ -105,16 +106,40 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
+			// Handle scrollbar drag-in-progress (must be checked early)
+			if (args.HasAnyFlag(MouseFlags.Button1Dragged, MouseFlags.Button1Pressed))
+			{
+				if (_isScrollbarDragging)
+				{
+					HandleScrollbarDrag(args);
+					return true;
+				}
+			}
+
+			// Handle scrollbar drag end
+			if (args.HasFlag(MouseFlags.Button1Released))
+			{
+				if (_isScrollbarDragging)
+				{
+					_isScrollbarDragging = false;
+					return true;
+				}
+				return false;
+			}
+
 			// Calculate which item the mouse is over
 			// args.Position.Y is control-relative (includes margin), so subtract both margin and title
 			int titleOffset = string.IsNullOrEmpty(_title) ? 0 : 1;
 			int relativeY = args.Position.Y - Margin.Top - titleOffset;
 			int hoveredIndex = -1;
 
+			// Check if mouse is on the scrollbar column
+			bool mouseOnScrollbar = IsClickOnScrollbar(args);
+
 			// Get visible height to properly calculate item index
 			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
 			int totalVisibleLines = CalculateTotalVisibleItemsHeight();
-			if (relativeY >= 0 && relativeY < totalVisibleLines)
+			if (!mouseOnScrollbar && relativeY >= 0 && relativeY < totalVisibleLines)
 			{
 				hoveredIndex = GetItemIndexAtRelativeY(relativeY);
 			}
@@ -171,7 +196,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Handle double-click event from driver (preferred method)
-			if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickActivates)
+			if (!mouseOnScrollbar && args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickActivates)
 			{
 				int clickedIndex = GetItemIndexAtRelativeY(relativeY);
 				if (clickedIndex >= 0)
@@ -199,6 +224,16 @@ namespace SharpConsoleUI.Controls
 					args.Handled = true;
 					return true;
 				}
+			}
+
+			// Handle scrollbar click (for both Button1Clicked and Button1Pressed)
+			if (mouseOnScrollbar && (args.HasFlag(MouseFlags.Button1Clicked) || args.HasFlag(MouseFlags.Button1Pressed)))
+			{
+				if (!HasFocus && CanFocusWithMouse)
+					SetFocus(true, FocusReason.Mouse);
+				HandleScrollbarClick(args);
+				args.Handled = true;
+				return true;
 			}
 
 			// Handle mouse clicks - set focus, select item, detect double-click
@@ -325,5 +360,84 @@ namespace SharpConsoleUI.Controls
 
 			return totalHeight;
 		}
+
+		#region Scrollbar Interaction
+
+		private bool IsClickOnScrollbar(MouseEventArgs args)
+		{
+			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
+			if (!ShouldShowScrollbar(_items.Count, effectiveMaxVisibleItems))
+				return false;
+
+			int fullListWidth = ActualWidth - Margin.Left - Margin.Right;
+			int scrollbarX = fullListWidth - 1; // last column of content area
+			int relativeX = args.Position.X - Margin.Left;
+			return relativeX == scrollbarX;
+		}
+
+		private (int scrollbarStartY, int scrollbarHeight) GetScrollbarLayout()
+		{
+			bool hasTitle = !string.IsNullOrEmpty(_title);
+			int scrollbarStartY = Margin.Top + (hasTitle ? 1 : 0);
+			int scrollbarHeight = ActualHeight - Margin.Top - Margin.Bottom - (hasTitle ? 1 : 0);
+			return (scrollbarStartY, Math.Max(0, scrollbarHeight));
+		}
+
+		private void HandleScrollbarClick(MouseEventArgs args)
+		{
+			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
+			var (scrollbarStartY, scrollbarHeight) = GetScrollbarLayout();
+			if (scrollbarHeight <= 0) return;
+
+			var (_, trackHeight, thumbY, thumbHeight) =
+				ScrollbarHelper.GetVerticalGeometry(scrollbarHeight, _items.Count, effectiveMaxVisibleItems, _scrollOffset);
+
+			int relY = args.Position.Y - scrollbarStartY;
+			int maxOffset = Math.Max(0, _items.Count - effectiveMaxVisibleItems);
+
+			var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
+			switch (zone)
+			{
+				case ScrollbarHitZone.UpArrow:
+					_scrollOffset = Math.Max(0, _scrollOffset - 1);
+					break;
+				case ScrollbarHitZone.DownArrow:
+					_scrollOffset = Math.Min(maxOffset, _scrollOffset + 1);
+					break;
+				case ScrollbarHitZone.Thumb:
+					_isScrollbarDragging = true;
+					_scrollbarDragStartY = args.Position.Y;
+					_scrollbarDragStartOffset = _scrollOffset;
+					break;
+				case ScrollbarHitZone.TrackAbove:
+					_scrollOffset = Math.Max(0, _scrollOffset - effectiveMaxVisibleItems);
+					break;
+				case ScrollbarHitZone.TrackBelow:
+					_scrollOffset = Math.Min(maxOffset, _scrollOffset + effectiveMaxVisibleItems);
+					break;
+			}
+
+			Container?.Invalidate(true);
+		}
+
+		private void HandleScrollbarDrag(MouseEventArgs args)
+		{
+			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
+			var (_, scrollbarHeight) = GetScrollbarLayout();
+			if (scrollbarHeight <= 0) return;
+
+			var (_, _, _, thumbHeight) =
+				ScrollbarHelper.GetVerticalGeometry(scrollbarHeight, _items.Count, effectiveMaxVisibleItems, _scrollOffset);
+
+			int deltaY = args.Position.Y - _scrollbarDragStartY;
+			_scrollOffset = ScrollbarHelper.CalculateDragOffset(
+				deltaY, _scrollbarDragStartOffset,
+				scrollbarHeight, thumbHeight,
+				_items.Count, effectiveMaxVisibleItems);
+
+			Container?.Invalidate(true);
+		}
+
+		#endregion
 	}
 }

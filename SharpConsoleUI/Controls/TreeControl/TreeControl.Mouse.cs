@@ -73,6 +73,15 @@ namespace SharpConsoleUI.Controls
 			_deferredSelectionChanged = new TreeNodeEventArgs(selectedNode);
 		}
 
+		private bool IsClickOnScrollbar(int mouseX, int contentWidth)
+		{
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+			if (!ShouldShowScrollbar(_flattenedNodes.Count, effectiveMaxVisibleItems))
+				return false;
+			int scrollbarX = contentWidth - 1;
+			return mouseX - Margin.Left == scrollbarX;
+		}
+
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
@@ -94,6 +103,32 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
+			// Handle drag-in-progress (must be checked early, before lock)
+			if (args.HasAnyFlag(MouseFlags.Button1Dragged, MouseFlags.Button1Pressed) && _isScrollbarDragging)
+			{
+				lock (_treeLock)
+				{
+					int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+					int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
+					var (_, _, _, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
+						sbContentHeight, _flattenedNodes.Count, effectiveMaxVisibleItems, _scrollOffset);
+					int maxOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
+					int newOffset = ScrollbarHelper.CalculateDragOffset(
+						args.Position.Y - _scrollbarDragStartY, _scrollbarDragStartOffset,
+						sbContentHeight, thumbHeight, _flattenedNodes.Count, effectiveMaxVisibleItems);
+					_scrollOffset = Math.Clamp(newOffset, 0, maxOffset);
+				}
+				Container?.Invalidate(true);
+				return true;
+			}
+
+			// Handle scrollbar drag end
+			if (args.HasFlag(MouseFlags.Button1Released) && _isScrollbarDragging)
+			{
+				_isScrollbarDragging = false;
+				return true;
+			}
+
 			// Reset deferred events
 			_deferredSelectionChanged = null;
 			_deferredExpandCollapse = null;
@@ -111,10 +146,19 @@ namespace SharpConsoleUI.Controls
 				// Calculate which node the mouse is over
 				int nodeIndex = GetNodeIndexAtPosition(args.Position.Y);
 
-				// Update hover state
-				if (nodeIndex != _hoveredIndex)
+				// Check if mouse is on the scrollbar column — skip hover update if so
+				int sbContentWidth = (ActualWidth > 0 ? ActualWidth : 40) - Margin.Left - Margin.Right;
+				bool mouseOnScrollbar = IsClickOnScrollbar(args.Position.X, sbContentWidth);
+
+				// Update hover state (only when mouse is over content, not scrollbar)
+				if (!mouseOnScrollbar && nodeIndex != _hoveredIndex)
 				{
 					_hoveredIndex = nodeIndex;
+					Container?.Invalidate(true);
+				}
+				else if (mouseOnScrollbar && _hoveredIndex != -1)
+				{
+					_hoveredIndex = -1;
 					Container?.Invalidate(true);
 				}
 
@@ -153,7 +197,7 @@ namespace SharpConsoleUI.Controls
 				// Handle right-click
 				if (args.HasFlag(MouseFlags.Button3Clicked))
 				{
-					if (_selectOnRightClick && nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
+					if (!mouseOnScrollbar && _selectOnRightClick && nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
 					{
 						SelectNodeNoScroll(nodeIndex);
 						Container?.Invalidate(true);
@@ -162,7 +206,7 @@ namespace SharpConsoleUI.Controls
 					result = true;
 				}
 				// Handle double-click - toggle expand/collapse or activate leaf
-				else if (args.HasFlag(MouseFlags.Button1DoubleClicked))
+				else if (!mouseOnScrollbar && args.HasFlag(MouseFlags.Button1DoubleClicked))
 				{
 					if (nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
 					{
@@ -197,7 +241,7 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 				// Handle mouse click - select node
-				else if (args.HasFlag(MouseFlags.Button1Clicked))
+				else if (args.HasFlag(MouseFlags.Button1Clicked) || args.HasFlag(MouseFlags.Button1Pressed))
 				{
 					// Set focus on click
 					if (!HasFocus && CanFocusWithMouse)
@@ -205,7 +249,41 @@ namespace SharpConsoleUI.Controls
 						SetFocus(true, FocusReason.Mouse);
 					}
 
-					if (nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
+					// Check if clicking on scrollbar (reuse mouseOnScrollbar computed above)
+					if (mouseOnScrollbar)
+					{
+						int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
+						int effectiveVis = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+						var (_, trackHeight, thumbY, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
+							sbContentHeight, _flattenedNodes.Count, effectiveVis, _scrollOffset);
+						int relY = args.Position.Y - Margin.Top;
+						int maxOffset = Math.Max(0, _flattenedNodes.Count - effectiveVis);
+						var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
+						switch (zone)
+						{
+							case ScrollbarHitZone.UpArrow:
+								_scrollOffset = Math.Max(0, _scrollOffset - 1);
+								break;
+							case ScrollbarHitZone.DownArrow:
+								_scrollOffset = Math.Min(maxOffset, _scrollOffset + 1);
+								break;
+							case ScrollbarHitZone.Thumb:
+								_isScrollbarDragging = true;
+								_scrollbarDragStartY = args.Position.Y;
+								_scrollbarDragStartOffset = _scrollOffset;
+								break;
+							case ScrollbarHitZone.TrackAbove:
+								_scrollOffset = Math.Max(0, _scrollOffset - effectiveVis);
+								break;
+							case ScrollbarHitZone.TrackBelow:
+								_scrollOffset = Math.Min(maxOffset, _scrollOffset + effectiveVis);
+								break;
+						}
+						Container?.Invalidate(true);
+						args.Handled = true;
+						result = true;
+					}
+					else if (nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
 					{
 						// Check if click was on the expand/collapse indicator
 						int indicatorStart = GetIndicatorStartColumn(nodeIndex);

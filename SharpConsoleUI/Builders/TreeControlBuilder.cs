@@ -10,6 +10,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using TreeNode = SharpConsoleUI.Controls.TreeNode;
 
@@ -36,6 +37,7 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	private int? _width;
 	private int? _height;
 	private StickyPosition _stickyPosition = StickyPosition.None;
+	private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
 	private string? _name;
 	private object? _tag;
 
@@ -275,6 +277,17 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	}
 
 	/// <summary>
+	/// Sets the scrollbar visibility mode
+	/// </summary>
+	/// <param name="visibility">The scrollbar visibility mode</param>
+	/// <returns>The builder for chaining</returns>
+	public TreeControlBuilder WithScrollbarVisibility(ScrollbarVisibility visibility)
+	{
+		_scrollbarVisibility = visibility;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the visibility
 	/// </summary>
 	/// <param name="visible">Whether the control is visible</param>
@@ -437,6 +450,7 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 			Width = _width,
 			Height = _height,
 			StickyPosition = _stickyPosition,
+			ScrollbarVisibility = _scrollbarVisibility,
 			Name = _name,
 			Tag = _tag
 		};

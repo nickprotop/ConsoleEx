@@ -126,9 +126,9 @@ namespace SharpConsoleUI.Controls
 
 			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
-			bool hasScrollIndicator = snapshot.Count > effectiveMaxVisibleItems;
+			bool showScrollbar = ShouldShowScrollbar(snapshot.Count, effectiveMaxVisibleItems);
 			int contentHeight = Math.Min(snapshot.Count, effectiveMaxVisibleItems);
-			int height = contentHeight + Margin.Top + Margin.Bottom + (hasScrollIndicator ? 1 : 0);
+			int height = contentHeight + Margin.Top + Margin.Bottom;
 
 			if (_height.HasValue)
 			{
@@ -181,9 +181,11 @@ namespace SharpConsoleUI.Controls
 				// Normal: use cached measurement or content height
 				effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? contentHeight;
 			}
-			bool hasScrollIndicator = snapshot.Count > effectiveMaxVisibleItems;
-			int visibleItemsHeight = hasScrollIndicator ? contentHeight - 1 : contentHeight;
+			bool showScrollbar = ShouldShowScrollbar(snapshot.Count, effectiveMaxVisibleItems);
+			int visibleItemsHeight = contentHeight;
 			effectiveMaxVisibleItems = Math.Min(effectiveMaxVisibleItems, visibleItemsHeight);
+			int scrollbarWidth = showScrollbar ? 1 : 0;
+			int renderContentWidth = contentWidth - scrollbarWidth;
 			_calculatedMaxVisibleItems = effectiveMaxVisibleItems;
 
 			// Get and validate scroll offset
@@ -246,13 +248,13 @@ namespace SharpConsoleUI.Controls
 				int visibleLength = GetCachedTextLength(nodeText);
 
 				// Truncate if necessary
-				if (visibleLength > contentWidth)
+				if (visibleLength > renderContentWidth)
 				{
 					nodeText = TextTruncationHelper.TruncateWithFixedParts(
 						prefix + expandIndicator,
 						displayText,
 						string.Empty,
-						contentWidth,
+						renderContentWidth,
 						_textMeasurementCache);
 					visibleLength = GetCachedTextLength(nodeText);
 				}
@@ -265,15 +267,15 @@ namespace SharpConsoleUI.Controls
 
 				// Calculate alignment offset
 				int alignOffset = 0;
-				if (visibleLength < contentWidth)
+				if (visibleLength < renderContentWidth)
 				{
 					switch (HorizontalAlignment)
 					{
 						case HorizontalAlignment.Center:
-							alignOffset = (contentWidth - visibleLength) / 2;
+							alignOffset = (renderContentWidth - visibleLength) / 2;
 							break;
 						case HorizontalAlignment.Right:
-							alignOffset = contentWidth - visibleLength;
+							alignOffset = renderContentWidth - visibleLength;
 							break;
 					}
 				}
@@ -313,23 +315,14 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Draw scroll indicator if needed
-			if (hasScrollIndicator)
+			// Draw scrollbar if needed
+			if (showScrollbar)
 			{
-				int scrollY = startY + visibleItemsHeight;
-				if (scrollY >= clipRect.Y && scrollY < clipRect.Bottom && scrollY < bounds.Bottom)
-				{
-					// Fill the scroll indicator line
-					buffer.FillRect(new LayoutRect(bounds.X, scrollY, bounds.Width, 1), ' ', fgColor, bgColor);
-
-					// Up arrow
-					char upArrow = scrollOffset > 0 ? '▲' : ' ';
-					buffer.SetCell(startX, scrollY, upArrow, fgColor, bgColor);
-
-					// Down arrow
-					char downArrow = scrollOffset + effectiveMaxVisibleItems < snapshot.Count ? '▼' : ' ';
-					buffer.SetCell(startX + contentWidth - 1, scrollY, downArrow, fgColor, bgColor);
-				}
+				Color thumbColor = _hasFocus ? Color.Cyan1 : Color.Grey;
+				Color trackColor = _hasFocus ? Color.Grey : Color.Grey23;
+				int scrollbarX = startX + contentWidth - 1;
+				ScrollbarHelper.DrawVerticalScrollbar(buffer, scrollbarX, startY, contentHeight,
+					snapshot.Count, effectiveMaxVisibleItems, scrollOffset, thumbColor, trackColor, bgColor);
 			}
 
 			// Fill bottom margin

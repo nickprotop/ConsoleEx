@@ -21,7 +21,6 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				// Calculate based on content
 				bool hasTitle = !string.IsNullOrEmpty(_title);
 				int titleHeight = hasTitle ? 1 : 0;
 				int visibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? Math.Min(10, _items.Count);
@@ -33,8 +32,7 @@ namespace SharpConsoleUI.Controls
 					if (itemIndex < _items.Count)
 						itemsHeight += _items[itemIndex].Lines.Count;
 				}
-				bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + visibleItems < _items.Count;
-				return titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + Margin.Top + Margin.Bottom;
+				return titleHeight + itemsHeight + Margin.Top + Margin.Bottom;
 			}
 		}
 
@@ -100,8 +98,7 @@ namespace SharpConsoleUI.Controls
 					itemsHeight += _items[itemIndex].Lines.Count;
 			}
 
-			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + visibleItems < _items.Count;
-			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + Margin.Top + Margin.Bottom;
+			int height = titleHeight + itemsHeight + Margin.Top + Margin.Bottom;
 
 			// Calculate indicator space: needed in CheckboxMode
 			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
@@ -195,24 +192,23 @@ namespace SharpConsoleUI.Controls
 					// When VerticalAlignment.Fill with bounded constraints, use available height
 					int fullAvailableHeight = constraints.MaxHeight - titleHeight - Margin.Top - Margin.Bottom;
 
-					// Check if ALL items fit without needing a scroll indicator
+					// Check if ALL items fit
 					int totalItemsHeight = 0;
 					for (int j = 0; j < _items.Count; j++) totalItemsHeight += _items[j].Lines.Count;
-					bool needsScrollIndicator = totalItemsHeight > fullAvailableHeight;
 
-					if (!needsScrollIndicator)
+					if (totalItemsHeight <= fullAvailableHeight)
 					{
 						effectiveMaxVisibleItems = _items.Count;
 					}
 					else
 					{
-						int availableContentHeight = fullAvailableHeight - 1;
+						// Scrollbar takes a column, not a row — full height available for items
 						effectiveMaxVisibleItems = 0;
 						int heightUsed = 0;
 						for (int i = scrollOffset; i < _items.Count; i++)
 						{
 							int itemHeight = _items[i].Lines.Count;
-							if (heightUsed + itemHeight <= availableContentHeight)
+							if (heightUsed + itemHeight <= fullAvailableHeight)
 							{
 								effectiveMaxVisibleItems++;
 								heightUsed += itemHeight;
@@ -239,8 +235,7 @@ namespace SharpConsoleUI.Controls
 					itemsHeight += _items[itemIndex].Lines.Count;
 			}
 
-			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + itemsToShow < _items.Count;
-			int height = titleHeight + itemsHeight + (hasScrollIndicator ? 1 : 0) + Margin.Top + Margin.Bottom;
+			int height = titleHeight + itemsHeight + Margin.Top + Margin.Bottom;
 
 			// VerticalAlignment.Fill is handled during arrangement, not measurement.
 			// Measurement should return actual content height, not constraints.MaxHeight.
@@ -288,7 +283,14 @@ namespace SharpConsoleUI.Controls
 
 			// Calculate indicator space: needed in CheckboxMode
 			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
-			int listWidth = bounds.Width - Margin.Left - Margin.Right;
+			int fullListWidth = bounds.Width - Margin.Left - Margin.Right;
+			if (fullListWidth <= 0) return;
+
+			// Reserve 1 column for scrollbar when shown
+			bool showScrollbar = ShouldShowScrollbar(_items.Count,
+				_calculatedMaxVisibleItems ?? _maxVisibleItems ?? Math.Min(10, _items.Count));
+			int scrollbarWidth = showScrollbar ? 1 : 0;
+			int listWidth = fullListWidth - scrollbarWidth;
 			if (listWidth <= 0) return;
 
 			int startX = bounds.X + Margin.Left;
@@ -335,13 +337,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Calculate effective visible items
-			int fullAvailableContentHeight = bounds.Height - Margin.Top - Margin.Bottom - (hasTitle ? 1 : 0);
-
-			// Check if all items fit without scroll indicator
-			int totalItemsHeight = 0;
-			for (int j = 0; j < items.Count; j++) totalItemsHeight += items[j].Lines.Count;
-			bool needsScrollIndicator = totalItemsHeight > fullAvailableContentHeight;
-			int availableContentHeight = needsScrollIndicator ? fullAvailableContentHeight - 1 : fullAvailableContentHeight;
+			int availableContentHeight = bounds.Height - Margin.Top - Margin.Bottom - (hasTitle ? 1 : 0);
 			int effectiveMaxVisibleItems;
 
 			if (_maxVisibleItems.HasValue)
@@ -370,14 +366,14 @@ namespace SharpConsoleUI.Controls
 			int itemsToShow = Math.Min(effectiveMaxVisibleItems, items.Count - scrollOffset);
 
 			// Render each visible item
-			for (int i = 0; i < itemsToShow && currentY < bounds.Bottom - Margin.Bottom - (needsScrollIndicator ? 1 : 0); i++)
+			for (int i = 0; i < itemsToShow && currentY < bounds.Bottom - Margin.Bottom; i++)
 			{
 				int itemIndex = i + scrollOffset;
 				if (itemIndex >= items.Count) break;
 
 				List<string> itemLines = items[itemIndex].Lines;
 
-				for (int lineIndex = 0; lineIndex < itemLines.Count && currentY < bounds.Bottom - Margin.Bottom - (needsScrollIndicator ? 1 : 0); lineIndex++)
+				for (int lineIndex = 0; lineIndex < itemLines.Count && currentY < bounds.Bottom - Margin.Bottom; lineIndex++)
 				{
 					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					{
@@ -486,8 +482,8 @@ namespace SharpConsoleUI.Controls
 			// Fill empty lines if VerticalAlignment.Fill
 			if (VerticalAlignment == VerticalAlignment.Fill)
 			{
-				int scrollIndicatorY = bounds.Bottom - Margin.Bottom - (needsScrollIndicator ? 1 : 0);
-				while (currentY < scrollIndicatorY)
+				int fillEndY = bounds.Bottom - Margin.Bottom;
+				while (currentY < fillEndY)
 				{
 					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					{
@@ -505,32 +501,23 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Render scroll indicators
-			bool hasScrollIndicator = scrollOffset > 0 || scrollOffset + itemsToShow < items.Count;
-			if (hasScrollIndicator && currentY < bounds.Bottom - Margin.Bottom)
+			// Draw vertical scrollbar on right edge
+			if (showScrollbar)
 			{
-				if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
+				int scrollbarX = startX + listWidth;
+				int scrollbarStartY = bounds.Y + Margin.Top + (hasTitle ? 1 : 0);
+				int scrollbarHeight = bounds.Height - Margin.Top - Margin.Bottom - (hasTitle ? 1 : 0);
+
+				if (scrollbarHeight > 0)
 				{
-					if (Margin.Left > 0)
-					{
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), foregroundColor, windowBackground, preserveBg);
-					}
+					Color thumbColor = _hasFocus ? Color.Cyan1 : Color.Grey;
+					Color trackColor = _hasFocus ? Color.Grey : Color.Grey23;
 
-					string scrollIndicator = "";
-					scrollIndicator += scrollOffset > 0 ? "▲" : " ";
-					int scrollPadding = listWidth - 2;
-					if (scrollPadding > 0) scrollIndicator += new string(' ', scrollPadding);
-					scrollIndicator += (scrollOffset + itemsToShow < items.Count) ? "▼" : " ";
-
-					var scrollCells = Parsing.MarkupParser.Parse(scrollIndicator, foregroundColor, backgroundColor);
-					buffer.WriteCellsClipped(startX, currentY, scrollCells, clipRect);
-
-					if (Margin.Right > 0)
-					{
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), foregroundColor, windowBackground, preserveBg);
-					}
+					ScrollbarHelper.DrawVerticalScrollbar(
+						buffer, scrollbarX, scrollbarStartY, scrollbarHeight,
+						items.Count, effectiveMaxVisibleItems, scrollOffset,
+						thumbColor, trackColor, backgroundColor);
 				}
-				currentY++;
 			}
 
 			// Fill bottom margin

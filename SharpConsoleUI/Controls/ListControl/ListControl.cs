@@ -55,6 +55,12 @@ namespace SharpConsoleUI.Controls
 		private string _title = "List";
 		private int _scrollOffset = 0;
 
+		// Scrollbar state
+		private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
+		private bool _isScrollbarDragging = false;
+		private int _scrollbarDragStartY;
+		private int _scrollbarDragStartOffset;
+
 		// Local state
 		private int _selectedIndex = -1;
 
@@ -565,6 +571,30 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _title;
 			set => SetProperty(ref _title, value);
+		}
+
+		/// <summary>
+		/// Gets or sets when the vertical scrollbar should be displayed.
+		/// Default: Auto (shows only when content exceeds viewport).
+		/// </summary>
+		public ScrollbarVisibility ScrollbarVisibility
+		{
+			get => _scrollbarVisibility;
+			set => SetProperty(ref _scrollbarVisibility, value);
+		}
+
+		#endregion
+
+		#region Scrollbar
+
+		internal bool ShouldShowScrollbar(int totalItems, int visibleItems)
+		{
+			return _scrollbarVisibility switch
+			{
+				ScrollbarVisibility.Always => true,
+				ScrollbarVisibility.Never => false,
+				_ => totalItems > visibleItems
+			};
 		}
 
 		#endregion

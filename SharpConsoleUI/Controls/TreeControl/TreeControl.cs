@@ -42,6 +42,12 @@ namespace SharpConsoleUI.Controls
 		private int _selectedIndex = 0;
 		private int _scrollOffset = 0;
 
+		// Scrollbar state
+		private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
+		private bool _isScrollbarDragging = false;
+		private int _scrollbarDragStartY;
+		private int _scrollbarDragStartOffset;
+
 		// Mouse interaction state
 		private int _hoveredIndex = -1;
 		private bool _selectOnRightClick = false;
@@ -70,6 +76,16 @@ namespace SharpConsoleUI.Controls
 		private int GetCachedTextLength(string text)
 		{
 			return _textMeasurementCache.GetCachedLength(text);
+		}
+
+		internal bool ShouldShowScrollbar(int totalItems, int visibleItems)
+		{
+			return _scrollbarVisibility switch
+			{
+				ScrollbarVisibility.Always => true,
+				ScrollbarVisibility.Never => false,
+				_ => totalItems > visibleItems
+			};
 		}
 
 		/// <summary>
@@ -203,6 +219,12 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _selectOnRightClick;
 			set { _selectOnRightClick = value; OnPropertyChanged(); }
+		}
+
+		public ScrollbarVisibility ScrollbarVisibility
+		{
+			get => _scrollbarVisibility;
+			set => SetProperty(ref _scrollbarVisibility, value);
 		}
 
 		/// <summary>
