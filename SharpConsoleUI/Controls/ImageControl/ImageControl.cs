@@ -92,37 +92,49 @@ namespace SharpConsoleUI.Controls
 			int naturalCellWidth = _source.Width;
 			int naturalCellHeight = (_source.Height + 1) / ImagingDefaults.PixelsPerCell;
 
-			// Alignment determines how much space the CONTROL claims from the layout.
-			// ImageScaleMode determines how the IMAGE fits within the control's space.
-			bool stretchH = HorizontalAlignment == Layout.HorizontalAlignment.Stretch;
-			bool fillV = VerticalAlignment == Layout.VerticalAlignment.Fill;
-
-			// Determine whether the scale mode inherently wants to expand.
-			// Fill/Stretch use available constraint space; Fit/None use natural size.
-			bool expandH = stretchH || _scaleMode == ImageScaleMode.Fill || _scaleMode == ImageScaleMode.Stretch;
-			bool expandV = fillV || _scaleMode == ImageScaleMode.Fill || _scaleMode == ImageScaleMode.Stretch;
-
 			int constraintWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
 			int constraintHeight = constraints.MaxHeight - Margin.Top - Margin.Bottom;
 
-			// Guard against unbounded constraints (scrollable layout passes int.MaxValue).
-			int availWidth, availHeight;
-			if (expandH && constraintWidth <= ImagingDefaults.MaxImageDimension)
-				availWidth = constraintWidth;
-			else if (expandH)
-				availWidth = ImagingDefaults.MaxImageDimension;
-			else
-				availWidth = Math.Min(naturalCellWidth, constraintWidth);
+			int cellCols, cellRows;
 
-			if (expandV && constraintHeight <= ImagingDefaults.MaxImageDimension)
-				availHeight = constraintHeight;
-			else if (expandV)
-				availHeight = ImagingDefaults.MaxImageDimension;
-			else
-				availHeight = Math.Min(naturalCellHeight, constraintHeight);
+			switch (_scaleMode)
+			{
+				case ImageScaleMode.None:
+				{
+					// Report natural size — if inside a ScrollablePanel, this enables scrollbars.
+					// Layout's Math.Clamp handles bounding to the window if not scrollable.
+					cellCols = naturalCellWidth;
+					cellRows = naturalCellHeight;
+					break;
+				}
+				case ImageScaleMode.Fit:
+				{
+					// Scale down uniformly to fit. Need bounded avail to compute scale.
+					int availW = GetBoundedAvail(constraintWidth, naturalCellWidth,
+						HorizontalAlignment == Layout.HorizontalAlignment.Stretch);
+					int availH = GetBoundedAvail(constraintHeight, naturalCellHeight,
+						VerticalAlignment == Layout.VerticalAlignment.Fill);
 
-			ComputeScaledDimensions(_source, availWidth, availHeight, _scaleMode,
-				out int cellCols, out int cellRows);
+					double scale = Math.Min((double)availW / naturalCellWidth, (double)availH / naturalCellHeight);
+					cellCols = Math.Max(1, (int)(naturalCellWidth * scale));
+					cellRows = Math.Max(1, (int)(naturalCellHeight * scale));
+					break;
+				}
+				case ImageScaleMode.Fill:
+				case ImageScaleMode.Stretch:
+				{
+					// Claim all available bounded space.
+					cellCols = GetBoundedAvail(constraintWidth, naturalCellWidth, true);
+					cellRows = GetBoundedAvail(constraintHeight, naturalCellHeight, true);
+					break;
+				}
+				default:
+				{
+					cellCols = GetBoundedAvail(constraintWidth, naturalCellWidth, true);
+					cellRows = GetBoundedAvail(constraintHeight, naturalCellHeight, true);
+					break;
+				}
+			}
 
 			int width = cellCols + Margin.Left + Margin.Right;
 			int height = cellRows + Margin.Top + Margin.Bottom;
@@ -162,40 +174,104 @@ namespace SharpConsoleUI.Controls
 				return;
 			}
 
-			ComputeScaledDimensions(_source, availWidth, availHeight, _scaleMode,
-				out int cellCols, out int cellRows);
+			int srcCols = _source.Width;
+			int srcRows = (_source.Height + 1) / ImagingDefaults.PixelsPerCell;
 
-			var cells = GetOrRenderCells(_source, cellCols, cellRows, bgColor);
+			if (srcCols <= 0 || srcRows <= 0)
+			{
+				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
+				return;
+			}
 
-			int actualCellWidth = cells.GetLength(0);
-			int actualCellHeight = cells.GetLength(1);
+			// Compute render dimensions and crop offsets per scale mode.
+			int renderCols, renderRows, cropOffsetX = 0, cropOffsetY = 0;
 
-			for (int cy = 0; cy < actualCellHeight && startY + cy < bounds.Bottom; cy++)
+			switch (_scaleMode)
+			{
+				case ImageScaleMode.None:
+				{
+					// Natural size — no scaling. Render full image, clip in paint loop.
+					renderCols = srcCols;
+					renderRows = srcRows;
+					break;
+				}
+				case ImageScaleMode.Fit:
+				{
+					double scale = Math.Min((double)availWidth / srcCols, (double)availHeight / srcRows);
+					renderCols = Math.Max(1, (int)(srcCols * scale));
+					renderRows = Math.Max(1, (int)(srcRows * scale));
+					break;
+				}
+				case ImageScaleMode.Fill:
+				{
+					double scale = Math.Max((double)availWidth / srcCols, (double)availHeight / srcRows);
+					renderCols = Math.Max(1, (int)Math.Ceiling(srcCols * scale));
+					renderRows = Math.Max(1, (int)Math.Ceiling(srcRows * scale));
+					// Center-crop the excess
+					cropOffsetX = Math.Max(0, (renderCols - availWidth) / 2);
+					cropOffsetY = Math.Max(0, (renderRows - availHeight) / 2);
+					break;
+				}
+				default: // Stretch
+				{
+					renderCols = Math.Max(1, availWidth);
+					renderRows = Math.Max(1, availHeight);
+					break;
+				}
+			}
+
+			// Render cells — None uses natural rendering, others use scaled rendering
+			Cell[,] cells;
+			if (_scaleMode == ImageScaleMode.None)
+				cells = GetOrRenderNaturalCells(_source, bgColor);
+			else
+				cells = GetOrRenderCells(_source, renderCols, renderRows, bgColor);
+
+			int actualW = cells.GetLength(0);
+			int actualH = cells.GetLength(1);
+
+			// Clamp everything to actual array bounds
+			cropOffsetX = Math.Clamp(cropOffsetX, 0, Math.Max(0, actualW - 1));
+			cropOffsetY = Math.Clamp(cropOffsetY, 0, Math.Max(0, actualH - 1));
+			int displayWidth = Math.Min(actualW - cropOffsetX, availWidth);
+			int displayHeight = Math.Min(actualH - cropOffsetY, availHeight);
+
+			for (int cy = 0; cy < displayHeight && startY + cy < bounds.Bottom; cy++)
 			{
 				int y = startY + cy;
 				if (y < clipRect.Y || y >= clipRect.Bottom) continue;
 
-				// Fill left margin
 				if (Margin.Left > 0)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, bgColor, preserveBg);
 
-				// Paint image cells
-				for (int cx = 0; cx < actualCellWidth && startX + cx < bounds.Right; cx++)
+				for (int cx = 0; cx < displayWidth && startX + cx < bounds.Right; cx++)
 				{
 					int x = startX + cx;
 					if (x < clipRect.X || x >= clipRect.Right) continue;
-					buffer.SetCell(x, y, cells[cx, cy]);
+					buffer.SetCell(x, y, cells[cropOffsetX + cx, cropOffsetY + cy]);
 				}
 
-				// Fill right padding
-				int contentEndX = startX + actualCellWidth;
+				int contentEndX = startX + displayWidth;
 				int rightPadWidth = bounds.Right - contentEndX;
 				if (rightPadWidth > 0)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(contentEndX, y, rightPadWidth, 1), fgColor, bgColor, preserveBg);
 			}
 
-			int contentEndY = startY + actualCellHeight;
+			int contentEndY = startY + displayHeight;
 			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, fgColor, bgColor, preserveBg);
+		}
+
+		/// <summary>
+		/// Returns a bounded available dimension for layout. When the constraint is unbounded
+		/// (e.g. ScrollablePanel passes int.MaxValue), falls back to natural size.
+		/// </summary>
+		private static int GetBoundedAvail(int constraint, int naturalSize, bool wantsExpand)
+		{
+			if (constraint <= ImagingDefaults.MaxImageDimension)
+				return wantsExpand ? constraint : Math.Min(naturalSize, constraint);
+
+			// Unbounded — use natural size (expanding into infinity makes no sense)
+			return naturalSize;
 		}
 
 		private void InvalidateRenderCache()
@@ -203,6 +279,33 @@ namespace SharpConsoleUI.Controls
 			_cachedCells = null;
 		}
 
+		/// <summary>Render at natural size using HalfBlockRenderer.Render (no scaling).</summary>
+		private Cell[,] GetOrRenderNaturalCells(PixelBuffer source, Color background)
+		{
+			int naturalCols = source.Width;
+			int naturalRows = (source.Height + 1) / ImagingDefaults.PixelsPerCell;
+
+			if (_cachedCells != null &&
+				ReferenceEquals(_cachedSource, source) &&
+				_cachedCols == naturalCols &&
+				_cachedRows == naturalRows &&
+				_cachedScaleMode == _scaleMode &&
+				_cachedBackground.Equals(background))
+			{
+				return _cachedCells;
+			}
+
+			_cachedCells = HalfBlockRenderer.Render(source, background);
+			_cachedSource = source;
+			_cachedCols = naturalCols;
+			_cachedRows = naturalRows;
+			_cachedScaleMode = _scaleMode;
+			_cachedBackground = background;
+
+			return _cachedCells;
+		}
+
+		/// <summary>Render at scaled dimensions using HalfBlockRenderer.RenderScaled.</summary>
 		private Cell[,] GetOrRenderCells(PixelBuffer source, int cols, int rows, Color background)
 		{
 			if (_cachedCells != null &&
@@ -223,54 +326,6 @@ namespace SharpConsoleUI.Controls
 			_cachedBackground = background;
 
 			return _cachedCells;
-		}
-
-		private static void ComputeScaledDimensions(PixelBuffer source, int availCols, int availRows,
-			ImageScaleMode mode, out int cols, out int rows)
-		{
-			int srcCols = source.Width;
-			int srcRows = (source.Height + 1) / ImagingDefaults.PixelsPerCell;
-
-			if (srcCols <= 0 || srcRows <= 0)
-			{
-				cols = 0;
-				rows = 0;
-				return;
-			}
-
-			switch (mode)
-			{
-				case ImageScaleMode.Fit:
-				{
-					double scaleX = (double)availCols / srcCols;
-					double scaleY = (double)availRows / srcRows;
-					double scale = Math.Min(scaleX, scaleY);
-					cols = Math.Max(1, (int)(srcCols * scale));
-					rows = Math.Max(1, (int)(srcRows * scale));
-					break;
-				}
-				case ImageScaleMode.Fill:
-				{
-					double scaleX = (double)availCols / srcCols;
-					double scaleY = (double)availRows / srcRows;
-					double scale = Math.Max(scaleX, scaleY);
-					cols = Math.Min(availCols, Math.Max(1, (int)(srcCols * scale)));
-					rows = Math.Min(availRows, Math.Max(1, (int)(srcRows * scale)));
-					break;
-				}
-				case ImageScaleMode.Stretch:
-					cols = Math.Max(1, availCols);
-					rows = Math.Max(1, availRows);
-					break;
-				case ImageScaleMode.None:
-					cols = Math.Min(srcCols, availCols);
-					rows = Math.Min(srcRows, availRows);
-					break;
-				default:
-					cols = Math.Max(1, availCols);
-					rows = Math.Max(1, availRows);
-					break;
-			}
 		}
 	}
 }
