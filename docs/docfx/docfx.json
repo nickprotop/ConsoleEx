@@ -35,7 +35,7 @@
     "output": "_site",
     "globalMetadata": {
       "_appTitle": "SharpConsoleUI Documentation",
-      "_appFooter": "SharpConsoleUI - A modern .NET console windowing system",
+      "_appFooter": "<span>SharpConsoleUI - A modern .NET console windowing system</span><script data-goatcounter=\"https://sharpconsoleui.goatcounter.com/count\" async src=\"//gc.zgo.at/count.js\"></script>",
       "_enableSearch": true
     },
     "template": ["default", "modern"],
