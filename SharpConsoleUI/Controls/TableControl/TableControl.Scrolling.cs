@@ -108,7 +108,13 @@ public partial class TableControl
 		if (_filteringEnabled && !_readOnly)
 			usedHeight += 2;
 
-		return Math.Max(1, totalHeight - usedHeight);
+		int availableLines = Math.Max(0, totalHeight - usedHeight);
+
+		// Account for row separators: each row except the last has a separator line
+		if (_showRowSeparators && hasBorder && availableLines > 1)
+			return Math.Max(1, (availableLines + 1) / 2);
+
+		return Math.Max(1, availableLines);
 	}
 
 	/// <summary>

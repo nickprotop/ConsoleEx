@@ -426,8 +426,21 @@ public partial class TableControl
 		if (_showHeader) height++;
 		if (_showHeader && hasBorder) height++; // header separator
 
-		// Use explicit height constraint or show all rows naturally
-		int visibleRows = _height.HasValue ? CalculateVisibleRowsFromHeight(_height.Value) : rowCount;
+		// Determine visible rows: explicit height > constraint-based > all rows
+		int visibleRows;
+		if (_height.HasValue)
+		{
+			visibleRows = CalculateVisibleRowsFromHeight(_height.Value);
+		}
+		else if (!_readOnly && constraints.MaxHeight < int.MaxValue)
+		{
+			// Interactive table: respect container constraint so internal scrolling works
+			visibleRows = Math.Min(rowCount, CalculateVisibleRowsFromHeight(constraints.MaxHeight));
+		}
+		else
+		{
+			visibleRows = rowCount;
+		}
 		height += Math.Min(rowCount, visibleRows);
 		if (_showRowSeparators && hasBorder)
 		{
