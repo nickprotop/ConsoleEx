@@ -117,14 +117,10 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Handle scrollbar drag end
-			if (args.HasFlag(MouseFlags.Button1Released))
+			if (args.HasFlag(MouseFlags.Button1Released) && _isScrollbarDragging)
 			{
-				if (_isScrollbarDragging)
-				{
-					_isScrollbarDragging = false;
-					return true;
-				}
-				return false;
+				_isScrollbarDragging = false;
+				return true;
 			}
 
 			// Calculate which item the mouse is over

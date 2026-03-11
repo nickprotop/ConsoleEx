@@ -71,7 +71,8 @@ public partial class TableControl
 				_isResizingColumn = false;
 				return true;
 			}
-			return false;
+			// Don't return false here — the event may also contain Button1Clicked
+			// which must be processed by handlers below (Unix SGR sends both flags together)
 		}
 
 		// Hover tracking
