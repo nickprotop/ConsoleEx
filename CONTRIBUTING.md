@@ -12,7 +12,7 @@ Thank you for your interest in contributing to SharpConsoleUI!
 
 ## Development Setup
 
-- **.NET 9.0 SDK** is required
+- **.NET 8.0 SDK** or later is required
 - Build the solution: `dotnet build ConsoleEx.sln`
 - Run the demo app to verify: `dotnet run --project Examples/DemoApp`
 

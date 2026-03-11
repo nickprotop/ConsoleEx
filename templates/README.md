@@ -19,8 +19,11 @@ dotnet new install SharpConsoleUI.Templates
 ## Usage
 
 ```bash
-# Create a starter app
+# Create a starter app (defaults to .NET 9)
 dotnet new tui-app -n MyApp
+
+# Create targeting .NET 8 (LTS)
+dotnet new tui-app -n MyApp --Framework net8.0
 
 # Create a dashboard
 dotnet new tui-dashboard -n MyDashboard
@@ -32,6 +35,16 @@ dotnet new tui-multiwindow -n MyApp
 cd MyApp
 dotnet run
 ```
+
+## Framework Options
+
+All templates support the `--Framework` parameter:
+
+| Value | Description |
+|-------|-------------|
+| `net10.0` | .NET 10 |
+| `net9.0` | .NET 9 (default) |
+| `net8.0` | .NET 8 (LTS) |
 
 ## Uninstall
 

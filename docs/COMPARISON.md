@@ -26,7 +26,7 @@ They're complementary, not always competing. SharpConsoleUI can host Spectre.Con
 | Run independent async tasks per window | No | No | No | **Built-in** |
 | Apply visual effects (blur, fade, gradients) | No | No | Alpha blending only | **Built-in compositor** |
 | Use Spectre.Console markup in controls | No (output only) | No | No (own markup) | **Yes, everywhere** |
-| Use it in production today on .NET 9 | Yes (v0.54) | v1 stable, v2 in beta | No (.NET 10 only) | Yes (v2.4) |
+| Use it in production today on .NET 8+ | Yes (v0.54) | v1 stable, v2 in beta | No (.NET 10 only) | Yes (v2.4) |
 
 ## Detailed Comparison
 
@@ -210,7 +210,7 @@ XenoAtom.Terminal.UI has the most sophisticated layout system with a proper `Fle
 | **Contributors** | ~115 | 199 | 1 | 1 |
 | **Latest stable** | 0.54.0 (pre-1.0) | 1.19.0 (v1 only) | 1.4.0 | 2.4.40 |
 | **v2 / latest** | 0.54.0 | v2 beta.1 (March 2026) | 1.4.0 | 2.4.40 |
-| **.NET version** | .NET Standard 2.0+ | .NET 10 (v2 beta) | .NET 10 only | .NET 9.0 |
+| **.NET version** | .NET Standard 2.0+ | .NET 10 (v2 beta) | .NET 10 only | .NET 8.0+ |
 | **License** | MIT | MIT | BSD-2-Clause | MIT |
 | **Repo age** | ~5 years | ~7 years | ~2 months | ~1 year |
 
@@ -223,7 +223,7 @@ Be honest about the right tool:
 - **Just need pretty CLI output?** Use **Spectre.Console**. It's purpose-built for that and does it better than anything else in .NET.
 - **Building a simple single-screen form?** **Terminal.Gui** has the widest mature control library. **XenoAtom.Terminal.UI** has the most modern architecture with reactive bindings, but requires .NET 10.
 - **Need maximum community and ecosystem?** The bigger libraries have more users, more contributors, more blog posts, and more StackOverflow answers.
-- **Targeting .NET 9 or older?** SharpConsoleUI requires .NET 9. Spectre.Console and Terminal.Gui v1 support .NET Standard 2.0. XenoAtom requires .NET 10.
+- **Targeting .NET 6 or older?** SharpConsoleUI requires .NET 8+. Spectre.Console and Terminal.Gui v1 support .NET Standard 2.0. XenoAtom requires .NET 10.
 - **Need DatePicker, Slider, ColorPicker, or HexView?** Terminal.Gui has these built-in. XenoAtom has Slider and ColorPicker. SharpConsoleUI doesn't (yet).
 - **Need source-generated reactive bindings?** XenoAtom's `[Bindable]` source-generated property system with automatic dependency tracking is more sophisticated than SharpConsoleUI's lambda-based MVVM bindings.
 

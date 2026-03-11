@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<OutputType>Library</OutputType>
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -11,17 +11,27 @@
 		<WarningsAsErrors />
 		<!-- Enable XML documentation warnings -->
 		<NoWarn></NoWarn>
+
+		<!-- SourceLink and deterministic builds -->
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<Deterministic>true</Deterministic>
+		<ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+
+		<!-- Symbol packages for debugging -->
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
 
 	<PropertyGroup>
 		<PackageId>SharpConsoleUI</PackageId>
 		<Version>0.0.1</Version>
 		<Authors>Nikolaos Protopapas</Authors>
-		<Description>Multi-window TUI framework for .NET 9 with true overlapping windows, 30+ controls, embedded terminal emulator, canvas drawing, native markup rendering, and async per-window threads. Double-buffered rendering with dirty-region tracking. Cross-platform (Windows, Linux, macOS).</Description>
+		<Description>Multi-window TUI framework for .NET with true overlapping windows, 30+ controls, embedded terminal emulator, canvas drawing, native markup rendering, and async per-window threads. Double-buffered rendering with dirty-region tracking. Cross-platform (Windows, Linux, macOS).</Description>
 		<PackageReleaseNotes>Bug fixes and performance improvements</PackageReleaseNotes>
 		<Copyright>Copyright © 2025-2026 Nikolaos Protopapas</Copyright>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-		<PackageProjectUrl>https://github.com/nickprotop/ConsoleEx</PackageProjectUrl>
+		<PackageProjectUrl>https://nickprotop.github.io/ConsoleEx/</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/nickprotop/ConsoleEx</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageTags>tui terminal-ui console-ui dotnet csharp multi-window windowing framework cross-platform linux windows macos canvas terminal-emulator</PackageTags>
@@ -31,12 +41,13 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
 		<PackageReference Include="Spectre.Console" Version="0.54.0" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Update="nuget.md">
+	  <None Include="nuget.md">
 	    <Pack>True</Pack>
 	    <PackagePath>\</PackagePath>
 	  </None>

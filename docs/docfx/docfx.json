@@ -35,7 +35,7 @@
     "output": "_site",
     "globalMetadata": {
       "_appTitle": "SharpConsoleUI Documentation",
-      "_appFooter": "SharpConsoleUI - A modern .NET 9 console windowing system",
+      "_appFooter": "SharpConsoleUI - A modern .NET console windowing system",
       "_enableSearch": true
     },
     "template": ["default", "modern"],

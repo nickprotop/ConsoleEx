@@ -9,7 +9,7 @@
   <a href="https://www.nuget.org/packages/SharpConsoleUI/"><img src="https://img.shields.io/nuget/v/SharpConsoleUI.svg" alt="NuGet"></a>
   <a href="https://www.nuget.org/packages/SharpConsoleUI/"><img src="https://img.shields.io/nuget/dt/SharpConsoleUI.svg" alt="NuGet Downloads"></a>
   <img src="https://github.com/nickprotop/ConsoleEx/actions/workflows/build-and-publish.yml/badge.svg" alt="Build">
-  <img src="https://img.shields.io/badge/.NET-9.0-purple" alt=".NET">
+  <img src="https://img.shields.io/badge/.NET-8.0%2B-purple" alt=".NET">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 

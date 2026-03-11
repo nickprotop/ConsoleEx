@@ -2,7 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/SharpConsoleUI.svg)](https://www.nuget.org/packages/SharpConsoleUI/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/SharpConsoleUI.svg)](https://www.nuget.org/packages/SharpConsoleUI/)
-![.NET](https://img.shields.io/badge/.NET-9.0-purple)
+![.NET](https://img.shields.io/badge/.NET-8.0%2B-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **SharpConsoleUI** is a terminal GUI framework for .NET — not just a TUI library, but a full **retained-mode GUI framework** that targets the terminal as its display surface. Cross-platform (Windows, Linux, macOS).
@@ -151,7 +151,7 @@ window.Renderer.PreBufferPaint += (buffer, dirty, clip) =>
 
 ## Requirements
 
-- **.NET 9.0** or later
+- **.NET 8.0** or later (.NET 8, 9, 10+)
 - **Terminal with ANSI support** (Windows Terminal, iTerm2, GNOME Terminal, etc.)
 
 ## License
