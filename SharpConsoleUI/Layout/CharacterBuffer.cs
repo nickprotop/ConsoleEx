@@ -6,7 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
 using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI.Layout
 {
@@ -141,38 +143,82 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
+		/// Cleans up wide character pairs when overwriting a cell.
+		/// If the target cell is a continuation (right half of a wide char), clears the wide char at x-1.
+		/// If the target cell is the first half of a wide char, clears the continuation at x+1.
+		/// </summary>
+		private void CleanupWideCharAt(int x, int y)
+		{
+			ref var target = ref _cells[x, y];
+
+			// Overwriting a continuation cell: clear the wide char to the left
+			if (target.IsWideContinuation && x > 0)
+			{
+				ref var left = ref _cells[x - 1, y];
+				left.Character = new Rune(' ');
+				left.IsWideContinuation = false;
+				left.Dirty = true;
+				ExpandDirtyRegion(x - 1, y);
+			}
+
+			// Overwriting the first half of a wide char: clear the continuation to the right
+			if (!target.IsWideContinuation && x + 1 < Width && _cells[x + 1, y].IsWideContinuation)
+			{
+				ref var right = ref _cells[x + 1, y];
+				right.Character = new Rune(' ');
+				right.IsWideContinuation = false;
+				right.Dirty = true;
+				ExpandDirtyRegion(x + 1, y);
+			}
+		}
+
+		private void ExpandDirtyRegion(int x, int y)
+		{
+			if (_dirtyRegion.IsEmpty)
+			{
+				_dirtyRegion = new LayoutRect(x, y, 1, 1);
+			}
+			else
+			{
+				int minX = Math.Min(_dirtyRegion.X, x);
+				int minY = Math.Min(_dirtyRegion.Y, y);
+				int maxX = Math.Max(_dirtyRegion.Right, x + 1);
+				int maxY = Math.Max(_dirtyRegion.Bottom, y + 1);
+				_dirtyRegion = new LayoutRect(minX, minY, maxX - minX, maxY - minY);
+			}
+		}
+
+		/// <summary>
 		/// Sets a cell at the specified position.
 		/// </summary>
 		public void SetCell(int x, int y, char character, Color foreground, Color background)
+			=> SetCell(x, y, new Rune(character), foreground, background);
+
+		/// <summary>
+		/// Sets a cell at the specified position with a Rune character.
+		/// </summary>
+		public void SetCell(int x, int y, Rune character, Color foreground, Color background)
 		{
 			if (x < 0 || x >= Width || y < 0 || y >= Height)
 				return;
+
+			CleanupWideCharAt(x, y);
 
 			ref var cell = ref _cells[x, y];
 			if (cell.Character != character ||
 				!cell.Foreground.Equals(foreground) ||
 				!cell.Background.Equals(background) ||
-				cell.Decorations != TextDecoration.None)
+				cell.Decorations != TextDecoration.None ||
+				cell.IsWideContinuation)
 			{
 				cell.Character = character;
 				cell.Foreground = foreground;
 				cell.Background = background;
 				cell.Decorations = TextDecoration.None;
+				cell.IsWideContinuation = false;
 				cell.Dirty = true;
 
-				// Expand dirty region to include this cell
-				if (_dirtyRegion.IsEmpty)
-				{
-					_dirtyRegion = new LayoutRect(x, y, 1, 1);
-				}
-				else
-				{
-					int minX = Math.Min(_dirtyRegion.X, x);
-					int minY = Math.Min(_dirtyRegion.Y, y);
-					int maxX = Math.Max(_dirtyRegion.Right, x + 1);
-					int maxY = Math.Max(_dirtyRegion.Bottom, y + 1);
-					_dirtyRegion = new LayoutRect(minX, minY, maxX - minX, maxY - minY);
-				}
+				ExpandDirtyRegion(x, y);
 			}
 		}
 
@@ -184,71 +230,119 @@ namespace SharpConsoleUI.Layout
 			if (x < 0 || x >= Width || y < 0 || y >= Height)
 				return;
 
+			CleanupWideCharAt(x, y);
+
 			ref var existing = ref _cells[x, y];
 			if (existing.Character != cell.Character ||
 				!existing.Foreground.Equals(cell.Foreground) ||
 				!existing.Background.Equals(cell.Background) ||
-				existing.Decorations != cell.Decorations)
+				existing.Decorations != cell.Decorations ||
+				existing.IsWideContinuation != cell.IsWideContinuation)
 			{
 				existing.Character = cell.Character;
 				existing.Foreground = cell.Foreground;
 				existing.Background = cell.Background;
 				existing.Decorations = cell.Decorations;
+				existing.IsWideContinuation = cell.IsWideContinuation;
 				existing.Dirty = true;
 
-				if (_dirtyRegion.IsEmpty)
-				{
-					_dirtyRegion = new LayoutRect(x, y, 1, 1);
-				}
-				else
-				{
-					int minX = Math.Min(_dirtyRegion.X, x);
-					int minY = Math.Min(_dirtyRegion.Y, y);
-					int maxX = Math.Max(_dirtyRegion.Right, x + 1);
-					int maxY = Math.Max(_dirtyRegion.Bottom, y + 1);
-					_dirtyRegion = new LayoutRect(minX, minY, maxX - minX, maxY - minY);
-				}
+				ExpandDirtyRegion(x, y);
 			}
 		}
 
 		/// <summary>
 		/// Writes a string at the specified position with the given colors.
+		/// Wide characters occupy 2 columns with a continuation cell for the right half.
 		/// </summary>
 		public void WriteString(int x, int y, string text, Color foreground, Color background)
 		{
 			if (y < 0 || y >= Height || string.IsNullOrEmpty(text))
 				return;
 
-			for (int i = 0; i < text.Length; i++)
+			int cx = x;
+			foreach (var rune in text.EnumerateRunes())
 			{
-				int cx = x + i;
-				if (cx >= 0 && cx < Width)
+				int runeWidth = UnicodeWidth.GetRuneWidth(rune);
+
+				if (runeWidth == 2)
 				{
-					SetCell(cx, y, text[i], foreground, background);
+					// Wide char needs 2 columns
+					if (cx >= 0 && cx + 1 < Width)
+					{
+						SetCell(cx, y, new Cell(rune, foreground, background));
+						var cont = new Cell(' ', foreground, background) { IsWideContinuation = true, Dirty = true };
+						SetCell(cx + 1, y, cont);
+					}
+					else if (cx >= 0 && cx < Width)
+					{
+						// No room for continuation — write space instead
+						SetCell(cx, y, ' ', foreground, background);
+					}
+					cx += 2;
+				}
+				else
+				{
+					if (cx >= 0 && cx < Width)
+					{
+						SetCell(cx, y, new Cell(rune, foreground, background));
+					}
+					cx++;
 				}
 			}
 		}
 
 		/// <summary>
 		/// Writes a string at the specified position, clipped to the specified rectangle.
+		/// Wide characters that straddle clip boundaries are replaced with a space.
 		/// </summary>
 		public void WriteStringClipped(int x, int y, string text, Color foreground, Color background, LayoutRect clipRect)
 		{
 			if (y < clipRect.Y || y >= clipRect.Bottom || string.IsNullOrEmpty(text))
 				return;
 
-			for (int i = 0; i < text.Length; i++)
+			int cx = x;
+			foreach (var rune in text.EnumerateRunes())
 			{
-				int cx = x + i;
-				if (cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width)
+				int runeWidth = UnicodeWidth.GetRuneWidth(rune);
+
+				if (runeWidth == 2)
 				{
-					SetCell(cx, y, text[i], foreground, background);
+					bool firstInClip = cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width;
+					bool secondInClip = cx + 1 >= clipRect.X && cx + 1 < clipRect.Right && cx + 1 >= 0 && cx + 1 < Width;
+
+					if (firstInClip && secondInClip)
+					{
+						// Both columns in clip — write wide char + continuation
+						SetCell(cx, y, new Cell(rune, foreground, background));
+						var cont = new Cell(' ', foreground, background) { IsWideContinuation = true, Dirty = true };
+						SetCell(cx + 1, y, cont);
+					}
+					else if (firstInClip)
+					{
+						// Only first column in clip — can't show half a wide char
+						SetCell(cx, y, ' ', foreground, background);
+					}
+					else if (secondInClip)
+					{
+						// Only second column in clip — can't show half a wide char
+						SetCell(cx + 1, y, ' ', foreground, background);
+					}
+					cx += 2;
+				}
+				else
+				{
+					if (cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width)
+					{
+						SetCell(cx, y, new Cell(rune, foreground, background));
+					}
+					cx++;
 				}
 			}
 		}
 
 		/// <summary>
 		/// Writes cells from an enumerable.
+		/// Continuation cells (from MarkupParser) are written as-is without additional wide-char processing.
 		/// </summary>
 		public void WriteCells(int x, int y, IEnumerable<Cell> cells)
 		{
@@ -268,6 +362,7 @@ namespace SharpConsoleUI.Layout
 
 		/// <summary>
 		/// Writes cells clipped to a rectangle.
+		/// Wide characters that straddle clip boundaries are replaced with a space.
 		/// </summary>
 		public void WriteCellsClipped(int x, int y, IEnumerable<Cell> cells, LayoutRect clipRect)
 		{
@@ -275,13 +370,81 @@ namespace SharpConsoleUI.Layout
 				return;
 
 			int cx = x;
+			Cell? pendingWideChar = null;
+
 			foreach (var cell in cells)
 			{
+				if (cell.IsWideContinuation && pendingWideChar.HasValue)
+				{
+					// This is the continuation of a wide char
+					bool firstInClip = (cx - 1) >= clipRect.X && (cx - 1) < clipRect.Right && (cx - 1) >= 0 && (cx - 1) < Width;
+					bool secondInClip = cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width;
+
+					if (firstInClip && secondInClip)
+					{
+						SetCell(cx - 1, y, pendingWideChar.Value);
+						SetCell(cx, y, cell);
+					}
+					else if (firstInClip)
+					{
+						// Only first column visible — replace with space
+						var space = pendingWideChar.Value;
+						space.Character = new Rune(' ');
+						space.IsWideContinuation = false;
+						SetCell(cx - 1, y, space);
+					}
+					else if (secondInClip)
+					{
+						// Only second column visible — replace with space
+						var space = cell;
+						space.Character = new Rune(' ');
+						space.IsWideContinuation = false;
+						SetCell(cx, y, space);
+					}
+
+					pendingWideChar = null;
+					cx++;
+					continue;
+				}
+
+				// If we had a pending wide char without a continuation, write it as space
+				if (pendingWideChar.HasValue)
+				{
+					int prevCx = cx - 1;
+					if (prevCx >= clipRect.X && prevCx < clipRect.Right && prevCx >= 0 && prevCx < Width)
+					{
+						var space = pendingWideChar.Value;
+						space.Character = new Rune(' ');
+						SetCell(prevCx, y, space);
+					}
+					pendingWideChar = null;
+				}
+
+				// Check if this is a wide character (non-continuation cell with wide char)
+				if (!cell.IsWideContinuation && UnicodeWidth.IsWideRune(cell.Character))
+				{
+					pendingWideChar = cell;
+					cx++;
+					continue;
+				}
+
 				if (cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width && y >= 0 && y < Height)
 				{
 					SetCell(cx, y, cell);
 				}
 				cx++;
+			}
+
+			// Handle trailing pending wide char
+			if (pendingWideChar.HasValue)
+			{
+				int prevCx = cx - 1;
+				if (prevCx >= clipRect.X && prevCx < clipRect.Right && prevCx >= 0 && prevCx < Width)
+				{
+					var space = pendingWideChar.Value;
+					space.Character = new Rune(' ');
+					SetCell(prevCx, y, space);
+				}
 			}
 		}
 
@@ -289,6 +452,7 @@ namespace SharpConsoleUI.Layout
 		/// Writes cells clipped to a rectangle, preserving existing background colors for cells
 		/// whose background matches the default. Cells with markup-specified backgrounds (different
 		/// from defaultBg) keep their explicit background.
+		/// Wide characters that straddle clip boundaries are replaced with a space.
 		/// </summary>
 		public void WriteCellsClippedPreservingBackground(int x, int y, IEnumerable<Cell> cells, LayoutRect clipRect, Color defaultBg)
 		{
@@ -296,23 +460,90 @@ namespace SharpConsoleUI.Layout
 				return;
 
 			int cx = x;
+			Cell? pendingWideChar = null;
+
 			foreach (var cell in cells)
 			{
+				if (cell.IsWideContinuation && pendingWideChar.HasValue)
+				{
+					bool firstInClip = (cx - 1) >= clipRect.X && (cx - 1) < clipRect.Right && (cx - 1) >= 0 && (cx - 1) < Width;
+					bool secondInClip = cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width;
+
+					if (firstInClip && secondInClip)
+					{
+						SetCellPreservingBackground(cx - 1, y, pendingWideChar.Value, defaultBg);
+						SetCellPreservingBackground(cx, y, cell, defaultBg);
+					}
+					else if (firstInClip)
+					{
+						var space = pendingWideChar.Value;
+						space.Character = new Rune(' ');
+						space.IsWideContinuation = false;
+						SetCellPreservingBackground(cx - 1, y, space, defaultBg);
+					}
+					else if (secondInClip)
+					{
+						var space = cell;
+						space.Character = new Rune(' ');
+						space.IsWideContinuation = false;
+						SetCellPreservingBackground(cx, y, space, defaultBg);
+					}
+
+					pendingWideChar = null;
+					cx++;
+					continue;
+				}
+
+				if (pendingWideChar.HasValue)
+				{
+					int prevCx = cx - 1;
+					if (prevCx >= clipRect.X && prevCx < clipRect.Right && prevCx >= 0 && prevCx < Width)
+					{
+						var space = pendingWideChar.Value;
+						space.Character = new Rune(' ');
+						SetCellPreservingBackground(prevCx, y, space, defaultBg);
+					}
+					pendingWideChar = null;
+				}
+
+				if (!cell.IsWideContinuation && UnicodeWidth.IsWideRune(cell.Character))
+				{
+					pendingWideChar = cell;
+					cx++;
+					continue;
+				}
+
 				if (cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width && y >= 0 && y < Height)
 				{
-					if (cell.Background == defaultBg)
-					{
-						var existingBg = _cells[cx, y].Background;
-						var preserved = cell;
-						preserved.Background = existingBg;
-						SetCell(cx, y, preserved);
-					}
-					else
-					{
-						SetCell(cx, y, cell);
-					}
+					SetCellPreservingBackground(cx, y, cell, defaultBg);
 				}
 				cx++;
+			}
+
+			if (pendingWideChar.HasValue)
+			{
+				int prevCx = cx - 1;
+				if (prevCx >= clipRect.X && prevCx < clipRect.Right && prevCx >= 0 && prevCx < Width)
+				{
+					var space = pendingWideChar.Value;
+					space.Character = new Rune(' ');
+					SetCellPreservingBackground(prevCx, y, space, defaultBg);
+				}
+			}
+		}
+
+		private void SetCellPreservingBackground(int cx, int y, Cell cell, Color defaultBg)
+		{
+			if (cell.Background == defaultBg)
+			{
+				var existingBg = _cells[cx, y].Background;
+				var preserved = cell;
+				preserved.Background = existingBg;
+				SetCell(cx, y, preserved);
+			}
+			else
+			{
+				SetCell(cx, y, cell);
 			}
 		}
 
@@ -320,6 +551,12 @@ namespace SharpConsoleUI.Layout
 		/// Fills a rectangle with the specified character and colors.
 		/// </summary>
 		public void FillRect(LayoutRect rect, char character, Color foreground, Color background)
+			=> FillRect(rect, new Rune(character), foreground, background);
+
+		/// <summary>
+		/// Fills a rectangle with the specified Rune character and colors.
+		/// </summary>
+		public void FillRect(LayoutRect rect, Rune character, Color foreground, Color background)
 		{
 			var clipped = rect.Intersect(Bounds);
 			if (clipped.IsEmpty)
@@ -373,10 +610,11 @@ namespace SharpConsoleUI.Layout
 				for (int x = 0; x < Width; x++)
 				{
 					ref var cell = ref _cells[x, y];
-					cell.Character = ' ';
+					cell.Character = new Rune(' ');
 					cell.Foreground = Color.White;
 					cell.Background = background;
 					cell.Decorations = TextDecoration.None;
+					cell.IsWideContinuation = false;
 					cell.Dirty = true;
 				}
 			}
@@ -631,6 +869,11 @@ namespace SharpConsoleUI.Layout
 				for (int x = 0; x < Width; x++)
 				{
 					var cell = _cells[x, y];
+
+					// Skip continuation cells — the terminal auto-advances for wide chars
+					if (cell.IsWideContinuation)
+						continue;
+
 					bool fgChanged = lastFg == null || !cell.Foreground.Equals(lastFg.Value);
 					bool bgChanged = lastBg == null || !cell.Background.Equals(lastBg.Value);
 					bool decChanged = !firstCell && cell.Decorations != lastDec;
@@ -683,7 +926,7 @@ namespace SharpConsoleUI.Layout
 					}
 
 					firstCell = false;
-					sb.Append(cell.Character);
+					sb.AppendRune(cell.Character);
 				}
 
 				// Reset at end of line

@@ -4,6 +4,7 @@ using SharpConsoleUI.Tests.Infrastructure;
 using Spectre.Console;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.BottomLayer;
 
@@ -498,9 +499,9 @@ public class ConsoleBufferTests
 
 		_output.WriteLine($"Buffer contents: {char1}{char2}{char3}{char4}");
 
-		Assert.Equal('T', char1);
-		Assert.Equal('E', char2);
-		Assert.Equal('S', char3);
-		Assert.Equal('T', char4);
+		Assert.Equal(new Rune('T'), char1);
+		Assert.Equal(new Rune('E'), char2);
+		Assert.Equal(new Rune('S'), char3);
+		Assert.Equal(new Rune('T'), char4);
 	}
 }

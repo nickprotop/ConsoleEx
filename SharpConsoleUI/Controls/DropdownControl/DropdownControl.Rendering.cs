@@ -131,8 +131,8 @@ namespace SharpConsoleUI.Controls
 			// Arrow shows direction: ▲ when open upward, ▼ when closed or open downward
 			string arrow = _isDropdownOpen && _opensUpward ? "▲" : "▼";
 			int maxSelectedTextLength = dropdownWidth - promptLength - 5;
-			if (maxSelectedTextLength > 0 && selectedText.Length > maxSelectedTextLength)
-				selectedText = selectedText.Substring(0, Math.Max(0, maxSelectedTextLength - 3)) + "...";
+			if (maxSelectedTextLength > 0 && Parsing.MarkupParser.StripLength(selectedText) > maxSelectedTextLength)
+				selectedText = TextTruncationHelper.Truncate(selectedText, maxSelectedTextLength);
 
 			string headerContent = $"{_prompt} {selectedText} {arrow}";
 			int headerVisibleLength = Parsing.MarkupParser.StripLength(headerContent);

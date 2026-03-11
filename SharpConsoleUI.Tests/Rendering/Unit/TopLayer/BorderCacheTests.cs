@@ -2,6 +2,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -171,7 +172,7 @@ public class BorderCacheTests
 		system.Render.UpdateDisplay();
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('┐', snapshot1.GetBack(34, 5).Character);
+		Assert.Equal(new Rune('┐'), snapshot1.GetBack(34, 5).Character);
 
 		// Act - resize window wider
 		window.Width = 40;
@@ -181,10 +182,10 @@ public class BorderCacheTests
 		// Assert - top-right corner should move to new position
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
-		Assert.Equal('┐', snapshot2.GetBack(44, 5).Character);
+		Assert.Equal(new Rune('┐'), snapshot2.GetBack(44, 5).Character);
 
 		// Old corner position should no longer be a corner
-		Assert.NotEqual('┐', snapshot2.GetBack(34, 5).Character);
+		Assert.NotEqual(new Rune('┐'), snapshot2.GetBack(34, 5).Character);
 	}
 
 	[Fact]
@@ -244,11 +245,11 @@ public class BorderCacheTests
 		Assert.NotNull(snapshot);
 
 		// Bottom-left corner
-		Assert.Equal('╚', snapshot.GetBack(5, 14).Character);
+		Assert.Equal(new Rune('╚'), snapshot.GetBack(5, 14).Character);
 		// Bottom horizontal
-		Assert.Equal('═', snapshot.GetBack(6, 14).Character);
+		Assert.Equal(new Rune('═'), snapshot.GetBack(6, 14).Character);
 		// Resize handle at bottom-right
-		Assert.Equal('◢', snapshot.GetBack(34, 14).Character);
+		Assert.Equal(new Rune('◢'), snapshot.GetBack(34, 14).Character);
 	}
 
 	[Fact]
@@ -277,7 +278,7 @@ public class BorderCacheTests
 		Assert.NotNull(snapshot);
 
 		// Normal corner (not resize handle)
-		Assert.Equal('╝', snapshot.GetBack(34, 14).Character);
+		Assert.Equal(new Rune('╝'), snapshot.GetBack(34, 14).Character);
 	}
 
 	[Fact]
@@ -307,8 +308,8 @@ public class BorderCacheTests
 
 		for (int y = 6; y < 14; y++)
 		{
-			Assert.Equal('║', snapshot.GetBack(5, y).Character);
-			Assert.Equal('║', snapshot.GetBack(24, y).Character);
+			Assert.Equal(new Rune('║'), snapshot.GetBack(5, y).Character);
+			Assert.Equal(new Rune('║'), snapshot.GetBack(24, y).Character);
 		}
 	}
 
@@ -337,8 +338,8 @@ public class BorderCacheTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('┌', snapshot.GetBack(0, 5).Character);
-		Assert.Equal('┐', snapshot.GetBack(29, 5).Character);
+		Assert.Equal(new Rune('┌'), snapshot.GetBack(0, 5).Character);
+		Assert.Equal(new Rune('┐'), snapshot.GetBack(29, 5).Character);
 	}
 
 	#region Helper Methods
@@ -355,12 +356,12 @@ public class BorderCacheTests
 		Diagnostics.Snapshots.ConsoleBufferSnapshot snapshot,
 		int startX, int endX, int y)
 	{
-		var chars = new List<char>();
+		var sb = new System.Text.StringBuilder();
 		for (int x = startX; x <= endX && x < snapshot.Width; x++)
 		{
-			chars.Add(snapshot.GetBack(x, y).Character);
+			sb.Append(snapshot.GetBack(x, y).Character.ToString());
 		}
-		return new string(chars.ToArray());
+		return sb.ToString();
 	}
 
 	#endregion

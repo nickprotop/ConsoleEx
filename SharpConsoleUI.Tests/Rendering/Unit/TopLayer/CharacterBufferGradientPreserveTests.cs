@@ -1,5 +1,6 @@
 using SharpConsoleUI.Layout;
 using Xunit;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -34,9 +35,9 @@ public class CharacterBufferGradientPreserveTests
 
 		buffer.FillRectPreservingBackground(new LayoutRect(0, 0, 3, 1), Color.White);
 
-		Assert.Equal(' ', buffer.GetCell(0, 0).Character);
-		Assert.Equal(' ', buffer.GetCell(1, 0).Character);
-		Assert.Equal(' ', buffer.GetCell(2, 0).Character);
+		Assert.Equal(new Rune(' '), buffer.GetCell(0, 0).Character);
+		Assert.Equal(new Rune(' '), buffer.GetCell(1, 0).Character);
+		Assert.Equal(new Rune(' '), buffer.GetCell(2, 0).Character);
 	}
 
 	[Fact]
@@ -65,7 +66,7 @@ public class CharacterBufferGradientPreserveTests
 		buffer.FillRectPreservingBackground(new LayoutRect(-1, -1, 10, 10), Color.Grey);
 
 		// Should not throw, and cell within bounds should be updated
-		Assert.Equal(' ', buffer.GetCell(0, 0).Character);
+		Assert.Equal(new Rune(' '), buffer.GetCell(0, 0).Character);
 		Assert.Equal(Color.Red, buffer.GetCell(0, 0).Background);
 	}
 }

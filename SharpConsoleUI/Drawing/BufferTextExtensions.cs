@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Drawing
@@ -25,7 +26,8 @@ namespace SharpConsoleUI.Drawing
 				return;
 
 			var clip = clipRect ?? buffer.Bounds;
-			int x = clip.X + (clip.Width - text.Length) / 2;
+			int displayWidth = UnicodeWidth.GetStringWidth(text);
+			int x = clip.X + (clip.Width - displayWidth) / 2;
 			buffer.WriteStringClipped(x, y, text, fg, bg, clip);
 		}
 
@@ -39,7 +41,8 @@ namespace SharpConsoleUI.Drawing
 				return;
 
 			var clip = clipRect ?? buffer.Bounds;
-			int x = clip.X + clip.Width - text.Length;
+			int displayWidth = UnicodeWidth.GetStringWidth(text);
+			int x = clip.X + clip.Width - displayWidth;
 			buffer.WriteStringClipped(x, y, text, fg, bg, clip);
 		}
 
@@ -70,8 +73,25 @@ namespace SharpConsoleUI.Drawing
 			int textY = inner.Y + (inner.Height - 1) / 2;
 
 			// Center text horizontally, truncate if needed
-			string displayText = text.Length > inner.Width ? text[..inner.Width] : text;
-			int textX = inner.X + (inner.Width - displayText.Length) / 2;
+			int textDisplayWidth = UnicodeWidth.GetStringWidth(text);
+			string displayText = text;
+			if (textDisplayWidth > inner.Width)
+			{
+				// Truncate by display width
+				var sb = new System.Text.StringBuilder();
+				int accWidth = 0;
+				foreach (var rune in text.EnumerateRunes())
+				{
+					int cw = UnicodeWidth.GetRuneWidth(rune);
+					if (accWidth + cw > inner.Width)
+						break;
+					sb.AppendRune(rune);
+					accWidth += cw;
+				}
+				displayText = sb.ToString();
+				textDisplayWidth = accWidth;
+			}
+			int textX = inner.X + (inner.Width - textDisplayWidth) / 2;
 
 			buffer.WriteStringClipped(textX, textY, displayText, fg, bg, clip);
 		}
@@ -103,7 +123,7 @@ namespace SharpConsoleUI.Drawing
 		{
 			var lines = new List<string>();
 			var words = text.Split(' ');
-			int currentLength = 0;
+			int currentWidth = 0;
 			var currentLine = new System.Text.StringBuilder();
 
 			foreach (var word in words)
@@ -111,28 +131,26 @@ namespace SharpConsoleUI.Drawing
 				if (word.Length == 0)
 					continue;
 
-				if (currentLength == 0)
+				int wordWidth = UnicodeWidth.GetStringWidth(word);
+
+				if (currentWidth == 0)
 				{
-					// First word on line - handle words longer than width
-					if (word.Length > width)
+					// First word on line - handle words wider than width
+					if (wordWidth > width)
 					{
-						for (int i = 0; i < word.Length; i += width)
-						{
-							int chunkLength = Math.Min(width, word.Length - i);
-							lines.Add(word.Substring(i, chunkLength));
-						}
+						BreakLongWord(word, width, lines);
 						continue;
 					}
 
 					currentLine.Append(word);
-					currentLength = word.Length;
+					currentWidth = wordWidth;
 				}
-				else if (currentLength + 1 + word.Length <= width)
+				else if (currentWidth + 1 + wordWidth <= width)
 				{
 					// Word fits on current line
 					currentLine.Append(' ');
 					currentLine.Append(word);
-					currentLength += 1 + word.Length;
+					currentWidth += 1 + wordWidth;
 				}
 				else
 				{
@@ -140,19 +158,15 @@ namespace SharpConsoleUI.Drawing
 					lines.Add(currentLine.ToString());
 					currentLine.Clear();
 
-					if (word.Length > width)
+					if (wordWidth > width)
 					{
-						for (int i = 0; i < word.Length; i += width)
-						{
-							int chunkLength = Math.Min(width, word.Length - i);
-							lines.Add(word.Substring(i, chunkLength));
-						}
-						currentLength = 0;
+						BreakLongWord(word, width, lines);
+						currentWidth = 0;
 						continue;
 					}
 
 					currentLine.Append(word);
-					currentLength = word.Length;
+					currentWidth = wordWidth;
 				}
 			}
 
@@ -160,6 +174,28 @@ namespace SharpConsoleUI.Drawing
 				lines.Add(currentLine.ToString());
 
 			return lines;
+		}
+
+		private static void BreakLongWord(string word, int width, List<string> lines)
+		{
+			var chunk = new System.Text.StringBuilder();
+			int chunkWidth = 0;
+
+			foreach (var rune in word.EnumerateRunes())
+			{
+				int cw = UnicodeWidth.GetRuneWidth(rune);
+				if (chunkWidth + cw > width && chunkWidth > 0)
+				{
+					lines.Add(chunk.ToString());
+					chunk.Clear();
+					chunkWidth = 0;
+				}
+				chunk.AppendRune(rune);
+				chunkWidth += cw;
+			}
+
+			if (chunk.Length > 0)
+				lines.Add(chunk.ToString());
 		}
 	}
 }

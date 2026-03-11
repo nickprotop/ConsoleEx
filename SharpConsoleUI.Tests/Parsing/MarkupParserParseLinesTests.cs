@@ -2,6 +2,7 @@ using Xunit;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Parsing
 {
@@ -11,7 +12,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		private static readonly Color Bg = Color.Black;
 
 		private static string CellString(List<Cell> cells)
-			=> new(cells.Select(c => c.Character).ToArray());
+			=> string.Concat(cells.Select(c => c.Character.ToString()));
 
 		[Fact]
 		public void ParseLines_SingleLineFitsWidth_OneLine()
@@ -80,7 +81,7 @@ namespace SharpConsoleUI.Tests.Parsing
 			Assert.Equal(2, result.Count);
 			// Trailing spaces on first line should be trimmed
 			Assert.DoesNotContain(' ', CellString(result[0]).TrimEnd());
-			Assert.DoesNotContain(result[0], c => c.Character == ' ' && result[0].IndexOf(c) == result[0].Count - 1);
+			Assert.DoesNotContain(result[0], c => c.Character == new Rune(' ') && result[0].IndexOf(c) == result[0].Count - 1);
 		}
 
 		[Fact]

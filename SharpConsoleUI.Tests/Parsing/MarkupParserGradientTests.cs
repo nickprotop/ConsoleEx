@@ -1,3 +1,4 @@
+using System.Text;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using Xunit;
@@ -10,7 +11,7 @@ public class MarkupParserGradientTests
 	private static readonly Color Bg = Color.Black;
 
 	private static string CellString(List<Cell> cells)
-		=> new(cells.Select(c => c.Character).ToArray());
+		=> string.Concat(cells.Select(c => c.Character.ToString()));
 
 	#region Gradient Tag Parsing
 

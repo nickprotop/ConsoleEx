@@ -3,6 +3,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -145,7 +146,7 @@ public class DebugVisibleRegions
 		_output.WriteLine($"    Character: '{charCovered}'");
 		_output.WriteLine($"    Expected: 'M' or ' ' (moving window content/background)");
 
-		Assert.Equal('B', charAbove);
+		Assert.Equal(new Rune('B'), charAbove);
 	}
 
 	[Fact]
@@ -218,6 +219,6 @@ public class DebugVisibleRegions
 		_output.WriteLine($"  Character: '{charExposed}'");
 		_output.WriteLine($"  Expected: 'B'");
 
-		Assert.Equal('B', charExposed);
+		Assert.Equal(new Rune('B'), charExposed);
 	}
 }

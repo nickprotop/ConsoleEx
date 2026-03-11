@@ -324,16 +324,17 @@ namespace SharpConsoleUI.Controls
 
 					// Paint header text
 					int headerX = startX;
-					foreach (char c in _header)
+					foreach (var rune in _header.EnumerateRunes())
 					{
+						int rw = Helpers.UnicodeWidth.GetRuneWidth(rune);
 						if (headerX >= clipRect.X && headerX < clipRect.Right && headerX < bounds.Right)
 						{
-							if (preserveBg)
-								buffer.SetCell(headerX, currentY, c, defaultFg, buffer.GetCell(headerX, currentY).Background);
-							else
-								buffer.SetCell(headerX, currentY, c, defaultFg, bgColor);
+							Color cellBg = preserveBg ? buffer.GetCell(headerX, currentY).Background : bgColor;
+							buffer.SetCell(headerX, currentY, new Cell(rune, defaultFg, cellBg));
+							if (rw == 2 && headerX + 1 < bounds.Right)
+								buffer.SetCell(headerX + 1, currentY, new Cell(' ', defaultFg, cellBg) { IsWideContinuation = true });
 						}
-						headerX++;
+						headerX += rw;
 					}
 				}
 				currentY++;
@@ -376,14 +377,17 @@ namespace SharpConsoleUI.Controls
 					{
 						currentX++; // Space before percentage
 						string percentText = GetPercentageText();
-						foreach (char c in percentText)
+						foreach (var rune in percentText.EnumerateRunes())
 						{
+							int rw = Helpers.UnicodeWidth.GetRuneWidth(rune);
 							if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 							{
 								Color cellBg = preserveBg ? buffer.GetCell(currentX, currentY).Background : bgColor;
-								buffer.SetCell(currentX, currentY, c, percentageColor, cellBg);
+								buffer.SetCell(currentX, currentY, new Cell(rune, percentageColor, cellBg));
+								if (rw == 2 && currentX + 1 < bounds.Right)
+									buffer.SetCell(currentX + 1, currentY, new Cell(' ', percentageColor, cellBg) { IsWideContinuation = true });
 							}
-							currentX++;
+							currentX += rw;
 						}
 					}
 				}

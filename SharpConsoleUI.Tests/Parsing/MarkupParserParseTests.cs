@@ -2,6 +2,7 @@ using Xunit;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Parsing
 {
@@ -11,7 +12,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		private static readonly Color Bg = Color.Black;
 
 		private static string CellString(List<Cell> cells)
-			=> new(cells.Select(c => c.Character).ToArray());
+			=> string.Concat(cells.Select(c => c.Character.ToString()));
 
 		#region Plain Text & Empty Input
 
@@ -36,7 +37,7 @@ namespace SharpConsoleUI.Tests.Parsing
 			Assert.Equal(3, result.Count);
 			Assert.All(result, c =>
 			{
-				Assert.Equal(' ', c.Character);
+				Assert.Equal(new Rune(' '), c.Character);
 				Assert.Equal(Fg, c.Foreground);
 				Assert.Equal(Bg, c.Background);
 			});
@@ -60,7 +61,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		{
 			var result = MarkupParser.Parse("x", Fg, Bg);
 			Assert.Single(result);
-			Assert.Equal('x', result[0].Character);
+			Assert.Equal(new Rune('x'), result[0].Character);
 		}
 
 		#endregion
@@ -72,7 +73,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		{
 			var result = MarkupParser.Parse("[[", Fg, Bg);
 			Assert.Single(result);
-			Assert.Equal('[', result[0].Character);
+			Assert.Equal(new Rune('['), result[0].Character);
 		}
 
 		[Fact]
@@ -80,7 +81,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		{
 			var result = MarkupParser.Parse("]]", Fg, Bg);
 			Assert.Single(result);
-			Assert.Equal(']', result[0].Character);
+			Assert.Equal(new Rune(']'), result[0].Character);
 		}
 
 		[Fact]

@@ -2,6 +2,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Rendering;
 using Xunit;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit;
 
@@ -169,8 +170,8 @@ public class GradientRendererTests
 		GradientRenderer.FillGradientForeground(buffer, rect, gradient, GradientDirection.Horizontal);
 
 		// Characters should be preserved
-		Assert.Equal('H', buffer.GetCell(0, 0).Character);
-		Assert.Equal('o', buffer.GetCell(4, 0).Character);
+		Assert.Equal(new Rune('H'), buffer.GetCell(0, 0).Character);
+		Assert.Equal(new Rune('o'), buffer.GetCell(4, 0).Character);
 
 		// Background should be preserved
 		Assert.Equal(Color.DarkBlue, buffer.GetCell(0, 0).Background);

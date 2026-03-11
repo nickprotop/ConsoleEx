@@ -991,7 +991,7 @@ public partial class TableControl
 
 		foreach (var (text, fg) in segments)
 		{
-			foreach (char ch in text)
+			foreach (var rune in text.EnumerateRunes())
 			{
 				if (charPos >= contentWidth) break;
 				if (writeX >= clipRect.X && writeX < clipRect.Right)
@@ -1006,7 +1006,7 @@ public partial class TableControl
 						cellBg = Color.White;
 					}
 
-					buffer.SetCell(writeX, y, ch, cellFg, cellBg);
+					buffer.SetCell(writeX, y, rune, cellFg, cellBg);
 				}
 				writeX++;
 				charPos++;

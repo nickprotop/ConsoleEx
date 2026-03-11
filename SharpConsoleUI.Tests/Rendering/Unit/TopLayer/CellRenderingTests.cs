@@ -4,6 +4,7 @@ using SharpConsoleUI.Tests.Infrastructure;
 using Spectre.Console;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -48,7 +49,7 @@ public class CellRenderingTests
 		for (int i = 0; i < expected.Length; i++)
 		{
 			var actual = snapshot.GetBack(11 + i, 6).Character;
-			Assert.Equal(expected[i], actual);
+			Assert.Equal(new Rune(expected[i]), actual);
 		}
 	}
 
@@ -83,10 +84,10 @@ public class CellRenderingTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('!', snapshot.GetBack(11, 6).Character);
-		Assert.Equal('[', snapshot.GetBack(11, 7).Character);
-		Assert.Equal('+', snapshot.GetBack(11, 8).Character);
-		Assert.Equal('.', snapshot.GetBack(11, 9).Character);
+		Assert.Equal(new Rune('!'), snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('['), snapshot.GetBack(11, 7).Character);
+		Assert.Equal(new Rune('+'), snapshot.GetBack(11, 8).Character);
+		Assert.Equal(new Rune('.'), snapshot.GetBack(11, 9).Character);
 	}
 
 	[Fact]
@@ -115,9 +116,9 @@ public class CellRenderingTests
 		Assert.NotNull(snapshot);
 
 		// Check that content has the correct character
-		Assert.Equal('R', snapshot.GetBack(11, 6).Character);
-		Assert.Equal('E', snapshot.GetBack(12, 6).Character);
-		Assert.Equal('D', snapshot.GetBack(13, 6).Character);
+		Assert.Equal(new Rune('R'), snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('E'), snapshot.GetBack(12, 6).Character);
+		Assert.Equal(new Rune('D'), snapshot.GetBack(13, 6).Character);
 
 		// Note: Color validation would require accessing the cell's color attributes
 		// which might not be exposed through GetBack() depending on the snapshot implementation
@@ -148,7 +149,7 @@ public class CellRenderingTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('T', snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('T'), snapshot.GetBack(11, 6).Character);
 	}
 
 	[Fact]
@@ -176,10 +177,10 @@ public class CellRenderingTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('A', snapshot.GetBack(11, 6).Character);
-		Assert.Equal('B', snapshot.GetBack(12, 6).Character);
-		Assert.Equal(' ', snapshot.GetBack(13, 6).Character); // Empty cell
-		Assert.Equal(' ', snapshot.GetBack(14, 6).Character); // Empty cell
+		Assert.Equal(new Rune('A'), snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('B'), snapshot.GetBack(12, 6).Character);
+		Assert.Equal(new Rune(' '), snapshot.GetBack(13, 6).Character); // Empty cell
+		Assert.Equal(new Rune(' '), snapshot.GetBack(14, 6).Character); // Empty cell
 	}
 
 	[Fact]
@@ -203,7 +204,7 @@ public class CellRenderingTests
 		system.Render.UpdateDisplay();
 
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
-		Assert.Equal('O', snapshot1?.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('O'), snapshot1?.GetBack(11, 6).Character);
 
 		// Act - update content to shorter text
 		control.SetContent(new List<string> { "New" });
@@ -214,10 +215,10 @@ public class CellRenderingTests
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
 
-		Assert.Equal('N', snapshot2.GetBack(11, 6).Character);
-		Assert.Equal('e', snapshot2.GetBack(12, 6).Character);
-		Assert.Equal('w', snapshot2.GetBack(13, 6).Character);
-		Assert.Equal(' ', snapshot2.GetBack(14, 6).Character); // Old 'g' cleared
+		Assert.Equal(new Rune('N'), snapshot2.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('e'), snapshot2.GetBack(12, 6).Character);
+		Assert.Equal(new Rune('w'), snapshot2.GetBack(13, 6).Character);
+		Assert.Equal(new Rune(' '), snapshot2.GetBack(14, 6).Character); // Old 'g' cleared
 	}
 
 	[Fact]
@@ -252,7 +253,7 @@ public class CellRenderingTests
 
 		// First character of first line
 		var char1 = snapshot.GetBack(11, 6).Character;
-		Assert.NotEqual('\0', char1); // Should have some character
+		Assert.NotEqual(new Rune('\0'), char1); // Should have some character
 	}
 
 	[Fact]
@@ -283,14 +284,14 @@ public class CellRenderingTests
 		Assert.NotNull(snapshot);
 
 		// "Plain "
-		Assert.Equal('P', snapshot.GetBack(11, 6).Character);
-		Assert.Equal('l', snapshot.GetBack(12, 6).Character);
+		Assert.Equal(new Rune('P'), snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('l'), snapshot.GetBack(12, 6).Character);
 
 		// "Colored"
-		Assert.Equal('C', snapshot.GetBack(17, 6).Character);
+		Assert.Equal(new Rune('C'), snapshot.GetBack(17, 6).Character);
 
 		// " Plain"
-		Assert.Equal('P', snapshot.GetBack(25, 6).Character);
+		Assert.Equal(new Rune('P'), snapshot.GetBack(25, 6).Character);
 	}
 
 	[Fact]
@@ -322,11 +323,11 @@ public class CellRenderingTests
 		Assert.NotNull(snapshot);
 
 		// First chars should be visible
-		Assert.Equal('T', snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('T'), snapshot.GetBack(11, 6).Character);
 
 		// Content should not extend beyond right border
 		var rightBorder = snapshot.GetBack(29, 6).Character;
-		Assert.True(rightBorder == '│' || rightBorder == '║' || rightBorder == '┃',
+		Assert.True(rightBorder == new Rune('│') || rightBorder == new Rune('║') || rightBorder == new Rune('┃'),
 			$"Expected right border, got '{rightBorder}'");
 	}
 
@@ -359,9 +360,9 @@ public class CellRenderingTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('L', snapshot.GetBack(11, 6).Character); // Line 1
-		Assert.Equal('L', snapshot.GetBack(11, 7).Character); // Line 2
-		Assert.Equal('L', snapshot.GetBack(11, 8).Character); // Line 3
+		Assert.Equal(new Rune('L'), snapshot.GetBack(11, 6).Character); // Line 1
+		Assert.Equal(new Rune('L'), snapshot.GetBack(11, 7).Character); // Line 2
+		Assert.Equal(new Rune('L'), snapshot.GetBack(11, 8).Character); // Line 3
 	}
 
 	[Fact]
@@ -392,12 +393,12 @@ public class CellRenderingTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('A', snapshot.GetBack(11, 6).Character);
-		Assert.Equal(' ', snapshot.GetBack(12, 6).Character);
-		Assert.Equal(' ', snapshot.GetBack(13, 6).Character);
-		Assert.Equal(' ', snapshot.GetBack(14, 6).Character);
-		Assert.Equal(' ', snapshot.GetBack(15, 6).Character);
-		Assert.Equal('B', snapshot.GetBack(16, 6).Character);
+		Assert.Equal(new Rune('A'), snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune(' '), snapshot.GetBack(12, 6).Character);
+		Assert.Equal(new Rune(' '), snapshot.GetBack(13, 6).Character);
+		Assert.Equal(new Rune(' '), snapshot.GetBack(14, 6).Character);
+		Assert.Equal(new Rune(' '), snapshot.GetBack(15, 6).Character);
+		Assert.Equal(new Rune('B'), snapshot.GetBack(16, 6).Character);
 	}
 
 	[Fact]
@@ -428,12 +429,12 @@ public class CellRenderingTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('A', snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('A'), snapshot.GetBack(11, 6).Character);
 		// Tab handling varies - just verify it doesn't crash and B appears somewhere
 		var foundB = false;
 		for (int x = 12; x < 20; x++)
 		{
-			if (snapshot.GetBack(x, 6).Character == 'B')
+			if (snapshot.GetBack(x, 6).Character == new Rune('B'))
 			{
 				foundB = true;
 				break;

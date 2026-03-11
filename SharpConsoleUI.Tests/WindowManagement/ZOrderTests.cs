@@ -1,3 +1,4 @@
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
@@ -110,7 +111,7 @@ public class ZOrderTests
 		{
 			var cell = snapshot.GetCell(25, 17);
 			// Window2 is on top, so we should see its content or border
-			Assert.NotEqual(' ', cell.Character); // Something is rendered there
+			Assert.NotEqual(new Rune(' '), cell.Character); // Something is rendered there
 		}
 	}
 

@@ -3,6 +3,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -52,10 +53,10 @@ public class DOMLayoutTests
 
 		// Content starts at Top+1 (border inline with title), Left+1 (after left border)
 		var char1 = snapshot.GetBack(11, 6).Character; // First char of first line
-		Assert.Equal('C', char1); // "Content..."
+		Assert.Equal(new Rune('C'), char1); // "Content..."
 
 		var char2 = snapshot.GetBack(11, 7).Character; // First char of second line
-		Assert.Equal('S', char2); // "Second..."
+		Assert.Equal(new Rune('S'), char2); // "Second..."
 	}
 
 	[Fact]
@@ -87,13 +88,13 @@ public class DOMLayoutTests
 		Assert.NotNull(snapshot);
 
 		// First control at y=6 (Top+1)
-		Assert.Equal('F', snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('F'), snapshot.GetBack(11, 6).Character);
 
 		// Second control at y=7
-		Assert.Equal('S', snapshot.GetBack(11, 7).Character);
+		Assert.Equal(new Rune('S'), snapshot.GetBack(11, 7).Character);
 
 		// Third control at y=8
-		Assert.Equal('T', snapshot.GetBack(11, 8).Character);
+		Assert.Equal(new Rune('T'), snapshot.GetBack(11, 8).Character);
 	}
 
 	[Fact]
@@ -128,7 +129,7 @@ public class DOMLayoutTests
 		Assert.NotNull(snapshot);
 
 		// Content should still be visible at new size
-		Assert.Equal('T', snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('T'), snapshot.GetBack(11, 6).Character);
 	}
 
 	[Fact]
@@ -157,7 +158,7 @@ public class DOMLayoutTests
 
 		// Content area should have spaces (window background)
 		var contentChar = snapshot.GetBack(15, 7).Character; // Middle of content area
-		Assert.Equal(' ', contentChar);
+		Assert.Equal(new Rune(' '), contentChar);
 	}
 
 	[Fact]
@@ -193,14 +194,14 @@ public class DOMLayoutTests
 
 		// Content area is 6 rows (Height 8 - 2 for borders)
 		// First line should be visible
-		Assert.Equal('L', snapshot.GetBack(11, 6).Character); // "Line 00"
+		Assert.Equal(new Rune('L'), snapshot.GetBack(11, 6).Character); // "Line 00"
 
 		// Line at y=11 (6 rows down) should be visible
-		Assert.Equal('L', snapshot.GetBack(11, 11).Character); // "Line 05"
+		Assert.Equal(new Rune('L'), snapshot.GetBack(11, 11).Character); // "Line 05"
 
 		// Line at y=12 would be outside window (should be border or desktop)
 		var charBeyond = snapshot.GetBack(11, 12).Character;
-		Assert.NotEqual('L', charBeyond); // Should not show content
+		Assert.NotEqual(new Rune('L'), charBeyond); // Should not show content
 	}
 
 	[Fact]
@@ -232,8 +233,8 @@ public class DOMLayoutTests
 		Assert.NotNull(snapshot);
 
 		// Both controls should be visible
-		Assert.Equal('F', snapshot.GetBack(11, 6).Character);
-		Assert.Equal('S', snapshot.GetBack(11, 7).Character);
+		Assert.Equal(new Rune('F'), snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('S'), snapshot.GetBack(11, 7).Character);
 	}
 
 	[Fact]
@@ -265,7 +266,7 @@ public class DOMLayoutTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('U', snapshot.GetBack(11, 6).Character); // "Updated..."
+		Assert.Equal(new Rune('U'), snapshot.GetBack(11, 6).Character); // "Updated..."
 	}
 
 	[Fact]
@@ -305,10 +306,10 @@ public class DOMLayoutTests
 		Assert.NotNull(snapshot);
 
 		// Window 1 content
-		Assert.Equal('W', snapshot.GetBack(11, 6).Character); // "W1..."
+		Assert.Equal(new Rune('W'), snapshot.GetBack(11, 6).Character); // "W1..."
 
 		// Window 2 content
-		Assert.Equal('W', snapshot.GetBack(46, 11).Character); // "W2..."
+		Assert.Equal(new Rune('W'), snapshot.GetBack(46, 11).Character); // "W2..."
 	}
 
 	[Fact]
@@ -342,14 +343,14 @@ public class DOMLayoutTests
 		Assert.NotNull(snapshot);
 
 		// First character at Left+1, Top+1
-		Assert.Equal('1', snapshot.GetBack(11, 6).Character);
+		Assert.Equal(new Rune('1'), snapshot.GetBack(11, 6).Character);
 
 		// Last character at Left+18, Top+1 (before right border at Left+19)
-		Assert.Equal('8', snapshot.GetBack(28, 6).Character);
+		Assert.Equal(new Rune('8'), snapshot.GetBack(28, 6).Character);
 
 		// Right border should be at Left+19
 		var rightBorder = snapshot.GetBack(29, 6).Character;
-		Assert.True(rightBorder == '│' || rightBorder == '║' || rightBorder == '┃',
+		Assert.True(rightBorder == new Rune('│') || rightBorder == new Rune('║') || rightBorder == new Rune('┃'),
 			$"Expected border character, got '{rightBorder}'");
 	}
 
@@ -380,7 +381,7 @@ public class DOMLayoutTests
 
 		// Border should exist
 		var topLeft = snapshot.GetBack(10, 5).Character;
-		Assert.True(topLeft == '┌' || topLeft == '╔' || topLeft == '╭',
+		Assert.True(topLeft == new Rune('┌') || topLeft == new Rune('╔') || topLeft == new Rune('╭'),
 			$"Expected top-left border corner, got '{topLeft}'");
 	}
 }

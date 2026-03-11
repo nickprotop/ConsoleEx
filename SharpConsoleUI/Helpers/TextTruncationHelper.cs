@@ -1,3 +1,5 @@
+using SharpConsoleUI.Helpers;
+
 namespace SharpConsoleUI.Helpers;
 
 /// <summary>
@@ -41,14 +43,25 @@ public static class TextTruncationHelper
 			return text;
 
 		// Edge case: maxWidth too small to fit even full ellipsis
-		if (maxWidth <= ellipsis.Length)
+		int ellipsisWidth = UnicodeWidth.GetStringWidth(ellipsis);
+		if (maxWidth <= ellipsisWidth)
 		{
-			// Return truncated ellipsis: ".", "..", etc.
-			return ellipsis.Substring(0, maxWidth);
+			// Return truncated ellipsis by display width
+			var sb = new System.Text.StringBuilder();
+			int accWidth = 0;
+			foreach (var rune in ellipsis.EnumerateRunes())
+			{
+				int cw = UnicodeWidth.GetRuneWidth(rune);
+				if (accWidth + cw > maxWidth)
+					break;
+				sb.AppendRune(rune);
+				accWidth += cw;
+			}
+			return sb.ToString();
 		}
 
 		// Check if we have room for meaningful content + ellipsis
-		int availableForContent = maxWidth - ellipsis.Length;
+		int availableForContent = maxWidth - ellipsisWidth;
 
 		if (availableForContent < MinContentCharsBeforeEllipsis)
 		{

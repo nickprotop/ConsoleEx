@@ -360,11 +360,11 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Write suffix ": "
-				foreach (char c in suffix)
+				foreach (var rune in suffix.EnumerateRunes())
 				{
 					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 					{
-						buffer.SetCell(currentX, paintY, c, Color.Grey70, bgColor);
+						buffer.SetCell(currentX, paintY, rune, Color.Grey70, bgColor);
 					}
 					currentX++;
 				}
@@ -423,11 +423,11 @@ namespace SharpConsoleUI.Controls
 			{
 				currentX++; // Space before value
 				string valueText = _value.ToString(_valueFormat);
-				foreach (char c in valueText)
+				foreach (var rune in valueText.EnumerateRunes())
 				{
 					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 					{
-						buffer.SetCell(currentX, paintY, c, resolvedFilledColor, bgColor);
+						buffer.SetCell(currentX, paintY, rune, resolvedFilledColor, bgColor);
 					}
 					currentX++;
 				}
@@ -444,7 +444,7 @@ namespace SharpConsoleUI.Controls
 
 			if (_showLabel && !string.IsNullOrEmpty(_label))
 			{
-				width += _label.Length + 2; // Label + ": "
+				width += Parsing.MarkupParser.StripLength(_label) + 2; // Label + ": "
 			}
 
 			if (_showValue)

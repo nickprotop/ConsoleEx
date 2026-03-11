@@ -214,7 +214,7 @@ namespace SharpConsoleUI.Controls
 						: items[itemIndex].Text;
 
 					if (Parsing.MarkupParser.StripLength(itemText) > dropdownWidth - 4)
-						itemText = itemText.Substring(0, Math.Max(0, dropdownWidth - 7)) + "...";
+						itemText = Helpers.TextTruncationHelper.Truncate(itemText, dropdownWidth - 4);
 
 					Color itemBg = (itemIndex == selectedIdx) ? HighlightBackgroundColor : backgroundColor;
 					Color itemFg = (itemIndex == selectedIdx) ? HighlightForegroundColor : foregroundColor;

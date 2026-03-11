@@ -569,8 +569,17 @@ namespace SharpConsoleUI.Controls
 				}
 				else
 				{
-					yield return new Cell(ansiString[i], currentFg, currentBg);
-					i++;
+					if (System.Text.Rune.TryGetRuneAt(ansiString, i, out var rune))
+					{
+						yield return new Cell(rune, currentFg, currentBg);
+						if (Helpers.UnicodeWidth.IsWideRune(rune))
+							yield return new Cell(' ', currentFg, currentBg) { IsWideContinuation = true };
+						i += rune.Utf16SequenceLength;
+					}
+					else
+					{
+						i++;
+					}
 				}
 			}
 		}

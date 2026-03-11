@@ -1,6 +1,7 @@
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.BottomLayer;
 
@@ -86,9 +87,9 @@ public class FillCellsTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('=', snapshot.GetBack(0, 25).Character);
-		Assert.Equal('=', snapshot.GetBack(99, 25).Character);
-		Assert.Equal('=', snapshot.GetBack(199, 25).Character);
+		Assert.Equal(new Rune('='), snapshot.GetBack(0, 25).Character);
+		Assert.Equal(new Rune('='), snapshot.GetBack(99, 25).Character);
+		Assert.Equal(new Rune('='), snapshot.GetBack(199, 25).Character);
 	}
 
 	[Fact]
@@ -105,8 +106,8 @@ public class FillCellsTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('*', snapshot.GetBack(0, 0).Character);
-		Assert.Equal('*', snapshot.GetBack(199, 0).Character);
+		Assert.Equal(new Rune('*'), snapshot.GetBack(0, 0).Character);
+		Assert.Equal(new Rune('*'), snapshot.GetBack(199, 0).Character);
 	}
 
 	[Fact]
@@ -125,11 +126,11 @@ public class FillCellsTests
 
 		for (int x = 195; x < 200; x++)
 		{
-			Assert.Equal('!', snapshot.GetBack(x, 0).Character);
+			Assert.Equal(new Rune('!'), snapshot.GetBack(x, 0).Character);
 		}
 
 		// Cell before fill start should NOT be modified
-		Assert.NotEqual('!', snapshot.GetBack(194, 0).Character);
+		Assert.NotEqual(new Rune('!'), snapshot.GetBack(194, 0).Character);
 	}
 
 	[Fact]
@@ -147,10 +148,10 @@ public class FillCellsTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('Q', snapshot.GetBack(50, 25).Character);
+		Assert.Equal(new Rune('Q'), snapshot.GetBack(50, 25).Character);
 		// Adjacent cells unaffected
-		Assert.NotEqual('Q', snapshot.GetBack(49, 25).Character);
-		Assert.NotEqual('Q', snapshot.GetBack(51, 25).Character);
+		Assert.NotEqual(new Rune('Q'), snapshot.GetBack(49, 25).Character);
+		Assert.NotEqual(new Rune('Q'), snapshot.GetBack(51, 25).Character);
 	}
 
 	[Fact]
@@ -173,7 +174,7 @@ public class FillCellsTests
 
 		for (int x = 10; x < 20; x++)
 		{
-			Assert.Equal('B', snapshot.GetBack(x, 5).Character);
+			Assert.Equal(new Rune('B'), snapshot.GetBack(x, 5).Character);
 		}
 	}
 
@@ -195,12 +196,12 @@ public class FillCellsTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('A', snapshot.GetBack(10, 5).Character);
-		Assert.Equal('A', snapshot.GetBack(12, 5).Character);
-		Assert.Equal('B', snapshot.GetBack(13, 5).Character);
-		Assert.Equal('B', snapshot.GetBack(16, 5).Character);
-		Assert.Equal('A', snapshot.GetBack(17, 5).Character);
-		Assert.Equal('A', snapshot.GetBack(19, 5).Character);
+		Assert.Equal(new Rune('A'), snapshot.GetBack(10, 5).Character);
+		Assert.Equal(new Rune('A'), snapshot.GetBack(12, 5).Character);
+		Assert.Equal(new Rune('B'), snapshot.GetBack(13, 5).Character);
+		Assert.Equal(new Rune('B'), snapshot.GetBack(16, 5).Character);
+		Assert.Equal(new Rune('A'), snapshot.GetBack(17, 5).Character);
+		Assert.Equal(new Rune('A'), snapshot.GetBack(19, 5).Character);
 	}
 
 	[Fact]
@@ -240,7 +241,7 @@ public class FillCellsTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('-', snapshot.GetBack(0, 49).Character);
-		Assert.Equal('-', snapshot.GetBack(49, 49).Character);
+		Assert.Equal(new Rune('-'), snapshot.GetBack(0, 49).Character);
+		Assert.Equal(new Rune('-'), snapshot.GetBack(49, 49).Character);
 	}
 }

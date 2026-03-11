@@ -1,3 +1,4 @@
+using System.Text;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Imaging;
 using SharpConsoleUI.Layout;
@@ -27,7 +28,7 @@ public class HalfBlockRendererTests
 		Assert.Equal(1, cells.GetLength(1)); // height
 
 		// fg = top pixel (red), bg = bottom pixel (blue)
-		Assert.Equal(ImagingDefaults.HalfBlockChar, cells[0, 0].Character);
+		Assert.Equal(new Rune(ImagingDefaults.HalfBlockChar), cells[0, 0].Character);
 		Assert.Equal(new Color(255, 0, 0), cells[0, 0].Foreground);
 		Assert.Equal(new Color(0, 0, 255), cells[0, 0].Background);
 	}
@@ -120,6 +121,6 @@ public class HalfBlockRendererTests
 
 		for (int y = 0; y < cells.GetLength(1); y++)
 			for (int x = 0; x < cells.GetLength(0); x++)
-				Assert.Equal(ImagingDefaults.HalfBlockChar, cells[x, y].Character);
+				Assert.Equal(new Rune(ImagingDefaults.HalfBlockChar), cells[x, y].Character);
 	}
 }

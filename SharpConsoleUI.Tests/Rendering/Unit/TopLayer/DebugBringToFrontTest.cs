@@ -3,6 +3,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -91,6 +92,6 @@ public class DebugBringToFrontTest
 		var char2 = snapshot2?.GetBack(15, 8).Character;
 		_output.WriteLine($"  Character at (15,8): '{char2}' (expected 'O')");
 
-		Assert.Equal('O', char2);
+		Assert.Equal(new Rune('O'), char2);
 	}
 }

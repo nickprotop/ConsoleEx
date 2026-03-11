@@ -5,6 +5,7 @@ using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.MiddleLayer;
 
@@ -66,12 +67,13 @@ public class DecorationRenderingPipelineTests
 	/// </summary>
 	private ConsoleCell? FindCell(ConsoleBufferSnapshot snapshot, char target)
 	{
+		var targetRune = new Rune(target);
 		for (int y = 0; y < snapshot.Height; y++)
 		{
 			for (int x = 0; x < snapshot.Width; x++)
 			{
 				var cell = snapshot.GetBack(x, y);
-				if (cell.Character == target)
+				if (cell.Character == targetRune)
 					return cell;
 			}
 		}
@@ -83,13 +85,14 @@ public class DecorationRenderingPipelineTests
 	/// </summary>
 	private List<(int x, int y, ConsoleCell cell)> FindAllCells(ConsoleBufferSnapshot snapshot, char target)
 	{
+		var targetRune = new Rune(target);
 		var results = new List<(int, int, ConsoleCell)>();
 		for (int y = 0; y < snapshot.Height; y++)
 		{
 			for (int x = 0; x < snapshot.Width; x++)
 			{
 				var cell = snapshot.GetBack(x, y);
-				if (cell.Character == target)
+				if (cell.Character == targetRune)
 					results.Add((x, y, cell));
 			}
 		}

@@ -3,6 +3,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -97,7 +98,7 @@ public class DebugDesktopClear
 		_output.WriteLine($"  y=7 was also above the old moving window (which was at y=12-21)");
 		_output.WriteLine($"  Therefore, y=7 should show background content 'B' unchanged!");
 
-		Assert.Equal('B', char7After);
+		Assert.Equal(new Rune('B'), char7After);
 	}
 
 	[Fact]
@@ -194,7 +195,7 @@ public class DebugDesktopClear
 		var charExposed = snapshot?.GetBack(30, 22).Character;
 		_output.WriteLine($"  Exposed bottom (30,22): '{charExposed}' (expected 'B' if in background bounds)");
 
-		Assert.Equal('B', charAbove);
-		Assert.Equal('B', charLeft);
+		Assert.Equal(new Rune('B'), charAbove);
+		Assert.Equal(new Rune('B'), charLeft);
 	}
 }

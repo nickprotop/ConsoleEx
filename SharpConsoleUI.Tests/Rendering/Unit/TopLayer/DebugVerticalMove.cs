@@ -3,6 +3,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -126,6 +127,6 @@ public class DebugVerticalMove
 		_output.WriteLine($"    y={moving.Top + moving.Height}: '{charBelow}' (in background content: {inBgContentBelow}, expected: {(inBgContentBelow ? "B" : " ")})");
 
 		// Assert on exposed area that should show background
-		Assert.Equal('B', snapshot2?.GetBack(20, 20).Character);
+		Assert.Equal(new Rune('B'), snapshot2?.GetBack(20, 20).Character);
 	}
 }

@@ -3,6 +3,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -91,6 +92,6 @@ public class DebugInvalidateExposed
 		var char2 = snapshot2?.GetBack(40, 7).Character;
 		_output.WriteLine($"  Character at (40,7): '{char2}' (expected '1')");
 
-		Assert.Equal('1', char2);
+		Assert.Equal(new Rune('1'), char2);
 	}
 }

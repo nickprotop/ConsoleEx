@@ -10,6 +10,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -52,7 +53,7 @@ public class ContentRenderingTests
 
 		// Content starts at Left+1, Top+1 (inside border)
 		var contentCell = snapshot.GetBack(11, 6);
-		Assert.Equal('X', contentCell.Character);
+		Assert.Equal(new Rune('X'), contentCell.Character);
 	}
 
 	[Fact]
@@ -110,11 +111,11 @@ public class ContentRenderingTests
 		// In overlap region, window2 (top) should be visible
 		// Overlap: x: 21-33, y: 11-15
 		var overlapCell = snapshot.GetBack(25, 13);
-		Assert.Equal('X', overlapCell.Character);
+		Assert.Equal(new Rune('X'), overlapCell.Character);
 
 		// Outside overlap, window1 should be visible
 		var window1Cell = snapshot.GetBack(15, 8);
-		Assert.Equal('O', window1Cell.Character);
+		Assert.Equal(new Rune('O'), window1Cell.Character);
 	}
 
 	[Fact]
@@ -162,7 +163,7 @@ public class ContentRenderingTests
 		// Window 2 on top initially
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('X', snapshot1.GetBack(15, 8).Character);
+		Assert.Equal(new Rune('X'), snapshot1.GetBack(15, 8).Character);
 
 		// Act - Bring window1 to front
 		system.WindowStateService.BringToFront(window1);
@@ -171,7 +172,7 @@ public class ContentRenderingTests
 		// Assert - Window1 content now visible
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
-		Assert.Equal('O', snapshot2.GetBack(15, 8).Character);
+		Assert.Equal(new Rune('O'), snapshot2.GetBack(15, 8).Character);
 	}
 
 	[Fact]
@@ -219,7 +220,7 @@ public class ContentRenderingTests
 		// Window 2 on top initially
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('X', snapshot1.GetBack(15, 8).Character);
+		Assert.Equal(new Rune('X'), snapshot1.GetBack(15, 8).Character);
 
 		// Act - Send window2 to back
 		system.WindowStateService.SendToBack(window2);
@@ -228,7 +229,7 @@ public class ContentRenderingTests
 		// Assert - Window1 content now visible (window2 hidden behind)
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
-		Assert.Equal('O', snapshot2.GetBack(15, 8).Character);
+		Assert.Equal(new Rune('O'), snapshot2.GetBack(15, 8).Character);
 	}
 
 	[Fact]
@@ -283,7 +284,7 @@ public class ContentRenderingTests
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
 		var beforeMove = snapshot1.GetBack(20, 13).Character;
-		Assert.Equal('M', beforeMove);
+		Assert.Equal(new Rune('M'), beforeMove);
 
 		// Act - Move window to the right, exposing left area
 		moving.Left = 30;
@@ -294,7 +295,7 @@ public class ContentRenderingTests
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
 		var afterMove = snapshot2.GetBack(20, 13).Character;
-		Assert.Equal('B', afterMove); // Background now visible
+		Assert.Equal(new Rune('B'), afterMove); // Background now visible
 	}
 
 	[Fact]
@@ -346,7 +347,7 @@ public class ContentRenderingTests
 		// Verify moving window covers position (40, 11) - within both windows' content areas
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('2', snapshot1.GetBack(40, 11).Character);
+		Assert.Equal(new Rune('2'), snapshot1.GetBack(40, 11).Character);
 
 		// Act - Move window to the left, exposing right area
 		moving.Left = 15;
@@ -355,7 +356,7 @@ public class ContentRenderingTests
 		// Assert - CRITICAL: Exposed area shows background
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
-		Assert.Equal('1', snapshot2.GetBack(40, 11).Character);
+		Assert.Equal(new Rune('1'), snapshot2.GetBack(40, 11).Character);
 	}
 
 	[Fact]
@@ -412,7 +413,7 @@ public class ContentRenderingTests
 		// Verify moving window covers position (30, 15) - last row of background content
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('Z', snapshot1.GetBack(30, 15).Character);
+		Assert.Equal(new Rune('Z'), snapshot1.GetBack(30, 15).Character);
 
 		// Act - Move window upward to Top=6, exposing bottom area at y=16-19
 		moving.Top = 6;
@@ -422,7 +423,7 @@ public class ContentRenderingTests
 		// Background content at y=10 should be visible to the left of moving window
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
-		Assert.Equal('A', snapshot2.GetBack(10, 10).Character);
+		Assert.Equal(new Rune('A'), snapshot2.GetBack(10, 10).Character);
 	}
 
 	[Fact]
@@ -476,7 +477,7 @@ public class ContentRenderingTests
 		// Verify moving window covers position (30, 11)
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('Y', snapshot1.GetBack(30, 11).Character);
+		Assert.Equal(new Rune('Y'), snapshot1.GetBack(30, 11).Character);
 
 		// Act - Move window downward, exposing top area
 		moving.Top = 16;
@@ -486,7 +487,7 @@ public class ContentRenderingTests
 		// Assert - CRITICAL: Exposed area shows background
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
-		Assert.Equal('C', snapshot2.GetBack(30, 11).Character);
+		Assert.Equal(new Rune('C'), snapshot2.GetBack(30, 11).Character);
 	}
 
 	[Fact]
@@ -537,10 +538,10 @@ public class ContentRenderingTests
 		// Check multiple positions covered by moving window (within content areas)
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('W', snapshot1.GetBack(25, 13).Character); // Left side
-		Assert.Equal('W', snapshot1.GetBack(38, 13).Character); // Right side
-		Assert.Equal('W', snapshot1.GetBack(30, 12).Character); // Top side
-		Assert.Equal('W', snapshot1.GetBack(30, 15).Character); // Bottom side (within 6-row content)
+		Assert.Equal(new Rune('W'), snapshot1.GetBack(25, 13).Character); // Left side
+		Assert.Equal(new Rune('W'), snapshot1.GetBack(38, 13).Character); // Right side
+		Assert.Equal(new Rune('W'), snapshot1.GetBack(30, 12).Character); // Top side
+		Assert.Equal(new Rune('W'), snapshot1.GetBack(30, 15).Character); // Bottom side (within 6-row content)
 
 		// Act - Move diagonally (down and right)
 		moving.Left = 35;
@@ -550,8 +551,8 @@ public class ContentRenderingTests
 		// Assert - CRITICAL: All exposed sides show background
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
-		Assert.Equal('D', snapshot2.GetBack(25, 13).Character); // Left exposed
-		Assert.Equal('D', snapshot2.GetBack(30, 12).Character); // Top exposed
+		Assert.Equal(new Rune('D'), snapshot2.GetBack(25, 13).Character); // Left exposed
+		Assert.Equal(new Rune('D'), snapshot2.GetBack(30, 12).Character); // Top exposed
 	}
 
 	[Fact]
@@ -622,7 +623,7 @@ public class ContentRenderingTests
 		// Check initial state - window3 on top at position within all content areas
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('3', snapshot1.GetBack(35, 16).Character); // Window 3 visible (y=16 is in window3 content)
+		Assert.Equal(new Rune('3'), snapshot1.GetBack(35, 16).Character); // Window 3 visible (y=16 is in window3 content)
 
 		// Act - Move window3 away, exposing window2
 		window3.Left = 5;
@@ -632,7 +633,7 @@ public class ContentRenderingTests
 		// Assert - Window2 now visible where window3 was
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
-		Assert.Equal('2', snapshot2.GetBack(35, 13).Character); // y=13 is in window2 content (11-15)
+		Assert.Equal(new Rune('2'), snapshot2.GetBack(35, 13).Character); // y=13 is in window2 content (11-15)
 
 		// Act - Move window2 away, exposing window1
 		window2.Left = 5;
@@ -642,7 +643,7 @@ public class ContentRenderingTests
 		// Assert - Window1 now visible
 		var snapshot3 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot3);
-		Assert.Equal('1', snapshot3.GetBack(35, 9).Character); // y=9 is in window1 content (6-11)
+		Assert.Equal(new Rune('1'), snapshot3.GetBack(35, 9).Character); // y=9 is in window1 content (6-11)
 	}
 
 	[Fact]
@@ -692,7 +693,7 @@ public class ContentRenderingTests
 		// Initial: B on top, overlaps A at position within B's content
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('B', snapshot1.GetBack(30, 12).Character); // y=12 is in windowB content (11-14)
+		Assert.Equal(new Rune('B'), snapshot1.GetBack(30, 12).Character); // y=12 is in windowB content (11-14)
 
 		// Bring A to front
 		system.WindowStateService.BringToFront(windowA);
@@ -700,7 +701,7 @@ public class ContentRenderingTests
 
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot2);
-		Assert.Equal('A', snapshot2.GetBack(30, 8).Character); // y=8 is in windowA content (6-9)
+		Assert.Equal(new Rune('A'), snapshot2.GetBack(30, 8).Character); // y=8 is in windowA content (6-9)
 
 		// Move A to the right
 		windowA.Left = 40;
@@ -708,7 +709,7 @@ public class ContentRenderingTests
 
 		var snapshot3 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot3);
-		Assert.Equal('B', snapshot3.GetBack(30, 12).Character); // B now visible again
+		Assert.Equal(new Rune('B'), snapshot3.GetBack(30, 12).Character); // B now visible again
 
 		// Send B to back
 		system.WindowStateService.SendToBack(windowB);
@@ -717,7 +718,7 @@ public class ContentRenderingTests
 		// Still B at this position (A moved away)
 		var snapshot4 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot4);
-		Assert.Equal('B', snapshot4.GetBack(30, 13).Character);
+		Assert.Equal(new Rune('B'), snapshot4.GetBack(30, 13).Character);
 
 		// Move B to overlap with new A position
 		windowB.Left = 40;
@@ -727,7 +728,7 @@ public class ContentRenderingTests
 		// A on top, should be visible
 		var snapshot5 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot5);
-		Assert.Equal('A', snapshot5.GetBack(45, 8).Character);
+		Assert.Equal(new Rune('A'), snapshot5.GetBack(45, 8).Character);
 	}
 
 	[Fact]
@@ -776,7 +777,7 @@ public class ContentRenderingTests
 		// Check moving window's border before move
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot1);
-		Assert.Equal('╔', snapshot1.GetBack(20, 10).Character); // DoubleLine top-left
+		Assert.Equal(new Rune('╔'), snapshot1.GetBack(20, 10).Character); // DoubleLine top-left
 
 		// Act - Move window, exposing area underneath
 		moving.Left = 35;
@@ -791,17 +792,17 @@ public class ContentRenderingTests
 		var exposedCell = snapshot2.GetBack(20, 6);
 		// Should be background content (from "BACKGROUND...") or background border
 		Assert.True(
-			"BACKGROUND".Contains(exposedCell.Character) ||
-			exposedCell.Character == '│' ||
-			exposedCell.Character == '─' ||
-			exposedCell.Character == '┌' ||
-			exposedCell.Character == '┐' ||
-			exposedCell.Character == '└' ||
-			exposedCell.Character == '┘',
+			"BACKGROUND".Contains(exposedCell.Character.ToString()) ||
+			exposedCell.Character == new Rune('│') ||
+			exposedCell.Character == new Rune('─') ||
+			exposedCell.Character == new Rune('┌') ||
+			exposedCell.Character == new Rune('┐') ||
+			exposedCell.Character == new Rune('└') ||
+			exposedCell.Character == new Rune('┘'),
 			$"Expected background content or border, got: '{exposedCell.Character}'"
 		);
 
 		// Moving window's new position should show its DoubleLine border
-		Assert.Equal('╔', snapshot2.GetBack(35, 10).Character);
+		Assert.Equal(new Rune('╔'), snapshot2.GetBack(35, 10).Character);
 	}
 }

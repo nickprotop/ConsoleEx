@@ -23,7 +23,7 @@ internal static class DropdownWindow
             .WithMargin(1, 1, 1, 0)
             .Build();
 
-        var header = Controls.Markup("[bold yellow]  Meal Planner[/]")
+        var header = Controls.Markup("[bold yellow]  \U0001F37D Meal Planner[/]")
             .StickyTop()
             .Build();
 
@@ -31,16 +31,16 @@ internal static class DropdownWindow
             .StickyBottom()
             .Build();
 
-        var cuisineLabel = Controls.Markup("[bold]Cuisine Type[/]").WithMargin(1, 1, 1, 0).Build();
+        var cuisineLabel = Controls.Markup("[bold]\U0001F35C Cuisine Type[/]").WithMargin(1, 1, 1, 0).Build();
         var cuisine = Controls.Dropdown("Choose cuisine...")
-            .AddItem(new DropdownItem("Japanese", "\u25cf", Color.Red) { Tag = "Japanese" })
-            .AddItem(new DropdownItem("Italian", "\u25cf", Color.Green) { Tag = "Italian" })
-            .AddItem(new DropdownItem("Mexican", "\u25cf", Color.Orange1) { Tag = "Mexican" })
-            .AddItem(new DropdownItem("Indian", "\u25cf", Color.Yellow) { Tag = "Indian" })
-            .AddItem(new DropdownItem("Thai", "\u25cf", Color.Magenta1) { Tag = "Thai" })
-            .AddItem(new DropdownItem("Chinese", "\u25cf", Color.Red) { Tag = "Chinese" })
-            .AddItem(new DropdownItem("French", "\u25cf", Color.Blue) { Tag = "French" })
-            .AddItem(new DropdownItem("Korean", "\u25cf", Color.Cyan1) { Tag = "Korean" })
+            .AddItem(new DropdownItem("\U0001F363 日本料理 Japanese", "\u25cf", Color.Red) { Tag = "Japanese" })
+            .AddItem(new DropdownItem("\U0001F355 Italian", "\u25cf", Color.Green) { Tag = "Italian" })
+            .AddItem(new DropdownItem("\U0001F32E Mexican", "\u25cf", Color.Orange1) { Tag = "Mexican" })
+            .AddItem(new DropdownItem("\U0001F35B Indian", "\u25cf", Color.Yellow) { Tag = "Indian" })
+            .AddItem(new DropdownItem("\U0001F958 Thai", "\u25cf", Color.Magenta1) { Tag = "Thai" })
+            .AddItem(new DropdownItem("\U0001F95F 中華料理 Chinese", "\u25cf", Color.Red) { Tag = "Chinese" })
+            .AddItem(new DropdownItem("\U0001F950 French", "\u25cf", Color.Blue) { Tag = "French" })
+            .AddItem(new DropdownItem("\U0001F356 한국 Korean", "\u25cf", Color.Cyan1) { Tag = "Korean" })
             .AddItem(new DropdownItem("Mediterranean", "\u25cf", Color.Green) { Tag = "Mediterranean" })
             .AddItem(new DropdownItem("Greek", "\u25cf", Color.Cyan1) { Tag = "Greek" })
             .AddItem(new DropdownItem("Vietnamese", "\u25cf", Color.Yellow) { Tag = "Vietnamese" })
@@ -49,32 +49,32 @@ internal static class DropdownWindow
             .WithMargin(1, 0, 1, 1)
             .Build();
 
-        var dietaryLabel = Controls.Markup("[bold]Dietary Restriction[/]").WithMargin(1, 0, 1, 0).Build();
+        var dietaryLabel = Controls.Markup("[bold]\U0001F96C Dietary Restriction[/]").WithMargin(1, 0, 1, 0).Build();
         var dietary = Controls.Dropdown("Choose diet...")
             .AddItems("None", "Vegetarian", "Vegan", "Gluten-Free", "Keto", "Paleo", "Pescatarian")
             .SelectedIndex(DefaultDietaryIndex)
             .WithMargin(1, 0, 1, 1)
             .Build();
 
-        var spiceLabel = Controls.Markup("[bold]Spice Level[/]").WithMargin(1, 0, 1, 0).Build();
+        var spiceLabel = Controls.Markup("[bold]\U0001F336 Spice Level[/]").WithMargin(1, 0, 1, 0).Build();
         var spice = Controls.Dropdown("Choose spice...")
-            .AddItem(new DropdownItem("Mild", "\u25cf", Color.Green))
-            .AddItem(new DropdownItem("Medium", "\u25cf", Color.Yellow))
-            .AddItem(new DropdownItem("Hot", "\u25cf", Color.Orange1))
-            .AddItem(new DropdownItem("Extra Hot", "\u25cf", Color.Red))
-            .AddItem(new DropdownItem("Inferno", "\u25cf", Color.DarkRed))
+            .AddItem(new DropdownItem("\U0001F7E2 Mild", "\u25cf", Color.Green))
+            .AddItem(new DropdownItem("\U0001F7E1 Medium", "\u25cf", Color.Yellow))
+            .AddItem(new DropdownItem("\U0001F7E0 Hot", "\u25cf", Color.Orange1))
+            .AddItem(new DropdownItem("\U0001F534 Extra Hot", "\u25cf", Color.Red))
+            .AddItem(new DropdownItem("\U0001F480 Inferno", "\u25cf", Color.DarkRed))
             .SelectedIndex(DefaultSpiceIndex)
             .WithMargin(1, 0, 1, 1)
             .Build();
 
-        var budgetLabel = Controls.Markup("[bold]Budget[/]").WithMargin(1, 0, 1, 0).Build();
+        var budgetLabel = Controls.Markup("[bold]\U0001F4B0 Budget[/]").WithMargin(1, 0, 1, 0).Build();
         var budget = Controls.Dropdown("Choose budget...")
             .AddItems("$ Budget", "$$ Moderate", "$$$ Premium", "$$$$ Luxury")
             .SelectedIndex(DefaultBudgetIndex)
             .WithMargin(1, 0, 1, 1)
             .Build();
 
-        var servingsLabel = Controls.Markup("[bold]Servings[/]").WithMargin(1, 0, 1, 0).Build();
+        var servingsLabel = Controls.Markup("[bold]\U0001F465 Servings[/]").WithMargin(1, 0, 1, 0).Build();
         var servings = Controls.Dropdown("Choose servings...")
             .AddItems("1 person", "2 people", "3 people", "4 people", "6 people", "8 people")
             .SelectedIndex(DefaultServingsIndex)

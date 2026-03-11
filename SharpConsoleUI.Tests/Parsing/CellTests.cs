@@ -1,6 +1,7 @@
 using Xunit;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Parsing
 {
@@ -10,7 +11,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		public void Constructor_SetsCharacterForegroundBackground()
 		{
 			var cell = new Cell('A', Color.Red, Color.Blue);
-			Assert.Equal('A', cell.Character);
+			Assert.Equal(new Rune('A'), cell.Character);
 			Assert.Equal(Color.Red, cell.Foreground);
 			Assert.Equal(Color.Blue, cell.Background);
 			Assert.Equal(TextDecoration.None, cell.Decorations);
@@ -21,7 +22,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		public void Constructor_WithDecorations_SetsAll()
 		{
 			var cell = new Cell('B', Color.Green, Color.White, TextDecoration.Bold);
-			Assert.Equal('B', cell.Character);
+			Assert.Equal(new Rune('B'), cell.Character);
 			Assert.Equal(Color.Green, cell.Foreground);
 			Assert.Equal(Color.White, cell.Background);
 			Assert.Equal(TextDecoration.Bold, cell.Decorations);
@@ -32,7 +33,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		public void Blank_IsSpaceWithWhiteFgBlackBg()
 		{
 			var blank = Cell.Blank;
-			Assert.Equal(' ', blank.Character);
+			Assert.Equal(new Rune(' '), blank.Character);
 			Assert.Equal(Color.White, blank.Foreground);
 			Assert.Equal(Color.Black, blank.Background);
 		}
@@ -41,7 +42,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		public void BlankWithBackground_SetsGivenBg()
 		{
 			var cell = Cell.BlankWithBackground(Color.Blue);
-			Assert.Equal(' ', cell.Character);
+			Assert.Equal(new Rune(' '), cell.Character);
 			Assert.Equal(Color.White, cell.Foreground);
 			Assert.Equal(Color.Blue, cell.Background);
 		}
@@ -50,7 +51,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		public void Create_SetsFields()
 		{
 			var cell = Cell.Create('X', Color.Yellow, Color.Navy);
-			Assert.Equal('X', cell.Character);
+			Assert.Equal(new Rune('X'), cell.Character);
 			Assert.Equal(Color.Yellow, cell.Foreground);
 			Assert.Equal(Color.Navy, cell.Background);
 		}
@@ -128,7 +129,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		public void DefaultCell_ZeroInitialized()
 		{
 			var cell = default(Cell);
-			Assert.Equal('\0', cell.Character);
+			Assert.Equal(new Rune('\0'), cell.Character);
 			Assert.Equal(default(Color), cell.Foreground);
 			Assert.Equal(default(Color), cell.Background);
 			Assert.Equal(TextDecoration.None, cell.Decorations);

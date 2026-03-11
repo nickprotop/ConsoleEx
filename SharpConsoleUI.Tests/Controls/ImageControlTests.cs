@@ -1,3 +1,4 @@
+using System.Text;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Imaging;
@@ -63,7 +64,7 @@ public class ImageControlTests
 		control.PaintDOM(charBuffer, bounds, bounds, Color.White, Color.Black);
 
 		var cell = charBuffer.GetCell(0, 0);
-		Assert.Equal(ImagingDefaults.HalfBlockChar, cell.Character);
+		Assert.Equal(new Rune(ImagingDefaults.HalfBlockChar), cell.Character);
 	}
 
 	#endregion

@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Drivers.Input;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -144,16 +145,23 @@ namespace SharpConsoleUI.Drivers
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
 		public void SetCell(int x, int y, char character, Color fg, Color bg)
+			=> SetCell(x, y, new Rune(character), fg, bg);
+
+		/// <summary>
+		/// Sets a single cell in the back buffer with the specified Rune and colors.
+		/// </summary>
+		public void SetCell(int x, int y, Rune character, Color fg, Color bg)
 		{
 			if (!IsValidPosition(x, y))
 				return;
 
 			string ansi = FormatCellAnsi(fg, bg);
 			ref var cell = ref _backBuffer[x, y];
-			if (cell.Character != character || cell.AnsiEscape != ansi)
+			if (cell.Character != character || cell.AnsiEscape != ansi || cell.IsWideContinuation)
 			{
 				cell.Character = character;
 				cell.AnsiEscape = ansi;
+				cell.IsWideContinuation = false;
 			}
 		}
 
@@ -167,6 +175,12 @@ namespace SharpConsoleUI.Drivers
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
 		public void FillCells(int x, int y, int width, char character, Color fg, Color bg)
+			=> FillCells(x, y, width, new Rune(character), fg, bg);
+
+		/// <summary>
+		/// Fills a horizontal run of cells with the specified Rune and colors.
+		/// </summary>
+		public void FillCells(int x, int y, int width, Rune character, Color fg, Color bg)
 		{
 			if (!IsValidPosition(x, y) || width <= 0)
 				return;
@@ -179,10 +193,11 @@ namespace SharpConsoleUI.Drivers
 			for (int i = 0; i < maxWidth; i++)
 			{
 				ref var cell = ref _backBuffer[x + i, y];
-				if (cell.Character != character || cell.AnsiEscape != ansi)
+				if (cell.Character != character || cell.AnsiEscape != ansi || cell.IsWideContinuation)
 				{
 					cell.Character = character;
 					cell.AnsiEscape = ansi;
+					cell.IsWideContinuation = false;
 				}
 			}
 		}
@@ -220,20 +235,23 @@ namespace SharpConsoleUI.Drivers
 					var srcCell = source.GetCell(sx, srcY);
 					string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background, srcCell.Decorations);
 
-					if (destCell.Character != srcCell.Character || destCell.AnsiEscape != ansi)
+					if (destCell.Character != srcCell.Character || destCell.AnsiEscape != ansi || destCell.IsWideContinuation != srcCell.IsWideContinuation)
 					{
 						destCell.Character = srcCell.Character;
 						destCell.AnsiEscape = ansi;
+						destCell.IsWideContinuation = srcCell.IsWideContinuation;
 					}
 				}
 				else
 				{
 					// Out of bounds: write padding space with fallback background
+					var spaceRune = new Rune(' ');
 					string ansi = FormatCellAnsi(Color.White, fallbackBg);
-					if (destCell.Character != ' ' || destCell.AnsiEscape != ansi)
+					if (destCell.Character != spaceRune || destCell.AnsiEscape != ansi || destCell.IsWideContinuation)
 					{
-						destCell.Character = ' ';
+						destCell.Character = spaceRune;
 						destCell.AnsiEscape = ansi;
+						destCell.IsWideContinuation = false;
 					}
 				}
 			}
@@ -320,6 +338,25 @@ namespace SharpConsoleUI.Drivers
 				if (_diagnostics?.IsEnabled == true && _diagnostics.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.ConsoleBuffer))
 				{
 					CaptureConsoleBufferSnapshot();
+				}
+
+				// Pre-process: when a continuation cell is dirty but its primary cell isn't,
+				// force the primary cell dirty so the terminal correctly handles the wide char.
+				// Without this, the continuation cell is skipped during output (terminal auto-advances
+				// past it when the wide char is emitted) but if the primary cell wasn't re-emitted,
+				// the display shows stale content at the continuation position.
+				for (int y = 0; y < _height; y++)
+				{
+					for (int x = 1; x < _width; x++)
+					{
+						ref readonly var backCell = ref _backBuffer[x, y];
+						if (backCell.IsWideContinuation &&
+							!_frontBuffer[x, y].Equals(backCell) &&
+							_frontBuffer[x - 1, y].Equals(_backBuffer[x - 1, y]))
+						{
+							_frontBuffer[x - 1, y].Reset();
+						}
+					}
 				}
 
 				// Hide cursor during render — use raw write on Unix to bypass .NET entirely
@@ -611,6 +648,13 @@ namespace SharpConsoleUI.Drivers
 				ref var backCell = ref _backBuffer[x, y];
 				ref var frontCell = ref _frontBuffer[x, y];
 
+				// Sync buffers regardless of whether we emit output
+				frontCell.CopyFrom(backCell);
+
+				// Skip continuation cells — terminal auto-advances for wide chars
+				if (backCell.IsWideContinuation)
+					continue;
+
 				// Output ANSI only if it changed
 				if (backCell.AnsiEscape != lastOutputAnsi)
 				{
@@ -619,10 +663,7 @@ namespace SharpConsoleUI.Drivers
 				}
 
 				// Output character
-				builder.Append(backCell.Character);
-
-				// Sync buffers
-				frontCell.CopyFrom(backCell);
+				builder.AppendRune(backCell.Character);
 			}
 
 			// Reset ANSI at end of region
@@ -637,6 +678,7 @@ namespace SharpConsoleUI.Drivers
 			// DO NOT clear - we are appending to the screen builder
 			int consecutiveUnchanged = 0;
 			string lastOutputAnsi = string.Empty;
+			bool lastOutputWasWide = false;
 
 			int maxWidth = _options.ClampToWindowWidth ? Math.Min(_width, GetCurrentWindowWidth()) : _width;
 			for (int x = 0; x < maxWidth; x++)
@@ -649,6 +691,16 @@ namespace SharpConsoleUI.Drivers
 
 				if (shouldWrite)
 				{
+					// Sync buffers first
+					frontCell.CopyFrom(backCell);
+
+					// Skip continuation cells — terminal auto-advances for wide chars
+					if (backCell.IsWideContinuation)
+					{
+						lastOutputWasWide = false;
+						continue;
+					}
+
 					// If we have pending cursor forward movements, append them first
 					if (consecutiveUnchanged > 0)
 					{
@@ -682,12 +734,22 @@ namespace SharpConsoleUI.Drivers
 						}
 					}
 
-					// Always output character and sync buffers, even if ANSI was malformed
-					builder.Append(backCell.Character);
-					frontCell.CopyFrom(backCell);
+					// Always output character
+					builder.AppendRune(backCell.Character);
+
+					// Track if this was a wide char — terminal advances cursor by 2
+					lastOutputWasWide = x + 1 < maxWidth && _backBuffer[x + 1, y].IsWideContinuation;
 				}
 				else
 				{
+					// If previous output was a wide char, terminal already advanced past
+					// this continuation cell — don't count it as a gap
+					if (lastOutputWasWide && backCell.IsWideContinuation)
+					{
+						lastOutputWasWide = false;
+						continue;
+					}
+					lastOutputWasWide = false;
 					consecutiveUnchanged++;
 				}
 			}
@@ -750,27 +812,31 @@ namespace SharpConsoleUI.Drivers
 		private struct Cell
 		{
 			public string AnsiEscape;
-			public char Character;
+			public Rune Character;
+			public bool IsWideContinuation;
 
 			public Cell()
 			{
 				AnsiEscape = string.Empty;
-				Character = ' ';
+				Character = new Rune(' ');
+				IsWideContinuation = false;
 			}
 
 			public void CopyFrom(in Cell other)
 			{
 				Character = other.Character;
 				AnsiEscape = other.AnsiEscape;
+				IsWideContinuation = other.IsWideContinuation;
 			}
 
 			public bool Equals(in Cell other)
-				=> Character == other.Character && AnsiEscape == other.AnsiEscape;
+				=> Character == other.Character && AnsiEscape == other.AnsiEscape && IsWideContinuation == other.IsWideContinuation;
 
 			public void Reset()
 			{
-				Character = ' ';
+				Character = new Rune(' ');
 				AnsiEscape = string.Empty;
+				IsWideContinuation = false;
 			}
 		}
 	}

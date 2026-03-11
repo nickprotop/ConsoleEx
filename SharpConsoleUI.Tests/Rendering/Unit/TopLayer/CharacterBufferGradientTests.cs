@@ -2,6 +2,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Rendering;
 using Xunit;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -29,11 +30,11 @@ public class CharacterBufferGradientTests
 		var gradient = ColorGradient.FromColors(Color.DarkBlue, Color.DarkRed);
 		buffer.FillGradient(new LayoutRect(0, 0, 5, 1), gradient, GradientDirection.Horizontal);
 
-		Assert.Equal('H', buffer.GetCell(0, 0).Character);
-		Assert.Equal('e', buffer.GetCell(1, 0).Character);
-		Assert.Equal('l', buffer.GetCell(2, 0).Character);
-		Assert.Equal('l', buffer.GetCell(3, 0).Character);
-		Assert.Equal('o', buffer.GetCell(4, 0).Character);
+		Assert.Equal(new Rune('H'), buffer.GetCell(0, 0).Character);
+		Assert.Equal(new Rune('e'), buffer.GetCell(1, 0).Character);
+		Assert.Equal(new Rune('l'), buffer.GetCell(2, 0).Character);
+		Assert.Equal(new Rune('l'), buffer.GetCell(3, 0).Character);
+		Assert.Equal(new Rune('o'), buffer.GetCell(4, 0).Character);
 	}
 
 	[Fact]

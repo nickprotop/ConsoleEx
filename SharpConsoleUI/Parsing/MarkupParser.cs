@@ -6,8 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using static SharpConsoleUI.Helpers.UnicodeWidth;
 
 namespace SharpConsoleUI.Parsing
 {
@@ -48,6 +50,7 @@ namespace SharpConsoleUI.Parsing
 					if (i + 1 < len && markup[i + 1] == '[')
 					{
 						cells.Add(new Cell('[', currentFg, currentBg, currentDec));
+						// '[' is narrow, no continuation needed
 						i += 2;
 						continue;
 					}
@@ -93,8 +96,12 @@ namespace SharpConsoleUI.Parsing
 						if (!style.Foreground.HasValue && !style.Background.HasValue && style.AddedDecorations == TextDecoration.None)
 						{
 							cells.Add(new Cell('[', currentFg, currentBg, currentDec));
-							foreach (char c in tagContent)
-								cells.Add(new Cell(c, currentFg, currentBg, currentDec));
+							foreach (var rune in tagContent.EnumerateRunes())
+							{
+								cells.Add(new Cell(rune, currentFg, currentBg, currentDec));
+								if (IsWideRune(rune))
+									cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+							}
 							cells.Add(new Cell(']', currentFg, currentBg, currentDec));
 						}
 						else
@@ -112,6 +119,7 @@ namespace SharpConsoleUI.Parsing
 					if (i + 1 < len && markup[i + 1] == ']')
 					{
 						cells.Add(new Cell(']', currentFg, currentBg, currentDec));
+						// ']' is narrow, no continuation needed
 						i += 2;
 						continue;
 					}
@@ -121,8 +129,18 @@ namespace SharpConsoleUI.Parsing
 				}
 				else
 				{
-					cells.Add(new Cell(markup[i], currentFg, currentBg, currentDec));
-					i++;
+					if (Rune.TryGetRuneAt(markup, i, out var rune))
+					{
+						cells.Add(new Cell(rune, currentFg, currentBg, currentDec));
+						if (IsWideRune(rune))
+							cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+						i += rune.Utf16SequenceLength;
+					}
+					else
+					{
+						// Invalid surrogate — skip it
+						i++;
+					}
 				}
 			}
 
@@ -180,8 +198,11 @@ namespace SharpConsoleUI.Parsing
 					// Escaped [[
 					if (i + 1 < len && markup[i + 1] == '[')
 					{
+						int charWidth = GetCharWidth('[');
+						if (visibleLen + charWidth > maxLength)
+							break;
 						output.Append("[[");
-						visibleLen++;
+						visibleLen += charWidth;
 						i += 2;
 						continue;
 					}
@@ -190,8 +211,11 @@ namespace SharpConsoleUI.Parsing
 					if (tagEnd < 0)
 					{
 						// Broken tag — emit literal
+						int charWidth = GetCharWidth('[');
+						if (visibleLen + charWidth > maxLength)
+							break;
 						output.Append(markup[i]);
-						visibleLen++;
+						visibleLen += charWidth;
 						i++;
 						continue;
 					}
@@ -212,15 +236,33 @@ namespace SharpConsoleUI.Parsing
 				}
 				else if (markup[i] == ']' && i + 1 < len && markup[i + 1] == ']')
 				{
+					int charWidth = GetCharWidth(']');
+					if (visibleLen + charWidth > maxLength)
+						break;
 					output.Append("]]");
-					visibleLen++;
+					visibleLen += charWidth;
 					i += 2;
 				}
 				else
 				{
-					output.Append(markup[i]);
-					visibleLen++;
-					i++;
+					if (Rune.TryGetRuneAt(markup, i, out var rune))
+					{
+						int charWidth = GetRuneWidth(rune);
+						// Don't emit a wide char if it would exceed maxLength
+						if (visibleLen + charWidth > maxLength)
+							break;
+						output.Append(markup.AsSpan(i, rune.Utf16SequenceLength));
+						visibleLen += charWidth;
+						i += rune.Utf16SequenceLength;
+					}
+					else
+					{
+						if (visibleLen + 1 > maxLength)
+							break;
+						output.Append(markup[i]);
+						visibleLen++;
+						i++;
+					}
 				}
 			}
 
@@ -289,8 +331,16 @@ namespace SharpConsoleUI.Parsing
 				}
 				else
 				{
-					sb.Append(markup[i]);
-					i++;
+					if (Rune.TryGetRuneAt(markup, i, out var rune))
+					{
+						sb.Append(markup.AsSpan(i, rune.Utf16SequenceLength));
+						i += rune.Utf16SequenceLength;
+					}
+					else
+					{
+						sb.Append(markup[i]);
+						i++;
+					}
 				}
 			}
 
@@ -479,19 +529,26 @@ namespace SharpConsoleUI.Parsing
 
 				// Find last word boundary within width
 				int breakAt = start + width;
+
+				// Don't break inside a wide char pair (between char and its continuation)
+				if (breakAt < cells.Count && cells[breakAt].IsWideContinuation)
+					breakAt--;
+
 				int wordBreak = breakAt;
 
+				var spaceRune = new Rune(' ');
+
 				// If the character just past the width is a space, break there
-				if (breakAt < cells.Count && cells[breakAt].Character == ' ')
+				if (breakAt < cells.Count && cells[breakAt].Character == spaceRune && !cells[breakAt].IsWideContinuation)
 				{
 					wordBreak = breakAt;
 				}
 				else
 				{
-					// Search backward for a space
+					// Search backward for a space (skip continuation cells)
 					for (int j = breakAt - 1; j > start; j--)
 					{
-						if (cells[j].Character == ' ')
+						if (cells[j].Character == spaceRune && !cells[j].IsWideContinuation)
 						{
 							wordBreak = j + 1; // break after space
 							break;
@@ -500,15 +557,15 @@ namespace SharpConsoleUI.Parsing
 				}
 
 				int count = wordBreak - start;
-				// Trim trailing spaces from the line
-				while (count > 0 && cells[start + count - 1].Character == ' ')
+				// Trim trailing spaces from the line (but not continuation cells)
+				while (count > 0 && cells[start + count - 1].Character == spaceRune && !cells[start + count - 1].IsWideContinuation)
 					count--;
 
 				output.Add(cells.GetRange(start, count));
 
 				// Skip leading spaces on next line
 				start = wordBreak;
-				while (start < cells.Count && cells[start].Character == ' ')
+				while (start < cells.Count && cells[start].Character == spaceRune && !cells[start].IsWideContinuation)
 					start++;
 			}
 		}
@@ -709,7 +766,7 @@ namespace SharpConsoleUI.Parsing
 					// Escaped [[
 					if (i + 1 < len && markup[i + 1] == '[')
 					{
-						visibleLen++;
+						visibleLen += GetCharWidth('[');
 						i += 2;
 						continue;
 					}
@@ -719,7 +776,7 @@ namespace SharpConsoleUI.Parsing
 					if (tagEnd < 0)
 					{
 						// Broken tag — count as literal
-						visibleLen++;
+						visibleLen += GetCharWidth('[');
 						i++;
 						continue;
 					}
@@ -730,17 +787,25 @@ namespace SharpConsoleUI.Parsing
 					// Escaped ]]
 					if (i + 1 < len && markup[i + 1] == ']')
 					{
-						visibleLen++;
+						visibleLen += GetCharWidth(']');
 						i += 2;
 						continue;
 					}
-					visibleLen++;
+					visibleLen += GetCharWidth(markup[i]);
 					i++;
 				}
 				else
 				{
-					visibleLen++;
-					i++;
+					if (Rune.TryGetRuneAt(markup, i, out var rune))
+					{
+						visibleLen += GetRuneWidth(rune);
+						i += rune.Utf16SequenceLength;
+					}
+					else
+					{
+						visibleLen++;
+						i++;
+					}
 				}
 			}
 

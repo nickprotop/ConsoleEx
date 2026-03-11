@@ -8,6 +8,8 @@
 
 #pragma warning disable CS1591
 
+using System.Text;
+
 namespace SharpConsoleUI.Layout
 {
 	/// <summary>
@@ -16,35 +18,50 @@ namespace SharpConsoleUI.Layout
 	/// </summary>
 	public struct Cell : IEquatable<Cell>
 	{
-		public char Character;
+		public Rune Character;
 		public Color Foreground;
 		public Color Background;
 		public TextDecoration Decorations;
 		public bool Dirty;
+		public bool IsWideContinuation;
 
 		/// <summary>
-		/// Creates a new cell with the specified values.
+		/// Creates a new cell with a Rune character.
 		/// </summary>
-		public Cell(char character, Color foreground, Color background)
+		public Cell(Rune character, Color foreground, Color background)
 		{
 			Character = character;
 			Foreground = foreground;
 			Background = background;
 			Decorations = TextDecoration.None;
 			Dirty = true;
+			IsWideContinuation = false;
 		}
 
 		/// <summary>
-		/// Creates a new cell with the specified values and decorations.
+		/// Creates a new cell with a char character.
 		/// </summary>
-		public Cell(char character, Color foreground, Color background, TextDecoration decorations)
+		public Cell(char character, Color foreground, Color background)
+			: this(new Rune(character), foreground, background) { }
+
+		/// <summary>
+		/// Creates a new cell with a Rune character and decorations.
+		/// </summary>
+		public Cell(Rune character, Color foreground, Color background, TextDecoration decorations)
 		{
 			Character = character;
 			Foreground = foreground;
 			Background = background;
 			Decorations = decorations;
 			Dirty = true;
+			IsWideContinuation = false;
 		}
+
+		/// <summary>
+		/// Creates a new cell with a char character and decorations.
+		/// </summary>
+		public Cell(char character, Color foreground, Color background, TextDecoration decorations)
+			: this(new Rune(character), foreground, background, decorations) { }
 
 		/// <summary>
 		/// Gets a blank cell with default colors.
@@ -61,6 +78,12 @@ namespace SharpConsoleUI.Layout
 		/// Creates a cell with the specified character and colors.
 		/// </summary>
 		public static Cell Create(char character, Color foreground, Color background) =>
+			new(character, foreground, background);
+
+		/// <summary>
+		/// Creates a cell with the specified Rune character and colors.
+		/// </summary>
+		public static Cell Create(Rune character, Color foreground, Color background) =>
 			new(character, foreground, background);
 
 		/// <summary>
@@ -91,7 +114,8 @@ namespace SharpConsoleUI.Layout
 			Character == other.Character &&
 			Foreground.Equals(other.Foreground) &&
 			Background.Equals(other.Background) &&
-			Decorations == other.Decorations;
+			Decorations == other.Decorations &&
+			IsWideContinuation == other.IsWideContinuation;
 
 		/// <summary>Determines whether this cell equals another cell.</summary>
 		public bool Equals(Cell other) =>
@@ -99,13 +123,14 @@ namespace SharpConsoleUI.Layout
 			Foreground.Equals(other.Foreground) &&
 			Background.Equals(other.Background) &&
 			Decorations == other.Decorations &&
-			Dirty == other.Dirty;
+			Dirty == other.Dirty &&
+			IsWideContinuation == other.IsWideContinuation;
 
 		/// <summary>Determines whether this cell equals another object.</summary>
 		public override bool Equals(object? obj) => obj is Cell other && Equals(other);
 
 		/// <summary>Gets the hash code for this cell.</summary>
-		public override int GetHashCode() => HashCode.Combine(Character, Foreground, Background, Decorations, Dirty);
+		public override int GetHashCode() => HashCode.Combine(Character, Foreground, Background, Decorations, Dirty, IsWideContinuation);
 
 		/// <summary>Equality operator.</summary>
 		public static bool operator ==(Cell left, Cell right) => left.Equals(right);
@@ -116,7 +141,9 @@ namespace SharpConsoleUI.Layout
 		public override string ToString()
 		{
 			var dec = Decorations != TextDecoration.None ? $", {Decorations}" : "";
-			return $"Cell('{(Character == ' ' ? "SP" : Character)}', {Foreground}, {Background}{dec}{(Dirty ? ", dirty" : "")})";
+			var cont = IsWideContinuation ? ", continuation" : "";
+			var charDisplay = Character == new Rune(' ') ? "SP" : Character.ToString();
+			return $"Cell('{charDisplay}', {Foreground}, {Background}{dec}{cont}{(Dirty ? ", dirty" : "")})";
 		}
 	}
 }

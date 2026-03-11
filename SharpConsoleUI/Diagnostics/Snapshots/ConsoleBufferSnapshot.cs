@@ -6,6 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
+
 namespace SharpConsoleUI.Diagnostics.Snapshots;
 
 /// <summary>
@@ -114,7 +116,7 @@ public struct ConsoleCell : IEquatable<ConsoleCell>
 	/// <summary>
 	/// Gets or sets the character.
 	/// </summary>
-	public char Character { get; set; }
+	public Rune Character { get; set; }
 
 	/// <summary>
 	/// Gets or sets the ANSI escape sequence for this cell.
@@ -122,13 +124,19 @@ public struct ConsoleCell : IEquatable<ConsoleCell>
 	public string AnsiEscape { get; set; }
 
 	/// <summary>
-	/// Creates a new console cell.
+	/// Creates a new console cell with a Rune.
 	/// </summary>
-	public ConsoleCell(char character, string ansiEscape)
+	public ConsoleCell(Rune character, string ansiEscape)
 	{
 		Character = character;
 		AnsiEscape = ansiEscape ?? string.Empty;
 	}
+
+	/// <summary>
+	/// Creates a new console cell with a char.
+	/// </summary>
+	public ConsoleCell(char character, string ansiEscape)
+		: this(new Rune(character), ansiEscape) { }
 
 	/// <summary>Determines equality.</summary>
 	public bool Equals(ConsoleCell other) =>
@@ -147,6 +155,9 @@ public struct ConsoleCell : IEquatable<ConsoleCell>
 	public static bool operator !=(ConsoleCell left, ConsoleCell right) => !left.Equals(right);
 
 	/// <summary>String representation.</summary>
-	public override string ToString() =>
-		$"ConsoleCell('{(Character == ' ' ? "SP" : Character)}', ANSI: {(string.IsNullOrEmpty(AnsiEscape) ? "none" : AnsiEscape)})";
+	public override string ToString()
+	{
+		var charDisplay = Character == new Rune(' ') ? "SP" : Character.ToString();
+		return $"ConsoleCell('{charDisplay}', ANSI: {(string.IsNullOrEmpty(AnsiEscape) ? "none" : AnsiEscape)})";
+	}
 }

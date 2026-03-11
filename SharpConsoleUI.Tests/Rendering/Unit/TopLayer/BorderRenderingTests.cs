@@ -11,6 +11,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Spectre.Console;
 using Xunit;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -49,10 +50,10 @@ public class BorderRenderingTests
 		Assert.NotNull(snapshot);
 
 		// Double line border corners
-		Assert.Equal('╔', snapshot.GetBack(5, 5).Character);  // Top-left
-		Assert.Equal('╗', snapshot.GetBack(34, 5).Character); // Top-right
-		Assert.Equal('╚', snapshot.GetBack(5, 14).Character); // Bottom-left
-		Assert.Equal('╝', snapshot.GetBack(34, 14).Character); // Bottom-right
+		Assert.Equal(new Rune('╔'), snapshot.GetBack(5, 5).Character);  // Top-left
+		Assert.Equal(new Rune('╗'), snapshot.GetBack(34, 5).Character); // Top-right
+		Assert.Equal(new Rune('╚'), snapshot.GetBack(5, 14).Character); // Bottom-left
+		Assert.Equal(new Rune('╝'), snapshot.GetBack(34, 14).Character); // Bottom-right
 	}
 
 	[Fact]
@@ -80,10 +81,10 @@ public class BorderRenderingTests
 		Assert.NotNull(snapshot);
 
 		// Single line border corners
-		Assert.Equal('┌', snapshot.GetBack(10, 10).Character);  // Top-left
-		Assert.Equal('┐', snapshot.GetBack(34, 10).Character); // Top-right
-		Assert.Equal('└', snapshot.GetBack(10, 17).Character); // Bottom-left
-		Assert.Equal('┘', snapshot.GetBack(34, 17).Character); // Bottom-right
+		Assert.Equal(new Rune('┌'), snapshot.GetBack(10, 10).Character);  // Top-left
+		Assert.Equal(new Rune('┐'), snapshot.GetBack(34, 10).Character); // Top-right
+		Assert.Equal(new Rune('└'), snapshot.GetBack(10, 17).Character); // Bottom-left
+		Assert.Equal(new Rune('┘'), snapshot.GetBack(34, 17).Character); // Bottom-right
 	}
 
 	[Fact]
@@ -115,13 +116,13 @@ public class BorderRenderingTests
 		// Window spans x=5 to x=24 (width 20), so bottom border from x=6 to x=23
 		for (int x = 6; x < 24; x++)
 		{
-			Assert.Equal('═', snapshot.GetBack(x, 14).Character); // Bottom edge
+			Assert.Equal(new Rune('═'), snapshot.GetBack(x, 14).Character); // Bottom edge
 		}
 
 		// Top border has format: corner + padding + title + padding + buttons + corner
 		// We check the corners and that some horizontal borders exist
-		Assert.Equal('╔', snapshot.GetBack(5, 5).Character);  // Top-left corner
-		Assert.Equal('╗', snapshot.GetBack(24, 5).Character); // Top-right corner
+		Assert.Equal(new Rune('╔'), snapshot.GetBack(5, 5).Character);  // Top-left corner
+		Assert.Equal(new Rune('╗'), snapshot.GetBack(24, 5).Character); // Top-right corner
 
 		// Top border contains mixture of '═' (border), '[', ']', '_', '+', 'X' (buttons)
 		// Just verify it's not all spaces and has expected characters
@@ -129,9 +130,9 @@ public class BorderRenderingTests
 		bool hasButtons = false;
 		for (int x = 6; x < 24; x++)
 		{
-			char c = snapshot.GetBack(x, 5).Character;
-			if (c == '═') hasHorizontalBorder = true;
-			if (c == '[' || c == ']' || c == '_' || c == '+' || c == 'X') hasButtons = true;
+			var c = snapshot.GetBack(x, 5).Character;
+			if (c == new Rune('═')) hasHorizontalBorder = true;
+			if (c == new Rune('[') || c == new Rune(']') || c == new Rune('_') || c == new Rune('+') || c == new Rune('X')) hasButtons = true;
 		}
 		Assert.True(hasHorizontalBorder, "Top border should contain horizontal border characters");
 		Assert.True(hasButtons, "Top border should contain control buttons");
@@ -165,8 +166,8 @@ public class BorderRenderingTests
 		// Check vertical border characters (excluding corners)
 		for (int y = 6; y < 14; y++)
 		{
-			Assert.Equal('║', snapshot.GetBack(5, y).Character);  // Left edge
-			Assert.Equal('║', snapshot.GetBack(24, y).Character); // Right edge
+			Assert.Equal(new Rune('║'), snapshot.GetBack(5, y).Character);  // Left edge
+			Assert.Equal(new Rune('║'), snapshot.GetBack(24, y).Character); // Right edge
 		}
 	}
 
@@ -200,7 +201,7 @@ public class BorderRenderingTests
 		for (int x = 6; x < 44; x++)
 		{
 			var cell = snapshot.GetBack(x, 5);
-			if (cell.Character == 'M' || cell.Character == 'y' || cell.Character == 'W')
+			if (cell.Character == new Rune('M') || cell.Character == new Rune('y') || cell.Character == new Rune('W'))
 			{
 				foundTitle = true;
 				break;
@@ -235,7 +236,7 @@ public class BorderRenderingTests
 
 		// Border should be present (active border color is theme-dependent)
 		var topLeft = snapshot.GetBack(5, 5);
-		Assert.Equal('┌', topLeft.Character);
+		Assert.Equal(new Rune('┌'), topLeft.Character);
 		// Color will be the active border color from theme (encoded in ANSI)
 		Assert.NotEmpty(topLeft.AnsiEscape);
 	}
@@ -277,7 +278,7 @@ public class BorderRenderingTests
 		Assert.NotNull(snapshot);
 
 		var window1TopLeft = snapshot.GetBack(5, 5);
-		Assert.Equal('┌', window1TopLeft.Character);
+		Assert.Equal(new Rune('┌'), window1TopLeft.Character);
 		// Inactive window should still have a border (with ANSI color)
 		Assert.NotEmpty(window1TopLeft.AnsiEscape);
 	}
@@ -307,10 +308,10 @@ public class BorderRenderingTests
 		Assert.NotNull(snapshot);
 
 		// Rounded corners
-		Assert.Equal('╭', snapshot.GetBack(5, 5).Character);  // Top-left
-		Assert.Equal('╮', snapshot.GetBack(29, 5).Character); // Top-right
-		Assert.Equal('╰', snapshot.GetBack(5, 14).Character); // Bottom-left
-		Assert.Equal('╯', snapshot.GetBack(29, 14).Character); // Bottom-right
+		Assert.Equal(new Rune('╭'), snapshot.GetBack(5, 5).Character);  // Top-left
+		Assert.Equal(new Rune('╮'), snapshot.GetBack(29, 5).Character); // Top-right
+		Assert.Equal(new Rune('╰'), snapshot.GetBack(5, 14).Character); // Bottom-left
+		Assert.Equal(new Rune('╯'), snapshot.GetBack(29, 14).Character); // Bottom-right
 	}
 
 	[Fact]
@@ -365,13 +366,13 @@ public class BorderRenderingTests
 		Assert.NotNull(snapshot);
 
 		// Window 1 should have single line border
-		Assert.Equal('┌', snapshot.GetBack(5, 5).Character);
+		Assert.Equal(new Rune('┌'), snapshot.GetBack(5, 5).Character);
 
 		// Window 2 should have double line border
-		Assert.Equal('╔', snapshot.GetBack(30, 5).Character);
+		Assert.Equal(new Rune('╔'), snapshot.GetBack(30, 5).Character);
 
 		// Window 3 should have rounded border
-		Assert.Equal('╭', snapshot.GetBack(55, 5).Character);
+		Assert.Equal(new Rune('╭'), snapshot.GetBack(55, 5).Character);
 	}
 
 	[Fact]
@@ -404,8 +405,8 @@ public class BorderRenderingTests
 		for (int x = 35; x < 44; x++)
 		{
 			var cell = snapshot.GetBack(x, 5);
-			if (cell.Character == '[' || cell.Character == '_' ||
-			    cell.Character == '+' || cell.Character == 'X' || cell.Character == ']')
+			if (cell.Character == new Rune('[') || cell.Character == new Rune('_') ||
+			    cell.Character == new Rune('+') || cell.Character == new Rune('X') || cell.Character == new Rune(']'))
 			{
 				foundButtons = true;
 				break;
@@ -439,12 +440,12 @@ public class BorderRenderingTests
 		Assert.NotNull(snapshot);
 
 		// Extract top border line
-		var topBorderChars = new List<char>();
+		var topBorderSb = new System.Text.StringBuilder();
 		for (int x = 5; x < 55; x++)
 		{
-			topBorderChars.Add(snapshot.GetBack(x, 5).Character);
+			topBorderSb.Append(snapshot.GetBack(x, 5).Character.ToString());
 		}
-		var topBorder = new string(topBorderChars.ToArray());
+		var topBorder = topBorderSb.ToString();
 
 		// Should contain all three control buttons: [_] [+] [X]
 		Assert.Contains("[_]", topBorder);
@@ -496,12 +497,12 @@ public class BorderRenderingTests
 		var window2LeftBorder = snapshot.GetBack(15, 15); // Left border of window2
 
 		// Window2 has double-line border (active), so left border should be '║'
-		Assert.Equal('║', window2LeftBorder.Character);
+		Assert.Equal(new Rune('║'), window2LeftBorder.Character);
 
 		// Check window1's right border at x=29 (should be visible where window2 doesn't cover)
 		// This position is NOT covered by window2
 		var window1RightBorder = snapshot.GetBack(29, 11);
-		Assert.Equal('│', window1RightBorder.Character); // Window1's single-line right border
+		Assert.Equal(new Rune('│'), window1RightBorder.Character); // Window1's single-line right border
 	}
 
 	[Fact]
@@ -541,7 +542,7 @@ public class BorderRenderingTests
 
 		// Check window2's LEFT border at x=15, y=15 (overlaps window1)
 		var beforeChar = snapshot1.GetBack(15, 15).Character;
-		Assert.Equal('║', beforeChar); // Window2's double-line left border
+		Assert.Equal(new Rune('║'), beforeChar); // Window2's double-line left border
 
 		// Act - Bring window1 to front
 		system.WindowStateService.BringToFront(window1);
@@ -556,8 +557,8 @@ public class BorderRenderingTests
 		var afterChar = snapshot2.GetBack(15, 15).Character;
 
 		// Should NOT be window2's double border anymore
-		Assert.NotEqual('║', afterChar);
-		Assert.NotEqual('═', afterChar);
+		Assert.NotEqual(new Rune('║'), afterChar);
+		Assert.NotEqual(new Rune('═'), afterChar);
 	}
 
 	[Fact]
@@ -602,13 +603,13 @@ public class BorderRenderingTests
 
 		// Check overlap region (25, 18) - should now show window1's rounded border
 		var cell = snapshot.GetBack(25, 18);
-		bool isRoundedBorder = cell.Character == '│' || cell.Character == '─' ||
-		                       cell.Character == '╭' || cell.Character == '╮' ||
-		                       cell.Character == '╰' || cell.Character == '╯';
+		bool isRoundedBorder = cell.Character == new Rune('│') || cell.Character == new Rune('─') ||
+		                       cell.Character == new Rune('╭') || cell.Character == new Rune('╮') ||
+		                       cell.Character == new Rune('╰') || cell.Character == new Rune('╯');
 
 		// Should see window1's border or content (not window2's single border)
-		bool notSingleCorner = cell.Character != '┌' && cell.Character != '┐' &&
-		                       cell.Character != '└' && cell.Character != '┘';
+		bool notSingleCorner = cell.Character != new Rune('┌') && cell.Character != new Rune('┐') &&
+		                       cell.Character != new Rune('└') && cell.Character != new Rune('┘');
 		Assert.True(notSingleCorner, $"Expected window1 (rounded) on top, but got single border char: {cell.Character}");
 	}
 
@@ -740,14 +741,14 @@ public class BorderRenderingTests
 			var cell = snapshot.GetBack(x, y);
 
 			// Should NOT be window1's single border characters
-			bool notSingleBorder = cell.Character != '┌' && cell.Character != '┐' &&
-			                       cell.Character != '└' && cell.Character != '┘' &&
-			                       cell.Character != '│' && cell.Character != '─';
+			bool notSingleBorder = cell.Character != new Rune('┌') && cell.Character != new Rune('┐') &&
+			                       cell.Character != new Rune('└') && cell.Character != new Rune('┘') &&
+			                       cell.Character != new Rune('│') && cell.Character != new Rune('─');
 
 			Assert.True(notSingleBorder ||
-			           cell.Character == '║' || cell.Character == '═' ||
-			           cell.Character == '╔' || cell.Character == '╗' ||
-			           cell.Character == '╚' || cell.Character == '╝',
+			           cell.Character == new Rune('║') || cell.Character == new Rune('═') ||
+			           cell.Character == new Rune('╔') || cell.Character == new Rune('╗') ||
+			           cell.Character == new Rune('╚') || cell.Character == new Rune('╝'),
 			           $"At ({x},{y}): Expected window2 (double border) on top, got: {cell.Character}");
 		}
 	}
@@ -779,12 +780,12 @@ public class BorderRenderingTests
 
 		// Bottom-right should show resize handle '◢' instead of corner character
 		var bottomRight = snapshot.GetBack(34, 14);
-		Assert.Equal('◢', bottomRight.Character);
+		Assert.Equal(new Rune('◢'), bottomRight.Character);
 
 		// Other corners should still be normal border characters
-		Assert.Equal('╔', snapshot.GetBack(5, 5).Character);   // Top-left
-		Assert.Equal('╗', snapshot.GetBack(34, 5).Character);  // Top-right
-		Assert.Equal('╚', snapshot.GetBack(5, 14).Character);  // Bottom-left
+		Assert.Equal(new Rune('╔'), snapshot.GetBack(5, 5).Character);   // Top-left
+		Assert.Equal(new Rune('╗'), snapshot.GetBack(34, 5).Character);  // Top-right
+		Assert.Equal(new Rune('╚'), snapshot.GetBack(5, 14).Character);  // Bottom-left
 	}
 
 	[Fact]
@@ -812,10 +813,10 @@ public class BorderRenderingTests
 		Assert.NotNull(snapshot);
 
 		// All corners should be normal border characters (no resize handle)
-		Assert.Equal('┌', snapshot.GetBack(5, 5).Character);   // Top-left
-		Assert.Equal('┐', snapshot.GetBack(34, 5).Character);  // Top-right
-		Assert.Equal('└', snapshot.GetBack(5, 14).Character);  // Bottom-left
-		Assert.Equal('┘', snapshot.GetBack(34, 14).Character); // Bottom-right (NOT '◢')
+		Assert.Equal(new Rune('┌'), snapshot.GetBack(5, 5).Character);   // Top-left
+		Assert.Equal(new Rune('┐'), snapshot.GetBack(34, 5).Character);  // Top-right
+		Assert.Equal(new Rune('└'), snapshot.GetBack(5, 14).Character);  // Bottom-left
+		Assert.Equal(new Rune('┘'), snapshot.GetBack(34, 14).Character); // Bottom-right (NOT '◢')
 	}
 
 	[Fact]
@@ -857,10 +858,10 @@ public class BorderRenderingTests
 
 		// Resizable window should have resize handle in bottom-right
 		var resizableBottomRight = snapshot.GetBack(29, 14);
-		Assert.Equal('◢', resizableBottomRight.Character);
+		Assert.Equal(new Rune('◢'), resizableBottomRight.Character);
 
 		// Non-resizable window should have normal corner in bottom-right
 		var nonResizableBottomRight = snapshot.GetBack(59, 14);
-		Assert.Equal('┘', nonResizableBottomRight.Character);
+		Assert.Equal(new Rune('┘'), nonResizableBottomRight.Character);
 	}
 }

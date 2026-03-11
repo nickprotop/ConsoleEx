@@ -3,6 +3,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -113,7 +114,7 @@ public class DebugSimultaneousUpdates
 		_output.WriteLine($"    Character at (40,{moving.Top - 1}): '{lineAbove}'");
 		_output.WriteLine($"    Expected: 'B' (background content)");
 
-		Assert.Equal('B', exposedChar);
+		Assert.Equal(new Rune('B'), exposedChar);
 	}
 
 	[Fact]
@@ -202,6 +203,6 @@ public class DebugSimultaneousUpdates
 		_output.WriteLine($"\n  Line ABOVE new moving position y={moving.Top - 1}:");
 		_output.WriteLine($"    Character: '{charAbove}' (expected 'B' - THIS WAS THE BUG!)");
 
-		Assert.Equal('B', charAbove);
+		Assert.Equal(new Rune('B'), charAbove);
 	}
 }

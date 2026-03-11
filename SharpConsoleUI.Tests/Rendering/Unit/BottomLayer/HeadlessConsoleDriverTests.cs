@@ -2,6 +2,7 @@ using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.BottomLayer;
 
@@ -33,7 +34,7 @@ public class HeadlessConsoleDriverTests
 		// Assert
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
-		Assert.Equal('A', snapshot.GetBack(10, 5).Character);
+		Assert.Equal(new Rune('A'), snapshot.GetBack(10, 5).Character);
 	}
 
 	[Fact]
@@ -54,8 +55,8 @@ public class HeadlessConsoleDriverTests
 
 		var cellR = snapshot.GetBack(10, 5);
 		var cellG = snapshot.GetBack(11, 5);
-		Assert.Equal('R', cellR.Character);
-		Assert.Equal('G', cellG.Character);
+		Assert.Equal(new Rune('R'), cellR.Character);
+		Assert.Equal(new Rune('G'), cellG.Character);
 		Assert.NotEqual(cellR.AnsiEscape, cellG.AnsiEscape);
 
 		// Red cell should contain red RGB values
@@ -114,13 +115,13 @@ public class HeadlessConsoleDriverTests
 		for (int x = 5; x < 15; x++)
 		{
 			var cell = snapshot.GetBack(x, 10);
-			Assert.Equal('#', cell.Character);
+			Assert.Equal(new Rune('#'), cell.Character);
 			_output.WriteLine($"Cell ({x}, 10): '{cell.Character}' ANSI: {cell.AnsiEscape}");
 		}
 
 		// Cell before and after should NOT be '#'
-		Assert.NotEqual('#', snapshot.GetBack(4, 10).Character);
-		Assert.NotEqual('#', snapshot.GetBack(15, 10).Character);
+		Assert.NotEqual(new Rune('#'), snapshot.GetBack(4, 10).Character);
+		Assert.NotEqual(new Rune('#'), snapshot.GetBack(15, 10).Character);
 	}
 
 	[Fact]
@@ -177,8 +178,8 @@ public class HeadlessConsoleDriverTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('#', snapshot.GetBack(150, 5).Character);
-		Assert.Equal('#', snapshot.GetBack(199, 5).Character);
+		Assert.Equal(new Rune('#'), snapshot.GetBack(150, 5).Character);
+		Assert.Equal(new Rune('#'), snapshot.GetBack(199, 5).Character);
 	}
 
 	[Fact]
@@ -203,11 +204,11 @@ public class HeadlessConsoleDriverTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('H', snapshot.GetBack(20, 10).Character);
-		Assert.Equal('E', snapshot.GetBack(21, 10).Character);
-		Assert.Equal('L', snapshot.GetBack(22, 10).Character);
-		Assert.Equal('L', snapshot.GetBack(23, 10).Character);
-		Assert.Equal('O', snapshot.GetBack(24, 10).Character);
+		Assert.Equal(new Rune('H'), snapshot.GetBack(20, 10).Character);
+		Assert.Equal(new Rune('E'), snapshot.GetBack(21, 10).Character);
+		Assert.Equal(new Rune('L'), snapshot.GetBack(22, 10).Character);
+		Assert.Equal(new Rune('L'), snapshot.GetBack(23, 10).Character);
+		Assert.Equal(new Rune('O'), snapshot.GetBack(24, 10).Character);
 	}
 
 	[Fact]
@@ -232,8 +233,8 @@ public class HeadlessConsoleDriverTests
 		var cellA = snapshot.GetBack(30, 15);
 		var cellB = snapshot.GetBack(31, 15);
 
-		Assert.Equal('A', cellA.Character);
-		Assert.Equal('B', cellB.Character);
+		Assert.Equal(new Rune('A'), cellA.Character);
+		Assert.Equal(new Rune('B'), cellB.Character);
 		// Different colors should produce different ANSI
 		Assert.NotEqual(cellA.AnsiEscape, cellB.AnsiEscape);
 	}
@@ -260,9 +261,9 @@ public class HeadlessConsoleDriverTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('C', snapshot.GetBack(50, 20).Character);
-		Assert.Equal('D', snapshot.GetBack(51, 20).Character);
-		Assert.Equal('E', snapshot.GetBack(52, 20).Character);
+		Assert.Equal(new Rune('C'), snapshot.GetBack(50, 20).Character);
+		Assert.Equal(new Rune('D'), snapshot.GetBack(51, 20).Character);
+		Assert.Equal(new Rune('E'), snapshot.GetBack(52, 20).Character);
 	}
 
 	[Fact]
@@ -285,12 +286,12 @@ public class HeadlessConsoleDriverTests
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		Assert.NotNull(snapshot);
 
-		Assert.Equal('X', snapshot.GetBack(10, 10).Character);
-		Assert.Equal('Y', snapshot.GetBack(11, 10).Character);
-		Assert.Equal('Z', snapshot.GetBack(12, 10).Character);
+		Assert.Equal(new Rune('X'), snapshot.GetBack(10, 10).Character);
+		Assert.Equal(new Rune('Y'), snapshot.GetBack(11, 10).Character);
+		Assert.Equal(new Rune('Z'), snapshot.GetBack(12, 10).Character);
 		// Positions 3-4 should be padding spaces
-		Assert.Equal(' ', snapshot.GetBack(13, 10).Character);
-		Assert.Equal(' ', snapshot.GetBack(14, 10).Character);
+		Assert.Equal(new Rune(' '), snapshot.GetBack(13, 10).Character);
+		Assert.Equal(new Rune(' '), snapshot.GetBack(14, 10).Character);
 	}
 
 	[Fact]

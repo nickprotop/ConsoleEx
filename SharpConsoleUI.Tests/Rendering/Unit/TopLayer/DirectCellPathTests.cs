@@ -4,6 +4,7 @@ using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Spectre.Console;
 using Xunit;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -44,12 +45,12 @@ public class DirectCellPathTests
 
 		// Assert - first row should contain "ABCDE" followed by spaces
 		Assert.NotNull(buffer);
-		Assert.Equal('A', buffer.GetCell(0, 0).Character);
-		Assert.Equal('B', buffer.GetCell(1, 0).Character);
-		Assert.Equal('C', buffer.GetCell(2, 0).Character);
-		Assert.Equal('D', buffer.GetCell(3, 0).Character);
-		Assert.Equal('E', buffer.GetCell(4, 0).Character);
-		Assert.Equal(' ', buffer.GetCell(5, 0).Character);
+		Assert.Equal(new Rune('A'), buffer.GetCell(0, 0).Character);
+		Assert.Equal(new Rune('B'), buffer.GetCell(1, 0).Character);
+		Assert.Equal(new Rune('C'), buffer.GetCell(2, 0).Character);
+		Assert.Equal(new Rune('D'), buffer.GetCell(3, 0).Character);
+		Assert.Equal(new Rune('E'), buffer.GetCell(4, 0).Character);
+		Assert.Equal(new Rune(' '), buffer.GetCell(5, 0).Character);
 	}
 
 	[Fact]
@@ -78,7 +79,7 @@ public class DirectCellPathTests
 
 		var buffer1 = window.EnsureContentReady();
 		Assert.NotNull(buffer1);
-		Assert.Equal('F', buffer1.GetCell(0, 0).Character);
+		Assert.Equal(new Rune('F'), buffer1.GetCell(0, 0).Character);
 
 		// Act - add new content and invalidate
 		window.ClearControls();
@@ -88,7 +89,7 @@ public class DirectCellPathTests
 
 		// Assert - buffer should have new content
 		Assert.NotNull(buffer2);
-		Assert.Equal('S', buffer2.GetCell(0, 0).Character);
+		Assert.Equal(new Rune('S'), buffer2.GetCell(0, 0).Character);
 	}
 
 	[Fact]
@@ -118,9 +119,9 @@ public class DirectCellPathTests
 		// With title bar, content starts at row Top+1 (border) + DesktopUpperLeft.Y
 		int contentX = 6; // Left + 1 (border)
 		int contentY = 4 + system.DesktopUpperLeft.Y; // Top + 1 (border) + desktop offset
-		Assert.Equal('X', snapshot.GetBack(contentX, contentY).Character);
-		Assert.Equal('Y', snapshot.GetBack(contentX + 1, contentY).Character);
-		Assert.Equal('Z', snapshot.GetBack(contentX + 2, contentY).Character);
+		Assert.Equal(new Rune('X'), snapshot.GetBack(contentX, contentY).Character);
+		Assert.Equal(new Rune('Y'), snapshot.GetBack(contentX + 1, contentY).Character);
+		Assert.Equal(new Rune('Z'), snapshot.GetBack(contentX + 2, contentY).Character);
 	}
 
 	[Fact]
@@ -148,8 +149,8 @@ public class DirectCellPathTests
 
 		int contentX = 6;
 		int contentY = 4 + system.DesktopUpperLeft.Y;
-		Assert.Equal('R', snapshot.GetBack(contentX, contentY).Character);
-		Assert.Equal('G', snapshot.GetBack(contentX + 1, contentY).Character);
+		Assert.Equal(new Rune('R'), snapshot.GetBack(contentX, contentY).Character);
+		Assert.Equal(new Rune('G'), snapshot.GetBack(contentX + 1, contentY).Character);
 
 		// Verify ANSI escape strings contain different color codes (red vs green)
 		var cellR = snapshot.GetBack(contentX, contentY);
@@ -191,6 +192,6 @@ public class DirectCellPathTests
 		// Buffer should also be populated
 		var buffer = window.ContentBuffer;
 		Assert.NotNull(buffer);
-		Assert.Equal('H', buffer.GetCell(0, 0).Character);
+		Assert.Equal(new Rune('H'), buffer.GetCell(0, 0).Character);
 	}
 }

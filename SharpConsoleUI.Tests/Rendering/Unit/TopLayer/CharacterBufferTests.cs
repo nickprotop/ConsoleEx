@@ -9,6 +9,7 @@
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Layout;
 using Xunit;
+using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -40,7 +41,7 @@ public class CharacterBufferTests
 
 		// Assert
 		var cell = buffer.GetCell(5, 5);
-		Assert.Equal('X', cell.Character);
+		Assert.Equal(new Rune('X'), cell.Character);
 		Assert.Equal(Color.Red, cell.Foreground);
 		Assert.Equal(Color.Blue, cell.Background);
 	}
@@ -56,11 +57,11 @@ public class CharacterBufferTests
 		buffer.WriteString(5, 3, text, Color.White, Color.Black);
 
 		// Assert
-		Assert.Equal('H', buffer.GetCell(5, 3).Character);
-		Assert.Equal('e', buffer.GetCell(6, 3).Character);
-		Assert.Equal('l', buffer.GetCell(7, 3).Character);
-		Assert.Equal('l', buffer.GetCell(8, 3).Character);
-		Assert.Equal('o', buffer.GetCell(9, 3).Character);
+		Assert.Equal(new Rune('H'), buffer.GetCell(5, 3).Character);
+		Assert.Equal(new Rune('e'), buffer.GetCell(6, 3).Character);
+		Assert.Equal(new Rune('l'), buffer.GetCell(7, 3).Character);
+		Assert.Equal(new Rune('l'), buffer.GetCell(8, 3).Character);
+		Assert.Equal(new Rune('o'), buffer.GetCell(9, 3).Character);
 	}
 
 	[Fact]
@@ -75,10 +76,10 @@ public class CharacterBufferTests
 		buffer.WriteStringClipped(5, 3, text, Color.White, Color.Black, clipRect);
 
 		// Assert - Only "Hello" should be written (5 chars)
-		Assert.Equal('H', buffer.GetCell(5, 3).Character);
-		Assert.Equal('o', buffer.GetCell(9, 3).Character);
+		Assert.Equal(new Rune('H'), buffer.GetCell(5, 3).Character);
+		Assert.Equal(new Rune('o'), buffer.GetCell(9, 3).Character);
 		// "World" should not be written
-		Assert.NotEqual('W', buffer.GetCell(10, 3).Character);
+		Assert.NotEqual(new Rune('W'), buffer.GetCell(10, 3).Character);
 	}
 
 	[Fact]
@@ -92,9 +93,9 @@ public class CharacterBufferTests
 		buffer.FillRect(rect, '#', Color.Yellow, Color.Green);
 
 		// Assert - Check corners and middle
-		Assert.Equal('#', buffer.GetCell(5, 3).Character); // Top-left
-		Assert.Equal('#', buffer.GetCell(14, 6).Character); // Bottom-right
-		Assert.Equal('#', buffer.GetCell(10, 5).Character); // Middle
+		Assert.Equal(new Rune('#'), buffer.GetCell(5, 3).Character); // Top-left
+		Assert.Equal(new Rune('#'), buffer.GetCell(14, 6).Character); // Bottom-right
+		Assert.Equal(new Rune('#'), buffer.GetCell(10, 5).Character); // Middle
 		Assert.Equal(Color.Yellow, buffer.GetCell(10, 5).Foreground);
 		Assert.Equal(Color.Green, buffer.GetCell(10, 5).Background);
 	}
@@ -111,7 +112,7 @@ public class CharacterBufferTests
 
 		// Assert
 		var cell = buffer.GetCell(5, 5);
-		Assert.Equal(' ', cell.Character);
+		Assert.Equal(new Rune(' '), cell.Character);
 		Assert.Equal(Color.Black, cell.Background);
 	}
 
@@ -127,7 +128,7 @@ public class CharacterBufferTests
 		// Assert
 		for (int x = 5; x < 15; x++)
 		{
-			Assert.Equal('─', buffer.GetCell(x, 5).Character);
+			Assert.Equal(new Rune('─'), buffer.GetCell(x, 5).Character);
 		}
 	}
 
@@ -143,7 +144,7 @@ public class CharacterBufferTests
 		// Assert
 		for (int y = 2; y < 8; y++)
 		{
-			Assert.Equal('│', buffer.GetCell(5, y).Character);
+			Assert.Equal(new Rune('│'), buffer.GetCell(5, y).Character);
 		}
 	}
 
@@ -159,16 +160,16 @@ public class CharacterBufferTests
 		buffer.DrawBox(rect, boxChars, Color.White, Color.Black);
 
 		// Assert - Check corners
-		Assert.Equal(boxChars.TopLeft, buffer.GetCell(5, 3).Character);
-		Assert.Equal(boxChars.TopRight, buffer.GetCell(14, 3).Character);
-		Assert.Equal(boxChars.BottomLeft, buffer.GetCell(5, 7).Character);
-		Assert.Equal(boxChars.BottomRight, buffer.GetCell(14, 7).Character);
+		Assert.Equal(new Rune(boxChars.TopLeft), buffer.GetCell(5, 3).Character);
+		Assert.Equal(new Rune(boxChars.TopRight), buffer.GetCell(14, 3).Character);
+		Assert.Equal(new Rune(boxChars.BottomLeft), buffer.GetCell(5, 7).Character);
+		Assert.Equal(new Rune(boxChars.BottomRight), buffer.GetCell(14, 7).Character);
 
 		// Check edges
-		Assert.Equal(boxChars.Horizontal, buffer.GetCell(10, 3).Character); // Top
-		Assert.Equal(boxChars.Horizontal, buffer.GetCell(10, 7).Character); // Bottom
-		Assert.Equal(boxChars.Vertical, buffer.GetCell(5, 5).Character); // Left
-		Assert.Equal(boxChars.Vertical, buffer.GetCell(14, 5).Character); // Right
+		Assert.Equal(new Rune(boxChars.Horizontal), buffer.GetCell(10, 3).Character); // Top
+		Assert.Equal(new Rune(boxChars.Horizontal), buffer.GetCell(10, 7).Character); // Bottom
+		Assert.Equal(new Rune(boxChars.Vertical), buffer.GetCell(5, 5).Character); // Left
+		Assert.Equal(new Rune(boxChars.Vertical), buffer.GetCell(14, 5).Character); // Right
 	}
 
 	[Fact]
@@ -208,7 +209,7 @@ public class CharacterBufferTests
 		// Assert - Should include our modifications
 		Assert.True(changes.Count >= 2);
 		var change1 = changes.First(c => c.X == 3 && c.Y == 4);
-		Assert.Equal('A', change1.Cell.Character);
+		Assert.Equal(new Rune('A'), change1.Cell.Character);
 		Assert.Equal(Color.Red, change1.Cell.Foreground);
 	}
 
@@ -227,7 +228,7 @@ public class CharacterBufferTests
 		Assert.Equal(20, buffer.Height);
 		// Content should still be there
 		var cell = buffer.GetCell(5, 5);
-		Assert.Equal('X', cell.Character);
+		Assert.Equal(new Rune('X'), cell.Character);
 		Assert.Equal(Color.Red, cell.Foreground);
 	}
 
@@ -278,11 +279,11 @@ public class CharacterBufferTests
 
 		// Assert
 		// Inside cleared region
-		Assert.Equal(' ', buffer.GetCell(7, 5).Character);
+		Assert.Equal(new Rune(' '), buffer.GetCell(7, 5).Character);
 		Assert.Equal(Color.Red, buffer.GetCell(7, 5).Background);
 
 		// Outside cleared region (should still have X)
-		Assert.Equal('X', buffer.GetCell(2, 2).Character);
-		Assert.Equal('X', buffer.GetCell(15, 7).Character);
+		Assert.Equal(new Rune('X'), buffer.GetCell(2, 2).Character);
+		Assert.Equal(new Rune('X'), buffer.GetCell(15, 7).Character);
 	}
 }
