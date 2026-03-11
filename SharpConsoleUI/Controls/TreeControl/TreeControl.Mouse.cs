@@ -240,8 +240,33 @@ namespace SharpConsoleUI.Controls
 						result = true;
 					}
 				}
+				// Handle scrollbar press (Button1Pressed on scrollbar only)
+				else if (mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Pressed))
+				{
+					if (!HasFocus && CanFocusWithMouse)
+						SetFocus(true, FocusReason.Mouse);
+
+					int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
+					int effectiveVis = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+					var (_, trackHeight, thumbY, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
+						sbContentHeight, _flattenedNodes.Count, effectiveVis, _scrollOffset);
+					int relY = args.Position.Y - Margin.Top;
+					int maxOffset = Math.Max(0, _flattenedNodes.Count - effectiveVis);
+					var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
+					switch (zone)
+					{
+						case ScrollbarHitZone.Thumb:
+							_isScrollbarDragging = true;
+							_scrollbarDragStartY = args.Position.Y;
+							_scrollbarDragStartOffset = _scrollOffset;
+							break;
+					}
+					Container?.Invalidate(true);
+					args.Handled = true;
+					result = true;
+				}
 				// Handle mouse click - select node
-				else if (args.HasFlag(MouseFlags.Button1Clicked) || args.HasFlag(MouseFlags.Button1Pressed))
+				else if (args.HasFlag(MouseFlags.Button1Clicked))
 				{
 					// Set focus on click
 					if (!HasFocus && CanFocusWithMouse)
