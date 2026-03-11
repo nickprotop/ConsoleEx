@@ -29,7 +29,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Pipe border — │ text │ on a single line.</summary>
 		Pipe,
 		/// <summary>Full box border — ┌──┐ / │text│ / └──┘ across 3 lines.</summary>
-		Full
+		Full,
+		/// <summary>Rounded box border — ╭──╮ / │text│ / ╰──╯ across 3 lines.</summary>
+		Rounded
 	}
 
 	/// <summary>
@@ -69,7 +71,7 @@ namespace SharpConsoleUI.Controls
 
 		private int GetButtonHeight()
 		{
-			return _borderStyle == ButtonBorderStyle.Full ? 3 : 1;
+			return _borderStyle is ButtonBorderStyle.Full or ButtonBorderStyle.Rounded ? 3 : 1;
 		}
 
 		/// <inheritdoc/>
@@ -402,32 +404,30 @@ namespace SharpConsoleUI.Controls
 				if (leftFillWidth > 0)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, leftFillWidth, 1), foregroundColor, windowBackground, preserveBg);
 
-				if (_borderStyle == ButtonBorderStyle.Full)
+				if (_borderStyle is ButtonBorderStyle.Full or ButtonBorderStyle.Rounded)
 				{
+					var box = _borderStyle == ButtonBorderStyle.Rounded ? BoxChars.Rounded : BoxChars.Single;
 					if (row == 0)
 					{
-						// Top border: ┌──┐
-						buffer.SetCell(bx, y, BoxChars.Single.TopLeft, borderFg, backgroundColor);
+						buffer.SetCell(bx, y, box.TopLeft, borderFg, backgroundColor);
 						for (int x = 1; x < buttonWidth - 1; x++)
-							buffer.SetCell(bx + x, y, BoxChars.Single.Horizontal, borderFg, backgroundColor);
-						buffer.SetCell(bx + buttonWidth - 1, y, BoxChars.Single.TopRight, borderFg, backgroundColor);
+							buffer.SetCell(bx + x, y, box.Horizontal, borderFg, backgroundColor);
+						buffer.SetCell(bx + buttonWidth - 1, y, box.TopRight, borderFg, backgroundColor);
 					}
 					else if (row == 2)
 					{
-						// Bottom border: └──┘
-						buffer.SetCell(bx, y, BoxChars.Single.BottomLeft, borderFg, backgroundColor);
+						buffer.SetCell(bx, y, box.BottomLeft, borderFg, backgroundColor);
 						for (int x = 1; x < buttonWidth - 1; x++)
-							buffer.SetCell(bx + x, y, BoxChars.Single.Horizontal, borderFg, backgroundColor);
-						buffer.SetCell(bx + buttonWidth - 1, y, BoxChars.Single.BottomRight, borderFg, backgroundColor);
+							buffer.SetCell(bx + x, y, box.Horizontal, borderFg, backgroundColor);
+						buffer.SetCell(bx + buttonWidth - 1, y, box.BottomRight, borderFg, backgroundColor);
 					}
 					else
 					{
-						// Middle row: │ text │
-						buffer.SetCell(bx, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+						buffer.SetCell(bx, y, box.Vertical, borderFg, backgroundColor);
 						string padded = $" {new string(' ', leftInnerPad)}{text}{new string(' ', rightInnerPad)} ";
 						var cells = Parsing.MarkupParser.Parse(padded, foregroundColor, backgroundColor);
 						buffer.WriteCellsClipped(bx + 1, y, cells, clipRect);
-						buffer.SetCell(bx + buttonWidth - 1, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+						buffer.SetCell(bx + buttonWidth - 1, y, box.Vertical, borderFg, backgroundColor);
 					}
 				}
 				else if (_borderStyle == ButtonBorderStyle.Pipe)

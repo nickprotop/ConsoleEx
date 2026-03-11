@@ -12,8 +12,6 @@ public static class LauncherWindow
         "[bold]Welcome to SharpConsoleUI[/]",
         "",
         "Select a demo from the tree to see its description.",
-        "",
-        "[dim]Press Enter to launch a demo.[/]"
     };
 
     public static Window Create(ConsoleWindowSystem ws)
@@ -26,10 +24,22 @@ public static class LauncherWindow
 
         BuildDemoTree(demoTree);
 
-        var detailPane = Controls.Markup()
+        var detailMarkup = Controls.Markup()
             .AddLines(DetailPlaceholder.ToArray())
             .WithMargin(1, 1, 1, 1)
             .Build();
+
+        var launchButton = Controls.Button()
+            .WithText("  Launch Demo  ")
+            .WithMargin(1, 1, 0, 0)
+            .WithBorder(ButtonBorderStyle.Rounded)
+            .Build();
+
+        launchButton.Visible = false;
+
+        var detailPane = new ScrollablePanelControl();
+        detailPane.AddControl(detailMarkup);
+        detailPane.AddControl(launchButton);
 
         // Update detail pane when tree selection changes
         demoTree.SelectedNodeChanged += (sender, args) =>
@@ -38,9 +48,19 @@ public static class LauncherWindow
             {
                 var info = GetDemoInfo(args.Node.Text);
                 if (info != null)
-                    detailPane.SetContent(info);
+                {
+                    detailMarkup.SetContent(info);
+                    launchButton.Visible = true;
+                }
+                else
+                {
+                    launchButton.Visible = false;
+                }
             }
         };
+
+        // Launch demo on button click
+        launchButton.Click += (sender, btn) => LaunchSelectedDemo(ws, demoTree);
 
         // Launch demo on double-click / Enter
         demoTree.NodeActivated += (sender, args) =>
@@ -161,8 +181,6 @@ public static class LauncherWindow
                 "  - TreeControl, MultilineEditControl",
                 "  - SplitterControl, HorizontalGridControl",
                 "  - ButtonControl, MarkupControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "File Explorer" => new List<string>
             {
@@ -174,8 +192,6 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - TreeControl, ListControl",
                 "  - SplitterControl, HorizontalGridControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Multi-Tab Demo" => new List<string>
             {
@@ -187,8 +203,6 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - TabControl, MarkupControl",
                 "  - ScrollablePanelControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Interactive Demo" => new List<string>
             {
@@ -199,8 +213,6 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - MarkupControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Dropdown" => new List<string>
             {
@@ -211,8 +223,6 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - DropdownControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "List View" => new List<string>
             {
@@ -223,8 +233,6 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - ListControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Table" => new List<string>
             {
@@ -235,8 +243,6 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - TableControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "DataGrid" => new List<string>
             {
@@ -252,8 +258,6 @@ public static class LauncherWindow
                 "  - Tab/arrows for cell navigation",
                 "  - Drag column borders to resize",
                 "  - Smooth scrollbar dragging",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Nerd Fonts" => new List<string>
             {
@@ -264,9 +268,7 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - MarkupControl, HorizontalGridControl",
-                "  - NerdFontHelper, Icons",
-                "",
-                "[green]\\[Enter] Launch Demo[/]"
+                "  - NerdFontHelper, Icons"
             },
             "Markup Syntax" => new List<string>
             {
@@ -279,8 +281,6 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - MarkupControl, ScrollablePanelControl",
                 "  - RuleControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Data Binding" => new List<string>
             {
@@ -298,8 +298,6 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - ProgressBarControl, MarkupControl",
                 "  - CheckboxControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Graphs & Charts" => new List<string>
             {
@@ -311,8 +309,6 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - SparklineControl (Block, Braille, Bidirectional)",
                 "  - BarGraphControl, ProgressBarControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Gradients" => new List<string>
             {
@@ -325,8 +321,6 @@ public static class LauncherWindow
                 "  - Gradient markup: spectrum, warm, cool, custom",
                 "  - Background gradient with direction toggle",
                 "  - Decorative gradient bars",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Animations" => new List<string>
             {
@@ -339,8 +333,6 @@ public static class LauncherWindow
                 "  - Fade in/out animations",
                 "  - Slide from all four directions",
                 "  - 6 easing functions (Linear to Elastic)",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Image Rendering" => new List<string>
             {
@@ -353,8 +345,6 @@ public static class LauncherWindow
                 "  - Rainbow bars, checkerboard, shapes",
                 "  - Scale modes: Fit, Fill, Stretch, None",
                 "  - ImageControl with PixelBuffer source",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Image Viewer" => new List<string>
             {
@@ -370,8 +360,6 @@ public static class LauncherWindow
                 "  - Resizable window with live rescaling",
                 "",
                 "[dim]Powered by SixLabors.ImageSharp[/]",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Built-in Dialogs" => new List<string>
             {
@@ -385,8 +373,6 @@ public static class LauncherWindow
                 "  - ButtonControl, MarkupControl",
                 "  - FileDialogs, AboutDialog, SettingsDialog",
                 "  - PerformanceDialog, ThemeSelectorDialog",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Digital Clock" => new List<string>
             {
@@ -397,8 +383,6 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - FigleControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Log Viewer" => new List<string>
             {
@@ -409,8 +393,6 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - LogViewerControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Notifications" => new List<string>
             {
@@ -423,8 +405,6 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - ButtonControl, MarkupControl",
                 "  - NotificationStateService",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "System Info" => new List<string>
             {
@@ -435,8 +415,6 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - MarkupControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Terminal" => new List<string>
             {
@@ -447,8 +425,6 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - TerminalControl (PTY)",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             "Welcome Banner" => new List<string>
             {
@@ -458,8 +434,6 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - FigleControl, MarkupControl",
-                "",
-                "[green][[Enter]] Launch Demo[/]"
             },
             _ => null
         };
