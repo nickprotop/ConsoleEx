@@ -174,12 +174,13 @@ namespace SharpConsoleUI.Controls
 				// Reserve arrow positions so thumb never overlaps them
 				int arrowSlots = effectiveViewport >= 3 ? 2 : 0;
 				int thumbTrackHeight = effectiveViewport - arrowSlots;
-				vThumbHeight = Math.Max(1, (int)(thumbTrackHeight * ((double)effectiveViewport / Math.Max(1, totalWrappedLineCount))));
+				vThumbHeight = Math.Clamp((int)(thumbTrackHeight * ((double)effectiveViewport / Math.Max(1, totalWrappedLineCount))), 1, thumbTrackHeight);
 				vThumbPos = arrowSlots > 0 ? 1 : 0; // start after top arrow
 				if (totalWrappedLineCount > effectiveViewport)
 				{
+					int maxThumbPos = thumbTrackHeight - vThumbHeight;
 					double scrollRatio = (double)_verticalScrollOffset / (totalWrappedLineCount - effectiveViewport);
-					vThumbPos += (int)Math.Round((thumbTrackHeight - vThumbHeight) * scrollRatio);
+					vThumbPos += Math.Min((int)Math.Round(maxThumbPos * scrollRatio), maxThumbPos);
 				}
 			}
 
@@ -509,12 +510,12 @@ namespace SharpConsoleUI.Controls
 					// Reserve arrow positions so thumb never overlaps them
 					int hArrowSlots = effectiveWidth >= 3 ? 2 : 0;
 					int hThumbTrackWidth = effectiveWidth - hArrowSlots;
-					int thumbWidth = Math.Max(1, (hThumbTrackWidth * hThumbTrackWidth) / Math.Max(1, maxLineLength));
+					int thumbWidth = Math.Clamp((hThumbTrackWidth * hThumbTrackWidth) / Math.Max(1, maxLineLength), 1, hThumbTrackWidth);
 					int thumbPos = hArrowSlots > 0 ? 1 : 0;
 					if (maxLineLength > effectiveWidth)
 					{
 						int maxThumbPos = hThumbTrackWidth - thumbWidth;
-						thumbPos += (int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - effectiveWidth) * maxThumbPos);
+						thumbPos += Math.Min((int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - effectiveWidth) * maxThumbPos), maxThumbPos);
 					}
 
 					for (int x = 0; x < effectiveWidth; x++)
@@ -616,12 +617,12 @@ namespace SharpConsoleUI.Controls
 			// Reserve arrow positions so thumb never overlaps them
 			int arrowSlots = effectiveViewport >= 3 ? 2 : 0;
 			int thumbTrackHeight = effectiveViewport - arrowSlots;
-			int thumbHeight = Math.Max(1, (thumbTrackHeight * thumbTrackHeight) / Math.Max(1, totalLines));
+			int thumbHeight = Math.Clamp((int)(thumbTrackHeight * ((double)effectiveViewport / Math.Max(1, totalLines))), 1, thumbTrackHeight);
 			int thumbY = arrowSlots > 0 ? 1 : 0;
 			if (totalLines > effectiveViewport)
 			{
 				int maxThumbPos = thumbTrackHeight - thumbHeight;
-				thumbY += (int)Math.Round((double)_verticalScrollOffset / (totalLines - effectiveViewport) * maxThumbPos);
+				thumbY += Math.Min((int)Math.Round((double)_verticalScrollOffset / (totalLines - effectiveViewport) * maxThumbPos), maxThumbPos);
 			}
 			return (effectiveViewport, thumbY, thumbHeight);
 		}
@@ -636,12 +637,12 @@ namespace SharpConsoleUI.Controls
 			// Reserve arrow positions so thumb never overlaps them
 			int arrowSlots = _effectiveWidth >= 3 ? 2 : 0;
 			int thumbTrackWidth = _effectiveWidth - arrowSlots;
-			int thumbWidth = Math.Max(1, (thumbTrackWidth * thumbTrackWidth) / Math.Max(1, maxLineLength));
+			int thumbWidth = Math.Clamp((thumbTrackWidth * thumbTrackWidth) / Math.Max(1, maxLineLength), 1, thumbTrackWidth);
 			int thumbX = arrowSlots > 0 ? 1 : 0;
 			if (maxLineLength > _effectiveWidth)
 			{
 				int maxThumbPos = thumbTrackWidth - thumbWidth;
-				thumbX += (int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - _effectiveWidth) * maxThumbPos);
+				thumbX += Math.Min((int)Math.Round((double)_horizontalScrollOffset / (maxLineLength - _effectiveWidth) * maxThumbPos), maxThumbPos);
 			}
 			return (_effectiveWidth, thumbX, thumbWidth);
 		}

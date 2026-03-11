@@ -59,10 +59,11 @@ namespace SharpConsoleUI.Helpers
 			if (thumbTrackHeight <= 0) return (trackTop, trackHeight, 0, trackHeight);
 
 			double viewportRatio = (double)visibleItems / totalItems;
-			int thumbHeight = Math.Max(1, (int)(thumbTrackHeight * viewportRatio));
+			int thumbHeight = Math.Clamp((int)(thumbTrackHeight * viewportRatio), 1, thumbTrackHeight);
 			double scrollRatio = (double)scrollOffset / Math.Max(1, totalItems - visibleItems);
 			int thumbY = arrowSlots > 0 ? 1 : 0; // start after top arrow
-			thumbY += (int)((thumbTrackHeight - thumbHeight) * scrollRatio);
+			int maxThumbPos = thumbTrackHeight - thumbHeight;
+			thumbY += Math.Min((int)(maxThumbPos * scrollRatio), maxThumbPos);
 
 			return (trackTop, trackHeight, thumbY, thumbHeight);
 		}

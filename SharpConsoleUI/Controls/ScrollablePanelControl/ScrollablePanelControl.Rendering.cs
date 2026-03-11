@@ -201,13 +201,13 @@ namespace SharpConsoleUI.Controls
 			int arrowSlots = scrollbarHeight >= 3 ? 2 : 0;
 			int thumbTrackHeight = scrollbarHeight - arrowSlots;
 			double viewportRatio = (double)_viewportHeight / _contentHeight;
-			int thumbHeight = Math.Max(1, (int)(thumbTrackHeight * viewportRatio));
+			int thumbHeight = Math.Clamp((int)(thumbTrackHeight * viewportRatio), 1, thumbTrackHeight);
 			int thumbY = arrowSlots > 0 ? 1 : 0;
 			if (_contentHeight > _viewportHeight)
 			{
 				double scrollRatio = (double)_verticalScrollOffset / (_contentHeight - _viewportHeight);
 				int maxThumbPos = thumbTrackHeight - thumbHeight;
-				thumbY += (int)Math.Round(maxThumbPos * scrollRatio);
+				thumbY += Math.Min((int)Math.Round(maxThumbPos * scrollRatio), maxThumbPos);
 			}
 
 			return (scrollbarRelX, scrollbarTop, scrollbarHeight, thumbY, thumbHeight);

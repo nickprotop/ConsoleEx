@@ -192,10 +192,11 @@ public partial class TableControl
 		if (thumbTrackHeight <= 0) return (trackTop, trackHeight, 0, trackHeight);
 
 		double viewportRatio = (double)visibleRows / totalRows;
-		int thumbHeight = Math.Max(1, (int)(thumbTrackHeight * viewportRatio));
+		int thumbHeight = Math.Clamp((int)(thumbTrackHeight * viewportRatio), 1, thumbTrackHeight);
 		double scrollRatio = (double)_scrollOffset / Math.Max(1, totalRows - visibleRows);
 		int thumbY = arrowSlots > 0 ? 1 : 0; // start after top arrow
-		thumbY += (int)((thumbTrackHeight - thumbHeight) * scrollRatio);
+		int maxThumbPos = thumbTrackHeight - thumbHeight;
+		thumbY += Math.Min((int)(maxThumbPos * scrollRatio), maxThumbPos);
 
 		return (trackTop, trackHeight, thumbY, thumbHeight);
 	}
@@ -216,11 +217,12 @@ public partial class TableControl
 		if (thumbTrackWidth <= 0) return (trackLeft, trackWidth, 0, trackWidth);
 
 		double viewportRatio = (double)contentAreaWidth / totalColumnsWidth;
-		int thumbWidth = Math.Max(1, (int)(thumbTrackWidth * viewportRatio));
+		int thumbWidth = Math.Clamp((int)(thumbTrackWidth * viewportRatio), 1, thumbTrackWidth);
 		int maxHScroll = totalColumnsWidth - contentAreaWidth;
 		double scrollRatio = maxHScroll > 0 ? (double)_horizontalScrollOffset / maxHScroll : 0;
 		int thumbX = arrowSlots > 0 ? 1 : 0; // start after left arrow
-		thumbX += (int)((thumbTrackWidth - thumbWidth) * scrollRatio);
+		int maxThumbPos = thumbTrackWidth - thumbWidth;
+		thumbX += Math.Min((int)(maxThumbPos * scrollRatio), maxThumbPos);
 
 		return (trackLeft, trackWidth, thumbX, thumbWidth);
 	}
