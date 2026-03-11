@@ -17,14 +17,14 @@
 		<PackageId>SharpConsoleUI</PackageId>
 		<Version>0.0.1</Version>
 		<Authors>Nikolaos Protopapas</Authors>
-		<Description>Multi-window TUI framework for .NET 9. Combines Spectre.Console rich markup with true overlapping windows, per-window threads, and double-buffered rendering. Cross-platform (Windows, Linux, macOS).</Description>
+		<Description>Multi-window TUI framework for .NET 9 with true overlapping windows, 30+ controls, embedded terminal emulator, canvas drawing, native markup rendering, and async per-window threads. Double-buffered rendering with dirty-region tracking. Cross-platform (Windows, Linux, macOS).</Description>
 		<PackageReleaseNotes>Bug fixes and performance improvements</PackageReleaseNotes>
 		<Copyright>Copyright © 2025-2026 Nikolaos Protopapas</Copyright>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageProjectUrl>https://github.com/nickprotop/ConsoleEx</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/nickprotop/ConsoleEx</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
-		<PackageTags>tui terminal-ui console-ui dotnet csharp spectre-console multi-window windowing framework cross-platform linux windows macos</PackageTags>
+		<PackageTags>tui terminal-ui console-ui dotnet csharp multi-window windowing framework cross-platform linux windows macos canvas terminal-emulator</PackageTags>
 		<PackageReadmeFile>nuget.md</PackageReadmeFile>
 		<PackageIcon>icon.png</PackageIcon>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
