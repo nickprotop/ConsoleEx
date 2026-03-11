@@ -14,6 +14,7 @@ namespace SharpConsoleUI.Helpers
 	/// <summary>
 	/// Identifies which part of a scrollbar was hit by a click.
 	/// </summary>
+#pragma warning disable CS1591
 	public enum ScrollbarHitZone
 	{
 		None,
@@ -23,6 +24,7 @@ namespace SharpConsoleUI.Helpers
 		TrackAbove,
 		TrackBelow
 	}
+#pragma warning restore CS1591
 
 	/// <summary>
 	/// Shared scrollbar geometry, drawing, and hit testing logic.

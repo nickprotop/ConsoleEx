@@ -354,6 +354,7 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 		return this;
 	}
 
+	/// <inheritdoc cref="ListControl.AutoHighlightOnFocus"/>
 	public ListBuilder WithAutoHighlightOnFocus(bool enabled = true)
 	{
 		_autoHighlightOnFocus = enabled;

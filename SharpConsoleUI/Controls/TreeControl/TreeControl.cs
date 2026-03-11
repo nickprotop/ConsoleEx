@@ -221,6 +221,7 @@ namespace SharpConsoleUI.Controls
 			set { _selectOnRightClick = value; OnPropertyChanged(); }
 		}
 
+		/// <inheritdoc/>
 		public ScrollbarVisibility ScrollbarVisibility
 		{
 			get => _scrollbarVisibility;
