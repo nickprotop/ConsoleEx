@@ -155,13 +155,31 @@ namespace SharpConsoleUI.Drivers
 			if (!IsValidPosition(x, y))
 				return;
 
+			// Fix wide char pair split: if overwriting a continuation cell, clear its orphaned base.
+			// If overwriting a base cell whose continuation is at x+1, clear the orphaned continuation.
+			if (_backBuffer[x, y].IsWideContinuation && x > 0)
+			{
+				ref var orphanedBase = ref _backBuffer[x - 1, y];
+				orphanedBase.Character = new Rune(' ');
+				orphanedBase.IsWideContinuation = false;
+				orphanedBase.Combiners = null;
+			}
+			if (x + 1 < _width && _backBuffer[x + 1, y].IsWideContinuation)
+			{
+				ref var orphanedCont = ref _backBuffer[x + 1, y];
+				orphanedCont.Character = new Rune(' ');
+				orphanedCont.IsWideContinuation = false;
+				orphanedCont.Combiners = null;
+			}
+
 			string ansi = FormatCellAnsi(fg, bg);
 			ref var cell = ref _backBuffer[x, y];
-			if (cell.Character != character || cell.AnsiEscape != ansi || cell.IsWideContinuation)
+			if (cell.Character != character || cell.AnsiEscape != ansi || cell.IsWideContinuation || cell.Combiners != null)
 			{
 				cell.Character = character;
 				cell.AnsiEscape = ansi;
 				cell.IsWideContinuation = false;
+				cell.Combiners = null;
 			}
 		}
 
@@ -189,15 +207,37 @@ namespace SharpConsoleUI.Drivers
 			if (_options.ClampToWindowWidth)
 				maxWidth = Math.Min(maxWidth, GetCurrentWindowWidth() - x);
 
+			// Fix wide char pair split at left boundary: if the first cell we're overwriting
+			// is a continuation cell, its base cell (to the left) becomes orphaned — clear it.
+			if (x > 0 && _backBuffer[x, y].IsWideContinuation)
+			{
+				ref var orphanedBase = ref _backBuffer[x - 1, y];
+				orphanedBase.Character = new Rune(' ');
+				orphanedBase.IsWideContinuation = false;
+				orphanedBase.Combiners = null;
+			}
+
+			// Fix wide char pair split at right boundary: if the cell just past our fill range
+			// is a continuation cell, its base cell (which we're about to overwrite) is gone — clear it.
+			int rightEdge = x + maxWidth;
+			if (rightEdge < _width && _backBuffer[rightEdge, y].IsWideContinuation)
+			{
+				ref var orphanedCont = ref _backBuffer[rightEdge, y];
+				orphanedCont.Character = new Rune(' ');
+				orphanedCont.IsWideContinuation = false;
+				orphanedCont.Combiners = null;
+			}
+
 			string ansi = FormatCellAnsi(fg, bg);
 			for (int i = 0; i < maxWidth; i++)
 			{
 				ref var cell = ref _backBuffer[x + i, y];
-				if (cell.Character != character || cell.AnsiEscape != ansi || cell.IsWideContinuation)
+				if (cell.Character != character || cell.AnsiEscape != ansi || cell.IsWideContinuation || cell.Combiners != null)
 				{
 					cell.Character = character;
 					cell.AnsiEscape = ansi;
 					cell.IsWideContinuation = false;
+					cell.Combiners = null;
 				}
 			}
 		}
@@ -222,6 +262,27 @@ namespace SharpConsoleUI.Drivers
 			if (_options.ClampToWindowWidth)
 				maxWidth = Math.Min(maxWidth, GetCurrentWindowWidth() - destX);
 
+			// Fix wide char pair split at left boundary: if the first cell we're overwriting
+			// is a continuation cell, its base cell (to the left) becomes orphaned — clear it.
+			if (destX > 0 && _backBuffer[destX, destY].IsWideContinuation)
+			{
+				ref var orphanedBase = ref _backBuffer[destX - 1, destY];
+				orphanedBase.Character = new Rune(' ');
+				orphanedBase.IsWideContinuation = false;
+				orphanedBase.Combiners = null;
+			}
+
+			// Fix wide char pair split at right boundary: if the cell just past our write range
+			// is a continuation cell, its base cell (which we're about to overwrite) is gone — clear it.
+			int rightEdge = destX + maxWidth;
+			if (rightEdge < _width && _backBuffer[rightEdge, destY].IsWideContinuation)
+			{
+				ref var orphanedCont = ref _backBuffer[rightEdge, destY];
+				orphanedCont.Character = new Rune(' ');
+				orphanedCont.IsWideContinuation = false;
+				orphanedCont.Combiners = null;
+			}
+
 			int sourceWidth = source.Width;
 			int sourceHeight = source.Height;
 
@@ -235,11 +296,12 @@ namespace SharpConsoleUI.Drivers
 					var srcCell = source.GetCell(sx, srcY);
 					string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background, srcCell.Decorations);
 
-					if (destCell.Character != srcCell.Character || destCell.AnsiEscape != ansi || destCell.IsWideContinuation != srcCell.IsWideContinuation)
+					if (destCell.Character != srcCell.Character || destCell.AnsiEscape != ansi || destCell.IsWideContinuation != srcCell.IsWideContinuation || destCell.Combiners != srcCell.Combiners)
 					{
 						destCell.Character = srcCell.Character;
 						destCell.AnsiEscape = ansi;
 						destCell.IsWideContinuation = srcCell.IsWideContinuation;
+						destCell.Combiners = srcCell.Combiners;
 					}
 				}
 				else
@@ -247,11 +309,12 @@ namespace SharpConsoleUI.Drivers
 					// Out of bounds: write padding space with fallback background
 					var spaceRune = new Rune(' ');
 					string ansi = FormatCellAnsi(Color.White, fallbackBg);
-					if (destCell.Character != spaceRune || destCell.AnsiEscape != ansi || destCell.IsWideContinuation)
+					if (destCell.Character != spaceRune || destCell.AnsiEscape != ansi || destCell.IsWideContinuation || destCell.Combiners != null)
 					{
 						destCell.Character = spaceRune;
 						destCell.AnsiEscape = ansi;
 						destCell.IsWideContinuation = false;
+						destCell.Combiners = null;
 					}
 				}
 			}
@@ -340,18 +403,28 @@ namespace SharpConsoleUI.Drivers
 					CaptureConsoleBufferSnapshot();
 				}
 
-				// Pre-process: when a continuation cell is dirty but its primary cell isn't,
-				// force the primary cell dirty so the terminal correctly handles the wide char.
-				// Without this, the continuation cell is skipped during output (terminal auto-advances
-				// past it when the wide char is emitted) but if the primary cell wasn't re-emitted,
-				// the display shows stale content at the continuation position.
+				// Pre-process wide character dirty pair coherence.
+				// The terminal treats wide chars as atomic 2-cell units, so when either half
+				// of a pair changes, both must be re-emitted to avoid display corruption.
 				for (int y = 0; y < _height; y++)
 				{
 					for (int x = 1; x < _width; x++)
 					{
 						ref readonly var backCell = ref _backBuffer[x, y];
+
+						// Case 1: Back buffer continuation changed but base cell is clean → force base dirty.
 						if (backCell.IsWideContinuation &&
 							!_frontBuffer[x, y].Equals(backCell) &&
+							_frontBuffer[x - 1, y].Equals(_backBuffer[x - 1, y]))
+						{
+							_frontBuffer[x - 1, y].Reset();
+						}
+
+						// Case 2: Front buffer has a continuation at x but back buffer does NOT.
+						// The terminal still displays the right half of the old wide char.
+						// Force the base cell (x-1) dirty so the wide char is properly replaced.
+						if (_frontBuffer[x, y].IsWideContinuation &&
+							!backCell.IsWideContinuation &&
 							_frontBuffer[x - 1, y].Equals(_backBuffer[x - 1, y]))
 						{
 							_frontBuffer[x - 1, y].Reset();
@@ -653,7 +726,12 @@ namespace SharpConsoleUI.Drivers
 
 				// Skip continuation cells — terminal auto-advances for wide chars
 				if (backCell.IsWideContinuation)
+				{
+					// Safety: emit any combiners attached to continuation cell
+					if (backCell.Combiners != null)
+						builder.Append(backCell.Combiners);
 					continue;
+				}
 
 				// Output ANSI only if it changed
 				if (backCell.AnsiEscape != lastOutputAnsi)
@@ -664,6 +742,8 @@ namespace SharpConsoleUI.Drivers
 
 				// Output character
 				builder.AppendRune(backCell.Character);
+				if (backCell.Combiners != null)
+					builder.Append(backCell.Combiners);
 			}
 
 			// Reset ANSI at end of region
@@ -697,6 +777,9 @@ namespace SharpConsoleUI.Drivers
 					// Skip continuation cells — terminal auto-advances for wide chars
 					if (backCell.IsWideContinuation)
 					{
+						// Safety: emit any combiners attached to continuation cell
+						if (backCell.Combiners != null)
+							builder.Append(backCell.Combiners);
 						lastOutputWasWide = false;
 						continue;
 					}
@@ -736,6 +819,8 @@ namespace SharpConsoleUI.Drivers
 
 					// Always output character
 					builder.AppendRune(backCell.Character);
+					if (backCell.Combiners != null)
+						builder.Append(backCell.Combiners);
 
 					// Track if this was a wide char — terminal advances cursor by 2
 					lastOutputWasWide = x + 1 < maxWidth && _backBuffer[x + 1, y].IsWideContinuation;
@@ -814,12 +899,14 @@ namespace SharpConsoleUI.Drivers
 			public string AnsiEscape;
 			public Rune Character;
 			public bool IsWideContinuation;
+			public string? Combiners;
 
 			public Cell()
 			{
 				AnsiEscape = string.Empty;
 				Character = new Rune(' ');
 				IsWideContinuation = false;
+				Combiners = null;
 			}
 
 			public void CopyFrom(in Cell other)
@@ -827,16 +914,18 @@ namespace SharpConsoleUI.Drivers
 				Character = other.Character;
 				AnsiEscape = other.AnsiEscape;
 				IsWideContinuation = other.IsWideContinuation;
+				Combiners = other.Combiners;
 			}
 
 			public bool Equals(in Cell other)
-				=> Character == other.Character && AnsiEscape == other.AnsiEscape && IsWideContinuation == other.IsWideContinuation;
+				=> Character == other.Character && AnsiEscape == other.AnsiEscape && IsWideContinuation == other.IsWideContinuation && Combiners == other.Combiners;
 
 			public void Reset()
 			{
 				Character = new Rune(' ');
 				AnsiEscape = string.Empty;
 				IsWideContinuation = false;
+				Combiners = null;
 			}
 		}
 	}

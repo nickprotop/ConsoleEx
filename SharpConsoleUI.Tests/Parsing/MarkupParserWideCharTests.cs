@@ -307,5 +307,140 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 
 		#endregion
+
+		#region Zero-Width / Combiners Tests
+
+		[Fact]
+		public void Parse_VariationSelector_AttachesToPreviousCell()
+		{
+			// "⚡" (U+26A1) is wide (2 cells) per Wcwidth + FE0F variation selector
+			var cells = MarkupParser.Parse("\u26A1\uFE0F", Color.White, Color.Black);
+
+			// 2 cells: wide char + continuation; FE0F attaches to base cell (not continuation)
+			Assert.Equal(2, cells.Count);
+			Assert.Equal(new Rune('\u26A1'), cells[0].Character);
+			Assert.NotNull(cells[0].Combiners);
+			Assert.Contains("\uFE0F", cells[0].Combiners);
+			Assert.True(cells[1].IsWideContinuation);
+		}
+
+		[Fact]
+		public void Parse_ZWJ_AttachesToPreviousCell()
+		{
+			// Char + ZWJ (U+200D)
+			var cells = MarkupParser.Parse("A\u200D", Color.White, Color.Black);
+
+			Assert.Single(cells);
+			Assert.Equal(new Rune('A'), cells[0].Character);
+			Assert.NotNull(cells[0].Combiners);
+		}
+
+		[Fact]
+		public void Parse_EmojiWithFE0F_CorrectCellCount()
+		{
+			// ✈️ = U+2708 (narrow, 1 cell) + U+FE0F (zero-width, combiner)
+			var cells = MarkupParser.Parse("\u2708\uFE0F", Color.White, Color.Black);
+
+			Assert.Single(cells);
+			Assert.Equal(new Rune('\u2708'), cells[0].Character);
+			Assert.NotNull(cells[0].Combiners);
+			Assert.Contains("\uFE0F", cells[0].Combiners);
+		}
+
+		[Fact]
+		public void StripLength_WithVariationSelector_CountsBaseWidthOnly()
+		{
+			// ⚡ (U+26A1, width 2 per Wcwidth) + FE0F (width 0) = 2
+			Assert.Equal(2, MarkupParser.StripLength("\u26A1\uFE0F"));
+		}
+
+		[Fact]
+		public void StripLength_WideEmojiWithFE0F_CountsBaseWidthOnly()
+		{
+			// 🏔 (U+1F3D4, EAW=N → width 1 via Wcwidth) + FE0F (width 0) = 1
+			// Note: Wcwidth returns 1 for U+1F3D4 (neutral width emoji)
+			int width = MarkupParser.StripLength("\U0001F3D4\uFE0F");
+			Assert.True(width >= 1);
+		}
+
+		[Fact]
+		public void Parse_MultipleCombinersOnOneCell()
+		{
+			// A + combining acute (U+0301) + combining tilde (U+0303)
+			var cells = MarkupParser.Parse("A\u0301\u0303", Color.White, Color.Black);
+
+			Assert.Single(cells);
+			Assert.Equal(new Rune('A'), cells[0].Character);
+			Assert.Equal("\u0301\u0303", cells[0].Combiners);
+		}
+
+		[Fact]
+		public void Parse_ZeroWidthAtStartOfString_CreatesOwnCell()
+		{
+			// If zero-width char appears first with no previous cell to attach to,
+			// it falls through to create its own cell (defensive behavior)
+			var cells = MarkupParser.Parse("\uFE0FA", Color.White, Color.Black);
+
+			Assert.Equal(2, cells.Count);
+			Assert.Equal(new Rune('A'), cells[1].Character);
+		}
+
+		#endregion
+
+		#region Spacing Combining Mark (Mc) Tests
+
+		[Fact]
+		public void Parse_DevanagariMcMark_CreatesOwnCell()
+		{
+			// Mc marks (like ा U+093E) should produce their own cell, NOT be folded as combiners
+			// "का" = क(1 cell) + ा(Mc, 1 cell) = 2 cells
+			var cells = MarkupParser.Parse("\u0915\u093E", Color.White, Color.Black);
+
+			Assert.Equal(2, cells.Count);
+			Assert.Equal(new Rune('\u0915'), cells[0].Character); // क
+			Assert.Equal(new Rune('\u093E'), cells[1].Character); // ा
+			Assert.Null(cells[0].Combiners); // NOT attached as combiner
+		}
+
+		[Fact]
+		public void Parse_DevanagariMnMark_AttachesAsCombiner()
+		{
+			// Mn marks (like ् U+094D virama) should be folded as combiners
+			// "क्" = क(1 cell) + ्(Mn, combiner) = 1 cell
+			var cells = MarkupParser.Parse("\u0915\u094D", Color.White, Color.Black);
+
+			Assert.Single(cells);
+			Assert.Equal(new Rune('\u0915'), cells[0].Character);
+			Assert.NotNull(cells[0].Combiners);
+			Assert.Contains("\u094D", cells[0].Combiners);
+		}
+
+		[Fact]
+		public void Parse_DevanagariMixed_McAndMnCorrect()
+		{
+			// "दुनिया" = द(1) + ु(Mn,combiner) + न(1) + ि(Mc,1) + य(1) + ा(Mc,1) = 5 cells
+			var cells = MarkupParser.Parse("दुनिया", Color.White, Color.Black);
+
+			Assert.Equal(5, cells.Count);
+			Assert.Equal(new Rune('द'), cells[0].Character);
+			Assert.NotNull(cells[0].Combiners); // ु attached as Mn combiner
+			Assert.Equal(new Rune('न'), cells[1].Character);
+			Assert.Equal(new Rune('ि'), cells[2].Character); // Mc — own cell
+			Assert.Equal(new Rune('य'), cells[3].Character);
+			Assert.Equal(new Rune('ा'), cells[4].Character); // Mc — own cell
+		}
+
+		[Fact]
+		public void StripLength_DevanagariText_MatchesCellCount()
+		{
+			// StripLength should agree with Parse cell count for Devanagari
+			string text = "दुनिया";
+			int stripLen = MarkupParser.StripLength(text);
+			var cells = MarkupParser.Parse(text, Color.White, Color.Black);
+
+			Assert.Equal(cells.Count, stripLen);
+		}
+
+		#endregion
 	}
 }

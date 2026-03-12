@@ -87,9 +87,9 @@ namespace SharpConsoleUI.Tests.Helpers
 			Assert.True(UnicodeWidth.IsWide((char)0x4E00));
 			Assert.True(UnicodeWidth.IsWide((char)0x9FFF));
 
-			// Hangul Syllables: U+AC00 - U+D7AF
+			// Hangul Syllables: U+AC00 - U+D7A3 (last assigned syllable)
 			Assert.True(UnicodeWidth.IsWide((char)0xAC00));
-			Assert.True(UnicodeWidth.IsWide((char)0xD7AF));
+			Assert.True(UnicodeWidth.IsWide((char)0xD7A3));
 
 			// Fullwidth Forms: U+FF01 - U+FF60
 			Assert.True(UnicodeWidth.IsWide((char)0xFF01));
@@ -326,6 +326,153 @@ namespace SharpConsoleUI.Tests.Helpers
 			Assert.True(UnicodeWidth.IsWideRune(new Rune(0x1F5A4)));   // 🖤
 			Assert.True(UnicodeWidth.IsWideRune(new Rune(0x1F6CC)));   // 🛌
 			Assert.True(UnicodeWidth.IsWideRune(new Rune(0x1F7F0)));   // 🟰
+		}
+
+		#endregion
+
+		#region Zero-Width Tests
+
+		[Fact]
+		public void GetRuneWidth_VariationSelector_Returns0()
+		{
+			// U+FE0F Variation Selector-16
+			Assert.Equal(0, UnicodeWidth.GetRuneWidth(new Rune(0xFE0F)));
+		}
+
+		[Fact]
+		public void GetRuneWidth_ZeroWidthJoiner_Returns0()
+		{
+			// U+200D Zero Width Joiner
+			Assert.Equal(0, UnicodeWidth.GetRuneWidth(new Rune(0x200D)));
+		}
+
+		[Fact]
+		public void GetRuneWidth_CombiningMark_Returns0()
+		{
+			// U+0300 Combining Grave Accent
+			Assert.Equal(0, UnicodeWidth.GetRuneWidth(new Rune(0x0300)));
+			// U+0301 Combining Acute Accent
+			Assert.Equal(0, UnicodeWidth.GetRuneWidth(new Rune(0x0301)));
+		}
+
+		[Fact]
+		public void IsZeroWidth_VariationSelector_ReturnsTrue()
+		{
+			Assert.True(UnicodeWidth.IsZeroWidth(new Rune(0xFE0F)));
+		}
+
+		[Fact]
+		public void IsZeroWidth_ZWJ_ReturnsTrue()
+		{
+			Assert.True(UnicodeWidth.IsZeroWidth(new Rune(0x200D)));
+		}
+
+		[Fact]
+		public void IsZeroWidth_AsciiChar_ReturnsFalse()
+		{
+			Assert.False(UnicodeWidth.IsZeroWidth(new Rune('A')));
+		}
+
+		[Fact]
+		public void GetCharWidth_ControlChar_Returns0()
+		{
+			// Tab, null, etc.
+			Assert.Equal(0, UnicodeWidth.GetCharWidth('\0'));
+		}
+
+		[Fact]
+		public void GetStringWidth_WithVariationSelector_ZeroWidthContributes0()
+		{
+			// "⚡" (U+26A1) = 2 (wide per Wcwidth) + FE0F (0) = 2
+			string s = "\u26A1\uFE0F";
+			Assert.Equal(2, UnicodeWidth.GetStringWidth(s));
+		}
+
+		#endregion
+
+		#region Spacing Combining Mark (Mc) Tests
+
+		[Fact]
+		public void GetRuneWidth_DevanagariVowelSignAA_Returns1()
+		{
+			// U+093E DEVANAGARI VOWEL SIGN AA (ा) — category Mc
+			// Wcwidth marks this as zero-width, but Mc marks occupy visual space in terminals
+			Assert.Equal(1, UnicodeWidth.GetRuneWidth(new Rune(0x093E)));
+		}
+
+		[Fact]
+		public void GetRuneWidth_DevanagariVowelSignI_Returns1()
+		{
+			// U+093F DEVANAGARI VOWEL SIGN I (ि) — category Mc
+			Assert.Equal(1, UnicodeWidth.GetRuneWidth(new Rune(0x093F)));
+		}
+
+		[Fact]
+		public void GetRuneWidth_DevanagariVowelSignII_Returns1()
+		{
+			// U+0940 DEVANAGARI VOWEL SIGN II (ी) — category Mc
+			Assert.Equal(1, UnicodeWidth.GetRuneWidth(new Rune(0x0940)));
+		}
+
+		[Fact]
+		public void GetCharWidth_DevanagariMcMark_Returns1()
+		{
+			// U+093E via GetCharWidth path
+			Assert.Equal(1, UnicodeWidth.GetCharWidth((char)0x093E));
+		}
+
+		[Fact]
+		public void IsZeroWidth_DevanagariMcMark_ReturnsFalse()
+		{
+			// Mc marks should NOT be zero-width
+			Assert.False(UnicodeWidth.IsZeroWidth(new Rune(0x093E)));
+			Assert.False(UnicodeWidth.IsZeroWidth(new Rune(0x093F)));
+			Assert.False(UnicodeWidth.IsZeroWidth(new Rune(0x0940)));
+		}
+
+		[Fact]
+		public void GetRuneWidth_DevanagariMnMark_Returns0()
+		{
+			// U+094D DEVANAGARI SIGN VIRAMA — category Mn (Non-spacing Mark)
+			// Mn marks ARE truly zero-width — verify the Mc override doesn't affect them
+			Assert.Equal(0, UnicodeWidth.GetRuneWidth(new Rune(0x094D)));
+		}
+
+		[Fact]
+		public void GetRuneWidth_ThaiCharacters_Returns1()
+		{
+			// U+0E30 THAI CHARACTER SARA A — category Lo (OtherLetter), Wcwidth returns 1
+			Assert.Equal(1, UnicodeWidth.GetRuneWidth(new Rune(0x0E30)));
+			// U+0E32 THAI CHARACTER SARA AA — category Lo (OtherLetter), Wcwidth returns 1
+			Assert.Equal(1, UnicodeWidth.GetRuneWidth(new Rune(0x0E32)));
+		}
+
+		[Fact]
+		public void GetRuneWidth_BengaliMcMark_Returns1()
+		{
+			// U+09BE BENGALI VOWEL SIGN AA — category Mc
+			Assert.Equal(1, UnicodeWidth.GetRuneWidth(new Rune(0x09BE)));
+		}
+
+		[Fact]
+		public void GetRuneWidth_TamilMcMark_Returns1()
+		{
+			// U+0BBE TAMIL VOWEL SIGN AA — category Mc
+			Assert.Equal(1, UnicodeWidth.GetRuneWidth(new Rune(0x0BBE)));
+		}
+
+		[Fact]
+		public void GetStringWidth_DevanagariWord_IncludesMcMarks()
+		{
+			// "दुनिया" = द(1) + ु(Mn,0) + न(1) + ि(Mc,1) + य(1) + ा(Mc,1) = 5
+			Assert.Equal(5, UnicodeWidth.GetStringWidth("दुनिया"));
+		}
+
+		[Fact]
+		public void GetStringWidth_DevanagariWithVirama_MnIsZero()
+		{
+			// "हिन्दी" = ह(1) + ि(Mc,1) + न(1) + ्(Mn,0) + द(1) + ी(Mc,1) = 5
+			Assert.Equal(5, UnicodeWidth.GetStringWidth("हिन्दी"));
 		}
 
 		#endregion

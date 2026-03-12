@@ -98,9 +98,23 @@ namespace SharpConsoleUI.Parsing
 							cells.Add(new Cell('[', currentFg, currentBg, currentDec));
 							foreach (var rune in tagContent.EnumerateRunes())
 							{
-								cells.Add(new Cell(rune, currentFg, currentBg, currentDec));
-								if (IsWideRune(rune))
-									cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+								int runeWidth = GetRuneWidth(rune);
+								if (runeWidth == 0 && cells.Count > 0)
+								{
+									var lastIdx = cells.Count - 1;
+									// Skip past continuation cells to attach to the base cell
+									if (cells[lastIdx].IsWideContinuation && lastIdx > 0)
+										lastIdx--;
+									var lastCell = cells[lastIdx];
+									lastCell.AppendCombiner(rune);
+									cells[lastIdx] = lastCell;
+								}
+								else
+								{
+									cells.Add(new Cell(rune, currentFg, currentBg, currentDec));
+									if (IsWideRune(rune))
+										cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+								}
 							}
 							cells.Add(new Cell(']', currentFg, currentBg, currentDec));
 						}
@@ -131,9 +145,23 @@ namespace SharpConsoleUI.Parsing
 				{
 					if (Rune.TryGetRuneAt(markup, i, out var rune))
 					{
-						cells.Add(new Cell(rune, currentFg, currentBg, currentDec));
-						if (IsWideRune(rune))
-							cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+						int runeWidth = GetRuneWidth(rune);
+						if (runeWidth == 0 && cells.Count > 0)
+						{
+							var lastIdx = cells.Count - 1;
+							// Skip past continuation cells to attach to the base cell
+							if (cells[lastIdx].IsWideContinuation && lastIdx > 0)
+								lastIdx--;
+							var lastCell = cells[lastIdx];
+							lastCell.AppendCombiner(rune);
+							cells[lastIdx] = lastCell;
+						}
+						else
+						{
+							cells.Add(new Cell(rune, currentFg, currentBg, currentDec));
+							if (IsWideRune(rune))
+								cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+						}
 						i += rune.Utf16SequenceLength;
 					}
 					else
@@ -264,6 +292,18 @@ namespace SharpConsoleUI.Parsing
 						i++;
 					}
 				}
+			}
+
+			// Collect trailing zero-width characters (combining marks after last visible char)
+			while (i < len && markup[i] != '[')
+			{
+				if (Rune.TryGetRuneAt(markup, i, out var trailingRune) && GetRuneWidth(trailingRune) == 0)
+				{
+					output.Append(markup.AsSpan(i, trailingRune.Utf16SequenceLength));
+					i += trailingRune.Utf16SequenceLength;
+				}
+				else
+					break;
 			}
 
 			// Close remaining open tags

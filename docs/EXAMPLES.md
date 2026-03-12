@@ -114,6 +114,10 @@ dotnet run --project Examples/DemoApp
 
 **Controls:** Ctrl+O to open demo windows, Alt+1-6 to switch
 
+| Markup, Gradients & International Text | File Explorer, DataGrid & Package Manager |
+|----------------------------------------|--------------------------------------------|
+| ![Markup Demo](images/examples/demoapp-markup.png) | ![Windows Demo](images/examples/demoapp-windows.png) |
+
 ---
 
 ### CanvasDemo

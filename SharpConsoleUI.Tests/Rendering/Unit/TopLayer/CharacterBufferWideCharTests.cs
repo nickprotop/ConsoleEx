@@ -445,4 +445,82 @@ public class CharacterBufferWideCharTests
 		Assert.Equal(new Rune(' '), buffer.GetCell(0, 0).Character);
 		Assert.Equal(new Rune('Z'), buffer.GetCell(1, 0).Character);
 	}
+
+	// --- Zero-Width / Combiners Tests ---
+
+	[Fact]
+	public void WriteString_WithVariationSelector_AttachesToPreviousCell()
+	{
+		var buffer = new CharacterBuffer(20, 5);
+
+		// ⚡ (U+26A1) is wide (2 cols) per Wcwidth + FE0F attaches to base cell (not continuation)
+		buffer.WriteString(0, 0, "\u26A1\uFE0F", Color.White, Color.Black);
+
+		var cell0 = buffer.GetCell(0, 0);
+		Assert.Equal(new Rune('\u26A1'), cell0.Character);
+		// FE0F attaches to base cell (skips past continuation)
+		Assert.NotNull(cell0.Combiners);
+		Assert.Contains("\uFE0F", cell0.Combiners);
+
+		var cell1 = buffer.GetCell(1, 0);
+		Assert.True(cell1.IsWideContinuation);
+	}
+
+	[Fact]
+	public void WriteString_CombiningAccent_AttachesToPreviousCell()
+	{
+		var buffer = new CharacterBuffer(20, 5);
+
+		// "e" + combining acute (U+0301) → "é" displayed, 1 column
+		buffer.WriteString(0, 0, "e\u0301", Color.White, Color.Black);
+
+		var cell0 = buffer.GetCell(0, 0);
+		Assert.Equal(new Rune('e'), cell0.Character);
+		Assert.NotNull(cell0.Combiners);
+		Assert.Contains("\u0301", cell0.Combiners);
+	}
+
+	[Fact]
+	public void WriteString_ZeroWidthAfterWide_AttachesToWideChar()
+	{
+		var buffer = new CharacterBuffer(20, 5);
+
+		// 中 (wide, 2 cols) + FE0F → FE0F attaches to continuation cell (col 1)
+		// Actually: cx goes to 2 after wide, so prevX = 1 (continuation cell)
+		// Let's test with narrow + FE0F first
+		buffer.WriteString(0, 0, "A\uFE0F", Color.White, Color.Black);
+
+		var cell0 = buffer.GetCell(0, 0);
+		Assert.Equal(new Rune('A'), cell0.Character);
+		Assert.NotNull(cell0.Combiners);
+	}
+
+	[Fact]
+	public void WriteStringClipped_WithZeroWidth_AttachesToPreviousCell()
+	{
+		var buffer = new CharacterBuffer(20, 5);
+		var clipRect = new LayoutRect(0, 0, 10, 5);
+
+		// ✈ (U+2708, narrow) + FE0F = 1 column + combiner
+		buffer.WriteStringClipped(0, 0, "\u2708\uFE0F", Color.White, Color.Black, clipRect);
+
+		var cell0 = buffer.GetCell(0, 0);
+		Assert.Equal(new Rune('\u2708'), cell0.Character);
+		Assert.NotNull(cell0.Combiners);
+		Assert.Contains("\uFE0F", cell0.Combiners);
+	}
+
+	[Fact]
+	public void Clear_ResetsCombinersToNull()
+	{
+		var buffer = new CharacterBuffer(20, 5);
+
+		// Use narrow char + combiner so we can check cell 0
+		buffer.WriteString(0, 0, "\u2708\uFE0F", Color.White, Color.Black);
+		Assert.NotNull(buffer.GetCell(0, 0).Combiners);
+
+		buffer.Clear(Color.Black);
+
+		Assert.Null(buffer.GetCell(0, 0).Combiners);
+	}
 }

@@ -104,6 +104,7 @@ public static class LauncherWindow
         controls.AddChild("DataGrid");
         controls.AddChild("Nerd Fonts");
         controls.AddChild("Markup Syntax");
+        controls.AddChild("International & Emoji");
         controls.AddChild("Data Binding");
 
         var dataViz = tree.AddRootNode("Data Visualization");
@@ -148,6 +149,7 @@ public static class LauncherWindow
             "DataGrid" => DataGridWindow.Create(ws),
             "Nerd Fonts" => NerdFontWindow.Create(ws),
             "Markup Syntax" => MarkupSyntaxWindow.Create(ws),
+            "International & Emoji" => InternationalWindow.Create(ws),
             "Data Binding" => DataBindingWindow.Create(ws),
             "Graphs & Charts" => GraphsWindow.Create(ws),
             "Gradients" => GradientDemoWindow.Create(ws),
@@ -294,6 +296,26 @@ public static class LauncherWindow
                 "Demonstrates the rich markup system with colors,",
                 "RGB/hex support, text decorations, backgrounds,",
                 "nested tags, gradients, and escaping.",
+                "",
+                "[dim]Controls used:[/]",
+                "  - MarkupControl, ScrollablePanelControl",
+                "  - RuleControl",
+            },
+            "International & Emoji" => new List<string>
+            {
+                "[bold cyan]International & Emoji Showcase[/]",
+                "",
+                "Demonstrates Unicode support including CJK wide",
+                "characters, surrogate pairs (U+10000+), emoji,",
+                "world scripts, and accented Latin text.",
+                "",
+                "[dim]Features:[/]",
+                "  - CJK ideographs (Chinese, Japanese, Korean)",
+                "  - Surrogate pair characters (CJK Ext B, math, music)",
+                "  - Wide and narrow emoji with markup styling",
+                "  - Arabic, Hebrew, Devanagari, Thai, Georgian, etc.",
+                "  - Flag emoji (regional indicator sequences)",
+                "  - Gradient background + gradient text markup",
                 "",
                 "[dim]Controls used:[/]",
                 "  - MarkupControl, ScrollablePanelControl",

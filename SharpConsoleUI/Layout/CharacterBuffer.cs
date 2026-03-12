@@ -209,13 +209,15 @@ namespace SharpConsoleUI.Layout
 				!cell.Foreground.Equals(foreground) ||
 				!cell.Background.Equals(background) ||
 				cell.Decorations != TextDecoration.None ||
-				cell.IsWideContinuation)
+				cell.IsWideContinuation ||
+				cell.Combiners != null)
 			{
 				cell.Character = character;
 				cell.Foreground = foreground;
 				cell.Background = background;
 				cell.Decorations = TextDecoration.None;
 				cell.IsWideContinuation = false;
+				cell.Combiners = null;
 				cell.Dirty = true;
 
 				ExpandDirtyRegion(x, y);
@@ -237,13 +239,15 @@ namespace SharpConsoleUI.Layout
 				!existing.Foreground.Equals(cell.Foreground) ||
 				!existing.Background.Equals(cell.Background) ||
 				existing.Decorations != cell.Decorations ||
-				existing.IsWideContinuation != cell.IsWideContinuation)
+				existing.IsWideContinuation != cell.IsWideContinuation ||
+				existing.Combiners != cell.Combiners)
 			{
 				existing.Character = cell.Character;
 				existing.Foreground = cell.Foreground;
 				existing.Background = cell.Background;
 				existing.Decorations = cell.Decorations;
 				existing.IsWideContinuation = cell.IsWideContinuation;
+				existing.Combiners = cell.Combiners;
 				existing.Dirty = true;
 
 				ExpandDirtyRegion(x, y);
@@ -264,7 +268,23 @@ namespace SharpConsoleUI.Layout
 			{
 				int runeWidth = UnicodeWidth.GetRuneWidth(rune);
 
-				if (runeWidth == 2)
+				if (runeWidth == 0)
+				{
+					// Zero-width: attach to previous cell as combiner
+					// Skip past continuation cells to find the base cell
+					int prevX = cx - 1;
+					if (prevX >= 0 && prevX < Width && _cells[prevX, y].IsWideContinuation && prevX > 0)
+						prevX--;
+					if (prevX >= 0 && prevX < Width)
+					{
+						ref var prevCell = ref _cells[prevX, y];
+						prevCell.AppendCombiner(rune);
+						prevCell.Dirty = true;
+						ExpandDirtyRegion(prevX, y);
+					}
+					continue;
+				}
+				else if (runeWidth == 2)
 				{
 					// Wide char needs 2 columns
 					if (cx >= 0 && cx + 1 < Width)
@@ -305,7 +325,23 @@ namespace SharpConsoleUI.Layout
 			{
 				int runeWidth = UnicodeWidth.GetRuneWidth(rune);
 
-				if (runeWidth == 2)
+				if (runeWidth == 0)
+				{
+					// Zero-width: attach to previous cell as combiner
+					// Skip past continuation cells to find the base cell
+					int prevX = cx - 1;
+					if (prevX >= 0 && prevX < Width && _cells[prevX, y].IsWideContinuation && prevX > 0)
+						prevX--;
+					if (prevX >= 0 && prevX < Width)
+					{
+						ref var prevCell = ref _cells[prevX, y];
+						prevCell.AppendCombiner(rune);
+						prevCell.Dirty = true;
+						ExpandDirtyRegion(prevX, y);
+					}
+					continue;
+				}
+				else if (runeWidth == 2)
 				{
 					bool firstInClip = cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width;
 					bool secondInClip = cx + 1 >= clipRect.X && cx + 1 < clipRect.Right && cx + 1 >= 0 && cx + 1 < Width;
@@ -615,6 +651,7 @@ namespace SharpConsoleUI.Layout
 					cell.Background = background;
 					cell.Decorations = TextDecoration.None;
 					cell.IsWideContinuation = false;
+					cell.Combiners = null;
 					cell.Dirty = true;
 				}
 			}
@@ -872,7 +909,12 @@ namespace SharpConsoleUI.Layout
 
 					// Skip continuation cells — the terminal auto-advances for wide chars
 					if (cell.IsWideContinuation)
+					{
+						// Safety: emit any combiners attached to continuation cell
+						if (cell.Combiners != null)
+							sb.Append(cell.Combiners);
 						continue;
+					}
 
 					bool fgChanged = lastFg == null || !cell.Foreground.Equals(lastFg.Value);
 					bool bgChanged = lastBg == null || !cell.Background.Equals(lastBg.Value);
@@ -927,6 +969,7 @@ namespace SharpConsoleUI.Layout
 
 					firstCell = false;
 					sb.AppendRune(cell.Character);
+					if (cell.Combiners != null) sb.Append(cell.Combiners);
 				}
 
 				// Reset at end of line

@@ -159,5 +159,71 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 
 		#endregion
+
+		#region Combiners Tests
+
+		[Fact]
+		public void Cell_Combiners_DefaultNull()
+		{
+			var cell = new Cell('A', Color.White, Color.Black);
+			Assert.Null(cell.Combiners);
+		}
+
+		[Fact]
+		public void Cell_AppendCombiner_SingleRune()
+		{
+			var cell = new Cell('A', Color.White, Color.Black);
+			cell.AppendCombiner(new Rune(0xFE0F));
+			Assert.NotNull(cell.Combiners);
+			Assert.Contains("\uFE0F", cell.Combiners);
+		}
+
+		[Fact]
+		public void Cell_AppendCombiner_MultipleTimes()
+		{
+			var cell = new Cell('A', Color.White, Color.Black);
+			cell.AppendCombiner(new Rune(0xFE0F));
+			cell.AppendCombiner(new Rune(0x200D));
+			Assert.Equal("\uFE0F\u200D", cell.Combiners);
+		}
+
+		[Fact]
+		public void Cell_VisuallyEquals_CombinersMatter()
+		{
+			var a = new Cell('A', Color.White, Color.Black);
+			var b = new Cell('A', Color.White, Color.Black);
+			b.AppendCombiner(new Rune(0xFE0F));
+			Assert.False(a.VisuallyEquals(b));
+		}
+
+		[Fact]
+		public void Cell_Equals_CombinersMatter()
+		{
+			var a = new Cell('A', Color.White, Color.Black);
+			a.Dirty = false;
+			var b = new Cell('A', Color.White, Color.Black);
+			b.Dirty = false;
+			b.AppendCombiner(new Rune(0xFE0F));
+			Assert.False(a.Equals(b));
+		}
+
+		[Fact]
+		public void Cell_GetHashCode_CombinersIncluded()
+		{
+			var a = new Cell('A', Color.White, Color.Black);
+			var b = new Cell('A', Color.White, Color.Black);
+			b.AppendCombiner(new Rune(0xFE0F));
+			Assert.NotEqual(a.GetHashCode(), b.GetHashCode());
+		}
+
+		[Fact]
+		public void Cell_ToString_ShowsCombiners()
+		{
+			var cell = new Cell('X', Color.White, Color.Black);
+			cell.AppendCombiner(new Rune(0xFE0F));
+			Assert.Contains("combiners", cell.ToString());
+		}
+
+		#endregion
 	}
 }

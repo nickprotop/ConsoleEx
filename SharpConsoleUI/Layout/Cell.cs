@@ -24,6 +24,7 @@ namespace SharpConsoleUI.Layout
 		public TextDecoration Decorations;
 		public bool Dirty;
 		public bool IsWideContinuation;
+		public string? Combiners;
 
 		/// <summary>
 		/// Creates a new cell with a Rune character.
@@ -106,6 +107,11 @@ namespace SharpConsoleUI.Layout
 			return copy;
 		}
 
+		public void AppendCombiner(Rune r)
+		{
+			Combiners = (Combiners ?? "") + r.ToString();
+		}
+
 		/// <summary>
 		/// Determines whether this cell has the same visual appearance as another.
 		/// Does not compare dirty state.
@@ -115,7 +121,8 @@ namespace SharpConsoleUI.Layout
 			Foreground.Equals(other.Foreground) &&
 			Background.Equals(other.Background) &&
 			Decorations == other.Decorations &&
-			IsWideContinuation == other.IsWideContinuation;
+			IsWideContinuation == other.IsWideContinuation &&
+			Combiners == other.Combiners;
 
 		/// <summary>Determines whether this cell equals another cell.</summary>
 		public bool Equals(Cell other) =>
@@ -124,13 +131,14 @@ namespace SharpConsoleUI.Layout
 			Background.Equals(other.Background) &&
 			Decorations == other.Decorations &&
 			Dirty == other.Dirty &&
-			IsWideContinuation == other.IsWideContinuation;
+			IsWideContinuation == other.IsWideContinuation &&
+			Combiners == other.Combiners;
 
 		/// <summary>Determines whether this cell equals another object.</summary>
 		public override bool Equals(object? obj) => obj is Cell other && Equals(other);
 
 		/// <summary>Gets the hash code for this cell.</summary>
-		public override int GetHashCode() => HashCode.Combine(Character, Foreground, Background, Decorations, Dirty, IsWideContinuation);
+		public override int GetHashCode() => HashCode.Combine(Character, Foreground, Background, Decorations, Dirty, IsWideContinuation, Combiners);
 
 		/// <summary>Equality operator.</summary>
 		public static bool operator ==(Cell left, Cell right) => left.Equals(right);
@@ -142,8 +150,9 @@ namespace SharpConsoleUI.Layout
 		{
 			var dec = Decorations != TextDecoration.None ? $", {Decorations}" : "";
 			var cont = IsWideContinuation ? ", continuation" : "";
+			var comb = Combiners != null ? $", combiners={Combiners.Length}cp" : "";
 			var charDisplay = Character == new Rune(' ') ? "SP" : Character.ToString();
-			return $"Cell('{charDisplay}', {Foreground}, {Background}{dec}{cont}{(Dirty ? ", dirty" : "")})";
+			return $"Cell('{charDisplay}', {Foreground}, {Background}{dec}{cont}{comb}{(Dirty ? ", dirty" : "")})";
 		}
 	}
 }
