@@ -1,3 +1,4 @@
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
@@ -422,7 +423,7 @@ class RainbowAnimationWindow : Window
 						var cell = buffer.GetCell(x, y);
 
 						// Only modify background of empty cells
-						if (cell.Character == ' ')
+						if (cell.Character == new Rune(' '))
 						{
 							// Create wave pattern
 							float wave = (float)Math.Sin((x * 0.2) + (y * 0.3) + _waveOffset) * 0.5f + 0.5f;

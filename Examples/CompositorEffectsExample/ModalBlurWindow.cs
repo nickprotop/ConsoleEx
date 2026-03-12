@@ -1,3 +1,4 @@
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
@@ -93,7 +94,7 @@ public class ModalBlurWindow : Window
 				var cell = originalBuffer.GetCell(x, y);
 
 				// Use lighter character for blur effect
-				char blurChar = cell.Character == ' ' ? ' ' : '░';
+				char blurChar = cell.Character == new Rune(' ') ? ' ' : '░';
 				buffer.SetCell(x, y, blurChar, avgFg, avgBg);
 			}
 		}

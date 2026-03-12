@@ -1,3 +1,4 @@
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
@@ -182,7 +183,7 @@ public class ParticleSystem
 			{
 				var existing = buffer.GetCell(x, y);
 				// Don't overwrite non-space characters (preserve UI)
-				if (existing.Character == ' ')
+				if (existing.Character == new Rune(' '))
 				{
 					buffer.SetCell(x, y, p.Character, p.Color, existing.Background);
 				}
