@@ -294,14 +294,40 @@ namespace SharpConsoleUI.Drivers
 				if (sx >= 0 && sx < sourceWidth && srcY >= 0 && srcY < sourceHeight)
 				{
 					var srcCell = source.GetCell(sx, srcY);
-					string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background, srcCell.Decorations);
 
-					if (destCell.Character != srcCell.Character || destCell.AnsiEscape != ansi || destCell.IsWideContinuation != srcCell.IsWideContinuation || destCell.Combiners != srcCell.Combiners)
+					// Fix clipped wide char at left edge of copy region: if the first source
+					// cell is a continuation, its base is outside our copy range (under another
+					// window). Write a space instead of an orphaned continuation that would be
+					// skipped during rendering, leaving stale terminal content visible.
+					// Also fix clipped wide char at right edge: if this is a wide base
+					// but its continuation would be outside our copy range, write space.
+					bool isOrphanedContinuation = srcCell.IsWideContinuation && i == 0;
+					bool isClippedWideBase = !srcCell.IsWideContinuation &&
+						sx + 1 < sourceWidth && source.GetCell(sx + 1, srcY).IsWideContinuation &&
+						i == maxWidth - 1;
+					if (isOrphanedContinuation || isClippedWideBase)
 					{
-						destCell.Character = srcCell.Character;
-						destCell.AnsiEscape = ansi;
-						destCell.IsWideContinuation = srcCell.IsWideContinuation;
-						destCell.Combiners = srcCell.Combiners;
+						string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background, srcCell.Decorations);
+						var spaceRune = new Rune(' ');
+						if (destCell.Character != spaceRune || destCell.AnsiEscape != ansi || destCell.IsWideContinuation || destCell.Combiners != null)
+						{
+							destCell.Character = spaceRune;
+							destCell.AnsiEscape = ansi;
+							destCell.IsWideContinuation = false;
+							destCell.Combiners = null;
+						}
+					}
+					else
+					{
+						string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background, srcCell.Decorations);
+
+						if (destCell.Character != srcCell.Character || destCell.AnsiEscape != ansi || destCell.IsWideContinuation != srcCell.IsWideContinuation || destCell.Combiners != srcCell.Combiners)
+						{
+							destCell.Character = srcCell.Character;
+							destCell.AnsiEscape = ansi;
+							destCell.IsWideContinuation = srcCell.IsWideContinuation;
+							destCell.Combiners = srcCell.Combiners;
+						}
 					}
 				}
 				else
@@ -733,6 +759,34 @@ namespace SharpConsoleUI.Drivers
 					continue;
 				}
 
+				// Wide char terminal safety: when emitting a wide character, the terminal
+				// auto-advances past the continuation cell at x+1. But if the terminal was
+				// previously showing a different character at x+1 (e.g., a border │), some
+				// terminals don't reliably clear it — the old content persists as a ghost.
+				// Fix: emit a space at x+1 first to explicitly clear the old content, then
+				// reposition cursor back to x before emitting the wide char.
+				bool isWideChar = x + 1 < _width && _backBuffer[x + 1, y].IsWideContinuation;
+				if (isWideChar)
+				{
+					// Check if the terminal (old front buffer, before sync) had something
+					// other than this wide char's continuation at x+1
+					ref var nextFront = ref _frontBuffer[x + 1, y];
+					bool terminalHadDifferentContent = !nextFront.Equals(_backBuffer[x + 1, y]);
+
+					if (terminalHadDifferentContent)
+					{
+						// Emit space at x+1 to clear old terminal content
+						builder.Append(backCell.AnsiEscape);
+						lastOutputAnsi = backCell.AnsiEscape;
+						builder.Append(' ');
+						// Reposition cursor back to x
+						builder.Append($"\x1b[{y + 1};{x + 1}H");
+					}
+
+					// Sync the continuation cell's front buffer now
+					nextFront.CopyFrom(_backBuffer[x + 1, y]);
+				}
+
 				// Output ANSI only if it changed
 				if (backCell.AnsiEscape != lastOutputAnsi)
 				{
@@ -744,6 +798,16 @@ namespace SharpConsoleUI.Drivers
 				builder.AppendRune(backCell.Character);
 				if (backCell.Combiners != null)
 					builder.Append(backCell.Combiners);
+
+				// Skip past continuation cell — we already synced it above
+				if (isWideChar)
+				{
+					// Emit any combiners on the continuation
+					ref readonly var contCell = ref _backBuffer[x + 1, y];
+					if (contCell.Combiners != null)
+						builder.Append(contCell.Combiners);
+					x++; // Skip continuation in loop
+				}
 			}
 
 			// Reset ANSI at end of region
@@ -798,6 +862,28 @@ namespace SharpConsoleUI.Drivers
 						consecutiveUnchanged = 0;
 					}
 
+					// Wide char terminal safety: clear old content at continuation position
+					// before emitting the wide char (see AppendRegionToBuilder for full explanation)
+					bool isWideChar = x + 1 < maxWidth && _backBuffer[x + 1, y].IsWideContinuation;
+					if (isWideChar)
+					{
+						ref var nextFront = ref _frontBuffer[x + 1, y];
+						if (!nextFront.Equals(_backBuffer[x + 1, y]))
+						{
+							// Emit ANSI + space at x+1 to clear old terminal content
+							if (backCell.AnsiEscape != lastOutputAnsi)
+							{
+								builder.Append(backCell.AnsiEscape);
+								lastOutputAnsi = backCell.AnsiEscape;
+							}
+							builder.Append(' ');
+							// Reposition cursor back to x
+							builder.Append($"\x1b[{y + 1};{x + 1}H");
+						}
+						// Sync continuation front buffer
+						nextFront.CopyFrom(_backBuffer[x + 1, y]);
+					}
+
 					// Only output ANSI if it's different from the last one we output
 					if (backCell.AnsiEscape != lastOutputAnsi)
 					{
@@ -823,7 +909,7 @@ namespace SharpConsoleUI.Drivers
 						builder.Append(backCell.Combiners);
 
 					// Track if this was a wide char — terminal advances cursor by 2
-					lastOutputWasWide = x + 1 < maxWidth && _backBuffer[x + 1, y].IsWideContinuation;
+					lastOutputWasWide = isWideChar;
 				}
 				else
 				{
