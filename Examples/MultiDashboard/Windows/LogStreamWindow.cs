@@ -64,7 +64,7 @@ public class LogStreamWindow : IDisposable
                 var level = levels[counter % 4];
                 var message = _logService.GenerateRandomLog();
 
-                _windowSystem.LogService.Log(level, message, "MultiDashboard");
+                _windowSystem?.LogService?.Log(level, message, "MultiDashboard");
 
                 counter++;
                 await Task.Delay(500, ct);
@@ -75,7 +75,7 @@ public class LogStreamWindow : IDisposable
             }
             catch (Exception ex)
             {
-                _windowSystem?.LogService.LogError("Log stream error", ex, "LogStream");
+                _windowSystem?.LogService?.LogError("Log stream error", ex, "LogStream");
             }
         }
     }

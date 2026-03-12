@@ -352,7 +352,7 @@ public class ShortcutsTests
         }
 
         system.WindowStateService.AddWindow(window);
-        window.ScrollToControl(null); // Scroll down
+        window.ScrollOffset = 20; // Scroll down
 
         var homeKey = new ConsoleKeyInfo('\0', ConsoleKey.Home, false, false, false);
         system.InputStateService.EnqueueKey(homeKey);

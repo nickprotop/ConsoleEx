@@ -264,8 +264,7 @@ public class EventCancellationTests
 
         window.Minimize();
 
-        bool keyPressed = false;
-        window.KeyPressed += (s, e) => keyPressed = true;
+        window.KeyPressed += (s, e) => { };
 
         var keyInfo = new ConsoleKeyInfo('X', ConsoleKey.X, false, false, false);
         system.InputStateService.EnqueueKey(keyInfo);
