@@ -822,33 +822,22 @@ namespace SharpConsoleUI.Drivers
 		{
 			try
 			{
-				if (_useDirectAnsi)
+				if (!_useDirectAnsi)
 				{
-					// Unix raw mode: use poll()+read() for proper kernel-level timeout.
-					// Unlike .NET ReadAsync, poll() doesn't block when no data arrives.
+					// Windows: always assume VS16 supported.
+					// Windows Terminal and conhost (Win11+) both render VS16 emoji
+					// as 2 columns. DSR probing via Console.In is unreliable on Windows
+					// because escape sequence responses don't arrive as regular input.
+					TerminalCapabilities.SetVS16Widening(true);
+				}
+				else
+				{
+					// Unix (Linux/macOS): probe via poll()+read() for actual terminal behavior.
 					TerminalRawMode.FlushStdin();
 
 					TerminalCapabilities.Probe(
 						write: text => TerminalRawMode.WriteStdout(text),
 						readByte: () => TerminalRawMode.ReadByteWithTimeout(150));
-				}
-				else
-				{
-					// Windows native console: DSR responses arrive as console input events.
-					// Use Console.In.Read with a polling fallback.
-					TerminalCapabilities.Probe(
-						write: Console.Out.Write,
-						readByte: () =>
-						{
-							var sw = System.Diagnostics.Stopwatch.StartNew();
-							while (sw.ElapsedMilliseconds < 150)
-							{
-								if (Console.KeyAvailable)
-									return Console.In.Read();
-								Thread.Sleep(1);
-							}
-							return -1;
-						});
 				}
 
 				_consoleWindowSystem?.LogService?.Log(
