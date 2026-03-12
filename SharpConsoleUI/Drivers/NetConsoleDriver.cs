@@ -403,6 +403,10 @@ namespace SharpConsoleUI.Drivers
 			// Disable autowrap to prevent terminal scroll when writing to bottom-right corner
 			WriteOutput("\x1b[?7l");
 
+			// Probe terminal VS16 widening support before input loops start.
+			// Uses DSR cursor position query to measure actual emoji width.
+			ProbeTerminalCapabilities();
+
 			_lastConsoleWidth = screenSize.Width;
 			_lastConsoleHeight = screenSize.Height;
 
@@ -807,6 +811,78 @@ namespace SharpConsoleUI.Drivers
 				TerminalRawMode.WriteStdout(text);
 			else
 				Console.Out.Write(text);
+		}
+
+		/// <summary>
+		/// Probes the terminal to detect VS16 emoji widening support.
+		/// Uses DSR cursor position query to measure actual rendering width.
+		/// Must be called after raw/alternate screen setup, before input loops.
+		/// </summary>
+		private void ProbeTerminalCapabilities()
+		{
+			try
+			{
+				if (_useDirectAnsi)
+				{
+					// Unix raw mode: read from tty stream with timeout
+					var ttyStream = TerminalRawMode.TtyInputStream;
+					if (ttyStream == null)
+						return;
+
+					// Flush any pending input before probing
+					TerminalRawMode.FlushStdin();
+
+					TerminalCapabilities.Probe(
+						write: text => TerminalRawMode.WriteStdout(text),
+						readByte: () =>
+						{
+							// Use ReadTimeout via async read with cancellation
+							using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+							try
+							{
+								var buf = new byte[1];
+								var task = ttyStream.ReadAsync(buf, 0, 1, cts.Token);
+								task.Wait(cts.Token);
+								return task.Result > 0 ? buf[0] : -1;
+							}
+							catch
+							{
+								return -1;
+							}
+						});
+				}
+				else
+				{
+					// Windows: use Console.In with timeout
+					TerminalCapabilities.Probe(
+						write: Console.Out.Write,
+						readByte: () =>
+						{
+							// KeyAvailable + ReadKey is unreliable for escape sequences;
+							// use Console.In.Read with a polling timeout
+							var sw = System.Diagnostics.Stopwatch.StartNew();
+							while (sw.ElapsedMilliseconds < 500)
+							{
+								if (Console.KeyAvailable)
+								{
+									int b = Console.In.Read();
+									return b;
+								}
+								Thread.Sleep(5);
+							}
+							return -1;
+						});
+				}
+
+				_consoleWindowSystem?.LogService?.Log(
+					Logging.LogLevel.Debug,
+					$"Terminal VS16 widening: {(TerminalCapabilities.SupportsVS16Widening ? "supported" : "not supported")}",
+					"Capabilities");
+			}
+			catch
+			{
+				// Probe failure is non-fatal — default to modern terminal assumption
+			}
 		}
 
 		[DllImport("kernel32.dll")]
