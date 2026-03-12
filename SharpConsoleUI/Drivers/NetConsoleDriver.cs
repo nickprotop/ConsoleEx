@@ -824,51 +824,28 @@ namespace SharpConsoleUI.Drivers
 			{
 				if (_useDirectAnsi)
 				{
-					// Unix raw mode: read from tty stream with timeout
-					var ttyStream = TerminalRawMode.TtyInputStream;
-					if (ttyStream == null)
-						return;
-
-					// Flush any pending input before probing
+					// Unix raw mode: use poll()+read() for proper kernel-level timeout.
+					// Unlike .NET ReadAsync, poll() doesn't block when no data arrives.
 					TerminalRawMode.FlushStdin();
 
 					TerminalCapabilities.Probe(
 						write: text => TerminalRawMode.WriteStdout(text),
-						readByte: () =>
-						{
-							// Use ReadTimeout via async read with cancellation
-							using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
-							try
-							{
-								var buf = new byte[1];
-								var task = ttyStream.ReadAsync(buf, 0, 1, cts.Token);
-								task.Wait(cts.Token);
-								return task.Result > 0 ? buf[0] : -1;
-							}
-							catch
-							{
-								return -1;
-							}
-						});
+						readByte: () => TerminalRawMode.ReadByteWithTimeout(150));
 				}
 				else
 				{
-					// Windows: use Console.In with timeout
+					// Windows native console: DSR responses arrive as console input events.
+					// Use Console.In.Read with a polling fallback.
 					TerminalCapabilities.Probe(
 						write: Console.Out.Write,
 						readByte: () =>
 						{
-							// KeyAvailable + ReadKey is unreliable for escape sequences;
-							// use Console.In.Read with a polling timeout
 							var sw = System.Diagnostics.Stopwatch.StartNew();
-							while (sw.ElapsedMilliseconds < 500)
+							while (sw.ElapsedMilliseconds < 150)
 							{
 								if (Console.KeyAvailable)
-								{
-									int b = Console.In.Read();
-									return b;
-								}
-								Thread.Sleep(5);
+									return Console.In.Read();
+								Thread.Sleep(1);
 							}
 							return -1;
 						});

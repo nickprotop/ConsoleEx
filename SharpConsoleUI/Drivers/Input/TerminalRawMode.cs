@@ -144,6 +144,46 @@ namespace SharpConsoleUI.Drivers.Input
 		[DllImport("libc", SetLastError = true)]
 		private static extern unsafe int write(int fd, byte* buf, int count);
 
+		[DllImport("libc", SetLastError = true)]
+		private static extern unsafe int read(int fd, byte* buf, int count);
+
+		[StructLayout(LayoutKind.Sequential)]
+		private struct PollFd
+		{
+			public int fd;
+			public short events;
+			public short revents;
+		}
+
+		private const short POLLIN = 0x0001;
+
+		[DllImport("libc", SetLastError = true)]
+		private static extern int poll(ref PollFd fds, int nfds, int timeout);
+
+		/// <summary>
+		/// Reads a single byte from stdin with a timeout using poll() + read().
+		/// Returns -1 on timeout or error. This is the correct way to do
+		/// non-blocking reads on raw file descriptors — unlike .NET's ReadAsync,
+		/// poll() actually respects the timeout at the kernel level.
+		/// </summary>
+		public static int ReadByteWithTimeout(int timeoutMs)
+		{
+			var pfd = new PollFd { fd = StdinFd, events = POLLIN, revents = 0 };
+			int ret = poll(ref pfd, 1, timeoutMs);
+			if (ret <= 0)
+				return -1; // Timeout or error
+
+			if ((pfd.revents & POLLIN) == 0)
+				return -1;
+
+			unsafe
+			{
+				byte b;
+				int n = read(StdinFd, &b, 1);
+				return n == 1 ? b : -1;
+			}
+		}
+
 		// Reusable byte buffer that grows to fit the largest frame output.
 		// Thread safety: only used under _consoleLock in all call sites.
 		[ThreadStatic]
