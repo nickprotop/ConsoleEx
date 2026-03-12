@@ -22,6 +22,7 @@ The rendering engine follows the same architecture as desktop GUI frameworks lik
 - **Rich markup everywhere** — just `[bold red]text[/]` and it works, no complex styling APIs
 - **Any Spectre.Console widget works as a control** — Tables, BarCharts, Trees, Panels — wrap any `IRenderable`
 - **30+ built-in controls** — buttons, lists, trees, tables, text editors, dropdowns, menus, tabs, and more
+- **Full Unicode & emoji support** — CJK, Arabic, Hebrew, Thai, Devanagari, combining marks, variation selectors, ZWJ sequences — accurate wcwidth-based cell measurement
 - **Compositor effects** — PreBufferPaint/PostBufferPaint hooks for custom rendering, transitions, or even games
 - **MVVM-compatible** — all controls implement `INotifyPropertyChanged`; one-way and two-way data binding with `Bind()` / `BindTwoWay()`
 - **Fluent builders** for windows, controls, and layouts
