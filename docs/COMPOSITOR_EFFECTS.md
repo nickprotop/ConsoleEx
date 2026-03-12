@@ -138,6 +138,9 @@ Immutable snapshot of a CharacterBuffer at a point in time.
 public readonly record struct BufferSnapshot(int Width, int Height, Cell[,] Cells)
 {
     public Cell GetCell(int x, int y);
+    // Cell.Character is a Rune (full Unicode scalar value)
+    // Cell.IsWideContinuation marks right-half of wide characters
+    // Cell.Combiners stores zero-width combining marks
 }
 ```
 
@@ -172,6 +175,7 @@ public class MyWindow : Window
             for (int x = 0; x < buffer.Width; x++)
             {
                 var cell = buffer.GetCell(x, y);
+                if (cell.IsWideContinuation) continue; // Skip wide char right-half
                 // Modify cell colors, characters, etc.
                 buffer.SetCell(x, y, cell.Character, modifiedFg, modifiedBg);
             }
@@ -190,14 +194,16 @@ private void TakeScreenshot()
 
     var snapshot = buffer.CreateSnapshot();
 
-    // Convert to text
+    // Convert to text (handles wide chars and Rune encoding)
     var lines = new List<string>();
     for (int y = 0; y < snapshot.Height; y++)
     {
         var sb = new StringBuilder();
         for (int x = 0; x < snapshot.Width; x++)
         {
-            sb.Append(snapshot.GetCell(x, y).Character);
+            var cell = snapshot.GetCell(x, y);
+            if (cell.IsWideContinuation) continue; // Skip continuation cells
+            sb.AppendRune(cell.Character); // Rune → UTF-16 encoding
         }
         lines.Add(sb.ToString());
     }
@@ -245,6 +251,10 @@ private void ApplyBlur(CharacterBuffer buffer, LayoutRect dirtyRegion, LayoutRec
     {
         for (int x = 0; x < buffer.Width; x++)
         {
+            // Skip continuation cells (right half of wide characters)
+            var cell = buffer.GetCell(x, y);
+            if (cell.IsWideContinuation) continue;
+
             var avgFg = AverageColorInRadius(buffer, x, y, radius, c => c.Foreground);
             var avgBg = AverageColorInRadius(buffer, x, y, radius, c => c.Background);
 
@@ -298,7 +308,7 @@ private void DrawFocusGlow(CharacterBuffer buffer, LayoutRect dirtyRegion, Layou
     var bounds = layoutNode.AbsoluteBounds;
     Color glowColor = Color.Cyan;
 
-    // Draw glow border
+    // Draw glow border (skip wide char continuation cells to avoid breaking pairs)
     for (int x = bounds.Left - 1; x <= bounds.Right; x++)
     {
         if (x >= 0 && x < buffer.Width)
@@ -307,14 +317,16 @@ private void DrawFocusGlow(CharacterBuffer buffer, LayoutRect dirtyRegion, Layou
             if (bounds.Top - 1 >= 0)
             {
                 var cell = buffer.GetCell(x, bounds.Top - 1);
-                buffer.SetCell(x, bounds.Top - 1, cell.Character, glowColor, cell.Background);
+                if (!cell.IsWideContinuation)
+                    buffer.SetCell(x, bounds.Top - 1, cell.Character, glowColor, cell.Background);
             }
 
             // Bottom
             if (bounds.Bottom < buffer.Height)
             {
                 var cell = buffer.GetCell(x, bounds.Bottom);
-                buffer.SetCell(x, bounds.Bottom, cell.Character, glowColor, cell.Background);
+                if (!cell.IsWideContinuation)
+                    buffer.SetCell(x, bounds.Bottom, cell.Character, glowColor, cell.Background);
             }
         }
     }
@@ -349,7 +361,9 @@ private void TakeScreenshot()
         var sb = new StringBuilder();
         for (int x = 0; x < snapshot.Width; x++)
         {
-            sb.Append(snapshot.GetCell(x, y).Character);
+            var cell = snapshot.GetCell(x, y);
+            if (cell.IsWideContinuation) continue; // Skip wide char right-half
+            sb.AppendRune(cell.Character); // Rune → proper UTF-16 encoding
         }
         lines.Add(sb.ToString());
     }
@@ -408,7 +422,8 @@ public class CustomCompositor
                 for (int x = 0; x < snapshot.Width; x++)
                 {
                     var cell = snapshot.GetCell(x, y);
-                    if (cell.Character != ' ') // Simple alpha test
+                    if (cell.IsWideContinuation) continue; // Preserve wide char pairs
+                    if (cell.Character != new Rune(' ')) // Simple alpha test
                     {
                         result.SetCell(x, y, cell.Character, cell.Foreground, cell.Background);
                     }
@@ -569,7 +584,33 @@ private void ApplyEffect(CharacterBuffer buffer, LayoutRect dirtyRegion, LayoutR
 }
 ```
 
-### 6. Use StringBuilder for Text Construction
+### 6. Handle Wide Characters in Effects
+
+When iterating over buffer cells in effects, skip `IsWideContinuation` cells to avoid breaking wide character pairs (CJK, emoji). Overwriting a continuation cell without its base cell corrupts the display:
+
+```csharp
+// GOOD: Skip continuation cells
+for (int y = 0; y < buffer.Height; y++)
+{
+    for (int x = 0; x < buffer.Width; x++)
+    {
+        var cell = buffer.GetCell(x, y);
+        if (cell.IsWideContinuation) continue; // Preserve wide char pairs
+        // Apply effect to base cells only
+    }
+}
+
+// BAD: Modifying continuation cells breaks wide characters
+for (int x = 0; x < buffer.Width; x++)
+{
+    var cell = buffer.GetCell(x, y);
+    buffer.SetCell(x, y, '█', cell.Foreground, cell.Background); // Breaks wide chars!
+}
+```
+
+**Note:** `SetCell()` accepts both `char` and `Rune`. When modifying only colors (not the character), consider preserving the original `Rune` from the cell to keep wide characters and combiners intact.
+
+### 7. Use StringBuilder for Text Construction
 
 When converting snapshots to text, use StringBuilder:
 
@@ -708,9 +749,12 @@ namespace SharpConsoleUI.Windows
     public class WindowRenderer
     {
         /// <summary>
-        /// Delegate for buffer post-processing after painting but before ANSI conversion.
+        /// Delegate for buffer post-processing after painting but before
+        /// the buffer is consumed by the console driver.
         /// </summary>
-        /// <param name="buffer">The character buffer that was just painted.</param>
+        /// <param name="buffer">The character buffer that was just painted.
+        /// Cells use Rune (not char) for full Unicode support.
+        /// Check cell.IsWideContinuation to skip wide character continuation cells.</param>
         /// <param name="dirtyRegion">The region that was painted (or full bounds if entire buffer).</param>
         /// <param name="clipRect">The clipping rectangle used during paint.</param>
         public delegate void PostBufferPaintDelegate(
@@ -750,6 +794,17 @@ namespace SharpConsoleUI.Windows
 ```csharp
 namespace SharpConsoleUI.Layout
 {
+    public struct Cell : IEquatable<Cell>
+    {
+        public Rune Character;          // Full Unicode scalar value
+        public Color Foreground;
+        public Color Background;
+        public TextDecoration Decorations;
+        public bool Dirty;
+        public bool IsWideContinuation; // Right half of wide character (CJK, emoji)
+        public string? Combiners;       // Zero-width combining marks
+    }
+
     public class CharacterBuffer
     {
         /// <summary>
@@ -757,25 +812,15 @@ namespace SharpConsoleUI.Layout
         /// </summary>
         public readonly record struct BufferSnapshot(int Width, int Height, Cell[,] Cells)
         {
-            /// <summary>
-            /// Gets the cell at the specified position.
-            /// </summary>
-            /// <exception cref="ArgumentOutOfRangeException">
-            /// Thrown when x or y is outside the buffer bounds.
-            /// </exception>
             public Cell GetCell(int x, int y);
         }
 
-        /// <summary>
-        /// Creates an immutable snapshot of the current buffer state.
-        /// </summary>
-        /// <returns>A deep copy of the buffer as a snapshot.</returns>
-        /// <remarks>
-        /// The snapshot is completely independent of the source buffer and safe for
-        /// concurrent access, serialization, or comparison. Changes to the source
-        /// buffer do not affect the snapshot.
-        /// </remarks>
         public BufferSnapshot CreateSnapshot();
+
+        // Key cell-level methods:
+        public void SetCell(int x, int y, Rune character, Color fg, Color bg);
+        public void SetCell(int x, int y, char character, Color fg, Color bg); // wraps in Rune
+        public void WriteString(int x, int y, string text, Color fg, Color bg);
     }
 }
 ```

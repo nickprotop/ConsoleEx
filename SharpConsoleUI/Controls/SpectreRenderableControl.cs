@@ -531,6 +531,10 @@ namespace SharpConsoleUI.Controls
 			NativeColor currentBg = defaultBg;
 			var isBold = false;
 
+			// Pending cell for VS16 widening: we hold back width-1 cells so that
+			// if VS16 follows, we can widen them before yielding.
+			Cell? pendingCell = null;
+
 			int i = 0;
 			while (i < ansiString.Length)
 			{
@@ -571,9 +575,50 @@ namespace SharpConsoleUI.Controls
 				{
 					if (System.Text.Rune.TryGetRuneAt(ansiString, i, out var rune))
 					{
-						yield return new Cell(rune, currentFg, currentBg);
-						if (Helpers.UnicodeWidth.IsWideRune(rune))
+						int rw = Helpers.UnicodeWidth.GetRuneWidth(rune);
+
+						if (rw == 0)
+						{
+							// Zero-width: check for VS16 widening
+							if (Helpers.UnicodeWidth.IsVS16(rune) && pendingCell != null
+								&& Helpers.UnicodeWidth.IsVs16Widened(pendingCell.Value.Character)
+								&& !Helpers.UnicodeWidth.IsWideRune(pendingCell.Value.Character))
+							{
+								// Widen: yield base cell with VS16 combiner + continuation
+								var widened = pendingCell.Value;
+								widened.AppendCombiner(rune);
+								yield return widened;
+								yield return new Cell(' ', widened.Foreground, widened.Background) { IsWideContinuation = true };
+								pendingCell = null;
+							}
+							else if (pendingCell != null)
+							{
+								// Regular combiner on pending cell — attach and keep pending
+								var p = pendingCell.Value;
+								p.AppendCombiner(rune);
+								pendingCell = p;
+							}
+							// else: no pending cell, ignore stray zero-width
+						}
+						else if (Helpers.UnicodeWidth.IsWideRune(rune))
+						{
+							// Wide char: flush pending, yield wide char + continuation immediately
+							if (pendingCell != null)
+							{
+								yield return pendingCell.Value;
+								pendingCell = null;
+							}
+							yield return new Cell(rune, currentFg, currentBg);
 							yield return new Cell(' ', currentFg, currentBg) { IsWideContinuation = true };
+						}
+						else
+						{
+							// Normal width-1 char: flush previous pending, set new pending
+							if (pendingCell != null)
+								yield return pendingCell.Value;
+							pendingCell = new Cell(rune, currentFg, currentBg);
+						}
+
 						i += rune.Utf16SequenceLength;
 					}
 					else
@@ -582,6 +627,10 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 			}
+
+			// Flush any remaining pending cell
+			if (pendingCell != null)
+				yield return pendingCell.Value;
 		}
 
 		private static void ProcessSgrParams(string paramsStr, ref NativeColor fg, ref NativeColor bg,

@@ -106,8 +106,18 @@ namespace SharpConsoleUI.Parsing
 									if (cells[lastIdx].IsWideContinuation && lastIdx > 0)
 										lastIdx--;
 									var lastCell = cells[lastIdx];
-									lastCell.AppendCombiner(rune);
-									cells[lastIdx] = lastCell;
+									// VS16 widens certain emoji from 1→2 columns
+									if (IsVS16(rune) && IsVs16Widened(lastCell.Character) && !IsWideRune(lastCell.Character))
+									{
+										lastCell.AppendCombiner(rune);
+										cells[lastIdx] = lastCell;
+										cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+									}
+									else
+									{
+										lastCell.AppendCombiner(rune);
+										cells[lastIdx] = lastCell;
+									}
 								}
 								else
 								{
@@ -153,8 +163,18 @@ namespace SharpConsoleUI.Parsing
 							if (cells[lastIdx].IsWideContinuation && lastIdx > 0)
 								lastIdx--;
 							var lastCell = cells[lastIdx];
-							lastCell.AppendCombiner(rune);
-							cells[lastIdx] = lastCell;
+							// VS16 widens certain emoji from 1→2 columns
+							if (IsVS16(rune) && IsVs16Widened(lastCell.Character) && !IsWideRune(lastCell.Character))
+							{
+								lastCell.AppendCombiner(rune);
+								cells[lastIdx] = lastCell;
+								cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+							}
+							else
+							{
+								lastCell.AppendCombiner(rune);
+								cells[lastIdx] = lastCell;
+							}
 						}
 						else
 						{
@@ -216,6 +236,7 @@ namespace SharpConsoleUI.Parsing
 			var output = new System.Text.StringBuilder();
 			var openTags = new Stack<string>();
 			int visibleLen = 0;
+			Rune? lastMeasuredRune = null;
 			int i = 0;
 			int len = markup.Length;
 
@@ -231,6 +252,7 @@ namespace SharpConsoleUI.Parsing
 							break;
 						output.Append("[[");
 						visibleLen += charWidth;
+						lastMeasuredRune = new Rune('[');
 						i += 2;
 						continue;
 					}
@@ -244,6 +266,7 @@ namespace SharpConsoleUI.Parsing
 							break;
 						output.Append(markup[i]);
 						visibleLen += charWidth;
+						lastMeasuredRune = new Rune('[');
 						i++;
 						continue;
 					}
@@ -269,6 +292,7 @@ namespace SharpConsoleUI.Parsing
 						break;
 					output.Append("]]");
 					visibleLen += charWidth;
+					lastMeasuredRune = new Rune(']');
 					i += 2;
 				}
 				else
@@ -276,11 +300,31 @@ namespace SharpConsoleUI.Parsing
 					if (Rune.TryGetRuneAt(markup, i, out var rune))
 					{
 						int charWidth = GetRuneWidth(rune);
+						// VS16 widens certain emoji from 1→2 columns
+						if (IsVS16(rune) && lastMeasuredRune != null && IsVs16Widened(lastMeasuredRune.Value))
+						{
+							if (visibleLen + 1 > maxLength)
+							{
+								// Widening would exceed maxLength — remove the base char
+								// Find and remove the last emitted base rune
+								int baseLen = lastMeasuredRune.Value.Utf16SequenceLength;
+								output.Remove(output.Length - baseLen, baseLen);
+								visibleLen -= GetRuneWidth(lastMeasuredRune.Value);
+								lastMeasuredRune = null;
+								break;
+							}
+							output.Append(markup.AsSpan(i, rune.Utf16SequenceLength));
+							visibleLen += 1;
+							lastMeasuredRune = null;
+							i += rune.Utf16SequenceLength;
+							continue;
+						}
 						// Don't emit a wide char if it would exceed maxLength
 						if (visibleLen + charWidth > maxLength)
 							break;
 						output.Append(markup.AsSpan(i, rune.Utf16SequenceLength));
 						visibleLen += charWidth;
+						if (charWidth > 0) lastMeasuredRune = rune;
 						i += rune.Utf16SequenceLength;
 					}
 					else
@@ -289,6 +333,7 @@ namespace SharpConsoleUI.Parsing
 							break;
 						output.Append(markup[i]);
 						visibleLen++;
+						lastMeasuredRune = null;
 						i++;
 					}
 				}
@@ -299,6 +344,14 @@ namespace SharpConsoleUI.Parsing
 			{
 				if (Rune.TryGetRuneAt(markup, i, out var trailingRune) && GetRuneWidth(trailingRune) == 0)
 				{
+					// If VS16 would widen past maxLength, stop collecting
+					if (IsVS16(trailingRune) && lastMeasuredRune != null && IsVs16Widened(lastMeasuredRune.Value))
+					{
+						if (visibleLen + 1 > maxLength)
+							break;
+						visibleLen += 1;
+						lastMeasuredRune = null;
+					}
 					output.Append(markup.AsSpan(i, trailingRune.Utf16SequenceLength));
 					i += trailingRune.Utf16SequenceLength;
 				}
@@ -796,6 +849,7 @@ namespace SharpConsoleUI.Parsing
 		private static int StripLengthSingleLine(string markup)
 		{
 			int visibleLen = 0;
+			Rune? lastMeasuredRune = null;
 			int i = 0;
 			int len = markup.Length;
 
@@ -807,6 +861,7 @@ namespace SharpConsoleUI.Parsing
 					if (i + 1 < len && markup[i + 1] == '[')
 					{
 						visibleLen += GetCharWidth('[');
+						lastMeasuredRune = new Rune('[');
 						i += 2;
 						continue;
 					}
@@ -817,6 +872,7 @@ namespace SharpConsoleUI.Parsing
 					{
 						// Broken tag — count as literal
 						visibleLen += GetCharWidth('[');
+						lastMeasuredRune = new Rune('[');
 						i++;
 						continue;
 					}
@@ -828,22 +884,36 @@ namespace SharpConsoleUI.Parsing
 					if (i + 1 < len && markup[i + 1] == ']')
 					{
 						visibleLen += GetCharWidth(']');
+						lastMeasuredRune = new Rune(']');
 						i += 2;
 						continue;
 					}
 					visibleLen += GetCharWidth(markup[i]);
+					lastMeasuredRune = new Rune(markup[i]);
 					i++;
 				}
 				else
 				{
 					if (Rune.TryGetRuneAt(markup, i, out var rune))
 					{
-						visibleLen += GetRuneWidth(rune);
+						int rw = GetRuneWidth(rune);
+						// VS16 widens certain emoji from 1→2 columns
+						if (IsVS16(rune) && lastMeasuredRune != null && IsVs16Widened(lastMeasuredRune.Value))
+						{
+							visibleLen += 1;
+							lastMeasuredRune = null;
+						}
+						else
+						{
+							if (rw > 0) lastMeasuredRune = rune;
+							visibleLen += rw;
+						}
 						i += rune.Utf16SequenceLength;
 					}
 					else
 					{
 						visibleLen++;
+						lastMeasuredRune = null;
 						i++;
 					}
 				}

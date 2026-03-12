@@ -324,17 +324,64 @@ namespace SharpConsoleUI.Controls
 
 					// Paint header text
 					int headerX = startX;
+					Cell? pendingHeaderCell = null;
+					int pendingHeaderX = 0;
 					foreach (var rune in _header.EnumerateRunes())
 					{
 						int rw = Helpers.UnicodeWidth.GetRuneWidth(rune);
-						if (headerX >= clipRect.X && headerX < clipRect.Right && headerX < bounds.Right)
+						// VS16 widens certain emoji from 1→2 columns
+						if (rw == 0 && Helpers.UnicodeWidth.IsVS16(rune) && pendingHeaderCell != null
+							&& Helpers.UnicodeWidth.IsVs16Widened(pendingHeaderCell.Value.Character)
+							&& !Helpers.UnicodeWidth.IsWideRune(pendingHeaderCell.Value.Character))
 						{
-							Color cellBg = preserveBg ? buffer.GetCell(headerX, currentY).Background : bgColor;
-							buffer.SetCell(headerX, currentY, new Cell(rune, defaultFg, cellBg));
-							if (rw == 2 && headerX + 1 < bounds.Right)
-								buffer.SetCell(headerX + 1, currentY, new Cell(' ', defaultFg, cellBg) { IsWideContinuation = true });
+							// Widen: emit base cell + continuation
+							var widened = pendingHeaderCell.Value;
+							widened.AppendCombiner(rune);
+							if (pendingHeaderX >= clipRect.X && pendingHeaderX < clipRect.Right && pendingHeaderX < bounds.Right)
+								buffer.SetCell(pendingHeaderX, currentY, widened);
+							if (headerX >= clipRect.X && headerX < clipRect.Right && headerX < bounds.Right)
+							{
+								Color cellBg = preserveBg ? buffer.GetCell(headerX, currentY).Background : widened.Background;
+								buffer.SetCell(headerX, currentY, new Cell(' ', defaultFg, cellBg) { IsWideContinuation = true });
+							}
+							headerX++;
+							pendingHeaderCell = null;
+							continue;
 						}
-						headerX += rw;
+						// Flush pending cell
+						if (pendingHeaderCell != null)
+						{
+							if (pendingHeaderX >= clipRect.X && pendingHeaderX < clipRect.Right && pendingHeaderX < bounds.Right)
+								buffer.SetCell(pendingHeaderX, currentY, pendingHeaderCell.Value);
+							pendingHeaderCell = null;
+						}
+						if (rw == 0)
+						{
+							// Other zero-width: attach as combiner to last painted cell
+							continue;
+						}
+						Color hCellBg = preserveBg ? buffer.GetCell(headerX, currentY).Background : bgColor;
+						if (rw == 2)
+						{
+							if (headerX >= clipRect.X && headerX < clipRect.Right && headerX < bounds.Right)
+								buffer.SetCell(headerX, currentY, new Cell(rune, defaultFg, hCellBg));
+							if (headerX + 1 < bounds.Right)
+								buffer.SetCell(headerX + 1, currentY, new Cell(' ', defaultFg, hCellBg) { IsWideContinuation = true });
+							headerX += 2;
+						}
+						else
+						{
+							// Hold width-1 cell as pending for potential VS16 widening
+							pendingHeaderCell = new Cell(rune, defaultFg, hCellBg);
+							pendingHeaderX = headerX;
+							headerX += 1;
+						}
+					}
+					// Flush last pending header cell
+					if (pendingHeaderCell != null)
+					{
+						if (pendingHeaderX >= clipRect.X && pendingHeaderX < clipRect.Right && pendingHeaderX < bounds.Right)
+							buffer.SetCell(pendingHeaderX, currentY, pendingHeaderCell.Value);
 					}
 				}
 				currentY++;
@@ -377,6 +424,7 @@ namespace SharpConsoleUI.Controls
 					{
 						currentX++; // Space before percentage
 						string percentText = GetPercentageText();
+						// Percentage text is always ASCII, no VS16 handling needed
 						foreach (var rune in percentText.EnumerateRunes())
 						{
 							int rw = Helpers.UnicodeWidth.GetRuneWidth(rune);

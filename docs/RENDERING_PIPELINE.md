@@ -445,14 +445,14 @@ private void PaintStage(CharacterBuffer buffer)
 }
 ```
 
-**CharacterBuffer interface:**
+**CharacterBuffer key methods:**
 ```csharp
-public interface ICharacterBuffer
-{
-    void SetChar(int x, int y, char c, Color fg, Color bg);
-    void FillRect(LayoutRect rect, char c, Color fg, Color bg);
-    void DrawText(int x, int y, string text, Color fg, Color bg);
-}
+// Individual cell (char overload wraps in Rune internally)
+void SetCell(int x, int y, Rune character, Color fg, Color bg);
+// Text rendering with automatic wide character and combiner handling
+void WriteString(int x, int y, string text, Color fg, Color bg);
+// Bulk fill
+void FillRect(LayoutRect rect, char c, Color fg, Color bg);
 ```
 
 #### Stage 3.5: Pre/Post Buffer Paint Hooks (Compositor Effects)
@@ -531,7 +531,7 @@ See [Compositor Effects](COMPOSITOR_EFFECTS.md) for comprehensive examples and b
 
 ## 5. Character Buffer System
 
-*File: `Layout/CharacterBuffer.cs:23-505`*
+*File: `Layout/CharacterBuffer.cs`*
 
 Window-level buffer storing character, foreground, and background color for each cell.
 
@@ -540,19 +540,28 @@ Window-level buffer storing character, foreground, and background color for each
 ```csharp
 public class CharacterBuffer
 {
-    private Cell[,] _buffer;  // 2D array [row, col]
+    private Cell[,] _cells;  // 2D array [col, row]
     private int _width;
     private int _height;
+}
 
-    private struct Cell
-    {
-        public char Character;
-        public Color Foreground;
-        public Color Background;
-        public bool Dirty;  // Changed since last render
-    }
+public struct Cell : IEquatable<Cell>
+{
+    public Rune Character;          // Unicode scalar value (supports emoji, CJK)
+    public Color Foreground;
+    public Color Background;
+    public TextDecoration Decorations;
+    public bool Dirty;              // Changed since last render
+    public bool IsWideContinuation; // Right half of a wide character
+    public string? Combiners;       // Zero-width combining marks (e.g., diacritics)
 }
 ```
+
+**Key changes from the original `char`-based Cell:**
+- `Rune` replaces `char` — a `System.Text.Rune` represents a full Unicode scalar value, enabling correct handling of emoji and characters above U+FFFF (which require surrogate pairs as `char`)
+- `IsWideContinuation` marks the right-half placeholder cell for CJK/emoji characters that occupy 2 terminal columns
+- `Combiners` stores zero-width combining marks (diacritics, variation selectors) attached to the base character
+- `TextDecoration` supports underline, strikethrough, and other text effects
 
 **Memory layout example (3x2 buffer):**
 ```
@@ -569,54 +578,89 @@ R1 │ 'l', W, B │   │ 'o', W, B │   │ ' ', W, B │
 
 ### Key Operations
 
-#### 1. SetChar (Individual Cell Update)
-*File: `CharacterBuffer.cs:145-165`*
+#### 1. SetCell (Individual Cell Update)
+*File: `CharacterBuffer.cs`*
+
+Accepts both `char` (convenience overload, wraps in `Rune`) and `Rune` (primary):
 
 ```csharp
-public void SetChar(int x, int y, char c, Color fg, Color bg)
+public void SetCell(int x, int y, Rune character, Color foreground, Color background)
 {
-    if (x < 0 || x >= _width || y < 0 || y >= _height)
-        return; // Out of bounds, silently ignore
+    if (x < 0 || x >= Width || y < 0 || y >= Height)
+        return;
 
-    ref var cell = ref _buffer[y, x];
+    CleanupWideCharAt(x, y);  // Fix orphaned wide char pairs
 
-    // Only mark dirty if actually changed
-    if (cell.Character != c || cell.Foreground != fg || cell.Background != bg)
+    ref var cell = ref _cells[x, y];
+    if (cell.Character != character ||
+        !cell.Foreground.Equals(foreground) ||
+        !cell.Background.Equals(background) ||
+        cell.IsWideContinuation ||
+        cell.Combiners != null)
     {
-        cell.Character = c;
-        cell.Foreground = fg;
-        cell.Background = bg;
+        cell.Character = character;
+        cell.Foreground = foreground;
+        cell.Background = background;
+        cell.Decorations = TextDecoration.None;
+        cell.IsWideContinuation = false;
+        cell.Combiners = null;
         cell.Dirty = true;
     }
 }
 ```
 
-**Optimization: Dirty tracking**
-- Only marks cell dirty if value actually changes
-- Avoids redundant ANSI generation for unchanged cells
+**Optimizations:**
+- Dirty tracking: only marks cell dirty if value actually changes
+- Wide character cleanup: when overwriting a cell that is part of a wide character pair, the orphaned partner cell is cleaned up automatically
 
-#### 2. FillRect (Bulk Operations)
-*File: `CharacterBuffer.cs:200-235`*
+#### 2. WriteString (Text Rendering with Wide Character Support)
+*File: `CharacterBuffer.cs`*
 
-Used for backgrounds, borders, clearing regions.
+The primary text rendering method. Handles wide characters and zero-width combiners automatically:
 
 ```csharp
-public void FillRect(LayoutRect rect, char c, Color fg, Color bg)
+public void WriteString(int x, int y, string text, Color foreground, Color background)
 {
-    var clipped = ClipRect(rect);
-
-    for (int y = clipped.Y; y < clipped.Bottom; y++)
+    int cx = x;
+    foreach (var rune in text.EnumerateRunes())
     {
-        for (int x = clipped.X; x < clipped.Right; x++)
+        int runeWidth = UnicodeWidth.GetRuneWidth(rune);
+
+        if (runeWidth == 0)
         {
-            SetChar(x, y, c, fg, bg);
+            // Zero-width: attach to previous cell as combiner
+            // (skips past continuation cells to find the base cell)
+        }
+        else if (runeWidth == 2)
+        {
+            // Wide char: write base cell + continuation cell
+            SetCell(cx, y, new Cell(rune, foreground, background));
+            SetCell(cx + 1, y, continuation with IsWideContinuation = true);
+            cx += 2;
+        }
+        else
+        {
+            SetCell(cx, y, new Cell(rune, foreground, background));
+            cx++;
         }
     }
 }
 ```
 
-#### 3. ToLines (ANSI Serialization — Diagnostic Only)
-*File: `CharacterBuffer.cs:350-505`*
+**Wide character handling:**
+- Uses `UnicodeWidth.GetRuneWidth()` (backed by Wcwidth library) to determine display width
+- Width 0: zero-width combiners attached to the preceding base cell via `AppendCombiner()`
+- Width 2: CJK/emoji characters write a base cell + a continuation cell marked `IsWideContinuation = true`
+- Width 1: standard characters, one cell each
+- If a wide char doesn't fit at the buffer edge, a space is written instead
+
+#### 3. FillRect (Bulk Operations)
+*File: `CharacterBuffer.cs`*
+
+Used for backgrounds, borders, clearing regions. Delegates to `SetCell()` per cell.
+
+#### 4. ToLines (ANSI Serialization — Diagnostic Only)
+*File: `CharacterBuffer.cs`*
 
 Converts buffer to ANSI-formatted strings. **Not called during rendering.** Cells flow directly from `CharacterBuffer` to `ConsoleBuffer` via `SetCellsFromBuffer()`. `ToLines()` is only invoked for:
 - The `AnsiLines` diagnostic layer (test snapshots and debugging)
@@ -691,8 +735,10 @@ public class ConsoleBuffer
 
     private struct Cell
     {
-        public char Character;
-        public string AnsiEscape;  // Pre-formatted ANSI color string
+        public Rune Character;          // Unicode scalar value
+        public string AnsiEscape;       // Pre-formatted ANSI color string
+        public bool IsWideContinuation; // Right half of wide character
+        public string? Combiners;       // Zero-width combining marks
     }
 }
 ```
@@ -702,44 +748,66 @@ public class ConsoleBuffer
 All data enters ConsoleBuffer through exactly three cell-level methods:
 
 #### 1. SetCell (Single Cell)
-Used by borders (vertical, scrollbar), invisible borders.
+Used by borders (vertical, scrollbar), invisible borders. Accepts both `char` and `Rune`.
 ```csharp
-public void SetCell(int x, int y, char character, Color fg, Color bg)
+public void SetCell(int x, int y, Rune character, Color fg, Color bg)
 {
+    // Fix wide char pair split: clean up orphaned base/continuation cells
+    if (_backBuffer[x, y].IsWideContinuation && x > 0)
+        _backBuffer[x - 1, y].Reset();  // Orphaned base
+    if (x + 1 < _width && _backBuffer[x + 1, y].IsWideContinuation)
+        _backBuffer[x + 1, y].Reset();  // Orphaned continuation
+
     string ansi = FormatCellAnsi(fg, bg);
     ref var cell = ref _backBuffer[x, y];
-    if (cell.Character != character || cell.AnsiEscape != ansi)
+    if (cell.Character != character || cell.AnsiEscape != ansi
+        || cell.IsWideContinuation || cell.Combiners != null)
     {
         cell.Character = character;
         cell.AnsiEscape = ansi;
+        cell.IsWideContinuation = false;
+        cell.Combiners = null;
     }
 }
 ```
 
 #### 2. FillCells (Horizontal Run)
-Used by `Renderer.FillRect` (background fills), invisible border rows.
+Used by `Renderer.FillRect` (background fills), invisible border rows. Accepts both `char` and `Rune`.
 ```csharp
-public void FillCells(int x, int y, int width, char character, Color fg, Color bg)
+public void FillCells(int x, int y, int width, Rune character, Color fg, Color bg)
 {
+    // Fix wide char pair split at left and right boundaries
+    if (x > 0 && _backBuffer[x, y].IsWideContinuation)
+        _backBuffer[x - 1, y].Reset();
+    int rightEdge = x + maxWidth;
+    if (rightEdge < _width && _backBuffer[rightEdge, y].IsWideContinuation)
+        _backBuffer[rightEdge, y].Reset();
+
     string ansi = FormatCellAnsi(fg, bg);
     for (int i = 0; i < maxWidth; i++)
     {
         ref var cell = ref _backBuffer[x + i, y];
-        if (cell.Character != character || cell.AnsiEscape != ansi)
+        if (cell.Character != character || cell.AnsiEscape != ansi
+            || cell.IsWideContinuation || cell.Combiners != null)
         {
             cell.Character = character;
             cell.AnsiEscape = ansi;
+            cell.IsWideContinuation = false;
+            cell.Combiners = null;
         }
     }
 }
 ```
 
 #### 3. SetCellsFromBuffer (Bulk Cell Copy from CharacterBuffer)
-Used by window content, overlay content, border lines (top/bottom), status bars.
+Used by window content, overlay content, border lines (top/bottom), status bars. Preserves wide character pairs and combiners from the source buffer.
 ```csharp
 public void SetCellsFromBuffer(int destX, int destY, CharacterBuffer source,
     int srcX, int srcY, int width, Color fallbackBg)
 {
+    // Fix wide char pair split at left and right boundaries
+    // (same orphan cleanup as FillCells)
+
     for (int i = 0; i < maxWidth; i++)
     {
         var srcCell = source.GetCell(srcX + i, srcY);
@@ -747,6 +815,8 @@ public void SetCellsFromBuffer(int destX, int destY, CharacterBuffer source,
         ref var destCell = ref _backBuffer[destX + i, destY];
         destCell.Character = srcCell.Character;
         destCell.AnsiEscape = ansi;
+        destCell.IsWideContinuation = srcCell.IsWideContinuation;
+        destCell.Combiners = srcCell.Combiners;
     }
 }
 ```
@@ -772,10 +842,12 @@ The driver interface exposes three cell-level output methods. No ANSI string wri
 ```csharp
 public interface IConsoleDriver
 {
-    void SetCell(int x, int y, char character, Color fg, Color bg);
-    void FillCells(int x, int y, int width, char character, Color fg, Color bg);
+    void SetCell(int x, int y, char character, Color fg, Color bg);  // char convenience
+    void FillCells(int x, int y, int width, char character, Color fg, Color bg);  // char convenience
     void WriteBufferRegion(int destX, int destY, CharacterBuffer source,
         int srcX, int srcY, int width, Color fallbackBg);
+    // Note: char overloads wrap in Rune internally. All paths support
+    // full Unicode including wide characters and combining marks.
 }
 ```
 
@@ -783,75 +855,100 @@ In **Buffer mode**, all three delegate to the corresponding `ConsoleBuffer` meth
 In **Direct mode**, they format inline ANSI strings and write immediately to stdout.
 
 ### Render (Diff-Based Screen Output)
-*File: `ConsoleBuffer.cs:270-343`*
+*File: `ConsoleBuffer.cs`*
 
-The final step: writing to the physical console.
+The final step: writing to the physical console. Builds the entire frame output as a single string for atomic write.
 
 ```csharp
 public void Render()
 {
-    for (int y = 0; y < _height; y++)
+    lock (_consoleLock)
     {
-        var backLine = _backBuffer[y];
-        var frontLine = _frontBuffer[y];
+        // 1. Pre-process wide character dirty pair coherence
+        //    When either half of a wide char pair changes, force both dirty
+        for (int y = 0; y < _height; y++)
+            for (int x = 1; x < _width; x++)
+            {
+                // If continuation changed but base is clean → force base dirty
+                // If front had continuation but back doesn't → force base dirty
+            }
 
-        // Only render dirty lines
-        if (!backLine.Dirty)
-            continue;
+        // 2. Build entire screen in one string (atomic output)
+        _screenBuilder.Clear();
 
-        // Diff: Find changed regions within line
-        var changedRegions = FindChangedRegions(backLine, frontLine);
-
-        foreach (var region in changedRegions)
+        // 3. Choose rendering strategy per configured DirtyTrackingMode:
+        //    - Cell:  render only changed regions within lines (minimal output)
+        //    - Line:  render entire line when any cell changes
+        //    - Smart: analyze each line and choose Cell vs Line dynamically
+        for (int y = 0; y < _height; y++)
         {
-            RenderLineRegion(y, region);
+            // ... strategy-specific rendering ...
         }
 
-        // Swap buffers for this line
-        (_frontBuffer[y], _backBuffer[y]) = (_backBuffer[y], _frontBuffer[y]);
-        _frontBuffer[y].Dirty = false;
+        // 4. Single atomic write via raw libc write() on Unix
+        if (_screenBuilder.Length > 0)
+            WriteOutput(_screenBuilder);
     }
 }
 ```
 
-**Three levels of optimization:**
+**Four levels of optimization:**
 
-1. **Line-level dirty checking**: Skip unchanged lines entirely
-2. **Region diffing**: Within dirty lines, only update changed regions
-3. **Cursor movement optimization**: Minimize `SetCursorPosition` calls
+1. **Wide character coherence**: Pre-processes wide char pairs so both halves are re-emitted together
+2. **Line-level dirty checking**: Skip unchanged lines entirely
+3. **Region diffing**: Within dirty lines, only update changed regions (Cell/Smart modes)
+4. **Atomic output**: Single `WriteOutput()` call eliminates flicker from multiple cursor moves
 
-### RenderLine (Cursor Movement Optimization)
-*File: `ConsoleBuffer.cs:345-420`*
+**Three dirty tracking modes** (configurable via `ConsoleWindowSystemOptions.DirtyTrackingMode`):
+
+| Mode | Strategy | Best For |
+|------|----------|----------|
+| **Cell** | Render only changed cell ranges per line | Sparse updates (text input, cursor blink) |
+| **Line** | Render entire line when any cell changes | Dense updates (full redraws, scrolling) |
+| **Smart** | Per-line analysis: coverage > threshold or fragmented runs → Line mode, else Cell mode | General purpose (default) |
+
+### AppendRegionToBuilder (Wide Character Aware Output)
+*File: `ConsoleBuffer.cs`*
+
+Appends a dirty region to the output string, handling wide characters and combiners:
 
 ```csharp
-private void RenderLineRegion(int y, Region region)
+private void AppendRegionToBuilder(int y, int startX, int endX, StringBuilder builder)
 {
-    Console.SetCursorPosition(region.StartX, y);
+    string lastOutputAnsi = string.Empty;
 
-    Color? currentFg = null;
-    Color? currentBg = null;
-
-    for (int x = region.StartX; x <= region.EndX; x++)
+    for (int x = startX; x <= endX && x < _width; x++)
     {
-        var cell = _backBuffer[y].Cells[x];
+        ref var backCell = ref _backBuffer[x, y];
+        ref var frontCell = ref _frontBuffer[x, y];
+        frontCell.CopyFrom(backCell);  // Sync buffers
 
-        // Emit ANSI codes only when colors change
-        if (cell.Foreground != currentFg)
-        {
-            Console.Write(AnsiCodes.Foreground(cell.Foreground));
-            currentFg = cell.Foreground;
-        }
+        // Skip continuation cells — terminal auto-advances for wide chars
+        if (backCell.IsWideContinuation) { /* emit combiners only */ continue; }
 
-        if (cell.Background != currentBg)
-        {
-            Console.Write(AnsiCodes.Background(cell.Background));
-            currentBg = cell.Background;
-        }
+        // Wide char ghost cleanup: if terminal had different content at x+1,
+        // emit space there first to clear old content, then reposition
+        bool isWideChar = x + 1 < _width && _backBuffer[x + 1, y].IsWideContinuation;
+        if (isWideChar) { /* clear ghost content at x+1 if needed */ }
 
-        Console.Write(cell.Character);
+        // Emit ANSI only when color changes
+        if (backCell.AnsiEscape != lastOutputAnsi)
+            builder.Append(backCell.AnsiEscape);
+
+        builder.AppendRune(backCell.Character);  // Rune → UTF-16 encoding
+        if (backCell.Combiners != null)
+            builder.Append(backCell.Combiners);
+
+        if (isWideChar) x++;  // Skip continuation in loop
     }
 }
 ```
+
+**Wide character output handling:**
+- Continuation cells are skipped (terminal auto-advances past them)
+- Ghost content at x+1 is cleared before emitting a wide char (prevents old content from persisting)
+- `AppendRune()` handles surrogate pair encoding for characters above U+FFFF
+- Combiners are appended after both base and continuation cells
 
 **Typical performance:**
 - **Idle frame**: 0 lines rendered (all clean)
@@ -1008,6 +1105,76 @@ private void ResizeLoop()
 - .NET Console API has no resize event
 - Polling is necessary (expensive, but infrequent operation)
 - 250ms polling interval = imperceptible lag
+
+## 7.5. Unicode & Wide Character Support
+
+*Files: `Helpers/UnicodeWidth.cs`, `Layout/Cell.cs`, `Layout/CharacterBuffer.cs`, `Drivers/ConsoleBuffer.cs`*
+
+The rendering pipeline fully supports Unicode, including characters that occupy multiple terminal columns (CJK ideographs, emoji) and zero-width combining marks (diacritics, variation selectors).
+
+### Character Representation: `Rune`
+
+All character storage uses `System.Text.Rune` instead of `char`. A `Rune` represents a single Unicode scalar value (up to U+10FFFF), while `char` is a UTF-16 code unit that can only represent U+0000–U+FFFF directly. Characters above U+FFFF (most emoji, some CJK) require surrogate pairs as `char` but are a single `Rune`.
+
+### Display Width Detection
+
+`UnicodeWidth` (backed by the Wcwidth library) determines how many terminal columns a character occupies:
+
+| Width | Characters | Handling |
+|-------|-----------|----------|
+| **0** | Combining marks, variation selectors, ZWJ | Attached to preceding base cell via `Combiners` field |
+| **1** | ASCII, Latin, Cyrillic, most scripts | Standard single-cell rendering |
+| **2** | CJK ideographs, many emoji, fullwidth forms | Base cell + continuation cell (`IsWideContinuation`) |
+
+**Special case:** Spacing Combining Marks (Unicode category Mc) are corrected to width 1, as they occupy visual space in terminals despite Wcwidth reporting them as zero-width.
+
+### Wide Character Flow
+
+```
+1. CharacterBuffer.WriteString("日本語")
+   ├─ '日' → width 2 → SetCell(x, y, '日') + SetCell(x+1, y, continuation)
+   ├─ '本' → width 2 → SetCell(x+2, y, '本') + SetCell(x+3, y, continuation)
+   └─ '語' → width 2 → SetCell(x+4, y, '語') + SetCell(x+5, y, continuation)
+
+2. ConsoleBuffer.SetCellsFromBuffer()
+   └─ Copies cells including IsWideContinuation and Combiners flags
+
+3. ConsoleBuffer.Render()
+   ├─ Pre-process: Force both halves of changed wide char pairs dirty
+   └─ AppendRegionToBuilder():
+      ├─ Skip continuation cells (terminal auto-advances)
+      ├─ Clear ghost content at x+1 before emitting wide char
+      └─ AppendRune() handles surrogate pair encoding
+```
+
+### Orphaned Wide Character Cleanup
+
+When a write operation overwrites one cell of a wide character pair, the other cell becomes "orphaned." All write methods (`SetCell`, `FillCells`, `SetCellsFromBuffer`) automatically clean up orphaned cells:
+
+- Overwriting a continuation cell → clear its base cell (at x-1) to a space
+- Overwriting a base cell → clear its continuation cell (at x+1) to a space
+- Fill operations clean up at both left and right boundaries
+
+### Zero-Width Combining Marks
+
+Zero-width characters (diacritics like ◌̈, variation selectors, ZWJ) are attached to the preceding base cell's `Combiners` string field. During output, combiners are appended after the base character in the ANSI output stream. The algorithm skips past continuation cells to find the correct base cell.
+
+### `StringBuilderExtensions.AppendRune()`
+
+*File: `Helpers/StringBuilderExtensions.cs`*
+
+Since `StringBuilder.Append(char)` cannot handle characters above U+FFFF, `AppendRune()` encodes the `Rune` as UTF-16 (potentially a surrogate pair) before appending:
+
+```csharp
+public static StringBuilder AppendRune(this StringBuilder sb, Rune rune)
+{
+    Span<char> buf = stackalloc char[2];
+    int charsWritten = rune.EncodeToUtf16(buf);
+    for (int i = 0; i < charsWritten; i++)
+        sb.Append(buf[i]);
+    return sb;
+}
+```
 
 ---
 
@@ -1207,15 +1374,20 @@ public void Invalidate()
 
 **Level 2: Cell Dirty Flag**
 ```csharp
-private struct Cell
+public struct Cell
 {
-    public bool Dirty;  // Character/color changed
+    public Rune Character;
+    public bool Dirty;              // Character/color changed
+    public bool IsWideContinuation; // Right half of wide char
+    public string? Combiners;       // Zero-width combining marks
 }
 
-// Only mark dirty if value actually changes
-if (cell.Character != newChar)
+// Only mark dirty if value actually changes (including wide char/combiner state)
+if (cell.Character != character || cell.IsWideContinuation || cell.Combiners != null)
 {
-    cell.Character = newChar;
+    cell.Character = character;
+    cell.IsWideContinuation = false;
+    cell.Combiners = null;
     cell.Dirty = true;
 }
 ```
@@ -1232,11 +1404,20 @@ if (!line.Dirty)
     continue;
 ```
 
+**Level 4: Smart Mode (Per-Line Analysis)**
+```csharp
+// Smart mode dynamically chooses Cell vs Line strategy per line
+var (isDirty, useLineMode) = AnalyzeLine(y);
+// coverage > SmartModeCoverageThreshold → Line mode
+// dirtyRuns > SmartModeFragmentationThreshold → Line mode
+// Otherwise → Cell mode
+```
+
 **Impact:**
 - Idle frame: 0 console I/O operations
-- Text input: 1-2 lines updated
-- Window drag: 10-50 lines updated (only borders/overlaps)
-- Full redraw: All lines (only on resize/theme change)
+- Text input: 1-2 lines updated (Cell mode per line)
+- Window drag: 10-50 lines updated (Smart picks Line mode for dense lines)
+- Full redraw: All lines, Line mode (only on resize/theme change)
 
 ### 3. Occlusion Culling
 
@@ -1656,8 +1837,8 @@ var windowSystem = new ConsoleWindowSystem(RenderMode.Direct);
 
 | Component | File | Key Methods | Line Range |
 |-----------|------|-------------|------------|
-| **Event Loop** | `ConsoleWindowSystem.cs` | `Run()`, `ProcessOnce()` | 822-1002 |
-| **Render Coordinator** | `ConsoleWindowSystem.cs` | `UpdateDisplay()` | 2522-2766 |
+| **Event Loop** | `ConsoleWindowSystem.cs` | `Run()`, `ProcessOnce()` | — |
+| **Render Coordinator** | `Rendering/RenderCoordinator.cs` | `UpdateDisplay()`, coverage caching, status bar caching | — |
 | **Window Renderer** | `Renderer.cs` | `RenderWindow()`, `RenderVisibleWindowContentFromBuffer()` | — |
 | **Overlay Renderer** | `Renderer.cs` | `RenderOverlayWindow()`, `RenderOverlayControlRegionsFromBuffer()` | — |
 | **Occlusion Culling** | `VisibleRegions.cs` | `CalculateVisibleRegions()` | 40-158 |
@@ -1687,6 +1868,9 @@ var windowSystem = new ConsoleWindowSystem(RenderMode.Direct);
 | **Color Helpers** | `Helpers/ColorResolver.cs` | Color resolution and inheritance |
 | **Layout Rect** | `Models/ImmutableModels.cs` | Immutable rectangle structure |
 | **Markup Parsing** | `Parsing/MarkupParser.cs` | Markup parsing and text measurement |
+| **Unicode Width** | `Helpers/UnicodeWidth.cs` | Display width detection via Wcwidth (0/1/2 columns) |
+| **Scrollbar Helper** | `Helpers/ScrollbarHelper.cs` | Shared scrollbar geometry, drawing, and hit testing |
+| **StringBuilder Extensions** | `Helpers/StringBuilderExtensions.cs` | `AppendRune()` for Rune → UTF-16 StringBuilder output |
 
 ---
 
@@ -1727,15 +1911,15 @@ public class CustomControl : IWindowControl
         // Draw background
         buffer.FillRect(bounds, ' ', Color.White, Color.DarkBlue);
 
-        // Draw text
-        buffer.DrawText(bounds.X + 2, bounds.Y + 1, "Custom Control",
+        // Draw text (supports full Unicode including CJK and emoji)
+        buffer.WriteString(bounds.X + 2, bounds.Y + 1, "Custom Control",
                        Color.Yellow, Color.DarkBlue);
 
         // Draw border
         for (int x = bounds.X; x < bounds.Right; x++)
         {
-            buffer.SetChar(x, bounds.Y, '─', Color.Gray, Color.DarkBlue);
-            buffer.SetChar(x, bounds.Bottom - 1, '─', Color.Gray, Color.DarkBlue);
+            buffer.SetCell(x, bounds.Y, '─', Color.Gray, Color.DarkBlue);
+            buffer.SetCell(x, bounds.Bottom - 1, '─', Color.Gray, Color.DarkBlue);
         }
     }
 }
@@ -1844,24 +2028,32 @@ public class ClockControl : IWindowControl
 - Rendering occurs on main thread (thread-safe by design)
 - Avoid excessive update rates (>60 FPS wasted)
 
-### Pattern 6: Measuring Text with ANSI
+### Pattern 6: Measuring Text Width
 
-When calculating text widths for layout, strip ANSI codes:
+When calculating text widths for layout, account for both markup tags and wide characters:
 
 ```csharp
 using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Helpers;
 
-public int MeasureTextWidth(string markupText)
+public int MeasureMarkupWidth(string markupText)
 {
     // Strip markup tags: "[red]Hello[/]" → "Hello"
     int visualWidth = MarkupParser.StripLength(markupText);
     return visualWidth;
 }
+
+public int MeasureStringWidth(string plainText)
+{
+    // Accounts for wide characters (CJK = 2 columns, combining marks = 0)
+    return UnicodeWidth.GetStringWidth(plainText);
+}
 ```
 
 **Why needed:**
-- ANSI escape codes don't consume screen space
-- `"[red]Hi[/]"` displays as 2 characters, not 10
+- Markup tags don't consume screen space (`"[red]Hi[/]"` = 2 columns, not 10)
+- CJK characters occupy 2 terminal columns (`"日本"` = 4 columns, not 2)
+- Zero-width combiners don't consume space (`"é"` as e + combining accent = 1 column)
 - Use for centering, alignment, truncation
 
 ### Pattern 7: Handling Overlapping Windows
@@ -2034,4 +2226,4 @@ For debugging:
 - Check lock contention if experiencing stuttering
 
 **The pipeline in one sentence:**
-> Application invalidates windows → Event loop detects dirty windows → Multi-pass renderer calculates visible regions → DOM layout pipeline paints to CharacterBuffer → All data enters ConsoleBuffer through cell-level methods only (SetCell, FillCells, SetCellsFromBuffer — no ANSI parsing) → Diff-based rendering writes only changed cells to console.
+> Application invalidates windows → Event loop detects dirty windows → RenderCoordinator orchestrates multi-pass rendering → Renderer calculates visible regions per window → DOM layout pipeline paints to CharacterBuffer (with full Unicode/wide character support) → All data enters ConsoleBuffer through cell-level methods only (SetCell, FillCells, SetCellsFromBuffer — no ANSI parsing) → Wide character coherence pre-processing ensures atomic pair updates → Smart dirty tracking selects optimal Cell/Line strategy per line → Single atomic write to console.

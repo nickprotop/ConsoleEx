@@ -278,9 +278,25 @@ namespace SharpConsoleUI.Layout
 					if (prevX >= 0 && prevX < Width)
 					{
 						ref var prevCell = ref _cells[prevX, y];
-						prevCell.AppendCombiner(rune);
-						prevCell.Dirty = true;
-						ExpandDirtyRegion(prevX, y);
+						// VS16 widens certain emoji from 1→2 columns
+						if (UnicodeWidth.IsVS16(rune) && UnicodeWidth.IsVs16Widened(prevCell.Character) && !UnicodeWidth.IsWideRune(prevCell.Character))
+						{
+							prevCell.AppendCombiner(rune);
+							prevCell.Dirty = true;
+							ExpandDirtyRegion(prevX, y);
+							// Place continuation cell at current position
+							if (cx >= 0 && cx < Width)
+							{
+								SetCell(cx, y, new Cell(' ', foreground, background) { IsWideContinuation = true });
+							}
+							cx++;
+						}
+						else
+						{
+							prevCell.AppendCombiner(rune);
+							prevCell.Dirty = true;
+							ExpandDirtyRegion(prevX, y);
+						}
 					}
 					continue;
 				}
@@ -335,9 +351,25 @@ namespace SharpConsoleUI.Layout
 					if (prevX >= 0 && prevX < Width)
 					{
 						ref var prevCell = ref _cells[prevX, y];
-						prevCell.AppendCombiner(rune);
-						prevCell.Dirty = true;
-						ExpandDirtyRegion(prevX, y);
+						// VS16 widens certain emoji from 1→2 columns
+						if (UnicodeWidth.IsVS16(rune) && UnicodeWidth.IsVs16Widened(prevCell.Character) && !UnicodeWidth.IsWideRune(prevCell.Character))
+						{
+							prevCell.AppendCombiner(rune);
+							prevCell.Dirty = true;
+							ExpandDirtyRegion(prevX, y);
+							// Place continuation cell at current position (with clip check)
+							if (cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width)
+							{
+								SetCell(cx, y, new Cell(' ', foreground, background) { IsWideContinuation = true });
+							}
+							cx++;
+						}
+						else
+						{
+							prevCell.AppendCombiner(rune);
+							prevCell.Dirty = true;
+							ExpandDirtyRegion(prevX, y);
+						}
 					}
 					continue;
 				}

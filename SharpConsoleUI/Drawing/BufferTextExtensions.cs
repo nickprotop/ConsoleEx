@@ -77,16 +77,34 @@ namespace SharpConsoleUI.Drawing
 			string displayText = text;
 			if (textDisplayWidth > inner.Width)
 			{
-				// Truncate by display width
+				// Truncate by display width, VS16-aware
 				var sb = new System.Text.StringBuilder();
 				int accWidth = 0;
+				System.Text.Rune? lastMeasured = null;
 				foreach (var rune in text.EnumerateRunes())
 				{
 					int cw = UnicodeWidth.GetRuneWidth(rune);
+					// VS16 widens certain emoji from 1→2 columns
+					if (UnicodeWidth.IsVS16(rune) && lastMeasured != null && UnicodeWidth.IsVs16Widened(lastMeasured.Value))
+					{
+						if (accWidth + 1 > inner.Width)
+						{
+							// Remove the base char that would be widened past limit
+							int baseLen = lastMeasured.Value.Utf16SequenceLength;
+							sb.Remove(sb.Length - baseLen, baseLen);
+							accWidth -= UnicodeWidth.GetRuneWidth(lastMeasured.Value);
+							break;
+						}
+						sb.AppendRune(rune);
+						accWidth += 1;
+						lastMeasured = null;
+						continue;
+					}
 					if (accWidth + cw > inner.Width)
 						break;
 					sb.AppendRune(rune);
 					accWidth += cw;
+					if (cw > 0) lastMeasured = rune;
 				}
 				displayText = sb.ToString();
 				textDisplayWidth = accWidth;
@@ -180,10 +198,36 @@ namespace SharpConsoleUI.Drawing
 		{
 			var chunk = new System.Text.StringBuilder();
 			int chunkWidth = 0;
+			System.Text.Rune? lastMeasured = null;
 
 			foreach (var rune in word.EnumerateRunes())
 			{
 				int cw = UnicodeWidth.GetRuneWidth(rune);
+				// VS16 widens certain emoji from 1→2 columns
+				if (UnicodeWidth.IsVS16(rune) && lastMeasured != null && UnicodeWidth.IsVs16Widened(lastMeasured.Value))
+				{
+					if (chunkWidth + 1 > width && chunkWidth > 0)
+					{
+						// Remove base char, flush chunk, start new chunk with base+VS16
+						int baseLen = lastMeasured.Value.Utf16SequenceLength;
+						chunk.Remove(chunk.Length - baseLen, baseLen);
+						chunkWidth -= UnicodeWidth.GetRuneWidth(lastMeasured.Value);
+						if (chunk.Length > 0)
+							lines.Add(chunk.ToString());
+						chunk.Clear();
+						chunkWidth = 0;
+						chunk.AppendRune(lastMeasured.Value);
+						chunk.AppendRune(rune);
+						chunkWidth = 2; // widened
+					}
+					else
+					{
+						chunk.AppendRune(rune);
+						chunkWidth += 1;
+					}
+					lastMeasured = null;
+					continue;
+				}
 				if (chunkWidth + cw > width && chunkWidth > 0)
 				{
 					lines.Add(chunk.ToString());
@@ -192,6 +236,7 @@ namespace SharpConsoleUI.Drawing
 				}
 				chunk.AppendRune(rune);
 				chunkWidth += cw;
+				if (cw > 0) lastMeasured = rune;
 			}
 
 			if (chunk.Length > 0)
