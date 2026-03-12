@@ -338,13 +338,14 @@ namespace SharpConsoleUI.Tests.Parsing
 		[Fact]
 		public void Parse_EmojiWithFE0F_CorrectCellCount()
 		{
-			// ✈️ = U+2708 (narrow, 1 cell) + U+FE0F (zero-width, combiner)
+			// ✈️ = U+2708 (narrow, 1 cell) + U+FE0F (VS16 widens to 2 cells)
 			var cells = MarkupParser.Parse("\u2708\uFE0F", Color.White, Color.Black);
 
-			Assert.Single(cells);
+			Assert.Equal(2, cells.Count);
 			Assert.Equal(new Rune('\u2708'), cells[0].Character);
 			Assert.NotNull(cells[0].Combiners);
 			Assert.Contains("\uFE0F", cells[0].Combiners);
+			Assert.True(cells[1].IsWideContinuation);
 		}
 
 		[Fact]

@@ -129,17 +129,17 @@ namespace SharpConsoleUI.Tests.Helpers
 		[Fact]
 		public void GetStringWidth_KeycapSequence_CountsCorrectly()
 		{
-			// 1️⃣ = '1'(1) + FE0F(0) + U+20E3(0, combining enclosing keycap) = 1
+			// 1️⃣ = '1'(1) + FE0F(+1 VS16 widening) + U+20E3(0, combining enclosing keycap) = 2
 			string keycap = "1\uFE0F\u20E3";
-			Assert.Equal(1, UnicodeWidth.GetStringWidth(keycap));
+			Assert.Equal(2, UnicodeWidth.GetStringWidth(keycap));
 		}
 
 		[Fact]
 		public void GetStringWidth_HashKeycap_CountsCorrectly()
 		{
-			// #️⃣ = '#'(1) + FE0F(0) + U+20E3(0) = 1
+			// #️⃣ = '#'(1) + FE0F(+1 VS16 widening) + U+20E3(0) = 2
 			string keycap = "#\uFE0F\u20E3";
-			Assert.Equal(1, UnicodeWidth.GetStringWidth(keycap));
+			Assert.Equal(2, UnicodeWidth.GetStringWidth(keycap));
 		}
 
 		[Fact]

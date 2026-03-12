@@ -128,40 +128,45 @@ namespace SharpConsoleUI.Tests.Parsing
 		[Fact]
 		public void Parse_KeycapSequence_FE0FAndKeycapAreCombiners()
 		{
-			// 1️⃣ = '1'(1 cell) + FE0F(combiner) + U+20E3(combiner) = 1 cell
+			// 1️⃣ = '1'(1 cell) + FE0F(VS16 widens to 2) + U+20E3(combiner) = 2 cells
 			var cells = MarkupParser.Parse("1\uFE0F\u20E3", Color.White, Color.Black);
 
-			Assert.Single(cells);
+			Assert.Equal(2, cells.Count);
 			Assert.Equal(new Rune('1'), cells[0].Character);
 			Assert.Equal("\uFE0F\u20E3", cells[0].Combiners);
+			Assert.True(cells[1].IsWideContinuation);
 		}
 
 		[Fact]
-		public void StripLength_KeycapSequence_Returns1()
+		public void StripLength_KeycapSequence_Returns2()
 		{
-			// 1️⃣ = '1'(1) + FE0F(0) + U+20E3(0) = 1
-			Assert.Equal(1, MarkupParser.StripLength("1\uFE0F\u20E3"));
+			// 1️⃣ = '1'(1) + FE0F(+1 VS16 widening) + U+20E3(0) = 2
+			Assert.Equal(2, MarkupParser.StripLength("1\uFE0F\u20E3"));
 		}
 
 		[Fact]
-		public void Parse_HashKeycap_SingleCell()
+		public void Parse_HashKeycap_TwoCells()
 		{
+			// #️⃣ = '#'(1) + FE0F(VS16 widens to 2) + U+20E3(0) = 2 cells
 			var cells = MarkupParser.Parse("#\uFE0F\u20E3", Color.White, Color.Black);
-			Assert.Single(cells);
+			Assert.Equal(2, cells.Count);
 			Assert.Equal(new Rune('#'), cells[0].Character);
+			Assert.True(cells[1].IsWideContinuation);
 		}
 
 		[Fact]
 		public void Parse_MultipleKeycaps_CorrectCellCount()
 		{
-			// "1️⃣2️⃣" = 1(1) + 2(1) = 2 cells (FE0F + 20E3 are combiners on each)
+			// "1️⃣2️⃣" = 1(2) + 2(2) = 4 cells (VS16 widens each keycap base)
 			var cells = MarkupParser.Parse(
 				"1\uFE0F\u20E32\uFE0F\u20E3",
 				Color.White, Color.Black);
 
-			Assert.Equal(2, cells.Count);
+			Assert.Equal(4, cells.Count);
 			Assert.Equal(new Rune('1'), cells[0].Character);
-			Assert.Equal(new Rune('2'), cells[1].Character);
+			Assert.True(cells[1].IsWideContinuation);
+			Assert.Equal(new Rune('2'), cells[2].Character);
+			Assert.True(cells[3].IsWideContinuation);
 		}
 
 		#endregion
@@ -207,14 +212,15 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 
 		[Fact]
-		public void Parse_NarrowCharWithFE0F_SingleCellWithCombiner()
+		public void Parse_NarrowCharWithFE0F_WidenedToTwoCells()
 		{
-			// ✈ (U+2708, narrow 1 cell) + FE0F = 1 cell with combiner
+			// ✈ (U+2708, narrow 1 cell) + FE0F (VS16 widens to 2) = 2 cells
 			var cells = MarkupParser.Parse("\u2708\uFE0F", Color.White, Color.Black);
 
-			Assert.Single(cells);
+			Assert.Equal(2, cells.Count);
 			Assert.Equal(new Rune('\u2708'), cells[0].Character);
 			Assert.Contains("\uFE0F", cells[0].Combiners);
+			Assert.True(cells[1].IsWideContinuation);
 		}
 
 		[Fact]
@@ -456,10 +462,11 @@ namespace SharpConsoleUI.Tests.Parsing
 			// [bold]1️⃣[/] — the literal text path in MarkupParser handles this
 			var cells = MarkupParser.Parse("[bold]1\uFE0F\u20E3[/]", Color.White, Color.Black);
 
-			// '1' is base cell, FE0F and 20E3 are zero-width combiners
-			Assert.Single(cells);
+			// '1' is base cell, FE0F widens it (VS16), 20E3 is combiner = 2 cells
+			Assert.Equal(2, cells.Count);
 			Assert.Equal(new Rune('1'), cells[0].Character);
 			Assert.NotNull(cells[0].Combiners);
+			Assert.True(cells[1].IsWideContinuation);
 		}
 
 		[Fact]
@@ -524,9 +531,9 @@ namespace SharpConsoleUI.Tests.Parsing
 		[Fact]
 		public void Truncate_KeycapSequence_PreservesCombiners()
 		{
-			// "1️⃣AB" = 1(1)+FE0F(0)+20E3(0)+A(1)+B(1) = 3
-			// Truncate to 1: "1️⃣" (1 + trailing combiners)
-			var result = MarkupParser.Truncate("1\uFE0F\u20E3AB", 1);
+			// "1️⃣AB" = 1(1)+FE0F(+1 VS16 widening)+20E3(0)+A(1)+B(1) = 4
+			// Truncate to 2: "1️⃣" (keycap is 2 cols wide with VS16)
+			var result = MarkupParser.Truncate("1\uFE0F\u20E3AB", 2);
 
 			Assert.Equal("1\uFE0F\u20E3", result);
 		}

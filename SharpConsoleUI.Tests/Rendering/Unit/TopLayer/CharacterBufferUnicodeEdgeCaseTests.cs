@@ -80,11 +80,11 @@ namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer
 		#region Keycap Sequences
 
 		[Fact]
-		public void WriteString_KeycapSequence_SingleColumn()
+		public void WriteString_KeycapSequence_TwoColumns()
 		{
 			var buffer = new CharacterBuffer(20, 5);
 
-			// 1️⃣ = '1'(1) + FE0F(combiner) + U+20E3(combiner) = 1 column
+			// 1️⃣ = '1'(1) + FE0F(VS16 widens to 2) + U+20E3(combiner) = 2 columns
 			buffer.WriteString(0, 0, "1\uFE0F\u20E3", Color.White, Color.Black);
 
 			var cell = buffer.GetCell(0, 0);
@@ -92,8 +92,8 @@ namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer
 			Assert.NotNull(cell.Combiners);
 			Assert.Equal("\uFE0F\u20E3", cell.Combiners);
 
-			// Column 1 should be untouched
-			Assert.Equal(new Rune(' '), buffer.GetCell(1, 0).Character);
+			// Column 1 should be a continuation cell from VS16 widening
+			Assert.True(buffer.GetCell(1, 0).IsWideContinuation);
 		}
 
 		[Fact]
@@ -101,12 +101,14 @@ namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer
 		{
 			var buffer = new CharacterBuffer(20, 5);
 
-			// "1️⃣2️⃣A" = 1(col 0) + 2(col 1) + A(col 2) = 3 columns
+			// "1️⃣2️⃣A" = 1(cols 0-1) + 2(cols 2-3) + A(col 4) = 5 columns
 			buffer.WriteString(0, 0, "1\uFE0F\u20E32\uFE0F\u20E3A", Color.White, Color.Black);
 
 			Assert.Equal(new Rune('1'), buffer.GetCell(0, 0).Character);
-			Assert.Equal(new Rune('2'), buffer.GetCell(1, 0).Character);
-			Assert.Equal(new Rune('A'), buffer.GetCell(2, 0).Character);
+			Assert.True(buffer.GetCell(1, 0).IsWideContinuation);
+			Assert.Equal(new Rune('2'), buffer.GetCell(2, 0).Character);
+			Assert.True(buffer.GetCell(3, 0).IsWideContinuation);
+			Assert.Equal(new Rune('A'), buffer.GetCell(4, 0).Character);
 		}
 
 		#endregion
@@ -286,12 +288,13 @@ namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer
 			var buffer = new CharacterBuffer(20, 5);
 			var clipRect = new LayoutRect(0, 0, 5, 5);
 
-			// "1️⃣AB" = 1(1)+A(1)+B(1) = 3 columns
+			// "1️⃣AB" = 1(2, VS16 widened)+A(1)+B(1) = 4 columns
 			buffer.WriteStringClipped(0, 0, "1\uFE0F\u20E3AB", Color.White, Color.Black, clipRect);
 
 			Assert.Equal(new Rune('1'), buffer.GetCell(0, 0).Character);
 			Assert.Contains("\uFE0F", buffer.GetCell(0, 0).Combiners);
-			Assert.Equal(new Rune('A'), buffer.GetCell(1, 0).Character);
+			Assert.True(buffer.GetCell(1, 0).IsWideContinuation);
+			Assert.Equal(new Rune('A'), buffer.GetCell(2, 0).Character);
 		}
 
 		[Fact]
