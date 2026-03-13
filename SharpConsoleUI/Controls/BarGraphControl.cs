@@ -343,7 +343,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 					{
-						buffer.SetCell(currentX, paintY, cell.Character, cell.Foreground, cell.Background);
+						buffer.SetCell(currentX, paintY, cell);
 					}
 					currentX++;
 				}
@@ -354,7 +354,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 					{
-						buffer.SetCell(currentX, paintY, ' ', Color.Grey70, bgColor);
+						buffer.SetNarrowCell(currentX, paintY, ' ', Color.Grey70, bgColor);
 					}
 					currentX++;
 				}
@@ -362,9 +362,16 @@ namespace SharpConsoleUI.Controls
 				// Write suffix ": "
 				foreach (var rune in suffix.EnumerateRunes())
 				{
+					int rw = UnicodeWidth.GetRuneWidth(rune);
+					if (rw == 0) continue;
 					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 					{
-						buffer.SetCell(currentX, paintY, rune, Color.Grey70, bgColor);
+						buffer.SetNarrowCell(currentX, paintY, rune, Color.Grey70, bgColor);
+						if (rw == 2 && currentX + 1 < bounds.Right)
+						{
+							buffer.SetCell(currentX + 1, paintY, new Cell(' ', Color.Grey70, bgColor) { IsWideContinuation = true });
+							currentX++;
+						}
 					}
 					currentX++;
 				}
@@ -403,7 +410,7 @@ namespace SharpConsoleUI.Controls
 
 				if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 				{
-					buffer.SetCell(currentX, paintY, FILLED_CHAR, charColor, bgColor);
+					buffer.SetNarrowCell(currentX, paintY, FILLED_CHAR, charColor, bgColor);
 				}
 				currentX++;
 			}
@@ -413,7 +420,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 				{
-					buffer.SetCell(currentX, paintY, EMPTY_CHAR, _unfilledColor, bgColor);
+					buffer.SetNarrowCell(currentX, paintY, EMPTY_CHAR, _unfilledColor, bgColor);
 				}
 				currentX++;
 			}
@@ -425,9 +432,16 @@ namespace SharpConsoleUI.Controls
 				string valueText = _value.ToString(_valueFormat);
 				foreach (var rune in valueText.EnumerateRunes())
 				{
+					int rw = UnicodeWidth.GetRuneWidth(rune);
+					if (rw == 0) continue;
 					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 					{
-						buffer.SetCell(currentX, paintY, rune, resolvedFilledColor, bgColor);
+						buffer.SetNarrowCell(currentX, paintY, rune, resolvedFilledColor, bgColor);
+						if (rw == 2 && currentX + 1 < bounds.Right)
+						{
+							buffer.SetCell(currentX + 1, paintY, new Cell(' ', resolvedFilledColor, bgColor) { IsWideContinuation = true });
+							currentX++;
+						}
 					}
 					currentX++;
 				}
@@ -449,7 +463,7 @@ namespace SharpConsoleUI.Controls
 
 			if (_showValue)
 			{
-				width += 1 + _value.ToString(_valueFormat).Length; // Space + value
+				width += 1 + UnicodeWidth.GetStringWidth(_value.ToString(_valueFormat)); // Space + value
 			}
 
 			return width;

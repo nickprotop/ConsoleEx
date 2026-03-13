@@ -506,7 +506,7 @@ namespace SharpConsoleUI.Controls
 					if (x >= clipRect.X && x < clipRect.Right)
 					{
 						char displayChar = _maskCharacter ?? visibleInput[i];
-						buffer.SetCell(x, startY, displayChar, inputForegroundColor, inputBackgroundColor);
+						buffer.SetNarrowCell(x, startY, displayChar, inputForegroundColor, inputBackgroundColor);
 					}
 				}
 
@@ -520,7 +520,7 @@ namespace SharpConsoleUI.Controls
 						int x = inputEndX + i;
 						if (x >= clipRect.X && x < clipRect.Right && x < bounds.Right - Margin.Right)
 						{
-							buffer.SetCell(x, startY, ' ', inputForegroundColor, inputBackgroundColor);
+							buffer.SetNarrowCell(x, startY, ' ', inputForegroundColor, inputBackgroundColor);
 						}
 					}
 				}

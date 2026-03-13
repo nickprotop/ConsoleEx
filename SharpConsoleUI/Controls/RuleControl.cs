@@ -133,7 +133,7 @@ namespace SharpConsoleUI.Controls
 						int px = startX + x;
 						if (px >= clipRect.X && px < clipRect.Right)
 						{
-							buffer.SetCell(px, startY, horizChar, ruleColor, bgColor);
+							buffer.SetNarrowCell(px, startY, horizChar, ruleColor, bgColor);
 						}
 					}
 				}
@@ -155,7 +155,7 @@ namespace SharpConsoleUI.Controls
 							int px = startX + x;
 							if (px >= clipRect.X && px < clipRect.Right)
 							{
-								buffer.SetCell(px, startY, horizChar, ruleColor, bgColor);
+								buffer.SetNarrowCell(px, startY, horizChar, ruleColor, bgColor);
 							}
 						}
 					}
@@ -184,33 +184,33 @@ namespace SharpConsoleUI.Controls
 						for (int i = 0; i < leftDashes; i++)
 						{
 							if (writeX >= clipRect.X && writeX < clipRect.Right)
-								buffer.SetCell(writeX, startY, horizChar, ruleColor, bgColor);
+								buffer.SetNarrowCell(writeX, startY, horizChar, ruleColor, bgColor);
 							writeX++;
 						}
 
 						// Space before title
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetCell(writeX, startY, ' ', ruleColor, bgColor);
+							buffer.SetNarrowCell(writeX, startY, ' ', ruleColor, bgColor);
 						writeX++;
 
 						// Title cells (with their own colors from markup)
 						foreach (var cell in titleCells)
 						{
 							if (writeX >= clipRect.X && writeX < clipRect.Right)
-								buffer.SetCell(writeX, startY, cell.Character, cell.Foreground, cell.Background);
+								buffer.SetCell(writeX, startY, cell);
 							writeX++;
 						}
 
 						// Space after title
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetCell(writeX, startY, ' ', ruleColor, bgColor);
+							buffer.SetNarrowCell(writeX, startY, ' ', ruleColor, bgColor);
 						writeX++;
 
 						// Right dashes
 						for (int i = 0; i < rightDashes; i++)
 						{
 							if (writeX >= clipRect.X && writeX < clipRect.Right)
-								buffer.SetCell(writeX, startY, horizChar, ruleColor, bgColor);
+								buffer.SetNarrowCell(writeX, startY, horizChar, ruleColor, bgColor);
 							writeX++;
 						}
 					}

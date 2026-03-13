@@ -189,15 +189,19 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
-		/// Sets a cell at the specified position.
+		/// Sets a narrow (width-1) cell at the specified position.
+		/// Clears IsWideContinuation, Combiners, and Decorations.
+		/// Do NOT use for cells from MarkupParser.Parse — use SetCell(Cell) instead to preserve flags.
 		/// </summary>
-		public void SetCell(int x, int y, char character, Color foreground, Color background)
-			=> SetCell(x, y, new Rune(character), foreground, background);
+		public void SetNarrowCell(int x, int y, char character, Color foreground, Color background)
+			=> SetNarrowCell(x, y, new Rune(character), foreground, background);
 
 		/// <summary>
-		/// Sets a cell at the specified position with a Rune character.
+		/// Sets a narrow (width-1) cell at the specified position with a Rune character.
+		/// Clears IsWideContinuation, Combiners, and Decorations.
+		/// Do NOT use for cells from MarkupParser.Parse — use SetCell(Cell) instead to preserve flags.
 		/// </summary>
-		public void SetCell(int x, int y, Rune character, Color foreground, Color background)
+		public void SetNarrowCell(int x, int y, Rune character, Color foreground, Color background)
 		{
 			if (x < 0 || x >= Width || y < 0 || y >= Height)
 				return;
@@ -312,7 +316,7 @@ namespace SharpConsoleUI.Layout
 					else if (cx >= 0 && cx < Width)
 					{
 						// No room for continuation — write space instead
-						SetCell(cx, y, ' ', foreground, background);
+						SetNarrowCell(cx, y, ' ', foreground, background);
 					}
 					cx += 2;
 				}
@@ -388,12 +392,12 @@ namespace SharpConsoleUI.Layout
 					else if (firstInClip)
 					{
 						// Only first column in clip — can't show half a wide char
-						SetCell(cx, y, ' ', foreground, background);
+						SetNarrowCell(cx, y, ' ', foreground, background);
 					}
 					else if (secondInClip)
 					{
 						// Only second column in clip — can't show half a wide char
-						SetCell(cx + 1, y, ' ', foreground, background);
+						SetNarrowCell(cx + 1, y, ' ', foreground, background);
 					}
 					cx += 2;
 				}
@@ -634,7 +638,7 @@ namespace SharpConsoleUI.Layout
 			{
 				for (int x = clipped.X; x < clipped.Right; x++)
 				{
-					SetCell(x, y, character, foreground, background);
+					SetNarrowCell(x, y, character, foreground, background);
 				}
 			}
 		}
@@ -663,7 +667,7 @@ namespace SharpConsoleUI.Layout
 				for (int x = clipped.X; x < clipped.Right; x++)
 				{
 					var existingBg = _cells[x, y].Background;
-					SetCell(x, y, ' ', foregroundColor, existingBg);
+					SetNarrowCell(x, y, ' ', foregroundColor, existingBg);
 				}
 			}
 		}
@@ -719,7 +723,7 @@ namespace SharpConsoleUI.Layout
 		{
 			for (int i = 0; i < length; i++)
 			{
-				SetCell(x + i, y, character, foreground, background);
+				SetNarrowCell(x + i, y, character, foreground, background);
 			}
 		}
 
@@ -730,7 +734,7 @@ namespace SharpConsoleUI.Layout
 		{
 			for (int i = 0; i < length; i++)
 			{
-				SetCell(x, y + i, character, foreground, background);
+				SetNarrowCell(x, y + i, character, foreground, background);
 			}
 		}
 
@@ -743,23 +747,23 @@ namespace SharpConsoleUI.Layout
 				return;
 
 			// Corners
-			SetCell(rect.X, rect.Y, chars.TopLeft, foreground, background);
-			SetCell(rect.Right - 1, rect.Y, chars.TopRight, foreground, background);
-			SetCell(rect.X, rect.Bottom - 1, chars.BottomLeft, foreground, background);
-			SetCell(rect.Right - 1, rect.Bottom - 1, chars.BottomRight, foreground, background);
+			SetNarrowCell(rect.X, rect.Y, chars.TopLeft, foreground, background);
+			SetNarrowCell(rect.Right - 1, rect.Y, chars.TopRight, foreground, background);
+			SetNarrowCell(rect.X, rect.Bottom - 1, chars.BottomLeft, foreground, background);
+			SetNarrowCell(rect.Right - 1, rect.Bottom - 1, chars.BottomRight, foreground, background);
 
 			// Top and bottom edges
 			for (int x = rect.X + 1; x < rect.Right - 1; x++)
 			{
-				SetCell(x, rect.Y, chars.Horizontal, foreground, background);
-				SetCell(x, rect.Bottom - 1, chars.Horizontal, foreground, background);
+				SetNarrowCell(x, rect.Y, chars.Horizontal, foreground, background);
+				SetNarrowCell(x, rect.Bottom - 1, chars.Horizontal, foreground, background);
 			}
 
 			// Left and right edges
 			for (int y = rect.Y + 1; y < rect.Bottom - 1; y++)
 			{
-				SetCell(rect.X, y, chars.Vertical, foreground, background);
-				SetCell(rect.Right - 1, y, chars.Vertical, foreground, background);
+				SetNarrowCell(rect.X, y, chars.Vertical, foreground, background);
+				SetNarrowCell(rect.Right - 1, y, chars.Vertical, foreground, background);
 			}
 		}
 

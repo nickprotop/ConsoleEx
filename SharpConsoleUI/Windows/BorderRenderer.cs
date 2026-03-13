@@ -101,7 +101,7 @@ namespace SharpConsoleUI.Windows
 			}
 			else scrollbarChar = verticalBorder;
 
-			driver.SetCell(
+			driver.SetNarrowCell(
 				_window.Left + _window.Width - 1,
 				_window.Top + desktopUpperLeft.Y + y,
 				scrollbarChar, borderFg, bg);
@@ -130,7 +130,7 @@ namespace SharpConsoleUI.Windows
 			{
 				var maxTitleSpace = Math.Max(0, _window.Width - 8 - totalButtonWidth);
 				truncatedTitle = StringHelper.TrimWithEllipsis(_window.Title, maxTitleSpace, maxTitleSpace / 2);
-				titleLength = 4 + truncatedTitle.Length; // "| " + title + " |"
+				titleLength = 4 + UnicodeWidth.GetStringWidth(truncatedTitle); // "| " + title + " |"
 				var availableSpace = Math.Max(0, _window.Width - 2 - titleLength - totalButtonWidth);
 				leftPadding = Math.Min(1, availableSpace);
 				rightPadding = Math.Max(0, availableSpace - leftPadding);
@@ -147,51 +147,61 @@ namespace SharpConsoleUI.Windows
 			int x = 0;
 
 			// Top-left corner
-			buffer.SetCell(x++, 0, chars.TopLeft, borderFg, bg);
+			buffer.SetNarrowCell(x++, 0, chars.TopLeft, borderFg, bg);
 
 			// Left horizontal padding
 			for (int i = 0; i < leftPadding; i++)
-				buffer.SetCell(x++, 0, chars.Horizontal, borderFg, bg);
+				buffer.SetNarrowCell(x++, 0, chars.Horizontal, borderFg, bg);
 
 			// Title
 			if (titleLength > 0)
 			{
-				buffer.SetCell(x++, 0, '|', titleFg, bg);
-				buffer.SetCell(x++, 0, ' ', titleFg, bg);
-				foreach (var ch in truncatedTitle)
-					buffer.SetCell(x++, 0, ch, titleFg, bg);
-				buffer.SetCell(x++, 0, ' ', titleFg, bg);
-				buffer.SetCell(x++, 0, '|', titleFg, bg);
+				buffer.SetNarrowCell(x++, 0, '|', titleFg, bg);
+				buffer.SetNarrowCell(x++, 0, ' ', titleFg, bg);
+				foreach (var rune in truncatedTitle.EnumerateRunes())
+				{
+					int rw = UnicodeWidth.GetRuneWidth(rune);
+					if (rw == 0) continue;
+					buffer.SetNarrowCell(x, 0, rune, titleFg, bg);
+					if (rw == 2)
+					{
+						buffer.SetCell(x + 1, 0, new Cell(' ', titleFg, bg) { IsWideContinuation = true });
+						x++;
+					}
+					x++;
+				}
+				buffer.SetNarrowCell(x++, 0, ' ', titleFg, bg);
+				buffer.SetNarrowCell(x++, 0, '|', titleFg, bg);
 			}
 
 			// Right horizontal padding
 			for (int i = 0; i < rightPadding; i++)
-				buffer.SetCell(x++, 0, chars.Horizontal, borderFg, bg);
+				buffer.SetNarrowCell(x++, 0, chars.Horizontal, borderFg, bg);
 
 			// Buttons
 			if (_window.IsMinimizable)
 			{
-				buffer.SetCell(x++, 0, '[', buttonFg, bg);
-				buffer.SetCell(x++, 0, '_', buttonFg, bg);
-				buffer.SetCell(x++, 0, ']', buttonFg, bg);
+				buffer.SetNarrowCell(x++, 0, '[', buttonFg, bg);
+				buffer.SetNarrowCell(x++, 0, '_', buttonFg, bg);
+				buffer.SetNarrowCell(x++, 0, ']', buttonFg, bg);
 			}
 			if (_window.IsMaximizable)
 			{
 				var sym = _window.State == WindowState.Maximized ? '-' : '+';
-				buffer.SetCell(x++, 0, '[', buttonFg, bg);
-				buffer.SetCell(x++, 0, sym, buttonFg, bg);
-				buffer.SetCell(x++, 0, ']', buttonFg, bg);
+				buffer.SetNarrowCell(x++, 0, '[', buttonFg, bg);
+				buffer.SetNarrowCell(x++, 0, sym, buttonFg, bg);
+				buffer.SetNarrowCell(x++, 0, ']', buttonFg, bg);
 			}
 			if (_window.IsClosable && _window.ShowCloseButton)
 			{
-				buffer.SetCell(x++, 0, '[', closeFg, bg);
-				buffer.SetCell(x++, 0, 'X', closeFg, bg);
-				buffer.SetCell(x++, 0, ']', closeFg, bg);
+				buffer.SetNarrowCell(x++, 0, '[', closeFg, bg);
+				buffer.SetNarrowCell(x++, 0, 'X', closeFg, bg);
+				buffer.SetNarrowCell(x++, 0, ']', closeFg, bg);
 			}
 
 			// Top-right corner
 			if (x < _window.Width)
-				buffer.SetCell(x, 0, chars.TopRight, borderFg, bg);
+				buffer.SetNarrowCell(x, 0, chars.TopRight, borderFg, bg);
 
 			return buffer;
 		}
@@ -204,11 +214,11 @@ namespace SharpConsoleUI.Windows
 			var buffer = new CharacterBuffer(_window.Width, 1, bg);
 
 			// Bottom-left corner
-			buffer.SetCell(0, 0, chars.BottomLeft, borderFg, bg);
+			buffer.SetNarrowCell(0, 0, chars.BottomLeft, borderFg, bg);
 
 			// Horizontal line
 			for (int x = 1; x < _window.Width - 1; x++)
-				buffer.SetCell(x, 0, chars.Horizontal, borderFg, bg);
+				buffer.SetNarrowCell(x, 0, chars.Horizontal, borderFg, bg);
 
 			// Resize grip or bottom-right corner
 			var resizeDirs = _window.AllowedResizeDirections;
@@ -218,7 +228,7 @@ namespace SharpConsoleUI.Windows
 
 			var bottomRightChar = showResizeGrip ? '◢' : chars.BottomRight;
 			if (_window.Width > 1)
-				buffer.SetCell(_window.Width - 1, 0, bottomRightChar, borderFg, bg);
+				buffer.SetNarrowCell(_window.Width - 1, 0, bottomRightChar, borderFg, bg);
 
 			return buffer;
 		}
@@ -301,7 +311,7 @@ namespace SharpConsoleUI.Windows
 
 						if (isLeftBorderVisible)
 						{
-							driver.SetCell(_window.Left, _window.Top + desktopUpperLeft.Y + y,
+							driver.SetNarrowCell(_window.Left, _window.Top + desktopUpperLeft.Y + y,
 								chars.Vertical, borderFg, bg);
 						}
 
@@ -313,7 +323,7 @@ namespace SharpConsoleUI.Windows
 							}
 							else
 							{
-								driver.SetCell(rightBorderPos, _window.Top + desktopUpperLeft.Y + y,
+								driver.SetNarrowCell(rightBorderPos, _window.Top + desktopUpperLeft.Y + y,
 									chars.Vertical, borderFg, bg);
 							}
 						}
@@ -374,7 +384,7 @@ namespace SharpConsoleUI.Windows
 						if (_window.Left >= region.Left &&
 							_window.Left < region.Left + region.Width)
 						{
-							driver.SetCell(_window.Left, _window.Top + desktopUpperLeft.Y + y, ' ', fg, bg);
+							driver.SetNarrowCell(_window.Left, _window.Top + desktopUpperLeft.Y + y, ' ', fg, bg);
 						}
 
 						// Right border
@@ -398,7 +408,7 @@ namespace SharpConsoleUI.Windows
 							}
 							else
 							{
-								driver.SetCell(rightPos, _window.Top + desktopUpperLeft.Y + y, ' ', fg, bg);
+								driver.SetNarrowCell(rightPos, _window.Top + desktopUpperLeft.Y + y, ' ', fg, bg);
 							}
 						}
 					}

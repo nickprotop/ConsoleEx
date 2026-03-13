@@ -484,17 +484,17 @@ namespace SharpConsoleUI.Controls
 			if (y >= clipRect.Y && y < clipRect.Bottom)
 			{
 				if (x >= clipRect.X && x < clipRect.Right)
-					buffer.SetCell(x, y, chars.TopLeft, borderColor, bgColor);
+					buffer.SetNarrowCell(x, y, chars.TopLeft, borderColor, bgColor);
 
 				for (int i = 1; i < width - 1; i++)
 				{
 					int drawX = x + i;
 					if (drawX >= clipRect.X && drawX < clipRect.Right)
-						buffer.SetCell(drawX, y, chars.Horizontal, borderColor, bgColor);
+						buffer.SetNarrowCell(drawX, y, chars.Horizontal, borderColor, bgColor);
 				}
 
 				if (x + width - 1 >= clipRect.X && x + width - 1 < clipRect.Right)
-					buffer.SetCell(x + width - 1, y, chars.TopRight, borderColor, bgColor);
+					buffer.SetNarrowCell(x + width - 1, y, chars.TopRight, borderColor, bgColor);
 			}
 
 			// Draw bottom border
@@ -502,17 +502,17 @@ namespace SharpConsoleUI.Controls
 			if (bottomY >= clipRect.Y && bottomY < clipRect.Bottom)
 			{
 				if (x >= clipRect.X && x < clipRect.Right)
-					buffer.SetCell(x, bottomY, chars.BottomLeft, borderColor, bgColor);
+					buffer.SetNarrowCell(x, bottomY, chars.BottomLeft, borderColor, bgColor);
 
 				for (int i = 1; i < width - 1; i++)
 				{
 					int drawX = x + i;
 					if (drawX >= clipRect.X && drawX < clipRect.Right)
-						buffer.SetCell(drawX, bottomY, chars.Horizontal, borderColor, bgColor);
+						buffer.SetNarrowCell(drawX, bottomY, chars.Horizontal, borderColor, bgColor);
 				}
 
 				if (x + width - 1 >= clipRect.X && x + width - 1 < clipRect.Right)
-					buffer.SetCell(x + width - 1, bottomY, chars.BottomRight, borderColor, bgColor);
+					buffer.SetNarrowCell(x + width - 1, bottomY, chars.BottomRight, borderColor, bgColor);
 			}
 
 			// Draw left and right borders
@@ -522,10 +522,10 @@ namespace SharpConsoleUI.Controls
 				if (drawY >= clipRect.Y && drawY < clipRect.Bottom)
 				{
 					if (x >= clipRect.X && x < clipRect.Right)
-						buffer.SetCell(x, drawY, chars.Vertical, borderColor, bgColor);
+						buffer.SetNarrowCell(x, drawY, chars.Vertical, borderColor, bgColor);
 
 					if (x + width - 1 >= clipRect.X && x + width - 1 < clipRect.Right)
-						buffer.SetCell(x + width - 1, drawY, chars.Vertical, borderColor, bgColor);
+						buffer.SetNarrowCell(x + width - 1, drawY, chars.Vertical, borderColor, bgColor);
 				}
 			}
 		}

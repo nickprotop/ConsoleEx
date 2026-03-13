@@ -394,7 +394,7 @@ namespace SharpConsoleUI.Controls
 								int x = startX + charIdx;
 								if (x >= clipRect.X && x < clipRect.Right)
 								{
-									buffer.SetCell(x, paintY, ch, fgColor, bgColor);
+									buffer.SetNarrowCell(x, paintY, ch, fgColor, bgColor);
 								}
 							}
 						}

@@ -11,11 +11,11 @@ public class CharacterBufferGradientPreserveTests
 	{
 		var buffer = new CharacterBuffer(5, 1);
 		// Pre-fill with gradient-like distinct backgrounds
-		buffer.SetCell(0, 0, 'X', Color.White, Color.Red);
-		buffer.SetCell(1, 0, 'X', Color.White, Color.Green);
-		buffer.SetCell(2, 0, 'X', Color.White, Color.Blue);
-		buffer.SetCell(3, 0, 'X', Color.White, Color.Yellow);
-		buffer.SetCell(4, 0, 'X', Color.White, Color.Cyan1);
+		buffer.SetNarrowCell(0, 0, 'X', Color.White, Color.Red);
+		buffer.SetNarrowCell(1, 0, 'X', Color.White, Color.Green);
+		buffer.SetNarrowCell(2, 0, 'X', Color.White, Color.Blue);
+		buffer.SetNarrowCell(3, 0, 'X', Color.White, Color.Yellow);
+		buffer.SetNarrowCell(4, 0, 'X', Color.White, Color.Cyan1);
 
 		buffer.FillRectPreservingBackground(new LayoutRect(0, 0, 5, 1), Color.Grey);
 
@@ -44,9 +44,9 @@ public class CharacterBufferGradientPreserveTests
 	public void FillRectPreservingBackground_SetsForegroundColor()
 	{
 		var buffer = new CharacterBuffer(3, 1);
-		buffer.SetCell(0, 0, 'A', Color.White, Color.Red);
-		buffer.SetCell(1, 0, 'B', Color.White, Color.Green);
-		buffer.SetCell(2, 0, 'C', Color.White, Color.Blue);
+		buffer.SetNarrowCell(0, 0, 'A', Color.White, Color.Red);
+		buffer.SetNarrowCell(1, 0, 'B', Color.White, Color.Green);
+		buffer.SetNarrowCell(2, 0, 'C', Color.White, Color.Blue);
 
 		var newFg = Color.Yellow;
 		buffer.FillRectPreservingBackground(new LayoutRect(0, 0, 3, 1), newFg);
@@ -60,7 +60,7 @@ public class CharacterBufferGradientPreserveTests
 	public void FillRectPreservingBackground_ClipsToBufferBounds()
 	{
 		var buffer = new CharacterBuffer(3, 3);
-		buffer.SetCell(0, 0, 'A', Color.White, Color.Red);
+		buffer.SetNarrowCell(0, 0, 'A', Color.White, Color.Red);
 
 		// Rect extends beyond buffer
 		buffer.FillRectPreservingBackground(new LayoutRect(-1, -1, 10, 10), Color.Grey);

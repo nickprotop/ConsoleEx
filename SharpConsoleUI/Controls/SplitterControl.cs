@@ -358,7 +358,7 @@ namespace SharpConsoleUI.Controls
 					// Paint splitter character
 					if (startX >= clipRect.X && startX < clipRect.Right)
 					{
-						buffer.SetCell(startX, paintY, splitterChar, fgColor, bgColor);
+						buffer.SetNarrowCell(startX, paintY, splitterChar, fgColor, bgColor);
 					}
 
 					// Fill right margin

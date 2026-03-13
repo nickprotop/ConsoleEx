@@ -95,7 +95,7 @@ public class ModalBlurWindow : Window
 
 				// Use lighter character for blur effect
 				char blurChar = cell.Character == new Rune(' ') ? ' ' : '░';
-				buffer.SetCell(x, y, blurChar, avgFg, avgBg);
+				buffer.SetNarrowCell(x, y, blurChar, avgFg, avgBg);
 			}
 		}
 	}

@@ -37,7 +37,7 @@ public class CharacterBufferTests
 		var buffer = new CharacterBuffer(10, 10);
 
 		// Act
-		buffer.SetCell(5, 5, 'X', Color.Red, Color.Blue);
+		buffer.SetNarrowCell(5, 5, 'X', Color.Red, Color.Blue);
 
 		// Assert
 		var cell = buffer.GetCell(5, 5);
@@ -105,7 +105,7 @@ public class CharacterBufferTests
 	{
 		// Arrange
 		var buffer = new CharacterBuffer(10, 10);
-		buffer.SetCell(5, 5, 'X', Color.Red, Color.Blue);
+		buffer.SetNarrowCell(5, 5, 'X', Color.Red, Color.Blue);
 
 		// Act
 		buffer.Clear(Color.Black);
@@ -181,8 +181,8 @@ public class CharacterBufferTests
 		buffer.ToLines(Color.White, Color.Black);
 
 		// Act
-		buffer.SetCell(3, 4, 'A', Color.Red, Color.Black);
-		buffer.SetCell(7, 2, 'B', Color.Blue, Color.White);
+		buffer.SetNarrowCell(3, 4, 'A', Color.Red, Color.Black);
+		buffer.SetNarrowCell(7, 2, 'B', Color.Blue, Color.White);
 
 		var dirtyCells = buffer.GetDirtyCells().ToList();
 
@@ -201,8 +201,8 @@ public class CharacterBufferTests
 		buffer.ToLines(Color.White, Color.Black);
 
 		// Act
-		buffer.SetCell(3, 4, 'A', Color.Red, Color.Black);
-		buffer.SetCell(7, 2, 'B', Color.Blue, Color.White);
+		buffer.SetNarrowCell(3, 4, 'A', Color.Red, Color.Black);
+		buffer.SetNarrowCell(7, 2, 'B', Color.Blue, Color.White);
 
 		var changes = buffer.GetChanges().ToList();
 
@@ -218,7 +218,7 @@ public class CharacterBufferTests
 	{
 		// Arrange
 		var buffer = new CharacterBuffer(10, 10);
-		buffer.SetCell(5, 5, 'X', Color.Red, Color.Blue);
+		buffer.SetNarrowCell(5, 5, 'X', Color.Red, Color.Blue);
 
 		// Act
 		buffer.Resize(20, 20);
@@ -237,7 +237,7 @@ public class CharacterBufferTests
 	{
 		// Arrange
 		var buffer = new CharacterBuffer(20, 20);
-		buffer.SetCell(15, 15, 'X', Color.Red, Color.Blue);
+		buffer.SetNarrowCell(15, 15, 'X', Color.Red, Color.Blue);
 
 		// Act - Shrink to 10x10
 		buffer.Resize(10, 10);

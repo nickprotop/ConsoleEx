@@ -36,7 +36,12 @@ namespace SharpConsoleUI.Rendering
 						x, y, clipped.X, clipped.Y, clipped.Width, clipped.Height, direction);
 					var bgColor = gradient.Interpolate(t);
 					var existing = buffer.GetCell(x, y);
-					buffer.SetCell(x, y, new Cell(existing.Character, existing.Foreground, bgColor, existing.Decorations));
+					var updated = new Cell(existing.Character, existing.Foreground, bgColor, existing.Decorations)
+					{
+						IsWideContinuation = existing.IsWideContinuation,
+						Combiners = existing.Combiners
+					};
+					buffer.SetCell(x, y, updated);
 				}
 			}
 		}
@@ -67,7 +72,12 @@ namespace SharpConsoleUI.Rendering
 						x, y, clipped.X, clipped.Y, clipped.Width, clipped.Height, direction);
 					var fgColor = gradient.Interpolate(t);
 					var existing = buffer.GetCell(x, y);
-					buffer.SetCell(x, y, new Cell(existing.Character, fgColor, existing.Background, existing.Decorations));
+					var updated = new Cell(existing.Character, fgColor, existing.Background, existing.Decorations)
+					{
+						IsWideContinuation = existing.IsWideContinuation,
+						Combiners = existing.Combiners
+					};
+					buffer.SetCell(x, y, updated);
 				}
 			}
 		}

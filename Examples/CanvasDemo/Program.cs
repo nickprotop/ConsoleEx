@@ -152,7 +152,7 @@ class Program
 							if (s.X >= w) s.X %= w;
 
 							int sy = s.Y % h;
-							g.SetCell((int)s.X, sy, starChars[s.Layer],
+							g.SetNarrowCell((int)s.X, sy, starChars[s.Layer],
 								starColors[s.Layer], spaceBg);
 						}
 
@@ -170,7 +170,7 @@ class Program
 										(byte)(b.C.R * fade),
 										(byte)(b.C.G * fade),
 										(byte)(b.C.B * fade));
-									g.SetCell(bx, by, '●', c, spaceBg);
+									g.SetNarrowCell(bx, by, '●', c, spaceBg);
 								}
 
 								bursts[i] = (b.X + b.Vx, b.Y + b.Vy,
@@ -270,7 +270,7 @@ class Program
 								if (hue < 0) hue += 1.0;
 
 								var (cr, cg, cb) = HsvToRgb(hue, 0.85, 0.9);
-								g.SetCell(x, y, '▓', new Color(cr, cg, cb), Color.Black);
+								g.SetNarrowCell(x, y, '▓', new Color(cr, cg, cb), Color.Black);
 							}
 						}
 
@@ -347,7 +347,7 @@ class Program
 						// --- Background: dotted grid ---
 						for (int y = 0; y < h; y += 4)
 							for (int x = 0; x < w; x += 6)
-								g.SetCell(x, y, '·', dimGrid, bg);
+								g.SetNarrowCell(x, y, '·', dimGrid, bg);
 
 						// --- Rotating polygon ring (morphs 3→8 sides) ---
 						int sides = 3 + (int)(t * 0.3) % 6;

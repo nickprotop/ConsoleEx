@@ -343,7 +343,7 @@ internal sealed class VT100Machine
         bool isDec = _useG1 ? _g1Decs : _g0Decs;
         if (isDec) ch = MapDecSpecial(ch);
 
-        _screen.SetCell(_cx, _cy, ch, _fg, _bg);
+        _screen.SetNarrowCell(_cx, _cy, ch, _fg, _bg);
         _cx++;
     }
 
@@ -379,7 +379,7 @@ internal sealed class VT100Machine
             for (int x = 0; x < Width; x++)
             {
                 var c = _screen.GetCell(x, y + 1);
-                _screen.SetCell(x, y, c.Character, c.Foreground, c.Background);
+                _screen.SetCell(x, y, c);
             }
         FillRow(_scrollBottom);
     }
@@ -402,7 +402,7 @@ internal sealed class VT100Machine
             for (int x = 0; x < Width; x++)
             {
                 var c = _screen.GetCell(x, y - 1);
-                _screen.SetCell(x, y, c.Character, c.Foreground, c.Background);
+                _screen.SetCell(x, y, c);
             }
         FillRow(_scrollTop);
     }
@@ -435,13 +435,13 @@ internal sealed class VT100Machine
             default: start = 0;  end = Width;   break;
         }
         for (int x = start; x < end; x++)
-            _screen.SetCell(x, _cy, ' ', _defaultFg, _defaultBg);
+            _screen.SetNarrowCell(x, _cy, ' ', _defaultFg, _defaultBg);
     }
 
     private void FillRow(int y)
     {
         for (int x = 0; x < Width; x++)
-            _screen.SetCell(x, y, ' ', _defaultFg, _defaultBg);
+            _screen.SetNarrowCell(x, y, ' ', _defaultFg, _defaultBg);
     }
 
     private void DeleteChars(int count)
@@ -450,10 +450,10 @@ internal sealed class VT100Machine
         for (int i = 0; i < remaining; i++)
         {
             var c = _screen.GetCell(_cx + count + i, _cy);
-            _screen.SetCell(_cx + i, _cy, c.Character, c.Foreground, c.Background);
+            _screen.SetCell(_cx + i, _cy, c);
         }
         for (int i = Math.Max(0, Width - count); i < Width; i++)
-            _screen.SetCell(i, _cy, ' ', _defaultFg, _defaultBg);
+            _screen.SetNarrowCell(i, _cy, ' ', _defaultFg, _defaultBg);
     }
 
     private void InsertChars(int count)
@@ -461,10 +461,10 @@ internal sealed class VT100Machine
         for (int i = Width - 1; i >= _cx + count; i--)
         {
             var c = _screen.GetCell(i - count, _cy);
-            _screen.SetCell(i, _cy, c.Character, c.Foreground, c.Background);
+            _screen.SetCell(i, _cy, c);
         }
         for (int i = _cx; i < Math.Min(_cx + count, Width); i++)
-            _screen.SetCell(i, _cy, ' ', _defaultFg, _defaultBg);
+            _screen.SetNarrowCell(i, _cy, ' ', _defaultFg, _defaultBg);
     }
 
     private void MoveCursor(int dx, int dy)
@@ -515,7 +515,7 @@ internal sealed class VT100Machine
             for (int x = 0; x < Width; x++)
             {
                 var c = _screen.GetCell(x, y);
-                _savedMainScreen.SetCell(x, y, c.Character, c.Foreground, c.Background);
+                _savedMainScreen.SetCell(x, y, c);
             }
 
         // Clear the screen for the alternate buffer
@@ -536,7 +536,7 @@ internal sealed class VT100Machine
                 for (int x = 0; x < w; x++)
                 {
                     var c = _savedMainScreen.GetCell(x, y);
-                    _screen.SetCell(x, y, c.Character, c.Foreground, c.Background);
+                    _screen.SetCell(x, y, c);
                 }
             _savedMainScreen = null;
         }

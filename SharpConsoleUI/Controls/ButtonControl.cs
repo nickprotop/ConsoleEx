@@ -419,35 +419,35 @@ namespace SharpConsoleUI.Controls
 					var box = _borderStyle == ButtonBorderStyle.Rounded ? BoxChars.Rounded : BoxChars.Single;
 					if (row == 0)
 					{
-						buffer.SetCell(bx, y, box.TopLeft, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx, y, box.TopLeft, borderFg, backgroundColor);
 						for (int x = 1; x < buttonWidth - 1; x++)
-							buffer.SetCell(bx + x, y, box.Horizontal, borderFg, backgroundColor);
-						buffer.SetCell(bx + buttonWidth - 1, y, box.TopRight, borderFg, backgroundColor);
+							buffer.SetNarrowCell(bx + x, y, box.Horizontal, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx + buttonWidth - 1, y, box.TopRight, borderFg, backgroundColor);
 					}
 					else if (row == 2)
 					{
-						buffer.SetCell(bx, y, box.BottomLeft, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx, y, box.BottomLeft, borderFg, backgroundColor);
 						for (int x = 1; x < buttonWidth - 1; x++)
-							buffer.SetCell(bx + x, y, box.Horizontal, borderFg, backgroundColor);
-						buffer.SetCell(bx + buttonWidth - 1, y, box.BottomRight, borderFg, backgroundColor);
+							buffer.SetNarrowCell(bx + x, y, box.Horizontal, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx + buttonWidth - 1, y, box.BottomRight, borderFg, backgroundColor);
 					}
 					else
 					{
-						buffer.SetCell(bx, y, box.Vertical, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx, y, box.Vertical, borderFg, backgroundColor);
 						string padded = $" {new string(' ', leftInnerPad)}{text}{new string(' ', rightInnerPad)} ";
 						var cells = Parsing.MarkupParser.Parse(padded, foregroundColor, backgroundColor);
 						buffer.WriteCellsClipped(bx + 1, y, cells, clipRect);
-						buffer.SetCell(bx + buttonWidth - 1, y, box.Vertical, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx + buttonWidth - 1, y, box.Vertical, borderFg, backgroundColor);
 					}
 				}
 				else if (_borderStyle == ButtonBorderStyle.Pipe)
 				{
 					// │ text │
-					buffer.SetCell(bx, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+					buffer.SetNarrowCell(bx, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
 					string padded = $" {new string(' ', leftInnerPad)}{text}{new string(' ', rightInnerPad)} ";
 					var cells = Parsing.MarkupParser.Parse(padded, foregroundColor, backgroundColor);
 					buffer.WriteCellsClipped(bx + 1, y, cells, clipRect);
-					buffer.SetCell(bx + buttonWidth - 1, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+					buffer.SetNarrowCell(bx + buttonWidth - 1, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
 				}
 				else
 				{

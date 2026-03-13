@@ -241,7 +241,7 @@ namespace SharpConsoleUI.Controls
 
 			// Left corner
 			if (x >= clipRect.X && x < clipRect.Right)
-				buffer.SetCell(x, y, box.TopLeft, borderColor, bgColor);
+				buffer.SetNarrowCell(x, y, box.TopLeft, borderColor, bgColor);
 
 			if (string.IsNullOrEmpty(_header) || innerWidth < 4)
 			{
@@ -250,7 +250,7 @@ namespace SharpConsoleUI.Controls
 				{
 					int px = x + 1 + i;
 					if (px >= clipRect.X && px < clipRect.Right)
-						buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+						buffer.SetNarrowCell(px, y, box.Horizontal, borderColor, bgColor);
 				}
 			}
 			else
@@ -267,7 +267,7 @@ namespace SharpConsoleUI.Controls
 					{
 						int px = x + 1 + i;
 						if (px >= clipRect.X && px < clipRect.Right)
-							buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+							buffer.SetNarrowCell(px, y, box.Horizontal, borderColor, bgColor);
 					}
 				}
 				else
@@ -297,31 +297,31 @@ namespace SharpConsoleUI.Controls
 					for (int i = 0; i < leftDashes; i++)
 					{
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetCell(writeX, y, box.Horizontal, borderColor, bgColor);
+							buffer.SetNarrowCell(writeX, y, box.Horizontal, borderColor, bgColor);
 						writeX++;
 					}
 
 					// Space + header + space
 					if (writeX >= clipRect.X && writeX < clipRect.Right)
-						buffer.SetCell(writeX, y, ' ', borderColor, bgColor);
+						buffer.SetNarrowCell(writeX, y, ' ', borderColor, bgColor);
 					writeX++;
 
 					foreach (var cell in headerCells)
 					{
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetCell(writeX, y, cell.Character, cell.Foreground, cell.Background);
+							buffer.SetCell(writeX, y, cell);
 						writeX++;
 					}
 
 					if (writeX >= clipRect.X && writeX < clipRect.Right)
-						buffer.SetCell(writeX, y, ' ', borderColor, bgColor);
+						buffer.SetNarrowCell(writeX, y, ' ', borderColor, bgColor);
 					writeX++;
 
 					// Right dashes
 					for (int i = 0; i < rightDashes; i++)
 					{
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetCell(writeX, y, box.Horizontal, borderColor, bgColor);
+							buffer.SetNarrowCell(writeX, y, box.Horizontal, borderColor, bgColor);
 						writeX++;
 					}
 				}
@@ -330,7 +330,7 @@ namespace SharpConsoleUI.Controls
 			// Right corner
 			int rightX = x + width - 1;
 			if (rightX >= clipRect.X && rightX < clipRect.Right)
-				buffer.SetCell(rightX, y, box.TopRight, borderColor, bgColor);
+				buffer.SetNarrowCell(rightX, y, box.TopRight, borderColor, bgColor);
 		}
 
 		/// <summary>
@@ -341,19 +341,19 @@ namespace SharpConsoleUI.Controls
 			if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
 			if (x >= clipRect.X && x < clipRect.Right)
-				buffer.SetCell(x, y, box.BottomLeft, borderColor, bgColor);
+				buffer.SetNarrowCell(x, y, box.BottomLeft, borderColor, bgColor);
 
 			int innerWidth = width - 2;
 			for (int i = 0; i < innerWidth; i++)
 			{
 				int px = x + 1 + i;
 				if (px >= clipRect.X && px < clipRect.Right)
-					buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+					buffer.SetNarrowCell(px, y, box.Horizontal, borderColor, bgColor);
 			}
 
 			int rightX = x + width - 1;
 			if (rightX >= clipRect.X && rightX < clipRect.Right)
-				buffer.SetCell(rightX, y, box.BottomRight, borderColor, bgColor);
+				buffer.SetNarrowCell(rightX, y, box.BottomRight, borderColor, bgColor);
 		}
 
 		/// <summary>
@@ -367,7 +367,7 @@ namespace SharpConsoleUI.Controls
 
 			// Left border
 			if (x >= clipRect.X && x < clipRect.Right)
-				buffer.SetCell(x, y, box.Vertical, borderColor, bgColor);
+				buffer.SetNarrowCell(x, y, box.Vertical, borderColor, bgColor);
 
 			// Inner area
 			int innerX = x + 1;
@@ -380,11 +380,11 @@ namespace SharpConsoleUI.Controls
 					if (contentCells != null && contentIdx >= 0 && contentIdx < contentCells.Count)
 					{
 						var cell = contentCells[contentIdx];
-						buffer.SetCell(px, y, cell.Character, cell.Foreground, cell.Background);
+						buffer.SetCell(px, y, cell);
 					}
 					else
 					{
-						buffer.SetCell(px, y, ' ', borderColor, bgColor);
+						buffer.SetNarrowCell(px, y, ' ', borderColor, bgColor);
 					}
 				}
 			}
@@ -392,7 +392,7 @@ namespace SharpConsoleUI.Controls
 			// Right border
 			int rightX = x + width - 1;
 			if (rightX >= clipRect.X && rightX < clipRect.Right)
-				buffer.SetCell(rightX, y, box.Vertical, borderColor, bgColor);
+				buffer.SetNarrowCell(rightX, y, box.Vertical, borderColor, bgColor);
 		}
 
 		/// <summary>
@@ -710,7 +710,7 @@ namespace SharpConsoleUI.Controls
 						foreach (var cell in contentLines[i])
 						{
 							if (contentX >= clipRect.X && contentX < clipRect.Right)
-								buffer.SetCell(contentX, currentY, cell.Character, cell.Foreground, cell.Background);
+								buffer.SetCell(contentX, currentY, cell);
 							contentX++;
 						}
 					}

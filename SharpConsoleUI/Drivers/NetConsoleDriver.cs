@@ -591,7 +591,7 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <inheritdoc/>
-		public void SetCell(int x, int y, char character, Color fg, Color bg)
+		public void SetNarrowCell(int x, int y, char character, Color fg, Color bg)
 		{
 			switch (RenderMode)
 			{
@@ -610,7 +610,7 @@ namespace SharpConsoleUI.Drivers
 					break;
 
 				case RenderMode.Buffer:
-					_consoleBuffer?.SetCell(x, y, character, fg, bg);
+					_consoleBuffer?.SetNarrowCell(x, y, character, fg, bg);
 					break;
 			}
 		}

@@ -217,7 +217,7 @@ public class CharacterBufferWideCharTests
 		Assert.True(buffer.GetCell(1, 0).IsWideContinuation);
 
 		// Overwrite the continuation cell at x=1
-		buffer.SetCell(1, 0, 'Z', Color.White, Color.Black);
+		buffer.SetNarrowCell(1, 0, 'Z', Color.White, Color.Black);
 
 		// The wide char at x=0 should be cleaned up (replaced with space)
 		Assert.Equal(new Rune(' '), buffer.GetCell(0, 0).Character);
@@ -238,7 +238,7 @@ public class CharacterBufferWideCharTests
 		Assert.True(buffer.GetCell(1, 0).IsWideContinuation);
 
 		// Overwrite the first cell at x=0
-		buffer.SetCell(0, 0, 'A', Color.White, Color.Black);
+		buffer.SetNarrowCell(0, 0, 'A', Color.White, Color.Black);
 
 		// x=0 should now be 'A'
 		Assert.Equal(new Rune('A'), buffer.GetCell(0, 0).Character);
@@ -260,7 +260,7 @@ public class CharacterBufferWideCharTests
 		Assert.True(buffer.GetCell(3, 0).IsWideContinuation);
 
 		// Overwrite first half with narrow char
-		buffer.SetCell(2, 0, 'N', Color.White, Color.Black);
+		buffer.SetNarrowCell(2, 0, 'N', Color.White, Color.Black);
 
 		// x=2 should be 'N'
 		Assert.Equal(new Rune('N'), buffer.GetCell(2, 0).Character);
@@ -439,7 +439,7 @@ public class CharacterBufferWideCharTests
 		Assert.True(buffer.GetCell(1, 0).IsWideContinuation);
 
 		// Overwrite the continuation cell at x=1
-		buffer.SetCell(1, 0, 'Z', Color.White, Color.Black);
+		buffer.SetNarrowCell(1, 0, 'Z', Color.White, Color.Black);
 
 		// The emoji at x=0 should be cleaned up
 		Assert.Equal(new Rune(' '), buffer.GetCell(0, 0).Character);

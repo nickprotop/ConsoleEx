@@ -385,7 +385,7 @@ public sealed class TerminalControl
                     if (cx < bounds.Width && cy < bounds.Height)
                     {
                         var cell = _vt.Screen.GetCell(cx, cy);
-                        buffer.SetCell(bounds.X + cx, bounds.Y + cy,
+                        buffer.SetNarrowCell(bounds.X + cx, bounds.Y + cy,
                                        cell.Character, cell.Background, cell.Foreground);
                     }
                 }
@@ -410,18 +410,18 @@ public sealed class TerminalControl
                         for (int x = 0; x < lineWidth; x++)
                         {
                             var c = line[x];
-                            buffer.SetCell(bounds.X + x, bounds.Y + row,
+                            buffer.SetNarrowCell(bounds.X + x, bounds.Y + row,
                                            c.Character, c.Foreground, c.Background);
                         }
                         // Fill remainder if line is narrower than current width
                         for (int x = lineWidth; x < bounds.Width; x++)
-                            buffer.SetCell(bounds.X + x, bounds.Y + row, ' ', defaultFg, defaultBg);
+                            buffer.SetNarrowCell(bounds.X + x, bounds.Y + row, ' ', defaultFg, defaultBg);
                     }
                     else
                     {
                         // No scrollback data for this row — blank it
                         for (int x = 0; x < bounds.Width; x++)
-                            buffer.SetCell(bounds.X + x, bounds.Y + row, ' ', defaultFg, defaultBg);
+                            buffer.SetNarrowCell(bounds.X + x, bounds.Y + row, ' ', defaultFg, defaultBg);
                     }
                 }
 

@@ -35,7 +35,7 @@ public partial class TableControl
 		if (hasBorder && writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 		{
 			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-			buffer.SetCell(writeX, y, left, borderColor, bg);
+			buffer.SetNarrowCell(writeX, y, left, borderColor, bg);
 		}
 		writeX++;
 
@@ -53,7 +53,7 @@ public partial class TableControl
 					if (writeX >= clipRect.X && writeX < clipRect.Right)
 					{
 						Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-						buffer.SetCell(writeX, y, fill, borderColor, bg);
+						buffer.SetNarrowCell(writeX, y, fill, borderColor, bg);
 					}
 					writeX++;
 				}
@@ -71,7 +71,7 @@ public partial class TableControl
 					if (writeX >= clipRect.X && writeX < clipRect.Right)
 					{
 						Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-						buffer.SetCell(writeX, y, middle, borderColor, bg);
+						buffer.SetNarrowCell(writeX, y, middle, borderColor, bg);
 					}
 					writeX++;
 				}
@@ -87,7 +87,7 @@ public partial class TableControl
 		if (hasBorder && writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 		{
 			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-			buffer.SetCell(writeX, y, right, borderColor, bg);
+			buffer.SetNarrowCell(writeX, y, right, borderColor, bg);
 		}
 	}
 
@@ -110,7 +110,7 @@ public partial class TableControl
 		if (writeX >= clipRect.X && writeX < clipRect.Right)
 		{
 			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-			buffer.SetCell(writeX, y, left, borderColor, bg);
+			buffer.SetNarrowCell(writeX, y, left, borderColor, bg);
 		}
 		writeX++;
 
@@ -120,7 +120,7 @@ public partial class TableControl
 			if (writeX >= clipRect.X && writeX < clipRect.Right)
 			{
 				Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-				buffer.SetCell(writeX, y, fill, borderColor, bg);
+				buffer.SetNarrowCell(writeX, y, fill, borderColor, bg);
 			}
 			writeX++;
 		}
@@ -129,7 +129,7 @@ public partial class TableControl
 		if (writeX >= clipRect.X && writeX < clipRect.Right)
 		{
 			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-			buffer.SetCell(writeX, y, right, borderColor, bg);
+			buffer.SetNarrowCell(writeX, y, right, borderColor, bg);
 		}
 	}
 
@@ -156,7 +156,7 @@ public partial class TableControl
 			if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 			{
 				Color bg = preserveBg && !isSelected ? buffer.GetCell(writeX, y).Background : borderBg;
-				buffer.SetCell(writeX, y, box.Vertical, borderColor, bg);
+				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
 			}
 			writeX++;
 		}
@@ -195,8 +195,9 @@ public partial class TableControl
 
 			if (isEditCell)
 			{
-				// Render edit buffer as plain text with cursor
-				int visLen = cellText.Length;
+				// Render edit buffer as plain text with cursor using Unicode-aware width
+				var editCells = MarkupParser.Parse(cellText, cellFg, cellBg);
+				int visLen = editCells.Count;
 				int cursorPos = editCursorPos;
 
 				// Fill entire cell with edit background first
@@ -206,7 +207,6 @@ public partial class TableControl
 					int cx = cellStartX + i;
 					if (cx >= clipRect.X && cx < clipRect.Right && cx < maxX)
 					{
-						char ch = i < visLen ? cellText[i] : ' ';
 						Color fg = cellFg;
 						Color bg = cellBg;
 						// Draw cursor with inverted colors
@@ -215,7 +215,19 @@ public partial class TableControl
 							fg = Color.White;
 							bg = Color.Black;
 						}
-						buffer.SetCell(cx, y, ch, fg, bg);
+						if (i < visLen)
+						{
+							var editCell = new Cell(editCells[i].Character, fg, bg)
+							{
+								IsWideContinuation = editCells[i].IsWideContinuation,
+								Combiners = editCells[i].Combiners
+							};
+							buffer.SetCell(cx, y, editCell);
+						}
+						else
+						{
+							buffer.SetNarrowCell(cx, y, ' ', fg, bg);
+						}
 					}
 				}
 				writeX += colW;
@@ -253,7 +265,7 @@ public partial class TableControl
 					if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 					{
 						Color bg = cellPreserveBg ? buffer.GetCell(writeX, y).Background : cellBg;
-						buffer.SetCell(writeX, y, ' ', cellFg, bg);
+						buffer.SetNarrowCell(writeX, y, ' ', cellFg, bg);
 					}
 					writeX++;
 				}
@@ -289,7 +301,12 @@ public partial class TableControl
 							bg = Color.DarkYellow;
 						}
 
-						buffer.SetCell(writeX, y, cell.Character, fg, bg);
+						var bufCell = new Cell(cell.Character, fg, bg, cell.Decorations)
+						{
+							IsWideContinuation = cell.IsWideContinuation,
+							Combiners = cell.Combiners
+						};
+						buffer.SetCell(writeX, y, bufCell);
 					}
 					writeX++;
 					charIdx++;
@@ -301,7 +318,7 @@ public partial class TableControl
 					if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 					{
 						Color bg = cellPreserveBg ? buffer.GetCell(writeX, y).Background : cellBg;
-						buffer.SetCell(writeX, y, ' ', cellFg, bg);
+						buffer.SetNarrowCell(writeX, y, ' ', cellFg, bg);
 					}
 					writeX++;
 				}
@@ -313,7 +330,7 @@ public partial class TableControl
 				if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 				{
 					Color bg = preserveBg && !isSelected ? buffer.GetCell(writeX, y).Background : borderBg;
-					buffer.SetCell(writeX, y, box.Vertical, borderColor, bg);
+					buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
 				}
 				writeX++;
 			}
@@ -337,7 +354,7 @@ public partial class TableControl
 			if (px >= clipRect.X && px < clipRect.Right)
 			{
 				Color bg = preserveBg ? buffer.GetCell(px, y).Background : bgColor;
-				buffer.SetCell(px, y, ' ', fgColor, bg);
+				buffer.SetNarrowCell(px, y, ' ', fgColor, bg);
 			}
 		}
 
@@ -358,7 +375,12 @@ public partial class TableControl
 			if (px >= clipRect.X && px < clipRect.Right)
 			{
 				Color bg = preserveBg ? buffer.GetCell(px, y).Background : titleCells[i].Background;
-				buffer.SetCell(px, y, titleCells[i].Character, titleCells[i].Foreground, bg);
+				var titleCell = new Cell(titleCells[i].Character, titleCells[i].Foreground, bg, titleCells[i].Decorations)
+				{
+					IsWideContinuation = titleCells[i].IsWideContinuation,
+					Combiners = titleCells[i].Combiners
+				};
+				buffer.SetCell(px, y, titleCell);
 			}
 		}
 	}
@@ -842,7 +864,7 @@ public partial class TableControl
 			{
 				int cornerX = startX + contentWidth;
 				if (cornerX >= clipRect.X && cornerX < clipRect.Right)
-					buffer.SetCell(cornerX, currentY, ' ', fgColor, bgColor);
+					buffer.SetNarrowCell(cornerX, currentY, ' ', fgColor, bgColor);
 			}
 			currentY++;
 		}

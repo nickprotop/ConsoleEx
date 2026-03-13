@@ -34,7 +34,7 @@ namespace SharpConsoleUI.Drawing
 				for (int x = rect.X; x < rect.Right; x++)
 				{
 					if (clip.Contains(x, y))
-						buffer.SetCell(x, y, ch, colors[x - rect.X], bg);
+						buffer.SetNarrowCell(x, y, ch, colors[x - rect.X], bg);
 				}
 			}
 		}
@@ -57,7 +57,7 @@ namespace SharpConsoleUI.Drawing
 				for (int x = rect.X; x < rect.Right; x++)
 				{
 					if (clip.Contains(x, y))
-						buffer.SetCell(x, y, ch, fg, bg);
+						buffer.SetNarrowCell(x, y, ch, fg, bg);
 				}
 			}
 		}
@@ -82,7 +82,7 @@ namespace SharpConsoleUI.Drawing
 					if (clip.Contains(x, y))
 					{
 						var bgColor = colors[horizontal ? x - rect.X : y - rect.Y];
-						buffer.SetCell(x, y, ' ', Color.White, bgColor);
+						buffer.SetNarrowCell(x, y, ' ', Color.White, bgColor);
 					}
 				}
 			}
@@ -139,7 +139,7 @@ namespace SharpConsoleUI.Drawing
 					if (clip.Contains(x, y))
 					{
 						char ch = row[(x - rect.X) % row.Length];
-						buffer.SetCell(x, y, ch, fg, bg);
+						buffer.SetNarrowCell(x, y, ch, fg, bg);
 					}
 				}
 			}
@@ -160,7 +160,7 @@ namespace SharpConsoleUI.Drawing
 					if (clip.Contains(x, y))
 					{
 						bool even = (x + y) % 2 == 0;
-						buffer.SetCell(x, y, even ? ch1 : ch2, even ? fg1 : fg2, bg);
+						buffer.SetNarrowCell(x, y, even ? ch1 : ch2, even ? fg1 : fg2, bg);
 					}
 				}
 			}
@@ -198,9 +198,9 @@ namespace SharpConsoleUI.Drawing
 						if (hash < 0) hash += DrawingConstants.StippleModulus;
 
 						if (hash < threshold)
-							buffer.SetCell(x, y, ch, fg, bg);
+							buffer.SetNarrowCell(x, y, ch, fg, bg);
 						else
-							buffer.SetCell(x, y, ' ', fg, bg);
+							buffer.SetNarrowCell(x, y, ' ', fg, bg);
 					}
 				}
 			}

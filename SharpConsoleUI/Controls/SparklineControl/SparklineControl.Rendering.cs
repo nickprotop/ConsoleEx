@@ -246,7 +246,7 @@ namespace SharpConsoleUI.Controls
 					{
 						if (x >= clipRect.X && x < clipRect.Right)
 						{
-							buffer.SetCell(x, baselineY, _baselineChar, _baselineColor, bgColor);
+							buffer.SetNarrowCell(x, baselineY, _baselineChar, _baselineColor, bgColor);
 						}
 					}
 				}
@@ -322,7 +322,7 @@ namespace SharpConsoleUI.Controls
 					{
 						cellColor = _barColor;
 					}
-					buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
+					buffer.SetNarrowCell(paintX, paintY, displayChar, cellColor, bgColor);
 				}
 			}
 		}
@@ -387,7 +387,7 @@ namespace SharpConsoleUI.Controls
 						{
 							cellColor = _barColor;
 						}
-						buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
+						buffer.SetNarrowCell(paintX, paintY, displayChar, cellColor, bgColor);
 					}
 				}
 
@@ -429,7 +429,7 @@ namespace SharpConsoleUI.Controls
 						{
 							cellColor = _secondaryBarColor;
 						}
-						buffer.SetCell(paintX, paintY, displayChar, cellColor, bgColor);
+						buffer.SetNarrowCell(paintX, paintY, displayChar, cellColor, bgColor);
 					}
 				}
 			}

@@ -185,7 +185,7 @@ public class ParticleSystem
 				// Don't overwrite non-space characters (preserve UI)
 				if (existing.Character == new Rune(' '))
 				{
-					buffer.SetCell(x, y, p.Character, p.Color, existing.Background);
+					buffer.SetNarrowCell(x, y, p.Character, p.Color, existing.Background);
 				}
 			}
 		}

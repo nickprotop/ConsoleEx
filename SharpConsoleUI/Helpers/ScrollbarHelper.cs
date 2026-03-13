@@ -89,19 +89,19 @@ namespace SharpConsoleUI.Helpers
 				int absY = startY + trackTop + y;
 				if (y >= thumbY && y < thumbY + thumbHeight)
 				{
-					buffer.SetCell(x, absY, ThumbChar, thumbColor, bgColor);
+					buffer.SetNarrowCell(x, absY, ThumbChar, thumbColor, bgColor);
 				}
 				else
 				{
-					buffer.SetCell(x, absY, TrackChar, trackColor, bgColor);
+					buffer.SetNarrowCell(x, absY, TrackChar, trackColor, bgColor);
 				}
 			}
 
 			// Arrow indicators at fixed positions (first and last)
 			if (hasArrows)
 			{
-				buffer.SetCell(x, startY + trackTop, UpArrowChar, thumbColor, bgColor);
-				buffer.SetCell(x, startY + trackTop + trackHeight - 1, DownArrowChar, thumbColor, bgColor);
+				buffer.SetNarrowCell(x, startY + trackTop, UpArrowChar, thumbColor, bgColor);
+				buffer.SetNarrowCell(x, startY + trackTop + trackHeight - 1, DownArrowChar, thumbColor, bgColor);
 			}
 		}
 

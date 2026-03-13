@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 
@@ -977,7 +978,7 @@ public partial class TableControl
 			if (writeX >= clipRect.X && writeX < clipRect.Right)
 			{
 				Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-				buffer.SetCell(writeX, y, box.Vertical, borderColor, bg);
+				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
 			}
 			writeX++;
 		}
@@ -987,12 +988,14 @@ public partial class TableControl
 		int charPos = 0;
 
 		// Track cursor position for typing mode highlight
-		int cursorCharPos = _filterMode == FilterMode.Typing ? " \u2315 ".Length + _filterCursorPosition : -1;
+		int cursorCharPos = _filterMode == FilterMode.Typing ? UnicodeWidth.GetStringWidth(" \u2315 ") + _filterCursorPosition : -1;
 
 		foreach (var (text, fg) in segments)
 		{
 			foreach (var rune in text.EnumerateRunes())
 			{
+				int runeWidth = UnicodeWidth.GetRuneWidth(rune);
+				if (runeWidth == 0) continue; // skip zero-width characters
 				if (charPos >= contentWidth) break;
 				if (writeX >= clipRect.X && writeX < clipRect.Right)
 				{
@@ -1006,7 +1009,17 @@ public partial class TableControl
 						cellBg = Color.White;
 					}
 
-					buffer.SetCell(writeX, y, rune, cellFg, cellBg);
+					buffer.SetNarrowCell(writeX, y, rune, cellFg, cellBg);
+
+					// Wide character: mark continuation cell
+					if (runeWidth == 2 && charPos + 1 < contentWidth)
+					{
+						var cont = new Cell(' ', cellFg, cellBg) { IsWideContinuation = true };
+						if (writeX + 1 >= clipRect.X && writeX + 1 < clipRect.Right)
+							buffer.SetCell(writeX + 1, y, cont);
+						writeX++;
+						charPos++;
+					}
 				}
 				writeX++;
 				charPos++;
@@ -1020,7 +1033,7 @@ public partial class TableControl
 			if (writeX >= clipRect.X && writeX < clipRect.Right)
 			{
 				Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-				buffer.SetCell(writeX, y, ' ', fgColor, bg);
+				buffer.SetNarrowCell(writeX, y, ' ', fgColor, bg);
 			}
 			writeX++;
 			charPos++;
@@ -1031,7 +1044,7 @@ public partial class TableControl
 			if (writeX >= clipRect.X && writeX < clipRect.Right)
 			{
 				Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
-				buffer.SetCell(writeX, y, box.Vertical, borderColor, bg);
+				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
 			}
 		}
 	}

@@ -176,9 +176,9 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	}
 
 	/// <inheritdoc />
-	public void SetCell(int x, int y, char character, Color fg, Color bg)
+	public void SetNarrowCell(int x, int y, char character, Color fg, Color bg)
 	{
-		_consoleBuffer?.SetCell(x, y, character, fg, bg);
+		_consoleBuffer?.SetNarrowCell(x, y, character, fg, bg);
 	}
 
 	/// <inheritdoc />

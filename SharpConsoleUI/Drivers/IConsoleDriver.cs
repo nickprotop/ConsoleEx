@@ -119,7 +119,7 @@ namespace SharpConsoleUI.Drivers
 		/// <param name="character">The character to write.</param>
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
-		public void SetCell(int x, int y, char character, Color fg, Color bg);
+		public void SetNarrowCell(int x, int y, char character, Color fg, Color bg);
 
 		/// <summary>
 		/// Fills a horizontal run of cells at the specified position with the given character and colors.

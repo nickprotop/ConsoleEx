@@ -253,15 +253,20 @@ namespace SharpConsoleUI.Controls
 						// Render placeholder text on first visible line when content is empty
 						if (showPlaceholder && i == 0)
 						{
-							string placeholderLine = _placeholderText!.Length > effectiveWidth
-								? _placeholderText.Substring(0, effectiveWidth)
-								: _placeholderText.PadRight(effectiveWidth);
 							Color dimFg = Color.Grey;
+							var placeholderCells = Parsing.MarkupParser.Parse(_placeholderText!, dimFg, bgColor);
+							int phLen = placeholderCells.Count;
+
 							for (int charPos = 0; charPos < effectiveWidth; charPos++)
 							{
 								int cellX = contentStartX + charPos;
 								if (cellX >= clipRect.X && cellX < clipRect.Right)
-									buffer.SetCell(cellX, paintY, placeholderLine[charPos], dimFg, bgColor);
+								{
+									if (charPos < phLen)
+										buffer.SetCell(cellX, paintY, placeholderCells[charPos]);
+									else
+										buffer.SetNarrowCell(cellX, paintY, ' ', dimFg, bgColor);
+								}
 							}
 
 							// Fill right margin and scrollbar area
@@ -365,7 +370,7 @@ namespace SharpConsoleUI.Controls
 							int cellX = contentStartX + charPos;
 							if (cellX >= clipRect.X && cellX < clipRect.Right)
 							{
-								buffer.SetCell(cellX, paintY, c, charFg, charBg);
+								buffer.SetNarrowCell(cellX, paintY, c, charFg, charBg);
 							}
 						}
 					}
@@ -403,7 +408,7 @@ namespace SharpConsoleUI.Controls
 								scrollChar = '│';
 								scrollFg = activeTrackColor;
 							}
-							buffer.SetCell(scrollX, paintY, scrollChar, scrollFg, scrollbarBg);
+							buffer.SetNarrowCell(scrollX, paintY, scrollChar, scrollFg, scrollbarBg);
 						}
 					}
 
@@ -480,7 +485,7 @@ namespace SharpConsoleUI.Controls
 								scrollChar = '│';
 								scrollFg = activeTrackColor;
 							}
-							buffer.SetCell(scrollX, paintY, scrollChar, scrollFg, scrollbarBg);
+							buffer.SetNarrowCell(scrollX, paintY, scrollChar, scrollFg, scrollbarBg);
 						}
 					}
 
@@ -545,7 +550,7 @@ namespace SharpConsoleUI.Controls
 								scrollChar = '─';
 								scrollFg = activeTrackColor;
 							}
-							buffer.SetCell(cellX, scrollY, scrollChar, scrollFg, scrollbarBg);
+							buffer.SetNarrowCell(cellX, scrollY, scrollChar, scrollFg, scrollbarBg);
 						}
 					}
 
@@ -554,7 +559,7 @@ namespace SharpConsoleUI.Controls
 						int cornerX = contentStartX + effectiveWidth;
 						if (cornerX >= clipRect.X && cornerX < clipRect.Right)
 						{
-							buffer.SetCell(cornerX, scrollY, '┘', activeTrackColor, scrollbarBg);
+							buffer.SetNarrowCell(cornerX, scrollY, '┘', activeTrackColor, scrollbarBg);
 						}
 					}
 
@@ -584,7 +589,7 @@ namespace SharpConsoleUI.Controls
 					{
 						int cellX = hintStartX + c;
 						if (cellX >= clipRect.X && cellX < clipRect.Right)
-							buffer.SetCell(cellX, lastVisibleRow, hintText[c], hintFg, hintBg);
+							buffer.SetNarrowCell(cellX, lastVisibleRow, hintText[c], hintFg, hintBg);
 					}
 				}
 			}

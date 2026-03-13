@@ -441,7 +441,7 @@ class Program
         {
             for (int x = _canvasOffsetX; x < buffer.Width; x++)
             {
-                buffer.SetCell(x, y, ' ', Color.White, CanvasColor);
+                buffer.SetNarrowCell(x, y, ' ', Color.White, CanvasColor);
             }
         }
 
@@ -456,7 +456,7 @@ class Program
                 screenY >= 0 && screenY < buffer.Height)
             {
                 var color = i == 0 ? SnakeHeadColor : SnakeBodyColor;
-                buffer.SetCell(screenX, screenY, SnakeChar, color, CanvasColor);
+                buffer.SetNarrowCell(screenX, screenY, SnakeChar, color, CanvasColor);
             }
         }
 
@@ -466,7 +466,7 @@ class Program
         if (foodScreenX >= _canvasOffsetX && foodScreenX < buffer.Width &&
             foodScreenY >= 0 && foodScreenY < buffer.Height)
         {
-            buffer.SetCell(foodScreenX, foodScreenY, FoodChar, FoodColor, CanvasColor);
+            buffer.SetNarrowCell(foodScreenX, foodScreenY, FoodChar, FoodColor, CanvasColor);
         }
 
         // Draw overlays for pause/game over
@@ -498,7 +498,7 @@ class Program
             for (int x = boxLeft; x < boxLeft + boxWidth; x++)
             {
                 if (x >= 0 && x < buffer.Width && y >= 0 && y < buffer.Height)
-                    buffer.SetCell(x, y, ' ', fg, bg);
+                    buffer.SetNarrowCell(x, y, ' ', fg, bg);
             }
         }
 
@@ -513,7 +513,7 @@ class Program
         {
             int px = x + i;
             if (px >= 0 && px < buffer.Width && y >= 0 && y < buffer.Height)
-                buffer.SetCell(px, y, text[i], fg, bg);
+                buffer.SetNarrowCell(px, y, text[i], fg, bg);
         }
     }
 }

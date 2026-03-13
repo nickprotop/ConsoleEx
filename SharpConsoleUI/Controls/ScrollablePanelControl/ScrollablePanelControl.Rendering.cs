@@ -115,10 +115,10 @@ namespace SharpConsoleUI.Controls
 					int y = startY + row;
 					if (y < clipRect.Y || y >= clipRect.Bottom) continue;
 					if (startX >= clipRect.X && startX < clipRect.Right)
-						buffer.SetCell(startX, y, box.Vertical, borderColor, bgColor);
+						buffer.SetNarrowCell(startX, y, box.Vertical, borderColor, bgColor);
 					int rightX = startX + targetWidth - 1;
 					if (rightX >= clipRect.X && rightX < clipRect.Right)
-						buffer.SetCell(rightX, y, box.Vertical, borderColor, bgColor);
+						buffer.SetNarrowCell(rightX, y, box.Vertical, borderColor, bgColor);
 				}
 
 				// Bottom border
@@ -292,12 +292,12 @@ namespace SharpConsoleUI.Controls
 					ch = '\u2502';
 				}
 
-				buffer.SetCell(scrollbarX, scrollbarAbsTop + y, ch, color, bgColor);
+				buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop + y, ch, color, bgColor);
 			}
 
 			// Always draw arrows at top/bottom with thumb color
-			buffer.SetCell(scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
-			buffer.SetCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
+			buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
+			buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
 		}
 
 		#endregion
@@ -311,7 +311,7 @@ namespace SharpConsoleUI.Controls
 			int innerWidth = width - 2;
 
 			if (x >= clipRect.X && x < clipRect.Right)
-				buffer.SetCell(x, y, box.TopLeft, borderColor, bgColor);
+				buffer.SetNarrowCell(x, y, box.TopLeft, borderColor, bgColor);
 
 			if (string.IsNullOrEmpty(_header) || innerWidth < 4)
 			{
@@ -319,7 +319,7 @@ namespace SharpConsoleUI.Controls
 				{
 					int px = x + 1 + i;
 					if (px >= clipRect.X && px < clipRect.Right)
-						buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+						buffer.SetNarrowCell(px, y, box.Horizontal, borderColor, bgColor);
 				}
 			}
 			else
@@ -334,7 +334,7 @@ namespace SharpConsoleUI.Controls
 					{
 						int px = x + 1 + i;
 						if (px >= clipRect.X && px < clipRect.Right)
-							buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+							buffer.SetNarrowCell(px, y, box.Horizontal, borderColor, bgColor);
 					}
 				}
 				else
@@ -363,29 +363,29 @@ namespace SharpConsoleUI.Controls
 					for (int i = 0; i < leftDashes; i++)
 					{
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetCell(writeX, y, box.Horizontal, borderColor, bgColor);
+							buffer.SetNarrowCell(writeX, y, box.Horizontal, borderColor, bgColor);
 						writeX++;
 					}
 
 					if (writeX >= clipRect.X && writeX < clipRect.Right)
-						buffer.SetCell(writeX, y, ' ', borderColor, bgColor);
+						buffer.SetNarrowCell(writeX, y, ' ', borderColor, bgColor);
 					writeX++;
 
 					foreach (var cell in headerCells)
 					{
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetCell(writeX, y, cell.Character, cell.Foreground, cell.Background);
+							buffer.SetCell(writeX, y, cell);
 						writeX++;
 					}
 
 					if (writeX >= clipRect.X && writeX < clipRect.Right)
-						buffer.SetCell(writeX, y, ' ', borderColor, bgColor);
+						buffer.SetNarrowCell(writeX, y, ' ', borderColor, bgColor);
 					writeX++;
 
 					for (int i = 0; i < rightDashes; i++)
 					{
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetCell(writeX, y, box.Horizontal, borderColor, bgColor);
+							buffer.SetNarrowCell(writeX, y, box.Horizontal, borderColor, bgColor);
 						writeX++;
 					}
 				}
@@ -393,7 +393,7 @@ namespace SharpConsoleUI.Controls
 
 			int rightCornerX = x + width - 1;
 			if (rightCornerX >= clipRect.X && rightCornerX < clipRect.Right)
-				buffer.SetCell(rightCornerX, y, box.TopRight, borderColor, bgColor);
+				buffer.SetNarrowCell(rightCornerX, y, box.TopRight, borderColor, bgColor);
 		}
 
 		private void DrawBottomBorder(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect, BoxChars box, Color borderColor, Color bgColor)
@@ -401,19 +401,19 @@ namespace SharpConsoleUI.Controls
 			if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
 			if (x >= clipRect.X && x < clipRect.Right)
-				buffer.SetCell(x, y, box.BottomLeft, borderColor, bgColor);
+				buffer.SetNarrowCell(x, y, box.BottomLeft, borderColor, bgColor);
 
 			int innerWidth = width - 2;
 			for (int i = 0; i < innerWidth; i++)
 			{
 				int px = x + 1 + i;
 				if (px >= clipRect.X && px < clipRect.Right)
-					buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+					buffer.SetNarrowCell(px, y, box.Horizontal, borderColor, bgColor);
 			}
 
 			int rightX = x + width - 1;
 			if (rightX >= clipRect.X && rightX < clipRect.Right)
-				buffer.SetCell(rightX, y, box.BottomRight, borderColor, bgColor);
+				buffer.SetNarrowCell(rightX, y, box.BottomRight, borderColor, bgColor);
 		}
 
 		#endregion

@@ -28,7 +28,7 @@ public class HeadlessConsoleDriverTests
 		system.Render.UpdateDisplay(); // Initialize buffers
 
 		// Act - write directly via driver
-		system.ConsoleDriver.SetCell(10, 5, 'A', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(10, 5, 'A', Color.White, Color.Black);
 		system.Render.UpdateDisplay();
 
 		// Assert
@@ -45,8 +45,8 @@ public class HeadlessConsoleDriverTests
 		system.Render.UpdateDisplay();
 
 		// Act - write two cells with different colors
-		system.ConsoleDriver.SetCell(10, 5, 'R', Color.Red, Color.Black);
-		system.ConsoleDriver.SetCell(11, 5, 'G', Color.Green, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(10, 5, 'R', Color.Red, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(11, 5, 'G', Color.Green, Color.Black);
 		system.Render.UpdateDisplay();
 
 		// Assert - cells should have different ANSI escapes (different fg colors)
@@ -72,10 +72,10 @@ public class HeadlessConsoleDriverTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(); // 200x50
 
 		// Act & Assert - should silently ignore out-of-bounds writes
-		system.ConsoleDriver.SetCell(-1, 0, 'X', Color.White, Color.Black);
-		system.ConsoleDriver.SetCell(0, -1, 'X', Color.White, Color.Black);
-		system.ConsoleDriver.SetCell(200, 0, 'X', Color.White, Color.Black);
-		system.ConsoleDriver.SetCell(0, 50, 'X', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(-1, 0, 'X', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(0, -1, 'X', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(200, 0, 'X', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(0, 50, 'X', Color.White, Color.Black);
 	}
 
 	[Fact]
@@ -87,7 +87,7 @@ public class HeadlessConsoleDriverTests
 		system.Render.UpdateDisplay(); // Frame 2: everything clean
 
 		// Act - write a cell
-		system.ConsoleDriver.SetCell(15, 8, 'Z', Color.Yellow, Color.Blue);
+		system.ConsoleDriver.SetNarrowCell(15, 8, 'Z', Color.Yellow, Color.Blue);
 		system.Render.UpdateDisplay(); // Frame 3: should detect the change
 
 		// Assert
@@ -190,11 +190,11 @@ public class HeadlessConsoleDriverTests
 		system.Render.UpdateDisplay();
 
 		var sourceBuffer = new CharacterBuffer(10, 1, Color.Black);
-		sourceBuffer.SetCell(0, 0, 'H', Color.White, Color.Black);
-		sourceBuffer.SetCell(1, 0, 'E', Color.White, Color.Black);
-		sourceBuffer.SetCell(2, 0, 'L', Color.White, Color.Black);
-		sourceBuffer.SetCell(3, 0, 'L', Color.White, Color.Black);
-		sourceBuffer.SetCell(4, 0, 'O', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(0, 0, 'H', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(1, 0, 'E', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(2, 0, 'L', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(3, 0, 'L', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(4, 0, 'O', Color.White, Color.Black);
 
 		// Act
 		system.ConsoleDriver.WriteBufferRegion(20, 10, sourceBuffer, 0, 0, 5, Color.Black);
@@ -219,8 +219,8 @@ public class HeadlessConsoleDriverTests
 		system.Render.UpdateDisplay();
 
 		var sourceBuffer = new CharacterBuffer(5, 1, Color.Black);
-		sourceBuffer.SetCell(0, 0, 'A', Color.Red, Color.Blue);
-		sourceBuffer.SetCell(1, 0, 'B', Color.Green, Color.Yellow);
+		sourceBuffer.SetNarrowCell(0, 0, 'A', Color.Red, Color.Blue);
+		sourceBuffer.SetNarrowCell(1, 0, 'B', Color.Green, Color.Yellow);
 
 		// Act
 		system.ConsoleDriver.WriteBufferRegion(30, 15, sourceBuffer, 0, 0, 2, Color.Black);
@@ -247,11 +247,11 @@ public class HeadlessConsoleDriverTests
 		system.Render.UpdateDisplay();
 
 		var sourceBuffer = new CharacterBuffer(10, 1, Color.Black);
-		sourceBuffer.SetCell(0, 0, 'A', Color.White, Color.Black);
-		sourceBuffer.SetCell(1, 0, 'B', Color.White, Color.Black);
-		sourceBuffer.SetCell(2, 0, 'C', Color.White, Color.Black);
-		sourceBuffer.SetCell(3, 0, 'D', Color.White, Color.Black);
-		sourceBuffer.SetCell(4, 0, 'E', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(0, 0, 'A', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(1, 0, 'B', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(2, 0, 'C', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(3, 0, 'D', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(4, 0, 'E', Color.White, Color.Black);
 
 		// Act - copy starting from srcX=2 (should get 'C', 'D', 'E')
 		system.ConsoleDriver.WriteBufferRegion(50, 20, sourceBuffer, 2, 0, 3, Color.Black);
@@ -274,9 +274,9 @@ public class HeadlessConsoleDriverTests
 		system.Render.UpdateDisplay();
 
 		var sourceBuffer = new CharacterBuffer(3, 1, Color.Black);
-		sourceBuffer.SetCell(0, 0, 'X', Color.White, Color.Black);
-		sourceBuffer.SetCell(1, 0, 'Y', Color.White, Color.Black);
-		sourceBuffer.SetCell(2, 0, 'Z', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(0, 0, 'X', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(1, 0, 'Y', Color.White, Color.Black);
+		sourceBuffer.SetNarrowCell(2, 0, 'Z', Color.White, Color.Black);
 
 		// Act - request 5 cells but source only has 3
 		system.ConsoleDriver.WriteBufferRegion(10, 10, sourceBuffer, 0, 0, 5, Color.DarkRed);
@@ -303,11 +303,11 @@ public class HeadlessConsoleDriverTests
 		system.Render.UpdateDisplay(); // Frame 2: clean state
 
 		// Act - write 5 cells
-		system.ConsoleDriver.SetCell(0, 0, 'A', Color.White, Color.Black);
-		system.ConsoleDriver.SetCell(1, 0, 'B', Color.White, Color.Black);
-		system.ConsoleDriver.SetCell(2, 0, 'C', Color.White, Color.Black);
-		system.ConsoleDriver.SetCell(3, 0, 'D', Color.White, Color.Black);
-		system.ConsoleDriver.SetCell(4, 0, 'E', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(0, 0, 'A', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(1, 0, 'B', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(2, 0, 'C', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(3, 0, 'D', Color.White, Color.Black);
+		system.ConsoleDriver.SetNarrowCell(4, 0, 'E', Color.White, Color.Black);
 
 		// Assert - driver should report dirty cells
 		var dirtyCount = system.ConsoleDriver.GetDirtyCharacterCount();

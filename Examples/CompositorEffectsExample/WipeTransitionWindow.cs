@@ -158,7 +158,7 @@ public class WipeTransitionWindow : Window
 				for (int x = 0; x < snapshot.Width; x++)
 				{
 					var cell = snapshot.GetCell(x, y);
-					_previousContent.SetCell(x, y, cell.Character,
+					_previousContent.SetNarrowCell(x, y, cell.Character,
 						cell.Foreground, cell.Background);
 				}
 			}
@@ -226,7 +226,7 @@ public class WipeTransitionWindow : Window
 				{
 					// Show old content
 					var oldCell = _previousContent.GetCell(x, y);
-					buffer.SetCell(x, y, oldCell.Character,
+					buffer.SetNarrowCell(x, y, oldCell.Character,
 						oldCell.Foreground, oldCell.Background);
 				}
 			}

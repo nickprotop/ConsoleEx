@@ -470,19 +470,27 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
                 }
 
                 var titleColor = _hasFocus ? Color.Cyan1 : Color.Grey;
-                var titleText = _title.Length > targetWidth ? _title.Substring(0, targetWidth) : _title;
+                var titleCells = Parsing.MarkupParser.Parse(_title, titleColor, bgColor);
+                int titleDisplayWidth = titleCells.Count;
+
+                // Truncate to fit
+                if (titleDisplayWidth > targetWidth)
+                {
+                    titleCells = titleCells.GetRange(0, targetWidth);
+                    titleDisplayWidth = targetWidth;
+                }
 
                 // Apply alignment
                 int alignOffset = 0;
-                if (titleText.Length < targetWidth)
+                if (titleDisplayWidth < targetWidth)
                 {
                     switch (HorizontalAlignment)
                     {
                         case HorizontalAlignment.Center:
-                            alignOffset = (targetWidth - titleText.Length) / 2;
+                            alignOffset = (targetWidth - titleDisplayWidth) / 2;
                             break;
                         case HorizontalAlignment.Right:
-                            alignOffset = targetWidth - titleText.Length;
+                            alignOffset = targetWidth - titleDisplayWidth;
                             break;
                     }
                 }
@@ -494,17 +502,17 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
                 }
 
                 // Write title
-                for (int i = 0; i < titleText.Length && startX + alignOffset + i < clipRect.Right; i++)
+                for (int i = 0; i < titleDisplayWidth && startX + alignOffset + i < clipRect.Right; i++)
                 {
                     int x = startX + alignOffset + i;
                     if (x >= clipRect.X)
                     {
-                        buffer.SetCell(x, currentY, titleText[i], titleColor, bgColor);
+                        buffer.SetCell(x, currentY, titleCells[i]);
                     }
                 }
 
                 // Fill right padding
-                int rightPadStart = startX + alignOffset + titleText.Length;
+                int rightPadStart = startX + alignOffset + titleDisplayWidth;
                 int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
                 if (rightPadWidth > 0)
                 {

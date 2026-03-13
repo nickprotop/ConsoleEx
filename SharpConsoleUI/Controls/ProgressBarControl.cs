@@ -395,7 +395,7 @@ namespace SharpConsoleUI.Controls
 			if (_showPercentage && !_isIndeterminate)
 			{
 				string percentText = GetPercentageText();
-				barWidth = Math.Max(1, barWidth - percentText.Length - 1); // -1 for space
+				barWidth = Math.Max(1, barWidth - UnicodeWidth.GetStringWidth(percentText) - 1); // -1 for space
 			}
 
 			barWidth = Math.Max(1, Math.Min(barWidth, availableWidth));
@@ -465,7 +465,7 @@ namespace SharpConsoleUI.Controls
 				if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 				{
 					Color cellBg = preserveBg ? buffer.GetCell(currentX, y).Background : bgColor;
-					buffer.SetCell(currentX, y, BAR_CHAR, filledColor, cellBg);
+					buffer.SetNarrowCell(currentX, y, BAR_CHAR, filledColor, cellBg);
 				}
 				currentX++;
 			}
@@ -476,7 +476,7 @@ namespace SharpConsoleUI.Controls
 				if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 				{
 					Color cellBg = preserveBg ? buffer.GetCell(currentX, y).Background : bgColor;
-					buffer.SetCell(currentX, y, BAR_CHAR, unfilledColor, cellBg);
+					buffer.SetNarrowCell(currentX, y, BAR_CHAR, unfilledColor, cellBg);
 				}
 				currentX++;
 			}
@@ -509,7 +509,7 @@ namespace SharpConsoleUI.Controls
 
 					Color charColor = inPulse ? filledColor : unfilledColor;
 					Color cellBg = preserveBg ? buffer.GetCell(currentX, y).Background : bgColor;
-					buffer.SetCell(currentX, y, BAR_CHAR, charColor, cellBg);
+					buffer.SetNarrowCell(currentX, y, BAR_CHAR, charColor, cellBg);
 				}
 			}
 		}
@@ -526,7 +526,7 @@ namespace SharpConsoleUI.Controls
 
 			if (_showPercentage && !_isIndeterminate)
 			{
-				width += 1 + GetPercentageText().Length; // Space + percentage
+				width += 1 + UnicodeWidth.GetStringWidth(GetPercentageText()); // Space + percentage
 			}
 
 			return width;

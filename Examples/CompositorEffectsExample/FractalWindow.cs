@@ -274,7 +274,7 @@ public class FractalWindow : Window
                     };
                 }
 
-                buffer.SetCell(px, py, ch, color, Color.Black);
+                buffer.SetNarrowCell(px, py, ch, color, Color.Black);
             }
         }
     }

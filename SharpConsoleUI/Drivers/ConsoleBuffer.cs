@@ -144,13 +144,14 @@ namespace SharpConsoleUI.Drivers
 		/// <param name="character">The character to write.</param>
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
-		public void SetCell(int x, int y, char character, Color fg, Color bg)
-			=> SetCell(x, y, new Rune(character), fg, bg);
+		public void SetNarrowCell(int x, int y, char character, Color fg, Color bg)
+			=> SetNarrowCell(x, y, new Rune(character), fg, bg);
 
 		/// <summary>
-		/// Sets a single cell in the back buffer with the specified Rune and colors.
+		/// Sets a narrow (width-1) cell in the back buffer with the specified Rune and colors.
+		/// Clears IsWideContinuation and Combiners.
 		/// </summary>
-		public void SetCell(int x, int y, Rune character, Color fg, Color bg)
+		public void SetNarrowCell(int x, int y, Rune character, Color fg, Color bg)
 		{
 			if (!IsValidPosition(x, y))
 				return;

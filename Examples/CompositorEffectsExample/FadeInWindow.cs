@@ -102,7 +102,7 @@ public class FadeInWindow : Window
 				var newFg = BlendColor(Color.Black, cell.Foreground, _fadeProgress);
 				var newBg = BlendColor(Color.Black, cell.Background, _fadeProgress);
 
-				buffer.SetCell(x, y, cell.Character, newFg, newBg);
+				buffer.SetNarrowCell(x, y, cell.Character, newFg, newBg);
 			}
 		}
 	}

@@ -52,7 +52,12 @@ public static class ColorBlendHelper
 				var newBg = BlendColor(cell.Background, overlayColor, intensity);
 				var newFg = BlendColor(cell.Foreground, overlayColor, intensity * foregroundBlendRatio);
 
-				buffer.SetCell(x, y, cell.Character, newFg, newBg);
+				var updated = new Layout.Cell(cell.Character, newFg, newBg, cell.Decorations)
+				{
+					IsWideContinuation = cell.IsWideContinuation,
+					Combiners = cell.Combiners
+				};
+				buffer.SetCell(x, y, updated);
 			}
 		}
 	}

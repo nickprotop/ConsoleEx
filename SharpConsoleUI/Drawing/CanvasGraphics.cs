@@ -54,11 +54,11 @@ namespace SharpConsoleUI.Drawing
 		/// <param name="ch">The character to display.</param>
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
-		public void SetCell(int x, int y, char ch, Color fg, Color bg)
+		public void SetNarrowCell(int x, int y, char ch, Color fg, Color bg)
 		{
 			int ax = x + _offsetX, ay = y + _offsetY;
 			if (_clipRect.Contains(ax, ay))
-				_buffer.SetCell(ax, ay, ch, fg, bg);
+				_buffer.SetNarrowCell(ax, ay, ch, fg, bg);
 		}
 
 		/// <summary>

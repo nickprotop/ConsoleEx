@@ -437,7 +437,7 @@ class RainbowAnimationWindow : Window
 								(byte)(bgColor.B * 0.2)
 							);
 
-							buffer.SetCell(x, y, ' ', cell.Foreground, darkBg);
+							buffer.SetNarrowCell(x, y, ' ', cell.Foreground, darkBg);
 						}
 					}
 				}

@@ -322,7 +322,7 @@ namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer
 			var buffer = new CharacterBuffer(20, 5);
 
 			buffer.WriteString(0, 0, "\U0001F525", Color.White, Color.Black); // 🔥 at col 0-1
-			buffer.SetCell(0, 0, 'A', Color.White, Color.Black);
+			buffer.SetNarrowCell(0, 0, 'A', Color.White, Color.Black);
 
 			Assert.Equal(new Rune('A'), buffer.GetCell(0, 0).Character);
 			Assert.Equal(new Rune(' '), buffer.GetCell(1, 0).Character); // continuation cleared
@@ -339,7 +339,7 @@ namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer
 			Assert.NotNull(buffer.GetCell(0, 0).Combiners);
 
 			// Overwrite
-			buffer.SetCell(0, 0, 'B', Color.White, Color.Black);
+			buffer.SetNarrowCell(0, 0, 'B', Color.White, Color.Black);
 
 			Assert.Equal(new Rune('B'), buffer.GetCell(0, 0).Character);
 			Assert.Null(buffer.GetCell(0, 0).Combiners);

@@ -87,7 +87,7 @@ namespace SharpConsoleUI.Controls
 				// Draw close button (×) for closable tabs
 				if (snapshot[i].IsClosable && x < headerRight)
 				{
-					buffer.SetCell(x, headerY, '×', tileFg, tileBg);
+					buffer.SetNarrowCell(x, headerY, '×', tileFg, tileBg);
 					x++;
 				}
 
@@ -97,7 +97,7 @@ namespace SharpConsoleUI.Controls
 				// Draw separator
 				if (x < headerRight && i < snapshot.Count - 1)
 				{
-					buffer.SetCell(x, headerY, '│', Color.Grey, bgColor);
+					buffer.SetNarrowCell(x, headerY, '│', Color.Grey, bgColor);
 					x++;
 				}
 			}
@@ -112,7 +112,7 @@ namespace SharpConsoleUI.Controls
 				// Fill remaining header space with ─
 				while (x < headerRight)
 				{
-					buffer.SetCell(x, headerY, '─', Color.Grey, bgColor);
+					buffer.SetNarrowCell(x, headerY, '─', Color.Grey, bgColor);
 					x++;
 				}
 			}
@@ -121,7 +121,7 @@ namespace SharpConsoleUI.Controls
 				// Fill remaining row 1 space with spaces
 				while (x < headerRight)
 				{
-					buffer.SetCell(x, headerY, ' ', Color.Grey, bgColor);
+					buffer.SetNarrowCell(x, headerY, ' ', Color.Grey, bgColor);
 					x++;
 				}
 
@@ -131,7 +131,7 @@ namespace SharpConsoleUI.Controls
 				{
 					var sepColor = _hasFocus ? Color.Cyan1 : Color.Grey;
 					for (int x2 = headerLeft; x2 < headerRight; x2++)
-						buffer.SetCell(x2, separatorY, '─', sepColor, bgColor);
+						buffer.SetNarrowCell(x2, separatorY, '─', sepColor, bgColor);
 				}
 				else // AccentedSeparator
 				{
@@ -173,7 +173,7 @@ namespace SharpConsoleUI.Controls
 							}
 						}
 
-						buffer.SetCell(x2, separatorY, c2, c2Color, bgColor);
+						buffer.SetNarrowCell(x2, separatorY, c2, c2Color, bgColor);
 					}
 				}
 			}
@@ -182,7 +182,7 @@ namespace SharpConsoleUI.Controls
 			if (showHint && hintStartX >= tabsEndX - 1)
 			{
 				for (int h = 0; h < navHint.Length; h++)
-					buffer.SetCell(hintStartX + h, headerY, navHint[h], Color.Grey, bgColor);
+					buffer.SetNarrowCell(hintStartX + h, headerY, navHint[h], Color.Grey, bgColor);
 			}
 		}
 

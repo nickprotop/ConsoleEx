@@ -254,19 +254,19 @@ public partial class TableControl
 			int absY = startY + trackTop + y;
 			if (y >= thumbY && y < thumbY + thumbHeight)
 			{
-				buffer.SetCell(x, absY, '\u2588', thumbColor, bgColor); // █ thumb
+				buffer.SetNarrowCell(x, absY, '\u2588', thumbColor, bgColor); // █ thumb
 			}
 			else
 			{
-				buffer.SetCell(x, absY, '\u2502', trackColor, bgColor); // │ track
+				buffer.SetNarrowCell(x, absY, '\u2502', trackColor, bgColor); // │ track
 			}
 		}
 
 		// Arrow indicators at fixed positions (first and last)
 		if (hasArrows)
 		{
-			buffer.SetCell(x, startY + trackTop, '\u25b2', thumbColor, bgColor); // ▲
-			buffer.SetCell(x, startY + trackTop + trackHeight - 1, '\u25bc', thumbColor, bgColor); // ▼
+			buffer.SetNarrowCell(x, startY + trackTop, '\u25b2', thumbColor, bgColor); // ▲
+			buffer.SetNarrowCell(x, startY + trackTop + trackHeight - 1, '\u25bc', thumbColor, bgColor); // ▼
 		}
 	}
 
@@ -287,19 +287,19 @@ public partial class TableControl
 			int absX = startX + trackLeft + xOff;
 			if (xOff >= thumbX && xOff < thumbX + thumbWidth)
 			{
-				buffer.SetCell(absX, y, '\u25ac', thumbColor, bgColor); // ▬ thumb
+				buffer.SetNarrowCell(absX, y, '\u25ac', thumbColor, bgColor); // ▬ thumb
 			}
 			else
 			{
-				buffer.SetCell(absX, y, '\u2500', trackColor, bgColor); // ─ track
+				buffer.SetNarrowCell(absX, y, '\u2500', trackColor, bgColor); // ─ track
 			}
 		}
 
 		// Arrow indicators at fixed positions (first and last)
 		if (hasArrows)
 		{
-			buffer.SetCell(startX + trackLeft, y, '\u25c4', thumbColor, bgColor); // ◄
-			buffer.SetCell(startX + trackLeft + trackWidth - 1, y, '\u25ba', thumbColor, bgColor); // ►
+			buffer.SetNarrowCell(startX + trackLeft, y, '\u25c4', thumbColor, bgColor); // ◄
+			buffer.SetNarrowCell(startX + trackLeft + trackWidth - 1, y, '\u25ba', thumbColor, bgColor); // ►
 		}
 	}
 

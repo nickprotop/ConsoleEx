@@ -63,7 +63,7 @@ namespace SharpConsoleUI.Controls
 			for (int g = 0; g < width; g++)
 			{
 				int cellX = context.X + g;
-				context.Buffer.SetCell(cellX, context.Y, gutterText[g], gutterFg, gutterBg);
+				context.Buffer.SetNarrowCell(cellX, context.Y, gutterText[g], gutterFg, gutterBg);
 			}
 		}
 	}

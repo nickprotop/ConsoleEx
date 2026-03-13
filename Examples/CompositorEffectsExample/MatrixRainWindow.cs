@@ -108,7 +108,7 @@ public class MatrixRainWindow : Window
 				);
 
 				char ch = i < _columnTrails[x].Length ? _columnTrails[x][i] : ' ';
-				buffer.SetCell(x, y, ch, color, Color.Black);
+				buffer.SetNarrowCell(x, y, ch, color, Color.Black);
 			}
 		}
 	}

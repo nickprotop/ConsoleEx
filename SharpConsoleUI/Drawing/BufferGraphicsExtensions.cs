@@ -26,7 +26,7 @@ namespace SharpConsoleUI.Drawing
 		private static void PlotCell(CharacterBuffer buffer, int x, int y, char ch, Color fg, Color bg, LayoutRect clip)
 		{
 			if (InClip(clip, x, y))
-				buffer.SetCell(x, y, ch, fg, bg);
+				buffer.SetNarrowCell(x, y, ch, fg, bg);
 		}
 
 		#endregion
@@ -331,7 +331,7 @@ namespace SharpConsoleUI.Drawing
 
 			for (int x = left; x <= right; x++)
 			{
-				buffer.SetCell(x, y, ch, fg, bg);
+				buffer.SetNarrowCell(x, y, ch, fg, bg);
 			}
 		}
 
