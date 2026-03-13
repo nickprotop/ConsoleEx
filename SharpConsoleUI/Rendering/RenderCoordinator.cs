@@ -31,7 +31,7 @@ namespace SharpConsoleUI.Rendering
 		private readonly StatusBarStateService _statusBarStateService;
 		private readonly ILogService _logService;
 		private readonly ConsoleWindowSystem _windowSystemContext;
-		private readonly ConsoleWindowSystemOptions _options;
+		private readonly Func<ConsoleWindowSystemOptions> _getOptions;
 		private readonly PerformanceTracker _performanceTracker;
 
 		// Performance optimization: cached collections to avoid allocations in hot paths
@@ -85,7 +85,7 @@ namespace SharpConsoleUI.Rendering
 		/// <param name="statusBarStateService">Service managing status bar state and Start menu.</param>
 		/// <param name="logService">Service for debug logging.</param>
 		/// <param name="windowSystemContext">Context providing access to window system properties.</param>
-		/// <param name="options">Configuration options for the window system.</param>
+		/// <param name="getOptions">Getter for current configuration options (allows runtime changes).</param>
 		/// <param name="performanceTracker">Performance metrics tracker.</param>
 		public RenderCoordinator(
 			IConsoleDriver consoleDriver,
@@ -94,7 +94,7 @@ namespace SharpConsoleUI.Rendering
 			StatusBarStateService statusBarStateService,
 			ILogService logService,
 			ConsoleWindowSystem windowSystemContext,
-			ConsoleWindowSystemOptions options,
+			Func<ConsoleWindowSystemOptions> getOptions,
 			PerformanceTracker performanceTracker)
 		{
 			_consoleDriver = consoleDriver ?? throw new ArgumentNullException(nameof(consoleDriver));
@@ -103,7 +103,7 @@ namespace SharpConsoleUI.Rendering
 			_statusBarStateService = statusBarStateService ?? throw new ArgumentNullException(nameof(statusBarStateService));
 			_logService = logService ?? throw new ArgumentNullException(nameof(logService));
 			_windowSystemContext = windowSystemContext ?? throw new ArgumentNullException(nameof(windowSystemContext));
-			_options = options ?? throw new ArgumentNullException(nameof(options));
+			_getOptions = getOptions ?? throw new ArgumentNullException(nameof(getOptions));
 			_performanceTracker = performanceTracker ?? throw new ArgumentNullException(nameof(performanceTracker));
 		}
 
@@ -134,7 +134,7 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public int GetTopStatusHeight()
 		{
-			return _statusBarStateService.GetTopStatusHeight(_statusBarStateService.ShowTopStatus, _options.EnablePerformanceMetrics);
+			return _statusBarStateService.GetTopStatusHeight(_statusBarStateService.ShowTopStatus, _getOptions().EnablePerformanceMetrics);
 		}
 
 		/// <summary>
@@ -143,7 +143,7 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public int GetBottomStatusHeight()
 		{
-			return _statusBarStateService.GetBottomStatusHeight(_statusBarStateService.ShowBottomStatus, _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation);
+			return _statusBarStateService.GetBottomStatusHeight(_statusBarStateService.ShowBottomStatus, _getOptions().StatusBar.ShowTaskBar, _getOptions().StatusBar.ShowStartButton, _getOptions().StatusBar.StartButtonLocation);
 		}
 
 		/// <summary>
@@ -181,7 +181,7 @@ namespace SharpConsoleUI.Rendering
 				_consoleDriver.ScreenSize.Height,
 				_statusBarStateService.ShowTopStatus,
 				_statusBarStateService.ShowBottomStatus,
-				_options.StatusBar);
+				_getOptions().StatusBar);
 		}
 
 		/// <summary>
@@ -264,7 +264,7 @@ namespace SharpConsoleUI.Rendering
 
 				// CRITICAL: Capture dirty chars AFTER windows rendered, BEFORE TopStatus
 				// This measures window rendering work without including TopStatus itself
-				if (_options.EnablePerformanceMetrics)
+				if (_getOptions().EnablePerformanceMetrics)
 				{
 					_performanceTracker.SetDirtyChars(_consoleDriver.GetDirtyCharacterCount());
 				}
@@ -294,7 +294,7 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		private bool ShouldRenderTopStatus()
 		{
-			return _statusBarStateService.ShowTopStatus && (!string.IsNullOrEmpty(_statusBarStateService.TopStatus) || _options.EnablePerformanceMetrics);
+			return _statusBarStateService.ShowTopStatus && (!string.IsNullOrEmpty(_statusBarStateService.TopStatus) || _getOptions().EnablePerformanceMetrics);
 		}
 
 		/// <summary>
@@ -303,9 +303,9 @@ namespace SharpConsoleUI.Rendering
 		private bool ShouldRenderBottomStatus()
 		{
 			// Render if we have status text OR if task bar (window list) is enabled
-			bool hasContent = !string.IsNullOrEmpty(_statusBarStateService.BottomStatus) || _options.StatusBar.ShowTaskBar;
-			bool hasStartButton = _options.StatusBar.ShowStartButton &&
-								  _options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom;
+			bool hasContent = !string.IsNullOrEmpty(_statusBarStateService.BottomStatus) || _getOptions().StatusBar.ShowTaskBar;
+			bool hasStartButton = _getOptions().StatusBar.ShowStartButton &&
+								  _getOptions().StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom;
 
 			return _statusBarStateService.ShowBottomStatus && (hasContent || hasStartButton);
 		}
@@ -315,10 +315,10 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		private string BuildStartButton()
 		{
-			if (!_options.StatusBar.ShowStartButton)
+			if (!_getOptions().StatusBar.ShowStartButton)
 				return string.Empty;
 
-			var text = _options.StatusBar.StartButtonText;
+			var text = _getOptions().StatusBar.StartButtonText;
 			return $"[bold cyan]{text}[/] ";
 		}
 
@@ -538,21 +538,21 @@ namespace SharpConsoleUI.Rendering
 
 			// Build complete TopStatus with metrics appended
 			var baseStatus = _statusBarStateService.TopStatus ?? string.Empty;
-			var metricsString = _options.EnablePerformanceMetrics
+			var metricsString = _getOptions().EnablePerformanceMetrics
 				? _performanceTracker.FormatMetrics()
 				: string.Empty;
 			var completeTopStatus = baseStatus + metricsString;
 
 			// Build start button if configured for top
 			var startButton = string.Empty;
-			if (_options.StatusBar.ShowStartButton &&
-				_options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Top)
+			if (_getOptions().StatusBar.ShowStartButton &&
+				_getOptions().StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Top)
 			{
 				startButton = BuildStartButton();
 			}
 
 			string topRow;
-			if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
+			if (_getOptions().StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
 			{
 				topRow = $"{startButton}{completeTopStatus}";
 			}
@@ -606,7 +606,7 @@ namespace SharpConsoleUI.Rendering
 
 			// Check if task bar cache is valid
 			string taskBar;
-			if (_options.StatusBar.ShowTaskBar)
+			if (_getOptions().StatusBar.ShowTaskBar)
 			{
 				int stateHash = ComputeTaskBarStateHash(_topLevelWindowsPool);
 				if (_cachedTaskBar != null &&
@@ -642,14 +642,14 @@ namespace SharpConsoleUI.Rendering
 
 			// Build start button if configured for bottom
 			var startButton = string.Empty;
-			if (_options.StatusBar.ShowStartButton &&
-				_options.StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom)
+			if (_getOptions().StatusBar.ShowStartButton &&
+				_getOptions().StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom)
 			{
 				startButton = BuildStartButton();
 			}
 
 			string bottomRow;
-			if (_options.StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
+			if (_getOptions().StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
 			{
 				bottomRow = $"{startButton}{taskBar}{_statusBarStateService.BottomStatus}";
 			}

@@ -17,6 +17,7 @@ namespace SharpConsoleUI.Controls
 	{
 		#region IDOMPaintable Implementation
 
+		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int contentW = CalculateContentWidth();
@@ -34,6 +35,7 @@ namespace SharpConsoleUI.Controls
 			);
 		}
 
+		/// <inheritdoc/>
 		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
 			Color defaultFg, Color defaultBg)
 		{

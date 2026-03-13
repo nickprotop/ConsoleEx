@@ -71,6 +71,10 @@ namespace SharpConsoleUI.Controls
 
 		#region Constructor
 
+		/// <summary>
+		/// Initializes a new instance of the DatePickerControl class.
+		/// </summary>
+		/// <param name="prompt">The prompt text displayed in the header.</param>
 		public DatePickerControl(string prompt = "Date:")
 		{
 			_prompt = prompt;
@@ -81,16 +85,27 @@ namespace SharpConsoleUI.Controls
 
 		#region Events
 
+		/// <summary>
+		/// Occurs when the selected date changes.
+		/// </summary>
 		public event EventHandler<DateTime?>? SelectedDateChanged;
+		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
+		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
 
 		#pragma warning disable CS0067, CS0414
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseRightClick;
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseLeave;
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
 		#pragma warning restore CS0067, CS0414
 
@@ -98,6 +113,9 @@ namespace SharpConsoleUI.Controls
 
 		#region Properties
 
+		/// <summary>
+		/// Gets or sets the currently selected date.
+		/// </summary>
 		public DateTime? SelectedDate
 		{
 			get => _selectedDate;
@@ -111,18 +129,27 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the minimum selectable date.
+		/// </summary>
 		public DateTime? MinDate
 		{
 			get => _minDate;
 			set => SetProperty(ref _minDate, value);
 		}
 
+		/// <summary>
+		/// Gets or sets the maximum selectable date.
+		/// </summary>
 		public DateTime? MaxDate
 		{
 			get => _maxDate;
 			set => SetProperty(ref _maxDate, value);
 		}
 
+		/// <summary>
+		/// Gets or sets the culture used for date formatting and calendar layout.
+		/// </summary>
 		public CultureInfo Culture
 		{
 			get => _culture;
@@ -136,6 +163,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets a custom date format string override.
+		/// </summary>
 		public string? DateFormatOverride
 		{
 			get => _dateFormatOverride;
@@ -149,54 +179,79 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the first day of the week for the calendar display.
+		/// </summary>
 		public DayOfWeek? FirstDayOfWeekOverride
 		{
 			get => _firstDayOfWeekOverride;
 			set => SetProperty(ref _firstDayOfWeekOverride, value);
 		}
 
+		/// <summary>
+		/// Gets or sets the prompt text displayed in the header.
+		/// </summary>
 		public string Prompt
 		{
 			get => _prompt;
 			set => SetProperty(ref _prompt, value);
 		}
 
+		/// <summary>
+		/// Gets or sets the background color.
+		/// </summary>
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveDatePickerBackground(_backgroundColorValue, Container);
 			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color.
+		/// </summary>
 		public Color ForegroundColor
 		{
 			get => ColorResolver.ResolveDatePickerForeground(_foregroundColorValue, Container);
 			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the background color when focused.
+		/// </summary>
 		public Color FocusedBackgroundColor
 		{
 			get => ColorResolver.ResolveDatePickerFocusedBackground(_focusedBackgroundColorValue, Container);
 			set => SetProperty(ref _focusedBackgroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color when focused.
+		/// </summary>
 		public Color FocusedForegroundColor
 		{
 			get => ColorResolver.ResolveDatePickerFocusedForeground(_focusedForegroundColorValue, Container);
 			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the background color for the active date segment.
+		/// </summary>
 		public Color SegmentBackgroundColor
 		{
 			get => ColorResolver.ResolveDatePickerSegmentBackground(_segmentBackgroundColorValue, Container);
 			set => SetProperty(ref _segmentBackgroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color for the active date segment.
+		/// </summary>
 		public Color SegmentForegroundColor
 		{
 			get => ColorResolver.ResolveDatePickerSegmentForeground(_segmentForegroundColorValue, Container);
 			set => SetProperty(ref _segmentForegroundColorValue, (Color?)value);
 		}
 
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -211,21 +266,32 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
+		/// <summary>
+		/// Gets or sets whether the control is enabled.
+		/// </summary>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
 			set => SetProperty(ref _isEnabled, value);
 		}
 
+		/// <inheritdoc/>
 		public bool WantsMouseEvents => _isEnabled;
+		/// <inheritdoc/>
 		public bool CanFocusWithMouse => _isEnabled;
 
+		/// <inheritdoc/>
 		public CursorShape? PreferredCursorShape => CursorShape.Hidden;
 
+		/// <summary>
+		/// Gets whether the calendar popup is currently open.
+		/// </summary>
 		public bool IsCalendarOpen => _isCalendarOpen;
 
+		/// <inheritdoc/>
 		public override int? ContentWidth
 		{
 			get
@@ -438,6 +504,7 @@ namespace SharpConsoleUI.Controls
 
 		#region IFocusableControl
 
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			bool hadFocus = _hasFocus;
@@ -466,6 +533,7 @@ namespace SharpConsoleUI.Controls
 
 		#region Overrides
 
+		/// <inheritdoc/>
 		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			int width = ContentWidth ?? 0;
@@ -473,6 +541,7 @@ namespace SharpConsoleUI.Controls
 			return new System.Drawing.Size(width, height);
 		}
 
+		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
 			if (_isCalendarOpen) CloseCalendar();

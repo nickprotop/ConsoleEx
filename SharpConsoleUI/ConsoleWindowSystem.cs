@@ -241,7 +241,7 @@ namespace SharpConsoleUI
 				_statusBarStateService,
 				_logService,
 				this,
-				_options,
+				() => _options,
 				Performance);
 
 			// Initialize window lifecycle manager (manages window add, close, flash, etc.)

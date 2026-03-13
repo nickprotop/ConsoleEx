@@ -306,82 +306,117 @@ namespace SharpConsoleUI.Helpers
 				?? defaultColor;
 		}
 
-		// DatePicker color resolvers
-
+		/// <summary>
+		/// Resolves the date picker background color from explicit value, theme, or container.
+		/// </summary>
 		public static Color ResolveDatePickerBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.Black;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.DatePickerBackgroundColor ?? container?.BackgroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the date picker foreground color from explicit value, theme, or container.
+		/// </summary>
 		public static Color ResolveDatePickerForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.DatePickerForegroundColor ?? container?.ForegroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the date picker focused background color from explicit value, theme, or default.
+		/// </summary>
 		public static Color ResolveDatePickerFocusedBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.Blue;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.DatePickerFocusedBackgroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the date picker focused foreground color from explicit value, theme, or default.
+		/// </summary>
 		public static Color ResolveDatePickerFocusedForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.DatePickerFocusedForegroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the date picker segment background color from explicit value, theme, or default.
+		/// </summary>
 		public static Color ResolveDatePickerSegmentBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.DarkBlue;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.DatePickerSegmentBackgroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the date picker segment foreground color from explicit value, theme, or default.
+		/// </summary>
 		public static Color ResolveDatePickerSegmentForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.DatePickerSegmentForegroundColor ?? defaultColor;
 		}
 
-		// TimePicker color resolvers
-
+		/// <summary>
+		/// Resolves the time picker background color from explicit value, theme, or container.
+		/// </summary>
 		public static Color ResolveTimePickerBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.Black;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerBackgroundColor ?? container?.BackgroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the time picker foreground color from explicit value, theme, or container.
+		/// </summary>
 		public static Color ResolveTimePickerForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerForegroundColor ?? container?.ForegroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the time picker focused background color from explicit value, theme, or default.
+		/// </summary>
 		public static Color ResolveTimePickerFocusedBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.Blue;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerFocusedBackgroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the time picker focused foreground color from explicit value, theme, or default.
+		/// </summary>
 		public static Color ResolveTimePickerFocusedForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerFocusedForegroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the time picker segment background color from explicit value, theme, or default.
+		/// </summary>
 		public static Color ResolveTimePickerSegmentBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.DarkBlue;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerSegmentBackgroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the time picker segment foreground color from explicit value, theme, or default.
+		/// </summary>
 		public static Color ResolveTimePickerSegmentForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerSegmentForegroundColor ?? defaultColor;
 		}
 
+		/// <summary>
+		/// Resolves the time picker disabled foreground color from explicit value, theme, or default.
+		/// </summary>
 		public static Color ResolveTimePickerDisabledForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.Grey;

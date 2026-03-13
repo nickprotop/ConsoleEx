@@ -12,6 +12,7 @@ namespace SharpConsoleUI.Controls
 {
 	public partial class TimePickerControl
 	{
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled || !_hasFocus)

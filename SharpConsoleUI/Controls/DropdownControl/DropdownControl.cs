@@ -63,6 +63,8 @@ namespace SharpConsoleUI.Controls
 		private bool _opensUpward;
 		private LayoutRect _lastLayoutBounds;
 
+		private static string? GetItemValue(DropdownItem item) => item.Value ?? item.Text;
+
 		// Read-only helpers
 		private int CurrentSelectedIndex => _selectedIndex;
 		private int CurrentHighlightedIndex => _highlightedIndex;
@@ -356,7 +358,7 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectedIndexChanged?.Invoke(this, newSel);
 						SelectedItemChanged?.Invoke(this, newSel >= 0 && newSel < _items.Count ? _items[newSel] : null);
-						SelectedValueChanged?.Invoke(this, newSel >= 0 && newSel < _items.Count ? _items[newSel].Text : null);
+						SelectedValueChanged?.Invoke(this, newSel >= 0 && newSel < _items.Count ? GetItemValue(_items[newSel]) : null);
 					}
 				}
 				Container?.Invalidate(true);
@@ -413,9 +415,8 @@ namespace SharpConsoleUI.Controls
 						SelectedItemChanged?.Invoke(this, (value >= 0 && value < _items.Count) ?
 							_items[value] : null);
 
-						// Keep for backward compatibility
 						string? selectedValue = (value >= 0 && value < _items.Count) ?
-							_items[value].Text : null;
+							GetItemValue(_items[value]) : null;
 						SelectedValueChanged?.Invoke(this, selectedValue);
 					}
 				}
@@ -456,7 +457,7 @@ namespace SharpConsoleUI.Controls
 			get
 			{
 				int sel = CurrentSelectedIndex;
-				return sel >= 0 && sel < _items.Count ? _items[sel].Text : null;
+				return sel >= 0 && sel < _items.Count ? GetItemValue(_items[sel]) : null;
 			}
 			set
 			{
@@ -468,7 +469,7 @@ namespace SharpConsoleUI.Controls
 
 				for (int i = 0; i < _items.Count; i++)
 				{
-					if (_items[i].Text == value)
+					if (_items[i].Value == value || _items[i].Text == value)
 					{
 						SelectedIndex = i;
 						break;
@@ -500,7 +501,7 @@ namespace SharpConsoleUI.Controls
 					{
 						SelectedIndexChanged?.Invoke(this, newSel);
 						SelectedItemChanged?.Invoke(this, newSel >= 0 && newSel < _items.Count ? _items[newSel] : null);
-						SelectedValueChanged?.Invoke(this, newSel >= 0 && newSel < _items.Count ? _items[newSel].Text : null);
+						SelectedValueChanged?.Invoke(this, newSel >= 0 && newSel < _items.Count ? GetItemValue(_items[newSel]) : null);
 					}
 				}
 				Container?.Invalidate(true);
@@ -527,7 +528,7 @@ namespace SharpConsoleUI.Controls
 				_highlightedIndex = 0;
 				SelectedIndexChanged?.Invoke(this, 0);
 				SelectedItemChanged?.Invoke(this, item);
-				SelectedValueChanged?.Invoke(this, item.Text);
+				SelectedValueChanged?.Invoke(this, GetItemValue(item));
 			}
 			Container?.Invalidate(true);
 		}

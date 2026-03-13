@@ -55,7 +55,7 @@ public sealed class DropdownBuilder : IControlBuilder<DropdownControl>
 	/// </summary>
 	public DropdownBuilder AddItem(string text, string? value = null, Color? color = null)
 	{
-		_items.Add(new DropdownItem(text, value ?? text, color));
+		_items.Add(new DropdownItem(text) { Value = value, IconColor = color });
 		return this;
 	}
 
@@ -74,7 +74,7 @@ public sealed class DropdownBuilder : IControlBuilder<DropdownControl>
 	public DropdownBuilder AddItems(params string[] items)
 	{
 		foreach (var item in items)
-			_items.Add(new DropdownItem(item, item, null));
+			_items.Add(new DropdownItem(item));
 		return this;
 	}
 

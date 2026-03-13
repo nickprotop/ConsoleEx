@@ -13,6 +13,7 @@ namespace SharpConsoleUI.Controls
 {
 	public partial class TimePickerControl
 	{
+		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			if (!_isEnabled || !WantsMouseEvents)

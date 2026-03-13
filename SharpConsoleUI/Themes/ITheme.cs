@@ -430,25 +430,91 @@ public interface ITheme
 
     // DatePicker theme colors
 
+    /// <summary>
+    /// Gets the background color for the date picker control.
+    /// </summary>
     Color? DatePickerBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground (text) color for the date picker control.
+    /// </summary>
     Color? DatePickerForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for the date picker when focused.
+    /// </summary>
     Color? DatePickerFocusedBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for the date picker when focused.
+    /// </summary>
     Color? DatePickerFocusedForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for the active date segment.
+    /// </summary>
     Color? DatePickerSegmentBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for the active date segment.
+    /// </summary>
     Color? DatePickerSegmentForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for disabled date segments.
+    /// </summary>
     Color? DatePickerDisabledForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the highlight color for today's date in the calendar popup.
+    /// </summary>
     Color? DatePickerCalendarTodayColor { get; }
+
+    /// <summary>
+    /// Gets the highlight color for the selected date in the calendar popup.
+    /// </summary>
     Color? DatePickerCalendarSelectedColor { get; }
+
+    /// <summary>
+    /// Gets the color for the calendar popup header text.
+    /// </summary>
     Color? DatePickerCalendarHeaderColor { get; }
 
     // TimePicker theme colors
 
+    /// <summary>
+    /// Gets the background color for the time picker control.
+    /// </summary>
     Color? TimePickerBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground (text) color for the time picker control.
+    /// </summary>
     Color? TimePickerForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for the time picker when focused.
+    /// </summary>
     Color? TimePickerFocusedBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for the time picker when focused.
+    /// </summary>
     Color? TimePickerFocusedForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for the active time segment.
+    /// </summary>
     Color? TimePickerSegmentBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for the active time segment.
+    /// </summary>
     Color? TimePickerSegmentForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for disabled time segments.
+    /// </summary>
     Color? TimePickerDisabledForegroundColor { get; }
 
 }

@@ -59,6 +59,10 @@ namespace SharpConsoleUI.Controls
 
 		#region Constructors
 
+		/// <summary>
+		/// Initializes a new instance of the TimePickerControl class.
+		/// </summary>
+		/// <param name="prompt">The prompt text displayed in the header.</param>
 		public TimePickerControl(string prompt = ControlDefaults.TimePickerDefaultPrompt)
 		{
 			_prompt = prompt;
@@ -71,20 +75,42 @@ namespace SharpConsoleUI.Controls
 
 		#region Events
 
+		/// <summary>
+		/// Occurs when the selected time changes.
+		/// </summary>
 		public event EventHandler<TimeSpan?>? SelectedTimeChanged;
+
+		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
+
+		/// <inheritdoc/>
 		public event EventHandler? LostFocus;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
 
 		#endregion
 
 		#region Properties
 
+		/// <summary>
+		/// Gets or sets the currently selected time.
+		/// </summary>
 		public TimeSpan? SelectedTime
 		{
 			get => _selectedTime;
@@ -96,18 +122,27 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the minimum selectable time.
+		/// </summary>
 		public TimeSpan? MinTime
 		{
 			get => _minTime;
 			set => SetProperty(ref _minTime, value);
 		}
 
+		/// <summary>
+		/// Gets or sets the maximum selectable time.
+		/// </summary>
 		public TimeSpan? MaxTime
 		{
 			get => _maxTime;
 			set => SetProperty(ref _maxTime, value);
 		}
 
+		/// <summary>
+		/// Gets or sets the culture used for time formatting.
+		/// </summary>
 		public CultureInfo Culture
 		{
 			get => _culture;
@@ -122,30 +157,43 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether seconds are displayed.
+		/// </summary>
 		public bool ShowSeconds
 		{
 			get => _showSeconds;
 			set => SetProperty(ref _showSeconds, value);
 		}
 
+		/// <summary>
+		/// Gets or sets whether 24-hour format is used.
+		/// </summary>
 		public bool? Use24HourFormat
 		{
 			get => _use24HourFormatOverride;
 			set => SetProperty(ref _use24HourFormatOverride, value);
 		}
 
+		/// <summary>
+		/// Gets or sets the prompt text displayed in the header.
+		/// </summary>
 		public string Prompt
 		{
 			get => _prompt;
 			set => SetProperty(ref _prompt, value ?? string.Empty);
 		}
 
+		/// <summary>
+		/// Gets or sets whether the control is enabled.
+		/// </summary>
 		public bool IsEnabled
 		{
 			get => _isEnabled;
 			set => SetProperty(ref _isEnabled, value);
 		}
 
+		/// <inheritdoc/>
 		public bool HasFocus
 		{
 			get => _hasFocus;
@@ -168,54 +216,82 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
+
+		/// <inheritdoc/>
 		public bool WantsMouseEvents => _isEnabled;
+
+		/// <inheritdoc/>
 		public bool CanFocusWithMouse => _isEnabled;
+
+		/// <inheritdoc/>
 		public CursorShape? PreferredCursorShape => _hasFocus ? CursorShape.Hidden : null;
 
-		// Color properties
+		/// <summary>
+		/// Gets or sets the background color.
+		/// </summary>
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveTimePickerBackground(_backgroundColorValue, Container);
 			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color.
+		/// </summary>
 		public Color ForegroundColor
 		{
 			get => ColorResolver.ResolveTimePickerForeground(_foregroundColorValue, Container);
 			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the background color when focused.
+		/// </summary>
 		public Color FocusedBackgroundColor
 		{
 			get => ColorResolver.ResolveTimePickerFocusedBackground(_focusedBackgroundColorValue, Container);
 			set => SetProperty(ref _focusedBackgroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color when focused.
+		/// </summary>
 		public Color FocusedForegroundColor
 		{
 			get => ColorResolver.ResolveTimePickerFocusedForeground(_focusedForegroundColorValue, Container);
 			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the background color for the active time segment.
+		/// </summary>
 		public Color SegmentBackgroundColor
 		{
 			get => ColorResolver.ResolveTimePickerSegmentBackground(_segmentBackgroundColorValue, Container);
 			set => SetProperty(ref _segmentBackgroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color for the active time segment.
+		/// </summary>
 		public Color SegmentForegroundColor
 		{
 			get => ColorResolver.ResolveTimePickerSegmentForeground(_segmentForegroundColorValue, Container);
 			set => SetProperty(ref _segmentForegroundColorValue, (Color?)value);
 		}
 
+		/// <summary>
+		/// Gets or sets the foreground color when disabled.
+		/// </summary>
 		public Color DisabledForegroundColor
 		{
 			get => ColorResolver.ResolveTimePickerDisabledForeground(_disabledForegroundColorValue, Container);
 			set => SetProperty(ref _disabledForegroundColorValue, (Color?)value);
 		}
 
+		/// <inheritdoc/>
 		public override int? ContentWidth => CalculateContentWidth() + Margin.Left + Margin.Right;
 
 		#endregion
@@ -364,6 +440,7 @@ namespace SharpConsoleUI.Controls
 
 		#region Focus
 
+		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
 			bool hadFocus = _hasFocus;
@@ -377,6 +454,7 @@ namespace SharpConsoleUI.Controls
 
 		#region Disposal
 
+		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
 			SelectedTimeChanged = null;

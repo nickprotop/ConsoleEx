@@ -12,6 +12,7 @@ namespace SharpConsoleUI.Controls
 {
 	public partial class DatePickerControl
 	{
+		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled || !_hasFocus)

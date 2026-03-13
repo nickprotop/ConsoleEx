@@ -16,6 +16,7 @@ namespace SharpConsoleUI.Controls
 	{
 		#region IMouseAwareControl - Inline Header
 
+		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			if (!_isEnabled)

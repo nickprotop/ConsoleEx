@@ -433,25 +433,40 @@ namespace SharpConsoleUI.Themes
 		/// </summary>
 		public Color? TabContentBackgroundColor { get; set; } = null;
 
-		// DatePicker theme colors
+		/// <inheritdoc/>
 		public Color? DatePickerBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
 		public Color? DatePickerForegroundColor { get; set; } = null;
+		/// <inheritdoc/>
 		public Color? DatePickerFocusedBackgroundColor { get; set; } = Color.Grey27;
+		/// <inheritdoc/>
 		public Color? DatePickerFocusedForegroundColor { get; set; } = Color.Cyan1;
+		/// <inheritdoc/>
 		public Color? DatePickerSegmentBackgroundColor { get; set; } = Color.Grey35;
+		/// <inheritdoc/>
 		public Color? DatePickerSegmentForegroundColor { get; set; } = Color.White;
+		/// <inheritdoc/>
 		public Color? DatePickerDisabledForegroundColor { get; set; } = Color.Grey50;
+		/// <inheritdoc/>
 		public Color? DatePickerCalendarTodayColor { get; set; } = Color.Cyan1;
+		/// <inheritdoc/>
 		public Color? DatePickerCalendarSelectedColor { get; set; } = Color.Grey35;
+		/// <inheritdoc/>
 		public Color? DatePickerCalendarHeaderColor { get; set; } = Color.Cyan1;
 
-		// TimePicker theme colors
+		/// <inheritdoc/>
 		public Color? TimePickerBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
 		public Color? TimePickerForegroundColor { get; set; } = null;
+		/// <inheritdoc/>
 		public Color? TimePickerFocusedBackgroundColor { get; set; } = Color.Grey27;
+		/// <inheritdoc/>
 		public Color? TimePickerFocusedForegroundColor { get; set; } = Color.Cyan1;
+		/// <inheritdoc/>
 		public Color? TimePickerSegmentBackgroundColor { get; set; } = Color.Grey35;
+		/// <inheritdoc/>
 		public Color? TimePickerSegmentForegroundColor { get; set; } = Color.White;
+		/// <inheritdoc/>
 		public Color? TimePickerDisabledForegroundColor { get; set; } = Color.Grey50;
 	}
 }

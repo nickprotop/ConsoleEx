@@ -53,6 +53,12 @@ namespace SharpConsoleUI.Controls
 		public string Text { get; set; }
 
 		/// <summary>
+		/// Gets or sets the programmatic value for the item.
+		/// When set, this is returned by <see cref="DropdownControl.SelectedValue"/> instead of <see cref="Text"/>.
+		/// </summary>
+		public string? Value { get; set; }
+
+		/// <summary>
 		/// Implicitly converts a string to a <see cref="DropdownItem"/> for convenience.
 		/// </summary>
 		/// <param name="text">The text to convert.</param>

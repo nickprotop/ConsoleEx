@@ -15,6 +15,9 @@ using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Builders;
 
+/// <summary>
+/// Fluent builder for creating and configuring DatePicker controls.
+/// </summary>
 public sealed class DatePickerBuilder : IControlBuilder<DatePickerControl>
 {
 	private string _prompt = "Date:";
@@ -39,150 +42,275 @@ public sealed class DatePickerBuilder : IControlBuilder<DatePickerControl>
 	private EventHandler? _lostFocusHandler;
 	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
 
+	/// <summary>
+	/// Sets the prompt text displayed in the date picker header.
+	/// </summary>
+	/// <param name="prompt">The prompt text.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithPrompt(string prompt)
 	{
 		_prompt = prompt;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the initially selected date.
+	/// </summary>
+	/// <param name="date">The date to select.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithSelectedDate(DateTime? date)
 	{
 		_selectedDate = date;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the minimum selectable date.
+	/// </summary>
+	/// <param name="date">The minimum date.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithMinDate(DateTime? date)
 	{
 		_minDate = date;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the maximum selectable date.
+	/// </summary>
+	/// <param name="date">The maximum date.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithMaxDate(DateTime? date)
 	{
 		_maxDate = date;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the culture for date formatting and calendar layout.
+	/// </summary>
+	/// <param name="culture">The culture to use.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithCulture(CultureInfo culture)
 	{
 		_culture = culture;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets a custom date format string.
+	/// </summary>
+	/// <param name="format">The date format string.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithFormat(string format)
 	{
 		_dateFormat = format;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the first day of the week for the calendar.
+	/// </summary>
+	/// <param name="dayOfWeek">The first day of the week.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithFirstDayOfWeek(DayOfWeek dayOfWeek)
 	{
 		_firstDayOfWeek = dayOfWeek;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the horizontal alignment.
+	/// </summary>
+	/// <param name="alignment">The horizontal alignment.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithAlignment(HorizontalAlignment alignment)
 	{
 		_alignment = alignment;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the vertical alignment.
+	/// </summary>
+	/// <param name="alignment">The vertical alignment.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithVerticalAlignment(VerticalAlignment alignment)
 	{
 		_verticalAlignment = alignment;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the margin.
+	/// </summary>
+	/// <param name="left">Left margin.</param>
+	/// <param name="top">Top margin.</param>
+	/// <param name="right">Right margin.</param>
+	/// <param name="bottom">Bottom margin.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithMargin(int left, int top, int right, int bottom)
 	{
 		_margin = new Margin(left, top, right, bottom);
 		return this;
 	}
 
+	/// <summary>
+	/// Sets uniform margin on all sides.
+	/// </summary>
+	/// <param name="margin">The margin value for all sides.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithMargin(int margin)
 	{
 		_margin = new Margin(margin, margin, margin, margin);
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the visibility.
+	/// </summary>
+	/// <param name="visible">Whether the control is visible.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder Visible(bool visible = true)
 	{
 		_visible = visible;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the width.
+	/// </summary>
+	/// <param name="width">The width in columns.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithWidth(int width)
 	{
 		_width = width;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the control name for lookup.
+	/// </summary>
+	/// <param name="name">The control name.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithName(string name)
 	{
 		_name = name;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets a tag object.
+	/// </summary>
+	/// <param name="tag">The tag object.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithTag(object tag)
 	{
 		_tag = tag;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the sticky position.
+	/// </summary>
+	/// <param name="position">The sticky position.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder WithStickyPosition(StickyPosition position)
 	{
 		_stickyPosition = position;
 		return this;
 	}
 
+	/// <summary>
+	/// Makes the control stick to the top of the window.
+	/// </summary>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder StickyTop()
 	{
 		_stickyPosition = StickyPosition.Top;
 		return this;
 	}
 
+	/// <summary>
+	/// Makes the control stick to the bottom of the window.
+	/// </summary>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder StickyBottom()
 	{
 		_stickyPosition = StickyPosition.Bottom;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the selected date changed event handler.
+	/// </summary>
+	/// <param name="handler">The event handler.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder OnSelectedDateChanged(EventHandler<DateTime?> handler)
 	{
 		_selectedDateChangedHandler = handler;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the selected date changed event handler with window access.
+	/// </summary>
+	/// <param name="handler">The event handler with window access.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder OnSelectedDateChanged(WindowEventHandler<DateTime?> handler)
 	{
 		_selectedDateChangedWithWindowHandler = handler;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the GotFocus event handler.
+	/// </summary>
+	/// <param name="handler">The event handler.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder OnGotFocus(EventHandler handler)
 	{
 		_gotFocusHandler = handler;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the GotFocus event handler with window access.
+	/// </summary>
+	/// <param name="handler">The event handler with window access.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder OnGotFocus(WindowEventHandler<EventArgs> handler)
 	{
 		_gotFocusWithWindowHandler = handler;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the LostFocus event handler.
+	/// </summary>
+	/// <param name="handler">The event handler.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder OnLostFocus(EventHandler handler)
 	{
 		_lostFocusHandler = handler;
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the LostFocus event handler with window access.
+	/// </summary>
+	/// <param name="handler">The event handler with window access.</param>
+	/// <returns>The builder for chaining.</returns>
 	public DatePickerBuilder OnLostFocus(WindowEventHandler<EventArgs> handler)
 	{
 		_lostFocusWithWindowHandler = handler;
 		return this;
 	}
 
+	/// <summary>
+	/// Builds the date picker control.
+	/// </summary>
+	/// <returns>The configured <see cref="DatePickerControl"/>.</returns>
 	public DatePickerControl Build()
 	{
 		var control = new DatePickerControl(_prompt)
@@ -247,5 +375,9 @@ public sealed class DatePickerBuilder : IControlBuilder<DatePickerControl>
 		return control;
 	}
 
+	/// <summary>
+	/// Implicit conversion to <see cref="DatePickerControl"/>.
+	/// </summary>
+	/// <param name="builder">The builder to convert.</param>
 	public static implicit operator DatePickerControl(DatePickerBuilder builder) => builder.Build();
 }
