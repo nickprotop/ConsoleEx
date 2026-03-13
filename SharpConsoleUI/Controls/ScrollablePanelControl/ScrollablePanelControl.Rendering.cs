@@ -6,9 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls
 {
@@ -21,7 +23,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// Calculate available width from constraints, not from stale _viewportWidth
 			int width = Width ?? constraints.MaxWidth;
-			int availableWidth = Math.Max(1, width - Margin.Left - Margin.Right);
+			int availableWidth = Math.Max(1, width - Margin.Left - Margin.Right - BorderWidth - _padding.Left - _padding.Right);
 
 			// Determine height
 			int height;
@@ -34,7 +36,7 @@ namespace SharpConsoleUI.Controls
 			{
 				// No explicit height - calculate from content
 				int contentHeight = CalculateContentHeight(availableWidth);
-				height = contentHeight + Margin.Top + Margin.Bottom;
+				height = contentHeight + Margin.Top + Margin.Bottom + BorderHeight + _padding.Top + _padding.Bottom;
 			}
 
 			return new LayoutSize(
@@ -51,8 +53,13 @@ namespace SharpConsoleUI.Controls
 			var bgColor = BackgroundColor;
 			var fgColor = _foregroundColor;
 
-			_viewportHeight = bounds.Height - Margin.Top - Margin.Bottom;
-			_viewportWidth = bounds.Width - Margin.Left - Margin.Right;
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
+			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
+			int targetHeight = bounds.Height - Margin.Top - Margin.Bottom;
+
+			_viewportHeight = targetHeight - BorderHeight - _padding.Top - _padding.Bottom;
+			_viewportWidth = targetWidth - BorderWidth - _padding.Left - _padding.Right;
 
 			// Calculate content dimensions from children
 			_contentHeight = CalculateContentHeight(_viewportWidth, _viewportHeight);
@@ -76,6 +83,51 @@ namespace SharpConsoleUI.Controls
 				contentWidth -= 2;  // Reserve 2 columns: 1 for gap, 1 for scrollbar
 			}
 
+			// Draw border if needed
+			bool hasBorder = _borderStyle != BorderStyle.None;
+			if (hasBorder)
+			{
+				var box = BoxChars.FromBorderStyle(_borderStyle);
+				Color borderColor = _borderColor ?? fgColor;
+
+				// Fill the interior of the border with background color
+				// This covers padding areas, empty space below children, and scrollbar track
+				int innerX = startX + 1;
+				int innerY = startY + 1;
+				int innerWidth = targetWidth - 2;
+				int innerHeight = targetHeight - 2;
+				if (innerWidth > 0 && innerHeight > 0)
+				{
+					var innerRect = new LayoutRect(innerX, innerY, innerWidth, innerHeight);
+					var fillRect = clipRect.Intersect(innerRect);
+					if (fillRect.Width > 0 && fillRect.Height > 0)
+					{
+						Helpers.ControlRenderingHelpers.FillRect(buffer, fillRect, fgColor, bgColor, false);
+					}
+				}
+
+				// Top border with optional header
+				DrawTopBorder(buffer, startX, startY, targetWidth, clipRect, box, borderColor, bgColor);
+
+				// Left and right vertical border chars for middle rows
+				for (int row = 1; row < targetHeight - 1; row++)
+				{
+					int y = startY + row;
+					if (y < clipRect.Y || y >= clipRect.Bottom) continue;
+					if (startX >= clipRect.X && startX < clipRect.Right)
+						buffer.SetCell(startX, y, box.Vertical, borderColor, bgColor);
+					int rightX = startX + targetWidth - 1;
+					if (rightX >= clipRect.X && rightX < clipRect.Right)
+						buffer.SetCell(rightX, y, box.Vertical, borderColor, bgColor);
+				}
+
+				// Bottom border
+				DrawBottomBorder(buffer, startX, startY + targetHeight - 1, targetWidth, clipRect, box, borderColor, bgColor);
+			}
+
+			// Content area origin (inside border + padding)
+			int contentOriginX = startX + ContentInsetLeft;
+			int contentOriginY = startY + ContentInsetTop;
 
 			// Render children with scroll offsets applied
 			int currentY = -_verticalScrollOffset;
@@ -128,8 +180,8 @@ namespace SharpConsoleUI.Controls
 
 				// Register child bounds for cursor position lookups (even if off-viewport)
 				var childBoundsForCursor = new LayoutRect(
-					bounds.X + Margin.Left,
-					bounds.Y + Margin.Top + currentY,
+					contentOriginX,
+					contentOriginY + currentY,
 					contentWidth,
 					childHeight);
 				renderer?.UpdateChildBounds(child, childBoundsForCursor);
@@ -138,8 +190,8 @@ namespace SharpConsoleUI.Controls
 				if (currentY + childHeight > 0 && currentY < _viewportHeight)
 				{
 					var childBounds = new LayoutRect(
-						bounds.X + Margin.Left,
-						bounds.Y + Margin.Top + currentY,
+						contentOriginX,
+						contentOriginY + currentY,
 						contentWidth,
 						childHeight);
 
@@ -148,8 +200,8 @@ namespace SharpConsoleUI.Controls
 
 					// Create clipped clipRect for child that excludes scrollbar area and clips to viewport
 					var viewportRect = new LayoutRect(
-						bounds.X + Margin.Left,
-						bounds.Y + Margin.Top,
+						contentOriginX,
+						contentOriginY,
 						needsScrollbar ? contentWidth + 1 : contentWidth, // +1 for gap if scrollbar visible
 						_viewportHeight);
 
@@ -158,7 +210,7 @@ namespace SharpConsoleUI.Controls
 					if (needsScrollbar)
 					{
 						// Further restrict to exclude scrollbar columns
-						int maxRight = bounds.X + Margin.Left + contentWidth + 1; // +1 for gap
+						int maxRight = contentOriginX + contentWidth + 1; // +1 for gap
 						childClipRect = childClipRect.Intersect(new LayoutRect(
 							childClipRect.X,
 							childClipRect.Y,
@@ -189,12 +241,11 @@ namespace SharpConsoleUI.Controls
 		private (int scrollbarRelX, int scrollbarTop, int scrollbarHeight, int thumbY, int thumbHeight) GetScrollbarGeometry()
 		{
 			// scrollbarRelX is control-relative (offset from bounds.X)
-			// For Right position: last column of the control = margin.Left + viewport + margin.Right - 1
-			// This matches the old DrawVerticalScrollbar which used bounds.Right - 1 = bounds.X + bounds.Width - 1
+			// Position scrollbar inside the border if present
 			int scrollbarRelX = _scrollbarPosition == ScrollbarPosition.Right
-				? Margin.Left + _viewportWidth + Margin.Right - 1
-				: Margin.Left;
-			int scrollbarTop = Margin.Top;
+				? Margin.Left + ContentInsetLeft + _viewportWidth - 1
+				: Margin.Left + ContentInsetLeft;
+			int scrollbarTop = Margin.Top + ContentInsetTop;
 			int scrollbarHeight = _viewportHeight;
 
 			// Reserve arrow positions so thumb never overlaps them
@@ -247,6 +298,122 @@ namespace SharpConsoleUI.Controls
 			// Always draw arrows at top/bottom with thumb color
 			buffer.SetCell(scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
 			buffer.SetCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
+		}
+
+		#endregion
+
+		#region Border Drawing
+
+		private void DrawTopBorder(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect, BoxChars box, Color borderColor, Color bgColor)
+		{
+			if (y < clipRect.Y || y >= clipRect.Bottom) return;
+
+			int innerWidth = width - 2;
+
+			if (x >= clipRect.X && x < clipRect.Right)
+				buffer.SetCell(x, y, box.TopLeft, borderColor, bgColor);
+
+			if (string.IsNullOrEmpty(_header) || innerWidth < 4)
+			{
+				for (int i = 0; i < innerWidth; i++)
+				{
+					int px = x + 1 + i;
+					if (px >= clipRect.X && px < clipRect.Right)
+						buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+				}
+			}
+			else
+			{
+				var headerCells = MarkupParser.Parse(_header, borderColor, bgColor);
+				int headerLen = headerCells.Count;
+				int headerWithSpaces = headerLen + 2;
+
+				if (headerWithSpaces > innerWidth)
+				{
+					for (int i = 0; i < innerWidth; i++)
+					{
+						int px = x + 1 + i;
+						if (px >= clipRect.X && px < clipRect.Right)
+							buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+					}
+				}
+				else
+				{
+					int dashSpace = innerWidth - headerWithSpaces;
+					int leftDashes, rightDashes;
+
+					switch (_headerAlignment)
+					{
+						case TextJustification.Center:
+							leftDashes = dashSpace / 2;
+							rightDashes = dashSpace - leftDashes;
+							break;
+						case TextJustification.Right:
+							leftDashes = dashSpace - 1;
+							rightDashes = 1;
+							break;
+						default:
+							leftDashes = 1;
+							rightDashes = dashSpace - 1;
+							break;
+					}
+
+					int writeX = x + 1;
+
+					for (int i = 0; i < leftDashes; i++)
+					{
+						if (writeX >= clipRect.X && writeX < clipRect.Right)
+							buffer.SetCell(writeX, y, box.Horizontal, borderColor, bgColor);
+						writeX++;
+					}
+
+					if (writeX >= clipRect.X && writeX < clipRect.Right)
+						buffer.SetCell(writeX, y, ' ', borderColor, bgColor);
+					writeX++;
+
+					foreach (var cell in headerCells)
+					{
+						if (writeX >= clipRect.X && writeX < clipRect.Right)
+							buffer.SetCell(writeX, y, cell.Character, cell.Foreground, cell.Background);
+						writeX++;
+					}
+
+					if (writeX >= clipRect.X && writeX < clipRect.Right)
+						buffer.SetCell(writeX, y, ' ', borderColor, bgColor);
+					writeX++;
+
+					for (int i = 0; i < rightDashes; i++)
+					{
+						if (writeX >= clipRect.X && writeX < clipRect.Right)
+							buffer.SetCell(writeX, y, box.Horizontal, borderColor, bgColor);
+						writeX++;
+					}
+				}
+			}
+
+			int rightCornerX = x + width - 1;
+			if (rightCornerX >= clipRect.X && rightCornerX < clipRect.Right)
+				buffer.SetCell(rightCornerX, y, box.TopRight, borderColor, bgColor);
+		}
+
+		private void DrawBottomBorder(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect, BoxChars box, Color borderColor, Color bgColor)
+		{
+			if (y < clipRect.Y || y >= clipRect.Bottom) return;
+
+			if (x >= clipRect.X && x < clipRect.Right)
+				buffer.SetCell(x, y, box.BottomLeft, borderColor, bgColor);
+
+			int innerWidth = width - 2;
+			for (int i = 0; i < innerWidth; i++)
+			{
+				int px = x + 1 + i;
+				if (px >= clipRect.X && px < clipRect.Right)
+					buffer.SetCell(px, y, box.Horizontal, borderColor, bgColor);
+			}
+
+			int rightX = x + width - 1;
+			if (rightX >= clipRect.X && rightX < clipRect.Right)
+				buffer.SetCell(rightX, y, box.BottomRight, borderColor, bgColor);
 		}
 
 		#endregion

@@ -46,11 +46,11 @@ namespace SharpConsoleUI.Controls
 			if (needsScrollbar)
 				contentWidth -= 2;
 
-			int viewportX = mousePosition.X - Margin.Left;
-			if (viewportX < 0 || viewportX >= contentWidth || mousePosition.Y < Margin.Top)
+			int viewportX = mousePosition.X - Margin.Left - ContentInsetLeft;
+			if (viewportX < 0 || viewportX >= contentWidth || mousePosition.Y < Margin.Top + ContentInsetTop)
 				return null;
 
-			int contentY = mousePosition.Y - Margin.Top + _verticalScrollOffset;
+			int contentY = mousePosition.Y - Margin.Top - ContentInsetTop + _verticalScrollOffset;
 			int currentY = 0;
 
 			List<IWindowControl> snapshot;
@@ -77,8 +77,8 @@ namespace SharpConsoleUI.Controls
 			if (needsScrollbar)
 				contentWidth -= 2;
 
-			int viewportX = args.Position.X - Margin.Left;
-			int contentY = args.Position.Y - Margin.Top + _verticalScrollOffset;
+			int viewportX = args.Position.X - Margin.Left - ContentInsetLeft;
+			int contentY = args.Position.Y - Margin.Top - ContentInsetTop + _verticalScrollOffset;
 			int currentY = 0;
 
 			List<IWindowControl> snapshot;
@@ -118,7 +118,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// New click sequence - perform fresh hit test using current scroll offset
-			int contentY = args.Position.Y - Margin.Top + _verticalScrollOffset;
+			int contentY = args.Position.Y - Margin.Top - ContentInsetTop + _verticalScrollOffset;
 			int currentY = 0;
 
 			foreach (var child in snapshot.Where(c => c.Visible))
@@ -226,13 +226,13 @@ namespace SharpConsoleUI.Controls
 				if (needsScrollbar)
 				{
 					var (sbRelX, sbTop, sbHeight, sbThumbY, sbThumbHeight) = GetScrollbarGeometry();
-					int viewportX = args.Position.X - Margin.Left;
+					int viewportX = args.Position.X - Margin.Left - ContentInsetLeft;
 					int contentWidth = _viewportWidth - 2;
 					bool isOnScrollbar = viewportX >= contentWidth;
 
 					if (isOnScrollbar && args.HasFlag(Drivers.MouseFlags.Button1Pressed))
 					{
-						int relY = args.Position.Y - sbTop;
+						int relY = args.Position.Y - Margin.Top - ContentInsetTop;
 						int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
 
 						if (relY == 0 && _verticalScrollOffset > 0)
@@ -293,10 +293,10 @@ namespace SharpConsoleUI.Controls
 					contentWidth -= 2;
 
 				// Translate mouse position to viewport coordinates
-				int viewportX = args.Position.X - Margin.Left;
+				int viewportX = args.Position.X - Margin.Left - ContentInsetLeft;
 
-				// Check if click is within content area (not in scrollbar or margins)
-				if (viewportX >= 0 && viewportX < contentWidth && args.Position.Y >= Margin.Top)
+				// Check if click is within content area (not in scrollbar, border, or margins)
+				if (viewportX >= 0 && viewportX < contentWidth && args.Position.Y >= Margin.Top + ContentInsetTop)
 				{
 					// Use click target caching to ensure double-clicks go to the same child
 					// even if scroll position changes between clicks
@@ -336,7 +336,7 @@ namespace SharpConsoleUI.Controls
 						{
 							// Calculate child-relative Y position
 							// We need to recalculate the child's position in the current scroll state
-							int contentY = args.Position.Y - Margin.Top + _verticalScrollOffset;
+							int contentY = args.Position.Y - Margin.Top - ContentInsetTop + _verticalScrollOffset;
 							int currentY = 0;
 							List<IWindowControl> childSnap;
 							lock (_childrenLock) { childSnap = new List<IWindowControl>(_children); }

@@ -90,9 +90,11 @@ public static class LauncherWindow
         var layout = tree.AddRootNode("Layout & Windows");
         layout.TextColor = Color.Cyan1;
         layout.IsExpanded = true;
+        layout.AddChild("Border Styles");
         layout.AddChild("IDE Layout");
         layout.AddChild("File Explorer");
         layout.AddChild("Multi-Tab Demo");
+        layout.AddChild("WinUI Layout");
 
         var controls = tree.AddRootNode("Controls");
         controls.TextColor = Color.Green;
@@ -139,9 +141,11 @@ public static class LauncherWindow
 
         _ = node.Text switch
         {
+            "Border Styles" => BorderStyleWindow.Create(ws),
             "IDE Layout" => IdeLayoutWindow.Create(ws),
             "File Explorer" => FileExplorerWindow.Create(ws),
             "Multi-Tab Demo" => TabDemoWindow.Create(ws),
+            "WinUI Layout" => WinUIDemoWindow.Create(ws),
             "Interactive Demo" => InteractiveWindow.Create(ws),
             "Dropdown" => DropdownWindow.Create(ws),
             "List View" => ListViewWindow.Create(ws),
@@ -171,6 +175,24 @@ public static class LauncherWindow
     {
         return demoName switch
         {
+            "Border Styles" => new List<string>
+            {
+                "[bold cyan]Border Styles[/]",
+                "",
+                "Explore all four window border styles: DoubleLine,",
+                "Single, Rounded, and None (borderless). Spawn",
+                "windows with each style and toggle live.",
+                "",
+                "[dim]Features:[/]",
+                "  - All 4 BorderStyle options demonstrated",
+                "  - Spawned windows show each style",
+                "  - Live cycling between styles on a window",
+                "  - Active vs inactive border differences",
+                "",
+                "[dim]Controls used:[/]",
+                "  - ButtonControl, MarkupControl",
+                "  - WindowBuilder border API",
+            },
             "IDE Layout" => new List<string>
             {
                 "[bold cyan]IDE Layout[/]",
@@ -205,6 +227,25 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - TabControl, MarkupControl",
                 "  - ScrollablePanelControl",
+            },
+            "WinUI Layout" => new List<string>
+            {
+                "[bold cyan]WinUI Layout[/]",
+                "",
+                "Windows 11 WinUI-inspired settings layout with",
+                "gradient background, transparent nav panel, and",
+                "bordered scrollable content area.",
+                "",
+                "[dim]Features:[/]",
+                "  - Gradient background shows through nav & header",
+                "  - ScrollablePanel with rounded border",
+                "  - Left nav with selection highlighting",
+                "  - Dynamic content switching per section",
+                "",
+                "[dim]Controls used:[/]",
+                "  - ScrollablePanelControl (border + padding)",
+                "  - HorizontalGridControl, MarkupControl",
+                "  - CheckboxControl, ButtonControl",
             },
             "Interactive Demo" => new List<string>
             {

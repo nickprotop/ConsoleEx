@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
@@ -50,6 +51,13 @@ namespace SharpConsoleUI.Controls
 		private ScrollMode _verticalScrollMode = ScrollMode.Scroll;
 		private bool _enableMouseWheel = true;
 		private bool _autoScroll = false;
+
+		// Border and padding
+		private BorderStyle _borderStyle = BorderStyle.None;
+		private Color? _borderColor;
+		private Padding _padding = new Padding(0, 0, 0, 0);
+		private string? _header;
+		private TextJustification _headerAlignment = TextJustification.Left;
 
 		private int? _height;
 
@@ -236,6 +244,63 @@ namespace SharpConsoleUI.Controls
 		/// Gets whether the content can be scrolled right (more content exists beyond the viewport width).
 		/// </summary>
 		public bool CanScrollRight => _horizontalScrollOffset < Math.Max(0, _contentWidth - _viewportWidth);
+
+		#endregion
+
+		#region Border & Padding Properties
+
+		/// <summary>
+		/// Gets or sets the border style for the panel.
+		/// Default is None (no border).
+		/// </summary>
+		public BorderStyle BorderStyle
+		{
+			get => _borderStyle;
+			set => SetProperty(ref _borderStyle, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the border color.
+		/// When null, uses the foreground color.
+		/// </summary>
+		public Color? BorderColor
+		{
+			get => _borderColor;
+			set => SetProperty(ref _borderColor, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the padding inside the border.
+		/// </summary>
+		public Padding Padding
+		{
+			get => _padding;
+			set => SetProperty(ref _padding, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the header text displayed in the top border.
+		/// </summary>
+		public string? Header
+		{
+			get => _header;
+			set => SetProperty(ref _header, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the alignment of the header text.
+		/// </summary>
+		public TextJustification HeaderAlignment
+		{
+			get => _headerAlignment;
+			set => SetProperty(ref _headerAlignment, value);
+		}
+
+		// Computed helpers for border insets
+		private int BorderWidth => _borderStyle == BorderStyle.None ? 0 : 2;
+		private int BorderHeight => _borderStyle == BorderStyle.None ? 0 : 2;
+		private int ContentInsetLeft => (_borderStyle != BorderStyle.None ? 1 : 0) + _padding.Left;
+		private int ContentInsetTop => (_borderStyle != BorderStyle.None ? 1 : 0) + _padding.Top;
 
 		#endregion
 

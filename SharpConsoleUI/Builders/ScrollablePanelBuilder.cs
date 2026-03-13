@@ -40,6 +40,11 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private Color? _backgroundColor;
 	private Color _foregroundColor = Color.White;
+	private BorderStyle _borderStyle = BorderStyle.None;
+	private Color? _borderColor;
+	private Padding _padding = new(0, 0, 0, 0);
+	private string? _header;
+	private TextJustification _headerAlignment = TextJustification.Left;
 
 	/// <summary>
 	/// Adds a child control to the panel
@@ -353,6 +358,78 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	}
 
 	/// <summary>
+	/// Sets the border style
+	/// </summary>
+	public ScrollablePanelBuilder WithBorderStyle(BorderStyle style)
+	{
+		_borderStyle = style;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets rounded border style
+	/// </summary>
+	public ScrollablePanelBuilder Rounded()
+	{
+		_borderStyle = BorderStyle.Rounded;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets single-line border style
+	/// </summary>
+	public ScrollablePanelBuilder SingleBorder()
+	{
+		_borderStyle = BorderStyle.Single;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the border color
+	/// </summary>
+	public ScrollablePanelBuilder WithBorderColor(Color color)
+	{
+		_borderColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the padding inside the border
+	/// </summary>
+	public ScrollablePanelBuilder WithPadding(int left, int top, int right, int bottom)
+	{
+		_padding = new Padding(left, top, right, bottom);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the padding inside the border
+	/// </summary>
+	public ScrollablePanelBuilder WithPadding(Padding padding)
+	{
+		_padding = padding;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the header text for the top border
+	/// </summary>
+	public ScrollablePanelBuilder WithHeader(string header)
+	{
+		_header = header;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the header text alignment
+	/// </summary>
+	public ScrollablePanelBuilder WithHeaderAlignment(TextJustification alignment)
+	{
+		_headerAlignment = alignment;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the scrollable panel control
 	/// </summary>
 	/// <returns>The configured control</returns>
@@ -375,7 +452,12 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 			Name = _name,
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
-			ForegroundColor = _foregroundColor
+			ForegroundColor = _foregroundColor,
+			BorderStyle = _borderStyle,
+			BorderColor = _borderColor,
+			Padding = _padding,
+			Header = _header,
+			HeaderAlignment = _headerAlignment
 		};
 
 		// Set background only if explicitly specified (null = transparent, inherits gradient)
