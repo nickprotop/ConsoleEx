@@ -436,5 +436,26 @@ namespace SharpConsoleUI.Themes
 		/// </summary>
 		public Color? TabContentBackgroundColor { get; set; } = null;
 
+		// DatePicker theme colors
+		public Color? DatePickerBackgroundColor { get; set; } = null;
+		public Color? DatePickerForegroundColor { get; set; } = null;
+		public Color? DatePickerFocusedBackgroundColor { get; set; } = Color.Blue;
+		public Color? DatePickerFocusedForegroundColor { get; set; } = Color.White;
+		public Color? DatePickerSegmentBackgroundColor { get; set; } = Color.DarkBlue;
+		public Color? DatePickerSegmentForegroundColor { get; set; } = Color.White;
+		public Color? DatePickerDisabledForegroundColor { get; set; } = Color.Grey;
+		public Color? DatePickerCalendarTodayColor { get; set; } = Color.Cyan1;
+		public Color? DatePickerCalendarSelectedColor { get; set; } = Color.Blue;
+		public Color? DatePickerCalendarHeaderColor { get; set; } = Color.Yellow;
+
+		// TimePicker theme colors
+		public Color? TimePickerBackgroundColor { get; set; } = null;
+		public Color? TimePickerForegroundColor { get; set; } = null;
+		public Color? TimePickerFocusedBackgroundColor { get; set; } = Color.Blue;
+		public Color? TimePickerFocusedForegroundColor { get; set; } = Color.White;
+		public Color? TimePickerSegmentBackgroundColor { get; set; } = Color.DarkBlue;
+		public Color? TimePickerSegmentForegroundColor { get; set; } = Color.White;
+		public Color? TimePickerDisabledForegroundColor { get; set; } = Color.Grey;
+
 	}
 }

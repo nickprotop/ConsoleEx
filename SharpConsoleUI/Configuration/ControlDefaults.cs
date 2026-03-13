@@ -364,5 +364,86 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int NavigationViewHeaderTopMargin = 1;
 
+		// DatePicker defaults
+
+		/// <summary>
+		/// Number of columns in the calendar grid (days of week).
+		/// </summary>
+		public const int CalendarGridColumns = 7;
+
+		/// <summary>
+		/// Width of each day column in the calendar grid (3 chars: space + 2 digits).
+		/// </summary>
+		public const int CalendarDayColumnWidth = 3;
+
+		/// <summary>
+		/// Maximum number of week rows in the calendar grid.
+		/// </summary>
+		public const int CalendarGridRows = 6;
+
+		/// <summary>
+		/// Total width of the calendar portal in characters.
+		/// </summary>
+		public const int CalendarPortalWidth = 28;
+
+		/// <summary>
+		/// Total height of the calendar portal in rows.
+		/// </summary>
+		public const int CalendarPortalHeight = 10;
+
+		/// <summary>
+		/// Arrow character for navigating to the previous month.
+		/// </summary>
+		public const string CalendarPrevMonthArrow = "\u25C4";
+
+		/// <summary>
+		/// Arrow character for navigating to the next month.
+		/// </summary>
+		public const string CalendarNextMonthArrow = "\u25BA";
+
+		/// <summary>
+		/// Default date format when no culture-specific format is provided.
+		/// </summary>
+		public const string CalendarDefaultDateFormat = "yyyy-MM-dd";
+
+		/// <summary>
+		/// Default prompt text for DatePicker controls.
+		/// </summary>
+		public const string DatePickerDefaultPrompt = "Date:";
+
+		/// <summary>
+		/// Dropdown indicator character for the DatePicker calendar toggle.
+		/// </summary>
+		public const string DatePickerDropdownIndicator = "\u25BC";
+
+		// TimePicker defaults
+
+		/// <summary>
+		/// Display width of a time segment (hour, minute, second) in characters.
+		/// </summary>
+		public const int TimeSegmentWidth = 2;
+
+		/// <summary>
+		/// Display width of the AM/PM segment in characters.
+		/// </summary>
+		public const int TimeAmPmSegmentWidth = 2;
+
+		/// <summary>
+		/// Step size for large increment/decrement operations (Page Up/Down).
+		/// </summary>
+		public const int TimeLargeIncrementStep = 10;
+
+		/// <summary>
+		/// Default prompt text for TimePicker controls.
+		/// </summary>
+		public const string TimePickerDefaultPrompt = "Time:";
+
+		// Shared date/time defaults
+
+		/// <summary>
+		/// Timeout in milliseconds before a pending first digit is auto-committed.
+		/// </summary>
+		public const int SegmentPendingDigitTimeoutMs = 1500;
+
 	}
 }

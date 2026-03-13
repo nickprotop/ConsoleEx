@@ -202,7 +202,8 @@ namespace SharpConsoleUI.Controls
 					BorderBackgroundColor ?? defaultBg);
 				var inner = new LayoutRect(bounds.X + 1, bounds.Y + 1,
 					Math.Max(0, bounds.Width - 2), Math.Max(0, bounds.Height - 2));
-				PaintPortalContent(buffer, inner, clipRect, defaultFg, defaultBg);
+				var innerClip = inner.Intersect(clipRect);
+				PaintPortalContent(buffer, inner, innerClip, defaultFg, defaultBg);
 			}
 			else
 			{

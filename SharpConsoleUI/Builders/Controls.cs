@@ -319,4 +319,30 @@ public static class Controls
 	/// </summary>
 	/// <returns>A new splitter control builder.</returns>
 	public static SplitterControlBuilder Splitter() => new SplitterControlBuilder();
+
+	/// <summary>
+	/// Creates a new time picker builder.
+	/// </summary>
+	/// <param name="prompt">Optional prompt text.</param>
+	/// <returns>A new time picker builder.</returns>
+	public static TimePickerBuilder TimePicker(string? prompt = null)
+	{
+		var builder = new TimePickerBuilder();
+		if (prompt != null)
+			builder.WithPrompt(prompt);
+		return builder;
+	}
+
+	/// <summary>
+	/// Creates a new date picker builder.
+	/// </summary>
+	/// <param name="prompt">Optional prompt text.</param>
+	/// <returns>A new date picker builder.</returns>
+	public static DatePickerBuilder DatePicker(string? prompt = null)
+	{
+		var builder = new DatePickerBuilder();
+		if (prompt != null)
+			builder.WithPrompt(prompt);
+		return builder;
+	}
 }

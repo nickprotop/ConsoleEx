@@ -13,11 +13,11 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 - .NET 8.0 + 9.0 multi-targeting
 - SourceLink and symbol packages for debugging
 - Compositor effects — PreBufferPaint/PostBufferPaint hooks for custom rendering
+- DatePicker — locale-aware date selection with segmented editing and calendar popup
+- TimePicker — locale-aware time selection with 12h/24h modes, optional seconds, AM/PM
 
 ## Next
 
-- **DatePicker** — calendar-based date selection control
-- **TimePicker** — time selection with hour/minute/second
 - **Slider / RangeControl** — horizontal and vertical value sliders
 - **StatusBarControl** — per-window status bar (distinct from the system-level status bars)
 - **Instant input response** — replace polling-based input loop with event-driven wake for zero-latency keypress handling

@@ -432,5 +432,26 @@ namespace SharpConsoleUI.Themes
 		/// Gets or sets the background color for the TabControl content area.
 		/// </summary>
 		public Color? TabContentBackgroundColor { get; set; } = null;
+
+		// DatePicker theme colors
+		public Color? DatePickerBackgroundColor { get; set; } = null;
+		public Color? DatePickerForegroundColor { get; set; } = null;
+		public Color? DatePickerFocusedBackgroundColor { get; set; } = Color.Grey27;
+		public Color? DatePickerFocusedForegroundColor { get; set; } = Color.Cyan1;
+		public Color? DatePickerSegmentBackgroundColor { get; set; } = Color.Grey35;
+		public Color? DatePickerSegmentForegroundColor { get; set; } = Color.White;
+		public Color? DatePickerDisabledForegroundColor { get; set; } = Color.Grey50;
+		public Color? DatePickerCalendarTodayColor { get; set; } = Color.Cyan1;
+		public Color? DatePickerCalendarSelectedColor { get; set; } = Color.Grey35;
+		public Color? DatePickerCalendarHeaderColor { get; set; } = Color.Cyan1;
+
+		// TimePicker theme colors
+		public Color? TimePickerBackgroundColor { get; set; } = null;
+		public Color? TimePickerForegroundColor { get; set; } = null;
+		public Color? TimePickerFocusedBackgroundColor { get; set; } = Color.Grey27;
+		public Color? TimePickerFocusedForegroundColor { get; set; } = Color.Cyan1;
+		public Color? TimePickerSegmentBackgroundColor { get; set; } = Color.Grey35;
+		public Color? TimePickerSegmentForegroundColor { get; set; } = Color.White;
+		public Color? TimePickerDisabledForegroundColor { get; set; } = Color.Grey50;
 	}
 }

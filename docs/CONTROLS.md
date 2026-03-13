@@ -34,7 +34,9 @@ Controls for user input and interaction.
 |---------|-------------|---------|
 | **[ButtonControl](controls/ButtonControl.md)** | Clickable button with text | Click events, keyboard/mouse support |
 | **CheckboxControl** | Toggle checkbox with label | Checked/unchecked state, change events |
+| **[DatePickerControl](controls/DatePickerControl.md)** | Locale-aware date picker | Segmented editing, calendar popup, min/max dates |
 | **[PromptControl](controls/PromptControl.md)** | Single-line text input | Enter key events, input validation, max length |
+| **[TimePickerControl](controls/TimePickerControl.md)** | Locale-aware time picker | 12h/24h modes, seconds toggle, min/max times |
 | **MultilineEditControl** | Multi-line text editor | Scrolling, word wrap, text selection |
 
 ## Selection Controls
@@ -295,6 +297,10 @@ Browse detailed documentation for specific controls:
 - [PromptControl](controls/PromptControl.md) - Text input
 - [ListControl](controls/ListControl.md) - Item lists
 - [MarkupControl](controls/MarkupControl.md) - Formatted text
+
+### Input Controls
+- [DatePickerControl](controls/DatePickerControl.md) - Date picker with calendar popup
+- [TimePickerControl](controls/TimePickerControl.md) - Time picker with 12h/24h modes
 
 ### Advanced Controls
 - [TableControl](controls/TableControl.md) - Interactive data grid with virtual data

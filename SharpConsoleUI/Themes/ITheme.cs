@@ -428,4 +428,27 @@ public interface ITheme
     /// </summary>
     Color? TabContentBackgroundColor { get; }
 
+    // DatePicker theme colors
+
+    Color? DatePickerBackgroundColor { get; }
+    Color? DatePickerForegroundColor { get; }
+    Color? DatePickerFocusedBackgroundColor { get; }
+    Color? DatePickerFocusedForegroundColor { get; }
+    Color? DatePickerSegmentBackgroundColor { get; }
+    Color? DatePickerSegmentForegroundColor { get; }
+    Color? DatePickerDisabledForegroundColor { get; }
+    Color? DatePickerCalendarTodayColor { get; }
+    Color? DatePickerCalendarSelectedColor { get; }
+    Color? DatePickerCalendarHeaderColor { get; }
+
+    // TimePicker theme colors
+
+    Color? TimePickerBackgroundColor { get; }
+    Color? TimePickerForegroundColor { get; }
+    Color? TimePickerFocusedBackgroundColor { get; }
+    Color? TimePickerFocusedForegroundColor { get; }
+    Color? TimePickerSegmentBackgroundColor { get; }
+    Color? TimePickerSegmentForegroundColor { get; }
+    Color? TimePickerDisabledForegroundColor { get; }
+
 }

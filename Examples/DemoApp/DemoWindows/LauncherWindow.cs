@@ -33,7 +33,8 @@ public static class LauncherWindow
                 .AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
                 .AddItem("Markup Syntax", subtitle: "Rich markup system demo", content: MakeInfoPanel("Markup Syntax"))
                 .AddItem("International & Emoji", subtitle: "Unicode & emoji support", content: MakeInfoPanel("International & Emoji"))
-                .AddItem("Data Binding", subtitle: "MVVM data binding", content: MakeInfoPanel("Data Binding")))
+                .AddItem("Data Binding", subtitle: "MVVM data binding", content: MakeInfoPanel("Data Binding"))
+                .AddItem("Date & Time", subtitle: "DatePicker and TimePicker controls", content: MakeInfoPanel("Date & Time")))
             .AddHeader("Data Visualization", Color.Yellow, header => header
                 .AddItem("Graphs & Charts", subtitle: "Live sparklines & bar graphs", content: MakeInfoPanel("Graphs & Charts")))
             .AddHeader("Rendering", Color.Orange1, header => header
@@ -125,6 +126,7 @@ public static class LauncherWindow
             "Markup Syntax" => MarkupSyntaxWindow.Create(ws),
             "International & Emoji" => InternationalWindow.Create(ws),
             "Data Binding" => DataBindingWindow.Create(ws),
+            "Date & Time" => DateTimeDemo.Create(ws),
             "Graphs & Charts" => GraphsWindow.Create(ws),
             "Gradients" => GradientDemoWindow.Create(ws),
             "Animations" => AnimationDemoWindow.Create(ws),
@@ -348,6 +350,27 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - ProgressBarControl, MarkupControl",
                 "  - CheckboxControl",
+            },
+            "Date & Time" => new List<string>
+            {
+                "[bold cyan]Date & Time[/]",
+                "",
+                "DatePicker and TimePicker controls with multiple",
+                "format and culture configurations, constraints,",
+                "and a combined event scheduling example.",
+                "",
+                "[dim]Features:[/]",
+                "  - ISO, US, and European date formats",
+                "  - 12h and 24h time formats with seconds",
+                "  - Culture-aware formatting (en-US, de-DE)",
+                "  - Min/max date and time constraints",
+                "  - Combined date+time event scheduling",
+                "  - Live status panel showing all values",
+                "",
+                "[dim]Controls used:[/]",
+                "  - DatePickerControl, TimePickerControl",
+                "  - MarkupControl, RuleControl",
+                "  - HorizontalGridControl, ScrollablePanelControl",
             },
             "Graphs & Charts" => new List<string>
             {
