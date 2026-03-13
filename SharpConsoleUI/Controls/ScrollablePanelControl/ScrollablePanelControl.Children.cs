@@ -43,6 +43,23 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Inserts a child control at the specified index in the panel.
+		/// This method is not thread-safe and must be called from the UI thread.
+		/// </summary>
+		/// <param name="index">The zero-based index at which to insert the control.</param>
+		/// <param name="control">The control to insert.</param>
+		public void InsertControl(int index, IWindowControl control)
+		{
+			lock (_childrenLock)
+			{
+				index = Math.Clamp(index, 0, _children.Count);
+				_children.Insert(index, control);
+			}
+			control.Container = this;
+			Invalidate(true);
+		}
+
+		/// <summary>
 		/// Removes a child control from the panel.
 		/// This method is not thread-safe and must be called from the UI thread.
 		/// </summary>

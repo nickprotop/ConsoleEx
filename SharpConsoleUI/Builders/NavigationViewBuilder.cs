@@ -14,12 +14,68 @@ using SharpConsoleUI.Layout;
 namespace SharpConsoleUI.Builders;
 
 /// <summary>
+/// Fluent builder for configuring items under a navigation header.
+/// </summary>
+public sealed class NavigationHeaderBuilder
+{
+	internal string Text { get; }
+	internal Color? HeaderColor { get; private set; }
+	internal readonly List<(NavigationItem item, Action<ScrollablePanelControl>? content)> Items = new();
+
+	internal NavigationHeaderBuilder(string text)
+	{
+		Text = text;
+	}
+
+	/// <summary>
+	/// Sets the header color.
+	/// </summary>
+	public NavigationHeaderBuilder WithColor(Color color)
+	{
+		HeaderColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a child item under this header.
+	/// </summary>
+	public NavigationHeaderBuilder AddItem(string text, string? icon = null,
+		string? subtitle = null, Action<ScrollablePanelControl>? content = null)
+	{
+		Items.Add((new NavigationItem(text, icon, subtitle), content));
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a child item under this header.
+	/// </summary>
+	public NavigationHeaderBuilder AddItem(NavigationItem item, Action<ScrollablePanelControl>? content = null)
+	{
+		Items.Add((item, content));
+		return this;
+	}
+}
+
+/// <summary>
 /// Fluent builder for NavigationView controls.
 /// </summary>
 public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 {
 	private readonly NavigationView _control = new();
-	private readonly List<(NavigationItem item, Action<ScrollablePanelControl>? content)> _pendingItems = new();
+
+	// Pending entries can be flat items or header groups
+	private interface IPendingEntry { }
+	private sealed class PendingItem : IPendingEntry
+	{
+		public NavigationItem Item { get; init; } = null!;
+		public Action<ScrollablePanelControl>? Content { get; init; }
+	}
+	private sealed class PendingHeader : IPendingEntry
+	{
+		public NavigationHeaderBuilder Builder { get; init; } = null!;
+	}
+
+	private readonly List<IPendingEntry> _pendingEntries = new();
 	private int _initialSelectedIndex = 0;
 
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
@@ -38,7 +94,11 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 	public NavigationViewBuilder AddItem(string text, string? icon = null,
 		string? subtitle = null, Action<ScrollablePanelControl>? content = null)
 	{
-		_pendingItems.Add((new NavigationItem(text, icon, subtitle), content));
+		_pendingEntries.Add(new PendingItem
+		{
+			Item = new NavigationItem(text, icon, subtitle),
+			Content = content
+		});
 		return this;
 	}
 
@@ -47,7 +107,30 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 	/// </summary>
 	public NavigationViewBuilder AddItem(NavigationItem item, Action<ScrollablePanelControl>? content = null)
 	{
-		_pendingItems.Add((item, content));
+		_pendingEntries.Add(new PendingItem { Item = item, Content = content });
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a header with child items configured via the nested builder.
+	/// </summary>
+	public NavigationViewBuilder AddHeader(string text, Action<NavigationHeaderBuilder> configure)
+	{
+		var builder = new NavigationHeaderBuilder(text);
+		configure(builder);
+		_pendingEntries.Add(new PendingHeader { Builder = builder });
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a header with the specified color and child items.
+	/// </summary>
+	public NavigationViewBuilder AddHeader(string text, Color color, Action<NavigationHeaderBuilder> configure)
+	{
+		var builder = new NavigationHeaderBuilder(text);
+		builder.WithColor(color);
+		configure(builder);
+		_pendingEntries.Add(new PendingHeader { Builder = builder });
 		return this;
 	}
 
@@ -281,18 +364,53 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 		_control.Tag = _tag;
 		_control.StickyPosition = _stickyPosition;
 
-		// Add items with content
-		foreach (var (item, content) in _pendingItems)
+		// Process pending entries (flat items + header groups)
+		foreach (var entry in _pendingEntries)
 		{
-			_control.AddItem(item);
-			if (content != null)
-				_control.SetItemContent(item, content);
+			if (entry is PendingItem pi)
+			{
+				_control.AddItem(pi.Item);
+				if (pi.Content != null)
+					_control.SetItemContent(pi.Item, pi.Content);
+			}
+			else if (entry is PendingHeader ph)
+			{
+				var header = _control.AddHeader(ph.Builder.Text, ph.Builder.HeaderColor);
+				foreach (var (childItem, childContent) in ph.Builder.Items)
+				{
+					var child = _control.AddItemToHeader(header, childItem.Text, childItem.Icon, childItem.Subtitle);
+					child.Tag = childItem.Tag;
+					child.IsEnabled = childItem.IsEnabled;
+					if (childContent != null)
+						_control.SetItemContent(child, childContent);
+				}
+			}
 		}
 
-		// Set initial selection
-		if (_initialSelectedIndex >= 0 && _initialSelectedIndex < _pendingItems.Count)
+		// Set initial selection (count only selectable items)
+		int selectableCount = 0;
+		foreach (var entry in _pendingEntries)
 		{
-			_control.SelectedIndex = _initialSelectedIndex;
+			if (entry is PendingItem) selectableCount++;
+			else if (entry is PendingHeader ph) selectableCount += ph.Builder.Items.Count;
+		}
+
+		if (_initialSelectedIndex >= 0 && _initialSelectedIndex < selectableCount)
+		{
+			// Find the Nth selectable item
+			int seen = 0;
+			for (int i = 0; i < _control.Items.Count; i++)
+			{
+				if (_control.Items[i].IsEnabled && _control.Items[i].ItemType == NavigationItemType.Item)
+				{
+					if (seen == _initialSelectedIndex)
+					{
+						_control.SelectedIndex = i;
+						break;
+					}
+					seen++;
+				}
+			}
 		}
 
 		BindingHelper.ApplyDeferredBindings(this, _control);

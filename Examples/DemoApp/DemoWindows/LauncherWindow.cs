@@ -1,145 +1,115 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Rendering;
 
 namespace DemoApp.DemoWindows;
 
 public static class LauncherWindow
 {
-    private static readonly List<string> DetailPlaceholder = new()
-    {
-        "[bold]Welcome to SharpConsoleUI[/]",
-        "",
-        "Select a demo from the tree to see its description.",
-    };
-
     public static Window Create(ConsoleWindowSystem ws)
     {
-        // Build controls first
-        var demoTree = Controls.Tree()
-            .WithGuide(TreeGuide.Line)
-            .WithHighlightColors(Color.White, Color.Blue)
-            .Build();
-
-        BuildDemoTree(demoTree);
-
-        var detailMarkup = Controls.Markup()
-            .AddLines(DetailPlaceholder.ToArray())
-            .WithMargin(1, 1, 1, 1)
-            .Build();
-
-        var launchButton = Controls.Button()
-            .WithText("  Launch Demo  ")
-            .WithMargin(1, 1, 0, 0)
-            .WithBorder(ButtonBorderStyle.Rounded)
-            .Build();
-
-        launchButton.Visible = false;
-
-        var detailPane = new ScrollablePanelControl();
-        detailPane.AddControl(detailMarkup);
-        detailPane.AddControl(launchButton);
-
-        // Update detail pane when tree selection changes
-        demoTree.SelectedNodeChanged += (sender, args) =>
-        {
-            if (args.Node != null)
+        var nav = Controls.NavigationView()
+            .WithNavWidth(30)
+            .WithPaneHeader("[bold white]  SharpConsoleUI[/]")
+            .WithContentBorder(BorderStyle.Rounded)
+            .WithContentBorderColor(Color.Grey37)
+            .WithContentBackground(new Color(30, 30, 40))
+            .WithContentPadding(1, 0, 1, 0)
+            .AddHeader("Layout & Windows", Color.Cyan1, header => header
+                .AddItem("Border Styles", subtitle: "Explore window border styles", content: MakeInfoPanel("Border Styles"))
+                .AddItem("IDE Layout", subtitle: "IDE-like application UI", content: MakeInfoPanel("IDE Layout"))
+                .AddItem("File Explorer", subtitle: "Filesystem browser", content: MakeInfoPanel("File Explorer"))
+                .AddItem("Multi-Tab Demo", subtitle: "TabControl with multiple tabs", content: MakeInfoPanel("Multi-Tab Demo"))
+                .AddItem("WinUI Layout", subtitle: "WinUI-inspired settings layout", content: MakeInfoPanel("WinUI Layout")))
+            .AddHeader("Controls", Color.Green, header => header
+                .AddItem("Interactive Demo", subtitle: "Real-time key press handling", content: MakeInfoPanel("Interactive Demo"))
+                .AddItem("Dropdown", subtitle: "Cascading dropdowns", content: MakeInfoPanel("Dropdown"))
+                .AddItem("List View", subtitle: "NuGet-style package browser", content: MakeInfoPanel("List View"))
+                .AddItem("Table", subtitle: "Interactive employee directory", content: MakeInfoPanel("Table"))
+                .AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
+                .AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
+                .AddItem("Markup Syntax", subtitle: "Rich markup system demo", content: MakeInfoPanel("Markup Syntax"))
+                .AddItem("International & Emoji", subtitle: "Unicode & emoji support", content: MakeInfoPanel("International & Emoji"))
+                .AddItem("Data Binding", subtitle: "MVVM data binding", content: MakeInfoPanel("Data Binding")))
+            .AddHeader("Data Visualization", Color.Yellow, header => header
+                .AddItem("Graphs & Charts", subtitle: "Live sparklines & bar graphs", content: MakeInfoPanel("Graphs & Charts")))
+            .AddHeader("Rendering", Color.Orange1, header => header
+                .AddItem("Gradients", subtitle: "Gradient text & backgrounds", content: MakeInfoPanel("Gradients"))
+                .AddItem("Animations", subtitle: "Window animations & easing", content: MakeInfoPanel("Animations"))
+                .AddItem("Image Rendering", subtitle: "Pixel art with half-blocks", content: MakeInfoPanel("Image Rendering"))
+                .AddItem("Image Viewer", subtitle: "Load & display image files", content: MakeInfoPanel("Image Viewer")))
+            .AddHeader("Utilities", Color.Magenta1, header => header
+                .AddItem("Built-in Dialogs", subtitle: "File pickers & system dialogs", content: MakeInfoPanel("Built-in Dialogs"))
+                .AddItem("Digital Clock", subtitle: "FIGlet-rendered clock", content: MakeInfoPanel("Digital Clock"))
+                .AddItem("Log Viewer", subtitle: "Real-time log display", content: MakeInfoPanel("Log Viewer"))
+                .AddItem("Notifications", subtitle: "Notification system demo", content: MakeInfoPanel("Notifications"))
+                .AddItem("System Info", subtitle: "OS & runtime details", content: MakeInfoPanel("System Info"))
+                .AddItem("Terminal", subtitle: "PTY-backed terminal emulator", content: MakeInfoPanel("Terminal"))
+                .AddItem("Welcome Banner", subtitle: "FIGlet ASCII art banner", content: MakeInfoPanel("Welcome Banner")))
+            .OnSelectedItemChanged((sender, args) =>
             {
-                var info = GetDemoInfo(args.Node.Text);
-                if (info != null)
-                {
-                    detailMarkup.SetContent(info);
-                    launchButton.Visible = true;
-                }
-                else
-                {
-                    launchButton.Visible = false;
-                }
-            }
-        };
-
-        // Launch demo on button click
-        launchButton.Click += (sender, btn) => LaunchSelectedDemo(ws, demoTree);
-
-        // Launch demo on double-click / Enter
-        demoTree.NodeActivated += (sender, args) =>
-        {
-            if (args.Node != null)
-                LaunchSelectedDemo(ws, demoTree);
-        };
-
-        var grid = Controls.HorizontalGrid()
-            .Column(col => col.Width(30).Add(demoTree))
-            .Column(col => col.Add(detailPane))
-            .WithSplitterAfter(0)
+                // No additional action needed — content factories handle the detail pane
+            })
             .WithAlignment(HorizontalAlignment.Stretch)
-            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .Fill()
             .Build();
+
+        // Launch demo on Enter/Space
+        nav.ItemInvoked += (sender, args) =>
+        {
+            if (args.NewItem != null)
+                LaunchDemo(ws, args.NewItem.Text);
+        };
+
+        var gradient = ColorGradient.FromColors(
+            new Color(15, 25, 60),
+            new Color(5, 5, 15));
 
         return new WindowBuilder(ws)
             .WithTitle("SharpConsoleUI Demo")
             .WithSize(90, 30)
             .AtPosition(0, 0)
-            .AddControl(grid)
+            .WithBackgroundGradient(gradient, GradientDirection.Vertical)
+            .AddControl(nav)
             .BuildAndShow();
     }
 
-    private static void BuildDemoTree(TreeControl tree)
+    private static Action<ScrollablePanelControl> MakeInfoPanel(string demoName)
     {
-        var layout = tree.AddRootNode("Layout & Windows");
-        layout.TextColor = Color.Cyan1;
-        layout.IsExpanded = true;
-        layout.AddChild("Border Styles");
-        layout.AddChild("IDE Layout");
-        layout.AddChild("File Explorer");
-        layout.AddChild("Multi-Tab Demo");
-        layout.AddChild("WinUI Layout");
+        return panel =>
+        {
+            var info = GetDemoInfo(demoName);
+            if (info != null)
+            {
+                panel.AddControl(Controls.Markup()
+                    .AddLines(info.ToArray())
+                    .WithMargin(1, 1, 1, 1)
+                    .Build());
+            }
 
-        var controls = tree.AddRootNode("Controls");
-        controls.TextColor = Color.Green;
-        controls.IsExpanded = true;
-        controls.AddChild("Interactive Demo");
-        controls.AddChild("Dropdown");
-        controls.AddChild("List View");
-        controls.AddChild("Table");
-        controls.AddChild("DataGrid");
-        controls.AddChild("Nerd Fonts");
-        controls.AddChild("Markup Syntax");
-        controls.AddChild("International & Emoji");
-        controls.AddChild("Data Binding");
+            var launchButton = Controls.Button()
+                .WithText("  Launch Demo  ")
+                .WithMargin(1, 1, 0, 0)
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .Build();
 
-        var dataViz = tree.AddRootNode("Data Visualization");
-        dataViz.TextColor = Color.Yellow;
-        dataViz.IsExpanded = true;
-        dataViz.AddChild("Graphs & Charts");
+            launchButton.Click += (_, _) =>
+            {
+                var ws = panel.Container?.GetConsoleWindowSystem;
+                if (ws != null)
+                    LaunchDemo(ws, demoName);
+            };
 
-        var rendering = tree.AddRootNode("Rendering");
-        rendering.TextColor = Color.Orange1;
-        rendering.IsExpanded = true;
-        rendering.AddChild("Gradients");
-        rendering.AddChild("Animations");
-        rendering.AddChild("Image Rendering");
-        rendering.AddChild("Image Viewer");
-
-        var utilities = tree.AddRootNode("Utilities");
-        utilities.TextColor = Color.Magenta1;
-        utilities.IsExpanded = true;
-        utilities.AddChild("Built-in Dialogs");
-        utilities.AddChild("Digital Clock");
-        utilities.AddChild("Log Viewer");
-        utilities.AddChild("Notifications");
-        utilities.AddChild("System Info");
-        utilities.AddChild("Terminal");
-        utilities.AddChild("Welcome Banner");
+            panel.AddControl(launchButton);
+        };
     }
 
-    private static void LaunchSelectedDemo(ConsoleWindowSystem ws, TreeControl tree)
+    private static void LaunchDemo(ConsoleWindowSystem ws, string demoName)
     {
-        var node = tree.SelectedNode;
-        if (node == null || node.Children.Count > 0) return;
-
-        _ = node.Text switch
+        _ = demoName switch
         {
             "Border Styles" => BorderStyleWindow.Create(ws),
             "IDE Layout" => IdeLayoutWindow.Create(ws),

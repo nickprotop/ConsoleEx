@@ -317,5 +317,52 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int MinCanvasSize = 1;
 
+		// NavigationView defaults
+		/// <summary>
+		/// Default width of the NavigationView left pane in characters (default: 26).
+		/// </summary>
+		public const int DefaultNavigationViewPaneWidth = 26;
+
+		/// <summary>
+		/// Minimum width of the NavigationView left pane in characters (default: 10).
+		/// </summary>
+		public const int MinNavigationViewPaneWidth = 10;
+
+		/// <summary>
+		/// Red component of the NavigationView selected item background (default: 40).
+		/// </summary>
+		public const int NavigationViewSelectedBgR = 40;
+
+		/// <summary>
+		/// Green component of the NavigationView selected item background (default: 50).
+		/// </summary>
+		public const int NavigationViewSelectedBgG = 50;
+
+		/// <summary>
+		/// Blue component of the NavigationView selected item background (default: 80).
+		/// </summary>
+		public const int NavigationViewSelectedBgB = 80;
+
+		/// <summary>
+		/// Extra indent (in characters) applied to sub-items under a header (default: 2).
+		/// </summary>
+		public const int NavigationViewSubItemExtraIndent = 2;
+
+		/// <summary>
+		/// Indicator shown before expanded header text (default: "[-]").
+		/// </summary>
+		public const string NavigationViewExpandedIndicator = "[-]";
+
+		/// <summary>
+		/// Indicator shown before collapsed header text (default: "[+]").
+		/// </summary>
+		public const string NavigationViewCollapsedIndicator = "[+]";
+
+		/// <summary>
+		/// Number of blank lines rendered above a header for visual spacing (default: 1).
+		/// Skipped for the first header in the list.
+		/// </summary>
+		public const int NavigationViewHeaderTopMargin = 1;
+
 	}
 }

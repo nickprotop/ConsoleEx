@@ -21,6 +21,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ScrollChildIntoView(IWindowControl child)
 		{
+			// Skip if viewport hasn't been laid out yet (no dimensions to scroll within)
+			if (_viewportWidth <= 0 || _viewportHeight <= 0)
+				return;
+
 			List<IWindowControl> snapshot;
 			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
 

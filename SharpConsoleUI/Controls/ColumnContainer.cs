@@ -434,6 +434,29 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Inserts a child control at the specified index in this column.
+		/// </summary>
+		/// <param name="index">The zero-based index at which to insert the control.</param>
+		/// <param name="content">The control to insert.</param>
+		public void InsertContent(int index, IWindowControl content)
+		{
+			content.Container = this;
+			lock (_contentsLock)
+			{
+				index = Math.Clamp(index, 0, _contents.Count);
+				_contents.Insert(index, content);
+			}
+
+			if (content.Width.HasValue && (!_minWidth.HasValue || content.Width.Value > _minWidth.Value))
+			{
+				_minWidth = content.Width.Value;
+			}
+
+			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+			Invalidate(true);
+		}
+
+		/// <summary>
 		/// Gets the actual rendered width of this column based on content.
 		/// </summary>
 		/// <returns>The maximum width required by content, or null if no content.</returns>

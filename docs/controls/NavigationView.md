@@ -2,6 +2,8 @@
 
 A WinUI-inspired navigation control with a left navigation pane and a right content area, encapsulating item selection, content switching, and header management into a single reusable control.
 
+![NavigationView](../images/controls/navigationview.png)
+
 ## Overview
 
 NavigationView provides the common "sidebar navigation + content area" pattern found in modern desktop applications. It eliminates the manual wiring typically needed for this layout — click handlers, selection state, header updates, and content switching are all handled internally.
@@ -9,6 +11,30 @@ NavigationView provides the common "sidebar navigation + content area" pattern f
 The control composes a `HorizontalGridControl` internally with two columns: a fixed-width nav pane and a flexible content area. The content area includes an optional header (title + subtitle) and a `ScrollablePanelControl` for the active section's content.
 
 **Key feature**: NavigationView is gradient-transparent — when placed in a window with a gradient background, the gradient shows through the nav pane and header areas while the content panel can have its own opaque background.
+
+## Hierarchical Items
+
+NavigationView supports **headers**, **sub-items**, and **separators** in addition to flat items. Headers group related items and support collapse/expand.
+
+```
+┌──────────────────────┐
+│  ⚙  Settings         │
+│                      │
+│  [-] Layout & Windows │  ← Header (expanded)
+│      ▸ IDE Layout    │  ← Sub-item (selected)
+│        File Explorer │  ← Sub-item
+│  [+] Controls        │  ← Header (collapsed)
+│    About             │  ← Flat item
+└──────────────────────┘
+```
+
+### NavigationItemType
+
+| Type | Selectable | Description |
+|------|-----------|-------------|
+| `Item` | Yes | Regular selectable navigation item (default) |
+| `Header` | No | Non-selectable group header with collapse/expand |
+| `Separator` | No | Visual divider line |
 
 ## Properties
 
@@ -55,6 +81,7 @@ The control composes a `HorizontalGridControl` internally with two columns: a fi
 |-------|-----------|-------------|
 | `SelectedItemChanging` | `NavigationItemChangingEventArgs` | Raised before selection changes (cancelable) |
 | `SelectedItemChanged` | `NavigationItemChangedEventArgs` | Raised after selection has changed |
+| `ItemInvoked` | `NavigationItemChangedEventArgs` | Raised when Enter/Space is pressed on the selected item |
 | `GotFocus` | `EventArgs` | Raised when the control receives focus |
 | `LostFocus` | `EventArgs` | Raised when the control loses focus |
 
@@ -75,9 +102,13 @@ The control composes a `HorizontalGridControl` internally with two columns: a fi
 |--------|-------------|
 | `AddItem(NavigationItem item)` | Add a navigation item |
 | `AddItem(string text, string? icon, string? subtitle)` | Add an item with properties, returns the created NavigationItem |
-| `RemoveItem(int index)` | Remove item by index |
+| `AddHeader(string text, Color? color)` | Add a header item, returns the created NavigationItem |
+| `AddItemToHeader(NavigationItem header, string text, string? icon, string? subtitle)` | Add a child item under a header |
+| `InsertItem(int index, NavigationItem item)` | Insert an item at a specific position |
+| `RemoveItem(int index)` | Remove item by index (cascades children if header) |
 | `RemoveItem(NavigationItem item)` | Remove a specific item |
 | `ClearItems()` | Remove all items |
+| `ToggleHeaderExpanded(NavigationItem header)` | Toggle collapse/expand for a header |
 
 ### Content Management
 
@@ -92,10 +123,18 @@ The control composes a `HorizontalGridControl` internally with two columns: a fi
 public class NavigationItem
 {
     public string Text { get; set; }
-    public string? Icon { get; set; }        // emoji/symbol prefix
-    public string? Subtitle { get; set; }    // shown in content header
+    public string? Icon { get; set; }             // emoji/symbol prefix
+    public string? Subtitle { get; set; }         // shown in content header
     public object? Tag { get; set; }
     public bool IsEnabled { get; set; } = true;
+    public NavigationItemType ItemType { get; }   // Item, Header, or Separator
+    public NavigationItem? ParentHeader { get; }  // parent header for sub-items
+    public bool IsExpanded { get; set; } = true;  // for headers only
+    public Color? HeaderColor { get; set; }       // for headers only
+
+    // Factory methods
+    static NavigationItem CreateHeader(string text, Color? color = null);
+    static NavigationItem CreateSeparator();
 
     // Implicit conversion from string
     NavigationItem item = "Home";
@@ -104,16 +143,53 @@ public class NavigationItem
 
 ## Creating NavigationView
 
-### Using Builder (Recommended)
+### Using Builder with Headers (Recommended)
+
+```csharp
+var nav = Controls.NavigationView()
+    .WithNavWidth(30)
+    .WithPaneHeader("[bold white]  ⚙  Settings[/]")
+    .WithContentBorder(BorderStyle.Rounded)
+    .WithContentBorderColor(Color.Grey37)
+    .WithContentBackground(new Color(30, 30, 40))
+    .AddHeader("Layout & Windows", Color.Cyan1, header => header
+        .AddItem("IDE Layout", subtitle: "Window layout demo", content: panel =>
+        {
+            panel.AddControl(Controls.Markup()
+                .AddLine("[bold cyan]IDE-style layout[/]")
+                .Build());
+        })
+        .AddItem("File Explorer", subtitle: "Tree control demo", content: panel =>
+        {
+            panel.AddControl(Controls.Markup()
+                .AddLine("[bold]File browser[/]")
+                .Build());
+        }))
+    .AddHeader("Controls", header => header
+        .WithColor(Color.Green)
+        .AddItem("Interactive Demo", content: panel =>
+        {
+            panel.AddControl(Controls.Checkbox("Enable feature").Build());
+        }))
+    .AddItem("About", subtitle: "Application information", content: panel =>
+    {
+        panel.AddControl(Controls.Markup()
+            .AddLine("[bold]MyApp[/] v1.0")
+            .Build());
+    })
+    .WithAlignment(HorizontalAlignment.Stretch)
+    .Fill()
+    .Build();
+
+window.AddControl(nav);
+```
+
+### Using Builder with Flat Items
 
 ```csharp
 var nav = Controls.NavigationView()
     .WithNavWidth(26)
     .WithPaneHeader("[bold white]  ⚙  Settings[/]")
-    .WithContentBorder(BorderStyle.Rounded)
-    .WithContentBorderColor(Color.Grey37)
-    .WithContentBackground(new Color(30, 30, 40))
-    .WithContentPadding(1, 0, 1, 0)
     .AddItem("Home", subtitle: "Configure your preferences", content: panel =>
     {
         panel.AddControl(Controls.Markup()
@@ -142,24 +218,32 @@ var nav = Controls.NavigationView()
 window.AddControl(nav);
 ```
 
-### Using Constructor
+### Using Constructor with Hierarchy
 
 ```csharp
 var nav = new NavigationView();
 nav.NavPaneWidth = 30;
 nav.PaneHeader = "[bold white]  Menu[/]";
-nav.ContentBorderStyle = BorderStyle.Rounded;
 
-var homeItem = nav.AddItem("Home", subtitle: "Welcome page");
-nav.SetItemContent(homeItem, panel =>
+// Add a header with children
+var layoutHeader = nav.AddHeader("Layout", Color.Cyan1);
+var ideItem = nav.AddItemToHeader(layoutHeader, "IDE Layout", subtitle: "Layout demo");
+nav.SetItemContent(ideItem, panel =>
 {
-    panel.AddControl(Controls.Label("Welcome!"));
+    panel.AddControl(Controls.Label("IDE layout content"));
 });
 
-var settingsItem = nav.AddItem("Settings", subtitle: "App settings");
-nav.SetItemContent(settingsItem, panel =>
+var fileItem = nav.AddItemToHeader(layoutHeader, "File Explorer", subtitle: "File browser");
+nav.SetItemContent(fileItem, panel =>
 {
-    panel.AddControl(Controls.Checkbox("Dark mode").Build());
+    panel.AddControl(Controls.Label("File explorer content"));
+});
+
+// Flat items still work
+var aboutItem = nav.AddItem("About", subtitle: "App info");
+nav.SetItemContent(aboutItem, panel =>
+{
+    panel.AddControl(Controls.Label("About this app"));
 });
 
 window.AddControl(nav);
@@ -169,12 +253,17 @@ window.AddControl(nav);
 
 | Input | Action |
 |-------|--------|
-| **Mouse Click** | Click a nav item to select it |
-| **Tab** | Navigate between controls in the content area |
+| **Up / Down** | Move selection between nav items (skips headers, separators, collapsed children) |
+| **Home / End** | Jump to first / last enabled visible nav item |
+| **Enter / Space** | Invoke the selected item; on a header, toggles expand/collapse |
+| **Right** | On a collapsed header, expand it; otherwise move focus to content panel |
+| **Left** | On a sub-item, collapse its parent header; in content panel, return to nav pane |
+| **Tab** | Move focus from nav pane to content panel |
+| **Shift+Tab** | Move focus from content panel back to nav pane |
+| **Mouse Click** | Click a nav item to select it; click a header to toggle expand/collapse |
 | **Mouse Wheel** | Scroll within the content panel |
-| **Shift+Tab** | Navigate backward through controls |
 
-Navigation between the nav pane and content area uses Tab, handled by the internal `HorizontalGridControl`.
+NavigationView uses a **two-zone focus model**: the nav pane and the content panel are separate focus zones. When the control first receives focus, the nav pane is active — use arrow keys to browse items, then Right or Tab to move into the content panel. Left or Shift+Tab returns focus to the nav pane.
 
 ## Architecture
 
@@ -189,7 +278,7 @@ The control implements `IContainer` and propagates `HasGradientBackground` from 
 
 ### Content Factory Pattern
 
-Unlike TabControl (which keeps all tab content in the DOM), NavigationView uses **content factories** — delegates that populate the content panel on demand:
+Unlike TabControl (which keeps all tab content in the DOM), NavigationView uses **content factories** — delegates that populate the content panel on demand. Factories are optional — you can use event-driven content instead (see below).
 
 ```csharp
 nav.SetItemContent(item, panel =>
@@ -202,26 +291,42 @@ nav.SetItemContent(item, panel =>
 
 This means content is rebuilt each time an item is selected. For content that should preserve state across selections, store state externally and restore it in the factory.
 
+### Event-Driven Content
+
+As an alternative to content factories, you can manage content through the `SelectedItemChanged` event and the `ContentPanel` property. If no content factory is registered for an item, the control skips automatic content clearing — the event handler manages it instead.
+
+```csharp
+nav.SelectedItemChanged += (s, e) =>
+{
+    nav.ContentPanel.ClearContents();
+    nav.ContentPanel.AddControl(Controls.Markup()
+        .AddLine($"[bold cyan]{e.NewItem.Text}[/]")
+        .AddLine("Content managed by event handler.")
+        .Build());
+};
+```
+
+This is useful when content switching involves complex state management or when you want to mix factory-based and event-driven items in the same NavigationView.
+
 ## Visual Layout
 
 ```
 ┌────────────────────────┬─────────────────────────────────┐
-│  ⚙  Settings           │  Home                           │
-│                        │  Configure your preferences     │
-│  ▸ Home                │ ╭─────────────────────────────╮ │
-│    Settings             │ │                             │ │
-│    Appearance           │ │  Welcome                    │ │
-│    Privacy              │ │                             │ │
-│    About                │ │  This demo showcases a      │ │
-│                        │ │  WinUI-inspired layout...   │ │
-│                        │ │                             │ │
+│  ⚙  Settings           │  IDE Layout                     │
+│                        │  Window layout demo              │
+│  [-] Layout & Windows  │ ╭─────────────────────────────╮ │
+│      ▸ IDE Layout      │ │                             │ │
+│        File Explorer   │ │  IDE-style layout content   │ │
+│  [-] Controls          │ │                             │ │
+│        Interactive     │ │                             │ │
+│    About               │ │                             │ │
 │                        │ ╰─────────────────────────────╯ │
 └────────────────────────┴─────────────────────────────────┘
 ```
 
 ## Examples
 
-### Settings Panel with Gradient Background
+### Hierarchical Navigation with Gradient Background
 
 ```csharp
 var gradient = ColorGradient.FromColors(
@@ -233,16 +338,22 @@ var nav = Controls.NavigationView()
     .WithContentBorder(BorderStyle.Rounded)
     .WithContentBorderColor(Color.Grey37)
     .WithContentBackground(new Color(30, 30, 40))
-    .AddItem("General", subtitle: "General settings", content: panel =>
-    {
-        panel.AddControl(Controls.Checkbox("Notifications").Checked(true).Build());
-        panel.AddControl(Controls.Checkbox("Auto-update").Build());
-    })
-    .AddItem("Display", subtitle: "Display settings", content: panel =>
-    {
-        panel.AddControl(Controls.Markup().AddLine("[bold cyan]Theme[/]").Build());
-        panel.AddControl(Controls.Checkbox("Dark mode").Checked(true).Build());
-    })
+    .AddHeader("General", Color.Cyan1, header => header
+        .AddItem("Notifications", content: panel =>
+        {
+            panel.AddControl(Controls.Checkbox("Push notifications").Checked(true).Build());
+            panel.AddControl(Controls.Checkbox("Email alerts").Build());
+        })
+        .AddItem("Auto-update", content: panel =>
+        {
+            panel.AddControl(Controls.Checkbox("Check for updates").Checked(true).Build());
+        }))
+    .AddHeader("Display", Color.Yellow, header => header
+        .AddItem("Theme", content: panel =>
+        {
+            panel.AddControl(Controls.Markup().AddLine("[bold cyan]Theme[/]").Build());
+            panel.AddControl(Controls.Checkbox("Dark mode").Checked(true).Build());
+        }))
     .WithAlignment(HorizontalAlignment.Stretch)
     .Fill()
     .Build();
@@ -297,17 +408,20 @@ foreach (var project in projects)
 window.AddControl(nav);
 ```
 
-### No Content Header
+### Programmatic Expand/Collapse
 
 ```csharp
-var nav = Controls.NavigationView()
-    .WithContentHeader(false)  // Hide the title + subtitle header
-    .AddItem("Dashboard", content: panel =>
-    {
-        panel.AddControl(Controls.Header("Dashboard"));
-        // Content manages its own header
-    })
-    .Build();
+var nav = new NavigationView();
+var header = nav.AddHeader("Advanced", Color.Red);
+nav.AddItemToHeader(header, "Debug Options");
+nav.AddItemToHeader(header, "Diagnostics");
+
+// Start collapsed
+nav.ToggleHeaderExpanded(header);  // Collapses the header
+
+// Later, expand programmatically
+if (!header.IsExpanded)
+    nav.ToggleHeaderExpanded(header);
 ```
 
 ## Builder Reference
@@ -316,9 +430,11 @@ var nav = Controls.NavigationView()
 
 | Category | Method | Description |
 |----------|--------|-------------|
-| **Items** | `AddItem(text, icon?, subtitle?, content?)` | Add a nav item with optional content factory |
+| **Items** | `AddItem(text, icon?, subtitle?, content?)` | Add a flat nav item with optional content factory |
 | | `AddItem(NavigationItem, content?)` | Add an existing NavigationItem |
-| | `WithSelectedIndex(int)` | Set initially selected item |
+| | `AddHeader(text, configure)` | Add a header with child items |
+| | `AddHeader(text, color, configure)` | Add a colored header with child items |
+| | `WithSelectedIndex(int)` | Set initially selected item (among selectable items) |
 | **Nav Pane** | `WithNavWidth(int)` | Set nav pane width |
 | | `WithPaneHeader(string)` | Set pane header markup |
 | | `WithSelectedColors(fg, bg)` | Set selected item colors |
@@ -338,6 +454,14 @@ var nav = Controls.NavigationView()
 | | `WithName(string)` | Set control name |
 | | `WithTag(object)` | Set tag data |
 
+### NavigationHeaderBuilder Methods
+
+| Method | Description |
+|--------|-------------|
+| `WithColor(Color)` | Set the header color |
+| `AddItem(text, icon?, subtitle?, content?)` | Add a child item under this header |
+| `AddItem(NavigationItem, content?)` | Add an existing NavigationItem as a child |
+
 ## Comparison with TabControl
 
 | Feature | NavigationView | TabControl |
@@ -345,17 +469,19 @@ var nav = Controls.NavigationView()
 | **Layout** | Side-by-side (left nav + right content) | Stacked (top header + content below) |
 | **Content model** | Content factories (rebuild on select) | Persistent DOM (visibility toggle) |
 | **State preservation** | External (rebuild each time) | Automatic (controls stay in tree) |
+| **Hierarchy** | Headers with collapsible sub-items | Flat tabs only |
 | **Best for** | Settings panels, app navigation | Document tabs, multi-view editors |
 | **Gradient support** | Transparent nav pane | Opaque header |
 
 ## Best Practices
 
-1. **Use content factories**: Register content via `SetItemContent` or builder's `content:` parameter — don't add controls directly to the content panel
-2. **Set explicit size**: Use `WithAlignment(Stretch)` and `Fill()` for full-area navigation
-3. **Keep nav items short**: 1-2 words work best in the nav pane
-4. **Use subtitles**: They provide context in the content header when an item is selected
-5. **Gradient backgrounds**: NavigationView is gradient-transparent by default — pair with `WithBackgroundGradient` for modern looks
-6. **External state**: Since content is rebuilt on each selection, store stateful data (checkbox values, text input) outside the factory and restore it
+1. **Choose a content model**: Use content factories for simple cases where content is rebuilt each time; use event-driven content (`SelectedItemChanged` + `ContentPanel`) for complex state management
+2. **Use headers for grouping**: When you have more than 5-6 items, group them under headers for better organization
+3. **Set explicit size**: Use `WithAlignment(Stretch)` and `Fill()` for full-area navigation
+4. **Keep nav items short**: 1-2 words work best in the nav pane
+5. **Use subtitles**: They provide context in the content header when an item is selected
+6. **Gradient backgrounds**: NavigationView is gradient-transparent by default — pair with `WithBackgroundGradient` for modern looks
+7. **External state**: Since content is rebuilt on each selection, store stateful data (checkbox values, text input) outside the factory and restore it
 
 ## See Also
 

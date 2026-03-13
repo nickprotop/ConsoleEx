@@ -250,9 +250,19 @@ namespace SharpConsoleUI.Controls
 			// Handle mouse clicks
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
-				TriggerClick(args);
-				args.Handled = true;
-				return true;
+				// Bounds check: only trigger if click is within the button's visual area
+				int btnLeft = Margin.Left;
+				int btnTop = Margin.Top;
+				int btnWidth = GetButtonWidth();
+				int btnHeight = GetButtonHeight();
+				if (args.Position.X >= btnLeft && args.Position.X < btnLeft + btnWidth
+					&& args.Position.Y >= btnTop && args.Position.Y < btnTop + btnHeight)
+				{
+					TriggerClick(args);
+					args.Handled = true;
+					return true;
+				}
+				return false;
 			}
 
 			// Handle mouse movement (for future hover effects)

@@ -53,6 +53,7 @@ namespace SharpConsoleUI.Controls
 		#region IInteractiveControl / IFocusableControl Implementation
 
 		private bool _hasFocus;
+		private bool _navPaneHasFocus;
 
 		/// <inheritdoc/>
 		public bool HasFocus
@@ -63,13 +64,20 @@ namespace SharpConsoleUI.Controls
 				var hadFocus = _hasFocus;
 				_hasFocus = value;
 				OnPropertyChanged();
-				_grid.HasFocus = value;
-				Container?.Invalidate(true);
 
 				if (value && !hadFocus)
+				{
+					FocusNavPane();
 					GotFocus?.Invoke(this, EventArgs.Empty);
+				}
 				else if (!value && hadFocus)
+				{
+					_navPaneHasFocus = false;
+					_grid.HasFocus = false;
 					LostFocus?.Invoke(this, EventArgs.Empty);
+				}
+
+				Container?.Invalidate(true);
 			}
 		}
 
@@ -77,7 +85,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled { get; set; } = true;
 
 		/// <inheritdoc/>
-		public bool CanReceiveFocus => false; // Grid manages focus internally
+		public bool CanReceiveFocus => IsEnabled;
 
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
@@ -88,7 +96,19 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void SetFocusWithDirection(bool focus, bool backward)
 		{
-			_grid.SetFocusWithDirection(focus, backward);
+			if (focus)
+			{
+				_hasFocus = true;
+				if (backward)
+					FocusContentPanel();
+				else
+					FocusNavPane();
+				GotFocus?.Invoke(this, EventArgs.Empty);
+			}
+			else
+			{
+				HasFocus = false;
+			}
 		}
 
 		/// <inheritdoc/>
@@ -100,8 +120,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			// Delegate to the grid for Tab navigation between columns
-			return _grid.ProcessKey(key);
+			if (_navPaneHasFocus)
+				return ProcessNavPaneKey(key);
+			else
+				return ProcessContentPanelKey(key);
 		}
 
 		#endregion
@@ -126,6 +148,264 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			Container?.Invalidate(true);
+		}
+
+		#endregion
+
+		#region Keyboard Navigation
+
+		private bool ProcessNavPaneKey(ConsoleKeyInfo key)
+		{
+			switch (key.Key)
+			{
+				case ConsoleKey.UpArrow:
+					return MoveSelection(-1);
+
+				case ConsoleKey.DownArrow:
+					return MoveSelection(1);
+
+				case ConsoleKey.Home:
+					return SelectFirstEnabled();
+
+				case ConsoleKey.End:
+					return SelectLastEnabled();
+
+				case ConsoleKey.Enter:
+				case ConsoleKey.Spacebar:
+					return HandleInvokeKey();
+
+				case ConsoleKey.LeftArrow:
+					return HandleLeftArrow();
+
+				case ConsoleKey.RightArrow:
+					return HandleRightArrow();
+
+				case ConsoleKey.Tab when key.Modifiers == 0:
+					FocusContentPanel();
+					return true;
+
+				default:
+					return false;
+			}
+		}
+
+		private bool ProcessContentPanelKey(ConsoleKeyInfo key)
+		{
+			// Let the content panel process the key first
+			if (_contentPanel.ProcessKey(key))
+				return true;
+
+			// If content didn't handle it, check for nav-return keys
+			if (key.Key == ConsoleKey.LeftArrow
+				|| (key.Key == ConsoleKey.Tab && key.Modifiers.HasFlag(ConsoleModifiers.Shift)))
+			{
+				FocusNavPane();
+				return true;
+			}
+
+			return false;
+		}
+
+		private bool MoveSelection(int direction)
+		{
+			int target;
+			lock (_itemsLock)
+			{
+				if (_items.Count == 0) return false;
+
+				int candidate = _selectedIndex + direction;
+				while (candidate >= 0 && candidate < _items.Count)
+				{
+					if (_items[candidate].IsEnabled
+						&& _items[candidate].ItemType == NavigationItemType.Item
+						&& IsItemVisible(candidate))
+						break;
+					candidate += direction;
+				}
+
+				if (candidate < 0 || candidate >= _items.Count
+					|| !_items[candidate].IsEnabled
+					|| _items[candidate].ItemType != NavigationItemType.Item
+					|| !IsItemVisible(candidate))
+					return false;
+
+				target = candidate;
+			}
+
+			SelectedIndex = target;
+			return true;
+		}
+
+		private bool SelectFirstEnabled()
+		{
+			int target;
+			lock (_itemsLock)
+			{
+				target = -1;
+				for (int i = 0; i < _items.Count; i++)
+				{
+					if (_items[i].IsEnabled && _items[i].ItemType == NavigationItemType.Item
+						&& IsItemVisible(i))
+					{
+						target = i;
+						break;
+					}
+				}
+			}
+
+			if (target < 0) return false;
+			SelectedIndex = target;
+			return true;
+		}
+
+		private bool SelectLastEnabled()
+		{
+			int target;
+			lock (_itemsLock)
+			{
+				target = -1;
+				for (int i = _items.Count - 1; i >= 0; i--)
+				{
+					if (_items[i].IsEnabled && _items[i].ItemType == NavigationItemType.Item
+						&& IsItemVisible(i))
+					{
+						target = i;
+						break;
+					}
+				}
+			}
+
+			if (target < 0) return false;
+			SelectedIndex = target;
+			return true;
+		}
+
+		/// <summary>
+		/// Handles Enter/Space: toggle header expand/collapse, or fire ItemInvoked for regular items.
+		/// </summary>
+		private bool HandleInvokeKey()
+		{
+			lock (_itemsLock)
+			{
+				if (_selectedIndex >= 0 && _selectedIndex < _items.Count
+					&& _items[_selectedIndex].ItemType == NavigationItemType.Header)
+				{
+					var header = _items[_selectedIndex];
+					// ToggleHeaderExpanded needs to be called outside the lock
+					// but we captured the header reference
+					System.Threading.Tasks.Task.CompletedTask.ContinueWith(_ => { }, System.Threading.Tasks.TaskScheduler.Default);
+				}
+			}
+
+			// Check again outside lock for header toggle
+			NavigationItem? headerToToggle = null;
+			lock (_itemsLock)
+			{
+				if (_selectedIndex >= 0 && _selectedIndex < _items.Count
+					&& _items[_selectedIndex].ItemType == NavigationItemType.Header)
+				{
+					headerToToggle = _items[_selectedIndex];
+				}
+			}
+
+			if (headerToToggle != null)
+			{
+				ToggleHeaderExpanded(headerToToggle);
+				return true;
+			}
+
+			FireItemInvoked();
+			return true;
+		}
+
+		/// <summary>
+		/// Left arrow on a sub-item collapses its parent header.
+		/// </summary>
+		private bool HandleLeftArrow()
+		{
+			NavigationItem? parentHeader = null;
+			lock (_itemsLock)
+			{
+				if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
+				{
+					parentHeader = _items[_selectedIndex].ParentHeader;
+				}
+			}
+
+			if (parentHeader != null && parentHeader.IsExpanded)
+			{
+				ToggleHeaderExpanded(parentHeader);
+				return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Right arrow on a header expands it. Otherwise moves focus to content.
+		/// </summary>
+		private bool HandleRightArrow()
+		{
+			NavigationItem? headerToExpand = null;
+			lock (_itemsLock)
+			{
+				if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
+				{
+					var current = _items[_selectedIndex];
+					if (current.ItemType == NavigationItemType.Header && !current.IsExpanded)
+					{
+						headerToExpand = current;
+					}
+				}
+			}
+
+			if (headerToExpand != null)
+			{
+				ToggleHeaderExpanded(headerToExpand);
+				return true;
+			}
+
+			FocusContentPanel();
+			return true;
+		}
+
+		private void FireItemInvoked()
+		{
+			NavigationItemChangedEventArgs? args;
+			lock (_itemsLock)
+			{
+				if (_selectedIndex < 0 || _selectedIndex >= _items.Count)
+					return;
+
+				var item = _items[_selectedIndex];
+				args = new NavigationItemChangedEventArgs(
+					_selectedIndex, _selectedIndex, item, item);
+			}
+
+			ItemInvoked?.Invoke(this, args);
+		}
+
+		#endregion
+
+		#region Focus Helpers
+
+		private void FocusNavPane()
+		{
+			_navPaneHasFocus = true;
+			// Remove focus from content panel
+			if (_contentPanel is IFocusableControl fc)
+				fc.HasFocus = false;
+			_grid.HasFocus = false;
+			Container?.Invalidate(true);
+		}
+
+		private void FocusContentPanel()
+		{
+			_navPaneHasFocus = false;
+			// Set focus on the content panel
+			if (_contentPanel is IFocusableControl fc)
+				fc.HasFocus = true;
 			Container?.Invalidate(true);
 		}
 
