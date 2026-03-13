@@ -84,6 +84,7 @@ Controls for organizing other controls.
 | **HorizontalGridControl** | Multi-column layout | Variable-width columns, alignment, splitters |
 | **SplitterControl** | Resizable divider | Drag to resize adjacent columns |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
+| **[NavigationView](controls/NavigationView.md)** | Sidebar navigation + content area | WinUI-inspired nav pane, content factories, gradient-transparent |
 | **ToolbarControl** | Horizontal button toolbar | Quick access buttons, separators |
 | **SeparatorControl** | Visual separator | Simple horizontal line |
 | **PortalContentContainer** | Portal overlay container | Host child controls in [portal overlays](PORTAL_SYSTEM.md), mouse/keyboard routing, focus tracking |
@@ -184,7 +185,7 @@ public interface IContainer : IWindowControl
 }
 ```
 
-Implemented by: ColumnContainer, ScrollablePanelControl, HorizontalGridControl
+Implemented by: ColumnContainer, ScrollablePanelControl, HorizontalGridControl, NavigationView
 
 ## Quick Reference
 
@@ -298,6 +299,7 @@ Browse detailed documentation for specific controls:
 ### Advanced Controls
 - [TableControl](controls/TableControl.md) - Interactive data grid with virtual data
 - [TabControl](controls/TabControl.md) - Multi-page tab container
+- [NavigationView](controls/NavigationView.md) - Sidebar navigation with content area
 - [CanvasControl](controls/CanvasControl.md) - Free-form drawing surface
 - [TerminalControl](controls/TerminalControl.md) - Embedded PTY terminal (Linux)
 

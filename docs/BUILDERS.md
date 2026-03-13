@@ -302,6 +302,44 @@ Controls.Figle("BIG TEXT")
     .Build();
 ```
 
+### NavigationViewBuilder
+
+```csharp
+Controls.NavigationView()
+    .WithNavWidth(26)
+    .WithPaneHeader("[bold white]  ⚙  Settings[/]")
+    .WithContentBorder(BorderStyle.Rounded)
+    .WithContentBorderColor(Color.Grey37)
+    .WithContentBackground(new Color(30, 30, 40))
+    .WithContentPadding(1, 0, 1, 0)
+    .AddItem("Home", subtitle: "Welcome page", content: panel =>
+    {
+        panel.AddControl(Controls.Label("Welcome!"));
+    })
+    .AddItem("Settings", subtitle: "App settings", content: panel =>
+    {
+        panel.AddControl(Controls.Checkbox("Notifications").Checked(true).Build());
+    })
+    .WithSelectedColors(Color.White, new Color(40, 50, 80))
+    .WithAlignment(HorizontalAlignment.Stretch)
+    .Fill()
+    .OnSelectedItemChanged((sender, e) =>
+    {
+        // Handle selection change
+    })
+    .Build();
+```
+
+**Key Methods:**
+- `AddItem(text, icon?, subtitle?, content?)` - Add nav item with optional content factory
+- `WithNavWidth(int)` - Set nav pane width (default: 26, minimum: 10)
+- `WithPaneHeader(string)` - Set pane header markup
+- `WithContentBorder(BorderStyle)` - Set content panel border style
+- `WithContentBackground(Color)` - Set content panel background
+- `WithContentHeader(bool)` - Show/hide the title + subtitle header
+- `WithSelectedIndex(int)` - Set initially selected item
+- `OnSelectedItemChanged(handler)` / `OnSelectedItemChanging(handler)` - Events
+
 ### SparklineBuilder
 
 ```csharp
@@ -559,6 +597,7 @@ Controls.SpectreRenderable(widget)  // SpectreRenderableBuilder
 Controls.RuleBuilder()              // RuleBuilder
 Controls.Panel()                    // PanelBuilder (for bordered content panels)
 Controls.Panel(text)                // PanelControl directly with text content
+Controls.NavigationView()           // NavigationViewBuilder (sidebar nav + content area)
 Controls.Terminal(exe?)             // TerminalBuilder — Linux only, requires PtyShim setup
 new SparklineBuilder()              // SparklineBuilder (for time-series graphs)
 new BarGraphBuilder()               // BarGraphBuilder (for horizontal bar graphs)

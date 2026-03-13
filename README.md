@@ -123,7 +123,7 @@ cd MyApp && dotnet run
 | **Text & Display** | MarkupControl, FigleControl, RuleControl, SeparatorControl, SparklineControl, BarGraphControl, LogViewerControl |
 | **Input** | ButtonControl, CheckboxControl, PromptControl, DropdownControl, MultilineEditControl |
 | **Data** | ListControl, TreeControl, TableControl (interactive DataGrid with virtual data, sorting, editing), HorizontalGridControl |
-| **Navigation** | MenuControl, ToolbarControl, TabControl |
+| **Navigation** | MenuControl, ToolbarControl, TabControl, NavigationView |
 | **Layout** | ColumnContainer, SplitterControl, ScrollablePanelControl, PanelControl |
 | **Drawing** | CanvasControl, ImageControl (PNG/JPEG/BMP/GIF/WebP/TIFF via ImageSharp) |
 | **Advanced** | SpectreRenderableControl (wraps any Spectre.Console `IRenderable`), ProgressBarControl, TerminalControl |

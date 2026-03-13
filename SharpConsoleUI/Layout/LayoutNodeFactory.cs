@@ -46,6 +46,11 @@ namespace SharpConsoleUI.Layout
 			{
 				return (new TabLayout(), tabControl.TabPages.Select(tp => tp.Content));
 			}
+			else if (control is NavigationView navView)
+			{
+				// NavigationView wraps a single HorizontalGrid
+				return (new VerticalStackLayout(), new IWindowControl[] { navView.InternalGrid });
+			}
 			else if (control is ScrollablePanelControl)
 			{
 				// Self-painting container - do not recurse into children

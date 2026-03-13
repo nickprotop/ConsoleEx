@@ -309,6 +309,12 @@ public static class Controls
 	}
 
 	/// <summary>
+	/// Creates a new navigation view builder.
+	/// </summary>
+	/// <returns>A new navigation view builder.</returns>
+	public static NavigationViewBuilder NavigationView() => new NavigationViewBuilder();
+
+	/// <summary>
 	/// Creates a new splitter control builder.
 	/// </summary>
 	/// <returns>A new splitter control builder.</returns>
