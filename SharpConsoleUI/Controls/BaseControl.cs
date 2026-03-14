@@ -32,6 +32,7 @@ namespace SharpConsoleUI.Controls
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
+		private int? _height;
 		private bool _disposed;
 		private BindingCollection? _bindings;
 
@@ -152,6 +153,13 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _width;
 			set => SetProperty(ref _width, value, v => v.HasValue ? Math.Max(0, v.Value) : v);
+		}
+
+		/// <inheritdoc/>
+		public virtual int? Height
+		{
+			get => _height;
+			set => SetProperty(ref _height, value, v => v.HasValue ? Math.Max(0, v.Value) : v);
 		}
 
 		/// <inheritdoc/>

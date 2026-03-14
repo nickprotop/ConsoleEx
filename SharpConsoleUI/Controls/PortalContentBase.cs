@@ -158,6 +158,9 @@ namespace SharpConsoleUI.Controls
 		public int? Width { get; set; }
 
 		/// <inheritdoc/>
+		public int? Height { get; set; }
+
+		/// <inheritdoc/>
 		public Size GetLogicalContentSize()
 		{
 			var bounds = GetPortalBounds();

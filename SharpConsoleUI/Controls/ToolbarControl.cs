@@ -148,7 +148,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the height of the toolbar. Defaults to 1.
 		/// </summary>
-		public int? Height
+		public override int? Height
 		{
 			get => _height;
 			set => SetProperty(ref _height, value);

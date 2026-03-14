@@ -101,7 +101,7 @@ namespace SharpConsoleUI.Controls
 		/// When set, the panel border will render at this height.
 		/// When null and VerticalAlignment is Fill, the panel stretches to fill available height.
 		/// </summary>
-		public int? Height
+		public override int? Height
 		{
 			get => _height;
 			set => SetProperty(ref _height, value, v => v.HasValue ? Math.Max(0, v.Value) : v);

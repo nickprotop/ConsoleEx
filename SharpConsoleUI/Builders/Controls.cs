@@ -321,6 +321,12 @@ public static class Controls
 	public static SplitterControlBuilder Splitter() => new SplitterControlBuilder();
 
 	/// <summary>
+	/// Creates a new horizontal splitter control builder.
+	/// </summary>
+	/// <returns>A new horizontal splitter control builder.</returns>
+	public static HorizontalSplitterBuilder HorizontalSplitter() => new HorizontalSplitterBuilder();
+
+	/// <summary>
 	/// Creates a new time picker builder.
 	/// </summary>
 	/// <param name="prompt">Optional prompt text.</param>

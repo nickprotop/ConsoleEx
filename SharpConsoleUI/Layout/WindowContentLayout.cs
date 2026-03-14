@@ -105,7 +105,9 @@ namespace SharpConsoleUI.Layout
 
 					default: // None - scrollable
 						{
-							if (child.VerticalAlignment == VerticalAlignment.Fill)
+							// Fill children without explicit height flex to share remaining space.
+							// Fill children WITH explicit height are treated as fixed (set by horizontal splitter).
+							if (child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
 							{
 								// Count Fill children for second pass
 								fillChildCount++;
@@ -134,7 +136,7 @@ namespace SharpConsoleUI.Layout
 
 				var stickyPosition = child.Control?.StickyPosition ?? StickyPosition.None;
 
-				if (stickyPosition == StickyPosition.None && child.VerticalAlignment == VerticalAlignment.Fill)
+				if (stickyPosition == StickyPosition.None && child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
 				{
 					// Measure Fill children with divided remaining space
 					var childConstraints = constraints.WithMaxHeight(fillChildHeight);
@@ -187,7 +189,7 @@ namespace SharpConsoleUI.Layout
 						stickyBottomHeight += child.DesiredSize.Height;
 						break;
 					default: // None - scrollable
-						if (child.VerticalAlignment == VerticalAlignment.Fill)
+						if (child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
 						{
 							fillChildCount++;
 						}
@@ -259,7 +261,7 @@ namespace SharpConsoleUI.Layout
 
 							// Determine child height - fill children get remaining space
 							int childHeight;
-							if (child.VerticalAlignment == VerticalAlignment.Fill)
+							if (child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
 							{
 								childHeight = fillChildHeight + (extraHeight > 0 ? 1 : 0);
 								extraHeight--;

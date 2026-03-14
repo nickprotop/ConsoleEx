@@ -180,6 +180,9 @@ namespace SharpConsoleUI.Controls
 		}
 	}
 
+		/// <inheritdoc/>
+	public int? Height { get; set; }
+
 		/// <summary>
 		/// Gets or sets whether double-click events are enabled for white space clicks.
 		/// Default: true.

@@ -23,7 +23,8 @@ public static class LauncherWindow
                 .AddItem("IDE Layout", subtitle: "IDE-like application UI", content: MakeInfoPanel("IDE Layout"))
                 .AddItem("File Explorer", subtitle: "Filesystem browser", content: MakeInfoPanel("File Explorer"))
                 .AddItem("Multi-Tab Demo", subtitle: "TabControl with multiple tabs", content: MakeInfoPanel("Multi-Tab Demo"))
-                .AddItem("WinUI Layout", subtitle: "WinUI-inspired settings layout", content: MakeInfoPanel("WinUI Layout")))
+                .AddItem("WinUI Layout", subtitle: "WinUI-inspired settings layout", content: MakeInfoPanel("WinUI Layout"))
+                .AddItem("Horizontal Splitter", subtitle: "Drag-to-resize horizontal bars", content: MakeInfoPanel("Horizontal Splitter")))
             .AddHeader("Controls", Color.Green, header => header
                 .AddItem("Interactive Demo", subtitle: "Real-time key press handling", content: MakeInfoPanel("Interactive Demo"))
                 .AddItem("Dropdown", subtitle: "Cascading dropdowns", content: MakeInfoPanel("Dropdown"))
@@ -119,6 +120,7 @@ public static class LauncherWindow
             "File Explorer" => FileExplorerWindow.Create(ws),
             "Multi-Tab Demo" => TabDemoWindow.Create(ws),
             "WinUI Layout" => WinUIDemoWindow.Create(ws),
+            "Horizontal Splitter" => HorizontalSplitterDemoWindow.Create(ws),
             "Interactive Demo" => InteractiveWindow.Create(ws),
             "Dropdown" => DropdownWindow.Create(ws),
             "List View" => ListViewWindow.Create(ws),
@@ -222,6 +224,23 @@ public static class LauncherWindow
                 "  - ScrollablePanelControl (border + padding)",
                 "  - HorizontalGridControl, MarkupControl",
                 "  - CheckboxControl, ButtonControl",
+            },
+            "Horizontal Splitter" => new List<string>
+            {
+                "[bold cyan]Horizontal Splitter[/]",
+                "",
+                "Drag-to-resize horizontal bar between vertically",
+                "stacked controls. Supports mouse drag and keyboard.",
+                "",
+                "[dim]Features:[/]",
+                "  - Mouse drag to resize",
+                "  - Keyboard: Up/Down arrows, Shift for 5-row jump",
+                "  - Smart resize with Fill and explicit heights",
+                "  - Min height clamping (default: 3 rows)",
+                "",
+                "[dim]Controls used:[/]",
+                "  - HorizontalSplitterControl",
+                "  - ScrollablePanelControl, HorizontalGridControl",
             },
             "Interactive Demo" => new List<string>
             {

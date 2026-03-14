@@ -325,6 +325,8 @@ public sealed class TerminalControl
     public bool                Visible             { get; set; } = true;
     /// <inheritdoc/>
     public int?                Width               { get; set; }
+    /// <inheritdoc/>
+    public int?                Height              { get; set; }
 
     /// <inheritdoc/>
     public int ActualX      => _actualX;

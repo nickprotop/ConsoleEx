@@ -157,6 +157,9 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	}
 
 	/// <inheritdoc/>
+	public int? Height { get; set; }
+
+	/// <inheritdoc/>
 	public bool CanReceiveFocus => _enabled && _visible;
 
 	/// <inheritdoc/>

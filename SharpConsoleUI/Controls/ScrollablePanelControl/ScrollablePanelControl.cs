@@ -332,7 +332,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public int? Height
+		public override int? Height
 		{
 			get => _height;
 			set => SetProperty(ref _height, value, v => v.HasValue ? Math.Max(0, v.Value) : v);

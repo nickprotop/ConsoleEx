@@ -35,12 +35,13 @@ namespace SharpConsoleUI.Layout
 			int fillCount = 0;
 
 			// First pass: measure non-fill children
+			// A Fill child with ExplicitHeight is treated as fixed (like HorizontalLayout does for ExplicitWidth)
 			foreach (var child in node.Children)
 			{
 				if (!child.IsVisible)
 					continue;
 
-				if (child.VerticalAlignment == VerticalAlignment.Fill)
+				if (child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
 				{
 					fillCount++;
 					continue;
@@ -64,7 +65,7 @@ namespace SharpConsoleUI.Layout
 
 				foreach (var child in node.Children)
 				{
-					if (!child.IsVisible || child.VerticalAlignment != VerticalAlignment.Fill)
+					if (!child.IsVisible || child.VerticalAlignment != VerticalAlignment.Fill || child.ExplicitHeight != null)
 						continue;
 
 					LayoutConstraints childConstraints;
@@ -114,7 +115,9 @@ namespace SharpConsoleUI.Layout
 				if (!child.IsVisible)
 					continue;
 
-				if (child.VerticalAlignment == VerticalAlignment.Fill)
+				// Fill children without explicit height flex to share remaining space.
+				// Fill children WITH explicit height are treated as fixed (set by horizontal splitter).
+				if (child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
 				{
 					fillCount++;
 					totalFlexFactor += child.FlexFactor;
@@ -152,7 +155,7 @@ namespace SharpConsoleUI.Layout
 				isFirst = false;
 
 				int childHeight;
-				if (child.VerticalAlignment == VerticalAlignment.Fill)
+				if (child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
 				{
 					// Distribute remaining space by flex factor
 					childHeight = (int)(remainingHeight * (child.FlexFactor / totalFlexFactor));

@@ -289,6 +289,9 @@ namespace SharpConsoleUI.Windows
 
 				// Sync explicit width (critical for splitter-resized columns!)
 				pair.Value.ExplicitWidth = pair.Key.Width;
+
+				// Sync explicit height (critical for horizontal-splitter-resized controls!)
+				pair.Value.ExplicitHeight = pair.Key.Height;
 			}
 		}
 

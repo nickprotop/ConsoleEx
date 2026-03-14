@@ -445,5 +445,17 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int SegmentPendingDigitTimeoutMs = 1500;
 
+		// HorizontalSplitter defaults
+
+		/// <summary>
+		/// Minimum height for controls adjacent to a horizontal splitter (default: 3).
+		/// </summary>
+		public const int HorizontalSplitterMinControlHeight = 3;
+
+		/// <summary>
+		/// Number of rows moved per Shift+Arrow key press on horizontal splitter (default: 5).
+		/// </summary>
+		public const int HorizontalSplitterKeyboardJumpSize = 5;
+
 	}
 }

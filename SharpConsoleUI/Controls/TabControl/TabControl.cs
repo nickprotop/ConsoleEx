@@ -321,7 +321,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the explicit height of the control.
 		/// Minimum height is 2 (1 for header, 1 for content).
 		/// </summary>
-		public int? Height
+		public override int? Height
 		{
 			get => _height;
 			set

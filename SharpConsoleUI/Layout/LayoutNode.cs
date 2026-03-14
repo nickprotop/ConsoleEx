@@ -125,6 +125,7 @@ namespace SharpConsoleUI.Layout
 			if (control != null)
 			{
 				ExplicitWidth = control.Width;
+				ExplicitHeight = control.Height;
 				IsVisible = control.Visible;
 				VerticalAlignment = control.VerticalAlignment;
 			}

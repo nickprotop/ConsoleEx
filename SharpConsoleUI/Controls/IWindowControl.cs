@@ -64,6 +64,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Gets or sets the explicit width of the control, or null for automatic sizing.</summary>
 		int? Width { get; set; }
 
+		/// <summary>Gets or sets the explicit height of the control, or null for automatic sizing.</summary>
+		int? Height { get; set; }
+
 		/// <summary>
 		/// Gets the actual X coordinate where the control was last rendered.
 		/// Returns 0 if the control has not been rendered yet.
