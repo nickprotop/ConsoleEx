@@ -148,6 +148,16 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
+		/// Enables auto-fitting max data points to match the rendered width.
+		/// When enabled, the sparkline always fills the available horizontal space.
+		/// </summary>
+		public SparklineBuilder WithAutoFitDataPoints(bool autoFit = true)
+		{
+			_control.AutoFitDataPoints = autoFit;
+			return this;
+		}
+
+		/// <summary>
 		/// Sets the initial data points.
 		/// </summary>
 		public SparklineBuilder WithData(IEnumerable<double> dataPoints)

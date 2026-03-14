@@ -133,7 +133,8 @@ namespace SharpConsoleUI.Controls
 						int px = startX + x;
 						if (px >= clipRect.X && px < clipRect.Right)
 						{
-							buffer.SetNarrowCell(px, startY, horizChar, ruleColor, bgColor);
+							var cellBg = preserveBg ? buffer.GetCell(px, startY).Background : bgColor;
+							buffer.SetNarrowCell(px, startY, horizChar, ruleColor, cellBg);
 						}
 					}
 				}
@@ -155,7 +156,8 @@ namespace SharpConsoleUI.Controls
 							int px = startX + x;
 							if (px >= clipRect.X && px < clipRect.Right)
 							{
-								buffer.SetNarrowCell(px, startY, horizChar, ruleColor, bgColor);
+								var cellBg = preserveBg ? buffer.GetCell(px, startY).Background : bgColor;
+								buffer.SetNarrowCell(px, startY, horizChar, ruleColor, cellBg);
 							}
 						}
 					}
@@ -184,33 +186,60 @@ namespace SharpConsoleUI.Controls
 						for (int i = 0; i < leftDashes; i++)
 						{
 							if (writeX >= clipRect.X && writeX < clipRect.Right)
-								buffer.SetNarrowCell(writeX, startY, horizChar, ruleColor, bgColor);
+							{
+								var cellBg = preserveBg ? buffer.GetCell(writeX, startY).Background : bgColor;
+								buffer.SetNarrowCell(writeX, startY, horizChar, ruleColor, cellBg);
+							}
 							writeX++;
 						}
 
 						// Space before title
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetNarrowCell(writeX, startY, ' ', ruleColor, bgColor);
+						{
+							var cellBg = preserveBg ? buffer.GetCell(writeX, startY).Background : bgColor;
+							buffer.SetNarrowCell(writeX, startY, ' ', ruleColor, cellBg);
+						}
 						writeX++;
 
 						// Title cells (with their own colors from markup)
 						foreach (var cell in titleCells)
 						{
 							if (writeX >= clipRect.X && writeX < clipRect.Right)
-								buffer.SetCell(writeX, startY, cell);
+							{
+								if (preserveBg)
+								{
+									var cellBg = buffer.GetCell(writeX, startY).Background;
+									var adjusted = new Cell(cell.Character, cell.Foreground, cellBg, cell.Decorations)
+									{
+										IsWideContinuation = cell.IsWideContinuation,
+										Combiners = cell.Combiners
+									};
+									buffer.SetCell(writeX, startY, adjusted);
+								}
+								else
+								{
+									buffer.SetCell(writeX, startY, cell);
+								}
+							}
 							writeX++;
 						}
 
 						// Space after title
 						if (writeX >= clipRect.X && writeX < clipRect.Right)
-							buffer.SetNarrowCell(writeX, startY, ' ', ruleColor, bgColor);
+						{
+							var cellBg = preserveBg ? buffer.GetCell(writeX, startY).Background : bgColor;
+							buffer.SetNarrowCell(writeX, startY, ' ', ruleColor, cellBg);
+						}
 						writeX++;
 
 						// Right dashes
 						for (int i = 0; i < rightDashes; i++)
 						{
 							if (writeX >= clipRect.X && writeX < clipRect.Right)
-								buffer.SetNarrowCell(writeX, startY, horizChar, ruleColor, bgColor);
+							{
+								var cellBg = preserveBg ? buffer.GetCell(writeX, startY).Background : bgColor;
+								buffer.SetNarrowCell(writeX, startY, horizChar, ruleColor, cellBg);
+							}
 							writeX++;
 						}
 					}

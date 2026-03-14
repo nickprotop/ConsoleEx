@@ -127,6 +127,16 @@ namespace SharpConsoleUI.Controls
 			int graphWidth = contentWidth - (borderSize * 2);
 			int graphBottom = graphStartY + _graphHeight - 1;
 
+			// Auto-fit: adjust max data points to match rendered width
+			if (_autoFitDataPoints && graphWidth > 0 && graphWidth != _maxDataPoints)
+			{
+				lock (_dataLock)
+				{
+					_maxDataPoints = Math.Max(1, graphWidth);
+					TrimDataPoints();
+				}
+			}
+
 			// Draw title if present (position depends on TitlePosition setting)
 			if (!string.IsNullOrEmpty(_title))
 			{

@@ -90,7 +90,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color BackgroundColor
 		{
-			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+			// Resolution chain: explicit → grid's bg → grid's parent (Container) → theme
+			get => _backgroundColorValue ?? _parentGrid?.BackgroundColor
+				?? ColorResolver.ResolveBackground(null, Container);
 			set
 			{
 				_backgroundColorValue = value;
@@ -168,7 +170,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
+			// Resolution chain: explicit → grid's fg → grid's parent (Container) → theme
+			get => _foregroundColorValue ?? _parentGrid?.ForegroundColor
+				?? Container?.ForegroundColor
+				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 			set
 			{
 				_foregroundColorValue = value;
@@ -337,8 +342,10 @@ namespace SharpConsoleUI.Controls
 			int splitterHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
 			// Fill margins with background color
-			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			Color windowBackground = _parentGrid?.BackgroundColor ?? Container?.BackgroundColor ?? defaultBg;
+			bool preserveBg = _backgroundColorValue == null
+				&& _parentGrid?.BackgroundColor == null
+				&& (Container?.HasGradientBackground ?? false);
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBackground, preserveBg);

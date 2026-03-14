@@ -377,10 +377,20 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Paint bar
+			// Paint bar - auto-expand bar width when stretched
+			int effectiveBarWidth = _barWidth;
+			if (HorizontalAlignment == Layout.HorizontalAlignment.Stretch)
+			{
+				int usedWidth = currentX - startX; // label + suffix consumed
+				int valueWidth = _showValue ? 1 + UnicodeWidth.GetStringWidth(_value.ToString(_valueFormat)) : 0;
+				int availableForBar = bounds.Width - Margin.Left - Margin.Right - usedWidth - valueWidth;
+				if (availableForBar > effectiveBarWidth)
+					effectiveBarWidth = availableForBar;
+			}
+
 			double percent = Math.Clamp(_value / _maxValue, 0.0, 1.0);
-			int filledChars = (int)Math.Round(percent * _barWidth);
-			int unfilledChars = _barWidth - filledChars;
+			int filledChars = (int)Math.Round(percent * effectiveBarWidth);
+			int unfilledChars = effectiveBarWidth - filledChars;
 
 			// Snapshot thresholds for thread safety
 			List<ColorThreshold>? thresholdsSnapshot;
@@ -399,7 +409,7 @@ namespace SharpConsoleUI.Controls
 				if (_smoothGradient != null && (thresholdsSnapshot == null || thresholdsSnapshot.Count == 0))
 				{
 					// Per-character gradient (smoother than per-bar)
-					double charPercent = (double)(i + 1) / _barWidth;
+					double charPercent = (double)(i + 1) / effectiveBarWidth;
 					charColor = _smoothGradient.Interpolate(charPercent);
 				}
 				else

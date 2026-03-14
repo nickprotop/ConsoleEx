@@ -69,6 +69,7 @@ namespace SharpConsoleUI.Controls
 		private const int DEFAULT_HEIGHT = 8;
 		private const int DEFAULT_MAX_DATA_POINTS = 50;
 
+		private bool _autoFitDataPoints;
 		private readonly object _dataLock = new();
 
 		// Block mode: 9 levels (0-8) using box drawing vertical bar characters (bottom-up)
@@ -240,6 +241,16 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether MaxDataPoints is automatically adjusted to match the rendered width.
+		/// When true, the sparkline always fills the available horizontal space.
+		/// </summary>
+		public bool AutoFitDataPoints
+		{
+			get => _autoFitDataPoints;
+			set => SetProperty(ref _autoFitDataPoints, value);
 		}
 
 		/// <summary>

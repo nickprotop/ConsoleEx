@@ -64,23 +64,25 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Color BackgroundColor
 		{
-			// Inherit background color from parent HorizontalGridControl's container (the Window),
-			// then fall back to theme
-			get => _backgroundColorValue ?? _horizontalGridContent?.Container?.BackgroundColor
+			// Resolution chain: explicit → grid's bg → grid's parent (Window) → theme → black
+			get => _backgroundColorValue ?? _horizontalGridContent?.BackgroundColor
+				?? _horizontalGridContent?.Container?.BackgroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 			set { _backgroundColorValue = value; Container?.Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
 		public bool HasGradientBackground =>
-			_backgroundColorValue == null && (Container?.HasGradientBackground ?? false);
+			_backgroundColorValue == null
+			&& _horizontalGridContent?.BackgroundColor == null
+			&& (Container?.HasGradientBackground ?? false);
 
 		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
-			// Inherit foreground color from parent HorizontalGridControl's container (the Window),
-			// then fall back to theme
-			get => _foregroundColorValue ?? _horizontalGridContent?.Container?.ForegroundColor
+			// Resolution chain: explicit → grid's fg → grid's parent (Window) → theme
+			get => _foregroundColorValue ?? _horizontalGridContent?.ForegroundColor
+				?? _horizontalGridContent?.Container?.ForegroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 			set { _foregroundColorValue = value; Container?.Invalidate(true); }
 		}

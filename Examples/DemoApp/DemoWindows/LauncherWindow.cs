@@ -36,8 +36,10 @@ public static class LauncherWindow
                 .AddItem("Data Binding", subtitle: "MVVM data binding", content: MakeInfoPanel("Data Binding"))
                 .AddItem("Date & Time", subtitle: "DatePicker and TimePicker controls", content: MakeInfoPanel("Date & Time")))
             .AddHeader("Data Visualization", Color.Yellow, header => header
-                .AddItem("Graphs & Charts", subtitle: "Live sparklines & bar graphs", content: MakeInfoPanel("Graphs & Charts")))
+                .AddItem("Graphs & Charts", subtitle: "Live sparklines & bar graphs", content: MakeInfoPanel("Graphs & Charts"))
+                .AddItem("System Monitor", subtitle: "Real-time system dashboard", content: MakeInfoPanel("System Monitor")))
             .AddHeader("Rendering", Color.Orange1, header => header
+                .AddItem("Container Backgrounds", subtitle: "Background color & gradient propagation", content: MakeInfoPanel("Container Backgrounds"))
                 .AddItem("Gradients", subtitle: "Gradient text & backgrounds", content: MakeInfoPanel("Gradients"))
                 .AddItem("Animations", subtitle: "Window animations & easing", content: MakeInfoPanel("Animations"))
                 .AddItem("Image Rendering", subtitle: "Pixel art with half-blocks", content: MakeInfoPanel("Image Rendering"))
@@ -128,7 +130,9 @@ public static class LauncherWindow
             "Data Binding" => DataBindingWindow.Create(ws),
             "Date & Time" => DateTimeDemo.Create(ws),
             "Graphs & Charts" => GraphsWindow.Create(ws),
-            "Gradients" => GradientDemoWindow.Create(ws),
+                "System Monitor" => SystemMonitorWindow.Create(ws),
+            "Container Backgrounds" => ContainerBgDemoWindow.Create(ws),
+                "Gradients" => GradientDemoWindow.Create(ws),
             "Animations" => AnimationDemoWindow.Create(ws),
             "Image Rendering" => ImageDemoWindow.Create(ws),
             "Image Viewer" => ImageViewerWindow.Create(ws),
@@ -382,6 +386,45 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - SparklineControl (Block, Braille, Bidirectional)",
                 "  - BarGraphControl, ProgressBarControl",
+            },
+            "System Monitor" => new List<string>
+            {
+                "[bold cyan]System Monitor[/]",
+                "",
+                "Real-time system monitoring dashboard with multi-",
+                "frequency updates. Simulates CPU, memory, disk, and",
+                "network metrics with smooth transitions.",
+                "",
+                "[dim]Features:[/]",
+                "  - Bar graphs with gradient color coding",
+                "  - Block, Braille, and Bidirectional sparklines",
+                "  - Live activity log with threshold alerts",
+                "  - Status panel with system overview",
+                "  - Multi-rate updates (100ms to 700ms)",
+                "",
+                "[dim]Controls used:[/]",
+                "  - SparklineControl, BarGraphControl",
+                "  - PanelControl, ListControl",
+                "  - HorizontalGridControl, MarkupControl",
+            },
+            "Container Backgrounds" => new List<string>
+            {
+                "[bold cyan]Container Background Demo[/]",
+                "",
+                "Showcases how background colors and gradients",
+                "propagate through nested containers.",
+                "",
+                "[dim]Cases demonstrated:[/]",
+                "  - Controls with no bg (gradient preserved)",
+                "  - Controls with explicit bg (gradient blocked)",
+                "  - Grid with explicit bg → children inherit",
+                "  - ScrollPanel ↔ Grid nesting (both directions)",
+                "  - Nested containers with mixed bg settings",
+                "",
+                "[dim]Controls used:[/]",
+                "  - PanelControl, ScrollablePanelControl",
+                "  - HorizontalGridControl, MarkupControl",
+                "  - RuleControl",
             },
             "Gradients" => new List<string>
             {
