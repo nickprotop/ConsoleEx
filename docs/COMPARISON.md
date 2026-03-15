@@ -338,4 +338,95 @@ This gives you Spectre's polished formatting with SharpConsoleUI's window manage
 
 ---
 
+## Rendering Architecture Deep Dive
+
+TUI frameworks differ most fundamentally in how they turn a tree of controls into pixels on screen. This section explains where SharpConsoleUI sits and why the differences matter.
+
+### How TUI Frameworks Render
+
+| Approach | Description | Used by |
+|---|---|---|
+| **String output** | `View()` returns a string; framework diffs strings | BubbleTea (Go) |
+| **Immediate-mode** | Redraw entire UI into a single buffer each frame | Ratatui (Rust) |
+| **Retained-mode, shared buffer** | Widget tree paints into one buffer with dirty tracking | Textual (Python), Terminal.Gui (.NET) |
+| **Retained-mode, per-window buffers** | Each window has its own buffer; a compositor merges them | SharpConsoleUI (.NET) |
+
+Most TUI frameworks use a single shared buffer. SharpConsoleUI gives each window its own `CharacterBuffer`, then composites them together -- a pattern borrowed from desktop window managers (DWM, Quartz, Wayland compositors), adapted for character cells.
+
+### The Compositor Pipeline
+
+```
+Per-Window Buffers    Compositor           Console Driver
+┌──────────┐
+│ Window A │──┐
+└──────────┘  │   ┌──────────────────┐   ┌─────────────────┐
+┌──────────┐  ├──▶│ Visible Regions  │──▶│ Diff-based flush│──▶ stdout
+│ Window B │──┤   │ (skip occluded)  │   │ (changed cells) │
+└──────────┘  │   └──────────────────┘   └─────────────────┘
+┌──────────┐  │
+│ Overlay  │──┘
+└──────────┘
+```
+
+The visible regions calculator uses rectangle subtraction to determine which pixels of each window are actually visible on screen. Occluded regions are skipped entirely rather than painted and overwritten.
+
+Each window's render also supports compositor hooks: `PreBufferPaint` fires before controls (for gradients, custom backgrounds), then controls paint, then `PostBufferPaint` fires (for effects like blur or fade).
+
+### Frame-Coupled Animations
+
+The animation system runs inside the main render loop, not on separate timers:
+
+1. Poll input
+2. Advance animations (`AnimationManager.Update(deltaTime)`)
+3. Layout pass (Measure → Arrange → Paint)
+4. Composite and flush
+
+Delta time is capped at 33ms to prevent animations from completing instantly after idle periods. This is what enables smooth transitions in controls like NavigationView -- the animation and layout run in the same frame tick.
+
+### DOM Layout
+
+SharpConsoleUI uses a three-pass DOM layout (Measure → Arrange → Paint) similar to WPF and Avalonia. Each control reports its desired size, receives its final bounds from its parent, then paints into its window buffer. This is what allows the responsive NavigationView to detect its actual width and switch display modes.
+
+---
+
+## Cross-Ecosystem Comparison
+
+Different languages have their own established TUI frameworks. Here's how the major ones compare architecturally.
+
+### Feature Comparison
+
+| | SharpConsoleUI | Textual | Ratatui | BubbleTea | Terminal.Gui |
+|---|---|---|---|---|---|
+| **Language** | C# | Python | Rust | Go | C# |
+| **Architecture** | Compositor | Retained + segment compositor | Immediate-mode | Elm (TEA) | Retained, shared buffer |
+| **Overlapping windows** | Yes | Screens (modal stack) | No | No | v2 beta |
+| **Window management** | Drag, resize, minimize, maximize | No | No | No | v2 beta |
+| **Built-in animations** | Frame-coupled tweens | CSS-like transitions | Via tachyonfx crate | No | No |
+| **Overlay/portal system** | Yes (auto-positioning, auto-dismiss) | Screen stack | Manual | Manual | No |
+| **Responsive controls** | Yes (NavigationView) | CSS-like media queries | No | No | No |
+| **Per-window buffers** | Yes | No | No | No | No |
+| **Compositor hooks** | PreBufferPaint / PostBufferPaint | No | No | No | No |
+| **DOM layout pipeline** | Measure / Arrange / Paint | CSS Box Model | Constraint-based | String concat | Pos/Dim arithmetic |
+| **Async per-window** | Yes | Async workers | Manual | Goroutines | No |
+| **Desktop packaging** | schost | textual-web (browser) | No | No | No |
+| **Embedded terminal** | PTY-backed | No | No | No | No |
+| **Mouse** | Full | Full | Via backend | Via backend | Full |
+| **24-bit color** | Yes | Yes | Yes | Via Lip Gloss | Yes |
+
+### How They Differ
+
+**Ratatui** is a lightweight Rust library where you own the event loop and redraw the entire UI each frame. Clean and fast, but no retained state or compositing -- you manage everything yourself.
+
+**BubbleTea** uses the Elm architecture in Go -- your `View()` returns a string, the framework diffs it. Elegant for single-screen apps. The string-based model doesn't support pixel-level compositing.
+
+**Textual** has its own segment-based compositor that merges overlapping widget output. It uses a spatial grid for fast hit-testing and supports CSS-like animations and styling. The most feature-rich Python TUI framework.
+
+**Terminal.Gui** is the most mature .NET TUI library with the widest control set. v2 (beta) adds overlapping window support. Uses a shared buffer with painter's algorithm rendering.
+
+**SharpConsoleUI** takes the compositor approach further with per-window buffers, occlusion culling via rectangle subtraction, and compositor hooks for visual effects. The animation system and DOM layout pipeline enable features like the responsive NavigationView with animated mode transitions.
+
+Each framework makes different tradeoffs. The compositor approach adds complexity but enables desktop-class features (window management, visual effects, animated responsive controls) that are difficult to achieve with a shared buffer or string-based model.
+
+---
+
 *Last updated: March 2026*
