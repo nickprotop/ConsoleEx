@@ -58,6 +58,16 @@ namespace SharpConsoleUI.Controls
 		private Padding _contentPadding = new Padding(1, 0, 1, 0);
 		private bool _showContentHeader = true;
 
+		// Responsive display mode
+		private NavigationViewDisplayMode _paneDisplayMode = NavigationViewDisplayMode.Auto;
+		private int _expandedThreshold = ControlDefaults.DefaultNavigationViewExpandedThreshold;
+		private int _compactThreshold = ControlDefaults.DefaultNavigationViewCompactThreshold;
+		private int _compactPaneWidth = ControlDefaults.DefaultNavigationViewCompactPaneWidth;
+		private bool _animateTransitions = true;
+		private NavigationViewDisplayMode _currentDisplayMode = NavigationViewDisplayMode.Expanded;
+		private int _effectiveNavWidth;
+		private int _lastKnownWidth;
+
 		// IContainer properties
 		private Color? _backgroundColorValue;
 		private Color _foregroundColor = Color.White;
@@ -68,6 +78,8 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public NavigationView()
 		{
+			_effectiveNavWidth = _navPaneWidth;
+
 			_grid = new HorizontalGridControl();
 
 			_navColumn = new ColumnContainer(_grid);
@@ -105,6 +117,22 @@ namespace SharpConsoleUI.Controls
 			_grid.HorizontalAlignment = HorizontalAlignment.Stretch;
 			_grid.VerticalAlignment = VerticalAlignment.Fill;
 
+			// Wire content header click to open portal in Minimal mode —
+			// only when clicking near the hamburger character (first few chars)
+			_contentHeader.MouseClick += (_, args) =>
+			{
+				if (_currentDisplayMode == NavigationViewDisplayMode.Minimal
+					&& args.Position.X < ControlDefaults.NavigationViewHamburgerClickWidth)
+					OpenNavigationPortal();
+			};
+
+			// Wire pane header click to open portal in Compact mode
+			_paneHeader.MouseClick += (_, _) =>
+			{
+				if (_currentDisplayMode == NavigationViewDisplayMode.Compact)
+					OpenNavigationPortal();
+			};
+
 			SyncInternalControls();
 		}
 
@@ -121,7 +149,15 @@ namespace SharpConsoleUI.Controls
 		public int NavPaneWidth
 		{
 			get => _navPaneWidth;
-			set { if (SetProperty(ref _navPaneWidth, Math.Max(ControlDefaults.MinNavigationViewPaneWidth, value))) SyncInternalControls(); }
+			set
+			{
+				if (SetProperty(ref _navPaneWidth, Math.Max(ControlDefaults.MinNavigationViewPaneWidth, value)))
+				{
+					if (_currentDisplayMode == NavigationViewDisplayMode.Expanded)
+						_effectiveNavWidth = _navPaneWidth;
+					SyncInternalControls();
+				}
+			}
 		}
 
 		/// <summary>
@@ -237,7 +273,86 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
+		#region Responsive Display Mode Properties
+
+		/// <summary>
+		/// Gets or sets the pane display mode. When set to <see cref="NavigationViewDisplayMode.Auto"/>,
+		/// the mode is resolved based on available width and configured thresholds.
+		/// </summary>
+		public NavigationViewDisplayMode PaneDisplayMode
+		{
+			get => _paneDisplayMode;
+			set
+			{
+				if (_paneDisplayMode == value) return;
+				_paneDisplayMode = value;
+				OnPropertyChanged();
+				// Re-evaluate mode with current width
+				if (_lastKnownWidth > 0)
+					CheckAndApplyDisplayMode(_lastKnownWidth);
+				else if (value != NavigationViewDisplayMode.Auto)
+					ApplyDisplayMode(value);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the width threshold at or above which Auto mode resolves to Expanded.
+		/// </summary>
+		public int ExpandedThreshold
+		{
+			get => _expandedThreshold;
+			set { if (SetProperty(ref _expandedThreshold, value) && _lastKnownWidth > 0) CheckAndApplyDisplayMode(_lastKnownWidth); }
+		}
+
+		/// <summary>
+		/// Gets or sets the width threshold at or above which Auto mode resolves to Compact.
+		/// Below this threshold, Auto resolves to Minimal.
+		/// </summary>
+		public int CompactThreshold
+		{
+			get => _compactThreshold;
+			set { if (SetProperty(ref _compactThreshold, value) && _lastKnownWidth > 0) CheckAndApplyDisplayMode(_lastKnownWidth); }
+		}
+
+		/// <summary>
+		/// Gets or sets the width of the navigation pane in Compact display mode.
+		/// </summary>
+		public int CompactPaneWidth
+		{
+			get => _compactPaneWidth;
+			set
+			{
+				if (SetProperty(ref _compactPaneWidth, value) && _currentDisplayMode == NavigationViewDisplayMode.Compact)
+				{
+					_effectiveNavWidth = value;
+					SyncInternalControls();
+					Invalidate(true);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether width transitions are animated.
+		/// </summary>
+		public bool AnimateTransitions
+		{
+			get => _animateTransitions;
+			set => SetProperty(ref _animateTransitions, value);
+		}
+
+		/// <summary>
+		/// Gets the currently resolved display mode (never <see cref="NavigationViewDisplayMode.Auto"/>).
+		/// </summary>
+		public NavigationViewDisplayMode CurrentDisplayMode => _currentDisplayMode;
+
+		#endregion
+
 		#region Events
+
+		/// <summary>
+		/// Raised when the resolved display mode changes.
+		/// </summary>
+		public event EventHandler<NavigationViewDisplayMode>? DisplayModeChanged;
 
 		/// <summary>
 		/// Raised before the selected item changes. Can be canceled.
@@ -348,7 +463,11 @@ namespace SharpConsoleUI.Controls
 
 		private void SyncInternalControls()
 		{
-			_navColumn.Width = _navPaneWidth;
+			// Don't override nav column width during animation — the animation
+			// controls _navColumn.Width directly via onUpdate callbacks.
+			if (!_isAnimatingWidth)
+				_navColumn.Width = _effectiveNavWidth;
+
 			_contentPanel.BorderStyle = _contentBorderStyle;
 			_contentPanel.Padding = _contentPadding;
 

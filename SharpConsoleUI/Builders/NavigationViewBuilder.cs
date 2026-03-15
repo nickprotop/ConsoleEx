@@ -186,6 +186,55 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 
 	#endregion
 
+	#region Responsive Display Mode
+
+	/// <summary>
+	/// Sets the pane display mode.
+	/// </summary>
+	public NavigationViewBuilder WithPaneDisplayMode(NavigationViewDisplayMode mode)
+	{
+		_control.PaneDisplayMode = mode;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the width threshold at or above which Auto mode resolves to Expanded.
+	/// </summary>
+	public NavigationViewBuilder WithExpandedThreshold(int threshold)
+	{
+		_control.ExpandedThreshold = threshold;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the width threshold at or above which Auto mode resolves to Compact.
+	/// </summary>
+	public NavigationViewBuilder WithCompactThreshold(int threshold)
+	{
+		_control.CompactThreshold = threshold;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the width of the navigation pane in Compact display mode.
+	/// </summary>
+	public NavigationViewBuilder WithCompactPaneWidth(int width)
+	{
+		_control.CompactPaneWidth = width;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether width transitions are animated.
+	/// </summary>
+	public NavigationViewBuilder WithAnimateTransitions(bool animate)
+	{
+		_control.AnimateTransitions = animate;
+		return this;
+	}
+
+	#endregion
+
 	#region Content Pane Config
 
 	/// <summary>

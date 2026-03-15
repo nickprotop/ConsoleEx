@@ -200,6 +200,13 @@ namespace SharpConsoleUI.Controls
 			if (key.Key == ConsoleKey.LeftArrow
 				|| (key.Key == ConsoleKey.Tab && key.Modifiers.HasFlag(ConsoleModifiers.Shift)))
 			{
+				// In Minimal mode, open the portal instead of focusing the hidden nav pane
+				if (_currentDisplayMode == NavigationViewDisplayMode.Minimal)
+				{
+					OpenNavigationPortal();
+					return true;
+				}
+
 				FocusNavPane();
 				return true;
 			}

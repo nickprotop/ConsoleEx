@@ -49,6 +49,9 @@ internal class Program
             .WithContentBorderColor(new Color(60, 80, 120))
             .WithContentBackground(new Color(20, 25, 45))
             .WithContentPadding(1, 0, 1, 0)
+            .WithPaneDisplayMode(NavigationViewDisplayMode.Auto)
+            .WithExpandedThreshold(80)
+            .WithCompactThreshold(50)
             .AddHeader("Overview", new Color(100, 180, 255), h =>
             {
                 h.AddItem("Dashboard", icon: "◈", subtitle: "System overview and status",

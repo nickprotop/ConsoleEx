@@ -364,6 +364,38 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int NavigationViewHeaderTopMargin = 1;
 
+		/// <summary>
+		/// Width threshold at or above which Auto display mode resolves to Expanded (default: 80).
+		/// </summary>
+		public const int DefaultNavigationViewExpandedThreshold = 80;
+
+		/// <summary>
+		/// Width threshold at or above which Auto display mode resolves to Compact (default: 50).
+		/// Below this threshold, Auto resolves to Minimal.
+		/// </summary>
+		public const int DefaultNavigationViewCompactThreshold = 50;
+
+		/// <summary>
+		/// Width of the navigation pane in Compact display mode (default: 5).
+		/// </summary>
+		public const int DefaultNavigationViewCompactPaneWidth = 5;
+
+		/// <summary>
+		/// Duration in milliseconds for navigation pane width transition animations (default: 200).
+		/// </summary>
+		public const int NavigationViewTransitionDurationMs = 200;
+
+		/// <summary>
+		/// Character used as the hamburger menu icon in Compact and Minimal modes.
+		/// </summary>
+		public const char NavigationViewHamburgerChar = '\u2261';
+
+		/// <summary>
+		/// Width of the clickable area for the hamburger icon in the content header (default: 3).
+		/// Only clicks within this many characters from the left edge open the navigation portal.
+		/// </summary>
+		public const int NavigationViewHamburgerClickWidth = 3;
+
 		// DatePicker defaults
 
 		/// <summary>

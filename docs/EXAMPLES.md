@@ -133,11 +133,18 @@ This example demonstrates that SharpConsoleUI applications aren't limited to tra
 
 **Key Features:**
 - Full-screen borderless window with diagonal gradient background
+- **Responsive NavigationView** with WinUI-inspired display modes (Expanded, Compact, Minimal)
 - NavigationView with collapsible header groups and content switching
 - 9 content pages: Dashboard, Getting Started, Buttons & Inputs, Lists & Trees, Data Visualization, Layout, Colors & Gradients, Typography, About
 - Interactive controls: progress bars, sparklines, bar graphs, checkboxes, buttons, lists, trees, text input
 - Keyboard-driven navigation (Tab, arrows, Enter) and mouse support
 - Works on Windows, Linux, and macOS — anywhere you have a terminal
+
+#### Responsive Navigation
+
+The NavigationView automatically adapts to the terminal width — full nav pane at wide sizes, icon-only with hamburger at medium, and hidden with overlay at narrow:
+
+![Responsive NavigationView](images/examples/navigationviewdemo-responsive.gif)
 
 ![Side-by-side with native desktop apps](images/examples/navigationviewdemo-desktop.png)
 *The same NavigationView pattern used by GNOME Settings, rendered entirely in the terminal.*

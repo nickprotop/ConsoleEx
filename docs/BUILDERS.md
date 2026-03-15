@@ -338,6 +338,10 @@ Controls.NavigationView()
 - `WithContentBackground(Color)` - Set content panel background
 - `WithContentHeader(bool)` - Show/hide the title + subtitle header
 - `WithSelectedIndex(int)` - Set initially selected item
+- `WithPaneDisplayMode(mode)` - Set responsive mode (`Auto`, `Expanded`, `Compact`, `Minimal`)
+- `WithExpandedThreshold(int)` / `WithCompactThreshold(int)` - Set width thresholds
+- `WithCompactPaneWidth(int)` - Set compact mode nav width (default: 5)
+- `WithAnimateTransitions(bool)` - Enable/disable animated transitions
 - `OnSelectedItemChanged(handler)` / `OnSelectedItemChanging(handler)` - Events
 
 ### SparklineBuilder

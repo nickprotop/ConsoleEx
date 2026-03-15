@@ -18,6 +18,12 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
+			// Use the actual rendered width from the previous frame if available,
+			// otherwise fall back to constraints. ActualWidth is set by SetActualBounds
+			// in PaintDOM and reflects the true allocated width.
+			int availableWidth = ActualWidth > 0 ? ActualWidth : (Width ?? constraints.MaxWidth);
+			CheckAndApplyDisplayMode(availableWidth);
+
 			SyncInternalControls();
 
 			int width = Width ?? constraints.MaxWidth;
@@ -34,6 +40,10 @@ namespace SharpConsoleUI.Controls
 			LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
 			SetActualBounds(bounds);
+
+			// Check responsive mode using actual allocated width from layout.
+			// If mode changes here, we invalidate to trigger re-layout on the next frame.
+			CheckAndApplyDisplayMode(bounds.Width);
 
 			// Background fill — preserve gradient if no explicit background
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container, defaultBg);

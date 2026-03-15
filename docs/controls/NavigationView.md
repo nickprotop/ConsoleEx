@@ -12,6 +12,23 @@ The control composes a `HorizontalGridControl` internally with two columns: a fi
 
 **Key feature**: NavigationView is gradient-transparent — when placed in a window with a gradient background, the gradient shows through the nav pane and header areas while the content panel can have its own opaque background.
 
+## Responsive Display Modes
+
+NavigationView adapts its navigation pane based on available width, inspired by WinUI's responsive patterns:
+
+![Responsive NavigationView](../images/controls/navigationview-responsive.gif)
+
+| Mode | Nav Pane | Content Header | Trigger (Auto) |
+|------|----------|----------------|----------------|
+| **Expanded** | Full: icons + text | Normal title + subtitle | `width >= ExpandedThreshold` (default 80) |
+| **Compact** | Icons only, 5 chars wide | Normal title + subtitle | `CompactThreshold <= width < ExpandedThreshold` (default 50-80) |
+| **Minimal** | Hidden (0 width) | `≡` hamburger left of title | `width < CompactThreshold` (default <50) |
+
+- **Compact mode**: The nav column shrinks to icon-only. A `≡` hamburger button at the top opens the full nav as a portal overlay. Clicking an icon directly selects that nav item.
+- **Minimal mode**: The nav column is completely hidden. The `≡` character in the content header opens a portal overlay with the full nav list. Clicking outside the portal dismisses it.
+- **Auto mode** (default): The display mode is resolved automatically based on the control's actual rendered width and the configured thresholds.
+- Transitions between modes can be **animated** (smooth width interpolation) or instant.
+
 ## Hierarchical Items
 
 NavigationView supports **headers**, **sub-items**, and **separators** in addition to flat items. Headers group related items and support collapse/expand.
@@ -49,6 +66,18 @@ NavigationView supports **headers**, **sub-items**, and **separators** in additi
 | `ItemForeground` | `Color` | `Grey` | Default foreground color for unselected items |
 | `SelectionIndicator` | `char` | `'▸'` | Character used as the selection indicator prefix |
 
+### Responsive Display
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `PaneDisplayMode` | `NavigationViewDisplayMode` | `Auto` | Display mode: `Auto`, `Expanded`, `Compact`, or `Minimal` |
+| `ExpandedThreshold` | `int` | `80` | Width at or above which Auto resolves to Expanded |
+| `CompactThreshold` | `int` | `50` | Width at or above which Auto resolves to Compact (below = Minimal) |
+| `CompactPaneWidth` | `int` | `5` | Width of the nav pane in Compact mode |
+| `AnimateTransitions` | `bool` | `true` | Whether mode transitions animate the nav pane width |
+| `CurrentDisplayMode` | `NavigationViewDisplayMode` | - | The resolved display mode (read-only, never `Auto`) |
+| `IsPortalOpen` | `bool` | - | Whether the navigation portal overlay is currently open (read-only) |
+
 ### Content Area
 
 | Property | Type | Default | Description |
@@ -82,6 +111,7 @@ NavigationView supports **headers**, **sub-items**, and **separators** in additi
 | `SelectedItemChanging` | `NavigationItemChangingEventArgs` | Raised before selection changes (cancelable) |
 | `SelectedItemChanged` | `NavigationItemChangedEventArgs` | Raised after selection has changed |
 | `ItemInvoked` | `NavigationItemChangedEventArgs` | Raised when Enter/Space is pressed on the selected item |
+| `DisplayModeChanged` | `NavigationViewDisplayMode` | Raised when the resolved display mode changes |
 | `GotFocus` | `EventArgs` | Raised when the control receives focus |
 | `LostFocus` | `EventArgs` | Raised when the control loses focus |
 
@@ -262,6 +292,9 @@ window.AddControl(nav);
 | **Shift+Tab** | Move focus from content panel back to nav pane |
 | **Mouse Click** | Click a nav item to select it; click a header to toggle expand/collapse |
 | **Mouse Wheel** | Scroll within the content panel |
+| **≡ Click** (Compact) | Click the hamburger at the top of the compact nav column to open the full nav as a portal overlay |
+| **≡ Click** (Minimal) | Click the hamburger character in the content header to open the nav portal overlay |
+| **Click outside portal** | Dismisses the navigation portal overlay |
 
 NavigationView uses a **two-zone focus model**: the nav pane and the content panel are separate focus zones. When the control first receives focus, the nav pane is active — use arrow keys to browse items, then Right or Tab to move into the content panel. Left or Shift+Tab returns focus to the nav pane.
 
@@ -439,6 +472,11 @@ if (!header.IsExpanded)
 | | `WithPaneHeader(string)` | Set pane header markup |
 | | `WithSelectedColors(fg, bg)` | Set selected item colors |
 | | `WithSelectionIndicator(char)` | Set selection indicator character |
+| **Responsive** | `WithPaneDisplayMode(mode)` | Set display mode (`Auto`, `Expanded`, `Compact`, `Minimal`) |
+| | `WithExpandedThreshold(int)` | Set width threshold for Expanded mode |
+| | `WithCompactThreshold(int)` | Set width threshold for Compact mode |
+| | `WithCompactPaneWidth(int)` | Set nav pane width in Compact mode |
+| | `WithAnimateTransitions(bool)` | Enable/disable animated width transitions |
 | **Content** | `WithContentBorder(BorderStyle)` | Set content panel border |
 | | `WithContentBorderColor(Color)` | Set content panel border color |
 | | `WithContentBackground(Color)` | Set content panel background |
@@ -462,6 +500,37 @@ if (!header.IsExpanded)
 | `AddItem(text, icon?, subtitle?, content?)` | Add a child item under this header |
 | `AddItem(NavigationItem, content?)` | Add an existing NavigationItem as a child |
 
+### Responsive NavigationView
+
+```csharp
+var nav = Controls.NavigationView()
+    .WithNavWidth(28)
+    .WithPaneHeader("[bold white]  ◆  MyApp[/]")
+    .WithPaneDisplayMode(NavigationViewDisplayMode.Auto)
+    .WithExpandedThreshold(80)
+    .WithCompactThreshold(50)
+    .WithAnimateTransitions(true)
+    .AddItem("Dashboard", icon: "◈", content: panel =>
+    {
+        panel.AddControl(Controls.Label("Dashboard content"));
+    })
+    .AddItem("Settings", icon: "⚙", content: panel =>
+    {
+        panel.AddControl(Controls.Checkbox("Dark mode").Checked(true).Build());
+    })
+    .WithAlignment(HorizontalAlignment.Stretch)
+    .Fill()
+    .Build();
+
+// React to mode changes
+nav.DisplayModeChanged += (sender, mode) =>
+{
+    // mode is Expanded, Compact, or Minimal
+};
+```
+
+At full width the nav pane shows icons + text. Resize the terminal narrower than 80 columns and the nav pane collapses to icon-only with a hamburger button. Below 50 columns the nav pane hides entirely and a `≡` in the content header opens a portal overlay.
+
 ## Comparison with TabControl
 
 | Feature | NavigationView | TabControl |
@@ -470,6 +539,7 @@ if (!header.IsExpanded)
 | **Content model** | Content factories (rebuild on select) | Persistent DOM (visibility toggle) |
 | **State preservation** | External (rebuild each time) | Automatic (controls stay in tree) |
 | **Hierarchy** | Headers with collapsible sub-items | Flat tabs only |
+| **Responsive** | Auto/Compact/Minimal modes | No responsive behavior |
 | **Best for** | Settings panels, app navigation | Document tabs, multi-view editors |
 | **Gradient support** | Transparent nav pane | Opaque header |
 
@@ -482,6 +552,8 @@ if (!header.IsExpanded)
 5. **Use subtitles**: They provide context in the content header when an item is selected
 6. **Gradient backgrounds**: NavigationView is gradient-transparent by default — pair with `WithBackgroundGradient` for modern looks
 7. **External state**: Since content is rebuilt on each selection, store stateful data (checkbox values, text input) outside the factory and restore it
+8. **Responsive design**: Use `Auto` display mode (default) for apps that may run at different terminal widths — the nav pane adapts automatically
+9. **Custom thresholds**: Adjust `ExpandedThreshold` and `CompactThreshold` to match your content's needs — wider nav panes may benefit from a higher expanded threshold
 
 ## See Also
 

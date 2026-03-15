@@ -485,7 +485,7 @@ namespace SharpConsoleUI.Controls
 		#region Formatting
 
 		/// <summary>
-		/// Routes formatting to the appropriate method based on item type.
+		/// Routes formatting to the appropriate method based on item type and current display mode.
 		/// </summary>
 		private string FormatNavEntry(NavigationItem item, bool selected)
 		{
@@ -495,6 +495,19 @@ namespace SharpConsoleUI.Controls
 				NavigationItemType.Separator => FormatNavSeparator(),
 				_ => FormatNavItem(item, selected)
 			};
+		}
+
+		/// <summary>
+		/// Routes formatting based on item type for compact mode.
+		/// Headers and separators are hidden in compact mode (via Visible=false),
+		/// so this only needs to handle selectable items.
+		/// </summary>
+		private string FormatNavEntryCompact(NavigationItem item, bool selected)
+		{
+			if (item.ItemType != NavigationItemType.Item)
+				return FormatNavEntry(item, selected);
+
+			return FormatNavItemCompact(item, selected);
 		}
 
 		private string FormatNavHeader(NavigationItem item)
@@ -537,19 +550,100 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Formats a navigation item for compact (icon-only) display mode.
+		/// Shows the icon centered in the compact pane width, or a diamond if no icon.
+		/// </summary>
+		private string FormatNavItemCompact(NavigationItem item, bool selected)
+		{
+			var icon = item.Icon ?? "\u25C8"; // ◈ diamond as fallback
+			int iconWidth = UnicodeWidth.GetStringWidth(icon);
+			int totalWidth = _compactPaneWidth;
+			int leftPad = Math.Max(0, (totalWidth - iconWidth) / 2);
+			int rightPad = Math.Max(0, totalWidth - iconWidth - leftPad);
+			var padded = new string(' ', leftPad) + icon + new string(' ', rightPad);
+
+			if (selected)
+			{
+				var bg = _selectedItemBackground;
+				return $"[bold white on rgb({bg.R},{bg.G},{bg.B})]{padded}[/]";
+			}
+			else
+			{
+				return $"[dim]{padded}[/]";
+			}
+		}
+
+		/// <summary>
+		/// Refreshes all item markup formatting based on the current display mode.
+		/// In Compact mode, headers and separators are hidden and items show icon-only.
+		/// In Expanded mode, all items show full formatting.
+		/// </summary>
+		internal void RefreshAllItemMarkupForMode()
+		{
+			lock (_itemsLock)
+			{
+				bool isCompact = _currentDisplayMode == NavigationViewDisplayMode.Compact;
+
+				for (int i = 0; i < _items.Count && i < _itemControls.Count; i++)
+				{
+					var item = _items[i];
+					bool selected = i == _selectedIndex;
+
+					if (isCompact)
+					{
+						// Hide headers and separators in compact mode
+						if (item.ItemType == NavigationItemType.Header || item.ItemType == NavigationItemType.Separator)
+						{
+							_itemControls[i].Visible = false;
+						}
+						else
+						{
+							_itemControls[i].Visible = IsItemVisible(i);
+							_itemControls[i].SetContent(new List<string>
+							{
+								FormatNavEntryCompact(item, selected)
+							});
+						}
+					}
+					else
+					{
+						// Expanded/Minimal: restore visibility and full formatting
+						if (item.ItemType == NavigationItemType.Header || item.ItemType == NavigationItemType.Separator)
+						{
+							_itemControls[i].Visible = true;
+						}
+						else
+						{
+							_itemControls[i].Visible = IsItemVisible(i);
+						}
+
+						_itemControls[i].SetContent(new List<string>
+						{
+							FormatNavEntry(item, selected)
+						});
+					}
+				}
+			}
+		}
+
 		#endregion
 
 		#region Selection Helpers
 
 		private void ApplySelection(int newIndex)
 		{
+			bool isCompact = _currentDisplayMode == NavigationViewDisplayMode.Compact;
+
 			// Update only the previously selected and newly selected item markup
 			if (_previousSelectedIndex >= 0 && _previousSelectedIndex < _items.Count
 				&& _previousSelectedIndex < _itemControls.Count)
 			{
 				_itemControls[_previousSelectedIndex].SetContent(new List<string>
 				{
-					FormatNavEntry(_items[_previousSelectedIndex], false)
+					isCompact
+						? FormatNavEntryCompact(_items[_previousSelectedIndex], false)
+						: FormatNavEntry(_items[_previousSelectedIndex], false)
 				});
 			}
 
@@ -557,7 +651,9 @@ namespace SharpConsoleUI.Controls
 			{
 				_itemControls[newIndex].SetContent(new List<string>
 				{
-					FormatNavEntry(_items[newIndex], true)
+					isCompact
+						? FormatNavEntryCompact(_items[newIndex], true)
+						: FormatNavEntry(_items[newIndex], true)
 				});
 			}
 
@@ -569,11 +665,15 @@ namespace SharpConsoleUI.Controls
 				_navScrollPanel.ScrollChildIntoView(_itemControls[newIndex]);
 			}
 
-			// Update content header
+			// Update content header — only Minimal mode gets hamburger prefix
 			if (_showContentHeader && newIndex >= 0 && newIndex < _items.Count)
 			{
 				var item = _items[newIndex];
-				var headerLines = new List<string> { $"[bold white]{item.Text}[/]" };
+				string titleMarkup = _currentDisplayMode == NavigationViewDisplayMode.Minimal
+					? $"[bold white]{ControlDefaults.NavigationViewHamburgerChar} {item.Text}[/]"
+					: $"[bold white]{item.Text}[/]";
+
+				var headerLines = new List<string> { titleMarkup };
 				if (item.Subtitle != null)
 					headerLines.Add($"[dim]{item.Subtitle}[/]");
 				_contentHeader.SetContent(headerLines);
