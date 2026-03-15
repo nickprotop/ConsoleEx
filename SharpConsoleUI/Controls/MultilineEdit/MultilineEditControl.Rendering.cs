@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
@@ -291,12 +292,6 @@ namespace SharpConsoleUI.Controls
 								visibleLine = string.Empty;
 						}
 
-						// Pad or truncate to effective width
-						if (visibleLine.Length < effectiveWidth)
-							visibleLine = visibleLine.PadRight(effectiveWidth);
-						else if (visibleLine.Length > effectiveWidth)
-							visibleLine = visibleLine.Substring(0, effectiveWidth);
-
 						int hScrollForCalc = (_wrapMode == WrapMode.NoWrap) ? _horizontalScrollOffset : 0;
 
 						// Determine current line highlight (custom line highlights take precedence)
@@ -310,11 +305,97 @@ namespace SharpConsoleUI.Controls
 							lineBg = bgColor;
 
 						// Paint each character with selection, syntax, and whitespace handling
-						for (int charPos = 0; charPos < effectiveWidth; charPos++)
-						{
-							int actualCharPos = charPos + wl.SourceCharOffset + hScrollForCalc;
-							bool isSelected = false;
+						// Use Rune-aware iteration to properly handle surrogate pairs,
+						// wide characters, and zero-width combining/variation selectors
+						int col = 0;        // display column
+						int srcCharIdx = 0; // char index into visibleLine
+						Rune? lastRenderedRune = null; // track for VS16 widening
 
+						while (col < effectiveWidth)
+						{
+							Rune rune;
+							int runeCharLen;
+							int runeDisplayWidth;
+							bool isContentChar;
+							int actualCharPos;
+
+							if (srcCharIdx < visibleLine.Length)
+							{
+								// Decode a Rune from the string (handles surrogate pairs)
+								if (char.IsHighSurrogate(visibleLine[srcCharIdx]) &&
+									srcCharIdx + 1 < visibleLine.Length &&
+									char.IsLowSurrogate(visibleLine[srcCharIdx + 1]))
+								{
+									rune = new Rune(visibleLine[srcCharIdx], visibleLine[srcCharIdx + 1]);
+									runeCharLen = 2;
+								}
+								else if (char.IsSurrogate(visibleLine[srcCharIdx]))
+								{
+									rune = new Rune('\uFFFD');
+									runeCharLen = 1;
+								}
+								else
+								{
+									rune = new Rune(visibleLine[srcCharIdx]);
+									runeCharLen = 1;
+								}
+
+								runeDisplayWidth = UnicodeWidth.GetRuneWidth(rune);
+								isContentChar = true;
+								actualCharPos = srcCharIdx + wl.SourceCharOffset + hScrollForCalc;
+								srcCharIdx += runeCharLen;
+
+								// Handle zero-width characters (combining marks, variation selectors)
+								if (runeDisplayWidth == 0)
+								{
+									if (col > 0 && UnicodeWidth.IsVS16(rune) &&
+										lastRenderedRune.HasValue &&
+										UnicodeWidth.IsVs16Widened(lastRenderedRune.Value) &&
+										!UnicodeWidth.IsWideRune(lastRenderedRune.Value))
+									{
+										// VS16 widens previous character from 1→2 columns
+										int prevCellX = contentStartX + col - 1;
+										if (prevCellX >= clipRect.X && prevCellX < clipRect.Right)
+										{
+											var prev = buffer.GetCell(prevCellX, paintY);
+											prev.AppendCombiner(rune);
+											buffer.SetCell(prevCellX, paintY, prev);
+										}
+										// Place continuation cell at current column
+										int cellX = contentStartX + col;
+										if (cellX >= clipRect.X && cellX < clipRect.Right)
+										{
+											var prev = buffer.GetCell(contentStartX + col - 1, paintY);
+											buffer.SetCell(cellX, paintY, new Cell(' ', prev.Foreground, prev.Background) { IsWideContinuation = true });
+										}
+										lastRenderedRune = null;
+										col++;
+									}
+									else if (col > 0)
+									{
+										// Regular combining mark — attach to previous cell
+										int prevCellX = contentStartX + col - 1;
+										if (prevCellX >= clipRect.X && prevCellX < clipRect.Right)
+										{
+											var prev = buffer.GetCell(prevCellX, paintY);
+											prev.AppendCombiner(rune);
+											buffer.SetCell(prevCellX, paintY, prev);
+										}
+									}
+									// Don't advance col for zero-width chars (except VS16 widening above)
+									continue;
+								}
+							}
+							else
+							{
+								rune = new Rune(' ');
+								runeDisplayWidth = 1;
+								isContentChar = false;
+								actualCharPos = col + wl.SourceCharOffset + hScrollForCalc;
+							}
+
+							// Selection check
+							bool isSelected = false;
 							if (_hasSelection && wl.SourceLineIndex >= selStartY && wl.SourceLineIndex <= selEndY)
 							{
 								if (wl.SourceLineIndex == selStartY && wl.SourceLineIndex == selEndY)
@@ -326,9 +407,6 @@ namespace SharpConsoleUI.Controls
 								else
 									isSelected = true;
 							}
-
-							char c = charPos < visibleLine.Length ? visibleLine[charPos] : ' ';
-							bool isContentChar = charPos + hScrollForCalc < wl.DisplayText.Length;
 
 							// Color priority: Selection > Search Match > Syntax > Visible whitespace > Default
 							Color charFg;
@@ -351,9 +429,9 @@ namespace SharpConsoleUI.Controls
 								{
 									charBg = lineBg;
 
-									if (_showWhitespace && c == ' ' && isContentChar)
+									if (_showWhitespace && rune.Value == ' ' && isContentChar)
 									{
-										c = ControlDefaults.WhitespaceSpaceChar;
+										rune = new Rune(ControlDefaults.WhitespaceSpaceChar);
 										charFg = Color.Grey37;
 									}
 									else if (_syntaxHighlighter != null)
@@ -367,11 +445,33 @@ namespace SharpConsoleUI.Controls
 								}
 							}
 
-							int cellX = contentStartX + charPos;
-							if (cellX >= clipRect.X && cellX < clipRect.Right)
+							int cellX2 = contentStartX + col;
+
+							if (runeDisplayWidth == 2 && col + 1 < effectiveWidth)
 							{
-								buffer.SetNarrowCell(cellX, paintY, c, charFg, charBg);
+								// Wide character — write base cell + continuation cell
+								if (cellX2 >= clipRect.X && cellX2 < clipRect.Right)
+									buffer.SetCell(cellX2, paintY, new Cell(rune, charFg, charBg));
+								if (cellX2 + 1 >= clipRect.X && cellX2 + 1 < clipRect.Right)
+									buffer.SetCell(cellX2 + 1, paintY, new Cell(' ', charFg, charBg) { IsWideContinuation = true });
+								col += 2;
 							}
+							else if (runeDisplayWidth == 2)
+							{
+								// Wide character at right edge — can't fit, show space
+								if (cellX2 >= clipRect.X && cellX2 < clipRect.Right)
+									buffer.SetNarrowCell(cellX2, paintY, ' ', charFg, charBg);
+								col++;
+							}
+							else
+							{
+								// Narrow character (BMP or non-BMP single-width)
+								if (cellX2 >= clipRect.X && cellX2 < clipRect.Right)
+									buffer.SetNarrowCell(cellX2, paintY, rune, charFg, charBg);
+								col++;
+							}
+
+							lastRenderedRune = rune;
 						}
 					}
 					else

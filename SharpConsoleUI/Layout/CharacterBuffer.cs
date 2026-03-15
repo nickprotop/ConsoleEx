@@ -194,7 +194,7 @@ namespace SharpConsoleUI.Layout
 		/// Do NOT use for cells from MarkupParser.Parse — use SetCell(Cell) instead to preserve flags.
 		/// </summary>
 		public void SetNarrowCell(int x, int y, char character, Color foreground, Color background)
-			=> SetNarrowCell(x, y, new Rune(character), foreground, background);
+			=> SetNarrowCell(x, y, char.IsSurrogate(character) ? new Rune('\uFFFD') : new Rune(character), foreground, background);
 
 		/// <summary>
 		/// Sets a narrow (width-1) cell at the specified position with a Rune character.
