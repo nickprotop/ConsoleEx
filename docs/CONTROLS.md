@@ -87,7 +87,8 @@ Controls for organizing other controls.
 | **SplitterControl** | Resizable divider | Drag to resize adjacent columns |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
 | **[NavigationView](controls/NavigationView.md)** | Sidebar navigation + content area | WinUI-inspired nav pane, content factories, gradient-transparent |
-| **ToolbarControl** | Horizontal button toolbar | Quick access buttons, separators |
+| **[ToolbarControl](controls/ToolbarControl.md)** | Horizontal button toolbar | Auto-height, wrapping, separator lines, content padding, Tab navigation |
+| **[StatusBarControl](controls/StatusBarControl.md)** | Three-zone status bar | Left/center/right zones, clickable items, shortcut hints, above line separator |
 | **SeparatorControl** | Visual separator | Simple horizontal line |
 | **PortalContentContainer** | Portal overlay container | Host child controls in [portal overlays](PORTAL_SYSTEM.md), mouse/keyboard routing, focus tracking |
 
@@ -301,6 +302,10 @@ Browse detailed documentation for specific controls:
 ### Input Controls
 - [DatePickerControl](controls/DatePickerControl.md) - Date picker with calendar popup
 - [TimePickerControl](controls/TimePickerControl.md) - Time picker with 12h/24h modes
+
+### Layout & Status Controls
+- [ToolbarControl](controls/ToolbarControl.md) - Horizontal button toolbar with wrapping
+- [StatusBarControl](controls/StatusBarControl.md) - Three-zone status bar with clickable items
 
 ### Advanced Controls
 - [TableControl](controls/TableControl.md) - Interactive data grid with virtual data

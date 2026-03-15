@@ -23,6 +23,8 @@ The status system provides:
 - **Top Status Bar**: Application title, branding, performance metrics
 - **Bottom Status Bar**: Status messages, window list, Start button
 - **Window Task Bar**: Quick access to open windows (Alt+1-9)
+
+> **Note:** For the in-window `StatusBarControl` (three-zone bar with clickable items and shortcut hints), see the [StatusBarControl documentation](controls/StatusBarControl.md).
 - **Start Menu**: Centralized access to actions, windows, and system features
 
 ## Status Bars
