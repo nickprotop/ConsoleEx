@@ -236,14 +236,21 @@ namespace SharpConsoleUI.Controls
 					return currentX;
 				}
 
-				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetContentWidth() ?? controlWidth;
+				if (isSplitter)
+					currentX += controlWidth;
+				else
+				{
+					var col = (ColumnContainer)control;
+					currentX += col.ActualWidth > 0 ? col.ActualWidth : (col.GetContentWidth() ?? controlWidth);
+				}
 			}
 
 			return 0; // Fallback
 		}
 
 		/// <summary>
-		/// Gets the X offset of a column within the grid
+		/// Gets the X offset of a column within the grid.
+		/// Uses ActualWidth (rendered width from layout) for accurate positioning.
 		/// </summary>
 		/// <param name="targetColumn">The column to find the offset for</param>
 		/// <returns>X offset of the column</returns>
@@ -261,7 +268,13 @@ namespace SharpConsoleUI.Controls
 					return currentX;
 				}
 
-				currentX += isSplitter ? controlWidth : ((ColumnContainer)control).GetContentWidth() ?? controlWidth;
+				if (isSplitter)
+					currentX += controlWidth;
+				else
+				{
+					var col = (ColumnContainer)control;
+					currentX += col.ActualWidth > 0 ? col.ActualWidth : (col.GetContentWidth() ?? controlWidth);
+				}
 			}
 
 			return 0; // Fallback

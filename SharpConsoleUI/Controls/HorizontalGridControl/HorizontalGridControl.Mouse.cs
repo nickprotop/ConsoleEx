@@ -142,7 +142,13 @@ namespace SharpConsoleUI.Controls
 					return new Point(gridPosition.X - currentX, gridPosition.Y);
 				}
 
-				currentX += isSplitter ? controlWidth : ((ColumnContainer)displayControl).GetContentWidth() ?? controlWidth;
+				if (isSplitter)
+					currentX += controlWidth;
+				else
+				{
+					var col = (ColumnContainer)displayControl;
+					currentX += col.ActualWidth > 0 ? col.ActualWidth : (col.GetContentWidth() ?? controlWidth);
+				}
 			}
 
 			return gridPosition; // Fallback
