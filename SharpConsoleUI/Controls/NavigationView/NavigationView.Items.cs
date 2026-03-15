@@ -518,10 +518,12 @@ namespace SharpConsoleUI.Controls
 		{
 			var icon = item.Icon != null ? $"{item.Icon} " : "";
 			int extraIndent = item.ParentHeader != null ? ControlDefaults.NavigationViewSubItemExtraIndent : 0;
-			int padWidth = _navPaneWidth - 4 - extraIndent - (item.Icon != null ? UnicodeWidth.GetStringWidth(item.Icon) + 1 : 0);
-			if (padWidth < 1) padWidth = 1;
-
-			var paddedText = (icon + item.Text).PadRight(padWidth);
+			var content = icon + item.Text;
+			int contentDisplayWidth = UnicodeWidth.GetStringWidth(content);
+			int targetWidth = _navPaneWidth - 4 - extraIndent;
+			if (targetWidth < 1) targetWidth = 1;
+			int padSpaces = Math.Max(0, targetWidth - contentDisplayWidth);
+			var paddedText = content + new string(' ', padSpaces);
 			var indentSpaces = new string(' ', extraIndent);
 
 			if (selected)
