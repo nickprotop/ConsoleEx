@@ -136,15 +136,15 @@ NEW_VERSION="${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}"
 
 # Update template SharpConsoleUI dependency to new version
 TEMPLATES_UPDATED=false
-for TEMPLATE_CSPROJ in templates/content/*/*.csproj; do
+for TEMPLATE_CSPROJ in templates/content/*/*.csproj tools/schost/templates/*/*.csproj; do
     if [ -f "$TEMPLATE_CSPROJ" ]; then
         sed -i "s|<PackageReference Include=\"SharpConsoleUI\" Version=\"[^\"]*\"|<PackageReference Include=\"SharpConsoleUI\" Version=\"${NEW_VERSION}\"|" "$TEMPLATE_CSPROJ"
         TEMPLATES_UPDATED=true
     fi
 done
 
-if [ "$TEMPLATES_UPDATED" = true ] && ! git diff --quiet templates/; then
-    git add templates/
+if [ "$TEMPLATES_UPDATED" = true ] && ! git diff --quiet templates/ tools/schost/templates/; then
+    git add templates/ tools/schost/templates/
     git commit -m "Update template SharpConsoleUI dependency to ${NEW_VERSION}"
     git push origin "$(git branch --show-current)"
     echo -e "${GREEN}✓ Updated template dependencies to ${NEW_VERSION}${NC}"
@@ -169,7 +169,7 @@ echo ""
 echo -e "${YELLOW}This will trigger GitHub Actions to:${NC}"
 echo -e "  1. Build the solution"
 echo -e "  2. Run tests"
-echo -e "  3. Create NuGet packages (SharpConsoleUI + SharpConsoleUI.Templates ${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH})"
+echo -e "  3. Create NuGet packages (SharpConsoleUI + SharpConsoleUI.Templates + SharpConsoleUI.Host ${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH})"
 echo -e "  4. Publish to NuGet.org"
 echo ""
 

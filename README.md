@@ -80,6 +80,23 @@ dotnet new tui-multiwindow -n MyApp    # Two windows with master-detail pattern
 cd MyApp && dotnet run
 ```
 
+### Desktop Distribution (schost)
+
+Package your app so end users can double-click to launch — no terminal knowledge required:
+
+```bash
+# Initialize terminal config for your project
+schost init
+
+# Launch in a configured terminal window (what the user will see)
+schost run
+
+# Package as portable zip + optional installer
+schost pack --installer
+```
+
+schost opens your app in Windows Terminal (or Linux terminal emulator) with custom title, font, colors, and size. The app uses the real terminal — no compatibility layer. See the [schost guide](docs/SCHOST.md) for details.
+
 ## Controls Library (30+)
 
 | Category | Controls |
@@ -245,6 +262,7 @@ dotnet run --project Examples/DemoApp
 | **[Rendering Pipeline](docs/RENDERING_PIPELINE.md)** | Rendering architecture details |
 | **[Portal System](docs/PORTAL_SYSTEM.md)** | Floating portals and overlay system |
 | **[Status System](docs/STATUS_SYSTEM.md)** | Status bars, window task bar, Start Menu |
+| **[Desktop Host (schost)](docs/SCHOST.md)** | Launch, package, and distribute TUI apps as desktop apps |
 
 **API Reference**: [nickprotop.github.io/ConsoleEx](https://nickprotop.github.io/ConsoleEx/)
 

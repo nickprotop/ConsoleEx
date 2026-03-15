@@ -64,6 +64,9 @@ jobs:
     - name: Pack Templates
       run: dotnet pack templates/SharpConsoleUI.Templates.csproj --configuration Release --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
 
+    - name: Pack schost Tool
+      run: dotnet pack tools/schost/src/schost/schost.csproj --configuration Release --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
+
     - name: Generate Release Notes
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       id: release_notes
@@ -114,6 +117,12 @@ jobs:
           ```bash
           dotnet new install SharpConsoleUI.Templates
           dotnet new tui-app -n MyApp
+          ```
+
+          ### Desktop Host Tool
+          ```bash
+          dotnet tool install --global SharpConsoleUI.Host
+          schost init && schost run && schost pack
           ```
 
           ${{ steps.release_notes.outputs.notes }}
