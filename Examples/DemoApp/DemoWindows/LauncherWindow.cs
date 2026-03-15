@@ -24,7 +24,8 @@ public static class LauncherWindow
                 .AddItem("File Explorer", subtitle: "Filesystem browser", content: MakeInfoPanel("File Explorer"))
                 .AddItem("Multi-Tab Demo", subtitle: "TabControl with multiple tabs", content: MakeInfoPanel("Multi-Tab Demo"))
                 .AddItem("WinUI Layout", subtitle: "WinUI-inspired settings layout", content: MakeInfoPanel("WinUI Layout"))
-                .AddItem("Horizontal Splitter", subtitle: "Drag-to-resize horizontal bars", content: MakeInfoPanel("Horizontal Splitter")))
+                .AddItem("Horizontal Splitter", subtitle: "Drag-to-resize horizontal bars", content: MakeInfoPanel("Horizontal Splitter"))
+                .AddItem("Status Bar", subtitle: "Clickable status bar with zones", content: MakeInfoPanel("Status Bar")))
             .AddHeader("Controls", Color.Green, header => header
                 .AddItem("Interactive Demo", subtitle: "Real-time key press handling", content: MakeInfoPanel("Interactive Demo"))
                 .AddItem("Dropdown", subtitle: "Cascading dropdowns", content: MakeInfoPanel("Dropdown"))
@@ -121,6 +122,7 @@ public static class LauncherWindow
             "Multi-Tab Demo" => TabDemoWindow.Create(ws),
             "WinUI Layout" => WinUIDemoWindow.Create(ws),
             "Horizontal Splitter" => HorizontalSplitterDemoWindow.Create(ws),
+            "Status Bar" => StatusBarDemoWindow.Create(ws),
             "Interactive Demo" => InteractiveWindow.Create(ws),
             "Dropdown" => DropdownWindow.Create(ws),
             "List View" => ListViewWindow.Create(ws),
@@ -241,6 +243,26 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - HorizontalSplitterControl",
                 "  - ScrollablePanelControl, HorizontalGridControl",
+            },
+            "Status Bar" => new List<string>
+            {
+                "[bold cyan]Status Bar[/]",
+                "",
+                "Dedicated StatusBarControl with left/center/right",
+                "alignment zones, clickable shortcut+label items,",
+                "separator items, and dynamic content updates.",
+                "",
+                "[dim]Features:[/]",
+                "  - Three alignment zones (left, center, right)",
+                "  - Shortcut key hints with accent color",
+                "  - Markup support for labels",
+                "  - Click handling with events",
+                "  - Dynamic add/remove/update items",
+                "  - BatchUpdate for bulk changes",
+                "",
+                "[dim]Controls used:[/]",
+                "  - StatusBarControl",
+                "  - ButtonControl, MarkupControl",
             },
             "Interactive Demo" => new List<string>
             {

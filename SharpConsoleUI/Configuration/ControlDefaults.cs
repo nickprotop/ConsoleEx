@@ -457,5 +457,27 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int HorizontalSplitterKeyboardJumpSize = 5;
 
+		// StatusBar defaults
+
+		/// <summary>
+		/// Default height for the status bar in rows (default: 1).
+		/// </summary>
+		public const int StatusBarDefaultHeight = 1;
+
+		/// <summary>
+		/// Default spacing between status bar items in characters (default: 2).
+		/// </summary>
+		public const int StatusBarItemSpacing = 2;
+
+		/// <summary>
+		/// Default separator character between status bar sections (default: "|").
+		/// </summary>
+		public const string StatusBarSeparatorChar = "|";
+
+		/// <summary>
+		/// Default separator between shortcut and label text (default: ":").
+		/// </summary>
+		public const string StatusBarShortcutLabelSeparator = ":";
+
 	}
 }

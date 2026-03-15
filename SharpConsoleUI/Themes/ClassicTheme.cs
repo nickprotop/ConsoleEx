@@ -472,5 +472,12 @@ namespace SharpConsoleUI.Themes
 		/// <inheritdoc/>
 		public Color? TimePickerDisabledForegroundColor { get; set; } = Color.Grey;
 
+		/// <inheritdoc/>
+		public Color? StatusBarBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? StatusBarForegroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? StatusBarShortcutForegroundColor { get; set; } = null;
+
 	}
 }

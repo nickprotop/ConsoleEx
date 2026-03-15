@@ -297,4 +297,11 @@ public class DevDarkTheme : ITheme
 	public Color? TimePickerSegmentForegroundColor { get; set; } = Color.White;
 	/// <inheritdoc/>
 	public Color? TimePickerDisabledForegroundColor { get; set; } = Color.Grey42;
+
+	/// <inheritdoc/>
+	public Color? StatusBarBackgroundColor { get; set; } = Color.Grey7;
+	/// <inheritdoc/>
+	public Color? StatusBarForegroundColor { get; set; } = Color.Grey58;
+	/// <inheritdoc/>
+	public Color? StatusBarShortcutForegroundColor { get; set; } = Color.Green;
 }

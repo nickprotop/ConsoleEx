@@ -327,6 +327,12 @@ public static class Controls
 	public static HorizontalSplitterBuilder HorizontalSplitter() => new HorizontalSplitterBuilder();
 
 	/// <summary>
+	/// Creates a new status bar builder.
+	/// </summary>
+	/// <returns>A new status bar builder.</returns>
+	public static StatusBarBuilder StatusBar() => new StatusBarBuilder();
+
+	/// <summary>
 	/// Creates a new time picker builder.
 	/// </summary>
 	/// <param name="prompt">Optional prompt text.</param>

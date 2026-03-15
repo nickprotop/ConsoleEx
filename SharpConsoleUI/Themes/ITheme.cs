@@ -517,4 +517,21 @@ public interface ITheme
     /// </summary>
     Color? TimePickerDisabledForegroundColor { get; }
 
+    // StatusBar theme colors
+
+    /// <summary>
+    /// Gets the background color for status bar controls. Null means inherit from container.
+    /// </summary>
+    Color? StatusBarBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for status bar controls. Null means inherit from container.
+    /// </summary>
+    Color? StatusBarForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the foreground color for shortcut key hints in status bar controls. Null means use Cyan1.
+    /// </summary>
+    Color? StatusBarShortcutForegroundColor { get; }
+
 }

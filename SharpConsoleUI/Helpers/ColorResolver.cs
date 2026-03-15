@@ -424,6 +424,33 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
+		/// Resolves status bar background color: explicit → theme → container bg → default.
+		/// </summary>
+		public static Color ResolveStatusBarBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
+		{
+			if (defaultColor == default) defaultColor = Color.Black;
+			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.StatusBarBackgroundColor ?? container?.BackgroundColor ?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves status bar foreground color: explicit → theme → container fg → default.
+		/// </summary>
+		public static Color ResolveStatusBarForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
+		{
+			if (defaultColor == default) defaultColor = Color.White;
+			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.StatusBarForegroundColor ?? container?.ForegroundColor ?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves status bar shortcut foreground color: explicit → theme → Cyan1.
+		/// </summary>
+		public static Color ResolveStatusBarShortcutForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
+		{
+			if (defaultColor == default) defaultColor = Color.Cyan1;
+			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.StatusBarShortcutForegroundColor ?? defaultColor;
+		}
+
+		/// <summary>
 		/// Resolves tab content border color: explicit → theme → active border → default.
 		/// </summary>
 		public static Color ResolveTabContentBorder(
