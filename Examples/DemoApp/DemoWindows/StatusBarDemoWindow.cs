@@ -62,7 +62,10 @@ public static class StatusBarDemoWindow
             .WithSpacing(1)
             .WithWrap()
             .WithBackgroundColor(Color.Grey11)
-            .WithMargin(1, 1, 1, 0)
+            .WithAboveLine()
+            .WithBelowLine()
+            .WithContentPadding(1, 0, 1, 0)
+            .WithMargin(0, 1, 0, 0)
             .Build();
 
         buttonToolbar.AddItem(addItemBtn);

@@ -21,6 +21,7 @@ public static class ToolbarDemoWindow
             .AddButton("Save", (_, btn) => log.SetContent(new List<string> { "[green]Save[/] clicked" }))
             .WithSpacing(1)
             .WithBackgroundColor(Color.Grey11)
+            .WithBelowLine()
             .StickyTop()
             .Build();
 
@@ -40,12 +41,17 @@ public static class ToolbarDemoWindow
                 .OnClick((_, btn) => log.SetContent(new List<string> { "[cyan]Debug[/] triggered" })))
             .WithSpacing(1)
             .WithBackgroundColor(Color.Grey15)
+            .WithAboveLine()
+            .WithBelowLine()
+            .WithContentPadding(1, 0, 1, 0)
             .Build();
 
         // Mixed toolbar: bordered button + plain controls with vertical centering
         var mixedToolbar = Controls.Toolbar()
             .WithSpacing(1)
             .WithBackgroundColor(Color.Grey19)
+            .WithAboveLine()
+            .WithBelowLine()
             .Build();
 
         var mixedBorderedBtn = Controls.Button()

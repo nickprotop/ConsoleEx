@@ -465,6 +465,11 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int DefaultToolbarRowHeight = 1;
 
+		/// <summary>
+		/// Character used for toolbar separator lines (horizontal box drawing: ─).
+		/// </summary>
+		public const char ToolbarLineCharacter = '\u2500';
+
 		// StatusBar defaults
 
 		/// <summary>

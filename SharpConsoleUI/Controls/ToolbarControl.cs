@@ -37,6 +37,11 @@ namespace SharpConsoleUI.Controls
 		private readonly object _toolbarLock = new();
 		private int _itemSpacing = 0;
 		private bool _wrap;
+		private bool _showAboveLine;
+		private bool _showBelowLine;
+		private Color? _aboveLineColor;
+		private Color? _belowLineColor;
+		private Padding _contentPadding = new Padding(0, 0, 0, 0);
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ToolbarControl"/> class.
@@ -204,6 +209,51 @@ namespace SharpConsoleUI.Controls
 			set => SetProperty(ref _wrap, value);
 		}
 
+		/// <summary>
+		/// When true, renders a horizontal line above the toolbar content. Default false.
+		/// </summary>
+		public bool ShowAboveLine
+		{
+			get => _showAboveLine;
+			set => SetProperty(ref _showAboveLine, value);
+		}
+
+		/// <summary>
+		/// When true, renders a horizontal line below the toolbar content. Default false.
+		/// </summary>
+		public bool ShowBelowLine
+		{
+			get => _showBelowLine;
+			set => SetProperty(ref _showBelowLine, value);
+		}
+
+		/// <summary>
+		/// Color of the above line. Null uses the foreground color.
+		/// </summary>
+		public Color? AboveLineColor
+		{
+			get => _aboveLineColor;
+			set => SetProperty(ref _aboveLineColor, value);
+		}
+
+		/// <summary>
+		/// Color of the below line. Null uses the foreground color.
+		/// </summary>
+		public Color? BelowLineColor
+		{
+			get => _belowLineColor;
+			set => SetProperty(ref _belowLineColor, value);
+		}
+
+		/// <summary>
+		/// Inner padding between toolbar edge and items.
+		/// </summary>
+		public Padding ContentPadding
+		{
+			get => _contentPadding;
+			set => SetProperty(ref _contentPadding, value);
+		}
+
 		/// <inheritdoc/>
 		public event EventHandler? GotFocus;
 
@@ -342,7 +392,8 @@ namespace SharpConsoleUI.Controls
 				return _height.Value;
 
 			// Auto-height: find the row height for this control's row
-			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
+			int contentWidth = ActualWidth - Margin.Left - Margin.Right
+				- _contentPadding.Left - _contentPadding.Right;
 			if (contentWidth <= 0)
 				return ControlDefaults.DefaultToolbarRowHeight;
 
@@ -484,20 +535,27 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int availableContentWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
+			int availableContentWidth = constraints.MaxWidth - Margin.Left - Margin.Right
+				- _contentPadding.Left - _contentPadding.Right;
 
 			var layout = ComputeRowLayout(availableContentWidth, _height, out _, out int[] rowHeights);
 
-			// Total width is the widest row extent plus margins
+			// Total width is the widest row extent plus margins and content padding
 			int maxRowRight = 0;
 			foreach (var item in layout)
 			{
 				int right = item.X + item.Width;
 				if (right > maxRowRight) maxRowRight = right;
 			}
-			int totalWidth = maxRowRight + Margin.Left + Margin.Right;
+			int totalWidth = maxRowRight + Margin.Left + Margin.Right
+				+ _contentPadding.Left + _contentPadding.Right;
 
-			int totalHeight = rowHeights.Sum() + Margin.Top + Margin.Bottom;
+			int aboveLineHeight = _showAboveLine ? 1 : 0;
+			int belowLineHeight = _showBelowLine ? 1 : 0;
+			int totalHeight = rowHeights.Sum()
+				+ aboveLineHeight + belowLineHeight
+				+ _contentPadding.Top + _contentPadding.Bottom
+				+ Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(totalWidth, constraints.MinWidth, constraints.MaxWidth),
@@ -523,52 +581,79 @@ namespace SharpConsoleUI.Controls
 				?? Container?.ForegroundColor
 				?? defaultFg;
 
-			// Fill toolbar background
-			int contentX = bounds.X + Margin.Left;
-			int contentY = bounds.Y + Margin.Top;
-			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
-			int contentHeight = bounds.Height - Margin.Top - Margin.Bottom;
+			// Compute content area with padding and line offsets
+			int aboveLineHeight = _showAboveLine ? 1 : 0;
+			int belowLineHeight = _showBelowLine ? 1 : 0;
+			int outerX = bounds.X + Margin.Left;
+			int outerWidth = bounds.Width - Margin.Left - Margin.Right;
+			int outerY = bounds.Y + Margin.Top;
+			int outerHeight = bounds.Height - Margin.Top - Margin.Bottom;
+
+			int itemsX = outerX + _contentPadding.Left;
+			int itemsY = outerY + aboveLineHeight + _contentPadding.Top;
+			int itemsWidth = outerWidth - _contentPadding.Left - _contentPadding.Right;
 
 			// Fill margins with container background
 			Color containerBg = Container?.BackgroundColor ?? defaultBg;
 			bool preserveBg = Container?.HasGradientBackground ?? false;
 
 			// Top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, contentY, fgColor, containerBg, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, outerY, fgColor, containerBg, preserveBg);
 
-			// Content area
-			for (int y = contentY; y < contentY + contentHeight && y < bounds.Bottom; y++)
+			// Fill entire outer content area with toolbar background (includes lines and padding)
+			for (int y = outerY; y < outerY + outerHeight && y < bounds.Bottom; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					// Left margin
 					if (Margin.Left > 0)
 						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, containerBg, preserveBg);
 
-					// Toolbar background
-					buffer.FillRect(new LayoutRect(contentX, y, contentWidth, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(outerX, y, outerWidth, 1), ' ', fgColor, bgColor);
 
-					// Right margin
 					if (Margin.Right > 0)
 						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, containerBg, preserveBg);
 				}
 			}
 
+			// Render above line
+			if (_showAboveLine)
+			{
+				int lineY = outerY;
+				if (lineY >= clipRect.Y && lineY < clipRect.Bottom)
+				{
+					Color lineColor = _aboveLineColor ?? fgColor;
+					buffer.FillRect(new LayoutRect(outerX, lineY, outerWidth, 1),
+						ControlDefaults.ToolbarLineCharacter, lineColor, bgColor);
+				}
+			}
+
+			// Render below line
+			if (_showBelowLine)
+			{
+				int lineY = outerY + outerHeight - belowLineHeight;
+				if (lineY >= clipRect.Y && lineY < clipRect.Bottom)
+				{
+					Color lineColor = _belowLineColor ?? fgColor;
+					buffer.FillRect(new LayoutRect(outerX, lineY, outerWidth, 1),
+						ControlDefaults.ToolbarLineCharacter, lineColor, bgColor);
+				}
+			}
+
 			// Bottom margin
-			for (int y = contentY + contentHeight; y < bounds.Bottom; y++)
+			for (int y = outerY + outerHeight; y < bounds.Bottom; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, containerBg, preserveBg);
 			}
 
 			// Paint items using shared layout computation
-			var layoutEntries = ComputeRowLayout(contentWidth, _height, out _, out _);
+			var layoutEntries = ComputeRowLayout(itemsWidth, _height, out _, out _);
 
 			foreach (var entry in layoutEntries)
 			{
 				if (entry.Item is IDOMPaintable paintable)
 				{
-					var itemBounds = new LayoutRect(contentX + entry.X, contentY + entry.Y, entry.Width, entry.Height);
+					var itemBounds = new LayoutRect(itemsX + entry.X, itemsY + entry.Y, entry.Width, entry.Height);
 					var itemClip = itemBounds.Intersect(clipRect);
 
 					if (itemClip.Width > 0 && itemClip.Height > 0)
@@ -621,16 +706,16 @@ namespace SharpConsoleUI.Controls
 			if (childPosition == null)
 				return null;
 
-			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
-			var layout = ComputeRowLayout(contentWidth, _height, out _, out _);
+			var (cx, cy, cw) = GetEffectiveContentArea();
+			var layout = ComputeRowLayout(cw, _height, out _, out _);
 
 			foreach (var entry in layout)
 			{
 				if (entry.Item == _focusedItem)
 				{
 					return new Point(
-						Margin.Left + entry.X + childPosition.Value.X,
-						Margin.Top + entry.Y + childPosition.Value.Y);
+						cx + entry.X + childPosition.Value.X,
+						cy + entry.Y + childPosition.Value.Y);
 				}
 			}
 
@@ -650,6 +735,19 @@ namespace SharpConsoleUI.Controls
 		#endregion
 
 		#region Private Methods
+
+		/// <summary>
+		/// Computes the effective content area accounting for margins, content padding, and separator lines.
+		/// </summary>
+		private (int contentX, int contentY, int contentWidth) GetEffectiveContentArea()
+		{
+			int aboveH = _showAboveLine ? 1 : 0;
+			return (
+				Margin.Left + _contentPadding.Left,
+				Margin.Top + aboveH + _contentPadding.Top,
+				ActualWidth - Margin.Left - Margin.Right - _contentPadding.Left - _contentPadding.Right
+			);
+		}
 
 		/// <summary>
 		/// Describes the position and size of a single item in the toolbar layout.
@@ -813,13 +911,13 @@ namespace SharpConsoleUI.Controls
 
 		private (IWindowControl? Item, LayoutRect Bounds) GetItemAtPosition(Point position)
 		{
-			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
-			var layout = ComputeRowLayout(contentWidth, _height, out _, out _);
+			var (cx, cy, cw) = GetEffectiveContentArea();
+			var layout = ComputeRowLayout(cw, _height, out _, out _);
 
 			foreach (var entry in layout)
 			{
-				int itemX = Margin.Left + entry.X;
-				int itemY = Margin.Top + entry.Y;
+				int itemX = cx + entry.X;
+				int itemY = cy + entry.Y;
 
 				if (position.X >= itemX && position.X < itemX + entry.Width &&
 					position.Y >= itemY && position.Y < itemY + entry.Height)
@@ -873,7 +971,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (_focusedItem == null) return false;
 
-			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
+			var (_, _, contentWidth) = GetEffectiveContentArea();
 			if (contentWidth <= 0) return false;  // not yet laid out
 			var layout = ComputeRowLayout(contentWidth, _height, out int rowCount, out _);
 

@@ -33,6 +33,11 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 	private bool _wrap;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
+	private bool _showAboveLine;
+	private bool _showBelowLine;
+	private Color? _aboveLineColor;
+	private Color? _belowLineColor;
+	private Padding? _contentPadding;
 	private EventHandler? _gotFocusHandler;
 	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
 	private EventHandler? _lostFocusHandler;
@@ -316,6 +321,71 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 	}
 
 	/// <summary>
+	/// Enables or disables the horizontal line above the toolbar content.
+	/// </summary>
+	public ToolbarBuilder WithAboveLine(bool show = true)
+	{
+		_showAboveLine = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables or disables the horizontal line below the toolbar content.
+	/// </summary>
+	public ToolbarBuilder WithBelowLine(bool show = true)
+	{
+		_showBelowLine = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the color of the above line. Also enables the above line.
+	/// </summary>
+	public ToolbarBuilder WithAboveLineColor(Color color)
+	{
+		_showAboveLine = true;
+		_aboveLineColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the color of the below line. Also enables the below line.
+	/// </summary>
+	public ToolbarBuilder WithBelowLineColor(Color color)
+	{
+		_showBelowLine = true;
+		_belowLineColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the inner content padding between toolbar edge and items.
+	/// </summary>
+	public ToolbarBuilder WithContentPadding(int left, int top, int right, int bottom)
+	{
+		_contentPadding = new Padding(left, top, right, bottom);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the inner content padding with horizontal and vertical values.
+	/// </summary>
+	public ToolbarBuilder WithContentPadding(int horizontal, int vertical)
+	{
+		_contentPadding = new Padding(horizontal, vertical);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets uniform inner content padding on all sides.
+	/// </summary>
+	public ToolbarBuilder WithContentPadding(int all)
+	{
+		_contentPadding = new Padding(all);
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the GotFocus event handler
 	/// </summary>
 	/// <param name="handler">The event handler to invoke when the toolbar receives focus</param>
@@ -377,8 +447,15 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 			Visible = _visible,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			ShowAboveLine = _showAboveLine,
+			ShowBelowLine = _showBelowLine,
+			AboveLineColor = _aboveLineColor,
+			BelowLineColor = _belowLineColor
 		};
+
+		if (_contentPadding.HasValue)
+			toolbar.ContentPadding = _contentPadding.Value;
 
 		// Only set colors if explicitly specified (null = inherit)
 		if (_backgroundColor.HasValue)

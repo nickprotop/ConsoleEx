@@ -192,4 +192,91 @@ public class ToolbarMultiHeightTests
 
 		Assert.Equal(3, size.Height);
 	}
+
+	[Fact]
+	public void MeasureDOM_WithAboveLine_AddsOneRow()
+	{
+		var toolbar = ToolbarControl.Create()
+			.AddButton("A", (_, _) => { })
+			.WithAboveLine()
+			.Build();
+
+		var size = toolbar.MeasureDOM(new LayoutConstraints(0, 80, 0, 10));
+
+		// 1 (item row) + 1 (above line) = 2
+		Assert.Equal(2, size.Height);
+	}
+
+	[Fact]
+	public void MeasureDOM_WithBelowLine_AddsOneRow()
+	{
+		var toolbar = ToolbarControl.Create()
+			.AddButton("A", (_, _) => { })
+			.WithBelowLine()
+			.Build();
+
+		var size = toolbar.MeasureDOM(new LayoutConstraints(0, 80, 0, 10));
+
+		// 1 (item row) + 1 (below line) = 2
+		Assert.Equal(2, size.Height);
+	}
+
+	[Fact]
+	public void MeasureDOM_WithBothLines_AddsTwoRows()
+	{
+		var toolbar = ToolbarControl.Create()
+			.AddButton("A", (_, _) => { })
+			.WithAboveLine()
+			.WithBelowLine()
+			.Build();
+
+		var size = toolbar.MeasureDOM(new LayoutConstraints(0, 80, 0, 10));
+
+		// 1 (item row) + 1 (above) + 1 (below) = 3
+		Assert.Equal(3, size.Height);
+	}
+
+	[Fact]
+	public void MeasureDOM_WithContentPadding_AddsToHeight()
+	{
+		var toolbar = ToolbarControl.Create()
+			.AddButton("A", (_, _) => { })
+			.WithContentPadding(0, 2, 0, 2)
+			.Build();
+
+		var size = toolbar.MeasureDOM(new LayoutConstraints(0, 80, 0, 10));
+
+		// 1 (item row) + 2 (top padding) + 2 (bottom padding) = 5
+		Assert.Equal(5, size.Height);
+	}
+
+	[Fact]
+	public void MeasureDOM_WithBothLinesAndPadding_CombinesCorrectly()
+	{
+		var toolbar = ToolbarControl.Create()
+			.AddButton("A", (_, _) => { })
+			.WithAboveLine()
+			.WithBelowLine()
+			.WithContentPadding(0, 1, 0, 1)
+			.Build();
+
+		var size = toolbar.MeasureDOM(new LayoutConstraints(0, 80, 0, 10));
+
+		// 1 (item) + 1 (above) + 1 (below) + 1 (top pad) + 1 (bottom pad) = 5
+		Assert.Equal(5, size.Height);
+	}
+
+	[Fact]
+	public void DefaultShowAboveLine_IsFalse()
+	{
+		var toolbar = new ToolbarControl();
+		Assert.False(toolbar.ShowAboveLine);
+	}
+
+	[Fact]
+	public void DefaultShowBelowLine_IsFalse()
+	{
+		var toolbar = new ToolbarControl();
+		Assert.False(toolbar.ShowBelowLine);
+	}
 }
