@@ -8,7 +8,7 @@ internal static class GraphsWindow
 {
     private const int UpdateIntervalMs = 500;
     private const int WindowWidth = 90;
-    private const int WindowHeight = 30;
+    private const int WindowHeight = 38;
     private const int SparklineHeight = 5;
     private const int BarGraphWidth = 50;
     private const int BarLabelWidth = 10;
@@ -44,6 +44,31 @@ internal static class GraphsWindow
             .WithGradient(Color.DodgerBlue1, Color.Cyan1, Color.Green)
             .WithBaseline()
             .WithName("netSpark")
+            .Build();
+
+        var lineGraphBraille = Controls.LineGraph()
+            .WithTitle("Response Time (Braille)")
+            .WithTitle("Response Time (Braille)", Color.Yellow)
+            .WithMode(LineGraphMode.Braille)
+            .WithHeight(SparklineHeight)
+            .WithMaxValue(MaxCpuValue)
+            .AddSeries("latency", Color.Cyan1, "cool")
+            .WithYAxisLabels()
+            .WithBaseline()
+            .WithName("lineGraphBraille")
+            .Stretch()
+            .Build();
+
+        var lineGraphAscii = Controls.LineGraph()
+            .WithTitle("Throughput (ASCII)", Color.Yellow)
+            .WithMode(LineGraphMode.Ascii)
+            .WithHeight(SparklineHeight)
+            .WithMaxValue(MaxNetworkValue)
+            .AddSeries("throughput", Color.Green)
+            .WithYAxisLabels()
+            .WithBaseline()
+            .WithName("lineGraphAscii")
+            .Stretch()
             .Build();
 
         var separator = Controls.Separator();
@@ -125,6 +150,8 @@ internal static class GraphsWindow
                 header,
                 cpuSparkline,
                 networkSparkline,
+                lineGraphBraille,
+                lineGraphAscii,
                 separator,
                 barWeb, barApi, barDatabase, barCache,
                 separator,
@@ -149,6 +176,12 @@ internal static class GraphsWindow
 
                     var net = window.FindControl<SparklineControl>("netSpark");
                     net?.AddDataPoint(netBase);
+
+                    var lineBraille = window.FindControl<LineGraphControl>("lineGraphBraille");
+                    lineBraille?.AddDataPoint("latency", cpuBase * 0.8 + random.Next(-5, 6));
+
+                    var lineAscii = window.FindControl<LineGraphControl>("lineGraphAscii");
+                    lineAscii?.AddDataPoint("throughput", netBase * 0.6 + random.Next(-3, 4));
 
                     var cpuProg = window.FindControl<ProgressBarControl>("cpuProg");
                     if (cpuProg != null)

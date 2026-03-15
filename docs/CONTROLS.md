@@ -64,6 +64,7 @@ Controls for displaying formatted content.
 | **PanelControl** | Bordered content panel | Headers, multiple border styles, padding, mouse support |
 | **RuleControl** | Horizontal rule/separator | Optional title, colors, horizontal line |
 | **SparklineControl** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
+| **[LineGraphControl](controls/LineGraphControl.md)** | Multi-series line graph | Braille and ASCII rendering modes, gradients, Y-axis labels, live updates |
 | **BarGraphControl** | Horizontal bar graph | Gradient color thresholds, labels, value display |
 
 ## Drawing Controls

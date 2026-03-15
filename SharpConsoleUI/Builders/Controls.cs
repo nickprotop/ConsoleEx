@@ -246,6 +246,12 @@ public static class Controls
 	public static BarGraphBuilder BarGraph() => new BarGraphBuilder();
 
 	/// <summary>
+	/// Creates a new line graph builder
+	/// </summary>
+	/// <returns>A new line graph builder</returns>
+	public static LineGraphBuilder LineGraph() => new LineGraphBuilder();
+
+	/// <summary>
 	/// Creates a new progress bar builder
 	/// </summary>
 	/// <returns>A new progress bar builder</returns>

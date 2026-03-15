@@ -447,6 +447,7 @@ These examples demonstrate specific features without full screenshots.
 | `TableControl` | DemoApp, TableDemo |
 | `PanelControl` | StartMenuDemo, PanelDemo, HighFreqDemo |
 | `SparklineControl` | ConsoleTopExample, HighFreqDemo, NavigationViewDemo |
+| `LineGraphControl` | DemoApp |
 | `BarGraphControl` | HighFreqDemo, NavigationViewDemo |
 | `NavigationView` | DemoApp, NavigationViewDemo |
 | `ProgressBarControl` | DemoApp, NavigationViewDemo |
