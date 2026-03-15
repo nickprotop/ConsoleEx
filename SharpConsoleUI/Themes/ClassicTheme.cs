@@ -479,5 +479,14 @@ namespace SharpConsoleUI.Themes
 		/// <inheritdoc/>
 		public Color? StatusBarShortcutForegroundColor { get; set; } = null;
 
+		/// <inheritdoc/>
+		public Color? SliderTrackColor { get; set; } = Color.Grey35;
+		/// <inheritdoc/>
+		public Color? SliderFilledTrackColor { get; set; } = Color.Cyan1;
+		/// <inheritdoc/>
+		public Color? SliderThumbColor { get; set; } = Color.White;
+		/// <inheritdoc/>
+		public Color? SliderFocusedThumbColor { get; set; } = Color.Yellow;
+
 	}
 }

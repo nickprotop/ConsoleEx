@@ -23,6 +23,11 @@ namespace SharpConsoleUI.Controls
 
 			if (!_hasFocus || !_isEnabled) return false;
 
+			// Save focused child before delegation — ProcessKey on containers like
+			// HorizontalGrid may trigger notification chains that clear _focusedChild
+			// when the last internal control is unfocused during Tab exit.
+			var focusedChildBeforeDelegate = _focusedChild;
+
 			// FIRST: Delegate to focused child if we have one
 			if (_focusedChild != null && _focusedChild.ProcessKey(key))
 			{
@@ -71,13 +76,16 @@ namespace SharpConsoleUI.Controls
 				List<IWindowControl> childrenSnapshot;
 				lock (_childrenLock) { childrenSnapshot = new List<IWindowControl>(_children); }
 				var focusableChildren = childrenSnapshot
-					.Where(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus)
+					.Where(c => c.Visible && c is IInteractiveControl && CanChildReceiveFocus(c))
 					.Cast<IInteractiveControl>()
 					.ToList();
 
 				if (focusableChildren.Count > 0)
 				{
-					int currentIndex = _focusedChild != null ? focusableChildren.IndexOf(_focusedChild) : -1;
+					// Use saved reference — _focusedChild may have been cleared by
+					// notification chains during the ProcessKey delegation above
+					var effectiveFocused = _focusedChild ?? focusedChildBeforeDelegate;
+					int currentIndex = effectiveFocused != null ? focusableChildren.IndexOf(effectiveFocused) : -1;
 
 					int newIndex;
 					if (shiftPressed)
@@ -101,7 +109,9 @@ namespace SharpConsoleUI.Controls
 
 					// Focus new
 					_focusedChild = focusableChildren[newIndex];
-					if (_focusedChild is IFocusableControl newFc)
+					if (_focusedChild is IDirectionalFocusControl directional)
+						directional.SetFocusWithDirection(true, shiftPressed);
+					else if (_focusedChild is IFocusableControl newFc)
 						newFc.SetFocus(true, FocusReason.Keyboard);
 
 					// Scroll newly focused child into view
@@ -188,6 +198,30 @@ namespace SharpConsoleUI.Controls
 			return false;
 		}
 
+		/// <summary>
+		/// Determines if a child control can receive focus, either directly
+		/// or because it's a container with focusable descendants (e.g. HorizontalGrid).
+		/// </summary>
+		private static bool CanChildReceiveFocus(IWindowControl child)
+		{
+			// Direct focusable control
+			if (child is IFocusableControl fc && fc.CanReceiveFocus)
+				return true;
+
+			// Container with focusable descendants (e.g. HorizontalGrid with CanReceiveFocus=false
+			// but containing focusable controls in its columns)
+			if (child is IContainerControl container)
+			{
+				foreach (var nested in container.GetChildren())
+				{
+					if (CanChildReceiveFocus(nested))
+						return true;
+				}
+			}
+
+			return false;
+		}
+
 		#endregion
 
 		#region IFocusableControl Implementation
@@ -237,7 +271,7 @@ namespace SharpConsoleUI.Controls
 				List<IWindowControl> childrenSnap;
 				lock (_childrenLock) { childrenSnap = new List<IWindowControl>(_children); }
 				var focusableChildren = childrenSnap
-					.Where(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus)
+					.Where(c => c.Visible && c is IInteractiveControl && CanChildReceiveFocus(c))
 					.ToList();
 
 				if (focusableChildren.Any())

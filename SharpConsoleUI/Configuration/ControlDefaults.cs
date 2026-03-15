@@ -524,5 +524,102 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const string StatusBarShortcutLabelSeparator = ":";
 
+		// Slider defaults
+
+		/// <summary>
+		/// Default minimum value for slider controls (default: 0.0).
+		/// </summary>
+		public const double SliderDefaultMinValue = 0.0;
+
+		/// <summary>
+		/// Default maximum value for slider controls (default: 100.0).
+		/// </summary>
+		public const double SliderDefaultMaxValue = 100.0;
+
+		/// <summary>
+		/// Default step increment for slider controls (default: 1.0).
+		/// </summary>
+		public const double SliderDefaultStep = 1.0;
+
+		/// <summary>
+		/// Default large step increment for Page Up/Down and Shift+Arrow (default: 10.0).
+		/// </summary>
+		public const double SliderDefaultLargeStep = 10.0;
+
+		/// <summary>
+		/// Minimum allowed step value to prevent zero-step sliders (default: 0.001).
+		/// </summary>
+		public const double SliderMinStep = 0.001;
+
+		/// <summary>
+		/// Default minimum range gap between low and high thumbs on a RangeSlider (default: 0.0).
+		/// </summary>
+		public const double RangeSliderDefaultMinRange = 0.0;
+
+		/// <summary>
+		/// Minimum track length in characters for slider controls (default: 3).
+		/// </summary>
+		public const int SliderMinTrackLength = 3;
+
+		/// <summary>
+		/// Hit radius in characters around a thumb for mouse click detection (default: 1).
+		/// </summary>
+		public const int SliderThumbHitRadius = 1;
+
+		/// <summary>
+		/// Character used for the slider thumb indicator (U+25CF: ●).
+		/// </summary>
+		public const char SliderThumbChar = '\u25CF';
+
+		/// <summary>
+		/// Character used for the filled portion of a horizontal slider track (U+2501: ━).
+		/// </summary>
+		public const char SliderFilledTrackChar = '\u2501';
+
+		/// <summary>
+		/// Character used for the unfilled portion of a horizontal slider track (U+2500: ─).
+		/// </summary>
+		public const char SliderUnfilledTrackChar = '\u2500';
+
+		/// <summary>
+		/// Character used for unfilled portion of a vertical slider track (U+2502: │).
+		/// </summary>
+		public const char SliderVerticalTrackChar = '\u2502';
+
+		/// <summary>
+		/// Character used for filled portion of a vertical slider track (U+2503: ┃).
+		/// </summary>
+		public const char SliderVerticalFilledTrackChar = '\u2503';
+
+		/// <summary>
+		/// Default format string for the slider value label (default: "F0").
+		/// </summary>
+		public const string SliderDefaultValueFormat = "F0";
+
+		/// <summary>
+		/// Spacing in characters between the track and value/min/max labels (default: 1).
+		/// </summary>
+		public const int SliderLabelSpacing = 1;
+
+		/// <summary>
+		/// Left end-cap character for horizontal slider tracks (U+2502: │).
+		/// </summary>
+		public const char SliderHorizontalLeftCap = '\u2502';
+
+		/// <summary>
+		/// Right end-cap character for horizontal slider tracks (U+2502: │).
+		/// </summary>
+		public const char SliderHorizontalRightCap = '\u2502';
+
+		/// <summary>
+		/// Top end-cap character for vertical slider tracks (U+2500: ─).
+		/// </summary>
+		public const char SliderVerticalTopCap = '\u2500';
+
+		/// <summary>
+		/// Bottom end-cap character for vertical slider tracks (U+2500: ─).
+		/// </summary>
+		public const char SliderVerticalBottomCap = '\u2500';
+
 	}
 }

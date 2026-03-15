@@ -140,11 +140,17 @@ namespace SharpConsoleUI.Controls
 		{
 			if (hasFocus)
 			{
-				if (_focusedChild != null && _focusedChild != child && _focusedChild is IFocusableControl oldFc)
+				// The notification may come from a deeply nested control (e.g. a button
+				// inside a ColumnContainer inside a HorizontalGrid). We need to find the
+				// direct child of this panel that contains the notifying control, so that
+				// _focusedChild always points to a direct child for Tab navigation.
+				var directChild = FindDirectChildContaining(child) ?? child;
+
+				if (_focusedChild != null && _focusedChild != directChild && _focusedChild is IFocusableControl oldFc)
 					oldFc.HasFocus = false;
 
-				_focusedChild = child;
-				_lastInternalFocusedChild = child;
+				_focusedChild = directChild;
+				_lastInternalFocusedChild = directChild;
 
 				if (!_hasFocus)
 				{
@@ -158,6 +164,47 @@ namespace SharpConsoleUI.Controls
 			}
 
 			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Finds the direct child of this panel that contains the given control.
+		/// Returns the control itself if it IS a direct child, or null if not found.
+		/// </summary>
+		private IInteractiveControl? FindDirectChildContaining(IInteractiveControl control)
+		{
+			List<IWindowControl> snapshot;
+			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
+
+			// Check if it's a direct child
+			if (control is IWindowControl wc && snapshot.Contains(wc))
+				return control;
+
+			// Check if any direct child contains this control
+			foreach (var child in snapshot)
+			{
+				if (child is IContainerControl container && ContainsControl(container, control))
+				{
+					if (child is IInteractiveControl interactive)
+						return interactive;
+				}
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Recursively checks if a container contains the given control.
+		/// </summary>
+		private static bool ContainsControl(IContainerControl container, IInteractiveControl control)
+		{
+			foreach (var child in container.GetChildren())
+			{
+				if (child == control as IWindowControl)
+					return true;
+				if (child is IContainerControl nested && ContainsControl(nested, control))
+					return true;
+			}
+			return false;
 		}
 
 		#endregion

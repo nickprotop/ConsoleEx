@@ -333,9 +333,13 @@ namespace SharpConsoleUI.Controls
 				: Math.Min(targetWidth, contentBasedWidth);
 			int height = totalLines + Margin.Top + Margin.Bottom;
 
+			// Guard against invalid constraints (e.g. when container is resized very small)
+			int clampedMinW = Math.Min(constraints.MinWidth, constraints.MaxWidth);
+			int clampedMinH = Math.Min(constraints.MinHeight, constraints.MaxHeight);
+
 			return new LayoutSize(
-				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
-				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+				Math.Clamp(width, clampedMinW, constraints.MaxWidth),
+				Math.Clamp(height, clampedMinH, constraints.MaxHeight)
 			);
 		}
 

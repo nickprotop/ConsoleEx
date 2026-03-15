@@ -363,4 +363,16 @@ public static class Controls
 			builder.WithPrompt(prompt);
 		return builder;
 	}
+
+	/// <summary>
+	/// Creates a new slider builder.
+	/// </summary>
+	/// <returns>A new slider builder.</returns>
+	public static SliderBuilder Slider() => new SliderBuilder();
+
+	/// <summary>
+	/// Creates a new range slider builder.
+	/// </summary>
+	/// <returns>A new range slider builder.</returns>
+	public static RangeSliderBuilder RangeSlider() => new RangeSliderBuilder();
 }

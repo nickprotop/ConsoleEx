@@ -850,4 +850,445 @@ public class FocusNavigationTests
 	}
 
 	#endregion
+
+	#region HorizontalGrid Inside ScrollablePanel Tests
+
+	/// <summary>
+	/// Core scenario: HorizontalGrid with interactive controls inside a ScrollablePanel.
+	/// Tab must enter the grid, traverse its children, and exit to the next control.
+	/// </summary>
+	[Fact]
+	public void Tab_ScrollablePanel_GridWithButtons_TraversesAll()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+
+		var panel = new ScrollablePanelControl();
+
+		var buttonBefore = new ButtonControl { Text = "Before" };
+
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+		var gridButton1 = new ButtonControl { Text = "Grid-Col1" };
+		var gridButton2 = new ButtonControl { Text = "Grid-Col2" };
+		col1.AddContent(gridButton1);
+		col2.AddContent(gridButton2);
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+
+		var buttonAfter = new ButtonControl { Text = "After" };
+
+		panel.AddControl(buttonBefore);
+		panel.AddControl(grid);
+		panel.AddControl(buttonAfter);
+
+		window.AddControl(panel);
+		system.WindowStateService.AddWindow(window);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Focus reaches panel, panel delegates to first child (buttonBefore)
+		window.SwitchFocus(backward: false);
+		Assert.True(panel.HasFocus, "Panel should be focused");
+		Assert.True(buttonBefore.HasFocus, "buttonBefore should be focused first");
+
+		// Tab: buttonBefore → grid (enters grid, focuses gridButton1)
+		panel.ProcessKey(tabKey);
+		Assert.True(gridButton1.HasFocus, "gridButton1 should be focused after Tab from buttonBefore");
+
+		// Tab: gridButton1 → gridButton2 (grid handles internal Tab)
+		panel.ProcessKey(tabKey);
+		Assert.True(gridButton2.HasFocus, "gridButton2 should be focused after Tab from gridButton1");
+
+		// Tab: gridButton2 → buttonAfter (grid exits, panel moves to next child)
+		panel.ProcessKey(tabKey);
+		Assert.True(buttonAfter.HasFocus, "buttonAfter should be focused after Tab exits grid");
+		Assert.False(gridButton1.HasFocus, "gridButton1 should not have focus");
+		Assert.False(gridButton2.HasFocus, "gridButton2 should not have focus");
+	}
+
+	/// <summary>
+	/// Shift+Tab must traverse backward through grid inside ScrollablePanel.
+	/// </summary>
+	[Fact]
+	public void ShiftTab_ScrollablePanel_GridWithButtons_TraversesBackward()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+
+		var panel = new ScrollablePanelControl();
+
+		var buttonBefore = new ButtonControl { Text = "Before" };
+
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+		var gridButton1 = new ButtonControl { Text = "Grid-Col1" };
+		var gridButton2 = new ButtonControl { Text = "Grid-Col2" };
+		col1.AddContent(gridButton1);
+		col2.AddContent(gridButton2);
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+
+		var buttonAfter = new ButtonControl { Text = "After" };
+
+		panel.AddControl(buttonBefore);
+		panel.AddControl(grid);
+		panel.AddControl(buttonAfter);
+
+		window.AddControl(panel);
+		system.WindowStateService.AddWindow(window);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		var shiftTabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, false);
+
+		// Navigate forward to buttonAfter first
+		window.SwitchFocus(backward: false);
+		Assert.True(buttonBefore.HasFocus);
+		panel.ProcessKey(tabKey); // → gridButton1
+		panel.ProcessKey(tabKey); // → gridButton2
+		panel.ProcessKey(tabKey); // → buttonAfter
+		Assert.True(buttonAfter.HasFocus, "Should be on buttonAfter");
+
+		// Shift+Tab: buttonAfter → grid (enters grid backward, focuses gridButton2)
+		panel.ProcessKey(shiftTabKey);
+		Assert.True(gridButton2.HasFocus, "Shift+Tab should enter grid at last child (gridButton2)");
+
+		// Shift+Tab: gridButton2 → gridButton1
+		panel.ProcessKey(shiftTabKey);
+		Assert.True(gridButton1.HasFocus, "Shift+Tab should move to gridButton1");
+
+		// Shift+Tab: gridButton1 → buttonBefore (exits grid backward)
+		panel.ProcessKey(shiftTabKey);
+		Assert.True(buttonBefore.HasFocus, "Shift+Tab should exit grid to buttonBefore");
+	}
+
+	/// <summary>
+	/// Grid with splitters inside ScrollablePanel: Tab must traverse controls AND splitters.
+	/// </summary>
+	[Fact]
+	public void Tab_ScrollablePanel_GridWithSplitter_TraversesControlsAndSplitter()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+
+		var panel = new ScrollablePanelControl();
+
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+		var gridButton1 = new ButtonControl { Text = "Col1" };
+		var gridButton2 = new ButtonControl { Text = "Col2" };
+		col1.AddContent(gridButton1);
+		col2.AddContent(gridButton2);
+		grid.AddColumn(col1);
+		var splitter = grid.AddColumnWithSplitter(col2);
+
+		var buttonAfter = new ButtonControl { Text = "After" };
+
+		panel.AddControl(grid);
+		panel.AddControl(buttonAfter);
+
+		window.AddControl(panel);
+		system.WindowStateService.AddWindow(window);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Focus enters panel → grid → gridButton1
+		window.SwitchFocus(backward: false);
+		Assert.True(gridButton1.HasFocus, "gridButton1 should be focused first");
+
+		// Tab: gridButton1 → splitter
+		panel.ProcessKey(tabKey);
+		Assert.True(splitter!.HasFocus, "Splitter should be focused");
+
+		// Tab: splitter → gridButton2
+		panel.ProcessKey(tabKey);
+		Assert.True(gridButton2.HasFocus, "gridButton2 should be focused");
+
+		// Tab: gridButton2 → buttonAfter (exits grid)
+		panel.ProcessKey(tabKey);
+		Assert.True(buttonAfter.HasFocus, "buttonAfter should be focused after exiting grid");
+	}
+
+	/// <summary>
+	/// Grid as the only focusable child: Tab enters and exits correctly.
+	/// </summary>
+	[Fact]
+	public void Tab_ScrollablePanel_GridOnly_EntersAndExits()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+
+		var panel = new ScrollablePanelControl();
+
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var gridButton1 = new ButtonControl { Text = "Only" };
+		col1.AddContent(gridButton1);
+		grid.AddColumn(col1);
+
+		// Non-focusable markup before and after
+		panel.AddControl(new MarkupControl(new List<string> { "Header" }));
+		panel.AddControl(grid);
+		panel.AddControl(new MarkupControl(new List<string> { "Footer" }));
+
+		window.AddControl(panel);
+		system.WindowStateService.AddWindow(window);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Focus enters panel → grid → gridButton1
+		window.SwitchFocus(backward: false);
+		Assert.True(gridButton1.HasFocus, "gridButton1 should be focused");
+
+		// Tab on the only control in grid → exits grid → exits panel
+		bool handled = panel.ProcessKey(tabKey);
+		Assert.False(handled, "Tab should propagate out of panel (no more focusable children)");
+	}
+
+	/// <summary>
+	/// Multiple grids inside a ScrollablePanel: Tab traverses through all of them.
+	/// </summary>
+	[Fact]
+	public void Tab_ScrollablePanel_MultipleGrids_TraversesAll()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+
+		var panel = new ScrollablePanelControl();
+
+		// Grid 1
+		var grid1 = new HorizontalGridControl();
+		var g1col1 = new ColumnContainer(grid1);
+		var g1button = new ButtonControl { Text = "G1" };
+		g1col1.AddContent(g1button);
+		grid1.AddColumn(g1col1);
+
+		// Grid 2
+		var grid2 = new HorizontalGridControl();
+		var g2col1 = new ColumnContainer(grid2);
+		var g2button = new ButtonControl { Text = "G2" };
+		g2col1.AddContent(g2button);
+		grid2.AddColumn(g2col1);
+
+		panel.AddControl(grid1);
+		panel.AddControl(grid2);
+
+		window.AddControl(panel);
+		system.WindowStateService.AddWindow(window);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Focus: panel → grid1 → g1button
+		window.SwitchFocus(backward: false);
+		Assert.True(g1button.HasFocus, "g1button should be focused first");
+
+		// Tab: g1button exits grid1 → panel moves to grid2 → g2button
+		panel.ProcessKey(tabKey);
+		Assert.True(g2button.HasFocus, "g2button should be focused after Tab exits grid1");
+		Assert.False(g1button.HasFocus, "g1button should not have focus");
+	}
+
+	/// <summary>
+	/// Interleaved grids and direct controls inside ScrollablePanel.
+	/// </summary>
+	[Fact]
+	public void Tab_ScrollablePanel_InterleavedGridsAndControls()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+
+		var panel = new ScrollablePanelControl();
+
+		var button1 = new ButtonControl { Text = "Direct1" };
+
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+		var gridBtn1 = new ButtonControl { Text = "G-C1" };
+		var gridBtn2 = new ButtonControl { Text = "G-C2" };
+		col1.AddContent(gridBtn1);
+		col2.AddContent(gridBtn2);
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+
+		var button2 = new ButtonControl { Text = "Direct2" };
+
+		panel.AddControl(button1);
+		panel.AddControl(grid);
+		panel.AddControl(button2);
+
+		window.AddControl(panel);
+		system.WindowStateService.AddWindow(window);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Focus: panel → button1
+		window.SwitchFocus(backward: false);
+		Assert.True(button1.HasFocus);
+
+		// Tab: button1 → grid → gridBtn1
+		panel.ProcessKey(tabKey);
+		Assert.True(gridBtn1.HasFocus, "Should enter grid at first control");
+
+		// Tab: gridBtn1 → gridBtn2
+		panel.ProcessKey(tabKey);
+		Assert.True(gridBtn2.HasFocus, "Should move within grid");
+
+		// Tab: gridBtn2 → button2 (exit grid, continue to next panel child)
+		panel.ProcessKey(tabKey);
+		Assert.True(button2.HasFocus, "Should exit grid and reach button2");
+	}
+
+	/// <summary>
+	/// Grid with no focusable children inside ScrollablePanel: Tab should skip it.
+	/// </summary>
+	[Fact]
+	public void Tab_ScrollablePanel_GridWithNoFocusableChildren_Skipped()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+
+		var panel = new ScrollablePanelControl();
+
+		var button1 = new ButtonControl { Text = "Before" };
+
+		// Grid with only non-focusable content
+		var grid = new HorizontalGridControl();
+		var col = new ColumnContainer(grid);
+		col.AddContent(new MarkupControl(new List<string> { "Not focusable" }));
+		grid.AddColumn(col);
+
+		var button2 = new ButtonControl { Text = "After" };
+
+		panel.AddControl(button1);
+		panel.AddControl(grid);
+		panel.AddControl(button2);
+
+		window.AddControl(panel);
+		system.WindowStateService.AddWindow(window);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Focus: panel → button1
+		window.SwitchFocus(backward: false);
+		Assert.True(button1.HasFocus);
+
+		// Tab: button1 → button2 (grid is skipped because it has no focusable children)
+		panel.ProcessKey(tabKey);
+		Assert.True(button2.HasFocus, "Tab should skip grid with no focusable children");
+	}
+
+	/// <summary>
+	/// Grid with three columns inside ScrollablePanel: full forward traversal.
+	/// </summary>
+	[Fact]
+	public void Tab_ScrollablePanel_GridThreeColumns_FullTraversal()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+
+		var panel = new ScrollablePanelControl();
+
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+		var col3 = new ColumnContainer(grid);
+		var btn1 = new ButtonControl { Text = "C1" };
+		var btn2 = new ButtonControl { Text = "C2" };
+		var btn3 = new ButtonControl { Text = "C3" };
+		col1.AddContent(btn1);
+		col2.AddContent(btn2);
+		col3.AddContent(btn3);
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+		grid.AddColumn(col3);
+
+		var buttonAfter = new ButtonControl { Text = "After" };
+
+		panel.AddControl(grid);
+		panel.AddControl(buttonAfter);
+
+		window.AddControl(panel);
+		system.WindowStateService.AddWindow(window);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Focus: panel → grid → btn1
+		window.SwitchFocus(backward: false);
+		Assert.True(btn1.HasFocus, "btn1 should be focused first");
+
+		// Tab through all three columns
+		panel.ProcessKey(tabKey);
+		Assert.True(btn2.HasFocus, "btn2 should be focused");
+
+		panel.ProcessKey(tabKey);
+		Assert.True(btn3.HasFocus, "btn3 should be focused");
+
+		// Tab exits grid → buttonAfter
+		panel.ProcessKey(tabKey);
+		Assert.True(buttonAfter.HasFocus, "buttonAfter should be focused after full grid traversal");
+	}
+
+	/// <summary>
+	/// Notification chain during grid exit must not reset Tab position.
+	/// This is the exact bug that was fixed: when the grid unfocuses its last
+	/// child during ProcessKey, the notification chain clears _focusedChild
+	/// on the ScrollablePanel. The panel must remember the grid's position
+	/// to correctly advance to the next child.
+	/// </summary>
+	[Fact]
+	public void Tab_ScrollablePanel_GridExit_DoesNotResetToFirstChild()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+
+		var panel = new ScrollablePanelControl();
+
+		var buttonFirst = new ButtonControl { Text = "First" };
+
+		var grid = new HorizontalGridControl();
+		var col = new ColumnContainer(grid);
+		var gridButton = new ButtonControl { Text = "InGrid" };
+		col.AddContent(gridButton);
+		grid.AddColumn(col);
+
+		var buttonLast = new ButtonControl { Text = "Last" };
+
+		panel.AddControl(buttonFirst);
+		panel.AddControl(grid);
+		panel.AddControl(buttonLast);
+
+		window.AddControl(panel);
+		system.WindowStateService.AddWindow(window);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Navigate to grid
+		window.SwitchFocus(backward: false);
+		Assert.True(buttonFirst.HasFocus);
+
+		panel.ProcessKey(tabKey); // → gridButton
+		Assert.True(gridButton.HasFocus);
+
+		// THIS IS THE CRITICAL TEST: Tab from gridButton should go to buttonLast,
+		// NOT back to buttonFirst. The notification chain from grid's internal
+		// unfocusing must not cause the panel to lose track of position.
+		panel.ProcessKey(tabKey);
+		Assert.True(buttonLast.HasFocus, "Tab must advance to buttonLast, not reset to buttonFirst");
+		Assert.False(buttonFirst.HasFocus, "buttonFirst must NOT be re-focused (regression check)");
+	}
+
+	#endregion
 }

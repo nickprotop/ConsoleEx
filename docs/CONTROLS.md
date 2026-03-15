@@ -38,6 +38,8 @@ Controls for user input and interaction.
 | **[PromptControl](controls/PromptControl.md)** | Single-line text input | Enter key events, input validation, max length |
 | **[TimePickerControl](controls/TimePickerControl.md)** | Locale-aware time picker | 12h/24h modes, seconds toggle, min/max times |
 | **MultilineEditControl** | Multi-line text editor | Scrolling, word wrap, text selection |
+| **[SliderControl](controls/SliderControl.md)** | Value slider with thumb | Horizontal/vertical, step/large-step, keyboard/mouse drag |
+| **[RangeSliderControl](controls/RangeSliderControl.md)** | Dual-thumb range slider | MinRange enforcement, tab to switch thumbs, range events |
 
 ## Selection Controls
 

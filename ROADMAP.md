@@ -17,10 +17,11 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 - TimePicker — locale-aware time selection with 12h/24h modes, optional seconds, AM/PM
 - HorizontalSplitterControl — drag-to-resize horizontal bar between vertically stacked controls, mouse and keyboard support, auto-hide on invisible neighbors
 - StatusBarControl — per-window status bar with left/center/right zones, clickable shortcut+label items, markup support, optional above line, theme integration
+- LineGraphControl — multi-series line graphs with braille (2×4 pixel grid) and ASCII rendering modes, color gradients, Y-axis labels, live data updates
+- SliderControl / RangeSliderControl — horizontal and vertical value sliders with keyboard, mouse drag, step/large-step, min/max labels, and dual-thumb range selection with MinRange enforcement
 
 ## Next
 
-- **Slider / RangeControl** — horizontal and vertical value sliders
 - **Instant input response** — replace polling-based input loop with event-driven wake for zero-latency keypress handling
 
 ## Later

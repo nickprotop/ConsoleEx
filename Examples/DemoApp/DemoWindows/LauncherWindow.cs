@@ -37,7 +37,8 @@ public static class LauncherWindow
                 .AddItem("Markup Syntax", subtitle: "Rich markup system demo", content: MakeInfoPanel("Markup Syntax"))
                 .AddItem("International & Emoji", subtitle: "Unicode & emoji support", content: MakeInfoPanel("International & Emoji"))
                 .AddItem("Data Binding", subtitle: "MVVM data binding", content: MakeInfoPanel("Data Binding"))
-                .AddItem("Date & Time", subtitle: "DatePicker and TimePicker controls", content: MakeInfoPanel("Date & Time")))
+                .AddItem("Date & Time", subtitle: "DatePicker and TimePicker controls", content: MakeInfoPanel("Date & Time"))
+                .AddItem("Slider", subtitle: "Value and range slider controls", content: MakeInfoPanel("Slider")))
             .AddHeader("Data Visualization", Color.Yellow, header => header
                 .AddItem("Graphs & Charts", subtitle: "Live sparklines & bar graphs", content: MakeInfoPanel("Graphs & Charts"))
                 .AddItem("System Monitor", subtitle: "Real-time system dashboard", content: MakeInfoPanel("System Monitor")))
@@ -134,6 +135,7 @@ public static class LauncherWindow
             "International & Emoji" => InternationalWindow.Create(ws),
             "Data Binding" => DataBindingWindow.Create(ws),
             "Date & Time" => DateTimeDemo.Create(ws),
+            "Slider" => SliderDemoWindow.Create(ws),
             "Graphs & Charts" => GraphsWindow.Create(ws),
                 "System Monitor" => SystemMonitorWindow.Create(ws),
             "Container Backgrounds" => ContainerBgDemoWindow.Create(ws),
@@ -602,6 +604,25 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - TerminalControl (PTY)",
+            },
+            "Slider" => new List<string>
+            {
+                "[bold cyan]Slider Controls[/]",
+                "",
+                "Single-value sliders and dual-thumb range sliders",
+                "with keyboard and mouse interaction.",
+                "",
+                "[dim]Features:[/]",
+                "  - Horizontal and vertical orientations",
+                "  - Step and large step increments",
+                "  - Value labels and min/max labels",
+                "  - Mouse drag and click-to-jump",
+                "  - RangeSlider with MinRange constraint",
+                "  - Tab to switch active thumb (range)",
+                "",
+                "[dim]Controls used:[/]",
+                "  - SliderControl, RangeSliderControl",
+                "  - MarkupControl, HorizontalGridControl",
             },
             "Welcome Banner" => new List<string>
             {

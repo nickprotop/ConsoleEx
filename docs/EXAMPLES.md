@@ -458,6 +458,8 @@ These examples demonstrate specific features without full screenshots.
 | `ImageControl` | DemoApp (Image Rendering, Image Viewer) |
 | `CanvasControl` | CanvasDemo, DemoApp |
 | `HorizontalGridControl` | Most examples |
+| `SliderControl` | DemoApp |
+| `RangeSliderControl` | DemoApp |
 | `SpectreRenderableControl` | SpectreMouseExample |
 
 ---

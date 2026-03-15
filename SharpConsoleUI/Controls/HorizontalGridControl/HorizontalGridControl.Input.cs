@@ -217,11 +217,13 @@ namespace SharpConsoleUI.Controls
 				// Set focus on the control if it can receive focus
 				if (_focusedContent != null)
 				{
-					SetControlFocus(_focusedContent, true);
+					var controlToFocus = _focusedContent;
+					SetControlFocus(controlToFocus, true);
 
-					if (_interactiveContents.ContainsKey(_focusedContent))
+					// Re-check after SetControlFocus since notifications may re-enter and change state
+					if (controlToFocus != null && _interactiveContents.ContainsKey(controlToFocus))
 					{
-						_interactiveContents[_focusedContent].Invalidate(true);
+						_interactiveContents[controlToFocus].Invalidate(true);
 					}
 				}
 			}

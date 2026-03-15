@@ -552,11 +552,22 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Formats a navigation item for compact (icon-only) display mode.
-		/// Shows the icon centered in the compact pane width, or a diamond if no icon.
+		/// Shows the icon centered in the compact pane width, or the first
+		/// character of the item's text if no icon is set.
 		/// </summary>
 		private string FormatNavItemCompact(NavigationItem item, bool selected)
 		{
-			var icon = item.Icon ?? "\u25C8"; // ◈ diamond as fallback
+			string icon;
+			if (item.Icon != null)
+			{
+				icon = item.Icon;
+			}
+			else
+			{
+				// Use first character of the item's plain text as the compact icon
+				var plainText = Parsing.MarkupParser.Remove(item.Text);
+				icon = plainText.Length > 0 ? plainText.Substring(0, 1).ToUpperInvariant() : "?";
+			}
 			int iconWidth = UnicodeWidth.GetStringWidth(icon);
 			int totalWidth = _compactPaneWidth;
 			int leftPad = Math.Max(0, (totalWidth - iconWidth) / 2);

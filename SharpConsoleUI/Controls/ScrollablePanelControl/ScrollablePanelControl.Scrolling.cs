@@ -172,13 +172,14 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Checks if any child control can receive focus.
+		/// Checks if any child control can receive focus, including controls
+		/// nested inside containers like HorizontalGrid.
 		/// </summary>
 		private bool HasFocusableChildren()
 		{
 			List<IWindowControl> snapshot;
 			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
-			return snapshot.Any(c => c.Visible && c is IFocusableControl fc && fc.CanReceiveFocus);
+			return snapshot.Any(c => c.Visible && c is IInteractiveControl && CanChildReceiveFocus(c));
 		}
 
 		/// <summary>

@@ -304,4 +304,13 @@ public class DevDarkTheme : ITheme
 	public Color? StatusBarForegroundColor { get; set; } = Color.Grey58;
 	/// <inheritdoc/>
 	public Color? StatusBarShortcutForegroundColor { get; set; } = Color.Green;
+
+	/// <inheritdoc/>
+	public Color? SliderTrackColor { get; set; } = Color.Grey23;
+	/// <inheritdoc/>
+	public Color? SliderFilledTrackColor { get; set; } = Color.Green;
+	/// <inheritdoc/>
+	public Color? SliderThumbColor { get; set; } = Color.Grey93;
+	/// <inheritdoc/>
+	public Color? SliderFocusedThumbColor { get; set; } = Color.Yellow;
 }

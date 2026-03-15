@@ -87,15 +87,18 @@ namespace SharpConsoleUI.Controls
 				{
 					// Check if click is within this column
 					var column = (ColumnContainer)control;
-					int actualColumnWidth = column.GetContentWidth() ?? controlWidth;
+					// Use ActualWidth (rendered width from layout) for hit testing,
+					// not GetContentWidth() (intrinsic content width) which can be much
+					// smaller for controls like vertical sliders in Flex columns.
+					int columnWidth = column.ActualWidth > 0 ? column.ActualWidth : (column.GetContentWidth() ?? controlWidth);
 
-					if (position.X >= currentX && position.X < currentX + actualColumnWidth)
+					if (position.X >= currentX && position.X < currentX + columnWidth)
 					{
 						// Find the control within this column at the relative position
 						var relativePosition = new Point(position.X - currentX, position.Y);
 						return column.GetControlAtPosition(relativePosition);
 					}
-					currentX += actualColumnWidth;
+					currentX += columnWidth;
 				}
 			}
 

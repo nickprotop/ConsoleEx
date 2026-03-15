@@ -534,4 +534,30 @@ public interface ITheme
     /// </summary>
     Color? StatusBarShortcutForegroundColor { get; }
 
+    // Slider theme colors
+
+    /// <summary>
+    /// Gets the color for the unfilled track portion of slider controls.
+    /// Null means use default (Grey35 classic, Grey23 modern).
+    /// </summary>
+    Color? SliderTrackColor { get; }
+
+    /// <summary>
+    /// Gets the color for the filled track portion of slider controls.
+    /// Null means use default (Cyan1).
+    /// </summary>
+    Color? SliderFilledTrackColor { get; }
+
+    /// <summary>
+    /// Gets the color for the slider thumb indicator.
+    /// Null means use default (White classic, Grey93 modern).
+    /// </summary>
+    Color? SliderThumbColor { get; }
+
+    /// <summary>
+    /// Gets the color for the slider thumb indicator when focused.
+    /// Null means use default (Yellow).
+    /// </summary>
+    Color? SliderFocusedThumbColor { get; }
+
 }
