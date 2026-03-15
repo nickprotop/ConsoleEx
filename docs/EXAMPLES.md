@@ -120,6 +120,34 @@ dotnet run --project Examples/DemoApp
 
 ---
 
+### NavigationViewDemo
+Full-screen desktop-style application using the NavigationView pattern — the same sidebar + content layout found in native GUI frameworks like WinUI, GTK, and Qt.
+
+![NavigationViewDemo Dashboard](images/examples/navigationviewdemo-dashboard.png)
+
+```bash
+dotnet run --project Examples/NavigationViewDemo
+```
+
+This example demonstrates that SharpConsoleUI applications aren't limited to traditional terminal utilities. The NavigationView pattern produces applications that look and behave like native desktop software — with a navigation sidebar, content switching, gradient backgrounds, and rich interactive controls — the only difference is that every pixel is a character cell rendered in the terminal.
+
+**Key Features:**
+- Full-screen borderless window with diagonal gradient background
+- NavigationView with collapsible header groups and content switching
+- 9 content pages: Dashboard, Getting Started, Buttons & Inputs, Lists & Trees, Data Visualization, Layout, Colors & Gradients, Typography, About
+- Interactive controls: progress bars, sparklines, bar graphs, checkboxes, buttons, lists, trees, text input
+- Keyboard-driven navigation (Tab, arrows, Enter) and mouse support
+- Works on Windows, Linux, and macOS — anywhere you have a terminal
+
+![Side-by-side with native desktop apps](images/examples/navigationviewdemo-desktop.png)
+*The same NavigationView pattern used by GNOME Settings, rendered entirely in the terminal.*
+
+| Dashboard | Typography |
+|-----------|------------|
+| ![Dashboard](images/examples/navigationviewdemo-dashboard.png) | ![Typography](images/examples/navigationviewdemo-typography.png) |
+
+---
+
 ### CanvasDemo
 Three animated windows showcasing the `CanvasControl` drawing surface with real-time graphics.
 
@@ -376,6 +404,7 @@ These examples demonstrate specific features without full screenshots.
 | Example | Async Windows | Buffer Paint | Mouse Events | Themes | Plugins | Games |
 |---------|:---:|:---:|:---:|:---:|:---:|:---:|
 | DemoApp | ✅ | | ✅ | ✅ | | |
+| NavigationViewDemo | | | ✅ | | | |
 | CanvasDemo | ✅ | ✅ | ✅ | | | |
 | ConsoleTopExample | ✅ | | | | | |
 | HighFreqDemo | ✅ | | ✅ | | | |
@@ -405,14 +434,15 @@ These examples demonstrate specific features without full screenshots.
 | `MarkupControl` | All examples |
 | `ButtonControl` | DemoApp, FullScreenExample, CompositorEffectsExample |
 | `ListControl` | DemoApp, HighFreqDemo |
-| `TreeControl` | DemoApp (File Explorer) |
+| `TreeControl` | DemoApp (File Explorer), NavigationViewDemo |
 | `DropdownControl` | DemoApp, PluginShowcaseExample |
 | `MenuControl` | MenuDemo, HighFreqDemo |
 | `TableControl` | DemoApp, TableDemo |
 | `PanelControl` | StartMenuDemo, PanelDemo, HighFreqDemo |
-| `SparklineControl` | ConsoleTopExample, HighFreqDemo |
-| `BarGraphControl` | HighFreqDemo |
-| `ProgressBarControl` | DemoApp |
+| `SparklineControl` | ConsoleTopExample, HighFreqDemo, NavigationViewDemo |
+| `BarGraphControl` | HighFreqDemo, NavigationViewDemo |
+| `NavigationView` | DemoApp, NavigationViewDemo |
+| `ProgressBarControl` | DemoApp, NavigationViewDemo |
 | `PromptControl` | DemoApp (Command Window) |
 | `MultilineEditControl` | DemoApp, TextEditorExample |
 | `LogViewerControl` | DemoApp |
