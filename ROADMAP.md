@@ -15,11 +15,12 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 - Compositor effects — PreBufferPaint/PostBufferPaint hooks for custom rendering
 - DatePicker — locale-aware date selection with segmented editing and calendar popup
 - TimePicker — locale-aware time selection with 12h/24h modes, optional seconds, AM/PM
+- HorizontalSplitterControl — drag-to-resize horizontal bar between vertically stacked controls, mouse and keyboard support, auto-hide on invisible neighbors
+- StatusBarControl — per-window status bar with left/center/right zones, clickable shortcut+label items, markup support, optional above line, theme integration
 
 ## Next
 
 - **Slider / RangeControl** — horizontal and vertical value sliders
-- **StatusBarControl** — per-window status bar (distinct from the system-level status bars)
 - **Instant input response** — replace polling-based input loop with event-driven wake for zero-latency keypress handling
 
 ## Later

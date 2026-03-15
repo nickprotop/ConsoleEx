@@ -457,6 +457,14 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int HorizontalSplitterKeyboardJumpSize = 5;
 
+		// Toolbar defaults
+
+		/// <summary>
+		/// Default row height for toolbar rows when no explicit height is set and
+		/// all items measure as height 1 (default: 1).
+		/// </summary>
+		public const int DefaultToolbarRowHeight = 1;
+
 		// StatusBar defaults
 
 		/// <summary>

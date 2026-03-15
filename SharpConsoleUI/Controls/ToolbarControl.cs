@@ -14,6 +14,7 @@ using SharpConsoleUI.Layout;
 using Size = System.Drawing.Size;
 using Point = System.Drawing.Point;
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
@@ -30,7 +31,7 @@ namespace SharpConsoleUI.Controls
 		private Color? _foregroundColorValue;
 		private bool _isDirty;
 		private bool _hasFocus;
-		private int? _height = 1;
+		private int? _height = null;
 		private bool _isEnabled = true;
 		private readonly List<IWindowControl> _items = new();
 		private readonly object _toolbarLock = new();
@@ -146,7 +147,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets or sets the height of the toolbar. Defaults to 1.
+		/// Gets or sets the height of the toolbar.
+		/// When null (default), row height is auto-computed from the tallest item per row.
+		/// When set explicitly, all rows use the fixed height and items may be clipped.
 		/// </summary>
 		public override int? Height
 		{
@@ -284,7 +287,7 @@ namespace SharpConsoleUI.Controls
 		public override Size GetLogicalContentSize()
 		{
 			int totalWidth = 0;
-			int maxHeight = _height ?? 1;
+			int maxHeight = _height ?? ControlDefaults.DefaultToolbarRowHeight;
 
 			for (int i = 0; i < _items.Count; i++)
 			{
@@ -293,6 +296,12 @@ namespace SharpConsoleUI.Controls
 
 				var size = item.GetLogicalContentSize();
 				totalWidth += item.Width ?? size.Width;
+
+				if (_height == null)
+				{
+					int itemH = item.Height ?? size.Height;
+					if (itemH > maxHeight) maxHeight = itemH;
+				}
 
 				if (i < _items.Count - 1)
 					totalWidth += _itemSpacing;
@@ -329,8 +338,23 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public int? GetVisibleHeightForControl(IWindowControl control)
 		{
-			// Each item gets a single row height, regardless of total toolbar height
-			return _height ?? 1;
+			if (_height.HasValue)
+				return _height.Value;
+
+			// Auto-height: find the row height for this control's row
+			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
+			if (contentWidth <= 0)
+				return ControlDefaults.DefaultToolbarRowHeight;
+
+			var layout = ComputeRowLayout(contentWidth, _height, out _, out int[] rowHeights);
+
+			foreach (var entry in layout)
+			{
+				if (entry.Item == control)
+					return rowHeights[entry.Row];
+			}
+
+			return ControlDefaults.DefaultToolbarRowHeight;
 		}
 
 		/// <inheritdoc/>
@@ -460,10 +484,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int rowHeight = _height ?? 1;
 			int availableContentWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
 
-			var layout = ComputeRowLayout(availableContentWidth, rowHeight, out int rowCount);
+			var layout = ComputeRowLayout(availableContentWidth, _height, out _, out int[] rowHeights);
 
 			// Total width is the widest row extent plus margins
 			int maxRowRight = 0;
@@ -474,7 +497,7 @@ namespace SharpConsoleUI.Controls
 			}
 			int totalWidth = maxRowRight + Margin.Left + Margin.Right;
 
-			int totalHeight = (rowCount * rowHeight) + Margin.Top + Margin.Bottom;
+			int totalHeight = rowHeights.Sum() + Margin.Top + Margin.Bottom;
 
 			return new LayoutSize(
 				Math.Clamp(totalWidth, constraints.MinWidth, constraints.MaxWidth),
@@ -539,14 +562,13 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Paint items using shared layout computation
-			int rowHeight = _height ?? 1;
-			var layoutEntries = ComputeRowLayout(contentWidth, rowHeight, out _);
+			var layoutEntries = ComputeRowLayout(contentWidth, _height, out _, out _);
 
 			foreach (var entry in layoutEntries)
 			{
 				if (entry.Item is IDOMPaintable paintable)
 				{
-					var itemBounds = new LayoutRect(contentX + entry.X, contentY + entry.Y, entry.Width, rowHeight);
+					var itemBounds = new LayoutRect(contentX + entry.X, contentY + entry.Y, entry.Width, entry.Height);
 					var itemClip = itemBounds.Intersect(clipRect);
 
 					if (itemClip.Width > 0 && itemClip.Height > 0)
@@ -600,8 +622,7 @@ namespace SharpConsoleUI.Controls
 				return null;
 
 			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
-			int rowHeight = _height ?? 1;
-			var layout = ComputeRowLayout(contentWidth, rowHeight, out _);
+			var layout = ComputeRowLayout(contentWidth, _height, out _, out _);
 
 			foreach (var entry in layout)
 			{
@@ -639,35 +660,40 @@ namespace SharpConsoleUI.Controls
 			public readonly int X;
 			public readonly int Y;
 			public readonly int Width;
+			public readonly int Height;
 			public readonly int Row;
 
-			public ItemLayout(IWindowControl item, int x, int y, int width, int row)
+			public ItemLayout(IWindowControl item, int x, int y, int width, int height, int row)
 			{
 				Item = item;
 				X = x;
 				Y = y;
 				Width = width;
+				Height = height;
 				Row = row;
 			}
 		}
 
 		/// <summary>
-		/// Computes the layout of all visible items, handling wrapping when enabled.
+		/// Computes the layout of all visible items, handling wrapping and auto-height.
 		/// This is the single source of truth for item positioning — used by
 		/// MeasureDOM, PaintDOM, GetLogicalCursorPosition, and GetItemAtPosition.
 		/// </summary>
 		/// <param name="availableWidth">The available content width for laying out items.</param>
-		/// <param name="rowHeight">The height of a single row.</param>
+		/// <param name="fixedRowHeight">Fixed row height, or null for auto-height from tallest item per row.</param>
 		/// <param name="rowCount">Output: the total number of rows.</param>
+		/// <param name="rowHeights">Output: the height of each row.</param>
 		/// <returns>List of item layouts with positions relative to content origin (0,0).</returns>
-		private List<ItemLayout> ComputeRowLayout(int availableWidth, int rowHeight, out int rowCount)
+		private List<ItemLayout> ComputeRowLayout(int availableWidth, int? fixedRowHeight,
+			out int rowCount, out int[] rowHeights)
 		{
-			var result = new List<ItemLayout>();
-			int currentX = 0;
-			int currentRow = 0;
-
 			List<IWindowControl> snapshot;
 			lock (_toolbarLock) { snapshot = _items.ToList(); }
+
+			// First pass: assign items to rows, measure sizes
+			var entries = new List<(IWindowControl Item, int X, int Row, int Width, int MeasuredHeight)>();
+			int currentX = 0;
+			int currentRow = 0;
 
 			for (int i = 0; i < snapshot.Count; i++)
 			{
@@ -675,14 +701,21 @@ namespace SharpConsoleUI.Controls
 				if (!item.Visible) continue;
 
 				int itemWidth;
+				int itemMeasuredHeight;
+
 				if (item is IDOMPaintable paintable)
 				{
-					var itemSize = paintable.MeasureDOM(new LayoutConstraints(0, availableWidth, 0, rowHeight));
+					// When auto-height, don't constrain MaxHeight so items can report their natural height
+					int maxH = fixedRowHeight ?? int.MaxValue;
+					var itemSize = paintable.MeasureDOM(new LayoutConstraints(0, availableWidth, 0, maxH));
 					itemWidth = item.Width ?? itemSize.Width;
+					itemMeasuredHeight = itemSize.Height;
 				}
 				else
 				{
-					itemWidth = item.Width ?? item.GetLogicalContentSize().Width;
+					var logicalSize = item.GetLogicalContentSize();
+					itemWidth = item.Width ?? logicalSize.Width;
+					itemMeasuredHeight = item.Height ?? logicalSize.Height;
 				}
 
 				// Wrap to next row if enabled and item doesn't fit
@@ -692,11 +725,70 @@ namespace SharpConsoleUI.Controls
 					currentX = 0;
 				}
 
-				result.Add(new ItemLayout(item, currentX, currentRow * rowHeight, itemWidth, currentRow));
+				entries.Add((item, currentX, currentRow, itemWidth, itemMeasuredHeight));
 				currentX += itemWidth + _itemSpacing;
 			}
 
 			rowCount = currentRow + 1;
+
+			// Compute per-row heights
+			rowHeights = new int[rowCount];
+			if (fixedRowHeight.HasValue)
+			{
+				Array.Fill(rowHeights, fixedRowHeight.Value);
+			}
+			else
+			{
+				Array.Fill(rowHeights, ControlDefaults.DefaultToolbarRowHeight);
+				foreach (var entry in entries)
+				{
+					if (entry.MeasuredHeight > rowHeights[entry.Row])
+						rowHeights[entry.Row] = entry.MeasuredHeight;
+				}
+			}
+
+			// Compute cumulative Y offsets per row
+			var rowYOffsets = new int[rowCount];
+			for (int r = 1; r < rowCount; r++)
+			{
+				rowYOffsets[r] = rowYOffsets[r - 1] + rowHeights[r - 1];
+			}
+
+			// Second pass: compute final Y and Height using vertical alignment
+			var result = new List<ItemLayout>(entries.Count);
+			foreach (var entry in entries)
+			{
+				int rowY = rowYOffsets[entry.Row];
+				int rowH = rowHeights[entry.Row];
+				int measuredH = entry.MeasuredHeight;
+
+				int itemY;
+				int itemH;
+
+				switch (entry.Item.VerticalAlignment)
+				{
+					case VerticalAlignment.Center:
+						itemH = Math.Min(measuredH, rowH);
+						itemY = rowY + (rowH - itemH) / 2;
+						break;
+					case VerticalAlignment.Bottom:
+						itemH = Math.Min(measuredH, rowH);
+						itemY = rowY + rowH - itemH;
+						break;
+					case VerticalAlignment.Fill:
+						itemY = rowY;
+						itemH = rowH;
+						break;
+					case VerticalAlignment.Top:
+					default:
+						itemY = rowY;
+						itemH = Math.Min(measuredH, rowH);
+						break;
+				}
+
+				result.Add(new ItemLayout(entry.Item, entry.X, itemY, entry.Width, itemH, entry.Row));
+			}
+
 			return result;
 		}
 
@@ -722,8 +814,7 @@ namespace SharpConsoleUI.Controls
 		private (IWindowControl? Item, LayoutRect Bounds) GetItemAtPosition(Point position)
 		{
 			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
-			int rowHeight = _height ?? 1;
-			var layout = ComputeRowLayout(contentWidth, rowHeight, out _);
+			var layout = ComputeRowLayout(contentWidth, _height, out _, out _);
 
 			foreach (var entry in layout)
 			{
@@ -731,9 +822,9 @@ namespace SharpConsoleUI.Controls
 				int itemY = Margin.Top + entry.Y;
 
 				if (position.X >= itemX && position.X < itemX + entry.Width &&
-					position.Y >= itemY && position.Y < itemY + rowHeight)
+					position.Y >= itemY && position.Y < itemY + entry.Height)
 				{
-					return (entry.Item, new LayoutRect(itemX, itemY, entry.Width, rowHeight));
+					return (entry.Item, new LayoutRect(itemX, itemY, entry.Width, entry.Height));
 				}
 			}
 
@@ -784,8 +875,7 @@ namespace SharpConsoleUI.Controls
 
 			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
 			if (contentWidth <= 0) return false;  // not yet laid out
-			int rowHeight = _height ?? 1;
-			var layout = ComputeRowLayout(contentWidth, rowHeight, out int rowCount);
+			var layout = ComputeRowLayout(contentWidth, _height, out int rowCount, out _);
 
 			if (rowCount <= 1) return false;
 

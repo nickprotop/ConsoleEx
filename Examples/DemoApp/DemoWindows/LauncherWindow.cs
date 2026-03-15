@@ -25,7 +25,8 @@ public static class LauncherWindow
                 .AddItem("Multi-Tab Demo", subtitle: "TabControl with multiple tabs", content: MakeInfoPanel("Multi-Tab Demo"))
                 .AddItem("WinUI Layout", subtitle: "WinUI-inspired settings layout", content: MakeInfoPanel("WinUI Layout"))
                 .AddItem("Horizontal Splitter", subtitle: "Drag-to-resize horizontal bars", content: MakeInfoPanel("Horizontal Splitter"))
-                .AddItem("Status Bar", subtitle: "Clickable status bar with zones", content: MakeInfoPanel("Status Bar")))
+                .AddItem("Status Bar", subtitle: "Clickable status bar with zones", content: MakeInfoPanel("Status Bar"))
+                .AddItem("Toolbar", subtitle: "Multi-height toolbar with auto-sizing", content: MakeInfoPanel("Toolbar")))
             .AddHeader("Controls", Color.Green, header => header
                 .AddItem("Interactive Demo", subtitle: "Real-time key press handling", content: MakeInfoPanel("Interactive Demo"))
                 .AddItem("Dropdown", subtitle: "Cascading dropdowns", content: MakeInfoPanel("Dropdown"))
@@ -146,6 +147,7 @@ public static class LauncherWindow
             "Notifications" => NotificationsWindow.Create(ws),
             "System Info" => SystemInfoWindow.Create(ws),
             "Terminal" => TerminalWindow.Create(ws),
+            "Toolbar" => ToolbarDemoWindow.Create(ws),
             "Welcome Banner" => WelcomeWindow.Create(ws),
             _ => (Window?)null
         };
@@ -262,6 +264,24 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - StatusBarControl",
+                "  - ToolbarControl, ButtonControl, MarkupControl",
+            },
+            "Toolbar" => new List<string>
+            {
+                "[bold cyan]Toolbar Demo[/]",
+                "",
+                "ToolbarControl with auto-height support for",
+                "multi-row items like bordered buttons. Shows",
+                "plain, bordered, and mixed-height toolbars.",
+                "",
+                "[dim]Features:[/]",
+                "  - Auto-height from tallest item per row",
+                "  - Bordered buttons (3-row) in toolbar",
+                "  - Mixed-height items with vertical alignment",
+                "  - Sticky top toolbar positioning",
+                "",
+                "[dim]Controls used:[/]",
+                "  - ToolbarControl",
                 "  - ButtonControl, MarkupControl",
             },
             "Interactive Demo" => new List<string>

@@ -33,33 +33,42 @@ public static class StatusBarDemoWindow
             .AddLine("It supports three alignment zones (left, center, right),")
             .AddLine("clickable items with shortcut+label, and dynamic updates.")
             .AddLine("")
-            .AddLine("[dim]Click the buttons below to interact:[/]")
+            .AddLine("[dim]Use the toolbar buttons below to interact:[/]")
             .WithMargin(1, 1, 1, 0)
             .Build();
 
         var addItemBtn = Controls.Button()
             .WithText("  Add Left Item  ")
-            .WithMargin(1, 1, 0, 0)
             .WithBorder(ButtonBorderStyle.Rounded)
             .Build();
 
         var removeItemBtn = Controls.Button()
             .WithText("  Remove Last Left  ")
-            .WithMargin(1, 0, 0, 0)
             .WithBorder(ButtonBorderStyle.Rounded)
             .Build();
 
         var updateCounterBtn = Controls.Button()
             .WithText("  Increment Counter  ")
-            .WithMargin(1, 0, 0, 0)
             .WithBorder(ButtonBorderStyle.Rounded)
             .Build();
 
         var toggleCenterBtn = Controls.Button()
             .WithText("  Toggle Center  ")
-            .WithMargin(1, 0, 0, 0)
             .WithBorder(ButtonBorderStyle.Rounded)
             .Build();
+
+        // Place buttons in a toolbar (auto-height handles bordered buttons)
+        var buttonToolbar = Controls.Toolbar()
+            .WithSpacing(1)
+            .WithWrap()
+            .WithBackgroundColor(Color.Grey11)
+            .WithMargin(1, 1, 1, 0)
+            .Build();
+
+        buttonToolbar.AddItem(addItemBtn);
+        buttonToolbar.AddItem(removeItemBtn);
+        buttonToolbar.AddItem(updateCounterBtn);
+        buttonToolbar.AddItem(toggleCenterBtn);
 
         var clickLog = Controls.Markup()
             .AddLine("[dim]Click a status bar item to see it here...[/]")
@@ -111,10 +120,7 @@ public static class StatusBarDemoWindow
             .WithSize(90, 26)
             .Centered()
             .AddControl(markup)
-            .AddControl(addItemBtn)
-            .AddControl(removeItemBtn)
-            .AddControl(updateCounterBtn)
-            .AddControl(toggleCenterBtn)
+            .AddControl(buttonToolbar)
             .AddControl(clickLog)
             .AddControl(statusBar)
             .BuildAndShow();

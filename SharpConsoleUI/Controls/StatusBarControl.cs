@@ -174,13 +174,14 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 	#region Constructors
 
 	/// <summary>
-	/// Initializes a new instance of the <see cref="StatusBarControl"/> class
-	/// with default StickyBottom and Stretch alignment.
+	/// Initializes a new instance of the <see cref="StatusBarControl"/> class.
 	/// </summary>
-	public StatusBarControl()
+	/// <param name="stickyBottom">When true (default), the control sticks to the bottom of the window.
+	/// Set to false to place the status bar anywhere in the DOM layout.</param>
+	public StatusBarControl(bool stickyBottom = true)
 	{
 		HorizontalAlignment = HorizontalAlignment.Stretch;
-		StickyPosition = StickyPosition.Bottom;
+		StickyPosition = stickyBottom ? StickyPosition.Bottom : StickyPosition.None;
 	}
 
 	#endregion

@@ -24,7 +24,7 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 	private Margin _margin = new(0, 0, 0, 0);
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Stretch;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
-	private int? _height = 1;
+	private int? _height = null;
 	private int? _width;
 	private bool _visible = true;
 	private string? _name;
