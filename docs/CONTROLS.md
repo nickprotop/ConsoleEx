@@ -37,7 +37,7 @@ Controls for user input and interaction.
 | **[DatePickerControl](controls/DatePickerControl.md)** | Locale-aware date picker | Segmented editing, calendar popup, min/max dates |
 | **[PromptControl](controls/PromptControl.md)** | Single-line text input | Enter key events, input validation, max length |
 | **[TimePickerControl](controls/TimePickerControl.md)** | Locale-aware time picker | 12h/24h modes, seconds toggle, min/max times |
-| **MultilineEditControl** | Multi-line text editor | Scrolling, word wrap, text selection |
+| **[MultilineEditControl](controls/MultilineEditControl.md)** | Multi-line text editor | Syntax highlighting, pluggable gutter, find/replace, undo/redo, word wrap |
 | **[SliderControl](controls/SliderControl.md)** | Value slider with thumb | Horizontal/vertical, step/large-step, keyboard/mouse drag |
 | **[RangeSliderControl](controls/RangeSliderControl.md)** | Dual-thumb range slider | MinRange enforcement, tab to switch thumbs, range events |
 

@@ -447,13 +447,25 @@ private void PaintStage(CharacterBuffer buffer)
 
 **CharacterBuffer key methods:**
 ```csharp
-// Individual cell (char overload wraps in Rune internally)
-void SetCell(int x, int y, Rune character, Color fg, Color bg);
+// Full Cell (preserves flags: IsWideContinuation, Combiners, Decorations)
+// Use for parsed markup cells and cell copies between buffers
+void SetCell(int x, int y, Cell cell);
+
+// Narrow character (clears all flags, assumes width-1)
+// Use for literal characters: borders, padding, fill chars, track chars
+void SetNarrowCell(int x, int y, char character, Color fg, Color bg);
+void SetNarrowCell(int x, int y, Rune character, Color fg, Color bg);
+
 // Text rendering with automatic wide character and combiner handling
 void WriteString(int x, int y, string text, Color fg, Color bg);
+
 // Bulk fill
 void FillRect(LayoutRect rect, char c, Color fg, Color bg);
 ```
+
+> **Note:** The old `SetCell(x, y, Rune, Color, Color)` overload was renamed to `SetNarrowCell`
+> to make misuse a compile error. Use `SetCell(Cell)` for parsed/copied cells, `SetNarrowCell`
+> for literal narrow characters.
 
 #### Stage 3.5: Pre/Post Buffer Paint Hooks (Compositor Effects)
 *File: `Windows/WindowRenderer.cs`*
@@ -578,13 +590,18 @@ R1 │ 'l', W, B │   │ 'o', W, B │   │ ' ', W, B │
 
 ### Key Operations
 
-#### 1. SetCell (Individual Cell Update)
+#### 1. SetCell / SetNarrowCell (Individual Cell Update)
 *File: `CharacterBuffer.cs`*
 
-Accepts both `char` (convenience overload, wraps in `Rune`) and `Rune` (primary):
+Two write APIs with distinct purposes:
+
+- **`SetCell(int x, int y, Cell cell)`** — preserves all flags (`IsWideContinuation`, `Combiners`, `Decorations`). Use for cells from `MarkupParser.Parse()` or when copying cells between buffers.
+- **`SetNarrowCell(int x, int y, char/Rune, Color fg, Color bg)`** — clears all flags, assumes width-1. Use for literal narrow characters: border chars, padding spaces, fill chars.
+
+> The old `SetCell(x, y, Rune, Color, Color)` overload was renamed to `SetNarrowCell` to make misuse a compile error.
 
 ```csharp
-public void SetCell(int x, int y, Rune character, Color foreground, Color background)
+public void SetNarrowCell(int x, int y, Rune character, Color foreground, Color background)
 {
     if (x < 0 || x >= Width || y < 0 || y >= Height)
         return;
