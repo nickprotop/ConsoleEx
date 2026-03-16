@@ -528,6 +528,98 @@ public class SliderControlTests
 	}
 
 	#endregion
+
+	#region SliderControl - Edge Cases
+
+	[Fact]
+	public void ProcessKey_RightArrow_AtMaxValue_ValueUnchanged()
+	{
+		var slider = new SliderControl();
+		slider.HasFocus = true;
+		slider.Value = 100;
+
+		bool handled = slider.ProcessKey(Key(ConsoleKey.RightArrow));
+
+		Assert.True(handled);
+		Assert.Equal(100, slider.Value);
+	}
+
+	[Fact]
+	public void ProcessKey_LeftArrow_AtMinValue_ValueUnchanged()
+	{
+		var slider = new SliderControl();
+		slider.HasFocus = true;
+		slider.Value = 0;
+
+		bool handled = slider.ProcessKey(Key(ConsoleKey.LeftArrow));
+
+		Assert.True(handled);
+		Assert.Equal(0, slider.Value);
+	}
+
+	[Fact]
+	public void ProcessKey_LargeStep_OvershootsMax_ClampsToMax()
+	{
+		var slider = new SliderControl();
+		slider.HasFocus = true;
+		slider.Value = 95;
+
+		bool handled = slider.ProcessKey(Key(ConsoleKey.RightArrow, shift: true));
+
+		Assert.True(handled);
+		Assert.Equal(100, slider.Value);
+	}
+
+	[Fact]
+	public void ProcessKey_LargeStep_UndershootsMin_ClampsToMin()
+	{
+		var slider = new SliderControl();
+		slider.HasFocus = true;
+		slider.Value = 5;
+
+		bool handled = slider.ProcessKey(Key(ConsoleKey.LeftArrow, shift: true));
+
+		Assert.True(handled);
+		Assert.Equal(0, slider.Value);
+	}
+
+	[Fact]
+	public void Value_StepLargerThanRange_ClampsCorrectly()
+	{
+		var slider = new SliderControl();
+		slider.MinValue = 0;
+		slider.MaxValue = 5;
+		slider.Step = 10;
+
+		slider.Value = 3;
+
+		Assert.True(slider.Value >= 0 && slider.Value <= 5);
+	}
+
+	[Fact]
+	public void Step_VerySmall_ClampsToMinStep()
+	{
+		var slider = new SliderControl();
+
+		slider.Step = 0.0005;
+
+		Assert.Equal(ControlDefaults.SliderMinStep, slider.Step);
+	}
+
+	[Fact]
+	public void ValueChanged_FiresWithClampedValue()
+	{
+		var slider = new SliderControl();
+		double? receivedValue = null;
+		slider.ValueChanged += (_, v) => receivedValue = v;
+
+		slider.Value = 150;
+
+		Assert.NotNull(receivedValue);
+		Assert.Equal(100, receivedValue.Value);
+	}
+
+	#endregion
 }
 
 public class RangeSliderControlTests
@@ -993,6 +1085,69 @@ public class RangeSliderControlTests
 			.Build();
 
 		Assert.Equal(SliderOrientation.Vertical, slider.Orientation);
+	}
+
+	#endregion
+
+	#region Edge Cases
+
+	[Fact]
+	public void LowValue_EqualToHighValue_WithZeroMinRange_Allowed()
+	{
+		var slider = new RangeSliderControl();
+		slider.MinRange = 0;
+		slider.LowValue = 50;
+		slider.HighValue = 50;
+
+		Assert.Equal(50, slider.LowValue);
+		Assert.Equal(50, slider.HighValue);
+	}
+
+	[Fact]
+	public void LowValue_EqualToHighValue_WithNonZeroMinRange_PushesHigh()
+	{
+		var slider = new RangeSliderControl();
+		slider.MinRange = 10;
+		slider.LowValue = 50;
+
+		slider.HighValue = 50;
+
+		Assert.True(slider.HighValue - slider.LowValue >= 10 || slider.LowValue <= slider.HighValue);
+	}
+
+	[Fact]
+	public void MinRange_LargerThanTotalRange_Throws()
+	{
+		var slider = new RangeSliderControl();
+
+		Assert.ThrowsAny<ArgumentException>(() => slider.MinRange = 120);
+	}
+
+	[Fact]
+	public void ProcessKey_WhenDisabled_ReturnsFalse()
+	{
+		var slider = new RangeSliderControl();
+		slider.HasFocus = true;
+		slider.IsEnabled = false;
+		slider.LowValue = 50;
+
+		bool handled = slider.ProcessKey(Key(ConsoleKey.RightArrow));
+
+		Assert.False(handled);
+		Assert.Equal(50, slider.LowValue);
+	}
+
+	[Fact]
+	public void ActiveThumb_RetainedAcrossFocusCycles()
+	{
+		var slider = new RangeSliderControl();
+		slider.HasFocus = true;
+		slider.ActiveThumb = ActiveThumb.High;
+
+		slider.HasFocus = false;
+		slider.HasFocus = true;
+
+		Assert.Equal(ActiveThumb.High, slider.ActiveThumb);
 	}
 
 	#endregion

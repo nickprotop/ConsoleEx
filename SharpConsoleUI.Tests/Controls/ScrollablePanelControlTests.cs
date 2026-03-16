@@ -866,4 +866,207 @@ public class ScrollablePanelControlTests
 	}
 
 	#endregion
+
+	#region Edge Cases - Empty, Single Child, and Disabled
+
+	[Fact]
+	public void CanReceiveFocus_EmptyPanel_NoScrollNeeded_ReturnsFalse()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 100;
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		Assert.False(panel.CanReceiveFocus);
+	}
+
+	[Fact]
+	public void SetFocus_WithZeroChildren_DoesNotThrow()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		var ex = Record.Exception(() => panel.SetFocus(true));
+
+		Assert.Null(ex);
+	}
+
+	[Fact]
+	public void ProcessKey_Tab_SingleFocusableChild_ExitsPanel()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+		var button = ContainerTestHelpers.CreateButton("OK");
+		panel.AddControl(button);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		panel.SetFocus(true);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		bool handled = panel.ProcessKey(tabKey);
+
+		Assert.False(handled);
+	}
+
+	[Fact]
+	public void ProcessKey_ShiftTab_FromFirstChild_ExitsBackward()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+		var button1 = ContainerTestHelpers.CreateButton("First");
+		var button2 = ContainerTestHelpers.CreateButton("Second");
+		panel.AddControl(button1);
+		panel.AddControl(button2);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		panel.SetFocus(true);
+		Assert.True(button1.HasFocus);
+
+		var shiftTabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, false);
+		bool handled = panel.ProcessKey(shiftTabKey);
+
+		Assert.False(handled);
+	}
+
+	[Fact]
+	public void ProcessKey_WhenNotFocused_ReturnsFalse()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+		var button = ContainerTestHelpers.CreateButton("OK");
+		panel.AddControl(button);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		bool handled = panel.ProcessKey(tabKey);
+
+		Assert.False(handled);
+	}
+
+	[Fact]
+	public void ProcessKey_WhenDisabled_ReturnsFalse()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+		var button = ContainerTestHelpers.CreateButton("OK");
+		panel.AddControl(button);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		panel.SetFocus(true);
+		panel.IsEnabled = false;
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		bool handled = panel.ProcessKey(tabKey);
+
+		Assert.False(handled);
+	}
+
+	[Fact]
+	public void ScrollVerticalBy_WhenContentFitsViewport_NoScroll()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 50;
+
+		for (int i = 0; i < 3; i++)
+			panel.AddControl(ContainerTestHelpers.CreateLabel($"Line {i}"));
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		panel.ScrollVerticalBy(5);
+
+		Assert.Equal(0, panel.VerticalScrollOffset);
+	}
+
+	[Fact]
+	public void SetFocus_CycleOnOff_RestoresFocusToFirstChild()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+		var button1 = ContainerTestHelpers.CreateButton("First");
+		var button2 = ContainerTestHelpers.CreateButton("Second");
+		panel.AddControl(button1);
+		panel.AddControl(button2);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		panel.SetFocus(true);
+		Assert.True(button1.HasFocus);
+
+		panel.SetFocus(false);
+
+		panel.SetFocus(true);
+		Assert.True(button1.HasFocus);
+	}
+
+	[Fact]
+	public void ProcessKey_Escape_InScrollMode_PropagatesUp()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 5;
+
+		for (int i = 0; i < 20; i++)
+			panel.AddControl(ContainerTestHelpers.CreateLabel($"Line {i}"));
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		panel.SetFocus(true);
+
+		var escKey = new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false);
+		bool handled = panel.ProcessKey(escKey);
+
+		Assert.False(handled);
+	}
+
+	[Fact]
+	public void Tab_WithAllChildrenDisabled_ExitsPanel()
+	{
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+		var button1 = ContainerTestHelpers.CreateButton("A");
+		var button2 = ContainerTestHelpers.CreateButton("B");
+		var button3 = ContainerTestHelpers.CreateButton("C");
+		button1.IsEnabled = false;
+		button2.IsEnabled = false;
+		button3.IsEnabled = false;
+		panel.AddControl(button1);
+		panel.AddControl(button2);
+		panel.AddControl(button3);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		panel.SetFocus(true);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		bool handled = panel.ProcessKey(tabKey);
+
+		Assert.False(handled);
+	}
+
+	#endregion
 }

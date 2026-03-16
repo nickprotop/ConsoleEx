@@ -621,4 +621,220 @@ public class HorizontalGridControlTests
 	}
 
 	#endregion
+
+	#region Edge Cases - Focus and Visibility
+
+	[Fact]
+	public void ProcessKey_Tab_SingleColumn_SingleControl_ExitsForward()
+	{
+		var grid = new HorizontalGridControl();
+		var col = new ColumnContainer(grid);
+		var btn = ContainerTestHelpers.CreateButton("Only");
+
+		col.AddContent(btn);
+		grid.AddColumn(col);
+
+		// HasFocus = true triggers FocusChanged which focuses the button
+		grid.HasFocus = true;
+		Assert.True(btn.HasFocus);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Tab should exit forward since there is only one focusable control
+		bool result = grid.ProcessKey(tabKey);
+		Assert.False(result);
+	}
+
+	[Fact]
+	public void ProcessKey_ShiftTab_FirstControl_ExitsBackward()
+	{
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+
+		var btn1 = ContainerTestHelpers.CreateButton("First");
+		var btn2 = ContainerTestHelpers.CreateButton("Second");
+
+		col1.AddContent(btn1);
+		col2.AddContent(btn2);
+
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+
+		// HasFocus = true focuses btn1 (first focusable) via FocusChanged
+		grid.HasFocus = true;
+		Assert.True(btn1.HasFocus);
+
+		var shiftTabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, false);
+
+		// Shift+Tab on the first control should exit backward
+		bool handled = grid.ProcessKey(shiftTabKey);
+		Assert.False(handled);
+	}
+
+	[Fact]
+	public void SetFocus_AllControlsDisabled_NoChildFocused()
+	{
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+
+		var btn1 = ContainerTestHelpers.CreateButton("Disabled1");
+		var btn2 = ContainerTestHelpers.CreateButton("Disabled2");
+
+		btn1.IsEnabled = false;
+		btn2.IsEnabled = false;
+
+		col1.AddContent(btn1);
+		col2.AddContent(btn2);
+
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+
+		grid.HasFocus = true;
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		grid.ProcessKey(tabKey);
+
+		Assert.False(btn1.HasFocus);
+		Assert.False(btn2.HasFocus);
+	}
+
+	[Fact]
+	public void Tab_SkipsDisabledControlInColumn()
+	{
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+		var col3 = new ColumnContainer(grid);
+
+		var btn1 = ContainerTestHelpers.CreateButton("First");
+		var btn2 = ContainerTestHelpers.CreateButton("Middle");
+		var btn3 = ContainerTestHelpers.CreateButton("Last");
+
+		btn2.IsEnabled = false;
+
+		col1.AddContent(btn1);
+		col2.AddContent(btn2);
+		col3.AddContent(btn3);
+
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+		grid.AddColumn(col3);
+
+		// HasFocus = true focuses btn1 (first focusable) via FocusChanged
+		grid.HasFocus = true;
+		Assert.True(btn1.HasFocus);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Tab should skip disabled btn2 and focus btn3
+		bool handled = grid.ProcessKey(tabKey);
+		Assert.True(handled);
+		Assert.False(btn2.HasFocus);
+		Assert.True(btn3.HasFocus);
+	}
+
+	[Fact]
+	public void ProcessKey_NonTabKey_NoFocusedChild_ReturnsFalse()
+	{
+		var grid = new HorizontalGridControl();
+		var col = new ColumnContainer(grid);
+
+		// Use a label (non-interactive) so no child gets focus
+		col.AddContent(ContainerTestHelpers.CreateLabel("Static"));
+		grid.AddColumn(col);
+
+		grid.HasFocus = true;
+
+		var rightArrow = new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false);
+
+		bool handled = grid.ProcessKey(rightArrow);
+		Assert.False(handled);
+	}
+
+	[Fact]
+	public void NotifyChildFocusChanged_SetsGridHasFocus()
+	{
+		var grid = new HorizontalGridControl();
+		var col = new ColumnContainer(grid);
+		var btn = ContainerTestHelpers.CreateButton("FocusMe");
+
+		col.AddContent(btn);
+		grid.AddColumn(col);
+
+		// Setting HasFocus = true triggers FocusChanged which focuses btn
+		grid.HasFocus = true;
+
+		Assert.True(btn.HasFocus);
+		Assert.True(grid.HasFocus);
+	}
+
+	[Fact]
+	public void ColumnVisibilityToggle_HiddenColumnSkippedInTabOrder()
+	{
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+		var col3 = new ColumnContainer(grid);
+
+		var btn1 = ContainerTestHelpers.CreateButton("First");
+		var btn2 = ContainerTestHelpers.CreateButton("Hidden");
+		var btn3 = ContainerTestHelpers.CreateButton("Third");
+
+		col1.AddContent(btn1);
+		col2.AddContent(btn2);
+		col3.AddContent(btn3);
+
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+		grid.AddColumn(col3);
+
+		// Hide the middle column before focusing
+		col2.Visible = false;
+
+		// HasFocus = true focuses btn1 via FocusChanged
+		grid.HasFocus = true;
+		Assert.True(btn1.HasFocus);
+
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+
+		// Tab should skip hidden col2 and go to btn3
+		bool handled = grid.ProcessKey(tabKey);
+		Assert.True(handled);
+		Assert.False(btn2.HasFocus);
+		Assert.True(btn3.HasFocus);
+	}
+
+	[Fact]
+	public void RemoveColumn_WithFocusedControl_ClearsFocus()
+	{
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+
+		var btn1 = ContainerTestHelpers.CreateButton("Stay");
+		var btn2 = ContainerTestHelpers.CreateButton("Remove");
+
+		col1.AddContent(btn1);
+		col2.AddContent(btn2);
+
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+
+		// HasFocus = true focuses btn1 via FocusChanged
+		grid.HasFocus = true;
+		Assert.True(btn1.HasFocus);
+
+		// Now remove col1 (which has the focused control)
+		var exception = Record.Exception(() => grid.RemoveColumn(col1));
+		Assert.Null(exception);
+
+		// Grid should still work — Tab should not crash
+		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		var tabException = Record.Exception(() => grid.ProcessKey(tabKey));
+		Assert.Null(tabException);
+	}
+
+	#endregion
 }

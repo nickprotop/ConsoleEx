@@ -1291,4 +1291,106 @@ public class FocusNavigationTests
 	}
 
 	#endregion
+
+	#region Edge Cases - All Disabled/Invisible
+
+	[Fact]
+	public void Tab_AllControlsDisabled_NoFocusChange()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+		var button1 = new ButtonControl { Text = "Button1", IsEnabled = false };
+		var button2 = new ButtonControl { Text = "Button2", IsEnabled = false };
+		var button3 = new ButtonControl { Text = "Button3", IsEnabled = false };
+
+		window.AddControl(button1);
+		window.AddControl(button2);
+		window.AddControl(button3);
+		system.WindowStateService.AddWindow(window);
+
+		// Act & Assert: SwitchFocus should not crash when all controls are disabled
+		var exception = Record.Exception(() => window.SwitchFocus(backward: false));
+		Assert.Null(exception);
+	}
+
+	[Fact]
+	public void Tab_AllControlsInvisible_NoFocusChange()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+		var button1 = new ButtonControl { Text = "Button1", Visible = false };
+		var button2 = new ButtonControl { Text = "Button2", Visible = false };
+		var button3 = new ButtonControl { Text = "Button3", Visible = false };
+
+		window.AddControl(button1);
+		window.AddControl(button2);
+		window.AddControl(button3);
+		system.WindowStateService.AddWindow(window);
+
+		// Act & Assert: SwitchFocus should not crash when all controls are invisible
+		var exception = Record.Exception(() => window.SwitchFocus(backward: false));
+		Assert.Null(exception);
+	}
+
+	[Fact]
+	public void FocusedControl_BecomesDisabled_TabSkipsIt()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+		var button1 = new ButtonControl { Text = "Button1" };
+		var button2 = new ButtonControl { Text = "Button2" };
+		var button3 = new ButtonControl { Text = "Button3" };
+
+		window.AddControl(button1);
+		window.AddControl(button2);
+		window.AddControl(button3);
+		system.WindowStateService.AddWindow(window);
+
+		// Focus button2
+		system.FocusStateService.SetFocus(window, button2);
+		Assert.True(button2.HasFocus);
+
+		// Disable button2 while it has focus
+		button2.IsEnabled = false;
+
+		// Act: Tab forward should skip disabled button2 and land on button3
+		window.SwitchFocus(backward: false);
+
+		// Assert
+		Assert.True(button3.HasFocus, "Focus should move to button3 after button2 was disabled");
+	}
+
+	[Fact]
+	public void FocusedControl_BecomesInvisible_TabSkipsIt()
+	{
+		// Arrange
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+		var button1 = new ButtonControl { Text = "Button1" };
+		var button2 = new ButtonControl { Text = "Button2" };
+		var button3 = new ButtonControl { Text = "Button3" };
+
+		window.AddControl(button1);
+		window.AddControl(button2);
+		window.AddControl(button3);
+		system.WindowStateService.AddWindow(window);
+
+		// Focus button2
+		system.FocusStateService.SetFocus(window, button2);
+		Assert.True(button2.HasFocus);
+
+		// Make button2 invisible while it has focus
+		button2.Visible = false;
+
+		// Act: Tab forward should skip invisible button2 and land on button3
+		window.SwitchFocus(backward: false);
+
+		// Assert
+		Assert.True(button3.HasFocus, "Focus should move to button3 after button2 was made invisible");
+	}
+
+	#endregion
 }

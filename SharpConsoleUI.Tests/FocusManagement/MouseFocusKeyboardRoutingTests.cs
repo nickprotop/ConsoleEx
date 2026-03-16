@@ -227,4 +227,84 @@ public class MouseFocusKeyboardRoutingTests
 		Assert.True(button2.HasFocus, "Button2 should have focus after Tab");
 		Assert.False(button1.HasFocus, "Button1 should have lost focus after Tab");
 	}
+
+	#region Edge Cases - Disabled Controls
+
+	[Fact]
+	public void MouseClick_OnDisabledControl_DoesNotSetFocus()
+	{
+		// Arrange: create button1 as disabled from the start
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+		var col2 = new ColumnContainer(grid);
+
+		var button1 = new ButtonControl { Text = "Button1", IsEnabled = false };
+		var button2 = new ButtonControl { Text = "Button2" };
+
+		col1.AddContent(button1);
+		col2.AddContent(button2);
+		grid.AddColumn(col1);
+		grid.AddColumn(col2);
+
+		panel.AddControl(grid);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		// Act: click on button1 (at position 0,0 inside the panel content area)
+		var click = CreateClick(0, 0);
+		panel.ProcessMouseEvent(click);
+
+		// Assert: disabled button1 should NOT have focus
+		Assert.False(button1.HasFocus, "Disabled button1 should not receive focus from mouse click");
+	}
+
+	[Fact]
+	public void MouseClick_ThenControlDisabled_KeyRoutingStops()
+	{
+		// Arrange: use a slider that responds to keyboard input
+		var panel = new ScrollablePanelControl();
+		panel.Height = 15;
+
+		var grid = new HorizontalGridControl();
+		var col1 = new ColumnContainer(grid);
+
+		var slider = new SliderControl
+		{
+			Orientation = SliderOrientation.Horizontal,
+			MinValue = 0,
+			MaxValue = 100,
+			Value = 50,
+			Step = 1
+		};
+
+		col1.AddContent(slider);
+		grid.AddColumn(col1);
+		panel.AddControl(grid);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		// Act: click on the slider area to focus it
+		var click = CreateClick(0, 0);
+		panel.ProcessMouseEvent(click);
+		Assert.True(slider.HasFocus, "Slider should have focus after click");
+
+		// Disable the slider while it has focus
+		slider.IsEnabled = false;
+
+		// Act: send Right arrow key — should NOT change slider value
+		var rightArrow = new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false);
+		panel.ProcessKey(rightArrow);
+
+		// Assert: value stays at 50 because slider is disabled
+		Assert.Equal(50, slider.Value);
+	}
+
+	#endregion
 }

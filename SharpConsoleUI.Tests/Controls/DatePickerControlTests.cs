@@ -1157,4 +1157,63 @@ public class DatePickerControlTests
 	}
 
 	#endregion
+
+	#region Edge Cases
+
+	[Fact]
+	public void MinDate_SameAsMaxDate_ClampsToOnlyValidDate()
+	{
+		var onlyDate = new DateTime(2024, 6, 15);
+		var picker = CreateFocusedPicker();
+		picker.MinDate = onlyDate;
+		picker.MaxDate = onlyDate;
+
+		picker.SelectedDate = new DateTime(2020, 1, 1);
+		Assert.Equal(onlyDate, picker.SelectedDate);
+
+		picker.SelectedDate = new DateTime(2030, 12, 31);
+		Assert.Equal(onlyDate, picker.SelectedDate);
+	}
+
+	[Fact]
+	public void CalendarNavigation_PastDateTimeMin_DoesNotThrow()
+	{
+		var picker = CreateFocusedPicker(date: new DateTime(1, 1, 1));
+
+		var exception = Record.Exception(() =>
+		{
+			picker.ProcessKey(Key(ConsoleKey.PageUp));
+		});
+
+		Assert.Null(exception);
+	}
+
+	[Fact]
+	public void CalendarNavigation_PastDateTimeMax_DoesNotThrow()
+	{
+		var picker = CreateFocusedPicker(date: new DateTime(9999, 12, 31));
+
+		// Open the calendar first
+		picker.ProcessKey(Key(ConsoleKey.Enter));
+
+		var exception = Record.Exception(() =>
+		{
+			picker.ProcessKey(Key(ConsoleKey.PageDown));
+		});
+
+		Assert.Null(exception);
+	}
+
+	[Fact]
+	public void ProcessKey_WhenDisabled_ReturnsFalse_EdgeCase()
+	{
+		var picker = CreateFocusedPicker();
+		picker.IsEnabled = false;
+
+		var result = picker.ProcessKey(Key(ConsoleKey.RightArrow));
+
+		Assert.False(result);
+	}
+
+	#endregion
 }

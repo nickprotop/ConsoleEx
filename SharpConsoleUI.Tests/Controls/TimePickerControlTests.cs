@@ -1008,4 +1008,47 @@ public class TimePickerControlTests
 	}
 
 	#endregion
+
+	#region Edge Cases
+
+	[Fact]
+	public void DigitEntry_12HourMode_Hour13_ClampsTo12()
+	{
+		var picker = CreateFocusedPicker(time: new TimeSpan(1, 0, 0), use24Hour: false);
+
+		// Type "1" then "3" into the hour segment
+		picker.ProcessKey(DigitKey(1));
+		picker.ProcessKey(DigitKey(3));
+
+		// In 12-hour mode, valid hours are 1-12; 13 should clamp
+		Assert.True(picker.SelectedTime!.Value.Hours <= 12);
+	}
+
+	[Fact]
+	public void MinTime_EqualToMaxTime_ClampsExactly()
+	{
+		var onlyTime = new TimeSpan(14, 30, 0);
+		var picker = CreateFocusedPicker();
+		picker.MinTime = onlyTime;
+		picker.MaxTime = onlyTime;
+
+		picker.SelectedTime = new TimeSpan(8, 0, 0);
+		Assert.Equal(onlyTime, picker.SelectedTime);
+
+		picker.SelectedTime = new TimeSpan(23, 59, 59);
+		Assert.Equal(onlyTime, picker.SelectedTime);
+	}
+
+	[Fact]
+	public void ProcessKey_WhenDisabled_ReturnsFalse_EdgeCase()
+	{
+		var picker = CreateFocusedPicker();
+		picker.IsEnabled = false;
+
+		var result = picker.ProcessKey(Key(ConsoleKey.RightArrow));
+
+		Assert.False(result);
+	}
+
+	#endregion
 }

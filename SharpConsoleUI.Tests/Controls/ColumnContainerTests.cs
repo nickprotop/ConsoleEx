@@ -493,4 +493,58 @@ public class ColumnContainerTests
 	}
 
 	#endregion
+
+	#region Edge Cases
+
+	[Fact]
+	public void RemoveContent_NonExistentChild_NoException()
+	{
+		// Arrange
+		var grid = new HorizontalGridControl();
+		var column = new ColumnContainer(grid);
+		var label1 = ContainerTestHelpers.CreateLabel("First");
+		var label2 = ContainerTestHelpers.CreateLabel("Second");
+		column.AddContent(label1);
+
+		// Act
+		var exception = Record.Exception(() => column.RemoveContent(label2));
+
+		// Assert
+		Assert.Null(exception);
+	}
+
+	[Fact]
+	public void AddContent_ClearContents_AddAgain_Works()
+	{
+		// Arrange
+		var grid = new HorizontalGridControl();
+		var column = new ColumnContainer(grid);
+		var label1 = ContainerTestHelpers.CreateLabel("First");
+		var label2 = ContainerTestHelpers.CreateLabel("Second");
+
+		// Act
+		column.AddContent(label1);
+		column.ClearContents();
+		column.AddContent(label2);
+
+		// Assert
+		Assert.Single(column.Contents);
+		Assert.Equal(label2, column.Contents[0]);
+	}
+
+	[Fact]
+	public void GetChildren_EmptyColumn_ReturnsEmpty()
+	{
+		// Arrange
+		var grid = new HorizontalGridControl();
+		var column = new ColumnContainer(grid);
+
+		// Act
+		var children = column.GetChildren();
+
+		// Assert
+		Assert.Empty(children);
+	}
+
+	#endregion
 }
