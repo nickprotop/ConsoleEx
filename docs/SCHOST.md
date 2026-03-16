@@ -31,21 +31,29 @@ This is NOT a custom rendering driver. Apps use the real terminal, real `NetCons
 
 ## Installation
 
-schost lives in `tools/schost/` inside the ConsoleEx repository. Run it directly:
+Install from NuGet (recommended):
+
+```bash
+dotnet tool install -g SharpConsoleUI.Host
+```
+
+Then use `schost` directly from anywhere.
+
+### Alternative: from source
+
+If you're working from the ConsoleEx repository, you can run it directly:
 
 ```bash
 dotnet run --project tools/schost/src/schost -- <command>
 ```
 
-Or install as a global .NET tool:
+Or build and install locally:
 
 ```bash
 cd tools/schost
 dotnet pack src/schost -c Release
 dotnet tool install --global --add-source src/schost/nupkg SharpConsoleUI.Host
 ```
-
-Then use `schost` directly from anywhere.
 
 ## Quick Start
 

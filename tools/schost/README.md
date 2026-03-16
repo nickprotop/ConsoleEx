@@ -4,13 +4,19 @@ A CLI tool that launches SharpConsoleUI apps in a configured terminal and packag
 
 ## Install
 
+From NuGet (recommended):
+```bash
+dotnet tool install -g SharpConsoleUI.Host
+```
+
+From source:
 ```bash
 cd tools/schost
 dotnet pack src/schost -c Release
 dotnet tool install --global --add-source src/schost/nupkg SharpConsoleUI.Host
 ```
 
-Or run directly:
+Or run directly without installing:
 ```bash
 dotnet run --project src/schost -- <command>
 ```

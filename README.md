@@ -82,7 +82,15 @@ cd MyApp && dotnet run
 
 ### Desktop Distribution (schost)
 
-Package your app so end users can double-click to launch — no terminal knowledge required:
+Package your app so end users can double-click to launch — no terminal knowledge required.
+
+Install schost from NuGet:
+
+```bash
+dotnet tool install -g SharpConsoleUI.Host
+```
+
+Then use it:
 
 ```bash
 # Initialize terminal config for your project
