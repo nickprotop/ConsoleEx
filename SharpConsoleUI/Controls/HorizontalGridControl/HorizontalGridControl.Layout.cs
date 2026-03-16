@@ -225,7 +225,7 @@ namespace SharpConsoleUI.Controls
 		private int GetSplitterOffset(SplitterControl targetSplitter)
 		{
 			var displayControls = BuildDisplayControlsList();
-			int currentX = 0;
+			int currentX = Margin.Left;
 
 			for (int i = 0; i < displayControls.Count; i++)
 			{
@@ -257,7 +257,7 @@ namespace SharpConsoleUI.Controls
 		private int GetColumnOffset(ColumnContainer targetColumn)
 		{
 			var displayControls = BuildDisplayControlsList();
-			int currentX = 0;
+			int currentX = Margin.Left;
 
 			for (int i = 0; i < displayControls.Count; i++)
 			{

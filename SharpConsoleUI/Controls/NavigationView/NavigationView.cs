@@ -113,7 +113,7 @@ namespace SharpConsoleUI.Controls
 			// Build content header grid (title on left, toolbar on right)
 			_contentHeaderGrid = new HorizontalGridControl();
 			_contentHeaderGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
-			_contentHeaderGrid.Margin = new Margin(1, 1, 0, 0);
+			_contentHeaderGrid.Margin = new Margin(0, 1, 0, 0);
 
 			_contentHeaderTitleColumn = new ColumnContainer(_contentHeaderGrid);
 			_contentHeaderToolbarColumn = new ColumnContainer(_contentHeaderGrid);

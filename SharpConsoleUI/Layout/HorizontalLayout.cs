@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 using System;
 using System.IO;
+using SharpConsoleUI.Controls;
 
 namespace SharpConsoleUI.Layout
 {
@@ -28,6 +29,11 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public LayoutSize MeasureChildren(LayoutNode node, LayoutConstraints constraints)
 		{
+			var margin = node.Control?.Margin ?? default(Margin);
+
+			var contentConstraints = constraints
+				.SubtractWidth(margin.Left + margin.Right)
+				.SubtractHeight(margin.Top + margin.Bottom);
 
 			if (node.Children.Count == 0)
 				return LayoutSize.Zero;
@@ -52,7 +58,7 @@ namespace SharpConsoleUI.Layout
 					continue;
 				}
 
-				var childConstraints = constraints.SubtractWidth(totalWidth);
+				var childConstraints = contentConstraints.SubtractWidth(totalWidth);
 				if (childConstraints.MaxWidth <= 0)
 				{
 					childConstraints = childConstraints.WithMaxWidth(minRemainingWidth);
@@ -67,7 +73,7 @@ namespace SharpConsoleUI.Layout
 			// Second pass: measure flex children with remaining space
 			if (flexCount > 0)
 			{
-				int remainingWidth = Math.Max(minRemainingWidth, constraints.MaxWidth - totalWidth);
+				int remainingWidth = Math.Max(minRemainingWidth, contentConstraints.MaxWidth - totalWidth);
 
 				foreach (var child in node.Children)
 				{
@@ -81,7 +87,7 @@ namespace SharpConsoleUI.Layout
 					flexWidth = Math.Max(minRemainingWidth, flexWidth);
 					// Use Loose constraints (MinHeight=0) instead of Fixed (MinHeight=MaxHeight)
 					// to allow children to measure with unbounded height
-					var childConstraints = LayoutConstraints.Loose(flexWidth, constraints.MaxHeight);
+					var childConstraints = LayoutConstraints.Loose(flexWidth, contentConstraints.MaxHeight);
 
 					var childSize = child.Measure(childConstraints);
 
@@ -91,8 +97,8 @@ namespace SharpConsoleUI.Layout
 			}
 
 			return new LayoutSize(
-				Math.Min(totalWidth, constraints.MaxWidth),
-				Math.Min(maxHeight, constraints.MaxHeight)
+				Math.Min(totalWidth + margin.Left + margin.Right, constraints.MaxWidth),
+				Math.Min(maxHeight + margin.Top + margin.Bottom, constraints.MaxHeight)
 			);
 		}
 
@@ -102,6 +108,8 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public void ArrangeChildren(LayoutNode node, LayoutRect finalRect)
 		{
+			var margin = node.Control?.Margin ?? default(Margin);
+			int contentWidth = finalRect.Width - margin.Left - margin.Right;
 
 			if (node.Children.Count == 0)
 				return;
@@ -135,7 +143,7 @@ namespace SharpConsoleUI.Layout
 			}
 
 			// Calculate width for flex children
-			int remainingWidth = Math.Max(0, finalRect.Width - fixedWidth);
+			int remainingWidth = Math.Max(0, contentWidth - fixedWidth);
 
 			// Calculate base widths for flex children (their measured content sizes)
 			int totalBaseWidth = 0;
@@ -154,7 +162,7 @@ namespace SharpConsoleUI.Layout
 			int extraSpace = Math.Max(0, remainingWidth - totalBaseWidth);
 
 			// Arrange children
-			int currentX = 0;
+			int currentX = margin.Left;
 			bool isFirst = true;
 
 			// Accumulation variables for precise width distribution
@@ -204,25 +212,26 @@ namespace SharpConsoleUI.Layout
 				// Calculate height based on vertical alignment
 				int childHeight;
 				int childY;
+				int contentHeight = finalRect.Height - margin.Top - margin.Bottom;
 
 				switch (child.VerticalAlignment)
 				{
 					case VerticalAlignment.Top:
 						childHeight = child.DesiredSize.Height;
-						childY = 0;
+						childY = margin.Top;
 						break;
 					case VerticalAlignment.Center:
 						childHeight = child.DesiredSize.Height;
-						childY = (finalRect.Height - childHeight) / 2;
+						childY = margin.Top + (contentHeight - childHeight) / 2;
 						break;
 					case VerticalAlignment.Bottom:
 						childHeight = child.DesiredSize.Height;
-						childY = finalRect.Height - childHeight;
+						childY = margin.Top + contentHeight - childHeight;
 						break;
 					case VerticalAlignment.Fill:
 					default:
-						childHeight = finalRect.Height;
-						childY = 0;
+						childHeight = contentHeight;
+						childY = margin.Top;
 						break;
 				}
 

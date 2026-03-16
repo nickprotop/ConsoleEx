@@ -89,7 +89,7 @@ namespace SharpConsoleUI.Controls
 			{
 				return null;
 			}
-			int currentX = 0;
+			int currentX = Margin.Left;
 
 			for (int i = 0; i < displayControls.Count; i++)
 			{
