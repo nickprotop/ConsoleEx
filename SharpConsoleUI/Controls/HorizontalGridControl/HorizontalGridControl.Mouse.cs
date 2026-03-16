@@ -24,7 +24,28 @@ namespace SharpConsoleUI.Controls
 			var clickedControl = GetControlAtPosition(args.Position);
 			if (clickedControl != null)
 			{
-				// Window now handles focus via DOM tree - just forward mouse event to child
+				// Update focus tracking for the clicked control so ProcessKey can route to it.
+				// This mirrors what NotifyChildFocusChanged does but triggered directly from mouse handling,
+				// which is needed because the notification chain from child.SetFocus may not reach us
+				// (ColumnContainer doesn't implement IWindowControl, breaking the walk-up).
+				if (clickedControl is IFocusableControl focusable && focusable.CanReceiveFocus)
+				{
+					// Unfocus previously focused content
+					if (_focusedContent != null && _focusedContent != clickedControl)
+					{
+						if (_focusedContent is IFocusableControl oldFc)
+							oldFc.SetFocus(false, FocusReason.Mouse);
+						else
+							_focusedContent.HasFocus = false;
+					}
+
+					_focusedContent = clickedControl;
+					_hasFocus = true;
+
+					// Set focus on the clicked control (some controls like SliderControl
+					// do this internally in ProcessMouseEvent, but others like ButtonControl don't)
+					focusable.SetFocus(true, FocusReason.Mouse);
+				}
 
 				// Propagate mouse event to the clicked control if it supports mouse events
 				if (clickedControl is IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)

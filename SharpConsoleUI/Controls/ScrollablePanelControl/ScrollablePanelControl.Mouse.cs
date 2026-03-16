@@ -305,8 +305,11 @@ namespace SharpConsoleUI.Controls
 
 					if (child != null)
 					{
-						// Set focus on clicked child (if focusable)
-						if (child is IFocusableControl focusable && focusable.CanReceiveFocus)
+						// Set focus on clicked child (if directly focusable or a container with focusable descendants)
+						bool directlyFocusable = child is IFocusableControl focusable && focusable.CanReceiveFocus;
+						bool containerWithFocusableChildren = !directlyFocusable && CanChildReceiveFocus(child);
+
+						if (directlyFocusable || containerWithFocusableChildren)
 						{
 							// Clear focus from other children
 							List<IWindowControl> mouseSnapshot;
@@ -319,8 +322,15 @@ namespace SharpConsoleUI.Controls
 								}
 							}
 
-							// Set focus on clicked child
-							focusable.SetFocus(true, FocusReason.Mouse);
+							if (directlyFocusable)
+							{
+								// Set focus on clicked child directly
+								((IFocusableControl)child).SetFocus(true, FocusReason.Mouse);
+							}
+							// For containers (e.g. HorizontalGrid with CanReceiveFocus=false):
+							// Don't call SetFocus — let the mouse forwarding + the container's own
+							// mouse focus handling (Fix 1) set focus on the actual child control.
+
 							if (child is IInteractiveControl interactive)
 								_focusedChild = interactive;
 							// Mark panel as focused so ProcessKey routes keys to _focusedChild.
