@@ -1,7 +1,9 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Rendering;
 
 namespace DemoApp.DemoWindows;
 
@@ -145,6 +147,9 @@ internal static class DropdownWindow
             .WithTitle("Meal Planner")
             .WithSize(WindowWidth, WindowHeight)
             .Centered()
+            .WithBackgroundGradient(
+                ColorGradient.FromColors(new Color(20, 15, 40), new Color(10, 30, 50)),
+                GradientDirection.Vertical)
             .AddControls(header, grid, statusBar)
             .OnKeyPressed((sender, e) =>
             {

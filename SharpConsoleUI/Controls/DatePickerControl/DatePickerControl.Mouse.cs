@@ -35,13 +35,24 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Validate within content area
+			// Validate within actual rendered content area, not full layout bounds
 			int contentHeight = _lastLayoutBounds.Height > 0 ? _lastLayoutBounds.Height : 1;
 			if (args.Position.Y < Margin.Top ||
-				args.Position.Y >= contentHeight - Margin.Bottom ||
-				args.Position.X < Margin.Left ||
-				args.Position.X >= _lastLayoutBounds.Width - Margin.Right)
+				args.Position.Y >= contentHeight - Margin.Bottom)
 			{
+				return false;
+			}
+
+			int contentX = args.Position.X - Margin.Left;
+			if (contentX < 0 || contentX >= _lastContentWidth)
+			{
+				// Click is outside the visual content — close calendar if open
+				if (_isCalendarOpen && args.HasFlag(MouseFlags.Button1Released))
+				{
+					CloseCalendar();
+					Container?.Invalidate(true);
+					return true;
+				}
 				return false;
 			}
 

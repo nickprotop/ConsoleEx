@@ -47,15 +47,25 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Validate click is within content area (not in margins)
-			// Margins are non-interactive spacing around the control
+			// Validate click is within the actual rendered header area, not the full layout bounds.
+			// The header may be narrower than the layout allocation (e.g. in a row/toolbar).
 			int contentHeight = (_lastLayoutBounds.Height > 0 ? _lastLayoutBounds.Height : 1);
 			if (args.Position.Y < Margin.Top ||
-			    args.Position.Y >= contentHeight - Margin.Bottom ||
-			    args.Position.X < Margin.Left ||
-			    args.Position.X >= (_lastLayoutBounds.Width - Margin.Right))
+			    args.Position.Y >= contentHeight - Margin.Bottom)
 			{
-				// Click is in margin area - not interactive
+				return false;
+			}
+
+			int contentX = args.Position.X - Margin.Left;
+			if (contentX < _lastAlignOffset || contentX >= _lastAlignOffset + _lastHeaderWidth)
+			{
+				// Click is outside the visual header content — close dropdown if open, but don't open
+				if (_isDropdownOpen && args.HasFlag(MouseFlags.Button1Released))
+				{
+					IsDropdownOpen = false;
+					Container?.Invalidate(true);
+					return true;
+				}
 				return false;
 			}
 

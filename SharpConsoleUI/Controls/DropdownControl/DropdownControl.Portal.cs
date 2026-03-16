@@ -35,6 +35,8 @@ namespace SharpConsoleUI.Controls
 			if (window != null)
 			{
 				_portalContent = new DropdownPortalContent(this);
+				_portalContent.DismissOnOutsideClick = true;
+				_portalContent.DismissRequested += (s, e) => CloseDropdown();
 				_dropdownPortal = window.CreatePortal(this, _portalContent);
 			}
 
@@ -124,28 +126,14 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Calculates the optimal dropdown width.
+		/// Calculates the optimal dropdown portal width based on all items.
 		/// </summary>
 		private int CalculateDropdownWidth()
 		{
 			int targetWidth = _lastLayoutBounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) targetWidth = 20;
 
-			int dropdownWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
-
-			int maxItemWidth = 0;
-			foreach (var item in _items)
-			{
-				int itemLength = Parsing.MarkupParser.StripLength(item.Text) + 4;
-				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
-			}
-
-			if (_autoAdjustWidth)
-				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
-
-			int promptLength = Parsing.MarkupParser.StripLength(_prompt);
-			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
-			dropdownWidth = Math.Min(Math.Max(dropdownWidth, minWidth), targetWidth);
+			int dropdownWidth = calculatePortalWidth(targetWidth);
 
 			return dropdownWidth;
 		}

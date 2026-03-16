@@ -59,6 +59,7 @@ namespace SharpConsoleUI.Controls
 		private bool _hasFocus;
 		private bool _isEnabled = true;
 		private LayoutRect _lastLayoutBounds;
+		private int _lastContentWidth;
 
 		private Color? _backgroundColorValue;
 		private Color? _foregroundColorValue;

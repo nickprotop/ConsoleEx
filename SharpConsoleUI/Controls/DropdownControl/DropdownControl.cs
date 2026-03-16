@@ -62,6 +62,8 @@ namespace SharpConsoleUI.Controls
 		private Rectangle _dropdownBounds;
 		private bool _opensUpward;
 		private LayoutRect _lastLayoutBounds;
+		private int _lastHeaderWidth;
+		private int _lastAlignOffset;
 
 		private static string? GetItemValue(DropdownItem item) => item.Value ?? item.Text;
 
@@ -197,18 +199,7 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				// Calculate optimal width based on items
-				int maxItemWidth = 0;
-				foreach (var item in _items)
-				{
-					int itemLength = Parsing.MarkupParser.StripLength(item.Text) + 4;
-					if (itemLength > maxItemWidth) maxItemWidth = itemLength;
-				}
-
-				int promptLength = Parsing.MarkupParser.StripLength(_prompt) + 5;
-				int dropdownWidth = Math.Max(promptLength, maxItemWidth);
-
-				return dropdownWidth + Margin.Left + Margin.Right;
+				return calculateHeaderWidth(null) + Margin.Left + Margin.Right;
 			}
 		}
 
@@ -619,17 +610,47 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		// Calculate effective width
-		// Calculate effective width
-		private int calculateOptimalWidth(int? availableWidth)
+		// Calculate header width using the standard ComboBox pattern:
+		// sized to the widest item text for stable layout across selection changes.
+		private int calculateHeaderWidth(int? availableWidth)
 		{
-			// Calculate maximum item width including icons, selection indicators, and padding
-			int maxItemWidth = 0;
+			if (Width.HasValue)
+				return Width.Value;
+			if (HorizontalAlignment == HorizontalAlignment.Stretch && availableWidth.HasValue)
+				return availableWidth.Value;
+
 			List<DropdownItem> snapshot;
 			lock (_dropdownLock) { snapshot = _items.ToList(); }
+
+			// Find the longest item text (for stable width across selection changes)
+			string longestText = "(None)";
+			int longestLen = Parsing.MarkupParser.StripLength(longestText);
 			foreach (var item in snapshot)
 			{
-				// Base length includes text plus basic padding
+				int len = Parsing.MarkupParser.StripLength(item.Text);
+				if (len > longestLen) { longestLen = len; longestText = item.Text; }
+			}
+
+			// Build header string with longest item and measure exact display width
+			string arrow = "▼"; // use wider of the two arrows for stable measurement
+			string header = $"{_prompt} {longestText} {arrow}";
+			return Parsing.MarkupParser.StripLength(header);
+		}
+
+		// Calculate portal (dropdown list) width based on all items with icons and indicators.
+		private int calculatePortalWidth(int? availableWidth)
+		{
+			if (HorizontalAlignment == HorizontalAlignment.Stretch && availableWidth.HasValue)
+				return availableWidth.Value;
+
+			List<DropdownItem> snapshot;
+			lock (_dropdownLock) { snapshot = _items.ToList(); }
+
+			// Calculate maximum item width including icons, selection indicators, and padding
+			int maxItemWidth = 0;
+			foreach (var item in snapshot)
+			{
+				// Base length includes text
 				int itemLength = Parsing.MarkupParser.StripLength(item.Text);
 
 				// Add space for selection indicator (2 chars: "● " or "  ")
@@ -648,29 +669,15 @@ namespace SharpConsoleUI.Controls
 					maxItemWidth = itemLength;
 			}
 
-			// Consider prompt length for header row
-			int promptLength = Parsing.MarkupParser.StripLength(_prompt);
-
-			// Calculate header length: prompt + space + selected text + arrow
-			// Allow at least 10 chars for selected text display
-			int headerLength = promptLength + 1 + 10 + 3; // +1 for space, +3 for arrow and padding
-
-			// Take the greater of max item width or header length
-			int minWidth = Math.Max(headerLength, maxItemWidth);
+			// Portal should be at least as wide as the header
+			int headerWidth = calculateHeaderWidth(availableWidth);
+			int portalWidth = Math.Max(maxItemWidth, headerWidth);
 
 			// If width is specified, use it as minimum
 			if (Width.HasValue)
-			{
-				minWidth = Math.Max(minWidth, Width.Value);
-			}
+				portalWidth = Math.Max(portalWidth, Width.Value);
 
-			// If stretch alignment and available width is provided, use available width
-			if (HorizontalAlignment == HorizontalAlignment.Stretch && availableWidth.HasValue)
-			{
-				return availableWidth.Value;
-			}
-
-			return minWidth;
+			return portalWidth;
 		}
 
 		private void EnsureHighlightedItemVisible()

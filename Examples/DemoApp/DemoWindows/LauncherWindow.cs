@@ -11,6 +11,14 @@ public static class LauncherWindow
 {
     public static Window Create(ConsoleWindowSystem ws)
     {
+        var darkGradient = new GradientBackground(
+            ColorGradient.FromColors(new Color(15, 25, 60), new Color(5, 5, 15)),
+            GradientDirection.Vertical);
+
+        var lightGradient = new GradientBackground(
+            ColorGradient.FromColors(new Color(180, 200, 230), new Color(220, 225, 240)),
+            GradientDirection.Vertical);
+
         var nav = Controls.NavigationView()
             .WithNavWidth(30)
             .WithPaneHeader("[bold white]  SharpConsoleUI[/]")
@@ -71,17 +79,28 @@ public static class LauncherWindow
                 LaunchDemo(ws, args.NewItem.Text);
         };
 
-        var gradient = ColorGradient.FromColors(
-            new Color(15, 25, 60),
-            new Color(5, 5, 15));
+        // Theme switcher dropdown in content toolbar
+        var themeDropdown = new DropdownControl("Theme:", new[] { "Dark", "Light" });
+        themeDropdown.SelectedIndex = 0;
+        nav.AddContentToolbarItem(themeDropdown);
 
-        return new WindowBuilder(ws)
+        Window? win = null;
+        themeDropdown.SelectedIndexChanged += (_, idx) =>
+        {
+            if (win != null)
+                win.BackgroundGradient = idx == 0 ? darkGradient : lightGradient;
+        };
+
+        var window = new WindowBuilder(ws)
             .WithTitle("SharpConsoleUI Demo")
             .WithSize(90, 30)
             .AtPosition(0, 0)
-            .WithBackgroundGradient(gradient, GradientDirection.Vertical)
+            .WithBackgroundGradient(darkGradient.Gradient, darkGradient.Direction)
             .AddControl(nav)
             .BuildAndShow();
+
+        win = window;
+        return window;
     }
 
     private static Action<ScrollablePanelControl> MakeInfoPanel(string demoName)

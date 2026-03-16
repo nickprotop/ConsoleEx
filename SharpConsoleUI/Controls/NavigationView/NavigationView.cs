@@ -33,6 +33,11 @@ namespace SharpConsoleUI.Controls
 		private readonly MarkupControl _contentHeader;
 		private readonly ScrollablePanelControl _contentPanel;
 
+		private readonly HorizontalGridControl _contentHeaderGrid;
+		private readonly ColumnContainer _contentHeaderTitleColumn;
+		private readonly ColumnContainer _contentHeaderToolbarColumn;
+		private readonly ToolbarControl _contentToolbar;
+
 		private readonly List<NavigationItem> _items = new();
 		private readonly List<MarkupControl> _itemControls = new();
 		private readonly Dictionary<NavigationItem, Action<ScrollablePanelControl>> _contentFactories = new();
@@ -96,7 +101,7 @@ namespace SharpConsoleUI.Controls
 			};
 
 			_contentHeader = new MarkupControl(new List<string>());
-			_contentHeader.Margin = new Margin(1, 1, 0, 0);
+			_contentHeader.Margin = new Margin(0, 0, 0, 0);
 
 			_contentPanel = new ScrollablePanelControl
 			{
@@ -105,10 +110,29 @@ namespace SharpConsoleUI.Controls
 				VerticalAlignment = VerticalAlignment.Fill
 			};
 
+			// Build content header grid (title on left, toolbar on right)
+			_contentHeaderGrid = new HorizontalGridControl();
+			_contentHeaderGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
+			_contentHeaderGrid.Margin = new Margin(1, 1, 0, 0);
+
+			_contentHeaderTitleColumn = new ColumnContainer(_contentHeaderGrid);
+			_contentHeaderToolbarColumn = new ColumnContainer(_contentHeaderGrid);
+
+			_contentHeaderTitleColumn.AddContent(_contentHeader);
+
+			_contentToolbar = new ToolbarControl();
+			_contentToolbar.HorizontalAlignment = HorizontalAlignment.Right;
+			_contentToolbar.Visible = false;
+			_contentHeaderToolbarColumn.AddContent(_contentToolbar);
+			_contentHeaderToolbarColumn.Width = 0;
+
+			_contentHeaderGrid.AddColumn(_contentHeaderTitleColumn);
+			_contentHeaderGrid.AddColumn(_contentHeaderToolbarColumn);
+
 			// Build column structure
 			_navColumn.AddContent(_paneHeader);
 			_navColumn.AddContent(_navScrollPanel);
-			_contentColumn.AddContent(_contentHeader);
+			_contentColumn.AddContent(_contentHeaderGrid);
 			_contentColumn.AddContent(_contentPanel);
 
 			_grid.AddColumn(_navColumn);
@@ -260,7 +284,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (_showContentHeader == value) return;
 				_showContentHeader = value;
-				_contentHeader.Visible = value;
+				_contentHeaderGrid.Visible = value;
 				OnPropertyChanged();
 				Invalidate(true);
 			}
@@ -455,6 +479,72 @@ namespace SharpConsoleUI.Controls
 		protected override void OnDisposing()
 		{
 			_grid.Dispose();
+		}
+
+		#endregion
+
+		#region Content Toolbar
+
+		/// <summary>
+		/// Gets the content toolbar control for direct access.
+		/// </summary>
+		public ToolbarControl ContentToolbar => _contentToolbar;
+
+		/// <summary>
+		/// Adds a control to the content toolbar.
+		/// </summary>
+		public void AddContentToolbarItem(IWindowControl item)
+		{
+			_contentToolbar.AddItem(item);
+			SyncToolbarVisibility();
+		}
+
+		/// <summary>
+		/// Adds a button to the content toolbar with an optional click handler.
+		/// </summary>
+		public ButtonControl AddContentToolbarButton(string text, EventHandler<ButtonControl>? onClick = null)
+		{
+			var button = new ButtonControl { Text = text };
+			if (onClick != null)
+				button.Click += onClick;
+			_contentToolbar.AddItem(button);
+			SyncToolbarVisibility();
+			return button;
+		}
+
+		/// <summary>
+		/// Adds a vertical separator to the content toolbar.
+		/// </summary>
+		public void AddContentToolbarSeparator()
+		{
+			_contentToolbar.AddItem(new SeparatorControl());
+			SyncToolbarVisibility();
+		}
+
+		/// <summary>
+		/// Removes an item from the content toolbar.
+		/// </summary>
+		public void RemoveContentToolbarItem(IWindowControl item)
+		{
+			_contentToolbar.RemoveItem(item);
+			SyncToolbarVisibility();
+		}
+
+		/// <summary>
+		/// Clears all items from the content toolbar.
+		/// </summary>
+		public void ClearContentToolbar()
+		{
+			_contentToolbar.Clear();
+			SyncToolbarVisibility();
+		}
+
+		private void SyncToolbarVisibility()
+		{
+			bool hasItems = _contentToolbar.Items.Any();
+			_contentToolbar.Visible = hasItems;
+			_contentHeaderToolbarColumn.Width = hasItems ? null : 0;
+			Invalidate(true);
 		}
 
 		#endregion

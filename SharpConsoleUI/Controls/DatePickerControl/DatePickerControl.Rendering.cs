@@ -141,6 +141,9 @@ namespace SharpConsoleUI.Controls
 				buffer.SetNarrowCell(writeX, paintY, ' ', foregroundColor, backgroundColor);
 				writeX++;
 
+				// Cache actual content width for hit-testing
+				_lastContentWidth = writeX - startX;
+
 				// Fill remaining space on the line with window background
 				int rightFillWidth = bounds.Right - Margin.Right - writeX;
 				if (rightFillWidth > 0)

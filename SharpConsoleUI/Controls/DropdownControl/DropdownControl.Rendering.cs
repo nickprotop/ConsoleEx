@@ -19,25 +19,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			int dropdownWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch
-				? constraints.MaxWidth - Margin.Left - Margin.Right
-				: calculateOptimalWidth(constraints.MaxWidth));
+			int dropdownWidth = calculateHeaderWidth(constraints.MaxWidth - Margin.Left - Margin.Right);
 
-			// Ensure width can accommodate content
-			int maxItemWidth = 0;
-			List<DropdownItem> measureSnapshot;
-			lock (_dropdownLock) { measureSnapshot = _items.ToList(); }
-			foreach (var item in measureSnapshot)
-			{
-				int itemLength = Parsing.MarkupParser.StripLength(item.Text) + 4;
-				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
-			}
-
-			if (_autoAdjustWidth)
-				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
-
-			int promptLength = Parsing.MarkupParser.StripLength(_prompt);
-			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
+			// Sane minimum: prompt + arrow + space for at least a few chars
+			string arrow = "▼";
+			int minWidth = Parsing.MarkupParser.StripLength($"{_prompt} {arrow}") + 3;
 			dropdownWidth = Math.Max(dropdownWidth, minWidth);
 
 			// Calculate height - constant (header only), dropdown items render via portal
@@ -90,22 +76,18 @@ namespace SharpConsoleUI.Controls
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground, preserveBg);
 
-			// Calculate dropdown width
-			int dropdownWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : calculateOptimalWidth(targetWidth));
-			int maxItemWidth = 0;
+			// Calculate dropdown width using header measurement
+			int dropdownWidth = calculateHeaderWidth(targetWidth);
+
+			// Sane minimum: prompt + arrow + space for at least a few chars
+			string arrowMin = "▼";
+			int minWidth = Parsing.MarkupParser.StripLength($"{_prompt} {arrowMin}") + 3;
+			dropdownWidth = Math.Min(Math.Max(dropdownWidth, minWidth), targetWidth);
+
 			List<DropdownItem> paintSnapshot;
 			lock (_dropdownLock) { paintSnapshot = _items.ToList(); }
-			foreach (var item in paintSnapshot)
-			{
-				int itemLength = Parsing.MarkupParser.StripLength(item.Text) + 4;
-				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
-			}
-			if (_autoAdjustWidth)
-				dropdownWidth = Math.Max(dropdownWidth, maxItemWidth + 4);
 
 			int promptLength = Parsing.MarkupParser.StripLength(_prompt);
-			int minWidth = Math.Max(promptLength + 5, maxItemWidth + 4);
-			dropdownWidth = Math.Min(Math.Max(dropdownWidth, minWidth), targetWidth);
 
 			// Calculate alignment offset
 			int alignOffset = 0;
@@ -122,22 +104,27 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			// Cache for hit-testing in ProcessMouseEvent
+			_lastHeaderWidth = dropdownWidth;
+			_lastAlignOffset = alignOffset;
+
 			int selectedIdx = CurrentSelectedIndex;
 			int highlightedIdx = CurrentHighlightedIndex;
 			int dropdownScroll = CurrentDropdownScrollOffset;
 
-			// Render header
+			// Render header: arrow flush-right, padding between text and arrow
 			string selectedText = selectedIdx >= 0 && selectedIdx < paintSnapshot.Count ? paintSnapshot[selectedIdx].Text : "(None)";
-			// Arrow shows direction: ▲ when open upward, ▼ when closed or open downward
 			string arrow = _isDropdownOpen && _opensUpward ? "▲" : "▼";
-			int maxSelectedTextLength = dropdownWidth - promptLength - 5;
+			string suffix = $" {arrow}";
+			int suffixLen = Parsing.MarkupParser.StripLength(suffix);
+			int maxSelectedTextLength = dropdownWidth - promptLength - 1 - suffixLen; // 1 = space after prompt
 			if (maxSelectedTextLength > 0 && Parsing.MarkupParser.StripLength(selectedText) > maxSelectedTextLength)
 				selectedText = TextTruncationHelper.Truncate(selectedText, maxSelectedTextLength);
 
-			string headerContent = $"{_prompt} {selectedText} {arrow}";
-			int headerVisibleLength = Parsing.MarkupParser.StripLength(headerContent);
-			if (headerVisibleLength < dropdownWidth)
-				headerContent += new string(' ', dropdownWidth - headerVisibleLength);
+			string prefix = $"{_prompt} {selectedText}";
+			int prefixLen = Parsing.MarkupParser.StripLength(prefix);
+			int paddingNeeded = Math.Max(0, dropdownWidth - prefixLen - suffixLen);
+			string headerContent = prefix + new string(' ', paddingNeeded) + suffix;
 
 			int paintY = startY;
 

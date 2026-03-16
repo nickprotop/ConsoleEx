@@ -235,6 +235,8 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 
 	#endregion
 
+	private Action<ToolbarControl>? _contentToolbarConfigure;
+
 	#region Content Pane Config
 
 	/// <summary>
@@ -279,6 +281,15 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 	public NavigationViewBuilder WithContentHeader(bool show)
 	{
 		_control.ShowContentHeader = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Configures the content toolbar in the header area.
+	/// </summary>
+	public NavigationViewBuilder WithContentToolbar(Action<ToolbarControl> configure)
+	{
+		_contentToolbarConfigure = configure;
 		return this;
 	}
 
@@ -434,6 +445,13 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 						_control.SetItemContent(child, childContent);
 				}
 			}
+		}
+
+		// Configure content toolbar
+		if (_contentToolbarConfigure != null)
+		{
+			_contentToolbarConfigure(_control.ContentToolbar);
+			_control.ContentToolbar.Visible = _control.ContentToolbar.Items.Any();
 		}
 
 		// Set initial selection (count only selectable items)
