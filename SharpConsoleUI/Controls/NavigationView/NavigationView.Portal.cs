@@ -58,6 +58,14 @@ namespace SharpConsoleUI.Controls
 				VerticalAlignment = VerticalAlignment.Fill
 			};
 
+			// Add pane header if configured
+			if (_paneHeaderText != null)
+			{
+				var headerControl = new MarkupControl(new List<string> { _paneHeaderText, "" });
+				headerControl.Margin = new Margin(0, 1, 0, 0);
+				portalPanel.AddControl(headerControl);
+			}
+
 			lock (_itemsLock)
 			{
 				for (int i = 0; i < _items.Count; i++)
@@ -87,6 +95,10 @@ namespace SharpConsoleUI.Controls
 			}
 
 			_portalContent.AddChild(portalPanel);
+
+			// Focus the scroll panel so wheel events and keyboard navigation
+			// work immediately without requiring a click first.
+			_portalContent.SetFocusOnFirstChild();
 
 			// Wire dismiss
 			_portalContent.DismissRequested += (_, _) =>

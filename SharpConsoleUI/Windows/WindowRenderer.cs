@@ -603,6 +603,10 @@ namespace SharpConsoleUI.Windows
 			// for portal creation - the portal bounds come from the portal content itself.
 			// So we allow portal creation even for nested controls.
 
+			// Connect the portal content into the invalidation chain so that
+			// child controls (e.g. ScrollablePanelControl) can trigger repaints.
+			portalContent.Container = _window;
+
 			var portalNode = new LayoutNode(portalContent);
 			portalNode.IsVisible = true; // Ensure portal is visible
 
@@ -662,7 +666,11 @@ namespace SharpConsoleUI.Windows
 			{
 				var removed = _rootNode.RemovePortalChild(portalNode);
 				if (portalNode.Control != null)
+				{
+					// Disconnect from invalidation chain
+					portalNode.Control.Container = null;
 					_controlToNodeMap.Remove(portalNode.Control);
+				}
 			}
 		}
 

@@ -28,6 +28,7 @@ namespace SharpConsoleUI.Controls
 		private readonly object _childrenLock = new();
 		private readonly List<IWindowControl> _children = new();
 		private IInteractiveControl? _focusedChild;
+		private IMouseAwareControl? _mouseCaptureChild;
 		private Rectangle _portalBounds;
 		private Color? _backgroundColor;
 		private Color _foregroundColor = Color.White;
@@ -313,12 +314,45 @@ namespace SharpConsoleUI.Controls
 		{
 			if (args.Handled) return false;
 
-			// Forward mouse wheel to focused child first
+			// Forward mouse wheel — use hit-testing to find the child under the cursor,
+			// falling back to _focusedChild. This allows scrolling without requiring
+			// a prior click to establish focus.
 			bool isWheel = args.HasFlag(Drivers.MouseFlags.WheeledUp) || args.HasFlag(Drivers.MouseFlags.WheeledDown);
-			if (isWheel && _focusedChild is IMouseAwareControl wheelTarget && wheelTarget.WantsMouseEvents)
+			if (isWheel)
 			{
-				if (wheelTarget.ProcessMouseEvent(args))
-					return true;
+				// Try hit-testing first (position-based routing, works without focus)
+				var hitResult = HitTestChild(args.Position);
+				if (hitResult.Child is IMouseAwareControl hitMouse && hitMouse.WantsMouseEvents)
+				{
+					if (hitMouse.ProcessMouseEvent(args))
+						return true;
+				}
+
+				// Fall back to focused child if hit-test didn't handle it
+				if (_focusedChild is IMouseAwareControl wheelTarget && wheelTarget.WantsMouseEvents
+					&& wheelTarget != hitResult.Child as IMouseAwareControl)
+				{
+					if (wheelTarget.ProcessMouseEvent(args))
+						return true;
+				}
+			}
+
+			// Forward drag and mouse-move events to the child that owns the interaction
+			// (the mouse-capture child). This is critical for scrollbar dragging — the
+			// WindowEventDispatcher routes drag events via mouse capture to us, and we
+			// must forward them to the child that received the initial Button1Pressed.
+			if (args.HasAnyFlag(Drivers.MouseFlags.Button1Dragged, Drivers.MouseFlags.ReportMousePosition))
+			{
+				if (_mouseCaptureChild is IMouseAwareControl capturedMouse && capturedMouse.WantsMouseEvents)
+				{
+					var childPos = GetChildRelativePosition(_mouseCaptureChild as IWindowControl, args.Position);
+					var childArgs = args.WithPosition(childPos);
+					if (capturedMouse.ProcessMouseEvent(childArgs))
+					{
+						args.Handled = true;
+						return true;
+					}
+				}
 			}
 
 			// Handle click events
@@ -346,6 +380,13 @@ namespace SharpConsoleUI.Controls
 						}
 					}
 
+					// Track mouse capture for drag forwarding
+					if (args.HasFlag(Drivers.MouseFlags.Button1Pressed) &&
+						hitResult.Child is IMouseAwareControl pressedMouse && pressedMouse.WantsMouseEvents)
+					{
+						_mouseCaptureChild = pressedMouse;
+					}
+
 					// Forward mouse event to child
 					if (hitResult.Child is IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
 					{
@@ -366,6 +407,10 @@ namespace SharpConsoleUI.Controls
 					Container?.Invalidate(true);
 					return true;
 				}
+
+				// Release mouse capture on button release
+				if (args.HasFlag(Drivers.MouseFlags.Button1Released))
+					_mouseCaptureChild = null;
 			}
 
 			return false;
@@ -396,6 +441,33 @@ namespace SharpConsoleUI.Controls
 			}
 
 			return (null, Point.Empty);
+		}
+
+		/// <summary>
+		/// Translates a portal-relative position to be relative to a specific child control,
+		/// accounting for the child's Y offset within the portal's content layout.
+		/// </summary>
+		private Point GetChildRelativePosition(IWindowControl? child, Point position)
+		{
+			if (child == null)
+				return position;
+
+			int currentY = 0;
+			List<IWindowControl> snapshot;
+			lock (_childrenLock)
+			{
+				snapshot = new List<IWindowControl>(_children);
+			}
+
+			foreach (var c in snapshot)
+			{
+				if (!c.Visible) continue;
+				if (c == child)
+					return new Point(position.X, position.Y - currentY);
+				currentY += MeasureChildHeight(c);
+			}
+
+			return position;
 		}
 
 		private int MeasureChildHeight(IWindowControl child)

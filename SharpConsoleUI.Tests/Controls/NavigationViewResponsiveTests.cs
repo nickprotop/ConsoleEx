@@ -529,6 +529,27 @@ public class NavigationViewResponsiveTests
 
 	#endregion
 
+	#region Margin-Adjusted Display Mode
+
+	[Fact]
+	public void MeasureDOM_WithMargin_AdjustsDisplayModeThreshold()
+	{
+		var nav = CreateTestNav();
+		nav.AnimateTransitions = false;
+		// With margins eating into available width, a width that would normally
+		// be Expanded should resolve to Compact when margins are large enough.
+		nav.Margin = new Margin(15, 0, 15, 0); // 30 chars of horizontal margin
+		nav.ExpandedThreshold = 80;
+
+		// 100 total width - 30 margin = 70 content width, which is < 80 threshold
+		var constraints = LayoutConstraints.Loose(100, 20);
+		nav.MeasureDOM(constraints);
+
+		Assert.Equal(NavigationViewDisplayMode.Compact, nav.CurrentDisplayMode);
+	}
+
+	#endregion
+
 	#region Backward Compatibility / Zero Regression
 
 	[Fact]

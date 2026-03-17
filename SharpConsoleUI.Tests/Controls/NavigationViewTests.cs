@@ -10,6 +10,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using static SharpConsoleUI.Builders.Controls;
 
@@ -613,6 +614,295 @@ public class NavigationViewTests
 		nav.RemoveItem(5);
 
 		Assert.Single(nav.Items);
+	}
+
+	#endregion
+
+	#region Helpers (rendered environment)
+
+	private static (ConsoleWindowSystem system, Window window, NavigationView nav) CreateRenderedEnvironment(
+		int width, int height, NavigationView? nav = null)
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem(width, height);
+		var window = new Window(system)
+		{
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = width,
+			Height = height
+		};
+		nav ??= new NavigationView();
+		nav.VerticalAlignment = VerticalAlignment.Fill;
+		window.AddControl(nav);
+		system.AddWindow(window);
+		system.Render.UpdateDisplay();
+		return (system, window, nav);
+	}
+
+	#endregion
+
+	#region Hierarchical Operations
+
+	[Fact]
+	public void AddItemToHeader_AddsChildAfterHeader()
+	{
+		var nav = new NavigationView();
+		nav.AddItem("Top");
+		var header = nav.AddHeader("Section");
+		nav.AddItem("Bottom");
+
+		var child = nav.AddItemToHeader(header, "Child");
+
+		// Child should be inserted after the header (index 2), before "Bottom" (index 3)
+		Assert.Equal(4, nav.Items.Count);
+		Assert.Equal("Child", nav.Items[2].Text);
+		Assert.Equal(header, nav.Items[2].ParentHeader);
+		Assert.Equal("Bottom", nav.Items[3].Text);
+	}
+
+	[Fact]
+	public void AddItemToHeader_MultipleChildren_InsertedInOrder()
+	{
+		var nav = new NavigationView();
+		var header = nav.AddHeader("Section");
+
+		nav.AddItemToHeader(header, "Child1");
+		nav.AddItemToHeader(header, "Child2");
+		nav.AddItemToHeader(header, "Child3");
+
+		// Header at 0, children at 1, 2, 3
+		Assert.Equal(4, nav.Items.Count);
+		Assert.Equal("Child1", nav.Items[1].Text);
+		Assert.Equal("Child2", nav.Items[2].Text);
+		Assert.Equal("Child3", nav.Items[3].Text);
+		Assert.All(nav.Items.Skip(1), item => Assert.Equal(header, item.ParentHeader));
+	}
+
+	[Fact]
+	public void ToggleHeaderExpanded_CollapsesChildren()
+	{
+		var nav = new NavigationView();
+		var header = nav.AddHeader("Section");
+		nav.AddItemToHeader(header, "Child1");
+		nav.AddItemToHeader(header, "Child2");
+
+		Assert.True(header.IsExpanded);
+
+		nav.ToggleHeaderExpanded(header);
+
+		Assert.False(header.IsExpanded);
+	}
+
+	[Fact]
+	public void ToggleHeaderExpanded_ExpandsChildren()
+	{
+		var nav = new NavigationView();
+		var header = nav.AddHeader("Section");
+		nav.AddItemToHeader(header, "Child1");
+		nav.AddItemToHeader(header, "Child2");
+
+		// Collapse then expand
+		nav.ToggleHeaderExpanded(header);
+		Assert.False(header.IsExpanded);
+
+		nav.ToggleHeaderExpanded(header);
+		Assert.True(header.IsExpanded);
+	}
+
+	[Fact]
+	public void ToggleHeaderExpanded_SelectionRecovery()
+	{
+		var nav = new NavigationView();
+		nav.AddItem("Top");
+		var header = nav.AddHeader("Section");
+		var child1 = nav.AddItemToHeader(header, "Child1");
+		nav.AddItemToHeader(header, "Child2");
+		nav.AddItem("Bottom");
+
+		// Select child1 (index 2)
+		nav.SelectedIndex = 2;
+		Assert.Equal(child1, nav.SelectedItem);
+
+		// Collapse header — selection should move to a visible item
+		nav.ToggleHeaderExpanded(header);
+
+		Assert.NotEqual(child1, nav.SelectedItem);
+		Assert.True(nav.SelectedIndex >= 0);
+	}
+
+	[Fact]
+	public void RemoveItem_Header_CascadeRemovesChildren()
+	{
+		var nav = new NavigationView();
+		nav.AddItem("Top");
+		var header = nav.AddHeader("Section");
+		nav.AddItemToHeader(header, "Child1");
+		nav.AddItemToHeader(header, "Child2");
+		nav.AddItemToHeader(header, "Child3");
+		nav.AddItem("Bottom");
+
+		Assert.Equal(6, nav.Items.Count);
+
+		nav.RemoveItem(header);
+
+		Assert.Equal(2, nav.Items.Count);
+		Assert.Equal("Top", nav.Items[0].Text);
+		Assert.Equal("Bottom", nav.Items[1].Text);
+	}
+
+	[Fact]
+	public void RemoveItem_Header_AdjustsSelectedIndex()
+	{
+		var nav = new NavigationView();
+		nav.AddItem("Top");
+		var header = nav.AddHeader("Section");
+		nav.AddItemToHeader(header, "Child1");
+		nav.AddItemToHeader(header, "Child2");
+		nav.AddItem("Bottom");
+
+		// Select "Bottom" (index 4)
+		nav.SelectedIndex = 4;
+		Assert.Equal("Bottom", nav.SelectedItem?.Text);
+
+		nav.RemoveItem(header);
+
+		// After cascade removal, "Bottom" should still be selected
+		Assert.Equal("Bottom", nav.SelectedItem?.Text);
+		Assert.Equal(1, nav.SelectedIndex);
+	}
+
+	[Fact]
+	public void RemoveItem_Header_ContentFactoriesCleanedUp()
+	{
+		var nav = new NavigationView();
+		var header = nav.AddHeader("Section");
+		var child1 = nav.AddItemToHeader(header, "Child1");
+		var child2 = nav.AddItemToHeader(header, "Child2");
+
+		// Register content factories for children
+		nav.SetItemContent(child1, _ => { });
+		nav.SetItemContent(child2, _ => { });
+
+		// Remove the header (cascades to children) — should not throw
+		nav.RemoveItem(header);
+
+		Assert.Equal(0, nav.Items.Count);
+	}
+
+	#endregion
+
+	#region Index Adjustment
+
+	[Fact]
+	public void InsertItem_BeforeSelected_AdjustsSelectedIndex()
+	{
+		var nav = new NavigationView();
+		nav.AddItem("Dashboard");
+		nav.AddItem("Settings");
+		// Auto-selected index 0 ("Dashboard")
+		Assert.Equal(0, nav.SelectedIndex);
+		var selectedItem = nav.SelectedItem;
+
+		nav.InsertItem(0, new NavigationItem("Inserted"));
+
+		// SelectedIndex should shift +1, SelectedItem stays the same
+		Assert.Equal(1, nav.SelectedIndex);
+		Assert.Equal(selectedItem, nav.SelectedItem);
+	}
+
+	[Fact]
+	public void InsertItem_AfterSelected_DoesNotChangeSelectedIndex()
+	{
+		var nav = new NavigationView();
+		nav.AddItem("Dashboard");
+		nav.AddItem("Settings");
+		Assert.Equal(0, nav.SelectedIndex);
+
+		nav.InsertItem(2, new NavigationItem("Inserted"));
+
+		Assert.Equal(0, nav.SelectedIndex);
+	}
+
+	#endregion
+
+	#region Margin Rendering
+
+	[Fact]
+	public void MeasureDOM_WithMargin_IncludesMarginsInSize()
+	{
+		var nav = new NavigationView();
+		nav.Margin = new Margin(2, 1, 2, 1);
+		nav.AddItem("Test");
+
+		var constraints = LayoutConstraints.Loose(100, 20);
+		var size = nav.MeasureDOM(constraints);
+
+		// Measure without margin for comparison
+		var navNoMargin = new NavigationView();
+		navNoMargin.AddItem("Test");
+		var sizeNoMargin = navNoMargin.MeasureDOM(constraints);
+
+		// Height should include vertical margins (top 1 + bottom 1 = 2)
+		Assert.Equal(sizeNoMargin.Height + 2, size.Height);
+	}
+
+	[Fact]
+	public void ContentWidth_WithMargin_IncludesMargins()
+	{
+		var nav = new NavigationView();
+		nav.Margin = new Margin(3, 0, 3, 0);
+		nav.AddItem("Test");
+		nav.MeasureDOM(LayoutConstraints.Loose(100, 20));
+
+		var contentWidth = nav.ContentWidth;
+		Assert.NotNull(contentWidth);
+
+		var navNoMargin = new NavigationView();
+		navNoMargin.AddItem("Test");
+		navNoMargin.MeasureDOM(LayoutConstraints.Loose(100, 20));
+		var noMarginWidth = navNoMargin.ContentWidth;
+
+		Assert.Equal(noMarginWidth + 6, contentWidth);
+	}
+
+	[Fact]
+	public void GetLogicalContentSize_WithMargin_IncludesMargins()
+	{
+		var nav = new NavigationView();
+		nav.Margin = new Margin(2, 1, 2, 1);
+		nav.AddItem("Test");
+		nav.MeasureDOM(LayoutConstraints.Loose(100, 20));
+
+		var size = nav.GetLogicalContentSize();
+
+		var navNoMargin = new NavigationView();
+		navNoMargin.AddItem("Test");
+		navNoMargin.MeasureDOM(LayoutConstraints.Loose(100, 20));
+		var noMarginSize = navNoMargin.GetLogicalContentSize();
+
+		Assert.Equal(noMarginSize.Width + 4, size.Width);
+		Assert.Equal(noMarginSize.Height + 2, size.Height);
+	}
+
+	[Fact]
+	public void PaintDOM_WithMargin_UsesContentAreaBounds()
+	{
+		// Verify that the NavigationView with margins renders without error
+		// and that the actual bounds are established correctly
+		var nav = new NavigationView();
+		nav.Margin = new Margin(2, 1, 2, 1);
+		nav.AddItem("Test");
+
+		var (system, window, _) = CreateRenderedEnvironment(80, 20, nav);
+
+		// Multiple renders to establish stable bounds
+		system.Render.UpdateDisplay();
+		system.Render.UpdateDisplay();
+
+		// Verify the control rendered (no exceptions) and has valid bounds
+		Assert.True(nav.ActualWidth > 0);
+		Assert.True(nav.ActualHeight > 0);
 	}
 
 	#endregion

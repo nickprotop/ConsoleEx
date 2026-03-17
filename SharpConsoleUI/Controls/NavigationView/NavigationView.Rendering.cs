@@ -18,16 +18,21 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
+			int marginH = Margin.Left + Margin.Right;
+			int marginV = Margin.Top + Margin.Bottom;
+
 			// Use the actual rendered width from the previous frame if available,
 			// otherwise fall back to constraints. ActualWidth is set by SetActualBounds
 			// in PaintDOM and reflects the true allocated width.
-			int availableWidth = ActualWidth > 0 ? ActualWidth : (Width ?? constraints.MaxWidth);
+			// Subtract margins so responsive mode checks use content-area width.
+			int availableWidth = (ActualWidth > 0 ? ActualWidth : (Width ?? constraints.MaxWidth)) - marginH;
 			CheckAndApplyDisplayMode(availableWidth);
 
 			SyncInternalControls();
 
+			var adjustedConstraints = constraints.SubtractWidth(marginH).SubtractHeight(marginV);
 			int width = Width ?? constraints.MaxWidth;
-			int height = _grid.MeasureDOM(constraints).Height;
+			int height = _grid.MeasureDOM(adjustedConstraints).Height + marginV;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -41,20 +46,25 @@ namespace SharpConsoleUI.Controls
 		{
 			SetActualBounds(bounds);
 
-			// Check responsive mode using actual allocated width from layout.
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
+			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
+			int targetHeight = bounds.Height - Margin.Top - Margin.Bottom;
+
+			// Check responsive mode using margin-adjusted content width.
 			// If mode changes here, we invalidate to trigger re-layout on the next frame.
-			CheckAndApplyDisplayMode(bounds.Width);
+			CheckAndApplyDisplayMode(targetWidth);
 
 			// Background fill — preserve gradient if no explicit background
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container, defaultBg);
 			var fgColor = ColorResolver.ResolveForeground(_foregroundColor, Container, defaultFg);
 			bool preserveBg = _backgroundColorValue == null && (Container?.HasGradientBackground ?? false);
 
-			for (int y = bounds.Y; y < bounds.Bottom; y++)
+			for (int y = startY; y < startY + targetHeight; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					var lineRect = new LayoutRect(bounds.X, y, bounds.Width, 1);
+					var lineRect = new LayoutRect(startX, y, targetWidth, 1);
 					if (preserveBg)
 						buffer.FillRectPreservingBackground(lineRect, fgColor);
 					else

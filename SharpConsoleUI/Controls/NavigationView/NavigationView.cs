@@ -465,13 +465,14 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public override int? ContentWidth => Width ?? _grid.ContentWidth;
+		public override int? ContentWidth =>
+			(Width ?? _grid.ContentWidth) + Margin.Left + Margin.Right;
 
 		/// <inheritdoc/>
 		public override System.Drawing.Size GetLogicalContentSize()
 		{
-			int width = Width ?? _grid.GetLogicalContentSize().Width;
-			int height = _grid.GetLogicalContentSize().Height;
+			int width = (Width ?? _grid.GetLogicalContentSize().Width) + Margin.Left + Margin.Right;
+			int height = _grid.GetLogicalContentSize().Height + Margin.Top + Margin.Bottom;
 			return new System.Drawing.Size(width, height);
 		}
 
