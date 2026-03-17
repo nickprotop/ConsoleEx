@@ -179,6 +179,23 @@ namespace SharpConsoleUI.Core
         }
 
         /// <summary>
+        /// Clears only the rendering flag without marking the cache as valid.
+        /// Used in error paths where the cache should remain invalid.
+        /// </summary>
+        public void ClearRenderingFlag()
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                _isRendering = false;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        /// <summary>
         /// Attempts to begin a render operation. Returns <c>false</c> if another render is in progress.
         /// </summary>
         /// <returns><c>true</c> if rendering was started; <c>false</c> if a render is already in progress.</returns>
@@ -424,8 +441,8 @@ namespace SharpConsoleUI.Core
             }
             finally
             {
-                // Always clear rendering flag
-                state.MarkAsValid();
+                // Always clear rendering flag (but don't mark valid on failure)
+                state.ClearRenderingFlag();
             }
         }
 

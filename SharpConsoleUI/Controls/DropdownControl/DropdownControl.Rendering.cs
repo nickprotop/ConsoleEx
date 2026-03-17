@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -22,7 +23,7 @@ namespace SharpConsoleUI.Controls
 			int dropdownWidth = calculateHeaderWidth(constraints.MaxWidth - Margin.Left - Margin.Right);
 
 			// Sane minimum: prompt + arrow + space for at least a few chars
-			string arrow = "▼";
+			string arrow = ControlDefaults.DropdownClosedArrow;
 			int minWidth = Parsing.MarkupParser.StripLength($"{_prompt} {arrow}") + 3;
 			dropdownWidth = Math.Max(dropdownWidth, minWidth);
 
@@ -80,7 +81,7 @@ namespace SharpConsoleUI.Controls
 			int dropdownWidth = calculateHeaderWidth(targetWidth);
 
 			// Sane minimum: prompt + arrow + space for at least a few chars
-			string arrowMin = "▼";
+			string arrowMin = ControlDefaults.DropdownClosedArrow;
 			int minWidth = Parsing.MarkupParser.StripLength($"{_prompt} {arrowMin}") + 3;
 			dropdownWidth = Math.Min(Math.Max(dropdownWidth, minWidth), targetWidth);
 
@@ -114,17 +115,16 @@ namespace SharpConsoleUI.Controls
 
 			// Render header: arrow flush-right, padding between text and arrow
 			string selectedText = selectedIdx >= 0 && selectedIdx < paintSnapshot.Count ? paintSnapshot[selectedIdx].Text : "(None)";
-			string arrow = _isDropdownOpen && _opensUpward ? "▲" : "▼";
-			string suffix = $" {arrow}";
-			int suffixLen = Parsing.MarkupParser.StripLength(suffix);
-			int maxSelectedTextLength = dropdownWidth - promptLength - 1 - suffixLen; // 1 = space after prompt
+			string arrow = _isDropdownOpen && _opensUpward ? ControlDefaults.DropdownOpenArrow : ControlDefaults.DropdownClosedArrow;
+			int arrowDisplayWidth = Parsing.MarkupParser.StripLength(arrow);
+			// Reserve: space + arrow
+			int suffixReserved = 1 + arrowDisplayWidth;
+			int maxSelectedTextLength = dropdownWidth - promptLength - 1 - suffixReserved; // 1 = space after prompt
 			if (maxSelectedTextLength > 0 && Parsing.MarkupParser.StripLength(selectedText) > maxSelectedTextLength)
 				selectedText = TextTruncationHelper.Truncate(selectedText, maxSelectedTextLength);
 
 			string prefix = $"{_prompt} {selectedText}";
 			int prefixLen = Parsing.MarkupParser.StripLength(prefix);
-			int paddingNeeded = Math.Max(0, dropdownWidth - prefixLen - suffixLen);
-			string headerContent = prefix + new string(' ', paddingNeeded) + suffix;
 
 			int paintY = startY;
 
@@ -136,10 +136,28 @@ namespace SharpConsoleUI.Controls
 				if (alignOffset > 0)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, paintY, alignOffset, 1), foregroundColor, windowBackground, preserveBg);
 
-				var cells = Parsing.MarkupParser.Parse(headerContent, foregroundColor, backgroundColor);
-				buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
+				int writeX = startX + alignOffset;
 
-				int rightFillStart = startX + alignOffset + dropdownWidth;
+				// Paint prefix (prompt + selected text)
+				var prefixCells = Parsing.MarkupParser.Parse(prefix, foregroundColor, backgroundColor);
+				buffer.WriteCellsClipped(writeX, paintY, prefixCells, clipRect);
+				writeX += prefixCells.Count;
+
+				// Paint padding between text and arrow
+				int paddingNeeded = Math.Max(0, dropdownWidth - prefixLen - suffixReserved);
+				for (int p = 0; p < paddingNeeded + 1; p++) // +1 for space before arrow
+				{
+					if (writeX >= clipRect.X && writeX < clipRect.Right)
+						buffer.SetNarrowCell(writeX, paintY, ' ', foregroundColor, backgroundColor);
+					writeX++;
+				}
+
+				// Paint arrow via Parse (handles wide chars with continuation cells)
+				var arrowCells = Parsing.MarkupParser.Parse(arrow, foregroundColor, backgroundColor);
+				buffer.WriteCellsClipped(writeX, paintY, arrowCells, clipRect);
+				writeX += arrowCells.Count;
+
+				int rightFillStart = writeX;
 				int rightFillWidth = bounds.Right - rightFillStart - Margin.Right;
 				if (rightFillWidth > 0)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightFillStart, paintY, rightFillWidth, 1), foregroundColor, windowBackground, preserveBg);

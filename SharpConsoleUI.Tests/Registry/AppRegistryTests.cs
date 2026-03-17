@@ -96,10 +96,17 @@ public class AppRegistryLazyFlushTests
         using var reg = new AppRegistry(config);
         reg.OpenSection("App").SetInt("X", 77);
 
-        // Wait 10x the interval — generous margin for CI environments under load
-        await Task.Delay(500);
+        // Poll until the lazy flush timer persists data, with a generous timeout for CI
+        var timeout = TimeSpan.FromSeconds(2);
+        var start = DateTime.UtcNow;
+        System.Text.Json.Nodes.JsonNode? loaded = null;
+        while (DateTime.UtcNow - start < timeout)
+        {
+            loaded = storage.Load();
+            if (loaded != null) break;
+            await Task.Delay(50);
+        }
 
-        var loaded = storage.Load();
         Assert.NotNull(loaded);
     }
 

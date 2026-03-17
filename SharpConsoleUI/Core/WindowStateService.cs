@@ -1102,12 +1102,6 @@ namespace SharpConsoleUI.Core
 
 		var context = _getWindowSystem();
 
-		// Prevent multiple concurrent flashes on the same window
-		lock (_flashingWindows)
-		{
-			if (_flashingWindows.ContainsKey(window)) return;
-		}
-
 		var flashColor = flashBackgroundColor ?? context.Theme.ModalFlashColor;
 		int pulseDurationMs = flashDuration > 0 ? flashDuration : AnimationDefaults.DefaultFlashPulseDurationMs;
 
@@ -1127,12 +1121,16 @@ namespace SharpConsoleUI.Core
 		// Cleanup handler if window closes during flash
 		state.CleanupHandler = (s, e) => CleanupFlash(window, state);
 
-		// Subscribe to events
-		window.Renderer.PostBufferPaint += FlashOverlay;
-		window.OnClosing += state.CleanupHandler;
-
+		// Prevent multiple concurrent flashes on the same window
+		// Single lock block to avoid TOCTOU race
 		lock (_flashingWindows)
 		{
+			if (_flashingWindows.ContainsKey(window)) return;
+
+			// Subscribe to events
+			window.Renderer.PostBufferPaint += FlashOverlay;
+			window.OnClosing += state.CleanupHandler;
+
 			_flashingWindows[window] = state;
 		}
 

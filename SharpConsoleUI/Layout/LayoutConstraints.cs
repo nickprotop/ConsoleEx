@@ -133,8 +133,8 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public LayoutSize Constrain(LayoutSize size) =>
 			new(
-				Math.Clamp(size.Width, MinWidth, MaxWidth),
-				Math.Clamp(size.Height, MinHeight, MaxHeight)
+				Math.Clamp(size.Width, MinWidth, Math.Max(MinWidth, MaxWidth)),
+				Math.Clamp(size.Height, MinHeight, Math.Max(MinHeight, MaxHeight))
 			);
 
 		/// <summary>

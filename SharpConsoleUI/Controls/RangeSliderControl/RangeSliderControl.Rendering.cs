@@ -47,8 +47,8 @@ namespace SharpConsoleUI.Controls
 				if (_showMinMaxLabels || _showValueLabel)
 				{
 					int labelWidth = Math.Max(
-						FormatValue(_maxValue).Length,
-						FormatValue(_minValue).Length);
+						UnicodeWidth.GetStringWidth(FormatValue(_maxValue)),
+						UnicodeWidth.GetStringWidth(FormatValue(_minValue)));
 					contentWidth += labelWidth + ControlDefaults.SliderLabelSpacing;
 				}
 				width = contentWidth + Margin.Left + Margin.Right;
@@ -109,16 +109,16 @@ namespace SharpConsoleUI.Controls
 			{
 				string minLabel = FormatValue(_minValue);
 				PaintLabel(buffer, clipRect, bounds, currentX, y, minLabel, defaultFg, bgColor, preserveBg);
-				currentX += minLabel.Length + ControlDefaults.SliderLabelSpacing;
+				currentX += UnicodeWidth.GetStringWidth(minLabel) + ControlDefaults.SliderLabelSpacing;
 			}
 
 			// Calculate track width
 			int trackStart = currentX;
 			int availableWidth = bounds.Right - Margin.Right - currentX;
 			if (_showMinMaxLabels)
-				availableWidth -= FormatValue(_maxValue).Length + ControlDefaults.SliderLabelSpacing;
+				availableWidth -= UnicodeWidth.GetStringWidth(FormatValue(_maxValue)) + ControlDefaults.SliderLabelSpacing;
 			if (_showValueLabel)
-				availableWidth -= FormatValue(_maxValue).Length * 2 + 1 + ControlDefaults.SliderLabelSpacing;
+				availableWidth -= UnicodeWidth.GetStringWidth(FormatValue(_maxValue)) * 2 + 1 + ControlDefaults.SliderLabelSpacing;
 
 			// Reserve 2 chars for end-caps
 			int trackLength = Math.Max(ControlDefaults.SliderMinTrackLength, availableWidth - 2);
@@ -193,7 +193,7 @@ namespace SharpConsoleUI.Controls
 				currentX += ControlDefaults.SliderLabelSpacing;
 				string maxLabel = FormatValue(_maxValue);
 				PaintLabel(buffer, clipRect, bounds, currentX, y, maxLabel, defaultFg, bgColor, preserveBg);
-				currentX += maxLabel.Length;
+				currentX += UnicodeWidth.GetStringWidth(maxLabel);
 			}
 
 			// Value label (shows range)

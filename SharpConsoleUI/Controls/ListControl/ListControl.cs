@@ -383,14 +383,19 @@ namespace SharpConsoleUI.Controls
 			get => _items;
 			set
 			{
-				lock (_itemsLock) { _items = value; }
+				int itemCount;
+				lock (_itemsLock)
+				{
+					_items = value;
+					itemCount = _items.Count;
+				}
 				OnPropertyChanged();
 				_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 				// Adjust selection if out of bounds
 				int currentSel = CurrentSelectedIndex;
-				if (currentSel >= _items.Count)
+				if (currentSel >= itemCount)
 				{
-					int newSel = _items.Count > 0 ? 0 : -1;
+					int newSel = itemCount > 0 ? 0 : -1;
 					int oldIndex = _selectedIndex;
 				_selectedIndex = newSel;
 				if (oldIndex != _selectedIndex)
@@ -544,13 +549,18 @@ namespace SharpConsoleUI.Controls
 			get => _items.Select(i => i.Text).ToList();
 			set
 			{
-				_items = value.Select(text => new ListItem(text)).ToList();
+				int itemCount;
+				lock (_itemsLock)
+				{
+					_items = value.Select(text => new ListItem(text)).ToList();
+					itemCount = _items.Count;
+				}
 				OnPropertyChanged();
 				_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 				int currentSel = CurrentSelectedIndex;
-				if (currentSel >= _items.Count)
+				if (currentSel >= itemCount)
 				{
-					int newSel = _items.Count > 0 ? 0 : -1;
+					int newSel = itemCount > 0 ? 0 : -1;
 					int oldIndex = _selectedIndex;
 				_selectedIndex = newSel;
 				if (oldIndex != _selectedIndex)

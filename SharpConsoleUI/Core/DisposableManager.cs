@@ -130,6 +130,8 @@ public sealed class DisposableManager : IDisposable, IAsyncDisposable
 		if (_disposed)
 			return;
 
+		_disposed = true;
+
 		// Execute custom disposal tasks first
 		foreach (var task in _disposalTasks)
 		{
@@ -155,8 +157,6 @@ public sealed class DisposableManager : IDisposable, IAsyncDisposable
 				// Swallow exceptions during disposal
 			}
 		}
-
-		_disposed = true;
 	}
 
 	/// <inheritdoc />
@@ -164,6 +164,8 @@ public sealed class DisposableManager : IDisposable, IAsyncDisposable
 	{
 		if (_disposed)
 			return;
+
+		_disposed = true;
 
 		// Execute custom disposal tasks first
 		var disposalTasksList = _disposalTasks.ToArray();
@@ -210,8 +212,6 @@ public sealed class DisposableManager : IDisposable, IAsyncDisposable
 				// Swallow exceptions during disposal
 			}
 		}
-
-		_disposed = true;
 	}
 
 	private void ThrowIfDisposed()

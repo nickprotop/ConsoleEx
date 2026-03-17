@@ -580,17 +580,18 @@ namespace SharpConsoleUI.Layout
 			var name = Control?.GetType().Name ?? "Container";
 			var result = $"{prefix}{name} desired={DesiredSize.Width}x{DesiredSize.Height} bounds=({AbsoluteBounds.X},{AbsoluteBounds.Y} {AbsoluteBounds.Width}x{AbsoluteBounds.Height})";
 
+			var sb = new System.Text.StringBuilder(result);
 			foreach (var child in _children)
 			{
-				result += "\n" + child.ToDebugString(indent + 1);
+				sb.Append('\n').Append(child.ToDebugString(indent + 1));
 			}
 
 			foreach (var portal in _portalChildren)
 			{
-				result += "\n" + $"{prefix}  [Portal]" + portal.ToDebugString(indent + 2);
+				sb.Append('\n').Append(prefix).Append("  [Portal]").Append(portal.ToDebugString(indent + 2));
 			}
 
-			return result;
+			return sb.ToString();
 		}
 	}
 }

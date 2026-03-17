@@ -185,16 +185,18 @@ namespace SharpConsoleUI.Controls
 			if (paintY >= clipRect.Y && paintY < clipRect.Bottom)
 			{
 				string monthName = _displayMonth.ToString("MMMM yyyy", _culture);
-				string header = $"  {ControlDefaults.CalendarPrevMonthArrow}  {monthName}";
-				int headerDisplayLen = Parsing.MarkupParser.StripLength(header);
+				var headerBuilder = new System.Text.StringBuilder();
+				headerBuilder.Append("  ").Append(ControlDefaults.CalendarPrevMonthArrow).Append("  ").Append(monthName);
+				int headerDisplayLen = Parsing.MarkupParser.StripLength(headerBuilder.ToString());
 				int arrowRightPos = innerWidth - 3;
 				int padding = Math.Max(0, arrowRightPos - headerDisplayLen);
-				header += new string(' ', padding) + ControlDefaults.CalendarNextMonthArrow + "  ";
+				headerBuilder.Append(' ', padding).Append(ControlDefaults.CalendarNextMonthArrow).Append("  ");
 
 				// Ensure total width
-				int totalLen = Parsing.MarkupParser.StripLength(header);
+				int totalLen = Parsing.MarkupParser.StripLength(headerBuilder.ToString());
 				if (totalLen < innerWidth)
-					header += new string(' ', innerWidth - totalLen);
+					headerBuilder.Append(' ', innerWidth - totalLen);
+				string header = headerBuilder.ToString();
 
 				var headerCells = Parsing.MarkupParser.Parse(header, headerColor, bg);
 				buffer.WriteCellsClipped(startX, paintY, headerCells, clipRect);

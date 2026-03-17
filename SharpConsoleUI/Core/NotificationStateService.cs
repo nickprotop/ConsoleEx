@@ -224,6 +224,8 @@ namespace SharpConsoleUI.Core
 		/// <returns>True if the notification was found and dismissed; otherwise, false.</returns>
 		public bool DismissNotification(string notificationId)
 		{
+			if (_isDisposed) return false;
+
 			lock (_lock)
 			{
 				if (_dismissingIds.Contains(notificationId))
@@ -243,6 +245,8 @@ namespace SharpConsoleUI.Core
 		/// <returns>True if the notification was found and dismissed; otherwise, false.</returns>
 		public bool DismissNotification(Window window)
 		{
+			if (_isDisposed) return false;
+
 			lock (_lock)
 			{
 				var notification = _activeNotifications.FirstOrDefault(n => n.Window == window);
@@ -449,7 +453,7 @@ namespace SharpConsoleUI.Core
 			var previousState = _currentState;
 
 			_currentState = new NotificationState(
-				_activeNotifications.AsReadOnly(),
+				_activeNotifications.ToList().AsReadOnly(),
 				previousState.TotalShown + (_activeNotifications.Count > previousState.ActiveCount ? 1 : 0),
 				previousState.TotalDismissed + (previousState.ActiveCount > _activeNotifications.Count ? 1 : 0));
 

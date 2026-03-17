@@ -193,13 +193,25 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			// Capture deferred events inside the lock scope (fields may be clobbered by reentrancy)
+			TreeNodeEventArgs? selChanged, expCollapse, nodeAct;
+			lock (_treeLock)
+			{
+				selChanged = _deferredSelectionChanged;
+				expCollapse = _deferredExpandCollapse;
+				nodeAct = _deferredNodeActivated;
+				_deferredSelectionChanged = null;
+				_deferredExpandCollapse = null;
+				_deferredNodeActivated = null;
+			}
+
 			// Fire deferred events outside the lock
-			if (_deferredSelectionChanged != null)
-				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
-			if (_deferredExpandCollapse != null)
-				NodeExpandCollapse?.Invoke(this, _deferredExpandCollapse);
-			if (_deferredNodeActivated != null)
-				NodeActivated?.Invoke(this, _deferredNodeActivated);
+			if (selChanged != null)
+				SelectedNodeChanged?.Invoke(this, selChanged);
+			if (expCollapse != null)
+				NodeExpandCollapse?.Invoke(this, expCollapse);
+			if (nodeAct != null)
+				NodeActivated?.Invoke(this, nodeAct);
 
 			return result;
 		}

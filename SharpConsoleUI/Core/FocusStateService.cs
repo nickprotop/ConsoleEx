@@ -333,7 +333,8 @@ namespace SharpConsoleUI.Core
 				}
 				else
 				{
-					ClearFocus(reason);
+					if (_currentState.FocusedWindow != null)
+						ClearFocus(reason);
 				}
 			}
 		}

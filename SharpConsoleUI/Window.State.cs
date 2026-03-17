@@ -484,6 +484,8 @@ namespace SharpConsoleUI
 		/// <param name="value">True to activate the window; false to deactivate.</param>
 		public void SetIsActive(bool value)
 		{
+			_isActive = value;
+
 			if (value)
 			{
 				Activated?.Invoke(this, EventArgs.Empty);
@@ -493,8 +495,6 @@ namespace SharpConsoleUI
 				DismissAutoClosePortals();
 				Deactivated?.Invoke(this, EventArgs.Empty);
 			}
-
-			_isActive = value;
 		InvalidateBorderCache();
 
 			// Invalidate window to redraw border with new active/inactive colors
@@ -502,6 +502,10 @@ namespace SharpConsoleUI
 
 		if (_lastFocusedControl != null)
 			{
+				// When deactivating, also clear leaf focus if different from container
+				if (!value && _lastDeepFocusedControl != null && _lastDeepFocusedControl != _lastFocusedControl)
+					_lastDeepFocusedControl.HasFocus = false;
+
 				_lastFocusedControl.HasFocus = value;
 				// Sync with FocusStateService
 				if (value)

@@ -58,14 +58,17 @@ namespace SharpConsoleUI.Windows
 			{
 				remainingSeconds--;
 
-				// After threshold, show countdown
+				// After threshold, show countdown — marshal to UI thread
 				if (remainingSeconds <= ControlDefaults.GracePeriodWarningThresholdSeconds)
 				{
-					statusControl.SetContent(new List<string>
+					window._windowSystem?.EnqueueOnUIThread(() =>
 					{
-						$"[yellow on grey11] ⏳ Waiting for thread to stop... ({remainingSeconds}s remaining) [/]"
+						statusControl.SetContent(new List<string>
+						{
+							$"[yellow on grey11] ⏳ Waiting for thread to stop... ({remainingSeconds}s remaining) [/]"
+						});
+						window.Invalidate(true);
 					});
-					window.Invalidate(true);
 				}
 			};
 			countdownTimer.Start();
@@ -88,13 +91,21 @@ namespace SharpConsoleUI.Windows
 						// SUCCESS: Thread stopped gracefully
 						await windowTask; // Propagate exceptions
 
-						// Remove status control and restore window
-						window.RemoveContent(statusControl);
-						window.Title = originalTitle;
+						// Marshal UI mutations to the UI thread
+						if (window._windowSystem != null)
+						{
+							window._windowSystem.EnqueueOnUIThread(() =>
+							{
+								window.RemoveContent(statusControl);
+								window.Title = originalTitle;
 
-						// Close via system (handles removal and CompleteClose)
-						// If not in system (orphan or already removed), call CompleteClose directly
-						if (window._windowSystem == null || !window._windowSystem.CloseWindow(window, force: true))
+								if (!window._windowSystem.CloseWindow(window, force: true))
+								{
+									window.CompleteClose();
+								}
+							});
+						}
+						else
 						{
 							window.CompleteClose();
 						}
@@ -106,15 +117,25 @@ namespace SharpConsoleUI.Windows
 					else
 					{
 						// TIMEOUT: Thread hung - transform to error window
-						statusControl.SetContent(new List<string>
+						window._windowSystem?.EnqueueOnUIThread(() =>
 						{
-							"[red on yellow] ⚠ Thread did not respond - transforming to error state... [/]"
+							statusControl.SetContent(new List<string>
+							{
+								"[red on yellow] ⚠ Thread did not respond - transforming to error state... [/]"
+							});
+							window.Invalidate(true);
 						});
-						window.Invalidate(true);
 
 						await Task.Delay(ControlDefaults.ErrorTransformDelayMs); // Brief pause so user sees message
 
-						TransformToErrorWindow(window, statusControl);
+						if (window._windowSystem != null)
+						{
+							window._windowSystem.EnqueueOnUIThread(() => TransformToErrorWindow(window, statusControl));
+						}
+						else
+						{
+							TransformToErrorWindow(window, statusControl);
+						}
 					}
 				}
 				catch (Exception ex)
@@ -124,7 +145,15 @@ namespace SharpConsoleUI.Windows
 						ex, "Window");
 
 					// Fallback: force close via system or directly if not in system
-					if (window._windowSystem == null || !window._windowSystem.CloseWindow(window, force: true))
+					if (window._windowSystem != null)
+					{
+						window._windowSystem.EnqueueOnUIThread(() =>
+						{
+							if (!window._windowSystem.CloseWindow(window, force: true))
+								window.CompleteClose();
+						});
+					}
+					else
 					{
 						window.CompleteClose();
 					}
@@ -228,9 +257,7 @@ namespace SharpConsoleUI.Windows
 			// Remove ALL existing controls
 			foreach (var control in window._controls.ToList())
 			{
-				window.RemoveContent(control);
-				try { (control as IDisposable)?.Dispose(); }
-				catch { /* Ignore disposal errors */ }
+				window.RemoveContent(control); // RemoveContent already disposes
 			}
 
 			// Resize and center window

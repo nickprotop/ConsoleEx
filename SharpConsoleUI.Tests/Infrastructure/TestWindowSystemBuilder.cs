@@ -36,9 +36,9 @@ public static class TestWindowSystemBuilder
 	/// <summary>
 	/// Creates a test window system with diagnostics enabled and a mock console driver.
 	/// </summary>
-	/// <param name="configure">Optional configuration callback.</param>
+	/// <param name="configure">Optional configuration callback that returns a modified options record.</param>
 	/// <returns>A configured ConsoleWindowSystem instance ready for testing.</returns>
-	public static ConsoleWindowSystem CreateTestSystem(Action<ConsoleWindowSystemOptions>? configure = null)
+	public static ConsoleWindowSystem CreateTestSystem(Func<ConsoleWindowSystemOptions, ConsoleWindowSystemOptions>? configure = null)
 	{
 		// Disable status bars by default in tests to isolate core rendering logic
 		var statusBarOptions = new Configuration.StatusBarOptions(
@@ -58,13 +58,10 @@ public static class TestWindowSystemBuilder
 			StatusBarOptions: statusBarOptions
 		);
 
-		// Allow caller to customize options
+		// Allow caller to customize options via record 'with' expressions
 		if (configure != null)
 		{
-			// Create a modified options instance
-			var customOptions = options;
-			configure(customOptions);
-			options = customOptions;
+			options = configure(options);
 		}
 
 		// Create mock console driver

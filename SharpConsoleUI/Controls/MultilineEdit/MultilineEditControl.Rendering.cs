@@ -678,18 +678,20 @@ namespace SharpConsoleUI.Controls
 					? ControlDefaults.EditingModeHint
 					: ControlDefaults.BrowseModeHint;
 
+				int hintDisplayWidth = UnicodeWidth.GetStringWidth(hintText);
 				int lastVisibleRow = startY + linesToPaint - 1;
-				if (hintText.Length <= effectiveWidth && lastVisibleRow >= clipRect.Y && lastVisibleRow < clipRect.Bottom)
+				if (hintDisplayWidth <= effectiveWidth && lastVisibleRow >= clipRect.Y && lastVisibleRow < clipRect.Bottom)
 				{
-					int hintStartX = contentStartX + effectiveWidth - hintText.Length;
+					int hintStartX = contentStartX + effectiveWidth - hintDisplayWidth;
 					Color hintFg = Color.Grey50;
 					Color hintBg = bgColor;
 
-					for (int c = 0; c < hintText.Length; c++)
+					var hintCells = Parsing.MarkupParser.Parse(hintText, hintFg, hintBg);
+					for (int c = 0; c < hintCells.Count; c++)
 					{
 						int cellX = hintStartX + c;
 						if (cellX >= clipRect.X && cellX < clipRect.Right)
-							buffer.SetNarrowCell(cellX, lastVisibleRow, hintText[c], hintFg, hintBg);
+							buffer.SetCell(cellX, lastVisibleRow, hintCells[c]);
 					}
 				}
 			}

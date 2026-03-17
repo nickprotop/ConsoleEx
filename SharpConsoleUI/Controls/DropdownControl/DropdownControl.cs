@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
@@ -643,7 +644,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Build header string with longest item and measure exact display width
-			string arrow = "▼"; // use wider of the two arrows for stable measurement
+			string arrow = ControlDefaults.DropdownClosedArrow;
 			string header = $"{_prompt} {longestText} {arrow}";
 			return Parsing.MarkupParser.StripLength(header);
 		}

@@ -447,7 +447,7 @@ namespace SharpConsoleUI.Controls
 							string iconMarkup = $"[{iconColor.ToMarkup()}]{iconText}[/] ";
 							int iconVisibleLength = GetCachedTextLength(iconText) + 1;
 							itemContent = selectionIndicator + iconMarkup + lineText;
-							int visibleTextLength = selectionIndicator.Length + iconVisibleLength + GetCachedTextLength(lineText);
+							int visibleTextLength = UnicodeWidth.GetStringWidth(selectionIndicator) + iconVisibleLength + GetCachedTextLength(lineText);
 							int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
 							if (paddingNeeded > 0) itemContent += new string(' ', paddingNeeded);
 						}
@@ -461,7 +461,7 @@ namespace SharpConsoleUI.Controls
 								indent = new string(' ', iconWidth);
 							}
 							itemContent = selectionIndicator + indent + lineText;
-							int visibleTextLength = selectionIndicator.Length + indent.Length + GetCachedTextLength(lineText);
+							int visibleTextLength = UnicodeWidth.GetStringWidth(selectionIndicator) + indent.Length + GetCachedTextLength(lineText);
 							int paddingNeeded = Math.Max(0, listWidth - visibleTextLength);
 							if (paddingNeeded > 0) itemContent += new string(' ', paddingNeeded);
 						}

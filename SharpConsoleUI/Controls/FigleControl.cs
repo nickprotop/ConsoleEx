@@ -287,11 +287,12 @@ namespace SharpConsoleUI.Controls
 		private static FigletFont CreateFallbackFont()
 		{
 			// Create a trivial 1-height font where each character is just itself
-			var fontData = "flf2a$ 1 1 1 0 0\n";
+			var sb = new System.Text.StringBuilder("flf2a$ 1 1 1 0 0\n");
 			for (int c = 32; c <= 126; c++)
 			{
-				fontData += (char)c + "@@\n";
+				sb.Append((char)c).Append("@@\n");
 			}
+			var fontData = sb.ToString();
 			using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(fontData));
 			return FigletFont.Load(stream);
 		}

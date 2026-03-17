@@ -235,7 +235,8 @@ namespace SharpConsoleUI.Controls
 				int maxLength = 0;
 				foreach (var line in linesSnapshot)
 				{
-					if (line.Length > maxLength) maxLength = line.Length;
+					int lineWidth = UnicodeWidth.GetStringWidth(line);
+					if (lineWidth > maxLength) maxLength = lineWidth;
 				}
 				return maxLength + Margin.Left + Margin.Right;
 			}

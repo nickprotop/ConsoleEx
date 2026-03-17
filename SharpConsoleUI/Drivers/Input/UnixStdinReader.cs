@@ -28,6 +28,7 @@ namespace SharpConsoleUI.Drivers.Input
 
 		// Mouse state — mirrors SequenceHelper's static state
 		private volatile bool _isButtonPressed;
+		private readonly object _mouseStateLock = new();
 		private MouseFlags _lastMouseButtonPressed;
 		private Point _lastMousePoint;
 		private bool _isButtonClicked;
@@ -178,9 +179,12 @@ namespace SharpConsoleUI.Drivers.Input
 				 buttonState == MouseFlags.Button3Pressed) &&
 				_lastMouseButtonPressed == 0)
 			{
-				_lastMouseButtonPressed = buttonState;
+				lock (_mouseStateLock)
+				{
+					_lastMouseButtonPressed = buttonState;
+					_lastMousePoint = position;
+				}
 				_isButtonPressed = true;
-				_lastMousePoint = position;
 
 				// Start continuous press loop (stops when _isButtonPressed becomes false)
 				var capturedFlag = buttonState;
@@ -189,9 +193,16 @@ namespace SharpConsoleUI.Drivers.Input
 					while (_isButtonPressed)
 					{
 						await Task.Delay(ContinuousPressIntervalMs);
-						if (_isButtonPressed && _lastMouseButtonPressed != 0)
+						Point mousePoint;
+						MouseFlags mouseBtn;
+						lock (_mouseStateLock)
 						{
-							continuousButtonPressedHandler(capturedFlag, _lastMousePoint);
+							mousePoint = _lastMousePoint;
+							mouseBtn = _lastMouseButtonPressed;
+						}
+						if (_isButtonPressed && mouseBtn != 0)
+						{
+							continuousButtonPressedHandler(capturedFlag, mousePoint);
 						}
 					}
 				});
@@ -222,7 +233,7 @@ namespace SharpConsoleUI.Drivers.Input
 				_isButtonDoubleClicked = true;
 				_ = Task.Run(async () =>
 				{
-					await Task.Delay(300);
+					await Task.Delay(Configuration.ControlDefaults.DefaultDebounceMs);
 					_isButtonDoubleClicked = false;
 				});
 				return new List<MouseFlags> { doubleFlag };
@@ -261,7 +272,7 @@ namespace SharpConsoleUI.Drivers.Input
 
 					_ = Task.Run(async () =>
 					{
-						await Task.Delay(300);
+						await Task.Delay(Configuration.ControlDefaults.DefaultDebounceMs);
 						_isButtonClicked = false;
 					});
 

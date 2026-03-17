@@ -82,6 +82,7 @@ namespace SharpConsoleUI.Controls
 			{
 				contentWidth -= 2;  // Reserve 2 columns: 1 for gap, 1 for scrollbar
 			}
+			contentWidth = Math.Max(1, contentWidth);
 
 			// Draw border if needed
 			bool hasBorder = _borderStyle != BorderStyle.None;

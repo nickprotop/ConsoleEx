@@ -427,8 +427,12 @@ namespace SharpConsoleUI.Core
 			return false;
 		}
 
-		private Window? FindDeepestModalChildInternal(Window parent)
+		private Window? FindDeepestModalChildInternal(Window parent, HashSet<Window>? visited = null)
 		{
+			visited ??= new HashSet<Window>();
+			if (!visited.Add(parent))
+				return null; // Cycle detected — prevent StackOverflow
+
 			// Get direct modal children, ordered by their position in the stack (latest first)
 			var modalChildren = _modalParents
 				.Where(kv => kv.Value == parent)
@@ -443,7 +447,7 @@ namespace SharpConsoleUI.Core
 			var highestModalChild = modalChildren.First();
 
 			// Recursively check if this modal child has modal children
-			var deeperModalChild = FindDeepestModalChildInternal(highestModalChild);
+			var deeperModalChild = FindDeepestModalChildInternal(highestModalChild, visited);
 
 			return deeperModalChild ?? highestModalChild;
 		}

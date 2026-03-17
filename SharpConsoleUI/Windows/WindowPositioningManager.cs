@@ -124,7 +124,7 @@ namespace SharpConsoleUI.Windows
 				_renderCoordinator.AddPendingDesktopClear(oldBounds);
 
 				// Apply the new position and size
-				window.SetPosition(new Point(newLeft, newTop));
+				window.SetPositionDirect(new Point(newLeft, newTop));
 				window.SetSize(newWidth, newHeight);
 				window.Invalidate(true);
 

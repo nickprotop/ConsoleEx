@@ -700,13 +700,13 @@ namespace SharpConsoleUI.Helpers
 
 		private static async Task ProcessButtonClickedAsync()
 		{
-			await Task.Delay(300);
+			await Task.Delay(Configuration.ControlDefaults.DefaultDebounceMs);
 			_isButtonClicked = false;
 		}
 
 		private static async Task ProcessButtonDoubleClickedAsync()
 		{
-			await Task.Delay(300);
+			await Task.Delay(Configuration.ControlDefaults.DefaultDebounceMs);
 			_isButtonDoubleClicked = false;
 		}
 
@@ -717,7 +717,7 @@ namespace SharpConsoleUI.Helpers
 			// Will make a massive difference in responsiveness.
 			while (_isButtonPressed)
 			{
-				await Task.Delay(100);
+				await Task.Delay(Configuration.ControlDefaults.ContinuousPressIntervalMs);
 
 				if (_isButtonPressed && _lastMouseButtonPressed is { } && (mouseFlag & MouseFlags.ReportMousePosition) == 0)
 				{

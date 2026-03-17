@@ -74,6 +74,11 @@ namespace SharpConsoleUI.Configuration
 		public const int DefaultDebounceMs = 300;
 
 		/// <summary>
+		/// Interval for continuous mouse button press polling in milliseconds (default: 100ms)
+		/// </summary>
+		public const int ContinuousPressIntervalMs = 100;
+
+		/// <summary>
 		/// Cursor blink rate for text inputs in milliseconds (default: 500ms)
 		/// </summary>
 		public const int DefaultBlinkRateMs = 500;
@@ -447,6 +452,32 @@ namespace SharpConsoleUI.Configuration
 		/// Dropdown indicator character for the DatePicker calendar toggle.
 		/// </summary>
 		public const string DatePickerDropdownIndicator = "\u25BC";
+
+		// Dropdown defaults
+
+		/// <summary>
+		/// Arrow indicator for a closed dropdown (points down).
+		/// Uses small triangle (U+25BE) which is reliably 1-column wide across terminals.
+		/// </summary>
+		public const string DropdownClosedArrow = "\u25BE";
+
+		/// <summary>
+		/// Arrow indicator for an open dropdown (points up).
+		/// Uses small triangle (U+25B4) which is reliably 1-column wide across terminals.
+		/// </summary>
+		public const string DropdownOpenArrow = "\u25B4";
+
+		/// <summary>
+		/// Scroll-up indicator for dropdown portal.
+		/// Uses small triangle (U+25B4) which is reliably 1-column wide across terminals.
+		/// </summary>
+		public const string DropdownScrollUpArrow = "\u25B4";
+
+		/// <summary>
+		/// Scroll-down indicator for dropdown portal.
+		/// Uses small triangle (U+25BE) which is reliably 1-column wide across terminals.
+		/// </summary>
+		public const string DropdownScrollDownArrow = "\u25BE";
 
 		// TimePicker defaults
 

@@ -85,7 +85,15 @@ public sealed class TerminalControl
         // EOF or backend closed — clean up and close the containing window.
         Dispose();
         ProcessExited?.Invoke(this, EventArgs.Empty);
-        (Container as Window)?.TryClose(force: true);
+        var window = Container as Window;
+        if (window != null)
+        {
+            var windowSystem = window.GetConsoleWindowSystem;
+            if (windowSystem != null)
+                windowSystem.EnqueueOnUIThread(() => window.TryClose(force: true));
+            else
+                window.TryClose(force: true);
+        }
     }
 
     /// Gets whether this terminal's PTY process has exited and the control has been disposed.

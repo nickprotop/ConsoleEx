@@ -311,7 +311,7 @@ namespace SharpConsoleUI.Controls
 				int paintY = startY + row;
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 				{
-					buffer.FillRect(new LayoutRect(bounds.X, paintY, bounds.Width, 1), ' ', fgColor, bgColor);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, bounds.Width, 1), fgColor, bgColor, preserveBg);
 				}
 			}
 

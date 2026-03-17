@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -236,11 +237,13 @@ namespace SharpConsoleUI.Controls
 			{
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom)
 				{
-					string scrollIndicator = (dropdownScroll > 0 ? "▲" : " ");
+					var scrollBuilder = new System.Text.StringBuilder();
+					scrollBuilder.Append(dropdownScroll > 0 ? ControlDefaults.DropdownScrollUpArrow : " ");
 					int scrollPadding = dropdownWidth - 2;
 					if (scrollPadding > 0)
-						scrollIndicator += new string(' ', scrollPadding);
-					scrollIndicator += (dropdownScroll + itemsToShow < items.Count ? "▼" : " ");
+						scrollBuilder.Append(' ', scrollPadding);
+					scrollBuilder.Append(dropdownScroll + itemsToShow < items.Count ? ControlDefaults.DropdownScrollDownArrow : " ");
+					string scrollIndicator = scrollBuilder.ToString();
 
 					var scrollCells = Parsing.MarkupParser.Parse(scrollIndicator, foregroundColor, backgroundColor);
 					buffer.WriteCellsClipped(startX, paintY, scrollCells, clipRect);

@@ -521,8 +521,9 @@ public class DropdownControlTests
 		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
 		// Without a container Window, Enter won't create portal, but IsDropdownOpen should still toggle
 		// The state is maintained internally even if portal creation fails
-		dd.ProcessKey(Key(ConsoleKey.Enter));
-		// Can't fully test open without Window, but we verify the control processes the key
+		var result = dd.ProcessKey(Key(ConsoleKey.Enter));
+		Assert.True(result);
+		Assert.True(dd.IsDropdownOpen);
 	}
 
 	[Fact]
@@ -538,8 +539,10 @@ public class DropdownControlTests
 	{
 		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
 		dd.SelectedIndex = 0;
-		dd.ProcessKey(Key(ConsoleKey.DownArrow));
-		// Without open dropdown, down arrow should navigate
+		var result = dd.ProcessKey(Key(ConsoleKey.DownArrow));
+		// When closed, DownArrow opens the dropdown
+		Assert.True(result);
+		Assert.True(dd.IsDropdownOpen);
 	}
 
 	[Fact]
@@ -547,7 +550,9 @@ public class DropdownControlTests
 	{
 		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
 		dd.SelectedIndex = 2;
-		dd.ProcessKey(Key(ConsoleKey.UpArrow));
+		// When closed, UpArrow does nothing
+		var result = dd.ProcessKey(Key(ConsoleKey.UpArrow));
+		Assert.False(result);
 	}
 
 	[Fact]
@@ -555,7 +560,9 @@ public class DropdownControlTests
 	{
 		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
 		dd.SelectedIndex = 2;
-		dd.ProcessKey(Key(ConsoleKey.Home));
+		// When closed, Home does nothing
+		var result = dd.ProcessKey(Key(ConsoleKey.Home));
+		Assert.False(result);
 	}
 
 	[Fact]
@@ -563,7 +570,9 @@ public class DropdownControlTests
 	{
 		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
 		dd.SelectedIndex = 0;
-		dd.ProcessKey(Key(ConsoleKey.End));
+		// When closed, End does nothing
+		var result = dd.ProcessKey(Key(ConsoleKey.End));
+		Assert.False(result);
 	}
 
 	[Fact]
@@ -572,8 +581,9 @@ public class DropdownControlTests
 		var dd = CreateFocusedDropdown("S:", "A", "B");
 		dd.IsEnabled = false;
 		dd.SelectedIndex = 0;
-		dd.ProcessKey(Key(ConsoleKey.DownArrow));
-		// Should not change because disabled
+		var result = dd.ProcessKey(Key(ConsoleKey.DownArrow));
+		Assert.False(result);
+		Assert.Equal(0, dd.SelectedIndex);
 	}
 
 	#endregion

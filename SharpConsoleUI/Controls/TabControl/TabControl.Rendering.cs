@@ -104,7 +104,8 @@ namespace SharpConsoleUI.Controls
 
 			const string navHint = " ← → ";
 			bool showHint = _hasFocus && snapshot.Count > 1;
-			int hintStartX = headerRight - navHint.Length;
+				int navHintDisplayWidth = UnicodeWidth.GetStringWidth(navHint);
+			int hintStartX = headerRight - navHintDisplayWidth;
 			int tabsEndX = x; // capture before fill loops modify x
 
 			if (_headerStyle == TabHeaderStyle.Classic)
@@ -181,8 +182,9 @@ namespace SharpConsoleUI.Controls
 			// Navigation hint at the right edge of the header row
 			if (showHint && hintStartX >= tabsEndX - 1)
 			{
-				for (int h = 0; h < navHint.Length; h++)
-					buffer.SetNarrowCell(hintStartX + h, headerY, navHint[h], Color.Grey, bgColor);
+				var navHintCells = Parsing.MarkupParser.Parse(navHint, Color.Grey, bgColor);
+				for (int h = 0; h < navHintCells.Count; h++)
+					buffer.SetCell(hintStartX + h, headerY, navHintCells[h]);
 			}
 		}
 
