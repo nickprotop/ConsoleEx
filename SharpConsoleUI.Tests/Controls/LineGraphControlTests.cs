@@ -395,6 +395,44 @@ public class LineGraphControlTests
 
 	#endregion
 
+	#region Builder - Overlays
+
+	[Fact]
+	public void Builder_AddReferenceLine()
+	{
+		var graph = LineGraph()
+			.AddReferenceLine(0.0, Color.Grey, '─', "zero", LabelPosition.Left)
+			.Build();
+
+		Assert.Single(graph.ReferenceLines);
+		Assert.Equal(0.0, graph.ReferenceLines[0].Value);
+	}
+
+	[Fact]
+	public void Builder_AddValueMarker()
+	{
+		var graph = LineGraph()
+			.AddValueMarker(100.0, "$100", Color.Green, Color.Green, MarkerSide.Right)
+			.Build();
+
+		Assert.Single(graph.ValueMarkers);
+		Assert.Equal("$100", graph.ValueMarkers[0].Label);
+	}
+
+	[Fact]
+	public void Builder_WithHighLowLabels()
+	{
+		var graph = LineGraph()
+			.WithHighLowLabels(true, Color.Green, Color.Red, MarkerSide.Right)
+			.Build();
+
+		Assert.True(graph.ShowHighLowLabels);
+		Assert.Equal(Color.Green, graph.HighLabelColor);
+		Assert.Equal(Color.Red, graph.LowLabelColor);
+	}
+
+	#endregion
+
 	#region Reference Lines
 
 	[Fact]

@@ -304,6 +304,36 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
+		/// Adds a horizontal reference line at the specified data value.
+		/// </summary>
+		public LineGraphBuilder AddReferenceLine(double value, Color color, char lineChar = '─', string? label = null, LabelPosition labelPosition = LabelPosition.None)
+		{
+			_control.AddReferenceLine(value, color, lineChar, label, labelPosition);
+			return this;
+		}
+
+		/// <summary>
+		/// Adds a value marker at the specified data value.
+		/// </summary>
+		public LineGraphBuilder AddValueMarker(double value, string label, Color arrowColor, Color labelColor, MarkerSide side = MarkerSide.Right)
+		{
+			_control.AddValueMarker(value, label, arrowColor, labelColor, side);
+			return this;
+		}
+
+		/// <summary>
+		/// Enables high/low labels with the specified colors and side.
+		/// </summary>
+		public LineGraphBuilder WithHighLowLabels(bool show = true, Color? highColor = null, Color? lowColor = null, MarkerSide side = MarkerSide.Right)
+		{
+			_control.ShowHighLowLabels = show;
+			if (highColor.HasValue) _control.HighLabelColor = highColor.Value;
+			if (lowColor.HasValue) _control.LowLabelColor = lowColor.Value;
+			_control.HighLowLabelSide = side;
+			return this;
+		}
+
+		/// <summary>
 		/// Builds the LineGraphControl instance.
 		/// </summary>
 		public LineGraphControl Build()
