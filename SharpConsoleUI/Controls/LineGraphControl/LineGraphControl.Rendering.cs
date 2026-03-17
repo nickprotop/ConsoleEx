@@ -288,7 +288,16 @@ namespace SharpConsoleUI.Controls
 			List<ValueMarker> markerSnapshot;
 			lock (_dataLock) { markerSnapshot = new List<ValueMarker>(_valueMarkers); }
 
-			// Paint value markers AFTER series data
+			// Generate high/low markers (needs to know which rows user markers occupy)
+			var userMarkerRows = new HashSet<int>();
+			foreach (var m in markerSnapshot)
+				userMarkerRows.Add(ComputeYRow(m.Value, graphStartY, _graphHeight, globalMin, globalMax));
+
+			var highLowMarkers = GenerateHighLowMarkers(seriesSnapshots, globalMin, globalMax,
+				userMarkerRows, graphStartY, _graphHeight);
+			markerSnapshot.AddRange(highLowMarkers);
+
+			// Paint all value markers AFTER series data
 			if (markerSnapshot.Count > 0)
 			{
 				PaintValueMarkers(buffer, graphStartX, graphStartY, graphWidth, _graphHeight,

@@ -330,6 +330,54 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Generates transient ValueMarker entries for high/low labels from data extremes.
+		/// Skips rows already occupied by user-defined markers.
+		/// </summary>
+		/// <param name="snapshots">The series data snapshots.</param>
+		/// <param name="globalMin">The minimum value of the Y-axis range.</param>
+		/// <param name="globalMax">The maximum value of the Y-axis range.</param>
+		/// <param name="usedRows">Set of rows already occupied by user-defined markers.</param>
+		/// <param name="graphStartY">The top row of the graph area.</param>
+		/// <param name="graphHeight">The height of the graph area in rows.</param>
+		/// <returns>A list of value markers for the high and low data extremes.</returns>
+		private List<ValueMarker> GenerateHighLowMarkers(
+			List<(LineGraphSeries series, List<double> data)> snapshots,
+			double globalMin, double globalMax,
+			HashSet<int> usedRows, int graphStartY, int graphHeight)
+		{
+			var result = new List<ValueMarker>();
+			if (!_showHighLowLabels)
+				return result;
+
+			double dataMin = double.MaxValue;
+			double dataMax = double.MinValue;
+			foreach (var (_, data) in snapshots)
+			{
+				foreach (var v in data)
+				{
+					if (v < dataMin) dataMin = v;
+					if (v > dataMax) dataMax = v;
+				}
+			}
+			if (dataMin == double.MaxValue)
+				return result;
+
+			string highLabel = "H " + dataMax.ToString(_axisLabelFormat);
+			string lowLabel = "L " + dataMin.ToString(_axisLabelFormat);
+
+			int highRow = ComputeYRow(dataMax, graphStartY, graphHeight, globalMin, globalMax);
+			int lowRow = ComputeYRow(dataMin, graphStartY, graphHeight, globalMin, globalMax);
+
+			if (!usedRows.Contains(highRow))
+				result.Add(new ValueMarker(dataMax, highLabel, _highLabelColor, _highLabelColor, _highLowLabelSide));
+
+			if (!usedRows.Contains(lowRow))
+				result.Add(new ValueMarker(dataMin, lowLabel, _lowLabelColor, _lowLabelColor, _highLowLabelSide));
+
+			return result;
+		}
+
 		/// <summary>Computes width needed for right-side overlays.</summary>
 		/// <param name="globalMin">The minimum value of the Y-axis range.</param>
 		/// <param name="globalMax">The maximum value of the Y-axis range.</param>

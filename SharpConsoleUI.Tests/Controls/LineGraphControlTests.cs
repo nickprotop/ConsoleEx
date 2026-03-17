@@ -470,6 +470,60 @@ public class LineGraphControlTests
 
 	#endregion
 
+	#region High/Low Label Rendering
+
+	[Fact]
+	public void PaintDOM_HighLowLabels_RendersAtExtremes()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 10;
+		graph.MinValue = 0;
+		graph.MaxValue = 100;
+		graph.SetDataPoints(new double[] { 10, 90, 50 });
+		graph.ShowHighLowLabels = true;
+		graph.HighLabelColor = Color.Green;
+		graph.LowLabelColor = Color.Red;
+		graph.HighLowLabelSide = MarkerSide.Right;
+
+		var buffer = new CharacterBuffer(40, 15);
+		var bounds = new LayoutRect(0, 0, 40, 15);
+		graph.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		bool foundGreen = false;
+		bool foundRed = false;
+		for (int y = 0; y < 15; y++)
+			for (int x = 0; x < 40; x++)
+			{
+				var cell = buffer.GetCell(x, y);
+				if (cell.Foreground == Color.Green && cell.Character.Value != ' ' && cell.Character.Value != 0) foundGreen = true;
+				if (cell.Foreground == Color.Red && cell.Character.Value != ' ' && cell.Character.Value != 0) foundRed = true;
+			}
+		Assert.True(foundGreen, "High label should be rendered in green");
+		Assert.True(foundRed, "Low label should be rendered in red");
+	}
+
+	[Fact]
+	public void PaintDOM_HighLowLabels_Disabled_NoLabels()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.SetDataPoints(new double[] { 10, 90, 50 });
+		graph.ShowHighLowLabels = false;
+		graph.HighLabelColor = Color.Magenta1;
+
+		var buffer = new CharacterBuffer(30, 10);
+		var bounds = new LayoutRect(0, 0, 30, 10);
+		graph.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		bool foundMagenta = false;
+		for (int y = 0; y < 10; y++)
+			for (int x = 0; x < 30; x++)
+				if (buffer.GetCell(x, y).Foreground == Color.Magenta1) foundMagenta = true;
+		Assert.False(foundMagenta, "Disabled high/low labels should not produce colored cells");
+	}
+
+	#endregion
+
 	#region Width Reservation
 
 	[Fact]
