@@ -7,7 +7,10 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
+using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls
 {
@@ -164,6 +167,77 @@ namespace SharpConsoleUI.Controls
 			if (range < 0.001) range = 1.0;
 			int row = graphStartY + graphHeight - 1 - (int)((value - globalMin) / range * (graphHeight - 1));
 			return Math.Clamp(row, graphStartY, graphStartY + graphHeight - 1);
+		}
+
+		/// <summary>
+		/// Braille empty character value used for detecting empty braille cells.
+		/// </summary>
+		private const int BrailleEmptyCodepoint = 0x2800;
+
+		/// <summary>
+		/// Paints reference lines across the graph area. Called AFTER series data
+		/// so that reference lines only appear on cells not occupied by series dots.
+		/// Cells containing active braille dots are preserved; empty braille cells
+		/// and blank cells are overwritten with the reference line character.
+		/// </summary>
+		/// <param name="buffer">The character buffer to paint into.</param>
+		/// <param name="graphStartX">The left column of the graph area.</param>
+		/// <param name="graphStartY">The top row of the graph area.</param>
+		/// <param name="graphWidth">The width of the graph area in columns.</param>
+		/// <param name="graphHeight">The height of the graph area in rows.</param>
+		/// <param name="clipRect">The clipping rectangle.</param>
+		/// <param name="bgColor">The background color.</param>
+		/// <param name="refLines">The reference lines to paint.</param>
+		/// <param name="globalMin">The minimum value of the Y-axis range.</param>
+		/// <param name="globalMax">The maximum value of the Y-axis range.</param>
+		/// <param name="startX">The left edge of the content area.</param>
+		/// <param name="borderSize">The border size (0 or 1).</param>
+		private void PaintReferenceLines(
+			CharacterBuffer buffer, int graphStartX, int graphStartY,
+			int graphWidth, int graphHeight, LayoutRect clipRect, Color bgColor,
+			List<ReferenceLine> refLines, double globalMin, double globalMax,
+			int startX, int borderSize)
+		{
+			foreach (var refLine in refLines)
+			{
+				// Skip if value is outside the displayed range
+				if (refLine.Value < globalMin || refLine.Value > globalMax)
+					continue;
+
+				int row = ComputeYRow(refLine.Value, graphStartY, graphHeight, globalMin, globalMax);
+				if (row < clipRect.Y || row >= clipRect.Bottom)
+					continue;
+
+				// Draw the horizontal line across the graph area,
+				// only on cells not occupied by active series data
+				for (int x = graphStartX; x < graphStartX + graphWidth; x++)
+				{
+					if (x >= clipRect.X && x < clipRect.Right)
+					{
+						var existing = buffer.GetCell(x, row);
+						int cp = existing.Character.Value;
+						bool isEmpty = cp == 0 || cp == ' ' || cp == BrailleEmptyCodepoint;
+						if (isEmpty)
+							buffer.SetNarrowCell(x, row, refLine.LineChar, refLine.Color, bgColor);
+					}
+				}
+
+				// Draw label if configured
+				if (!string.IsNullOrEmpty(refLine.Label))
+				{
+					var labelCells = MarkupParser.Parse(refLine.Label, refLine.Color, bgColor);
+					if (refLine.LabelPosition == LabelPosition.Left)
+					{
+						int labelX = startX + borderSize;
+						buffer.WriteCellsClipped(labelX, row, labelCells, clipRect);
+					}
+					else if (refLine.LabelPosition == LabelPosition.Right)
+					{
+						int labelX = graphStartX + graphWidth + ControlDefaults.LineGraphMarkerPadding;
+						buffer.WriteCellsClipped(labelX, row, labelCells, clipRect);
+					}
+				}
+			}
 		}
 
 		/// <summary>Computes width needed for right-side overlays.</summary>

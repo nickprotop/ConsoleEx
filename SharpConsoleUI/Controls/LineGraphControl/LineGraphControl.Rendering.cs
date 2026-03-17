@@ -270,6 +270,19 @@ namespace SharpConsoleUI.Controls
 				PaintBraille(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, clipRect, bgColor, seriesSnapshots, globalMin, globalMax);
 			else
 				PaintAscii(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, clipRect, bgColor, seriesSnapshots, globalMin, globalMax);
+
+			// Snapshot reference lines under lock
+			List<ReferenceLine> refLineSnapshot;
+			lock (_dataLock) { refLineSnapshot = new List<ReferenceLine>(_referenceLines); }
+
+			// Paint reference lines AFTER series data, only on empty cells
+			// (braille fills all cells including empty U+2800, so reference lines
+			// are painted on top of empty braille cells while preserving series dots)
+			if (refLineSnapshot.Count > 0)
+			{
+				PaintReferenceLines(buffer, graphStartX, graphStartY, graphWidth, _graphHeight,
+					clipRect, bgColor, refLineSnapshot, globalMin, globalMax, startX, borderSize);
+			}
 		}
 
 		#endregion

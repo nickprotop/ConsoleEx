@@ -509,6 +509,122 @@ public class LineGraphControlTests
 
 	#endregion
 
+	#region Reference Line Rendering
+
+	[Fact]
+	public void PaintDOM_ReferenceLine_DrawsHorizontalLine()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.MinValue = 0;
+		graph.MaxValue = 100;
+		graph.SetDataPoints(new double[] { 25, 50, 75 });
+		graph.AddReferenceLine(50.0, Color.Yellow, '-');
+
+		var size = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		var buffer = new CharacterBuffer(size.Width, size.Height);
+		var bounds = new LayoutRect(0, 0, size.Width, size.Height);
+		graph.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		// Reference line at value 50 (midpoint) should produce '-' chars in yellow
+		bool foundRefLine = false;
+		for (int y = 0; y < size.Height; y++)
+			for (int x = 0; x < size.Width; x++)
+			{
+				var cell = buffer.GetCell(x, y);
+				if (cell.Character.Value == '-' && cell.Foreground == Color.Yellow)
+				{
+					foundRefLine = true;
+					break;
+				}
+			}
+		Assert.True(foundRefLine, "Reference line should produce '-' chars in yellow");
+	}
+
+	[Fact]
+	public void PaintDOM_ReferenceLine_OutOfRange_NotDrawn()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.MinValue = 0;
+		graph.MaxValue = 100;
+		graph.SetDataPoints(new double[] { 25, 50, 75 });
+		graph.AddReferenceLine(200.0, Color.Red, '-');
+
+		var size = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		var buffer = new CharacterBuffer(size.Width, size.Height);
+		var bounds = new LayoutRect(0, 0, size.Width, size.Height);
+		graph.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		bool foundRed = false;
+		for (int y = 0; y < size.Height; y++)
+			for (int x = 0; x < size.Width; x++)
+				if (buffer.GetCell(x, y).Character.Value == '-' && buffer.GetCell(x, y).Foreground == Color.Red)
+					foundRed = true;
+		Assert.False(foundRed, "Out-of-range reference line should not be drawn");
+	}
+
+	[Fact]
+	public void PaintDOM_ReferenceLine_WithLabel_Left()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.MinValue = 0;
+		graph.MaxValue = 100;
+		graph.SetDataPoints(new double[] { 25, 50, 75 });
+		graph.AddReferenceLine(50.0, Color.Cyan1, '-', "mid", LabelPosition.Left);
+
+		var size = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		var buffer = new CharacterBuffer(size.Width, size.Height);
+		var bounds = new LayoutRect(0, 0, size.Width, size.Height);
+		graph.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		// Should find 'm' character in Cyan1 (from "mid" label)
+		bool foundLabel = false;
+		for (int y = 0; y < size.Height; y++)
+			for (int x = 0; x < size.Width; x++)
+			{
+				var cell = buffer.GetCell(x, y);
+				if (cell.Character.Value == 'm' && cell.Foreground == Color.Cyan1)
+				{
+					foundLabel = true;
+					break;
+				}
+			}
+		Assert.True(foundLabel, "Left label should be rendered");
+	}
+
+	[Fact]
+	public void PaintDOM_ReferenceLine_WithLabel_Right()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.MinValue = 0;
+		graph.MaxValue = 100;
+		graph.SetDataPoints(new double[] { 25, 50, 75 });
+		graph.AddReferenceLine(50.0, Color.Magenta1, '-', "ref", LabelPosition.Right);
+
+		var size = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		var buffer = new CharacterBuffer(size.Width, size.Height);
+		var bounds = new LayoutRect(0, 0, size.Width, size.Height);
+		graph.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		bool foundLabel = false;
+		for (int y = 0; y < size.Height; y++)
+			for (int x = 0; x < size.Width; x++)
+			{
+				var cell = buffer.GetCell(x, y);
+				if (cell.Character.Value == 'r' && cell.Foreground == Color.Magenta1)
+				{
+					foundLabel = true;
+					break;
+				}
+			}
+		Assert.True(foundLabel, "Right label should be rendered");
+	}
+
+	#endregion
+
 	#region Rendering
 
 	[Fact]
