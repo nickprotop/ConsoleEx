@@ -8,7 +8,6 @@
 
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
-using System.Linq;
 
 namespace SharpConsoleUI.Controls
 {
@@ -212,6 +211,7 @@ namespace SharpConsoleUI.Controls
 				return;
 			}
 		}
+		this.GetParentWindow()?.ForceRebuildLayout();
 		Invalidate(true);
 	}
 

@@ -457,6 +457,7 @@ namespace SharpConsoleUI.Controls
 			// Subscribe to splitter's move event
 			splitterControl.SplitterMoved += OnSplitterMoved;
 
+			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 			Invalidate();
 			return true;
 		}

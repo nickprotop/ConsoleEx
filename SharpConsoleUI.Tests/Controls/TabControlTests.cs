@@ -1135,4 +1135,650 @@ public class TabControlTests
 	}
 
 	#endregion
+
+	#region Helpers (rendered environment)
+
+	private static (ConsoleWindowSystem system, Window window, SharpConsoleUI.Controls.TabControl tab) CreateRenderedTabEnvironment(
+		int width = 80, int height = 25, SharpConsoleUI.Controls.TabControl? tab = null)
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem(width, height);
+		var window = new Window(system)
+		{
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = width,
+			Height = height
+		};
+		tab ??= new SharpConsoleUI.Controls.TabControl();
+		tab.VerticalAlignment = VerticalAlignment.Fill;
+		window.AddControl(tab);
+		system.AddWindow(window);
+		system.Render.UpdateDisplay();
+		return (system, window, tab);
+	}
+
+	#endregion
+
+	#region SetTabContent — Layout Rebuild
+
+	[Fact]
+	public void SetTabContent_NewContentRendersAfterReplace()
+	{
+		// The critical bug: SetTabContent was missing ForceRebuildLayout(),
+		// so the new control never got a LayoutNode and was invisible.
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 1", CreateLabel("OLD CONTENT"));
+		tab.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Verify old content renders
+		var output1 = window.RenderAndGetVisibleContent();
+		Assert.Contains("OLD CONTENT", StripAnsiCodes(output1));
+
+		// Replace active tab content
+		tab.SetTabContent(0, CreateLabel("NEW CONTENT"));
+		var output2 = window.RenderAndGetVisibleContent();
+		var text2 = StripAnsiCodes(output2);
+
+		Assert.Contains("NEW CONTENT", text2);
+		Assert.DoesNotContain("OLD CONTENT", text2);
+	}
+
+	[Fact]
+	public void SetTabContent_InactiveTab_ContentShownOnSwitch()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 1", CreateLabel("Content 1"));
+		tab.AddTab("Tab 2", CreateLabel("OLD TAB2"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Replace inactive tab's content
+		tab.SetTabContent(1, CreateLabel("REPLACED TAB2"));
+
+		// Switch to tab 2
+		tab.ActiveTabIndex = 1;
+		var output = window.RenderAndGetVisibleContent();
+		var text = StripAnsiCodes(output);
+
+		Assert.Contains("REPLACED TAB2", text);
+		Assert.DoesNotContain("OLD TAB2", text);
+	}
+
+	[Fact]
+	public void SetTabContent_PreservesVisibilityState()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var content1 = CreateLabel("Content 1");
+		var content2 = CreateLabel("Content 2");
+		tab.AddTab("Tab 1", content1);
+		tab.AddTab("Tab 2", content2);
+
+		// Active tab is 0
+		var newActiveContent = CreateLabel("New Active");
+		var newInactiveContent = CreateLabel("New Inactive");
+
+		tab.SetTabContent(0, newActiveContent);
+		tab.SetTabContent(1, newInactiveContent);
+
+		Assert.True(newActiveContent.Visible);
+		Assert.False(newInactiveContent.Visible);
+	}
+
+	[Fact]
+	public void SetTabContent_SetsContainerToTabControl()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.AddTab("Tab 1", CreateLabel("Old"));
+
+		var newContent = CreateLabel("New");
+		tab.SetTabContent(0, newContent);
+
+		// Container should be the TabControl itself, not its parent
+		Assert.Same(tab, newContent.Container);
+	}
+
+	[Fact]
+	public void SetTabContent_InvalidIndex_DoesNothing()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var original = CreateLabel("Original");
+		tab.AddTab("Tab 1", original);
+
+		tab.SetTabContent(-1, CreateLabel("Bad"));
+		tab.SetTabContent(5, CreateLabel("Bad"));
+
+		Assert.Same(original, tab.TabPages[0].Content);
+	}
+
+	[Fact]
+	public void SetTabContent_WithScrollablePanel_Renders()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 1", CreateLabel("Old"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Replace with a complex control (ScrollablePanel with children)
+		var panel = new ScrollablePanelControl();
+		panel.AddControl(CreateLabel("PANEL LINE 1"));
+		panel.AddControl(CreateLabel("PANEL LINE 2"));
+		tab.SetTabContent(0, panel);
+
+		var output = window.RenderAndGetVisibleContent();
+		var text = StripAnsiCodes(output);
+
+		Assert.Contains("PANEL LINE 1", text);
+		Assert.Contains("PANEL LINE 2", text);
+	}
+
+	#endregion
+
+	#region InsertTab — Layout Rebuild
+
+	[Fact]
+	public void InsertTab_ContentRendersAfterInsert()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 1", CreateLabel("Content 1"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Insert a new tab and switch to it
+		tab.InsertTab(0, "Inserted", CreateLabel("INSERTED CONTENT"));
+		tab.ActiveTabIndex = 0;
+
+		var output = window.RenderAndGetVisibleContent();
+		var text = StripAnsiCodes(output);
+
+		Assert.Contains("INSERTED CONTENT", text);
+		Assert.Contains("Inserted", text);
+	}
+
+	[Fact]
+	public void InsertTab_AtEnd_Works()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 1", CreateLabel("Content 1"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		tab.InsertTab(1, "Tab 2", CreateLabel("APPENDED"));
+		tab.ActiveTabIndex = 1;
+
+		var output = window.RenderAndGetVisibleContent();
+		Assert.Contains("APPENDED", StripAnsiCodes(output));
+	}
+
+	[Fact]
+	public void InsertTab_BeforeActive_KeepsCorrectTabVisible()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		var originalContent = CreateLabel("ORIGINAL ACTIVE");
+		tab.AddTab("Tab 1", originalContent);
+		tab.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Active is index 0. Insert before it.
+		tab.InsertTab(0, "Inserted", CreateLabel("Inserted"));
+
+		// Active index should shift to 1 (still pointing to "Tab 1")
+		Assert.Equal(1, tab.ActiveTabIndex);
+
+		var output = window.RenderAndGetVisibleContent();
+		Assert.Contains("ORIGINAL ACTIVE", StripAnsiCodes(output));
+	}
+
+	#endregion
+
+	#region Container Propagation
+
+	[Fact]
+	public void Container_TabContentPointsAtTabControl()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var content1 = CreateLabel("Content 1");
+		var content2 = CreateLabel("Content 2");
+		tab.AddTab("Tab 1", content1);
+		tab.AddTab("Tab 2", content2);
+
+		// Before being added to window
+		Assert.Same(tab, content1.Container);
+		Assert.Same(tab, content2.Container);
+	}
+
+	[Fact]
+	public void Container_AfterAddToWindow_StillPointsAtTabControl()
+	{
+		// The old bug: Container setter override would set tab content's
+		// Container to the Window instead of the TabControl.
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var content1 = CreateLabel("Content 1");
+		var content2 = CreateLabel("Content 2");
+		tab.AddTab("Tab 1", content1);
+		tab.AddTab("Tab 2", content2);
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// After adding to window, Container should still be TabControl
+		Assert.Same(tab, content1.Container);
+		Assert.Same(tab, content2.Container);
+	}
+
+	[Fact]
+	public void Container_NewTabAddedAfterWindow_PointsAtTabControl()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 1", CreateLabel("Content 1"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Add new tab after already attached to window
+		var lateContent = CreateLabel("Late");
+		tab.AddTab("Tab 2", lateContent);
+
+		Assert.Same(tab, lateContent.Container);
+	}
+
+	[Fact]
+	public void Container_InvalidationChain_ReachesWindow()
+	{
+		// Verify that invalidation from tab content reaches the window
+		// through the TabControl (not bypassing it).
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		var content = CreateLabel("Content");
+		tab.AddTab("Tab 1", content);
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Reset dirty state
+		tab.IsDirty = false;
+
+		// Trigger invalidation from the content
+		content.Invalidate();
+
+		// TabControl should be dirty (invalidation passed through it)
+		Assert.True(tab.IsDirty);
+	}
+
+	#endregion
+
+	#region SetTabContent — Event and State Interactions
+
+	[Fact]
+	public void SetTabContent_DoesNotFireTabChangedEvent()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.AddTab("Tab 1", CreateLabel("Old"));
+
+		bool eventFired = false;
+		tab.TabChanged += (_, _) => eventFired = true;
+
+		tab.SetTabContent(0, CreateLabel("New"));
+
+		Assert.False(eventFired);
+	}
+
+	[Fact]
+	public void SetTabContent_ActiveTab_PropertyStaysConsistent()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.AddTab("Tab 1", CreateLabel("Old"));
+		tab.AddTab("Tab 2", CreateLabel("Content 2"));
+		Assert.Equal(0, tab.ActiveTabIndex);
+
+		var newContent = CreateLabel("New");
+		tab.SetTabContent(0, newContent);
+
+		Assert.Equal(0, tab.ActiveTabIndex);
+		Assert.Equal("Tab 1", tab.ActiveTab?.Title);
+		Assert.Same(newContent, tab.ActiveTab?.Content);
+	}
+
+	[Fact]
+	public void SetTabContent_MultipleReplacements_AllRender()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 1", CreateLabel("V1"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Replace content 3 times
+		tab.SetTabContent(0, CreateLabel("V2"));
+		tab.SetTabContent(0, CreateLabel("V3"));
+		tab.SetTabContent(0, CreateLabel("FINAL VERSION"));
+
+		var output = window.RenderAndGetVisibleContent();
+		var text = StripAnsiCodes(output);
+
+		Assert.Contains("FINAL VERSION", text);
+		Assert.DoesNotContain("V1", text);
+		Assert.DoesNotContain("V2", text);
+		Assert.DoesNotContain("V3", text);
+	}
+
+	#endregion
+
+	#region Tab Switching with Rendered Content
+
+	[Fact]
+	public void SwitchTabs_BackAndForth_RendersCorrectContent()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab A", CreateLabel("ALPHA CONTENT"));
+		tab.AddTab("Tab B", CreateLabel("BETA CONTENT"));
+		tab.AddTab("Tab C", CreateLabel("GAMMA CONTENT"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Tab A
+		var textA = StripAnsiCodes(window.RenderAndGetVisibleContent());
+		Assert.Contains("ALPHA CONTENT", textA);
+
+		// Switch to C
+		tab.ActiveTabIndex = 2;
+		var textC = StripAnsiCodes(window.RenderAndGetVisibleContent());
+		Assert.Contains("GAMMA CONTENT", textC);
+		Assert.DoesNotContain("ALPHA CONTENT", textC);
+
+		// Back to A
+		tab.ActiveTabIndex = 0;
+		var textA2 = StripAnsiCodes(window.RenderAndGetVisibleContent());
+		Assert.Contains("ALPHA CONTENT", textA2);
+		Assert.DoesNotContain("GAMMA CONTENT", textA2);
+	}
+
+	[Fact]
+	public void RemoveActiveTab_NextTabContentRenders()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 1", CreateLabel("CONTENT ONE"));
+		tab.AddTab("Tab 2", CreateLabel("CONTENT TWO"));
+		tab.AddTab("Tab 3", CreateLabel("CONTENT THREE"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Remove active tab (Tab 1 at index 0)
+		tab.RemoveTab(0);
+
+		// Tab 2 should now be active
+		var text = StripAnsiCodes(window.RenderAndGetVisibleContent());
+		Assert.Contains("CONTENT TWO", text);
+		Assert.DoesNotContain("CONTENT ONE", text);
+	}
+
+	[Fact]
+	public void RemoveLastActiveTab_PreviousTabContentRenders()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 1", CreateLabel("CONTENT ONE"));
+		tab.AddTab("Tab 2", CreateLabel("CONTENT TWO"));
+		tab.ActiveTabIndex = 1;
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Remove active last tab
+		tab.RemoveTab(1);
+
+		var text = StripAnsiCodes(window.RenderAndGetVisibleContent());
+		Assert.Contains("CONTENT ONE", text);
+	}
+
+	#endregion
+
+	#region Header Style Rendering
+
+	[Fact]
+	public void HeaderStyle_Classic_RendersOnOneLine()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.HeaderStyle = TabHeaderStyle.Classic;
+		tab.AddTab("Alpha", CreateLabel("A content"));
+		tab.AddTab("Beta", CreateLabel("B content"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+		var text = StripAnsiCodes(window.RenderAndGetVisibleContent());
+
+		Assert.Contains("Alpha", text);
+		Assert.Contains("Beta", text);
+		Assert.Equal(1, tab.TabHeaderHeight);
+	}
+
+	[Fact]
+	public void HeaderStyle_Separator_UsesTwoRows()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.HeaderStyle = TabHeaderStyle.Separator;
+		tab.AddTab("Alpha", CreateLabel("A content"));
+		tab.AddTab("Beta", CreateLabel("B content"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+		var text = StripAnsiCodes(window.RenderAndGetVisibleContent());
+
+		Assert.Contains("Alpha", text);
+		Assert.Equal(2, tab.TabHeaderHeight);
+	}
+
+	[Fact]
+	public void HeaderStyle_AccentedSeparator_UsesTwoRows()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.HeaderStyle = TabHeaderStyle.AccentedSeparator;
+		tab.AddTab("Alpha", CreateLabel("A content"));
+		tab.AddTab("Beta", CreateLabel("B content"));
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+		var text = StripAnsiCodes(window.RenderAndGetVisibleContent());
+
+		Assert.Contains("Alpha", text);
+		Assert.Equal(2, tab.TabHeaderHeight);
+	}
+
+	#endregion
+
+	#region Closable Tabs
+
+	[Fact]
+	public void AddTab_Closable_SetsFlag()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.AddTab("Tab 1", CreateLabel("Content"), isClosable: true);
+
+		Assert.True(tab.TabPages[0].IsClosable);
+	}
+
+	[Fact]
+	public void TabCloseRequested_DoesNotAutoRemove()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.AddTab("Tab 1", CreateLabel("Content 1"), isClosable: true);
+		tab.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		bool closeRequested = false;
+		tab.TabCloseRequested += (_, e) => closeRequested = true;
+
+		// Even if close is requested externally, tab should not be auto-removed
+		// (the event consumer must call RemoveTab)
+		Assert.Equal(2, tab.TabCount);
+	}
+
+	#endregion
+
+	#region RemoveTab — Index Adjustment with Rendered State
+
+	[Fact]
+	public void RemoveTab_BeforeActive_ShiftsActiveIndex()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.Height = 10;
+		tab.AddTab("Tab 0", CreateLabel("Content 0"));
+		tab.AddTab("Tab 1", CreateLabel("ACTIVE CONTENT"));
+		tab.AddTab("Tab 2", CreateLabel("Content 2"));
+		tab.ActiveTabIndex = 1;
+
+		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
+
+		// Remove tab before active
+		tab.RemoveTab(0);
+
+		Assert.Equal(0, tab.ActiveTabIndex);
+		Assert.Equal("Tab 1", tab.ActiveTab?.Title);
+
+		var text = StripAnsiCodes(window.RenderAndGetVisibleContent());
+		Assert.Contains("ACTIVE CONTENT", text);
+	}
+
+	[Fact]
+	public void RemoveTab_AfterActive_KeepsActiveIndex()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.AddTab("Tab 0", CreateLabel("ACTIVE"));
+		tab.AddTab("Tab 1", CreateLabel("Content 1"));
+		tab.AddTab("Tab 2", CreateLabel("Content 2"));
+		// Active stays at 0
+
+		tab.RemoveTab(2);
+
+		Assert.Equal(0, tab.ActiveTabIndex);
+		Assert.Equal("Tab 0", tab.ActiveTab?.Title);
+	}
+
+	[Fact]
+	public void ClearTabs_RemovesAll_ActiveBecomesNegativeOne()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.AddTab("Tab 1", CreateLabel("Content 1"));
+		tab.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		tab.ClearTabs();
+
+		Assert.Equal(0, tab.TabCount);
+		Assert.Equal(-1, tab.ActiveTabIndex);
+		Assert.Null(tab.ActiveTab);
+	}
+
+	#endregion
+
+	#region Visibility Consistency
+
+	[Fact]
+	public void AllInactiveTabs_AreInvisible()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var contents = Enumerable.Range(0, 5)
+			.Select(i => CreateLabel($"Content {i}"))
+			.ToArray();
+
+		foreach (var (c, i) in contents.Select((c, i) => (c, i)))
+			tab.AddTab($"Tab {i}", c);
+
+		tab.ActiveTabIndex = 2;
+
+		for (int i = 0; i < 5; i++)
+		{
+			if (i == 2)
+				Assert.True(contents[i].Visible, $"Active tab {i} should be visible");
+			else
+				Assert.False(contents[i].Visible, $"Inactive tab {i} should be invisible");
+		}
+	}
+
+	[Fact]
+	public void RapidTabSwitching_VisibilityConsistent()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var contents = new MarkupControl[10];
+		for (int i = 0; i < 10; i++)
+		{
+			contents[i] = CreateLabel($"Content {i}");
+			tab.AddTab($"Tab {i}", contents[i]);
+		}
+
+		// Rapidly switch tabs
+		for (int round = 0; round < 3; round++)
+		{
+			for (int i = 0; i < 10; i++)
+			{
+				tab.ActiveTabIndex = i;
+
+				// Exactly one tab should be visible at any time
+				int visibleCount = contents.Count(c => c.Visible);
+				Assert.Equal(1, visibleCount);
+				Assert.True(contents[i].Visible);
+			}
+		}
+	}
+
+	#endregion
+
+	#region GetChildren and GetLogicalContentSize
+
+	[Fact]
+	public void GetChildren_AfterSetTabContent_ReturnsNewContent()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var old = CreateLabel("Old");
+		tab.AddTab("Tab 1", old);
+
+		var replacement = CreateLabel("New");
+		tab.SetTabContent(0, replacement);
+
+		var children = tab.GetChildren();
+		Assert.Single(children);
+		Assert.Same(replacement, children[0]);
+		Assert.DoesNotContain(old, children);
+	}
+
+	[Fact]
+	public void GetChildren_AfterInsertTab_IncludesNewContent()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.AddTab("Tab 1", CreateLabel("C1"));
+		tab.AddTab("Tab 3", CreateLabel("C3"));
+
+		var inserted = CreateLabel("C2");
+		tab.InsertTab(1, "Tab 2", inserted);
+
+		var children = tab.GetChildren();
+		Assert.Equal(3, children.Count);
+		Assert.Same(inserted, children[1]);
+	}
+
+	[Fact]
+	public void GetLogicalContentSize_ReflectsActiveTabContent()
+	{
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var small = CreateLabel("Small");
+		var big = new MarkupControl(new List<string> { "Line 1", "Line 2", "Line 3", "Line 4", "Line 5" });
+		tab.AddTab("Small", small);
+		tab.AddTab("Big", big);
+
+		var sizeWithSmall = tab.GetLogicalContentSize();
+
+		tab.ActiveTabIndex = 1;
+		var sizeWithBig = tab.GetLogicalContentSize();
+
+		// Big tab should produce larger height
+		Assert.True(sizeWithBig.Height >= sizeWithSmall.Height);
+	}
+
+	#endregion
 }

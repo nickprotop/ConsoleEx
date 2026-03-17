@@ -275,6 +275,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			TabAdded?.Invoke(this, new TabEventArgs(tabPage, index));
+			this.GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(true);
 		}
 
@@ -307,12 +308,14 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				base.Container = value;
-				// Update container for all tab content
+				// Tab content's Container should point at this TabControl (which
+				// implements IContainer), not at our parent.  This keeps the
+				// invalidation chain correct: child → TabControl → parent.
 				List<TabPage> snapshot;
 				lock (_tabLock) { snapshot = _tabPages.ToList(); }
 				foreach (var tab in snapshot)
 				{
-					tab.Content.Container = value;
+					tab.Content.Container = this;
 				}
 			}
 		}
@@ -407,6 +410,11 @@ namespace SharpConsoleUI.Controls
 			// Delegate to parent container
 			return Container?.GetVisibleHeightForControl(control);
 		}
+
+		/// <summary>
+		/// Propagates gradient background state from the parent container.
+		/// </summary>
+		bool IContainer.HasGradientBackground => Container?.HasGradientBackground ?? false;
 
 		#endregion
 
