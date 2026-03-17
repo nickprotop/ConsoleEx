@@ -12,7 +12,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
-using Controls = SharpConsoleUI.Builders.Controls;
+using ControlsFactory = SharpConsoleUI.Builders.Controls;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -50,7 +50,7 @@ public class NestedContainerLayoutTests
 		var label1 = new MarkupControl(new List<string> { "Left" });
 		var label2 = new MarkupControl(new List<string> { "Right" });
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(30).Add(label1))
 			.Column(c => c.Width(30).Add(label2))
 			.Build();
@@ -70,7 +70,7 @@ public class NestedContainerLayoutTests
 		var label1 = new MarkupControl(new List<string> { "Fixed" });
 		var label2 = new MarkupControl(new List<string> { "Flex" });
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(20).Add(label1))
 			.Column(c => c.Flex().Add(label2))
 			.Build();
@@ -90,7 +90,7 @@ public class NestedContainerLayoutTests
 		var label1 = new MarkupControl(new List<string> { "Col1" });
 		var label2 = new MarkupControl(new List<string> { "Col2" });
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(40).Add(label1))
 			.Column(c => c.Flex().Add(label2))
 			.WithSplitterAfter(0)
@@ -108,7 +108,7 @@ public class NestedContainerLayoutTests
 	{
 		var (system, window) = CreateTestEnv();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(20).Add(new MarkupControl(new List<string> { "A" })))
 			.Column(c => c.Width(20).Add(new MarkupControl(new List<string> { "B" })))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "C" })))
@@ -130,14 +130,14 @@ public class NestedContainerLayoutTests
 	{
 		var (system, window) = CreateTestEnv();
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.AddControl(new MarkupControl(new List<string> { "Inside panel" }))
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
 		var label = new MarkupControl(new List<string> { "Right side" });
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(40).Add(panel))
 			.Column(c => c.Flex().Add(label))
 			.Build();
@@ -154,17 +154,17 @@ public class NestedContainerLayoutTests
 	{
 		var (system, window) = CreateTestEnv();
 
-		var leftPanel = Controls.ScrollablePanel()
+		var leftPanel = ControlsFactory.ScrollablePanel()
 			.AddControl(new MarkupControl(new List<string> { "Left content" }))
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		var rightPanel = Controls.ScrollablePanel()
+		var rightPanel = ControlsFactory.ScrollablePanel()
 			.AddControl(new MarkupControl(new List<string> { "Right content" }))
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(45).Add(leftPanel))
 			.Column(c => c.Flex().Add(rightPanel))
 			.WithSplitterAfter(0)
@@ -182,14 +182,14 @@ public class NestedContainerLayoutTests
 	{
 		var (system, window) = CreateTestEnv();
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
 		for (int i = 0; i < 50; i++)
 			panel.AddControl(new MarkupControl(new List<string> { $"Line {i}" }));
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(40).Add(panel))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Static" })))
 			.Build();
@@ -212,13 +212,13 @@ public class NestedContainerLayoutTests
 
 		var dd = new DropdownControl("Pick:", new[] { "A", "B", "C" });
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.AddControl(new MarkupControl(new List<string> { "Label:" }))
 			.AddControl(dd)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(45).Add(panel))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Right" })))
 			.Build();
@@ -240,12 +240,12 @@ public class NestedContainerLayoutTests
 
 		var dd = new DropdownControl("S:", new[] { "Alpha", "Beta", "Gamma", "Delta", "Epsilon" });
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.AddControl(dd)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(45).Add(panel))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Side" })))
 			.Build();
@@ -271,13 +271,13 @@ public class NestedContainerLayoutTests
 		var dd1 = new DropdownControl("D1:", new[] { "X", "Y" });
 		var dd2 = new DropdownControl("D2:", new[] { "A", "B" });
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.AddControl(dd1)
 			.AddControl(dd2)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(45).Add(panel))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Side" })))
 			.Build();
@@ -306,12 +306,12 @@ public class NestedContainerLayoutTests
 		var dp = new DatePickerControl("Due:");
 		dp.SelectedDate = new DateTime(2026, 3, 15);
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.AddControl(dp)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(45).Add(panel))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Right" })))
 			.Build();
@@ -331,7 +331,7 @@ public class NestedContainerLayoutTests
 	{
 		var (system, window) = CreateTestEnv();
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.AddControl(new MarkupControl(new List<string> { "[bold]Header[/]" }))
 			.AddControl(new DropdownControl("Pick:", new[] { "Opt1", "Opt2" }))
 			.AddControl(new ButtonControl { Text = "Submit" })
@@ -339,7 +339,7 @@ public class NestedContainerLayoutTests
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(45).Add(panel))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Info" })))
 			.WithSplitterAfter(0)
@@ -360,7 +360,7 @@ public class NestedContainerLayoutTests
 		var list = new ListControl(new[] { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" });
 		list.VerticalAlignment = VerticalAlignment.Fill;
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(30).Add(list))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Details" })))
 			.Build();
@@ -381,14 +381,14 @@ public class NestedContainerLayoutTests
 	{
 		var (system, window) = CreateTestEnv();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(30).Add(new MarkupControl(new List<string> { "Left" })))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Right" })))
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.AddControl(grid)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
@@ -422,7 +422,7 @@ public class NestedContainerLayoutTests
 	{
 		var (system, window) = CreateTestEnv();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(5).Add(new MarkupControl(new List<string> { "Very Long Text Here" })))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Right" })))
 			.Build();
@@ -443,12 +443,12 @@ public class NestedContainerLayoutTests
 	{
 		var (system, window) = CreateTestEnv();
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.AddControl(new MarkupControl(new List<string> { "Content" }))
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(40).Add(panel))
 			.Column(c => c.Flex().Add(new MarkupControl(new List<string> { "Side" })))
 			.WithVerticalAlignment(VerticalAlignment.Fill)
@@ -473,7 +473,7 @@ public class NestedContainerLayoutTests
 		var dd = new DropdownControl("S:", new[] { "A", "B" });
 		dd.Margin = new Margin(2, 1, 2, 1);
 
-		var panel = Controls.ScrollablePanel()
+		var panel = ControlsFactory.ScrollablePanel()
 			.AddControl(dd)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
@@ -513,7 +513,7 @@ public class NestedContainerLayoutTests
 		var dd1 = new DropdownControl("D1:", new[] { "A", "B" });
 		var dd2 = new DropdownControl("D2:", new[] { "X", "Y" });
 
-		var grid = Controls.HorizontalGrid()
+		var grid = ControlsFactory.HorizontalGrid()
 			.Column(c => c.Width(40).Add(dd1))
 			.Column(c => c.Flex().Add(dd2))
 			.Build();

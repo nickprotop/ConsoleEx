@@ -12,8 +12,8 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
-using Size = SharpConsoleUI.Helpers.Size;
 using Color = SharpConsoleUI.Color;
+using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Tests.Controls;
 
