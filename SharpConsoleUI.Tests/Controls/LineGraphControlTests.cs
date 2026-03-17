@@ -470,6 +470,45 @@ public class LineGraphControlTests
 
 	#endregion
 
+	#region Width Reservation
+
+	[Fact]
+	public void MeasureDOM_WithRightMarkers_ReservesWidth()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.SetDataPoints(new double[] { 1, 2, 3 });
+		var sizeWithout = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		graph.AddValueMarker(2.0, "$100", Color.Green, Color.Green, MarkerSide.Right);
+		var sizeWith = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		Assert.True(sizeWith.Width > sizeWithout.Width, "Right-side markers should increase measured width");
+	}
+
+	[Fact]
+	public void MeasureDOM_WithLeftReferenceLabel_ReservesWidth()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.SetDataPoints(new double[] { 1, 2, 3 });
+		var sizeWithout = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		graph.AddReferenceLine(2.0, Color.Grey, '─', "ref", LabelPosition.Left);
+		var sizeWith = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		Assert.True(sizeWith.Width > sizeWithout.Width, "Left-side reference labels should increase measured width");
+	}
+
+	[Fact]
+	public void MeasureDOM_NoOverlays_NoExtraWidth()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.SetDataPoints(new double[] { 1, 2, 3 });
+		var size1 = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		var size2 = graph.MeasureDOM(new LayoutConstraints(0, 200, 0, 200));
+		Assert.Equal(size1.Width, size2.Width);
+	}
+
+	#endregion
+
 	#region Rendering
 
 	[Fact]

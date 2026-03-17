@@ -6,6 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Helpers;
+
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -144,9 +147,97 @@ namespace SharpConsoleUI.Controls
 	}
 
 	/// <summary>
-	/// Partial class for overlay-related rendering methods (implemented in later tasks).
+	/// Partial class for overlay-related rendering and measurement methods.
 	/// </summary>
 	public partial class LineGraphControl
 	{
+		/// <summary>Computes the Y row for a data value within the graph area.</summary>
+		/// <param name="value">The data value to map to a row.</param>
+		/// <param name="graphStartY">The top row of the graph area.</param>
+		/// <param name="graphHeight">The height of the graph area in rows.</param>
+		/// <param name="globalMin">The minimum value of the Y-axis range.</param>
+		/// <param name="globalMax">The maximum value of the Y-axis range.</param>
+		/// <returns>The clamped row index corresponding to the value.</returns>
+		private static int ComputeYRow(double value, int graphStartY, int graphHeight, double globalMin, double globalMax)
+		{
+			double range = globalMax - globalMin;
+			if (range < 0.001) range = 1.0;
+			int row = graphStartY + graphHeight - 1 - (int)((value - globalMin) / range * (graphHeight - 1));
+			return Math.Clamp(row, graphStartY, graphStartY + graphHeight - 1);
+		}
+
+		/// <summary>Computes width needed for right-side overlays.</summary>
+		/// <param name="globalMin">The minimum value of the Y-axis range.</param>
+		/// <param name="globalMax">The maximum value of the Y-axis range.</param>
+		/// <returns>The number of columns to reserve on the right side.</returns>
+		private int GetRightOverlayWidth(double globalMin, double globalMax)
+		{
+			int maxWidth = 0;
+			lock (_dataLock)
+			{
+				foreach (var marker in _valueMarkers)
+				{
+					if (marker.Side == MarkerSide.Right)
+					{
+						int w = ControlDefaults.LineGraphMarkerPadding + 1 + UnicodeWidth.GetStringWidth(marker.Label);
+						maxWidth = Math.Max(maxWidth, w);
+					}
+				}
+				foreach (var refLine in _referenceLines)
+				{
+					if (refLine.LabelPosition == LabelPosition.Right && refLine.Label != null)
+					{
+						int w = ControlDefaults.LineGraphMarkerPadding + UnicodeWidth.GetStringWidth(refLine.Label);
+						maxWidth = Math.Max(maxWidth, w);
+					}
+				}
+			}
+			if (_showHighLowLabels && _highLowLabelSide == MarkerSide.Right)
+			{
+				string highLabel = "H " + globalMax.ToString(_axisLabelFormat);
+				string lowLabel = "L " + globalMin.ToString(_axisLabelFormat);
+				int hlWidth = ControlDefaults.LineGraphMarkerPadding + 1 +
+					Math.Max(UnicodeWidth.GetStringWidth(highLabel), UnicodeWidth.GetStringWidth(lowLabel));
+				maxWidth = Math.Max(maxWidth, hlWidth);
+			}
+			return maxWidth;
+		}
+
+		/// <summary>Computes width needed for left-side overlays (additional to yAxisWidth).</summary>
+		/// <param name="globalMin">The minimum value of the Y-axis range.</param>
+		/// <param name="globalMax">The maximum value of the Y-axis range.</param>
+		/// <returns>The number of columns to reserve on the left side.</returns>
+		private int GetLeftOverlayWidth(double globalMin, double globalMax)
+		{
+			int maxWidth = 0;
+			lock (_dataLock)
+			{
+				foreach (var marker in _valueMarkers)
+				{
+					if (marker.Side == MarkerSide.Left)
+					{
+						int w = UnicodeWidth.GetStringWidth(marker.Label) + ControlDefaults.LineGraphMarkerPadding + 1;
+						maxWidth = Math.Max(maxWidth, w);
+					}
+				}
+				foreach (var refLine in _referenceLines)
+				{
+					if (refLine.LabelPosition == LabelPosition.Left && refLine.Label != null)
+					{
+						int w = UnicodeWidth.GetStringWidth(refLine.Label) + ControlDefaults.LineGraphMarkerPadding;
+						maxWidth = Math.Max(maxWidth, w);
+					}
+				}
+			}
+			if (_showHighLowLabels && _highLowLabelSide == MarkerSide.Left)
+			{
+				string highLabel = "H " + globalMax.ToString(_axisLabelFormat);
+				string lowLabel = "L " + globalMin.ToString(_axisLabelFormat);
+				int hlWidth = Math.Max(UnicodeWidth.GetStringWidth(highLabel), UnicodeWidth.GetStringWidth(lowLabel))
+					+ ControlDefaults.LineGraphMarkerPadding + 1;
+				maxWidth = Math.Max(maxWidth, hlWidth);
+			}
+			return maxWidth;
+		}
 	}
 }

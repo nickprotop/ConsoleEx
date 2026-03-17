@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -29,7 +30,7 @@ namespace SharpConsoleUI.Controls
 			int titleHeight = !string.IsNullOrEmpty(_title) && !titleAndBaselineInline ? 1 : 0;
 			int baselineHeight = _showBaseline ? 1 : 0;
 
-			int yAxisWidth = _showYAxisLabels ? GetYAxisLabelWidth() + Y_AXIS_LABEL_PADDING : 0;
+			int yAxisWidth = _showYAxisLabels ? GetYAxisLabelWidth() + ControlDefaults.LineGraphYAxisLabelPadding : 0;
 
 			int titleWidth = 0;
 			if (!string.IsNullOrEmpty(_title))
@@ -38,15 +39,21 @@ namespace SharpConsoleUI.Controls
 			}
 
 			int dataCount;
+			List<(LineGraphSeries series, List<double> data)> measureSnapshots;
 			lock (_dataLock)
 			{
 				dataCount = _series.Count > 0
 					? _series.Max(s => s.DataPoints.Count)
 					: 0;
+				measureSnapshots = _series.Select(s => (s, new List<double>(s.DataPoints))).ToList();
 			}
+			ComputeGlobalMinMaxFromSnapshots(measureSnapshots, out double measureMin, out double measureMax);
+			int leftOverlayWidth = GetLeftOverlayWidth(measureMin, measureMax);
+			int rightOverlayWidth = GetRightOverlayWidth(measureMin, measureMax);
+			int leftReserved = Math.Max(yAxisWidth, leftOverlayWidth);
 
 			int dataWidth = Width ?? Math.Max(dataCount, titleWidth);
-			int contentWidth = dataWidth + yAxisWidth;
+			int contentWidth = dataWidth + leftReserved + rightOverlayWidth;
 			int width = contentWidth + Margin.Left + Margin.Right + borderSize;
 			int height = _graphHeight + Margin.Top + Margin.Bottom + borderSize + titleHeight + baselineHeight;
 
@@ -91,16 +98,19 @@ namespace SharpConsoleUI.Controls
 			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
 			int contentHeight = _graphHeight + (borderSize * 2) + titleHeight + baselineHeight;
 
-			// Fill content area with control background
-			for (int y = startY; y < startY + contentHeight && y < bounds.Bottom; y++)
+			// Fill content area with control background (skip if same as container bg — already filled above)
+			if (bgColor != containerBg)
 			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
+				for (int y = startY; y < startY + contentHeight && y < bounds.Bottom; y++)
 				{
-					int fillX = Math.Max(startX, clipRect.X);
-					int fillWidth = Math.Min(startX + contentWidth, clipRect.Right) - fillX;
-					if (fillWidth > 0)
+					if (y >= clipRect.Y && y < clipRect.Bottom)
 					{
-						buffer.FillRect(new LayoutRect(fillX, y, fillWidth, 1), ' ', fgColor, bgColor);
+						int fillX = Math.Max(startX, clipRect.X);
+						int fillWidth = Math.Min(startX + contentWidth, clipRect.Right) - fillX;
+						if (fillWidth > 0)
+						{
+							buffer.FillRect(new LayoutRect(fillX, y, fillWidth, 1), ' ', fgColor, bgColor);
+						}
 					}
 				}
 			}
@@ -113,22 +123,22 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Calculate graph area
-			int yAxisWidth = _showYAxisLabels ? GetYAxisLabelWidth() + Y_AXIS_LABEL_PADDING : 0;
-			int graphStartX = startX + borderSize + yAxisWidth;
+			int yAxisWidth = _showYAxisLabels ? GetYAxisLabelWidth() + ControlDefaults.LineGraphYAxisLabelPadding : 0;
 			int graphStartY = _titlePosition == TitlePosition.Top
 				? startY + borderSize + titleHeight
 				: startY + borderSize;
-			int graphWidth = contentWidth - (borderSize * 2) - yAxisWidth;
-			int graphBottom = graphStartY + _graphHeight - 1;
 
-			// Auto-fit
-			if (_autoFitDataPoints && graphWidth > 0 && graphWidth != _maxDataPoints)
+			// Auto-fit (uses preliminary graphWidth before overlay widths are known)
 			{
-				lock (_dataLock)
+				int preliminaryGraphWidth = contentWidth - (borderSize * 2) - yAxisWidth;
+				if (_autoFitDataPoints && preliminaryGraphWidth > 0 && preliminaryGraphWidth != _maxDataPoints)
 				{
-					_maxDataPoints = Math.Max(1, graphWidth);
-					foreach (var series in _series)
-						TrimSeriesData(series);
+					lock (_dataLock)
+					{
+						_maxDataPoints = Math.Max(1, preliminaryGraphWidth);
+						foreach (var series in _series)
+							TrimSeriesData(series);
+					}
 				}
 			}
 
@@ -172,11 +182,19 @@ namespace SharpConsoleUI.Controls
 			double globalMin, globalMax;
 			ComputeGlobalMinMaxFromSnapshots(seriesSnapshots, out globalMin, out globalMax);
 
+			// Compute overlay widths and graph area horizontal bounds
+			int leftOverlayWidth = GetLeftOverlayWidth(globalMin, globalMax);
+			int rightOverlayWidth = GetRightOverlayWidth(globalMin, globalMax);
+			int leftReserved = Math.Max(yAxisWidth, leftOverlayWidth);
+			int graphStartX = startX + borderSize + leftReserved;
+			int graphWidth = contentWidth - (borderSize * 2) - leftReserved - rightOverlayWidth;
+			int graphBottom = graphStartY + _graphHeight - 1;
+
 			// Draw Y-axis labels
 			if (_showYAxisLabels && yAxisWidth > 0)
 			{
 				int labelX = startX + borderSize;
-				int labelWidth = yAxisWidth - Y_AXIS_LABEL_PADDING;
+				int labelWidth = yAxisWidth - ControlDefaults.LineGraphYAxisLabelPadding;
 
 				// Max label at top
 				string maxLabel = globalMax.ToString(_axisLabelFormat);
