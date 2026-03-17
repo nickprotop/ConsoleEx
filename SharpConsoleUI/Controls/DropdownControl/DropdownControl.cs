@@ -55,6 +55,7 @@ namespace SharpConsoleUI.Controls
 		// Mouse state tracking
 		private bool _isHeaderPressed;
 		private int _mouseHoveredIndex = -1;
+		private bool _dismissedByOutsideClick;
 
 		// Portal state for dropdown overlay
 		private LayoutNode? _dropdownPortal;
@@ -92,6 +93,11 @@ namespace SharpConsoleUI.Controls
 				{
 					_items.Add(new DropdownItem(item));
 				}
+				if (_items.Count > 0)
+				{
+					_selectedIndex = 0;
+					_highlightedIndex = 0;
+				}
 			}
 		}
 
@@ -106,6 +112,11 @@ namespace SharpConsoleUI.Controls
 			if (items != null)
 			{
 				_items.AddRange(items);
+				if (_items.Count > 0)
+				{
+					_selectedIndex = 0;
+					_highlightedIndex = 0;
+				}
 			}
 		}
 

@@ -92,6 +92,20 @@ namespace SharpConsoleUI.Controls
 			{
 				if (isOnHeader)
 				{
+					// If the dropdown was just dismissed by an outside-click on this
+					// same mouse-down, suppress so the release doesn't reopen it.
+					if (_dismissedByOutsideClick)
+					{
+						_dismissedByOutsideClick = false;
+						_isHeaderPressed = false;
+
+						if (!_hasFocus)
+							SetFocus(true, FocusReason.Mouse);
+
+						Container?.Invalidate(true);
+						return true;
+					}
+
 					_isHeaderPressed = true;
 
 					// Capture focus on mouse down

@@ -782,7 +782,7 @@ public class DropdownControlTests
 		var ffg = dd.FocusedForegroundColor;
 		var hbg = dd.HighlightBackgroundColor;
 		var hfg = dd.HighlightForegroundColor;
-		Assert.NotEqual(default, bg);
+		Assert.Equal(Color.Black, bg);
 	}
 
 	[Fact]

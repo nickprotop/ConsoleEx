@@ -36,7 +36,11 @@ namespace SharpConsoleUI.Controls
 			{
 				_portalContent = new DropdownPortalContent(this);
 				_portalContent.DismissOnOutsideClick = true;
-				_portalContent.DismissRequested += (s, e) => CloseDropdown();
+				_portalContent.DismissRequested += (s, e) =>
+				{
+					_dismissedByOutsideClick = true;
+					CloseDropdown();
+				};
 				_dropdownPortal = window.CreatePortal(this, _portalContent);
 			}
 
