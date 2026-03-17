@@ -81,6 +81,13 @@ namespace SharpConsoleUI.Layout
 				{
 					var childNode = CreateSubtree(child);
 					childNode.IsVisible = child.Visible;
+
+					// Propagate FlexFactor from ColumnContainer to LayoutNode
+					if (child is ColumnContainer column)
+					{
+						childNode.FlexFactor = column.FlexFactor;
+					}
+
 					node.AddChild(childNode);
 				}
 			}

@@ -116,7 +116,10 @@ namespace SharpConsoleUI.Controls
 			_contentHeaderGrid.Margin = new Margin(0, 1, 0, 0);
 
 			_contentHeaderTitleColumn = new ColumnContainer(_contentHeaderGrid);
-			_contentHeaderToolbarColumn = new ColumnContainer(_contentHeaderGrid);
+			_contentHeaderToolbarColumn = new ColumnContainer(_contentHeaderGrid)
+			{
+				FlexFactor = 0  // Toolbar column sizes to content; title column takes remaining space
+			};
 
 			_contentHeaderTitleColumn.AddContent(_contentHeader);
 
