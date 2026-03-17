@@ -453,6 +453,65 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const string DatePickerDropdownIndicator = "\u25BC";
 
+		// LineGraph defaults
+
+		/// <summary>
+		/// Default height of the graph area in lines (default: 10).
+		/// </summary>
+		public const int LineGraphDefaultHeight = 10;
+
+		/// <summary>
+		/// Default maximum number of data points per series (default: 100).
+		/// </summary>
+		public const int LineGraphDefaultMaxDataPoints = 100;
+
+		/// <summary>
+		/// Minimum height of the graph area in lines (default: 3).
+		/// </summary>
+		public const int LineGraphMinHeight = 3;
+
+		/// <summary>
+		/// Padding between Y-axis labels and the graph area (default: 1).
+		/// </summary>
+		public const int LineGraphYAxisLabelPadding = 1;
+
+		/// <summary>
+		/// Default format string for Y-axis labels (default: "F1").
+		/// </summary>
+		public const string LineGraphDefaultAxisFormat = "F1";
+
+		/// <summary>
+		/// Color for empty braille/ASCII cells in line graphs.
+		/// </summary>
+		public static readonly Color LineGraphEmptyCellColor = Color.Grey19;
+
+		/// <summary>
+		/// Default character for reference lines.
+		/// </summary>
+		public const char LineGraphDefaultReferenceLineChar = '─';
+
+		/// <summary>
+		/// Default color for reference lines.
+		/// </summary>
+		public static readonly Color LineGraphDefaultReferenceLineColor = Color.Grey50;
+
+		/// <summary>
+		/// Padding between graph edge and marker arrow/label.
+		/// </summary>
+		public const int LineGraphMarkerPadding = 1;
+
+		/// <summary>
+		/// Right-side marker arrow character (points left, towards graph).
+		/// Uses small triangle (U+25C2) which is reliably 1-column wide.
+		/// </summary>
+		public const string LineGraphMarkerArrowRight = "\u25C2";
+
+		/// <summary>
+		/// Left-side marker arrow character (points right, towards graph).
+		/// Uses small triangle (U+25B8) which is reliably 1-column wide.
+		/// </summary>
+		public const string LineGraphMarkerArrowLeft = "\u25B8";
+
 		// Dropdown defaults
 
 		/// <summary>
