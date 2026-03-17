@@ -395,6 +395,81 @@ public class LineGraphControlTests
 
 	#endregion
 
+	#region Reference Lines
+
+	[Fact]
+	public void AddReferenceLine_StoresLine()
+	{
+		var graph = new LineGraphControl();
+		graph.AddReferenceLine(50.0, Color.Grey, '─', "50%", LabelPosition.Left);
+		Assert.Single(graph.ReferenceLines);
+		Assert.Equal(50.0, graph.ReferenceLines[0].Value);
+		Assert.Equal("50%", graph.ReferenceLines[0].Label);
+		Assert.Equal(LabelPosition.Left, graph.ReferenceLines[0].LabelPosition);
+	}
+
+	[Fact]
+	public void ClearReferenceLines_RemovesAll()
+	{
+		var graph = new LineGraphControl();
+		graph.AddReferenceLine(10.0, Color.Red);
+		graph.AddReferenceLine(20.0, Color.Blue);
+		graph.ClearReferenceLines();
+		Assert.Empty(graph.ReferenceLines);
+	}
+
+	#endregion
+
+	#region Value Markers
+
+	[Fact]
+	public void AddValueMarker_StoresMarker()
+	{
+		var graph = new LineGraphControl();
+		graph.AddValueMarker(100.0, "$100", Color.Green, Color.Green, MarkerSide.Right);
+		Assert.Single(graph.ValueMarkers);
+		Assert.Equal(100.0, graph.ValueMarkers[0].Value);
+		Assert.Equal("$100", graph.ValueMarkers[0].Label);
+		Assert.Equal(MarkerSide.Right, graph.ValueMarkers[0].Side);
+	}
+
+	[Fact]
+	public void ClearValueMarkers_RemovesAll()
+	{
+		var graph = new LineGraphControl();
+		graph.AddValueMarker(10.0, "A", Color.Red, Color.Red);
+		graph.AddValueMarker(20.0, "B", Color.Blue, Color.Blue);
+		graph.ClearValueMarkers();
+		Assert.Empty(graph.ValueMarkers);
+	}
+
+	#endregion
+
+	#region High/Low Labels
+
+	[Fact]
+	public void ShowHighLowLabels_DefaultsFalse()
+	{
+		var graph = new LineGraphControl();
+		Assert.False(graph.ShowHighLowLabels);
+	}
+
+	[Fact]
+	public void ShowHighLowLabels_CanBeEnabled()
+	{
+		var graph = new LineGraphControl();
+		graph.ShowHighLowLabels = true;
+		graph.HighLabelColor = Color.Green;
+		graph.LowLabelColor = Color.Red;
+		graph.HighLowLabelSide = MarkerSide.Right;
+		Assert.True(graph.ShowHighLowLabels);
+		Assert.Equal(Color.Green, graph.HighLabelColor);
+		Assert.Equal(Color.Red, graph.LowLabelColor);
+		Assert.Equal(MarkerSide.Right, graph.HighLowLabelSide);
+	}
+
+	#endregion
+
 	#region Rendering
 
 	[Fact]

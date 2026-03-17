@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -76,11 +77,6 @@ namespace SharpConsoleUI.Controls
 	{
 		#region Constants
 
-		private const int DEFAULT_GRAPH_HEIGHT = 10;
-		private const int DEFAULT_MAX_DATA_POINTS = 100;
-		private const int MIN_GRAPH_HEIGHT = 3;
-		private const int Y_AXIS_LABEL_PADDING = 1;
-		private const string DEFAULT_AXIS_FORMAT = "F1";
 		private const string DEFAULT_SERIES_NAME = "default";
 
 		#endregion
@@ -89,10 +85,17 @@ namespace SharpConsoleUI.Controls
 
 		private readonly object _dataLock = new();
 		private readonly List<LineGraphSeries> _series = new();
+		private readonly List<ReferenceLine> _referenceLines = new();
+		private readonly List<ValueMarker> _valueMarkers = new();
+
+		private bool _showHighLowLabels;
+		private Color _highLabelColor = Color.Green;
+		private Color _lowLabelColor = Color.Red;
+		private MarkerSide _highLowLabelSide = MarkerSide.Right;
 
 		private LineGraphMode _mode = LineGraphMode.Braille;
-		private int _graphHeight = DEFAULT_GRAPH_HEIGHT;
-		private int _maxDataPoints = DEFAULT_MAX_DATA_POINTS;
+		private int _graphHeight = ControlDefaults.LineGraphDefaultHeight;
+		private int _maxDataPoints = ControlDefaults.LineGraphDefaultMaxDataPoints;
 		private bool _autoFitDataPoints;
 		private double? _minValue;
 		private double? _maxValue;
@@ -102,7 +105,7 @@ namespace SharpConsoleUI.Controls
 		private TitlePosition _titlePosition = TitlePosition.Top;
 
 		private bool _showYAxisLabels;
-		private string _axisLabelFormat = DEFAULT_AXIS_FORMAT;
+		private string _axisLabelFormat = ControlDefaults.LineGraphDefaultAxisFormat;
 		private Color _axisLabelColor = Color.Grey70;
 
 		private bool _showBaseline;
@@ -139,7 +142,7 @@ namespace SharpConsoleUI.Controls
 		public int GraphHeight
 		{
 			get => _graphHeight;
-			set => SetProperty(ref _graphHeight, value, v => Math.Max(MIN_GRAPH_HEIGHT, v));
+			set => SetProperty(ref _graphHeight, value, v => Math.Max(ControlDefaults.LineGraphMinHeight, v));
 		}
 
 		/// <summary>
@@ -341,6 +344,70 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets the list of reference lines as a read-only snapshot.
+		/// </summary>
+		public IReadOnlyList<ReferenceLine> ReferenceLines
+		{
+			get
+			{
+				lock (_dataLock)
+				{
+					return new List<ReferenceLine>(_referenceLines);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of value markers as a read-only snapshot.
+		/// </summary>
+		public IReadOnlyList<ValueMarker> ValueMarkers
+		{
+			get
+			{
+				lock (_dataLock)
+				{
+					return new List<ValueMarker>(_valueMarkers);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether to display labels for the highest and lowest data values.
+		/// </summary>
+		public bool ShowHighLowLabels
+		{
+			get => _showHighLowLabels;
+			set => SetProperty(ref _showHighLowLabels, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the color used for the high value label.
+		/// </summary>
+		public Color HighLabelColor
+		{
+			get => _highLabelColor;
+			set => SetProperty(ref _highLabelColor, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the color used for the low value label.
+		/// </summary>
+		public Color LowLabelColor
+		{
+			get => _lowLabelColor;
+			set => SetProperty(ref _lowLabelColor, value);
+		}
+
+		/// <summary>
+		/// Gets or sets which side of the graph the high/low labels appear on.
+		/// </summary>
+		public MarkerSide HighLowLabelSide
+		{
+			get => _highLowLabelSide;
+			set => SetProperty(ref _highLowLabelSide, value);
+		}
+
 		#endregion
 
 		#region IWindowControl Implementation
@@ -357,7 +424,7 @@ namespace SharpConsoleUI.Controls
 						? _series.Max(s => s.DataPoints.Count)
 						: 0;
 				}
-				int yAxisWidth = _showYAxisLabels ? GetYAxisLabelWidth() + Y_AXIS_LABEL_PADDING : 0;
+				int yAxisWidth = _showYAxisLabels ? GetYAxisLabelWidth() + ControlDefaults.LineGraphYAxisLabelPadding : 0;
 				return Width ?? (maxPoints + yAxisWidth + Margin.Left + Margin.Right);
 			}
 		}
@@ -396,6 +463,8 @@ namespace SharpConsoleUI.Controls
 				foreach (var series in _series)
 					series.DataPoints.Clear();
 				_series.Clear();
+				_referenceLines.Clear();
+				_valueMarkers.Clear();
 			}
 			_pixelGridCache = null;
 		}
@@ -544,6 +613,68 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
+		#region Public Methods - Overlays
+
+		/// <summary>
+		/// Adds a horizontal reference line at the specified Y-axis value.
+		/// </summary>
+		/// <param name="value">The Y-axis value where the line is drawn.</param>
+		/// <param name="color">The color of the line.</param>
+		/// <param name="lineChar">The character used to draw the line.</param>
+		/// <param name="label">Optional label text.</param>
+		/// <param name="labelPosition">Position of the label relative to the line.</param>
+		public void AddReferenceLine(double value, Color color, char lineChar = '─', string? label = null, LabelPosition labelPosition = LabelPosition.None)
+		{
+			lock (_dataLock)
+			{
+				_referenceLines.Add(new ReferenceLine(value, color, lineChar, label, labelPosition));
+			}
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Removes all reference lines from the graph.
+		/// </summary>
+		public void ClearReferenceLines()
+		{
+			lock (_dataLock)
+			{
+				_referenceLines.Clear();
+			}
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Adds a labeled value marker pointing at the specified Y-axis value.
+		/// </summary>
+		/// <param name="value">The Y-axis value to mark.</param>
+		/// <param name="label">The label text.</param>
+		/// <param name="arrowColor">The color of the marker arrow.</param>
+		/// <param name="labelColor">The color of the label text.</param>
+		/// <param name="side">Which side of the graph the marker appears on.</param>
+		public void AddValueMarker(double value, string label, Color arrowColor, Color labelColor, MarkerSide side = MarkerSide.Right)
+		{
+			lock (_dataLock)
+			{
+				_valueMarkers.Add(new ValueMarker(value, label, arrowColor, labelColor, side));
+			}
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Removes all value markers from the graph.
+		/// </summary>
+		public void ClearValueMarkers()
+		{
+			lock (_dataLock)
+			{
+				_valueMarkers.Clear();
+			}
+			Container?.Invalidate(true);
+		}
+
+		#endregion
+
 		#region Private Helper Methods
 
 		private LineGraphSeries GetOrCreateDefaultSeries()
@@ -559,21 +690,22 @@ namespace SharpConsoleUI.Controls
 
 		private void TrimSeriesData(LineGraphSeries series)
 		{
-			while (series.DataPoints.Count > _maxDataPoints)
+			int excess = series.DataPoints.Count - _maxDataPoints;
+			if (excess > 0)
 			{
-				series.DataPoints.RemoveAt(0);
+				series.DataPoints.RemoveRange(0, excess);
 			}
 		}
 
 		private int GetYAxisLabelWidth()
 		{
-			double min = 0;
-			double max = 1;
-
+			List<(LineGraphSeries series, List<double> data)> snapshots;
 			lock (_dataLock)
 			{
-				ComputeGlobalMinMax(out min, out max);
+				snapshots = _series.Select(s => (s, new List<double>(s.DataPoints))).ToList();
 			}
+
+			ComputeGlobalMinMaxFromSnapshots(snapshots, out double min, out double max);
 
 			string minLabel = min.ToString(_axisLabelFormat);
 			string maxLabel = max.ToString(_axisLabelFormat);
@@ -581,36 +713,6 @@ namespace SharpConsoleUI.Controls
 			return Math.Max(
 				UnicodeWidth.GetStringWidth(minLabel),
 				UnicodeWidth.GetStringWidth(maxLabel));
-		}
-
-		private void ComputeGlobalMinMax(out double min, out double max)
-		{
-			min = double.MaxValue;
-			max = double.MinValue;
-
-			foreach (var series in _series)
-			{
-				if (series.DataPoints.Count == 0)
-					continue;
-
-				foreach (var v in series.DataPoints)
-				{
-					if (v < min) min = v;
-					if (v > max) max = v;
-				}
-			}
-
-			if (min == double.MaxValue)
-			{
-				min = 0;
-				max = 1;
-			}
-
-			if (_minValue.HasValue) min = _minValue.Value;
-			if (_maxValue.HasValue) max = _maxValue.Value;
-
-			if (Math.Abs(max - min) < 0.001)
-				max = min + 1.0;
 		}
 
 		private void DrawBorder(CharacterBuffer buffer, int x, int y, int width, int height, LayoutRect clipRect, Color borderColor, Color bgColor)
