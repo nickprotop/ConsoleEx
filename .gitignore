@@ -13,6 +13,7 @@
 # AI Assistants
 CLAUDE.md
 .claude/
+docs/superpowers
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

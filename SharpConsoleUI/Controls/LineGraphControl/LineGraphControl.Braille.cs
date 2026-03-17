@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -17,7 +18,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Empty braille cell color for background dots.
 		/// </summary>
-		private static readonly Color EmptyCellColor = Color.Grey19;
+		private static Color EmptyCellColor => ControlDefaults.LineGraphEmptyCellColor;
 
 		private void PaintBraille(CharacterBuffer buffer, int graphX, int graphY,
 			int graphWidth, int graphHeight, LayoutRect clipRect, Color bgColor,
