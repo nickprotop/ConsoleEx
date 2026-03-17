@@ -473,8 +473,26 @@ When System menu is enabled, users can toggle:
 
 These are accessible via Start Menu > System category.
 
+## RegistryConfiguration
+
+Persistent key-value storage is configured separately via `RegistryConfiguration`, passed at construction:
+
+```csharp
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer),
+    registryConfiguration: new RegistryConfiguration(
+        FilePath: "myapp.json",       // where to persist data
+        EagerFlush: false,            // write on every Set*?
+        FlushInterval: TimeSpan.FromSeconds(30) // background timer
+    )
+);
+```
+
+See the [Registry guide](REGISTRY.md) for full documentation.
+
 ## See Also
 
 - [Start Menu System](START_MENU.md) - Detailed Start Menu documentation
 - [State Services](STATE-SERVICES.md) - Runtime state management
+- [Registry](REGISTRY.md) - Persistent key-value storage
 - [Themes](THEMES.md) - Theme system and customization

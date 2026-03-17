@@ -13,6 +13,7 @@ SharpConsoleUI includes built-in state management services for managing differen
 - [CursorStateService](#cursorstateservice)
 - [InputStateService](#inputstateservice)
 - [PluginStateService](#pluginstateservice)
+- [RegistryStateService](#registrystateservice)
 
 ## Overview
 
@@ -743,6 +744,54 @@ mainWindow.AddControl(
 windowSystem.AddWindow(mainWindow);
 windowSystem.Run();
 ```
+
+## RegistryStateService
+
+Manages persistent key-value storage that survives application restarts. Wraps `AppRegistry`, loading data on startup and saving on shutdown. See the [Registry guide](REGISTRY.md) for full documentation.
+
+Accessible only when a `RegistryConfiguration` was passed to `ConsoleWindowSystem`:
+
+```csharp
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer),
+    registryConfiguration: RegistryConfiguration.ForFile("myapp.json")
+);
+
+// Null if no RegistryConfiguration was provided
+RegistryStateService? registry = windowSystem.RegistryStateService;
+```
+
+### Key Methods
+
+```csharp
+// Open a section (created automatically if absent)
+RegistrySection OpenSection(string path);
+
+// Explicitly flush to disk
+void Save();
+
+// Reload from disk (discards unsaved changes)
+void Load();
+```
+
+### Usage Example
+
+```csharp
+var registry = windowSystem.RegistryStateService!;
+
+var ui = registry.OpenSection("app/ui");
+string theme = ui.GetString("theme", "ModernGray");
+int width = ui.GetInt("windowWidth", 80);
+
+ui.SetString("theme", "Solarized");
+ui.SetInt("windowWidth", 120);
+
+// Data persists across restarts; saved automatically on shutdown
+```
+
+For the full API including primitive types, generic types, custom storage backends, and thread-safety notes, see the [Registry guide](REGISTRY.md).
+
+---
 
 ## Best Practices
 

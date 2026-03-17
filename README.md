@@ -264,6 +264,7 @@ dotnet run --project Examples/DemoApp
 | **[Configuration](docs/CONFIGURATION.md)** | System configuration reference |
 | **[Themes](docs/THEMES.md)** | Built-in themes, custom themes, runtime switching |
 | **[State Services](docs/STATE-SERVICES.md)** | Window state, focus, modal, notification services |
+| **[Registry](docs/REGISTRY.md)** | Persistent hierarchical key-value storage |
 | **[Plugins](docs/PLUGINS.md)** | Plugin architecture and development |
 | **[Compositor Effects](docs/COMPOSITOR_EFFECTS.md)** | Buffer manipulation and visual effects |
 | **[DOM Layout System](docs/DOM_LAYOUT_SYSTEM.md)** | Layout engine internals |
