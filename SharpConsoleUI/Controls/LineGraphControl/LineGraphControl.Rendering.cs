@@ -283,6 +283,17 @@ namespace SharpConsoleUI.Controls
 				PaintReferenceLines(buffer, graphStartX, graphStartY, graphWidth, _graphHeight,
 					clipRect, bgColor, refLineSnapshot, globalMin, globalMax, startX, borderSize);
 			}
+
+			// Snapshot value markers under lock
+			List<ValueMarker> markerSnapshot;
+			lock (_dataLock) { markerSnapshot = new List<ValueMarker>(_valueMarkers); }
+
+			// Paint value markers AFTER series data
+			if (markerSnapshot.Count > 0)
+			{
+				PaintValueMarkers(buffer, graphStartX, graphStartY, graphWidth, _graphHeight,
+					clipRect, bgColor, markerSnapshot, globalMin, globalMax, startX, borderSize);
+			}
 		}
 
 		#endregion

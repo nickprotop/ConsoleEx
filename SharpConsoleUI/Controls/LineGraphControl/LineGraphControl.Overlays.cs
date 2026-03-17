@@ -240,6 +240,96 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Paints value markers (arrow + label) at graph edges. Called AFTER series data.
+		/// Resolves overlapping markers by offsetting to adjacent rows.
+		/// </summary>
+		/// <param name="buffer">The character buffer to paint into.</param>
+		/// <param name="graphStartX">The left column of the graph area.</param>
+		/// <param name="graphStartY">The top row of the graph area.</param>
+		/// <param name="graphWidth">The width of the graph area in columns.</param>
+		/// <param name="graphHeight">The height of the graph area in rows.</param>
+		/// <param name="clipRect">The clipping rectangle.</param>
+		/// <param name="bgColor">The background color.</param>
+		/// <param name="markers">The value markers to paint.</param>
+		/// <param name="globalMin">The minimum value of the Y-axis range.</param>
+		/// <param name="globalMax">The maximum value of the Y-axis range.</param>
+		/// <param name="startX">The left edge of the content area.</param>
+		/// <param name="borderSize">The border size (0 or 1).</param>
+		private void PaintValueMarkers(
+			CharacterBuffer buffer, int graphStartX, int graphStartY,
+			int graphWidth, int graphHeight, LayoutRect clipRect, Color bgColor,
+			List<ValueMarker> markers, double globalMin, double globalMax,
+			int startX, int borderSize)
+		{
+			if (markers.Count == 0) return;
+
+			// Compute initial Y rows and sort for overlap resolution
+			var resolved = markers
+				.Select(m => (marker: m, row: ComputeYRow(m.Value, graphStartY, graphHeight, globalMin, globalMax)))
+				.OrderBy(x => x.row)
+				.ToList();
+
+			// Resolve overlaps: offset markers that share a row
+			var usedRows = new HashSet<int>();
+			for (int i = 0; i < resolved.Count; i++)
+			{
+				var (marker, row) = resolved[i];
+				int originalRow = row;
+				int offset = 0;
+				while (usedRows.Contains(row))
+				{
+					offset++;
+					// Try below first, then above
+					int below = originalRow + offset;
+					int above = originalRow - offset;
+					if (below <= graphStartY + graphHeight - 1 && !usedRows.Contains(below))
+					{
+						row = below;
+						break;
+					}
+					if (above >= graphStartY && !usedRows.Contains(above))
+					{
+						row = above;
+						break;
+					}
+					if (offset > graphHeight)
+						break; // No room — skip this marker
+				}
+				usedRows.Add(row);
+				resolved[i] = (marker, row);
+			}
+
+			// Render each marker
+			foreach (var (marker, row) in resolved)
+			{
+				if (row < clipRect.Y || row >= clipRect.Bottom)
+					continue;
+
+				if (marker.Side == MarkerSide.Right)
+				{
+					int arrowX = graphStartX + graphWidth;
+					var arrowCells = MarkupParser.Parse(ControlDefaults.LineGraphMarkerArrowRight, marker.ArrowColor, bgColor);
+					buffer.WriteCellsClipped(arrowX, row, arrowCells, clipRect);
+
+					int labelX = arrowX + arrowCells.Count;
+					var labelCells = MarkupParser.Parse(marker.Label, marker.LabelColor, bgColor);
+					buffer.WriteCellsClipped(labelX, row, labelCells, clipRect);
+				}
+				else
+				{
+					var labelCells = MarkupParser.Parse(marker.Label, marker.LabelColor, bgColor);
+					int arrowX = graphStartX - 1;
+					int labelX = arrowX - labelCells.Count;
+					labelX = Math.Max(startX + borderSize, labelX);
+					buffer.WriteCellsClipped(labelX, row, labelCells, clipRect);
+
+					var arrowCells = MarkupParser.Parse(ControlDefaults.LineGraphMarkerArrowLeft, marker.ArrowColor, bgColor);
+					buffer.WriteCellsClipped(arrowX, row, arrowCells, clipRect);
+				}
+			}
+		}
+
 		/// <summary>Computes width needed for right-side overlays.</summary>
 		/// <param name="globalMin">The minimum value of the Y-axis range.</param>
 		/// <param name="globalMax">The maximum value of the Y-axis range.</param>

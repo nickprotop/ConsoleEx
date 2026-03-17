@@ -625,6 +625,85 @@ public class LineGraphControlTests
 
 	#endregion
 
+	#region Value Marker Rendering
+
+	[Fact]
+	public void PaintDOM_ValueMarker_RightSide_DrawsArrowAndLabel()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.MinValue = 0;
+		graph.MaxValue = 100;
+		graph.AddValueMarker(50.0, "$50", Color.Green, Color.Green, MarkerSide.Right);
+
+		var buffer = new CharacterBuffer(30, 10);
+		var bounds = new LayoutRect(0, 0, 30, 10);
+		graph.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		bool foundArrow = false;
+		for (int y = 0; y < 10; y++)
+			for (int x = 0; x < 30; x++)
+			{
+				var cell = buffer.GetCell(x, y);
+				if (cell.Character.Value == 0x25C2 && cell.Foreground == Color.Green)
+					foundArrow = true;
+			}
+		Assert.True(foundArrow, "Right-side value marker should render ◂ arrow");
+	}
+
+	[Fact]
+	public void PaintDOM_ValueMarker_LeftSide_DrawsArrowAndLabel()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 5;
+		graph.ShowYAxisLabels = false;
+		graph.MinValue = 0;
+		graph.MaxValue = 100;
+		graph.AddValueMarker(50.0, "mid", Color.Blue, Color.Blue, MarkerSide.Left);
+
+		var buffer = new CharacterBuffer(30, 10);
+		var bounds = new LayoutRect(0, 0, 30, 10);
+		graph.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		bool foundArrow = false;
+		for (int y = 0; y < 10; y++)
+			for (int x = 0; x < 30; x++)
+			{
+				var cell = buffer.GetCell(x, y);
+				if (cell.Character.Value == 0x25B8 && cell.Foreground == Color.Blue)
+					foundArrow = true;
+			}
+		Assert.True(foundArrow, "Left-side value marker should render ▸ arrow");
+	}
+
+	[Fact]
+	public void PaintDOM_OverlappingMarkers_Resolved()
+	{
+		var graph = new LineGraphControl();
+		graph.GraphHeight = 10;
+		graph.MinValue = 0;
+		graph.MaxValue = 100;
+		graph.AddValueMarker(50.0, "A", Color.Red, Color.Red, MarkerSide.Right);
+		graph.AddValueMarker(50.0, "B", Color.Blue, Color.Blue, MarkerSide.Right);
+
+		var buffer = new CharacterBuffer(30, 15);
+		var bounds = new LayoutRect(0, 0, 30, 15);
+		graph.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		var arrowRows = new List<(int row, Color color)>();
+		for (int y = 0; y < 15; y++)
+			for (int x = 0; x < 30; x++)
+			{
+				var cell = buffer.GetCell(x, y);
+				if (cell.Character.Value == 0x25C2)
+					arrowRows.Add((y, cell.Foreground));
+			}
+		Assert.True(arrowRows.Count >= 2, "Both overlapping markers should be rendered");
+		Assert.NotEqual(arrowRows[0].row, arrowRows[1].row);
+	}
+
+	#endregion
+
 	#region Rendering
 
 	[Fact]
