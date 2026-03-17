@@ -82,6 +82,9 @@ namespace SharpConsoleUI
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
 
+		// Registry system (optional — null if no RegistryConfiguration was provided)
+		private readonly RegistryStateService? _registryStateService;
+
 		// Diagnostics system (optional, for testing and debugging)
 		private Diagnostics.RenderingDiagnostics? _renderingDiagnostics;
 
@@ -130,8 +133,9 @@ namespace SharpConsoleUI
 		/// <param name="renderMode">The rendering mode to use.</param>
 		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
 		/// <param name="options">Optional configuration options for system behavior.</param>
-		public ConsoleWindowSystem(RenderMode renderMode, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null)
-			: this(CreateDriver(renderMode, options), pluginConfiguration, options)
+		/// <param name="registryConfiguration">Optional registry configuration for persistent key-value storage.</param>
+		public ConsoleWindowSystem(RenderMode renderMode, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null, RegistryConfiguration? registryConfiguration = null)
+			: this(CreateDriver(renderMode, options), pluginConfiguration, options, registryConfiguration)
 		{
 		}
 
@@ -149,8 +153,9 @@ namespace SharpConsoleUI
 		/// <param name="driver">Pre-configured console driver.</param>
 		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
 		/// <param name="options">Optional configuration options for system behavior.</param>
-		public ConsoleWindowSystem(IConsoleDriver driver, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null)
-			: this(driver, ThemeRegistry.GetDefaultTheme(), pluginConfiguration, options)
+		/// <param name="registryConfiguration">Optional registry configuration for persistent key-value storage.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null, RegistryConfiguration? registryConfiguration = null)
+			: this(driver, ThemeRegistry.GetDefaultTheme(), pluginConfiguration, options, registryConfiguration)
 		{
 		}
 
@@ -161,8 +166,9 @@ namespace SharpConsoleUI
 		/// <param name="themeName">The name of the theme to use.</param>
 		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
 		/// <param name="options">Optional configuration options for system behavior.</param>
-		public ConsoleWindowSystem(IConsoleDriver driver, string themeName, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null)
-			: this(driver, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()), pluginConfiguration, options)
+		/// <param name="registryConfiguration">Optional registry configuration for persistent key-value storage.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver, string themeName, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null, RegistryConfiguration? registryConfiguration = null)
+			: this(driver, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()), pluginConfiguration, options, registryConfiguration)
 		{
 		}
 
@@ -173,7 +179,8 @@ namespace SharpConsoleUI
 		/// <param name="theme">The theme instance to use.</param>
 		/// <param name="pluginConfiguration">Optional plugin configuration for auto-loading plugins.</param>
 		/// <param name="options">Optional configuration options for system behavior.</param>
-		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null)
+		/// <param name="registryConfiguration">Optional registry configuration for persistent key-value storage.</param>
+		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null, RegistryConfiguration? registryConfiguration = null)
 		{
 			_consoleDriver = driver ?? throw new ArgumentNullException(nameof(driver));
 			_theme = theme ?? new ModernGrayTheme();
@@ -195,6 +202,9 @@ namespace SharpConsoleUI
 			// Initialize plugin state service
 			_pluginStateService = new PluginStateService(this, _logService, pluginConfiguration);
 
+			// Initialize registry state service (optional)
+			if (registryConfiguration != null)
+				_registryStateService = RegistryStateService.Create(registryConfiguration);
 
 			// Initialize WindowStateService (merged from WindowLifecycleManager)
 			// Note: Renderer is set later via property after it is created
@@ -356,6 +366,12 @@ namespace SharpConsoleUI
 		/// Gets the plugin state service for managing plugins and their contributions.
 		/// </summary>
 		public PluginStateService PluginStateService => _pluginStateService;
+
+		/// <summary>
+		/// Gets the registry state service for persistent key-value storage.
+		/// Null if no RegistryConfiguration was provided at construction.
+		/// </summary>
+		public RegistryStateService? RegistryStateService => _registryStateService;
 
 		/// <summary>
 		/// Gets the status bar state service for managing status bars and Start menu.
@@ -695,6 +711,9 @@ namespace SharpConsoleUI
 				_consoleDriver.ScreenResized -= _screenResizedHandler;
 				_screenResizedHandler = null;
 			}
+
+			// Save registry on shutdown (auto-on-shutdown flush mode)
+			_registryStateService?.Dispose();
 		}
 
 		/// <summary>
