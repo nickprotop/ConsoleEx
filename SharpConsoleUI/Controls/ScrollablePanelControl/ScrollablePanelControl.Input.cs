@@ -276,19 +276,29 @@ namespace SharpConsoleUI.Controls
 
 				if (focusableChildren.Any())
 				{
-					// Focus first or last child based on direction
-					_focusedChild = _focusFromBackward
-						? focusableChildren.Last() as IInteractiveControl
-						: focusableChildren.First() as IInteractiveControl;
-
-					log?.LogTrace($"ScrollPanel.SetFocus: delegating to child {_focusedChild?.GetType().Name} (backward={_focusFromBackward})", "Focus");
-
-					if (_focusedChild is IFocusableControl fc)
+					// If the viewport has been laid out and content overflows, enter scroll
+					// mode first so the user can browse with arrow keys before pressing Tab
+					// to focus the first child.
+					if (_viewportHeight > 0 && NeedsScrolling())
 					{
-						if (_focusedChild is IDirectionalFocusControl dfc)
-							dfc.SetFocusWithDirection(true, _focusFromBackward);
-						else
-							fc.SetFocus(true, reason);
+						log?.LogTrace("ScrollPanel.SetFocus: needs scrolling, entering scroll mode (focusable children available via Tab)", "Focus");
+					}
+					else
+					{
+						// Content fits in viewport (or layout not yet computed) — delegate focus to child immediately
+						_focusedChild = _focusFromBackward
+							? focusableChildren.Last() as IInteractiveControl
+							: focusableChildren.First() as IInteractiveControl;
+
+						log?.LogTrace($"ScrollPanel.SetFocus: delegating to child {_focusedChild?.GetType().Name} (backward={_focusFromBackward})", "Focus");
+
+						if (_focusedChild is IFocusableControl fc)
+						{
+							if (_focusedChild is IDirectionalFocusControl dfc)
+								dfc.SetFocusWithDirection(true, _focusFromBackward);
+							else
+								fc.SetFocus(true, reason);
+						}
 					}
 				}
 				else

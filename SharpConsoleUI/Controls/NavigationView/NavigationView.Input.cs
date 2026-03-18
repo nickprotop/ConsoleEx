@@ -44,6 +44,16 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
+			// Determine which side was clicked and set focus accordingly.
+			// The grid's own focus tracking can't reliably handle this because
+			// ColumnContainer breaks the focus notification chain (see da664aa).
+			bool clickedNavSide = args.Position.X < _navColumn.ActualWidth;
+			if (clickedNavSide)
+				FocusNavPane();
+			else
+				FocusContentPanel();
+			_hasFocus = true;
+
 			// Delegate to the grid — it handles dispatching to columns and their children
 			return _grid.ProcessMouseEvent(args);
 		}
