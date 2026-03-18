@@ -52,11 +52,13 @@ namespace SharpConsoleUI.Controls
 			if (childContentY < _verticalScrollOffset)
 			{
 				// Child is above viewport - scroll up to show it at top
+				_autoScroll = false; // Detach: focus-driven scroll overrides autoScroll
 				ScrollVerticalTo(childContentY);
 			}
 			else if (childContentY + childHeight > _verticalScrollOffset + _viewportHeight)
 			{
 				// Child is below viewport - scroll down to show it at bottom
+				_autoScroll = false; // Detach: focus-driven scroll overrides autoScroll
 				ScrollVerticalTo(childContentY + childHeight - _viewportHeight);
 			}
 			// If child is already visible, don't scroll

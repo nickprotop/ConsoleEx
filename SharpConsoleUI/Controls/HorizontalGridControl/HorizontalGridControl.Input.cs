@@ -133,8 +133,14 @@ namespace SharpConsoleUI.Controls
 					_focusedContent = orderedInteractiveControls[index];
 				}
 
-				// Set focus on the new control using SetFocus for consistent focus handling
-				if (_focusedContent is IFocusableControl newFocusable)
+				// Set focus on the new control — use directional focus for containers
+				// so they know to focus their first or last child based on Tab direction.
+				bool backward = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
+				if (_focusedContent is IDirectionalFocusControl directional)
+				{
+					directional.SetFocusWithDirection(true, backward);
+				}
+				else if (_focusedContent is IFocusableControl newFocusable)
 				{
 					newFocusable.SetFocus(true, FocusReason.Keyboard);
 				}

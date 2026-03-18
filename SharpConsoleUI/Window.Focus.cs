@@ -188,33 +188,7 @@ namespace SharpConsoleUI
 		/// <param name="control">The control to focus, or null to clear focus entirely.</param>
 		public void FocusControl(IInteractiveControl? control)
 		{
-			// Unfocus currently focused control
-			if (_lastFocusedControl != null && _lastFocusedControl is Controls.IFocusableControl currentFocusable)
-			{
-				currentFocusable.SetFocus(false, Controls.FocusReason.Programmatic);
-			}
-
-			// Focus new control
-			if (control != null && control is Controls.IFocusableControl newFocusable && newFocusable.CanReceiveFocus)
-			{
-				// If the control has stale focus (e.g. window deactivation only cleared the container's
-				// HasFocus, not the deep leaf), reset it first so GotFocus fires and IsEditing is restored.
-				if (newFocusable.HasFocus)
-					newFocusable.SetFocus(false, Controls.FocusReason.Programmatic);
-
-				newFocusable.SetFocus(true, Controls.FocusReason.Programmatic);
-
-				// Explicitly update _lastFocusedControl so keyboard routing (HasActiveInteractiveContent
-				// fallback 2) reaches this control directly. Controls nested inside containers (e.g.
-				// MultilineEditControl inside TabControl) are not in _interactiveContents, so
-				// NotifyControlGainedFocus won't update _lastFocusedControl for them.
-				_lastFocusedControl = control;
-			}
-			else
-			{
-				_lastFocusedControl = null;
-				FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
-			}
+			FocusCoord?.RequestFocus(control as IWindowControl, Controls.FocusReason.Programmatic);
 		}
 
 		/// <summary>
@@ -231,16 +205,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public void UnfocusCurrentControl()
 		{
-			if (_lastFocusedControl != null && _lastFocusedControl is Controls.IFocusableControl focusable)
-			{
-				focusable.SetFocus(false, Controls.FocusReason.Programmatic);
-				// Guard: only clear FSS if this window is currently the focused window.
-				// Without this, deactivating a background window wipes the active window's focus.
-				if (FocusService?.FocusedWindow == this)
-				{
-					FocusService.ClearControlFocus(FocusChangeReason.Programmatic);
-				}
-			}
+			FocusCoord?.ClearFocus(Controls.FocusReason.Programmatic);
 		}
 	}
 }

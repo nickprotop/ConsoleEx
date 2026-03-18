@@ -142,5 +142,41 @@ namespace SharpConsoleUI.Helpers
             else
                 buffer.FillRect(rect, ' ', foreground, background);
         }
+        /// <summary>
+        /// Fills a single-row rect with a repeated line character, optionally preserving the existing background color per cell.
+        /// </summary>
+        /// <param name="buffer">The character buffer to write to.</param>
+        /// <param name="rect">The rectangle to fill (must be 1 row high).</param>
+        /// <param name="clipRect">The clipping rectangle for horizontal bounds.</param>
+        /// <param name="lineChar">The character to fill with.</param>
+        /// <param name="lineColor">The foreground color for the line character.</param>
+        /// <param name="background">The background color to use when not preserving.</param>
+        /// <param name="preserveBackground">If true, reads and preserves the existing background color per cell.</param>
+        public static void FillLineCharacter(
+            CharacterBuffer buffer,
+            LayoutRect rect,
+            LayoutRect clipRect,
+            char lineChar,
+            Color lineColor,
+            Color background,
+            bool preserveBackground)
+        {
+            if (preserveBackground)
+            {
+                int y = rect.Y;
+                for (int x = rect.X; x < rect.Right; x++)
+                {
+                    if (x >= clipRect.X && x < clipRect.Right)
+                    {
+                        var existingBg = buffer.GetCell(x, y).Background;
+                        buffer.SetNarrowCell(x, y, lineChar, lineColor, existingBg);
+                    }
+                }
+            }
+            else
+            {
+                buffer.FillRect(rect, lineChar, lineColor, background);
+            }
+        }
     }
 }

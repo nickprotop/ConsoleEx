@@ -24,11 +24,16 @@ namespace SharpConsoleUI.Controls
 			var clickedControl = GetControlAtPosition(args.Position);
 			if (clickedControl != null)
 			{
-				// Update focus tracking for the clicked control so ProcessKey can route to it.
-				// This mirrors what NotifyChildFocusChanged does but triggered directly from mouse handling,
-				// which is needed because the notification chain from child.SetFocus may not reach us
-				// (ColumnContainer doesn't implement IWindowControl, breaking the walk-up).
-				if (clickedControl is IFocusableControl focusable && focusable.CanReceiveFocus)
+				// Only update focus tracking for actual click events, NOT for scroll/wheel/motion.
+				// Wheel events that bubble here (when a child SPC is at scroll limit) should NOT
+				// steal focus from the currently focused control.
+				bool isClickEvent = args.HasAnyFlag(
+					MouseFlags.Button1Pressed, MouseFlags.Button1Clicked, MouseFlags.Button1Released,
+					MouseFlags.Button1DoubleClicked, MouseFlags.Button1TripleClicked,
+					MouseFlags.Button2Pressed, MouseFlags.Button2Clicked, MouseFlags.Button2Released,
+					MouseFlags.Button3Pressed, MouseFlags.Button3Clicked, MouseFlags.Button3Released);
+
+				if (isClickEvent && clickedControl is IFocusableControl focusable && focusable.CanReceiveFocus)
 				{
 					// Unfocus previously focused content
 					if (_focusedContent != null && _focusedContent != clickedControl)

@@ -752,8 +752,11 @@ namespace SharpConsoleUI.Controls
 			int currentY = _margin.Top;
 			foreach (var content in snapshot.Where(c => c.Visible))
 			{
-				var size = content.GetLogicalContentSize();
-				int contentHeight = size.Height;
+				// Use ActualHeight (set after first render) for fill-aligned controls
+				// whose GetLogicalContentSize() returns 0
+				int contentHeight = content.ActualHeight > 0
+					? content.ActualHeight
+					: content.GetLogicalContentSize().Height;
 
 				// Check if the position is within this control's bounds
 				if (position.Y >= currentY && position.Y < currentY + contentHeight)
@@ -1002,8 +1005,11 @@ namespace SharpConsoleUI.Controls
 			int currentY = _margin.Top;
 			foreach (var content in mouseSnapshot.Where(c => c.Visible))
 			{
-				var size = content.GetLogicalContentSize();
-				int contentHeight = size.Height;
+				// Use ActualHeight (set after first render) for fill-aligned controls
+				// whose GetLogicalContentSize() returns 0
+				int contentHeight = content.ActualHeight > 0
+					? content.ActualHeight
+					: content.GetLogicalContentSize().Height;
 
 				// Check if the mouse position is within this control's bounds
 				if (args.Position.Y >= currentY && args.Position.Y < currentY + contentHeight)

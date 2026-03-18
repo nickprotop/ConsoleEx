@@ -44,17 +44,26 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
-			// Determine which side was clicked and set focus accordingly.
-			// The grid's own focus tracking can't reliably handle this because
-			// ColumnContainer breaks the focus notification chain (see da664aa).
-			bool clickedNavSide = args.Position.X < _navColumn.ActualWidth;
-			if (clickedNavSide)
-				FocusNavPane();
-			else
-				FocusContentPanel();
-			_hasFocus = true;
+			// Route focus between nav pane and content pane on click events.
+			// The FocusCoordinator handles window-level focus (targeting NavigationView),
+			// but it can't unfocus sibling containers within the NavigationView —
+			// that's an internal concern only the NavigationView knows about.
+			bool isClick = args.HasAnyFlag(
+				Drivers.MouseFlags.Button1Pressed, Drivers.MouseFlags.Button1Clicked,
+				Drivers.MouseFlags.Button2Pressed, Drivers.MouseFlags.Button2Clicked,
+				Drivers.MouseFlags.Button3Pressed, Drivers.MouseFlags.Button3Clicked);
 
-			// Delegate to the grid — it handles dispatching to columns and their children
+			if (isClick)
+			{
+				bool clickedNavSide = args.Position.X < _navColumn.ActualWidth;
+				if (clickedNavSide)
+					FocusNavPane();
+				else
+					FocusContentPanel();
+				_hasFocus = true;
+			}
+
+			// Delegate to the grid for mouse event handling
 			return _grid.ProcessMouseEvent(args);
 		}
 

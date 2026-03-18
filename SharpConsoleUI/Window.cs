@@ -164,6 +164,9 @@ namespace SharpConsoleUI
 
 		// Convenience property to access FocusStateService
 		internal FocusStateService? FocusService => _windowSystem?.FocusStateService;
+
+		// Single authority for all focus changes in this window
+		internal FocusCoordinator? FocusCoord { get; private set; }
 		private int? _minimumHeight = Configuration.ControlDefaults.DefaultWindowMinimumHeight;
 		private int? _minimumWidth = Configuration.ControlDefaults.DefaultWindowMinimumWidth;
 		private bool _isModal = false;
@@ -260,8 +263,9 @@ namespace SharpConsoleUI
 			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
 			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
 
-		// Initialize event dispatcher
+		// Initialize event dispatcher and focus coordinator
 		_eventDispatcher = new Windows.WindowEventDispatcher(this);
+		FocusCoord = new Core.FocusCoordinator(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -324,8 +328,9 @@ namespace SharpConsoleUI
 			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
 			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
 
-		// Initialize event dispatcher
+		// Initialize event dispatcher and focus coordinator
 		_eventDispatcher = new Windows.WindowEventDispatcher(this);
+		FocusCoord = new Core.FocusCoordinator(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();

@@ -374,88 +374,12 @@ namespace SharpConsoleUI.Windows
 
 		/// <summary>
 		/// Centralized focus handling for mouse clicks.
-		/// Single decision point for all focus changes triggered by clicking.
+		/// Delegates to FocusCoordinator for all focus decisions.
 		/// </summary>
 		/// <param name="clickedControl">The control at click position, or null if clicked on empty space</param>
 		private void HandleClickFocus(IWindowControl? clickedControl)
 		{
-			// Determine what should be focused after this click
-			var newFocusTarget = DetermineFocusTarget(clickedControl);
-
-			_window._windowSystem?.LogService?.LogTrace($"HandleClickFocus: clicked={clickedControl?.GetType().Name ?? "null"} target={newFocusTarget?.GetType().Name ?? "null"} _lastFocused={_window._lastFocusedControl?.GetType().Name ?? "null"} sameAsLast={newFocusTarget == _window._lastFocusedControl}", "Focus");
-
-			// No change needed
-			if (newFocusTarget == _window._lastFocusedControl)
-				return;
-
-			// DEFENSIVE: Unfocus ALL controls that have HasFocus=true, not just _lastFocusedControl
-			// This handles cases where SetFocus() was called directly on a control, bypassing _lastFocusedControl tracking
-			foreach (var control in _window._interactiveContents)
-			{
-				if (control.HasFocus && control != newFocusTarget && control is Controls.IFocusableControl focusable)
-				{
-					focusable.SetFocus(false, Controls.FocusReason.Mouse);
-				}
-			}
-
-			if (newFocusTarget != null && newFocusTarget is Controls.IFocusableControl newFocusable)
-			{
-				newFocusable.SetFocus(true, Controls.FocusReason.Mouse);
-
-				if (newFocusTarget is IInteractiveControl interactive)
-				{
-					_window._lastFocusedControl = interactive;
-					// Prefer the deep leaf tracked by NCGF (same pattern as SwitchFocus).
-					// SetFocus(container) would clear the leaf child's HasFocus, causing
-					// it to ignore key events even though it's the actual focused control.
-					var leafForFocus = (_window._lastDeepFocusedControl is Controls.IFocusableControl leafFc && leafFc.HasFocus)
-						? _window._lastDeepFocusedControl
-						: interactive;
-					_window.FocusService?.SetFocus(_window, leafForFocus, FocusChangeReason.Mouse);
-				}
-			}
-			else
-			{
-				_window._lastFocusedControl = null;
-				_window.FocusService?.ClearControlFocus(FocusChangeReason.Mouse);
-			}
-		}
-
-		/// <summary>
-		/// Determines what control should receive focus based on what was clicked.
-		/// Returns null to indicate focus should be cleared.
-		/// Returns current focused control to indicate no change (e.g., portal click).
-		/// </summary>
-		private IWindowControl? DetermineFocusTarget(IWindowControl? clickedControl)
-		{
-			// Case 1: Clicked on empty space → clear focus
-			if (clickedControl == null)
-			{
-				_window._windowSystem?.LogService?.LogTrace("DetermineFocusTarget: Case 1 - empty space → null", "Focus");
-				return null;
-			}
-
-			// Case 2: Clicked on portal/overlay content (CanFocusWithMouse = false)
-			// These are controls that receive mouse events but shouldn't change focus
-			// (e.g., MenuPortalContent, DropdownPortalContent)
-			// The portal's owner should keep focus - return current to signal no change
-			if (clickedControl is Controls.IMouseAwareControl mouseAware &&
-				!mouseAware.CanFocusWithMouse)
-			{
-				_window._windowSystem?.LogService?.LogTrace($"DetermineFocusTarget: Case 2 - portal/CanFocusWithMouse=false ({clickedControl.GetType().Name}) → _lastFocused={_window._lastFocusedControl?.GetType().Name ?? "null"}", "Focus");
-				return _window._lastFocusedControl as IWindowControl;
-			}
-
-			// Case 3: Clicked on non-focusable control → clear focus
-			if (clickedControl is not Controls.IFocusableControl focusable || !focusable.CanReceiveFocus)
-			{
-				_window._windowSystem?.LogService?.LogTrace($"DetermineFocusTarget: Case 3 - non-focusable ({clickedControl.GetType().Name}, CanReceiveFocus={((clickedControl as Controls.IFocusableControl)?.CanReceiveFocus)}) → null", "Focus");
-				return null;
-			}
-
-			// Case 4: Clicked on focusable control → focus it
-			_window._windowSystem?.LogService?.LogTrace($"DetermineFocusTarget: Case 4 - focusable ({clickedControl.GetType().Name}) → focus it", "Focus");
-			return clickedControl;
+			_window.FocusCoord?.HandleClickFocus(clickedControl);
 		}
 
 		/// <summary>
@@ -746,6 +670,7 @@ namespace SharpConsoleUI.Windows
 
 		/// <summary>
 		/// Switches focus to the next or previous interactive control.
+		/// Delegates to FocusCoordinator for all focus decisions.
 		/// </summary>
 		/// <param name="backward">True to switch backward; false to switch forward.</param>
 		public void SwitchFocus(bool backward = false)
@@ -760,105 +685,12 @@ namespace SharpConsoleUI.Windows
 
 					_window._windowSystem?.LogService?.LogTrace($"SwitchFocus: restoring escaped control {restoreTarget.GetType().Name}", "Focus");
 
-					if (restoreTarget is Controls.IFocusableControl restoreFocusable && restoreFocusable.CanReceiveFocus)
-					{
-						if (restoreTarget is Controls.IDirectionalFocusControl directionalRestore)
-							directionalRestore.SetFocusWithDirection(true, backward);
-						else
-							restoreFocusable.SetFocus(true, Controls.FocusReason.Keyboard);
-
-						_window._lastFocusedControl = restoreTarget;
-						_window.FocusService?.SetFocus(_window, restoreTarget, FocusChangeReason.Keyboard);
-
-						BringIntoFocus(restoreTarget as IWindowControl);
-					}
+					_window.FocusCoord?.RequestFocus(restoreTarget as IWindowControl, Controls.FocusReason.Keyboard);
+					BringIntoFocus(restoreTarget as IWindowControl);
 					return;
 				}
 
-				// Get flattened list of ALL focusable controls (including nested ones)
-				var focusableControls = _window.GetAllFocusableControlsFlattened();
-
-				_window._windowSystem?.LogService?.LogTrace($"SwitchFocus(backward={backward}): focusableCount={focusableControls.Count} controls=[{string.Join(", ", focusableControls.Select(c => c.GetType().Name))}] _lastFocused={_window._lastFocusedControl?.GetType().Name ?? "null"}", "Focus");
-
-				if (focusableControls.Count == 0) return;
-
-				// Find the currently focused content
-				var currentIndex = focusableControls.FindIndex(ic => ic.HasFocus);
-
-				// If no control is focused but we have a last focused control, use that as a starting point
-				if (currentIndex == -1 && _window._lastFocusedControl != null)
-				{
-					currentIndex = focusableControls.IndexOf(_window._lastFocusedControl);
-				}
-
-				// Remove focus from the current content if there is one
-				if (currentIndex != -1)
-				{
-					_window._lastFocusedControl = focusableControls[currentIndex]; // Remember the last focused control
-					focusableControls[currentIndex].HasFocus = false;
-				}
-
-				// Find the next focusable control
-				int nextIndex = currentIndex;
-				int attempts = 0;
-				do
-				{
-					// Calculate the next index
-					if (backward)
-					{
-						nextIndex = (nextIndex - 1 + focusableControls.Count) % focusableControls.Count;
-					}
-					else
-					{
-						nextIndex = (nextIndex + 1) % focusableControls.Count;
-					}
-
-					attempts++;
-
-					// Check if this control can receive focus
-					var control = focusableControls[nextIndex];
-					bool canFocus = true;
-
-					// Check CanReceiveFocus if the control implements IFocusableControl
-					if (control is Controls.IFocusableControl focusable)
-					{
-						canFocus = focusable.CanReceiveFocus;
-					}
-
-					// If we found a focusable control, set focus
-					if (canFocus)
-					{
-						// Use directional focus for container controls that support it
-						if (control is Controls.IDirectionalFocusControl directional)
-						{
-							directional.SetFocusWithDirection(true, backward);
-						}
-						else if (control is Controls.IFocusableControl focusableControl)
-						{
-							focusableControl.SetFocus(true, Controls.FocusReason.Keyboard);
-						}
-						else
-						{
-							control.HasFocus = true;
-						}
-
-						_window._lastFocusedControl = control; // Update last focused control
-
-						// Sync with FocusStateService - prefer the deep leaf tracked by NotifyControlGainedFocus
-						// (SetFocusWithDirection may have already set _lastDeepFocusedControl to the true leaf
-						//  e.g. ListControl inside ScrollablePanel; using `control` would overwrite it)
-						var leafForFocus = (_window._lastDeepFocusedControl is Controls.IFocusableControl leafFc && leafFc.HasFocus)
-							? _window._lastDeepFocusedControl
-							: control;
-						_window.FocusService?.SetFocus(_window, leafForFocus, FocusChangeReason.Keyboard);
-
-						_window._windowSystem?.LogService?.LogTrace($"Focus switched in '{_window.Title}': {_window._lastFocusedControl?.GetType().Name}", "Focus");
-
-						BringIntoFocus(control as IWindowControl);
-						break;
-					}
-
-				} while (attempts < focusableControls.Count && nextIndex != currentIndex);
+				_window.FocusCoord?.MoveFocus(backward);
 			}
 		}
 
@@ -866,7 +698,7 @@ namespace SharpConsoleUI.Windows
 		/// Brings the focused control into view by adjusting scroll position.
 		/// Also walks up the container chain to scroll any IScrollableContainer parents.
 		/// </summary>
-		private void BringIntoFocus(IWindowControl? focusedContent)
+		internal void BringIntoFocus(IWindowControl? focusedContent)
 		{
 			// Ensure the focused content is within the visible window
 

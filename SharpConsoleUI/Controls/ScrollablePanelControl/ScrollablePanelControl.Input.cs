@@ -88,7 +88,13 @@ namespace SharpConsoleUI.Controls
 					int currentIndex = effectiveFocused != null ? focusableChildren.IndexOf(effectiveFocused) : -1;
 
 					int newIndex;
-					if (shiftPressed)
+					if (currentIndex == -1)
+					{
+						// No current focus (first Tab in scroll mode):
+						// Forward → first child, Backward → last child
+						newIndex = shiftPressed ? focusableChildren.Count - 1 : 0;
+					}
+					else if (shiftPressed)
 					{
 						// Backward
 						newIndex = currentIndex - 1;
@@ -107,16 +113,23 @@ namespace SharpConsoleUI.Controls
 					if (_focusedChild is IFocusableControl currentFc)
 						currentFc.SetFocus(false, FocusReason.Keyboard);
 
-					// Focus new
-					_focusedChild = focusableChildren[newIndex];
-					if (_focusedChild is IDirectionalFocusControl directional)
+					// Focus new — save reference before SetFocus because the notification
+					// chain (FocusService.SetFocus) may clear _focusedChild by calling
+					// SPC.SetFocus(false) on this panel as the "previous" focused control.
+					var newChild = focusableChildren[newIndex];
+					_focusedChild = newChild;
+					if (newChild is IDirectionalFocusControl directional)
 						directional.SetFocusWithDirection(true, shiftPressed);
-					else if (_focusedChild is IFocusableControl newFc)
+					else if (newChild is IFocusableControl newFc)
 						newFc.SetFocus(true, FocusReason.Keyboard);
 
+					// Restore _focusedChild if the notification chain cleared it
+					_focusedChild = newChild;
+					_hasFocus = true;
+
 					// Scroll newly focused child into view
-					if (_focusedChild is IWindowControl newlyFocusedWindow)
-						ScrollChildIntoView(newlyFocusedWindow);
+					if (newChild is IWindowControl scrollTarget)
+						ScrollChildIntoView(scrollTarget);
 
 					Container?.Invalidate(true);
 					return true;
@@ -278,27 +291,38 @@ namespace SharpConsoleUI.Controls
 				{
 					// If the viewport has been laid out and content overflows, enter scroll
 					// mode first so the user can browse with arrow keys before pressing Tab
-					// to focus the first child.
-					if (_viewportHeight > 0 && NeedsScrolling())
+					// to focus the first child. Only for forward entry — backward entry should
+					// focus the last child directly (user came from a control after this panel).
+					if (_viewportHeight > 0 && NeedsScrolling() && !_focusFromBackward)
 					{
 						log?.LogTrace("ScrollPanel.SetFocus: needs scrolling, entering scroll mode (focusable children available via Tab)", "Focus");
 					}
 					else
 					{
-						// Content fits in viewport (or layout not yet computed) — delegate focus to child immediately
-						_focusedChild = _focusFromBackward
-							? focusableChildren.Last() as IInteractiveControl
-							: focusableChildren.First() as IInteractiveControl;
+						// Content fits in viewport (or layout not yet computed) — delegate focus to child immediately.
+						// Save reference before SetFocus — the notification chain may clear _focusedChild.
+						var initialChild = (_focusFromBackward
+							? focusableChildren.Last()
+							: focusableChildren.First()) as IInteractiveControl;
+						_focusedChild = initialChild;
 
-						log?.LogTrace($"ScrollPanel.SetFocus: delegating to child {_focusedChild?.GetType().Name} (backward={_focusFromBackward})", "Focus");
+						log?.LogTrace($"ScrollPanel.SetFocus: delegating to child {initialChild?.GetType().Name} (backward={_focusFromBackward})", "Focus");
 
-						if (_focusedChild is IFocusableControl fc)
+						if (initialChild is IFocusableControl fc)
 						{
-							if (_focusedChild is IDirectionalFocusControl dfc)
+							if (initialChild is IDirectionalFocusControl dfc)
 								dfc.SetFocusWithDirection(true, _focusFromBackward);
 							else
 								fc.SetFocus(true, reason);
 						}
+
+						// Restore tracking if notification chain cleared it
+						_focusedChild = initialChild;
+						_hasFocus = true;
+
+						// Scroll the focused child into view
+						if (initialChild is IWindowControl focusedWc)
+							ScrollChildIntoView(focusedWc);
 					}
 				}
 				else

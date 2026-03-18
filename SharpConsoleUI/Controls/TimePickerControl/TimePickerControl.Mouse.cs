@@ -46,11 +46,12 @@ namespace SharpConsoleUI.Controls
 			if (clickAbsY != contentY)
 				return false;
 
-			// Mouse wheel on focused segment
+			// Mouse wheel on focused segment — only respond if already focused.
+			// Don't steal focus on wheel; let parent scroll instead.
 			if (args.HasAnyFlag(MouseFlags.WheeledDown | MouseFlags.WheeledUp))
 			{
 				if (!_hasFocus)
-					SetFocus(true, FocusReason.Mouse);
+					return false;
 
 				int delta = args.HasFlag(MouseFlags.WheeledUp) ? 1 : -1;
 				_pendingDigit = -1;

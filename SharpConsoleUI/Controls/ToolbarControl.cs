@@ -608,7 +608,10 @@ namespace SharpConsoleUI.Controls
 					if (Margin.Left > 0)
 						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, containerBg, preserveBg);
 
-					buffer.FillRect(new LayoutRect(outerX, y, outerWidth, 1), ' ', fgColor, bgColor);
+					if (_backgroundColorValue == null && preserveBg)
+						buffer.FillRectPreservingBackground(new LayoutRect(outerX, y, outerWidth, 1), fgColor);
+					else
+						buffer.FillRect(new LayoutRect(outerX, y, outerWidth, 1), ' ', fgColor, bgColor);
 
 					if (Margin.Right > 0)
 						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, containerBg, preserveBg);
@@ -622,8 +625,9 @@ namespace SharpConsoleUI.Controls
 				if (lineY >= clipRect.Y && lineY < clipRect.Bottom)
 				{
 					Color lineColor = _aboveLineColor ?? fgColor;
-					buffer.FillRect(new LayoutRect(outerX, lineY, outerWidth, 1),
-						ControlDefaults.ToolbarLineCharacter, lineColor, bgColor);
+					ControlRenderingHelpers.FillLineCharacter(buffer, new LayoutRect(outerX, lineY, outerWidth, 1),
+						clipRect, ControlDefaults.ToolbarLineCharacter, lineColor, bgColor,
+						_backgroundColorValue == null && preserveBg);
 				}
 			}
 
@@ -634,8 +638,9 @@ namespace SharpConsoleUI.Controls
 				if (lineY >= clipRect.Y && lineY < clipRect.Bottom)
 				{
 					Color lineColor = _belowLineColor ?? fgColor;
-					buffer.FillRect(new LayoutRect(outerX, lineY, outerWidth, 1),
-						ControlDefaults.ToolbarLineCharacter, lineColor, bgColor);
+					ControlRenderingHelpers.FillLineCharacter(buffer, new LayoutRect(outerX, lineY, outerWidth, 1),
+						clipRect, ControlDefaults.ToolbarLineCharacter, lineColor, bgColor,
+						_backgroundColorValue == null && preserveBg);
 				}
 			}
 
