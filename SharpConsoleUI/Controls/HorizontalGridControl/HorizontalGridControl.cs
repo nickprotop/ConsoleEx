@@ -76,6 +76,11 @@ namespace SharpConsoleUI.Controls
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
 		private readonly object _gridLock = new();
 		private IInteractiveControl? _focusedContent;
+
+		/// <summary>
+		/// Gets the currently focused child control within the grid.
+		/// </summary>
+		public IInteractiveControl? FocusedContent => _focusedContent;
 		private bool _hasFocus;
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
 		private bool _interactiveContentsDirty = true;

@@ -53,7 +53,11 @@ namespace SharpConsoleUI.Controls
 		#region IInteractiveControl / IFocusableControl Implementation
 
 		private bool _hasFocus;
-		private bool _navPaneHasFocus;
+
+		/// <summary>
+		/// Whether the nav pane has focus — derived from the scroll panel's own focus state (single source of truth).
+		/// </summary>
+		private bool NavPaneHasFocus => _navScrollPanel.HasFocus;
 
 		/// <inheritdoc/>
 		public bool HasFocus
@@ -72,7 +76,6 @@ namespace SharpConsoleUI.Controls
 				}
 				else if (!value && hadFocus)
 				{
-					_navPaneHasFocus = false;
 					_grid.HasFocus = false;
 					LostFocus?.Invoke(this, EventArgs.Empty);
 				}
@@ -120,7 +123,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (_navPaneHasFocus)
+			if (NavPaneHasFocus)
 				return ProcessNavPaneKey(key);
 			else
 				return ProcessContentPanelKey(key);
@@ -136,10 +139,13 @@ namespace SharpConsoleUI.Controls
 			// The grid is our only child — propagate focus tracking upward
 			if (child == _grid || child is HorizontalGridControl)
 			{
-				if (hasFocus && !_hasFocus)
+				if (hasFocus)
 				{
-					_hasFocus = true;
-					GotFocus?.Invoke(this, EventArgs.Empty);
+					if (!_hasFocus)
+					{
+						_hasFocus = true;
+						GotFocus?.Invoke(this, EventArgs.Empty);
+					}
 				}
 				else if (!hasFocus && _hasFocus)
 				{
@@ -399,18 +405,17 @@ namespace SharpConsoleUI.Controls
 
 		private void FocusNavPane()
 		{
-			_navPaneHasFocus = true;
-			// Remove focus from content panel
+			// Remove focus from content panel and set it on the nav scroll panel
 			if (_contentPanel is IFocusableControl fc)
 				fc.HasFocus = false;
-			_grid.HasFocus = false;
+			_navScrollPanel.HasFocus = true;
 			Container?.Invalidate(true);
 		}
 
 		private void FocusContentPanel()
 		{
-			_navPaneHasFocus = false;
-			// Set focus on the content panel
+			// Remove focus from nav panel and set it on the content panel
+			_navScrollPanel.HasFocus = false;
 			if (_contentPanel is IFocusableControl fc)
 				fc.HasFocus = true;
 			Container?.Invalidate(true);

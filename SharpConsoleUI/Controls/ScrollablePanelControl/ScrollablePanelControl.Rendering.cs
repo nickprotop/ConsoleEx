@@ -477,15 +477,24 @@ namespace SharpConsoleUI.Controls
 
 		private int CalculateContentHeight(int viewportWidth, int maxHeight = 0)
 		{
-			int availableWidth = viewportWidth;
-			int maxH = maxHeight > 0 ? maxHeight : int.MaxValue;
+			// Measure at full width first, then re-measure at reduced width only if
+			// the content actually overflows and a scrollbar will appear.
+			int fullHeight = MeasureChildrenHeight(viewportWidth, maxHeight);
 
-			// Reserve space for scrollbar if we might need it
-			// This is an approximation - we'll recalculate if needed
-			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll)
+			int viewportH = maxHeight > 0 ? maxHeight : _viewportHeight;
+			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && fullHeight > viewportH)
 			{
-				availableWidth = Math.Max(1, viewportWidth - 1);
+				int narrowWidth = Math.Max(1, viewportWidth - 2);
+				if (narrowWidth != viewportWidth)
+					return MeasureChildrenHeight(narrowWidth, maxHeight);
 			}
+
+			return fullHeight;
+		}
+
+		private int MeasureChildrenHeight(int availableWidth, int maxHeight)
+		{
+			int maxH = maxHeight > 0 ? maxHeight : int.MaxValue;
 
 			List<IWindowControl> calcSnapshot;
 			lock (_childrenLock) { calcSnapshot = new List<IWindowControl>(_children); }
