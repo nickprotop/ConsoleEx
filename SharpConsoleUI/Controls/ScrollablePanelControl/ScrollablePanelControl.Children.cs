@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
@@ -29,11 +30,10 @@ namespace SharpConsoleUI.Controls
 			control.Container = this;
 			// If the panel has focus but no focused child yet, focus the new control
 			// if it's focusable. Restores focus routing after ClearContents.
-			if (_hasFocus && _focusedChild == null &&
+			if (_hasFocus && GetFocusedChildFromCoordinator() == null &&
 				control.Visible &&
 				control is IFocusableControl fc && fc.CanReceiveFocus)
 			{
-				_focusedChild = control as IInteractiveControl;
 				if (control is IDirectionalFocusControl dfc)
 					dfc.SetFocusWithDirection(true, false);
 				else
@@ -66,11 +66,11 @@ namespace SharpConsoleUI.Controls
 		public void RemoveControl(IWindowControl control)
 		{
 			// If removing the focused child, clear focus
-			if (_focusedChild == control)
+			var focusedChild = GetFocusedChildFromCoordinator();
+			if (focusedChild != null && focusedChild == control as IInteractiveControl)
 			{
-				if (_focusedChild is IFocusableControl fc)
+				if (focusedChild is IFocusableControl fc)
 					fc.SetFocus(false, FocusReason.Programmatic);
-				_focusedChild = null;
 			}
 
 			// Clear remembered child if it's being removed
@@ -102,9 +102,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearContents()
 		{
-			if (_focusedChild is IFocusableControl fc)
+			var focusedChild = GetFocusedChildFromCoordinator();
+			if (focusedChild is IFocusableControl fc)
 				fc.SetFocus(false, FocusReason.Programmatic);
-			_focusedChild = null;
 			_lastInternalFocusedChild = null;
 
 			List<IWindowControl> snapshot;
@@ -143,14 +143,22 @@ namespace SharpConsoleUI.Controls
 				// The notification may come from a deeply nested control (e.g. a button
 				// inside a ColumnContainer inside a HorizontalGrid). We need to find the
 				// direct child of this panel that contains the notifying control, so that
-				// _focusedChild always points to a direct child for Tab navigation.
+				// the coordinator's path correctly points to a direct child for Tab navigation.
 				var directChild = FindDirectChildContaining(child) ?? child;
 
-				if (_focusedChild != null && _focusedChild != directChild && _focusedChild is IFocusableControl oldFc)
+				var currentFocused = GetFocusedChildFromCoordinator();
+				if (currentFocused != null && currentFocused != directChild && currentFocused is IFocusableControl oldFc)
 					oldFc.HasFocus = false;
 
-				_focusedChild = directChild;
 				_lastInternalFocusedChild = directChild;
+
+				// Note: We do NOT update the coordinator's focus path here.
+				// The notification chain passes currentNotifyTarget (which may be
+				// an intermediate container, not the actual leaf), so calling
+				// UpdateFocusPath with it would produce a truncated path.
+				// The path is updated by the coordinator's own entry points
+				// (MoveFocus, RequestFocus, HandleClickFocus) or by SPC's own
+				// ProcessKey/SetFocus methods after focus delegation completes.
 
 				if (!_hasFocus)
 				{
@@ -158,9 +166,10 @@ namespace SharpConsoleUI.Controls
 					GotFocus?.Invoke(this, EventArgs.Empty);
 				}
 			}
-			else if (_focusedChild == child)
+			else
 			{
-				_focusedChild = null;
+				// When a child loses focus, the coordinator path may already be updated
+				// by the unfocusing child's notification chain. No explicit path update needed.
 			}
 
 			Container?.Invalidate(true);

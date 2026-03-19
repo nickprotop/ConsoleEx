@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
@@ -285,7 +286,8 @@ namespace SharpConsoleUI.Controls
 				Drivers.MouseFlags.Button3Clicked, Drivers.MouseFlags.Button3Pressed, Drivers.MouseFlags.Button3Released,
 				Drivers.MouseFlags.Button3DoubleClicked, Drivers.MouseFlags.Button3TripleClicked))
 			{
-				log?.LogTrace($"ScrollPanel.ProcessMouseEvent: click pos={args.Position} _hasFocus={_hasFocus} _focusedChild={_focusedChild?.GetType().Name ?? "null"}", "Focus");
+				var currentFocused = GetFocusedChildFromCoordinator();
+				log?.LogTrace($"ScrollPanel.ProcessMouseEvent: click pos={args.Position} _hasFocus={_hasFocus} focusedChild={currentFocused?.GetType().Name ?? "null"}", "Focus");
 				// Calculate content width (accounting for scrollbar)
 				int contentWidth = _viewportWidth;
 				bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
@@ -331,14 +333,10 @@ namespace SharpConsoleUI.Controls
 							// Don't call SetFocus — let the mouse forwarding + the container's own
 							// mouse focus handling (Fix 1) set focus on the actual child control.
 
-							if (child is IInteractiveControl interactive)
-								_focusedChild = interactive;
-							// Mark panel as focused so ProcessKey routes keys to _focusedChild.
-							// Tab focus calls SetFocus(true) which sets _hasFocus; mouse click
-							// skips that path, leaving _hasFocus=false without this line.
 							_hasFocus = true;
 							_lastInternalFocusedChild = null;
-							log?.LogTrace($"ScrollPanel.ProcessMouseEvent: focused child {child.GetType().Name}, _focusedChild={_focusedChild?.GetType().Name}", "Focus");
+							// Path is updated by the SetFocus notification chain or coordinator.HandleClickFocus
+							log?.LogTrace($"ScrollPanel.ProcessMouseEvent: focused child {child.GetType().Name}", "Focus");
 						}
 
 						// Forward mouse event to child (if it handles mouse events)
@@ -373,7 +371,7 @@ namespace SharpConsoleUI.Controls
 					else
 					{
 						// Clicked on empty space or non-focusable content:
-						// Unfocus all children, clear _focusedChild so arrow keys scroll
+						// Unfocus all children, clear focused child so arrow keys scroll
 						log?.LogTrace("ScrollPanel.ProcessMouseEvent: click on empty space → unfocusing children", "Focus");
 						List<IWindowControl> emptySpaceSnap;
 						lock (_childrenLock) { emptySpaceSnap = new List<IWindowControl>(_children); }
@@ -384,8 +382,10 @@ namespace SharpConsoleUI.Controls
 								fc.SetFocus(false, FocusReason.Mouse);
 							}
 						}
-						_focusedChild = null;
 						_lastInternalFocusedChild = null;
+						// Update path so SPC is the leaf (no focused child)
+						var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
+						coordinator?.UpdateFocusPath(this);
 						Container?.Invalidate(true);
 						return true;
 					}

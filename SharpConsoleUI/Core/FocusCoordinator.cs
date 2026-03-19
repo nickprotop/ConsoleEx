@@ -15,11 +15,66 @@ namespace SharpConsoleUI.Core
 	/// Single authority for all focus changes in a window.
 	/// All focus transitions — click, Tab, programmatic — go through this coordinator.
 	/// Containers are notified but never initiate focus changes themselves.
+	///
+	/// Maintains a FocusPath — an ordered list of controls from root to leaf
+	/// representing the current focus chain. Example:
+	///   [NavigationView, ScrollablePanelControl, ButtonControl]
+	/// This path is the authoritative source of truth for which controls are
+	/// in the focus chain. In Phase 1, it coexists with the legacy tracking
+	/// (_focusedChild, _lastFocusedControl, etc.) for backward compatibility.
 	/// </summary>
 	public class FocusCoordinator
 	{
 		private readonly Window _window;
 		private ILogService? LogService => _window._windowSystem?.LogService;
+
+		/// <summary>
+		/// The current focus path — ordered from outermost container to innermost leaf.
+		/// Empty when no control has focus.
+		/// </summary>
+		private readonly List<IWindowControl> _focusPath = new();
+
+		/// <summary>
+		/// Gets the current focus path as a read-only list.
+		/// Ordered from outermost container to innermost leaf.
+		/// </summary>
+		public IReadOnlyList<IWindowControl> FocusPath => _focusPath.AsReadOnly();
+
+		/// <summary>
+		/// Gets the focused leaf control (deepest in the path), or null if no focus.
+		/// </summary>
+		public IWindowControl? FocusedLeaf => _focusPath.Count > 0 ? _focusPath[^1] : null;
+
+		/// <summary>
+		/// Returns true if the specified control is in the current focus path.
+		/// A container is "in the focus path" if it's an ancestor of the focused leaf.
+		/// </summary>
+		public bool IsInFocusPath(IWindowControl control)
+		{
+			return _focusPath.Contains(control);
+		}
+
+		/// <summary>
+		/// Returns the child of the specified container that is in the focus path,
+		/// or null if the container is not in the path or is the leaf.
+		/// This replaces per-container _focusedChild tracking.
+		/// </summary>
+		public IWindowControl? GetFocusedChild(IContainer container)
+		{
+			// Find the container in the path — the next entry is its focused child
+			for (int i = 0; i < _focusPath.Count - 1; i++)
+			{
+				// Match by identity: the path entry IS the container (cast to IWindowControl)
+				if (ReferenceEquals(_focusPath[i], container))
+					return _focusPath[i + 1];
+
+				// Also match when the path entry's Container property points to this container
+				// (handles transparent containers like ColumnContainer that aren't in the path)
+				if (ReferenceEquals(_focusPath[i + 1].Container, container))
+					return _focusPath[i + 1];
+			}
+			return null;
+		}
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="FocusCoordinator"/> class.
@@ -78,12 +133,15 @@ namespace SharpConsoleUI.Core
 			// === Step 2: Focus the new chain ===
 			FocusNewChain(newChain, newTopLevel, newLeaf, reason);
 
-			// === Step 3: Sync Window tracking ===
+			// === Step 3: Update focus path ===
+			UpdateFocusPath(newLeaf);
+
+			// === Step 4: Sync Window tracking (legacy — will be removed in Phase 5) ===
 			if (newTopLevel is IInteractiveControl topInteractive)
 				_window._lastFocusedControl = topInteractive;
 			_window._lastDeepFocusedControl = newLeaf is IInteractiveControl leafInteractive ? leafInteractive : null;
 
-			// === Step 4: Sync FocusStateService ===
+			// === Step 5: Sync FocusStateService ===
 			var focusTarget = _window._lastDeepFocusedControl ?? _window._lastFocusedControl;
 			if (focusTarget != null)
 			{
@@ -106,6 +164,7 @@ namespace SharpConsoleUI.Core
 
 			UnfocusCurrentChain(reason);
 
+			_focusPath.Clear();
 			_window._lastFocusedControl = null;
 			_window._lastDeepFocusedControl = null;
 
@@ -167,7 +226,11 @@ namespace SharpConsoleUI.Core
 					else
 						control.HasFocus = true;
 
-					// Sync tracking
+					// Update focus path — find the actual focused leaf (may be inside a container)
+					var actualLeaf = FindDeepestFocusedLeaf(control) ?? control;
+					UpdateFocusPath(actualLeaf as IWindowControl ?? control as IWindowControl);
+
+					// Sync legacy tracking (will be removed in Phase 5)
 					_window._lastFocusedControl = control;
 					var leaf = (_window._lastDeepFocusedControl is IFocusableControl leafFc && leafFc.HasFocus)
 						? _window._lastDeepFocusedControl
@@ -214,7 +277,11 @@ namespace SharpConsoleUI.Core
 			{
 				PropagateClickFocusToContainers(clickedControl, FocusReason.Mouse);
 
-				// Update leaf tracking
+				// Update focus path with the new leaf
+				if (clickedControl != null)
+					UpdateFocusPath(clickedControl);
+
+				// Update legacy leaf tracking (will be removed in Phase 5)
 				_window._lastDeepFocusedControl = clickedControl is IInteractiveControl leafInteractive ? leafInteractive : null;
 				var focusTarget = _window._lastDeepFocusedControl ?? _window._lastFocusedControl;
 				if (focusTarget != null)
@@ -367,6 +434,49 @@ namespace SharpConsoleUI.Core
 
 				current = container as IWindowControl;
 			}
+		}
+
+		/// <summary>
+		/// Computes the focus path from a leaf control up to (but not including) the Window.
+		/// Path is stored outermost-first: [NavigationView, SPC, Button].
+		/// </summary>
+		public void UpdateFocusPath(IWindowControl? leaf)
+		{
+			_focusPath.Clear();
+
+			if (leaf == null) return;
+
+			// Build path from leaf to root, then reverse
+			var current = leaf;
+			while (current != null && current is not Window)
+			{
+				_focusPath.Add(current);
+				current = current.Container as IWindowControl;
+			}
+			_focusPath.Reverse();
+
+			LogService?.LogTrace($"FocusPath updated: [{string.Join(" → ", _focusPath.Select(c => c.GetType().Name))}]", "Focus");
+		}
+
+		/// <summary>
+		/// Finds the deepest control with HasFocus=true inside a container hierarchy.
+		/// Used after SetFocusWithDirection to discover what leaf was actually focused.
+		/// </summary>
+		private static IInteractiveControl? FindDeepestFocusedLeaf(IInteractiveControl control)
+		{
+			if (control is IContainerControl container)
+			{
+				foreach (var child in container.GetChildren())
+				{
+					if (child is IInteractiveControl interactive)
+					{
+						var deeper = FindDeepestFocusedLeaf(interactive);
+						if (deeper != null)
+							return deeper;
+					}
+				}
+			}
+			return control.HasFocus ? control : null;
 		}
 
 		#endregion

@@ -30,7 +30,6 @@ namespace SharpConsoleUI.Controls
 		private int _viewportWidth = 0;
 		private bool _hasFocus = false;
 		private bool _isEnabled = true;
-		private IInteractiveControl? _focusedChild = null;
 		private IInteractiveControl? _lastInternalFocusedChild = null;
 		private bool _focusFromBackward = false;
 
@@ -383,6 +382,71 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _isEnabled;
 			set => SetProperty(ref _isEnabled, value);
+		}
+
+		/// <summary>
+		/// Gets the currently focused child from the FocusCoordinator's focus path,
+		/// resolved to a direct child of this panel.
+		/// Returns null if no child is focused or the coordinator is not available.
+		/// </summary>
+		/// <remarks>
+		/// The coordinator's GetFocusedChild may return a control that is not a direct
+		/// child of this panel (e.g. a ColumnContainer whose Container property bypasses
+		/// the HorizontalGridControl via a fallback chain). This method resolves the
+		/// coordinator result to the actual direct child in _children, using the same
+		/// FindDirectChildContaining logic that NotifyChildFocusChanged uses.
+		/// </remarks>
+		private IInteractiveControl? GetFocusedChildFromCoordinator()
+		{
+			var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
+			var pathChild = coordinator?.GetFocusedChild(this) as IInteractiveControl;
+			if (pathChild == null) return null;
+
+			// Check if pathChild is already a direct child
+			List<IWindowControl> snapshot;
+			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
+			if (pathChild is IWindowControl wc && snapshot.Contains(wc))
+				return pathChild;
+
+			// pathChild is not a direct child — find which direct child contains it
+			return FindDirectChildContaining(pathChild);
+		}
+
+		/// <summary>
+		/// Updates the coordinator's focus path by finding the deepest focused leaf
+		/// starting from the given control subtree. Call after focus delegation
+		/// (Tab navigation, SetFocus) to ensure the path reflects the actual leaf.
+		/// </summary>
+		private void UpdateCoordinatorFocusPath(IInteractiveControl? focusedChild)
+		{
+			if (focusedChild == null) return;
+			var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
+			if (coordinator == null) return;
+
+			// Find the deepest focused leaf inside the child (may be nested in containers)
+			var leaf = FindDeepestFocusedLeaf(focusedChild) ?? focusedChild;
+			if (leaf is IWindowControl leafWc)
+				coordinator.UpdateFocusPath(leafWc);
+		}
+
+		/// <summary>
+		/// Finds the deepest control with HasFocus=true inside a control hierarchy.
+		/// </summary>
+		private static IInteractiveControl? FindDeepestFocusedLeaf(IInteractiveControl control)
+		{
+			if (control is IContainerControl container)
+			{
+				foreach (var child in container.GetChildren())
+				{
+					if (child is IInteractiveControl interactive)
+					{
+						var deeper = FindDeepestFocusedLeaf(interactive);
+						if (deeper != null)
+							return deeper;
+					}
+				}
+			}
+			return control.HasFocus ? control : null;
 		}
 
 		#endregion
