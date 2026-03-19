@@ -45,6 +45,12 @@ namespace SharpConsoleUI.Controls
 		private ColumnContainer? _rightColumn;
 
 		/// <summary>
+		/// Gets the parent HorizontalGridControl that contains this splitter.
+		/// Used by FocusCoordinator to build the focus path through the grid.
+		/// </summary>
+		internal HorizontalGridControl? ParentGrid => _parentGrid;
+
+		/// <summary>
 		/// Initializes a new instance of the <see cref="SplitterControl"/> class.
 		/// </summary>
 		public SplitterControl()

@@ -17,12 +17,16 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+			var focusedContent = GetFocusedChildFromCoordinator();
 
 			// Let focused content try to handle the key first (including Tab for nested containers)
-			if (_focusedContent != null && _focusedContent.ProcessKey(key))
+			if (focusedContent != null && focusedContent.ProcessKey(key))
 			{
 				return true; // Child handled it (e.g., inner grid's Tab navigation)
 			}
+
+			// Re-read after delegation — child's ProcessKey may have changed focus
+			focusedContent = GetFocusedChildFromCoordinator();
 
 			// Child didn't handle it - now handle Tab at this level
 			if (key.Key == ConsoleKey.Tab)
@@ -88,29 +92,34 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Handle tabbing through the ordered list
-				if (_focusedContent == null)
+				if (focusedContent == null)
 				{
-					_focusedContent = orderedInteractiveControls.First();
+					// Focus first control
+					var first = orderedInteractiveControls.First();
+					SetControlFocus(first, true);
+					// Update coordinator path — notification chain may not reach HGrid
+					// (ColumnContainer is not IWindowControl/IFocusTrackingContainer)
+					UpdateCoordinatorFocusPath(first);
 				}
 				else
 				{
 					// Unfocus current control using SetFocus for consistent focus handling
-					if (_focusedContent is IFocusableControl currentFocusable)
+					if (focusedContent is IFocusableControl currentFocusable)
 					{
 						currentFocusable.SetFocus(false, FocusReason.Keyboard);
 					}
 					else
 					{
-						_focusedContent.HasFocus = false;
+						focusedContent.HasFocus = false;
 					}
 
 					// If it's from columns dictionary, invalidate its container
-					if (_interactiveContents.ContainsKey(_focusedContent))
+					if (_interactiveContents.ContainsKey(focusedContent))
 					{
-						_interactiveContents[_focusedContent].Invalidate(true);
+						_interactiveContents[focusedContent].Invalidate(true);
 					}
 
-					int index = orderedInteractiveControls.IndexOf(_focusedContent);
+					int index = orderedInteractiveControls.IndexOf(focusedContent);
 
 					// Determine the next control based on tab direction
 					if (key.Modifiers.HasFlag(ConsoleModifiers.Shift))
@@ -130,29 +139,32 @@ namespace SharpConsoleUI.Controls
 						index++;
 					}
 
-					_focusedContent = orderedInteractiveControls[index];
-				}
+					var newFocused = orderedInteractiveControls[index];
 
-				// Set focus on the new control — use directional focus for containers
-				// so they know to focus their first or last child based on Tab direction.
-				bool backward = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
-				if (_focusedContent is IDirectionalFocusControl directional)
-				{
-					directional.SetFocusWithDirection(true, backward);
-				}
-				else if (_focusedContent is IFocusableControl newFocusable)
-				{
-					newFocusable.SetFocus(true, FocusReason.Keyboard);
-				}
-				else
-				{
-					_focusedContent.HasFocus = true;
-				}
+					// Set focus on the new control — use directional focus for containers
+					// so they know to focus their first or last child based on Tab direction.
+					bool backward = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
+					if (newFocused is IDirectionalFocusControl directional)
+					{
+						directional.SetFocusWithDirection(true, backward);
+					}
+					else if (newFocused is IFocusableControl newFocusable)
+					{
+						newFocusable.SetFocus(true, FocusReason.Keyboard);
+					}
+					else
+					{
+						newFocused.HasFocus = true;
+					}
 
-				// If it's from columns dictionary, invalidate its container
-				if (_interactiveContents.ContainsKey(_focusedContent))
-				{
-					_interactiveContents[_focusedContent].Invalidate(true);
+					// Update coordinator path — notification chain may not reach HGrid
+					UpdateCoordinatorFocusPath(newFocused);
+
+					// If it's from columns dictionary, invalidate its container
+					if (_interactiveContents.ContainsKey(newFocused))
+					{
+						_interactiveContents[newFocused].Invalidate(true);
+					}
 				}
 
 				Container?.Invalidate(true);
@@ -211,34 +223,42 @@ namespace SharpConsoleUI.Controls
 
 				if (_interactiveContents.Count == 0 && _splitterControls.Count == 0) return;
 
-				if (_focusedContent == null)
+				var focusedContent = GetFocusedChildFromCoordinator();
+				// Validate that the coordinator result actually has focus — the path may
+				// be stale if we were unfocused and refocused without the path being cleared.
+				if (focusedContent is IFocusableControl validFc && !validFc.HasFocus)
+					focusedContent = null;
+				if (focusedContent == null)
 				{
 					// Find first or last focusable control based on focus direction
-					_focusedContent = _focusFromBackward
+					var target = _focusFromBackward
 						? FindLastFocusableControl()
 						: FindFirstFocusableControl();
 					_focusFromBackward = false; // Reset after use
-				}
 
-				// Set focus on the control if it can receive focus
-				if (_focusedContent != null)
-				{
-					var controlToFocus = _focusedContent;
-					SetControlFocus(controlToFocus, true);
-
-					// Re-check after SetControlFocus since notifications may re-enter and change state
-					if (controlToFocus != null && _interactiveContents.ContainsKey(controlToFocus))
+					// Set focus on the control if it can receive focus
+					if (target != null)
 					{
-						_interactiveContents[controlToFocus].Invalidate(true);
+						SetControlFocus(target, true);
+
+						// Update the coordinator's focus path with the deepest focused leaf
+						UpdateCoordinatorFocusPath(target);
+
+						// Re-check after SetControlFocus since notifications may re-enter and change state
+						if (_interactiveContents.ContainsKey(target))
+						{
+							_interactiveContents[target].Invalidate(true);
+						}
 					}
 				}
 			}
 			else
 			{
 				// Remove focus from all interactive controls
-				if (_interactiveContents.Count > 0 && _focusedContent != null && _interactiveContents.ContainsKey(_focusedContent))
+				var focusedContent = GetFocusedChildFromCoordinator();
+				if (_interactiveContents.Count > 0 && focusedContent != null && _interactiveContents.ContainsKey(focusedContent))
 				{
-					_interactiveContents[_focusedContent]?.Invalidate(true);
+					_interactiveContents[focusedContent]?.Invalidate(true);
 				}
 
 				foreach (var control in _interactiveContents.Keys)
@@ -250,8 +270,6 @@ namespace SharpConsoleUI.Controls
 				{
 					splitterControl.HasFocus = false;
 				}
-
-				_focusedContent = null;
 			}
 		}
 
@@ -335,15 +353,22 @@ namespace SharpConsoleUI.Controls
 		{
 			if (hasFocus)
 			{
-				if (_focusedContent != null && _focusedContent != child)
+				var currentFocused = GetFocusedChildFromCoordinator();
+				if (currentFocused != null && currentFocused != child)
 				{
-					if (_focusedContent is IFocusableControl oldFc)
+					if (currentFocused is IFocusableControl oldFc)
 						oldFc.HasFocus = false;
 					else
-						_focusedContent.HasFocus = false;
+						currentFocused.HasFocus = false;
 				}
 
-				_focusedContent = child;
+				// Note: We do NOT update the coordinator's focus path here.
+				// The notification chain passes currentNotifyTarget (which may be
+				// an intermediate container, not the actual leaf), so calling
+				// UpdateFocusPath with it would produce a truncated path.
+				// The path is updated by the coordinator's own entry points
+				// or by HGrid's own ProcessKey/FocusChanged methods after focus
+				// delegation completes.
 
 				if (!_hasFocus)
 				{
@@ -351,9 +376,9 @@ namespace SharpConsoleUI.Controls
 					GotFocus?.Invoke(this, EventArgs.Empty);
 				}
 			}
-			else if (_focusedContent == child)
+			else
 			{
-				_focusedContent = null;
+				// Child lost focus — coordinator path updated by the child's notification chain
 			}
 
 			Container?.Invalidate(true);

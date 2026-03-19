@@ -75,12 +75,10 @@ namespace SharpConsoleUI.Controls
 	{
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
 		private readonly object _gridLock = new();
-		private IInteractiveControl? _focusedContent;
-
-		/// <summary>
+			/// <summary>
 		/// Gets the currently focused child control within the grid.
 		/// </summary>
-		public IInteractiveControl? FocusedContent => _focusedContent;
+		public IInteractiveControl? FocusedContent => GetFocusedChildFromCoordinator();
 		private bool _hasFocus;
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
 		private bool _interactiveContentsDirty = true;
@@ -324,7 +322,69 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public CursorShape? PreferredCursorShape =>
-			(_focusedContent as ICursorShapeProvider)?.PreferredCursorShape;
+			(GetFocusedChildFromCoordinator() as ICursorShapeProvider)?.PreferredCursorShape;
+
+		/// <summary>
+		/// Gets the currently focused child from the FocusCoordinator's focus path.
+		/// Returns null if no child is focused or the coordinator is not available.
+		/// </summary>
+		private IInteractiveControl? GetFocusedChildFromCoordinator()
+		{
+			var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
+			if (coordinator != null)
+				return coordinator.GetFocusedChildOf(this) as IInteractiveControl;
+
+			// Fallback when no coordinator is available (e.g. control not attached to a window):
+			// find the focused child by checking HasFocus on known interactive contents
+			foreach (var control in _interactiveContents.Keys)
+			{
+				if (control.HasFocus)
+					return control;
+			}
+			foreach (var splitter in _splitterControls.Keys)
+			{
+				if (splitter.HasFocus)
+					return splitter;
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Updates the coordinator's focus path by finding the deepest focused leaf
+		/// starting from the given control subtree. Call after focus delegation
+		/// (Tab navigation, FocusChanged) to ensure the path reflects the actual leaf.
+		/// </summary>
+		private void UpdateCoordinatorFocusPath(IInteractiveControl? focusedChild)
+		{
+			if (focusedChild == null) return;
+			var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
+			if (coordinator == null) return;
+
+			// Find the deepest focused leaf inside the child (may be nested in containers)
+			var leaf = FindDeepestFocusedLeaf(focusedChild) ?? focusedChild;
+			if (leaf is IWindowControl leafWc)
+				coordinator.UpdateFocusPath(leafWc);
+		}
+
+		/// <summary>
+		/// Finds the deepest control with HasFocus=true inside a control hierarchy.
+		/// </summary>
+		private static IInteractiveControl? FindDeepestFocusedLeaf(IInteractiveControl control)
+		{
+			if (control is IContainerControl container)
+			{
+				foreach (var child in container.GetChildren())
+				{
+					if (child is IInteractiveControl interactive)
+					{
+						var deeper = FindDeepestFocusedLeaf(interactive);
+						if (deeper != null)
+							return deeper;
+					}
+				}
+			}
+			return control.HasFocus ? control : null;
+		}
 
 		#endregion
 
@@ -410,7 +470,7 @@ namespace SharpConsoleUI.Controls
 
 					// Set up the splitter
 					splitter.Container = Container;
-					splitter.SetColumns(_columns[_columns.Count - 2], column);
+					splitter.SetColumns(_columns[_columns.Count - 2], column, this);
 					_splitters.Add(splitter);
 					_splitterControls[splitter] = _columns.Count - 2;
 
@@ -607,7 +667,6 @@ namespace SharpConsoleUI.Controls
 				_savedColumnWidths.Clear();
 				_interactiveContentsDirty = true;
 			}
-			_focusedContent = null;
 
 			foreach (var s in splittersSnapshot)
 			{

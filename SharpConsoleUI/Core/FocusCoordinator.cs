@@ -77,6 +77,23 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
+		/// Returns the child of the specified container control that is in the focus path.
+		/// Use for containers that implement IContainerControl but not IContainer
+		/// (e.g. HorizontalGridControl). For IContainer implementations, use the
+		/// <see cref="GetFocusedChild(IContainer)"/> overload instead.
+		/// </summary>
+		public IWindowControl? GetFocusedChildOf(IWindowControl containerControl)
+		{
+			// Find the container control in the path by identity — the next entry is its focused child
+			for (int i = 0; i < _focusPath.Count - 1; i++)
+			{
+				if (ReferenceEquals(_focusPath[i], containerControl))
+					return _focusPath[i + 1];
+			}
+			return null;
+		}
+
+		/// <summary>
 		/// Initializes a new instance of the <see cref="FocusCoordinator"/> class.
 		/// </summary>
 		public FocusCoordinator(Window window)
@@ -451,11 +468,44 @@ namespace SharpConsoleUI.Core
 			while (current != null && current is not Window)
 			{
 				_focusPath.Add(current);
-				current = current.Container as IWindowControl;
+				current = ResolveParentWindowControl(current);
 			}
 			_focusPath.Reverse();
 
 			LogService?.LogTrace($"FocusPath updated: [{string.Join(" → ", _focusPath.Select(c => c.GetType().Name))}]", "Focus");
+		}
+
+		/// <summary>
+		/// Resolves the next IWindowControl ancestor of a control, walking through
+		/// transparent containers (like ColumnContainer) whose Container property
+		/// bypasses their parent HorizontalGridControl.
+		/// </summary>
+		private static IWindowControl? ResolveParentWindowControl(IWindowControl control)
+		{
+			// SplitterControl's Container is set to the HGrid's Container (skipping the HGrid).
+			// For the focus path, we need to include the HGrid, so resolve through ParentGrid.
+			if (control is SplitterControl splitter && splitter.ParentGrid != null)
+				return splitter.ParentGrid;
+
+			var container = control.Container;
+			if (container == null) return null;
+
+			// ColumnContainer is a transparent layout container whose Container property
+			// returns the HGrid's parent (skipping the HGrid). For the focus path, we
+			// need to include the HGrid as an ancestor, so we resolve through
+			// ColumnContainer.HorizontalGridContent instead of ColumnContainer.Container.
+			if (container is ColumnContainer cc)
+			{
+				var hgrid = cc.HorizontalGridContent;
+				if (hgrid != null)
+					return hgrid;
+			}
+
+			// Standard case: container is IWindowControl
+			if (container is IWindowControl wc)
+				return wc;
+
+			return null;
 		}
 
 		/// <summary>

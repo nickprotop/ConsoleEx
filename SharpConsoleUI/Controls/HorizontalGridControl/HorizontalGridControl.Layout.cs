@@ -79,11 +79,12 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Point? GetLogicalCursorPosition()
 		{
-			if (_focusedContent is ILogicalCursorProvider cursorProvider)
+			var focusedContent = GetFocusedChildFromCoordinator();
+			if (focusedContent is ILogicalCursorProvider cursorProvider)
 			{
 				var childPosition = cursorProvider.GetLogicalCursorPosition();
 
-				if (childPosition.HasValue && _focusedContent is IWindowControl focusedControl)
+				if (childPosition.HasValue && focusedContent is IWindowControl focusedControl)
 				{
 					// For now, just return child position as-is
 					// The proper offset will be accumulated in TranslateLogicalCursorToWindow

@@ -36,20 +36,25 @@ namespace SharpConsoleUI.Controls
 				if (isClickEvent && clickedControl is IFocusableControl focusable && focusable.CanReceiveFocus)
 				{
 					// Unfocus previously focused content
-					if (_focusedContent != null && _focusedContent != clickedControl)
+					var currentFocused = GetFocusedChildFromCoordinator();
+					if (currentFocused != null && currentFocused != clickedControl)
 					{
-						if (_focusedContent is IFocusableControl oldFc)
+						if (currentFocused is IFocusableControl oldFc)
 							oldFc.SetFocus(false, FocusReason.Mouse);
 						else
-							_focusedContent.HasFocus = false;
+							currentFocused.HasFocus = false;
 					}
 
-					_focusedContent = clickedControl;
 					_hasFocus = true;
 
 					// Set focus on the clicked control (some controls like SliderControl
 					// do this internally in ProcessMouseEvent, but others like ButtonControl don't)
 					focusable.SetFocus(true, FocusReason.Mouse);
+
+					// Update coordinator path — notification chain may not reach HGrid
+					// (ColumnContainer is not IWindowControl/IFocusTrackingContainer)
+					if (clickedControl is IInteractiveControl clickedInteractive)
+						UpdateCoordinatorFocusPath(clickedInteractive);
 				}
 
 				// Propagate mouse event to the clicked control if it supports mouse events
