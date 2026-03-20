@@ -502,18 +502,22 @@ namespace SharpConsoleUI
 
 		if (_lastFocusedControl != null)
 			{
-				// When deactivating, also clear leaf focus if different from container
-				if (!value && _lastDeepFocusedControl != null && _lastDeepFocusedControl != _lastFocusedControl)
-					_lastDeepFocusedControl.HasFocus = false;
-
-				_lastFocusedControl.HasFocus = value;
-				// Sync with FocusStateService
 				if (value)
 				{
-					FocusService?.SetFocus(this, _lastDeepFocusedControl ?? _lastFocusedControl, FocusChangeReason.WindowActivation);
+					// Re-focus the last focused control through coordinator
+					var target = _lastDeepFocusedControl as IWindowControl ?? _lastFocusedControl as IWindowControl;
+					FocusCoord?.RequestFocus(target, Controls.FocusReason.Programmatic);
 				}
 				else
 				{
+					// Clear focus through coordinator (preserves _lastFocusedControl for reactivation)
+					// Must save and restore _lastFocusedControl since ClearFocus clears it
+					var savedFocused = _lastFocusedControl;
+					var savedDeep = _lastDeepFocusedControl;
+					FocusCoord?.ClearFocus(Controls.FocusReason.Programmatic);
+					_lastFocusedControl = savedFocused;
+					_lastDeepFocusedControl = savedDeep;
+					// Sync FocusStateService for window-level deactivation
 					FocusService?.ClearFocus(this, FocusChangeReason.WindowActivation);
 				}
 			}

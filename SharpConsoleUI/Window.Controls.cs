@@ -23,26 +23,17 @@ namespace SharpConsoleUI
 			// Delegate to content manager for core collection management
 			_contentManager.AddControl(_controls, _interactiveContents, content, this);
 
+			// Trigger DOM rebuild so layout is ready for focus/scroll calculations
+			EnsureContentReady();
+
 			// Handle focus logic for interactive controls
 			if (content is IInteractiveControl interactiveContent)
 			{
 				if (!_interactiveContents.Any(p => p.HasFocus))
 				{
-					// Snapshot before setting HasFocus so we can detect whether a container
-					// (e.g. ScrollablePanelControl) already synced FocusStateService via
-					// NotifyControlGainedFocus. Calling SetFocus again would clear the child's HasFocus.
-					var deepFocusBefore = _lastDeepFocusedControl;
-					interactiveContent.HasFocus = true;
-					_lastFocusedControl = interactiveContent;
-					// Only call SetFocus if the notification chain didn't run (no delegation happened).
-					// If _lastDeepFocusedControl changed, NotifyControlGainedFocus already called SetFocus.
-					if (_lastDeepFocusedControl == deepFocusBefore)
-						FocusService?.SetFocus(this, interactiveContent, FocusChangeReason.Programmatic);
+					FocusCoord?.RequestFocus(content as IWindowControl, Controls.FocusReason.Programmatic);
 				}
 			}
-
-			// Trigger DOM rebuild so layout is ready for focus/scroll calculations
-			EnsureContentReady();
 
 			// Auto-scroll to bottom for non-sticky controls if nothing is focused
 			if (content.StickyPosition == StickyPosition.None && !_interactiveContents.Any(p => p.HasFocus))
@@ -74,10 +65,8 @@ namespace SharpConsoleUI
 				content.Dispose();
 			}
 
-			// Clear focus tracking
-			_lastFocusedControl = null;
-			_lastDeepFocusedControl = null;
-			FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
+			// Clear focus tracking through coordinator
+			FocusCoord?.ClearFocus(Controls.FocusReason.Programmatic);
 
 			// Delegate to content manager for core clearing
 			_contentManager.ClearControls(_controls, _interactiveContents);
@@ -95,25 +84,21 @@ namespace SharpConsoleUI
 			// Handle focus logic before removing
 			if (content is IInteractiveControl interactiveControl)
 			{
-				// If the removed content was the last focused control, clear it
-				if (_lastFocusedControl == interactiveControl)
+				bool wasFocused = interactiveControl.HasFocus || _lastFocusedControl == interactiveControl;
+
+				if (wasFocused)
 				{
-					_lastFocusedControl = null;
-					_lastDeepFocusedControl = null;
-					FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
+					// Clear focus on the removed control
+					FocusCoord?.ClearFocus(Controls.FocusReason.Programmatic);
 				}
 
-				// If the removed content had focus, switch focus to the next one
-				if (interactiveControl.HasFocus && _interactiveContents.Count > 1)
+				// After clearing, auto-focus next control if one exists
+				if (wasFocused && _interactiveContents.Count > 1)
 				{
-					// Find next interactive control (after removal)
 					var nextControl = _interactiveContents.FirstOrDefault(ic => ic != interactiveControl);
 					if (nextControl != null)
 					{
-						nextControl.HasFocus = true;
-						_lastFocusedControl = nextControl;
-						_lastDeepFocusedControl = nextControl;
-						FocusService?.SetFocus(this, nextControl, FocusChangeReason.Programmatic);
+						FocusCoord?.RequestFocus(nextControl as IWindowControl, Controls.FocusReason.Programmatic);
 					}
 				}
 			}

@@ -120,12 +120,52 @@ namespace SharpConsoleUI.Core
 				return;
 			}
 
-			// Validate target is focusable
+			// If target can't receive focus directly, it may be a transparent container
+			// (e.g. HorizontalGridControl) that delegates focus to its children via HasFocus setter.
+			// Let the container handle delegation, then sync coordinator state with the result.
 			if (target is IFocusableControl fc && !fc.CanReceiveFocus)
 			{
-				LogService?.LogTrace($"FocusCoordinator.RequestFocus: target {target.GetType().Name} CanReceiveFocus=false, clearing focus", "Focus");
-				ClearFocus(reason);
-				return;
+				if (target is IInteractiveControl interactive)
+				{
+					LogService?.LogTrace($"FocusCoordinator.RequestFocus: target {target.GetType().Name} CanReceiveFocus=false, triggering delegation via HasFocus", "Focus");
+
+					// Unfocus current chain first
+					UnfocusCurrentChain(reason);
+
+					// Trigger the container's internal focus delegation
+					interactive.HasFocus = true;
+
+					// Discover the actual focused leaf after delegation
+					var actualLeaf = FindDeepestFocusedLeaf(interactive);
+					if (actualLeaf != null)
+					{
+						var leafWc = actualLeaf as IWindowControl;
+
+						// Update focus path with the actual leaf
+						if (leafWc != null)
+							UpdateFocusPath(leafWc);
+
+						// Sync Window tracking (legacy)
+						_window._lastFocusedControl = interactive;
+						_window._lastDeepFocusedControl = actualLeaf;
+
+						// Sync FocusStateService
+						var changeReason = reason switch
+						{
+							FocusReason.Mouse => FocusChangeReason.Mouse,
+							FocusReason.Keyboard => FocusChangeReason.Keyboard,
+							_ => FocusChangeReason.Programmatic
+						};
+						_window.FocusService?.SetFocus(_window, actualLeaf, changeReason);
+					}
+					return;
+				}
+				else
+				{
+					LogService?.LogTrace($"FocusCoordinator.RequestFocus: target {target.GetType().Name} CanReceiveFocus=false, clearing focus", "Focus");
+					ClearFocus(reason);
+					return;
+				}
 			}
 
 			// Build the chain from target up to the window
@@ -149,6 +189,18 @@ namespace SharpConsoleUI.Core
 
 			// === Step 2: Focus the new chain ===
 			FocusNewChain(newChain, newTopLevel, newLeaf, reason);
+
+			// === Step 2b: Detect internal delegation ===
+			// Containers like ScrollablePanelControl may have internally delegated focus
+			// to a deep child during SetFocus(true). Discover the actual focused leaf.
+			if (newLeaf is IInteractiveControl newLeafInteractive)
+			{
+				var actualLeaf = FindDeepestFocusedLeaf(newLeafInteractive);
+				if (actualLeaf != null && actualLeaf != newLeafInteractive)
+				{
+					newLeaf = actualLeaf as IWindowControl ?? newLeaf;
+				}
+			}
 
 			// === Step 3: Update focus path ===
 			UpdateFocusPath(newLeaf);

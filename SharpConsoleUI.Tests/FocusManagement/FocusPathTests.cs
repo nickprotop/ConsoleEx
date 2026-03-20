@@ -28,7 +28,26 @@ public class FocusPathTests
 	#region Basic focus path
 
 	[Fact]
-	public void FocusPath_Empty_WhenNoFocus()
+	public void FocusPath_Empty_WhenNoInteractiveControls()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
+		var window = new Window(system)
+		{
+			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+		};
+		// Add a non-interactive control — no auto-focus should occur
+		var label = new MarkupControl(new List<string> { "Hello" });
+		window.AddControl(label);
+		system.AddWindow(window);
+		system.Render.UpdateDisplay();
+
+		Assert.NotNull(window.FocusCoord);
+		Assert.Empty(window.FocusCoord!.FocusPath);
+		Assert.Null(window.FocusCoord.FocusedLeaf);
+	}
+
+	[Fact]
+	public void FocusPath_PopulatedAfterAddControl_AutoFocus()
 	{
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
@@ -41,8 +60,9 @@ public class FocusPathTests
 		system.Render.UpdateDisplay();
 
 		Assert.NotNull(window.FocusCoord);
-		Assert.Empty(window.FocusCoord!.FocusPath);
-		Assert.Null(window.FocusCoord.FocusedLeaf);
+		// AddControl auto-focuses the first interactive control through the coordinator
+		Assert.Single(window.FocusCoord!.FocusPath);
+		Assert.Equal(btn, window.FocusCoord.FocusedLeaf);
 	}
 
 	[Fact]
