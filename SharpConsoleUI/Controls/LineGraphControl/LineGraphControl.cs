@@ -113,6 +113,7 @@ namespace SharpConsoleUI.Controls
 		private Color _baselineColor = Color.Grey50;
 		private TitlePosition _baselinePosition = TitlePosition.Bottom;
 		private bool _inlineTitleWithBaseline;
+		private bool _showLegend;
 
 		private BorderStyle _borderStyle = BorderStyle.None;
 		private Color? _borderColor;
@@ -282,6 +283,16 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _baselinePosition;
 			set => SetProperty(ref _baselinePosition, value);
+		}
+
+		/// <summary>
+		/// Gets or sets whether to show a legend displaying series names and colors.
+		/// The legend is rendered on the title row, right-aligned.
+		/// </summary>
+		public bool ShowLegend
+		{
+			get => _showLegend;
+			set => SetProperty(ref _showLegend, value);
 		}
 
 		/// <summary>

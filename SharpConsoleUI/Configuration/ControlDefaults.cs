@@ -496,6 +496,21 @@ namespace SharpConsoleUI.Configuration
 		public static readonly Color LineGraphDefaultReferenceLineColor = Color.Grey50;
 
 		/// <summary>
+		/// Character used for the legend color marker (horizontal line segment).
+		/// </summary>
+		public const char LineGraphLegendMarkerChar = '\u2501'; // ━
+
+		/// <summary>
+		/// Width of the legend marker including trailing space (marker char + space).
+		/// </summary>
+		public const int LineGraphLegendMarkerWidth = 2;
+
+		/// <summary>
+		/// Gap between legend entries in characters.
+		/// </summary>
+		public const int LineGraphLegendEntryGap = 2;
+
+		/// <summary>
 		/// Padding between graph edge and marker arrow/label.
 		/// </summary>
 		public const int LineGraphMarkerPadding = 1;

@@ -169,6 +169,18 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			// Draw legend (right-aligned on title row)
+			if (_showLegend && _series.Count > 0)
+			{
+				int legendY = _titlePosition == TitlePosition.Top
+					? startY + borderSize
+					: graphStartY + _graphHeight + baselineHeight;
+				if (legendY >= clipRect.Y && legendY < clipRect.Bottom)
+				{
+					PaintLegend(buffer, legendY, startX + borderSize, contentWidth - (borderSize * 2), clipRect, fgColor, bgColor, preserveBg);
+				}
+			}
+
 			// Snapshot data under lock
 			List<(LineGraphSeries series, List<double> data)> seriesSnapshots;
 			lock (_dataLock)
@@ -336,6 +348,75 @@ namespace SharpConsoleUI.Controls
 
 			if (Math.Abs(max - min) < 0.001)
 				max = min + 1.0;
+		}
+
+		private void PaintLegend(CharacterBuffer buffer, int y, int areaX, int areaWidth,
+			LayoutRect clipRect, Color fgColor, Color bgColor, bool preserveBg)
+		{
+			// Build legend: "━ Series1  ━ Series2  ━ Series3"
+			// Each entry: line char + space + name + 2 spaces gap
+			List<LineGraphSeries> snapshot;
+			lock (_dataLock) { snapshot = new List<LineGraphSeries>(_series); }
+
+			var entries = new List<(string text, Color color)>();
+			int totalWidth = 0;
+			foreach (var s in snapshot)
+			{
+				// "━ Name" = 2 + name length
+				int entryWidth = ControlDefaults.LineGraphLegendMarkerWidth + UnicodeWidth.GetStringWidth(s.Name);
+				if (entries.Count > 0)
+					totalWidth += ControlDefaults.LineGraphLegendEntryGap;
+				totalWidth += entryWidth;
+				entries.Add((s.Name, s.LineColor));
+			}
+
+			int legendX = areaX + areaWidth - totalWidth;
+			int writeX = legendX;
+
+			for (int i = 0; i < entries.Count; i++)
+			{
+				var (text, color) = entries[i];
+				if (i > 0)
+					writeX += ControlDefaults.LineGraphLegendEntryGap;
+
+				// Draw line marker char
+				if (writeX >= clipRect.X && writeX < clipRect.Right)
+				{
+					if (preserveBg)
+					{
+						var existingBg = buffer.GetCell(writeX, y).Background;
+						buffer.SetNarrowCell(writeX, y, ControlDefaults.LineGraphLegendMarkerChar, color, existingBg);
+					}
+					else
+						buffer.SetNarrowCell(writeX, y, ControlDefaults.LineGraphLegendMarkerChar, color, bgColor);
+				}
+				writeX++;
+
+				// Space after marker
+				writeX++;
+
+				// Draw series name
+				var nameCells = Parsing.MarkupParser.Parse(text, fgColor, bgColor);
+				for (int c = 0; c < nameCells.Count && writeX < clipRect.Right; c++)
+				{
+					if (writeX >= clipRect.X)
+					{
+						if (preserveBg)
+						{
+							var existingBg = buffer.GetCell(writeX, y).Background;
+							var cell = new Cell(nameCells[c].Character, fgColor, existingBg, nameCells[c].Decorations)
+							{
+								IsWideContinuation = nameCells[c].IsWideContinuation,
+								Combiners = nameCells[c].Combiners
+							};
+							buffer.SetCell(writeX, y, cell);
+						}
+						else
+							buffer.SetCell(writeX, y, nameCells[c]);
+					}
+					writeX++;
+				}
+			}
 		}
 
 		#endregion
