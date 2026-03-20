@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Controls
@@ -424,19 +425,30 @@ namespace SharpConsoleUI.Controls
 
 		private void FocusNavPane()
 		{
-			// Remove focus from content panel and set it on the nav scroll panel
+			// Internal focus switch between sibling panes — toggle HasFocus directly
+			// (RequestFocus would unfocus the entire NavigationView chain unnecessarily)
 			if (_contentPanel is IFocusableControl fc)
 				fc.HasFocus = false;
 			_navScrollPanel.HasFocus = true;
+
+			// Sync coordinator's focus path with the actual focused leaf
+			var window = (this as IWindowControl).GetParentWindow();
+			window?.FocusCoord?.UpdateFocusPath(_navScrollPanel as IWindowControl);
+
 			Container?.Invalidate(true);
 		}
 
 		private void FocusContentPanel()
 		{
-			// Remove focus from nav panel and set it on the content panel
+			// Internal focus switch between sibling panes — toggle HasFocus directly
 			_navScrollPanel.HasFocus = false;
 			if (_contentPanel is IFocusableControl fc)
 				fc.HasFocus = true;
+
+			// Note: no explicit UpdateFocusPath here — the content panel's SetFocus
+			// delegates to a child (if any) and the notification chain updates the
+			// coordinator path automatically via UpdateCoordinatorFocusPath.
+
 			Container?.Invalidate(true);
 		}
 

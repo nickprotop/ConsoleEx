@@ -154,11 +154,16 @@ namespace SharpConsoleUI.Controls
 						var oldContent = _tabPages[_activeTabIndex].Content;
 						oldContent.Visible = false;
 
-						// If the focused control lives inside the old tab, clear focus
-						var window = this.GetParentWindow();
-						var focused = window?.FocusService?.FocusedControl as IWindowControl;
-						if (focused != null && ContainsFocusedControl(oldContent, focused))
-							window!.FocusService!.ClearControlFocus(FocusChangeReason.Programmatic);
+						// If the focused control lives inside the old tab, clear its focus through coordinator
+					// then re-focus the TabControl itself so Tab navigation still works
+					var window = this.GetParentWindow();
+					var focused = window?.FocusService?.FocusedControl as IWindowControl;
+					if (focused != null && ContainsFocusedControl(oldContent, focused))
+					{
+						window?.FocusCoord?.ClearFocus(FocusReason.Programmatic);
+						// Re-focus TabControl so it remains the active focus target
+						window?.FocusCoord?.RequestFocus(this as IWindowControl, FocusReason.Programmatic);
+					}
 					}
 
 					_activeTabIndex = value;

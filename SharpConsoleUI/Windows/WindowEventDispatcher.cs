@@ -510,11 +510,9 @@ namespace SharpConsoleUI.Windows
 						// Escape unfocuses the current control (for regular controls, not inside ScrollablePanel
 						// which handles Escape internally via ProcessKey returning contentKeyHandled=true)
 						_window._windowSystem?.LogService?.LogTrace($"WindowEventDispatcher: Escape → unfocusing {_window._lastFocusedControl.GetType().Name}", "Focus");
+						// Save before ClearFocus clears _lastFocusedControl
 						_escapedFromControl = _window._lastFocusedControl;
-						if (_escapedFromControl is Controls.IFocusableControl focusableEsc)
-							focusableEsc.SetFocus(false, Controls.FocusReason.Programmatic);
-						_window._lastFocusedControl = null;
-						_window.FocusService?.ClearControlFocus(FocusChangeReason.Programmatic);
+						_window.FocusCoord?.ClearFocus(Controls.FocusReason.Programmatic);
 						windowHandled = true;
 					}
 					else
