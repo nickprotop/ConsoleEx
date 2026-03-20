@@ -41,6 +41,10 @@ The rendering engine follows the same architecture as desktop GUI frameworks lik
 
 *Rich controls, multiple windows, smooth gradients, real-time updates, and full-screen capabilities*
 
+![SharpConsoleUI Full Showcase](docs/images/showcase-full.png)
+
+*All demos running simultaneously: data grid, file explorer, image viewer, markup/colors, emoji, gradients, sliders, tables, containers, and more*
+
 ## Quick Start
 
 ```bash
