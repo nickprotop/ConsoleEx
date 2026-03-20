@@ -93,46 +93,16 @@ namespace SharpConsoleUI.Controls
 					// Use saved reference as fallback — focusedChild may be null if the
 					// coordinator path was cleared by a child's Tab exit notification chain
 					var effectiveFocused = focusedChild ?? focusedChildBeforeDelegate;
-					int currentIndex = effectiveFocused != null ? focusableChildren.IndexOf(effectiveFocused) : -1;
 
-					int newIndex;
-					if (currentIndex == -1)
-					{
-						// No current focus (first Tab in scroll mode):
-						// Forward → first child, Backward → last child
-						newIndex = shiftPressed ? focusableChildren.Count - 1 : 0;
-					}
-					else if (shiftPressed)
-					{
-						// Backward
-						newIndex = currentIndex - 1;
-						if (newIndex < 0)
-							return false; // Let Tab propagate to parent
-					}
-					else
-					{
-						// Forward
-						newIndex = currentIndex + 1;
-						if (newIndex >= focusableChildren.Count)
-							return false; // Let Tab propagate to parent
-					}
-
-					// Unfocus current
-					if (focusedChild is IFocusableControl currentFc)
-						currentFc.SetFocus(false, FocusReason.Keyboard);
-
-					// Focus new child
-					var newChild = focusableChildren[newIndex];
-					if (newChild is IDirectionalFocusControl directional)
-						directional.SetFocusWithDirection(true, shiftPressed);
-					else if (newChild is IFocusableControl newFc)
-						newFc.SetFocus(true, FocusReason.Keyboard);
+					var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
+					var newChild = coordinator != null
+						? coordinator.TabThroughChildren(focusableChildren, effectiveFocused, shiftPressed)
+						: Core.FocusCoordinator.AdvanceTabFocus(focusableChildren, effectiveFocused, shiftPressed);
+					if (newChild == null)
+						return false; // Exit container — let Tab propagate to parent
 
 					// Ensure panel stays focused (notification chain may have cleared it)
 					_hasFocus = true;
-
-					// Update coordinator path with the actual focused leaf
-					UpdateCoordinatorFocusPath(newChild);
 
 					// Scroll newly focused child into view
 					if (newChild is IWindowControl scrollTarget)

@@ -262,6 +262,103 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
+		/// Advances Tab focus through an ordered list of children within a container.
+		/// Handles: index calculation, boundary detection, unfocus/focus with directional
+		/// support, and focus path update. Returns the newly focused control, or null
+		/// if Tab should exit the container (caller returns false to propagate).
+		/// </summary>
+		/// <param name="orderedChildren">The container's focusable children in Tab order.</param>
+		/// <param name="currentFocused">The currently focused child, or null if none.</param>
+		/// <param name="backward">True for Shift+Tab, false for Tab.</param>
+		/// <returns>The newly focused control, or null to signal container exit.</returns>
+		public IInteractiveControl? TabThroughChildren(
+			IReadOnlyList<IInteractiveControl> orderedChildren,
+			IInteractiveControl? currentFocused,
+			bool backward)
+		{
+			var newControl = AdvanceTabFocus(orderedChildren, currentFocused, backward);
+
+			// Update focus path with the deepest focused leaf
+			if (newControl != null)
+			{
+				var actualLeaf = FindDeepestFocusedLeaf(newControl) ?? newControl;
+				UpdateFocusPath(actualLeaf as IWindowControl ?? newControl as IWindowControl);
+			}
+
+			return newControl;
+		}
+
+		/// <summary>
+		/// Core Tab traversal logic: finds next/previous control, unfocuses old, focuses new.
+		/// Static so it can be used even without a coordinator (e.g., in tests without a parent window).
+		/// Does NOT update the focus path — call <see cref="TabThroughChildren"/> for that.
+		/// </summary>
+		/// <param name="orderedChildren">The container's focusable children in Tab order.</param>
+		/// <param name="currentFocused">The currently focused child, or null if none.</param>
+		/// <param name="backward">True for Shift+Tab, false for Tab.</param>
+		/// <returns>The newly focused control, or null to signal container exit.</returns>
+		public static IInteractiveControl? AdvanceTabFocus(
+			IReadOnlyList<IInteractiveControl> orderedChildren,
+			IInteractiveControl? currentFocused,
+			bool backward)
+		{
+			if (orderedChildren.Count == 0)
+				return null;
+
+			// Find current position (-1 if null or not in list)
+			// Use ReferenceEquals loop — IReadOnlyList doesn't have IndexOf
+			int currentIndex = -1;
+			if (currentFocused != null)
+			{
+				for (int i = 0; i < orderedChildren.Count; i++)
+				{
+					if (ReferenceEquals(orderedChildren[i], currentFocused))
+					{
+						currentIndex = i;
+						break;
+					}
+				}
+			}
+
+			// Compute next index
+			int newIndex;
+			if (currentIndex == -1)
+			{
+				// No current focus: forward → first, backward → last
+				newIndex = backward ? orderedChildren.Count - 1 : 0;
+			}
+			else if (backward)
+			{
+				newIndex = currentIndex - 1;
+				if (newIndex < 0)
+					return null; // Exit container backward
+			}
+			else
+			{
+				newIndex = currentIndex + 1;
+				if (newIndex >= orderedChildren.Count)
+					return null; // Exit container forward
+			}
+
+			// Unfocus current
+			if (currentFocused is IFocusableControl currentFc)
+				currentFc.SetFocus(false, FocusReason.Keyboard);
+			else if (currentFocused != null)
+				currentFocused.HasFocus = false;
+
+			// Focus new control with directional support
+			var newControl = orderedChildren[newIndex];
+			if (newControl is IDirectionalFocusControl directional)
+				directional.SetFocusWithDirection(true, backward);
+			else if (newControl is IFocusableControl newFc)
+				newFc.SetFocus(true, FocusReason.Keyboard);
+			else
+				newControl.HasFocus = true;
+
+			return newControl;
+		}
+
+		/// <summary>
 		/// Handles focus for a mouse click. Determines the correct focus target
 		/// from a hit-test result (which may be a deep leaf) and routes focus correctly.
 		/// </summary>

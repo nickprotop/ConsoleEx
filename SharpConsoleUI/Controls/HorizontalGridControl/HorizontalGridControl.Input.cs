@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 
@@ -91,80 +92,32 @@ namespace SharpConsoleUI.Controls
 					return false;
 				}
 
-				// Handle tabbing through the ordered list
-				if (focusedContent == null)
+				// HGrid-specific pre-action: invalidate OLD focused control's column
+				if (focusedContent != null && _interactiveContents.ContainsKey(focusedContent))
 				{
-					// Focus first control
-					var first = orderedInteractiveControls.First();
-					SetControlFocus(first, true);
-					// Update coordinator path — notification chain may not reach HGrid
-					// (ColumnContainer is not IWindowControl/IFocusTrackingContainer)
-					UpdateCoordinatorFocusPath(first);
+					_interactiveContents[focusedContent].Invalidate(true);
 				}
-				else
+
+				bool backward = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
+				var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
+				var newFocused = coordinator != null
+					? coordinator.TabThroughChildren(orderedInteractiveControls, focusedContent, backward)
+					: FocusCoordinator.AdvanceTabFocus(orderedInteractiveControls, focusedContent, backward);
+				if (newFocused == null)
 				{
-					// Unfocus current control using SetFocus for consistent focus handling
-					if (focusedContent is IFocusableControl currentFocusable)
-					{
-						currentFocusable.SetFocus(false, FocusReason.Keyboard);
-					}
-					else
-					{
+					// HGrid unfocuses the current child when exiting — parent containers
+					// (e.g., SPC) re-read focused child after delegation and need it cleared.
+					if (focusedContent is IFocusableControl exitFc)
+						exitFc.SetFocus(false, FocusReason.Keyboard);
+					else if (focusedContent != null)
 						focusedContent.HasFocus = false;
-					}
+					return false; // Exit container
+				}
 
-					// If it's from columns dictionary, invalidate its container
-					if (_interactiveContents.ContainsKey(focusedContent))
-					{
-						_interactiveContents[focusedContent].Invalidate(true);
-					}
-
-					int index = orderedInteractiveControls.IndexOf(focusedContent);
-
-					// Determine the next control based on tab direction
-					if (key.Modifiers.HasFlag(ConsoleModifiers.Shift))
-					{
-						if (index == 0)
-						{
-							return false; // Exit control backward
-						}
-						index--;
-					}
-					else
-					{
-						if (index == orderedInteractiveControls.Count - 1)
-						{
-							return false; // Exit control forward
-						}
-						index++;
-					}
-
-					var newFocused = orderedInteractiveControls[index];
-
-					// Set focus on the new control — use directional focus for containers
-					// so they know to focus their first or last child based on Tab direction.
-					bool backward = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
-					if (newFocused is IDirectionalFocusControl directional)
-					{
-						directional.SetFocusWithDirection(true, backward);
-					}
-					else if (newFocused is IFocusableControl newFocusable)
-					{
-						newFocusable.SetFocus(true, FocusReason.Keyboard);
-					}
-					else
-					{
-						newFocused.HasFocus = true;
-					}
-
-					// Update coordinator path — notification chain may not reach HGrid
-					UpdateCoordinatorFocusPath(newFocused);
-
-					// If it's from columns dictionary, invalidate its container
-					if (_interactiveContents.ContainsKey(newFocused))
-					{
-						_interactiveContents[newFocused].Invalidate(true);
-					}
+				// HGrid-specific post-action: invalidate NEW focused control's column
+				if (_interactiveContents.ContainsKey(newFocused))
+				{
+					_interactiveContents[newFocused].Invalidate(true);
 				}
 
 				Container?.Invalidate(true);
