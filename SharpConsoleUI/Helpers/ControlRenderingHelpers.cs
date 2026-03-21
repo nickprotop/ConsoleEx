@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Helpers

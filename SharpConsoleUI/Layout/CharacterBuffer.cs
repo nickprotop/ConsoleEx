@@ -611,10 +611,9 @@ namespace SharpConsoleUI.Layout
 		{
 			if (cell.Background == defaultBg)
 			{
-				var existingBg = _cells[cx, y].Background;
-				var preserved = cell;
-				preserved.Background = existingBg;
-				SetCell(cx, y, preserved);
+				var transparent = cell;
+				transparent.Background = Color.Transparent;
+				SetCell(cx, y, transparent);
 			}
 			else
 			{
@@ -654,26 +653,6 @@ namespace SharpConsoleUI.Layout
 			FillRect(rect, ' ', Color.White, background);
 		}
 
-		/// <summary>
-		/// Fills a rectangle with space characters and the specified foreground color,
-		/// while preserving the existing background color from the buffer.
-		/// Used by controls to clear margin/padding areas without overwriting gradient backgrounds.
-		/// </summary>
-		public void FillRectPreservingBackground(LayoutRect rect, Color foregroundColor)
-		{
-			var clipped = rect.Intersect(Bounds);
-			if (clipped.IsEmpty)
-				return;
-
-			for (int y = clipped.Y; y < clipped.Bottom; y++)
-			{
-				for (int x = clipped.X; x < clipped.Right; x++)
-				{
-					var existingBg = _cells[x, y].Background;
-					SetNarrowCell(x, y, ' ', foregroundColor, existingBg);
-				}
-			}
-		}
 
 		/// <summary>
 		/// Clears the entire buffer with the specified background color.
