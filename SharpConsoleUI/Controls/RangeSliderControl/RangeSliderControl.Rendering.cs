@@ -68,7 +68,7 @@ namespace SharpConsoleUI.Controls
 			_lastLayoutBounds = bounds;
 
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
-			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
+			var effectiveBg = Color.Transparent;
 
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;

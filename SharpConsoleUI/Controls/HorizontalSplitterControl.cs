@@ -535,8 +535,7 @@ namespace SharpConsoleUI.Controls
 			int splitterWidth = bounds.Width - Margin.Left - Margin.Right;
 
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			var effectiveBg = (_backgroundColorValue == null && Container?.HasGradientBackground == true)
-				? Color.Transparent : windowBackground;
+			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : windowBackground;
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);

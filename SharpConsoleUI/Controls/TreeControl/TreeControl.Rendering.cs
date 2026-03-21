@@ -148,7 +148,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
-			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
+			var effectiveBg = Color.Transparent;
 			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
 			int contentHeight = bounds.Height - Margin.Top - Margin.Bottom;
 

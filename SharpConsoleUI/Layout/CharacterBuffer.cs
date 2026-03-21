@@ -200,6 +200,7 @@ namespace SharpConsoleUI.Layout
 		/// Sets a narrow (width-1) cell at the specified position with a Rune character.
 		/// Clears IsWideContinuation, Combiners, and Decorations.
 		/// Do NOT use for cells from MarkupParser.Parse — use SetCell(Cell) instead to preserve flags.
+		/// Only <paramref name="background"/> participates in alpha blending; foreground is stored as-is.
 		/// </summary>
 		public void SetNarrowCell(int x, int y, Rune character, Color foreground, Color background)
 		{
@@ -232,6 +233,7 @@ namespace SharpConsoleUI.Layout
 
 		/// <summary>
 		/// Sets a cell at the specified position, preserving all attributes including decorations.
+		/// Only <see cref="Cell.Background"/> participates in alpha blending; foreground is stored as-is.
 		/// </summary>
 		public void SetCell(int x, int y, Cell cell)
 		{

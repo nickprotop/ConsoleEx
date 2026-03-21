@@ -437,11 +437,6 @@ namespace SharpConsoleUI.Controls
 			return Container?.GetVisibleHeightForControl(control);
 		}
 
-		/// <summary>
-		/// Propagates gradient background state from the parent container.
-		/// </summary>
-		bool IContainer.HasGradientBackground => Container?.HasGradientBackground ?? false;
-
 		#endregion
 
 		#region IContainerControl Implementation

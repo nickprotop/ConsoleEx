@@ -413,7 +413,7 @@ namespace SharpConsoleUI.Controls
 		Color backgroundColor;
 			Color foregroundColor;
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBackground;
+			var effectiveBg = Color.Transparent;
 
 			// Determine colors based on enabled/focused state
 			if (!_isEnabled)
@@ -498,7 +498,7 @@ namespace SharpConsoleUI.Controls
 				// Render checkbox content
 				var cells = Parsing.MarkupParser.Parse(checkboxContent, foregroundColor, backgroundColor);
 				// Preserve gradient bg only in normal state (focused/disabled have intentional bg)
-				if (Container?.HasGradientBackground == true && _backgroundColorValue == null && !_hasFocus && _isEnabled)
+				if (_backgroundColorValue == null && !_hasFocus && _isEnabled)
 					buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, startY, cells, clipRect, backgroundColor);
 				else
 					buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);

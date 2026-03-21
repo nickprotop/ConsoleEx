@@ -350,7 +350,7 @@ namespace SharpConsoleUI.Controls
 
 			Color bgColor = Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = Container?.ForegroundColor ?? defaultFg;
-			var marginBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
+			var marginBg = Color.Transparent;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
@@ -433,10 +433,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Paint the line content
-				if (Container?.HasGradientBackground == true)
-					buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, y, cellLine, clipRect, effectiveBg);
-				else
-					buffer.WriteCellsClipped(startX + alignOffset, y, cellLine, clipRect);
+				buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, y, cellLine, clipRect, effectiveBg);
 
 				// Fill remaining space (right side)
 				int rightPadStart = startX + alignOffset + lineWidth;
@@ -444,7 +441,7 @@ namespace SharpConsoleUI.Controls
 				if (rightPadWidth > 0)
 				{
 					// Use the control's background color if set, otherwise container's
-					var rightFillBg = (_backgroundColor == null && Container?.HasGradientBackground == true) ? Color.Transparent : (_backgroundColor ?? bgColor);
+					var rightFillBg = _backgroundColor == null ? Color.Transparent : _backgroundColor.Value;
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, y, rightPadWidth, 1), fgColor, rightFillBg);
 				}
 

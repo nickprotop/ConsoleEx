@@ -279,7 +279,7 @@ namespace SharpConsoleUI.Controls
 				foregroundColor = ForegroundColor;
 			}
 
-			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBackground;
+			var effectiveBg = Color.Transparent;
 
 			// Calculate indicator space: needed in CheckboxMode
 			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;

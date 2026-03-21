@@ -545,7 +545,7 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 
 		// Fill margins with container background
 		Color containerBg = Container?.BackgroundColor ?? defaultBg;
-		var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : containerBg;
+		var effectiveBg = Color.Transparent;
 
 		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, effectiveBg);
 

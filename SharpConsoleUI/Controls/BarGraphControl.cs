@@ -301,7 +301,7 @@ namespace SharpConsoleUI.Controls
 			// Resolve colors
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
-			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
+			var effectiveBg = Color.Transparent;
 
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;

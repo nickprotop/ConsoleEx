@@ -72,12 +72,6 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public bool HasGradientBackground =>
-			_backgroundColorValue == null
-			&& _horizontalGridContent?.BackgroundColor == null
-			&& (Container?.HasGradientBackground ?? false);
-
-		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
 			// Resolution chain: explicit → grid's fg → grid's parent (Window) → theme
@@ -942,7 +936,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
-			var effectiveBg = HasGradientBackground ? Color.Transparent : bgColor;
+			var effectiveBg = Color.Transparent;
 
 			// Fill the entire bounds with background color
 			// This provides the background for the container and any margins

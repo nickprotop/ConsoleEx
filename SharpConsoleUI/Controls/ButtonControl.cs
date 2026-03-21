@@ -343,7 +343,7 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBackground;
+			var effectiveBg = Color.Transparent;
 
 			Color backgroundColor;
 			Color foregroundColor;

@@ -595,8 +595,8 @@ namespace SharpConsoleUI.Controls
 
 			// Fill margins with container background
 			Color containerBg = Container?.BackgroundColor ?? defaultBg;
-			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : containerBg;
-			var innerEffectiveBg = (_backgroundColorValue == null && Container?.HasGradientBackground == true) ? Color.Transparent : bgColor;
+			var effectiveBg = Color.Transparent;
+			var innerEffectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;
 
 			// Top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, outerY, fgColor, effectiveBg);

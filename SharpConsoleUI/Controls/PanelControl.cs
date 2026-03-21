@@ -669,7 +669,7 @@ namespace SharpConsoleUI.Controls
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
 			Color borderColor = _borderColorValue ?? fgColor;
-			var effectiveBg = (_backgroundColorValue == null && Container?.HasGradientBackground == true) ? Color.Transparent : bgColor;
+			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			int targetHeight = bounds.Height - Margin.Top - Margin.Bottom;

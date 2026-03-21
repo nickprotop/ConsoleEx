@@ -503,7 +503,7 @@ public partial class TableControl
 		Color borderColor = ResolveBorderColor();
 		Color headerBg = ResolveHeaderBackgroundColor();
 		Color headerFg = ResolveHeaderForegroundColor();
-		var effectiveBg = ((_backgroundColorValue == null || _backgroundColorValue == Color.Default) && Container?.HasGradientBackground == true) ? Color.Transparent : bgColor;
+		var effectiveBg = (_backgroundColorValue == null || _backgroundColorValue == Color.Default) ? Color.Transparent : bgColor;
 
 		// Fill margins
 		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, effectiveBg);

@@ -85,7 +85,7 @@ namespace SharpConsoleUI.Controls
 			Color selBgColor = SelectionBackgroundColor;
 			Color selFgColor = SelectionForegroundColor;
 			Color windowBgColor = Container?.BackgroundColor ?? defaultBg;
-			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBgColor;
+			var effectiveBg = Color.Transparent;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) { _skipUpdateScrollPositionsInRender = false; return; }

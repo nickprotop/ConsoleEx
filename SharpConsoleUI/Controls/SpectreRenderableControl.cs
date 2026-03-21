@@ -313,7 +313,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
-			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
+			var effectiveBg = Color.Transparent;
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 
 			if (targetWidth <= 0) return;
@@ -367,10 +367,7 @@ namespace SharpConsoleUI.Controls
 
 						// Parse and write the content line
 						var cells = ParseAnsiToCells(renderedContent[i], fgColor, bgColor);
-						if (Container?.HasGradientBackground == true)
-							buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, paintY, cells, clipRect, bgColor);
-						else
-							buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
+						buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, paintY, cells, clipRect, bgColor);
 
 						// Fill right padding
 						int rightPadStart = startX + alignOffset + lineWidth;

@@ -444,7 +444,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 
         var bgColor = Container?.BackgroundColor ?? defaultBg;
         var fgColor = Container?.ForegroundColor ?? defaultFg;
-        var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
+        var effectiveBg = Color.Transparent;
         int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 
         if (targetWidth <= 0) return;

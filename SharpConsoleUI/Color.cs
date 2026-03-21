@@ -247,7 +247,7 @@ namespace SharpConsoleUI
 					color = new Color(r, g, b, a);
 					return true;
 				}
-			return false;
+				return false;
 			}
 
 			if (span.Length == 6)
@@ -295,11 +295,11 @@ namespace SharpConsoleUI
 			A < 255 ? $"Color({R}, {G}, {B}, {A})" :
 			$"Color({R}, {G}, {B})";
 
-/// <summary>
-/// Returns the color as a markup string. For opaque colors, returns a Spectre-compatible
-/// "rgb(R,G,B)" string. For semi-transparent colors, returns "rgba(R,G,B,A)" which
-/// is interpreted by the framework's own renderer, not by Spectre.Console.
-/// </summary>
+		/// <summary>
+		/// Returns the color as a markup string. For opaque colors, returns a Spectre-compatible
+		/// "rgb(R,G,B)" string. For semi-transparent colors, returns "rgba(R,G,B,A)" which
+		/// is interpreted by the framework's own renderer, not by Spectre.Console.
+		/// </summary>
 		public string ToMarkup()
 		{
 			if (IsDefault) return "default";

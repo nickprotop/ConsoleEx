@@ -86,7 +86,7 @@ namespace SharpConsoleUI.Controls
 
 			// Draw border if needed
 			bool hasBorder = _borderStyle != BorderStyle.None;
-			var effectiveBg = (_backgroundColorValue == null && Container?.HasGradientBackground == true) ? Color.Transparent : bgColor;
+			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;
 			if (hasBorder)
 			{
 				var box = BoxChars.FromBorderStyle(_borderStyle);
