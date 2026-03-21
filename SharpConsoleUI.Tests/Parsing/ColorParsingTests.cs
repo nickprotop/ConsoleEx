@@ -230,54 +230,113 @@ namespace SharpConsoleUI.Tests.Parsing
 
 		#endregion
 
-	#region Alpha
+		#region Alpha
 
-	[Fact]
-	public void Color_DefaultAlpha_Is255()
-	{
-		var c = new Color(100, 150, 200);
-		Assert.Equal(255, c.A);
-	}
+		[Fact]
+		public void Color_DefaultAlpha_Is255()
+		{
+			var c = new Color(100, 150, 200);
+			Assert.Equal(255, c.A);
+		}
 
-	[Fact]
-	public void Color_ExplicitAlpha_Stored()
-	{
-		var c = new Color(100, 150, 200, 128);
-		Assert.Equal(128, c.A);
-	}
+		[Fact]
+		public void Color_ExplicitAlpha_Stored()
+		{
+			var c = new Color(100, 150, 200, 128);
+			Assert.Equal(128, c.A);
+		}
 
-	[Fact]
-	public void Color_Equals_IncludesAlpha()
-	{
-		var opaque = new Color(255, 0, 0, 255);
-		var halfTransparent = new Color(255, 0, 0, 128);
-		Assert.NotEqual(opaque, halfTransparent);
-	}
+		[Fact]
+		public void Color_Equals_IncludesAlpha()
+		{
+			var opaque = new Color(255, 0, 0, 255);
+			var halfTransparent = new Color(255, 0, 0, 128);
+			Assert.NotEqual(opaque, halfTransparent);
+		}
 
-	[Fact]
-	public void TryFromHex_EightDigit_ParsesAlpha()
-	{
-		Assert.True(Color.TryFromHex("#FF0000FF", out var full));
-		Assert.Equal(255, full.A);
+		[Fact]
+		public void TryFromHex_EightDigit_ParsesAlpha()
+		{
+			Assert.True(Color.TryFromHex("#FF0000FF", out var full));
+			Assert.Equal(255, full.A);
 
-		Assert.True(Color.TryFromHex("#FF000080", out var half));
-		Assert.Equal(128, half.A);
-	}
+			Assert.True(Color.TryFromHex("#FF000080", out var half));
+			Assert.Equal(128, half.A);
+		}
 
-	[Fact]
-	public void Color_ToString_IncludesAlpha_WhenNotOpaque()
-	{
-		var c = new Color(10, 20, 30, 128);
-		Assert.Contains("128", c.ToString());
-	}
+		[Fact]
+		public void Color_ToString_IncludesAlpha_WhenNotOpaque()
+		{
+			var c = new Color(10, 20, 30, 128);
+			Assert.Contains("128", c.ToString());
+		}
 
-	[Fact]
-	public void Color_ToString_OmitsAlpha_WhenOpaque()
-	{
-		var c = new Color(10, 20, 30);
-		Assert.Equal("Color(10, 20, 30)", c.ToString());
-	}
+		[Fact]
+		public void Color_ToString_OmitsAlpha_WhenOpaque()
+		{
+			var c = new Color(10, 20, 30);
+			Assert.Equal("Color(10, 20, 30)", c.ToString());
+		}
 
-	#endregion
+		[Fact]
+		public void Transparent_IsNotDefault_AndHasZeroAlpha()
+		{
+			Assert.Equal(0, Color.Transparent.A);
+			Assert.Equal(0, Color.Transparent.R);
+			Assert.Equal(0, Color.Transparent.G);
+			Assert.Equal(0, Color.Transparent.B);
+			Assert.False(Color.Transparent.IsDefault);
+		}
+
+		[Fact]
+		public void GetHashCode_DiffersForDifferentAlpha()
+		{
+			var opaque = new Color(100, 150, 200, 255);
+			var half = new Color(100, 150, 200, 128);
+			Assert.NotEqual(opaque.GetHashCode(), half.GetHashCode());
+		}
+
+		[Fact]
+		public void GetHashCode_Default_ReturnsMinusOne()
+		{
+			Assert.Equal(-1, Color.Default.GetHashCode());
+		}
+
+		[Fact]
+		public void WithAlpha_ChangesAlphaPreservesRgb()
+		{
+			var c = new Color(10, 20, 30, 255);
+			var result = c.WithAlpha(128);
+			Assert.Equal(128, result.A);
+			Assert.Equal(10, result.R);
+			Assert.Equal(20, result.G);
+			Assert.Equal(30, result.B);
+		}
+
+		[Fact]
+		public void ToMarkup_AlphaPath_EmitsRgba()
+		{
+			var c = new Color(255, 0, 0, 128);
+			var markup = c.ToMarkup();
+			Assert.StartsWith("rgba(", markup);
+			Assert.Contains("255,0,0", markup);
+		}
+
+		[Fact]
+		public void ToMarkup_OpaqueColor_EmitsRgb()
+		{
+			var c = new Color(255, 0, 0, 255);
+			Assert.Equal("rgb(255,0,0)", c.ToMarkup());
+		}
+
+		[Fact]
+		public void TryFromHex_EightDigit_ZeroAlpha_ParsesTransparent()
+		{
+			Assert.True(Color.TryFromHex("#FF000000", out var color));
+			Assert.Equal(255, color.R);
+			Assert.Equal(0, color.A);
+		}
+
+		#endregion
 	}
 }
