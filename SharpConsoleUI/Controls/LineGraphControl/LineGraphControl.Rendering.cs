@@ -161,8 +161,8 @@ namespace SharpConsoleUI.Controls
 						processedTitle = $"[{colorName}]{_title}[/]";
 					}
 
-					var cells = MarkupParser.Parse(processedTitle, fgColor, bgColor);
-					buffer.WriteCellsClippedPreservingBackground(titleX, titleY, cells, clipRect, bgColor);
+					var cells = MarkupParser.Parse(processedTitle, fgColor, effectiveBg);
+					buffer.WriteCellsClipped(titleX, titleY, cells, clipRect);
 				}
 			}
 
@@ -252,8 +252,8 @@ namespace SharpConsoleUI.Controls
 							processedTitle = $"[{colorName}]{_title}[/]";
 						}
 
-						var cells = MarkupParser.Parse(processedTitle, _foregroundColorValue ?? fgColor, bgColor);
-						buffer.WriteCellsClippedPreservingBackground(titleX, baselineY, cells, clipRect, bgColor);
+						var cells = MarkupParser.Parse(processedTitle, _foregroundColorValue ?? fgColor, effectiveBg);
+						buffer.WriteCellsClipped(titleX, baselineY, cells, clipRect);
 
 						baselineStartX = titleX + cells.Count + 1;
 					}

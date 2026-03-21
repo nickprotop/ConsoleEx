@@ -366,8 +366,8 @@ namespace SharpConsoleUI.Controls
 						}
 
 						// Parse and write the content line
-						var cells = ParseAnsiToCells(renderedContent[i], fgColor, bgColor);
-						buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, paintY, cells, clipRect, bgColor);
+						var cells = ParseAnsiToCells(renderedContent[i], fgColor, effectiveBg);
+						buffer.WriteCellsClipped(startX + alignOffset, paintY, cells, clipRect);
 
 						// Fill right padding
 						int rightPadStart = startX + alignOffset + lineWidth;

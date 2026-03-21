@@ -158,8 +158,8 @@ namespace SharpConsoleUI.Controls
 					}
 
 					// Parse markup to cells
-					var cells = Parsing.MarkupParser.Parse(processedTitle, fgColor, bgColor);
-					buffer.WriteCellsClippedPreservingBackground(titleX, titleY, cells, clipRect, bgColor);
+					var cells = Parsing.MarkupParser.Parse(processedTitle, fgColor, effectiveBg);
+					buffer.WriteCellsClipped(titleX, titleY, cells, clipRect);
 				}
 			}
 
@@ -237,8 +237,8 @@ namespace SharpConsoleUI.Controls
 							processedTitle = $"[{colorName}]{_title}[/]";
 						}
 
-						var cells = Parsing.MarkupParser.Parse(processedTitle, _foregroundColorValue ?? fgColor, bgColor);
-						buffer.WriteCellsClippedPreservingBackground(titleX, baselineY, cells, clipRect, bgColor);
+						var cells = Parsing.MarkupParser.Parse(processedTitle, _foregroundColorValue ?? fgColor, effectiveBg);
+						buffer.WriteCellsClipped(titleX, baselineY, cells, clipRect);
 
 						// Advance baseline start position past title
 						int titleWidth = cells.Count;

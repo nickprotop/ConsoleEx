@@ -368,7 +368,7 @@ namespace SharpConsoleUI.Controls
 
 			// Render content lines
 			Color effectiveFg = _foregroundColor ?? fgColor;
-			Color effectiveBg = _backgroundColor ?? bgColor;
+			Color effectiveBg = _backgroundColor ?? Color.Transparent;
 			var renderedCellLines = new List<List<Cell>>();
 			foreach (var line in snapshot)
 			{
@@ -433,7 +433,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Paint the line content
-				buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, y, cellLine, clipRect, effectiveBg);
+				buffer.WriteCellsClipped(startX + alignOffset, y, cellLine, clipRect);
 
 				// Fill remaining space (right side)
 				int rightPadStart = startX + alignOffset + lineWidth;

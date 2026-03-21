@@ -496,12 +496,9 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Render checkbox content
-				var cells = Parsing.MarkupParser.Parse(checkboxContent, foregroundColor, backgroundColor);
-				// Preserve gradient bg only in normal state (focused/disabled have intentional bg)
-				if (_backgroundColorValue == null && !_hasFocus && _isEnabled)
-					buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, startY, cells, clipRect, backgroundColor);
-				else
-					buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
+				var cellBg = (_backgroundColorValue == null && !_hasFocus && _isEnabled) ? Color.Transparent : backgroundColor;
+				var cells = Parsing.MarkupParser.Parse(checkboxContent, foregroundColor, cellBg);
+				buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
 
 				// Fill alignment padding (right side)
 				int rightPadStart = startX + alignOffset + checkboxWidth;
