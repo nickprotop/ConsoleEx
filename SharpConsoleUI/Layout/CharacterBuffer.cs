@@ -208,6 +208,8 @@ namespace SharpConsoleUI.Layout
 
 			CleanupWideCharAt(x, y);
 
+			background = Color.Blend(background, _cells[x, y].Background);
+
 			ref var cell = ref _cells[x, y];
 			if (cell.Character != character ||
 				!cell.Foreground.Equals(foreground) ||
@@ -239,16 +241,17 @@ namespace SharpConsoleUI.Layout
 			CleanupWideCharAt(x, y);
 
 			ref var existing = ref _cells[x, y];
+			var resolvedBg = Color.Blend(cell.Background, existing.Background);
 			if (existing.Character != cell.Character ||
 				!existing.Foreground.Equals(cell.Foreground) ||
-				!existing.Background.Equals(cell.Background) ||
+				!existing.Background.Equals(resolvedBg) ||
 				existing.Decorations != cell.Decorations ||
 				existing.IsWideContinuation != cell.IsWideContinuation ||
 				existing.Combiners != cell.Combiners)
 			{
 				existing.Character = cell.Character;
 				existing.Foreground = cell.Foreground;
-				existing.Background = cell.Background;
+				existing.Background = resolvedBg;
 				existing.Decorations = cell.Decorations;
 				existing.IsWideContinuation = cell.IsWideContinuation;
 				existing.Combiners = cell.Combiners;
