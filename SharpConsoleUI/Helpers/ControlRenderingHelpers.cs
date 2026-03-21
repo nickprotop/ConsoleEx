@@ -17,6 +17,7 @@ namespace SharpConsoleUI.Helpers
     /// </summary>
     public static class ControlRenderingHelpers
     {
+        /// <summary>Fills the top margin rows (from <paramref name="bounds"/>.Y up to <paramref name="startY"/>) with spaces.</summary>
         public static void FillTopMargin(
             CharacterBuffer buffer,
             LayoutRect bounds,
@@ -35,6 +36,7 @@ namespace SharpConsoleUI.Helpers
             }
         }
 
+        /// <summary>Fills the bottom margin rows (from <paramref name="endY"/> to <paramref name="bounds"/>.Bottom) with spaces.</summary>
         public static void FillBottomMargin(
             CharacterBuffer buffer,
             LayoutRect bounds,
@@ -53,6 +55,7 @@ namespace SharpConsoleUI.Helpers
             }
         }
 
+        /// <summary>Fills the left and right horizontal margin columns on a single row with spaces.</summary>
         public static void FillHorizontalMargins(
             CharacterBuffer buffer,
             LayoutRect bounds,
@@ -77,6 +80,7 @@ namespace SharpConsoleUI.Helpers
             }
         }
 
+        /// <summary>Fills the entire <paramref name="rect"/> with spaces using the given colors.</summary>
         public static void FillRect(
             CharacterBuffer buffer,
             LayoutRect rect,
@@ -86,6 +90,7 @@ namespace SharpConsoleUI.Helpers
             buffer.FillRect(rect, ' ', foreground, background);
         }
 
+        /// <summary>Fills a single horizontal row with the given character, clipped to <paramref name="clipRect"/>.</summary>
         public static void FillLineCharacter(
             CharacterBuffer buffer,
             LayoutRect rect,
