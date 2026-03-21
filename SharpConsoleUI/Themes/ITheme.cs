@@ -560,4 +560,45 @@ public interface ITheme
     /// </summary>
     Color? SliderFocusedThumbColor { get; }
 
+    // Checkbox background colors
+
+    /// <summary>
+    /// Gets the background color for checkboxes in their default state. Null means transparent.
+    /// </summary>
+    Color? CheckboxBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for checkboxes when they have keyboard focus. Null means transparent.
+    /// </summary>
+    Color? CheckboxFocusedBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for checkboxes when they are disabled. Null means transparent.
+    /// </summary>
+    Color? CheckboxDisabledBackgroundColor { get; }
+
+    // List background color
+
+    /// <summary>
+    /// Gets the background color for list controls. Null means transparent.
+    /// </summary>
+    Color? ListBackgroundColor { get; }
+
+    // Tree background colors
+
+    /// <summary>
+    /// Gets the background color for tree controls. Null means transparent.
+    /// </summary>
+    Color? TreeBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for selected tree nodes when focused. Null means transparent.
+    /// </summary>
+    Color? TreeSelectionBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for selected tree nodes when unfocused. Null means transparent.
+    /// </summary>
+    Color? TreeUnfocusedSelectionBackgroundColor { get; }
+
 }

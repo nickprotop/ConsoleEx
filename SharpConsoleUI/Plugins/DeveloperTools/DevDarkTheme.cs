@@ -313,4 +313,21 @@ public class DevDarkTheme : ITheme
 	public Color? SliderThumbColor { get; set; } = Color.Grey93;
 	/// <inheritdoc/>
 	public Color? SliderFocusedThumbColor { get; set; } = Color.Yellow;
+
+	/// <inheritdoc/>
+	public Color? CheckboxBackgroundColor { get; set; } = null;
+	/// <inheritdoc/>
+	public Color? CheckboxFocusedBackgroundColor { get; set; } = Color.Grey19;
+	/// <inheritdoc/>
+	public Color? CheckboxDisabledBackgroundColor { get; set; } = Color.Grey15;
+
+	/// <inheritdoc/>
+	public Color? ListBackgroundColor { get; set; } = Color.Grey11;
+
+	/// <inheritdoc/>
+	public Color? TreeBackgroundColor { get; set; } = null;
+	/// <inheritdoc/>
+	public Color? TreeSelectionBackgroundColor { get; set; } = Color.Grey27;
+	/// <inheritdoc/>
+	public Color? TreeUnfocusedSelectionBackgroundColor { get; set; } = Color.Grey19;
 }

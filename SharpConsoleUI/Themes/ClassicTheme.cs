@@ -488,5 +488,22 @@ namespace SharpConsoleUI.Themes
 		/// <inheritdoc/>
 		public Color? SliderFocusedThumbColor { get; set; } = Color.Yellow;
 
+		/// <inheritdoc/>
+		public Color? CheckboxBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? CheckboxFocusedBackgroundColor { get; set; } = Color.Blue;
+		/// <inheritdoc/>
+		public Color? CheckboxDisabledBackgroundColor { get; set; } = Color.Grey;
+
+		/// <inheritdoc/>
+		public Color? ListBackgroundColor { get; set; } = Color.Navy;
+
+		/// <inheritdoc/>
+		public Color? TreeBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? TreeSelectionBackgroundColor { get; set; } = Color.Blue;
+		/// <inheritdoc/>
+		public Color? TreeUnfocusedSelectionBackgroundColor { get; set; } = Color.Navy;
+
 	}
 }
