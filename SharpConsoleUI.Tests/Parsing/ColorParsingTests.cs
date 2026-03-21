@@ -229,5 +229,55 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 
 		#endregion
+
+	#region Alpha
+
+	[Fact]
+	public void Color_DefaultAlpha_Is255()
+	{
+		var c = new Color(100, 150, 200);
+		Assert.Equal(255, c.A);
+	}
+
+	[Fact]
+	public void Color_ExplicitAlpha_Stored()
+	{
+		var c = new Color(100, 150, 200, 128);
+		Assert.Equal(128, c.A);
+	}
+
+	[Fact]
+	public void Color_Equals_IncludesAlpha()
+	{
+		var opaque = new Color(255, 0, 0, 255);
+		var halfTransparent = new Color(255, 0, 0, 128);
+		Assert.NotEqual(opaque, halfTransparent);
+	}
+
+	[Fact]
+	public void TryFromHex_EightDigit_ParsesAlpha()
+	{
+		Assert.True(Color.TryFromHex("#FF0000FF", out var full));
+		Assert.Equal(255, full.A);
+
+		Assert.True(Color.TryFromHex("#FF000080", out var half));
+		Assert.Equal(128, half.A);
+	}
+
+	[Fact]
+	public void Color_ToString_IncludesAlpha_WhenNotOpaque()
+	{
+		var c = new Color(10, 20, 30, 128);
+		Assert.Contains("128", c.ToString());
+	}
+
+	[Fact]
+	public void Color_ToString_OmitsAlpha_WhenOpaque()
+	{
+		var c = new Color(10, 20, 30);
+		Assert.Equal("Color(10, 20, 30)", c.ToString());
+	}
+
+	#endregion
 	}
 }

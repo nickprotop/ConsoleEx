@@ -25,6 +25,9 @@ namespace SharpConsoleUI
 		/// <summary>RGB blue component (0-255).</summary>
 		public byte B { get; }
 
+		/// <summary>Alpha component (0 = fully transparent, 255 = fully opaque).</summary>
+		public byte A { get; }
+
 		/// <summary>
 		/// True when this color was created via <c>default</c> or <see cref="Default"/>,
 		/// meaning "inherit from theme/container".
@@ -32,11 +35,12 @@ namespace SharpConsoleUI
 		public bool IsDefault { get; }
 
 		/// <summary>Creates a color from RGB components.</summary>
-		public Color(byte r, byte g, byte b)
+		public Color(byte r, byte g, byte b, byte a = 255)
 		{
 			R = r;
 			G = g;
 			B = b;
+			A = a;
 			IsDefault = false;
 		}
 
@@ -45,6 +49,7 @@ namespace SharpConsoleUI
 			R = r;
 			G = g;
 			B = b;
+			A = 255;
 			IsDefault = isDefault;
 		}
 
@@ -52,6 +57,9 @@ namespace SharpConsoleUI
 
 		/// <summary>Sentinel: "no explicit color, inherit from context".</summary>
 		public static Color Default => new(0, 0, 0, isDefault: true);
+
+		/// <summary>Fully transparent — composites over whatever is already in the buffer.</summary>
+		public static Color Transparent => new(0, 0, 0, 0);
 		public static Color Black => new(0, 0, 0);
 		public static Color Maroon => new(128, 0, 0);
 		public static Color Green => new(0, 128, 0);
@@ -229,6 +237,18 @@ namespace SharpConsoleUI
 				return false;
 			}
 
+			if (span.Length == 8)
+			{
+				if (byte.TryParse(span[0..2], System.Globalization.NumberStyles.HexNumber, null, out byte r) &&
+					byte.TryParse(span[2..4], System.Globalization.NumberStyles.HexNumber, null, out byte g) &&
+					byte.TryParse(span[4..6], System.Globalization.NumberStyles.HexNumber, null, out byte b) &&
+					byte.TryParse(span[6..8], System.Globalization.NumberStyles.HexNumber, null, out byte a))
+				{
+					color = new Color(r, g, b, a);
+					return true;
+				}
+			}
+
 			if (span.Length == 6)
 			{
 				if (byte.TryParse(span[0..2], System.Globalization.NumberStyles.HexNumber, null, out byte r) &&
@@ -257,11 +277,11 @@ namespace SharpConsoleUI
 		#region Equality
 
 		public bool Equals(Color other) =>
-			IsDefault == other.IsDefault && R == other.R && G == other.G && B == other.B;
+			IsDefault == other.IsDefault && R == other.R && G == other.G && B == other.B && A == other.A;
 
 		public override bool Equals(object? obj) => obj is Color other && Equals(other);
 
-		public override int GetHashCode() => IsDefault ? -1 : HashCode.Combine(R, G, B);
+		public override int GetHashCode() => IsDefault ? -1 : HashCode.Combine(R, G, B, A);
 
 		public static bool operator ==(Color left, Color right) => left.Equals(right);
 		public static bool operator !=(Color left, Color right) => !left.Equals(right);
@@ -270,11 +290,20 @@ namespace SharpConsoleUI
 
 		/// <summary>Returns the color as "Color(R, G, B)" or "Color(Default)".</summary>
 		public override string ToString() =>
-			IsDefault ? "Color(Default)" : $"Color({R}, {G}, {B})";
+			IsDefault ? "Color(Default)" :
+			A < 255 ? $"Color({R}, {G}, {B}, {A})" :
+			$"Color({R}, {G}, {B})";
 
 		/// <summary>Returns the color as a Spectre-compatible markup string, e.g. "rgb(255,0,0)".</summary>
-		public string ToMarkup() =>
-			IsDefault ? "default" : $"rgb({R},{G},{B})";
+		public string ToMarkup()
+		{
+			if (IsDefault) return "default";
+			if (A < 255) return $"rgba({R},{G},{B},{A / 255.0:0.##})";
+			return $"rgb({R},{G},{B})";
+		}
+
+		/// <summary>Returns a copy of this color with the specified alpha value.</summary>
+		public Color WithAlpha(byte a) => new(R, G, B, a);
 
 		/// <summary>
 		/// Creates a Color from a 256-color palette index (0-255).
