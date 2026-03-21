@@ -35,6 +35,22 @@ namespace SharpConsoleUI.Helpers
 			?? Color.Transparent;
 
 		/// <summary>
+		/// Resolves multiline edit background: explicit → theme PromptInputBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveMultilineEditBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves focused multiline edit background: explicit → theme PromptInputFocusedBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveMultilineEditFocusedBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
 		/// Resolves a foreground color using the standard fallback chain:
 		/// explicit value → container foreground → theme window foreground → default.
 		/// </summary>

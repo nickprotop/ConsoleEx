@@ -733,6 +733,42 @@ public List<string> ToLines()
          Set colors       Change FG only
 ```
 
+### Alpha Compositing
+
+Controls write cells with `Color.Transparent` as the background to indicate "show whatever is
+behind me." `CharacterBuffer` resolves this at paint time by using the background color already
+present at that position in the buffer.
+
+**Paint order matters:**
+
+1. `PreBufferPaint` hooks run first — gradient backgrounds and custom fills land in the buffer.
+2. Controls paint on top via `PaintDOM`. A cell written with `Color.Transparent` background
+   inherits the gradient color at that cell from step 1.
+3. `PostBufferPaint` hooks run last — can read or overwrite cells.
+
+```
+PreBufferPaint:  gradient fills every cell (e.g. DarkBlue→Black vertically)
+PaintDOM:        SparklineControl writes bar chars with bg=Transparent
+                 → those cells display with the gradient color as their background
+PostBufferPaint: (optional effects)
+```
+
+**Background resolution chain in controls:**
+
+Controls expose `BackgroundColor` as `Color?`. `null` means "use the theme default or
+`Color.Transparent`." `Color.Transparent` means "composite against the buffer." Any other
+`Color` means "fill with this solid color."
+
+```csharp
+// PaintDOM — typical pattern in a control
+Color bgColor = ColorResolver.ResolveControlBackground(_backgroundColorValue, Container);
+// bgColor is Color.Transparent when no explicit color is set → gradient shows through
+```
+
+This design keeps controls unaware of what sits behind them. The gradient (or any
+`PreBufferPaint` content) shows through automatically for every control that does not set an
+explicit opaque background.
+
 ---
 
 ## 6. Console Driver Layer

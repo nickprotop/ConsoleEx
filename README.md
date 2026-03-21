@@ -24,6 +24,7 @@ The rendering engine follows the same architecture as desktop GUI frameworks lik
 - **30+ built-in controls** — buttons, lists, trees, tables, text editors, dropdowns, menus, tabs, and more
 - **Full Unicode & emoji support** — CJK, Arabic, Hebrew, Thai, Devanagari, combining marks, variation selectors, ZWJ sequences — accurate wcwidth-based cell measurement
 - **Compositor effects** — PreBufferPaint/PostBufferPaint hooks for custom rendering, transitions, or even games
+- **Alpha blending** — `Color.Transparent` control backgrounds composite against window gradients automatically; per-cell alpha in `CharacterBuffer` requires no extra work from control authors
 - **MVVM-compatible** — all controls implement `INotifyPropertyChanged`; one-way and two-way data binding with `Bind()` / `BindTwoWay()`
 - **Fluent builders** for windows, controls, and layouts
 
@@ -270,6 +271,7 @@ dotnet run --project Examples/DemoApp
 | **[State Services](docs/STATE-SERVICES.md)** | Window state, focus, modal, notification services |
 | **[Registry](docs/REGISTRY.md)** | Persistent hierarchical key-value storage |
 | **[Plugins](docs/PLUGINS.md)** | Plugin architecture and development |
+| **[Gradients & Alpha](docs/GRADIENTS.md)** | Gradient text, window backgrounds, transparent control compositing |
 | **[Compositor Effects](docs/COMPOSITOR_EFFECTS.md)** | Buffer manipulation and visual effects |
 | **[DOM Layout System](docs/DOM_LAYOUT_SYSTEM.md)** | Layout engine internals |
 | **[Rendering Pipeline](docs/RENDERING_PIPELINE.md)** | Rendering architecture details |

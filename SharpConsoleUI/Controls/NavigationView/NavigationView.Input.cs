@@ -113,7 +113,22 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
-			HasFocus = focus;
+			if (focus && reason == FocusReason.Mouse)
+			{
+				// For mouse-initiated focus, set _hasFocus without calling FocusNavPane().
+				// The focus coordinator will set HasFocus on the actual clicked leaf control
+				// (e.g. PromptControl) via FocusStateService, and the notification chain
+				// will propagate _hasFocus=true up through ancestors. NavPaneHasFocus stays
+				// false, so ProcessKey correctly routes to the content panel.
+				_hasFocus = true;
+				OnPropertyChanged(nameof(HasFocus));
+				GotFocus?.Invoke(this, EventArgs.Empty);
+				Container?.Invalidate(true);
+			}
+			else
+			{
+				HasFocus = focus;
+			}
 		}
 
 		/// <inheritdoc/>

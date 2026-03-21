@@ -141,6 +141,73 @@ var gradient = ColorGradient.Parse("#FF0000->#0000FF");
 var gradient = ColorGradient.Parse("spectrum");
 ```
 
+## Transparent Control Backgrounds
+
+Controls support `Color.Transparent` as their background color, which tells the renderer to
+composite the control's cells against whatever is already in the buffer — including window
+background gradients.
+
+```csharp
+// Control floats on top of the window gradient — no opaque rectangle behind it
+var label = new MarkupControl("[bold cyan]CPU Usage[/]");
+// BackgroundColor defaults to null, which resolves to Color.Transparent
+
+// Opaque override — solid background, ignores whatever is behind the control
+label.BackgroundColor = Color.Grey11;
+```
+
+### The Resolution Chain
+
+Each control resolves its background through a priority chain:
+
+1. **Control's own `BackgroundColor`** — if explicitly set to a non-transparent color
+2. **Theme slot** — e.g. `ITheme.LineGraphBackgroundColor`, `ITheme.SparklineBackgroundColor`
+3. **`Color.Transparent`** — the terminal fallback
+
+`Color.Transparent` is not "no color" — it is a definite instruction: *show what is underneath*.
+The underlying content might be the window's gradient background, another control, or the desktop
+fill.
+
+### Alpha Compositing in CharacterBuffer
+
+When a control writes a cell with `Color.Transparent` as the background, `CharacterBuffer`
+resolves the displayed background from whatever was previously written at that position —
+typically the gradient painted by `PreBufferPaint` before controls render.
+
+```
+cell written with Transparent bg  →  display_bg = gradient color at that position
+cell foreground                   →  displayed as-is over the composited background
+```
+
+This means gradient window backgrounds remain visible beneath any control that uses
+`Color.Transparent`, even when that control has opaque foreground characters.
+
+```csharp
+// Window with a blue→black vertical gradient
+var window = new WindowBuilder(ws)
+    .WithBackgroundGradient(
+        ColorGradient.FromColors(Color.DarkBlue, Color.Black),
+        GradientDirection.Vertical)
+    .Build();
+
+// SparklineControl with transparent background — gradient shows through the graph area
+var spark = new SparklineControl();
+// BackgroundColor is null → resolves to Color.Transparent → gradient visible behind bars
+window.AddControl(spark);
+```
+
+### Alpha Channel in Color
+
+`Color` carries an alpha channel. `ColorGradient.BlendColors` interpolates all four channels
+(R, G, B, A), so gradients can themselves fade to transparent — creating controls whose
+background dissolves into the window gradient at one edge.
+
+```csharp
+// Gradient that fades from cyan to fully transparent
+var fadeOut = ColorGradient.FromColors(Color.Cyan, Color.FromArgb(0, 0, 255, 255));
+var bar = new BarGraphControl { SmoothGradient = fadeOut };
+```
+
 ## See Also
 
 - [Markup Syntax](MARKUP_SYNTAX.md) — Full markup reference

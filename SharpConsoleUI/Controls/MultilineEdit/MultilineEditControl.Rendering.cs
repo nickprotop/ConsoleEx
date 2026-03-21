@@ -82,11 +82,9 @@ namespace SharpConsoleUI.Controls
 
 			Color bgColor;
 			if (_hasFocus)
-				bgColor = ColorResolver.Coalesce(_focusedBackgroundColorValue)
-					?? ColorResolver.Coalesce(Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor)
-					?? Color.Transparent;
+				bgColor = ColorResolver.ResolveMultilineEditFocusedBackground(_focusedBackgroundColorValue, Container);
 			else
-				bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+				bgColor = ColorResolver.ResolveMultilineEditBackground(_backgroundColorValue, Container);
 			Color fgColor = _hasFocus ? FocusedForegroundColor : ForegroundColor;
 			Color selBgColor = SelectionBackgroundColor;
 			Color selFgColor = SelectionForegroundColor;

@@ -449,27 +449,12 @@ namespace SharpConsoleUI.Core
 				return;
 			}
 
-			// Find the top-level entry for this target
-			var topLevel = FindTopLevelControl(target);
-
-			// Same top-level container, different leaf — just update internal focus
-			if (topLevel == _window._lastFocusedControl as IWindowControl && topLevel != null)
-			{
-				PropagateClickFocusToContainers(clickedControl, FocusReason.Mouse);
-
-				// Update focus path with the new leaf
-				if (clickedControl != null)
-					UpdateFocusPath(clickedControl);
-
-				// Update legacy leaf tracking (will be removed in Phase 5)
-				_window._lastDeepFocusedControl = clickedControl is IInteractiveControl leafInteractive ? leafInteractive : null;
-				var focusTarget = _window._lastDeepFocusedControl ?? _window._lastFocusedControl;
-				if (focusTarget != null)
-					_window.FocusService?.SetFocus(_window, focusTarget, FocusChangeReason.Mouse);
-				return;
-			}
-
-			// Different top-level container — full focus switch
+			// Always do a full focus switch via RequestFocus, even when the click stays within
+			// the same top-level container. The former "same top-level shortcut" only called
+			// PropagateClickFocusToContainers, bypassing UnfocusCurrentChain. That left
+			// containers with internal pane routing (e.g. NavigationView's nav/content split)
+			// in an inconsistent state: _navScrollPanel.HasFocus stayed true when clicking
+			// a content-pane control like PromptControl or CheckboxControl.
 			RequestFocus(target, FocusReason.Mouse);
 
 			// After focusing the container, propagate click to internal children
