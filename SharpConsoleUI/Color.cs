@@ -310,6 +310,30 @@ namespace SharpConsoleUI
 		/// <summary>Returns a copy of this color with the specified alpha value.</summary>
 		public Color WithAlpha(byte a) => new(R, G, B, a);
 
+		#region Blending
+	
+		/// <summary>
+		/// Composites <paramref name="src"/> over <paramref name="dst"/> using Porter-Duff "over".
+		/// Fast paths: fully opaque src (A=255) returns src; fully transparent src (A=0) returns dst.
+		/// If dst.IsDefault, returns src unmodified (no RGB to blend against).
+		/// Always returns a fully opaque color (A=255) — alpha is consumed at blend time.
+		/// </summary>
+		public static Color Blend(Color src, Color dst)
+		{
+			if (dst.IsDefault)  return src;
+			if (src.A == 255)   return src;
+			if (src.A == 0)     return dst;
+	
+			float a = src.A / 255f;
+			return new Color(
+				(byte)(src.R * a + dst.R * (1 - a)),
+				(byte)(src.G * a + dst.G * (1 - a)),
+				(byte)(src.B * a + dst.B * (1 - a)),
+				255);
+		}
+	
+		#endregion
+
 		/// <summary>
 		/// Creates a Color from a 256-color palette index (0-255).
 		/// Indices 0-7 are standard colors, 8-15 are bright colors,
