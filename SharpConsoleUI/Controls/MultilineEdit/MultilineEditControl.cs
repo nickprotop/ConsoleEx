@@ -245,9 +245,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color when the control is not focused.
 		/// </summary>
-		public Color BackgroundColor
+		public Color? BackgroundColor
 		{
-			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+			get => _backgroundColorValue;
 			set
 			{
 				_backgroundColorValue = value;
@@ -285,9 +285,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color when the control is focused.
 		/// </summary>
-		public Color FocusedBackgroundColor
+		public Color? FocusedBackgroundColor
 		{
-			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor ?? Color.White;
+			get => _focusedBackgroundColorValue;
 			set
 			{
 				_focusedBackgroundColorValue = value;

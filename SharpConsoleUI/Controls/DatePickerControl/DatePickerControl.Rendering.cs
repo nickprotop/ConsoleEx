@@ -38,7 +38,6 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 			_lastLayoutBounds = bounds;
 
-			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 			var effectiveBg = Color.Transparent;
 
 			Color backgroundColor;
@@ -51,13 +50,13 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (_hasFocus)
 			{
-				backgroundColor = FocusedBackgroundColor;
-				foregroundColor = FocusedForegroundColor;
+				backgroundColor = ColorResolver.ResolveDatePickerFocusedBackground(_focusedBackgroundColorValue, Container);
+				foregroundColor = ColorResolver.ResolveDatePickerFocusedForeground(_focusedForegroundColorValue, Container);
 			}
 			else
 			{
-				backgroundColor = BackgroundColor;
-				foregroundColor = ForegroundColor;
+				backgroundColor = ColorResolver.ResolveDatePickerBackground(_backgroundColorValue, Container);
+				foregroundColor = ColorResolver.ResolveDatePickerForeground(_foregroundColorValue, Container);
 			}
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
@@ -114,8 +113,8 @@ namespace SharpConsoleUI.Controls
 					Color segBg, segFg;
 					if (_hasFocus && i == _focusedSegment)
 					{
-						segBg = SegmentBackgroundColor;
-						segFg = SegmentForegroundColor;
+						segBg = ColorResolver.ResolveDatePickerSegmentBackground(_segmentBackgroundColorValue, Container);
+						segFg = ColorResolver.ResolveDatePickerSegmentForeground(_segmentForegroundColorValue, Container);
 					}
 					else
 					{
@@ -170,8 +169,8 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		internal void PaintCalendarInternal(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect)
 		{
-			Color bg = Container?.GetConsoleWindowSystem?.Theme?.DatePickerBackgroundColor ?? BackgroundColor;
-			Color fg = Container?.GetConsoleWindowSystem?.Theme?.DatePickerForegroundColor ?? ForegroundColor;
+			Color bg = ColorResolver.ResolveDatePickerBackground(_backgroundColorValue, Container);
+			Color fg = ColorResolver.ResolveDatePickerForeground(_foregroundColorValue, Container);
 			Color todayColor = Container?.GetConsoleWindowSystem?.Theme?.DatePickerCalendarTodayColor ?? Color.Cyan;
 			Color selectedColor = Container?.GetConsoleWindowSystem?.Theme?.DatePickerCalendarSelectedColor ?? Color.Blue;
 			Color headerColor = Container?.GetConsoleWindowSystem?.Theme?.DatePickerCalendarHeaderColor ?? Color.Yellow;

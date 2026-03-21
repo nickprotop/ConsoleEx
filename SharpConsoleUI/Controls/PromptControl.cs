@@ -426,8 +426,12 @@ namespace SharpConsoleUI.Controls
 
 				// Calculate colors
 				Color inputBackgroundColor = HasFocus
-					? InputFocusedBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor ?? Color.White
-					: InputBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor ?? Color.Black;
+					? ColorResolver.Coalesce(InputFocusedBackgroundColor)
+						?? ColorResolver.Coalesce(Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor)
+						?? Color.Transparent
+					: ColorResolver.Coalesce(InputBackgroundColor)
+						?? ColorResolver.Coalesce(Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor)
+						?? Color.Transparent;
 				Color inputForegroundColor = HasFocus
 					? InputFocusedForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black
 					: InputForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;

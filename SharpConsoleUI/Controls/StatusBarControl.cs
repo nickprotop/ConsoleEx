@@ -194,10 +194,10 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 	/// <summary>
 	/// Gets or sets the status bar background color. Null inherits from theme/container.
 	/// </summary>
-	public Color BackgroundColor
+	public Color? BackgroundColor
 	{
-		get => ColorResolver.ResolveStatusBarBackground(_backgroundColorValue, Container);
-		set => SetProperty(ref _backgroundColorValue, (Color?)value);
+		get => _backgroundColorValue;
+		set => SetProperty(ref _backgroundColorValue, value);
 	}
 
 	/// <summary>
@@ -533,7 +533,7 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 	{
 		SetActualBounds(bounds);
 
-		var bgColor = BackgroundColor;
+		var bgColor = ColorResolver.ResolveStatusBarBackground(_backgroundColorValue, Container);
 		var fgColor = ForegroundColor;
 		var shortcutFg = ShortcutForegroundColor;
 
@@ -543,8 +543,6 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 		int contentWidth = bounds.Width - Margin.Left - Margin.Right;
 		int contentHeight = ControlDefaults.StatusBarDefaultHeight;
 
-		// Fill margins with container background
-		Color containerBg = Container?.BackgroundColor ?? defaultBg;
 		var effectiveBg = Color.Transparent;
 
 		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, effectiveBg);

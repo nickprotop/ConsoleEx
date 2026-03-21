@@ -12,40 +12,32 @@ namespace SharpConsoleUI.Helpers
 {
 	/// <summary>
 	/// Provides centralized color resolution logic for controls.
-	/// Extracted from 11+ controls that had identical cascading null-coalescing chains.
+	/// Resolution chain: explicit value → theme slot → Color.Transparent.
+	/// null and Color.Default are treated identically (both mean "no explicit value").
 	/// </summary>
 	public static class ColorResolver
 	{
 		/// <summary>
-		/// Resolves a background color using the standard fallback chain:
-		/// explicit value → container background → theme window background → default.
+		/// Returns null if the value is null or Color.Default (IsDefault=true); otherwise returns the value.
+		/// Both null and Color.Default mean "no explicit setting" in the resolution chain.
 		/// </summary>
-		/// <param name="explicitValue">The explicitly set color value, if any.</param>
-		/// <param name="container">The parent container to inherit colors from.</param>
-		/// <param name="defaultColor">The default color to use if no other source is available. Defaults to Black.</param>
-		/// <returns>The resolved background color.</returns>
-		public static Color ResolveBackground(
-			Color? explicitValue,
-			IContainer? container,
-			Color defaultColor = default)
-		{
-			if (defaultColor == default)
-				defaultColor = Color.Black;
+		internal static Color? Coalesce(Color? c) =>
+			(c == null || c.Value.IsDefault) ? null : c;
 
-			return explicitValue
-				?? container?.BackgroundColor
-				?? container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor
-				?? defaultColor;
-		}
+		/// <summary>
+		/// Resolves a generic background color: explicit value → Color.Transparent.
+		/// Controls without a specific theme slot are transparent by default.
+		/// The container parameter is accepted for API consistency but not used —
+		/// generic controls have no theme slot to fall back to.
+		/// </summary>
+		public static Color ResolveBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Color.Transparent;
 
 		/// <summary>
 		/// Resolves a foreground color using the standard fallback chain:
 		/// explicit value → container foreground → theme window foreground → default.
 		/// </summary>
-		/// <param name="explicitValue">The explicitly set color value, if any.</param>
-		/// <param name="container">The parent container to inherit colors from.</param>
-		/// <param name="defaultColor">The default color to use if no other source is available. Defaults to White.</param>
-		/// <returns>The resolved foreground color.</returns>
 		public static Color ResolveForeground(
 			Color? explicitValue,
 			IContainer? container,
@@ -61,33 +53,16 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves a menu bar background color using the menu-specific fallback chain.
+		/// Resolves menu bar background: explicit → theme MenuBarBackgroundColor → Color.Transparent.
 		/// </summary>
-		/// <param name="explicitValue">The explicitly set color value, if any.</param>
-		/// <param name="container">The parent container to inherit colors from.</param>
-		/// <param name="defaultColor">The default color to use if no other source is available. Defaults to Black.</param>
-		/// <returns>The resolved menu bar background color.</returns>
-		public static Color ResolveMenuBarBackground(
-			Color? explicitValue,
-			IContainer? container,
-			Color defaultColor = default)
-		{
-			if (defaultColor == default)
-				defaultColor = Color.Black;
-
-			return explicitValue
-				?? container?.GetConsoleWindowSystem?.Theme?.MenuBarBackgroundColor
-				?? container?.BackgroundColor
-				?? defaultColor;
-		}
+		public static Color ResolveMenuBarBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.MenuBarBackgroundColor)
+			?? Color.Transparent;
 
 		/// <summary>
-		/// Resolves a menu bar foreground color using the menu-specific fallback chain.
+		/// Resolves menu bar foreground color.
 		/// </summary>
-		/// <param name="explicitValue">The explicitly set color value, if any.</param>
-		/// <param name="container">The parent container to inherit colors from.</param>
-		/// <param name="defaultColor">The default color to use if no other source is available. Defaults to White.</param>
-		/// <returns>The resolved menu bar foreground color.</returns>
 		public static Color ResolveMenuBarForeground(
 			Color? explicitValue,
 			IContainer? container,
@@ -103,24 +78,15 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves button background color: explicit → theme button bg → container bg → default.
+		/// Resolves button background: explicit → theme ButtonBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveButtonBackground(
-			Color? explicitValue,
-			IContainer? container,
-			Color defaultColor = default)
-		{
-			if (defaultColor == default)
-				defaultColor = Color.Black;
-
-			return explicitValue
-				?? container?.GetConsoleWindowSystem?.Theme?.ButtonBackgroundColor
-				?? container?.BackgroundColor
-				?? defaultColor;
-		}
+		public static Color ResolveButtonBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.ButtonBackgroundColor)
+			?? Color.Transparent;
 
 		/// <summary>
-		/// Resolves button foreground color: explicit → theme button fg → container fg → default.
+		/// Resolves button foreground color.
 		/// </summary>
 		public static Color ResolveButtonForeground(
 			Color? explicitValue,
@@ -137,24 +103,15 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves focused button background color: explicit → theme focused bg → container bg → default.
+		/// Resolves focused button background: explicit → theme ButtonFocusedBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveButtonFocusedBackground(
-			Color? explicitValue,
-			IContainer? container,
-			Color defaultColor = default)
-		{
-			if (defaultColor == default)
-				defaultColor = Color.Black;
-
-			return explicitValue
-				?? container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor
-				?? container?.BackgroundColor
-				?? defaultColor;
-		}
+		public static Color ResolveButtonFocusedBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor)
+			?? Color.Transparent;
 
 		/// <summary>
-		/// Resolves focused button foreground color: explicit → theme focused fg → container fg → default.
+		/// Resolves focused button foreground color.
 		/// </summary>
 		public static Color ResolveButtonFocusedForeground(
 			Color? explicitValue,
@@ -171,24 +128,15 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves disabled button background color: explicit → theme disabled bg → container bg → default.
+		/// Resolves disabled button background: explicit → theme ButtonDisabledBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveButtonDisabledBackground(
-			Color? explicitValue,
-			IContainer? container,
-			Color defaultColor = default)
-		{
-			if (defaultColor == default)
-				defaultColor = Color.Black;
-
-			return explicitValue
-				?? container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor
-				?? container?.BackgroundColor
-				?? defaultColor;
-		}
+		public static Color ResolveButtonDisabledBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor)
+			?? Color.Transparent;
 
 		/// <summary>
-		/// Resolves disabled button foreground color: explicit → theme disabled fg → container fg → default.
+		/// Resolves disabled button foreground color.
 		/// </summary>
 		public static Color ResolveButtonDisabledForeground(
 			Color? explicitValue,
@@ -205,24 +153,15 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves active tab header background color: explicit → theme → container bg → default.
+		/// Resolves active tab header background: explicit → theme TabHeaderActiveBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveTabHeaderActiveBackground(
-			Color? explicitValue,
-			IContainer? container,
-			Color defaultColor = default)
-		{
-			if (defaultColor == default)
-				defaultColor = Color.Blue;
-
-			return explicitValue
-				?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderActiveBackgroundColor
-				?? container?.BackgroundColor
-				?? defaultColor;
-		}
+		public static Color ResolveTabHeaderActiveBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TabHeaderActiveBackgroundColor)
+			?? Color.Transparent;
 
 		/// <summary>
-		/// Resolves active tab header foreground color: explicit → theme → container fg → default.
+		/// Resolves active tab header foreground color.
 		/// </summary>
 		public static Color ResolveTabHeaderActiveForeground(
 			Color? explicitValue,
@@ -239,24 +178,15 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves inactive tab header background color: explicit → theme → container bg → default.
+		/// Resolves inactive tab header background: explicit → theme TabHeaderBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveTabHeaderBackground(
-			Color? explicitValue,
-			IContainer? container,
-			Color defaultColor = default)
-		{
-			if (defaultColor == default)
-				defaultColor = Color.Black;
-
-			return explicitValue
-				?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderBackgroundColor
-				?? container?.BackgroundColor
-				?? defaultColor;
-		}
+		public static Color ResolveTabHeaderBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TabHeaderBackgroundColor)
+			?? Color.Transparent;
 
 		/// <summary>
-		/// Resolves inactive tab header foreground color: explicit → theme → container fg → default.
+		/// Resolves inactive tab header foreground color.
 		/// </summary>
 		public static Color ResolveTabHeaderForeground(
 			Color? explicitValue,
@@ -273,24 +203,15 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves disabled tab header background color: explicit → theme → container bg → default.
+		/// Resolves disabled tab header background: explicit → theme TabHeaderDisabledBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveTabHeaderDisabledBackground(
-			Color? explicitValue,
-			IContainer? container,
-			Color defaultColor = default)
-		{
-			if (defaultColor == default)
-				defaultColor = Color.Black;
-
-			return explicitValue
-				?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderDisabledBackgroundColor
-				?? container?.BackgroundColor
-				?? defaultColor;
-		}
+		public static Color ResolveTabHeaderDisabledBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TabHeaderDisabledBackgroundColor)
+			?? Color.Transparent;
 
 		/// <summary>
-		/// Resolves disabled tab header foreground color: explicit → theme → container fg → default.
+		/// Resolves disabled tab header foreground color.
 		/// </summary>
 		public static Color ResolveTabHeaderDisabledForeground(
 			Color? explicitValue,
@@ -307,17 +228,14 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves the date picker background color from explicit value, theme, or container.
+		/// Resolves date picker background: explicit → theme DatePickerBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveDatePickerBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
-		{
-			if (defaultColor == default) defaultColor = Color.Black;
-			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.DatePickerBackgroundColor ?? container?.BackgroundColor ?? defaultColor;
-		}
+		public static Color ResolveDatePickerBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.DatePickerBackgroundColor)
+			?? Color.Transparent;
 
-		/// <summary>
-		/// Resolves the date picker foreground color from explicit value, theme, or container.
-		/// </summary>
+		/// <summary>Resolves date picker foreground color.</summary>
 		public static Color ResolveDatePickerForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
@@ -325,17 +243,14 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves the date picker focused background color from explicit value, theme, or default.
+		/// Resolves date picker focused background: explicit → theme DatePickerFocusedBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveDatePickerFocusedBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
-		{
-			if (defaultColor == default) defaultColor = Color.Blue;
-			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.DatePickerFocusedBackgroundColor ?? defaultColor;
-		}
+		public static Color ResolveDatePickerFocusedBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.DatePickerFocusedBackgroundColor)
+			?? Color.Transparent;
 
-		/// <summary>
-		/// Resolves the date picker focused foreground color from explicit value, theme, or default.
-		/// </summary>
+		/// <summary>Resolves date picker focused foreground color.</summary>
 		public static Color ResolveDatePickerFocusedForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
@@ -343,17 +258,14 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves the date picker segment background color from explicit value, theme, or default.
+		/// Resolves date picker segment background: explicit → theme DatePickerSegmentBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveDatePickerSegmentBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
-		{
-			if (defaultColor == default) defaultColor = Color.DarkBlue;
-			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.DatePickerSegmentBackgroundColor ?? defaultColor;
-		}
+		public static Color ResolveDatePickerSegmentBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.DatePickerSegmentBackgroundColor)
+			?? Color.Transparent;
 
-		/// <summary>
-		/// Resolves the date picker segment foreground color from explicit value, theme, or default.
-		/// </summary>
+		/// <summary>Resolves date picker segment foreground color.</summary>
 		public static Color ResolveDatePickerSegmentForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
@@ -361,17 +273,14 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves the time picker background color from explicit value, theme, or container.
+		/// Resolves time picker background: explicit → theme TimePickerBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveTimePickerBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
-		{
-			if (defaultColor == default) defaultColor = Color.Black;
-			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerBackgroundColor ?? container?.BackgroundColor ?? defaultColor;
-		}
+		public static Color ResolveTimePickerBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TimePickerBackgroundColor)
+			?? Color.Transparent;
 
-		/// <summary>
-		/// Resolves the time picker foreground color from explicit value, theme, or container.
-		/// </summary>
+		/// <summary>Resolves time picker foreground color.</summary>
 		public static Color ResolveTimePickerForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
@@ -379,17 +288,14 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves the time picker focused background color from explicit value, theme, or default.
+		/// Resolves time picker focused background: explicit → theme TimePickerFocusedBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveTimePickerFocusedBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
-		{
-			if (defaultColor == default) defaultColor = Color.Blue;
-			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerFocusedBackgroundColor ?? defaultColor;
-		}
+		public static Color ResolveTimePickerFocusedBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TimePickerFocusedBackgroundColor)
+			?? Color.Transparent;
 
-		/// <summary>
-		/// Resolves the time picker focused foreground color from explicit value, theme, or default.
-		/// </summary>
+		/// <summary>Resolves time picker focused foreground color.</summary>
 		public static Color ResolveTimePickerFocusedForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
@@ -397,26 +303,21 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves the time picker segment background color from explicit value, theme, or default.
+		/// Resolves time picker segment background: explicit → theme TimePickerSegmentBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveTimePickerSegmentBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
-		{
-			if (defaultColor == default) defaultColor = Color.DarkBlue;
-			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerSegmentBackgroundColor ?? defaultColor;
-		}
+		public static Color ResolveTimePickerSegmentBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TimePickerSegmentBackgroundColor)
+			?? Color.Transparent;
 
-		/// <summary>
-		/// Resolves the time picker segment foreground color from explicit value, theme, or default.
-		/// </summary>
+		/// <summary>Resolves time picker segment foreground color.</summary>
 		public static Color ResolveTimePickerSegmentForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.TimePickerSegmentForegroundColor ?? defaultColor;
 		}
 
-		/// <summary>
-		/// Resolves the time picker disabled foreground color from explicit value, theme, or default.
-		/// </summary>
+		/// <summary>Resolves time picker disabled foreground color.</summary>
 		public static Color ResolveTimePickerDisabledForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.Grey;
@@ -424,35 +325,28 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Resolves status bar background color: explicit → theme → container bg → default.
+		/// Resolves status bar background: explicit → theme StatusBarBackgroundColor → Color.Transparent.
 		/// </summary>
-		public static Color ResolveStatusBarBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
-		{
-			if (defaultColor == default) defaultColor = Color.Black;
-			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.StatusBarBackgroundColor ?? container?.BackgroundColor ?? defaultColor;
-		}
+		public static Color ResolveStatusBarBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.StatusBarBackgroundColor)
+			?? Color.Transparent;
 
-		/// <summary>
-		/// Resolves status bar foreground color: explicit → theme → container fg → default.
-		/// </summary>
+		/// <summary>Resolves status bar foreground color.</summary>
 		public static Color ResolveStatusBarForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.White;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.StatusBarForegroundColor ?? container?.ForegroundColor ?? defaultColor;
 		}
 
-		/// <summary>
-		/// Resolves status bar shortcut foreground color: explicit → theme → Cyan1.
-		/// </summary>
+		/// <summary>Resolves status bar shortcut foreground color.</summary>
 		public static Color ResolveStatusBarShortcutForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
 		{
 			if (defaultColor == default) defaultColor = Color.Cyan1;
 			return explicitValue ?? container?.GetConsoleWindowSystem?.Theme?.StatusBarShortcutForegroundColor ?? defaultColor;
 		}
 
-		/// <summary>
-		/// Resolves tab content border color: explicit → theme → active border → default.
-		/// </summary>
+		/// <summary>Resolves tab content border color.</summary>
 		public static Color ResolveTabContentBorder(
 			Color? explicitValue,
 			IContainer? container,
@@ -466,5 +360,63 @@ namespace SharpConsoleUI.Helpers
 				?? container?.GetConsoleWindowSystem?.Theme?.ActiveBorderForegroundColor
 				?? defaultColor;
 		}
+
+		// --- New methods for Checkbox, List, Tree ---
+
+		/// <summary>
+		/// Resolves checkbox background: explicit → theme CheckboxBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveCheckboxBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.CheckboxBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves focused checkbox background: explicit → theme CheckboxFocusedBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveCheckboxFocusedBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.CheckboxFocusedBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves disabled checkbox background: explicit → theme CheckboxDisabledBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveCheckboxDisabledBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.CheckboxDisabledBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves list background: explicit → theme ListBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveListBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.ListBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves tree background: explicit → theme TreeBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveTreeBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TreeBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves tree selection background (focused): explicit → theme TreeSelectionBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveTreeSelectionBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TreeSelectionBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves tree unfocused selection background: explicit → theme TreeUnfocusedSelectionBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveTreeUnfocusedSelectionBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TreeUnfocusedSelectionBackgroundColor)
+			?? Color.Transparent;
 	}
 }

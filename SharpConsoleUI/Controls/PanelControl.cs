@@ -587,7 +587,7 @@ namespace SharpConsoleUI.Controls
 				int innerWidth = (Width ?? 80) - (_borderStyle == BorderStyle.None ? 0 : 2) - _padding.Left - _padding.Right;
 				if (innerWidth > 0)
 				{
-					Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? Color.Black;
+					Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 					Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? Color.White;
 					contentLineCount = GetContentLines(innerWidth, fgColor, bgColor).Count;
 				}
@@ -613,7 +613,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? Color.Black;
+			Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? Color.White;
 
 			bool hasBorder = _borderStyle != BorderStyle.None;
@@ -666,7 +666,7 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			// Resolve colors using standard fallback chain
-			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
+			Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
 			Color borderColor = _borderColorValue ?? fgColor;
 			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;

@@ -102,10 +102,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color of the button in its normal state.
 		/// </summary>
-		public Color BackgroundColor
+		public Color? BackgroundColor
 		{
-			get => ColorResolver.ResolveButtonBackground(_backgroundColor, Container);
-			set => SetProperty(ref _backgroundColor, (Color?)value);
+			get => _backgroundColor;
+			set => SetProperty(ref _backgroundColor, value);
 		}
 
 		/// <summary>
@@ -120,10 +120,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color when the button has focus.
 		/// </summary>
-		public Color FocusedBackgroundColor
+		public Color? FocusedBackgroundColor
 		{
-			get => ColorResolver.ResolveButtonFocusedBackground(_focusedBackgroundColor, Container);
-			set => SetProperty(ref _focusedBackgroundColor, (Color?)value);
+			get => _focusedBackgroundColor;
+			set => SetProperty(ref _focusedBackgroundColor, value);
 		}
 
 		/// <summary>
@@ -138,10 +138,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color when the button is disabled.
 		/// </summary>
-		public Color DisabledBackgroundColor
+		public Color? DisabledBackgroundColor
 		{
-			get => ColorResolver.ResolveButtonDisabledBackground(_disabledBackgroundColor, Container);
-			set => SetProperty(ref _disabledBackgroundColor, (Color?)value);
+			get => _disabledBackgroundColor;
+			set => SetProperty(ref _disabledBackgroundColor, value);
 		}
 
 		/// <summary>
@@ -342,7 +342,6 @@ namespace SharpConsoleUI.Controls
 		{
 			SetActualBounds(bounds);
 
-			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 			var effectiveBg = Color.Transparent;
 
 			Color backgroundColor;
@@ -350,17 +349,17 @@ namespace SharpConsoleUI.Controls
 			if (!_enabled)
 			{
 				foregroundColor = DisabledForegroundColor;
-				backgroundColor = DisabledBackgroundColor;
+				backgroundColor = ColorResolver.ResolveButtonDisabledBackground(_disabledBackgroundColor, Container);
 			}
 			else if (_focused)
 			{
 				foregroundColor = FocusedForegroundColor;
-				backgroundColor = FocusedBackgroundColor;
+				backgroundColor = ColorResolver.ResolveButtonFocusedBackground(_focusedBackgroundColor, Container);
 			}
 			else
 			{
 				foregroundColor = ForegroundColor;
-				backgroundColor = BackgroundColor;
+				backgroundColor = ColorResolver.ResolveButtonBackground(_backgroundColor, Container);
 			}
 
 			Color borderFg = _borderColor ?? foregroundColor;

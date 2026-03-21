@@ -283,18 +283,18 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color of the list control.
 		/// </summary>
-		public Color BackgroundColor
+		public Color? BackgroundColor
 		{
-			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+			get => _backgroundColorValue;
 			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
 		/// Gets or sets the background color when the list has focus.
 		/// </summary>
-		public Color FocusedBackgroundColor
+		public Color? FocusedBackgroundColor
 		{
-			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
+			get => _focusedBackgroundColorValue;
 			set => SetProperty(ref _focusedBackgroundColorValue, (Color?)value);
 		}
 

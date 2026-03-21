@@ -64,10 +64,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Color BackgroundColor
 		{
-			// Resolution chain: explicit → grid's bg → grid's parent (Window) → theme → black
-			get => _backgroundColorValue ?? _horizontalGridContent?.BackgroundColor
-				?? _horizontalGridContent?.Container?.BackgroundColor
-				?? Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			// Resolution chain: explicit → Transparent (children use alpha blending, no container fallback needed)
+			get => _backgroundColorValue ?? Color.Transparent;
 			set { _backgroundColorValue = value; Container?.Invalidate(true); }
 		}
 
@@ -934,7 +932,6 @@ namespace SharpConsoleUI.Controls
 			// Children are painted by the DOM tree's child LayoutNodes.
 			// This method only paints the container's own content (background, margins).
 
-			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
 			var effectiveBg = Color.Transparent;
 

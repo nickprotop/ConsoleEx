@@ -46,7 +46,7 @@ namespace SharpConsoleUI.Controls
 			List<TabPage> snapshot;
 			int activeIdx;
 			lock (_tabLock) { snapshot = _tabPages.ToList(); activeIdx = _activeTabIndex; }
-			var bgColor = ColorResolver.ResolveBackground(_backgroundColor, Container, defaultBg);
+			var bgColor = ColorResolver.ResolveBackground(_backgroundColor, Container);
 			int headerLeft = bounds.X + Margin.Left;
 			int headerRight = bounds.X + bounds.Width - Margin.Right;
 			int headerY = bounds.Y + Margin.Top;

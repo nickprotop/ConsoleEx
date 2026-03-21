@@ -94,11 +94,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color of the splitter in normal state.
 		/// </summary>
-		public Color BackgroundColor
+		public Color? BackgroundColor
 		{
-			// Resolution chain: explicit → grid's bg → grid's parent (Container) → theme
-			get => _backgroundColorValue ?? _parentGrid?.BackgroundColor
-				?? ColorResolver.ResolveBackground(null, Container);
+			get => _backgroundColorValue;
 			set
 			{
 				_backgroundColorValue = value;
@@ -339,7 +337,7 @@ namespace SharpConsoleUI.Controls
 			else
 			{
 				// Use normal colors
-				bgColor = BackgroundColor;
+				bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 				fgColor = ForegroundColor;
 			}
 
@@ -348,8 +346,7 @@ namespace SharpConsoleUI.Controls
 			int splitterHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
 			// Fill margins with background color
-			Color windowBackground = _parentGrid?.BackgroundColor ?? Container?.BackgroundColor ?? defaultBg;
-			var effectiveBg = (_backgroundColorValue == null && _parentGrid?.BackgroundColor == null) ? Color.Transparent : windowBackground;
+			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);

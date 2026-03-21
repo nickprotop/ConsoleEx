@@ -10,6 +10,7 @@ using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls
@@ -50,7 +51,7 @@ namespace SharpConsoleUI.Controls
 		{
 			SetActualBounds(bounds);
 
-			var bgColor = BackgroundColor;
+			var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			var fgColor = _foregroundColor;
 
 			int startX = bounds.X + Margin.Left;

@@ -105,10 +105,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color of the checkbox in its normal state.
 		/// </summary>
-		public Color BackgroundColor
+		public Color? BackgroundColor
 		{
-			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set => SetProperty(ref _backgroundColorValue, (Color?)value);
+			get => _backgroundColorValue;
+			set => SetProperty(ref _backgroundColorValue, value);
 		}
 
 		/// <summary>
@@ -141,10 +141,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color when the control is disabled.
 		/// </summary>
-		public Color DisabledBackgroundColor
+		public Color? DisabledBackgroundColor
 		{
-			get => _disabledBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
-			set => SetProperty(ref _disabledBackgroundColorValue, (Color?)value);
+			get => _disabledBackgroundColorValue;
+			set => SetProperty(ref _disabledBackgroundColorValue, value);
 		}
 
 		/// <summary>
@@ -159,10 +159,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color when the control has focus.
 		/// </summary>
-		public Color FocusedBackgroundColor
+		public Color? FocusedBackgroundColor
 		{
-			get => _focusedBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedBackgroundColor ?? Color.Blue;
-			set => SetProperty(ref _focusedBackgroundColorValue, (Color?)value);
+			get => _focusedBackgroundColorValue;
+			set => SetProperty(ref _focusedBackgroundColorValue, value);
 		}
 
 		/// <summary>
@@ -412,23 +412,22 @@ namespace SharpConsoleUI.Controls
 
 		Color backgroundColor;
 			Color foregroundColor;
-			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 			var effectiveBg = Color.Transparent;
 
 			// Determine colors based on enabled/focused state
 			if (!_isEnabled)
 			{
-				backgroundColor = DisabledBackgroundColor;
+				backgroundColor = ColorResolver.ResolveCheckboxDisabledBackground(_disabledBackgroundColorValue, Container);
 				foregroundColor = DisabledForegroundColor;
 			}
 			else if (_hasFocus)
 			{
-				backgroundColor = FocusedBackgroundColor;
+				backgroundColor = ColorResolver.ResolveCheckboxFocusedBackground(_focusedBackgroundColorValue, Container);
 				foregroundColor = FocusedForegroundColor;
 			}
 			else
 			{
-				backgroundColor = BackgroundColor;
+				backgroundColor = ColorResolver.ResolveCheckboxBackground(_backgroundColorValue, Container);
 				foregroundColor = ForegroundColor;
 			}
 
@@ -496,7 +495,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Render checkbox content
-				var cellBg = (_backgroundColorValue == null && !_hasFocus && _isEnabled) ? Color.Transparent : backgroundColor;
+				var cellBg = backgroundColor; // backgroundColor is already Transparent when no explicit value
 				var cells = Parsing.MarkupParser.Parse(checkboxContent, foregroundColor, cellBg);
 				buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
 

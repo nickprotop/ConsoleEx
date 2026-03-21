@@ -111,9 +111,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color of the splitter in normal state.
 		/// </summary>
-		public Color BackgroundColor
+		public Color? BackgroundColor
 		{
-			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+			get => _backgroundColorValue;
 			set
 			{
 				_backgroundColorValue = value;
@@ -526,7 +526,7 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				bgColor = BackgroundColor;
+				bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 				fgColor = ForegroundColor;
 			}
 
@@ -534,8 +534,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + Margin.Top;
 			int splitterWidth = bounds.Width - Margin.Left - Margin.Right;
 
-			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : windowBackground;
+			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
@@ -550,7 +549,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Paint splitter characters
-				var splitterBg = effectiveBg;
+				var splitterBg = bgColor;
 				for (int x = 0; x < splitterWidth; x++)
 				{
 					int paintX = startX + x;

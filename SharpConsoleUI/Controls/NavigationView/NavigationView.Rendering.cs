@@ -56,9 +56,9 @@ namespace SharpConsoleUI.Controls
 			CheckAndApplyDisplayMode(targetWidth);
 
 			// Background fill — preserve gradient if no explicit background
-			var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container, defaultBg);
+			var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			var fgColor = ColorResolver.ResolveForeground(_foregroundColor, Container, defaultFg);
-			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;
+			var effectiveBg = bgColor;
 
 			for (int y = startY; y < startY + targetHeight; y++)
 			{

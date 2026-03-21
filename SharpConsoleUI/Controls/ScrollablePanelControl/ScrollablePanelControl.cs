@@ -456,8 +456,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Color BackgroundColor
 		{
-			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set { _backgroundColorValue = value; OnPropertyChanged(); Invalidate(true); }
+			get => _backgroundColorValue ?? Color.Transparent;
+			set { _backgroundColorValue = value; Container?.Invalidate(true); }
 		}
 
 		/// <inheritdoc/>

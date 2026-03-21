@@ -80,11 +80,16 @@ namespace SharpConsoleUI.Controls
 				gutterSnapshot = _gutterRenderers.ToList();
 			}
 
-			Color bgColor = _hasFocus ? FocusedBackgroundColor : BackgroundColor;
+			Color bgColor;
+			if (_hasFocus)
+				bgColor = ColorResolver.Coalesce(_focusedBackgroundColorValue)
+					?? ColorResolver.Coalesce(Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor)
+					?? Color.Transparent;
+			else
+				bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			Color fgColor = _hasFocus ? FocusedForegroundColor : ForegroundColor;
 			Color selBgColor = SelectionBackgroundColor;
 			Color selFgColor = SelectionForegroundColor;
-			Color windowBgColor = Container?.BackgroundColor ?? defaultBg;
 			var effectiveBg = Color.Transparent;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;

@@ -42,25 +42,24 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 			_lastLayoutBounds = bounds;
 
-			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 			var effectiveBg = Color.Transparent;
 
 			// Resolve colors based on state
 			Color bgColor, fgColor;
 			if (!_isEnabled)
 			{
-				bgColor = BackgroundColor;
-				fgColor = DisabledForegroundColor;
+				bgColor = ColorResolver.ResolveTimePickerBackground(_backgroundColorValue, Container);
+				fgColor = ColorResolver.ResolveTimePickerDisabledForeground(_disabledForegroundColorValue, Container);
 			}
 			else if (_hasFocus)
 			{
-				bgColor = FocusedBackgroundColor;
-				fgColor = FocusedForegroundColor;
+				bgColor = ColorResolver.ResolveTimePickerFocusedBackground(_focusedBackgroundColorValue, Container);
+				fgColor = ColorResolver.ResolveTimePickerFocusedForeground(_focusedForegroundColorValue, Container);
 			}
 			else
 			{
-				bgColor = BackgroundColor;
-				fgColor = ForegroundColor;
+				bgColor = ColorResolver.ResolveTimePickerBackground(_backgroundColorValue, Container);
+				fgColor = ColorResolver.ResolveTimePickerForeground(_foregroundColorValue, Container);
 			}
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
@@ -131,8 +130,8 @@ namespace SharpConsoleUI.Controls
 
 					// Determine segment colors
 					bool isActiveSegment = _hasFocus && _isEnabled && _focusedSegment == seg;
-					Color segFg = isActiveSegment ? SegmentForegroundColor : fgColor;
-					Color segBg = isActiveSegment ? SegmentBackgroundColor : bgColor;
+					Color segFg = isActiveSegment ? ColorResolver.ResolveTimePickerSegmentForeground(_segmentForegroundColorValue, Container) : fgColor;
+					Color segBg = isActiveSegment ? ColorResolver.ResolveTimePickerSegmentBackground(_segmentBackgroundColorValue, Container) : bgColor;
 
 					_segmentXPositions[seg] = writeX;
 					_segmentWidths[seg] = ControlDefaults.TimeSegmentWidth;
@@ -150,8 +149,8 @@ namespace SharpConsoleUI.Controls
 					RenderNarrowChar(buffer, ref writeX, startY, ' ', fgColor, bgColor, clipRect);
 
 					bool isActiveAmPm = _hasFocus && _isEnabled && _focusedSegment == ampmIdx;
-					Color ampmFg = isActiveAmPm ? SegmentForegroundColor : fgColor;
-					Color ampmBg = isActiveAmPm ? SegmentBackgroundColor : bgColor;
+					Color ampmFg = isActiveAmPm ? ColorResolver.ResolveTimePickerSegmentForeground(_segmentForegroundColorValue, Container) : fgColor;
+					Color ampmBg = isActiveAmPm ? ColorResolver.ResolveTimePickerSegmentBackground(_segmentBackgroundColorValue, Container) : bgColor;
 
 					_segmentXPositions[ampmIdx] = writeX;
 					string designator = IsCurrentlyPm ? _pmDesignator : _amDesignator;

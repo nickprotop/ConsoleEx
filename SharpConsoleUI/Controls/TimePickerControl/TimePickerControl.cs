@@ -231,10 +231,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color.
 		/// </summary>
-		public Color BackgroundColor
+		public Color? BackgroundColor
 		{
-			get => ColorResolver.ResolveTimePickerBackground(_backgroundColorValue, Container);
-			set => SetProperty(ref _backgroundColorValue, (Color?)value);
+			get => _backgroundColorValue;
+			set => SetProperty(ref _backgroundColorValue, value);
 		}
 
 		/// <summary>
@@ -249,10 +249,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color when focused.
 		/// </summary>
-		public Color FocusedBackgroundColor
+		public Color? FocusedBackgroundColor
 		{
-			get => ColorResolver.ResolveTimePickerFocusedBackground(_focusedBackgroundColorValue, Container);
-			set => SetProperty(ref _focusedBackgroundColorValue, (Color?)value);
+			get => _focusedBackgroundColorValue;
+			set => SetProperty(ref _focusedBackgroundColorValue, value);
 		}
 
 		/// <summary>
@@ -267,10 +267,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color for the active time segment.
 		/// </summary>
-		public Color SegmentBackgroundColor
+		public Color? SegmentBackgroundColor
 		{
-			get => ColorResolver.ResolveTimePickerSegmentBackground(_segmentBackgroundColorValue, Container);
-			set => SetProperty(ref _segmentBackgroundColorValue, (Color?)value);
+			get => _segmentBackgroundColorValue;
+			set => SetProperty(ref _segmentBackgroundColorValue, value);
 		}
 
 		/// <summary>

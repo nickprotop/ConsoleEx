@@ -146,7 +146,7 @@ namespace SharpConsoleUI.Controls
 		{
 			SetActualBounds(bounds);
 
-			var bgColor = BackgroundColor;
+			var bgColor = ColorResolver.ResolveTreeBackground(_backgroundColorValue, Container);
 			var fgColor = ForegroundColor;
 			var effectiveBg = Color.Transparent;
 			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
@@ -222,16 +222,17 @@ namespace SharpConsoleUI.Controls
 				Color textColor;
 				Color nodeBgColor;
 
+				var selectionBg = ColorResolver.ResolveTreeSelectionBackground(_highlightBackgroundColorValue, Container);
 				if (i == selectedIndex && _hasFocus)
 				{
 					textColor = HighlightForegroundColor;
-					nodeBgColor = HighlightBackgroundColor;
+					nodeBgColor = selectionBg;
 				}
 				else if (i == _hoveredIndex && _hasFocus)
 				{
 					// Hover highlight - subtle visual distinction
 					textColor = HighlightForegroundColor;
-					nodeBgColor = HighlightBackgroundColor;
+					nodeBgColor = selectionBg;
 				}
 				else
 				{

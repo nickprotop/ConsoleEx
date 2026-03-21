@@ -227,10 +227,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color of the dropdown in its normal state.
 		/// </summary>
-		public Color BackgroundColor
+		public Color? BackgroundColor
 		{
-			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set => SetProperty(ref _backgroundColorValue, (Color?)value);
+			get => _backgroundColorValue;
+			set => SetProperty(ref _backgroundColorValue, value);
 		}
 
 		// Container inherited from BaseControl

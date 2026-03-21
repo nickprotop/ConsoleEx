@@ -48,7 +48,6 @@ namespace SharpConsoleUI.Controls
 
 			Color backgroundColor;
 			Color foregroundColor;
-			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 
 			if (!_isEnabled)
 			{
@@ -62,7 +61,7 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				backgroundColor = BackgroundColor;
+				backgroundColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 				foregroundColor = ForegroundColor;
 			}
 

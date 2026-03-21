@@ -25,6 +25,7 @@ namespace SharpConsoleUI.Controls
 	{
 		private readonly List<TreeNode> _rootNodes = new();
 		private Color? _backgroundColorValue;
+	private Color? _highlightBackgroundColorValue;
 		private int? _calculatedMaxVisibleItems;
 		private List<TreeNode> _flattenedNodes = new();
 
@@ -119,9 +120,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color of the tree control.
 		/// </summary>
-		public Color BackgroundColor
+		public Color? BackgroundColor
 		{
-			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+			get => _backgroundColorValue;
 			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
@@ -179,7 +180,11 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the background color for highlighted items
 		/// </summary>
-		public Color HighlightBackgroundColor { get; set; } = Color.Blue;
+		public Color? HighlightBackgroundColor
+		{
+			get => _highlightBackgroundColorValue;
+			set => SetProperty(ref _highlightBackgroundColorValue, (Color?)value);
+		}
 
 		/// <summary>
 		/// Gets or sets the foreground color for highlighted items

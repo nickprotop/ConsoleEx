@@ -260,22 +260,21 @@ namespace SharpConsoleUI.Controls
 
 			Color backgroundColor;
 			Color foregroundColor;
-			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
 
 			// Determine colors based on enabled/focused state
 			if (!_isEnabled)
 			{
-				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
-				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
+				backgroundColor = ColorResolver.ResolveButtonDisabledBackground(null, Container);
+				foregroundColor = ColorResolver.ResolveButtonDisabledForeground(null, Container, Color.DarkSlateGray1);
 			}
 			else if (_hasFocus)
 			{
-				backgroundColor = FocusedBackgroundColor;
+				backgroundColor = ColorResolver.ResolveButtonFocusedBackground(_focusedBackgroundColorValue, Container);
 				foregroundColor = FocusedForegroundColor;
 			}
 			else
 			{
-				backgroundColor = BackgroundColor;
+				backgroundColor = ColorResolver.ResolveListBackground(_backgroundColorValue, Container);
 				foregroundColor = ForegroundColor;
 			}
 
