@@ -206,8 +206,22 @@ namespace SharpConsoleUI.Core
 			UpdateFocusPath(newLeaf);
 
 			// === Step 4: Sync Window tracking (legacy — will be removed in Phase 5) ===
-			if (newTopLevel is IInteractiveControl topInteractive)
-				_window._lastFocusedControl = topInteractive;
+			// _lastFocusedControl must be the outermost control we actually called SetFocus on
+			// (same selection logic as FocusNewChain) so that HasActiveInteractiveContent can
+			// route keys to it. Using newTopLevel (the Window's direct child, e.g. TabControl)
+			// would cause ProcessKey to be called on a container that drops typing keys.
+			IInteractiveControl? actualFocusedTopLevel = null;
+			for (int i = newChain.Count - 1; i >= 0; i--)
+			{
+				if (newChain[i] is IFocusableControl fc2 && fc2.CanReceiveFocus)
+				{
+					if (i > 0 && newChain[i] is Controls.IFocusableContainerWithHeader)
+						continue;
+					actualFocusedTopLevel = newChain[i] as IInteractiveControl;
+					break;
+				}
+			}
+			_window._lastFocusedControl = actualFocusedTopLevel ?? (newTopLevel as IInteractiveControl);
 			_window._lastDeepFocusedControl = newLeaf is IInteractiveControl leafInteractive ? leafInteractive : null;
 
 			// === Step 5: Sync FocusStateService ===
@@ -551,12 +565,20 @@ namespace SharpConsoleUI.Core
 		private void FocusNewChain(List<IWindowControl> chain, IWindowControl? topLevel, IWindowControl leaf, FocusReason reason)
 		{
 			// Find the outermost focusable control in the chain — that's what we focus
-			// (it will propagate internally to children)
+			// (it will propagate internally to children).
+			// Skip IFocusableContainerWithHeader controls (e.g. TabControl) when they are not
+			// the sole element in the chain: those containers own their header row as a Tab stop
+			// but do NOT delegate focus to their content. Focusing TabControl would absorb all
+			// key input via its ProcessKey guard, silently dropping typing keys.
 			IWindowControl? focusTarget = null;
 			for (int i = chain.Count - 1; i >= 0; i--)
 			{
 				if (chain[i] is IFocusableControl fc && fc.CanReceiveFocus)
 				{
+					// When there are inner controls (i > 0), skip header-container stops —
+					// the click targeted content inside them, not the header itself.
+					if (i > 0 && chain[i] is Controls.IFocusableContainerWithHeader)
+						continue;
 					focusTarget = chain[i];
 					break;
 				}
