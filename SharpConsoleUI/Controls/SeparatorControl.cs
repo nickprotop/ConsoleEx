@@ -141,10 +141,10 @@ namespace SharpConsoleUI.Controls
 
 			// Fill margins with container background color
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBackground;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 
 			// Paint the separator lines
 			for (int y = 0; y < separatorHeight; y++)
@@ -155,7 +155,7 @@ namespace SharpConsoleUI.Controls
 					// Fill left margin
 					if (Margin.Left > 0)
 					{
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, windowBackground, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, effectiveBg);
 					}
 
 					// Paint separator character
@@ -167,7 +167,7 @@ namespace SharpConsoleUI.Controls
 					// Fill right margin
 					if (Margin.Right > 0)
 					{
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX + 1, paintY, Margin.Right, 1), fgColor, windowBackground, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX + 1, paintY, Margin.Right, 1), fgColor, effectiveBg);
 					}
 				}
 			}
@@ -177,7 +177,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, effectiveBg);
 				}
 			}
 		}

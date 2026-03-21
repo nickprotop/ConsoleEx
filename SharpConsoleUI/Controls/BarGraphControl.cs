@@ -301,7 +301,7 @@ namespace SharpConsoleUI.Controls
 			// Resolve colors
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
 
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;
@@ -315,7 +315,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, effectiveBg);
 				}
 			}
 

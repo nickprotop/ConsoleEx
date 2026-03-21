@@ -39,7 +39,7 @@ namespace SharpConsoleUI.Controls
 			_lastLayoutBounds = bounds;
 
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBackground;
 
 			Color backgroundColor;
 			Color foregroundColor;
@@ -67,7 +67,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, effectiveBg);
 
 			int paintY = startY;
 
@@ -75,7 +75,7 @@ namespace SharpConsoleUI.Controls
 			{
 				// Fill left margin
 				if (Margin.Left > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), foregroundColor, effectiveBg);
 
 				// Render inline header: "Prompt [MM]/[DD]/[YYYY] ▼"
 				int writeX = startX;
@@ -148,17 +148,17 @@ namespace SharpConsoleUI.Controls
 				int rightFillWidth = bounds.Right - Margin.Right - writeX;
 				if (rightFillWidth > 0)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(writeX, paintY, rightFillWidth, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(writeX, paintY, rightFillWidth, 1), foregroundColor, effectiveBg);
 				}
 
 				// Fill right margin
 				if (Margin.Right > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), foregroundColor, effectiveBg);
 			}
 			paintY++;
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, paintY, foregroundColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, paintY, foregroundColor, effectiveBg);
 		}
 
 		#endregion

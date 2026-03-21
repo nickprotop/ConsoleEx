@@ -152,16 +152,16 @@ namespace SharpConsoleUI.Controls
 
 			Color bgColor = Container?.BackgroundColor ?? defaultBackground;
 			Color fgColor = Container?.ForegroundColor ?? defaultForeground;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
 
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;
 
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 
 			if (_source == null)
 			{
-				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
+				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 				return;
 			}
 
@@ -170,7 +170,7 @@ namespace SharpConsoleUI.Controls
 
 			if (availWidth <= 0 || availHeight <= 0)
 			{
-				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
+				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 				return;
 			}
 
@@ -179,7 +179,7 @@ namespace SharpConsoleUI.Controls
 
 			if (srcCols <= 0 || srcRows <= 0)
 			{
-				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
+				ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 				return;
 			}
 
@@ -242,7 +242,7 @@ namespace SharpConsoleUI.Controls
 				if (y < clipRect.Y || y >= clipRect.Bottom) continue;
 
 				if (Margin.Left > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, effectiveBg);
 
 				for (int cx = 0; cx < displayWidth && startX + cx < bounds.Right; cx++)
 				{
@@ -254,11 +254,11 @@ namespace SharpConsoleUI.Controls
 				int contentEndX = startX + displayWidth;
 				int rightPadWidth = bounds.Right - contentEndX;
 				if (rightPadWidth > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(contentEndX, y, rightPadWidth, 1), fgColor, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(contentEndX, y, rightPadWidth, 1), fgColor, effectiveBg);
 			}
 
 			int contentEndY = startY + displayHeight;
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, fgColor, bgColor, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, fgColor, effectiveBg);
 		}
 
 		/// <summary>

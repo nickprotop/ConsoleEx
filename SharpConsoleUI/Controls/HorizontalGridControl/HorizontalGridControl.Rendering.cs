@@ -104,7 +104,8 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = ColorResolver.ResolveBackground(BackgroundColor, Container, defaultBg);
 			var fgColor = ColorResolver.ResolveForeground(ForegroundColor, Container, defaultFg);
-			bool preserveBg = BackgroundColor == null && (Container?.HasGradientBackground ?? false);
+			var effectiveBg = (BackgroundColor == null && Container?.HasGradientBackground == true)
+				? Color.Transparent : bgColor;
 
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;
@@ -112,18 +113,18 @@ namespace SharpConsoleUI.Controls
 			int targetHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
 			// Fill top margin strip
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 			// Fill bottom margin strip
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + targetHeight, fgColor, bgColor, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + targetHeight, fgColor, effectiveBg);
 
 			// Fill content rows (with left/right margin strips per row)
 			for (int y = startY; y < startY + targetHeight; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					ControlRenderingHelpers.FillHorizontalMargins(buffer, bounds, clipRect, y, startX, targetWidth, fgColor, bgColor, preserveBg);
+					ControlRenderingHelpers.FillHorizontalMargins(buffer, bounds, clipRect, y, startX, targetWidth, fgColor, effectiveBg);
 					var lineRect = new LayoutRect(startX, y, targetWidth, 1);
-					ControlRenderingHelpers.FillRect(buffer, lineRect, fgColor, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, lineRect, fgColor, effectiveBg);
 				}
 			}
 		}

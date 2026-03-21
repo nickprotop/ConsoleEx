@@ -85,7 +85,7 @@ namespace SharpConsoleUI.Controls
 			Color selBgColor = SelectionBackgroundColor;
 			Color selFgColor = SelectionForegroundColor;
 			Color windowBgColor = Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBgColor;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) { _skipUpdateScrollPositionsInRender = false; return; }
@@ -99,7 +99,7 @@ namespace SharpConsoleUI.Controls
 				: _viewportHeight;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBgColor, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 
 			// Determine if scrollbars will be shown
 			int gutterWidth = GetGutterWidth();
@@ -200,7 +200,7 @@ namespace SharpConsoleUI.Controls
 					// Fill left margin
 					if (Margin.Left > 0)
 					{
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, windowBgColor, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, effectiveBg);
 					}
 
 					int wrappedIndex = i + _verticalScrollOffset;
@@ -274,7 +274,7 @@ namespace SharpConsoleUI.Controls
 							int rightMarginStart = contentStartX + effectiveWidth;
 							int rightFill = bounds.Right - rightMarginStart;
 							if (rightFill > 0)
-								ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightMarginStart, paintY, rightFill, 1), fgColor, windowBgColor, preserveBg);
+								ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightMarginStart, paintY, rightFill, 1), fgColor, effectiveBg);
 
 							continue;
 						}
@@ -516,7 +516,7 @@ namespace SharpConsoleUI.Controls
 					if (Margin.Right > 0)
 					{
 						int rightMarginX = contentStartX + effectiveWidth + scrollbarWidth;
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightMarginX, paintY, Margin.Right, 1), fgColor, windowBgColor, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightMarginX, paintY, Margin.Right, 1), fgColor, effectiveBg);
 					}
 				}
 			}
@@ -528,7 +528,7 @@ namespace SharpConsoleUI.Controls
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom)
 				{
 					if (Margin.Left > 0)
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, windowBgColor, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, effectiveBg);
 
 					// Render gutter for empty rows via pluggable renderers
 					if (gutterWidth > 0)
@@ -592,7 +592,7 @@ namespace SharpConsoleUI.Controls
 					if (Margin.Right > 0)
 					{
 						int rightMarginX = contentStartX + effectiveWidth + scrollbarWidth;
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightMarginX, paintY, Margin.Right, 1), fgColor, windowBgColor, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightMarginX, paintY, Margin.Right, 1), fgColor, effectiveBg);
 					}
 				}
 			}
@@ -604,7 +604,7 @@ namespace SharpConsoleUI.Controls
 				if (scrollY >= clipRect.Y && scrollY < clipRect.Bottom && scrollY < bounds.Bottom)
 				{
 					if (Margin.Left > 0)
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, scrollY, Margin.Left, 1), fgColor, windowBgColor, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, scrollY, Margin.Left, 1), fgColor, effectiveBg);
 
 					// Fill gutter area under horizontal scrollbar
 					if (gutterWidth > 0)
@@ -666,7 +666,7 @@ namespace SharpConsoleUI.Controls
 					if (Margin.Right > 0)
 					{
 						int rightMarginX = contentStartX + effectiveWidth + scrollbarWidth;
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightMarginX, scrollY, Margin.Right, 1), fgColor, windowBgColor, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightMarginX, scrollY, Margin.Right, 1), fgColor, effectiveBg);
 					}
 				}
 			}
@@ -698,7 +698,7 @@ namespace SharpConsoleUI.Controls
 
 			// Fill bottom margin
 			int contentEndY = startY + effectiveViewport + (needsHorizontalScrollbar ? 1 : 0);
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, fgColor, windowBgColor, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, fgColor, effectiveBg);
 		}
 
 		private int GetGutterWidth()

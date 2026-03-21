@@ -71,27 +71,27 @@ namespace SharpConsoleUI.Controls
 			_lastLayoutBounds = bounds;
 
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
 
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;
 
 			// Fill margins
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, defaultFg, bgColor, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, defaultFg, effectiveBg);
 
 			if (_orientation == SliderOrientation.Horizontal)
 			{
-				PaintHorizontal(buffer, bounds, clipRect, startX, startY, defaultFg, bgColor, preserveBg);
+				PaintHorizontal(buffer, bounds, clipRect, startX, startY, defaultFg, effectiveBg);
 			}
 			else
 			{
-				PaintVertical(buffer, bounds, clipRect, startX, startY, defaultFg, bgColor, preserveBg);
+				PaintVertical(buffer, bounds, clipRect, startX, startY, defaultFg, effectiveBg);
 			}
 
 			int contentEndY = _orientation == SliderOrientation.Horizontal
 				? startY + 1
 				: bounds.Bottom - Margin.Bottom;
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, defaultFg, bgColor, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, contentEndY, defaultFg, effectiveBg);
 		}
 
 		#endregion
@@ -99,13 +99,13 @@ namespace SharpConsoleUI.Controls
 		#region Horizontal Rendering
 
 		private void PaintHorizontal(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
-			int startX, int y, Color defaultFg, Color bgColor, bool preserveBg)
+			int startX, int y, Color defaultFg, Color bgColor)
 		{
 			if (y < clipRect.Y || y >= clipRect.Bottom || y >= bounds.Bottom)
 				return;
 
 			// Fill line background
-			ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), defaultFg, bgColor, preserveBg);
+			ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), defaultFg, bgColor);
 
 			int currentX = startX;
 
@@ -113,7 +113,7 @@ namespace SharpConsoleUI.Controls
 			if (_showMinMaxLabels)
 			{
 				string minLabel = FormatValue(_minValue);
-				PaintLabel(buffer, clipRect, bounds, currentX, y, minLabel, defaultFg, bgColor, preserveBg);
+				PaintLabel(buffer, clipRect, bounds, currentX, y, minLabel, defaultFg, bgColor);
 				currentX += UnicodeWidth.GetStringWidth(minLabel) + ControlDefaults.SliderLabelSpacing;
 			}
 
@@ -178,7 +178,7 @@ namespace SharpConsoleUI.Controls
 			{
 				currentX += ControlDefaults.SliderLabelSpacing;
 				string maxLabel = FormatValue(_maxValue);
-				PaintLabel(buffer, clipRect, bounds, currentX, y, maxLabel, defaultFg, bgColor, preserveBg);
+				PaintLabel(buffer, clipRect, bounds, currentX, y, maxLabel, defaultFg, bgColor);
 				currentX += UnicodeWidth.GetStringWidth(maxLabel);
 			}
 
@@ -187,7 +187,7 @@ namespace SharpConsoleUI.Controls
 			{
 				currentX += ControlDefaults.SliderLabelSpacing;
 				string valueLabel = FormatValue(_value);
-				PaintLabel(buffer, clipRect, bounds, currentX, y, valueLabel, defaultFg, bgColor, preserveBg);
+				PaintLabel(buffer, clipRect, bounds, currentX, y, valueLabel, defaultFg, bgColor);
 			}
 		}
 
@@ -196,7 +196,7 @@ namespace SharpConsoleUI.Controls
 		#region Vertical Rendering
 
 		private void PaintVertical(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
-			int startX, int startY, Color defaultFg, Color bgColor, bool preserveBg)
+			int startX, int startY, Color defaultFg, Color bgColor)
 		{
 			int currentY = startY;
 
@@ -205,9 +205,9 @@ namespace SharpConsoleUI.Controls
 			{
 				if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), defaultFg, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), defaultFg, bgColor);
 					string maxLabel = FormatValue(_maxValue);
-					PaintLabel(buffer, clipRect, bounds, startX, currentY, maxLabel, defaultFg, bgColor, preserveBg);
+					PaintLabel(buffer, clipRect, bounds, startX, currentY, maxLabel, defaultFg, bgColor);
 				}
 				currentY++;
 			}
@@ -226,7 +226,7 @@ namespace SharpConsoleUI.Controls
 			// Paint top end-cap
 			if (trackStart >= clipRect.Y && trackStart < clipRect.Bottom && trackStart < bounds.Bottom)
 			{
-				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, trackStart, bounds.Width, 1), defaultFg, bgColor, preserveBg);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, trackStart, bounds.Width, 1), defaultFg, bgColor);
 				if (startX >= clipRect.X && startX < clipRect.Right && startX < bounds.Right)
 					buffer.SetNarrowCell(startX, trackStart, ControlDefaults.SliderVerticalTopCap, trackColor, bgColor);
 			}
@@ -242,7 +242,7 @@ namespace SharpConsoleUI.Controls
 				int paintY = trackContentStart + i;
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, bounds.Width, 1), defaultFg, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, bounds.Width, 1), defaultFg, bgColor);
 
 					if (i == thumbRow)
 					{
@@ -267,7 +267,7 @@ namespace SharpConsoleUI.Controls
 					if (i == thumbRow && _showValueLabel)
 					{
 						string valueLabel = FormatValue(_value);
-						PaintLabel(buffer, clipRect, bounds, startX + ControlDefaults.SliderLabelSpacing + 1, paintY, valueLabel, defaultFg, bgColor, preserveBg);
+						PaintLabel(buffer, clipRect, bounds, startX + ControlDefaults.SliderLabelSpacing + 1, paintY, valueLabel, defaultFg, bgColor);
 					}
 				}
 			}
@@ -276,7 +276,7 @@ namespace SharpConsoleUI.Controls
 			int bottomCapY = trackContentStart + trackLength;
 			if (bottomCapY >= clipRect.Y && bottomCapY < clipRect.Bottom && bottomCapY < bounds.Bottom)
 			{
-				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, bottomCapY, bounds.Width, 1), defaultFg, bgColor, preserveBg);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, bottomCapY, bounds.Width, 1), defaultFg, bgColor);
 				if (startX >= clipRect.X && startX < clipRect.Right && startX < bounds.Right)
 					buffer.SetNarrowCell(startX, bottomCapY, ControlDefaults.SliderVerticalBottomCap, trackColor, bgColor);
 			}
@@ -288,9 +288,9 @@ namespace SharpConsoleUI.Controls
 			{
 				if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), defaultFg, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), defaultFg, bgColor);
 					string minLabel = FormatValue(_minValue);
-					PaintLabel(buffer, clipRect, bounds, startX, currentY, minLabel, defaultFg, bgColor, preserveBg);
+					PaintLabel(buffer, clipRect, bounds, startX, currentY, minLabel, defaultFg, bgColor);
 				}
 			}
 		}
@@ -308,14 +308,14 @@ namespace SharpConsoleUI.Controls
 		}
 
 		private static void PaintLabel(CharacterBuffer buffer, LayoutRect clipRect, LayoutRect bounds,
-			int x, int y, string label, Color fg, Color bg, bool preserveBg)
+			int x, int y, string label, Color fg, Color bg)
 		{
 			for (int i = 0; i < label.Length; i++)
 			{
 				int paintX = x + i;
 				if (paintX >= clipRect.X && paintX < clipRect.Right && paintX < bounds.Right)
 				{
-					Color cellBg = preserveBg ? buffer.GetCell(paintX, y).Background : bg;
+					Color cellBg = bg;
 					buffer.SetNarrowCell(paintX, y, label[i], fg, cellBg);
 				}
 			}

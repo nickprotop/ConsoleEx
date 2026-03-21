@@ -58,17 +58,15 @@ namespace SharpConsoleUI.Controls
 			// Background fill — preserve gradient if no explicit background
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container, defaultBg);
 			var fgColor = ColorResolver.ResolveForeground(_foregroundColor, Container, defaultFg);
-			bool preserveBg = _backgroundColorValue == null && (Container?.HasGradientBackground ?? false);
+			var effectiveBg = (_backgroundColorValue == null && Container?.HasGradientBackground == true)
+				? Color.Transparent : bgColor;
 
 			for (int y = startY; y < startY + targetHeight; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
 					var lineRect = new LayoutRect(startX, y, targetWidth, 1);
-					if (preserveBg)
-						buffer.FillRectPreservingBackground(lineRect, fgColor);
-					else
-						buffer.FillRect(lineRect, ' ', fgColor, bgColor);
+					buffer.FillRect(lineRect, ' ', fgColor, effectiveBg);
 				}
 			}
 

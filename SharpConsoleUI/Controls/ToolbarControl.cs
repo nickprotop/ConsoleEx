@@ -595,10 +595,11 @@ namespace SharpConsoleUI.Controls
 
 			// Fill margins with container background
 			Color containerBg = Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : containerBg;
+			var innerEffectiveBg = (_backgroundColorValue == null && Container?.HasGradientBackground == true) ? Color.Transparent : bgColor;
 
 			// Top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, outerY, fgColor, containerBg, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, outerY, fgColor, effectiveBg);
 
 			// Fill entire outer content area with toolbar background (includes lines and padding)
 			for (int y = outerY; y < outerY + outerHeight && y < bounds.Bottom; y++)
@@ -606,15 +607,12 @@ namespace SharpConsoleUI.Controls
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
 					if (Margin.Left > 0)
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, containerBg, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, effectiveBg);
 
-					if (_backgroundColorValue == null && preserveBg)
-						buffer.FillRectPreservingBackground(new LayoutRect(outerX, y, outerWidth, 1), fgColor);
-					else
-						buffer.FillRect(new LayoutRect(outerX, y, outerWidth, 1), ' ', fgColor, bgColor);
+					buffer.FillRect(new LayoutRect(outerX, y, outerWidth, 1), ' ', fgColor, innerEffectiveBg);
 
 					if (Margin.Right > 0)
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, containerBg, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, effectiveBg);
 				}
 			}
 
@@ -626,8 +624,7 @@ namespace SharpConsoleUI.Controls
 				{
 					Color lineColor = _aboveLineColor ?? fgColor;
 					ControlRenderingHelpers.FillLineCharacter(buffer, new LayoutRect(outerX, lineY, outerWidth, 1),
-						clipRect, ControlDefaults.ToolbarLineCharacter, lineColor, bgColor,
-						_backgroundColorValue == null && preserveBg);
+						clipRect, ControlDefaults.ToolbarLineCharacter, lineColor, innerEffectiveBg);
 				}
 			}
 
@@ -639,8 +636,7 @@ namespace SharpConsoleUI.Controls
 				{
 					Color lineColor = _belowLineColor ?? fgColor;
 					ControlRenderingHelpers.FillLineCharacter(buffer, new LayoutRect(outerX, lineY, outerWidth, 1),
-						clipRect, ControlDefaults.ToolbarLineCharacter, lineColor, bgColor,
-						_backgroundColorValue == null && preserveBg);
+						clipRect, ControlDefaults.ToolbarLineCharacter, lineColor, innerEffectiveBg);
 				}
 			}
 
@@ -648,7 +644,7 @@ namespace SharpConsoleUI.Controls
 			for (int y = outerY + outerHeight; y < bounds.Bottom; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, containerBg, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, effectiveBg);
 			}
 
 			// Paint items using shared layout computation

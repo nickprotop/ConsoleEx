@@ -43,7 +43,7 @@ namespace SharpConsoleUI.Controls
 			_lastLayoutBounds = bounds;
 
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBackground;
 
 			// Resolve colors based on state
 			Color bgColor, fgColor;
@@ -89,17 +89,17 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
 			{
 				// Fill left margin
 				if (Margin.Left > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), fgColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), fgColor, effectiveBg);
 
 				// Fill left alignment padding
 				if (alignOffset > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, startY, alignOffset, 1), fgColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, startY, alignOffset, 1), fgColor, effectiveBg);
 
 				// Render content
 				int writeX = startX + alignOffset;
@@ -113,7 +113,7 @@ namespace SharpConsoleUI.Controls
 				writeX += promptCells.Count;
 
 				// Space after prompt
-				RenderNarrowChar(buffer, ref writeX, startY, ' ', fgColor, bgColor, clipRect, false);
+				RenderNarrowChar(buffer, ref writeX, startY, ' ', fgColor, bgColor, clipRect);
 
 				// Render time segments
 				int sepLen = Parsing.MarkupParser.StripLength(_timeSeparator);
@@ -147,7 +147,7 @@ namespace SharpConsoleUI.Controls
 				if (!EffectiveUse24Hour)
 				{
 					int ampmIdx = AmPmSegmentIndex;
-					RenderNarrowChar(buffer, ref writeX, startY, ' ', fgColor, bgColor, clipRect, false);
+					RenderNarrowChar(buffer, ref writeX, startY, ' ', fgColor, bgColor, clipRect);
 
 					bool isActiveAmPm = _hasFocus && _isEnabled && _focusedSegment == ampmIdx;
 					Color ampmFg = isActiveAmPm ? SegmentForegroundColor : fgColor;
@@ -175,31 +175,23 @@ namespace SharpConsoleUI.Controls
 				int rightPadStart = startX + alignOffset + controlWidth;
 				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
 				if (rightPadWidth > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, startY, rightPadWidth, 1), fgColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, startY, rightPadWidth, 1), fgColor, effectiveBg);
 
 				// Fill right margin
 				if (Margin.Right > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), fgColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), fgColor, effectiveBg);
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, fgColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, fgColor, effectiveBg);
 		}
 
 		private static void RenderNarrowChar(CharacterBuffer buffer, ref int x, int y,
-			char ch, Color fg, Color bg, LayoutRect clipRect, bool preserveBg)
+			char ch, Color fg, Color bg, LayoutRect clipRect)
 		{
 			if (x >= clipRect.X && x < clipRect.Right && y >= clipRect.Y && y < clipRect.Bottom)
 			{
-				if (preserveBg)
-				{
-					var existing = buffer.GetCell(x, y);
-					buffer.SetNarrowCell(x, y, ch, fg, existing.Background);
-				}
-				else
-				{
-					buffer.SetNarrowCell(x, y, ch, fg, bg);
-				}
+				buffer.SetNarrowCell(x, y, ch, fg, bg);
 			}
 			x++;
 		}

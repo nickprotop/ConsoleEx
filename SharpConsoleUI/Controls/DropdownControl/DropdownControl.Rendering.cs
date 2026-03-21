@@ -66,7 +66,7 @@ namespace SharpConsoleUI.Controls
 				foregroundColor = ForegroundColor;
 			}
 
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBackground;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
@@ -75,7 +75,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, effectiveBg);
 
 			// Calculate dropdown width using header measurement
 			int dropdownWidth = calculateHeaderWidth(targetWidth);
@@ -131,10 +131,10 @@ namespace SharpConsoleUI.Controls
 			if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 			{
 				if (Margin.Left > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), foregroundColor, effectiveBg);
 
 				if (alignOffset > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, paintY, alignOffset, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, paintY, alignOffset, 1), foregroundColor, effectiveBg);
 
 				int writeX = startX + alignOffset;
 
@@ -160,10 +160,10 @@ namespace SharpConsoleUI.Controls
 				int rightFillStart = writeX;
 				int rightFillWidth = bounds.Right - rightFillStart - Margin.Right;
 				if (rightFillWidth > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightFillStart, paintY, rightFillWidth, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightFillStart, paintY, rightFillWidth, 1), foregroundColor, effectiveBg);
 
 				if (Margin.Right > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), foregroundColor, effectiveBg);
 			}
 			paintY++;
 
@@ -171,7 +171,7 @@ namespace SharpConsoleUI.Controls
 			// This keeps the control height constant and allows the list to extend beyond parent bounds
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, paintY, foregroundColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, paintY, foregroundColor, effectiveBg);
 		}
 
 		#endregion

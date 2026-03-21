@@ -343,7 +343,7 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBackground;
 
 			Color backgroundColor;
 			Color foregroundColor;
@@ -401,7 +401,7 @@ namespace SharpConsoleUI.Controls
 			int bx = startX + alignOffset;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, effectiveBg);
 
 			for (int row = 0; row < buttonHeight; row++)
 			{
@@ -412,7 +412,7 @@ namespace SharpConsoleUI.Controls
 				// Fill left margin + alignment padding
 				int leftFillWidth = Margin.Left + alignOffset;
 				if (leftFillWidth > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, leftFillWidth, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, leftFillWidth, 1), foregroundColor, effectiveBg);
 
 				if (_borderStyle is ButtonBorderStyle.Full or ButtonBorderStyle.Rounded)
 				{
@@ -461,11 +461,11 @@ namespace SharpConsoleUI.Controls
 				int rightPadStart = bx + buttonWidth;
 				int rightFillWidth = bounds.Right - rightPadStart;
 				if (rightFillWidth > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, y, rightFillWidth, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, y, rightFillWidth, 1), foregroundColor, effectiveBg);
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + buttonHeight, foregroundColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + buttonHeight, foregroundColor, effectiveBg);
 		}
 
 		#endregion

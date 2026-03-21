@@ -71,15 +71,15 @@ namespace SharpConsoleUI.Controls
 			// Resolve colors
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
 
 			// Fill margins with container background
 			Color containerBg = Container?.BackgroundColor ?? defaultBg;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : containerBg;
 			for (int y = bounds.Y; y < bounds.Bottom; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, containerBg, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, effectiveBg);
 				}
 			}
 
@@ -162,7 +162,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					var cells = MarkupParser.Parse(processedTitle, fgColor, bgColor);
-					if (preserveBg)
+					if (Container?.HasGradientBackground == true)
 						buffer.WriteCellsClippedPreservingBackground(titleX, titleY, cells, clipRect, bgColor);
 					else
 						buffer.WriteCellsClipped(titleX, titleY, cells, clipRect);
@@ -177,7 +177,7 @@ namespace SharpConsoleUI.Controls
 					: graphStartY + _graphHeight + baselineHeight;
 				if (legendY >= clipRect.Y && legendY < clipRect.Bottom)
 				{
-					PaintLegend(buffer, legendY, startX + borderSize, contentWidth - (borderSize * 2), clipRect, fgColor, bgColor, preserveBg);
+					PaintLegend(buffer, legendY, startX + borderSize, contentWidth - (borderSize * 2), clipRect, fgColor, bgColor);
 				}
 			}
 
@@ -256,7 +256,7 @@ namespace SharpConsoleUI.Controls
 						}
 
 						var cells = MarkupParser.Parse(processedTitle, _foregroundColorValue ?? fgColor, bgColor);
-						if (preserveBg)
+						if (Container?.HasGradientBackground == true)
 							buffer.WriteCellsClippedPreservingBackground(titleX, baselineY, cells, clipRect, bgColor);
 						else
 							buffer.WriteCellsClipped(titleX, baselineY, cells, clipRect);
@@ -351,7 +351,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		private void PaintLegend(CharacterBuffer buffer, int y, int areaX, int areaWidth,
-			LayoutRect clipRect, Color fgColor, Color bgColor, bool preserveBg)
+			LayoutRect clipRect, Color fgColor, Color bgColor)
 		{
 			// Build legend: "━ Series1  ━ Series2  ━ Series3"
 			// Each entry: line char + space + name + 2 spaces gap
@@ -382,13 +382,7 @@ namespace SharpConsoleUI.Controls
 				// Draw line marker char
 				if (writeX >= clipRect.X && writeX < clipRect.Right)
 				{
-					if (preserveBg)
-					{
-						var existingBg = buffer.GetCell(writeX, y).Background;
-						buffer.SetNarrowCell(writeX, y, ControlDefaults.LineGraphLegendMarkerChar, color, existingBg);
-					}
-					else
-						buffer.SetNarrowCell(writeX, y, ControlDefaults.LineGraphLegendMarkerChar, color, bgColor);
+					buffer.SetNarrowCell(writeX, y, ControlDefaults.LineGraphLegendMarkerChar, color, bgColor);
 				}
 				writeX++;
 
@@ -401,18 +395,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (writeX >= clipRect.X)
 					{
-						if (preserveBg)
-						{
-							var existingBg = buffer.GetCell(writeX, y).Background;
-							var cell = new Cell(nameCells[c].Character, fgColor, existingBg, nameCells[c].Decorations)
-							{
-								IsWideContinuation = nameCells[c].IsWideContinuation,
-								Combiners = nameCells[c].Combiners
-							};
-							buffer.SetCell(writeX, y, cell);
-						}
-						else
-							buffer.SetCell(writeX, y, nameCells[c]);
+						buffer.SetCell(writeX, y, nameCells[c]);
 					}
 					writeX++;
 				}

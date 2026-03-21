@@ -349,12 +349,11 @@ namespace SharpConsoleUI.Controls
 
 			// Fill margins with background color
 			Color windowBackground = _parentGrid?.BackgroundColor ?? Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = _backgroundColorValue == null
-				&& _parentGrid?.BackgroundColor == null
-				&& (Container?.HasGradientBackground ?? false);
+			var effectiveBg = (_backgroundColorValue == null && _parentGrid?.BackgroundColor == null && Container?.HasGradientBackground == true)
+				? Color.Transparent : windowBackground;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 
 			// Paint the splitter lines
 			for (int y = 0; y < splitterHeight; y++)
@@ -365,7 +364,7 @@ namespace SharpConsoleUI.Controls
 					// Fill left margin
 					if (Margin.Left > 0)
 					{
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, windowBackground, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, effectiveBg);
 					}
 
 					// Paint splitter character
@@ -377,13 +376,13 @@ namespace SharpConsoleUI.Controls
 					// Fill right margin
 					if (Margin.Right > 0)
 					{
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX + 1, paintY, Margin.Right, 1), fgColor, windowBackground, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX + 1, paintY, Margin.Right, 1), fgColor, effectiveBg);
 					}
 				}
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + splitterHeight, fgColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + splitterHeight, fgColor, effectiveBg);
 		}
 
 		#endregion

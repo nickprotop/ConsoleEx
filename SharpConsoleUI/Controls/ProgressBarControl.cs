@@ -305,14 +305,14 @@ namespace SharpConsoleUI.Controls
 			Color filledColor = FilledColor ?? Color.Cyan1;
 			Color unfilledColor = UnfilledColor ?? Color.Grey35;
 			Color percentageColor = PercentageColor ?? Color.White;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
 
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;
 			int currentY = startY;
 
 			// Fill entire bounds with background first
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, defaultFg, bgColor, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, defaultFg, effectiveBg);
 
 			// Paint header if visible
 			if (_showHeader && !string.IsNullOrEmpty(_header))
@@ -320,7 +320,7 @@ namespace SharpConsoleUI.Controls
 				if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
 				{
 					// Fill the header line
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), defaultFg, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), defaultFg, effectiveBg);
 
 					// Paint header text
 					int headerX = startX;
@@ -341,7 +341,7 @@ namespace SharpConsoleUI.Controls
 								buffer.SetCell(pendingHeaderX, currentY, widened);
 							if (headerX >= clipRect.X && headerX < clipRect.Right && headerX < bounds.Right)
 							{
-								Color cellBg = preserveBg ? buffer.GetCell(headerX, currentY).Background : widened.Background;
+								Color cellBg = widened.Background;
 								buffer.SetCell(headerX, currentY, new Cell(' ', defaultFg, cellBg) { IsWideContinuation = true });
 							}
 							headerX++;
@@ -360,7 +360,7 @@ namespace SharpConsoleUI.Controls
 							// Other zero-width: attach as combiner to last painted cell
 							continue;
 						}
-						Color hCellBg = preserveBg ? buffer.GetCell(headerX, currentY).Background : bgColor;
+						Color hCellBg = bgColor;
 						if (rw == 2)
 						{
 							if (headerX >= clipRect.X && headerX < clipRect.Right && headerX < bounds.Right)
@@ -404,19 +404,19 @@ namespace SharpConsoleUI.Controls
 			if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
 			{
 				// Fill the bar line background
-				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), defaultFg, bgColor, preserveBg);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), defaultFg, effectiveBg);
 
 				int currentX = startX;
 
 				if (_isIndeterminate)
 				{
 					// Indeterminate mode: paint pulsing bar
-					PaintIndeterminateBar(buffer, clipRect, bounds, currentX, currentY, barWidth, filledColor, unfilledColor, bgColor, preserveBg);
+					PaintIndeterminateBar(buffer, clipRect, bounds, currentX, currentY, barWidth, filledColor, unfilledColor, effectiveBg);
 				}
 				else
 				{
 					// Determinate mode: paint filled/unfilled portions
-					PaintDeterminateBar(buffer, clipRect, bounds, currentX, currentY, barWidth, filledColor, unfilledColor, bgColor, preserveBg);
+					PaintDeterminateBar(buffer, clipRect, bounds, currentX, currentY, barWidth, filledColor, unfilledColor, effectiveBg);
 					currentX = startX + barWidth;
 
 					// Paint percentage if showing
@@ -430,7 +430,7 @@ namespace SharpConsoleUI.Controls
 							int rw = Helpers.UnicodeWidth.GetRuneWidth(rune);
 							if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 							{
-								Color cellBg = preserveBg ? buffer.GetCell(currentX, currentY).Background : bgColor;
+								Color cellBg = bgColor;
 								buffer.SetCell(currentX, currentY, new Cell(rune, percentageColor, cellBg));
 								if (rw == 2 && currentX + 1 < bounds.Right)
 									buffer.SetCell(currentX + 1, currentY, new Cell(' ', percentageColor, cellBg) { IsWideContinuation = true });
@@ -443,7 +443,7 @@ namespace SharpConsoleUI.Controls
 			currentY++;
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, currentY, defaultFg, bgColor, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, currentY, defaultFg, effectiveBg);
 		}
 
 		#endregion
@@ -451,7 +451,7 @@ namespace SharpConsoleUI.Controls
 		#region Private Methods
 
 		private void PaintDeterminateBar(CharacterBuffer buffer, LayoutRect clipRect, LayoutRect bounds,
-			int startX, int y, int barWidth, Color filledColor, Color unfilledColor, Color bgColor, bool preserveBg)
+			int startX, int y, int barWidth, Color filledColor, Color unfilledColor, Color bgColor)
 		{
 			double percent = Math.Clamp(_value / _maxValue, 0.0, 1.0);
 			int filledChars = (int)Math.Round(percent * barWidth);
@@ -464,7 +464,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 				{
-					Color cellBg = preserveBg ? buffer.GetCell(currentX, y).Background : bgColor;
+					Color cellBg = bgColor;
 					buffer.SetNarrowCell(currentX, y, BAR_CHAR, filledColor, cellBg);
 				}
 				currentX++;
@@ -475,7 +475,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
 				{
-					Color cellBg = preserveBg ? buffer.GetCell(currentX, y).Background : bgColor;
+					Color cellBg = bgColor;
 					buffer.SetNarrowCell(currentX, y, BAR_CHAR, unfilledColor, cellBg);
 				}
 				currentX++;
@@ -483,7 +483,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		private void PaintIndeterminateBar(CharacterBuffer buffer, LayoutRect clipRect, LayoutRect bounds,
-			int startX, int y, int barWidth, Color filledColor, Color unfilledColor, Color bgColor, bool preserveBg)
+			int startX, int y, int barWidth, Color filledColor, Color unfilledColor, Color bgColor)
 		{
 			int pulseStart = _pulsePosition % barWidth;
 
@@ -508,7 +508,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					Color charColor = inPulse ? filledColor : unfilledColor;
-					Color cellBg = preserveBg ? buffer.GetCell(currentX, y).Background : bgColor;
+					Color cellBg = bgColor;
 					buffer.SetNarrowCell(currentX, y, BAR_CHAR, charColor, cellBg);
 				}
 			}

@@ -148,7 +148,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : bgColor;
 			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
 			int contentHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
@@ -158,7 +158,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 
 			// Thread-safe snapshot of flattened nodes
 			List<TreeNode> snapshot;
@@ -262,7 +262,7 @@ namespace SharpConsoleUI.Controls
 				// Fill left margin
 				if (Margin.Left > 0)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, effectiveBg);
 				}
 
 				// Calculate alignment offset
@@ -301,7 +301,7 @@ namespace SharpConsoleUI.Controls
 				// Fill right margin
 				if (Margin.Right > 0)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), fgColor, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), fgColor, effectiveBg);
 				}
 			}
 
@@ -311,7 +311,7 @@ namespace SharpConsoleUI.Controls
 				int paintY = startY + row;
 				if (paintY >= clipRect.Y && paintY < clipRect.Bottom && paintY < bounds.Bottom)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, bounds.Width, 1), fgColor, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, bounds.Width, 1), fgColor, effectiveBg);
 				}
 			}
 
@@ -326,7 +326,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
 		}
 
 		#endregion

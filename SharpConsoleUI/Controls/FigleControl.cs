@@ -341,7 +341,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = _color ?? Container?.ForegroundColor ?? defaultFg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? SharpConsoleUI.Color.Transparent : bgColor;
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 
 			if (targetWidth <= 0) return;
@@ -350,7 +350,7 @@ namespace SharpConsoleUI.Controls
 			int startY = bounds.Y + Margin.Top;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, bgColor, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 
 			if (!string.IsNullOrEmpty(_text))
 			{
@@ -382,7 +382,7 @@ namespace SharpConsoleUI.Controls
 						// Fill left margin
 						if (Margin.Left > 0)
 						{
-							ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, bgColor, preserveBg);
+							ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, paintY, Margin.Left, 1), fgColor, effectiveBg);
 						}
 
 						// Write non-space characters to avoid overwriting shadow
@@ -403,7 +403,7 @@ namespace SharpConsoleUI.Controls
 						// Fill right margin
 						if (Margin.Right > 0)
 						{
-							ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), fgColor, bgColor, preserveBg);
+							ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, paintY, Margin.Right, 1), fgColor, effectiveBg);
 						}
 					}
 				}
@@ -413,7 +413,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (y >= clipRect.Y && y < clipRect.Bottom)
 					{
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, bgColor, preserveBg);
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, effectiveBg);
 					}
 				}
 			}
@@ -423,7 +423,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, bgColor, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, effectiveBg);
 				}
 			}
 		}

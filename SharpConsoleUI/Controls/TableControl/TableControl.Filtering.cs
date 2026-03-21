@@ -918,7 +918,7 @@ public partial class TableControl
 	/// Draws the filter status bar row with colored segments.
 	/// </summary>
 	internal void DrawFilterStatusBar(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect,
-		Color fgColor, Color bgColor, BoxChars box, Color borderColor, bool hasBorder, bool preserveBg)
+		Color fgColor, Color bgColor, BoxChars box, Color borderColor, bool hasBorder)
 	{
 		if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
@@ -977,7 +977,7 @@ public partial class TableControl
 		{
 			if (writeX >= clipRect.X && writeX < clipRect.Right)
 			{
-				Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+				Color bg = bgColor;
 				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
 			}
 			writeX++;
@@ -1000,7 +1000,7 @@ public partial class TableControl
 				if (writeX >= clipRect.X && writeX < clipRect.Right)
 				{
 					Color cellFg = fg;
-					Color cellBg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+					Color cellBg = bgColor;
 
 					// Highlight cursor position in typing mode
 					if (charPos == cursorCharPos)
@@ -1032,7 +1032,7 @@ public partial class TableControl
 		{
 			if (writeX >= clipRect.X && writeX < clipRect.Right)
 			{
-				Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+				Color bg = bgColor;
 				buffer.SetNarrowCell(writeX, y, ' ', fgColor, bg);
 			}
 			writeX++;
@@ -1043,7 +1043,7 @@ public partial class TableControl
 		{
 			if (writeX >= clipRect.X && writeX < clipRect.Right)
 			{
-				Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+				Color bg = bgColor;
 				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
 			}
 		}

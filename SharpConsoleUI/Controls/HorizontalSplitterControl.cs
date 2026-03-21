@@ -535,11 +535,11 @@ namespace SharpConsoleUI.Controls
 			int splitterWidth = bounds.Width - Margin.Left - Margin.Right;
 
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = _backgroundColorValue == null
-				&& (Container?.HasGradientBackground ?? false);
+			var effectiveBg = (_backgroundColorValue == null && Container?.HasGradientBackground == true)
+				? Color.Transparent : windowBackground;
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
 
 			// Paint the splitter line
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
@@ -547,37 +547,29 @@ namespace SharpConsoleUI.Controls
 				// Fill left margin
 				if (Margin.Left > 0)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), fgColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), fgColor, effectiveBg);
 				}
 
 				// Paint splitter characters
-				bool preserveSplitterBg = preserveBg;
+				var splitterBg = effectiveBg;
 				for (int x = 0; x < splitterWidth; x++)
 				{
 					int paintX = startX + x;
 					if (paintX >= clipRect.X && paintX < clipRect.Right)
 					{
-						if (preserveSplitterBg)
-						{
-							var existing = buffer.GetCell(paintX, startY);
-							buffer.SetNarrowCell(paintX, startY, splitterChar, fgColor, existing.Background);
-						}
-						else
-						{
-							buffer.SetNarrowCell(paintX, startY, splitterChar, fgColor, bgColor);
-						}
+						buffer.SetNarrowCell(paintX, startY, splitterChar, fgColor, splitterBg);
 					}
 				}
 
 				// Fill right margin
 				if (Margin.Right > 0)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX + splitterWidth, startY, Margin.Right, 1), fgColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX + splitterWidth, startY, Margin.Right, 1), fgColor, effectiveBg);
 				}
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, fgColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, fgColor, effectiveBg);
 		}
 
 		#endregion

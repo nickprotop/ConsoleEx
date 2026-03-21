@@ -67,15 +67,15 @@ namespace SharpConsoleUI.Controls
 			// Resolve colors
 			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
 
 			// Fill margins with container background
 			Color containerBg = Container?.BackgroundColor ?? defaultBg;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : containerBg;
 			for (int y = bounds.Y; y < bounds.Bottom; y++)
 			{
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, containerBg, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, effectiveBg);
 				}
 			}
 
@@ -159,7 +159,7 @@ namespace SharpConsoleUI.Controls
 
 					// Parse markup to cells
 					var cells = Parsing.MarkupParser.Parse(processedTitle, fgColor, bgColor);
-					if (preserveBg)
+					if (Container?.HasGradientBackground == true)
 						buffer.WriteCellsClippedPreservingBackground(titleX, titleY, cells, clipRect, bgColor);
 					else
 						buffer.WriteCellsClipped(titleX, titleY, cells, clipRect);
@@ -241,7 +241,7 @@ namespace SharpConsoleUI.Controls
 						}
 
 						var cells = Parsing.MarkupParser.Parse(processedTitle, _foregroundColorValue ?? fgColor, bgColor);
-						if (preserveBg)
+						if (Container?.HasGradientBackground == true)
 							buffer.WriteCellsClippedPreservingBackground(titleX, baselineY, cells, clipRect, bgColor);
 						else
 							buffer.WriteCellsClipped(titleX, baselineY, cells, clipRect);

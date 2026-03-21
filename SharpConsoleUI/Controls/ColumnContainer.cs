@@ -942,7 +942,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = BackgroundColor;
 			var fgColor = ForegroundColor;
-			bool preserveBg = HasGradientBackground;
+			var effectiveBg = HasGradientBackground ? Color.Transparent : bgColor;
 
 			// Fill the entire bounds with background color
 			// This provides the background for the container and any margins
@@ -951,10 +951,7 @@ namespace SharpConsoleUI.Controls
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
 					var lineRect = new LayoutRect(bounds.X, y, bounds.Width, 1);
-					if (preserveBg)
-						buffer.FillRectPreservingBackground(lineRect, fgColor);
-					else
-						buffer.FillRect(lineRect, ' ', fgColor, bgColor);
+					buffer.FillRect(lineRect, ' ', fgColor, effectiveBg);
 				}
 			}
 

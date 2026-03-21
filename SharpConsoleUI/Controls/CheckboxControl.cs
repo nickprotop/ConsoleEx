@@ -413,7 +413,7 @@ namespace SharpConsoleUI.Controls
 		Color backgroundColor;
 			Color foregroundColor;
 			Color windowBackground = Container?.BackgroundColor ?? defaultBg;
-			bool preserveBg = Container?.HasGradientBackground ?? false;
+			var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : windowBackground;
 
 			// Determine colors based on enabled/focused state
 			if (!_isEnabled)
@@ -478,7 +478,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, foregroundColor, effectiveBg);
 
 			// Paint checkbox line
 			if (startY >= clipRect.Y && startY < clipRect.Bottom && startY < bounds.Bottom)
@@ -486,19 +486,19 @@ namespace SharpConsoleUI.Controls
 				// Fill left margin
 				if (Margin.Left > 0)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), foregroundColor, effectiveBg);
 				}
 
 				// Fill alignment padding (left side)
 				if (alignOffset > 0)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, startY, alignOffset, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, startY, alignOffset, 1), foregroundColor, effectiveBg);
 				}
 
 				// Render checkbox content
 				var cells = Parsing.MarkupParser.Parse(checkboxContent, foregroundColor, backgroundColor);
 				// Preserve gradient bg only in normal state (focused/disabled have intentional bg)
-				if (preserveBg && _backgroundColorValue == null && !_hasFocus && _isEnabled)
+				if (Container?.HasGradientBackground == true && _backgroundColorValue == null && !_hasFocus && _isEnabled)
 					buffer.WriteCellsClippedPreservingBackground(startX + alignOffset, startY, cells, clipRect, backgroundColor);
 				else
 					buffer.WriteCellsClipped(startX + alignOffset, startY, cells, clipRect);
@@ -508,18 +508,18 @@ namespace SharpConsoleUI.Controls
 				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
 				if (rightPadWidth > 0)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, startY, rightPadWidth, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, startY, rightPadWidth, 1), foregroundColor, effectiveBg);
 				}
 
 				// Fill right margin
 				if (Margin.Right > 0)
 				{
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), foregroundColor, windowBackground, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, startY, Margin.Right, 1), foregroundColor, effectiveBg);
 				}
 			}
 
 			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, foregroundColor, windowBackground, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, startY + 1, foregroundColor, effectiveBg);
 		}
 
 		#endregion

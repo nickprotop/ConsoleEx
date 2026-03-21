@@ -545,9 +545,9 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 
 		// Fill margins with container background
 		Color containerBg = Container?.BackgroundColor ?? defaultBg;
-		bool preserveBg = Container?.HasGradientBackground ?? false;
+		var effectiveBg = Container?.HasGradientBackground == true ? Color.Transparent : containerBg;
 
-		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, containerBg, preserveBg);
+		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, effectiveBg);
 
 		// Render above line
 		if (_showAboveLine)
@@ -558,12 +558,12 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 				Color lineColor = _aboveLineColor ?? fgColor;
 
 				if (Margin.Left > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, lineY, Margin.Left, 1), fgColor, containerBg, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, lineY, Margin.Left, 1), fgColor, effectiveBg);
 
 				buffer.FillRect(new LayoutRect(contentX, lineY, contentWidth, 1), '\u2500', lineColor, bgColor);
 
 				if (Margin.Right > 0)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, lineY, Margin.Right, 1), fgColor, containerBg, preserveBg);
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, lineY, Margin.Right, 1), fgColor, effectiveBg);
 			}
 		}
 
@@ -573,19 +573,19 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 			if (y < clipRect.Y || y >= clipRect.Bottom) continue;
 
 			if (Margin.Left > 0)
-				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, containerBg, preserveBg);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, effectiveBg);
 
 			buffer.FillRect(new LayoutRect(contentX, y, contentWidth, 1), ' ', fgColor, bgColor);
 
 			if (Margin.Right > 0)
-				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, containerBg, preserveBg);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, effectiveBg);
 		}
 
 		// Bottom margin
 		for (int y = contentY + contentHeight; y < bounds.Bottom; y++)
 		{
 			if (y >= clipRect.Y && y < clipRect.Bottom)
-				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, containerBg, preserveBg);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, effectiveBg);
 		}
 
 		if (contentWidth <= 0 || contentY < clipRect.Y || contentY >= clipRect.Bottom)

@@ -22,7 +22,7 @@ public partial class TableControl
 	/// </summary>
 	private void DrawHorizontalLine(CharacterBuffer buffer, int x, int y, int[] colWidths, LayoutRect clipRect,
 		BoxChars box, Color borderColor, Color bgColor, char left, char middle, char right, char fill,
-		int hScrollOffset = 0, int viewportWidth = int.MaxValue, bool preserveBg = false)
+		int hScrollOffset = 0, int viewportWidth = int.MaxValue)
 	{
 		if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
@@ -34,7 +34,7 @@ public partial class TableControl
 		// Left border char
 		if (hasBorder && writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 		{
-			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+			Color bg = bgColor;
 			buffer.SetNarrowCell(writeX, y, left, borderColor, bg);
 		}
 		writeX++;
@@ -52,7 +52,7 @@ public partial class TableControl
 				{
 					if (writeX >= clipRect.X && writeX < clipRect.Right)
 					{
-						Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+						Color bg = bgColor;
 						buffer.SetNarrowCell(writeX, y, fill, borderColor, bg);
 					}
 					writeX++;
@@ -70,7 +70,7 @@ public partial class TableControl
 				{
 					if (writeX >= clipRect.X && writeX < clipRect.Right)
 					{
-						Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+						Color bg = bgColor;
 						buffer.SetNarrowCell(writeX, y, middle, borderColor, bg);
 					}
 					writeX++;
@@ -86,7 +86,7 @@ public partial class TableControl
 		// Right border char
 		if (hasBorder && writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 		{
-			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+			Color bg = bgColor;
 			buffer.SetNarrowCell(writeX, y, right, borderColor, bg);
 		}
 	}
@@ -95,7 +95,7 @@ public partial class TableControl
 	/// Draws a merged horizontal line (no column separators) — used for status bar borders.
 	/// </summary>
 	private void DrawMergedHorizontalLine(CharacterBuffer buffer, int x, int y, int[] colWidths, LayoutRect clipRect,
-		BoxChars box, Color borderColor, Color bgColor, char left, char right, char fill, bool preserveBg)
+		BoxChars box, Color borderColor, Color bgColor, char left, char right, char fill)
 	{
 		if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
@@ -109,7 +109,7 @@ public partial class TableControl
 		// Left border char
 		if (writeX >= clipRect.X && writeX < clipRect.Right)
 		{
-			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+			Color bg = bgColor;
 			buffer.SetNarrowCell(writeX, y, left, borderColor, bg);
 		}
 		writeX++;
@@ -119,7 +119,7 @@ public partial class TableControl
 		{
 			if (writeX >= clipRect.X && writeX < clipRect.Right)
 			{
-				Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+				Color bg = bgColor;
 				buffer.SetNarrowCell(writeX, y, fill, borderColor, bg);
 			}
 			writeX++;
@@ -128,7 +128,7 @@ public partial class TableControl
 		// Right border char
 		if (writeX >= clipRect.X && writeX < clipRect.Right)
 		{
-			Color bg = preserveBg ? buffer.GetCell(writeX, y).Background : bgColor;
+			Color bg = bgColor;
 			buffer.SetNarrowCell(writeX, y, right, borderColor, bg);
 		}
 	}
@@ -143,7 +143,6 @@ public partial class TableControl
 		bool isSelected = false, int selectedCellIndex = -1, Color? selectedCellBg = null, Color? selectedCellFg = null,
 		bool showCheckbox = false, bool isChecked = false,
 		int editCellIndex = -1, int editCursorPos = -1,
-		bool preserveBg = false,
 		List<(int Column, int Start, int Length)>? filterMatches = null)
 	{
 		if (y < clipRect.Y || y >= clipRect.Bottom) return;
@@ -155,7 +154,7 @@ public partial class TableControl
 		{
 			if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 			{
-				Color bg = preserveBg && !isSelected ? buffer.GetCell(writeX, y).Background : borderBg;
+				Color bg = borderBg;
 				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
 			}
 			writeX++;
@@ -256,15 +255,13 @@ public partial class TableControl
 					padRight = 0;
 				}
 
-				// Determine if this cell should preserve gradient background
-				bool cellPreserveBg = preserveBg && !isSelected && selectedCellIndex != c && editCellIndex != c;
 
 				// Left padding
 				for (int i = 0; i < padLeft; i++)
 				{
 					if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 					{
-						Color bg = cellPreserveBg ? buffer.GetCell(writeX, y).Background : cellBg;
+						Color bg = cellBg;
 						buffer.SetNarrowCell(writeX, y, ' ', cellFg, bg);
 					}
 					writeX++;
@@ -292,7 +289,7 @@ public partial class TableControl
 					if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 					{
 						// Override background for selected/hovered rows
-						Color bg = isSelected ? cellBg : cellPreserveBg ? buffer.GetCell(writeX, y).Background : cell.Background;
+						Color bg = isSelected ? cellBg : cell.Background;
 						Color fg = isSelected ? cellFg : cell.Foreground;
 
 						// Apply filter match highlight
@@ -317,7 +314,7 @@ public partial class TableControl
 				{
 					if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 					{
-						Color bg = cellPreserveBg ? buffer.GetCell(writeX, y).Background : cellBg;
+						Color bg = cellBg;
 						buffer.SetNarrowCell(writeX, y, ' ', cellFg, bg);
 					}
 					writeX++;
@@ -329,7 +326,7 @@ public partial class TableControl
 			{
 				if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 				{
-					Color bg = preserveBg && !isSelected ? buffer.GetCell(writeX, y).Background : borderBg;
+					Color bg = borderBg;
 					buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
 				}
 				writeX++;
@@ -341,7 +338,7 @@ public partial class TableControl
 	/// Draws a title row centered above the table.
 	/// </summary>
 	private void DrawTitleRow(CharacterBuffer buffer, int x, int y, int totalWidth, LayoutRect clipRect,
-		Color fgColor, Color bgColor, bool preserveBg = false)
+		Color fgColor, Color bgColor)
 	{
 		if (y < clipRect.Y || y >= clipRect.Bottom || string.IsNullOrEmpty(_title)) return;
 
@@ -353,7 +350,7 @@ public partial class TableControl
 			int px = x + i;
 			if (px >= clipRect.X && px < clipRect.Right)
 			{
-				Color bg = preserveBg ? buffer.GetCell(px, y).Background : bgColor;
+				Color bg = bgColor;
 				buffer.SetNarrowCell(px, y, ' ', fgColor, bg);
 			}
 		}
@@ -374,7 +371,7 @@ public partial class TableControl
 			int px = x + offset + i;
 			if (px >= clipRect.X && px < clipRect.Right)
 			{
-				Color bg = preserveBg ? buffer.GetCell(px, y).Background : titleCells[i].Background;
+				Color bg = titleCells[i].Background;
 				var titleCell = new Cell(titleCells[i].Character, titleCells[i].Foreground, bg, titleCells[i].Decorations)
 				{
 					IsWideContinuation = titleCells[i].IsWideContinuation,
@@ -506,10 +503,10 @@ public partial class TableControl
 		Color borderColor = ResolveBorderColor();
 		Color headerBg = ResolveHeaderBackgroundColor();
 		Color headerFg = ResolveHeaderForegroundColor();
-		bool preserveBg = (_backgroundColorValue == null || _backgroundColorValue == Color.Default) && (Container?.HasGradientBackground ?? false);
+		var effectiveBg = ((_backgroundColorValue == null || _backgroundColorValue == Color.Default) && Container?.HasGradientBackground == true) ? Color.Transparent : bgColor;
 
 		// Fill margins
-		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, bgColor, preserveBg);
+		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, bounds.Y + Margin.Top, fgColor, effectiveBg);
 
 		int colCount;
 		List<TableColumn>? colSnapshot = null;
@@ -539,7 +536,7 @@ public partial class TableControl
 
 		if (contentWidth <= 0 || colCount == 0)
 		{
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor, preserveBg);
+			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
 			return;
 		}
 
@@ -572,16 +569,16 @@ public partial class TableControl
 		{
 			if (y < clipRect.Y || y >= clipRect.Bottom) return;
 			if (Margin.Left > 0)
-				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, bgColor, preserveBg);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, effectiveBg);
 			if (Margin.Right > 0)
-				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, bgColor, preserveBg);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, effectiveBg);
 		}
 
 		// Title row
 		if (!string.IsNullOrEmpty(_title) && currentY < maxY)
 		{
 			FillSideMargins(currentY);
-			DrawTitleRow(buffer, startX, currentY, contentWidth, clipRect, headerFg, bgColor, preserveBg);
+			DrawTitleRow(buffer, startX, currentY, contentWidth, clipRect, headerFg, effectiveBg);
 			currentY++;
 		}
 
@@ -590,7 +587,7 @@ public partial class TableControl
 		{
 			FillSideMargins(currentY);
 			DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
-				box.TopLeft, box.TopTee, box.TopRight, box.Horizontal, preserveBg: preserveBg);
+				box.TopLeft, box.TopTee, box.TopRight, box.Horizontal);
 			currentY++;
 		}
 
@@ -629,7 +626,7 @@ public partial class TableControl
 			}
 
 			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
-				headerCells, colSnapshot, headerFg, headerBg, hasBorder, preserveBg: preserveBg);
+				headerCells, colSnapshot, headerFg, headerBg, hasBorder);
 
 			// Update column rendered positions for hit testing (always, including DataSource mode)
 			{
@@ -656,7 +653,7 @@ public partial class TableControl
 			{
 				FillSideMargins(currentY);
 				DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
-					box.LeftTee, box.Cross, box.RightTee, box.Horizontal, preserveBg: preserveBg);
+					box.LeftTee, box.Cross, box.RightTee, box.Horizontal);
 				currentY++;
 			}
 		}
@@ -678,7 +675,7 @@ public partial class TableControl
 			{
 				FillSideMargins(currentY);
 				DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
-					box.LeftTee, box.Cross, box.RightTee, box.Horizontal, preserveBg: preserveBg);
+					box.LeftTee, box.Cross, box.RightTee, box.Horizontal);
 				currentY++;
 			}
 
@@ -771,13 +768,12 @@ public partial class TableControl
 				filterMatches = FindMatchPositions(dataR, _activeFilter);
 
 			FillSideMargins(currentY);
-			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
+			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
 				rowCells, colSnapshot, effectiveRowFg, effectiveRowBg, hasBorder,
 				isSelected: isRowSel || isHovered,
 				selectedCellIndex: selectedCell, selectedCellBg: cellHighlightBg, selectedCellFg: cellHighlightFg,
 				showCheckbox: _checkboxMode, isChecked: isChecked,
 				editCellIndex: editCellIndex, editCursorPos: editCursorPos,
-				preserveBg: preserveBg,
 				filterMatches: filterMatches);
 
 			// Update row rendered position for hit testing (for in-memory rows)
@@ -798,7 +794,7 @@ public partial class TableControl
 			{
 				FillSideMargins(currentY);
 				DrawMergedHorizontalLine(buffer, startX, currentY, colWidths, clipRect,
-					box, borderColor, bgColor, box.LeftTee, box.RightTee, box.Horizontal, preserveBg);
+					box, borderColor, bgColor, box.LeftTee, box.RightTee, box.Horizontal);
 				currentY++;
 			}
 
@@ -811,7 +807,7 @@ public partial class TableControl
 
 				FillSideMargins(currentY);
 				DrawFilterStatusBar(buffer, startX, currentY, statusWidth, clipRect,
-					fgColor, bgColor, box, borderColor, hasBorder, preserveBg);
+					fgColor, effectiveBg, box, borderColor, hasBorder);
 				currentY++;
 			}
 
@@ -820,7 +816,7 @@ public partial class TableControl
 			{
 				FillSideMargins(currentY);
 				DrawMergedHorizontalLine(buffer, startX, currentY, colWidths, clipRect,
-					box, borderColor, bgColor, box.BottomLeft, box.BottomRight, box.Horizontal, preserveBg);
+					box, borderColor, bgColor, box.BottomLeft, box.BottomRight, box.Horizontal);
 				currentY++;
 			}
 		}
@@ -829,7 +825,7 @@ public partial class TableControl
 			// Standard bottom border with column tees
 			FillSideMargins(currentY);
 			DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
-				box.BottomLeft, box.BottomTee, box.BottomRight, box.Horizontal, preserveBg: preserveBg);
+				box.BottomLeft, box.BottomTee, box.BottomRight, box.Horizontal);
 			currentY++;
 		}
 
@@ -837,7 +833,7 @@ public partial class TableControl
 		while (currentY < maxY)
 		{
 			if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
-				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), fgColor, bgColor, preserveBg);
+				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), fgColor, effectiveBg);
 			currentY++;
 		}
 
@@ -869,7 +865,7 @@ public partial class TableControl
 			currentY++;
 		}
 
-		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, bgColor, preserveBg);
+		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
 	}
 
 	#endregion
