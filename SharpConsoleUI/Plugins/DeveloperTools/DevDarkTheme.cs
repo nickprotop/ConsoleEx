@@ -330,4 +330,10 @@ public class DevDarkTheme : ITheme
 	public Color? TreeSelectionBackgroundColor { get; set; } = Color.Grey27;
 	/// <inheritdoc/>
 	public Color? TreeUnfocusedSelectionBackgroundColor { get; set; } = Color.Grey19;
+	/// <inheritdoc/>
+	public Color? LineGraphBackgroundColor { get; set; } = null;
+	/// <inheritdoc/>
+	public Color? BarGraphBackgroundColor { get; set; } = null;
+	/// <inheritdoc/>
+	public Color? SparklineBackgroundColor { get; set; } = null;
 }

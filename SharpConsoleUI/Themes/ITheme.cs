@@ -601,4 +601,21 @@ public interface ITheme
     /// </summary>
     Color? TreeUnfocusedSelectionBackgroundColor { get; }
 
+    // Graph background colors
+
+    /// <summary>
+    /// Gets the background color for line graph controls. Null means transparent.
+    /// </summary>
+    Color? LineGraphBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for bar graph controls. Null means transparent.
+    /// </summary>
+    Color? BarGraphBackgroundColor { get; }
+
+    /// <summary>
+    /// Gets the background color for sparkline controls. Null means transparent.
+    /// </summary>
+    Color? SparklineBackgroundColor { get; }
+
 }

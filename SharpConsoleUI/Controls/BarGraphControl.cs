@@ -299,7 +299,7 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			// Resolve colors
-			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
+			Color bgColor = ColorResolver.ResolveBarGraphBackground(_backgroundColorValue, Container);
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
 			var effectiveBg = Color.Transparent;
 

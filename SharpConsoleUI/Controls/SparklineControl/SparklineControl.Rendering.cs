@@ -65,11 +65,8 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			// Resolve colors
-			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
+			Color bgColor = ColorResolver.ResolveSparklineBackground(_backgroundColorValue, Container);
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
-
-			// Fill margins with container background
-			Color containerBg = Container?.BackgroundColor ?? defaultBg;
 			var effectiveBg = Color.Transparent;
 			for (int y = bounds.Y; y < bounds.Bottom; y++)
 			{

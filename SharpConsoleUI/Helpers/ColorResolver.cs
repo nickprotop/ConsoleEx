@@ -418,5 +418,29 @@ namespace SharpConsoleUI.Helpers
 			=> Coalesce(explicitValue)
 			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TreeUnfocusedSelectionBackgroundColor)
 			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves line graph background: explicit → theme LineGraphBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveLineGraphBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.LineGraphBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves bar graph background: explicit → theme BarGraphBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveBarGraphBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.BarGraphBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves sparkline background: explicit → theme SparklineBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveSparklineBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.SparklineBackgroundColor)
+			?? Color.Transparent;
 	}
 }

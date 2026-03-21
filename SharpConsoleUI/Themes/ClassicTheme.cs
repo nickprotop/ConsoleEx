@@ -504,6 +504,12 @@ namespace SharpConsoleUI.Themes
 		public Color? TreeSelectionBackgroundColor { get; set; } = Color.Blue;
 		/// <inheritdoc/>
 		public Color? TreeUnfocusedSelectionBackgroundColor { get; set; } = Color.Navy;
+		/// <inheritdoc/>
+		public Color? LineGraphBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? BarGraphBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? SparklineBackgroundColor { get; set; } = null;
 
 	}
 }

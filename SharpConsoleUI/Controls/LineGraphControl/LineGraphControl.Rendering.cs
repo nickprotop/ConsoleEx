@@ -69,11 +69,8 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			// Resolve colors
-			Color bgColor = _backgroundColorValue ?? Container?.BackgroundColor ?? defaultBg;
+			Color bgColor = ColorResolver.ResolveLineGraphBackground(_backgroundColorValue, Container);
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
-
-			// Fill margins with container background
-			Color containerBg = Container?.BackgroundColor ?? defaultBg;
 			var effectiveBg = Color.Transparent;
 			for (int y = bounds.Y; y < bounds.Bottom; y++)
 			{
@@ -98,8 +95,8 @@ namespace SharpConsoleUI.Controls
 			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
 			int contentHeight = _graphHeight + (borderSize * 2) + titleHeight + baselineHeight;
 
-			// Fill content area with control background (skip if same as container bg — already filled above)
-			if (bgColor != containerBg)
+			// Fill content area with control background (skip if transparent — already filled above)
+			if (bgColor != Color.Transparent)
 			{
 				for (int y = startY; y < startY + contentHeight && y < bounds.Bottom; y++)
 				{
