@@ -23,6 +23,7 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 ## Next
 
 - **Instant input response** — replace polling-based input loop with event-driven wake for zero-latency keypress handling
+- **Consolidate focus tracking** — unify visual focus (`control.HasFocus`) and coordinator routing (`FocusCoord._focusPath`) into a single source of truth; currently two independent writes that can drift and cause key routing to target the wrong control
 
 ## Later
 
