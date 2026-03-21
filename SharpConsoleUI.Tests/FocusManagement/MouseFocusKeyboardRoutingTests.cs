@@ -228,6 +228,79 @@ public class MouseFocusKeyboardRoutingTests
 		Assert.False(button1.HasFocus, "Button1 should have lost focus after Tab");
 	}
 
+	#region Full Dispatch Path (HandleClickFocus + ProcessMouseEvent)
+
+	/// <summary>
+	/// Regression: When clicking the Nth directly-focusable control in an SPC,
+	/// the coordinator path must point to that control, not the first one.
+	///
+	/// Root cause: HandleClickFocus(SPC) → RequestFocus(SPC) → SPC.SetFocus(Programmatic)
+	/// delegates to the FIRST focusable child and sets the coordinator path there.
+	/// SPC.ProcessMouseEvent then correctly focuses the clicked child visually, but
+	/// did not update the coordinator path — leaving it pointing to child #1.
+	/// Result: key routing and Tab both targeted child #1 instead of the clicked child.
+	/// </summary>
+	[Fact]
+	public void MouseClick_ThirdControlInPanel_CoordinatorPathPointsToThirdControl()
+	{
+		// Arrange: SPC with 3 stacked buttons (each 1 line tall, so y=0,1,2)
+		var panel = new ScrollablePanelControl { Height = 10 };
+		var button1 = new ButtonControl { Text = "Button1" };
+		var button2 = new ButtonControl { Text = "Button2" };
+		var button3 = new ButtonControl { Text = "Button3" };
+		panel.AddControl(button1);
+		panel.AddControl(button2);
+		panel.AddControl(button3);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		// Act: simulate full window dispatch — HandleClickFocus first (sets path to child #1),
+		// then ProcessMouseEvent (must correct the path to the actually clicked child).
+		window.FocusCoord!.HandleClickFocus(panel);
+		var click = CreateClick(0, 2); // y=2 → button3
+		panel.ProcessMouseEvent(click);
+
+		// Assert: coordinator path leaf must be button3, not button1
+		Assert.True(button3.HasFocus, "Button3 should have focus after clicking it");
+		Assert.False(button1.HasFocus, "Button1 should NOT have focus");
+		Assert.Same(button3, window.FocusCoord!.FocusedLeaf); // path must point to clicked button3, not button1
+	}
+
+	[Fact]
+	public void MouseClick_SecondControl_TabAdvancesFromSecondNotFirst()
+	{
+		// Arrange: SPC with 3 stacked buttons
+		var panel = new ScrollablePanelControl { Height = 10 };
+		var button1 = new ButtonControl { Text = "Button1" };
+		var button2 = new ButtonControl { Text = "Button2" };
+		var button3 = new ButtonControl { Text = "Button3" };
+		panel.AddControl(button1);
+		panel.AddControl(button2);
+		panel.AddControl(button3);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+
+		// Act: click button2 via full dispatch path
+		window.FocusCoord!.HandleClickFocus(panel);
+		panel.ProcessMouseEvent(CreateClick(0, 1)); // y=1 → button2
+
+		Assert.True(button2.HasFocus, "Button2 should have focus");
+
+		// Act: Tab should advance to button3 (not button1)
+		var tab = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
+		panel.ProcessKey(tab);
+
+		Assert.True(button3.HasFocus, "Tab from button2 should land on button3");
+		Assert.False(button2.HasFocus, "Button2 should have lost focus after Tab");
+		Assert.False(button1.HasFocus, "Button1 should remain unfocused");
+	}
+
+	#endregion
+
 	#region Edge Cases - Disabled Controls
 
 	[Fact]

@@ -328,6 +328,12 @@ namespace SharpConsoleUI.Controls
 							{
 								// Set focus on clicked child directly
 								((IFocusableControl)child).SetFocus(true, FocusReason.Mouse);
+								// Correct the coordinator path to the actually clicked child.
+								// RequestFocus(SPC) → SPC.SetFocus(Programmatic) delegates to the
+								// FIRST focusable child and sets the path there. We must update it
+								// to the child the user actually clicked, or key routing and Tab
+								// will target the first child instead.
+								UpdateCoordinatorFocusPath((IInteractiveControl)child);
 							}
 							// For containers (e.g. HorizontalGrid with CanReceiveFocus=false):
 							// Don't call SetFocus — let the mouse forwarding + the container's own
@@ -335,7 +341,6 @@ namespace SharpConsoleUI.Controls
 
 							_hasFocus = true;
 							_lastInternalFocusedChild = null;
-							// Path is updated by the SetFocus notification chain or coordinator.HandleClickFocus
 							log?.LogTrace($"ScrollPanel.ProcessMouseEvent: focused child {child.GetType().Name}", "Focus");
 						}
 
