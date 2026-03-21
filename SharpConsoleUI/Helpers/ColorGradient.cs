@@ -167,8 +167,9 @@ namespace SharpConsoleUI.Helpers
             byte r = (byte)(c1.R + (c2.R - c1.R) * position);
             byte g = (byte)(c1.G + (c2.G - c1.G) * position);
             byte b = (byte)(c1.B + (c2.B - c1.B) * position);
+            byte a = (byte)(c1.A + (c2.A - c1.A) * position);
 
-            return new Color(r, g, b);
+            return new Color(r, g, b, a);
         }
 
         /// <summary>
