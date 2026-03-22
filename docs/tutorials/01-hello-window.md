@@ -2,13 +2,13 @@
 
 > **Difficulty:** Beginner | **Prerequisites:** .NET 8+ installed | **Estimated reading time:** ~5 minutes
 >
-> **←** [Tutorials overview](../README.md#tutorials) | **Next →** [Tutorial 2: Live Dashboard](02-dashboard.md)
+> **←** [Tutorials overview](../../README.md#tutorials) | **Next →** [Tutorial 2: Live Dashboard](02-dashboard.md)
 
 ---
 
 **What you'll build:** A single window with a title, a label, and a Quit button — the minimal complete SharpConsoleUI application.
 
-Most terminal programs use immediate-mode output: you call `Console.Write`, the characters land on screen, and the terminal holds them — there is no concept of redrawing or responding to resize. SharpConsoleUI uses a retained-mode model instead: you declare a tree of controls, and the framework owns rendering, redraws, and input routing for the lifetime of the application. This is the same model used by WPF, Avalonia, and WinForms, just targeting the terminal rather than a graphical display. The result is that your code describes *what* the UI should look like, not *when* to paint each pixel.
+Most terminal programs use immediate-mode output: you call `Console.Write`, the characters land on screen, and the terminal holds them — there is no concept of redrawing or responding to resize. SharpConsoleUI uses a retained-mode model instead: you declare a tree of controls, and the framework owns rendering, redraws, and input routing for the lifetime of the application. The result is that redraws, focus management, and scrolling are handled automatically — your code describes *what* the UI should look like, not *when* to paint each pixel.
 
 ## Step 1: Create the project
 
