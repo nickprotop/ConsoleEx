@@ -14,11 +14,15 @@ This tutorial is standalone — start fresh with `dotnet new console`, no code c
 
 ## Step 1: Create the project
 
+Scaffold a new console project and add the SharpConsoleUI package.
+
 ```bash
 dotnet new console -n Dashboard
 cd Dashboard
 dotnet add package SharpConsoleUI
 ```
+
+This gives you a minimal `Program.cs` — replace its contents entirely with the code that follows.
 
 ---
 
