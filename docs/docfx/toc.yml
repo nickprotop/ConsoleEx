@@ -1,5 +1,7 @@
 - name: Why SharpConsoleUI?
   href: COMPARISON.html
+- name: Tutorials
+  href: tutorials/README.html
 - name: API Reference
   href: api/
   homepage: api/SharpConsoleUI.html

@@ -22,7 +22,7 @@
       },
       {
         "src": "../",
-        "files": ["*.md", "controls/**.md"],
+        "files": ["*.md", "controls/**.md", "tutorials/**.md"],
         "exclude": ["**/obj/**", "**/bin/**", "docfx/**"]
       }
     ],

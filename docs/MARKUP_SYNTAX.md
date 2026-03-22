@@ -139,13 +139,18 @@ SharpConsoleUI includes a native markup parser that uses Spectre-compatible `[ta
 ```
 [#RRGGBB]text[/]
 [#RGB]text[/]
+[#RRGGBBAA]text[/]
 ```
 
 ```csharp
 "[#FF8000]Orange text[/]"
 "[#F80]Short hex orange[/]"
 "[#336699]Steel blue text[/]"
+"[#00DCDC80]Semi-transparent cyan[/]"   // 50 % opacity
+"[#FF000000]Fully transparent red[/]"   // invisible — composites to background
 ```
+
+The 8-digit form (`#RRGGBBAA`) sets the foreground alpha. The character is composited over the resolved background color of that cell using Porter-Duff "over". At `AA=00` the glyph is invisible (background shows through); at `AA=FF` it is fully opaque. This is what powers the fade-to-transparent effect in the Alpha Blending demo — `█` characters drawn with decreasing alpha dissolve smoothly into whatever gradient is underneath.
 
 ### RGB Colors
 

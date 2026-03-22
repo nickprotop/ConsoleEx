@@ -172,17 +172,30 @@ fill.
 
 ### Alpha Compositing in CharacterBuffer
 
-When a control writes a cell with `Color.Transparent` as the background, `CharacterBuffer`
-resolves the displayed background from whatever was previously written at that position —
-typically the gradient painted by `PreBufferPaint` before controls render.
+`CharacterBuffer` applies Porter-Duff "over" compositing to **both** the background and
+the foreground of every cell written via `SetCell` / `SetNarrowCell`.
 
 ```
-cell written with Transparent bg  →  display_bg = gradient color at that position
-cell foreground                   →  displayed as-is over the composited background
+resolved_bg  =  Color.Blend(new_bg,  existing_bg)
+resolved_fg  =  Color.Blend(new_fg,  resolved_bg)
+```
+
+**Background:** when a control writes `Color.Transparent` as the background, the existing
+background (typically the gradient painted before controls render) shows through unchanged.
+
+**Foreground:** when a control writes a semi-transparent foreground, the glyph is blended
+against the *resolved background* of that cell — not against the previous foreground.
+This is the physically correct model: the background is what sits beneath the glyph, so a
+partially transparent character reveals the background behind it.
+
+```
+new_bg = Transparent  →  resolved_bg = gradient color at that position
+new_fg = cyan @ 50 %  →  resolved_fg = blend(cyan, resolved_bg)   // not blend(cyan, white)
 ```
 
 This means gradient window backgrounds remain visible beneath any control that uses
-`Color.Transparent`, even when that control has opaque foreground characters.
+`Color.Transparent`, and semi-transparent foreground characters (including `█` full-block
+characters) blend smoothly into the gradient rather than fading toward white.
 
 ```csharp
 // Window with a blue→black vertical gradient
