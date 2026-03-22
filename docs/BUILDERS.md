@@ -1,5 +1,7 @@
 # Fluent Builders Reference
 
+> **New to SharpConsoleUI?** Start with the [Tutorials](tutorials/01-hello-window.md) — they cover `WindowBuilder` in context from the very first step.
+
 SharpConsoleUI provides fluent builder APIs for creating windows and controls with clean, chainable syntax.
 
 ## Table of Contents

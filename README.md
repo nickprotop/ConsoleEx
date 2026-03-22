@@ -261,6 +261,7 @@ dotnet run --project Examples/DemoApp
 
 | Guide | Description |
 |-------|-------------|
+| **[Tutorials](docs/tutorials/01-hello-window.md)** | Step-by-step guides: Hello Window → Dashboard → Settings App |
 | **[Examples Gallery](docs/EXAMPLES.md)** | All examples with screenshots |
 | **[Fluent Builders](docs/BUILDERS.md)** | WindowBuilder and control builder APIs |
 | **[Controls Reference](docs/CONTROLS.md)** | Complete guide to all 30+ UI controls |

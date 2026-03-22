@@ -1,5 +1,7 @@
 # Gradients
 
+> **New to SharpConsoleUI?** Gradients are covered hands-on in [Tutorial 3: Settings App](tutorials/03-settings-app.md).
+
 SharpConsoleUI supports gradient colors for both text and window backgrounds, extending the existing `ColorGradient` system.
 
 ## Table of Contents
