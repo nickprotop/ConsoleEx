@@ -94,7 +94,6 @@ var graph = Controls.LineGraph()
 statsPanel.AddControl(uptimeLabel);
 statsPanel.AddControl(timeLabel);
 statsPanel.AddControl(graph);
-leftCol.AddContent(statsPanel);
 ```
 
 The graph starts empty — it fills with data points once the async thread starts.
@@ -112,8 +111,9 @@ var logPanel = Controls.ScrollablePanel()
     .WithAutoScroll()
     .WithVerticalAlignment(VerticalAlignment.Fill)
     .Build();
-rightCol.AddContent(logPanel);
 ```
+
+Column wiring — passing `statsPanel` and `logPanel` into their respective grid columns — happens in the grid builder shown in Step 3 and in the Complete Program.cs below, not in these step snippets.
 
 Each log entry is a new control added dynamically via `logPanel.AddControl(...)`. The panel tracks total content height and scrolls automatically.
 
