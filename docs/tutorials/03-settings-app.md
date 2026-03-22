@@ -179,8 +179,15 @@ settingsWindow.PreviewKeyPressed += (s, e) =>
         windowSystem.CloseWindow(settingsWindow);
         e.Handled = true;
     }
+    else if (e.KeyInfo.Key == ConsoleKey.S && e.KeyInfo.Modifiers == ConsoleModifiers.Control)
+    {
+        SaveAndClose();
+        e.Handled = true;
+    }
 };
 ```
+
+Pressing Esc closes the settings window and returns focus to the main window. Ctrl+S calls `SaveAndClose()` which applies the gradient and closes the window.
 
 ## Step 9: Open and close the settings window
 
@@ -312,6 +319,11 @@ settingsWindow.PreviewKeyPressed += (s, e) =>
         windowSystem.CloseWindow(settingsWindow);
         e.Handled = true;
     }
+    else if (e.KeyInfo.Key == ConsoleKey.S && e.KeyInfo.Modifiers == ConsoleModifiers.Control)
+    {
+        SaveAndClose();
+        e.Handled = true;
+    }
 };
 
 // Save toolbar button
@@ -343,5 +355,7 @@ windowSystem.Run();
 ---
 
 **←** [Tutorial 2: Live Dashboard](02-dashboard.md)
+
+This is the final tutorial in the series.
 
 You've now covered the core SharpConsoleUI patterns. Explore the [Controls Reference](../CONTROLS.md), [Builders Reference](../BUILDERS.md), and project templates (`dotnet new tui-app`) for next steps.
