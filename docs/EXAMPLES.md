@@ -181,6 +181,36 @@ dotnet run --project Examples/CanvasDemo
 
 ---
 
+### Alpha Blending Demo
+Real-time Porter-Duff alpha compositing showcase with a live cycling gradient background.
+
+![Alpha Blending Demo](images/examples/alpha-blending.gif)
+
+```bash
+dotnet run --project Examples/DemoApp
+# Navigate to Rendering → Alpha Blending
+```
+
+Five zones demonstrate every level of the alpha pipeline against a continuously cycling full-spectrum gradient (three hues 120° apart rotating through the colour wheel every ~12 s):
+
+| Zone | What it shows |
+|------|--------------|
+| **Alpha Ladder** | Eight panels, same orange hue, alpha 0 → 255. Each panel background composites over the live gradient — fully transparent at α=0, fully opaque at α=255. |
+| **Fade to Transparent** | 60 `█` block characters with foreground alpha stepping 255 → 0. Foreground blends against the resolved background, so the blocks dissolve into the gradient rather than fading to white. |
+| **Glass Panels** | Four bordered panels at 25 / 50 / 75 / 100 % opacity. The gradient shows through each panel proportionally. |
+| **Live Compositor** | Interactive `Color.Blend(src, dst)` visualiser — drag the slider to change source alpha and watch the blended swatch update in real time. |
+| **Pulse Panel** | Background alpha animated 0 → 255 → 0 via a sine wave in an async window thread. |
+
+**APIs Demonstrated:**
+- `Color.Blend()` — Porter-Duff "over" compositing
+- `ColorGradient.FromColors()` with time-varying hues for a smooth colour-wheel cycle
+- `ScrollablePanel` with semi-transparent `BackgroundColor` (glass effect)
+- `SliderControl` wired to a live `MarkupControl` preview
+- Markup inline alpha: `[#RRGGBBAA]text[/]`
+- `WithAsyncWindowThread` driving animation at 20 fps
+
+---
+
 ### ConsoleTopExample
 ntop/btop-inspired live system monitoring dashboard.
 
@@ -413,6 +443,7 @@ These examples demonstrate specific features without full screenshots.
 | DemoApp | ✅ | | ✅ | ✅ | | |
 | NavigationViewDemo | | | ✅ | | | |
 | CanvasDemo | ✅ | ✅ | ✅ | | | |
+| Alpha Blending Demo | ✅ | | ✅ | | | |
 | ConsoleTopExample | ✅ | | | | | |
 | HighFreqDemo | ✅ | | ✅ | | | |
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
@@ -458,7 +489,7 @@ These examples demonstrate specific features without full screenshots.
 | `ImageControl` | DemoApp (Image Rendering, Image Viewer) |
 | `CanvasControl` | CanvasDemo, DemoApp |
 | `HorizontalGridControl` | Most examples |
-| `SliderControl` | DemoApp |
+| `SliderControl` | DemoApp, Alpha Blending Demo |
 | `RangeSliderControl` | DemoApp |
 | `SpectreRenderableControl` | SpectreMouseExample |
 
