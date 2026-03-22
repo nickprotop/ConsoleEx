@@ -49,22 +49,21 @@ var window = new WindowBuilder(windowSystem)
 
 ## Step 3: Add a two-column layout
 
-`HorizontalGridControl` divides space into columns; `FlexFactor` controls proportional width distribution. Note that `HorizontalAlignment.Stretch` fills the width for the grid — this is distinct from `Fill`, which belongs to `VerticalAlignment`.
+The `Controls.HorizontalGrid()` builder divides space into columns; `.Flex()` controls proportional width distribution. Note that `HorizontalAlignment.Stretch` fills the width for the grid — this is distinct from `Fill`, which belongs to `VerticalAlignment`.
 
 ```csharp
 using SharpConsoleUI.Controls;
 
-var grid = new HorizontalGridControl();
-grid.HorizontalAlignment = HorizontalAlignment.Stretch;
-grid.VerticalAlignment = VerticalAlignment.Fill;
-
-var leftCol  = new ColumnContainer(grid) { FlexFactor = 1 };
-var rightCol = new ColumnContainer(grid) { FlexFactor = 2 };
-
-grid.AddColumn(leftCol);
-grid.AddColumn(rightCol);
+var grid = Controls.HorizontalGrid()
+    .WithAlignment(HorizontalAlignment.Stretch)
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .Column(col => col.Flex(1).Add(statsPanel))
+    .Column(col => col.Flex(2).Add(logPanel))
+    .Build();
 window.AddControl(grid);
 ```
+
+Note: `statsPanel` and `logPanel` must be built before this call — see Steps 4 and 5. In the complete listing, this call comes after both panels are set up.
 
 The right column gets twice the width of the left. Both grow to fill the window.
 
@@ -72,27 +71,25 @@ The right column gets twice the width of the left. Both grow to fill the window.
 
 ## Step 4: Add the stats panel
 
-Add a bordered `ScrollablePanelControl` to the left column, with two markup labels and a graph inside.
+Add a bordered panel to the left column, with two markup labels and a graph inside. The `.WithName()` method on the builder assigns each control a name so it can be found later with `FindControl<T>()`.
 
 ```csharp
-var statsPanel = new ScrollablePanelControl
-{
-    BorderStyle = BorderStyle.Rounded,
-    Header = " Stats ",
-    VerticalAlignment = VerticalAlignment.Fill
-};
+var statsPanel = Controls.ScrollablePanel()
+    .Rounded()
+    .WithHeader(" Stats ")
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .Build();
 
-var uptimeLabel = new MarkupControl(new List<string> { "Uptime: --" }) { Name = "uptime" };
-var timeLabel   = new MarkupControl(new List<string> { "Time:   --" }) { Name = "time" };
+var uptimeLabel = Controls.Markup().AddLine("Uptime: --").WithName("uptime").Build();
+var timeLabel   = Controls.Markup().AddLine("Time:   --").WithName("time").Build();
 
-var graph = new LineGraphControl
-{
-    Name = "cpu",
-    Height = 8,
-    MinValue = 0,
-    MaxValue = 100
-};
-graph.AddSeries("CPU", Color.Cyan1);
+var graph = Controls.LineGraph()
+    .WithName("cpu")
+    .WithHeight(8)
+    .WithMinValue(0)
+    .WithMaxValue(100)
+    .AddSeries("CPU", Color.Cyan1)
+    .Build();
 
 statsPanel.AddControl(uptimeLabel);
 statsPanel.AddControl(timeLabel);
@@ -100,28 +97,25 @@ statsPanel.AddControl(graph);
 leftCol.AddContent(statsPanel);
 ```
 
-The `Name` properties on controls let you find them later with `FindControl<T>()`.
-
 The graph starts empty — it fills with data points once the async thread starts.
 
 ---
 
 ## Step 5: Add the scrolling log
 
-`AutoScroll = true` keeps the view pinned to the bottom as new controls are appended.
+`.WithAutoScroll()` keeps the view pinned to the bottom as new controls are appended.
 
 ```csharp
-var logPanel = new ScrollablePanelControl
-{
-    BorderStyle = BorderStyle.Rounded,
-    Header = " Log ",
-    AutoScroll = true,
-    VerticalAlignment = VerticalAlignment.Fill
-};
+var logPanel = Controls.ScrollablePanel()
+    .Rounded()
+    .WithHeader(" Log ")
+    .WithAutoScroll()
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .Build();
 rightCol.AddContent(logPanel);
 ```
 
-Each log entry is a new `MarkupControl` added dynamically via `logPanel.AddControl(...)`. The panel tracks total content height and scrolls automatically.
+Each log entry is a new control added dynamically via `logPanel.AddControl(...)`. The panel tracks total content height and scrolls automatically.
 
 ---
 
@@ -177,8 +171,9 @@ while (!ct.IsCancellationRequested)
     win.FindControl<LineGraphControl>("cpu")?.AddDataPoint("CPU", cpu);
 
     var color = cpu > 70 ? "red" : "green";
-    logPanel.AddControl(new MarkupControl(
-        new List<string> { $"[dim]{DateTime.Now:HH:mm:ss}[/] CPU [{color}]{cpu}%[/]" }));
+    logPanel.AddControl(Controls.Markup()
+        .AddLine($"[dim]{DateTime.Now:HH:mm:ss}[/] CPU [{color}]{cpu}%[/]")
+        .Build());
 }
 ```
 
@@ -200,33 +195,30 @@ using SharpConsoleUI.Layout;
 var driver = new NetConsoleDriver(RenderMode.Buffer);
 var windowSystem = new ConsoleWindowSystem(driver);
 
-// Declare all controls before the WindowBuilder call so the async lambda can capture them.
-var statsPanel = new ScrollablePanelControl
-{
-    BorderStyle = BorderStyle.Rounded,
-    Header = " Stats ",
-    VerticalAlignment = VerticalAlignment.Fill
-};
+// All controls declared before the WindowBuilder call (captured by the async lambda).
+var statsPanel = Controls.ScrollablePanel()
+    .Rounded()
+    .WithHeader(" Stats ")
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .Build();
 
-var uptimeLabel = new MarkupControl(new List<string> { "Uptime: --" }) { Name = "uptime" };
-var timeLabel   = new MarkupControl(new List<string> { "Time:   --" }) { Name = "time" };
+var uptimeLabel = Controls.Markup().AddLine("Uptime: --").WithName("uptime").Build();
+var timeLabel   = Controls.Markup().AddLine("Time:   --").WithName("time").Build();
 
-var graph = new LineGraphControl
-{
-    Name = "cpu",
-    Height = 8,
-    MinValue = 0,
-    MaxValue = 100
-};
-graph.AddSeries("CPU", Color.Cyan1);
+var graph = Controls.LineGraph()
+    .WithName("cpu")
+    .WithHeight(8)
+    .WithMinValue(0)
+    .WithMaxValue(100)
+    .AddSeries("CPU", Color.Cyan1)
+    .Build();
 
-var logPanel = new ScrollablePanelControl
-{
-    BorderStyle = BorderStyle.Rounded,
-    Header = " Log ",
-    AutoScroll = true,
-    VerticalAlignment = VerticalAlignment.Fill
-};
+var logPanel = Controls.ScrollablePanel()
+    .Rounded()
+    .WithHeader(" Log ")
+    .WithAutoScroll()
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .Build();
 
 var startTime = DateTime.Now;
 var random    = new Random();
@@ -252,30 +244,25 @@ var window = new WindowBuilder(windowSystem)
             win.FindControl<LineGraphControl>("cpu")?.AddDataPoint("CPU", cpu);
 
             var color = cpu > 70 ? "red" : "green";
-            logPanel.AddControl(new MarkupControl(
-                new List<string> { $"[dim]{DateTime.Now:HH:mm:ss}[/] CPU [{color}]{cpu}%[/]" }));
+            logPanel.AddControl(Controls.Markup()
+                .AddLine($"[dim]{DateTime.Now:HH:mm:ss}[/] CPU [{color}]{cpu}%[/]")
+                .Build());
         }
     })
     .Build();
 
-// Wire up the layout after Build().
-var grid = new HorizontalGridControl();
-grid.HorizontalAlignment = HorizontalAlignment.Stretch;
-grid.VerticalAlignment   = VerticalAlignment.Fill;
-
-var leftCol  = new ColumnContainer(grid) { FlexFactor = 1 };
-var rightCol = new ColumnContainer(grid) { FlexFactor = 2 };
-
+// Wire up layout after Build().
 statsPanel.AddControl(uptimeLabel);
 statsPanel.AddControl(timeLabel);
 statsPanel.AddControl(graph);
-leftCol.AddContent(statsPanel);
 
-rightCol.AddContent(logPanel);
-
-grid.AddColumn(leftCol);
-grid.AddColumn(rightCol);
-window.AddControl(grid);
+window.AddControl(
+    Controls.HorizontalGrid()
+        .WithAlignment(HorizontalAlignment.Stretch)
+        .WithVerticalAlignment(VerticalAlignment.Fill)
+        .Column(col => col.Flex(1).Add(statsPanel))
+        .Column(col => col.Flex(2).Add(logPanel))
+        .Build());
 
 windowSystem.AddWindow(window);
 windowSystem.Run();
@@ -286,15 +273,15 @@ windowSystem.Run();
 ## What you learned
 
 - Fullscreen layout with `.Maximized()` on `WindowBuilder`
-- `HorizontalGridControl` + `ColumnContainer` with `FlexFactor` for proportional columns
-- `ScrollablePanelControl` with border and header
-- `AutoScroll = true` for live log panels
+- `Controls.HorizontalGrid()` builder with `.Column()` and `.Flex()` for proportional columns
+- `Controls.ScrollablePanel()` builder with `.Rounded()`, `.WithHeader()`, and `.WithVerticalAlignment()`
+- `.WithAutoScroll()` for live log panels
 - `WithAsyncWindowThread` — background update loop pattern
 - Variable declaration order: captured variables must precede the `WindowBuilder` call
 - `FindControl<T>("name")` — look up controls by name
 - `SetContent(List<string>)` — update a MarkupControl's text
-- `LineGraphControl.AddSeries()` + `AddDataPoint()` — live graph updates
-- Dynamic control addition (`panel.AddControl(...)`) for log entries
+- `Controls.LineGraph()` builder with `.AddSeries()` + `AddDataPoint()` — live graph updates
+- Dynamic control addition (`panel.AddControl(Controls.Markup()...Build())`) for log entries
 - Markup color tags (`[green]`, `[red]`, `[dim]`, `[cyan]`)
 
 ---
