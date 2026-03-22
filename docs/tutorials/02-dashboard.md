@@ -28,7 +28,7 @@ This gives you a minimal `Program.cs` — replace its contents entirely with the
 
 ## Step 2: Create a fullscreen window
 
-Both alignment values are set to fill all available terminal space.
+`.Maximized()` makes the window fill the entire terminal and resize with it.
 
 ```csharp
 using SharpConsoleUI;
@@ -41,18 +41,15 @@ var windowSystem = new ConsoleWindowSystem(driver);
 
 var window = new WindowBuilder(windowSystem)
     .WithTitle("Dashboard")
-    .WithVerticalAlignment(VerticalAlignment.Fill)
-    .WithHorizontalAlignment(HorizontalAlignment.Stretch)
+    .Maximized()
     .Build();
 ```
-
-`HorizontalAlignment.Stretch` fills the width — note this is not `Fill`, which belongs to `VerticalAlignment`.
 
 ---
 
 ## Step 3: Add a two-column layout
 
-`HorizontalGridControl` divides space into columns; `FlexFactor` controls proportional width distribution.
+`HorizontalGridControl` divides space into columns; `FlexFactor` controls proportional width distribution. Note that `HorizontalAlignment.Stretch` fills the width for the grid — this is distinct from `Fill`, which belongs to `VerticalAlignment`.
 
 ```csharp
 using SharpConsoleUI.Controls;
@@ -144,8 +141,7 @@ var random    = new Random();
 
 var window = new WindowBuilder(windowSystem)
     .WithTitle("Dashboard")
-    .WithVerticalAlignment(VerticalAlignment.Fill)
-    .WithHorizontalAlignment(HorizontalAlignment.Stretch)
+    .Maximized()
     .WithAsyncWindowThread(async (win, ct) =>
     {
         // update loop goes here — see Step 7
@@ -237,8 +233,7 @@ var random    = new Random();
 
 var window = new WindowBuilder(windowSystem)
     .WithTitle("Dashboard")
-    .WithVerticalAlignment(VerticalAlignment.Fill)
-    .WithHorizontalAlignment(HorizontalAlignment.Stretch)
+    .Maximized()
     .WithAsyncWindowThread(async (win, ct) =>
     {
         while (!ct.IsCancellationRequested)
@@ -290,7 +285,7 @@ windowSystem.Run();
 
 ## What you learned
 
-- Fullscreen layout with `VerticalAlignment.Fill` + `HorizontalAlignment.Stretch`
+- Fullscreen layout with `.Maximized()` on `WindowBuilder`
 - `HorizontalGridControl` + `ColumnContainer` with `FlexFactor` for proportional columns
 - `ScrollablePanelControl` with border and header
 - `AutoScroll = true` for live log panels
