@@ -55,7 +55,9 @@ public static class LauncherWindow
                 .AddItem("Gradients", subtitle: "Gradient text & backgrounds", content: MakeInfoPanel("Gradients"))
                 .AddItem("Animations", subtitle: "Window animations & easing", content: MakeInfoPanel("Animations"))
                 .AddItem("Image Rendering", subtitle: "Pixel art with half-blocks", content: MakeInfoPanel("Image Rendering"))
-                .AddItem("Image Viewer", subtitle: "Load & display image files", content: MakeInfoPanel("Image Viewer")))
+                .AddItem("Image Viewer", subtitle: "Load & display image files", content: MakeInfoPanel("Image Viewer"))
+                .AddItem("Alpha Blending", subtitle: "Compositing, glass panels, live blend preview",
+                    content: MakeInfoPanel("Alpha Blending")))
             .AddHeader("Utilities", Color.Magenta1, header => header
                 .AddItem("Built-in Dialogs", subtitle: "File pickers & system dialogs", content: MakeInfoPanel("Built-in Dialogs"))
                 .AddItem("Digital Clock", subtitle: "FIGlet-rendered clock", content: MakeInfoPanel("Digital Clock"))
@@ -170,6 +172,7 @@ public static class LauncherWindow
             "Terminal" => TerminalWindow.Create(ws),
             "Toolbar" => ToolbarDemoWindow.Create(ws),
             "Welcome Banner" => WelcomeWindow.Create(ws),
+            "Alpha Blending" => AlphaBlendingDemoWindow.Create(ws),
             _ => (Window?)null
         };
     }
@@ -651,6 +654,22 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - FigleControl, MarkupControl",
+            },
+            "Alpha Blending" => new List<string>
+            {
+                "[bold cyan]Alpha Blending[/]",
+                "",
+                "Per-cell alpha compositing across five interactive zones.",
+                "Drag a slider to preview Color.Blend() live, watch a panel",
+                "pulse via sin-wave alpha, and toggle animated gradient direction.",
+                "",
+                "[dim]Features:[/]",
+                "  - Alpha ladder (8 opacity levels)",
+                "  - Fade-to-transparent gradient strip",
+                "  - Glass panels at 25/50/75/100% alpha",
+                "  - Live Color.Blend() compositor with slider",
+                "  - Animated pulse panel (sin-wave alpha)",
+                "  - Animated background gradient (checkbox-controlled)",
             },
             _ => null
         };
