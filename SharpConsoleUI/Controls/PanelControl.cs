@@ -34,6 +34,7 @@ namespace SharpConsoleUI.Controls
 		private TextJustification _headerAlignment = TextJustification.Left;
 		private Padding _padding = new Padding(1, 0, 1, 0);
 		private bool _useSafeBorder = false;
+	private bool _wordWrap = true;
 
 		// Mouse interaction state
 		private bool _wantsMouseEvents = true;
@@ -173,6 +174,18 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _useSafeBorder;
 			set => SetProperty(ref _useSafeBorder, value);
+		}
+
+		/// <summary>
+		/// Gets or sets whether content lines that exceed the panel width are word-wrapped.
+		/// When true (default), long lines are broken at word boundaries.
+		/// When false, long lines are clipped at the panel boundary — use this for
+		/// pre-formatted content such as graphs and progress bars.
+		/// </summary>
+		public bool WordWrap
+		{
+			get => _wordWrap;
+			set => SetProperty(ref _wordWrap, value);
 		}
 
 		#endregion
@@ -439,13 +452,26 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Calculates content lines for the given inner width.
+		/// When WordWrap is true, long lines are word-wrapped.
+		/// When WordWrap is false, long lines are clipped at innerContentWidth.
 		/// </summary>
 		private List<List<Cell>> GetContentLines(int innerContentWidth, Color fgColor, Color bgColor)
 		{
 			if (string.IsNullOrEmpty(_content) || innerContentWidth <= 0)
 				return new List<List<Cell>> { new List<Cell>() };
 
-			return MarkupParser.ParseLines(_content, innerContentWidth, fgColor, bgColor);
+			if (_wordWrap)
+				return MarkupParser.ParseLines(_content, innerContentWidth, fgColor, bgColor);
+
+			// Clip mode: split on explicit newlines only, truncate each line to width
+			// using markup-level truncation to handle wide chars and properly close tags.
+			var result = new List<List<Cell>>();
+			foreach (var line in _content.Split('\n'))
+			{
+				var truncated = MarkupParser.Truncate(line, innerContentWidth);
+				result.Add(MarkupParser.Parse(truncated, fgColor, bgColor));
+			}
+			return result;
 		}
 
 		#endregion

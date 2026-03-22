@@ -24,6 +24,7 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 	private TextJustification _headerAlignment = TextJustification.Left;
 	private Padding _padding = new Padding(1, 0, 1, 0);
 	private bool _useSafeBorder = false;
+	private bool _wordWrap = true;
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
@@ -206,6 +207,19 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 	public PanelBuilder UseSafeBorder(bool useSafe = true)
 	{
 		_useSafeBorder = useSafe;
+		return this;
+	}
+
+	/// <summary>
+	/// Controls whether content lines that exceed the panel width are word-wrapped.
+	/// Pass false to clip long lines instead — recommended for pre-formatted content
+	/// such as graphs and progress bars.
+	/// </summary>
+	/// <param name="wrap">True to word-wrap (default), false to clip.</param>
+	/// <returns>The builder for chaining.</returns>
+	public PanelBuilder WordWrap(bool wrap = true)
+	{
+		_wordWrap = wrap;
 		return this;
 	}
 
@@ -410,6 +424,7 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 			HeaderAlignment = _headerAlignment,
 			Padding = _padding,
 			UseSafeBorder = _useSafeBorder,
+			WordWrap = _wordWrap,
 			HorizontalAlignment = _horizontalAlignment,
 			VerticalAlignment = _verticalAlignment,
 			Margin = _margin,

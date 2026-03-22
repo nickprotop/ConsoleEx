@@ -56,23 +56,20 @@ internal static class AlphaBlendingDemoWindow
         var zone1Grid = zone1GridBuilder.Build();
 
         var zone2Heading = Controls.Markup()
-            .AddLine("[bold]2. Fade to Transparent[/]  [dim]ColorGradient interpolates alpha, not just RGB[/]")
+            .AddLine("[bold]2. Fade to Transparent[/]  [dim]foreground alpha composites against window gradient[/]")
             .Build();
 
-        // Build the fade strip: 60 '█' chars sampled from opaque→transparent cyan gradient
-        var fadeGradient = ColorGradient.FromColors(
-            new Color(0, 220, 220, 255),  // opaque cyan
-            new Color(0, 220, 220, 0));   // transparent cyan
-
-        var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < 60; i++)
+        // Fade strip: 60 block characters, each with cyan foreground alpha stepping 255→0
+        const int FadeChars = 60;
+        var fadeLineBuilder = new System.Text.StringBuilder();
+        for (int i = 0; i < FadeChars; i++)
         {
-            var c = fadeGradient.Interpolate((double)i / 59);
-            sb.Append($"[#{c.R:X2}{c.G:X2}{c.B:X2}{c.A:X2}]█[/]");
+            byte fadeAlpha = (byte)(255 - (int)(i * 255.0 / (FadeChars - 1)));
+            fadeLineBuilder.Append($"[#00DCDC{fadeAlpha:X2}]█[/]");
         }
 
         var zone2Strip = Controls.Markup()
-            .AddLine(sb.ToString())
+            .AddLine(fadeLineBuilder.ToString())
             .Build();
 
         var zone3Heading = Controls.Markup()
