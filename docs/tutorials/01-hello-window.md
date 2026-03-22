@@ -2,7 +2,7 @@
 
 > **Difficulty:** Beginner | **Prerequisites:** .NET 8+ installed | **Estimated reading time:** ~5 minutes
 >
-> **←** [Tutorials overview](../../README.md#tutorials) | **Next →** [Tutorial 2: Live Dashboard](02-dashboard.md)
+> **←** [Tutorials](README.md) | **Next →** [Tutorial 2: Live Dashboard](02-dashboard.md)
 
 ---
 

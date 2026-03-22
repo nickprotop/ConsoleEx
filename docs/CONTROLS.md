@@ -2,7 +2,7 @@
 
 SharpConsoleUI provides 30+ built-in UI controls for building rich console applications.
 
-> **New to SharpConsoleUI?** Start with the [Tutorials](tutorials/01-hello-window.md) — step-by-step guides that build real apps from scratch.
+> **New to SharpConsoleUI?** Start with the [Tutorials](tutorials/README.md) — step-by-step guides that build real apps from scratch.
 
 ## Table of Contents
 

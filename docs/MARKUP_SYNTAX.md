@@ -1,6 +1,6 @@
 # Markup Syntax Reference
 
-> **New to SharpConsoleUI?** Start with the [Tutorials](tutorials/01-hello-window.md) — markup is introduced in Tutorial 1.
+> **New to SharpConsoleUI?** Start with the [Tutorials](tutorials/README.md) — markup is introduced in Tutorial 1.
 
 SharpConsoleUI includes a native markup parser that uses Spectre-compatible `[tag]text[/]` syntax. All markup is parsed directly into typed `Cell` structs -- no ANSI intermediate format, no external dependencies required.
 

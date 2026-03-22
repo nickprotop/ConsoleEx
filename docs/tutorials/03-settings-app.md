@@ -2,7 +2,7 @@
 
 > **Difficulty:** Intermediate–Advanced | **Prerequisites:** Tutorial 2 or familiarity with windows and layout | **Estimated reading time:** ~20 minutes
 >
-> **←** [Tutorial 2: Live Dashboard](02-dashboard.md)
+> **←** [Tutorials](README.md) | [Tutorial 2: Live Dashboard](02-dashboard.md)
 
 ---
 

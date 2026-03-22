@@ -2,7 +2,7 @@
 
 > **Difficulty:** Intermediate | **Prerequisites:** Tutorial 1 or familiarity with the basics | **Estimated reading time:** ~15 minutes
 >
-> **←** [Tutorial 1: Hello Window](01-hello-window.md) | **Next →** [Tutorial 3: Settings App](03-settings-app.md)
+> **←** [Tutorials](README.md) | [Tutorial 1: Hello Window](01-hello-window.md) | **Next →** [Tutorial 3: Settings App](03-settings-app.md)
 
 ---
 
