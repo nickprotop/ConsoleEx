@@ -30,6 +30,8 @@ The rendering engine follows the same architecture as desktop GUI frameworks lik
 
 **Visit the project website: [nickprotop.github.io/ConsoleEx](https://nickprotop.github.io/ConsoleEx/)**
 
+**New to SharpConsoleUI? Follow the [Getting Started Tutorials](docs/tutorials/README.md)**
+
 **Browse examples with screenshots: [EXAMPLES.md](docs/EXAMPLES.md)**
 
 ## Showcase
