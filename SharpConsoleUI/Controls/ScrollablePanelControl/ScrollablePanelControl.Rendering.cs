@@ -88,6 +88,13 @@ namespace SharpConsoleUI.Controls
 			// Draw border if needed
 			bool hasBorder = _borderStyle != BorderStyle.None;
 			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;
+			if (!hasBorder && _backgroundColorValue != null)
+			{
+				// No border but explicit background — fill the entire panel area
+				var fillRect = clipRect.Intersect(new LayoutRect(startX, startY, targetWidth, targetHeight));
+				if (fillRect.Width > 0 && fillRect.Height > 0)
+					Helpers.ControlRenderingHelpers.FillRect(buffer, fillRect, fgColor, effectiveBg);
+			}
 			if (hasBorder)
 			{
 				var box = BoxChars.FromBorderStyle(_borderStyle);

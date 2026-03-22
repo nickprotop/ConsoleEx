@@ -88,7 +88,9 @@ public class AppRegistryLazyFlushTests
     [Fact]
     public async Task LazyFlush_TimerFires_PersistsData()
     {
-        var storage = new MemoryStorage();
+        var savedTcs = new TaskCompletionSource<System.Text.Json.Nodes.JsonNode>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var storage = new CapturingStorage(n => savedTcs.TrySetResult(n));
         var config = new RegistryConfiguration(
             FlushInterval: TimeSpan.FromMilliseconds(50),
             Storage: storage);
@@ -96,18 +98,15 @@ public class AppRegistryLazyFlushTests
         using var reg = new AppRegistry(config);
         reg.OpenSection("App").SetInt("X", 77);
 
-        // Poll until the lazy flush timer persists data, with a generous timeout for CI
-        var timeout = TimeSpan.FromSeconds(2);
-        var start = DateTime.UtcNow;
-        System.Text.Json.Nodes.JsonNode? loaded = null;
-        while (DateTime.UtcNow - start < timeout)
-        {
-            loaded = storage.Load();
-            if (loaded != null) break;
-            await Task.Delay(50);
-        }
+        // Timer fires every 50 ms; WaitAsync throws TimeoutException if it never fires
+        var saved = await savedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(saved);
+    }
 
-        Assert.NotNull(loaded);
+    private class CapturingStorage(Action<System.Text.Json.Nodes.JsonNode> onSave) : IRegistryStorage
+    {
+        public void Save(System.Text.Json.Nodes.JsonNode root) => onSave(root);
+        public System.Text.Json.Nodes.JsonNode? Load() => null;
     }
 
     [Fact]

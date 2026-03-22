@@ -200,7 +200,7 @@ namespace SharpConsoleUI.Layout
 		/// Sets a narrow (width-1) cell at the specified position with a Rune character.
 		/// Clears IsWideContinuation, Combiners, and Decorations.
 		/// Do NOT use for cells from MarkupParser.Parse — use SetCell(Cell) instead to preserve flags.
-		/// Only <paramref name="background"/> participates in alpha blending; foreground is stored as-is.
+		/// Both <paramref name="foreground"/> and <paramref name="background"/> participate in alpha blending.
 		/// </summary>
 		public void SetNarrowCell(int x, int y, Rune character, Color foreground, Color background)
 		{
@@ -210,6 +210,7 @@ namespace SharpConsoleUI.Layout
 			CleanupWideCharAt(x, y);
 
 			background = Color.Blend(background, _cells[x, y].Background);
+			foreground = Color.Blend(foreground, background);
 
 			ref var cell = ref _cells[x, y];
 			if (cell.Character != character ||
@@ -233,7 +234,7 @@ namespace SharpConsoleUI.Layout
 
 		/// <summary>
 		/// Sets a cell at the specified position, preserving all attributes including decorations.
-		/// Only <see cref="Cell.Background"/> participates in alpha blending; foreground is stored as-is.
+		/// Both <see cref="Cell.Foreground"/> and <see cref="Cell.Background"/> participate in alpha blending.
 		/// </summary>
 		public void SetCell(int x, int y, Cell cell)
 		{
@@ -244,15 +245,16 @@ namespace SharpConsoleUI.Layout
 
 			ref var existing = ref _cells[x, y];
 			var resolvedBg = Color.Blend(cell.Background, existing.Background);
+			var resolvedFg = Color.Blend(cell.Foreground, resolvedBg);
 			if (existing.Character != cell.Character ||
-				!existing.Foreground.Equals(cell.Foreground) ||
+				!existing.Foreground.Equals(resolvedFg) ||
 				!existing.Background.Equals(resolvedBg) ||
 				existing.Decorations != cell.Decorations ||
 				existing.IsWideContinuation != cell.IsWideContinuation ||
 				existing.Combiners != cell.Combiners)
 			{
 				existing.Character = cell.Character;
-				existing.Foreground = cell.Foreground;
+				existing.Foreground = resolvedFg;
 				existing.Background = resolvedBg;
 				existing.Decorations = cell.Decorations;
 				existing.IsWideContinuation = cell.IsWideContinuation;
