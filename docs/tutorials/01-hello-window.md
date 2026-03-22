@@ -59,10 +59,9 @@ Run `dotnet run` after adding `windowSystem.AddWindow(window); windowSystem.Run(
 ```csharp
 using SharpConsoleUI.Controls;
 
-window.AddControl(new MarkupControl(new List<string>
-{
-    "[bold cyan]Hello, SharpConsoleUI![/]"
-}));
+window.AddControl(Controls.Markup()
+    .AddLine("[bold cyan]Hello, SharpConsoleUI![/]")
+    .Build());
 ```
 
 The label appears on the first line of the window's content area.
@@ -112,10 +111,9 @@ var window = new WindowBuilder(windowSystem)
     .Centered()
     .Build();
 
-window.AddControl(new MarkupControl(new List<string>
-{
-    "[bold cyan]Hello, SharpConsoleUI![/]"
-}));
+window.AddControl(Controls.Markup()
+    .AddLine("[bold cyan]Hello, SharpConsoleUI![/]")
+    .Build());
 
 window.AddControl(Controls.Button("Quit")
     .OnClick((sender, e, win) => windowSystem.Shutdown())
