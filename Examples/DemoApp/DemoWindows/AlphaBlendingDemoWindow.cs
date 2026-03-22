@@ -197,40 +197,52 @@ internal static class AlphaBlendingDemoWindow
             })
             .WithAsyncWindowThread(async (win, ct) =>
             {
-                var directions = new[]
-                {
-                    GradientDirection.Horizontal,
-                    GradientDirection.DiagonalDown,
-                    GradientDirection.Vertical,
-                    GradientDirection.DiagonalUp,
-                };
-                int dirIndex = 0;
-                var lastDirChange = DateTime.Now;
                 var startTime = DateTime.Now;
+
+                // Convert a hue (0.0–1.0) to a fully-saturated RGB color.
+                static Color HueToColor(double h)
+                {
+                    h = ((h % 1.0) + 1.0) % 1.0; // normalise to [0,1)
+                    double s = h * 6.0;
+                    int i = (int)s;
+                    double f = s - i;
+                    double q = 1.0 - f;
+                    return i switch
+                    {
+                        0 => new Color(255, (byte)(f * 255), 0),
+                        1 => new Color((byte)(q * 255), 255, 0),
+                        2 => new Color(0, 255, (byte)(f * 255)),
+                        3 => new Color(0, (byte)(q * 255), 255),
+                        4 => new Color((byte)(f * 255), 0, 255),
+                        _ => new Color(255, 0, (byte)(q * 255)),
+                    };
+                }
 
                 while (!ct.IsCancellationRequested)
                 {
                     await Task.Delay(50, ct);
 
+                    double t = (DateTime.Now - startTime).TotalSeconds;
+
                     // Pulse panel
                     var pulse = win.FindControl<ScrollablePanelControl>("pulsePanel");
                     if (pulse != null)
                     {
-                        double t = (DateTime.Now - startTime).TotalSeconds;
                         byte a = (byte)((Math.Sin(t * Math.PI) + 1.0) / 2.0 * 255);
                         pulse.BackgroundColor = new Color(255, 50, 100, a);
                     }
 
-                    // Background animation
+                    // Smooth gradient cycle — three hues spaced 120° apart, rotating over time
                     var toggle = win.FindControl<CheckboxControl>("animToggle");
-                    if (toggle?.Checked == true &&
-                        (DateTime.Now - lastDirChange).TotalSeconds >= 1.5)
+                    if (toggle?.Checked == true)
                     {
-                        dirIndex = (dirIndex + 1) % directions.Length;
+                        double phase = t * 0.08; // full hue cycle every ~12 s
+                        var c1 = HueToColor(phase);
+                        var c2 = HueToColor(phase + 1.0 / 3.0);
+                        var c3 = HueToColor(phase + 2.0 / 3.0);
                         win.BackgroundGradient = new GradientBackground(
-                            ColorGradient.FromColors(Color.Blue, Color.MediumPurple, Color.Orange1),
-                            directions[dirIndex]);
-                        lastDirChange = DateTime.Now;
+                            ColorGradient.FromColors(c1, c2, c3),
+                            GradientDirection.DiagonalDown);
                     }
                 }
             })
