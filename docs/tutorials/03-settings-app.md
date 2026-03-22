@@ -33,7 +33,7 @@ using SharpConsoleUI.Drivers;
 var driver = new NetConsoleDriver(RenderMode.Buffer);
 var windowSystem = new ConsoleWindowSystem(driver);
 
-Window? settingsWindow = null; // built in Step 3, referenced by the click handler
+Window? settingsWindow = null; // built in Step 5, referenced by the click handler
 
 var mainWindow = new WindowBuilder(windowSystem)
     .WithTitle("My App")
@@ -41,8 +41,9 @@ var mainWindow = new WindowBuilder(windowSystem)
     .Centered()
     .Build();
 
-mainWindow.AddControl(new MarkupControl(
-    new List<string> { "[bold]Welcome![/] Press the button below to open Settings." }));
+mainWindow.AddControl(Controls.Markup()
+    .AddLine("[bold]Welcome![/] Press the button below to open Settings.")
+    .Build());
 
 mainWindow.AddControl(Controls.Button("⚙ Settings")
     .OnClick((s, e, win) =>
@@ -55,11 +56,11 @@ mainWindow.AddControl(Controls.Button("⚙ Settings")
 windowSystem.AddWindow(mainWindow);
 ```
 
-The settings window is declared as `null` here and assigned in Step 3 — the click handler captures it by reference.
+The settings window is declared as `null` here and assigned in Step 5 — the click handler captures it by reference.
 
-## Step 3: Create the settings window and NavigationView
+## Step 3: Create the settings window
 
-Create the settings window and add a `NavigationView` that fills it — the nav pane is on the left, the content panel on the right.
+Create the settings window. The `NavigationView` will be added to it in Step 5 once all pages are defined inline.
 
 ```csharp
 settingsWindow = new WindowBuilder(windowSystem)
@@ -67,51 +68,53 @@ settingsWindow = new WindowBuilder(windowSystem)
     .WithSize(70, 22)
     .Centered()
     .Build();
+```
 
-var nav = new NavigationView
-{
-    PaneHeader = "[bold]Settings[/]",
-    VerticalAlignment = VerticalAlignment.Fill
-};
+## Step 4: Declare sliders before the NavigationView builder
+
+The sliders must be declared outside the `NavigationView` builder so that `ValueChanged` handlers can capture them after the builder call. They are added to the Appearance page inline inside `AddItem()`.
+
+```csharp
+var redSlider   = Controls.Slider().Horizontal().WithName("r").WithRange(0, 255).WithValue(30).WithStep(1).Build();
+var greenSlider = Controls.Slider().Horizontal().WithName("g").WithRange(0, 255).WithValue(60).WithStep(1).Build();
+var blueSlider  = Controls.Slider().Horizontal().WithName("b").WithRange(0, 255).WithValue(120).WithStep(1).Build();
+```
+
+## Step 5: Build the NavigationView with inline page content
+
+`AddItem()` accepts an optional `content:` factory — `NavigationView` calls it when the item is first selected, passing the content `ScrollablePanelControl` for you to populate. Both pages are defined inline here.
+
+```csharp
+var nav = Controls.NavigationView()
+    .WithPaneHeader("[bold]Settings[/]")
+    .AddItem("Appearance", "🎨", content: panel =>
+    {
+        panel.AddControl(Controls.Markup().AddLine("[bold]Background Color[/]").Build());
+        panel.AddControl(Controls.Markup().AddLine("Red").Build());
+        panel.AddControl(redSlider);
+        panel.AddControl(Controls.Markup().AddLine("Green").Build());
+        panel.AddControl(greenSlider);
+        panel.AddControl(Controls.Markup().AddLine("Blue").Build());
+        panel.AddControl(blueSlider);
+    })
+    .AddItem("General", "⚙", content: panel =>
+    {
+        panel.AddControl(Controls.Markup().AddLine("[bold]General[/]").Build());
+        panel.AddControl(Controls.Markup().AddLine("Display name:").Build());
+        panel.AddControl(Controls.Prompt("Display name:").WithName("displayName").Build());
+        panel.AddControl(Controls.Markup().AddLine("API endpoint:").Build());
+        panel.AddControl(Controls.Prompt("API endpoint:").WithName("apiEndpoint").Build());
+        panel.AddControl(Controls.Checkbox("Enable notifications").Checked().Build());
+    })
+    .Fill()
+    .Build();
+
 settingsWindow.AddControl(nav);
 ```
 
-The `NavigationView` has two zones: a narrow pane on the left for nav items, and a content panel on the right. You'll populate both in the next two steps.
+`NavigationView` auto-selects the first item on load. `.Fill()` sets `VerticalAlignment.Fill` so the nav spans the full window height.
 
-## Step 4: Add navigation items
-
-Each `NavigationItem` represents a page — first argument is the display name, second is an optional icon.
-
-```csharp
-var appearanceItem = nav.AddItem("Appearance", "🎨");
-var generalItem    = nav.AddItem("General",    "⚙");
-```
-
-`NavigationView` auto-selects the first item on load. You can pass a subtitle as an optional third argument.
-
-## Step 5: Populate the Appearance page
-
-`SetItemContent` registers a factory — `NavigationView` calls it when the item is selected, passing the content `ScrollablePanelControl` for you to populate.
-
-```csharp
-// Declared outside the factory so we can read them in ValueChanged:
-var redSlider   = new SliderControl { Name = "r", MinValue = 0, MaxValue = 255, Value = 30,  Step = 1 };
-var greenSlider = new SliderControl { Name = "g", MinValue = 0, MaxValue = 255, Value = 60,  Step = 1 };
-var blueSlider  = new SliderControl { Name = "b", MinValue = 0, MaxValue = 255, Value = 120, Step = 1 };
-
-nav.SetItemContent(appearanceItem, panel =>
-{
-    panel.AddControl(new MarkupControl(new List<string> { "[bold]Background Color[/]" }));
-    panel.AddControl(new MarkupControl(new List<string> { "Red" }));
-    panel.AddControl(redSlider);
-    panel.AddControl(new MarkupControl(new List<string> { "Green" }));
-    panel.AddControl(greenSlider);
-    panel.AddControl(new MarkupControl(new List<string> { "Blue" }));
-    panel.AddControl(blueSlider);
-});
-```
-
-> **Alternative:** Skip `SetItemContent`, subscribe to `nav.SelectedItemChanged`, and manipulate `nav.ContentPanel` directly — useful when content depends on external state not known at registration time. See [NavigationView reference](../controls/NavigationView.md).
+Alternatively, subscribe to `nav.SelectedItemChanged` and manipulate `nav.ContentPanel` directly for content that depends on external runtime state.
 
 ## Step 6: Wire sliders to the gradient
 
@@ -140,36 +143,15 @@ blueSlider.ValueChanged  += (s, e) => ApplyGradient();
 
 `GradientBackground` is a record combining a `ColorGradient` and a `GradientDirection`. `ColorGradient.FromColors()` interpolates smoothly between the stops. See [Gradients & Alpha](../GRADIENTS.md) for predefined gradients and more patterns.
 
-## Step 7: Populate the General page
-
-The General page is a simple form — labels, text inputs, and a checkbox stacked vertically in the content panel.
-
-```csharp
-nav.SetItemContent(generalItem, panel =>
-{
-    panel.AddControl(new MarkupControl(new List<string> { "[bold]General[/]" }));
-
-    panel.AddControl(new MarkupControl(new List<string> { "Display name:" }));
-    panel.AddControl(new PromptControl { Name = "displayName", PlaceholderText = "Enter name..." });
-
-    panel.AddControl(new MarkupControl(new List<string> { "API endpoint:" }));
-    panel.AddControl(new PromptControl { Name = "apiEndpoint", PlaceholderText = "https://..." });
-
-    panel.AddControl(new CheckboxControl { Text = "Enable notifications", IsChecked = true });
-});
-```
-
-Form fields are standard controls inside a `ScrollablePanelControl` — no special form container needed.
-
-## Step 8: Add a status bar and keyboard shortcuts
+## Step 7: Add a status bar and keyboard shortcuts
 
 `StatusBarControl` is display-and-click-only — it shows key hint text but does NOT intercept keyboard events; wire shortcuts separately via `window.PreviewKeyPressed`.
 
 ```csharp
-var statusBar = new StatusBarControl();
-statusBar.AddItem(new StatusBarItem { Shortcut = "Ctrl+S", Label = "Save"   });
-statusBar.AddItem(new StatusBarItem { Shortcut = "Esc",    Label = "Cancel" });
-settingsWindow.AddControl(statusBar);
+settingsWindow.AddControl(Controls.StatusBar()
+    .AddLeft("Ctrl+S", "Save")
+    .AddLeft("Esc", "Cancel")
+    .Build());
 
 // PreviewKeyPressed fires before the focused control sees the key — correct for global shortcuts.
 settingsWindow.PreviewKeyPressed += (s, e) =>
@@ -189,7 +171,7 @@ settingsWindow.PreviewKeyPressed += (s, e) =>
 
 Pressing Esc closes the settings window and returns focus to the main window. Ctrl+S calls `SaveAndClose()` which applies the gradient and closes the window.
 
-## Step 9: Open and close the settings window
+## Step 8: Open and close the settings window
 
 `windowSystem.AddWindow()` activates the settings window on top; closing it removes it from the stack and returns focus to the main window.
 
@@ -221,10 +203,10 @@ using SharpConsoleUI.Rendering;
 var driver = new NetConsoleDriver(RenderMode.Buffer);
 var windowSystem = new ConsoleWindowSystem(driver);
 
-// ── Sliders declared before SetItemContent factories so ValueChanged can capture them ──
-var redSlider   = new SliderControl { Name = "r", MinValue = 0, MaxValue = 255, Value = 30,  Step = 1 };
-var greenSlider = new SliderControl { Name = "g", MinValue = 0, MaxValue = 255, Value = 60,  Step = 1 };
-var blueSlider  = new SliderControl { Name = "b", MinValue = 0, MaxValue = 255, Value = 120, Step = 1 };
+// ── Sliders declared before the NavigationView builder so ValueChanged can capture them ──
+var redSlider   = Controls.Slider().Horizontal().WithName("r").WithRange(0, 255).WithValue(30).WithStep(1).Build();
+var greenSlider = Controls.Slider().Horizontal().WithName("g").WithRange(0, 255).WithValue(60).WithStep(1).Build();
+var blueSlider  = Controls.Slider().Horizontal().WithName("b").WithRange(0, 255).WithValue(120).WithStep(1).Build();
 
 // ── Settings window (assigned below; captured by the Settings button click handler) ──
 Window? settingsWindow = null;
@@ -236,8 +218,9 @@ var mainWindow = new WindowBuilder(windowSystem)
     .Centered()
     .Build();
 
-mainWindow.AddControl(new MarkupControl(
-    new List<string> { "[bold]Welcome![/] Press the button below to open Settings." }));
+mainWindow.AddControl(Controls.Markup()
+    .AddLine("[bold]Welcome![/] Press the button below to open Settings.")
+    .Build());
 
 mainWindow.AddControl(Controls.Button("⚙ Settings")
     .OnClick((s, e, win) =>
@@ -256,28 +239,34 @@ settingsWindow = new WindowBuilder(windowSystem)
     .Centered()
     .Build();
 
-var nav = new NavigationView
-{
-    PaneHeader = "[bold]Settings[/]",
-    VerticalAlignment = VerticalAlignment.Fill
-};
+// ── NavigationView with inline page content ──
+var nav = Controls.NavigationView()
+    .WithPaneHeader("[bold]Settings[/]")
+    .AddItem("Appearance", "🎨", content: panel =>
+    {
+        panel.AddControl(Controls.Markup().AddLine("[bold]Background Color[/]").Build());
+        panel.AddControl(Controls.Markup().AddLine("Red").Build());
+        panel.AddControl(redSlider);
+        panel.AddControl(Controls.Markup().AddLine("Green").Build());
+        panel.AddControl(greenSlider);
+        panel.AddControl(Controls.Markup().AddLine("Blue").Build());
+        panel.AddControl(blueSlider);
+    })
+    .AddItem("General", "⚙", content: panel =>
+    {
+        panel.AddControl(Controls.Markup().AddLine("[bold]General[/]").Build());
+        panel.AddControl(Controls.Markup().AddLine("Display name:").Build());
+        panel.AddControl(Controls.Prompt("Display name:").WithName("displayName").Build());
+        panel.AddControl(Controls.Markup().AddLine("API endpoint:").Build());
+        panel.AddControl(Controls.Prompt("API endpoint:").WithName("apiEndpoint").Build());
+        panel.AddControl(Controls.Checkbox("Enable notifications").Checked().Build());
+    })
+    .Fill()
+    .Build();
+
 settingsWindow.AddControl(nav);
 
-var appearanceItem = nav.AddItem("Appearance", "🎨");
-var generalItem    = nav.AddItem("General",    "⚙");
-
-// Appearance page
-nav.SetItemContent(appearanceItem, panel =>
-{
-    panel.AddControl(new MarkupControl(new List<string> { "[bold]Background Color[/]" }));
-    panel.AddControl(new MarkupControl(new List<string> { "Red" }));
-    panel.AddControl(redSlider);
-    panel.AddControl(new MarkupControl(new List<string> { "Green" }));
-    panel.AddControl(greenSlider);
-    panel.AddControl(new MarkupControl(new List<string> { "Blue" }));
-    panel.AddControl(blueSlider);
-});
-
+// ── Gradient helper + slider wiring ──
 void ApplyGradient()
 {
     var color = new Color(
@@ -294,24 +283,13 @@ redSlider.ValueChanged   += (s, e) => ApplyGradient();
 greenSlider.ValueChanged += (s, e) => ApplyGradient();
 blueSlider.ValueChanged  += (s, e) => ApplyGradient();
 
-// General page
-nav.SetItemContent(generalItem, panel =>
-{
-    panel.AddControl(new MarkupControl(new List<string> { "[bold]General[/]" }));
-    panel.AddControl(new MarkupControl(new List<string> { "Display name:" }));
-    panel.AddControl(new PromptControl { Name = "displayName", PlaceholderText = "Enter name..." });
-    panel.AddControl(new MarkupControl(new List<string> { "API endpoint:" }));
-    panel.AddControl(new PromptControl { Name = "apiEndpoint", PlaceholderText = "https://..." });
-    panel.AddControl(new CheckboxControl { Text = "Enable notifications", IsChecked = true });
-});
+// ── Status bar ──
+settingsWindow.AddControl(Controls.StatusBar()
+    .AddLeft("Ctrl+S", "Save")
+    .AddLeft("Esc", "Cancel")
+    .Build());
 
-// Status bar
-var statusBar = new StatusBarControl();
-statusBar.AddItem(new StatusBarItem { Shortcut = "Ctrl+S", Label = "Save"   });
-statusBar.AddItem(new StatusBarItem { Shortcut = "Esc",    Label = "Cancel" });
-settingsWindow.AddControl(statusBar);
-
-// Keyboard shortcuts via PreviewKeyPressed
+// ── Keyboard shortcuts via PreviewKeyPressed ──
 settingsWindow.PreviewKeyPressed += (s, e) =>
 {
     if (e.KeyInfo.Key == ConsoleKey.Escape)
@@ -326,7 +304,7 @@ settingsWindow.PreviewKeyPressed += (s, e) =>
     }
 };
 
-// Save toolbar button
+// ── Save toolbar button ──
 void SaveAndClose()
 {
     ApplyGradient();
@@ -340,11 +318,14 @@ windowSystem.Run();
 
 ## What you learned
 
-- `NavigationView` — pane + content panel layout
-- `nav.AddItem()` — register navigation items with icon and optional subtitle
-- `nav.SetItemContent()` — factory pattern for populating content panels
-- `nav.ContentPanel` + `SelectedItemChanged` — alternative for dynamic content when content depends on external state not known at registration time
-- `SliderControl` with `ValueChanged` — fires on every drag tick for live updates
+- `Controls.NavigationView()` builder — `WithPaneHeader()`, `AddItem(..., content:)`, and `.Fill()` replace manual `new NavigationView { ... }` + `SetItemContent()` calls
+- `nav.ContentPanel` + `SelectedItemChanged` — alternative for dynamic content that depends on external runtime state
+- `Controls.Slider()` builder — `.Horizontal()`, `.WithName()`, `.WithRange()`, `.WithValue()`, `.WithStep()`
+- `SliderControl.ValueChanged` — fires on every drag tick for live updates
+- `Controls.Markup().AddLine()` — replaces `new MarkupControl(new List<string> { ... })`
+- `Controls.Prompt().WithName()` — replaces `new PromptControl { Name = ... }`
+- `Controls.Checkbox().Checked()` — replaces `new CheckboxControl { IsChecked = true }`
+- `Controls.StatusBar().AddLeft()` — replaces `new StatusBarControl()` + `AddItem()` calls
 - `GradientBackground` + `ColorGradient.FromColors()` + `GradientDirection` — live window background gradients
 - Form layout: `PromptControl` + `CheckboxControl` in a `ScrollablePanelControl` — no special form container needed
 - `StatusBarControl` — display+click only; does not intercept key events
