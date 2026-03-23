@@ -6,11 +6,7 @@
     <title>SharpConsoleUI - A terminal GUI framework for .NET</title>
     <meta name="description" content="A terminal GUI framework for .NET. Per-cell alpha blending, double-buffered compositing, and a Measure→Arrange→Paint layout pipeline.">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -20,115 +16,62 @@
             min-height: 100vh;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
 
-        header {
-            text-align: center;
-            padding: 40px 0 60px 0;
-        }
+        /* ── Header ── */
+        header { text-align: center; padding: 40px 0 60px 0; }
 
         .logo {
-            max-width: 400px;
-            width: 100%;
-            height: auto;
+            max-width: 400px; width: 100%; height: auto;
             margin: 0 auto 30px auto;
-            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
         }
 
-        h1 {
-            font-size: 3rem;
-            color: #00d4ff;
-            margin-bottom: 15px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-        }
+        h1 { font-size: 3rem; color: #00d4ff; margin-bottom: 15px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
 
-        .tagline {
-            font-size: 1.3rem;
-            color: #a0a0a0;
-            margin-bottom: 12px;
-        }
+        .tagline { font-size: 1.3rem; color: #a0a0a0; margin-bottom: 12px; }
 
         .subtitle {
-            font-size: 1.05rem;
-            color: #808080;
-            max-width: 700px;
-            margin: 0 auto 30px auto;
-            line-height: 1.7;
+            font-size: 1.05rem; color: #808080;
+            max-width: 700px; margin: 0 auto 30px auto; line-height: 1.7;
         }
 
-        .quick-links {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin: 30px 0;
-        }
+        .badges { display: flex; gap: 10px; justify-content: center; margin: 20px 0; }
+        .badge  { height: 20px; }
+
+        .quick-links { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin: 30px 0; }
 
         .btn {
-            display: inline-block;
-            padding: 12px 28px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
+            display: inline-block; padding: 12px 28px;
+            text-decoration: none; border-radius: 6px; font-weight: 600;
+            transition: all 0.3s ease; border: 2px solid transparent;
         }
+        .btn-primary  { background: #00d4ff; color: #1e1e1e; }
+        .btn-primary:hover  { background: #00b8e6; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,212,255,0.4); }
+        .btn-secondary { background: transparent; color: #00d4ff; border-color: #00d4ff; }
+        .btn-secondary:hover { background: rgba(0,212,255,0.1); transform: translateY(-2px); }
 
-        .btn-primary {
-            background: #00d4ff;
-            color: #1e1e1e;
-        }
-
-        .btn-primary:hover {
-            background: #00b8e6;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: #00d4ff;
-            border-color: #00d4ff;
-        }
-
-        .btn-secondary:hover {
-            background: rgba(0, 212, 255, 0.1);
-            transform: translateY(-2px);
-        }
-
+        /* ── Showcase ── */
         .showcase {
-            text-align: center;
-            margin: 60px 0;
-            background: #1a1a1a;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            text-align: center; margin: 60px 0;
+            background: #1a1a1a; border-radius: 12px; padding: 30px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
-
-        .showcase img {
-            max-width: 100%;
-            border-radius: 8px;
-            border: 1px solid #333;
-        }
+        .showcase img { max-width: 100%; border-radius: 8px; border: 1px solid #333; }
 
         /* ── Feature explorer ── */
         .feature-explorer {
             display: flex;
-            gap: 0;
             margin: 60px 0;
             background: #1a1a1a;
             border-radius: 12px;
             border: 1px solid #2a2a2a;
             overflow: hidden;
-            min-height: 480px;
         }
 
+        /* Left nav */
         .feature-nav {
-            width: 260px;
+            width: 220px;
             flex-shrink: 0;
             border-right: 1px solid #2a2a2a;
             display: flex;
@@ -139,140 +82,65 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 18px 20px;
+            padding: 16px 18px;
             cursor: pointer;
             border-left: 3px solid transparent;
             transition: background 0.15s, border-color 0.15s;
             user-select: none;
         }
+        .feature-nav-item:hover         { background: #222; }
+        .feature-nav-item.active        { background: #1e1e1e; border-left-color: #00d4ff; }
+        .feature-nav-item .nav-icon     { font-size: 1.3rem; flex-shrink: 0; }
+        .feature-nav-item .nav-label    { font-size: 0.88rem; color: #808080; line-height: 1.3; }
+        .feature-nav-item.active .nav-label { color: #e0e0e0; }
 
-        .feature-nav-item:hover {
-            background: #222;
-        }
-
-        .feature-nav-item.active {
-            background: #202020;
-            border-left-color: #00d4ff;
-        }
-
-        .feature-nav-item .nav-icon {
-            font-size: 1.4rem;
-            line-height: 1;
-            flex-shrink: 0;
-        }
-
-        .feature-nav-item .nav-label {
-            font-size: 0.9rem;
-            color: #a0a0a0;
-            line-height: 1.3;
-        }
-
-        .feature-nav-item.active .nav-label {
-            color: #e0e0e0;
-        }
-
+        /* Right panel */
         .feature-panel {
             flex: 1;
             min-width: 0;
             position: relative;
+            /* height driven by content of active pane */
         }
 
         .feature-pane {
             display: none;
             flex-direction: column;
-            height: 100%;
-            opacity: 0;
-            transition: opacity 0.25s ease;
         }
-
         .feature-pane.active {
             display: flex;
-            opacity: 1;
+        }
+        .feature-pane.fade-in {
+            animation: paneFadeIn 0.25s ease forwards;
+        }
+        @keyframes paneFadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
         }
 
         .feature-pane img {
             width: 100%;
+            max-height: 360px;
             object-fit: cover;
-            border-bottom: 1px solid #2a2a2a;
+            object-position: top;
             display: block;
+            border-bottom: 1px solid #2a2a2a;
         }
 
-        .feature-pane-text {
-            padding: 24px 28px;
+        .feature-pane-text { padding: 24px 28px; }
+        .feature-pane-text h3 { color: #00d4ff; font-size: 1.15rem; margin-bottom: 10px; }
+        .feature-pane-text p  { color: #a0a0a0; font-size: 0.95rem; line-height: 1.7; }
+        .feature-pane-text code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #00ff88; font-size: 0.9rem;
+            background: #0d0d0d; padding: 1px 5px; border-radius: 3px;
         }
 
-        .feature-pane-text h3 {
-            color: #00d4ff;
-            font-size: 1.2rem;
-            margin-bottom: 10px;
-        }
-
-        .feature-pane-text p {
-            color: #a0a0a0;
-            font-size: 0.95rem;
-            line-height: 1.7;
-        }
-
-        /* Mobile accordion */
-        @media (max-width: 768px) {
-            .feature-explorer {
-                flex-direction: column;
-                min-height: unset;
-            }
-
-            .feature-nav {
-                width: 100%;
-                border-right: none;
-                border-bottom: 1px solid #2a2a2a;
-            }
-
-            .feature-nav-item {
-                border-left: none;
-                border-bottom: 1px solid #222;
-            }
-
-            .feature-nav-item.active {
-                border-bottom-color: #2a2a2a;
-            }
-
-            .feature-panel {
-                display: none;
-            }
-
-            .feature-accordion-body {
-                display: none;
-                background: #1e1e1e;
-                border-bottom: 1px solid #2a2a2a;
-            }
-
-            .feature-accordion-body.open {
-                display: block;
-            }
-
-            .feature-accordion-body img {
-                width: 100%;
-                display: block;
-                border-bottom: 1px solid #2a2a2a;
-            }
-
-            .feature-accordion-body .feature-pane-text {
-                padding: 20px;
-            }
-        }
-
+        /* ── Unique section ── */
         .unique-section {
-            background: #1a1a1a;
-            border-radius: 12px;
-            padding: 40px;
-            margin: 60px 0;
-            border: 1px solid #2a2a2a;
+            background: #1a1a1a; border-radius: 12px;
+            padding: 40px; margin: 60px 0; border: 1px solid #2a2a2a;
         }
-
-        .unique-section h2 {
-            color: #00d4ff;
-            font-size: 1.8rem;
-            margin-bottom: 30px;
-        }
+        .unique-section h2 { color: #00d4ff; font-size: 1.8rem; margin-bottom: 30px; }
 
         .unique-list {
             list-style: none;
@@ -280,89 +148,77 @@
             grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
             gap: 24px;
         }
-
         .unique-list li {
-            padding: 20px;
-            background: #252525;
-            border-radius: 8px;
-            border-left: 3px solid #00d4ff;
+            padding: 20px; background: #252525;
+            border-radius: 8px; border-left: 3px solid #00d4ff;
         }
+        .unique-list li strong { display: block; color: #00d4ff; margin-bottom: 6px; font-size: 1.05rem; }
+        .unique-list li p      { color: #a0a0a0; font-size: 0.95rem; line-height: 1.6; }
 
-        .unique-list li strong {
-            display: block;
-            color: #00d4ff;
-            margin-bottom: 6px;
-            font-size: 1.05rem;
-        }
-
-        .unique-list li p {
-            color: #a0a0a0;
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-
+        /* ── Code section ── */
         .code-section {
-            background: #1a1a1a;
-            border-radius: 10px;
-            padding: 30px;
-            margin: 40px 0;
-            border: 1px solid #333;
+            background: #1a1a1a; border-radius: 10px;
+            padding: 30px; margin: 40px 0; border: 1px solid #333;
         }
-
-        .code-section h2 {
-            color: #00d4ff;
-            margin-bottom: 20px;
-        }
+        .code-section h2 { color: #00d4ff; margin-bottom: 20px; }
 
         pre {
-            background: #0d0d0d;
-            padding: 20px;
-            border-radius: 8px;
-            overflow-x: auto;
-            border: 1px solid #222;
+            background: #0d0d0d; padding: 20px; border-radius: 8px;
+            overflow-x: auto; border: 1px solid #222; margin-bottom: 12px;
         }
-
+        pre:last-child { margin-bottom: 0; }
         code {
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            color: #00ff88;
-            font-size: 0.95rem;
+            color: #00ff88; font-size: 0.95rem;
         }
 
+        /* ── Footer ── */
         footer {
-            text-align: center;
-            padding: 40px 0;
-            color: #606060;
-            border-top: 1px solid #333;
-            margin-top: 60px;
+            text-align: center; padding: 40px 0; color: #606060;
+            border-top: 1px solid #333; margin-top: 60px;
         }
 
-        .badges {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin: 20px 0;
-        }
-
-        .badge {
-            height: 20px;
-        }
-
+        /* ── Mobile ── */
         @media (max-width: 768px) {
-            h1 {
-                font-size: 2rem;
-            }
+            h1      { font-size: 2rem; }
+            .tagline { font-size: 1.1rem; }
+            .unique-list { grid-template-columns: 1fr; }
 
-            .tagline {
-                font-size: 1.1rem;
-            }
+            .feature-explorer { flex-direction: column; }
 
-            .features {
-                grid-template-columns: 1fr;
+            .feature-nav {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #2a2a2a;
             }
+            .feature-nav-item {
+                border-left: none;
+                border-top: 1px solid #222;
+            }
+            .feature-nav-item:first-child { border-top: none; }
+            .feature-nav-item.active { border-left: none; background: #1e1e1e; }
 
-            .unique-list {
-                grid-template-columns: 1fr;
+            .feature-panel { display: none; }
+
+            /* Accordion bodies — hidden by default on mobile too,
+               shown when JS adds .open */
+            .feature-accordion-body {
+                display: none;
+                background: #1e1e1e;
+                border-top: 1px solid #2a2a2a;
             }
+            .feature-accordion-body.open { display: block; }
+            .feature-accordion-body img {
+                width: 100%; display: block;
+                max-height: 260px; object-fit: cover; object-position: top;
+                border-bottom: 1px solid #2a2a2a;
+            }
+            .feature-accordion-body .feature-pane-text { padding: 20px; }
+        }
+
+        /* Accordion bodies must be hidden on desktop — JS inserts them into the nav */
+        @media (min-width: 769px) {
+            .feature-accordion-body { display: none !important; }
         }
     </style>
 </head>
@@ -393,75 +249,66 @@
         </header>
 
         <section class="showcase">
-            <a href="https://www.youtube.com/watch?v=sl5C9jrJknM" target="_blank" rel="noopener noreferrer" style="display: block; position: relative;">
-                <img src="https://img.youtube.com/vi/sl5C9jrJknM/maxresdefault.jpg" alt="SharpConsoleUI Video Demo" style="width: 100%; cursor: pointer;" />
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; background: rgba(255,0,0,0.85); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                    <div style="width: 0; height: 0; border-top: 18px solid transparent; border-bottom: 18px solid transparent; border-left: 30px solid white; margin-left: 5px;"></div>
+            <a href="https://www.youtube.com/watch?v=sl5C9jrJknM" target="_blank" rel="noopener noreferrer" style="display:block;position:relative;">
+                <img src="https://img.youtube.com/vi/sl5C9jrJknM/maxresdefault.jpg" alt="SharpConsoleUI Video Demo" style="width:100%;cursor:pointer;" />
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80px;height:80px;background:rgba(255,0,0,0.85);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <div style="width:0;height:0;border-top:18px solid transparent;border-bottom:18px solid transparent;border-left:30px solid white;margin-left:5px;"></div>
                 </div>
             </a>
-            <p style="margin-top: 15px; color: #a0a0a0;">Watch SharpConsoleUI in action on YouTube</p>
+            <p style="margin-top:15px;color:#a0a0a0;">Watch SharpConsoleUI in action on YouTube</p>
         </section>
 
         <section class="showcase">
             <img src="images/showcase.gif" alt="SharpConsoleUI Demo" />
         </section>
 
-        <section class="feature-explorer" id="featureExplorer">
+        <!-- Feature explorer -->
+        <section class="feature-explorer">
 
-            <!-- Left nav (desktop) / accordion triggers (mobile) -->
             <nav class="feature-nav" id="featureNav">
-
                 <div class="feature-nav-item active" data-feature="compositor">
                     <span class="nav-icon">🎨</span>
                     <span class="nav-label">Real Compositor</span>
                 </div>
-                <!-- mobile accordion body injected by JS -->
-
                 <div class="feature-nav-item" data-feature="async">
                     <span class="nav-icon">🪟</span>
                     <span class="nav-label">Async Windows</span>
                 </div>
-
                 <div class="feature-nav-item" data-feature="buffer">
-                    <span class="nav-icon">🖥</span>
+                    <span class="nav-icon">🖥️</span>
                     <span class="nav-label">Raw Buffer Access</span>
                 </div>
-
                 <div class="feature-nav-item" data-feature="unicode">
                     <span class="nav-icon">🌐</span>
                     <span class="nav-label">Full Unicode</span>
                 </div>
-
                 <div class="feature-nav-item" data-feature="controls">
                     <span class="nav-icon">📟</span>
                     <span class="nav-label">Unique Controls</span>
                 </div>
-
                 <div class="feature-nav-item" data-feature="markup">
                     <span class="nav-icon">✍️</span>
                     <span class="nav-label">Markup Everywhere</span>
                 </div>
-
             </nav>
 
-            <!-- Right panel (desktop only) -->
             <div class="feature-panel" id="featurePanel">
 
                 <div class="feature-pane active" data-feature="compositor">
-                    <img src="images/gradients.png" alt="Real Compositor — gradient propagation" />
+                    <img src="images/gradients.png" alt="Real Compositor — gradient propagation through transparent controls" />
                     <div class="feature-pane-text">
                         <h3>Real Compositor</h3>
                         <p>Gradient backgrounds propagate through every transparent control automatically &mdash;
                         DataGrids, containers, margins, all transparent to the compositor beneath.
                         No control needs to know the gradient exists.
-                        Per-cell alpha blending on both foreground and background: write
-                        <code>[#00FF0080]50% alpha green[/]</code> in any label, on any control,
+                        Per-cell alpha blending on foreground and background: write
+                        <code>[#00FF0080]50% alpha[/]</code> in any label, on any control,
                         and the compositor handles the rest.</p>
                     </div>
                 </div>
 
                 <div class="feature-pane" data-feature="async">
-                    <img src="images/examples/demoapp.png" alt="Async Windows — multiple independent windows" />
+                    <img src="images/examples/demoapp.png" alt="Async Windows — multiple independent windows running simultaneously" />
                     <div class="feature-pane-text">
                         <h3>Async Windows</h3>
                         <p>Each window runs on its own async thread and updates independently.
@@ -471,18 +318,18 @@
                 </div>
 
                 <div class="feature-pane" data-feature="buffer">
-                    <img src="images/examples/compositor-fractal.png" alt="Raw Buffer Access — PreBufferPaint fractal" />
+                    <img src="images/examples/compositor-fractal.png" alt="Raw Buffer Access — animated Mandelbrot fractal via PreBufferPaint" />
                     <div class="feature-pane-text">
                         <h3>Raw Buffer Access</h3>
-                        <p>PreBufferPaint and PostBufferPaint give you full Cell[,] access before and after
+                        <p>PreBufferPaint and PostBufferPaint give you full <code>Cell[,]</code> access before and after
                         every render pass. Animated fractals, plasma effects, blur, color grading &mdash;
-                        anything that operates directly on the cell buffer. Controls paint on top of
-                        whatever you put in PreBufferPaint.</p>
+                        anything that operates directly on the cell buffer.
+                        Controls paint on top of whatever PreBufferPaint puts down.</p>
                     </div>
                 </div>
 
                 <div class="feature-pane" data-feature="unicode">
-                    <img src="images/unicode.png" alt="Full Unicode — CJK, emoji, RTL" />
+                    <img src="images/unicode.png" alt="Full Unicode — CJK, emoji, RTL, surrogate pairs" />
                     <div class="feature-pane-text">
                         <h3>Full Unicode</h3>
                         <p>CJK wide characters, surrogate pair emoji, RTL scripts, regional indicator flags &mdash;
@@ -492,24 +339,24 @@
                 </div>
 
                 <div class="feature-pane" data-feature="controls">
-                    <img src="images/terminal.png" alt="Unique Controls — PTY terminal running btop" />
+                    <img src="images/terminal.png" alt="Unique Controls — PTY terminal running btop with character-perfect ANSI capture" />
                     <div class="feature-pane-text">
                         <h3>Unique Controls</h3>
                         <p>PTY-backed terminal emulator: run a real shell &mdash; bash, vim, btop &mdash; inside
-                        a UI panel with character-perfect ANSI capture. ImageControl renders PNG, JPEG, WebP via
-                        half-block Unicode. CanvasControl with 30+ drawing primitives.
+                        a UI panel with character-perfect ANSI capture. ImageControl renders PNG, JPEG, WebP
+                        via half-block Unicode. CanvasControl with 30+ drawing primitives.
                         SpectreRenderableControl wraps any Spectre.Console IRenderable natively.</p>
                     </div>
                 </div>
 
                 <div class="feature-pane" data-feature="markup">
-                    <img src="images/markup-syntax.png" alt="Markup Everywhere — rich text on all controls" />
+                    <img src="images/markup-syntax.png" alt="Markup Everywhere — rich text on all controls with alpha support" />
                     <div class="feature-pane-text">
                         <h3>Markup Everywhere</h3>
                         <p>Write <code>[red]alert[/]</code> in any string, on any control, without a second thought.
-                        Named colors, RGB, full RGBA hex (<code>[#FF000080]50% alpha[/]</code>), bold, italic,
-                        underline, background colors, nested styles &mdash; composited through the alpha pipeline
-                        just like everything else.</p>
+                        Named colors, RGB, full RGBA hex (<code>[#FF000080]50% alpha[/]</code>),
+                        bold, italic, underline, background colors, nested styles &mdash;
+                        composited through the alpha pipeline just like everything else.</p>
                     </div>
                 </div>
 
@@ -518,61 +365,50 @@
 
         <section class="unique-section">
             <h2>What only SharpConsoleUI does</h2>
-            <img src="images/examples/alpha-blending.gif" alt="Alpha blending compositor demo" style="max-width: 100%; border-radius: 8px; border: 1px solid #333; margin-bottom: 30px;" />
+            <img src="images/examples/alpha-blending.gif" alt="Alpha blending compositor demo" style="max-width:100%;border-radius:8px;border:1px solid #333;margin-bottom:30px;" />
             <ul class="unique-list">
                 <li>
                     <strong>Gradient compositor</strong>
-                    <p>Window gradients propagate through every
-                    transparent control automatically. DataGrids,
-                    containers, margins &mdash; all transparent to the
-                    compositor beneath. No control needs to know
-                    the gradient exists.</p>
+                    <p>Window gradients propagate through every transparent control automatically.
+                    DataGrids, containers, margins &mdash; all transparent to the compositor beneath.
+                    No control needs to know the gradient exists.</p>
                 </li>
                 <li>
                     <strong>Full RGBA alpha on foreground and background</strong>
-                    <p>Porter-Duff compositing at the cell level.
-                    Glass panels. Animated alpha. Pulse effects.
-                    Foreground and background independently
-                    alpha-composited against whatever the
+                    <p>Porter-Duff compositing at the cell level. Glass panels. Animated alpha. Pulse effects.
+                    Foreground and background independently alpha-composited against whatever the
                     compositor has already rendered.</p>
                 </li>
                 <li>
                     <strong>PreBufferPaint and PostBufferPaint</strong>
-                    <p>Full Cell[,] access before and after every
-                    render pass. Animated backgrounds, blur,
-                    color grading, fractals &mdash; anything that
-                    operates on the raw cell buffer.</p>
+                    <p>Full Cell[,] access before and after every render pass.
+                    Animated backgrounds, blur, color grading, fractals &mdash;
+                    anything that operates on the raw cell buffer.</p>
                 </li>
                 <li>
                     <strong>Per-window async threads</strong>
-                    <p>Each window is an async Task. Multiple panels
-                    update simultaneously at different rates
-                    without coordination. Natural, not engineered.</p>
+                    <p>Each window is an async Task. Multiple panels update simultaneously
+                    at different rates without coordination. Natural, not engineered.</p>
                 </li>
                 <li>
                     <strong>PTY terminal emulator</strong>
-                    <p>TerminalControl embeds a real shell process
-                    inside a UI panel. Run bash, vim, htop inside
-                    your application. Linux only.</p>
+                    <p>TerminalControl embeds a real shell process inside a UI panel.
+                    Run bash, vim, htop inside your application. Linux only.</p>
                 </li>
                 <li>
                     <strong>Image rendering</strong>
-                    <p>ImageControl displays PNG, JPEG, WebP and more
-                    via half-block Unicode rendering.
+                    <p>ImageControl displays PNG, JPEG, WebP and more via half-block Unicode rendering.
                     Fit, Fill, Stretch, None scale modes.</p>
                 </li>
                 <li>
                     <strong>Animation pipeline</strong>
-                    <p>Time-based tweened animations with easing
-                    functions built on PostBufferPaint.
+                    <p>Time-based tweened animations with easing functions built on PostBufferPaint.
                     FadeIn, FadeOut, SlideIn, custom effects.</p>
                 </li>
                 <li>
                     <strong>Spectre.Console bridge</strong>
-                    <p>SpectreRenderableControl wraps any IRenderable
-                    as a native control. Every Spectre widget works
-                    inside SharpConsoleUI windows without
-                    modification.</p>
+                    <p>SpectreRenderableControl wraps any IRenderable as a native control.
+                    Every Spectre widget works inside SharpConsoleUI windows without modification.</p>
                 </li>
             </ul>
         </section>
@@ -645,76 +481,78 @@ windowSystem.Run();</code></pre>
 
         <footer>
             <p>Built with ❤️ by Nikolaos Protopapas</p>
-            <p>Licensed under MIT | <a href="https://github.com/nickprotop/ConsoleEx" style="color: #00d4ff;">View on GitHub</a></p>
+            <p>Licensed under MIT | <a href="https://github.com/nickprotop/ConsoleEx" style="color:#00d4ff;">View on GitHub</a></p>
         </footer>
     </div>
-<script>
-(function () {
-    var isMobile = function () { return window.innerWidth <= 768; };
 
-    var navItems = document.querySelectorAll('.feature-nav-item');
-    var panes    = document.querySelectorAll('.feature-pane');
+    <script>
+    (function () {
+        var navItems = document.querySelectorAll('.feature-nav-item');
+        var panes    = document.querySelectorAll('#featurePanel .feature-pane');
 
-    // Build accordion bodies for mobile
-    navItems.forEach(function (item) {
-        var key  = item.dataset.feature;
-        var pane = document.querySelector('.feature-pane[data-feature="' + key + '"]');
-        if (!pane) return;
-
-        var body = document.createElement('div');
-        body.className = 'feature-accordion-body';
-        body.dataset.feature = key;
-        body.innerHTML = pane.innerHTML;
-        item.after(body);
-    });
-
-    function activateDesktop(key) {
-        navItems.forEach(function (n) {
-            n.classList.toggle('active', n.dataset.feature === key);
+        // Inject accordion bodies into the nav for mobile
+        navItems.forEach(function (item) {
+            var key  = item.dataset.feature;
+            var pane = document.querySelector('#featurePanel .feature-pane[data-feature="' + key + '"]');
+            if (!pane) return;
+            var body = document.createElement('div');
+            body.className = 'feature-accordion-body';
+            body.dataset.feature = key;
+            body.innerHTML = pane.innerHTML;
+            item.after(body);
         });
-        panes.forEach(function (p) {
-            if (p.dataset.feature === key) {
-                p.style.display = 'flex';
-                requestAnimationFrame(function () { p.style.opacity = '1'; });
-            } else {
-                p.style.opacity = '0';
-                p.style.display = 'none';
-            }
-        });
-    }
 
-    function activateMobile(key, clickedItem) {
-        var bodies = document.querySelectorAll('.feature-accordion-body');
-        navItems.forEach(function (n) {
-            n.classList.toggle('active', n.dataset.feature === key);
-        });
-        bodies.forEach(function (b) {
-            if (b.dataset.feature === key) {
-                var isOpen = b.classList.contains('open');
-                b.classList.toggle('open', !isOpen);
-                clickedItem.classList.toggle('active', !isOpen);
-            } else {
+        function isMobile() { return window.innerWidth <= 768; }
+
+        function activateDesktop(key) {
+            navItems.forEach(function (n) {
+                n.classList.toggle('active', n.dataset.feature === key);
+            });
+            panes.forEach(function (p) {
+                var isTarget = p.dataset.feature === key;
+                p.classList.remove('active', 'fade-in');
+                if (isTarget) {
+                    p.classList.add('active');
+                    // Force reflow so animation restarts
+                    void p.offsetWidth;
+                    p.classList.add('fade-in');
+                }
+            });
+        }
+
+        function activateMobile(key, clickedItem) {
+            var isAlreadyOpen = clickedItem.classList.contains('active');
+            // Close all
+            navItems.forEach(function (n) { n.classList.remove('active'); });
+            document.querySelectorAll('.feature-accordion-body').forEach(function (b) {
                 b.classList.remove('open');
+            });
+            // Open clicked if it wasn't already open
+            if (!isAlreadyOpen) {
+                clickedItem.classList.add('active');
+                var body = clickedItem.nextElementSibling;
+                if (body && body.classList.contains('feature-accordion-body')) {
+                    body.classList.add('open');
+                }
             }
-        });
-    }
+        }
 
-    navItems.forEach(function (item) {
-        item.addEventListener('click', function () {
-            var key = item.dataset.feature;
-            if (isMobile()) {
-                activateMobile(key, item);
-            } else {
-                activateDesktop(key);
-            }
+        navItems.forEach(function (item) {
+            item.addEventListener('click', function () {
+                if (isMobile()) {
+                    activateMobile(item.dataset.feature, item);
+                } else {
+                    activateDesktop(item.dataset.feature);
+                }
+            });
         });
-    });
 
-    // Init desktop state
-    activateDesktop('compositor');
-})();
-</script>
-<script data-goatcounter="https://sharpconsoleui.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
+        // Init: show first pane
+        activateDesktop('compositor');
+    })();
+    </script>
+
+    <script data-goatcounter="https://sharpconsoleui.goatcounter.com/count"
+            async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
