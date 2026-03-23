@@ -100,31 +100,68 @@
         .anim-5 { animation: fadeUp 0.55s ease 0.32s both; }
         .anim-6 { animation: fadeUp 0.55s ease 0.40s both; }
 
-        /* ── Header ── */
+        /* ── Header / Split hero ── */
         header {
-            text-align: center;
-            padding: 80px 0 72px;
+            padding: 72px 0 64px;
+        }
+
+        .hero {
+            display: flex;
+            align-items: center;
+            gap: 56px;
+        }
+
+        .hero-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .hero-media {
+            flex: 0 0 480px;
+            max-width: 480px;
+        }
+
+        /* Mini terminal window for the hero GIF */
+        .hero-terminal {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px var(--border-dim);
+        }
+
+        .hero-terminal-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .hero-terminal img {
+            width: 100%;
+            display: block;
         }
 
         .logo {
-            max-width: 320px; width: 100%; height: auto;
-            margin: 0 auto 36px;
-            filter: drop-shadow(0 0 24px var(--accent-glow));
+            max-width: 220px; width: 100%; height: auto;
+            margin-bottom: 28px;
+            filter: drop-shadow(0 0 20px var(--accent-glow));
         }
 
         h1 {
             font-family: var(--font-mono);
-            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
             font-weight: 400;
             letter-spacing: -0.02em;
             color: var(--accent);
             text-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(0,212,255,0.1);
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
         .tagline {
             font-family: var(--font-mono);
-            font-size: clamp(0.9rem, 2vw, 1.05rem);
+            font-size: clamp(0.85rem, 1.5vw, 0.95rem);
             color: var(--text-2);
             letter-spacing: 0.01em;
             margin-bottom: 8px;
@@ -139,17 +176,16 @@
         }
 
         .subtitle {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             color: var(--text-3);
-            max-width: 620px;
-            margin: 0 auto 36px;
+            margin-bottom: 28px;
             line-height: 1.75;
+            max-width: 480px;
         }
 
         .badges {
             display: flex; gap: 8px;
-            justify-content: center;
-            margin-bottom: 32px;
+            margin-bottom: 24px;
             flex-wrap: wrap;
         }
         .badge { height: 20px; opacity: 0.8; }
@@ -157,8 +193,26 @@
         /* ── Nav buttons ── */
         .nav-buttons {
             display: flex; gap: 10px;
-            justify-content: center;
             flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .yt-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-3);
+            text-decoration: none;
+            letter-spacing: 0.03em;
+            transition: color 0.15s;
+        }
+        .yt-link:hover { color: var(--accent); }
+        .yt-link::before {
+            content: '▶';
+            font-size: 0.6rem;
+            color: var(--red);
         }
 
         .btn {
@@ -196,56 +250,6 @@
             color: var(--accent);
         }
 
-        /* ── Showcase ── */
-        .showcase {
-            margin: 56px 0;
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            overflow: hidden;
-            background: var(--surface-1);
-        }
-
-        .showcase-inner {
-            padding: 0;
-            position: relative;
-        }
-
-        /* YouTube embed */
-        .yt-wrapper {
-            position: relative;
-            display: block;
-        }
-        .yt-wrapper img { width: 100%; display: block; }
-        .yt-play {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 72px; height: 72px;
-            background: rgba(220, 0, 0, 0.9);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            transition: background 0.2s, transform 0.2s;
-        }
-        .yt-wrapper:hover .yt-play {
-            background: rgb(220, 0, 0);
-            transform: translate(-50%, -50%) scale(1.08);
-        }
-        .yt-play-arrow {
-            width: 0; height: 0;
-            border-top: 16px solid transparent;
-            border-bottom: 16px solid transparent;
-            border-left: 26px solid white;
-            margin-left: 5px;
-        }
-        .showcase-caption {
-            padding: 14px 20px;
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            color: var(--text-3);
-            border-top: 1px solid var(--border-dim);
-            text-align: center;
-        }
-
-        .showcase img.full { width: 100%; display: block; }
 
         /* ── Feature Explorer (terminal window) ── */
         .feature-explorer-wrap {
@@ -561,8 +565,18 @@
         }
 
         /* ── Mobile ── */
+        @media (max-width: 900px) {
+            .hero { flex-direction: column; gap: 40px; }
+            .hero-media { flex: 0 0 auto; max-width: 100%; width: 100%; }
+            .hero-text { text-align: center; }
+            .hero-text .logo { margin-left: auto; margin-right: auto; display: block; }
+            .hero-text .subtitle { margin-left: auto; margin-right: auto; }
+            .badges { justify-content: center; }
+            .nav-buttons { justify-content: center; }
+        }
+
         @media (max-width: 768px) {
-            header { padding: 56px 0 48px; }
+            header { padding: 40px 0 32px; }
             h1 { font-size: 1.8rem; }
             .subtitle { font-size: 0.88rem; }
 
@@ -601,50 +615,52 @@
 <body>
     <div class="container">
 
-        <!-- ── Header ── -->
+        <!-- ── Split hero ── -->
         <header>
-            <div class="anim-1">
-                <img src="images/logo.svg" alt="SharpConsoleUI" class="logo">
-            </div>
-            <h1 class="anim-2">SharpConsoleUI</h1>
-            <p class="tagline anim-3">A terminal GUI framework for .NET.</p>
-            <p class="subtitle anim-3">Per-cell alpha blending, double-buffered compositing with occlusion culling,
-               and a Measure&rarr;Arrange&rarr;Paint layout pipeline. Each window runs on its own async thread.
-               Gradient backgrounds propagate through every transparent control automatically.</p>
+            <div class="hero">
+                <div class="hero-text">
+                    <div class="anim-1">
+                        <img src="images/logo.svg" alt="SharpConsoleUI" class="logo">
+                    </div>
+                    <h1 class="anim-2">SharpConsoleUI</h1>
+                    <p class="tagline anim-3">A terminal GUI framework for .NET.</p>
+                    <p class="subtitle anim-3">Per-cell alpha blending, double-buffered compositing with occlusion culling,
+                       and a Measure&rarr;Arrange&rarr;Paint layout pipeline. Each window runs on its own async thread.
+                       Gradient backgrounds propagate through every transparent control automatically.</p>
+                    <div class="badges anim-4">
+                        <img src="https://img.shields.io/nuget/v/SharpConsoleUI.svg" alt="NuGet" class="badge">
+                        <img src="https://img.shields.io/badge/docs-latest-blue" alt="Documentation" class="badge">
+                        <img src="https://github.com/nickprotop/ConsoleEx/actions/workflows/build-and-publish.yml/badge.svg" alt="Build" class="badge">
+                    </div>
+                    <div class="nav-buttons anim-5">
+                        <a href="docfx/_site/BUILDERS.html"           class="btn btn-primary">Get Started</a>
+                        <a href="docfx/_site/COMPARISON.html"         class="btn btn-ghost">Why SharpConsoleUI?</a>
+                        <a href="docfx/_site/EXAMPLES.html"           class="btn btn-ghost">Examples</a>
+                        <a href="docfx/_site/tutorials/README.html"   class="btn btn-ghost">Tutorials</a>
+                        <a href="docfx/_site/api/SharpConsoleUI.html" class="btn btn-ghost">API Reference</a>
+                        <a href="https://github.com/nickprotop/ConsoleEx" class="btn btn-ghost">GitHub</a>
+                    </div>
+                    <a href="https://www.youtube.com/watch?v=sl5C9jrJknM"
+                       target="_blank" rel="noopener noreferrer"
+                       class="yt-link anim-6">Watch demo on YouTube</a>
+                </div>
 
-            <div class="badges anim-4">
-                <img src="https://img.shields.io/nuget/v/SharpConsoleUI.svg" alt="NuGet" class="badge">
-                <img src="https://img.shields.io/badge/docs-latest-blue" alt="Documentation" class="badge">
-                <img src="https://github.com/nickprotop/ConsoleEx/actions/workflows/build-and-publish.yml/badge.svg" alt="Build" class="badge">
-            </div>
-
-            <div class="nav-buttons anim-5">
-                <a href="docfx/_site/BUILDERS.html"          class="btn btn-primary">Get Started</a>
-                <a href="docfx/_site/COMPARISON.html"        class="btn btn-ghost">Why SharpConsoleUI?</a>
-                <a href="docfx/_site/EXAMPLES.html"          class="btn btn-ghost">Examples</a>
-                <a href="docfx/_site/tutorials/README.html"  class="btn btn-ghost">Tutorials</a>
-                <a href="docfx/_site/api/SharpConsoleUI.html" class="btn btn-ghost">API Reference</a>
-                <a href="https://github.com/nickprotop/ConsoleEx" class="btn btn-ghost">GitHub</a>
+                <div class="hero-media anim-6">
+                    <div class="hero-terminal">
+                        <div class="hero-terminal-bar">
+                            <div class="tl-dots">
+                                <div class="tl-dot r"></div>
+                                <div class="tl-dot y"></div>
+                                <div class="tl-dot g"></div>
+                            </div>
+                            <div class="tl-title">SharpConsoleUI</div>
+                            <div class="tl-spacer"></div>
+                        </div>
+                        <img src="images/showcase.gif" alt="SharpConsoleUI live demo" />
+                    </div>
+                </div>
             </div>
         </header>
-
-        <!-- ── YouTube showcase ── -->
-        <div class="showcase anim-6">
-            <div class="showcase-inner">
-                <a href="https://www.youtube.com/watch?v=sl5C9jrJknM" target="_blank" rel="noopener noreferrer" class="yt-wrapper">
-                    <img src="https://img.youtube.com/vi/sl5C9jrJknM/maxresdefault.jpg" alt="SharpConsoleUI Video Demo" />
-                    <div class="yt-play"><div class="yt-play-arrow"></div></div>
-                </a>
-            </div>
-            <div class="showcase-caption">// Watch SharpConsoleUI in action on YouTube</div>
-        </div>
-
-        <!-- ── GIF showcase ── -->
-        <div class="showcase">
-            <div class="showcase-inner">
-                <img src="images/showcase.gif" alt="SharpConsoleUI Demo" class="full" />
-            </div>
-        </div>
 
         <!-- ── Feature Explorer ── -->
         <div class="feature-explorer-wrap">
@@ -674,9 +690,9 @@
                             <span class="nav-icon">🪟</span>
                             <span class="nav-label">Async Windows</span>
                         </div>
-                        <div class="feature-nav-item" data-feature="buffer">
-                            <span class="nav-icon">🖥️</span>
-                            <span class="nav-label">Raw Buffer Access</span>
+                        <div class="feature-nav-item" data-feature="canvas">
+                            <span class="nav-icon">🖌️</span>
+                            <span class="nav-label">CanvasControl</span>
                         </div>
                         <div class="feature-nav-item" data-feature="unicode">
                             <span class="nav-icon">🌐</span>
@@ -717,14 +733,14 @@
                             </div>
                         </div>
 
-                        <div class="feature-pane" data-feature="buffer">
-                            <img src="images/examples/compositor-fractal.png" alt="Raw Buffer Access — animated Mandelbrot fractal via PreBufferPaint" />
+                        <div class="feature-pane" data-feature="canvas">
+                            <img src="images/examples/canvasdemo.png" alt="CanvasControl — plasma, geometry primitives, starfield" />
                             <div class="feature-pane-text">
-                                <h3>// Raw Buffer Access</h3>
-                                <p>PreBufferPaint and PostBufferPaint give you full <code>Cell[,]</code> access before and after
-                                every render pass. Animated fractals, plasma effects, blur, color grading &mdash;
-                                anything that operates directly on the cell buffer.
-                                Controls paint on top of whatever PreBufferPaint puts down.</p>
+                                <h3>// CanvasControl</h3>
+                                <p>30+ drawing primitives &mdash; lines, arcs, circles, rectangles, polygons, beziers,
+                                text, gradients &mdash; in both retained and immediate rendering modes.
+                                Plasma effects, particle systems, interactive ripples, geometry scenes.
+                                Full mouse event support. Drop it in any window like any other control.</p>
                             </div>
                         </div>
 
