@@ -138,9 +138,51 @@
             border-bottom: 1px solid var(--border);
         }
 
-        .hero-terminal img {
+        /* Carousel */
+        .carousel {
+            position: relative;
+            overflow: hidden;
+            aspect-ratio: 16 / 10;
+            background: var(--bg);
+        }
+
+        .carousel-slide {
+            position: absolute;
+            inset: 0;
             width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: top;
+            opacity: 0;
+            transition: opacity 0.7s ease;
             display: block;
+        }
+
+        .carousel-slide.active { opacity: 1; }
+
+        .carousel-dots {
+            display: flex;
+            gap: 7px;
+            justify-content: center;
+            align-items: center;
+            padding: 9px;
+            background: var(--surface-2);
+            border-top: 1px solid var(--border);
+        }
+
+        .carousel-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--border);
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            transition: background 0.2s, transform 0.2s;
+        }
+        .carousel-dot.active {
+            background: var(--accent);
+            transform: scale(1.4);
+            box-shadow: 0 0 6px var(--accent-glow);
         }
 
         .logo {
@@ -656,7 +698,22 @@
                             <div class="tl-title">SharpConsoleUI</div>
                             <div class="tl-spacer"></div>
                         </div>
-                        <img src="images/showcase.gif" alt="SharpConsoleUI live demo" />
+                        <div class="carousel" id="heroCarousel">
+                            <img class="carousel-slide active" src="images/examples/lazydotide-intellisense.png" alt="LazyDotIDE — full IDE with IntelliSense" />
+                            <img class="carousel-slide" src="images/examples/demoapp-windows.png" alt="Multiple overlapping windows simultaneously" />
+                            <img class="carousel-slide" src="images/examples/serverhub-main.png" alt="ServerHub — production server dashboard" />
+                            <img class="carousel-slide" src="images/examples/lazydotide-git.png" alt="LazyDotIDE — git integration" />
+                            <img class="carousel-slide" src="images/examples/consoletop-cpu.png" alt="ConsoleTop — system monitor" />
+                            <img class="carousel-slide" src="images/examples/demoapp-markup.png" alt="Markup, gradients and dialogs" />
+                        </div>
+                        <div class="carousel-dots">
+                            <button class="carousel-dot active" data-index="0"></button>
+                            <button class="carousel-dot" data-index="1"></button>
+                            <button class="carousel-dot" data-index="2"></button>
+                            <button class="carousel-dot" data-index="3"></button>
+                            <button class="carousel-dot" data-index="4"></button>
+                            <button class="carousel-dot" data-index="5"></button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -705,6 +762,10 @@
                         <div class="feature-nav-item" data-feature="markup">
                             <span class="nav-icon">✍️</span>
                             <span class="nav-label">Markup Everywhere</span>
+                        </div>
+                        <div class="feature-nav-item" data-feature="alpha">
+                            <span class="nav-icon">🌊</span>
+                            <span class="nav-label">Alpha Blending</span>
                         </div>
                     </nav>
 
@@ -776,6 +837,17 @@
                             </div>
                         </div>
 
+                        <div class="feature-pane" data-feature="alpha">
+                            <img src="images/examples/alpha-blending.gif" alt="Alpha blending — per-cell RGBA compositing" loading="lazy" />
+                            <div class="feature-pane-text">
+                                <h3>// Alpha Blending</h3>
+                                <p>Porter-Duff compositing at the cell level &mdash; foreground and background independently
+                                alpha-composited on every render pass. Glass panels, pulse effects, animated alpha,
+                                gradient-transparent controls. Write <code>[#00FF0080]</code> anywhere and the
+                                compositor does the rest. No other .NET terminal library does this.</p>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -786,8 +858,6 @@
             <p class="section-label"><span>//</span>Differentiators</p>
             <h2 class="section-heading">What only SharpConsoleUI does</h2>
             <p class="section-sub">Capabilities absent from every other .NET terminal UI library.</p>
-
-            <img src="images/examples/alpha-blending.gif" alt="Alpha blending compositor demo" class="unique-gif" />
 
             <div class="unique-grid">
                 <div class="unique-item">
@@ -920,6 +990,35 @@ windowSystem.Run();</code></pre>
     </div>
 
     <script>
+    // ── Hero carousel ──
+    (function () {
+        var slides  = document.querySelectorAll('#heroCarousel .carousel-slide');
+        var dots    = document.querySelectorAll('.carousel-dot');
+        var current = 0;
+        var timer;
+
+        function goTo(n) {
+            slides[current].classList.remove('active');
+            dots[current].classList.remove('active');
+            current = (n + slides.length) % slides.length;
+            slides[current].classList.add('active');
+            dots[current].classList.add('active');
+        }
+
+        dots.forEach(function (dot) {
+            dot.addEventListener('click', function () {
+                clearInterval(timer);
+                goTo(parseInt(dot.dataset.index));
+                timer = setInterval(function () { goTo(current + 1); }, 4000);
+            });
+        });
+
+        timer = setInterval(function () { goTo(current + 1); }, 4000);
+    })();
+    </script>
+
+    <script>
+    // ── Feature explorer ──
     (function () {
         var navItems = document.querySelectorAll('.feature-nav-item');
         var panes    = document.querySelectorAll('#featurePanel .feature-pane');
