@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SharpConsoleUI - Modern .NET Console Windowing System</title>
-    <meta name="description" content="A modern .NET console windowing system with fluent builders, async patterns, and comprehensive state services.">
+    <title>SharpConsoleUI - A terminal GUI framework for .NET</title>
+    <meta name="description" content="A terminal GUI framework for .NET. Per-cell alpha blending, double-buffered compositing, and a Measure→Arrange→Paint layout pipeline.">
     <style>
         * {
             margin: 0;
@@ -49,7 +49,15 @@
         .tagline {
             font-size: 1.3rem;
             color: #a0a0a0;
-            margin-bottom: 30px;
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            font-size: 1.05rem;
+            color: #808080;
+            max-width: 700px;
+            margin: 0 auto 30px auto;
+            line-height: 1.7;
         }
 
         .quick-links {
@@ -107,41 +115,190 @@
             border: 1px solid #333;
         }
 
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
+        /* ── Feature explorer ── */
+        .feature-explorer {
+            display: flex;
+            gap: 0;
             margin: 60px 0;
+            background: #1a1a1a;
+            border-radius: 12px;
+            border: 1px solid #2a2a2a;
+            overflow: hidden;
+            min-height: 480px;
         }
 
-        .feature-card {
-            background: #252525;
-            padding: 30px;
-            border-radius: 10px;
-            border: 1px solid #333;
-            transition: all 0.3s ease;
+        .feature-nav {
+            width: 260px;
+            flex-shrink: 0;
+            border-right: 1px solid #2a2a2a;
+            display: flex;
+            flex-direction: column;
         }
 
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 24px rgba(0, 212, 255, 0.2);
-            border-color: #00d4ff;
+        .feature-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 20px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: background 0.15s, border-color 0.15s;
+            user-select: none;
         }
 
-        .feature-icon {
-            font-size: 2.5rem;
-            margin-bottom: 15px;
+        .feature-nav-item:hover {
+            background: #222;
         }
 
-        .feature-title {
-            font-size: 1.3rem;
+        .feature-nav-item.active {
+            background: #202020;
+            border-left-color: #00d4ff;
+        }
+
+        .feature-nav-item .nav-icon {
+            font-size: 1.4rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .feature-nav-item .nav-label {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+            line-height: 1.3;
+        }
+
+        .feature-nav-item.active .nav-label {
+            color: #e0e0e0;
+        }
+
+        .feature-panel {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+
+        .feature-pane {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .feature-pane.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .feature-pane img {
+            width: 100%;
+            object-fit: cover;
+            border-bottom: 1px solid #2a2a2a;
+            display: block;
+        }
+
+        .feature-pane-text {
+            padding: 24px 28px;
+        }
+
+        .feature-pane-text h3 {
             color: #00d4ff;
+            font-size: 1.2rem;
             margin-bottom: 10px;
         }
 
-        .feature-desc {
-            color: #b0b0b0;
+        .feature-pane-text p {
+            color: #a0a0a0;
+            font-size: 0.95rem;
             line-height: 1.7;
+        }
+
+        /* Mobile accordion */
+        @media (max-width: 768px) {
+            .feature-explorer {
+                flex-direction: column;
+                min-height: unset;
+            }
+
+            .feature-nav {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #2a2a2a;
+            }
+
+            .feature-nav-item {
+                border-left: none;
+                border-bottom: 1px solid #222;
+            }
+
+            .feature-nav-item.active {
+                border-bottom-color: #2a2a2a;
+            }
+
+            .feature-panel {
+                display: none;
+            }
+
+            .feature-accordion-body {
+                display: none;
+                background: #1e1e1e;
+                border-bottom: 1px solid #2a2a2a;
+            }
+
+            .feature-accordion-body.open {
+                display: block;
+            }
+
+            .feature-accordion-body img {
+                width: 100%;
+                display: block;
+                border-bottom: 1px solid #2a2a2a;
+            }
+
+            .feature-accordion-body .feature-pane-text {
+                padding: 20px;
+            }
+        }
+
+        .unique-section {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 40px;
+            margin: 60px 0;
+            border: 1px solid #2a2a2a;
+        }
+
+        .unique-section h2 {
+            color: #00d4ff;
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+        }
+
+        .unique-list {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 24px;
+        }
+
+        .unique-list li {
+            padding: 20px;
+            background: #252525;
+            border-radius: 8px;
+            border-left: 3px solid #00d4ff;
+        }
+
+        .unique-list li strong {
+            display: block;
+            color: #00d4ff;
+            margin-bottom: 6px;
+            font-size: 1.05rem;
+        }
+
+        .unique-list li p {
+            color: #a0a0a0;
+            font-size: 0.95rem;
+            line-height: 1.6;
         }
 
         .code-section {
@@ -202,6 +359,10 @@
             .features {
                 grid-template-columns: 1fr;
             }
+
+            .unique-list {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -210,7 +371,10 @@
         <header>
             <img src="images/logo.svg" alt="SharpConsoleUI Logo" class="logo">
             <h1>SharpConsoleUI</h1>
-            <p class="tagline">A modern .NET console windowing system</p>
+            <p class="tagline">A terminal GUI framework for .NET.</p>
+            <p class="subtitle">Per-cell alpha blending, double-buffered compositing with occlusion culling,
+               and a Measure&rarr;Arrange&rarr;Paint layout pipeline. Each window runs on its own async thread.
+               Gradient backgrounds propagate through every transparent control automatically.</p>
 
             <div class="badges">
                 <img src="https://img.shields.io/nuget/v/SharpConsoleUI.svg" alt="NuGet" class="badge">
@@ -220,9 +384,9 @@
 
             <div class="quick-links">
                 <a href="docfx/_site/BUILDERS.html" class="btn btn-primary">Get Started</a>
-                <a href="docfx/_site/tutorials/README.html" class="btn btn-primary">Tutorials</a>
-                <a href="docfx/_site/EXAMPLES.html" class="btn btn-primary">Examples</a>
                 <a href="docfx/_site/COMPARISON.html" class="btn btn-primary">Why SharpConsoleUI?</a>
+                <a href="docfx/_site/EXAMPLES.html" class="btn btn-primary">Examples</a>
+                <a href="docfx/_site/tutorials/README.html" class="btn btn-primary">Tutorials</a>
                 <a href="docfx/_site/api/SharpConsoleUI.html" class="btn btn-secondary">API Reference</a>
                 <a href="https://github.com/nickprotop/ConsoleEx" class="btn btn-secondary">GitHub</a>
             </div>
@@ -242,61 +406,223 @@
             <img src="images/showcase.gif" alt="SharpConsoleUI Demo" />
         </section>
 
-        <section class="features">
-            <div class="feature-card">
-                <div class="feature-icon">🪟</div>
-                <h3 class="feature-title">Multiple Windows</h3>
-                <p class="feature-desc">Overlapping windows with full Z-order management, drag & drop, resize, minimize, and maximize support.</p>
-            </div>
+        <section class="feature-explorer" id="featureExplorer">
 
-            <div class="feature-card">
-                <div class="feature-icon">🎨</div>
-                <h3 class="feature-title">25+ Controls</h3>
-                <p class="feature-desc">Rich UI controls including buttons, lists, trees, tables, text inputs, menus, and more with full mouse support.</p>
-            </div>
+            <!-- Left nav (desktop) / accordion triggers (mobile) -->
+            <nav class="feature-nav" id="featureNav">
 
-            <div class="feature-card">
-                <div class="feature-icon">🏗️</div>
-                <h3 class="feature-title">Fluent Builders</h3>
-                <p class="feature-desc">Modern API with method chaining and fluent builders for intuitive, readable code.</p>
-            </div>
+                <div class="feature-nav-item active" data-feature="compositor">
+                    <span class="nav-icon">🎨</span>
+                    <span class="nav-label">Real Compositor</span>
+                </div>
+                <!-- mobile accordion body injected by JS -->
 
-            <div class="feature-card">
-                <div class="feature-icon">⚡</div>
-                <h3 class="feature-title">Async/Await</h3>
-                <p class="feature-desc">Full async support throughout the library for responsive, non-blocking UIs.</p>
-            </div>
+                <div class="feature-nav-item" data-feature="async">
+                    <span class="nav-icon">🪟</span>
+                    <span class="nav-label">Async Windows</span>
+                </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">🔌</div>
-                <h3 class="feature-title">Plugin System</h3>
-                <p class="feature-desc">Extensible architecture with plugin support for custom controls and functionality.</p>
-            </div>
+                <div class="feature-nav-item" data-feature="buffer">
+                    <span class="nav-icon">🖥</span>
+                    <span class="nav-label">Raw Buffer Access</span>
+                </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">🎬</div>
-                <h3 class="feature-title">Compositor Effects</h3>
-                <p class="feature-desc">Post-processing buffer manipulation for transitions, blur, filters, and screenshots.</p>
-            </div>
+                <div class="feature-nav-item" data-feature="unicode">
+                    <span class="nav-icon">🌐</span>
+                    <span class="nav-label">Full Unicode</span>
+                </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">🎭</div>
-                <h3 class="feature-title">Theming</h3>
-                <p class="feature-desc">Built-in themes and complete customization support for branded applications.</p>
+                <div class="feature-nav-item" data-feature="controls">
+                    <span class="nav-icon">📟</span>
+                    <span class="nav-label">Unique Controls</span>
+                </div>
+
+                <div class="feature-nav-item" data-feature="markup">
+                    <span class="nav-icon">✍️</span>
+                    <span class="nav-label">Markup Everywhere</span>
+                </div>
+
+            </nav>
+
+            <!-- Right panel (desktop only) -->
+            <div class="feature-panel" id="featurePanel">
+
+                <div class="feature-pane active" data-feature="compositor">
+                    <img src="images/gradients.png" alt="Real Compositor — gradient propagation" />
+                    <div class="feature-pane-text">
+                        <h3>Real Compositor</h3>
+                        <p>Gradient backgrounds propagate through every transparent control automatically &mdash;
+                        DataGrids, containers, margins, all transparent to the compositor beneath.
+                        No control needs to know the gradient exists.
+                        Per-cell alpha blending on both foreground and background: write
+                        <code>[#00FF0080]50% alpha green[/]</code> in any label, on any control,
+                        and the compositor handles the rest.</p>
+                    </div>
+                </div>
+
+                <div class="feature-pane" data-feature="async">
+                    <img src="images/examples/demoapp.png" alt="Async Windows — multiple independent windows" />
+                    <div class="feature-pane-text">
+                        <h3>Async Windows</h3>
+                        <p>Each window runs on its own async thread and updates independently.
+                        Multiple panels animate simultaneously without blocking each other.
+                        No timer juggling &mdash; just async/await and CancellationToken.</p>
+                    </div>
+                </div>
+
+                <div class="feature-pane" data-feature="buffer">
+                    <img src="images/examples/compositor-fractal.png" alt="Raw Buffer Access — PreBufferPaint fractal" />
+                    <div class="feature-pane-text">
+                        <h3>Raw Buffer Access</h3>
+                        <p>PreBufferPaint and PostBufferPaint give you full Cell[,] access before and after
+                        every render pass. Animated fractals, plasma effects, blur, color grading &mdash;
+                        anything that operates directly on the cell buffer. Controls paint on top of
+                        whatever you put in PreBufferPaint.</p>
+                    </div>
+                </div>
+
+                <div class="feature-pane" data-feature="unicode">
+                    <img src="images/unicode.png" alt="Full Unicode — CJK, emoji, RTL" />
+                    <div class="feature-pane-text">
+                        <h3>Full Unicode</h3>
+                        <p>CJK wide characters, surrogate pair emoji, RTL scripts, regional indicator flags &mdash;
+                        correct at the cell level throughout the compositor, diff renderer, and ANSI output.
+                        Width-aware everywhere, not an afterthought.</p>
+                    </div>
+                </div>
+
+                <div class="feature-pane" data-feature="controls">
+                    <img src="images/terminal.png" alt="Unique Controls — PTY terminal running btop" />
+                    <div class="feature-pane-text">
+                        <h3>Unique Controls</h3>
+                        <p>PTY-backed terminal emulator: run a real shell &mdash; bash, vim, btop &mdash; inside
+                        a UI panel with character-perfect ANSI capture. ImageControl renders PNG, JPEG, WebP via
+                        half-block Unicode. CanvasControl with 30+ drawing primitives.
+                        SpectreRenderableControl wraps any Spectre.Console IRenderable natively.</p>
+                    </div>
+                </div>
+
+                <div class="feature-pane" data-feature="markup">
+                    <img src="images/markup-syntax.png" alt="Markup Everywhere — rich text on all controls" />
+                    <div class="feature-pane-text">
+                        <h3>Markup Everywhere</h3>
+                        <p>Write <code>[red]alert[/]</code> in any string, on any control, without a second thought.
+                        Named colors, RGB, full RGBA hex (<code>[#FF000080]50% alpha[/]</code>), bold, italic,
+                        underline, background colors, nested styles &mdash; composited through the alpha pipeline
+                        just like everything else.</p>
+                    </div>
+                </div>
+
             </div>
+        </section>
+
+        <section class="unique-section">
+            <h2>What only SharpConsoleUI does</h2>
+            <img src="images/examples/alpha-blending.gif" alt="Alpha blending compositor demo" style="max-width: 100%; border-radius: 8px; border: 1px solid #333; margin-bottom: 30px;" />
+            <ul class="unique-list">
+                <li>
+                    <strong>Gradient compositor</strong>
+                    <p>Window gradients propagate through every
+                    transparent control automatically. DataGrids,
+                    containers, margins &mdash; all transparent to the
+                    compositor beneath. No control needs to know
+                    the gradient exists.</p>
+                </li>
+                <li>
+                    <strong>Full RGBA alpha on foreground and background</strong>
+                    <p>Porter-Duff compositing at the cell level.
+                    Glass panels. Animated alpha. Pulse effects.
+                    Foreground and background independently
+                    alpha-composited against whatever the
+                    compositor has already rendered.</p>
+                </li>
+                <li>
+                    <strong>PreBufferPaint and PostBufferPaint</strong>
+                    <p>Full Cell[,] access before and after every
+                    render pass. Animated backgrounds, blur,
+                    color grading, fractals &mdash; anything that
+                    operates on the raw cell buffer.</p>
+                </li>
+                <li>
+                    <strong>Per-window async threads</strong>
+                    <p>Each window is an async Task. Multiple panels
+                    update simultaneously at different rates
+                    without coordination. Natural, not engineered.</p>
+                </li>
+                <li>
+                    <strong>PTY terminal emulator</strong>
+                    <p>TerminalControl embeds a real shell process
+                    inside a UI panel. Run bash, vim, htop inside
+                    your application. Linux only.</p>
+                </li>
+                <li>
+                    <strong>Image rendering</strong>
+                    <p>ImageControl displays PNG, JPEG, WebP and more
+                    via half-block Unicode rendering.
+                    Fit, Fill, Stretch, None scale modes.</p>
+                </li>
+                <li>
+                    <strong>Animation pipeline</strong>
+                    <p>Time-based tweened animations with easing
+                    functions built on PostBufferPaint.
+                    FadeIn, FadeOut, SlideIn, custom effects.</p>
+                </li>
+                <li>
+                    <strong>Spectre.Console bridge</strong>
+                    <p>SpectreRenderableControl wraps any IRenderable
+                    as a native control. Every Spectre widget works
+                    inside SharpConsoleUI windows without
+                    modification.</p>
+                </li>
+            </ul>
         </section>
 
         <section class="code-section">
             <h2>Quick Start</h2>
             <pre><code>dotnet add package SharpConsoleUI</code></pre>
             <pre><code>using SharpConsoleUI;
+using SharpConsoleUI.Builders;
+using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 
-var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer));
+
+var gradient = ColorGradient.FromColors(
+    new Color(0, 20, 60),
+    new Color(0, 5, 20));
+
 var window = new WindowBuilder(windowSystem)
-    .WithTitle("Hello World")
-    .WithSize(60, 20)
+    .WithTitle("SharpConsoleUI")
+    .WithSize(70, 22)
     .Centered()
+    .WithBackgroundGradient(gradient, GradientDirection.Vertical)
     .Build();
+
+// PreBufferPaint — fires before controls paint
+window.PreBufferPaint += (buffer, dirty, clip) =>
+{
+    // Animated background, fractal, pattern —
+    // whatever you want beneath the controls
+};
+
+// PostBufferPaint — fires after controls paint
+window.PostBufferPaint += (buffer, dirty, clip) =>
+{
+    // Color grade, blur, overlay effects
+};
+
+// Controls inherit the gradient — no background needed
+window.AddControl(new MarkupControl(new List&lt;string&gt;
+{
+    "[bold cyan]Real compositor. Full alpha blending.[/]",
+    "[dim]The terminal is just the output surface.[/]",
+    "",
+    // Alpha on foreground: #RRGGBBAA — 50% alpha red
+    "[#FF000080]This text has 50% alpha foreground[/]",
+    "Controls are transparent to the gradient beneath."
+}));
 
 windowSystem.AddWindow(window);
 windowSystem.Run();</code></pre>
@@ -322,6 +648,72 @@ windowSystem.Run();</code></pre>
             <p>Licensed under MIT | <a href="https://github.com/nickprotop/ConsoleEx" style="color: #00d4ff;">View on GitHub</a></p>
         </footer>
     </div>
+<script>
+(function () {
+    var isMobile = function () { return window.innerWidth <= 768; };
+
+    var navItems = document.querySelectorAll('.feature-nav-item');
+    var panes    = document.querySelectorAll('.feature-pane');
+
+    // Build accordion bodies for mobile
+    navItems.forEach(function (item) {
+        var key  = item.dataset.feature;
+        var pane = document.querySelector('.feature-pane[data-feature="' + key + '"]');
+        if (!pane) return;
+
+        var body = document.createElement('div');
+        body.className = 'feature-accordion-body';
+        body.dataset.feature = key;
+        body.innerHTML = pane.innerHTML;
+        item.after(body);
+    });
+
+    function activateDesktop(key) {
+        navItems.forEach(function (n) {
+            n.classList.toggle('active', n.dataset.feature === key);
+        });
+        panes.forEach(function (p) {
+            if (p.dataset.feature === key) {
+                p.style.display = 'flex';
+                requestAnimationFrame(function () { p.style.opacity = '1'; });
+            } else {
+                p.style.opacity = '0';
+                p.style.display = 'none';
+            }
+        });
+    }
+
+    function activateMobile(key, clickedItem) {
+        var bodies = document.querySelectorAll('.feature-accordion-body');
+        navItems.forEach(function (n) {
+            n.classList.toggle('active', n.dataset.feature === key);
+        });
+        bodies.forEach(function (b) {
+            if (b.dataset.feature === key) {
+                var isOpen = b.classList.contains('open');
+                b.classList.toggle('open', !isOpen);
+                clickedItem.classList.toggle('active', !isOpen);
+            } else {
+                b.classList.remove('open');
+            }
+        });
+    }
+
+    navItems.forEach(function (item) {
+        item.addEventListener('click', function () {
+            var key = item.dataset.feature;
+            if (isMobile()) {
+                activateMobile(key, item);
+            } else {
+                activateDesktop(key);
+            }
+        });
+    });
+
+    // Init desktop state
+    activateDesktop('compositor');
+})();
+</script>
 <script data-goatcounter="https://sharpconsoleui.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
 </body>
