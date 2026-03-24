@@ -9,6 +9,7 @@
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -267,7 +268,7 @@ namespace SharpConsoleUI.Controls
 				backgroundColor = ColorResolver.ResolveButtonDisabledBackground(null, Container);
 				foregroundColor = ColorResolver.ResolveButtonDisabledForeground(null, Container, Color.DarkSlateGray1);
 			}
-			else if (_hasFocus)
+			else if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
 			{
 				backgroundColor = ColorResolver.ResolveButtonFocusedBackground(_focusedBackgroundColorValue, Container);
 				foregroundColor = FocusedForegroundColor;
@@ -385,7 +386,7 @@ namespace SharpConsoleUI.Controls
 						string lineText = itemLines[lineIndex];
 						if (lineIndex == 0 && _itemFormatter != null)
 						{
-							lineText = _itemFormatter(items[itemIndex], itemIndex == selectedIndex, _hasFocus);
+							lineText = _itemFormatter(items[itemIndex], itemIndex == selectedIndex, this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false);
 						}
 
 						// Truncate if necessary
@@ -405,7 +406,7 @@ namespace SharpConsoleUI.Controls
 							itemBg = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
 							itemFg = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
 						}
-						else if (isHovered && _hoverHighlightsItems && _hasFocus)
+						else if (isHovered && _hoverHighlightsItems && (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 						{
 							// Hover takes precedence when control has focus
 							// Use theme hover colors if available, otherwise fall back to highlight colors
@@ -413,12 +414,12 @@ namespace SharpConsoleUI.Controls
 							itemBg = theme?.ListHoverBackgroundColor ?? HighlightBackgroundColor;
 							itemFg = theme?.ListHoverForegroundColor ?? HighlightForegroundColor;
 						}
-						else if (_isSelectable && itemIndex == selectedIndex && _hasFocus)
+						else if (_isSelectable && itemIndex == selectedIndex && (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 						{
 							itemBg = HighlightBackgroundColor;
 							itemFg = HighlightForegroundColor;
 						}
-						else if (_isSelectable && itemIndex == selectedIndex && !_hasFocus)
+						else if (_isSelectable && itemIndex == selectedIndex && !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 						{
 							itemBg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightBackgroundColor ?? HighlightBackgroundColor;
 							itemFg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
@@ -509,8 +510,8 @@ namespace SharpConsoleUI.Controls
 
 				if (scrollbarHeight > 0)
 				{
-					Color thumbColor = _hasFocus ? Color.Cyan1 : Color.Grey;
-					Color trackColor = _hasFocus ? Color.Grey : Color.Grey23;
+					Color thumbColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey;
+					Color trackColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Grey : Color.Grey23;
 
 					ScrollbarHelper.DrawVerticalScrollbar(
 						buffer, scrollbarX, scrollbarStartY, scrollbarHeight,

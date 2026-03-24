@@ -10,6 +10,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Parsing;
 using System.Linq;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -123,19 +124,11 @@ namespace SharpConsoleUI.Controls
 
 		#region IInteractiveControl / IFocusableControl / IFocusableContainerWithHeader Implementation
 
-		private bool _hasFocus;
 
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				if (_hasFocus == value) return;
-				_hasFocus = value;
-				OnPropertyChanged();
-				Invalidate(true);
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -146,7 +139,7 @@ namespace SharpConsoleUI.Controls
 		// propagate to SwitchFocus and land on the active tab's content controls.
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_hasFocus) return false;
+			if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)) return false;
 
 			if (key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow)
 			{
@@ -167,19 +160,6 @@ namespace SharpConsoleUI.Controls
 		// IFocusableControl — the header row is a real Tab focus stop.
 		/// <inheritdoc/>
 		public bool CanReceiveFocus { get { lock (_tabLock) { return _tabPages.Count > 0; } } }
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			HasFocus = focus;
-		}
-
-#pragma warning disable CS0067
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
-#pragma warning restore CS0067
 
 		#endregion
 	}

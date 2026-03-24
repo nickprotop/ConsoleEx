@@ -12,6 +12,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	public partial class TreeControl
@@ -244,7 +245,7 @@ namespace SharpConsoleUI.Controls
 				else if (mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Pressed))
 				{
 					if (!HasFocus && CanFocusWithMouse)
-						SetFocus(true, FocusReason.Mouse);
+						this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 
 					int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
 					int effectiveVis = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
@@ -271,7 +272,7 @@ namespace SharpConsoleUI.Controls
 					// Set focus on click
 					if (!HasFocus && CanFocusWithMouse)
 					{
-						SetFocus(true, FocusReason.Mouse);
+						this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 					}
 
 					// Check if clicking on scrollbar (reuse mouseOnScrollbar computed above)

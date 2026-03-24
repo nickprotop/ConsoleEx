@@ -9,6 +9,8 @@
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
+using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Controls;
@@ -19,6 +21,17 @@ public class SliderControlTests
 
 	private static ConsoleKeyInfo Key(ConsoleKey key, char keyChar = '\0', bool shift = false, bool alt = false, bool ctrl = false)
 		=> new ConsoleKeyInfo(keyChar, key, shift, alt, ctrl);
+
+	/// <summary>Creates a Window, adds the control, and sets it as the focused control via FocusManager.</summary>
+	private static Window GiveFocus(IFocusableControl control)
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
+		if (control is IWindowControl wc)
+			window.AddControl(wc);
+		window.FocusManager.SetFocus(control, FocusReason.Programmatic);
+		return window;
+	}
 
 	#endregion
 
@@ -187,7 +200,7 @@ public class SliderControlTests
 	public void ProcessKey_RightArrow_AddsStep()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -200,7 +213,7 @@ public class SliderControlTests
 	public void ProcessKey_LeftArrow_SubtractsStep()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.LeftArrow));
@@ -213,7 +226,7 @@ public class SliderControlTests
 	public void ProcessKey_ShiftRightArrow_AddsLargeStep()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.RightArrow, shift: true));
@@ -226,7 +239,7 @@ public class SliderControlTests
 	public void ProcessKey_ShiftLeftArrow_SubtractsLargeStep()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.LeftArrow, shift: true));
@@ -239,7 +252,7 @@ public class SliderControlTests
 	public void ProcessKey_Home_SetsMinValue()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.Home));
@@ -252,7 +265,7 @@ public class SliderControlTests
 	public void ProcessKey_End_SetsMaxValue()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.End));
@@ -265,7 +278,7 @@ public class SliderControlTests
 	public void ProcessKey_PageUp_AddsLargeStep()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.PageUp));
@@ -278,7 +291,7 @@ public class SliderControlTests
 	public void ProcessKey_PageDown_SubtractsLargeStep()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.PageDown));
@@ -296,7 +309,7 @@ public class SliderControlTests
 	{
 		var slider = new SliderControl();
 		slider.Orientation = SliderOrientation.Vertical;
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -310,7 +323,7 @@ public class SliderControlTests
 	{
 		var slider = new SliderControl();
 		slider.Orientation = SliderOrientation.Vertical;
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.DownArrow));
@@ -323,7 +336,7 @@ public class SliderControlTests
 	public void ProcessKey_UpArrow_Horizontal_ReturnsFalse()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -336,7 +349,7 @@ public class SliderControlTests
 	public void ProcessKey_DownArrow_Horizontal_ReturnsFalse()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 50;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.DownArrow));
@@ -353,7 +366,7 @@ public class SliderControlTests
 	public void ProcessKey_WhenDisabled_ReturnsFalse()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.IsEnabled = false;
 		slider.Value = 50;
 
@@ -379,7 +392,7 @@ public class SliderControlTests
 	public void ProcessKey_UnhandledKey_ReturnsFalse()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.A, 'a'));
 
@@ -420,40 +433,47 @@ public class SliderControlTests
 	public void GotFocus_FiresWhenFocusGained()
 	{
 		var slider = new SliderControl();
-		bool fired = false;
-		slider.GotFocus += (s, e) => fired = true;
+		var window = GiveFocus(new ButtonControl { Text = "other" }); // focus something else first
+		window.AddControl(slider);
 
-		slider.HasFocus = true;
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
 
-		Assert.True(fired);
+		window.FocusManager.SetFocus(slider, FocusReason.Programmatic);
+
+		Assert.NotNull(args);
+		Assert.Equal(slider, args!.Current);
 	}
 
 	[Fact]
 	public void LostFocus_FiresWhenFocusLost()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		var window = GiveFocus(slider);
 
-		bool fired = false;
-		slider.LostFocus += (s, e) => fired = true;
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
 
-		slider.HasFocus = false;
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
-		Assert.True(fired);
+		Assert.NotNull(args);
+		Assert.Null(args!.Current);
+		Assert.Equal(slider, args.Previous);
 	}
 
 	[Fact]
 	public void GotFocus_DoesNotFireWhenAlreadyFocused()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		var window = GiveFocus(slider);
 
-		bool fired = false;
-		slider.GotFocus += (s, e) => fired = true;
+		int fireCount = 0;
+		window.FocusManager.FocusChanged += (_, e) => fireCount++;
 
-		slider.HasFocus = true;
+		// SetFocus with same control — FocusManager skips if already focused
+		window.FocusManager.SetFocus(slider, FocusReason.Programmatic);
 
-		Assert.False(fired);
+		Assert.Equal(0, fireCount);
 	}
 
 	#endregion
@@ -535,7 +555,7 @@ public class SliderControlTests
 	public void ProcessKey_RightArrow_AtMaxValue_ValueUnchanged()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 100;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -548,7 +568,7 @@ public class SliderControlTests
 	public void ProcessKey_LeftArrow_AtMinValue_ValueUnchanged()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 0;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.LeftArrow));
@@ -561,7 +581,7 @@ public class SliderControlTests
 	public void ProcessKey_LargeStep_OvershootsMax_ClampsToMax()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 95;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.RightArrow, shift: true));
@@ -574,7 +594,7 @@ public class SliderControlTests
 	public void ProcessKey_LargeStep_UndershootsMin_ClampsToMin()
 	{
 		var slider = new SliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.Value = 5;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.LeftArrow, shift: true));
@@ -628,6 +648,17 @@ public class RangeSliderControlTests
 
 	private static ConsoleKeyInfo Key(ConsoleKey key, char keyChar = '\0', bool shift = false, bool alt = false, bool ctrl = false)
 		=> new ConsoleKeyInfo(keyChar, key, shift, alt, ctrl);
+
+	/// <summary>Creates a Window, adds the control, and sets it as the focused control via FocusManager.</summary>
+	private static Window GiveFocus(IFocusableControl control)
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
+		if (control is IWindowControl wc)
+			window.AddControl(wc);
+		window.FocusManager.SetFocus(control, FocusReason.Programmatic);
+		return window;
+	}
 
 	#endregion
 
@@ -750,7 +781,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_Tab_SwitchesActiveThumb()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		Assert.Equal(ActiveThumb.Low, slider.ActiveThumb);
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.Tab));
@@ -763,7 +794,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_Tab_OnHighThumb_ReturnsFalse()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 
 		// Tab on Low → switches to High (handled)
 		bool handled1 = slider.ProcessKey(Key(ConsoleKey.Tab));
@@ -779,7 +810,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_ShiftTab_OnHighThumb_SwitchesToLow()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.ActiveThumb = ActiveThumb.High;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.Tab, shift: true));
@@ -791,7 +822,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_ShiftTab_OnLowThumb_ReturnsFalse()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.ActiveThumb = ActiveThumb.Low;
 
 		bool handled = slider.ProcessKey(Key(ConsoleKey.Tab, shift: true));
@@ -806,7 +837,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_RightArrow_MovesLowThumb()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.LowValue = 20;
 		slider.HighValue = 80;
 
@@ -820,7 +851,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_RightArrow_MovesHighThumb_WhenActive()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.LowValue = 20;
 		slider.HighValue = 80;
 		slider.ActiveThumb = ActiveThumb.High;
@@ -835,7 +866,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_LeftArrow_MovesActiveThumbDown()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.LowValue = 20;
 		slider.HighValue = 80;
 
@@ -852,7 +883,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_Home_LowThumb_SetsToMin()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.LowValue = 30;
 		slider.HighValue = 80;
 
@@ -866,7 +897,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_End_HighThumb_SetsToMax()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.LowValue = 20;
 		slider.HighValue = 80;
 		slider.ActiveThumb = ActiveThumb.High;
@@ -881,7 +912,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_Home_HighThumb_SetsToLowPlusMinRange()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.MinRange = 10;
 		slider.LowValue = 30;
 		slider.HighValue = 80;
@@ -896,7 +927,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_End_LowThumb_SetsToHighMinusMinRange()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.MinRange = 10;
 		slider.LowValue = 20;
 		slider.HighValue = 80;
@@ -914,7 +945,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_RightArrow_LowThumb_RespectsMinRange()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.MinRange = 10;
 		slider.LowValue = 69;
 		slider.HighValue = 80;
@@ -1127,7 +1158,7 @@ public class RangeSliderControlTests
 	public void ProcessKey_WhenDisabled_ReturnsFalse()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		GiveFocus(slider);
 		slider.IsEnabled = false;
 		slider.LowValue = 50;
 
@@ -1141,11 +1172,11 @@ public class RangeSliderControlTests
 	public void ActiveThumb_RetainedAcrossFocusCycles()
 	{
 		var slider = new RangeSliderControl();
-		slider.HasFocus = true;
+		var window = GiveFocus(slider);
 		slider.ActiveThumb = ActiveThumb.High;
 
-		slider.HasFocus = false;
-		slider.HasFocus = true;
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(slider, FocusReason.Programmatic);
 
 		Assert.Equal(ActiveThumb.High, slider.ActiveThumb);
 	}

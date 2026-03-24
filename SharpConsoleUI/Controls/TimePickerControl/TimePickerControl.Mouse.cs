@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -50,7 +51,7 @@ namespace SharpConsoleUI.Controls
 			// Don't steal focus on wheel; let parent scroll instead.
 			if (args.HasAnyFlag(MouseFlags.WheeledDown | MouseFlags.WheeledUp))
 			{
-				if (!_hasFocus)
+				if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 					return false;
 
 				int delta = args.HasFlag(MouseFlags.WheeledUp) ? 1 : -1;
@@ -62,8 +63,8 @@ namespace SharpConsoleUI.Controls
 
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
-				if (!_hasFocus)
-					SetFocus(true, FocusReason.Mouse);
+				if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 
 				// Hit-test against segment positions
 				int hitSegment = HitTestSegment(clickAbsX);

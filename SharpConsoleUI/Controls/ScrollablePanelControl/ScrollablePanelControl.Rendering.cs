@@ -66,6 +66,15 @@ namespace SharpConsoleUI.Controls
 			_contentHeight = CalculateContentHeight(_viewportWidth, _viewportHeight);
 			_contentWidth = CalculateContentWidth();
 
+			// Deferred scroll-to-focused: triggered when focus was set before viewport was ready
+			if (_pendingScrollToFocused && _viewportWidth > 0 && _viewportHeight > 0)
+			{
+				_pendingScrollToFocused = false;
+				var pendingFocusedChild = GetFocusedChildFromCoordinator();
+				if (pendingFocusedChild is IWindowControl pendingFw)
+					ScrollChildIntoView(pendingFw);
+			}
+
 			// AutoScroll: scroll to bottom on any repaint when enabled
 			if (_autoScroll)
 			{
@@ -289,8 +298,8 @@ namespace SharpConsoleUI.Controls
 			int scrollbarAbsTop = bounds.Y + scrollbarTop;
 
 			// Colors
-			Color thumbColor = _hasFocus ? Color.Cyan1 : Color.Grey;
-			Color trackColor = _hasFocus ? Color.Grey : Color.Grey23;
+			Color thumbColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey;
+			Color trackColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Grey : Color.Grey23;
 
 			for (int y = 0; y < scrollbarHeight; y++)
 			{

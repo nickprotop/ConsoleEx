@@ -1297,7 +1297,10 @@ public class TableControlTests
 	public void ProcessKey_Slash_EntersFilterMode()
 	{
 		var table = CreateFilterTestTable();
-		table.HasFocus = true;
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+		window.AddControl(table);
+		window.FocusManager.SetFocus(table, FocusReason.Programmatic);
 
 		var key = new ConsoleKeyInfo('/', ConsoleKey.Oem2, false, false, false);
 		bool handled = table.ProcessKey(key);
@@ -1311,8 +1314,6 @@ public class TableControlTests
 	{
 		var table = CreateFilterTestTable();
 		table.ReadOnly = true;
-		table.HasFocus = true;
-
 		var key = new ConsoleKeyInfo('/', ConsoleKey.Oem2, false, false, false);
 		bool handled = table.ProcessKey(key);
 
@@ -1325,8 +1326,6 @@ public class TableControlTests
 	{
 		var table = CreateFilterTestTable();
 		table.FilteringEnabled = false;
-		table.HasFocus = true;
-
 		var key = new ConsoleKeyInfo('/', ConsoleKey.Oem2, false, false, false);
 		bool handled = table.ProcessKey(key);
 
@@ -1338,7 +1337,6 @@ public class TableControlTests
 	public void ProcessKey_FilterTyping_CharsAppendToBuffer()
 	{
 		var table = CreateFilterTestTable();
-		table.HasFocus = true;
 		table.EnterFilterMode();
 
 		table.ProcessFilterKey(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
@@ -1351,7 +1349,6 @@ public class TableControlTests
 	public void ProcessKey_FilterTyping_Backspace_RemovesChar()
 	{
 		var table = CreateFilterTestTable();
-		table.HasFocus = true;
 		table.EnterFilterMode();
 
 		table.ProcessFilterKey(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
@@ -1365,7 +1362,6 @@ public class TableControlTests
 	public void ProcessKey_FilterTyping_Enter_ConfirmsFilter()
 	{
 		var table = CreateFilterTestTable();
-		table.HasFocus = true;
 		table.EnterFilterMode();
 
 		table.ProcessFilterKey(new ConsoleKeyInfo('F', ConsoleKey.F, false, false, false));
@@ -1382,7 +1378,6 @@ public class TableControlTests
 	public void ProcessKey_FilterTyping_Escape_CancelsFilter()
 	{
 		var table = CreateFilterTestTable();
-		table.HasFocus = true;
 		table.EnterFilterMode();
 
 		table.ProcessFilterKey(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
@@ -1396,7 +1391,10 @@ public class TableControlTests
 	public void ProcessKey_FilterConfirmed_Escape_ClearsFilter()
 	{
 		var table = CreateFilterTestTable();
-		table.HasFocus = true;
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+		window.AddControl(table);
+		window.FocusManager.SetFocus(table, FocusReason.Programmatic);
 		table.ApplyFilter("Fruit");
 		Assert.Equal(FilterMode.Confirmed, table.CurrentFilterMode);
 
@@ -1411,7 +1409,10 @@ public class TableControlTests
 	public void ProcessKey_FilterConfirmed_Navigation_Works()
 	{
 		var table = CreateFilterTestTable();
-		table.HasFocus = true;
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 25 };
+		window.AddControl(table);
+		window.FocusManager.SetFocus(table, FocusReason.Programmatic);
 		table.ApplyFilter("Fruit");
 
 		// Arrow down should work
@@ -1426,7 +1427,6 @@ public class TableControlTests
 	public void ProcessKey_FilterTyping_LiveUpdate()
 	{
 		var table = CreateFilterTestTable();
-		table.HasFocus = true;
 		table.EnterFilterMode();
 
 		// Type "Fruit" one char at a time

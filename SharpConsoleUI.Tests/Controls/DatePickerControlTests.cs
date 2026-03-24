@@ -29,14 +29,17 @@ public class DatePickerControlTests
 		return new ConsoleKeyInfo(c, ConsoleKey.D0 + digit, false, false, false);
 	}
 
-	private static DatePickerControl CreateFocusedPicker(DateTime? date = null, string? format = null, CultureInfo? culture = null)
+	private static (DatePickerControl picker, Window window) CreateFocusedPicker(DateTime? date = null, string? format = null, CultureInfo? culture = null)
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
 		var picker = new DatePickerControl();
 		if (culture != null) picker.Culture = culture;
 		if (format != null) picker.DateFormatOverride = format;
 		if (date.HasValue) picker.SelectedDate = date.Value;
-		picker.HasFocus = true;
-		return picker;
+		window.AddControl(picker);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
+		return (picker, window);
 	}
 
 	#endregion
@@ -287,7 +290,7 @@ public class DatePickerControlTests
 		// With MM/dd/yyyy, start on Month (segment 0)
 		// Press Right -> move to Day (segment 1)
 		// Press Up -> should increment Day
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -300,7 +303,7 @@ public class DatePickerControlTests
 	public void LeftArrow_MovesSegmentBackward()
 	{
 		// Start on first segment, move right, then left to return
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
 		picker.ProcessKey(Key(ConsoleKey.LeftArrow));
@@ -313,7 +316,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void Tab_MovesSegmentForward()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.Tab));
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -324,7 +327,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void ShiftTab_MovesSegmentBackward()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		// Move to last segment
 		picker.ProcessKey(Key(ConsoleKey.Tab));
@@ -341,7 +344,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void RightArrow_AtLastSegment_ReturnsFalse()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -353,7 +356,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void LeftArrow_AtFirstSegment_ReturnsFalse()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		bool handled = picker.ProcessKey(Key(ConsoleKey.LeftArrow));
 
@@ -363,7 +366,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void Tab_AtLastSegment_ReturnsFalse()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.Tab));
 		picker.ProcessKey(Key(ConsoleKey.Tab));
@@ -375,7 +378,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void ShiftTab_AtFirstSegment_ReturnsFalse()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		bool handled = picker.ProcessKey(Key(ConsoleKey.Tab, shift: true));
 
@@ -386,7 +389,7 @@ public class DatePickerControlTests
 	public void Navigation_ISOFormat_SegmentOrderIsYearMonthDay()
 	{
 		// yyyy-MM-dd: first segment is Year
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "yyyy-MM-dd");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "yyyy-MM-dd");
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
 
@@ -398,7 +401,7 @@ public class DatePickerControlTests
 	public void Navigation_EuropeanFormat_SegmentOrderIsDayMonthYear()
 	{
 		// dd.MM.yyyy: first segment is Day
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "dd.MM.yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "dd.MM.yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
 
@@ -413,7 +416,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void UpArrow_OnMonthSegment_IncrementsMonth()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
 
@@ -423,7 +426,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void DownArrow_OnMonthSegment_DecrementsMonth()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.DownArrow));
 
@@ -433,7 +436,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void UpArrow_OnDaySegment_IncrementsDay()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // move to Day
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -444,7 +447,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void DownArrow_OnDaySegment_DecrementsDay()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // move to Day
 
 		picker.ProcessKey(Key(ConsoleKey.DownArrow));
@@ -455,7 +458,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void UpArrow_OnYearSegment_IncrementsYear()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // move to Year
 
@@ -467,7 +470,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void Month_WrapsFrom12To1()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 12, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 12, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
 
@@ -478,7 +481,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void Month_WrapsFrom1To12()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 1, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 1, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(Key(ConsoleKey.DownArrow));
 
@@ -490,7 +493,7 @@ public class DatePickerControlTests
 	public void Day_WrapsAtEndOfMonth()
 	{
 		// March 31 + 1 day = April 1
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 31), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 31), "MM/dd/yyyy");
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // move to Day
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -503,7 +506,7 @@ public class DatePickerControlTests
 	public void Day_WrapsAtStartOfMonth()
 	{
 		// March 1 - 1 day = Feb 28
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 1), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 1), "MM/dd/yyyy");
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // move to Day
 
 		picker.ProcessKey(Key(ConsoleKey.DownArrow));
@@ -515,9 +518,12 @@ public class DatePickerControlTests
 	[Fact]
 	public void NoSelectedDate_SpinUsesToday()
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
 		var picker = new DatePickerControl();
 		picker.DateFormatOverride = "MM/dd/yyyy";
-		picker.HasFocus = true;
+		window.AddControl(picker);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 
 		// When no date selected, spin uses DateTime.Today
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -532,7 +538,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void DigitEntry_TwoDigitMonth_SetsMonth()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		// Type "07" for July
 		picker.ProcessKey(DigitKey(0));
@@ -544,7 +550,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void DigitEntry_TwoDigitDay_SetsDay()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // move to Day
 
 		// Type "23"
@@ -558,7 +564,7 @@ public class DatePickerControlTests
 	public void DigitEntry_DayClampsToMaxDaysInMonth()
 	{
 		// Feb only has 28 days in 2025, typing 31 should clamp
-		var picker = CreateFocusedPicker(new DateTime(2025, 2, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 2, 15), "MM/dd/yyyy");
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // move to Day
 
 		picker.ProcessKey(DigitKey(3));
@@ -570,7 +576,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void DigitEntry_MonthClampsTo12()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		picker.ProcessKey(DigitKey(1));
 		picker.ProcessKey(DigitKey(5)); // 15 -> clamps to 12
@@ -581,7 +587,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void DigitEntry_AutoAdvancesSegmentAfterTwoDigits()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		// Type "06" in month => auto-advances to day segment
 		picker.ProcessKey(DigitKey(0));
@@ -598,7 +604,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void DigitEntry_NonDigitIgnored()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		bool handled = picker.ProcessKey(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
 
@@ -609,7 +615,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void ProcessKey_WhenDisabled_ReturnsFalse()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 		picker.IsEnabled = false;
 
 		bool handled = picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -636,7 +642,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void MinDate_SpinDown_ClampsToMinDate()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 1, 2), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 1, 2), "MM/dd/yyyy");
 		picker.MinDate = new DateTime(2025, 1, 1);
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // move to Day
 
@@ -651,7 +657,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void MaxDate_SpinUp_ClampsToMaxDate()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 12, 30), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 12, 30), "MM/dd/yyyy");
 		picker.MaxDate = new DateTime(2025, 12, 31);
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // move to Day
 
@@ -685,7 +691,7 @@ public class DatePickerControlTests
 	public void Culture_GermanFormat_SegmentOrderIsDayMonthYear()
 	{
 		var culture = new CultureInfo("de-DE");
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), culture: culture);
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), culture: culture);
 
 		// First segment should be Day in dd.MM.yyyy
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -697,7 +703,7 @@ public class DatePickerControlTests
 	public void Culture_USFormat_SegmentOrderIsMonthDayYear()
 	{
 		var culture = new CultureInfo("en-US");
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), culture: culture);
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), culture: culture);
 
 		// First segment should be Month in M/d/yyyy
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -709,7 +715,7 @@ public class DatePickerControlTests
 	public void FormatOverride_OverridesCultureFormat()
 	{
 		var culture = new CultureInfo("en-US");
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "yyyy-MM-dd", culture);
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "yyyy-MM-dd", culture);
 
 		// First segment should be Year due to override
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -733,58 +739,73 @@ public class DatePickerControlTests
 	[Fact]
 	public void SetFocus_True_FiresGotFocus()
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
+		// Add a placeholder so it takes auto-focus, leaving picker unfocused
+		window.AddControl(new ButtonControl { Text = "Placeholder" });
 		var picker = new DatePickerControl();
-		bool gotFocusFired = false;
-		picker.GotFocus += (s, e) => gotFocusFired = true;
+		window.AddControl(picker);
 
-		picker.SetFocus(true);
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
+
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 
 		Assert.True(picker.HasFocus);
-		Assert.True(gotFocusFired);
+		Assert.NotNull(args);
+		Assert.Equal(picker, args!.Current);
 	}
 
 	[Fact]
 	public void SetFocus_False_FiresLostFocus()
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
 		var picker = new DatePickerControl();
-		picker.SetFocus(true);
+		window.AddControl(picker);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 
-		bool lostFocusFired = false;
-		picker.LostFocus += (s, e) => lostFocusFired = true;
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
 
-		picker.SetFocus(false);
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
 		Assert.False(picker.HasFocus);
-		Assert.True(lostFocusFired);
+		Assert.NotNull(args);
+		Assert.Null(args!.Current);
+		Assert.Equal(picker, args.Previous);
 	}
 
 	[Fact]
 	public void SetFocus_SameValue_DoesNotFireEvent()
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
 		var picker = new DatePickerControl();
-		picker.SetFocus(true);
+		window.AddControl(picker);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 
-		bool fired = false;
-		picker.GotFocus += (s, e) => fired = true;
+		int fireCount = 0;
+		window.FocusManager.FocusChanged += (_, e) => fireCount++;
 
-		picker.SetFocus(true);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 
-		Assert.False(fired);
+		Assert.Equal(0, fireCount);
 	}
 
 	[Fact]
 	public void SetFocus_False_ClearsPendingDigit()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, window) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		// Start entering a digit
 		picker.ProcessKey(DigitKey(1));
 
 		// Lose focus
-		picker.SetFocus(false);
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
 		// Regain focus, type "07" fresh
-		picker.SetFocus(true);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(DigitKey(0));
 		picker.ProcessKey(DigitKey(7));
 
@@ -811,7 +832,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void SelectedDateChanged_FiresOnSpin()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 		int fireCount = 0;
 		picker.SelectedDateChanged += (s, e) => fireCount++;
 
@@ -823,7 +844,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void SelectedDateChanged_FiresOnDigitEntry()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 		int fireCount = 0;
 		picker.SelectedDateChanged += (s, e) => fireCount++;
 
@@ -882,7 +903,7 @@ public class DatePickerControlTests
 	{
 		// Calendar portal requires a window, but we can test the IsCalendarOpen state
 		// without a window by checking that the method doesn't crash
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		bool handled = picker.ProcessKey(Key(ConsoleKey.Enter));
 
@@ -894,7 +915,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void Space_OpensCalendar()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2025, 3, 15), "MM/dd/yyyy");
 
 		bool handled = picker.ProcessKey(Key(ConsoleKey.Spacebar, ' '));
 
@@ -914,7 +935,7 @@ public class DatePickerControlTests
 		// Render first to establish layout bounds
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter));
 
 		Assert.True(picker.IsCalendarOpen);
@@ -931,7 +952,7 @@ public class DatePickerControlTests
 		window.AddControl(picker);
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter)); // open
 		Assert.True(picker.IsCalendarOpen);
 
@@ -951,11 +972,11 @@ public class DatePickerControlTests
 		window.AddControl(picker);
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter));
 		Assert.True(picker.IsCalendarOpen);
 
-		picker.SetFocus(false);
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
 		Assert.False(picker.IsCalendarOpen);
 	}
@@ -971,7 +992,7 @@ public class DatePickerControlTests
 		window.AddControl(picker);
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter)); // open calendar
 
 		// Move right a day
@@ -993,7 +1014,7 @@ public class DatePickerControlTests
 		window.AddControl(picker);
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter)); // open
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow)); // move up 7 days
@@ -1013,7 +1034,7 @@ public class DatePickerControlTests
 		window.AddControl(picker);
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter));
 
 		picker.ProcessKey(Key(ConsoleKey.Home));
@@ -1033,7 +1054,7 @@ public class DatePickerControlTests
 		window.AddControl(picker);
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter));
 
 		picker.ProcessKey(Key(ConsoleKey.End));
@@ -1053,7 +1074,7 @@ public class DatePickerControlTests
 		window.AddControl(picker);
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter));
 
 		picker.ProcessKey(Key(ConsoleKey.PageDown));
@@ -1073,7 +1094,7 @@ public class DatePickerControlTests
 		window.AddControl(picker);
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter));
 
 		picker.ProcessKey(Key(ConsoleKey.PageUp));
@@ -1093,7 +1114,7 @@ public class DatePickerControlTests
 		window.AddControl(picker);
 		window.RenderAndGetVisibleContent();
 
-		picker.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.ProcessKey(Key(ConsoleKey.Enter)); // open
 
 		picker.ProcessKey(new ConsoleKeyInfo('T', ConsoleKey.T, false, false, false));
@@ -1109,7 +1130,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void LeapYear_Feb29_HandledCorrectly()
 	{
-		var picker = CreateFocusedPicker(new DateTime(2024, 2, 29), "MM/dd/yyyy");
+		var (picker, _) = CreateFocusedPicker(new DateTime(2024, 2, 29), "MM/dd/yyyy");
 
 		// Increment year: 2024 -> 2025 (not a leap year, Feb 29 doesn't exist)
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -1127,8 +1148,6 @@ public class DatePickerControlTests
 	{
 		var picker = new DatePickerControl();
 		picker.SelectedDateChanged += (s, e) => { };
-		picker.GotFocus += (s, e) => { };
-		picker.LostFocus += (s, e) => { };
 
 		picker.Dispose();
 
@@ -1164,7 +1183,7 @@ public class DatePickerControlTests
 	public void MinDate_SameAsMaxDate_ClampsToOnlyValidDate()
 	{
 		var onlyDate = new DateTime(2024, 6, 15);
-		var picker = CreateFocusedPicker();
+		var (picker, _) = CreateFocusedPicker();
 		picker.MinDate = onlyDate;
 		picker.MaxDate = onlyDate;
 
@@ -1178,7 +1197,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void CalendarNavigation_PastDateTimeMin_DoesNotThrow()
 	{
-		var picker = CreateFocusedPicker(date: new DateTime(1, 1, 1));
+		var (picker, _) = CreateFocusedPicker(date: new DateTime(1, 1, 1));
 
 		var exception = Record.Exception(() =>
 		{
@@ -1191,7 +1210,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void CalendarNavigation_PastDateTimeMax_DoesNotThrow()
 	{
-		var picker = CreateFocusedPicker(date: new DateTime(9999, 12, 31));
+		var (picker, _) = CreateFocusedPicker(date: new DateTime(9999, 12, 31));
 
 		// Open the calendar first
 		picker.ProcessKey(Key(ConsoleKey.Enter));
@@ -1207,7 +1226,7 @@ public class DatePickerControlTests
 	[Fact]
 	public void ProcessKey_WhenDisabled_ReturnsFalse_EdgeCase()
 	{
-		var picker = CreateFocusedPicker();
+		var (picker, _) = CreateFocusedPicker();
 		picker.IsEnabled = false;
 
 		var result = picker.ProcessKey(Key(ConsoleKey.RightArrow));

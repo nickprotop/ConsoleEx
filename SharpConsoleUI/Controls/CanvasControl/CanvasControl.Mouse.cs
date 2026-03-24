@@ -9,6 +9,7 @@
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	public partial class CanvasControl
@@ -52,7 +53,7 @@ namespace SharpConsoleUI.Controls
 				{
 					CanvasMouseClick?.Invoke(this, new CanvasMouseEventArgs(canvasX, canvasY, args));
 				}
-				SetFocus(true, FocusReason.Mouse);
+				this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 				args.Handled = true;
 				return true;
 			}

@@ -67,10 +67,7 @@ public class FocusEdgeCaseTests
 		system.Render.UpdateDisplay();
 		system.Render.UpdateDisplay();
 
-		// Focus the panel, then Tab to the button
-		window.SwitchFocus(backward: false);
-		if (!button.HasFocus)
-			panel.ProcessKey(TabKey);
+		// Auto-focus focuses the button when panel is added to window
 		Assert.True(button.HasFocus, "Setup: button should be focused");
 
 		// Escape 1: button loses focus, panel stays focused in scroll mode
@@ -291,9 +288,7 @@ public class FocusEdgeCaseTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
-		// Should focus btn1 (first enabled)
-		if (!btn1.HasFocus) panel.ProcessKey(TabKey);
+		// Auto-focus focuses btn1 (first enabled) when panel is added to window
 		Assert.True(btn1.HasFocus, "btn1 should be focused");
 		Assert.False(btnDisabled.HasFocus, "disabled button should not have focus");
 
@@ -324,10 +319,7 @@ public class FocusEdgeCaseTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		// Focus the button
-		window.SwitchFocus(backward: false);
-		if (!button.HasFocus)
-			panel.ProcessKey(TabKey);
+		// Auto-focus focuses the button when panel is added to window
 		Assert.True(button.HasFocus, "Setup: button should be focused");
 
 		// Click on empty space far below the button (Y=10, button is at Y~0-1)
@@ -359,10 +351,7 @@ public class FocusEdgeCaseTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		// Focus btn1
-		window.SwitchFocus(backward: false);
-		if (!btn1.HasFocus)
-			panel.ProcessKey(TabKey);
+		// Auto-focus focuses btn1 when panel is added to window
 		Assert.True(btn1.HasFocus, "Setup: btn1 should be focused");
 
 		// Click on btn2 position (Y=1 if btn1 is at Y=0)
@@ -639,7 +628,7 @@ public class FocusEdgeCaseTests
 		window.RenderAndGetVisibleContent();
 
 		// Focus the button
-		button.SetFocus(true, FocusReason.Keyboard);
+		window.FocusManager.SetFocus(button, FocusReason.Keyboard);
 		Assert.True(button.HasFocus, "Button should be focused");
 
 		// Send wheel to TimePicker — should NOT steal focus

@@ -25,7 +25,7 @@ public class DiagnosticKeyPropagationTest
         window.AddControl(textbox);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, textbox);
+        window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
         system.Render.UpdateDisplay();
 
         int eventCount = 0;

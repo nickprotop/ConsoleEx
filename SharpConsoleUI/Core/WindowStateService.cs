@@ -27,7 +27,6 @@ namespace SharpConsoleUI.Core
 		private readonly ILogService? _logService;
 		private readonly Func<ConsoleWindowSystem>? _getWindowSystem;
 		private readonly ModalStateService? _modalStateService;
-		private readonly FocusStateService? _focusStateService;
 		private Renderer? _renderer;
 		private readonly IConsoleDriver? _consoleDriver;
 		private WindowSystemState _currentState = WindowSystemState.Empty;
@@ -57,21 +56,18 @@ namespace SharpConsoleUI.Core
 		/// <param name="logService">Optional log service for diagnostic logging.</param>
 		/// <param name="getWindowSystem">Optional function to get window system context (for lifecycle methods).</param>
 		/// <param name="modalStateService">Optional modal state service (for lifecycle methods).</param>
-		/// <param name="focusStateService">Optional focus state service (for lifecycle methods).</param>
 		/// <param name="renderer">Optional renderer (for lifecycle methods).</param>
 		/// <param name="consoleDriver">Optional console driver (for lifecycle methods).</param>
 		public WindowStateService(
 			ILogService? logService = null,
 			Func<ConsoleWindowSystem>? getWindowSystem = null,
 			ModalStateService? modalStateService = null,
-			FocusStateService? focusStateService = null,
 			Renderer? renderer = null,
 			IConsoleDriver? consoleDriver = null)
 		{
 			_logService = logService;
 			_getWindowSystem = getWindowSystem;
 			_modalStateService = modalStateService;
-			_focusStateService = focusStateService;
 			_renderer = renderer;
 			_consoleDriver = consoleDriver;
 		}
@@ -1020,7 +1016,6 @@ namespace SharpConsoleUI.Core
 		}
 
 		// Clear focus state for this window
-		_focusStateService?.ClearFocus(window);
 
 		// Remove from window collection via service
 		// This prevents race condition where render thread tries to render disposed controls
@@ -1339,8 +1334,6 @@ namespace SharpConsoleUI.Core
 		// The service handles: SetIsActive, ZIndex update, and state tracking
 		ActivateWindow(windowToActivate);
 
-		// Update focus state via FocusStateService
-		_focusStateService?.SetWindowFocus(windowToActivate);
 
 		// Invalidate new active window
 		windowToActivate.Invalidate(true);
@@ -1351,7 +1344,6 @@ namespace SharpConsoleUI.Core
 			if (w != ActiveWindow)
 			{
 				w.UnfocusCurrentControl();
-				_focusStateService?.ClearFocus(w);
 			}
 		}
 

@@ -30,7 +30,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
-		private bool _hasFocus = false;
 		private bool _isEnabled = true;
 		private string _label = "Checkbox";
 		private LayoutRect _lastLayoutBounds;
@@ -50,12 +49,6 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the checked state of the checkbox changes.
 		/// </summary>
 		public event EventHandler<bool>? CheckedChanged;
-
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
 
 		/// <summary>
 		/// Occurs when the checkbox is clicked with the mouse.
@@ -186,21 +179,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				if (_hasFocus != value)
-				{
-					_hasFocus = value;
-					OnPropertyChanged();
-					Container?.Invalidate(true);
-
-					if (value)
-						GotFocus?.Invoke(this, EventArgs.Empty);
-					else
-						LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -239,7 +218,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !_hasFocus)
+			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				return false;
 
 			// Toggle checkbox state when Space or Enter is pressed
@@ -250,19 +229,6 @@ namespace SharpConsoleUI.Controls
 			}
 
 			return false;
-		}
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-		bool hadFocus = HasFocus;
-		HasFocus = focus;
-
-		// Notify parent Window if focus state actually changed
-		if (hadFocus != focus)
-		{
-		this.NotifyParentWindowOfFocusChange(focus);
-		}
 		}
 
 		/// <summary>
@@ -328,12 +294,7 @@ namespace SharpConsoleUI.Controls
 		// Handle mouse click to toggle checkbox
 		if (args.HasFlag(MouseFlags.Button1Clicked))
 		{
-			// Capture focus if not already focused
-			if (!_hasFocus)
-			{
-				SetFocus(true, FocusReason.Mouse);
-			}
-
+			// Focus is already set by FocusManager.HandleClick before ProcessMouseEvent is called.
 			// Toggle checked state (uses property setter to fire CheckedChanged event)
 			Checked = !Checked;
 
@@ -350,12 +311,7 @@ namespace SharpConsoleUI.Controls
 		// Handle double-click (same behavior as single click for checkboxes)
 		if (args.HasFlag(MouseFlags.Button1DoubleClicked))
 		{
-			// Capture focus if not already focused
-			if (!_hasFocus)
-			{
-				SetFocus(true, FocusReason.Mouse);
-			}
-
+			// Focus is already set by FocusManager.HandleClick before ProcessMouseEvent is called.
 			// Toggle checked state
 			Checked = !Checked;
 
@@ -420,7 +376,7 @@ namespace SharpConsoleUI.Controls
 				backgroundColor = ColorResolver.ResolveCheckboxDisabledBackground(_disabledBackgroundColorValue, Container);
 				foregroundColor = DisabledForegroundColor;
 			}
-			else if (_hasFocus)
+			else if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
 			{
 				backgroundColor = ColorResolver.ResolveCheckboxFocusedBackground(_focusedBackgroundColorValue, Container);
 				foregroundColor = FocusedForegroundColor;

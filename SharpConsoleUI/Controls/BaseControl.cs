@@ -9,7 +9,9 @@
 using System.ComponentModel;
 using System.Drawing;
 using System.Runtime.CompilerServices;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.DataBinding;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
@@ -35,9 +37,21 @@ namespace SharpConsoleUI.Controls
 		private int? _height;
 		private bool _disposed;
 		private BindingCollection? _bindings;
+		private IContainer? _container;
+		private Window? _focusSubscribedWindow;
 
 		/// <inheritdoc/>
 		public event PropertyChangedEventHandler? PropertyChanged;
+
+		/// <summary>
+		/// Occurs when this control gains focus. Fired via the window's FocusManager.
+		/// </summary>
+		public event EventHandler? GotFocus;
+
+		/// <summary>
+		/// Occurs when this control loses focus. Fired via the window's FocusManager.
+		/// </summary>
+		public event EventHandler? LostFocus;
 
 		/// <summary>
 		/// Gets the binding collection for this control. Lazily allocated on first access.
@@ -50,6 +64,30 @@ namespace SharpConsoleUI.Controls
 		/// <param name="propertyName">The name of the property that changed.</param>
 		protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
 			=> PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+		/// <summary>
+		/// Subscribes or re-subscribes to the parent window's FocusManager.FocusChanged event.
+		/// Called whenever Container changes. Subclasses that override Container should call
+		/// base.Container = value to ensure this subscription is maintained.
+		/// </summary>
+		protected void SubscribeToFocusManager()
+		{
+			var newWindow = (this as IWindowControl).GetParentWindow();
+			if (ReferenceEquals(newWindow, _focusSubscribedWindow)) return;
+			if (_focusSubscribedWindow != null)
+				_focusSubscribedWindow.FocusManager.FocusChanged -= OnFocusManagerChanged;
+			_focusSubscribedWindow = newWindow;
+			if (_focusSubscribedWindow != null)
+				_focusSubscribedWindow.FocusManager.FocusChanged += OnFocusManagerChanged;
+		}
+
+		private void OnFocusManagerChanged(object? sender, FocusChangedEventArgs e)
+		{
+			if (e.Current is IFocusableControl current && ReferenceEquals(current, this))
+				GotFocus?.Invoke(this, EventArgs.Empty);
+			if (e.Previous is IFocusableControl previous && ReferenceEquals(previous, this))
+				LostFocus?.Invoke(this, EventArgs.Empty);
+		}
 
 		/// <summary>
 		/// Sets a property value with change detection, notification, and automatic invalidation.
@@ -119,7 +157,15 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public virtual IContainer? Container { get; set; }
+		public virtual IContainer? Container
+		{
+			get => _container;
+			set
+			{
+				_container = value;
+				SubscribeToFocusManager();
+			}
+		}
 
 		/// <inheritdoc/>
 		public virtual Margin Margin

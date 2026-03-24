@@ -12,6 +12,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Dialogs;
 
 /// <summary>
@@ -268,7 +269,7 @@ public static class FolderPickerDialog
 		// Add modal and activate
 		windowSystem.AddWindow(modal);
 		windowSystem.SetActiveWindow(modal);
-		folderList.SetFocus(true, FocusReason.Programmatic);
+		folderList.GetParentWindow()?.FocusManager.SetFocus(folderList, FocusReason.Programmatic);
 
 		return tcs.Task;
 	}

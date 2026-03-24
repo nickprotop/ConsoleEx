@@ -69,31 +69,9 @@ namespace SharpConsoleUI.Controls
 	public interface IFocusableControl : IWindowControl
 	{
 		/// <summary>
-		/// Whether this control currently has focus
-		/// </summary>
-		bool HasFocus { get; set; }
-
-		/// <summary>
 		/// Whether this control can receive focus
 		/// </summary>
 		bool CanReceiveFocus { get; }
-
-		/// <summary>
-		/// Event fired when the control gains focus
-		/// </summary>
-		event EventHandler? GotFocus;
-
-		/// <summary>
-		/// Event fired when the control loses focus
-		/// </summary>
-		event EventHandler? LostFocus;
-
-		/// <summary>
-		/// Sets focus to this control
-		/// </summary>
-		/// <param name="focus">Whether to give or remove focus</param>
-		/// <param name="reason">The reason for the focus change</param>
-		void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic);
 	}
 
 	/// <summary>
@@ -102,19 +80,6 @@ namespace SharpConsoleUI.Controls
 	/// natural flow: Tab → header (arrows switch content) → Tab → first child control.
 	/// </summary>
 	public interface IFocusableContainerWithHeader { }
-
-	/// <summary>
-	/// Interface for controls that support directional focus (for container controls with children)
-	/// </summary>
-	public interface IDirectionalFocusControl
-	{
-		/// <summary>
-		/// Sets focus with direction information for proper child control selection
-		/// </summary>
-		/// <param name="focus">Whether to set or remove focus</param>
-		/// <param name="backward">If true, focus last child; if false, focus first child</param>
-		void SetFocusWithDirection(bool focus, bool backward);
-	}
 
 	/// <summary>
 	/// Reasons for focus changes

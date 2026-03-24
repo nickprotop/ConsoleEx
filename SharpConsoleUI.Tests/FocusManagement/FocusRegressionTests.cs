@@ -55,7 +55,7 @@ public class FocusRegressionTests
 		window.RenderAndGetVisibleContent();
 
 		// Focus btn1 directly (HGrid is transparent, btn1 is in Tab list)
-		btn1.SetFocus(true, FocusReason.Keyboard);
+		window.FocusManager.SetFocus(btn1, FocusReason.Keyboard);
 		Assert.True(btn1.HasFocus, "btn1 should be focused");
 
 		// Send wheel event to the grid — should NOT change focus
@@ -99,9 +99,8 @@ public class FocusRegressionTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		// Focus btn1
-		window.SwitchFocus(backward: false);
-		Assert.True(btn1.HasFocus, "btn1 should be focused");
+		// Auto-focus should have focused btn1
+		Assert.True(btn1.HasFocus, "btn1 should be auto-focused");
 
 		// Send wheel to grid (simulating bubble from SPC at limit)
 		var wheelArgs = new MouseEventArgs(
@@ -116,15 +115,15 @@ public class FocusRegressionTests
 
 	#endregion
 
-	#region FocusService chain must not clear SPC._focusedChild
+	#region FocusManager must track SPC child focus correctly
 
 	/// <summary>
-	/// Regression: When SPC.ProcessKey(Tab) focused a child via SetFocus(true),
-	/// the notification chain reached FocusStateService which called
-	/// previousControl.HasFocus=false on the SPC (the previous focused control).
-	/// This triggered SPC.SetFocus(false) which cleared _focusedChild, preventing
-	/// ScrollChildIntoView from running.
-	/// Fix: SPC Tab handler saves child ref and restores _focusedChild after SetFocus.
+	/// Regression: In the old architecture, when SPC.ProcessKey(Tab) focused a child,
+	/// the FocusStateService notification chain could clear _focusedChild, breaking
+	/// ScrollChildIntoView. In the new FocusManager architecture, FocusStateService is
+	/// removed. This test verifies that auto-focus correctly focuses the button when
+	/// a panel with non-focusable content + button is added to a window, and that
+	/// FocusManager tracks the focused child correctly.
 	/// </summary>
 	[Fact]
 	public void SPC_TabFocusChild_FocusedChildSurvivesNotificationChain()
@@ -153,24 +152,14 @@ public class FocusRegressionTests
 		system.Render.UpdateDisplay();
 		system.Render.UpdateDisplay();
 
-		// Focus the panel (enters scroll mode)
-		window.SwitchFocus(backward: false);
-		Assert.True(panel.HasFocus);
+		// In the new FocusManager architecture, auto-focus focuses the button
+		// directly when the panel is added (no scroll-mode intermediate state).
+		Assert.True(panel.HasFocus, "Panel should have focus (button is in panel's focus path)");
+		Assert.True(button.HasFocus, "Button should be auto-focused");
 
-		// Tab to focus the button
-		panel.ProcessKey(TabKey);
-
-		// Focused child must survive the notification chain
-		Assert.True(button.HasFocus, "Button should be focused");
-
-		// Verify the coordinator tracks the focused child correctly
-		var coordinator = window.FocusCoord;
-		Assert.NotNull(coordinator);
-		var focusedChild = coordinator!.GetFocusedChild(panel);
-		Assert.NotNull(focusedChild);
-		// The coordinator may return a ColumnContainer (transparent wrapper) or the button directly
-		// depending on the container hierarchy. The key invariant is that button.HasFocus is true.
-		Assert.True(button.HasFocus, "Button should remain focused after coordinator check");
+		// Verify FocusManager tracks the focused child correctly
+		Assert.NotNull(window.FocusManager.FocusedControl);
+		Assert.True(button.HasFocus, "Button should remain focused after focus check");
 	}
 
 	#endregion
@@ -182,6 +171,11 @@ public class FocusRegressionTests
 	/// the subsequent PaintDOM re-render checked _autoScroll and snapped the
 	/// offset back to the bottom, hiding the focused child.
 	/// Fix: ScrollChildIntoView disables _autoScroll when it scrolls.
+	///
+	/// In the new FocusManager architecture, auto-focus triggers a deferred
+	/// ScrollChildIntoView on the first render (when viewport dimensions are ready).
+	/// This verifies that ScrollChildIntoView disables autoScroll so subsequent
+	/// renders do not snap back to the bottom.
 	/// </summary>
 	[Fact]
 	public void SPC_AutoScroll_ScrollChildIntoView_DisablesAutoScroll()
@@ -207,29 +201,17 @@ public class FocusRegressionTests
 		};
 		window.AddControl(panel);
 		system.AddWindow(window);
+
+		// First render: auto-focus deferred scroll fires → ScrollChildIntoView(button)
+		// → offset > 0, _autoScroll = false
 		system.Render.UpdateDisplay();
+		Assert.True(button.HasFocus, "Button should be auto-focused");
+		int offsetAfterFirstRender = panel.VerticalScrollOffset;
+		Assert.True(offsetAfterFirstRender > 0, "Offset should be > 0 (scrolled to button)");
+
+		// Second render: _autoScroll = false → no snap back → offset unchanged
 		system.Render.UpdateDisplay();
-
-		// With autoScroll, panel is at bottom. Scroll to top.
-		panel.ScrollVerticalBy(-10000);
-		system.Render.UpdateDisplay();
-		Assert.Equal(0, panel.VerticalScrollOffset);
-
-		// Focus panel and Tab to button
-		window.SwitchFocus(backward: false);
-		if (!button.HasFocus)
-			panel.ProcessKey(TabKey);
-
-		Assert.True(button.HasFocus);
-		int offsetAfterFocus = panel.VerticalScrollOffset;
-
-		// Re-render — autoScroll must NOT snap back to bottom
-		system.Render.UpdateDisplay();
-
-		Assert.True(panel.VerticalScrollOffset > 0,
-			"Offset should be > 0 (scrolled to button)");
-		// The offset should NOT have changed due to autoScroll
-		Assert.Equal(offsetAfterFocus, panel.VerticalScrollOffset);
+		Assert.Equal(offsetAfterFirstRender, panel.VerticalScrollOffset);
 	}
 
 	#endregion
@@ -333,7 +315,7 @@ public class FocusRegressionTests
 	#region SetFocus else branch must call ScrollChildIntoView
 
 	/// <summary>
-	/// Regression: SPC.SetFocus(true) else branch (when NeedsScrolling=false or
+	/// Regression: window.FocusManager.SetFocus(SPC, FocusReason.Programmatic) else branch (when NeedsScrolling=false or
 	/// viewport not yet computed) focused a child immediately but never called
 	/// ScrollChildIntoView, leaving the child out of the visible viewport.
 	/// Fix: Added ScrollChildIntoView after focusing the child.

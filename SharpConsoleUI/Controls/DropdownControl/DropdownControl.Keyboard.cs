@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	public partial class DropdownControl
@@ -13,7 +14,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !_hasFocus)
+			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				return false;
 
 			if (key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt) || key.Modifiers.HasFlag(ConsoleModifiers.Control)) return false;

@@ -10,6 +10,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -18,7 +19,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !_hasFocus)
+			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				return false;
 
 			bool isVertical = _orientation == SliderOrientation.Vertical;
@@ -110,9 +111,9 @@ namespace SharpConsoleUI.Controls
 			// Handle press to start drag or jump to position
 			if (args.HasFlag(MouseFlags.Button1Pressed) && !_isMouseDragging)
 			{
-				if (!_hasFocus)
+				if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				{
-					SetFocus(true, FocusReason.Mouse);
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 				}
 
 				// Calculate position on track

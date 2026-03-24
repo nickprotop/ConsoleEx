@@ -9,6 +9,7 @@
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -71,8 +72,8 @@ namespace SharpConsoleUI.Controls
 			// Handle mouse down — capture focus and track press state
 			if (args.HasAnyFlag(MouseFlags.Button1Pressed))
 			{
-				if (!_hasFocus)
-					SetFocus(true, FocusReason.Mouse);
+				if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 
 				_isHeaderPressed = true;
 				Container?.Invalidate(true);

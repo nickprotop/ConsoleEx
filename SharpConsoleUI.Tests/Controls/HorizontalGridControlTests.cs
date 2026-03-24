@@ -277,8 +277,6 @@ public class HorizontalGridControlTests
 		grid.AddColumn(col2);
 
 		// Give focus to the grid to initialize focus tracking
-		grid.HasFocus = true;
-
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
 		// First Tab should move focus from first to second
@@ -302,8 +300,6 @@ public class HorizontalGridControlTests
 		grid.AddColumn(col1);
 		grid.AddColumn(col2);
 
-		grid.HasFocus = true;
-
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 		var shiftTabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, false);
 
@@ -325,8 +321,6 @@ public class HorizontalGridControlTests
 		col1.AddContent(label);
 
 		grid.AddColumn(col1);
-		grid.HasFocus = true;
-
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
 		bool handled = grid.ProcessKey(tabKey);
@@ -350,9 +344,12 @@ public class HorizontalGridControlTests
 		grid.AddColumn(col1);
 		grid.AddColumn(col2);
 
-		grid.SetFocusWithDirection(true, backward: false);
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(grid);
+		system.WindowStateService.AddWindow(window);
+		window.RenderAndGetVisibleContent();
 
-		// First focusable control should have focus
+		// First focusable control should have focus (auto-focused via IFocusScope delegation)
 		Assert.True(list1.HasFocus);
 	}
 
@@ -372,7 +369,13 @@ public class HorizontalGridControlTests
 		grid.AddColumn(col1);
 		grid.AddColumn(col2);
 
-		grid.SetFocusWithDirection(true, backward: true);
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(grid);
+		system.WindowStateService.AddWindow(window);
+		window.RenderAndGetVisibleContent();
+
+		// Use SwitchFocus with backward=true from nothing focused (wraps to last)
+		window.SwitchFocus(backward: true);
 
 		// Last focusable control should have focus
 		Assert.True(list2.HasFocus);
@@ -634,8 +637,9 @@ public class HorizontalGridControlTests
 		col.AddContent(btn);
 		grid.AddColumn(col);
 
-		// HasFocus = true triggers FocusChanged which focuses the button
-		grid.HasFocus = true;
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(grid);
+		window.RenderAndGetVisibleContent();
 		Assert.True(btn.HasFocus);
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
@@ -661,8 +665,9 @@ public class HorizontalGridControlTests
 		grid.AddColumn(col1);
 		grid.AddColumn(col2);
 
-		// HasFocus = true focuses btn1 (first focusable) via FocusChanged
-		grid.HasFocus = true;
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(grid);
+		window.RenderAndGetVisibleContent();
 		Assert.True(btn1.HasFocus);
 
 		var shiftTabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, false);
@@ -690,8 +695,6 @@ public class HorizontalGridControlTests
 
 		grid.AddColumn(col1);
 		grid.AddColumn(col2);
-
-		grid.HasFocus = true;
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 		grid.ProcessKey(tabKey);
@@ -722,8 +725,9 @@ public class HorizontalGridControlTests
 		grid.AddColumn(col2);
 		grid.AddColumn(col3);
 
-		// HasFocus = true focuses btn1 (first focusable) via FocusChanged
-		grid.HasFocus = true;
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(grid);
+		window.RenderAndGetVisibleContent();
 		Assert.True(btn1.HasFocus);
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
@@ -745,8 +749,6 @@ public class HorizontalGridControlTests
 		col.AddContent(ContainerTestHelpers.CreateLabel("Static"));
 		grid.AddColumn(col);
 
-		grid.HasFocus = true;
-
 		var rightArrow = new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false);
 
 		bool handled = grid.ProcessKey(rightArrow);
@@ -763,9 +765,11 @@ public class HorizontalGridControlTests
 		col.AddContent(btn);
 		grid.AddColumn(col);
 
-		// Setting HasFocus = true triggers FocusChanged which focuses btn
-		grid.HasFocus = true;
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(grid);
+		window.RenderAndGetVisibleContent();
 
+		// When btn has focus, grid.HasFocus should be true (it's in the focus path)
 		Assert.True(btn.HasFocus);
 		Assert.True(grid.HasFocus);
 	}
@@ -793,8 +797,9 @@ public class HorizontalGridControlTests
 		// Hide the middle column before focusing
 		col2.Visible = false;
 
-		// HasFocus = true focuses btn1 via FocusChanged
-		grid.HasFocus = true;
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(grid);
+		window.RenderAndGetVisibleContent();
 		Assert.True(btn1.HasFocus);
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
@@ -822,8 +827,9 @@ public class HorizontalGridControlTests
 		grid.AddColumn(col1);
 		grid.AddColumn(col2);
 
-		// HasFocus = true focuses btn1 via FocusChanged
-		grid.HasFocus = true;
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(grid);
+		window.RenderAndGetVisibleContent();
 		Assert.True(btn1.HasFocus);
 
 		// Now remove col1 (which has the focused control)

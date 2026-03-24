@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
@@ -76,7 +77,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 		int originalWidth = col1.Width!.Value;
 
 		splitter.ProcessKey(RightArrow);
@@ -91,7 +92,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		for (int i = 0; i < 5; i++)
 			splitter.ProcessKey(RightArrow);
@@ -105,7 +106,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(ShiftRight);
 
@@ -122,7 +123,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(LeftArrow);
 
@@ -135,7 +136,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(ShiftLeft);
 
@@ -152,7 +153,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		// Move right many times with re-renders to update ActualWidth,
 		// which the splitter uses for constraint calculation
@@ -180,7 +181,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		// Move left many times - should eventually stop shrinking
 		int lastWidth = col1.Width!.Value;
@@ -208,7 +209,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 12, col2Width: 68);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(ShiftLeft);
 
@@ -228,7 +229,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 
@@ -243,7 +244,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(LeftArrow);
 
@@ -257,7 +258,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter();
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 		int actualBefore = col1.ActualWidth;
 
 		splitter.ProcessKey(RightArrow);
@@ -283,7 +284,7 @@ public class SplitterControlResizeTests
 				col1Width: 40, col2Width: 40,
 				col1Content: list1, col2Content: list2);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
@@ -302,7 +303,7 @@ public class SplitterControlResizeTests
 				col1Width: 40, col2Width: 40,
 				col1Content: panel1, col2Content: panel2);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
@@ -319,7 +320,7 @@ public class SplitterControlResizeTests
 				col1Width: 40, col2Width: 40,
 				col1Content: slider, col2Content: label);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
@@ -337,7 +338,7 @@ public class SplitterControlResizeTests
 				col1Width: 30, col2Width: 50,
 				col1Content: btn, col2Content: list);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(31, col1.Width);
@@ -360,7 +361,7 @@ public class SplitterControlResizeTests
 		col2.HorizontalAlignment = HorizontalAlignment.Left;
 		window.RenderAndGetVisibleContent();
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
@@ -376,7 +377,7 @@ public class SplitterControlResizeTests
 		col2.HorizontalAlignment = HorizontalAlignment.Right;
 		window.RenderAndGetVisibleContent();
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
@@ -392,7 +393,7 @@ public class SplitterControlResizeTests
 		col2.HorizontalAlignment = HorizontalAlignment.Center;
 		window.RenderAndGetVisibleContent();
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
@@ -408,7 +409,7 @@ public class SplitterControlResizeTests
 		col2.HorizontalAlignment = HorizontalAlignment.Stretch;
 		window.RenderAndGetVisibleContent();
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
@@ -424,7 +425,7 @@ public class SplitterControlResizeTests
 		col2.HorizontalAlignment = HorizontalAlignment.Right;
 		window.RenderAndGetVisibleContent();
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
@@ -440,7 +441,7 @@ public class SplitterControlResizeTests
 		col2.HorizontalAlignment = HorizontalAlignment.Center;
 		window.RenderAndGetVisibleContent();
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(LeftArrow);
 		Assert.Equal(39, col1.Width);
@@ -456,7 +457,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 		SplitterMovedEventArgs? receivedArgs = null;
 		splitter.SplitterMoved += (s, e) => receivedArgs = e;
 
@@ -474,7 +475,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 5, col2Width: 75);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 		int total = 80;
 		int minWidth = Math.Max(5, (int)(total * 0.1f));
 
@@ -501,7 +502,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 		Assert.False(splitter.IsDragging);
 
 		splitter.ProcessKey(RightArrow);
@@ -515,11 +516,11 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 		splitter.ProcessKey(RightArrow);
 		Assert.True(splitter.IsDragging);
 
-		splitter.HasFocus = false;
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
 		Assert.False(splitter.IsDragging, "Dragging should stop when focus lost");
 	}
@@ -534,7 +535,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 		splitter.IsEnabled = false;
 
 		bool handled = splitter.ProcessKey(RightArrow);
@@ -561,7 +562,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		var enterKey = new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false);
 		bool handled = splitter.ProcessKey(enterKey);
@@ -595,7 +596,7 @@ public class SplitterControlResizeTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		splitter1!.HasFocus = true;
+		window.FocusManager.SetFocus(splitter1, FocusReason.Programmatic);
 		splitter1.ProcessKey(RightArrow);
 
 		Assert.Equal(31, col1.Width);
@@ -624,7 +625,7 @@ public class SplitterControlResizeTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		splitter2!.HasFocus = true;
+		window.FocusManager.SetFocus(splitter2, FocusReason.Programmatic);
 		splitter2.ProcessKey(RightArrow);
 
 		Assert.Equal(30, col1.Width); // col1 unaffected
@@ -642,7 +643,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
@@ -657,7 +658,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(ShiftRight);
 		Assert.Equal(45, col1.Width);
@@ -676,7 +677,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		// Multiple resizes
 		for (int i = 0; i < 10; i++)
@@ -698,7 +699,7 @@ public class SplitterControlResizeTests
 				col1Width: 40, col2Width: 40,
 				col1Content: list, col2Content: btn);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 		splitter.ProcessKey(ShiftRight); // Move right 5
 
 		var output = window.RenderAndGetVisibleContent();
@@ -719,7 +720,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 6, col2Width: 6);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		// Try to shrink left below absolute minimum
 		for (int i = 0; i < 10; i++)
@@ -734,7 +735,7 @@ public class SplitterControlResizeTests
 		var (grid, col1, col2, splitter, system, window) =
 			CreateTwoColumnGridWithSplitter(col1Width: 40, col2Width: 40);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
 		splitter.ProcessKey(RightArrow);
 		int afterRight = col1.Width!.Value;
@@ -764,7 +765,7 @@ public class SplitterControlResizeTests
 				col1Width: 40, col2Width: 40,
 				col1Content: innerGrid);
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 		splitter.ProcessKey(RightArrow);
 		Assert.Equal(41, col1.Width);
 	}

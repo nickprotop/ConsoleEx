@@ -12,6 +12,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Dialogs;
 
 /// <summary>
@@ -336,7 +337,7 @@ public static class FileDialogs
 		// Add modal and activate
 		windowSystem.AddWindow(modal);
 		windowSystem.SetActiveWindow(modal);
-		folderList.SetFocus(true, FocusReason.Programmatic);
+		folderList.GetParentWindow()?.FocusManager.SetFocus(folderList, FocusReason.Programmatic);
 
 		return tcs.Task;
 	}
@@ -557,7 +558,7 @@ public static class FileDialogs
 			{
 				// Copy the filename to the input field (for overwriting)
 				filenameInput.Input = Path.GetFileName(filePath);
-				filenameInput.SetFocus(true, FocusReason.Programmatic);
+				filenameInput.GetParentWindow()?.FocusManager.SetFocus(filenameInput, FocusReason.Programmatic);
 			}
 		};
 
@@ -600,7 +601,7 @@ public static class FileDialogs
 		// Add modal and activate
 		windowSystem.AddWindow(modal);
 		windowSystem.SetActiveWindow(modal);
-		filenameInput.SetFocus(true, FocusReason.Programmatic);
+		filenameInput.GetParentWindow()?.FocusManager.SetFocus(filenameInput, FocusReason.Programmatic);
 
 		return tcs.Task;
 	}

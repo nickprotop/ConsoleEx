@@ -21,7 +21,7 @@ public class EventPropagationTests
     //
     //    window.AddControl(button);
     //    system.WindowStateService.AddWindow(window);
-    //    system.FocusStateService.SetFocus(window, button);
+    //    window.FocusManager.SetFocus(button, FocusReason.Programmatic);
     //
     //    bool controlReceived = false;
     //    bool windowReceived = false;
@@ -48,7 +48,7 @@ public class EventPropagationTests
         window.AddControl(textbox);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, textbox);
+        window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
 
         // Trigger render first
         system.Render.UpdateDisplay();
@@ -109,7 +109,7 @@ public class EventPropagationTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         bool handler1Fired = false;
         bool handler2Fired = false;
@@ -137,7 +137,7 @@ public class EventPropagationTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         // First handler throws exception
         button.Click += (s, e) => throw new InvalidOperationException("Test exception");
@@ -181,7 +181,7 @@ public class EventPropagationTests
     //    button.KeyPressed += (s, e) => buttonReceived = true;
     //    window.KeyPressed += (s, e) => windowReceived = true;
     //
-    //    system.FocusStateService.SetFocus(window, button);
+    //    window.FocusManager.SetFocus(button, FocusReason.Programmatic);
     //
     //    // Send key that button doesn't handle
     //    var keyInfo = new ConsoleKeyInfo('X', ConsoleKey.X, false, false, false);
@@ -204,12 +204,12 @@ public class EventPropagationTests
         window.AddControl(button1);
         window.AddControl(button2);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button1);
+        window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 
         // Handler changes focus
         button1.Click += (s, e) =>
         {
-            system.FocusStateService.SetFocus(window, button2);
+            window.FocusManager.SetFocus(button2, FocusReason.Programmatic);
         };
 
         var enterKey = new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false);
@@ -229,7 +229,7 @@ public class EventPropagationTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         // Handler closes window
         button.Click += (s, e) =>
@@ -284,7 +284,7 @@ public class EventPropagationTests
         window.AddControl(textbox);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, textbox);
+        window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
 
         // Trigger render first
         system.Render.UpdateDisplay();
@@ -314,7 +314,7 @@ public class EventPropagationTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         int? eventThreadId = null;
         int mainThreadId = Environment.CurrentManagedThreadId;
@@ -341,7 +341,7 @@ public class EventPropagationTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         // Handler removes itself
         button.Click += (s, e) =>

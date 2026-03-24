@@ -10,6 +10,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using System.Linq;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -66,8 +67,8 @@ namespace SharpConsoleUI.Controls
 				Color tileFg, tileBg;
 				if (isActive)
 				{
-					tileFg = _hasFocus ? bgColor    : Color.Cyan1;
-					tileBg = _hasFocus ? Color.Cyan1 : bgColor;
+					tileFg = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? bgColor    : Color.Cyan1;
+					tileBg = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : bgColor;
 				}
 				else
 				{
@@ -103,7 +104,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			const string navHint = " ← → ";
-			bool showHint = _hasFocus && snapshot.Count > 1;
+			bool showHint = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && snapshot.Count > 1;
 				int navHintDisplayWidth = UnicodeWidth.GetStringWidth(navHint);
 			int hintStartX = headerRight - navHintDisplayWidth;
 			int tabsEndX = x; // capture before fill loops modify x
@@ -130,7 +131,7 @@ namespace SharpConsoleUI.Controls
 				int separatorY = headerY + 1;
 				if (_headerStyle == TabHeaderStyle.Separator)
 				{
-					var sepColor = _hasFocus ? Color.Cyan1 : Color.Grey;
+					var sepColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey;
 					for (int x2 = headerLeft; x2 < headerRight; x2++)
 						buffer.SetNarrowCell(x2, separatorY, '─', sepColor, bgColor);
 				}
@@ -138,7 +139,7 @@ namespace SharpConsoleUI.Controls
 				{
 					// When the tab strip has keyboard focus the entire separator row is
 					// drawn in the accent colour so it stands out as a highlighted band.
-					var sepColor = _hasFocus ? Color.Cyan1 : Color.Grey;
+					var sepColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey;
 					var accentColor = Color.Cyan1;
 
 					for (int x2 = headerLeft; x2 < headerRight; x2++)

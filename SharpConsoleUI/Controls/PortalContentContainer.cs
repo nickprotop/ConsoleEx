@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	/// ScrollablePanelControl, etc.) with layout, mouse routing, keyboard delegation,
 	/// and focus tracking.
 	/// </summary>
-	public class PortalContentContainer : PortalContentBase, IContainer, IContainerControl, IFocusTrackingContainer
+	public class PortalContentContainer : PortalContentBase, IContainer, IContainerControl
 	{
 		#region Fields
 
@@ -179,25 +179,6 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		#region IFocusTrackingContainer Implementation
-
-		/// <inheritdoc/>
-		public void NotifyChildFocusChanged(IInteractiveControl child, bool hasFocus)
-		{
-			if (hasFocus)
-			{
-				if (_focusedChild != null && _focusedChild != child && _focusedChild is IFocusableControl oldFc)
-					oldFc.HasFocus = false;
-
-				_focusedChild = child;
-			}
-			else if (_focusedChild == child)
-			{
-				_focusedChild = null;
-			}
-		}
-
-		#endregion
 
 		#region Keyboard Input
 
@@ -279,14 +260,12 @@ namespace SharpConsoleUI.Controls
 		{
 			// Unfocus previous
 			if (_focusedChild != null && _focusedChild != child && _focusedChild is IFocusableControl oldFc)
-				oldFc.SetFocus(false, FocusReason.Programmatic);
+				oldFc.Container?.Invalidate(true);
 
 			_focusedChild = child;
 
-			if (child is IDirectionalFocusControl dfc)
-				dfc.SetFocusWithDirection(true, false);
-			else if (child is IFocusableControl fc)
-				fc.SetFocus(true, FocusReason.Programmatic);
+			if (child is IFocusableControl fc)
+				(this as IWindowControl).GetParentWindow()?.FocusManager.SetFocus(fc, FocusReason.Programmatic);
 		}
 
 		private List<IInteractiveControl> GetFocusableChildren()
@@ -372,10 +351,7 @@ namespace SharpConsoleUI.Controls
 						if (_focusedChild != interactive)
 						{
 							// Unfocus previous
-							if (_focusedChild is IFocusableControl oldFc)
-								oldFc.SetFocus(false, FocusReason.Mouse);
-
-							focusable.SetFocus(true, FocusReason.Mouse);
+							(this as IWindowControl).GetParentWindow()?.FocusManager.SetFocus(focusable, FocusReason.Mouse);
 							_focusedChild = interactive;
 						}
 					}
@@ -401,8 +377,7 @@ namespace SharpConsoleUI.Controls
 				else
 				{
 					// Clicked on empty space - unfocus children
-					if (_focusedChild is IFocusableControl fc)
-						fc.SetFocus(false, FocusReason.Mouse);
+					(this as IWindowControl).GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Mouse);
 					_focusedChild = null;
 					Container?.Invalidate(true);
 					return true;

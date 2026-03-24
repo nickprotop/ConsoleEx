@@ -258,14 +258,14 @@ public class MouseFocusKeyboardRoutingTests
 
 		// Act: simulate full window dispatch — HandleClickFocus first (sets path to child #1),
 		// then ProcessMouseEvent (must correct the path to the actually clicked child).
-		window.FocusCoord!.HandleClickFocus(panel);
+		window.FocusManager.HandleClick(panel);
 		var click = CreateClick(0, 2); // y=2 → button3
 		panel.ProcessMouseEvent(click);
 
 		// Assert: coordinator path leaf must be button3, not button1
 		Assert.True(button3.HasFocus, "Button3 should have focus after clicking it");
 		Assert.False(button1.HasFocus, "Button1 should NOT have focus");
-		Assert.Same(button3, window.FocusCoord!.FocusedLeaf); // path must point to clicked button3, not button1
+		Assert.Same(button3, window.FocusManager.FocusedControl); // path must point to clicked button3, not button1
 	}
 
 	[Fact]
@@ -285,7 +285,7 @@ public class MouseFocusKeyboardRoutingTests
 		window.RenderAndGetVisibleContent();
 
 		// Act: click button2 via full dispatch path
-		window.FocusCoord!.HandleClickFocus(panel);
+		window.FocusManager.HandleClick(panel);
 		panel.ProcessMouseEvent(CreateClick(0, 1)); // y=1 → button2
 
 		Assert.True(button2.HasFocus, "Button2 should have focus");

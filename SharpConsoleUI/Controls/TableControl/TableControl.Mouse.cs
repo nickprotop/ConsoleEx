@@ -9,6 +9,7 @@
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls;
 
 public partial class TableControl
@@ -95,7 +96,7 @@ public partial class TableControl
 			if (_isEditing)
 				CancelEdit();
 			if (!HasFocus && CanFocusWithMouse)
-				SetFocus(true, FocusReason.Mouse);
+				this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 			int rowIdx = GetRowIndexAtY(args.Position.Y);
 			if (rowIdx >= 0)
 			{
@@ -151,7 +152,7 @@ public partial class TableControl
 
 			// Set focus on click
 			if (!HasFocus && CanFocusWithMouse)
-				SetFocus(true, FocusReason.Mouse);
+				this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 
 			// Check if clicking on scrollbar
 			if (IsClickOnVerticalScrollbar(args))

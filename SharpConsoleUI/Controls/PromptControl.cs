@@ -65,30 +65,10 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		private bool _hasFocus;
-
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				var hadFocus = _hasFocus;
-				_hasFocus = value;
-				OnPropertyChanged();
-
-				// Fire focus events
-				if (value && !hadFocus)
-				{
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				}
-				else if (!value && hadFocus)
-				{
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-
-				Container?.Invalidate(true);
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <summary>
@@ -246,7 +226,7 @@ namespace SharpConsoleUI.Controls
 				if (UnfocusOnEnter)
 				{
 					_cursorPosition = 0;
-					HasFocus = false;
+					this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
 				}
 				Container?.Invalidate(true);
 				return true;
@@ -309,7 +289,7 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (key.Key == ConsoleKey.Escape)
 			{
-				HasFocus = false;
+				this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
 				Container?.Invalidate(true);
 				return true;
 			}
@@ -331,29 +311,6 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
-
-		/// <summary>
-		/// Occurs when the control receives focus.
-		/// </summary>
-		public event EventHandler? GotFocus;
-
-		/// <summary>
-		/// Occurs when the control loses focus.
-		/// </summary>
-		public event EventHandler? LostFocus;
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			bool hadFocus = HasFocus;
-			HasFocus = focus;
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
-		}
 
 		/// <summary>
 		/// Sets the input text and positions the cursor at the end.

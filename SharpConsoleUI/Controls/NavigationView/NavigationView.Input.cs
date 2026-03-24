@@ -61,8 +61,7 @@ namespace SharpConsoleUI.Controls
 					FocusNavPane();
 				else
 					FocusContentPanel();
-				_hasFocus = true;
-			}
+				}
 
 			// Delegate to the grid for mouse event handling
 			return _grid.ProcessMouseEvent(args);
@@ -72,7 +71,6 @@ namespace SharpConsoleUI.Controls
 
 		#region IInteractiveControl / IFocusableControl Implementation
 
-		private bool _hasFocus;
 
 		/// <summary>
 		/// Whether the nav pane has focus — derived from the scroll panel's own focus state (single source of truth).
@@ -82,26 +80,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				var hadFocus = _hasFocus;
-				_hasFocus = value;
-				OnPropertyChanged();
-
-				if (value && !hadFocus)
-				{
-					FocusNavPane();
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				}
-				else if (!value && hadFocus)
-				{
-					_grid.HasFocus = false;
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-
-				Container?.Invalidate(true);
-			}
+			get => this.GetParentWindow()?.FocusManager.IsInFocusPath(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -113,40 +92,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
-			if (focus && reason == FocusReason.Mouse)
-			{
-				// For mouse-initiated focus, set _hasFocus without calling FocusNavPane().
-				// The focus coordinator will set HasFocus on the actual clicked leaf control
-				// (e.g. PromptControl) via FocusStateService, and the notification chain
-				// will propagate _hasFocus=true up through ancestors. NavPaneHasFocus stays
-				// false, so ProcessKey correctly routes to the content panel.
-				_hasFocus = true;
-				OnPropertyChanged(nameof(HasFocus));
-				GotFocus?.Invoke(this, EventArgs.Empty);
-				Container?.Invalidate(true);
-			}
-			else
-			{
-				HasFocus = focus;
-			}
-		}
-
-		/// <inheritdoc/>
-		public void SetFocusWithDirection(bool focus, bool backward)
-		{
-			if (focus)
-			{
-				_hasFocus = true;
-				if (backward)
-					FocusContentPanel();
-				else
-					FocusNavPane();
-				GotFocus?.Invoke(this, EventArgs.Empty);
-			}
-			else
-			{
-				HasFocus = false;
-			}
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>
@@ -166,33 +112,6 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		#region IFocusTrackingContainer Implementation
-
-		/// <inheritdoc/>
-		public void NotifyChildFocusChanged(IInteractiveControl child, bool hasFocus)
-		{
-			// The grid is our only child — propagate focus tracking upward
-			if (child == _grid || child is HorizontalGridControl)
-			{
-				if (hasFocus)
-				{
-					if (!_hasFocus)
-					{
-						_hasFocus = true;
-						GotFocus?.Invoke(this, EventArgs.Empty);
-					}
-				}
-				else if (!hasFocus && _hasFocus)
-				{
-					_hasFocus = false;
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-			}
-
-			Container?.Invalidate(true);
-		}
-
-		#endregion
 
 		#region Keyboard Navigation
 
@@ -440,29 +359,39 @@ namespace SharpConsoleUI.Controls
 
 		private void FocusNavPane()
 		{
-			// Internal focus switch between sibling panes — toggle HasFocus directly
-			// (RequestFocus would unfocus the entire NavigationView chain unnecessarily)
-			if (_contentPanel is IFocusableControl fc)
-				fc.HasFocus = false;
-			_navScrollPanel.HasFocus = true;
-
-			// Sync coordinator's focus path with the actual focused leaf
+			// Internal focus switch between sibling panes — go through FocusManager
+			// so FocusedControl stays current and SetFocus callbacks fire correctly.
 			var window = (this as IWindowControl).GetParentWindow();
-			window?.FocusCoord?.UpdateFocusPath(_navScrollPanel as IWindowControl);
-
+			if (window != null)
+			{
+				window.FocusManager.SetFocus(_navScrollPanel, FocusReason.Keyboard);
+			}
+			else
+			{
+				Container?.Invalidate(true);
+			}
 			Container?.Invalidate(true);
 		}
 
 		private void FocusContentPanel()
 		{
-			// Internal focus switch between sibling panes — toggle HasFocus directly
-			_navScrollPanel.HasFocus = false;
+			// Internal focus switch between sibling panes — go through FocusManager.
+			// Set SavedFocus to a self-reference sentinel so RequestFocus detects
+			// scroll mode and does NOT immediately delegate to the first child via
+			// GetInitialFocus.  The next Tab keypress will then tab into children.
+			var window = (this as IWindowControl).GetParentWindow();
 			if (_contentPanel is IFocusableControl fc)
-				fc.HasFocus = true;
-
-			// Note: no explicit UpdateFocusPath here — the content panel's SetFocus
-			// delegates to a child (if any) and the notification chain updates the
-			// coordinator path automatically via UpdateCoordinatorFocusPath.
+			{
+				if (window != null)
+				{
+					_contentPanel.SavedFocus = _contentPanel;
+					window.FocusManager.SetFocus(fc, FocusReason.Keyboard);
+				}
+				else
+				{
+					Container?.Invalidate(true);
+				}
+			}
 
 			Container?.Invalidate(true);
 		}

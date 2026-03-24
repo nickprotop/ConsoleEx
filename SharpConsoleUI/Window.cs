@@ -159,14 +159,10 @@ namespace SharpConsoleUI
 		private Color? _inactiveTitleForegroundColor;
 		internal bool _invalidated = false;
 		private bool _isActive;
-		internal IInteractiveControl? _lastFocusedControl;
-		internal IInteractiveControl? _lastDeepFocusedControl;  // actual leaf control
-
-		// Convenience property to access FocusStateService
-		internal FocusStateService? FocusService => _windowSystem?.FocusStateService;
-
-		// Single authority for all focus changes in this window
-		internal FocusCoordinator? FocusCoord { get; private set; }
+		private Controls.IFocusableControl? _savedFocusOnDeactivate;
+		/// <summary>Manages focus state for this window. Use to set, query, or move focus.</summary>
+	public FocusManager FocusManager { get; private set; } = null!;
+		internal WindowRootScope RootScope { get; private set; } = null!;
 		private int? _minimumHeight = Configuration.ControlDefaults.DefaultWindowMinimumHeight;
 		private int? _minimumWidth = Configuration.ControlDefaults.DefaultWindowMinimumWidth;
 		private bool _isModal = false;
@@ -263,9 +259,10 @@ namespace SharpConsoleUI
 			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
 			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
 
-		// Initialize event dispatcher and focus coordinator
+		// Initialize event dispatcher, root scope and focus manager
 		_eventDispatcher = new Windows.WindowEventDispatcher(this);
-		FocusCoord = new Core.FocusCoordinator(this);
+		RootScope = new Core.WindowRootScope(this);
+		FocusManager = new Core.FocusManager(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -328,9 +325,10 @@ namespace SharpConsoleUI
 			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
 			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
 
-		// Initialize event dispatcher and focus coordinator
+		// Initialize event dispatcher, root scope and focus manager
 		_eventDispatcher = new Windows.WindowEventDispatcher(this);
-		FocusCoord = new Core.FocusCoordinator(this);
+		RootScope = new Core.WindowRootScope(this);
+		FocusManager = new Core.FocusManager(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();

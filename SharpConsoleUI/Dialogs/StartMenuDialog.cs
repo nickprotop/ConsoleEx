@@ -5,6 +5,7 @@ using SharpConsoleUI.Models;
 using SharpConsoleUI.Windows;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Dialogs;
 
 /// <summary>
@@ -91,7 +92,7 @@ public static class StartMenuDialog
 		overlay.AddControl(menu);
 
 		// Focus the menu
-		menu.SetFocus(true, FocusReason.Programmatic);
+		menu.GetParentWindow()?.FocusManager.SetFocus(menu, FocusReason.Programmatic);
 
 		// Add overlay to window system and activate it
 		windowSystem.AddWindow(overlay);

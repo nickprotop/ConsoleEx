@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
@@ -374,12 +373,12 @@ namespace SharpConsoleUI.Windows
 
 		/// <summary>
 		/// Centralized focus handling for mouse clicks.
-		/// Delegates to FocusCoordinator for all focus decisions.
+		/// Routes click through FocusManager for keyboard + visual focus.
 		/// </summary>
 		/// <param name="clickedControl">The control at click position, or null if clicked on empty space</param>
 		private void HandleClickFocus(IWindowControl? clickedControl)
 		{
-			_window.FocusCoord?.HandleClickFocus(clickedControl);
+			_window.FocusManager.HandleClick(clickedControl);
 		}
 
 		/// <summary>
@@ -486,6 +485,19 @@ namespace SharpConsoleUI.Windows
 
 				if (HasActiveInteractiveContent(out var activeInteractiveContent))
 				{
+					// Intercept Tab/Shift+Tab before any control sees it — route to FocusManager
+					if (key.Key == ConsoleKey.Tab)
+					{
+						// Sync FocusManager with legacy focus if needed (migration period)
+						if (_window.FocusManager.FocusedControl == null
+							&& activeInteractiveContent is IFocusableControl legacyFocused)
+						{
+							_window.FocusManager.SetFocus(legacyFocused, Controls.FocusReason.Programmatic);
+						}
+						_window.FocusManager.MoveFocus(backward: key.Modifiers.HasFlag(ConsoleModifiers.Shift));
+						return true;
+					}
+
 					contentKeyHandled = activeInteractiveContent!.ProcessKey(key);
 				}
 				else
@@ -505,14 +517,15 @@ namespace SharpConsoleUI.Windows
 						SwitchFocus(false); // Pass false to indicate forward focus switch
 						windowHandled = true;
 					}
-					else if (key.Key == ConsoleKey.Escape && _window._lastFocusedControl != null)
+					else if (key.Key == ConsoleKey.Escape && _window.FocusManager.FocusedControl != null)
 					{
 						// Escape unfocuses the current control (for regular controls, not inside ScrollablePanel
 						// which handles Escape internally via ProcessKey returning contentKeyHandled=true)
-						_window._windowSystem?.LogService?.LogTrace($"WindowEventDispatcher: Escape → unfocusing {_window._lastFocusedControl.GetType().Name}", "Focus");
-						// Save before ClearFocus clears _lastFocusedControl
-						_escapedFromControl = _window._lastFocusedControl;
-						_window.FocusCoord?.ClearFocus(Controls.FocusReason.Programmatic);
+						var currentFocused = _window.FocusManager.FocusedControl;
+						_window._windowSystem?.LogService?.LogTrace($"WindowEventDispatcher: Escape → unfocusing {currentFocused?.GetType().Name}", "Focus");
+						// Save before ClearFocus so Tab after Escape can restore
+						_escapedFromControl = currentFocused as Controls.IInteractiveControl;
+						_window.FocusManager.SetFocus(null, Controls.FocusReason.Programmatic);
 						windowHandled = true;
 					}
 					else
@@ -607,22 +620,25 @@ namespace SharpConsoleUI.Windows
 		/// <returns>True if there is an active interactive control; otherwise false.</returns>
 		public bool HasActiveInteractiveContent(out IInteractiveControl? interactiveContent)
 		{
-			// First try to find focused control in _interactiveContents (direct children)
-			interactiveContent = _window._interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic.HasFocus);
-
-			// Fallback to _lastFocusedControl if it has focus (for nested controls in containers)
-			if (interactiveContent == null && _window._lastFocusedControl != null && _window._lastFocusedControl.HasFocus && _window._lastFocusedControl.IsEnabled)
+			// New: prefer FocusManager as source of truth
+			if (_window.FocusManager.FocusedControl is IInteractiveControl focusedInteractive
+				&& focusedInteractive.IsEnabled)
 			{
-				interactiveContent = _window._lastFocusedControl;
+				interactiveContent = focusedInteractive;
+				return true;
 			}
 
-			// Fallback: container's HasFocus was cleared by FocusService.SetFocus(leaf) in NCGF,
-			// but the leaf itself still has focus. Use _lastFocusedControl as the routing target.
-			if (interactiveContent == null &&
-				_window._lastFocusedControl != null && _window._lastFocusedControl.IsEnabled &&
-				_window._lastDeepFocusedControl is Controls.IFocusableControl deepFc && deepFc.HasFocus)
+			// Legacy fallback during migration — keep existing logic here unchanged
+			// First try to find focused control in _interactiveContents (direct children)
+			interactiveContent = _window._interactiveContents.LastOrDefault(ic => ic.IsEnabled && _window.FocusManager.IsFocused(ic as Controls.IFocusableControl));
+
+			// Fallback: route keyboard to the control that currently has focus via FocusManager.
+			// This handles nested controls in containers (e.g. a leaf inside ScrollablePanel).
+			if (interactiveContent == null)
 			{
-				interactiveContent = _window._lastFocusedControl;
+				var focused = _window.FocusManager.FocusedControl;
+				if (focused is Controls.IInteractiveControl focusedIc && focusedIc.IsEnabled)
+					interactiveContent = focusedIc;
 			}
 
 
@@ -640,11 +656,11 @@ namespace SharpConsoleUI.Windows
 			{
 				if (activeInteractiveContent is IWindowControl control)
 				{
-					// Find the deepest focused control to walk from
-					var deepestControl = _window.FindDeepestFocusedControl(activeInteractiveContent);
-					if (deepestControl != null)
+					// Use FocusManager as the source of truth for the deepest focused control
+					var focusedControl = _window.FocusManager.FocusedControl as IWindowControl;
+					if (focusedControl != null)
 					{
-						control = deepestControl;
+						control = focusedControl;
 					}
 
 					// Use the new layout manager for coordinate translation
@@ -668,7 +684,7 @@ namespace SharpConsoleUI.Windows
 
 		/// <summary>
 		/// Switches focus to the next or previous interactive control.
-		/// Delegates to FocusCoordinator for all focus decisions.
+		/// Delegates to FocusManager for all focus decisions.
 		/// </summary>
 		/// <param name="backward">True to switch backward; false to switch forward.</param>
 		public void SwitchFocus(bool backward = false)
@@ -683,12 +699,12 @@ namespace SharpConsoleUI.Windows
 
 					_window._windowSystem?.LogService?.LogTrace($"SwitchFocus: restoring escaped control {restoreTarget.GetType().Name}", "Focus");
 
-					_window.FocusCoord?.RequestFocus(restoreTarget as IWindowControl, Controls.FocusReason.Keyboard);
+					_window.FocusManager.SetFocus(restoreTarget as Controls.IFocusableControl, Controls.FocusReason.Keyboard);
 					BringIntoFocus(restoreTarget as IWindowControl);
 					return;
 				}
 
-				_window.FocusCoord?.MoveFocus(backward);
+				_window.FocusManager.MoveFocus(backward);
 			}
 		}
 

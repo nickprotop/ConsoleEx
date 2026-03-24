@@ -71,7 +71,7 @@ namespace SharpConsoleUI.Controls
 	/// Window.cs during tree building. Users don't interact with HorizontalLayout directly.
 	/// </para>
 	/// </summary>
-	public partial class HorizontalGridControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IDirectionalFocusControl, IContainerControl, IFocusTrackingContainer
+	public partial class HorizontalGridControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IContainerControl, IFocusScope
 	{
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
 		private readonly object _gridLock = new();
@@ -79,7 +79,6 @@ namespace SharpConsoleUI.Controls
 		/// Gets the currently focused child control within the grid.
 		/// </summary>
 		public IInteractiveControl? FocusedContent => GetFocusedChildFromCoordinator();
-		private bool _hasFocus;
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
 		private bool _interactiveContentsDirty = true;
 		private bool _focusFromBackward = false;
@@ -264,25 +263,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				var hadFocus = _hasFocus;
-				_hasFocus = value;
-				OnPropertyChanged();
-				FocusChanged();
-				Container?.Invalidate(true);
-
-				// Fire focus events
-				if (value && !hadFocus)
-				{
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				}
-				else if (!value && hadFocus)
-				{
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-			}
+			// For containers, HasFocus means "this container or a descendant is focused"
+			// (i.e., is in the focus path). This preserves rendering/keyboard-routing semantics.
+			get => this.GetParentWindow()?.FocusManager.IsInFocusPath(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -325,76 +308,50 @@ namespace SharpConsoleUI.Controls
 			(GetFocusedChildFromCoordinator() as ICursorShapeProvider)?.PreferredCursorShape;
 
 		/// <summary>
-		/// Gets the currently focused child from the FocusCoordinator's focus path.
-		/// Returns null if no child is focused or the coordinator is not available.
+		/// Gets the currently focused child using FocusManager.
+		/// Returns null if no child is focused.
+		/// Uses FocusPath for ancestry detection to correctly handle nested scopes.
 		/// </summary>
 		private IInteractiveControl? GetFocusedChildFromCoordinator()
 		{
-			var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
-			if (coordinator != null)
-				return coordinator.GetFocusedChildOf(this) as IInteractiveControl;
+			var window = (this as IWindowControl).GetParentWindow();
+			if (window == null) return null;
+			var focused = window.FocusManager.FocusedControl;
+			if (focused == null) return null;
 
-			// Fallback when no coordinator is available (e.g. control not attached to a window):
-			// find the focused child by checking HasFocus on known interactive contents
-			foreach (var control in _interactiveContents.Keys)
-			{
-				if (control.HasFocus)
-					return control;
-			}
+			var focusPath = window.FocusManager.FocusPath;
+
+			// Check splitters first (they are direct interactive children)
 			foreach (var splitter in _splitterControls.Keys)
 			{
-				if (splitter.HasFocus)
-					return splitter;
+				if (ReferenceEquals(splitter, focused))
+					return splitter as IInteractiveControl;
 			}
-			return null;
-		}
 
-		/// <summary>
-		/// Updates the coordinator's focus path by finding the deepest focused leaf
-		/// starting from the given control subtree. Call after focus delegation
-		/// (Tab navigation, FocusChanged) to ensure the path reflects the actual leaf.
-		/// </summary>
-		private void UpdateCoordinatorFocusPath(IInteractiveControl? focusedChild)
-		{
-			if (focusedChild == null) return;
-			var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
-			if (coordinator == null) return;
-
-			// Find the deepest focused leaf inside the child (may be nested in containers)
-			var leaf = FindDeepestFocusedLeaf(focusedChild) ?? focusedChild;
-			if (leaf is IWindowControl leafWc)
-				coordinator.UpdateFocusPath(leafWc);
-		}
-
-		/// <summary>
-		/// Finds the deepest control with HasFocus=true inside a control hierarchy.
-		/// </summary>
-		private static IInteractiveControl? FindDeepestFocusedLeaf(IInteractiveControl control)
-		{
-			if (control is IContainerControl container)
+			// Search all column contents for the focused control or an ancestor in the focus path.
+			// _interactiveContents is not populated, so we walk columns directly.
+			List<ColumnContainer> columns;
+			lock (_gridLock) { columns = new List<ColumnContainer>(_columns); }
+			foreach (var col in columns)
 			{
-				foreach (var child in container.GetChildren())
+				foreach (var content in col.Contents)
 				{
-					if (child is IInteractiveControl interactive)
+					if (content is IInteractiveControl ic)
 					{
-						var deeper = FindDeepestFocusedLeaf(interactive);
-						if (deeper != null)
-							return deeper;
+						if (ReferenceEquals(content, focused))
+							return ic;
+						// Check if content is an ancestor of focused via FocusPath
+						if (content is IWindowControl wc && focusPath.Contains(wc, ReferenceEqualityComparer.Instance))
+							return ic;
 					}
 				}
 			}
-			return control.HasFocus ? control : null;
+			return null;
 		}
 
 		#endregion
 
 		#region Events
-
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
 
 		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
@@ -675,6 +632,91 @@ namespace SharpConsoleUI.Controls
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 			Invalidate();
+		}
+
+		#endregion
+
+		#region IFocusScope Implementation
+
+		/// <inheritdoc/>
+		/// <remarks>
+		/// HorizontalGridControl does not restore a saved focus position when re-entered.
+		/// This property is required by the IFocusScope interface but is intentionally ignored
+		/// by <see cref="GetInitialFocus"/>. The grid always returns the first or last focusable
+		/// child based on the <c>backward</c> parameter.
+		/// </remarks>
+		public IFocusableControl? SavedFocus { get; set; }
+
+		/// <inheritdoc/>
+		public IFocusableControl? GetInitialFocus(bool backward)
+		{
+			// HGrid does not restore saved focus — always enter at first or last child.
+			SavedFocus = null;
+			var children = GetFocusableChildren();
+			return backward ? children.LastOrDefault() : children.FirstOrDefault();
+		}
+
+		/// <inheritdoc/>
+		public IFocusableControl? GetNextFocus(IFocusableControl current, bool backward)
+		{
+			var children = GetFocusableChildren();
+			var index = children.FindIndex(c => ReferenceEquals(c, current));
+			if (index < 0) return GetInitialFocus(backward);
+			var nextIndex = backward ? index - 1 : index + 1;
+			return (nextIndex >= 0 && nextIndex < children.Count) ? children[nextIndex] : null;
+		}
+
+		/// <summary>
+		/// Builds the flat, ordered list of focusable controls for Tab navigation.
+		/// ColumnContainers are transparent (CanReceiveFocus=false) — their focusable children
+		/// are promoted into the list. SplitterControls are leaf focusable Tab stops.
+		/// Ordering: [col0 focusables..., splitter0, col1 focusables..., splitter1, col2 focusables..., ...]
+		/// </summary>
+		private List<IFocusableControl> GetFocusableChildren()
+		{
+			var result = new List<IFocusableControl>();
+			foreach (var child in GetChildren())
+			{
+				if (child is SplitterControl splitter)
+				{
+					// SplitterControl is a direct leaf Tab stop
+					if (splitter is IFocusableControl fs && fs.CanReceiveFocus && splitter.Visible)
+						result.Add(fs);
+				}
+				else if (child is ColumnContainer column && column.Visible)
+				{
+					// ColumnContainer is transparent — promote its focusable children
+					foreach (var content in column.GetChildren())
+					{
+						if (!content.Visible) continue;
+						if (content is IFocusableControl f && f.CanReceiveFocus)
+						{
+							result.Add(f);
+						}
+						else if (content is IFocusScope && content is IFocusableControl scopeFocusable
+						         && content is IContainerControl container
+						         && HasAnyFocusableDescendant(container))
+						{
+							// Transparent IFocusScope (e.g. nested HGrid): add as a single scope stop
+							result.Add(scopeFocusable);
+						}
+					}
+				}
+			}
+			return result;
+		}
+
+		private static bool HasAnyFocusableDescendant(IContainerControl container)
+		{
+			foreach (var child in container.GetChildren())
+			{
+				if (!child.Visible) continue;
+				if (child is IFocusableControl f && f.CanReceiveFocus)
+					return true;
+				if (child is IContainerControl nested && HasAnyFocusableDescendant(nested))
+					return true;
+			}
+			return false;
 		}
 
 		#endregion

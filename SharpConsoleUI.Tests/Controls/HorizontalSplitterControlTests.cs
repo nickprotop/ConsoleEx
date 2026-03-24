@@ -11,6 +11,7 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
@@ -18,6 +19,20 @@ namespace SharpConsoleUI.Tests.Controls;
 
 public class HorizontalSplitterControlTests
 {
+	#region Helper Methods
+
+	/// <summary>Creates a Window, adds the control, and sets it as the focused control via FocusManager.</summary>
+	private static Window GiveFocus(HorizontalSplitterControl splitter)
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
+		window.AddControl(splitter);
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
+		return window;
+	}
+
+	#endregion
+
 	#region Construction & Defaults
 
 	[Fact]
@@ -235,7 +250,7 @@ public class HorizontalSplitterControlTests
 
 		above.Height = 10;
 		below.Height = 10;
-		splitter.HasFocus = true;
+		GiveFocus(splitter);
 
 		var key = new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false);
 		bool handled = splitter.ProcessKey(key);
@@ -254,7 +269,7 @@ public class HorizontalSplitterControlTests
 
 		above.Height = 10;
 		below.Height = 10;
-		splitter.HasFocus = true;
+		GiveFocus(splitter);
 
 		var key = new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false);
 		bool handled = splitter.ProcessKey(key);
@@ -273,7 +288,7 @@ public class HorizontalSplitterControlTests
 
 		above.Height = 10;
 		below.Height = 10;
-		splitter.HasFocus = true;
+		GiveFocus(splitter);
 
 		var key = new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, true, false, false);
 		bool handled = splitter.ProcessKey(key);
@@ -291,7 +306,7 @@ public class HorizontalSplitterControlTests
 
 		above.Height = 15;
 		below.Height = 10;
-		splitter.HasFocus = true;
+		GiveFocus(splitter);
 
 		var key = new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, true, false, false);
 		bool handled = splitter.ProcessKey(key);
@@ -320,7 +335,7 @@ public class HorizontalSplitterControlTests
 	public void ProcessKey_UnrelatedKey_ReturnsFalse()
 	{
 		var splitter = new HorizontalSplitterControl();
-		splitter.HasFocus = true;
+		GiveFocus(splitter);
 
 		var key = new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, false, false, false);
 		bool handled = splitter.ProcessKey(key);
@@ -336,27 +351,35 @@ public class HorizontalSplitterControlTests
 	public void Focus_GainedFocus_FiresGotFocusEvent()
 	{
 		var splitter = new HorizontalSplitterControl();
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
+		// Add a placeholder so it takes auto-focus, leaving splitter unfocused
+		window.AddControl(new ButtonControl { Text = "Placeholder" });
+		window.AddControl(splitter);
 
-		bool gotFocusFired = false;
-		splitter.GotFocus += (s, e) => gotFocusFired = true;
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
 
-		splitter.HasFocus = true;
+		window.FocusManager.SetFocus(splitter, FocusReason.Programmatic);
 
-		Assert.True(gotFocusFired);
+		Assert.NotNull(args);
+		Assert.Equal(splitter, args!.Current);
 	}
 
 	[Fact]
 	public void Focus_LostFocus_FiresLostFocusEvent()
 	{
 		var splitter = new HorizontalSplitterControl();
-		splitter.HasFocus = true;
+		var window = GiveFocus(splitter);
 
-		bool lostFocusFired = false;
-		splitter.LostFocus += (s, e) => lostFocusFired = true;
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
 
-		splitter.HasFocus = false;
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
-		Assert.True(lostFocusFired);
+		Assert.NotNull(args);
+		Assert.Null(args!.Current);
+		Assert.Equal(splitter, args.Previous);
 	}
 
 	[Fact]
@@ -368,7 +391,7 @@ public class HorizontalSplitterControlTests
 
 		above.Height = 10;
 		below.Height = 10;
-		splitter.HasFocus = true;
+		var window = GiveFocus(splitter);
 
 		// Start dragging via keyboard
 		var key = new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false);
@@ -376,8 +399,8 @@ public class HorizontalSplitterControlTests
 
 		Assert.True(splitter.IsDragging);
 
-		// Lose focus
-		splitter.HasFocus = false;
+		// Lose focus via FocusManager
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
 		Assert.False(splitter.IsDragging);
 	}

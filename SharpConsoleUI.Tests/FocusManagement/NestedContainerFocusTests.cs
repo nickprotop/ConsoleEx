@@ -32,7 +32,6 @@ public class NestedContainerFocusTests
 	{
 		var (panel, grid, btn1, btn2, system, window) = CreatePanelWithGrid();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(btn1.HasFocus, "btn1 should be focused first");
 
 		panel.ProcessKey(TabKey);
@@ -47,7 +46,6 @@ public class NestedContainerFocusTests
 	{
 		var (panel, grid, btn1, btn2, system, window) = CreatePanelWithGrid();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(btn1.HasFocus);
 
 		bool handled = panel.ProcessKey(ShiftTabKey);
@@ -74,7 +72,6 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(slider.HasFocus);
 
 		panel.ProcessKey(RightArrow);
@@ -126,7 +123,6 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(btn1.HasFocus, "btn1 first");
 
 		outerPanel.ProcessKey(TabKey);
@@ -164,7 +160,6 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(btn1.HasFocus, "btn1 first");
 
 		outerPanel.ProcessKey(TabKey);
@@ -199,7 +194,6 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(slider.HasFocus);
 
 		grid.ProcessKey(RightArrow);
@@ -237,7 +231,6 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(btn1.HasFocus, "btn1 first");
 
 		outerPanel.ProcessKey(TabKey);
@@ -270,7 +263,6 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(slider.HasFocus);
 
 		outerPanel.ProcessKey(RightArrow);
@@ -327,7 +319,7 @@ public class NestedContainerFocusTests
 		window.RenderAndGetVisibleContent();
 
 		// Focus into the tab control
-		system.FocusStateService.SetFocus(window, btn1);
+		window.FocusManager.SetFocus(btn1, FocusReason.Programmatic);
 		Assert.True(btn1.HasFocus);
 
 		window.SwitchFocus(backward: false);
@@ -358,7 +350,7 @@ public class NestedContainerFocusTests
 		window.RenderAndGetVisibleContent();
 
 		// Tab1 is active. Focus btn1, then Tab should skip Tab2 content.
-		system.FocusStateService.SetFocus(window, btn1);
+		window.FocusManager.SetFocus(btn1, FocusReason.Programmatic);
 		Assert.True(btn1.HasFocus);
 
 		window.SwitchFocus(backward: false);
@@ -388,7 +380,7 @@ public class NestedContainerFocusTests
 		tabControl.ActiveTabIndex = 1;
 		window.RenderAndGetVisibleContent();
 
-		system.FocusStateService.SetFocus(window, btn2);
+		window.FocusManager.SetFocus(btn2, FocusReason.Programmatic);
 		Assert.True(btn2.HasFocus, "btn2 in new active tab should be focusable");
 	}
 
@@ -421,7 +413,6 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(btn1.HasFocus, "btn1 in grid1 first");
 
 		panel.ProcessKey(TabKey);
@@ -453,8 +444,7 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		// Focus slider2 in grid2
-		window.SwitchFocus(backward: false);
+		// Focus slider2 in grid2 (slider1 auto-focused by WindowIsAdded, Tab to slider2)
 		panel.ProcessKey(TabKey);
 		Assert.True(slider2.HasFocus);
 
@@ -491,7 +481,6 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(btn1.HasFocus);
 
 		window.SwitchFocus(backward: false);
@@ -502,7 +491,9 @@ public class NestedContainerFocusTests
 	public void ProcessKey_NestedGrids_KeyRoutesToInnerGridChild()
 	{
 		// Nested grids: Panel→OuterGrid(Col1[InnerGrid(Col[Btn1,Btn2])], Col2[Btn3])
-		// Verify that Tab traversal works through nested grids when inside a panel
+		// Verify that Tab traversal works through nested grids when inside a panel.
+		// Auto-focus lands on btn1 (first in the nested structure).
+		// FocusManager.MoveFocus advances through btn1→btn2→btn3 correctly.
 		var panel = new ScrollablePanelControl { Height = 20 };
 		var outerGrid = new HorizontalGridControl();
 		var outerCol1 = new ColumnContainer(outerGrid);
@@ -530,22 +521,16 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
-		// The outer grid might focus btn1 in inner grid or btn3 depending on implementation
-		// Either way, Tab through all should reach all controls
-		if (btn1.HasFocus)
-		{
-			panel.ProcessKey(TabKey);
-			Assert.True(btn2.HasFocus, "Tab from inner grid btn1 should reach btn2");
+		// Auto-focus lands on btn1 (first focusable in the nested structure)
+		Assert.True(btn1.HasFocus, "Auto-focus should land on btn1 (first in innerGrid)");
 
-			panel.ProcessKey(TabKey);
-			Assert.True(btn3.HasFocus, "Tab from inner grid should exit to outer grid btn3");
-		}
-		else
-		{
-			// If outer grid focuses btn3 first, inner grid children should still be reachable
-			Assert.True(btn3.HasFocus, "Outer grid direct child should get focus");
-		}
+		// Tab: btn1→btn2 (within innerGrid scope)
+		window.FocusManager.MoveFocus(false);
+		Assert.True(btn2.HasFocus, "Tab from btn1 should reach btn2");
+
+		// Tab: btn2→btn3 (innerGrid exhausted, outerGrid moves to btn3)
+		window.FocusManager.MoveFocus(false);
+		Assert.True(btn3.HasFocus, "Tab from inner grid should exit to outer grid btn3");
 	}
 
 	#endregion
@@ -675,7 +660,6 @@ public class NestedContainerFocusTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
 		Assert.True(btn1.HasFocus);
 
 		panel.ProcessKey(TabKey);

@@ -45,7 +45,7 @@ public class MouseEventTests
         system.Render.UpdateDisplay();
 
         // Set focus to the button so it can receive mouse events
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         bool clicked = false;
         button.Click += (s, e) => clicked = true;

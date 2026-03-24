@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
@@ -16,6 +17,7 @@ namespace SharpConsoleUI.Controls
 		private bool _isPortalOpen;
 		private PortalContentContainer? _portalContent;
 		private LayoutNode? _portalNode;
+		private IFocusableControl? _portalPreviousFocus;
 
 		#region Portal Lifecycle
 
@@ -34,6 +36,9 @@ namespace SharpConsoleUI.Controls
 
 			var window = this.GetParentWindow();
 			if (window == null) return;
+
+			// Save current focus so we can restore it when portal closes
+			_portalPreviousFocus = window.FocusManager.FocusedControl;
 
 			// Calculate portal bounds: left edge, full height, expanded width
 			var bounds = new System.Drawing.Rectangle(
@@ -100,6 +105,13 @@ namespace SharpConsoleUI.Controls
 			// work immediately without requiring a click first.
 			_portalContent.SetFocusOnFirstChild();
 
+			// Move FocusManager focus into the portal's first focusable child
+			var firstFocusable = _portalContent.GetChildren()
+				.OfType<IFocusableControl>()
+				.FirstOrDefault(c => c.CanReceiveFocus);
+			if (firstFocusable != null)
+				window.FocusManager.SetFocus(firstFocusable, FocusReason.Programmatic);
+
 			// Wire dismiss
 			_portalContent.DismissRequested += (_, _) =>
 			{
@@ -127,6 +139,14 @@ namespace SharpConsoleUI.Controls
 			_portalContent = null;
 			_portalNode = null;
 			_isPortalOpen = false;
+
+			// Restore focus to whatever had it before the portal opened
+			if (_portalPreviousFocus != null)
+			{
+				window?.FocusManager.SetFocus(_portalPreviousFocus, FocusReason.Programmatic);
+				_portalPreviousFocus = null;
+			}
+
 			Invalidate(true);
 		}
 

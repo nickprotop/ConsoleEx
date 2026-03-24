@@ -253,7 +253,7 @@ public class NestedContainerLayoutTests
 		window.AddControl(grid);
 		RenderWindow(system, window);
 
-		dd.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
 		dd.IsDropdownOpen = true;
 
 		var bounds = dd.GetPortalBounds();
@@ -524,12 +524,12 @@ public class NestedContainerLayoutTests
 		Assert.True(dd1.CanReceiveFocus);
 		Assert.True(dd2.CanReceiveFocus);
 
-		dd1.SetFocus(true, FocusReason.Keyboard);
+		// dd1 gets focus first via IFocusScope auto-focus
 		Assert.True(dd1.HasFocus);
 		Assert.False(dd2.HasFocus);
 
-		dd1.SetFocus(false, FocusReason.Keyboard);
-		dd2.SetFocus(true, FocusReason.Keyboard);
+		// Tab to dd2
+		window.SwitchFocus(backward: false);
 		Assert.False(dd1.HasFocus);
 		Assert.True(dd2.HasFocus);
 	}

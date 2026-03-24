@@ -43,7 +43,7 @@ public class KeyboardEventTests
         window.AddControl(textbox);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, textbox);
+        window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
 
         // Trigger render first
         system.Render.UpdateDisplay();
@@ -69,7 +69,7 @@ public class KeyboardEventTests
         window.AddControl(textbox);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, textbox);
+        window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
 
         // Trigger render first
         system.Render.UpdateDisplay();
@@ -102,7 +102,7 @@ public class KeyboardEventTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         bool windowKeyPressed = false;
         ConsoleKeyInfo? capturedKey = null;
@@ -133,7 +133,7 @@ public class KeyboardEventTests
         window.AddControl(button1);
         window.AddControl(button2);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button1);
+        window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 
         var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
         system.InputStateService.EnqueueKey(tabKey);
@@ -154,7 +154,7 @@ public class KeyboardEventTests
         window.AddControl(button1);
         window.AddControl(button2);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button2);
+        window.FocusManager.SetFocus(button2, FocusReason.Programmatic);
 
         var shiftTabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, false);
         system.InputStateService.EnqueueKey(shiftTabKey);
@@ -373,7 +373,7 @@ public class KeyboardEventTests
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         bool clicked = false;
         button.Click += (s, e) => clicked = true;
@@ -395,7 +395,7 @@ public class KeyboardEventTests
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         bool clicked = false;
         button.Click += (s, e) => clicked = true;
@@ -417,7 +417,7 @@ public class KeyboardEventTests
         window.AddControl(textbox);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, textbox);
+        window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
 
         // Trigger render first
         system.Render.UpdateDisplay();

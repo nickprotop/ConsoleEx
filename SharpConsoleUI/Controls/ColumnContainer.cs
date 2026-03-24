@@ -31,7 +31,6 @@ namespace SharpConsoleUI.Controls
 		private List<IWindowControl> _contents = new List<IWindowControl>();
 		private readonly object _contentsLock = new();
 		private Color? _foregroundColorValue;
-		private bool _hasFocus;
 		private HorizontalGridControl _horizontalGridContent;
 		private bool _isDirty;
 		private bool _isEnabled = true;
@@ -620,22 +619,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				var hadFocus = _hasFocus;
-				_hasFocus = value;
-
-				// Fire focus events
-				if (value && !hadFocus)
-				{
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				}
-				else if (!value && hadFocus)
-				{
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -652,15 +636,12 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-
 			// ColumnContainer doesn't process keys directly, delegate to focused content
-			var focusedContent = GetInteractiveContents().FirstOrDefault(c => c.HasFocus);
+			var focusManager = (this as IWindowControl).GetParentWindow()?.FocusManager;
+			var focusedContent = GetInteractiveContents()
+				.FirstOrDefault(c => c is IFocusableControl fc && (focusManager?.IsFocused(fc) ?? false));
 
-
-			var result = focusedContent?.ProcessKey(key) ?? false;
-
-
-			return result;
+			return focusedContent?.ProcessKey(key) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -669,25 +650,6 @@ namespace SharpConsoleUI.Controls
 		/// Focus should go to the controls within this column instead.
 		/// </summary>
 		public bool CanReceiveFocus => false;
-
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			bool hadFocus = HasFocus;
-			HasFocus = focus;
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
-		}
 
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()

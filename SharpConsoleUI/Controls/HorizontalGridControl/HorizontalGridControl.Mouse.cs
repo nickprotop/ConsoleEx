@@ -9,6 +9,7 @@
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Drivers;
 using System.Drawing;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -35,26 +36,14 @@ namespace SharpConsoleUI.Controls
 
 				if (isClickEvent && clickedControl is IFocusableControl focusable && focusable.CanReceiveFocus)
 				{
-					// Unfocus previously focused content
-					var currentFocused = GetFocusedChildFromCoordinator();
-					if (currentFocused != null && currentFocused != clickedControl)
-					{
-						if (currentFocused is IFocusableControl oldFc)
-							oldFc.SetFocus(false, FocusReason.Mouse);
-						else
-							currentFocused.HasFocus = false;
-					}
+					// Unfocus previously focused content — FocusManager handles this when we call SetFocus below
 
-					_hasFocus = true;
 
 					// Set focus on the clicked control (some controls like SliderControl
 					// do this internally in ProcessMouseEvent, but others like ButtonControl don't)
-					focusable.SetFocus(true, FocusReason.Mouse);
+					this.GetParentWindow()?.FocusManager.SetFocus(focusable, FocusReason.Mouse);
 
-					// Update coordinator path — notification chain may not reach HGrid
-					// (ColumnContainer is not IWindowControl/IFocusTrackingContainer)
-					if (clickedControl is IInteractiveControl clickedInteractive)
-						UpdateCoordinatorFocusPath(clickedInteractive);
+
 				}
 
 				// Propagate mouse event to the clicked control if it supports mouse events

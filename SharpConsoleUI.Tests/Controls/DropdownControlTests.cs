@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
@@ -32,11 +33,14 @@ public class DropdownControlTests
 		return dd;
 	}
 
-	private static DropdownControl CreateFocusedDropdown(string prompt = "Select:", params string[] items)
+	private static (DropdownControl dd, Window window) CreateFocusedDropdown(string prompt = "Select:", params string[] items)
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
 		var dd = CreateDropdown(prompt, items);
-		dd.HasFocus = true;
-		return dd;
+		window.AddControl(dd);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
+		return (dd, window);
 	}
 
 	private static MouseEventArgs CreateMousePress(int x, int y)
@@ -335,31 +339,45 @@ public class DropdownControlTests
 	[Fact]
 	public void SetFocus_GainingFocus_FiresGotFocus()
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
+		// Add a placeholder so it takes auto-focus, leaving dd unfocused
+		window.AddControl(new ButtonControl { Text = "Placeholder" });
 		var dd = CreateDropdown("S:", "A", "B");
-		bool gotFocus = false;
-		dd.GotFocus += (s, e) => gotFocus = true;
-		dd.SetFocus(true, FocusReason.Keyboard);
-		Assert.True(gotFocus);
+		window.AddControl(dd);
+
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
+
+		window.FocusManager.SetFocus(dd, FocusReason.Keyboard);
+
+		Assert.NotNull(args);
+		Assert.Equal(dd, args!.Current);
 		Assert.True(dd.HasFocus);
 	}
 
 	[Fact]
 	public void SetFocus_LosingFocus_FiresLostFocus()
 	{
-		var dd = CreateFocusedDropdown("S:", "A", "B");
-		bool lostFocus = false;
-		dd.LostFocus += (s, e) => lostFocus = true;
-		dd.SetFocus(false, FocusReason.Keyboard);
-		Assert.True(lostFocus);
+		var (dd, window) = CreateFocusedDropdown("S:", "A", "B");
+
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
+
+		window.FocusManager.SetFocus(null, FocusReason.Keyboard);
+
+		Assert.NotNull(args);
+		Assert.Null(args!.Current);
+		Assert.Equal(dd, args.Previous);
 		Assert.False(dd.HasFocus);
 	}
 
 	[Fact]
 	public void SetFocus_LosingFocusWithDropdownOpen_ClosesDropdown()
 	{
-		var dd = CreateFocusedDropdown("S:", "A", "B");
-		// We can't fully open dropdown without a Window, but we can test the state flag
-		dd.SetFocus(false);
+		var (dd, window) = CreateFocusedDropdown("S:", "A", "B");
+		// Losing focus should close dropdown (side effect in SetFocus)
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 		Assert.False(dd.IsDropdownOpen);
 	}
 
@@ -518,7 +536,7 @@ public class DropdownControlTests
 	[Fact]
 	public void ProcessInput_Enter_TogglesDropdown()
 	{
-		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B", "C");
 		// Without a container Window, Enter won't create portal, but IsDropdownOpen should still toggle
 		// The state is maintained internally even if portal creation fails
 		var result = dd.ProcessKey(Key(ConsoleKey.Enter));
@@ -529,7 +547,7 @@ public class DropdownControlTests
 	[Fact]
 	public void ProcessInput_Escape_ClosesDropdown()
 	{
-		var dd = CreateFocusedDropdown("S:", "A", "B");
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B");
 		dd.ProcessKey(Key(ConsoleKey.Escape));
 		Assert.False(dd.IsDropdownOpen);
 	}
@@ -537,7 +555,7 @@ public class DropdownControlTests
 	[Fact]
 	public void ProcessInput_DownArrow_IncreasesHighlight()
 	{
-		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B", "C");
 		dd.SelectedIndex = 0;
 		var result = dd.ProcessKey(Key(ConsoleKey.DownArrow));
 		// When closed, DownArrow opens the dropdown
@@ -548,7 +566,7 @@ public class DropdownControlTests
 	[Fact]
 	public void ProcessInput_UpArrow_DecreasesHighlight()
 	{
-		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B", "C");
 		dd.SelectedIndex = 2;
 		// When closed, UpArrow does nothing
 		var result = dd.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -558,7 +576,7 @@ public class DropdownControlTests
 	[Fact]
 	public void ProcessInput_Home_JumpsToFirst()
 	{
-		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B", "C");
 		dd.SelectedIndex = 2;
 		// When closed, Home does nothing
 		var result = dd.ProcessKey(Key(ConsoleKey.Home));
@@ -568,7 +586,7 @@ public class DropdownControlTests
 	[Fact]
 	public void ProcessInput_End_JumpsToLast()
 	{
-		var dd = CreateFocusedDropdown("S:", "A", "B", "C");
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B", "C");
 		dd.SelectedIndex = 0;
 		// When closed, End does nothing
 		var result = dd.ProcessKey(Key(ConsoleKey.End));
@@ -578,7 +596,7 @@ public class DropdownControlTests
 	[Fact]
 	public void ProcessInput_Disabled_IgnoresInput()
 	{
-		var dd = CreateFocusedDropdown("S:", "A", "B");
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B");
 		dd.IsEnabled = false;
 		dd.SelectedIndex = 0;
 		var result = dd.ProcessKey(Key(ConsoleKey.DownArrow));

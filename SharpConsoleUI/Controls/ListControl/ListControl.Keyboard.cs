@@ -1,3 +1,4 @@
+using SharpConsoleUI.Extensions;
 // -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
@@ -13,7 +14,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !_hasFocus)
+			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				return false;
 
 			if (key.Modifiers.HasFlag(ConsoleModifiers.Shift) || key.Modifiers.HasFlag(ConsoleModifiers.Alt) || key.Modifiers.HasFlag(ConsoleModifiers.Control)) return false;

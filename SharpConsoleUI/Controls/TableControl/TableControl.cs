@@ -51,8 +51,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private bool _readOnly = true;
 	private bool _isEnabled = true;
 
-	// Focus
-	private bool _hasFocus = false;
+
 
 	// Selection
 	private int _selectedRowIndex = -1;
@@ -416,70 +415,11 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// <inheritdoc/>
 	public bool HasFocus
 	{
-		get => _hasFocus;
-		set
-		{
-			var hadFocus = _hasFocus;
-			_hasFocus = value;
-			OnPropertyChanged();
-			Container?.Invalidate(true);
-
-			if (value && !hadFocus)
-				GotFocus?.Invoke(this, EventArgs.Empty);
-			else if (!value && hadFocus)
-			{
-				if (_hoveredRowIndex != -1)
-				{
-					_hoveredRowIndex = -1;
-				}
-				LostFocus?.Invoke(this, EventArgs.Empty);
-			}
-		}
+		get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 	}
 
 	/// <inheritdoc/>
 	public bool CanReceiveFocus => _isEnabled;
-
-	/// <inheritdoc/>
-	public event EventHandler? GotFocus;
-
-	/// <inheritdoc/>
-	public event EventHandler? LostFocus;
-
-	/// <inheritdoc/>
-	public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-	{
-		var hadFocus = _hasFocus;
-		_hasFocus = focus;
-
-		if (focus && !hadFocus)
-		{
-			// Auto-select first row on focus gain if nothing is selected
-			if (_autoHighlightOnFocus && _selectedRowIndex == -1 && RowCount > 0)
-			{
-				SetSelectedRow(0);
-			}
-
-			GotFocus?.Invoke(this, EventArgs.Empty);
-		}
-		else if (!focus && hadFocus)
-		{
-			// Cancel editing on focus loss
-			if (_isEditing)
-				CancelEdit();
-
-			// Clear hover
-			if (_hoveredRowIndex != -1)
-				_hoveredRowIndex = -1;
-
-			LostFocus?.Invoke(this, EventArgs.Empty);
-		}
-
-		Container?.Invalidate(true);
-
-		if (hadFocus != focus)
-			this.NotifyParentWindowOfFocusChange(focus);
-	}
 
 	#endregion
 
@@ -841,13 +781,13 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	internal Color ResolveScrollbarThumbColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableScrollbarThumbColor ?? (_hasFocus ? Color.Cyan1 : Color.Grey);
+		return theme?.TableScrollbarThumbColor ?? ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey);
 	}
 
 	internal Color ResolveScrollbarTrackColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableScrollbarTrackColor ?? (_hasFocus ? Color.Grey : Color.Grey23);
+		return theme?.TableScrollbarTrackColor ?? ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Grey : Color.Grey23);
 	}
 
 	#endregion
@@ -1208,8 +1148,6 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		MouseEnter = null;
 		MouseLeave = null;
 		MouseMove = null;
-		GotFocus = null;
-		LostFocus = null;
 	}
 
 	#endregion

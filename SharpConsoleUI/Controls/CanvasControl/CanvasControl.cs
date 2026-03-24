@@ -28,7 +28,6 @@ namespace SharpConsoleUI.Controls
 		private int _canvasHeight;
 		private CharacterBuffer _internalBuffer;
 		private readonly object _bufferLock = new();
-		private bool _hasFocus;
 		private bool _isEnabled = true;
 		private bool _autoClear;
 		private bool _autoSize;
@@ -256,12 +255,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
 
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
-
 		#endregion
 
 		#region IFocusableControl
@@ -269,27 +262,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set => SetProperty(ref _hasFocus, value);
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			var hadFocus = HasFocus;
-			HasFocus = focus;
-
-			if (focus && !hadFocus)
-				GotFocus?.Invoke(this, EventArgs.Empty);
-			else if (!focus && hadFocus)
-				LostFocus?.Invoke(this, EventArgs.Empty);
-
-			if (hadFocus != focus)
-				this.NotifyParentWindowOfFocusChange(focus);
-		}
 
 		#endregion
 
@@ -321,8 +298,6 @@ namespace SharpConsoleUI.Controls
 			MouseEnter = null;
 			MouseLeave = null;
 			MouseMove = null;
-			GotFocus = null;
-			LostFocus = null;
 		}
 
 		#endregion

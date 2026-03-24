@@ -42,11 +42,11 @@ public class DiagnosticTextInputTest
         _output.WriteLine($"4. After SetActiveWindow:");
         _output.WriteLine($"   - ActiveWindow: {system.WindowStateService.ActiveWindow?.Title ?? "null"}");
 
-        system.FocusStateService.SetFocus(window, textbox);
+        window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
 
         _output.WriteLine($"5. After SetFocus:");
         _output.WriteLine($"   - textbox.HasFocus: {textbox.HasFocus}");
-        _output.WriteLine($"   - FocusedControl: {system.FocusStateService.FocusedControl?.GetType().Name ?? "null"}");
+        _output.WriteLine($"   - FocusedControl: {window.FocusManager.FocusedControl?.GetType().Name ?? "null"}");
 
         system.Render.UpdateDisplay();
 

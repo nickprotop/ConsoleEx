@@ -287,7 +287,7 @@ namespace SharpConsoleUI.Controls
 				Drivers.MouseFlags.Button3DoubleClicked, Drivers.MouseFlags.Button3TripleClicked))
 			{
 				var currentFocused = GetFocusedChildFromCoordinator();
-				log?.LogTrace($"ScrollPanel.ProcessMouseEvent: click pos={args.Position} _hasFocus={_hasFocus} focusedChild={currentFocused?.GetType().Name ?? "null"}", "Focus");
+				log?.LogTrace($"ScrollPanel.ProcessMouseEvent: click pos={args.Position} (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)={HasFocus} focusedChild={currentFocused?.GetType().Name ?? "null"}", "Focus");
 				// Calculate content width (accounting for scrollbar)
 				int contentWidth = _viewportWidth;
 				bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
@@ -318,28 +318,24 @@ namespace SharpConsoleUI.Controls
 							lock (_childrenLock) { mouseSnapshot = new List<IWindowControl>(_children); }
 							foreach (var otherChild in mouseSnapshot)
 							{
-								if (otherChild != child && otherChild is IFocusableControl fc && fc.HasFocus)
+								if (otherChild != child && otherChild is IFocusableControl fc && (this.GetParentWindow()?.FocusManager.IsFocused(fc) ?? false))
 								{
-									fc.SetFocus(false, FocusReason.Mouse);
+									fc.Container?.Invalidate(true);
 								}
 							}
 
 							if (directlyFocusable)
 							{
 								// Set focus on clicked child directly
-								((IFocusableControl)child).SetFocus(true, FocusReason.Mouse);
+								this.GetParentWindow()?.FocusManager.SetFocus((IFocusableControl)child, FocusReason.Mouse);
 								// Correct the coordinator path to the actually clicked child.
 								// RequestFocus(SPC) → SPC.SetFocus(Programmatic) delegates to the
-								// FIRST focusable child and sets the path there. We must update it
-								// to the child the user actually clicked, or key routing and Tab
-								// will target the first child instead.
-								UpdateCoordinatorFocusPath((IInteractiveControl)child);
+						
 							}
 							// For containers (e.g. HorizontalGrid with CanReceiveFocus=false):
 							// Don't call SetFocus — let the mouse forwarding + the container's own
 							// mouse focus handling (Fix 1) set focus on the actual child control.
 
-							_hasFocus = true;
 							_lastInternalFocusedChild = null;
 							log?.LogTrace($"ScrollPanel.ProcessMouseEvent: focused child {child.GetType().Name}", "Focus");
 						}
@@ -376,21 +372,16 @@ namespace SharpConsoleUI.Controls
 					else
 					{
 						// Clicked on empty space or non-focusable content:
-						// Unfocus all children, clear focused child so arrow keys scroll
-						log?.LogTrace("ScrollPanel.ProcessMouseEvent: click on empty space → unfocusing children", "Focus");
-						List<IWindowControl> emptySpaceSnap;
-						lock (_childrenLock) { emptySpaceSnap = new List<IWindowControl>(_children); }
-						foreach (var otherChild in emptySpaceSnap)
+						// Move focus to the panel itself (scroll mode) so children lose focus.
+						log?.LogTrace("ScrollPanel.ProcessMouseEvent: click on empty space → entering scroll mode", "Focus");
+						var emptyClickWindow = (this as IWindowControl).GetParentWindow();
+						if (emptyClickWindow != null && CanReceiveFocus)
 						{
-							if (otherChild is IFocusableControl fc && fc.HasFocus)
-							{
-								fc.SetFocus(false, FocusReason.Mouse);
-							}
+							_enterScrollModeOnNextInitialFocus = true;
+							emptyClickWindow.FocusManager.SetFocus(this, FocusReason.Mouse);
 						}
 						_lastInternalFocusedChild = null;
-						// Update path so SPC is the leaf (no focused child)
-						var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
-						coordinator?.UpdateFocusPath(this);
+
 						Container?.Invalidate(true);
 						return true;
 					}

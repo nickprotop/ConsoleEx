@@ -10,6 +10,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -54,7 +55,7 @@ namespace SharpConsoleUI.Controls
 				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
 				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
 			}
-			else if (_hasFocus)
+			else if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
 			{
 				backgroundColor = FocusedBackgroundColor;
 				foregroundColor = FocusedForegroundColor;

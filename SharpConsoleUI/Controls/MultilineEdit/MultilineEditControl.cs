@@ -42,7 +42,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
-		private bool _hasFocus = false;
 		private bool _hasSelection = false;
 		private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
 		private int _horizontalScrollOffset = 0;
@@ -205,16 +204,6 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<bool>? OverwriteModeChanged;
 
 		/// <summary>
-		/// Occurs when the control receives focus.
-		/// </summary>
-		public event EventHandler? GotFocus;
-
-		/// <summary>
-		/// Occurs when the control loses focus.
-		/// </summary>
-		public event EventHandler? LostFocus;
-
-		/// <summary>
 		/// Occurs when the user clicks on the gutter area (left of the text).
 		/// </summary>
 		public event EventHandler<GutterClickEventArgs>? GutterClick;
@@ -327,13 +316,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				_hasFocus = value;
-				OnPropertyChanged();
-				Container?.Invalidate(true);
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <summary>

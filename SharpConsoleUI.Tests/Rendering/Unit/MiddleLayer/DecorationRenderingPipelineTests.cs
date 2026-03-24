@@ -583,7 +583,7 @@ public class DecorationRenderingPipelineTests
 
 		window.AddControl(panel);
 		system.WindowStateService.AddWindow(window);
-		system.FocusStateService.SetFocus(window, panel);
+		window.FocusManager.SetFocus(panel, FocusReason.Programmatic);
 
 		// Initial render - verify underline is present on 'U'
 		system.Render.UpdateDisplay();

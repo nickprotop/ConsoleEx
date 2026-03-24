@@ -13,6 +13,7 @@ using SharpConsoleUI.Logging;
 using SharpConsoleUI.Themes;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Dialogs;
 
 /// <summary>
@@ -150,6 +151,6 @@ public static class ThemeSelectorDialog
 		windowSystem.SetActiveWindow(modal);
 
 		// Focus the list after modal is active
-		themeList.SetFocus(true, FocusReason.Programmatic);
+		themeList.GetParentWindow()?.FocusManager.SetFocus(themeList, FocusReason.Programmatic);
 	}
 }

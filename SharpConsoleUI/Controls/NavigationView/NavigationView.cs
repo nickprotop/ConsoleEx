@@ -23,7 +23,7 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public partial class NavigationView : BaseControl, IInteractiveControl,
 		IFocusableControl, IMouseAwareControl, IContainer, IContainerControl,
-		IFocusTrackingContainer, IDirectionalFocusControl
+		IFocusScope
 	{
 		private readonly HorizontalGridControl _grid;
 		private readonly ColumnContainer _navColumn;
@@ -97,7 +97,8 @@ namespace SharpConsoleUI.Controls
 			{
 				BorderStyle = BorderStyle.None,
 				Padding = new Padding(0, 0, 0, 0),
-				VerticalAlignment = VerticalAlignment.Fill
+				VerticalAlignment = VerticalAlignment.Fill,
+				ForceReceiveFocus = true
 			};
 
 			_contentHeader = new MarkupControl(new List<string>());
@@ -167,6 +168,73 @@ namespace SharpConsoleUI.Controls
 		/// Gets the internal grid control for layout integration.
 		/// </summary>
 		internal HorizontalGridControl InternalGrid => _grid;
+
+		/// <summary>
+		/// Gets the nav scroll panel (left pane). Exposed internal for tests.
+		/// </summary>
+		internal ScrollablePanelControl NavScrollPanel => _navScrollPanel;
+
+		#region IFocusScope Implementation
+
+		/// <inheritdoc/>
+		/// <remarks>NavigationView ignores SavedFocus — it always delegates to child panels.</remarks>
+		public IFocusableControl? SavedFocus { get; set; }
+
+		/// <inheritdoc/>
+		public IFocusableControl? GetInitialFocus(bool backward) =>
+			backward
+				? _contentPanel.GetInitialFocus(true)
+				: _navScrollPanel; // Forward: enter nav pane (scroll mode) first
+
+		/// <inheritdoc/>
+		public IFocusableControl? GetNextFocus(IFocusableControl current, bool backward)
+		{
+			bool hasToolbar = _contentToolbar.Visible;
+
+			if (!backward)
+			{
+				if (ReferenceEquals(current, _navScrollPanel))
+					return hasToolbar ? _contentToolbar : _contentPanel;
+				if (hasToolbar && ReferenceEquals(current, _contentToolbar))
+					return _contentPanel;
+				if (ReferenceEquals(current, _contentPanel))
+					return _navScrollPanel; // wrap back to nav pane
+			}
+			else
+			{
+				if (ReferenceEquals(current, _contentPanel))
+					return hasToolbar ? _contentToolbar : _navScrollPanel;
+				if (hasToolbar && ReferenceEquals(current, _contentToolbar))
+					return _navScrollPanel;
+				if (ReferenceEquals(current, _navScrollPanel))
+					return null; // exit NavigationView backward
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Returns true if the given control lives anywhere inside the nav pane (recursive).
+		/// </summary>
+		internal bool IsInNavPane(IFocusableControl control) =>
+			ReferenceEquals(control, _navScrollPanel) || ContainsDescendant(_navScrollPanel, control);
+
+		/// <summary>
+		/// Returns true if the given control lives anywhere inside the content pane (recursive).
+		/// </summary>
+		internal bool IsInContentPane(IFocusableControl control) =>
+			ReferenceEquals(control, _contentPanel) || ContainsDescendant(_contentPanel, control);
+
+		private static bool ContainsDescendant(IContainerControl container, IWindowControl target)
+		{
+			foreach (var child in container.GetChildren())
+			{
+				if (ReferenceEquals(child, target)) return true;
+				if (child is IContainerControl nested && ContainsDescendant(nested, target)) return true;
+			}
+			return false;
+		}
+
+		#endregion
 
 		#region Configuration Properties
 

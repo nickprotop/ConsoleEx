@@ -11,6 +11,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
+using System.Linq;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.FocusManagement;
@@ -41,9 +42,8 @@ public class FocusPathTests
 		system.AddWindow(window);
 		system.Render.UpdateDisplay();
 
-		Assert.NotNull(window.FocusCoord);
-		Assert.Empty(window.FocusCoord!.FocusPath);
-		Assert.Null(window.FocusCoord.FocusedLeaf);
+		Assert.Empty(window.FocusManager.FocusPath);
+		Assert.Null(window.FocusManager.FocusedControl);
 	}
 
 	[Fact]
@@ -59,10 +59,9 @@ public class FocusPathTests
 		system.AddWindow(window);
 		system.Render.UpdateDisplay();
 
-		Assert.NotNull(window.FocusCoord);
 		// AddControl auto-focuses the first interactive control through the coordinator
-		Assert.Single(window.FocusCoord!.FocusPath);
-		Assert.Equal(btn, window.FocusCoord.FocusedLeaf);
+		Assert.Single(window.FocusManager.FocusPath);
+		Assert.Equal(btn, window.FocusManager.FocusedControl);
 	}
 
 	[Fact]
@@ -80,10 +79,10 @@ public class FocusPathTests
 
 		window.SwitchFocus(backward: false);
 
-		var path = window.FocusCoord!.FocusPath;
+		var path = window.FocusManager.FocusPath;
 		Assert.Single(path);
 		Assert.Same(btn, path[0]);
-		Assert.Same(btn, window.FocusCoord.FocusedLeaf);
+		Assert.Same(btn, window.FocusManager.FocusedControl);
 	}
 
 	[Fact]
@@ -103,17 +102,17 @@ public class FocusPathTests
 		if (!btn.HasFocus)
 			panel.ProcessKey(TabKey);
 
-		var path = window.FocusCoord!.FocusPath;
+		var path = window.FocusManager.FocusPath;
 
 		// Path should include at minimum the panel and the button
 		Assert.True(path.Count >= 2, $"Path should have >= 2 entries, got {path.Count}: [{string.Join(", ", path.Select(c => c.GetType().Name))}]");
-		Assert.Same(btn, window.FocusCoord.FocusedLeaf);
+		Assert.Same(btn, window.FocusManager.FocusedControl);
 
 		// Button should be the last entry
 		Assert.Same(btn, path[^1]);
 
 		// Panel should be in the path
-		Assert.True(window.FocusCoord.IsInFocusPath(panel),
+		Assert.True(window.FocusManager.IsInFocusPath(panel),
 			"SPC should be in focus path");
 	}
 
@@ -145,14 +144,14 @@ public class FocusPathTests
 
 		Assert.True(btn.HasFocus, "Button should be focused");
 
-		var path = window.FocusCoord!.FocusPath;
+		var path = window.FocusManager.FocusPath;
 
 		// Button is the leaf
-		Assert.Same(btn, window.FocusCoord.FocusedLeaf);
+		Assert.Same(btn, window.FocusManager.FocusedControl);
 
 		// All containers in the chain should be in the path
-		Assert.True(window.FocusCoord.IsInFocusPath(btn), "Button should be in path");
-		Assert.True(window.FocusCoord.IsInFocusPath(outerPanel), "Outer panel should be in path");
+		Assert.True(window.FocusManager.IsInFocusPath(btn), "Button should be in path");
+		Assert.True(window.FocusManager.IsInFocusPath(outerPanel), "Outer panel should be in path");
 	}
 
 	#endregion
@@ -173,13 +172,10 @@ public class FocusPathTests
 		system.WindowStateService.AddWindow(window);
 		window.RenderAndGetVisibleContent();
 
-		window.SwitchFocus(backward: false);
-		if (!btn1.HasFocus)
-			panel.ProcessKey(TabKey);
-
+		// Auto-focus focuses btn1 when panel is added to window
 		Assert.True(btn1.HasFocus, "btn1 should be focused");
 
-		var focusedChild = window.FocusCoord!.GetFocusedChild(panel);
+		var focusedChild = window.FocusManager.FocusPath.SkipWhile(c => !ReferenceEquals(c, panel)).Skip(1).FirstOrDefault();
 		Assert.Same(btn1, focusedChild);
 	}
 
@@ -209,7 +205,7 @@ public class FocusPathTests
 		window.FocusControl(btn1);
 
 		// panel2 is not in the focus path — its focused child should be null
-		var focusedChild = window.FocusCoord!.GetFocusedChild(panel2);
+		var focusedChild = window.FocusManager.FocusPath.SkipWhile(c => !ReferenceEquals(c, panel2)).Skip(1).FirstOrDefault();
 		Assert.Null(focusedChild);
 	}
 
@@ -237,10 +233,10 @@ public class FocusPathTests
 		Assert.True(btn1.HasFocus, "btn1 should be focused");
 
 		// btn1 should be in path
-		Assert.True(window.FocusCoord!.IsInFocusPath(btn1), "btn1 should be in path");
+		Assert.True(window.FocusManager.IsInFocusPath(btn1), "btn1 should be in path");
 
 		// btn2 should NOT be in path
-		Assert.False(window.FocusCoord.IsInFocusPath(btn2), "btn2 should NOT be in path");
+		Assert.False(window.FocusManager.IsInFocusPath(btn2), "btn2 should NOT be in path");
 	}
 
 	#endregion
@@ -264,13 +260,13 @@ public class FocusPathTests
 		system.Render.UpdateDisplay();
 
 		window.FocusControl(btn1);
-		Assert.Same(btn1, window.FocusCoord!.FocusedLeaf);
+		Assert.Same(btn1, window.FocusManager.FocusedControl);
 
 		// Switch focus to btn2
 		window.FocusControl(btn2);
-		Assert.Same(btn2, window.FocusCoord.FocusedLeaf);
-		Assert.True(window.FocusCoord.IsInFocusPath(btn2));
-		Assert.False(window.FocusCoord.IsInFocusPath(btn1));
+		Assert.Same(btn2, window.FocusManager.FocusedControl);
+		Assert.True(window.FocusManager.IsInFocusPath(btn2));
+		Assert.False(window.FocusManager.IsInFocusPath(btn1));
 	}
 
 	#endregion
@@ -291,11 +287,11 @@ public class FocusPathTests
 		system.Render.UpdateDisplay();
 
 		window.SwitchFocus(backward: false);
-		Assert.NotEmpty(window.FocusCoord!.FocusPath);
+		Assert.NotEmpty(window.FocusManager.FocusPath);
 
 		window.UnfocusCurrentControl();
-		Assert.Empty(window.FocusCoord.FocusPath);
-		Assert.Null(window.FocusCoord.FocusedLeaf);
+		Assert.Empty(window.FocusManager.FocusPath);
+		Assert.Null(window.FocusManager.FocusedControl);
 	}
 
 	#endregion

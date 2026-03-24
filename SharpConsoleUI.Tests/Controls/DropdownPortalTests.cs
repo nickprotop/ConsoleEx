@@ -237,7 +237,7 @@ public class DropdownPortalTests
 		system.WindowStateService.AddWindow(window);
 		system.Render.UpdateDisplay();
 
-		dd.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
 		dd.IsDropdownOpen = true;
 		Assert.True(dd.IsDropdownOpen);
 
@@ -256,7 +256,7 @@ public class DropdownPortalTests
 		system.WindowStateService.AddWindow(window);
 		system.Render.UpdateDisplay();
 
-		dd.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
 		dd.IsDropdownOpen = true;
 
 		var bounds = dd.GetPortalBounds();
@@ -278,7 +278,7 @@ public class DropdownPortalTests
 		system.WindowStateService.AddWindow(window);
 		system.Render.UpdateDisplay();
 
-		dd.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
 		dd.IsDropdownOpen = true;
 
 		var bounds = dd.GetPortalBounds();
@@ -300,7 +300,7 @@ public class DropdownPortalTests
 		system.WindowStateService.AddWindow(window);
 		system.Render.UpdateDisplay();
 
-		dd.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
 		dd.IsDropdownOpen = true;
 
 		var bounds = dd.GetPortalBounds();
@@ -353,7 +353,7 @@ public class DropdownPortalTests
 		system.Render.UpdateDisplay();
 
 		// Opening with no items should not crash
-		dd.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
 		dd.IsDropdownOpen = true;
 
 		var bounds = dd.GetPortalBounds();
@@ -374,7 +374,7 @@ public class DropdownPortalTests
 		system.WindowStateService.AddWindow(window);
 		system.Render.UpdateDisplay();
 
-		dd.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
 		dd.IsDropdownOpen = true;
 
 		var bounds = dd.GetPortalBounds();
@@ -397,7 +397,7 @@ public class DropdownPortalTests
 		system.WindowStateService.AddWindow(window);
 		system.Render.UpdateDisplay();
 
-		dd.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
 		dd.IsDropdownOpen = true;
 
 		var bounds = dd.GetPortalBounds();
@@ -421,7 +421,7 @@ public class DropdownPortalTests
 		system.WindowStateService.AddWindow(window);
 		system.Render.UpdateDisplay();
 
-		dd.SetFocus(true, FocusReason.Programmatic);
+		window.FocusManager.SetFocus(dd, FocusReason.Programmatic);
 		dd.IsDropdownOpen = true;
 
 		// The portal should either flip up or be clamped

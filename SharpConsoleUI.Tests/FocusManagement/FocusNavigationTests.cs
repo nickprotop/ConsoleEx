@@ -39,7 +39,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Act & Assert - Focus button1
-		system.FocusStateService.SetFocus(window, button1);
+		window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 		Assert.True(button1.HasFocus);
 		Assert.False(button2.HasFocus);
 		Assert.False(button3.HasFocus);
@@ -80,7 +80,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Act & Assert - Start at button3
-		system.FocusStateService.SetFocus(window, button3);
+		window.FocusManager.SetFocus(button3, FocusReason.Programmatic);
 		Assert.True(button3.HasFocus);
 
 		// Shift+Tab to button2
@@ -120,7 +120,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Act & Assert
-		system.FocusStateService.SetFocus(window, button1);
+		window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 		Assert.True(button1.HasFocus);
 
 		// Tab should skip button2 and go to button3
@@ -147,7 +147,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Act & Assert
-		system.FocusStateService.SetFocus(window, button1);
+		window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 		Assert.True(button1.HasFocus);
 
 		// Tab should skip button2 and go to button3
@@ -275,7 +275,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Act & Assert - Tab through different control types
-		system.FocusStateService.SetFocus(window, button);
+		window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 		Assert.True(button.HasFocus);
 
 		window.SwitchFocus(backward: false);
@@ -303,7 +303,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Act & Assert
-		system.FocusStateService.SetFocus(window, tree);
+		window.FocusManager.SetFocus(tree, FocusReason.Programmatic);
 		Assert.True(tree.HasFocus);
 
 		window.SwitchFocus(backward: false);
@@ -354,7 +354,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Act & Assert
-		system.FocusStateService.SetFocus(window, button1);
+		window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 		Assert.True(button1.HasFocus);
 
 		// Tab should skip hidden panel and its children
@@ -385,7 +385,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Initially, button2 is reachable through panel
-		system.FocusStateService.SetFocus(window, button1);
+		window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 		window.SwitchFocus(backward: false);
 		// Panel is opaque: panel gets focus and delegates to button2
 		Assert.True(panel.HasFocus, "Panel should be focused");
@@ -395,7 +395,7 @@ public class FocusNavigationTests
 		panel.Visible = false;
 
 		// Assert - After hiding, panel and its children should not be reachable
-		system.FocusStateService.SetFocus(window, button1);
+		window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 		window.SwitchFocus(backward: false);
 		Assert.False(button2.HasFocus); // Skipped
 		Assert.True(button3.HasFocus); // Goes to next
@@ -492,7 +492,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Act & Assert - Tab should traverse buttons in columns
-		system.FocusStateService.SetFocus(window, button1);
+		window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 		Assert.True(button1.HasFocus);
 
 		window.SwitchFocus(backward: false);
@@ -524,7 +524,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Act & Assert - Tab should traverse through splitter
-		system.FocusStateService.SetFocus(window, button1);
+		window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 		Assert.True(button1.HasFocus);
 
 		// Tab should move to splitter first
@@ -604,7 +604,7 @@ public class FocusNavigationTests
 		// Act & Assert - Tab order is: button1 → splitter1 → button2 → splitter2 → button3
 		// Since we can't get splitter references easily, we verify by checking button focus states
 
-		system.FocusStateService.SetFocus(window, button1);
+		window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 
 		// Tab 1: button1 → splitter1
 		window.SwitchFocus(backward: false);
@@ -648,8 +648,7 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab reaches panel, which delegates to first child (stickyButton)
-		window.SwitchFocus(backward: false);
+		// Act & Assert - panel delegated to first child (stickyButton) via WindowIsAdded auto-focus
 		Assert.True(panel.HasFocus, "Panel should be focused");
 		Assert.True(stickyButton.HasFocus, "Sticky button should be focused via delegation");
 
@@ -678,8 +677,7 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab reaches panel, delegates to first child (normalButton)
-		window.SwitchFocus(backward: false);
+		// Act & Assert - panel delegated to first child (normalButton) via WindowIsAdded auto-focus
 		Assert.True(panel.HasFocus, "Panel should be focused");
 		Assert.True(normalButton.HasFocus, "Normal button should be focused via delegation");
 
@@ -710,8 +708,7 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab reaches panel, delegates to first child (stickyTop)
-		window.SwitchFocus(backward: false);
+		// Act & Assert - panel delegated to first child (stickyTop) via WindowIsAdded auto-focus
 		Assert.True(panel.HasFocus, "Panel should be focused");
 		Assert.True(stickyTop.HasFocus, "Sticky top should be focused via delegation");
 
@@ -804,8 +801,7 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Tab reaches panel, delegates to stickyTop
-		window.SwitchFocus(backward: false);
+		// Act & Assert - panel delegated to stickyTop via WindowIsAdded auto-focus
 		Assert.True(panel.HasFocus, "Panel should be focused");
 		Assert.True(stickyTop.HasFocus, "Sticky top should be focused via delegation");
 
@@ -889,8 +885,7 @@ public class FocusNavigationTests
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
-		// Focus reaches panel, panel delegates to first child (buttonBefore)
-		window.SwitchFocus(backward: false);
+		// Panel delegated to first child (buttonBefore) via WindowIsAdded auto-focus
 		Assert.True(panel.HasFocus, "Panel should be focused");
 		Assert.True(buttonBefore.HasFocus, "buttonBefore should be focused first");
 
@@ -945,8 +940,7 @@ public class FocusNavigationTests
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 		var shiftTabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, false);
 
-		// Navigate forward to buttonAfter first
-		window.SwitchFocus(backward: false);
+		// buttonBefore is auto-focused by WindowIsAdded; navigate forward to buttonAfter
 		Assert.True(buttonBefore.HasFocus);
 		panel.ProcessKey(tabKey); // → gridButton1
 		panel.ProcessKey(tabKey); // → gridButton2
@@ -998,9 +992,8 @@ public class FocusNavigationTests
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
-		// Focus enters panel → grid → gridButton1
-		window.SwitchFocus(backward: false);
-		Assert.True(gridButton1.HasFocus, "gridButton1 should be focused first");
+		// Auto-focus enters panel → grid → gridButton1
+		Assert.True(gridButton1.HasFocus, "gridButton1 should be auto-focused first");
 
 		// Tab: gridButton1 → splitter
 		panel.ProcessKey(tabKey);
@@ -1086,9 +1079,8 @@ public class FocusNavigationTests
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
-		// Focus: panel → grid1 → g1button
-		window.SwitchFocus(backward: false);
-		Assert.True(g1button.HasFocus, "g1button should be focused first");
+		// Auto-focus: panel → grid1 → g1button
+		Assert.True(g1button.HasFocus, "g1button should be auto-focused first");
 
 		// Tab: g1button exits grid1 → panel moves to grid2 → g2button
 		panel.ProcessKey(tabKey);
@@ -1131,8 +1123,7 @@ public class FocusNavigationTests
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
-		// Focus: panel → button1
-		window.SwitchFocus(backward: false);
+		// button1 is auto-focused by WindowIsAdded
 		Assert.True(button1.HasFocus);
 
 		// Tab: button1 → grid → gridBtn1
@@ -1179,8 +1170,7 @@ public class FocusNavigationTests
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
-		// Focus: panel → button1
-		window.SwitchFocus(backward: false);
+		// button1 is auto-focused by WindowIsAdded
 		Assert.True(button1.HasFocus);
 
 		// Tab: button1 → button2 (grid is skipped because it has no focusable children)
@@ -1224,9 +1214,8 @@ public class FocusNavigationTests
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
-		// Focus: panel → grid → btn1
-		window.SwitchFocus(backward: false);
-		Assert.True(btn1.HasFocus, "btn1 should be focused first");
+		// Auto-focus: panel → grid → btn1
+		Assert.True(btn1.HasFocus, "btn1 should be auto-focused first");
 
 		// Tab through all three columns
 		panel.ProcessKey(tabKey);
@@ -1275,8 +1264,7 @@ public class FocusNavigationTests
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
-		// Navigate to grid
-		window.SwitchFocus(backward: false);
+		// buttonFirst is auto-focused by WindowIsAdded; navigate to grid
 		Assert.True(buttonFirst.HasFocus);
 
 		panel.ProcessKey(tabKey); // → gridButton
@@ -1350,7 +1338,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Focus button2
-		system.FocusStateService.SetFocus(window, button2);
+		window.FocusManager.SetFocus(button2, FocusReason.Programmatic);
 		Assert.True(button2.HasFocus);
 
 		// Disable button2 while it has focus
@@ -1379,7 +1367,7 @@ public class FocusNavigationTests
 		system.WindowStateService.AddWindow(window);
 
 		// Focus button2
-		system.FocusStateService.SetFocus(window, button2);
+		window.FocusManager.SetFocus(button2, FocusReason.Programmatic);
 		Assert.True(button2.HasFocus);
 
 		// Make button2 invisible while it has focus

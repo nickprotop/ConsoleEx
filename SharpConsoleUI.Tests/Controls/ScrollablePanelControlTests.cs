@@ -326,7 +326,7 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		panel.SetFocus(true, FocusReason.Keyboard);
+		window.FocusManager.SetFocus(panel, FocusReason.Keyboard);
 
 		Assert.True(panel.HasFocus);
 		Assert.True(list.HasFocus);
@@ -343,10 +343,11 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		panel.SetFocus(true, FocusReason.Keyboard);
+		// After AddControl, list should have focus via IFocusScope delegation
 		Assert.True(list.HasFocus);
 
-		panel.SetFocus(false, FocusReason.Keyboard);
+		// Clear focus via FocusManager (new design: no-op setters replaced by direct API)
+		window.UnfocusCurrentControl();
 
 		Assert.False(panel.HasFocus);
 		Assert.False(list.HasFocus);
@@ -365,7 +366,7 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		panel.SetFocus(true, FocusReason.Keyboard);
+		window.FocusManager.SetFocus(panel, FocusReason.Keyboard);
 		Assert.True(list1.HasFocus, "First child should have focus initially");
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
@@ -390,7 +391,7 @@ public class ScrollablePanelControlTests
 		window.RenderAndGetVisibleContent();
 
 		// Focus panel, Tab to second child
-		panel.SetFocus(true, FocusReason.Keyboard);
+		window.FocusManager.SetFocus(panel, FocusReason.Keyboard);
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 		panel.ProcessKey(tabKey);
 		Assert.True(list2.HasFocus, "Second child should have focus after Tab");
@@ -667,7 +668,7 @@ public class ScrollablePanelControlTests
 		window.RenderAndGetVisibleContent();
 
 		// Focus list1
-		panel.SetFocus(true, FocusReason.Keyboard);
+		window.FocusManager.SetFocus(panel, FocusReason.Keyboard);
 		Assert.True(list1.HasFocus);
 
 		// Wheel down at Y position where list2 is (after list1's rows)
@@ -892,7 +893,7 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		var ex = Record.Exception(() => panel.SetFocus(true));
+		var ex = Record.Exception(() => window.FocusManager.SetFocus(panel, FocusReason.Programmatic));
 
 		Assert.Null(ex);
 	}
@@ -909,7 +910,7 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		panel.SetFocus(true);
+		window.FocusManager.SetFocus(panel, FocusReason.Programmatic);
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 		bool handled = panel.ProcessKey(tabKey);
@@ -931,7 +932,7 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		panel.SetFocus(true);
+		window.FocusManager.SetFocus(panel, FocusReason.Programmatic);
 		Assert.True(button1.HasFocus);
 
 		var shiftTabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, false);
@@ -970,7 +971,7 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		panel.SetFocus(true);
+		window.FocusManager.SetFocus(panel, FocusReason.Programmatic);
 		panel.IsEnabled = false;
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
@@ -1011,12 +1012,12 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		panel.SetFocus(true);
+		window.FocusManager.SetFocus(panel, FocusReason.Programmatic);
 		Assert.True(button1.HasFocus);
 
-		panel.SetFocus(false);
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
-		panel.SetFocus(true);
+		window.FocusManager.SetFocus(panel, FocusReason.Programmatic);
 		Assert.True(button1.HasFocus);
 	}
 
@@ -1033,7 +1034,7 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		panel.SetFocus(true);
+		window.FocusManager.SetFocus(panel, FocusReason.Programmatic);
 
 		var escKey = new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false);
 		bool handled = panel.ProcessKey(escKey);
@@ -1060,7 +1061,7 @@ public class ScrollablePanelControlTests
 		window.AddControl(panel);
 		window.RenderAndGetVisibleContent();
 
-		panel.SetFocus(true);
+		window.FocusManager.SetFocus(panel, FocusReason.Programmatic);
 
 		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 		bool handled = panel.ProcessKey(tabKey);

@@ -12,6 +12,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using System.Drawing;
 using Size = System.Drawing.Size;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -203,7 +204,7 @@ namespace SharpConsoleUI.Controls
 					if (itemIndex >= items.Count) break;
 
 					string itemText = _itemFormatter != null
-						? _itemFormatter(items[itemIndex], itemIndex == selectedIdx, _hasFocus)
+						? _itemFormatter(items[itemIndex], itemIndex == selectedIdx, (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 						: items[itemIndex].Text;
 
 					if (Parsing.MarkupParser.StripLength(itemText) > dropdownWidth - 4)

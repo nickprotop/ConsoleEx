@@ -18,7 +18,7 @@ namespace SharpConsoleUI.Controls
 	/// A scrollable panel control that can host child controls with automatic scrolling support.
 	/// Supports vertical and horizontal scrolling, mouse wheel, and visual scrollbars.
 	/// </summary>
-	public partial class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IDirectionalFocusControl, IContainerControl, IScrollableContainer, IFocusTrackingContainer
+	public partial class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IContainerControl, IScrollableContainer, IFocusScope
 	{
 		private readonly List<IWindowControl> _children = new();
 		private readonly object _childrenLock = new();
@@ -28,10 +28,11 @@ namespace SharpConsoleUI.Controls
 		private int _contentWidth = 0;
 		private int _viewportHeight = 0;
 		private int _viewportWidth = 0;
-		private bool _hasFocus = false;
 		private bool _isEnabled = true;
 		private IInteractiveControl? _lastInternalFocusedChild = null;
 		private bool _focusFromBackward = false;
+		// When true, GetInitialFocus returns 'this' so SetFocus(panel) enters scroll mode directly.
+		private bool _enterScrollModeOnNextInitialFocus = false;
 
 		// Click target tracking for double-click consistency
 		private IWindowControl? _lastClickTarget = null;
@@ -65,6 +66,10 @@ namespace SharpConsoleUI.Controls
 		private Color _foregroundColor = Color.White;
 		private bool _isDirty = true;
 
+		// Set when ScrollChildIntoView is called before viewport is ready;
+		// PaintDOM defers the scroll until first valid render.
+		private bool _pendingScrollToFocused = false;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ScrollablePanelControl"/> class.
 		/// </summary>
@@ -87,16 +92,6 @@ namespace SharpConsoleUI.Controls
 		/// Event fired when the panel is scrolled.
 		/// </summary>
 		public event EventHandler<ScrollEventArgs>? Scrolled;
-
-		/// <summary>
-		/// Event fired when the control gains focus.
-		/// </summary>
-		public event EventHandler? GotFocus;
-
-		/// <summary>
-		/// Event fired when the control loses focus.
-		/// </summary>
-		public event EventHandler? LostFocus;
 
 		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <summary>
@@ -322,10 +317,7 @@ namespace SharpConsoleUI.Controls
 					base.Visible = value;
 
 					// If becoming invisible and we have focus, lose it
-					if (!Visible && _hasFocus)
-					{
-						SetFocus(false, FocusReason.Programmatic);
-					}
+					// (FocusManager will handle this automatically)
 				}
 			}
 		}
@@ -369,12 +361,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				// Use SetFocus to properly handle focus changes including child delegation
-				SetFocus(value, FocusReason.Programmatic);
-			}
+			// For containers, HasFocus means "this container or a descendant is focused"
+			// (i.e., is in the focus path). This preserves rendering/keyboard-routing semantics.
+			get => this.GetParentWindow()?.FocusManager.IsInFocusPath(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -385,68 +374,34 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets the currently focused child from the FocusCoordinator's focus path,
-		/// resolved to a direct child of this panel.
-		/// Returns null if no child is focused or the coordinator is not available.
+		/// Gets the currently focused child using FocusManager.
+		/// Returns the direct child that is focused or contains the focused control.
+		/// Uses FocusPath for ancestry detection to correctly handle transparent containers
+		/// like ColumnContainer that skip their HGrid parent in the Container chain.
 		/// </summary>
-		/// <remarks>
-		/// The coordinator's GetFocusedChild may return a control that is not a direct
-		/// child of this panel (e.g. a ColumnContainer whose Container property bypasses
-		/// the HorizontalGridControl via a fallback chain). This method resolves the
-		/// coordinator result to the actual direct child in _children, using the same
-		/// FindDirectChildContaining logic that NotifyChildFocusChanged uses.
-		/// </remarks>
 		private IInteractiveControl? GetFocusedChildFromCoordinator()
 		{
-			var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
-			var pathChild = coordinator?.GetFocusedChild(this) as IInteractiveControl;
-			if (pathChild == null) return null;
+			var window = (this as IWindowControl).GetParentWindow();
+			if (window == null) return null;
+			var focused = window.FocusManager.FocusedControl;
+			if (focused == null) return null;
 
-			// Check if pathChild is already a direct child
+			// FocusPath is built by FocusManager using ResolveParentWindowControl which correctly
+			// includes HGrid even though ColumnContainer.Container skips it.
+			var focusPath = window.FocusManager.FocusPath;
+
 			List<IWindowControl> snapshot;
 			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
-			if (pathChild is IWindowControl wc && snapshot.Contains(wc))
-				return pathChild;
 
-			// pathChild is not a direct child — find which direct child contains it
-			return FindDirectChildContaining(pathChild);
-		}
-
-		/// <summary>
-		/// Updates the coordinator's focus path by finding the deepest focused leaf
-		/// starting from the given control subtree. Call after focus delegation
-		/// (Tab navigation, SetFocus) to ensure the path reflects the actual leaf.
-		/// </summary>
-		private void UpdateCoordinatorFocusPath(IInteractiveControl? focusedChild)
-		{
-			if (focusedChild == null) return;
-			var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
-			if (coordinator == null) return;
-
-			// Find the deepest focused leaf inside the child (may be nested in containers)
-			var leaf = FindDeepestFocusedLeaf(focusedChild) ?? focusedChild;
-			if (leaf is IWindowControl leafWc)
-				coordinator.UpdateFocusPath(leafWc);
-		}
-
-		/// <summary>
-		/// Finds the deepest control with HasFocus=true inside a control hierarchy.
-		/// </summary>
-		private static IInteractiveControl? FindDeepestFocusedLeaf(IInteractiveControl control)
-		{
-			if (control is IContainerControl container)
+			foreach (var child in snapshot)
 			{
-				foreach (var child in container.GetChildren())
-				{
-					if (child is IInteractiveControl interactive)
-					{
-						var deeper = FindDeepestFocusedLeaf(interactive);
-						if (deeper != null)
-							return deeper;
-					}
-				}
+				if (ReferenceEquals(child, focused))
+					return focused as IInteractiveControl;
+				// Check if child is an ancestor of focused via the FocusPath
+				if (focusPath.Contains(child, ReferenceEqualityComparer.Instance))
+					return child as IInteractiveControl;
 			}
-			return control.HasFocus ? control : null;
+			return null;
 		}
 
 		#endregion
@@ -501,6 +456,87 @@ namespace SharpConsoleUI.Controls
 		public IReadOnlyList<IWindowControl> GetChildren()
 		{
 			lock (_childrenLock) { return new List<IWindowControl>(_children); }
+		}
+
+		#endregion
+
+		#region IFocusScope Implementation
+
+		/// <inheritdoc/>
+		public IFocusableControl? SavedFocus { get; set; }
+
+		/// <inheritdoc/>
+		public IFocusableControl? GetInitialFocus(bool backward)
+		{
+			// Self-sentinel: return 'this' so FocusManager focuses panel directly (scroll mode)
+			if (_enterScrollModeOnNextInitialFocus)
+			{
+				_enterScrollModeOnNextInitialFocus = false;
+				return this;
+			}
+			// SavedFocus is only used for forward entry (resume from where focus left off).
+			// Backward entry always goes to the last child for correct Shift+Tab behavior.
+			if (!backward && SavedFocus != null)
+			{
+				var saved = SavedFocus;
+				SavedFocus = null;
+				return saved;
+			}
+			SavedFocus = null;
+			var children = GetFocusableChildren();
+			return backward ? children.LastOrDefault() : children.FirstOrDefault();
+		}
+
+		/// <inheritdoc/>
+		public IFocusableControl? GetNextFocus(IFocusableControl current, bool backward)
+		{
+			var children = GetFocusableChildren();
+			var index = children.FindIndex(c => ReferenceEquals(c, current));
+			if (index < 0) return GetInitialFocus(backward);
+			var nextIndex = backward ? index - 1 : index + 1;
+			return (nextIndex >= 0 && nextIndex < children.Count) ? children[nextIndex] : null;
+		}
+
+		private List<IFocusableControl> GetFocusableChildren()
+		{
+			var result = new List<IFocusableControl>();
+			foreach (var child in GetChildren())
+			{
+				if (!child.Visible) continue;
+				if (child is IFocusableControl f)
+				{
+					// Include directly-focusable controls
+					if (f.CanReceiveFocus)
+					{
+						result.Add(f);
+					}
+					// Also include IFocusScope containers that have at least one focusable descendant
+					// (e.g. HGrid has CanReceiveFocus=false but delegates via GetInitialFocus).
+					// Use IContainerControl to check for focusable children without side effects.
+					else if (child is IFocusScope && child is IContainerControl container
+					         && HasAnyFocusableDescendant(container))
+					{
+						result.Add(f);
+					}
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// Returns true if the container has at least one focusable descendant (direct or nested).
+		/// </summary>
+		private static bool HasAnyFocusableDescendant(IContainerControl container)
+		{
+			foreach (var child in container.GetChildren())
+			{
+				if (!child.Visible) continue;
+				if (child is IFocusableControl f && f.CanReceiveFocus)
+					return true;
+				if (child is IContainerControl nested && HasAnyFocusableDescendant(nested))
+					return true;
+			}
+			return false;
 		}
 
 		#endregion

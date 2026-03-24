@@ -24,13 +24,12 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal toolbar control that contains buttons, separators, and other controls.
 	/// Supports Tab navigation between focusable items and Enter key activation of buttons.
 	/// </summary>
-	public class ToolbarControl : BaseControl, IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, IFocusTrackingContainer, ILogicalCursorProvider, ICursorShapeProvider
+	public class ToolbarControl : BaseControl, IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, ILogicalCursorProvider, ICursorShapeProvider, IFocusScope
 	{
 		private Color? _backgroundColorValue;
 		private IInteractiveControl? _focusedItem;
 		private Color? _foregroundColorValue;
 		private bool _isDirty;
-		private bool _hasFocus;
 		private int? _height = null;
 		private bool _isEnabled = true;
 		private readonly List<IWindowControl> _items = new();
@@ -118,37 +117,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				var hadFocus = _hasFocus;
-				_hasFocus = value;
-				OnPropertyChanged();
-
-				if (value && !hadFocus)
-				{
-					// Focus gained - focus first item
-					var focusableItems = GetFocusableItems().ToList();
-					if (focusableItems.Count > 0)
-					{
-						_focusedItem = focusableItems[0];
-						SetItemFocus(_focusedItem, true);
-					}
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				}
-				else if (!value && hadFocus)
-				{
-					// Focus lost - clear item focus
-					if (_focusedItem != null)
-					{
-						SetItemFocus(_focusedItem, false);
-						_focusedItem = null;
-					}
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-
-				Container?.Invalidate(true);
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <summary>
@@ -253,12 +222,6 @@ namespace SharpConsoleUI.Controls
 			get => _contentPadding;
 			set => SetProperty(ref _contentPadding, value);
 		}
-
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
@@ -411,7 +374,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !_hasFocus)
+			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				return false;
 
 			// First, let focused item handle the key (Enter, Space, etc.)
@@ -514,19 +477,6 @@ namespace SharpConsoleUI.Controls
 					_focusedItem = null;
 				}
 				Invalidate(true);
-			}
-		}
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			bool hadFocus = HasFocus;
-			HasFocus = focus;
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
 			}
 		}
 
@@ -667,33 +617,6 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		#region IFocusTrackingContainer Implementation
-
-		/// <inheritdoc/>
-		public void NotifyChildFocusChanged(IInteractiveControl child, bool hasFocus)
-		{
-			if (hasFocus)
-			{
-				if (_focusedItem != null && _focusedItem != child)
-					_focusedItem.HasFocus = false;
-
-				_focusedItem = child;
-
-				if (!_hasFocus)
-				{
-					_hasFocus = true;
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				}
-			}
-			else if (_focusedItem == child)
-			{
-				_focusedItem = null;
-			}
-
-			Container?.Invalidate(true);
-		}
-
-		#endregion
 
 		#region ILogicalCursorProvider / ICursorShapeProvider
 
@@ -735,7 +658,51 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		#region Private Methods
+		#region IFocusScope Implementation
+
+		/// <inheritdoc/>
+		public IFocusableControl? SavedFocus { get; set; }
+
+		/// <inheritdoc/>
+		public IFocusableControl? GetInitialFocus(bool backward)
+		{
+			if (SavedFocus != null)
+			{
+				var saved = SavedFocus;
+				SavedFocus = null;
+				return saved;
+			}
+			var focusable = GetScopeFocusableItems();
+			return backward ? focusable.LastOrDefault() : focusable.FirstOrDefault();
+		}
+
+		/// <inheritdoc/>
+		/// <remarks>
+		/// Always returns null — Tab always exits the toolbar immediately.
+		/// Arrow key navigation within the toolbar is handled by <see cref="ProcessKey"/>.
+		/// </remarks>
+		public IFocusableControl? GetNextFocus(IFocusableControl current, bool backward)
+		{
+			return null;
+		}
+
+		private List<IFocusableControl> GetScopeFocusableItems()
+		{
+			List<IWindowControl> snapshot;
+			lock (_toolbarLock) { snapshot = _items.ToList(); }
+			var result = new List<IFocusableControl>();
+			foreach (var item in snapshot)
+			{
+				if (!item.Visible) continue;
+				if (item is IFocusableControl f && f.CanReceiveFocus)
+					result.Add(f);
+			}
+			return result;
+		}
+
+		#endregion
+
+	#region Private Methods
 
 		/// <summary>
 		/// Computes the effective content area accounting for margins, content padding, and separator lines.
@@ -1029,11 +996,16 @@ namespace SharpConsoleUI.Controls
 		{
 			if (item is IFocusableControl focusable)
 			{
-				focusable.SetFocus(focus, FocusReason.Keyboard);
-			}
-			else
-			{
-				item.HasFocus = focus;
+				var window = this.GetParentWindow();
+				if (window != null)
+				{
+					if (focus)
+						window.FocusManager.SetFocus(focusable, FocusReason.Keyboard);
+					else if (window.FocusManager.IsFocused(focusable))
+						window.FocusManager.SetFocus(null, FocusReason.Keyboard);
+				}
+				else
+					(item as IWindowControl)?.Container?.Invalidate(true);
 			}
 		}
 

@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -223,12 +224,12 @@ namespace SharpConsoleUI.Controls
 				Color nodeBgColor;
 
 				var selectionBg = ColorResolver.ResolveTreeSelectionBackground(_highlightBackgroundColorValue, Container);
-				if (i == selectedIndex && _hasFocus)
+				if (i == selectedIndex && (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				{
 					textColor = HighlightForegroundColor;
 					nodeBgColor = selectionBg;
 				}
-				else if (i == _hoveredIndex && _hasFocus)
+				else if (i == _hoveredIndex && (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				{
 					// Hover highlight - subtle visual distinction
 					textColor = HighlightForegroundColor;
@@ -319,8 +320,8 @@ namespace SharpConsoleUI.Controls
 			// Draw scrollbar if needed
 			if (showScrollbar)
 			{
-				Color thumbColor = _hasFocus ? Color.Cyan1 : Color.Grey;
-				Color trackColor = _hasFocus ? Color.Grey : Color.Grey23;
+				Color thumbColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey;
+				Color trackColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Grey : Color.Grey23;
 				int scrollbarX = startX + contentWidth - 1;
 				ScrollbarHelper.DrawVerticalScrollbar(buffer, scrollbarX, startY, contentHeight,
 					snapshot.Count, effectiveMaxVisibleItems, scrollOffset, thumbColor, trackColor, bgColor);

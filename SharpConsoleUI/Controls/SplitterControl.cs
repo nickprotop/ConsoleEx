@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using System.Drawing;
@@ -27,12 +28,12 @@ namespace SharpConsoleUI.Controls
 		private Color? _backgroundColorValue;
 		private Color _borderColor = Color.White;
 		private IContainer? _container;
+		private Window? _subscribedWindow;
 		private Color? _draggingBackgroundColorValue;
 		private Color? _draggingForegroundColorValue;
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
-		private bool _hasFocus;
 		private bool _isDragging;
 		private bool _isEnabled = true;
 		private bool _isMouseDragging = false;
@@ -88,6 +89,24 @@ namespace SharpConsoleUI.Controls
 			{
 				_container = value;
 				Container?.Invalidate(true);
+				var newWindow = this.GetParentWindow();
+				if (!ReferenceEquals(newWindow, _subscribedWindow))
+				{
+					if (_subscribedWindow != null)
+						_subscribedWindow.FocusManager.FocusChanged -= OnFocusChanged;
+					_subscribedWindow = newWindow;
+					if (_subscribedWindow != null)
+						_subscribedWindow.FocusManager.FocusChanged += OnFocusChanged;
+				}
+			}
+		}
+
+		private void OnFocusChanged(object? sender, FocusChangedEventArgs e)
+		{
+			if (ReferenceEquals(e.Previous, this) && _isDragging)
+			{
+				_isDragging = false;
+				_isMouseDragging = false;
 			}
 		}
 
@@ -188,26 +207,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				if (_isDragging && !value) _isDragging = false;
-				var hadFocus = _hasFocus;
-				_hasFocus = value;
-
-
-				Container?.Invalidate(true);
-
-				// Fire focus events
-				if (value && !hadFocus)
-				{
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				}
-				else if (!value && hadFocus)
-				{
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <summary>
@@ -241,6 +241,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
+			if (_subscribedWindow != null)
+			{
+				_subscribedWindow.FocusManager.FocusChanged -= OnFocusChanged;
+				_subscribedWindow = null;
+			}
 		}
 
 		/// <inheritdoc/>
@@ -252,7 +257,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !_hasFocus)
+			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				return false;
 
 			bool handled = false;
@@ -328,7 +333,7 @@ namespace SharpConsoleUI.Controls
 				bgColor = DraggingBackgroundColor;
 				fgColor = DraggingForegroundColor;
 			}
-			else if (_hasFocus)
+			else if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
 			{
 				// Use focused colors when focused
 				bgColor = FocusedBackgroundColor;
@@ -490,32 +495,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			bool hadFocus = HasFocus;
-			HasFocus = focus;
-
-			// When focus is lost, exit drag mode
-			if (!focus && _isDragging)
-			{
-				_isDragging = false;
-				_isMouseDragging = false;
-				Container?.Invalidate(true);  // Force redraw with normal colors
-			}
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
-		}
 
 		/// <summary>
 		/// Moves the splitter by adjusting the widths of adjacent columns.

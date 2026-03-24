@@ -108,20 +108,10 @@ public sealed class TerminalControl
 
     // ── IInteractiveControl / IFocusableControl ──────────────────────────────
 
-    private bool _hasFocus;
-
     /// <inheritdoc/>
     public bool HasFocus
     {
-        get => _hasFocus;
-        set
-        {
-            if (_hasFocus == value) return;
-            _hasFocus = value;
-            if (value) GotFocus?.Invoke(this, EventArgs.Empty);
-            else       LostFocus?.Invoke(this, EventArgs.Empty);
-            Container?.Invalidate(true);
-        }
+        get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
     }
 
     /// <inheritdoc/>
@@ -129,22 +119,6 @@ public sealed class TerminalControl
 
     /// <inheritdoc/>
     public bool CanReceiveFocus => IsEnabled;
-
-    /// <inheritdoc/>
-    public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-    {
-        bool hadFocus = _hasFocus;
-        HasFocus = focus;
-        if (hadFocus != focus)
-            this.NotifyParentWindowOfFocusChange(focus);
-    }
-
-#pragma warning disable CS0067
-    /// <inheritdoc/>
-    public event EventHandler? GotFocus;
-    /// <inheritdoc/>
-    public event EventHandler? LostFocus;
-#pragma warning restore CS0067
 
     /// <inheritdoc/>
     public bool ProcessKey(ConsoleKeyInfo key)

@@ -38,7 +38,6 @@ namespace SharpConsoleUI.Controls
 		private int _focusedSegment;
 		private int _pendingDigit = -1;
 		private string _prompt;
-		private bool _hasFocus;
 		private bool _isEnabled = true;
 
 		// Color overrides
@@ -79,12 +78,6 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the selected time changes.
 		/// </summary>
 		public event EventHandler<TimeSpan?>? SelectedTimeChanged;
-
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
@@ -194,26 +187,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public bool HasFocus
+				public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				if (_hasFocus != value)
-				{
-					_hasFocus = value;
-					OnPropertyChanged();
-					Container?.Invalidate(true);
-
-					if (value)
-						GotFocus?.Invoke(this, EventArgs.Empty);
-					else
-					{
-						_pendingDigit = -1;
-						LostFocus?.Invoke(this, EventArgs.Empty);
-					}
-				}
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -226,7 +202,7 @@ namespace SharpConsoleUI.Controls
 		public bool CanFocusWithMouse => _isEnabled;
 
 		/// <inheritdoc/>
-		public CursorShape? PreferredCursorShape => _hasFocus ? CursorShape.Hidden : null;
+		public CursorShape? PreferredCursorShape => (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? CursorShape.Hidden : null;
 
 		/// <summary>
 		/// Gets or sets the background color.
@@ -440,14 +416,32 @@ namespace SharpConsoleUI.Controls
 
 		#region Focus
 
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			bool hadFocus = _hasFocus;
-			HasFocus = focus;
+		private Window? _subscribedWindow;
 
-			if (hadFocus != focus)
-				this.NotifyParentWindowOfFocusChange(focus);
+		/// <inheritdoc/>
+		public override IContainer? Container
+		{
+			get => base.Container;
+			set
+			{
+				base.Container = value;
+				// Subscribe to FocusManager.FocusChanged to clear _pendingDigit on focus loss
+				var newWindow = this.GetParentWindow();
+				if (!ReferenceEquals(newWindow, _subscribedWindow))
+				{
+					if (_subscribedWindow != null)
+						_subscribedWindow.FocusManager.FocusChanged -= OnFocusChanged;
+					_subscribedWindow = newWindow;
+					if (_subscribedWindow != null)
+						_subscribedWindow.FocusManager.FocusChanged += OnFocusChanged;
+				}
+			}
+		}
+
+		private void OnFocusChanged(object? sender, Core.FocusChangedEventArgs e)
+		{
+			if (ReferenceEquals(e.Previous, this))
+				_pendingDigit = -1;
 		}
 
 		#endregion
@@ -457,9 +451,12 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
+			if (_subscribedWindow != null)
+			{
+				_subscribedWindow.FocusManager.FocusChanged -= OnFocusChanged;
+				_subscribedWindow = null;
+			}
 			SelectedTimeChanged = null;
-			GotFocus = null;
-			LostFocus = null;
 			MouseClick = null;
 			MouseDoubleClick = null;
 			MouseRightClick = null;

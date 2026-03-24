@@ -45,7 +45,6 @@ namespace SharpConsoleUI.Controls
 		private double _minRange = ControlDefaults.RangeSliderDefaultMinRange;
 		private ActiveThumb _activeThumb = ActiveThumb.Low;
 		private SliderOrientation _orientation = SliderOrientation.Horizontal;
-		private bool _hasFocus;
 		private bool _isEnabled = true;
 		private bool _isDragging;
 		private bool _isMouseDragging;
@@ -93,12 +92,6 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when either value changes, providing both low and high.
 		/// </summary>
 		public event EventHandler<(double Low, double High)>? RangeChanged;
-
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
 
 		#pragma warning disable CS0067
 		/// <inheritdoc/>
@@ -368,25 +361,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public bool HasFocus
+				public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				if (_hasFocus == value) return;
-				_hasFocus = value;
-				OnPropertyChanged();
-				Container?.Invalidate(true);
-
-				if (value)
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				else
-				{
-					_isDragging = false;
-					_isMouseDragging = false;
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -434,18 +411,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
-		}
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			bool hadFocus = HasFocus;
-			HasFocus = focus;
-
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
 		}
 
 		#endregion

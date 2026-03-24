@@ -56,7 +56,6 @@ namespace SharpConsoleUI.Controls
 		private int _cachedDaysInMonth;
 		private int _cachedStartColumn;
 
-		private bool _hasFocus;
 		private bool _isEnabled = true;
 		private LayoutRect _lastLayoutBounds;
 		private int _lastContentWidth;
@@ -90,11 +89,6 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the selected date changes.
 		/// </summary>
 		public event EventHandler<DateTime?>? SelectedDateChanged;
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
-
 		#pragma warning disable CS0067, CS0414
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
@@ -253,18 +247,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public bool HasFocus
+				public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				if (_hasFocus != value)
-				{
-					_hasFocus = value;
-					OnPropertyChanged();
-					Container?.Invalidate(true);
-				}
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -503,30 +488,35 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		#region IFocusableControl
+		#region Focus side effects
+
+		private Window? _subscribedWindow;
 
 		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
+		public override IContainer? Container
 		{
-			bool hadFocus = _hasFocus;
-			HasFocus = focus;
-
-			if (focus && !hadFocus)
+			get => base.Container;
+			set
 			{
-				GotFocus?.Invoke(this, EventArgs.Empty);
+				base.Container = value;
+				var newWindow = this.GetParentWindow();
+				if (!ReferenceEquals(newWindow, _subscribedWindow))
+				{
+					if (_subscribedWindow != null)
+						_subscribedWindow.FocusManager.FocusChanged -= OnFocusChanged;
+					_subscribedWindow = newWindow;
+					if (_subscribedWindow != null)
+						_subscribedWindow.FocusManager.FocusChanged += OnFocusChanged;
+				}
 			}
-			else if (!focus && hadFocus)
+		}
+
+		private void OnFocusChanged(object? sender, Core.FocusChangedEventArgs e)
+		{
+			if (ReferenceEquals(e.Previous, this))
 			{
 				if (_isCalendarOpen) CloseCalendar();
 				_pendingDigit = -1;
-				LostFocus?.Invoke(this, EventArgs.Empty);
-			}
-
-			Container?.Invalidate(true);
-
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
 			}
 		}
 
@@ -546,9 +536,12 @@ namespace SharpConsoleUI.Controls
 		protected override void OnDisposing()
 		{
 			if (_isCalendarOpen) CloseCalendar();
+			if (_subscribedWindow != null)
+			{
+				_subscribedWindow.FocusManager.FocusChanged -= OnFocusChanged;
+				_subscribedWindow = null;
+			}
 			SelectedDateChanged = null;
-			GotFocus = null;
-			LostFocus = null;
 			MouseClick = null;
 			MouseDoubleClick = null;
 			MouseRightClick = null;

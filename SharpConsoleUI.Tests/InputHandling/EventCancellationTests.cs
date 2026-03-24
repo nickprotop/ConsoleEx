@@ -98,7 +98,7 @@ public class EventCancellationTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         bool clicked = false;
         button.Click += (s, e) => clicked = true;
@@ -151,7 +151,7 @@ public class EventCancellationTests
         window.AddControl(button2);
         window.AddControl(button3);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button1);
+        window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 
         // Tab should skip button2 (hidden)
         var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
@@ -195,7 +195,7 @@ public class EventCancellationTests
     //
     //    window.AddControl(textbox);
     //    system.WindowStateService.AddWindow(window);
-    //    system.FocusStateService.SetFocus(window, textbox);
+    //    window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
     //
     //    var originalText = textbox.Content;
     //
@@ -283,7 +283,7 @@ public class EventCancellationTests
 
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         // Queue event
         var enterKey = new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false);

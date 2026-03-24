@@ -40,7 +40,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
-		private bool _hasFocus = false;
 		private Color? _highlightBackgroundColorValue;
 		private Color? _highlightForegroundColorValue;
 		private bool _isEnabled = true;
@@ -319,24 +318,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				var hadFocus = _hasFocus;
-				_hasFocus = value;
-				OnPropertyChanged();
-				Container?.Invalidate(true);
-
-				// Fire focus events
-				if (value && !hadFocus)
-				{
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				}
-				else if (!value && hadFocus)
-				{
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <summary>
@@ -684,8 +666,6 @@ namespace SharpConsoleUI.Controls
 			ItemHovered = null;
 			MouseDoubleClick = null;
 			MouseRightClick = null;
-			GotFocus = null;
-			LostFocus = null;
 		}
 
 		#endregion
@@ -694,53 +674,6 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
-
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			var hadFocus = _hasFocus;
-			_hasFocus = focus;
-
-			if (focus && !hadFocus)
-			{
-				// Auto-select first item on focus gain if nothing is selected
-				if (_autoHighlightOnFocus && _isSelectable && _selectedIndex == -1 && _items.Count > 0)
-				{
-					_selectedIndex = 0;
-					SelectedIndexChanged?.Invoke(this, 0);
-					SelectedItemChanged?.Invoke(this, SelectedItem);
-					SelectedValueChanged?.Invoke(this, SelectedValue);
-					EnsureSelectedItemVisible();
-				}
-
-				GotFocus?.Invoke(this, EventArgs.Empty);
-			}
-			else if (!focus && hadFocus)
-			{
-				// Clear hover state
-				if (_hoveredIndex != -1)
-				{
-					_hoveredIndex = -1;
-					ItemHovered?.Invoke(this, -1);
-				}
-
-				LostFocus?.Invoke(this, EventArgs.Empty);
-			}
-
-			Container?.Invalidate(true);
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
-		}
 
 		#endregion
 	}

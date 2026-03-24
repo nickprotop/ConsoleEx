@@ -12,6 +12,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	public partial class ListControl
@@ -226,7 +227,7 @@ namespace SharpConsoleUI.Controls
 			if (mouseOnScrollbar && (args.HasFlag(MouseFlags.Button1Clicked) || args.HasFlag(MouseFlags.Button1Pressed)))
 			{
 				if (!HasFocus && CanFocusWithMouse)
-					SetFocus(true, FocusReason.Mouse);
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 				HandleScrollbarClick(args);
 				args.Handled = true;
 				return true;
@@ -238,7 +239,7 @@ namespace SharpConsoleUI.Controls
 				// Set focus on click
 				if (!HasFocus && CanFocusWithMouse)
 				{
-					SetFocus(true, FocusReason.Mouse);
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 				}
 
 				{

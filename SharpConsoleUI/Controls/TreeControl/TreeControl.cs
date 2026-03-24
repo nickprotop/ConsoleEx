@@ -34,7 +34,6 @@ namespace SharpConsoleUI.Controls
 		private readonly object _treeLock = new();
 		private Color? _foregroundColorValue;
 		private TreeGuide _guide = TreeGuide.Line;
-		private bool _hasFocus = false;
 		private int? _height;
 		private string _indent = "  ";
 		private bool _isEnabled = true;
@@ -147,24 +146,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				var hadFocus = _hasFocus;
-				_hasFocus = value;
-				OnPropertyChanged();
-				Container?.Invalidate(true);
-
-				// Fire focus events
-				if (value && !hadFocus)
-				{
-					GotFocus?.Invoke(this, EventArgs.Empty);
-				}
-				else if (!value && hadFocus)
-				{
-					LostFocus?.Invoke(this, EventArgs.Empty);
-				}
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <summary>
@@ -616,50 +598,5 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			var hadFocus = _hasFocus;
-			_hasFocus = focus;
-
-			// When gaining focus via keyboard/programmatic, scroll to show the selected node.
-			// For mouse focus, the user is clicking a specific item - don't touch the scroll.
-			if (focus && reason != FocusReason.Mouse)
-			{
-				lock (_treeLock)
-				{
-					// Check directly instead of using SelectedNode property (which also takes _treeLock)
-					int idx = CurrentSelectedIndex;
-					if (_flattenedNodes.Count > 0 && idx >= 0 && idx < _flattenedNodes.Count)
-					{
-						EnsureSelectedItemVisible();
-					}
-				}
-			}
-
-			Container?.Invalidate(true);
-
-			// Fire focus events
-			if (focus && !hadFocus)
-			{
-				GotFocus?.Invoke(this, EventArgs.Empty);
-			}
-			else if (!focus && hadFocus)
-			{
-				LostFocus?.Invoke(this, EventArgs.Empty);
-			}
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
-		}
 	}
 }

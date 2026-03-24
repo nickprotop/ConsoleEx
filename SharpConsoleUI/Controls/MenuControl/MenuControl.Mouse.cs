@@ -2,6 +2,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 
+using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls;
 
 public partial class MenuControl
@@ -134,7 +135,7 @@ public partial class MenuControl
             bool wasFocused = HasFocus;
             if (!HasFocus)
             {
-                SetFocus(true, FocusReason.Mouse);
+                this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
             }
 
             // If we just gained focus and clicked a top-level item with children, open it immediately

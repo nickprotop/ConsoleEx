@@ -34,7 +34,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;
-		private bool _hasFocus = false;
 		private Color? _highlightBackgroundColorValue;
 		private Color? _highlightForegroundColorValue;
 		private bool _isDropdownOpen = false;
@@ -154,12 +153,6 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<string?>? SelectedValueChanged;
 
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
-
 		#region IMouseAwareControl Events and Properties
 
 		#pragma warning disable CS0067  // Event never raised (interface requirement)
@@ -263,20 +256,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public bool HasFocus
+				public bool HasFocus
 		{
-			get => _hasFocus;
-			set
-			{
-				if (_hasFocus != value)
-				{
-					_hasFocus = value;
-					OnPropertyChanged();
-					// Note: Dropdown closing is handled by SetFocus(), not here
-					// to ensure proper portal cleanup via CloseDropdown()
-					Container?.Invalidate(true);
-				}
-			}
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <inheritdoc/>
@@ -589,36 +571,36 @@ namespace SharpConsoleUI.Controls
 			return new System.Drawing.Size(width, height);
 		}
 
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			var hadFocus = HasFocus;
-			HasFocus = focus;
+		private Window? _subscribedWindow;
 
-			if (focus && !hadFocus)
+		/// <inheritdoc/>
+		public override IContainer? Container
+		{
+			get => base.Container;
+			set
 			{
-				// Gaining focus
-				GotFocus?.Invoke(this, EventArgs.Empty);
+				base.Container = value;
+				var newWindow = this.GetParentWindow();
+				if (!ReferenceEquals(newWindow, _subscribedWindow))
+				{
+					if (_subscribedWindow != null)
+						_subscribedWindow.FocusManager.FocusChanged -= OnFocusChanged;
+					_subscribedWindow = newWindow;
+					if (_subscribedWindow != null)
+						_subscribedWindow.FocusManager.FocusChanged += OnFocusChanged;
+				}
 			}
-			else if (!focus && hadFocus)
+		}
+
+		private void OnFocusChanged(object? sender, Core.FocusChangedEventArgs e)
+		{
+			if (ReferenceEquals(e.Previous, this))
 			{
-				// Losing focus - close dropdown and clear mouse state
 				_mouseHoveredIndex = -1;
 				_isHeaderPressed = false;
-				_highlightedIndex = CurrentSelectedIndex; // Reset highlight to selection
+				_highlightedIndex = CurrentSelectedIndex;
 				if (_isDropdownOpen)
-				{
 					IsDropdownOpen = false;
-				}
-				LostFocus?.Invoke(this, EventArgs.Empty);
-			}
-
-			Container?.Invalidate(true);
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
 			}
 		}
 

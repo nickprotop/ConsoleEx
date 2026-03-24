@@ -72,7 +72,6 @@ namespace SharpConsoleUI
 		// State services
 		private readonly CursorStateService _cursorStateService;
 		private readonly WindowStateService _windowStateService;
-		private readonly FocusStateService _focusStateService;
 		private readonly ModalStateService _modalStateService;
 		private readonly ThemeStateService _themeStateService;
 		private readonly InputStateService _inputStateService;
@@ -190,7 +189,6 @@ namespace SharpConsoleUI
 
 			// Initialize state services BEFORE driver.Initialize() call
 			_cursorStateService = new CursorStateService(_consoleDriver);
-			_focusStateService = new FocusStateService(_logService);
 			_modalStateService = new ModalStateService(_logService);
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
@@ -212,7 +210,6 @@ namespace SharpConsoleUI
 				_logService,
 				() => this,
 				_modalStateService,
-				_focusStateService,
 				null, // Renderer not yet created
 				_consoleDriver);
 			// Initialize input coordinator (handles all mouse and keyboard input)
@@ -337,10 +334,6 @@ namespace SharpConsoleUI
 		/// </summary>
 		public WindowStateService WindowStateService => _windowStateService;
 
-		/// <summary>
-		/// Gets the focus state service for managing control focus within windows.
-		/// </summary>
-		public FocusStateService FocusStateService => _focusStateService;
 
 		/// <summary>
 		/// Gets the modal state service for managing modal window behavior.
@@ -864,8 +857,8 @@ namespace SharpConsoleUI
 					{
 						ownerControl = windowControl;
 
-							// Find the deepest focused control for cursor shape (e.g., PromptControl inside ScrollablePanel)
-						var deepestControl = ActiveWindow.FindDeepestFocusedControl(interactiveContent);
+							// Use FocusManager as the source of truth for the deepest focused control
+						var deepestControl = ActiveWindow.FocusManager.FocusedControl as IWindowControl;
 
 						// Check deepest control first, then fall back to top-level control
 						if (deepestControl is ICursorShapeProvider deepShapeProvider &&

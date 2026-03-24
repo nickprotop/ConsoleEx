@@ -34,8 +34,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     private DateTime _hoverStartTime = DateTime.MinValue;
     private MenuItem? _pendingSubmenuItem;         // Item awaiting hover delay to open submenu
 
-    // Focus state
-    private bool _hasFocus;
+
 
     // Mouse behavior constants (values in Configuration.ControlDefaults)
     private const int SubmenuHoverDelayMs = Configuration.ControlDefaults.MenuSubmenuHoverDelayMs;
@@ -298,71 +297,11 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// <inheritdoc/>
     public bool HasFocus
     {
-        get => _hasFocus;
-        set
-        {
-            _hasFocus = value;
-            OnPropertyChanged();
-            Container?.Invalidate(true);
-        }
+        get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
     }
 
     /// <inheritdoc/>
     public bool CanReceiveFocus => _enabled;
-
-    /// <inheritdoc/>
-    public event EventHandler? GotFocus;
-    /// <inheritdoc/>
-    public event EventHandler? LostFocus;
-
-    /// <inheritdoc/>
-    public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-    {
-        var hadFocus = HasFocus;
-        HasFocus = focus;
-
-        if (focus && !hadFocus)
-        {
-            // Clear hover state when gaining focus via keyboard
-            // (mouse focus will set _focusedItem properly in click handler)
-            if (reason == FocusReason.Keyboard || reason == FocusReason.Programmatic)
-            {
-                _hoveredItem = null;
-            }
-
-            // When gaining focus, focus first item if nothing focused
-            if (_focusedItem == null)
-            {
-                lock (_menuLock)
-                {
-                    if (_items.Count > 0)
-                        _focusedItem = _items.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled);
-                }
-            }
-            GotFocus?.Invoke(this, EventArgs.Empty);
-        }
-        else if (!focus && hadFocus)
-        {
-            // When losing focus, clear all item states and close menus
-            // Sticky only prevents closing on keyboard/programmatic focus loss, not mouse clicks
-            _hoveredItem = null;
-            _focusedItem = null;
-            _pressedItem = null;
-            if (!_isSticky || reason == FocusReason.Mouse)
-            {
-                CloseAllMenus();
-            }
-            LostFocus?.Invoke(this, EventArgs.Empty);
-        }
-
-        Container?.Invalidate(true);
-
-        // Notify parent Window if focus state actually changed
-        if (hadFocus != focus)
-        {
-            this.NotifyParentWindowOfFocusChange(focus);
-        }
-    }
 
     #endregion
 
@@ -545,7 +484,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// </summary>
     public void Focus()
     {
-        SetFocus(true, FocusReason.Programmatic);
+        this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Programmatic);
     }
 
     #endregion

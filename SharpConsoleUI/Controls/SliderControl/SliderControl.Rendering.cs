@@ -10,6 +10,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -303,7 +304,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (!_isEnabled) return Color.Grey;
 			if (_isDragging) return Color.Yellow;
-			if (_hasFocus) return FocusedThumbColor ?? Color.Yellow;
+			if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)) return FocusedThumbColor ?? Color.Yellow;
 			return ThumbColor ?? Color.White;
 		}
 

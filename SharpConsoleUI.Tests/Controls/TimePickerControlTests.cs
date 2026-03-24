@@ -7,7 +7,10 @@
 // -----------------------------------------------------------------------
 
 using System.Globalization;
+using SharpConsoleUI;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
+using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Controls;
@@ -27,16 +30,19 @@ public class TimePickerControlTests
 		return new ConsoleKeyInfo((char)('0' + digit), ConsoleKey.D0 + digit, false, false, false);
 	}
 
-	private static TimePickerControl CreateFocusedPicker(TimeSpan? time = null,
+	private static (TimePickerControl picker, Window window) CreateFocusedPicker(TimeSpan? time = null,
 		bool showSeconds = false, bool? use24Hour = null, CultureInfo? culture = null)
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
 		var picker = new TimePickerControl();
 		if (culture != null) picker.Culture = culture;
 		if (use24Hour.HasValue) picker.Use24HourFormat = use24Hour;
 		picker.ShowSeconds = showSeconds;
 		if (time.HasValue) picker.SelectedTime = time;
-		picker.HasFocus = true;
-		return picker;
+		window.AddControl(picker);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
+		return (picker, window);
 	}
 
 	#endregion
@@ -152,7 +158,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void RightArrow_MovesToNextSegment()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		// Initially on hour (segment 0), move to minute (segment 1)
 		bool handled = picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -163,7 +169,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void Tab_MovesToNextSegment()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		bool handled = picker.ProcessKey(Key(ConsoleKey.Tab));
 
@@ -173,7 +179,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void LeftArrow_MovesToPreviousSegment()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		// Move to segment 1 first
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -187,7 +193,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void ShiftTab_MovesToPreviousSegment()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		// Move to segment 1 first
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -202,7 +208,7 @@ public class TimePickerControlTests
 	public void RightArrow_AtLastSegment_ReturnsFalse()
 	{
 		// 24h no seconds = 2 segments (hour, min)
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		// Move to segment 1 (last in 24h, no seconds)
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -216,7 +222,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void LeftArrow_AtFirstSegment_ReturnsFalse()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		// Already on segment 0, can't go left
 		bool handled = picker.ProcessKey(Key(ConsoleKey.LeftArrow));
@@ -227,7 +233,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void Navigation_WithSeconds_ThreeNumericSegments()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 45), showSeconds: true, use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 45), showSeconds: true, use24Hour: true);
 
 		// Navigate through all 3 segments
 		Assert.True(picker.ProcessKey(Key(ConsoleKey.RightArrow))); // hour -> min
@@ -238,7 +244,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void Navigation_12HourWithSeconds_FourSegments()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 45), showSeconds: true, use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 45), showSeconds: true, use24Hour: false);
 
 		// Navigate: hour -> min -> sec -> AM/PM
 		Assert.True(picker.ProcessKey(Key(ConsoleKey.RightArrow)));
@@ -254,7 +260,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void UpArrow_IncrementsHour()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
 
@@ -264,7 +270,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void DownArrow_DecrementsHour()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.DownArrow));
 
@@ -274,7 +280,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void UpArrow_IncrementsMinute_WhenFocused()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		// Move to minute segment
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -286,7 +292,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void DownArrow_DecrementsMinute_WhenFocused()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
 		picker.ProcessKey(Key(ConsoleKey.DownArrow));
@@ -297,7 +303,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void UpArrow_IncrementsSecond_WhenFocused()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 45), showSeconds: true, use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 45), showSeconds: true, use24Hour: true);
 
 		// Move to second segment
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -310,7 +316,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void Hour24_WrapsFrom23To0()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(23, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(23, 0, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
 
@@ -320,7 +326,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void Hour24_WrapsFrom0To23()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.DownArrow));
 
@@ -330,7 +336,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void Minute_WrapsFrom59To0()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 59, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 59, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // focus minute
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -341,7 +347,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void Minute_WrapsFrom0To59()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // focus minute
 		picker.ProcessKey(Key(ConsoleKey.DownArrow));
@@ -352,7 +358,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void Second_WrapsFrom59To0()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 59), showSeconds: true, use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 59), showSeconds: true, use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // min
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // sec
@@ -365,7 +371,7 @@ public class TimePickerControlTests
 	public void AmPm_ToggleWithUpArrow()
 	{
 		// 10 AM
-		var picker = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: false);
 
 		// Navigate to AM/PM segment (segment 2 without seconds)
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // min
@@ -381,7 +387,7 @@ public class TimePickerControlTests
 	public void AmPm_ToggleWithDownArrow()
 	{
 		// 2 PM = 14:00
-		var picker = CreateFocusedPicker(new TimeSpan(14, 0, 0), use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(14, 0, 0), use24Hour: false);
 
 		// Navigate to AM/PM segment
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // min
@@ -400,7 +406,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void DigitEntry_TwoDigitHour_SetsValue()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
 
 		picker.ProcessKey(DigitKey(1)); // pending
 		picker.ProcessKey(DigitKey(4)); // commit -> 14
@@ -413,7 +419,7 @@ public class TimePickerControlTests
 	{
 		// In 24h mode, hour max is 23, maxTens = 2
 		// Digit 3 > 2, so it should commit immediately as 3
-		var picker = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
 
 		picker.ProcessKey(DigitKey(3));
 
@@ -423,7 +429,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void DigitEntry_MinuteSegment_TwoDigits()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: true);
 
 		// Focus minute segment
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -437,7 +443,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void DigitEntry_ExceedsMax_ClampedToMax()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
 
 		// Type 2 then 9 -> 29 exceeds hour max 23, should clamp to 23
 		picker.ProcessKey(DigitKey(2));
@@ -449,7 +455,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void DigitEntry_AutoAdvancesToNextSegment()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
 
 		// Type "14" for hour - should auto-advance to minute
 		picker.ProcessKey(DigitKey(1));
@@ -465,7 +471,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void DigitEntry_NonDigitChar_ReturnsFalse()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: true);
 
 		bool handled = picker.ProcessKey(new ConsoleKeyInfo('x', ConsoleKey.X, false, false, false));
 
@@ -476,7 +482,7 @@ public class TimePickerControlTests
 	public void DigitEntry_OnAmPmSegment_AKeySetsAm()
 	{
 		// Start at PM (14:00)
-		var picker = CreateFocusedPicker(new TimeSpan(14, 0, 0), use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(14, 0, 0), use24Hour: false);
 
 		// Navigate to AM/PM segment
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // min
@@ -492,7 +498,7 @@ public class TimePickerControlTests
 	public void DigitEntry_OnAmPmSegment_PKeySetspm()
 	{
 		// Start at AM (10:00)
-		var picker = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: false);
 
 		// Navigate to AM/PM segment
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // min
@@ -508,7 +514,7 @@ public class TimePickerControlTests
 	public void DigitEntry_OnAmPmSegment_AKeyWhenAlreadyAm_NoChange()
 	{
 		// Start at AM (10:00)
-		var picker = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: false);
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
 		picker.ProcessKey(Key(ConsoleKey.RightArrow));
@@ -547,7 +553,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void MinMax_SpinClampsAtBounds()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(17, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(17, 0, 0), use24Hour: true);
 		picker.MaxTime = new TimeSpan(17, 0, 0);
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow)); // try to go above max
@@ -636,39 +642,46 @@ public class TimePickerControlTests
 	[Fact]
 	public void HasFocus_Set_FiresGotFocus()
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
+		// Add a placeholder so it takes auto-focus, leaving picker unfocused
+		window.AddControl(new ButtonControl { Text = "Placeholder" });
 		var picker = new TimePickerControl();
-		bool gotFocusFired = false;
-		picker.GotFocus += (s, e) => gotFocusFired = true;
+		window.AddControl(picker);
 
-		picker.HasFocus = true;
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
 
-		Assert.True(gotFocusFired);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
+
+		Assert.NotNull(args);
+		Assert.Equal(picker, args!.Current);
 	}
 
 	[Fact]
 	public void HasFocus_Clear_FiresLostFocus()
 	{
-		var picker = new TimePickerControl();
-		picker.HasFocus = true;
+		var (picker, window) = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
 
-		bool lostFocusFired = false;
-		picker.LostFocus += (s, e) => lostFocusFired = true;
+		FocusChangedEventArgs? args = null;
+		window.FocusManager.FocusChanged += (_, e) => args = e;
 
-		picker.HasFocus = false;
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
-		Assert.True(lostFocusFired);
+		Assert.NotNull(args);
+		Assert.Null(args!.Current);
+		Assert.Equal(picker, args.Previous);
 	}
 
 	[Fact]
 	public void HasFocus_SameValue_DoesNotFireEvent()
 	{
-		var picker = new TimePickerControl();
-		picker.HasFocus = true;
+		var (picker, window) = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
 
 		int fireCount = 0;
-		picker.GotFocus += (s, e) => fireCount++;
+		window.FocusManager.FocusChanged += (_, e) => fireCount++;
 
-		picker.HasFocus = true; // same value
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic); // same focus
 
 		Assert.Equal(0, fireCount);
 	}
@@ -676,16 +689,16 @@ public class TimePickerControlTests
 	[Fact]
 	public void HasFocus_LostFocus_ClearsPendingDigit()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
+		var (picker, window) = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: true);
 
 		// Start digit entry
 		picker.ProcessKey(DigitKey(1)); // pending digit
 
-		// Lose focus
-		picker.HasFocus = false;
+		// Lose focus (triggers _pendingDigit = -1 side effect)
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
 		// Regain focus
-		picker.HasFocus = true;
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 
 		// Type another digit - should NOT combine with previous pending
 		picker.ProcessKey(DigitKey(5));
@@ -710,9 +723,12 @@ public class TimePickerControlTests
 	[Fact]
 	public void ProcessKey_WhenDisabled_ReturnsFalse()
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
 		var picker = new TimePickerControl();
 		picker.SelectedTime = new TimeSpan(10, 0, 0);
-		picker.HasFocus = true;
+		window.AddControl(picker);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 		picker.IsEnabled = false;
 
 		bool handled = picker.ProcessKey(Key(ConsoleKey.UpArrow));
@@ -739,7 +755,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void SelectedTimeChanged_FiresOnSpinChange()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 0, 0), use24Hour: true);
 
 		TimeSpan? eventValue = null;
 		picker.SelectedTimeChanged += (s, e) => eventValue = e;
@@ -833,7 +849,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void HomeKey_SetsSegmentToMinValue()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(15, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(15, 30, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.Home));
 
@@ -843,7 +859,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void EndKey_SetsSegmentToMaxValue()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(15, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(15, 30, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.End));
 
@@ -853,7 +869,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void HomeKey_OnMinuteSegment()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(15, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(15, 30, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // focus minute
 		picker.ProcessKey(Key(ConsoleKey.Home));
@@ -864,7 +880,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void EndKey_OnMinuteSegment()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(15, 30, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(15, 30, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // focus minute
 		picker.ProcessKey(Key(ConsoleKey.End));
@@ -879,7 +895,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void PageUp_IncrementsBy10()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(5, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(5, 0, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.PageUp));
 
@@ -889,7 +905,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void PageDown_DecrementsBy10()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(15, 0, 0), use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(15, 0, 0), use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.PageDown));
 
@@ -904,7 +920,7 @@ public class TimePickerControlTests
 	public void Hour12_DisplaysCorrectRange()
 	{
 		// In 12h mode, hour wraps 1-12
-		var picker = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(0, 0, 0), use24Hour: false);
 
 		// Hour 0 in 24h = 12 AM in 12h
 		// Pressing up from 12 should wrap to 1
@@ -919,7 +935,7 @@ public class TimePickerControlTests
 	public void Hour12_Wraps12To1()
 	{
 		// 12 PM = 12:00
-		var picker = CreateFocusedPicker(new TimeSpan(12, 0, 0), use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(12, 0, 0), use24Hour: false);
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
 
@@ -931,7 +947,7 @@ public class TimePickerControlTests
 	public void Hour12_Wraps1To12()
 	{
 		// 1 PM = 13:00
-		var picker = CreateFocusedPicker(new TimeSpan(13, 0, 0), use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(13, 0, 0), use24Hour: false);
 
 		picker.ProcessKey(Key(ConsoleKey.DownArrow));
 
@@ -946,9 +962,12 @@ public class TimePickerControlTests
 	[Fact]
 	public void SetFocus_True_SetsHasFocus()
 	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
 		var picker = new TimePickerControl();
+		window.AddControl(picker);
 
-		picker.SetFocus(true);
+		window.FocusManager.SetFocus(picker, FocusReason.Programmatic);
 
 		Assert.True(picker.HasFocus);
 	}
@@ -956,10 +975,9 @@ public class TimePickerControlTests
 	[Fact]
 	public void SetFocus_False_ClearsHasFocus()
 	{
-		var picker = new TimePickerControl();
-		picker.HasFocus = true;
+		var (picker, window) = CreateFocusedPicker();
 
-		picker.SetFocus(false);
+		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
 		Assert.False(picker.HasFocus);
 	}
@@ -971,7 +989,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void NullSelectedTime_SpinCreatesTimeFromZero()
 	{
-		var picker = CreateFocusedPicker(time: null, use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(time: null, use24Hour: true);
 
 		picker.ProcessKey(Key(ConsoleKey.UpArrow));
 
@@ -982,7 +1000,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void DigitEntry_IntoSecondSegment()
 	{
-		var picker = CreateFocusedPicker(new TimeSpan(10, 30, 0), showSeconds: true, use24Hour: true);
+		var (picker, _) = CreateFocusedPicker(new TimeSpan(10, 30, 0), showSeconds: true, use24Hour: true);
 
 		// Navigate to seconds
 		picker.ProcessKey(Key(ConsoleKey.RightArrow)); // min
@@ -1014,7 +1032,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void DigitEntry_12HourMode_Hour13_ClampsTo12()
 	{
-		var picker = CreateFocusedPicker(time: new TimeSpan(1, 0, 0), use24Hour: false);
+		var (picker, _) = CreateFocusedPicker(time: new TimeSpan(1, 0, 0), use24Hour: false);
 
 		// Type "1" then "3" into the hour segment
 		picker.ProcessKey(DigitKey(1));
@@ -1028,7 +1046,7 @@ public class TimePickerControlTests
 	public void MinTime_EqualToMaxTime_ClampsExactly()
 	{
 		var onlyTime = new TimeSpan(14, 30, 0);
-		var picker = CreateFocusedPicker();
+		var (picker, _) = CreateFocusedPicker();
 		picker.MinTime = onlyTime;
 		picker.MaxTime = onlyTime;
 
@@ -1042,7 +1060,7 @@ public class TimePickerControlTests
 	[Fact]
 	public void ProcessKey_WhenDisabled_ReturnsFalse_EdgeCase()
 	{
-		var picker = CreateFocusedPicker();
+		var (picker, _) = CreateFocusedPicker();
 		picker.IsEnabled = false;
 
 		var result = picker.ProcessKey(Key(ConsoleKey.RightArrow));

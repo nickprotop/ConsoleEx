@@ -20,9 +20,9 @@ namespace SharpConsoleUI.Controls
 		{
 			var log = GetConsoleWindowSystem?.LogService;
 			var focusedChild = GetFocusedChildFromCoordinator();
-			log?.LogTrace($"ScrollPanel.ProcessKey({key.Key}): _hasFocus={_hasFocus} _isEnabled={_isEnabled} focusedChild={focusedChild?.GetType().Name ?? "null"} focusedChild.HasFocus={(focusedChild as IFocusableControl)?.HasFocus}", "Focus");
+			log?.LogTrace($"ScrollPanel.ProcessKey({key.Key}): HasFocus={HasFocus} _isEnabled={_isEnabled} focusedChild={focusedChild?.GetType().Name ?? "null"}", "Focus");
 
-			if (!_hasFocus || !_isEnabled) return false;
+			if (!HasFocus || !_isEnabled) return false;
 
 			// FIRST: Delegate to focused child if we have one
 			if (focusedChild != null && focusedChild.ProcessKey(key))
@@ -38,26 +38,38 @@ namespace SharpConsoleUI.Controls
 			// Re-read after delegation — child's ProcessKey may have changed focus
 			focusedChild = GetFocusedChildFromCoordinator();
 
-			// Handle Escape: unfocus child, enter scroll mode (panel stays focused)
-			if (key.Key == ConsoleKey.Escape && focusedChild != null)
+			// Handle Escape: save focused child and transfer focus to panel itself (scroll mode)
+			if (key.Key == ConsoleKey.Escape)
 			{
-				log?.LogTrace($"ScrollPanel.ProcessKey: Escape → unfocusing child {focusedChild.GetType().Name}, entering scroll mode", "Focus");
-				_lastInternalFocusedChild = focusedChild;
-				if (focusedChild is IFocusableControl escapeFc)
-					escapeFc.SetFocus(false, FocusReason.Programmatic);
-				// Update path so SPC is the leaf (no focused child)
-				var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
-				coordinator?.UpdateFocusPath(this);
-				Container?.Invalidate(true);
-				return true;
-			}
+				var parentWindow = (this as IWindowControl).GetParentWindow();
+				var managed = parentWindow?.FocusManager.FocusedControl;
+				// A child is focused if FocusManager tracks a non-self child, or (legacy path) focusedChild from coordinator is non-null
+				var childIsFocused = (managed != null && !ReferenceEquals(managed, this)) || focusedChild != null;
+				if (childIsFocused)
+				{
+					log?.LogTrace($"ScrollPanel.ProcessKey: Escape → saving child focus, moving focus to panel", "Focus");
+					// Save the child for restoration (SavedFocus for FocusScope protocol, _lastInternalFocusedChild for Tab restore)
+					var childToSave = managed ?? (focusedChild as IFocusableControl);
+					SavedFocus = childToSave;
+					_lastInternalFocusedChild = focusedChild ?? (managed as IInteractiveControl);
 
-			// Handle Escape in scroll mode (no child focused): let it propagate to unfocus panel
-			if (key.Key == ConsoleKey.Escape && focusedChild == null)
-			{
+					if (parentWindow != null && managed != null)
+					{
+						// Set scroll mode flag so GetInitialFocus returns 'this' (self-sentinel),
+						// causing FocusManager.SetFocus(panel) to focus panel directly.
+						_enterScrollModeOnNextInitialFocus = true;
+						parentWindow.FocusManager.SetFocus(this, FocusReason.Keyboard);
+					}
+					else
+					{
+						// Legacy path: manually unfocus child and keep panel focused
+						Container?.Invalidate(true);
+					}
+					return true;
+				}
 				log?.LogTrace("ScrollPanel.ProcessKey: Escape in scroll mode → propagating to parent", "Focus");
 				_lastInternalFocusedChild = null;
-				return false; // Let parent handle (will unfocus panel)
+				return false;
 			}
 
 			// SECOND: Handle Tab navigation through children
@@ -72,9 +84,7 @@ namespace SharpConsoleUI.Controls
 					var restoreChild = _lastInternalFocusedChild;
 					_lastInternalFocusedChild = null;
 					if (restoreChild is IFocusableControl restoreFc)
-						restoreFc.SetFocus(true, FocusReason.Keyboard);
-					// Update coordinator path with the actual focused leaf
-					UpdateCoordinatorFocusPath(restoreChild);
+						(this as IWindowControl).GetParentWindow()?.FocusManager.SetFocus(restoreFc, FocusReason.Keyboard);
 					if (restoreChild is IWindowControl focusedWindow)
 						ScrollChildIntoView(focusedWindow);
 					Container?.Invalidate(true);
@@ -90,19 +100,32 @@ namespace SharpConsoleUI.Controls
 
 				if (focusableChildren.Count > 0)
 				{
+					// In sentinel scroll mode (panel itself is FocusManager's focused control and
+					// no child is internally focused), Shift+Tab should exit the panel so the
+					// caller can switch to the previous sibling (e.g. NavigationView nav pane).
+					if (shiftPressed && focusedChild == null && _lastInternalFocusedChild == null)
+					{
+						var parentWindow2 = (this as IWindowControl).GetParentWindow();
+						if (parentWindow2?.FocusManager.IsFocused(this) == true)
+							return false; // Exit panel backward
+					}
+
 					// Use saved reference as fallback — focusedChild may be null if the
 					// coordinator path was cleared by a child's Tab exit notification chain
 					var effectiveFocused = focusedChild ?? focusedChildBeforeDelegate;
 
-					var coordinator = (this as IWindowControl).GetParentWindow()?.FocusCoord;
-					var newChild = coordinator != null
-						? coordinator.TabThroughChildren(focusableChildren, effectiveFocused, shiftPressed)
-						: Core.FocusCoordinator.AdvanceTabFocus(focusableChildren, effectiveFocused, shiftPressed);
+					// Advance Tab focus within this container's children via FocusManager
+					var newChild = AdvanceFocusInChildren(focusableChildren, effectiveFocused, shiftPressed);
 					if (newChild == null)
+					{
+						// Tab exited the container: clear focus from children so the parent
+						// can correctly determine that focus has left this container.
+						var parentWindow3 = (this as IWindowControl).GetParentWindow();
+						parentWindow3?.FocusManager.SetFocus(null, FocusReason.Keyboard);
 						return false; // Exit container — let Tab propagate to parent
+					}
 
 					// Ensure panel stays focused (notification chain may have cleared it)
-					_hasFocus = true;
 
 					// Scroll newly focused child into view
 					if (newChild is IWindowControl scrollTarget)
@@ -189,6 +212,74 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Advances Tab focus within a list of the panel's focusable children.
+		/// Finds the next or previous child after <paramref name="currentFocused"/>,
+		/// sets focus via FocusManager, and returns the new child.
+		/// Returns null when the Tab key should exit this container.
+		/// </summary>
+		private IInteractiveControl? AdvanceFocusInChildren(
+			IReadOnlyList<IInteractiveControl> children,
+			IInteractiveControl? currentFocused,
+			bool backward)
+		{
+			if (children.Count == 0) return null;
+
+			// Find current index
+			int currentIndex = -1;
+			if (currentFocused != null)
+			{
+				for (int i = 0; i < children.Count; i++)
+				{
+					if (ReferenceEquals(children[i], currentFocused))
+					{
+						currentIndex = i;
+						break;
+					}
+				}
+			}
+
+			// Compute next index; null signals container exit
+			int newIndex;
+			if (currentIndex == -1)
+			{
+				newIndex = backward ? children.Count - 1 : 0;
+			}
+			else if (backward)
+			{
+				newIndex = currentIndex - 1;
+				if (newIndex < 0) return null; // Exit container backward
+			}
+			else
+			{
+				newIndex = currentIndex + 1;
+				if (newIndex >= children.Count) return null; // Exit container forward
+			}
+
+			var newChild = children[newIndex];
+
+			// Set focus via FocusManager — this fires FocusChanged and updates all subscribers.
+			// For transparent IFocusScope containers (CanReceiveFocus=false, e.g. HGrid),
+			// SetFocus silently rejects the control; enter the scope manually via GetInitialFocus.
+			var window = (this as IWindowControl).GetParentWindow();
+			if (newChild is IFocusableControl newFc)
+			{
+				if (newFc.CanReceiveFocus)
+				{
+					window?.FocusManager.SetFocus(newFc, FocusReason.Keyboard);
+				}
+				else if (newChild is IFocusScope transparentScope)
+				{
+					// Transparent scope: enter it directly
+					var firstChild = transparentScope.GetInitialFocus(backward);
+					if (firstChild != null)
+						window?.FocusManager.SetFocus(firstChild, FocusReason.Keyboard);
+				}
+			}
+
+			return newChild;
+		}
+
+		/// <summary>
 		/// Determines if a child control can receive focus, either directly
 		/// or because it's a container with focusable descendants (e.g. HorizontalGrid).
 		/// </summary>
@@ -218,6 +309,14 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		/// <summary>
+		/// When true, forces <see cref="CanReceiveFocus"/> to return true regardless of
+		/// whether the panel has scrollable content or focusable children.
+		/// Use this when the panel must be focusable as a scroll/container target even
+		/// when its children are non-interactive (e.g., the NavigationView nav pane).
+		/// </summary>
+		public bool ForceReceiveFocus { get; set; }
+
+		/// <summary>
 		/// ScrollablePanel is focusable when it has anything to interact with:
 		/// either scrollable content or focusable children. The panel acts as an
 		/// opaque focus container — it owns its children's focus lifecycle entirely.
@@ -227,6 +326,7 @@ namespace SharpConsoleUI.Controls
 			get
 			{
 				if (!Visible || !_isEnabled) return false;
+				if (ForceReceiveFocus) return true;
 
 				bool needsScrolling = NeedsScrolling();
 				bool hasFocusableChildren = HasFocusableChildren();
@@ -238,99 +338,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void SetFocusWithDirection(bool focus, bool backward)
-		{
-			_focusFromBackward = backward;
-			SetFocus(focus, FocusReason.Keyboard);
-		}
-
-		/// <inheritdoc/>
 		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
 		{
-			var log = GetConsoleWindowSystem?.LogService;
-			var focusedChild = GetFocusedChildFromCoordinator();
-			log?.LogTrace($"ScrollPanel.SetFocus({focus}, {reason}): _hasFocus={_hasFocus} focusedChild={focusedChild?.GetType().Name ?? "null"}", "Focus");
-
-			if (_hasFocus == focus) return;
-
-			var hadFocus = _hasFocus;
-			_hasFocus = focus;
-
-			if (focus)
-			{
-				// Getting focus - find first/last focusable child if we have any
-				List<IWindowControl> childrenSnap;
-				lock (_childrenLock) { childrenSnap = new List<IWindowControl>(_children); }
-				var focusableChildren = childrenSnap
-					.Where(c => c.Visible && c is IInteractiveControl && CanChildReceiveFocus(c))
-					.ToList();
-
-				if (focusableChildren.Any())
-				{
-					// If the viewport has been laid out and content overflows, enter scroll
-					// mode first so the user can browse with arrow keys before pressing Tab
-					// to focus the first child. Only for forward entry — backward entry should
-					// focus the last child directly (user came from a control after this panel).
-					if (_viewportHeight > 0 && NeedsScrolling() && !_focusFromBackward)
-					{
-						log?.LogTrace("ScrollPanel.SetFocus: needs scrolling, entering scroll mode (focusable children available via Tab)", "Focus");
-					}
-					else
-					{
-						// Content fits in viewport (or layout not yet computed) — delegate focus to child immediately.
-						var initialChild = (_focusFromBackward
-							? focusableChildren.Last()
-							: focusableChildren.First()) as IInteractiveControl;
-
-						log?.LogTrace($"ScrollPanel.SetFocus: delegating to child {initialChild?.GetType().Name} (backward={_focusFromBackward})", "Focus");
-
-						if (initialChild is IFocusableControl fc)
-						{
-							if (initialChild is IDirectionalFocusControl dfc)
-								dfc.SetFocusWithDirection(true, _focusFromBackward);
-							else
-								fc.SetFocus(true, reason);
-						}
-
-						// Ensure panel stays focused (notification chain may have cleared it)
-						_hasFocus = true;
-
-						// Update coordinator path with the actual focused leaf
-						UpdateCoordinatorFocusPath(initialChild);
-
-						// Scroll the focused child into view
-						if (initialChild is IWindowControl focusedWc)
-							ScrollChildIntoView(focusedWc);
-					}
-				}
-				else
-				{
-					log?.LogTrace("ScrollPanel.SetFocus: no focusable children, panel focused for scrolling", "Focus");
-				}
-
-				GotFocus?.Invoke(this, EventArgs.Empty);
-			}
-			else
-			{
-				// Losing focus - unfocus any focused child
-				focusedChild = GetFocusedChildFromCoordinator();
-				if (focusedChild != null && focusedChild is IFocusableControl fc)
-				{
-					log?.LogTrace($"ScrollPanel.SetFocus(false): unfocusing child {focusedChild.GetType().Name}", "Focus");
-					fc.SetFocus(false, reason);
-				}
-				_lastInternalFocusedChild = null;
-
-				LostFocus?.Invoke(this, EventArgs.Empty);
-			}
-
 			Container?.Invalidate(true);
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
 		}
 
 		#endregion

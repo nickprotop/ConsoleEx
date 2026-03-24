@@ -166,7 +166,7 @@ public class ShortcutsTests
         window.AddControl(button2);
         window.AddControl(button3);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button1);
+        window.FocusManager.SetFocus(button1, FocusReason.Programmatic);
 
         var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 
@@ -199,7 +199,7 @@ public class ShortcutsTests
         window.AddControl(button2);
         window.AddControl(button3);
         system.WindowStateService.AddWindow(window);
-        system.FocusStateService.SetFocus(window, button3);
+        window.FocusManager.SetFocus(button3, FocusReason.Programmatic);
 
         var shiftTab = new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, false);
 
@@ -246,7 +246,7 @@ public class ShortcutsTests
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         bool clicked = false;
         button.Click += (s, e) => clicked = true;
@@ -268,7 +268,7 @@ public class ShortcutsTests
         window.AddControl(button);
         system.WindowStateService.AddWindow(window);
         system.WindowStateService.SetActiveWindow(window);
-        system.FocusStateService.SetFocus(window, button);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
 
         bool clicked = false;
         button.Click += (s, e) => clicked = true;
@@ -396,7 +396,7 @@ public class ShortcutsTests
     //
     //    window.AddControl(textbox);
     //    system.WindowStateService.AddWindow(window);
-    //    system.FocusStateService.SetFocus(window, textbox);
+    //    window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
     //
     //    // Select all
     //    textbox.SelectAll();
@@ -418,7 +418,7 @@ public class ShortcutsTests
     //
     //    window.AddControl(textbox);
     //    system.WindowStateService.AddWindow(window);
-    //    system.FocusStateService.SetFocus(window, textbox);
+    //    window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
     //
     //    var ctrlV = new ConsoleKeyInfo('v', ConsoleKey.V, false, false, true);
     //    system.InputStateService.EnqueueKey(ctrlV);

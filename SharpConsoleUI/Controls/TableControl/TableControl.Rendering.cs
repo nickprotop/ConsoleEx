@@ -10,6 +10,7 @@ using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls;
 
@@ -715,7 +716,7 @@ public partial class TableControl
 
 			if (isRowSel)
 			{
-				if (_hasFocus)
+				if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
 				{
 					effectiveRowBg = selBg;
 					effectiveRowFg = selFg;
@@ -744,7 +745,7 @@ public partial class TableControl
 			if (_cellNavigationEnabled && displayR == _selectedRowIndex && _selectedColumnIndex >= 0)
 			{
 				selectedCell = _selectedColumnIndex;
-				cellHighlightBg = _hasFocus ? Color.Cyan1 : Color.Grey50;
+				cellHighlightBg = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey50;
 				cellHighlightFg = Color.Black;
 			}
 

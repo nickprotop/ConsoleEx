@@ -13,9 +13,6 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public interface IInteractiveControl
 	{
-		/// <summary>Gets or sets whether this control currently has keyboard focus.</summary>
-		bool HasFocus { get; set; }
-
 		/// <summary>Gets or sets whether this control is enabled and can receive input.</summary>
 		bool IsEnabled { get; set; }
 

@@ -448,42 +448,5 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
-
-		#region IFocusableControl
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			var hadFocus = _hasFocus;
-			_hasFocus = focus;
-
-			// Enter edit mode when focused with mouse
-			if (focus && !hadFocus && reason == FocusReason.Mouse && !_readOnly)
-			{
-				IsEditing = true;
-			}
-
-			// Exit edit mode when losing focus
-			if (!focus && hadFocus && _isEditing)
-			{
-				IsEditing = false;
-			}
-
-			Container?.Invalidate(true);
-
-			// Fire focus events
-			if (focus && !hadFocus)
-				GotFocus?.Invoke(this, EventArgs.Empty);
-			else if (!focus && hadFocus)
-				LostFocus?.Invoke(this, EventArgs.Empty);
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
-		}
-
-		#endregion
 	}
 }

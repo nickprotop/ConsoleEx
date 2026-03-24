@@ -500,28 +500,23 @@ namespace SharpConsoleUI
 			// Invalidate window to redraw border with new active/inactive colors
 			Invalidate(false);  // Border-only invalidation (redrawAll=false)
 
-		if (_lastFocusedControl != null)
+		var currentFocus = FocusManager.FocusedControl;
+		if (value)
+		{
+			if (_savedFocusOnDeactivate != null)
 			{
-				if (value)
-				{
-					// Re-focus the last focused control through coordinator
-					var target = _lastDeepFocusedControl as IWindowControl ?? _lastFocusedControl as IWindowControl;
-					FocusCoord?.RequestFocus(target, Controls.FocusReason.Programmatic);
-				}
-				else
-				{
-					// Clear focus through coordinator (preserves _lastFocusedControl for reactivation)
-					// Must save and restore _lastFocusedControl since ClearFocus clears it
-					var savedFocused = _lastFocusedControl;
-					var savedDeep = _lastDeepFocusedControl;
-					FocusCoord?.ClearFocus(Controls.FocusReason.Programmatic);
-					_lastFocusedControl = savedFocused;
-					_lastDeepFocusedControl = savedDeep;
-					// Sync FocusStateService for window-level deactivation
-					FocusService?.ClearFocus(this, FocusChangeReason.WindowActivation);
-				}
+				// Re-activate: restore focus to the saved control
+				FocusManager.SetFocus(_savedFocusOnDeactivate, Controls.FocusReason.Programmatic);
+				_savedFocusOnDeactivate = null;
 			}
 		}
+		else if (currentFocus != null)
+		{
+			// Deactivate: save current focus and clear it
+			_savedFocusOnDeactivate = currentFocus;
+			FocusManager.SetFocus(null, Controls.FocusReason.Programmatic);
+		}
+	}
 
 		/// <summary>
 		/// Sets the position of the window.
@@ -589,6 +584,10 @@ namespace SharpConsoleUI
 		public void WindowIsAdded()
 		{
 			OnShown?.Invoke(this, EventArgs.Empty);
+
+			// Auto-focus the first control when the window is added to the system
+			if (FocusManager.FocusedControl == null)
+				FocusManager.MoveFocus(false);
 		}
 
 		/// <summary>

@@ -1,3 +1,4 @@
+using SharpConsoleUI.Extensions;
 // -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
@@ -13,7 +14,7 @@ public partial class TableControl
 	/// <inheritdoc/>
 	public bool ProcessKey(ConsoleKeyInfo key)
 	{
-		if (!_isEnabled || !_hasFocus)
+		if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 			return false;
 
 		// Handle filter typing mode

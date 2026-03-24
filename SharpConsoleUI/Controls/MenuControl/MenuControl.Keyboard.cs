@@ -1,3 +1,5 @@
+using SharpConsoleUI.Extensions;
+
 namespace SharpConsoleUI.Controls;
 
 public partial class MenuControl
@@ -7,7 +9,7 @@ public partial class MenuControl
     /// <inheritdoc/>
     public bool ProcessKey(ConsoleKeyInfo key)
     {
-        if (!_enabled || !_hasFocus)
+        if (!_enabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
             return false;
 
         bool isInSubmenu = _openDropdowns.Count > 1;
@@ -119,7 +121,7 @@ public partial class MenuControl
                 else
                 {
                     // Unfocus menu
-                    SetFocus(false, FocusReason.Keyboard);
+                    this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
                     return true;
                 }
 
@@ -204,7 +206,7 @@ public partial class MenuControl
                 }
                 else
                 {
-                    SetFocus(false, FocusReason.Keyboard);
+                    this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
                     return true;
                 }
 

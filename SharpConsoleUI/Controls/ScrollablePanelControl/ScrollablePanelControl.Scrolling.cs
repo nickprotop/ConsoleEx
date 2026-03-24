@@ -23,7 +23,11 @@ namespace SharpConsoleUI.Controls
 		{
 			// Skip if viewport hasn't been laid out yet (no dimensions to scroll within)
 			if (_viewportWidth <= 0 || _viewportHeight <= 0)
+			{
+				// Mark as pending — PaintDOM will call ScrollChildIntoView on first valid render
+				_pendingScrollToFocused = true;
 				return;
+			}
 
 			List<IWindowControl> snapshot;
 			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }

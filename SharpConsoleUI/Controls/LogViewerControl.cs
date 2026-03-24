@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
@@ -33,7 +34,6 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
     private readonly ConcurrentQueue<LogEntry> _pendingEntries = new();
     private volatile bool _pendingClear = false;
 
-    private bool _hasFocus;
     private LogLevel _filterLevel = LogLevel.Trace;
     private string? _filterCategory;
     private string? _title;
@@ -71,16 +71,6 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
     }
 
     #region Events
-
-    /// <summary>
-    /// Event fired when the control gains focus.
-    /// </summary>
-    public event EventHandler? GotFocus;
-
-    /// <summary>
-    /// Event fired when the control loses focus.
-    /// </summary>
-    public event EventHandler? LostFocus;
 
     #pragma warning disable CS0067  // Event never raised (interface requirement)
     /// <summary>
@@ -149,11 +139,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
     /// <inheritdoc/>
     public bool HasFocus
     {
-        get => _hasFocus;
-        set
-        {
-            SetFocus(value, FocusReason.Programmatic);
-        }
+        get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
     }
 
     /// <inheritdoc/>
@@ -262,29 +248,6 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 
     #endregion
 
-    #region IFocusableControl Methods
-
-    /// <inheritdoc/>
-    public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-    {
-        if (_hasFocus == focus) return;
-
-        _hasFocus = focus;
-        _scrollPanel.HasFocus = focus;
-
-        if (focus)
-        {
-            GotFocus?.Invoke(this, EventArgs.Empty);
-        }
-        else
-        {
-            LostFocus?.Invoke(this, EventArgs.Empty);
-        }
-
-        Container?.Invalidate(true);
-    }
-
-    #endregion
 
     #region IMouseAwareControl Methods
 
@@ -469,7 +432,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
                     ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
                 }
 
-                var titleColor = _hasFocus ? Color.Cyan1 : Color.Grey;
+                var titleColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey;
                 var titleCells = Parsing.MarkupParser.Parse(_title, titleColor, bgColor);
                 int titleDisplayWidth = titleCells.Count;
 

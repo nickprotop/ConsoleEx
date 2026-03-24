@@ -10,6 +10,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -91,7 +92,7 @@ namespace SharpConsoleUI.Controls
 
 			// --- Scrollbar click detection (before text handling) ---
 
-			if (args.HasFlag(MouseFlags.Button1Pressed) && _hasFocus)
+			if (args.HasFlag(MouseFlags.Button1Pressed) && (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 			{
 				// Vertical scrollbar interaction
 				if (IsOnVerticalScrollbar(args.Position.X))
@@ -244,7 +245,7 @@ namespace SharpConsoleUI.Controls
 			// Handle right-click: move cursor to click position first, then fire event
 			if (args.HasFlag(MouseFlags.Button3Clicked))
 			{
-				if (_hasFocus)
+				if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				{
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
 					ClearSelection();
@@ -258,7 +259,7 @@ namespace SharpConsoleUI.Controls
 			// Triple-click: select entire line
 			if (args.HasFlag(MouseFlags.Button1TripleClicked))
 			{
-				if (_hasFocus)
+				if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				{
 					IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
@@ -279,7 +280,7 @@ namespace SharpConsoleUI.Controls
 			// Double-click: select word
 			if (args.HasFlag(MouseFlags.Button1DoubleClicked))
 			{
-				if (_hasFocus)
+				if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
 				{
 					IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
@@ -319,7 +320,7 @@ namespace SharpConsoleUI.Controls
 			// a drag continuation, so extend the selection instead of resetting the anchor.
 			if (args.HasFlag(MouseFlags.Button1Pressed))
 			{
-				if (_hasFocus && !_readOnly)
+				if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && !_readOnly)
 				{
 					IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
@@ -350,7 +351,7 @@ namespace SharpConsoleUI.Controls
 			// Single click / end of drag
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
-				if (_hasFocus && !_readOnly)
+				if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && !_readOnly)
 				{
 					IsEditing = true;
 					if (_isDragging && (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY))

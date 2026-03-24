@@ -40,7 +40,6 @@ namespace SharpConsoleUI.Controls
 	public class ButtonControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
 		private bool _enabled = true;
-		private bool _focused;
 		private string _text = "Button";
 		private ButtonBorderStyle _borderStyle = ButtonBorderStyle.None;
 		private Color? _backgroundColor;
@@ -77,8 +76,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => _focused;
-			set => SetProperty(ref _focused, value);
+			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
 		}
 
 		/// <summary>
@@ -290,34 +288,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
-		/// <inheritdoc/>
-		public event EventHandler? GotFocus;
-
-		/// <inheritdoc/>
-		public event EventHandler? LostFocus;
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			var hadFocus = HasFocus;
-			HasFocus = focus;
-
-			if (focus && !hadFocus)
-			{
-				GotFocus?.Invoke(this, EventArgs.Empty);
-			}
-			else if (!focus && hadFocus)
-			{
-				LostFocus?.Invoke(this, EventArgs.Empty);
-			}
-
-			// Notify parent Window if focus state actually changed
-			if (hadFocus != focus)
-			{
-				this.NotifyParentWindowOfFocusChange(focus);
-			}
-		}
-
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
@@ -351,7 +321,7 @@ namespace SharpConsoleUI.Controls
 				foregroundColor = DisabledForegroundColor;
 				backgroundColor = ColorResolver.ResolveButtonDisabledBackground(_disabledBackgroundColor, Container);
 			}
-			else if (_focused)
+			else if (HasFocus)
 			{
 				foregroundColor = FocusedForegroundColor;
 				backgroundColor = ColorResolver.ResolveButtonFocusedBackground(_focusedBackgroundColor, Container);

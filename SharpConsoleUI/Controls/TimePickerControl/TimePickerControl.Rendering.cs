@@ -10,6 +10,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -51,7 +52,7 @@ namespace SharpConsoleUI.Controls
 				bgColor = ColorResolver.ResolveTimePickerBackground(_backgroundColorValue, Container);
 				fgColor = ColorResolver.ResolveTimePickerDisabledForeground(_disabledForegroundColorValue, Container);
 			}
-			else if (_hasFocus)
+			else if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
 			{
 				bgColor = ColorResolver.ResolveTimePickerFocusedBackground(_focusedBackgroundColorValue, Container);
 				fgColor = ColorResolver.ResolveTimePickerFocusedForeground(_focusedForegroundColorValue, Container);
@@ -129,7 +130,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					// Determine segment colors
-					bool isActiveSegment = _hasFocus && _isEnabled && _focusedSegment == seg;
+					bool isActiveSegment = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && _isEnabled && _focusedSegment == seg;
 					Color segFg = isActiveSegment ? ColorResolver.ResolveTimePickerSegmentForeground(_segmentForegroundColorValue, Container) : fgColor;
 					Color segBg = isActiveSegment ? ColorResolver.ResolveTimePickerSegmentBackground(_segmentBackgroundColorValue, Container) : bgColor;
 
@@ -148,7 +149,7 @@ namespace SharpConsoleUI.Controls
 					int ampmIdx = AmPmSegmentIndex;
 					RenderNarrowChar(buffer, ref writeX, startY, ' ', fgColor, bgColor, clipRect);
 
-					bool isActiveAmPm = _hasFocus && _isEnabled && _focusedSegment == ampmIdx;
+					bool isActiveAmPm = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && _isEnabled && _focusedSegment == ampmIdx;
 					Color ampmFg = isActiveAmPm ? ColorResolver.ResolveTimePickerSegmentForeground(_segmentForegroundColorValue, Container) : fgColor;
 					Color ampmBg = isActiveAmPm ? ColorResolver.ResolveTimePickerSegmentBackground(_segmentBackgroundColorValue, Container) : bgColor;
 
