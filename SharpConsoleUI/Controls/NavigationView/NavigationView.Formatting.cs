@@ -64,7 +64,7 @@ namespace SharpConsoleUI.Controls
 			int extraIndent = item.ParentHeader != null ? ControlDefaults.NavigationViewSubItemExtraIndent : 0;
 			var content = icon + item.Text;
 			int contentDisplayWidth = UnicodeWidth.GetStringWidth(content);
-			int targetWidth = _navPaneWidth - 4 - extraIndent;
+			int targetWidth = _navPaneWidth - ControlDefaults.NavigationViewItemOverhead - extraIndent;
 			if (targetWidth < 1) targetWidth = 1;
 			int padSpaces = Math.Max(0, targetWidth - contentDisplayWidth);
 			var paddedText = content + new string(' ', padSpaces);
@@ -97,7 +97,9 @@ namespace SharpConsoleUI.Controls
 			{
 				// Use first character of the item's plain text as the compact icon
 				var plainText = Parsing.MarkupParser.Remove(item.Text);
-				icon = plainText.Length > 0 ? plainText.Substring(0, 1).ToUpperInvariant() : "?";
+				icon = plainText.Length > 0
+					? System.Globalization.StringInfo.GetNextTextElement(plainText, 0).ToUpperInvariant()
+					: "?";
 			}
 			int iconWidth = UnicodeWidth.GetStringWidth(icon);
 			int totalWidth = _compactPaneWidth;

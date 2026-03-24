@@ -187,7 +187,7 @@ public class FocusManager
         if (target is IFocusScope scope)
         {
             var child = scope.GetInitialFocus(backward);
-            if (child != null)
+            if (child != null && !ReferenceEquals(child, target))
             {
                 EnterOrFocus(child, backward);
                 return;

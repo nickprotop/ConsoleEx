@@ -401,6 +401,11 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int NavigationViewHamburgerClickWidth = 3;
 
+		/// <summary>
+		/// Fixed character overhead per navigation item row (leading spaces + indicator + trailing space).
+		/// </summary>
+		public const int NavigationViewItemOverhead = 4;
+
 		// DatePicker defaults
 
 		/// <summary>

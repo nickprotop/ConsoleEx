@@ -324,11 +324,13 @@ namespace SharpConsoleUI
 			if (src.A == 255)   return src;
 			if (src.A == 0)     return dst;
 	
-			float a = src.A / 255f;
+			// Integer arithmetic with rounding to avoid truncation error
+			int alpha = src.A;
+			int invAlpha = 255 - alpha;
 			return new Color(
-				(byte)(src.R * a + dst.R * (1 - a)),
-				(byte)(src.G * a + dst.G * (1 - a)),
-				(byte)(src.B * a + dst.B * (1 - a)),
+				(byte)((src.R * alpha + dst.R * invAlpha + 127) / 255),
+				(byte)((src.G * alpha + dst.G * invAlpha + 127) / 255),
+				(byte)((src.B * alpha + dst.B * invAlpha + 127) / 255),
 				255);
 		}
 	
