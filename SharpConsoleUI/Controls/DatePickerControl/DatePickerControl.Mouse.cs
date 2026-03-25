@@ -72,7 +72,7 @@ namespace SharpConsoleUI.Controls
 			// Handle mouse down — capture focus and track press state
 			if (args.HasAnyFlag(MouseFlags.Button1Pressed))
 			{
-				if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+				if (!HasFocus)
 					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 
 				_isHeaderPressed = true;

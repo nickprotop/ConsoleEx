@@ -316,7 +316,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
+			get => ComputeHasFocus();
 		}
 
 		/// <summary>

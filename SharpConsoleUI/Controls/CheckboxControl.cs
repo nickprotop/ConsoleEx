@@ -179,7 +179,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
+			get => ComputeHasFocus();
 		}
 
 		/// <inheritdoc/>
@@ -218,7 +218,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+			if (!_isEnabled || !(ComputeHasFocus()))
 				return false;
 
 			// Toggle checkbox state when Space or Enter is pressed
@@ -376,7 +376,7 @@ namespace SharpConsoleUI.Controls
 				backgroundColor = ColorResolver.ResolveCheckboxDisabledBackground(_disabledBackgroundColorValue, Container);
 				foregroundColor = DisabledForegroundColor;
 			}
-			else if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
+			else if (ComputeHasFocus())
 			{
 				backgroundColor = ColorResolver.ResolveCheckboxFocusedBackground(_focusedBackgroundColorValue, Container);
 				foregroundColor = FocusedForegroundColor;

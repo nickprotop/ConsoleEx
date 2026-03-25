@@ -265,7 +265,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// For containers, HasFocus means "this container or a descendant is focused"
 			// (i.e., is in the focus path). This preserves rendering/keyboard-routing semantics.
-			get => this.GetParentWindow()?.FocusManager.IsInFocusPath(this) ?? false;
+			get => ComputeIsInFocusPath();
 		}
 
 		/// <inheritdoc/>

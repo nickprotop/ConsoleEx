@@ -117,7 +117,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
+			get => ComputeHasFocus();
 		}
 
 		/// <summary>
@@ -374,7 +374,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+			if (!_isEnabled || !(ComputeHasFocus()))
 				return false;
 
 			// First, let focused item handle the key (Enter, Space, etc.)

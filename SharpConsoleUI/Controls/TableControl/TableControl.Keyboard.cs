@@ -14,7 +14,7 @@ public partial class TableControl
 	/// <inheritdoc/>
 	public bool ProcessKey(ConsoleKeyInfo key)
 	{
-		if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+		if (!_isEnabled || !HasFocus)
 			return false;
 
 		// Handle filter typing mode

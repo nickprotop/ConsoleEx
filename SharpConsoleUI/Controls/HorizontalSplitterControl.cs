@@ -204,7 +204,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
+			get => ComputeHasFocus();
 		}
 
 		/// <summary>
@@ -513,7 +513,7 @@ namespace SharpConsoleUI.Controls
 				bgColor = DraggingBackgroundColor;
 				fgColor = DraggingForegroundColor;
 			}
-			else if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
+			else if (ComputeHasFocus())
 			{
 				bgColor = FocusedBackgroundColor;
 				fgColor = FocusedForegroundColor;
@@ -571,7 +571,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)) return false;
+			if (!_isEnabled || !(ComputeHasFocus())) return false;
 
 			int delta = 0;
 

@@ -189,7 +189,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 				public bool HasFocus
 		{
-			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
+			get => ComputeHasFocus();
 		}
 
 		/// <inheritdoc/>
@@ -202,7 +202,7 @@ namespace SharpConsoleUI.Controls
 		public bool CanFocusWithMouse => _isEnabled;
 
 		/// <inheritdoc/>
-		public CursorShape? PreferredCursorShape => (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? CursorShape.Hidden : null;
+		public CursorShape? PreferredCursorShape => (ComputeHasFocus()) ? CursorShape.Hidden : null;
 
 		/// <summary>
 		/// Gets or sets the background color.

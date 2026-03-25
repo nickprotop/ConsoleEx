@@ -363,7 +363,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// For containers, HasFocus means "this container or a descendant is focused"
 			// (i.e., is in the focus path). This preserves rendering/keyboard-routing semantics.
-			get => this.GetParentWindow()?.FocusManager.IsInFocusPath(this) ?? false;
+			get => ComputeIsInFocusPath();
 		}
 
 		/// <inheritdoc/>
@@ -476,11 +476,14 @@ namespace SharpConsoleUI.Controls
 			}
 			// SavedFocus is only used for forward entry (resume from where focus left off).
 			// Backward entry always goes to the last child for correct Shift+Tab behavior.
+			// However, discard SavedFocus if using it would skip a nested IFocusScope child
+			// (e.g. a ToolbarControl) that appears before the saved control in Tab order.
 			if (!backward && SavedFocus != null)
 			{
 				var saved = SavedFocus;
 				SavedFocus = null;
-				return saved;
+				if (!WouldSkipNestedScope(saved))
+					return saved;
 			}
 			SavedFocus = null;
 			var children = GetFocusableChildren();
@@ -521,6 +524,23 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 			return result;
+		}
+
+		/// <summary>
+		/// Returns true if using <paramref name="saved"/> as the initial focus would skip
+		/// a nested <see cref="IFocusScope"/> child that appears earlier in Tab order.
+		/// </summary>
+		private bool WouldSkipNestedScope(IFocusableControl saved)
+		{
+			var children = GetFocusableChildren();
+			foreach (var child in children)
+			{
+				if (ReferenceEquals(child, saved))
+					return false; // reached saved before any scope — safe
+				if (child is IFocusScope)
+					return true; // a scope appears before saved — would be skipped
+			}
+			return false; // saved not found in children (stale) — don't use it
 		}
 
 		/// <summary>

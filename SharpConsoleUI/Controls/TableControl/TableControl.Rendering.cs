@@ -716,7 +716,7 @@ public partial class TableControl
 
 			if (isRowSel)
 			{
-				if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
+				if (HasFocus)
 				{
 					effectiveRowBg = selBg;
 					effectiveRowFg = selFg;
@@ -745,7 +745,7 @@ public partial class TableControl
 			if (_cellNavigationEnabled && displayR == _selectedRowIndex && _selectedColumnIndex >= 0)
 			{
 				selectedCell = _selectedColumnIndex;
-				cellHighlightBg = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey50;
+				cellHighlightBg = HasFocus ? Color.Cyan1 : Color.Grey50;
 				cellHighlightFg = Color.Black;
 			}
 

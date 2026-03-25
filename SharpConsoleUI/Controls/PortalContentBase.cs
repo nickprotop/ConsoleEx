@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 using System.Drawing;
+using System.Runtime.CompilerServices;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
@@ -20,10 +22,45 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public abstract class PortalContentBase : IWindowControl, IDOMPaintable, IMouseAwareControl, IHasPortalBounds
 	{
+		private static readonly ConditionalWeakTable<IFocusableControl, PortalContentBase> _portalFocusRegistry = new();
+		private IFocusableControl? _portalFocusedControl;
+
 		private int _actualX;
 		private int _actualY;
 		private int _actualWidth;
 		private int _actualHeight;
+
+		/// <summary>
+		/// Gets or sets the control that is focused within this portal's scope,
+		/// independently of the window's FocusManager.
+		/// </summary>
+		public IFocusableControl? PortalFocusedControl
+		{
+			get => _portalFocusedControl;
+			set
+			{
+				if (ReferenceEquals(_portalFocusedControl, value)) return;
+				var old = _portalFocusedControl;
+				if (old != null) _portalFocusRegistry.Remove(old);
+				_portalFocusedControl = value;
+				if (value != null)
+				{
+					_portalFocusRegistry.Remove(value);
+					_portalFocusRegistry.Add(value, this);
+				}
+				(old as IWindowControl)?.Container?.Invalidate(true);
+				(value as IWindowControl)?.Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Attempts to find the portal that owns the specified control's portal focus.
+		/// Used by controls to determine if they have portal-scoped focus.
+		/// </summary>
+		internal static bool TryGetPortalOwner(IFocusableControl control, out PortalContentBase? portal)
+		{
+			return _portalFocusRegistry.TryGetValue(control, out portal);
+		}
 
 		/// <summary>
 		/// When set, PaintDOM draws a border using these characters and shrinks the
@@ -176,7 +213,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Dispose()
 		{
-			// Portal content is lightweight; nothing to dispose by default
+			PortalFocusedControl = null;
 		}
 
 		#endregion

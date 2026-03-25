@@ -19,7 +19,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+			if (!_isEnabled || !HasFocus)
 				return false;
 
 			bool isVertical = _orientation == SliderOrientation.Vertical;
@@ -142,7 +142,7 @@ namespace SharpConsoleUI.Controls
 			// Handle press to start drag or jump
 			if (args.HasFlag(MouseFlags.Button1Pressed) && !_isMouseDragging)
 			{
-				if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+				if (!HasFocus)
 					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 
 				int trackStart = GetTrackStart();

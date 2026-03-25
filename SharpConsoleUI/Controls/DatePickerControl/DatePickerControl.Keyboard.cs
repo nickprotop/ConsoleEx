@@ -16,7 +16,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+			if (!_isEnabled || !HasFocus)
 				return false;
 
 			if (_isCalendarOpen)

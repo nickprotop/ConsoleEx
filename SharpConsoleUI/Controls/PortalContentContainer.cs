@@ -258,14 +258,13 @@ namespace SharpConsoleUI.Controls
 
 		private void FocusChild(IInteractiveControl child)
 		{
-			// Unfocus previous
 			if (_focusedChild != null && _focusedChild != child && _focusedChild is IFocusableControl oldFc)
 				oldFc.Container?.Invalidate(true);
 
 			_focusedChild = child;
 
 			if (child is IFocusableControl fc)
-				(this as IWindowControl).GetParentWindow()?.FocusManager.SetFocus(fc, FocusReason.Programmatic);
+				PortalFocusedControl = fc;
 		}
 
 		private List<IInteractiveControl> GetFocusableChildren()
@@ -350,8 +349,7 @@ namespace SharpConsoleUI.Controls
 					{
 						if (_focusedChild != interactive)
 						{
-							// Unfocus previous
-							(this as IWindowControl).GetParentWindow()?.FocusManager.SetFocus(focusable, FocusReason.Mouse);
+							PortalFocusedControl = focusable;
 							_focusedChild = interactive;
 						}
 					}
@@ -377,7 +375,7 @@ namespace SharpConsoleUI.Controls
 				else
 				{
 					// Clicked on empty space - unfocus children
-					(this as IWindowControl).GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Mouse);
+					PortalFocusedControl = null;
 					_focusedChild = null;
 					Container?.Invalidate(true);
 					return true;

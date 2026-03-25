@@ -139,7 +139,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
     /// <inheritdoc/>
     public bool HasFocus
     {
-        get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
+        get => ComputeHasFocus();
     }
 
     /// <inheritdoc/>
@@ -432,7 +432,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
                     ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
                 }
 
-                var titleColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey;
+                var titleColor = (ComputeHasFocus()) ? Color.Cyan1 : Color.Grey;
                 var titleCells = Parsing.MarkupParser.Parse(_title, titleColor, bgColor);
                 int titleDisplayWidth = titleCells.Count;
 

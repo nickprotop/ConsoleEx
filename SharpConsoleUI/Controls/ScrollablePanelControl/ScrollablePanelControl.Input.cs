@@ -105,8 +105,7 @@ namespace SharpConsoleUI.Controls
 					// caller can switch to the previous sibling (e.g. NavigationView nav pane).
 					if (shiftPressed && focusedChild == null && _lastInternalFocusedChild == null)
 					{
-						var parentWindow2 = (this as IWindowControl).GetParentWindow();
-						if (parentWindow2?.FocusManager.IsFocused(this) == true)
+						if (HasFocus)
 							return false; // Exit panel backward
 					}
 
@@ -335,12 +334,6 @@ namespace SharpConsoleUI.Controls
 				GetConsoleWindowSystem?.LogService?.LogTrace($"ScrollPanel.CanReceiveFocus: needsScrolling={needsScrolling} hasFocusableChildren={hasFocusableChildren} result={result}", "Focus");
 				return result;
 			}
-		}
-
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			Container?.Invalidate(true);
 		}
 
 		#endregion

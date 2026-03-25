@@ -422,9 +422,18 @@ namespace SharpConsoleUI.Controls
 		#region IContainerControl Implementation
 
 		/// <inheritdoc/>
+		/// <remarks>
+		/// Returns only the active tab's content so that focus traversal and layout
+		/// do not include controls from inactive tabs.
+		/// </remarks>
 		public IReadOnlyList<IWindowControl> GetChildren()
 		{
-			lock (_tabLock) { return _tabPages.Select(tp => tp.Content).ToList(); }
+			lock (_tabLock)
+			{
+				if (_activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
+					return new[] { _tabPages[_activeTabIndex].Content };
+				return Array.Empty<IWindowControl>();
+			}
 		}
 
 		#endregion

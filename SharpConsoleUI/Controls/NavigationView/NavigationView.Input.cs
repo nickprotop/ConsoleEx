@@ -80,7 +80,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => this.GetParentWindow()?.FocusManager.IsInFocusPath(this) ?? false;
+			get => ComputeIsInFocusPath();
 		}
 
 		/// <inheritdoc/>
@@ -89,16 +89,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
-		/// <inheritdoc/>
-		public void SetFocus(bool focus, FocusReason reason = FocusReason.Programmatic)
-		{
-			Container?.Invalidate(true);
-		}
-
-		/// <inheritdoc/>
+		/// <summary>Raised when the control gains focus.</summary>
 		public event EventHandler? GotFocus;
 
-		/// <inheritdoc/>
+		/// <summary>Raised when the control loses focus.</summary>
 		public event EventHandler? LostFocus;
 
 		/// <inheritdoc/>

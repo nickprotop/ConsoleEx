@@ -9,7 +9,7 @@ public partial class MenuControl
     /// <inheritdoc/>
     public bool ProcessKey(ConsoleKeyInfo key)
     {
-        if (!_enabled || !(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+        if (!_enabled || !HasFocus)
             return false;
 
         bool isInSubmenu = _openDropdowns.Count > 1;

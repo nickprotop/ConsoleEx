@@ -251,6 +251,22 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		protected virtual void OnDisposing() { }
 
+		/// <summary>Checks portal focus first, then window FocusManager.IsFocused.</summary>
+		protected bool ComputeHasFocus()
+		{
+			if (this is IFocusableControl fc)
+				return fc.ComputeHasFocus();
+			return false;
+		}
+
+		/// <summary>Checks portal focus first, then window FocusManager.IsInFocusPath.</summary>
+		protected bool ComputeIsInFocusPath()
+		{
+			if (this is IFocusableControl fc)
+				return fc.ComputeIsInFocusPath();
+			return false;
+		}
+
 		/// <inheritdoc/>
 		public abstract LayoutSize MeasureDOM(LayoutConstraints constraints);
 

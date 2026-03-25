@@ -297,7 +297,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// <inheritdoc/>
     public bool HasFocus
     {
-        get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
+        get => ComputeHasFocus();
     }
 
     /// <inheritdoc/>

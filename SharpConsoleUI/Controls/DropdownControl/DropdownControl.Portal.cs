@@ -204,7 +204,7 @@ namespace SharpConsoleUI.Controls
 					if (itemIndex >= items.Count) break;
 
 					string itemText = _itemFormatter != null
-						? _itemFormatter(items[itemIndex], itemIndex == selectedIdx, (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+						? _itemFormatter(items[itemIndex], itemIndex == selectedIdx, HasFocus)
 						: items[itemIndex].Text;
 
 					if (Parsing.MarkupParser.StripLength(itemText) > dropdownWidth - 4)

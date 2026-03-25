@@ -52,7 +52,7 @@ namespace SharpConsoleUI.Controls
 				bgColor = ColorResolver.ResolveTimePickerBackground(_backgroundColorValue, Container);
 				fgColor = ColorResolver.ResolveTimePickerDisabledForeground(_disabledForegroundColorValue, Container);
 			}
-			else if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
+			else if (HasFocus)
 			{
 				bgColor = ColorResolver.ResolveTimePickerFocusedBackground(_focusedBackgroundColorValue, Container);
 				fgColor = ColorResolver.ResolveTimePickerFocusedForeground(_focusedForegroundColorValue, Container);
@@ -130,7 +130,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					// Determine segment colors
-					bool isActiveSegment = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && _isEnabled && _focusedSegment == seg;
+					bool isActiveSegment = HasFocus && _isEnabled && _focusedSegment == seg;
 					Color segFg = isActiveSegment ? ColorResolver.ResolveTimePickerSegmentForeground(_segmentForegroundColorValue, Container) : fgColor;
 					Color segBg = isActiveSegment ? ColorResolver.ResolveTimePickerSegmentBackground(_segmentBackgroundColorValue, Container) : bgColor;
 
@@ -149,7 +149,7 @@ namespace SharpConsoleUI.Controls
 					int ampmIdx = AmPmSegmentIndex;
 					RenderNarrowChar(buffer, ref writeX, startY, ' ', fgColor, bgColor, clipRect);
 
-					bool isActiveAmPm = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && _isEnabled && _focusedSegment == ampmIdx;
+					bool isActiveAmPm = HasFocus && _isEnabled && _focusedSegment == ampmIdx;
 					Color ampmFg = isActiveAmPm ? ColorResolver.ResolveTimePickerSegmentForeground(_segmentForegroundColorValue, Container) : fgColor;
 					Color ampmBg = isActiveAmPm ? ColorResolver.ResolveTimePickerSegmentBackground(_segmentBackgroundColorValue, Container) : bgColor;
 

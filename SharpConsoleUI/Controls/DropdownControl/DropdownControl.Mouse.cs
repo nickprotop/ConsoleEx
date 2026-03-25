@@ -32,7 +32,7 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.MouseLeave))
 			{
 				_isHeaderPressed = false;
-				if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+				if (!HasFocus)
 				{
 					_mouseHoveredIndex = -1;
 				}
@@ -100,7 +100,7 @@ namespace SharpConsoleUI.Controls
 						_dismissedByOutsideClick = false;
 						_isHeaderPressed = false;
 
-						if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+						if (!HasFocus)
 							this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 
 						Container?.Invalidate(true);
@@ -110,7 +110,7 @@ namespace SharpConsoleUI.Controls
 					_isHeaderPressed = true;
 
 					// Capture focus on mouse down
-					if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+					if (!HasFocus)
 					{
 						this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 					}
@@ -214,7 +214,7 @@ namespace SharpConsoleUI.Controls
 			// Handle mouse leave
 			if (args.HasFlag(MouseFlags.MouseLeave))
 			{
-				if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+				if (!HasFocus)
 				{
 					_mouseHoveredIndex = -1;
 				}

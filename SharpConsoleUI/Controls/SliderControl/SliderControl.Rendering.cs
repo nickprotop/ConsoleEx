@@ -304,7 +304,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (!_isEnabled) return Color.Grey;
 			if (_isDragging) return Color.Yellow;
-			if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)) return FocusedThumbColor ?? Color.Yellow;
+			if (HasFocus) return FocusedThumbColor ?? Color.Yellow;
 			return ThumbColor ?? Color.White;
 		}
 

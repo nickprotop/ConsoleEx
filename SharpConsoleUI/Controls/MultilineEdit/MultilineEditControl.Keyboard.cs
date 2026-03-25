@@ -33,7 +33,7 @@ namespace SharpConsoleUI.Controls
 
 			// When focused but not editing, only handle specific navigation keys
 			// All other keys (including Ctrl/Alt/Shift combinations) bubble up
-			if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && !_isEditing)
+			if (HasFocus && !_isEditing)
 			{
 				switch (key.Key)
 				{
@@ -148,7 +148,7 @@ namespace SharpConsoleUI.Controls
 
 			if (!_isEditing)
 			{
-				if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && key.Key == ConsoleKey.Enter)
+				if (HasFocus && key.Key == ConsoleKey.Enter)
 				{
 					IsEditing = true;
 					return true;

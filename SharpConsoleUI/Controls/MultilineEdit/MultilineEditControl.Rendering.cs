@@ -82,11 +82,11 @@ namespace SharpConsoleUI.Controls
 			}
 
 			Color bgColor;
-			if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+			if (HasFocus)
 				bgColor = ColorResolver.ResolveMultilineEditFocusedBackground(_focusedBackgroundColorValue, Container);
 			else
 				bgColor = ColorResolver.ResolveMultilineEditBackground(_backgroundColorValue, Container);
-			Color fgColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? FocusedForegroundColor : ForegroundColor;
+			Color fgColor = HasFocus ? FocusedForegroundColor : ForegroundColor;
 			Color selBgColor = SelectionBackgroundColor;
 			Color selFgColor = SelectionForegroundColor;
 			var effectiveBg = Color.Transparent;
@@ -191,8 +191,8 @@ namespace SharpConsoleUI.Controls
 
 			// Focus-aware scrollbar colors (matching ScrollablePanelControl)
 			Color scrollbarBg = bgColor;
-			Color activeThumbColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey;
-			Color activeTrackColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Grey : Color.Grey23;
+			Color activeThumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
+			Color activeTrackColor = HasFocus ? Color.Grey : Color.Grey23;
 
 				int contentStartX = startX + gutterWidth;
 
@@ -243,7 +243,7 @@ namespace SharpConsoleUI.Controls
 								SourceLineIndex = sourceLineIndex,
 								IsFirstWrappedSegment = isFirstSegment,
 								IsCursorLine = isCursorLine,
-								HasFocus = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false),
+								HasFocus = HasFocus,
 								ForegroundColor = fgColor,
 								BackgroundColor = bgColor,
 								TotalLineCount = linesSnapshot.Count
@@ -550,7 +550,7 @@ namespace SharpConsoleUI.Controls
 								SourceLineIndex = -1,
 								IsFirstWrappedSegment = false,
 								IsCursorLine = false,
-								HasFocus = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false),
+								HasFocus = HasFocus,
 								ForegroundColor = fgColor,
 								BackgroundColor = bgColor,
 								TotalLineCount = linesSnapshot.Count
@@ -676,7 +676,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Render editing mode hint overlay at bottom-right of viewport
-			if (_showEditingHints && (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false))
+			if (_showEditingHints && HasFocus)
 			{
 				string hintText = _isEditing
 					? ControlDefaults.EditingModeHint

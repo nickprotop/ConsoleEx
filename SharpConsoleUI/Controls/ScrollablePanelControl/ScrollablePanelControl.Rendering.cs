@@ -298,8 +298,8 @@ namespace SharpConsoleUI.Controls
 			int scrollbarAbsTop = bounds.Y + scrollbarTop;
 
 			// Colors
-			Color thumbColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey;
-			Color trackColor = (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Grey : Color.Grey23;
+			Color thumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
+			Color trackColor = HasFocus ? Color.Grey : Color.Grey23;
 
 			for (int y = 0; y < scrollbarHeight; y++)
 			{

@@ -128,7 +128,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
+			get => ComputeHasFocus();
 		}
 
 		/// <inheritdoc/>
@@ -139,7 +139,7 @@ namespace SharpConsoleUI.Controls
 		// propagate to SwitchFocus and land on the active tab's content controls.
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!(this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)) return false;
+			if (!(ComputeHasFocus())) return false;
 
 			if (key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow)
 			{

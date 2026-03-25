@@ -30,7 +30,7 @@ namespace SharpConsoleUI.Controls
 			control.Container = this;
 			// If the panel has focus but no focused child yet, focus the new control
 			// if it's focusable. Restores focus routing after ClearContents.
-			if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && GetFocusedChildFromCoordinator() == null &&
+			if (HasFocus && GetFocusedChildFromCoordinator() == null &&
 				control.Visible &&
 				control is IFocusableControl fc && fc.CanReceiveFocus)
 			{
@@ -89,7 +89,7 @@ namespace SharpConsoleUI.Controls
 				control.Container = null;
 
 				// If we're no longer focusable (lost all children and no scrolling), lose focus
-				if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && !CanReceiveFocus)
+				if (HasFocus && !CanReceiveFocus)
 				{
 					this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Programmatic);
 				}

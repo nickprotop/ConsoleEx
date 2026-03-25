@@ -49,7 +49,7 @@ namespace SharpConsoleUI.Controls
 				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
 				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.DatePickerDisabledForegroundColor ?? Color.DarkSlateGray1;
 			}
-			else if (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)
+			else if (HasFocus)
 			{
 				backgroundColor = ColorResolver.ResolveDatePickerFocusedBackground(_focusedBackgroundColorValue, Container);
 				foregroundColor = ColorResolver.ResolveDatePickerFocusedForeground(_focusedForegroundColorValue, Container);
@@ -98,7 +98,7 @@ namespace SharpConsoleUI.Controls
 					var seg = _segments[i];
 					string segText;
 
-					if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && i == _focusedSegment && _pendingDigit >= 0)
+					if (HasFocus && i == _focusedSegment && _pendingDigit >= 0)
 					{
 						// Show pending digit with placeholder
 						segText = seg.DisplayWidth == 2
@@ -112,7 +112,7 @@ namespace SharpConsoleUI.Controls
 
 					// Determine segment colors
 					Color segBg, segFg;
-					if ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) && i == _focusedSegment)
+					if (HasFocus && i == _focusedSegment)
 					{
 						segBg = ColorResolver.ResolveDatePickerSegmentBackground(_segmentBackgroundColorValue, Container);
 						segFg = ColorResolver.ResolveDatePickerSegmentForeground(_segmentForegroundColorValue, Container);

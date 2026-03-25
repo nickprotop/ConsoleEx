@@ -415,7 +415,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// <inheritdoc/>
 	public bool HasFocus
 	{
-		get => this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false;
+		get => ComputeHasFocus();
 	}
 
 	/// <inheritdoc/>
@@ -781,13 +781,13 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	internal Color ResolveScrollbarThumbColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableScrollbarThumbColor ?? ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Cyan1 : Color.Grey);
+		return theme?.TableScrollbarThumbColor ?? ((ComputeHasFocus()) ? Color.Cyan1 : Color.Grey);
 	}
 
 	internal Color ResolveScrollbarTrackColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableScrollbarTrackColor ?? ((this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false) ? Color.Grey : Color.Grey23);
+		return theme?.TableScrollbarTrackColor ?? ((ComputeHasFocus()) ? Color.Grey : Color.Grey23);
 	}
 
 	#endregion
