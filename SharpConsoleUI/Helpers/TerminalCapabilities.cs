@@ -64,28 +64,6 @@ namespace SharpConsoleUI.Helpers
 			_supportsVS16Widening = null;
 		}
 
-		/// <summary>
-		/// Verifies the terminal responds to a DSR (Device Status Report) query.
-		/// Unlike <see cref="Probe"/> which swallows failures, this returns false
-		/// on timeout — indicating the terminal is not processing escape sequences.
-		/// </summary>
-		/// <param name="write">Action to write escape sequences to the terminal.</param>
-		/// <param name="readByte">Function to read a single byte with timeout. Returns -1 on timeout.</param>
-		/// <returns>True if the terminal responded, false if it timed out.</returns>
-		public static bool VerifyTerminalResponds(Action<string> write, Func<int> readByte)
-		{
-			try
-			{
-				write("\x1b[6n");
-				int col = ReadDSRColumn(readByte);
-				return col >= 0;
-			}
-			catch
-			{
-				return false;
-			}
-		}
-
 		private static bool ProbeVS16(Action<string> write, Func<int> readByte)
 		{
 			// Strategy:

@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers.Input;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Themes;
@@ -343,44 +342,6 @@ namespace SharpConsoleUI.Drivers
 			bool isUnix = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 			_useDirectAnsi = isUnix;
 
-			// Fail fast if stdin or stdout is not a TTY (piped/redirected)
-			if (isUnix)
-			{
-				var (stdinIsTty, stdoutIsTty) = TerminalRawMode.CheckTtyStatus();
-
-				if (!stdinIsTty || !stdoutIsTty)
-				{
-					// Restore signals suppressed in constructor so caller's terminal works
-					RestoreUnixSignal(SigInt);
-					RestoreUnixSignal(SigTstp);
-					if (_processExitHandler != null)
-					{
-						AppDomain.CurrentDomain.ProcessExit -= _processExitHandler;
-						_processExitHandler = null;
-					}
-
-					var term = Environment.GetEnvironmentVariable("TERM") ?? "(unset)";
-					var details = new StringBuilder();
-					details.AppendLine("SharpConsoleUI cannot start: interactive terminal required.");
-					details.AppendLine();
-					details.AppendLine("Current environment:");
-					details.AppendLine($"  TERM = {term}");
-					details.AppendLine($"  stdin is TTY: {stdinIsTty}");
-					details.AppendLine($"  stdout is TTY: {stdoutIsTty}");
-					details.AppendLine();
-					if (!stdinIsTty)
-						details.AppendLine("Problem: stdin is not connected to a terminal (it appears to be piped or redirected).");
-					if (!stdoutIsTty)
-						details.AppendLine("Problem: stdout is not connected to a terminal (it appears to be piped or redirected).");
-					details.AppendLine();
-					details.AppendLine("How to fix:");
-					details.AppendLine("  - Run the application directly in a terminal emulator (e.g., Terminal, iTerm2, Alacritty, Windows Terminal)");
-					details.AppendLine("  - Do not pipe input/output (avoid: echo | app, app | cat, app > file)");
-					details.AppendLine("  - If using an IDE, run in the integrated terminal, not as a background process");
-					throw new TerminalNotSupportedException(details.ToString());
-				}
-			}
-
 			// Enter raw mode before creating console buffer (so ioctl is available)
 			if (_useDirectAnsi)
 			{
@@ -445,52 +406,6 @@ namespace SharpConsoleUI.Drivers
 			// Probe terminal VS16 widening support before input loops start.
 			// Uses DSR cursor position query to measure actual emoji width.
 			ProbeTerminalCapabilities();
-
-			// Mandatory terminal verification: ensure terminal responds to escape sequences.
-			// ProbeTerminalCapabilities (above) swallows failures — this is a hard check.
-			if (_useDirectAnsi)
-			{
-				TerminalRawMode.FlushStdin();
-
-				bool responds = TerminalCapabilities.VerifyTerminalResponds(
-					write: text => TerminalRawMode.WriteStdout(text),
-					readByte: () => TerminalRawMode.ReadByteWithTimeout(
-						SystemDefaults.TerminalVerificationTimeoutMs));
-
-				if (!responds)
-				{
-					var term = Environment.GetEnvironmentVariable("TERM") ?? "(unset)";
-					_consoleWindowSystem?.LogService?.Log(
-						Logging.LogLevel.Error,
-						$"Terminal (TERM={term}) did not respond to DSR verification query. " +
-						"Emergency exit: Ctrl+\\ (SIGQUIT).",
-						"System");
-
-					// Roll back: Stop() handles partial initialization (Task 5 guards)
-					Stop();
-
-					var details = new StringBuilder();
-					details.AppendLine("SharpConsoleUI cannot start: terminal is not responding to escape sequences.");
-					details.AppendLine();
-					details.AppendLine("Current environment:");
-					details.AppendLine($"  TERM = {term}");
-					details.AppendLine($"  Verification: sent DSR query (ESC[6n), no response within {SystemDefaults.TerminalVerificationTimeoutMs}ms");
-					details.AppendLine();
-					details.AppendLine("This means the terminal is not processing ANSI escape sequences, which are");
-					details.AppendLine("required for rendering the UI. The alternate screen buffer likely did not activate.");
-					details.AppendLine();
-					details.AppendLine("Common causes:");
-					details.AppendLine("  - Embedded terminal that does not fully support ANSI (e.g., some IDE terminals)");
-					details.AppendLine("  - Terminal multiplexer misconfiguration (tmux, screen)");
-					details.AppendLine("  - TERM environment variable set incorrectly");
-					details.AppendLine();
-					details.AppendLine("How to fix:");
-					details.AppendLine("  - Run in a standard terminal emulator (Terminal, iTerm2, Alacritty, Windows Terminal)");
-					details.AppendLine("  - Ensure TERM is set correctly (e.g., xterm-256color)");
-					details.AppendLine("  - If stuck, press Ctrl+\\ (SIGQUIT) to force exit");
-					throw new TerminalNotSupportedException(details.ToString());
-				}
-			}
 
 			_lastConsoleWidth = screenSize.Width;
 			_lastConsoleHeight = screenSize.Height;
@@ -618,20 +533,15 @@ namespace SharpConsoleUI.Drivers
 				Console.Error.Flush();
 			}
 
-			// Post-restore Console calls — may fail if Start() partially completed
-			try
-			{
-				Console.Out.Write(cleanupSequence);
-				Console.Out.Flush();
-				Console.ResetColor();
-			}
-			catch { }
+			Console.Out.Write(cleanupSequence);
+			Console.Out.Flush();
+			Console.ResetColor();
 
 			Thread.Sleep(50);
 
 			Cleanup();
 
-			try { Console.Clear(); } catch { }
+			Console.Clear();
 
 			// Restore cursor visibility on shutdown
 			SetCursorVisible(true);
@@ -954,21 +864,12 @@ namespace SharpConsoleUI.Drivers
 		private static extern bool SetConsoleMode(nint hConsoleHandle, uint dwMode);
 
 		// Unix signal constants for direct suppression via libc signal()
-		// SIGINT (2, Ctrl+C) and SIGTSTP (20, Ctrl+Z) are suppressed to prevent
-		// accidental interruption of the UI.
-		// SIGQUIT (3, Ctrl+\) is intentionally NOT suppressed — it serves as
-		// an emergency exit when the application is stuck.
-		private const int SigInt = 2;     // Ctrl+C — suppressed
-		private const int SigTstp = 20;   // Ctrl+Z — suppressed
+		private const int SigInt = 2;     // Ctrl+C
+		private const int SigTstp = 20;   // Ctrl+Z
 
 		private static void SuppressUnixSignal(int signum)
 		{
-			try { _unixSignal(signum, new IntPtr(1)); } catch { } // SIG_IGN = 1
-		}
-
-		private static void RestoreUnixSignal(int signum)
-		{
-			try { _unixSignal(signum, IntPtr.Zero); } catch { } // SIG_DFL = 0
+			try { _unixSignal(signum, new IntPtr(1)); } catch { }
 		}
 
 		[DllImport("libc", EntryPoint = "signal")]
