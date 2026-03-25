@@ -160,6 +160,29 @@ namespace SharpConsoleUI.Drivers.Input
 		[DllImport("libc", SetLastError = true)]
 		private static extern int poll(ref PollFd fds, int nfds, int timeout);
 
+		[DllImport("libc")]
+		private static extern int isatty(int fd);
+
+		/// <summary>
+		/// Checks whether stdin (fd 0) and stdout (fd 1) are connected to a TTY.
+		/// Returns false for either if piped or redirected.
+		/// Always returns (true, true) on Windows.
+		/// </summary>
+		public static (bool stdinIsTty, bool stdoutIsTty) CheckTtyStatus()
+		{
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+				return (true, true);
+
+			try
+			{
+				return (isatty(StdinFd) == 1, isatty(StdoutFd) == 1);
+			}
+			catch
+			{
+				return (false, false);
+			}
+		}
+
 		/// <summary>
 		/// Reads a single byte from stdin with a timeout using poll() + read().
 		/// Returns -1 on timeout or error. This is the correct way to do
