@@ -62,6 +62,7 @@
 	  <EmbeddedResource Include="Resources\Fonts\small.flf" />
 	  <EmbeddedResource Include="Resources\Fonts\standard.flf" />
 	  <EmbeddedResource Include="Resources\Fonts\banner.flf" />
+	  <EmbeddedResource Include="Resources\test_sample.mp4" />
 	</ItemGroup>
 
 	<ItemGroup>

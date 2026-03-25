@@ -122,6 +122,7 @@ schost opens your app in Windows Terminal (or Linux terminal emulator) with cust
 | **Navigation** | MenuControl, ToolbarControl, TabControl, NavigationView |
 | **Layout** | ColumnContainer, SplitterControl, ScrollablePanelControl, PanelControl |
 | **Drawing** | CanvasControl, ImageControl (PNG/JPEG/BMP/GIF/WebP/TIFF via ImageSharp) |
+| **Video** | VideoControl — terminal video playback via FFmpeg (half-block, ASCII, braille modes) |
 | **Advanced** | SpectreRenderableControl (wraps any Spectre.Console `IRenderable`), ProgressBarControl, TerminalControl |
 
 See the [Controls Reference](docs/CONTROLS.md) for detailed documentation on each control.
@@ -275,6 +276,7 @@ dotnet run --project Examples/DemoApp
 | **[Registry](docs/REGISTRY.md)** | Persistent hierarchical key-value storage |
 | **[Plugins](docs/PLUGINS.md)** | Plugin architecture and development |
 | **[Gradients & Alpha](docs/GRADIENTS.md)** | Gradient text, window backgrounds, transparent control compositing |
+| **[Video Playback](docs/VIDEO_PLAYBACK.md)** | Terminal video player — FFmpeg decode, half-block/ASCII/braille modes |
 | **[Compositor Effects](docs/COMPOSITOR_EFFECTS.md)** | Buffer manipulation and visual effects |
 | **[DOM Layout System](docs/DOM_LAYOUT_SYSTEM.md)** | Layout engine internals |
 | **[Rendering Pipeline](docs/RENDERING_PIPELINE.md)** | Rendering architecture details |

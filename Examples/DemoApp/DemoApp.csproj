@@ -13,6 +13,8 @@
 
   <ItemGroup>
     <Content Include="sample.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="sample.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="sample_bunny.mp4" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

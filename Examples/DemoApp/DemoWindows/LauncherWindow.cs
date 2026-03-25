@@ -67,6 +67,8 @@ public static class LauncherWindow
                 .AddItem("Notifications", subtitle: "Notification system demo", content: MakeInfoPanel("Notifications"))
                 .AddItem("System Info", subtitle: "OS & runtime details", content: MakeInfoPanel("System Info"))
                 .AddItem("Terminal", subtitle: "PTY-backed terminal emulator", content: MakeInfoPanel("Terminal"))
+                .AddItem("Video Player", subtitle: "Terminal video playback with half-block rendering",
+                    content: MakeInfoPanel("Video Player"))
                 .AddItem("Welcome Banner", subtitle: "FIGlet ASCII art banner", content: MakeInfoPanel("Welcome Banner")))
             .OnSelectedItemChanged((sender, args) =>
             {
@@ -245,6 +247,7 @@ public static class LauncherWindow
             "Welcome Banner" => WelcomeWindow.Create(ws),
             "Alpha Blending" => AlphaBlendingDemoWindow.Create(ws),
             "Canvas Animations" => OpenCanvasWindows(ws),
+            "Video Player" => VideoDemoWindow.Create(ws),
             _ => (Window?)null
         };
     }
@@ -767,6 +770,28 @@ public static class LauncherWindow
                 "  - Live Color.Blend() compositor with slider",
                 "  - Animated pulse panel (sin-wave alpha)",
                 "  - Animated background gradient (checkbox-controlled)",
+            },
+            "Video Player" => new List<string>
+            {
+                "[bold cyan]Video Player[/]",
+                "",
+                "Plays video files in the terminal using three",
+                "rendering modes. Requires FFmpeg on PATH.",
+                "",
+                "[dim]Render Modes:[/]",
+                "  - [white]Half-Block:[/] 2 pixels/cell, best color",
+                "  - [white]ASCII:[/] Brightness-to-density characters",
+                "  - [white]Braille:[/] 2x4 dots/cell, highest resolution",
+                "",
+                "[dim]Controls:[/]",
+                "  Space — Play / Pause",
+                "  M — Cycle render mode",
+                "  L — Toggle looping",
+                "  Esc — Stop playback",
+                "",
+                "[dim]Formats:[/] MP4, MKV, AVI, WebM, MOV, FLV, WMV",
+                "",
+                "[dim]Requires:[/] FFmpeg installed and on system PATH",
             },
             _ => null
         };

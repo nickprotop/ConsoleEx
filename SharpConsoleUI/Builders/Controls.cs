@@ -315,6 +315,19 @@ public static class Controls
 	}
 
 	/// <summary>
+	/// Creates a VideoControl builder for terminal video playback.
+	/// </summary>
+	/// <returns>A new video control builder.</returns>
+	public static VideoControlBuilder Video() => new VideoControlBuilder();
+
+	/// <summary>
+	/// Creates a VideoControl builder with a file path pre-set.
+	/// </summary>
+	/// <param name="filePath">Path to the video file.</param>
+	/// <returns>A new video control builder.</returns>
+	public static VideoControlBuilder Video(string filePath) => new VideoControlBuilder().WithFile(filePath);
+
+	/// <summary>
 	/// Creates a new navigation view builder.
 	/// </summary>
 	/// <returns>A new navigation view builder.</returns>

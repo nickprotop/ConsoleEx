@@ -767,6 +767,10 @@
                             <span class="nav-icon">🌊</span>
                             <span class="nav-label">Alpha Blending</span>
                         </div>
+                        <div class="feature-nav-item" data-feature="video">
+                            <span class="nav-icon">🎬</span>
+                            <span class="nav-label">Video Playback</span>
+                        </div>
                     </nav>
 
                     <div class="feature-panel" id="featurePanel">
@@ -848,6 +852,18 @@
                             </div>
                         </div>
 
+                        <div class="feature-pane" data-feature="video">
+                            <img src="images/examples/video-playback.gif" alt="Video playback — half-block, ASCII and braille render modes" loading="lazy" />
+                            <div class="feature-pane-text">
+                                <h3>// Video Playback</h3>
+                                <p>Play MP4, MKV, WebM and more directly inside a window. FFmpeg decodes frames;
+                                three render modes &mdash; half-block (best color), ASCII (density ramp), braille
+                                (highest resolution) &mdash; convert pixels to terminal cells at up to 30 fps.
+                                Auto-resize on window drag, overlay status bar, looping. No other terminal UI
+                                framework plays video.</p>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -910,6 +926,13 @@
                     <div class="unique-title">Spectre.Console bridge</div>
                     <p class="unique-body">SpectreRenderableControl wraps any IRenderable as a native control.
                     Every Spectre widget works inside SharpConsoleUI windows without modification.</p>
+                </div>
+                <div class="unique-item">
+                    <div class="unique-num">#09</div>
+                    <div class="unique-title">Video playback</div>
+                    <p class="unique-body">VideoControl plays MP4/MKV/WebM via FFmpeg in three render modes:
+                    half-block (best color), ASCII (density ramp), braille (highest resolution).
+                    Auto-resize, overlay bar, looping.</p>
                 </div>
             </div>
         </div>
@@ -977,6 +1000,7 @@ windowSystem.Run();</code></pre>
             <a href="docfx/_site/THEMES.html"            class="link-chip">Theming</a>
             <a href="docfx/_site/CONFIGURATION.html"     class="link-chip">Configuration</a>
             <a href="docfx/_site/STATE-SERVICES.html"    class="link-chip">State Services</a>
+            <a href="docfx/_site/VIDEO_PLAYBACK.html"     class="link-chip">Video Playback</a>
             <a href="docfx/_site/COMPOSITOR_EFFECTS.html" class="link-chip">Compositor Effects</a>
             <a href="docfx/_site/PLUGINS.html"           class="link-chip">Plugins</a>
             <a href="docfx/_site/PORTAL_SYSTEM.html"     class="link-chip">Portal System</a>

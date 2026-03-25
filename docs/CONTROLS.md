@@ -79,6 +79,7 @@ Controls for custom graphics and free-form drawing.
 |---------|-------------|---------|
 | **[CanvasControl](controls/CanvasControl.md)** | Free-form drawing surface | 30+ drawing primitives, retained & immediate modes, thread-safe async painting |
 | **[ImageControl](IMAGE_RENDERING.md)** | Half-block image renderer | Load PNG/JPEG/BMP/GIF/WebP/TIFF files or PixelBuffer; Fit/Fill/Stretch/None scaling |
+| **[VideoControl](VIDEO_PLAYBACK.md)** | Terminal video player | Half-block, ASCII & braille modes; FFmpeg decode; overlay bar; dynamic resize; looping |
 
 ## Layout Controls
 
