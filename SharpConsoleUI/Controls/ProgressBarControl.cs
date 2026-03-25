@@ -45,8 +45,7 @@ namespace SharpConsoleUI.Controls
 		private bool _showHeader;
 		private string? _header;
 
-		// Container backing field for custom override
-		private IContainer? _container;
+		// Container override uses base.Container — see Container property below.
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ProgressBarControl"/> class.
@@ -225,16 +224,16 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
-			get => _container;
+			get => base.Container;
 			set
 			{
 				// Stop animation when removed from container
-				if (value == null && _container != null)
+				if (value == null && base.Container != null)
 					StopAnimation();
 
-				_container = value;
+				base.Container = value;
 				OnPropertyChanged();
-				_container?.Invalidate(true);
+				Container?.Invalidate(true);
 			}
 		}
 

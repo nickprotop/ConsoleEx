@@ -109,7 +109,6 @@ namespace SharpConsoleUI.Controls
 		private BorderStyle _borderStyle = BorderStyle.None;
 		private SparklineMode _mode = SparklineMode.Block;
 		private Color? _borderColor;
-		private IContainer? _container;
 		private List<double> _dataPoints = new();
 		private Color? _foregroundColorValue;
 		private int _graphHeight = DEFAULT_HEIGHT;
@@ -380,10 +379,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
-			get => _container;
+			get => base.Container;
 			set
 			{
-				_container = value;
+				base.Container = value;
 				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}

@@ -27,7 +27,6 @@ namespace SharpConsoleUI.Controls
 
 		private Color? _backgroundColorValue;
 		private Color _borderColor = Color.White;
-		private IContainer? _container;
 		private Window? _subscribedWindow;
 		private Color? _draggingBackgroundColorValue;
 		private Color? _draggingForegroundColorValue;
@@ -84,10 +83,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
-			get => _container;
+			get => base.Container;
 			set
 			{
-				_container = value;
+				base.Container = value;
 				Container?.Invalidate(true);
 				var newWindow = this.GetParentWindow();
 				if (!ReferenceEquals(newWindow, _subscribedWindow))

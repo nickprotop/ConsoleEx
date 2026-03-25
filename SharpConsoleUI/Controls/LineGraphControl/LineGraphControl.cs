@@ -119,8 +119,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _borderColor;
 		private Color? _backgroundColorValue;
 		private Color? _foregroundColorValue;
-		private IContainer? _container;
-
 		// Reusable pixel grid to avoid GC pressure in braille mode
 		private bool[,]? _pixelGridCache;
 
@@ -443,10 +441,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
-			get => _container;
+			get => base.Container;
 			set
 			{
-				_container = value;
+				base.Container = value;
 				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
