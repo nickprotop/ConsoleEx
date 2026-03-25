@@ -33,9 +33,9 @@ namespace SharpConsoleUI.Tests.Parsing
 		[Fact]
 		public void TryFromName_WithUnderscores_Succeeds()
 		{
-			// "dark_red" → normalized to "darkred"
+			// "dark_red" → normalized to "darkred" → xterm #52 (95,0,0)
 			Assert.True(Color.TryFromName("dark_red", out var color));
-			Assert.Equal(Color.DarkRed, color);
+			Assert.Equal(new Color(95, 0, 0), color);
 		}
 
 		[Theory]
@@ -335,6 +335,68 @@ namespace SharpConsoleUI.Tests.Parsing
 			Assert.True(Color.TryFromHex("#FF000000", out var color));
 			Assert.Equal(255, color.R);
 			Assert.Equal(0, color.A);
+		}
+
+		#endregion
+
+		#region Xterm-256 Named Colors
+
+		[Theory]
+		[InlineData("red1", 255, 0, 0)]
+		[InlineData("blue1", 0, 0, 255)]
+		[InlineData("green1", 0, 255, 0)]
+		[InlineData("yellow1", 255, 255, 0)]
+		public void TryFromName_Xterm256_BasicBright_ReturnsCorrectRgb(string name, byte r, byte g, byte b)
+		{
+			Assert.True(Color.TryFromName(name, out var color));
+			Assert.Equal(new Color(r, g, b), color);
+		}
+
+		[Theory]
+		[InlineData("blue3", 0, 0, 175)]
+		[InlineData("red3", 175, 0, 0)]
+		[InlineData("gold31", 175, 175, 0)]
+		[InlineData("green3", 0, 175, 0)]
+		[InlineData("yellow3", 175, 215, 0)]
+		public void TryFromName_Xterm256_NumberedVariants_ReturnsCorrectRgb(string name, byte r, byte g, byte b)
+		{
+			Assert.True(Color.TryFromName(name, out var color));
+			Assert.Equal(new Color(r, g, b), color);
+		}
+
+		[Fact]
+		public void TryFromName_Xterm256_UnderscoreTolerance_Blue3_1()
+		{
+			// "blue3_1" normalizes to "blue31", same as "blue31"
+			Assert.True(Color.TryFromName("blue3_1", out var withUnderscore));
+			Assert.True(Color.TryFromName("blue31", out var withoutUnderscore));
+			Assert.Equal(withUnderscore, withoutUnderscore);
+			Assert.Equal(new Color(0, 0, 215), withUnderscore);
+		}
+
+		[Theory]
+		[InlineData("navyblue", 0, 0, 95)]
+		[InlineData("orangered1", 255, 95, 0)]
+		[InlineData("cornsilk1", 255, 255, 215)]
+		[InlineData("springgreen4", 0, 135, 95)]
+		[InlineData("turquoise4", 0, 135, 135)]
+		[InlineData("magenta3", 175, 0, 175)]
+		[InlineData("plum4", 135, 95, 135)]
+		[InlineData("lightslateblue", 135, 135, 255)]
+		public void TryFromName_Xterm256_NewColors_ReturnsCorrectRgb(string name, byte r, byte g, byte b)
+		{
+			Assert.True(Color.TryFromName(name, out var color));
+			Assert.Equal(new Color(r, g, b), color);
+		}
+
+		[Theory]
+		[InlineData("gold3_1", 175, 175, 0)]
+		[InlineData("red3_1", 215, 0, 0)]
+		[InlineData("deeppink3_1", 215, 0, 135)]
+		public void TryFromName_Xterm256_UnderscoreVariants_ResolveCorrectly(string name, byte r, byte g, byte b)
+		{
+			Assert.True(Color.TryFromName(name, out var color));
+			Assert.Equal(new Color(r, g, b), color);
 		}
 
 		#endregion
