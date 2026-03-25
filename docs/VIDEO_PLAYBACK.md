@@ -2,6 +2,8 @@
 
 SharpConsoleUI can play video files directly in the terminal using `VideoControl`. Frames are decoded via FFmpeg and rendered using three visual modes: half-block (best color), ASCII (density characters), and braille (highest spatial resolution).
 
+> **Inspiration:** The rendering approach is inspired by [buddy](https://github.com/JVSCHANDRADITHYA/buddy), a Python terminal video player that pioneered half-block + braille + ASCII modes with FFmpeg frame decoding. VideoControl brings the same concept natively into .NET with SharpConsoleUI's compositing pipeline, pre-allocated buffers, dynamic resize, and overlay controls.
+
 ## Table of Contents
 
 1. [Overview](#overview)
