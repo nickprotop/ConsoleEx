@@ -89,12 +89,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
-		/// <summary>Raised when the control gains focus.</summary>
-		public event EventHandler? GotFocus;
-
-		/// <summary>Raised when the control loses focus.</summary>
-		public event EventHandler? LostFocus;
-
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{

@@ -30,7 +30,6 @@ namespace SharpConsoleUI.Controls
 		private int _viewportWidth = 0;
 		private bool _isEnabled = true;
 		private IInteractiveControl? _lastInternalFocusedChild = null;
-		private bool _focusFromBackward = false;
 		// When true, GetInitialFocus returns 'this' so SetFocus(panel) enters scroll mode directly.
 		private bool _enterScrollModeOnNextInitialFocus = false;
 

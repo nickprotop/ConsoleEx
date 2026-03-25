@@ -80,8 +80,6 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public IInteractiveControl? FocusedContent => GetFocusedChildFromCoordinator();
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
-		private bool _interactiveContentsDirty = true;
-		private bool _focusFromBackward = false;
 		private bool _isEnabled = true;
 		private Dictionary<IInteractiveControl, int> _splitterControls = new Dictionary<IInteractiveControl, int>();
 		private List<SplitterControl> _splitters = new List<SplitterControl>();
@@ -387,7 +385,6 @@ namespace SharpConsoleUI.Controls
 			lock (_gridLock)
 			{
 				_columns.Add(column);
-				_interactiveContentsDirty = true;
 			}
 
 			// Force DOM rebuild for runtime addition
@@ -431,7 +428,6 @@ namespace SharpConsoleUI.Controls
 					_splitters.Add(splitter);
 					_splitterControls[splitter] = _columns.Count - 2;
 
-					_interactiveContentsDirty = true;
 				}
 
 				// Subscribe to splitter's move event
@@ -473,7 +469,6 @@ namespace SharpConsoleUI.Controls
 				_splitters.Add(splitterControl);
 				_splitterControls[splitterControl] = leftColumnIndex;
 
-				_interactiveContentsDirty = true;
 			}
 
 			// Subscribe to splitter's move event
@@ -594,7 +589,6 @@ namespace SharpConsoleUI.Controls
 
 				_splitterControls = updatedSplitters;
 
-				_interactiveContentsDirty = true;
 			}
 
 			// Unsubscribe events outside lock
@@ -622,7 +616,6 @@ namespace SharpConsoleUI.Controls
 				_splitters.Clear();
 				_splitterControls.Clear();
 				_savedColumnWidths.Clear();
-				_interactiveContentsDirty = true;
 			}
 
 			foreach (var s in splittersSnapshot)

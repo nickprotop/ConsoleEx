@@ -80,7 +80,7 @@ namespace SharpConsoleUI
 			// Handle focus logic before removing
 			if (content is IInteractiveControl interactiveControl)
 			{
-				bool wasFocused = FocusManager.IsFocused(interactiveControl as IFocusableControl);
+				bool wasFocused = interactiveControl is IFocusableControl fc && FocusManager.IsFocused(fc);
 
 				if (wasFocused)
 				{

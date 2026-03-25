@@ -639,7 +639,7 @@ namespace SharpConsoleUI.Windows
 
 			// Legacy fallback during migration — keep existing logic here unchanged
 			// First try to find focused control in _interactiveContents (direct children)
-			interactiveContent = _window._interactiveContents.LastOrDefault(ic => ic.IsEnabled && _window.FocusManager.IsFocused(ic as Controls.IFocusableControl));
+			interactiveContent = _window._interactiveContents.LastOrDefault(ic => ic.IsEnabled && ic is Controls.IFocusableControl fc && _window.FocusManager.IsFocused(fc));
 
 			// Fallback: route keyboard to the control that currently has focus via FocusManager.
 			// This handles nested controls in containers (e.g. a leaf inside ScrollablePanel).

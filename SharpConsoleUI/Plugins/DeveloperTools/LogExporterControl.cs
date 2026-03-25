@@ -162,12 +162,13 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	/// <inheritdoc/>
 	public bool CanReceiveFocus => _enabled && _visible;
 
+	#pragma warning disable CS0067 // Events required by IFocusableControl but not raised by this legacy control
 	/// <inheritdoc/>
 	public event EventHandler? GotFocus;
 
 	/// <inheritdoc/>
 	public event EventHandler? LostFocus;
-
+	#pragma warning restore CS0067
 
 	/// <inheritdoc/>
 	public bool WantsMouseEvents => true;
