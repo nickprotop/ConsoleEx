@@ -168,19 +168,6 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	/// <inheritdoc/>
 	public event EventHandler? LostFocus;
 
-	/// <inheritdoc/>
-	public void SetFocus(bool focused, FocusReason reason)
-	{
-		if (_focused == focused) return;
-		_focused = focused;
-
-		if (focused)
-			GotFocus?.Invoke(this, EventArgs.Empty);
-		else
-			LostFocus?.Invoke(this, EventArgs.Empty);
-
-		Container?.Invalidate(true);
-	}
 
 	/// <inheritdoc/>
 	public bool WantsMouseEvents => true;

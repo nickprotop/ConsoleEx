@@ -192,7 +192,7 @@ A `PortalContentBase` subclass that acts as a proper container for child control
 - **Vertical stack layout** for child controls
 - **Mouse hit-testing** with coordinate translation to children
 - **Keyboard delegation** to focused child with Tab cycling
-- **Focus tracking** via `IFocusTrackingContainer`
+- **Focus tracking** via `IFocusScope`
 - **Container chain** support (`IContainer`) for color resolution and invalidation
 
 ### Interfaces
@@ -202,7 +202,7 @@ A `PortalContentBase` subclass that acts as a proper container for child control
 | `PortalContentBase` | Portal bounds, mouse awareness, DOM painting |
 | `IContainer` | Color resolution, `GetConsoleWindowSystem`, `Invalidate()` |
 | `IContainerControl` | `GetChildren()` for focus traversal |
-| `IFocusTrackingContainer` | Tracks which child has focus |
+| `IFocusScope` | Manages focus within children (Tab order, SavedFocus) |
 
 ### Creating a Portal with Controls
 
@@ -399,7 +399,7 @@ This works because:
 - **Container chain**: `child.Container = PortalContentContainer` (implements `IContainer`), so color resolution, `GetConsoleWindowSystem`, and `Invalidate()` all propagate correctly
 - **Layout**: `LayoutNodeFactory.CreateSubtree()` recursively builds proper subtrees for each container type
 - **Mouse**: Portal forwards to child, child does its own internal hit-testing for nested children
-- **Focus**: `IFocusTrackingContainer` ensures focus tracking through nesting
+- **Focus**: `IFocusScope` ensures focus tracking through nesting
 
 ## Dismiss on Outside Click
 

@@ -545,13 +545,12 @@ public class TabControlTests
 		tabControl.AddTab("Tab 1", content1);
 		tabControl.AddTab("Tab 2", content2);
 
-		// Act
+		// Act — GetChildren returns only the active tab's content
 		var children = tabControl.GetChildren();
 
-		// Assert
-		Assert.Equal(2, children.Count);
+		// Assert — first tab is active by default
+		Assert.Equal(1, children.Count);
 		Assert.Contains(content1, children);
-		Assert.Contains(content2, children);
 	}
 
 	#endregion
@@ -1757,9 +1756,15 @@ public class TabControlTests
 		var inserted = CreateLabel("C2");
 		tab.InsertTab(1, "Tab 2", inserted);
 
+		// GetChildren returns only the active tab's content (tab 0 = "C1")
 		var children = tab.GetChildren();
-		Assert.Equal(3, children.Count);
-		Assert.Same(inserted, children[1]);
+		Assert.Equal(1, children.Count);
+
+		// Switch to inserted tab and verify it's returned
+		tab.ActiveTabIndex = 1;
+		var childrenAfterSwitch = tab.GetChildren();
+		Assert.Equal(1, childrenAfterSwitch.Count);
+		Assert.Same(inserted, childrenAfterSwitch[0]);
 	}
 
 	[Fact]

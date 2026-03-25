@@ -5,6 +5,7 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
 namespace AgentStudio.Modals;
@@ -125,6 +126,6 @@ public static class CommandPaletteModal
         windowSystem.SetActiveWindow(modal);
 
         // Focus the list after modal is active
-        commandList.SetFocus(true, FocusReason.Programmatic);
+        commandList.RequestFocus();
     }
 }

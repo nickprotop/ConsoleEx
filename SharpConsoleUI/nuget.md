@@ -120,8 +120,8 @@ canvas.Paint += (sender, e) =>
 windowSystem.NotificationStateService.ShowNotification(
     "Success", "Done!", NotificationSeverity.Success);
 
-// Focus, modals, themes — all built-in
-windowSystem.FocusStateService.FocusedWindow;
+// Focus (per-window), modals, themes — all built-in
+window.FocusManager.FocusedControl;
 windowSystem.ModalStateService.HasModals;
 windowSystem.ThemeStateService.CurrentTheme;
 ```

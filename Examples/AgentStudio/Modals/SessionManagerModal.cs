@@ -5,6 +5,7 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
 namespace AgentStudio.Modals;
@@ -135,6 +136,6 @@ public static class SessionManagerModal
         windowSystem.SetActiveWindow(modal);
 
         // Focus the list after modal is active
-        sessionList.SetFocus(true, FocusReason.Programmatic);
+        sessionList.RequestFocus();
     }
 }

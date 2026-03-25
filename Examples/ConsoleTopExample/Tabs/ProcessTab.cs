@@ -7,6 +7,7 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
 namespace ConsoleTopExample.Tabs;
@@ -433,7 +434,7 @@ internal sealed class ProcessTab : ITab
         }
 
         modal.AddControl(buttonRow);
-        closeButton.SetFocus(true, FocusReason.Programmatic);
+        closeButton.RequestFocus();
 
         _windowSystem.AddWindow(modal);
         _windowSystem.SetActiveWindow(modal);

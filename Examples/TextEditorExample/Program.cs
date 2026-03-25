@@ -5,6 +5,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
 namespace TextEditorExample;
@@ -179,7 +180,7 @@ namespace HelloWorld
                 .AddItem("Undo", "Ctrl+Z", () => { /* handled by editor */ })
                 .AddItem("Redo", "Ctrl+Y", () => { /* handled by editor */ })
                 .AddSeparator()
-                .AddItem("Go to Line...", "Ctrl+G", () => _gotoPrompt?.SetFocus(true)))
+                .AddItem("Go to Line...", "Ctrl+G", () => _gotoPrompt?.RequestFocus()))
             .AddItem("View", m => m
                 .AddItem("Toggle Line Numbers", () => ToggleLineNumbers())
                 .AddItem("Toggle Whitespace", () => ToggleWhitespace())
@@ -200,7 +201,7 @@ namespace HelloWorld
         if (int.TryParse(input, out int lineNumber) && lineNumber >= 1)
         {
             _editor.GoToLine(lineNumber);
-            _editor.SetFocus(true);
+            _editor.RequestFocus();
         }
         if (_gotoPrompt != null) _gotoPrompt.Input = string.Empty;
     }

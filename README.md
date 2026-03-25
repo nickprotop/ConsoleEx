@@ -173,8 +173,8 @@ windowSystem.NotificationStateService.ShowNotification("Title", "Message", Notif
 // export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
 windowSystem.LogService.LogAdded += (s, entry) => { /* handle */ };
 
-// State services: Focus, Modal, Window, Theme, Cursor, etc.
-windowSystem.FocusStateService.FocusedWindow;
+// State services: Modal, Window, Theme, Cursor, etc.
+// Focus is per-window: window.FocusManager.FocusedControl;
 windowSystem.ModalStateService.HasModals;
 ```
 

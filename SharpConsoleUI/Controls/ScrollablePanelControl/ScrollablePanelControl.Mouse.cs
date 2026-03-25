@@ -287,7 +287,7 @@ namespace SharpConsoleUI.Controls
 				Drivers.MouseFlags.Button3DoubleClicked, Drivers.MouseFlags.Button3TripleClicked))
 			{
 				var currentFocused = GetFocusedChildFromCoordinator();
-				log?.LogTrace($"ScrollPanel.ProcessMouseEvent: click pos={args.Position} (this.GetParentWindow()?.FocusManager.IsFocused(this) ?? false)={HasFocus} focusedChild={currentFocused?.GetType().Name ?? "null"}", "Focus");
+				log?.LogTrace($"ScrollPanel.ProcessMouseEvent: click pos={args.Position} HasFocus={HasFocus} focusedChild={currentFocused?.GetType().Name ?? "null"}", "Focus");
 				// Calculate content width (accounting for scrollbar)
 				int contentWidth = _viewportWidth;
 				bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;

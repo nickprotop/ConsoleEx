@@ -6,7 +6,7 @@ SharpConsoleUI includes built-in state management services for managing differen
 
 - [Overview](#overview)
 - [WindowStateService](#windowstateservice)
-- [FocusStateService](#focusstateservice)
+- [FocusManager](#focusmanager)
 - [ModalStateService](#modalstateservice)
 - [NotificationStateService](#notificationstateservice)
 - [ThemeStateService](#themestateservice)
@@ -24,7 +24,7 @@ var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffe
 
 // Access state services
 windowSystem.WindowStateService
-windowSystem.FocusStateService
+window.FocusManager  // Focus is now per-window
 windowSystem.ModalStateService
 windowSystem.NotificationStateService
 windowSystem.ThemeStateService
@@ -101,58 +101,54 @@ if (windowSystem.WindowStateService.IsDragging)
 }
 ```
 
-## FocusStateService
+## FocusManager
 
-Manages keyboard focus tracking for windows and controls.
+Each `Window` has its own `FocusManager` that tracks which control has focus. This replaced the former system-wide `FocusStateService`.
 
 ### Key Properties
 
 ```csharp
-// Currently focused window
-Window? FocusedWindow { get; }
+// Currently focused control within the window
+IFocusableControl? FocusedControl { get; }
 
-// Currently focused control within the focused window
-IWindowControl? FocusedControl { get; }
+// Ancestor chain from window root to the focused control
+IReadOnlyList<IWindowControl> FocusPath { get; }
 ```
 
 ### Key Methods
 
 ```csharp
-// Set focus to a window
-void SetFocusedWindow(Window? window);
+// Set focus to a control (delegates into IFocusScope if applicable)
+void SetFocus(IFocusableControl? control, FocusReason reason);
 
-// Set focus to a control
-void SetFocusedControl(IWindowControl? control);
+// Move focus forward/backward via Tab
+void MoveFocus(bool backward);
 
-// Get window that contains a control
-Window? GetWindowForControl(IWindowControl control);
+// Route a mouse click to the nearest focusable ancestor
+void HandleClick(IWindowControl? hit);
 ```
 
 ### Events
 
 ```csharp
-// Fired when focused window changes
-event EventHandler<FocusChangedEventArgs>? FocusedWindowChanged;
-
-// Fired when focused control changes
-event EventHandler<FocusChangedEventArgs>? FocusedControlChanged;
+// Fired when FocusedControl changes
+event EventHandler<FocusChangedEventArgs>? FocusChanged;
 ```
 
 ### Usage Example
 
 ```csharp
 // Subscribe to focus changes
-windowSystem.FocusStateService.FocusedWindowChanged += (sender, e) =>
+window.FocusManager.FocusChanged += (sender, e) =>
 {
-    Console.WriteLine($"Focus changed to: {e.CurrentWindow?.Title ?? "none"}");
+    Console.WriteLine($"Focus changed to: {e.NewControl?.GetType().Name ?? "none"}");
 };
 
 // Set focus programmatically
-windowSystem.FocusStateService.SetFocusedWindow(myWindow);
+window.FocusManager.SetFocus(myControl, FocusReason.Programmatic);
 
 // Get current focus
-var focusedWindow = windowSystem.FocusStateService.FocusedWindow;
-var focusedControl = windowSystem.FocusStateService.FocusedControl;
+var focusedControl = window.FocusManager.FocusedControl;
 ```
 
 ## ModalStateService
@@ -660,12 +656,12 @@ var mainWindow = new WindowBuilder(windowSystem)
     .Centered()
     .Build();
 
-// Subscribe to focus changes
-windowSystem.FocusStateService.FocusedWindowChanged += (sender, e) =>
+// Subscribe to focus changes (focus is per-window via FocusManager)
+window.FocusManager.FocusChanged += (sender, e) =>
 {
     windowSystem.NotificationStateService.ShowNotification(
         "Focus Changed",
-        $"Window: {e.CurrentWindow?.Title ?? "None"}",
+        $"Control: {e.NewControl?.GetType().Name ?? "None"}",
         NotificationSeverity.Info,
         timeout: 2000
     );
@@ -689,11 +685,11 @@ mainWindow.AddControl(
         {
             var windows = windowSystem.WindowStateService.Windows;
             var hasModals = windowSystem.ModalStateService.HasModals;
-            var focusedWindow = windowSystem.FocusStateService.FocusedWindow;
+            var focusedControl = window.FocusManager.FocusedControl;
 
             windowSystem.NotificationStateService.ShowNotification(
                 "System Info",
-                $"Windows: {windows.Count}, Modals: {hasModals}, Focused: {focusedWindow?.Title}",
+                $"Windows: {windows.Count}, Modals: {hasModals}, Focused: {focusedControl?.GetType().Name}",
                 NotificationSeverity.Info
             );
         })
