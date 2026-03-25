@@ -689,21 +689,58 @@ namespace SharpConsoleUI.Controls
 					foreach (var content in column.GetChildren())
 					{
 						if (!content.Visible) continue;
-						if (content is IFocusableControl f && f.CanReceiveFocus)
-						{
-							result.Add(f);
-						}
-						else if (content is IFocusScope && content is IFocusableControl scopeFocusable
-						         && content is IContainerControl container
-						         && HasAnyFocusableDescendant(container))
-						{
-							// Transparent IFocusScope (e.g. nested HGrid): add as a single scope stop
-							result.Add(scopeFocusable);
-						}
+						CollectFocusableContent(content, result);
 					}
 				}
 			}
 			return result;
+		}
+
+		/// <summary>
+		/// Recursively collects focusable Tab stops from a content control, handling
+		/// <see cref="IFocusableContainerWithHeader"/> (header + active-tab children),
+		/// <see cref="IFocusScope"/> (opaque single stop), and transparent containers.
+		/// </summary>
+		private static void CollectFocusableContent(IWindowControl control, List<IFocusableControl> result)
+		{
+			if (!control.Visible) return;
+
+			// IFocusableContainerWithHeader (e.g. TabControl): header is a Tab stop,
+			// then active-tab children are recursively included immediately after.
+			if (control is IFocusableContainerWithHeader)
+			{
+				if (control is IFocusableControl headerFc && headerFc.CanReceiveFocus)
+					result.Add(headerFc);
+				if (control is IContainerControl headerContainer)
+					foreach (var child in headerContainer.GetChildren())
+						CollectFocusableContent(child, result);
+				return;
+			}
+
+			// IFocusScope (e.g. ScrollablePanelControl, nested HGrid): opaque single stop.
+			// The scope handles its own internal traversal; FocusManager.EnterOrFocus
+			// will delegate to scope.GetInitialFocus() when focus reaches it.
+			if (control is IFocusScope && control is IFocusableControl scopeFc
+				&& control is IContainerControl scopeContainer)
+			{
+				if (scopeFc.CanReceiveFocus || HasAnyFocusableDescendant(scopeContainer))
+				{
+					result.Add(scopeFc);
+					return;
+				}
+			}
+
+			// Leaf focusable control
+			if (control is IFocusableControl f && f.CanReceiveFocus)
+			{
+				result.Add(f);
+				return;
+			}
+
+			// Transparent container: recurse into children
+			if (control is IContainerControl container)
+				foreach (var child in container.GetChildren())
+					CollectFocusableContent(child, result);
 		}
 
 		private static bool HasAnyFocusableDescendant(IContainerControl container)
