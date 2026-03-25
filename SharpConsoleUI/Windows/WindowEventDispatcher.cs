@@ -508,6 +508,19 @@ namespace SharpConsoleUI.Windows
 					}
 
 					contentKeyHandled = activeInteractiveContent!.ProcessKey(key);
+
+					// Bubble unhandled keys up the visual tree to ancestor containers.
+					// Standard UI framework behavior: events propagate from leaf to root.
+					if (!contentKeyHandled && activeInteractiveContent is IWindowControl leafWc)
+					{
+						IWindowControl? ancestor = Core.FocusManager.ResolveParentWindowControl(leafWc);
+						while (ancestor != null && !contentKeyHandled)
+						{
+							if (ancestor is Controls.IInteractiveControl parentIc && parentIc.IsEnabled)
+								contentKeyHandled = parentIc.ProcessKey(key);
+							ancestor = Core.FocusManager.ResolveParentWindowControl(ancestor);
+						}
+					}
 				}
 				else
 				{

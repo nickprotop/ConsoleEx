@@ -117,7 +117,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus
 		{
-			get => ComputeHasFocus();
+			get => ComputeIsInFocusPath();
 		}
 
 		/// <summary>
@@ -374,35 +374,28 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !(ComputeHasFocus()))
+			if (!_isEnabled || !ComputeIsInFocusPath())
 				return false;
 
-			// First, let focused item handle the key (Enter, Space, etc.)
+			// Sync _focusedItem with FocusManager state.
+			// When focus is set externally (e.g., Tab into toolbar via IFocusScope),
+			// _focusedItem may be stale. Align it with the actual focused control.
+			SyncFocusedItemFromFocusManager();
+
+			// Let focused item handle the key first (Enter/Space for buttons,
+			// arrows for PromptControl cursor movement, etc.)
 			if (_focusedItem != null && _focusedItem.ProcessKey(key))
 				return true;
 
-			// Then handle toolbar-level navigation (Tab)
-			if (key.Key == ConsoleKey.Tab)
-			{
-				bool backward = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
-				return NavigateFocus(backward);
-			}
-
-			// Arrow keys for navigation within toolbar
+			// Arrow keys: navigate between toolbar items
 			if (key.Key == ConsoleKey.LeftArrow)
-			{
 				return NavigateFocus(backward: true);
-			}
 			if (key.Key == ConsoleKey.RightArrow)
-			{
 				return NavigateFocus(backward: false);
-			}
 
 			// Up/Down arrow navigation between rows (only when wrapping)
 			if (_wrap && (key.Key == ConsoleKey.UpArrow || key.Key == ConsoleKey.DownArrow))
-			{
 				return NavigateFocusVertical(key.Key == ConsoleKey.UpArrow);
-			}
 
 			return false;
 		}
@@ -990,6 +983,35 @@ namespace SharpConsoleUI.Controls
 
 			Container?.Invalidate(true);
 			return true;
+		}
+
+		/// <summary>
+		/// Synchronizes _focusedItem with the FocusManager's actual focused control.
+		/// Called at the start of ProcessKey to handle external focus changes
+		/// (e.g., Tab entry via IFocusScope.GetInitialFocus).
+		/// </summary>
+		private void SyncFocusedItemFromFocusManager()
+		{
+			var window = this.GetParentWindow();
+			if (window == null) return;
+
+			var fmFocused = window.FocusManager.FocusedControl;
+			if (fmFocused == null) return;
+
+			// Check if the FocusManager's focused control is one of our items
+			if (fmFocused is IInteractiveControl interactive)
+			{
+				List<IWindowControl> snapshot;
+				lock (_toolbarLock) { snapshot = _items.ToList(); }
+				foreach (var item in snapshot)
+				{
+					if (item == fmFocused)
+					{
+						_focusedItem = interactive;
+						return;
+					}
+				}
+			}
 		}
 
 		private void SetItemFocus(IInteractiveControl item, bool focus)
