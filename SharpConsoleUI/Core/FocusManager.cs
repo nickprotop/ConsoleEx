@@ -48,13 +48,14 @@ public class FocusManager
         // Transparent scopes (CanReceiveFocus=false, e.g. HGrid) are NOT entered here —
         // they are handled by the CanReceiveFocus guard below, which rejects them.
         // HGrid children are reached via MoveFocus/BuildFlatList traversal instead.
-        if (control is IFocusScope scope && control.CanReceiveFocus)
+        if (reason != FocusReason.Mouse
+            && control is IFocusScope scope && control.CanReceiveFocus)
         {
             var backward = false;
             var child = scope.GetInitialFocus(backward);
             if (child != null && !ReferenceEquals(child, control))
             {
-                EnterOrFocus(child, backward);
+                EnterOrFocus(child, backward, reason);
                 return;
             }
             // child == null, or child == control (self-sentinel) → fall through to focus scope itself
@@ -75,7 +76,7 @@ public class FocusManager
         // Scroll any IScrollableContainer ancestor to show the newly focused control.
         // Walk the focus path from the focused control upward; for each scrollable container,
         // scroll its direct child in the path into view.
-        if (control is IWindowControl focusedWc)
+        if (reason != FocusReason.Mouse && control is IWindowControl focusedWc)
         {
             var path = FocusPath;
             for (int i = path.Count - 1; i >= 1; i--)
@@ -182,18 +183,18 @@ public class FocusManager
         }
     }
 
-    private void EnterOrFocus(IFocusableControl target, bool backward)
+    private void EnterOrFocus(IFocusableControl target, bool backward, FocusReason reason = FocusReason.Keyboard)
     {
         if (target is IFocusScope scope)
         {
             var child = scope.GetInitialFocus(backward);
             if (child != null && !ReferenceEquals(child, target))
             {
-                EnterOrFocus(child, backward);
+                EnterOrFocus(child, backward, reason);
                 return;
             }
         }
-        SetFocus(target, FocusReason.Keyboard);
+        SetFocus(target, reason);
     }
 
     // NOTE: FindInnermostScope starts at control.Container (not the control itself).
