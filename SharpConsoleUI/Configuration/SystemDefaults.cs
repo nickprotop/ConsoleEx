@@ -45,5 +45,15 @@ namespace SharpConsoleUI.Configuration
 		/// Last Alt+Number window switch key (default: Alt+9)
 		/// </summary>
 		public const ConsoleKey LastWindowSwitchKey = ConsoleKey.D9;
+
+		// Terminal initialization
+		/// <summary>
+		/// Per-byte timeout in milliseconds for DSR terminal verification during startup.
+		/// ReadDSRColumn calls readByte up to ~8 times, so effective worst-case timeout
+		/// is ~8x this value (~4s at 500ms). Longer than the 150ms VS16 probe timeout
+		/// because this is a one-time startup check and some embedded terminals may
+		/// have higher latency.
+		/// </summary>
+		public const int TerminalVerificationTimeoutMs = 500;
 	}
 }
