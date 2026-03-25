@@ -32,7 +32,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 
-		private IContainer? _container;
 		private Window? _subscribedWindow;
 		private bool _isDragging;
 		private bool _isEnabled = true;
@@ -94,10 +93,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
-			get => _container;
+			get => base.Container;
 			set
 			{
-				_container = value;
+				base.Container = value;
 				// Only reset resolved neighbors if they weren't explicitly set via constructor/SetNeighbors.
 				// Explicit neighbors remain valid regardless of container changes.
 				if (_aboveControl == null && _belowControl == null)

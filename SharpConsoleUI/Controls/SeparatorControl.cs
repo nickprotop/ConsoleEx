@@ -22,7 +22,6 @@ namespace SharpConsoleUI.Controls
 
 		private Color? _backgroundColorValue;
 		private char _character = DEFAULT_CHARACTER;
-		private IContainer? _container;
 		private Color? _foregroundColorValue;
 
 		/// <summary>
@@ -59,10 +58,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
-			get => _container;
+			get => base.Container;
 			set
 			{
-				_container = value;
+				base.Container = value;
 				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}

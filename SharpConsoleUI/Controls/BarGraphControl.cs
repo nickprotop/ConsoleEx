@@ -32,7 +32,6 @@ namespace SharpConsoleUI.Controls
 
 		private Color? _backgroundColorValue;
 		private int _barWidth = DEFAULT_BAR_WIDTH;
-		private IContainer? _container;
 		private Color _filledColor = Color.Cyan1;
 		private Color? _foregroundColorValue;
 		private string _label = string.Empty;
@@ -236,10 +235,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
-			get => _container;
+			get => base.Container;
 			set
 			{
-				_container = value;
+				base.Container = value;
 				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}

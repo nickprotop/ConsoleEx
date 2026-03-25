@@ -58,7 +58,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _thumbColor;
 		private Color? _focusedThumbColor;
 		private Color? _backgroundColorValue;
-		private IContainer? _container;
 		private LayoutRect _lastLayoutBounds;
 
 		#endregion
@@ -271,12 +270,12 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
-			get => _container;
+			get => base.Container;
 			set
 			{
-				_container = value;
+				base.Container = value;
 				OnPropertyChanged();
-				_container?.Invalidate(true);
+				Container?.Invalidate(true);
 			}
 		}
 

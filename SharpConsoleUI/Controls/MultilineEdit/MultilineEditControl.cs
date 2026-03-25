@@ -259,8 +259,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		/// <inheritdoc/>
-		public override IContainer? Container { get; set; }
+		// Container is inherited from BaseControl — no override needed.
 
 		/// <summary>
 		/// Gets or sets the text content as a single string with line breaks.
