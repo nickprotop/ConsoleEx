@@ -9,8 +9,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{B3
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentStudio", "Examples\AgentStudio\AgentStudio.csproj", "{BC01AF69-9657-4CAA-819E-979B7E1FC831}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CanvasDemo", "Examples\CanvasDemo\CanvasDemo.csproj", "{877F0629-B17F-46DE-975E-7D9486B89D9D}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompositorEffectsExample", "Examples\CompositorEffectsExample\CompositorEffectsExample.csproj", "{FCAB68F0-B3B4-43BB-9506-145FE0D02736}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleTopExample", "Examples\ConsoleTopExample\ConsoleTopExample.csproj", "{5A0FDF41-ECDA-45C3-B738-AE2822F8FE0B}"

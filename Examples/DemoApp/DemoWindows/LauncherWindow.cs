@@ -57,7 +57,9 @@ public static class LauncherWindow
                 .AddItem("Image Rendering", subtitle: "Pixel art with half-blocks", content: MakeInfoPanel("Image Rendering"))
                 .AddItem("Image Viewer", subtitle: "Load & display image files", content: MakeInfoPanel("Image Viewer"))
                 .AddItem("Alpha Blending", subtitle: "Compositing, glass panels, live blend preview",
-                    content: MakeInfoPanel("Alpha Blending")))
+                    content: MakeInfoPanel("Alpha Blending"))
+                .AddItem("Canvas Animations", subtitle: "Starfield, plasma & geometry canvases",
+                    content: MakeCanvasInfoPanel()))
             .AddHeader("Utilities", Color.Magenta1, header => header
                 .AddItem("Built-in Dialogs", subtitle: "File pickers & system dialogs", content: MakeInfoPanel("Built-in Dialogs"))
                 .AddItem("Digital Clock", subtitle: "FIGlet-rendered clock", content: MakeInfoPanel("Digital Clock"))
@@ -103,6 +105,75 @@ public static class LauncherWindow
 
         win = window;
         return window;
+    }
+
+    private static Window OpenCanvasWindows(ConsoleWindowSystem ws)
+    {
+        CanvasDemoWindow.CreateStarfieldWindow(ws);
+        CanvasDemoWindow.CreatePlasmaWindow(ws);
+        return CanvasDemoWindow.CreateGeometryWindow(ws);
+    }
+
+    private static Action<ScrollablePanelControl> MakeCanvasInfoPanel()
+    {
+        return panel =>
+        {
+            var info = GetDemoInfo("Canvas Animations");
+            if (info != null)
+            {
+                panel.AddControl(Controls.Markup()
+                    .AddLines(info.ToArray())
+                    .WithMargin(1, 1, 1, 1)
+                    .Build());
+            }
+
+            var toolbar = Controls.Toolbar()
+                .WithSpacing(1)
+                .WithContentPadding(1, 0, 1, 0)
+                .Build();
+
+            var starfieldBtn = Controls.Button()
+                .WithText("  Starfield  ")
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .Build();
+
+            var plasmaBtn = Controls.Button()
+                .WithText("  Plasma  ")
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .Build();
+
+            var geometryBtn = Controls.Button()
+                .WithText("  Geometry  ")
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .Build();
+
+            starfieldBtn.Click += (_, _) =>
+            {
+                var ws = panel.Container?.GetConsoleWindowSystem;
+                if (ws != null)
+                    CanvasDemoWindow.CreateStarfieldWindow(ws);
+            };
+
+            plasmaBtn.Click += (_, _) =>
+            {
+                var ws = panel.Container?.GetConsoleWindowSystem;
+                if (ws != null)
+                    CanvasDemoWindow.CreatePlasmaWindow(ws);
+            };
+
+            geometryBtn.Click += (_, _) =>
+            {
+                var ws = panel.Container?.GetConsoleWindowSystem;
+                if (ws != null)
+                    CanvasDemoWindow.CreateGeometryWindow(ws);
+            };
+
+            toolbar.AddItem(starfieldBtn);
+            toolbar.AddItem(plasmaBtn);
+            toolbar.AddItem(geometryBtn);
+
+            panel.AddControl(toolbar);
+        };
     }
 
     private static Action<ScrollablePanelControl> MakeInfoPanel(string demoName)
@@ -173,6 +244,7 @@ public static class LauncherWindow
             "Toolbar" => ToolbarDemoWindow.Create(ws),
             "Welcome Banner" => WelcomeWindow.Create(ws),
             "Alpha Blending" => AlphaBlendingDemoWindow.Create(ws),
+            "Canvas Animations" => OpenCanvasWindows(ws),
             _ => (Window?)null
         };
     }
@@ -654,6 +726,31 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - FigleControl, MarkupControl",
+            },
+            "Canvas Animations" => new List<string>
+            {
+                "[bold cyan]Canvas Animations[/]",
+                "",
+                "Three animated CanvasControl windows showcasing",
+                "real-time drawing with BeginPaint/EndPaint and",
+                "async animation loops.",
+                "",
+                "[dim]Starfield:[/] Parallax star layers scrolling left",
+                "  with click-to-burst particle effects.",
+                "[dim]Plasma:[/] Animated color plasma with sine-wave",
+                "  patterns and click-to-add ripple distortions.",
+                "[dim]Geometry:[/] Rotating polygons, orbiting triangles,",
+                "  pulsing circles, arcs, and click-to-expand rings.",
+                "",
+                "[dim]Features:[/]",
+                "  - CanvasControl with auto-size to fill window",
+                "  - ~25 fps animation via WithAsyncWindowThread",
+                "  - Mouse click interactions per canvas",
+                "  - HSV color cycling and gradients",
+                "  - Window resize auto-adapts canvas",
+                "",
+                "[dim]Controls used:[/]",
+                "  - CanvasControl (SharpConsoleUI.Drawing)",
             },
             "Alpha Blending" => new List<string>
             {
