@@ -361,6 +361,32 @@ dotnet run --project Examples/DemoApp
 
 ---
 
+### Video Player (DemoApp)
+Play video files directly in the terminal with three render modes.
+
+![Video Player](images/examples/video-playback.gif)
+
+```bash
+dotnet run --project Examples/DemoApp
+# Navigate to Utilities → Video Player
+```
+
+**Key Features:**
+- Half-block, ASCII, and braille render modes (press M to cycle live)
+- FFmpeg subprocess decoding — no extra NuGet dependencies
+- Dynamic resize — restarts at new resolution when window is dragged
+- Overlay status bar — appears on keypress, auto-hides after 3 seconds
+- Looping, pause/resume, frame skipping when behind
+- Graceful FFmpeg-not-found message with install instructions
+
+**APIs Demonstrated:**
+- `Controls.Video()` fluent builder with `.WithOverlay()`, `.WithLooping()`
+- `VideoControl.PlayFile()`, `CycleRenderMode()`, `TogglePlayPause()`
+- `FileDialogs.ShowFilePickerAsync()` with video format filter
+- `WithAsyncWindowThread` for non-blocking file picker
+
+---
+
 ### MultiDashboard
 Multiple windows with independent async update threads.
 
