@@ -154,7 +154,7 @@ namespace SharpConsoleUI
 		public static Color LightSlateGrey => new(135, 135, 175); // #103
 		public static Color Honeydew2 => new(215, 255, 215);    // #194
 		public static Color LightGoldenrodYellow => new(215, 215, 135); // #186 (LightGoldenrod2)
-		public static Color LightYellow1 => new(215, 215, 175); // #187 (LightYellow3)
+		public static Color LightYellow1 => new(255, 255, 175); // #229 (LightYellow1)
 		public static Color DarkSlateGray1 => new(135, 255, 255); // #123
 		public static Color DarkSlateGray3 => new(135, 215, 215); // #116
 		public static Color Cyan1 => new(0, 255, 255);          // #51
@@ -168,8 +168,8 @@ namespace SharpConsoleUI
 		public static Color Coral => new(255, 127, 80);         // CSS (no xterm equivalent)
 
 		// xterm-256 palette — full Spectre.Console compatibility
-		// These use exact xterm-256 RGB values. Where a name already exists above
-		// with CSS RGB values, the existing property is preserved unchanged.
+		// These use exact xterm-256 RGB values. Where a name already existed above
+		// with CSS RGB values, the values were updated to match xterm-256.
 		public static Color NavyBlue => new(0, 0, 95);
 		public static Color Blue3 => new(0, 0, 175);
 		public static Color Blue3_1 => new(0, 0, 215);

@@ -35,7 +35,8 @@ public class FocusManager
     }
 
     /// <summary>
-    /// Sets focus to <paramref name="control"/>. If the control is an <see cref="IFocusScope"/>,
+    /// Sets focus to <paramref name="control"/>. If the control is an <see cref="IFocusScope"/>
+    /// and <paramref name="reason"/> is not <see cref="FocusReason.Mouse"/>,
     /// focus is delegated to its first focusable child. Pass <c>null</c> to clear focus.
     /// </summary>
     public void SetFocus(IFocusableControl? control, FocusReason reason)
@@ -74,8 +75,9 @@ public class FocusManager
         FocusPath = BuildFocusPath(control);
 
         // Scroll any IScrollableContainer ancestor to show the newly focused control.
-        // Walk the focus path from the focused control upward; for each scrollable container,
-        // scroll its direct child in the path into view.
+        // Skipped for Mouse reason — the user clicked a visible location, so scrolling
+        // would cause an unwanted jump. Walk the focus path from the focused control
+        // upward; for each scrollable container, scroll its direct child in the path into view.
         if (reason != FocusReason.Mouse && control is IWindowControl focusedWc)
         {
             var path = FocusPath;

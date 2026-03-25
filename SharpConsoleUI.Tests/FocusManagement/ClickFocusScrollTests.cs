@@ -258,7 +258,6 @@ public class ClickFocusScrollTests
 			"SPC should be directly focused after mouse click");
 
 		// Now Tab — should enter SPC normally and focus first child
-		var tabKey = new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false);
 		window.SwitchFocus(backward: false);
 
 		// After Tab from SPC, focus should move to first child (button1)

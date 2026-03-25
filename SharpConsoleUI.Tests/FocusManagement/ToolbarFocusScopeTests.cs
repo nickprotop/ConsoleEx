@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
@@ -22,7 +21,6 @@ public class ToolbarFocusScopeTests
 	private static readonly ConsoleKeyInfo RightArrow = new('\0', ConsoleKey.RightArrow, false, false, false);
 	private static readonly ConsoleKeyInfo LeftArrow = new('\0', ConsoleKey.LeftArrow, false, false, false);
 	private static readonly ConsoleKeyInfo EnterKey = new('\r', ConsoleKey.Enter, false, false, false);
-	private static readonly ConsoleKeyInfo PageDownKey = new('\0', ConsoleKey.PageDown, false, false, false);
 
 	private static void SendKey(Window window, ConsoleKeyInfo key)
 		=> window.EventDispatcher!.ProcessInput(key);
