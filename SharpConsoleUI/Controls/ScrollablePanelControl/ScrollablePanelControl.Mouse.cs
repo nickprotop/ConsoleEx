@@ -377,7 +377,6 @@ namespace SharpConsoleUI.Controls
 						var emptyClickWindow = (this as IWindowControl).GetParentWindow();
 						if (emptyClickWindow != null && CanReceiveFocus)
 						{
-							_enterScrollModeOnNextInitialFocus = true;
 							emptyClickWindow.FocusManager.SetFocus(this, FocusReason.Mouse);
 						}
 						_lastInternalFocusedChild = null;
