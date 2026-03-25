@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	{
 		#region Fields
 
-		private string? _filePath;
+		private string? _source;
 		private VideoRenderMode _renderMode = VideoDefaults.DefaultRenderMode;
 		private VideoPlaybackState _playbackState = VideoPlaybackState.Stopped;
 		private VideoFrameReader? _frameReader;
@@ -46,11 +46,21 @@ namespace SharpConsoleUI.Controls
 
 		#region Properties
 
-		/// <summary>Path to the video file.</summary>
+		/// <summary>
+		/// Video source — file path or URL. Accepts anything FFmpeg understands:
+		/// local files, HTTP/HTTPS, RTSP, HLS (m3u8), RTMP, FTP, etc.
+		/// </summary>
+		public string? Source
+		{
+			get => _source;
+			set => SetProperty(ref _source, value);
+		}
+
+		/// <summary>Path to the video file. Alias for <see cref="Source"/> for backward compatibility.</summary>
 		public string? FilePath
 		{
-			get => _filePath;
-			set => SetProperty(ref _filePath, value);
+			get => _source;
+			set => SetProperty(ref _source, value);
 		}
 
 		/// <summary>Rendering mode: HalfBlock, Ascii, or Braille.</summary>
@@ -172,7 +182,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Starts or resumes video playback.</summary>
 		public void Play()
 		{
-			if (string.IsNullOrEmpty(_filePath)) return;
+			if (string.IsNullOrEmpty(_source)) return;
 
 			if (_playbackState == VideoPlaybackState.Paused)
 			{
@@ -221,7 +231,19 @@ namespace SharpConsoleUI.Controls
 		public void PlayFile(string filePath)
 		{
 			Stop();
-			FilePath = filePath;
+			Source = filePath;
+			Play();
+		}
+
+		/// <summary>
+		/// Starts streaming from any source FFmpeg supports: HTTP/HTTPS URLs,
+		/// RTSP streams, HLS playlists (m3u8), RTMP, FTP, local files, etc.
+		/// </summary>
+		/// <param name="url">Source URL or path. Anything FFmpeg's -i accepts.</param>
+		public void Stream(string url)
+		{
+			Stop();
+			Source = url;
 			Play();
 		}
 

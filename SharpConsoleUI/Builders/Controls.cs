@@ -321,11 +321,12 @@ public static class Controls
 	public static VideoControlBuilder Video() => new VideoControlBuilder();
 
 	/// <summary>
-	/// Creates a VideoControl builder with a file path pre-set.
+	/// Creates a VideoControl builder with a source pre-set.
+	/// Accepts file paths, HTTP/HTTPS URLs, RTSP, HLS, RTMP, FTP — anything FFmpeg supports.
 	/// </summary>
-	/// <param name="filePath">Path to the video file.</param>
+	/// <param name="source">File path or URL.</param>
 	/// <returns>A new video control builder.</returns>
-	public static VideoControlBuilder Video(string filePath) => new VideoControlBuilder().WithFile(filePath);
+	public static VideoControlBuilder Video(string source) => new VideoControlBuilder().WithSource(source);
 
 	/// <summary>
 	/// Creates a new navigation view builder.

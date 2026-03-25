@@ -9,17 +9,19 @@ SharpConsoleUI can play video files directly in the terminal using `VideoControl
 1. [Overview](#overview)
 2. [Requirements](#requirements)
 3. [Quick Start](#quick-start)
-4. [VideoControl](#videocontrol)
-5. [Render Modes](#render-modes)
-6. [Builder API](#builder-api)
-7. [Playback Controls](#playback-controls)
-8. [Overlay Status Bar](#overlay-status-bar)
-9. [Dynamic Resize](#dynamic-resize)
-10. [Events](#events)
-11. [Architecture](#architecture)
-12. [Error Handling](#error-handling)
-13. [Performance Notes](#performance-notes)
-14. [Sample Videos](#sample-videos)
+4. [Streaming](#streaming)
+5. [VideoControl](#videocontrol)
+6. [Render Modes](#render-modes)
+7. [Builder API](#builder-api)
+8. [Playback Controls](#playback-controls)
+9. [Overlay Status Bar](#overlay-status-bar)
+10. [Dynamic Resize](#dynamic-resize)
+11. [Events](#events)
+12. [Architecture](#architecture)
+13. [Error Handling](#error-handling)
+14. [Performance Notes](#performance-notes)
+15. [Sample Videos](#sample-videos)
+16. [Complete Example](#complete-example--video-player-app)
 
 ## Overview
 
@@ -75,13 +77,49 @@ window.OnClosed += (_, _) =>
 };
 ```
 
+## Streaming
+
+VideoControl accepts any source that FFmpeg understands — not just local files. Pass a URL to `Source`, `Stream()`, or the builder's `WithSource()`:
+
+```csharp
+// HTTP/HTTPS — remote video file
+video.Stream("https://example.com/video.mp4");
+
+// HLS — adaptive streaming playlist
+video.Stream("https://live.example.com/stream/playlist.m3u8");
+
+// RTSP — IP camera or security feed
+video.Stream("rtsp://camera.local:554/live");
+
+// RTMP — live stream
+video.Stream("rtmp://live.twitch.tv/app/stream_key");
+
+// FTP
+video.Stream("ftp://server.local/videos/clip.mp4");
+
+// Via builder
+var video = Controls.Video("https://example.com/video.mp4")
+    .Fill()
+    .WithOverlay()
+    .Build();
+```
+
+### Streaming Notes
+
+- **No seeking on live streams** — `Stream()` starts from the current point; seek is automatically disabled when the source has no known duration
+- **Duration unknown** — `DurationSeconds` returns 0 for live streams; the overlay shows elapsed time only
+- **Buffering** — FFmpeg handles network buffering internally; frames arrive as they're decoded
+- **Reconnection** — if the stream drops, playback stops; call `Stream()` again to reconnect
+- **Dynamic resize** works with streams — FFmpeg restarts at the new resolution
+
 ## VideoControl
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `FilePath` | `string?` | Path to the video file |
+| `Source` | `string?` | Video source — file path or URL (HTTP, RTSP, HLS, RTMP, FTP, etc.) |
+| `FilePath` | `string?` | Alias for `Source` (backward compatibility) |
 | `RenderMode` | `VideoRenderMode` | Current render mode (default: `HalfBlock`) |
 | `PlaybackState` | `VideoPlaybackState` | Current state: `Stopped`, `Playing`, or `Paused` |
 | `TargetFps` | `int` | Target frame rate, clamped 1–120 (default: 30) |
@@ -102,7 +140,8 @@ window.OnClosed += (_, _) =>
 | `TogglePlayPause()` | Toggles between play and pause |
 | `Stop()` | Stops playback and releases FFmpeg |
 | `CycleRenderMode()` | Cycles: HalfBlock → ASCII → Braille → HalfBlock |
-| `PlayFile(string path)` | Stops current, sets path, starts playing |
+| `PlayFile(string path)` | Stops current, sets file path, starts playing |
+| `Stream(string url)` | Stops current, sets source URL, starts playing |
 
 ## Render Modes
 
@@ -161,7 +200,8 @@ Changing the render mode during playback automatically restarts FFmpeg with the 
 
 ```csharp
 var video = Controls.Video()                // Create builder
-    .WithFile("movie.mp4")                  // Set video file
+    .WithSource("movie.mp4")                // File path, URL, or stream URI
+    // .WithFile("movie.mp4")              // Alias — same as WithSource
     .WithRenderMode(VideoRenderMode.Ascii)  // Set render mode
     .WithTargetFps(24)                      // Set target FPS
     .WithLooping()                          // Enable looping

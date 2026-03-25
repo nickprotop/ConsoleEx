@@ -20,10 +20,20 @@ public sealed class VideoControlBuilder : IControlBuilder<VideoControl>
 {
 	private readonly VideoControl _control = new();
 
-	/// <summary>Sets the video file path.</summary>
+	/// <summary>
+	/// Sets the video source — file path or URL. Accepts anything FFmpeg understands:
+	/// local files, HTTP/HTTPS, RTSP, HLS (m3u8), RTMP, FTP, etc.
+	/// </summary>
+	public VideoControlBuilder WithSource(string source)
+	{
+		_control.Source = source;
+		return this;
+	}
+
+	/// <summary>Sets the video file path. Alias for <see cref="WithSource"/>.</summary>
 	public VideoControlBuilder WithFile(string filePath)
 	{
-		_control.FilePath = filePath;
+		_control.Source = filePath;
 		return this;
 	}
 

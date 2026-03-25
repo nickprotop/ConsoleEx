@@ -68,29 +68,36 @@ namespace SharpConsoleUI.Video
         }
 
         /// <summary>
-        /// Opens a video file and starts the FFmpeg decode process.
+        /// Opens a video source and starts the FFmpeg decode process.
+        /// Accepts any source FFmpeg understands: local file paths, HTTP/HTTPS URLs,
+        /// RTSP streams, HLS playlists (m3u8), RTMP, FTP, or any other FFmpeg-supported protocol.
         /// Probes metadata first, then launches the raw frame pipe.
         /// </summary>
-        /// <param name="filePath">Path to the video file.</param>
+        /// <param name="source">File path or URL. Anything FFmpeg's -i accepts.</param>
         /// <param name="targetWidth">Target output width in pixels. FFmpeg scales to this.</param>
         /// <param name="targetHeight">Target output height in pixels. FFmpeg scales to this.</param>
-        /// <param name="startTime">Optional start time in seconds for seeking.</param>
+        /// <param name="startTime">Optional start time in seconds for seeking. Ignored for live streams.</param>
         /// <returns>A VideoFrameReader ready to read frames.</returns>
         /// <exception cref="InvalidOperationException">If FFmpeg is not found or fails to start.</exception>
-        public static VideoFrameReader Open(string filePath, int targetWidth, int targetHeight, double startTime = 0)
+        public static VideoFrameReader Open(string source, int targetWidth, int targetHeight, double startTime = 0)
         {
-            if (!File.Exists(filePath))
-                throw new FileNotFoundException("Video file not found.", filePath);
+            bool isLocalFile = !source.Contains("://");
+            if (isLocalFile && !File.Exists(source))
+                throw new FileNotFoundException("Video file not found.", source);
 
             // Probe metadata
-            var (fps, duration) = ProbeMetadata(filePath);
+            var (fps, duration) = ProbeMetadata(source);
+
+            // Seek only makes sense for local files and seekable URLs, not live streams.
+            // For live streams (duration unknown), skip seeking.
+            bool canSeek = startTime > 0 && duration > 0;
+            string seekArg = canSeek ? $"-ss {startTime:F3} " : "";
 
             // Launch FFmpeg to decode and scale to target dimensions, output raw RGB24
-            string seekArg = startTime > 0 ? $"-ss {startTime:F3} " : "";
             var psi = new ProcessStartInfo
             {
                 FileName = "ffmpeg",
-                Arguments = $"{seekArg}-i \"{filePath}\" -f rawvideo -pix_fmt rgb24 " +
+                Arguments = $"{seekArg}-i \"{source}\" -f rawvideo -pix_fmt rgb24 " +
                             $"-s {targetWidth}x{targetHeight} -an -sn -v quiet -",
                 RedirectStandardInput = true,  // Prevent FFmpeg from inheriting terminal stdin
                 RedirectStandardOutput = true,

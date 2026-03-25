@@ -26,7 +26,7 @@ namespace SharpConsoleUI.Controls
 		{
 			StopPlayback();
 
-			if (string.IsNullOrEmpty(_filePath)) return;
+			if (string.IsNullOrEmpty(_source)) return;
 
 			_playbackCts = new CancellationTokenSource();
 			_frameCount = 0;
@@ -95,7 +95,7 @@ namespace SharpConsoleUI.Controls
 				pixW = Math.Max(2, pixW + (pixW % 2));
 				pixH = Math.Max(2, pixH + (pixH % 2));
 
-				_frameReader = VideoFrameReader.Open(_filePath!, pixW, pixH, _currentTime);
+				_frameReader = VideoFrameReader.Open(_source!, pixW, pixH, _currentTime);
 
 				double fps = Math.Min(_frameReader.Fps, _targetFps);
 				double spf = 1.0 / fps; // seconds per frame
