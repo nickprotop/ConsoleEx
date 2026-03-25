@@ -19,6 +19,7 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 - StatusBarControl — per-window status bar with left/center/right zones, clickable shortcut+label items, markup support, optional above line, theme integration
 - LineGraphControl — multi-series line graphs with braille (2×4 pixel grid) and ASCII rendering modes, color gradients, Y-axis labels, live data updates
 - SliderControl / RangeSliderControl — horizontal and vertical value sliders with keyboard, mouse drag, step/large-step, min/max labels, and dual-thumb range selection with MinRange enforcement
+- VideoControl — terminal video playback via FFmpeg with half-block, ASCII and braille render modes, overlay status bar, dynamic resize, looping
 
 ## Next
 

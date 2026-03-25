@@ -339,3 +339,124 @@ The Video Player demo falls back to `sample.mp4` if the user cancels the file pi
 
 For automated testing, a deterministic test pattern is embedded as a resource:
 - `SharpConsoleUI/Resources/test_sample.mp4` — 3s, 160×120, 10fps (49 KB)
+
+## Complete Example — Video Player App
+
+A full, runnable console application that opens a file picker and plays the selected video. Copy this into a new project to get started immediately.
+
+```bash
+# Create a new project and add SharpConsoleUI
+dotnet new console -n MyVideoPlayer
+cd MyVideoPlayer
+dotnet add package SharpConsoleUI
+```
+
+```csharp
+// Program.cs — Complete terminal video player
+
+using SharpConsoleUI;
+using SharpConsoleUI.Builders;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI.Dialogs;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Video;
+
+// 1. Create the window system
+//    RenderMode.Buffer enables double-buffered rendering for smooth output.
+//    Hide the taskbar for a cleaner single-window app look.
+var windowSystem = new ConsoleWindowSystem(
+    RenderMode.Buffer,
+    options: new ConsoleWindowSystemOptions(
+        StatusBarOptions: new StatusBarOptions(ShowTaskBar: false)));
+
+// 2. Set up status bar text — this appears at the top of the terminal
+windowSystem.StatusBarStateService.TopStatus =
+    "Video Player — Space: Play/Pause | M: Mode | L: Loop | Esc: Stop";
+
+// 3. Handle Ctrl+C — shut down cleanly instead of hard-killing the process
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    windowSystem.Shutdown(0);
+};
+
+// 4. Build the VideoControl
+//    Fill()        — stretch to use the entire window area
+//    WithOverlay() — bottom status bar appears on key/click, hides after 3s
+//    WithLooping() — restart from the beginning when the video ends
+var videoControl = Controls.Video()
+    .Fill()
+    .WithOverlay()
+    .WithLooping()
+    .Build();
+
+// 5. (Optional) React to playback state changes
+videoControl.PlaybackStateChanged += (_, state) =>
+{
+    string mode = videoControl.RenderMode.ToString();
+    string status = state switch
+    {
+        VideoPlaybackState.Playing => $"Playing ({mode})",
+        VideoPlaybackState.Paused  => $"Paused ({mode})",
+        _                          => "Stopped",
+    };
+    windowSystem.StatusBarStateService.TopStatus = $"Video Player — {status}";
+};
+
+// 6. Create the window and open a file picker asynchronously
+//    WithAsyncWindowThread runs a background task tied to the window's lifetime.
+//    The file picker is modal — it blocks this thread but not the UI.
+//    BuildAndShow() creates the Window, registers it with the system, and displays it.
+var window = new WindowBuilder(windowSystem)
+    .WithTitle("Video Player")
+    .Maximized()
+    .WithColors(Color.White, Color.Black)
+    .AddControl(videoControl)
+    .WithAsyncWindowThread(async (win, ct) =>
+    {
+        // Open the file picker dialog
+        var filePath = await FileDialogs.ShowFilePickerAsync(windowSystem,
+            filter: "*.mp4;*.mkv;*.avi;*.webm;*.mov;*.flv;*.wmv");
+
+        if (string.IsNullOrEmpty(filePath))
+        {
+            // User cancelled — exit the app
+            windowSystem.EnqueueOnUIThread(() => windowSystem.Shutdown(0));
+            return;
+        }
+
+        // Start playback on the UI thread
+        // PlayFile() sets the path, launches FFmpeg, and begins decoding
+        windowSystem.EnqueueOnUIThread(() =>
+        {
+            win.Title = $"Video — {Path.GetFileName(filePath)}";
+            videoControl.PlayFile(filePath);
+        });
+
+        // Keep alive until the window closes (ct is cancelled)
+        try { await Task.Delay(Timeout.Infinite, ct); }
+        catch (OperationCanceledException) { }
+    })
+    .BuildAndShow();
+
+// 7. Clean up when the window closes
+//    Stop() cancels the playback loop; Dispose() kills the FFmpeg process.
+window.OnClosed += (_, _) =>
+{
+    videoControl.Stop();
+    videoControl.Dispose();
+};
+
+// 8. Run the window system — blocks until Shutdown() is called
+await Task.Run(() => windowSystem.Run());
+```
+
+### What this does
+
+1. Creates a **maximized window** with a black background — ideal for video
+2. Opens a **file picker** on launch to select a video file
+3. Plays the video with the **overlay enabled** — press any key to see playback info
+4. Updates the **status bar** in real-time with the current state and render mode
+5. Handles **cleanup** — FFmpeg process is killed when the window closes
+6. **Exits cleanly** on Ctrl+C or when the user cancels the file picker
