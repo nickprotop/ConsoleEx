@@ -320,6 +320,12 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// When in edit mode and not read-only, Tab/Shift+Tab are handled by the editor
+		/// (indent/dedent) instead of being intercepted for focus traversal.
+		/// </summary>
+		public bool WantsTabKey => _isEditing && !_readOnly;
+
+		/// <summary>
 		/// Gets or sets when the horizontal scrollbar is displayed.
 		/// </summary>
 		public ScrollbarVisibility HorizontalScrollbarVisibility

@@ -166,7 +166,7 @@ namespace SharpConsoleUI.Controls
 			int oldSelEndY;
 			bool cursorMoved;
 			bool selectionChanged;
-			bool keyWasHandled;
+			bool keyWasHandled = false;
 
 		  lock (_contentLock)
 		  {
@@ -603,6 +603,7 @@ namespace SharpConsoleUI.Controls
 
 				case ConsoleKey.Tab:
 					if (_readOnly) break;
+					keyWasHandled = true; // Always consume Tab/Shift+Tab in edit mode
 					if (isShiftPressed)
 					{
 						// Shift+Tab: dedent
@@ -859,7 +860,7 @@ namespace SharpConsoleUI.Controls
 			cursorMoved = (_cursorX != oldCursorX || _cursorY != oldCursorY);
 			selectionChanged = (_hasSelection != oldHasSelection) ||
 				(_hasSelection && (_selectionEndX != oldSelEndX || _selectionEndY != oldSelEndY));
-			keyWasHandled = contentChanged || cursorMoved || selectionChanged;
+			keyWasHandled = keyWasHandled || contentChanged || cursorMoved || selectionChanged;
 
 		  } // end lock (_contentLock)
 

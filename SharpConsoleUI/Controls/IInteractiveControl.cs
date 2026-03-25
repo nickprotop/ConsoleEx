@@ -22,5 +22,13 @@ namespace SharpConsoleUI.Controls
 		/// <param name="key">The key information for the pressed key.</param>
 		/// <returns>True if the key was handled by this control; otherwise, false.</returns>
 		bool ProcessKey(ConsoleKeyInfo key);
+
+		/// <summary>
+		/// When <c>true</c>, Tab and Shift+Tab are passed to <see cref="ProcessKey"/> instead
+		/// of being intercepted for focus traversal. If <see cref="ProcessKey"/> returns
+		/// <c>false</c>, the key bubbles back to focus traversal as normal.
+		/// Default: <c>false</c>.
+		/// </summary>
+		bool WantsTabKey => false;
 	}
 }

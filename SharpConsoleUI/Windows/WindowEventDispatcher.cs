@@ -485,10 +485,19 @@ namespace SharpConsoleUI.Windows
 
 				if (HasActiveInteractiveContent(out var activeInteractiveContent))
 				{
-					// Intercept Tab/Shift+Tab before any control sees it — route to FocusManager
+					// Intercept Tab/Shift+Tab — route to FocusManager unless the
+					// control wants Tab (e.g. editor in edit mode for indent/dedent).
 					if (key.Key == ConsoleKey.Tab)
 					{
-						// Sync FocusManager with legacy focus if needed (migration period)
+						// Let the control handle Tab if it opts in via WantsTabKey
+						if (activeInteractiveContent is Controls.IInteractiveControl tabControl
+							&& tabControl.WantsTabKey
+							&& tabControl.ProcessKey(key))
+						{
+							return true; // Control consumed Tab
+						}
+
+						// Control didn't want/consume Tab — route to focus traversal
 						if (_window.FocusManager.FocusedControl == null
 							&& activeInteractiveContent is IFocusableControl legacyFocused)
 						{

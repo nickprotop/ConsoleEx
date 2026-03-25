@@ -117,6 +117,9 @@ public sealed class TerminalControl
     /// <inheritdoc/>
     public bool IsEnabled  { get; set; } = true;
 
+    /// <summary>Terminal emulation needs Tab characters passed through.</summary>
+    public bool WantsTabKey => true;
+
     /// <inheritdoc/>
     public bool CanReceiveFocus => IsEnabled;
 
