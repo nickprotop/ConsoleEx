@@ -15,6 +15,7 @@ namespace SharpConsoleUI.Helpers
 	public static class TerminalCapabilities
 	{
 		private static bool? _supportsVS16Widening;
+		private static bool? _supportsUnicode16Widths;
 
 		/// <summary>
 		/// Whether the terminal renders emoji+VS16 (U+FE0F) as 2 columns.
@@ -27,8 +28,19 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
-		/// Probes the terminal to determine if VS16 (U+FE0F) widens emoji.
-		/// Writes a test character, queries cursor position via DSR, and compares.
+		/// Whether the terminal renders Unicode 16.0 newly-widened characters
+		/// (e.g. U+2630 ☰ trigrams) as 2 columns.
+		/// When false, these characters are treated as width 1 (Unicode 15.0 behavior).
+		/// Defaults to false (most terminals haven't adopted Unicode 16.0 widths yet).
+		/// </summary>
+		public static bool SupportsUnicode16Widths
+		{
+			get => _supportsUnicode16Widths ?? false;
+		}
+
+		/// <summary>
+		/// Probes the terminal to determine rendering capabilities.
+		/// Tests VS16 emoji widening and Unicode 16.0 width changes.
 		/// Must be called after raw mode is entered and before input loops start.
 		/// </summary>
 		/// <param name="write">Action to write escape sequences to the terminal.</param>
@@ -45,6 +57,16 @@ namespace SharpConsoleUI.Helpers
 				// If probing fails, assume modern terminal
 				_supportsVS16Widening = true;
 			}
+
+			try
+			{
+				_supportsUnicode16Widths = ProbeUnicode16Width(write, readByte);
+			}
+			catch
+			{
+				// If probing fails, assume terminal hasn't adopted Unicode 16.0 widths
+				_supportsUnicode16Widths = false;
+			}
 		}
 
 		/// <summary>
@@ -57,11 +79,21 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
+		/// Allows manual override of the Unicode 16.0 width capability.
+		/// Useful for testing or when the terminal is known ahead of time.
+		/// </summary>
+		public static void SetUnicode16Widths(bool supported)
+		{
+			_supportsUnicode16Widths = supported;
+		}
+
+		/// <summary>
 		/// Resets all cached capabilities (for testing).
 		/// </summary>
 		internal static void Reset()
 		{
 			_supportsVS16Widening = null;
+			_supportsUnicode16Widths = null;
 		}
 
 		private static bool ProbeVS16(Action<string> write, Func<int> readByte)
@@ -88,6 +120,28 @@ namespace SharpConsoleUI.Helpers
 				return true; // Timeout/error → assume modern
 
 			return col >= 3; // col is 1-based; 3 means cursor at column 3 → char was 2 wide
+		}
+
+		/// <summary>
+		/// Probes whether the terminal renders Unicode 16.0 newly-widened characters as 2 columns.
+		/// Tests U+2630 (☰ TRIGRAM FOR HEAVEN), which changed from width 1 to 2 in Unicode 16.0.
+		/// </summary>
+		private static bool ProbeUnicode16Width(Action<string> write, Func<int> readByte)
+		{
+			// Write ☰ (U+2630) and query cursor position.
+			// Unicode 15.0: width 1 → cursor at column 2
+			// Unicode 16.0: width 2 → cursor at column 3
+			write("\r\u2630\x1b[6n");
+
+			int col = ReadDSRColumn(readByte);
+
+			// Clean up probe output
+			write("\r\x1b[K");
+
+			if (col < 0)
+				return false; // Timeout/error → assume pre-Unicode 16.0
+
+			return col >= 3; // col 3 means 2-wide rendering (Unicode 16.0)
 		}
 
 		/// <summary>

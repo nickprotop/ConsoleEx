@@ -18,16 +18,28 @@ namespace SharpConsoleUI.Helpers
 	/// including zero-width characters (combining marks, variation selectors, ZWJ).
 	/// Spacing Combining Marks (Unicode category Mc) are corrected to width 1,
 	/// as they occupy visual space in terminals despite Wcwidth marking them zero-width.
+	/// Adapts to terminal capabilities: uses Unicode 15.0 width tables unless the
+	/// terminal is detected to support Unicode 16.0 widths (probed at startup).
 	/// </summary>
 	public static class UnicodeWidth
 	{
+		/// <summary>
+		/// Returns the Wcwidth Unicode version to use based on terminal capabilities.
+		/// Unicode 16.0 widened 86 codepoints (trigrams U+2630-2637, hexagrams U+4DC0-4DFF, etc.)
+		/// from 1 to 2 columns. Most terminals haven't adopted this yet, so we default to 15.0.
+		/// </summary>
+		private static Unicode EffectiveUnicodeVersion
+			=> TerminalCapabilities.SupportsUnicode16Widths
+				? Unicode.Version_16_0_0
+				: Unicode.Version_15_0_0;
+
 		/// <summary>
 		/// Returns the display width of a character in terminal columns (0, 1, or 2).
 		/// Spacing Combining Marks (Mc) are corrected to width 1.
 		/// </summary>
 		public static int GetCharWidth(char c)
 		{
-			int w = UnicodeCalculator.GetWidth(c);
+			int w = UnicodeCalculator.GetWidth(c, EffectiveUnicodeVersion);
 			if (w <= 0)
 			{
 				// Spacing Combining Marks (Mc) occupy visual space in terminals
@@ -44,7 +56,7 @@ namespace SharpConsoleUI.Helpers
 		/// </summary>
 		public static int GetRuneWidth(Rune r)
 		{
-			int w = UnicodeCalculator.GetWidth(r.Value);
+			int w = UnicodeCalculator.GetWidth(r.Value, EffectiveUnicodeVersion);
 			if (w <= 0)
 			{
 				// Spacing Combining Marks (Mc) occupy visual space in terminals
