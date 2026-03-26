@@ -790,17 +790,14 @@ namespace SharpConsoleUI.Core
 
 			// Fire state changed event
 			var args = new WindowSystemStateChangedEventArgs(previousState, newState);
-			ThreadPool.QueueUserWorkItem(_ =>
+			try
 			{
-				try
-				{
-					StateChanged?.Invoke(this, args);
-				}
-				catch
-				{
-					// Swallow exceptions from event handlers
-				}
-			});
+				StateChanged?.Invoke(this, args);
+			}
+			catch
+			{
+				// Swallow exceptions from event handlers
+			}
 		}
 
 		private Window? FindNextActiveWindow(Window? excludeWindow)
@@ -814,73 +811,61 @@ namespace SharpConsoleUI.Core
 		private void FireWindowEvent(Window window, WindowEventType eventType, object? data = null)
 		{
 			var args = new WindowEventArgs(window, eventType, data);
-			ThreadPool.QueueUserWorkItem(_ =>
+			try
 			{
-				try
+				switch (eventType)
 				{
-					switch (eventType)
-					{
-						case WindowEventType.Created:
-							WindowCreated?.Invoke(this, args);
-							break;
-						case WindowEventType.Closed:
-							WindowClosed?.Invoke(this, args);
-							break;
-					}
+					case WindowEventType.Created:
+						WindowCreated?.Invoke(this, args);
+						break;
+					case WindowEventType.Closed:
+						WindowClosed?.Invoke(this, args);
+						break;
 				}
-				catch
-				{
-					// Swallow exceptions from event handlers
-				}
-			});
+			}
+			catch
+			{
+				// Swallow exceptions from event handlers
+			}
 		}
 
 		private void FireWindowActivated(Window? previousWindow, Window? newWindow)
 		{
 			var args = new WindowActivatedEventArgs(previousWindow, newWindow);
-			ThreadPool.QueueUserWorkItem(_ =>
+			try
 			{
-				try
-				{
-					WindowActivated?.Invoke(this, args);
-				}
-				catch
-				{
-					// Swallow exceptions from event handlers
-				}
-			});
+				WindowActivated?.Invoke(this, args);
+			}
+			catch
+			{
+				// Swallow exceptions from event handlers
+			}
 		}
 
 		private void FireWindowStateChanged(Window window, WindowState previousState, WindowState newState)
 		{
 			var args = new WindowStateEventArgs(window, previousState, newState);
-			ThreadPool.QueueUserWorkItem(_ =>
+			try
 			{
-				try
-				{
-					WindowStateChanged?.Invoke(this, args);
-				}
-				catch
-				{
-					// Swallow exceptions from event handlers
-				}
-			});
+				WindowStateChanged?.Invoke(this, args);
+			}
+			catch
+			{
+				// Swallow exceptions from event handlers
+			}
 		}
 
 		private void FireInteractionChanged(InteractionState previousState, InteractionState newState)
 		{
 			var args = new InteractionStateChangedEventArgs(previousState, newState);
-			ThreadPool.QueueUserWorkItem(_ =>
+			try
 			{
-				try
-				{
-					InteractionChanged?.Invoke(this, args);
-				}
-				catch
-				{
-					// Swallow exceptions from event handlers
-				}
-			});
+				InteractionChanged?.Invoke(this, args);
+			}
+			catch
+			{
+				// Swallow exceptions from event handlers
+			}
 		}
 
 		/// <summary>

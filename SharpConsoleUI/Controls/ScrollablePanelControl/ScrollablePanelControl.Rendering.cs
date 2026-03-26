@@ -66,6 +66,12 @@ namespace SharpConsoleUI.Controls
 			_contentHeight = CalculateContentHeight(_viewportWidth, _viewportHeight);
 			_contentWidth = CalculateContentWidth();
 
+			// Clamp scroll offset to valid bounds after viewport/content recalculation
+			// (viewport may have grown or content may have shrunk since last frame)
+			int maxScrollOffset = Math.Max(0, _contentHeight - _viewportHeight);
+			if (_verticalScrollOffset > maxScrollOffset)
+				_verticalScrollOffset = maxScrollOffset;
+
 			// Deferred scroll-to-focused: triggered when focus was set before viewport was ready
 			if (_pendingScrollToFocused && _viewportWidth > 0 && _viewportHeight > 0)
 			{

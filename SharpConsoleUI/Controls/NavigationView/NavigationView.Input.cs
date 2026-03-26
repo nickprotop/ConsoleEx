@@ -92,6 +92,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+			if (!IsEnabled) return false;
+
 			if (NavPaneHasFocus)
 				return ProcessNavPaneKey(key);
 			else

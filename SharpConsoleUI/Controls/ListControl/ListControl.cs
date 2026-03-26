@@ -65,9 +65,8 @@ namespace SharpConsoleUI.Controls
 
 		// Mouse interaction state
 		private int _hoveredIndex = -1;                        // Mouse hover tracking
-		private readonly object _clickLock = new object();     // Thread safety for double-click detection
-		private DateTime _lastClickTime = DateTime.MinValue;   // Double-click detection (protected by _clickLock)
-		private int _lastClickIndex = -1;                      // Double-click detection (protected by _clickLock)
+		private DateTime _lastClickTime = DateTime.MinValue;   // Double-click detection
+		private int _lastClickIndex = -1;                      // Double-click detection
 
 		// Interaction configuration
 		private bool _selectOnRightClick = false;
@@ -463,15 +462,23 @@ namespace SharpConsoleUI.Controls
 		/// Returns all items where IsChecked is true.
 		/// </summary>
 		public List<ListItem> GetCheckedItems()
-			=> _items.Where(i => i.IsChecked).ToList();
+		{
+			lock (_itemsLock)
+			{
+				return _items.Where(i => i.IsChecked).ToList();
+			}
+		}
 
 		/// <summary>
 		/// Sets all items' IsChecked state and fires CheckedItemsChanged once.
 		/// </summary>
 		public void SetAllChecked(bool value)
 		{
-			foreach (var item in _items)
-				item.IsChecked = value;
+			lock (_itemsLock)
+			{
+				foreach (var item in _items)
+					item.IsChecked = value;
+			}
 			CheckedItemsChanged?.Invoke(this, EventArgs.Empty);
 			Container?.Invalidate(true);
 		}
@@ -481,7 +488,14 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public ListItem? SelectedItem
 		{
-			get { int idx = CurrentSelectedIndex; return idx >= 0 && idx < _items.Count ? _items[idx] : null; }
+			get
+			{
+				int idx = CurrentSelectedIndex;
+				lock (_itemsLock)
+				{
+					return idx >= 0 && idx < _items.Count ? _items[idx] : null;
+				}
+			}
 			set
 			{
 				if (!_isSelectable || value == null)
@@ -490,7 +504,11 @@ namespace SharpConsoleUI.Controls
 					return;
 				}
 
-				int index = _items.IndexOf(value);
+				int index;
+				lock (_itemsLock)
+				{
+					index = _items.IndexOf(value);
+				}
 				if (index >= 0)
 				{
 					SelectedIndex = index;
@@ -503,7 +521,14 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public string? SelectedValue
 		{
-			get { int idx = CurrentSelectedIndex; return idx >= 0 && idx < _items.Count ? _items[idx].Text : null; }
+			get
+			{
+				int idx = CurrentSelectedIndex;
+				lock (_itemsLock)
+				{
+					return idx >= 0 && idx < _items.Count ? _items[idx].Text : null;
+				}
+			}
 			set
 			{
 				if (!_isSelectable || value == null)
@@ -512,13 +537,21 @@ namespace SharpConsoleUI.Controls
 					return;
 				}
 
-				for (int i = 0; i < _items.Count; i++)
+				int foundIndex = -1;
+				lock (_itemsLock)
 				{
-					if (_items[i].Text == value)
+					for (int i = 0; i < _items.Count; i++)
 					{
-						SelectedIndex = i;
-						break;
+						if (_items[i].Text == value)
+						{
+							foundIndex = i;
+							break;
+						}
 					}
+				}
+				if (foundIndex >= 0)
+				{
+					SelectedIndex = foundIndex;
 				}
 			}
 		}

@@ -29,6 +29,17 @@ namespace SharpConsoleUI.Core
 		private string _bottomStatus = "";
 	private bool _showTopStatus = true;
 	private bool _showBottomStatus = true;
+		private bool _isDirty;
+
+		/// <summary>
+		/// Gets whether any status bar property has changed since the last render.
+		/// </summary>
+		public bool IsDirty => _isDirty;
+
+		/// <summary>
+		/// Clears the dirty flag. Called by RenderCoordinator after rendering status bars.
+		/// </summary>
+		public void ClearDirty() => _isDirty = false;
 
 		// Status bar bounds (updated during rendering)
 		private Rectangle _topStatusBarBounds = Rectangle.Empty;
@@ -54,7 +65,15 @@ namespace SharpConsoleUI.Core
 		public string TopStatus
 		{
 			get => _topStatus;
-			set => _topStatus = value ?? "";
+			set
+			{
+				var newValue = value ?? "";
+				if (_topStatus != newValue)
+				{
+					_topStatus = newValue;
+					_isDirty = true;
+				}
+			}
 		}
 
 		/// <summary>
@@ -63,7 +82,15 @@ namespace SharpConsoleUI.Core
 		public string BottomStatus
 		{
 			get => _bottomStatus;
-			set => _bottomStatus = value ?? "";
+			set
+			{
+				var newValue = value ?? "";
+				if (_bottomStatus != newValue)
+				{
+					_bottomStatus = newValue;
+					_isDirty = true;
+				}
+			}
 		}
 
 	/// <summary>
@@ -78,6 +105,7 @@ namespace SharpConsoleUI.Core
 			if (_showTopStatus != value)
 			{
 				_showTopStatus = value;
+				_isDirty = true;
 				_getWindowSystem().Render.InvalidateAllWindows();
 			}
 		}
@@ -95,6 +123,7 @@ namespace SharpConsoleUI.Core
 			if (_showBottomStatus != value)
 			{
 				_showBottomStatus = value;
+				_isDirty = true;
 				_getWindowSystem().Render.InvalidateAllWindows();
 			}
 		}

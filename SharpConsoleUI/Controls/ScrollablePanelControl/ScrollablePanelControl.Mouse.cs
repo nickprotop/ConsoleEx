@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
@@ -176,7 +177,7 @@ namespace SharpConsoleUI.Controls
 						{
 							if (_verticalScrollOffset > 0)
 							{
-								ScrollVerticalBy(-3);
+								ScrollVerticalBy(-ControlDefaults.DefaultScrollWheelLines);
 								args.Handled = true;
 								return true;
 							}
@@ -187,7 +188,7 @@ namespace SharpConsoleUI.Controls
 							int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
 							if (_verticalScrollOffset < maxScroll)
 							{
-								ScrollVerticalBy(3);
+								ScrollVerticalBy(ControlDefaults.DefaultScrollWheelLines);
 								args.Handled = true;
 								return true;
 							}
@@ -239,12 +240,12 @@ namespace SharpConsoleUI.Controls
 						if (relY == 0 && _verticalScrollOffset > 0)
 						{
 							// Arrow up
-							ScrollVerticalBy(-3);
+							ScrollVerticalBy(-ControlDefaults.DefaultScrollWheelLines);
 						}
 						else if (relY == sbHeight - 1 && _verticalScrollOffset < maxScroll)
 						{
 							// Arrow down
-							ScrollVerticalBy(3);
+							ScrollVerticalBy(ControlDefaults.DefaultScrollWheelLines);
 						}
 						else if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
 						{

@@ -24,14 +24,17 @@ namespace SharpConsoleUI.Controls
 			{
 				bool hasTitle = !string.IsNullOrEmpty(_title);
 				int titleHeight = hasTitle ? 1 : 0;
-				int visibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? Math.Min(10, _items.Count);
 				int itemsHeight = 0;
 				int scrollOffset = CurrentScrollOffset;
-				for (int i = 0; i < Math.Min(visibleItems, _items.Count - scrollOffset); i++)
+				lock (_itemsLock)
 				{
-					int itemIndex = i + scrollOffset;
-					if (itemIndex < _items.Count)
-						itemsHeight += _items[itemIndex].Lines.Count;
+					int visibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? Math.Min(10, _items.Count);
+					for (int i = 0; i < Math.Min(visibleItems, _items.Count - scrollOffset); i++)
+					{
+						int itemIndex = i + scrollOffset;
+						if (itemIndex < _items.Count)
+							itemsHeight += _items[itemIndex].Lines.Count;
+					}
 				}
 				return titleHeight + itemsHeight + Margin.Top + Margin.Bottom;
 			}
@@ -88,27 +91,32 @@ namespace SharpConsoleUI.Controls
 			// Calculate content size directly
 			bool hasTitle = !string.IsNullOrEmpty(_title);
 			int titleHeight = hasTitle ? 1 : 0;
-			int visibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? Math.Min(10, _items.Count);
 			int itemsHeight = 0;
 			int scrollOffset = CurrentScrollOffset;
-
-			for (int i = 0; i < Math.Min(visibleItems, _items.Count - scrollOffset); i++)
-			{
-				int itemIndex = i + scrollOffset;
-				if (itemIndex < _items.Count)
-					itemsHeight += _items[itemIndex].Lines.Count;
-			}
-
-			int height = titleHeight + itemsHeight + Margin.Top + Margin.Bottom;
+			int maxItemWidth = 0;
 
 			// Calculate indicator space: needed in CheckboxMode
 			int indicatorSpace = (_isSelectable && _checkboxMode) ? 5 : 0;
-			int maxItemWidth = 0;
-			foreach (var item in _items)
+
+			lock (_itemsLock)
 			{
-				int itemLength = GetCachedTextLength(item.Text + "    ");
-				if (itemLength > maxItemWidth) maxItemWidth = itemLength;
+				int visibleItems = _calculatedMaxVisibleItems ?? _maxVisibleItems ?? Math.Min(10, _items.Count);
+
+				for (int i = 0; i < Math.Min(visibleItems, _items.Count - scrollOffset); i++)
+				{
+					int itemIndex = i + scrollOffset;
+					if (itemIndex < _items.Count)
+						itemsHeight += _items[itemIndex].Lines.Count;
+				}
+
+				foreach (var item in _items)
+				{
+					int itemLength = GetCachedTextLength(item.Text + "    ");
+					if (itemLength > maxItemWidth) maxItemWidth = itemLength;
+				}
 			}
+
+			int height = titleHeight + itemsHeight + Margin.Top + Margin.Bottom;
 
 			int titleLength = string.IsNullOrEmpty(_title) ? 0 : GetCachedTextLength(_title) + 5;
 			int width = Width ?? Math.Max(maxItemWidth + indicatorSpace + 4, titleLength);

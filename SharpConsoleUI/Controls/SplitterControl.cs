@@ -420,7 +420,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
-			if (!IsEnabled) return false;
+			if (!IsEnabled || args.Handled) return false;
 
 			// Handle right-click
 			if (args.HasFlag(MouseFlags.Button3Clicked))

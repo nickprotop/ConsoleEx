@@ -260,19 +260,15 @@ namespace SharpConsoleUI.Controls
 							}
 						}
 
-						// Detect double-click (thread-safe)
-						bool isDoubleClick;
-						lock (_clickLock)
-						{
-							var now = DateTime.UtcNow;
-							var timeSince = (now - _lastClickTime).TotalMilliseconds;
-							isDoubleClick = _doubleClickActivates &&
-											clickedIndex == _lastClickIndex &&
-											timeSince <= _doubleClickThresholdMs;
+						// Detect double-click (ProcessMouseEvent is always called on UI thread)
+						var now = DateTime.UtcNow;
+						var timeSince = (now - _lastClickTime).TotalMilliseconds;
+						bool isDoubleClick = _doubleClickActivates &&
+										clickedIndex == _lastClickIndex &&
+										timeSince <= _doubleClickThresholdMs;
 
-							_lastClickTime = now;
-							_lastClickIndex = clickedIndex;
-						}
+						_lastClickTime = now;
+						_lastClickIndex = clickedIndex;
 
 						// Set selection directly
 						SelectedIndex = clickedIndex;
@@ -329,12 +325,15 @@ namespace SharpConsoleUI.Controls
 			int scrollOffset = CurrentScrollOffset;
 			int linesSoFar = 0;
 
-			for (int i = scrollOffset; i < _items.Count; i++)
+			lock (_itemsLock)
 			{
-				int itemHeight = _items[i].Lines.Count;
-				if (relativeY < linesSoFar + itemHeight)
-					return i;
-				linesSoFar += itemHeight;
+				for (int i = scrollOffset; i < _items.Count; i++)
+				{
+					int itemHeight = _items[i].Lines.Count;
+					if (relativeY < linesSoFar + itemHeight)
+						return i;
+					linesSoFar += itemHeight;
+				}
 			}
 
 			return -1;
@@ -344,14 +343,18 @@ namespace SharpConsoleUI.Controls
 		{
 			int totalHeight = 0;
 			int scrollOffset = CurrentScrollOffset;
-			int itemsToCount = Math.Min(_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1, _items.Count - scrollOffset);
 
-			for (int i = 0; i < itemsToCount; i++)
+			lock (_itemsLock)
 			{
-				int itemIndex = i + scrollOffset;
-				if (itemIndex < _items.Count)
+				int itemsToCount = Math.Min(_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 1, _items.Count - scrollOffset);
+
+				for (int i = 0; i < itemsToCount; i++)
 				{
-					totalHeight += _items[itemIndex].Lines.Count;
+					int itemIndex = i + scrollOffset;
+					if (itemIndex < _items.Count)
+					{
+						totalHeight += _items[itemIndex].Lines.Count;
+					}
 				}
 			}
 

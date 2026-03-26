@@ -60,7 +60,7 @@ namespace SharpConsoleUI.Controls
 			get
 			{
 				int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
-				int inputLength = _inputWidth ?? _input.Length;
+				int inputLength = _inputWidth ?? UnicodeWidth.GetStringWidth(_input);
 				return promptLength + inputLength + Margin.Left + Margin.Right;
 			}
 		}
@@ -217,6 +217,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+			if (!IsEnabled) return false;
+
 			int cursorPos = CurrentCursorPosition;
 			int scrollOffset = CurrentScrollOffset;
 
@@ -343,7 +345,7 @@ namespace SharpConsoleUI.Controls
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
-			int inputFieldWidth = _inputWidth ?? Math.Max(_input.Length, 10);
+			int inputFieldWidth = _inputWidth ?? Math.Max(UnicodeWidth.GetStringWidth(_input), 10);
 			int contentWidth = promptLength + inputFieldWidth;
 			int width = (Width ?? contentWidth) + Margin.Left + Margin.Right;
 			int height = 1 + Margin.Top + Margin.Bottom;
@@ -460,20 +462,27 @@ namespace SharpConsoleUI.Controls
 				int inputDisplayWidth = _inputWidth ?? Math.Max(remainingWidth, 0);
 				inputDisplayWidth = Math.Min(inputDisplayWidth, remainingWidth);
 
-				// Write the visible input text
-				for (int i = 0; i < visibleInput.Length && i < inputDisplayWidth; i++)
+				// Write the visible input text using Unicode-aware rendering
+				string displayInput = _maskCharacter.HasValue
+					? new string(_maskCharacter.Value, UnicodeWidth.GetStringWidth(visibleInput))
+					: visibleInput;
+				var inputCells = Parsing.MarkupParser.Parse(displayInput, inputForegroundColor, inputBackgroundColor);
+				int visibleDisplayWidth = inputCells.Count;
+
+				// Clamp to inputDisplayWidth and write cells
+				int cellsToWrite = Math.Min(visibleDisplayWidth, inputDisplayWidth);
+				for (int i = 0; i < cellsToWrite; i++)
 				{
 					int x = currentX + i;
 					if (x >= clipRect.X && x < clipRect.Right)
 					{
-						char displayChar = _maskCharacter ?? visibleInput[i];
-						buffer.SetNarrowCell(x, startY, displayChar, inputForegroundColor, inputBackgroundColor);
+						buffer.SetCell(x, startY, inputCells[i]);
 					}
 				}
 
 				// Fill remaining input field with background color
-				int inputEndX = currentX + visibleInput.Length;
-				int fillWidth = inputDisplayWidth - visibleInput.Length;
+				int inputEndX = currentX + cellsToWrite;
+				int fillWidth = inputDisplayWidth - cellsToWrite;
 				if (fillWidth > 0 && inputEndX < bounds.Right - Margin.Right)
 				{
 					for (int i = 0; i < fillWidth; i++)

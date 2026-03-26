@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!IsEnabled)
+			if (!IsEnabled || !HasFocus)
 				return false;
 
 			// Reset deferred events

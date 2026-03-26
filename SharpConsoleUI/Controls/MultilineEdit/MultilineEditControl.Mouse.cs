@@ -320,6 +320,11 @@ namespace SharpConsoleUI.Controls
 			// a drag continuation, so extend the selection instead of resetting the anchor.
 			if (args.HasFlag(MouseFlags.Button1Pressed))
 			{
+				if (!HasFocus && CanFocusWithMouse)
+				{
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+				}
+
 				if (HasFocus && !_readOnly)
 				{
 					IsEditing = true;

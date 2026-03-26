@@ -166,7 +166,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_enabled) return false;
+			if (!_enabled || !ComputeHasFocus()) return false;
 
 			if (key.Key == ConsoleKey.Enter || key.Key == ConsoleKey.Spacebar)
 			{
@@ -256,6 +256,7 @@ namespace SharpConsoleUI.Controls
 				if (args.Position.X >= btnLeft && args.Position.X < btnLeft + btnWidth
 					&& args.Position.Y >= btnTop && args.Position.Y < btnTop + btnHeight)
 				{
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 					TriggerClick(args);
 					args.Handled = true;
 					return true;

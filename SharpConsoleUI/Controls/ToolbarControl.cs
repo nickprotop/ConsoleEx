@@ -914,13 +914,9 @@ namespace SharpConsoleUI.Controls
 				newIndex = currentIndex + 1;
 			}
 
-			// Clear old focus
-			if (_focusedItem != null)
-			{
-				SetItemFocus(_focusedItem, false);
-			}
-
-			// Set new focus
+			// Set new focus — SetItemFocus(newItem, true) handles the transition;
+			// no need to explicitly clear the old item (avoids double-render
+			// and transient null-focus state).
 			_focusedItem = focusableItems[newIndex];
 			SetItemFocus(_focusedItem, true);
 

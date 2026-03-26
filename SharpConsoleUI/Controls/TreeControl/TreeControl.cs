@@ -368,6 +368,24 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
+			// Clear all event handlers to prevent memory leaks
+			NodeExpandCollapse = null;
+			SelectedNodeChanged = null;
+			NodeActivated = null;
+			MouseClick = null;
+			MouseDoubleClick = null;
+			MouseRightClick = null;
+			MouseEnter = null;
+			MouseLeave = null;
+			MouseMove = null;
+
+			// Clear collections and cache under lock
+			lock (_treeLock)
+			{
+				_rootNodes.Clear();
+				_flattenedNodes.Clear();
+				_textMeasurementCache.InvalidateCache();
+			}
 		}
 
 		/// <summary>

@@ -481,7 +481,9 @@ namespace SharpConsoleUI.Controls
 			{
 				var saved = SavedFocus;
 				SavedFocus = null;
-				if (!WouldSkipNestedScope(saved))
+				// Self-sentinel: NavigationView sets SavedFocus = this to request scroll mode.
+				// Always honour it — WouldSkipNestedScope doesn't apply to self-references.
+				if (ReferenceEquals(saved, this) || !WouldSkipNestedScope(saved))
 					return saved;
 			}
 			SavedFocus = null;
@@ -569,7 +571,7 @@ namespace SharpConsoleUI.Controls
 				if (child is IFocusScope)
 					return true; // a scope appears before saved — would be skipped
 			}
-			return false; // saved not found in children (stale) — don't use it
+			return true; // saved not found in children (stale) — discard it
 		}
 
 		/// <summary>

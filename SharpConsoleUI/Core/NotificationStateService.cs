@@ -394,7 +394,8 @@ namespace SharpConsoleUI.Core
 					await Task.Delay(timeoutMs, cts.Token);
 					if (!cts.Token.IsCancellationRequested)
 					{
-						DismissNotification(notificationId);
+						// Marshal to UI thread — DismissNotification mutates UI state
+						_windowSystem.EnqueueOnUIThread(() => DismissNotification(notificationId));
 					}
 				}
 				catch (TaskCanceledException)

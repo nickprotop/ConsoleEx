@@ -15,6 +15,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
+			if (!IsEnabled) return false;
+
 			var focusedContent = GetFocusedChildFromCoordinator();
 
 			// Delegate to focused child first (for non-Tab keys)

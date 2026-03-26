@@ -147,6 +147,12 @@ namespace SharpConsoleUI.Rendering
 		}
 
 		/// <summary>
+		/// Returns true if status bar content has changed since last render.
+		/// Compares current state against cached values without triggering a render.
+		/// </summary>
+		public bool IsStatusBarDirty() => _statusBarStateService.IsDirty;
+
+		/// <summary>
 		/// Invalidates all status bar caches, forcing them to be rebuilt on next render.
 		/// Call this when window state, titles, or themes change.
 		/// </summary>
@@ -271,6 +277,9 @@ namespace SharpConsoleUI.Rendering
 
 				RenderTopStatus();
 				RenderBottomStatus();
+
+				// Clear status bar dirty flag after rendering
+				_statusBarStateService.ClearDirty();
 
 				// Update status bar bounds for mouse click detection
 				UpdateStatusBarBounds();

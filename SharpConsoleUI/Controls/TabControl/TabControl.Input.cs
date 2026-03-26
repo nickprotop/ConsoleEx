@@ -112,6 +112,7 @@ namespace SharpConsoleUI.Controls
 						return true;
 					}
 					ActiveTabIndex = tabIndex;
+					args.Handled = true;
 					return true;
 				}
 			}
@@ -139,7 +140,7 @@ namespace SharpConsoleUI.Controls
 		// propagate to SwitchFocus and land on the active tab's content controls.
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!(ComputeHasFocus())) return false;
+			if (!IsEnabled || !(ComputeHasFocus())) return false;
 
 			if (key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow)
 			{
