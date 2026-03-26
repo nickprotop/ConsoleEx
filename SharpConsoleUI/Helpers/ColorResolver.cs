@@ -94,6 +94,72 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
+		/// Resolves menu bar highlight background: explicit → theme MenuBarHighlightBackgroundColor → fallback.
+		/// </summary>
+		public static Color ResolveMenuBarHighlightBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
+		{
+			if (defaultColor == default) defaultColor = Color.Blue;
+			return Coalesce(explicitValue)
+				?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.MenuBarHighlightBackgroundColor)
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves menu bar highlight foreground color.
+		/// </summary>
+		public static Color ResolveMenuBarHighlightForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
+		{
+			if (defaultColor == default) defaultColor = Color.White;
+			return Coalesce(explicitValue)
+				?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.MenuBarHighlightForegroundColor)
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves dropdown background: explicit → theme MenuDropdownBackgroundColor → fallback.
+		/// </summary>
+		public static Color ResolveDropdownBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
+		{
+			if (defaultColor == default) defaultColor = Color.White;
+			return Coalesce(explicitValue)
+				?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.MenuDropdownBackgroundColor)
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves dropdown foreground color.
+		/// </summary>
+		public static Color ResolveDropdownForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
+		{
+			if (defaultColor == default) defaultColor = Color.Black;
+			return Coalesce(explicitValue)
+				?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.MenuDropdownForegroundColor)
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves dropdown highlight background: explicit → theme MenuDropdownHighlightBackgroundColor → fallback.
+		/// </summary>
+		public static Color ResolveDropdownHighlightBackground(Color? explicitValue, IContainer? container, Color defaultColor = default)
+		{
+			if (defaultColor == default) defaultColor = Color.Blue;
+			return Coalesce(explicitValue)
+				?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightBackgroundColor)
+				?? defaultColor;
+		}
+
+		/// <summary>
+		/// Resolves dropdown highlight foreground color.
+		/// </summary>
+		public static Color ResolveDropdownHighlightForeground(Color? explicitValue, IContainer? container, Color defaultColor = default)
+		{
+			if (defaultColor == default) defaultColor = Color.White;
+			return Coalesce(explicitValue)
+				?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightForegroundColor)
+				?? defaultColor;
+		}
+
+		/// <summary>
 		/// Resolves button background: explicit → theme ButtonBackgroundColor → Color.Transparent.
 		/// </summary>
 		public static Color ResolveButtonBackground(Color? explicitValue, IContainer? container)

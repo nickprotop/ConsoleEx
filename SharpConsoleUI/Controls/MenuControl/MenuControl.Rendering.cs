@@ -182,15 +182,17 @@ public partial class MenuControl
             y++;
         }
 
-        // Draw scroll indicators inside content area (not on border)
+        // Place scroll indicators on border rows using narrow arrows from ControlDefaults
         if (dropdown.CanScrollUp)
         {
-            buffer.SetNarrowCell(bounds.X + bounds.Width / 2, bounds.Y + 1, '▲', ResolvedDropdownForeground, ResolvedDropdownBackground);
+            var upCells = Parsing.MarkupParser.Parse(Configuration.ControlDefaults.DropdownScrollUpArrow, ResolvedDropdownForeground, ResolvedDropdownBackground);
+            buffer.WriteCells(bounds.X + bounds.Width / 2, bounds.Y, upCells);
         }
 
         if (dropdown.CanScrollDown)
         {
-            buffer.SetNarrowCell(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height - 2, '▼', ResolvedDropdownForeground, ResolvedDropdownBackground);
+            var downCells = Parsing.MarkupParser.Parse(Configuration.ControlDefaults.DropdownScrollDownArrow, ResolvedDropdownForeground, ResolvedDropdownBackground);
+            buffer.WriteCells(bounds.X + bounds.Width / 2, bounds.Bottom - 1, downCells);
         }
     }
 
@@ -239,35 +241,39 @@ public partial class MenuControl
         {
             // Top-level items: simple text with padding (no truncation needed)
             string displayText = $" {text} ";
-            buffer.WriteString(x, y, displayText, fg, bg);
+            var cells = Parsing.MarkupParser.Parse(displayText, fg, bg);
+            buffer.WriteCellsClipped(x, y, cells, new LayoutRect(x, y, cells.Count, 1));
         }
         else
         {
             // Dropdown items: full width with alignment
             string shortcut = item.Shortcut ?? "";
             int shortcutWidth = MeasureText(shortcut);
-            int indicatorWidth = item.HasChildren ? 2 : 0;
+            int indicatorWidth = item.HasChildren ? Configuration.ControlDefaults.MenuSubmenuIndicatorWidth : 0;
             int textWidth = MeasureText(text);
-            int availableForText = width - shortcutWidth - indicatorWidth - 4; // Padding
+            int availableForText = width - shortcutWidth - indicatorWidth - Configuration.ControlDefaults.MenuDropdownItemTextPadding;
 
-            // Truncate text if needed
-            if (availableForText > 0)
+            // Truncate text if needed (only when text exceeds available space)
+            if (textWidth > availableForText && availableForText > 0)
             {
                 text = TextTruncationHelper.Truncate(text, availableForText);
             }
 
             buffer.FillRect(new LayoutRect(x, y, width, 1), ' ', fg, bg);
-            buffer.WriteString(x + 2, y, text, fg, bg);
+            var textCells = Parsing.MarkupParser.Parse(text, fg, bg);
+            buffer.WriteCellsClipped(x + 2, y, textCells, new LayoutRect(x, y, width, 1));
 
             if (!string.IsNullOrEmpty(shortcut))
             {
-                int shortcutX = x + width - shortcutWidth - indicatorWidth - 2;
-                buffer.WriteString(shortcutX, y, shortcut, Color.Grey, bg);
+                int shortcutX = x + width - shortcutWidth - indicatorWidth - Configuration.ControlDefaults.MenuSubmenuIndicatorWidth;
+                var shortcutCells = Parsing.MarkupParser.Parse(shortcut, Color.Grey, bg);
+                buffer.WriteCellsClipped(shortcutX, y, shortcutCells, new LayoutRect(x, y, width, 1));
             }
 
             if (item.HasChildren)
             {
-                buffer.WriteString(x + width - 2, y, "►", fg, bg);
+                var indicatorCells = Parsing.MarkupParser.Parse(Configuration.ControlDefaults.MenuSubmenuIndicator, fg, bg);
+                buffer.WriteCells(x + width - Configuration.ControlDefaults.MenuSubmenuIndicatorWidth, y, indicatorCells);
             }
         }
     }

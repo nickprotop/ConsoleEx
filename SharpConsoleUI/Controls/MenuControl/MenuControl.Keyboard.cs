@@ -95,6 +95,8 @@ public partial class MenuControl
                     {
                         if (_focusedItem.HasChildren)
                             OpenDropdownInternal(_focusedItem);
+                        else
+                            ExecuteMenuItem(_focusedItem);
                     }
                 }
                 return true;
@@ -120,8 +122,9 @@ public partial class MenuControl
                 }
                 else
                 {
-                    // Unfocus menu
-                    this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
+                    // Unfocus menu (unless sticky)
+                    if (!_isSticky)
+                        this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
                     return true;
                 }
 
@@ -206,7 +209,8 @@ public partial class MenuControl
                 }
                 else
                 {
-                    this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
+                    if (!_isSticky)
+                        this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
                     return true;
                 }
 
@@ -509,7 +513,7 @@ public partial class MenuControl
             !i.IsSeparator &&
             i.IsEnabled &&
             !string.IsNullOrEmpty(i.Text) &&
-            char.ToLowerInvariant(i.Text[0]) == char.ToLowerInvariant(letter));
+            GetFirstDisplayChar(i.Text) == char.ToLowerInvariant(letter));
 
         if (targetItem != null)
         {
@@ -545,6 +549,29 @@ public partial class MenuControl
         }
 
         Container?.Invalidate(true);
+    }
+
+    private static char GetFirstDisplayChar(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return '\0';
+        int i = 0;
+        while (i < text.Length)
+        {
+            if (text[i] == '[')
+            {
+                // Skip markup tag
+                int end = text.IndexOf(']', i);
+                if (end >= 0) { i = end + 1; continue; }
+            }
+            // Use Rune to handle surrogate pairs correctly (Rule C)
+            if (System.Text.Rune.TryGetRuneAt(text, i, out var rune))
+            {
+                var lower = System.Text.Rune.ToLowerInvariant(rune);
+                if (lower.IsBmp) return (char)lower.Value;
+            }
+            return '\0';
+        }
+        return '\0';
     }
 
     #endregion

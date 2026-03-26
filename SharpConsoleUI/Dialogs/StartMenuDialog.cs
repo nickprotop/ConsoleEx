@@ -2,14 +2,14 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Models;
-using SharpConsoleUI.Windows;
 using Ctl = SharpConsoleUI.Builders.Controls;
+using System.Drawing;
 
 using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Dialogs;
 
 /// <summary>
-/// Provides Start menu dialog functionality.
+/// Provides Start menu dialog functionality using desktop portals.
 /// </summary>
 public static class StartMenuDialog
 {
@@ -32,27 +32,18 @@ public static class StartMenuDialog
 		}
 		_lastInvocation = now;
 
-		// Check if a start menu overlay is already open
-		var existingOverlay = windowSystem.Windows.Values
-			.OfType<OverlayWindow>()
-			.FirstOrDefault();
+		// Check if a start menu portal is already open — toggle behavior
+		var existing = windowSystem.DesktopPortalService.Portals
+			.FirstOrDefault(p => p.Owner is MenuControl m && m.Name == "StartMenu");
 
-		if (existingOverlay != null)
+		if (existing != null)
 		{
-			// Start menu already open - close it (toggle behavior)
-			existingOverlay.Dismiss();
+			windowSystem.DesktopPortalService.RemovePortal(existing);
 			return;
 		}
 
-		var theme = windowSystem.Theme;
-
 		// Determine menu position based on status bar location
 		var startButtonLocation = windowSystem.Options.StatusBar.StartButtonLocation;
-
-		// Create full-screen overlay with dimmed background
-		var overlay = new OverlayWindow(windowSystem);
-		overlay.SetOverlayBackground(Color.Grey11);  // Dark dimmed background
-		overlay.SetDismissOnClickOutside(true);
 
 		// Create vertical menu
 		var menuBuilder = Ctl.Menu()
@@ -67,39 +58,70 @@ public static class StartMenuDialog
 			);
 
 		// Build menu structure
-		BuildSystemCategory(menuBuilder, windowSystem, overlay);
-		BuildPluginsCategory(menuBuilder, windowSystem, overlay);
-		BuildUserActionsCategory(menuBuilder, windowSystem, overlay);
-		BuildWindowsCategory(menuBuilder, windowSystem, overlay);
+		BuildSystemCategory(menuBuilder, windowSystem);
+		BuildPluginsCategory(menuBuilder, windowSystem);
+		BuildUserActionsCategory(menuBuilder, windowSystem);
+		BuildWindowsCategory(menuBuilder, windowSystem);
 
 		// Always add Exit at top level
 		menuBuilder.AddSeparator();
 		menuBuilder.AddItem("Exit Application", () =>
 		{
-			overlay.Close(force: true);
+			windowSystem.DesktopPortalService.DismissAllPortals();
 			windowSystem.Shutdown(0);
 		});
 
 		var menu = menuBuilder.Build();
 
-		// Position menu using DOM layout (Margin and StickyPosition)
-		menu.Margin = new Controls.Margin(2, 2, 0, 0); // Left=2, Top=2 offset
-		menu.StickyPosition = startButtonLocation == Configuration.StatusBarLocation.Bottom
-			? Controls.StickyPosition.Bottom
-			: Controls.StickyPosition.Top;
+		// Position menu using PortalPositioner
+		var startBounds = windowSystem.StatusBarStateService.StartButtonBounds;
+		var desktopDims = windowSystem.DesktopDimensions;
+		var desktopUpperLeft = windowSystem.DesktopUpperLeft;
+		var desktopBottomRight = windowSystem.DesktopBottomRight;
 
-		// Add menu to overlay
-		overlay.AddControl(menu);
+		// Use DesktopBottomRight as the authoritative reference for available space
+		// (DesktopDimensions.Height can be off by 1 from the actual clipping boundary)
+		int availableWidth = desktopBottomRight.X + 1 - desktopUpperLeft.X;
+		int availableHeight = desktopBottomRight.Y + 1 - desktopUpperLeft.Y;
+		var screenBounds = new Rectangle(0, 0, availableWidth, availableHeight);
 
-		// Focus the menu
-		menu.GetParentWindow()?.FocusManager.SetFocus(menu, FocusReason.Programmatic);
+		var menuSize = menu.GetLogicalContentSize();
+		var placement = startButtonLocation == Configuration.StatusBarLocation.Bottom
+			? PortalPlacement.AboveOrBelow
+			: PortalPlacement.BelowOrAbove;
 
-		// Add overlay to window system and activate it
-		windowSystem.AddWindow(overlay);
-		windowSystem.SetActiveWindow(overlay);
+		// Anchor at the desktop edge (start button is on the status bar, outside desktop)
+		var anchorY = startButtonLocation == Configuration.StatusBarLocation.Bottom
+			? availableHeight  // Bottom edge of desktop
+			: 0;               // Top edge of desktop
+		var anchorInDesktop = new Rectangle(
+			startBounds.X, anchorY,
+			startBounds.Width, 1);
+
+		var posResult = PortalPositioner.Calculate(new PortalPositionRequest(
+			Anchor: anchorInDesktop,
+			ContentSize: new Size(menuSize.Width, menuSize.Height),
+			ScreenBounds: screenBounds,
+			Placement: placement));
+
+		// Portal Bounds = menu's screen position and size
+		// BufferSize = full desktop (so submenu portals have room to render beyond menu bounds)
+		var portalBounds = new Rectangle(
+			desktopUpperLeft.X + posResult.Bounds.X,
+			desktopUpperLeft.Y + posResult.Bounds.Y,
+			posResult.Bounds.Width, posResult.Bounds.Height);
+
+		windowSystem.DesktopPortalService.CreatePortal(new Core.DesktopPortalOptions(
+			Content: menu,
+			Bounds: portalBounds,
+			DismissOnClickOutside: true,
+			ConsumeClickOnDismiss: true,
+			DimBackground: false,
+			Owner: menu,
+			BufferSize: new Size(desktopDims.Width, desktopDims.Height)));
 	}
 
-	private static void BuildSystemCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem, OverlayWindow overlay)
+	private static void BuildSystemCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem)
 	{
 		if (!windowSystem.Options.StatusBar.ShowSystemMenuCategory)
 			return;
@@ -108,19 +130,19 @@ public static class StartMenuDialog
 		{
 			systemMenu.AddItem("Change Theme...", () =>
 			{
-				overlay.CloseAndInvalidate();
+				windowSystem.DesktopPortalService.DismissAllPortals();
 				ThemeSelectorDialog.Show(windowSystem);
 			});
 
 			systemMenu.AddItem("Settings...", () =>
 			{
-				overlay.CloseAndInvalidate();
+				windowSystem.DesktopPortalService.DismissAllPortals();
 				SettingsDialog.Show(windowSystem);
 			});
 
 			systemMenu.AddItem("About...", () =>
 			{
-				overlay.CloseAndInvalidate();
+				windowSystem.DesktopPortalService.DismissAllPortals();
 				AboutDialog.Show(windowSystem);
 			});
 
@@ -133,7 +155,7 @@ public static class StartMenuDialog
 					() =>
 					{
 						windowSystem.Performance.SetPerformanceMetrics(!windowSystem.Performance.IsPerformanceMetricsEnabled);
-						overlay.CloseAndInvalidate();
+						windowSystem.DesktopPortalService.DismissAllPortals();
 					}
 				);
 
@@ -143,20 +165,20 @@ public static class StartMenuDialog
 					() =>
 					{
 						windowSystem.Performance.SetFrameRateLimiting(!windowSystem.Performance.IsFrameRateLimitingEnabled);
-						overlay.CloseAndInvalidate();
+						windowSystem.DesktopPortalService.DismissAllPortals();
 					}
 				);
 
 				perfMenu.AddItem("Set Target FPS...", () =>
 				{
-					overlay.CloseAndInvalidate();
+					windowSystem.DesktopPortalService.DismissAllPortals();
 					PerformanceDialog.Show(windowSystem);
 				});
 			});
 		});
 	}
 
-	private static void BuildPluginsCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem, OverlayWindow overlay)
+	private static void BuildPluginsCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem)
 	{
 		var pluginState = windowSystem.PluginStateService.CurrentState;
 		if (pluginState.LoadedPluginCount == 0)
@@ -197,7 +219,7 @@ public static class StartMenuDialog
 							windowSystem.AddWindow(w);
 							windowSystem.SetActiveWindow(w);
 						}
-						overlay.CloseAndInvalidate();
+						windowSystem.DesktopPortalService.DismissAllPortals();
 					});
 				}
 
@@ -217,7 +239,7 @@ public static class StartMenuDialog
 							actionName,
 							context: null
 						);
-						overlay.CloseAndInvalidate();
+						windowSystem.DesktopPortalService.DismissAllPortals();
 					});
 				}
 			}));
@@ -236,7 +258,7 @@ public static class StartMenuDialog
 		});
 	}
 
-	private static void BuildUserActionsCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem, OverlayWindow overlay)
+	private static void BuildUserActionsCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem)
 	{
 		var userActions = windowSystem.StatusBarStateService.GetStartMenuActions();
 		if (userActions.Count == 0)
@@ -262,7 +284,7 @@ public static class StartMenuDialog
 						userMenu.AddItem(action.Name, () =>
 						{
 							callback();
-							overlay.CloseAndInvalidate();
+							windowSystem.DesktopPortalService.DismissAllPortals();
 						});
 					}
 				}
@@ -277,7 +299,7 @@ public static class StartMenuDialog
 							subMenu.AddItem(action.Name, () =>
 							{
 								callback();
-								overlay.CloseAndInvalidate();
+								windowSystem.DesktopPortalService.DismissAllPortals();
 							});
 						}
 					});
@@ -286,13 +308,13 @@ public static class StartMenuDialog
 		});
 	}
 
-	private static void BuildWindowsCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem, OverlayWindow overlay)
+	private static void BuildWindowsCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem)
 	{
 		if (!windowSystem.Options.StatusBar.ShowWindowListInMenu)
 			return;
 
 		var topLevelWindows = windowSystem.Windows.Values
-			.Where(w => w.ParentWindow == null && !(w is OverlayWindow))  // Exclude overlay windows
+			.Where(w => w.ParentWindow == null)
 			.ToList();
 
 		if (topLevelWindows.Count == 0)
@@ -315,8 +337,7 @@ public static class StartMenuDialog
 				var targetWindow = window;
 				windowsMenu.AddItem(text, shortcut, () =>
 				{
-					// Close overlay first, then activate window
-					overlay.CloseAndInvalidate();
+					windowSystem.DesktopPortalService.DismissAllPortals();
 					windowSystem.SetActiveWindow(targetWindow);
 					if (targetWindow.State == WindowState.Minimized)
 						targetWindow.State = WindowState.Normal;

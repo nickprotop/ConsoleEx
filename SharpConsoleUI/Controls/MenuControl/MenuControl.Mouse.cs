@@ -75,16 +75,32 @@ public partial class MenuControl
             {
                 _hoveredItem = hitItem;
 
+                // Cancel pending switch if mouse moved to a different item
+                if (_pendingSwitchItem != null && hitItem != _pendingSwitchItem)
+                {
+                    _pendingSwitchItem = null;
+                }
+
                 // If any dropdown is open and we hover a different top-level item
                 if (_openDropdowns.Count > 0 && hitItem != null && IsTopLevelItem(hitItem))
                 {
-                    // Switch dropdown immediately
-                    _pendingSubmenuItem = null;
-                    CloseAllMenus();
-                    // Restore hover after CloseAllMenus cleared it (we're switching, not closing)
-                    _hoveredItem = hitItem;
-                    if (hitItem.HasChildren)
-                        OpenDropdownInternal(hitItem);
+                    bool hasOpenSubmenu = _openDropdowns.Count > 1; // submenu is open (not just a dropdown)
+                    if (hasOpenSubmenu && _pendingSwitchItem != hitItem)
+                    {
+                        // Start delay — user might be moving toward the open submenu
+                        _pendingSwitchItem = hitItem;
+                        _switchStartTime = DateTime.Now;
+                    }
+                    else if (!hasOpenSubmenu)
+                    {
+                        // No submenu open — switch immediately (just top-level dropdown switching)
+                        _pendingSubmenuItem = null;
+                        _pendingSwitchItem = null;
+                        CloseAllMenus();
+                        _hoveredItem = hitItem;
+                        if (hitItem.HasChildren)
+                            OpenDropdownInternal(hitItem);
+                    }
                 }
                 // If hovering item with children in open dropdown, start hover delay
                 else if (_openDropdowns.Count > 0 && hitItem?.HasChildren == true && !hitItem.IsOpen)
@@ -111,6 +127,20 @@ public partial class MenuControl
                 {
                     OpenSubmenu(_pendingSubmenuItem);
                     _pendingSubmenuItem = null;
+                }
+            }
+            else if (_pendingSwitchItem != null && hitItem == _pendingSwitchItem)
+            {
+                var elapsed = (DateTime.Now - _switchStartTime).TotalMilliseconds;
+                if (elapsed >= Configuration.ControlDefaults.MenuAimDelayMs)
+                {
+                    // Delay elapsed — perform the switch
+                    _pendingSubmenuItem = null;
+                    _pendingSwitchItem = null;
+                    CloseAllMenus();
+                    _hoveredItem = hitItem;
+                    if (hitItem.HasChildren)
+                        OpenDropdownInternal(hitItem);
                 }
             }
 
@@ -140,12 +170,17 @@ public partial class MenuControl
 
             // If we just gained focus and clicked a top-level item with children, open it immediately
             // This allows single-click to open menus instead of requiring click-to-focus then click-to-open
-            if (!wasFocused && IsTopLevelItem(hitItem) && hitItem.HasChildren && hitItem.IsEnabled && !hitItem.IsSeparator)
+            // Skip if this item's dropdown is already open (prevents re-open on double-click)
+            if (IsTopLevelItem(hitItem) && hitItem.HasChildren && hitItem.IsEnabled && !hitItem.IsSeparator)
             {
-                CloseAllMenus();
-                OpenDropdownInternal(hitItem);
-                _focusedItem = hitItem;
-                _hoveredItem = null;
+                bool alreadyOpen = _openDropdowns.Any(d => d.ParentItem == hitItem);
+                if (!wasFocused && !alreadyOpen)
+                {
+                    CloseAllMenus();
+                    OpenDropdownInternal(hitItem);
+                    _focusedItem = hitItem;
+                    _hoveredItem = null;
+                }
             }
 
             Container?.Invalidate(true);
@@ -266,7 +301,9 @@ public partial class MenuControl
 
         // Find which item is at this Y position (accounting for scroll offset)
         MenuItem? hitItem = null;
-        if (contentY >= 0 && contentY < dropdown.VisibleItems.Count)
+        var (visStart, visEnd) = dropdown.GetVisibleRange();
+        int visibleCount = visEnd - visStart;
+        if (contentY >= 0 && contentY < visibleCount)
         {
             int itemIndex = contentY + dropdown.ScrollOffset;
             if (itemIndex >= 0 && itemIndex < dropdown.VisibleItems.Count)
@@ -301,15 +338,43 @@ public partial class MenuControl
             {
                 _hoveredItem = hitItem;
 
+                // Check if a deeper submenu is open (sibling of this dropdown's items)
+                bool hasDeeperSubmenu = _openDropdowns.Count > 0 &&
+                    _openDropdowns[_openDropdowns.Count - 1] != dropdown;
+
                 if (hitItem != null && hitItem.HasChildren && !hitItem.IsOpen)
                 {
-                    // Item with children - open its submenu (closes sibling submenus automatically)
-                    OpenSubmenu(hitItem);
+                    if (hasDeeperSubmenu)
+                    {
+                        // Delay before switching submenu — user might be moving toward the open one
+                        _pendingSubmenuItem = hitItem;
+                        _hoverStartTime = DateTime.Now;
+                    }
+                    else
+                    {
+                        // No deeper submenu open — open immediately
+                        OpenSubmenu(hitItem);
+                    }
                 }
                 else if (hitItem != null && !hitItem.HasChildren)
                 {
-                    // Leaf item - close any sibling submenus that are deeper than this dropdown
-                    CloseSiblingSubmenus(dropdown);
+                    if (hasDeeperSubmenu)
+                    {
+                        // Delay before closing submenu — user might be moving toward it
+                        _pendingSubmenuItem = null; // Not opening a submenu, just delaying close
+                        _pendingCloseDropdown = dropdown;
+                        _hoverStartTime = DateTime.Now;
+                    }
+                    else
+                    {
+                        // No deeper submenu open — close sibling submenus immediately
+                        CloseSiblingSubmenus(dropdown);
+                    }
+                }
+                else
+                {
+                    _pendingSubmenuItem = null;
+                    _pendingCloseDropdown = null;
                 }
 
                 if (hitItem != null)
@@ -317,6 +382,26 @@ public partial class MenuControl
                     ItemHovered?.Invoke(this, hitItem);
                 }
                 Container?.Invalidate(true);
+            }
+            // Same item — check pending delays
+            else if (_pendingSubmenuItem != null && hitItem == _pendingSubmenuItem)
+            {
+                var elapsed = (DateTime.Now - _hoverStartTime).TotalMilliseconds;
+                if (elapsed >= Configuration.ControlDefaults.MenuAimDelayMs)
+                {
+                    OpenSubmenu(_pendingSubmenuItem);
+                    _pendingSubmenuItem = null;
+                    _pendingCloseDropdown = null;
+                }
+            }
+            else if (_pendingCloseDropdown != null)
+            {
+                var elapsed = (DateTime.Now - _hoverStartTime).TotalMilliseconds;
+                if (elapsed >= Configuration.ControlDefaults.MenuAimDelayMs)
+                {
+                    CloseSiblingSubmenus(_pendingCloseDropdown);
+                    _pendingCloseDropdown = null;
+                }
             }
             return true;
         }
@@ -418,9 +503,11 @@ public partial class MenuControl
             // Check if click is in dropdown bounds
             if (dropdown.Contains(boundsX, boundsY))
             {
-                // Check each item in dropdown
-                foreach (var item in dropdown.VisibleItems)
+                // Check only items in visible range (scrolled dropdowns have stale bounds for off-screen items)
+                var (start, end) = dropdown.GetVisibleRange();
+                for (int j = start; j < end; j++)
                 {
+                    var item = dropdown.VisibleItems[j];
                     if (item.Bounds.Contains(boundsX, boundsY))
                         return item;
                 }

@@ -77,6 +77,7 @@ namespace SharpConsoleUI
 		private readonly InputStateService _inputStateService;
 		private readonly NotificationStateService _notificationStateService;
 		private readonly StatusBarStateService _statusBarStateService;
+		private readonly Core.DesktopPortalService _desktopPortalService;
 
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
@@ -193,6 +194,7 @@ namespace SharpConsoleUI
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
 			_statusBarStateService = new StatusBarStateService(_logService, () => this);
+			_desktopPortalService = new Core.DesktopPortalService(_logService, this);
 
 			// Initialize notification service (needs 'this' reference)
 			_notificationStateService = new NotificationStateService(this, _logService);
@@ -370,6 +372,11 @@ namespace SharpConsoleUI
 		/// Gets the status bar state service for managing status bars and Start menu.
 		/// </summary>
 		public StatusBarStateService StatusBarStateService => _statusBarStateService;
+
+		/// <summary>
+		/// Gets the desktop portal service for managing desktop-level overlay portals.
+		/// </summary>
+		public Core.DesktopPortalService DesktopPortalService => _desktopPortalService;
 
 		/// <summary>
 		/// Gets the library-managed logging service.
@@ -605,7 +612,7 @@ namespace SharpConsoleUI
 					}
 
 					// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render OR animations active
-					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Render.IsStatusBarDirty();
+					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty() || _desktopPortalService.NeedsCleanupFrame;
 
 					// Calculate recommended sleep duration once (used in both branches)
 					var recommendedSleep = _inputStateService.GetRecommendedSleepDuration(

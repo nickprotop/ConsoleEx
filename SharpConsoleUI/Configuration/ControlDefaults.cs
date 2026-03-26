@@ -290,6 +290,22 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int MenuItemDropdownPadding = 10;
 
+		/// <summary>Submenu indicator arrow (narrow, reliably 1-wide).</summary>
+		public const string MenuSubmenuIndicator = "\u25B8"; // ▸ (small right-pointing triangle)
+
+		/// <summary>Delay in ms before switching top-level menu items when a submenu is open.</summary>
+		public const int MenuAimDelayMs = 300;
+
+		/// <summary>
+		/// Text padding inside dropdown menu items: 2 left + 2 right (default: 4).
+		/// </summary>
+		public const int MenuDropdownItemTextPadding = 4;
+
+		/// <summary>
+		/// Width reserved for the submenu indicator character plus spacing (default: 2).
+		/// </summary>
+		public const int MenuSubmenuIndicatorWidth = 2;
+
 		// Notification defaults
 		/// <summary>
 		/// Horizontal padding added to notification window width beyond message length (default: 8)

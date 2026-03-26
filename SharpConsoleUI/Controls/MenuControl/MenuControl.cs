@@ -33,6 +33,9 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     private readonly Dictionary<MenuDropdown, LayoutNode> _dropdownPortals = new();
     private DateTime _hoverStartTime = DateTime.MinValue;
     private MenuItem? _pendingSubmenuItem;         // Item awaiting hover delay to open submenu
+    private MenuItem? _pendingSwitchItem;          // Top-level item pending switch
+    private DateTime _switchStartTime;             // When the switch was initiated
+    private MenuDropdown? _pendingCloseDropdown;   // Dropdown awaiting delayed sibling close
 
 
 
@@ -168,12 +171,12 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     // Resolved colors with theme fallback
     private Color ResolvedMenuBarBackground => ColorResolver.ResolveMenuBarBackground(_menuBarBackgroundColor, Container);
     private Color ResolvedMenuBarForeground => ColorResolver.ResolveMenuBarForeground(_menuBarForegroundColor, Container);
-    private Color ResolvedMenuBarHighlightBackground => _menuBarHighlightBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarHighlightBackgroundColor ?? Color.Blue;
-    private Color ResolvedMenuBarHighlightForeground => _menuBarHighlightForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuBarHighlightForegroundColor ?? Color.White;
-    private Color ResolvedDropdownBackground => _dropdownBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownBackgroundColor ?? Color.White;
-    private Color ResolvedDropdownForeground => _dropdownForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownForegroundColor ?? Color.Black;
-    private Color ResolvedDropdownHighlightBackground => _dropdownHighlightBackgroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightBackgroundColor ?? Color.Blue;
-    private Color ResolvedDropdownHighlightForeground => _dropdownHighlightForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightForegroundColor ?? Color.White;
+    private Color ResolvedMenuBarHighlightBackground => ColorResolver.ResolveMenuBarHighlightBackground(_menuBarHighlightBackgroundColor, Container);
+    private Color ResolvedMenuBarHighlightForeground => ColorResolver.ResolveMenuBarHighlightForeground(_menuBarHighlightForegroundColor, Container);
+    private Color ResolvedDropdownBackground => ColorResolver.ResolveDropdownBackground(_dropdownBackgroundColor, Container);
+    private Color ResolvedDropdownForeground => ColorResolver.ResolveDropdownForeground(_dropdownForegroundColor, Container);
+    private Color ResolvedDropdownHighlightBackground => ColorResolver.ResolveDropdownHighlightBackground(_dropdownHighlightBackgroundColor, Container);
+    private Color ResolvedDropdownHighlightForeground => ColorResolver.ResolveDropdownHighlightForeground(_dropdownHighlightForegroundColor, Container);
 
     // Legacy property aliases for backward compatibility
     /// <summary>
@@ -214,6 +217,26 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     {
         get => ResolvedDropdownHighlightForeground;
         set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
+    }
+
+    #endregion
+
+    #region Portal Host Resolution
+
+    /// <summary>
+    /// Gets the portal host for this menu — either the parent Window or a DesktopPortalContainer.
+    /// Used by dropdown management to create/remove portals in both window and desktop portal contexts.
+    /// </summary>
+    private IPortalHost? GetPortalHost()
+    {
+        // Try window first (most common case)
+        var window = this.GetParentWindow();
+        if (window != null) return window;
+
+        // Try desktop portal context
+        if (Container is IPortalHost host) return host;
+        if (Container is Core.DesktopPortalContainer dpc) return dpc;
+        return null;
     }
 
     #endregion
@@ -377,6 +400,12 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
             if (_pressedItem == item)
                 _pressedItem = null;
 
+            // Close any open dropdown whose parent is the removed item
+            if (_openDropdowns.Any(d => d.ParentItem == item))
+            {
+                CloseAllMenus();
+            }
+
             InvalidateMeasurementCache();
             Container?.Invalidate(true);
         }
@@ -408,7 +437,8 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 
         foreach (var part in parts)
         {
-            current = searchList.FirstOrDefault(i => i.Text == part);
+            current = searchList.FirstOrDefault(i =>
+                Parsing.MarkupParser.Remove(i.Text) == part || i.Text == part);
             if (current == null)
                 return null;
             searchList = current.Children;
@@ -450,8 +480,9 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     public void CloseAllMenus()
     {
         var window = this.GetParentWindow();
+        var host = GetPortalHost();
 
-        // Unsubscribe from dismiss events
+        // Unsubscribe from dismiss events (only when hosted in a window)
         if (_openDropdowns.Count > 0 && window != null)
         {
             window.UnhandledMouseClick -= OnWindowUnhandledMouseClick;
@@ -464,9 +495,9 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
                 dropdown.ParentItem.IsOpen = false;
 
             // Remove portal if it exists
-            if (_dropdownPortals.TryGetValue(dropdown, out var portalNode) && window != null)
+            if (_dropdownPortals.TryGetValue(dropdown, out var portalNode) && host != null)
             {
-                window.RemovePortal(this, portalNode);
+                host.RemovePortal(this, portalNode);
             }
         }
 
@@ -484,6 +515,10 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// </summary>
     public void Focus()
     {
+        if (_focusedItem == null)
+        {
+            lock (_menuLock) { _focusedItem = _items.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled); }
+        }
         this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Programmatic);
     }
 

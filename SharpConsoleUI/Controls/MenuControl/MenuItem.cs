@@ -83,6 +83,7 @@ public class MenuItem
             throw new ArgumentNullException(nameof(item));
 
         item.Parent = this;
+        item.InvalidateDepthCache();
         Children.Add(item);
     }
 
@@ -106,22 +107,25 @@ public class MenuItem
         return string.Join("/", path);
     }
 
+    private int? _cachedDepth;
+
     /// <summary>
     /// Gets the depth level of this menu item in the hierarchy (0 for top-level).
     /// </summary>
     public int GetDepth()
     {
+        if (_cachedDepth.HasValue) return _cachedDepth.Value;
         int depth = 0;
         var current = Parent;
-
-        while (current != null)
-        {
-            depth++;
-            current = current.Parent;
-        }
-
+        while (current != null) { depth++; current = current.Parent; }
+        _cachedDepth = depth;
         return depth;
     }
+
+    /// <summary>
+    /// Invalidates the cached depth value. Called when the item is re-parented.
+    /// </summary>
+    internal void InvalidateDepthCache() { _cachedDepth = null; }
 
     /// <summary>
     /// Returns a string representation of this menu item for debugging.

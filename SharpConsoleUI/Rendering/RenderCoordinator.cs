@@ -266,7 +266,14 @@ namespace SharpConsoleUI.Rendering
 				// 4. BottomStatus
 				// 5. Flush
 
+				// While portals are open, force all windows to repaint every frame.
+				// This ensures the back buffer has fresh content before portals paint on top.
+				EnsureWindowsFreshUnderPortals();
+
 				RenderWindows();
+
+				// Render desktop portals on top of windows (before status bars)
+				RenderDesktopPortals();
 
 				// CRITICAL: Capture dirty chars AFTER windows rendered, BEFORE TopStatus
 				// This measures window rendering work without including TopStatus itself
@@ -297,6 +304,169 @@ namespace SharpConsoleUI.Rendering
 		#endregion
 
 		#region Private Helper Methods
+
+		/// <summary>
+		/// While any desktop portal is open, forces all windows to repaint every frame.
+		/// This ensures the back buffer always has fresh window content before portals
+		/// paint on top. When portal content changes (submenu open/close), the fresh
+		/// window content is already correct — no stale pixel cleanup needed.
+		/// Also fills the desktop background so areas not covered by windows are clean.
+		/// </summary>
+		private void EnsureWindowsFreshUnderPortals()
+		{
+			var portalService = _windowSystemContext.DesktopPortalService;
+			bool hasPortals = portalService.HasPortals;
+			bool needsCleanup = portalService.NeedsCleanupFrame;
+
+			if (!hasPortals && !needsCleanup)
+				return;
+
+			// Fill desktop background (covers areas with no windows, clears stale portal pixels)
+			var desktopDims = _windowSystemContext.DesktopDimensions;
+			var desktopUpperLeft = _windowSystemContext.DesktopUpperLeft;
+			var theme = _windowSystemContext.Theme;
+			_renderer.FillRect(desktopUpperLeft.X, desktopUpperLeft.Y,
+				desktopDims.Width, desktopDims.Height,
+				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+
+			// Force all windows dirty so they repaint fresh content this frame
+			foreach (var window in _windowSystemContext.Windows.Values)
+			{
+				window.Invalidate(true);
+			}
+
+			// Clear the cleanup flag — one frame was enough
+			if (needsCleanup)
+			{
+				portalService.NeedsCleanupFrame = false;
+			}
+		}
+
+		/// <summary>
+		/// Renders all desktop portals. Portals paint their control regions on top of window content.
+		/// Only regions where controls exist are rendered — areas without controls are transparent.
+		/// </summary>
+		private void RenderDesktopPortals()
+		{
+			var portalService = _windowSystemContext.DesktopPortalService;
+			if (!portalService.HasPortals)
+				return;
+
+			foreach (var portal in portalService.Portals)
+			{
+				if (!portal.IsDirty && portal.Buffer != null)
+				{
+					// Portal is clean — but we still need to repaint its control regions
+					// in case underlying windows were re-rendered and overwrote portal pixels
+					WritePortalControlRegions(portal);
+					continue;
+				}
+
+				// Rebuild the portal's content buffer
+				var bufSize = portal.BufferSize;
+				if (bufSize.Width <= 0 || bufSize.Height <= 0)
+					continue;
+
+				// Create or reuse buffer (uses BufferSize which may be larger than Bounds)
+				if (portal.Buffer == null || portal.Buffer.Width != bufSize.Width || portal.Buffer.Height != bufSize.Height)
+				{
+					portal.Buffer = new Layout.CharacterBuffer(bufSize.Width, bufSize.Height, _windowSystemContext.Theme.DesktopBackgroundColor);
+				}
+				else
+				{
+					portal.Buffer.Clear(_windowSystemContext.Theme.DesktopBackgroundColor);
+				}
+
+				// Re-measure and arrange the DOM
+				// Arrange at portal bounds so root control fills the declared area
+				var constraints = Layout.LayoutConstraints.Loose(bufSize.Width, bufSize.Height);
+				portal.RootNode.Measure(constraints);
+				portal.RootNode.Arrange(new Layout.LayoutRect(0, 0, portal.Bounds.Width, portal.Bounds.Height));
+
+				// Paint DOM to buffer (clip to full buffer so submenus can render beyond content bounds)
+				var clipRect = new Layout.LayoutRect(0, 0, bufSize.Width, bufSize.Height);
+				portal.RootNode.Paint(portal.Buffer, clipRect);
+
+				// Collect control bounds for selective rendering
+				portal.ControlBounds.Clear();
+				portal.RootNode.Visit(node =>
+				{
+					if (node.Control != null && !node.AbsoluteBounds.IsEmpty)
+					{
+						portal.ControlBounds.Add(node.AbsoluteBounds);
+					}
+				});
+
+				// If DimBackground, dim cells outside control bounds
+				if (portal.DimBackground)
+				{
+					RenderPortalDimming(portal);
+				}
+
+				// Write only control-bound regions to the console driver
+				WritePortalControlRegions(portal);
+
+				portal.IsDirty = false;
+			}
+		}
+
+		/// <summary>
+		/// Writes a portal's control regions to the console driver.
+		/// Only regions where controls exist are written — areas without controls are transparent.
+		/// </summary>
+		private void WritePortalControlRegions(Core.DesktopPortal portal)
+		{
+			if (portal.Buffer == null || portal.ControlBounds.Count == 0)
+				return;
+
+			var desktopUpperLeft = _windowSystemContext.DesktopUpperLeft;
+			var desktopBottomRight = _windowSystemContext.DesktopBottomRight;
+
+			foreach (var bounds in portal.ControlBounds)
+			{
+				int screenX = portal.Bounds.X + bounds.X;
+				int screenY = portal.Bounds.Y + bounds.Y;
+
+				// Clip to desktop area
+				int clipLeft = Math.Max(screenX, desktopUpperLeft.X);
+				int clipTop = Math.Max(screenY, desktopUpperLeft.Y);
+				int clipRight = Math.Min(screenX + bounds.Width, desktopBottomRight.X + 1);
+				int clipBottom = Math.Min(screenY + bounds.Height, desktopBottomRight.Y + 1);
+
+				int clippedWidth = clipRight - clipLeft;
+				int clippedHeight = clipBottom - clipTop;
+
+				if (clippedWidth <= 0 || clippedHeight <= 0)
+					continue;
+
+				// Source offset in buffer
+				int baseSrcX = bounds.X + (clipLeft - screenX);
+				int baseSrcY = bounds.Y + (clipTop - screenY);
+
+				// WriteBufferRegion writes one row at a time — loop over each row
+				for (int row = 0; row < clippedHeight; row++)
+				{
+					_consoleDriver.WriteBufferRegion(
+						clipLeft, clipTop + row,
+						portal.Buffer,
+						baseSrcX, baseSrcY + row,
+						clippedWidth,
+						_windowSystemContext.Theme.DesktopBackgroundColor);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Dims the screen area behind a portal (outside control bounds).
+		/// Reads existing cells and writes them back with reduced brightness.
+		/// </summary>
+		private void RenderPortalDimming(Core.DesktopPortal portal)
+		{
+			// Dimming is a visual effect that darkens cells not covered by portal controls.
+			// For now, we skip this — it requires reading back from the console driver
+			// which not all drivers support. This can be implemented as a follow-up.
+			// The portal still renders correctly without dimming.
+		}
 
 		/// <summary>
 		/// Returns true if the top status bar should be rendered.
@@ -608,7 +778,7 @@ namespace SharpConsoleUI.Rendering
 			_topLevelWindowsPool.Clear();
 			foreach (var w in _windowSystemContext.Windows.Values)
 			{
-				if (w.ParentWindow == null && !(w is SharpConsoleUI.Windows.OverlayWindow))
+				if (w.ParentWindow == null)
 					_topLevelWindowsPool.Add(w);
 			}
 			_topLevelWindowsPool.Sort((a, b) => a.CreationOrder.CompareTo(b.CreationOrder));

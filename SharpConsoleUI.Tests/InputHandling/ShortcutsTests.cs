@@ -220,20 +220,24 @@ public class ShortcutsTests
     }
 
     [Fact]
-    public void Escape_OnOverlayWindow_DismissesOverlay()
+    public void Escape_OnDesktopPortal_DismissesPortal()
     {
         var system = TestWindowSystemBuilder.CreateTestSystem();
-        var overlay = new Windows.OverlayWindow(system);
+        var label = new SharpConsoleUI.Controls.MarkupControl(new List<string> { "Portal Content" });
 
-        system.WindowStateService.AddWindow(overlay);
-        system.WindowStateService.SetActiveWindow(overlay);
+        system.DesktopPortalService.CreatePortal(new Core.DesktopPortalOptions(
+            Content: label,
+            Bounds: new System.Drawing.Rectangle(0, 0, 40, 10),
+            DismissOnClickOutside: true));
+
+        Assert.True(system.DesktopPortalService.HasPortals);
 
         var escapeKey = new ConsoleKeyInfo('\0', ConsoleKey.Escape, false, false, false);
         system.InputStateService.EnqueueKey(escapeKey);
         system.Input.ProcessInput();
 
-        // Overlay might close on Escape
-        // This test verifies it doesn't crash
+        // Portal should be dismissed by Escape
+        Assert.False(system.DesktopPortalService.HasPortals);
     }
 
     [Fact]

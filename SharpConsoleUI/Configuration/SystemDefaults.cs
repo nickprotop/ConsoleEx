@@ -31,6 +31,12 @@ namespace SharpConsoleUI.Configuration
 		public const int MaxSleepDurationMs = 100;
 
 		/// <summary>
+		/// Debounce time before allowing portal dismiss after creation (default: 200ms).
+		/// Prevents the same click that opens a portal from immediately dismissing it.
+		/// </summary>
+		public const int PortalDismissDebounceMs = 200;
+
+		/// <summary>
 		/// Fast loop idle time when rendering without frame rate limit (default: 10ms)
 		/// </summary>
 		public const int FastLoopIdleMs = 10;

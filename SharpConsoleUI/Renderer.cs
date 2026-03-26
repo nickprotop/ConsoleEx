@@ -8,7 +8,6 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Windows;
 using System.Drawing;
 
 namespace SharpConsoleUI
@@ -23,8 +22,6 @@ namespace SharpConsoleUI
 
 		// Pooled collections to avoid per-frame allocations on hot paths
 		private readonly List<Window> _overlappingWindowsPool = new List<Window>();
-		private readonly List<Window> _underlyingWindowsPool = new List<Window>();
-		private readonly List<Window> _overlayOverlappingPool = new List<Window>();
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Renderer"/> class.
@@ -280,12 +277,7 @@ namespace SharpConsoleUI
 			
 			return;  // Don't output to screen
 		}
-			// Special rendering for OverlayWindow
-			if (window is OverlayWindow overlay)
-			{
-				RenderOverlayWindow(overlay);
-				return;
-			}
+
 
 
 			Point desktopTopLeftCorner = _consoleWindowSystem.DesktopUpperLeft;
@@ -346,201 +338,6 @@ namespace SharpConsoleUI
 			}
 		}
 
-		/// <summary>
-		/// Special rendering for OverlayWindow that allows underlying windows to show through.
-		/// Renders only the regions where controls exist, letting underlying content show through
-		/// in areas without controls (true transparency effect).
-		/// NOTE: This method does NOT call DrawWindowBorders() - no border space is rendered.
-		/// OverlayWindow compensates by offsetting position and dimensions to account for missing borders.
-		/// </summary>
-		private void RenderOverlayWindow(OverlayWindow overlay)
-		{
-			// Get all windows BELOW the overlay (lower Z-index), ordered by z-index
-			_underlyingWindowsPool.Clear();
-			foreach (var w in _consoleWindowSystem.Windows.Values)
-			{
-				if (w != overlay &&
-				    !(w is OverlayWindow) &&
-				    w.ZIndex < overlay.ZIndex &&
-				    w.State != WindowState.Minimized)
-				{
-					_underlyingWindowsPool.Add(w);
-				}
-			}
-			_underlyingWindowsPool.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
-			var underlyingWindows = _underlyingWindowsPool;
-
-			// First, fill the entire desktop area with the desktop background to clear any previous overlay content.
-			// This ensures areas not covered by windows are properly cleared.
-			var desktopDims = _consoleWindowSystem.DesktopDimensions;
-			var desktopUpperLeftY = _consoleWindowSystem.DesktopUpperLeft.Y;
-			var theme = _consoleWindowSystem.Theme;
-			FillRect(0, desktopUpperLeftY, desktopDims.Width, desktopDims.Height,
-				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
-
-			// Render all underlying windows in z-order.
-			// Each window renders fully within its bounds (ignoring the overlay).
-			foreach (var underlyingWindow in underlyingWindows)
-			{
-				RenderWindowForOverlay(underlyingWindow, underlyingWindows);
-			}
-
-			// Trigger overlay content rebuild (populates buffer and performs layout)
-			var buffer = overlay.EnsureContentReady();
-			overlay.IsDirty = false;
-
-			if (buffer == null)
-				return;
-
-			// Get control bounds - these are the only regions we need to render
-			var controlBounds = overlay.GetControlBounds();
-
-			if (controlBounds.Count == 0)
-			{
-				return;
-			}
-
-			// Calculate visible regions (areas not covered by higher z-index windows)
-			_overlayOverlappingPool.Clear();
-			foreach (var w in _consoleWindowSystem.Windows.Values)
-			{
-				if (w != overlay &&
-				    w.ZIndex > overlay.ZIndex &&
-				    w.State != WindowState.Minimized &&
-				    IsOverlapping(overlay, w))
-				{
-					_overlayOverlappingPool.Add(w);
-				}
-			}
-			_overlayOverlappingPool.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
-
-			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(overlay, _overlayOverlappingPool);
-
-			// Render only the control regions from the buffer (direct cell path)
-			RenderOverlayControlRegionsFromBuffer(overlay, buffer, controlBounds, visibleRegions);
-		}
-
-		/// <summary>
-		/// Renders a window for overlay transparency purposes.
-		/// Calculates visible regions considering only other underlying windows (not overlays).
-		/// </summary>
-		private void RenderWindowForOverlay(Window window, List<Window> allUnderlyingWindows)
-		{
-			if (window.State == WindowState.Minimized)
-				return;
-
-			Point desktopTopLeftCorner = _consoleWindowSystem.DesktopUpperLeft;
-			Point desktopBottomRightCorner = _consoleWindowSystem.DesktopBottomRight;
-
-			if (IsWindowOutOfBounds(window, desktopTopLeftCorner, desktopBottomRightCorner))
-				return;
-
-			// Get overlapping windows from the underlying windows list only (higher z-index among underlying)
-			_overlappingWindowsPool.Clear();
-			for (int i = 0; i < allUnderlyingWindows.Count; i++)
-			{
-				var w = allUnderlyingWindows[i];
-				if (w != window &&
-				    w.ZIndex > window.ZIndex &&
-				    IsOverlapping(window, w))
-				{
-					_overlappingWindowsPool.Add(w);
-				}
-			}
-			_overlappingWindowsPool.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
-
-			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(window, _overlappingWindowsPool);
-
-			if (visibleRegions.Count == 0)
-			{
-				window.IsDirty = false;
-				return;
-			}
-
-			// Fill the background only for the visible regions
-			foreach (var region in visibleRegions)
-			{
-				FillRect(region.Left, region.Top, region.Width, region.Height, ' ', window.BackgroundColor, null);
-			}
-
-			window.BorderRenderer?.RenderBorders(visibleRegions);
-
-			var buffer = window.EnsureContentReady(visibleRegions);
-			window.IsDirty = false;
-
-			if (buffer != null)
-			{
-				RenderVisibleWindowContentFromBuffer(window, buffer, visibleRegions);
-			}
-		}
-
-
-		/// <summary>
-		/// Renders only the specified control regions from the overlay buffer.
-		/// Areas without controls are not rendered, allowing underlying content to show through.
-		/// Uses direct cell copy from CharacterBuffer (no ANSI serialization).
-		/// </summary>
-		private void RenderOverlayControlRegionsFromBuffer(
-			OverlayWindow overlay,
-			CharacterBuffer buffer,
-			List<LayoutRect> controlBounds,
-			List<Rectangle> visibleRegions)
-		{
-			var windowLeft = overlay.Left;
-			var windowTop = overlay.Top;
-			var desktopUpperLeftY = _consoleWindowSystem.DesktopUpperLeft.Y;
-			var bufferHeight = buffer.Height;
-
-			// For each control bounds, render that portion of the buffer
-			foreach (var bounds in controlBounds)
-			{
-				// Render each line within the control bounds
-				for (int localY = 0; localY < bounds.Height; localY++)
-				{
-					int bufferY = bounds.Y + localY;
-
-					// Skip if outside buffer
-					if (bufferY < 0 || bufferY >= bufferHeight)
-						continue;
-
-					// Check if outside desktop area
-					if (windowTop + bufferY >= _consoleWindowSystem.DesktopBottomRight.Y)
-						break;
-
-					// Screen Y: window content starts at windowTop + 1 (border offset)
-					int screenY = windowTop + 1 + bufferY;
-					int screenYWithOffset = screenY + desktopUpperLeftY;
-
-					// Check each visible region to see if this line intersects
-					foreach (var region in visibleRegions)
-					{
-						if (screenYWithOffset < region.Top || screenYWithOffset >= region.Top + region.Height)
-							continue;
-
-						// Calculate horizontal bounds for this control in screen space
-						int controlScreenLeft = windowLeft + 1 + bounds.X;
-						int controlScreenRight = controlScreenLeft + bounds.Width;
-
-						// Intersect with visible region horizontally
-						int renderLeft = Math.Max(controlScreenLeft, region.Left);
-						int renderRight = Math.Min(controlScreenRight, region.Left + region.Width);
-						int renderWidth = renderRight - renderLeft;
-
-						if (renderWidth <= 0)
-							continue;
-
-						// Calculate buffer X offset
-						int srcX = renderLeft - (windowLeft + 1);
-
-						// Write cells directly from buffer to console driver
-						_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
-							renderLeft, screenYWithOffset,
-							buffer, srcX, bufferY, renderWidth,
-							overlay.BackgroundColor);
-					}
-				}
-			}
-		}
 
 		private bool IsWindowOutOfBounds(Window window, Point desktopTopLeftCorner, Point desktopBottomRightCorner)
 		{

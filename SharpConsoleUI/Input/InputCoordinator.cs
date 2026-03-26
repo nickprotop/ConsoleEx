@@ -80,6 +80,25 @@ namespace SharpConsoleUI.Input
 			{
 				var keyInfo = key.Value;
 
+				// Desktop portals capture all keyboard input when open
+				if (_context.DesktopPortalService.HasPortals)
+				{
+					var topPortal = _context.DesktopPortalService.TopPortal;
+					if (topPortal != null)
+					{
+						bool handled = false;
+						if (topPortal.Content is Controls.IInteractiveControl interactive)
+						{
+							handled = interactive.ProcessKey(keyInfo);
+						}
+						if (!handled && keyInfo.Key == ConsoleKey.Escape)
+						{
+							_context.DesktopPortalService.RemovePortal(topPortal);
+						}
+					}
+					continue; // Portal captures all keys
+				}
+
 				// Check for Start menu shortcut first
 				if (HandleStartMenuShortcut(keyInfo))
 				{
@@ -137,6 +156,56 @@ namespace SharpConsoleUI.Input
 				if (_context.StatusBarStateService.HandleStatusBarClick(point.X, point.Y))
 				{
 					return;
+				}
+			}
+
+			// Desktop portal mouse handling — portals intercept clicks before windows
+			if (_context.DesktopPortalService.HasPortals)
+			{
+				if (flags.Contains(MouseFlags.Button1Clicked) || flags.Contains(MouseFlags.Button1Pressed))
+				{
+					var hitPortal = _context.DesktopPortalService.HitTest(point);
+					if (hitPortal != null)
+					{
+						// Route click to the portal's content
+						if (hitPortal.Content is Controls.IMouseAwareControl mouseAware)
+						{
+							var portalLocalPoint = new Point(
+								point.X - hitPortal.Bounds.X,
+								point.Y - hitPortal.Bounds.Y);
+							var mouseArgs = new Events.MouseEventArgs(flags, portalLocalPoint, point, portalLocalPoint);
+							mouseAware.ProcessMouseEvent(mouseArgs);
+						}
+						return; // Consumed by portal
+					}
+					else
+					{
+						// Click outside all portals — check for dismiss
+						// Skip dismiss if portal was just created (same click that opened it)
+						var topPortal = _context.DesktopPortalService.TopPortal;
+						if (topPortal != null && topPortal.DismissOnClickOutside
+							&& (DateTime.Now - topPortal.CreatedAt).TotalMilliseconds > Configuration.SystemDefaults.PortalDismissDebounceMs)
+						{
+							bool shouldConsume = topPortal.ConsumeClickOnDismiss;
+							_context.DesktopPortalService.DismissAllPortals();
+							if (shouldConsume)
+								return;
+						}
+					}
+				}
+				// For other mouse events (movement, scrolling) while portal is open, consume them
+				else if (!flags.Contains(MouseFlags.Button1Released))
+				{
+					var hitPortal = _context.DesktopPortalService.HitTest(point);
+					if (hitPortal != null && hitPortal.Content is Controls.IMouseAwareControl mouseAware2)
+					{
+						var portalLocalPoint = new Point(
+							point.X - hitPortal.Bounds.X,
+							point.Y - hitPortal.Bounds.Y);
+						var mouseArgs = new Events.MouseEventArgs(flags, portalLocalPoint, point, portalLocalPoint);
+						mouseAware2.ProcessMouseEvent(mouseArgs);
+					}
+					return; // Consume all mouse events while portal is open
 				}
 			}
 
@@ -801,13 +870,6 @@ namespace SharpConsoleUI.Input
 		{
 			// Window is not active - activate it
 			_context.SetActiveWindow(window);
-
-			// Special case: OverlayWindow needs mouse events even on first click
-			// for click-outside-to-dismiss handling
-			if (window is Windows.OverlayWindow)
-			{
-				PropagateMouseEventToWindow(window, flags, point);
-			}
 		}
 		else
 		{

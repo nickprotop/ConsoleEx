@@ -48,10 +48,10 @@ public partial class MenuControl
 
         // Create portal for dropdown overlay
         var portalContent = new MenuPortalContent(this, dropdown);
-        var window = this.GetParentWindow();
-        if (window != null)
+        var host = GetPortalHost();
+        if (host != null)
         {
-            var portalNode = window.CreatePortal(this, portalContent);
+            var portalNode = host.CreatePortal(this, portalContent);
             if (portalNode != null)
             {
                 _dropdownPortals[dropdown] = portalNode;
@@ -67,7 +67,7 @@ public partial class MenuControl
             return;
 
         // Close any existing submenu at this level or deeper
-        var window = this.GetParentWindow();
+        var host = GetPortalHost();
         while (_openDropdowns.Count > 0)
         {
             var last = _openDropdowns[_openDropdowns.Count - 1];
@@ -76,9 +76,9 @@ public partial class MenuControl
                 last.ParentItem.IsOpen = false;
 
                 // Remove portal before removing dropdown from list
-                if (_dropdownPortals.TryGetValue(last, out var portalNode) && window != null)
+                if (_dropdownPortals.TryGetValue(last, out var portalNode) && host != null)
                 {
-                    window.RemovePortal(this, portalNode);
+                    host.RemovePortal(this, portalNode);
                     _dropdownPortals.Remove(last);
                 }
 
@@ -113,10 +113,10 @@ public partial class MenuControl
             // Remove portal if it exists
             if (_dropdownPortals.TryGetValue(last, out var portalNode))
             {
-                var window = this.GetParentWindow();
-                if (window != null)
+                var host = GetPortalHost();
+                if (host != null)
                 {
-                    window.RemovePortal(this, portalNode);
+                    host.RemovePortal(this, portalNode);
                 }
                 _dropdownPortals.Remove(last);
             }
@@ -132,7 +132,7 @@ public partial class MenuControl
     /// </summary>
     private void CloseSiblingSubmenus(MenuDropdown currentDropdown)
     {
-        var window = this.GetParentWindow();
+        var host = GetPortalHost();
         int currentIndex = _openDropdowns.IndexOf(currentDropdown);
         if (currentIndex < 0) return;
 
@@ -145,9 +145,9 @@ public partial class MenuControl
                 last.ParentItem.IsOpen = false;
             }
 
-            if (_dropdownPortals.TryGetValue(last, out var portalNode) && window != null)
+            if (_dropdownPortals.TryGetValue(last, out var portalNode) && host != null)
             {
-                window.RemovePortal(this, portalNode);
+                host.RemovePortal(this, portalNode);
                 _dropdownPortals.Remove(last);
             }
 
@@ -218,6 +218,19 @@ public partial class MenuControl
             int bufferHeight = parentWindow.Height - 2;
             screenBounds = new Rectangle(0, 0, bufferWidth, bufferHeight);
         }
+        else if (Container is Core.DesktopPortalContainer dpc)
+        {
+            // Desktop portal context — clamp to available screen space from portal origin.
+            // Buffer pos (bx, by) → screen pos (Bounds.X+bx, Bounds.Y+by).
+            // Rendering clips to desktopBottomRight — use the same reference point.
+            var ws = Container.GetConsoleWindowSystem!;
+            var desktopBR = ws.DesktopBottomRight;
+            var portalScreenX = dpc.Portal.Bounds.X;
+            var portalScreenY = dpc.Portal.Bounds.Y;
+            screenBounds = new Rectangle(0, 0,
+                desktopBR.X + 1 - portalScreenX,
+                desktopBR.Y + 1 - portalScreenY);
+        }
         else
         {
             screenBounds = new Rectangle(0, 0, screenWidth, screenHeight);
@@ -248,18 +261,32 @@ public partial class MenuControl
         else
         {
             // Vertical menu OR nested submenu - opens Right/Left
+            // Use actual screen coordinates for direction check
             int contentLeft = 0;
+            int contentTop = 0;
             if (parentWindow != null)
             {
                 contentLeft = parentWindow.Left + 1;
+                contentTop = parentWindow.Top + (parentWindow.ShowTitle ? 2 : 1);
+            }
+            else if (Container is Core.DesktopPortalContainer dpc2)
+            {
+                // Portal's Bounds.X/Y is the screen offset
+                contentLeft = dpc2.Portal.Bounds.X;
+                contentTop = dpc2.Portal.Bounds.Y;
             }
             int screenRight = contentLeft + itemBounds.Right;
             int screenLeft = contentLeft + itemBounds.Left;
+            int screenBottom = contentTop + itemBounds.Bottom;
 
             bool fitsRight = (screenRight + dropdownWidth <= screenWidth);
             bool fitsLeft = (screenLeft - dropdownWidth >= 0);
+            // Also check vertical: does the dropdown fit above the bottom edge?
+            bool fitsDown = (screenBottom + dropdownHeight <= screenHeight);
 
             placement = (!fitsRight && fitsLeft) ? PortalPlacement.Left : PortalPlacement.Right;
+
+            // If dropdown doesn't fit vertically, PortalPositioner will clamp it
         }
 
         // Use PortalPositioner for final placement and clamping
@@ -271,7 +298,18 @@ public partial class MenuControl
         );
 
         var result = PortalPositioner.Calculate(request);
-        return result.Bounds;
+        var finalBounds = result.Bounds;
+
+        // PortalPositioner truncates height when near bottom edge.
+        // For menus, shift Y upward instead to show the full dropdown.
+        if (finalBounds.Height < dropdownHeight)
+        {
+            int fullHeight = Math.Min(dropdownHeight, screenBounds.Height);
+            int shiftedY = Math.Max(screenBounds.Y, screenBounds.Y + screenBounds.Height - fullHeight);
+            finalBounds = new Rectangle(finalBounds.X, shiftedY, finalBounds.Width, fullHeight);
+        }
+
+        return finalBounds;
     }
 
     #endregion
