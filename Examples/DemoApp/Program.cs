@@ -3,7 +3,9 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Rendering;
 using DemoApp.DemoWindows;
+using Color = SharpConsoleUI.Color;
 
 namespace DemoApp;
 
@@ -16,7 +18,15 @@ internal class Program
         try
         {
             var options = new ConsoleWindowSystemOptions(
-                StatusBarOptions: new StatusBarOptions(ShowStartButton: true)
+                StatusBarOptions: new StatusBarOptions(
+                    ShowStartButton: true,
+                    StartMenu: new StartMenuOptions
+                    {
+                        AppName = "SharpConsoleUI Demo",
+                        BackgroundGradient = new GradientBackground(
+                            ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
+                            GradientDirection.Vertical)
+                    })
             );
             var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer), options: options);
             using var disposables = new DisposableManager();

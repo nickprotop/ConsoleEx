@@ -23,7 +23,7 @@ class Program
 					ShowStartButton: true,
 					StartButtonLocation: StatusBarLocation.Bottom,
 					StartButtonPosition: StartButtonPosition.Left,
-					StartMenu: new StartMenuOptions(ShowWindowList: true)
+					StartMenu: new StartMenuOptions { ShowWindowList = true }
 				)
 			);
 

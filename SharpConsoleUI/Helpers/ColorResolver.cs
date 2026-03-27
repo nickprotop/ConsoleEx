@@ -560,5 +560,37 @@ namespace SharpConsoleUI.Helpers
 			=> Coalesce(explicitValue)
 			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.StartMenuInfoStripForegroundColor)
 			?? Color.Grey;
+
+		/// <summary>
+		/// Resolves Start menu background: explicit → theme MenuDropdownBackgroundColor → Color.Grey15.
+		/// </summary>
+		public static Color ResolveStartMenuBackground(Color? explicitValue, Themes.ITheme? theme)
+			=> Coalesce(explicitValue)
+			?? Coalesce(theme?.MenuDropdownBackgroundColor)
+			?? Color.Grey15;
+
+		/// <summary>
+		/// Resolves Start menu foreground: explicit → theme MenuDropdownForegroundColor → Color.Grey93.
+		/// </summary>
+		public static Color ResolveStartMenuForeground(Color? explicitValue, Themes.ITheme? theme)
+			=> Coalesce(explicitValue)
+			?? Coalesce(theme?.MenuDropdownForegroundColor)
+			?? Color.Grey93;
+
+		/// <summary>
+		/// Resolves Start menu highlight background: explicit → theme MenuDropdownHighlightBackgroundColor → Color.DarkBlue.
+		/// </summary>
+		public static Color ResolveStartMenuHighlightBackground(Color? explicitValue, Themes.ITheme? theme)
+			=> Coalesce(explicitValue)
+			?? Coalesce(theme?.MenuDropdownHighlightBackgroundColor)
+			?? Color.DarkBlue;
+
+		/// <summary>
+		/// Resolves Start menu highlight foreground: explicit → theme MenuDropdownHighlightForegroundColor → Color.White.
+		/// </summary>
+		public static Color ResolveStartMenuHighlightForeground(Color? explicitValue, Themes.ITheme? theme)
+			=> Coalesce(explicitValue)
+			?? Coalesce(theme?.MenuDropdownHighlightForegroundColor)
+			?? Color.White;
 	}
 }

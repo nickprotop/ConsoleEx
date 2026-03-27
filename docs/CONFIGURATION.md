@@ -146,15 +146,35 @@ Configuration for status bars and Start Menu system.
 | `StartMenuShortcutKey` | `ConsoleKey` | `Spacebar` | Keyboard shortcut key (Ctrl+Space by default) |
 | `StartMenuShortcutModifiers` | `ConsoleModifiers` | `Control` | Keyboard modifiers (Ctrl, Alt, Shift, or combinations) |
 
-#### Start Menu Content
+#### Start Menu Options
+
+Start menu appearance and behavior is configured via the `StartMenu` parameter, which accepts a `StartMenuOptions` object:
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `ShowSystemMenuCategory` | `bool` | `true` | Show built-in System category (themes, settings, about) |
-| `ShowWindowListInMenu` | `bool` | `true` | Show Windows category with open window list |
-| `StartMenuLayout` | `StartMenuLayout` | `TwoColumn` | `SingleColumn` (compact, categories as flyout submenus) or `TwoColumn` (quick actions + window list side-by-side) |
-| `StartMenuAppName` | `string?` | `null` | Application name shown in header (defaults to "SharpConsoleUI") |
-| `StartMenuAppVersion` | `string?` | `null` | Application version shown in header (defaults to library version) |
+| `Layout` | `StartMenuLayout` | `TwoColumn` | `SingleColumn` (compact) or `TwoColumn` (with window list) |
+| `AppName` | `string?` | `null` | App name in header (defaults to "SharpConsoleUI") |
+| `AppVersion` | `string?` | `null` | App version in header (defaults to library version) |
+| `ShowIcons` | `bool` | `true` | Show Unicode icons in header and exit row |
+| `HeaderIcon` | `string` | `"☰"` | Icon next to the app name in the header |
+| `ShowSystemCategory` | `bool` | `true` | Show System category (themes, settings, about) |
+| `ShowWindowList` | `bool` | `true` | Show Windows list (right column in TwoColumn, submenu in SingleColumn) |
+| `BackgroundGradient` | `GradientBackground?` | `null` | Optional gradient background for the Start menu window |
+
+**Examples:**
+```csharp
+// Minimal — everything uses defaults
+StartMenu: new StartMenuOptions()
+
+// Just set what you need
+StartMenu: new StartMenuOptions { AppName = "My App", AppVersion = "1.0.0" }
+
+// Single column, no icons
+StartMenu: new StartMenuOptions { Layout = StartMenuLayout.SingleColumn, ShowIcons = false }
+
+// Custom colors
+StartMenu: new StartMenuOptions { BackgroundColor = Color.DarkBlue, ForegroundColor = Color.White }
+```
 
 #### Status Bar Display
 
@@ -283,15 +303,13 @@ var options = new ConsoleWindowSystemOptions(
         ShowStartButton: true,
         StartButtonLocation: StatusBarLocation.Bottom,
         StartButtonPosition: StartButtonPosition.Left,
-        StartButtonText: "☰ Start",
-        StartMenuShortcutKey: ConsoleKey.Spacebar,
-        StartMenuShortcutModifiers: ConsoleModifiers.Control,
-        StartMenuLayout: StartMenuLayout.TwoColumn,
-        StartMenuAppName: "My App",
-        StartMenuAppVersion: "1.0.0",
-        ShowSystemMenuCategory: true,
-        ShowWindowListInMenu: true,
-        ShowTaskBar: false  // Hide taskbar, window list only in Start Menu
+        ShowTaskBar: false,  // Hide taskbar, window list only in Start Menu
+        StartMenu: new StartMenuOptions
+        {
+            Layout = StartMenuLayout.TwoColumn,
+            AppName = "My App",
+            AppVersion = "1.0.0"
+        }
     )
 );
 

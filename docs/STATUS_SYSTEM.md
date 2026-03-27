@@ -248,18 +248,21 @@ var options = new ConsoleWindowSystemOptions(
         StartButtonLocation: StatusBarLocation.Bottom,   // Top or Bottom
         StartButtonPosition: StartButtonPosition.Left,   // Left or Right
         StartButtonText: "☰ Start",                      // Button text
-        StartMenuShortcutKey: ConsoleKey.Spacebar,          // Shortcut key (Ctrl+Space)
+        StartMenuShortcutKey: ConsoleKey.Spacebar,       // Shortcut key (Ctrl+Space)
         StartMenuShortcutModifiers: ConsoleModifiers.Control,
-        StartMenuLayout: StartMenuLayout.TwoColumn,      // Two-column with window list
-        StartMenuAppName: "My App",                      // Custom app name in header
-        StartMenuAppVersion: "1.0.0",                    // Custom version in header
-        ShowSystemMenuCategory: true,                    // Show System category
-        ShowWindowListInMenu: true                       // Show Windows category
+        StartMenu: new StartMenuOptions
+        {
+            Layout = StartMenuLayout.TwoColumn,
+            AppName = "My App",
+            AppVersion = "1.0.0"
+        }
     )
 );
 ```
 
 #### Configuration Options
+
+**StatusBarOptions:**
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -269,11 +272,20 @@ var options = new ConsoleWindowSystemOptions(
 | `StartButtonText` | `string` | `"☰ Start"` | Button display text |
 | `StartMenuShortcutKey` | `ConsoleKey` | `Spacebar` | Keyboard shortcut key |
 | `StartMenuShortcutModifiers` | `ConsoleModifiers` | `Control` | Modifier keys (Ctrl, Alt, Shift) |
-| `ShowSystemMenuCategory` | `bool` | `true` | Show System category |
-| `ShowWindowListInMenu` | `bool` | `true` | Show Windows category |
-| `StartMenuLayout` | `StartMenuLayout` | `TwoColumn` | Layout mode (see below) |
-| `StartMenuAppName` | `string?` | `null` | App name in header (defaults to "SharpConsoleUI") |
-| `StartMenuAppVersion` | `string?` | `null` | App version in header (defaults to library version) |
+| `StartMenu` | `StartMenuOptions?` | `null` | Start menu configuration (see below) |
+
+**StartMenuOptions:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `Layout` | `StartMenuLayout` | `TwoColumn` | Layout mode (see below) |
+| `AppName` | `string?` | `null` | App name in header (defaults to "SharpConsoleUI") |
+| `AppVersion` | `string?` | `null` | App version in header (defaults to library version) |
+| `ShowIcons` | `bool` | `true` | Show Unicode icons in header and exit row |
+| `HeaderIcon` | `string` | `"☰"` | Icon next to app name in header |
+| `ShowSystemCategory` | `bool` | `true` | Show System category |
+| `ShowWindowList` | `bool` | `true` | Show Windows list |
+| `BackgroundGradient` | `GradientBackground?` | `null` | Optional gradient background |
 
 #### Layout Modes
 
@@ -304,8 +316,7 @@ StartMenuShortcutModifiers: ConsoleModifiers.None
 
 **Custom Branding:**
 ```csharp
-StartMenuAppName: "My Dashboard",
-StartMenuAppVersion: "2.1.0"
+StartMenu: new StartMenuOptions { AppName = "My Dashboard", AppVersion = "2.1.0" }
 ```
 
 ### Registering Actions
@@ -358,7 +369,7 @@ windowSystem.RegisterStartMenuAction("About", ShowAbout, "Help", 20);
 
 #### System Category
 
-**Enabled by default** via `ShowSystemMenuCategory: true`. Provides:
+**Enabled by default** via `StartMenuOptions.ShowSystemCategory`. Provides:
 
 **Quick actions** (top-level):
 - **Change Theme...** - Theme selector dialog
@@ -370,10 +381,7 @@ windowSystem.RegisterStartMenuAction("About", ShowAbout, "Help", 20);
 
 Disable System category:
 ```csharp
-StatusBarOptions: new StatusBarOptions(
-    ShowStartButton: true,
-    ShowSystemMenuCategory: false  // Hide System actions
-)
+StartMenu: new StartMenuOptions { ShowSystemCategory = false }
 ```
 
 #### Windows Category
@@ -385,12 +393,9 @@ StatusBarOptions: new StatusBarOptions(
 - Click to activate/focus
 - Minimized windows shown dimmed
 
-Disable Windows category:
+Disable Windows list:
 ```csharp
-StatusBarOptions: new StatusBarOptions(
-    ShowStartButton: true,
-    ShowWindowListInMenu: false  // Hide window list from Start Menu
-)
+StartMenu: new StartMenuOptions { ShowWindowList = false }
 ```
 
 **Note:** When disabled, windows still appear in bottom status bar if `ShowTaskBar: true`.
@@ -492,10 +497,8 @@ var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffe
 var options = new ConsoleWindowSystemOptions(
     StatusBarOptions: new StatusBarOptions(
         ShowStartButton: true,
-        StartButtonLocation: StatusBarLocation.Bottom,
-        StartButtonPosition: StartButtonPosition.Left,
-        ShowWindowListInMenu: true,  // Windows in Start Menu
-        ShowTaskBar: false           // Not in status bar
+        ShowTaskBar: false,  // Window list only in Start Menu
+        StartMenu: new StartMenuOptions { AppName = "My App", AppVersion = "1.0.0" }
     )
 );
 
@@ -549,25 +552,14 @@ var options = new ConsoleWindowSystemOptions(
     EnableFrameRateLimiting: true,
     TargetFPS: 60,
     StatusBarOptions: new StatusBarOptions(
-        // Start Menu enabled
         ShowStartButton: true,
-        StartButtonLocation: StatusBarLocation.Bottom,
-        StartButtonPosition: StartButtonPosition.Left,
         StartButtonText: "☰ Menu",
-        StartMenuShortcutKey: ConsoleKey.Spacebar,
-        StartMenuShortcutModifiers: ConsoleModifiers.Control,
-        StartMenuLayout: StartMenuLayout.TwoColumn,
-        StartMenuAppName: "My IDE",
-        StartMenuAppVersion: "3.0.0",
-
-        // Content options
-        ShowSystemMenuCategory: true,
-        ShowWindowListInMenu: true,
-        ShowTaskBar: true,  // Show both in menu and status bar
-
-        // Status bar visibility
-        ShowTopStatus: true,
-        ShowBottomStatus: true
+        ShowTaskBar: true,
+        StartMenu: new StartMenuOptions
+        {
+            AppName = "My IDE",
+            AppVersion = "3.0.0"
+        }
     )
 );
 

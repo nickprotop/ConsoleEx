@@ -2,6 +2,7 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Controls.StartMenu;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using System.Drawing;
@@ -47,12 +48,12 @@ public static class StartMenuDialog
 		var menuOpts = windowSystem.Options.StatusBar.StartMenuConfig;
 		var showIcons = menuOpts.ShowIcons;
 
-		// Resolve dropdown colors from theme
+		// Resolve colors: explicit option → theme → default
 		var theme = windowSystem.Theme;
-		var dropBg = theme?.MenuDropdownBackgroundColor ?? Color.Grey15;
-		var dropFg = theme?.MenuDropdownForegroundColor ?? Color.Grey93;
-		var dropHiBg = theme?.MenuDropdownHighlightBackgroundColor ?? Color.DarkBlue;
-		var dropHiFg = theme?.MenuDropdownHighlightForegroundColor ?? Color.White;
+		var dropBg = ColorResolver.ResolveStartMenuBackground(menuOpts.BackgroundColor, theme);
+		var dropFg = ColorResolver.ResolveStartMenuForeground(menuOpts.ForegroundColor, theme);
+		var dropHiBg = ColorResolver.ResolveStartMenuHighlightBackground(menuOpts.HighlightBackgroundColor, theme);
+		var dropHiFg = ColorResolver.ResolveStartMenuHighlightForeground(menuOpts.HighlightForegroundColor, theme);
 
 		// Build header markup — use configured app name/version or library defaults
 		var appName = menuOpts.AppName ?? "SharpConsoleUI";
@@ -187,7 +188,7 @@ public static class StartMenuDialog
 
 		var posResult = PortalPositioner.Calculate(new PortalPositionRequest(
 			Anchor: anchorInDesktop,
-			ContentSize: new Size(menuWidth, menuHeight),
+			ContentSize: new System.Drawing.Size(menuWidth, menuHeight),
 			ScreenBounds: screenBounds,
 			Placement: placement));
 
