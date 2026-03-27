@@ -90,6 +90,9 @@ namespace SharpConsoleUI.Core
 		/// <summary>Cached control bounds from last render (used for selective rendering and hit testing).</summary>
 		internal List<LayoutRect> ControlBounds { get; set; } = new();
 
+		/// <summary>Control bounds from the previous render — used to compute delta regions for restoration.</summary>
+		internal List<LayoutRect> PreviousControlBounds { get; set; } = new();
+
 		/// <summary>The container implementation that connects Content to this portal.</summary>
 		internal DesktopPortalContainer Container { get; }
 

@@ -1,4 +1,5 @@
 using SharpConsoleUI;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
@@ -14,7 +15,10 @@ internal class Program
 
         try
         {
-            var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
+            var options = new ConsoleWindowSystemOptions(
+                StatusBarOptions: new StatusBarOptions(ShowStartButton: true)
+            );
+            var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer), options: options);
             using var disposables = new DisposableManager();
 
             windowSystem.StatusBarStateService.TopStatus = "SharpConsoleUI Demo | Ctrl+T: Theme Selector";

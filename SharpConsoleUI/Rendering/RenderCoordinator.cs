@@ -164,6 +164,27 @@ namespace SharpConsoleUI.Rendering
 		}
 
 		/// <summary>
+		/// Restores screen regions that were covered by portal control bounds.
+		/// Called by DesktopPortalService when portals are removed.
+		/// </summary>
+		/// <param name="portal">The portal being removed (provides bounds and control bounds).</param>
+		public void RestorePortalRegions(Core.DesktopPortal portal)
+		{
+			if (portal.ControlBounds.Count == 0)
+				return;
+
+			foreach (var bounds in portal.ControlBounds)
+			{
+				var screenRect = new Rectangle(
+					portal.Bounds.X + bounds.X,
+					portal.Bounds.Y + bounds.Y,
+					bounds.Width,
+					bounds.Height);
+				RestoreScreenRegion(screenRect, belowPortal: portal);
+			}
+		}
+
+		/// <summary>
 		/// Invalidates all windows and status bars, forcing a complete redraw.
 		/// Call this after theme changes, status bar visibility changes, or other global UI updates.
 		/// </summary>
@@ -266,10 +287,6 @@ namespace SharpConsoleUI.Rendering
 				// 4. BottomStatus
 				// 5. Flush
 
-				// While portals are open, force all windows to repaint every frame.
-				// This ensures the back buffer has fresh content before portals paint on top.
-				EnsureWindowsFreshUnderPortals();
-
 				RenderWindows();
 
 				// Render desktop portals on top of windows (before status bars)
@@ -306,45 +323,140 @@ namespace SharpConsoleUI.Rendering
 		#region Private Helper Methods
 
 		/// <summary>
-		/// While any desktop portal is open, forces all windows to repaint every frame.
-		/// This ensures the back buffer always has fresh window content before portals
-		/// paint on top. When portal content changes (submenu open/close), the fresh
-		/// window content is already correct — no stale pixel cleanup needed.
-		/// Also fills the desktop background so areas not covered by windows are clean.
+		/// Restores a screen-space rectangle to its correct visual state by blitting
+		/// desktop background, existing window buffers, and lower portal buffers.
+		/// No windows are re-rendered — only cached buffers are used.
 		/// </summary>
-		private void EnsureWindowsFreshUnderPortals()
+		/// <param name="screenRect">Screen-space rectangle to restore.</param>
+		/// <param name="belowPortal">If set, only re-blit portals with ZOrder below this portal.</param>
+		private void RestoreScreenRegion(Rectangle screenRect, Core.DesktopPortal? belowPortal = null)
 		{
-			var portalService = _windowSystemContext.DesktopPortalService;
-			bool hasPortals = portalService.HasPortals;
-			bool needsCleanup = portalService.NeedsCleanupFrame;
+			var desktopUpperLeft = _windowSystemContext.DesktopUpperLeft;
+			var desktopBottomRight = _windowSystemContext.DesktopBottomRight;
+			var theme = _windowSystemContext.Theme;
 
-			if (!hasPortals && !needsCleanup)
+			// Clip to desktop area
+			int clipLeft = Math.Max(screenRect.Left, desktopUpperLeft.X);
+			int clipTop = Math.Max(screenRect.Top, desktopUpperLeft.Y);
+			int clipRight = Math.Min(screenRect.Right, desktopBottomRight.X + 1);
+			int clipBottom = Math.Min(screenRect.Bottom, desktopBottomRight.Y + 1);
+
+			int clippedWidth = clipRight - clipLeft;
+			int clippedHeight = clipBottom - clipTop;
+			if (clippedWidth <= 0 || clippedHeight <= 0)
 				return;
 
-			// Fill desktop background (covers areas with no windows, clears stale portal pixels)
-			var desktopDims = _windowSystemContext.DesktopDimensions;
-			var desktopUpperLeft = _windowSystemContext.DesktopUpperLeft;
-			var theme = _windowSystemContext.Theme;
-			_renderer.FillRect(desktopUpperLeft.X, desktopUpperLeft.Y,
-				desktopDims.Width, desktopDims.Height,
+			var clippedRect = new Rectangle(clipLeft, clipTop, clippedWidth, clippedHeight);
+
+			// 1. Fill with desktop background
+			// FillRect takes desktop-relative coords and adds DesktopUpperLeft.Y internally
+			_renderer.FillRect(
+				clipLeft, clipTop - desktopUpperLeft.Y,
+				clippedWidth, clippedHeight,
 				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
 
-			// Force all windows dirty so they repaint fresh content this frame
-			foreach (var window in _windowSystemContext.Windows.Values)
+			// 2. Re-blit overlapping windows from cached buffers (z-order ascending)
+			_sortedWindows.Clear();
+			_sortedWindows.AddRange(_windowSystemContext.Windows.Values);
+			_sortedWindows.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
+
+			foreach (var window in _sortedWindows)
 			{
-				window.Invalidate(true);
+				if (window.State == WindowState.Minimized)
+					continue;
+
+				var windowScreenRect = new Rectangle(
+					window.Left, window.Top + desktopUpperLeft.Y,
+					window.Width, window.Height);
+
+				if (!windowScreenRect.IntersectsWith(clippedRect))
+					continue;
+
+				// Re-blit borders for the intersection
+				var intersection = Rectangle.Intersect(windowScreenRect, clippedRect);
+				if (window.BorderRenderer != null)
+				{
+					window.BorderRenderer.RenderBorders(new List<Rectangle> { intersection });
+				}
+
+				// Re-blit content from cached buffer
+				var buffer = window.ContentBuffer;
+				if (buffer == null)
+					continue;
+
+				// Content area is inside the window borders (Left+1, Top+1) to (Left+Width-1, Top+Height-1)
+				int contentScreenLeft = window.Left + 1;
+				int contentScreenTop = window.Top + desktopUpperLeft.Y + 1;
+				int contentScreenRight = window.Left + window.Width - 1;
+				int contentScreenBottom = window.Top + desktopUpperLeft.Y + window.Height - 1;
+
+				// Intersect content area with the region to restore
+				int srcLeft = Math.Max(contentScreenLeft, clippedRect.Left);
+				int srcTop = Math.Max(contentScreenTop, clippedRect.Top);
+				int srcRight = Math.Min(contentScreenRight, clippedRect.Right);
+				int srcBottom = Math.Min(contentScreenBottom, clippedRect.Bottom);
+
+				int width = srcRight - srcLeft;
+				int height = srcBottom - srcTop;
+				if (width <= 0 || height <= 0)
+					continue;
+
+				int bufX = srcLeft - contentScreenLeft;
+				int bufY = srcTop - contentScreenTop;
+
+				for (int row = 0; row < height; row++)
+				{
+					if (bufY + row >= buffer.Height)
+						break;
+					_consoleDriver.WriteBufferRegion(
+						srcLeft, srcTop + row,
+						buffer,
+						bufX, bufY + row,
+						width,
+						window.BackgroundColor);
+				}
 			}
 
-			// Clear the cleanup flag — one frame was enough
-			if (needsCleanup)
+			// 3. Re-blit lower portal control regions that intersect
+			var portalService = _windowSystemContext.DesktopPortalService;
+			foreach (var portal in portalService.Portals)
 			{
-				portalService.NeedsCleanupFrame = false;
+				if (belowPortal != null && portal.ZOrder >= belowPortal.ZOrder)
+					continue;
+
+				if (portal.Buffer == null || portal.ControlBounds.Count == 0)
+					continue;
+
+				foreach (var bounds in portal.ControlBounds)
+				{
+					int portalScreenX = portal.Bounds.X + bounds.X;
+					int portalScreenY = portal.Bounds.Y + bounds.Y;
+					var portalScreenRect = new Rectangle(portalScreenX, portalScreenY, bounds.Width, bounds.Height);
+
+					if (!portalScreenRect.IntersectsWith(clippedRect))
+						continue;
+
+					var inter = Rectangle.Intersect(portalScreenRect, clippedRect);
+					int pSrcX = bounds.X + (inter.Left - portalScreenX);
+					int pSrcY = bounds.Y + (inter.Top - portalScreenY);
+
+					for (int row = 0; row < inter.Height; row++)
+					{
+						_consoleDriver.WriteBufferRegion(
+							inter.Left, inter.Top + row,
+							portal.Buffer,
+							pSrcX, pSrcY + row,
+							inter.Width,
+							theme.DesktopBackgroundColor);
+					}
+				}
 			}
 		}
 
 		/// <summary>
 		/// Renders all desktop portals. Portals paint their control regions on top of window content.
 		/// Only regions where controls exist are rendered — areas without controls are transparent.
+		/// When control bounds change (submenu open/close), delta regions are restored from cached buffers.
 		/// </summary>
 		private void RenderDesktopPortals()
 		{
@@ -361,6 +473,13 @@ namespace SharpConsoleUI.Rendering
 					WritePortalControlRegions(portal);
 					continue;
 				}
+
+				// Swap control bounds lists to avoid allocation:
+				// PreviousControlBounds gets the current bounds, ControlBounds gets recycled
+				var previousBounds = portal.ControlBounds;
+				portal.ControlBounds = portal.PreviousControlBounds;
+				portal.ControlBounds.Clear();
+				portal.PreviousControlBounds = previousBounds;
 
 				// Rebuild the portal's content buffer
 				var bufSize = portal.BufferSize;
@@ -403,10 +522,50 @@ namespace SharpConsoleUI.Rendering
 					RenderPortalDimming(portal);
 				}
 
+				// Restore delta regions: areas in previous bounds no longer covered by new bounds
+				RestorePortalDelta(portal, previousBounds);
+
 				// Write only control-bound regions to the console driver
 				WritePortalControlRegions(portal);
 
 				portal.IsDirty = false;
+			}
+		}
+
+		/// <summary>
+		/// Restores screen regions that were covered by old portal control bounds
+		/// but are no longer covered by the new control bounds.
+		/// </summary>
+		private void RestorePortalDelta(Core.DesktopPortal portal, List<Layout.LayoutRect> previousBounds)
+		{
+			if (previousBounds.Count == 0)
+				return;
+
+			foreach (var prevRect in previousBounds)
+			{
+				// Check if this previous rect is fully covered by any new control bound
+				bool covered = false;
+				foreach (var newRect in portal.ControlBounds)
+				{
+					if (newRect.X <= prevRect.X && newRect.Y <= prevRect.Y &&
+						newRect.X + newRect.Width >= prevRect.X + prevRect.Width &&
+						newRect.Y + newRect.Height >= prevRect.Y + prevRect.Height)
+					{
+						covered = true;
+						break;
+					}
+				}
+
+				if (!covered)
+				{
+					// Convert to screen space and restore
+					var screenRect = new Rectangle(
+						portal.Bounds.X + prevRect.X,
+						portal.Bounds.Y + prevRect.Y,
+						prevRect.Width,
+						prevRect.Height);
+					RestoreScreenRegion(screenRect, belowPortal: portal);
+				}
 			}
 		}
 

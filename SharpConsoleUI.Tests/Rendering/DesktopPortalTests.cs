@@ -202,6 +202,80 @@ public class DesktopPortalTests
 		Assert.True(firstBound.Height > 0, $"Control bound height should be > 0, got {firstBound.Height}");
 	}
 
+	[Fact]
+	public void RenderDesktopPortals_TracksPreviousControlBounds()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem(80, 24);
+		var content = new MarkupControl(new List<string> { "Hello" });
+
+		var portal = system.DesktopPortalService.CreatePortal(new DesktopPortalOptions(
+			Content: content,
+			Bounds: new Rectangle(0, 0, 40, 10)));
+
+		// First render — PreviousControlBounds starts empty
+		Assert.Empty(portal.PreviousControlBounds);
+
+		system.Render.UpdateDisplay();
+
+		// After first render, ControlBounds should be populated
+		Assert.NotEmpty(portal.ControlBounds);
+
+		// Force a second render by marking dirty
+		portal.IsDirty = true;
+		system.Render.UpdateDisplay();
+
+		// PreviousControlBounds should now contain the bounds from the first render
+		Assert.NotEmpty(portal.PreviousControlBounds);
+	}
+
+	[Fact]
+	public void RemovePortal_RestoresScreenWithoutCleanupFrame()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem(80, 24);
+		var content = new MarkupControl(new List<string> { "Hello" });
+
+		var portal = system.DesktopPortalService.CreatePortal(new DesktopPortalOptions(
+			Content: content,
+			Bounds: new Rectangle(5, 5, 30, 10)));
+
+		// Render so portal has a buffer and control bounds
+		system.Render.UpdateDisplay();
+		Assert.NotNull(portal.Buffer);
+		Assert.NotEmpty(portal.ControlBounds);
+
+		// Remove portal — should restore regions immediately
+		system.DesktopPortalService.RemovePortal(portal);
+
+		Assert.False(system.DesktopPortalService.HasPortals);
+		// DesktopNeedsRender should be set for the next frame
+		Assert.True(system.Render.DesktopNeedsRender);
+	}
+
+	[Fact]
+	public void RenderWithPortalOpen_DoesNotForceAllWindowsDirty()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem(80, 24);
+
+		// Create a window and render it
+		var window = new Window(system) { Left = 0, Top = 0, Width = 40, Height = 12 };
+		window.AddControl(new MarkupControl(new List<string> { "Window content" }));
+		system.WindowStateService.AddWindow(window);
+
+		system.Render.UpdateDisplay();
+		Assert.False(window.IsDirty); // Window should be clean after render
+
+		// Open a portal
+		system.DesktopPortalService.CreatePortal(new DesktopPortalOptions(
+			Content: new MarkupControl(new List<string> { "Portal" }),
+			Bounds: new Rectangle(50, 5, 20, 5)));
+
+		// Render — portal is dirty, but window should NOT be force-dirtied
+		system.Render.UpdateDisplay();
+
+		// Window should still be clean (not force-invalidated)
+		Assert.False(window.IsDirty);
+	}
+
 	#endregion
 
 	#region Hit Testing

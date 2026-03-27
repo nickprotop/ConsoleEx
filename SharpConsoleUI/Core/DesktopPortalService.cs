@@ -23,7 +23,6 @@ namespace SharpConsoleUI.Core
 		private readonly List<DesktopPortal> _portals = new();
 		private readonly Stack<Window?> _savedActiveWindows = new();
 		private int _nextZOrder;
-		private bool _needsCleanupFrame;
 
 		/// <summary>
 		/// Initializes a new instance of the DesktopPortalService class.
@@ -42,16 +41,6 @@ namespace SharpConsoleUI.Core
 		/// Gets whether any desktop portals are currently open.
 		/// </summary>
 		public bool HasPortals => _portals.Count > 0;
-
-		/// <summary>
-		/// Gets whether a cleanup frame is needed (portals were just removed).
-		/// Cleared after the cleanup frame runs.
-		/// </summary>
-		public bool NeedsCleanupFrame
-		{
-			get => _needsCleanupFrame;
-			internal set => _needsCleanupFrame = value;
-		}
 
 		/// <summary>
 		/// Gets the topmost portal (highest ZOrder), or null if none.
@@ -103,11 +92,8 @@ namespace SharpConsoleUI.Core
 			// Disconnect content from invalidation chain
 			portal.Content.Container = null;
 
-			// Invalidate all windows — next frame repaints everything fresh
-			foreach (var window in _windowSystem.Windows.Values)
-			{
-				window.IsDirty = true;
-			}
+			// Restore screen regions that were covered by this portal
+			_windowSystem.Render.RestorePortalRegions(portal);
 
 			// Restore focus
 			if (_savedActiveWindows.Count > 0)
@@ -121,7 +107,6 @@ namespace SharpConsoleUI.Core
 				}
 			}
 
-			_needsCleanupFrame = true;
 			_windowSystem.Render.DesktopNeedsRender = true;
 		}
 
@@ -142,20 +127,16 @@ namespace SharpConsoleUI.Core
 				originalWindow = _savedActiveWindows.Pop();
 			}
 
-			// Remove all portals
+			// Capture portals before clearing
 			var portalsCopy = _portals.ToList();
 			_portals.Clear();
 
+			// Restore screen regions and clean up each portal
 			foreach (var portal in portalsCopy)
 			{
 				portal.OnDismiss?.Invoke();
 				portal.Content.Container = null;
-			}
-
-			// Invalidate all windows — next frame repaints everything fresh
-			foreach (var window in _windowSystem.Windows.Values)
-			{
-				window.IsDirty = true;
+				_windowSystem.Render.RestorePortalRegions(portal);
 			}
 
 			// Restore original active window
@@ -164,7 +145,6 @@ namespace SharpConsoleUI.Core
 				_windowSystem.SetActiveWindow(originalWindow);
 			}
 
-			_needsCleanupFrame = true;
 			_windowSystem.Render.DesktopNeedsRender = true;
 		}
 
