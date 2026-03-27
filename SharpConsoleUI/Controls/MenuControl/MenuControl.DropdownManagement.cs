@@ -220,16 +220,17 @@ public partial class MenuControl
         }
         else if (Container is Core.DesktopPortalContainer dpc)
         {
-            // Desktop portal context — clamp to available screen space from portal origin.
-            // Buffer pos (bx, by) → screen pos (Bounds.X+bx, Bounds.Y+by).
-            // Rendering clips to desktopBottomRight — use the same reference point.
+            // Desktop portal context — clamp to available screen space in buffer coordinates.
+            // Item bounds are in buffer space (layout positions relative to buffer origin).
+            // Using BufferOrigin (instead of Bounds) ensures the range covers the full buffer,
+            // allowing submenus to use space above the portal when BufferOrigin < Bounds.Y.
             var ws = Container.GetConsoleWindowSystem!;
             var desktopBR = ws.DesktopBottomRight;
-            var portalScreenX = dpc.Portal.Bounds.X;
-            var portalScreenY = dpc.Portal.Bounds.Y;
+            var originX = dpc.Portal.BufferOrigin.X;
+            var originY = dpc.Portal.BufferOrigin.Y;
             screenBounds = new Rectangle(0, 0,
-                desktopBR.X + 1 - portalScreenX,
-                desktopBR.Y + 1 - portalScreenY);
+                desktopBR.X + 1 - originX,
+                desktopBR.Y + 1 - originY);
         }
         else
         {

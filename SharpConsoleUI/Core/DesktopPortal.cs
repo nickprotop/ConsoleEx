@@ -22,6 +22,8 @@ namespace SharpConsoleUI.Core
 	/// <param name="DimBackground">Whether to dim the screen behind the portal.</param>
 	/// <param name="OnDismiss">Callback invoked when the portal is dismissed.</param>
 	/// <param name="Owner">The control that owns this portal (for identification/cleanup).</param>
+	/// <param name="BufferSize">Buffer size for rendering. Defaults to Bounds size.</param>
+	/// <param name="BufferOrigin">Screen coordinate that buffer (0,0) maps to. Defaults to Bounds.Location.</param>
 	public record DesktopPortalOptions(
 		IWindowControl Content,
 		Rectangle Bounds,
@@ -30,7 +32,8 @@ namespace SharpConsoleUI.Core
 		bool DimBackground = false,
 		Action? OnDismiss = null,
 		IWindowControl? Owner = null,
-		Size? BufferSize = null
+		Size? BufferSize = null,
+		Point? BufferOrigin = null
 	);
 
 	/// <summary>
@@ -71,6 +74,13 @@ namespace SharpConsoleUI.Core
 		/// to extend beyond the primary content area. Defaults to Bounds size.
 		/// </summary>
 		public Size BufferSize { get; }
+
+		/// <summary>
+		/// Screen coordinate that buffer position (0,0) maps to.
+		/// Defaults to Bounds.Location for backwards compatibility.
+		/// Set to DesktopUpperLeft when the buffer needs to cover space above the portal (e.g., Start Menu).
+		/// </summary>
+		public Point BufferOrigin { get; }
 
 		/// <summary>Stacking order among portals (higher = on top).</summary>
 		public int ZOrder { get; }
@@ -117,6 +127,7 @@ namespace SharpConsoleUI.Core
 			IsDirty = true;
 			CreatedAt = DateTime.Now;
 			BufferSize = options.BufferSize ?? new Size(Bounds.Width, Bounds.Height);
+			BufferOrigin = options.BufferOrigin ?? new Point(Bounds.X, Bounds.Y);
 
 			Container = new DesktopPortalContainer(this);
 
@@ -131,7 +142,9 @@ namespace SharpConsoleUI.Core
 
 			// Arrange at portal bounds so the root control fills the declared area.
 			// Controls that want to be smaller will respect their own sizing within this rect.
-			RootNode.Arrange(new LayoutRect(0, 0, Bounds.Width, Bounds.Height));
+			int rootOffsetX = Bounds.X - BufferOrigin.X;
+			int rootOffsetY = Bounds.Y - BufferOrigin.Y;
+			RootNode.Arrange(new LayoutRect(rootOffsetX, rootOffsetY, Bounds.Width, Bounds.Height));
 
 			// Compute initial control bounds for hit-testing before first render
 			RootNode.Visit(node =>

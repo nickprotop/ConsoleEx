@@ -176,8 +176,8 @@ namespace SharpConsoleUI.Rendering
 			foreach (var bounds in portal.ControlBounds)
 			{
 				var screenRect = new Rectangle(
-					portal.Bounds.X + bounds.X,
-					portal.Bounds.Y + bounds.Y,
+					portal.BufferOrigin.X + bounds.X,
+					portal.BufferOrigin.Y + bounds.Y,
 					bounds.Width,
 					bounds.Height);
 				RestoreScreenRegion(screenRect, belowPortal: portal);
@@ -429,8 +429,8 @@ namespace SharpConsoleUI.Rendering
 
 				foreach (var bounds in portal.ControlBounds)
 				{
-					int portalScreenX = portal.Bounds.X + bounds.X;
-					int portalScreenY = portal.Bounds.Y + bounds.Y;
+					int portalScreenX = portal.BufferOrigin.X + bounds.X;
+					int portalScreenY = portal.BufferOrigin.Y + bounds.Y;
 					var portalScreenRect = new Rectangle(portalScreenX, portalScreenY, bounds.Width, bounds.Height);
 
 					if (!portalScreenRect.IntersectsWith(clippedRect))
@@ -500,7 +500,9 @@ namespace SharpConsoleUI.Rendering
 				// Arrange at portal bounds so root control fills the declared area
 				var constraints = Layout.LayoutConstraints.Loose(bufSize.Width, bufSize.Height);
 				portal.RootNode.Measure(constraints);
-				portal.RootNode.Arrange(new Layout.LayoutRect(0, 0, portal.Bounds.Width, portal.Bounds.Height));
+				int rootOffX = portal.Bounds.X - portal.BufferOrigin.X;
+				int rootOffY = portal.Bounds.Y - portal.BufferOrigin.Y;
+				portal.RootNode.Arrange(new Layout.LayoutRect(rootOffX, rootOffY, portal.Bounds.Width, portal.Bounds.Height));
 
 				// Paint DOM to buffer (clip to full buffer so submenus can render beyond content bounds)
 				var clipRect = new Layout.LayoutRect(0, 0, bufSize.Width, bufSize.Height);
@@ -560,8 +562,8 @@ namespace SharpConsoleUI.Rendering
 				{
 					// Convert to screen space and restore
 					var screenRect = new Rectangle(
-						portal.Bounds.X + prevRect.X,
-						portal.Bounds.Y + prevRect.Y,
+						portal.BufferOrigin.X + prevRect.X,
+						portal.BufferOrigin.Y + prevRect.Y,
 						prevRect.Width,
 						prevRect.Height);
 					RestoreScreenRegion(screenRect, belowPortal: portal);
@@ -583,8 +585,8 @@ namespace SharpConsoleUI.Rendering
 
 			foreach (var bounds in portal.ControlBounds)
 			{
-				int screenX = portal.Bounds.X + bounds.X;
-				int screenY = portal.Bounds.Y + bounds.Y;
+				int screenX = portal.BufferOrigin.X + bounds.X;
+				int screenY = portal.BufferOrigin.Y + bounds.Y;
 
 				// Clip to desktop area
 				int clipLeft = Math.Max(screenX, desktopUpperLeft.X);

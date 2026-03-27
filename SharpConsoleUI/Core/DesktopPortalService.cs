@@ -184,8 +184,8 @@ namespace SharpConsoleUI.Core
 				// Check against control bounds, not full portal bounds
 				foreach (var bounds in portal.ControlBounds)
 				{
-					int screenX = portal.Bounds.X + bounds.X;
-					int screenY = portal.Bounds.Y + bounds.Y;
+					int screenX = portal.BufferOrigin.X + bounds.X;
+					int screenY = portal.BufferOrigin.Y + bounds.Y;
 					var screenRect = new Rectangle(screenX, screenY, bounds.Width, bounds.Height);
 					if (screenRect.Contains(point))
 						return portal;

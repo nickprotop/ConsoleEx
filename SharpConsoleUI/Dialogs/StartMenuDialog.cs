@@ -118,7 +118,8 @@ public static class StartMenuDialog
 			ConsumeClickOnDismiss: true,
 			DimBackground: false,
 			Owner: menu,
-			BufferSize: new Size(desktopDims.Width, desktopDims.Height)));
+			BufferSize: new Size(desktopDims.Width, desktopDims.Height),
+			BufferOrigin: new Point(desktopUpperLeft.X, desktopUpperLeft.Y)));
 	}
 
 	private static void BuildSystemCategory(MenuBuilder menuBuilder, ConsoleWindowSystem windowSystem)
