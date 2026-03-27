@@ -596,6 +596,19 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool AlwaysOnTop { get; set; } = false;
 
+		/// <summary>
+		/// Gets or sets whether this window appears in the taskbar and window lists.
+		/// Defaults to true. Set to false for transient UI like start menus and popups.
+		/// </summary>
+		public bool ShowInTaskbar { get; set; } = true;
+
+		/// <summary>
+		/// Gets or sets whether this window automatically closes when deactivated.
+		/// Used for transient UI like start menus and popup panels.
+		/// The close is deferred to the UI thread to avoid re-entrancy issues.
+		/// </summary>
+		public bool CloseOnDeactivate { get; set; } = false;
+
 	private bool _renderLock = false;
 
 	internal bool RenderLock

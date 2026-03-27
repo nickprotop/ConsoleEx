@@ -465,7 +465,7 @@ namespace SharpConsoleUI.Core
 			lock (_lock)
 			{
 				var topLevelWindows = _windows.Values
-					.Where(w => w.ParentWindow == null)
+					.Where(w => w.ParentWindow == null && w.ShowInTaskbar)
 					.ToList();
 
 				if (index < 1 || index > topLevelWindows.Count)
@@ -984,7 +984,7 @@ namespace SharpConsoleUI.Core
 
 		// STEP 1: Check if close is allowed BEFORE any state changes
 		// This fires OnClosing and respects IsClosable (unless forced)
-		if (!window.TryClose(force))
+		if (!window.CanClose(force))
 		{
 			_logService?.LogDebug($"Window close cancelled by OnClosing handler: {window.Title}", "Window");
 			return false;

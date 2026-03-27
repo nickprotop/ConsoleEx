@@ -9,21 +9,23 @@ public record StatusBarOptions(
     StatusBarLocation StartButtonLocation = StatusBarLocation.Bottom,
     StartButtonPosition StartButtonPosition = StartButtonPosition.Left,
     string StartButtonText = "☰ Start",
-    // Note: Ctrl+M doesn't work in terminals (interpreted as Enter/CR)
-    // Using Ctrl+Spacebar as default which works reliably
     ConsoleKey StartMenuShortcutKey = ConsoleKey.Spacebar,
     ConsoleModifiers StartMenuShortcutModifiers = ConsoleModifiers.Control,
 
-    // Start menu content
-    bool ShowSystemMenuCategory = true,
-    bool ShowWindowListInMenu = true,
+    // Start menu options
+    StartMenuOptions? StartMenu = null,
 
-    // Status bar text (existing functionality)
+    // Status bar display
     bool ShowTopStatus = true,
     bool ShowBottomStatus = true,
     bool ShowTaskBar = true
 )
 {
+    /// <summary>
+    /// Gets the resolved Start menu configuration (uses defaults if not explicitly set).
+    /// </summary>
+    public StartMenuOptions StartMenuConfig => StartMenu ?? new StartMenuOptions();
+
     /// <summary>
     /// Gets the default status bar options.
     /// </summary>

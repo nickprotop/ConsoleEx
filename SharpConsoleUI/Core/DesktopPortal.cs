@@ -131,7 +131,9 @@ namespace SharpConsoleUI.Core
 
 			Container = new DesktopPortalContainer(this);
 
-			// Build LayoutNode tree
+			// Build LayoutNode for the root content control.
+			// Portal content is always a leaf control (e.g., MenuControl) — composite
+			// containers like HorizontalGridControl are hosted inside windows, not portals.
 			Content.Container = Container;
 			RootNode = new LayoutNode(Content);
 			RootNode.IsVisible = true;
@@ -218,7 +220,7 @@ namespace SharpConsoleUI.Core
 			// Connect portal content into the invalidation chain
 			portalContent.Container = this;
 
-			var portalNode = new LayoutNode(portalContent);
+			var portalNode = LayoutNodeFactory.CreateSubtree(portalContent);
 			portalNode.IsVisible = true;
 
 			// Measure using buffer size (allows submenus to extend beyond portal bounds)

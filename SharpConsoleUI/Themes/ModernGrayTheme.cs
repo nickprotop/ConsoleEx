@@ -507,5 +507,16 @@ namespace SharpConsoleUI.Themes
 		public Color? BarGraphBackgroundColor { get; set; } = null;
 		/// <inheritdoc/>
 		public Color? SparklineBackgroundColor { get; set; } = null;
+
+		// Start menu theming
+
+		/// <inheritdoc/>
+		public Color? StartMenuHeaderBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? StartMenuHeaderForegroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? StartMenuSectionHeaderBackgroundColor { get; set; } = Color.Grey19;
+		/// <inheritdoc/>
+		public Color? StartMenuInfoStripForegroundColor { get; set; } = Color.Grey50;
 	}
 }

@@ -143,7 +143,7 @@ Configuration for status bars and Start Menu system.
 | `StartButtonLocation` | `StatusBarLocation` | `Bottom` | Top or Bottom status bar |
 | `StartButtonPosition` | `StartButtonPosition` | `Left` | Left or Right position in status bar |
 | `StartButtonText` | `string` | `"☰ Start"` | Text displayed on Start button |
-| `StartMenuShortcutKey` | `ConsoleKey` | `M` | Keyboard shortcut key (Ctrl+M by default) |
+| `StartMenuShortcutKey` | `ConsoleKey` | `Spacebar` | Keyboard shortcut key (Ctrl+Space by default) |
 | `StartMenuShortcutModifiers` | `ConsoleModifiers` | `Control` | Keyboard modifiers (Ctrl, Alt, Shift, or combinations) |
 
 #### Start Menu Content
@@ -152,6 +152,9 @@ Configuration for status bars and Start Menu system.
 |----------|------|---------|-------------|
 | `ShowSystemMenuCategory` | `bool` | `true` | Show built-in System category (themes, settings, about) |
 | `ShowWindowListInMenu` | `bool` | `true` | Show Windows category with open window list |
+| `StartMenuLayout` | `StartMenuLayout` | `TwoColumn` | `SingleColumn` (compact, categories as flyout submenus) or `TwoColumn` (quick actions + window list side-by-side) |
+| `StartMenuAppName` | `string?` | `null` | Application name shown in header (defaults to "SharpConsoleUI") |
+| `StartMenuAppVersion` | `string?` | `null` | Application version shown in header (defaults to library version) |
 
 #### Status Bar Display
 
@@ -281,8 +284,11 @@ var options = new ConsoleWindowSystemOptions(
         StartButtonLocation: StatusBarLocation.Bottom,
         StartButtonPosition: StartButtonPosition.Left,
         StartButtonText: "☰ Start",
-        StartMenuShortcutKey: ConsoleKey.M,
+        StartMenuShortcutKey: ConsoleKey.Spacebar,
         StartMenuShortcutModifiers: ConsoleModifiers.Control,
+        StartMenuLayout: StartMenuLayout.TwoColumn,
+        StartMenuAppName: "My App",
+        StartMenuAppVersion: "1.0.0",
         ShowSystemMenuCategory: true,
         ShowWindowListInMenu: true,
         ShowTaskBar: false  // Hide taskbar, window list only in Start Menu
@@ -296,7 +302,7 @@ var windowSystem = new ConsoleWindowSystem(
 
 **Result:**
 - Start button in bottom-left (like Windows)
-- Ctrl+M opens Start Menu
+- Ctrl+Space opens Start Menu
 - Window list only in Start Menu (not in status bar)
 - System actions in Start Menu
 - 60 FPS rendering

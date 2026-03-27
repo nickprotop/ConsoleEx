@@ -39,7 +39,7 @@ public static class VideoDemoWindow
                         filePath = samplePath;
                     else
                     {
-                        ws.EnqueueOnUIThread(() => win.TryClose(force: true));
+                        ws.EnqueueOnUIThread(() => win.Close(force: true));
                         return;
                     }
                 }

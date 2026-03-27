@@ -24,6 +24,9 @@ namespace SharpConsoleUI.Core
 		private readonly Func<ConsoleWindowSystem> _getWindowSystem;
 		private readonly List<StartMenuAction> _startMenuActions = new();
 
+		// Start menu window tracking
+		private Window? _startMenuWindow;
+
 		// Status bar state
 		private string _topStatus = "";
 		private string _bottomStatus = "";
@@ -257,6 +260,16 @@ namespace SharpConsoleUI.Core
 		#endregion
 
 		#region Start Menu Display
+
+		/// <summary>
+		/// Gets or sets the currently open Start menu window, if any.
+		/// Used for toggle behavior — if non-null, the Start menu is open.
+		/// </summary>
+		internal Window? StartMenuWindow
+		{
+			get => _startMenuWindow;
+			set => _startMenuWindow = value;
+		}
 
 		/// <summary>
 		/// Shows the Start menu dialog.

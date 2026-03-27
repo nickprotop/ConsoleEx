@@ -150,8 +150,9 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private void HandleMouseEvent(object sender, List<MouseFlags> flags, Point point)
 		{
-			// Check for Start button click first
-			if (flags.Contains(MouseFlags.Button1Pressed))
+			// Check for Start button click first (both Pressed and Clicked —
+			// terminals send them as separate events for the same physical click)
+			if (flags.Contains(MouseFlags.Button1Pressed) || flags.Contains(MouseFlags.Button1Clicked))
 			{
 				if (_context.StatusBarStateService.HandleStatusBarClick(point.X, point.Y))
 				{
@@ -832,7 +833,7 @@ namespace SharpConsoleUI.Input
 			{
 				// Get only top-level windows to match what's displayed in bottom status bar
 				var topLevelWindows = _context.Windows.Values
-					.Where(w => w.ParentWindow == null)
+					.Where(w => w.ParentWindow == null && w.ShowInTaskbar)
 					.OrderBy(w => w.CreationOrder)
 					.ToList();
 

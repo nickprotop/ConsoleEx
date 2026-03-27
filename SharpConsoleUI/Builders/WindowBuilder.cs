@@ -53,6 +53,8 @@ public sealed class WindowBuilder
     private readonly List<IWindowControl> _controls = new();
     private Window.WindowThreadDelegateAsync? _asyncWindowThread;
     private bool _alwaysOnTop = false;
+    private bool _showInTaskbar = true;
+    private bool _closeOnDeactivate = false;
     private EventHandler? _activatedHandler;
     private EventHandler? _deactivatedHandler;
     private EventHandler<KeyPressedEventArgs>? _keyPressedHandler;
@@ -544,6 +546,30 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
+    /// Sets whether this window appears in the taskbar and window lists.
+    /// Defaults to true. Set to false for transient UI like start menus and popups.
+    /// </summary>
+    /// <param name="show">True to show in taskbar; false to hide.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder ShowInTaskbar(bool show = true)
+    {
+        _showInTaskbar = show;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets whether this window automatically closes when deactivated.
+    /// Used for transient UI like start menus and popup panels.
+    /// </summary>
+    /// <param name="close">True to close on deactivate; false otherwise.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithCloseOnDeactivate(bool close = true)
+    {
+        _closeOnDeactivate = close;
+        return this;
+    }
+
+    /// <summary>
     /// Subscribes a handler to the window's Activated event, which is raised when the window becomes the active window.
     /// </summary>
     /// <param name="handler">The event handler to invoke when the window is activated.</param>
@@ -694,6 +720,8 @@ public sealed class WindowBuilder
         window.IsMinimizable = _isMinimizable;
         window.IsMaximizable = _isMaximizable;
         window.AlwaysOnTop = _alwaysOnTop;
+        window.ShowInTaskbar = _showInTaskbar;
+        window.CloseOnDeactivate = _closeOnDeactivate;
         window.BorderStyle = _borderStyle;
         window.ShowTitle = _showTitle;
         window.ShowCloseButton = _showCloseButton;

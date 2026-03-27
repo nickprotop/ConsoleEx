@@ -248,8 +248,11 @@ var options = new ConsoleWindowSystemOptions(
         StartButtonLocation: StatusBarLocation.Bottom,   // Top or Bottom
         StartButtonPosition: StartButtonPosition.Left,   // Left or Right
         StartButtonText: "☰ Start",                      // Button text
-        StartMenuShortcutKey: ConsoleKey.M,              // Shortcut key (Ctrl+M)
+        StartMenuShortcutKey: ConsoleKey.Spacebar,          // Shortcut key (Ctrl+Space)
         StartMenuShortcutModifiers: ConsoleModifiers.Control,
+        StartMenuLayout: StartMenuLayout.TwoColumn,      // Two-column with window list
+        StartMenuAppName: "My App",                      // Custom app name in header
+        StartMenuAppVersion: "1.0.0",                    // Custom version in header
         ShowSystemMenuCategory: true,                    // Show System category
         ShowWindowListInMenu: true                       // Show Windows category
     )
@@ -264,10 +267,18 @@ var options = new ConsoleWindowSystemOptions(
 | `StartButtonLocation` | `StatusBarLocation` | `Bottom` | Top or Bottom status bar |
 | `StartButtonPosition` | `StartButtonPosition` | `Left` | Left or Right side |
 | `StartButtonText` | `string` | `"☰ Start"` | Button display text |
-| `StartMenuShortcutKey` | `ConsoleKey` | `M` | Keyboard shortcut key |
+| `StartMenuShortcutKey` | `ConsoleKey` | `Spacebar` | Keyboard shortcut key |
 | `StartMenuShortcutModifiers` | `ConsoleModifiers` | `Control` | Modifier keys (Ctrl, Alt, Shift) |
 | `ShowSystemMenuCategory` | `bool` | `true` | Show System category |
 | `ShowWindowListInMenu` | `bool` | `true` | Show Windows category |
+| `StartMenuLayout` | `StartMenuLayout` | `TwoColumn` | Layout mode (see below) |
+| `StartMenuAppName` | `string?` | `null` | App name in header (defaults to "SharpConsoleUI") |
+| `StartMenuAppVersion` | `string?` | `null` | App version in header (defaults to library version) |
+
+#### Layout Modes
+
+- **`TwoColumn`** (default): Left column has quick actions and category submenus; right column has a live window list with Alt+N shortcuts and an info strip showing theme, window count, and plugin count.
+- **`SingleColumn`**: Compact vertical menu. Windows appear as a flyout submenu instead of an inline list.
 
 #### Placement Examples
 
@@ -285,10 +296,16 @@ StartButtonPosition: StartButtonPosition.Right
 ```
 Result: `Application Title                    ☰ Start`
 
-**Custom Shortcut:**
+**Custom Shortcut (e.g., just Escape):**
 ```csharp
 StartMenuShortcutKey: ConsoleKey.Escape,
-StartMenuShortcutModifiers: ConsoleModifiers.None  // Just Escape key
+StartMenuShortcutModifiers: ConsoleModifiers.None
+```
+
+**Custom Branding:**
+```csharp
+StartMenuAppName: "My Dashboard",
+StartMenuAppVersion: "2.1.0"
 ```
 
 ### Registering Actions
@@ -343,12 +360,13 @@ windowSystem.RegisterStartMenuAction("About", ShowAbout, "Help", 20);
 
 **Enabled by default** via `ShowSystemMenuCategory: true`. Provides:
 
-- **Switch Theme** - Theme selector dialog
-- **Settings** - System settings window
-- **About** - Application information
-- **Toggle Performance Metrics** - Show/hide FPS and metrics
-- **Toggle Frame Rate Limiting** - Enable/disable FPS limiting
-- **Toggle FPS Display** - Show/hide FPS counter
+**Quick actions** (top-level):
+- **Change Theme...** - Theme selector dialog
+- **Settings...** - System settings window
+- **About...** - Application information
+
+**System submenu**:
+- **Performance** > Toggle Metrics, Toggle Frame Limiting, Set Target FPS...
 
 Disable System category:
 ```csharp
@@ -420,8 +438,8 @@ public class MyPlugin : IPlugin, IActionProvider
 #### Opening the Start Menu
 
 **Keyboard:**
-- Press `Ctrl+M` (default)
-- Customizable via configuration
+- Press `Ctrl+Space` (default)
+- Customizable via `StartMenuShortcutKey` and `StartMenuShortcutModifiers`
 
 **Mouse:**
 - Click `☰ Start` button in status bar
@@ -442,10 +460,12 @@ public class MyPlugin : IPlugin, IActionProvider
 
 #### Menu Behavior
 
-- **Full-screen Overlay**: Dims underlying windows
-- **Click Outside**: Dismisses menu
+- **Window-based**: The Start menu is a borderless, always-on-top window with rounded borders
+- **Click Outside**: Closes automatically when deactivated (click on desktop or another window)
 - **Auto-close**: Closes after action execution
 - **Escape**: Always closes menu
+- **Toggle**: Clicking the Start button again closes the menu
+- **Hidden from Taskbar**: Does not appear in the task bar or Alt+N window list
 
 ## Complete Examples
 
@@ -483,7 +503,7 @@ var windowSystem = new ConsoleWindowSystem(
     new NetConsoleDriver(RenderMode.Buffer),
     options: options)
 {
-    TopStatus = "[bold cyan]My App[/] - Press [yellow]Ctrl+M[/] for menu",
+    TopStatus = "[bold cyan]My App[/] - Press [yellow]Ctrl+Space[/] for menu",
     BottomStatus = ""
 };
 
@@ -534,8 +554,11 @@ var options = new ConsoleWindowSystemOptions(
         StartButtonLocation: StatusBarLocation.Bottom,
         StartButtonPosition: StartButtonPosition.Left,
         StartButtonText: "☰ Menu",
-        StartMenuShortcutKey: ConsoleKey.M,
+        StartMenuShortcutKey: ConsoleKey.Spacebar,
         StartMenuShortcutModifiers: ConsoleModifiers.Control,
+        StartMenuLayout: StartMenuLayout.TwoColumn,
+        StartMenuAppName: "My IDE",
+        StartMenuAppVersion: "3.0.0",
 
         // Content options
         ShowSystemMenuCategory: true,

@@ -84,12 +84,13 @@ namespace SharpConsoleUI
 
 	/// <summary>
 	/// Checks if the window can be closed by firing the OnClosing event.
-	/// Does not modify any state - only queries whether close is allowed.
+	/// Does not modify any state — only queries whether close is allowed.
+	/// To actually close the window, use <see cref="Close"/>.
 	/// </summary>
 	/// <param name="force">If true, bypasses IsClosable check and ignores Allow from OnClosing.
 		/// The OnClosing event is still fired so handlers can perform pre-close work.</param>
 		/// <returns>True if the window can be closed; false if close was cancelled (only when force=false).</returns>
-		public bool TryClose(bool force = false)
+		public bool CanClose(bool force = false)
 		{
 			// Already closing - allow it to proceed
 			if (_isClosing) return true;
@@ -113,6 +114,7 @@ namespace SharpConsoleUI
 			return true;
 		}
 
+
 		/// <summary>
 		/// Attempts to close the window.
 		/// If the window is in a system, delegates to CloseWindow() for proper cleanup.
@@ -128,7 +130,7 @@ namespace SharpConsoleUI
 			if (_windowThreadCts != null && _windowTask != null)
 			{
 				// Check if close is allowed first
-				if (!TryClose(force))
+				if (!CanClose(force))
 				{
 					return false;  // Close cancelled - nothing changed
 				}
@@ -159,7 +161,7 @@ namespace SharpConsoleUI
 			}
 
 			// Orphan window (not in a system OR system couldn't close it) - handle locally
-			if (!TryClose(force))
+			if (!CanClose(force))
 			{
 				return false;  // Close cancelled - nothing changed
 			}
@@ -494,6 +496,12 @@ namespace SharpConsoleUI
 			{
 				DismissAutoClosePortals();
 				Deactivated?.Invoke(this, EventArgs.Empty);
+
+				if (CloseOnDeactivate)
+				{
+					// Defer close to avoid re-entrancy — we're inside SetIsActive
+					_windowSystem.EnqueueOnUIThread(() => Close(force: true));
+				}
 			}
 		InvalidateBorderCache();
 

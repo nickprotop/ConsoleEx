@@ -939,7 +939,7 @@ namespace SharpConsoleUI.Rendering
 			_topLevelWindowsPool.Clear();
 			foreach (var w in _windowSystemContext.Windows.Values)
 			{
-				if (w.ParentWindow == null)
+				if (w.ParentWindow == null && w.ShowInTaskbar)
 					_topLevelWindowsPool.Add(w);
 			}
 			_topLevelWindowsPool.Sort((a, b) => a.CreationOrder.CompareTo(b.CreationOrder));

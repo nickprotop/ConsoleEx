@@ -524,5 +524,41 @@ namespace SharpConsoleUI.Helpers
 			=> Coalesce(explicitValue)
 			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.SparklineBackgroundColor)
 			?? Color.Transparent;
+
+		// Start menu color resolution
+
+		/// <summary>
+		/// Resolves Start menu header background: explicit → theme StartMenuHeaderBackgroundColor → MenuDropdownBackgroundColor → Color.Grey15.
+		/// </summary>
+		public static Color ResolveStartMenuHeaderBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.StartMenuHeaderBackgroundColor)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.MenuDropdownBackgroundColor)
+			?? Color.Grey15;
+
+		/// <summary>
+		/// Resolves Start menu header foreground: explicit → theme StartMenuHeaderForegroundColor → MenuDropdownForegroundColor → Color.Grey93.
+		/// </summary>
+		public static Color ResolveStartMenuHeaderForeground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.StartMenuHeaderForegroundColor)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.MenuDropdownForegroundColor)
+			?? Color.Grey93;
+
+		/// <summary>
+		/// Resolves Start menu section header background: explicit → theme StartMenuSectionHeaderBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveStartMenuSectionHeaderBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.StartMenuSectionHeaderBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves Start menu info strip foreground: explicit → theme StartMenuInfoStripForegroundColor → Color.DarkGray.
+		/// </summary>
+		public static Color ResolveStartMenuInfoStripForeground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.StartMenuInfoStripForegroundColor)
+			?? Color.Grey;
 	}
 }

@@ -618,4 +618,26 @@ public interface ITheme
     /// </summary>
     Color? SparklineBackgroundColor { get; }
 
+    // Start menu theming
+
+    /// <summary>
+    /// Gets the background color for the Start menu header area. Null means derive from dropdown colors.
+    /// </summary>
+    Color? StartMenuHeaderBackgroundColor => null;
+
+    /// <summary>
+    /// Gets the foreground color for the Start menu header area. Null means derive from dropdown colors.
+    /// </summary>
+    Color? StartMenuHeaderForegroundColor => null;
+
+    /// <summary>
+    /// Gets the background color for Start menu section headers. Null means derive from dropdown colors.
+    /// </summary>
+    Color? StartMenuSectionHeaderBackgroundColor => null;
+
+    /// <summary>
+    /// Gets the foreground color for the Start menu info strip. Null means derive from dropdown colors.
+    /// </summary>
+    Color? StartMenuInfoStripForegroundColor => null;
+
 }

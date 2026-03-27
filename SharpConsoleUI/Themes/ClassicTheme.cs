@@ -511,5 +511,16 @@ namespace SharpConsoleUI.Themes
 		/// <inheritdoc/>
 		public Color? SparklineBackgroundColor { get; set; } = null;
 
+		// Start menu theming
+
+		/// <inheritdoc/>
+		public Color? StartMenuHeaderBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? StartMenuHeaderForegroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? StartMenuSectionHeaderBackgroundColor { get; set; } = null;
+		/// <inheritdoc/>
+		public Color? StartMenuInfoStripForegroundColor { get; set; } = Color.Grey;
+
 	}
 }

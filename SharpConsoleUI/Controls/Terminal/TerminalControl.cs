@@ -90,9 +90,9 @@ public sealed class TerminalControl
         {
             var windowSystem = window.GetConsoleWindowSystem;
             if (windowSystem != null)
-                windowSystem.EnqueueOnUIThread(() => window.TryClose(force: true));
+                windowSystem.EnqueueOnUIThread(() => window.Close(force: true));
             else
-                window.TryClose(force: true);
+                window.Close(force: true);
         }
     }
 

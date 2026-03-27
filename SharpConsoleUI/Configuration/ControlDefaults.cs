@@ -747,5 +747,49 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const char SliderVerticalBottomCap = '\u2500';
 
+		// Start menu defaults
+
+		/// <summary>
+		/// Minimum width of the left column in the Start menu two-column layout (default: 22).
+		/// </summary>
+		public const int StartMenuMinLeftColumnWidth = 22;
+
+		/// <summary>
+		/// Maximum width of the left column in the Start menu two-column layout (default: 35).
+		/// </summary>
+		public const int StartMenuMaxLeftColumnWidth = 35;
+
+		/// <summary>
+		/// Minimum width of the right column in the Start menu two-column layout (default: 20).
+		/// </summary>
+		public const int StartMenuMinRightColumnWidth = 24;
+
+		/// <summary>
+		/// Maximum width of the right column in the Start menu two-column layout (default: 40).
+		/// </summary>
+		public const int StartMenuMaxRightColumnWidth = 40;
+
+		/// <summary>
+		/// Maximum number of windows visible in the Start menu window list (default: 15).
+		/// </summary>
+		public const int StartMenuMaxVisibleWindows = 15;
+
+		/// <summary>
+		/// Icon prefix for the exit action in the Start menu.
+		/// U+23FB: Power Symbol — rendered via MarkupParser for correct width handling.
+		/// </summary>
+		public const string StartMenuExitIcon = "\u23FB";
+
+		/// <summary>
+		/// Active window indicator in the Start menu window list.
+		/// U+25C6: Black Diamond — rendered via MarkupParser for correct width handling.
+		/// </summary>
+		public const string StartMenuActiveWindowIndicator = "\u25C6";
+
+		/// <summary>
+		/// Minimized window indicator in the Start menu window list.
+		/// U+25C7: White Diamond — rendered via MarkupParser for correct width handling.
+		/// </summary>
+		public const string StartMenuMinimizedWindowIndicator = "\u25C7";
 	}
 }
