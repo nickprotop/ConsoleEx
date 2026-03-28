@@ -10,6 +10,22 @@ public sealed class AnimationManager
 {
 	private readonly List<IAnimation> _animations = new();
 	private readonly object _lock = new();
+	private bool _isEnabled = true;
+
+	/// <summary>
+	/// Gets or sets whether animations are enabled. When disabled, new animations
+	/// complete instantly (onUpdate called with final value, onComplete called).
+	/// </summary>
+	public bool IsEnabled
+	{
+		get => _isEnabled;
+		set
+		{
+			_isEnabled = value;
+			if (!value)
+				CancelAll();
+		}
+	}
 
 	/// <summary>Number of currently running animations.</summary>
 	public int ActiveCount
@@ -167,6 +183,16 @@ public sealed class AnimationManager
 		Action<T>? onUpdate,
 		Action? onComplete)
 	{
+		// When disabled, call onUpdate with final value and onComplete immediately
+		if (!_isEnabled)
+		{
+			onUpdate?.Invoke(to);
+			onComplete?.Invoke();
+			var noOp = new Tween<T>(from, to, TimeSpan.Zero, EasingFunctions.Linear, interpolator, null, null);
+			noOp.Cancel();
+			return noOp;
+		}
+
 		var tween = new Tween<T>(
 			from, to, duration,
 			easing ?? EasingFunctions.EaseInOut,

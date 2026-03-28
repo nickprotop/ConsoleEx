@@ -835,5 +835,11 @@ namespace SharpConsoleUI.Configuration
 		/// U+29C9: Two Joined Squares — rendered via MarkupParser for correct width handling.
 		/// </summary>
 		public const string StartMenuPluginsIcon = "\u29C9";
+
+		/// <summary>
+		/// Icon for the "Actions" category in the Start menu sidebar.
+		/// U+25B6: Black Right-Pointing Triangle — rendered via MarkupParser for correct width handling.
+		/// </summary>
+		public const string StartMenuActionsIcon = "\u25B6";
 	}
 }

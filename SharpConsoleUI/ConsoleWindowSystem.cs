@@ -77,6 +77,7 @@ namespace SharpConsoleUI
 		private readonly InputStateService _inputStateService;
 		private readonly NotificationStateService _notificationStateService;
 		private readonly StatusBarStateService _statusBarStateService;
+		private readonly SettingsRegistrationService _settingsRegistrationService = new();
 		private readonly Core.DesktopPortalService _desktopPortalService;
 
 		// Plugin system
@@ -187,6 +188,7 @@ namespace SharpConsoleUI
 
 			// Initialize options with environment variable fallback
 			_options = options ?? ConsoleWindowSystemOptions.Create();
+			Animations.IsEnabled = _options.EnableAnimations;
 
 			// Initialize state services BEFORE driver.Initialize() call
 			_cursorStateService = new CursorStateService(_consoleDriver);
@@ -372,6 +374,11 @@ namespace SharpConsoleUI
 		/// Gets the status bar state service for managing status bars and Start menu.
 		/// </summary>
 		public StatusBarStateService StatusBarStateService => _statusBarStateService;
+
+		/// <summary>
+		/// Gets the settings registration service for adding custom settings pages.
+		/// </summary>
+		public SettingsRegistrationService SettingsRegistrationService => _settingsRegistrationService;
 
 		/// <summary>
 		/// Gets the desktop portal service for managing desktop-level overlay portals.
@@ -915,6 +922,30 @@ namespace SharpConsoleUI
 		}
 
 		#endregion
+
+		#endregion
+
+		#region Settings Registration
+
+		/// <summary>
+		/// Registers a settings group with multiple pages, shown in the Settings dialog.
+		/// </summary>
+		/// <param name="name">The display name of the settings group.</param>
+		/// <param name="accentColor">The accent color used for this group in the navigation sidebar.</param>
+		/// <param name="configure">Action that configures the group's pages via a builder.</param>
+		public void RegisterSettingsGroup(string name, Color accentColor, Action<SettingsGroupBuilder> configure)
+			=> _settingsRegistrationService.RegisterGroup(name, accentColor, configure);
+
+		/// <summary>
+		/// Registers a single settings page under the "Extensions" group in the Settings dialog.
+		/// </summary>
+		/// <param name="name">The display name of the settings page.</param>
+		/// <param name="icon">Optional icon character or string shown beside the page name.</param>
+		/// <param name="subtitle">Optional subtitle shown below the page name.</param>
+		/// <param name="content">Factory that populates the page content panel.</param>
+		public void RegisterSettingsPage(string name, string? icon = null,
+			string? subtitle = null, Action<ScrollablePanelControl>? content = null)
+			=> _settingsRegistrationService.RegisterPage(name, icon, subtitle, content);
 
 		#endregion
 

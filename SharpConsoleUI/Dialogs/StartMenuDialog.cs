@@ -281,6 +281,14 @@ public static class StartMenuDialog
 			navView.SetItemContent(pluginsItem, panel => BuildPluginsContent(panel, windowSystem, menuOpts));
 		}
 
+		// "Actions" category — conditional (order 40)
+		var userActions = windowSystem.StatusBarStateService.GetStartMenuActions();
+		if (userActions.Count > 0)
+		{
+			var actionsItem = navView.AddItem("Actions", icon: useIcons ? ControlDefaults.StartMenuActionsIcon : null);
+			navView.SetItemContent(actionsItem, panel => BuildActionsContent(panel, windowSystem));
+		}
+
 		// Custom categories sorted by Order
 		foreach (var cat in menuOpts.Categories.OrderBy(c => c.Order))
 		{
@@ -510,6 +518,28 @@ public static class StartMenuDialog
 		AddPluginItems(pluginList, windowSystem);
 		StyleListControl(pluginList, _dropBg, _dropFg, _dropHiBg, _dropHiFg);
 		panel.AddControl(pluginList);
+	}
+
+	private static void BuildActionsContent(
+		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
+	{
+		var userActions = windowSystem.StatusBarStateService.GetStartMenuActions();
+		var actionList = new ListControl();
+		foreach (var action in userActions.OrderBy(a => a.Order))
+		{
+			var callback = action.Callback;
+			actionList.AddItem(new ListItem(action.Name) { Tag = callback });
+		}
+		actionList.ItemActivated += (_, item) =>
+		{
+			if (item.Tag is Action callback)
+			{
+				CloseStartMenu(windowSystem);
+				callback();
+			}
+		};
+		StyleListControl(actionList, _dropBg, _dropFg, _dropHiBg, _dropHiFg);
+		panel.AddControl(actionList);
 	}
 
 	#endregion

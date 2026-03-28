@@ -1,78 +1,112 @@
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Dialogs.Settings;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Themes;
+using SharpConsoleUI.Rendering;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
 namespace SharpConsoleUI.Dialogs;
 
 /// <summary>
-/// Provides a unified settings dialog with tabs for Appearance, Performance, and About.
+/// Provides a unified settings dialog with NavigationView-based grouped sections.
 /// </summary>
 public static class SettingsDialog
 {
 	/// <summary>
-	/// Shows a tabbed settings dialog for configuring application preferences.
+	/// Shows the settings dialog for configuring application preferences.
 	/// </summary>
 	/// <param name="windowSystem">The window system to show the dialog in.</param>
 	/// <param name="parentWindow">Optional parent window. If specified, the dialog will be modal to this window only.</param>
 	public static void Show(ConsoleWindowSystem windowSystem, Window? parentWindow = null)
 	{
-		var theme = windowSystem.Theme;
+		var gradient = ColorGradient.FromColors(
+			new Color(10, 15, 40),
+			new Color(25, 40, 80),
+			new Color(15, 20, 50));
+
+		var navBuilder = Ctl.NavigationView()
+			.WithNavWidth(28)
+			.WithPaneHeader("[bold rgb(120,180,255)]  ⚙  Settings[/]")
+			.WithSelectedColors(Color.White, new Color(40, 80, 160))
+			.WithSelectionIndicator('▸')
+			.WithPaneDisplayMode(NavigationViewDisplayMode.Auto)
+			.WithExpandedThreshold(80)
+			.WithCompactThreshold(50)
+			.WithCompactPaneWidth(6)
+			.WithAnimateTransitions(true)
+			.WithContentBorder(BorderStyle.Rounded)
+			.WithContentBorderColor(new Color(60, 80, 120))
+			.WithContentBackground(new Color(20, 25, 45))
+			.WithContentPadding(1, 0, 1, 0)
+			.WithContentHeader(true)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.WithVerticalAlignment(VerticalAlignment.Fill);
+
+		// Built-in groups
+		navBuilder.AddHeader("Appearance", new Color(120, 180, 255), h =>
+		{
+			h.AddItem("Theme", icon: "◐", subtitle: "Select visual theme",
+				content: panel => ThemePage.Build(panel, windowSystem));
+			h.AddItem("Status Bar", icon: "▬", subtitle: "Configure status bar",
+				content: panel => StatusBarPage.Build(panel, windowSystem));
+		});
+
+		navBuilder.AddHeader("Performance", new Color(252, 152, 103), h =>
+		{
+			h.AddItem("Rendering", icon: "▦", subtitle: "Display and rendering options",
+				content: panel => RenderingPage.Build(panel, windowSystem));
+			h.AddItem("Animations", icon: "◎", subtitle: "Animation behavior",
+				content: panel => AnimationsPage.Build(panel, windowSystem));
+		});
+
+		navBuilder.AddHeader("Logging", new Color(255, 97, 136), h =>
+		{
+			h.AddItem("Log Settings", icon: "▤", subtitle: "Log level and output",
+				content: panel => LogSettingsPage.Build(panel, windowSystem));
+		});
+
+		navBuilder.AddHeader("Info", new Color(171, 157, 242), h =>
+		{
+			h.AddItem("System", icon: "⊞", subtitle: "Runtime and system information",
+				content: panel => InfoPage.Build(panel, windowSystem));
+		});
+
+		// Custom registered groups
+		foreach (var group in windowSystem.SettingsRegistrationService.Groups)
+		{
+			var capturedGroup = group;
+			navBuilder.AddHeader(capturedGroup.Name, capturedGroup.AccentColor, h =>
+			{
+				foreach (var page in capturedGroup.Pages)
+				{
+					var capturedPage = page;
+					h.AddItem(capturedPage.Name, icon: capturedPage.Icon,
+						subtitle: capturedPage.Subtitle,
+						content: panel => capturedPage.ContentFactory(panel));
+				}
+			});
+		}
+
+		var nav = navBuilder.Build();
 
 		var builder = new WindowBuilder(windowSystem)
-			.WithTitle("Settings")
+			.WithTitle("⚙ Settings")
 			.Centered()
-			.WithSize(75, 24)
+			.WithSize(90, 28)
 			.AsModal()
 			.Resizable(false)
 			.Minimizable(false)
 			.Maximizable(false)
 			.Movable(true)
-			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor);
+			.WithBackgroundGradient(gradient, GradientDirection.DiagonalDown)
+			.AddControl(nav);
 
 		if (parentWindow != null)
 			builder.WithParent(parentWindow);
 
 		var modal = builder.Build();
 
-		// Header
-		modal.AddControl(Ctl.Markup()
-			.AddLine("[cyan1 bold]Application Settings[/]")
-			.AddLine("[grey50]Configure application preferences[/]")
-			.WithAlignment(HorizontalAlignment.Left)
-			.WithMargin(1, 0, 1, 0)
-			.Build());
-
-		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.Build());
-
-		// Tabbed content
-		var tabs = Ctl.TabControl()
-			.AddTab("Appearance", BuildAppearanceTab(windowSystem))
-			.AddTab("Performance", BuildPerformanceTab(windowSystem))
-			.AddTab("About", BuildAboutTab(windowSystem))
-			.Fill()
-			.Build();
-
-		modal.AddControl(tabs);
-
-		// Bottom separator
-		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
-			.StickyBottom()
-			.Build());
-
-		// Footer
-		modal.AddControl(Ctl.Markup()
-			.AddLine("[grey70]Escape: Close[/]")
-			.WithAlignment(HorizontalAlignment.Center)
-			.WithMargin(0, 0, 0, 0)
-			.StickyBottom()
-			.Build());
-
-		// Handle Escape key
 		modal.KeyPressed += (sender, e) =>
 		{
 			if (e.KeyInfo.Key == ConsoleKey.Escape)
@@ -84,152 +118,5 @@ public static class SettingsDialog
 
 		windowSystem.AddWindow(modal);
 		windowSystem.SetActiveWindow(modal);
-	}
-
-	private static IWindowControl BuildAppearanceTab(ConsoleWindowSystem windowSystem)
-	{
-		var themes = ThemeRegistry.GetAvailableThemes();
-		var currentThemeName = windowSystem.Theme.Name;
-
-		var themeList = Ctl.List()
-			.WithAlignment(HorizontalAlignment.Stretch)
-			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithDoubleClickActivation(true)
-			.Build();
-
-		foreach (var themeInfo in themes)
-		{
-			var isCurrent = themeInfo.Name == currentThemeName;
-			var label = isCurrent
-				? $"[white bold]{themeInfo.Name}[/] [cyan1](current)[/] [grey50]{themeInfo.Description}[/]"
-				: $"[white]{themeInfo.Name}[/] [grey50]{themeInfo.Description}[/]";
-
-			themeList.AddItem(new ListItem(label) { Tag = themeInfo.Name });
-		}
-
-		var currentIdx = themes.ToList().FindIndex(t => t.Name == currentThemeName);
-		if (currentIdx >= 0)
-			themeList.SelectedIndex = currentIdx;
-
-		// Apply theme on Enter or double-click
-		themeList.ItemActivated += (sender, item) =>
-		{
-			if (item?.Tag is string themeName)
-				windowSystem.ThemeStateService.SwitchTheme(themeName);
-		};
-
-		var panel = Ctl.ScrollablePanel()
-			.AddControl(Ctl.Markup()
-				.AddLine("[grey70]Select a theme to apply[/]")
-				.WithAlignment(HorizontalAlignment.Left)
-				.WithMargin(1, 0, 1, 0)
-				.Build())
-			.AddControl(themeList)
-			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.Build();
-
-		return panel;
-	}
-
-	private static IWindowControl BuildPerformanceTab(ConsoleWindowSystem windowSystem)
-	{
-		var perf = windowSystem.Performance;
-
-		var metricsCheckbox = Ctl.Checkbox("Show Performance Metrics")
-			.Checked(perf.IsPerformanceMetricsEnabled)
-			.WithMargin(1, 0, 1, 0)
-			.OnCheckedChanged((sender, isChecked) =>
-			{
-				perf.SetPerformanceMetrics(isChecked);
-			})
-			.Build();
-
-		var frameLimitCheckbox = Ctl.Checkbox("Enable Frame Rate Limiting")
-			.Checked(perf.IsFrameRateLimitingEnabled)
-			.WithMargin(1, 0, 1, 0)
-			.OnCheckedChanged((sender, isChecked) =>
-			{
-				perf.SetFrameRateLimiting(isChecked);
-			})
-			.Build();
-
-		// Build FPS dropdown
-		var fpsOptions = new[] { 30, 60, 120, 144 };
-		var currentFPS = perf.TargetFPS;
-		var currentFPSIdx = Array.IndexOf(fpsOptions, currentFPS);
-		if (currentFPSIdx < 0) currentFPSIdx = 1; // default to 60
-
-		var fpsDropdown = Ctl.Dropdown("Target FPS")
-			.AddItem("30 FPS", "30")
-			.AddItem("60 FPS", "60")
-			.AddItem("120 FPS", "120")
-			.AddItem("144 FPS", "144")
-			.SelectedIndex(currentFPSIdx)
-			.WithMargin(1, 0, 1, 0)
-			.OnSelectedValueChanged((sender, value) =>
-			{
-				if (value != null && int.TryParse(value, out var fps))
-					perf.SetTargetFPS(fps);
-			})
-			.Build();
-
-		var panel = Ctl.ScrollablePanel()
-			.AddControl(metricsCheckbox)
-			.AddControl(frameLimitCheckbox)
-			.AddControl(Ctl.RuleBuilder()
-				.WithColor(Color.Grey23)
-				.Build())
-			.AddControl(Ctl.Markup()
-				.AddLine("[grey70]Target FPS[/]")
-				.WithAlignment(HorizontalAlignment.Left)
-				.WithMargin(1, 0, 1, 0)
-				.Build())
-			.AddControl(fpsDropdown)
-			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.Build();
-
-		return panel;
-	}
-
-	private static IWindowControl BuildAboutTab(ConsoleWindowSystem windowSystem)
-	{
-		var pluginState = windowSystem.PluginStateService.CurrentState;
-
-		var markupBuilder = Ctl.Markup()
-			.AddLine("[cyan1 bold]SharpConsoleUI - Console Window System[/]")
-			.AddLine("[grey50]Version 2.0.0[/]")
-			.AddLine("")
-			.AddLine("[white bold]Description:[/]")
-			.AddLine("[grey70]A modern .NET console windowing system with dependency injection,[/]")
-			.AddLine("[grey70]fluent builders, async/await patterns, and plugin architecture.[/]")
-			.AddLine("")
-			.AddLine("[white bold]Author:[/] [cyan1]Nikolaos Protopapas[/]")
-			.AddLine("[white bold]Email:[/] [grey70]nikolaos.protopapas@gmail.com[/]")
-			.AddLine("[white bold]License:[/] [green]MIT[/]")
-			.AddLine("")
-			.AddLine("[white bold]Core Features:[/]")
-			.AddLine("[grey70]• Double-buffered rendering with dirty region tracking[/]")
-			.AddLine("[grey70]• Modern async/await and fluent builder patterns[/]")
-			.AddLine("[grey70]• Rich control library with Spectre.Console integration[/]")
-			.AddLine("[grey70]• Plugin system with reflection-free patterns[/]")
-			.AddLine("[grey70]• Configurable frame rate limiting and performance metrics[/]")
-			.AddLine("")
-			.AddLine($"[white bold]Loaded Plugins:[/] [yellow]{pluginState.LoadedPluginCount}[/]")
-			.WithAlignment(HorizontalAlignment.Left)
-			.WithMargin(1, 0, 1, 0);
-
-		if (pluginState.LoadedPluginCount > 0)
-		{
-			markupBuilder.AddLine("");
-			foreach (var name in pluginState.PluginNames)
-				markupBuilder.AddLine($"[grey70]  • {name}[/]");
-		}
-
-		var panel = Ctl.ScrollablePanel()
-			.AddControl(markupBuilder.Build())
-			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.Build();
-
-		return panel;
 	}
 }
