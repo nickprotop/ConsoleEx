@@ -31,15 +31,6 @@ namespace SharpConsoleUI.Controls.StartMenu
 		}
 
 		/// <summary>
-		/// Formats a section/category header label.
-		/// </summary>
-		public static string FormatCategoryHeader(string text, bool showIcons, string? icon = null)
-		{
-			var prefix = showIcons && icon != null ? $"{icon} " : "";
-			return $"{prefix}{text}";
-		}
-
-		/// <summary>
 		/// Formats the info strip with theme name, window count, and plugin count.
 		/// Returns multiple markup lines for MarkupControl.
 		/// </summary>
@@ -70,15 +61,6 @@ namespace SharpConsoleUI.Controls.StartMenu
 			var activeEnd = isActive ? "[/]" : "";
 
 			return $"{indicator} {dimStart}{activeStart}{title}{activeEnd}{dimEnd}{shortcut}";
-		}
-
-		/// <summary>
-		/// Formats the exit row text.
-		/// </summary>
-		public static string FormatExitRow(bool showIcons)
-		{
-			var icon = showIcons ? $"{ControlDefaults.StartMenuExitIcon} " : "";
-			return $"{icon}Exit Application";
 		}
 
 	}

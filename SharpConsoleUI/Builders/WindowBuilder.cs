@@ -55,6 +55,7 @@ public sealed class WindowBuilder
     private bool _alwaysOnTop = false;
     private bool _showInTaskbar = true;
     private bool _closeOnDeactivate = false;
+    private bool _useDesktopPortals = false;
     private EventHandler? _activatedHandler;
     private EventHandler? _deactivatedHandler;
     private EventHandler<KeyPressedEventArgs>? _keyPressedHandler;
@@ -570,6 +571,18 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
+    /// Makes child portals (dropdowns, submenus) render as desktop-level portals
+    /// instead of being clipped to the window bounds.
+    /// </summary>
+    /// <param name="use">True to use desktop portals; false for window-internal portals.</param>
+    /// <returns>The current builder instance for method chaining.</returns>
+    public WindowBuilder WithDesktopPortals(bool use = true)
+    {
+        _useDesktopPortals = use;
+        return this;
+    }
+
+    /// <summary>
     /// Subscribes a handler to the window's Activated event, which is raised when the window becomes the active window.
     /// </summary>
     /// <param name="handler">The event handler to invoke when the window is activated.</param>
@@ -722,6 +735,7 @@ public sealed class WindowBuilder
         window.AlwaysOnTop = _alwaysOnTop;
         window.ShowInTaskbar = _showInTaskbar;
         window.CloseOnDeactivate = _closeOnDeactivate;
+        window.UseDesktopPortals = _useDesktopPortals;
         window.BorderStyle = _borderStyle;
         window.ShowTitle = _showTitle;
         window.ShowCloseButton = _showCloseButton;

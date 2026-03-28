@@ -21,10 +21,13 @@ public record StatusBarOptions(
     bool ShowTaskBar = true
 )
 {
+    private StartMenuOptions? _startMenuConfigCache;
+
     /// <summary>
     /// Gets the resolved Start menu configuration (uses defaults if not explicitly set).
+    /// The instance is cached so that runtime mutations are preserved.
     /// </summary>
-    public StartMenuOptions StartMenuConfig => StartMenu ?? new StartMenuOptions();
+    public StartMenuOptions StartMenuConfig => _startMenuConfigCache ??= StartMenu ?? new StartMenuOptions();
 
     /// <summary>
     /// Gets the default status bar options.

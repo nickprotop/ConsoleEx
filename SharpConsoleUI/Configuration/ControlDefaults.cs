@@ -791,5 +791,49 @@ namespace SharpConsoleUI.Configuration
 		/// U+25C7: White Diamond — rendered via MarkupParser for correct width handling.
 		/// </summary>
 		public const string StartMenuMinimizedWindowIndicator = "\u25C7";
+
+		/// <summary>
+		/// Width of the Start menu sidebar in Compact/IconRail mode (default: 4).
+		/// </summary>
+		public const int StartMenuCompactPaneWidth = 4;
+
+		/// <summary>
+		/// Width of the Start menu sidebar in Expanded mode (default: 14).
+		/// </summary>
+		public const int StartMenuExpandedPaneWidth = 14;
+
+		/// <summary>
+		/// Width of the Start menu content panel (default: 30).
+		/// </summary>
+		public const int StartMenuContentPanelWidth = 30;
+
+		/// <summary>
+		/// Maximum height of the Start menu content area in rows (default: 20).
+		/// </summary>
+		public const int StartMenuMaxHeight = 20;
+
+		/// <summary>
+		/// Icon for the "All" category in the Start menu sidebar.
+		/// U+2605: Black Star — rendered via MarkupParser for correct width handling.
+		/// </summary>
+		public const string StartMenuAllIcon = "\u2605";
+
+		/// <summary>
+		/// Icon for the "Windows" category in the Start menu sidebar.
+		/// U+25A3: White Square Containing Small Black Square.
+		/// </summary>
+		public const string StartMenuWindowsIcon = "\u25A3";
+
+		/// <summary>
+		/// Icon for the "System" category in the Start menu sidebar.
+		/// U+2699: Gear — rendered via MarkupParser for correct width handling.
+		/// </summary>
+		public const string StartMenuSystemIcon = "\u2699";
+
+		/// <summary>
+		/// Icon for the "Plugins" category in the Start menu sidebar.
+		/// U+29C9: Two Joined Squares — rendered via MarkupParser for correct width handling.
+		/// </summary>
+		public const string StartMenuPluginsIcon = "\u29C9";
 	}
 }

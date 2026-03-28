@@ -42,6 +42,11 @@ namespace SharpConsoleUI
 		/// <returns>The portal LayoutNode for later removal, or null if owner not found.</returns>
 		public LayoutNode? CreatePortal(IWindowControl ownerControl, IWindowControl portalContent)
 		{
+			if (UseDesktopPortals && _windowSystem != null)
+			{
+				return CreateDesktopPortal(ownerControl, portalContent);
+			}
+
 			var portalNode = _renderer?.CreatePortal(ownerControl, portalContent);
 			if (portalNode != null)
 			{
@@ -57,8 +62,91 @@ namespace SharpConsoleUI
 		/// <param name="portalNode">The portal LayoutNode returned by CreatePortal().</param>
 		public void RemovePortal(IWindowControl ownerControl, LayoutNode portalNode)
 		{
+			if (UseDesktopPortals && _windowSystem != null)
+			{
+				RemoveDesktopPortal(ownerControl, portalNode);
+				return;
+			}
+
 			_renderer?.RemovePortal(ownerControl, portalNode);
 			Invalidate(false);
+		}
+
+		// Desktop portal tracking: maps LayoutNode → DesktopPortal for cleanup
+		private readonly Dictionary<LayoutNode, Core.DesktopPortal> _desktopPortalMap = new();
+
+		private LayoutNode? CreateDesktopPortal(IWindowControl ownerControl, IWindowControl portalContent)
+		{
+			// Get portal bounds in window-content-relative coordinates
+			System.Drawing.Rectangle portalBounds;
+			if (portalContent is IHasPortalBounds positioned)
+			{
+				portalBounds = positioned.GetPortalBounds();
+			}
+			else
+			{
+				var size = portalContent.GetLogicalContentSize();
+				portalBounds = new System.Drawing.Rectangle(0, 0, size.Width, size.Height);
+			}
+
+			// The content (e.g., MenuPortalContent) paints using dropdown.Bounds which are
+			// in window-content-relative coordinates. To make those coordinates valid in the
+			// desktop portal buffer, we use a buffer that covers the full window content area
+			// with BufferOrigin at the window's screen content origin.
+			int contentOriginX = Left + 1; // +1 for border
+			int contentOriginY = Top + 1;
+			int contentWidth = Width - 2;
+			int contentHeight = Height - 2;
+
+			// Screen-absolute bounds of the portal content
+			int screenX = contentOriginX + portalBounds.X;
+			int screenY = contentOriginY + portalBounds.Y;
+			var screenBounds = new System.Drawing.Rectangle(
+				screenX, screenY, portalBounds.Width, portalBounds.Height);
+
+			// Use the full desktop as the buffer so submenus can extend in any direction.
+			// BufferOrigin maps buffer (0,0) to the window's content origin, so
+			// window-content-relative coordinates (used by dropdown.Bounds) work directly.
+			var desktopDims = _windowSystem.DesktopDimensions;
+			var bufferSize = new System.Drawing.Size(desktopDims.Width, desktopDims.Height);
+			var bufferOrigin = new System.Drawing.Point(contentOriginX, contentOriginY);
+
+			var desktopPortal = _windowSystem.DesktopPortalService.CreatePortal(
+				new Core.DesktopPortalOptions(
+					Content: portalContent,
+					Bounds: screenBounds,
+					DismissOnClickOutside: false,
+					ConsumeClickOnDismiss: false,
+					DimBackground: false,
+					Owner: ownerControl,
+					BufferSize: bufferSize,
+					BufferOrigin: bufferOrigin));
+
+			_desktopPortalMap[desktopPortal.RootNode] = desktopPortal;
+			return desktopPortal.RootNode;
+		}
+
+		private void RemoveDesktopPortal(IWindowControl ownerControl, LayoutNode portalNode)
+		{
+			if (_desktopPortalMap.TryGetValue(portalNode, out var desktopPortal))
+			{
+				_desktopPortalMap.Remove(portalNode);
+				_windowSystem.DesktopPortalService.RemovePortal(desktopPortal);
+			}
+		}
+
+		/// <summary>
+		/// Removes all desktop portals created by this window. Called on window close.
+		/// </summary>
+		internal void CleanupDesktopPortals()
+		{
+			if (_desktopPortalMap.Count == 0) return;
+
+			foreach (var desktopPortal in _desktopPortalMap.Values.ToList())
+			{
+				_windowSystem?.DesktopPortalService.RemovePortal(desktopPortal);
+			}
+			_desktopPortalMap.Clear();
 		}
 
 		/// <summary>

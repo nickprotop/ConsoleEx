@@ -212,7 +212,27 @@ public partial class MenuControl
         // Determine screen bounds for clamping
         // Use window buffer bounds if available (portals use window-relative coordinates)
         Rectangle screenBounds;
-        if (parentWindow != null)
+        if (parentWindow != null && parentWindow.UseDesktopPortals)
+        {
+            // Desktop portal mode — submenus render as desktop portals,
+            // so clamp to full desktop bounds in window-content-relative coordinates
+            var ws = Container?.GetConsoleWindowSystem;
+            if (ws != null)
+            {
+                var desktopBR = ws.DesktopBottomRight;
+                // Translate desktop bounds to window-content-relative
+                int contentLeft = parentWindow.Left + 1;
+                int contentTop = parentWindow.Top + 1;
+                screenBounds = new Rectangle(
+                    -contentLeft, -contentTop,
+                    desktopBR.X + 1, desktopBR.Y + 1);
+            }
+            else
+            {
+                screenBounds = new Rectangle(0, 0, screenWidth, screenHeight);
+            }
+        }
+        else if (parentWindow != null)
         {
             int bufferWidth = parentWindow.Width - 2;
             int bufferHeight = parentWindow.Height - 2;

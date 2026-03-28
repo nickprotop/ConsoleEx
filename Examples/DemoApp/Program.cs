@@ -23,6 +23,7 @@ internal class Program
                     StartMenu: new StartMenuOptions
                     {
                         AppName = "SharpConsoleUI Demo",
+                        SidebarStyle = StartMenuSidebarStyle.IconLabel,
                         BackgroundGradient = new GradientBackground(
                             ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
                             GradientDirection.Vertical)

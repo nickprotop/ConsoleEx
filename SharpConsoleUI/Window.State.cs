@@ -185,6 +185,9 @@ namespace SharpConsoleUI
 		/// </summary>
 		internal void CompleteClose()
 		{
+			// Clean up any desktop portals created by this window
+			CleanupDesktopPortals();
+
 			OnClosed?.Invoke(this, EventArgs.Empty);
 
 			foreach (var content in _controls.ToList())

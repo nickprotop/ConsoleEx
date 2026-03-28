@@ -609,6 +609,13 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool CloseOnDeactivate { get; set; } = false;
 
+		/// <summary>
+		/// Gets or sets whether child portals (dropdowns, submenus) are rendered as desktop-level
+		/// portals instead of being clipped to this window's bounds. Used for windows like the
+		/// Start menu where flyout submenus must extend beyond the window border.
+		/// </summary>
+		public bool UseDesktopPortals { get; set; } = false;
+
 	private bool _renderLock = false;
 
 	internal bool RenderLock
