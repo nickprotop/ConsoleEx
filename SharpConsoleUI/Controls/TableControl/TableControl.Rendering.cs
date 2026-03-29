@@ -587,7 +587,7 @@ public partial class TableControl
 		if (hasBorder && currentY < maxY)
 		{
 			FillSideMargins(currentY);
-			DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
+			DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
 				box.TopLeft, box.TopTee, box.TopRight, box.Horizontal);
 			currentY++;
 		}
@@ -626,7 +626,7 @@ public partial class TableControl
 				}
 			}
 
-			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
+			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
 				headerCells, colSnapshot, headerFg, headerBg, hasBorder);
 
 			// Update column rendered positions for hit testing (always, including DataSource mode)
@@ -653,7 +653,7 @@ public partial class TableControl
 			if (hasBorder && currentY < maxY)
 			{
 				FillSideMargins(currentY);
-				DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
+				DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
 					box.LeftTee, box.Cross, box.RightTee, box.Horizontal);
 				currentY++;
 			}
@@ -675,7 +675,7 @@ public partial class TableControl
 			if (displayR > startRow && _showRowSeparators && hasBorder && currentY < maxY)
 			{
 				FillSideMargins(currentY);
-				DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
+				DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
 					box.LeftTee, box.Cross, box.RightTee, box.Horizontal);
 				currentY++;
 			}
@@ -795,7 +795,7 @@ public partial class TableControl
 			{
 				FillSideMargins(currentY);
 				DrawMergedHorizontalLine(buffer, startX, currentY, colWidths, clipRect,
-					box, borderColor, bgColor, box.LeftTee, box.RightTee, box.Horizontal);
+					box, borderColor, effectiveBg, box.LeftTee, box.RightTee, box.Horizontal);
 				currentY++;
 			}
 
@@ -817,7 +817,7 @@ public partial class TableControl
 			{
 				FillSideMargins(currentY);
 				DrawMergedHorizontalLine(buffer, startX, currentY, colWidths, clipRect,
-					box, borderColor, bgColor, box.BottomLeft, box.BottomRight, box.Horizontal);
+					box, borderColor, effectiveBg, box.BottomLeft, box.BottomRight, box.Horizontal);
 				currentY++;
 			}
 		}
@@ -825,7 +825,7 @@ public partial class TableControl
 		{
 			// Standard bottom border with column tees
 			FillSideMargins(currentY);
-			DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, bgColor,
+			DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
 				box.BottomLeft, box.BottomTee, box.BottomRight, box.Horizontal);
 			currentY++;
 		}
@@ -861,7 +861,7 @@ public partial class TableControl
 			{
 				int cornerX = startX + contentWidth;
 				if (cornerX >= clipRect.X && cornerX < clipRect.Right)
-					buffer.SetNarrowCell(cornerX, currentY, ' ', fgColor, bgColor);
+					buffer.SetNarrowCell(cornerX, currentY, ' ', fgColor, effectiveBg);
 			}
 			currentY++;
 		}

@@ -398,8 +398,9 @@ namespace SharpConsoleUI.Controls
 					_skipUpdateScrollPositionsInRender = true;
 					_verticalScrollOffset -= scrollAmount;
 					Container?.Invalidate(true);
+					return true;
 				}
-				return true;
+				return false; // at top, bubble to parent
 			}
 
 			// Mouse wheel down
@@ -414,8 +415,9 @@ namespace SharpConsoleUI.Controls
 					_skipUpdateScrollPositionsInRender = true;
 					_verticalScrollOffset += scrollAmount;
 					Container?.Invalidate(true);
+					return true;
 				}
-				return true;
+				return false; // at bottom, bubble to parent
 			}
 
 			// Regular mouse move (no drag)

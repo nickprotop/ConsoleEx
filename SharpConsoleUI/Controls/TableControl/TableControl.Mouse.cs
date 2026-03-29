@@ -120,27 +120,39 @@ public partial class TableControl
 		{
 			if (args.HasFlag(MouseFlags.ButtonShift))
 			{
+				int oldH = _horizontalScrollOffset;
 				_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - 3);
-				Container?.Invalidate(true);
-				return true;
+				if (_horizontalScrollOffset != oldH)
+				{
+					Container?.Invalidate(true);
+					return true;
+				}
+				return false; // bubble to parent
 			}
 
+			int oldOffset = _scrollOffset;
 			ScrollOffset = Math.Max(0, _scrollOffset - 3);
-			return true;
+			return _scrollOffset != oldOffset; // bubble if didn't scroll
 		}
 
 		if (args.HasFlag(MouseFlags.WheeledDown))
 		{
 			if (args.HasFlag(MouseFlags.ButtonShift))
 			{
+				int oldH = _horizontalScrollOffset;
 				_horizontalScrollOffset += 3;
-				Container?.Invalidate(true);
-				return true;
+				if (_horizontalScrollOffset != oldH)
+				{
+					Container?.Invalidate(true);
+					return true;
+				}
+				return false; // bubble to parent
 			}
 
+			int oldOffset = _scrollOffset;
 			int maxOffset = Math.Max(0, RowCount - GetVisibleRowCount());
 			ScrollOffset = Math.Min(maxOffset, _scrollOffset + 3);
-			return true;
+			return _scrollOffset != oldOffset; // bubble if didn't scroll
 		}
 
 		// Left-click
