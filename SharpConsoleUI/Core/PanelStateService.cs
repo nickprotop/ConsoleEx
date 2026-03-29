@@ -245,11 +245,17 @@ namespace SharpConsoleUI.Core
 		{
 			var ws = _getWindowSystem();
 
+			// Sync visibility from legacy StatusBarOptions
+			var statusBar = options.StatusBar;
+			_showTopPanel = statusBar.ShowTopStatus;
+			_showBottomPanel = statusBar.ShowBottomStatus;
+
 			if (options.TopPanelConfig != null)
 			{
 				var builder = options.TopPanelConfig(new Panel.PanelBuilder());
 				_topPanel = builder.Build();
 				_topPanel.WindowSystem = ws;
+				_topPanel.Visible = _showTopPanel;
 			}
 
 			if (options.BottomPanelConfig != null)
@@ -257,12 +263,12 @@ namespace SharpConsoleUI.Core
 				var builder = options.BottomPanelConfig(new Panel.PanelBuilder());
 				_bottomPanel = builder.Build();
 				_bottomPanel.WindowSystem = ws;
+				_bottomPanel.Visible = _showBottomPanel;
 			}
 
 			// Legacy fallback: if no panel builders but StatusBarOptions has legacy config
 			if (options.TopPanelConfig == null && options.BottomPanelConfig == null)
 			{
-				var statusBar = options.StatusBar;
 
 				// Build top panel from legacy config
 				if (statusBar.ShowTopStatus)
