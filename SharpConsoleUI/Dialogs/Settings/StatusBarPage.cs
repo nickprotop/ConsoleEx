@@ -8,10 +8,10 @@ internal static class StatusBarPage
 {
     public static void Build(ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
     {
-        var statusService = windowSystem.StatusBarStateService;
+        var panelService = windowSystem.PanelStateService;
 
         panel.AddControl(Ctl.Markup()
-            .AddLine("[bold rgb(120,180,255)]Status Bar[/]")
+            .AddLine("[bold rgb(120,180,255)]Panels[/]")
             .AddEmptyLine()
             .Build());
 
@@ -20,20 +20,24 @@ internal static class StatusBarPage
             .WithColor(new Color(60, 100, 160))
             .Build());
 
-        panel.AddControl(Ctl.Checkbox("Show top status bar")
-            .Checked(statusService.ShowTopStatus)
+        // Read initial state from panel service
+        bool topVisible = panelService.TopPanel?.Visible ?? panelService.ShowTopPanel;
+        bool bottomVisible = panelService.BottomPanel?.Visible ?? panelService.ShowBottomPanel;
+
+        panel.AddControl(Ctl.Checkbox("Show top panel")
+            .Checked(topVisible)
             .OnCheckedChanged((sender, isChecked) =>
             {
-                statusService.ShowTopStatus = isChecked;
+                panelService.ShowTopPanel = isChecked;
             })
             .WithMargin(0, 1, 0, 0)
             .Build());
 
-        panel.AddControl(Ctl.Checkbox("Show bottom status bar")
-            .Checked(statusService.ShowBottomStatus)
+        panel.AddControl(Ctl.Checkbox("Show bottom panel")
+            .Checked(bottomVisible)
             .OnCheckedChanged((sender, isChecked) =>
             {
-                statusService.ShowBottomStatus = isChecked;
+                panelService.ShowBottomPanel = isChecked;
             })
             .WithMargin(0, 1, 0, 0)
             .Build());

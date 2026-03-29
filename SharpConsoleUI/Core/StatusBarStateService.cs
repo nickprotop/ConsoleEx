@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Logging;
 using SharpConsoleUI.Models;
 using System.Drawing;
@@ -18,47 +17,35 @@ namespace SharpConsoleUI.Core
 	/// Manages status bar state, Start menu actions, and status bar bounds.
 	/// Centralized state service for all status bar and start menu functionality.
 	/// </summary>
+	[Obsolete("Use PanelStateService instead. This type will be removed in a future version.")]
 	public class StatusBarStateService
 	{
+		private readonly PanelStateService _panelStateService;
 		private readonly ILogService _logService;
 		private readonly Func<ConsoleWindowSystem> _getWindowSystem;
-		private readonly List<StartMenuAction> _startMenuActions = new();
-
-		// Start menu window tracking
-		private Window? _startMenuWindow;
-
-		// Status bar state
-		private string _topStatus = "";
-		private string _bottomStatus = "";
-	private bool _showTopStatus = true;
-	private bool _showBottomStatus = true;
-		private bool _isDirty;
-
-		/// <summary>
-		/// Gets whether any status bar property has changed since the last render.
-		/// </summary>
-		public bool IsDirty => _isDirty;
-
-		/// <summary>
-		/// Clears the dirty flag. Called by RenderCoordinator after rendering status bars.
-		/// </summary>
-		public void ClearDirty() => _isDirty = false;
-
-		// Status bar bounds (updated during rendering)
-		private Rectangle _topStatusBarBounds = Rectangle.Empty;
-		private Rectangle _bottomStatusBarBounds = Rectangle.Empty;
-		private Rectangle _startButtonBounds = Rectangle.Empty;
 
 		/// <summary>
 		/// Initializes a new instance of the StatusBarStateService class.
 		/// </summary>
+		/// <param name="panelStateService">The panel state service to delegate to.</param>
 		/// <param name="logService">Service for debug logging.</param>
 		/// <param name="getWindowSystem">Function to get the window system (lazy to avoid circular dependency).</param>
-		public StatusBarStateService(ILogService logService, Func<ConsoleWindowSystem> getWindowSystem)
+		public StatusBarStateService(PanelStateService panelStateService, ILogService logService, Func<ConsoleWindowSystem> getWindowSystem)
 		{
+			_panelStateService = panelStateService ?? throw new ArgumentNullException(nameof(panelStateService));
 			_logService = logService ?? throw new ArgumentNullException(nameof(logService));
 			_getWindowSystem = getWindowSystem ?? throw new ArgumentNullException(nameof(getWindowSystem));
 		}
+
+		/// <summary>
+		/// Gets whether any status bar property has changed since the last render.
+		/// </summary>
+		public bool IsDirty => _panelStateService.IsDirty;
+
+		/// <summary>
+		/// Clears the dirty flag. Called by RenderCoordinator after rendering status bars.
+		/// </summary>
+		public void ClearDirty() => _panelStateService.ClearDirty();
 
 		#region Properties
 
@@ -67,16 +54,8 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public string TopStatus
 		{
-			get => _topStatus;
-			set
-			{
-				var newValue = value ?? "";
-				if (_topStatus != newValue)
-				{
-					_topStatus = newValue;
-					_isDirty = true;
-				}
-			}
+			get => _panelStateService.TopStatus;
+			set => _panelStateService.TopStatus = value;
 		}
 
 		/// <summary>
@@ -84,68 +63,47 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public string BottomStatus
 		{
-			get => _bottomStatus;
-			set
-			{
-				var newValue = value ?? "";
-				if (_bottomStatus != newValue)
-				{
-					_bottomStatus = newValue;
-					_isDirty = true;
-				}
-			}
+			get => _panelStateService.BottomStatus;
+			set => _panelStateService.BottomStatus = value;
 		}
 
-	/// <summary>
-	/// Gets or sets whether the top status bar is visible.
-	/// Changing this affects desktop dimensions and triggers window invalidation.
-	/// </summary>
-	public bool ShowTopStatus
-	{
-		get => _showTopStatus;
-		set
+		/// <summary>
+		/// Gets or sets whether the top status bar is visible.
+		/// Changing this affects desktop dimensions and triggers window invalidation.
+		/// </summary>
+		public bool ShowTopStatus
 		{
-			if (_showTopStatus != value)
-			{
-				_showTopStatus = value;
-				_isDirty = true;
-				_getWindowSystem().Render.InvalidateAllWindows();
-			}
+			get => _panelStateService.ShowTopPanel;
+			set => _panelStateService.ShowTopPanel = value;
 		}
-	}
 
-	/// <summary>
-	/// Gets or sets whether the bottom status bar is visible.
-	/// Changing this affects desktop dimensions and triggers window invalidation.
-	/// </summary>
-	public bool ShowBottomStatus
-	{
-		get => _showBottomStatus;
-		set
+		/// <summary>
+		/// Gets or sets whether the bottom status bar is visible.
+		/// Changing this affects desktop dimensions and triggers window invalidation.
+		/// </summary>
+		public bool ShowBottomStatus
 		{
-			if (_showBottomStatus != value)
-			{
-				_showBottomStatus = value;
-				_isDirty = true;
-				_getWindowSystem().Render.InvalidateAllWindows();
-			}
+			get => _panelStateService.ShowBottomPanel;
+			set => _panelStateService.ShowBottomPanel = value;
 		}
-	}
 
 		/// <summary>
 		/// Gets the top status bar bounds for mouse hit testing.
+		/// Returns empty rectangle — panels handle bounds internally.
 		/// </summary>
-		public Rectangle TopStatusBarBounds => _topStatusBarBounds;
+		public Rectangle TopStatusBarBounds => Rectangle.Empty;
 
 		/// <summary>
 		/// Gets the bottom status bar bounds for mouse hit testing.
+		/// Returns empty rectangle — panels handle bounds internally.
 		/// </summary>
-		public Rectangle BottomStatusBarBounds => _bottomStatusBarBounds;
+		public Rectangle BottomStatusBarBounds => Rectangle.Empty;
 
 		/// <summary>
 		/// Gets the start button bounds for mouse hit testing.
+		/// Returns empty rectangle — panels handle bounds internally.
 		/// </summary>
-		public Rectangle StartButtonBounds => _startButtonBounds;
+		public Rectangle StartButtonBounds => Rectangle.Empty;
 
 		#endregion
 
@@ -153,19 +111,22 @@ namespace SharpConsoleUI.Core
 
 		/// <summary>
 		/// Gets the height occupied by the top status bar (0 or 1).
-		/// Accounts for both status text and performance metrics.
+		/// Delegates to panel height if available.
 		/// </summary>
 		/// <param name="showTopStatus">Whether the top status bar is enabled.</param>
 		/// <param name="enablePerformanceMetrics">Whether performance metrics are enabled.</param>
 		/// <returns>Height in rows (0 or 1).</returns>
 		public int GetTopStatusHeight(bool showTopStatus, bool enablePerformanceMetrics)
 		{
-			return showTopStatus && (!string.IsNullOrEmpty(_topStatus) || enablePerformanceMetrics) ? 1 : 0;
+			var topPanel = _panelStateService.TopPanel;
+			if (topPanel != null)
+				return topPanel.Height;
+			return showTopStatus && (!string.IsNullOrEmpty(_panelStateService.TopStatus) || enablePerformanceMetrics) ? 1 : 0;
 		}
 
 		/// <summary>
 		/// Gets the height occupied by the bottom status bar (0 or 1).
-		/// Accounts for both status text and Start button.
+		/// Delegates to panel height if available.
 		/// </summary>
 		/// <param name="showBottomStatus">Whether the bottom status bar is enabled.</param>
 		/// <param name="showTaskBar">Whether the task bar (window list) is enabled.</param>
@@ -174,9 +135,12 @@ namespace SharpConsoleUI.Core
 		/// <returns>Height in rows (0 or 1).</returns>
 		public int GetBottomStatusHeight(bool showBottomStatus, bool showTaskBar, bool showStartButton, StatusBarLocation startButtonLocation)
 		{
-			bool hasContent = !string.IsNullOrEmpty(_bottomStatus) || showTaskBar;
-			bool hasStartButton = showStartButton && startButtonLocation == StatusBarLocation.Bottom;
+			var bottomPanel = _panelStateService.BottomPanel;
+			if (bottomPanel != null)
+				return bottomPanel.Height;
 
+			bool hasContent = !string.IsNullOrEmpty(_panelStateService.BottomStatus) || showTaskBar;
+			bool hasStartButton = showStartButton && startButtonLocation == StatusBarLocation.Bottom;
 			return showBottomStatus && (hasContent || hasStartButton) ? 1 : 0;
 		}
 
@@ -185,8 +149,7 @@ namespace SharpConsoleUI.Core
 		#region Status Bar Bounds Management
 
 		/// <summary>
-		/// Updates the status bar bounds based on current screen size and configuration.
-		/// Call this after screen resizes or configuration changes.
+		/// Updates the status bar bounds. No-op — panels handle bounds internally.
 		/// </summary>
 		/// <param name="screenWidth">Current screen width.</param>
 		/// <param name="screenHeight">Current screen height.</param>
@@ -195,32 +158,7 @@ namespace SharpConsoleUI.Core
 		/// <param name="options">Status bar configuration options.</param>
 		public void UpdateStatusBarBounds(int screenWidth, int screenHeight, bool showTopStatus, bool showBottomStatus, StatusBarOptions options)
 		{
-			if (showTopStatus)
-				_topStatusBarBounds = new Rectangle(0, 0, screenWidth, 1);
-
-			if (showBottomStatus)
-				_bottomStatusBarBounds = new Rectangle(0, screenHeight - 1, screenWidth, 1);
-
-			if (options.ShowStartButton)
-			{
-				int y = options.StartButtonLocation == StatusBarLocation.Top
-					? 0
-					: (screenHeight - 1);
-
-				int x;
-				int width = Parsing.MarkupParser.StripLength(options.StartButtonText) + 1;
-
-				if (options.StartButtonPosition == StartButtonPosition.Left)
-				{
-					x = 0;
-				}
-				else
-				{
-					x = screenWidth - width;
-				}
-
-				_startButtonBounds = new Rectangle(x, y, width, 1);
-			}
+			// No-op — panels handle bounds internally
 		}
 
 		#endregion
@@ -236,9 +174,7 @@ namespace SharpConsoleUI.Core
 		/// <param name="order">Display order (lower values appear first).</param>
 		public void RegisterStartMenuAction(string name, Action callback, string? category = null, int order = 0)
 		{
-			_logService.LogDebug($"Registering Start menu action: {name}", category: "StartMenu");
-			var action = new StartMenuAction(name, callback, category, order);
-			_startMenuActions.Add(action);
+			_panelStateService.RegisterStartMenuAction(name, callback, category, order);
 		}
 
 		/// <summary>
@@ -247,15 +183,14 @@ namespace SharpConsoleUI.Core
 		/// <param name="name">Name of the action to remove.</param>
 		public void UnregisterStartMenuAction(string name)
 		{
-			_logService.LogDebug($"Unregistering Start menu action: {name}", category: "StartMenu");
-			_startMenuActions.RemoveAll(a => a.Name == name);
+			_panelStateService.UnregisterStartMenuAction(name);
 		}
 
 		/// <summary>
 		/// Gets all registered Start menu actions.
 		/// </summary>
 		/// <returns>Read-only list of actions.</returns>
-		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _startMenuActions.AsReadOnly();
+		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _panelStateService.GetStartMenuActions();
 
 		#endregion
 
@@ -267,8 +202,8 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		internal Window? StartMenuWindow
 		{
-			get => _startMenuWindow;
-			set => _startMenuWindow = value;
+			get => _panelStateService.StartMenuWindow;
+			set => _panelStateService.StartMenuWindow = value;
 		}
 
 		/// <summary>
@@ -276,18 +211,7 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public void ShowStartMenu()
 		{
-			_logService.LogDebug("Showing Start menu", category: "StartMenu");
-			var windowSystem = _getWindowSystem();
-
-			// Access window system as ConsoleWindowSystem for dialog
-			if (windowSystem is ConsoleWindowSystem consoleWindowSystem)
-			{
-				StartMenuDialog.Show(consoleWindowSystem);
-			}
-			else
-			{
-				_logService.LogWarning("Cannot show Start menu: window system is not ConsoleWindowSystem", category: "StartMenu");
-			}
+			_panelStateService.ShowStartMenu();
 		}
 
 		#endregion
@@ -307,35 +231,14 @@ namespace SharpConsoleUI.Core
 		public Action<int>? BottomStatusClickHandler { get; set; }
 
 		/// <summary>
-		/// Handles status bar mouse click (e.g., start button).
+		/// Handles status bar mouse click. Delegates to panels if available, otherwise returns false.
 		/// </summary>
 		/// <param name="x">X coordinate of click.</param>
 		/// <param name="y">Y coordinate of click.</param>
 		/// <returns>True if the click was handled; false otherwise.</returns>
 		public bool HandleStatusBarClick(int x, int y)
 		{
-			// Check if click is on Start button
-			if (_startButtonBounds.Contains(x, y))
-			{
-				_logService.LogDebug($"Start button clicked at ({x}, {y})", category: "StartMenu");
-				ShowStartMenu();
-				return true;
-			}
-
-			// Forward top status bar clicks to optional external handler
-			if (_topStatusBarBounds.Contains(x, y) && TopStatusClickHandler != null)
-			{
-				TopStatusClickHandler(x);
-				return true;
-			}
-
-			// Forward bottom status bar clicks to optional external handler
-			if (_bottomStatusBarBounds.Contains(x, y) && BottomStatusClickHandler != null)
-			{
-				BottomStatusClickHandler(x);
-				return true;
-			}
-
+			// Panels handle all clicks now — this is a no-op fallback
 			return false;
 		}
 

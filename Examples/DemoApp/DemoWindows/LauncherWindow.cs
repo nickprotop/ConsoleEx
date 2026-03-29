@@ -60,6 +60,8 @@ public static class LauncherWindow
                     content: MakeInfoPanel("Alpha Blending"))
                 .AddItem("Canvas Animations", subtitle: "Starfield, plasma & geometry canvases",
                     content: MakeCanvasInfoPanel()))
+            .AddHeader("System", new Color(180, 140, 255), header => header
+                .AddItem("Panel Config", subtitle: "Desktop panel configuration", content: MakeInfoPanel("Panel Config")))
             .AddHeader("Utilities", Color.Magenta1, header => header
                 .AddItem("Built-in Dialogs", subtitle: "File pickers & system dialogs", content: MakeInfoPanel("Built-in Dialogs"))
                 .AddItem("Digital Clock", subtitle: "FIGlet-rendered clock", content: MakeInfoPanel("Digital Clock"))
@@ -246,6 +248,7 @@ public static class LauncherWindow
             "Toolbar" => ToolbarDemoWindow.Create(ws),
             "Welcome Banner" => WelcomeWindow.Create(ws),
             "Alpha Blending" => AlphaBlendingDemoWindow.Create(ws),
+            "Panel Config" => PanelConfigWindow.Create(ws),
             "Canvas Animations" => OpenCanvasWindows(ws),
             "Video Player" => VideoDemoWindow.Create(ws),
             _ => (Window?)null
@@ -770,6 +773,26 @@ public static class LauncherWindow
                 "  - Live Color.Blend() compositor with slider",
                 "  - Animated pulse panel (sin-wave alpha)",
                 "  - Animated background gradient (checkbox-controlled)",
+            },
+            "Panel Config" => new List<string>
+            {
+                "[bold cyan]Panel Configuration[/]",
+                "",
+                "Interactive control center for the desktop panel system.",
+                "Toggle panels, add/remove elements at runtime, and",
+                "customize colors and element settings.",
+                "",
+                "[dim]Features:[/]",
+                "  - Show/hide top and bottom panels",
+                "  - Add/remove clock, status text, separators",
+                "  - Color presets for both panels",
+                "  - Clock format and update interval",
+                "  - Performance metrics toggle & options",
+                "  - Task bar display configuration",
+                "",
+                "[dim]Panel elements:[/]",
+                "  - StatusText, Separator, StartMenu",
+                "  - TaskBar, Clock, Performance, Custom",
             },
             "Video Player" => new List<string>
             {

@@ -76,7 +76,10 @@ namespace SharpConsoleUI
 		private readonly ThemeStateService _themeStateService;
 		private readonly InputStateService _inputStateService;
 		private readonly NotificationStateService _notificationStateService;
+		private readonly PanelStateService _panelStateService;
+#pragma warning disable CS0612, CS0618 // Type or member is obsolete
 		private readonly StatusBarStateService _statusBarStateService;
+#pragma warning restore CS0612, CS0618
 		private readonly SettingsRegistrationService _settingsRegistrationService = new();
 		private readonly Core.DesktopPortalService _desktopPortalService;
 
@@ -195,7 +198,10 @@ namespace SharpConsoleUI
 			_modalStateService = new ModalStateService(_logService);
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
-			_statusBarStateService = new StatusBarStateService(_logService, () => this);
+			_panelStateService = new PanelStateService(_logService, () => this);
+#pragma warning disable CS0612, CS0618 // Type or member is obsolete
+			_statusBarStateService = new StatusBarStateService(_panelStateService, _logService, () => this);
+#pragma warning restore CS0612, CS0618
 			_desktopPortalService = new Core.DesktopPortalService(_logService, this);
 
 			// Initialize notification service (needs 'this' reference)
@@ -280,6 +286,9 @@ namespace SharpConsoleUI
 			{
 				_pluginStateService.LoadPluginsFromDirectory(pluginConfiguration.GetEffectivePluginsDirectory());
 			}
+
+			// Initialize panels from config or legacy StatusBarOptions
+			_panelStateService.InitializePanels(_options);
 		}
 
 		#endregion
@@ -371,9 +380,17 @@ namespace SharpConsoleUI
 		public RegistryStateService? RegistryStateService => _registryStateService;
 
 		/// <summary>
+		/// Gets the panel state service for managing panels, Start menu, and panel visibility.
+		/// </summary>
+		public PanelStateService PanelStateService => _panelStateService;
+
+		/// <summary>
 		/// Gets the status bar state service for managing status bars and Start menu.
 		/// </summary>
+		[Obsolete("Use PanelStateService instead. This property will be removed in a future version.")]
+#pragma warning disable CS0612, CS0618 // Type or member is obsolete
 		public StatusBarStateService StatusBarStateService => _statusBarStateService;
+#pragma warning restore CS0612, CS0618
 
 		/// <summary>
 		/// Gets the settings registration service for adding custom settings pages.
@@ -384,6 +401,16 @@ namespace SharpConsoleUI
 		/// Gets the desktop portal service for managing desktop-level overlay portals.
 		/// </summary>
 		public Core.DesktopPortalService DesktopPortalService => _desktopPortalService;
+
+		/// <summary>
+		/// Gets the top panel (desktop bar) if configured, or null.
+		/// </summary>
+		public Panel.Panel? TopPanel => _panelStateService.TopPanel;
+
+		/// <summary>
+		/// Gets the bottom panel (desktop bar) if configured, or null.
+		/// </summary>
+		public Panel.Panel? BottomPanel => _panelStateService.BottomPanel;
 
 		/// <summary>
 		/// Gets the library-managed logging service.
@@ -418,17 +445,17 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the upper-left coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopUpperLeft => new Point(0, _statusBarStateService.GetTopStatusHeight(_statusBarStateService.ShowTopStatus, _options.EnablePerformanceMetrics));
+		public Point DesktopUpperLeft => new Point(0, Render.GetTopStatusHeight());
 
 		/// <summary>
 		/// Gets the bottom-right coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - _statusBarStateService.GetTopStatusHeight(_statusBarStateService.ShowTopStatus, _options.EnablePerformanceMetrics) - _statusBarStateService.GetBottomStatusHeight(_statusBarStateService.ShowBottomStatus, _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation));
+		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight());
 
 		/// <summary>
 		/// Gets the dimensions of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - _statusBarStateService.GetTopStatusHeight(_statusBarStateService.ShowTopStatus, _options.EnablePerformanceMetrics) - _statusBarStateService.GetBottomStatusHeight(_statusBarStateService.ShowBottomStatus, _options.StatusBar.ShowTaskBar, _options.StatusBar.ShowStartButton, _options.StatusBar.StartButtonLocation));
+		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight());
 
 		/// <summary>
 		/// Gets the visible regions manager for calculating window visibility.
@@ -741,6 +768,18 @@ namespace SharpConsoleUI
 			Input.ProcessInput();
 			Render.UpdateDisplay();
 			UpdateCursor();
+		}
+
+		/// <summary>
+		/// Forces a full screen clear and desktop repaint.
+		/// Used when desktop bounds change (e.g., panel visibility toggle).
+		/// </summary>
+		internal void ForceFullRedraw()
+		{
+			_consoleDriver.Clear();
+			_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);
+			Render.DesktopNeedsRender = true;
+			Render.InvalidateAllWindows();
 		}
 
 		/// <summary>

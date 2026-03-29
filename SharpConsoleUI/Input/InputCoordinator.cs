@@ -150,14 +150,27 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private void HandleMouseEvent(object sender, List<MouseFlags> flags, Point point)
 		{
-			// Check for Start button click first (both Pressed and Clicked —
-			// terminals send them as separate events for the same physical click)
+			// Check panel clicks first (both Pressed and Clicked)
 			if (flags.Contains(MouseFlags.Button1Pressed) || flags.Contains(MouseFlags.Button1Clicked))
 			{
-				if (_context.StatusBarStateService.HandleStatusBarClick(point.X, point.Y))
+				// Route to top panel
+				if (_context.TopPanel != null && _context.TopPanel.Visible && point.Y == 0)
 				{
-					return;
+					var args = new Events.MouseEventArgs(flags, point, point, point);
+					if (_context.TopPanel.ProcessMouseEvent(args))
+						return;
 				}
+
+				// Route to bottom panel
+				if (_context.BottomPanel != null && _context.BottomPanel.Visible &&
+					point.Y == _consoleDriver.ScreenSize.Height - 1)
+				{
+					var args = new Events.MouseEventArgs(flags, point, point, point);
+					if (_context.BottomPanel.ProcessMouseEvent(args))
+						return;
+				}
+
+				// Panel click handling is done above via TopPanel/BottomPanel routing
 			}
 
 			// Desktop portal mouse handling — portals intercept clicks before windows
@@ -818,7 +831,7 @@ namespace SharpConsoleUI.Input
 			if (key.Key == options.StartMenuShortcutKey &&
 				key.Modifiers == options.StartMenuShortcutModifiers)
 			{
-				_context.StatusBarStateService.ShowStartMenu();
+				_context.PanelStateService.ShowStartMenu();
 				return true;
 			}
 			return false;

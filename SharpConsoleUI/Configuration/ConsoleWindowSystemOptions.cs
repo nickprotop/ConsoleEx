@@ -80,7 +80,11 @@ public record ConsoleWindowSystemOptions(
     int DiagnosticsRetainFrames = 1,
     DiagnosticsLayers DiagnosticsLayers = DiagnosticsLayers.All,
     bool EnableQualityAnalysis = false,
-    bool EnablePerformanceProfiling = false
+    bool EnablePerformanceProfiling = false,
+
+    // Panel system configuration (replaces hardcoded status bars)
+    Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? TopPanelConfig = null,
+    Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? BottomPanelConfig = null
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

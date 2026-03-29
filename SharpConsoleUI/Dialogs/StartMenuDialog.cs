@@ -39,11 +39,11 @@ public static class StartMenuDialog
 		_lastInvocation = now;
 
 		// Toggle: close existing start menu window if open
-		var existing = windowSystem.StatusBarStateService.StartMenuWindow;
+		var existing = windowSystem.PanelStateService.StartMenuWindow;
 		if (existing != null)
 		{
 			existing.Close(force: true);
-			windowSystem.StatusBarStateService.StartMenuWindow = null;
+			windowSystem.PanelStateService.StartMenuWindow = null;
 			return;
 		}
 
@@ -164,9 +164,16 @@ public static class StartMenuDialog
 			windowSystem.DesktopDimensions.Height);
 
 		var startButtonLocation = windowSystem.Options.StatusBar.StartButtonLocation;
-		var startBounds = windowSystem.StatusBarStateService.StartButtonBounds;
 		var desktopUpperLeft = windowSystem.DesktopUpperLeft;
 		var desktopBottomRight = windowSystem.DesktopBottomRight;
+
+		// Compute start button bounds from config for positioning anchor
+		int screenWidth = desktopBottomRight.X + 1;
+		int startBtnWidth = MarkupParser.StripLength(windowSystem.Options.StatusBar.StartButtonText) + 1;
+		int startBtnX = windowSystem.Options.StatusBar.StartButtonPosition == StartButtonPosition.Left
+			? 0
+			: screenWidth - startBtnWidth;
+		var startBounds = new System.Drawing.Rectangle(startBtnX, 0, startBtnWidth, 1);
 
 		int availableWidth = desktopBottomRight.X + 1 - desktopUpperLeft.X;
 		int availableHeight = desktopBottomRight.Y + 1 - desktopUpperLeft.Y;
@@ -232,12 +239,12 @@ public static class StartMenuDialog
 		builder.OnClosed((s, e) =>
 		{
 			menuOpts.OptionsChanged -= optionsHandler;
-			windowSystem.StatusBarStateService.StartMenuWindow = null;
+			windowSystem.PanelStateService.StartMenuWindow = null;
 		});
 
 		// Register BEFORE BuildAndShow so OnDeactivated can find it
 		var window = builder.Build();
-		windowSystem.StatusBarStateService.StartMenuWindow = window;
+		windowSystem.PanelStateService.StartMenuWindow = window;
 		windowSystem.AddWindow(window, activateWindow: true);
 	}
 
@@ -282,7 +289,7 @@ public static class StartMenuDialog
 		}
 
 		// "Actions" category — conditional (order 40)
-		var userActions = windowSystem.StatusBarStateService.GetStartMenuActions();
+		var userActions = windowSystem.PanelStateService.GetStartMenuActions();
 		if (userActions.Count > 0)
 		{
 			var actionsItem = navView.AddItem("Actions", icon: useIcons ? ControlDefaults.StartMenuActionsIcon : null);
@@ -380,7 +387,7 @@ public static class StartMenuDialog
 		}
 
 		// User actions
-		var userActions = windowSystem.StatusBarStateService.GetStartMenuActions();
+		var userActions = windowSystem.PanelStateService.GetStartMenuActions();
 		if (userActions.Count > 0)
 		{
 			var userRule = new RuleControl { Title = "User Actions", BorderStyle = BorderStyle.Single };
@@ -523,7 +530,7 @@ public static class StartMenuDialog
 	private static void BuildActionsContent(
 		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
 	{
-		var userActions = windowSystem.StatusBarStateService.GetStartMenuActions();
+		var userActions = windowSystem.PanelStateService.GetStartMenuActions();
 		var actionList = new ListControl();
 		foreach (var action in userActions.OrderBy(a => a.Order))
 		{
@@ -658,11 +665,11 @@ public static class StartMenuDialog
 	/// </summary>
 	private static void CloseStartMenu(ConsoleWindowSystem windowSystem)
 	{
-		var smw = windowSystem.StatusBarStateService.StartMenuWindow;
+		var smw = windowSystem.PanelStateService.StartMenuWindow;
 		if (smw != null)
 		{
 			smw.Close(force: true);
-			windowSystem.StatusBarStateService.StartMenuWindow = null;
+			windowSystem.PanelStateService.StartMenuWindow = null;
 		}
 	}
 
