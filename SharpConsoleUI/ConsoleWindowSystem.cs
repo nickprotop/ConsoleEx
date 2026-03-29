@@ -724,6 +724,15 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Forces an immediate render cycle, bypassing frame rate limiting.
+		/// Intended for benchmarking and testing scenarios.
+		/// </summary>
+		public void ForceRender()
+		{
+			Render.UpdateDisplay();
+		}
+
+		/// <summary>
 		/// Processes one iteration of the main loop (input, display, cursor).
 		/// This is useful for modal dialogs that need to block while still processing UI events.
 		/// </summary>

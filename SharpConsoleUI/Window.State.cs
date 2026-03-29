@@ -576,6 +576,9 @@ namespace SharpConsoleUI
 			_width = width;
 			_height = height;
 
+			// Border cache depends on dimensions
+			InvalidateBorderCache();
+
 			// IMPORTANT: Invalidate controls FIRST so they clear their caches
 			Invalidate(true);
 

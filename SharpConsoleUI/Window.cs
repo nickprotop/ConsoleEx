@@ -494,9 +494,15 @@ namespace SharpConsoleUI
 			{
 				if (_height != value)
 				{
+					// Clear the old bounds so vacated screen area is repainted
+					if (_windowSystem?.Render != null)
+					{
+						var oldBounds = new System.Drawing.Rectangle(_left, _top, _width, _height);
+						_windowSystem.Render.AddPendingDesktopClear(oldBounds);
+					}
+
 					_height = value;
 					InvalidateBorderCache();
-					// Layout will be updated lazily on next event
 					Invalidate(true);
 				}
 			}
@@ -817,9 +823,15 @@ namespace SharpConsoleUI
 			{
 				if (_width != value)
 				{
+					// Clear the old bounds so vacated screen area is repainted
+					if (_windowSystem?.Render != null)
+					{
+						var oldBounds = new System.Drawing.Rectangle(_left, _top, _width, _height);
+						_windowSystem.Render.AddPendingDesktopClear(oldBounds);
+					}
+
 					_width = value;
 					InvalidateBorderCache();
-					// Layout will be updated lazily on next event
 					Invalidate(true);
 				}
 			}
