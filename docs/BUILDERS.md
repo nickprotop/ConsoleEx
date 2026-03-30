@@ -7,6 +7,7 @@ SharpConsoleUI provides fluent builder APIs for creating windows and controls wi
 ## Table of Contents
 
 - [WindowBuilder](#windowbuilder)
+- [Panel and Element Builders](#panel-and-element-builders)
 - [Control Builders](#control-builders)
 - [Controls Static Factory](#controls-static-factory)
 - [Builder Patterns](#builder-patterns)
@@ -120,6 +121,93 @@ var mainWindow = new WindowBuilder(windowSystem)
         }
     })
     .Build();
+```
+
+## Panel and Element Builders
+
+Panel builders configure the top and bottom screen-level bars. See the [Panel System guide](PANELS.md) for the full reference.
+
+### PanelBuilder
+
+```csharp
+using SharpConsoleUI.Panel;
+
+// Used via ConsoleWindowSystemOptions
+var options = new ConsoleWindowSystemOptions(
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[bold cyan]My App[/]"))
+        .Left(Elements.Separator())
+        .Right(Elements.Performance()),
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StartMenu())
+        .Center(Elements.TaskBar())
+        .Right(Elements.Clock().WithFormat("HH:mm:ss"))
+);
+
+// Or standalone
+var panel = Panel.Builder()
+    .Left(Elements.StatusText("Left"))
+    .Center(Elements.TaskBar())
+    .Right(Elements.Clock())
+    .WithBackgroundColor(Color.DarkBlue)
+    .Build();
+```
+
+**Methods:**
+- `.Left(element)` / `.Center(element)` / `.Right(element)` — Add element to zone
+- `.WithBackgroundColor(Color)` — Set background color
+- `.WithForegroundColor(Color)` — Set foreground color
+- `.Visible(bool)` — Set initial visibility
+- `.Build()` — Build the Panel
+
+### Elements Factory
+
+The `Elements` static class returns element builders:
+
+```csharp
+Elements.StatusText("text")    // StatusTextElementBuilder
+Elements.Separator()           // SeparatorElementBuilder
+Elements.TaskBar()             // TaskBarElementBuilder
+Elements.Clock()               // ClockElementBuilder
+Elements.Performance()         // PerformanceElementBuilder
+Elements.StartMenu()           // StartMenuElementBuilder
+Elements.Custom("name")        // CustomElementBuilder
+```
+
+### Element Builder Examples
+
+```csharp
+// StatusText with click handler
+Elements.StatusText("[bold]Title[/]")
+    .WithName("title")
+    .WithColor(Color.Cyan1)
+    .OnClick(() => ShowAbout())
+
+// Clock with custom format
+Elements.Clock()
+    .WithFormat("HH:mm:ss")
+    .WithColor(Color.Yellow)
+    .WithUpdateInterval(1000)
+
+// Start Menu with options
+Elements.StartMenu()
+    .WithText("☰ Start")
+    .WithColors(Color.White, Color.DarkBlue)
+    .WithShortcutKey(ConsoleKey.Spacebar, ConsoleModifiers.Control)
+    .WithOptions(new StartMenuOptions { AppName = "My App" })
+
+// TaskBar with colors
+Elements.TaskBar()
+    .WithActiveColor(Color.Cyan1)
+    .WithInactiveColor(Color.Grey50)
+
+// Custom element
+Elements.Custom("indicator")
+    .WithFixedWidth(12)
+    .WithRenderCallback((buffer, x, y, width, fg, bg) =>
+    {
+        buffer.WriteString(x, y, "● Online", fg, bg);
+    })
 ```
 
 ## Control Builders

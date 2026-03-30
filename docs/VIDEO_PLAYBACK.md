@@ -404,13 +404,15 @@ using SharpConsoleUI.Video;
 
 // 1. Create the window system
 //    RenderMode.Buffer enables double-buffered rendering for smooth output.
-//    Hide the taskbar for a cleaner single-window app look.
+//    Configure panels for a clean single-window app look.
 var windowSystem = new ConsoleWindowSystem(
     RenderMode.Buffer,
     options: new ConsoleWindowSystemOptions(
-        StatusBarOptions: new StatusBarOptions(ShowTaskBar: false)));
+        TopPanelConfig: panel => panel
+            .Left(Elements.StatusText("")),
+        ShowBottomPanel: false));
 
-// 2. Set up status bar text — this appears at the top of the terminal
+// 2. Set up panel text — this appears at the top of the terminal
 windowSystem.PanelStateService.TopStatus =
     "Video Player — Space: Play/Pause | M: Mode | L: Loop | Esc: Stop";
 

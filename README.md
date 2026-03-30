@@ -170,6 +170,10 @@ window.AddControl(Controls.Button("Submit")
 // Notifications
 windowSystem.NotificationStateService.ShowNotification("Title", "Message", NotificationSeverity.Info);
 
+// Panel status text
+windowSystem.PanelStateService.TopStatus = "[bold]My App[/]";
+windowSystem.PanelStateService.BottomStatus = "Ready";
+
 // Debug logging (file-based, never console)
 // export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
 windowSystem.LogService.LogAdded += (s, entry) => { /* handle */ };
@@ -281,7 +285,8 @@ dotnet run --project Examples/DemoApp
 | **[DOM Layout System](docs/DOM_LAYOUT_SYSTEM.md)** | Layout engine internals |
 | **[Rendering Pipeline](docs/RENDERING_PIPELINE.md)** | Rendering architecture details |
 | **[Portal System](docs/PORTAL_SYSTEM.md)** | Floating portals and overlay system |
-| **[Status System](docs/STATUS_SYSTEM.md)** | Status bars, window task bar, Start Menu |
+| **[Panel System](docs/PANELS.md)** | Configurable top/bottom panels with elements |
+| **[Panels, Task Bar & Start Menu](docs/STATUS_SYSTEM.md)** | Task bar, Start Menu, performance metrics |
 | **[Desktop Host (schost)](docs/SCHOST.md)** | Launch, package, and distribute TUI apps as desktop apps |
 
 **API Reference**: [nickprotop.github.io/ConsoleEx](https://nickprotop.github.io/ConsoleEx/)
