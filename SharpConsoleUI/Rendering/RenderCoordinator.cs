@@ -241,7 +241,11 @@ namespace SharpConsoleUI.Rendering
 				{
 					service.NeedsScreenUpdate = false;
 
+					// Re-render the buffer on the render thread (animation timer only
+					// sets the flag — rendering here avoids race conditions with the
+					// thread pool timer writing to the buffer while we read it).
 					var desktopDims = _windowSystemContext.DesktopDimensions;
+					service.Render(desktopDims.Width, desktopDims.Height);
 					var desktopRect = new Rectangle(0, 0, desktopDims.Width, desktopDims.Height);
 
 					// Collect all visible (non-minimized) windows

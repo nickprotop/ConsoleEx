@@ -238,14 +238,16 @@ public class DesktopBackgroundService : IDisposable
     }
 
     /// <summary>
-    /// Animation timer tick handler. Re-renders the desktop and signals dirty.
+    /// Animation timer tick handler. Signals the render thread to re-render
+    /// on the next frame. Does NOT render here — rendering on a thread pool
+    /// thread races with the render thread reading the buffer, causing tearing.
+    /// The render coordinator calls Render() synchronously before blitting.
     /// </summary>
     private void OnAnimationTick(object? sender, ElapsedEventArgs e)
     {
         if (_disposed || _width <= 0 || _height <= 0)
             return;
 
-        Render(_width, _height);
         NeedsScreenUpdate = true;
         _onDesktopDirty();
     }
