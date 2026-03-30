@@ -80,11 +80,6 @@ public record ConsoleWindowSystemOptions(
     bool EnableQualityAnalysis = false,
     bool EnablePerformanceProfiling = false,
 
-    // Start menu configuration
-    StartMenuOptions? StartMenu = null,
-    ConsoleKey StartMenuShortcutKey = ConsoleKey.Spacebar,
-    ConsoleModifiers StartMenuShortcutModifiers = ConsoleModifiers.Control,
-
     // Panel system configuration
     Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? TopPanelConfig = null,
     Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? BottomPanelConfig = null,

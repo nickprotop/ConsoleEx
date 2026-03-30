@@ -7,23 +7,17 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Logging;
-using SharpConsoleUI.Models;
 
 namespace SharpConsoleUI.Core
 {
 	/// <summary>
-	/// Manages panel state, start menu actions, and panel visibility.
+	/// Manages panel state and visibility.
 	/// </summary>
 	public class PanelStateService
 	{
 		private readonly ILogService _logService;
 		private readonly Func<ConsoleWindowSystem> _getWindowSystem;
-		private readonly List<StartMenuAction> _startMenuActions = new();
-
-		// Start menu window tracking
-		private Window? _startMenuWindow;
 
 		// Panel references
 		private Panel.Panel? _topPanel;
@@ -32,11 +26,6 @@ namespace SharpConsoleUI.Core
 		// Visibility
 		private bool _showTopPanel = true;
 		private bool _showBottomPanel = true;
-
-		// Start menu configuration
-		private StartMenuOptions _startMenuOptions = new();
-		private ConsoleKey _startMenuShortcutKey = ConsoleKey.Spacebar;
-		private ConsoleModifiers _startMenuShortcutModifiers = ConsoleModifiers.Control;
 
 		/// <summary>
 		/// Initializes a new instance of the PanelStateService class.
@@ -67,28 +56,6 @@ namespace SharpConsoleUI.Core
 		public bool IsDirty =>
 			(_topPanel?.IsDirty ?? false)
 			|| (_bottomPanel?.IsDirty ?? false);
-
-		/// <summary>
-		/// Gets the start menu options configuration.
-		/// </summary>
-		public StartMenuOptions StartMenuOptions => _startMenuOptions;
-
-		/// <summary>
-		/// Gets the shortcut key for toggling the start menu.
-		/// </summary>
-		public ConsoleKey StartMenuShortcutKey => _startMenuShortcutKey;
-
-		/// <summary>
-		/// Gets the shortcut modifier keys for toggling the start menu.
-		/// </summary>
-		public ConsoleModifiers StartMenuShortcutModifiers => _startMenuShortcutModifiers;
-
-		/// <summary>
-		/// Gets whether any panel contains a StartMenuElement.
-		/// </summary>
-		public bool HasStartMenu =>
-			(_topPanel?.HasElement<Panel.StartMenuElement>() ?? false) ||
-			(_bottomPanel?.HasElement<Panel.StartMenuElement>() ?? false);
 
 		/// <summary>
 		/// Marks both panels as dirty, forcing a re-render on the next frame.
@@ -175,98 +142,6 @@ namespace SharpConsoleUI.Core
 
 		#endregion
 
-		#region Start Menu Actions
-
-		/// <summary>
-		/// Registers a new action in the Start menu.
-		/// </summary>
-		/// <param name="name">Display name of the action.</param>
-		/// <param name="callback">Callback to execute when action is selected.</param>
-		/// <param name="category">Optional category for grouping actions.</param>
-		/// <param name="order">Display order (lower values appear first).</param>
-		public void RegisterStartMenuAction(string name, Action callback, string? category = null, int order = 0)
-		{
-			_logService.LogDebug($"Registering Start menu action: {name}", category: "StartMenu");
-			var action = new StartMenuAction(name, callback, category, order);
-			_startMenuActions.Add(action);
-		}
-
-		/// <summary>
-		/// Removes an action from the Start menu by name.
-		/// </summary>
-		/// <param name="name">Name of the action to remove.</param>
-		public void UnregisterStartMenuAction(string name)
-		{
-			_logService.LogDebug($"Unregistering Start menu action: {name}", category: "StartMenu");
-			_startMenuActions.RemoveAll(a => a.Name == name);
-		}
-
-		/// <summary>
-		/// Gets all registered Start menu actions.
-		/// </summary>
-		/// <returns>Read-only list of actions.</returns>
-		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _startMenuActions.AsReadOnly();
-
-		#endregion
-
-		#region Start Menu Display
-
-		/// <summary>
-		/// Gets or sets the currently open Start menu window, if any.
-		/// Used for toggle behavior — if non-null, the Start menu is open.
-		/// </summary>
-		internal Window? StartMenuWindow
-		{
-			get => _startMenuWindow;
-			set => _startMenuWindow = value;
-		}
-
-		/// <summary>
-		/// Gets the screen bounds and panel location of the start menu element.
-		/// Returns null if no start menu element exists in any panel.
-		/// </summary>
-		internal (System.Drawing.Rectangle bounds, bool isBottom)? GetStartMenuBounds()
-		{
-			var ws = _getWindowSystem();
-			var screenHeight = ws.DesktopDimensions.Height
-				+ (_topPanel?.Height ?? 0)
-				+ (_bottomPanel?.Height ?? 0);
-
-			if (_bottomPanel != null)
-			{
-				var b = _bottomPanel.GetElementBounds<Panel.StartMenuElement>();
-				if (b.HasValue)
-					return (new System.Drawing.Rectangle(b.Value.x, screenHeight - 1, b.Value.width, 1), true);
-			}
-			if (_topPanel != null)
-			{
-				var b = _topPanel.GetElementBounds<Panel.StartMenuElement>();
-				if (b.HasValue)
-					return (new System.Drawing.Rectangle(b.Value.x, 0, b.Value.width, 1), false);
-			}
-			return null;
-		}
-
-		/// <summary>
-		/// Shows the Start menu dialog.
-		/// </summary>
-		public void ShowStartMenu()
-		{
-			_logService.LogDebug("Showing Start menu", category: "StartMenu");
-			var windowSystem = _getWindowSystem();
-
-			if (windowSystem is ConsoleWindowSystem consoleWindowSystem)
-			{
-				StartMenuDialog.Show(consoleWindowSystem);
-			}
-			else
-			{
-				_logService.LogWarning("Cannot show Start menu: window system is not ConsoleWindowSystem", category: "StartMenu");
-			}
-		}
-
-		#endregion
-
 		#region Panel Initialization
 
 		/// <summary>
@@ -278,12 +153,6 @@ namespace SharpConsoleUI.Core
 		public void InitializePanels(ConsoleWindowSystemOptions options)
 		{
 			var ws = _getWindowSystem();
-
-			// Apply start menu config
-			if (options.StartMenu != null)
-				_startMenuOptions = options.StartMenu;
-			_startMenuShortcutKey = options.StartMenuShortcutKey;
-			_startMenuShortcutModifiers = options.StartMenuShortcutModifiers;
 
 			// Top panel: user config or default (status text + clock)
 			if (options.TopPanelConfig != null)

@@ -819,22 +819,37 @@ namespace SharpConsoleUI.Input
 
 		/// <summary>
 		/// Handles start menu keyboard shortcut.
+		/// Iterates all StartMenuElements across panels; first matching shortcut wins.
 		/// </summary>
 		private bool HandleStartMenuShortcut(ConsoleKeyInfo key)
 		{
-			var panelService = _context.PanelStateService;
-
-			// Only handle shortcut if a Start menu element exists in any panel
-			if (!panelService.HasStartMenu)
-				return false;
-
-			if (key.Key == panelService.StartMenuShortcutKey &&
-				key.Modifiers == panelService.StartMenuShortcutModifiers)
+			foreach (var element in GetAllStartMenuElements())
 			{
-				panelService.ShowStartMenu();
-				return true;
+				if (key.Key == element.ShortcutKey && key.Modifiers == element.ShortcutModifiers)
+				{
+					element.Show();
+					return true;
+				}
 			}
 			return false;
+		}
+
+		/// <summary>
+		/// Collects all StartMenuElements from both panels.
+		/// </summary>
+		private IEnumerable<Panel.StartMenuElement> GetAllStartMenuElements()
+		{
+			var panelService = _context.PanelStateService;
+			if (panelService.TopPanel != null)
+			{
+				foreach (var el in panelService.TopPanel.FindAllElements<Panel.StartMenuElement>())
+					yield return el;
+			}
+			if (panelService.BottomPanel != null)
+			{
+				foreach (var el in panelService.BottomPanel.FindAllElements<Panel.StartMenuElement>())
+					yield return el;
+			}
 		}
 
 		/// <summary>

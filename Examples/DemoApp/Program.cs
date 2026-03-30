@@ -20,21 +20,22 @@ internal class Program
         try
         {
             var options = new ConsoleWindowSystemOptions(
-                StartMenu: new StartMenuOptions
-                {
-                    AppName = "SharpConsoleUI Demo",
-                    SidebarStyle = StartMenuSidebarStyle.IconLabel,
-                    BackgroundGradient = new GradientBackground(
-                        ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
-                        GradientDirection.Vertical)
-                },
                 TopPanelConfig: panel => panel
                     .Left(Elements.StatusText("[bold cyan]SharpConsoleUI Demo[/]"))
                     .Left(Elements.Separator())
                     .Left(Elements.StatusText("[dim]Ctrl+T: Theme[/]"))
                     .Right(Elements.Performance()),
                 BottomPanelConfig: panel => panel
-                    .Left(Elements.StartMenu().WithText("\u2630 Start"))
+                    .Left(Elements.StartMenu()
+                        .WithText("\u2630 Start")
+                        .WithOptions(new StartMenuOptions
+                        {
+                            AppName = "SharpConsoleUI Demo",
+                            SidebarStyle = StartMenuSidebarStyle.IconLabel,
+                            BackgroundGradient = new GradientBackground(
+                                ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
+                                GradientDirection.Vertical)
+                        }))
                     .Center(Elements.TaskBar())
                     .Right(Elements.Clock().WithFormat("HH:mm:ss"))
             );

@@ -7,6 +7,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Panel;
 using SharpConsoleUI.Plugins.DeveloperTools;
+using SharpConsoleUI.Rendering;
 
 namespace StartMenuDemo;
 
@@ -20,14 +21,17 @@ class Program
 
 			var options = new ConsoleWindowSystemOptions(
 				EnablePerformanceMetrics: false,
-				StartMenu: new StartMenuOptions
-				{
-					ShowWindowList = true,
-					SidebarStyle = StartMenuSidebarStyle.IconLabel
-				},
 				TopPanelConfig: panel => panel.Left(Elements.StatusText("")),
 				BottomPanelConfig: panel => panel
-					.Left(Elements.StartMenu())
+					.Left(Elements.StartMenu()
+						.WithOptions(new StartMenuOptions
+						{
+							ShowWindowList = true,
+							SidebarStyle = StartMenuSidebarStyle.IconLabel,
+							BackgroundGradient = new GradientBackground(
+								ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
+								GradientDirection.Vertical)
+						}))
 					.Center(Elements.TaskBar())
 			);
 
@@ -52,8 +56,11 @@ class Program
 				Console.WriteLine($"\x1b[33mNote: DeveloperTools plugin not available: {ex.Message}\x1b[0m");
 			}
 
+			// Get the start menu element to register actions on it
+			var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
+
 			// Register user actions - File category
-			windowSystem.PanelStateService.RegisterStartMenuAction("New Document", () =>
+			startMenu.RegisterAction("New Document", () =>
 			{
 				var window = new Window(windowSystem)
 				{
@@ -74,7 +81,7 @@ class Program
 				windowSystem.SetActiveWindow(window);
 			}, category: "File", order: 10);
 
-			windowSystem.PanelStateService.RegisterStartMenuAction("Open File", () =>
+			startMenu.RegisterAction("Open File", () =>
 			{
 				var window = new Window(windowSystem)
 				{
@@ -94,7 +101,7 @@ class Program
 				windowSystem.SetActiveWindow(window);
 			}, category: "File", order: 20);
 
-			windowSystem.PanelStateService.RegisterStartMenuAction("Save File", () =>
+			startMenu.RegisterAction("Save File", () =>
 			{
 				windowSystem.NotificationStateService.ShowNotification(
 					"Save",
@@ -104,7 +111,7 @@ class Program
 			}, category: "File", order: 30);
 
 			// Register user actions - Tools category
-			windowSystem.PanelStateService.RegisterStartMenuAction("Calculator", () =>
+			startMenu.RegisterAction("Calculator", () =>
 			{
 				var window = new Window(windowSystem)
 				{
