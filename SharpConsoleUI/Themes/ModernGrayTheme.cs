@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 
+using SharpConsoleUI.Rendering;
+
 namespace SharpConsoleUI.Themes
 {
 	/// <summary>
@@ -121,6 +123,9 @@ namespace SharpConsoleUI.Themes
 		/// Gets or sets the foreground color for the desktop background character pattern.
 		/// </summary>
 		public Color DesktopForegroundColor { get; set; } = Color.Grey50;
+
+		/// <inheritdoc />
+		public GradientBackground? DesktopBackgroundGradient { get; set; }
 
 		/// <summary>
 		/// Gets or sets the foreground color for the border of inactive (unfocused) windows.
