@@ -232,21 +232,17 @@ namespace SharpConsoleUI.Rendering
 
 			lock (_renderLock)
 			{
-			// ANIMATED DESKTOP BACKGROUND: Re-blit exposed desktop areas when animation is active.
-			// The animation timer updates the cached buffer and sets DesktopNeedsRender.
-			// We must blit the updated buffer to all exposed desktop regions (not covered by windows).
-			// Only do this when animation is active (PaintCallback set) — static backgrounds are
-			// blitted once on init/resize/ForceFullRedraw and don't need per-frame updates.
-			if (_desktopNeedsRender && _pendingDesktopClears.Count == 0)
+			// DESKTOP BACKGROUND UPDATE: Re-blit exposed desktop areas when the buffer changed.
+			// NeedsScreenUpdate is set by DesktopBackgroundService on config change, theme change,
+			// or animation tick. We blit the updated buffer to all exposed desktop regions.
 			{
 				var service = _windowSystemContext.DesktopBackgroundService;
-				if (service.HasBuffer && service.Config?.PaintCallback != null)
+				if (service.NeedsScreenUpdate && service.HasBuffer)
 				{
+					service.NeedsScreenUpdate = false;
+
 					var desktopDims = _windowSystemContext.DesktopDimensions;
 					var desktopRect = new Rectangle(0, 0, desktopDims.Width, desktopDims.Height);
-
-					// Re-render the buffer (picks up animation frame changes)
-					service.Render(desktopDims.Width, desktopDims.Height);
 
 					// Collect all visible (non-minimized) windows
 					_overlappingClearsPool.Clear();
@@ -272,6 +268,15 @@ namespace SharpConsoleUI.Rendering
 			// FIX: Calculate visible regions to avoid overwriting windows below (prevents empty regions bug)
 			if (_pendingDesktopClears.Count > 0)
 			{
+				// If animation is active, re-render the buffer so exposed regions
+				// show the current animation frame, not a stale one from the last tick.
+				var bgService = _windowSystemContext.DesktopBackgroundService;
+				if (bgService.Config?.PaintCallback != null && bgService.HasBuffer)
+				{
+					var dims = _windowSystemContext.DesktopDimensions;
+					bgService.Render(dims.Width, dims.Height);
+				}
+
 				// Copy list to avoid race condition (mouse events can add during iteration)
 				_clearsCopyPool.Clear();
 				_clearsCopyPool.AddRange(_pendingDesktopClears);

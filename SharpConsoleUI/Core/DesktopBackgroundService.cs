@@ -36,6 +36,13 @@ public class DesktopBackgroundService : IDisposable
     public bool HasBuffer => _buffer != null;
 
     /// <summary>
+    /// Set when the cached buffer has been re-rendered and exposed desktop regions
+    /// need to be blitted to the screen. Cleared by the render coordinator after blitting.
+    /// This is set on: config change, theme change, and animation tick.
+    /// </summary>
+    public volatile bool NeedsScreenUpdate;
+
+    /// <summary>
     /// Gets or sets the desktop background configuration.
     /// Setting this invalidates the cache and manages the animation timer.
     /// </summary>
@@ -146,6 +153,7 @@ public class DesktopBackgroundService : IDisposable
         if (_width > 0 && _height > 0)
         {
             Render(_width, _height);
+            NeedsScreenUpdate = true;
             _onDesktopDirty();
         }
     }
@@ -238,6 +246,7 @@ public class DesktopBackgroundService : IDisposable
             return;
 
         Render(_width, _height);
+        NeedsScreenUpdate = true;
         _onDesktopDirty();
     }
 

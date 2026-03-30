@@ -72,8 +72,7 @@ public static class DesktopBackgroundWindow
             .OnClick((_, _, _) =>
             {
                 ws.DesktopBackground = null;
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
 
         panel.AddControl(Ctl.Markup()
@@ -115,8 +114,7 @@ public static class DesktopBackgroundWindow
                 {
                     ws.DesktopBackground = DesktopBackgroundConfig.FromGradient(
                         ColorGradient.FromColors(from, to), dir);
-                    ws.ForceFullRedraw();
-                })
+                                    })
                 .Build());
         }
     }
@@ -158,8 +156,7 @@ public static class DesktopBackgroundWindow
                 .OnClick((_, _, _) =>
                 {
                     ws.DesktopBackground = DesktopBackgroundConfig.FromPattern(factory());
-                    ws.ForceFullRedraw();
-                })
+                                    })
                 .Build());
         }
     }
@@ -184,8 +181,7 @@ public static class DesktopBackgroundWindow
             .OnClick((_, _, _) =>
             {
                 ws.DesktopBackground = DesktopEffects.ColorCycling();
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
 
         panel.AddControl(Ctl.Button("  Pulse (Dark Blue)  ")
@@ -194,8 +190,7 @@ public static class DesktopBackgroundWindow
             .OnClick((_, _, _) =>
             {
                 ws.DesktopBackground = DesktopEffects.Pulse(new Color(15, 25, 60));
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
 
         panel.AddControl(Ctl.Button("  Drifting Gradient  ")
@@ -205,8 +200,7 @@ public static class DesktopBackgroundWindow
             {
                 ws.DesktopBackground = DesktopEffects.DriftingGradient(
                     new Color(20, 40, 80), new Color(60, 20, 70));
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
 
         panel.AddControl(Ctl.RuleBuilder()
@@ -220,8 +214,7 @@ public static class DesktopBackgroundWindow
             .OnClick((_, _, _) =>
             {
                 ws.DesktopBackground = null;
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
 
         panel.AddControl(Ctl.Markup()
@@ -256,8 +249,7 @@ public static class DesktopBackgroundWindow
                         GradientDirection.Vertical),
                     Pattern = DesktopPatterns.Grid
                 };
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
 
         panel.AddControl(Ctl.Button("  Ocean Dots  ")
@@ -272,8 +264,7 @@ public static class DesktopBackgroundWindow
                         GradientDirection.Vertical),
                     Pattern = DesktopPatterns.Dots
                 };
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
 
         panel.AddControl(Ctl.Button("  Forest Crosshatch  ")
@@ -288,8 +279,7 @@ public static class DesktopBackgroundWindow
                         GradientDirection.Vertical),
                     Pattern = DesktopPatterns.Crosshatch
                 };
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
 
         panel.AddControl(Ctl.Button("  Sunset Checkerboard  ")
@@ -304,8 +294,7 @@ public static class DesktopBackgroundWindow
                         GradientDirection.Horizontal),
                     Pattern = DesktopPatterns.Checkerboard
                 };
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
 
         panel.AddControl(Ctl.Button("  Aurora Lines  ")
@@ -320,8 +309,7 @@ public static class DesktopBackgroundWindow
                         GradientDirection.DiagonalDown),
                     Pattern = DesktopPatterns.HorizontalLines
                 };
-                ws.ForceFullRedraw();
-            })
+                            })
             .Build());
     }
 }
