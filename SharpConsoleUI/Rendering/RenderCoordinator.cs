@@ -28,9 +28,6 @@ namespace SharpConsoleUI.Rendering
 		private readonly IConsoleDriver _consoleDriver;
 		private readonly Renderer _renderer;
 		private readonly WindowStateService _windowStateService;
-		#pragma warning disable CS0612, CS0618 // Type or member is obsolete
-		private readonly StatusBarStateService _statusBarStateService;
-	#pragma warning restore CS0612, CS0618
 		private readonly ILogService _logService;
 		private readonly ConsoleWindowSystem _windowSystemContext;
 		private readonly Func<ConsoleWindowSystemOptions> _getOptions;
@@ -60,13 +57,6 @@ namespace SharpConsoleUI.Rendering
 			set => _desktopNeedsRender = value;
 		}
 
-		// Status bar caching
-		private string? _cachedBottomStatus;
-		private string? _cachedTopStatus;
-		private string? _cachedTaskBar;
-		private int _taskBarWindowCount;
-		private int _taskBarStateHash;
-
 		// Panel visibility tracking (used to skip rendering hidden panels)
 		private bool _lastTopPanelVisible;
 		private bool _lastBottomPanelVisible;
@@ -80,7 +70,6 @@ namespace SharpConsoleUI.Rendering
 		// Pooled collections to avoid per-frame allocations
 		private readonly List<Rectangle> _clearsCopyPool = new List<Rectangle>();
 		private readonly List<Window> _overlappingClearsPool = new List<Window>();
-		private readonly List<Window> _topLevelWindowsPool = new List<Window>();
 
 		/// <summary>
 		/// Initializes a new instance of the RenderCoordinator class.
@@ -88,27 +77,22 @@ namespace SharpConsoleUI.Rendering
 		/// <param name="consoleDriver">Console driver for low-level I/O.</param>
 		/// <param name="renderer">Renderer for window and content rendering.</param>
 		/// <param name="windowStateService">Service managing window state and Z-order.</param>
-		/// <param name="statusBarStateService">Service managing status bar state and Start menu.</param>
 		/// <param name="logService">Service for debug logging.</param>
 		/// <param name="windowSystemContext">Context providing access to window system properties.</param>
 		/// <param name="getOptions">Getter for current configuration options (allows runtime changes).</param>
 		/// <param name="performanceTracker">Performance metrics tracker.</param>
-#pragma warning disable CS0612, CS0618 // Type or member is obsolete
 		public RenderCoordinator(
 			IConsoleDriver consoleDriver,
 			Renderer renderer,
 			WindowStateService windowStateService,
-			StatusBarStateService statusBarStateService,
 			ILogService logService,
 			ConsoleWindowSystem windowSystemContext,
 			Func<ConsoleWindowSystemOptions> getOptions,
 			PerformanceTracker performanceTracker)
-#pragma warning restore CS0612, CS0618
 		{
 			_consoleDriver = consoleDriver ?? throw new ArgumentNullException(nameof(consoleDriver));
 			_renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
 			_windowStateService = windowStateService ?? throw new ArgumentNullException(nameof(windowStateService));
-			_statusBarStateService = statusBarStateService ?? throw new ArgumentNullException(nameof(statusBarStateService));
 			_logService = logService ?? throw new ArgumentNullException(nameof(logService));
 			_windowSystemContext = windowSystemContext ?? throw new ArgumentNullException(nameof(windowSystemContext));
 			_getOptions = getOptions ?? throw new ArgumentNullException(nameof(getOptions));
@@ -145,11 +129,8 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public int GetTopStatusHeight()
 		{
-			var panelService = _windowSystemContext.PanelStateService;
-			var topPanel = panelService.TopPanel;
-			if (topPanel != null)
-				return topPanel.Height;
-			return panelService.ShowTopPanel && (!string.IsNullOrEmpty(panelService.TopStatus) || _getOptions().EnablePerformanceMetrics) ? 1 : 0;
+			var topPanel = _windowSystemContext.PanelStateService.TopPanel;
+			return topPanel?.Height ?? 0;
 		}
 
 		/// <summary>
@@ -158,13 +139,8 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public int GetBottomStatusHeight()
 		{
-			var panelService = _windowSystemContext.PanelStateService;
-			var bottomPanel = panelService.BottomPanel;
-			if (bottomPanel != null)
-				return bottomPanel.Height;
-			bool hasContent = !string.IsNullOrEmpty(panelService.BottomStatus) || _getOptions().StatusBar.ShowTaskBar;
-			bool hasStartButton = _getOptions().StatusBar.ShowStartButton && _getOptions().StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom;
-			return panelService.ShowBottomPanel && (hasContent || hasStartButton) ? 1 : 0;
+			var bottomPanel = _windowSystemContext.PanelStateService.BottomPanel;
+			return bottomPanel?.Height ?? 0;
 		}
 
 		/// <summary>
@@ -179,15 +155,8 @@ namespace SharpConsoleUI.Rendering
 		/// </summary>
 		public void InvalidateStatusCache()
 		{
-			_cachedBottomStatus = null;
-			_cachedTopStatus = null;
-			_cachedTaskBar = null;
-
-			// Also mark panels dirty so they re-render
-			var panelService = _windowSystemContext.PanelStateService;
-			panelService.TopPanel?.MarkDirty();
-			panelService.BottomPanel?.MarkDirty();
-			panelService.MarkDirty();
+			// Mark panels dirty so they re-render
+			_windowSystemContext.PanelStateService.MarkDirty();
 		}
 
 		/// <summary>
@@ -321,32 +290,18 @@ namespace SharpConsoleUI.Rendering
 					_performanceTracker.SetDirtyChars(_consoleDriver.GetDirtyCharacterCount());
 				}
 
-				// Render panels or fall back to legacy status bar rendering
+				// Render panels
 				var topPanel = _windowSystemContext.TopPanel;
 				var bottomPanel = _windowSystemContext.BottomPanel;
 
-				if (topPanel != null || bottomPanel != null)
-				{
-					// Sync legacy StatusTextElement from StatusBarStateService (backward compat)
-					SyncLegacyPanelElements(topPanel);
-
-					RenderPanel(topPanel, 0,
-						_windowSystemContext.Theme.TopBarForegroundColor,
-						_windowSystemContext.Theme.TopBarBackgroundColor,
-						ref _lastTopPanelVisible);
-					RenderPanel(bottomPanel, _consoleDriver.ScreenSize.Height - 1,
-						_windowSystemContext.Theme.BottomBarForegroundColor,
-						_windowSystemContext.Theme.BottomBarBackgroundColor,
-						ref _lastBottomPanelVisible);
-				}
-				else
-				{
-					RenderTopStatus();
-					RenderBottomStatus();
-				}
-
-				// Clear status bar dirty flag after rendering
-				_windowSystemContext.PanelStateService.ClearDirty();
+				RenderPanel(topPanel, 0,
+					_windowSystemContext.Theme.TopBarForegroundColor,
+					_windowSystemContext.Theme.TopBarBackgroundColor,
+					ref _lastTopPanelVisible);
+				RenderPanel(bottomPanel, _consoleDriver.ScreenSize.Height - 1,
+					_windowSystemContext.Theme.BottomBarForegroundColor,
+					_windowSystemContext.Theme.BottomBarBackgroundColor,
+					ref _lastBottomPanelVisible);
 
 				// Update status bar bounds for mouse click detection
 				UpdateStatusBarBounds();
@@ -688,10 +643,6 @@ namespace SharpConsoleUI.Rendering
 			if (!currentlyVisible)
 				return;
 
-			// Always mark taskbar panels dirty when panel state is dirty (window changes)
-			if (_windowSystemContext.PanelStateService.IsDirty)
-				panel!.MarkDirty();
-
 			if (!panel!.IsDirty)
 				return;
 
@@ -701,71 +652,6 @@ namespace SharpConsoleUI.Rendering
 		}
 
 		/// <summary>
-		/// Syncs legacy StatusTextElement from StatusBarStateService for backward compatibility.
-		/// </summary>
-		private void SyncLegacyPanelElements(Panel.Panel? topPanel)
-		{
-			if (topPanel?.FindElement<Panel.StatusTextElement>("legacyTopStatus") is { } el)
-			{
-				var currentText = _windowSystemContext.PanelStateService.TopStatus ?? string.Empty;
-				if (el.Text != currentText)
-					el.Text = currentText;
-			}
-		}
-
-		/// <summary>
-		/// Returns true if the top status bar should be rendered.
-		/// </summary>
-		private bool ShouldRenderTopStatus()
-		{
-			var panelService = _windowSystemContext.PanelStateService;
-			return panelService.ShowTopPanel && (!string.IsNullOrEmpty(panelService.TopStatus) || _getOptions().EnablePerformanceMetrics);
-		}
-
-		/// <summary>
-		/// Returns true if the bottom status bar should be rendered.
-		/// </summary>
-		private bool ShouldRenderBottomStatus()
-		{
-			var panelService = _windowSystemContext.PanelStateService;
-			// Render if we have status text OR if task bar (window list) is enabled
-			bool hasContent = !string.IsNullOrEmpty(panelService.BottomStatus) || _getOptions().StatusBar.ShowTaskBar;
-			bool hasStartButton = _getOptions().StatusBar.ShowStartButton &&
-								  _getOptions().StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom;
-
-			return panelService.ShowBottomPanel && (hasContent || hasStartButton);
-		}
-
-		/// <summary>
-		/// Builds the start button markup string.
-		/// </summary>
-		private string BuildStartButton()
-		{
-			if (!_getOptions().StatusBar.ShowStartButton)
-				return string.Empty;
-
-			var text = _getOptions().StatusBar.StartButtonText;
-			return $"[bold cyan]{text}[/] ";
-		}
-
-		/// <summary>
-		/// Formats the performance metrics string for display.
-		/// </summary>
-		/// <summary>
-		/// Computes a hash of the task bar state to detect changes.
-		/// </summary>
-		private int ComputeTaskBarStateHash(List<Window> windows)
-		{
-			int hash = 0;
-			foreach (var w in windows)
-			{
-				hash ^= w.Title.GetHashCode();
-				hash ^= w.State.GetHashCode();
-				hash ^= w.GetIsActive().GetHashCode();
-			}
-			return hash;
-		}
-
 		/// <summary>
 		/// Checks if a window is completely covered by other windows (with caching).
 		/// </summary>
@@ -954,177 +840,7 @@ namespace SharpConsoleUI.Rendering
 			}
 		}
 
-		/// <summary>
-		/// Renders the top status bar with optional performance metrics.
-		/// </summary>
-		private void RenderTopStatus()
-		{
-			if (!ShouldRenderTopStatus())
-				return;
 
-			// Build complete TopStatus with metrics appended
-			var baseStatus = _windowSystemContext.PanelStateService.TopStatus ?? string.Empty;
-			var metricsString = _getOptions().EnablePerformanceMetrics
-				? _performanceTracker.FormatMetrics()
-				: string.Empty;
-			var completeTopStatus = baseStatus + metricsString;
-
-			// Build start button if configured for top
-			var startButton = string.Empty;
-			if (_getOptions().StatusBar.ShowStartButton &&
-				_getOptions().StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Top)
-			{
-				startButton = BuildStartButton();
-			}
-
-			string topRow;
-			if (_getOptions().StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
-			{
-				topRow = $"{startButton}{completeTopStatus}";
-			}
-			else
-			{
-				// Right position - add start button at the end
-				var contentLength = Parsing.MarkupParser.StripLength(completeTopStatus);
-				var startButtonLength = Parsing.MarkupParser.StripLength(startButton);
-				var availableSpace = _consoleDriver.ScreenSize.Width - startButtonLength;
-
-				var content = completeTopStatus;
-				if (contentLength > availableSpace)
-				{
-					content = Parsing.MarkupParser.Truncate(content, availableSpace);
-				}
-
-				content += new string(' ', availableSpace - Parsing.MarkupParser.StripLength(content));
-				topRow = $"{content}{startButton}";
-			}
-
-			// Cache includes start button for proper invalidation
-			if (topRow != _cachedTopStatus)
-			{
-				var effectiveLength = Parsing.MarkupParser.StripLength(topRow);
-				var paddedTopRow = topRow.PadRight(_consoleDriver.ScreenSize.Width + (topRow.Length - effectiveLength));
-				var statusBuffer = MarkupLineToBuffer(paddedTopRow, _consoleDriver.ScreenSize.Width,
-					_windowSystemContext.Theme.TopBarForegroundColor, _windowSystemContext.Theme.TopBarBackgroundColor);
-				_consoleDriver.WriteBufferRegion(0, 0, statusBuffer, 0, 0, statusBuffer.Width,
-					_windowSystemContext.Theme.TopBarBackgroundColor);
-
-				_cachedTopStatus = topRow;
-			}
-		}
-
-		/// <summary>
-		/// Renders the bottom status bar with task bar and optional start button.
-		/// </summary>
-		private void RenderBottomStatus()
-		{
-			if (!ShouldRenderBottomStatus())
-				return;
-
-			// Filter out sub-windows and overlay windows from the bottom status bar
-			_topLevelWindowsPool.Clear();
-			foreach (var w in _windowSystemContext.Windows.Values)
-			{
-				if (w.ParentWindow == null && w.ShowInTaskbar)
-					_topLevelWindowsPool.Add(w);
-			}
-			_topLevelWindowsPool.Sort((a, b) => a.CreationOrder.CompareTo(b.CreationOrder));
-
-			// Check if task bar cache is valid
-			string taskBar;
-			if (_getOptions().StatusBar.ShowTaskBar)
-			{
-				int stateHash = ComputeTaskBarStateHash(_topLevelWindowsPool);
-				if (_cachedTaskBar != null &&
-					_taskBarWindowCount == _topLevelWindowsPool.Count &&
-					_taskBarStateHash == stateHash)
-				{
-					// Use cached task bar
-					taskBar = _cachedTaskBar;
-				}
-				else
-				{
-					// Rebuild task bar
-					var parts = new string[_topLevelWindowsPool.Count];
-					for (int i = 0; i < _topLevelWindowsPool.Count; i++)
-					{
-						var w = _topLevelWindowsPool[i];
-						var minIndicator = w.State == WindowState.Minimized ? "[dim]" : "";
-						var minEnd = w.State == WindowState.Minimized ? "[/]" : "";
-						parts[i] = $"[bold]Alt-{i + 1}[/] {minIndicator}{StringHelper.TrimWithEllipsis(w.Title, 15, 7)}{minEnd}";
-					}
-					taskBar = $"{string.Join(" | ", parts)} | ";
-
-					// Update cache
-					_cachedTaskBar = taskBar;
-					_taskBarWindowCount = _topLevelWindowsPool.Count;
-					_taskBarStateHash = stateHash;
-				}
-			}
-			else
-			{
-				taskBar = string.Empty;
-			}
-
-			// Build start button if configured for bottom
-			var startButton = string.Empty;
-			if (_getOptions().StatusBar.ShowStartButton &&
-				_getOptions().StatusBar.StartButtonLocation == Configuration.StatusBarLocation.Bottom)
-			{
-				startButton = BuildStartButton();
-			}
-
-			string bottomRow;
-			if (_getOptions().StatusBar.StartButtonPosition == Configuration.StartButtonPosition.Left)
-			{
-				bottomRow = $"{startButton}{taskBar}{_windowSystemContext.PanelStateService.BottomStatus}";
-			}
-			else
-			{
-				// Right position - add start button at the end
-				var content = $"{taskBar}{_windowSystemContext.PanelStateService.BottomStatus}";
-				var contentLength = Parsing.MarkupParser.StripLength(content);
-				var startButtonLength = Parsing.MarkupParser.StripLength(startButton);
-				var availableSpace = _consoleDriver.ScreenSize.Width - startButtonLength;
-
-				if (contentLength > availableSpace)
-				{
-					content = Parsing.MarkupParser.Truncate(content, availableSpace);
-				}
-
-				content += new string(' ', availableSpace - Parsing.MarkupParser.StripLength(content));
-				bottomRow = $"{content}{startButton}";
-			}
-
-			// Display the list of window titles in the bottom row
-			if (Parsing.MarkupParser.StripLength(bottomRow) > _consoleDriver.ScreenSize.Width)
-			{
-				bottomRow = Parsing.MarkupParser.Truncate(bottomRow, _consoleDriver.ScreenSize.Width);
-			}
-
-			bottomRow += new string(' ', _consoleDriver.ScreenSize.Width - Parsing.MarkupParser.StripLength(bottomRow));
-
-			if (_cachedBottomStatus != bottomRow)
-			{
-				var statusBuffer = MarkupLineToBuffer(bottomRow, _consoleDriver.ScreenSize.Width,
-					_windowSystemContext.Theme.BottomBarForegroundColor, _windowSystemContext.Theme.BottomBarBackgroundColor);
-				_consoleDriver.WriteBufferRegion(0, _consoleDriver.ScreenSize.Height - 1,
-					statusBuffer, 0, 0, statusBuffer.Width, _windowSystemContext.Theme.BottomBarBackgroundColor);
-
-				_cachedBottomStatus = bottomRow;
-			}
-		}
-
-		/// <summary>
-		/// Converts a markup string to a CharacterBuffer using MarkupParser.
-		/// </summary>
-		private static Layout.CharacterBuffer MarkupLineToBuffer(string markup, int width,
-			Color defaultFg, Color defaultBg)
-		{
-			var buffer = new Layout.CharacterBuffer(width, 1, defaultBg);
-			buffer.WriteCells(0, 0, Parsing.MarkupParser.Parse(markup, defaultFg, defaultBg));
-			return buffer;
-		}
 
 		#endregion
 	}

@@ -77,9 +77,6 @@ namespace SharpConsoleUI
 		private readonly InputStateService _inputStateService;
 		private readonly NotificationStateService _notificationStateService;
 		private readonly PanelStateService _panelStateService;
-#pragma warning disable CS0612, CS0618 // Type or member is obsolete
-		private readonly StatusBarStateService _statusBarStateService;
-#pragma warning restore CS0612, CS0618
 		private readonly SettingsRegistrationService _settingsRegistrationService = new();
 		private readonly Core.DesktopPortalService _desktopPortalService;
 
@@ -199,9 +196,6 @@ namespace SharpConsoleUI
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
 			_panelStateService = new PanelStateService(_logService, () => this);
-#pragma warning disable CS0612, CS0618 // Type or member is obsolete
-			_statusBarStateService = new StatusBarStateService(_panelStateService, _logService, () => this);
-#pragma warning restore CS0612, CS0618
 			_desktopPortalService = new Core.DesktopPortalService(_logService, this);
 
 			// Initialize notification service (needs 'this' reference)
@@ -255,7 +249,6 @@ namespace SharpConsoleUI
 				_consoleDriver,
 				_renderer,
 				_windowStateService,
-				_statusBarStateService,
 				_logService,
 				this,
 				() => _options,
@@ -383,14 +376,6 @@ namespace SharpConsoleUI
 		/// Gets the panel state service for managing panels, Start menu, and panel visibility.
 		/// </summary>
 		public PanelStateService PanelStateService => _panelStateService;
-
-		/// <summary>
-		/// Gets the status bar state service for managing status bars and Start menu.
-		/// </summary>
-		[Obsolete("Use PanelStateService instead. This property will be removed in a future version.")]
-#pragma warning disable CS0612, CS0618 // Type or member is obsolete
-		public StatusBarStateService StatusBarStateService => _statusBarStateService;
-#pragma warning restore CS0612, CS0618
 
 		/// <summary>
 		/// Gets the settings registration service for adding custom settings pages.

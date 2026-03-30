@@ -12,6 +12,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Panel;
 
 namespace AgentStudio;
 
@@ -32,12 +33,9 @@ internal class Program
             var windowSystem = new ConsoleWindowSystem(
                 driver,
                 options: new ConsoleWindowSystemOptions(
-                    StatusBarOptions: new StatusBarOptions(
-                        ShowTaskBar: false,
-                        ShowBottomStatus: false
-                    )
+                    TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
                 ));
-            windowSystem.StatusBarStateService.TopStatus = "AgentStudio - TUI Showcase";
+            windowSystem.PanelStateService.TopStatus = "AgentStudio - TUI Showcase";
 
             // Setup graceful shutdown
             Console.CancelKeyPress += (sender, e) =>

@@ -20,16 +20,14 @@ internal class Program
         try
         {
             var options = new ConsoleWindowSystemOptions(
-                StatusBarOptions: new StatusBarOptions(
-                    ShowStartButton: true,
-                    StartMenu: new StartMenuOptions
-                    {
-                        AppName = "SharpConsoleUI Demo",
-                        SidebarStyle = StartMenuSidebarStyle.IconLabel,
-                        BackgroundGradient = new GradientBackground(
-                            ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
-                            GradientDirection.Vertical)
-                    }),
+                StartMenu: new StartMenuOptions
+                {
+                    AppName = "SharpConsoleUI Demo",
+                    SidebarStyle = StartMenuSidebarStyle.IconLabel,
+                    BackgroundGradient = new GradientBackground(
+                        ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
+                        GradientDirection.Vertical)
+                },
                 TopPanelConfig: panel => panel
                     .Left(Elements.StatusText("[bold cyan]SharpConsoleUI Demo[/]"))
                     .Left(Elements.Separator())

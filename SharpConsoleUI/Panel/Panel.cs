@@ -142,6 +142,34 @@ public class Panel
     }
 
     /// <summary>
+    /// Gets the rendered bounds (x, width) of the first element of the specified type.
+    /// Returns null if no such element exists or has not been rendered yet.
+    /// </summary>
+    /// <typeparam name="T">The element type to find.</typeparam>
+    /// <returns>The x position and width of the element, or null.</returns>
+    public (int x, int width)? GetElementBounds<T>() where T : class, IPanelElement
+    {
+        foreach (var (element, x, width) in _renderedLayout)
+        {
+            if (element is T)
+                return (x, width);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Returns true if any zone contains an element of the specified type.
+    /// </summary>
+    /// <typeparam name="T">The element type to check for.</typeparam>
+    /// <returns>True if at least one element of type T exists.</returns>
+    public bool HasElement<T>() where T : class, IPanelElement
+    {
+        return _left.OfType<T>().Any()
+            || _center.OfType<T>().Any()
+            || _right.OfType<T>().Any();
+    }
+
+    /// <summary>
     /// Clears all elements from all zones.
     /// </summary>
     public void ClearAll()

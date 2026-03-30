@@ -822,16 +822,16 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private bool HandleStartMenuShortcut(ConsoleKeyInfo key)
 		{
-			var options = _context.Options.StatusBar;
+			var panelService = _context.PanelStateService;
 
-			// Only handle shortcut if Start button is enabled
-			if (!options.ShowStartButton)
+			// Only handle shortcut if a Start menu element exists in any panel
+			if (!panelService.HasStartMenu)
 				return false;
 
-			if (key.Key == options.StartMenuShortcutKey &&
-				key.Modifiers == options.StartMenuShortcutModifiers)
+			if (key.Key == panelService.StartMenuShortcutKey &&
+				key.Modifiers == panelService.StartMenuShortcutModifiers)
 			{
-				_context.PanelStateService.ShowStartMenu();
+				panelService.ShowStartMenu();
 				return true;
 			}
 			return false;

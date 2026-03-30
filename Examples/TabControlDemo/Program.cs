@@ -4,13 +4,18 @@
 
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Panel;
 
-var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
-windowSystem.StatusBarStateService.TopStatus = "TabControl Demo - Press Ctrl+Tab to switch tabs";
-windowSystem.StatusBarStateService.BottomStatus = "Ctrl+Tab: Next Tab | Ctrl+Shift+Tab: Previous Tab | Click tab headers to switch | ESC: Close";
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer),
+    options: new ConsoleWindowSystemOptions(
+        TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
+    ));
+windowSystem.PanelStateService.TopStatus = "TabControl Demo - Press Ctrl+Tab to switch tabs";
+windowSystem.PanelStateService.BottomStatus = "Ctrl+Tab: Next Tab | Ctrl+Shift+Tab: Previous Tab | Click tab headers to switch | ESC: Close";
 
 // Create the main demo window
 var window = new WindowBuilder(windowSystem)

@@ -11,6 +11,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Panel;
 
 namespace ConsoleTopExample;
 
@@ -26,9 +27,9 @@ internal class Program
             var windowSystem = new ConsoleWindowSystem(
                 new NetConsoleDriver(RenderMode.Buffer),
                 options: new ConsoleWindowSystemOptions(
-                    StatusBarOptions: new StatusBarOptions(ShowTaskBar: false)));
+                    TopPanelConfig: panel => panel.Left(Elements.StatusText(""))));
 
-            windowSystem.StatusBarStateService.TopStatus =
+            windowSystem.PanelStateService.TopStatus =
                 $"ConsoleTop - System Monitor ({SystemStatsFactory.GetPlatformName()})";
 
             Console.CancelKeyPress += (sender, e) =>

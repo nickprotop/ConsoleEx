@@ -5,6 +5,7 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Panel;
 using SharpConsoleUI.Plugins.DeveloperTools;
 
 namespace StartMenuDemo;
@@ -19,21 +20,20 @@ class Program
 
 			var options = new ConsoleWindowSystemOptions(
 				EnablePerformanceMetrics: false,
-				StatusBarOptions: new StatusBarOptions(
-					ShowStartButton: true,
-					StartButtonLocation: StatusBarLocation.Bottom,
-					StartButtonPosition: StartButtonPosition.Left,
-					StartMenu: new StartMenuOptions
-					{
-						ShowWindowList = true,
-						SidebarStyle = StartMenuSidebarStyle.IconLabel
-					}
-				)
+				StartMenu: new StartMenuOptions
+				{
+					ShowWindowList = true,
+					SidebarStyle = StartMenuSidebarStyle.IconLabel
+				},
+				TopPanelConfig: panel => panel.Left(Elements.StatusText("")),
+				BottomPanelConfig: panel => panel
+					.Left(Elements.StartMenu())
+					.Center(Elements.TaskBar())
 			);
 
 			var windowSystem = new ConsoleWindowSystem(driver, options: options);
-			windowSystem.StatusBarStateService.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+Space[/] or click [yellow]☰ Start[/] button";
-			windowSystem.StatusBarStateService.BottomStatus = "";
+			windowSystem.PanelStateService.TopStatus = "[bold cyan]Start Menu Demo[/] - Press [yellow]Ctrl+Space[/] or click [yellow]☰ Start[/] button";
+			windowSystem.PanelStateService.BottomStatus = "";
 
 			// Graceful shutdown
 			Console.CancelKeyPress += (sender, e) =>
@@ -53,7 +53,7 @@ class Program
 			}
 
 			// Register user actions - File category
-			windowSystem.StatusBarStateService.RegisterStartMenuAction("New Document", () =>
+			windowSystem.PanelStateService.RegisterStartMenuAction("New Document", () =>
 			{
 				var window = new Window(windowSystem)
 				{
@@ -74,7 +74,7 @@ class Program
 				windowSystem.SetActiveWindow(window);
 			}, category: "File", order: 10);
 
-			windowSystem.StatusBarStateService.RegisterStartMenuAction("Open File", () =>
+			windowSystem.PanelStateService.RegisterStartMenuAction("Open File", () =>
 			{
 				var window = new Window(windowSystem)
 				{
@@ -94,7 +94,7 @@ class Program
 				windowSystem.SetActiveWindow(window);
 			}, category: "File", order: 20);
 
-			windowSystem.StatusBarStateService.RegisterStartMenuAction("Save File", () =>
+			windowSystem.PanelStateService.RegisterStartMenuAction("Save File", () =>
 			{
 				windowSystem.NotificationStateService.ShowNotification(
 					"Save",
@@ -104,7 +104,7 @@ class Program
 			}, category: "File", order: 30);
 
 			// Register user actions - Tools category
-			windowSystem.StatusBarStateService.RegisterStartMenuAction("Calculator", () =>
+			windowSystem.PanelStateService.RegisterStartMenuAction("Calculator", () =>
 			{
 				var window = new Window(windowSystem)
 				{

@@ -4,7 +4,6 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Controls.StartMenu;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Parsing;
 using System.Drawing;
 
 namespace SharpConsoleUI.Dialogs;
@@ -47,7 +46,7 @@ public static class StartMenuDialog
 			return;
 		}
 
-		var menuOpts = windowSystem.Options.StatusBar.StartMenuConfig;
+		var menuOpts = windowSystem.PanelStateService.StartMenuOptions;
 		var showIcons = menuOpts.ShowIcons;
 
 		// Resolve colors: explicit option -> theme -> default
@@ -163,29 +162,24 @@ public static class StartMenuDialog
 				+ borderOverhead,
 			windowSystem.DesktopDimensions.Height);
 
-		var startButtonLocation = windowSystem.Options.StatusBar.StartButtonLocation;
 		var desktopUpperLeft = windowSystem.DesktopUpperLeft;
 		var desktopBottomRight = windowSystem.DesktopBottomRight;
-
-		// Compute start button bounds from config for positioning anchor
-		int screenWidth = desktopBottomRight.X + 1;
-		int startBtnWidth = MarkupParser.StripLength(windowSystem.Options.StatusBar.StartButtonText) + 1;
-		int startBtnX = windowSystem.Options.StatusBar.StartButtonPosition == StartButtonPosition.Left
-			? 0
-			: screenWidth - startBtnWidth;
-		var startBounds = new System.Drawing.Rectangle(startBtnX, 0, startBtnWidth, 1);
-
 		int availableWidth = desktopBottomRight.X + 1 - desktopUpperLeft.X;
 		int availableHeight = desktopBottomRight.Y + 1 - desktopUpperLeft.Y;
 		var screenBounds = new Rectangle(0, 0, availableWidth, availableHeight);
 
-		var placement = startButtonLocation == StatusBarLocation.Bottom
+		// Get start menu element bounds from the panel that contains it
+		var smBounds = windowSystem.PanelStateService.GetStartMenuBounds();
+		bool isBottom = smBounds?.isBottom ?? true;
+		var startBounds = smBounds.HasValue
+			? new System.Drawing.Rectangle(smBounds.Value.bounds.X, 0, smBounds.Value.bounds.Width, 1)
+			: new System.Drawing.Rectangle(0, 0, 8, 1); // fallback
+
+		var placement = isBottom
 			? PortalPlacement.AboveOrBelow
 			: PortalPlacement.BelowOrAbove;
 
-		var anchorY = startButtonLocation == StatusBarLocation.Bottom
-			? availableHeight
-			: 0;
+		var anchorY = isBottom ? availableHeight : 0;
 		var anchorInDesktop = new Rectangle(
 			startBounds.X, anchorY,
 			startBounds.Width, 1);
