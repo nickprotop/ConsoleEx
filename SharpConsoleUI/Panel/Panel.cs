@@ -123,6 +123,7 @@ public class Panel
         if (removed)
         {
             element.OnDetached();
+            (element as IDisposable)?.Dispose();
             IsDirty = true;
         }
         return removed;
@@ -167,6 +168,18 @@ public class Panel
         return _left.OfType<T>().Any()
             || _center.OfType<T>().Any()
             || _right.OfType<T>().Any();
+    }
+
+    /// <summary>
+    /// Returns all elements of the specified type across all zones.
+    /// </summary>
+    /// <typeparam name="T">The element type to find.</typeparam>
+    /// <returns>All matching elements.</returns>
+    public IEnumerable<T> FindAllElements<T>() where T : class, IPanelElement
+    {
+        foreach (var e in _left) if (e is T t) yield return t;
+        foreach (var e in _center) if (e is T t) yield return t;
+        foreach (var e in _right) if (e is T t) yield return t;
     }
 
     /// <summary>
@@ -335,38 +348,8 @@ public class Panel
         foreach (var (e, _, isFlex) in rightEntries)
             if (isFlex) flexElements.Add((e, e.FlexGrow));
 
-        // Distribute remaining width to flex elements
-        int totalFlexGrow = 0;
-        foreach (var (_, grow) in flexElements)
-            totalFlexGrow += grow;
-
-        var flexWidths = new Dictionary<IPanelElement, int>();
-        if (totalFlexGrow > 0 && remaining > 0)
-        {
-            int distributed = 0;
-            for (int i = 0; i < flexElements.Count; i++)
-            {
-                var (element, grow) = flexElements[i];
-                int width;
-                if (i == flexElements.Count - 1)
-                {
-                    width = remaining - distributed; // Last element gets remainder
-                }
-                else
-                {
-                    width = remaining * grow / totalFlexGrow;
-                }
-
-                // Apply min/max constraints
-                if (element.MinWidth.HasValue)
-                    width = Math.Max(width, element.MinWidth.Value);
-                if (element.MaxWidth.HasValue)
-                    width = Math.Min(width, element.MaxWidth.Value);
-
-                flexWidths[element] = width;
-                distributed += width;
-            }
-        }
+        // Distribute remaining width to flex elements with min/max redistribution
+        var flexWidths = DistributeFlexWidths(flexElements, remaining);
 
         // Layout zones: left from x=0, right from x=panelWidth-rightWidth, center in between
         int GetElementWidth((IPanelElement element, int measuredWidth, bool isFlex) entry)
@@ -392,15 +375,15 @@ public class Panel
 
         int rightStart = panelWidth - rightTotal;
 
-        // Center zone: between left end and right start
+        // Center zone: centered between left end and right start
         int centerStart = x;
         int centerAvailable = rightStart - centerStart;
         int centerTotal = 0;
         foreach (var entry in centerEntries)
             centerTotal += GetElementWidth(entry);
 
-        // Center the center zone in the available space (or just start after left)
-        int centerX = centerStart;
+        int centerOffset = Math.Max(0, (centerAvailable - centerTotal) / 2);
+        int centerX = centerStart + centerOffset;
         foreach (var entry in centerEntries)
         {
             int w = GetElementWidth(entry);
@@ -420,6 +403,64 @@ public class Panel
         return result;
     }
 
+    private static Dictionary<IPanelElement, int> DistributeFlexWidths(
+        List<(IPanelElement element, int flexGrow)> flexElements, int remaining)
+    {
+        var widths = new Dictionary<IPanelElement, int>();
+        if (flexElements.Count == 0 || remaining <= 0)
+            return widths;
+
+        var active = new List<(IPanelElement element, int flexGrow)>(flexElements);
+        int budget = remaining;
+
+        // Multi-pass: redistribute excess/deficit from clamped elements
+        for (int pass = 0; pass < 3 && active.Count > 0; pass++)
+        {
+            int totalGrow = 0;
+            foreach (var (_, grow) in active)
+                totalGrow += grow;
+            if (totalGrow <= 0) break;
+
+            bool anyClamped = false;
+            var clampedSet = new HashSet<IPanelElement>();
+            int distributed = 0;
+
+            for (int i = 0; i < active.Count; i++)
+            {
+                var (element, grow) = active[i];
+                int w = (i == active.Count - 1) ? budget - distributed : budget * grow / totalGrow;
+
+                int clamped = w;
+                if (element.MinWidth.HasValue)
+                    clamped = Math.Max(clamped, element.MinWidth.Value);
+                if (element.MaxWidth.HasValue)
+                    clamped = Math.Min(clamped, element.MaxWidth.Value);
+
+                if (clamped != w)
+                {
+                    anyClamped = true;
+                    clampedSet.Add(element);
+                }
+
+                widths[element] = clamped;
+                distributed += clamped;
+            }
+
+            if (!anyClamped) break;
+
+            // Recalculate budget excluding clamped elements
+            int clampedTotal = 0;
+            foreach (var kv in widths)
+                if (clampedSet.Contains(kv.Key))
+                    clampedTotal += kv.Value;
+
+            budget = remaining - clampedTotal;
+            active.RemoveAll(e => clampedSet.Contains(e.element));
+        }
+
+        return widths;
+    }
+
     private static int SumFixed(List<(IPanelElement element, int measuredWidth, bool isFlex)> entries)
     {
         int sum = 0;
@@ -434,7 +475,9 @@ public class Panel
         {
             if (list[i].Name == name)
             {
-                list[i].OnDetached();
+                var element = list[i];
+                element.OnDetached();
+                (element as IDisposable)?.Dispose();
                 list.RemoveAt(i);
                 IsDirty = true;
                 return true;
@@ -456,7 +499,10 @@ public class Panel
     private void ClearList(List<IPanelElement> list)
     {
         foreach (var e in list)
+        {
             e.OnDetached();
+            (e as IDisposable)?.Dispose();
+        }
         list.Clear();
         IsDirty = true;
     }
