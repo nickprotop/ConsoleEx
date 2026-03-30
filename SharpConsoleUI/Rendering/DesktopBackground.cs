@@ -66,6 +66,10 @@ namespace SharpConsoleUI.Rendering
         /// <summary>Tile height (rows).</summary>
         public int Height => Characters.GetLength(0);
 
+        /// <summary>
+        /// Creates a new pattern from a character grid.
+        /// </summary>
+        /// <param name="characters">Row-major character grid. Must be at least 1x1.</param>
         public DesktopPattern(char[,] characters)
         {
             if (characters.GetLength(0) == 0 || characters.GetLength(1) == 0)

@@ -84,8 +84,7 @@ namespace SharpConsoleUI.Core
 					_showTopPanel = value;
 					if (_topPanel != null)
 						_topPanel.Visible = value;
-					var ws = _getWindowSystem();
-					ws.Render.InvalidateAllWindows();
+					OnDesktopGeometryChanged();
 				}
 			}
 		}
@@ -104,10 +103,37 @@ namespace SharpConsoleUI.Core
 					_showBottomPanel = value;
 					if (_bottomPanel != null)
 						_bottomPanel.Visible = value;
-					var ws = _getWindowSystem();
-					ws.Render.InvalidateAllWindows();
+					OnDesktopGeometryChanged();
 				}
 			}
+		}
+
+		/// <summary>
+		/// Handles desktop geometry changes (panel show/hide).
+		/// Desktop offset and dimensions change — requires a full redraw to
+		/// reposition windows, re-render the background, and repaint everything.
+		/// </summary>
+		private void OnDesktopGeometryChanged()
+		{
+			var ws = _getWindowSystem();
+			var desktopSize = ws.DesktopDimensions;
+
+			// Reposition windows that would be outside the new desktop area
+			foreach (var window in ws.Windows.Values)
+			{
+				if (window.State == WindowState.Maximized)
+				{
+					window.SetSize(desktopSize.Width, desktopSize.Height);
+					window.SetPosition(new System.Drawing.Point(0, 0));
+				}
+				else
+				{
+					if (window.Top + window.Height > desktopSize.Height)
+						window.Top = Math.Max(0, desktopSize.Height - window.Height);
+				}
+			}
+
+			ws.ForceFullRedraw();
 		}
 
 		#endregion
