@@ -41,6 +41,11 @@ public class TaskBarElement : PanelElement
     /// </summary>
     public bool MinimizedDim { get; set; } = true;
 
+    /// <summary>
+    /// Gets or sets whether to show Alt-N keyboard shortcut labels next to window titles.
+    /// </summary>
+    public bool ShowShortcutLabels { get; set; } = false;
+
     /// <inheritdoc/>
     public override int FlexGrow => 1;
 
@@ -86,18 +91,19 @@ public class TaskBarElement : PanelElement
 
             // Build entry markup
             string title = StringHelper.TrimWithEllipsis(w.Title, MaxTitleLength, TitleEllipsisLength);
+            string shortcutPrefix = ShowShortcutLabels ? $"[bold]Alt-{i + 1}[/] " : "";
             string markup;
             if (isActive)
             {
-                markup = $"[bold]Alt-{i + 1}[/] {title}";
+                markup = $"{shortcutPrefix}{title}";
             }
             else if (isMinimized && MinimizedDim)
             {
-                markup = $"[bold]Alt-{i + 1}[/] [dim]{title}[/]";
+                markup = $"{shortcutPrefix}[dim]{title}[/]";
             }
             else
             {
-                markup = $"[bold]Alt-{i + 1}[/] {title}";
+                markup = $"{shortcutPrefix}{title}";
             }
 
             // Add separator
