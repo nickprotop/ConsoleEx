@@ -1,3 +1,4 @@
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
@@ -6,6 +7,7 @@ namespace SharpConsoleUI.Panel;
 
 /// <summary>
 /// A panel element that displays a clickable list of windows (task bar).
+/// Subscribes to WindowStateService events for automatic updates.
 /// </summary>
 public class TaskBarElement : PanelElement
 {
@@ -13,6 +15,7 @@ public class TaskBarElement : PanelElement
     private const int TitleEllipsisLength = 7;
     private List<(Window window, int startX, int endX)> _windowPositions = new();
     private int _lastStateHash;
+    private WindowStateService? _subscribedService;
 
     /// <summary>
     /// Initializes a new TaskBarElement.
@@ -46,6 +49,8 @@ public class TaskBarElement : PanelElement
     {
         if (WindowSystem == null || width <= 0)
             return;
+
+        EnsureSubscribed();
 
         _windowPositions.Clear();
 
@@ -143,6 +148,36 @@ public class TaskBarElement : PanelElement
         }
         return false;
     }
+
+    private void EnsureSubscribed()
+    {
+        var service = WindowSystem?.WindowStateService;
+        if (service == null || service == _subscribedService)
+            return;
+
+        Unsubscribe();
+        _subscribedService = service;
+        service.WindowCreated += OnWindowChanged;
+        service.WindowClosed += OnWindowChanged;
+        service.WindowActivated += OnWindowActivated;
+        service.WindowStateChanged += OnWindowStateChanged;
+    }
+
+    private void Unsubscribe()
+    {
+        if (_subscribedService != null)
+        {
+            _subscribedService.WindowCreated -= OnWindowChanged;
+            _subscribedService.WindowClosed -= OnWindowChanged;
+            _subscribedService.WindowActivated -= OnWindowActivated;
+            _subscribedService.WindowStateChanged -= OnWindowStateChanged;
+            _subscribedService = null;
+        }
+    }
+
+    private void OnWindowChanged(object? sender, WindowEventArgs e) => Invalidate();
+    private void OnWindowActivated(object? sender, WindowActivatedEventArgs e) => Invalidate();
+    private void OnWindowStateChanged(object? sender, WindowStateEventArgs e) => Invalidate();
 
     private static int ComputeStateHash(List<Window> windows)
     {

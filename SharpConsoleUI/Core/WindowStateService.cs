@@ -931,9 +931,6 @@ namespace SharpConsoleUI.Core
 
 		window.WindowIsAdded();
 
-		// Notify panels that window list changed (updates taskbar, etc.)
-		context.PanelStateService.MarkDirty();
-
 		_logService?.LogDebug($"Window added successfully: {window.Title}", "Window");
 		return window;
 	}
@@ -1041,9 +1038,6 @@ namespace SharpConsoleUI.Core
 
 		// STEP 3: Complete the close (fire OnClosed, dispose controls)
 		window.CompleteClose();
-
-		// Notify panels that window list changed (updates taskbar, etc.)
-		context.PanelStateService.MarkDirty();
 
 		// Clear only the closed window's area (not entire screen!)
 		if (_renderer != null && _consoleDriver != null)
