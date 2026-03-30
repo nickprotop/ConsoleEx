@@ -263,10 +263,8 @@ namespace SharpConsoleUI.Rendering
 					// Only clear visible regions (never overwrite windows!)
 					foreach (var region in visibleRegions)
 					{
-						_renderer.FillRect(region.Left, region.Top, region.Width, region.Height,
-							_windowSystemContext.Theme.DesktopBackgroundChar,
-							_windowSystemContext.Theme.DesktopBackgroundColor,
-							_windowSystemContext.Theme.DesktopForegroundColor);
+						_renderer.BlitDesktopRegion(region.Left, region.Top, region.Width, region.Height,
+							_windowSystemContext.Theme);
 					}
 				}
 			}
