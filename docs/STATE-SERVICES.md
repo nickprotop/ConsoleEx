@@ -6,6 +6,7 @@ SharpConsoleUI includes built-in state management services for managing differen
 
 - [Overview](#overview)
 - [PanelStateService](#panelstateservice)
+- [DesktopBackgroundService](#desktopbackgroundservice)
 - [WindowStateService](#windowstateservice)
 - [FocusManager](#focusmanager)
 - [ModalStateService](#modalstateservice)
@@ -24,7 +25,8 @@ All state services are accessible through the `ConsoleWindowSystem` instance:
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
 // Access state services
-windowSystem.PanelStateService   // Panel visibility, status text
+windowSystem.PanelStateService          // Panel visibility, status text
+windowSystem.DesktopBackgroundService   // Desktop background rendering
 windowSystem.WindowStateService
 window.FocusManager              // Focus is per-window
 windowSystem.ModalStateService
@@ -100,6 +102,27 @@ windowSystem.PanelStateService.BottomPanel
 // Shorthand:
 windowSystem.BottomPanel
 ```
+
+## DesktopBackgroundService
+
+Manages the desktop background — a cached `CharacterBuffer` that is rendered once and blitted to exposed regions each frame. See the [Desktop Background](DESKTOP_BACKGROUND.md) guide for the full reference.
+
+### Usage
+
+```csharp
+// Set background via the convenience property (preferred)
+windowSystem.DesktopBackground = DesktopBackgroundConfig.FromGradient(
+    ColorGradient.FromColors(Color.DarkBlue, Color.Black),
+    GradientDirection.Vertical);
+
+// Or access the service directly
+windowSystem.DesktopBackgroundService.Config = new DesktopBackgroundConfig { ... };
+
+// Reset to theme default
+windowSystem.DesktopBackground = null;
+```
+
+Changes are applied automatically on the next frame.
 
 ## WindowStateService
 

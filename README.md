@@ -279,6 +279,7 @@ dotnet run --project Examples/DemoApp
 | **[State Services](docs/STATE-SERVICES.md)** | Window state, focus, modal, notification services |
 | **[Registry](docs/REGISTRY.md)** | Persistent hierarchical key-value storage |
 | **[Plugins](docs/PLUGINS.md)** | Plugin architecture and development |
+| **[Desktop Background](docs/DESKTOP_BACKGROUND.md)** | Gradient, pattern, and animated desktop backgrounds |
 | **[Gradients & Alpha](docs/GRADIENTS.md)** | Gradient text, window backgrounds, transparent control compositing |
 | **[Video Playback](docs/VIDEO_PLAYBACK.md)** | Terminal video player — FFmpeg decode, half-block/ASCII/braille modes |
 | **[Compositor Effects](docs/COMPOSITOR_EFFECTS.md)** | Buffer manipulation and visual effects |

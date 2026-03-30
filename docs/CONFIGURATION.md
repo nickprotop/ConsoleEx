@@ -47,6 +47,7 @@ Main configuration for the console window system.
 | `BottomPanelConfig` | `Func<PanelBuilder, PanelBuilder>?` | `null` | Bottom panel element configuration |
 | `ShowTopPanel` | `bool` | `true` | Show/hide top panel |
 | `ShowBottomPanel` | `bool` | `true` | Show/hide bottom panel |
+| `DesktopBackground` | `DesktopBackgroundConfig?` | `null` | Desktop background (gradient, pattern, animated). See [Desktop Background](DESKTOP_BACKGROUND.md) |
 
 ### Computed Properties
 
@@ -433,6 +434,7 @@ See the [Registry guide](REGISTRY.md) for full documentation.
 ## See Also
 
 - [Panel System](PANELS.md) - Full panel and element reference
+- [Desktop Background](DESKTOP_BACKGROUND.md) - Gradients, patterns, animated backgrounds
 - [State Services](STATE-SERVICES.md) - Runtime state management
 - [Registry](REGISTRY.md) - Persistent key-value storage
 - [Themes](THEMES.md) - Theme system and customization
