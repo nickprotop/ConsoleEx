@@ -79,6 +79,7 @@ namespace SharpConsoleUI
 		private readonly PanelStateService _panelStateService;
 		private readonly SettingsRegistrationService _settingsRegistrationService = new();
 		private readonly Core.DesktopPortalService _desktopPortalService;
+		private readonly Core.DesktopBackgroundService _desktopBackgroundService;
 
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
@@ -198,6 +199,14 @@ namespace SharpConsoleUI
 			_panelStateService = new PanelStateService(_logService, () => this);
 			_desktopPortalService = new Core.DesktopPortalService(_logService, this);
 
+			// Initialize desktop background service
+			_desktopBackgroundService = new Core.DesktopBackgroundService(
+				() => Theme,
+				() => Render.DesktopNeedsRender = true);
+
+			if (options?.DesktopBackground != null)
+				_desktopBackgroundService.Config = options.DesktopBackground;
+
 			// Initialize notification service (needs 'this' reference)
 			_notificationStateService = new NotificationStateService(this, _logService);
 
@@ -273,6 +282,9 @@ namespace SharpConsoleUI
 
 			// Set window system context on ThemeStateService for window invalidation
 			_themeStateService.SetWindowSystemContext(() => this);
+
+			// Wire desktop background service to theme changes
+			_themeStateService.ThemeChanged += (_, _) => _desktopBackgroundService.OnThemeChanged();
 
 			// Auto-load plugins if configured
 			if (pluginConfiguration?.AutoLoad == true)
@@ -386,6 +398,16 @@ namespace SharpConsoleUI
 		/// Gets the desktop portal service for managing desktop-level overlay portals.
 		/// </summary>
 		public Core.DesktopPortalService DesktopPortalService => _desktopPortalService;
+
+		/// <summary>Gets or sets the desktop background configuration.</summary>
+		public DesktopBackgroundConfig? DesktopBackground
+		{
+			get => _desktopBackgroundService.Config;
+			set => _desktopBackgroundService.Config = value;
+		}
+
+		/// <summary>Gets the desktop background service.</summary>
+		public Core.DesktopBackgroundService DesktopBackgroundService => _desktopBackgroundService;
 
 		/// <summary>
 		/// Gets the top panel (desktop bar) if configured, or null.
@@ -731,6 +753,9 @@ namespace SharpConsoleUI
 				_screenResizedHandler = null;
 			}
 
+			// Dispose desktop background service (stops animation timer)
+			_desktopBackgroundService.Dispose();
+
 			// Save registry on shutdown (auto-on-shutdown flush mode)
 			_registryStateService?.Dispose();
 		}
@@ -759,7 +784,7 @@ namespace SharpConsoleUI
 		/// Forces a full screen clear and desktop repaint.
 		/// Used when desktop bounds change (e.g., panel visibility toggle).
 		/// </summary>
-		internal void ForceFullRedraw()
+		public void ForceFullRedraw()
 		{
 			_consoleDriver.Clear();
 			_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);

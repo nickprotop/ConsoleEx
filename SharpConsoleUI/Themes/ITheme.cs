@@ -7,6 +7,8 @@
 // -----------------------------------------------------------------------
 
 
+using SharpConsoleUI.Rendering;
+
 namespace SharpConsoleUI.Themes;
 
 /// <summary>
@@ -121,6 +123,13 @@ public interface ITheme
     /// Gets the foreground color for the desktop background character pattern.
     /// </summary>
     Color DesktopForegroundColor { get; }
+
+    /// <summary>
+    /// Gets the optional gradient background for the desktop area.
+    /// When set, the desktop renders with this gradient instead of a solid color.
+    /// Returns null by default (solid color from DesktopBackgroundColor).
+    /// </summary>
+    GradientBackground? DesktopBackgroundGradient => null;
 
     /// <summary>
     /// Gets the foreground color for the border of inactive (unfocused) windows.

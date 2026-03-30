@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Rendering;
 using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Plugins.DeveloperTools;
@@ -78,6 +79,9 @@ public class DevDarkTheme : ITheme
 
 	/// <inheritdoc />
 	public Color DesktopForegroundColor { get; set; } = Color.Grey35;
+
+	/// <inheritdoc />
+	public GradientBackground? DesktopBackgroundGradient { get; set; }
 
 	/// <inheritdoc />
 	public Color InactiveBorderForegroundColor { get; set; } = Color.Grey42;

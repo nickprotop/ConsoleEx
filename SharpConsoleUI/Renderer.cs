@@ -82,8 +82,7 @@ namespace SharpConsoleUI
 	/// <param name="windows">The collection of windows to invalidate if they overlap.</param>
 	public void ClearArea(int left, int top, int width, int height, Themes.ITheme theme, IReadOnlyDictionary<string, Window> windows)
 	{
-		FillRect(left, top, width, height,
-			theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+		BlitDesktopRegion(left, top, width, height, theme);
 
 		// Invalidate any windows that overlap with this area to redraw them
 		foreach (var window in windows.Values)
@@ -106,13 +105,75 @@ namespace SharpConsoleUI
 	/// <param name="screenHeight">The height of the screen.</param>
 	public void FillDesktopBackground(Themes.ITheme theme, int screenWidth, int screenHeight)
 	{
-		FillRect(
-			0, 0,
-			screenWidth,
-			screenHeight,
-			theme.DesktopBackgroundChar,
-			theme.DesktopBackgroundColor,
-			theme.DesktopForegroundColor);
+		var service = _consoleWindowSystem.DesktopBackgroundService;
+		var desktopDims = _consoleWindowSystem.DesktopDimensions;
+		service.Render(screenWidth, desktopDims.Height);
+
+		if (service.HasBuffer)
+		{
+			var desktopY = _consoleWindowSystem.DesktopUpperLeft.Y;
+			var blitHeight = Math.Min(desktopDims.Height, screenHeight);
+			for (int y = 0; y < blitHeight; y++)
+			{
+				int effectiveWidth = Math.Min(screenWidth, _consoleWindowSystem.ConsoleDriver.ScreenSize.Width);
+				if (effectiveWidth <= 0) continue;
+				_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
+					0, y + desktopY, service.Buffer!, 0, y, effectiveWidth,
+					theme.DesktopBackgroundColor);
+			}
+		}
+		else
+		{
+			FillRect(0, 0, screenWidth, screenHeight,
+				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+		}
+	}
+
+	/// <summary>
+	/// Blits a rectangular desktop region from the cached background buffer to the console driver.
+	/// Falls back to flat fill if the cached buffer is not available.
+	/// Coordinates are in desktop-relative space (same as FillRect).
+	/// </summary>
+	/// <param name="left">Left coordinate in desktop space.</param>
+	/// <param name="top">Top coordinate in desktop space.</param>
+	/// <param name="width">Width of the region.</param>
+	/// <param name="height">Height of the region.</param>
+	/// <param name="theme">Theme for fallback colors.</param>
+	public void BlitDesktopRegion(int left, int top, int width, int height, Themes.ITheme theme)
+	{
+		if (width <= 0 || height <= 0)
+			return;
+
+		var service = _consoleWindowSystem.DesktopBackgroundService;
+
+		if (service.HasBuffer)
+		{
+			var desktopY = _consoleWindowSystem.DesktopUpperLeft.Y;
+			var desktopHeight = _consoleWindowSystem.DesktopDimensions.Height;
+			var screenWidth = _consoleWindowSystem.ConsoleDriver.ScreenSize.Width;
+
+			for (int y = 0; y < height; y++)
+			{
+				if (top + y >= desktopHeight) break;
+
+				int effectiveWidth = Math.Min(width, screenWidth - left);
+				if (effectiveWidth <= 0) continue;
+
+				// Clamp source coordinates to buffer bounds
+				if (left < 0 || top + y < 0) continue;
+				if (left >= service.Buffer!.Width || top + y >= service.Buffer.Height) continue;
+				effectiveWidth = Math.Min(effectiveWidth, service.Buffer.Width - left);
+
+				_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
+					left, top + y + desktopY, service.Buffer, left, top + y, effectiveWidth,
+					theme.DesktopBackgroundColor);
+			}
+		}
+		else
+		{
+			FillRect(left, top, width, height,
+				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+		}
 	}
 
 		/// <summary>
