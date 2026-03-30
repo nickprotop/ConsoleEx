@@ -203,6 +203,15 @@ public static class DesktopBackgroundWindow
                             })
             .Build());
 
+        panel.AddControl(Ctl.Button("  Matrix Rain  ")
+            .WithBorder(ButtonBorderStyle.Rounded)
+            .WithMargin(0, 1, 0, 0)
+            .OnClick((_, _, _) =>
+            {
+                ws.DesktopBackground = CreateMatrixRain();
+            })
+            .Build());
+
         panel.AddControl(Ctl.RuleBuilder()
             .WithTitle("Control")
             .WithColor(new Color(60, 120, 80))
@@ -311,5 +320,127 @@ public static class DesktopBackgroundWindow
                 };
                             })
             .Build());
+    }
+
+    /// <summary>
+    /// Creates a Matrix digital rain effect as a DesktopBackgroundConfig.
+    /// State is captured in the closure — each invocation creates independent rain.
+    /// </summary>
+    private static DesktopBackgroundConfig CreateMatrixRain()
+    {
+        const int trailLength = 14;
+        const double spawnChance = 0.04;
+        const string glyphs = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789";
+
+        // Per-column state: head row (-1 = inactive), speed (rows per tick), char buffer
+        int[]? heads = null;
+        int[]? speeds = null;
+        int[]? cooldowns = null;
+        char[,]? chars = null;
+        Random? rng = null;
+        int lastW = 0, lastH = 0;
+
+        return new DesktopBackgroundConfig
+        {
+            AnimationIntervalMs = 70,
+            PaintCallback = (buffer, width, height, elapsed) =>
+            {
+                rng ??= new Random();
+
+                // Re-init state on resize
+                if (heads == null || width != lastW || height != lastH)
+                {
+                    lastW = width;
+                    lastH = height;
+                    heads = new int[width];
+                    speeds = new int[width];
+                    cooldowns = new int[width];
+                    chars = new char[height, width];
+                    for (int c = 0; c < width; c++)
+                    {
+                        heads[c] = -1;
+                        speeds[c] = rng.Next(1, 3);
+                        cooldowns[c] = 0;
+                    }
+                    for (int y = 0; y < height; y++)
+                        for (int x = 0; x < width; x++)
+                            chars[y, x] = glyphs[rng.Next(glyphs.Length)];
+                }
+
+                // Clear to black
+                for (int y = 0; y < height; y++)
+                    for (int x = 0; x < width; x++)
+                        buffer.SetCell(x, y, new Cell(' ', Color.Black, Color.Black));
+
+                // Update columns
+                for (int col = 0; col < width; col++)
+                {
+                    // Advance active columns
+                    if (heads![col] >= 0)
+                    {
+                        if (cooldowns![col] <= 0)
+                        {
+                            heads[col] += speeds![col];
+                            cooldowns[col] = speeds[col] > 1 ? 0 : 1;
+                        }
+                        else
+                        {
+                            cooldowns[col]--;
+                        }
+
+                        // Deactivate if trail fully off screen
+                        if (heads[col] - trailLength >= height)
+                        {
+                            heads[col] = -1;
+                        }
+                    }
+                    else
+                    {
+                        // Randomly spawn new column
+                        if (rng.NextDouble() < spawnChance)
+                        {
+                            heads[col] = 0;
+                            speeds![col] = rng.Next(1, 3);
+                            cooldowns![col] = 0;
+                            // Refresh chars for this column
+                            for (int y = 0; y < height; y++)
+                                chars![y, col] = glyphs[rng.Next(glyphs.Length)];
+                        }
+                    }
+
+                    // Draw trail
+                    if (heads![col] < 0) continue;
+
+                    for (int i = 0; i < trailLength; i++)
+                    {
+                        int row = heads[col] - i;
+                        if (row < 0 || row >= height) continue;
+
+                        // Randomly mutate chars near the head
+                        if (i < 3 && rng.NextDouble() < 0.3)
+                            chars![row, col] = glyphs[rng.Next(glyphs.Length)];
+
+                        char ch = chars![row, col];
+
+                        Color fg;
+                        if (i == 0)
+                        {
+                            // Head: bright white-green
+                            fg = new Color(200, 255, 200);
+                        }
+                        else
+                        {
+                            // Trail: fade from bright green to dark green
+                            double fade = 1.0 - (double)i / trailLength;
+                            byte g = (byte)(200 * fade);
+                            byte r = (byte)(40 * fade);
+                            fg = new Color(r, g, 0);
+                        }
+
+                        buffer.SetCell(col, row, new Cell(ch, fg, Color.Black));
+                    }
+                }
+            }
+        };
     }
 }
