@@ -1,3 +1,5 @@
+using SharpConsoleUI.Rendering;
+
 namespace SharpConsoleUI.Configuration;
 
 /// <summary>
@@ -86,7 +88,10 @@ public record ConsoleWindowSystemOptions(
 
     // Panel visibility (both visible by default)
     bool ShowTopPanel = true,
-    bool ShowBottomPanel = true
+    bool ShowBottomPanel = true,
+
+    // Desktop background configuration (gradient, pattern, animated). Null uses theme defaults.
+    DesktopBackgroundConfig? DesktopBackground = null
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

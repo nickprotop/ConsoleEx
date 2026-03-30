@@ -102,15 +102,15 @@ public class DesktopBackgroundService : IDisposable
             return;
         }
 
-        // Layer 2: Gradient overlay
-        // TODO: Also check theme.DesktopBackgroundGradient when available (Task 5)
-        if (_config?.Gradient != null)
+        // Layer 2: Gradient overlay (config overrides theme default)
+        var gradient = _config?.Gradient ?? theme.DesktopBackgroundGradient;
+        if (gradient != null)
         {
             GradientRenderer.FillGradientBackground(
                 _buffer,
                 new LayoutRect(0, 0, width, height),
-                _config.Gradient.Gradient,
-                _config.Gradient.Direction);
+                gradient.Gradient,
+                gradient.Direction);
         }
 
         // Layer 3: Pattern overlay
