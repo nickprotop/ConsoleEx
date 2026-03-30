@@ -1043,9 +1043,8 @@ namespace SharpConsoleUI.Core
 		if (_renderer != null && _consoleDriver != null)
 		{
 			var theme = context.Theme;
-			// BUG FIX: Only clear the window's rectangle, not entire desktop
-			_renderer.FillRect(window.Left, window.Top, window.Width, window.Height,
-							  theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+			// Restore desktop background from cached buffer (supports gradients/patterns)
+			_renderer.BlitDesktopRegion(window.Left, window.Top, window.Width, window.Height, theme);
 
 			// Invalidate remaining windows in case they were partially occluded
 			foreach (var w in context.Windows.Values)

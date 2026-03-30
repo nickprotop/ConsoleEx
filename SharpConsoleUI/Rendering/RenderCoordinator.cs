@@ -232,6 +232,42 @@ namespace SharpConsoleUI.Rendering
 
 			lock (_renderLock)
 			{
+			// ANIMATED DESKTOP BACKGROUND: Re-blit exposed desktop areas when animation is active.
+			// The animation timer updates the cached buffer and sets DesktopNeedsRender.
+			// We must blit the updated buffer to all exposed desktop regions (not covered by windows).
+			// Only do this when animation is active (PaintCallback set) — static backgrounds are
+			// blitted once on init/resize/ForceFullRedraw and don't need per-frame updates.
+			if (_desktopNeedsRender && _pendingDesktopClears.Count == 0)
+			{
+				var service = _windowSystemContext.DesktopBackgroundService;
+				if (service.HasBuffer && service.Config?.PaintCallback != null)
+				{
+					var desktopDims = _windowSystemContext.DesktopDimensions;
+					var desktopRect = new Rectangle(0, 0, desktopDims.Width, desktopDims.Height);
+
+					// Re-render the buffer (picks up animation frame changes)
+					service.Render(desktopDims.Width, desktopDims.Height);
+
+					// Collect all visible (non-minimized) windows
+					_overlappingClearsPool.Clear();
+					foreach (var w in _windowSystemContext.Windows.Values)
+					{
+						if (w.State != WindowState.Minimized)
+							_overlappingClearsPool.Add(w);
+					}
+
+					// Calculate exposed desktop regions (areas not covered by any window)
+					var exposedRegions = _windowSystemContext.VisibleRegions
+						.CalculateVisibleRegions(desktopRect, _overlappingClearsPool);
+
+					foreach (var region in exposedRegions)
+					{
+						_renderer.BlitDesktopRegion(region.Left, region.Top, region.Width, region.Height,
+							_windowSystemContext.Theme);
+					}
+				}
+			}
+
 			// ATOMIC DESKTOP CLEARING: Clear old window positions before rendering
 			// FIX: Calculate visible regions to avoid overwriting windows below (prevents empty regions bug)
 			if (_pendingDesktopClears.Count > 0)
@@ -344,12 +380,12 @@ namespace SharpConsoleUI.Rendering
 
 			var clippedRect = new Rectangle(clipLeft, clipTop, clippedWidth, clippedHeight);
 
-			// 1. Fill with desktop background
-			// FillRect takes desktop-relative coords and adds DesktopUpperLeft.Y internally
-			_renderer.FillRect(
+			// 1. Restore desktop background from cached buffer (supports gradients/patterns)
+			// BlitDesktopRegion takes desktop-relative coords and adds DesktopUpperLeft.Y internally
+			_renderer.BlitDesktopRegion(
 				clipLeft, clipTop - desktopUpperLeft.Y,
 				clippedWidth, clippedHeight,
-				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
+				theme);
 
 			// 2. Re-blit overlapping windows from cached buffers (z-order ascending)
 			_sortedWindows.Clear();
