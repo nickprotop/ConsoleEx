@@ -253,45 +253,52 @@ namespace SharpConsoleUI.Windows
 			var bg = _window.BackgroundColor;
 
 			// Rebuild cached border buffers if necessary
+			// Snapshot width to avoid race with resize changing _window.Width between check and use
+			var windowWidth = _window.Width;
 			if (_cachedTopBorder == null ||
-				_cachedBorderWidth != _window.Width ||
+				_cachedBorderWidth != windowWidth ||
 				_cachedBorderIsActive != isActive)
 			{
 				_cachedTopBorder = BuildTopBorder(chars, borderFg, titleFg, buttonFg, closeFg, bg);
 				_cachedBottomBorder = BuildBottomBorder(chars, borderFg, bg);
-				_cachedBorderWidth = _window.Width;
+				_cachedBorderWidth = windowWidth;
 				_cachedBorderIsActive = isActive;
 			}
 
 			var contentHeight = _window.TotalLines;
 			var visibleHeight = _window.Height - 2;
 			var scrollbarVisible = _window.IsScrollable && contentHeight > visibleHeight;
+			var cachedTop = _cachedTopBorder;
+			var cachedBottom = _cachedBottomBorder;
 
 			foreach (var region in visibleRegions ?? new List<Rectangle>())
 			{
 				// Top border
-				if (region.Top == _window.Top)
+				if (region.Top == _window.Top && cachedTop != null)
 				{
 					int borderStartX = Math.Max(region.Left, _window.Left);
-					int borderWidth = Math.Min(region.Width, _window.Left + _window.Width - borderStartX);
+					int borderWidth = Math.Min(region.Width, _window.Left + windowWidth - borderStartX);
+					// Clamp to cached buffer width in case of resize race
+					borderWidth = Math.Min(borderWidth, cachedTop.Width - Math.Max(0, borderStartX - _window.Left));
 					if (borderWidth > 0)
 					{
 						int srcX = borderStartX - _window.Left;
 						driver.WriteBufferRegion(borderStartX, region.Top + desktopUpperLeft.Y,
-							_cachedTopBorder, srcX, 0, borderWidth, bg);
+							cachedTop, srcX, 0, borderWidth, bg);
 					}
 				}
 
 				// Bottom border
-				if (region.Top + region.Height == _window.Top + _window.Height)
+				if (region.Top + region.Height == _window.Top + _window.Height && cachedBottom != null)
 				{
 					int borderStartX = Math.Max(region.Left, _window.Left);
-					int borderWidth = Math.Min(region.Width, _window.Left + _window.Width - borderStartX);
+					int borderWidth = Math.Min(region.Width, _window.Left + windowWidth - borderStartX);
+					borderWidth = Math.Min(borderWidth, cachedBottom.Width - Math.Max(0, borderStartX - _window.Left));
 					if (borderWidth > 0)
 					{
 						int srcX = borderStartX - _window.Left;
 						driver.WriteBufferRegion(borderStartX, _window.Top + _window.Height - 1 + desktopUpperLeft.Y,
-							_cachedBottomBorder!, srcX, 0, borderWidth, bg);
+							cachedBottom, srcX, 0, borderWidth, bg);
 					}
 				}
 			}

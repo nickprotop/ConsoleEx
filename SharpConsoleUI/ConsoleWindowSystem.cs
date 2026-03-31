@@ -460,12 +460,16 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the bottom-right coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight());
+		public Point DesktopBottomRight => new Point(
+			_consoleDriver.ScreenSize.Width - 1,
+			Math.Max(Render.GetTopStatusHeight(), _consoleDriver.ScreenSize.Height - 1 - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight()));
 
 		/// <summary>
 		/// Gets the dimensions of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight());
+		public Helpers.Size DesktopDimensions => new Helpers.Size(
+			_consoleDriver.ScreenSize.Width,
+			Math.Max(0, _consoleDriver.ScreenSize.Height - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight()));
 
 		/// <summary>
 		/// Gets the visible regions manager for calculating window visibility.
@@ -841,7 +845,7 @@ namespace SharpConsoleUI
 						}
 						if (window.Top + window.Height > desktopSize.Height)
 						{
-							window.Top = Math.Max(1, desktopSize.Height - window.Height);
+							window.Top = Math.Max(0, desktopSize.Height - window.Height);
 						}
 					}
 

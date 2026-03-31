@@ -123,10 +123,9 @@ namespace SharpConsoleUI.Windows
 				// Add old bounds to pending clears
 				_renderCoordinator.AddPendingDesktopClear(oldBounds);
 
-				// Apply the new position and size
-				window.SetPositionDirect(new Point(newLeft, newTop));
-				window.SetSize(newWidth, newHeight);
-				window.Invalidate(true);
+				// Apply position and size atomically (prevents render thread from
+				// seeing partial state between position and size changes)
+				window.SetPositionAndSize(new Point(newLeft, newTop), newWidth, newHeight);
 
 				// Invalidate windows that were underneath (now exposed)
 				InvalidateExposedRegions(window, oldBounds);
