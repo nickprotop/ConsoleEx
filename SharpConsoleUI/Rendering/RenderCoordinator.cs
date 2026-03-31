@@ -695,7 +695,6 @@ namespace SharpConsoleUI.Rendering
 		}
 
 		/// <summary>
-		/// <summary>
 		/// Checks if a window is completely covered by other windows (with caching).
 		/// </summary>
 		private bool IsCompletelyCovered(Window window)

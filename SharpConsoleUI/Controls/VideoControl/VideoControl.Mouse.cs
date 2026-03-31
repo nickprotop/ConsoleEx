@@ -26,7 +26,9 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
 		/// <inheritdoc/>
+#pragma warning disable CS0067 // Event never raised (interface requirement)
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseRightClick;
@@ -38,7 +40,9 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseLeave;
 
 		/// <inheritdoc/>
+#pragma warning disable CS0067 // Event never raised (interface requirement)
 		public event EventHandler<MouseEventArgs>? MouseMove;
+#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)

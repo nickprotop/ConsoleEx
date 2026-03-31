@@ -42,12 +42,12 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseRightClick;
 
-		#pragma warning disable CS0067 // Event never raised (interface requirement)
+		#pragma warning disable CS0067, CS0414 // Event never raised / assigned but never used (interface requirement)
 		/// <summary>
 		/// Occurs when the mouse enters the control area.
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
-		#pragma warning restore CS0067
+		#pragma warning restore CS0067, CS0414
 
 		/// <summary>
 		/// Occurs when the mouse leaves the control area.

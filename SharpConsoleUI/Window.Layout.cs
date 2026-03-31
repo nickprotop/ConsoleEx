@@ -107,7 +107,7 @@ namespace SharpConsoleUI
 			// Use the full desktop as the buffer so submenus can extend in any direction.
 			// BufferOrigin maps buffer (0,0) to the window's content origin, so
 			// window-content-relative coordinates (used by dropdown.Bounds) work directly.
-			var desktopDims = _windowSystem.DesktopDimensions;
+			var desktopDims = _windowSystem!.DesktopDimensions;
 			var bufferSize = new System.Drawing.Size(desktopDims.Width, desktopDims.Height);
 			var bufferOrigin = new System.Drawing.Point(contentOriginX, contentOriginY);
 
@@ -131,7 +131,7 @@ namespace SharpConsoleUI
 			if (_desktopPortalMap.TryGetValue(portalNode, out var desktopPortal))
 			{
 				_desktopPortalMap.Remove(portalNode);
-				_windowSystem.DesktopPortalService.RemovePortal(desktopPortal);
+				_windowSystem!.DesktopPortalService.RemovePortal(desktopPortal);
 			}
 		}
 

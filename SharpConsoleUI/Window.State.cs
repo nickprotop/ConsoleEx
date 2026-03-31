@@ -503,7 +503,7 @@ namespace SharpConsoleUI
 				if (CloseOnDeactivate)
 				{
 					// Defer close to avoid re-entrancy — we're inside SetIsActive
-					_windowSystem.EnqueueOnUIThread(() => Close(force: true));
+					_windowSystem!.EnqueueOnUIThread(() => Close(force: true));
 				}
 			}
 		InvalidateBorderCache();
