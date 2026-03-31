@@ -38,6 +38,7 @@ public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 	private Color? _disabledBackgroundColor;
 	private Color? _disabledForegroundColor;
 	private Color? _borderColor;
+	private Color? _borderBackgroundColor;
 	private ButtonBorderStyle _borderStyle = ButtonBorderStyle.None;
 	private EventHandler<ButtonControl>? _clickHandler;
 	private WindowEventHandler<ButtonControl>? _clickWithWindowHandler;
@@ -293,6 +294,15 @@ public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the background color for border cells. When null, uses the button's background color.
+	/// </summary>
+	public ButtonBuilder WithBorderBackgroundColor(Color color)
+	{
+		_borderBackgroundColor = color;
+		return this;
+	}
+
 	public ButtonBuilder WithColors(Color foregroundColor, Color backgroundColor)
 	{
 		_foregroundColor = foregroundColor;
@@ -407,6 +417,7 @@ public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 		if (_disabledBackgroundColor.HasValue) button.DisabledBackgroundColor = _disabledBackgroundColor.Value;
 		if (_disabledForegroundColor.HasValue) button.DisabledForegroundColor = _disabledForegroundColor.Value;
 		if (_borderColor.HasValue) button.BorderColor = _borderColor.Value;
+		if (_borderBackgroundColor.HasValue) button.BorderBackgroundColor = _borderBackgroundColor.Value;
 
 		// Attach standard handler
 		if (_clickHandler != null)

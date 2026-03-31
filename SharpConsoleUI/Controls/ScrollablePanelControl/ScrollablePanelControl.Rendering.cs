@@ -209,11 +209,16 @@ namespace SharpConsoleUI.Controls
 				childNode.Measure(constraints);
 				int childHeight = childNode.DesiredSize.Height;
 
+				// Respect explicit Width on child controls
+				int childWidth = (child.Width.HasValue && child.Width.Value < contentWidth)
+					? child.Width.Value
+					: contentWidth;
+
 				// Register child bounds for cursor position lookups (even if off-viewport)
 				var childBoundsForCursor = new LayoutRect(
 					contentOriginX,
 					contentOriginY + currentY,
-					contentWidth,
+					childWidth,
 					childHeight);
 				renderer?.UpdateChildBounds(child, childBoundsForCursor);
 
@@ -223,7 +228,7 @@ namespace SharpConsoleUI.Controls
 					var childBounds = new LayoutRect(
 						contentOriginX,
 						contentOriginY + currentY,
-						contentWidth,
+						childWidth,
 						childHeight);
 
 					// Arrange in screen coordinates (so AbsoluteBounds are correct)

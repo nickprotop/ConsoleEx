@@ -276,7 +276,12 @@ namespace SharpConsoleUI.Controls
 			int height = contentHeight + Margin.Top + Margin.Bottom;
 
 			int contentWidth;
-			if (_barWidth.HasValue)
+			if (Width.HasValue)
+			{
+				// Explicit control width set — use it directly
+				contentWidth = Width.Value - Margin.Left - Margin.Right;
+			}
+			else if (_barWidth.HasValue)
 			{
 				contentWidth = CalculateContentWidth(_barWidth.Value);
 			}

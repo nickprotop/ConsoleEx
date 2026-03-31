@@ -304,6 +304,9 @@ namespace SharpConsoleUI.Layout
 
 				case HorizontalAlignment.Stretch:
 				default:
+					// If control has explicit Width, honour it over full stretch
+					if (child.Control?.Width.HasValue == true)
+						return (0, child.DesiredSize.Width);
 					return (0, availableWidth);
 			}
 		}

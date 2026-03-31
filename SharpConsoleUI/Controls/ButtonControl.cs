@@ -49,6 +49,7 @@ namespace SharpConsoleUI.Controls
 		private Color? _disabledBackgroundColor;
 		private Color? _disabledForegroundColor;
 		private Color? _borderColor;
+		private Color? _borderBackgroundColor;
 
 		/// <summary>
 		/// Initializes a new instance of the ButtonControl class with default settings.
@@ -161,6 +162,16 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _borderColor;
 			set => SetProperty(ref _borderColor, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the background color for border cells.
+		/// When null, uses the button's resolved background color.
+		/// </summary>
+		public Color? BorderBackgroundColor
+		{
+			get => _borderBackgroundColor;
+			set => SetProperty(ref _borderBackgroundColor, value);
 		}
 
 		/// <inheritdoc/>
@@ -334,6 +345,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			Color borderFg = _borderColor ?? foregroundColor;
+			Color borderBg = _borderBackgroundColor ?? backgroundColor;
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
 
@@ -389,35 +401,35 @@ namespace SharpConsoleUI.Controls
 					var box = _borderStyle == ButtonBorderStyle.Rounded ? BoxChars.Rounded : BoxChars.Single;
 					if (row == 0)
 					{
-						buffer.SetNarrowCell(bx, y, box.TopLeft, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx, y, box.TopLeft, borderFg, borderBg);
 						for (int x = 1; x < buttonWidth - 1; x++)
-							buffer.SetNarrowCell(bx + x, y, box.Horizontal, borderFg, backgroundColor);
-						buffer.SetNarrowCell(bx + buttonWidth - 1, y, box.TopRight, borderFg, backgroundColor);
+							buffer.SetNarrowCell(bx + x, y, box.Horizontal, borderFg, borderBg);
+						buffer.SetNarrowCell(bx + buttonWidth - 1, y, box.TopRight, borderFg, borderBg);
 					}
 					else if (row == 2)
 					{
-						buffer.SetNarrowCell(bx, y, box.BottomLeft, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx, y, box.BottomLeft, borderFg, borderBg);
 						for (int x = 1; x < buttonWidth - 1; x++)
-							buffer.SetNarrowCell(bx + x, y, box.Horizontal, borderFg, backgroundColor);
-						buffer.SetNarrowCell(bx + buttonWidth - 1, y, box.BottomRight, borderFg, backgroundColor);
+							buffer.SetNarrowCell(bx + x, y, box.Horizontal, borderFg, borderBg);
+						buffer.SetNarrowCell(bx + buttonWidth - 1, y, box.BottomRight, borderFg, borderBg);
 					}
 					else
 					{
-						buffer.SetNarrowCell(bx, y, box.Vertical, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx, y, box.Vertical, borderFg, borderBg);
 						string padded = $" {new string(' ', leftInnerPad)}{text}{new string(' ', rightInnerPad)} ";
 						var cells = Parsing.MarkupParser.Parse(padded, foregroundColor, backgroundColor);
 						buffer.WriteCellsClipped(bx + 1, y, cells, clipRect);
-						buffer.SetNarrowCell(bx + buttonWidth - 1, y, box.Vertical, borderFg, backgroundColor);
+						buffer.SetNarrowCell(bx + buttonWidth - 1, y, box.Vertical, borderFg, borderBg);
 					}
 				}
 				else if (_borderStyle == ButtonBorderStyle.Pipe)
 				{
 					// │ text │
-					buffer.SetNarrowCell(bx, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+					buffer.SetNarrowCell(bx, y, BoxChars.Single.Vertical, borderFg, borderBg);
 					string padded = $" {new string(' ', leftInnerPad)}{text}{new string(' ', rightInnerPad)} ";
 					var cells = Parsing.MarkupParser.Parse(padded, foregroundColor, backgroundColor);
 					buffer.WriteCellsClipped(bx + 1, y, cells, clipRect);
-					buffer.SetNarrowCell(bx + buttonWidth - 1, y, BoxChars.Single.Vertical, borderFg, backgroundColor);
+					buffer.SetNarrowCell(bx + buttonWidth - 1, y, BoxChars.Single.Vertical, borderFg, borderBg);
 				}
 				else
 				{
