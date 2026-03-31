@@ -387,6 +387,30 @@ dotnet run --project Examples/DemoApp
 
 ---
 
+### Desktop Background (DemoApp)
+Configurable desktop backgrounds with solid colors, gradients, patterns, and animated effects.
+
+![Desktop Background](images/examples/consoleex-matrix-background.gif)
+
+```bash
+dotnet run --project Examples/DemoApp
+# Navigate to System → Desktop Background
+```
+
+**Key Features:**
+- Four background types: solid color, gradient, pattern, and animated effects
+- Built-in pattern presets and animated effect presets (Matrix Rain, plasma, starfield, rain)
+- Layer animated effects on top of any background type
+- Cached buffer architecture — zero impact on window performance
+- Configurable via Desktop Background dialog or API
+
+**APIs Demonstrated:**
+- `DesktopBackgroundService` with cached buffer rendering
+- `DesktopBackground`, `DesktopPattern`, `DesktopEffectPresets`
+- `DesktopBackgroundGradient` theme integration
+
+---
+
 ### MultiDashboard
 Multiple windows with independent async update threads.
 
