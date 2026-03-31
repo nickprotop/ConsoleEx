@@ -1,12 +1,17 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Panel;
 
-var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
-windowSystem.StatusBarStateService.TopStatus = "PanelControl Demo - Mouse Event Handling";
-windowSystem.StatusBarStateService.BottomStatus = "Click panels to see events | Mouse wheel bubbles to scrollable parent | ESC: Close";
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer),
+    options: new ConsoleWindowSystemOptions(
+        TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
+    ));
+windowSystem.PanelStateService.TopStatus = "PanelControl Demo - Mouse Event Handling";
+windowSystem.PanelStateService.BottomStatus = "Click panels to see events | Mouse wheel bubbles to scrollable parent | ESC: Close";
 
 // Status display
 var statusControl = new MarkupControl(new List<string> { "[dim]Waiting for interaction...[/]" })

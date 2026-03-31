@@ -313,7 +313,7 @@ namespace SharpConsoleUI.Controls
 			// Fill entire bounds with background first
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, defaultFg, effectiveBg);
 
-			// Paint header if visible
+			// Paint header if visible (supports markup like [cyan1]text[/])
 			if (_showHeader && !string.IsNullOrEmpty(_header))
 			{
 				if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
@@ -321,66 +321,16 @@ namespace SharpConsoleUI.Controls
 					// Fill the header line
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), defaultFg, effectiveBg);
 
-					// Paint header text
+					// Parse header with markup support and paint cells
+					var headerCells = Parsing.MarkupParser.Parse(_header, defaultFg, effectiveBg);
 					int headerX = startX;
-					Cell? pendingHeaderCell = null;
-					int pendingHeaderX = 0;
-					foreach (var rune in _header.EnumerateRunes())
+					foreach (var cell in headerCells)
 					{
-						int rw = Helpers.UnicodeWidth.GetRuneWidth(rune);
-						// VS16 widens certain emoji from 1→2 columns
-						if (rw == 0 && Helpers.UnicodeWidth.IsVS16(rune) && pendingHeaderCell != null
-							&& Helpers.UnicodeWidth.IsVs16Widened(pendingHeaderCell.Value.Character)
-							&& !Helpers.UnicodeWidth.IsWideRune(pendingHeaderCell.Value.Character))
-						{
-							// Widen: emit base cell + continuation
-							var widened = pendingHeaderCell.Value;
-							widened.AppendCombiner(rune);
-							if (pendingHeaderX >= clipRect.X && pendingHeaderX < clipRect.Right && pendingHeaderX < bounds.Right)
-								buffer.SetCell(pendingHeaderX, currentY, widened);
-							if (headerX >= clipRect.X && headerX < clipRect.Right && headerX < bounds.Right)
-							{
-								Color cellBg = widened.Background;
-								buffer.SetCell(headerX, currentY, new Cell(' ', defaultFg, cellBg) { IsWideContinuation = true });
-							}
-							headerX++;
-							pendingHeaderCell = null;
-							continue;
-						}
-						// Flush pending cell
-						if (pendingHeaderCell != null)
-						{
-							if (pendingHeaderX >= clipRect.X && pendingHeaderX < clipRect.Right && pendingHeaderX < bounds.Right)
-								buffer.SetCell(pendingHeaderX, currentY, pendingHeaderCell.Value);
-							pendingHeaderCell = null;
-						}
-						if (rw == 0)
-						{
-							// Other zero-width: attach as combiner to last painted cell
-							continue;
-						}
-						Color hCellBg = bgColor;
-						if (rw == 2)
-						{
-							if (headerX >= clipRect.X && headerX < clipRect.Right && headerX < bounds.Right)
-								buffer.SetCell(headerX, currentY, new Cell(rune, defaultFg, hCellBg));
-							if (headerX + 1 < bounds.Right)
-								buffer.SetCell(headerX + 1, currentY, new Cell(' ', defaultFg, hCellBg) { IsWideContinuation = true });
-							headerX += 2;
-						}
-						else
-						{
-							// Hold width-1 cell as pending for potential VS16 widening
-							pendingHeaderCell = new Cell(rune, defaultFg, hCellBg);
-							pendingHeaderX = headerX;
-							headerX += 1;
-						}
-					}
-					// Flush last pending header cell
-					if (pendingHeaderCell != null)
-					{
-						if (pendingHeaderX >= clipRect.X && pendingHeaderX < clipRect.Right && pendingHeaderX < bounds.Right)
-							buffer.SetCell(pendingHeaderX, currentY, pendingHeaderCell.Value);
+						if (headerX >= bounds.Right || headerX >= clipRect.Right)
+							break;
+						if (headerX >= clipRect.X)
+							buffer.SetCell(headerX, currentY, cell);
+						headerX++;
 					}
 				}
 				currentY++;

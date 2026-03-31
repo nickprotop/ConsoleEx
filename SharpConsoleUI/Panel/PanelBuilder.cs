@@ -13,10 +13,18 @@ public class PanelBuilder
     private bool _visible = true;
 
     /// <summary>
+    /// Adds a single element to the left zone.
+    /// </summary>
+    public PanelBuilder Left(IPanelElement element) { _left.Add(element); return this; }
+
+    /// <summary>
+    /// Adds a single builder's element to the left zone.
+    /// </summary>
+    public PanelBuilder Left(IPanelElementBuilder builder) { _left.Add(builder.Build()); return this; }
+
+    /// <summary>
     /// Adds elements to the left zone. Accepts IPanelElement or IPanelElementBuilder instances.
     /// </summary>
-    /// <param name="items">Elements or builders to add.</param>
-    /// <returns>This builder for chaining.</returns>
     public PanelBuilder Left(params object[] items)
     {
         foreach (var item in items)
@@ -25,10 +33,18 @@ public class PanelBuilder
     }
 
     /// <summary>
+    /// Adds a single element to the center zone.
+    /// </summary>
+    public PanelBuilder Center(IPanelElement element) { _center.Add(element); return this; }
+
+    /// <summary>
+    /// Adds a single builder's element to the center zone.
+    /// </summary>
+    public PanelBuilder Center(IPanelElementBuilder builder) { _center.Add(builder.Build()); return this; }
+
+    /// <summary>
     /// Adds elements to the center zone. Accepts IPanelElement or IPanelElementBuilder instances.
     /// </summary>
-    /// <param name="items">Elements or builders to add.</param>
-    /// <returns>This builder for chaining.</returns>
     public PanelBuilder Center(params object[] items)
     {
         foreach (var item in items)
@@ -37,10 +53,18 @@ public class PanelBuilder
     }
 
     /// <summary>
+    /// Adds a single element to the right zone.
+    /// </summary>
+    public PanelBuilder Right(IPanelElement element) { _right.Add(element); return this; }
+
+    /// <summary>
+    /// Adds a single builder's element to the right zone.
+    /// </summary>
+    public PanelBuilder Right(IPanelElementBuilder builder) { _right.Add(builder.Build()); return this; }
+
+    /// <summary>
     /// Adds elements to the right zone. Accepts IPanelElement or IPanelElementBuilder instances.
     /// </summary>
-    /// <param name="items">Elements or builders to add.</param>
-    /// <returns>This builder for chaining.</returns>
     public PanelBuilder Right(params object[] items)
     {
         foreach (var item in items)

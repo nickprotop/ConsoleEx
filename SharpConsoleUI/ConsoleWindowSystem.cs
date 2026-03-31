@@ -77,11 +77,9 @@ namespace SharpConsoleUI
 		private readonly InputStateService _inputStateService;
 		private readonly NotificationStateService _notificationStateService;
 		private readonly PanelStateService _panelStateService;
-#pragma warning disable CS0612, CS0618 // Type or member is obsolete
-		private readonly StatusBarStateService _statusBarStateService;
-#pragma warning restore CS0612, CS0618
 		private readonly SettingsRegistrationService _settingsRegistrationService = new();
 		private readonly Core.DesktopPortalService _desktopPortalService;
+		private readonly Core.DesktopBackgroundService _desktopBackgroundService;
 
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
@@ -91,6 +89,9 @@ namespace SharpConsoleUI
 
 		// Diagnostics system (optional, for testing and debugging)
 		private Diagnostics.RenderingDiagnostics? _renderingDiagnostics;
+
+		// Global keyboard shortcuts registered by the application
+		private readonly Dictionary<(ConsoleModifiers Modifiers, ConsoleKey Key), Action> _globalShortcuts = new();
 
 		// Input coordination
 		/// <summary>
@@ -199,10 +200,15 @@ namespace SharpConsoleUI
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
 			_panelStateService = new PanelStateService(_logService, () => this);
-#pragma warning disable CS0612, CS0618 // Type or member is obsolete
-			_statusBarStateService = new StatusBarStateService(_panelStateService, _logService, () => this);
-#pragma warning restore CS0612, CS0618
 			_desktopPortalService = new Core.DesktopPortalService(_logService, this);
+
+			// Initialize desktop background service
+			_desktopBackgroundService = new Core.DesktopBackgroundService(
+				() => Theme,
+				() => Render.DesktopNeedsRender = true);
+
+			if (options?.DesktopBackground != null)
+				_desktopBackgroundService.Config = options.DesktopBackground;
 
 			// Initialize notification service (needs 'this' reference)
 			_notificationStateService = new NotificationStateService(this, _logService);
@@ -255,7 +261,6 @@ namespace SharpConsoleUI
 				_consoleDriver,
 				_renderer,
 				_windowStateService,
-				_statusBarStateService,
 				_logService,
 				this,
 				() => _options,
@@ -280,6 +285,9 @@ namespace SharpConsoleUI
 
 			// Set window system context on ThemeStateService for window invalidation
 			_themeStateService.SetWindowSystemContext(() => this);
+
+			// Wire desktop background service to theme changes
+			_themeStateService.ThemeChanged += (_, _) => _desktopBackgroundService.OnThemeChanged();
 
 			// Auto-load plugins if configured
 			if (pluginConfiguration?.AutoLoad == true)
@@ -385,14 +393,6 @@ namespace SharpConsoleUI
 		public PanelStateService PanelStateService => _panelStateService;
 
 		/// <summary>
-		/// Gets the status bar state service for managing status bars and Start menu.
-		/// </summary>
-		[Obsolete("Use PanelStateService instead. This property will be removed in a future version.")]
-#pragma warning disable CS0612, CS0618 // Type or member is obsolete
-		public StatusBarStateService StatusBarStateService => _statusBarStateService;
-#pragma warning restore CS0612, CS0618
-
-		/// <summary>
 		/// Gets the settings registration service for adding custom settings pages.
 		/// </summary>
 		public SettingsRegistrationService SettingsRegistrationService => _settingsRegistrationService;
@@ -401,6 +401,16 @@ namespace SharpConsoleUI
 		/// Gets the desktop portal service for managing desktop-level overlay portals.
 		/// </summary>
 		public Core.DesktopPortalService DesktopPortalService => _desktopPortalService;
+
+		/// <summary>Gets or sets the desktop background configuration.</summary>
+		public DesktopBackgroundConfig? DesktopBackground
+		{
+			get => _desktopBackgroundService.Config;
+			set => _desktopBackgroundService.Config = value;
+		}
+
+		/// <summary>Gets the desktop background service.</summary>
+		public Core.DesktopBackgroundService DesktopBackgroundService => _desktopBackgroundService;
 
 		/// <summary>
 		/// Gets the top panel (desktop bar) if configured, or null.
@@ -450,12 +460,16 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the bottom-right coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Point DesktopBottomRight => new Point(_consoleDriver.ScreenSize.Width - 1, _consoleDriver.ScreenSize.Height - 1 - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight());
+		public Point DesktopBottomRight => new Point(
+			_consoleDriver.ScreenSize.Width - 1,
+			Math.Max(Render.GetTopStatusHeight(), _consoleDriver.ScreenSize.Height - 1 - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight()));
 
 		/// <summary>
 		/// Gets the dimensions of the usable desktop area (excluding status bars).
 		/// </summary>
-		public Helpers.Size DesktopDimensions => new Helpers.Size(_consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight());
+		public Helpers.Size DesktopDimensions => new Helpers.Size(
+			_consoleDriver.ScreenSize.Width,
+			Math.Max(0, _consoleDriver.ScreenSize.Height - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight()));
 
 		/// <summary>
 		/// Gets the visible regions manager for calculating window visibility.
@@ -746,6 +760,9 @@ namespace SharpConsoleUI
 				_screenResizedHandler = null;
 			}
 
+			// Dispose desktop background service (stops animation timer)
+			_desktopBackgroundService.Dispose();
+
 			// Save registry on shutdown (auto-on-shutdown flush mode)
 			_registryStateService?.Dispose();
 		}
@@ -774,7 +791,7 @@ namespace SharpConsoleUI
 		/// Forces a full screen clear and desktop repaint.
 		/// Used when desktop bounds change (e.g., panel visibility toggle).
 		/// </summary>
-		internal void ForceFullRedraw()
+		public void ForceFullRedraw()
 		{
 			_consoleDriver.Clear();
 			_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);
@@ -828,7 +845,7 @@ namespace SharpConsoleUI
 						}
 						if (window.Top + window.Height > desktopSize.Height)
 						{
-							window.Top = Math.Max(1, desktopSize.Height - window.Height);
+							window.Top = Math.Max(0, desktopSize.Height - window.Height);
 						}
 					}
 
@@ -994,6 +1011,34 @@ namespace SharpConsoleUI
 		public void RegisterSettingsPage(string name, string? icon = null,
 			string? subtitle = null, Action<ScrollablePanelControl>? content = null)
 			=> _settingsRegistrationService.RegisterPage(name, icon, subtitle, content);
+
+		#endregion
+
+		#region Global Shortcuts
+
+		/// <summary>
+		/// Registers a global keyboard shortcut that is handled before routing to windows.
+		/// </summary>
+		/// <param name="modifiers">The modifier keys (e.g. Control, Alt, Shift).</param>
+		/// <param name="key">The key to bind.</param>
+		/// <param name="action">The action to invoke when the shortcut is pressed.</param>
+		public void RegisterGlobalShortcut(ConsoleModifiers modifiers, ConsoleKey key, Action action)
+		{
+			_globalShortcuts[(modifiers, key)] = action;
+		}
+
+		/// <summary>
+		/// Tries to execute a registered global shortcut for the given key info.
+		/// </summary>
+		internal bool TryHandleGlobalShortcut(ConsoleKeyInfo keyInfo)
+		{
+			if (_globalShortcuts.TryGetValue((keyInfo.Modifiers, keyInfo.Key), out var action))
+			{
+				action();
+				return true;
+			}
+			return false;
+		}
 
 		#endregion
 

@@ -10,6 +10,8 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Panel;
+using Panel = Spectre.Console.Panel;
 using Spectre.Console;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 
@@ -36,9 +38,10 @@ internal class Program
 			_windowSystem = new ConsoleWindowSystem(
 				new NetConsoleDriver(RenderMode.Buffer),
 				options: new ConsoleWindowSystemOptions(
-					StatusBarOptions: new StatusBarOptions(ShowTaskBar: true)
+					TopPanelConfig: panel => panel.Left(Elements.StatusText("")),
+					BottomPanelConfig: panel => panel.Center(Elements.TaskBar())
 				));
-			_windowSystem.StatusBarStateService.TopStatus = "Spectre Renderable Mouse Demo - Press ESC to close window";
+			_windowSystem.PanelStateService.TopStatus = "Spectre Renderable Mouse Demo - Press ESC to close window";
 
 			// Setup graceful shutdown
 			Console.CancelKeyPress += (sender, e) =>

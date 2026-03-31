@@ -1,13 +1,13 @@
-# Status Bars and Start Menu System
+# Panels, Task Bar, and Start Menu
 
-SharpConsoleUI provides a comprehensive status system including top and bottom status bars, window task lists, and a Windows-like Start Menu.
+SharpConsoleUI provides a configurable panel system for screen-level UI — top and bottom bars with status text, window task lists, clocks, performance metrics, and a Windows-like Start Menu.
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Status Bars](#status-bars)
-  - [Top Status Bar](#top-status-bar)
-  - [Bottom Status Bar](#bottom-status-bar)
+- [Panels](#panels)
+  - [Top Panel](#top-panel)
+  - [Bottom Panel](#bottom-panel)
   - [Window Task Bar](#window-task-bar)
   - [Performance Metrics](#performance-metrics)
 - [Start Menu System](#start-menu-system)
@@ -19,128 +19,113 @@ SharpConsoleUI provides a comprehensive status system including top and bottom s
 
 ## Overview
 
-The status system provides:
-- **Top Status Bar**: Application title, branding, performance metrics
-- **Bottom Status Bar**: Status messages, window list, Start button
+The panel system provides:
+- **Top Panel**: Application title, branding, performance metrics, clock
+- **Bottom Panel**: Start button, window task bar, status messages, clock
 - **Window Task Bar**: Quick access to open windows (Alt+1-9)
-
-> **Note:** For the in-window `StatusBarControl` (three-zone bar with clickable items and shortcut hints), see the [StatusBarControl documentation](controls/StatusBarControl.md).
 - **Start Menu**: Centralized access to actions, windows, and system features
 
-## Status Bars
+Panels are composed from **elements** using a fluent builder. See the [Panel System guide](PANELS.md) for the full element reference.
 
-### Top Status Bar
+> **Note:** For the in-window `StatusBarControl` (three-zone bar with clickable items and shortcut hints), see the [StatusBarControl documentation](controls/StatusBarControl.md).
 
-The top status bar appears at the very top of the screen, above all windows.
+## Panels
+
+### Top Panel
+
+The top panel appears at the very top of the screen, above all windows.
 
 #### Configuration
 
 ```csharp
+using SharpConsoleUI.Panel;
+
 var options = new ConsoleWindowSystemOptions(
-    StatusBarOptions: new StatusBarOptions(
-        ShowTopStatus: true  // Enable/disable top status bar
-    )
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[bold cyan]My Application[/]"))
+        .Left(Elements.Separator())
+        .Left(Elements.StatusText("[dim]Ctrl+T: Theme[/]"))
+        .Right(Elements.Performance())
 );
 
 var windowSystem = new ConsoleWindowSystem(
     new NetConsoleDriver(RenderMode.Buffer),
     options: options);
-
-// Set top status text (supports markup syntax)
-windowSystem.TopStatus = "[bold cyan]My Application[/] - [yellow]Connected[/]";
 ```
 
-#### Content Priority
+#### Runtime Status Text
 
-The top status bar displays (in order of priority):
-1. **Performance Metrics** (if `EnablePerformanceMetrics: true`)
-   - `FPS: 60 | Frame: 16.67ms | Windows: 3 | Dirty: 1`
-2. **Start Button** (if `ShowStartButton: true` and `StartButtonLocation: Top`)
-   - Appears on left or right based on `StartButtonPosition`
-3. **Custom Status Text** (`TopStatus` property)
-   - Fills remaining space
+```csharp
+// Update the first StatusTextElement in the top panel
+windowSystem.PanelStateService.TopStatus = "[bold]My Application v1.0[/]";
+
+// Or find and update a specific element
+var title = windowSystem.PanelStateService.TopPanel?.FindElement<StatusTextElement>("title");
+if (title != null) title.Text = "[green]Connected[/]";
+```
 
 #### Usage Examples
 
 **Application Title:**
 ```csharp
-windowSystem.TopStatus = "[bold]My Application v1.0[/]";
+TopPanelConfig: panel => panel
+    .Left(Elements.StatusText("[bold]My Application v1.0[/]"))
 ```
 
-**Real-time Status Updates:**
+**Title with Clock and Metrics:**
 ```csharp
-// Update connection status
-windowSystem.TopStatus = $"[green]Connected[/] to server at {DateTime.Now:HH:mm:ss}";
-
-// Update progress
-windowSystem.TopStatus = $"Processing... [yellow]{progress}%[/]";
+TopPanelConfig: panel => panel
+    .Left(Elements.StatusText("[bold cyan]Dashboard[/]"))
+    .Right(Elements.Performance())
+    .Right(Elements.Separator())
+    .Right(Elements.Clock().WithFormat("HH:mm:ss"))
 ```
 
-**Rich Markup:**
-```csharp
-windowSystem.TopStatus = "[bold cyan]Dashboard[/] | CPU: [green]23%[/] | Memory: [yellow]45%[/]";
-```
+### Bottom Panel
 
-### Bottom Status Bar
-
-The bottom status bar appears at the bottom of the screen, below all windows.
+The bottom panel appears at the bottom of the screen, below all windows.
 
 #### Configuration
 
 ```csharp
 var options = new ConsoleWindowSystemOptions(
-    StatusBarOptions: new StatusBarOptions(
-        ShowBottomStatus: true  // Enable/disable bottom status bar
-    )
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StartMenu())
+        .Center(Elements.TaskBar())
+        .Right(Elements.Clock())
 );
 
-windowSystem.BottomStatus = "Ready | [dim]Press F1 for help[/]";
+windowSystem.PanelStateService.BottomStatus = "Ready | [dim]Press F1 for help[/]";
 ```
-
-#### Content Priority
-
-The bottom status bar displays (left to right):
-1. **Start Button** (if `ShowStartButton: true` and `StartButtonLocation: Bottom`)
-   - Position controlled by `StartButtonPosition` (Left or Right)
-2. **Window Task Bar** (if `ShowTaskBar: true`)
-   - `Alt-1 Window 1 | Alt-2 Window 2 | ...`
-3. **Custom Status Text** (`BottomStatus` property)
-   - Fills remaining space
 
 #### Layout Examples
 
-**Left Start Button + Task Bar:**
+**Start Menu + Task Bar + Clock:**
 ```
-☰ Start | Alt-1 Main | Alt-2 Editor | Alt-3 Terminal | Ready
-```
-
-**Right Start Button + Task Bar:**
-```
-Alt-1 Main | Alt-2 Editor | Ready                    ☰ Start
+☰ Start | Alt-1 Main | Alt-2 Editor | Alt-3 Terminal     14:30:00
 ```
 
-**No Start Button, Task Bar Only:**
+**Task Bar Only:**
 ```
-Alt-1 Main | Alt-2 Editor | Alt-3 Terminal | Ready
+Alt-1 Main | Alt-2 Editor | Alt-3 Terminal
 ```
 
-**Custom Status Only:**
+**Status Text Only:**
 ```
 Connected to database | 42 records loaded | Ready
 ```
 
 ### Window Task Bar
 
-The window task bar shows all open windows with keyboard shortcuts for quick switching.
+The `TaskBar` element shows all open windows with keyboard shortcuts for quick switching.
 
 #### Configuration
 
 ```csharp
-var options = new ConsoleWindowSystemOptions(
-    StatusBarOptions: new StatusBarOptions(
-        ShowTaskBar: true  // Enable window task bar
-    )
-);
+BottomPanelConfig: panel => panel
+    .Center(Elements.TaskBar()
+        .WithActiveColor(Color.Cyan1)
+        .WithMinimizedDim(true))
 ```
 
 #### Features
@@ -152,79 +137,34 @@ var options = new ConsoleWindowSystemOptions(
 
 **Visual Indicators:**
 - **Normal**: `Alt-1 Window Title`
-- **Minimized**: `Alt-1 [dim]Window Title[/]` (dimmed)
+- **Minimized**: Dimmed text
 - **Truncation**: Long titles truncated with ellipsis
 
 **Window Filtering:**
-- Only shows top-level windows (not child windows)
+- Only shows top-level windows (not child windows or the Start Menu)
 - Updates automatically when windows are added/removed
-
-#### Usage
-
-```csharp
-// Task bar appears automatically with open windows
-var window1 = new Window(windowSystem) { Title = "Main Window" };
-var window2 = new Window(windowSystem) { Title = "Editor" };
-var window3 = new Window(windowSystem) { Title = "Terminal" };
-
-windowSystem.AddWindow(window1);
-windowSystem.AddWindow(window2);
-windowSystem.AddWindow(window3);
-
-// Bottom status now shows:
-// Alt-1 Main Window | Alt-2 Editor | Alt-3 Terminal
-```
-
-#### Disable Task Bar
-
-Hide window list from status bar (useful when using Start Menu instead):
-
-```csharp
-var options = new ConsoleWindowSystemOptions(
-    StatusBarOptions: new StatusBarOptions(
-        ShowTaskBar: false,           // Hide from status bar
-        ShowWindowListInMenu: true    // Show in Start Menu instead
-    )
-);
-```
+- Click to activate/focus a window
 
 ### Performance Metrics
 
-Real-time performance metrics in the top status bar.
+Real-time performance metrics via the `Performance` element.
 
 #### Configuration
 
 ```csharp
-var options = new ConsoleWindowSystemOptions(
-    EnablePerformanceMetrics: true  // Show metrics
-);
+TopPanelConfig: panel => panel
+    .Right(Elements.Performance()
+        .ShowFPS(true)
+        .ShowDirtyChars(true))
 ```
 
-#### Metrics Display
+#### Display
 
-```
-FPS: 60 | Frame: 16.67ms | Windows: 3 | Dirty: 1
-```
-
-- **FPS**: Current frames per second
-- **Frame**: Milliseconds to render last frame
-- **Windows**: Total number of windows
-- **Dirty**: Windows needing re-render
-
-#### Runtime Toggle
-
-Users can toggle metrics via:
-- Start Menu > System > Toggle Performance Metrics
-- Or programmatically:
-
-```csharp
-// Access via options (runtime change not directly supported)
-// Use Start Menu or rebuild system with new options
-```
+The performance element shows FPS and dirty character counts, auto-updating every 250ms.
 
 #### Environment Variable
 
-Enable via environment variable:
+Enable performance metrics tracking via environment variable:
 
 ```bash
 export SHARPCONSOLEUI_PERF_METRICS=true
@@ -233,48 +173,31 @@ dotnet run
 
 ## Start Menu System
 
-Windows-like Start Menu providing centralized access to actions, windows, and system features.
+Windows-like Start Menu providing centralized access to actions, windows, and system features. The Start Menu is added as a `StartMenu` element on a panel.
 
 ### Start Menu Configuration
 
-#### Enabling the Start Button
-
-The Start button is **disabled by default** (opt-in):
+#### Adding a Start Menu
 
 ```csharp
+using SharpConsoleUI.Panel;
+
 var options = new ConsoleWindowSystemOptions(
-    StatusBarOptions: new StatusBarOptions(
-        ShowStartButton: true,                           // Enable Start button
-        StartButtonLocation: StatusBarLocation.Bottom,   // Top or Bottom
-        StartButtonPosition: StartButtonPosition.Left,   // Left or Right
-        StartButtonText: "☰ Start",                      // Button text
-        StartMenuShortcutKey: ConsoleKey.Spacebar,       // Shortcut key (Ctrl+Space)
-        StartMenuShortcutModifiers: ConsoleModifiers.Control,
-        StartMenu: new StartMenuOptions
-        {
-            Layout = StartMenuLayout.TwoColumn,
-            AppName = "My App",
-            AppVersion = "1.0.0"
-        }
-    )
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StartMenu()
+            .WithText("☰ Start")
+            .WithShortcutKey(ConsoleKey.Spacebar, ConsoleModifiers.Control)
+            .WithOptions(new StartMenuOptions
+            {
+                Layout = StartMenuLayout.TwoColumn,
+                AppName = "My App",
+                AppVersion = "1.0.0"
+            }))
+        .Center(Elements.TaskBar())
 );
 ```
 
-#### Configuration Options
-
-**StatusBarOptions:**
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `ShowStartButton` | `bool` | `false` | Show/hide the Start button |
-| `StartButtonLocation` | `StatusBarLocation` | `Bottom` | Top or Bottom status bar |
-| `StartButtonPosition` | `StartButtonPosition` | `Left` | Left or Right side |
-| `StartButtonText` | `string` | `"☰ Start"` | Button display text |
-| `StartMenuShortcutKey` | `ConsoleKey` | `Spacebar` | Keyboard shortcut key |
-| `StartMenuShortcutModifiers` | `ConsoleModifiers` | `Control` | Modifier keys (Ctrl, Alt, Shift) |
-| `StartMenu` | `StartMenuOptions?` | `null` | Start menu configuration (see below) |
-
-**StartMenuOptions:**
+#### StartMenuOptions
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -285,6 +208,7 @@ var options = new ConsoleWindowSystemOptions(
 | `HeaderIcon` | `string` | `"☰"` | Icon next to app name in header |
 | `ShowSystemCategory` | `bool` | `true` | Show System category |
 | `ShowWindowList` | `bool` | `true` | Show Windows list |
+| `SidebarStyle` | `StartMenuSidebarStyle` | `IconLabel` | Sidebar display style |
 | `BackgroundGradient` | `GradientBackground?` | `null` | Optional gradient background |
 
 #### Layout Modes
@@ -292,77 +216,63 @@ var options = new ConsoleWindowSystemOptions(
 - **`TwoColumn`** (default): Left column has quick actions and category submenus; right column has a live window list with Alt+N shortcuts and an info strip showing theme, window count, and plugin count.
 - **`SingleColumn`**: Compact vertical menu. Windows appear as a flyout submenu instead of an inline list.
 
-#### Placement Examples
+#### Placement
+
+Place the Start Menu in any panel zone:
 
 **Bottom-Left (Windows-style):**
 ```csharp
-StartButtonLocation: StatusBarLocation.Bottom,
-StartButtonPosition: StartButtonPosition.Left
+BottomPanelConfig: panel => panel
+    .Left(Elements.StartMenu())
+    .Center(Elements.TaskBar())
 ```
-Result: `☰ Start | Alt-1 Window | Status text`
 
 **Top-Right:**
 ```csharp
-StartButtonLocation: StatusBarLocation.Top,
-StartButtonPosition: StartButtonPosition.Right
-```
-Result: `Application Title                    ☰ Start`
-
-**Custom Shortcut (e.g., just Escape):**
-```csharp
-StartMenuShortcutKey: ConsoleKey.Escape,
-StartMenuShortcutModifiers: ConsoleModifiers.None
-```
-
-**Custom Branding:**
-```csharp
-StartMenu: new StartMenuOptions { AppName = "My Dashboard", AppVersion = "2.1.0" }
+TopPanelConfig: panel => panel
+    .Left(Elements.StatusText("[bold]My App[/]"))
+    .Right(Elements.StartMenu())
 ```
 
 ### Registering Actions
 
-Register custom actions organized by category.
+Actions are registered directly on the `StartMenuElement` instance.
 
 #### Basic Action Registration
 
 ```csharp
-windowSystem.RegisterStartMenuAction(
-    actionName: "New Document",
-    action: () =>
-    {
-        var window = new Window(windowSystem)
-        {
-            Title = "New Document",
-            Width = 60,
-            Height = 20
-        };
-        windowSystem.AddWindow(window);
-    },
-    category: "File",  // Category for organization
-    order: 10          // Display order (lower = higher in menu)
-);
+// Get the StartMenuElement from the panel
+var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
+
+// Register actions by category
+startMenu.RegisterAction("New Document", () =>
+{
+    var window = new Window(windowSystem) { Title = "New Document", Width = 60, Height = 20 };
+    windowSystem.AddWindow(window);
+}, category: "File", order: 10);
 ```
 
 #### Multiple Categories
 
 ```csharp
+var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
+
 // File category
-windowSystem.RegisterStartMenuAction("New Document", CreateNewDoc, "File", 10);
-windowSystem.RegisterStartMenuAction("Open File", OpenFile, "File", 20);
-windowSystem.RegisterStartMenuAction("Save", Save, "File", 30);
+startMenu.RegisterAction("New Document", () => CreateNewDoc(), "File", 10);
+startMenu.RegisterAction("Open File", () => OpenFile(), "File", 20);
+startMenu.RegisterAction("Save", () => Save(), "File", 30);
 
 // Edit category
-windowSystem.RegisterStartMenuAction("Undo", Undo, "Edit", 10);
-windowSystem.RegisterStartMenuAction("Redo", Redo, "Edit", 20);
-windowSystem.RegisterStartMenuAction("Preferences", ShowPrefs, "Edit", 30);
+startMenu.RegisterAction("Undo", () => Undo(), "Edit", 10);
+startMenu.RegisterAction("Preferences", () => ShowPrefs(), "Edit", 20);
 
 // Tools category
-windowSystem.RegisterStartMenuAction("Calculator", OpenCalc, "Tools", 10);
-windowSystem.RegisterStartMenuAction("Terminal", OpenTerminal, "Tools", 20);
+startMenu.RegisterAction("Calculator", () => OpenCalc(), "Tools", 10);
+startMenu.RegisterAction("Terminal", () => OpenTerminal(), "Tools", 20);
 
 // Help category
-windowSystem.RegisterStartMenuAction("User Guide", ShowGuide, "Help", 10);
-windowSystem.RegisterStartMenuAction("About", ShowAbout, "Help", 20);
+startMenu.RegisterAction("User Guide", () => ShowGuide(), "Help", 10);
+startMenu.RegisterAction("About", () => ShowAbout(), "Help", 20);
 ```
 
 ### Built-in Categories
@@ -371,22 +281,19 @@ windowSystem.RegisterStartMenuAction("About", ShowAbout, "Help", 20);
 
 **Enabled by default** via `StartMenuOptions.ShowSystemCategory`. Provides:
 
-**Quick actions** (top-level):
 - **Change Theme...** - Theme selector dialog
 - **Settings...** - System settings window
 - **About...** - Application information
-
-**System submenu**:
 - **Performance** > Toggle Metrics, Toggle Frame Limiting, Set Target FPS...
 
 Disable System category:
 ```csharp
-StartMenu: new StartMenuOptions { ShowSystemCategory = false }
+new StartMenuOptions { ShowSystemCategory = false }
 ```
 
 #### Windows Category
 
-**Enabled by default** via `ShowWindowListInMenu: true`. Provides:
+**Enabled by default** via `ShowWindowList: true`. Provides:
 
 - List of all open windows
 - Alt+1-9 shortcuts shown
@@ -395,10 +302,8 @@ StartMenu: new StartMenuOptions { ShowSystemCategory = false }
 
 Disable Windows list:
 ```csharp
-StartMenu: new StartMenuOptions { ShowWindowList = false }
+new StartMenuOptions { ShowWindowList = false }
 ```
-
-**Note:** When disabled, windows still appear in bottom status bar if `ShowTaskBar: true`.
 
 ### Plugin Integration
 
@@ -410,14 +315,10 @@ Plugins can provide their own actions and windows in the Start Menu.
 // Load DeveloperTools plugin
 windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
 
-// Plugin actions appear automatically:
+// Plugin actions appear automatically in the Start Menu:
 // Debug > Clear Logs
 // Debug > Export Diagnostics
 // Debug > Toggle Performance Overlay
-
-// Plugin windows appear:
-// Developer Tools > Debug Console
-// Developer Tools > Log Exporter
 ```
 
 #### Creating Action Providers
@@ -444,10 +345,10 @@ public class MyPlugin : IPlugin, IActionProvider
 
 **Keyboard:**
 - Press `Ctrl+Space` (default)
-- Customizable via `StartMenuShortcutKey` and `StartMenuShortcutModifiers`
+- Customizable via `.WithShortcutKey()` on the builder
 
 **Mouse:**
-- Click `☰ Start` button in status bar
+- Click the `☰ Start` button in the panel
 
 #### Navigation
 
@@ -465,12 +366,12 @@ public class MyPlugin : IPlugin, IActionProvider
 
 #### Menu Behavior
 
-- **Window-based**: The Start menu is a borderless, always-on-top window with rounded borders
-- **Click Outside**: Closes automatically when deactivated (click on desktop or another window)
+- **Window-based**: The Start menu is a borderless, always-on-top window
+- **Click Outside**: Closes automatically when deactivated
 - **Auto-close**: Closes after action execution
 - **Escape**: Always closes menu
 - **Toggle**: Clicking the Start button again closes the menu
-- **Hidden from Taskbar**: Does not appear in the task bar or Alt+N window list
+- **Hidden from TaskBar**: Does not appear in the task bar or Alt+N window list
 
 ## Complete Examples
 
@@ -478,164 +379,151 @@ public class MyPlugin : IPlugin, IActionProvider
 
 ```csharp
 using SharpConsoleUI;
-using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Panel;
 
-var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer))
-{
-    TopStatus = "[bold]My Application[/]",
-    BottomStatus = "Ready"
-};
-
-// Task bar shows automatically with windows
-// Bottom: Alt-1 Window1 | Alt-2 Window2 | Ready
-```
-
-### Example 2: Windows-like with Start Menu
-
-```csharp
 var options = new ConsoleWindowSystemOptions(
-    StatusBarOptions: new StatusBarOptions(
-        ShowStartButton: true,
-        ShowTaskBar: false,  // Window list only in Start Menu
-        StartMenu: new StartMenuOptions { AppName = "My App", AppVersion = "1.0.0" }
-    )
-);
-
-var windowSystem = new ConsoleWindowSystem(
-    new NetConsoleDriver(RenderMode.Buffer),
-    options: options)
-{
-    TopStatus = "[bold cyan]My App[/] - Press [yellow]Ctrl+Space[/] for menu",
-    BottomStatus = ""
-};
-
-// Register actions
-windowSystem.RegisterStartMenuAction("New", CreateNew, "File", 10);
-windowSystem.RegisterStartMenuAction("Open", OpenFile, "File", 20);
-
-// Bottom: ☰ Start | [custom status]
-// Start Menu shows File > New, File > Open, Windows > [list], System > [actions]
-```
-
-### Example 3: Dashboard with Performance Metrics
-
-```csharp
-var options = new ConsoleWindowSystemOptions(
-    EnablePerformanceMetrics: true,
-    TargetFPS: 30,
-    StatusBarOptions: new StatusBarOptions(
-        ShowStartButton: false,
-        ShowTaskBar: false,
-        ShowTopStatus: true,
-        ShowBottomStatus: true
-    )
-);
-
-var windowSystem = new ConsoleWindowSystem(
-    new NetConsoleDriver(RenderMode.Buffer),
-    options: options)
-{
-    TopStatus = "",  // Metrics appear here automatically
-    BottomStatus = "Press [yellow]F10[/] to exit"
-};
-
-// Top: FPS: 30 | Frame: 33.33ms | Windows: 1 | Dirty: 0
-// Bottom: Press F10 to exit
-```
-
-### Example 4: Full-featured with Everything
-
-```csharp
-var options = new ConsoleWindowSystemOptions(
-    EnablePerformanceMetrics: true,
-    EnableFrameRateLimiting: true,
-    TargetFPS: 60,
-    StatusBarOptions: new StatusBarOptions(
-        ShowStartButton: true,
-        StartButtonText: "☰ Menu",
-        ShowTaskBar: true,
-        StartMenu: new StartMenuOptions
-        {
-            AppName = "My IDE",
-            AppVersion = "3.0.0"
-        }
-    )
-);
-
-var windowSystem = new ConsoleWindowSystem(
-    new NetConsoleDriver(RenderMode.Buffer),
-    options: options)
-{
-    TopStatus = "[bold cyan]Application Suite[/]",
-    BottomStatus = ""
-};
-
-// Load plugins
-windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
-
-// Register custom actions
-windowSystem.RegisterStartMenuAction("New Project", CreateProject, "File", 10);
-windowSystem.RegisterStartMenuAction("Open Project", OpenProject, "File", 20);
-windowSystem.RegisterStartMenuAction("Settings", ShowSettings, "Edit", 10);
-windowSystem.RegisterStartMenuAction("Terminal", OpenTerminal, "Tools", 10);
-
-// Top: FPS: 60 | Frame: 16.67ms | Windows: 3 | Dirty: 1 | Application Suite
-// Bottom: ☰ Menu | Alt-1 Main | Alt-2 Editor | Alt-3 Terminal
-```
-
-### Example 5: Minimal (No Status System)
-
-```csharp
-var options = new ConsoleWindowSystemOptions(
-    StatusBarOptions: new StatusBarOptions(
-        ShowTopStatus: false,
-        ShowBottomStatus: false
-    )
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[bold]My Application[/]")),
+    BottomPanelConfig: panel => panel
+        .Center(Elements.TaskBar())
 );
 
 var windowSystem = new ConsoleWindowSystem(
     new NetConsoleDriver(RenderMode.Buffer),
     options: options);
 
-// No status bars at all - maximum screen space
+// Task bar shows automatically with windows
+// Bottom: Alt-1 Window1 | Alt-2 Window2
+```
+
+### Example 2: Windows-like with Start Menu
+
+```csharp
+var options = new ConsoleWindowSystemOptions(
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[bold cyan]My App[/] - Press [yellow]Ctrl+Space[/] for menu")),
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StartMenu()
+            .WithOptions(new StartMenuOptions { AppName = "My App", AppVersion = "1.0.0" }))
+        .Center(Elements.TaskBar())
+);
+
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer),
+    options: options);
+
+// Register actions
+var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
+startMenu.RegisterAction("New", () => CreateNew(), "File", 10);
+startMenu.RegisterAction("Open", () => OpenFile(), "File", 20);
+```
+
+### Example 3: Dashboard with Performance Metrics
+
+```csharp
+var options = new ConsoleWindowSystemOptions(
+    TargetFPS: 30,
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText(""))
+        .Right(Elements.Performance()),
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StatusText("Press [yellow]F10[/] to exit"))
+);
+
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer),
+    options: options);
+
+windowSystem.PanelStateService.TopStatus = "[bold cyan]System Dashboard[/]";
+```
+
+### Example 4: Full-featured with Everything
+
+```csharp
+var options = new ConsoleWindowSystemOptions(
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[bold cyan]Application Suite[/]"))
+        .Right(Elements.Performance())
+        .Right(Elements.Separator())
+        .Right(Elements.Clock().WithFormat("HH:mm:ss")),
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StartMenu()
+            .WithText("☰ Menu")
+            .WithOptions(new StartMenuOptions
+            {
+                AppName = "My IDE",
+                AppVersion = "3.0.0",
+                SidebarStyle = StartMenuSidebarStyle.IconLabel,
+                BackgroundGradient = new GradientBackground(
+                    ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
+                    GradientDirection.Vertical)
+            }))
+        .Center(Elements.TaskBar())
+);
+
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer),
+    options: options);
+
+// Load plugins
+windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+
+// Register custom actions
+var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
+startMenu.RegisterAction("New Project", () => CreateProject(), "File", 10);
+startMenu.RegisterAction("Open Project", () => OpenProject(), "File", 20);
+startMenu.RegisterAction("Settings", () => ShowSettings(), "Edit", 10);
+startMenu.RegisterAction("Terminal", () => OpenTerminal(), "Tools", 10);
+```
+
+### Example 5: No Panels
+
+```csharp
+var options = new ConsoleWindowSystemOptions(
+    ShowTopPanel: false,
+    ShowBottomPanel: false
+);
+
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer),
+    options: options);
+
+// No panels at all - maximum screen space
 ```
 
 ## Best Practices
 
-### Status Bars
+### Panels
 
-1. **Keep Text Concise**: Status bars have limited space
+1. **Keep Text Concise**: Panel elements have limited space
 2. **Use Markup Sparingly**: Too much markup reduces readability
-3. **Update Appropriately**: Don't update status text every frame (causes flicker)
-4. **Provide Context**: Use status for current state/activity
-5. **Match Conventions**: Use familiar patterns (Ready, Connected, Processing...)
+3. **Match Conventions**: Use familiar patterns (title in top-left, clock in bottom-right)
+4. **Consider Zones**: Left for branding/menus, center for task bar, right for metrics/clock
 
 ### Task Bar
 
 1. **Meaningful Titles**: Window titles should be descriptive (shown in task bar)
 2. **Limit Windows**: Alt+1-9 supports up to 9 windows
-3. **Consider Placement**: Bottom task bar is most familiar to users
-4. **Task Bar vs Start Menu**: Choose one or both based on application needs
+3. **Consider Placement**: Center zone is conventional for task bars
 
 ### Start Menu
 
 1. **Logical Categories**: Group related actions (File, Edit, Tools, Help)
-2. **Meaningful Names**: Use action verbs (New, Open, Save, not "Document Creation")
+2. **Meaningful Names**: Use action verbs (New, Open, Save)
 3. **Consistent Ordering**: Order by frequency of use (most used = lower order number)
-4. **Avoid Duplication**: Don't duplicate window list in both task bar and Start Menu
-5. **Plugin Awareness**: Leave room for plugin categories
+4. **Plugin Awareness**: Leave room for plugin categories
 
 ### Performance
 
 1. **Enable Frame Limiting**: Use `TargetFPS: 30-60` for most applications
-2. **Metrics for Development**: Enable metrics during development only
-3. **Monitor Status Updates**: Excessive status text updates hurt performance
-4. **Optimize Actions**: Keep Start Menu actions fast (< 100ms)
+2. **Metrics for Development**: Add Performance element during development
+3. **Optimize Actions**: Keep Start Menu actions fast (< 100ms)
 
 ## See Also
 
+- [Panel System](PANELS.md) - Full panel and element API reference
 - [Configuration Guide](CONFIGURATION.md) - Full configuration reference
 - [Plugin Development](PLUGINS.md) - Creating plugins with actions
-- [State Services](STATE-SERVICES.md) - Using notification and window services
+- [State Services](STATE-SERVICES.md) - PanelStateService and other services
 - [Dialogs](DIALOGS.md) - Built-in system dialogs

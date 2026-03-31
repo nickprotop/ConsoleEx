@@ -1,12 +1,17 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Panel;
 
-var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
-windowSystem.StatusBarStateService.TopStatus = "TableControl Demo - Press F1-F3 to switch themes";
-windowSystem.StatusBarStateService.BottomStatus = "Read-only table display | F1=ModernGray, F2=Classic, F3=DevDark | ESC: Close";
+var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer),
+    options: new ConsoleWindowSystemOptions(
+        TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
+    ));
+windowSystem.PanelStateService.TopStatus = "TableControl Demo - Press F1-F3 to switch themes";
+windowSystem.PanelStateService.BottomStatus = "Read-only table display | F1=ModernGray, F2=Classic, F3=DevDark | ESC: Close";
 
 // Create table with sample data
 var table = TableControl.Create()

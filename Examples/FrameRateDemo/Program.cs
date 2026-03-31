@@ -2,6 +2,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Panel;
 using System.Timers;
 
 namespace FrameRateDemo;
@@ -20,10 +21,13 @@ class Program
 		var options = new ConsoleWindowSystemOptions(
 			EnablePerformanceMetrics: true,
 			EnableFrameRateLimiting: true,
-			TargetFPS: 60
+			TargetFPS: 60,
+			TopPanelConfig: panel => panel
+				.Left(Elements.StatusText(""))
+				.Right(Elements.Performance())
 		);
 		var windowSystem = new ConsoleWindowSystem(driver, options: options);
-		windowSystem.StatusBarStateService.TopStatus = "[bold cyan]Frame Rate Demo[/] - Change FPS with 1-5, Toggle limiting with E/D, Toggle metrics with M, Quit with Ctrl+Q";
+		windowSystem.PanelStateService.TopStatus = "[bold cyan]Frame Rate Demo[/] - Change FPS with 1-5, Toggle limiting with E/D, Toggle metrics with M, Quit with Ctrl+Q";
 
 		// Create control panel window
 		var controlWindow = CreateControlPanel(windowSystem);

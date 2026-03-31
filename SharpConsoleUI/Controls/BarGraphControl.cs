@@ -381,7 +381,7 @@ namespace SharpConsoleUI.Controls
 			if (HorizontalAlignment == Layout.HorizontalAlignment.Stretch)
 			{
 				int usedWidth = currentX - startX; // label + suffix consumed
-				int valueWidth = _showValue ? 1 + UnicodeWidth.GetStringWidth(_value.ToString(_valueFormat)) : 0;
+				int valueWidth = _showValue ? 1 + Parsing.MarkupParser.StripLength(_value.ToString(_valueFormat)) : 0;
 				int availableForBar = bounds.Width - Margin.Left - Margin.Right - usedWidth - valueWidth;
 				if (availableForBar > effectiveBarWidth)
 					effectiveBarWidth = availableForBar;
@@ -434,24 +434,18 @@ namespace SharpConsoleUI.Controls
 				currentX++;
 			}
 
-			// Paint value
+			// Paint value (supports markup in valueFormat)
 			if (_showValue)
 			{
 				currentX++; // Space before value
 				string valueText = _value.ToString(_valueFormat);
-				foreach (var rune in valueText.EnumerateRunes())
+				var valueCells = Parsing.MarkupParser.Parse(valueText, resolvedFilledColor, bgColor);
+				foreach (var cell in valueCells)
 				{
-					int rw = UnicodeWidth.GetRuneWidth(rune);
-					if (rw == 0) continue;
-					if (currentX >= clipRect.X && currentX < clipRect.Right && currentX < bounds.Right)
-					{
-						buffer.SetNarrowCell(currentX, paintY, rune, resolvedFilledColor, bgColor);
-						if (rw == 2 && currentX + 1 < bounds.Right)
-						{
-							buffer.SetCell(currentX + 1, paintY, new Cell(' ', resolvedFilledColor, bgColor) { IsWideContinuation = true });
-							currentX++;
-						}
-					}
+					if (currentX >= bounds.Right || currentX >= clipRect.Right)
+						break;
+					if (currentX >= clipRect.X)
+						buffer.SetCell(currentX, paintY, cell);
 					currentX++;
 				}
 			}
@@ -472,7 +466,7 @@ namespace SharpConsoleUI.Controls
 
 			if (_showValue)
 			{
-				width += 1 + UnicodeWidth.GetStringWidth(_value.ToString(_valueFormat)); // Space + value
+				width += 1 + Parsing.MarkupParser.StripLength(_value.ToString(_valueFormat)); // Space + value
 			}
 
 			return width;

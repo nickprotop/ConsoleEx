@@ -11,6 +11,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Panel;
 
 namespace SnakeGame;
 
@@ -70,10 +71,10 @@ class Program
             _windowSystem = new ConsoleWindowSystem(
                 new NetConsoleDriver(RenderMode.Buffer),
                 options: new ConsoleWindowSystemOptions(
-                    StatusBarOptions: new StatusBarOptions(ShowTaskBar: false)
+                    TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
                 ));
 
-            _windowSystem.StatusBarStateService.TopStatus = "SNAKE - Arrows/WASD: Move | P: Pause | R: Restart | Esc: Quit";
+            _windowSystem.PanelStateService.TopStatus = "SNAKE - Arrows/WASD: Move | P: Pause | R: Restart | Esc: Quit";
 
             Console.CancelKeyPress += (s, e) =>
             {

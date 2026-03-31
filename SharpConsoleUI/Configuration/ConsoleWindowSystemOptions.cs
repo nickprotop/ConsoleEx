@@ -1,3 +1,5 @@
+using SharpConsoleUI.Rendering;
+
 namespace SharpConsoleUI.Configuration;
 
 /// <summary>
@@ -57,8 +59,6 @@ public record ConsoleWindowSystemOptions(
     bool EnablePerformanceMetrics = false,
     bool EnableFrameRateLimiting = true,
     int TargetFPS = 60,
-    StatusBarOptions? StatusBarOptions = null,
-
     bool ClampToWindowWidth = false,
 
     // Dirty tracking granularity (Smart = adaptive [default], Cell = minimal output, Line = fewer cursor moves)
@@ -82,9 +82,16 @@ public record ConsoleWindowSystemOptions(
     bool EnableQualityAnalysis = false,
     bool EnablePerformanceProfiling = false,
 
-    // Panel system configuration (replaces hardcoded status bars)
+    // Panel system configuration
     Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? TopPanelConfig = null,
-    Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? BottomPanelConfig = null
+    Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? BottomPanelConfig = null,
+
+    // Panel visibility (both visible by default)
+    bool ShowTopPanel = true,
+    bool ShowBottomPanel = true,
+
+    // Desktop background configuration (gradient, pattern, animated). Null uses theme defaults.
+    DesktopBackgroundConfig? DesktopBackground = null
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";
@@ -131,11 +138,6 @@ public record ConsoleWindowSystemOptions(
         return envValue.Equals("true", StringComparison.OrdinalIgnoreCase) ||
                envValue.Equals("1", StringComparison.OrdinalIgnoreCase);
     }
-
-    /// <summary>
-    /// Gets the status bar configuration, using defaults if not specified.
-    /// </summary>
-    public StatusBarOptions StatusBar => StatusBarOptions ?? Configuration.StatusBarOptions.Default;
 
     /// <summary>
     /// Gets a configuration with performance metrics enabled.

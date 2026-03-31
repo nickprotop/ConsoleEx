@@ -20,23 +20,22 @@ internal class Program
         try
         {
             var options = new ConsoleWindowSystemOptions(
-                StatusBarOptions: new StatusBarOptions(
-                    ShowStartButton: true,
-                    StartMenu: new StartMenuOptions
-                    {
-                        AppName = "SharpConsoleUI Demo",
-                        SidebarStyle = StartMenuSidebarStyle.IconLabel,
-                        BackgroundGradient = new GradientBackground(
-                            ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
-                            GradientDirection.Vertical)
-                    }),
                 TopPanelConfig: panel => panel
                     .Left(Elements.StatusText("[bold cyan]SharpConsoleUI Demo[/]"))
                     .Left(Elements.Separator())
-                    .Left(Elements.StatusText("[dim]Ctrl+T: Theme[/]"))
+                    .Left(Elements.StatusText("[dim]Ctrl+L: Launcher[/]"))
                     .Right(Elements.Performance()),
                 BottomPanelConfig: panel => panel
-                    .Left(Elements.StartMenu().WithText("\u2630 Start"))
+                    .Left(Elements.StartMenu()
+                        .WithText("\u2630 Start")
+                        .WithOptions(new StartMenuOptions
+                        {
+                            AppName = "SharpConsoleUI Demo",
+                            SidebarStyle = StartMenuSidebarStyle.IconLabel,
+                            BackgroundGradient = new GradientBackground(
+                                ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
+                                GradientDirection.Vertical)
+                        }))
                     .Center(Elements.TaskBar())
                     .Right(Elements.Clock().WithFormat("HH:mm:ss"))
             );
@@ -59,6 +58,31 @@ internal class Program
             });
 
             LauncherWindow.Create(windowSystem);
+
+            // Shared logic: open/activate/recreate launcher
+            void OpenLauncher()
+            {
+                var launcher = windowSystem.Windows.Values
+                    .FirstOrDefault(w => w.Title == "SharpConsoleUI Demo");
+
+                if (launcher != null)
+                {
+                    if (launcher.State == WindowState.Minimized)
+                        launcher.Restore();
+                    windowSystem.SetActiveWindow(launcher);
+                }
+                else
+                {
+                    LauncherWindow.Create(windowSystem);
+                }
+            }
+
+            // Ctrl+L global shortcut
+            windowSystem.RegisterGlobalShortcut(ConsoleModifiers.Control, ConsoleKey.L, OpenLauncher);
+
+            // Start menu action
+            var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
+            startMenu.RegisterAction("Launcher", OpenLauncher, order: 0);
 
             windowSystem.Run();
             return 0;

@@ -105,6 +105,12 @@ namespace SharpConsoleUI.Input
 					continue;
 				}
 
+				// Check for application-registered global shortcuts
+				if (_context.TryHandleGlobalShortcut(keyInfo))
+				{
+					continue;
+				}
+
 				// Check for window cycling (Ctrl+T)
 				if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && keyInfo.Key == ConsoleKey.T)
 				{
@@ -819,22 +825,37 @@ namespace SharpConsoleUI.Input
 
 		/// <summary>
 		/// Handles start menu keyboard shortcut.
+		/// Iterates all StartMenuElements across panels; first matching shortcut wins.
 		/// </summary>
 		private bool HandleStartMenuShortcut(ConsoleKeyInfo key)
 		{
-			var options = _context.Options.StatusBar;
-
-			// Only handle shortcut if Start button is enabled
-			if (!options.ShowStartButton)
-				return false;
-
-			if (key.Key == options.StartMenuShortcutKey &&
-				key.Modifiers == options.StartMenuShortcutModifiers)
+			foreach (var element in GetAllStartMenuElements())
 			{
-				_context.PanelStateService.ShowStartMenu();
-				return true;
+				if (key.Key == element.ShortcutKey && key.Modifiers == element.ShortcutModifiers)
+				{
+					element.Show();
+					return true;
+				}
 			}
 			return false;
+		}
+
+		/// <summary>
+		/// Collects all StartMenuElements from both panels.
+		/// </summary>
+		private IEnumerable<Panel.StartMenuElement> GetAllStartMenuElements()
+		{
+			var panelService = _context.PanelStateService;
+			if (panelService.TopPanel != null)
+			{
+				foreach (var el in panelService.TopPanel.FindAllElements<Panel.StartMenuElement>())
+					yield return el;
+			}
+			if (panelService.BottomPanel != null)
+			{
+				foreach (var el in panelService.BottomPanel.FindAllElements<Panel.StartMenuElement>())
+					yield return el;
+			}
 		}
 
 		/// <summary>

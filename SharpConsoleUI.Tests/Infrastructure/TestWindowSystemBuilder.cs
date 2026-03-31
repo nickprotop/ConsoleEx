@@ -40,14 +40,6 @@ public static class TestWindowSystemBuilder
 	/// <returns>A configured ConsoleWindowSystem instance ready for testing.</returns>
 	public static ConsoleWindowSystem CreateTestSystem(Func<ConsoleWindowSystemOptions, ConsoleWindowSystemOptions>? configure = null)
 	{
-		// Disable status bars by default in tests to isolate core rendering logic
-		var statusBarOptions = new Configuration.StatusBarOptions(
-			ShowTopStatus: false,
-			ShowBottomStatus: false,
-			ShowTaskBar: false,
-			ShowStartButton: false
-		);
-
 		var options = new ConsoleWindowSystemOptions(
 			EnableDiagnostics: true,
 			DiagnosticsRetainFrames: 10,
@@ -55,7 +47,8 @@ public static class TestWindowSystemBuilder
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
-			StatusBarOptions: statusBarOptions
+			ShowTopPanel: false,
+			ShowBottomPanel: false
 		);
 
 		// Allow caller to customize options via record 'with' expressions
@@ -78,14 +71,6 @@ public static class TestWindowSystemBuilder
 	{
 		var mockDriver = new MockConsoleDriver(width, height);
 
-		// Disable status bars by default in tests to isolate core rendering logic
-		var statusBarOptions = new Configuration.StatusBarOptions(
-			ShowTopStatus: false,
-			ShowBottomStatus: false,
-			ShowTaskBar: false,
-			ShowStartButton: false
-		);
-
 		var options = new ConsoleWindowSystemOptions(
 			EnableDiagnostics: true,
 			DiagnosticsRetainFrames: 10,
@@ -93,7 +78,8 @@ public static class TestWindowSystemBuilder
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
-			StatusBarOptions: statusBarOptions
+			ShowTopPanel: false,
+			ShowBottomPanel: false
 		);
 
 		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));
@@ -109,7 +95,9 @@ public static class TestWindowSystemBuilder
 		var options = new ConsoleWindowSystemOptions(
 			EnableDiagnostics: false,
 			EnableFrameRateLimiting: false,
-			EnablePerformanceMetrics: false
+			EnablePerformanceMetrics: false,
+			ShowTopPanel: false,
+			ShowBottomPanel: false
 		);
 
 		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));
@@ -120,14 +108,6 @@ public static class TestWindowSystemBuilder
 	/// </summary>
 	public static ConsoleWindowSystem CreateTestSystemWithLineMode()
 	{
-		// Disable status bars by default in tests to isolate core rendering logic
-		var statusBarOptions = new Configuration.StatusBarOptions(
-			ShowTopStatus: false,
-			ShowBottomStatus: false,
-			ShowTaskBar: false,
-			ShowStartButton: false
-		);
-
 		var options = new ConsoleWindowSystemOptions(
 			EnableDiagnostics: true,
 			DiagnosticsRetainFrames: 10,
@@ -135,8 +115,9 @@ public static class TestWindowSystemBuilder
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
-			StatusBarOptions: statusBarOptions,
-			DirtyTrackingMode: Configuration.DirtyTrackingMode.Line  // LINE MODE
+			DirtyTrackingMode: Configuration.DirtyTrackingMode.Line,  // LINE MODE
+			ShowTopPanel: false,
+			ShowBottomPanel: false
 		);
 
 		// Create mock console driver
@@ -151,14 +132,6 @@ public static class TestWindowSystemBuilder
 	/// </summary>
 	public static ConsoleWindowSystem CreateTestSystemWithCellMode()
 	{
-		// Disable status bars by default in tests to isolate core rendering logic
-		var statusBarOptions = new Configuration.StatusBarOptions(
-			ShowTopStatus: false,
-			ShowBottomStatus: false,
-			ShowTaskBar: false,
-			ShowStartButton: false
-		);
-
 		var options = new ConsoleWindowSystemOptions(
 			EnableDiagnostics: true,
 			DiagnosticsRetainFrames: 10,
@@ -166,8 +139,9 @@ public static class TestWindowSystemBuilder
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
-			StatusBarOptions: statusBarOptions,
-			DirtyTrackingMode: Configuration.DirtyTrackingMode.Cell  // CELL MODE
+			DirtyTrackingMode: Configuration.DirtyTrackingMode.Cell,  // CELL MODE
+			ShowTopPanel: false,
+			ShowBottomPanel: false
 		);
 
 		// Create mock console driver

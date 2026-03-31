@@ -5,6 +5,8 @@ SharpConsoleUI includes built-in state management services for managing differen
 ## Table of Contents
 
 - [Overview](#overview)
+- [PanelStateService](#panelstateservice)
+- [DesktopBackgroundService](#desktopbackgroundservice)
 - [WindowStateService](#windowstateservice)
 - [FocusManager](#focusmanager)
 - [ModalStateService](#modalstateservice)
@@ -23,8 +25,10 @@ All state services are accessible through the `ConsoleWindowSystem` instance:
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
 // Access state services
+windowSystem.PanelStateService          // Panel visibility, status text
+windowSystem.DesktopBackgroundService   // Desktop background rendering
 windowSystem.WindowStateService
-window.FocusManager  // Focus is now per-window
+window.FocusManager              // Focus is per-window
 windowSystem.ModalStateService
 windowSystem.NotificationStateService
 windowSystem.ThemeStateService
@@ -32,6 +36,93 @@ windowSystem.CursorStateService
 windowSystem.InputStateService
 windowSystem.PluginStateService
 ```
+
+## PanelStateService
+
+Manages the top and bottom screen panels — visibility, status text shortcuts, and panel references. See the [Panel System guide](PANELS.md) for the full element and builder reference.
+
+### Key Properties
+
+```csharp
+// Panel references
+Panel? TopPanel { get; }
+Panel? BottomPanel { get; }
+
+// Visibility toggles
+bool ShowTopPanel { get; set; }
+bool ShowBottomPanel { get; set; }
+
+// Convenience status text (sets the first StatusTextElement in each panel)
+string TopStatus { set; }
+string BottomStatus { set; }
+
+// Dirty state
+bool IsDirty { get; }
+```
+
+### Key Methods
+
+```csharp
+// Mark both panels for redraw
+void MarkDirty();
+```
+
+### Usage Example
+
+```csharp
+// Set status text at runtime
+windowSystem.PanelStateService.TopStatus = "[bold cyan]Connected[/]";
+windowSystem.PanelStateService.BottomStatus = "Ready";
+
+// Toggle panel visibility
+windowSystem.PanelStateService.ShowTopPanel = false;
+windowSystem.PanelStateService.ShowBottomPanel = true;
+
+// Access panels directly for element manipulation
+var bottomPanel = windowSystem.PanelStateService.BottomPanel;
+var startMenu = bottomPanel?.FindElement<StartMenuElement>("startmenu");
+startMenu?.RegisterAction("New", () => { /* ... */ }, category: "File", order: 10);
+
+// Check if panels need redraw
+if (windowSystem.PanelStateService.IsDirty)
+{
+    // Panels will be redrawn on next frame
+}
+```
+
+### Shorthand Access
+
+Panels are also accessible directly on `ConsoleWindowSystem`:
+
+```csharp
+// These are equivalent:
+windowSystem.PanelStateService.TopPanel
+windowSystem.PanelStateService.BottomPanel
+
+// Shorthand:
+windowSystem.BottomPanel
+```
+
+## DesktopBackgroundService
+
+Manages the desktop background — a cached `CharacterBuffer` that is rendered once and blitted to exposed regions each frame. See the [Desktop Background](DESKTOP_BACKGROUND.md) guide for the full reference.
+
+### Usage
+
+```csharp
+// Set background via the convenience property (preferred)
+windowSystem.DesktopBackground = DesktopBackgroundConfig.FromGradient(
+    ColorGradient.FromColors(Color.DarkBlue, Color.Black),
+    GradientDirection.Vertical);
+
+// Or access the service directly
+windowSystem.DesktopBackgroundService.Config = new DesktopBackgroundConfig { ... };
+
+// Reset to theme default
+windowSystem.DesktopBackground = null;
+```
+
+Changes are applied automatically on the next frame.
 
 ## WindowStateService
 

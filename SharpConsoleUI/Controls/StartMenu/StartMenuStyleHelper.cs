@@ -49,12 +49,12 @@ namespace SharpConsoleUI.Controls.StartMenu
 		/// <summary>
 		/// Formats a window list item with state indicator and optional keyboard shortcut.
 		/// </summary>
-		public static string FormatWindowItem(string title, int index, bool isMinimized, bool isActive)
+		public static string FormatWindowItem(string title, int index, bool isMinimized, bool isActive, bool showShortcut = false)
 		{
 			var indicator = isMinimized
 				? ControlDefaults.StartMenuMinimizedWindowIndicator
 				: ControlDefaults.StartMenuActiveWindowIndicator;
-			var shortcut = index < 9 ? $"  Alt+{index + 1}" : "";
+			var shortcut = showShortcut && index < 9 ? $"  Alt+{index + 1}" : "";
 			var dimStart = isMinimized ? "[dim]" : "";
 			var dimEnd = isMinimized ? "[/]" : "";
 			var activeStart = isActive ? "[bold]" : "";

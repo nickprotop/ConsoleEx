@@ -1,12 +1,12 @@
 # Configuration Guide
 
-SharpConsoleUI provides comprehensive configuration options through `ConsoleWindowSystemOptions` and `StatusBarOptions`.
+SharpConsoleUI provides comprehensive configuration options through `ConsoleWindowSystemOptions` and the [Panel system](PANELS.md).
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [ConsoleWindowSystemOptions](#consolewindowsystemoptions)
-- [StatusBarOptions](#statusbaroptions)
+- [Panel Configuration](#panel-configuration)
 - [Environment Variables](#environment-variables)
 - [Complete Configuration Examples](#complete-configuration-examples)
 
@@ -15,13 +15,20 @@ SharpConsoleUI provides comprehensive configuration options through `ConsoleWind
 Configuration is done at system initialization via the `options` parameter:
 
 ```csharp
+using SharpConsoleUI.Panel;
+
 var windowSystem = new ConsoleWindowSystem(
     new NetConsoleDriver(RenderMode.Buffer),
     options: new ConsoleWindowSystemOptions(
         EnablePerformanceMetrics: false,
         EnableFrameRateLimiting: true,
         TargetFPS: 60,
-        StatusBarOptions: new StatusBarOptions(/* ... */)
+        TopPanelConfig: panel => panel
+            .Left(Elements.StatusText("[bold]My App[/]")),
+        BottomPanelConfig: panel => panel
+            .Left(Elements.StartMenu())
+            .Center(Elements.TaskBar())
+            .Right(Elements.Clock())
     ));
 ```
 
@@ -33,17 +40,20 @@ Main configuration for the console window system.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `EnablePerformanceMetrics` | `bool` | `false` | Show performance metrics (FPS, frame time, window count) in status bar |
+| `EnablePerformanceMetrics` | `bool` | `false` | Enable performance metric tracking |
 | `EnableFrameRateLimiting` | `bool` | `true` | Limit rendering to target FPS (prevents excessive CPU usage) |
 | `TargetFPS` | `int` | `60` | Target frames per second (0 = unlimited) |
-| `StatusBarOptions` | `StatusBarOptions?` | `null` | Status bar and Start Menu configuration (uses defaults if null) |
+| `TopPanelConfig` | `Func<PanelBuilder, PanelBuilder>?` | `null` | Top panel element configuration |
+| `BottomPanelConfig` | `Func<PanelBuilder, PanelBuilder>?` | `null` | Bottom panel element configuration |
+| `ShowTopPanel` | `bool` | `true` | Show/hide top panel |
+| `ShowBottomPanel` | `bool` | `true` | Show/hide bottom panel |
+| `DesktopBackground` | `DesktopBackgroundConfig?` | `null` | Desktop background (gradient, pattern, animated). See [Desktop Background](DESKTOP_BACKGROUND.md) |
 
 ### Computed Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `MinFrameTime` | `int` | Minimum milliseconds between frames (1000/TargetFPS) |
-| `StatusBar` | `StatusBarOptions` | Returns StatusBarOptions or defaults if not specified |
 
 ### Static Factory Methods
 
@@ -90,20 +100,6 @@ var options = ConsoleWindowSystemOptions.WithTargetFPS(30);
 // Other settings: defaults
 ```
 
-### Performance Metrics
-
-When `EnablePerformanceMetrics: true`, the top status bar displays real-time metrics:
-
-```
-FPS: 60 | Frame: 16.67ms | Windows: 3 | Dirty: 1
-```
-
-Metrics include:
-- **FPS**: Current frames per second
-- **Frame**: Time to render last frame (milliseconds)
-- **Windows**: Total number of windows
-- **Dirty**: Number of windows needing re-render
-
 ### Frame Rate Limiting
 
 **Purpose**: Prevents excessive CPU usage by limiting rendering speed.
@@ -129,105 +125,79 @@ var options = ConsoleWindowSystemOptions.Default;
 - **60 FPS**: General applications with animations and interactions (default)
 - **Unlimited**: Real-time games, simulations, high-frequency visualizations
 
-## StatusBarOptions
+## Panel Configuration
 
-Configuration for status bars and Start Menu system.
+Panels are the top and bottom bars of the screen. They are composed from **elements** using a fluent builder pattern. See the [Panel System guide](PANELS.md) for the full reference.
 
-### Properties
+### Quick Reference
 
-#### Start Button Configuration
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `ShowStartButton` | `bool` | `false` | Show/hide Start button (opt-in) |
-| `StartButtonLocation` | `StatusBarLocation` | `Bottom` | Top or Bottom status bar |
-| `StartButtonPosition` | `StartButtonPosition` | `Left` | Left or Right position in status bar |
-| `StartButtonText` | `string` | `"☰ Start"` | Text displayed on Start button |
-| `StartMenuShortcutKey` | `ConsoleKey` | `Spacebar` | Keyboard shortcut key (Ctrl+Space by default) |
-| `StartMenuShortcutModifiers` | `ConsoleModifiers` | `Control` | Keyboard modifiers (Ctrl, Alt, Shift, or combinations) |
-
-#### Start Menu Options
-
-Start menu appearance and behavior is configured via the `StartMenu` parameter, which accepts a `StartMenuOptions` object:
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `Layout` | `StartMenuLayout` | `TwoColumn` | `SingleColumn` (compact) or `TwoColumn` (with window list) |
-| `AppName` | `string?` | `null` | App name in header (defaults to "SharpConsoleUI") |
-| `AppVersion` | `string?` | `null` | App version in header (defaults to library version) |
-| `ShowIcons` | `bool` | `true` | Show Unicode icons in header and exit row |
-| `HeaderIcon` | `string` | `"☰"` | Icon next to the app name in the header |
-| `ShowSystemCategory` | `bool` | `true` | Show System category (themes, settings, about) |
-| `ShowWindowList` | `bool` | `true` | Show Windows list (right column in TwoColumn, submenu in SingleColumn) |
-| `BackgroundGradient` | `GradientBackground?` | `null` | Optional gradient background for the Start menu window |
-
-**Examples:**
 ```csharp
-// Minimal — everything uses defaults
-StartMenu: new StartMenuOptions()
+using SharpConsoleUI.Panel;
 
-// Just set what you need
-StartMenu: new StartMenuOptions { AppName = "My App", AppVersion = "1.0.0" }
-
-// Single column, no icons
-StartMenu: new StartMenuOptions { Layout = StartMenuLayout.SingleColumn, ShowIcons = false }
-
-// Custom colors
-StartMenu: new StartMenuOptions { BackgroundColor = Color.DarkBlue, ForegroundColor = Color.White }
+var options = new ConsoleWindowSystemOptions(
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[bold cyan]App Title[/]"))
+        .Left(Elements.Separator())
+        .Left(Elements.StatusText("[dim]Ctrl+T: Theme[/]"))
+        .Right(Elements.Performance()),
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StartMenu()
+            .WithText("☰ Start")
+            .WithOptions(new StartMenuOptions
+            {
+                AppName = "My App",
+                AppVersion = "1.0.0"
+            }))
+        .Center(Elements.TaskBar())
+        .Right(Elements.Clock().WithFormat("HH:mm:ss"))
+);
 ```
 
-#### Status Bar Display
+### Available Elements
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `ShowTopStatus` | `bool` | `true` | Show top status bar |
-| `ShowBottomStatus` | `bool` | `true` | Show bottom status bar |
-| `ShowTaskBar` | `bool` | `true` | Show window list in bottom status bar (Alt-1, Alt-2, etc.) |
+| Factory Method | Description |
+|----------------|-------------|
+| `Elements.StatusText(text)` | Static or markup text |
+| `Elements.Separator()` | Vertical separator |
+| `Elements.TaskBar()` | Window list with Alt+N shortcuts |
+| `Elements.Clock()` | Live clock display |
+| `Elements.Performance()` | FPS and metrics display |
+| `Elements.StartMenu()` | Start button + menu |
+| `Elements.Custom(name)` | Custom render callback |
 
-### Enums
+### Performance Metrics
 
-#### StatusBarLocation
+Add a `Performance` element to display real-time metrics:
+
 ```csharp
-public enum StatusBarLocation
-{
-    Top,     // Top status bar
-    Bottom   // Bottom status bar
-}
+var options = new ConsoleWindowSystemOptions(
+    TopPanelConfig: panel => panel
+        .Right(Elements.Performance())
+);
 ```
 
-#### StartButtonPosition
+The performance element displays:
+- **FPS**: Current frames per second
+- **Dirty**: Number of dirty characters per frame
+
+### Runtime Status Text
+
+Set status text at runtime via `PanelStateService`:
+
 ```csharp
-public enum StartButtonPosition
-{
-    Left,    // Left side of status bar
-    Right    // Right side of status bar
-}
+windowSystem.PanelStateService.TopStatus = "[green]Connected to server[/]";
+windowSystem.PanelStateService.BottomStatus = "[yellow]Ready[/]";
 ```
 
-### Static Presets
+This sets the `Text` property of the first `StatusTextElement` in each panel.
 
-#### `Default`
-Returns default status bar configuration:
-```csharp
-var statusBar = StatusBarOptions.Default;
-// ShowStartButton: false
-// ShowTopStatus: true
-// ShowBottomStatus: true
-// ShowTaskBar: true
-```
+### Panel Visibility
 
-#### `WithStartButtonDisabled`
-Returns configuration with Start button explicitly disabled:
-```csharp
-var statusBar = StatusBarOptions.WithStartButtonDisabled;
-// ShowStartButton: false
-```
+Toggle panel visibility at runtime:
 
-#### `TopStartButton`
-Returns configuration with Start button in top status bar:
 ```csharp
-var statusBar = StatusBarOptions.TopStartButton;
-// StartButtonLocation: Top
+windowSystem.PanelStateService.ShowTopPanel = false;
+windowSystem.PanelStateService.ShowBottomPanel = true;
 ```
 
 ## Environment Variables
@@ -275,42 +245,35 @@ var options = ConsoleWindowSystemOptions.Create();
 ### Minimal Configuration (Defaults)
 
 ```csharp
-// Uses all defaults
+// Uses all defaults — default panels with status text elements
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
-// Equivalent to:
-var windowSystem = new ConsoleWindowSystem(
-    new NetConsoleDriver(RenderMode.Buffer),
-    options: ConsoleWindowSystemOptions.Default
-);
+// Set status text on default panels
+windowSystem.PanelStateService.TopStatus = "[bold]My App[/]";
+windowSystem.PanelStateService.BottomStatus = "Ready";
 ```
 
 **Result:**
-- No Start button (opt-in)
-- No performance metrics
+- Default top and bottom panels with status text
+- No Start Menu, no task bar, no clock
 - 60 FPS frame rate limiting
-- Top and bottom status bars visible
-- Window list in bottom status bar
 
 ### Windows-like Configuration
 
 ```csharp
 var options = new ConsoleWindowSystemOptions(
-    EnablePerformanceMetrics: false,
-    EnableFrameRateLimiting: true,
-    TargetFPS: 60,
-    StatusBarOptions: new StatusBarOptions(
-        ShowStartButton: true,
-        StartButtonLocation: StatusBarLocation.Bottom,
-        StartButtonPosition: StartButtonPosition.Left,
-        ShowTaskBar: false,  // Hide taskbar, window list only in Start Menu
-        StartMenu: new StartMenuOptions
-        {
-            Layout = StartMenuLayout.TwoColumn,
-            AppName = "My App",
-            AppVersion = "1.0.0"
-        }
-    )
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[bold cyan]My App v1.0[/]"))
+        .Right(Elements.Clock()),
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StartMenu()
+            .WithOptions(new StartMenuOptions
+            {
+                Layout = StartMenuLayout.TwoColumn,
+                AppName = "My App",
+                AppVersion = "1.0.0"
+            }))
+        .Center(Elements.TaskBar())
 );
 
 var windowSystem = new ConsoleWindowSystem(
@@ -321,24 +284,23 @@ var windowSystem = new ConsoleWindowSystem(
 **Result:**
 - Start button in bottom-left (like Windows)
 - Ctrl+Space opens Start Menu
-- Window list only in Start Menu (not in status bar)
-- System actions in Start Menu
+- Window task bar in center
+- Clock in top-right
 - 60 FPS rendering
 
 ### Development Configuration
 
 ```csharp
 var options = new ConsoleWindowSystemOptions(
-    EnablePerformanceMetrics: true,  // Show FPS and metrics
-    EnableFrameRateLimiting: false,  // Unlimited FPS for testing
-    StatusBarOptions: new StatusBarOptions(
-        ShowStartButton: true,
-        StartButtonLocation: StatusBarLocation.Top,  // Top bar for Start button
-        StartButtonPosition: StartButtonPosition.Right,  // Keep top-left clear for metrics
-        ShowSystemMenuCategory: true,
-        ShowWindowListInMenu: true,
-        ShowTaskBar: true  // Show window list in both places
-    )
+    EnablePerformanceMetrics: true,
+    EnableFrameRateLimiting: false,
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[bold]Dev Mode[/]"))
+        .Right(Elements.Performance()),
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StartMenu())
+        .Center(Elements.TaskBar())
+        .Right(Elements.Clock().WithFormat("HH:mm:ss"))
 );
 
 var windowSystem = new ConsoleWindowSystem(
@@ -347,100 +309,86 @@ var windowSystem = new ConsoleWindowSystem(
 ```
 
 **Result:**
-- Performance metrics in top-left
-- Start button in top-right
+- Performance metrics in top-right
 - Unlimited FPS for performance testing
-- Window list in both bottom status bar and Start Menu
-- All debugging features enabled
+- Full bottom bar with Start Menu, task bar, and clock
 
 ### Dashboard/Monitor Configuration
 
 ```csharp
 var options = new ConsoleWindowSystemOptions(
-    EnablePerformanceMetrics: false,
     EnableFrameRateLimiting: true,
-    TargetFPS: 30,  // Lower FPS for dashboards
-    StatusBarOptions: new StatusBarOptions(
-        ShowStartButton: false,  // No Start Menu needed
-        ShowTopStatus: true,
-        ShowBottomStatus: true,
-        ShowTaskBar: false  // No window switching for full-screen dashboard
-    )
+    TargetFPS: 30,
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[cyan]System Dashboard[/]"))
+        .Right(Elements.Performance()),
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StatusText("Press [yellow]F10[/] to exit"))
 );
 
 var windowSystem = new ConsoleWindowSystem(
     new NetConsoleDriver(RenderMode.Buffer),
-    options: options)
-{
-    TopStatus = "[cyan]System Dashboard[/]",
-    BottomStatus = "Press [yellow]F10[/] to exit"
-};
+    options: options);
 ```
 
 **Result:**
 - 30 FPS (sufficient for dashboards)
-- No Start Menu or window list
-- Clean full-screen dashboard
-- Custom status text only
+- No Start Menu or task bar
+- Clean layout with title and exit hint
 
 ### Full-Screen Application
 
 ```csharp
 var options = new ConsoleWindowSystemOptions(
-    EnablePerformanceMetrics: false,
-    EnableFrameRateLimiting: true,
-    TargetFPS: 60,
-    StatusBarOptions: new StatusBarOptions(
-        ShowStartButton: false,
-        ShowTopStatus: true,   // Show top status for title
-        ShowBottomStatus: false,  // Hide bottom status
-        ShowTaskBar: false
-    )
+    ShowBottomPanel: false,
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[bold]My Application[/]"))
 );
 
 var windowSystem = new ConsoleWindowSystem(
     new NetConsoleDriver(RenderMode.Buffer),
-    options: options)
-{
-    TopStatus = "[bold]My Application[/]"
-    // BottomStatus not set - bottom bar hidden
-};
+    options: options);
 ```
 
 **Result:**
-- Only top status bar visible
-- No Start Menu, no taskbar
-- Maximum screen space for content
+- Only top panel visible
+- No bottom panel — maximum screen space
 - Single status line for branding
 
 ### Game Configuration
 
 ```csharp
 var options = new ConsoleWindowSystemOptions(
-    EnablePerformanceMetrics: true,  // Monitor FPS
-    EnableFrameRateLimiting: false,  // Render as fast as possible
-    StatusBarOptions: new StatusBarOptions(
-        ShowStartButton: false,
-        ShowTopStatus: true,   // Show FPS
-        ShowBottomStatus: true,  // Show controls help
-        ShowTaskBar: false
-    )
+    EnableFrameRateLimiting: false,
+    TopPanelConfig: panel => panel
+        .Left(Elements.StatusText("[cyan]Game Title[/]"))
+        .Right(Elements.Performance()),
+    BottomPanelConfig: panel => panel
+        .Left(Elements.StatusText("[yellow]WASD:[/] Move | [yellow]Space:[/] Jump | [yellow]ESC:[/] Quit"))
 );
 
 var windowSystem = new ConsoleWindowSystem(
     new NetConsoleDriver(RenderMode.Buffer),
-    options: options)
-{
-    TopStatus = "[cyan]Game Title[/]",
-    BottomStatus = "[yellow]WASD:[/] Move | [yellow]Space:[/] Jump | [yellow]ESC:[/] Quit"
-};
+    options: options);
 ```
 
 **Result:**
 - Unlimited FPS with visible FPS counter
 - Top bar for title and metrics
 - Bottom bar for control hints
-- No window management features (single full-screen game)
+
+### No Panels (Maximum Screen Space)
+
+```csharp
+var options = new ConsoleWindowSystemOptions(
+    ShowTopPanel: false,
+    ShowBottomPanel: false
+);
+
+var windowSystem = new ConsoleWindowSystem(
+    new NetConsoleDriver(RenderMode.Buffer),
+    options: options);
+```
 
 ### Using Environment Variable Override
 
@@ -466,37 +414,6 @@ SHARPCONSOLEUI_PERF_METRICS=true dotnet run
 SHARPCONSOLEUI_DEBUG_LOG=/tmp/app.log SHARPCONSOLEUI_DEBUG_LEVEL=Debug dotnet run
 ```
 
-## Runtime Changes
-
-Some settings can be changed at runtime:
-
-### Status Text
-
-```csharp
-// Change status bar text anytime
-windowSystem.TopStatus = "[green]Connected to server[/]";
-windowSystem.BottomStatus = "[yellow]Ready[/]";
-```
-
-### Theme Switching
-
-```csharp
-// Switch theme at runtime (if System menu enabled)
-// User can access via Start Menu > System > Switch Theme
-
-// Or programmatically
-windowSystem.ThemeStateService.SetTheme("ModernGray");
-```
-
-### Performance Toggles
-
-When System menu is enabled, users can toggle:
-- Performance metrics display
-- Frame rate limiting
-- FPS counter
-
-These are accessible via Start Menu > System category.
-
 ## RegistryConfiguration
 
 Persistent key-value storage is configured separately via `RegistryConfiguration`, passed at construction:
@@ -516,7 +433,8 @@ See the [Registry guide](REGISTRY.md) for full documentation.
 
 ## See Also
 
-- [Start Menu System](START_MENU.md) - Detailed Start Menu documentation
+- [Panel System](PANELS.md) - Full panel and element reference
+- [Desktop Background](DESKTOP_BACKGROUND.md) - Gradients, patterns, animated backgrounds
 - [State Services](STATE-SERVICES.md) - Runtime state management
 - [Registry](REGISTRY.md) - Persistent key-value storage
 - [Themes](THEMES.md) - Theme system and customization

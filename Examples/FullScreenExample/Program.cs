@@ -11,6 +11,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Panel;
 
 namespace FullScreenExample;
 
@@ -30,11 +31,9 @@ internal class Program
             _windowSystem = new ConsoleWindowSystem(
                 new NetConsoleDriver(RenderMode.Buffer),
                 options: new ConsoleWindowSystemOptions(
-                    StatusBarOptions: new StatusBarOptions(
-                        ShowTaskBar: false  // Hide taskbar for true full-screen experience
-                    )
+                    TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
                 ));
-            _windowSystem.StatusBarStateService.TopStatus = "Full Screen Example - Press F10 to Exit";
+            _windowSystem.PanelStateService.TopStatus = "Full Screen Example - Press F10 to Exit";
 
             // Setup graceful shutdown handler for Ctrl+C
             Console.CancelKeyPress += (sender, e) =>
@@ -100,7 +99,7 @@ internal class Program
             "  [green]•[/] IsClosable = false      - Window cannot be closed with X button",
             "  [green]•[/] IsMinimizable = false   - Window cannot be minimized",
             "  [green]•[/] IsMaximizable = false   - Window cannot be maximized/restored",
-            "  [green]•[/] StatusBarOptions.ShowTaskBar = false - Taskbar hidden for full-screen",
+            "  [green]•[/] No BottomPanelConfig - Taskbar hidden for full-screen",
             "  [green]•[/] State = Maximized       - Fills console, resizes with it",
             "",
             "[dim]This is ideal for:[/]",

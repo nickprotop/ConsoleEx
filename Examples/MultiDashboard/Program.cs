@@ -5,6 +5,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Panel;
 
 namespace MultiDashboard;
 
@@ -27,12 +28,15 @@ class Program
             _windowSystem = new ConsoleWindowSystem(
                 new NetConsoleDriver(RenderMode.Buffer),
                 options: new ConsoleWindowSystemOptions(
-                    StatusBarOptions: new StatusBarOptions(ShowTaskBar: true, ShowStartButton: true)
+                    TopPanelConfig: panel => panel.Left(Elements.StatusText("")),
+                    BottomPanelConfig: panel => panel
+                        .Left(Elements.StartMenu())
+                        .Center(Elements.TaskBar())
                 )
             );
-            _windowSystem.StatusBarStateService.TopStatus =
+            _windowSystem.PanelStateService.TopStatus =
                 "Multi-Dashboard Showcase - ConsoleEx Unique Capabilities Demo";
-            _windowSystem.StatusBarStateService.BottomStatus =
+            _windowSystem.PanelStateService.BottomStatus =
                 "F1-F6: Toggle Windows | ESC: Close Window | F10: Close All | Ctrl+C: Quit";
 
             // 2. Graceful shutdown

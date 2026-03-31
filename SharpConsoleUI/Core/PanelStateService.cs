@@ -7,40 +7,25 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Logging;
-using SharpConsoleUI.Models;
 
 namespace SharpConsoleUI.Core
 {
 	/// <summary>
-	/// Manages panel state, Start menu actions, and panel visibility.
-	/// Primary state service for all panel and start menu functionality,
-	/// replacing StatusBarStateService as the canonical owner.
+	/// Manages panel state and visibility.
 	/// </summary>
 	public class PanelStateService
 	{
 		private readonly ILogService _logService;
 		private readonly Func<ConsoleWindowSystem> _getWindowSystem;
-		private readonly List<StartMenuAction> _startMenuActions = new();
-
-		// Start menu window tracking
-		private Window? _startMenuWindow;
 
 		// Panel references
 		private Panel.Panel? _topPanel;
 		private Panel.Panel? _bottomPanel;
 
-		// Legacy status text (backward compat)
-		private string _topStatus = "";
-		private string _bottomStatus = "";
-
 		// Visibility
 		private bool _showTopPanel = true;
 		private bool _showBottomPanel = true;
-
-		// Dirty tracking
-		private bool _isDirty;
 
 		/// <summary>
 		/// Initializes a new instance of the PanelStateService class.
@@ -66,19 +51,20 @@ namespace SharpConsoleUI.Core
 		public Panel.Panel? BottomPanel => _bottomPanel;
 
 		/// <summary>
-		/// Gets whether any panel property has changed since the last render.
+		/// Gets whether any panel needs to be redrawn.
 		/// </summary>
-		public bool IsDirty => _isDirty;
+		public bool IsDirty =>
+			(_topPanel?.IsDirty ?? false)
+			|| (_bottomPanel?.IsDirty ?? false);
 
 		/// <summary>
-		/// Clears the dirty flag. Called by RenderCoordinator after rendering panels.
+		/// Marks both panels as dirty, forcing a re-render on the next frame.
 		/// </summary>
-		public void ClearDirty() => _isDirty = false;
-
-		/// <summary>
-		/// Marks panels as dirty, forcing a re-render on the next frame.
-		/// </summary>
-		public void MarkDirty() => _isDirty = true;
+		public void MarkDirty()
+		{
+			_topPanel?.MarkDirty();
+			_bottomPanel?.MarkDirty();
+		}
 
 		#endregion
 
@@ -96,11 +82,9 @@ namespace SharpConsoleUI.Core
 				if (_showTopPanel != value)
 				{
 					_showTopPanel = value;
-					_isDirty = true;
 					if (_topPanel != null)
 						_topPanel.Visible = value;
-					var ws = _getWindowSystem();
-					ws.Render.InvalidateAllWindows();
+					OnDesktopGeometryChanged();
 				}
 			}
 		}
@@ -117,118 +101,68 @@ namespace SharpConsoleUI.Core
 				if (_showBottomPanel != value)
 				{
 					_showBottomPanel = value;
-					_isDirty = true;
 					if (_bottomPanel != null)
 						_bottomPanel.Visible = value;
-					var ws = _getWindowSystem();
-					ws.Render.InvalidateAllWindows();
+					OnDesktopGeometryChanged();
 				}
 			}
 		}
 
+		/// <summary>
+		/// Handles desktop geometry changes (panel show/hide).
+		/// Desktop offset and dimensions change — requires a full redraw to
+		/// reposition windows, re-render the background, and repaint everything.
+		/// </summary>
+		private void OnDesktopGeometryChanged()
+		{
+			var ws = _getWindowSystem();
+			var desktopSize = ws.DesktopDimensions;
+
+			// Reposition windows that would be outside the new desktop area
+			foreach (var window in ws.Windows.Values)
+			{
+				if (window.State == WindowState.Maximized)
+				{
+					window.SetSize(desktopSize.Width, desktopSize.Height);
+					window.SetPosition(new System.Drawing.Point(0, 0));
+				}
+				else
+				{
+					if (window.Top + window.Height > desktopSize.Height)
+						window.Top = Math.Max(0, desktopSize.Height - window.Height);
+				}
+			}
+
+			ws.ForceFullRedraw();
+		}
+
 		#endregion
 
-		#region Legacy Text Support
+		#region Status Text (convenience)
 
 		/// <summary>
-		/// Gets or sets the text displayed in the top status area.
-		/// Updates the legacyTopStatus StatusTextElement if present, or stores for legacy rendering.
+		/// Sets the text of the first StatusTextElement in the top panel.
+		/// Convenience shorthand — equivalent to finding the element and setting .Text directly.
 		/// </summary>
 		public string TopStatus
 		{
-			get => _topStatus;
 			set
 			{
-				var newValue = value ?? "";
-				if (_topStatus != newValue)
-				{
-					_topStatus = newValue;
-					_isDirty = true;
-				}
+				if (_topPanel?.FindElement<Panel.StatusTextElement>("statustext") is { } el)
+					el.Text = value ?? "";
 			}
 		}
 
 		/// <summary>
-		/// Gets or sets the text displayed in the bottom status area.
-		/// Updates the legacyBottomStatus StatusTextElement if present, or stores for legacy rendering.
+		/// Sets the text of the first StatusTextElement in the bottom panel.
+		/// Convenience shorthand — equivalent to finding the element and setting .Text directly.
 		/// </summary>
 		public string BottomStatus
 		{
-			get => _bottomStatus;
 			set
 			{
-				var newValue = value ?? "";
-				if (_bottomStatus != newValue)
-				{
-					_bottomStatus = newValue;
-					_isDirty = true;
-				}
-			}
-		}
-
-		#endregion
-
-		#region Start Menu Actions
-
-		/// <summary>
-		/// Registers a new action in the Start menu.
-		/// </summary>
-		/// <param name="name">Display name of the action.</param>
-		/// <param name="callback">Callback to execute when action is selected.</param>
-		/// <param name="category">Optional category for grouping actions.</param>
-		/// <param name="order">Display order (lower values appear first).</param>
-		public void RegisterStartMenuAction(string name, Action callback, string? category = null, int order = 0)
-		{
-			_logService.LogDebug($"Registering Start menu action: {name}", category: "StartMenu");
-			var action = new StartMenuAction(name, callback, category, order);
-			_startMenuActions.Add(action);
-		}
-
-		/// <summary>
-		/// Removes an action from the Start menu by name.
-		/// </summary>
-		/// <param name="name">Name of the action to remove.</param>
-		public void UnregisterStartMenuAction(string name)
-		{
-			_logService.LogDebug($"Unregistering Start menu action: {name}", category: "StartMenu");
-			_startMenuActions.RemoveAll(a => a.Name == name);
-		}
-
-		/// <summary>
-		/// Gets all registered Start menu actions.
-		/// </summary>
-		/// <returns>Read-only list of actions.</returns>
-		public IReadOnlyList<StartMenuAction> GetStartMenuActions() => _startMenuActions.AsReadOnly();
-
-		#endregion
-
-		#region Start Menu Display
-
-		/// <summary>
-		/// Gets or sets the currently open Start menu window, if any.
-		/// Used for toggle behavior — if non-null, the Start menu is open.
-		/// </summary>
-		internal Window? StartMenuWindow
-		{
-			get => _startMenuWindow;
-			set => _startMenuWindow = value;
-		}
-
-		/// <summary>
-		/// Shows the Start menu dialog.
-		/// </summary>
-		public void ShowStartMenu()
-		{
-			_logService.LogDebug("Showing Start menu", category: "StartMenu");
-			var windowSystem = _getWindowSystem();
-
-			if (windowSystem is ConsoleWindowSystem consoleWindowSystem)
-			{
-				StartMenuDialog.Show(consoleWindowSystem);
-			}
-			else
-			{
-				_logService.LogWarning("Cannot show Start menu: window system is not ConsoleWindowSystem", category: "StartMenu");
+				if (_bottomPanel?.FindElement<Panel.StatusTextElement>("statustext") is { } el)
+					el.Text = value ?? "";
 			}
 		}
 
@@ -237,93 +171,51 @@ namespace SharpConsoleUI.Core
 		#region Panel Initialization
 
 		/// <summary>
-		/// Initializes panels from configuration options or legacy StatusBarOptions.
-		/// Moved from ConsoleWindowSystem.InitializePanels().
+		/// Initializes panels from configuration options.
+		/// User-supplied config replaces the default panel entirely.
+		/// When no config is provided, sensible defaults are created.
 		/// </summary>
 		/// <param name="options">The window system configuration options.</param>
 		public void InitializePanels(ConsoleWindowSystemOptions options)
 		{
 			var ws = _getWindowSystem();
 
-			// Sync visibility from legacy StatusBarOptions
-			var statusBar = options.StatusBar;
-			_showTopPanel = statusBar.ShowTopStatus;
-			_showBottomPanel = statusBar.ShowBottomStatus;
-
+			// Top panel: user config or default (status text + clock)
 			if (options.TopPanelConfig != null)
 			{
 				var builder = options.TopPanelConfig(new Panel.PanelBuilder());
 				_topPanel = builder.Build();
-				_topPanel.WindowSystem = ws;
-				_topPanel.Visible = _showTopPanel;
 			}
+			else
+			{
+				var appName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "SharpConsoleUI";
+				_topPanel = new Panel.PanelBuilder()
+					.Left(new Panel.StatusTextElement($"[bold]{appName}[/]"))
+					.Right(new Panel.ClockElement { Format = "HH:mm:ss" })
+					.Build();
+			}
+			_topPanel.WindowSystem = ws;
 
+			// Bottom panel: user config or default (status text + task bar)
 			if (options.BottomPanelConfig != null)
 			{
 				var builder = options.BottomPanelConfig(new Panel.PanelBuilder());
 				_bottomPanel = builder.Build();
-				_bottomPanel.WindowSystem = ws;
-				_bottomPanel.Visible = _showBottomPanel;
 			}
-
-			// Legacy fallback: if no panel builders but StatusBarOptions has legacy config
-			if (options.TopPanelConfig == null && options.BottomPanelConfig == null)
+			else
 			{
-
-				// Build top panel from legacy config
-				if (statusBar.ShowTopStatus)
-				{
-					var topBuilder = new Panel.PanelBuilder();
-					var topStatusElement = new Panel.StatusTextElement(_topStatus ?? string.Empty, "legacyTopStatus");
-					topBuilder.Left(topStatusElement);
-
-					if (options.EnablePerformanceMetrics)
-					{
-						topBuilder.Right(new Panel.PerformanceElement("legacyPerf"));
-					}
-
-					if (statusBar.ShowStartButton && statusBar.StartButtonLocation == StatusBarLocation.Top)
-					{
-						var startElement = new Panel.StartMenuElement("legacyStartTop") { Text = statusBar.StartButtonText };
-						if (statusBar.StartButtonPosition == StartButtonPosition.Left)
-							topBuilder.Left(startElement);
-						else
-							topBuilder.Right(startElement);
-					}
-
-					_topPanel = topBuilder.Build();
-					_topPanel.WindowSystem = ws;
-				}
-
-				// Build bottom panel from legacy config
-				if (statusBar.ShowBottomStatus)
-				{
-					var bottomBuilder = new Panel.PanelBuilder();
-					bool hasContent = false;
-
-					if (statusBar.ShowStartButton && statusBar.StartButtonLocation == StatusBarLocation.Bottom)
-					{
-						var startElement = new Panel.StartMenuElement("legacyStartBottom") { Text = statusBar.StartButtonText };
-						if (statusBar.StartButtonPosition == StartButtonPosition.Left)
-							bottomBuilder.Left(startElement);
-						else
-							bottomBuilder.Right(startElement);
-						hasContent = true;
-					}
-
-					if (statusBar.ShowTaskBar)
-					{
-						bottomBuilder.Center(new Panel.TaskBarElement("legacyTaskbar"));
-						hasContent = true;
-					}
-
-					if (hasContent)
-					{
-						_bottomPanel = bottomBuilder.Build();
-						_bottomPanel.WindowSystem = ws;
-					}
-				}
+				_bottomPanel = new Panel.PanelBuilder()
+					.Left(new Panel.StatusTextElement(""))
+					.Center(new Panel.TaskBarElement())
+					.Build();
 			}
+			_bottomPanel.WindowSystem = ws;
+
+			// Apply initial visibility from options
+			_showTopPanel = options.ShowTopPanel;
+			_showBottomPanel = options.ShowBottomPanel;
+			_topPanel.Visible = _showTopPanel;
+			_bottomPanel.Visible = _showBottomPanel;
 		}
 
 		#endregion

@@ -4,7 +4,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Controls.StartMenu;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Panel;
 using System.Drawing;
 
 namespace SharpConsoleUI.Dialogs;
@@ -24,11 +24,12 @@ public static class StartMenuDialog
 	private static Color _dropBg, _dropFg, _dropHiBg, _dropHiFg;
 
 	/// <summary>
-	/// Shows the Start menu with system actions, plugins, user actions, and windows.
+	/// Shows the Start menu for the given element.
 	/// If the Start menu is already open, it will be closed (toggle behavior).
 	/// </summary>
 	/// <param name="windowSystem">The window system to show the dialog in.</param>
-	public static void Show(ConsoleWindowSystem windowSystem)
+	/// <param name="element">The StartMenuElement that owns this menu's configuration.</param>
+	public static void Show(ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
 		// Debounce: Ignore rapid repeated calls (e.g., from Button1Pressed + Button1Clicked)
 		var now = DateTime.Now;
@@ -39,15 +40,15 @@ public static class StartMenuDialog
 		_lastInvocation = now;
 
 		// Toggle: close existing start menu window if open
-		var existing = windowSystem.PanelStateService.StartMenuWindow;
+		var existing = element.MenuWindow;
 		if (existing != null)
 		{
 			existing.Close(force: true);
-			windowSystem.PanelStateService.StartMenuWindow = null;
+			element.MenuWindow = null;
 			return;
 		}
 
-		var menuOpts = windowSystem.Options.StatusBar.StartMenuConfig;
+		var menuOpts = element.Options;
 		var showIcons = menuOpts.ShowIcons;
 
 		// Resolve colors: explicit option -> theme -> default
@@ -93,7 +94,7 @@ public static class StartMenuDialog
 			navView.NavPaneWidth = ControlDefaults.StartMenuExpandedPaneWidth;
 		}
 
-		BuildSidebarItems(navView, windowSystem, menuOpts);
+		BuildSidebarItems(navView, windowSystem, element);
 		navView.SelectedIndex = 0;
 		navView.VerticalAlignment = VerticalAlignment.Fill;
 
@@ -112,7 +113,7 @@ public static class StartMenuDialog
 		};
 		exitButton.Click += (_, _) =>
 		{
-			CloseStartMenu(windowSystem);
+			CloseStartMenu(windowSystem, element);
 			windowSystem.DesktopPortalService.DismissAllPortals();
 			windowSystem.Shutdown(0);
 		};
@@ -163,29 +164,24 @@ public static class StartMenuDialog
 				+ borderOverhead,
 			windowSystem.DesktopDimensions.Height);
 
-		var startButtonLocation = windowSystem.Options.StatusBar.StartButtonLocation;
 		var desktopUpperLeft = windowSystem.DesktopUpperLeft;
 		var desktopBottomRight = windowSystem.DesktopBottomRight;
-
-		// Compute start button bounds from config for positioning anchor
-		int screenWidth = desktopBottomRight.X + 1;
-		int startBtnWidth = MarkupParser.StripLength(windowSystem.Options.StatusBar.StartButtonText) + 1;
-		int startBtnX = windowSystem.Options.StatusBar.StartButtonPosition == StartButtonPosition.Left
-			? 0
-			: screenWidth - startBtnWidth;
-		var startBounds = new System.Drawing.Rectangle(startBtnX, 0, startBtnWidth, 1);
-
 		int availableWidth = desktopBottomRight.X + 1 - desktopUpperLeft.X;
 		int availableHeight = desktopBottomRight.Y + 1 - desktopUpperLeft.Y;
 		var screenBounds = new Rectangle(0, 0, availableWidth, availableHeight);
 
-		var placement = startButtonLocation == StatusBarLocation.Bottom
+		// Get start menu element bounds from the element itself
+		bool isBottom = element.IsInBottomPanel;
+		var elBounds = element.GetBounds();
+		var startBounds = elBounds.HasValue
+			? new System.Drawing.Rectangle(elBounds.Value.x, 0, elBounds.Value.width, 1)
+			: new System.Drawing.Rectangle(0, 0, 8, 1); // fallback
+
+		var placement = isBottom
 			? PortalPlacement.AboveOrBelow
 			: PortalPlacement.BelowOrAbove;
 
-		var anchorY = startButtonLocation == StatusBarLocation.Bottom
-			? availableHeight
-			: 0;
+		var anchorY = isBottom ? availableHeight : 0;
 		var anchorInDesktop = new Rectangle(
 			startBounds.X, anchorY,
 			startBounds.Width, 1);
@@ -230,34 +226,35 @@ public static class StartMenuDialog
 		optionsHandler = (_, _) =>
 		{
 			menuOpts.OptionsChanged -= optionsHandler;
-			CloseStartMenu(windowSystem);
+			CloseStartMenu(windowSystem, element);
 			_lastInvocation = DateTime.MinValue;
-			Show(windowSystem);
+			Show(windowSystem, element);
 		};
 		menuOpts.OptionsChanged += optionsHandler;
 
 		builder.OnClosed((s, e) =>
 		{
 			menuOpts.OptionsChanged -= optionsHandler;
-			windowSystem.PanelStateService.StartMenuWindow = null;
+			element.MenuWindow = null;
 		});
 
 		// Register BEFORE BuildAndShow so OnDeactivated can find it
 		var window = builder.Build();
-		windowSystem.PanelStateService.StartMenuWindow = window;
+		element.MenuWindow = window;
 		windowSystem.AddWindow(window, activateWindow: true);
 	}
 
 	#region Sidebar Building
 
 	private static void BuildSidebarItems(
-		NavigationView navView, ConsoleWindowSystem windowSystem, StartMenuOptions menuOpts)
+		NavigationView navView, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
+		var menuOpts = element.Options;
 		bool useIcons = menuOpts.SidebarStyle != StartMenuSidebarStyle.TextLabel;
 
 		// "All" category — always present (order 0)
 		var allItem = navView.AddItem("All", icon: useIcons ? ControlDefaults.StartMenuAllIcon : null);
-		navView.SetItemContent(allItem, panel => BuildAllContent(panel, windowSystem, menuOpts));
+		navView.SetItemContent(allItem, panel => BuildAllContent(panel, windowSystem, element));
 
 		// "Windows" category — conditional (order 10)
 		if (menuOpts.ShowWindowList)
@@ -269,7 +266,7 @@ public static class StartMenuDialog
 			if (topLevelWindows.Count > 0)
 			{
 				var windowsItem = navView.AddItem("Windows", icon: useIcons ? ControlDefaults.StartMenuWindowsIcon : null);
-				navView.SetItemContent(windowsItem, panel => BuildWindowsContent(panel, windowSystem, menuOpts));
+				navView.SetItemContent(windowsItem, panel => BuildWindowsContent(panel, windowSystem, element));
 			}
 		}
 
@@ -277,7 +274,7 @@ public static class StartMenuDialog
 		if (menuOpts.ShowSystemCategory)
 		{
 			var systemItem = navView.AddItem("System", icon: useIcons ? ControlDefaults.StartMenuSystemIcon : null);
-			navView.SetItemContent(systemItem, panel => BuildSystemContent(panel, windowSystem, menuOpts));
+			navView.SetItemContent(systemItem, panel => BuildSystemContent(panel, windowSystem, element));
 		}
 
 		// "Plugins" category — conditional (order 30)
@@ -285,15 +282,15 @@ public static class StartMenuDialog
 		if (pluginState.LoadedPluginCount > 0)
 		{
 			var pluginsItem = navView.AddItem("Plugins", icon: useIcons ? ControlDefaults.StartMenuPluginsIcon : null);
-			navView.SetItemContent(pluginsItem, panel => BuildPluginsContent(panel, windowSystem, menuOpts));
+			navView.SetItemContent(pluginsItem, panel => BuildPluginsContent(panel, windowSystem, element));
 		}
 
 		// "Actions" category — conditional (order 40)
-		var userActions = windowSystem.PanelStateService.GetStartMenuActions();
+		var userActions = element.GetActions();
 		if (userActions.Count > 0)
 		{
 			var actionsItem = navView.AddItem("Actions", icon: useIcons ? ControlDefaults.StartMenuActionsIcon : null);
-			navView.SetItemContent(actionsItem, panel => BuildActionsContent(panel, windowSystem));
+			navView.SetItemContent(actionsItem, panel => BuildActionsContent(panel, windowSystem, element));
 		}
 
 		// Custom categories sorted by Order
@@ -309,8 +306,9 @@ public static class StartMenuDialog
 	#region Content Builders
 
 	private static void BuildAllContent(
-		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuOptions menuOpts)
+		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
+		var menuOpts = element.Options;
 		var allLists = new List<ListControl>();
 
 		// Quick actions (system)
@@ -322,7 +320,7 @@ public static class StartMenuDialog
 			quickActions.AddItem(new ListItem("About..."));
 			quickActions.ItemActivated += (_, item) =>
 			{
-				CloseStartMenu(windowSystem);
+				CloseStartMenu(windowSystem, element);
 				switch (item.Text)
 				{
 					case "Change Theme...":
@@ -349,7 +347,7 @@ public static class StartMenuDialog
 			panel.AddControl(pluginsRule);
 
 			var pluginList = new ListControl();
-			AddPluginItems(pluginList, windowSystem);
+			AddPluginItems(pluginList, windowSystem, element);
 			StyleListControl(pluginList, _dropBg, _dropFg, _dropHiBg, _dropHiFg);
 			panel.AddControl(pluginList);
 			allLists.Add(pluginList);
@@ -374,7 +372,7 @@ public static class StartMenuDialog
 				{
 					if (item.Tag is Window targetWindow)
 					{
-						CloseStartMenu(windowSystem);
+						CloseStartMenu(windowSystem, element);
 						windowSystem.SetActiveWindow(targetWindow);
 						if (targetWindow.State == WindowState.Minimized)
 							targetWindow.State = WindowState.Normal;
@@ -387,7 +385,7 @@ public static class StartMenuDialog
 		}
 
 		// User actions
-		var userActions = windowSystem.PanelStateService.GetStartMenuActions();
+		var userActions = element.GetActions();
 		if (userActions.Count > 0)
 		{
 			var userRule = new RuleControl { Title = "User Actions", BorderStyle = BorderStyle.Single };
@@ -404,7 +402,7 @@ public static class StartMenuDialog
 			{
 				if (item.Tag is Action callback)
 				{
-					CloseStartMenu(windowSystem);
+					CloseStartMenu(windowSystem, element);
 					callback();
 				}
 			};
@@ -419,7 +417,7 @@ public static class StartMenuDialog
 	}
 
 	private static void BuildWindowsContent(
-		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuOptions menuOpts)
+		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
 		var windowList = new ListControl();
 		windowList.MaxVisibleItems = ControlDefaults.StartMenuMaxVisibleWindows;
@@ -429,7 +427,7 @@ public static class StartMenuDialog
 		{
 			if (item.Tag is Window targetWindow)
 			{
-				CloseStartMenu(windowSystem);
+				CloseStartMenu(windowSystem, element);
 				windowSystem.SetActiveWindow(targetWindow);
 				if (targetWindow.State == WindowState.Minimized)
 					targetWindow.State = WindowState.Normal;
@@ -438,11 +436,10 @@ public static class StartMenuDialog
 
 		StyleListControl(windowList, _dropBg, _dropFg, _dropHiBg, _dropHiFg);
 		panel.AddControl(windowList);
-
 	}
 
 	private static void BuildSystemContent(
-		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuOptions menuOpts)
+		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
 		var allLists = new List<ListControl>();
 
@@ -452,7 +449,7 @@ public static class StartMenuDialog
 		actionsList.AddItem(new ListItem("Settings..."));
 		actionsList.ItemActivated += (_, item) =>
 		{
-			CloseStartMenu(windowSystem);
+			CloseStartMenu(windowSystem, element);
 			switch (item.Text)
 			{
 				case "Change Theme...":
@@ -480,7 +477,7 @@ public static class StartMenuDialog
 		perfList.AddItem(new ListItem("Set Target FPS..."));
 		perfList.ItemActivated += (_, item) =>
 		{
-			CloseStartMenu(windowSystem);
+			CloseStartMenu(windowSystem, element);
 			if (item.Text.StartsWith("Toggle Metrics"))
 			{
 				windowSystem.Performance.SetPerformanceMetrics(!windowSystem.Performance.IsPerformanceMetricsEnabled);
@@ -506,7 +503,7 @@ public static class StartMenuDialog
 		infoList.AddItem(new ListItem("About..."));
 		infoList.ItemActivated += (_, _) =>
 		{
-			CloseStartMenu(windowSystem);
+			CloseStartMenu(windowSystem, element);
 			AboutDialog.Show(windowSystem);
 		};
 		StyleListControl(infoList, _dropBg, _dropFg, _dropHiBg, _dropHiFg);
@@ -519,18 +516,18 @@ public static class StartMenuDialog
 	}
 
 	private static void BuildPluginsContent(
-		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuOptions menuOpts)
+		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
 		var pluginList = new ListControl();
-		AddPluginItems(pluginList, windowSystem);
+		AddPluginItems(pluginList, windowSystem, element);
 		StyleListControl(pluginList, _dropBg, _dropFg, _dropHiBg, _dropHiFg);
 		panel.AddControl(pluginList);
 	}
 
 	private static void BuildActionsContent(
-		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
+		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
-		var userActions = windowSystem.PanelStateService.GetStartMenuActions();
+		var userActions = element.GetActions();
 		var actionList = new ListControl();
 		foreach (var action in userActions.OrderBy(a => a.Order))
 		{
@@ -541,7 +538,7 @@ public static class StartMenuDialog
 		{
 			if (item.Tag is Action callback)
 			{
-				CloseStartMenu(windowSystem);
+				CloseStartMenu(windowSystem, element);
 				callback();
 			}
 		};
@@ -589,7 +586,7 @@ public static class StartMenuDialog
 		}
 	}
 
-	private static void AddPluginItems(ListControl pluginList, ConsoleWindowSystem windowSystem)
+	private static void AddPluginItems(ListControl pluginList, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
 		foreach (var plugin in windowSystem.PluginStateService.LoadedPlugins)
 		{
@@ -626,13 +623,13 @@ public static class StartMenuDialog
 					windowSystem.AddWindow(w);
 					windowSystem.SetActiveWindow(w);
 				}
-				CloseStartMenu(windowSystem);
+				CloseStartMenu(windowSystem, element);
 			}
 			else if (item.Tag is (string actionType, string providerName, string actionName) && actionType == "PluginAction")
 			{
 				windowSystem.PluginStateService.ExecutePluginAction(
 					providerName, actionName, context: null);
-				CloseStartMenu(windowSystem);
+				CloseStartMenu(windowSystem, element);
 			}
 		};
 	}
@@ -663,13 +660,13 @@ public static class StartMenuDialog
 	/// <summary>
 	/// Closes the start menu window if it is open.
 	/// </summary>
-	private static void CloseStartMenu(ConsoleWindowSystem windowSystem)
+	private static void CloseStartMenu(ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
-		var smw = windowSystem.PanelStateService.StartMenuWindow;
+		var smw = element.MenuWindow;
 		if (smw != null)
 		{
 			smw.Close(force: true);
-			windowSystem.PanelStateService.StartMenuWindow = null;
+			element.MenuWindow = null;
 		}
 	}
 

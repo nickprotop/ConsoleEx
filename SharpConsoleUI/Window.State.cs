@@ -503,7 +503,7 @@ namespace SharpConsoleUI
 				if (CloseOnDeactivate)
 				{
 					// Defer close to avoid re-entrancy — we're inside SetIsActive
-					_windowSystem.EnqueueOnUIThread(() => Close(force: true));
+					_windowSystem!.EnqueueOnUIThread(() => Close(force: true));
 				}
 			}
 		InvalidateBorderCache();
@@ -551,6 +551,38 @@ namespace SharpConsoleUI
 		{
 			_left = point.X;
 			_top = point.Y;
+		}
+
+		/// <summary>
+		/// Sets position and size atomically, with a single invalidation pass.
+		/// Prevents the render thread from seeing partial state (old position with new size).
+		/// </summary>
+		internal void SetPositionAndSize(Point position, int width, int height)
+		{
+			// Apply constraints
+			if (_minimumWidth != null && width < _minimumWidth)
+				width = (int)_minimumWidth;
+			if (_minimumHeight != null && height < _minimumHeight)
+				height = (int)_minimumHeight;
+
+			bool changed = _left != position.X || _top != position.Y ||
+			               _width != width || _height != height;
+			if (!changed) return;
+
+			// Update all fields together
+			_left = position.X;
+			_top = position.Y;
+			_width = width;
+			_height = height;
+
+			// Single invalidation pass
+			InvalidateBorderCache();
+			Invalidate(true);
+
+			if (_scrollOffset > ContentLineCount - (Height - 2))
+			{
+				GoToBottom();
+			}
 		}
 
 		/// <summary>

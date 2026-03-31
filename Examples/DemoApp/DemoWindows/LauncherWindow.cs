@@ -61,7 +61,8 @@ public static class LauncherWindow
                 .AddItem("Canvas Animations", subtitle: "Starfield, plasma & geometry canvases",
                     content: MakeCanvasInfoPanel()))
             .AddHeader("System", new Color(180, 140, 255), header => header
-                .AddItem("Panel Config", subtitle: "Desktop panel configuration", content: MakeInfoPanel("Panel Config")))
+                .AddItem("Panel Config", subtitle: "Desktop panel configuration", content: MakeInfoPanel("Panel Config"))
+                .AddItem("Desktop Background", subtitle: "Desktop background configuration", content: MakeInfoPanel("Desktop Background")))
             .AddHeader("Utilities", Color.Magenta1, header => header
                 .AddItem("Built-in Dialogs", subtitle: "File pickers & system dialogs", content: MakeInfoPanel("Built-in Dialogs"))
                 .AddItem("Digital Clock", subtitle: "FIGlet-rendered clock", content: MakeInfoPanel("Digital Clock"))
@@ -249,6 +250,7 @@ public static class LauncherWindow
             "Welcome Banner" => WelcomeWindow.Create(ws),
             "Alpha Blending" => AlphaBlendingDemoWindow.Create(ws),
             "Panel Config" => PanelConfigWindow.Create(ws),
+            "Desktop Background" => DesktopBackgroundWindow.Create(ws),
             "Canvas Animations" => OpenCanvasWindows(ws),
             "Video Player" => VideoDemoWindow.Create(ws),
             _ => (Window?)null
@@ -793,6 +795,25 @@ public static class LauncherWindow
                 "[dim]Panel elements:[/]",
                 "  - StatusText, Separator, StartMenu",
                 "  - TaskBar, Clock, Performance, Custom",
+            },
+            "Desktop Background" => new List<string>
+            {
+                "[bold cyan]Desktop Background[/]",
+                "",
+                "Configure the desktop background with solid colors,",
+                "gradients, repeating patterns, animated effects,",
+                "and combined gradient+pattern presets.",
+                "",
+                "[dim]Features:[/]",
+                "  - Reset to theme default solid color",
+                "  - 6 gradient presets (vertical, horizontal, diagonal)",
+                "  - 11 pattern presets (checkerboard, dots, shading, etc.)",
+                "  - 3 animated effects (color cycling, pulse, drifting)",
+                "  - 5 combined gradient+pattern presets",
+                "",
+                "[dim]Uses:[/]",
+                "  - DesktopBackgroundConfig, DesktopPatterns",
+                "  - DesktopEffects, GradientBackground",
             },
             "Video Player" => new List<string>
             {

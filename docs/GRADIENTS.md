@@ -77,6 +77,8 @@ window.BackgroundGradient = null;
 
 Background gradients are rendered via `PreBufferPaint`, so all controls paint on top of the gradient.
 
+> **Desktop backgrounds** also support gradients, patterns, and animations. See the [Desktop Background](DESKTOP_BACKGROUND.md) guide.
+
 ## CharacterBuffer Direct API
 
 Apply gradients directly to any `CharacterBuffer` region:

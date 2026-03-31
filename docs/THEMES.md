@@ -144,7 +144,8 @@ public class MyCustomTheme : ITheme
 | `InactiveTitleForegroundColor` | Title bar color for non-focused windows |
 | `DesktopBackgroundColor` | Background color for empty desktop space |
 | `DesktopForegroundColor` | Foreground color for desktop character |
-| `DesktopBackroundChar` | Character used to fill desktop background |
+| `DesktopBackgroundChar` | Character used to fill desktop background |
+| `DesktopBackgroundGradient` | Optional gradient for the desktop area (default: `null`). See [Desktop Background](DESKTOP_BACKGROUND.md) |
 
 ### Registering Custom Themes
 

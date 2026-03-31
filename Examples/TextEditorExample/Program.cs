@@ -7,6 +7,7 @@ using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Panel;
 
 namespace TextEditorExample;
 
@@ -59,11 +60,12 @@ namespace HelloWorld
             _windowSystem = new ConsoleWindowSystem(
                 new NetConsoleDriver(RenderMode.Buffer),
                 options: new ConsoleWindowSystemOptions(
-                    StatusBarOptions: new StatusBarOptions(ShowTaskBar: true)));
+                    TopPanelConfig: panel => panel.Left(Elements.StatusText("")),
+                    BottomPanelConfig: panel => panel.Center(Elements.TaskBar())));
 
-            _windowSystem.StatusBarStateService.TopStatus =
+            _windowSystem.PanelStateService.TopStatus =
                 "Text Editor Example - MultilineEditControl Showcase";
-            _windowSystem.StatusBarStateService.BottomStatus =
+            _windowSystem.PanelStateService.BottomStatus =
                 "Tab to switch focus | Ctrl+C to Quit";
 
             Console.CancelKeyPress += (sender, e) =>

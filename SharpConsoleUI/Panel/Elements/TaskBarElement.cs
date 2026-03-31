@@ -1,3 +1,4 @@
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
@@ -6,6 +7,7 @@ namespace SharpConsoleUI.Panel;
 
 /// <summary>
 /// A panel element that displays a clickable list of windows (task bar).
+/// Subscribes to WindowStateService events for automatic updates.
 /// </summary>
 public class TaskBarElement : PanelElement
 {
@@ -13,6 +15,7 @@ public class TaskBarElement : PanelElement
     private const int TitleEllipsisLength = 7;
     private List<(Window window, int startX, int endX)> _windowPositions = new();
     private int _lastStateHash;
+    private WindowStateService? _subscribedService;
 
     /// <summary>
     /// Initializes a new TaskBarElement.
@@ -38,6 +41,11 @@ public class TaskBarElement : PanelElement
     /// </summary>
     public bool MinimizedDim { get; set; } = true;
 
+    /// <summary>
+    /// Gets or sets whether to show Alt-N keyboard shortcut labels next to window titles.
+    /// </summary>
+    public bool ShowShortcutLabels { get; set; } = false;
+
     /// <inheritdoc/>
     public override int FlexGrow => 1;
 
@@ -46,6 +54,8 @@ public class TaskBarElement : PanelElement
     {
         if (WindowSystem == null || width <= 0)
             return;
+
+        EnsureSubscribed();
 
         _windowPositions.Clear();
 
@@ -81,18 +91,19 @@ public class TaskBarElement : PanelElement
 
             // Build entry markup
             string title = StringHelper.TrimWithEllipsis(w.Title, MaxTitleLength, TitleEllipsisLength);
+            string shortcutPrefix = ShowShortcutLabels ? $"[bold]Alt-{i + 1}[/] " : "";
             string markup;
             if (isActive)
             {
-                markup = $"[bold]Alt-{i + 1}[/] {title}";
+                markup = $"{shortcutPrefix}{title}";
             }
             else if (isMinimized && MinimizedDim)
             {
-                markup = $"[bold]Alt-{i + 1}[/] [dim]{title}[/]";
+                markup = $"{shortcutPrefix}[dim]{title}[/]";
             }
             else
             {
-                markup = $"[bold]Alt-{i + 1}[/] {title}";
+                markup = $"{shortcutPrefix}{title}";
             }
 
             // Add separator
@@ -143,6 +154,36 @@ public class TaskBarElement : PanelElement
         }
         return false;
     }
+
+    private void EnsureSubscribed()
+    {
+        var service = WindowSystem?.WindowStateService;
+        if (service == null || service == _subscribedService)
+            return;
+
+        Unsubscribe();
+        _subscribedService = service;
+        service.WindowCreated += OnWindowChanged;
+        service.WindowClosed += OnWindowChanged;
+        service.WindowActivated += OnWindowActivated;
+        service.WindowStateChanged += OnWindowStateChanged;
+    }
+
+    private void Unsubscribe()
+    {
+        if (_subscribedService != null)
+        {
+            _subscribedService.WindowCreated -= OnWindowChanged;
+            _subscribedService.WindowClosed -= OnWindowChanged;
+            _subscribedService.WindowActivated -= OnWindowActivated;
+            _subscribedService.WindowStateChanged -= OnWindowStateChanged;
+            _subscribedService = null;
+        }
+    }
+
+    private void OnWindowChanged(object? sender, WindowEventArgs e) => Invalidate();
+    private void OnWindowActivated(object? sender, WindowActivatedEventArgs e) => Invalidate();
+    private void OnWindowStateChanged(object? sender, WindowStateEventArgs e) => Invalidate();
 
     private static int ComputeStateHash(List<Window> windows)
     {

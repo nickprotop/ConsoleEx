@@ -18,6 +18,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Panel;
 
 namespace CanvasDemo;
 
@@ -45,9 +46,9 @@ class Program
 			var windowSystem = new ConsoleWindowSystem(
 				RenderMode.Buffer,
 				options: new ConsoleWindowSystemOptions(
-					StatusBarOptions: new StatusBarOptions(ShowTaskBar: false)));
+					TopPanelConfig: panel => panel.Left(Elements.StatusText(""))));
 
-			windowSystem.StatusBarStateService.TopStatus =
+			windowSystem.PanelStateService.TopStatus =
 				"Canvas Demo — Click inside canvases | Resize windows | Esc: Quit";
 
 			Console.CancelKeyPress += (_, e) =>

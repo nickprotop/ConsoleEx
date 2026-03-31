@@ -18,8 +18,8 @@ internal class Program
             var windowSystem = new ConsoleWindowSystem(
                 new NetConsoleDriver(RenderMode.Buffer));
 
-            windowSystem.StatusBarStateService.ShowTopStatus = false;
-            windowSystem.StatusBarStateService.ShowBottomStatus = false;
+            windowSystem.PanelStateService.ShowTopPanel = false;
+            windowSystem.PanelStateService.ShowBottomPanel = false;
 
             CreateMainWindow(windowSystem);
 

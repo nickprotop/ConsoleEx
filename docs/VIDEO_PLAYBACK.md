@@ -404,14 +404,16 @@ using SharpConsoleUI.Video;
 
 // 1. Create the window system
 //    RenderMode.Buffer enables double-buffered rendering for smooth output.
-//    Hide the taskbar for a cleaner single-window app look.
+//    Configure panels for a clean single-window app look.
 var windowSystem = new ConsoleWindowSystem(
     RenderMode.Buffer,
     options: new ConsoleWindowSystemOptions(
-        StatusBarOptions: new StatusBarOptions(ShowTaskBar: false)));
+        TopPanelConfig: panel => panel
+            .Left(Elements.StatusText("")),
+        ShowBottomPanel: false));
 
-// 2. Set up status bar text — this appears at the top of the terminal
-windowSystem.StatusBarStateService.TopStatus =
+// 2. Set up panel text — this appears at the top of the terminal
+windowSystem.PanelStateService.TopStatus =
     "Video Player — Space: Play/Pause | M: Mode | L: Loop | Esc: Stop";
 
 // 3. Handle Ctrl+C — shut down cleanly instead of hard-killing the process
@@ -441,7 +443,7 @@ videoControl.PlaybackStateChanged += (_, state) =>
         VideoPlaybackState.Paused  => $"Paused ({mode})",
         _                          => "Stopped",
     };
-    windowSystem.StatusBarStateService.TopStatus = $"Video Player — {status}";
+    windowSystem.PanelStateService.TopStatus = $"Video Player — {status}";
 };
 
 // 6. Create the window and open a file picker asynchronously

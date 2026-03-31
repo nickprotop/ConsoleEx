@@ -93,6 +93,7 @@ namespace SharpConsoleUI.Windows
 		{
 			List<Window> windows = context.Windows.Values
 				.Where(window =>
+					window.State != WindowState.Minimized &&
 					point.X >= window.Left &&
 					point.X < window.Left + window.Width &&
 					point.Y - context.DesktopUpperLeft.Y >= window.Top &&
