@@ -90,6 +90,9 @@ namespace SharpConsoleUI
 		// Diagnostics system (optional, for testing and debugging)
 		private Diagnostics.RenderingDiagnostics? _renderingDiagnostics;
 
+		// Global keyboard shortcuts registered by the application
+		private readonly Dictionary<(ConsoleModifiers Modifiers, ConsoleKey Key), Action> _globalShortcuts = new();
+
 		// Input coordination
 		/// <summary>
 		/// Gets the input coordinator for managing keyboard and mouse input across windows.
@@ -1004,6 +1007,34 @@ namespace SharpConsoleUI
 		public void RegisterSettingsPage(string name, string? icon = null,
 			string? subtitle = null, Action<ScrollablePanelControl>? content = null)
 			=> _settingsRegistrationService.RegisterPage(name, icon, subtitle, content);
+
+		#endregion
+
+		#region Global Shortcuts
+
+		/// <summary>
+		/// Registers a global keyboard shortcut that is handled before routing to windows.
+		/// </summary>
+		/// <param name="modifiers">The modifier keys (e.g. Control, Alt, Shift).</param>
+		/// <param name="key">The key to bind.</param>
+		/// <param name="action">The action to invoke when the shortcut is pressed.</param>
+		public void RegisterGlobalShortcut(ConsoleModifiers modifiers, ConsoleKey key, Action action)
+		{
+			_globalShortcuts[(modifiers, key)] = action;
+		}
+
+		/// <summary>
+		/// Tries to execute a registered global shortcut for the given key info.
+		/// </summary>
+		internal bool TryHandleGlobalShortcut(ConsoleKeyInfo keyInfo)
+		{
+			if (_globalShortcuts.TryGetValue((keyInfo.Modifiers, keyInfo.Key), out var action))
+			{
+				action();
+				return true;
+			}
+			return false;
+		}
 
 		#endregion
 

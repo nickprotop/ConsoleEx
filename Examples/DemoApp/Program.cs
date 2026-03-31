@@ -23,7 +23,7 @@ internal class Program
                 TopPanelConfig: panel => panel
                     .Left(Elements.StatusText("[bold cyan]SharpConsoleUI Demo[/]"))
                     .Left(Elements.Separator())
-                    .Left(Elements.StatusText("[dim]Ctrl+T: Theme[/]"))
+                    .Left(Elements.StatusText("[dim]Ctrl+L: Launcher[/]"))
                     .Right(Elements.Performance()),
                 BottomPanelConfig: panel => panel
                     .Left(Elements.StartMenu()
@@ -58,6 +58,31 @@ internal class Program
             });
 
             LauncherWindow.Create(windowSystem);
+
+            // Shared logic: open/activate/recreate launcher
+            void OpenLauncher()
+            {
+                var launcher = windowSystem.Windows.Values
+                    .FirstOrDefault(w => w.Title == "SharpConsoleUI Demo");
+
+                if (launcher != null)
+                {
+                    if (launcher.State == WindowState.Minimized)
+                        launcher.Restore();
+                    windowSystem.SetActiveWindow(launcher);
+                }
+                else
+                {
+                    LauncherWindow.Create(windowSystem);
+                }
+            }
+
+            // Ctrl+L global shortcut
+            windowSystem.RegisterGlobalShortcut(ConsoleModifiers.Control, ConsoleKey.L, OpenLauncher);
+
+            // Start menu action
+            var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
+            startMenu.RegisterAction("Launcher", OpenLauncher, order: 0);
 
             windowSystem.Run();
             return 0;

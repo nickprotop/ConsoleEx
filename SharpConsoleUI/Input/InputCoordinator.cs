@@ -105,6 +105,12 @@ namespace SharpConsoleUI.Input
 					continue;
 				}
 
+				// Check for application-registered global shortcuts
+				if (_context.TryHandleGlobalShortcut(keyInfo))
+				{
+					continue;
+				}
+
 				// Check for window cycling (Ctrl+T)
 				if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && keyInfo.Key == ConsoleKey.T)
 				{
