@@ -235,6 +235,13 @@ namespace SharpConsoleUI.Controls
 					textColor = HighlightForegroundColor;
 					nodeBgColor = selectionBg;
 				}
+				else if (i == selectedIndex && !HasFocus)
+				{
+					// Unfocused highlight - dimmer version of selection
+					var theme = Container?.GetConsoleWindowSystem?.Theme;
+					textColor = theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
+					nodeBgColor = theme?.ListUnfocusedHighlightBackgroundColor ?? Color.Grey23;
+				}
 				else
 				{
 					textColor = node.TextColor ?? fgColor;
