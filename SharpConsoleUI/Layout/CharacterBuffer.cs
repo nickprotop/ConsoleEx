@@ -266,6 +266,27 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
+		/// Updates only the foreground and background colors of a cell without modifying
+		/// the character, decorations, wide-char flags, or combiners.
+		/// Does not trigger wide-character cleanup — safe for overlay effects (flash, fade)
+		/// that blend colors without changing cell content.
+		/// </summary>
+		public void SetCellColors(int x, int y, Color foreground, Color background)
+		{
+			if (x < 0 || x >= Width || y < 0 || y >= Height)
+				return;
+
+			ref var existing = ref _cells[x, y];
+			if (!existing.Foreground.Equals(foreground) || !existing.Background.Equals(background))
+			{
+				existing.Foreground = foreground;
+				existing.Background = background;
+				existing.Dirty = true;
+				ExpandDirtyRegion(x, y);
+			}
+		}
+
+		/// <summary>
 		/// Writes a string at the specified position with the given colors.
 		/// Wide characters occupy 2 columns with a continuation cell for the right half.
 		/// </summary>

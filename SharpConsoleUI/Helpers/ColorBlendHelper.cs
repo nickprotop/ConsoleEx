@@ -52,12 +52,9 @@ public static class ColorBlendHelper
 				var newBg = BlendColor(cell.Background, overlayColor, intensity);
 				var newFg = BlendColor(cell.Foreground, overlayColor, intensity * foregroundBlendRatio);
 
-				var updated = new Layout.Cell(cell.Character, newFg, newBg, cell.Decorations)
-				{
-					IsWideContinuation = cell.IsWideContinuation,
-					Combiners = cell.Combiners
-				};
-				buffer.SetCell(x, y, updated);
+				// Use color-only update to avoid CleanupWideCharAt destroying
+				// wide character pairs (emoji, CJK) during overlay passes
+				buffer.SetCellColors(x, y, newFg, newBg);
 			}
 		}
 	}
