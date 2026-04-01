@@ -707,8 +707,15 @@ namespace SharpConsoleUI
 					UpdateCursor();
 					if (_uiActionsPending && _idleTime > Configuration.SystemDefaults.MinSleepDurationMs)
 						_idleTime = Configuration.SystemDefaults.MinSleepDurationMs;
-					_wakeSignal.Wait(_idleTime);
-					_wakeSignal.Reset();
+					try
+					{
+						_wakeSignal.Wait(_idleTime);
+						_wakeSignal.Reset();
+					}
+					catch (ObjectDisposedException)
+					{
+						break; // Shutdown disposed the signal — exit loop
+					}
 				}
 			}
 			catch (Exception ex)

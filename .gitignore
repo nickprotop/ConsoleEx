@@ -14,6 +14,7 @@
 CLAUDE.md
 .claude/
 docs/superpowers
+.superpowers/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
