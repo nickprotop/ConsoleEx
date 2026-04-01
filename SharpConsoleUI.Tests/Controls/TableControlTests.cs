@@ -250,6 +250,209 @@ public class TableControlTests
 	}
 
 	[Fact]
+	public void InsertRow_AtBeginning_InsertsAtIndexZero()
+	{
+		// Arrange
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddRow("Row1");
+		table.AddRow("Row2");
+
+		// Act
+		table.InsertRow(0, "Inserted");
+
+		// Assert
+		Assert.Equal(3, table.RowCount);
+		Assert.Equal("Inserted", table.Rows[0].Cells[0]);
+		Assert.Equal("Row1", table.Rows[1].Cells[0]);
+		Assert.Equal("Row2", table.Rows[2].Cells[0]);
+	}
+
+	[Fact]
+	public void InsertRow_InMiddle_InsertsAtCorrectPosition()
+	{
+		// Arrange
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddRow("Row1");
+		table.AddRow("Row2");
+		table.AddRow("Row3");
+
+		// Act
+		table.InsertRow(1, "Inserted");
+
+		// Assert
+		Assert.Equal(4, table.RowCount);
+		Assert.Equal("Row1", table.Rows[0].Cells[0]);
+		Assert.Equal("Inserted", table.Rows[1].Cells[0]);
+		Assert.Equal("Row2", table.Rows[2].Cells[0]);
+		Assert.Equal("Row3", table.Rows[3].Cells[0]);
+	}
+
+	[Fact]
+	public void InsertRow_AtEnd_AppendsRow()
+	{
+		// Arrange
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddRow("Row1");
+
+		// Act
+		table.InsertRow(1, "Row2");
+
+		// Assert
+		Assert.Equal(2, table.RowCount);
+		Assert.Equal("Row1", table.Rows[0].Cells[0]);
+		Assert.Equal("Row2", table.Rows[1].Cells[0]);
+	}
+
+	[Fact]
+	public void InsertRow_IntoEmptyTable_AddsRow()
+	{
+		// Arrange
+		var table = new TableControl();
+		table.AddColumn("Name");
+
+		// Act
+		table.InsertRow(0, "Only");
+
+		// Assert
+		Assert.Single(table.Rows);
+		Assert.Equal("Only", table.Rows[0].Cells[0]);
+	}
+
+	[Fact]
+	public void InsertRow_WithTableRow_InsertsAtIndex()
+	{
+		// Arrange
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddRow("Row1");
+		table.AddRow("Row2");
+
+		var row = new TableRow("Inserted") { Tag = "tagged" };
+
+		// Act
+		table.InsertRow(1, row);
+
+		// Assert
+		Assert.Equal(3, table.RowCount);
+		Assert.Equal("Inserted", table.Rows[1].Cells[0]);
+		Assert.Equal("tagged", table.Rows[1].Tag);
+	}
+
+	[Fact]
+	public void InsertRow_BeforeSelection_ShiftsSelectionForward()
+	{
+		// Arrange
+		var table = new TableControl { ReadOnly = false };
+		table.AddColumn("Name");
+		table.AddRow("Row0");
+		table.AddRow("Row1");
+		table.AddRow("Row2");
+		table.SelectedRowIndex = 1; // "Row1"
+
+		// Act
+		table.InsertRow(0, "Inserted");
+
+		// Assert — selection should now point to index 2 (still "Row1")
+		Assert.Equal(2, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void InsertRow_AfterSelection_SelectionUnchanged()
+	{
+		// Arrange
+		var table = new TableControl { ReadOnly = false };
+		table.AddColumn("Name");
+		table.AddRow("Row0");
+		table.AddRow("Row1");
+		table.SelectedRowIndex = 0;
+
+		// Act
+		table.InsertRow(1, "Inserted");
+
+		// Assert — selection still at 0
+		Assert.Equal(0, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void InsertRows_InsertsMultipleAtIndex()
+	{
+		// Arrange
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddRow("Row1");
+		table.AddRow("Row4");
+
+		var newRows = new[]
+		{
+			new TableRow("Row2"),
+			new TableRow("Row3")
+		};
+
+		// Act
+		table.InsertRows(1, newRows);
+
+		// Assert
+		Assert.Equal(4, table.RowCount);
+		Assert.Equal("Row1", table.Rows[0].Cells[0]);
+		Assert.Equal("Row2", table.Rows[1].Cells[0]);
+		Assert.Equal("Row3", table.Rows[2].Cells[0]);
+		Assert.Equal("Row4", table.Rows[3].Cells[0]);
+	}
+
+	[Fact]
+	public void InsertRows_BeforeSelection_ShiftsSelectionByCount()
+	{
+		// Arrange
+		var table = new TableControl { ReadOnly = false };
+		table.AddColumn("Name");
+		table.AddRow("Row0");
+		table.AddRow("Row1");
+		table.SelectedRowIndex = 1;
+
+		var newRows = new[] { new TableRow("A"), new TableRow("B"), new TableRow("C") };
+
+		// Act
+		table.InsertRows(0, newRows);
+
+		// Assert — selection shifted forward by 3
+		Assert.Equal(4, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void InsertRow_IndexBeyondCount_ClampsToEnd()
+	{
+		// Arrange
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.AddRow("Row1");
+
+		// Act — index 99 should clamp to 1 (append)
+		table.InsertRow(99, "Appended");
+
+		// Assert
+		Assert.Equal(2, table.RowCount);
+		Assert.Equal("Row1", table.Rows[0].Cells[0]);
+		Assert.Equal("Appended", table.Rows[1].Cells[0]);
+	}
+
+	[Fact]
+	public void InsertRow_WithDataSource_ThrowsInvalidOperation()
+	{
+		// Arrange
+		var table = new TableControl();
+		table.AddColumn("Name");
+		table.DataSource = new TestDataSource(
+			new[] { "Name" },
+			new[,] { { "a" } });
+
+		// Act & Assert
+		Assert.Throws<InvalidOperationException>(() => table.InsertRow(0, "fail"));
+	}
+
+	[Fact]
 	public void ClearRows_RemovesAllRows()
 	{
 		// Arrange

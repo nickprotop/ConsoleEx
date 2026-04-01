@@ -522,6 +522,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
 		lock (_tableLock) { _rows.Add(new TableRow(cells)); }
+		_sortIndexMap = null;
+		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
@@ -535,6 +537,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
 		lock (_tableLock) { _rows.Add(row); }
+		_sortIndexMap = null;
+		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
@@ -548,9 +552,96 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
 		lock (_tableLock) { _rows.AddRange(rows); }
+		_sortIndexMap = null;
+		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Inserts a row with the specified cells at the given index.
+	/// Index is clamped to [0, RowCount].
+	/// </summary>
+	/// <param name="index">The zero-based index at which to insert.</param>
+	/// <param name="cells">The cell values for the new row.</param>
+	public void InsertRow(int index, params string[] cells)
+	{
+		InsertRow(index, new TableRow(cells));
+	}
+
+	/// <summary>
+	/// Inserts a row at the given index.
+	/// Index is clamped to [0, RowCount].
+	/// </summary>
+	/// <param name="index">The zero-based index at which to insert.</param>
+	/// <param name="row">The row to insert.</param>
+	public void InsertRow(int index, TableRow row)
+	{
+		if (_dataSource != null)
+			throw new InvalidOperationException("Cannot insert rows when DataSource is set.");
+
+		lock (_tableLock)
+		{
+			index = Math.Clamp(index, 0, _rows.Count);
+			_rows.Insert(index, row);
+		}
+
+		AdjustSelectionAfterInsert(index, 1);
+		_sortIndexMap = null;
+		_filterIndexMap = null;
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Inserts multiple rows starting at the given index.
+	/// Index is clamped to [0, RowCount].
+	/// </summary>
+	/// <param name="index">The zero-based index at which to begin inserting.</param>
+	/// <param name="rows">The rows to insert.</param>
+	public void InsertRows(int index, IEnumerable<TableRow> rows)
+	{
+		if (_dataSource != null)
+			throw new InvalidOperationException("Cannot insert rows when DataSource is set.");
+
+		var rowList = rows.ToList();
+		if (rowList.Count == 0) return;
+
+		lock (_tableLock)
+		{
+			index = Math.Clamp(index, 0, _rows.Count);
+			_rows.InsertRange(index, rowList);
+		}
+
+		AdjustSelectionAfterInsert(index, rowList.Count);
+		_sortIndexMap = null;
+		_filterIndexMap = null;
+		InvalidateColumnWidths();
+		_measurementCache.InvalidateCache();
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Shifts selection indices forward after rows are inserted.
+	/// </summary>
+	private void AdjustSelectionAfterInsert(int insertIndex, int count)
+	{
+		if (_selectedRowIndex >= insertIndex)
+		{
+			_selectedRowIndex += count;
+		}
+
+		if (_selectedRowIndices.Count > 0)
+		{
+			var adjusted = new HashSet<int>();
+			foreach (var idx in _selectedRowIndices)
+			{
+				adjusted.Add(idx >= insertIndex ? idx + count : idx);
+			}
+			_selectedRowIndices = adjusted;
+		}
 	}
 
 	/// <summary>
@@ -582,6 +673,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			}
 		}
 
+		_sortIndexMap = null;
+		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
