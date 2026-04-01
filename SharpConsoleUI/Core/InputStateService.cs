@@ -83,8 +83,19 @@ namespace SharpConsoleUI.Core
 		private bool _isIdle = true;
 		private readonly TimeSpan _idleThreshold = TimeSpan.FromMilliseconds(500);
 		private bool _isDisposed;
+		private Action? _wakeCallback;
 
 		#region Properties
+
+		/// <summary>
+		/// Optional callback invoked after a key is enqueued, used to wake the main loop.
+		/// Set once during initialization. Thread-safe: called outside the input lock.
+		/// </summary>
+		public Action? WakeCallback
+		{
+			get => _wakeCallback;
+			set => _wakeCallback = value;
+		}
 
 		/// <summary>
 		/// Gets whether there are pending keys in the queue
@@ -211,6 +222,9 @@ namespace SharpConsoleUI.Core
 					// Swallow exceptions from event handlers
 				}
 			});
+
+			// Wake the main loop
+			_wakeCallback?.Invoke();
 		}
 
 		/// <summary>

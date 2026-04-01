@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.Concurrent;
+using System.Threading;
 using SharpConsoleUI.Themes;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Events;
@@ -50,6 +51,9 @@ namespace SharpConsoleUI
 		// UI thread action queue - allows background threads to schedule work on the main thread
 		private readonly ConcurrentQueue<Action> _uiActionQueue = new();
 		private volatile bool _uiActionsPending;
+
+		// Signal to wake the main loop when input or UI actions arrive
+		private readonly ManualResetEventSlim _wakeSignal = new(false);
 
 		// Frame rate limiting (configured via ConsoleWindowSystemOptions)
 		private DateTime _lastRenderTime = DateTime.UtcNow;
@@ -199,6 +203,7 @@ namespace SharpConsoleUI
 			_modalStateService = new ModalStateService(_logService);
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
+			_inputStateService.WakeCallback = () => _wakeSignal.Set();
 			_panelStateService = new PanelStateService(_logService, () => this);
 			_desktopPortalService = new Core.DesktopPortalService(_logService, this);
 
@@ -517,6 +522,7 @@ namespace SharpConsoleUI
 			ArgumentNullException.ThrowIfNull(action);
 			_uiActionQueue.Enqueue(action);
 			_uiActionsPending = true;
+			_wakeSignal.Set();
 		}
 
 		#region Window Management
@@ -701,7 +707,8 @@ namespace SharpConsoleUI
 					UpdateCursor();
 					if (_uiActionsPending && _idleTime > Configuration.SystemDefaults.MinSleepDurationMs)
 						_idleTime = Configuration.SystemDefaults.MinSleepDurationMs;
-					Thread.Sleep(_idleTime);
+					_wakeSignal.Wait(_idleTime);
+					_wakeSignal.Reset();
 				}
 			}
 			catch (Exception ex)
@@ -762,6 +769,9 @@ namespace SharpConsoleUI
 
 			// Dispose desktop background service (stops animation timer)
 			_desktopBackgroundService.Dispose();
+
+			// Dispose wake signal
+			_wakeSignal.Dispose();
 
 			// Save registry on shutdown (auto-on-shutdown flush mode)
 			_registryStateService?.Dispose();

@@ -217,12 +217,23 @@ public partial class TableControl
 						}
 						if (i < visLen)
 						{
-							var editCell = new Cell(editCells[i].Character, fg, bg)
+							var srcCell = editCells[i];
+							// If this is a wide base char at the last column position,
+							// replace with space to avoid rendering half a glyph
+							if (i == colW - 1 && !srcCell.IsWideContinuation
+								&& Helpers.UnicodeWidth.IsWideRune(srcCell.Character))
 							{
-								IsWideContinuation = editCells[i].IsWideContinuation,
-								Combiners = editCells[i].Combiners
-							};
-							buffer.SetCell(cx, y, editCell);
+								buffer.SetNarrowCell(cx, y, ' ', fg, bg);
+							}
+							else
+							{
+								var editCell = new Cell(srcCell.Character, fg, bg, srcCell.Decorations)
+								{
+									IsWideContinuation = srcCell.IsWideContinuation,
+									Combiners = srcCell.Combiners
+								};
+								buffer.SetCell(cx, y, editCell);
+							}
 						}
 						else
 						{
@@ -239,7 +250,24 @@ public partial class TableControl
 
 				if (visLen > colW)
 				{
+					// Wide-character-aware truncation: if the last kept cell
+					// is the base of a wide character (next cell is continuation),
+					// replace it with a space to avoid rendering half a glyph.
 					cellCells = cellCells.GetRange(0, colW);
+					if (colW > 0 && colW < visLen)
+					{
+						var lastKept = cellCells[colW - 1];
+						if (!lastKept.IsWideContinuation && visLen > colW)
+						{
+							// Check if original list had a continuation cell after this one
+							// A wide base char always has IsWideContinuation on the next cell
+							// We can detect it: if this cell's character is wide, it was split
+							if (Helpers.UnicodeWidth.IsWideRune(lastKept.Character))
+							{
+								cellCells[colW - 1] = new Cell(' ', lastKept.Foreground, lastKept.Background);
+							}
+						}
+					}
 					visLen = colW;
 				}
 

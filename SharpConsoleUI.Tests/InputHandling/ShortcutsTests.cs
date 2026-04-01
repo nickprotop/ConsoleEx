@@ -225,7 +225,7 @@ public class ShortcutsTests
         var system = TestWindowSystemBuilder.CreateTestSystem();
         var label = new SharpConsoleUI.Controls.MarkupControl(new List<string> { "Portal Content" });
 
-        system.DesktopPortalService.CreatePortal(new Core.DesktopPortalOptions(
+        system.DesktopPortalService.CreatePortal(new SharpConsoleUI.Core.DesktopPortalOptions(
             Content: label,
             Bounds: new System.Drawing.Rectangle(0, 0, 40, 10),
             DismissOnClickOutside: true));

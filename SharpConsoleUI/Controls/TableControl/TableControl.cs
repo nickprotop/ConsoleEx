@@ -971,14 +971,45 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 		else if (totalNatural > contentWidth)
 		{
-			double ratio = (double)contentWidth / totalNatural;
-			int assigned = 0;
-			for (int c = 0; c < colCount - 1; c++)
+			// Shrink only auto-width columns first; preserve fixed-width columns
+			int fixedTotal = 0;
+			int autoTotal = 0;
+			for (int c = 0; c < colCount; c++)
 			{
-				widths[c] = Math.Max(1, (int)(widths[c] * ratio));
-				assigned += widths[c];
+				if (cols[c].Width.HasValue)
+					fixedTotal += widths[c];
+				else
+					autoTotal += widths[c];
 			}
-			widths[colCount - 1] = Math.Max(1, contentWidth - assigned);
+
+			int autoTarget = contentWidth - fixedTotal;
+			if (autoTarget > 0 && autoTotal > 0)
+			{
+				double ratio = (double)autoTarget / autoTotal;
+				int assigned = fixedTotal;
+				int lastAutoCol = -1;
+				for (int c = 0; c < colCount; c++)
+				{
+					if (cols[c].Width.HasValue) continue;
+					widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+					assigned += widths[c];
+					lastAutoCol = c;
+				}
+				if (lastAutoCol >= 0)
+					widths[lastAutoCol] = Math.Max(1, widths[lastAutoCol] + (contentWidth - assigned));
+			}
+			else
+			{
+				// Not enough space even for fixed columns — shrink everything
+				double ratio = (double)contentWidth / totalNatural;
+				int assigned = 0;
+				for (int c = 0; c < colCount - 1; c++)
+				{
+					widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+					assigned += widths[c];
+				}
+				widths[colCount - 1] = Math.Max(1, contentWidth - assigned);
+			}
 		}
 
 		// Cache results
@@ -1046,8 +1077,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 			for (int c = 0; c < colCount; c++)
 			{
-				int? colWidth = _dataSource.GetColumnWidth(c);
-				bool isAutoCol = !colWidth.HasValue;
+				int? dsColWidth = _dataSource.GetColumnWidth(c);
+				bool isAutoCol = !dsColWidth.HasValue && !_columnWidthOverrides.ContainsKey(c);
 				if (autoCount > 0 && !isAutoCol) continue;
 				widths[c] += perCol;
 				if (extraCols > 0) { widths[c]++; extraCols--; }
@@ -1055,14 +1086,47 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 		else if (totalNatural > contentWidth)
 		{
-			double ratio = (double)contentWidth / totalNatural;
-			int assigned = 0;
-			for (int c = 0; c < colCount - 1; c++)
+			// Shrink only auto-width columns first; preserve fixed/overridden columns
+			int fixedTotal = 0;
+			int autoTotal = 0;
+			for (int c = 0; c < colCount; c++)
 			{
-				widths[c] = Math.Max(1, (int)(widths[c] * ratio));
-				assigned += widths[c];
+				bool isFixed = _columnWidthOverrides.ContainsKey(c) || _dataSource.GetColumnWidth(c).HasValue;
+				if (isFixed)
+					fixedTotal += widths[c];
+				else
+					autoTotal += widths[c];
 			}
-			widths[colCount - 1] = Math.Max(1, contentWidth - assigned);
+
+			int autoTarget = contentWidth - fixedTotal;
+			if (autoTarget > 0 && autoTotal > 0)
+			{
+				double ratio = (double)autoTarget / autoTotal;
+				int assigned = fixedTotal;
+				int lastAutoCol = -1;
+				for (int c = 0; c < colCount; c++)
+				{
+					bool isFixed = _columnWidthOverrides.ContainsKey(c) || _dataSource.GetColumnWidth(c).HasValue;
+					if (isFixed) continue;
+					widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+					assigned += widths[c];
+					lastAutoCol = c;
+				}
+				if (lastAutoCol >= 0)
+					widths[lastAutoCol] = Math.Max(1, widths[lastAutoCol] + (contentWidth - assigned));
+			}
+			else
+			{
+				// Not enough space even for fixed columns — shrink everything
+				double ratio = (double)contentWidth / totalNatural;
+				int assigned = 0;
+				for (int c = 0; c < colCount - 1; c++)
+				{
+					widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+					assigned += widths[c];
+				}
+				widths[colCount - 1] = Math.Max(1, contentWidth - assigned);
+			}
 		}
 
 		return widths;
