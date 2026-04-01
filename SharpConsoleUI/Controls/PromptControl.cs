@@ -320,6 +320,10 @@ namespace SharpConsoleUI.Controls
 		/// <param name="input">The text to set as input.</param>
 		public void SetInput(string? input)
 		{
+			// Sanitize: single-line control — collapse newlines to spaces
+			if (input != null && input.Contains('\n'))
+				input = input.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
+
 			int newCursorPos = string.IsNullOrEmpty(input) ? 0 : input.Length;
 
 			_input = input ?? string.Empty;
@@ -345,7 +349,9 @@ namespace SharpConsoleUI.Controls
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
-			int inputFieldWidth = _inputWidth ?? Math.Max(UnicodeWidth.GetStringWidth(_input), 10);
+			// Cap measured input width to available space — the control scrolls when text overflows
+			int naturalInputWidth = Math.Max(UnicodeWidth.GetStringWidth(_input), 10);
+			int inputFieldWidth = _inputWidth ?? Math.Min(naturalInputWidth, Math.Max(10, constraints.MaxWidth - promptLength - Margin.Left - Margin.Right));
 			int contentWidth = promptLength + inputFieldWidth;
 			int width = (Width ?? contentWidth) + Margin.Left + Margin.Right;
 			int height = 1 + Margin.Top + Margin.Bottom;
@@ -463,9 +469,10 @@ namespace SharpConsoleUI.Controls
 				inputDisplayWidth = Math.Min(inputDisplayWidth, remainingWidth);
 
 				// Write the visible input text using Unicode-aware rendering
+				// Escape markup in user input to prevent [ ] from being parsed as tags
 				string displayInput = _maskCharacter.HasValue
 					? new string(_maskCharacter.Value, UnicodeWidth.GetStringWidth(visibleInput))
-					: visibleInput;
+					: Parsing.MarkupParser.Escape(visibleInput);
 				var inputCells = Parsing.MarkupParser.Parse(displayInput, inputForegroundColor, inputBackgroundColor);
 				int visibleDisplayWidth = inputCells.Count;
 
