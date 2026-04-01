@@ -51,7 +51,7 @@ namespace SharpConsoleUI.Controls
 
 		private readonly StringBuilder _searchBuilder = new();
 		private string _searchText = string.Empty;
-		private string _title = "List";
+		private string _title = string.Empty;
 		private int _scrollOffset = 0;
 
 		// Scrollbar state
