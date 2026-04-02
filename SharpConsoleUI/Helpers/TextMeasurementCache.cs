@@ -1,12 +1,15 @@
+using System.Collections.Concurrent;
+
 namespace SharpConsoleUI.Helpers;
 
 /// <summary>
 /// Caches expensive text measurement operations for improved rendering performance.
 /// Eliminates duplicate measurements during rendering cycles (40+ calls per frame in complex controls).
+/// Thread-safe: uses ConcurrentDictionary to support concurrent read/write from render and UI threads.
 /// </summary>
 public class TextMeasurementCache
 {
-	private readonly Dictionary<string, int> _cache = new();
+	private readonly ConcurrentDictionary<string, int> _cache = new();
 	private readonly Func<string, int> _measurementFunc;
 
 	/// <summary>
@@ -69,7 +72,7 @@ public class TextMeasurementCache
 	public void InvalidateCachedEntry(string text)
 	{
 		if (!string.IsNullOrEmpty(text))
-			_cache.Remove(text);
+			_cache.TryRemove(text, out _);
 	}
 
 	/// <summary>
