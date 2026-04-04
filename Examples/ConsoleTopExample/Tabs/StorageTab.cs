@@ -19,44 +19,194 @@ internal sealed class StorageTab : BaseResponsiveTab
     public override string PanelControlName => "storagePanel";
     protected override int LayoutThresholdWidth => UIConstants.StorageLayoutThresholdWidth;
 
-    protected override List<string> BuildTextContent(SystemSnapshot snapshot)
+    protected override List<string> BuildTextContent(SystemSnapshot snapshot) => new();
+
+    #region Panel Building
+
+    public override IWindowControl BuildPanel(SystemSnapshot initialSnapshot, int windowWidth)
     {
-        var lines = new List<string>();
+        _currentLayout = windowWidth >= LayoutThresholdWidth
+            ? ResponsiveLayoutMode.Wide
+            : ResponsiveLayoutMode.Narrow;
+
+        if (_currentLayout == ResponsiveLayoutMode.Wide)
+        {
+            var grid = Controls.HorizontalGrid()
+                .WithName(PanelControlName)
+                .WithVerticalAlignment(VerticalAlignment.Fill)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 1)
+                .Visible(false)
+                .Column(col =>
+                {
+                    col.Width(UIConstants.FixedTextColumnWidth);
+                    var leftPanel = BuildScrollablePanel();
+                    BuildLeftPanelCards(leftPanel, initialSnapshot);
+                    col.Add(leftPanel);
+                })
+                .Column(col =>
+                {
+                    col.Width(UIConstants.SeparatorColumnWidth);
+                    col.Add(new SeparatorControl
+                    {
+                        ForegroundColor = UIConstants.SeparatorColor,
+                        VerticalAlignment = VerticalAlignment.Fill
+                    });
+                })
+                .Column(col =>
+                {
+                    var rightPanel = BuildScrollablePanel();
+                    BuildGraphsContent(rightPanel, initialSnapshot);
+                    col.Add(rightPanel);
+                })
+                .Build();
+
+            grid.BackgroundColor = UIConstants.BaseBg;
+            grid.ForegroundColor = UIConstants.PrimaryText;
+            return grid;
+        }
+        else
+        {
+            var grid = Controls.HorizontalGrid()
+                .WithName(PanelControlName)
+                .WithVerticalAlignment(VerticalAlignment.Fill)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 1)
+                .Visible(false)
+                .Column(col =>
+                {
+                    var scrollPanel = BuildScrollablePanel();
+                    BuildLeftPanelCards(scrollPanel, initialSnapshot);
+                    AddNarrowSeparator(scrollPanel);
+                    BuildGraphsContent(scrollPanel, initialSnapshot);
+                    col.Add(scrollPanel);
+                })
+                .Build();
+
+            grid.BackgroundColor = UIConstants.BaseBg;
+            grid.ForegroundColor = UIConstants.PrimaryText;
+            return grid;
+        }
+    }
+
+    #endregion
+
+    #region Left Panel Cards
+
+    private void BuildLeftPanelCards(ScrollablePanelControl panel, SystemSnapshot snapshot)
+    {
         var storage = snapshot.Storage;
 
-        lines.Add("[bold cyan1]Total Storage[/]");
-        lines.Add($"  Capacity:  {storage.TotalCapacityGb,6:F1} GB");
-        lines.Add($"  Used:      {storage.TotalUsedGb,6:F1} GB ([cyan1]{storage.TotalUsedPercent:F1}%[/])");
-        lines.Add($"  Free:      {storage.TotalFreeGb,6:F1} GB");
-        lines.Add("");
+        // Total Storage aggregate card
+        var totalCard = BuildCard("Total Storage");
+        totalCard.AddControl(
+            new BarGraphBuilder()
+                .WithName("leftStorageTotalBar")
+                .WithLabel("Used")
+                .WithLabelWidth(UIConstants.StorageBarLabelWidth)
+                .WithValue(storage.TotalUsedPercent)
+                .WithMaxValue(100)
+                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                .ShowLabel().ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(0, 0, 0, 0)
+                .WithSmoothGradient(UIConstants.GradientHealthy)
+                .Build()
+        );
+        totalCard.AddControl(
+            Controls.Markup()
+                .WithName("storageAggStats")
+                .AddLine(BuildAggStatsContent(storage))
+                .WithAlignment(HorizontalAlignment.Left)
+                .Build()
+        );
+        panel.AddControl(totalCard);
 
-        lines.Add("[bold grey70]Mounted Filesystems[/]");
-        lines.Add("");
-
+        // Per-disk cards
         foreach (var disk in storage.Disks)
         {
             var mountIcon = disk.IsRemovable ? "📀" : "💾";
-            lines.Add($"[cyan1]{mountIcon} {disk.MountPoint}[/] [grey50]({System.IO.Path.GetFileName(disk.DeviceName)})[/]");
-            lines.Add($"  Type:    [grey70]{disk.FileSystemType}[/]");
+            var diskCard = BuildCard($"{mountIcon} {disk.MountPoint}");
 
-            if (!string.IsNullOrEmpty(disk.Label))
-                lines.Add($"  Label:   [yellow]{disk.Label}[/]");
+            diskCard.AddControl(
+                Controls.Markup()
+                    .WithName($"disk_{disk.DeviceName}_info")
+                    .AddLine(BuildDiskInfoContent(disk))
+                    .WithAlignment(HorizontalAlignment.Left)
+                    .Build()
+            );
 
-            lines.Add($"  Size:    {disk.TotalGb,6:F1} GB");
-            lines.Add($"  Used:    {disk.UsedGb,6:F1} GB ([cyan1]{disk.UsedPercent:F1}%[/])");
-            lines.Add($"  Free:    {disk.FreeGb,6:F1} GB");
+            diskCard.AddControl(
+                new BarGraphBuilder()
+                    .WithName($"leftDisk_{disk.DeviceName}_usage")
+                    .WithLabel("Used %")
+                    .WithLabelWidth(UIConstants.StorageBarLabelWidth)
+                    .WithValue(disk.UsedPercent)
+                    .WithMaxValue(100)
+                    .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                    .ShowLabel().ShowValue()
+                    .WithValueFormat("F1")
+                    .WithMargin(0, 0, 0, 0)
+                    .WithSmoothGradient(UIConstants.GradientHealthy)
+                    .Build()
+            );
 
-            if (!string.IsNullOrEmpty(disk.MountOptions))
-                lines.Add($"  Options: [grey50]{disk.MountOptions}[/]");
+            diskCard.AddControl(
+                new BarGraphBuilder()
+                    .WithName($"leftDisk_{disk.DeviceName}_read")
+                    .WithLabel("Read MB/s")
+                    .WithLabelWidth(UIConstants.StorageBarLabelWidth)
+                    .WithValue(disk.ReadMbps)
+                    .WithMaxValue(Math.Max(10, _readHistory.GetMutable(disk.DeviceName).DefaultIfEmpty(0).Max()))
+                    .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                    .ShowLabel().ShowValue()
+                    .WithValueFormat("F1")
+                    .WithMargin(0, 0, 0, 0)
+                    .WithSmoothGradient(UIConstants.GradientIoRead)
+                    .Build()
+            );
 
-            lines.Add("");
+            diskCard.AddControl(
+                new BarGraphBuilder()
+                    .WithName($"leftDisk_{disk.DeviceName}_write")
+                    .WithLabel("Write MB/s")
+                    .WithLabelWidth(UIConstants.StorageBarLabelWidth)
+                    .WithValue(disk.WriteMbps)
+                    .WithMaxValue(Math.Max(10, _writeHistory.GetMutable(disk.DeviceName).DefaultIfEmpty(0).Max()))
+                    .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                    .ShowLabel().ShowValue()
+                    .WithValueFormat("F1")
+                    .WithMargin(0, 0, 0, 0)
+                    .WithSmoothGradient(UIConstants.GradientIoWrite)
+                    .Build()
+            );
+
+            panel.AddControl(diskCard);
         }
-
-        if (storage.Disks.Count == 0)
-            lines.Add("[grey50]No storage devices found[/]");
-
-        return lines;
     }
+
+    private static string BuildAggStatsContent(StorageSample storage)
+    {
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+        return $"  [{muted}]Capacity:[/] [{accent}]{storage.TotalCapacityGb:F1} GB[/]\n" +
+               $"  [{muted}]Used:[/]     [{accent}]{storage.TotalUsedGb:F1} GB[/] [{muted}]({storage.TotalUsedPercent:F1}%)[/]\n" +
+               $"  [{muted}]Free:[/]     [{accent}]{storage.TotalFreeGb:F1} GB[/]";
+    }
+
+    private static string BuildDiskInfoContent(DiskSample disk)
+    {
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+        return $"  [{muted}]Device:[/] [{accent}]{System.IO.Path.GetFileName(disk.DeviceName)}[/]\n" +
+               $"  [{muted}]Type:[/]   [{accent}]{disk.FileSystemType}[/]\n" +
+               $"  [{muted}]Size:[/]   [{accent}]{disk.TotalGb:F1} GB[/]";
+    }
+
+    #endregion
+
+    #region Graphs
 
     protected override void BuildGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
@@ -78,8 +228,8 @@ internal sealed class StorageTab : BaseResponsiveTab
             var deviceKey = disk.DeviceName;
 
             var headerText = !string.IsNullOrEmpty(disk.Label)
-                ? $"[bold cyan1]{disk.MountPoint}[/] [grey50]({System.IO.Path.GetFileName(disk.DeviceName)} - {disk.FileSystemType} - \"{disk.Label}\")[/]"
-                : $"[bold cyan1]{disk.MountPoint}[/] [grey50]({System.IO.Path.GetFileName(disk.DeviceName)} - {disk.FileSystemType})[/]";
+                ? $"[{UIConstants.Accent.ToMarkup()} bold]{disk.MountPoint}[/] [{UIConstants.MutedText.ToMarkup()}]({System.IO.Path.GetFileName(disk.DeviceName)} - {disk.FileSystemType} - \"{disk.Label}\")[/]"
+                : $"[{UIConstants.Accent.ToMarkup()} bold]{disk.MountPoint}[/] [{UIConstants.MutedText.ToMarkup()}]({System.IO.Path.GetFileName(disk.DeviceName)} - {disk.FileSystemType})[/]";
 
             panel.AddControl(
                 Controls.Markup()
@@ -97,7 +247,7 @@ internal sealed class StorageTab : BaseResponsiveTab
                     .WithMaxValue(100)
                     .ShowValue()
                     .WithValueFormat("F1")
-                    .WithSmoothGradient(Color.Green, Color.Yellow, Color.Orange1, Color.Red)
+                    .WithSmoothGradient(UIConstants.GradientHealthy)
                     .WithMargin(2, 1, 1, 0)
                     .Build()
             );
@@ -111,7 +261,7 @@ internal sealed class StorageTab : BaseResponsiveTab
                     .WithMaxValue(100)
                     .ShowValue()
                     .WithValueFormat("F1")
-                    .WithSmoothGradient(Color.Blue, Color.Cyan1)
+                    .WithSmoothGradient(UIConstants.GradientIoRead)
                     .WithMargin(2, 0, 1, 0)
                     .Build()
             );
@@ -125,7 +275,7 @@ internal sealed class StorageTab : BaseResponsiveTab
                     .WithMaxValue(100)
                     .ShowValue()
                     .WithValueFormat("F1")
-                    .WithSmoothGradient(Color.Yellow, Color.Orange1, Color.Red)
+                    .WithSmoothGradient(UIConstants.GradientIoWrite)
                     .WithMargin(2, 0, 1, 0)
                     .Build()
             );
@@ -137,14 +287,14 @@ internal sealed class StorageTab : BaseResponsiveTab
                 new SparklineBuilder()
                     .WithName($"disk_{deviceKey}_io")
                     .WithTitle("↑ Read  ↓ Write")
-                    .WithTitleColor(Color.Grey70)
+                    .WithTitleColor(UIConstants.MutedText)
                     .WithTitlePosition(TitlePosition.Bottom)
                     .WithHeight(UIConstants.StorageIoSparklineHeight)
                     .WithMaxValue(maxRead)
                     .WithSecondaryMaxValue(maxWrite)
-                    .WithGradient("cool")
-                    .WithSecondaryGradient("warm")
-                    .WithBackgroundColor(UIConstants.SparklineBackground)
+                    .WithGradient(UIConstants.SparkStorageRead)
+                    .WithSecondaryGradient(UIConstants.SparkStorageWrite)
+                    .WithBackgroundColor(UIConstants.PanelBg)
                     .WithBorder(BorderStyle.None)
                     .WithMode(SparklineMode.BidirectionalBraille)
                     .WithBaseline(true, position: TitlePosition.Bottom)
@@ -157,6 +307,10 @@ internal sealed class StorageTab : BaseResponsiveTab
             AddSectionSeparator(panel);
         }
     }
+
+    #endregion
+
+    #region Update
 
     protected override void UpdateHistory(SystemSnapshot snapshot)
     {
@@ -198,4 +352,98 @@ internal sealed class StorageTab : BaseResponsiveTab
             }
         }
     }
+
+    protected override void UpdateLeftColumnText(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        var storage = snapshot.Storage;
+
+        var aggStats = FindMainWindow()?.FindControl<MarkupControl>("storageAggStats");
+        aggStats?.SetContent(new List<string> { BuildAggStatsContent(storage) });
+
+        var totalBar = FindMainWindow()?.FindControl<BarGraphControl>("leftStorageTotalBar");
+        if (totalBar != null)
+            totalBar.Value = storage.TotalUsedPercent;
+
+        foreach (var disk in storage.Disks)
+        {
+            var usageBar = FindMainWindow()?.FindControl<BarGraphControl>($"leftDisk_{disk.DeviceName}_usage");
+            if (usageBar != null)
+                usageBar.Value = disk.UsedPercent;
+
+            double readMax = Math.Max(10, _readHistory.Get(disk.DeviceName).DefaultIfEmpty(0).Max());
+            double writeMax = Math.Max(10, _writeHistory.Get(disk.DeviceName).DefaultIfEmpty(0).Max());
+
+            var readBar = FindMainWindow()?.FindControl<BarGraphControl>($"leftDisk_{disk.DeviceName}_read");
+            if (readBar != null) { readBar.Value = disk.ReadMbps; readBar.MaxValue = readMax; }
+
+            var writeBar = FindMainWindow()?.FindControl<BarGraphControl>($"leftDisk_{disk.DeviceName}_write");
+            if (writeBar != null) { writeBar.Value = disk.WriteMbps; writeBar.MaxValue = writeMax; }
+        }
+    }
+
+    public new void HandleResize(int newWidth, int newHeight)
+    {
+        var grid = FindMainWindow()?.FindControl<HorizontalGridControl>(PanelControlName);
+        if (grid == null || !grid.Visible)
+            return;
+
+        var desired = newWidth >= LayoutThresholdWidth
+            ? ResponsiveLayoutMode.Wide
+            : ResponsiveLayoutMode.Narrow;
+
+        if (desired == _currentLayout)
+            return;
+
+        _currentLayout = desired;
+        RebuildCardColumns(grid);
+    }
+
+    private void RebuildCardColumns(HorizontalGridControl grid)
+    {
+        var snapshot = Stats.ReadSnapshot();
+
+        for (int i = grid.Columns.Count - 1; i >= 0; i--)
+            grid.RemoveColumn(grid.Columns[i]);
+
+        if (_currentLayout == ResponsiveLayoutMode.Wide)
+        {
+            var leftPanel = BuildScrollablePanel();
+            BuildLeftPanelCards(leftPanel, snapshot);
+
+            var leftCol = new ColumnContainer(grid) { Width = UIConstants.FixedTextColumnWidth };
+            leftCol.AddContent(leftPanel);
+            grid.AddColumn(leftCol);
+
+            var sepCol = new ColumnContainer(grid) { Width = UIConstants.SeparatorColumnWidth };
+            sepCol.AddContent(new SeparatorControl
+            {
+                ForegroundColor = UIConstants.SeparatorColor,
+                VerticalAlignment = VerticalAlignment.Fill
+            });
+            grid.AddColumn(sepCol);
+
+            var rightPanel = BuildScrollablePanel();
+            BuildGraphsContent(rightPanel, snapshot);
+
+            var rightCol = new ColumnContainer(grid);
+            rightCol.AddContent(rightPanel);
+            grid.AddColumn(rightCol);
+        }
+        else
+        {
+            var scrollPanel = BuildScrollablePanel();
+            BuildLeftPanelCards(scrollPanel, snapshot);
+            AddNarrowSeparator(scrollPanel);
+            BuildGraphsContent(scrollPanel, snapshot);
+
+            var col = new ColumnContainer(grid);
+            col.AddContent(scrollPanel);
+            grid.AddColumn(col);
+        }
+
+        FindMainWindow()?.ForceRebuildLayout();
+        FindMainWindow()?.Invalidate(true);
+    }
+
+    #endregion
 }

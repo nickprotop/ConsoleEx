@@ -24,54 +24,185 @@ internal sealed class NetworkTab : BaseResponsiveTab
     public override string PanelControlName => "networkPanel";
     protected override int LayoutThresholdWidth => UIConstants.NetworkLayoutThresholdWidth;
 
-    protected override List<string> BuildTextContent(SystemSnapshot snapshot)
+    protected override List<string> BuildTextContent(SystemSnapshot snapshot) => new();
+
+    #region Panel Building
+
+    public override IWindowControl BuildPanel(SystemSnapshot initialSnapshot, int windowWidth)
+    {
+        _currentLayout = windowWidth >= LayoutThresholdWidth
+            ? ResponsiveLayoutMode.Wide
+            : ResponsiveLayoutMode.Narrow;
+
+        if (_currentLayout == ResponsiveLayoutMode.Wide)
+        {
+            var grid = Controls.HorizontalGrid()
+                .WithName(PanelControlName)
+                .WithVerticalAlignment(VerticalAlignment.Fill)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 1)
+                .Visible(false)
+                .Column(col =>
+                {
+                    col.Width(UIConstants.FixedTextColumnWidth);
+                    var leftPanel = BuildScrollablePanel();
+                    BuildLeftPanelCards(leftPanel, initialSnapshot);
+                    col.Add(leftPanel);
+                })
+                .Column(col =>
+                {
+                    col.Width(UIConstants.SeparatorColumnWidth);
+                    col.Add(new SeparatorControl
+                    {
+                        ForegroundColor = UIConstants.SeparatorColor,
+                        VerticalAlignment = VerticalAlignment.Fill
+                    });
+                })
+                .Column(col =>
+                {
+                    var rightPanel = BuildScrollablePanel();
+                    BuildGraphsContent(rightPanel, initialSnapshot);
+                    col.Add(rightPanel);
+                })
+                .Build();
+
+            grid.BackgroundColor = UIConstants.BaseBg;
+            grid.ForegroundColor = UIConstants.PrimaryText;
+            return grid;
+        }
+        else
+        {
+            var grid = Controls.HorizontalGrid()
+                .WithName(PanelControlName)
+                .WithVerticalAlignment(VerticalAlignment.Fill)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 1)
+                .Visible(false)
+                .Column(col =>
+                {
+                    var scrollPanel = BuildScrollablePanel();
+                    BuildLeftPanelCards(scrollPanel, initialSnapshot);
+                    AddNarrowSeparator(scrollPanel);
+                    BuildGraphsContent(scrollPanel, initialSnapshot);
+                    col.Add(scrollPanel);
+                })
+                .Build();
+
+            grid.BackgroundColor = UIConstants.BaseBg;
+            grid.ForegroundColor = UIConstants.PrimaryText;
+            return grid;
+        }
+    }
+
+    #endregion
+
+    #region Left Panel Cards
+
+    private void BuildLeftPanelCards(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
         var net = snapshot.Network;
         int interfaceCount = net.PerInterfaceSamples?.Count ?? 0;
 
-        var lines = new List<string>
-        {
-            "",
-            $"[cyan1 bold]Network ({interfaceCount} interface{(interfaceCount != 1 ? "s" : "")})[/]",
-            "",
-            "[grey70 bold]Current Rates[/]",
-            $"  [grey70]Upload:[/]   [cyan1]{net.UpMbps:F2} MB/s[/]",
-            $"  [grey70]Download:[/] [green]{net.DownMbps:F2} MB/s[/]",
-            "",
-            "[grey70 bold]Peak Rates (session)[/]",
-            $"  [grey70]Upload:[/]   [cyan1]{_peakUpMbps:F2} MB/s[/]",
-            $"  [grey70]Download:[/] [green]{_peakDownMbps:F2} MB/s[/]",
-            "",
-            "[grey70 bold]Active Interfaces[/]",
-        };
+        // Network summary card
+        var summaryCard = BuildCard($"Network ({interfaceCount} interface{(interfaceCount != 1 ? "s" : "")})");
 
+        double maxRate = Math.Max(Math.Max(_peakUpMbps, _peakDownMbps), 1.0);
+        double barMax = Math.Ceiling(maxRate / 10) * 10;
+
+        summaryCard.AddControl(
+            new BarGraphBuilder()
+                .WithName("leftNetUpBar")
+                .WithLabel("Upload")
+                .WithLabelWidth(UIConstants.NetworkBarLabelWidth)
+                .WithValue(net.UpMbps)
+                .WithMaxValue(barMax)
+                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                .ShowLabel().ShowValue()
+                .WithValueFormat("F2")
+                .WithMargin(0, 0, 0, 0)
+                .WithSmoothGradient(UIConstants.GradientNetUpload)
+                .Build()
+        );
+
+        summaryCard.AddControl(
+            new BarGraphBuilder()
+                .WithName("leftNetDownBar")
+                .WithLabel("Download")
+                .WithLabelWidth(UIConstants.NetworkBarLabelWidth)
+                .WithValue(net.DownMbps)
+                .WithMaxValue(barMax)
+                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                .ShowLabel().ShowValue()
+                .WithValueFormat("F2")
+                .WithMargin(0, 0, 0, 0)
+                .WithSmoothGradient(UIConstants.GradientNetDownload)
+                .Build()
+        );
+
+        summaryCard.AddControl(
+            Controls.Markup()
+                .WithName("netSummaryStats")
+                .AddLine(BuildNetSummaryStatsContent(net))
+                .WithAlignment(HorizontalAlignment.Left)
+                .Build()
+        );
+
+        panel.AddControl(summaryCard);
+
+        // Per-interface cards
         if (net.PerInterfaceSamples is { Count: > 0 })
         {
             foreach (var iface in net.PerInterfaceSamples)
             {
-                string ifaceName = iface.InterfaceName.Length > UIConstants.InterfaceNameMaxLength
+                string ifaceNameDisplay = iface.InterfaceName.Length > UIConstants.InterfaceNameMaxLength
                     ? iface.InterfaceName.Substring(0, UIConstants.InterfaceNameTruncLength) + "..."
                     : iface.InterfaceName;
 
-                lines.Add($"  [cyan1]{ifaceName,-15}[/] ↑[grey70]{iface.UpMbps:F2}[/] ↓[grey70]{iface.DownMbps:F2}[/]");
+                var ifaceCard = BuildCard(ifaceNameDisplay);
+                ifaceCard.AddControl(
+                    Controls.Markup()
+                        .WithName($"netIface_{iface.InterfaceName}")
+                        .AddLine(BuildIfaceCardContent(iface))
+                        .WithAlignment(HorizontalAlignment.Left)
+                        .Build()
+                );
+                panel.AddControl(ifaceCard);
             }
         }
-        else
-        {
-            lines.Add("  [grey50]No active interfaces[/]");
-        }
-
-        return lines;
     }
+
+    private string BuildNetSummaryStatsContent(NetworkSample net)
+    {
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+        return $"  [{muted}]Peak Upload:[/]   [{accent}]{_peakUpMbps:F2} MB/s[/]\n" +
+               $"  [{muted}]Peak Download:[/] [{accent}]{_peakDownMbps:F2} MB/s[/]";
+    }
+
+    private static string BuildIfaceCardContent(NetworkInterfaceSample iface)
+    {
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+        return $"  [{muted}]Upload:[/]   [{accent}]{iface.UpMbps:F2} MB/s[/]\n" +
+               $"  [{muted}]Download:[/] [{accent}]{iface.DownMbps:F2} MB/s[/]";
+    }
+
+    #endregion
+
+    #region Graphs
 
     protected override void BuildGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
         var net = snapshot.Network;
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
 
         panel.AddControl(
             Controls.Markup()
                 .AddLine("")
-                .AddLine("[cyan1 bold]═══ Network Visualization ═══[/]")
+                .AddLine($"[{accent} bold]═══ Network Visualization ═══[/]")
                 .AddLine("")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(2, 0, 2, 0)
@@ -80,7 +211,7 @@ internal sealed class NetworkTab : BaseResponsiveTab
 
         panel.AddControl(
             Controls.Markup()
-                .AddLine("[grey70 bold]Current Usage[/]")
+                .AddLine($"[{muted} bold]Current Usage[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(2, 0, 2, 0)
                 .Build()
@@ -101,7 +232,7 @@ internal sealed class NetworkTab : BaseResponsiveTab
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F2")
                 .WithMargin(2, 0, 2, 0)
-                .WithSmoothGradient("cool")
+                .WithSmoothGradient(UIConstants.GradientNetUpload)
                 .Build()
         );
 
@@ -117,7 +248,7 @@ internal sealed class NetworkTab : BaseResponsiveTab
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F2")
                 .WithMargin(2, 0, 2, 2)
-                .WithSmoothGradient(Color.Blue, Color.Green, Color.Yellow)
+                .WithSmoothGradient(UIConstants.GradientNetDownload)
                 .Build()
         );
 
@@ -125,7 +256,7 @@ internal sealed class NetworkTab : BaseResponsiveTab
 
         panel.AddControl(
             Controls.Markup()
-                .AddLine("[grey70 bold]Network History[/] [grey50](↑ Upload  ↓ Download)[/]")
+                .AddLine($"[{muted} bold]Network History[/] [grey50](↑ Upload  ↓ Download)[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(2, 0, 2, 1)
                 .Build()
@@ -135,14 +266,14 @@ internal sealed class NetworkTab : BaseResponsiveTab
             new SparklineBuilder()
                 .WithName("netCombinedSparkline")
                 .WithTitle("↓ Download  ↑ Upload")
-                .WithTitleColor(Color.Grey70)
+                .WithTitleColor(UIConstants.MutedText)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.NetworkCombinedSparklineHeight)
                 .WithMaxValue(Math.Max(_peakDownMbps, 1.0))
                 .WithSecondaryMaxValue(Math.Max(_peakUpMbps, 1.0))
-                .WithGradient("warm")
-                .WithSecondaryGradient("cool")
-                .WithBackgroundColor(UIConstants.SparklineBackground)
+                .WithGradient(UIConstants.SparkNetUpload)
+                .WithSecondaryGradient(UIConstants.SparkNetDownload)
+                .WithBackgroundColor(UIConstants.PanelBg)
                 .WithBorder(BorderStyle.None)
                 .WithMode(SparklineMode.BidirectionalBraille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
@@ -162,7 +293,6 @@ internal sealed class NetworkTab : BaseResponsiveTab
             foreach (var iface in net.PerInterfaceSamples)
             {
                 int ifaceCount = net.PerInterfaceSamples.Count;
-                double ratio = ifaceCount > 1 ? (double)ifaceIndex / (ifaceCount - 1) : 0;
 
                 string ifaceNameDisplay = iface.InterfaceName.Length > UIConstants.InterfaceNameMaxLength
                     ? iface.InterfaceName.Substring(0, UIConstants.InterfaceNameTruncLength) + "..."
@@ -172,14 +302,14 @@ internal sealed class NetworkTab : BaseResponsiveTab
                     new SparklineBuilder()
                         .WithName($"net{iface.InterfaceName}Sparkline")
                         .WithTitle(ifaceNameDisplay)
-                        .WithTitleColor(Color.Grey70)
+                        .WithTitleColor(UIConstants.MutedText)
                         .WithTitlePosition(TitlePosition.Bottom)
                         .WithHeight(UIConstants.SparklineHeight)
                         .WithMaxValue(Math.Max(_peakDownMbps, 0.1))
                         .WithSecondaryMaxValue(Math.Max(_peakUpMbps, 0.1))
-                        .WithGradient(Color.Green, Color.Yellow)
-                        .WithSecondaryGradient(Color.Blue, Color.Cyan1)
-                        .WithBackgroundColor(UIConstants.SparklineBackground)
+                        .WithGradient(UIConstants.SparkNetDownload)
+                        .WithSecondaryGradient(UIConstants.SparkNetUpload)
+                        .WithBackgroundColor(UIConstants.PanelBg)
                         .WithBorder(BorderStyle.None)
                         .WithMode(SparklineMode.BidirectionalBraille)
                         .WithBaseline(true, position: TitlePosition.Bottom)
@@ -196,6 +326,10 @@ internal sealed class NetworkTab : BaseResponsiveTab
             }
         }
     }
+
+    #endregion
+
+    #region Update
 
     protected override void UpdateHistory(SystemSnapshot snapshot)
     {
@@ -281,4 +415,96 @@ internal sealed class NetworkTab : BaseResponsiveTab
             }
         }
     }
+
+    protected override void UpdateLeftColumnText(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        var net = snapshot.Network;
+
+        double maxRate = Math.Max(Math.Max(_peakUpMbps, _peakDownMbps), 1.0);
+        double barMax = Math.Ceiling(maxRate / 10) * 10;
+
+        var upBar = FindMainWindow()?.FindControl<BarGraphControl>("leftNetUpBar");
+        if (upBar != null) { upBar.Value = net.UpMbps; upBar.MaxValue = barMax; }
+
+        var downBar = FindMainWindow()?.FindControl<BarGraphControl>("leftNetDownBar");
+        if (downBar != null) { downBar.Value = net.DownMbps; downBar.MaxValue = barMax; }
+
+        var summaryStats = FindMainWindow()?.FindControl<MarkupControl>("netSummaryStats");
+        summaryStats?.SetContent(new List<string> { BuildNetSummaryStatsContent(net) });
+
+        if (net.PerInterfaceSamples != null)
+        {
+            foreach (var iface in net.PerInterfaceSamples)
+            {
+                var ifaceMarkup = FindMainWindow()?.FindControl<MarkupControl>($"netIface_{iface.InterfaceName}");
+                ifaceMarkup?.SetContent(new List<string> { BuildIfaceCardContent(iface) });
+            }
+        }
+    }
+
+    public new void HandleResize(int newWidth, int newHeight)
+    {
+        var grid = FindMainWindow()?.FindControl<HorizontalGridControl>(PanelControlName);
+        if (grid == null || !grid.Visible)
+            return;
+
+        var desired = newWidth >= LayoutThresholdWidth
+            ? ResponsiveLayoutMode.Wide
+            : ResponsiveLayoutMode.Narrow;
+
+        if (desired == _currentLayout)
+            return;
+
+        _currentLayout = desired;
+        RebuildCardColumns(grid);
+    }
+
+    private void RebuildCardColumns(HorizontalGridControl grid)
+    {
+        var snapshot = Stats.ReadSnapshot();
+
+        for (int i = grid.Columns.Count - 1; i >= 0; i--)
+            grid.RemoveColumn(grid.Columns[i]);
+
+        if (_currentLayout == ResponsiveLayoutMode.Wide)
+        {
+            var leftPanel = BuildScrollablePanel();
+            BuildLeftPanelCards(leftPanel, snapshot);
+
+            var leftCol = new ColumnContainer(grid) { Width = UIConstants.FixedTextColumnWidth };
+            leftCol.AddContent(leftPanel);
+            grid.AddColumn(leftCol);
+
+            var sepCol = new ColumnContainer(grid) { Width = UIConstants.SeparatorColumnWidth };
+            sepCol.AddContent(new SeparatorControl
+            {
+                ForegroundColor = UIConstants.SeparatorColor,
+                VerticalAlignment = VerticalAlignment.Fill
+            });
+            grid.AddColumn(sepCol);
+
+            var rightPanel = BuildScrollablePanel();
+            BuildGraphsContent(rightPanel, snapshot);
+
+            var rightCol = new ColumnContainer(grid);
+            rightCol.AddContent(rightPanel);
+            grid.AddColumn(rightCol);
+        }
+        else
+        {
+            var scrollPanel = BuildScrollablePanel();
+            BuildLeftPanelCards(scrollPanel, snapshot);
+            AddNarrowSeparator(scrollPanel);
+            BuildGraphsContent(scrollPanel, snapshot);
+
+            var col = new ColumnContainer(grid);
+            col.AddContent(scrollPanel);
+            grid.AddColumn(col);
+        }
+
+        FindMainWindow()?.ForceRebuildLayout();
+        FindMainWindow()?.Invalidate(true);
+    }
+
+    #endregion
 }

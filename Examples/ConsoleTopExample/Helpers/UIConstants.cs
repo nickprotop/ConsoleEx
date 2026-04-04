@@ -155,20 +155,6 @@ internal static class UIConstants
 
     #endregion
 
-    #region Backward Compatibility Aliases
-
-    // These aliases map old constant names used by tabs not yet migrated
-    // to the new palette. Remove once all tabs are updated.
-    public static readonly Color WindowBackground = BaseBg;
-    public static readonly Color WindowForeground = PrimaryText;
-    public static readonly Color SparklineBackground = PanelBg;
-    public static readonly Color DetailPanelBackground = CardBg;
-    public static readonly Color DetailPanelForeground = PrimaryText;
-    public static readonly Color MetricsBoxBackground = CardBg;
-    public static readonly Color RuleColor = SeparatorColor;
-
-    #endregion
-
     #region Threshold Helpers
 
     public static string ThresholdColor(double value) => value switch

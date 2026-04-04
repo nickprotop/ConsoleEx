@@ -77,8 +77,8 @@ internal sealed class ProcessTab : ITab
             .WithName("processList")
             .WithAlignment(HorizontalAlignment.Stretch)
             .WithVerticalAlignment(VerticalAlignment.Fill)
-            .WithColors(UIConstants.WindowForeground, UIConstants.WindowBackground)
-            .WithFocusedColors(UIConstants.WindowForeground, UIConstants.WindowBackground)
+            .WithColors(UIConstants.PrimaryText, UIConstants.BaseBg)
+            .WithFocusedColors(UIConstants.PrimaryText, UIConstants.BaseBg)
             .WithHighlightColors(UIConstants.ProcessHighlightFg, UIConstants.ProcessHighlightBg)
             .WithMargin(1, 0, 0, 1)
             .OnSelectionChanged((_, idx) =>
@@ -128,9 +128,12 @@ internal sealed class ProcessTab : ITab
                             .WithVerticalAlignment(VerticalAlignment.Fill)
                             .WithAlignment(HorizontalAlignment.Stretch)
                             .WithMargin(2, 0, 1, 0)
+                            .Rounded()
+                            .WithBorderColor(UIConstants.SeparatorColor)
+                            .WithBackgroundColor(UIConstants.CardBg)
                             .AddControl(
                                 Controls.Markup()
-                                    .AddLine("[grey50 italic]Loading...[/]")
+                                    .AddLine($"[{UIConstants.MutedText.ToMarkup()} italic]Loading...[/]")
                                     .WithAlignment(HorizontalAlignment.Left)
                                     .WithName("processDetailContent")
                                     .Build()
@@ -142,8 +145,8 @@ internal sealed class ProcessTab : ITab
 
         if (mainGrid.Columns.Count > 2)
         {
-            mainGrid.Columns[2].BackgroundColor = UIConstants.DetailPanelBackground;
-            mainGrid.Columns[2].ForegroundColor = UIConstants.DetailPanelForeground;
+            mainGrid.Columns[2].BackgroundColor = UIConstants.CardBg;
+            mainGrid.Columns[2].ForegroundColor = UIConstants.PrimaryText;
         }
 
         return mainGrid;
@@ -205,15 +208,15 @@ internal sealed class ProcessTab : ITab
         var detailToolbar = mainWindow.FindControl<ToolbarControl>("detailToolbar");
         if (detailToolbar != null)
         {
-            detailToolbar.BackgroundColor = UIConstants.DetailPanelBackground;
-            detailToolbar.ForegroundColor = UIConstants.DetailPanelForeground;
+            detailToolbar.BackgroundColor = UIConstants.CardBg;
+            detailToolbar.ForegroundColor = UIConstants.PrimaryText;
         }
 
         var detailPanel = mainWindow.FindControl<ScrollablePanelControl>("processDetailPanel");
         if (detailPanel != null)
         {
-            detailPanel.BackgroundColor = UIConstants.DetailPanelBackground;
-            detailPanel.ForegroundColor = UIConstants.DetailPanelForeground;
+            detailPanel.BackgroundColor = UIConstants.CardBg;
+            detailPanel.ForegroundColor = UIConstants.PrimaryText;
         }
     }
 
@@ -249,12 +252,12 @@ internal sealed class ProcessTab : ITab
                 : 0;
             string memMbRaw = memMb > 0 ? $"{memMb:F0}M" : "";
             string memMbPadded = memMbRaw.PadLeft(UIConstants.MemMbPadLeft);
-            var line = $"{pidStr}  [{cpuColor}]{cpuStr}[/]  [{memColor}]{memStr}[/] [grey50]{memMbPadded}[/]  [cyan1]{p.Command}[/]";
+            var line = $"{pidStr}  [{cpuColor}]{cpuStr}[/]  [{memColor}]{memStr}[/] [{UIConstants.MutedText.ToMarkup()}]{memMbPadded}[/]  [{UIConstants.Accent.ToMarkup()}]{p.Command}[/]";
             items.Add(new ListItem(line) { Tag = p });
         }
 
         if (items.Count == 0)
-            items.Add(new ListItem("  [red]No process data available[/]") { IsEnabled = false });
+            items.Add(new ListItem($"  [{UIConstants.Critical.ToMarkup()}]No process data available[/]") { IsEnabled = false });
 
         return items;
     }
@@ -303,11 +306,14 @@ internal sealed class ProcessTab : ITab
         else if (_lastHighlightedProcess != null)
             processToShow = _lastHighlightedProcess;
 
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+
         if (processToShow == null)
         {
             if (detailToolbar != null) detailToolbar.Visible = false;
             if (actionButton != null) actionButton.Visible = false;
-            detailContent.SetContent(new List<string> { "", "[grey50 italic]Select a process to view details[/]" });
+            detailContent.SetContent(new List<string> { "", $"[{muted} italic]Select a process to view details[/]" });
             return;
         }
 
@@ -329,17 +335,17 @@ internal sealed class ProcessTab : ITab
         detailContent.SetContent(new List<string>
         {
             "",
-            $"[cyan1 bold]{liveProc.Command}[/]",
+            $"[{accent} bold]{liveProc.Command}[/]",
             "",
-            $"[grey70]PID:[/] [cyan1]{liveProc.Pid}[/]",
-            $"[grey70]Executable:[/] [cyan1]{exeDisplay}[/]",
+            $"[{muted}]PID:[/] [{accent}]{liveProc.Pid}[/]",
+            $"[{muted}]Executable:[/] [{accent}]{exeDisplay}[/]",
             "",
-            $"[grey70 bold]Process Metrics[/]",
-            $"  [grey70]CPU:[/] [{UIConstants.ThresholdColor(liveProc.CpuPercent)}]{liveProc.CpuPercent:F1}%[/]",
-            $"  [grey70]Memory:[/] [{UIConstants.ThresholdColor(liveProc.MemPercent)}]{liveProc.MemPercent:F1}%[/] [grey50]({extra.RssMb:F0} MB RSS)[/]",
-            $"  [grey70]State:[/] [cyan1]{extra.State}[/]  [grey70]Threads:[/] [cyan1]{extra.Threads}[/]",
-            $"  [grey70]RSS:[/] [cyan1]{extra.RssMb:F1} MB[/]",
-            $"  [grey70]I/O:[/] [cyan1]R:{extra.ReadKb:F0} / W:{extra.WriteKb:F0} KB/s[/]",
+            $"[{muted} bold]Process Metrics[/]",
+            $"  [{muted}]CPU:[/] [{UIConstants.ThresholdColor(liveProc.CpuPercent)}]{liveProc.CpuPercent:F1}%[/]",
+            $"  [{muted}]Memory:[/] [{UIConstants.ThresholdColor(liveProc.MemPercent)}]{liveProc.MemPercent:F1}%[/] [{muted} italic]({extra.RssMb:F0} MB RSS)[/]",
+            $"  [{muted}]State:[/] [{accent}]{extra.State}[/]  [{muted}]Threads:[/] [{accent}]{extra.Threads}[/]",
+            $"  [{muted}]RSS:[/] [{accent}]{extra.RssMb:F1} MB[/]",
+            $"  [{muted}]I/O:[/] [{accent}]R:{extra.ReadKb:F0} / W:{extra.WriteKb:F0} KB/s[/]",
         });
     }
 
@@ -365,6 +371,9 @@ internal sealed class ProcessTab : ITab
         var liveProc = snapshot.Processes.FirstOrDefault(p => p.Pid == sample.Pid) ?? sample;
         var extra = _stats.ReadProcessExtra(liveProc.Pid) ?? new ProcessExtra("?", 0, 0, 0, 0, "");
 
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+
         var modal = new WindowBuilder(_windowSystem)
             .WithTitle("Process Actions")
             .Centered()
@@ -373,34 +382,34 @@ internal sealed class ProcessTab : ITab
             .Borderless()
             .Resizable(false)
             .Movable(false)
-            .WithColors(UIConstants.WindowForeground, UIConstants.MetricsBoxBackground)
+            .WithColors(UIConstants.PrimaryText, UIConstants.PanelBg)
             .Build();
 
         modal.AddControl(
             Controls.Markup()
-                .AddLine($"[cyan1 bold]Process {liveProc.Pid}[/]")
-                .AddLine($"[grey70]{liveProc.Command}[/]")
+                .AddLine($"[{accent} bold]Process {liveProc.Pid}[/]")
+                .AddLine($"[{muted}]{liveProc.Command}[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(1, 1, 1, 0)
                 .Build()
         );
 
-        modal.AddControl(Controls.RuleBuilder().WithColor(UIConstants.RuleColor).Build());
+        modal.AddControl(Controls.RuleBuilder().WithColor(UIConstants.SeparatorColor).Build());
 
         modal.AddControl(
             Controls.Markup()
-                .AddLine($"[grey70]Executable:[/] [cyan1]{extra.ExePath}[/]")
+                .AddLine($"[{muted}]Executable:[/] [{accent}]{extra.ExePath}[/]")
                 .AddLine("")
-                .AddLine($"[grey70]CPU:[/] [cyan1]{liveProc.CpuPercent:F1}%[/]  [grey70]Memory:[/] [cyan1]{liveProc.MemPercent:F1}%[/]")
-                .AddLine($"[grey70]State:[/] [cyan1]{extra.State}[/]  [grey70]Threads:[/] [cyan1]{extra.Threads}[/]")
-                .AddLine($"[grey70]RSS:[/] [cyan1]{extra.RssMb:F1} MB[/]")
-                .AddLine($"[grey70]I/O:[/] [cyan1]R:{extra.ReadKb:F0} / W:{extra.WriteKb:F0} KB/s[/]")
+                .AddLine($"[{muted}]CPU:[/] [{accent}]{liveProc.CpuPercent:F1}%[/]  [{muted}]Memory:[/] [{accent}]{liveProc.MemPercent:F1}%[/]")
+                .AddLine($"[{muted}]State:[/] [{accent}]{extra.State}[/]  [{muted}]Threads:[/] [{accent}]{extra.Threads}[/]")
+                .AddLine($"[{muted}]RSS:[/] [{accent}]{extra.RssMb:F1} MB[/]")
+                .AddLine($"[{muted}]I/O:[/] [{accent}]R:{extra.ReadKb:F0} / W:{extra.WriteKb:F0} KB/s[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(1, 1, 1, 1)
                 .Build()
         );
 
-        modal.AddControl(Controls.RuleBuilder().WithColor(UIConstants.RuleColor).Build());
+        modal.AddControl(Controls.RuleBuilder().WithColor(UIConstants.SeparatorColor).Build());
 
         var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         ButtonControl closeButton;

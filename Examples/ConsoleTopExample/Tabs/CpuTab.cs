@@ -67,8 +67,8 @@ internal sealed class CpuTab : BaseResponsiveTab
                 })
                 .Build();
 
-            grid.BackgroundColor = UIConstants.WindowBackground;
-            grid.ForegroundColor = UIConstants.WindowForeground;
+            grid.BackgroundColor = UIConstants.BaseBg;
+            grid.ForegroundColor = UIConstants.PrimaryText;
             return grid;
         }
         else
@@ -89,8 +89,8 @@ internal sealed class CpuTab : BaseResponsiveTab
                 })
                 .Build();
 
-            grid.BackgroundColor = UIConstants.WindowBackground;
-            grid.ForegroundColor = UIConstants.WindowForeground;
+            grid.BackgroundColor = UIConstants.BaseBg;
+            grid.ForegroundColor = UIConstants.PrimaryText;
             return grid;
         }
     }
@@ -103,10 +103,13 @@ internal sealed class CpuTab : BaseResponsiveTab
             ? cpu.PerCoreSamples.Count
             : Environment.ProcessorCount;
 
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+
         panel.AddControl(
             Controls.Markup()
                 .AddLine("")
-                .AddLine("[cyan1 bold]═══ CPU Visualization ═══[/]")
+                .AddLine($"[{accent} bold]═══ CPU Visualization ═══[/]")
                 .AddLine("")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(2, 0, 2, 0)
@@ -115,7 +118,7 @@ internal sealed class CpuTab : BaseResponsiveTab
 
         panel.AddControl(
             Controls.Markup()
-                .AddLine("[grey70 bold]Current Aggregate Usage[/]")
+                .AddLine($"[{muted} bold]Current Aggregate Usage[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(2, 0, 2, 0)
                 .Build()
@@ -133,7 +136,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithSmoothGradient("spectrum")
+                .WithSmoothGradient(UIConstants.SparkCpuUser)
                 .Build()
         );
 
@@ -149,7 +152,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithSmoothGradient("warm")
+                .WithSmoothGradient(UIConstants.SparkCpuSystem)
                 .Build()
         );
 
@@ -165,7 +168,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithSmoothGradient(Color.Cyan1, Color.Yellow, Color.Red)
+                .WithSmoothGradient(UIConstants.GradientIoRead)
                 .Build()
         );
 
@@ -181,7 +184,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 2)
-                .WithSmoothGradient(Color.Green, Color.Yellow, Color.Orange1, Color.Red)
+                .WithSmoothGradient(UIConstants.SparkCpuTotal)
                 .Build()
         );
 
@@ -193,14 +196,14 @@ internal sealed class CpuTab : BaseResponsiveTab
             new SparklineBuilder()
                 .WithName("cpuUserSparkline")
                 .WithTitle("User CPU %")
-                .WithTitleColor(Color.Red)
+                .WithTitleColor(UIConstants.Critical)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.SparklineHeight)
                 .WithMaxValue(100)
-                .WithGradient("warm")
-                .WithBackgroundColor(UIConstants.SparklineBackground)
+                .WithGradient(UIConstants.SparkCpuUser)
+                .WithBackgroundColor(UIConstants.PanelBg)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Block)
+                .WithMode(SparklineMode.Braille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -212,14 +215,14 @@ internal sealed class CpuTab : BaseResponsiveTab
             new SparklineBuilder()
                 .WithName("cpuSystemSparkline")
                 .WithTitle("System CPU %")
-                .WithTitleColor(Color.Yellow)
+                .WithTitleColor(UIConstants.Warning)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.SparklineHeight)
                 .WithMaxValue(100)
-                .WithGradient(Color.Yellow, Color.Orange1, Color.Red)
-                .WithBackgroundColor(UIConstants.SparklineBackground)
+                .WithGradient(UIConstants.SparkCpuSystem)
+                .WithBackgroundColor(UIConstants.PanelBg)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Block)
+                .WithMode(SparklineMode.Braille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -231,14 +234,14 @@ internal sealed class CpuTab : BaseResponsiveTab
             new SparklineBuilder()
                 .WithName("cpuTotalSparkline")
                 .WithTitle("Total CPU %")
-                .WithTitleColor(Color.Cyan1)
+                .WithTitleColor(UIConstants.Accent)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.SparklineHeight)
                 .WithMaxValue(100)
-                .WithGradient("spectrum")
-                .WithBackgroundColor(UIConstants.SparklineBackground)
+                .WithGradient(UIConstants.SparkCpuTotal)
+                .WithBackgroundColor(UIConstants.PanelBg)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Block)
+                .WithMode(SparklineMode.Braille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -266,8 +269,8 @@ internal sealed class CpuTab : BaseResponsiveTab
                         .WithTitlePosition(TitlePosition.Bottom)
                         .WithHeight(UIConstants.CpuCoreSparklineHeight)
                         .WithMaxValue(100)
-                        .WithGradient(Color.Blue, Color.Cyan1, Color.Yellow, Color.Red)
-                        .WithBackgroundColor(UIConstants.SparklineBackground)
+                        .WithGradient(UIConstants.SparkCpuPerCore)
+                        .WithBackgroundColor(UIConstants.PanelBg)
                         .WithBorder(BorderStyle.None)
                         .WithMode(SparklineMode.Braille)
                         .WithBaseline(true, position: TitlePosition.Bottom)
@@ -283,7 +286,7 @@ internal sealed class CpuTab : BaseResponsiveTab
     public void BuildGraphsContentPublic(ScrollablePanelControl panel, SystemSnapshot snapshot)
         => BuildGraphsContent(panel, snapshot);
 
-    #region Left Panel (CPU uses controls, not plain text in left column)
+    #region Left Panel (CPU uses cards with controls)
 
     public void BuildLeftPanelContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
@@ -298,29 +301,85 @@ internal sealed class CpuTab : BaseResponsiveTab
             .Take(UIConstants.TopConsumerCount)
             .ToList();
 
-        panel.AddControl(
+        // "System CPU (N cores)" card
+        var cpuCard = BuildCard($"System CPU ({coreCount} cores)");
+        cpuCard.AddControl(
             Controls.Markup()
-                .AddLine("")
-                .AddLine($"[cyan1 bold]System CPU ({coreCount} cores)[/]")
-                .AddLine("")
-                .AddLine("[grey70 bold]Aggregate Usage[/]")
-                .AddLine($"  [grey70]User:[/]      [red]{cpu.User:F1}%[/]")
-                .AddLine($"  [grey70]System:[/]    [yellow]{cpu.System:F1}%[/]")
-                .AddLine($"  [grey70]IoWait:[/]    [blue]{cpu.IoWait:F1}%[/] [grey50](Linux only)[/]")
-                .AddLine($"  [grey70]Total:[/]     [cyan1]{totalCpu:F1}%[/]")
-                .AddLine($"  [grey70]Idle:[/]      [green]{idleCpu:F1}%[/]")
-                .AddLine("")
-                .AddLine("[grey70 bold]Per-Core Usage[/]")
+                .WithName("cpuAggStats")
+                .AddLine(BuildCpuAggStatsContent(cpu, totalCpu, idleCpu))
                 .WithAlignment(HorizontalAlignment.Left)
                 .Build()
         );
+        cpuCard.AddControl(
+            new BarGraphBuilder()
+                .WithName("cpuAggUserBar")
+                .WithLabel("User")
+                .WithLabelWidth(UIConstants.CpuCoreLabelWidth)
+                .WithValue(cpu.User)
+                .WithMaxValue(100)
+                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                .ShowLabel().ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(0, 0, 0, 0)
+                .WithSmoothGradient(UIConstants.GradientHealthy)
+                .Build()
+        );
+        cpuCard.AddControl(
+            new BarGraphBuilder()
+                .WithName("cpuAggSystemBar")
+                .WithLabel("Sys")
+                .WithLabelWidth(UIConstants.CpuCoreLabelWidth)
+                .WithValue(cpu.System)
+                .WithMaxValue(100)
+                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                .ShowLabel().ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(0, 0, 0, 0)
+                .WithSmoothGradient(UIConstants.SparkCpuSystem)
+                .Build()
+        );
+        cpuCard.AddControl(
+            new BarGraphBuilder()
+                .WithName("cpuAggIoBar")
+                .WithLabel("I/O")
+                .WithLabelWidth(UIConstants.CpuCoreLabelWidth)
+                .WithValue(cpu.IoWait)
+                .WithMaxValue(100)
+                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                .ShowLabel().ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(0, 0, 0, 0)
+                .WithSmoothGradient(UIConstants.GradientIoRead)
+                .Build()
+        );
+        cpuCard.AddControl(
+            new BarGraphBuilder()
+                .WithName("cpuAggTotalBar")
+                .WithLabel("Tot")
+                .WithLabelWidth(UIConstants.CpuCoreLabelWidth)
+                .WithValue(totalCpu)
+                .WithMaxValue(100)
+                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                .ShowLabel().ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(0, 0, 0, 0)
+                .WithSmoothGradient(UIConstants.SparkCpuTotal)
+                .Build()
+        );
+        panel.AddControl(cpuCard);
 
+        // "Per-Core Usage" card
+        var coreCard = BuildCard("Per-Core Usage");
         if (cpu.PerCoreSamples is { Count: > 0 })
         {
             foreach (var core in cpu.PerCoreSamples)
             {
                 double coreTotal = core.User + core.System + core.IoWait;
-                panel.AddControl(
+                coreCard.AddControl(
                     new BarGraphBuilder()
                         .WithName($"cpuCoreLeftBar{core.CoreIndex}")
                         .WithLabel($"C{core.CoreIndex,2}")
@@ -332,7 +391,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                         .ShowLabel().ShowValue()
                         .WithValueFormat("F1")
                         .WithMargin(0, 0, 0, 0)
-                        .WithSmoothGradient(Color.Green, Color.Yellow, Color.Red)
+                        .WithSmoothGradient(UIConstants.GradientHealthy)
                         .Build()
                 );
             }
@@ -341,7 +400,7 @@ internal sealed class CpuTab : BaseResponsiveTab
         {
             for (int i = 0; i < coreCount; i++)
             {
-                panel.AddControl(
+                coreCard.AddControl(
                     new BarGraphBuilder()
                         .WithName($"cpuCoreLeftBar{i}")
                         .WithLabel($"C{i,2}")
@@ -353,18 +412,43 @@ internal sealed class CpuTab : BaseResponsiveTab
                         .ShowLabel().ShowValue()
                         .WithValueFormat("F1")
                         .WithMargin(0, 0, 0, 0)
-                        .WithSmoothGradient(Color.Green, Color.Yellow, Color.Red)
+                        .WithSmoothGradient(UIConstants.GradientHealthy)
                         .Build()
                 );
             }
         }
+        panel.AddControl(coreCard);
 
-        var markup = Controls.Markup()
-            .AddLine("")
-            .AddLine("[grey70 bold]Top CPU Consumers[/]");
+        // "Top CPU Consumers" card
+        var consumersCard = BuildCard("Top CPU Consumers");
+        consumersCard.AddControl(
+            Controls.Markup()
+                .WithName("cpuTopConsumers")
+                .AddLine(BuildTopConsumersContent(topCpuProcs))
+                .WithAlignment(HorizontalAlignment.Left)
+                .Build()
+        );
+        panel.AddControl(consumersCard);
+    }
+
+    private static string BuildCpuAggStatsContent(CpuSample cpu, double totalCpu, double idleCpu)
+    {
+        var muted = UIConstants.MutedText.ToMarkup();
+        return $"  [{muted}]User:[/]    [{UIConstants.ThresholdColor(cpu.User)}]{cpu.User:F1}%[/]\n" +
+               $"  [{muted}]System:[/] [{UIConstants.ThresholdColor(cpu.System)}]{cpu.System:F1}%[/]\n" +
+               $"  [{muted}]IoWait:[/] [{UIConstants.ThresholdColor(cpu.IoWait)}]{cpu.IoWait:F1}%[/]\n" +
+               $"  [{muted}]Total:[/]  [{UIConstants.ThresholdColor(totalCpu)}]{totalCpu:F1}%[/]\n" +
+               $"  [{muted}]Idle:[/]   [{UIConstants.ThresholdColor(100 - idleCpu)}]{idleCpu:F1}%[/]";
+    }
+
+    private static string BuildTopConsumersContent(List<ProcessSample> topCpuProcs)
+    {
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+        var lines = new List<string>();
         foreach (var p in topCpuProcs)
-            markup = markup.AddLine($"  [cyan1]{p.CpuPercent,5:F1}%[/]  [grey70]{p.Pid,6}[/]  {p.Command}");
-        panel.AddControl(markup.WithAlignment(HorizontalAlignment.Left).Build());
+            lines.Add($"  [{accent}]{p.CpuPercent,5:F1}%[/]  [{muted}]{p.Pid,6}[/]  {p.Command}");
+        return string.Join("\n", lines);
     }
 
     #endregion
@@ -423,76 +507,50 @@ internal sealed class CpuTab : BaseResponsiveTab
                 coreSparkline?.SetDataPoints(_perCoreHistory.GetMutable(core.CoreIndex));
             }
         }
-
-        // Update left column per-core bars
-        if (grid.Columns.Count > 0 && cpu.PerCoreSamples != null)
-        {
-            var leftCol = grid.Columns[0];
-            var leftPanel = leftCol.Contents.FirstOrDefault() as ScrollablePanelControl;
-            if (leftPanel != null)
-            {
-                foreach (var core in cpu.PerCoreSamples)
-                {
-                    double coreTotal = core.User + core.System + core.IoWait;
-                    var coreBar = leftPanel.Children.FirstOrDefault(c => c.Name == $"cpuCoreLeftBar{core.CoreIndex}") as BarGraphControl;
-                    if (coreBar != null)
-                        coreBar.Value = coreTotal;
-                }
-            }
-        }
     }
 
     protected override void UpdateLeftColumnText(HorizontalGridControl grid, SystemSnapshot snapshot)
     {
-        if (grid.Columns.Count == 0)
-            return;
-
-        var leftCol = grid.Columns[0];
-        var leftPanel = leftCol.Contents.FirstOrDefault() as ScrollablePanelControl;
-        if (leftPanel == null || leftPanel.Children.Count == 0)
-            return;
-
         var cpu = snapshot.Cpu;
-        int coreCount = cpu.PerCoreSamples is { Count: > 0 }
-            ? cpu.PerCoreSamples.Count
-            : Environment.ProcessorCount;
         double totalCpu = cpu.User + cpu.System + cpu.IoWait;
         double idleCpu = Math.Max(0, 100 - totalCpu);
 
-        // Children[0] is the header markup with aggregate stats
-        var headerMarkup = leftPanel.Children[0] as MarkupControl;
-        if (headerMarkup != null)
+        // Update aggregate stats markup
+        var cpuAggStats = FindMainWindow()?.FindControl<MarkupControl>("cpuAggStats");
+        cpuAggStats?.SetContent(new List<string> { BuildCpuAggStatsContent(cpu, totalCpu, idleCpu) });
+
+        // Update aggregate bar values
+        var aggUserBar = FindMainWindow()?.FindControl<BarGraphControl>("cpuAggUserBar");
+        if (aggUserBar != null) aggUserBar.Value = cpu.User;
+
+        var aggSystemBar = FindMainWindow()?.FindControl<BarGraphControl>("cpuAggSystemBar");
+        if (aggSystemBar != null) aggSystemBar.Value = cpu.System;
+
+        var aggIoBar = FindMainWindow()?.FindControl<BarGraphControl>("cpuAggIoBar");
+        if (aggIoBar != null) aggIoBar.Value = cpu.IoWait;
+
+        var aggTotalBar = FindMainWindow()?.FindControl<BarGraphControl>("cpuAggTotalBar");
+        if (aggTotalBar != null) aggTotalBar.Value = totalCpu;
+
+        // Update per-core bars
+        if (cpu.PerCoreSamples != null)
         {
-            headerMarkup.SetContent(new List<string>
+            foreach (var core in cpu.PerCoreSamples)
             {
-                "",
-                $"[cyan1 bold]System CPU ({coreCount} cores)[/]",
-                "",
-                "[grey70 bold]Aggregate Usage[/]",
-                $"  [grey70]User:[/]      [red]{cpu.User:F1}%[/]",
-                $"  [grey70]System:[/]    [yellow]{cpu.System:F1}%[/]",
-                $"  [grey70]IoWait:[/]    [blue]{cpu.IoWait:F1}%[/] [grey50](Linux only)[/]",
-                $"  [grey70]Total:[/]     [cyan1]{totalCpu:F1}%[/]",
-                $"  [grey70]Idle:[/]      [green]{idleCpu:F1}%[/]",
-                "",
-                "[grey70 bold]Per-Core Usage[/]",
-            });
+                double coreTotal = core.User + core.System + core.IoWait;
+                var coreBar = FindMainWindow()?.FindControl<BarGraphControl>($"cpuCoreLeftBar{core.CoreIndex}");
+                if (coreBar != null)
+                    coreBar.Value = coreTotal;
+            }
         }
 
-        // Last child is the "Top CPU Consumers" markup
-        var lastChild = leftPanel.Children[^1] as MarkupControl;
-        if (lastChild != null && lastChild != headerMarkup)
-        {
-            var topCpuProcs = snapshot.Processes
-                .OrderByDescending(p => p.CpuPercent)
-                .Take(UIConstants.TopConsumerCount)
-                .ToList();
+        // Update top consumers markup
+        var topCpuProcs = snapshot.Processes
+            .OrderByDescending(p => p.CpuPercent)
+            .Take(UIConstants.TopConsumerCount)
+            .ToList();
 
-            var lines = new List<string> { "", "[grey70 bold]Top CPU Consumers[/]" };
-            foreach (var p in topCpuProcs)
-                lines.Add($"  [cyan1]{p.CpuPercent,5:F1}%[/]  [grey70]{p.Pid,6}[/]  {p.Command}");
-
-            lastChild.SetContent(lines);
-        }
+        var consumers = FindMainWindow()?.FindControl<MarkupControl>("cpuTopConsumers");
+        consumers?.SetContent(new List<string> { BuildTopConsumersContent(topCpuProcs) });
     }
 }
