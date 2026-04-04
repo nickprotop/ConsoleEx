@@ -63,6 +63,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	// Hover
 	private int _hoveredRowIndex = -1;
+	private bool _hoverEnabled = true;
 
 	// Scrolling
 	private int _scrollOffset = 0;

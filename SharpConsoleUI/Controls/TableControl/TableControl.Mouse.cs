@@ -79,11 +79,14 @@ public partial class TableControl
 		// Hover tracking
 		if (args.HasFlag(MouseFlags.ReportMousePosition))
 		{
-			int rowIdx = GetRowIndexAtY(args.Position.Y);
-			if (rowIdx != _hoveredRowIndex)
+			if (_hoverEnabled)
 			{
-				_hoveredRowIndex = rowIdx;
-				Container?.Invalidate(true);
+				int rowIdx = GetRowIndexAtY(args.Position.Y);
+				if (rowIdx != _hoveredRowIndex)
+				{
+					_hoveredRowIndex = rowIdx;
+					Container?.Invalidate(true);
+				}
 			}
 
 			MouseMove?.Invoke(this, args);
@@ -364,10 +367,11 @@ public partial class TableControl
 
 	private bool IsClickOnCheckbox(int relativeX)
 	{
-		if (!_checkboxMode) return false;
-		// Checkbox is rendered as "[x] " or "[ ] " — 4 chars at the start of the row
-		int checkboxEnd = Margin.Left + (_borderStyle != BorderStyle.None ? 1 : 0) + 4;
-		return relativeX < checkboxEnd;
+		if (!_checkboxMode || _renderedColumnX == null || _renderedColumnX.Length == 0) return false;
+		// Checkbox "[x] " is 4 chars prepended to first column
+		int firstColStart = _renderedColumnX[0] - ActualX;
+		int checkboxEnd = firstColStart + 4;
+		return relativeX >= firstColStart && relativeX < checkboxEnd;
 	}
 
 	private bool IsClickOnHeader(MouseEventArgs args)

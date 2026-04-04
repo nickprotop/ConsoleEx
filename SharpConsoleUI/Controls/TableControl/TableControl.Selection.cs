@@ -18,6 +18,12 @@ public partial class TableControl
 	public event EventHandler<int>? SelectedRowChanged;
 
 	/// <summary>
+	/// Fired when multi-selection changes (checkbox toggled, selection cleared, select all).
+	/// Argument is the current count of selected rows.
+	/// </summary>
+	public event EventHandler<int>? MultiSelectionChanged;
+
+	/// <summary>
 	/// Occurs when the selected row item changes.
 	/// </summary>
 	public event EventHandler<TableRow?>? SelectedRowItemChanged;
@@ -90,6 +96,15 @@ public partial class TableControl
 			if (!value) _selectedColumnIndex = -1;
 			Container?.Invalidate(true);
 		}
+	}
+
+	/// <summary>
+	/// Gets or sets whether mouse hover highlighting is enabled. Default: true.
+	/// </summary>
+	public bool HoverEnabled
+	{
+		get => _hoverEnabled;
+		set { _hoverEnabled = value; OnPropertyChanged(); Container?.Invalidate(true); }
 	}
 
 	/// <summary>
@@ -225,6 +240,7 @@ public partial class TableControl
 				SyncCheckboxState(i);
 		}
 		Container?.Invalidate(true);
+		MultiSelectionChanged?.Invoke(this, _selectedRowIndices.Count);
 	}
 
 	/// <summary>
@@ -242,6 +258,7 @@ public partial class TableControl
 		}
 		_selectedRowIndices.Clear();
 		Container?.Invalidate(true);
+		MultiSelectionChanged?.Invoke(this, 0);
 	}
 
 	/// <summary>
@@ -290,6 +307,7 @@ public partial class TableControl
 			SyncCheckboxState(displayIndex);
 
 		Container?.Invalidate(true);
+		MultiSelectionChanged?.Invoke(this, _selectedRowIndices.Count);
 	}
 
 	/// <summary>
@@ -307,6 +325,7 @@ public partial class TableControl
 				SyncCheckboxState(i);
 		}
 		Container?.Invalidate(true);
+		MultiSelectionChanged?.Invoke(this, _selectedRowIndices.Count);
 	}
 
 	/// <summary>

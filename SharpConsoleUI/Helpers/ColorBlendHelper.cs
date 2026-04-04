@@ -58,4 +58,33 @@ public static class ColorBlendHelper
 			}
 		}
 	}
+
+	/// <summary>
+	/// Applies a color overlay to a specific rectangular region of the buffer.
+	/// </summary>
+	public static void ApplyColorOverlay(
+		CharacterBuffer buffer,
+		Color overlayColor,
+		float intensity,
+		float foregroundBlendRatio,
+		Layout.LayoutRect region)
+	{
+		if (intensity <= AnimationDefaults.FlashIntensityEpsilon) return;
+
+		int startX = Math.Max(0, region.X);
+		int startY = Math.Max(0, region.Y);
+		int endX = Math.Min(buffer.Width, region.X + region.Width);
+		int endY = Math.Min(buffer.Height, region.Y + region.Height);
+
+		for (int y = startY; y < endY; y++)
+		{
+			for (int x = startX; x < endX; x++)
+			{
+				var cell = buffer.GetCell(x, y);
+				var newBg = BlendColor(cell.Background, overlayColor, intensity);
+				var newFg = BlendColor(cell.Foreground, overlayColor, intensity * foregroundBlendRatio);
+				buffer.SetCellColors(x, y, newFg, newBg);
+			}
+		}
+	}
 }

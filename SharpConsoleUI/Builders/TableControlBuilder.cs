@@ -36,6 +36,7 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	private bool _readOnly = true;
 	private bool _cellNavigationEnabled = false;
 	private bool _multiSelectEnabled = false;
+	private bool _hoverEnabled = true;
 	private bool _checkboxMode = false;
 	private bool _sortingEnabled = false;
 	private bool _columnResizeEnabled = false;
@@ -494,6 +495,15 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	}
 
 	/// <summary>
+	/// Disables mouse hover highlighting on rows.
+	/// </summary>
+	public TableControlBuilder WithHoverDisabled()
+	{
+		_hoverEnabled = false;
+		return this;
+	}
+
+	/// <summary>
 	/// Enables multi-selection with Ctrl+Click and Shift+Click.
 	/// </summary>
 	public TableControlBuilder WithMultiSelect()
@@ -660,6 +670,7 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 			ReadOnly = _readOnly,
 			CellNavigationEnabled = _cellNavigationEnabled,
 			MultiSelectEnabled = _multiSelectEnabled,
+			HoverEnabled = _hoverEnabled,
 			CheckboxMode = _checkboxMode,
 			SortingEnabled = _sortingEnabled,
 			ColumnResizeEnabled = _columnResizeEnabled,
