@@ -219,7 +219,11 @@ public partial class TableControl
 		int count = RowCount;
 		_selectedRowIndices.Clear();
 		for (int i = 0; i < count; i++)
+		{
 			_selectedRowIndices.Add(i);
+			if (_checkboxMode)
+				SyncCheckboxState(i);
+		}
 		Container?.Invalidate(true);
 	}
 
@@ -228,6 +232,14 @@ public partial class TableControl
 	/// </summary>
 	public void ClearSelection()
 	{
+		if (_checkboxMode && _dataSource == null)
+		{
+			lock (_tableLock)
+			{
+				foreach (var row in _rows)
+					row.IsChecked = false;
+			}
+		}
 		_selectedRowIndices.Clear();
 		Container?.Invalidate(true);
 	}
@@ -272,6 +284,11 @@ public partial class TableControl
 			_selectedRowIndices.Remove(displayIndex);
 		else
 			_selectedRowIndices.Add(displayIndex);
+
+		// Sync checkbox state
+		if (_checkboxMode)
+			SyncCheckboxState(displayIndex);
+
 		Container?.Invalidate(true);
 	}
 
@@ -284,8 +301,26 @@ public partial class TableControl
 		int start = Math.Min(fromDisplayIndex, toDisplayIndex);
 		int end = Math.Max(fromDisplayIndex, toDisplayIndex);
 		for (int i = start; i <= end; i++)
+		{
 			_selectedRowIndices.Add(i);
+			if (_checkboxMode)
+				SyncCheckboxState(i);
+		}
 		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Syncs the IsChecked property of a row with its selection state.
+	/// </summary>
+	private void SyncCheckboxState(int displayIndex)
+	{
+		if (_dataSource != null) return;
+		lock (_tableLock)
+		{
+			int dataIdx = MapDisplayToData(displayIndex);
+			if (dataIdx >= 0 && dataIdx < _rows.Count)
+				_rows[dataIdx].IsChecked = _selectedRowIndices.Contains(displayIndex);
+		}
 	}
 
 	/// <summary>

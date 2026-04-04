@@ -191,19 +191,8 @@ public partial class TableControl
 			case ConsoleKey.Spacebar when _checkboxMode && _multiSelectEnabled:
 				if (_selectedRowIndex >= 0)
 				{
-					int dataIdx = MapDisplayToData(_selectedRowIndex);
-					if (_dataSource == null)
-					{
-						lock (_tableLock)
-						{
-							if (dataIdx >= 0 && dataIdx < _rows.Count)
-							{
-								_rows[dataIdx].IsChecked = !_rows[dataIdx].IsChecked;
-								Container?.Invalidate(true);
-								return true;
-							}
-						}
-					}
+					ToggleRowSelection(_selectedRowIndex);
+					return true;
 				}
 				return false;
 

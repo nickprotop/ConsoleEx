@@ -203,7 +203,7 @@ public partial class TableControl
 			int rowIdx = GetRowIndexAtY(args.Position.Y);
 			if (rowIdx >= 0)
 			{
-				// Multi-select: Ctrl+Click toggles, Shift+Click extends range
+				// Multi-select: Ctrl+Click toggles, Shift+Click extends range, checkbox click toggles
 				if (_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonCtrl))
 				{
 					ToggleRowSelection(rowIdx);
@@ -216,10 +216,27 @@ public partial class TableControl
 					SelectRange(anchor, rowIdx);
 					SetSelectedRow(rowIdx);
 				}
+				else if (_checkboxMode && IsClickOnCheckbox(args.Position.X))
+				{
+					// Click on checkbox column — toggle without clearing other selections
+					ToggleRowSelection(rowIdx);
+					SetSelectedRow(rowIdx);
+				}
 				else
 				{
 					if (_multiSelectEnabled)
+					{
+						// Clear checkboxes when clicking outside checkbox column
+						if (_checkboxMode && _dataSource == null)
+						{
+							lock (_tableLock)
+							{
+								foreach (var row in _rows)
+									row.IsChecked = false;
+							}
+						}
 						_selectedRowIndices.Clear();
+					}
 					SetSelectedRow(rowIdx);
 				}
 
@@ -343,6 +360,14 @@ public partial class TableControl
 				return c;
 		}
 		return -1;
+	}
+
+	private bool IsClickOnCheckbox(int relativeX)
+	{
+		if (!_checkboxMode) return false;
+		// Checkbox is rendered as "[x] " or "[ ] " — 4 chars at the start of the row
+		int checkboxEnd = Margin.Left + (_borderStyle != BorderStyle.None ? 1 : 0) + 4;
+		return relativeX < checkboxEnd;
 	}
 
 	private bool IsClickOnHeader(MouseEventArgs args)
