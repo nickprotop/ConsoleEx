@@ -735,15 +735,18 @@ public partial class TableControl
 				isChecked = row.IsChecked;
 			}
 
-			// Determine row colors based on state (selection, hover)
-			bool isRowSel = IsRowSelected(displayR);
+			// Determine row colors based on state (cursor, checked, hover)
+			bool isCursorRow = displayR == _selectedRowIndex;
+			bool isMultiSelected = _multiSelectEnabled && _selectedRowIndices.Contains(displayR);
+			bool isRowSel = isCursorRow || isMultiSelected;
 			bool isHovered = _hoveredRowIndex == displayR;
 
 			Color effectiveRowBg = rowBg;
 			Color effectiveRowFg = rowFg;
 
-			if (isRowSel)
+			if (isCursorRow)
 			{
+				// Cursor row — brightest highlight
 				if (HasFocus)
 				{
 					effectiveRowBg = selBg;
@@ -754,6 +757,15 @@ public partial class TableControl
 					effectiveRowBg = unfocusedSelBg;
 					effectiveRowFg = unfocusedSelFg;
 				}
+			}
+			else if (isMultiSelected)
+			{
+				// Checked but not cursor — subtle highlight
+				effectiveRowBg = new Color(
+					(byte)Math.Min(255, selBg.R / 3 + rowBg.R * 2 / 3),
+					(byte)Math.Min(255, selBg.G / 3 + rowBg.G * 2 / 3),
+					(byte)Math.Min(255, selBg.B / 3 + rowBg.B * 2 / 3));
+				effectiveRowFg = rowFg;
 			}
 			else if (isHovered)
 			{
