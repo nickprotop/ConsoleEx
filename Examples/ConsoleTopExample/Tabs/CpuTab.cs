@@ -61,7 +61,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                 })
                 .Column(col =>
                 {
-                    var rightPanel = BuildScrollablePanel();
+                    var rightPanel = BuildRightPanel();
                     BuildGraphsContentPublic(rightPanel, initialSnapshot);
                     col.Add(rightPanel);
                 })

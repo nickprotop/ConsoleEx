@@ -144,34 +144,35 @@ internal sealed class DashboardWindow
 
     private void BuildMetricsGrid(Window mainWindow)
     {
+        var muted = UIConstants.MutedText.ToMarkup();
         var metricsGrid = Controls.HorizontalGrid()
-            .WithMargin(1, 1, 1, 1)
+            .WithMargin(0, 0, 0, 0)
             .Column(col =>
-                col.Add(Controls.Markup($"[{UIConstants.MutedText.ToMarkup()} bold]CPU Usage[/]").WithMargin(1, 1, 0, 0).Build())
+                col.Add(Controls.Markup($"[{muted} bold] CPU[/]").WithMargin(0, 0, 0, 0).Build())
                     .Add(BuildMetricsBar("cpuUserBar", "User", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientHealthy))
-                    .Add(BuildMetricsBar("cpuSystemBar", "System", UIConstants.MetricsCpuLabelWidth, UIConstants.SparkCpuSystem))
-                    .Add(BuildMetricsBar("cpuIoWaitBar", "IOwait", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientIoRead, marginBottom: 1)))
+                    .Add(BuildMetricsBar("cpuSystemBar", "Sys", UIConstants.MetricsCpuLabelWidth, UIConstants.SparkCpuSystem))
+                    .Add(BuildMetricsBar("cpuIoWaitBar", "IO", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientIoRead)))
             .Column(col => col.Width(1))
             .Column(col =>
-                col.Add(Controls.Markup($"[{UIConstants.MutedText.ToMarkup()} bold]Memory / IO[/]").WithMargin(1, 1, 1, 0).Build())
-                    .Add(BuildMetricsBar("memUsedBar", "Used %", UIConstants.MetricsMemLabelWidth, UIConstants.GradientHealthy, marginRight: 1))
-                    .Add(BuildMetricsBar("memCachedBar", "Cached %", UIConstants.MetricsMemLabelWidth, UIConstants.SparkMemCached, marginRight: 1))
-                    .Add(BuildMetricsBar("memIoBar", "Disk/IO est %", UIConstants.MetricsMemLabelWidth, UIConstants.GradientIoWrite, marginRight: 1, marginBottom: 1)))
+                col.Add(Controls.Markup($"[{muted} bold] Memory[/]").WithMargin(0, 0, 0, 0).Build())
+                    .Add(BuildMetricsBar("memUsedBar", "Used", UIConstants.MetricsMemLabelWidth, UIConstants.GradientHealthy, marginRight: 1))
+                    .Add(BuildMetricsBar("memCachedBar", "Cache", UIConstants.MetricsMemLabelWidth, UIConstants.SparkMemCached, marginRight: 1))
+                    .Add(BuildMetricsBar("memIoBar", "IO", UIConstants.MetricsMemLabelWidth, UIConstants.GradientIoWrite, marginRight: 1)))
             .Column(col => col.Width(1))
             .Column(col =>
-                col.Add(Controls.Markup($"[{UIConstants.MutedText.ToMarkup()} bold]Network[/]").WithMargin(1, 1, 1, 0).Build())
-                    .Add(BuildMetricsBar("netUploadBar", "Upload", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetUpload, marginRight: 1))
-                    .Add(BuildMetricsBar("netDownloadBar", "Download", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetDownload, marginRight: 1, marginBottom: 1)))
+                col.Add(Controls.Markup($"[{muted} bold] Network[/]").WithMargin(0, 0, 0, 0).Build())
+                    .Add(BuildMetricsBar("netUploadBar", "Up", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetUpload, marginRight: 1))
+                    .Add(BuildMetricsBar("netDownloadBar", "Down", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetDownload, marginRight: 1)))
             .WithAlignment(HorizontalAlignment.Stretch)
             .Build();
 
         if (metricsGrid.Columns.Count >= 5)
         {
-            metricsGrid.Columns[0].BackgroundColor = UIConstants.PanelBg;
+            metricsGrid.Columns[0].BackgroundColor = UIConstants.MetricsCpuBg;
             metricsGrid.Columns[0].ForegroundColor = UIConstants.PrimaryText;
-            metricsGrid.Columns[2].BackgroundColor = UIConstants.PanelBg;
+            metricsGrid.Columns[2].BackgroundColor = UIConstants.MetricsMemBg;
             metricsGrid.Columns[2].ForegroundColor = UIConstants.PrimaryText;
-            metricsGrid.Columns[4].BackgroundColor = UIConstants.PanelBg;
+            metricsGrid.Columns[4].BackgroundColor = UIConstants.MetricsNetBg;
             metricsGrid.Columns[4].ForegroundColor = UIConstants.PrimaryText;
         }
 

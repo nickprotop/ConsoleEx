@@ -60,7 +60,7 @@ internal sealed class NetworkTab : BaseResponsiveTab
                 })
                 .Column(col =>
                 {
-                    var rightPanel = BuildScrollablePanel();
+                    var rightPanel = BuildRightPanel();
                     BuildGraphsContent(rightPanel, initialSnapshot);
                     col.Add(rightPanel);
                 })
@@ -483,7 +483,7 @@ internal sealed class NetworkTab : BaseResponsiveTab
             });
             grid.AddColumn(sepCol);
 
-            var rightPanel = BuildScrollablePanel();
+            var rightPanel = BuildRightPanel();
             BuildGraphsContent(rightPanel, snapshot);
 
             var rightCol = new ColumnContainer(grid);

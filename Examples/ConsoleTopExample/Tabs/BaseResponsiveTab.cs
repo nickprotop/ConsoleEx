@@ -108,7 +108,7 @@ internal abstract class BaseResponsiveTab : ITab
             })
             .Column(col =>
             {
-                var rightPanel = BuildScrollablePanel();
+                var rightPanel = BuildRightPanel();
                 BuildGraphsContent(rightPanel, snapshot);
                 col.Add(rightPanel);
             })
@@ -253,6 +253,18 @@ internal abstract class BaseResponsiveTab : ITab
             .WithAlignment(HorizontalAlignment.Stretch)
             .Build();
         panel.BackgroundColor = UIConstants.BaseBg;
+        panel.ForegroundColor = UIConstants.PrimaryText;
+        return panel;
+    }
+
+    internal static ScrollablePanelControl BuildRightPanel()
+    {
+        var panel = Controls
+            .ScrollablePanel()
+            .WithVerticalAlignment(VerticalAlignment.Fill)
+            .WithAlignment(HorizontalAlignment.Stretch)
+            .Build();
+        panel.BackgroundColor = UIConstants.RightPanelBg;
         panel.ForegroundColor = UIConstants.PrimaryText;
         return panel;
     }
