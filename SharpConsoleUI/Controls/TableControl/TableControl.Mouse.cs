@@ -204,10 +204,17 @@ public partial class TableControl
 
 			// Click on data row
 			int rowIdx = GetRowIndexAtY(args.Position.Y);
+			bool isClick = args.HasFlag(MouseFlags.Button1Clicked);
 			if (rowIdx >= 0)
 			{
-				// Multi-select: Ctrl+Click toggles, Shift+Click extends range, checkbox click toggles
-				if (_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonCtrl))
+				// Multi-select toggling only on Button1Clicked to avoid
+				// double-toggle from Button1Pressed + Button1Clicked pair
+				if (!isClick)
+				{
+					// Button1Pressed: just move cursor, don't touch multi-select state
+					SetSelectedRow(rowIdx);
+				}
+				else if (_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonCtrl))
 				{
 					ToggleRowSelection(rowIdx);
 					SetSelectedRow(rowIdx);
