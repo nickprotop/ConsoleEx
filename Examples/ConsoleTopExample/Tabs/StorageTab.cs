@@ -106,7 +106,7 @@ internal sealed class StorageTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.StorageBarLabelWidth)
                 .WithValue(storage.TotalUsedPercent)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
@@ -211,13 +211,15 @@ internal sealed class StorageTab : BaseResponsiveTab
     protected override void BuildGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
         var storage = snapshot.Storage;
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
 
         if (storage.Disks.Count == 0)
         {
             panel.AddControl(
                 Controls.Markup()
-                    .AddLine("[grey50]No storage devices to display[/]")
-                    .WithMargin(2, 1, 1, 0)
+                    .AddLine($"[{muted}]No storage devices[/]")
+                    .WithMargin(1, 1, 1, 0)
                     .Build()
             );
             return;
@@ -226,57 +228,39 @@ internal sealed class StorageTab : BaseResponsiveTab
         foreach (var disk in storage.Disks)
         {
             var deviceKey = disk.DeviceName;
+            var fsInfo = !string.IsNullOrEmpty(disk.Label)
+                ? $"{System.IO.Path.GetFileName(disk.DeviceName)} · {disk.FileSystemType} · {disk.Label}"
+                : $"{System.IO.Path.GetFileName(disk.DeviceName)} · {disk.FileSystemType}";
 
-            var headerText = !string.IsNullOrEmpty(disk.Label)
-                ? $"[{UIConstants.Accent.ToMarkup()} bold]{disk.MountPoint}[/] [{UIConstants.MutedText.ToMarkup()}]({System.IO.Path.GetFileName(disk.DeviceName)} - {disk.FileSystemType} - \"{disk.Label}\")[/]"
-                : $"[{UIConstants.Accent.ToMarkup()} bold]{disk.MountPoint}[/] [{UIConstants.MutedText.ToMarkup()}]({System.IO.Path.GetFileName(disk.DeviceName)} - {disk.FileSystemType})[/]";
-
-            panel.AddControl(
-                Controls.Markup()
-                    .AddLine(headerText)
-                    .WithMargin(2, 1, 1, 0)
-                    .Build()
-            );
+            AddFluentSectionLabel(panel, $"{disk.MountPoint}  [{muted}]{fsInfo}[/]");
 
             panel.AddControl(
                 new BarGraphBuilder()
-                    .WithName($"disk_{deviceKey}_usage")
-                    .WithLabel("Used %")
-                    .WithLabelWidth(UIConstants.StorageBarLabelWidth)
-                    .WithValue(disk.UsedPercent)
-                    .WithMaxValue(100)
-                    .ShowValue()
-                    .WithValueFormat("F1")
+                    .WithName($"disk_{deviceKey}_usage").WithLabel("Used").WithLabelWidth(UIConstants.StorageBarLabelWidth)
+                    .WithValue(disk.UsedPercent).WithMaxValue(100)
+                    .ShowValue().WithValueFormat("F1")
                     .WithSmoothGradient(UIConstants.GradientHealthy)
-                    .WithMargin(2, 1, 1, 0)
+                    .WithMargin(1, 0, 1, 0)
                     .Build()
             );
 
             panel.AddControl(
                 new BarGraphBuilder()
-                    .WithName($"disk_{deviceKey}_read_current")
-                    .WithLabel("Read MB/s")
-                    .WithLabelWidth(UIConstants.StorageBarLabelWidth)
-                    .WithValue(disk.ReadMbps)
-                    .WithMaxValue(100)
-                    .ShowValue()
-                    .WithValueFormat("F1")
+                    .WithName($"disk_{deviceKey}_read_current").WithLabel("Read").WithLabelWidth(UIConstants.StorageBarLabelWidth)
+                    .WithValue(disk.ReadMbps).WithMaxValue(100)
+                    .ShowValue().WithValueFormat("F1")
                     .WithSmoothGradient(UIConstants.GradientIoRead)
-                    .WithMargin(2, 0, 1, 0)
+                    .WithMargin(1, 0, 1, 0)
                     .Build()
             );
 
             panel.AddControl(
                 new BarGraphBuilder()
-                    .WithName($"disk_{deviceKey}_write_current")
-                    .WithLabel("Write MB/s")
-                    .WithLabelWidth(UIConstants.StorageBarLabelWidth)
-                    .WithValue(disk.WriteMbps)
-                    .WithMaxValue(100)
-                    .ShowValue()
-                    .WithValueFormat("F1")
+                    .WithName($"disk_{deviceKey}_write_current").WithLabel("Write").WithLabelWidth(UIConstants.StorageBarLabelWidth)
+                    .WithValue(disk.WriteMbps).WithMaxValue(100)
+                    .ShowValue().WithValueFormat("F1")
                     .WithSmoothGradient(UIConstants.GradientIoWrite)
-                    .WithMargin(2, 0, 1, 0)
+                    .WithMargin(1, 0, 1, 0)
                     .Build()
             );
 
@@ -290,8 +274,7 @@ internal sealed class StorageTab : BaseResponsiveTab
                     .WithTitleColor(UIConstants.MutedText)
                     .WithTitlePosition(TitlePosition.Bottom)
                     .WithHeight(UIConstants.StorageIoSparklineHeight)
-                    .WithMaxValue(maxRead)
-                    .WithSecondaryMaxValue(maxWrite)
+                    .WithMaxValue(maxRead).WithSecondaryMaxValue(maxWrite)
                     .WithGradient(UIConstants.SparkStorageRead)
                     .WithSecondaryGradient(UIConstants.SparkStorageWrite)
                     .WithBackgroundColor(UIConstants.PanelBg)
@@ -299,12 +282,10 @@ internal sealed class StorageTab : BaseResponsiveTab
                     .WithMode(SparklineMode.BidirectionalBraille)
                     .WithBaseline(true, position: TitlePosition.Bottom)
                     .WithInlineTitleBaseline(true)
-                    .WithMargin(2, 1, 1, 0)
+                    .WithMargin(1, 0, 1, 0)
                     .WithBidirectionalData(_readHistory.GetMutable(deviceKey), _writeHistory.GetMutable(deviceKey))
                     .Build()
             );
-
-            AddSectionSeparator(panel);
         }
     }
 

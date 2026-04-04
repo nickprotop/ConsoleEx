@@ -11,7 +11,6 @@ using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Panel;
 
 namespace ConsoleTopExample;
 
@@ -27,7 +26,8 @@ internal class Program
             var windowSystem = new ConsoleWindowSystem(
                 new NetConsoleDriver(RenderMode.Buffer),
                 options: new ConsoleWindowSystemOptions(
-                    TopPanelConfig: panel => panel.Left(Elements.StatusText(""))));
+                    ShowTopPanel: false,
+                    ShowBottomPanel: false));
 
             windowSystem.PanelStateService.TopStatus =
                 $"ConsoleTop - System Monitor ({SystemStatsFactory.GetPlatformName()})";

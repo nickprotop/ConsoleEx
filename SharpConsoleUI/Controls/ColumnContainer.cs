@@ -895,7 +895,7 @@ namespace SharpConsoleUI.Controls
 			// This method only paints the container's own content (background, margins).
 
 			var fgColor = ForegroundColor;
-			var effectiveBg = Color.Transparent;
+			var effectiveBg = _backgroundColorValue ?? Color.Transparent;
 
 			// Fill the entire bounds with background color
 			// This provides the background for the container and any margins

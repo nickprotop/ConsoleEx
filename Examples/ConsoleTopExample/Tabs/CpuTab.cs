@@ -103,156 +103,96 @@ internal sealed class CpuTab : BaseResponsiveTab
             ? cpu.PerCoreSamples.Count
             : Environment.ProcessorCount;
 
-        var accent = UIConstants.Accent.ToMarkup();
-        var muted = UIConstants.MutedText.ToMarkup();
-
-        panel.AddControl(
-            Controls.Markup()
-                .AddLine("")
-                .AddLine($"[{accent} bold]═══ CPU Visualization ═══[/]")
-                .AddLine("")
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 0, 2, 0)
-                .Build()
-        );
-
-        panel.AddControl(
-            Controls.Markup()
-                .AddLine($"[{muted} bold]Current Aggregate Usage[/]")
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 0, 2, 0)
-                .Build()
-        );
+        AddFluentSectionLabel(panel, "Aggregate");
 
         panel.AddControl(
             new BarGraphBuilder()
-                .WithName("cpuUserBar")
-                .WithLabel("User CPU")
-                .WithLabelWidth(UIConstants.CpuBarLabelWidth)
-                .WithValue(cpu.User)
-                .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth)
+                .WithName("cpuUserBar").WithLabel("User").WithLabelWidth(UIConstants.CpuBarLabelWidth)
+                .WithValue(cpu.User).WithMaxValue(100).WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
-                .ShowLabel().ShowValue()
-                .WithValueFormat("F1")
-                .WithMargin(2, 0, 2, 0)
+                .ShowLabel().ShowValue().WithValueFormat("F1")
+                .WithMargin(1, 0, 1, 0)
                 .WithSmoothGradient(UIConstants.SparkCpuUser)
                 .Build()
         );
 
         panel.AddControl(
             new BarGraphBuilder()
-                .WithName("cpuSystemBar")
-                .WithLabel("System CPU")
-                .WithLabelWidth(UIConstants.CpuBarLabelWidth)
-                .WithValue(cpu.System)
-                .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth)
+                .WithName("cpuSystemBar").WithLabel("System").WithLabelWidth(UIConstants.CpuBarLabelWidth)
+                .WithValue(cpu.System).WithMaxValue(100).WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
-                .ShowLabel().ShowValue()
-                .WithValueFormat("F1")
-                .WithMargin(2, 0, 2, 0)
+                .ShowLabel().ShowValue().WithValueFormat("F1")
+                .WithMargin(1, 0, 1, 0)
                 .WithSmoothGradient(UIConstants.SparkCpuSystem)
                 .Build()
         );
 
         panel.AddControl(
             new BarGraphBuilder()
-                .WithName("cpuIoWaitBar")
-                .WithLabel("IoWait")
-                .WithLabelWidth(UIConstants.CpuBarLabelWidth)
-                .WithValue(cpu.IoWait)
-                .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth)
+                .WithName("cpuIoWaitBar").WithLabel("IO").WithLabelWidth(UIConstants.CpuBarLabelWidth)
+                .WithValue(cpu.IoWait).WithMaxValue(100).WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
-                .ShowLabel().ShowValue()
-                .WithValueFormat("F1")
-                .WithMargin(2, 0, 2, 0)
+                .ShowLabel().ShowValue().WithValueFormat("F1")
+                .WithMargin(1, 0, 1, 0)
                 .WithSmoothGradient(UIConstants.GradientIoRead)
                 .Build()
         );
 
         panel.AddControl(
             new BarGraphBuilder()
-                .WithName("cpuTotalBar")
-                .WithLabel("Total CPU")
-                .WithLabelWidth(UIConstants.CpuBarLabelWidth)
-                .WithValue(totalCpu)
-                .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth)
+                .WithName("cpuTotalBar").WithLabel("Total").WithLabelWidth(UIConstants.CpuBarLabelWidth)
+                .WithValue(totalCpu).WithMaxValue(100).WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
-                .ShowLabel().ShowValue()
-                .WithValueFormat("F1")
-                .WithMargin(2, 0, 2, 2)
+                .ShowLabel().ShowValue().WithValueFormat("F1")
+                .WithMargin(1, 0, 1, 0)
                 .WithSmoothGradient(UIConstants.SparkCpuTotal)
                 .Build()
         );
 
-        AddSectionSeparator(panel);
-
-        AddSectionHeader(panel, "Aggregate Historical Trends");
+        AddFluentSectionLabel(panel, "Trends");
 
         panel.AddControl(
             new SparklineBuilder()
-                .WithName("cpuUserSparkline")
-                .WithTitle("User CPU %")
-                .WithTitleColor(UIConstants.Critical)
-                .WithTitlePosition(TitlePosition.Bottom)
-                .WithHeight(UIConstants.SparklineHeight)
-                .WithMaxValue(100)
-                .WithGradient(UIConstants.SparkCpuUser)
-                .WithBackgroundColor(UIConstants.PanelBg)
-                .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Braille)
-                .WithBaseline(true, position: TitlePosition.Bottom)
-                .WithInlineTitleBaseline(true)
-                .WithMargin(2, 0, 1, 0)
-                .WithData(_userHistory.DataMutable)
+                .WithName("cpuUserSparkline").WithTitle("User %")
+                .WithTitleColor(UIConstants.Critical).WithTitlePosition(TitlePosition.Bottom)
+                .WithHeight(UIConstants.SparklineHeight).WithMaxValue(100)
+                .WithGradient(UIConstants.SparkCpuUser).WithBackgroundColor(UIConstants.PanelBg)
+                .WithBorder(BorderStyle.None).WithMode(SparklineMode.Braille)
+                .WithBaseline(true, position: TitlePosition.Bottom).WithInlineTitleBaseline(true)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 0).WithData(_userHistory.DataMutable)
                 .Build()
         );
 
         panel.AddControl(
             new SparklineBuilder()
-                .WithName("cpuSystemSparkline")
-                .WithTitle("System CPU %")
-                .WithTitleColor(UIConstants.Warning)
-                .WithTitlePosition(TitlePosition.Bottom)
-                .WithHeight(UIConstants.SparklineHeight)
-                .WithMaxValue(100)
-                .WithGradient(UIConstants.SparkCpuSystem)
-                .WithBackgroundColor(UIConstants.PanelBg)
-                .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Braille)
-                .WithBaseline(true, position: TitlePosition.Bottom)
-                .WithInlineTitleBaseline(true)
-                .WithMargin(2, 0, 1, 0)
-                .WithData(_systemHistory.DataMutable)
+                .WithName("cpuSystemSparkline").WithTitle("System %")
+                .WithTitleColor(UIConstants.Warning).WithTitlePosition(TitlePosition.Bottom)
+                .WithHeight(UIConstants.SparklineHeight).WithMaxValue(100)
+                .WithGradient(UIConstants.SparkCpuSystem).WithBackgroundColor(UIConstants.PanelBg)
+                .WithBorder(BorderStyle.None).WithMode(SparklineMode.Braille)
+                .WithBaseline(true, position: TitlePosition.Bottom).WithInlineTitleBaseline(true)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 0).WithData(_systemHistory.DataMutable)
                 .Build()
         );
 
         panel.AddControl(
             new SparklineBuilder()
-                .WithName("cpuTotalSparkline")
-                .WithTitle("Total CPU %")
-                .WithTitleColor(UIConstants.Accent)
-                .WithTitlePosition(TitlePosition.Bottom)
-                .WithHeight(UIConstants.SparklineHeight)
-                .WithMaxValue(100)
-                .WithGradient(UIConstants.SparkCpuTotal)
-                .WithBackgroundColor(UIConstants.PanelBg)
-                .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Braille)
-                .WithBaseline(true, position: TitlePosition.Bottom)
-                .WithInlineTitleBaseline(true)
-                .WithMargin(2, 0, 1, 0)
-                .WithData(_totalHistory.DataMutable)
+                .WithName("cpuTotalSparkline").WithTitle("Total %")
+                .WithTitleColor(UIConstants.Accent).WithTitlePosition(TitlePosition.Bottom)
+                .WithHeight(UIConstants.SparklineHeight).WithMaxValue(100)
+                .WithGradient(UIConstants.SparkCpuTotal).WithBackgroundColor(UIConstants.PanelBg)
+                .WithBorder(BorderStyle.None).WithMode(SparklineMode.Braille)
+                .WithBaseline(true, position: TitlePosition.Bottom).WithInlineTitleBaseline(true)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 0).WithData(_totalHistory.DataMutable)
                 .Build()
         );
 
         if (coreCount > 0)
         {
-            AddSectionSeparator(panel);
-            AddSectionHeader(panel, "Per-Core History");
+            AddFluentSectionLabel(panel, "Per-Core");
 
             for (int coreIndex = 0; coreIndex < coreCount; coreIndex++)
             {
@@ -263,20 +203,13 @@ internal sealed class CpuTab : BaseResponsiveTab
 
                 panel.AddControl(
                     new SparklineBuilder()
-                        .WithName($"cpuCore{coreIndex}Sparkline")
-                        .WithTitle($"Core {coreIndex}")
-                        .WithTitleColor(coreColor)
-                        .WithTitlePosition(TitlePosition.Bottom)
-                        .WithHeight(UIConstants.CpuCoreSparklineHeight)
-                        .WithMaxValue(100)
-                        .WithGradient(UIConstants.SparkCpuPerCore)
-                        .WithBackgroundColor(UIConstants.PanelBg)
-                        .WithBorder(BorderStyle.None)
-                        .WithMode(SparklineMode.Braille)
-                        .WithBaseline(true, position: TitlePosition.Bottom)
-                        .WithInlineTitleBaseline(true)
-                        .WithMargin(2, 0, 1, 0)
-                        .WithData(_perCoreHistory.GetMutable(coreIndex))
+                        .WithName($"cpuCore{coreIndex}Sparkline").WithTitle($"C{coreIndex}")
+                        .WithTitleColor(coreColor).WithTitlePosition(TitlePosition.Bottom)
+                        .WithHeight(UIConstants.CpuCoreSparklineHeight).WithMaxValue(100)
+                        .WithGradient(UIConstants.SparkCpuPerCore).WithBackgroundColor(UIConstants.PanelBg)
+                        .WithBorder(BorderStyle.None).WithMode(SparklineMode.Braille)
+                        .WithBaseline(true, position: TitlePosition.Bottom).WithInlineTitleBaseline(true)
+                        .WithMargin(1, 0, 1, 0).WithData(_perCoreHistory.GetMutable(coreIndex))
                         .Build()
                 );
             }
@@ -317,7 +250,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.CpuCoreLabelWidth)
                 .WithValue(cpu.User)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
@@ -332,7 +265,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.CpuCoreLabelWidth)
                 .WithValue(cpu.System)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
@@ -347,7 +280,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.CpuCoreLabelWidth)
                 .WithValue(cpu.IoWait)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
@@ -362,7 +295,7 @@ internal sealed class CpuTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.CpuCoreLabelWidth)
                 .WithValue(totalCpu)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")

@@ -116,7 +116,7 @@ internal sealed class NetworkTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.NetworkBarLabelWidth)
                 .WithValue(net.UpMbps)
                 .WithMaxValue(barMax)
-                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F2")
@@ -132,7 +132,7 @@ internal sealed class NetworkTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.NetworkBarLabelWidth)
                 .WithValue(net.DownMbps)
                 .WithMaxValue(barMax)
-                .WithBarWidth(UIConstants.TabBarWidth - 15)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F2")
@@ -196,76 +196,40 @@ internal sealed class NetworkTab : BaseResponsiveTab
     protected override void BuildGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
         var net = snapshot.Network;
-        var accent = UIConstants.Accent.ToMarkup();
-        var muted = UIConstants.MutedText.ToMarkup();
 
-        panel.AddControl(
-            Controls.Markup()
-                .AddLine("")
-                .AddLine($"[{accent} bold]═══ Network Visualization ═══[/]")
-                .AddLine("")
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 0, 2, 0)
-                .Build()
-        );
-
-        panel.AddControl(
-            Controls.Markup()
-                .AddLine($"[{muted} bold]Current Usage[/]")
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 0, 2, 0)
-                .Build()
-        );
+        AddFluentSectionLabel(panel, "Throughput");
 
         double maxRate = Math.Max(Math.Max(_peakUpMbps, _peakDownMbps), 1.0);
         double barMax = Math.Ceiling(maxRate / 10) * 10;
 
         panel.AddControl(
             new BarGraphBuilder()
-                .WithName("netUploadBar")
-                .WithLabel("Upload")
-                .WithLabelWidth(UIConstants.NetworkBarLabelWidth)
-                .WithValue(net.UpMbps)
-                .WithMaxValue(barMax)
-                .WithBarWidth(UIConstants.TabBarWidth)
+                .WithName("netUploadBar").WithLabel("Up").WithLabelWidth(UIConstants.NetworkBarLabelWidth)
+                .WithValue(net.UpMbps).WithMaxValue(barMax).WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
-                .ShowLabel().ShowValue()
-                .WithValueFormat("F2")
-                .WithMargin(2, 0, 2, 0)
+                .ShowLabel().ShowValue().WithValueFormat("F2")
+                .WithMargin(1, 0, 1, 0)
                 .WithSmoothGradient(UIConstants.GradientNetUpload)
                 .Build()
         );
 
         panel.AddControl(
             new BarGraphBuilder()
-                .WithName("netDownloadBar")
-                .WithLabel("Download")
-                .WithLabelWidth(UIConstants.NetworkBarLabelWidth)
-                .WithValue(net.DownMbps)
-                .WithMaxValue(barMax)
-                .WithBarWidth(UIConstants.TabBarWidth)
+                .WithName("netDownloadBar").WithLabel("Down").WithLabelWidth(UIConstants.NetworkBarLabelWidth)
+                .WithValue(net.DownMbps).WithMaxValue(barMax).WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
-                .ShowLabel().ShowValue()
-                .WithValueFormat("F2")
-                .WithMargin(2, 0, 2, 2)
+                .ShowLabel().ShowValue().WithValueFormat("F2")
+                .WithMargin(1, 0, 1, 0)
                 .WithSmoothGradient(UIConstants.GradientNetDownload)
                 .Build()
         );
 
-        AddSectionSeparator(panel);
-
-        panel.AddControl(
-            Controls.Markup()
-                .AddLine($"[{muted} bold]Network History[/] [grey50](↑ Upload  ↓ Download)[/]")
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 0, 2, 1)
-                .Build()
-        );
+        AddFluentSectionLabel(panel, "History");
 
         panel.AddControl(
             new SparklineBuilder()
                 .WithName("netCombinedSparkline")
-                .WithTitle("↓ Download  ↑ Upload")
+                .WithTitle("↓ Down  ↑ Up")
                 .WithTitleColor(UIConstants.MutedText)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.NetworkCombinedSparklineHeight)
@@ -279,21 +243,17 @@ internal sealed class NetworkTab : BaseResponsiveTab
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithAlignment(HorizontalAlignment.Stretch)
-                .WithMargin(2, 0, 1, 0)
+                .WithMargin(1, 0, 1, 0)
                 .WithBidirectionalData(_downHistory.DataMutable, _upHistory.DataMutable)
                 .Build()
         );
 
         if (net.PerInterfaceSamples is { Count: > 0 })
         {
-            AddSectionSeparator(panel);
-            AddSectionHeader(panel, "Per-Interface History");
+            AddFluentSectionLabel(panel, "Interfaces");
 
-            int ifaceIndex = 0;
             foreach (var iface in net.PerInterfaceSamples)
             {
-                int ifaceCount = net.PerInterfaceSamples.Count;
-
                 string ifaceNameDisplay = iface.InterfaceName.Length > UIConstants.InterfaceNameMaxLength
                     ? iface.InterfaceName.Substring(0, UIConstants.InterfaceNameTruncLength) + "..."
                     : iface.InterfaceName;
@@ -315,14 +275,12 @@ internal sealed class NetworkTab : BaseResponsiveTab
                         .WithBaseline(true, position: TitlePosition.Bottom)
                         .WithInlineTitleBaseline(true)
                         .WithAlignment(HorizontalAlignment.Stretch)
-                        .WithMargin(2, 0, 1, 0)
+                        .WithMargin(1, 0, 1, 0)
                         .WithBidirectionalData(
                             _perInterfaceDownHistory.GetMutable(iface.InterfaceName),
                             _perInterfaceUpHistory.GetMutable(iface.InterfaceName))
                         .Build()
                 );
-
-                ifaceIndex++;
             }
         }
     }

@@ -113,7 +113,7 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.MemoryBarLabelWidth)
                 .WithValue(mem.UsedPercent)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth - 10)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
@@ -139,7 +139,7 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.MemoryBarLabelWidth)
                 .WithValue(swapPercent)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth - 10)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
                 .ShowLabel().ShowValue()
                 .WithValueFormat("F1")
@@ -209,26 +209,8 @@ internal sealed class MemoryTab : BaseResponsiveTab
     protected override void BuildGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
         var mem = snapshot.Memory;
-        var accent = UIConstants.Accent.ToMarkup();
-        var muted = UIConstants.MutedText.ToMarkup();
 
-        panel.AddControl(
-            Controls.Markup()
-                .AddLine("")
-                .AddLine($"[{accent} bold]=== Memory Visualization ===[/]")
-                .AddLine("")
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 0, 2, 0)
-                .Build()
-        );
-
-        panel.AddControl(
-            Controls.Markup()
-                .AddLine($"[{muted} bold]Current Usage[/]")
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 0, 2, 0)
-                .Build()
-        );
+        AddFluentSectionLabel(panel, "Usage");
 
         panel.AddControl(
             new BarGraphBuilder()
@@ -237,12 +219,10 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.MemoryBarLabelWidth)
                 .WithValue(mem.UsedPercent)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
-                .ShowLabel()
-                .ShowValue()
-                .WithValueFormat("F1")
-                .WithMargin(2, 0, 2, 0)
+                .ShowLabel().ShowValue().WithValueFormat("F1")
+                .WithMargin(1, 0, 1, 0)
                 .WithSmoothGradient(UIConstants.GradientHealthy)
                 .Build()
         );
@@ -255,12 +235,10 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .WithLabelWidth(UIConstants.MemoryBarLabelWidth)
                 .WithValue(freePercent)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
-                .ShowLabel()
-                .ShowValue()
-                .WithValueFormat("F1")
-                .WithMargin(2, 0, 2, 0)
+                .ShowLabel().ShowValue().WithValueFormat("F1")
+                .WithMargin(1, 0, 1, 0)
                 .WithSmoothGradient(UIConstants.GradientBaseHealthy)
                 .Build()
         );
@@ -269,34 +247,24 @@ internal sealed class MemoryTab : BaseResponsiveTab
         panel.AddControl(
             new BarGraphBuilder()
                 .WithName("swapUsedBar")
-                .WithLabel("Swap Used")
+                .WithLabel("Swap")
                 .WithLabelWidth(UIConstants.MemoryBarLabelWidth)
                 .WithValue(swapPercent)
                 .WithMaxValue(100)
-                .WithBarWidth(UIConstants.TabBarWidth)
+                .WithAlignment(HorizontalAlignment.Stretch)
                 .WithUnfilledColor(UIConstants.BarUnfilledColor)
-                .ShowLabel()
-                .ShowValue()
-                .WithValueFormat("F1")
-                .WithMargin(2, 0, 2, 2)
+                .ShowLabel().ShowValue().WithValueFormat("F1")
+                .WithMargin(1, 0, 1, 0)
                 .WithSmoothGradient(UIConstants.GradientIoWrite)
                 .Build()
         );
 
-        AddSectionSeparator(panel);
-
-        panel.AddControl(
-            Controls.Markup()
-                .AddLine($"[{muted} bold]Historical Trends[/]")
-                .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(2, 0, 2, 1)
-                .Build()
-        );
+        AddFluentSectionLabel(panel, "Trends");
 
         panel.AddControl(
             new SparklineBuilder()
                 .WithName("memoryUsedSparkline")
-                .WithTitle("Memory Used %")
+                .WithTitle("Used %")
                 .WithTitleColor(UIConstants.Accent)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.SparklineHeight)
@@ -307,7 +275,8 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .WithMode(SparklineMode.Braille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
-                .WithMargin(2, 0, 1, 0)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 0)
                 .WithData(_usedHistory.DataMutable)
                 .Build()
         );
@@ -315,7 +284,7 @@ internal sealed class MemoryTab : BaseResponsiveTab
         panel.AddControl(
             new SparklineBuilder()
                 .WithName("memoryCachedSparkline")
-                .WithTitle("Memory Cached %")
+                .WithTitle("Cached %")
                 .WithTitleColor(UIConstants.AccentSecondary)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.SparklineHeight)
@@ -326,7 +295,8 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .WithMode(SparklineMode.Braille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
-                .WithMargin(2, 0, 1, 0)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 0)
                 .WithData(_cachedHistory.DataMutable)
                 .Build()
         );
@@ -334,7 +304,7 @@ internal sealed class MemoryTab : BaseResponsiveTab
         panel.AddControl(
             new SparklineBuilder()
                 .WithName("memoryFreeSparkline")
-                .WithTitle("Memory Available %")
+                .WithTitle("Available %")
                 .WithTitleColor(UIConstants.Normal)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.SparklineHeight)
@@ -345,7 +315,8 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .WithMode(SparklineMode.Braille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
-                .WithMargin(2, 0, 1, 0)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 0)
                 .WithData(_availableHistory.DataMutable)
                 .Build()
         );

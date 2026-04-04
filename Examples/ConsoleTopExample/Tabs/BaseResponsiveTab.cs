@@ -324,6 +324,22 @@ internal abstract class BaseResponsiveTab : ITab
         );
     }
 
+    protected static void AddFluentSectionLabel(ScrollablePanelControl panel, string title)
+    {
+        panel.AddControl(
+            Controls.Markup()
+                .AddLine($"[{UIConstants.Accent.ToMarkup()}]{title}[/]")
+                .WithAlignment(HorizontalAlignment.Left)
+                .WithMargin(1, 1, 1, 0)
+                .Build()
+        );
+        panel.AddControl(
+            Controls.RuleBuilder()
+                .WithColor(UIConstants.SeparatorColor)
+                .Build()
+        );
+    }
+
     #endregion
 
     #region Window Access

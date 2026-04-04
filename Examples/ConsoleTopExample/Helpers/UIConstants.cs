@@ -103,12 +103,12 @@ internal static class UIConstants
     public static readonly Color CardBg = new(20, 28, 40, 180);
 
     // Metrics grid sub-panel tinted backgrounds (semi-transparent, distinct hues)
-    public static readonly Color MetricsCpuBg = new(0x0d, 0x20, 0x30, 190);    // deep blue-teal tint
-    public static readonly Color MetricsMemBg = new(0x15, 0x1a, 0x30, 190);    // indigo tint
-    public static readonly Color MetricsNetBg = new(0x0d, 0x25, 0x20, 190);    // teal-green tint
+    public static readonly Color MetricsCpuBg = new(10, 40, 60, 180);      // blue-teal tint
+    public static readonly Color MetricsMemBg = new(30, 20, 55, 180);      // indigo/purple tint
+    public static readonly Color MetricsNetBg = new(10, 45, 35, 180);      // teal-green tint
 
-    // Right panel background (slightly lighter than base for subtle separation)
-    public static readonly Color RightPanelBg = new(12, 18, 28, 200);
+    // Right panel background
+    public static readonly Color RightPanelBg = new(10, 16, 26, 210);
 
     // Status bars — darkest layer
     public static readonly Color HeaderBg = new(0x0a, 0x0e, 0x14);

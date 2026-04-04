@@ -130,39 +130,56 @@ internal sealed class DashboardWindow
 
     #region Metrics Grid
 
-    private static BarGraphControl BuildMetricsBar(string name, string label, int labelWidth, Color[] gradient, int marginLeft = 1, int marginRight = 0, int marginBottom = 0)
+    private static BarGraphControl BuildMetricsBar(string name, string label, int labelWidth, Color[] gradient)
     {
         return new BarGraphBuilder()
             .WithName(name).WithLabel(label).WithLabelWidth(labelWidth)
-            .WithValue(0).WithMaxValue(100).WithBarWidth(UIConstants.MetricsBarWidth)
+            .WithValue(0).WithMaxValue(100)
             .WithUnfilledColor(UIConstants.BarUnfilledColor)
+            .WithAlignment(HorizontalAlignment.Stretch)
             .ShowLabel().ShowValue().WithValueFormat("F1")
-            .WithMargin(marginLeft, 0, marginRight, marginBottom)
+            .WithMargin(1, 0, 1, 0)
             .WithSmoothGradient(gradient)
             .Build();
     }
 
     private void BuildMetricsGrid(Window mainWindow)
     {
-        var muted = UIConstants.MutedText.ToMarkup();
+        var accent = UIConstants.Accent.ToMarkup();
         var metricsGrid = Controls.HorizontalGrid()
             .WithMargin(0, 0, 0, 0)
             .Column(col =>
-                col.Add(Controls.Markup($"[{muted} bold] CPU[/]").WithMargin(0, 0, 0, 0).Build())
+                col.Add(Controls.Markup($"[{accent} bold] CPU[/]").WithMargin(0, 0, 0, 0).Build())
                     .Add(BuildMetricsBar("cpuUserBar", "User", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientHealthy))
-                    .Add(BuildMetricsBar("cpuSystemBar", "Sys", UIConstants.MetricsCpuLabelWidth, UIConstants.SparkCpuSystem))
-                    .Add(BuildMetricsBar("cpuIoWaitBar", "IO", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientIoRead)))
-            .Column(col => col.Width(1))
+                    .Add(BuildMetricsBar("cpuSystemBar", "System", UIConstants.MetricsCpuLabelWidth, UIConstants.SparkCpuSystem))
+                    .Add(BuildMetricsBar("cpuIoWaitBar", "IOwait", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientIoRead)))
             .Column(col =>
-                col.Add(Controls.Markup($"[{muted} bold] Memory[/]").WithMargin(0, 0, 0, 0).Build())
-                    .Add(BuildMetricsBar("memUsedBar", "Used", UIConstants.MetricsMemLabelWidth, UIConstants.GradientHealthy, marginRight: 1))
-                    .Add(BuildMetricsBar("memCachedBar", "Cache", UIConstants.MetricsMemLabelWidth, UIConstants.SparkMemCached, marginRight: 1))
-                    .Add(BuildMetricsBar("memIoBar", "IO", UIConstants.MetricsMemLabelWidth, UIConstants.GradientIoWrite, marginRight: 1)))
-            .Column(col => col.Width(1))
+            {
+                col.Width(1);
+                col.Add(new SeparatorControl
+                {
+                    ForegroundColor = UIConstants.SeparatorColor,
+                    VerticalAlignment = VerticalAlignment.Fill
+                });
+            })
             .Column(col =>
-                col.Add(Controls.Markup($"[{muted} bold] Network[/]").WithMargin(0, 0, 0, 0).Build())
-                    .Add(BuildMetricsBar("netUploadBar", "Up", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetUpload, marginRight: 1))
-                    .Add(BuildMetricsBar("netDownloadBar", "Down", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetDownload, marginRight: 1)))
+                col.Add(Controls.Markup($"[{accent} bold] Memory[/]").WithMargin(0, 0, 0, 0).Build())
+                    .Add(BuildMetricsBar("memUsedBar", "Used %", UIConstants.MetricsMemLabelWidth, UIConstants.GradientHealthy))
+                    .Add(BuildMetricsBar("memCachedBar", "Cached %", UIConstants.MetricsMemLabelWidth, UIConstants.SparkMemCached))
+                    .Add(BuildMetricsBar("memIoBar", "Disk IO", UIConstants.MetricsMemLabelWidth, UIConstants.GradientIoWrite)))
+            .Column(col =>
+            {
+                col.Width(1);
+                col.Add(new SeparatorControl
+                {
+                    ForegroundColor = UIConstants.SeparatorColor,
+                    VerticalAlignment = VerticalAlignment.Fill
+                });
+            })
+            .Column(col =>
+                col.Add(Controls.Markup($"[{accent} bold] Network[/]").WithMargin(0, 0, 0, 0).Build())
+                    .Add(BuildMetricsBar("netUploadBar", "Upload", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetUpload))
+                    .Add(BuildMetricsBar("netDownloadBar", "Download", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetDownload)))
             .WithAlignment(HorizontalAlignment.Stretch)
             .Build();
 
