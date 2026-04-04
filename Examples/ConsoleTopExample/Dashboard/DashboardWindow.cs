@@ -3,10 +3,13 @@ using ConsoleTopExample.Helpers;
 using ConsoleTopExample.Stats;
 using ConsoleTopExample.Tabs;
 using SharpConsoleUI;
+using SharpConsoleUI.Animation;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Rendering;
 
 namespace ConsoleTopExample.Dashboard;
 
@@ -19,6 +22,8 @@ internal sealed class DashboardWindow
     private Window? _mainWindow;
     private readonly List<ITab> _tabs = new();
     private TabControl? _tabControl;
+    private readonly Dictionary<string, double> _lastBarValues = new();
+    private SharpConsoleUI.Windows.WindowRenderer.BufferPaintDelegate? _tabFadeHandler;
 
     public DashboardWindow(
         ConsoleWindowSystem windowSystem,
@@ -34,7 +39,10 @@ internal sealed class DashboardWindow
     {
         _mainWindow = new WindowBuilder(_windowSystem)
             .WithTitle("ConsoleTop - Live System Pulse")
-            .WithColors(UIConstants.WindowForeground, UIConstants.WindowBackground)
+            .WithColors(UIConstants.PrimaryText, UIConstants.BaseBg)
+            .WithBackgroundGradient(
+                ColorGradient.FromColors(UIConstants.BaseBg, UIConstants.BaseEnd),
+                GradientDirection.DiagonalDown)
             .Borderless()
             .Maximized()
             .Resizable(false)
@@ -51,10 +59,8 @@ internal sealed class DashboardWindow
                     e.Handled = true;
                     return;
                 }
-
                 if (HandleTabShortcut(e.KeyInfo.Key))
                     e.Handled = true;
-
                 if (e.KeyInfo.Key == ConsoleKey.S &&
                     _tabs.ElementAtOrDefault(_tabControl?.ActiveTabIndex ?? -1) is ProcessTab pt)
                 {
@@ -68,10 +74,10 @@ internal sealed class DashboardWindow
         var mainWindow = _mainWindow;
 
         BuildTopStatusBar(mainWindow);
-        mainWindow.AddControl(Controls.RuleBuilder().StickyTop().WithColor(UIConstants.RuleColor).Build());
+        mainWindow.AddControl(Controls.RuleBuilder().StickyTop().WithColor(UIConstants.SeparatorColor).Build());
 
         BuildMetricsGrid(mainWindow);
-        mainWindow.AddControl(Controls.RuleBuilder().WithColor(UIConstants.RuleColor).Build());
+        mainWindow.AddControl(Controls.RuleBuilder().WithColor(UIConstants.SeparatorColor).Build());
 
         CreateTabs();
         var initialSnapshot = _stats.ReadSnapshot();
@@ -86,6 +92,11 @@ internal sealed class DashboardWindow
         };
 
         _windowSystem.AddWindow(mainWindow);
+
+        WindowAnimations.FadeIn(mainWindow,
+            duration: TimeSpan.FromMilliseconds(UIConstants.FadeInMs),
+            fadeColor: Color.Black,
+            easing: EasingFunctions.EaseInOut);
     }
 
     #region Top Status Bar
@@ -98,20 +109,20 @@ internal sealed class DashboardWindow
             .StickyTop()
             .WithAlignment(HorizontalAlignment.Stretch)
             .Column(col =>
-                col.Add(Controls.Markup($"[cyan1 bold]ConsoleTop[/] [grey70]• {systemInfo}[/]")
+                col.Add(Controls.Markup($"[{UIConstants.Accent.ToMarkup()} bold]ConsoleTop[/] [{UIConstants.MutedText.ToMarkup()}]• {systemInfo}[/]")
                     .WithAlignment(HorizontalAlignment.Left)
                     .WithMargin(1, 0, 0, 0)
                     .Build()))
             .Column(col =>
-                col.Add(Controls.Markup("[grey70]--:--:--[/]")
+                col.Add(Controls.Markup($"[{UIConstants.MutedText.ToMarkup()}]--:--:--[/]")
                     .WithAlignment(HorizontalAlignment.Right)
                     .WithMargin(0, 0, 1, 0)
                     .WithName("topStatusClock")
                     .Build()))
             .Build();
 
-        topStatusBar.BackgroundColor = UIConstants.StatusBarBackground;
-        topStatusBar.ForegroundColor = UIConstants.StatusBarForeground;
+        topStatusBar.BackgroundColor = UIConstants.HeaderBg;
+        topStatusBar.ForegroundColor = UIConstants.PrimaryText;
         mainWindow.AddControl(topStatusBar);
     }
 
@@ -119,112 +130,52 @@ internal sealed class DashboardWindow
 
     #region Metrics Grid
 
+    private static BarGraphControl BuildMetricsBar(string name, string label, int labelWidth, Color[] gradient, int marginLeft = 1, int marginRight = 0, int marginBottom = 0)
+    {
+        return new BarGraphBuilder()
+            .WithName(name).WithLabel(label).WithLabelWidth(labelWidth)
+            .WithValue(0).WithMaxValue(100).WithBarWidth(UIConstants.MetricsBarWidth)
+            .WithUnfilledColor(UIConstants.BarUnfilledColor)
+            .ShowLabel().ShowValue().WithValueFormat("F1")
+            .WithMargin(marginLeft, 0, marginRight, marginBottom)
+            .WithSmoothGradient(gradient)
+            .Build();
+    }
+
     private void BuildMetricsGrid(Window mainWindow)
     {
         var metricsGrid = Controls.HorizontalGrid()
             .WithMargin(1, 1, 1, 1)
             .Column(col =>
-                col.Add(Controls.Markup("[grey70 bold]CPU Usage[/]").WithMargin(1, 1, 0, 0).Build())
-                    .Add(BuildMetricsBar("cpuUserBar", "User", UIConstants.MetricsCpuLabelWidth, Color.Green, Color.Yellow, Color.Red))
-                    .Add(BuildMetricsBar("cpuSystemBar", "System", UIConstants.MetricsCpuLabelWidth, Color.Cyan1, Color.Yellow, Color.Orange1))
-                    .Add(BuildMetricsBarWithBottomMargin("cpuIoWaitBar", "IOwait", UIConstants.MetricsCpuLabelWidth, Color.Blue, Color.Cyan1, Color.Yellow)))
+                col.Add(Controls.Markup($"[{UIConstants.MutedText.ToMarkup()} bold]CPU Usage[/]").WithMargin(1, 1, 0, 0).Build())
+                    .Add(BuildMetricsBar("cpuUserBar", "User", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientHealthy))
+                    .Add(BuildMetricsBar("cpuSystemBar", "System", UIConstants.MetricsCpuLabelWidth, UIConstants.SparkCpuSystem))
+                    .Add(BuildMetricsBar("cpuIoWaitBar", "IOwait", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientIoRead, marginBottom: 1)))
             .Column(col => col.Width(1))
             .Column(col =>
-                col.Add(Controls.Markup("[grey70 bold]Memory / IO[/]").WithMargin(1, 1, 1, 0).Build())
-                    .Add(BuildMetricsBarMarginRight("memUsedBar", "Used %", UIConstants.MetricsMemLabelWidth, Color.Green, Color.Yellow, Color.Red))
-                    .Add(BuildMetricsBarMarginRight("memCachedBar", "Cached %", UIConstants.MetricsMemLabelWidth, Color.Blue, Color.Cyan1, Color.Green))
-                    .Add(BuildMetricsBarMarginRightBottom("memIoBar", "Disk/IO est %", UIConstants.MetricsMemLabelWidth, Color.Grey50, Color.Yellow, Color.Orange1)))
+                col.Add(Controls.Markup($"[{UIConstants.MutedText.ToMarkup()} bold]Memory / IO[/]").WithMargin(1, 1, 1, 0).Build())
+                    .Add(BuildMetricsBar("memUsedBar", "Used %", UIConstants.MetricsMemLabelWidth, UIConstants.GradientHealthy, marginRight: 1))
+                    .Add(BuildMetricsBar("memCachedBar", "Cached %", UIConstants.MetricsMemLabelWidth, UIConstants.SparkMemCached, marginRight: 1))
+                    .Add(BuildMetricsBar("memIoBar", "Disk/IO est %", UIConstants.MetricsMemLabelWidth, UIConstants.GradientIoWrite, marginRight: 1, marginBottom: 1)))
             .Column(col => col.Width(1))
             .Column(col =>
-                col.Add(Controls.Markup("[grey70 bold]Network[/]").WithMargin(1, 1, 1, 0).Build())
-                    .Add(BuildMetricsBarMarginRight("netUploadBar", "Upload", UIConstants.MetricsNetLabelWidth, "cool"))
-                    .Add(BuildMetricsBarMarginRightBottom("netDownloadBar", "Download", UIConstants.MetricsNetLabelWidth, "warm")))
+                col.Add(Controls.Markup($"[{UIConstants.MutedText.ToMarkup()} bold]Network[/]").WithMargin(1, 1, 1, 0).Build())
+                    .Add(BuildMetricsBar("netUploadBar", "Upload", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetUpload, marginRight: 1))
+                    .Add(BuildMetricsBar("netDownloadBar", "Download", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetDownload, marginRight: 1, marginBottom: 1)))
             .WithAlignment(HorizontalAlignment.Stretch)
             .Build();
 
         if (metricsGrid.Columns.Count >= 5)
         {
-            metricsGrid.Columns[0].BackgroundColor = UIConstants.MetricsBoxBackground;
-            metricsGrid.Columns[0].ForegroundColor = UIConstants.MetricsBoxForeground;
-            metricsGrid.Columns[2].BackgroundColor = UIConstants.MetricsBoxBackground;
-            metricsGrid.Columns[2].ForegroundColor = UIConstants.MetricsBoxForeground;
-            metricsGrid.Columns[4].BackgroundColor = UIConstants.MetricsBoxBackground;
-            metricsGrid.Columns[4].ForegroundColor = UIConstants.MetricsBoxForeground;
+            metricsGrid.Columns[0].BackgroundColor = UIConstants.PanelBg;
+            metricsGrid.Columns[0].ForegroundColor = UIConstants.PrimaryText;
+            metricsGrid.Columns[2].BackgroundColor = UIConstants.PanelBg;
+            metricsGrid.Columns[2].ForegroundColor = UIConstants.PrimaryText;
+            metricsGrid.Columns[4].BackgroundColor = UIConstants.PanelBg;
+            metricsGrid.Columns[4].ForegroundColor = UIConstants.PrimaryText;
         }
 
         mainWindow.AddControl(metricsGrid);
-    }
-
-    private static BarGraphControl BuildMetricsBar(string name, string label, int labelWidth, Color c1, Color c2, Color c3)
-    {
-        return new BarGraphBuilder()
-            .WithName(name).WithLabel(label).WithLabelWidth(labelWidth)
-            .WithValue(0).WithMaxValue(100).WithBarWidth(UIConstants.MetricsBarWidth)
-            .WithUnfilledColor(UIConstants.BarUnfilledColor)
-            .ShowLabel().ShowValue().WithValueFormat("F1")
-            .WithMargin(1, 0, 0, 0)
-            .WithSmoothGradient(c1, c2, c3)
-            .Build();
-    }
-
-    private static BarGraphControl BuildMetricsBarWithBottomMargin(string name, string label, int labelWidth, Color c1, Color c2, Color c3)
-    {
-        return new BarGraphBuilder()
-            .WithName(name).WithLabel(label).WithLabelWidth(labelWidth)
-            .WithValue(0).WithMaxValue(100).WithBarWidth(UIConstants.MetricsBarWidth)
-            .WithUnfilledColor(UIConstants.BarUnfilledColor)
-            .ShowLabel().ShowValue().WithValueFormat("F1")
-            .WithMargin(1, 0, 0, 1)
-            .WithSmoothGradient(c1, c2, c3)
-            .Build();
-    }
-
-    private static BarGraphControl BuildMetricsBarMarginRight(string name, string label, int labelWidth, Color c1, Color c2, Color c3)
-    {
-        return new BarGraphBuilder()
-            .WithName(name).WithLabel(label).WithLabelWidth(labelWidth)
-            .WithValue(0).WithMaxValue(100).WithBarWidth(UIConstants.MetricsBarWidth)
-            .WithUnfilledColor(UIConstants.BarUnfilledColor)
-            .ShowLabel().ShowValue().WithValueFormat("F1")
-            .WithMargin(1, 0, 1, 0)
-            .WithSmoothGradient(c1, c2, c3)
-            .Build();
-    }
-
-    private static BarGraphControl BuildMetricsBarMarginRightBottom(string name, string label, int labelWidth, Color c1, Color c2, Color c3)
-    {
-        return new BarGraphBuilder()
-            .WithName(name).WithLabel(label).WithLabelWidth(labelWidth)
-            .WithValue(0).WithMaxValue(100).WithBarWidth(UIConstants.MetricsBarWidth)
-            .WithUnfilledColor(UIConstants.BarUnfilledColor)
-            .ShowLabel().ShowValue().WithValueFormat("F1")
-            .WithMargin(1, 0, 1, 1)
-            .WithSmoothGradient(c1, c2, c3)
-            .Build();
-    }
-
-    private static BarGraphControl BuildMetricsBarMarginRight(string name, string label, int labelWidth, string gradient)
-    {
-        return new BarGraphBuilder()
-            .WithName(name).WithLabel(label).WithLabelWidth(labelWidth)
-            .WithValue(0).WithMaxValue(100).WithBarWidth(UIConstants.MetricsBarWidth)
-            .WithUnfilledColor(UIConstants.BarUnfilledColor)
-            .ShowLabel().ShowValue().WithValueFormat("F1")
-            .WithMargin(1, 0, 1, 0)
-            .WithSmoothGradient(gradient)
-            .Build();
-    }
-
-    private static BarGraphControl BuildMetricsBarMarginRightBottom(string name, string label, int labelWidth, string gradient)
-    {
-        return new BarGraphBuilder()
-            .WithName(name).WithLabel(label).WithLabelWidth(labelWidth)
-            .WithValue(0).WithMaxValue(100).WithBarWidth(UIConstants.MetricsBarWidth)
-            .WithUnfilledColor(UIConstants.BarUnfilledColor)
-            .ShowLabel().ShowValue().WithValueFormat("F1")
-            .WithMargin(1, 0, 1, 1)
-            .WithSmoothGradient(gradient)
-            .Build();
     }
 
     #endregion
@@ -256,7 +207,32 @@ internal sealed class DashboardWindow
             builder = builder.AddTab(tab.Name, tab.BuildPanel(initialSnapshot, mainWindow.Width));
 
         _tabControl = builder.Build();
-        _tabControl.BackgroundColor = UIConstants.WindowBackground;
+        _tabControl.BackgroundColor = UIConstants.BaseBg;
+        _tabControl.TabChanged += (sender, e) =>
+        {
+            _windowSystem.Animations.Animate(
+                1.0f, 0.0f,
+                TimeSpan.FromMilliseconds(UIConstants.TabCrossfadeMs),
+                easing: EasingFunctions.EaseInOut,
+                onUpdate: intensity =>
+                {
+                    mainWindow.PostBufferPaint -= _tabFadeHandler;
+                    _tabFadeHandler = (buffer, dirty, clip) =>
+                    {
+                        if (_tabControl is { ActualWidth: > 0 })
+                        {
+                            var rect = new LayoutRect(_tabControl.ActualX, _tabControl.ActualY, _tabControl.ActualWidth, _tabControl.ActualHeight);
+                            ColorBlendHelper.ApplyColorOverlay(buffer, Color.Black, intensity, 0.5f, rect);
+                        }
+                    };
+                    mainWindow.PostBufferPaint += _tabFadeHandler;
+                },
+                onComplete: () =>
+                {
+                    mainWindow.PostBufferPaint -= _tabFadeHandler;
+                    _tabFadeHandler = null;
+                });
+        };
         mainWindow.AddControl(_tabControl);
 
         if (_tabs.FirstOrDefault(t => t is ProcessTab) is ProcessTab processTab)
@@ -289,29 +265,43 @@ internal sealed class DashboardWindow
 
     private void BuildBottomStatusBar(Window mainWindow)
     {
-        mainWindow.AddControl(Controls.RuleBuilder().StickyBottom().WithColor(UIConstants.RuleColor).Build());
+        mainWindow.AddControl(Controls.RuleBuilder().StickyBottom().WithColor(UIConstants.SeparatorColor).Build());
 
         var bottomStatusBar = Controls.HorizontalGrid()
             .StickyBottom()
             .WithAlignment(HorizontalAlignment.Stretch)
             .Column(col =>
                 col.Add(Controls.Markup()
-                    .AddLine("[grey70]F1-F5/←→: Tabs • S: Sort • Tab: Navigate • F10/ESC: Exit[/]")
+                    .AddLine(GetContextualKeybinds())
                     .WithAlignment(HorizontalAlignment.Left)
                     .WithMargin(1, 0, 0, 0)
+                    .WithName("actionBarKeybinds")
                     .Build()))
             .Column(col =>
                 col.Add(Controls.Markup(
-                        "[grey70]CPU [cyan1]0.0%[/] • MEM [cyan1]0.0%[/] • NET ↑[cyan1]0.0[/]/↓[cyan1]0.0[/] MB/s[/]")
+                        $"[{UIConstants.MutedText.ToMarkup()}]CPU [{UIConstants.Accent.ToMarkup()}]0.0%[/] • MEM [{UIConstants.Accent.ToMarkup()}]0.0%[/] • NET ↑[{UIConstants.Accent.ToMarkup()}]0.0[/]/↓[{UIConstants.Accent.ToMarkup()}]0.0[/] MB/s[/]")
                     .WithAlignment(HorizontalAlignment.Right)
                     .WithMargin(0, 0, 1, 0)
                     .WithName("statsLegend")
                     .Build()))
             .Build();
 
-        bottomStatusBar.BackgroundColor = UIConstants.StatusBarBackground;
-        bottomStatusBar.ForegroundColor = UIConstants.BottomBarForeground;
+        bottomStatusBar.BackgroundColor = UIConstants.HeaderBg;
+        bottomStatusBar.ForegroundColor = UIConstants.MutedText;
         mainWindow.AddControl(bottomStatusBar);
+    }
+
+    private string GetContextualKeybinds()
+    {
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+        int activeTab = _tabControl?.ActiveTabIndex ?? 0;
+        var tab = _tabs.ElementAtOrDefault(activeTab);
+
+        if (tab is ProcessTab)
+            return $"[{accent}]Tab[/][{muted}] region[/] [{accent}]Enter[/][{muted}] select[/] [{accent}]S[/][{muted}] sort[/] [{accent}]/[/][{muted}] search[/] [{accent}]F1-F5[/][{muted}] tabs[/] [{accent}]F10[/][{muted}] exit[/]";
+
+        return $"[{accent}]F1-F5[/][{muted}] tabs[/] [{accent}]F10/ESC[/][{muted}] exit[/]";
     }
 
     #endregion
@@ -369,37 +359,44 @@ internal sealed class DashboardWindow
         if (clock != null)
         {
             var timeStr = DateTime.Now.ToString("HH:mm:ss");
-            clock.SetContent(new List<string> { $"[grey70]{timeStr}[/]" });
+            clock.SetContent(new List<string> { $"[{UIConstants.MutedText.ToMarkup()}]{timeStr}[/]" });
         }
     }
 
-    private static void UpdateMetricsBars(Window window, SystemSnapshot snapshot)
+    private void UpdateMetricsBars(Window window, SystemSnapshot snapshot)
     {
-        var cpuUserBar = window.FindControl<BarGraphControl>("cpuUserBar");
-        if (cpuUserBar != null) cpuUserBar.Value = snapshot.Cpu.User;
-
-        var cpuSystemBar = window.FindControl<BarGraphControl>("cpuSystemBar");
-        if (cpuSystemBar != null) cpuSystemBar.Value = snapshot.Cpu.System;
-
-        var cpuIoWaitBar = window.FindControl<BarGraphControl>("cpuIoWaitBar");
-        if (cpuIoWaitBar != null) cpuIoWaitBar.Value = snapshot.Cpu.IoWait;
+        AnimateBar(window, "cpuUserBar", snapshot.Cpu.User);
+        AnimateBar(window, "cpuSystemBar", snapshot.Cpu.System);
+        AnimateBar(window, "cpuIoWaitBar", snapshot.Cpu.IoWait);
 
         var ioScaled = Math.Min(100, Math.Max(snapshot.Network.UpMbps, snapshot.Network.DownMbps));
+        AnimateBar(window, "memUsedBar", snapshot.Memory.UsedPercent);
+        AnimateBar(window, "memCachedBar", snapshot.Memory.CachedPercent);
+        AnimateBar(window, "memIoBar", Math.Min(100, ioScaled));
 
-        var memUsedBar = window.FindControl<BarGraphControl>("memUsedBar");
-        if (memUsedBar != null) memUsedBar.Value = snapshot.Memory.UsedPercent;
+        AnimateBar(window, "netUploadBar", snapshot.Network.UpMbps);
+        AnimateBar(window, "netDownloadBar", snapshot.Network.DownMbps);
+    }
 
-        var memCachedBar = window.FindControl<BarGraphControl>("memCachedBar");
-        if (memCachedBar != null) memCachedBar.Value = snapshot.Memory.CachedPercent;
+    private void AnimateBar(Window window, string name, double newValue)
+    {
+        var bar = window.FindControl<BarGraphControl>(name);
+        if (bar == null) return;
 
-        var memIoBar = window.FindControl<BarGraphControl>("memIoBar");
-        if (memIoBar != null) memIoBar.Value = Math.Min(100, ioScaled);
+        _lastBarValues.TryGetValue(name, out var oldValue);
+        _lastBarValues[name] = newValue;
 
-        var netUploadBar = window.FindControl<BarGraphControl>("netUploadBar");
-        if (netUploadBar != null) netUploadBar.Value = snapshot.Network.UpMbps;
+        if (Math.Abs(oldValue - newValue) < 0.1)
+        {
+            bar.Value = newValue;
+            return;
+        }
 
-        var netDownloadBar = window.FindControl<BarGraphControl>("netDownloadBar");
-        if (netDownloadBar != null) netDownloadBar.Value = snapshot.Network.DownMbps;
+        _windowSystem.Animations.Animate(
+            (float)oldValue, (float)newValue,
+            TimeSpan.FromMilliseconds(UIConstants.BarAnimationMs),
+            easing: EasingFunctions.EaseOut,
+            onUpdate: v => bar.Value = v);
     }
 
     private void UpdateActiveTab(SystemSnapshot snapshot)
@@ -410,7 +407,7 @@ internal sealed class DashboardWindow
             _tabs[i].UpdatePanel(snapshot);
     }
 
-    private static void UpdateBottomStats(Window window, SystemSnapshot snapshot)
+    private void UpdateBottomStats(Window window, SystemSnapshot snapshot)
     {
         var statsLegend = window.FindControl<MarkupControl>("statsLegend");
         if (statsLegend != null)
@@ -418,11 +415,16 @@ internal sealed class DashboardWindow
             var totalCpu = snapshot.Cpu.User + snapshot.Cpu.System;
             var cpuColor = UIConstants.ThresholdColor(totalCpu);
             var memColor = UIConstants.ThresholdColor(snapshot.Memory.UsedPercent);
+            var muted = UIConstants.MutedText.ToMarkup();
+            var accent = UIConstants.Accent.ToMarkup();
             statsLegend.SetContent(new List<string>
             {
-                $"[grey70]CPU [{cpuColor}]{totalCpu:F1}%[/] • MEM [{memColor}]{snapshot.Memory.UsedPercent:F1}%[/] • NET ↑[cyan1]{snapshot.Network.UpMbps:F1}[/]/↓[cyan1]{snapshot.Network.DownMbps:F1}[/] MB/s[/]"
+                $"[{muted}]CPU [{cpuColor}]{totalCpu:F1}%[/] • MEM [{memColor}]{snapshot.Memory.UsedPercent:F1}%[/] • NET ↑[{accent}]{snapshot.Network.UpMbps:F1}[/]/↓[{accent}]{snapshot.Network.DownMbps:F1}[/] MB/s[/]"
             });
         }
+
+        var keybinds = window.FindControl<MarkupControl>("actionBarKeybinds");
+        keybinds?.SetContent(new List<string> { GetContextualKeybinds() });
     }
 
     private void UpdateActionButton(Window window, SystemSnapshot snapshot)

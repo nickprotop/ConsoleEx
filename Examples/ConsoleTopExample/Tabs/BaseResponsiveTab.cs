@@ -114,8 +114,8 @@ internal abstract class BaseResponsiveTab : ITab
             })
             .Build();
 
-        grid.BackgroundColor = UIConstants.WindowBackground;
-        grid.ForegroundColor = UIConstants.WindowForeground;
+        grid.BackgroundColor = UIConstants.BaseBg;
+        grid.ForegroundColor = UIConstants.PrimaryText;
         return grid;
     }
 
@@ -140,8 +140,8 @@ internal abstract class BaseResponsiveTab : ITab
             })
             .Build();
 
-        grid.BackgroundColor = UIConstants.WindowBackground;
-        grid.ForegroundColor = UIConstants.WindowForeground;
+        grid.BackgroundColor = UIConstants.BaseBg;
+        grid.ForegroundColor = UIConstants.PrimaryText;
         return grid;
     }
 
@@ -252,9 +252,27 @@ internal abstract class BaseResponsiveTab : ITab
             .WithVerticalAlignment(VerticalAlignment.Fill)
             .WithAlignment(HorizontalAlignment.Stretch)
             .Build();
-        panel.BackgroundColor = UIConstants.WindowBackground;
-        panel.ForegroundColor = UIConstants.WindowForeground;
+        panel.BackgroundColor = UIConstants.BaseBg;
+        panel.ForegroundColor = UIConstants.PrimaryText;
         return panel;
+    }
+
+    internal static ScrollablePanelControl BuildCard(string? header = null)
+    {
+        var builder = Controls
+            .ScrollablePanel()
+            .Rounded()
+            .WithBorderColor(UIConstants.SeparatorColor)
+            .WithBackgroundColor(UIConstants.CardBg)
+            .WithPadding(1, 0, 1, 0)
+            .WithAlignment(HorizontalAlignment.Stretch);
+
+        if (header != null)
+            builder = builder.WithHeader(header);
+
+        var card = builder.Build();
+        card.ForegroundColor = UIConstants.PrimaryText;
+        return card;
     }
 
     internal static void AddMarkupLines(ScrollablePanelControl panel, List<string> lines)
@@ -269,7 +287,7 @@ internal abstract class BaseResponsiveTab : ITab
     {
         panel.AddControl(
             Controls.RuleBuilder()
-                .WithColor(UIConstants.RuleColor)
+                .WithColor(UIConstants.SeparatorColor)
                 .Build()
         );
     }
@@ -278,7 +296,7 @@ internal abstract class BaseResponsiveTab : ITab
     {
         panel.AddControl(
             Controls.RuleBuilder()
-                .WithColor(UIConstants.RuleColor)
+                .WithColor(UIConstants.SeparatorColor)
                 .Build()
         );
     }
@@ -287,7 +305,7 @@ internal abstract class BaseResponsiveTab : ITab
     {
         panel.AddControl(
             Controls.Markup()
-                .AddLine($"[grey70 bold]{title}[/]")
+                .AddLine($"[{UIConstants.MutedText.ToMarkup()} bold]{title}[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(2, 0, 2, 1)
                 .Build()

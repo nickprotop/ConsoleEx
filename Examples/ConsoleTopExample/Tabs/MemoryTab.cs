@@ -21,60 +21,201 @@ internal sealed class MemoryTab : BaseResponsiveTab
     public override string PanelControlName => "memoryPanel";
     protected override int LayoutThresholdWidth => UIConstants.MemoryLayoutThresholdWidth;
 
-    protected override List<string> BuildTextContent(SystemSnapshot snapshot)
+    protected override List<string> BuildTextContent(SystemSnapshot snapshot) => new();
+
+    #region Panel Building
+
+    public override IWindowControl BuildPanel(SystemSnapshot initialSnapshot, int windowWidth)
+    {
+        _currentLayout = windowWidth >= LayoutThresholdWidth
+            ? ResponsiveLayoutMode.Wide
+            : ResponsiveLayoutMode.Narrow;
+
+        if (_currentLayout == ResponsiveLayoutMode.Wide)
+        {
+            var grid = Controls.HorizontalGrid()
+                .WithName(PanelControlName)
+                .WithVerticalAlignment(VerticalAlignment.Fill)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 1)
+                .Visible(false)
+                .Column(col =>
+                {
+                    col.Width(UIConstants.FixedTextColumnWidth);
+                    var leftPanel = BuildScrollablePanel();
+                    BuildLeftPanelCards(leftPanel, initialSnapshot);
+                    col.Add(leftPanel);
+                })
+                .Column(col =>
+                {
+                    col.Width(UIConstants.SeparatorColumnWidth);
+                    col.Add(new SeparatorControl
+                    {
+                        ForegroundColor = UIConstants.SeparatorColor,
+                        VerticalAlignment = VerticalAlignment.Fill
+                    });
+                })
+                .Column(col =>
+                {
+                    var rightPanel = BuildScrollablePanel();
+                    BuildGraphsContent(rightPanel, initialSnapshot);
+                    col.Add(rightPanel);
+                })
+                .Build();
+
+            grid.BackgroundColor = UIConstants.BaseBg;
+            grid.ForegroundColor = UIConstants.PrimaryText;
+            return grid;
+        }
+        else
+        {
+            var grid = Controls.HorizontalGrid()
+                .WithName(PanelControlName)
+                .WithVerticalAlignment(VerticalAlignment.Fill)
+                .WithAlignment(HorizontalAlignment.Stretch)
+                .WithMargin(1, 0, 1, 1)
+                .Visible(false)
+                .Column(col =>
+                {
+                    var scrollPanel = BuildScrollablePanel();
+                    BuildLeftPanelCards(scrollPanel, initialSnapshot);
+                    AddNarrowSeparator(scrollPanel);
+                    BuildGraphsContent(scrollPanel, initialSnapshot);
+                    col.Add(scrollPanel);
+                })
+                .Build();
+
+            grid.BackgroundColor = UIConstants.BaseBg;
+            grid.ForegroundColor = UIConstants.PrimaryText;
+            return grid;
+        }
+    }
+
+    #endregion
+
+    #region Left Panel Cards
+
+    private void BuildLeftPanelCards(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
         var mem = snapshot.Memory;
+        double swapPercent = mem.SwapTotalMb > 0 ? (mem.SwapUsedMb / mem.SwapTotalMb * 100) : 0;
         var topMemProcs = snapshot.Processes
             .OrderByDescending(p => p.MemPercent)
             .Take(UIConstants.TopConsumerCount)
             .ToList();
 
-        var lines = new List<string>
-        {
-            "",
-            "[cyan1 bold]System Memory[/]",
-            "",
-            "[grey70 bold]Statistics[/]",
-            $"  [grey70]Total:[/]     [cyan1]{mem.TotalMb:F0} MB[/]",
-            $"  [grey70]Used:[/]      [cyan1]{mem.UsedMb:F0} MB[/] [grey50]({mem.UsedPercent:F1}%)[/]",
-            $"  [grey70]Available:[/] [cyan1]{mem.AvailableMb:F0} MB[/]",
-            $"  [grey70]Cached:[/]    [cyan1]{mem.CachedMb:F0} MB[/] [grey50]({mem.CachedPercent:F1}%)[/]",
-            $"  [grey70]Buffers:[/]   [cyan1]{mem.BuffersMb:F0} MB[/]",
-            "",
-            "[grey70 bold]Swap[/]",
-            $"  [grey70]Total:[/] [cyan1]{mem.SwapTotalMb:F0} MB[/]",
-            GetSwapUsedLine(mem),
-            GetSwapFreeLine(mem),
-            "",
-            "[grey70 bold]Top Memory Consumers[/]",
-        };
+        // Physical Memory card
+        var memCard = BuildCard("Physical Memory");
+        memCard.AddControl(
+            new BarGraphBuilder()
+                .WithName("leftMemUsedBar")
+                .WithLabel("Used")
+                .WithLabelWidth(UIConstants.MemoryBarLabelWidth)
+                .WithValue(mem.UsedPercent)
+                .WithMaxValue(100)
+                .WithBarWidth(UIConstants.TabBarWidth - 10)
+                .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                .ShowLabel().ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(0, 0, 0, 0)
+                .WithSmoothGradient(UIConstants.GradientHealthy)
+                .Build()
+        );
+        memCard.AddControl(
+            Controls.Markup()
+                .WithName("memCardStats")
+                .AddLine(BuildMemCardStatsContent(mem))
+                .WithAlignment(HorizontalAlignment.Left)
+                .Build()
+        );
+        panel.AddControl(memCard);
 
-        foreach (var p in topMemProcs)
-            lines.Add($"  [cyan1]{p.MemPercent,5:F1}%[/]  [grey70]{p.Pid,6}[/]  {p.Command}");
+        // Swap card
+        var swapCard = BuildCard("Swap");
+        swapCard.AddControl(
+            new BarGraphBuilder()
+                .WithName("leftSwapBar")
+                .WithLabel("Used")
+                .WithLabelWidth(UIConstants.MemoryBarLabelWidth)
+                .WithValue(swapPercent)
+                .WithMaxValue(100)
+                .WithBarWidth(UIConstants.TabBarWidth - 10)
+                .WithUnfilledColor(UIConstants.BarUnfilledColor)
+                .ShowLabel().ShowValue()
+                .WithValueFormat("F1")
+                .WithMargin(0, 0, 0, 0)
+                .WithSmoothGradient(UIConstants.GradientIoWrite)
+                .Build()
+        );
+        swapCard.AddControl(
+            Controls.Markup()
+                .WithName("swapCardStats")
+                .AddLine(BuildSwapCardStatsContent(mem))
+                .WithAlignment(HorizontalAlignment.Left)
+                .Build()
+        );
+        panel.AddControl(swapCard);
 
-        return lines;
+        // Top Memory Consumers card
+        var consumersCard = BuildCard("Top Memory Consumers");
+        consumersCard.AddControl(
+            Controls.Markup()
+                .WithName("memTopConsumers")
+                .AddLine(BuildTopConsumersContent(topMemProcs))
+                .WithAlignment(HorizontalAlignment.Left)
+                .Build()
+        );
+        panel.AddControl(consumersCard);
     }
 
-    private static string GetSwapUsedLine(MemorySample mem)
+    private static string BuildMemCardStatsContent(MemorySample mem)
     {
-        if (mem.SwapTotalMb <= 0)
-            return "  [grey70]Used:[/]  [grey50]N/A[/]";
-        var pct = mem.SwapUsedMb / mem.SwapTotalMb * 100;
-        var color = pct > 0 ? UIConstants.ThresholdColor(pct) : "cyan1";
-        return $"  [grey70]Used:[/]  [{color}]{mem.SwapUsedMb:F0} MB ({pct:F0}%)[/]";
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+        return $"  [{muted}]Total:[/]     [{accent}]{mem.TotalMb:F0} MB[/]\n" +
+               $"  [{muted}]Used:[/]      [{accent}]{mem.UsedMb:F0} MB[/] [{muted}]({mem.UsedPercent:F1}%)[/]\n" +
+               $"  [{muted}]Available:[/] [{accent}]{mem.AvailableMb:F0} MB[/]\n" +
+               $"  [{muted}]Cached:[/]    [{accent}]{mem.CachedMb:F0} MB[/] [{muted}]({mem.CachedPercent:F1}%)[/]\n" +
+               $"  [{muted}]Buffers:[/]   [{accent}]{mem.BuffersMb:F0} MB[/]";
     }
 
-    private static string GetSwapFreeLine(MemorySample mem) =>
-        $"  [grey70]Free:[/]  [cyan1]{mem.SwapFreeMb:F0} MB[/]";
+    private static string BuildSwapCardStatsContent(MemorySample mem)
+    {
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+        if (mem.SwapTotalMb <= 0)
+            return $"  [{muted}]No swap configured[/]";
+
+        var pct = mem.SwapUsedMb / mem.SwapTotalMb * 100;
+        return $"  [{muted}]Total:[/] [{accent}]{mem.SwapTotalMb:F0} MB[/]\n" +
+               $"  [{muted}]Used:[/]  [{accent}]{mem.SwapUsedMb:F0} MB[/] [{muted}]({pct:F0}%)[/]\n" +
+               $"  [{muted}]Free:[/]  [{accent}]{mem.SwapFreeMb:F0} MB[/]";
+    }
+
+    private static string BuildTopConsumersContent(List<ProcessSample> topMemProcs)
+    {
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
+        var lines = new List<string>();
+        foreach (var p in topMemProcs)
+            lines.Add($"  [{accent}]{p.MemPercent,5:F1}%[/]  [{muted}]{p.Pid,6}[/]  {p.Command}");
+        return string.Join("\n", lines);
+    }
+
+    #endregion
+
+    #region Graphs
 
     protected override void BuildGraphsContent(ScrollablePanelControl panel, SystemSnapshot snapshot)
     {
         var mem = snapshot.Memory;
+        var accent = UIConstants.Accent.ToMarkup();
+        var muted = UIConstants.MutedText.ToMarkup();
 
         panel.AddControl(
             Controls.Markup()
                 .AddLine("")
-                .AddLine("[cyan1 bold]═══ Memory Visualization ═══[/]")
+                .AddLine($"[{accent} bold]=== Memory Visualization ===[/]")
                 .AddLine("")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(2, 0, 2, 0)
@@ -83,7 +224,7 @@ internal sealed class MemoryTab : BaseResponsiveTab
 
         panel.AddControl(
             Controls.Markup()
-                .AddLine("[grey70 bold]Current Usage[/]")
+                .AddLine($"[{muted} bold]Current Usage[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(2, 0, 2, 0)
                 .Build()
@@ -102,7 +243,7 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithSmoothGradient(Color.Green, Color.Yellow, Color.Orange1, Color.Red)
+                .WithSmoothGradient(UIConstants.GradientHealthy)
                 .Build()
         );
 
@@ -120,7 +261,7 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 0)
-                .WithSmoothGradient(Color.Red, Color.Orange1, Color.Yellow, Color.Green)
+                .WithSmoothGradient(UIConstants.GradientBaseHealthy)
                 .Build()
         );
 
@@ -138,7 +279,7 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .ShowValue()
                 .WithValueFormat("F1")
                 .WithMargin(2, 0, 2, 2)
-                .WithSmoothGradient("warm")
+                .WithSmoothGradient(UIConstants.GradientIoWrite)
                 .Build()
         );
 
@@ -146,7 +287,7 @@ internal sealed class MemoryTab : BaseResponsiveTab
 
         panel.AddControl(
             Controls.Markup()
-                .AddLine("[grey70 bold]Historical Trends[/]")
+                .AddLine($"[{muted} bold]Historical Trends[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(2, 0, 2, 1)
                 .Build()
@@ -156,14 +297,14 @@ internal sealed class MemoryTab : BaseResponsiveTab
             new SparklineBuilder()
                 .WithName("memoryUsedSparkline")
                 .WithTitle("Memory Used %")
-                .WithTitleColor(Color.Cyan1)
+                .WithTitleColor(UIConstants.Accent)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.SparklineHeight)
                 .WithMaxValue(100)
-                .WithGradient("cool")
-                .WithBackgroundColor(UIConstants.SparklineBackground)
+                .WithGradient(UIConstants.SparkMemUsed)
+                .WithBackgroundColor(UIConstants.PanelBg)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Block)
+                .WithMode(SparklineMode.Braille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -175,14 +316,14 @@ internal sealed class MemoryTab : BaseResponsiveTab
             new SparklineBuilder()
                 .WithName("memoryCachedSparkline")
                 .WithTitle("Memory Cached %")
-                .WithTitleColor(Color.Yellow)
+                .WithTitleColor(UIConstants.AccentSecondary)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.SparklineHeight)
                 .WithMaxValue(100)
-                .WithGradient(Color.Yellow, Color.Orange1)
-                .WithBackgroundColor(UIConstants.SparklineBackground)
+                .WithGradient(UIConstants.SparkMemCached)
+                .WithBackgroundColor(UIConstants.PanelBg)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Block)
+                .WithMode(SparklineMode.Braille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -194,14 +335,14 @@ internal sealed class MemoryTab : BaseResponsiveTab
             new SparklineBuilder()
                 .WithName("memoryFreeSparkline")
                 .WithTitle("Memory Available %")
-                .WithTitleColor(Color.Green)
+                .WithTitleColor(UIConstants.Normal)
                 .WithTitlePosition(TitlePosition.Bottom)
                 .WithHeight(UIConstants.SparklineHeight)
                 .WithMaxValue(100)
-                .WithGradient(Color.Blue, Color.Green)
-                .WithBackgroundColor(UIConstants.SparklineBackground)
+                .WithGradient(UIConstants.SparkMemAvailable)
+                .WithBackgroundColor(UIConstants.PanelBg)
                 .WithBorder(BorderStyle.None)
-                .WithMode(SparklineMode.Block)
+                .WithMode(SparklineMode.Braille)
                 .WithBaseline(true, position: TitlePosition.Bottom)
                 .WithInlineTitleBaseline(true)
                 .WithMargin(2, 0, 1, 0)
@@ -209,6 +350,10 @@ internal sealed class MemoryTab : BaseResponsiveTab
                 .Build()
         );
     }
+
+    #endregion
+
+    #region Update
 
     protected override void UpdateHistory(SystemSnapshot snapshot)
     {
@@ -253,4 +398,97 @@ internal sealed class MemoryTab : BaseResponsiveTab
         var freeSparkline = rightPanel.Children.FirstOrDefault(c => c.Name == "memoryFreeSparkline") as SparklineControl;
         freeSparkline?.SetDataPoints(_availableHistory.DataMutable);
     }
+
+    protected override void UpdateLeftColumnText(HorizontalGridControl grid, SystemSnapshot snapshot)
+    {
+        var mem = snapshot.Memory;
+        double swapPercent = mem.SwapTotalMb > 0 ? (mem.SwapUsedMb / mem.SwapTotalMb * 100) : 0;
+        var topMemProcs = snapshot.Processes
+            .OrderByDescending(p => p.MemPercent)
+            .Take(UIConstants.TopConsumerCount)
+            .ToList();
+
+        var memStats = FindMainWindow()?.FindControl<MarkupControl>("memCardStats");
+        memStats?.SetContent(new List<string> { BuildMemCardStatsContent(mem) });
+
+        var memBar = FindMainWindow()?.FindControl<BarGraphControl>("leftMemUsedBar");
+        if (memBar != null)
+            memBar.Value = mem.UsedPercent;
+
+        var swapStats = FindMainWindow()?.FindControl<MarkupControl>("swapCardStats");
+        swapStats?.SetContent(new List<string> { BuildSwapCardStatsContent(mem) });
+
+        var swapBar = FindMainWindow()?.FindControl<BarGraphControl>("leftSwapBar");
+        if (swapBar != null)
+            swapBar.Value = swapPercent;
+
+        var consumers = FindMainWindow()?.FindControl<MarkupControl>("memTopConsumers");
+        consumers?.SetContent(new List<string> { BuildTopConsumersContent(topMemProcs) });
+    }
+
+    public new void HandleResize(int newWidth, int newHeight)
+    {
+        var grid = FindMainWindow()?.FindControl<HorizontalGridControl>(PanelControlName);
+        if (grid == null || !grid.Visible)
+            return;
+
+        var desired = newWidth >= LayoutThresholdWidth
+            ? ResponsiveLayoutMode.Wide
+            : ResponsiveLayoutMode.Narrow;
+
+        if (desired == _currentLayout)
+            return;
+
+        _currentLayout = desired;
+        RebuildCardColumns(grid);
+    }
+
+    private void RebuildCardColumns(HorizontalGridControl grid)
+    {
+        var snapshot = Stats.ReadSnapshot();
+
+        for (int i = grid.Columns.Count - 1; i >= 0; i--)
+            grid.RemoveColumn(grid.Columns[i]);
+
+        if (_currentLayout == ResponsiveLayoutMode.Wide)
+        {
+            var leftPanel = BuildScrollablePanel();
+            BuildLeftPanelCards(leftPanel, snapshot);
+
+            var leftCol = new ColumnContainer(grid) { Width = UIConstants.FixedTextColumnWidth };
+            leftCol.AddContent(leftPanel);
+            grid.AddColumn(leftCol);
+
+            var sepCol = new ColumnContainer(grid) { Width = UIConstants.SeparatorColumnWidth };
+            sepCol.AddContent(new SeparatorControl
+            {
+                ForegroundColor = UIConstants.SeparatorColor,
+                VerticalAlignment = VerticalAlignment.Fill
+            });
+            grid.AddColumn(sepCol);
+
+            var rightPanel = BuildScrollablePanel();
+            BuildGraphsContent(rightPanel, snapshot);
+
+            var rightCol = new ColumnContainer(grid);
+            rightCol.AddContent(rightPanel);
+            grid.AddColumn(rightCol);
+        }
+        else
+        {
+            var scrollPanel = BuildScrollablePanel();
+            BuildLeftPanelCards(scrollPanel, snapshot);
+            AddNarrowSeparator(scrollPanel);
+            BuildGraphsContent(scrollPanel, snapshot);
+
+            var col = new ColumnContainer(grid);
+            col.AddContent(scrollPanel);
+            grid.AddColumn(col);
+        }
+
+        FindMainWindow()?.ForceRebuildLayout();
+        FindMainWindow()?.Invalidate(true);
+    }
+
+    #endregion
 }
