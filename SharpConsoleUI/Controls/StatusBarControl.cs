@@ -630,7 +630,7 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 	/// <inheritdoc/>
 	public bool ProcessMouseEvent(MouseEventArgs args)
 	{
-		if (!args.HasAnyFlag(Drivers.MouseFlags.Button1Clicked, Drivers.MouseFlags.Button1Pressed))
+		if (!args.HasAnyFlag(Drivers.MouseFlags.Button1Clicked))
 			return false;
 
 		int absX = args.Position.X + ActualX;
