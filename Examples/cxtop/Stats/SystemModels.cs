@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-namespace ConsoleTopExample.Stats;
+namespace cxtop.Stats;
 
 /// <summary>
 /// Per-core CPU usage statistics

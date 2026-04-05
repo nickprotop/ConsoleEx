@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using ConsoleTopExample.Helpers;
-using ConsoleTopExample.Stats;
+using cxtop.Helpers;
+using cxtop.Stats;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -10,7 +10,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
-namespace ConsoleTopExample.Tabs;
+namespace cxtop.Tabs;
 
 internal enum ProcessSortMode { Cpu, Memory, Pid, Name }
 

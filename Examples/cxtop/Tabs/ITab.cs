@@ -1,7 +1,7 @@
-using ConsoleTopExample.Stats;
+using cxtop.Stats;
 using SharpConsoleUI.Controls;
 
-namespace ConsoleTopExample.Tabs;
+namespace cxtop.Tabs;
 
 internal interface ITab
 {

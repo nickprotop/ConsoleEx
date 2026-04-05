@@ -1,6 +1,6 @@
 using SharpConsoleUI;
 
-namespace ConsoleTopExample.Helpers;
+namespace cxtop.Helpers;
 
 internal static class UIConstants
 {

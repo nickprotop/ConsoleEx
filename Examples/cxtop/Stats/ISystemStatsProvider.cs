@@ -6,7 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-namespace ConsoleTopExample.Stats;
+namespace cxtop.Stats;
 
 /// <summary>
 /// Platform-independent interface for collecting system statistics.

@@ -8,7 +8,7 @@
 
 using System.Globalization;
 
-namespace ConsoleTopExample.Stats;
+namespace cxtop.Stats;
 
 /// <summary>
 /// Linux-specific implementation of system statistics collection.

@@ -11,7 +11,7 @@ using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
-namespace ConsoleTopExample.Stats;
+namespace cxtop.Stats;
 
 /// <summary>
 /// Windows-specific implementation of system statistics collection.

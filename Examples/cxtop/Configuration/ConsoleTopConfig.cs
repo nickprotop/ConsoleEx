@@ -1,4 +1,4 @@
-namespace ConsoleTopExample.Configuration;
+namespace cxtop.Configuration;
 
 internal sealed record ConsoleTopConfig
 {

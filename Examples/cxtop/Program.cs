@@ -1,18 +1,18 @@
 // -----------------------------------------------------------------------
-// ConsoleTopExample - ntop/btop-inspired live dashboard
+// cxtop - ntop/btop-inspired live dashboard
 // Demonstrates full-screen window with Spectre renderables and SharpConsoleUI controls
 // Modernized with AgentStudio aesthetics and simplified UX
 // -----------------------------------------------------------------------
 
-using ConsoleTopExample.Configuration;
-using ConsoleTopExample.Dashboard;
-using ConsoleTopExample.Stats;
+using cxtop.Configuration;
+using cxtop.Dashboard;
+using cxtop.Stats;
 using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 
-namespace ConsoleTopExample;
+namespace cxtop;
 
 internal class Program
 {
@@ -42,9 +42,9 @@ internal class Program
             var dashboard = new DashboardWindow(windowSystem, stats, config);
             dashboard.Create();
 
-            windowSystem.LogService.LogInfo("Starting ConsoleTopExample");
+            windowSystem.LogService.LogInfo("Starting cxtop");
             await Task.Run(() => windowSystem.Run());
-            windowSystem.LogService.LogInfo("ConsoleTopExample stopped");
+            windowSystem.LogService.LogInfo("cxtop stopped");
             return 0;
         }
         catch (Exception ex)

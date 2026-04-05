@@ -8,7 +8,7 @@
 
 using System.Runtime.InteropServices;
 
-namespace ConsoleTopExample.Stats;
+namespace cxtop.Stats;
 
 /// <summary>
 /// Factory for creating platform-specific system statistics providers.

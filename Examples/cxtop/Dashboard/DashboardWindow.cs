@@ -1,7 +1,7 @@
-using ConsoleTopExample.Configuration;
-using ConsoleTopExample.Helpers;
-using ConsoleTopExample.Stats;
-using ConsoleTopExample.Tabs;
+using cxtop.Configuration;
+using cxtop.Helpers;
+using cxtop.Stats;
+using cxtop.Tabs;
 using SharpConsoleUI;
 using SharpConsoleUI.Animation;
 using SharpConsoleUI.Builders;
@@ -11,7 +11,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Rendering;
 
-namespace ConsoleTopExample.Dashboard;
+namespace cxtop.Dashboard;
 
 internal sealed class DashboardWindow
 {

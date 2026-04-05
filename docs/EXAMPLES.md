@@ -211,7 +211,7 @@ Five zones demonstrate every level of the alpha pipeline against a continuously 
 
 ---
 
-### ConsoleTopExample
+### cxtop
 ntop/btop-inspired live system monitoring dashboard.
 
 | Processes | Memory | CPU |
@@ -223,7 +223,7 @@ ntop/btop-inspired live system monitoring dashboard.
 | ![Network](images/examples/consoletop-network.png) | ![Storage](images/examples/consoletop-storage.png) |
 
 ```bash
-dotnet run --project Examples/ConsoleTopExample
+dotnet run --project Examples/cxtop
 ```
 
 **Key Features:**
@@ -494,7 +494,7 @@ These examples demonstrate specific features without full screenshots.
 | NavigationViewDemo | | | ✅ | | | |
 | CanvasDemo | ✅ | ✅ | ✅ | | | |
 | Alpha Blending Demo | ✅ | | ✅ | | | |
-| ConsoleTopExample | ✅ | | | | | |
+| cxtop | ✅ | | | | | |
 | HighFreqDemo | ✅ | | ✅ | | | |
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
 | AgentStudio | | | | | | |
@@ -527,7 +527,7 @@ These examples demonstrate specific features without full screenshots.
 | `MenuControl` | MenuDemo, HighFreqDemo |
 | `TableControl` | DemoApp, TableDemo |
 | `PanelControl` | StartMenuDemo, PanelDemo, HighFreqDemo |
-| `SparklineControl` | ConsoleTopExample, HighFreqDemo, NavigationViewDemo |
+| `SparklineControl` | cxtop, HighFreqDemo, NavigationViewDemo |
 | `LineGraphControl` | DemoApp |
 | `BarGraphControl` | HighFreqDemo, NavigationViewDemo |
 | `NavigationView` | DemoApp, NavigationViewDemo |

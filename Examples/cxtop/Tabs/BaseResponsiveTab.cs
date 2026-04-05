@@ -1,11 +1,11 @@
-using ConsoleTopExample.Helpers;
-using ConsoleTopExample.Stats;
+using cxtop.Helpers;
+using cxtop.Stats;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 
-namespace ConsoleTopExample.Tabs;
+namespace cxtop.Tabs;
 
 internal enum ResponsiveLayoutMode { Wide, Narrow }
 

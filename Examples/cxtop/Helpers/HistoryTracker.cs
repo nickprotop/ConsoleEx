@@ -1,4 +1,4 @@
-namespace ConsoleTopExample.Helpers;
+namespace cxtop.Helpers;
 
 internal sealed class HistoryTracker
 {

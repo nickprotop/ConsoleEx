@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentStudio", "Examples\Age
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompositorEffectsExample", "Examples\CompositorEffectsExample\CompositorEffectsExample.csproj", "{FCAB68F0-B3B4-43BB-9506-145FE0D02736}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleTopExample", "Examples\ConsoleTopExample\ConsoleTopExample.csproj", "{5A0FDF41-ECDA-45C3-B738-AE2822F8FE0B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cxtop", "Examples\cxtop\cxtop.csproj", "{5A0FDF41-ECDA-45C3-B738-AE2822F8FE0B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DemoApp", "Examples\DemoApp\DemoApp.csproj", "{9272729B-62ED-417E-910B-1BA3B1366A9A}"
 EndProject
