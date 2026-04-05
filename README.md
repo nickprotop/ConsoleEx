@@ -157,6 +157,20 @@ See the [schost guide](https://nickprotop.github.io/ConsoleEx/docfx/_site/SCHOST
 
 ## Built with SharpConsoleUI
 
+### CXPost — terminal email client
+
+![CXPost](docs/images/examples/cxpost-dashboard.png)
+
+Multi-account IMAP/SMTP, conversation threading, HTML rendering, attachments, offline cache.
+[github.com/nickprotop/cxpost](https://github.com/nickprotop/cxpost)
+
+### cxtop — system monitor
+
+![cxtop](docs/images/examples/cxtop-screenshot.png)
+
+ntop/btop-inspired. Hardware identity dashboard, sparkline graphs, process management. Cross-platform.
+[github.com/nickprotop/cxtop](https://github.com/nickprotop/cxtop)
+
 ### LazyDotIDE — a .NET IDE in the terminal
 
 ![LazyDotIDE with IntelliSense](docs/images/examples/lazydotide-intellisense.png)

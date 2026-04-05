@@ -211,33 +211,6 @@ Five zones demonstrate every level of the alpha pipeline against a continuously 
 
 ---
 
-### cxtop
-ntop/btop-inspired live system monitoring dashboard.
-
-| Processes | Memory | CPU |
-|-----------|--------|-----|
-| ![Processes](images/examples/consoletop-processes.png) | ![Memory](images/examples/consoletop-memory.png) | ![CPU](images/examples/consoletop-cpu.png) |
-
-| Network | Storage |
-|---------|---------|
-| ![Network](images/examples/consoletop-network.png) | ![Storage](images/examples/consoletop-storage.png) |
-
-```bash
-dotnet run --project Examples/cxtop
-```
-
-**Key Features:**
-- Full-screen maximized window
-- Real-time system stats (CPU, memory, network, disk)
-- Tab-based navigation (Processes, Memory, CPU, Network, Storage)
-- Sparkline graphs with history
-- Process list with sorting
-- Cross-platform system stats provider
-
-**Controls:** Tab keys to switch panels, arrow keys to navigate, Esc to quit
-
----
-
 ### HighFreqDemo
 Multi-frequency update showcase with various control update rates.
 
@@ -494,7 +467,6 @@ These examples demonstrate specific features without full screenshots.
 | NavigationViewDemo | | | ✅ | | | |
 | CanvasDemo | ✅ | ✅ | ✅ | | | |
 | Alpha Blending Demo | ✅ | | ✅ | | | |
-| cxtop | ✅ | | | | | |
 | HighFreqDemo | ✅ | | ✅ | | | |
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
 | AgentStudio | | | | | | |
@@ -527,7 +499,7 @@ These examples demonstrate specific features without full screenshots.
 | `MenuControl` | MenuDemo, HighFreqDemo |
 | `TableControl` | DemoApp, TableDemo |
 | `PanelControl` | StartMenuDemo, PanelDemo, HighFreqDemo |
-| `SparklineControl` | cxtop, HighFreqDemo, NavigationViewDemo |
+| `SparklineControl` | HighFreqDemo, NavigationViewDemo |
 | `LineGraphControl` | DemoApp |
 | `BarGraphControl` | HighFreqDemo, NavigationViewDemo |
 | `NavigationView` | DemoApp, NavigationViewDemo |
