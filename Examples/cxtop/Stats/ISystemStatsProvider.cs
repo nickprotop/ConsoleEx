@@ -29,4 +29,11 @@ internal interface ISystemStatsProvider
     /// <param name="pid">The process ID to read details for</param>
     /// <returns>Detailed process information, or null if process not found</returns>
     ProcessExtra? ReadProcessExtra(int pid);
+
+    /// <summary>
+    /// Reads static system identity information (CPU model, OS, etc.).
+    /// This data does not change and should be cached by callers.
+    /// </summary>
+    /// <returns>Static system information</returns>
+    SystemInfo ReadSystemInfo();
 }

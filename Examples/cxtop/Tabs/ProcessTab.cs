@@ -8,7 +8,9 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Rendering;
 
 namespace cxtop.Tabs;
 
@@ -105,17 +107,27 @@ internal sealed class ProcessTab : ITab
                 col.Add(processSortToolbar)
                    .Add(processListControl)
             )
-            .Column(col => col.Width(UIConstants.SeparatorColumnWidth))
+            .Column(col =>
+            {
+                col.Width(UIConstants.SeparatorColumnWidth);
+                col.Add(new SeparatorControl
+                {
+                    ForegroundColor = UIConstants.SeparatorColor,
+                    VerticalAlignment = VerticalAlignment.Fill
+                });
+            })
             .Column(col =>
                 col.Width(UIConstants.ProcessDetailColumnWidth)
                     .Add(
                         Controls.Toolbar()
                             .WithName("detailToolbar")
-                            .WithMargin(1, 0, 1, 1)
+                            .WithMargin(1, 1, 1, 1)
                             .WithSpacing(2)
                             .AddButton(
-                                Controls.Button("Actions...")
+                                Controls.Button("⚙ Manage")
                                     .WithWidth(UIConstants.ActionsButtonWidth)
+                                    .WithBorder(ButtonBorderStyle.Rounded)
+                                    .WithBorderColor(UIConstants.Accent)
                                     .OnClick((s, e) => ShowProcessActionsDialog())
                                     .WithName("actionButton")
                                     .Visible(false)
@@ -127,13 +139,14 @@ internal sealed class ProcessTab : ITab
                             .WithName("processDetailPanel")
                             .WithVerticalAlignment(VerticalAlignment.Fill)
                             .WithAlignment(HorizontalAlignment.Stretch)
-                            .WithMargin(2, 0, 1, 0)
+                            .WithMargin(1, 0, 1, 0)
                             .Rounded()
+                            .WithHeader("Process Details")
                             .WithBorderColor(UIConstants.SeparatorColor)
                             .WithBackgroundColor(UIConstants.CardBg)
                             .AddControl(
                                 Controls.Markup()
-                                    .AddLine($"[{UIConstants.MutedText.ToMarkup()} italic]Loading...[/]")
+                                    .AddLine($"[{UIConstants.MutedText.ToMarkup()} italic]Select a process[/]")
                                     .WithAlignment(HorizontalAlignment.Left)
                                     .WithName("processDetailContent")
                                     .Build()
@@ -208,7 +221,7 @@ internal sealed class ProcessTab : ITab
         var detailToolbar = mainWindow.FindControl<ToolbarControl>("detailToolbar");
         if (detailToolbar != null)
         {
-            detailToolbar.BackgroundColor = UIConstants.CardBg;
+            detailToolbar.BackgroundColor = Color.Transparent;
             detailToolbar.ForegroundColor = UIConstants.PrimaryText;
         }
 
@@ -218,6 +231,28 @@ internal sealed class ProcessTab : ITab
             detailPanel.BackgroundColor = UIConstants.CardBg;
             detailPanel.ForegroundColor = UIConstants.PrimaryText;
         }
+
+        // Apply bottom-fade effect on the process list
+        mainWindow.PostBufferPaint += (buffer, dirty, clip) =>
+        {
+            var processList = mainWindow.FindControl<ListControl>("processList");
+            if (processList == null || processList.ActualWidth <= 0 || processList.ActualHeight <= 0)
+                return;
+
+            const int fadeRows = 12;
+            int listBottom = processList.ActualY + processList.ActualHeight;
+            int listX = processList.ActualX;
+            int listWidth = processList.ActualWidth;
+            int startFade = Math.Max(processList.ActualY, listBottom - fadeRows);
+
+            for (int row = startFade; row < listBottom; row++)
+            {
+                float progress = (float)(row - startFade + 1) / fadeRows; // 0.17 → 1.0
+                float intensity = progress * 0.85f; // max 85% fade
+                var rect = new LayoutRect(listX, row, listWidth, 1);
+                ColorBlendHelper.ApplyColorOverlay(buffer, UIConstants.BaseBg, intensity, 1.0f, rect);
+            }
+        };
     }
 
     #endregion
@@ -375,20 +410,30 @@ internal sealed class ProcessTab : ITab
         var muted = UIConstants.MutedText.ToMarkup();
 
         var modal = new WindowBuilder(_windowSystem)
-            .WithTitle("Process Actions")
+            .WithTitle($" {liveProc.Command} (PID {liveProc.Pid}) ")
             .Centered()
             .WithSize(UIConstants.ProcessActionsModalWidth, UIConstants.ProcessActionsModalHeight)
             .AsModal()
-            .Borderless()
+            .WithBorderStyle(SharpConsoleUI.BorderStyle.Rounded)
+            .WithBorderColor(UIConstants.Accent)
             .Resizable(false)
-            .Movable(false)
+            .Movable(true)
+            .Minimizable(false)
+            .Maximizable(false)
+            .Closable(true)
             .WithColors(UIConstants.PrimaryText, UIConstants.PanelBg)
+            .WithBackgroundGradient(
+                ColorGradient.FromColors(UIConstants.BaseBg, UIConstants.BaseEnd),
+                GradientDirection.DiagonalDown)
             .Build();
+
+        var cpuColor = UIConstants.ThresholdColor(liveProc.CpuPercent);
+        var memColor = UIConstants.ThresholdColor(liveProc.MemPercent);
 
         modal.AddControl(
             Controls.Markup()
-                .AddLine($"[{accent} bold]Process {liveProc.Pid}[/]")
-                .AddLine($"[{muted}]{liveProc.Command}[/]")
+                .AddLine($"[{muted}]Executable[/]")
+                .AddLine($"  [{accent}]{extra.ExePath}[/]")
                 .WithAlignment(HorizontalAlignment.Left)
                 .WithMargin(1, 1, 1, 0)
                 .Build()
@@ -398,14 +443,12 @@ internal sealed class ProcessTab : ITab
 
         modal.AddControl(
             Controls.Markup()
-                .AddLine($"[{muted}]Executable:[/] [{accent}]{extra.ExePath}[/]")
-                .AddLine("")
-                .AddLine($"[{muted}]CPU:[/] [{accent}]{liveProc.CpuPercent:F1}%[/]  [{muted}]Memory:[/] [{accent}]{liveProc.MemPercent:F1}%[/]")
-                .AddLine($"[{muted}]State:[/] [{accent}]{extra.State}[/]  [{muted}]Threads:[/] [{accent}]{extra.Threads}[/]")
-                .AddLine($"[{muted}]RSS:[/] [{accent}]{extra.RssMb:F1} MB[/]")
-                .AddLine($"[{muted}]I/O:[/] [{accent}]R:{extra.ReadKb:F0} / W:{extra.WriteKb:F0} KB/s[/]")
+                .AddLine($"[{muted}]CPU[/]     [{cpuColor}]{liveProc.CpuPercent:F1}%[/]     [{muted}]Memory[/]  [{memColor}]{liveProc.MemPercent:F1}%[/]")
+                .AddLine($"[{muted}]State[/]   [{accent}]{extra.State}[/]     [{muted}]Threads[/] [{accent}]{extra.Threads}[/]")
+                .AddLine($"[{muted}]RSS[/]     [{accent}]{extra.RssMb:F1} MB[/]")
+                .AddLine($"[{muted}]I/O[/]     [{accent}]R: {extra.ReadKb:F0} KB/s[/]  [{accent}]W: {extra.WriteKb:F0} KB/s[/]")
                 .WithAlignment(HorizontalAlignment.Left)
-                .WithMargin(1, 1, 1, 1)
+                .WithMargin(1, 1, 1, 0)
                 .Build()
         );
 
@@ -417,31 +460,68 @@ internal sealed class ProcessTab : ITab
 
         if (isWindows)
         {
-            var terminateButton = new ButtonControl { Text = "Terminate", Width = UIConstants.TerminateButtonWidth };
-            terminateButton.Click += (_, _) => { TryTerminateProcess(liveProc.Pid, liveProc.Command); modal.Close(); };
+            var terminateButton = Controls.Button("Terminate")
+                .WithWidth(UIConstants.TerminateButtonWidth)
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .WithBorderColor(UIConstants.Warning)
+                .WithBackgroundColor(Color.Transparent)
+                .WithBorderBackgroundColor(Color.Transparent)
+                .OnClick((s, e) => { TryTerminateProcess(liveProc.Pid, liveProc.Command); modal.Close(); })
+                .Build();
 
-            var forceKillButton = new ButtonControl { Text = "Force Kill", Width = UIConstants.ForceKillButtonWidth };
-            forceKillButton.Click += (_, _) => { TryKillProcess(liveProc.Pid, liveProc.Command); modal.Close(); };
+            var forceKillButton = Controls.Button("Force Kill")
+                .WithWidth(UIConstants.ForceKillButtonWidth)
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .WithBorderColor(UIConstants.Critical)
+                .WithBackgroundColor(Color.Transparent)
+                .WithBorderBackgroundColor(Color.Transparent)
+                .OnClick((s, e) => { TryKillProcess(liveProc.Pid, liveProc.Command); modal.Close(); })
+                .Build();
 
-            closeButton = new ButtonControl { Text = "Close", Width = UIConstants.CloseButtonWidth };
-            closeButton.Click += (_, _) => modal.Close();
+            closeButton = Controls.Button("Close")
+                .WithWidth(UIConstants.CloseButtonWidth)
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .WithBorderColor(UIConstants.SeparatorColor)
+                .WithBackgroundColor(Color.Transparent)
+                .WithBorderBackgroundColor(Color.Transparent)
+                .OnClick((s, e) => modal.Close())
+                .Build();
 
             buttonRow = HorizontalGridControl.ButtonRow(terminateButton, forceKillButton, closeButton);
         }
         else
         {
-            var sigtermButton = new ButtonControl { Text = "SIGTERM", Width = UIConstants.SigtermButtonWidth };
-            sigtermButton.Click += (_, _) => { TryTerminateProcess(liveProc.Pid, liveProc.Command); modal.Close(); };
+            var sigtermButton = Controls.Button("SIGTERM")
+                .WithWidth(UIConstants.SigtermButtonWidth)
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .WithBorderColor(UIConstants.Warning)
+                .WithBackgroundColor(Color.Transparent)
+                .WithBorderBackgroundColor(Color.Transparent)
+                .OnClick((s, e) => { TryTerminateProcess(liveProc.Pid, liveProc.Command); modal.Close(); })
+                .Build();
 
-            var sigkillButton = new ButtonControl { Text = "SIGKILL", Width = UIConstants.SigkillButtonWidth };
-            sigkillButton.Click += (_, _) => { TryKillProcess(liveProc.Pid, liveProc.Command); modal.Close(); };
+            var sigkillButton = Controls.Button("SIGKILL")
+                .WithWidth(UIConstants.SigkillButtonWidth)
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .WithBorderColor(UIConstants.Critical)
+                .WithBackgroundColor(Color.Transparent)
+                .WithBorderBackgroundColor(Color.Transparent)
+                .OnClick((s, e) => { TryKillProcess(liveProc.Pid, liveProc.Command); modal.Close(); })
+                .Build();
 
-            closeButton = new ButtonControl { Text = "Close", Width = UIConstants.CloseButtonWidth };
-            closeButton.Click += (_, _) => modal.Close();
+            closeButton = Controls.Button("Close")
+                .WithWidth(UIConstants.CloseButtonWidth)
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .WithBorderColor(UIConstants.SeparatorColor)
+                .WithBackgroundColor(Color.Transparent)
+                .WithBorderBackgroundColor(Color.Transparent)
+                .OnClick((s, e) => modal.Close())
+                .Build();
 
             buttonRow = HorizontalGridControl.ButtonRow(sigtermButton, sigkillButton, closeButton);
         }
 
+        buttonRow.Margin = new Margin(0, 1, 0, 0);
         modal.AddControl(buttonRow);
         closeButton.RequestFocus();
 

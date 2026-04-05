@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace cxtop.Stats;
 
@@ -33,7 +34,29 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
         var net = ReadNetwork();
         var storage = ReadStorage();
         var procs = ReadTopProcesses();
-        return new SystemSnapshot(cpu, mem, net, storage, procs);
+        var loadAvg = ReadLoadAverage();
+        return new SystemSnapshot(cpu, mem, net, storage, procs, loadAvg);
+    }
+
+    private static LoadAverage? ReadLoadAverage()
+    {
+        try
+        {
+            if (File.Exists("/proc/loadavg"))
+            {
+                var text = File.ReadAllText("/proc/loadavg");
+                var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 3)
+                {
+                    double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var l1);
+                    double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var l5);
+                    double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var l15);
+                    return new LoadAverage(l1, l5, l15);
+                }
+            }
+        }
+        catch { }
+        return null;
     }
 
     public ProcessExtra? ReadProcessExtra(int pid)
@@ -92,6 +115,461 @@ internal sealed class LinuxSystemStats : ISystemStatsProvider
         }
 
         return new ProcessExtra(state, threads, rssMb, readKb, writeKb, exePath);
+    }
+
+    public SystemInfo ReadSystemInfo()
+    {
+        string hostname = Environment.MachineName;
+        string osDescription = GetLinuxOsDescription();
+        string kernelVersion = GetLinuxKernelVersion();
+        string cpuModelName = GetLinuxCpuModelName();
+        string cpuArchitecture = RuntimeInformation.OSArchitecture.ToString();
+        int logicalCoreCount = Environment.ProcessorCount;
+        string dotNetRuntime = RuntimeInformation.FrameworkDescription;
+        string motherboard = ReadDmiField("/sys/devices/virtual/dmi/id/board_name");
+        string bios = ReadDmiField("/sys/devices/virtual/dmi/id/bios_version");
+        string gpu = GetLinuxGpuName();
+        string vendor = ReadDmiField("/sys/devices/virtual/dmi/id/sys_vendor");
+        string shell = Path.GetFileName(Environment.GetEnvironmentVariable("SHELL") ?? "unknown");
+        double totalRamGb = GetTotalRamGb();
+        string battery = GetLinuxBatteryStatus();
+        string audio = GetLinuxAudioDevice();
+        int usbCount = GetLinuxUsbDeviceCount();
+        string display = GetLinuxDisplayOutput();
+        string resolution = GetLinuxResolution();
+        string de = GetEnvOrEmpty("XDG_CURRENT_DESKTOP");
+        string wm = GetLinuxWindowManager();
+        string theme = GetLinuxGtkTheme();
+        string icons = GetLinuxIconTheme();
+        string terminal = GetLinuxTerminal();
+        string termFont = ""; // requires terminal-specific queries, skip
+        string locale = Environment.GetEnvironmentVariable("LANG") ?? "";
+        var (pkgCount, pkgManagers) = GetLinuxPackageCounts();
+
+        return new SystemInfo(hostname, osDescription, kernelVersion, cpuModelName,
+            cpuArchitecture, logicalCoreCount, dotNetRuntime, motherboard, bios, gpu,
+            vendor, shell, totalRamGb, battery, audio, usbCount, display,
+            resolution, de, wm, theme, icons, terminal, termFont, locale,
+            pkgCount, pkgManagers);
+    }
+
+    private static string GetEnvOrEmpty(string name)
+        => Environment.GetEnvironmentVariable(name) ?? "";
+
+    private static string GetLinuxResolution()
+    {
+        try
+        {
+            if (!Directory.Exists("/sys/class/drm")) return "";
+            var resolutions = new List<string>();
+            foreach (var dir in Directory.GetDirectories("/sys/class/drm"))
+            {
+                var statusPath = Path.Combine(dir, "status");
+                if (!File.Exists(statusPath)) continue;
+                if (File.ReadAllText(statusPath).Trim() != "connected") continue;
+
+                var modesPath = Path.Combine(dir, "modes");
+                if (!File.Exists(modesPath)) continue;
+                // First line is the preferred/current mode
+                using var reader = File.OpenText(modesPath);
+                var firstMode = reader.ReadLine()?.Trim();
+                if (!string.IsNullOrEmpty(firstMode))
+                    resolutions.Add(firstMode);
+            }
+            return resolutions.Count > 0 ? string.Join(", ", resolutions) : "";
+        }
+        catch { }
+        return "";
+    }
+
+    private static string GetLinuxWindowManager()
+    {
+        // XDG_SESSION_TYPE tells us wayland/x11, then we can check specific WM vars
+        var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE") ?? "";
+        var wmName = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") != null
+            ? "Wayland"
+            : Environment.GetEnvironmentVariable("DISPLAY") != null ? "X11" : "";
+
+        // Try to get specific WM name
+        var gdmSession = Environment.GetEnvironmentVariable("GDMSESSION") ?? "";
+        if (!string.IsNullOrEmpty(gdmSession))
+            return $"{gdmSession} ({sessionType})".Trim();
+
+        if (!string.IsNullOrEmpty(sessionType))
+            return sessionType;
+
+        return wmName;
+    }
+
+    private static string GetLinuxGtkTheme()
+    {
+        try
+        {
+            // Try GTK3 settings
+            var settingsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".config/gtk-3.0/settings.ini");
+            if (File.Exists(settingsPath))
+            {
+                foreach (var line in File.ReadLines(settingsPath))
+                {
+                    if (line.StartsWith("gtk-theme-name="))
+                        return line.Substring(15).Trim();
+                }
+            }
+
+            // Try dconf/gsettings path
+            var dconfPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".config/dconf/user");
+            // dconf is binary, skip — GTK settings.ini is the reliable text source
+        }
+        catch { }
+        return "";
+    }
+
+    private static string GetLinuxIconTheme()
+    {
+        try
+        {
+            var settingsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".config/gtk-3.0/settings.ini");
+            if (File.Exists(settingsPath))
+            {
+                foreach (var line in File.ReadLines(settingsPath))
+                {
+                    if (line.StartsWith("gtk-icon-theme-name="))
+                        return line.Substring(20).Trim();
+                }
+            }
+        }
+        catch { }
+        return "";
+    }
+
+    private static string GetLinuxTerminal()
+    {
+        // Check common terminal env vars
+        var term = Environment.GetEnvironmentVariable("TERM_PROGRAM");
+        if (!string.IsNullOrEmpty(term)) return term;
+
+        term = Environment.GetEnvironmentVariable("TERMINAL");
+        if (!string.IsNullOrEmpty(term)) return Path.GetFileName(term);
+
+        // Fallback: walk up parent processes to find terminal
+        // Or just use TERM which gives terminal type (xterm-256color etc.)
+        term = Environment.GetEnvironmentVariable("TERM") ?? "";
+        return term;
+    }
+
+    private static (int count, string managers) GetLinuxPackageCounts()
+    {
+        var parts = new List<string>();
+        int total = 0;
+
+        // dpkg (Debian/Ubuntu)
+        try
+        {
+            var dpkgDir = "/var/lib/dpkg/info";
+            if (Directory.Exists(dpkgDir))
+            {
+                var count = Directory.GetFiles(dpkgDir, "*.list").Length;
+                if (count > 0) { total += count; parts.Add($"{count} (dpkg)"); }
+            }
+        }
+        catch { }
+
+        // rpm (Fedora/RHEL)
+        try
+        {
+            var rpmDb = "/var/lib/rpm";
+            if (Directory.Exists(rpmDb))
+            {
+                // Count entries in the rpm database Packages file
+                var pkgFile = Path.Combine(rpmDb, "rpmdb.sqlite");
+                if (!File.Exists(pkgFile))
+                    pkgFile = Path.Combine(rpmDb, "Packages");
+                if (File.Exists(pkgFile))
+                {
+                    // Rough estimate — can't easily parse without librpm
+                    // Skip rpm if dpkg was found (avoid double-counting on some systems)
+                    if (parts.Count == 0)
+                        parts.Add("(rpm)");
+                }
+            }
+        }
+        catch { }
+
+        // flatpak
+        try
+        {
+            var flatpakDir = "/var/lib/flatpak/app";
+            if (Directory.Exists(flatpakDir))
+            {
+                var count = Directory.GetDirectories(flatpakDir).Length;
+                if (count > 0) { total += count; parts.Add($"{count} (flatpak)"); }
+            }
+        }
+        catch { }
+
+        // snap
+        try
+        {
+            var snapDir = "/snap";
+            if (Directory.Exists(snapDir))
+            {
+                // Each snap has a directory, exclude "bin" and "core*" meta dirs
+                var count = Directory.GetDirectories(snapDir)
+                    .Count(d => !Path.GetFileName(d).StartsWith("bin") &&
+                                !Path.GetFileName(d).StartsWith("core") &&
+                                !Path.GetFileName(d).StartsWith("bare") &&
+                                !Path.GetFileName(d).StartsWith("snapd"));
+                if (count > 0) { total += count; parts.Add($"{count} (snap)"); }
+            }
+        }
+        catch { }
+
+        return (total, string.Join(", ", parts));
+    }
+
+    private static string GetLinuxBatteryStatus()
+    {
+        try
+        {
+            // Try BAT0, BAT1, etc.
+            foreach (var dir in Directory.GetDirectories("/sys/class/power_supply/"))
+            {
+                var type = Path.Combine(dir, "type");
+                if (!File.Exists(type)) continue;
+                if (File.ReadAllText(type).Trim() != "Battery") continue;
+
+                var capacityPath = Path.Combine(dir, "capacity");
+                var statusPath = Path.Combine(dir, "status");
+                if (!File.Exists(capacityPath)) continue;
+
+                var capacity = File.ReadAllText(capacityPath).Trim();
+                var status = File.Exists(statusPath) ? File.ReadAllText(statusPath).Trim() : "Unknown";
+                return $"{capacity}% ({status})";
+            }
+        }
+        catch { }
+        return "";
+    }
+
+    private static string GetLinuxAudioDevice()
+    {
+        try
+        {
+            if (File.Exists("/proc/asound/cards"))
+            {
+                foreach (var line in File.ReadLines("/proc/asound/cards"))
+                {
+                    // Lines like " 0 [sofhdadsp     ]: sof-hda-dsp - sof-hda-dsp"
+                    var trimmed = line.Trim();
+                    if (trimmed.Length > 0 && char.IsDigit(trimmed[0]))
+                    {
+                        var dashIdx = trimmed.IndexOf(" - ");
+                        if (dashIdx >= 0 && dashIdx + 3 < trimmed.Length)
+                            return trimmed[(dashIdx + 3)..].Trim();
+                    }
+                }
+            }
+        }
+        catch { }
+        return "Unknown";
+    }
+
+    private static int GetLinuxUsbDeviceCount()
+    {
+        try
+        {
+            if (Directory.Exists("/sys/bus/usb/devices"))
+            {
+                int count = 0;
+                foreach (var dir in Directory.GetDirectories("/sys/bus/usb/devices"))
+                {
+                    // Real USB devices have a product file; hubs/root_hubs may not
+                    var productPath = Path.Combine(dir, "product");
+                    if (File.Exists(productPath))
+                        count++;
+                }
+                return count;
+            }
+        }
+        catch { }
+        return 0;
+    }
+
+    private static string GetLinuxDisplayOutput()
+    {
+        try
+        {
+            if (Directory.Exists("/sys/class/drm"))
+            {
+                var connected = new List<string>();
+                foreach (var dir in Directory.GetDirectories("/sys/class/drm"))
+                {
+                    var statusPath = Path.Combine(dir, "status");
+                    if (!File.Exists(statusPath)) continue;
+                    var status = File.ReadAllText(statusPath).Trim();
+                    if (status == "connected")
+                    {
+                        // e.g., card0-eDP-1 → eDP-1
+                        var name = Path.GetFileName(dir);
+                        var dashIdx = name.IndexOf('-');
+                        if (dashIdx >= 0 && dashIdx + 1 < name.Length)
+                            connected.Add(name[(dashIdx + 1)..]);
+                        else
+                            connected.Add(name);
+                    }
+                }
+                if (connected.Count > 0)
+                    return string.Join(", ", connected);
+            }
+        }
+        catch { }
+        return "Unknown";
+    }
+
+    private static string ReadDmiField(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                return File.ReadAllText(path).Trim();
+        }
+        catch { }
+        return "Unknown";
+    }
+
+    private static string GetLinuxGpuName()
+    {
+        try
+        {
+            // Try label first (some drivers provide a human-readable name)
+            var labelPath = "/sys/class/drm/card0/device/label";
+            if (File.Exists(labelPath))
+            {
+                var label = File.ReadAllText(labelPath).Trim();
+                if (!string.IsNullOrEmpty(label))
+                    return label;
+            }
+
+            // Try to build vendor + PCI ID description
+            var ueventPath = "/sys/class/drm/card0/device/uevent";
+            if (File.Exists(ueventPath))
+            {
+                string? pciId = null;
+                string? driver = null;
+                foreach (var line in File.ReadLines(ueventPath))
+                {
+                    if (line.StartsWith("PCI_ID="))
+                        pciId = line.Substring(7).Trim();
+                    else if (line.StartsWith("DRIVER="))
+                        driver = line.Substring(7).Trim();
+                }
+
+                if (pciId != null)
+                {
+                    var vendorId = pciId.Split(':')[0].ToUpperInvariant();
+                    var vendorName = vendorId switch
+                    {
+                        "8086" => "Intel",
+                        "1002" => "AMD",
+                        "10DE" => "NVIDIA",
+                        _ => vendorId
+                    };
+                    var suffix = driver != null ? $" ({driver})" : "";
+                    return $"{vendorName} [{pciId}]{suffix}";
+                }
+            }
+        }
+        catch { }
+        return "Unknown";
+    }
+
+    private static double GetTotalRamGb()
+    {
+        try
+        {
+            if (File.Exists("/proc/meminfo"))
+            {
+                foreach (var line in File.ReadLines("/proc/meminfo"))
+                {
+                    if (line.StartsWith("MemTotal:"))
+                    {
+                        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length >= 2 && long.TryParse(parts[1], out var kb))
+                            return kb / (1024.0 * 1024.0);
+                    }
+                }
+            }
+        }
+        catch { }
+        return 0;
+    }
+
+    private static string GetLinuxOsDescription()
+    {
+        try
+        {
+            if (File.Exists("/etc/os-release"))
+            {
+                string? name = null;
+                string? version = null;
+                foreach (var line in File.ReadLines("/etc/os-release"))
+                {
+                    if (line.StartsWith("PRETTY_NAME="))
+                        return line.Substring(12).Trim('"');
+                    if (line.StartsWith("NAME="))
+                        name = line.Substring(5).Trim('"');
+                    else if (line.StartsWith("VERSION_ID="))
+                        version = line.Substring(11).Trim('"');
+                }
+                if (!string.IsNullOrEmpty(name))
+                    return string.IsNullOrEmpty(version) ? name : $"{name} {version}";
+            }
+        }
+        catch { }
+        return RuntimeInformation.OSDescription;
+    }
+
+    private static string GetLinuxKernelVersion()
+    {
+        try
+        {
+            if (File.Exists("/proc/version"))
+            {
+                var text = File.ReadAllText("/proc/version");
+                var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 3)
+                    return parts[2];
+            }
+        }
+        catch { }
+        return RuntimeInformation.OSDescription;
+    }
+
+    private static string GetLinuxCpuModelName()
+    {
+        try
+        {
+            if (File.Exists("/proc/cpuinfo"))
+            {
+                foreach (var line in File.ReadLines("/proc/cpuinfo"))
+                {
+                    if (line.StartsWith("model name"))
+                    {
+                        var colonIndex = line.IndexOf(':');
+                        if (colonIndex >= 0)
+                            return line.Substring(colonIndex + 1).Trim();
+                    }
+                }
+            }
+        }
+        catch { }
+        return "Unknown CPU";
     }
 
     private CpuSample ReadCpu()

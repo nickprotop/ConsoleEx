@@ -38,7 +38,7 @@ internal sealed class DashboardWindow
     public void Create()
     {
         _mainWindow = new WindowBuilder(_windowSystem)
-            .WithTitle("ConsoleTop - Live System Pulse")
+            .WithTitle("cxtop - Live System Pulse")
             .WithColors(UIConstants.PrimaryText, UIConstants.BaseBg)
             .WithBackgroundGradient(
                 ColorGradient.FromColors(UIConstants.BaseBg, UIConstants.BaseEnd),
@@ -76,9 +76,6 @@ internal sealed class DashboardWindow
         BuildTopStatusBar(mainWindow);
         mainWindow.AddControl(Controls.RuleBuilder().StickyTop().WithColor(UIConstants.SeparatorColor).Build());
 
-        BuildMetricsGrid(mainWindow);
-        mainWindow.AddControl(Controls.RuleBuilder().WithColor(UIConstants.SeparatorColor).Build());
-
         CreateTabs();
         var initialSnapshot = _stats.ReadSnapshot();
         BuildTabSection(mainWindow, initialSnapshot);
@@ -92,6 +89,10 @@ internal sealed class DashboardWindow
         };
 
         _windowSystem.AddWindow(mainWindow);
+
+        // Ensure System tab is active after window is fully registered
+        if (_tabControl != null)
+            _tabControl.ActiveTabIndex = 0;
 
         WindowAnimations.FadeIn(mainWindow,
             duration: TimeSpan.FromMilliseconds(UIConstants.FadeInMs),
@@ -109,7 +110,7 @@ internal sealed class DashboardWindow
             .StickyTop()
             .WithAlignment(HorizontalAlignment.Stretch)
             .Column(col =>
-                col.Add(Controls.Markup($"[{UIConstants.Accent.ToMarkup()} bold]ConsoleTop[/] [{UIConstants.MutedText.ToMarkup()}]• {systemInfo}[/]")
+                col.Add(Controls.Markup($"[{UIConstants.Accent.ToMarkup()} bold]cxtop[/] [{UIConstants.MutedText.ToMarkup()}]• {systemInfo}[/]")
                     .WithAlignment(HorizontalAlignment.Left)
                     .WithMargin(1, 0, 0, 0)
                     .Build()))
@@ -128,80 +129,12 @@ internal sealed class DashboardWindow
 
     #endregion
 
-    #region Metrics Grid
-
-    private static BarGraphControl BuildMetricsBar(string name, string label, int labelWidth, Color[] gradient)
-    {
-        return new BarGraphBuilder()
-            .WithName(name).WithLabel(label).WithLabelWidth(labelWidth)
-            .WithValue(0).WithMaxValue(100)
-            .WithUnfilledColor(UIConstants.BarUnfilledColor)
-            .WithAlignment(HorizontalAlignment.Stretch)
-            .ShowLabel().ShowValue().WithValueFormat("F1")
-            .WithMargin(1, 0, 1, 0)
-            .WithSmoothGradient(gradient)
-            .Build();
-    }
-
-    private void BuildMetricsGrid(Window mainWindow)
-    {
-        var accent = UIConstants.Accent.ToMarkup();
-        var metricsGrid = Controls.HorizontalGrid()
-            .WithMargin(0, 0, 0, 0)
-            .Column(col =>
-                col.Add(Controls.Markup($"[{accent} bold] CPU[/]").WithMargin(0, 0, 0, 0).Build())
-                    .Add(BuildMetricsBar("cpuUserBar", "User", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientHealthy))
-                    .Add(BuildMetricsBar("cpuSystemBar", "System", UIConstants.MetricsCpuLabelWidth, UIConstants.SparkCpuSystem))
-                    .Add(BuildMetricsBar("cpuIoWaitBar", "IOwait", UIConstants.MetricsCpuLabelWidth, UIConstants.GradientIoRead)))
-            .Column(col =>
-            {
-                col.Width(1);
-                col.Add(new SeparatorControl
-                {
-                    ForegroundColor = UIConstants.SeparatorColor,
-                    VerticalAlignment = VerticalAlignment.Fill
-                });
-            })
-            .Column(col =>
-                col.Add(Controls.Markup($"[{accent} bold] Memory[/]").WithMargin(0, 0, 0, 0).Build())
-                    .Add(BuildMetricsBar("memUsedBar", "Used %", UIConstants.MetricsMemLabelWidth, UIConstants.GradientHealthy))
-                    .Add(BuildMetricsBar("memCachedBar", "Cached %", UIConstants.MetricsMemLabelWidth, UIConstants.SparkMemCached))
-                    .Add(BuildMetricsBar("memIoBar", "Disk IO", UIConstants.MetricsMemLabelWidth, UIConstants.GradientIoWrite)))
-            .Column(col =>
-            {
-                col.Width(1);
-                col.Add(new SeparatorControl
-                {
-                    ForegroundColor = UIConstants.SeparatorColor,
-                    VerticalAlignment = VerticalAlignment.Fill
-                });
-            })
-            .Column(col =>
-                col.Add(Controls.Markup($"[{accent} bold] Network[/]").WithMargin(0, 0, 0, 0).Build())
-                    .Add(BuildMetricsBar("netUploadBar", "Upload", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetUpload))
-                    .Add(BuildMetricsBar("netDownloadBar", "Download", UIConstants.MetricsNetLabelWidth, UIConstants.GradientNetDownload)))
-            .WithAlignment(HorizontalAlignment.Stretch)
-            .Build();
-
-        if (metricsGrid.Columns.Count >= 5)
-        {
-            metricsGrid.Columns[0].BackgroundColor = UIConstants.MetricsCpuBg;
-            metricsGrid.Columns[0].ForegroundColor = UIConstants.PrimaryText;
-            metricsGrid.Columns[2].BackgroundColor = UIConstants.MetricsMemBg;
-            metricsGrid.Columns[2].ForegroundColor = UIConstants.PrimaryText;
-            metricsGrid.Columns[4].BackgroundColor = UIConstants.MetricsNetBg;
-            metricsGrid.Columns[4].ForegroundColor = UIConstants.PrimaryText;
-        }
-
-        mainWindow.AddControl(metricsGrid);
-    }
-
-    #endregion
-
     #region Tabs
 
     private void CreateTabs()
     {
+        if (_config.ShowSystemInfoTab)
+            _tabs.Add(new SystemInfoTab(_windowSystem, _stats));
         if (_config.ShowProcessesTab)
             _tabs.Add(new ProcessTab(_windowSystem, _stats));
         if (_config.ShowMemoryTab)
@@ -225,6 +158,7 @@ internal sealed class DashboardWindow
             builder = builder.AddTab(tab.Name, tab.BuildPanel(initialSnapshot, mainWindow.Width));
 
         _tabControl = builder.Build();
+        _tabControl.ActiveTabIndex = 0;
         _tabControl.BackgroundColor = UIConstants.BaseBg;
         _tabControl.TabChanged += (sender, e) =>
         {
@@ -266,6 +200,7 @@ internal sealed class DashboardWindow
             ConsoleKey.F3 => 2,
             ConsoleKey.F4 => 3,
             ConsoleKey.F5 => 4,
+            ConsoleKey.F6 => 5,
             _ => -1
         };
 
@@ -317,9 +252,9 @@ internal sealed class DashboardWindow
         var tab = _tabs.ElementAtOrDefault(activeTab);
 
         if (tab is ProcessTab)
-            return $"[{accent}]Tab[/][{muted}] region[/] [{accent}]Enter[/][{muted}] select[/] [{accent}]S[/][{muted}] sort[/] [{accent}]/[/][{muted}] search[/] [{accent}]F1-F5[/][{muted}] tabs[/] [{accent}]F10[/][{muted}] exit[/]";
+            return $"[{accent}]Tab[/][{muted}] region[/] [{accent}]Enter[/][{muted}] select[/] [{accent}]S[/][{muted}] sort[/] [{accent}]/[/][{muted}] search[/] [{accent}]F1-F6[/][{muted}] tabs[/] [{accent}]F10[/][{muted}] exit[/]";
 
-        return $"[{accent}]F1-F5[/][{muted}] tabs[/] [{accent}]F10/ESC[/][{muted}] exit[/]";
+        return $"[{accent}]F1-F6[/][{muted}] tabs[/] [{accent}]F10/ESC[/][{muted}] exit[/]";
     }
 
     #endregion
@@ -337,14 +272,14 @@ internal sealed class DashboardWindow
                 var snapshot = _stats.ReadSnapshot();
 
                 UpdateClock(window);
-                UpdateMetricsBars(window, snapshot);
+
                 UpdateActiveTab(snapshot);
                 UpdateBottomStats(window, snapshot);
                 UpdateActionButton(window, snapshot);
             }
             catch (Exception ex)
             {
-                _windowSystem.LogService.LogError("Update loop error", ex, "ConsoleTop");
+                _windowSystem.LogService.LogError("Update loop error", ex, "cxtop");
             }
 
             try
@@ -379,42 +314,6 @@ internal sealed class DashboardWindow
             var timeStr = DateTime.Now.ToString("HH:mm:ss");
             clock.SetContent(new List<string> { $"[{UIConstants.MutedText.ToMarkup()}]{timeStr}[/]" });
         }
-    }
-
-    private void UpdateMetricsBars(Window window, SystemSnapshot snapshot)
-    {
-        AnimateBar(window, "cpuUserBar", snapshot.Cpu.User);
-        AnimateBar(window, "cpuSystemBar", snapshot.Cpu.System);
-        AnimateBar(window, "cpuIoWaitBar", snapshot.Cpu.IoWait);
-
-        var ioScaled = Math.Min(100, Math.Max(snapshot.Network.UpMbps, snapshot.Network.DownMbps));
-        AnimateBar(window, "memUsedBar", snapshot.Memory.UsedPercent);
-        AnimateBar(window, "memCachedBar", snapshot.Memory.CachedPercent);
-        AnimateBar(window, "memIoBar", Math.Min(100, ioScaled));
-
-        AnimateBar(window, "netUploadBar", snapshot.Network.UpMbps);
-        AnimateBar(window, "netDownloadBar", snapshot.Network.DownMbps);
-    }
-
-    private void AnimateBar(Window window, string name, double newValue)
-    {
-        var bar = window.FindControl<BarGraphControl>(name);
-        if (bar == null) return;
-
-        _lastBarValues.TryGetValue(name, out var oldValue);
-        _lastBarValues[name] = newValue;
-
-        if (Math.Abs(oldValue - newValue) < 0.1)
-        {
-            bar.Value = newValue;
-            return;
-        }
-
-        _windowSystem.Animations.Animate(
-            (float)oldValue, (float)newValue,
-            TimeSpan.FromMilliseconds(UIConstants.BarAnimationMs),
-            easing: EasingFunctions.EaseOut,
-            onUpdate: v => bar.Value = v);
     }
 
     private void UpdateActiveTab(SystemSnapshot snapshot)

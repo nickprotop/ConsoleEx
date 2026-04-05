@@ -6,6 +6,7 @@ internal sealed record ConsoleTopConfig
     public int PrimeDelayMs { get; init; } = Helpers.UIConstants.PrimeDelayMs;
     public int MaxHistoryPoints { get; init; } = Helpers.UIConstants.MaxHistoryPoints;
 
+    public bool ShowSystemInfoTab { get; init; } = true;
     public bool ShowProcessesTab { get; init; } = true;
     public bool ShowMemoryTab { get; init; } = true;
     public bool ShowCpuTab { get; init; } = true;

@@ -30,6 +30,8 @@ internal static class UIConstants
     public const int CpuLayoutThresholdWidth = 80;
     public const int NetworkLayoutThresholdWidth = 80;
     public const int StorageLayoutThresholdWidth = 90;
+    public const int SystemInfoWideThresholdWidth = 100;
+    public const int SystemInfoMediumThresholdWidth = 60;
 
     #endregion
 
@@ -52,6 +54,8 @@ internal static class UIConstants
     public const int CpuCoreSparklineHeight = 4;
     public const int NetworkCombinedSparklineHeight = 10;
     public const int StorageIoSparklineHeight = 8;
+    public const int SystemInfoSparklineHeight = 3;
+    public const int SystemInfoBarLabelWidth = 10;
 
     #endregion
 

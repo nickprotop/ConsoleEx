@@ -30,7 +30,7 @@ internal class Program
                     ShowBottomPanel: false));
 
             windowSystem.PanelStateService.TopStatus =
-                $"ConsoleTop - System Monitor ({SystemStatsFactory.GetPlatformName()})";
+                $"cxtop - System Monitor ({SystemStatsFactory.GetPlatformName()})";
 
             Console.CancelKeyPress += (sender, e) =>
             {

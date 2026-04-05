@@ -89,6 +89,11 @@ internal record StorageSample(
     IReadOnlyList<DiskSample> Disks);
 
 /// <summary>
+/// System load averages (1, 5, 15 minutes)
+/// </summary>
+internal record LoadAverage(double Load1, double Load5, double Load15);
+
+/// <summary>
 /// Complete snapshot of all system statistics
 /// </summary>
 internal record SystemSnapshot(
@@ -96,7 +101,8 @@ internal record SystemSnapshot(
     MemorySample Memory,
     NetworkSample Network,
     StorageSample Storage,
-    IReadOnlyList<ProcessSample> Processes);
+    IReadOnlyList<ProcessSample> Processes,
+    LoadAverage? LoadAvg = null);
 
 /// <summary>
 /// Network interface counters for calculating delta
@@ -113,3 +119,35 @@ internal record ProcessExtra(
     double ReadKb,
     double WriteKb,
     string ExePath);
+
+/// <summary>
+/// Static system identity information (collected once at startup)
+/// </summary>
+internal record SystemInfo(
+    string Hostname,
+    string OsDescription,
+    string KernelVersion,
+    string CpuModelName,
+    string CpuArchitecture,
+    int LogicalCoreCount,
+    string DotNetRuntime,
+    string MotherboardModel = "Unknown",
+    string BiosVersion = "Unknown",
+    string GpuName = "Unknown",
+    string MachineVendor = "Unknown",
+    string Shell = "Unknown",
+    double TotalRamGb = 0,
+    string BatteryStatus = "",
+    string AudioDevice = "Unknown",
+    int UsbDeviceCount = 0,
+    string DisplayOutput = "Unknown",
+    string Resolution = "",
+    string DesktopEnvironment = "",
+    string WindowManager = "",
+    string Theme = "",
+    string Icons = "",
+    string Terminal = "",
+    string TerminalFont = "",
+    string Locale = "",
+    int PackageCount = 0,
+    string PackageManagers = "");

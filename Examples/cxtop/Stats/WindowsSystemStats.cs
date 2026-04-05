@@ -138,6 +138,297 @@ internal sealed class WindowsSystemStats : ISystemStatsProvider
         }
     }
 
+    public SystemInfo ReadSystemInfo()
+    {
+        string hostname = Environment.MachineName;
+        string osDescription = GetWindowsOsDescription();
+        string kernelVersion = $"NT {Environment.OSVersion.Version}";
+        string cpuModelName = GetWindowsCpuModelName();
+        string cpuArchitecture = RuntimeInformation.OSArchitecture.ToString();
+        int logicalCoreCount = Environment.ProcessorCount;
+        string dotNetRuntime = RuntimeInformation.FrameworkDescription;
+        string motherboard = ReadRegistryString(@"HARDWARE\DESCRIPTION\System\BIOS", "BaseBoardProduct");
+        string bios = ReadRegistryString(@"HARDWARE\DESCRIPTION\System\BIOS", "BIOSVersion");
+        string gpu = ReadRegistryString(@"HARDWARE\DESCRIPTION\System\Video\0\0000", "Device Description");
+        string vendor = ReadRegistryString(@"HARDWARE\DESCRIPTION\System\BIOS", "SystemManufacturer");
+        string shell = Path.GetFileName(Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe");
+        double totalRamGb = GetTotalRamGbWindows();
+        string battery = GetWindowsBatteryStatus();
+        string audio = GetWindowsAudioDevice();
+        int usbCount = GetWindowsUsbDeviceCount();
+        string display = GetWindowsDisplayInfo();
+        string resolution = GetWindowsResolution();
+        string de = "Windows Shell"; // Explorer is always the DE on Windows
+        string wm = "DWM"; // Desktop Window Manager
+        string theme = GetWindowsTheme();
+        string icons = ""; // No equivalent on Windows
+        string terminal = GetWindowsTerminal();
+        string termFont = "";
+        string locale = System.Globalization.CultureInfo.CurrentCulture.Name;
+        var (pkgCount, pkgManagers) = GetWindowsPackageCounts();
+
+        return new SystemInfo(hostname, osDescription, kernelVersion, cpuModelName,
+            cpuArchitecture, logicalCoreCount, dotNetRuntime, motherboard, bios, gpu,
+            vendor, shell, totalRamGb, battery, audio, usbCount, display,
+            resolution, de, wm, theme, icons, terminal, termFont, locale,
+            pkgCount, pkgManagers);
+    }
+
+    private static string GetWindowsAudioDevice()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                // Enumerate audio endpoint devices from registry
+                using var reg = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render");
+                if (reg != null)
+                {
+                    foreach (var subKeyName in reg.GetSubKeyNames())
+                    {
+                        using var device = reg.OpenSubKey($@"{subKeyName}\Properties");
+                        if (device != null)
+                        {
+                            // {a45c254e-df1c-4efd-8020-67d146a850e0},2 is the device friendly name
+                            var name = device.GetValue("{a45c254e-df1c-4efd-8020-67d146a850e0},2")?.ToString();
+                            if (!string.IsNullOrEmpty(name))
+                                return name;
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+        return "Unknown";
+    }
+
+    private static string GetWindowsDisplayInfo()
+    {
+        // Basic display adapter info from registry
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var reg = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"SYSTEM\CurrentControlSet\Enum\DISPLAY");
+                if (reg != null)
+                {
+                    var monitors = reg.GetSubKeyNames();
+                    return $"{monitors.Length} monitor(s)";
+                }
+            }
+        }
+        catch { }
+        return "Unknown";
+    }
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+
+    private static string GetWindowsResolution()
+    {
+        try
+        {
+            // SM_CXSCREEN = 0, SM_CYSCREEN = 1
+            int width = GetSystemMetrics(0);
+            int height = GetSystemMetrics(1);
+            if (width > 0 && height > 0)
+                return $"{width}x{height}";
+        }
+        catch { }
+        return "";
+    }
+
+    private static string GetWindowsTheme()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var reg = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Themes");
+                if (reg != null)
+                {
+                    var themePath = reg.GetValue("CurrentTheme")?.ToString();
+                    if (!string.IsNullOrEmpty(themePath))
+                        return Path.GetFileNameWithoutExtension(themePath);
+                }
+            }
+        }
+        catch { }
+        return "";
+    }
+
+    private static string GetWindowsTerminal()
+    {
+        // Check if running in Windows Terminal
+        var wtSession = Environment.GetEnvironmentVariable("WT_SESSION");
+        if (!string.IsNullOrEmpty(wtSession))
+            return "Windows Terminal";
+
+        var term = Environment.GetEnvironmentVariable("TERM_PROGRAM");
+        if (!string.IsNullOrEmpty(term))
+            return term;
+
+        return "conhost";
+    }
+
+    private static (int count, string managers) GetWindowsPackageCounts()
+    {
+        var parts = new List<string>();
+        int total = 0;
+
+        // Installed programs from registry (Add/Remove programs)
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var paths = new[]
+                {
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                    @"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+                };
+
+                var seen = new HashSet<string>();
+                foreach (var path in paths)
+                {
+                    using var reg = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(path);
+                    if (reg == null) continue;
+                    foreach (var name in reg.GetSubKeyNames())
+                    {
+                        using var app = reg.OpenSubKey(name);
+                        var displayName = app?.GetValue("DisplayName")?.ToString();
+                        if (!string.IsNullOrEmpty(displayName) && seen.Add(displayName))
+                            total++;
+                    }
+                }
+
+                if (total > 0)
+                    parts.Add($"{total} (installed)");
+            }
+        }
+        catch { }
+
+        return (total, string.Join(", ", parts));
+    }
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetSystemPowerStatus(out SystemPowerStatus status);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SystemPowerStatus
+    {
+        public byte ACLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public int BatteryLifeTime;
+        public int BatteryFullLifeTime;
+    }
+
+    private static string GetWindowsBatteryStatus()
+    {
+        try
+        {
+            if (GetSystemPowerStatus(out var status))
+            {
+                if (status.BatteryFlag == 128) // No battery
+                    return "";
+                var percent = status.BatteryLifePercent;
+                if (percent > 100) return "";
+                var charging = status.ACLineStatus == 1 ? "Charging" : "Discharging";
+                return $"{percent}% ({charging})";
+            }
+        }
+        catch { }
+        return "";
+    }
+
+    private static int GetWindowsUsbDeviceCount()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var reg = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USB");
+                if (reg != null)
+                    return reg.GetSubKeyNames().Length;
+            }
+        }
+        catch { }
+        return 0;
+    }
+
+    private double GetTotalRamGbWindows()
+    {
+        try
+        {
+            var memStatus = new MemoryStatusEx();
+            if (GlobalMemoryStatusEx(memStatus))
+                return memStatus.ullTotalPhys / (1024.0 * 1024.0 * 1024.0);
+        }
+        catch { }
+        return 0;
+    }
+
+    private static string ReadRegistryString(string subKey, string valueName, string fallback = "Unknown")
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var reg = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(subKey);
+                var val = reg?.GetValue(valueName)?.ToString();
+                if (!string.IsNullOrEmpty(val))
+                    return val.Trim();
+            }
+        }
+        catch { }
+        return fallback;
+    }
+
+    private static string GetWindowsOsDescription()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var reg = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+                if (reg != null)
+                {
+                    var productName = reg.GetValue("ProductName")?.ToString();
+                    if (!string.IsNullOrEmpty(productName))
+                        return productName;
+                }
+            }
+        }
+        catch { }
+        return RuntimeInformation.OSDescription;
+    }
+
+    private static string GetWindowsCpuModelName()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var reg = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
+                if (reg != null)
+                {
+                    var name = reg.GetValue("ProcessorNameString")?.ToString();
+                    if (!string.IsNullOrEmpty(name))
+                        return name.Trim();
+                }
+            }
+        }
+        catch { }
+        return "Unknown CPU";
+    }
+
     private void InitializePerCoreCounters()
     {
         if (_perCoreCountersInitialized)
