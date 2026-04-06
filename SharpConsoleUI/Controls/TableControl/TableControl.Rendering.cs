@@ -142,7 +142,6 @@ public partial class TableControl
 		Color rowFg, Color rowBg, bool hasBorder,
 		int hScrollOffset = 0, int viewportWidth = int.MaxValue,
 		bool isSelected = false, int selectedCellIndex = -1, Color? selectedCellBg = null, Color? selectedCellFg = null,
-		bool showCheckbox = false, bool isChecked = false,
 		int editCellIndex = -1, int editCursorPos = -1,
 		List<(int Column, int Start, int Length)>? filterMatches = null)
 	{
@@ -165,13 +164,6 @@ public partial class TableControl
 		{
 			int colW = colWidths[c];
 			string cellText = c < cells.Count ? cells[c] : string.Empty;
-
-			// Prepend checkbox for first column
-			if (c == 0 && showCheckbox)
-			{
-				string checkPrefix = isChecked ? "[x] " : "[ ] ";
-				cellText = checkPrefix + cellText;
-			}
 
 			TextJustification align = TextJustification.Left;
 			if (cols != null && c < cols.Count)
@@ -443,15 +435,21 @@ public partial class TableControl
 		if (ShouldShowVerticalScrollbar())
 			contentWidth = Math.Max(1, contentWidth - 1);
 
+		// Reserve space for checkbox column
+		int cbWidth = _checkboxMode ? 4 : 0;
+		bool hasBorder = _borderStyle != BorderStyle.None;
+		int dataContentWidth2 = contentWidth;
+		if (_checkboxMode)
+			dataContentWidth2 = Math.Max(1, contentWidth - cbWidth - (hasBorder ? 1 : 0));
+
 		int[] colWidths;
 		if (_dataSource != null)
-			colWidths = ComputeColumnWidthsFromDataSource(contentWidth, _scrollOffset, GetVisibleRowCount());
+			colWidths = ComputeColumnWidthsFromDataSource(dataContentWidth2, _scrollOffset, GetVisibleRowCount());
 		else
-			colWidths = ComputeColumnWidths(contentWidth, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount());
+			colWidths = ComputeColumnWidths(dataContentWidth2, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount());
 
-		bool hasBorder = _borderStyle != BorderStyle.None;
 		int borderOverhead = hasBorder ? (colCount + 1) : 0;
-		int measuredWidth = 0;
+		int measuredWidth = cbWidth + (cbWidth > 0 && hasBorder ? 1 : 0);
 		foreach (int w in colWidths) measuredWidth += w;
 		measuredWidth += borderOverhead;
 
@@ -569,11 +567,33 @@ public partial class TableControl
 			return;
 		}
 
-		int[] colWidths;
+		// Reserve space for checkbox column before computing data column widths
+		int checkboxColWidth = _checkboxMode ? 4 : 0;
+		int dataContentWidth = contentWidth;
+		if (_checkboxMode)
+		{
+			bool hasBorderForCb = _borderStyle != BorderStyle.None;
+			dataContentWidth = Math.Max(1, contentWidth - checkboxColWidth - (hasBorderForCb ? 1 : 0));
+		}
+
+		int[] dataColWidths;
 		if (_dataSource != null)
-			colWidths = ComputeColumnWidthsFromDataSource(contentWidth, _scrollOffset, GetVisibleRowCount());
+			dataColWidths = ComputeColumnWidthsFromDataSource(dataContentWidth, _scrollOffset, GetVisibleRowCount());
 		else
-			colWidths = ComputeColumnWidths(contentWidth, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount());
+			dataColWidths = ComputeColumnWidths(dataContentWidth, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount());
+
+		// Prepend silent checkbox column to colWidths so all drawing infrastructure handles it
+		int[] colWidths;
+		if (_checkboxMode)
+		{
+			colWidths = new int[dataColWidths.Length + 1];
+			colWidths[0] = checkboxColWidth;
+			Array.Copy(dataColWidths, 0, colWidths, 1, dataColWidths.Length);
+		}
+		else
+		{
+			colWidths = dataColWidths;
+		}
 
 		int totalColumnsWidth = GetTotalColumnsWidth(colWidths);
 		bool showHScrollbar = ShouldShowHorizontalScrollbar(totalColumnsWidth, contentWidth);
@@ -609,6 +629,15 @@ public partial class TableControl
 			FillSideMargins(currentY);
 			DrawTitleRow(buffer, startX, currentY, contentWidth, clipRect, headerFg, effectiveBg);
 			currentY++;
+		}
+
+		// Build render-time column list with dummy entry for checkbox column
+		List<TableColumn>? renderCols = colSnapshot;
+		if (_checkboxMode && colSnapshot != null)
+		{
+			renderCols = new List<TableColumn>(colSnapshot.Count + 1);
+			renderCols.Add(new TableColumn { Header = "", Alignment = TextJustification.Left, Width = 4 });
+			renderCols.AddRange(colSnapshot);
 		}
 
 		// Top border
@@ -654,24 +683,31 @@ public partial class TableControl
 				}
 			}
 
-			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
-				headerCells, colSnapshot, headerFg, headerBg, hasBorder);
+			// Prepend empty cell for checkbox column
+			if (_checkboxMode)
+				headerCells.Insert(0, "");
 
-			// Update column rendered positions for hit testing (always, including DataSource mode)
+			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
+				headerCells, renderCols, headerFg, headerBg, hasBorder);
+
+			// Update column rendered positions for hit testing — skip checkbox column
 			{
 				int colX = startX + (hasBorder ? 1 : 0);
+				// Skip past checkbox column in colWidths
+				if (_checkboxMode)
+					colX += checkboxColWidth + (hasBorder ? 1 : 0);
 				_renderedColumnX = new int[colCount];
 				_renderedColumnWidths = new int[colCount];
 				for (int c = 0; c < colCount; c++)
 				{
 					_renderedColumnX[c] = colX;
-					_renderedColumnWidths[c] = colWidths[c];
+					_renderedColumnWidths[c] = dataColWidths[c];
 					if (colSnapshot != null && c < colSnapshot.Count)
 					{
 						colSnapshot[c].RenderedX = colX;
-						colSnapshot[c].RenderedWidth = colWidths[c];
+						colSnapshot[c].RenderedWidth = dataColWidths[c];
 					}
-					colX += colWidths[c] + (hasBorder ? 1 : 0);
+					colX += dataColWidths[c] + (hasBorder ? 1 : 0);
 				}
 			}
 
@@ -808,12 +844,23 @@ public partial class TableControl
 			if (_filterMode == FilterMode.Confirmed && _activeFilter != null)
 				filterMatches = FindMatchPositions(dataR, _activeFilter);
 
+			// Prepend checkbox cell and offset indices for silent column
+			if (_checkboxMode)
+			{
+				string checkText = isChecked ? "[x] " : "[ ] ";
+				rowCells = new List<string>(rowCells);
+				rowCells.Insert(0, checkText);
+				if (selectedCell >= 0) selectedCell++;
+				if (editCellIndex >= 0) editCellIndex++;
+				if (filterMatches != null)
+					filterMatches = filterMatches.Select(m => (m.Column + 1, m.Start, m.Length)).ToList();
+			}
+
 			FillSideMargins(currentY);
 			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
-				rowCells, colSnapshot, effectiveRowFg, effectiveRowBg, hasBorder,
+				rowCells, renderCols, effectiveRowFg, effectiveRowBg, hasBorder,
 				isSelected: isRowSel || isHovered,
 				selectedCellIndex: selectedCell, selectedCellBg: cellHighlightBg, selectedCellFg: cellHighlightFg,
-				showCheckbox: _checkboxMode, isChecked: isChecked,
 				editCellIndex: editCellIndex, editCursorPos: editCursorPos,
 				filterMatches: filterMatches);
 
