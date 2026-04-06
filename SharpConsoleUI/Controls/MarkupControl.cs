@@ -296,6 +296,7 @@ namespace SharpConsoleUI.Controls
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int targetWidth = Width ?? constraints.MaxWidth;
+			int contentWidth = Math.Max(0, targetWidth - Margin.Left - Margin.Right);
 
 			// Calculate content dimensions
 			List<string> snapshot;
@@ -305,22 +306,20 @@ namespace SharpConsoleUI.Controls
 
 			foreach (var line in snapshot)
 			{
-				// Split by embedded newlines to count actual rendered lines
-				var subLines = line.Split('\n');
-				foreach (var subLine in subLines)
-				{
-					int lineWidth = Parsing.MarkupParser.StripLength(subLine);
-					maxContentWidth = Math.Max(maxContentWidth, lineWidth);
+				int lineWidth = Parsing.MarkupParser.StripLength(line);
+				maxContentWidth = Math.Max(maxContentWidth, lineWidth);
 
-					if (_wrap && lineWidth > targetWidth && targetWidth > 0)
-					{
-						// Estimate wrapped lines
-						totalLines += (int)Math.Ceiling((double)lineWidth / targetWidth);
-					}
-					else
-					{
-						totalLines++;
-					}
+				if (_wrap && contentWidth > 0)
+				{
+					// Use actual word-wrap logic for accurate line count
+					var wrappedLines = Parsing.MarkupParser.ParseLines(line, contentWidth, Color.White, Color.Transparent);
+					totalLines += wrappedLines.Count;
+				}
+				else
+				{
+					// Count explicit newlines
+					var subLines = line.Split('\n');
+					totalLines += subLines.Length;
 				}
 			}
 
