@@ -44,14 +44,14 @@ This is the most fundamental difference between the four libraries. It determine
 | **Dirty tracking** | No | Cell-level | Visual-level invalidation | **Region-level (3-level dirty tracking)** |
 | **Flicker prevention** | Cursor repositioning (can flicker) | ANSI driver diff | Synchronized output (DEC 2026) | **Occlusion culling + diff-based flush** |
 | **Frame management** | N/A | Event-driven redraw | Event-driven | ~60 FPS with dirty-check skip |
-| **RGBA alpha blending** | No | No | **Yes (sRGB-linear LUT)** | No |
+| **RGBA alpha blending** | No | No | **Yes (sRGB-linear LUT)** | **Yes (per-cell 0-255 Porter-Duff)** |
 
 **What this means in practice:**
 
 - **Spectre.Console** writes formatted text to stdout. No screen buffer, no compositing, no concurrent updates.
 - **Terminal.Gui** paints all views into one shared buffer using a back-to-front painter's algorithm. If window A is fully behind window B, window A is still fully rendered.
 - **XenoAtom.Terminal.UI** uses a single cell buffer with reactive invalidation and frame-to-frame diffing. Has the most sophisticated color system with true RGBA alpha blending in linear color space. But no per-window buffers or compositor pipeline.
-- **SharpConsoleUI** gives each window its own character buffer, then composites them together. The **PreBufferPaint** hook fires before controls paint (for backgrounds, gradients, game rendering), controls render on top, then **PostBufferPaint** fires for effects (blur, fade, glow, transitions). This pipeline is unique -- no other .NET TUI framework exposes it.
+- **SharpConsoleUI** gives each window its own character buffer, then composites them together with per-cell RGBA alpha blending (0-255 Porter-Duff). The **PreBufferPaint** hook fires before controls paint (for backgrounds, gradients, game rendering), controls render on top, then **PostBufferPaint** fires for effects (blur, fade, glow, transitions). Controls like TableControl support row-level animations (flash, highlight, fade-out removal) driven by the compositor's animation manager. This pipeline is unique -- no other .NET TUI framework exposes it.
 
 ### Gradient Backgrounds
 
@@ -104,8 +104,8 @@ Neither Terminal.Gui nor XenoAtom.Terminal.UI offer window-level gradients that 
 | Splitter | -- | TileView | HSplitter, VSplitter | SplitterControl |
 | Image rendering | -- | -- | -- | **ImageControl** |
 | Toolbar | -- | -- | CommandBar | **ToolbarControl** |
-| Date picker | -- | DatePicker, DateEditor | -- | -- |
-| Slider | -- | LinearRange | Slider | -- |
+| Date picker | -- | DatePicker, DateEditor | -- | **DatePickerControl, TimePickerControl** |
+| Slider | -- | LinearRange | Slider | **SliderControl, RangeSliderControl** |
 | Hex viewer | -- | HexView | -- | -- |
 | Graph view | -- | GraphView | LineChart, BreakdownChart | -- |
 | Color picker | -- | ColorPicker (RGB/HSL) | ColorPicker | -- |
@@ -115,7 +115,7 @@ Neither Terminal.Gui nor XenoAtom.Terminal.UI offer window-level gradients that 
 | Wizard / stepper | -- | Wizard | -- | -- |
 | Toast notifications | -- | -- | ToastService | **NotificationSystem** |
 
-**Honest take:** Terminal.Gui has the most mature and widest control library -- battle-tested over years, with specialized widgets like DatePicker, ColorPicker, Slider, HexView, and Wizard. XenoAtom.Terminal.UI ships the most controls overall (100+) but is only 2 months old. SharpConsoleUI has fewer controls, but its unique strengths are interactive/live controls (TerminalControl, SparklineControl, BarGraphControl, CanvasControl with 30+ drawing primitives) and the window management + compositor layer.
+**Honest take:** Terminal.Gui has the most mature and widest control library -- battle-tested over years, with specialized widgets like ColorPicker, HexView, and Wizard. XenoAtom.Terminal.UI ships the most controls overall (100+) but is only a few months old. SharpConsoleUI now covers most common control types (DatePicker, TimePicker, Slider, RangeSlider) and its unique strengths are interactive/live controls (TerminalControl, SparklineControl, BarGraphControl, CanvasControl with 30+ drawing primitives), per-cell alpha blending, row-level animations, and the window management + compositor layer.
 
 ### Window Management
 
@@ -208,8 +208,8 @@ XenoAtom.Terminal.UI has the most sophisticated layout system with a proper `Fle
 | **Stars** | ~11,260 | ~10,830 | ~140 | 114 |
 | **NuGet downloads** | ~9.9M | ~1.6M | New | 6,504 |
 | **Contributors** | ~115 | 199 | 1 | 1 |
-| **Latest stable** | 0.54.0 (pre-1.0) | 1.19.0 (v1 only) | 1.4.0 | 2.4.40 |
-| **v2 / latest** | 0.54.0 | v2 beta.1 (March 2026) | 1.4.0 | 2.4.40 |
+| **Latest stable** | 0.54.0 (pre-1.0) | 1.19.0 (v1 only) | 1.4.0 | 2.4.52 |
+| **v2 / latest** | 0.54.0 | v2 beta.1 (March 2026) | 1.4.0 | 2.4.52 |
 | **.NET version** | .NET Standard 2.0+ | .NET 10 (v2 beta) | .NET 10 only | .NET 8.0+ |
 | **License** | MIT | MIT | BSD-2-Clause | MIT |
 | **Repo age** | ~5 years | ~7 years | ~2 months | ~1 year |
@@ -224,7 +224,7 @@ Be honest about the right tool:
 - **Building a simple single-screen form?** **Terminal.Gui** has the widest mature control library. **XenoAtom.Terminal.UI** has the most modern architecture with reactive bindings, but requires .NET 10.
 - **Need maximum community and ecosystem?** The bigger libraries have more users, more contributors, more blog posts, and more StackOverflow answers.
 - **Targeting .NET 6 or older?** SharpConsoleUI requires .NET 8+. Spectre.Console and Terminal.Gui v1 support .NET Standard 2.0. XenoAtom requires .NET 10.
-- **Need DatePicker, Slider, ColorPicker, or HexView?** Terminal.Gui has these built-in. XenoAtom has Slider and ColorPicker. SharpConsoleUI doesn't (yet).
+- **Need ColorPicker or HexView?** Terminal.Gui has these built-in. XenoAtom has ColorPicker. SharpConsoleUI doesn't (yet).
 - **Need source-generated reactive bindings?** XenoAtom's `[Bindable]` source-generated property system with automatic dependency tracking is more sophisticated than SharpConsoleUI's lambda-based MVVM bindings.
 
 ## When SharpConsoleUI Shines
@@ -232,7 +232,7 @@ Be honest about the right tool:
 SharpConsoleUI is the right choice when you need:
 
 - **Multi-window desktop-style apps** -- overlapping windows with drag, resize, minimize, maximize, taskbar. No other .NET library does this in a stable release.
-- **Visual effects and compositing** -- gradient backgrounds, blur, fade transitions, custom buffer effects via PreBufferPaint/PostBufferPaint. The compositor pipeline is unique in the .NET TUI space.
+- **Visual effects and compositing** -- per-cell RGBA alpha blending, gradient backgrounds, blur, fade transitions, row animations (flash, highlight, fade-out removal), custom buffer effects via PreBufferPaint/PostBufferPaint. The compositor pipeline is unique in the .NET TUI space.
 - **Dashboard / monitoring tools** -- independent async window threads mean each panel updates on its own schedule without blocking the UI.
 - **IDE-like tools** -- [LazyDotIDE](https://github.com/nickprotop/LazyDotIDE) is a working .NET IDE built entirely on SharpConsoleUI, proving the framework handles complex, multi-window applications.
 - **Embedded terminal + UI** -- TerminalControl gives you a real PTY-backed terminal emulator inside a window, alongside your UI controls. Unique in the .NET ecosystem.
@@ -401,7 +401,7 @@ Different languages have their own established TUI frameworks. Here's how the ma
 | **Architecture** | Compositor | Retained + segment compositor | Immediate-mode | Elm (TEA) | Retained, shared buffer |
 | **Overlapping windows** | Yes | Screens (modal stack) | No | No | v2 beta |
 | **Window management** | Drag, resize, minimize, maximize | No | No | No | v2 beta |
-| **Built-in animations** | Frame-coupled tweens | CSS-like transitions | Via tachyonfx crate | No | No |
+| **Built-in animations** | Frame-coupled tweens + row animations | CSS-like transitions | Via tachyonfx crate | No | No |
 | **Overlay/portal system** | Yes (auto-positioning, auto-dismiss) | Screen stack | Manual | Manual | No |
 | **Responsive controls** | Yes (NavigationView) | CSS-like media queries | No | No | No |
 | **Per-window buffers** | Yes | No | No | No | No |
@@ -429,4 +429,4 @@ Each framework makes different tradeoffs. The compositor approach adds complexit
 
 ---
 
-*Last updated: March 2026*
+*Last updated: April 2026*
