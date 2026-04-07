@@ -73,6 +73,7 @@ namespace SharpConsoleUI.Controls
 		private bool _checkboxMode = false;
 		private bool _hoverHighlightsItems = true;
 		private bool _autoHighlightOnFocus = true;
+		private bool _truncationFade;
 		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultMinimumVisibleItems;
 		private bool _doubleClickActivates = true;
 		private int _doubleClickThresholdMs = ControlDefaults.DefaultDoubleClickThresholdMs;
@@ -451,6 +452,17 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _checkboxMode;
 			set => SetProperty(ref _checkboxMode, value);
+		}
+
+		/// <summary>
+		/// Gets or sets whether truncated item text fades out instead of hard-cutting.
+		/// When enabled, the last 4 characters of truncated items blend toward the background.
+		/// Default: false.
+		/// </summary>
+		public bool TruncationFade
+		{
+			get => _truncationFade;
+			set { _truncationFade = value; OnPropertyChanged(); Container?.Invalidate(true); }
 		}
 
 		/// <summary>

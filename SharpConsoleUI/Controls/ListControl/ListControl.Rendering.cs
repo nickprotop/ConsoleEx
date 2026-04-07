@@ -399,9 +399,18 @@ namespace SharpConsoleUI.Controls
 
 						// Truncate if necessary
 						int maxTextWidth = listWidth - (indicatorSpace + 2);
+						bool wasTruncated = false;
 						if (maxTextWidth > ControlDefaults.DefaultMinTextWidth)
 						{
-							lineText = TextTruncationHelper.Truncate(lineText, maxTextWidth, cache: _textMeasurementCache);
+							int originalWidth = _textMeasurementCache?.GetCachedLength(lineText) ?? Parsing.MarkupParser.StripLength(lineText);
+							if (originalWidth > maxTextWidth)
+							{
+								wasTruncated = true;
+								if (_truncationFade)
+									lineText = Parsing.MarkupParser.Truncate(lineText, maxTextWidth);
+								else
+									lineText = TextTruncationHelper.Truncate(lineText, maxTextWidth, cache: _textMeasurementCache);
+							}
 						}
 
 						// Determine colors for this item
@@ -476,6 +485,23 @@ namespace SharpConsoleUI.Controls
 
 						var itemCells = Parsing.MarkupParser.Parse(itemContent, itemFg, itemBg);
 						buffer.WriteCellsClipped(startX, currentY, itemCells, clipRect);
+
+						// Apply truncation fade if enabled
+						if (_truncationFade && wasTruncated && maxTextWidth > 4)
+						{
+							float[] fadeSteps = { 0.10f, 0.35f, 0.65f, 0.90f };
+							int fadeStartX = startX + maxTextWidth + indicatorSpace - 4;
+							for (int fi = 0; fi < fadeSteps.Length; fi++)
+							{
+								int fx = fadeStartX + fi;
+								if (fx >= clipRect.X && fx < clipRect.Right && fx >= 0 && fx < buffer.Width)
+								{
+									var existing = buffer.GetCell(fx, currentY);
+									var fadedFg = ColorBlendHelper.BlendColor(existing.Foreground, existing.Background, fadeSteps[fi]);
+									buffer.SetCellColors(fx, currentY, fadedFg, existing.Background);
+								}
+							}
+						}
 
 						// Fill right margin
 						if (Margin.Right > 0)
