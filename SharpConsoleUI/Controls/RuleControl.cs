@@ -305,7 +305,7 @@ namespace SharpConsoleUI.Controls
 								}
 								else if (_progressRatio > 0 && normalized <= _progressRatio)
 								{
-									float fillNorm = _progressRatio > 0 ? normalized / _progressRatio : 0f;
+									float fillNorm = normalized / _progressRatio;
 									cellColor = _progressGradient.Interpolate(fillNorm);
 								}
 							}
