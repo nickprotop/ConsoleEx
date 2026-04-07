@@ -93,9 +93,35 @@ public static class ToolbarDemoWindow
             .WithMargin(1, 1, 1, 0)
             .Build();
 
+        // Wrapping toolbar — many buttons that overflow to second row
+        var label4 = Controls.Markup()
+            .AddLine("[dim]Wrapping toolbar (click second row buttons):[/]")
+            .WithMargin(1, 1, 1, 0)
+            .Build();
+
+        var wrapToolbar = Controls.Toolbar()
+            .AddButton("File", (_, btn) => log.SetContent(new List<string> { "[magenta]File[/] clicked" }))
+            .AddButton("Edit", (_, btn) => log.SetContent(new List<string> { "[magenta]Edit[/] clicked" }))
+            .AddButton("View", (_, btn) => log.SetContent(new List<string> { "[magenta]View[/] clicked" }))
+            .AddButton("Build", (_, btn) => log.SetContent(new List<string> { "[magenta]Build[/] clicked" }))
+            .AddButton("Debug", (_, btn) => log.SetContent(new List<string> { "[magenta]Debug[/] clicked" }))
+            .AddButton("Tools", (_, btn) => log.SetContent(new List<string> { "[magenta]Tools[/] clicked" }))
+            .AddButton("Window", (_, btn) => log.SetContent(new List<string> { "[magenta]Window[/] clicked" }))
+            .AddButton("Help", (_, btn) => log.SetContent(new List<string> { "[magenta]Help[/] clicked" }))
+            .AddButton("Terminal", (_, btn) => log.SetContent(new List<string> { "[magenta]Terminal[/] clicked" }))
+            .AddButton("Extensions", (_, btn) => log.SetContent(new List<string> { "[magenta]Extensions[/] clicked" }))
+            .AddButton("Settings", (_, btn) => log.SetContent(new List<string> { "[magenta]Settings[/] clicked" }))
+            .AddButton("About", (_, btn) => log.SetContent(new List<string> { "[magenta]About[/] clicked" }))
+            .WithSpacing(1)
+            .WithBackgroundColor(Color.Grey11)
+            .WithAboveLine()
+            .WithBelowLine()
+            .WithWrap()
+            .Build();
+
         return new WindowBuilder(ws)
             .WithTitle("Toolbar Demo")
-            .WithSize(80, 30)
+            .WithSize(60, 30)
             .Centered()
             .AddControl(basicToolbar)
             .AddControl(header)
@@ -103,6 +129,8 @@ public static class ToolbarDemoWindow
             .AddControl(borderedToolbar)
             .AddControl(label3)
             .AddControl(mixedToolbar)
+            .AddControl(label4)
+            .AddControl(wrapToolbar)
             .AddControl(log)
             .BuildAndShow();
     }
