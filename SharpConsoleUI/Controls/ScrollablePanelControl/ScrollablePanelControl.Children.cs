@@ -103,7 +103,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearContents()
 		{
-			this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Programmatic);
+			// If this panel or a child has focus, retain focus on the panel itself
+			// (children are being removed, but the panel is still a valid focus target)
+			var window = this.GetParentWindow();
+			if (window?.FocusManager?.IsInFocusPath(this) == true)
+				window.FocusManager.SetFocus(this, FocusReason.Programmatic);
 			_lastInternalFocusedChild = null;
 
 			List<IWindowControl> snapshot;

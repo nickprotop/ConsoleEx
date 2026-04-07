@@ -520,11 +520,10 @@ namespace SharpConsoleUI.Controls
 				{
 					Color thumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
 					Color trackColor = HasFocus ? Color.Grey : Color.Grey23;
-
 					ScrollbarHelper.DrawVerticalScrollbar(
 						buffer, scrollbarX, scrollbarStartY, scrollbarHeight,
 						items.Count, effectiveMaxVisibleItems, scrollOffset,
-						thumbColor, trackColor, backgroundColor);
+						thumbColor, trackColor, effectiveBg);
 				}
 			}
 
