@@ -171,6 +171,26 @@ public class TableAnimationTests
         Assert.True(table.HasActiveRowAnimations);
     }
 
+    [Fact]
+    public void AnimateRowRemoval_RemovesRow_OnCompletion()
+    {
+        var table = CreateTableWithRows(3);
+        var manager = new AnimationManager();
+        table.SetAnimationManagerForTesting(manager);
+
+        // Remove row 1 ("R1C1", "R1C2")
+        var anim = table.AnimateRowRemoval(1, TimeSpan.FromMilliseconds(300));
+        Assert.NotNull(anim);
+        Assert.Equal(3, table.RowCount);
+
+        // Advance past animation duration to trigger onComplete
+        AdvanceByMs(manager, 400);
+
+        Assert.Equal(2, table.RowCount);
+        Assert.Equal("R0C1", table.GetCell(0, 0));
+        Assert.Equal("R2C1", table.GetCell(1, 0));
+    }
+
     #endregion
 
     #region AnimateRowsRemoval
@@ -210,6 +230,27 @@ public class TableAnimationTests
 
         Assert.NotNull(result);
         Assert.True(table.HasActiveRowAnimations);
+    }
+
+    [Fact]
+    public void AnimateRowsRemoval_RemovesRows_OnCompletion()
+    {
+        var table = CreateTableWithRows(5);
+        var manager = new AnimationManager();
+        table.SetAnimationManagerForTesting(manager);
+
+        // Remove rows 1 and 3 ("R1C1" and "R3C1")
+        var anim = table.AnimateRowsRemoval(new[] { 1, 3 }, TimeSpan.FromMilliseconds(300));
+        Assert.NotNull(anim);
+        Assert.Equal(5, table.RowCount);
+
+        // Advance past animation duration to trigger onComplete
+        AdvanceByMs(manager, 400);
+
+        Assert.Equal(3, table.RowCount);
+        Assert.Equal("R0C1", table.GetCell(0, 0));
+        Assert.Equal("R2C1", table.GetCell(1, 0));
+        Assert.Equal("R4C1", table.GetCell(2, 0));
     }
 
     #endregion
