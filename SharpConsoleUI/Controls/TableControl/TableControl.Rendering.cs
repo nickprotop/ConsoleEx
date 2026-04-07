@@ -760,6 +760,8 @@ public partial class TableControl
 				rowBg = _dataSource.GetRowBackgroundColor(dataR) ?? bgColor;
 				rowFg = _dataSource.GetRowForegroundColor(dataR) ?? fgColor;
 				isEnabled = _dataSource.IsRowEnabled(dataR);
+				if (_checkboxMode)
+					isChecked = _selectedRowIndices.Contains(displayR);
 			}
 			else
 			{
@@ -954,6 +956,10 @@ public partial class TableControl
 		}
 
 		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
+
+		// Apply row animation overlays (flash, highlight, fade-out)
+		if (HasActiveRowAnimations)
+			ApplyRowAnimationOverlays(buffer);
 	}
 
 	#endregion

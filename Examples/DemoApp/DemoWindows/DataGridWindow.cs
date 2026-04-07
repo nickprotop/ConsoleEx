@@ -227,6 +227,45 @@ internal class ProductDataSource : ITableDataSource
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
+    public void DeleteRecords(List<int> displayIndices)
+    {
+        // Convert display indices to data indices, sort descending to remove from end first
+        var dataIndices = displayIndices
+            .Where(i => i >= 0 && i < RowCount)
+            .Select(MapToDataIndex)
+            .Distinct()
+            .OrderByDescending(i => i)
+            .ToList();
+
+        foreach (var idx in dataIndices)
+            _records.RemoveAt(idx);
+
+        if (_sortDirection != SortDirection.None)
+            Sort(_sortColumn, _sortDirection);
+        else
+        {
+            _sortIndexMap = null;
+            _filterIndexMap = null;
+        }
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    public bool MoveRecord(int displayIndex, int direction)
+    {
+        int targetIndex = displayIndex + direction;
+        if (displayIndex < 0 || displayIndex >= RowCount) return false;
+        if (targetIndex < 0 || targetIndex >= RowCount) return false;
+
+        int dataA = MapToDataIndex(displayIndex);
+        int dataB = MapToDataIndex(targetIndex);
+
+        // Swap in underlying list
+        (_records[dataA], _records[dataB]) = (_records[dataB], _records[dataA]);
+
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        return true;
+    }
+
     private class ProductRecord
     {
         public int Id { get; set; }
@@ -246,6 +285,13 @@ public static class DataGridWindow
     {
         var dataSource = new ProductDataSource(10000);
 
+        // --- Delete button (created early so we can update its text) ---
+        var deleteButton = Controls.Button()
+            .WithText("\u2715 Delete")
+            .WithForegroundColor(Color.IndianRed)
+            .OnClick((sender, e) => { }) // Wired below after dataGrid exists
+            .Build();
+
         // --- Left panel: Interactive DataGrid with ITableDataSource ---
         var dataGrid = Controls.Table()
             .WithTitle("Product Inventory (10,000 rows)")
@@ -256,6 +302,8 @@ public static class DataGridWindow
             .WithFiltering()
             .WithColumnResize()
             .WithInlineEditing()
+            .WithMultiSelect()
+            .WithCheckboxMode()
             .WithHeaderColors(Color.White, Color.DarkBlue)
             .Rounded()
             .WithVerticalAlignment(VerticalAlignment.Fill)
@@ -263,10 +311,80 @@ public static class DataGridWindow
             .WithName("dataGrid")
             .OnCellEditCompleted((sender, e) =>
             {
-                // Write the edit back to the data source
                 dataSource.UpdateRecord(e.Row, e.Column, e.NewValue);
             })
             .Build();
+
+        // Update delete button text when checkbox selection changes
+        dataGrid.MultiSelectionChanged += (sender, count) =>
+        {
+            deleteButton.Text = count > 0 ? $"\u2715 Delete ({count})" : "\u2715 Delete";
+        };
+
+        // --- Toolbar ---
+        var toolbar = Controls.Toolbar()
+            .AddButton(Controls.Button()
+                .WithText("\uff0b Add")
+                .OnClick((sender, e) =>
+                {
+                    dataSource.AddRecord();
+                    int newRow = dataSource.RowCount - 1;
+                    dataGrid.SelectedRowIndex = newRow;
+                    dataGrid.HighlightRow(newRow, Color.Green, TimeSpan.FromMilliseconds(600));
+                }))
+            .AddButton(deleteButton)
+            .AddButton(Controls.Button()
+                .WithText("\u25b2 Move Up")
+                .OnClick((sender, e) =>
+                {
+                    int idx = dataGrid.SelectedRowIndex;
+                    if (idx <= 0) return;
+                    if (dataSource.MoveRecord(idx, -1))
+                    {
+                        dataGrid.SelectedRowIndex = idx - 1;
+                        dataGrid.FlashRow(idx - 1, Color.Cyan, TimeSpan.FromMilliseconds(300));
+                        dataGrid.FlashRow(idx, Color.Cyan, TimeSpan.FromMilliseconds(300));
+                    }
+                }))
+            .AddButton(Controls.Button()
+                .WithText("\u25bc Move Down")
+                .OnClick((sender, e) =>
+                {
+                    int idx = dataGrid.SelectedRowIndex;
+                    if (idx < 0 || idx >= dataSource.RowCount - 1) return;
+                    if (dataSource.MoveRecord(idx, 1))
+                    {
+                        dataGrid.SelectedRowIndex = idx + 1;
+                        dataGrid.FlashRow(idx, Color.Cyan, TimeSpan.FromMilliseconds(300));
+                        dataGrid.FlashRow(idx + 1, Color.Cyan, TimeSpan.FromMilliseconds(300));
+                    }
+                }))
+            .WithSpacing(1)
+            .StickyTop()
+            .WithBelowLine()
+            .Build();
+
+        // Wire delete button click (needs dataGrid reference)
+        deleteButton.Click += (sender, e) =>
+        {
+            var selectedIndices = dataGrid.GetSelectedIndices();
+            if (selectedIndices.Count > 1)
+            {
+                // Bulk delete: flash red, then remove from data source
+                foreach (var idx in selectedIndices)
+                    dataGrid.FlashRow(idx, Color.Red, TimeSpan.FromMilliseconds(300));
+                dataSource.DeleteRecords(selectedIndices);
+                dataGrid.ClearSelection();
+            }
+            else
+            {
+                // Single delete: flash red, then remove from data source
+                int idx = dataGrid.SelectedRowIndex;
+                if (idx < 0) return;
+                dataGrid.FlashRow(idx, Color.Red, TimeSpan.FromMilliseconds(300));
+                dataSource.DeleteRecord(idx);
+            }
+        };
 
         // --- Right panel: Info + static table ---
         var infoMarkup = Controls.Markup()
@@ -285,21 +403,19 @@ public static class DataGridWindow
                 "  [yellow]Enter[/] Commit, [yellow]Esc[/] Cancel",
                 "  [yellow]Esc[/] Deselect cell (row mode)",
                 "  [yellow]Drag border[/] Resize column",
+                "  [yellow]Space[/] Toggle checkbox",
+                "  [yellow]Ctrl+A[/] Select all",
                 "",
                 "[dim]Filtering:[/]",
                 "  [yellow]/[/] Enter filter mode",
                 "  [yellow]text[/] Filter all columns",
                 "  [yellow]col:value[/] Filter specific column",
                 "  [yellow]col>value[/] Numeric comparison",
-                "  [yellow]a b[/] AND (space-separated)",
-                "  [yellow]a|b[/] OR (pipe-separated)",
-                "  [yellow]col:a|b[/] OR within column",
-                "  [yellow]Enter[/] Confirm, [yellow]Esc[/] Clear",
                 "",
-                "[dim]Scrolling:[/]",
-                "  [yellow]Mouse wheel[/] Vertical scroll",
-                "  [yellow]Shift+wheel[/] Horizontal scroll",
-                "  [yellow]Drag scrollbar[/] Smooth scroll",
+                "[dim]Animations:[/]",
+                "  [green]Add[/] \u2192 Green highlight pulse",
+                "  [red]Delete[/] \u2192 Fade-out removal",
+                "  [cyan]Move[/] \u2192 Cyan flash on swap",
                 "",
                 "[dim]Data Source:[/]",
                 "  [green]10,000 rows[/] virtual rendering",
@@ -322,15 +438,15 @@ public static class DataGridWindow
             .AddRow("Column Resize", "[green]\u2713 Drag Border[/]")
             .AddRow("Inline Filter", "[green]\u2713 / to Filter[/]")
             .AddRow("Scrollbar Drag", "[green]\u2713 Smooth[/]")
-            .AddRow("Markup Support", "[green]\u2713 Rich Text[/]")
-            .AddRow("ReadOnly Mode", "[green]\u2713 Configurable[/]")
+            .AddRow("Checkbox Mode", "[green]\u2713 Multi-Select[/]")
+            .AddRow("Row Animations", "[green]\u2713 Flash/Fade[/]")
             .DoubleLine()
             .WithHeaderColors(Color.White, Color.DarkGreen)
             .WithMargin(1, 1, 1, 0)
             .Build();
 
         // Status bar
-        var statusBar = Controls.Markup("[dim]Esc: Close | \u2191\u2193: Navigate | Tab: Cell Nav | F2: Edit | /: Filter | Click Header: Sort[/]")
+        var statusBar = Controls.Markup("[dim]Esc: Close | \u2191\u2193: Navigate | Space: Check | Ctrl+A: Select All | /: Filter[/]")
             .StickyBottom()
             .Build();
 
@@ -353,11 +469,11 @@ public static class DataGridWindow
         // Wire up selection event to update status
         dataGrid.SelectedRowChanged += (sender, rowIdx) =>
         {
-            if (rowIdx >= 0)
+            if (rowIdx >= 0 && rowIdx < dataSource.RowCount)
             {
                 string name = dataSource.GetCellValue(rowIdx, 1);
                 string price = dataSource.GetCellValue(rowIdx, 3);
-                statusBar.SetContent(new List<string> { $"[dim]Row {rowIdx + 1}: {name} ({price}) | Esc: Close | F2: Edit | /: Filter[/]" });
+                statusBar.SetContent(new List<string> { $"[dim]Row {rowIdx + 1}: {name} ({price}) | Space: Check | /: Filter[/]" });
             }
         };
 
@@ -371,12 +487,11 @@ public static class DataGridWindow
             .WithSize(130, 35)
             .Centered()
             .WithBackgroundGradient(gradient, GradientDirection.Vertical)
-            .AddControls(grid, statusBar)
+            .AddControls(toolbar, grid, statusBar)
             .OnKeyPressed((sender, e) =>
             {
                 if (e.KeyInfo.Key == ConsoleKey.Escape)
                 {
-                    // Don't close if table just handled Escape (cancel edit / deselect cell)
                     if (e.AlreadyHandled)
                         return;
                     ws.CloseWindow((Window)sender!);

@@ -292,6 +292,15 @@ public partial class TableControl
 	}
 
 	/// <summary>
+	/// Gets the display indices of all selected/checked rows in multi-select mode.
+	/// Works in both row-based and DataSource modes.
+	/// </summary>
+	public List<int> GetSelectedIndices()
+	{
+		return _selectedRowIndices.OrderBy(i => i).ToList();
+	}
+
+	/// <summary>
 	/// Toggles selection of a row in multi-select mode (Ctrl+Click).
 	/// </summary>
 	internal void ToggleRowSelection(int displayIndex)
@@ -345,7 +354,10 @@ public partial class TableControl
 	/// <summary>
 	/// Returns whether a display row index is selected (in multi-select mode) or is the current selected row.
 	/// </summary>
-	internal bool IsRowSelected(int displayIndex)
+	/// <summary>
+	/// Returns whether a row at the given display index is currently selected.
+	/// </summary>
+	public bool IsRowSelected(int displayIndex)
 	{
 		if (_multiSelectEnabled && _selectedRowIndices.Contains(displayIndex))
 			return true;
