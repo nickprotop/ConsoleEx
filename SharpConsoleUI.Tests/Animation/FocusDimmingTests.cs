@@ -306,4 +306,12 @@ public class FocusDimmingTests
 
 		Assert.Null(dimming.ActivePaneId);
 	}
+
+	[Fact]
+	public void TransitionEasing_DefaultIsEaseOut()
+	{
+		var dimming = new FocusDimming();
+
+		Assert.Equal(EasingFunctions.EaseOut, dimming.TransitionEasing);
+	}
 }

@@ -22,6 +22,18 @@ public sealed class FocusDimming
 	/// <summary>Number of registered panes.</summary>
 	public int PaneCount => _panes.Count;
 
+	private List<PaneRegistration>? _panesCache;
+
+	/// <summary>Returns the list of registered panes.</summary>
+	public IReadOnlyList<PaneRegistration> Panes
+	{
+		get
+		{
+			_panesCache ??= _panes.Select(kvp => new PaneRegistration(kvp.Key, kvp.Value.Bounds)).ToList();
+			return _panesCache.AsReadOnly();
+		}
+	}
+
 	/// <summary>The currently active (focused) pane ID, or null if none.</summary>
 	public string? ActivePaneId { get; private set; }
 
@@ -66,6 +78,7 @@ public sealed class FocusDimming
 	/// </summary>
 	public void RegisterPane(PaneRegistration registration)
 	{
+		_panesCache = null;
 		if (_panes.TryGetValue(registration.Id, out var existing))
 		{
 			existing.Bounds = registration.Bounds;
@@ -88,8 +101,12 @@ public sealed class FocusDimming
 	/// </summary>
 	public void UnregisterPane(string id)
 	{
-		if (_panes.Remove(id) && ActivePaneId == id)
-			ActivePaneId = null;
+		if (_panes.Remove(id))
+		{
+			_panesCache = null;
+			if (ActivePaneId == id)
+				ActivePaneId = null;
+		}
 	}
 
 	/// <summary>
@@ -98,6 +115,7 @@ public sealed class FocusDimming
 	public void ClearPanes()
 	{
 		_panes.Clear();
+		_panesCache = null;
 		ActivePaneId = null;
 	}
 
@@ -107,7 +125,10 @@ public sealed class FocusDimming
 	public void UpdatePaneBounds(string id, LayoutRect bounds)
 	{
 		if (_panes.TryGetValue(id, out var state))
+		{
 			state.Bounds = bounds;
+			_panesCache = null;
+		}
 	}
 
 	/// <summary>
@@ -149,6 +170,15 @@ public sealed class FocusDimming
 		{
 			kvp.Value.TargetIntensity = kvp.Key == id ? 0f : BackgroundDimIntensity;
 		}
+	}
+
+	/// <summary>
+	/// Returns the target dim intensity for a pane by ID.
+	/// Returns 0 for the active pane, <see cref="BackgroundDimIntensity"/> for inactive panes, and 0 for unknown IDs.
+	/// </summary>
+	public float GetTargetDimIntensity(string id)
+	{
+		return _panes.TryGetValue(id, out var state) ? state.TargetIntensity : 0f;
 	}
 
 	/// <summary>
@@ -232,7 +262,7 @@ public sealed class FocusDimming
 
 			// Apply base dim overlay
 			float fgRatio = BackgroundDimIntensity > 0f
-				? ForegroundDimIntensity / BackgroundDimIntensity
+				? Math.Clamp(ForegroundDimIntensity / BackgroundDimIntensity, 0f, 1f)
 				: 0f;
 			ColorBlendHelper.ApplyColorOverlay(
 				buffer, Color.Black, intensity, fgRatio,
@@ -255,13 +285,11 @@ public sealed class FocusDimming
 	public void ApplySplitterAccent(CharacterBuffer buffer, int splitterX, int startY, int height)
 	{
 		if (Suspended) return;
+		if (splitterX < 0 || splitterX >= buffer.Width) return;
 
 		int endY = Math.Min(buffer.Height, startY + height);
 		for (int y = Math.Max(0, startY); y < endY; y++)
 		{
-			if (splitterX < 0 || splitterX >= buffer.Width)
-				continue;
-
 			var cell = buffer.GetCell(splitterX, y);
 			var newBg = ColorBlendHelper.BlendColor(cell.Background, AccentColor, AccentOpacity);
 			var newFg = ColorBlendHelper.BlendColor(cell.Foreground, AccentColor, AccentOpacity * 0.5f);
