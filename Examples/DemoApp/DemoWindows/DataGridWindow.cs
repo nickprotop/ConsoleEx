@@ -315,10 +315,13 @@ public static class DataGridWindow
             })
             .Build();
 
-        // Update delete button text when checkbox selection changes
+        // Update delete button text and flash row when checkbox toggled
         dataGrid.MultiSelectionChanged += (sender, count) =>
         {
             deleteButton.Text = count > 0 ? $"\u2715 Delete ({count})" : "\u2715 Delete";
+            int row = dataGrid.SelectedRowIndex;
+            if (row >= 0 && dataGrid.IsRowSelected(row))
+                dataGrid.FlashRow(row, Color.CornflowerBlue, TimeSpan.FromMilliseconds(250));
         };
 
         // --- Toolbar ---
