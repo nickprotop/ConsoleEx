@@ -53,6 +53,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 
 
+	private bool _truncationFade;
+
 	// Selection
 	private int _selectedRowIndex = -1;
 	private int _selectedColumnIndex = -1;
@@ -310,6 +312,17 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		get => _useSafeBorder;
 		set => SetProperty(ref _useSafeBorder, value);
+	}
+
+	/// <summary>
+	/// Gets or sets whether truncated cell text fades out instead of hard-cutting.
+	/// When enabled, the last 4 characters of truncated cells blend toward the background.
+	/// Default: false.
+	/// </summary>
+	public bool TruncationFade
+	{
+		get => _truncationFade;
+		set { _truncationFade = value; OnPropertyChanged(); Container?.Invalidate(true); }
 	}
 
 	/// <summary>

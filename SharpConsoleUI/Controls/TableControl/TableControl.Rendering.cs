@@ -239,6 +239,7 @@ public partial class TableControl
 			{
 				var cellCells = MarkupParser.Parse(cellText, cellFg, cellBg);
 				int visLen = cellCells.Count;
+				bool wasTruncated = visLen > colW;
 
 				if (visLen > colW)
 				{
@@ -276,6 +277,8 @@ public partial class TableControl
 					padRight = 0;
 				}
 
+
+				int cellStartX = writeX;
 
 				// Left padding
 				for (int i = 0; i < padLeft; i++)
@@ -328,6 +331,23 @@ public partial class TableControl
 					}
 					writeX++;
 					charIdx++;
+				}
+
+				// Apply truncation fade if enabled and this cell was truncated
+				if (_truncationFade && wasTruncated && colW > 4)
+				{
+					float[] fadeSteps = { 0.10f, 0.35f, 0.65f, 0.90f };
+					int fadeStart = cellStartX + colW - 4;
+					for (int fi = 0; fi < 4; fi++)
+					{
+						int fx = fadeStart + fi;
+						if (fx >= clipRect.X && fx < clipRect.Right)
+						{
+							var existing = buffer.GetCell(fx, y);
+							var fadedFg = ColorBlendHelper.BlendColor(existing.Foreground, existing.Background, fadeSteps[fi]);
+							buffer.SetCellColors(fx, y, fadedFg, existing.Background);
+						}
+					}
 				}
 
 				// Right padding
