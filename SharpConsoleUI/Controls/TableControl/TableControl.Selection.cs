@@ -303,7 +303,7 @@ public partial class TableControl
 	/// <summary>
 	/// Toggles selection of a row in multi-select mode (Ctrl+Click).
 	/// </summary>
-	internal void ToggleRowSelection(int displayIndex)
+	public void ToggleRowSelection(int displayIndex)
 	{
 		if (!_multiSelectEnabled) return;
 		if (_selectedRowIndices.Contains(displayIndex))
