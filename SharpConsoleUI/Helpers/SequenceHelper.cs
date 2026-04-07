@@ -41,17 +41,12 @@ namespace SharpConsoleUI.Helpers
 		/// <summary>
 		/// The combined CSI sequence to enable all mouse event tracking modes.
 		/// </summary>
-		public static readonly string CSI_EnableMouseEvents = CSI_EnableAnyEventMouse + CSI_EnableUrxvtExtModeMouse + CSI_EnableSgrExtModeMouse;
+		public static readonly string CSI_EnableMouseEvents = CSI_EnableAnyEventMouse + CSI_EnableSgrExtModeMouse;
 
 		/// <summary>
 		/// The CSI sequence to enable SGR extended mouse mode.
 		/// </summary>
 		public static readonly string CSI_EnableSgrExtModeMouse = CSI + "?1006h";
-
-		/// <summary>
-		/// The CSI sequence to enable urxvt extended mouse mode.
-		/// </summary>
-		public static readonly string CSI_EnableUrxvtExtModeMouse = CSI + "?1015h";
 
 		private static bool _isButtonClicked;
 

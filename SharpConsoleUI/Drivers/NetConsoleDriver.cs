@@ -393,10 +393,12 @@ namespace SharpConsoleUI.Drivers
 			if (_useDirectAnsi)
 				WriteOutput("\x1b[?1049h");
 
-			// Enable mouse reporting in proper order: basic -> extended modes -> drag tracking
+			// Enable mouse reporting: basic -> SGR encoding -> tracking modes
+			// Note: urxvt mode (1015) is intentionally NOT enabled — Kitty and Ghostty
+			// switch from SGR to urxvt encoding when 1015 is set after 1006, producing
+			// events the parser cannot decode. SGR (1006) is the superior protocol.
 			WriteOutput("\x1b[?1000h");  // Enable basic mouse reporting
 			WriteOutput("\x1b[?1006h");  // Enable SGR extended mouse mode
-			WriteOutput("\x1b[?1015h");  // Enable urxvt extended mouse mode
 			WriteOutput("\x1b[?1002h");  // Enable button event tracking (drag mode)
 			WriteOutput("\x1b[?1003h");  // Enable any event mouse (motion tracking)
 
@@ -456,7 +458,6 @@ namespace SharpConsoleUI.Drivers
 				var mouseDisable =
 					"\x1b[?1003l" +  // Disable any event mouse
 					"\x1b[?1002l" +  // Disable button event tracking
-					"\x1b[?1015l" +  // Disable urxvt extended mouse mode
 					"\x1b[?1006l" +  // Disable SGR extended mouse mode
 					"\x1b[?1000l";   // Disable basic mouse reporting
 
@@ -485,17 +486,13 @@ namespace SharpConsoleUI.Drivers
 			}
 
 			// Post-restore cleanup via Console (now that Console.Out is back)
-			var resetSequence = "\x1b[!p";  // Soft reset (RIS)
-
 			var mouseDisablePost =
 				"\x1b[?1003l" +
 				"\x1b[?1002l" +
-				"\x1b[?1015l" +
 				"\x1b[?1006l" +
 				"\x1b[?1000l";
 
 			var cleanupSequence =
-				resetSequence +
 				mouseDisablePost +
 				mouseDisablePost +
 				mouseDisablePost +
@@ -730,7 +727,7 @@ namespace SharpConsoleUI.Drivers
 				if (TerminalRawMode.IsRawModeActive)
 				{
 					var mouseDisable =
-						"\x1b[?1003l\x1b[?1002l\x1b[?1015l\x1b[?1006l\x1b[?1000l";
+						"\x1b[?1003l\x1b[?1002l\x1b[?1006l\x1b[?1000l";
 					try
 					{
 						TerminalRawMode.WriteStdout(mouseDisable);
@@ -743,12 +740,10 @@ namespace SharpConsoleUI.Drivers
 				// Restore terminal from raw mode
 				TerminalRawMode.RestoreTerminal();
 
-				var resetSequence = "\x1b[!p";
 				var mouseDisablePost =
-					"\x1b[?1003l\x1b[?1002l\x1b[?1015l\x1b[?1006l\x1b[?1000l";
+					"\x1b[?1003l\x1b[?1002l\x1b[?1006l\x1b[?1000l";
 
 				var cleanupSequence =
-					resetSequence +
 					mouseDisablePost +
 					mouseDisablePost +
 					mouseDisablePost +
