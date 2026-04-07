@@ -72,11 +72,13 @@ public sealed class FocusDimming
 		}
 		else
 		{
+			var isActive = ActivePaneId == registration.Id;
+			var intensity = isActive ? 0f : BackgroundDimIntensity;
 			_panes[registration.Id] = new PaneState
 			{
 				Bounds = registration.Bounds,
-				CurrentIntensity = ActivePaneId == null ? BackgroundDimIntensity : BackgroundDimIntensity,
-				TargetIntensity = ActivePaneId == registration.Id ? 0f : BackgroundDimIntensity
+				CurrentIntensity = intensity,
+				TargetIntensity = intensity
 			};
 		}
 	}
@@ -229,8 +231,11 @@ public sealed class FocusDimming
 				continue;
 
 			// Apply base dim overlay
+			float fgRatio = BackgroundDimIntensity > 0f
+				? ForegroundDimIntensity / BackgroundDimIntensity
+				: 0f;
 			ColorBlendHelper.ApplyColorOverlay(
-				buffer, Color.Black, intensity, ForegroundDimIntensity / BackgroundDimIntensity,
+				buffer, Color.Black, intensity, fgRatio,
 				state.Bounds);
 
 			// Apply shadow edge gradient on edges adjacent to active pane
