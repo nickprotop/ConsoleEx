@@ -46,10 +46,17 @@ public class TableColumn
 	public object? Tag { get; set; }
 
 	/// <summary>
-	/// Gets or sets a custom comparer for sorting this column.
+	/// Gets or sets a custom comparer for sorting this column by cell string values.
 	/// When null, default string comparison is used.
 	/// </summary>
 	public IComparer<string>? CustomComparer { get; set; }
+
+	/// <summary>
+	/// Gets or sets a custom comparer for sorting this column by full row data.
+	/// Takes precedence over CustomComparer when set. Receives the full TableRow
+	/// objects, allowing sort by Tag or any row property.
+	/// </summary>
+	public Comparison<TableRow>? CustomRowComparer { get; set; }
 
 	/// <summary>
 	/// Gets or sets whether this column supports sorting.

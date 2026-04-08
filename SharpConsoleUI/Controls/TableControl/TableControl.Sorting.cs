@@ -164,22 +164,33 @@ public partial class TableControl
 			// Build index map
 			var indices = Enumerable.Range(0, rowCount).ToArray();
 
-			// Get custom comparer if available
+			// Get custom comparers if available
+			Comparison<TableRow>? customRowComparer = null;
 			IComparer<string>? customComparer = null;
 			if (_sortColumnIndex >= 0 && _sortColumnIndex < _columns.Count)
+			{
+				customRowComparer = _columns[_sortColumnIndex].CustomRowComparer;
 				customComparer = _columns[_sortColumnIndex].CustomComparer;
+			}
 
 			int col = _sortColumnIndex;
 			Array.Sort(indices, (a, b) =>
 			{
-				string valA = col < _rows[a].Cells.Count ? _rows[a].Cells[col] : string.Empty;
-				string valB = col < _rows[b].Cells.Count ? _rows[b].Cells[col] : string.Empty;
-
 				int result;
-				if (customComparer != null)
+				if (customRowComparer != null)
+					result = customRowComparer(_rows[a], _rows[b]);
+				else if (customComparer != null)
+				{
+					string valA = col < _rows[a].Cells.Count ? _rows[a].Cells[col] : string.Empty;
+					string valB = col < _rows[b].Cells.Count ? _rows[b].Cells[col] : string.Empty;
 					result = customComparer.Compare(valA, valB);
+				}
 				else
+				{
+					string valA = col < _rows[a].Cells.Count ? _rows[a].Cells[col] : string.Empty;
+					string valB = col < _rows[b].Cells.Count ? _rows[b].Cells[col] : string.Empty;
 					result = string.Compare(valA, valB, StringComparison.OrdinalIgnoreCase);
+				}
 
 				return _sortDirection == SortDirection.Descending ? -result : result;
 			});
