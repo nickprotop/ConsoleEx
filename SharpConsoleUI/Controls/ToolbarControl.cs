@@ -51,7 +51,26 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public override int? ContentWidth => Width;
+		public override int? ContentWidth => Width ?? ComputeContentWidth();
+
+		private int? ComputeContentWidth()
+		{
+			if (_items.Count == 0) return null;
+			int total = 0;
+			foreach (var item in _items)
+			{
+				if (item is ButtonControl btn)
+					total += btn.ContentWidth ?? 0;
+				else if (item is SeparatorControl)
+					total += 1;
+				else
+					total += item.ContentWidth ?? item.Width ?? 0;
+			}
+			total += Math.Max(0, _items.Count - 1) * ItemSpacing;
+			total += _contentPadding.Left + _contentPadding.Right;
+			total += Margin.Left + Margin.Right;
+			return total;
+		}
 
 		/// <summary>
 		/// Gets or sets the background color of the toolbar.
