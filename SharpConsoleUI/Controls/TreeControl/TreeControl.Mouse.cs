@@ -293,11 +293,6 @@ namespace SharpConsoleUI.Controls
 							case ScrollbarHitZone.DownArrow:
 								_scrollOffset = Math.Min(maxOffset, _scrollOffset + 1);
 								break;
-							case ScrollbarHitZone.Thumb:
-								_isScrollbarDragging = true;
-								_scrollbarDragStartY = args.Position.Y;
-								_scrollbarDragStartOffset = _scrollOffset;
-								break;
 							case ScrollbarHitZone.TrackAbove:
 								_scrollOffset = Math.Max(0, _scrollOffset - effectiveVis);
 								break;

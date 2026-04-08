@@ -198,9 +198,9 @@ namespace SharpConsoleUI.Configuration
 		public const int DefaultEditorViewportHeight = 10;
 
 		/// <summary>
-		/// Number of lines to scroll per mouse wheel tick (default: 3)
+		/// Number of lines to scroll per mouse wheel tick (default: 1)
 		/// </summary>
-		public const int DefaultScrollWheelLines = 3;
+		public const int DefaultScrollWheelLines = 1;
 
 		/// <summary>
 		/// Default tab size in spaces for multiline editor (default: 4)

@@ -232,7 +232,22 @@ namespace SharpConsoleUI.Controls
 					int contentWidth = _viewportWidth - 2;
 					bool isOnScrollbar = viewportX >= contentWidth;
 
+					// Thumb drag initiation (needs Button1Pressed for responsive dragging)
 					if (isOnScrollbar && args.HasFlag(Drivers.MouseFlags.Button1Pressed))
+					{
+						int relY = args.Position.Y - Margin.Top - ContentInsetTop;
+						if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
+						{
+							_isScrollbarDragging = true;
+							_scrollbarDragStartY = args.Position.Y;
+							_scrollbarDragStartOffset = _verticalScrollOffset;
+							args.Handled = true;
+							return true;
+						}
+					}
+
+					// Arrow and track clicks (Button1Clicked only to avoid double-firing)
+					if (isOnScrollbar && args.HasFlag(Drivers.MouseFlags.Button1Clicked))
 					{
 						int relY = args.Position.Y - Margin.Top - ContentInsetTop;
 						int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
@@ -247,19 +262,12 @@ namespace SharpConsoleUI.Controls
 							// Arrow down
 							ScrollVerticalBy(ControlDefaults.DefaultScrollWheelLines);
 						}
-						else if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
-						{
-							// Thumb: start drag
-							_isScrollbarDragging = true;
-							_scrollbarDragStartY = args.Position.Y;
-							_scrollbarDragStartOffset = _verticalScrollOffset;
-						}
 						else if (relY < sbThumbY)
 						{
 							// Track above thumb: page up
 							ScrollVerticalBy(-_viewportHeight);
 						}
-						else
+						else if (relY >= sbThumbY + sbThumbHeight)
 						{
 							// Track below thumb: page down
 							ScrollVerticalBy(_viewportHeight);
@@ -268,11 +276,11 @@ namespace SharpConsoleUI.Controls
 						return true;
 					}
 
-					if (isOnScrollbar && args.HasAnyFlag(Drivers.MouseFlags.Button1Clicked,
+					if (isOnScrollbar && args.HasAnyFlag(
 						Drivers.MouseFlags.Button1Released, Drivers.MouseFlags.Button1DoubleClicked,
 						Drivers.MouseFlags.Button1TripleClicked))
 					{
-						// Consume scrollbar click events to prevent propagation to children
+						// Consume scrollbar events to prevent propagation to children
 						args.Handled = true;
 						return true;
 					}

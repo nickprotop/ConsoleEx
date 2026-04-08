@@ -223,8 +223,18 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Handle scrollbar click (for both Button1Clicked and Button1Pressed)
-			if (mouseOnScrollbar && (args.HasFlag(MouseFlags.Button1Clicked) || args.HasFlag(MouseFlags.Button1Pressed)))
+			// Handle scrollbar thumb drag initiation (needs Button1Pressed for responsive dragging)
+			if (mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Pressed))
+			{
+				if (!HasFocus && CanFocusWithMouse)
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+				HandleScrollbarThumbPress(args);
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle scrollbar arrow/track clicks (Button1Clicked only to avoid double-firing)
+			if (mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Clicked))
 			{
 				if (!HasFocus && CanFocusWithMouse)
 					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
@@ -383,6 +393,25 @@ namespace SharpConsoleUI.Controls
 			return (scrollbarStartY, Math.Max(0, scrollbarHeight));
 		}
 
+		private void HandleScrollbarThumbPress(MouseEventArgs args)
+		{
+			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
+			var (scrollbarStartY, scrollbarHeight) = GetScrollbarLayout();
+			if (scrollbarHeight <= 0) return;
+
+			var (_, trackHeight, thumbY, thumbHeight) =
+				ScrollbarHelper.GetVerticalGeometry(scrollbarHeight, _items.Count, effectiveMaxVisibleItems, _scrollOffset);
+
+			int relY = args.Position.Y - scrollbarStartY;
+			var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
+			if (zone == ScrollbarHitZone.Thumb)
+			{
+				_isScrollbarDragging = true;
+				_scrollbarDragStartY = args.Position.Y;
+				_scrollbarDragStartOffset = _scrollOffset;
+			}
+		}
+
 		private void HandleScrollbarClick(MouseEventArgs args)
 		{
 			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
@@ -403,11 +432,6 @@ namespace SharpConsoleUI.Controls
 					break;
 				case ScrollbarHitZone.DownArrow:
 					_scrollOffset = Math.Min(maxOffset, _scrollOffset + 1);
-					break;
-				case ScrollbarHitZone.Thumb:
-					_isScrollbarDragging = true;
-					_scrollbarDragStartY = args.Position.Y;
-					_scrollbarDragStartOffset = _scrollOffset;
 					break;
 				case ScrollbarHitZone.TrackAbove:
 					_scrollOffset = Math.Max(0, _scrollOffset - effectiveMaxVisibleItems);

@@ -74,7 +74,7 @@ namespace SharpConsoleUI.Controls
 		private bool _hoverHighlightsItems = true;
 		private bool _autoHighlightOnFocus = true;
 		private bool _truncationFade;
-		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultMinimumVisibleItems;
+		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 		private bool _doubleClickActivates = true;
 		private int _doubleClickThresholdMs = ControlDefaults.DefaultDoubleClickThresholdMs;
 

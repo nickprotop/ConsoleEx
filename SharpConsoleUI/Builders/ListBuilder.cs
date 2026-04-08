@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
@@ -60,7 +61,7 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 	private bool _hoverHighlightsItems = true;
 	private bool _autoHighlightOnFocus = true;
 	private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
-	private int _mouseWheelScrollSpeed = 3;
+	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 	private bool _doubleClickActivates = true;
 	private int _doubleClickThresholdMs = 500;
 
