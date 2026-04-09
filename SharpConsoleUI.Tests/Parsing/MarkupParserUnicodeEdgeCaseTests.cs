@@ -410,35 +410,35 @@ namespace SharpConsoleUI.Tests.Parsing
 		#region Zero-Width at String Start
 
 		[Fact]
-		public void Parse_ZWJAtStart_CreatesOwnCell()
+		public void Parse_ZWJAtStart_IsDropped()
 		{
-			// ZWJ at start with no previous cell → falls through to own cell
+			// ZWJ at start with no previous cell to attach to is dropped.
 			var cells = MarkupParser.Parse("\u200DA", Color.White, Color.Black);
 
-			Assert.Equal(2, cells.Count);
-			Assert.Equal(new Rune('A'), cells[1].Character);
+			Assert.Single(cells);
+			Assert.Equal(new Rune('A'), cells[0].Character);
 		}
 
 		[Fact]
-		public void Parse_CombiningMarkAtStart_CreatesOwnCell()
+		public void Parse_CombiningMarkAtStart_IsDropped()
 		{
-			// U+0301 at start with no base → creates own cell
+			// U+0301 at start with no base cell to attach to is dropped.
 			var cells = MarkupParser.Parse("\u0301A", Color.White, Color.Black);
 
-			Assert.Equal(2, cells.Count);
-			Assert.Equal(new Rune('A'), cells[1].Character);
+			Assert.Single(cells);
+			Assert.Equal(new Rune('A'), cells[0].Character);
 		}
 
 		[Fact]
-		public void Parse_MultipleCombinersAtStart_EachCreatesCell()
+		public void Parse_MultipleCombinersAtStart_AllDropped()
 		{
-			// Two zero-width at start: first creates cell, second attaches to first
+			// Leading zero-width runes with no base cell are all dropped;
+			// the first real base cell starts fresh without their combiners.
 			var cells = MarkupParser.Parse("\u0300\u0301A", Color.White, Color.Black);
 
-			// First U+0300 creates own cell (no previous), U+0301 attaches to it
-			Assert.Equal(2, cells.Count);
-			Assert.NotNull(cells[0].Combiners); // U+0301 attached
-			Assert.Equal(new Rune('A'), cells[1].Character);
+			Assert.Single(cells);
+			Assert.Equal(new Rune('A'), cells[0].Character);
+			Assert.Null(cells[0].Combiners);
 		}
 
 		#endregion

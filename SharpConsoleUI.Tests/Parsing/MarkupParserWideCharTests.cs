@@ -376,14 +376,16 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 
 		[Fact]
-		public void Parse_ZeroWidthAtStartOfString_CreatesOwnCell()
+		public void Parse_ZeroWidthAtStartOfString_IsDropped()
 		{
-			// If zero-width char appears first with no previous cell to attach to,
-			// it falls through to create its own cell (defensive behavior)
+			// If a zero-width char appears first with no previous cell to attach to,
+			// it is dropped. Keeping it as a standalone cell would desynchronize
+			// cell-count from visual width and misalign every subsequent cell when
+			// painted (e.g. Outlook's stray U+FEFF breaking rendering of the line).
 			var cells = MarkupParser.Parse("\uFE0FA", Color.White, Color.Black);
 
-			Assert.Equal(2, cells.Count);
-			Assert.Equal(new Rune('A'), cells[1].Character);
+			Assert.Single(cells);
+			Assert.Equal(new Rune('A'), cells[0].Character);
 		}
 
 		#endregion

@@ -156,25 +156,32 @@ namespace SharpConsoleUI.Parsing
 					if (Rune.TryGetRuneAt(markup, i, out var rune))
 					{
 						int runeWidth = GetRuneWidth(rune);
-						if (runeWidth == 0 && cells.Count > 0)
+						if (runeWidth == 0)
 						{
-							var lastIdx = cells.Count - 1;
-							// Skip past continuation cells to attach to the base cell
-							if (cells[lastIdx].IsWideContinuation && lastIdx > 0)
-								lastIdx--;
-							var lastCell = cells[lastIdx];
-							// VS16 widens certain emoji from 1→2 columns
-							if (IsVS16(rune) && IsVs16Widened(lastCell.Character) && !IsWideRune(lastCell.Character))
+							if (cells.Count > 0)
 							{
-								lastCell.AppendCombiner(rune);
-								cells[lastIdx] = lastCell;
-								cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+								var lastIdx = cells.Count - 1;
+								// Skip past continuation cells to attach to the base cell
+								if (cells[lastIdx].IsWideContinuation && lastIdx > 0)
+									lastIdx--;
+								var lastCell = cells[lastIdx];
+								// VS16 widens certain emoji from 1→2 columns
+								if (IsVS16(rune) && IsVs16Widened(lastCell.Character) && !IsWideRune(lastCell.Character))
+								{
+									lastCell.AppendCombiner(rune);
+									cells[lastIdx] = lastCell;
+									cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
+								}
+								else
+								{
+									lastCell.AppendCombiner(rune);
+									cells[lastIdx] = lastCell;
+								}
 							}
-							else
-							{
-								lastCell.AppendCombiner(rune);
-								cells[lastIdx] = lastCell;
-							}
+							// else: zero-width rune with no preceding base cell — drop it.
+							// Creating a standalone cell for a zero-width rune desynchronizes
+							// cell-count from visual width and misaligns every subsequent cell
+							// (e.g. the FEFF-at-start-of-line rendering bug with Outlook HTML).
 						}
 						else
 						{
