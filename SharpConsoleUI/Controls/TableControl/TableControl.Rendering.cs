@@ -747,13 +747,16 @@ public partial class TableControl
 		int dataStartY = currentY;
 
 		// Data rows - virtual rendering (only visible rows)
-		int rowCount = RowCount;
+		int rowCount = rowSnapshot?.Count ?? RowCount;
 		int startRow = _scrollOffset;
 		int endRow = Math.Min(rowCount, _scrollOffset + GetVisibleRowCount());
 
 		for (int displayR = startRow; displayR < endRow && currentY < maxY; displayR++)
 		{
 			int dataR = MapDisplayToData(displayR);
+			// Guard against snapshot/data race — dataR may be invalid if _rows changed after snapshot
+			if (rowSnapshot != null && (dataR < 0 || dataR >= rowSnapshot.Count))
+				continue;
 
 			// Row separator (between rows, not before first)
 			if (displayR > startRow && _showRowSeparators && hasBorder && currentY < maxY)
