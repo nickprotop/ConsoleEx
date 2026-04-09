@@ -46,7 +46,8 @@ public static class LauncherWindow
                 .AddItem("International & Emoji", subtitle: "Unicode & emoji support", content: MakeInfoPanel("International & Emoji"))
                 .AddItem("Data Binding", subtitle: "MVVM data binding", content: MakeInfoPanel("Data Binding"))
                 .AddItem("Date & Time", subtitle: "DatePicker and TimePicker controls", content: MakeInfoPanel("Date & Time"))
-                .AddItem("Slider", subtitle: "Value and range slider controls", content: MakeInfoPanel("Slider")))
+                .AddItem("Slider", subtitle: "Value and range slider controls", content: MakeInfoPanel("Slider"))
+                .AddItem("HTML Rendering", subtitle: "Lynx-inspired HTML renderer", content: MakeInfoPanel("HTML Rendering")))
             .AddHeader("Data Visualization", Color.Yellow, header => header
                 .AddItem("Graphs & Charts", subtitle: "Live sparklines & bar graphs", content: MakeInfoPanel("Graphs & Charts"))
                 .AddItem("System Monitor", subtitle: "Real-time system dashboard", content: MakeInfoPanel("System Monitor")))
@@ -253,6 +254,7 @@ public static class LauncherWindow
             "Desktop Background" => DesktopBackgroundWindow.Create(ws),
             "Canvas Animations" => OpenCanvasWindows(ws),
             "Video Player" => VideoDemoWindow.Create(ws),
+            "HTML Rendering" => HtmlDemoWindow.Create(ws),
             _ => (Window?)null
         };
     }
@@ -814,6 +816,28 @@ public static class LauncherWindow
                 "[dim]Uses:[/]",
                 "  - DesktopBackgroundConfig, DesktopPatterns",
                 "  - DesktopEffects, GradientBackground",
+            },
+            "HTML Rendering" => new List<string>
+            {
+                "[bold cyan]HTML Rendering[/]",
+                "",
+                "Renders HTML content directly in the terminal,",
+                "inspired by the Lynx text browser.",
+                "",
+                "[dim]Features:[/]",
+                "  - Full HTML parsing via AngleSharp",
+                "  - CSS style support (inline + style blocks)",
+                "  - Text formatting (bold, italic, underline)",
+                "  - Links with click/hover events",
+                "  - Tables with box-drawing borders",
+                "  - Lists (ordered + unordered, nested)",
+                "  - Blockquotes, code blocks, headings",
+                "  - CSS Grid layout",
+                "  - Async URL loading",
+                "  - Scrollable content",
+                "",
+                "[dim]Controls used:[/]",
+                "  - HtmlControl, HtmlBuilder",
             },
             "Video Player" => new List<string>
             {
