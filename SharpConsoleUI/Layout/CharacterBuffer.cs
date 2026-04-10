@@ -266,6 +266,26 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
+		/// Writes a pre-composited cell directly without alpha blending or wide-character cleanup.
+		/// Used by the compositor to write cells whose colors have already been resolved.
+		/// </summary>
+		public void SetCellDirect(int x, int y, Cell cell)
+		{
+			if (x < 0 || x >= Width || y < 0 || y >= Height)
+				return;
+
+			ref var existing = ref _cells[x, y];
+			existing.Character = cell.Character;
+			existing.Foreground = cell.Foreground;
+			existing.Background = cell.Background;
+			existing.Decorations = cell.Decorations;
+			existing.IsWideContinuation = cell.IsWideContinuation;
+			existing.Combiners = cell.Combiners;
+			existing.Dirty = true;
+			ExpandDirtyRegion(x, y);
+		}
+
+		/// <summary>
 		/// Updates only the foreground and background colors of a cell without modifying
 		/// the character, decorations, wide-char flags, or combiners.
 		/// Does not trigger wide-character cleanup — safe for overlay effects (flash, fade)

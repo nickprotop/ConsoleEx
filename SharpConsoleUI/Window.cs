@@ -451,6 +451,24 @@ namespace SharpConsoleUI
 			}
 		}
 
+		private Rendering.TransparencyBrush? _transparencyBrush;
+
+		/// <summary>
+		/// Gets or sets the transparency brush for this window.
+		/// When set, overrides the default true-transparency compositing behavior
+		/// with the specified brush style (Acrylic, Mica, Tinted, Custom).
+		/// Only applies when BackgroundColor has alpha &lt; 255.
+		/// </summary>
+		public Rendering.TransparencyBrush? TransparencyBrush
+		{
+			get => _transparencyBrush;
+			set
+			{
+				_transparencyBrush = value;
+				Invalidate(false);
+			}
+		}
+
 		/// <summary>
 		/// Gets or sets the default foreground color for window content.
 		/// If not set, uses the theme's WindowForegroundColor.

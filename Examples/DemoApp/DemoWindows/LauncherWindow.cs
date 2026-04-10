@@ -59,6 +59,8 @@ public static class LauncherWindow
                 .AddItem("Image Viewer", subtitle: "Load & display image files", content: MakeInfoPanel("Image Viewer"))
                 .AddItem("Alpha Blending", subtitle: "Compositing, glass panels, live blend preview",
                     content: MakeInfoPanel("Alpha Blending"))
+                .AddItem("Transparent Windows", subtitle: "Mica-style see-through window compositing",
+                    content: MakeInfoPanel("Transparent Windows"))
                 .AddItem("Canvas Animations", subtitle: "Starfield, plasma & geometry canvases",
                     content: MakeCanvasInfoPanel()))
             .AddHeader("System", new Color(180, 140, 255), header => header
@@ -250,6 +252,7 @@ public static class LauncherWindow
             "Toolbar" => ToolbarDemoWindow.Create(ws),
             "Welcome Banner" => WelcomeWindow.Create(ws),
             "Alpha Blending" => AlphaBlendingDemoWindow.Create(ws),
+            "Transparent Windows" => TransparentWindowDemoWindow.Create(ws),
             "Panel Config" => PanelConfigWindow.Create(ws),
             "Desktop Background" => DesktopBackgroundWindow.Create(ws),
             "Canvas Animations" => OpenCanvasWindows(ws),
@@ -777,6 +780,20 @@ public static class LauncherWindow
                 "  - Live Color.Blend() compositor with slider",
                 "  - Animated pulse panel (sin-wave alpha)",
                 "  - Animated background gradient (checkbox-controlled)",
+            },
+            "Transparent Windows" => new List<string>
+            {
+                "[bold cyan]Transparent Windows[/]",
+                "",
+                "Mica-style see-through window compositing.",
+                "Semi-transparent windows show content from",
+                "windows below and the desktop background.",
+                "",
+                "[dim]Features:[/]",
+                "  - Per-cell alpha compositing against lower windows",
+                "  - Text from windows below shows through (Mica effect)",
+                "  - Double compositing: glass → mica → opaque",
+                "  - Desktop gradient bleeds through transparent areas",
             },
             "Panel Config" => new List<string>
             {

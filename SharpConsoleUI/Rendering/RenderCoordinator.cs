@@ -70,6 +70,7 @@ namespace SharpConsoleUI.Rendering
 		// Pooled collections to avoid per-frame allocations
 		private readonly List<Rectangle> _clearsCopyPool = new List<Rectangle>();
 		private readonly List<Window> _overlappingClearsPool = new List<Window>();
+		private readonly List<Window> _transparentInvalidationPool = new List<Window>();
 
 		/// <summary>
 		/// Initializes a new instance of the RenderCoordinator class.
@@ -264,6 +265,14 @@ namespace SharpConsoleUI.Rendering
 					{
 						_renderer.BlitDesktopRegion(region.Left, region.Top, region.Width, region.Height,
 							_windowSystemContext.Theme);
+					}
+
+					// Invalidate transparent windows — they composite against the desktop
+					// buffer which just changed, so they need to re-render.
+					foreach (var w in _windowSystemContext.Windows.Values)
+					{
+						if (w.State != WindowState.Minimized && w.BackgroundColor.A < 255)
+							w.Invalidate(true);
 					}
 				}
 			}
@@ -810,6 +819,27 @@ namespace SharpConsoleUI.Rendering
 			{
 				dragState.Window.Invalidate(true);
 				_windowsToRender.Add(dragState.Window);
+			}
+
+			// Invalidate transparent windows that overlap any dirty window below them.
+			// Transparent windows composite against lower windows' content, so when
+			// that content changes the transparent window must re-render.
+			_transparentInvalidationPool.Clear();
+			foreach (var dirtyWindow in _windowsToRender)
+			{
+				for (int i = 0; i < _sortedWindows.Count; i++)
+				{
+					var w = _sortedWindows[i];
+					if (w == dirtyWindow || w.BackgroundColor.A == 255) continue;
+					if (w.ZIndex <= dirtyWindow.ZIndex || w.State == WindowState.Minimized) continue;
+					if (_renderer.IsOverlapping(w, dirtyWindow) && !_windowsToRender.Contains(w))
+						_transparentInvalidationPool.Add(w);
+				}
+			}
+			foreach (var w in _transparentInvalidationPool)
+			{
+				w.Invalidate(true);
+				_windowsToRender.Add(w);
 			}
 
 			// PASS 1: Render normal (non-AlwaysOnTop) windows based on their ZIndex (no LINQ)

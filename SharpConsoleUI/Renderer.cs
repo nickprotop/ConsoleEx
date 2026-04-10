@@ -9,6 +9,7 @@
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using System.Drawing;
+using System.Text;
 
 namespace SharpConsoleUI
 {
@@ -22,6 +23,12 @@ namespace SharpConsoleUI
 
 		// Pooled collections to avoid per-frame allocations on hot paths
 		private readonly List<Window> _overlappingWindowsPool = new List<Window>();
+
+		// Pooled list for alpha compositing — sorted descending by ZIndex
+		private readonly List<Window> _compositingWindowsPool = new List<Window>();
+
+		// Scratch buffer for compositing transparent window rows (reused across frames)
+		private CharacterBuffer? _scratchBuffer;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Renderer"/> class.
@@ -287,14 +294,22 @@ namespace SharpConsoleUI
 			var visibleRegions = new List<Rectangle> { region };
 
 			// Fill the background only for the visible regions
-			foreach (var visibleRegion in visibleRegions)
+			// Skip for transparent windows — compositing path handles each cell
+			if (window.BackgroundColor.A == 255)
 			{
-				FillRect(visibleRegion.Left, visibleRegion.Top, visibleRegion.Width, visibleRegion.Height, ' ', window.BackgroundColor, null);
+				foreach (var visibleRegion in visibleRegions)
+				{
+					FillRect(visibleRegion.Left, visibleRegion.Top, visibleRegion.Width, visibleRegion.Height, ' ', window.BackgroundColor, null);
+				}
 			}
 
 			// Draw window borders - these might be partially hidden but the drawing functions
 			// will handle clipping against screen boundaries
 			window.BorderRenderer?.RenderBorders(visibleRegions);
+
+			// Composite border cells for transparent windows
+			if (window.BackgroundColor.A < 255)
+				CompositeBorders(window, visibleRegions);
 
 			// Optimized path: rebuild buffer only and render cells directly
 			var buffer = window.EnsureContentReady(visibleRegions);
@@ -377,7 +392,8 @@ namespace SharpConsoleUI
 
 			// Fill the background only for the visible regions
 			// Can be disabled via ClearDestinationOnWindowMove option to reduce flicker during moves
-			if (_consoleWindowSystem.Options.ClearDestinationOnWindowMove)
+			// Skip for transparent windows — compositing path handles each cell
+			if (_consoleWindowSystem.Options.ClearDestinationOnWindowMove && window.BackgroundColor.A == 255)
 			{
 				foreach (var region in visibleRegions)
 				{
@@ -388,6 +404,10 @@ namespace SharpConsoleUI
 			// Draw window borders - these might be partially hidden but the drawing functions
 			// will handle clipping against screen boundaries
 			window.BorderRenderer?.RenderBorders(visibleRegions);
+
+			// Composite border cells for transparent windows
+			if (window.BackgroundColor.A < 255)
+				CompositeBorders(window, visibleRegions);
 
 			// Optimized path: rebuild buffer only (no ANSI serialization) and render cells directly
 			var buffer = window.EnsureContentReady(visibleRegions);
@@ -418,28 +438,39 @@ namespace SharpConsoleUI
 			var desktopUpperLeftY = _consoleWindowSystem.DesktopUpperLeft.Y;
 			var bufferHeight = buffer.Height;
 
+			// Fast path: fully opaque window — no compositing needed
+			if (window.BackgroundColor.A == 255)
+			{
+				RenderVisibleWindowContentOpaque(window, buffer, visibleRegions, windowLeft, windowTop, windowWidth, desktopUpperLeftY, bufferHeight);
+				return;
+			}
+
+			// Compositing path: window has semi-transparent background (Mica-style)
+			RenderVisibleWindowContentComposited(window, buffer, visibleRegions, windowLeft, windowTop, windowWidth, desktopUpperLeftY, bufferHeight);
+		}
+
+		/// <summary>
+		/// Fast path for fully opaque windows — direct buffer-to-driver copy with no compositing.
+		/// </summary>
+		private void RenderVisibleWindowContentOpaque(Window window, CharacterBuffer buffer, List<Rectangle> visibleRegions,
+			int windowLeft, int windowTop, int windowWidth, int desktopUpperLeftY, int bufferHeight)
+		{
 			for (var y = 0; y < bufferHeight; y++)
 			{
-				// Skip if this line is outside the desktop area
 				if (windowTop + y >= _consoleWindowSystem.DesktopBottomRight.Y) break;
 
-				// Check if this line is in any visible region
 				foreach (var region in visibleRegions)
 				{
-					// Check if this line falls within the current region's vertical bounds
 					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 < region.Top + region.Height)
 					{
-						// Calculate content boundaries within the window
 						int contentLeft = Math.Max(windowLeft + 1, region.Left);
 						int contentRight = Math.Min(windowLeft + windowWidth - 1, region.Left + region.Width);
 						int contentWidth = contentRight - contentLeft;
 
 						if (contentWidth <= 0) continue;
 
-						// Calculate the portion of the buffer to render
 						int startOffset = Math.Max(0, contentLeft - (windowLeft + 1));
 
-						// Write cells directly from buffer to console driver
 						_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
 							contentLeft,
 							windowTop + desktopUpperLeftY + y + 1,
@@ -451,6 +482,532 @@ namespace SharpConsoleUI
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Compositing path for semi-transparent windows. Resolves each cell against
+		/// the windows below and desktop background for Mica-style transparency.
+		/// </summary>
+		private void RenderVisibleWindowContentComposited(Window window, CharacterBuffer buffer, List<Rectangle> visibleRegions,
+			int windowLeft, int windowTop, int windowWidth, int desktopUpperLeftY, int bufferHeight)
+		{
+			// Build sorted windows list (descending Z-order) once for this window render
+			_compositingWindowsPool.Clear();
+			foreach (var w in _consoleWindowSystem.Windows.Values)
+			{
+				if (w != window && w.State != WindowState.Minimized)
+					_compositingWindowsPool.Add(w);
+			}
+			_compositingWindowsPool.Sort((a, b) => b.ZIndex.CompareTo(a.ZIndex)); // descending
+
+			// Ensure scratch buffer is large enough for the widest row
+			int scratchWidth = windowWidth;
+			if (_scratchBuffer == null || _scratchBuffer.Width < scratchWidth)
+			{
+				_scratchBuffer = new CharacterBuffer(scratchWidth, 1);
+			}
+
+			for (var y = 0; y < bufferHeight; y++)
+			{
+				if (windowTop + y >= _consoleWindowSystem.DesktopBottomRight.Y) break;
+
+				foreach (var region in visibleRegions)
+				{
+					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 < region.Top + region.Height)
+					{
+						int contentLeft = Math.Max(windowLeft + 1, region.Left);
+						int contentRight = Math.Min(windowLeft + windowWidth - 1, region.Left + region.Width);
+						int contentWidth = contentRight - contentLeft;
+
+						if (contentWidth <= 0) continue;
+
+						int startOffset = Math.Max(0, contentLeft - (windowLeft + 1));
+
+						// Resize scratch buffer if needed (width might have changed)
+						if (_scratchBuffer.Width < contentWidth)
+						{
+							_scratchBuffer = new CharacterBuffer(contentWidth, 1);
+						}
+
+						// Composite each cell in this row segment
+						for (int i = 0; i < contentWidth; i++)
+						{
+							int bufX = startOffset + i;
+							var cell = buffer.GetCell(bufX, y);
+							int screenX = contentLeft + i;
+							int screenY = window.Top + y + 1;
+
+							if (cell.Background.A == 255)
+							{
+								// Cell is fully opaque — no compositing needed
+								_scratchBuffer.SetCellDirect(i, 0, cell);
+							}
+							else
+							{
+								// Resolve the cell below at this screen position
+								var cellBelow = ResolveCellBelow(screenX, screenY, window.ZIndex, _compositingWindowsPool, 0);
+								var brush = window.TransparencyBrush;
+
+								// Compute effective background from below — block chars use fg as visual bg
+								var effectiveBgBelow = IsBlockCharacter(cellBelow.Character)
+									? cellBelow.Foreground : cellBelow.Background;
+
+								Cell composited;
+								if (brush != null)
+								{
+									composited = CompositeWithBrush(cell, cellBelow, effectiveBgBelow, brush);
+								}
+								else
+								{
+									// Default: true transparency — bg at raw alpha, character bubble-up
+									// with parabolic fg fade
+									composited = CompositeDefault(cell, cellBelow, effectiveBgBelow);
+								}
+
+								_scratchBuffer.SetCellDirect(i, 0, composited);
+							}
+						}
+
+						// Write the composited row to the driver
+						_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
+							contentLeft,
+							windowTop + desktopUpperLeftY + y + 1,
+							_scratchBuffer,
+							0,
+							0,
+							contentWidth,
+							window.BackgroundColor);
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Re-renders border cells of a transparent window with composited backgrounds.
+		/// Called after BorderRenderer.RenderBorders has written un-composited borders.
+		/// Reads characters/foreground from the cached border buffers, computes fresh
+		/// composited backgrounds, and overwrites the driver cells.
+		/// </summary>
+		private void CompositeBorders(Window window, List<Rectangle> visibleRegions)
+		{
+			var borderRenderer = window.BorderRenderer;
+			if (borderRenderer == null)
+				return;
+
+			var driver = _consoleWindowSystem.ConsoleDriver;
+			var desktopUpperLeftY = _consoleWindowSystem.DesktopUpperLeft.Y;
+			var windowBg = window.BackgroundColor;
+
+			// Build compositing windows pool for this window
+			_compositingWindowsPool.Clear();
+			foreach (var w in _consoleWindowSystem.Windows.Values)
+			{
+				if (w != window && w.State != WindowState.Minimized)
+					_compositingWindowsPool.Add(w);
+			}
+			_compositingWindowsPool.Sort((a, b) => b.ZIndex.CompareTo(a.ZIndex));
+
+			var cachedTop = borderRenderer._cachedTopBorder;
+			var cachedBottom = borderRenderer._cachedBottomBorder;
+
+			foreach (var region in visibleRegions)
+			{
+				// Top border
+				if (region.Top == window.Top && cachedTop != null)
+				{
+					int borderStartX = Math.Max(region.Left, window.Left);
+					int borderEndX = Math.Min(region.Left + region.Width, window.Left + window.Width);
+					for (int x = borderStartX; x < borderEndX; x++)
+					{
+						int srcX = x - window.Left;
+						if (srcX < 0 || srcX >= cachedTop.Width) continue;
+
+						var cachedCell = cachedTop.GetCell(srcX, 0);
+						var cellBelow = ResolveCellBelow(x, window.Top, window.ZIndex, _compositingWindowsPool, 0);
+						var resolvedBg = Color.Blend(windowBg, cellBelow.Background);
+						var resolvedFg = Color.Blend(cachedCell.Foreground, resolvedBg);
+
+						driver.SetNarrowCell(x, window.Top + desktopUpperLeftY,
+							(char)cachedCell.Character.Value, resolvedFg, resolvedBg);
+					}
+				}
+
+				// Bottom border
+				int bottomY = window.Top + window.Height - 1;
+				if (region.Top + region.Height == window.Top + window.Height && cachedBottom != null)
+				{
+					int borderStartX = Math.Max(region.Left, window.Left);
+					int borderEndX = Math.Min(region.Left + region.Width, window.Left + window.Width);
+					for (int x = borderStartX; x < borderEndX; x++)
+					{
+						int srcX = x - window.Left;
+						if (srcX < 0 || srcX >= cachedBottom.Width) continue;
+
+						var cachedCell = cachedBottom.GetCell(srcX, 0);
+						var cellBelow = ResolveCellBelow(x, bottomY, window.ZIndex, _compositingWindowsPool, 0);
+						var resolvedBg = Color.Blend(windowBg, cellBelow.Background);
+						var resolvedFg = Color.Blend(cachedCell.Foreground, resolvedBg);
+
+						driver.SetNarrowCell(x, bottomY + desktopUpperLeftY,
+							(char)cachedCell.Character.Value, resolvedFg, resolvedBg);
+					}
+				}
+			}
+
+			// Vertical borders (left and right columns)
+			bool isActive = window.GetIsActive();
+			var borderFg = isActive ? window.ActiveBorderForegroundColor : window.InactiveBorderForegroundColor;
+
+			for (int y = 1; y < window.Height - 1; y++)
+			{
+				int screenY = window.Top + y;
+				if (screenY + desktopUpperLeftY >= _consoleWindowSystem.DesktopBottomRight.Y) break;
+
+				foreach (var region in visibleRegions)
+				{
+					if (screenY >= region.Top && screenY < region.Top + region.Height)
+					{
+						// Left border
+						if (window.Left >= region.Left && window.Left < region.Left + region.Width)
+						{
+							var cellBelow = ResolveCellBelow(window.Left, screenY, window.ZIndex, _compositingWindowsPool, 0);
+							var resolvedBg = Color.Blend(windowBg, cellBelow.Background);
+							var resolvedFg = Color.Blend(borderFg, resolvedBg);
+
+							// Read back the character that was written (scrollbar, border char, etc.)
+							// by re-reading from what BorderRenderer wrote
+							// For left border, it's always the vertical border char
+							var chars = SharpConsoleUI.Drawing.BoxChars.FromBorderStyle(window.BorderStyle, isActive);
+							driver.SetNarrowCell(window.Left, screenY + desktopUpperLeftY,
+								window.BorderStyle == BorderStyle.None ? ' ' : chars.Vertical,
+								resolvedFg, resolvedBg);
+						}
+
+						// Right border
+						int rightX = window.Left + window.Width - 1;
+						if (rightX >= region.Left && rightX < region.Left + region.Width)
+						{
+							var cellBelow = ResolveCellBelow(rightX, screenY, window.ZIndex, _compositingWindowsPool, 0);
+							var resolvedBg = Color.Blend(windowBg, cellBelow.Background);
+
+							// Right border may have scrollbar — read the character from what was already rendered.
+							// We can't easily determine scrollbar state here, so we read the border char.
+							// BorderRenderer already wrote the correct character; we just need to re-write with composited colors.
+							// Unfortunately we can't read back from the driver easily, so we replicate the char logic.
+							var contentHeight = window.TotalLines;
+							var visibleHeight = window.Height - 2;
+							var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
+
+							char borderChar;
+							Color fg;
+							if (scrollbarVisible && window.Height > 2)
+							{
+								var scrollPosition = (float)window.ScrollOffset / Math.Max(1, contentHeight - visibleHeight);
+								var scrollbarPosition = (int)(scrollPosition * (visibleHeight - 1));
+								borderChar = (y - 1) == scrollbarPosition ? '█' : '░';
+								fg = Color.Blend(borderFg, resolvedBg);
+							}
+							else
+							{
+								var chars = SharpConsoleUI.Drawing.BoxChars.FromBorderStyle(window.BorderStyle, isActive);
+								borderChar = window.BorderStyle == BorderStyle.None ? ' ' : chars.Vertical;
+								fg = Color.Blend(
+									window.BorderStyle == BorderStyle.None ? window.ForegroundColor : borderFg,
+									resolvedBg);
+							}
+
+							driver.SetNarrowCell(rightX, screenY + desktopUpperLeftY, borderChar, fg, resolvedBg);
+						}
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Default transparency compositing: bg at raw alpha, character bubble-up with parabolic fg fade.
+		/// Block characters use their foreground as effective background.
+		/// </summary>
+		private static Cell CompositeDefault(Cell topCell, Cell cellBelow, Color effectiveBgBelow)
+		{
+			var resolvedBg = Color.Blend(topCell.Background, effectiveBgBelow);
+
+			var spaceRune = new Rune(' ');
+			if (topCell.Character == spaceRune && topCell.Combiners == null &&
+			    cellBelow.Character != spaceRune &&
+			    !IsBlockCharacter(cellBelow.Character))
+			{
+				// Character bubble-up with parabolic fg fade:
+				// fadeAlpha = 1 - (1 - α/255)² — fg fades faster than bg
+				byte overlayAlpha = topCell.Background.A;
+				double t = 1.0 - overlayAlpha / 255.0;
+				byte fadeAlpha = (byte)(255 * (1.0 - t * t));
+				var fadeMask = new Color(resolvedBg.R, resolvedBg.G, resolvedBg.B, fadeAlpha);
+				var fadedFg = Color.Blend(fadeMask, cellBelow.Foreground);
+				var result = new Cell(cellBelow.Character, fadedFg, resolvedBg, cellBelow.Decorations);
+				result.IsWideContinuation = cellBelow.IsWideContinuation;
+				result.Combiners = cellBelow.Combiners;
+				return result;
+			}
+			else
+			{
+				var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
+				var result = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
+				result.IsWideContinuation = topCell.IsWideContinuation;
+				result.Combiners = topCell.Combiners;
+				return result;
+			}
+		}
+
+		/// <summary>
+		/// Brush-based compositing: dispatches to Acrylic, Mica, Tinted, or Custom style.
+		/// </summary>
+		private static Cell CompositeWithBrush(Cell topCell, Cell cellBelow, Color effectiveBgBelow, Rendering.TransparencyBrush brush)
+		{
+			switch (brush.Style)
+			{
+				case Rendering.TransparencyStyle.Acrylic:
+				{
+					// Gaussian bg blend (PerceivedCellColor) + character bubble-up + power fade
+					var resolvedBg = Color.Blend(topCell.Background, PerceivedCellColor(cellBelow));
+					var spaceRune = new Rune(' ');
+					if (topCell.Character == spaceRune && topCell.Combiners == null &&
+					    cellBelow.Character != spaceRune &&
+					    !IsBlockCharacter(cellBelow.Character))
+					{
+						byte overlayAlpha = topCell.Background.A;
+						byte fadeAlpha = (byte)(255.0 * Math.Pow(overlayAlpha / 255.0, brush.FadeExponent));
+						var fadeMask = new Color(resolvedBg.R, resolvedBg.G, resolvedBg.B, fadeAlpha);
+						var fadedFg = Color.Blend(fadeMask, cellBelow.Foreground);
+						var result = new Cell(cellBelow.Character, fadedFg, resolvedBg, cellBelow.Decorations);
+						result.IsWideContinuation = cellBelow.IsWideContinuation;
+						result.Combiners = cellBelow.Combiners;
+						return result;
+					}
+					var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
+					var r = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
+					r.IsWideContinuation = topCell.IsWideContinuation;
+					r.Combiners = topCell.Combiners;
+					return r;
+				}
+
+				case Rendering.TransparencyStyle.Mica:
+				{
+					// Gaussian bg blend, NO character bubble-up
+					var resolvedBg = Color.Blend(topCell.Background, PerceivedCellColor(cellBelow));
+					var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
+					var result = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
+					result.IsWideContinuation = topCell.IsWideContinuation;
+					result.Combiners = topCell.Combiners;
+					return result;
+				}
+
+				case Rendering.TransparencyStyle.Tinted:
+				{
+					// Simple bg-only overlay — no fg influence, no bubble-up, no block guard
+					var resolvedBg = Color.Blend(topCell.Background, cellBelow.Background);
+					var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
+					var result = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
+					result.IsWideContinuation = topCell.IsWideContinuation;
+					result.Combiners = topCell.Combiners;
+					return result;
+				}
+
+				case Rendering.TransparencyStyle.Custom when brush.CompositeFunc != null:
+					return brush.CompositeFunc(topCell, cellBelow, topCell.Background.A);
+
+				default:
+					return CompositeDefault(topCell, cellBelow, effectiveBgBelow);
+			}
+		}
+
+		private Cell ResolveCellBelow(int screenX, int screenY, int aboveZIndex, List<Window> sortedWindowsDesc, int depth)
+		{
+			if (depth > 20)
+				return Cell.BlankWithBackground(_consoleWindowSystem.Theme.DesktopBackgroundColor);
+
+			for (int i = 0; i < sortedWindowsDesc.Count; i++)
+			{
+				var w = sortedWindowsDesc[i];
+				if (w.ZIndex >= aboveZIndex)
+					continue;
+
+				// Check if screen position falls within this window's full rectangle (including borders)
+				if (screenX < w.Left || screenX >= w.Left + w.Width ||
+				    screenY < w.Top || screenY >= w.Top + w.Height)
+					continue;
+
+				// Determine if this is a border cell or content cell
+				bool isBorderCell = screenX == w.Left || screenX == w.Left + w.Width - 1 ||
+				                    screenY == w.Top || screenY == w.Top + w.Height - 1;
+
+				Cell cell;
+				if (isBorderCell)
+				{
+					// Sample border cell from cached border buffers
+					cell = SampleBorderCell(w, screenX, screenY);
+				}
+				else
+				{
+					// Content area — sample from ContentBuffer
+					var contentBuffer = w.ContentBuffer;
+					if (contentBuffer == null)
+					{
+						// Window exists here but buffer not ready — treat as opaque with its bg
+						return Cell.BlankWithBackground(w.BackgroundColor.A == 255
+							? w.BackgroundColor
+							: Color.Blend(w.BackgroundColor, Cell.BlankWithBackground(
+								_consoleWindowSystem.Theme.DesktopBackgroundColor).Background));
+					}
+
+					int bufX = screenX - (w.Left + 1);
+					int bufY = screenY - (w.Top + 1);
+
+					if (bufX < 0 || bufX >= contentBuffer.Width || bufY < 0 || bufY >= contentBuffer.Height)
+					{
+						// Position within window rect but outside buffer — use window bg
+						cell = Cell.BlankWithBackground(w.BackgroundColor);
+					}
+					else
+					{
+						cell = contentBuffer.GetCell(bufX, bufY);
+					}
+				}
+
+				if (cell.Background.A == 255)
+					return cell;
+
+				// This window is also semi-transparent — recurse to composite against what's below
+				var cellBelow = ResolveCellBelow(screenX, screenY, w.ZIndex, sortedWindowsDesc, depth + 1);
+				var effectiveBgBelow = IsBlockCharacter(cellBelow.Character)
+					? cellBelow.Foreground : cellBelow.Background;
+				return CompositeDefault(cell, cellBelow, effectiveBgBelow);
+			}
+
+			// No window covers this position — sample desktop background
+			var desktopService = _consoleWindowSystem.DesktopBackgroundService;
+			if (desktopService.HasBuffer)
+			{
+				var desktopBuffer = desktopService.Buffer!;
+				if (screenX >= 0 && screenX < desktopBuffer.Width &&
+				    screenY >= 0 && screenY < desktopBuffer.Height)
+				{
+					return desktopBuffer.GetCell(screenX, screenY);
+				}
+			}
+
+			return Cell.BlankWithBackground(_consoleWindowSystem.Theme.DesktopBackgroundColor);
+		}
+
+		/// <summary>
+		/// Returns true for block/fill characters whose foreground visually fills the entire cell,
+		/// making them behave like background fills rather than text content.
+		/// These should not bubble up through transparent overlays.
+		/// </summary>
+		private static bool IsBlockCharacter(Rune r)
+		{
+			int v = r.Value;
+			return (v >= 0x2580 && v <= 0x259F) || v == 0x25A0;
+		}
+
+		/// <summary>
+		/// Estimates what fraction of a cell a character visually covers (0–255 scale).
+		/// Used to compute a "perceived cell color" by blending fg and bg, approximating
+		/// a Gaussian blur of the cell's visual appearance for compositing.
+		/// </summary>
+		private static byte EstimateGlyphCoverage(Rune r)
+		{
+			int v = r.Value;
+
+			if (v == ' ' || v == 0)
+				return 0;
+
+			if (v >= 0x2580 && v <= 0x259F)
+			{
+				return v switch
+				{
+					0x2588 => 255,
+					0x2580 or 0x2584 or 0x258C or 0x2590 => 128,
+					0x2591 => 64,
+					0x2592 => 128,
+					0x2593 => 192,
+					_ => 128,
+				};
+			}
+
+			if (v == 0x25A0) return 255;
+
+			return 90; // typical text ~35% coverage
+		}
+
+		/// <summary>
+		/// Computes the perceived visual color of a cell by blending its foreground into
+		/// its background weighted by estimated glyph coverage. Approximates a Gaussian
+		/// blur of the cell's appearance for use in transparency compositing.
+		/// </summary>
+		private static Color PerceivedCellColor(Cell cell)
+		{
+			byte coverage = EstimateGlyphCoverage(cell.Character);
+			if (coverage == 0)
+				return cell.Background;
+			if (coverage == 255)
+				return cell.Foreground;
+
+			return Color.Blend(
+				new Color(cell.Foreground.R, cell.Foreground.G, cell.Foreground.B, coverage),
+				cell.Background);
+		}
+
+		/// <summary>
+		/// Samples a border cell from a window's cached border buffers or reconstructs it
+		/// from the window's border style and colors. Used by ResolveCellBelow to resolve
+		/// border cells of windows underneath a transparent window.
+		/// </summary>
+		private Cell SampleBorderCell(Window w, int screenX, int screenY)
+		{
+			var bg = w.BackgroundColor;
+			bool isActive = w.GetIsActive();
+			var borderFg = isActive ? w.ActiveBorderForegroundColor : w.InactiveBorderForegroundColor;
+
+			// Top border row
+			if (screenY == w.Top)
+			{
+				var cachedTop = w.BorderRenderer?._cachedTopBorder;
+				if (cachedTop != null)
+				{
+					int srcX = screenX - w.Left;
+					if (srcX >= 0 && srcX < cachedTop.Width)
+					{
+						var cached = cachedTop.GetCell(srcX, 0);
+						// Cached buffer has pre-blended colors — use raw border fg instead.
+						// The character and decorations are correct, only colors need reconstruction.
+						return new Cell(cached.Character, borderFg, bg, cached.Decorations);
+					}
+				}
+				return Cell.BlankWithBackground(bg);
+			}
+
+			// Bottom border row
+			if (screenY == w.Top + w.Height - 1)
+			{
+				var cachedBottom = w.BorderRenderer?._cachedBottomBorder;
+				if (cachedBottom != null)
+				{
+					int srcX = screenX - w.Left;
+					if (srcX >= 0 && srcX < cachedBottom.Width)
+					{
+						var cached = cachedBottom.GetCell(srcX, 0);
+						return new Cell(cached.Character, borderFg, bg, cached.Decorations);
+					}
+				}
+				return Cell.BlankWithBackground(bg);
+			}
+
+			// Vertical borders (left or right column)
+			if (w.BorderStyle == BorderStyle.None)
+				return new Cell(' ', w.ForegroundColor, bg);
+
+			var chars = Drawing.BoxChars.FromBorderStyle(w.BorderStyle, isActive);
+			return new Cell(chars.Vertical, borderFg, bg);
 		}
 
 	}

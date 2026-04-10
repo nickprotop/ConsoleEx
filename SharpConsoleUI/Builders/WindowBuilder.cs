@@ -70,6 +70,7 @@ public sealed class WindowBuilder
     private Color? _activeBorderColor;
     private Color? _inactiveBorderColor;
     private GradientBackground? _backgroundGradient;
+    private Rendering.TransparencyBrush? _transparencyBrush;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WindowBuilder"/> class.
@@ -433,6 +434,16 @@ public sealed class WindowBuilder
     }
 
     /// <summary>
+    /// Sets the transparency brush for compositing behavior when the window has
+    /// a semi-transparent background. Overrides the default true-transparency style.
+    /// </summary>
+    public WindowBuilder WithTransparencyBrush(Rendering.TransparencyBrush brush)
+    {
+        _transparencyBrush = brush;
+        return this;
+    }
+
+    /// <summary>
     /// Sets the border foreground color for both active and inactive states.
     /// </summary>
     /// <param name="color">The color to use for the border.</param>
@@ -748,6 +759,9 @@ public sealed class WindowBuilder
 
         if (_backgroundGradient != null)
             window.BackgroundGradient = _backgroundGradient;
+
+        if (_transparencyBrush != null)
+            window.TransparencyBrush = _transparencyBrush;
 
         // DOM layout is now always enabled - no need to set
 
