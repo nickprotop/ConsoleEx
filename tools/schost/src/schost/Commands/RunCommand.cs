@@ -102,26 +102,39 @@ public sealed class RunCommand : Command<RunCommandSettings>
     {
         // Look in typical output paths
         var configurations = new[] { "Debug", "Release" };
-        var frameworks = new[] { "net9.0", "net8.0" };
+        var frameworks = new[] { "net10.0", "net9.0", "net8.0" };
+
+        // Try exe (Windows) or plain name (Linux)
+        var exeNames = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? new[] { $"{assemblyName}.exe" }
+            : new[] { assemblyName, $"{assemblyName}.exe" };
 
         foreach (var cfg in configurations)
         {
             foreach (var fw in frameworks)
             {
+                // Check both plain framework dir and runtime-specific subdirs
+                // (e.g. bin/Debug/net10.0/ and bin/Debug/net10.0/linux-x64/)
                 var binDir = Path.Combine(projectDir, "bin", cfg, fw);
                 if (!Directory.Exists(binDir))
                     continue;
-
-                // Try exe (Windows) or plain name (Linux)
-                var exeNames = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                    ? new[] { $"{assemblyName}.exe" }
-                    : new[] { assemblyName, $"{assemblyName}.exe" };
 
                 foreach (var name in exeNames)
                 {
                     var path = Path.Combine(binDir, name);
                     if (File.Exists(path))
                         return path;
+                }
+
+                // Search runtime-specific subdirectories (linux-x64, win-x64, osx-arm64, etc.)
+                foreach (var subDir in Directory.EnumerateDirectories(binDir))
+                {
+                    foreach (var name in exeNames)
+                    {
+                        var path = Path.Combine(subDir, name);
+                        if (File.Exists(path))
+                            return path;
+                    }
                 }
             }
         }

@@ -552,6 +552,21 @@ namespace SharpConsoleUI
 								var effectiveBgBelow = IsBlockCharacter(cellBelow.Character)
 									? cellBelow.Foreground : cellBelow.Background;
 
+								// PreserveTerminalTransparency: if the bottom of the stack is
+								// terminal-transparent (A=0), skip compositing and pass A=0 through
+								// so FormatCellAnsi emits \x1b[49m.
+								if (effectiveBgBelow.A == 0 &&
+								    _consoleWindowSystem.Options.TerminalTransparencyMode ==
+								    Configuration.TerminalTransparencyMode.PreserveTerminalTransparency)
+								{
+									var passthrough = new Cell(cell.Character, cell.Foreground,
+										Color.Transparent, cell.Decorations);
+									passthrough.IsWideContinuation = cell.IsWideContinuation;
+									passthrough.Combiners = cell.Combiners;
+									_scratchBuffer.SetCellDirect(i, 0, passthrough);
+									continue;
+								}
+
 								Cell composited;
 								if (brush != null)
 								{

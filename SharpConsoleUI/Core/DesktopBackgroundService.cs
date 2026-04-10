@@ -99,7 +99,11 @@ public class DesktopBackgroundService : IDisposable
         var bgChar = theme.DesktopBackgroundChar;
         var bgColor = theme.DesktopBackgroundColor;
         var fgColor = theme.DesktopForegroundColor;
-        _buffer.FillRect(new LayoutRect(0, 0, width, height), bgChar, fgColor, bgColor);
+        // Use Clear for transparent bg — FillRect uses Color.Blend which is a no-op for A=0
+        if (bgColor.A == 0)
+            _buffer.Clear(bgColor);
+        else
+            _buffer.FillRect(new LayoutRect(0, 0, width, height), bgChar, fgColor, bgColor);
 
         // If PaintCallback is set, it takes full control
         if (_config?.PaintCallback != null)

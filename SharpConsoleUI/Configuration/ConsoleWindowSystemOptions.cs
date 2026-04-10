@@ -53,6 +53,26 @@ public enum DirtyTrackingMode
 }
 
 /// <summary>
+/// Controls how semi-transparent windows behave when the desktop background is transparent (A=0).
+/// </summary>
+public enum TerminalTransparencyMode
+{
+	/// <summary>
+	/// Semi-transparent window colors blend against black (the RGB of Color.Transparent).
+	/// The window shows a dark tinted color. Terminal transparency is lost under the window.
+	/// This is the default — predictable, color-preserving behavior.
+	/// </summary>
+	PreserveWindowColor,
+
+	/// <summary>
+	/// Semi-transparent windows over a transparent desktop emit ANSI 49 (terminal default bg).
+	/// The window's tint color is lost, but terminal-level transparency shows through.
+	/// Use this when terminal transparency is more important than window tinting.
+	/// </summary>
+	PreserveTerminalTransparency
+}
+
+/// <summary>
 /// Configuration options for ConsoleWindowSystem behavior.
 /// </summary>
 public record ConsoleWindowSystemOptions(
@@ -91,7 +111,10 @@ public record ConsoleWindowSystemOptions(
     bool ShowBottomPanel = true,
 
     // Desktop background configuration (gradient, pattern, animated). Null uses theme defaults.
-    DesktopBackgroundConfig? DesktopBackground = null
+    DesktopBackgroundConfig? DesktopBackground = null,
+
+    // Terminal transparency behavior for semi-transparent windows over transparent desktop
+    TerminalTransparencyMode TerminalTransparencyMode = TerminalTransparencyMode.PreserveWindowColor
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

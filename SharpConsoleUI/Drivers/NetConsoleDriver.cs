@@ -593,7 +593,9 @@ namespace SharpConsoleUI.Drivers
 			switch (RenderMode)
 			{
 				case RenderMode.Direct:
-					var ansi = $"\x1b[38;2;{fg.R};{fg.G};{fg.B};48;2;{bg.R};{bg.G};{bg.B}m{character}\x1b[0m";
+					var fgAnsi = fg.A == 0 ? "39" : $"38;2;{fg.R};{fg.G};{fg.B}";
+					var bgAnsi = bg.A == 0 ? "49" : $"48;2;{bg.R};{bg.G};{bg.B}";
+					var ansi = $"\x1b[{fgAnsi};{bgAnsi}m{character}\x1b[0m";
 					if (_useDirectAnsi)
 					{
 						WriteOutput($"\x1b[{y + 1};{x + 1}H");
@@ -619,7 +621,9 @@ namespace SharpConsoleUI.Drivers
 			{
 				case RenderMode.Direct:
 					var sb = new StringBuilder();
-					sb.Append($"\x1b[38;2;{fg.R};{fg.G};{fg.B};48;2;{bg.R};{bg.G};{bg.B}m");
+					var fgAnsi = fg.A == 0 ? "39" : $"38;2;{fg.R};{fg.G};{fg.B}";
+					var bgAnsi = bg.A == 0 ? "49" : $"48;2;{bg.R};{bg.G};{bg.B}";
+					sb.Append($"\x1b[{fgAnsi};{bgAnsi}m");
 					sb.Append(character, width);
 					sb.Append("\x1b[0m");
 					if (_useDirectAnsi)
@@ -651,7 +655,9 @@ namespace SharpConsoleUI.Drivers
 					for (int i = 0; i < width; i++)
 					{
 						var cell = source.GetCell(srcX + i, srcY);
-						sb.Append($"\x1b[38;2;{cell.Foreground.R};{cell.Foreground.G};{cell.Foreground.B};48;2;{cell.Background.R};{cell.Background.G};{cell.Background.B}");
+						var cfgAnsi = cell.Foreground.A == 0 ? "39" : $"38;2;{cell.Foreground.R};{cell.Foreground.G};{cell.Foreground.B}";
+						var cbgAnsi = cell.Background.A == 0 ? "49" : $"48;2;{cell.Background.R};{cell.Background.G};{cell.Background.B}";
+						sb.Append($"\x1b[{cfgAnsi};{cbgAnsi}");
 						if ((cell.Decorations & TextDecoration.Bold) != 0) sb.Append(";1");
 						if ((cell.Decorations & TextDecoration.Dim) != 0) sb.Append(";2");
 						if ((cell.Decorations & TextDecoration.Italic) != 0) sb.Append(";3");

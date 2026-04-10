@@ -180,6 +180,65 @@ window.AddControl(new MarkupControl(new List<string>
 
 Control-level alpha blends within the window's `CharacterBuffer` at paint time. If the resulting cell background still has alpha < 255 (because the window background also has alpha), the compositor resolves it against layers below.
 
+## Terminal Transparency
+
+Modern terminal emulators (Kitty, Alacritty, WezTerm) support native background transparency via settings like `background_opacity`. To allow the terminal's transparency to show through SharpConsoleUI, set the desktop background to `Color.Transparent`:
+
+### Full Terminal Transparency
+
+```csharp
+// Set desktop to transparent — terminal wallpaper shows through exposed areas
+windowSystem.Theme.DesktopBackgroundColor = Color.Transparent;
+
+// Window with transparent background — terminal shows through
+var window = new WindowBuilder(ws)
+    .WithTitle("Transparent")
+    .WithBackgroundColor(Color.Transparent)
+    .Maximized()
+    .Borderless()
+    .BuildAndShow();
+```
+
+### How It Works
+
+When a cell's background color has alpha = 0 (`Color.Transparent`), the ANSI formatter emits `\x1b[49m` (reset to terminal default background) instead of explicit `\x1b[48;2;R;G;Bm`. This tells the terminal emulator to use its configured default background, which may be semi-transparent.
+
+### Terminal Configuration
+
+**Kitty** (`~/.config/kitty/kitty.conf`):
+```
+background_opacity 0.7
+```
+
+**Alacritty** (`~/.config/alacritty/alacritty.toml`):
+```toml
+[window]
+opacity = 0.7
+```
+
+**WezTerm** (`~/.config/wezterm/wezterm.lua`):
+```lua
+config.window_background_opacity = 0.7
+```
+
+### Semi-Transparent Windows over Transparent Desktop
+
+When a semi-transparent window sits over a transparent desktop, there's a conflict: the window wants to apply a color tint, but there's no known color to tint against. The `TerminalTransparencyMode` option controls this:
+
+```csharp
+// Default: window tint blends against black, emits explicit RGB.
+// Terminal transparency is lost under the window, but the tint color is preserved.
+var options = new ConsoleWindowSystemOptions(
+    TerminalTransparencyMode: TerminalTransparencyMode.PreserveWindowColor
+);
+
+// Alternative: emit 49m for any non-opaque cell over transparent desktop.
+// Terminal transparency shows through the window, but the tint color is lost.
+var options = new ConsoleWindowSystemOptions(
+    TerminalTransparencyMode: TerminalTransparencyMode.PreserveTerminalTransparency
+);
+```
+
 ## Performance
 
 - **Opaque windows** (A=255): zero overhead — single branch check, fast path only

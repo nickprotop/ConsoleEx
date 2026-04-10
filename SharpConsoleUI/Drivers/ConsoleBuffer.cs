@@ -108,13 +108,35 @@ namespace SharpConsoleUI.Drivers
 			var sb = _formatBuilder;
 			sb.Clear();
 			// Always reset first so decorations from previous cells don't leak
-			sb.Append("\x1b[0;38;2;");
-			sb.Append(fg.R); sb.Append(';');
-			sb.Append(fg.G); sb.Append(';');
-			sb.Append(fg.B); sb.Append(";48;2;");
-			sb.Append(bg.R); sb.Append(';');
-			sb.Append(bg.G); sb.Append(';');
-			sb.Append(bg.B);
+			sb.Append("\x1b[0");
+
+			// Foreground: A=0 means use terminal default (39), otherwise explicit RGB
+			if (fg.A == 0)
+			{
+				sb.Append(";39");
+			}
+			else
+			{
+				sb.Append(";38;2;");
+				sb.Append(fg.R); sb.Append(';');
+				sb.Append(fg.G); sb.Append(';');
+				sb.Append(fg.B);
+			}
+
+			// Background: A=0 means use terminal default (49), otherwise explicit RGB.
+			// In PreserveTerminalTransparency mode, any non-opaque bg also emits 49.
+			if (bg.A == 0 ||
+			    (_options.TerminalTransparencyMode == Configuration.TerminalTransparencyMode.PreserveTerminalTransparency && bg.A < 255))
+			{
+				sb.Append(";49");
+			}
+			else
+			{
+				sb.Append(";48;2;");
+				sb.Append(bg.R); sb.Append(';');
+				sb.Append(bg.G); sb.Append(';');
+				sb.Append(bg.B);
+			}
 
 			if (decorations != TextDecoration.None)
 			{
