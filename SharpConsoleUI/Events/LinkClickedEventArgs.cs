@@ -11,4 +11,4 @@ namespace SharpConsoleUI.Events;
 /// <summary>
 /// Event arguments for when a link is clicked.
 /// </summary>
-public record LinkClickedEventArgs(string Url, string Text, MouseEventArgs Mouse);
+public record LinkClickedEventArgs(string Url, string Text, MouseEventArgs? Mouse = null);

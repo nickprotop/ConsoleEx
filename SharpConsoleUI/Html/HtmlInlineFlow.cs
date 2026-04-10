@@ -280,6 +280,8 @@ namespace SharpConsoleUI.Html
 			private string? _currentLinkUrl;
 			private int _currentLinkStartX = -1;
 			private string _currentLinkText = "";
+			private int _currentLinkId;
+			private int _nextLinkId;
 
 			public void AddCell(Cell cell, string? linkUrl)
 			{
@@ -295,6 +297,7 @@ namespace SharpConsoleUI.Html
 						_currentLinkUrl = linkUrl;
 						_currentLinkStartX = CurrentX;
 						_currentLinkText = "";
+						_currentLinkId = _nextLinkId++;
 					}
 				}
 
@@ -344,9 +347,10 @@ namespace SharpConsoleUI.Html
 				{
 					_currentLineLinks.Add(new LinkRegion(
 						_currentLinkStartX,
-						CurrentX - 1,
+						CurrentX,
 						_currentLinkUrl,
-						_currentLinkText));
+						_currentLinkText,
+						_currentLinkId));
 				}
 
 				if (_currentLinkUrl == null)

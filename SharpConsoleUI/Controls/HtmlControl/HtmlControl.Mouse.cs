@@ -141,6 +141,8 @@ namespace SharpConsoleUI.Controls
 				var link = _isNavigating ? null : FindLinkAtPosition(args, viewportHeight, contentWidth - scrollbarWidth);
 				if (link.HasValue)
 				{
+					// Sync focused link index with clicked link
+					SyncFocusedLinkFromMouse(link.Value);
 					LinkClicked?.Invoke(this, new LinkClickedEventArgs(link.Value.Url, link.Value.Text, args));
 					args.Handled = true;
 					return true;
@@ -297,6 +299,23 @@ namespace SharpConsoleUI.Controls
 			}
 
 			return null;
+		}
+
+		/// <summary>
+		/// Syncs the focused link index with a mouse-clicked link.
+		/// </summary>
+		private void SyncFocusedLinkFromMouse((string Url, string Text, int LineIndex, int LinkIndex) clicked)
+		{
+			var links = GetAllLinks();
+			for (int i = 0; i < links.Count; i++)
+			{
+				if (links[i].lineIndex == clicked.LineIndex && links[i].linkIndex == clicked.LinkIndex)
+				{
+					_focusedLinkIndex = i;
+					Container?.Invalidate(true);
+					return;
+				}
+			}
 		}
 
 		#endregion

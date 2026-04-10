@@ -38,6 +38,11 @@ namespace SharpConsoleUI.Html
 	{
 		private readonly IBrowsingContext _context;
 
+		// Cached parsed DOM to avoid re-parsing on width-only changes (e.g., during resize)
+		private string? _cachedHtml;
+		private string? _cachedBaseUrl;
+		private IDocument? _cachedDocument;
+
 		public HtmlLayoutEngine()
 		{
 			var config = AngleSharp.Configuration.Default.WithCss();
@@ -46,6 +51,7 @@ namespace SharpConsoleUI.Html
 
 		/// <summary>
 		/// Parses the given HTML string and lays it out within the specified width.
+		/// Caches the parsed DOM — only re-parses when the HTML content or base URL changes.
 		/// </summary>
 		public LayoutResult Layout(
 			string html,
@@ -59,15 +65,21 @@ namespace SharpConsoleUI.Html
 			bool showImages = false,
 			Dictionary<string, Imaging.PixelBuffer?>? imageCache = null)
 		{
-			var parser = _context.GetService<IHtmlParser>()!;
-			var document = parser.ParseDocument(html);
-
-			if (baseUrl != null)
+			// Only re-parse if HTML content or base URL changed
+			if (html != _cachedHtml || baseUrl != _cachedBaseUrl || _cachedDocument == null)
 			{
-				ResolveRelativeUrls(document, baseUrl);
+				var parser = _context.GetService<IHtmlParser>()!;
+				_cachedDocument = parser.ParseDocument(html);
+				_cachedHtml = html;
+				_cachedBaseUrl = baseUrl;
+
+				if (baseUrl != null)
+				{
+					ResolveRelativeUrls(_cachedDocument, baseUrl);
+				}
 			}
 
-			return LayoutDocument(document, maxWidth, defaultFg, defaultBg, blockSpacing, linkColor, visitedLinkColor, showImages, imageCache);
+			return LayoutDocument(_cachedDocument, maxWidth, defaultFg, defaultBg, blockSpacing, linkColor, visitedLinkColor, showImages, imageCache);
 		}
 
 		/// <summary>

@@ -31,13 +31,19 @@ namespace SharpConsoleUI.Html
 		public int EndX;
 		public string Url;
 		public string Text;
+		/// <summary>
+		/// Stable identifier shared by all segments of the same &lt;a&gt; element.
+		/// Used to group multi-line links as a single Tab stop.
+		/// </summary>
+		public int LinkId;
 
-		public LinkRegion(int startX, int endX, string url, string text)
+		public LinkRegion(int startX, int endX, string url, string text, int linkId = 0)
 		{
 			StartX = startX;
 			EndX = endX;
 			Url = url;
 			Text = text;
+			LinkId = linkId;
 		}
 	}
 

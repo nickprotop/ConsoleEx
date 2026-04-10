@@ -46,10 +46,25 @@ namespace SharpConsoleUI.Controls
 			// Re-layout only if width actually changed AND we have a real width (not huge)
 			if (layoutWidth != _lastLayoutWidth && _rawHtml != null && layoutWidth < 10000)
 			{
-				lock (_contentLock)
+				// Debounce: defer relayout during rapid width changes (e.g., window resize).
+				// The cached DOM parse means re-flow is cheaper, but for large documents
+				// even the flow pass can be expensive. Schedule relayout after 150ms idle.
+				_pendingLayoutWidth = layoutWidth;
+				if (_resizeDebounceTimer == null)
 				{
-					RunLayout(layoutWidth);
+					_resizeDebounceTimer = new System.Timers.Timer(150) { AutoReset = false };
+					_resizeDebounceTimer.Elapsed += (_, _) =>
+					{
+						lock (_contentLock)
+						{
+							if (_pendingLayoutWidth > 0 && _pendingLayoutWidth != _lastLayoutWidth)
+								RunLayout(_pendingLayoutWidth);
+						}
+						Container?.Invalidate(true);
+					};
 				}
+				_resizeDebounceTimer.Stop();
+				_resizeDebounceTimer.Start();
 			}
 
 			int measuredWidth = targetWidth;
@@ -87,13 +102,8 @@ namespace SharpConsoleUI.Controls
 			// between measure and paint on large documents (see ComputeLayoutWidth).
 			int layoutWidth = ComputeLayoutWidth(contentWidth);
 
-			if (layoutWidth != _lastLayoutWidth && _rawHtml != null)
-			{
-				lock (_contentLock)
-				{
-					RunLayout(layoutWidth);
-				}
-			}
+			// Note: relayout on width change is handled by MeasureDOM with debouncing.
+			// PaintDOM renders from the current (possibly stale) layout snapshot.
 
 			int contentAreaX = bounds.X + Margin.Left;
 			int contentAreaY = bounds.Y + Margin.Top;
@@ -171,6 +181,12 @@ namespace SharpConsoleUI.Controls
 					}
 
 					buffer.WriteCellsClipped(screenX, screenY, line.Cells, tightClip);
+
+					// Highlight links on this line (focused and hovered)
+					if (line.Links != null)
+					{
+						HighlightLinksOnLine(buffer, i, ref line, screenX, screenY, tightClip);
+					}
 				}
 			}
 
@@ -178,8 +194,8 @@ namespace SharpConsoleUI.Controls
 			if (needsScrollbar)
 			{
 				int scrollbarX = contentAreaX + contentWidth - 1;
-				var thumbColor = Color.Grey;
-				var trackColor = Color.Grey23;
+				var thumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
+				var trackColor = HasFocus ? Color.Grey : Color.Grey23;
 
 				ScrollbarHelper.DrawVerticalScrollbar(
 					buffer, scrollbarX, contentAreaY, viewportHeight,
@@ -262,6 +278,49 @@ namespace SharpConsoleUI.Controls
 				{
 					buffer.SetNarrowCell(col, areaY, rune, bannerFg, bannerBg);
 					col++;
+				}
+			}
+		}
+		/// <summary>
+		/// Highlights focused and hovered links on a rendered line by overriding cell colors.
+		/// </summary>
+		private void HighlightLinksOnLine(CharacterBuffer buffer, int lineIndex, ref LayoutLine line,
+			int screenX, int screenY, LayoutRect clipRect)
+		{
+			int focusedLinkId = GetFocusedLinkId();
+
+			for (int j = 0; j < line.Links!.Length; j++)
+			{
+				ref var link = ref line.Links[j];
+
+				// Check if this segment belongs to the focused link (by LinkId — covers all segments)
+				bool isFocused = focusedLinkId >= 0 && link.LinkId == focusedLinkId;
+				bool isHovered = lineIndex == _hoveredLinkLineIndex && j == _hoveredLinkIndex;
+
+				if (!isFocused && !isHovered) continue;
+
+				// Apply highlight colors
+				for (int x = link.StartX; x < link.EndX; x++)
+				{
+					int cellX = screenX + x;
+					if (cellX < clipRect.X || cellX >= clipRect.Right) continue;
+					if (screenY < clipRect.Y || screenY >= clipRect.Bottom) continue;
+
+					var cell = buffer.GetCell(cellX, screenY);
+					if (isFocused)
+					{
+						// Focused link: inverted colors for clear visibility
+						buffer.SetCellColors(cellX, screenY, cell.Background, cell.Foreground);
+					}
+					else if (isHovered)
+					{
+						// Hovered link: subtle underline-like highlight (brighter foreground)
+						var brightFg = new Color(
+							(byte)Math.Min(255, cell.Foreground.R + 60),
+							(byte)Math.Min(255, cell.Foreground.G + 60),
+							(byte)Math.Min(255, cell.Foreground.B + 60));
+						buffer.SetCellColors(cellX, screenY, brightFg, cell.Background);
+					}
 				}
 			}
 		}

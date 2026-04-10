@@ -62,6 +62,7 @@ Controls for displaying formatted content.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, links using `[markup]` syntax |
+| **[HtmlControl](controls/HtmlControl.md)** | HTML content renderer | Parse & render HTML with images, links, tables, keyboard navigation |
 | **FigletControl** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
 | **LogViewerControl** | Log message viewer | Auto-scroll, filtering, severity colors |
 | **SpectreRenderableControl** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |

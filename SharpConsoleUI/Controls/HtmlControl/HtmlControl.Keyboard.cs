@@ -6,17 +6,60 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Events;
+
 namespace SharpConsoleUI.Controls
 {
 	public partial class HtmlControl
 	{
+		/// <summary>
+		/// Whether this control wants to consume Tab key events (for link navigation).
+		/// </summary>
+		public bool WantsTabKey => true;
+
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!_isEnabled || !HasFocus)
 				return false;
 
-			// Don't consume modifier keys
+			// Tab / Shift+Tab — navigate between links
+			if (key.Key == ConsoleKey.Tab)
+			{
+				var links = GetAllLinks();
+				if (links.Count == 0)
+					return false;
+
+				if (key.Modifiers.HasFlag(ConsoleModifiers.Shift))
+				{
+					// Previous link (wrap to last)
+					FocusedLinkIndex = _focusedLinkIndex <= 0
+						? links.Count - 1
+						: _focusedLinkIndex - 1;
+				}
+				else
+				{
+					// Next link (wrap to first)
+					FocusedLinkIndex = _focusedLinkIndex >= links.Count - 1
+						? 0
+						: _focusedLinkIndex + 1;
+				}
+				return true;
+			}
+
+			// Enter — activate focused link
+			if (key.Key == ConsoleKey.Enter && _focusedLinkIndex >= 0)
+			{
+				var links = GetAllLinks();
+				if (_focusedLinkIndex < links.Count)
+				{
+					var focused = links[_focusedLinkIndex];
+					LinkClicked?.Invoke(this, new LinkClickedEventArgs(focused.link.Url, focused.link.Text));
+					return true;
+				}
+			}
+
+			// Don't consume other modifier keys
 			if (key.Modifiers.HasFlag(ConsoleModifiers.Alt) || key.Modifiers.HasFlag(ConsoleModifiers.Control))
 				return false;
 

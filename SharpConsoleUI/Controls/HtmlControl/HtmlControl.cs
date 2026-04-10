@@ -56,6 +56,11 @@ namespace SharpConsoleUI.Controls
 		private int _hoveredLinkLineIndex = -1;
 		private int _hoveredLinkIndex = -1;
 
+		// Link keyboard navigation state
+		private int _focusedLinkIndex = -1; // index into flattened link list, -1 = no link focused
+		private List<(int lineIndex, int linkIndex, LinkRegion link, int lineY)>? _flattenedLinks;
+		private bool _flattenedLinksDirty = true;
+
 		// Interaction state
 		private bool _isEnabled = true;
 		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
@@ -83,6 +88,10 @@ namespace SharpConsoleUI.Controls
 		private bool _isNavigating;
 		// Animated spinner for the loading banner (incremented each paint while navigating).
 		private int _spinnerTick;
+
+		// Resize debounce: skip relayout during active resize, catch up after idle
+		private System.Timers.Timer? _resizeDebounceTimer;
+		private int _pendingLayoutWidth;
 
 		#endregion
 
@@ -654,6 +663,8 @@ namespace SharpConsoleUI.Controls
 				{
 					// Layout failed — keep the previous result rather than blanking the view.
 				}
+
+				InvalidateLinkCache();
 			}
 			return true;
 		}
@@ -665,6 +676,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_layoutResult = new LayoutResult(Array.Empty<LayoutLine>(), 0);
 				_lastLayoutWidth = width;
+				InvalidateLinkCache();
 				return;
 			}
 
@@ -689,6 +701,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			_lastLayoutWidth = width;
+			InvalidateLinkCache();
 		}
 
 		private void RunLayout(int width)
@@ -739,6 +752,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			_lastLayoutWidth = width;
+			InvalidateLinkCache();
 		}
 
 		private int GetViewportHeight()
@@ -764,12 +778,139 @@ namespace SharpConsoleUI.Controls
 			return contentWidth - 1;
 		}
 
+		/// <summary>
+		/// Returns a flattened list of all links across all layout lines, cached and
+		/// invalidated when layout changes. Each entry contains the line index, link
+		/// index within that line, the LinkRegion data, and the line's Y position.
+		/// </summary>
+		/// <summary>
+		/// Returns a deduplicated list of links (one entry per LinkId, using the first segment).
+		/// Used for Tab navigation — multi-line links are a single Tab stop.
+		/// </summary>
+		internal List<(int lineIndex, int linkIndex, LinkRegion link, int lineY)> GetAllLinks()
+		{
+			if (!_flattenedLinksDirty && _flattenedLinks != null)
+				return _flattenedLinks;
+
+			_flattenedLinks ??= new List<(int, int, LinkRegion, int)>();
+			_flattenedLinks.Clear();
+
+			var seenLinkIds = new HashSet<int>();
+
+			if (_layoutResult.Lines != null)
+			{
+				for (int i = 0; i < _layoutResult.Lines.Length; i++)
+				{
+					var line = _layoutResult.Lines[i];
+					if (line.Links == null) continue;
+					for (int j = 0; j < line.Links.Length; j++)
+					{
+						// Only add the first segment of each LinkId
+						if (seenLinkIds.Add(line.Links[j].LinkId))
+						{
+							_flattenedLinks.Add((i, j, line.Links[j], line.Y));
+						}
+					}
+				}
+			}
+
+			_flattenedLinksDirty = false;
+			return _flattenedLinks;
+		}
+
+		/// <summary>
+		/// Returns the LinkId of the currently focused link, or -1 if none.
+		/// </summary>
+		internal int GetFocusedLinkId()
+		{
+			if (_focusedLinkIndex < 0) return -1;
+			var links = GetAllLinks();
+			if (_focusedLinkIndex >= links.Count) return -1;
+			return links[_focusedLinkIndex].link.LinkId;
+		}
+
+		/// <summary>
+		/// Invalidates the cached flattened link list. Called when layout changes.
+		/// </summary>
+		internal void InvalidateLinkCache()
+		{
+			// Save the focused link's identity before invalidating
+			int savedLinkId = -1;
+			if (_focusedLinkIndex >= 0 && _flattenedLinks != null && _focusedLinkIndex < _flattenedLinks.Count)
+			{
+				savedLinkId = _flattenedLinks[_focusedLinkIndex].link.LinkId;
+			}
+
+			_flattenedLinksDirty = true;
+
+			if (savedLinkId >= 0)
+			{
+				// Rebuild and try to restore focus to the same logical link
+				var links = GetAllLinks();
+				_focusedLinkIndex = -1;
+				for (int i = 0; i < links.Count; i++)
+				{
+					if (links[i].link.LinkId == savedLinkId)
+					{
+						_focusedLinkIndex = i;
+						break;
+					}
+				}
+			}
+			else if (_focusedLinkIndex >= 0)
+			{
+				var links = GetAllLinks();
+				if (_focusedLinkIndex >= links.Count)
+					_focusedLinkIndex = links.Count > 0 ? 0 : -1;
+			}
+		}
+
+		/// <summary>
+		/// Scrolls the viewport to ensure the given line Y position is visible.
+		/// </summary>
+		private void EnsureLinkVisible(int lineY)
+		{
+			var viewportHeight = GetViewportHeight();
+			if (lineY < _scrollOffset)
+				ScrollOffset = lineY;
+			else if (lineY >= _scrollOffset + viewportHeight)
+				ScrollOffset = lineY - viewportHeight + 1;
+		}
+
+		/// <summary>
+		/// Gets or sets the currently focused link index (-1 = none).
+		/// Setting this scrolls the viewport to make the link visible.
+		/// </summary>
+		internal int FocusedLinkIndex
+		{
+			get => _focusedLinkIndex;
+			set
+			{
+				var links = GetAllLinks();
+				if (links.Count == 0)
+				{
+					_focusedLinkIndex = -1;
+					return;
+				}
+
+				_focusedLinkIndex = value;
+				if (_focusedLinkIndex >= 0 && _focusedLinkIndex < links.Count)
+				{
+					EnsureLinkVisible(links[_focusedLinkIndex].lineY);
+				}
+				Container?.Invalidate(true);
+			}
+		}
+
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
 			_loadCts?.Cancel();
 			_loadCts?.Dispose();
 			_loadCts = null;
+			_resizeDebounceTimer?.Stop();
+			_resizeDebounceTimer?.Dispose();
+			_resizeDebounceTimer = null;
 		}
 
 		#endregion
