@@ -43,7 +43,7 @@ public sealed class InitCommandSettings : CommandSettings
 
 public sealed class InitCommand : Command<InitCommandSettings>
 {
-    public override int Execute(CommandContext context, InitCommandSettings settings)
+    protected override int Execute(CommandContext context, InitCommandSettings settings, CancellationToken ct)
     {
         try
         {

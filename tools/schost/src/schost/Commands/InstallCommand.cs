@@ -24,7 +24,7 @@ public sealed class InstallCommandSettings : CommandSettings
 
 public sealed class InstallCommand : Command<InstallCommandSettings>
 {
-    public override int Execute(CommandContext context, InstallCommandSettings settings)
+    protected override int Execute(CommandContext context, InstallCommandSettings settings, CancellationToken ct)
     {
         try
         {

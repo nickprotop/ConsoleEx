@@ -25,7 +25,12 @@ public sealed class RunCommandSettings : CommandSettings
 
 public sealed class RunCommand : Command<RunCommandSettings>
 {
-    public override int Execute(CommandContext context, RunCommandSettings settings)
+    protected override int Execute(CommandContext context, RunCommandSettings settings, CancellationToken ct)
+    {
+        return ExecuteSync(settings);
+    }
+
+    private static int ExecuteSync(RunCommandSettings settings)
     {
         try
         {

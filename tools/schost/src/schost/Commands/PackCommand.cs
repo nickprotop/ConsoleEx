@@ -38,7 +38,7 @@ public sealed class PackCommandSettings : CommandSettings
 
 public sealed class PackCommand : Command<PackCommandSettings>
 {
-    public override int Execute(CommandContext context, PackCommandSettings settings)
+    protected override int Execute(CommandContext context, PackCommandSettings settings, CancellationToken ct)
     {
         try
         {
