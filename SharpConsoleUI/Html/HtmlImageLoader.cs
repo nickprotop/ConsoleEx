@@ -44,7 +44,13 @@ namespace SharpConsoleUI.Html
 			else if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
 					 url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
 			{
-				imageBytes = await HttpClient.GetByteArrayAsync(url).ConfigureAwait(false);
+				var response = await HttpClient.GetAsync(url).ConfigureAwait(false);
+				var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+				// Skip non-image content types (HTML error pages, SVG, etc.)
+				if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
+				    contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
+					return null;
+				imageBytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
 			}
 			else
 			{
@@ -77,8 +83,13 @@ namespace SharpConsoleUI.Html
 				!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
 				return null;
 
-			var bytes = Task.Run(async () => await HttpClient.GetByteArrayAsync(url).ConfigureAwait(false))
+			var response = Task.Run(async () => await HttpClient.GetAsync(url).ConfigureAwait(false))
 				.GetAwaiter().GetResult();
+			var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+			if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
+			    contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
+				return null;
+			var bytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
 			using var ms = new MemoryStream(bytes);
 			var buffer = PixelBuffer.FromStream(ms);
 			return RenderFromBuffer(buffer, maxWidthChars, background);

@@ -583,9 +583,16 @@ namespace SharpConsoleUI.Html
 			}
 			else
 			{
-				// Fallback to alt text with error info if available
+				// Fallback to alt text — truncate error to avoid dumping decoder lists
 				var alt = element.GetAttribute("alt") ?? "image";
-				var errorSuffix = imageError != null ? $" (error: {imageError})" : "";
+				var errorSuffix = "";
+				if (imageError != null)
+				{
+					// Truncate long ImageSharp error messages (e.g., "Image cannot be loaded. Available decoders:...")
+					var shortError = imageError.Split('\n')[0];
+					if (shortError.Length > 60) shortError = shortError.Substring(0, 57) + "...";
+					errorSuffix = $" ({shortError})";
+				}
 				var imgText = HtmlConstants.ImageAltPrefix + alt + errorSuffix + HtmlConstants.ImageAltSuffix;
 				var effectiveAltWidth = ctx.MaxWidth - indent;
 				var cells = TextToCells(imgText, effectiveAltWidth > 0 ? effectiveAltWidth : 80,

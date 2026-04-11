@@ -568,10 +568,20 @@ namespace SharpConsoleUI.Controls
 
 					try
 					{
-						var bytes = await HtmlImageLoader.HttpClient.GetByteArrayAsync(url, ct);
-						using var stream = new System.IO.MemoryStream(bytes);
-						var buffer = Imaging.PixelBuffer.FromStream(stream);
-						imageCache[url] = buffer;
+						var response = await HtmlImageLoader.HttpClient.GetAsync(url, ct);
+						var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+						if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
+						    contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
+						{
+							imageCache[url] = null;
+						}
+						else
+						{
+							var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+							using var stream = new System.IO.MemoryStream(bytes);
+							var buffer = Imaging.PixelBuffer.FromStream(stream);
+							imageCache[url] = buffer;
+						}
 					}
 					catch
 					{
