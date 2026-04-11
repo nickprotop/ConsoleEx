@@ -60,6 +60,7 @@ namespace SharpConsoleUI.Html
 
 		// Unit conversion ratios
 		public const double PxToCharRatio = 8.0;
+		public const double ImagePxToCharRatio = 1.0;
 		public const double EmToCharRatio = 2.0;
 
 		// Image alt text

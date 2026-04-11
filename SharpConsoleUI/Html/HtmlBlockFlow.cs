@@ -510,7 +510,7 @@ namespace SharpConsoleUI.Html
 			var widthAttr = element.GetAttribute("width");
 			if (widthAttr != null && int.TryParse(widthAttr, out int pxWidth) && pxWidth > 0)
 			{
-				effectiveWidth = Math.Min((int)Math.Ceiling(pxWidth / HtmlConstants.PxToCharRatio), maxAvailableWidth);
+				effectiveWidth = Math.Min((int)Math.Ceiling(pxWidth / HtmlConstants.ImagePxToCharRatio), maxAvailableWidth);
 			}
 
 			Cell[][]? imageRows;
