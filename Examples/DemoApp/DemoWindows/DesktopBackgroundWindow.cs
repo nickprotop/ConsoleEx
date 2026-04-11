@@ -57,8 +57,54 @@ public static class DesktopBackgroundWindow
         panel.AddControl(Ctl.Markup()
             .AddLine("[bold rgb(180,140,255)]Solid Color[/]")
             .AddEmptyLine()
-            .AddLine("[dim]The desktop background defaults to the theme's solid color.[/]")
-            .AddLine("[dim]Use the button below to reset to the theme default.[/]")
+            .AddLine("[dim]Set the desktop background to a solid color directly,[/]")
+            .AddLine("[dim]or use Color.Transparent for terminal-level transparency.[/]")
+            .Build());
+
+        panel.AddControl(Ctl.RuleBuilder()
+            .WithTitle("Colors")
+            .WithColor(new Color(80, 60, 140))
+            .Build());
+
+        var colorPresets = new (string name, Color color)[]
+        {
+            ("Midnight", new Color(10, 10, 30)),
+            ("Navy", new Color(0, 20, 60)),
+            ("Dark Green", new Color(10, 30, 15)),
+            ("Charcoal", new Color(25, 25, 25)),
+            ("Dark Red", new Color(40, 10, 10)),
+        };
+
+        foreach (var (name, color) in colorPresets)
+        {
+            panel.AddControl(Ctl.Button($"  {name}  ")
+                .WithBorder(ButtonBorderStyle.Rounded)
+                .WithMargin(0, 1, 0, 0)
+                .OnClick((_, _, _) =>
+                {
+                    ws.DesktopBackgroundColor = color;
+                })
+                .Build());
+        }
+
+        panel.AddControl(Ctl.RuleBuilder()
+            .WithTitle("Terminal Transparency")
+            .WithColor(new Color(80, 60, 140))
+            .Build());
+
+        panel.AddControl(Ctl.Markup()
+            .AddEmptyLine()
+            .AddLine("[dim]Set to transparent to allow your terminal's native[/]")
+            .AddLine("[dim]background opacity to show through (Kitty, Alacritty, etc.)[/]")
+            .Build());
+
+        panel.AddControl(Ctl.Button("  Transparent (Terminal)  ")
+            .WithBorder(ButtonBorderStyle.Rounded)
+            .WithMargin(0, 1, 0, 0)
+            .OnClick((_, _, _) =>
+            {
+                ws.DesktopBackgroundColor = Color.Transparent;
+            })
             .Build());
 
         panel.AddControl(Ctl.RuleBuilder()
@@ -72,12 +118,7 @@ public static class DesktopBackgroundWindow
             .OnClick((_, _, _) =>
             {
                 ws.DesktopBackground = null;
-                            })
-            .Build());
-
-        panel.AddControl(Ctl.Markup()
-            .AddEmptyLine()
-            .AddLine("[dim]Tip: setting the background to null restores the theme default.[/]")
+            })
             .Build());
     }
 

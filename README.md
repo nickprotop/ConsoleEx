@@ -73,6 +73,17 @@ render modes, and compositor hooks for blur, fade, and custom effects.
 
 ---
 
+## Requirements
+
+| Platform | Minimum version |
+|----------|----------------|
+| **.NET** | 8.0 or later |
+| **Windows** | Windows 10 (1511+) / Server 2016+ |
+| **Linux** | Any modern distribution with a terminal supporting 24-bit color |
+| **macOS** | macOS 10.15+ |
+
+---
+
 ## Quick start
 ```shell
 dotnet add package SharpConsoleUI

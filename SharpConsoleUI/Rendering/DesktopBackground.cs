@@ -15,7 +15,10 @@ namespace SharpConsoleUI.Rendering
     /// </summary>
     public sealed record DesktopBackgroundConfig
     {
-        /// <summary>Optional gradient applied to the desktop. Overrides theme solid color.</summary>
+        /// <summary>Optional solid background color. Overrides theme DesktopBackgroundColor when set.</summary>
+        public Color? BackgroundColor { get; init; }
+
+        /// <summary>Optional gradient applied to the desktop. Overrides solid color.</summary>
         public GradientBackground? Gradient { get; init; }
 
         /// <summary>Optional repeating pattern rendered on top of the gradient/solid fill.</summary>
@@ -34,6 +37,10 @@ namespace SharpConsoleUI.Rendering
 
         /// <summary>Creates an empty config (uses theme defaults).</summary>
         public static DesktopBackgroundConfig Default => new();
+
+        /// <summary>Creates a config with just a solid color.</summary>
+        public static DesktopBackgroundConfig FromColor(Color color)
+            => new() { BackgroundColor = color };
 
         /// <summary>Creates a config with just a gradient.</summary>
         public static DesktopBackgroundConfig FromGradient(ColorGradient gradient, GradientDirection direction)

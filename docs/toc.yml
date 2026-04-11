@@ -1,0 +1,108 @@
+- name: Getting Started
+  items:
+    - name: Builder API
+      href: BUILDERS.md
+    - name: Configuration
+      href: CONFIGURATION.md
+    - name: Examples
+      href: EXAMPLES.md
+    - name: Comparison
+      href: COMPARISON.md
+
+- name: Tutorials
+  href: tutorials/
+  items:
+    - name: Overview
+      href: tutorials/README.md
+    - name: "1. Hello Window"
+      href: tutorials/01-hello-window.md
+    - name: "2. Dashboard"
+      href: tutorials/02-dashboard.md
+    - name: "3. Settings App"
+      href: tutorials/03-settings-app.md
+
+- name: Controls
+  href: CONTROLS.md
+  items:
+    - name: Overview
+      href: CONTROLS.md
+    - name: ButtonControl
+      href: controls/ButtonControl.md
+    - name: CanvasControl
+      href: controls/CanvasControl.md
+    - name: DatePickerControl
+      href: controls/DatePickerControl.md
+    - name: HtmlControl
+      href: controls/HtmlControl.md
+    - name: LineGraphControl
+      href: controls/LineGraphControl.md
+    - name: ListControl
+      href: controls/ListControl.md
+    - name: MarkupControl
+      href: controls/MarkupControl.md
+    - name: MultilineEditControl
+      href: controls/MultilineEditControl.md
+    - name: NavigationView
+      href: controls/NavigationView.md
+    - name: PromptControl
+      href: controls/PromptControl.md
+    - name: RangeSliderControl
+      href: controls/RangeSliderControl.md
+    - name: SliderControl
+      href: controls/SliderControl.md
+    - name: StatusBarControl
+      href: controls/StatusBarControl.md
+    - name: TabControl
+      href: controls/TabControl.md
+    - name: TableControl
+      href: controls/TableControl.md
+    - name: TerminalControl
+      href: controls/TerminalControl.md
+    - name: TimePickerControl
+      href: controls/TimePickerControl.md
+    - name: ToolbarControl
+      href: controls/ToolbarControl.md
+
+- name: Rendering
+  items:
+    - name: Rendering Pipeline
+      href: RENDERING_PIPELINE.md
+    - name: Alpha Blending & Transparency
+      href: ALPHA_BLENDING.md
+    - name: Gradients
+      href: GRADIENTS.md
+    - name: Compositor Effects
+      href: COMPOSITOR_EFFECTS.md
+    - name: Image Rendering
+      href: IMAGE_RENDERING.md
+    - name: Markup Syntax
+      href: MARKUP_SYNTAX.md
+    - name: DOM Layout System
+      href: DOM_LAYOUT_SYSTEM.md
+    - name: Animations
+      href: ANIMATIONS.md
+    - name: Video Playback
+      href: VIDEO_PLAYBACK.md
+
+- name: System
+  items:
+    - name: Desktop Background
+      href: DESKTOP_BACKGROUND.md
+    - name: Panels
+      href: PANELS.md
+    - name: Dialogs
+      href: DIALOGS.md
+    - name: Portal System
+      href: PORTAL_SYSTEM.md
+    - name: Themes
+      href: THEMES.md
+    - name: State Services
+      href: STATE-SERVICES.md
+    - name: Status System
+      href: STATUS_SYSTEM.md
+    - name: Registry
+      href: REGISTRY.md
+    - name: Plugins
+      href: PLUGINS.md
+    - name: SCHost CLI
+      href: SCHOST.md

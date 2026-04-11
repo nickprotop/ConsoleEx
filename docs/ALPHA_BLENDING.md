@@ -188,7 +188,7 @@ Modern terminal emulators (Kitty, Alacritty, WezTerm) support native background 
 
 ```csharp
 // Set desktop to transparent — terminal wallpaper shows through exposed areas
-windowSystem.Theme.DesktopBackgroundColor = Color.Transparent;
+windowSystem.DesktopBackgroundColor = Color.Transparent;
 
 // Window with transparent background — terminal shows through
 var window = new WindowBuilder(ws)

@@ -414,6 +414,22 @@ namespace SharpConsoleUI
 			set => _desktopBackgroundService.Config = value;
 		}
 
+		/// <summary>
+		/// Gets or sets the desktop background color directly.
+		/// This is a convenience property — it creates/updates the DesktopBackgroundConfig.
+		/// Set to Color.Transparent for terminal-level transparency.
+		/// </summary>
+		public Color? DesktopBackgroundColor
+		{
+			get => _desktopBackgroundService.Config?.BackgroundColor;
+			set
+			{
+				var config = _desktopBackgroundService.Config ?? new Rendering.DesktopBackgroundConfig();
+				_desktopBackgroundService.Config = config with { BackgroundColor = value };
+				_desktopBackgroundService.NeedsScreenUpdate = true;
+			}
+		}
+
 		/// <summary>Gets the desktop background service.</summary>
 		public Core.DesktopBackgroundService DesktopBackgroundService => _desktopBackgroundService;
 

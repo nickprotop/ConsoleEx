@@ -257,7 +257,8 @@ public class MyTheme : ITheme
 The priority is:
 1. `ConsoleWindowSystem.DesktopBackground` config gradient (if set)
 2. Theme's `DesktopBackgroundGradient` (if set)
-3. Theme's solid `DesktopBackgroundColor` + `DesktopBackgroundChar`
+3. `ConsoleWindowSystem.DesktopBackground` config `BackgroundColor` (if set)
+4. Theme's solid `DesktopBackgroundColor` + `DesktopBackgroundChar`
 
 If `DesktopBackgroundGradient` returns `null` (the default), the solid color is used.
 
@@ -267,10 +268,20 @@ All desktop background changes are applied automatically:
 
 ```csharp
 // These all take effect on the next frame — no manual action needed
+windowSystem.DesktopBackgroundColor = new Color(20, 20, 40);       // Solid color
+windowSystem.DesktopBackgroundColor = Color.Transparent;            // Terminal transparency
 windowSystem.DesktopBackground = DesktopBackgroundConfig.FromGradient(...);
 windowSystem.DesktopBackground = DesktopBackgroundConfig.FromPattern(...);
 windowSystem.DesktopBackground = DesktopEffects.ColorCycling();
 windowSystem.DesktopBackground = null;  // Reset to theme default
+```
+
+### Terminal Transparency
+
+Set `DesktopBackgroundColor` to `Color.Transparent` to allow the terminal emulator's native transparency to show through. The ANSI formatter emits `\x1b[49m` (terminal default background) for cells with alpha = 0. See [Alpha Blending](ALPHA_BLENDING.md#terminal-transparency) for details.
+
+```csharp
+windowSystem.DesktopBackgroundColor = Color.Transparent;
 ```
 
 The background correctly handles:
