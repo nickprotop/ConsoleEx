@@ -50,7 +50,7 @@ internal static class TransparentWindowDemoWindow
 
         var alphaSlider = Controls.Slider()
             .Horizontal()
-            .WithRange(10, 250)
+            .WithRange(0, 255)
             .WithValue(currentAlpha)
             .WithName("alphaSlider")
             .WithStep(1)
