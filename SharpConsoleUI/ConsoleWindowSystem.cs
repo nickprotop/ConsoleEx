@@ -97,6 +97,9 @@ namespace SharpConsoleUI
 		// Global keyboard shortcuts registered by the application
 		private readonly Dictionary<(ConsoleModifiers Modifiers, ConsoleKey Key), Action> _globalShortcuts = new();
 
+		// Main loop watchdog — detects stalled frames and provides emergency Ctrl+Q exit
+		private readonly MainLoopWatchdog _watchdog = new();
+
 		// Input coordination
 		/// <summary>
 		/// Gets the input coordinator for managing keyboard and mouse input across windows.
@@ -643,6 +646,27 @@ namespace SharpConsoleUI
 			// Start the console driver
 			_consoleDriver.Start();
 
+			// Start watchdog — monitors main loop liveness, provides emergency Ctrl+Q exit
+			_watchdog.WithLogging(msg => _logService.LogWarning(msg, "Watchdog"));
+			_watchdog.Start(
+				scanForEmergencyExit: ScanInputQueueForEmergencyExit,
+				onForceExit: () =>
+				{
+					_logService.LogCritical("Watchdog: forcing exit \u2014 main loop unresponsive", null, "Watchdog");
+					// Hard kill in 1s — guarantees exit even if Stop() deadlocks
+					new Thread(() => { Thread.Sleep(1000); Environment.Exit(1); })
+						{ IsBackground = true, Name = "WatchdogKill" }.Start();
+					try { _consoleDriver.Stop(); } catch { }
+					Environment.Exit(1);
+				},
+				onRecovery: () =>
+				{
+					// Force full repaint to clear the ANSI banner that was written
+					// directly to the terminal, bypassing the CharacterBuffer.
+					Render.DesktopNeedsRender = true;
+					Render.InvalidateAllWindows();
+				});
+
 			// Initialize the console window system with background color and character
 			_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);
 
@@ -653,6 +677,7 @@ namespace SharpConsoleUI
 				// Main loop
 				while (_running)
 				{
+					_watchdog.Heartbeat();
 					Input.ProcessInput();
 					DrainUIActionQueue();
 
@@ -793,11 +818,47 @@ namespace SharpConsoleUI
 			// Dispose desktop background service (stops animation timer)
 			_desktopBackgroundService.Dispose();
 
+			// Dispose watchdog (stops timer thread)
+			_watchdog.Dispose();
+
 			// Dispose wake signal
 			_wakeSignal.Dispose();
 
 			// Save registry on shutdown (auto-on-shutdown flush mode)
 			_registryStateService?.Dispose();
+		}
+
+		/// <summary>
+		/// Scans the input queue for emergency exit keys (Ctrl+Q or Ctrl+C).
+		/// Called by the watchdog on its timer thread when the main loop is stale.
+		/// Re-enqueue triggers spurious wake/event callbacks, but the main loop
+		/// is stuck anyway so these are harmless — they'll be processed if/when
+		/// the main loop recovers.
+		/// </summary>
+		private bool ScanInputQueueForEmergencyExit()
+		{
+			var requeue = new List<ConsoleKeyInfo>();
+			bool found = false;
+			int scanned = 0;
+
+			while (_inputStateService.DequeueKey() is { } key)
+			{
+				scanned++;
+				if (key.Modifiers.HasFlag(ConsoleModifiers.Control)
+					&& (key.Key == ConsoleKey.Q || key.Key == ConsoleKey.C))
+				{
+					_logService.LogWarning($"Watchdog: emergency exit key found (Ctrl+{key.Key}) after scanning {scanned} keys", "Watchdog");
+					found = true;
+					break;
+				}
+				requeue.Add(key);
+			}
+
+			// Re-enqueue non-emergency keys so they're not lost
+			foreach (var key in requeue)
+				_inputStateService.EnqueueKey(key);
+
+			return found;
 		}
 
 		/// <summary>
