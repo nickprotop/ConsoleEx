@@ -429,6 +429,16 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 				ContentLoaded?.Invoke(this, EventArgs.Empty);
 
+				// Phase 2b: Load external CSS stylesheets in background.
+				// When done, re-layout with CSS-aware computed styles (correct image widths etc.)
+				if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+					_ = _layoutEngine.LoadCssAsync(html, url).ContinueWith(_ =>
+					{
+						_lastLayoutWidth = -1; // force re-layout on next measure
+						InvalidateLinkCache();
+						Container?.Invalidate(true);
+					}, TaskScheduler.Default);
+
 				// Phase 3: If ShowImages, re-layout with images in background
 				if (handingOffToImages)
 				{

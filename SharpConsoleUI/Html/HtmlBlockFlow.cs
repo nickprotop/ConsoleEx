@@ -48,7 +48,8 @@ namespace SharpConsoleUI.Html
 			Color? linkColor = null,
 			Color? visitedLinkColor = null,
 			bool showImages = false,
-			Dictionary<string, Imaging.PixelBuffer?>? imageCache = null)
+			Dictionary<string, Imaging.PixelBuffer?>? imageCache = null,
+			IDocument? cssDocument = null)
 		{
 			var ctx = new BlockContext
 			{
@@ -60,6 +61,7 @@ namespace SharpConsoleUI.Html
 				VisitedLinkColor = visitedLinkColor,
 				ShowImages = showImages,
 				ImageCache = imageCache,
+				CssDocument = cssDocument,
 			};
 
 			ProcessChildren(root, ctx, indent: 0, listDepth: 0);
@@ -398,6 +400,7 @@ namespace SharpConsoleUI.Html
 				VisitedLinkColor = ctx.VisitedLinkColor,
 				ShowImages = ctx.ShowImages,
 				ImageCache = ctx.ImageCache,
+				CssDocument = ctx.CssDocument,
 			};
 
 			ProcessChildren(element, innerCtx, bqIndent, listDepth);
@@ -505,12 +508,36 @@ namespace SharpConsoleUI.Html
 			var maxAvailableWidth = ctx.MaxWidth - indent;
 			if (maxAvailableWidth <= 0) maxAvailableWidth = 1;
 
-			// Determine image width: HTML attribute → natural size → clamp to available
+			// Determine image width: CSS (from background-loaded doc) → HTML attr → natural size
 			int effectiveWidth = maxAvailableWidth;
-			var widthAttr = element.GetAttribute("width");
-			if (widthAttr != null && int.TryParse(widthAttr, out int pxWidth) && pxWidth > 0)
+
+			// 1. Try CSS computed width from the CSS document (loaded in background)
+			//    Only query this specific img element — do NOT use for full layout.
+			if (ctx.CssDocument != null)
 			{
-				effectiveWidth = Math.Min((int)Math.Ceiling(pxWidth / HtmlConstants.ImagePxToCharRatio), maxAvailableWidth);
+				try
+				{
+					// Find matching img in CSS document by src attribute
+					var cssImg = ctx.CssDocument.QuerySelectorAll("img")
+						.FirstOrDefault(img => img.GetAttribute("src") == src);
+					if (cssImg != null)
+					{
+						var style = HtmlStyleResolver.Resolve(cssImg, ctx.DefaultFg, ctx.DefaultBg);
+						if (style.ExplicitWidth.HasValue && style.ExplicitWidth.Value > 0)
+							effectiveWidth = Math.Min(style.ExplicitWidth.Value, maxAvailableWidth);
+					}
+				}
+				catch { /* CSS resolution may fail — fall through */ }
+			}
+
+			// 2. If CSS didn't set a width, try HTML width attribute
+			if (effectiveWidth == maxAvailableWidth)
+			{
+				var widthAttr = element.GetAttribute("width");
+				if (widthAttr != null && int.TryParse(widthAttr, out int pxWidth) && pxWidth > 0)
+				{
+					effectiveWidth = Math.Min((int)Math.Ceiling(pxWidth / HtmlConstants.ImagePxToCharRatio), maxAvailableWidth);
+				}
 			}
 
 			Cell[][]? imageRows;
@@ -657,6 +684,7 @@ namespace SharpConsoleUI.Html
 			public Color? VisitedLinkColor;
 			public bool ShowImages;
 			public Dictionary<string, Imaging.PixelBuffer?>? ImageCache;
+			public IDocument? CssDocument;
 
 			public List<LayoutLine> Lines = new();
 			public List<INode> InlineBuffer = new();

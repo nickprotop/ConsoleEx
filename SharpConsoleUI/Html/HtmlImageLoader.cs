@@ -92,10 +92,10 @@ namespace SharpConsoleUI.Html
 			if (maxWidthChars <= 0)
 				return null;
 
-			// Fill available width (like HTML block images), but don't upscale beyond
-			// native pixel resolution. maxWidthChars is already sized by ProcessImage
-			// (which respects explicit width attributes).
-			int targetWidth = Math.Min(maxWidthChars, buffer.Width);
+			// Natural width in terminal columns, clamped to available space.
+			// ImagePxToCharRatio converts pixel width to terminal column width.
+			int naturalCols = Math.Max(1, (int)Math.Ceiling(buffer.Width / HtmlConstants.ImagePxToCharRatio));
+			int targetWidth = Math.Min(naturalCols, maxWidthChars);
 			if (targetWidth <= 0)
 				targetWidth = 1;
 

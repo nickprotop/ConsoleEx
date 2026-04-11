@@ -37,16 +37,85 @@ namespace SharpConsoleUI.Html
 	public class HtmlLayoutEngine
 	{
 		private readonly IBrowsingContext _context;
+		private readonly IBrowsingContext _cssContext;
 
 		// Cached parsed DOM to avoid re-parsing on width-only changes (e.g., during resize)
 		private string? _cachedHtml;
 		private string? _cachedBaseUrl;
 		private IDocument? _cachedDocument;
 
+		// CSS-aware document loaded in background — used ONLY for selective CSS lookups
+		// (e.g., image width). Never used for full layout (too slow with 20+ stylesheets).
+		private IDocument? _cssDocument;
+
+		/// <summary>
+		/// Fired when external CSS stylesheets finish loading in the background.
+		/// Listeners should invalidate and re-layout to pick up CSS-derived widths.
+		/// </summary>
+		public event Action? CssLoaded;
+
 		public HtmlLayoutEngine()
 		{
+			// Sync context: fast parsing, no resource loading — used by Layout()
 			var config = AngleSharp.Configuration.Default.WithCss();
 			_context = BrowsingContext.New(config);
+
+			// CSS context: loads external stylesheets only — used by LoadCssAsync()
+			var cssConfig = AngleSharp.Configuration.Default
+				.WithDefaultLoader(new AngleSharp.Io.LoaderOptions
+				{
+					IsResourceLoadingEnabled = true,
+					Filter = request =>
+					{
+						// Block images, scripts, fonts — only allow CSS and unknown types
+						var path = request.Address?.Path ?? "";
+						return !path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".ico", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".js", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".woff", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".woff2", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) &&
+						       !path.EndsWith(".eot", StringComparison.OrdinalIgnoreCase);
+					}
+				})
+				.WithRenderDevice(new AngleSharp.Css.DefaultRenderDevice
+				{
+					DeviceWidth = 1920,
+					DeviceHeight = 1080,
+					FontSize = 16
+				})
+				.WithCss();
+			_cssContext = BrowsingContext.New(cssConfig);
+		}
+
+		/// <summary>
+		/// Loads external CSS stylesheets in the background. When done, replaces the
+		/// cached document with a CSS-aware version and fires CssLoaded.
+		/// Only call for pages loaded from HTTP URLs.
+		/// </summary>
+		public async Task LoadCssAsync(string html, string baseUrl)
+		{
+			try
+			{
+				var doc = await _cssContext.OpenAsync(req => req.Content(html).Address(baseUrl));
+
+				// Only update if the HTML hasn't changed while we were loading
+				if (html == _cachedHtml && baseUrl == _cachedBaseUrl)
+				{
+					ResolveRelativeUrls(doc, baseUrl);
+					_cssDocument = doc; // Store separately — NOT in _cachedDocument
+					CssLoaded?.Invoke();
+				}
+			}
+			catch
+			{
+				// CSS loading failed — keep using the non-CSS document
+			}
 		}
 
 		/// <summary>
@@ -72,6 +141,7 @@ namespace SharpConsoleUI.Html
 				_cachedDocument = parser.ParseDocument(html);
 				_cachedHtml = html;
 				_cachedBaseUrl = baseUrl;
+				_cssDocument = null; // invalidate — new content, CSS needs reloading
 
 				if (baseUrl != null)
 				{
@@ -111,7 +181,8 @@ namespace SharpConsoleUI.Html
 				linkColor,
 				visitedLinkColor,
 				showImages,
-				imageCache);
+				imageCache,
+				_cssDocument);
 
 			// Reassign Y positions sequentially
 			int y = 0;
