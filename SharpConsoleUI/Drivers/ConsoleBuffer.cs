@@ -151,7 +151,8 @@ namespace SharpConsoleUI.Drivers
 
 			sb.Append('m');
 
-			_lastCellAnsi = sb.ToString();
+			try { _lastCellAnsi = sb.ToString(); }
+			catch (ArgumentOutOfRangeException) { _lastCellAnsi = "\x1b[0m"; }
 			_lastCellFg = fg;
 			_lastCellBg = bg;
 			_lastCellDecorations = decorations;

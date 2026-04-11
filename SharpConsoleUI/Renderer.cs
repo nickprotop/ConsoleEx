@@ -491,6 +491,10 @@ namespace SharpConsoleUI
 		private void RenderVisibleWindowContentComposited(Window window, CharacterBuffer buffer, List<Rectangle> visibleRegions,
 			int windowLeft, int windowTop, int windowWidth, int desktopUpperLeftY, int bufferHeight)
 		{
+			// Guard: window may have been closed between dirty-check and render
+			if (windowWidth <= 0 || bufferHeight <= 0)
+				return;
+
 			// Build sorted windows list (descending Z-order) once for this window render
 			_compositingWindowsPool.Clear();
 			foreach (var w in _consoleWindowSystem.Windows.Values)
@@ -501,7 +505,7 @@ namespace SharpConsoleUI
 			_compositingWindowsPool.Sort((a, b) => b.ZIndex.CompareTo(a.ZIndex)); // descending
 
 			// Ensure scratch buffer is large enough for the widest row
-			int scratchWidth = windowWidth;
+			int scratchWidth = Math.Max(1, windowWidth);
 			if (_scratchBuffer == null || _scratchBuffer.Width < scratchWidth)
 			{
 				_scratchBuffer = new CharacterBuffer(scratchWidth, 1);

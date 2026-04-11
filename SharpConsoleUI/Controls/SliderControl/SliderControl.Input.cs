@@ -192,14 +192,14 @@ namespace SharpConsoleUI.Controls
 				int start = _lastLayoutBounds.X + Margin.Left;
 				if (_showMinMaxLabels)
 					start += FormatValue(_minValue).Length + ControlDefaults.SliderLabelSpacing;
-				return start;
+				return start + 1; // +1 to skip left end-cap
 			}
 			else
 			{
 				int start = _lastLayoutBounds.Y + Margin.Top;
 				if (_showMinMaxLabels)
 					start += 1;
-				return start;
+				return start + 1; // +1 to skip top end-cap
 			}
 		}
 
@@ -210,14 +210,14 @@ namespace SharpConsoleUI.Controls
 				int start = Margin.Left;
 				if (_showMinMaxLabels)
 					start += FormatValue(_minValue).Length + ControlDefaults.SliderLabelSpacing;
-				return start;
+				return start + 1; // +1 to skip left end-cap
 			}
 			else
 			{
 				int start = Margin.Top;
 				if (_showMinMaxLabels)
 					start += FormatValue(_maxValue).Length > 0 ? 1 : 0; // max label row
-				return start;
+				return start + 1; // +1 to skip top end-cap
 			}
 		}
 
@@ -238,14 +238,16 @@ namespace SharpConsoleUI.Controls
 				{
 					available -= FormatValue(_maxValue).Length + ControlDefaults.SliderLabelSpacing;
 				}
-				return Math.Max(ControlDefaults.SliderMinTrackLength, available);
+				// Reserve 2 for end-caps (must match rendering calculation)
+				return Math.Max(ControlDefaults.SliderMinTrackLength, available - 2);
 			}
 			else
 			{
 				int available = _lastLayoutBounds.Height - Margin.Top - Margin.Bottom;
 				if (_showMinMaxLabels)
 					available -= 2; // min and max label rows
-				return Math.Max(ControlDefaults.SliderMinTrackLength, available);
+				// Reserve 2 for end-caps (must match rendering calculation)
+				return Math.Max(ControlDefaults.SliderMinTrackLength, available - 2);
 			}
 		}
 	}
