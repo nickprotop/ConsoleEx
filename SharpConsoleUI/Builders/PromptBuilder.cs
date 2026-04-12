@@ -38,6 +38,14 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
 	private EventHandler? _lostFocusHandler;
 	private WindowEventHandler<EventArgs>? _lostFocusWithWindowHandler;
+	private char? _maskCharacter;
+	private int? _inputWidth;
+	private bool _historyEnabled;
+	private Func<string, int, IEnumerable<string>?>? _tabCompleter;
+	private Color? _inputBackgroundColor;
+	private Color? _inputFocusedBackgroundColor;
+	private Color? _inputForegroundColor;
+	private Color? _inputFocusedForegroundColor;
 
 	/// <summary>
 	/// Sets the prompt text (displayed before the input area)
@@ -65,6 +73,43 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 		_unfocusOnEnter = unfocus;
 		return this;
 	}
+
+	/// <summary>Sets the mask character for password fields.</summary>
+	public PromptBuilder WithMaskCharacter(char mask)
+	{
+		_maskCharacter = mask;
+		return this;
+	}
+
+	/// <summary>Sets the input field width in characters (enables horizontal scrolling).</summary>
+	public PromptBuilder WithInputWidth(int width)
+	{
+		_inputWidth = Math.Max(1, width);
+		return this;
+	}
+
+	/// <summary>Enables command history (Up/Down arrow recall).</summary>
+	public PromptBuilder WithHistory(bool enabled = true)
+	{
+		_historyEnabled = enabled;
+		return this;
+	}
+
+	/// <summary>Sets the tab completion delegate.</summary>
+	public PromptBuilder WithTabCompleter(Func<string, int, IEnumerable<string>?> completer)
+	{
+		_tabCompleter = completer;
+		return this;
+	}
+
+	/// <summary>Sets the input background color when not focused.</summary>
+	public PromptBuilder WithInputBackgroundColor(Color color) { _inputBackgroundColor = color; return this; }
+	/// <summary>Sets the input background color when focused.</summary>
+	public PromptBuilder WithInputFocusedBackgroundColor(Color color) { _inputFocusedBackgroundColor = color; return this; }
+	/// <summary>Sets the input foreground color when not focused.</summary>
+	public PromptBuilder WithInputForegroundColor(Color color) { _inputForegroundColor = color; return this; }
+	/// <summary>Sets the input foreground color when focused.</summary>
+	public PromptBuilder WithInputFocusedForegroundColor(Color color) { _inputFocusedForegroundColor = color; return this; }
 
 	/// <summary>
 	/// Sets the horizontal alignment
@@ -263,6 +308,23 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 			Tag = _tag,
 			StickyPosition = _stickyPosition
 		};
+
+		if (_maskCharacter.HasValue)
+			prompt.MaskCharacter = _maskCharacter.Value;
+		if (_inputWidth.HasValue)
+			prompt.InputWidth = _inputWidth.Value;
+		if (_historyEnabled)
+			prompt.HistoryEnabled = true;
+		if (_tabCompleter != null)
+			prompt.TabCompleter = _tabCompleter;
+		if (_inputBackgroundColor.HasValue)
+			prompt.InputBackgroundColor = _inputBackgroundColor.Value;
+		if (_inputFocusedBackgroundColor.HasValue)
+			prompt.InputFocusedBackgroundColor = _inputFocusedBackgroundColor.Value;
+		if (_inputForegroundColor.HasValue)
+			prompt.InputForegroundColor = _inputForegroundColor.Value;
+		if (_inputFocusedForegroundColor.HasValue)
+			prompt.InputFocusedForegroundColor = _inputFocusedForegroundColor.Value;
 
 		if (!string.IsNullOrEmpty(_initialInput))
 			prompt.SetInput(_initialInput);

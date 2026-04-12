@@ -36,6 +36,8 @@ public static class LauncherWindow
                 .AddItem("Status Bar", subtitle: "Clickable status bar with zones", content: MakeInfoPanel("Status Bar"))
                 .AddItem("Toolbar", subtitle: "Multi-height toolbar with auto-sizing", content: MakeInfoPanel("Toolbar")))
             .AddHeader("Controls", Color.Green, header => header
+                .AddItem("Prompt Control", subtitle: "Readline editing, history, completion, clipboard",
+                    content: MakeInfoPanel("Prompt Control"))
                 .AddItem("Interactive Demo", subtitle: "Real-time key press handling", content: MakeInfoPanel("Interactive Demo"))
                 .AddItem("Dropdown", subtitle: "Cascading dropdowns", content: MakeInfoPanel("Dropdown"))
                 .AddItem("List View", subtitle: "NuGet-style package browser", content: MakeInfoPanel("List View"))
@@ -225,6 +227,7 @@ public static class LauncherWindow
             "WinUI Layout" => WinUIDemoWindow.Create(ws),
             "Horizontal Splitter" => HorizontalSplitterDemoWindow.Create(ws),
             "Status Bar" => StatusBarDemoWindow.Create(ws),
+            "Prompt Control" => PromptDemoWindow.Create(ws),
             "Interactive Demo" => InteractiveWindow.Create(ws),
             "Dropdown" => DropdownWindow.Create(ws),
             "List View" => ListViewWindow.Create(ws),
@@ -392,6 +395,23 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - ToolbarControl",
                 "  - ButtonControl, MarkupControl",
+            },
+            "Prompt Control" => new List<string>
+            {
+                "[bold cyan]Prompt Control[/]",
+                "",
+                "Single-line text input with readline-style editing,",
+                "command history, text selection, clipboard, and",
+                "tab completion.",
+                "",
+                "[dim]Features:[/]",
+                "  - Readline: Ctrl+A/E/K/U/W, Ctrl+Left/Right",
+                "  - Selection: Shift+Arrow, Ctrl+C/V/X",
+                "  - History: Up/Down arrow recall",
+                "  - Tab completion with common prefix",
+                "  - Password masking",
+                "  - Mouse click to cursor",
+                "  - Custom colors and markup prompt",
             },
             "Interactive Demo" => new List<string>
             {

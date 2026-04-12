@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	/// A single-line text input control with optional prompt text.
 	/// Supports text editing, cursor navigation, and horizontal scrolling for overflow text.
 	/// </summary>
-	public class PromptControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, ICursorShapeProvider
+	public class PromptControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		/// <summary>
 		/// Event fired when Enter is pressed (modern standardized event)
@@ -47,6 +47,20 @@ namespace SharpConsoleUI.Controls
 
 		// Cached alignment offset from last render (needed for cursor positioning)
 		private int _lastAlignOffset = 0;
+
+		// Auto-scroll: effective input width computed from render bounds
+		private int _effectiveInputWidth;
+
+		// History
+		private bool _historyEnabled;
+		private readonly List<string> _history = new();
+		private int _historyIndex;
+
+		// Tab completion
+		private Func<string, int, IEnumerable<string>?>? _tabCompleter;
+
+		// Selection: -1 means no selection active
+		private int _selectionAnchor = -1;
 
 		// Read-only helpers
 		private int CurrentCursorPosition => _cursorPosition;
@@ -154,6 +168,51 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public bool UnfocusOnEnter { get; set; } = true;
 
+		/// <summary>
+		/// Gets or sets whether command history is enabled (Up/Down arrow recall).
+		/// </summary>
+		public bool HistoryEnabled
+		{
+			get => _historyEnabled;
+			set => _historyEnabled = value;
+		}
+
+		/// <summary>
+		/// Gets or sets the tab completion delegate. When set, Tab key triggers completion.
+		/// The delegate receives (input, cursorPosition) and returns completion candidates.
+		/// When no completions match, Tab passes through to focus traversal.
+		/// </summary>
+		public Func<string, int, IEnumerable<string>?>? TabCompleter
+		{
+			get => _tabCompleter;
+			set => _tabCompleter = value;
+		}
+
+		/// <summary>
+		/// Clears the command history.
+		/// </summary>
+		public void ClearHistory() => _history.Clear();
+
+		/// <summary>
+		/// Gets the selected text, or null if no selection.
+		/// </summary>
+		public string? SelectedText
+		{
+			get
+			{
+				if (_selectionAnchor < 0) return null;
+				int start = Math.Min(_selectionAnchor, _cursorPosition);
+				int end = Math.Max(_selectionAnchor, _cursorPosition);
+				if (start == end) return null;
+				return _input.Substring(start, end - start);
+			}
+		}
+
+		/// <summary>
+		/// Gets whether there is an active text selection.
+		/// </summary>
+		public bool HasSelection => _selectionAnchor >= 0 && _selectionAnchor != _cursorPosition;
+
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
@@ -221,9 +280,101 @@ namespace SharpConsoleUI.Controls
 
 			int cursorPos = CurrentCursorPosition;
 			int scrollOffset = CurrentScrollOffset;
+			bool ctrl = key.Modifiers.HasFlag(ConsoleModifiers.Control);
+			bool shift = key.Modifiers.HasFlag(ConsoleModifiers.Shift);
 
+			// --- Ctrl combinations (readline-style) ---
+			if (ctrl)
+			{
+				switch (key.Key)
+				{
+					case ConsoleKey.A: // Ctrl+A: select all
+						_selectionAnchor = 0;
+						MoveCursorTo(_input.Length);
+						return true;
+
+					case ConsoleKey.E: // Ctrl+E: cursor to end
+						ClearSelection();
+						MoveCursorTo(_input.Length);
+						return true;
+
+					case ConsoleKey.C: // Ctrl+C: copy selection
+						if (HasSelection)
+							ClipboardHelper.SetText(SelectedText!);
+						return true;
+
+					case ConsoleKey.V: // Ctrl+V: paste
+					{
+						var clip = ClipboardHelper.GetText();
+						if (!string.IsNullOrEmpty(clip))
+						{
+							// Sanitize: single-line
+							clip = clip.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
+							DeleteSelection();
+							_input = _input.Insert(_cursorPosition, clip);
+							MoveCursorTo(_cursorPosition + clip.Length);
+							InputChanged?.Invoke(this, _input);
+						}
+						return true;
+					}
+
+					case ConsoleKey.X: // Ctrl+X: cut
+						if (HasSelection)
+						{
+							ClipboardHelper.SetText(SelectedText!);
+							DeleteSelection();
+							InputChanged?.Invoke(this, _input);
+						}
+						return true;
+
+					case ConsoleKey.K: // Ctrl+K: kill from cursor to end
+						if (cursorPos < _input.Length)
+						{
+							_input = _input.Substring(0, cursorPos);
+							Container?.Invalidate(true);
+							InputChanged?.Invoke(this, _input);
+						}
+						return true;
+
+					case ConsoleKey.U: // Ctrl+U: kill from start to cursor
+						if (cursorPos > 0)
+						{
+							_input = _input.Substring(cursorPos);
+							MoveCursorTo(0);
+							InputChanged?.Invoke(this, _input);
+						}
+						return true;
+
+					case ConsoleKey.W: // Ctrl+W: kill word backward
+						if (cursorPos > 0)
+						{
+							int wordStart = FindWordBoundaryLeft(cursorPos);
+							_input = _input.Remove(wordStart, cursorPos - wordStart);
+							MoveCursorTo(wordStart);
+							InputChanged?.Invoke(this, _input);
+						}
+						return true;
+
+					case ConsoleKey.LeftArrow: // Ctrl+Left: word left
+						if (cursorPos > 0)
+							MoveCursorTo(FindWordBoundaryLeft(cursorPos));
+						return true;
+
+					case ConsoleKey.RightArrow: // Ctrl+Right: word right
+						if (cursorPos < _input.Length)
+							MoveCursorTo(FindWordBoundaryRight(cursorPos));
+						return true;
+				}
+			}
+
+			// --- Standard keys ---
 			if (key.Key == ConsoleKey.Enter)
 			{
+				if (_historyEnabled && !string.IsNullOrEmpty(_input))
+				{
+					_history.Add(_input);
+					_historyIndex = _history.Count;
+				}
 				Entered?.Invoke(this, _input);
 				if (UnfocusOnEnter)
 				{
@@ -233,61 +384,110 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 				return true;
 			}
-			else if (key.Key == ConsoleKey.Backspace && cursorPos > 0)
+			else if (key.Key == ConsoleKey.Backspace)
 			{
-				_input = _input.Remove(cursorPos - 1, 1);
-				int newCursorPos = cursorPos - 1;
-				_cursorPosition = newCursorPos;
-				if (newCursorPos < scrollOffset)
+				if (HasSelection)
 				{
-					SetScrollOffset(scrollOffset - 1);
+					DeleteSelection();
+					InputChanged?.Invoke(this, _input);
+					return true;
 				}
-				Container?.Invalidate(true);
-				InputChanged?.Invoke(this, _input);
+				if (cursorPos > 0)
+				{
+					_input = _input.Remove(cursorPos - 1, 1);
+					MoveCursorTo(cursorPos - 1);
+					InputChanged?.Invoke(this, _input);
+				}
 				return true;
 			}
-			else if (key.Key == ConsoleKey.Delete && cursorPos < _input.Length)
+			else if (key.Key == ConsoleKey.Delete)
 			{
-				_input = _input.Remove(cursorPos, 1);
-				Container?.Invalidate(true);
-				InputChanged?.Invoke(this, _input);
+				if (HasSelection)
+				{
+					DeleteSelection();
+					InputChanged?.Invoke(this, _input);
+					return true;
+				}
+				if (cursorPos < _input.Length)
+				{
+					_input = _input.Remove(cursorPos, 1);
+					Container?.Invalidate(true);
+					InputChanged?.Invoke(this, _input);
+				}
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Home)
 			{
-				_cursorPosition = 0;
-				SetScrollOffset(0);
-				Container?.Invalidate(true);
+				if (shift) { if (_selectionAnchor < 0) _selectionAnchor = cursorPos; }
+				else ClearSelection();
+				MoveCursorTo(0);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.End)
 			{
-				_cursorPosition = _input.Length;
-				SetScrollOffset(Math.Max(0, _input.Length - (_inputWidth ?? _input.Length)));
-				Container?.Invalidate(true);
+				if (shift) { if (_selectionAnchor < 0) _selectionAnchor = cursorPos; }
+				else ClearSelection();
+				MoveCursorTo(_input.Length);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.LeftArrow && cursorPos > 0)
 			{
-				int newCursorPos = cursorPos - 1;
-				_cursorPosition = newCursorPos;
-				if (newCursorPos < scrollOffset)
-				{
-					SetScrollOffset(scrollOffset - 1);
-				}
-				Container?.Invalidate(true);
+				if (shift) { if (_selectionAnchor < 0) _selectionAnchor = cursorPos; }
+				else ClearSelection();
+				MoveCursorTo(cursorPos - 1);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.RightArrow && cursorPos < _input.Length)
 			{
-				int newCursorPos = cursorPos + 1;
-				_cursorPosition = newCursorPos;
-				if (newCursorPos >= (scrollOffset + (_inputWidth ?? _input.Length)))
-				{
-					SetScrollOffset(scrollOffset + 1);
-				}
-				Container?.Invalidate(true);
+				if (shift) { if (_selectionAnchor < 0) _selectionAnchor = cursorPos; }
+				else ClearSelection();
+				MoveCursorTo(cursorPos + 1);
 				return true;
+			}
+			else if (key.Key == ConsoleKey.UpArrow && _historyEnabled && _historyIndex > 0)
+			{
+				_historyIndex--;
+				_input = _history[_historyIndex];
+				MoveCursorTo(_input.Length);
+				InputChanged?.Invoke(this, _input);
+				return true;
+			}
+			else if (key.Key == ConsoleKey.DownArrow && _historyEnabled && _historyIndex < _history.Count)
+			{
+				_historyIndex++;
+				_input = _historyIndex < _history.Count ? _history[_historyIndex] : string.Empty;
+				MoveCursorTo(_input.Length);
+				InputChanged?.Invoke(this, _input);
+				return true;
+			}
+			else if (key.Key == ConsoleKey.Tab && _tabCompleter != null)
+			{
+				var completions = _tabCompleter(_input, cursorPos)?.ToList();
+				if (completions == null || completions.Count == 0)
+					return false; // no matches — let focus leave
+
+				if (completions.Count == 1)
+				{
+					if (completions[0] == _input)
+						return false; // already complete — let focus leave
+					_input = completions[0];
+					MoveCursorTo(_input.Length);
+					InputChanged?.Invoke(this, _input);
+					return true;
+				}
+
+				// Multiple completions: find common prefix and insert it
+				var prefix = CommonPrefix(completions);
+				if (prefix.Length > _input.Length)
+				{
+					_input = prefix;
+					MoveCursorTo(_input.Length);
+					InputChanged?.Invoke(this, _input);
+					return true;
+				}
+
+				// Common prefix didn't advance — can't complete further, let focus leave
+				return false;
 			}
 			else if (key.Key == ConsoleKey.Escape)
 			{
@@ -297,18 +497,102 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (!char.IsControl(key.KeyChar))
 			{
+				if (HasSelection)
+					DeleteSelection();
+				cursorPos = _cursorPosition; // update after potential deletion
 				_input = _input.Insert(cursorPos, key.KeyChar.ToString());
-				int newCursorPos = cursorPos + 1;
-				_cursorPosition = newCursorPos;
-				if (_inputWidth.HasValue && newCursorPos > _inputWidth.Value)
-				{
-					SetScrollOffset(newCursorPos - _inputWidth.Value);
-				}
-				Container?.Invalidate(true);
+				ClearSelection();
+				MoveCursorTo(cursorPos + 1);
 				InputChanged?.Invoke(this, _input);
 				return true;
 			}
 			return false;
+		}
+
+		/// <summary>
+		/// Whether this control wants Tab key events (for tab completion).
+		/// </summary>
+		public bool WantsTabKey => _tabCompleter != null;
+
+		/// <summary>
+		/// Clears the current selection.
+		/// </summary>
+		private void ClearSelection()
+		{
+			_selectionAnchor = -1;
+		}
+
+		/// <summary>
+		/// Deletes the selected text and positions the cursor at the selection start.
+		/// </summary>
+		private void DeleteSelection()
+		{
+			if (!HasSelection) return;
+			int start = Math.Min(_selectionAnchor, _cursorPosition);
+			int end = Math.Max(_selectionAnchor, _cursorPosition);
+			_input = _input.Remove(start, end - start);
+			_selectionAnchor = -1;
+			MoveCursorTo(start);
+		}
+
+		/// <summary>
+		/// Moves the cursor to the specified position and adjusts scroll.
+		/// </summary>
+		private void MoveCursorTo(int position)
+		{
+			position = Math.Clamp(position, 0, _input.Length);
+			_cursorPosition = position;
+			int effectiveWidth = _effectiveInputWidth > 0 ? _effectiveInputWidth : (_inputWidth ?? int.MaxValue);
+			int scrollOffset = _horizontalScrollOffset;
+			if (position < scrollOffset)
+				SetScrollOffset(position);
+			else if (position >= scrollOffset + effectiveWidth)
+				SetScrollOffset(position - effectiveWidth + 1);
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Finds the start of the word to the left of the given position.
+		/// </summary>
+		private int FindWordBoundaryLeft(int pos)
+		{
+			if (pos <= 0) return 0;
+			int i = pos - 1;
+			// Skip whitespace
+			while (i > 0 && char.IsWhiteSpace(_input[i])) i--;
+			// Skip word characters
+			while (i > 0 && !char.IsWhiteSpace(_input[i - 1])) i--;
+			return i;
+		}
+
+		/// <summary>
+		/// Finds the end of the word to the right of the given position.
+		/// </summary>
+		private int FindWordBoundaryRight(int pos)
+		{
+			if (pos >= _input.Length) return _input.Length;
+			int i = pos;
+			// Skip current word
+			while (i < _input.Length && !char.IsWhiteSpace(_input[i])) i++;
+			// Skip whitespace
+			while (i < _input.Length && char.IsWhiteSpace(_input[i])) i++;
+			return i;
+		}
+
+		/// <summary>
+		/// Finds the longest common prefix among a list of strings.
+		/// </summary>
+		private static string CommonPrefix(List<string> strings)
+		{
+			if (strings.Count == 0) return string.Empty;
+			var prefix = strings[0];
+			for (int i = 1; i < strings.Count; i++)
+			{
+				int j = 0;
+				while (j < prefix.Length && j < strings[i].Length && prefix[j] == strings[i][j]) j++;
+				prefix = prefix.Substring(0, j);
+			}
+			return prefix;
 		}
 
 		/// <inheritdoc/>
@@ -342,6 +626,55 @@ namespace SharpConsoleUI.Controls
 			// Set scroll position via service (single source of truth)
 			_horizontalScrollOffset = newOffset;
 		}
+
+		#region IMouseAwareControl Implementation
+
+		/// <inheritdoc/>
+		public bool WantsMouseEvents => true;
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse => CanReceiveFocus;
+
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseClick;
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseDoubleClick;
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseRightClick;
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseEnter;
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseLeave;
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseMove;
+
+		/// <inheritdoc/>
+		public bool ProcessMouseEvent(Events.MouseEventArgs args)
+		{
+			if (!IsEnabled) return false;
+
+			// Focus on click
+			if (args.HasFlag(Drivers.MouseFlags.Button1Clicked) ||
+			    args.HasFlag(Drivers.MouseFlags.Button1Pressed))
+			{
+				if (!HasFocus && CanFocusWithMouse)
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+
+				// Position cursor at clicked character
+				int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
+				int clickX = args.Position.X - Margin.Left - _lastAlignOffset - promptLength;
+				int charPos = clickX + _horizontalScrollOffset;
+				charPos = Math.Clamp(charPos, 0, _input.Length);
+				_cursorPosition = charPos;
+				Container?.Invalidate(true);
+				args.Handled = true;
+				return true;
+			}
+
+			return false;
+		}
+
+		#endregion
 
 		#region IDOMPaintable Implementation
 
@@ -406,6 +739,7 @@ namespace SharpConsoleUI.Controls
 
 				// Calculate alignment offset
 				int inputFieldWidth = _inputWidth ?? (targetWidth - promptLength);
+				_effectiveInputWidth = Math.Max(1, inputFieldWidth); // cache for scroll calculations
 				int totalContentWidth = promptLength + inputFieldWidth;
 				int alignOffset = 0;
 				if (totalContentWidth < targetWidth)
@@ -484,6 +818,24 @@ namespace SharpConsoleUI.Controls
 					if (x >= clipRect.X && x < clipRect.Right)
 					{
 						buffer.SetCell(x, startY, inputCells[i]);
+					}
+				}
+
+				// Highlight selection (invert colors)
+				if (HasSelection)
+				{
+					int selStart = Math.Min(_selectionAnchor, _cursorPosition);
+					int selEnd = Math.Max(_selectionAnchor, _cursorPosition);
+					int visStart = Math.Max(selStart - scrollOffset, 0);
+					int visEnd = Math.Min(selEnd - scrollOffset, cellsToWrite);
+					for (int i = visStart; i < visEnd; i++)
+					{
+						int x = currentX + i;
+						if (x >= clipRect.X && x < clipRect.Right)
+						{
+							var cell = buffer.GetCell(x, startY);
+							buffer.SetCellColors(x, startY, cell.Background, cell.Foreground);
+						}
 					}
 				}
 
