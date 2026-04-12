@@ -381,6 +381,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	private void OnDataSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
 	{
+		if (e.Action == NotifyCollectionChangedAction.Reset)
+		{
+			_selectedRowIndex = RowCount > 0 ? 0 : -1;
+			_selectedRowIndices.Clear();
+			_scrollOffset = 0;
+		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(true);
