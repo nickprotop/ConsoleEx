@@ -427,7 +427,10 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the piped stdin split into lines, or null if stdin is a TTY.
 		/// </summary>
-		public string[]? PipedLines => PipedInput?.Split('\n');
+		public string[]? PipedLines => PipedInput?
+			.ReplaceLineEndings("\n")
+			.TrimEnd('\n')
+			.Split('\n');
 
 		/// <summary>Gets or sets the desktop background configuration.</summary>
 		public DesktopBackgroundConfig? DesktopBackground

@@ -161,6 +161,105 @@ public partial class TableControl
 	/// </summary>
 	internal bool ProcessEditKey(ConsoleKeyInfo key)
 	{
+		bool ctrl = key.Modifiers.HasFlag(ConsoleModifiers.Control);
+
+		// Ctrl combinations (readline-style)
+		if (ctrl)
+		{
+			switch (key.Key)
+			{
+				case ConsoleKey.A: // move to start (no selection model in inline editor)
+					_editCursorPosition = 0;
+					Container?.Invalidate(true);
+					return true;
+
+				case ConsoleKey.E: // move to end
+					_editCursorPosition = _editBuffer.Length;
+					Container?.Invalidate(true);
+					return true;
+
+				case ConsoleKey.K: // kill to end
+					if (_editCursorPosition < _editBuffer.Length)
+					{
+						_editBuffer = _editBuffer.Substring(0, _editCursorPosition);
+						Container?.Invalidate(true);
+					}
+					return true;
+
+				case ConsoleKey.U: // kill to start
+					if (_editCursorPosition > 0)
+					{
+						_editBuffer = _editBuffer.Substring(_editCursorPosition);
+						_editCursorPosition = 0;
+						Container?.Invalidate(true);
+					}
+					return true;
+
+				case ConsoleKey.W: // kill word backward
+					if (_editCursorPosition > 0)
+					{
+						int i = _editCursorPosition - 1;
+						while (i > 0 && char.IsWhiteSpace(_editBuffer[i])) i--;
+						while (i > 0 && !char.IsWhiteSpace(_editBuffer[i - 1])) i--;
+						_editBuffer = _editBuffer.Remove(i, _editCursorPosition - i);
+						_editCursorPosition = i;
+						Container?.Invalidate(true);
+					}
+					return true;
+
+				case ConsoleKey.C: // copy all edit buffer
+					if (!string.IsNullOrEmpty(_editBuffer))
+						Helpers.ClipboardHelper.SetText(_editBuffer);
+					return true;
+
+				case ConsoleKey.V: // paste
+				{
+					var clip = Helpers.ClipboardHelper.GetText();
+					if (!string.IsNullOrEmpty(clip))
+					{
+						clip = clip.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
+						_editBuffer = _editBuffer.Insert(_editCursorPosition, clip);
+						_editCursorPosition += clip.Length;
+						Container?.Invalidate(true);
+					}
+					return true;
+				}
+
+				case ConsoleKey.X: // cut (copy + clear)
+					if (!string.IsNullOrEmpty(_editBuffer))
+					{
+						Helpers.ClipboardHelper.SetText(_editBuffer);
+						_editBuffer = string.Empty;
+						_editCursorPosition = 0;
+						Container?.Invalidate(true);
+					}
+					return true;
+
+				case ConsoleKey.LeftArrow: // word left
+					if (_editCursorPosition > 0)
+					{
+						int i = _editCursorPosition - 1;
+						while (i > 0 && char.IsWhiteSpace(_editBuffer[i])) i--;
+						while (i > 0 && !char.IsWhiteSpace(_editBuffer[i - 1])) i--;
+						_editCursorPosition = i;
+						Container?.Invalidate(true);
+					}
+					return true;
+
+				case ConsoleKey.RightArrow: // word right
+					if (_editCursorPosition < _editBuffer.Length)
+					{
+						int i = _editCursorPosition;
+						while (i < _editBuffer.Length && !char.IsWhiteSpace(_editBuffer[i])) i++;
+						while (i < _editBuffer.Length && char.IsWhiteSpace(_editBuffer[i])) i++;
+						_editCursorPosition = i;
+						Container?.Invalidate(true);
+					}
+					return true;
+			}
+			return true; // consume other Ctrl combos in edit mode
+		}
+
 		switch (key.Key)
 		{
 			case ConsoleKey.Enter:
@@ -222,7 +321,7 @@ public partial class TableControl
 					Container?.Invalidate(true);
 					return true;
 				}
-				return true; // Consume all keys in edit mode
+				return false; // let unrecognized keys bubble up
 		}
 	}
 
