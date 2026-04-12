@@ -136,6 +136,8 @@ NEW_VERSION="${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}"
 
 # Update template SharpConsoleUI dependency to new version
 TEMPLATES_UPDATED=false
+
+# 1. csproj-based templates (dotnet-new templates, schost templates)
 for TEMPLATE_CSPROJ in templates/content/*/*.csproj tools/schost/templates/*/*.csproj; do
     if [ -f "$TEMPLATE_CSPROJ" ]; then
         sed -i "s|<PackageReference Include=\"SharpConsoleUI\" Version=\"[^\"]*\"|<PackageReference Include=\"SharpConsoleUI\" Version=\"${NEW_VERSION}\"|" "$TEMPLATE_CSPROJ"
@@ -143,8 +145,16 @@ for TEMPLATE_CSPROJ in templates/content/*/*.csproj tools/schost/templates/*/*.c
     fi
 done
 
-if [ "$TEMPLATES_UPDATED" = true ] && ! git diff --quiet templates/ tools/schost/templates/; then
-    git add templates/ tools/schost/templates/
+# 2. .NET 10 file-based app templates under docs/scripting/templates/
+for TEMPLATE_CS in docs/scripting/templates/*.cs; do
+    if [ -f "$TEMPLATE_CS" ] && grep -q '^#:package SharpConsoleUI@' "$TEMPLATE_CS"; then
+        sed -i "s|^#:package SharpConsoleUI@.*|#:package SharpConsoleUI@${NEW_VERSION}|" "$TEMPLATE_CS"
+        TEMPLATES_UPDATED=true
+    fi
+done
+
+if [ "$TEMPLATES_UPDATED" = true ] && ! git diff --quiet templates/ tools/schost/templates/ docs/scripting/templates/; then
+    git add templates/ tools/schost/templates/ docs/scripting/templates/
     git commit -m "Update template SharpConsoleUI dependency to ${NEW_VERSION}"
     git push origin "$(git branch --show-current)"
     echo -e "${GREEN}✓ Updated template dependencies to ${NEW_VERSION}${NC}"
