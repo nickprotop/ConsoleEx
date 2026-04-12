@@ -180,6 +180,10 @@ public partial class TableControl
         var manager = GetAnimationManager();
         if (manager == null) return null;
 
+        // Capture row identity — if rows shift during animation (background sync,
+        // undo, etc.), we verify before removing to avoid deleting the wrong row.
+        var capturedTag = GetRow(rowIndex).Tag;
+
         var entry = new RowAnimationEntry(rowIndex, -1, Color.Black, 0f, true, false);
         _rowAnimationEntries.Add(entry);
 
@@ -196,11 +200,10 @@ public partial class TableControl
             onComplete: () =>
             {
                 _rowAnimationEntries.Remove(entry);
-                // Remove the actual row if still valid
-                if (rowIndex < RowCount)
+                // Verify row identity before removing
+                if (rowIndex < RowCount && GetRow(rowIndex).Tag == capturedTag)
                 {
                     RemoveRow(rowIndex);
-                    // Adjust remaining animation indices
                     AdjustAnimationIndicesAfterRemoval(rowIndex);
                 }
                 Invalidate();
@@ -226,6 +229,11 @@ public partial class TableControl
         var manager = GetAnimationManager();
         if (manager == null) return null;
 
+        // Capture row identity at animation start for verification in onComplete
+        var capturedTags = new Dictionary<int, object?>();
+        foreach (var idx in validIndices)
+            capturedTags[idx] = GetRow(idx).Tag;
+
         var entries = new List<RowAnimationEntry>();
         foreach (var idx in validIndices)
         {
@@ -250,15 +258,15 @@ public partial class TableControl
                 foreach (var entry in entries)
                     _rowAnimationEntries.Remove(entry);
 
-                // Remove rows in reverse order to preserve indices
+                // Remove rows in reverse order, verifying identity to avoid removing wrong rows
+                // if the table was modified during the animation (background sync, undo, etc.)
                 var sorted = validIndices.OrderByDescending(i => i).ToArray();
                 foreach (var idx in sorted)
                 {
-                    if (idx < RowCount)
+                    if (idx < RowCount && capturedTags.TryGetValue(idx, out var tag) && GetRow(idx).Tag == tag)
                         RemoveRow(idx);
                 }
 
-                // Adjust remaining animation indices for all removed rows (in reverse order)
                 foreach (var idx in sorted)
                     AdjustAnimationIndicesAfterRemoval(idx);
 
