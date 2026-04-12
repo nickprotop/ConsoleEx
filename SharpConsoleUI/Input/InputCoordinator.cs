@@ -268,9 +268,51 @@ namespace SharpConsoleUI.Input
 				}
 			}
 
+			// Route drag/release events to the window with active control capture,
+			// even if the cursor is over a different window.
+			if (!IsDragging && !IsResizing &&
+			    (flags.Contains(MouseFlags.Button1Dragged) || flags.Contains(MouseFlags.Button1Released)))
+			{
+				foreach (var w in _context.Windows.Values)
+				{
+					if (w.EventDispatcher?.HasMouseCapture == true)
+					{
+						PropagateMouseEventToWindow(w, flags, point);
+						return;
+					}
+				}
+			}
+
 			// Handle mouse button press (start drag/resize) - third priority
+			// Skip entirely if any window has a control with mouse capture (active control drag)
 			if (flags.Contains(MouseFlags.Button1Pressed) && !IsDragging && !IsResizing)
 			{
+				// Check if any window has an active control drag — if so, don't activate
+				// other windows, don't start border resize, just let the event flow to
+				// the captured control via PropagateMouseEventToWindow.
+				bool anyControlDragActive = false;
+				foreach (var w in _context.Windows.Values)
+				{
+					if (w.EventDispatcher?.HasMouseCapture == true)
+					{
+						anyControlDragActive = true;
+						break;
+					}
+				}
+
+				if (anyControlDragActive)
+				{
+					// Route event to the window that has the capture
+					foreach (var w in _context.Windows.Values)
+					{
+						if (w.EventDispatcher?.HasMouseCapture == true)
+						{
+							PropagateMouseEventToWindow(w, flags, point);
+							return;
+						}
+					}
+				}
+
 				var window = GetWindowAtPoint(point);
 				if (window != null)
 				{
@@ -280,7 +322,6 @@ namespace SharpConsoleUI.Input
 						_context.SetActiveWindow(window);
 					}
 
-					// Check if clicking on an interactive control first
 					var contentControl = window.EventDispatcher?.GetControlAtPosition(GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y));
 					bool clickingOnControl = contentControl is Controls.IMouseAwareControl mouseAware
 											  && mouseAware.WantsMouseEvents;

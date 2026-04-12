@@ -308,20 +308,12 @@ namespace SharpConsoleUI.Controls
 			return true;
 		}
 
-		// Handle double-click (same behavior as single click for checkboxes)
+		// Handle double-click — do NOT toggle again (Button1Clicked already toggled).
+		// Just consume the event to prevent it from propagating.
 		if (args.HasFlag(MouseFlags.Button1DoubleClicked))
 		{
-			// Focus is already set by FocusManager.HandleClick before ProcessMouseEvent is called.
-			// Toggle checked state
-			Checked = !Checked;
-
-			// Fire double-click event
 			MouseDoubleClick?.Invoke(this, args);
-
-			// Mark event as handled and trigger re-render
 			args.Handled = true;
-			Container?.Invalidate(true);
-
 			return true;
 		}
 

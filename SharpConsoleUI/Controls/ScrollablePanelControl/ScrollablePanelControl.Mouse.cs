@@ -287,6 +287,39 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
+			// Child mouse capture: route drag/press/release to the child that started the drag,
+			// preventing sibling controls from stealing the drag via re-hit-testing.
+			if (_mouseCaptureChild != null &&
+			    args.HasAnyFlag(Drivers.MouseFlags.Button1Pressed, Drivers.MouseFlags.Button1Dragged, Drivers.MouseFlags.Button1Released))
+			{
+				if (args.HasFlag(Drivers.MouseFlags.Button1Released))
+				{
+					var releasedChild = _mouseCaptureChild;
+					_mouseCaptureChild = null;
+					if (releasedChild is IMouseAwareControl releasedMouse && releasedMouse.WantsMouseEvents)
+					{
+						var childArgs = CreateChildRelativeArgs(args, releasedChild);
+						if (childArgs != null)
+						{
+							releasedMouse.ProcessMouseEvent(childArgs);
+							args.Handled = true;
+						}
+					}
+					return true;
+				}
+
+				if (_mouseCaptureChild is IMouseAwareControl capturedMouse && capturedMouse.WantsMouseEvents)
+				{
+					var childArgs = CreateChildRelativeArgs(args, _mouseCaptureChild);
+					if (childArgs != null)
+					{
+						bool result = capturedMouse.ProcessMouseEvent(childArgs);
+						if (result) args.Handled = true;
+						return result;
+					}
+				}
+			}
+
 			// Handle click events for child focus
 			if (args.HasAnyFlag(Drivers.MouseFlags.Button1Clicked, Drivers.MouseFlags.Button1Pressed,
 				Drivers.MouseFlags.Button1Released, Drivers.MouseFlags.Button1DoubleClicked, Drivers.MouseFlags.Button1TripleClicked,
@@ -369,6 +402,9 @@ namespace SharpConsoleUI.Controls
 									// Forward event to child
 									if (mouseAware.ProcessMouseEvent(childArgs))
 									{
+										// Set child capture on press to prevent drag stealing
+										if (args.HasFlag(Drivers.MouseFlags.Button1Pressed))
+											_mouseCaptureChild = child;
 										args.Handled = true;
 										return true;
 									}

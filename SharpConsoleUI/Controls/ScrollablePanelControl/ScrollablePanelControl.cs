@@ -42,6 +42,8 @@ namespace SharpConsoleUI.Controls
 		private bool _isScrollbarDragging = false;
 		private int _scrollbarDragStartY = 0;
 		private int _scrollbarDragStartOffset = 0;
+		// Child mouse capture: prevents drag stealing between sibling controls
+		private IWindowControl? _mouseCaptureChild;
 
 		// Configurable options
 		private bool _showScrollbar = true;

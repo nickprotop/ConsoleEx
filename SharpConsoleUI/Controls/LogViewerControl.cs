@@ -232,7 +232,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
     /// <inheritdoc/>
     public bool ProcessKey(ConsoleKeyInfo keyInfo)
     {
-        if (!IsEnabled) return false;
+        if (!IsEnabled || !HasFocus) return false;
 
         // Handle clear logs
         if (keyInfo.Key == ConsoleKey.Delete ||
@@ -242,8 +242,30 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
             return true;
         }
 
-        // Delegate to scroll panel for scrolling keys
-        return _scrollPanel.ProcessKey(keyInfo);
+        // Handle scroll keys directly (inner panel can't check focus)
+        switch (keyInfo.Key)
+        {
+            case ConsoleKey.UpArrow:
+                _scrollPanel.ScrollVerticalBy(-1);
+                return true;
+            case ConsoleKey.DownArrow:
+                _scrollPanel.ScrollVerticalBy(1);
+                return true;
+            case ConsoleKey.PageUp:
+                _scrollPanel.ScrollVerticalBy(-(_scrollPanel.ActualHeight > 0 ? _scrollPanel.ActualHeight : 10));
+                return true;
+            case ConsoleKey.PageDown:
+                _scrollPanel.ScrollVerticalBy(_scrollPanel.ActualHeight > 0 ? _scrollPanel.ActualHeight : 10);
+                return true;
+            case ConsoleKey.Home:
+                _scrollPanel.ScrollToTop();
+                return true;
+            case ConsoleKey.End:
+                _scrollPanel.ScrollToBottom();
+                return true;
+            default:
+                return false;
+        }
     }
 
     #endregion

@@ -23,7 +23,9 @@ namespace SharpConsoleUI.Controls
 			if (!_isEnabled || !HasFocus)
 				return false;
 
-			// Tab / Shift+Tab — navigate between links
+			// Tab / Shift+Tab — navigate between links.
+			// At the boundary (last link forward, first link backward), return false
+			// to allow focus to leave the control.
 			if (key.Key == ConsoleKey.Tab)
 			{
 				var links = GetAllLinks();
@@ -32,17 +34,15 @@ namespace SharpConsoleUI.Controls
 
 				if (key.Modifiers.HasFlag(ConsoleModifiers.Shift))
 				{
-					// Previous link (wrap to last)
-					FocusedLinkIndex = _focusedLinkIndex <= 0
-						? links.Count - 1
-						: _focusedLinkIndex - 1;
+					if (_focusedLinkIndex <= 0)
+						return false; // let focus leave
+					FocusedLinkIndex = _focusedLinkIndex - 1;
 				}
 				else
 				{
-					// Next link (wrap to first)
-					FocusedLinkIndex = _focusedLinkIndex >= links.Count - 1
-						? 0
-						: _focusedLinkIndex + 1;
+					if (_focusedLinkIndex >= links.Count - 1)
+						return false; // let focus leave
+					FocusedLinkIndex = _focusedLinkIndex + 1;
 				}
 				return true;
 			}

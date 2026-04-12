@@ -120,6 +120,7 @@ namespace SharpConsoleUI.Controls
 					_scrollOffset = Math.Clamp(newOffset, 0, maxOffset);
 				}
 				Container?.Invalidate(true);
+				args.Handled = true;
 				return true;
 			}
 

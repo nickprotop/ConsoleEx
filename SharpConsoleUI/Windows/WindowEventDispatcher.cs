@@ -35,6 +35,12 @@ namespace SharpConsoleUI.Windows
 		// Mouse capture: routes drag/release events to the control that received Button1Pressed
 		private IWindowControl? _mouseCaptureControl;
 
+		/// <summary>
+		/// Returns true if a control currently has mouse capture (active drag in progress).
+		/// Used by InputCoordinator to prevent border resize from stealing control drags.
+		/// </summary>
+		public bool HasMouseCapture => _mouseCaptureControl != null;
+
 		// Escape key tracking: remembers control for Tab restore after Escape
 		private IInteractiveControl? _escapedFromControl;
 
