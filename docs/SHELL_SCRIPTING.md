@@ -25,26 +25,27 @@ On Windows, the standard Win32 console APIs handle redirection themselves, so no
 
 The golden rule: **read piped stdin before `windowSystem.Run()`, write results after it**.
 
+`ConsoleWindowSystem` does this automatically — piped stdin is captured at construction and available via `PipedInput` / `PipedLines` throughout the app lifecycle:
+
 ```csharp
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 
-// 1. Read piped data before taking over the terminal.
-string? input = null;
-if (Console.IsInputRedirected)
-    input = Console.In.ReadToEnd();
-
-// 2. Build and run the UI.
+// Piped stdin is automatically captured at construction.
 var system = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
+// system.PipedInput  — full text (null if stdin is a TTY)
+// system.PipedLines  — split into lines (null if stdin is a TTY)
+
 string? selection = null;
+var items = system.PipedLines ?? Array.Empty<string>();
 var window = new WindowBuilder(system)
     .WithTitle("Pick an item")
     .WithSize(60, 15)
     .AddControl(Controls.List()
-        .AddItems((input ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        .AddItems(items)
         .OnItemActivated((sender, item, win) =>
         {
             selection = item.Text;
@@ -66,6 +67,26 @@ else
 {
     Environment.Exit(1); // user cancelled
 }
+```
+
+### PipedInput / PipedLines Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `PipedInput` | `string?` | The full text piped via stdin. `null` when stdin is a TTY (normal interactive run). |
+| `PipedLines` | `string[]?` | `PipedInput` split by newline. `null` when stdin is a TTY. |
+
+Piped stdin is captured automatically at construction time — before the driver takes over the terminal. The data is available throughout the entire app lifecycle, including inside event handlers, async threads, and after `Run()` returns.
+
+You can also read stdin manually before constructing the system if you prefer:
+
+```csharp
+string? input = null;
+if (Console.IsInputRedirected)
+    input = Console.In.ReadToEnd();
+
+var system = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
+// 'input' has the piped data, system.PipedInput also has it (captured independently)
 ```
 
 ### I/O Contract

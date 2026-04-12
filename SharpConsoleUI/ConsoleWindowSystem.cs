@@ -194,6 +194,14 @@ namespace SharpConsoleUI
 		/// <param name="registryConfiguration">Optional registry configuration for persistent key-value storage.</param>
 		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme, PluginConfiguration? pluginConfiguration = null, ConsoleWindowSystemOptions? options = null, RegistryConfiguration? registryConfiguration = null)
 		{
+			// Capture piped stdin before the driver takes over the terminal.
+			// Must be done first — once the driver initializes, stdin may be redirected to /dev/tty.
+			if (Console.IsInputRedirected)
+			{
+				try { PipedInput = Console.In.ReadToEnd(); }
+				catch { /* stdin read failed — leave as null */ }
+			}
+
 			_consoleDriver = driver ?? throw new ArgumentNullException(nameof(driver));
 			_theme = theme ?? new ModernGrayTheme();
 
@@ -409,6 +417,17 @@ namespace SharpConsoleUI
 		/// Gets the desktop portal service for managing desktop-level overlay portals.
 		/// </summary>
 		public Core.DesktopPortalService DesktopPortalService => _desktopPortalService;
+
+		/// <summary>
+		/// Gets the text that was piped into the application via stdin, or null if stdin is a TTY.
+		/// Automatically captured at construction time — available throughout the app lifecycle.
+		/// </summary>
+		public string? PipedInput { get; }
+
+		/// <summary>
+		/// Gets the piped stdin split into lines, or null if stdin is a TTY.
+		/// </summary>
+		public string[]? PipedLines => PipedInput?.Split('\n');
 
 		/// <summary>Gets or sets the desktop background configuration.</summary>
 		public DesktopBackgroundConfig? DesktopBackground
