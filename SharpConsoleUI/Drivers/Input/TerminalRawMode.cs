@@ -24,8 +24,14 @@ namespace SharpConsoleUI.Drivers.Input
 	/// </remarks>
 	internal static class TerminalRawMode
 	{
-		// Terminal control constants
-		internal const int StdinFd = 0;
+		// Terminal control constants.
+		// StdinFd/StdoutFd default to the standard stream fds (0 and 1). They are
+		// overridden by ResolveTtyFds() at EnterRawMode() time when stdin or stdout
+		// is redirected (script/pipeline mode) — in that case both point at a single
+		// /dev/tty fd opened RDWR, so the TUI reads keystrokes and writes frames to
+		// the real terminal while fd 0/1 remain free for the script's data pipeline.
+		internal static int StdinFd { get; private set; } = 0;
+		private static int StdoutFd = 1;
 		private const int TCSANOW = 0;
 
 		// c_lflag bits to disable (input processing)
@@ -70,6 +76,8 @@ namespace SharpConsoleUI.Drivers.Input
 		private static bool _hasSavedTermios;
 		private static FileStream? _ttyStream;
 		private static TextWriter? _savedConsoleOut;
+		// fd we opened ourselves via open("/dev/tty"); -1 if we're using fd 0/1 directly
+		private static int _ownedTtyFd = -1;
 
 		// Linux termios: flags are uint (4 bytes each), c_line (1 byte), c_cc[32], speeds are uint
 		[StructLayout(LayoutKind.Sequential)]
@@ -122,9 +130,11 @@ namespace SharpConsoleUI.Drivers.Input
 		[DllImport("libc", SetLastError = true)]
 		private static extern int close(int fd);
 
+		[DllImport("libc", SetLastError = true)]
+		private static extern int isatty(int fd);
+
 		private const int O_RDONLY = 0;
 		private const int O_RDWR = 2;
-		private const int StdoutFd = 1;
 
 		// tcflush constants
 		private const int TCIFLUSH = 0;
@@ -334,10 +344,52 @@ namespace SharpConsoleUI.Drivers.Input
 		}
 
 		/// <summary>
+		/// Detects whether stdin and stdout are both TTYs. If either is redirected
+		/// (pipe, file, /dev/null), opens /dev/tty as a single RDWR fd and points
+		/// StdinFd and StdoutFd at it. This lets the TUI run correctly even when
+		/// the process's stdin/stdout are used for piped data.
+		/// </summary>
+		/// <returns>True if the fd resolution succeeded (either streams are TTYs,
+		/// or /dev/tty was opened successfully). False if /dev/tty could not be
+		/// opened — in which case the caller should refuse to enter raw mode.</returns>
+		private static bool ResolveTtyFds()
+		{
+			// Fast path: both standard streams are TTYs, use fd 0/1 as today.
+			bool stdinIsTty = isatty(0) == 1;
+			bool stdoutIsTty = isatty(1) == 1;
+
+			if (stdinIsTty && stdoutIsTty)
+			{
+				StdinFd = 0;
+				StdoutFd = 1;
+				_ownedTtyFd = -1;
+				return true;
+			}
+
+			// At least one of stdin/stdout is redirected. Open /dev/tty for
+			// UI I/O so the pipes remain free for the script's data. A single
+			// RDWR fd is the pattern used by fzf, gum, dialog, etc.
+			int fd = open("/dev/tty", O_RDWR);
+			if (fd < 0)
+			{
+				// No controlling terminal — the process cannot run a TUI at all.
+				// Happens in cron jobs, systemd services without TTY, setsid + /dev/null, etc.
+				return false;
+			}
+
+			StdinFd = fd;
+			StdoutFd = fd;
+			_ownedTtyFd = fd;
+			return true;
+		}
+
+		/// <summary>
 		/// Enters raw terminal mode (cfmakeraw equivalent): disables echo, canonical mode,
 		/// signal processing, and output post-processing (OPOST).
 		/// Sets VMIN=1, VTIME=0 so read() blocks until at least 1 byte is available.
-		/// Uses stdin fd 0 directly for both raw mode and reading (like Terminal.Gui v2).
+		/// Uses stdin fd 0 directly when stdin/stdout are TTYs (Terminal.Gui v2 pattern);
+		/// when either is redirected, opens /dev/tty and uses it for all UI I/O so the
+		/// standard streams remain free for the script's data pipeline.
 		/// Redirects Console.Out to /dev/null to prevent .NET from writing to stdout.
 		/// </summary>
 		/// <returns>True if raw mode was successfully entered.</returns>
@@ -349,15 +401,20 @@ namespace SharpConsoleUI.Drivers.Input
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 				return false;
 
+			// Resolve which fd to use for UI I/O (0/1 fast path, or /dev/tty if redirected).
+			if (!ResolveTtyFds())
+				return false;
+
 			try
 			{
 				// Flush any pending input bytes before entering raw mode
 				FlushStdin();
 
-				// Use stdin fd 0 directly — like Terminal.Gui v2.
-				// Do NOT open /dev/tty as a separate fd. Having two fds to the same
-				// terminal device causes .NET's internal fd 0 reader to compete for
-				// the same input queue, potentially stealing bytes.
+				// When using fd 0 directly we follow Terminal.Gui v2's pattern and avoid
+				// /dev/tty to prevent byte competition with .NET's internal fd 0 reader.
+				// When stdin/stdout are redirected, ResolveTtyFds() has pointed StdinFd
+				// at a /dev/tty fd we own and fd 0 is a pipe that .NET will not try to
+				// read as a terminal.
 				bool result;
 				if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
 					result = EnterRawModeMac();
@@ -499,9 +556,22 @@ namespace SharpConsoleUI.Drivers.Input
 				_savedConsoleOut = null;
 			}
 
-			// Clean up tty stream (we don't own fd 0, so don't close it)
+			// Clean up tty stream. SafeFileHandle was created with ownsHandle:false,
+			// so Dispose does not close the underlying fd — we close it ourselves below
+			// when we own it (script mode). When StdinFd == 0 the fd must not be closed.
 			try { _ttyStream?.Dispose(); } catch { }
 			_ttyStream = null;
+
+			// Close /dev/tty fd if we opened it ourselves (script/pipeline mode).
+			if (_ownedTtyFd >= 0)
+			{
+				try { close(_ownedTtyFd); } catch { }
+				_ownedTtyFd = -1;
+			}
+
+			// Reset to defaults so a subsequent EnterRawMode() starts fresh.
+			StdinFd = 0;
+			StdoutFd = 1;
 		}
 	}
 }

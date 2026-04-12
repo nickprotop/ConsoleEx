@@ -106,3 +106,5 @@
       href: PLUGINS.md
     - name: SCHost CLI
       href: SCHOST.md
+    - name: Shell Scripting
+      href: SHELL_SCRIPTING.md
