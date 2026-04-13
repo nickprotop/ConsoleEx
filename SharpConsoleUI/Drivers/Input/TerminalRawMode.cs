@@ -503,6 +503,15 @@ namespace SharpConsoleUI.Drivers.Input
 		[DllImport("libc", SetLastError = true)]
 		private static extern int ioctl(int fd, uint request, out WinSize winSize);
 
+		// ARM64 variadic workaround: pad registers x2–x7 with dummy ulong args so the
+		// real variadic argument (the WinSize pointer) lands on the stack where the
+		// ARM64 variadic ABI expects it. See https://github.com/dotnet/runtime/issues/48752
+		[DllImport("libc", SetLastError = true, EntryPoint = "ioctl")]
+		private static extern int ioctl_arm64(
+			int fd, uint request,
+			ulong __x2, ulong __x3, ulong __x4, ulong __x5, ulong __x6, ulong __x7,
+			out WinSize winSize);
+
 		/// <summary>
 		/// Gets the terminal window size via ioctl TIOCGWINSZ, bypassing Console.WindowWidth/Height
 		/// which goes through ConsolePal and may trigger tcsetattr.
@@ -515,8 +524,24 @@ namespace SharpConsoleUI.Drivers.Input
 
 			uint req = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? TIOCGWINSZ_MAC : TIOCGWINSZ_LINUX;
 			int fd = StdinFd;
-			if (ioctl(fd, req, out var ws) == 0 && ws.ws_col > 0 && ws.ws_row > 0)
-				return (ws.ws_col, ws.ws_row);
+
+			// ioctl is a variadic function in libc. On ARM64, variadic arguments use a
+			// different calling convention (stack) than fixed arguments (registers).
+			// .NET P/Invoke doesn't support variadic calling conventions, so on ARM64 macOS
+			// a direct ioctl call crashes with AccessViolationException.
+			// Workaround: use a P/Invoke signature that pads registers x2-x7 with dummy
+			// fixed args, pushing the real variadic arg onto the stack where the ARM64 ABI
+			// expects it. See https://github.com/dotnet/runtime/issues/48752
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+			{
+				if (ioctl_arm64(fd, req, 0, 0, 0, 0, 0, 0, out var ws64) == 0 && ws64.ws_col > 0 && ws64.ws_row > 0)
+					return (ws64.ws_col, ws64.ws_row);
+			}
+			else
+			{
+				if (ioctl(fd, req, out var ws) == 0 && ws.ws_col > 0 && ws.ws_row > 0)
+					return (ws.ws_col, ws.ws_row);
+			}
 
 			// Fallback — only reached if ioctl fails
 			return (Console.WindowWidth, Console.WindowHeight);
