@@ -55,6 +55,24 @@ public partial class TableControl
 		set { _columnResizeEnabled = value; OnPropertyChanged(); }
 	}
 
+	/// <summary>
+	/// Optional character drawn between columns when borders are disabled.
+	/// </summary>
+	public char? ColumnSeparator
+	{
+		get => _columnSeparator;
+		set { _columnSeparator = value; OnPropertyChanged(); }
+	}
+
+	/// <summary>
+	/// Color for the column separator character. Falls back to border color if null.
+	/// </summary>
+	public Color? ColumnSeparatorColor
+	{
+		get => _columnSeparatorColor;
+		set { _columnSeparatorColor = value; OnPropertyChanged(); }
+	}
+
 	#endregion
 
 	#region Editing Methods

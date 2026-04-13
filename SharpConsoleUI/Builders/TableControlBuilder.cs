@@ -40,6 +40,8 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	private bool _checkboxMode = false;
 	private bool _sortingEnabled = false;
 	private bool _columnResizeEnabled = false;
+	private char? _columnSeparator;
+	private Color? _columnSeparatorColor;
 	private bool _inlineEditingEnabled = false;
 	private bool _filteringEnabled = false;
 	private bool _fuzzyFilterEnabled = false;
@@ -542,6 +544,16 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	}
 
 	/// <summary>
+	/// Sets an optional character drawn between columns when borders are disabled.
+	/// </summary>
+	public TableControlBuilder WithColumnSeparator(char separator, Color? color = null)
+	{
+		_columnSeparator = separator;
+		_columnSeparatorColor = color;
+		return this;
+	}
+
+	/// <summary>
 	/// Enables inline cell editing with F2 to start, Enter to commit, Escape to cancel. Implies Interactive().
 	/// </summary>
 	public TableControlBuilder WithInlineEditing()
@@ -674,6 +686,8 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 			CheckboxMode = _checkboxMode,
 			SortingEnabled = _sortingEnabled,
 			ColumnResizeEnabled = _columnResizeEnabled,
+			ColumnSeparator = _columnSeparator,
+			ColumnSeparatorColor = _columnSeparatorColor,
 			InlineEditingEnabled = _inlineEditingEnabled,
 			FilteringEnabled = _filteringEnabled,
 			FuzzyFilterEnabled = _fuzzyFilterEnabled,

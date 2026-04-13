@@ -102,6 +102,10 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private string _editBuffer = string.Empty;
 	private int _editCursorPosition = 0;
 
+	// Column separator (when no borders)
+	private char? _columnSeparator;
+	private Color? _columnSeparatorColor;
+
 	// Column resizing
 	private bool _columnResizeEnabled = false;
 	private bool _isResizingColumn = false;
@@ -930,8 +934,9 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			return _cachedColumnWidths;
 
 		bool hasBorder = _borderStyle != BorderStyle.None;
-		int borderOverhead = hasBorder ? (colCount + 1) : 0;
-		int contentWidth = availableWidth - borderOverhead;
+		int separatorOverhead = hasBorder ? (colCount + 1)
+			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) : 0);
+		int contentWidth = availableWidth - separatorOverhead;
 		if (contentWidth < colCount) contentWidth = colCount;
 
 		var widths = new int[colCount];
@@ -1051,7 +1056,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		if (colCount == 0) return Array.Empty<int>();
 
 		bool hasBorder = _borderStyle != BorderStyle.None;
-		int borderOverhead = hasBorder ? (colCount + 1) : 0;
+		int borderOverhead = hasBorder ? (colCount + 1)
+			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) : 0);
 		int contentWidth = availableWidth - borderOverhead;
 		if (contentWidth < colCount) contentWidth = colCount;
 
@@ -1204,6 +1210,11 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		foreach (int w in colWidths) total += w;
 		bool hasBorder = _borderStyle != BorderStyle.None;
 		if (hasBorder) total += colWidths.Length + 1;
+		else if (_columnSeparator.HasValue)
+		{
+			int dataColCount = _checkboxMode ? Math.Max(0, colWidths.Length - 1) : colWidths.Length;
+			total += Math.Max(0, dataColCount - 1);
+		}
 		return total;
 	}
 
@@ -1220,6 +1231,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			foreach (int w in _renderedColumnWidths) total += w;
 			bool hasBorder = _borderStyle != BorderStyle.None;
 			if (hasBorder) total += _renderedColumnWidths.Length + 1;
+			else if (_columnSeparator.HasValue) total += Math.Max(0, _renderedColumnWidths.Length - 1);
 			return total;
 		}
 

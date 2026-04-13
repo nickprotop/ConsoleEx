@@ -372,6 +372,16 @@ public partial class TableControl
 				}
 				writeX++;
 			}
+			else if (_columnSeparator.HasValue && c < colWidths.Length - 1
+				&& !(_checkboxMode && c == 0))
+			{
+				if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
+				{
+					var sepColor = _columnSeparatorColor ?? borderColor;
+					buffer.SetNarrowCell(writeX, y, _columnSeparator.Value, sepColor, rowBg);
+				}
+				writeX++;
+			}
 		}
 	}
 
@@ -468,7 +478,8 @@ public partial class TableControl
 		else
 			colWidths = ComputeColumnWidths(dataContentWidth2, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount());
 
-		int borderOverhead = hasBorder ? (colCount + 1) : 0;
+		int borderOverhead = hasBorder ? (colCount + 1)
+			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) : 0);
 		int measuredWidth = cbWidth + (cbWidth > 0 && hasBorder ? 1 : 0);
 		foreach (int w in colWidths) measuredWidth += w;
 		measuredWidth += borderOverhead;
@@ -727,7 +738,8 @@ public partial class TableControl
 						colSnapshot[c].RenderedX = colX;
 						colSnapshot[c].RenderedWidth = dataColWidths[c];
 					}
-					colX += dataColWidths[c] + (hasBorder ? 1 : 0);
+					bool addSep = hasBorder || (_columnSeparator.HasValue && c < colCount - 1);
+					colX += dataColWidths[c] + (addSep ? 1 : 0);
 				}
 			}
 
