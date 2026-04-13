@@ -21,6 +21,8 @@ namespace SharpConsoleUI.Controls
 	{
 		private PixelBuffer? _source;
 		private ImageScaleMode _scaleMode = ImagingDefaults.DefaultScaleMode;
+		private int _minimumWidth;
+		private int _minimumHeight;
 
 		// Render cache
 		private Cell[,]? _cachedCells;
@@ -57,26 +59,86 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Minimum measured width (in cells) for the control's layout box, including margins.
+		/// Does not enlarge the drawn image — only pads the measured box. Default: 0.
+		/// </summary>
+		public int MinimumWidth
+		{
+			get => _minimumWidth;
+			set
+			{
+				if (_minimumWidth == value) return;
+				_minimumWidth = value;
+				OnPropertyChanged();
+				Container?.Invalidate(false);
+			}
+		}
+
+		/// <summary>
+		/// Minimum measured height (in cells) for the control's layout box, including margins.
+		/// Does not enlarge the drawn image — only pads the measured box. Default: 0.
+		/// </summary>
+		public int MinimumHeight
+		{
+			get => _minimumHeight;
+			set
+			{
+				if (_minimumHeight == value) return;
+				_minimumHeight = value;
+				OnPropertyChanged();
+				Container?.Invalidate(false);
+			}
+		}
+
 		/// <inheritdoc />
+		/// <remarks>
+		/// For <see cref="ImageScaleMode.None"/> returns the natural pixel-buffer width plus margins,
+		/// so a host like ScrollablePanel can size its extent to the full image. For Fit / Fill / Stretch
+		/// returns <c>null</c> because the displayed width is layout-determined.
+		/// </remarks>
 		public override int? ContentWidth
 		{
 			get
 			{
 				if (_source == null) return 0;
-				return _source.Width + Margin.Left + Margin.Right;
+				if (_scaleMode == ImageScaleMode.None)
+					return _source.Width + Margin.Left + Margin.Right;
+				return null;
 			}
 		}
 
 		/// <inheritdoc />
+		/// <remarks>
+		/// For <see cref="ImageScaleMode.None"/> returns the natural cell dimensions of the source image plus margins.
+		/// For Fit / Fill / Stretch returns only the margin contribution, because the image footprint is
+		/// determined by the layout pass and reporting a logical size would cause hosts (e.g. scroll
+		/// containers) to over-allocate extent for an auto-scaling image.
+		/// </remarks>
 		public override System.Drawing.Size GetLogicalContentSize()
 		{
 			if (_source == null)
 				return new System.Drawing.Size(Margin.Left + Margin.Right, Margin.Top + Margin.Bottom);
 
-			int cellHeight = (_source.Height + 1) / ImagingDefaults.PixelsPerCell;
+			if (_scaleMode != ImageScaleMode.None)
+				return new System.Drawing.Size(Margin.Left + Margin.Right, Margin.Top + Margin.Bottom);
+
+			int cellHeight = CellRowsFor(_source.Height);
 			return new System.Drawing.Size(
 				_source.Width + Margin.Left + Margin.Right,
 				cellHeight + Margin.Top + Margin.Bottom);
+		}
+
+		/// <inheritdoc />
+		public override IContainer? Container
+		{
+			get => base.Container;
+			set
+			{
+				if (!ReferenceEquals(base.Container, value))
+					InvalidateRenderCache();
+				base.Container = value;
+			}
 		}
 
 		/// <inheritdoc />
@@ -84,60 +146,34 @@ namespace SharpConsoleUI.Controls
 		{
 			if (_source == null)
 			{
+				int emptyW = Math.Max(Margin.Left + Margin.Right, _minimumWidth);
+				int emptyH = Math.Max(Margin.Top + Margin.Bottom, _minimumHeight);
 				return new LayoutSize(
-					Math.Clamp(Margin.Left + Margin.Right, constraints.MinWidth, constraints.MaxWidth),
-					Math.Clamp(Margin.Top + Margin.Bottom, constraints.MinHeight, constraints.MaxHeight));
+					Math.Clamp(emptyW, constraints.MinWidth, constraints.MaxWidth),
+					Math.Clamp(emptyH, constraints.MinHeight, constraints.MaxHeight));
 			}
 
 			int naturalCellWidth = _source.Width;
-			int naturalCellHeight = (_source.Height + 1) / ImagingDefaults.PixelsPerCell;
+			int naturalCellHeight = CellRowsFor(_source.Height);
 
 			int constraintWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
 			int constraintHeight = constraints.MaxHeight - Margin.Top - Margin.Bottom;
 
-			int cellCols, cellRows;
+			// Resolve bounded available space for Fit/Fill/Stretch; None uses natural.
+			int availW = GetBoundedAvail(constraintWidth, naturalCellWidth,
+				HorizontalAlignment == Layout.HorizontalAlignment.Stretch ||
+				_scaleMode == ImageScaleMode.Fill || _scaleMode == ImageScaleMode.Stretch);
+			int availH = GetBoundedAvail(constraintHeight, naturalCellHeight,
+				VerticalAlignment == Layout.VerticalAlignment.Fill ||
+				_scaleMode == ImageScaleMode.Fill || _scaleMode == ImageScaleMode.Stretch);
 
-			switch (_scaleMode)
-			{
-				case ImageScaleMode.None:
-				{
-					// Report natural size — if inside a ScrollablePanel, this enables scrollbars.
-					// Layout's Math.Clamp handles bounding to the window if not scrollable.
-					cellCols = naturalCellWidth;
-					cellRows = naturalCellHeight;
-					break;
-				}
-				case ImageScaleMode.Fit:
-				{
-					// Scale down uniformly to fit. Need bounded avail to compute scale.
-					int availW = GetBoundedAvail(constraintWidth, naturalCellWidth,
-						HorizontalAlignment == Layout.HorizontalAlignment.Stretch);
-					int availH = GetBoundedAvail(constraintHeight, naturalCellHeight,
-						VerticalAlignment == Layout.VerticalAlignment.Fill);
+			var geom = ComputeRenderGeometry(availW, availH, naturalCellWidth, naturalCellHeight);
 
-					double scale = Math.Min((double)availW / naturalCellWidth, (double)availH / naturalCellHeight);
-					cellCols = Math.Max(1, (int)(naturalCellWidth * scale));
-					cellRows = Math.Max(1, (int)(naturalCellHeight * scale));
-					break;
-				}
-				case ImageScaleMode.Fill:
-				case ImageScaleMode.Stretch:
-				{
-					// Claim all available bounded space.
-					cellCols = GetBoundedAvail(constraintWidth, naturalCellWidth, true);
-					cellRows = GetBoundedAvail(constraintHeight, naturalCellHeight, true);
-					break;
-				}
-				default:
-				{
-					cellCols = GetBoundedAvail(constraintWidth, naturalCellWidth, true);
-					cellRows = GetBoundedAvail(constraintHeight, naturalCellHeight, true);
-					break;
-				}
-			}
+			int width = geom.cols + Margin.Left + Margin.Right;
+			int height = geom.rows + Margin.Top + Margin.Bottom;
 
-			int width = cellCols + Margin.Left + Margin.Right;
-			int height = cellRows + Margin.Top + Margin.Bottom;
+			width = Math.Max(width, _minimumWidth);
+			height = Math.Max(height, _minimumHeight);
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -152,6 +188,17 @@ namespace SharpConsoleUI.Controls
 
 			Color bgColor = Container?.BackgroundColor ?? defaultBackground;
 			Color fgColor = Container?.ForegroundColor ?? defaultForeground;
+
+			// Explicit cache invalidation on background change. The render cache keys on bgColor
+			// internally, but without this check a stale _cachedCells reference could be kept alive
+			// across paints when bg changes (the next Get* call would miss and re-render anyway,
+			// this just makes the intent obvious).
+			if (_cachedCells != null && !_cachedBackground.Equals(bgColor))
+				InvalidateRenderCache();
+
+			// Intentional: margins render transparent so the window background (and any
+			// Porter-Duff compositing layers beneath this control) show through. Using
+			// bgColor here would opaquely paint the margin area and defeat compositing.
 			var effectiveBg = Color.Transparent;
 
 			int startX = bounds.X + Margin.Left;
@@ -175,7 +222,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			int srcCols = _source.Width;
-			int srcRows = (_source.Height + 1) / ImagingDefaults.PixelsPerCell;
+			int srcRows = CellRowsFor(_source.Height);
 
 			if (srcCols <= 0 || srcRows <= 0)
 			{
@@ -183,42 +230,11 @@ namespace SharpConsoleUI.Controls
 				return;
 			}
 
-			// Compute render dimensions and crop offsets per scale mode.
-			int renderCols, renderRows, cropOffsetX = 0, cropOffsetY = 0;
-
-			switch (_scaleMode)
-			{
-				case ImageScaleMode.None:
-				{
-					// Natural size — no scaling. Render full image, clip in paint loop.
-					renderCols = srcCols;
-					renderRows = srcRows;
-					break;
-				}
-				case ImageScaleMode.Fit:
-				{
-					double scale = Math.Min((double)availWidth / srcCols, (double)availHeight / srcRows);
-					renderCols = Math.Max(1, (int)(srcCols * scale));
-					renderRows = Math.Max(1, (int)(srcRows * scale));
-					break;
-				}
-				case ImageScaleMode.Fill:
-				{
-					double scale = Math.Max((double)availWidth / srcCols, (double)availHeight / srcRows);
-					renderCols = Math.Max(1, (int)Math.Ceiling(srcCols * scale));
-					renderRows = Math.Max(1, (int)Math.Ceiling(srcRows * scale));
-					// Center-crop the excess
-					cropOffsetX = Math.Max(0, (renderCols - availWidth) / 2);
-					cropOffsetY = Math.Max(0, (renderRows - availHeight) / 2);
-					break;
-				}
-				default: // Stretch
-				{
-					renderCols = Math.Max(1, availWidth);
-					renderRows = Math.Max(1, availHeight);
-					break;
-				}
-			}
+			var geom = ComputeRenderGeometry(availWidth, availHeight, srcCols, srcRows);
+			int renderCols = geom.cols;
+			int renderRows = geom.rows;
+			int cropOffsetX = geom.cropX;
+			int cropOffsetY = geom.cropY;
 
 			// Render cells — None uses natural rendering, others use scaled rendering
 			Cell[,] cells;
@@ -230,12 +246,14 @@ namespace SharpConsoleUI.Controls
 			int actualW = cells.GetLength(0);
 			int actualH = cells.GetLength(1);
 
-			// Clamp everything to actual array bounds
-			cropOffsetX = Math.Clamp(cropOffsetX, 0, Math.Max(0, actualW - 1));
-			cropOffsetY = Math.Clamp(cropOffsetY, 0, Math.Max(0, actualH - 1));
+			// Clamp crop so that availWidth / availHeight cells still fit starting from the offset.
+			cropOffsetX = Math.Clamp(cropOffsetX, 0, Math.Max(0, actualW - availWidth));
+			cropOffsetY = Math.Clamp(cropOffsetY, 0, Math.Max(0, actualH - availHeight));
 			int displayWidth = Math.Min(actualW - cropOffsetX, availWidth);
 			int displayHeight = Math.Min(actualH - cropOffsetY, availHeight);
 
+			// TODO: Kitty graphics protocol — use GetRenderGeometry() to compute
+			// exposed pixel regions and emit APC sequences instead of SetCell()
 			for (int cy = 0; cy < displayHeight && startY + cy < bounds.Bottom; cy++)
 			{
 				int y = startY + cy;
@@ -262,6 +280,87 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Computes the render rectangle (inside <paramref name="bounds"/>, after margins) and
+		/// crop offsets for the current source and scale mode, without painting. Intended for use
+		/// by future graphics-protocol back-ends (e.g. Kitty/Sixel) that need to know the exposed
+		/// pixel region of the image.
+		/// </summary>
+		/// <param name="bounds">The outer layout bounds assigned to this control.</param>
+		/// <returns>
+		/// A tuple of the render rectangle (inside margins) and the crop offsets into the rendered
+		/// cell buffer. Returns an empty rect with zero offsets when the source is null or the
+		/// available area is non-positive.
+		/// </returns>
+		protected internal (LayoutRect renderRect, int cropX, int cropY) GetRenderGeometry(LayoutRect bounds)
+		{
+			int startX = bounds.X + Margin.Left;
+			int startY = bounds.Y + Margin.Top;
+			int availWidth = bounds.Width - Margin.Left - Margin.Right;
+			int availHeight = bounds.Height - Margin.Top - Margin.Bottom;
+
+			if (_source == null || availWidth <= 0 || availHeight <= 0)
+				return (new LayoutRect(startX, startY, 0, 0), 0, 0);
+
+			int srcCols = _source.Width;
+			int srcRows = CellRowsFor(_source.Height);
+			if (srcCols <= 0 || srcRows <= 0)
+				return (new LayoutRect(startX, startY, 0, 0), 0, 0);
+
+			var geom = ComputeRenderGeometry(availWidth, availHeight, srcCols, srcRows);
+			int displayWidth = Math.Min(geom.cols - geom.cropX, availWidth);
+			int displayHeight = Math.Min(geom.rows - geom.cropY, availHeight);
+			return (new LayoutRect(startX, startY, Math.Max(0, displayWidth), Math.Max(0, displayHeight)),
+				geom.cropX, geom.cropY);
+		}
+
+		/// <summary>
+		/// Single source of truth for scale-mode geometry. Returns rendered cell dimensions and
+		/// (for Fill mode) the center-crop offsets into the rendered buffer. Called from both
+		/// <see cref="MeasureDOM"/> and <see cref="PaintDOM"/>.
+		/// </summary>
+		private (int cols, int rows, int cropX, int cropY) ComputeRenderGeometry(
+			int availWidth, int availHeight, int srcCols, int srcRows)
+		{
+			switch (_scaleMode)
+			{
+				case ImageScaleMode.None:
+					return (srcCols, srcRows, 0, 0);
+
+				case ImageScaleMode.Fit:
+				{
+					double scale = Math.Min((double)availWidth / srcCols, (double)availHeight / srcRows);
+					int cols = Math.Max(1, (int)(srcCols * scale));
+					int rows = Math.Max(1, (int)(srcRows * scale));
+					return (cols, rows, 0, 0);
+				}
+
+				case ImageScaleMode.Fill:
+				{
+					double scale = Math.Max((double)availWidth / srcCols, (double)availHeight / srcRows);
+					int cols = Math.Max(1, (int)Math.Ceiling(srcCols * scale));
+					int rows = Math.Max(1, (int)Math.Ceiling(srcRows * scale));
+					int cropX = Math.Max(0, (cols - availWidth) / 2);
+					int cropY = Math.Max(0, (rows - availHeight) / 2);
+					return (cols, rows, cropX, cropY);
+				}
+
+				case ImageScaleMode.Stretch:
+				default:
+				{
+					int cols = Math.Max(1, availWidth);
+					int rows = Math.Max(1, availHeight);
+					return (cols, rows, 0, 0);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Converts a pixel height to the number of half-block rows required to display it.
+		/// </summary>
+		private static int CellRowsFor(int pixelHeight)
+			=> (pixelHeight + ImagingDefaults.PixelsPerCell - 1) / ImagingDefaults.PixelsPerCell;
+
+		/// <summary>
 		/// Returns a bounded available dimension for layout. When the constraint is unbounded
 		/// (e.g. ScrollablePanel passes int.MaxValue), falls back to natural size.
 		/// </summary>
@@ -274,16 +373,25 @@ namespace SharpConsoleUI.Controls
 			return naturalSize;
 		}
 
-		private void InvalidateRenderCache()
+		/// <summary>
+		/// Drops the cached rendered cells. The next <see cref="PaintDOM"/> will re-render
+		/// via <see cref="HalfBlockRenderer"/>. Callers that change external state which affects
+		/// rendering (for example, swapping the theme that drives the container background) should
+		/// invoke this to guarantee the cache is rebuilt.
+		/// </summary>
+		public void InvalidateImageCache()
 		{
 			_cachedCells = null;
 		}
+
+		// Private alias kept so existing internal call sites need not change.
+		private void InvalidateRenderCache() => InvalidateImageCache();
 
 		/// <summary>Render at natural size using HalfBlockRenderer.Render (no scaling).</summary>
 		private Cell[,] GetOrRenderNaturalCells(PixelBuffer source, Color background)
 		{
 			int naturalCols = source.Width;
-			int naturalRows = (source.Height + 1) / ImagingDefaults.PixelsPerCell;
+			int naturalRows = CellRowsFor(source.Height);
 
 			if (_cachedCells != null &&
 				ReferenceEquals(_cachedSource, source) &&
