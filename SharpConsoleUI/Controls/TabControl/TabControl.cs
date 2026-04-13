@@ -69,10 +69,23 @@ namespace SharpConsoleUI.Controls
 			set { _selectOnRightClick = value; OnPropertyChanged(); }
 		}
 
+		private bool _showTabHeader = true;
+
+		/// <summary>
+		/// Gets or sets whether the tab header bar is visible.
+		/// When false, only the active tab's content is shown with no header row.
+		/// Default: true.
+		/// </summary>
+		public bool ShowTabHeader
+		{
+			get => _showTabHeader;
+			set { _showTabHeader = value; OnPropertyChanged(); }
+		}
+
 		/// <summary>
 		/// Returns the number of rows consumed by the tab header (1 for Classic, 2 for Separator/AccentedSeparator).
 		/// </summary>
-		public int TabHeaderHeight => _headerStyle == TabHeaderStyle.Classic ? 1 : 2;
+		public int TabHeaderHeight => !_showTabHeader ? 0 : (_headerStyle == TabHeaderStyle.Classic ? 1 : 2);
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="TabControl"/> class.

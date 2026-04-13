@@ -111,13 +111,17 @@ namespace SharpConsoleUI.Input
 					continue;
 				}
 
-				// Check for window cycling (Ctrl+T)
-				if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && keyInfo.Key == ConsoleKey.T)
+				// Check for window cycling (configurable, default Ctrl+T)
+				if (_context.Options.WindowCycleKey.HasValue &&
+					(keyInfo.Modifiers & ConsoleModifiers.Control) != 0 &&
+					keyInfo.Key == _context.Options.WindowCycleKey.Value)
 				{
 					_context.CycleActiveWindow();
 				}
-				// Check for exit (Ctrl+Q)
-				else if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && keyInfo.Key == ConsoleKey.Q)
+				// Check for exit (configurable, default Ctrl+Q)
+				else if (_context.Options.ExitKey.HasValue &&
+					(keyInfo.Modifiers & ConsoleModifiers.Control) != 0 &&
+					keyInfo.Key == _context.Options.ExitKey.Value)
 				{
 					_context.RequestExit(0);
 				}

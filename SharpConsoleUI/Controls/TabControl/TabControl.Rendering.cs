@@ -35,7 +35,8 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			// Paint tab headers at Y=0
-			PaintTabHeaders(buffer, bounds, defaultFg, defaultBg);
+			if (_showTabHeader)
+				PaintTabHeaders(buffer, bounds, defaultFg, defaultBg);
 
 			// Tab content painted by layout system
 			_isDirty = false;

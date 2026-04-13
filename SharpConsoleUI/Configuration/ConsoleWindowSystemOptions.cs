@@ -114,7 +114,12 @@ public record ConsoleWindowSystemOptions(
     DesktopBackgroundConfig? DesktopBackground = null,
 
     // Terminal transparency behavior for semi-transparent windows over transparent desktop
-    TerminalTransparencyMode TerminalTransparencyMode = TerminalTransparencyMode.PreserveWindowColor
+    TerminalTransparencyMode TerminalTransparencyMode = TerminalTransparencyMode.PreserveWindowColor,
+
+    // Global shortcut overrides. Set to null to disable, or provide a custom key.
+    // Default: Ctrl+T cycles windows, Ctrl+Q exits.
+    ConsoleKey? WindowCycleKey = ConsoleKey.T,
+    ConsoleKey? ExitKey = ConsoleKey.Q
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";
