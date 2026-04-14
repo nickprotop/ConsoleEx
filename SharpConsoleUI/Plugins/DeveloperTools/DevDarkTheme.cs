@@ -261,6 +261,18 @@ public class DevDarkTheme : ITheme
 	public Color TabHeaderDisabledBackgroundColor { get; set; } = Color.Grey11;
 
 	/// <inheritdoc />
+	public Color TabHeaderActiveFocusedBackgroundColor { get; set; } = Color.Green;
+
+	/// <inheritdoc />
+	public Color TabHeaderActiveFocusedForegroundColor { get; set; } = Color.Black;
+
+	/// <inheritdoc />
+	public Color TabHeaderFocusedBackgroundColor { get; set; } = Color.Grey11;
+
+	/// <inheritdoc />
+	public Color TabHeaderFocusedForegroundColor { get; set; } = Color.Grey85;
+
+	/// <inheritdoc />
 	public Color? TabContentBorderColor { get; set; } = Color.Green;
 
 	/// <inheritdoc />

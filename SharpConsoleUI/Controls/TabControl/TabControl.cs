@@ -69,6 +69,72 @@ namespace SharpConsoleUI.Controls
 			set { _selectOnRightClick = value; OnPropertyChanged(); }
 		}
 
+		// Per-state tab header colors. All null by default → resolve through theme.
+		private Color? _activeFocusedForeground;
+		private Color? _activeFocusedBackground;
+		private Color? _activeUnfocusedForeground;
+		private Color? _activeUnfocusedBackground;
+		private Color? _inactiveFocusedForeground;
+		private Color? _inactiveFocusedBackground;
+		private Color? _inactiveUnfocusedForeground;
+		private Color? _inactiveUnfocusedBackground;
+
+		/// <summary>Active tab foreground when the tab strip has keyboard focus. Null = theme default.</summary>
+		public Color? ActiveFocusedForegroundColor
+		{
+			get => _activeFocusedForeground;
+			set { _activeFocusedForeground = value; OnPropertyChanged(); Invalidate(true); }
+		}
+
+		/// <summary>Active tab background when the tab strip has keyboard focus. Null = theme default.</summary>
+		public Color? ActiveFocusedBackgroundColor
+		{
+			get => _activeFocusedBackground;
+			set { _activeFocusedBackground = value; OnPropertyChanged(); Invalidate(true); }
+		}
+
+		/// <summary>Active tab foreground when the tab strip does not have focus. Null = theme default.</summary>
+		public Color? ActiveUnfocusedForegroundColor
+		{
+			get => _activeUnfocusedForeground;
+			set { _activeUnfocusedForeground = value; OnPropertyChanged(); Invalidate(true); }
+		}
+
+		/// <summary>Active tab background when the tab strip does not have focus. Null = theme default.</summary>
+		public Color? ActiveUnfocusedBackgroundColor
+		{
+			get => _activeUnfocusedBackground;
+			set { _activeUnfocusedBackground = value; OnPropertyChanged(); Invalidate(true); }
+		}
+
+		/// <summary>Inactive tab foreground when the tab strip has keyboard focus. Null = theme default.</summary>
+		public Color? InactiveFocusedForegroundColor
+		{
+			get => _inactiveFocusedForeground;
+			set { _inactiveFocusedForeground = value; OnPropertyChanged(); Invalidate(true); }
+		}
+
+		/// <summary>Inactive tab background when the tab strip has keyboard focus. Null = theme default.</summary>
+		public Color? InactiveFocusedBackgroundColor
+		{
+			get => _inactiveFocusedBackground;
+			set { _inactiveFocusedBackground = value; OnPropertyChanged(); Invalidate(true); }
+		}
+
+		/// <summary>Inactive tab foreground when the tab strip does not have focus. Null = theme default.</summary>
+		public Color? InactiveUnfocusedForegroundColor
+		{
+			get => _inactiveUnfocusedForeground;
+			set { _inactiveUnfocusedForeground = value; OnPropertyChanged(); Invalidate(true); }
+		}
+
+		/// <summary>Inactive tab background when the tab strip does not have focus. Null = theme default.</summary>
+		public Color? InactiveUnfocusedBackgroundColor
+		{
+			get => _inactiveUnfocusedBackground;
+			set { _inactiveUnfocusedBackground = value; OnPropertyChanged(); Invalidate(true); }
+		}
+
 		private bool _showTabHeader = true;
 
 		/// <summary>

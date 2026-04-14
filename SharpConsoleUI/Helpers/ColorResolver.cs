@@ -285,6 +285,42 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
+		/// Resolves active tab header background when the strip has focus: explicit → theme TabHeaderActiveFocusedBackgroundColor → theme TabHeaderActiveBackgroundColor → Color.Cyan1.
+		/// </summary>
+		public static Color ResolveTabHeaderActiveFocusedBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TabHeaderActiveFocusedBackgroundColor)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TabHeaderActiveBackgroundColor)
+			?? Color.Cyan1;
+
+		/// <summary>
+		/// Resolves active tab header foreground when the strip has focus: explicit → theme TabHeaderActiveFocusedForegroundColor → theme TabHeaderActiveForegroundColor → Color.Black.
+		/// </summary>
+		public static Color ResolveTabHeaderActiveFocusedForeground(Color? explicitValue, IContainer? container)
+			=> explicitValue
+			?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderActiveFocusedForegroundColor
+			?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderActiveForegroundColor
+			?? Color.Black;
+
+		/// <summary>
+		/// Resolves inactive tab header background when the strip has focus: explicit → theme TabHeaderFocusedBackgroundColor → theme TabHeaderBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveTabHeaderFocusedBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TabHeaderFocusedBackgroundColor)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.TabHeaderBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
+		/// Resolves inactive tab header foreground when the strip has focus: explicit → theme TabHeaderFocusedForegroundColor → theme TabHeaderForegroundColor → Color.Grey.
+		/// </summary>
+		public static Color ResolveTabHeaderFocusedForeground(Color? explicitValue, IContainer? container)
+			=> explicitValue
+			?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderFocusedForegroundColor
+			?? container?.GetConsoleWindowSystem?.Theme?.TabHeaderForegroundColor
+			?? Color.Grey;
+
+		/// <summary>
 		/// Resolves disabled tab header background: explicit → theme TabHeaderDisabledBackgroundColor → Color.Transparent.
 		/// </summary>
 		public static Color ResolveTabHeaderDisabledBackground(Color? explicitValue, IContainer? container)

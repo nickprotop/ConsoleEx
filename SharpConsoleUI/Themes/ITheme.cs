@@ -428,6 +428,31 @@ public interface ITheme
     Color TabHeaderDisabledBackgroundColor { get; }
 
     /// <summary>
+    /// Background for the active tab header when the tab strip has keyboard focus.
+    /// Default implementation returns <see cref="TabHeaderActiveBackgroundColor"/>
+    /// (so existing themes keep working without code changes).
+    /// </summary>
+    Color TabHeaderActiveFocusedBackgroundColor => TabHeaderActiveBackgroundColor;
+
+    /// <summary>
+    /// Foreground for the active tab header when the tab strip has keyboard focus.
+    /// Default implementation returns <see cref="TabHeaderActiveForegroundColor"/>.
+    /// </summary>
+    Color TabHeaderActiveFocusedForegroundColor => TabHeaderActiveForegroundColor;
+
+    /// <summary>
+    /// Background for inactive tab headers when the tab strip has keyboard focus.
+    /// Default implementation returns <see cref="TabHeaderBackgroundColor"/>.
+    /// </summary>
+    Color TabHeaderFocusedBackgroundColor => TabHeaderBackgroundColor;
+
+    /// <summary>
+    /// Foreground for inactive tab headers when the tab strip has keyboard focus.
+    /// Default implementation returns <see cref="TabHeaderForegroundColor"/>.
+    /// </summary>
+    Color TabHeaderFocusedForegroundColor => TabHeaderForegroundColor;
+
+    /// <summary>
     /// Gets the border color for the TabControl content area. Null means use active window border color.
     /// </summary>
     Color? TabContentBorderColor { get; }

@@ -431,6 +431,18 @@ namespace SharpConsoleUI.Themes
 		/// </summary>
 		public Color TabHeaderDisabledBackgroundColor { get; set; } = Color.Navy;
 
+		/// <summary>Active tab background when the header has keyboard focus.</summary>
+		public Color TabHeaderActiveFocusedBackgroundColor { get; set; } = Color.Cyan1;
+
+		/// <summary>Active tab foreground when the header has keyboard focus.</summary>
+		public Color TabHeaderActiveFocusedForegroundColor { get; set; } = Color.Black;
+
+		/// <summary>Inactive tab background when the header has keyboard focus.</summary>
+		public Color TabHeaderFocusedBackgroundColor { get; set; } = Color.Navy;
+
+		/// <summary>Inactive tab foreground when the header has keyboard focus.</summary>
+		public Color TabHeaderFocusedForegroundColor { get; set; } = Color.Silver;
+
 		/// <summary>
 		/// Gets or sets the border color for the TabControl content area.
 		/// </summary>

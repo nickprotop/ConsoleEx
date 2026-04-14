@@ -49,6 +49,17 @@ namespace SharpConsoleUI.Controls
 			int activeIdx;
 			lock (_tabLock) { snapshot = _tabPages.ToList(); activeIdx = _activeTabIndex; }
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColor, Container);
+
+			// Resolve per-state header colors once per paint.
+			var activeFocFg    = ColorResolver.ResolveTabHeaderActiveFocusedForeground(_activeFocusedForeground, Container);
+			var activeFocBg    = ColorResolver.ResolveTabHeaderActiveFocusedBackground(_activeFocusedBackground, Container);
+			var activeUnfocFg  = ColorResolver.ResolveTabHeaderActiveForeground(_activeUnfocusedForeground, Container);
+			var activeUnfocBg  = ColorResolver.ResolveTabHeaderActiveBackground(_activeUnfocusedBackground, Container);
+			var inactFocFg     = ColorResolver.ResolveTabHeaderFocusedForeground(_inactiveFocusedForeground, Container);
+			var inactFocBg     = ColorResolver.ResolveTabHeaderFocusedBackground(_inactiveFocusedBackground, Container);
+			var inactUnfocFg   = ColorResolver.ResolveTabHeaderForeground(_inactiveUnfocusedForeground, Container);
+			var inactUnfocBg   = ColorResolver.ResolveTabHeaderBackground(_inactiveUnfocusedBackground, Container);
+
 			int headerLeft = bounds.X + Margin.Left;
 			int headerRight = bounds.X + bounds.Width - Margin.Right;
 			int headerY = bounds.Y + Margin.Top;
@@ -62,19 +73,16 @@ namespace SharpConsoleUI.Controls
 				bool isActive = i == activeIdx;
 				var title = $" {snapshot[i].Title} ";
 
-				// When the tab strip has keyboard focus, render the active tab in reverse-video
-				// (black text on cyan background) so the user can see focus and knows that
-				// Left/Right arrows will switch tabs.
 				Color tileFg, tileBg;
 				if (isActive)
 				{
-					tileFg = HasFocus ? bgColor    : Color.Cyan1;
-					tileBg = HasFocus ? Color.Cyan1 : bgColor;
+					tileFg = HasFocus ? activeFocFg : activeUnfocFg;
+					tileBg = HasFocus ? activeFocBg : activeUnfocBg;
 				}
 				else
 				{
-					tileFg = Color.Grey;
-					tileBg = bgColor;
+					tileFg = HasFocus ? inactFocFg : inactUnfocFg;
+					tileBg = HasFocus ? inactFocBg : inactUnfocBg;
 				}
 
 				if (isActive)
