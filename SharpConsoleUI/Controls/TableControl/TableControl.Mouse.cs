@@ -230,6 +230,15 @@ public partial class TableControl
 			// Click on data row
 			int rowIdx = GetRowIndexAtY(args.Position.Y);
 			bool isClick = args.HasFlag(MouseFlags.Button1Clicked);
+			if (rowIdx < 0 && _clearSelectionOnEmptyClick)
+			{
+				// Empty data area click: clear selection entirely.
+				if (_multiSelectEnabled)
+					_selectedRowIndices.Clear();
+				SetSelectedRow(-1);
+				MouseClick?.Invoke(this, args);
+				return true;
+			}
 			if (rowIdx >= 0)
 			{
 				// Multi-select toggling only on Button1Clicked to avoid

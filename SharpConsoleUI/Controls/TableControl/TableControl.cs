@@ -61,7 +61,20 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private bool _cellNavigationEnabled = false;
 	private bool _multiSelectEnabled = false;
 	private bool _checkboxMode = false;
+	private bool _clearSelectionOnEmptyClick = false;
 	private HashSet<int> _selectedRowIndices = new();
+
+	/// <summary>
+	/// When true, a left-click in the data area that does not hit any row
+	/// clears the current selection (SelectedRowIndex becomes -1 and any
+	/// multi-selection is discarded). Default: false, to preserve the
+	/// classic "click below the last row does nothing" behavior.
+	/// </summary>
+	public bool ClearSelectionOnEmptyClick
+	{
+		get => _clearSelectionOnEmptyClick;
+		set => _clearSelectionOnEmptyClick = value;
+	}
 
 	// Hover
 	private int _hoveredRowIndex = -1;
