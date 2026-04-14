@@ -338,6 +338,11 @@ namespace SharpConsoleUI.Drivers
 		/// <inheritdoc/>
 		public void Start()
 		{
+			var log = _consoleWindowSystem?.LogService;
+			log?.LogInfo(
+				$"NetConsoleDriver.Start() entered (OS={RuntimeInformation.OSDescription}, Arch={RuntimeInformation.ProcessArchitecture}, RenderMode={RenderMode})",
+				"Driver");
+
 			// Unix always uses raw mode to bypass ConsolePal
 			bool isUnix = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 			_useDirectAnsi = isUnix;
@@ -345,24 +350,22 @@ namespace SharpConsoleUI.Drivers
 			// Enter raw mode before creating console buffer (so ioctl is available)
 			if (_useDirectAnsi)
 			{
+				log?.LogDebug("Entering raw terminal mode", "Driver");
 				if (!TerminalRawMode.EnterRawMode())
 				{
 					_useDirectAnsi = false; // Fallback to ConsolePal if raw mode fails
-					_consoleWindowSystem?.LogService?.Log(
-						Logging.LogLevel.Warning,
-						"Raw mode failed to enter — falling back to ConsolePal",
-						"Input");
+					log?.LogWarning("Raw mode failed to enter — falling back to ConsolePal", "Driver");
 				}
 				else
 				{
-					_consoleWindowSystem?.LogService?.Log(
-						Logging.LogLevel.Debug,
-						"Raw terminal mode active — ConsolePal bypassed on hot path",
-						"Input");
+					log?.LogInfo("Raw terminal mode active — ConsolePal bypassed on hot path", "Driver");
 				}
 			}
 
+			log?.LogDebug("Querying terminal size (ioctl on Unix)", "Driver");
 			var screenSize = ScreenSize; // Uses ioctl if _useDirectAnsi
+			log?.LogInfo($"Terminal size: {screenSize.Width}x{screenSize.Height}", "Driver");
+
 			if (RenderMode.Buffer == RenderMode)
 			{
 				_consoleBuffer = new ConsoleBuffer(screenSize.Width, screenSize.Height, _consoleWindowSystem?.Options, _consoleLock);
@@ -391,7 +394,10 @@ namespace SharpConsoleUI.Drivers
 			// Enter alternate screen buffer (like Terminal.Gui v2)
 			// Provides clean slate and separates our output from the main screen
 			if (_useDirectAnsi)
+			{
+				log?.LogDebug("Entering alternate screen buffer", "Driver");
 				WriteOutput("\x1b[?1049h");
+			}
 
 			// Enable mouse reporting: basic -> SGR encoding -> tracking modes
 			// Note: urxvt mode (1015) is intentionally NOT enabled — Kitty and Ghostty
@@ -407,7 +413,9 @@ namespace SharpConsoleUI.Drivers
 
 			// Probe terminal VS16 widening support before input loops start.
 			// Uses DSR cursor position query to measure actual emoji width.
+			log?.LogDebug("Probing terminal capabilities (VS16 emoji widening)", "Driver");
 			ProbeTerminalCapabilities();
+			log?.LogDebug("Terminal capability probe complete", "Driver");
 
 			_lastConsoleWidth = screenSize.Width;
 			_lastConsoleHeight = screenSize.Height;
@@ -415,8 +423,13 @@ namespace SharpConsoleUI.Drivers
 			if (_useDirectAnsi)
 			{
 				// Unix: use raw /dev/tty reader — zero ConsolePal on hot path
+				log?.LogDebug("Starting raw /dev/tty input reader", "Driver");
 				_rawInputCts = new CancellationTokenSource();
 				var ttyStream = TerminalRawMode.TtyInputStream;
+				if (ttyStream == null)
+				{
+					log?.LogWarning("TtyInputStream is null — input reader will not start", "Driver");
+				}
 				if (ttyStream != null)
 				{
 					var parser = new AnsiInputParser();
@@ -436,15 +449,20 @@ namespace SharpConsoleUI.Drivers
 			else
 			{
 				// Windows or fallback: use Console.ReadKey-based InputLoop
+				log?.LogDebug("Starting Console.ReadKey input loop", "Driver");
 				var inputTask = Task.Run(InputLoop);
 			}
 
 			var resizeTask = Task.Run(ResizeLoop);
+			log?.LogInfo("NetConsoleDriver.Start() complete — input and resize loops running", "Driver");
 		}
 
 		/// <inheritdoc/>
 		public void Stop()
 		{
+			var log = _consoleWindowSystem?.LogService;
+			log?.LogInfo("NetConsoleDriver.Stop() entered", "Driver");
+
 			_running = false;
 
 			// Cancel raw input reader if active
@@ -543,6 +561,8 @@ namespace SharpConsoleUI.Drivers
 			// Restore cursor visibility on shutdown
 			SetCursorVisible(true);
 			ResetCursorShape();
+
+			log?.LogInfo("NetConsoleDriver.Stop() complete", "Driver");
 		}
 
 		/// <inheritdoc/>

@@ -649,7 +649,7 @@ namespace SharpConsoleUI
 		/// <returns>The exit code set by <see cref="Shutdown"/> or 1 if an unhandled exception occurred.</returns>
 		public int Run()
 		{
-			_logService.LogDebug("Console window system starting");
+			_logService.LogInfo("Console window system starting", "System");
 			_running = true;
 
 			// Subscribe to the console driver events

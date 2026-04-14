@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
+using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Controls.Terminal;
 
@@ -19,10 +20,13 @@ internal sealed class WindowsPtyBackend : IPtyBackend
     private int     _processId;
     private Stream? _inputStream;   // parent writes keyboard input here
     private Stream? _outputStream;  // parent reads terminal output from here
+    private readonly ILogService? _log;
     private int _disposed = 0;
 
-    public WindowsPtyBackend(string exe, string[]? args, int rows, int cols, string? workingDirectory = null)
+    public WindowsPtyBackend(string exe, string[]? args, int rows, int cols, string? workingDirectory = null, ILogService? logService = null)
     {
+        _log = logService;
+        _log?.LogInfo($"WindowsPtyBackend: creating ConPTY ({rows}x{cols}) for exe='{exe}' cwd='{workingDirectory ?? "(inherit)"}'", "PTY");
         // ── 1. Create anonymous pipes ─────────────────────────────────────────
         //   Input pipe:  parent writes → ConPTY reads (keyboard input)
         //   Output pipe: ConPTY writes → parent reads (terminal output)
@@ -94,6 +98,7 @@ internal sealed class WindowsPtyBackend : IPtyBackend
             _hProcess = pi.hProcess;
             _processId = pi.dwProcessId;
             WinPtyNative.CloseHandle(pi.hThread); // we don't need the thread handle
+            _log?.LogInfo($"WindowsPtyBackend: ConPTY ready, childPid={_processId}", "PTY");
         }
         finally
         {
@@ -123,6 +128,7 @@ internal sealed class WindowsPtyBackend : IPtyBackend
     public void Resize(int rows, int cols)
     {
         if (_hPcon == IntPtr.Zero) return;
+        _log?.LogDebug($"WindowsPtyBackend.Resize({rows}x{cols})", "PTY");
         WinPtyNative.ResizePseudoConsole(
             _hPcon,
             new WinPtyNative.COORD { X = (short)cols, Y = (short)rows });
@@ -131,6 +137,7 @@ internal sealed class WindowsPtyBackend : IPtyBackend
     public void Dispose()
     {
         if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _log?.LogDebug($"WindowsPtyBackend.Dispose: closing ConPTY, pid={_processId}", "PTY");
 
         // Close input first — signals EOF to the child's stdin.
         try { _inputStream?.Dispose(); } catch { }

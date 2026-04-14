@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Core;
 using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Performance
@@ -188,7 +187,7 @@ namespace SharpConsoleUI.Performance
 
 			var options = _getOptions();
 			_setOptions(options with { TargetFPS = fps });
-			_logService?.Log(LogLevel.Information, "System", $"Target FPS changed to {fps}");
+			_logService?.LogInfo($"Target FPS changed to {fps}", "System");
 		}
 
 		/// <summary>
@@ -204,7 +203,7 @@ namespace SharpConsoleUI.Performance
 		{
 			var options = _getOptions();
 			_setOptions(options with { EnableFrameRateLimiting = enabled });
-			_logService?.Log(LogLevel.Information, "System", $"Frame rate limiting {(enabled ? "enabled" : "disabled")}");
+			_logService?.LogInfo($"Frame rate limiting {(enabled ? "enabled" : "disabled")}", "System");
 		}
 
 		/// <summary>
@@ -226,7 +225,7 @@ namespace SharpConsoleUI.Performance
 			var options = _getOptions();
 			_setOptions(options with { EnablePerformanceMetrics = enabled });
 			_onStatusCacheInvalidate?.Invoke();
-			_logService?.Log(LogLevel.Information, "System", $"Performance metrics {(enabled ? "enabled" : "disabled")}");
+			_logService?.LogInfo($"Performance metrics {(enabled ? "enabled" : "disabled")}", "System");
 		}
 
 		/// <summary>

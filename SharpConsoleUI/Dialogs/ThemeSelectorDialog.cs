@@ -9,7 +9,6 @@
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Logging;
 using SharpConsoleUI.Themes;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
@@ -33,10 +32,9 @@ public static class ThemeSelectorDialog
 		var logService = windowSystem.LogService;
 
 		// Log available themes
-		logService?.Log(LogLevel.Information, "Theme",
-			$"Available themes ({themes.Count}): {string.Join(", ", themes.Select(t => t.Name))}");
-		logService?.Log(LogLevel.Information, "Theme",
-			$"Current theme: {currentThemeName}");
+		logService?.LogInfo(
+			$"Available themes ({themes.Count}): {string.Join(", ", themes.Select(t => t.Name))}", "Theme");
+		logService?.LogInfo($"Current theme: {currentThemeName}", "Theme");
 
 		// Create modal window using WindowBuilder (no explicit colors - use theme defaults)
 		var builder = new WindowBuilder(windowSystem)
@@ -113,8 +111,7 @@ public static class ThemeSelectorDialog
 		{
 			if (item?.Tag is string themeName)
 			{
-				logService?.Log(LogLevel.Information, "Theme",
-					$"Theme selected via double-click: {themeName}");
+				logService?.LogInfo($"Theme selected via double-click: {themeName}", "Theme");
 				windowSystem.ThemeStateService.SwitchTheme(themeName);
 				modal.Close();
 			}
@@ -129,8 +126,7 @@ public static class ThemeSelectorDialog
 				var selectedItem = themeList.SelectedItem;
 				if (selectedItem?.Tag is string themeName)
 				{
-					logService?.Log(LogLevel.Information, "Theme",
-						$"Theme selected via Enter: {themeName}");
+					logService?.LogInfo($"Theme selected via Enter: {themeName}", "Theme");
 					windowSystem.ThemeStateService.SwitchTheme(themeName);
 					modal.Close();
 				}
@@ -139,8 +135,7 @@ public static class ThemeSelectorDialog
 			else if (e.KeyInfo.Key == ConsoleKey.Escape)
 			{
 				// Cancel with Escape key
-				logService?.Log(LogLevel.Debug, "Theme",
-					"Theme selector cancelled");
+				logService?.LogDebug("Theme selector cancelled", "Theme");
 				modal.Close();
 				e.Handled = true;
 			}

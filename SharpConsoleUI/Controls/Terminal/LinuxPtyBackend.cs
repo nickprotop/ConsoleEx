@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Controls.Terminal;
 
@@ -12,11 +13,16 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 {
     private readonly int     _masterFd;
     private readonly Process _shimProc;
+    private readonly ILogService? _log;
     private int _disposed = 0;
 
-    public LinuxPtyBackend(string exe, string[]? args, int rows, int cols, string? workingDirectory = null)
+    public LinuxPtyBackend(string exe, string[]? args, int rows, int cols, string? workingDirectory = null, ILogService? logService = null)
     {
+        _log = logService;
+        _log?.LogInfo($"LinuxPtyBackend: opening PTY ({rows}x{cols}) for exe='{exe}' cwd='{workingDirectory ?? "(inherit)"}'", "PTY");
+
         (_masterFd, int slave) = PtyNative.Open(rows, cols);
+        _log?.LogDebug($"LinuxPtyBackend: openpty master={_masterFd} slave={slave}", "PTY");
 
         // Spawn this same executable as the shim: --pty-shim <slave> <exe> [args]
         var shimArgs = new List<string> { "--pty-shim", slave.ToString(), exe };
@@ -31,6 +37,7 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 
         _shimProc = Process.Start(psi) ?? throw new InvalidOperationException("PTY shim failed to start");
         PtyNative.close(slave);  // parent closes its copy of the slave fd
+        _log?.LogInfo($"LinuxPtyBackend: shim spawned, childPid={_shimProc.Id}", "PTY");
     }
 
     public int ChildProcessId => _shimProc.Id;
@@ -39,12 +46,17 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 
     public void Write(byte[] buf, int count) => PtyNative.write(_masterFd, buf, count);
 
-    public void Resize(int rows, int cols) => PtyNative.Resize(_masterFd, rows, cols);
+    public void Resize(int rows, int cols)
+    {
+        _log?.LogDebug($"LinuxPtyBackend.Resize({rows}x{cols})", "PTY");
+        PtyNative.Resize(_masterFd, rows, cols);
+    }
 
     public void Dispose()
     {
         if (System.Threading.Interlocked.Exchange(ref _disposed, 1) == 0)
         {
+            _log?.LogDebug($"LinuxPtyBackend.Dispose: closing master fd {_masterFd}, waiting on shim pid {_shimProc.Id}", "PTY");
             try { PtyNative.close(_masterFd); } catch { }
             try { _shimProc.WaitForExit(500);  } catch { }
         }

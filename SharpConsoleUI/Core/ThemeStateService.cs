@@ -265,8 +265,7 @@ namespace SharpConsoleUI.Core
 				}
 
 				// Log theme change
-				_logService?.Log(LogLevel.Information, "Theme",
-					$"Theme changed from '{previousTheme?.Name}' to '{newTheme.Name}'");
+				_logService?.LogInfo($"Theme changed from '{previousTheme?.Name}' to '{newTheme.Name}'", "Theme");
 
 				// Fire events
 				FireThemeChanged(previousTheme, newTheme);
@@ -287,8 +286,7 @@ namespace SharpConsoleUI.Core
 			var newTheme = ThemeRegistry.GetTheme(themeName);
 			if (newTheme == null)
 			{
-				_logService?.Log(LogLevel.Warning, "Theme",
-					$"Theme '{themeName}' not found in registry");
+				_logService?.LogWarning($"Theme '{themeName}' not found in registry", "Theme");
 				return false;
 			}
 
@@ -302,7 +300,7 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public void NotifyPropertyChanged()
 		{
-			_logService?.Log(LogLevel.Debug, "Theme", "Theme property changed");
+			_logService?.LogDebug("Theme property changed", "Theme");
 
 			ThreadPool.QueueUserWorkItem(_ =>
 			{

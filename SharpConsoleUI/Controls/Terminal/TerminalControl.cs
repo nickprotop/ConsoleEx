@@ -6,6 +6,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Logging;
 
 namespace SharpConsoleUI.Controls.Terminal;
 
@@ -26,6 +27,7 @@ public sealed class TerminalControl
     private readonly VT100Machine _vt;
     private readonly Thread _readThread;
     private readonly object _lock = new();
+    private readonly ILogService? _log;
     private int _disposed = 0;
     private int _actualX, _actualY, _actualWidth, _actualHeight;
 
@@ -41,22 +43,26 @@ public sealed class TerminalControl
     /// <summary>Raised on the PTY read thread when the spawned process exits.</summary>
     public event EventHandler? ProcessExited;
 
-    internal TerminalControl(string exe, string[]? args, string? workingDirectory = null)
+    internal TerminalControl(string exe, string[]? args, string? workingDirectory = null, ILogService? logService = null)
     {
+        _log = logService;
+        _log?.LogInfo($"TerminalControl: creating for '{exe}' args=[{string.Join(" ", args ?? Array.Empty<string>())}] cwd='{workingDirectory ?? "(inherit)"}'", "Terminal");
+
         if (OperatingSystem.IsLinux())
         {
             int rows = 24, cols = 80;
             _vt  = new VT100Machine(cols, rows);
-            _pty = new LinuxPtyBackend(exe, args, rows, cols, workingDirectory);
+            _pty = new LinuxPtyBackend(exe, args, rows, cols, workingDirectory, logService);
         }
         else if (OperatingSystem.IsWindows())
         {
             int rows = 24, cols = 80;
             _vt  = new VT100Machine(cols, rows);
-            _pty = new WindowsPtyBackend(exe, args, rows, cols, workingDirectory);
+            _pty = new WindowsPtyBackend(exe, args, rows, cols, workingDirectory, logService);
         }
         else
         {
+            _log?.LogError("TerminalControl: unsupported platform (requires Linux or Windows)", null, "Terminal");
             throw new PlatformNotSupportedException(
                 "TerminalControl requires Linux or Windows 10 1809+.");
         }
@@ -65,10 +71,12 @@ public sealed class TerminalControl
 
         _readThread = new Thread(ReadLoop) { IsBackground = true, Name = "PTY-read" };
         _readThread.Start();
+        _log?.LogInfo($"TerminalControl: PTY read thread started (childPid={_pty.ChildProcessId})", "Terminal");
     }
 
     private void ReadLoop()
     {
+        _log?.LogDebug($"TerminalControl.ReadLoop: entering (pid={_pty.ChildProcessId})", "Terminal");
         var buf = new byte[4096];
         while (true)
         {
@@ -82,6 +90,7 @@ public sealed class TerminalControl
             }
             Container?.Invalidate(true);
         }
+        _log?.LogInfo($"TerminalControl.ReadLoop: EOF reached (pid={_pty.ChildProcessId}), closing window", "Terminal");
         // EOF or backend closed — clean up and close the containing window.
         Dispose();
         ProcessExited?.Invoke(this, EventArgs.Empty);
@@ -103,7 +112,10 @@ public sealed class TerminalControl
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
+        {
+            _log?.LogDebug("TerminalControl.Dispose", "Terminal");
             _pty.Dispose();
+        }
     }
 
     // ── IInteractiveControl / IFocusableControl ──────────────────────────────
