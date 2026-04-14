@@ -78,7 +78,18 @@ jobs:
         if [ -n "$PREVIOUS_TAG" ]; then
           echo "### What's Changed" > release_notes.md
           echo "" >> release_notes.md
-          git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges >> release_notes.md
+          git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h) — %an" --no-merges >> release_notes.md
+          echo "" >> release_notes.md
+          CONTRIBUTORS=$(git log ${PREVIOUS_TAG}..HEAD --no-merges --format='%an' \
+            | grep -v '^Nikolaos Protopapas$' | sort -u)
+          if [ -n "$CONTRIBUTORS" ]; then
+            echo "" >> release_notes.md
+            echo "### Contributors" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "Thanks to our external contributors for this release:" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "$CONTRIBUTORS" | sed 's/^/- /' >> release_notes.md
+          fi
         else
           echo "### What's Changed" > release_notes.md
           echo "" >> release_notes.md
