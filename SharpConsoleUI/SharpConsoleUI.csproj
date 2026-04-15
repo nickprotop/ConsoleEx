@@ -43,7 +43,7 @@
 	<ItemGroup>
 		<PackageReference Include="AngleSharp" Version="1.4.0" />
 		<PackageReference Include="AngleSharp.Css" Version="1.0.0-beta.213" />
-		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.201" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.202" PrivateAssets="all" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
 		<PackageReference Include="Spectre.Console" Version="0.55.0" />
 		<PackageReference Include="Wcwidth.Sources" Version="4.0.1" />
