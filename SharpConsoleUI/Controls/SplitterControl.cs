@@ -530,11 +530,11 @@ namespace SharpConsoleUI.Controls
 			if (newLeftWidth > 0 && newLeftWidth != leftColumnWidth)
 			{
 
-				// Apply the new widths
-				// FIX: Only set the left column's explicit width.
-				// The right column should flex to fill the remaining space in HorizontalLayout.
+				// Apply the new widths — set both columns explicitly so that
+				// neither accidentally becomes a flex column sharing space equally
+				// with other null-width columns in the grid.
 				_leftColumn.Width = newLeftWidth;
-				_rightColumn.Width = null;  // Clear right column width - let it flex
+				_rightColumn.Width = totalAvailableWidth - newLeftWidth;
 
 
 				// Calculate the actual delta that was applied
