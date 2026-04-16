@@ -31,6 +31,8 @@ public sealed class TerminalControl
     private int _disposed = 0;
     private int _actualX, _actualY, _actualWidth, _actualHeight;
 
+    private volatile bool _nudgeReadlineOnResize;
+
     // Scrollback viewport: 0 = live/bottom, positive = lines scrolled back into history
     private int _scrollOffset;
 
@@ -107,6 +109,12 @@ public sealed class TerminalControl
 
     /// Gets whether this terminal's PTY process has exited and the control has been disposed.
     public bool IsDisposed => _disposed != 0;
+
+    /// <summary>
+    /// Requests that the next PTY resize also sends Ctrl-L to force
+    /// readline to redraw the prompt. Call before a programmatic reparent.
+    /// </summary>
+    public void NudgeOnNextResize() => _nudgeReadlineOnResize = true;
 
     /// <inheritdoc/>
     public void Dispose()
@@ -366,6 +374,16 @@ public sealed class TerminalControl
                 _pty.Resize(bounds.Height, bounds.Width);
                 // Clamp scroll offset after resize
                 _scrollOffset = Math.Min(_scrollOffset, _vt.ScrollbackCount);
+
+                // After a programmatic reparent (dock/undock), bash's readline
+                // won't redraw because SA_RESTART keeps read() blocked through
+                // SIGWINCH. Ctrl-L (clear-screen) unblocks read() and forces
+                // readline to redraw the prompt at the new width.
+                if (_nudgeReadlineOnResize)
+                {
+                    _nudgeReadlineOnResize = false;
+                    _pty.Write(new byte[] { 0x0c }, 1);
+                }
             }
 
             if (_scrollOffset == 0)

@@ -48,6 +48,12 @@ internal static class PtyNative
     [DllImport("libc", SetLastError = true)]
     public static extern int write(int fd, byte[] buf, int count);
 
+    // Signal delivery
+    [DllImport("libc", SetLastError = true)]
+    public static extern int kill(int pid, int sig);
+
+    public const int SIGWINCH = 28;
+
     private const int F_SETFD = 2;
     private const int FD_CLOEXEC = 1;
 

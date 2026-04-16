@@ -66,6 +66,46 @@ namespace SharpConsoleUI.Controls
 	public void RemoveTabAt(int index) => RemoveTab(index);
 
 	/// <summary>
+	/// Removes a tab at the specified index without disposing its content.
+	/// Use this to reparent a tab's content to another TabControl.
+	/// </summary>
+	/// <param name="index">The index of the tab to extract.</param>
+	/// <returns>The extracted content control, or null if index is out of range.</returns>
+	public IWindowControl? ExtractTab(int index)
+	{
+		TabPage tabPage;
+		lock (_tabLock)
+		{
+			if (index < 0 || index >= _tabPages.Count)
+				return null;
+
+			tabPage = _tabPages[index];
+			_tabPages.RemoveAt(index);
+
+			// Adjust active tab index (same logic as RemoveTab, without dispose)
+			if (_tabPages.Count == 0)
+			{
+				_activeTabIndex = -1;
+			}
+			else if (index == _activeTabIndex)
+			{
+				if (_activeTabIndex >= _tabPages.Count)
+					_activeTabIndex = _tabPages.Count - 1;
+				_tabPages[_activeTabIndex].Content.Visible = true;
+			}
+			else if (index < _activeTabIndex)
+			{
+				_activeTabIndex--;
+			}
+		}
+
+		TabRemoved?.Invoke(this, new TabEventArgs(tabPage, index));
+		this.GetParentWindow()?.ForceRebuildLayout();
+		Invalidate(true);
+		return tabPage.Content;
+	}
+
+	/// <summary>
 	/// Removes the first tab with the specified title.
 	/// </summary>
 	/// <param name="title">The title of the tab to remove.</param>
