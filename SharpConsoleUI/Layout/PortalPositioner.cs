@@ -135,18 +135,21 @@ namespace SharpConsoleUI.Layout
 				wasClamped = true;
 			}
 
-			// Clamp vertical
+			// Clamp vertical — shift before truncating so the portal stays fully visible when possible
 			if (y + height > screen.Bottom)
 			{
-				height = screen.Bottom - y;
+				int shift = y + height - screen.Bottom;
+				y -= shift;
 				wasClamped = true;
 			}
 			if (y < screen.Y)
 			{
-				int overflow = screen.Y - y;
-				height -= overflow;
 				y = screen.Y;
 				wasClamped = true;
+			}
+			if (y + height > screen.Bottom)
+			{
+				height = screen.Bottom - y;
 			}
 
 			// Ensure non-negative dimensions
@@ -175,7 +178,7 @@ namespace SharpConsoleUI.Layout
 			PortalPlacement placement = PortalPlacement.BelowOrAbove,
 			Size minSize = default)
 		{
-			// Point anchor → zero-width, 1-height rect (cursor occupies 1 row)
+			// Point anchor → 1-height rect (cursor occupies 1 row, portal opens below/above it)
 			var anchorRect = new Rectangle(anchor.X, anchor.Y, 0, 1);
 			var result = Calculate(new PortalPositionRequest(anchorRect, contentSize, screenBounds, placement));
 

@@ -153,15 +153,18 @@ namespace SharpConsoleUI.Controls
 				bool mouseOnScrollbar = IsClickOnScrollbar(args.Position.X, sbContentWidth);
 
 				// Update hover state (only when mouse is over content, not scrollbar)
-				if (!mouseOnScrollbar && nodeIndex != _hoveredIndex)
+				if (_hoverEnabled)
 				{
-					_hoveredIndex = nodeIndex;
-					Container?.Invalidate(true);
-				}
-				else if (mouseOnScrollbar && _hoveredIndex != -1)
-				{
-					_hoveredIndex = -1;
-					Container?.Invalidate(true);
+					if (!mouseOnScrollbar && nodeIndex != _hoveredIndex)
+					{
+						_hoveredIndex = nodeIndex;
+						Container?.Invalidate(true);
+					}
+					else if (mouseOnScrollbar && _hoveredIndex != -1)
+					{
+						_hoveredIndex = -1;
+						Container?.Invalidate(true);
+					}
 				}
 
 				// Handle mouse wheel scrolling
@@ -199,10 +202,18 @@ namespace SharpConsoleUI.Controls
 				// Handle right-click
 				if (args.HasFlag(MouseFlags.Button3Clicked))
 				{
-					if (!mouseOnScrollbar && _selectOnRightClick && nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
+					if (!mouseOnScrollbar && nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
 					{
-						SelectNodeNoScroll(nodeIndex);
-						Container?.Invalidate(true);
+						_lastRightClickedNode = _flattenedNodes[nodeIndex];
+						if (_selectOnRightClick)
+						{
+							SelectNodeNoScroll(nodeIndex);
+							Container?.Invalidate(true);
+						}
+					}
+					else
+					{
+						_lastRightClickedNode = null;
 					}
 					fireMouseRightClick = args;
 					result = true;

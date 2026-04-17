@@ -24,9 +24,14 @@ public partial class TableControl
 		set
 		{
 			int maxOffset = Math.Max(0, RowCount - GetVisibleRowCount());
-			_scrollOffset = Math.Clamp(value, 0, maxOffset);
-			OnPropertyChanged();
-			Container?.Invalidate(true);
+			int clamped = Math.Clamp(value, 0, maxOffset);
+			if (clamped != _scrollOffset)
+			{
+				_scrollOffset = clamped;
+				_hoveredRowIndex = -1;
+				OnPropertyChanged();
+				Container?.Invalidate(true);
+			}
 		}
 	}
 
@@ -104,8 +109,8 @@ public partial class TableControl
 		if (ShouldShowHorizontalScrollbar())
 			usedHeight++;
 
-		// Reserve space for filter status bar (separator + status row)
-		if (_filteringEnabled && !_readOnly)
+		// Reserve space for filter status bar (separator + status row) — only rendered with borders
+		if (_filteringEnabled && !_readOnly && hasBorder)
 			usedHeight += 2;
 
 		int availableLines = Math.Max(0, totalHeight - usedHeight);
@@ -125,6 +130,7 @@ public partial class TableControl
 		if (_selectedRowIndex < 0) return;
 
 		int visibleRows = GetVisibleRowCount();
+		int oldOffset = _scrollOffset;
 
 		if (_selectedRowIndex < _scrollOffset)
 		{
@@ -134,6 +140,9 @@ public partial class TableControl
 		{
 			_scrollOffset = _selectedRowIndex - visibleRows + 1;
 		}
+
+		if (_scrollOffset != oldOffset)
+			_hoveredRowIndex = -1;
 
 		// Clamp
 		int maxOffset = Math.Max(0, RowCount - visibleRows);

@@ -50,7 +50,9 @@ namespace SharpConsoleUI.Controls
 
 		// Mouse interaction state
 		private int _hoveredIndex = -1;
+		private bool _hoverEnabled = true;
 		private bool _selectOnRightClick = false;
+		private TreeNode? _lastRightClickedNode;
 		private readonly object _clickLock = new object();
 		private DateTime _lastClickTime = DateTime.MinValue;
 		private int _lastClickIndex = -1;
@@ -207,6 +209,21 @@ namespace SharpConsoleUI.Controls
 			get => _selectOnRightClick;
 			set { _selectOnRightClick = value; OnPropertyChanged(); }
 		}
+
+		/// <summary>
+		/// Gets or sets whether mouse hover highlighting is enabled. Default: true.
+		/// </summary>
+		public bool HoverEnabled
+		{
+			get => _hoverEnabled;
+			set { _hoverEnabled = value; if (!value) _hoveredIndex = -1; OnPropertyChanged(); Container?.Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Gets the node that was under the cursor during the most recent right-click.
+		/// Set before <see cref="MouseRightClick"/> fires, regardless of <see cref="SelectOnRightClick"/>.
+		/// </summary>
+		public TreeNode? LastRightClickedNode => _lastRightClickedNode;
 
 		/// <inheritdoc/>
 		public ScrollbarVisibility ScrollbarVisibility

@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	/// A container control that holds child controls vertically within a column of a <see cref="HorizontalGridControl"/>.
 	/// Supports layout constraints, focus management, and dynamic content sizing.
 	/// </summary>
-	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILayoutAware, IDOMPaintable, IContainerControl
+	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILayoutAware, IDOMPaintable, IContainerControl, ILogicalCursorProvider
 	{
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Fill;
@@ -650,6 +650,24 @@ namespace SharpConsoleUI.Controls
 		/// Focus should go to the controls within this column instead.
 		/// </summary>
 		public bool CanReceiveFocus => false;
+
+		/// <inheritdoc/>
+		public System.Drawing.Point? GetLogicalCursorPosition()
+		{
+			var focusManager = (this as IWindowControl).GetParentWindow()?.FocusManager;
+			var focused = GetInteractiveContents()
+				.FirstOrDefault(c => c is IFocusableControl fc && (focusManager?.IsFocused(fc) ?? false));
+			return (focused as ILogicalCursorProvider)?.GetLogicalCursorPosition();
+		}
+
+		/// <inheritdoc/>
+		public void SetLogicalCursorPosition(System.Drawing.Point position)
+		{
+			var focusManager = (this as IWindowControl).GetParentWindow()?.FocusManager;
+			var focused = GetInteractiveContents()
+				.FirstOrDefault(c => c is IFocusableControl fc && (focusManager?.IsFocused(fc) ?? false));
+			(focused as ILogicalCursorProvider)?.SetLogicalCursorPosition(position);
+		}
 
 		/// <inheritdoc/>
 		public System.Drawing.Size GetLogicalContentSize()

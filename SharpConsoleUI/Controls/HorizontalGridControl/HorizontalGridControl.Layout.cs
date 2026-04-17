@@ -86,8 +86,18 @@ namespace SharpConsoleUI.Controls
 
 				if (childPosition.HasValue && focusedContent is IWindowControl focusedControl)
 				{
-					// For now, just return child position as-is
-					// The proper offset will be accumulated in TranslateLogicalCursorToWindow
+					// Find the column containing the focused control and add its offset
+					List<ColumnContainer> columns;
+					lock (_gridLock) { columns = new List<ColumnContainer>(_columns); }
+					foreach (var col in columns)
+					{
+						if (col.Contents.Contains(focusedControl))
+						{
+							int offsetX = col.ActualX - ActualX;
+							int offsetY = col.ActualY - ActualY;
+							return new Point(childPosition.Value.X + offsetX, childPosition.Value.Y + offsetY);
+						}
+					}
 				}
 
 				return childPosition;

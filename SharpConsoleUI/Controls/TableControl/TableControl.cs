@@ -383,6 +383,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_measurementCache.InvalidateCache();
 			_selectedRowIndex = -1;
 			_selectedColumnIndex = -1;
+			_hoveredRowIndex = -1;
 			_scrollOffset = 0;
 			_horizontalScrollOffset = 0;
 			_sortColumnIndex = -1;
@@ -402,6 +403,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		{
 			_selectedRowIndex = RowCount > 0 ? 0 : -1;
 			_selectedRowIndices.Clear();
+			_hoveredRowIndex = -1;
 			_scrollOffset = 0;
 		}
 		InvalidateColumnWidths();
@@ -725,6 +727,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		lock (_tableLock) { _rows.Clear(); }
 		_selectedRowIndex = -1;
 		_selectedColumnIndex = -1;
+		_hoveredRowIndex = -1;
 		_scrollOffset = 0;
 		_horizontalScrollOffset = 0;
 		_selectedRowIndices.Clear();

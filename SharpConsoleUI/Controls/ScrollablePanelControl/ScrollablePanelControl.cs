@@ -18,7 +18,7 @@ namespace SharpConsoleUI.Controls
 	/// A scrollable panel control that can host child controls with automatic scrolling support.
 	/// Supports vertical and horizontal scrolling, mouse wheel, and visual scrollbars.
 	/// </summary>
-	public partial class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IContainerControl, IScrollableContainer, IFocusScope
+	public partial class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IContainerControl, IScrollableContainer, IFocusScope, ILogicalCursorProvider
 	{
 		private readonly List<IWindowControl> _children = new();
 		private readonly object _childrenLock = new();
@@ -403,6 +403,36 @@ namespace SharpConsoleUI.Controls
 					return child as IInteractiveControl;
 			}
 			return null;
+		}
+
+		/// <inheritdoc/>
+		public System.Drawing.Point? GetLogicalCursorPosition()
+		{
+			var focused = GetFocusedChildFromCoordinator();
+			if (focused is ILogicalCursorProvider cursorProvider)
+			{
+				var childPos = cursorProvider.GetLogicalCursorPosition();
+				if (childPos.HasValue && focused is IWindowControl wc)
+				{
+					return new System.Drawing.Point(
+						childPos.Value.X + wc.ActualX - ActualX,
+						childPos.Value.Y + wc.ActualY - ActualY - _verticalScrollOffset);
+				}
+			}
+			return null;
+		}
+
+		/// <inheritdoc/>
+		public void SetLogicalCursorPosition(System.Drawing.Point position)
+		{
+			var focused = GetFocusedChildFromCoordinator();
+			if (focused is ILogicalCursorProvider cursorProvider && focused is IWindowControl wc)
+			{
+				var childPos = new System.Drawing.Point(
+					position.X - wc.ActualX + ActualX,
+					position.Y - wc.ActualY + ActualY + _verticalScrollOffset);
+				cursorProvider.SetLogicalCursorPosition(childPos);
+			}
 		}
 
 		#endregion
