@@ -266,6 +266,7 @@ var video = Controls.Video("movie.mp4").Fill().Build();
 | `Space` | Play / Pause toggle |
 | `M` | Cycle render mode |
 | `L` | Toggle looping |
+| `R` | Refresh Kitty image (recovers from the rare stuck-black state in Kitty mode; no-op in cell modes) |
 | `Esc` | Stop playback |
 
 ### Mouse
@@ -293,7 +294,7 @@ The overlay shows:
 - **Current time / duration**: `01:23 / 05:00`
 - **Render mode**: `HalfBlock`, `Ascii`, or `Braille`
 - **Loop indicator**: `Loop` when enabled
-- **Keyboard hints**: `Space:Play M:Mode L:Loop`
+- **Keyboard hints**: `Space:Play M:Mode L:Loop` (plus `R:Refresh` when Kitty mode is active)
 
 ```csharp
 // Enable overlay
@@ -462,7 +463,7 @@ var windowSystem = new ConsoleWindowSystem(
 
 // 2. Set up panel text — this appears at the top of the terminal
 windowSystem.PanelStateService.TopStatus =
-    "Video Player — Space: Play/Pause | M: Mode | L: Loop | Esc: Stop";
+    "Video Player — Space: Play/Pause | M: Mode | L: Loop | R: Refresh | Esc: Stop";
 
 // 3. Handle Ctrl+C — shut down cleanly instead of hard-killing the process
 Console.CancelKeyPress += (_, e) =>

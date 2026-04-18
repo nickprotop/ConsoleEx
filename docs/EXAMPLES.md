@@ -348,6 +348,7 @@ dotnet run --project Examples/DemoApp
 - Four render modes — Kitty graphics (Kitty/WezTerm/Ghostty), half-block, ASCII, braille
 - `Auto` is the default — picks Kitty when supported, half-block otherwise
 - Press **M** to cycle concrete modes live; the overlay shows the effective mode
+- Press **R** in Kitty mode to manually refresh the image if the terminal ever gets stuck on black (recovery escape hatch — the Kitty virtual-placement protocol has no native "redraw" primitive)
 - Kitty path uses zlib-compressed raw RGB frame updates (`a=f,r=1`, `o=z`) for smooth in-place playback
 - FFmpeg subprocess decoding — no extra NuGet dependencies
 - Dynamic resize — restarts at new resolution when window is dragged
