@@ -65,5 +65,15 @@ namespace SharpConsoleUI.Video
         /// vertical pixel density of the mode; Kitty mode wants much higher resolution.
         /// </summary>
         (int Width, int Height) GetPreferredPixelSize(int cellCols, int cellRows);
+
+        /// <summary>
+        /// Requests that the sink rebuild any terminal-side state on the next ingested frame.
+        /// No-op for cell-mode sinks; for the Kitty sink this triggers a full image+placement
+        /// recreation, which is the same reset that happens on window resize and is the one
+        /// reliable way to recover from the (rare) stuck-black state where the terminal
+        /// stops redrawing after in-place frame updates. Exposed so a user-facing keybind
+        /// can force recovery without having to resize the window.
+        /// </summary>
+        void ForceRefresh() { /* default: no-op */ }
     }
 }

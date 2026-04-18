@@ -50,11 +50,31 @@ namespace SharpConsoleUI.Video
         private int _transmittedPixelHeight;
         private int _placementCols;
         private int _placementRows;
-        // Toggled on every IngestFrame; Paint uses it to flip the low bit of the cell
-        // background so the buffer diff re-emits the placeholder cells each frame. That
-        // re-emit is what prompts Kitty to redraw the placement against the freshly
-        // uploaded frame data (a=f,r=1 alone doesn't trigger a redraw).
-        private bool _frameParity;
+        // Image id scheduled to be deleted on the NEXT IngestFrame. When we recreate on a
+        // dimension change we keep the old image alive for one extra frame so cells still
+        // referencing it keep rendering while Paint runs and transitions the cells to the
+        // new id. Without this, the delete-before-Paint window shows a brief black flash.
+        private uint _pendingDeletionId;
+        // Set by ForceRefresh(); read and cleared on next IngestFrame which then behaves
+        // like a dimension-change recreation. User-triggered escape hatch from the rare
+        // stuck-black state that the protocol can get into on live frame updates.
+        private bool _refreshRequested;
+        // True when a new frame has been transmitted but not yet reflected in Paint. Paint
+        // clears it and (if true) flips the cell-background parity so the buffer diff sees
+        // a change and re-emits the placeholder cells — which prompts Kitty to redraw the
+        // placement against the freshly uploaded frame data (a=f,r=1 alone does not).
+        private bool _newFramePending;
+        // The cell-bg parity we wrote on the last Paint. Paint uses this + _newFramePending
+        // to decide whether the next write needs the opposite parity (to guarantee the
+        // buffer diff sees a change) or should stay identical (no-op paint, don't flood the
+        // terminal with redraws when nothing has changed).
+        //
+        // Using a simple toggle on IngestFrame was wrong: if two IngestFrames fired between
+        // Paints (frame skip catch-up, any render-thread delay) the toggle would cycle back
+        // to its previous value and Paint would write cells identical to the last Paint,
+        // emitting nothing — the terminal then held stale pixels indefinitely until
+        // something else (window move, resize) forced a cell redraw.
+        private bool _lastWrittenParity;
         private bool _disposed;
 
         public KittyVideoFrameSink(IGraphicsProtocol protocol)
@@ -70,9 +90,15 @@ namespace SharpConsoleUI.Video
             // Snapshot state under lock; decide whether this is the initial transmit or an
             // in-place update. Do the actual protocol I/O outside the lock so a slow terminal
             // can't stall Paint.
+            //
+            // Ordering note: we transmit the NEW image first, then delete the PREVIOUS
+            // (already-superseded) old image. On a refresh/dimension change the newly-
+            // rotated old id is held in _pendingDeletionId for one frame — that gives the
+            // upcoming Paint a chance to migrate the cells to the new id before the old
+            // image is destroyed, avoiding a visible black flash during the transition.
             uint id;
             bool needsCreate;
-            uint oldIdToDelete = 0;
+            uint oldIdDeletedNow;
             lock (_lock)
             {
                 if (_disposed) return;
@@ -83,11 +109,20 @@ namespace SharpConsoleUI.Video
                     _placementCols != targetCols ||
                     _placementRows != targetRows);
 
-                if (dimensionsChanged)
+                bool refreshRequested = _imageCreated && _refreshRequested;
+                _refreshRequested = false;
+
+                // Any id queued from the previous IngestFrame is safe to delete now —
+                // Paint has had a full frame to transition cells off of it.
+                oldIdDeletedNow = _pendingDeletionId;
+                _pendingDeletionId = 0;
+
+                if (dimensionsChanged || refreshRequested)
                 {
-                    // FFmpeg resolution or the on-screen placement changed — the existing
-                    // image's frame-1 size is fixed, so we have to delete and recreate.
-                    oldIdToDelete = _imageId;
+                    // Stash the currently-active id for deletion on the NEXT IngestFrame.
+                    // Both the old and new images will coexist for one frame; the cells
+                    // still point to the old id until Paint flips them to the new one.
+                    _pendingDeletionId = _imageId;
                     _imageCreated = false;
                 }
 
@@ -106,17 +141,22 @@ namespace SharpConsoleUI.Video
                 _transmittedPixelHeight = pixelHeight;
                 _placementCols = targetCols;
                 _placementRows = targetRows;
-                _frameParity = !_frameParity;
+                _newFramePending = true;
                 id = _imageId;
             }
 
-            if (oldIdToDelete != 0)
-                _protocol.DeleteImage(oldIdToDelete);
-
+            // Transmit new image FIRST so the new id exists on the terminal side before any
+            // potential delete. On create this is a=T,U=1,c,r (creates the placement); on
+            // updates it's the in-place a=f,r=1 path.
             if (needsCreate)
                 _protocol.TransmitRawRgb(id, rgb24, pixelWidth, pixelHeight, targetCols, targetRows);
             else
                 _protocol.UpdateRawRgbFrame(id, rgb24, pixelWidth, pixelHeight);
+
+            // Delete the image that's now two frames stale. No cells reference it anymore
+            // (by now Paint has transitioned to the newer id), so this is invisible.
+            if (oldIdDeletedNow != 0)
+                _protocol.DeleteImage(oldIdDeletedNow);
         }
 
         public void Paint(
@@ -132,15 +172,24 @@ namespace SharpConsoleUI.Video
 
             uint id;
             int cols, rows;
-            bool parity;
+            bool needsRedraw;
             lock (_lock)
             {
                 if (_disposed) return;
                 id = _imageCreated ? _imageId : 0;
                 cols = _placementCols;
                 rows = _placementRows;
-                parity = _frameParity;
+                needsRedraw = _newFramePending;
+                _newFramePending = false;
             }
+
+            // If a new frame was ingested since our last paint, flip to the opposite
+            // parity so the cells we're about to write differ from what's already in the
+            // buffer. Otherwise keep the same parity — the cells stay byte-identical and
+            // the buffer diff emits nothing (no point telling the terminal to redraw
+            // when nothing has changed).
+            bool parity = needsRedraw ? !_lastWrittenParity : _lastWrittenParity;
+            _lastWrittenParity = parity;
 
             // Before the first frame is ingested, fill with background so stale cells don't
             // bleed through while FFmpeg spins up.
@@ -209,22 +258,36 @@ namespace SharpConsoleUI.Video
 
         public void OnStopped()
         {
-            uint toDelete = 0;
+            uint activeId = 0;
+            uint pendingId;
             lock (_lock)
             {
                 if (_imageCreated)
                 {
-                    toDelete = _imageId;
+                    activeId = _imageId;
                     _imageCreated = false;
                     _transmittedPixelWidth = 0;
                     _transmittedPixelHeight = 0;
                     _placementCols = 0;
                     _placementRows = 0;
                 }
+                pendingId = _pendingDeletionId;
+                _pendingDeletionId = 0;
             }
 
-            if (toDelete != 0)
-                _protocol.DeleteImage(toDelete);
+            if (activeId != 0) _protocol.DeleteImage(activeId);
+            if (pendingId != 0) _protocol.DeleteImage(pendingId);
+        }
+
+        public void ForceRefresh()
+        {
+            lock (_lock)
+            {
+                if (_disposed) return;
+                _refreshRequested = true;
+            }
+            // Actual recreation happens on the next IngestFrame — we need fresh pixel
+            // data to transmit, and we don't cache the last frame.
         }
 
         public (int Width, int Height) GetPreferredPixelSize(int cellCols, int cellRows)

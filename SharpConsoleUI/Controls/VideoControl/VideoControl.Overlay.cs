@@ -76,7 +76,9 @@ namespace SharpConsoleUI.Controls
 			string loopStr = _looping ? " Loop" : "";
 
 			string leftText = $" {stateIcon} {timeStr}{durationStr}";
-			string rightText = $"{modeStr}{loopStr}  Space:Play M:Mode L:Loop ";
+			// R:Refresh is Kitty-specific recovery — only show it when Kitty is actually in use.
+			string refreshHint = _effectiveRenderMode == VideoRenderMode.Kitty ? " R:Refresh" : "";
+			string rightText = $"{modeStr}{loopStr}  Space:Play M:Mode L:Loop{refreshHint} ";
 
 			// Fill overlay background
 			for (int x = contentX; x < contentX + availW && x < clipRect.Right; x++)

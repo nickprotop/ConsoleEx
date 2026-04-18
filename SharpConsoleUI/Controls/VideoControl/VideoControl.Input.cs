@@ -38,6 +38,12 @@ namespace SharpConsoleUI.Controls
 					Looping = !Looping;
 					return true;
 
+				case ConsoleKey.R:
+					// Manual recovery from the rare stuck-black state in Kitty mode.
+					// No-op in cell render modes.
+					RefreshKittyImage();
+					return true;
+
 				default:
 					return false;
 			}

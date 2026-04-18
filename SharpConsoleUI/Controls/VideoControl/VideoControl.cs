@@ -252,6 +252,16 @@ namespace SharpConsoleUI.Controls
 			};
 		}
 
+		/// <summary>
+		/// Forces the active frame sink to rebuild its terminal-side state on the next frame.
+		/// Useful as a recovery keybind in Kitty mode — the graphics protocol has no explicit
+		/// "redraw placement" primitive, so live frame updates can (rarely) leave the terminal
+		/// holding stale pixels until something re-emits the placement. This method triggers
+		/// the same reset that happens on window resize, without requiring the user to resize.
+		/// No-op in cell render modes.
+		/// </summary>
+		public void RefreshKittyImage() => _sink?.ForceRefresh();
+
 		/// <summary>Loads and immediately starts playing a video file.</summary>
 		public void PlayFile(string filePath)
 		{
