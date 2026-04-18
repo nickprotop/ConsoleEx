@@ -16,6 +16,7 @@ namespace SharpConsoleUI.Helpers
 	{
 		private static bool? _supportsVS16Widening;
 		private static bool? _supportsUnicode16Widths;
+		private static bool? _supportsKittyGraphics;
 
 		/// <summary>
 		/// Whether the terminal renders emoji+VS16 (U+FE0F) as 2 columns.
@@ -36,6 +37,15 @@ namespace SharpConsoleUI.Helpers
 		public static bool SupportsUnicode16Widths
 		{
 			get => _supportsUnicode16Widths ?? false;
+		}
+
+		/// <summary>
+		/// Whether the terminal supports the Kitty graphics protocol for image display.
+		/// Defaults to false until probed.
+		/// </summary>
+		public static bool SupportsKittyGraphics
+		{
+			get => _supportsKittyGraphics ?? false;
 		}
 
 		/// <summary>
@@ -67,6 +77,18 @@ namespace SharpConsoleUI.Helpers
 				// If probing fails, assume terminal hasn't adopted Unicode 16.0 widths
 				_supportsUnicode16Widths = false;
 			}
+
+			try
+			{
+				_supportsKittyGraphics = ProbeKittyGraphics(write, readByte);
+			}
+			catch
+			{
+				_supportsKittyGraphics = IsKittyTerminalByEnvironment();
+			}
+
+			if (_supportsKittyGraphics == false)
+				_supportsKittyGraphics = IsKittyTerminalByEnvironment();
 		}
 
 		/// <summary>
@@ -88,12 +110,22 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
+		/// Allows manual override of the Kitty graphics capability.
+		/// Useful for testing or when the terminal is known ahead of time.
+		/// </summary>
+		public static void SetKittyGraphics(bool supported)
+		{
+			_supportsKittyGraphics = supported;
+		}
+
+		/// <summary>
 		/// Resets all cached capabilities (for testing).
 		/// </summary>
 		internal static void Reset()
 		{
 			_supportsVS16Widening = null;
 			_supportsUnicode16Widths = null;
+			_supportsKittyGraphics = null;
 		}
 
 		private static bool ProbeVS16(Action<string> write, Func<int> readByte)
@@ -180,6 +212,51 @@ namespace SharpConsoleUI.Helpers
 			if (b != 'R') return -1;
 
 			return col;
+		}
+
+		/// <summary>
+		/// Probes whether the terminal supports Kitty graphics protocol.
+		/// Sends a query action and checks for the OK response.
+		/// </summary>
+		private static bool ProbeKittyGraphics(Action<string> write, Func<int> readByte)
+		{
+			write(Imaging.KittyProtocol.BuildQueryCommand());
+
+			int b = readByte();
+			if (b != 0x1b) return false;
+
+			b = readByte();
+			if (b != '_') return false;
+
+			var response = new System.Text.StringBuilder(32);
+			int prev = 0;
+			while (true)
+			{
+				b = readByte();
+				if (b < 0) return false;
+
+				if (prev == 0x1b && b == '\\')
+					break;
+
+				if (b != 0x1b)
+					response.Append((char)b);
+
+				prev = b;
+			}
+
+			return response.ToString().Contains("OK");
+		}
+
+		/// <summary>
+		/// Checks environment variables for known Kitty-compatible terminals.
+		/// </summary>
+		private static bool IsKittyTerminalByEnvironment()
+		{
+			if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("KITTY_PID")))
+				return true;
+			if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEZTERM_PANE")))
+				return true;
+			return false;
 		}
 	}
 }

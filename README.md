@@ -239,7 +239,7 @@ LogViewer, SpectreRenderableControl, LineGraph, SparklineControl, BarGraph
 **Layout:** NavigationView (WinUI-inspired, responsive), TabControl,
 HorizontalGrid, ScrollablePanel, SplitterControl, StatusBarControl
 
-**Drawing:** CanvasControl (30+ primitives), ImageControl (PNG/JPEG/WebP),
+**Drawing:** CanvasControl (30+ primitives), ImageControl (Kitty graphics protocol + half-block fallback),
 VideoControl (FFmpeg, three render modes), TerminalControl (PTY, Linux)
 
 **Selection:** ListControl, TableControl (virtual data, 10k+ rows, sort, filter,

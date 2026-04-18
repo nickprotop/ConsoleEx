@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Imaging;
 using SharpConsoleUI.Layout;
@@ -24,13 +25,7 @@ namespace SharpConsoleUI.Controls
 		private int _minimumWidth;
 		private int _minimumHeight;
 
-		// Render cache
-		private Cell[,]? _cachedCells;
-		private int _cachedCols;
-		private int _cachedRows;
-		private PixelBuffer? _cachedSource;
-		private ImageScaleMode _cachedScaleMode;
-		private Color _cachedBackground;
+		private IImageRenderer? _renderer;
 
 		/// <summary>The pixel buffer to render as an image.</summary>
 		public PixelBuffer? Source
@@ -39,6 +34,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_source = value;
+				_renderer?.OnSourceChanged();
 				OnPropertyChanged();
 				InvalidateRenderCache();
 				Container?.Invalidate(true);
@@ -136,7 +132,11 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				if (!ReferenceEquals(base.Container, value))
+				{
 					InvalidateRenderCache();
+					_renderer?.Dispose();
+					_renderer = null;
+				}
 				base.Container = value;
 			}
 		}
@@ -189,13 +189,6 @@ namespace SharpConsoleUI.Controls
 			Color bgColor = Container?.BackgroundColor ?? defaultBackground;
 			Color fgColor = Container?.ForegroundColor ?? defaultForeground;
 
-			// Explicit cache invalidation on background change. The render cache keys on bgColor
-			// internally, but without this check a stale _cachedCells reference could be kept alive
-			// across paints when bg changes (the next Get* call would miss and re-render anyway,
-			// this just makes the intent obvious).
-			if (_cachedCells != null && !_cachedBackground.Equals(bgColor))
-				InvalidateRenderCache();
-
 			// Intentional: margins render transparent so the window background (and any
 			// Porter-Duff compositing layers beneath this control) show through. Using
 			// bgColor here would opaquely paint the margin area and defeat compositing.
@@ -236,24 +229,15 @@ namespace SharpConsoleUI.Controls
 			int cropOffsetX = geom.cropX;
 			int cropOffsetY = geom.cropY;
 
-			// Render cells — None uses natural rendering, others use scaled rendering
-			Cell[,] cells;
-			if (_scaleMode == ImageScaleMode.None)
-				cells = GetOrRenderNaturalCells(_source, bgColor);
-			else
-				cells = GetOrRenderCells(_source, renderCols, renderRows, bgColor);
+			var renderer = ResolveRenderer();
+			int displayWidth = Math.Min(renderCols - cropOffsetX, availWidth);
+			int displayHeight = Math.Min(renderRows - cropOffsetY, availHeight);
+			var imageDestRect = new LayoutRect(startX, startY, displayWidth, displayHeight);
 
-			int actualW = cells.GetLength(0);
-			int actualH = cells.GetLength(1);
+			renderer.Paint(buffer, imageDestRect, clipRect, _source, _scaleMode,
+				cropOffsetX, cropOffsetY, renderCols, renderRows, bgColor);
 
-			// Clamp crop so that availWidth / availHeight cells still fit starting from the offset.
-			cropOffsetX = Math.Clamp(cropOffsetX, 0, Math.Max(0, actualW - availWidth));
-			cropOffsetY = Math.Clamp(cropOffsetY, 0, Math.Max(0, actualH - availHeight));
-			int displayWidth = Math.Min(actualW - cropOffsetX, availWidth);
-			int displayHeight = Math.Min(actualH - cropOffsetY, availHeight);
-
-			// TODO: Kitty graphics protocol — use GetRenderGeometry() to compute
-			// exposed pixel regions and emit APC sequences instead of SetCell()
+			// Fill side margins and padding around the rendered image
 			for (int cy = 0; cy < displayHeight && startY + cy < bounds.Bottom; cy++)
 			{
 				int y = startY + cy;
@@ -261,13 +245,6 @@ namespace SharpConsoleUI.Controls
 
 				if (Margin.Left > 0)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, Margin.Left, 1), fgColor, effectiveBg);
-
-				for (int cx = 0; cx < displayWidth && startX + cx < bounds.Right; cx++)
-				{
-					int x = startX + cx;
-					if (x < clipRect.X || x >= clipRect.Right) continue;
-					buffer.SetCell(x, y, cells[cropOffsetX + cx, cropOffsetY + cy]);
-				}
 
 				int contentEndX = startX + displayWidth;
 				int rightPadWidth = bounds.Right - contentEndX;
@@ -374,66 +351,41 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Drops the cached rendered cells. The next <see cref="PaintDOM"/> will re-render
-		/// via <see cref="HalfBlockRenderer"/>. Callers that change external state which affects
-		/// rendering (for example, swapping the theme that drives the container background) should
-		/// invoke this to guarantee the cache is rebuilt.
+		/// Invalidates the renderer's internal cache. The next <see cref="PaintDOM"/> will
+		/// re-render the image from the source pixel buffer. Callers that change external state
+		/// which affects rendering (for example, swapping the theme that drives the container
+		/// background) should invoke this to guarantee the cache is rebuilt.
 		/// </summary>
 		public void InvalidateImageCache()
 		{
-			_cachedCells = null;
+			_renderer?.OnSourceChanged();
 		}
 
 		// Private alias kept so existing internal call sites need not change.
 		private void InvalidateRenderCache() => InvalidateImageCache();
 
-		/// <summary>Render at natural size using HalfBlockRenderer.Render (no scaling).</summary>
-		private Cell[,] GetOrRenderNaturalCells(PixelBuffer source, Color background)
+		/// <summary>
+		/// Resolves the image renderer on first paint. Uses KittyImageRenderer if the
+		/// driver supports the Kitty graphics protocol, otherwise falls back to HalfBlockImageRenderer.
+		/// </summary>
+		private IImageRenderer ResolveRenderer()
 		{
-			int naturalCols = source.Width;
-			int naturalRows = CellRowsFor(source.Height);
+			if (_renderer != null)
+				return _renderer;
 
-			if (_cachedCells != null &&
-				ReferenceEquals(_cachedSource, source) &&
-				_cachedCols == naturalCols &&
-				_cachedRows == naturalRows &&
-				_cachedScaleMode == _scaleMode &&
-				_cachedBackground.Equals(background))
+			var driver = Container?.GetConsoleWindowSystem?.ConsoleDriver;
+			if (driver is IGraphicsProtocol gp && gp.SupportsKittyGraphics)
 			{
-				return _cachedCells;
+				var kittyRenderer = new KittyImageRenderer(gp);
+				kittyRenderer.SetContainer(Container);
+				_renderer = kittyRenderer;
+			}
+			else
+			{
+				_renderer = new HalfBlockImageRenderer();
 			}
 
-			_cachedCells = HalfBlockRenderer.Render(source, background);
-			_cachedSource = source;
-			_cachedCols = naturalCols;
-			_cachedRows = naturalRows;
-			_cachedScaleMode = _scaleMode;
-			_cachedBackground = background;
-
-			return _cachedCells;
-		}
-
-		/// <summary>Render at scaled dimensions using HalfBlockRenderer.RenderScaled.</summary>
-		private Cell[,] GetOrRenderCells(PixelBuffer source, int cols, int rows, Color background)
-		{
-			if (_cachedCells != null &&
-				ReferenceEquals(_cachedSource, source) &&
-				_cachedCols == cols &&
-				_cachedRows == rows &&
-				_cachedScaleMode == _scaleMode &&
-				_cachedBackground.Equals(background))
-			{
-				return _cachedCells;
-			}
-
-			_cachedCells = HalfBlockRenderer.RenderScaled(source, cols, rows, background);
-			_cachedSource = source;
-			_cachedCols = cols;
-			_cachedRows = rows;
-			_cachedScaleMode = _scaleMode;
-			_cachedBackground = background;
-
-			return _cachedCells;
+			return _renderer;
 		}
 	}
 }

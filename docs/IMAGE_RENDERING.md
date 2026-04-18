@@ -1,6 +1,6 @@
 # Image Rendering
 
-SharpConsoleUI can render pixel-based images in the console using Unicode half-block characters. Each character cell represents 2 vertical pixels: the foreground color is the top pixel and the background color is the bottom pixel.
+SharpConsoleUI renders pixel-based images in the console with automatic backend selection: full-resolution display via the **Kitty graphics protocol** in supported terminals (Kitty, WezTerm, Ghostty), with transparent fallback to **Unicode half-block characters** everywhere else.
 
 ## Table of Contents
 
@@ -10,17 +10,22 @@ SharpConsoleUI can render pixel-based images in the console using Unicode half-b
 4. [ImageControl](#imagecontrol)
 5. [Scale Modes](#scale-modes)
 6. [Alignment and Scale Mode Interaction](#alignment-and-scale-mode-interaction)
-7. [Half-Block Rendering](#half-block-rendering)
-8. [Creating Test Images](#creating-test-images)
+7. [Kitty Graphics Protocol](#kitty-graphics-protocol)
+8. [Half-Block Rendering](#half-block-rendering)
+9. [Creating Test Images](#creating-test-images)
 
 ## Overview
 
 The imaging system consists of:
 
 - **`PixelBuffer`** — A 2D buffer of RGB pixels
-- **`ImageControl`** — A `BaseControl` that renders a `PixelBuffer` using half-block characters
-- **`HalfBlockRenderer`** — Converts pixel data to `Cell[,]` arrays using `▀` (U+2580)
+- **`ImageControl`** — A `BaseControl` that displays a `PixelBuffer` with automatic rendering backend selection
+- **`IImageRenderer`** — Strategy interface with two implementations:
+  - **`KittyImageRenderer`** — Full-resolution rendering via the Kitty graphics protocol (virtual placements)
+  - **`HalfBlockImageRenderer`** — Universal fallback using `▀` (U+2580), 2 pixels per cell
 - **`ImageScaleMode`** — Controls how images scale to fit available space
+
+The rendering backend is selected automatically at runtime based on terminal capabilities. No code changes are needed — the same `ImageControl` API works everywhere.
 
 ## PixelBuffer
 
@@ -194,6 +199,50 @@ new ImageControl
 };
 ```
 
+## Kitty Graphics Protocol
+
+In terminals that support the [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/) (Kitty, WezTerm, Ghostty), images are rendered at **full pixel resolution** using virtual placements. This produces dramatically sharper results compared to half-block rendering.
+
+### How It Works
+
+1. **Detection** — At startup, `TerminalCapabilities.Probe()` sends a Kitty graphics query. If the terminal responds, or if `KITTY_PID`/`WEZTERM_PANE` environment variables are set, Kitty support is enabled.
+
+2. **Async PNG encoding** — When an image source is set, the `PixelBuffer` is encoded to PNG on a background thread. A centered "Loading..." placeholder is shown while encoding completes. This keeps the UI responsive for large images.
+
+3. **Transmission** — The PNG is transmitted to the terminal via APC escape sequences with `U=1` (virtual placement mode). The image is assigned a unique ID and sized to span the target cell area (`c` columns, `r` rows).
+
+4. **Virtual placements** — Each cell in the image area receives a U+10EEEE placeholder character with combining diacritics encoding the row and column. The terminal replaces these placeholders with the corresponding image pixels.
+
+5. **Resize optimization** — The PNG is cached per source. When the control resizes, only the terminal placement is updated (delete + retransmit with new dimensions). No re-encoding occurs, making resize nearly instant.
+
+### Supported Terminals
+
+| Terminal | Support |
+|----------|---------|
+| Kitty | Full (virtual placements) |
+| WezTerm | Full (virtual placements) |
+| Ghostty | Full (virtual placements) |
+| All others | Automatic half-block fallback |
+
+### Architecture
+
+```
+ImageControl.PaintDOM()
+  |
+  +-- ResolveRenderer() (once, on first paint)
+  |     +-- Kitty detected? --> KittyImageRenderer
+  |     +-- Otherwise      --> HalfBlockImageRenderer
+  |
+  +-- renderer.Paint(buffer, ...)
+        +-- KittyImageRenderer:
+        |     1. Encode PNG async (first time / source change)
+        |     2. Transmit via IGraphicsProtocol
+        |     3. Write U+10EEEE placeholder cells
+        |
+        +-- HalfBlockImageRenderer:
+              1. Render half-block cells (existing behavior)
+```
+
 ## Half-Block Rendering
 
 The `HalfBlockRenderer` converts pixel data to console cells using the `▀` (upper half block, U+2580) character:
@@ -261,6 +310,9 @@ Image defaults are in `ImagingDefaults`:
 | `MaxImageDimension` | 500 | Maximum image dimension (prevents overflow in unbounded layouts) |
 | `PixelsPerCell` | 2 | Vertical pixels per character cell |
 | `HalfBlockChar` | `'▀'` | The Unicode half-block character used for rendering |
+| `KittyChunkSize` | 4096 | Maximum bytes per Kitty graphics protocol chunk |
+| `KittyPlaceholder` | U+10EEEE | Unicode placeholder character for Kitty virtual placements |
+| `KittyMaxImageDimension` | 4096 | Maximum image dimension supported by Kitty protocol |
 
 ## See Also
 

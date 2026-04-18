@@ -77,7 +77,7 @@ namespace SharpConsoleUI.Drivers
 	/// tcflush to clear pending input, and alternate screen buffer usage.
 	/// </para>
 	/// </remarks>
-	public class NetConsoleDriver : IConsoleDriver
+	public class NetConsoleDriver : IConsoleDriver, IGraphicsProtocol
 	{
 		private const uint DISABLE_NEWLINE_AUTO_RETURN = 8;
 		private const int DoubleClickTime = 500;
@@ -704,6 +704,38 @@ namespace SharpConsoleUI.Drivers
 				case RenderMode.Buffer:
 					_consoleBuffer?.SetCellsFromBuffer(destX, destY, source, srcX, srcY, width, fallbackBg);
 					break;
+			}
+		}
+
+		/// <inheritdoc />
+		public bool SupportsKittyGraphics => TerminalCapabilities.SupportsKittyGraphics;
+
+		/// <inheritdoc />
+		public void TransmitImage(uint imageId, byte[] pngData, int columns, int rows)
+		{
+			var chunks = Imaging.KittyProtocol.BuildTransmitChunks(imageId, pngData, columns, rows);
+			lock (_consoleLock)
+			{
+				foreach (var chunk in chunks)
+				{
+					if (TerminalRawMode.IsRawModeActive)
+						TerminalRawMode.WriteStdout(chunk);
+					else
+						Console.Write(chunk);
+				}
+			}
+		}
+
+		/// <inheritdoc />
+		public void DeleteImage(uint imageId)
+		{
+			string cmd = Imaging.KittyProtocol.BuildDeleteCommand(imageId);
+			lock (_consoleLock)
+			{
+				if (TerminalRawMode.IsRawModeActive)
+					TerminalRawMode.WriteStdout(cmd);
+				else
+					Console.Write(cmd);
 			}
 		}
 

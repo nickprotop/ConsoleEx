@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
 using SharpConsoleUI.Imaging;
 
 namespace SharpConsoleUI.Configuration
@@ -26,5 +27,14 @@ namespace SharpConsoleUI.Configuration
 
 		/// <summary>The upper half block character used for image rendering.</summary>
 		public const char HalfBlockChar = '\u2580';
+
+		/// <summary>Maximum bytes per Kitty graphics protocol chunk.</summary>
+		public const int KittyChunkSize = 4096;
+
+		/// <summary>The Unicode placeholder character for Kitty virtual placements.</summary>
+		public static readonly Rune KittyPlaceholder = new Rune(0x10EEEE);
+
+		/// <summary>Maximum image dimension supported by Kitty protocol.</summary>
+		public const int KittyMaxImageDimension = 4096;
 	}
 }
