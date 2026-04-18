@@ -49,7 +49,8 @@ namespace SharpConsoleUI.Html
 			Color? visitedLinkColor = null,
 			bool showImages = false,
 			Dictionary<string, Imaging.PixelBuffer?>? imageCache = null,
-			IDocument? cssDocument = null)
+			IDocument? cssDocument = null,
+			Drivers.IGraphicsProtocol? graphicsProtocol = null)
 		{
 			var ctx = new BlockContext
 			{
@@ -62,6 +63,7 @@ namespace SharpConsoleUI.Html
 				ShowImages = showImages,
 				ImageCache = imageCache,
 				CssDocument = cssDocument,
+				GraphicsProtocol = graphicsProtocol,
 			};
 
 			ProcessChildren(root, ctx, indent: 0, listDepth: 0);
@@ -551,7 +553,7 @@ namespace SharpConsoleUI.Html
 					if (ctx.ImageCache.TryGetValue(normalizedSrc, out var cachedBuffer))
 					{
 						imageRows = cachedBuffer != null
-							? HtmlImageLoader.RenderFromBuffer(cachedBuffer, effectiveWidth, ctx.DefaultBg)
+							? HtmlImageLoader.RenderFromBuffer(cachedBuffer, effectiveWidth, ctx.DefaultBg, ctx.GraphicsProtocol)
 							: null;
 					}
 					else
@@ -562,7 +564,7 @@ namespace SharpConsoleUI.Html
 				}
 				else
 				{
-					imageRows = HtmlImageLoader.LoadAndRender(src, effectiveWidth, ctx.DefaultBg);
+					imageRows = HtmlImageLoader.LoadAndRender(src, effectiveWidth, ctx.DefaultBg, ctx.GraphicsProtocol);
 				}
 			}
 			catch (Exception ex)
@@ -692,6 +694,7 @@ namespace SharpConsoleUI.Html
 			public bool ShowImages;
 			public Dictionary<string, Imaging.PixelBuffer?>? ImageCache;
 			public IDocument? CssDocument;
+			public Drivers.IGraphicsProtocol? GraphicsProtocol;
 
 			public List<LayoutLine> Lines = new();
 			public List<INode> InlineBuffer = new();

@@ -8,6 +8,8 @@
 
 #pragma warning disable CS1591
 
+using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Imaging;
 using SharpConsoleUI.Layout;
 
@@ -15,9 +17,12 @@ namespace SharpConsoleUI.Html
 {
 	/// <summary>
 	/// Fetches images from URLs and converts them to Cell arrays for embedding in HTML layout lines.
+	/// Supports Kitty graphics protocol when available, with half-block fallback.
 	/// </summary>
 	public static class HtmlImageLoader
 	{
+		private static uint _nextImageId;
+
 		internal static readonly HttpClient HttpClient = new()
 		{
 			DefaultRequestHeaders =
@@ -30,7 +35,8 @@ namespace SharpConsoleUI.Html
 		/// Fetches an image from a URL and renders it as Cell rows for embedding in HTML layout.
 		/// Returns null if fetch fails or URL is invalid.
 		/// </summary>
-		public static async Task<Cell[][]?> LoadAndRenderAsync(string url, int maxWidthChars, Color background)
+		public static async Task<Cell[][]?> LoadAndRenderAsync(string url, int maxWidthChars, Color background,
+			IGraphicsProtocol? graphicsProtocol = null)
 		{
 			url = NormalizeUrl(url);
 			byte[] imageBytes;
@@ -60,14 +66,15 @@ namespace SharpConsoleUI.Html
 			using var stream = new MemoryStream(imageBytes);
 			var pixelBuffer = PixelBuffer.FromStream(stream);
 
-			return RenderFromBuffer(pixelBuffer, maxWidthChars, background);
+			return RenderFromBuffer(pixelBuffer, maxWidthChars, background, graphicsProtocol);
 		}
 
 		/// <summary>
 		/// Synchronous version that fetches an image from a URL and renders it as Cell rows.
 		/// Returns null if fetch fails or URL is invalid.
 		/// </summary>
-		public static Cell[][]? LoadAndRender(string url, int maxWidthChars, Color background)
+		public static Cell[][]? LoadAndRender(string url, int maxWidthChars, Color background,
+			IGraphicsProtocol? graphicsProtocol = null)
 		{
 			url = NormalizeUrl(url);
 			if (url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
@@ -76,7 +83,7 @@ namespace SharpConsoleUI.Html
 				if (imageBytes.Length == 0) return null;
 				using var stream = new MemoryStream(imageBytes);
 				var pixelBuffer = PixelBuffer.FromStream(stream);
-				return RenderFromBuffer(pixelBuffer, maxWidthChars, background);
+				return RenderFromBuffer(pixelBuffer, maxWidthChars, background, graphicsProtocol);
 			}
 
 			if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
@@ -92,19 +99,20 @@ namespace SharpConsoleUI.Html
 			var bytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
 			using var ms = new MemoryStream(bytes);
 			var buffer = PixelBuffer.FromStream(ms);
-			return RenderFromBuffer(buffer, maxWidthChars, background);
+			return RenderFromBuffer(buffer, maxWidthChars, background, graphicsProtocol);
 		}
 
 		/// <summary>
 		/// Renders an already-loaded PixelBuffer as Cell rows for embedding in HTML layout.
+		/// Uses Kitty graphics protocol when available, otherwise falls back to half-block rendering.
 		/// </summary>
-		public static Cell[][]? RenderFromBuffer(PixelBuffer buffer, int maxWidthChars, Color background)
+		public static Cell[][]? RenderFromBuffer(PixelBuffer buffer, int maxWidthChars, Color background,
+			IGraphicsProtocol? graphicsProtocol = null)
 		{
 			if (maxWidthChars <= 0)
 				return null;
 
 			// Natural width in terminal columns, clamped to available space.
-			// ImagePxToCharRatio converts pixel width to terminal column width.
 			int naturalCols = Math.Max(1, (int)Math.Ceiling(buffer.Width / HtmlConstants.ImagePxToCharRatio));
 			int targetWidth = Math.Min(naturalCols, maxWidthChars);
 			if (targetWidth <= 0)
@@ -116,9 +124,60 @@ namespace SharpConsoleUI.Html
 			if (targetHeight < 1)
 				targetHeight = 1;
 
-			var cellGrid = HalfBlockRenderer.RenderScaled(buffer, targetWidth, targetHeight, background);
+			if (graphicsProtocol != null && graphicsProtocol.SupportsKittyGraphics)
+				return RenderKitty(buffer, targetWidth, targetHeight, background, graphicsProtocol);
 
-			// cellGrid is Cell[cols, rows] — convert to Cell[][] (array of rows)
+			return RenderHalfBlock(buffer, targetWidth, targetHeight, background);
+		}
+
+		/// <summary>
+		/// Renders using half-block characters (universal fallback).
+		/// </summary>
+		private static Cell[][] RenderHalfBlock(PixelBuffer buffer, int targetWidth, int targetHeight, Color background)
+		{
+			var cellGrid = HalfBlockRenderer.RenderScaled(buffer, targetWidth, targetHeight, background);
+			return CellGridToRows(cellGrid);
+		}
+
+		/// <summary>
+		/// Renders using Kitty graphics protocol: transmits the image and returns placeholder cells.
+		/// </summary>
+		private static Cell[][] RenderKitty(PixelBuffer buffer, int targetWidth, int targetHeight,
+			Color background, IGraphicsProtocol protocol)
+		{
+			// Encode PNG at source resolution — Kitty scales to fit
+			var pngData = KittyProtocol.EncodePng(buffer);
+
+			// Allocate image ID and transmit
+			uint imageId = Interlocked.Increment(ref _nextImageId);
+			protocol.TransmitImage(imageId, pngData, targetWidth, targetHeight);
+
+			// Build placeholder cell rows
+			Color idFg = KittyProtocol.ImageIdToForegroundColor(imageId);
+			var result = new Cell[targetHeight][];
+
+			for (int row = 0; row < targetHeight; row++)
+			{
+				var rowCells = new Cell[targetWidth];
+				for (int col = 0; col < targetWidth; col++)
+				{
+					string combiners = KittyProtocol.BuildPlaceholderCombiners(row, col);
+					rowCells[col] = new Cell(ImagingDefaults.KittyPlaceholder, idFg, background)
+					{
+						Combiners = combiners
+					};
+				}
+				result[row] = rowCells;
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Converts a Cell[cols, rows] grid to a Cell[][] array of rows.
+		/// </summary>
+		private static Cell[][] CellGridToRows(Cell[,] cellGrid)
+		{
 			int cols = cellGrid.GetLength(0);
 			int rows = cellGrid.GetLength(1);
 			var result = new Cell[rows][];

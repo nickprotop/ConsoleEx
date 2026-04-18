@@ -671,13 +671,15 @@ namespace SharpConsoleUI.Controls
 
 				try
 				{
+					var gp = Container?.GetConsoleWindowSystem?.ConsoleDriver as Drivers.IGraphicsProtocol;
 					_layoutResult = _layoutEngine.Layout(
 						capturedHtml,
 						capturedWidth, fg, bg,
 						_blockSpacing, _linkColor, _visitedLinkColor,
 						capturedBaseUrl,
 						showImages: true,
-						imageCache: imageCache);
+						imageCache: imageCache,
+						graphicsProtocol: gp);
 				}
 				catch
 				{
@@ -739,6 +741,7 @@ namespace SharpConsoleUI.Controls
 
 			try
 			{
+				var gp = Container?.GetConsoleWindowSystem?.ConsoleDriver as Drivers.IGraphicsProtocol;
 				_layoutResult = _layoutEngine.Layout(
 					_rawHtml,
 					width,
@@ -748,7 +751,8 @@ namespace SharpConsoleUI.Controls
 					_linkColor,
 					_visitedLinkColor,
 					_baseUrl,
-					_showImages);
+					_showImages,
+					graphicsProtocol: gp);
 			}
 			catch (Exception ex)
 			{

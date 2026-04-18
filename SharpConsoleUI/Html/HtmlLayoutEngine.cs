@@ -132,7 +132,8 @@ namespace SharpConsoleUI.Html
 			Color? visitedLinkColor = null,
 			string? baseUrl = null,
 			bool showImages = false,
-			Dictionary<string, Imaging.PixelBuffer?>? imageCache = null)
+			Dictionary<string, Imaging.PixelBuffer?>? imageCache = null,
+			Drivers.IGraphicsProtocol? graphicsProtocol = null)
 		{
 			// Only re-parse if HTML content or base URL changed
 			if (html != _cachedHtml || baseUrl != _cachedBaseUrl || _cachedDocument == null)
@@ -149,7 +150,7 @@ namespace SharpConsoleUI.Html
 				}
 			}
 
-			return LayoutDocument(_cachedDocument, maxWidth, defaultFg, defaultBg, blockSpacing, linkColor, visitedLinkColor, showImages, imageCache);
+			return LayoutDocument(_cachedDocument, maxWidth, defaultFg, defaultBg, blockSpacing, linkColor, visitedLinkColor, showImages, imageCache, graphicsProtocol);
 		}
 
 		/// <summary>
@@ -164,7 +165,8 @@ namespace SharpConsoleUI.Html
 			Color? linkColor = null,
 			Color? visitedLinkColor = null,
 			bool showImages = false,
-			Dictionary<string, Imaging.PixelBuffer?>? imageCache = null)
+			Dictionary<string, Imaging.PixelBuffer?>? imageCache = null,
+			Drivers.IGraphicsProtocol? graphicsProtocol = null)
 		{
 			var body = document.Body;
 			if (body == null)
@@ -182,7 +184,8 @@ namespace SharpConsoleUI.Html
 				visitedLinkColor,
 				showImages,
 				imageCache,
-				_cssDocument);
+				_cssDocument,
+				graphicsProtocol);
 
 			// Reassign Y positions sequentially
 			int y = 0;
