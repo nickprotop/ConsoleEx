@@ -739,6 +739,38 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <inheritdoc />
+		public void TransmitRawRgb(uint imageId, byte[] rgbData, int pixelWidth, int pixelHeight, int columns, int rows)
+		{
+			var chunks = Imaging.KittyProtocol.BuildRawRgbTransmitChunks(imageId, rgbData, pixelWidth, pixelHeight, columns, rows);
+			lock (_consoleLock)
+			{
+				foreach (var chunk in chunks)
+				{
+					if (TerminalRawMode.IsRawModeActive)
+						TerminalRawMode.WriteStdout(chunk);
+					else
+						Console.Write(chunk);
+				}
+			}
+		}
+
+		/// <inheritdoc />
+		public void UpdateRawRgbFrame(uint imageId, byte[] rgbData, int pixelWidth, int pixelHeight)
+		{
+			var chunks = Imaging.KittyProtocol.BuildRawRgbFrameUpdateChunks(imageId, rgbData, pixelWidth, pixelHeight);
+			lock (_consoleLock)
+			{
+				foreach (var chunk in chunks)
+				{
+					if (TerminalRawMode.IsRawModeActive)
+						TerminalRawMode.WriteStdout(chunk);
+					else
+						Console.Write(chunk);
+				}
+			}
+		}
+
 		/// <summary>
 		/// Gets the count of dirty characters in the rendering buffer.
 		/// </summary>

@@ -8,8 +8,12 @@ namespace SharpConsoleUI.Configuration
     /// </summary>
     public static class VideoDefaults
     {
-        /// <summary>Default render mode for VideoControl.</summary>
-        public const VideoRenderMode DefaultRenderMode = VideoRenderMode.HalfBlock;
+        /// <summary>
+        /// Default render mode for VideoControl. Auto picks Kitty graphics when the
+        /// terminal supports it, otherwise falls back to HalfBlock (identical to the
+        /// previous default on non-Kitty terminals).
+        /// </summary>
+        public const VideoRenderMode DefaultRenderMode = VideoRenderMode.Auto;
 
         /// <summary>Target frames per second for video playback.</summary>
         public const int DefaultTargetFps = 30;
@@ -79,5 +83,22 @@ namespace SharpConsoleUI.Configuration
             "  Linux:   sudo apt install ffmpeg\n" +
             "  macOS:   brew install ffmpeg\n" +
             "  Windows: winget install ffmpeg";
+
+        /// <summary>
+        /// Approximate terminal pixel density per cell column for Kitty mode. Lower values
+        /// reduce wire bandwidth at a modest quality cost (Kitty upscales the transmitted
+        /// buffer into the placement rectangle). 4 gives a good balance: ~4x less data than
+        /// a full native-density decode, virtually imperceptible quality loss for video.
+        /// </summary>
+        public const int KittyPixelsPerCellX = 4;
+
+        /// <summary>Approximate terminal pixel density per cell row for Kitty mode. See <see cref="KittyPixelsPerCellX"/>.</summary>
+        public const int KittyPixelsPerCellY = 8;
+
+        /// <summary>Upper bound on the FFmpeg decode width when Kitty mode is active (protects against excessive bandwidth).</summary>
+        public const int KittyMaxPixelWidth = 960;
+
+        /// <summary>Upper bound on the FFmpeg decode height when Kitty mode is active.</summary>
+        public const int KittyMaxPixelHeight = 540;
     }
 }

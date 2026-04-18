@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.IO.Compression;
 using System.Text;
 using SharpConsoleUI.Configuration;
 using SixLabors.ImageSharp;
@@ -171,6 +172,111 @@ namespace SharpConsoleUI.Imaging
 			}
 
 			return chunks;
+		}
+
+		/// <summary>
+		/// Builds the Kitty APC escape sequence chunks for transmitting a raw RGB24 image
+		/// (Kitty format <c>f=24</c>). The image is placed via virtual placements at the
+		/// given column/row span, and <c>q=2</c> suppresses terminal responses so per-frame
+		/// video transmissions do not flood stdin.
+		/// </summary>
+		/// <param name="imageId">Image identifier (reused across frames to update in place).</param>
+		/// <param name="rgbData">Raw RGB24 pixel data: <paramref name="pixelWidth"/> * <paramref name="pixelHeight"/> * 3 bytes, row-major.</param>
+		/// <param name="pixelWidth">Pixel width of the image being transmitted.</param>
+		/// <param name="pixelHeight">Pixel height of the image being transmitted.</param>
+		/// <param name="columns">Number of terminal columns the placement spans.</param>
+		/// <param name="rows">Number of terminal rows the placement spans.</param>
+		public static List<string> BuildRawRgbTransmitChunks(uint imageId, byte[] rgbData, int pixelWidth, int pixelHeight, int columns, int rows)
+		{
+			byte[] compressed = CompressZlib(rgbData);
+			var chunks = new List<string>();
+			string base64 = Convert.ToBase64String(compressed);
+			int chunkSize = ImagingDefaults.KittyChunkSize;
+			int offset = 0;
+
+			while (offset < base64.Length)
+			{
+				int remaining = base64.Length - offset;
+				int thisChunk = Math.Min(remaining, chunkSize);
+				bool isFirst = offset == 0;
+				bool isLast = offset + thisChunk >= base64.Length;
+				string payload = base64.Substring(offset, thisChunk);
+
+				var sb = new StringBuilder(thisChunk + 96);
+				sb.Append("\x1b_G");
+
+				if (isFirst)
+					sb.Append($"a=T,f=24,i={imageId},s={pixelWidth},v={pixelHeight},o=z,U=1,c={columns},r={rows},q=2,");
+				sb.Append(isLast ? "m=0" : "m=1");
+				sb.Append(';');
+				sb.Append(payload);
+				sb.Append("\x1b\\");
+
+				chunks.Add(sb.ToString());
+				offset += thisChunk;
+			}
+
+			return chunks;
+		}
+
+		/// <summary>
+		/// Builds the Kitty APC escape sequence chunks for <b>updating</b> the root frame
+		/// (<c>r=1</c>) of an already-transmitted image with fresh raw RGB24 data. This is the
+		/// correct wire protocol for real-time video frame updates on a persistent virtual
+		/// placement: using <c>a=f,r=1</c> edits the root frame's pixel data in place without
+		/// deleting any placements that reference the image, which is what <c>a=T</c> would do.
+		/// </summary>
+		/// <param name="imageId">Image identifier of the previously-transmitted image to update.</param>
+		/// <param name="rgbData">Raw RGB24 pixel data: <paramref name="pixelWidth"/> * <paramref name="pixelHeight"/> * 3 bytes.</param>
+		/// <param name="pixelWidth">Pixel width of the new frame (should match the original transmit).</param>
+		/// <param name="pixelHeight">Pixel height of the new frame (should match the original transmit).</param>
+		public static List<string> BuildRawRgbFrameUpdateChunks(uint imageId, byte[] rgbData, int pixelWidth, int pixelHeight)
+		{
+			byte[] compressed = CompressZlib(rgbData);
+			var chunks = new List<string>();
+			string base64 = Convert.ToBase64String(compressed);
+			int chunkSize = ImagingDefaults.KittyChunkSize;
+			int offset = 0;
+
+			while (offset < base64.Length)
+			{
+				int remaining = base64.Length - offset;
+				int thisChunk = Math.Min(remaining, chunkSize);
+				bool isFirst = offset == 0;
+				bool isLast = offset + thisChunk >= base64.Length;
+				string payload = base64.Substring(offset, thisChunk);
+
+				var sb = new StringBuilder(thisChunk + 96);
+				sb.Append("\x1b_G");
+
+				if (isFirst)
+					sb.Append($"a=f,i={imageId},r=1,f=24,s={pixelWidth},v={pixelHeight},o=z,q=2,");
+				sb.Append(isLast ? "m=0" : "m=1");
+				sb.Append(';');
+				sb.Append(payload);
+				sb.Append("\x1b\\");
+
+				chunks.Add(sb.ToString());
+				offset += thisChunk;
+			}
+
+			return chunks;
+		}
+
+		/// <summary>
+		/// zlib-compresses the given data using <see cref="CompressionLevel.Fastest"/>. The
+		/// output carries the standard zlib header/adler32 trailer that Kitty's <c>o=z</c>
+		/// compression mode expects. "Fastest" trades a few percent of ratio for a big CPU
+		/// win — critical at 30 fps video where each compress call is on the hot path.
+		/// </summary>
+		private static byte[] CompressZlib(byte[] data)
+		{
+			using var ms = new MemoryStream(data.Length / 2);
+			using (var zs = new ZLibStream(ms, CompressionLevel.Fastest, leaveOpen: true))
+			{
+				zs.Write(data, 0, data.Length);
+			}
+			return ms.ToArray();
 		}
 
 		/// <summary>

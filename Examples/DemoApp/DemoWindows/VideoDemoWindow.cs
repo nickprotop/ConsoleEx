@@ -12,6 +12,9 @@ public static class VideoDemoWindow
 
     public static Window Create(ConsoleWindowSystem ws)
     {
+        // Default render mode is VideoRenderMode.Auto: Kitty graphics on supporting
+        // terminals (Kitty, WezTerm, Ghostty), half-block everywhere else. Press M to
+        // cycle through HalfBlock / Ascii / Braille / Kitty (when supported).
         var videoControl = Controls.Video()
             .Fill()
             .WithLooping()

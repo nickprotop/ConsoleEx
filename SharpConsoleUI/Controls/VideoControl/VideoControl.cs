@@ -7,14 +7,15 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Video;
 
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
-	/// Plays video files in the terminal using half-block, ASCII, or braille rendering.
-	/// Decodes frames via FFmpeg subprocess and renders at up to 30 fps.
+	/// Plays video files in the terminal using half-block, ASCII, braille, or Kitty graphics
+	/// rendering. Decodes frames via FFmpeg subprocess and renders at up to 30 fps.
 	/// Requires FFmpeg to be installed and on the system PATH.
 	/// </summary>
 	public partial class VideoControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
@@ -23,11 +24,10 @@ namespace SharpConsoleUI.Controls
 
 		private string? _source;
 		private VideoRenderMode _renderMode = VideoDefaults.DefaultRenderMode;
+		private VideoRenderMode _effectiveRenderMode = VideoDefaults.DefaultRenderMode;
 		private VideoPlaybackState _playbackState = VideoPlaybackState.Stopped;
 		private VideoFrameReader? _frameReader;
-		private Cell[,]? _currentFrameCells;
-		private int _frameCellWidth;
-		private int _frameCellHeight;
+		private IVideoFrameSink? _sink;
 		private readonly object _frameLock = new();
 		private CancellationTokenSource? _playbackCts;
 		private int _targetFps = VideoDefaults.DefaultTargetFps;
@@ -63,7 +63,11 @@ namespace SharpConsoleUI.Controls
 			set => SetProperty(ref _source, value);
 		}
 
-		/// <summary>Rendering mode: HalfBlock, Ascii, or Braille.</summary>
+		/// <summary>
+		/// Requested rendering mode. May differ from <see cref="EffectiveRenderMode"/> when
+		/// <see cref="VideoRenderMode.Auto"/> or <see cref="VideoRenderMode.Kitty"/> falls back
+		/// to HalfBlock on terminals without Kitty graphics support.
+		/// </summary>
 		public VideoRenderMode RenderMode
 		{
 			get => _renderMode;
@@ -72,6 +76,9 @@ namespace SharpConsoleUI.Controls
 				if (_renderMode == value) return;
 				_renderMode = value;
 				OnPropertyChanged();
+				// Invalidate current sink so the next paint (or the restarted playback) picks
+				// the right one for the new mode.
+				DisposeSink();
 				// Mode change requires restarting FFmpeg with different pixel dimensions.
 				// If currently playing, restart playback.
 				if (_playbackState == VideoPlaybackState.Playing)
@@ -79,6 +86,14 @@ namespace SharpConsoleUI.Controls
 				Container?.Invalidate(true);
 			}
 		}
+
+		/// <summary>
+		/// The render mode that is actually being used. Equal to <see cref="RenderMode"/> for
+		/// concrete modes (HalfBlock, Ascii, Braille); for <see cref="VideoRenderMode.Auto"/>
+		/// or <see cref="VideoRenderMode.Kitty"/>, this resolves to <see cref="VideoRenderMode.Kitty"/>
+		/// on Kitty-capable terminals and <see cref="VideoRenderMode.HalfBlock"/> elsewhere.
+		/// </summary>
+		public VideoRenderMode EffectiveRenderMode => _effectiveRenderMode;
 
 		/// <summary>Current playback state.</summary>
 		public VideoPlaybackState PlaybackState
@@ -215,14 +230,24 @@ namespace SharpConsoleUI.Controls
 			StopPlayback();
 		}
 
-		/// <summary>Cycles to the next render mode (HalfBlock -> Ascii -> Braille -> ...).</summary>
+		/// <summary>
+		/// Cycles to the next render mode. The cycle visits concrete modes only —
+		/// HalfBlock, Ascii, Braille, and (on Kitty-capable terminals) Kitty — skipping
+		/// <see cref="VideoRenderMode.Auto"/>. When invoked while in <see cref="VideoRenderMode.Auto"/>,
+		/// the cycle begins from HalfBlock so the user can step through the concrete options.
+		/// </summary>
 		public void CycleRenderMode()
 		{
+			bool kittyAvailable = (Container?.GetConsoleWindowSystem?.ConsoleDriver is IGraphicsProtocol gp)
+				&& gp.SupportsKittyGraphics;
+
 			RenderMode = _renderMode switch
 			{
 				VideoRenderMode.HalfBlock => VideoRenderMode.Ascii,
 				VideoRenderMode.Ascii => VideoRenderMode.Braille,
-				VideoRenderMode.Braille => VideoRenderMode.HalfBlock,
+				VideoRenderMode.Braille => kittyAvailable ? VideoRenderMode.Kitty : VideoRenderMode.HalfBlock,
+				VideoRenderMode.Kitty => VideoRenderMode.HalfBlock,
+				VideoRenderMode.Auto => VideoRenderMode.HalfBlock,
 				_ => VideoRenderMode.HalfBlock,
 			};
 		}
@@ -249,6 +274,81 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
+		#region Sink Resolution
+
+		/// <summary>
+		/// Returns the current frame sink, creating one on first access (or after a mode
+		/// change that invalidated the previous sink). Resolution table:
+		/// <list type="bullet">
+		///   <item><c>Auto</c> + Kitty support → <see cref="KittyVideoFrameSink"/> (silent).</item>
+		///   <item><c>Auto</c> + no Kitty → <see cref="CellVideoFrameSink"/> in HalfBlock (silent).</item>
+		///   <item><c>Kitty</c> + Kitty support → <see cref="KittyVideoFrameSink"/>.</item>
+		///   <item><c>Kitty</c> + no Kitty → <see cref="CellVideoFrameSink"/> in HalfBlock + warning surfaced via <see cref="ErrorMessage"/>.</item>
+		///   <item>Any concrete cell mode → <see cref="CellVideoFrameSink"/> in that mode.</item>
+		/// </list>
+		/// </summary>
+		private IVideoFrameSink ResolveSink()
+		{
+			if (_sink != null) return _sink;
+
+			var gp = Container?.GetConsoleWindowSystem?.ConsoleDriver as IGraphicsProtocol;
+			bool kittySupported = gp != null && gp.SupportsKittyGraphics;
+
+			switch (_renderMode)
+			{
+				case VideoRenderMode.Auto:
+					if (kittySupported)
+					{
+						_sink = new KittyVideoFrameSink(gp!);
+						_effectiveRenderMode = VideoRenderMode.Kitty;
+					}
+					else
+					{
+						_sink = new CellVideoFrameSink(VideoRenderMode.HalfBlock);
+						_effectiveRenderMode = VideoRenderMode.HalfBlock;
+					}
+					break;
+
+				case VideoRenderMode.Kitty:
+					if (kittySupported)
+					{
+						_sink = new KittyVideoFrameSink(gp!);
+						_effectiveRenderMode = VideoRenderMode.Kitty;
+					}
+					else
+					{
+						_sink = new CellVideoFrameSink(VideoRenderMode.HalfBlock);
+						_effectiveRenderMode = VideoRenderMode.HalfBlock;
+						ErrorMessage = "Kitty graphics not supported by this terminal —\nfalling back to HalfBlock rendering.";
+					}
+					break;
+
+				default:
+					_sink = new CellVideoFrameSink(_renderMode);
+					_effectiveRenderMode = _renderMode;
+					break;
+			}
+
+			return _sink;
+		}
+
+		private void DisposeSink()
+		{
+			IVideoFrameSink? sink;
+			lock (_frameLock)
+			{
+				sink = _sink;
+				_sink = null;
+			}
+			if (sink != null)
+			{
+				try { sink.OnStopped(); } catch { /* terminal-side cleanup is best-effort */ }
+				sink.Dispose();
+			}
+		}
+
+		#endregion
+
 		#region Disposal
 
 		/// <summary>
@@ -257,6 +357,7 @@ namespace SharpConsoleUI.Controls
 		protected override void OnDisposing()
 		{
 			StopPlayback();
+			DisposeSink();
 			PlaybackStateChanged = null;
 			PlaybackEnded = null;
 		}

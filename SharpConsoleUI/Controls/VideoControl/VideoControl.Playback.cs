@@ -46,6 +46,11 @@ namespace SharpConsoleUI.Controls
 			_frameReader?.Dispose();
 			_frameReader = null;
 
+			// Release any terminal-side state held by the sink (e.g. transmitted Kitty images)
+			// without destroying the sink itself — the user may press Play again and we want
+			// the mode resolution to stick.
+			_sink?.OnStopped();
+
 			PlaybackState = VideoPlaybackState.Stopped;
 		}
 
@@ -75,8 +80,13 @@ namespace SharpConsoleUI.Controls
 					return;
 				}
 
-				// Clear any previous error
-				Container?.GetConsoleWindowSystem?.EnqueueOnUIThread(() => ErrorMessage = null);
+				// Clear any previous error (only if it was a transient one like FFmpeg-not-found;
+				// the Kitty-fallback warning surfaced by ResolveSink is intentional and sticky)
+				Container?.GetConsoleWindowSystem?.EnqueueOnUIThread(() =>
+				{
+					if (ErrorMessage == VideoDefaults.FfmpegNotFoundMessage)
+						ErrorMessage = null;
+				});
 
 				// Determine target cell size from current layout bounds
 				int cellCols = Math.Max(1, ActualWidth - Margin.Left - Margin.Right);
@@ -89,7 +99,8 @@ namespace SharpConsoleUI.Controls
 					cellRows = VideoDefaults.FallbackCellRows;
 				}
 
-				var (pixW, pixH) = VideoFrameRenderer.GetRequiredPixelSize(cellCols, cellRows, _renderMode);
+				var sink = ResolveSink();
+				var (pixW, pixH) = sink.GetPreferredPixelSize(cellCols, cellRows);
 
 				// Ensure even dimensions (FFmpeg requirement for many codecs)
 				pixW = Math.Max(2, pixW + (pixW % 2));
@@ -100,11 +111,6 @@ namespace SharpConsoleUI.Controls
 				double fps = Math.Min(_frameReader.Fps, _targetFps);
 				double spf = 1.0 / fps; // seconds per frame
 				var frameBuffer = new byte[_frameReader.FrameSize];
-
-				// Pre-allocate cell buffer to avoid per-frame GC allocation (CLAUDE.md rule 3)
-				var (expectedCellW, expectedCellH) = VideoFrameRenderer.GetCellDimensions(
-					_frameReader.Width, _frameReader.Height, _renderMode);
-				var cellBuffer = new Cell[expectedCellW, expectedCellH];
 
 				var sw = Stopwatch.StartNew();
 
@@ -151,20 +157,13 @@ namespace SharpConsoleUI.Controls
 						return;
 					}
 
-					// Render frame into pre-allocated cell buffer
+					// Hand the frame to the sink (cell mode: renders to cells; Kitty mode:
+					// transmits to terminal). The sink is thread-safe against concurrent Paint.
+					// We pass the target cell dimensions explicitly so the Kitty sink transmits
+					// at the correct placement size on the very first frame — a Paint hasn't
+					// necessarily run yet when the first frame arrives.
 					var bg = Container?.BackgroundColor ?? Color.Black;
-					VideoFrameRenderer.RenderFrameInto(
-						cellBuffer, frameBuffer, _frameReader.Width, _frameReader.Height,
-						_renderMode, bg,
-						out int cw, out int ch);
-
-					// Swap frame reference (thread-safe)
-					lock (_frameLock)
-					{
-						_currentFrameCells = cellBuffer;
-						_frameCellWidth = cw;
-						_frameCellHeight = ch;
-					}
+					sink.IngestFrame(frameBuffer, _frameReader.Width, _frameReader.Height, cellCols, cellRows, bg);
 
 					_frameCount++;
 					_currentTime = _frameCount * spf;

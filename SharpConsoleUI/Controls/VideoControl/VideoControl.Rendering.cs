@@ -72,22 +72,12 @@ namespace SharpConsoleUI.Controls
 			_lastRenderedCols = availW;
 			_lastRenderedRows = availH;
 
-			Cell[,]? cells;
-			int cellW, cellH;
-
-			lock (_frameLock)
-			{
-				cells = _currentFrameCells;
-				cellW = _frameCellWidth;
-				cellH = _frameCellHeight;
-			}
-
-			// Show error message (e.g., FFmpeg not found) centered in the control
+			// Show error message (e.g., FFmpeg not found, or Kitty-requested-but-unsupported)
+			// centered in the control.
 			if (_errorMessage != null)
 			{
 				var lines = _errorMessage.Split('\n');
 				int msgY = contentY + Math.Max(0, (availH - lines.Length) / 2);
-				// Fill background
 				for (int y = contentY; y < contentY + availH && y < bounds.Bottom; y++)
 				{
 					if (y < clipRect.Y || y >= clipRect.Bottom) continue;
@@ -97,7 +87,6 @@ namespace SharpConsoleUI.Controls
 						buffer.SetNarrowCell(x, y, ' ', fg, windowBg);
 					}
 				}
-				// Write message lines centered
 				var warnColor = new Color(255, 180, 50);
 				for (int li = 0; li < lines.Length; li++)
 				{
@@ -116,80 +105,11 @@ namespace SharpConsoleUI.Controls
 				return;
 			}
 
-			if (cells == null)
-			{
-				// No frame yet — fill with background
-				for (int y = contentY; y < contentY + availH && y < bounds.Bottom; y++)
-				{
-					if (y < clipRect.Y || y >= clipRect.Bottom) continue;
-					for (int x = contentX; x < contentX + availW && x < bounds.Right; x++)
-					{
-						if (x < clipRect.X || x >= clipRect.Right) continue;
-						buffer.SetNarrowCell(x, y, ' ', fg, windowBg);
-					}
-				}
-				return;
-			}
-
-			// Center the frame cells within available space
-			int offsetX = Math.Max(0, (availW - cellW) / 2);
-			int offsetY = Math.Max(0, (availH - cellH) / 2);
-			int displayW = Math.Min(cellW, availW);
-			int displayH = Math.Min(cellH, availH);
-
-			// Fill top gap (if frame is smaller than available)
-			for (int y = contentY; y < contentY + offsetY && y < bounds.Bottom; y++)
-			{
-				if (y < clipRect.Y || y >= clipRect.Bottom) continue;
-				for (int x = contentX; x < contentX + availW && x < bounds.Right; x++)
-				{
-					if (x < clipRect.X || x >= clipRect.Right) continue;
-					buffer.SetNarrowCell(x, y, ' ', fg, windowBg);
-				}
-			}
-
-			// Render frame cells
-			for (int cy = 0; cy < displayH; cy++)
-			{
-				int y = contentY + offsetY + cy;
-				if (y >= bounds.Bottom || y < clipRect.Y || y >= clipRect.Bottom) continue;
-
-				// Left gap
-				for (int x = contentX; x < contentX + offsetX && x < bounds.Right; x++)
-				{
-					if (x >= clipRect.X && x < clipRect.Right)
-						buffer.SetNarrowCell(x, y, ' ', fg, windowBg);
-				}
-
-				// Frame cells
-				for (int cx = 0; cx < displayW && cx < cellW; cx++)
-				{
-					int x = contentX + offsetX + cx;
-					if (x >= bounds.Right) break;
-					if (x >= clipRect.X && x < clipRect.Right)
-						buffer.SetCell(x, y, cells[cx, cy]);
-				}
-
-				// Right gap
-				int rightStart = contentX + offsetX + displayW;
-				for (int x = rightStart; x < contentX + availW && x < bounds.Right; x++)
-				{
-					if (x >= clipRect.X && x < clipRect.Right)
-						buffer.SetNarrowCell(x, y, ' ', fg, windowBg);
-				}
-			}
-
-			// Fill bottom gap
-			int contentBottom = contentY + offsetY + displayH;
-			for (int y = contentBottom; y < contentY + availH && y < bounds.Bottom; y++)
-			{
-				if (y < clipRect.Y || y >= clipRect.Bottom) continue;
-				for (int x = contentX; x < contentX + availW && x < bounds.Right; x++)
-				{
-					if (x < clipRect.X || x >= clipRect.Right) continue;
-					buffer.SetNarrowCell(x, y, ' ', fg, windowBg);
-				}
-			}
+			// Delegate frame rendering to the active sink (cell-based or Kitty). The sink
+			// handles centering, gap fill, and clipping internally. Resolves on first paint.
+			var contentRect = new LayoutRect(contentX, contentY, availW, availH);
+			var sink = ResolveSink();
+			sink.Paint(buffer, contentRect, clipRect, fg, windowBg);
 
 			// Overlay: auto-hide check + render if visible
 			UpdateOverlayVisibility();

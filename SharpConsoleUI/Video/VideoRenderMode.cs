@@ -23,6 +23,21 @@ namespace SharpConsoleUI.Video
         /// region using Unicode braille characters (U+2800-U+28FF).
         /// Highest spatial resolution.
         /// </summary>
-        Braille
+        Braille,
+
+        /// <summary>
+        /// Kitty graphics protocol rendering. Transmits raw RGB frames to the
+        /// terminal and displays them as a true-color pixel-accurate image via
+        /// virtual placements. Requires a Kitty-compatible terminal (Kitty,
+        /// WezTerm, Ghostty). Falls back to <see cref="HalfBlock"/> if unsupported.
+        /// </summary>
+        Kitty,
+
+        /// <summary>
+        /// Automatically select the best available renderer: Kitty graphics if
+        /// the terminal supports it, otherwise <see cref="HalfBlock"/>. This is
+        /// the default render mode and gives optimal output on every terminal.
+        /// </summary>
+        Auto
     }
 }

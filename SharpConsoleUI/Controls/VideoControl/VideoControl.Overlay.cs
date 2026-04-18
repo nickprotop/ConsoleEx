@@ -71,7 +71,8 @@ namespace SharpConsoleUI.Controls
 
 			string timeStr = FormatTime(_currentTime);
 			string durationStr = DurationSeconds > 0 ? $" / {FormatTime(DurationSeconds)}" : "";
-			string modeStr = _renderMode.ToString();
+			// Show the mode actually in use (so Auto resolves to Kitty/HalfBlock in the overlay)
+			string modeStr = _effectiveRenderMode.ToString();
 			string loopStr = _looping ? " Loop" : "";
 
 			string leftText = $" {stateIcon} {timeStr}{durationStr}";
