@@ -335,7 +335,7 @@ dotnet run --project Examples/DemoApp
 ---
 
 ### Video Player (DemoApp)
-Play video files directly in the terminal with three render modes.
+Play video files directly in the terminal. Kitty graphics for pixel-accurate playback on supporting terminals, with automatic fallback to cell-based rendering elsewhere.
 
 ![Video Player](images/examples/video-playback.gif)
 
@@ -345,7 +345,10 @@ dotnet run --project Examples/DemoApp
 ```
 
 **Key Features:**
-- Half-block, ASCII, and braille render modes (press M to cycle live)
+- Four render modes — Kitty graphics (Kitty/WezTerm/Ghostty), half-block, ASCII, braille
+- `Auto` is the default — picks Kitty when supported, half-block otherwise
+- Press **M** to cycle concrete modes live; the overlay shows the effective mode
+- Kitty path uses zlib-compressed raw RGB frame updates (`a=f,r=1`, `o=z`) for smooth in-place playback
 - FFmpeg subprocess decoding — no extra NuGet dependencies
 - Dynamic resize — restarts at new resolution when window is dragged
 - Overlay status bar — appears on keypress, auto-hides after 3 seconds

@@ -45,8 +45,9 @@ not by a full-screen repaint.
 
 This architecture makes things possible that other .NET terminal libraries
 don't do: overlapping windows with drag/resize/minimize/maximize, animated
-desktop backgrounds, a PTY-backed terminal emulator, video playback in three
-render modes, and compositor hooks for blur, fade, and custom effects.
+desktop backgrounds, a PTY-backed terminal emulator, video playback with Kitty
+graphics + cell-based fallbacks, and compositor hooks for blur, fade, and custom
+effects.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -223,7 +224,7 @@ lazygit-inspired. Browse, update, install, search NuGet.org. Cross-platform.
 | PreBufferPaint / PostBufferPaint compositor hooks | None |
 | Per-window async threads | None |
 | PTY-backed terminal emulator control | None |
-| Video playback (half-block, ASCII, braille) | None |
+| Video playback (Kitty graphics + half-block/ASCII/braille) | None |
 | Animated desktop backgrounds | None |
 | Portal system for dropdowns and overlays | None |
 | Plugin architecture (themes, controls, windows, services) | None |
@@ -247,7 +248,7 @@ LogViewer, SpectreRenderableControl, LineGraph, SparklineControl, BarGraph
 HorizontalGrid, ScrollablePanel, SplitterControl, StatusBarControl
 
 **Drawing:** CanvasControl (30+ primitives), ImageControl (Kitty graphics protocol + half-block fallback),
-VideoControl (FFmpeg, three render modes), TerminalControl (PTY, Linux)
+VideoControl (FFmpeg — Kitty graphics + half-block/ASCII/braille fallbacks), TerminalControl (PTY, Linux)
 
 **Selection:** ListControl, TableControl (virtual data, 10k+ rows, sort, filter,
 inline edit), TreeControl
