@@ -197,6 +197,13 @@ Works over SSH and in containers.
 14 monitoring widgets. Real-time CPU, memory, disk, network, Docker, systemd.
 [github.com/nickprotop/ServerHub](https://github.com/nickprotop/ServerHub)
 
+### CXFiles — terminal file manager
+
+![CXFiles](docs/images/examples/cxfiles-screenshot.png)
+
+Explorer-style three-pane layout with folder tree, file list, and detail panel. Tabs, image preview with Kitty graphics protocol, properties dialog, trash support.
+[github.com/nickprotop/cxfiles](https://github.com/nickprotop/cxfiles)
+
 ### LazyNuGet — NuGet package manager TUI
 
 ![LazyNuGet](docs/images/examples/lazynuget-dashboard.png)
