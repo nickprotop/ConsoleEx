@@ -14,67 +14,81 @@ using SharpConsoleUI.Layout;
 namespace SharpConsoleUI.Video
 {
     /// <summary>
-    /// Kitty graphics protocol video frame sink. Uses the protocol's <b>animation frame
-    /// update</b> path (<c>a=f,r=1</c>) for real-time playback: the image is transmitted
-    /// once with a virtual placement (<c>a=T,U=1,c=…,r=…</c>), and subsequent frames edit
-    /// frame 1 in place. This is the only sequence that avoids the "retransmit with same id
-    /// deletes all placements" behaviour specified in the Kitty graphics protocol — without
-    /// it, in-place video updates flicker or go black.
+    /// Kitty graphics protocol video frame sink. Transmits every frame with
+    /// <c>a=T,U=1</c> (full image transmission that atomically recreates the
+    /// image and its virtual-placement spec), alternating between two image ids
+    /// so the placeholder cells' foreground color changes frame-to-frame and
+    /// the buffer diff always re-emits them.
     /// </summary>
     /// <remarks>
-    /// <para>Per the Kitty spec, sending <c>a=T</c> with an existing image id deletes the image
-    /// and every placement referencing it; <c>a=f</c> with <c>r=1</c> replaces the root
-    /// frame's pixel data without disturbing the placement.</para>
-    /// <para>However, Kitty does not automatically redraw the placement when the underlying
-    /// frame data changes — the client has to write the placeholder cells again to prompt
-    /// the terminal to re-render them against the new pixels. (Observable as "frames only
-    /// appear when the window moves," because a window move is the one path that naturally
-    /// re-emits every cell.) We force that redraw by flipping one invisible bit of the cell
-    /// background on every frame, which makes the buffer diff re-emit the cells without
-    /// tearing down the placement — no strobing, no work beyond a diff that was going to
-    /// happen anyway.</para>
+    /// <para>This is the same strategy mpv's <c>vo_kitty</c> uses — see
+    /// <see href="https://github.com/mpv-player/mpv/blob/master/video/out/vo_kitty.c">
+    /// mpv/video/out/vo_kitty.c</see>, which retransmits with <c>a=T</c> on
+    /// every <c>flip_page</c> and never issues <c>a=f</c>. The in-place edit
+    /// path (<c>a=f,r=1</c>), while cheaper on paper, is unreliable: Kitty
+    /// has no "redraw placements now" primitive, and empirically the
+    /// placements keep showing stale pixel data even after <c>a=f,r=1</c>
+    /// updates the underlying frame — the user-visible symptom was a rare
+    /// black frame that would "stick" until R (<c>ForceRefresh</c>) forced a
+    /// fresh image id, which then worked because it happened to do what
+    /// we now do every frame. Retransmitting with <c>a=T</c> deletes the
+    /// image + its placements and creates them fresh in one atomic APC
+    /// sequence, so the placement is guaranteed to render against the
+    /// newly-uploaded pixel data on the next cell re-emission.</para>
+    /// <para>Two image ids are used and alternated. Placeholder cells encode
+    /// the image id in their foreground color, so alternating ids means the
+    /// cells switch fg every frame → the SharpConsoleUI buffer diff always
+    /// detects a change and re-emits the cells, which is what prompts Kitty
+    /// to render the (now-fresh) placement. Two ids are also what lets the
+    /// just-retransmitted slot's placement be ready before Paint writes cells
+    /// referencing it: the previously-active slot keeps rendering its image
+    /// until Paint flips the cells to the new slot.</para>
+    /// <para>The slot flip is <i>published</i> to Paint only after the
+    /// protocol I/O completes. That prevents a race where Paint reads the
+    /// new slot id, re-emits cells referencing it, and the terminal tries to
+    /// render a placement whose <c>a=T</c> command hasn't yet arrived —
+    /// which was the original cause of the rare stuck-black-frame state this
+    /// design replaces.</para>
     /// </remarks>
     internal sealed class KittyVideoFrameSink : IVideoFrameSink
     {
         private static uint _nextImageId;
 
+        private enum Slot { None, A, B }
+
         private readonly IGraphicsProtocol _protocol;
         private readonly object _lock = new();
 
-        private uint _imageId;
-        private bool _imageCreated;
-        // The pixel dimensions of the image as originally transmitted. If FFmpeg's output
-        // size changes mid-playback we have to tear down and recreate the placement
-        // (a=f,r=1 expects the same s/v as the initial transmit).
+        // Two image-id slots. Each IngestFrame alternates which slot carries
+        // the new frame, and transmits with a=T so the slot's image +
+        // virtual-placement spec is atomically recreated every frame.
+        private uint _imageIdA;
+        private uint _imageIdB;
+
+        // The slot whose id Paint currently references. Updated AFTER the
+        // protocol I/O for the new slot has completed, so placeholder cells
+        // are never re-emitted against an id whose a=T is still in flight
+        // to the terminal.
+        private Slot _currentSlot;
+        private uint _currentImageId;
+
+        // Placement dimensions (shared across both slots).
         private int _transmittedPixelWidth;
         private int _transmittedPixelHeight;
         private int _placementCols;
         private int _placementRows;
-        // Image id scheduled to be deleted on the NEXT IngestFrame. When we recreate on a
-        // dimension change we keep the old image alive for one extra frame so cells still
-        // referencing it keep rendering while Paint runs and transitions the cells to the
-        // new id. Without this, the delete-before-Paint window shows a brief black flash.
-        private uint _pendingDeletionId;
-        // Set by ForceRefresh(); read and cleared on next IngestFrame which then behaves
-        // like a dimension-change recreation. User-triggered escape hatch from the rare
-        // stuck-black state that the protocol can get into on live frame updates.
+
+        // Ids retired by a dimension change or ForceRefresh, to be deleted on
+        // the NEXT IngestFrame — the existing placeholder cells keep
+        // rendering against the old ids for one more frame while Paint
+        // migrates them, avoiding a one-frame black flash during the
+        // transition. Bounded to two (both slots at once).
+        private readonly List<uint> _pendingDeletionIds = new(2);
+
+        // Set by ForceRefresh(); consumed on the next IngestFrame, which
+        // retires both slots and allocates fresh ids. User-triggered recovery
+        // via the R keybind — kept as a zero-cost safety hatch.
         private bool _refreshRequested;
-        // True when a new frame has been transmitted but not yet reflected in Paint. Paint
-        // clears it and (if true) flips the cell-background parity so the buffer diff sees
-        // a change and re-emits the placeholder cells — which prompts Kitty to redraw the
-        // placement against the freshly uploaded frame data (a=f,r=1 alone does not).
-        private bool _newFramePending;
-        // The cell-bg parity we wrote on the last Paint. Paint uses this + _newFramePending
-        // to decide whether the next write needs the opposite parity (to guarantee the
-        // buffer diff sees a change) or should stay identical (no-op paint, don't flood the
-        // terminal with redraws when nothing has changed).
-        //
-        // Using a simple toggle on IngestFrame was wrong: if two IngestFrames fired between
-        // Paints (frame skip catch-up, any render-thread delay) the toggle would cycle back
-        // to its previous value and Paint would write cells identical to the last Paint,
-        // emitting nothing — the terminal then held stale pixels indefinitely until
-        // something else (window move, resize) forced a cell redraw.
-        private bool _lastWrittenParity;
         private bool _disposed;
 
         public KittyVideoFrameSink(IGraphicsProtocol protocol)
@@ -87,76 +101,85 @@ namespace SharpConsoleUI.Video
             if (pixelWidth <= 0 || pixelHeight <= 0) return;
             if (targetCols <= 0 || targetRows <= 0) return;
 
-            // Snapshot state under lock; decide whether this is the initial transmit or an
-            // in-place update. Do the actual protocol I/O outside the lock so a slow terminal
-            // can't stall Paint.
-            //
-            // Ordering note: we transmit the NEW image first, then delete the PREVIOUS
-            // (already-superseded) old image. On a refresh/dimension change the newly-
-            // rotated old id is held in _pendingDeletionId for one frame — that gives the
-            // upcoming Paint a chance to migrate the cells to the new id before the old
-            // image is destroyed, avoiding a visible black flash during the transition.
-            uint id;
-            bool needsCreate;
-            uint oldIdDeletedNow;
+            Slot nextSlot;
+            uint nextId;
+            uint[] deletionsNow;
             lock (_lock)
             {
                 if (_disposed) return;
 
-                bool dimensionsChanged = _imageCreated && (
+                // Allocate slot ids lazily on first use. Once allocated they
+                // stay the same for the sink's lifetime — subsequent a=T
+                // calls reuse the id (deleting and recreating the underlying
+                // image atomically).
+                if (_imageIdA == 0) _imageIdA = System.Threading.Interlocked.Increment(ref _nextImageId);
+                if (_imageIdB == 0) _imageIdB = System.Threading.Interlocked.Increment(ref _nextImageId);
+
+                bool anySlotUsed = _currentSlot != Slot.None;
+
+                bool dimensionsChanged = anySlotUsed && (
                     _transmittedPixelWidth != pixelWidth ||
                     _transmittedPixelHeight != pixelHeight ||
                     _placementCols != targetCols ||
                     _placementRows != targetRows);
 
-                bool refreshRequested = _imageCreated && _refreshRequested;
+                bool refreshRequested = anySlotUsed && _refreshRequested;
                 _refreshRequested = false;
 
-                // Any id queued from the previous IngestFrame is safe to delete now —
-                // Paint has had a full frame to transition cells off of it.
-                oldIdDeletedNow = _pendingDeletionId;
-                _pendingDeletionId = 0;
+                // Drain ids retired on the previous IngestFrame — Paint has
+                // had a full frame to transition cells off of them by now.
+                deletionsNow = _pendingDeletionIds.ToArray();
+                _pendingDeletionIds.Clear();
 
                 if (dimensionsChanged || refreshRequested)
                 {
-                    // Stash the currently-active id for deletion on the NEXT IngestFrame.
-                    // Both the old and new images will coexist for one frame; the cells
-                    // still point to the old id until Paint flips them to the new one.
-                    _pendingDeletionId = _imageId;
-                    _imageCreated = false;
+                    // Retire both slot ids: queue them for deletion one frame
+                    // later, and allocate fresh ids so new a=T calls don't
+                    // collide with the still-displayed old placements.
+                    _pendingDeletionIds.Add(_imageIdA);
+                    _pendingDeletionIds.Add(_imageIdB);
+                    _imageIdA = System.Threading.Interlocked.Increment(ref _nextImageId);
+                    _imageIdB = System.Threading.Interlocked.Increment(ref _nextImageId);
+                    _currentSlot = Slot.None;
+                    _currentImageId = 0;
                 }
 
-                if (!_imageCreated)
-                {
-                    _imageId = System.Threading.Interlocked.Increment(ref _nextImageId);
-                    _imageCreated = true;
-                    needsCreate = true;
-                }
-                else
-                {
-                    needsCreate = false;
-                }
+                // Alternate slots each frame so the cells' fg color switches
+                // and the buffer diff re-emits them (which is what triggers
+                // the terminal to render the freshly-uploaded placement).
+                nextSlot = _currentSlot == Slot.A ? Slot.B : Slot.A;
+                nextId = nextSlot == Slot.A ? _imageIdA : _imageIdB;
 
                 _transmittedPixelWidth = pixelWidth;
                 _transmittedPixelHeight = pixelHeight;
                 _placementCols = targetCols;
                 _placementRows = targetRows;
-                _newFramePending = true;
-                id = _imageId;
+                // NOTE: _currentSlot / _currentImageId are intentionally NOT
+                // updated here. They're published below, after the protocol
+                // I/O returns.
             }
 
-            // Transmit new image FIRST so the new id exists on the terminal side before any
-            // potential delete. On create this is a=T,U=1,c,r (creates the placement); on
-            // updates it's the in-place a=f,r=1 path.
-            if (needsCreate)
-                _protocol.TransmitRawRgb(id, rgb24, pixelWidth, pixelHeight, targetCols, targetRows);
-            else
-                _protocol.UpdateRawRgbFrame(id, rgb24, pixelWidth, pixelHeight);
+            // Full a=T transmission — recreates the slot's image and its
+            // virtual-placement spec atomically. Same strategy as mpv's
+            // vo_kitty (video/out/vo_kitty.c, flip_page): a=T per frame, not
+            // a=f in-place edits. See class remarks for the full rationale.
+            _protocol.TransmitRawRgb(nextId, rgb24, pixelWidth, pixelHeight, targetCols, targetRows);
 
-            // Delete the image that's now two frames stale. No cells reference it anymore
-            // (by now Paint has transitioned to the newer id), so this is invisible.
-            if (oldIdDeletedNow != 0)
-                _protocol.DeleteImage(oldIdDeletedNow);
+            // Publication point. Once this is committed, the next Paint
+            // writes placeholder cells referencing nextId; its fg color
+            // differs from the previous frame's cells, so the buffer diff
+            // re-emits them, and Kitty renders the new slot's placement
+            // against the a=T data we just uploaded.
+            lock (_lock)
+            {
+                if (_disposed) return;
+                _currentSlot = nextSlot;
+                _currentImageId = nextId;
+            }
+
+            // Delete ids retired on the previous IngestFrame.
+            foreach (uint oldId in deletionsNow)
+                _protocol.DeleteImage(oldId);
         }
 
         public void Paint(
@@ -172,27 +195,16 @@ namespace SharpConsoleUI.Video
 
             uint id;
             int cols, rows;
-            bool needsRedraw;
             lock (_lock)
             {
                 if (_disposed) return;
-                id = _imageCreated ? _imageId : 0;
+                id = _currentImageId;
                 cols = _placementCols;
                 rows = _placementRows;
-                needsRedraw = _newFramePending;
-                _newFramePending = false;
             }
 
-            // If a new frame was ingested since our last paint, flip to the opposite
-            // parity so the cells we're about to write differ from what's already in the
-            // buffer. Otherwise keep the same parity — the cells stay byte-identical and
-            // the buffer diff emits nothing (no point telling the terminal to redraw
-            // when nothing has changed).
-            bool parity = needsRedraw ? !_lastWrittenParity : _lastWrittenParity;
-            _lastWrittenParity = parity;
-
-            // Before the first frame is ingested, fill with background so stale cells don't
-            // bleed through while FFmpeg spins up.
+            // Before the first frame is ingested, fill with background so
+            // stale cells don't bleed through while FFmpeg spins up.
             if (id == 0 || cols <= 0 || rows <= 0)
             {
                 for (int y = contentRect.Y; y < contentRect.Bottom; y++)
@@ -207,17 +219,14 @@ namespace SharpConsoleUI.Video
                 return;
             }
 
-            // Write placeholder cells for the placement grid. a=f,r=1 updates the image data
-            // but Kitty does not redraw placements on its own — we force a redraw by flipping
-            // one invisible bit of the cell background on every frame, so the buffer diff
-            // re-emits the placeholder cells and the terminal renders them against the
-            // freshly uploaded frame data. (Opaque Kitty pixels cover the cell's background,
-            // so the 1-bit perturbation is not visible to the user.)
+            // Placeholder cells for the placement grid. The image id encoded
+            // in the cell foreground alternates between two slot ids each
+            // time a new frame is ingested, so the buffer diff re-emits the
+            // cells on every frame — and Kitty redraws the placement against
+            // the pixel data we just uploaded via a=T to the new slot.
             int drawCols = Math.Min(cols, availW);
             int drawRows = Math.Min(rows, availH);
             Color idFg = KittyProtocol.ImageIdToForegroundColor(id);
-            byte bgR = (byte)(windowBackground.R ^ (parity ? 1 : 0));
-            Color cellBg = new Color(bgR, windowBackground.G, windowBackground.B);
 
             for (int cy = 0; cy < drawRows; cy++)
             {
@@ -232,7 +241,7 @@ namespace SharpConsoleUI.Video
                     if (x < clipRect.X || x >= clipRect.Right) continue;
 
                     string combiners = KittyProtocol.BuildPlaceholderCombiners(cy, cx);
-                    var cell = new Cell(ImagingDefaults.KittyPlaceholder, idFg, cellBg)
+                    var cell = new Cell(ImagingDefaults.KittyPlaceholder, idFg, windowBackground)
                     {
                         Combiners = combiners
                     };
@@ -240,8 +249,9 @@ namespace SharpConsoleUI.Video
                 }
             }
 
-            // Fill any contentRect area outside the placement grid with background (happens
-            // briefly during resize between bounds change and FFmpeg restart).
+            // Fill any contentRect area outside the placement grid with
+            // background (happens briefly during resize between bounds
+            // change and FFmpeg restart).
             for (int y = contentRect.Y; y < contentRect.Bottom; y++)
             {
                 if (y < clipRect.Y || y >= clipRect.Bottom) continue;
@@ -258,25 +268,34 @@ namespace SharpConsoleUI.Video
 
         public void OnStopped()
         {
-            uint activeId = 0;
-            uint pendingId;
+            uint[] allIds;
             lock (_lock)
             {
-                if (_imageCreated)
+                var ids = new List<uint>(2 + _pendingDeletionIds.Count);
+                // Only emit deletes for slots that have actually had an a=T
+                // transmission — an un-transmitted slot id is just a number
+                // we reserved, Kitty doesn't know about it.
+                if (_currentSlot != Slot.None)
                 {
-                    activeId = _imageId;
-                    _imageCreated = false;
-                    _transmittedPixelWidth = 0;
-                    _transmittedPixelHeight = 0;
-                    _placementCols = 0;
-                    _placementRows = 0;
+                    if (_imageIdA != 0) ids.Add(_imageIdA);
+                    if (_imageIdB != 0) ids.Add(_imageIdB);
                 }
-                pendingId = _pendingDeletionId;
-                _pendingDeletionId = 0;
+                ids.AddRange(_pendingDeletionIds);
+                allIds = ids.ToArray();
+
+                _imageIdA = 0;
+                _imageIdB = 0;
+                _currentSlot = Slot.None;
+                _currentImageId = 0;
+                _transmittedPixelWidth = 0;
+                _transmittedPixelHeight = 0;
+                _placementCols = 0;
+                _placementRows = 0;
+                _pendingDeletionIds.Clear();
             }
 
-            if (activeId != 0) _protocol.DeleteImage(activeId);
-            if (pendingId != 0) _protocol.DeleteImage(pendingId);
+            foreach (uint id in allIds)
+                _protocol.DeleteImage(id);
         }
 
         public void ForceRefresh()
@@ -286,8 +305,8 @@ namespace SharpConsoleUI.Video
                 if (_disposed) return;
                 _refreshRequested = true;
             }
-            // Actual recreation happens on the next IngestFrame — we need fresh pixel
-            // data to transmit, and we don't cache the last frame.
+            // Actual recreation happens on the next IngestFrame — we need
+            // fresh pixel data to transmit, and we don't cache the last frame.
         }
 
         public (int Width, int Height) GetPreferredPixelSize(int cellCols, int cellRows)
