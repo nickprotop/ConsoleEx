@@ -17,6 +17,7 @@ public class TerminalBuilder
     private string[]? _args;
     private string? _workingDirectory;
     private ILogService? _logService;
+    private Color? _defaultBackground;
 
     /// <summary>Sets the executable to launch inside the terminal.</summary>
     public TerminalBuilder WithExe(string exe)         { _exe = exe; return this; }
@@ -26,9 +27,15 @@ public class TerminalBuilder
     public TerminalBuilder WithWorkingDirectory(string? dir) { _workingDirectory = dir; return this; }
     /// <summary>Attaches a log service so PTY lifecycle events are recorded under the "PTY"/"Terminal" categories.</summary>
     public TerminalBuilder WithLogService(ILogService? logService) { _logService = logService; return this; }
+    /// <summary>
+    /// Sets the VT100's default background color (SGR 49 / cleared cells). Pass
+    /// <see cref="Color.Transparent"/> (A=0) to make empty terminal cells emit SGR 49
+    /// so the host terminal's own background (or its transparency) shows through.
+    /// </summary>
+    public TerminalBuilder WithBackgroundColor(Color color) { _defaultBackground = color; return this; }
 
     /// <summary>Returns a self-contained TerminalControl (PTY open, shim running, read loop active).</summary>
-    public TerminalControl Build() => new TerminalControl(_exe, _args, _workingDirectory, _logService);
+    public TerminalControl Build() => new TerminalControl(_exe, _args, _workingDirectory, _logService, _defaultBackground);
 
     /// <summary>
     /// Convenience: builds a TerminalControl and opens a default centered window.

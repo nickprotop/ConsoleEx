@@ -45,7 +45,7 @@ public sealed class TerminalControl
     /// <summary>Raised on the PTY read thread when the spawned process exits.</summary>
     public event EventHandler? ProcessExited;
 
-    internal TerminalControl(string exe, string[]? args, string? workingDirectory = null, ILogService? logService = null)
+    internal TerminalControl(string exe, string[]? args, string? workingDirectory = null, ILogService? logService = null, Color? defaultBackground = null)
     {
         _log = logService;
         _log?.LogInfo($"TerminalControl: creating for '{exe}' args=[{string.Join(" ", args ?? Array.Empty<string>())}] cwd='{workingDirectory ?? "(inherit)"}'", "Terminal");
@@ -53,13 +53,13 @@ public sealed class TerminalControl
         if (OperatingSystem.IsLinux())
         {
             int rows = 24, cols = 80;
-            _vt  = new VT100Machine(cols, rows);
+            _vt  = new VT100Machine(cols, rows, defaultBg: defaultBackground);
             _pty = new LinuxPtyBackend(exe, args, rows, cols, workingDirectory, logService);
         }
         else if (OperatingSystem.IsWindows())
         {
             int rows = 24, cols = 80;
-            _vt  = new VT100Machine(cols, rows);
+            _vt  = new VT100Machine(cols, rows, defaultBg: defaultBackground);
             _pty = new WindowsPtyBackend(exe, args, rows, cols, workingDirectory, logService);
         }
         else
