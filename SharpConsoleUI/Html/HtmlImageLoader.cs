@@ -23,8 +23,13 @@ namespace SharpConsoleUI.Html
 	{
 		private static uint _nextImageId;
 
-		internal static readonly HttpClient HttpClient = new()
+		internal static readonly HttpClient HttpClient = new(new HttpClientHandler
 		{
+			MaxAutomaticRedirections = 5,
+			AllowAutoRedirect = true,
+		})
+		{
+			Timeout = TimeSpan.FromSeconds(15),
 			DefaultRequestHeaders =
 			{
 				{ "User-Agent", "SharpConsoleUI/1.0 (HtmlControl; +https://github.com/nickprotop/ConsoleEx)" }
@@ -56,7 +61,12 @@ namespace SharpConsoleUI.Html
 				if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
 				    contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
 					return null;
+				const long MaxImageBytes = 10 * 1024 * 1024; // 10 MB
+				if (response.Content.Headers.ContentLength > MaxImageBytes)
+					return null;
 				imageBytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+				if (imageBytes.Length > MaxImageBytes)
+					return null;
 			}
 			else
 			{
@@ -96,7 +106,12 @@ namespace SharpConsoleUI.Html
 			if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
 			    contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
 				return null;
+			const long MaxImageBytes = 10 * 1024 * 1024; // 10 MB
+			if (response.Content.Headers.ContentLength > MaxImageBytes)
+				return null;
 			var bytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+			if (bytes.Length > MaxImageBytes)
+				return null;
 			using var ms = new MemoryStream(bytes);
 			var buffer = PixelBuffer.FromStream(ms);
 			return RenderFromBuffer(buffer, maxWidthChars, background, graphicsProtocol);
@@ -207,6 +222,8 @@ namespace SharpConsoleUI.Html
 
 		private static byte[] ParseDataUri(string dataUri)
 		{
+			const int MaxDataUriBytes = 10 * 1024 * 1024; // 10 MB encoded
+
 			// Format: data:[<mediatype>][;base64],<data>
 			var commaIndex = dataUri.IndexOf(',');
 			if (commaIndex < 0)
@@ -215,12 +232,21 @@ namespace SharpConsoleUI.Html
 			var header = dataUri.Substring(0, commaIndex);
 			var data = dataUri.Substring(commaIndex + 1);
 
+			if (data.Length > MaxDataUriBytes)
+				return Array.Empty<byte>();
+
 			if (header.Contains(";base64", StringComparison.OrdinalIgnoreCase))
 			{
-				return Convert.FromBase64String(data);
+				try
+				{
+					return Convert.FromBase64String(data);
+				}
+				catch (FormatException)
+				{
+					return Array.Empty<byte>();
+				}
 			}
 
-			// URL-encoded binary data is not commonly used for images; skip
 			return Array.Empty<byte>();
 		}
 	}

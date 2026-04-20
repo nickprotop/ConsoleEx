@@ -3,6 +3,7 @@ using Xunit;
 
 namespace SharpConsoleUI.Tests.Core;
 
+[Collection("TimingSensitive")]
 public class MainLoopWatchdogTests
 {
 	/// <summary>Polls a condition with short sleeps, avoids flaky fixed-delay tests.</summary>

@@ -50,6 +50,14 @@ namespace SharpConsoleUI.Drivers
 		// Diagnostics support (optional, for testing and debugging)
 		private Diagnostics.RenderingDiagnostics? _diagnostics;
 
+		private static string CursorPosition(int x, int y)
+		{
+			// Clamp to valid 1-based terminal coordinates
+			int col = Math.Clamp(x + 1, 1, 9999);
+			int row = Math.Clamp(y + 1, 1, 9999);
+			return $"\x1b[{row};{col}H";
+		}
+
 		/// <summary>
 		/// Gets or sets the diagnostics system for capturing rendering metrics.
 		/// </summary>
@@ -504,7 +512,7 @@ namespace SharpConsoleUI.Drivers
 						foreach (var (startX, endX) in _dirtyRegionsPool)
 						{
 							// Position cursor at start of dirty region
-							_screenBuilder.Append($"\x1b[{y + 1};{startX + 1}H");
+							_screenBuilder.Append(CursorPosition(startX, y));
 
 							// Append only the dirty region
 							AppendRegionToBuilder(y, startX, endX, _screenBuilder);
@@ -522,7 +530,7 @@ namespace SharpConsoleUI.Drivers
 							continue;
 
 						// Add ANSI absolute positioning: ESC[row;colH (1-based)
-						_screenBuilder.Append($"\x1b[{y + 1};1H");
+						_screenBuilder.Append(CursorPosition(0, y));
 
 						// Append this line's content to the screen builder
 						AppendLineToBuilder(y, _screenBuilder);
@@ -542,7 +550,7 @@ namespace SharpConsoleUI.Drivers
 						if (useLineMode)
 						{
 							// Use LINE strategy for this line (high coverage or fragmented)
-							_screenBuilder.Append($"\x1b[{y + 1};1H");
+							_screenBuilder.Append(CursorPosition(0, y));
 							AppendLineToBuilder(y, _screenBuilder);
 							cellsRendered += _width;
 						}
@@ -551,7 +559,7 @@ namespace SharpConsoleUI.Drivers
 							// Use CELL strategy for this line (low coverage, not fragmented)
 							foreach (var (startX, endX) in _dirtyRegionsPool)
 							{
-								_screenBuilder.Append($"\x1b[{y + 1};{startX + 1}H");
+								_screenBuilder.Append(CursorPosition(startX, y));
 								AppendRegionToBuilder(y, startX, endX, _screenBuilder);
 								cellsRendered += (endX - startX + 1);
 							}
@@ -804,7 +812,7 @@ namespace SharpConsoleUI.Drivers
 						lastOutputAnsi = backCell.AnsiEscape;
 						builder.Append(' ');
 						// Reposition cursor back to x
-						builder.Append($"\x1b[{y + 1};{x + 1}H");
+						builder.Append(CursorPosition(x, y));
 					}
 
 					// Sync the continuation cell's front buffer now
@@ -902,7 +910,7 @@ namespace SharpConsoleUI.Drivers
 							}
 							builder.Append(' ');
 							// Reposition cursor back to x
-							builder.Append($"\x1b[{y + 1};{x + 1}H");
+							builder.Append(CursorPosition(x, y));
 						}
 						// Sync continuation front buffer
 						nextFront.CopyFrom(_backBuffer[x + 1, y]);

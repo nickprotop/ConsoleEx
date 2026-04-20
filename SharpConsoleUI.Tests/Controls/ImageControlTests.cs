@@ -366,7 +366,11 @@ public class ImageControlTests
 	public void ContentWidth_WithSource_IncludesMargins()
 	{
 		var pixels = new PixelBuffer(10, 4);
-		var control = new ImageControl { Source = pixels };
+		var control = new ImageControl
+		{
+			Source = pixels,
+			ScaleMode = ImageScaleMode.None
+		};
 		control.Margin = new Margin(2, 0, 3, 0);
 
 		Assert.Equal(15, control.ContentWidth); // 10 + 2 + 3

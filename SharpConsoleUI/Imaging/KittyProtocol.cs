@@ -144,6 +144,11 @@ namespace SharpConsoleUI.Imaging
 		/// </summary>
 		public static List<string> BuildTransmitChunks(uint imageId, byte[] pngData, int columns, int rows)
 		{
+			if (imageId <= 0 || columns <= 0 || rows <= 0)
+				return new List<string>();
+			if (columns > 1000 || rows > 1000)
+				return new List<string>();
+
 			var chunks = new List<string>();
 			string base64 = Convert.ToBase64String(pngData);
 			int chunkSize = ImagingDefaults.KittyChunkSize;
@@ -188,6 +193,13 @@ namespace SharpConsoleUI.Imaging
 		/// <param name="rows">Number of terminal rows the placement spans.</param>
 		public static List<string> BuildRawRgbTransmitChunks(uint imageId, byte[] rgbData, int pixelWidth, int pixelHeight, int columns, int rows)
 		{
+			if (imageId <= 0 || columns <= 0 || rows <= 0)
+				return new List<string>();
+			if (columns > 1000 || rows > 1000)
+				return new List<string>();
+			if (pixelWidth <= 0 || pixelHeight <= 0 || pixelWidth > 10000 || pixelHeight > 10000)
+				return new List<string>();
+
 			byte[] compressed = CompressZlib(rgbData);
 			var chunks = new List<string>();
 			string base64 = Convert.ToBase64String(compressed);
@@ -232,6 +244,11 @@ namespace SharpConsoleUI.Imaging
 		/// <param name="pixelHeight">Pixel height of the new frame (should match the original transmit).</param>
 		public static List<string> BuildRawRgbFrameUpdateChunks(uint imageId, byte[] rgbData, int pixelWidth, int pixelHeight)
 		{
+			if (imageId <= 0)
+				return new List<string>();
+			if (pixelWidth <= 0 || pixelHeight <= 0 || pixelWidth > 10000 || pixelHeight > 10000)
+				return new List<string>();
+
 			byte[] compressed = CompressZlib(rgbData);
 			var chunks = new List<string>();
 			string base64 = Convert.ToBase64String(compressed);
@@ -284,6 +301,7 @@ namespace SharpConsoleUI.Imaging
 		/// </summary>
 		public static string BuildDeleteCommand(uint imageId)
 		{
+			if (imageId <= 0) return string.Empty;
 			return $"\x1b_Ga=d,d=I,i={imageId}\x1b\\";
 		}
 

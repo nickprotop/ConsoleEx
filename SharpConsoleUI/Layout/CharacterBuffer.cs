@@ -204,6 +204,9 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public void SetNarrowCell(int x, int y, Rune character, Color foreground, Color background)
 		{
+			System.Diagnostics.Debug.Assert(!TextSanitizer.IsUnsafeRune(character),
+				$"Unsafe rune U+{character.Value:X4} passed to SetNarrowCell");
+
 			if (x < 0 || x >= Width || y < 0 || y >= Height)
 				return;
 
@@ -309,8 +312,20 @@ namespace SharpConsoleUI.Layout
 		/// <summary>
 		/// Writes a string at the specified position with the given colors.
 		/// Wide characters occupy 2 columns with a continuation cell for the right half.
+		/// When <paramref name="sanitize"/> is true (default), control characters and
+		/// BiDi overrides are replaced with U+FFFD to prevent terminal escape injection.
 		/// </summary>
-		public void WriteString(int x, int y, string text, Color foreground, Color background)
+		/// <param name="x">Column position.</param>
+		/// <param name="y">Row position.</param>
+		/// <param name="text">The text to write.</param>
+		/// <param name="foreground">Foreground color.</param>
+		/// <param name="background">Background color.</param>
+		/// <param name="sanitize">
+		/// When true, filters unsafe runes. Set to false only for framework-internal
+		/// strings (borders, scrollbar glyphs) that are known safe. Must never be false
+		/// for application-supplied text.
+		/// </param>
+		public void WriteString(int x, int y, string text, Color foreground, Color background, bool sanitize = true)
 		{
 			if (y < 0 || y >= Height || string.IsNullOrEmpty(text))
 				return;
@@ -318,11 +333,18 @@ namespace SharpConsoleUI.Layout
 			int cx = x;
 			foreach (var rune in text.EnumerateRunes())
 			{
-				int runeWidth = UnicodeWidth.GetRuneWidth(rune);
+				var current = rune;
+				if (sanitize && TextSanitizer.IsUnsafeRune(current))
+					current = TextSanitizer.ReplacementCharacter;
+
+				int runeWidth = UnicodeWidth.GetRuneWidth(current);
 
 				if (runeWidth == 0)
 				{
-					// Zero-width: attach to previous cell as combiner
+					// Zero-width: attach to previous cell as combiner only if safe
+					if (sanitize && !TextSanitizer.IsSafeCombiner(current))
+						continue;
+
 					// Skip past continuation cells to find the base cell
 					int prevX = cx - 1;
 					if (prevX >= 0 && prevX < Width && _cells[prevX, y].IsWideContinuation && prevX > 0)
@@ -331,9 +353,9 @@ namespace SharpConsoleUI.Layout
 					{
 						ref var prevCell = ref _cells[prevX, y];
 						// VS16 widens certain emoji from 1→2 columns
-						if (UnicodeWidth.IsVS16(rune) && UnicodeWidth.IsVs16Widened(prevCell.Character) && !UnicodeWidth.IsWideRune(prevCell.Character))
+						if (UnicodeWidth.IsVS16(current) && UnicodeWidth.IsVs16Widened(prevCell.Character) && !UnicodeWidth.IsWideRune(prevCell.Character))
 						{
-							prevCell.AppendCombiner(rune);
+							prevCell.AppendCombiner(current);
 							prevCell.Dirty = true;
 							ExpandDirtyRegion(prevX, y);
 							// Place continuation cell at current position
@@ -345,7 +367,7 @@ namespace SharpConsoleUI.Layout
 						}
 						else
 						{
-							prevCell.AppendCombiner(rune);
+							prevCell.AppendCombiner(current);
 							prevCell.Dirty = true;
 							ExpandDirtyRegion(prevX, y);
 						}
@@ -357,7 +379,7 @@ namespace SharpConsoleUI.Layout
 					// Wide char needs 2 columns
 					if (cx >= 0 && cx + 1 < Width)
 					{
-						SetCell(cx, y, new Cell(rune, foreground, background));
+						SetCell(cx, y, new Cell(current, foreground, background));
 						var cont = new Cell(' ', foreground, background) { IsWideContinuation = true, Dirty = true };
 						SetCell(cx + 1, y, cont);
 					}
@@ -372,7 +394,7 @@ namespace SharpConsoleUI.Layout
 				{
 					if (cx >= 0 && cx < Width)
 					{
-						SetCell(cx, y, new Cell(rune, foreground, background));
+						SetCell(cx, y, new Cell(current, foreground, background));
 					}
 					cx++;
 				}
@@ -382,8 +404,10 @@ namespace SharpConsoleUI.Layout
 		/// <summary>
 		/// Writes a string at the specified position, clipped to the specified rectangle.
 		/// Wide characters that straddle clip boundaries are replaced with a space.
+		/// When <paramref name="sanitize"/> is true (default), control characters and
+		/// BiDi overrides are replaced with U+FFFD to prevent terminal escape injection.
 		/// </summary>
-		public void WriteStringClipped(int x, int y, string text, Color foreground, Color background, LayoutRect clipRect)
+		public void WriteStringClipped(int x, int y, string text, Color foreground, Color background, LayoutRect clipRect, bool sanitize = true)
 		{
 			if (y < clipRect.Y || y >= clipRect.Bottom || string.IsNullOrEmpty(text))
 				return;
@@ -391,11 +415,18 @@ namespace SharpConsoleUI.Layout
 			int cx = x;
 			foreach (var rune in text.EnumerateRunes())
 			{
-				int runeWidth = UnicodeWidth.GetRuneWidth(rune);
+				var current = rune;
+				if (sanitize && TextSanitizer.IsUnsafeRune(current))
+					current = TextSanitizer.ReplacementCharacter;
+
+				int runeWidth = UnicodeWidth.GetRuneWidth(current);
 
 				if (runeWidth == 0)
 				{
-					// Zero-width: attach to previous cell as combiner
+					// Zero-width: attach to previous cell as combiner only if safe
+					if (sanitize && !TextSanitizer.IsSafeCombiner(current))
+						continue;
+
 					// Skip past continuation cells to find the base cell
 					int prevX = cx - 1;
 					if (prevX >= 0 && prevX < Width && _cells[prevX, y].IsWideContinuation && prevX > 0)
@@ -404,9 +435,9 @@ namespace SharpConsoleUI.Layout
 					{
 						ref var prevCell = ref _cells[prevX, y];
 						// VS16 widens certain emoji from 1→2 columns
-						if (UnicodeWidth.IsVS16(rune) && UnicodeWidth.IsVs16Widened(prevCell.Character) && !UnicodeWidth.IsWideRune(prevCell.Character))
+						if (UnicodeWidth.IsVS16(current) && UnicodeWidth.IsVs16Widened(prevCell.Character) && !UnicodeWidth.IsWideRune(prevCell.Character))
 						{
-							prevCell.AppendCombiner(rune);
+							prevCell.AppendCombiner(current);
 							prevCell.Dirty = true;
 							ExpandDirtyRegion(prevX, y);
 							// Place continuation cell at current position (with clip check)
@@ -418,7 +449,7 @@ namespace SharpConsoleUI.Layout
 						}
 						else
 						{
-							prevCell.AppendCombiner(rune);
+							prevCell.AppendCombiner(current);
 							prevCell.Dirty = true;
 							ExpandDirtyRegion(prevX, y);
 						}
@@ -433,7 +464,7 @@ namespace SharpConsoleUI.Layout
 					if (firstInClip && secondInClip)
 					{
 						// Both columns in clip — write wide char + continuation
-						SetCell(cx, y, new Cell(rune, foreground, background));
+						SetCell(cx, y, new Cell(current, foreground, background));
 						var cont = new Cell(' ', foreground, background) { IsWideContinuation = true, Dirty = true };
 						SetCell(cx + 1, y, cont);
 					}
@@ -453,7 +484,7 @@ namespace SharpConsoleUI.Layout
 				{
 					if (cx >= clipRect.X && cx < clipRect.Right && cx >= 0 && cx < Width)
 					{
-						SetCell(cx, y, new Cell(rune, foreground, background));
+						SetCell(cx, y, new Cell(current, foreground, background));
 					}
 					cx++;
 				}
@@ -472,6 +503,10 @@ namespace SharpConsoleUI.Layout
 			int cx = x;
 			foreach (var cell in cells)
 			{
+				System.Diagnostics.Debug.Assert(
+					!Helpers.TextSanitizer.IsUnsafeRune(cell.Character),
+					$"Unsafe rune U+{cell.Character.Value:X4} in cell passed to WriteCells");
+
 				if (cx >= 0 && cx < Width)
 				{
 					SetCell(cx, y, cell);
@@ -494,6 +529,10 @@ namespace SharpConsoleUI.Layout
 
 			foreach (var cell in cells)
 			{
+				System.Diagnostics.Debug.Assert(
+					!Helpers.TextSanitizer.IsUnsafeRune(cell.Character),
+					$"Unsafe rune U+{cell.Character.Value:X4} in cell passed to WriteCellsClipped");
+
 				if (cell.IsWideContinuation && pendingWideChar.HasValue)
 				{
 					// This is the continuation of a wide char

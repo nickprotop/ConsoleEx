@@ -568,10 +568,12 @@ namespace SharpConsoleUI.Drivers
 		/// <inheritdoc/>
 		public void SetCursorPosition(int x, int y)
 		{
+			int col = Math.Clamp(x + 1, 1, 9999);
+			int row = Math.Clamp(y + 1, 1, 9999);
 			if (_useDirectAnsi)
-				WriteOutput($"\x1b[{y + 1};{x + 1}H");
+				WriteOutput($"\x1b[{row};{col}H");
 			else
-				Console.SetCursorPosition(x, y);
+				Console.SetCursorPosition(Math.Max(0, x), Math.Max(0, y));
 		}
 
 		/// <inheritdoc/>
@@ -618,7 +620,7 @@ namespace SharpConsoleUI.Drivers
 					var ansi = $"\x1b[{fgAnsi};{bgAnsi}m{character}\x1b[0m";
 					if (_useDirectAnsi)
 					{
-						WriteOutput($"\x1b[{y + 1};{x + 1}H");
+						WriteOutput($"\x1b[{Math.Clamp(y + 1, 1, 9999)};{Math.Clamp(x + 1, 1, 9999)}H");
 						WriteOutput(ansi);
 					}
 					else
@@ -648,7 +650,7 @@ namespace SharpConsoleUI.Drivers
 					sb.Append("\x1b[0m");
 					if (_useDirectAnsi)
 					{
-						WriteOutput($"\x1b[{y + 1};{x + 1}H");
+						WriteOutput($"\x1b[{Math.Clamp(y + 1, 1, 9999)};{Math.Clamp(x + 1, 1, 9999)}H");
 						WriteOutput(sb.ToString());
 					}
 					else
@@ -691,7 +693,7 @@ namespace SharpConsoleUI.Drivers
 					sb.Append("\x1b[0m");
 					if (_useDirectAnsi)
 					{
-						WriteOutput($"\x1b[{destY + 1};{destX + 1}H");
+						WriteOutput($"\x1b[{Math.Clamp(destY + 1, 1, 9999)};{Math.Clamp(destX + 1, 1, 9999)}H");
 						WriteOutput(sb.ToString());
 					}
 					else

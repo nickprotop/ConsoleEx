@@ -351,6 +351,7 @@ namespace SharpConsoleUI.Core
 		public void LoadPluginsFromDirectory(string? pluginsPath = null)
 		{
 			pluginsPath ??= Path.Combine(AppContext.BaseDirectory, "plugins");
+			pluginsPath = Path.GetFullPath(pluginsPath);
 			if (!Directory.Exists(pluginsPath))
 			{
 				_logService?.LogDebug($"Plugin directory not found: {pluginsPath}", "Plugins");
@@ -374,6 +375,14 @@ namespace SharpConsoleUI.Core
 			if (string.IsNullOrWhiteSpace(dllPath))
 				throw new ArgumentNullException(nameof(dllPath));
 
+			// Validate plugin path is not a symlink
+			var fileInfo = new FileInfo(dllPath);
+			if ((fileInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+			{
+				_logService?.LogWarning($"Skipping symlinked plugin: {Path.GetFileName(dllPath)}", "Plugins");
+				return;
+			}
+
 			LoadPluginFromFile(dllPath);
 		}
 
@@ -388,6 +397,14 @@ namespace SharpConsoleUI.Core
 		{
 			try
 			{
+				// Validate plugin path is not a symlink and is within expected directory
+				var fileInfo = new FileInfo(dllPath);
+				if ((fileInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+				{
+					_logService?.LogWarning($"Skipping symlinked plugin: {Path.GetFileName(dllPath)}", "Plugins");
+					return;
+				}
+
 				var assembly = System.Reflection.Assembly.LoadFrom(dllPath);
 				var entryType = assembly.GetType(PluginEntryConvention.EntryClassName);
 				if (entryType == null)
@@ -660,6 +677,21 @@ namespace SharpConsoleUI.Core
 				context["WindowSystem"] = _windowSystem;
 
 			provider.ExecuteAction(actionName, context);
+		}
+
+		/// <summary>
+		/// Checks whether a file path is contained within a directory path.
+		/// </summary>
+		/// <param name="filePath">The file path to check.</param>
+		/// <param name="directoryPath">The directory path that should contain the file.</param>
+		/// <returns>True if the file is within the directory, false otherwise.</returns>
+		private static bool IsPathWithinDirectory(string filePath, string directoryPath)
+		{
+			var fullFilePath = Path.GetFullPath(filePath);
+			var fullDirPath = Path.GetFullPath(directoryPath);
+			if (!fullDirPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
+				fullDirPath += Path.DirectorySeparatorChar;
+			return fullFilePath.StartsWith(fullDirPath, StringComparison.OrdinalIgnoreCase);
 		}
 
 		/// <summary>

@@ -44,6 +44,13 @@ public sealed class LogService : ILogService, IDisposable
         {
             try
             {
+                // Validate log path does not target sensitive system directories
+                var fullLogPath = Path.GetFullPath(envLogPath);
+                var logDir = Path.GetDirectoryName(fullLogPath)?.Replace('\\', '/').TrimEnd('/') ?? "";
+                if (logDir is "/" or "/etc" or "/usr" or "/bin" or "/sbin" ||
+                    logDir.StartsWith("/etc/") || logDir.StartsWith("/usr/") ||
+                    logDir.StartsWith("/proc") || logDir.StartsWith("/sys"))
+                    return;
                 EnableFileLogging(envLogPath);
             }
             catch

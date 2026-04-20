@@ -152,6 +152,9 @@ public static class FolderPickerDialog
 					{
 						try
 						{
+							if ((dir.Attributes & FileAttributes.ReparsePoint) != 0)
+								continue;
+
 							// Count subdirectories for visual feedback
 							int subDirCount = 0;
 							try

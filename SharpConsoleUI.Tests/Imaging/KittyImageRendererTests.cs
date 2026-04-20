@@ -23,6 +23,7 @@ internal class MockGraphicsProtocol : IGraphicsProtocol
     }
 }
 
+[Collection("TimingSensitive")]
 public class KittyImageRendererTests
 {
     private static readonly Color WindowBg = Color.Black;

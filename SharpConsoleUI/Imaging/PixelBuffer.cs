@@ -25,11 +25,16 @@ namespace SharpConsoleUI.Imaging
 		/// <summary>Height in pixels.</summary>
 		public int Height { get; private set; }
 
+		internal const int MaxPixelBufferDimension = 4096;
+
 		/// <summary>Creates a new pixel buffer with the specified dimensions.</summary>
 		public PixelBuffer(int width, int height)
 		{
 			if (width <= 0) throw new ArgumentOutOfRangeException(nameof(width));
 			if (height <= 0) throw new ArgumentOutOfRangeException(nameof(height));
+			if (width > MaxPixelBufferDimension || height > MaxPixelBufferDimension)
+				throw new ArgumentOutOfRangeException(
+					$"Image dimensions {width}x{height} exceed maximum {MaxPixelBufferDimension}.");
 
 			Width = width;
 			Height = height;

@@ -29,8 +29,13 @@ namespace SharpConsoleUI.Video
         /// <summary>Bytes per frame (Width * Height * 3).</summary>
         public int FrameSize { get; }
 
+        private const int MaxFramePixels = 3840 * 2160; // 4K upper bound
+
         private VideoFrameReader(Process ffmpeg, int width, int height, double fps, double duration)
         {
+            if ((long)width * height > MaxFramePixels)
+                throw new ArgumentException($"Frame dimensions {width}x{height} exceed maximum supported size.");
+
             _ffmpeg = ffmpeg;
             _stdout = ffmpeg.StandardOutput.BaseStream;
             Width = width;
@@ -91,20 +96,35 @@ namespace SharpConsoleUI.Video
             // Seek only makes sense for local files and seekable URLs, not live streams.
             // For live streams (duration unknown), skip seeking.
             bool canSeek = startTime > 0 && duration > 0;
-            string seekArg = canSeek ? $"-ss {startTime:F3} " : "";
 
             // Launch FFmpeg to decode and scale to target dimensions, output raw RGB24
             var psi = new ProcessStartInfo
             {
                 FileName = "ffmpeg",
-                Arguments = $"{seekArg}-i \"{source}\" -f rawvideo -pix_fmt rgb24 " +
-                            $"-s {targetWidth}x{targetHeight} -an -sn -v quiet -",
                 RedirectStandardInput = true,  // Prevent FFmpeg from inheriting terminal stdin
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
+            if (canSeek)
+            {
+                psi.ArgumentList.Add("-ss");
+                psi.ArgumentList.Add(startTime.ToString("F3"));
+            }
+            psi.ArgumentList.Add("-i");
+            psi.ArgumentList.Add(source);
+            psi.ArgumentList.Add("-f");
+            psi.ArgumentList.Add("rawvideo");
+            psi.ArgumentList.Add("-pix_fmt");
+            psi.ArgumentList.Add("rgb24");
+            psi.ArgumentList.Add("-s");
+            psi.ArgumentList.Add($"{targetWidth}x{targetHeight}");
+            psi.ArgumentList.Add("-an");
+            psi.ArgumentList.Add("-sn");
+            psi.ArgumentList.Add("-v");
+            psi.ArgumentList.Add("quiet");
+            psi.ArgumentList.Add("-");
 
             var process = Process.Start(psi)
                 ?? throw new InvalidOperationException("Failed to start FFmpeg process.");
@@ -172,12 +192,18 @@ namespace SharpConsoleUI.Video
             var psi = new ProcessStartInfo
             {
                 FileName = "ffprobe",
-                Arguments = $"-v quiet -print_format json -show_format -show_streams \"{filePath}\"",
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
+            psi.ArgumentList.Add("-v");
+            psi.ArgumentList.Add("quiet");
+            psi.ArgumentList.Add("-print_format");
+            psi.ArgumentList.Add("json");
+            psi.ArgumentList.Add("-show_format");
+            psi.ArgumentList.Add("-show_streams");
+            psi.ArgumentList.Add(filePath);
 
             double fps = 24;
             double duration = 0;

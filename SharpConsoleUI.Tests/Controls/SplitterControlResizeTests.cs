@@ -83,7 +83,7 @@ public class SplitterControlResizeTests
 		splitter.ProcessKey(RightArrow);
 
 		Assert.Equal(originalWidth + 1, col1.Width);
-		Assert.Null(col2.Width); // Right column cleared to flex
+		Assert.Equal(39, col2.Width); // Right column set to totalAvailable - newLeft
 	}
 
 	[Fact]
@@ -234,8 +234,8 @@ public class SplitterControlResizeTests
 		splitter.ProcessKey(RightArrow);
 
 		Assert.NotNull(col1.Width);
-		Assert.True(col1.Width > 40, "Left column should grow");
-		Assert.Null(col2.Width); // Right stays flex
+		Assert.Equal(41, col1.Width);
+		Assert.NotNull(col2.Width); // Right gets explicit width to prevent equal-split bug
 	}
 
 	[Fact]
@@ -263,10 +263,10 @@ public class SplitterControlResizeTests
 
 		splitter.ProcessKey(RightArrow);
 
-		// After resize, left should have explicit width = actualBefore + 1
+		// After resize, both columns get explicit widths
 		Assert.NotNull(col1.Width);
 		Assert.Equal(actualBefore + 1, col1.Width);
-		Assert.Null(col2.Width); // Right cleared to flex
+		Assert.NotNull(col2.Width); // Right also set explicitly to prevent equal-split bug
 	}
 
 	#endregion
@@ -600,7 +600,7 @@ public class SplitterControlResizeTests
 		splitter1.ProcessKey(RightArrow);
 
 		Assert.Equal(31, col1.Width);
-		Assert.Null(col2.Width); // col2 flexes
+		Assert.Equal(29, col2.Width); // col2 set explicitly (totalAvailable - newLeft)
 		Assert.Equal(30, col3.Width); // col3 unaffected
 	}
 
@@ -630,7 +630,7 @@ public class SplitterControlResizeTests
 
 		Assert.Equal(30, col1.Width); // col1 unaffected
 		Assert.Equal(31, col2.Width);
-		Assert.Null(col3.Width); // col3 flexes
+		Assert.Equal(29, col3.Width); // col3 set explicitly (totalAvailable - newLeft)
 	}
 
 	#endregion

@@ -139,6 +139,8 @@ public static class FileDialogs
 				{
 					try
 					{
+						if ((dir.Attributes & FileAttributes.ReparsePoint) != 0)
+							continue;
 						folderList.AddItem(new ListItem($"[yellow]📁[/] {EscapeMarkup(dir.Name)}") { Tag = dir.FullName });
 					}
 					catch (UnauthorizedAccessException)
@@ -427,6 +429,8 @@ public static class FileDialogs
 				{
 					try
 					{
+						if ((dir.Attributes & FileAttributes.ReparsePoint) != 0)
+							continue;
 						folderList.AddItem(new ListItem($"[yellow]📁[/] {EscapeMarkup(dir.Name)}") { Tag = dir.FullName });
 					}
 					catch (UnauthorizedAccessException)

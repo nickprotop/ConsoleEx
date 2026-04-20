@@ -228,6 +228,7 @@ namespace SharpConsoleUI.Helpers
 			b = readByte();
 			if (b != '_') return false;
 
+			const int MaxProbeResponseBytes = 4096;
 			var response = new System.Text.StringBuilder(32);
 			int prev = 0;
 			while (true)
@@ -240,6 +241,9 @@ namespace SharpConsoleUI.Helpers
 
 				if (b != 0x1b)
 					response.Append((char)b);
+
+				if (response.Length > MaxProbeResponseBytes)
+					return false;
 
 				prev = b;
 			}

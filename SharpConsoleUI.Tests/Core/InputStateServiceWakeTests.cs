@@ -5,6 +5,7 @@ using Xunit;
 
 namespace SharpConsoleUI.Tests.Core;
 
+[Collection("TimingSensitive")]
 public class InputStateServiceWakeTests
 {
     [Fact]

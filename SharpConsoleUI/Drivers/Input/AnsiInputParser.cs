@@ -366,6 +366,15 @@ namespace SharpConsoleUI.Drivers.Input
 
 		private void ProcessX10Mouse(byte b, List<InputEvent> events)
 		{
+			if (_x10MouseIndex >= X10MouseByteCount)
+			{
+				events.Add(new UnknownSequenceEvent(_pending.ToArray()));
+				_x10MouseIndex = 0;
+				_state = State.Ground;
+				_pending.Clear();
+				return;
+			}
+
 			_x10MouseBuffer[_x10MouseIndex++] = b;
 
 			if (_x10MouseIndex < X10MouseByteCount)
@@ -538,7 +547,9 @@ namespace SharpConsoleUI.Drivers.Input
 				return;
 			}
 
-			// SGR coordinates are 1-based, convert to 0-based
+			// SGR coordinates are 1-based, convert to 0-based; clamp to valid range
+			x = Math.Clamp(x, 1, ushort.MaxValue);
+			y = Math.Clamp(y, 1, ushort.MaxValue);
 			var pos = new Point(x - 1, y - 1);
 			var flags = new List<MouseFlags>();
 

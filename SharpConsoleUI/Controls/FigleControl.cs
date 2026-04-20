@@ -211,8 +211,8 @@ namespace SharpConsoleUI.Controls
 					string safePath = Path.GetFullPath(Path.Combine(fontsDir, fontFileName));
 
 					string normalizedFontsDir = Path.GetFullPath(fontsDir);
-					if (!safePath.StartsWith(normalizedFontsDir + Path.DirectorySeparatorChar) &&
-					    safePath != normalizedFontsDir)
+					if (!safePath.StartsWith(normalizedFontsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+					    !safePath.Equals(normalizedFontsDir, StringComparison.OrdinalIgnoreCase))
 					{
 						throw new ArgumentException($"Invalid font path: path traversal detected in '{_fontPath}'");
 					}

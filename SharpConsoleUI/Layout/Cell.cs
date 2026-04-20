@@ -107,8 +107,15 @@ namespace SharpConsoleUI.Layout
 			return copy;
 		}
 
+		/// <summary>
+		/// Appends a combining rune to this cell. Only safe combiners (marks, VS, ZWJ)
+		/// are accepted; unsafe runes (controls, BiDi overrides) are silently dropped
+		/// as defense-in-depth against terminal escape injection.
+		/// </summary>
 		public void AppendCombiner(Rune r)
 		{
+			if (!Helpers.TextSanitizer.IsSafeCombiner(r))
+				return;
 			Combiners = (Combiners ?? "") + r.ToString();
 		}
 

@@ -169,13 +169,15 @@ namespace SharpConsoleUI.Helpers
 		{
 			try
 			{
-				var psi = new ProcessStartInfo(cmd, string.Join(" ", args))
+				var psi = new ProcessStartInfo(cmd)
 				{
 					RedirectStandardOutput = true,
 					RedirectStandardError = true,
 					UseShellExecute = false,
 					CreateNoWindow = true
 				};
+				foreach (var arg in args)
+					psi.ArgumentList.Add(arg);
 				using var p = Process.Start(psi);
 				if (p == null) return false;
 				p.WaitForExit(ProcessTimeoutMs);
@@ -189,12 +191,14 @@ namespace SharpConsoleUI.Helpers
 
 		private static void RunProcessWithInput(string cmd, string input, params string[] args)
 		{
-			var psi = new ProcessStartInfo(cmd, string.Join(" ", args))
+			var psi = new ProcessStartInfo(cmd)
 			{
 				RedirectStandardInput = true,
 				UseShellExecute = false,
 				CreateNoWindow = true
 			};
+			foreach (var arg in args)
+				psi.ArgumentList.Add(arg);
 			using var p = Process.Start(psi);
 			if (p == null) return;
 			p.StandardInput.Write(input);
@@ -204,12 +208,14 @@ namespace SharpConsoleUI.Helpers
 
 		private static string RunProcessRead(string cmd, params string[] args)
 		{
-			var psi = new ProcessStartInfo(cmd, string.Join(" ", args))
+			var psi = new ProcessStartInfo(cmd)
 			{
 				RedirectStandardOutput = true,
 				UseShellExecute = false,
 				CreateNoWindow = true
 			};
+			foreach (var arg in args)
+				psi.ArgumentList.Add(arg);
 			using var p = Process.Start(psi);
 			if (p == null) return string.Empty;
 			string result = p.StandardOutput.ReadToEnd();

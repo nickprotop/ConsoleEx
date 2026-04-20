@@ -9,6 +9,7 @@ namespace SharpConsoleUI.Helpers;
 /// </summary>
 public class TextMeasurementCache
 {
+	private const int MaxCacheEntries = 4096;
 	private readonly ConcurrentDictionary<string, int> _cache = new();
 	private readonly Func<string, int> _measurementFunc;
 
@@ -35,6 +36,8 @@ public class TextMeasurementCache
 			return cachedLength;
 
 		int length = _measurementFunc(text);
+		if (_cache.Count >= MaxCacheEntries)
+			_cache.Clear();
 		_cache[text] = length;
 		return length;
 	}

@@ -38,11 +38,16 @@ namespace SharpConsoleUI.Video
             };
         }
 
+        private const int MaxCellDimension = 1000;
+
         public void IngestFrame(byte[] rgb24, int pixelWidth, int pixelHeight, int targetCols, int targetRows, Color windowBackground)
         {
             _ = targetCols; _ = targetRows; // Cell sink derives cell grid from frame dimensions.
 
             var (expectedW, expectedH) = VideoFrameRenderer.GetCellDimensions(pixelWidth, pixelHeight, _mode);
+
+            if (expectedW > MaxCellDimension || expectedH > MaxCellDimension)
+                return;
 
             lock (_lock)
             {
