@@ -193,17 +193,21 @@ namespace SharpConsoleUI.Html
 					{
 						foreach (var rune in runes)
 						{
-							int rw = Helpers.UnicodeWidth.GetRuneWidth(rune);
+							var safe = Helpers.TextSanitizer.IsUnsafeRune(rune)
+								? Helpers.TextSanitizer.ReplacementCharacter : rune;
+							int rw = Helpers.UnicodeWidth.GetRuneWidth(safe);
 							if (ctx.CurrentX + rw > ctx.MaxWidth)
 								ctx.FinishLine();
-							ctx.AddCell(new Cell(rune, fg, bg, decorations), linkUrl);
+							ctx.AddCell(new Cell(safe, fg, bg, decorations), linkUrl);
 						}
 					}
 					else
 					{
 						foreach (var rune in runes)
 						{
-							ctx.AddCell(new Cell(rune, fg, bg, decorations), linkUrl);
+							var safe = Helpers.TextSanitizer.IsUnsafeRune(rune)
+								? Helpers.TextSanitizer.ReplacementCharacter : rune;
+							ctx.AddCell(new Cell(safe, fg, bg, decorations), linkUrl);
 						}
 					}
 				}

@@ -664,9 +664,11 @@ namespace SharpConsoleUI.Html
 			foreach (var rune in text.EnumerateRunes())
 			{
 				if (rune.Value == '\r') continue;
-				int rw = Helpers.UnicodeWidth.GetRuneWidth(rune);
+				var safe = Helpers.TextSanitizer.IsUnsafeRune(rune)
+					? Helpers.TextSanitizer.ReplacementCharacter : rune;
+				int rw = Helpers.UnicodeWidth.GetRuneWidth(safe);
 				if (col + rw > maxColumns) break;
-				cells.Add(new Cell(rune, fg, bg, decorations));
+				cells.Add(new Cell(safe, fg, bg, decorations));
 				if (rw == 2)
 					cells.Add(new Cell(' ', fg, bg) { IsWideContinuation = true });
 				col += rw;
