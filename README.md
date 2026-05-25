@@ -214,6 +214,20 @@ lazygit-inspired. Browse, update, install, search NuGet.org. Cross-platform.
 
 ---
 
+### Used by
+
+#### Cratis CLI — Chronicle Workbench
+
+Interactive TUI dashboard for the [Chronicle](https://github.com/Cratis/Chronicle) event-sourcing platform. Live-updating views for observers, jobs, projections, event types, failed partitions, and more. Invoked via `cratis chronicle workbench`.
+[github.com/Cratis/cli](https://github.com/Cratis/cli)
+
+#### dotnet-skills — installable .NET skill catalog
+
+Interactive CLI for managing skills across AI coding tools (Codex, Claude Code, GitHub Copilot, Gemini). By [ManagedCode](https://github.com/managedcode).
+[github.com/managedcode/dotnet-skills](https://github.com/managedcode/dotnet-skills)
+
+---
+
 ## What only SharpConsoleUI does
 
 | Capability | Other .NET TUI libraries |
