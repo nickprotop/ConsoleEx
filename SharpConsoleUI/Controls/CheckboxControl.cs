@@ -24,6 +24,7 @@ namespace SharpConsoleUI.Controls
 	{
 		private Color? _backgroundColorValue;
 		private bool _checked = false;
+		private string _checkedCharacter = "X";
 		private Color? _checkmarkColorValue;
 		private Color? _disabledBackgroundColorValue;
 		private Color? _disabledForegroundColorValue;
@@ -33,6 +34,7 @@ namespace SharpConsoleUI.Controls
 		private bool _isEnabled = true;
 		private string _label = "Checkbox";
 		private LayoutRect _lastLayoutBounds;
+		private string _uncheckedCharacter = " ";
 
 		/// <summary>
 	/// Initializes a new instance of the <see cref="CheckboxControl"/> class.
@@ -88,7 +90,7 @@ namespace SharpConsoleUI.Controls
 		private int GetCheckboxWidth()
 		{
 		// Build content with decorators (same as rendering)
-		string checkmark = _checked ? "X" : " ";
+		string checkmark = Parsing.MarkupParser.Escape(_checked ? _checkedCharacter : _uncheckedCharacter);
 		string content = $" [[{checkmark}]] {_label} ";
 
 		int minWidth = Parsing.MarkupParser.StripLength(content);
@@ -120,6 +122,28 @@ namespace SharpConsoleUI.Controls
 					CheckedChanged?.Invoke(this, _checked);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Gets or sets the character displayed inside the checkbox when checked.
+		/// Defaults to "X". Set to any single visible character (e.g. "✓", "✗", "●").
+		/// Empty or null values fall back to the default.
+		/// </summary>
+		public string CheckedCharacter
+		{
+			get => _checkedCharacter;
+			set => SetProperty(ref _checkedCharacter, string.IsNullOrEmpty(value) ? "X" : value);
+		}
+
+		/// <summary>
+		/// Gets or sets the character displayed inside the checkbox when unchecked.
+		/// Defaults to a space. Set to any single visible character.
+		/// Empty or null values fall back to the default.
+		/// </summary>
+		public string UncheckedCharacter
+		{
+			get => _uncheckedCharacter;
+			set => SetProperty(ref _uncheckedCharacter, string.IsNullOrEmpty(value) ? " " : value);
 		}
 
 		/// <summary>
@@ -334,7 +358,7 @@ namespace SharpConsoleUI.Controls
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 		// Build content with decorators (same as rendering)
-		string checkmark = _checked ? "X" : " ";
+		string checkmark = Parsing.MarkupParser.Escape(_checked ? _checkedCharacter : _uncheckedCharacter);
 		string content = $" [[{checkmark}]] {_label} ";
 
 		int minWidth = Parsing.MarkupParser.StripLength(content);
@@ -383,7 +407,7 @@ namespace SharpConsoleUI.Controls
 			if (targetWidth <= 0) return;
 
 			// Build checkbox content
-			string checkmark = _checked ? "X" : " ";
+			string checkmark = Parsing.MarkupParser.Escape(_checked ? _checkedCharacter : _uncheckedCharacter);
 			string tempContent = $" [[{checkmark}]] {_label} ";
 
 			// Calculate checkbox width with decorators
