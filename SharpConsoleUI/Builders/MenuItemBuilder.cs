@@ -161,4 +161,11 @@ public class MenuItemBuilder
     /// Builds and returns the configured MenuItem instance.
     /// </summary>
     internal MenuItem Build() => _item;
+
+    /// <summary>
+    /// The MenuItem currently being configured by this builder. Used by
+    /// <see cref="DataBinding.BindingExtensions"/> fluent overloads to attach
+    /// bindings before <see cref="Build"/> is called.
+    /// </summary>
+    internal MenuItem CurrentItem => _item;
 }
