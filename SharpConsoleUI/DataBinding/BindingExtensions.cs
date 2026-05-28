@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Linq.Expressions;
+using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 
 namespace SharpConsoleUI.DataBinding;
@@ -211,6 +212,164 @@ public static class BindingExtensions
 			control.Bindings.Add(binding);
 		});
 
+		return builder;
+	}
+
+	#endregion
+
+	#region One-way binding on MenuItem
+
+	/// <summary>
+	/// Creates a one-way binding from a source property to a <see cref="MenuItem"/> property (same type).
+	/// </summary>
+	public static MenuItem Bind<TSource, TValue>(
+		this MenuItem item,
+		TSource source,
+		Expression<Func<TSource, TValue>> sourceExpr,
+		Expression<Func<MenuItem, TValue>> targetExpr)
+		where TSource : INotifyPropertyChanged
+	{
+		return Bind(item, source, sourceExpr, targetExpr, v => v);
+	}
+
+	/// <summary>
+	/// Creates a one-way binding from a source property to a <see cref="MenuItem"/> property with a converter.
+	/// </summary>
+	public static MenuItem Bind<TSource, TSrc, TTgt>(
+		this MenuItem item,
+		TSource source,
+		Expression<Func<TSource, TSrc>> sourceExpr,
+		Expression<Func<MenuItem, TTgt>> targetExpr,
+		Func<TSrc, TTgt> converter)
+		where TSource : INotifyPropertyChanged
+	{
+		var sourceName = BindingHelper.GetPropertyName(sourceExpr);
+		var sourceGetter = sourceExpr.Compile();
+		var targetSetter = BindingHelper.CreateSetter(targetExpr);
+
+		var binding = new OneWayBinding<TSource, TSrc, TTgt>(
+			source,
+			sourceName,
+			sourceGetter,
+			value => targetSetter(item, value),
+			converter);
+
+		item.Bindings.Add(binding);
+		return item;
+	}
+
+	#endregion
+
+	#region Two-way binding on MenuItem
+
+	/// <summary>
+	/// Creates a two-way binding between a source property and a <see cref="MenuItem"/> property (same type).
+	/// </summary>
+	public static MenuItem BindTwoWay<TSource, TValue>(
+		this MenuItem item,
+		TSource source,
+		Expression<Func<TSource, TValue>> sourceExpr,
+		Expression<Func<MenuItem, TValue>> targetExpr)
+		where TSource : INotifyPropertyChanged
+	{
+		return BindTwoWay(item, source, sourceExpr, targetExpr, v => v, v => v);
+	}
+
+	/// <summary>
+	/// Creates a two-way binding between a source property and a <see cref="MenuItem"/> property with converters.
+	/// </summary>
+	public static MenuItem BindTwoWay<TSource, TSrc, TTgt>(
+		this MenuItem item,
+		TSource source,
+		Expression<Func<TSource, TSrc>> sourceExpr,
+		Expression<Func<MenuItem, TTgt>> targetExpr,
+		Func<TSrc, TTgt> toTarget,
+		Func<TTgt, TSrc> toSource)
+		where TSource : INotifyPropertyChanged
+	{
+		var sourceName = BindingHelper.GetPropertyName(sourceExpr);
+		var targetName = BindingHelper.GetPropertyName(targetExpr);
+		var sourceGetter = sourceExpr.Compile();
+		var sourceSetter = BindingHelper.CreateSetter(sourceExpr);
+		var targetGetter = targetExpr.Compile();
+		var targetSetter = BindingHelper.CreateSetter(targetExpr);
+
+		var binding = new TwoWayBinding<TSource, MenuItem, TSrc, TTgt>(
+			source,
+			sourceName,
+			sourceGetter,
+			value => sourceSetter(source, value),
+			item,
+			targetName,
+			targetGetter,
+			value => targetSetter(item, value),
+			toTarget,
+			toSource);
+
+		item.Bindings.Add(binding);
+		return item;
+	}
+
+	#endregion
+
+	#region Fluent binding on MenuItemBuilder
+
+	/// <summary>
+	/// Creates a one-way binding on the in-progress MenuItem (same type).
+	/// </summary>
+	public static MenuItemBuilder Bind<TSource, TValue>(
+		this MenuItemBuilder builder,
+		TSource source,
+		Expression<Func<TSource, TValue>> sourceExpr,
+		Expression<Func<MenuItem, TValue>> targetExpr)
+		where TSource : INotifyPropertyChanged
+	{
+		builder.CurrentItem.Bind(source, sourceExpr, targetExpr);
+		return builder;
+	}
+
+	/// <summary>
+	/// Creates a one-way binding on the in-progress MenuItem with a converter.
+	/// </summary>
+	public static MenuItemBuilder Bind<TSource, TSrc, TTgt>(
+		this MenuItemBuilder builder,
+		TSource source,
+		Expression<Func<TSource, TSrc>> sourceExpr,
+		Expression<Func<MenuItem, TTgt>> targetExpr,
+		Func<TSrc, TTgt> converter)
+		where TSource : INotifyPropertyChanged
+	{
+		builder.CurrentItem.Bind(source, sourceExpr, targetExpr, converter);
+		return builder;
+	}
+
+	/// <summary>
+	/// Creates a two-way binding on the in-progress MenuItem (same type).
+	/// </summary>
+	public static MenuItemBuilder BindTwoWay<TSource, TValue>(
+		this MenuItemBuilder builder,
+		TSource source,
+		Expression<Func<TSource, TValue>> sourceExpr,
+		Expression<Func<MenuItem, TValue>> targetExpr)
+		where TSource : INotifyPropertyChanged
+	{
+		builder.CurrentItem.BindTwoWay(source, sourceExpr, targetExpr);
+		return builder;
+	}
+
+	/// <summary>
+	/// Creates a two-way binding on the in-progress MenuItem with converters.
+	/// </summary>
+	public static MenuItemBuilder BindTwoWay<TSource, TSrc, TTgt>(
+		this MenuItemBuilder builder,
+		TSource source,
+		Expression<Func<TSource, TSrc>> sourceExpr,
+		Expression<Func<MenuItem, TTgt>> targetExpr,
+		Func<TSrc, TTgt> toTarget,
+		Func<TTgt, TSrc> toSource)
+		where TSource : INotifyPropertyChanged
+	{
+		builder.CurrentItem.BindTwoWay(source, sourceExpr, targetExpr, toTarget, toSource);
 		return builder;
 	}
 

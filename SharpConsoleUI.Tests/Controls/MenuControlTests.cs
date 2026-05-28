@@ -284,15 +284,17 @@ public class MenuControlTests
     }
 
     [Fact]
-    public void Items_IsSnapshot_NotLiveReference()
+    public void Items_IsLiveCollection_ReflectsSubsequentChanges()
     {
+        // Items is intentionally a live observable collection so VM-driven menus work.
+        // Callers that need a snapshot can call .ToList() themselves.
         var menu = new MenuControl();
         menu.AddItem(new MenuItem { Text = "File" });
-        var snapshot = menu.Items;
+        var reference = menu.Items;
         menu.AddItem(new MenuItem { Text = "Edit" });
-        // Snapshot should still have 1 item
-        Assert.Single(snapshot);
+        Assert.Equal(2, reference.Count);
         Assert.Equal(2, menu.Items.Count);
+        Assert.Same(reference, menu.Items);
     }
 
     #endregion

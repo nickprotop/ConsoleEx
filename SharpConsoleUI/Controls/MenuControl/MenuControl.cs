@@ -22,7 +22,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     private bool _enabled = true;
 
     // Menu items
-    private readonly List<MenuItem> _items = new();
+    private readonly MenuItemCollection _items = new();
     private readonly object _menuLock = new();
 
     // State tracking
@@ -48,6 +48,16 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 
     // Measurement cache (avoid repeated Parsing.MarkupParser.StripLength calls per frame)
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _measurementCache = new();
+
+    #endregion
+
+    #region Construction
+
+    /// <summary>Creates a MenuControl with an empty observable Items collection.</summary>
+    public MenuControl()
+    {
+        _items.CollectionChanged += OnChildrenChanged;
+    }
 
     #endregion
 
@@ -77,12 +87,12 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     }
 
     /// <summary>
-    /// Gets the list of top-level menu items.
+    /// Gets the live, observable collection of top-level menu items. Mutations
+    /// (Add/Remove/Clear) flow through the binding-aware tree management: items added
+    /// have their Owner set; items removed have their Bindings disposed and any open
+    /// dropdown rooted on them closed.
     /// </summary>
-    public IReadOnlyList<MenuItem> Items
-    {
-        get { lock (_menuLock) { return _items.ToList().AsReadOnly(); } }
-    }
+    public MenuItemCollection Items => _items;
 
     // Menu bar colors (nullable for theme fallback)
     private Color? _menuBarBackgroundColor;
@@ -248,7 +258,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
         return _measurementCache.GetOrAdd(text, t => Parsing.MarkupParser.StripLength(t));
     }
 
-    private void InvalidateMeasurementCache()
+    internal void InvalidateMeasurementCache()
     {
         _measurementCache.Clear();
     }
@@ -372,7 +382,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     #region Public Methods - Menu Management
 
     /// <summary>
-    /// Adds a menu item to the menu.
+    /// Adds a menu item to the menu. Equivalent to <c>Items.Add(item)</c>.
     /// </summary>
     public void AddItem(MenuItem item)
     {
@@ -380,49 +390,22 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
             throw new ArgumentNullException(nameof(item));
 
         lock (_menuLock) { _items.Add(item); }
-        InvalidateMeasurementCache();
-        Container?.Invalidate(true);
     }
 
     /// <summary>
-    /// Removes a menu item from the menu.
+    /// Removes a menu item from the menu. Equivalent to <c>Items.Remove(item)</c>.
     /// </summary>
     public void RemoveItem(MenuItem item)
     {
-        bool removed;
-        lock (_menuLock) { removed = _items.Remove(item); }
-        if (removed)
-        {
-            if (_focusedItem == item)
-                _focusedItem = null;
-            if (_hoveredItem == item)
-                _hoveredItem = null;
-            if (_pressedItem == item)
-                _pressedItem = null;
-
-            // Close any open dropdown whose parent is the removed item
-            if (_openDropdowns.Any(d => d.ParentItem == item))
-            {
-                CloseAllMenus();
-            }
-
-            InvalidateMeasurementCache();
-            Container?.Invalidate(true);
-        }
+        lock (_menuLock) { _items.Remove(item); }
     }
 
     /// <summary>
-    /// Removes all menu items.
+    /// Removes all menu items. Equivalent to <c>Items.Clear()</c>.
     /// </summary>
     public void ClearItems()
     {
         lock (_menuLock) { _items.Clear(); }
-        _focusedItem = null;
-        _hoveredItem = null;
-        _pressedItem = null;
-        InvalidateMeasurementCache();
-        CloseAllMenus();
-        Container?.Invalidate(true);
     }
 
     /// <summary>
@@ -432,7 +415,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     {
         var parts = path.Split('/');
         MenuItem? current = null;
-        List<MenuItem> searchList;
+        IList<MenuItem> searchList;
         lock (_menuLock) { searchList = _items.ToList(); }
 
         foreach (var part in parts)
@@ -448,16 +431,14 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     }
 
     /// <summary>
-    /// Sets whether a menu item is enabled by its path.
+    /// Sets whether a menu item is enabled by its path. The redraw is triggered by the
+    /// bindable <see cref="MenuItem.IsEnabled"/> setter, not by this method.
     /// </summary>
     public void SetItemEnabled(string path, bool enabled)
     {
         var item = FindItemByPath(path);
         if (item != null)
-        {
             item.IsEnabled = enabled;
-            Container?.Invalidate(true);
-        }
     }
 
     /// <summary>
@@ -535,6 +516,64 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// Event fired when a menu item is hovered.
     /// </summary>
     public event EventHandler<MenuItem>? ItemHovered;
+
+    #endregion
+
+    #region Lifecycle (binding-aware tree management)
+
+    private void Attach(MenuItem item)
+    {
+        if (item.Owner != null && item.Owner != this)
+            throw new InvalidOperationException("MenuItem already belongs to a MenuControl.");
+        item.Owner = this;
+        item.InvalidateDepthCache();
+        item.Children.CollectionChanged += OnChildrenChanged;
+        foreach (var child in item.Children)
+        {
+            child.Parent = item;
+            Attach(child);
+        }
+    }
+
+    private void Detach(MenuItem item)
+    {
+        foreach (var child in item.Children)
+            Detach(child);
+        item.Children.CollectionChanged -= OnChildrenChanged;
+        item.Bindings.Dispose();
+        item.Owner = null;
+        item.Parent = null;
+
+        if (_focusedItem == item) _focusedItem = null;
+        if (_hoveredItem == item) _hoveredItem = null;
+        if (_pressedItem == item) _pressedItem = null;
+    }
+
+    private void OnChildrenChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        var collection = (MenuItemCollection)sender!;
+
+        if (e.OldItems != null)
+        {
+            foreach (MenuItem item in e.OldItems)
+                Detach(item);
+
+            if (_openDropdowns.Any(d => d.ParentItem != null && e.OldItems.Contains(d.ParentItem)))
+                CloseAllMenus();
+        }
+
+        if (e.NewItems != null)
+        {
+            foreach (MenuItem item in e.NewItems)
+            {
+                item.Parent = collection.OwnerItem;
+                Attach(item);
+            }
+        }
+
+        InvalidateMeasurementCache();
+        Container?.Invalidate(true);
+    }
 
     #endregion
 }
