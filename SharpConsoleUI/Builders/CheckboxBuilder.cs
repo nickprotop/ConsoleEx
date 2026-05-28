@@ -21,6 +21,8 @@ public sealed class CheckboxBuilder : IControlBuilder<CheckboxControl>
 {
 	private string _label = "Checkbox";
 	private bool _isChecked = false;
+	private string? _checkedCharacter;
+	private string? _uncheckedCharacter;
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
@@ -51,6 +53,35 @@ public sealed class CheckboxBuilder : IControlBuilder<CheckboxControl>
 	public CheckboxBuilder Checked(bool isChecked = true)
 	{
 		_isChecked = isChecked;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the character displayed inside the checkbox when checked (default "X").
+	/// Use any single visible character such as "✓", "✗", or "●".
+	/// </summary>
+	public CheckboxBuilder WithCheckedCharacter(string character)
+	{
+		_checkedCharacter = character;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the character displayed inside the checkbox when unchecked (default " ").
+	/// </summary>
+	public CheckboxBuilder WithUncheckedCharacter(string character)
+	{
+		_uncheckedCharacter = character;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets both the checked and unchecked characters in a single call.
+	/// </summary>
+	public CheckboxBuilder WithCheckmark(string checkedCharacter, string uncheckedCharacter = " ")
+	{
+		_checkedCharacter = checkedCharacter;
+		_uncheckedCharacter = uncheckedCharacter;
 		return this;
 	}
 
@@ -231,6 +262,11 @@ public sealed class CheckboxBuilder : IControlBuilder<CheckboxControl>
 			Tag = _tag,
 			StickyPosition = _stickyPosition
 		};
+
+		if (_checkedCharacter != null)
+			checkbox.CheckedCharacter = _checkedCharacter;
+		if (_uncheckedCharacter != null)
+			checkbox.UncheckedCharacter = _uncheckedCharacter;
 
 		// Attach standard handler
 		if (_checkedChangedHandler != null)
