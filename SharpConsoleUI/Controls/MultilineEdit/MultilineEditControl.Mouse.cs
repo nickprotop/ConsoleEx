@@ -447,7 +447,10 @@ namespace SharpConsoleUI.Controls
 				if (_wrapMode == WrapMode.NoWrap)
 				{
 					_cursorY = Math.Min(_lines.Count - 1, relY + _verticalScrollOffset);
-					_cursorX = Math.Min(_lines[_cursorY].Length, relX + _horizontalScrollOffset);
+					// relX is a display column; convert to a logical char index so wide
+					// (e.g. CJK) characters map correctly. See GitHub issue #23.
+					int targetColumn = GetDisplayColumn(_cursorY, _horizontalScrollOffset) + relX;
+					_cursorX = GetCharOffsetFromColumn(_cursorY, targetColumn);
 				}
 				else
 				{
@@ -456,7 +459,10 @@ namespace SharpConsoleUI.Controls
 
 					var wl = wrappedLines[wrappedIndex];
 					_cursorY = wl.SourceLineIndex;
-					_cursorX = Math.Min(wl.SourceCharOffset + relX, wl.SourceCharOffset + wl.Length);
+					// relX is a display column within the wrapped segment; convert it to a
+					// logical char index, then clamp to the segment end.
+					int targetColumn = GetDisplayColumn(_cursorY, wl.SourceCharOffset) + relX;
+					_cursorX = Math.Min(GetCharOffsetFromColumn(_cursorY, targetColumn), wl.SourceCharOffset + wl.Length);
 					_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
 				}
 			}

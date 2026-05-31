@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 using System.Drawing;
 using System.Text;
 
@@ -388,8 +389,13 @@ namespace SharpConsoleUI.Controls
 
 			if (_wrapMode == WrapMode.NoWrap)
 			{
+				// Convert logical char offsets to display columns so wide (e.g. CJK)
+				// characters — which the renderer draws 2 columns wide — don't shift
+				// the cursor. See GitHub issue #23.
+				int cursorColumn = GetDisplayColumn(_cursorY, _cursorX);
+				int scrollColumn = GetDisplayColumn(_cursorY, _horizontalScrollOffset);
 				return new Point(
-					Margin.Left + gutterWidth + _cursorX - _horizontalScrollOffset,
+					Margin.Left + gutterWidth + cursorColumn - scrollColumn,
 					Margin.Top + _cursorY - _verticalScrollOffset);
 			}
 			else
@@ -400,9 +406,91 @@ namespace SharpConsoleUI.Controls
 				if (wrappedIndex < 0) return null;
 
 				int visualY = wrappedIndex - _verticalScrollOffset;
-				int visualX = _cursorX - wrappedLines[wrappedIndex].SourceCharOffset;
+				// Measure the display width of the segment text preceding the cursor
+				// rather than the raw char count, so wide characters render correctly.
+				int segmentStart = wrappedLines[wrappedIndex].SourceCharOffset;
+				int visualX = GetDisplayColumn(_cursorY, _cursorX) - GetDisplayColumn(_cursorY, segmentStart);
 
 				return new Point(Margin.Left + gutterWidth + visualX, Margin.Top + visualY);
+			}
+		}
+
+		/// <summary>
+		/// Converts a logical character offset on the given source line into a display-column
+		/// offset, accounting for wide characters that occupy two terminal columns.
+		/// </summary>
+		/// <param name="lineIndex">The source line index.</param>
+		/// <param name="charOffset">The logical (UTF-16) character offset into the line.</param>
+		/// <returns>The display-column offset measured from the start of the line.</returns>
+		private int GetDisplayColumn(int lineIndex, int charOffset)
+		{
+			if (charOffset <= 0)
+				return 0;
+
+			lock (_contentLock)
+			{
+				if (lineIndex < 0 || lineIndex >= _lines.Count)
+					return charOffset;
+
+				string line = _lines[lineIndex];
+				if (charOffset >= line.Length)
+					return UnicodeWidth.GetStringWidth(line);
+
+				return UnicodeWidth.GetStringWidth(line.Substring(0, charOffset));
+			}
+		}
+
+		/// <summary>
+		/// Converts a display-column offset on the given source line into a logical character
+		/// offset. A click landing on either cell of a wide character resolves to that
+		/// character's start. Used to translate mouse coordinates into cursor positions.
+		/// </summary>
+		/// <param name="lineIndex">The source line index.</param>
+		/// <param name="targetColumn">The display-column offset measured from the start of the line.</param>
+		/// <returns>The logical (UTF-16) character offset closest to the target column.</returns>
+		private int GetCharOffsetFromColumn(int lineIndex, int targetColumn)
+		{
+			if (targetColumn <= 0)
+				return 0;
+
+			lock (_contentLock)
+			{
+				if (lineIndex < 0 || lineIndex >= _lines.Count)
+					return targetColumn;
+
+				string line = _lines[lineIndex];
+				int column = 0;
+				int charOffset = 0;
+				Rune? lastMeasured = null;
+
+				foreach (var rune in line.EnumerateRunes())
+				{
+					int runeCharLen = rune.Utf16SequenceLength;
+
+					// Mirror UnicodeWidth.GetStringWidth: a VS16 after a widenable emoji
+					// adds 1 column to the previous rune rather than starting a new cell.
+					if (UnicodeWidth.IsVS16(rune) && lastMeasured != null &&
+						UnicodeWidth.IsVs16Widened(lastMeasured.Value))
+					{
+						column += 1;
+						charOffset += runeCharLen;
+						lastMeasured = null;
+						if (column >= targetColumn) return charOffset;
+						continue;
+					}
+
+					int rw = UnicodeWidth.GetRuneWidth(rune);
+					if (rw > 0) lastMeasured = rune;
+
+					// If the target column falls within this rune's cells, snap to its start.
+					if (column + rw > targetColumn)
+						return charOffset;
+
+					column += rw;
+					charOffset += runeCharLen;
+				}
+
+				return charOffset; // past end of line
 			}
 		}
 
