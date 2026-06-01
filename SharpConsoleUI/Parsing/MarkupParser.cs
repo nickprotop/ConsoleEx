@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Text;
+using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using static SharpConsoleUI.Helpers.UnicodeWidth;
@@ -24,6 +25,7 @@ namespace SharpConsoleUI.Parsing
 
 		/// <summary>
 		/// Parses markup into a sequence of cells using the given default colors.
+		/// Also supports the inline [spinner] / [spinner &lt;style&gt;] tag, which renders an animated spinner glyph.
 		/// </summary>
 		public static List<Cell> Parse(string markup, Color defaultFg, Color defaultBg)
 		{
@@ -77,6 +79,29 @@ namespace SharpConsoleUI.Parsing
 					}
 
 					i = tagEnd + 1;
+
+					// Inline spinner tag: emit the current animated glyph in the active scope color.
+					if (TryParseSpinnerTag(tagContent, out var spinnerStyle))
+					{
+						string glyph = MarkupSpinnerClock.CurrentGlyph(spinnerStyle);
+						foreach (var gcell in Parse(glyph, currentFg, currentBg))
+						{
+							if (currentDec == TextDecoration.None)
+							{
+								cells.Add(gcell);
+							}
+							else
+							{
+								cells.Add(new Cell(gcell.Character, gcell.Foreground, gcell.Background, currentDec)
+								{
+									IsWideContinuation = gcell.IsWideContinuation,
+									Combiners = gcell.Combiners
+								});
+							}
+						}
+						MarkupSpinnerClock.MarkParsed();
+						continue;
+					}
 
 					if (tagContent == "/")
 					{
@@ -292,6 +317,17 @@ namespace SharpConsoleUI.Parsing
 						if (openTags.Count > 0) openTags.Pop();
 						output.Append("[/]");
 					}
+					else if (TryParseSpinnerTag(tagContent, out var spinnerStyle))
+					{
+						// Spinner tags are self-contained (no matching [/]) and expand to
+						// ReservedWidth columns at render time. Count that width here and
+						// emit verbatim, but do NOT push onto openTags.
+						int spinnerWidth = MarkupSpinnerClock.ReservedWidth(spinnerStyle);
+						if (visibleLen + spinnerWidth > maxLength)
+							break;
+						output.Append('[').Append(tagContent).Append(']');
+						visibleLen += spinnerWidth;
+					}
 					else
 					{
 						openTags.Push(tagContent);
@@ -492,6 +528,34 @@ namespace SharpConsoleUI.Parsing
 		#endregion
 
 		#region Tag Parsing
+
+		/// <summary>
+		/// Recognizes a <c>[spinner]</c> / <c>[spinner &lt;style&gt;]</c> tag. Returns true and the
+		/// resolved style (default Braille) when the tag content is a spinner tag.
+		/// </summary>
+		private const string SpinnerTagPrefix = "spinner";
+
+		private static bool TryParseSpinnerTag(string tagContent, out SpinnerStyle style)
+		{
+			style = SpinnerStyle.Braille;
+			if (string.IsNullOrEmpty(tagContent)) return false;
+			if (!tagContent.StartsWith(SpinnerTagPrefix, System.StringComparison.OrdinalIgnoreCase)) return false;
+			if (tagContent.Length == SpinnerTagPrefix.Length) return true;
+			if (tagContent[SpinnerTagPrefix.Length] != ' ') return false; // avoid matching "spinnerfoo"
+
+			string word = tagContent.Substring(SpinnerTagPrefix.Length + 1).Trim();
+			style = word.ToLowerInvariant() switch
+			{
+				"circle" => SpinnerStyle.Circle,
+				"dots" => SpinnerStyle.Dots,
+				"line" => SpinnerStyle.Line,
+				"arc" => SpinnerStyle.Arc,
+				"bounce" => SpinnerStyle.Bounce,
+				"braille" => SpinnerStyle.Braille,
+				_ => SpinnerStyle.Braille,
+			};
+			return true;
+		}
 
 		private static MarkupStyle ParseTag(string tagContent, Color currentFg, Color currentBg)
 		{
@@ -889,6 +953,14 @@ namespace SharpConsoleUI.Parsing
 						lastMeasuredRune = new Rune('[');
 						i++;
 						continue;
+					}
+					// Only allocate tagContent when the tag could be a spinner tag ('s'/'S').
+					// StripLength runs in hot layout/wrap loops; keep non-spinner tags allocation-free.
+					if (i + 1 < tagEnd && (markup[i + 1] == 's' || markup[i + 1] == 'S'))
+					{
+						string tagContent = markup.Substring(i + 1, tagEnd - (i + 1));
+						if (TryParseSpinnerTag(tagContent, out var spinnerStyle))
+							visibleLen += MarkupSpinnerClock.ReservedWidth(spinnerStyle);
 					}
 					i = tagEnd + 1;
 				}

@@ -438,6 +438,16 @@ Common colors available in SharpConsoleUI:
 - **Extended**: orange, orange3, purple, lime, aqua, fuchsia, maroon, navy, olive, teal, silver
 - **Custom**: rgb(r,g,b) or #RRGGBB
 
+## Inline Spinners
+
+MarkupControl content may contain the `[spinner]` tag, which renders an animated spinner glyph inline:
+
+```csharp
+var status = Controls.Markup("Loading [yellow][spinner][/] please wait").Build();
+```
+
+The spinner animates automatically while the window system is running. See [Markup Syntax → Spinner](../MARKUP_SYNTAX.md#spinner-animated) for all styles.
+
 ## See Also
 
 - [Markup Syntax Reference](../MARKUP_SYNTAX.md) - Complete markup syntax guide with all colors and decorations

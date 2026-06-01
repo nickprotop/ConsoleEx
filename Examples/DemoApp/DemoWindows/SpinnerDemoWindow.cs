@@ -147,6 +147,17 @@ public static class SpinnerDemoWindow
             .AddControl(Controls.Markup("[dim]Use .WithFrames(...) to supply any string array — markup is supported.[/]")
                 .WithMargin(1, 0, 1, 0)
                 .Build())
+            .AddControl(Controls.Rule(""))
+            .AddControl(Controls.Header("Inline (markup tag)"))
+            .AddControl(Controls.Markup("[dim]Embed [[spinner]] in any markup text — it animates inline:[/]")
+                .WithMargin(1, 0, 1, 0)
+                .Build())
+            .AddControl(Controls.Markup("Loading [yellow][spinner][/] please wait")
+                .WithMargin(1, 0, 1, 0)
+                .Build())
+            .AddControl(Controls.Markup("Connecting [cyan1][spinner circle][/]   Syncing [green][spinner dots][/]")
+                .WithMargin(1, 0, 1, 1)
+                .Build())
             .WithVerticalAlignment(VerticalAlignment.Fill)
             .Build();
 

@@ -199,6 +199,30 @@ Use `on` to set the background color:
 "[invert]Inverted colors[/]"
 ```
 
+## Spinner (animated)
+
+Embed an animated spinner glyph inline in any markup text. It animates wherever markup is rendered — labels, status bars, titles, table cells, tree nodes — with no separate control.
+
+```
+[yellow]Saving [spinner][/]
+[spinner circle] connecting...
+[red]Failed [spinner dots][/]
+```
+
+| Tag | Style |
+|-----|-------|
+| `[spinner]` | Braille (default) |
+| `[spinner braille]` | Braille |
+| `[spinner circle]` | Quarter-circle rotation |
+| `[spinner dots]` | ASCII dots (`.` / `..` / `...`) |
+| `[spinner line]` | ASCII `- \ | /` |
+| `[spinner arc]` | Arc rotation |
+| `[spinner bounce]` | Bouncing braille dot |
+
+The glyph inherits the surrounding color scope (`[yellow][spinner][/]` is yellow). A spinner reserves a fixed column width per style, so surrounding text never reflows as it animates. Animation requires a running `ConsoleWindowSystem` with animations enabled; when parsed without one (e.g. in tests) it renders a static glyph. Escape with double brackets — `[[spinner]]` renders the literal text `[spinner]`.
+
+For a standalone, placeable spinner control (rather than inline text), see [SpinnerControl](controls/SpinnerControl.md).
+
 ## Combined Styles
 
 Multiple decorations and colors can be combined in a single tag, separated by spaces:
@@ -249,6 +273,8 @@ List<Cell> cells = MarkupParser.Parse("[bold red]Hello[/] world", defaultFg, def
 // cells[0] = Cell('H', red, defaultBg, Bold)
 // cells[5] = Cell(' ', defaultFg, defaultBg, None)
 ```
+
+`[spinner]` tags render the current animation frame at parse time; repeated calls will advance through the frame sequence as the animation manager ticks.
 
 ### MarkupParser.StripLength()
 

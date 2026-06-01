@@ -872,5 +872,8 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Bounce spinner frames (braille dot bouncing).</summary>
 		public static readonly string[] SpinnerBounceFrames =
 			{ "\u2801", "\u2802", "\u2804", "\u2802" };
+
+		/// <summary>How long (ms) the render loop keeps repainting after the last inline [spinner] was parsed.</summary>
+		public const int InlineSpinnerKeepAliveMs = 500;
 	}
 }

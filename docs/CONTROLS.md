@@ -71,6 +71,7 @@ Controls for displaying formatted content.
 | **SparklineControl** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
 | **[LineGraphControl](controls/LineGraphControl.md)** | Multi-series line graph | Braille and ASCII rendering modes, gradients, Y-axis labels, live updates |
 | **BarGraphControl** | Horizontal bar graph | Gradient color thresholds, labels, value display |
+| **[SpinnerControl](controls/SpinnerControl.md)** | Animated indeterminate-progress spinner | Preset styles + custom frames, per-frame markup, auto-animates via the animation manager. Also available as the inline `[spinner]` markup tag. |
 
 ## Drawing Controls
 
