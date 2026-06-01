@@ -841,5 +841,36 @@ namespace SharpConsoleUI.Configuration
 		/// U+25B6: Black Right-Pointing Triangle — rendered via MarkupParser for correct width handling.
 		/// </summary>
 		public const string StartMenuActionsIcon = "\u25B6";
+
+		// Spinner defaults
+		/// <summary>Default per-frame interval for spinner animation in milliseconds (default: 100ms).</summary>
+		public const int SpinnerDefaultIntervalMs = 100;
+
+		/// <summary>Minimum allowed animation interval in milliseconds (clamp for caller-supplied zero/negative values).</summary>
+		public const int AnimationMinIntervalMs = 1;
+
+		/// <summary>Braille spinner frames (default style). Reliably narrow on modern terminals.</summary>
+		public static readonly string[] SpinnerBrailleFrames =
+			{ "\u28F7", "\u28EF", "\u28DF", "\u287F", "\u28BF", "\u28FB", "\u28FD", "\u28FE" };
+
+		/// <summary>Circle spinner frames (quarter-circle rotation).</summary>
+		public static readonly string[] SpinnerCircleFrames =
+			{ "\u25D0", "\u25D3", "\u25D1", "\u25D2" };
+
+		/// <summary>Dots spinner frames (ASCII fallback, fixed 3-column width).</summary>
+		public static readonly string[] SpinnerDotsFrames =
+			{ ".  ", ".. ", "..." };
+
+		/// <summary>Line spinner frames (ASCII spinner).</summary>
+		public static readonly string[] SpinnerLineFrames =
+			{ "-", "\\", "|", "/" };
+
+		/// <summary>Arc spinner frames.</summary>
+		public static readonly string[] SpinnerArcFrames =
+			{ "\u25DC", "\u25E0", "\u25DD", "\u25DE", "\u25E1", "\u25DF" };
+
+		/// <summary>Bounce spinner frames (braille dot bouncing).</summary>
+		public static readonly string[] SpinnerBounceFrames =
+			{ "\u2801", "\u2802", "\u2804", "\u2802" };
 	}
 }

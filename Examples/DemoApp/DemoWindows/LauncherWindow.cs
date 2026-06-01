@@ -49,6 +49,7 @@ public static class LauncherWindow
                 .AddItem("Data Binding", subtitle: "MVVM data binding", content: MakeInfoPanel("Data Binding"))
                 .AddItem("Date & Time", subtitle: "DatePicker and TimePicker controls", content: MakeInfoPanel("Date & Time"))
                 .AddItem("Slider", subtitle: "Value and range slider controls", content: MakeInfoPanel("Slider"))
+                .AddItem("Spinner", subtitle: "Animated indeterminate-progress spinners", content: MakeInfoPanel("Spinner"))
                 .AddItem("HTML Rendering", subtitle: "Lynx-inspired HTML renderer", content: MakeInfoPanel("HTML Rendering")))
             .AddHeader("Data Visualization", Color.Yellow, header => header
                 .AddItem("Graphs & Charts", subtitle: "Live sparklines & bar graphs", content: MakeInfoPanel("Graphs & Charts"))
@@ -239,6 +240,7 @@ public static class LauncherWindow
             "Data Binding" => DataBindingWindow.Create(ws),
             "Date & Time" => DateTimeDemo.Create(ws),
             "Slider" => SliderDemoWindow.Create(ws),
+            "Spinner" => SpinnerDemoWindow.Create(ws),
             "Graphs & Charts" => GraphsWindow.Create(ws),
                 "System Monitor" => SystemMonitorWindow.Create(ws),
             "Container Backgrounds" => ContainerBgDemoWindow.Create(ws),
@@ -749,6 +751,24 @@ public static class LauncherWindow
                 "",
                 "[dim]Controls used:[/]",
                 "  - SliderControl, RangeSliderControl",
+                "  - MarkupControl, HorizontalGridControl",
+            },
+            "Spinner" => new List<string>
+            {
+                "[bold cyan]Spinner Controls[/]",
+                "",
+                "Animated spinners for indeterminate-progress feedback.",
+                "Six built-in styles plus fully custom frame sequences.",
+                "",
+                "[dim]Features:[/]",
+                "  - 6 preset styles: Braille, Circle, Dots, Line, Arc, Bounce",
+                "  - Custom frames with markup color support",
+                "  - Configurable per-frame interval",
+                "  - Start/Stop programmatic control",
+                "  - SpinnerTextAnimator helper for titles/labels",
+                "",
+                "[dim]Controls used:[/]",
+                "  - SpinnerControl, SpinnerTextAnimator",
                 "  - MarkupControl, HorizontalGridControl",
             },
             "Welcome Banner" => new List<string>

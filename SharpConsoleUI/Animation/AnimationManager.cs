@@ -158,6 +158,7 @@ public sealed class AnimationManager
 		lock (_lock)
 		{
 			animation.Cancel();
+			_animations.Remove(animation);
 		}
 	}
 

@@ -258,6 +258,12 @@ public static class Controls
 	public static ProgressBarBuilder ProgressBar() => new ProgressBarBuilder();
 
 	/// <summary>
+	/// Creates a new spinner builder
+	/// </summary>
+	/// <returns>A new spinner builder</returns>
+	public static SpinnerBuilder Spinner() => new SpinnerBuilder();
+
+	/// <summary>
 	/// Creates a new table control builder
 	/// </summary>
 	/// <returns>A new table control builder</returns>
