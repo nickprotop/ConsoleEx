@@ -80,6 +80,8 @@ public static class SpinnerDemoWindow
             .AddControl(Row(SpinnerStyle.Arrow, Color.Orange1, "[orange1]Arrow[/]", "rotating arrow ←↑→↓"))
             .AddControl(Row(SpinnerStyle.BouncingBar, Color.White, "[white]BouncingBar[/]", "ASCII [[==  ]] bounce"))
             .AddControl(Row(SpinnerStyle.AestheticBar, Color.SpringGreen1, "[springgreen1]AestheticBar[/]", "progress bar ▰▰▰▱▱▱"))
+            .AddControl(Row(SpinnerStyle.BrailleDots, Color.Yellow, "[yellow]BrailleDots[/]", "classic braille throbber ⠋⠙⠹⠸"))
+            .AddControl(Row(SpinnerStyle.DotsBounce, Color.Cyan1, "[cyan1]DotsBounce[/]", "bouncing ASCII dots .  / ... /  .."))
             .AddControl(Controls.Rule(""))
             .AddControl(Controls.Header("Custom Frames (Markup)"))
             .AddControl(customRow)

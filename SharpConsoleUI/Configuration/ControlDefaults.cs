@@ -918,6 +918,15 @@ namespace SharpConsoleUI.Configuration
 			  "\u25b0\u25b0\u25b0\u25b0\u25b0\u25b1", "\u25b0\u25b0\u25b0\u25b0\u25b0\u25b0",
 			  "\u25b0\u25b1\u25b1\u25b1\u25b1\u25b1" };
 
+		/// <summary>Classic braille throbber frames (the widely-recognized npm/CLI spinner). Reliably 1-wide.
+		/// Distinct from <see cref="SpinnerBrailleFrames"/>, which is a heavier rotation.</summary>
+		public static readonly string[] SpinnerBrailleDotsFrames =
+			{ "\u280b", "\u2819", "\u2839", "\u2838", "\u283c", "\u2834", "\u2826", "\u2827", "\u2807", "\u280f" };
+
+		/// <summary>Bouncing ASCII dots spinner frames (fixed 3-column width).</summary>
+		public static readonly string[] SpinnerDotsBounceFrames =
+			{ ".  ", ".. ", "...", " ..", "  .", "   " };
+
 		/// <summary>How long (ms) the render loop keeps repainting after the last inline [spinner] was parsed.</summary>
 		public const int InlineSpinnerKeepAliveMs = 500;
 	}

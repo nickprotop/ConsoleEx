@@ -72,6 +72,8 @@ public class SpinnerControlTests
 	[InlineData(SpinnerStyle.Arrow)]
 	[InlineData(SpinnerStyle.BouncingBar)]
 	[InlineData(SpinnerStyle.AestheticBar)]
+	[InlineData(SpinnerStyle.BrailleDots)]
+	[InlineData(SpinnerStyle.DotsBounce)]
 	public void EveryStyleResolvesToNonEmptyFrames(SpinnerStyle style)
 	{
 		var frames = SpinnerControl.FramesForStyle(style);
@@ -87,6 +89,8 @@ public class SpinnerControlTests
 	[InlineData(SpinnerStyle.GrowHorizontal)]
 	[InlineData(SpinnerStyle.BouncingBar)]
 	[InlineData(SpinnerStyle.AestheticBar)]
+	[InlineData(SpinnerStyle.BrailleDots)]
+	[InlineData(SpinnerStyle.DotsBounce)]
 	public void EveryFrameOfAStyleHasUniformReservedWidth(SpinnerStyle style)
 	{
 		// All frames in a set must share one display width so the spinner never reflows

@@ -38,5 +38,9 @@ public enum SpinnerStyle
 	/// <summary>ASCII bouncing bar ([==  ]). Fixed 6-column width.</summary>
 	BouncingBar,
 	/// <summary>Aesthetic progress bar (▰▰▰▱▱▱). Fixed 6-column width.</summary>
-	AestheticBar
+	AestheticBar,
+	/// <summary>Classic braille throbber (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏). The widely-recognized npm/CLI spinner; distinct from the heavier <see cref="Braille"/> rotation.</summary>
+	BrailleDots,
+	/// <summary>Bouncing ASCII dots (".  " → "..." → " .." → "   "). Fixed 3-column width.</summary>
+	DotsBounce
 }

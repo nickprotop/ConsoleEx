@@ -125,6 +125,8 @@ public class SpinnerControl : BaseControl
 		SpinnerStyle.Arrow => ControlDefaults.SpinnerArrowFrames,
 		SpinnerStyle.BouncingBar => ControlDefaults.SpinnerBouncingBarFrames,
 		SpinnerStyle.AestheticBar => ControlDefaults.SpinnerAestheticBarFrames,
+		SpinnerStyle.BrailleDots => ControlDefaults.SpinnerBrailleDotsFrames,
+		SpinnerStyle.DotsBounce => ControlDefaults.SpinnerDotsBounceFrames,
 		_ => ControlDefaults.SpinnerBrailleFrames,
 	};
 

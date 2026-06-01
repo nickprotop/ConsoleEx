@@ -225,6 +225,8 @@ Embed an animated spinner glyph inline in any markup text. It animates wherever 
 | `[spinner arrow]` | Rotating arrow ←↑→↓ |
 | `[spinner bouncingbar]` | ASCII bouncing bar `[==  ]` |
 | `[spinner aestheticbar]` | Progress bar ▰▰▰▱▱▱ |
+| `[spinner brailledots]` | Classic braille throbber ⠋⠙⠹⠸ |
+| `[spinner dotsbounce]` | Bouncing ASCII dots `.  ` → `...` → ` ..` |
 
 The glyph inherits the surrounding color scope (`[yellow][spinner][/]` is yellow). A spinner reserves a fixed column width per style, so surrounding text never reflows as it animates. Animation requires a running `ConsoleWindowSystem` with animations enabled; when parsed without one (e.g. in tests) it renders a static glyph. Escape with double brackets — `[[spinner]]` renders the literal text `[spinner]`.
 

@@ -559,6 +559,8 @@ namespace SharpConsoleUI.Parsing
 				"arrow" => SpinnerStyle.Arrow,
 				"bouncingbar" => SpinnerStyle.BouncingBar,
 				"aestheticbar" => SpinnerStyle.AestheticBar,
+				"brailledots" => SpinnerStyle.BrailleDots,
+				"dotsbounce" => SpinnerStyle.DotsBounce,
 				_ => SpinnerStyle.Braille,
 			};
 			return true;
