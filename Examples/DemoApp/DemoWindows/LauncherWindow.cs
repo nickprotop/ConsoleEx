@@ -766,10 +766,12 @@ public static class LauncherWindow
                 "  - Configurable per-frame interval",
                 "  - Start/Stop programmatic control",
                 "  - SpinnerTextAnimator helper for titles/labels",
+                "  - Inline [[spinner]] markup tag (animates in any label)",
+                "  - Live spinners in the bottom status bar (T to toggle)",
                 "",
                 "[dim]Controls used:[/]",
                 "  - SpinnerControl, SpinnerTextAnimator",
-                "  - MarkupControl, HorizontalGridControl",
+                "  - MarkupControl, HorizontalGridControl, StatusBarControl",
             },
             "Welcome Banner" => new List<string>
             {

@@ -873,6 +873,51 @@ namespace SharpConsoleUI.Configuration
 		public static readonly string[] SpinnerBounceFrames =
 			{ "\u2801", "\u2802", "\u2804", "\u2802" };
 
+		// The frame sets below were contributed by @changlv in GitHub Discussion #25.
+		//
+		// Width note (CLAUDE.md Rule E): Star/Toggle/Arrow glyphs are East Asian
+		// Ambiguous width \u2014 UnicodeWidth reports them as 1-wide, but some terminals
+		// render them 2-wide, which would corrupt inline layout. Each such frame is
+		// padded with a trailing space so the reserved width (max frame width, used by
+		// MarkupSpinnerClock.ReservedWidth and the controls' MaxFrameWidth) is a stable
+		// 2 columns regardless of how the terminal draws the glyph \u2014 no reflow either way.
+		// Grow*/Aesthetic block elements (U+2581-2589, U+25B0-25B1) are Narrow (Na) and
+		// reliably 1-wide, so they need no padding.
+
+		/// <summary>Star spinner frames (twinkling star). Ambiguous-width glyphs padded to a stable 2 columns.</summary>
+		public static readonly string[] SpinnerStarFrames =
+			{ "\u2736 ", "\u2738 ", "\u2739 ", "\u273a ", "\u2739 ", "\u2737 " };
+
+		/// <summary>Vertical growing-bar spinner frames (pulsing block height). Reliably 1-wide.</summary>
+		public static readonly string[] SpinnerGrowVerticalFrames =
+			{ "\u2581", "\u2583", "\u2584", "\u2585", "\u2586", "\u2587", "\u2586", "\u2585", "\u2584", "\u2583" };
+
+		/// <summary>Horizontal growing-bar spinner frames (pulsing block width). Reliably 1-wide.</summary>
+		public static readonly string[] SpinnerGrowHorizontalFrames =
+			{ "\u258f", "\u258e", "\u258d", "\u258c", "\u258b", "\u258a", "\u2589", "\u258a", "\u258b", "\u258c", "\u258d", "\u258e" };
+
+		/// <summary>Toggle spinner frames (empty/filled square blink). Ambiguous-width glyphs padded to a stable 2 columns.</summary>
+		public static readonly string[] SpinnerToggleFrames =
+			{ "\u25a1 ", "\u25a0 " };
+
+		/// <summary>Arrow spinner frames (rotating direction). Ambiguous-width glyphs padded to a stable 2 columns.</summary>
+		public static readonly string[] SpinnerArrowFrames =
+			{ "\u2190 ", "\u2196 ", "\u2191 ", "\u2197 ", "\u2192 ", "\u2198 ", "\u2193 ", "\u2199 " };
+
+		/// <summary>Bouncing-bar spinner frames (ASCII, fixed 6-column width).
+		/// Brackets are escaped ([[ ]]) because frames are rendered through the markup parser,
+		/// where a bare [ ] would be misread as a (broken) tag.</summary>
+		public static readonly string[] SpinnerBouncingBarFrames =
+			{ "[[    ]]", "[[=   ]]", "[[==  ]]", "[[=== ]]", "[[====]]", "[[ ===]]", "[[  ==]]", "[[   =]]",
+			  "[[    ]]", "[[   =]]", "[[  ==]]", "[[ ===]]", "[[====]]", "[[=== ]]", "[[==  ]]", "[[=   ]]" };
+
+		/// <summary>Aesthetic progress-bar spinner frames (fixed 6-column width, reliably 1-wide each).</summary>
+		public static readonly string[] SpinnerAestheticBarFrames =
+			{ "\u25b0\u25b1\u25b1\u25b1\u25b1\u25b1", "\u25b0\u25b0\u25b1\u25b1\u25b1\u25b1",
+			  "\u25b0\u25b0\u25b0\u25b1\u25b1\u25b1", "\u25b0\u25b0\u25b0\u25b0\u25b1\u25b1",
+			  "\u25b0\u25b0\u25b0\u25b0\u25b0\u25b1", "\u25b0\u25b0\u25b0\u25b0\u25b0\u25b0",
+			  "\u25b0\u25b1\u25b1\u25b1\u25b1\u25b1" };
+
 		/// <summary>How long (ms) the render loop keeps repainting after the last inline [spinner] was parsed.</summary>
 		public const int InlineSpinnerKeepAliveMs = 500;
 	}

@@ -552,6 +552,13 @@ namespace SharpConsoleUI.Parsing
 				"arc" => SpinnerStyle.Arc,
 				"bounce" => SpinnerStyle.Bounce,
 				"braille" => SpinnerStyle.Braille,
+				"star" => SpinnerStyle.Star,
+				"growvertical" => SpinnerStyle.GrowVertical,
+				"growhorizontal" => SpinnerStyle.GrowHorizontal,
+				"toggle" => SpinnerStyle.Toggle,
+				"arrow" => SpinnerStyle.Arrow,
+				"bouncingbar" => SpinnerStyle.BouncingBar,
+				"aestheticbar" => SpinnerStyle.AestheticBar,
 				_ => SpinnerStyle.Braille,
 			};
 			return true;

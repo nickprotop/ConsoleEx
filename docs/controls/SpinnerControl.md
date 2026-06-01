@@ -47,8 +47,19 @@ The spinner starts animating automatically when added to a window. Call `Stop()`
 | `Line` | `- \ | /` | 1 column |
 | `Arc` | ◜◠◝◞◡◟ | 1 column |
 | `Bounce` | ⠁⠂⠄⠂ | 1 column |
+| `Star` | ✶✸✹✺✷ | 2 columns |
+| `GrowVertical` | ▁▃▄▅▆▇ | 1 column |
+| `GrowHorizontal` | ▏▎▍▌▋▊▉ | 1 column |
+| `Toggle` | □ ■ | 2 columns |
+| `Arrow` | ←↖↑↗→↘↓↙ | 2 columns |
+| `BouncingBar` | `[    ]` … `[====]` | 6 columns |
+| `AestheticBar` | ▰▱▱▱▱▱ … ▰▰▰▰▰▰ | 6 columns |
 
 All styles reserve a fixed column width so surrounding text never reflows as frames change.
+`Star`, `Toggle`, and `Arrow` use East Asian Ambiguous-width glyphs; their frames are padded
+to reserve a stable 2 columns, so they render correctly whether the terminal draws the glyph
+as 1 or 2 columns. The `Star`/`GrowVertical`/`GrowHorizontal`/`Toggle`/`Arrow`/`BouncingBar`/`AestheticBar`
+styles were contributed by [@changlv](https://github.com/changlv) via [Discussion #25](https://github.com/nickprotop/ConsoleEx/discussions/25).
 
 ## Custom Frames
 
@@ -193,6 +204,8 @@ The same spinner frames are available as an inline `[spinner]` tag anywhere mark
 ```
 [spinner]                     ← Braille (default)
 [spinner circle]              ← Circle style
+[spinner arrow]               ← Arrow style (also: star, toggle, growvertical,
+                                 growhorizontal, bouncingbar, aestheticbar, dots, line, arc, bounce)
 [yellow]Saving [spinner][/]   ← Inherits surrounding color
 ```
 

@@ -24,5 +24,19 @@ public enum SpinnerStyle
 	/// <summary>Arc rotation.</summary>
 	Arc,
 	/// <summary>Bouncing braille dot.</summary>
-	Bounce
+	Bounce,
+	/// <summary>Twinkling star (✶✸✹✺✷). Reserves 2 columns (ambiguous-width glyph).</summary>
+	Star,
+	/// <summary>Vertical growing bar (▁▃▄▅▆▇).</summary>
+	GrowVertical,
+	/// <summary>Horizontal growing bar (▏▎▍▌▋▊▉).</summary>
+	GrowHorizontal,
+	/// <summary>Empty/filled square blink (□■). Reserves 2 columns (ambiguous-width glyph).</summary>
+	Toggle,
+	/// <summary>Rotating arrow (←↖↑↗→↘↓↙). Reserves 2 columns (ambiguous-width glyph).</summary>
+	Arrow,
+	/// <summary>ASCII bouncing bar ([==  ]). Fixed 6-column width.</summary>
+	BouncingBar,
+	/// <summary>Aesthetic progress bar (▰▰▰▱▱▱). Fixed 6-column width.</summary>
+	AestheticBar
 }

@@ -118,6 +118,13 @@ public class SpinnerControl : BaseControl
 		SpinnerStyle.Line => ControlDefaults.SpinnerLineFrames,
 		SpinnerStyle.Arc => ControlDefaults.SpinnerArcFrames,
 		SpinnerStyle.Bounce => ControlDefaults.SpinnerBounceFrames,
+		SpinnerStyle.Star => ControlDefaults.SpinnerStarFrames,
+		SpinnerStyle.GrowVertical => ControlDefaults.SpinnerGrowVerticalFrames,
+		SpinnerStyle.GrowHorizontal => ControlDefaults.SpinnerGrowHorizontalFrames,
+		SpinnerStyle.Toggle => ControlDefaults.SpinnerToggleFrames,
+		SpinnerStyle.Arrow => ControlDefaults.SpinnerArrowFrames,
+		SpinnerStyle.BouncingBar => ControlDefaults.SpinnerBouncingBarFrames,
+		SpinnerStyle.AestheticBar => ControlDefaults.SpinnerAestheticBarFrames,
 		_ => ControlDefaults.SpinnerBrailleFrames,
 	};
 

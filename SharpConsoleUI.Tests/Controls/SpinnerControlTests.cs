@@ -58,6 +58,45 @@ public class SpinnerControlTests
 		Assert.Equal(ControlDefaults.SpinnerCircleFrames, s.EffectiveFrames);
 	}
 
+	[Theory]
+	[InlineData(SpinnerStyle.Braille)]
+	[InlineData(SpinnerStyle.Circle)]
+	[InlineData(SpinnerStyle.Dots)]
+	[InlineData(SpinnerStyle.Line)]
+	[InlineData(SpinnerStyle.Arc)]
+	[InlineData(SpinnerStyle.Bounce)]
+	[InlineData(SpinnerStyle.Star)]
+	[InlineData(SpinnerStyle.GrowVertical)]
+	[InlineData(SpinnerStyle.GrowHorizontal)]
+	[InlineData(SpinnerStyle.Toggle)]
+	[InlineData(SpinnerStyle.Arrow)]
+	[InlineData(SpinnerStyle.BouncingBar)]
+	[InlineData(SpinnerStyle.AestheticBar)]
+	public void EveryStyleResolvesToNonEmptyFrames(SpinnerStyle style)
+	{
+		var frames = SpinnerControl.FramesForStyle(style);
+		Assert.NotEmpty(frames);
+		Assert.All(frames, f => Assert.False(string.IsNullOrEmpty(f)));
+	}
+
+	[Theory]
+	[InlineData(SpinnerStyle.Star)]
+	[InlineData(SpinnerStyle.Toggle)]
+	[InlineData(SpinnerStyle.Arrow)]
+	[InlineData(SpinnerStyle.GrowVertical)]
+	[InlineData(SpinnerStyle.GrowHorizontal)]
+	[InlineData(SpinnerStyle.BouncingBar)]
+	[InlineData(SpinnerStyle.AestheticBar)]
+	public void EveryFrameOfAStyleHasUniformReservedWidth(SpinnerStyle style)
+	{
+		// All frames in a set must share one display width so the spinner never reflows
+		// surrounding text. Ambiguous-width styles (Star/Toggle/Arrow) achieve this via
+		// trailing-space padding; bar styles are already fixed-width.
+		var frames = SpinnerControl.FramesForStyle(style);
+		int reserved = global::SharpConsoleUI.Parsing.MarkupSpinnerClock.ReservedWidth(style);
+		Assert.All(frames, f => Assert.Equal(reserved, global::SharpConsoleUI.Parsing.MarkupParser.StripLength(f)));
+	}
+
 	[Fact]
 	public void CustomFramesOverrideStyle()
 	{
