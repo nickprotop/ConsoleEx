@@ -64,6 +64,8 @@ as 1 or 2 columns. `BrailleDots` is the classic npm/CLI braille throbber — dis
 heavier `Braille` rotation. The `Star`/`GrowVertical`/`GrowHorizontal`/`Toggle`/`Arrow`/`BouncingBar`/`AestheticBar`/`BrailleDots`/`DotsBounce`
 styles were contributed by [@changlv](https://github.com/changlv) via [Discussion #25](https://github.com/nickprotop/ConsoleEx/discussions/25).
 
+**Default speed:** each style has a sensible default interval (e.g. `Dots` ≈ 360 ms, `Star` ≈ 70 ms). `SpinnerControl.IntervalMs` and `SpinnerTextAnimator` resolve to that default when you do not set an explicit interval; `.WithInterval(ms)` / the `intervalMs` constructor argument override it. The inline `[spinner]` tag accepts a trailing override too — `[spinner dots 250]`.
+
 ## Custom Frames
 
 Frames are plain strings and may contain markup, including colors and decorations:
@@ -171,10 +173,12 @@ var animator = new SpinnerTextAnimator(
 
 ### Methods
 
-| Method | Description |
+| Method / Property | Description |
 |--------|-------------|
-| `Start()` | Starts the animation. Idempotent — safe to call when already started. Has no effect when the window system's animations are disabled. |
-| `Stop()` | Stops the animation. Idempotent. |
+| `Start()` | Starts the animation. Idempotent — safe to call when already started. Has no effect when the window system's animations are disabled, or while `Visible` is false. |
+| `Stop()` | Stops the animation and clears the started state. Idempotent. |
+| `Visible` | `bool` (default `true`). Toggles display independently of `Start()`/`Stop()`. Setting `false` cancels the animation and writes an empty string to the target; setting `true` resumes if the animator was started. |
+| `IntervalMs` | `int` (read-only). The resolved per-frame interval (per-style default unless an explicit `intervalMs` was supplied). |
 | `Dispose()` | Stops and releases the animation (calls `Stop()`). |
 
 ### Example — Status Bar Label
@@ -199,6 +203,18 @@ windowSystem.EnqueueOnUIThread(() => statusLabel.SetContent("[green]Connected[/]
 ```
 
 `SpinnerTextAnimator` implements `IDisposable`. Wrap in a `using` statement or call `Dispose()` when done.
+
+### Visibility
+
+`Visible` (default `true`) toggles display independently of `Start()`/`Stop()`:
+
+```csharp
+animator.Start();
+animator.Visible = false; // cancels animation, blanks the target label
+animator.Visible = true;  // resumes (started state is preserved)
+```
+
+Use it to hide/show a status-bar spinner repeatedly without tearing down the animation. When hidden, the target setter receives an empty string. Because the started state is preserved across visibility toggles, you can `Start()` once and then flip `Visible` as needed — distinct from `Stop()`, which clears the started state.
 
 ## Inline Markup Tag
 

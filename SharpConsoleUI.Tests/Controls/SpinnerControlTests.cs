@@ -82,6 +82,27 @@ public class SpinnerControlTests
 	}
 
 	[Theory]
+	[InlineData(SpinnerStyle.Braille, 100)]
+	[InlineData(SpinnerStyle.Circle, 120)]
+	[InlineData(SpinnerStyle.Dots, 360)]
+	[InlineData(SpinnerStyle.Line, 120)]
+	[InlineData(SpinnerStyle.Arc, 300)]
+	[InlineData(SpinnerStyle.Bounce, 100)]
+	[InlineData(SpinnerStyle.Star, 70)]
+	[InlineData(SpinnerStyle.GrowVertical, 120)]
+	[InlineData(SpinnerStyle.GrowHorizontal, 120)]
+	[InlineData(SpinnerStyle.Toggle, 240)]
+	[InlineData(SpinnerStyle.Arrow, 120)]
+	[InlineData(SpinnerStyle.BouncingBar, 80)]
+	[InlineData(SpinnerStyle.AestheticBar, 80)]
+	[InlineData(SpinnerStyle.BrailleDots, 80)]
+	[InlineData(SpinnerStyle.DotsBounce, 200)]
+	public void DefaultIntervalMsMatchesTable(SpinnerStyle style, int expected)
+	{
+		Assert.Equal(expected, SpinnerControl.DefaultIntervalMs(style));
+	}
+
+	[Theory]
 	[InlineData(SpinnerStyle.Star)]
 	[InlineData(SpinnerStyle.Toggle)]
 	[InlineData(SpinnerStyle.Arrow)]
@@ -99,6 +120,44 @@ public class SpinnerControlTests
 		var frames = SpinnerControl.FramesForStyle(style);
 		int reserved = global::SharpConsoleUI.Parsing.MarkupSpinnerClock.ReservedWidth(style);
 		Assert.All(frames, f => Assert.Equal(reserved, global::SharpConsoleUI.Parsing.MarkupParser.StripLength(f)));
+	}
+
+	[Fact]
+	public void IntervalMsResolvesToPerStyleDefaultWhenUnset()
+	{
+		var s = new SpinnerControl { Style = SpinnerStyle.Dots };
+		Assert.Equal(360, s.IntervalMs);
+	}
+
+	[Fact]
+	public void IntervalMsReturnsExplicitValueWhenSet()
+	{
+		var s = new SpinnerControl { Style = SpinnerStyle.Dots, IntervalMs = 50 };
+		Assert.Equal(50, s.IntervalMs);
+	}
+
+	[Fact]
+	public void ExplicitIntervalSurvivesStyleChange()
+	{
+		var s = new SpinnerControl { Style = SpinnerStyle.Dots, IntervalMs = 50 };
+		s.Style = SpinnerStyle.Star;
+		Assert.Equal(50, s.IntervalMs);
+	}
+
+	[Fact]
+	public void UnsetIntervalFollowsStyleChange()
+	{
+		var s = new SpinnerControl { Style = SpinnerStyle.Dots };
+		Assert.Equal(360, s.IntervalMs);
+		s.Style = SpinnerStyle.Star;
+		Assert.Equal(70, s.IntervalMs);
+	}
+
+	[Fact]
+	public void DefaultStyleSpinnerKeepsGlobalInterval()
+	{
+		var s = new SpinnerControl(); // Braille
+		Assert.Equal(ControlDefaults.SpinnerDefaultIntervalMs, s.IntervalMs);
 	}
 
 	[Fact]

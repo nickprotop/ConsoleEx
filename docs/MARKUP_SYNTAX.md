@@ -228,6 +228,8 @@ Embed an animated spinner glyph inline in any markup text. It animates wherever 
 | `[spinner brailledots]` | Classic braille throbber ⠋⠙⠹⠸ |
 | `[spinner dotsbounce]` | Bouncing ASCII dots `.  ` → `...` → ` ..` |
 
+**Speed:** each style animates at a sensible per-style default. Override inline with a trailing millisecond value — `[spinner dots 250]`. A missing or invalid value falls back to the style default; the interval never affects the reserved width.
+
 The glyph inherits the surrounding color scope (`[yellow][spinner][/]` is yellow). A spinner reserves a fixed column width per style, so surrounding text never reflows as it animates. Animation requires a running `ConsoleWindowSystem` with animations enabled; when parsed without one (e.g. in tests) it renders a static glyph. Escape with double brackets — `[[spinner]]` renders the literal text `[spinner]`.
 
 For a standalone, placeable spinner control (rather than inline text), see [SpinnerControl](controls/SpinnerControl.md).

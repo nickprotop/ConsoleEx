@@ -35,8 +35,10 @@ public class InlineSpinnerIntegrationTests
 			var bounds = new LayoutRect(0, 0, 40, 1);
 			label.PaintDOM(buf0, bounds, bounds, Color.White, Color.Black);
 
-			// Advance the clock by one interval -> next frame.
-			MarkupSpinnerClock.SetTimeProviderForTests(() => ControlDefaults.SpinnerDefaultIntervalMs);
+			// Advance the clock by one interval -> next frame. The inline [spinner circle]
+			// animates at Circle's per-style default interval, so advance by exactly that.
+			int circleInterval = SpinnerControl.DefaultIntervalMs(SpinnerStyle.Circle);
+			MarkupSpinnerClock.SetTimeProviderForTests(() => circleInterval);
 			var buf1 = new CharacterBuffer(40, 5);
 			label.PaintDOM(buf1, bounds, bounds, Color.White, Color.Black);
 

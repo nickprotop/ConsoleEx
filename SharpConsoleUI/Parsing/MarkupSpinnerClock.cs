@@ -41,23 +41,26 @@ public static class MarkupSpinnerClock
 		return max;
 	}
 
-	/// <summary>Current 0-based frame index for a style, derived from elapsed monotonic time.</summary>
-	public static int CurrentFrame(SpinnerStyle style)
+	/// <summary>Current 0-based frame index for a style at the given interval, derived from elapsed monotonic time.</summary>
+	public static int CurrentFrame(SpinnerStyle style, int intervalMs)
 	{
 		int frameCount = SpinnerControl.FramesForStyle(style).Length;
 		if (frameCount <= 1) return 0;
-		long elapsed = _now();
-		long interval = ControlDefaults.SpinnerDefaultIntervalMs;
-		long frame = (elapsed / interval) % frameCount;
+		long interval = intervalMs > 0 ? intervalMs : ControlDefaults.SpinnerDefaultIntervalMs;
+		long frame = (_now() / interval) % frameCount;
 		if (frame < 0) frame += frameCount;
 		return (int)frame;
 	}
 
-	/// <summary>Current frame glyph for a style, right-padded with spaces to <see cref="ReservedWidth"/>.</summary>
-	public static string CurrentGlyph(SpinnerStyle style)
+	/// <summary>Current 0-based frame index using the style's per-style default interval.</summary>
+	public static int CurrentFrame(SpinnerStyle style)
+		=> CurrentFrame(style, SpinnerControl.DefaultIntervalMs(style));
+
+	/// <summary>Current frame glyph for a style at the given interval, right-padded to <see cref="ReservedWidth"/>.</summary>
+	public static string CurrentGlyph(SpinnerStyle style, int intervalMs)
 	{
 		var frames = SpinnerControl.FramesForStyle(style);
-		string g = frames[CurrentFrame(style)]; // index already bounded by CurrentFrame
+		string g = frames[CurrentFrame(style, intervalMs)]; // index already bounded by CurrentFrame
 		int reserved = ReservedWidth(style);
 		int width = MarkupParser.StripLength(g);
 		if (width >= reserved) return g;
@@ -65,6 +68,10 @@ public static class MarkupSpinnerClock
 		sb.Append(' ', reserved - width);
 		return sb.ToString();
 	}
+
+	/// <summary>Current frame glyph using the style's per-style default interval.</summary>
+	public static string CurrentGlyph(SpinnerStyle style)
+		=> CurrentGlyph(style, SpinnerControl.DefaultIntervalMs(style));
 
 	/// <summary>True if an inline spinner was parsed within the keep-alive window.</summary>
 	public static bool IsActive

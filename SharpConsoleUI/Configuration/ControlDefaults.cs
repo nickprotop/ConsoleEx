@@ -849,6 +849,26 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Minimum allowed animation interval in milliseconds (clamp for caller-supplied zero/negative values).</summary>
 		public const int AnimationMinIntervalMs = 1;
 
+		// Per-style default animation intervals (ms). Consulted when the caller has not
+		// set an explicit interval. Values from the Discussion #25 catalog where given;
+		// Braille keeps the global default, Circle/Arc filled in sensibly.
+		/// <summary>Default interval for the ASCII Dots style (slower; the ". .. ..." reads better paced).</summary>
+		public const int SpinnerDotsIntervalMs = 360;
+		/// <summary>Default interval for the DotsBounce style.</summary>
+		public const int SpinnerDotsBounceIntervalMs = 200;
+		/// <summary>Default interval for the BrailleDots throbber.</summary>
+		public const int SpinnerBrailleDotsIntervalMs = 80;
+		/// <summary>Default interval for the Star style.</summary>
+		public const int SpinnerStarIntervalMs = 70;
+		/// <summary>Default interval for the Grow/Arrow/Line/Circle family.</summary>
+		public const int SpinnerMediumIntervalMs = 120;
+		/// <summary>Default interval for the Toggle style.</summary>
+		public const int SpinnerToggleIntervalMs = 240;
+		/// <summary>Default interval for the bar styles (BouncingBar, AestheticBar).</summary>
+		public const int SpinnerBarIntervalMs = 80;
+		/// <summary>Default interval for the Arc style (deliberately slow).</summary>
+		public const int SpinnerArcIntervalMs = 300;
+
 		/// <summary>Braille spinner frames (default style). Reliably narrow on modern terminals.</summary>
 		public static readonly string[] SpinnerBrailleFrames =
 			{ "\u28F7", "\u28EF", "\u28DF", "\u287F", "\u28BF", "\u28FB", "\u28FD", "\u28FE" };

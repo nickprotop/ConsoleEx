@@ -53,13 +53,16 @@ public class MarkupSpinnerClockTests
 	[Fact]
 	public void CurrentFrameAdvancesWithTimeAndWraps()
 	{
+		// Use an explicit interval so the "advance one interval → next frame" intent holds
+		// regardless of Circle's per-style default.
+		int interval = ControlDefaults.SpinnerDefaultIntervalMs;
 		WithClockTime(1_000_000, set =>
 		{
-			Assert.Equal(0, MarkupSpinnerClock.CurrentFrame(SpinnerStyle.Circle)); // 4 frames
-			set(ControlDefaults.SpinnerDefaultIntervalMs);
-			Assert.Equal(1, MarkupSpinnerClock.CurrentFrame(SpinnerStyle.Circle));
-			set(ControlDefaults.SpinnerDefaultIntervalMs * 4);
-			Assert.Equal(0, MarkupSpinnerClock.CurrentFrame(SpinnerStyle.Circle));
+			Assert.Equal(0, MarkupSpinnerClock.CurrentFrame(SpinnerStyle.Circle, interval)); // 4 frames
+			set(interval);
+			Assert.Equal(1, MarkupSpinnerClock.CurrentFrame(SpinnerStyle.Circle, interval));
+			set(interval * 4);
+			Assert.Equal(0, MarkupSpinnerClock.CurrentFrame(SpinnerStyle.Circle, interval));
 		});
 	}
 

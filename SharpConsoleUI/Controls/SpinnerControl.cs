@@ -24,7 +24,7 @@ public class SpinnerControl : BaseControl
 {
 	private SpinnerStyle _style = SpinnerStyle.Braille;
 	private string[]? _customFrames;
-	private int _intervalMs = ControlDefaults.SpinnerDefaultIntervalMs;
+	private int? _intervalMs;
 	private Color? _color;
 	private bool _isSpinning = true;
 	private int _currentFrameIndex;
@@ -53,10 +53,11 @@ public class SpinnerControl : BaseControl
 	/// <summary>Gets the frame set actually in use (custom frames if set, else the style preset).</summary>
 	public IReadOnlyList<string> EffectiveFrames => _customFrames ?? FramesForStyle(_style);
 
-	/// <summary>Gets or sets the per-frame interval in milliseconds.</summary>
+	/// <summary>Gets or sets the per-frame interval in milliseconds. When not explicitly set,
+	/// the getter resolves to the per-style default (see <see cref="DefaultIntervalMs"/>).</summary>
 	public int IntervalMs
 	{
-		get => _intervalMs;
+		get => _intervalMs ?? DefaultIntervalMs(_style);
 		set { var v = Math.Max(ControlDefaults.AnimationMinIntervalMs, value); if (_intervalMs == v) return; _intervalMs = v; RestartAnimation(); }
 	}
 
@@ -130,6 +131,25 @@ public class SpinnerControl : BaseControl
 		_ => ControlDefaults.SpinnerBrailleFrames,
 	};
 
+	/// <summary>Resolves the per-style default animation interval (ms). Used when no explicit interval is set.</summary>
+	internal static int DefaultIntervalMs(SpinnerStyle style) => style switch
+	{
+		SpinnerStyle.Dots => ControlDefaults.SpinnerDotsIntervalMs,
+		SpinnerStyle.DotsBounce => ControlDefaults.SpinnerDotsBounceIntervalMs,
+		SpinnerStyle.BrailleDots => ControlDefaults.SpinnerBrailleDotsIntervalMs,
+		SpinnerStyle.Star => ControlDefaults.SpinnerStarIntervalMs,
+		SpinnerStyle.GrowVertical => ControlDefaults.SpinnerMediumIntervalMs,
+		SpinnerStyle.GrowHorizontal => ControlDefaults.SpinnerMediumIntervalMs,
+		SpinnerStyle.Toggle => ControlDefaults.SpinnerToggleIntervalMs,
+		SpinnerStyle.Arrow => ControlDefaults.SpinnerMediumIntervalMs,
+		SpinnerStyle.Line => ControlDefaults.SpinnerMediumIntervalMs,
+		SpinnerStyle.Circle => ControlDefaults.SpinnerMediumIntervalMs,
+		SpinnerStyle.BouncingBar => ControlDefaults.SpinnerBarIntervalMs,
+		SpinnerStyle.AestheticBar => ControlDefaults.SpinnerBarIntervalMs,
+		SpinnerStyle.Arc => ControlDefaults.SpinnerArcIntervalMs,
+		_ => ControlDefaults.SpinnerDefaultIntervalMs,
+	};
+
 	/// <summary>
 	/// Resolves the animation manager robustly by walking the full container chain up to the
 	/// parent window. In nested containers the spinner's direct <see cref="Container"/> may not
@@ -145,7 +165,7 @@ public class SpinnerControl : BaseControl
 		StopAnimation();
 		_animation = new FrameCycleAnimation(
 			EffectiveFrames.Count,
-			TimeSpan.FromMilliseconds(_intervalMs),
+			TimeSpan.FromMilliseconds(IntervalMs),
 			i => { _currentFrameIndex = i; Container?.Invalidate(true); });
 		manager.Add(_animation);
 	}

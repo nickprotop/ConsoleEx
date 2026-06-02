@@ -81,9 +81,9 @@ namespace SharpConsoleUI.Parsing
 					i = tagEnd + 1;
 
 					// Inline spinner tag: emit the current animated glyph in the active scope color.
-					if (TryParseSpinnerTag(tagContent, out var spinnerStyle))
+					if (TryParseSpinnerTag(tagContent, out var spinnerStyle, out var spinnerInterval))
 					{
-						string glyph = MarkupSpinnerClock.CurrentGlyph(spinnerStyle);
+						string glyph = MarkupSpinnerClock.CurrentGlyph(spinnerStyle, spinnerInterval);
 						foreach (var gcell in Parse(glyph, currentFg, currentBg))
 						{
 							if (currentDec == TextDecoration.None)
@@ -317,7 +317,7 @@ namespace SharpConsoleUI.Parsing
 						if (openTags.Count > 0) openTags.Pop();
 						output.Append("[/]");
 					}
-					else if (TryParseSpinnerTag(tagContent, out var spinnerStyle))
+					else if (TryParseSpinnerTag(tagContent, out var spinnerStyle, out _))
 					{
 						// Spinner tags are self-contained (no matching [/]) and expand to
 						// ReservedWidth columns at render time. Count that width here and
@@ -535,16 +535,31 @@ namespace SharpConsoleUI.Parsing
 		/// </summary>
 		private const string SpinnerTagPrefix = "spinner";
 
-		private static bool TryParseSpinnerTag(string tagContent, out SpinnerStyle style)
+		private static bool TryParseSpinnerTag(string tagContent, out SpinnerStyle style, out int intervalMs)
 		{
 			style = SpinnerStyle.Braille;
+			intervalMs = Configuration.ControlDefaults.SpinnerDefaultIntervalMs;
 			if (string.IsNullOrEmpty(tagContent)) return false;
 			if (!tagContent.StartsWith(SpinnerTagPrefix, System.StringComparison.OrdinalIgnoreCase)) return false;
-			if (tagContent.Length == SpinnerTagPrefix.Length) return true;
+			if (tagContent.Length == SpinnerTagPrefix.Length)
+			{
+				intervalMs = SpinnerControl.DefaultIntervalMs(style); // braille default
+				return true;
+			}
 			if (tagContent[SpinnerTagPrefix.Length] != ' ') return false; // avoid matching "spinnerfoo"
 
-			string word = tagContent.Substring(SpinnerTagPrefix.Length + 1).Trim();
-			style = word.ToLowerInvariant() switch
+			// Tokens after "spinner": <styleWord> [<intervalMs>]
+			string rest = tagContent.Substring(SpinnerTagPrefix.Length + 1).Trim();
+			string styleWord = rest;
+			string? intervalToken = null;
+			int sp = rest.IndexOf(' ');
+			if (sp >= 0)
+			{
+				styleWord = rest.Substring(0, sp);
+				intervalToken = rest.Substring(sp + 1).Trim();
+			}
+
+			style = styleWord.ToLowerInvariant() switch
 			{
 				"circle" => SpinnerStyle.Circle,
 				"dots" => SpinnerStyle.Dots,
@@ -563,8 +578,19 @@ namespace SharpConsoleUI.Parsing
 				"dotsbounce" => SpinnerStyle.DotsBounce,
 				_ => SpinnerStyle.Braille,
 			};
+
+			// Explicit positive interval wins; otherwise per-style default. Bad token → style default.
+			if (intervalToken != null && int.TryParse(intervalToken, out int parsed) && parsed > 0)
+				intervalMs = parsed;
+			else
+				intervalMs = SpinnerControl.DefaultIntervalMs(style);
+
 			return true;
 		}
+
+		/// <summary>Test-only wrapper over <see cref="TryParseSpinnerTag(string, out SpinnerStyle, out int)"/>.</summary>
+		public static bool TryParseSpinnerTagForTests(string tagContent, out SpinnerStyle style, out int intervalMs)
+			=> TryParseSpinnerTag(tagContent, out style, out intervalMs);
 
 		private static MarkupStyle ParseTag(string tagContent, Color currentFg, Color currentBg)
 		{
@@ -968,7 +994,7 @@ namespace SharpConsoleUI.Parsing
 					if (i + 1 < tagEnd && (markup[i + 1] == 's' || markup[i + 1] == 'S'))
 					{
 						string tagContent = markup.Substring(i + 1, tagEnd - (i + 1));
-						if (TryParseSpinnerTag(tagContent, out var spinnerStyle))
+						if (TryParseSpinnerTag(tagContent, out var spinnerStyle, out _))
 							visibleLen += MarkupSpinnerClock.ReservedWidth(spinnerStyle);
 					}
 					i = tagEnd + 1;

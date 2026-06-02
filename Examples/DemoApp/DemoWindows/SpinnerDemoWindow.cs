@@ -105,11 +105,23 @@ public static class SpinnerDemoWindow
                 .WithMargin(1, 0, 1, 1)
                 .Build())
             .AddControl(Controls.Rule(""))
+            .AddControl(Controls.Header("Per-Style Speed"))
+            .AddControl(Controls.Markup(
+                    "[dim]Each style animates at a sensible default speed. Override inline " +
+                    "with a trailing millisecond value — [[spinner <style> <ms>]]:[/]")
+                .WithMargin(1, 0, 1, 0)
+                .Build())
+            .AddControl(Controls.Markup(
+                    "Default [green][spinner dots][/]    Fast [yellow][spinner dots 80][/]    Slow [cyan1][spinner dots 600][/]")
+                .WithMargin(1, 0, 1, 1)
+                .Build())
+            .AddControl(Controls.Rule(""))
             .AddControl(Controls.Header("In a Status Bar"))
             .AddControl(Controls.Markup(
                     "[dim]The status bar below renders spinners two ways. " +
                     "A [[spinner]] tag works in any label since item text is parsed as markup; " +
-                    "SpinnerTextAnimator drives a label frame-by-frame (the [[T]] toggle).[/]")
+                    "SpinnerTextAnimator drives a label frame-by-frame. Press [[T]] to toggle its " +
+                    "Visible flag — it hides/shows without losing animation state.[/]")
                 .WithMargin(1, 0, 1, 1)
                 .Build())
             .WithVerticalAlignment(VerticalAlignment.Fill)
@@ -139,20 +151,19 @@ public static class SpinnerDemoWindow
         var animator = new SpinnerTextAnimator(
             ws, SpinnerStyle.Braille,
             frame => animatorTarget.Label = $"[yellow]{frame}[/] working");
-        bool animatorRunning = false;
+
+        // Start once, then toggle Visible (not Start/Stop) — Issue #27: hide/show in a
+        // status bar without tearing down the animation. Begins hidden.
+        animator.Start();
+        animator.Visible = false;
+        bool animatorVisible = false;
 
         void ToggleAnimator()
         {
-            animatorRunning = !animatorRunning;
-            if (animatorRunning)
-            {
-                animator.Start();
-            }
-            else
-            {
-                animator.Stop();
-                animatorTarget.Label = "[green]done[/]";
-            }
+            animatorVisible = !animatorVisible;
+            animator.Visible = animatorVisible;   // hides (blanks label) or shows
+            if (!animatorVisible)
+                animatorTarget.Label = "[green]done[/]"; // replace the blanked label with a marker
         }
 
         statusBar.ItemClicked += (_, args) =>

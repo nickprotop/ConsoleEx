@@ -25,10 +25,16 @@ public sealed class SpinnerTextAnimator : IDisposable
 	private readonly int _intervalMs;
 	private readonly Action<string> _setter;
 	private FrameCycleAnimation? _animation;
+	private bool _started;
+	private bool _visible = true;
 
-	/// <summary>Creates an animator using a preset style.</summary>
+	/// <summary>Gets the resolved per-frame interval in milliseconds.</summary>
+	public int IntervalMs => _intervalMs;
+
+	/// <summary>Creates an animator using a preset style. When <paramref name="intervalMs"/> is null,
+	/// the style's per-style default interval is used.</summary>
 	public SpinnerTextAnimator(ConsoleWindowSystem system, SpinnerStyle style, Action<string> setter, int? intervalMs = null)
-		: this(system, SpinnerControl.FramesForStyle(style), setter, intervalMs) { }
+		: this(system, SpinnerControl.FramesForStyle(style), setter, intervalMs ?? SpinnerControl.DefaultIntervalMs(style)) { }
 
 	/// <summary>Creates an animator using custom frames (may contain markup).</summary>
 	public SpinnerTextAnimator(ConsoleWindowSystem system, IReadOnlyList<string> frames, Action<string> setter, int? intervalMs = null)
@@ -39,26 +45,55 @@ public sealed class SpinnerTextAnimator : IDisposable
 		_intervalMs = Math.Max(ControlDefaults.AnimationMinIntervalMs, intervalMs ?? ControlDefaults.SpinnerDefaultIntervalMs);
 	}
 
-	/// <summary>Starts the animation. Idempotent.</summary>
+	/// <summary>Starts the animation. Idempotent. No visible effect while <see cref="Visible"/> is false;
+	/// the animation begins when the animator is next shown.</summary>
 	/// <remarks>Has no effect when the window system's animations are disabled
 	/// or the concurrent-animation pool is full; in those cases the setter is never invoked.</remarks>
 	public void Start()
 	{
-		if (_animation != null) return;
-		if (!_system.Animations.IsEnabled) return;
-		_animation = new FrameCycleAnimation(
-			_frames.Length,
-			TimeSpan.FromMilliseconds(_intervalMs),
-			i => _setter(_frames[i]));
-		_system.Animations.Add(_animation);
+		_started = true;
+		Apply();
 	}
 
-	/// <summary>Stops the animation. Safe to call when not started (idempotent).</summary>
+	/// <summary>Stops the animation and clears the started state. Safe to call when not started (idempotent).</summary>
 	public void Stop()
 	{
-		if (_animation == null) return;
-		_system.Animations.Cancel(_animation);
-		_animation = null;
+		_started = false;
+		Apply();
+	}
+
+	/// <summary>Gets or sets whether the spinner is shown. When false, the animation is cancelled and the
+	/// target setter receives an empty string; setting true resumes if the animator was started.
+	/// Independent of <see cref="Start"/>/<see cref="Stop"/> — toggling visibility preserves started state.</summary>
+	public bool Visible
+	{
+		get => _visible;
+		set
+		{
+			if (_visible == value) return;
+			_visible = value;
+			if (!_visible) _setter(string.Empty); // blank the target when hidden
+			Apply();
+		}
+	}
+
+	/// <summary>Reconciles the registered animation with the current started/visible state.</summary>
+	private void Apply()
+	{
+		bool shouldRun = _started && _visible && _system.Animations.IsEnabled;
+		if (shouldRun && _animation == null)
+		{
+			_animation = new FrameCycleAnimation(
+				_frames.Length,
+				TimeSpan.FromMilliseconds(_intervalMs),
+				i => _setter(_frames[i]));
+			_system.Animations.Add(_animation);
+		}
+		else if (!shouldRun && _animation != null)
+		{
+			_system.Animations.Cancel(_animation);
+			_animation = null;
+		}
 	}
 
 	/// <inheritdoc/>
