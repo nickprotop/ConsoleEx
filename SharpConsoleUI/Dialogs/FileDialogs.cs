@@ -70,6 +70,16 @@ public static class FileDialogs
 		if (!Directory.Exists(currentPath))
 			currentPath = Environment.CurrentDirectory;
 
+		// Builds the path line with a clickable drive chip + (Ctrl+D) hint.
+		string BuildPathMarkup(string path)
+		{
+			var (seg, rest) = DrivePlaces.SplitDriveSegment(path);
+			var restSafe = rest.Replace("[", "[[").Replace("]", "]]");
+			if (restSafe.Length > 50)
+				restSafe = "..." + restSafe.Substring(restSafe.Length - 47);
+			return $"{DrivePlaces.BuildChipMarkup(seg)}[white]{restSafe}[/]";
+		}
+
 		// Create modal window
 		var builder = new WindowBuilder(windowSystem)
 			.WithTitle(title)
@@ -86,9 +96,9 @@ public static class FileDialogs
 
 		var modal = builder.Build();
 
-		// Current path display
+		// Current path display with clickable drive chip
 		var pathDisplay = Ctl.Markup()
-			.AddLine($"[grey50]Path:[/] [white]{EscapeMarkup(currentPath)}[/]")
+			.AddLine(BuildPathMarkup(currentPath))
 			.WithAlignment(HorizontalAlignment.Left)
 			.WithMargin(1, 0, 1, 0)
 			.WithName("PathDisplay")
@@ -171,7 +181,7 @@ public static class FileDialogs
 			var pathCtrl = modal.FindControl<MarkupControl>("PathDisplay");
 			if (pathCtrl != null)
 			{
-				pathCtrl.Text = $"[grey50]Path:[/] [white]{EscapeMarkup(currentPath)}[/]";
+				pathCtrl.Text = BuildPathMarkup(currentPath);
 			}
 		}
 
@@ -250,23 +260,71 @@ public static class FileDialogs
 
 		// Footer with instructions
 		var instructions = foldersOnly
-			? "[grey70]Enter: Select Folder  •  Backspace: Go Up  •  Escape: Cancel[/]"
-			: "[grey70]Enter: Select  •  Backspace: Go Up  •  Escape: Cancel[/]";
+			? "[grey70]Enter: Select Folder  •  Backspace: Go Up  •  Ctrl+D: Places  •  Escape: Cancel[/]"
+			: "[grey70]Enter: Select  •  Backspace: Go Up  •  Ctrl+D: Places  •  Escape: Cancel[/]";
 		modal.AddControl(Ctl.Markup()
 			.AddLine(instructions)
 			.WithAlignment(HorizontalAlignment.Center)
 			.WithMargin(0, 0, 0, 0)
+			.WithName("FooterHint")
 			.StickyBottom()
 			.Build());
+
+		string BrowsingFooter = instructions;
 
 		// Initial population
 		PopulateFolderList(currentPath);
 		if (!foldersOnly)
 			PopulateFileList(currentPath);
 
+		// "Places" mode: the left folder list is temporarily replaced with drives/mounts.
+		bool inPlacesMode = false;
+
+		void EnterPlacesMode()
+		{
+			inPlacesMode = true;
+			folderList.ClearItems();
+			fileList?.ClearItems();
+			var places = DrivePlaces.GetPlaces(currentPath);
+			int currentIndex = 0;
+			for (int i = 0; i < places.Count; i++)
+			{
+				var pl = places[i];
+				var marker = pl.IsCurrent ? "[grey50]●[/] " : "  ";
+				folderList.AddItem(new ListItem(
+					$"{marker}{pl.Icon} {EscapeMarkup(pl.DisplayName)} [grey50]{EscapeMarkup(pl.Detail)}[/]")
+				{ Tag = "PLACE:" + pl.Path });
+				if (pl.IsCurrent) currentIndex = i;
+			}
+			folderList.SelectedIndex = currentIndex;
+
+			var footer = modal.FindControl<MarkupControl>("FooterHint");
+			if (footer != null)
+				footer.Text = "[grey70]Enter: Go to location  •  Esc: Back to browsing[/]";
+		}
+
+		void ExitPlacesMode(string path)
+		{
+			inPlacesMode = false;
+			PopulateFolderList(path);
+			if (!foldersOnly)
+				PopulateFileList(path);
+			var footer = modal.FindControl<MarkupControl>("FooterHint");
+			if (footer != null)
+				footer.Text = BrowsingFooter;
+		}
+
 		// Handle folder list activation (navigate into folder)
 		folderList.ItemActivated += (sender, item) =>
 		{
+			if (inPlacesMode && item?.Tag is string placeTag && placeTag.StartsWith("PLACE:", StringComparison.Ordinal))
+			{
+				var placePath = placeTag.Substring("PLACE:".Length);
+				if (Directory.Exists(placePath))
+					ExitPlacesMode(placePath);
+				return;
+			}
+
 			if (item?.Tag is string folderPath && Directory.Exists(folderPath))
 			{
 				PopulateFolderList(folderPath);
@@ -279,6 +337,28 @@ public static class FileDialogs
 				selectedPath = selectedFolder;
 				modal.Close();
 			}
+		};
+
+		// Ctrl+D / Places-mode Esc handled before the focused list sees the key.
+		modal.PreviewKeyPressed += (sender, e) =>
+		{
+			if (e.KeyInfo.Key == ConsoleKey.D &&
+				(e.KeyInfo.Modifiers & ConsoleModifiers.Control) != 0)
+			{
+				if (!inPlacesMode) EnterPlacesMode();
+				e.Handled = true;
+			}
+			else if (e.KeyInfo.Key == ConsoleKey.Escape && inPlacesMode)
+			{
+				ExitPlacesMode(currentPath);
+				e.Handled = true;
+			}
+		};
+
+		// Clicking the path line opens Places.
+		pathDisplay.MouseClick += (sender, e) =>
+		{
+			if (!inPlacesMode) EnterPlacesMode();
 		};
 
 		// Handle file list activation (select file)
@@ -297,6 +377,13 @@ public static class FileDialogs
 		// Handle keyboard navigation
 		modal.KeyPressed += (sender, e) =>
 		{
+			if (inPlacesMode)
+			{
+				// In Places mode only the list (Enter to activate) and the
+				// PreviewKeyPressed Esc handler are active.
+				return;
+			}
+
 			if (e.KeyInfo.Key == ConsoleKey.Escape)
 			{
 				selectedPath = null;
@@ -355,6 +442,16 @@ public static class FileDialogs
 		if (!Directory.Exists(currentPath))
 			currentPath = Environment.CurrentDirectory;
 
+		// Builds the path line with a clickable drive chip + (Ctrl+D) hint.
+		string BuildPathMarkup(string path)
+		{
+			var (seg, rest) = DrivePlaces.SplitDriveSegment(path);
+			var restSafe = rest.Replace("[", "[[").Replace("]", "]]");
+			if (restSafe.Length > 50)
+				restSafe = "..." + restSafe.Substring(restSafe.Length - 47);
+			return $"{DrivePlaces.BuildChipMarkup(seg)}[white]{restSafe}[/]";
+		}
+
 		// Create modal window
 		var builder = new WindowBuilder(windowSystem)
 			.WithTitle(title)
@@ -371,9 +468,9 @@ public static class FileDialogs
 
 		var modal = builder.Build();
 
-		// Current path display
+		// Current path display with clickable drive chip
 		var pathDisplay = Ctl.Markup()
-			.AddLine($"[grey50]Folder:[/] [white]{EscapeMarkup(currentPath)}[/]")
+			.AddLine(BuildPathMarkup(currentPath))
 			.WithAlignment(HorizontalAlignment.Left)
 			.WithMargin(1, 0, 1, 0)
 			.WithName("PathDisplay")
@@ -452,7 +549,7 @@ public static class FileDialogs
 			var pathCtrl = modal.FindControl<MarkupControl>("PathDisplay");
 			if (pathCtrl != null)
 			{
-				pathCtrl.Text = $"[grey50]Folder:[/] [white]{EscapeMarkup(currentPath)}[/]";
+				pathCtrl.Text = BuildPathMarkup(currentPath);
 			}
 		}
 
@@ -534,10 +631,12 @@ public static class FileDialogs
 			.Build());
 
 		// Footer with instructions
+		const string SaveBrowsingFooter = "[grey70]Enter: Save  •  Backspace: Go Up  •  Ctrl+D: Places  •  Escape: Cancel[/]";
 		modal.AddControl(Ctl.Markup()
-			.AddLine("[grey70]Enter: Save  •  Backspace: Go Up  •  Escape: Cancel[/]")
+			.AddLine(SaveBrowsingFooter)
 			.WithAlignment(HorizontalAlignment.Center)
 			.WithMargin(0, 0, 0, 0)
+			.WithName("FooterHint")
 			.StickyBottom()
 			.Build());
 
@@ -545,14 +644,80 @@ public static class FileDialogs
 		PopulateFolderList(currentPath);
 		PopulateFileList(currentPath);
 
+		// "Places" mode: the left folder list is temporarily replaced with drives/mounts.
+		bool inPlacesMode = false;
+
+		void EnterPlacesMode()
+		{
+			inPlacesMode = true;
+			folderList.ClearItems();
+			fileList.ClearItems();
+			var places = DrivePlaces.GetPlaces(currentPath);
+			int currentIndex = 0;
+			for (int i = 0; i < places.Count; i++)
+			{
+				var pl = places[i];
+				var marker = pl.IsCurrent ? "[grey50]●[/] " : "  ";
+				folderList.AddItem(new ListItem(
+					$"{marker}{pl.Icon} {EscapeMarkup(pl.DisplayName)} [grey50]{EscapeMarkup(pl.Detail)}[/]")
+				{ Tag = "PLACE:" + pl.Path });
+				if (pl.IsCurrent) currentIndex = i;
+			}
+			folderList.SelectedIndex = currentIndex;
+
+			var footer = modal.FindControl<MarkupControl>("FooterHint");
+			if (footer != null)
+				footer.Text = "[grey70]Enter: Go to location  •  Esc: Back to browsing[/]";
+		}
+
+		void ExitPlacesMode(string path)
+		{
+			inPlacesMode = false;
+			PopulateFolderList(path);
+			PopulateFileList(path);
+			var footer = modal.FindControl<MarkupControl>("FooterHint");
+			if (footer != null)
+				footer.Text = SaveBrowsingFooter;
+		}
+
 		// Handle folder list activation (navigate into folder)
 		folderList.ItemActivated += (sender, item) =>
 		{
+			if (inPlacesMode && item?.Tag is string placeTag && placeTag.StartsWith("PLACE:", StringComparison.Ordinal))
+			{
+				var placePath = placeTag.Substring("PLACE:".Length);
+				if (Directory.Exists(placePath))
+					ExitPlacesMode(placePath);
+				return;
+			}
+
 			if (item?.Tag is string folderPath && Directory.Exists(folderPath))
 			{
 				PopulateFolderList(folderPath);
 				PopulateFileList(folderPath);
 			}
+		};
+
+		// Ctrl+D / Places-mode Esc handled before the focused filename field sees the key.
+		modal.PreviewKeyPressed += (sender, e) =>
+		{
+			if (e.KeyInfo.Key == ConsoleKey.D &&
+				(e.KeyInfo.Modifiers & ConsoleModifiers.Control) != 0)
+			{
+				if (!inPlacesMode) EnterPlacesMode();
+				e.Handled = true;
+			}
+			else if (e.KeyInfo.Key == ConsoleKey.Escape && inPlacesMode)
+			{
+				ExitPlacesMode(currentPath);
+				e.Handled = true;
+			}
+		};
+
+		// Clicking the path line opens Places.
+		pathDisplay.MouseClick += (sender, e) =>
+		{
+			if (!inPlacesMode) EnterPlacesMode();
 		};
 
 		// Handle file list activation (copy filename to input)
@@ -580,6 +745,13 @@ public static class FileDialogs
 		// Handle keyboard navigation
 		modal.KeyPressed += (sender, e) =>
 		{
+			if (inPlacesMode)
+			{
+				// In Places mode only the list (Enter to activate) and the
+				// PreviewKeyPressed Esc handler are active.
+				return;
+			}
+
 			if (e.KeyInfo.Key == ConsoleKey.Escape)
 			{
 				selectedPath = null;

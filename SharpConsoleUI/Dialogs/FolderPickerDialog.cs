@@ -42,6 +42,17 @@ public static class FolderPickerDialog
 		if (!Directory.Exists(currentPath))
 			currentPath = Environment.CurrentDirectory;
 
+		// Builds the path line with a clickable drive chip + (Ctrl+D) hint.
+		string BuildPathMarkup(string path)
+		{
+			var (seg, rest) = DrivePlaces.SplitDriveSegment(path);
+			var restSafe = rest.Replace("[", "[[").Replace("]", "]]");
+			// Truncate the remainder if very long, keeping the chip intact.
+			if (restSafe.Length > 50)
+				restSafe = "..." + restSafe.Substring(restSafe.Length - 47);
+			return $"{DrivePlaces.BuildChipMarkup(seg)}[white]{restSafe}[/]";
+		}
+
 		// Create modal window
 		var builder = new WindowBuilder(windowSystem)
 			.WithTitle(title ?? "Select Folder")
@@ -58,9 +69,9 @@ public static class FolderPickerDialog
 
 		var modal = builder.Build();
 
-		// Breadcrumb path display with individual path segments
+		// Breadcrumb path display with clickable drive chip
 		var pathDisplay = Ctl.Markup()
-			.AddLine($"[grey50]Current:[/] [white]{EscapeMarkup(currentPath)}[/]")
+			.AddLine(BuildPathMarkup(currentPath))
 			.WithAlignment(HorizontalAlignment.Left)
 			.WithMargin(1, 0, 1, 0)
 			.WithName("PathDisplay")
@@ -111,9 +122,10 @@ public static class FolderPickerDialog
 
 		// Footer with keyboard shortcuts
 		modal.AddControl(Ctl.Markup()
-			.AddLine("[grey70]Enter: Open/Select  •  Backspace: Go Up  •  Escape: Cancel[/]")
+			.AddLine("[grey70]Enter: Open/Select  •  Backspace: Go Up  •  Ctrl+D: Places  •  Escape: Cancel[/]")
 			.WithAlignment(HorizontalAlignment.Center)
 			.WithMargin(0, 0, 0, 0)
+			.WithName("FooterHint")
 			.StickyBottom()
 			.Build());
 
@@ -192,24 +204,91 @@ public static class FolderPickerDialog
 			var pathCtrl = modal.FindControl<MarkupControl>("PathDisplay");
 			if (pathCtrl != null)
 			{
-				// Truncate path if too long
-				var displayPath = currentPath;
-				if (displayPath.Length > 60)
-				{
-					displayPath = "..." + displayPath.Substring(displayPath.Length - 57);
-				}
-				pathCtrl.Text = $"[grey50]Current:[/] [white]{EscapeMarkup(displayPath)}[/]";
+				pathCtrl.Text = BuildPathMarkup(currentPath);
 			}
+		}
+
+		// "Places" mode: the folder list is temporarily replaced with drives/mounts.
+		bool inPlacesMode = false;
+
+		const string BrowsingFooter = "[grey70]Enter: Open/Select  •  Backspace: Go Up  •  Ctrl+D: Places  •  Escape: Cancel[/]";
+
+		void EnterPlacesMode()
+		{
+			inPlacesMode = true;
+			folderList.ClearItems();
+			var places = DrivePlaces.GetPlaces(currentPath);
+			int currentIndex = 0;
+			for (int i = 0; i < places.Count; i++)
+			{
+				var pl = places[i];
+				var marker = pl.IsCurrent ? "[grey50]●[/] " : "  ";
+				folderList.AddItem(new ListItem(
+					$"{marker}{pl.Icon} {EscapeMarkup(pl.DisplayName)} [grey50]{EscapeMarkup(pl.Detail)}[/]")
+				{
+					Tag = pl.Path
+				});
+				if (pl.IsCurrent) currentIndex = i;
+			}
+			folderList.SelectedIndex = currentIndex;
+
+			var footer = modal.FindControl<MarkupControl>("FooterHint");
+			if (footer != null)
+				footer.Text = "[grey70]Enter: Go to location  •  Esc: Back to browsing[/]";
+		}
+
+		void ExitPlacesMode()
+		{
+			inPlacesMode = false;
+			PopulateFolderList(currentPath);
+			var footer = modal.FindControl<MarkupControl>("FooterHint");
+			if (footer != null)
+				footer.Text = BrowsingFooter;
 		}
 
 		// Handle folder list activation (double-click or Enter on focused item)
 		folderList.ItemActivated += (sender, item) =>
 		{
+			if (inPlacesMode)
+			{
+				if (item?.Tag is string placePath && Directory.Exists(placePath))
+				{
+					inPlacesMode = false;
+					PopulateFolderList(placePath);
+					var footer = modal.FindControl<MarkupControl>("FooterHint");
+					if (footer != null)
+						footer.Text = BrowsingFooter;
+				}
+				return;
+			}
+
 			if (item?.Tag is FolderEntry entry && Directory.Exists(entry.Path))
 			{
 				// Navigate into the selected folder
 				PopulateFolderList(entry.Path);
 			}
+		};
+
+		// Ctrl+D / Places-mode Esc handled before the focused list sees the key.
+		modal.PreviewKeyPressed += (sender, e) =>
+		{
+			if (e.KeyInfo.Key == ConsoleKey.D &&
+				(e.KeyInfo.Modifiers & ConsoleModifiers.Control) != 0)
+			{
+				if (!inPlacesMode) EnterPlacesMode();
+				e.Handled = true;
+			}
+			else if (e.KeyInfo.Key == ConsoleKey.Escape && inPlacesMode)
+			{
+				ExitPlacesMode();
+				e.Handled = true; // do NOT let the dialog's Escape=cancel fire
+			}
+		};
+
+		// Clicking the path line opens Places.
+		pathDisplay.MouseClick += (sender, e) =>
+		{
+			if (!inPlacesMode) EnterPlacesMode();
 		};
 
 		// Handle "Select This Folder" button
@@ -229,6 +308,13 @@ public static class FolderPickerDialog
 		// Handle keyboard navigation
 		modal.KeyPressed += (sender, e) =>
 		{
+			if (inPlacesMode)
+			{
+				// In Places mode only the list (Enter to activate) and the
+				// PreviewKeyPressed Esc handler are active.
+				return;
+			}
+
 			if (e.KeyInfo.Key == ConsoleKey.Escape)
 			{
 				selectedPath = null;
