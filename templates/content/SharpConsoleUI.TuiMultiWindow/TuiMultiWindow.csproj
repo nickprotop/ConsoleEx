@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SharpConsoleUI" Version="2.4.68" />
+    <PackageReference Include="SharpConsoleUI" Version="2.4.69" />
   </ItemGroup>
 
 </Project>
