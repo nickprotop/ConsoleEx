@@ -41,6 +41,18 @@ public static class MarkupSpinnerClock
 		return max;
 	}
 
+	/// <summary>
+	/// Reserved column width for a style honoring an explicit minimum <paramref name="requestedWidth"/>
+	/// (e.g. from a <c>[spinner … width:N]</c> tag). The request is a <em>minimum</em>: a value narrower
+	/// than the style's natural width is clamped up so the glyph never clips. A non-positive request
+	/// means "use the natural width".
+	/// </summary>
+	public static int ReservedWidth(SpinnerStyle style, int requestedWidth)
+	{
+		int natural = ReservedWidth(style);
+		return requestedWidth > 0 ? Math.Max(requestedWidth, natural) : natural;
+	}
+
 	/// <summary>Current 0-based frame index for a style at the given interval, derived from elapsed monotonic time.</summary>
 	public static int CurrentFrame(SpinnerStyle style, int intervalMs)
 	{
@@ -56,12 +68,20 @@ public static class MarkupSpinnerClock
 	public static int CurrentFrame(SpinnerStyle style)
 		=> CurrentFrame(style, SpinnerControl.DefaultIntervalMs(style));
 
-	/// <summary>Current frame glyph for a style at the given interval, right-padded to <see cref="ReservedWidth"/>.</summary>
+	/// <summary>Current frame glyph for a style at the given interval, right-padded to the style's natural reserved width.</summary>
 	public static string CurrentGlyph(SpinnerStyle style, int intervalMs)
+		=> CurrentGlyph(style, intervalMs, 0);
+
+	/// <summary>
+	/// Current frame glyph for a style at the given interval, right-padded to its reserved width.
+	/// <paramref name="requestedWidth"/> sets an explicit minimum field width (clamped up to the
+	/// natural width so the glyph never clips); a non-positive value uses the natural width.
+	/// </summary>
+	public static string CurrentGlyph(SpinnerStyle style, int intervalMs, int requestedWidth)
 	{
 		var frames = SpinnerControl.FramesForStyle(style);
 		string g = frames[CurrentFrame(style, intervalMs)]; // index already bounded by CurrentFrame
-		int reserved = ReservedWidth(style);
+		int reserved = ReservedWidth(style, requestedWidth);
 		int width = MarkupParser.StripLength(g);
 		if (width >= reserved) return g;
 		var sb = new System.Text.StringBuilder(g, reserved);

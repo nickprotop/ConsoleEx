@@ -83,8 +83,20 @@ public class SpinnerControl : BaseControl
 	/// <summary>Gets the current frame index.</summary>
 	public int CurrentFrameIndex => _currentFrameIndex;
 
+	/// <summary>
+	/// Gets or sets an explicit minimum width (in columns) for the spinner. The control always
+	/// reserves at least the widest frame's width, so a smaller value is clamped up and never
+	/// clips the glyph; a larger value pads the reserved field (e.g. to align the spinner with
+	/// neighbouring controls). Null (the default) reserves exactly the widest frame's width.
+	/// </summary>
+	public override int? Width
+	{
+		get => base.Width;
+		set => base.Width = value;
+	}
+
 	/// <inheritdoc/>
-	public override int? ContentWidth => MaxFrameWidth();
+	public override int? ContentWidth => EffectiveContentWidth();
 
 	/// <summary>Initializes a new spinner.</summary>
 	public SpinnerControl()
@@ -197,10 +209,21 @@ public class SpinnerControl : BaseControl
 		return width;
 	}
 
+	/// <summary>
+	/// The reserved content width: the widest frame's width, raised to <see cref="Width"/> when an
+	/// explicit (larger) minimum is set. Never smaller than the glyph, so the spinner never clips.
+	/// </summary>
+	private int EffectiveContentWidth()
+	{
+		int natural = MaxFrameWidth();
+		int requested = Width ?? 0;
+		return requested > natural ? requested : natural;
+	}
+
 	/// <inheritdoc/>
 	public override Size GetLogicalContentSize()
 	{
-		int width = MaxFrameWidth();
+		int width = EffectiveContentWidth();
 		int height = 1 + Margin.Top + Margin.Bottom;
 		return new Size(width + Margin.Left + Margin.Right, height);
 	}
@@ -208,7 +231,7 @@ public class SpinnerControl : BaseControl
 	/// <inheritdoc/>
 	public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 	{
-		int width = MaxFrameWidth() + Margin.Left + Margin.Right;
+		int width = EffectiveContentWidth() + Margin.Left + Margin.Right;
 		int height = 1 + Margin.Top + Margin.Bottom;
 		return new LayoutSize(
 			Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),

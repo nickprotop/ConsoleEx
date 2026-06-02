@@ -35,6 +35,10 @@ namespace SharpConsoleUI.Builders
 		/// <summary>Sets whether the spinner starts animating (default true).</summary>
 		public SpinnerBuilder Spinning(bool spinning = true) { _control.IsSpinning = spinning; return this; }
 
+		/// <summary>Sets an explicit minimum width (columns). Clamped up to the widest frame so the
+		/// glyph never clips; larger values pad the reserved field (e.g. to align with other controls).</summary>
+		public SpinnerBuilder WithWidth(int width) { _control.Width = width; return this; }
+
 		#endregion
 
 		#region Standard Control Methods

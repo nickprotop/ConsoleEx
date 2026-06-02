@@ -8,6 +8,7 @@
 using System;
 using System.Collections.Generic;
 using SharpConsoleUI;
+using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
@@ -177,5 +178,39 @@ public class SpinnerTextAnimatorTests
 		Assert.Equal(before, sys.Animations.ActiveCount); // hidden → not registered
 		a.Visible = true;
 		Assert.Equal(before + 1, sys.Animations.ActiveCount); // now shown → registered
+	}
+
+	// --- FrameWidth (Issue #32) ---
+
+	[Fact]
+	public void FrameWidthIsWidestCustomFrameWidth()
+	{
+		var sys = System();
+		using var a = new SpinnerTextAnimator(sys, new[] { "a", "abc", "ab" }, _ => { });
+		Assert.Equal(3, a.FrameWidth);
+	}
+
+	[Fact]
+	public void FrameWidthStripsMarkup()
+	{
+		var sys = System();
+		// Display width is the visible glyph count; markup tags do not count.
+		using var a = new SpinnerTextAnimator(sys, new[] { "[yellow]ab[/]", "[red]c[/]" }, _ => { });
+		Assert.Equal(2, a.FrameWidth);
+	}
+
+	[Theory]
+	[InlineData(SpinnerStyle.AestheticBar)]
+	[InlineData(SpinnerStyle.Dots)]
+	[InlineData(SpinnerStyle.Star)]
+	[InlineData(SpinnerStyle.Circle)]
+	public void FrameWidthForStyleMatchesSpinnerControlContentWidth(SpinnerStyle style)
+	{
+		var sys = System();
+		// FrameWidth should equal the width a SpinnerControl reserves for the same
+		// style — the value callers previously had to extract via a throwaway control.
+		int controlWidth = new SpinnerBuilder().WithStyle(style).Build().ContentWidth!.Value;
+		using var a = new SpinnerTextAnimator(sys, style, _ => { });
+		Assert.Equal(controlWidth, a.FrameWidth);
 	}
 }

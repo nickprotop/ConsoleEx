@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using SharpConsoleUI.Animation;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Helpers;
 
@@ -31,6 +32,12 @@ public sealed class SpinnerTextAnimator : IDisposable
 	/// <summary>Gets the resolved per-frame interval in milliseconds.</summary>
 	public int IntervalMs => _intervalMs;
 
+	/// <summary>Gets the display width (in columns) of the widest frame, with any markup stripped.
+	/// Use this to pad the target to a fixed width so that toggling <see cref="Visible"/> (or showing
+	/// an empty placeholder) does not shift the surrounding layout. For example:
+	/// <code>if (!animator.Visible) label.Label = new string(' ', animator.FrameWidth);</code></summary>
+	public int FrameWidth { get; }
+
 	/// <summary>Creates an animator using a preset style. When <paramref name="intervalMs"/> is null,
 	/// the style's per-style default interval is used.</summary>
 	public SpinnerTextAnimator(ConsoleWindowSystem system, SpinnerStyle style, Action<string> setter, int? intervalMs = null)
@@ -43,6 +50,11 @@ public sealed class SpinnerTextAnimator : IDisposable
 		_setter = setter ?? throw new ArgumentNullException(nameof(setter));
 		_frames = frames is { Count: > 0 } ? frames.ToArray() : ControlDefaults.SpinnerBrailleFrames;
 		_intervalMs = Math.Max(ControlDefaults.AnimationMinIntervalMs, intervalMs ?? ControlDefaults.SpinnerDefaultIntervalMs);
+
+		int frameWidth = 0;
+		foreach (var f in _frames)
+			frameWidth = Math.Max(frameWidth, MarkupParser.StripLength(f));
+		FrameWidth = frameWidth;
 	}
 
 	/// <summary>Starts the animation. Idempotent. No visible effect while <see cref="Visible"/> is false;

@@ -940,11 +940,19 @@ namespace SharpConsoleUI
 		{
 			lock (_renderLock)
 			{
-				Helpers.Size desktopSize = DesktopDimensions;
+				// Use the size reported by the resize event rather than re-querying the
+				// driver. The event size is the one the console buffer was just rebuilt
+				// with; re-reading ScreenSize here can return a transient/stale value while
+				// the terminal is still settling after a maximize/restore (e.g. on Windows,
+				// where Console.WindowWidth/Height lag during the animation), which would
+				// size windows inconsistently with the buffer. See issue #31.
+				Helpers.Size desktopSize = new Helpers.Size(
+					size.Width,
+					Math.Max(0, size.Height - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight()));
 
 				_consoleDriver.Clear();
 
-				_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);
+				_renderer.FillDesktopBackground(Theme, size.Width, size.Height);
 
 				foreach (var window in Windows.Values)
 				{

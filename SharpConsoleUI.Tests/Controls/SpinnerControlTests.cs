@@ -318,6 +318,31 @@ public class SpinnerControlTests
 	}
 
 	[Fact]
+	public void ExplicitWidthReservesAtLeastThatManyColumns()
+	{
+		// Braille is 1 col naturally; an explicit Width of 5 reserves 5.
+		var s = new SpinnerControl { Width = 5 };
+		Assert.Equal(5, s.GetLogicalContentSize().Width);
+		Assert.Equal(5, s.ContentWidth);
+	}
+
+	[Fact]
+	public void ExplicitWidthIsAMinimumAndNeverClipsWiderGlyph()
+	{
+		// Widest frame is 2 cols; a smaller explicit Width is clamped up to 2.
+		var s = new SpinnerControl { Frames = new[] { "a", "📦" }, Width = 1 };
+		Assert.Equal(2, s.GetLogicalContentSize().Width);
+	}
+
+	[Fact]
+	public void ExplicitWidthPadsMeasuredWidth()
+	{
+		var s = new SpinnerControl { Width = 6 };
+		var size = s.MeasureDOM(new LayoutConstraints(0, 100, 0, 100));
+		Assert.Equal(6, size.Width);
+	}
+
+	[Fact]
 	public void MarginOffsetsRenderedGlyph()
 	{
 		var s = new SpinnerControl { Margin = new Margin(3, 0, 0, 0) };

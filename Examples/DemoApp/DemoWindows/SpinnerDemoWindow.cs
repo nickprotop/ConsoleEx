@@ -107,12 +107,24 @@ public static class SpinnerDemoWindow
             .AddControl(Controls.Rule(""))
             .AddControl(Controls.Header("Per-Style Speed"))
             .AddControl(Controls.Markup(
-                    "[dim]Each style animates at a sensible default speed. Override inline " +
-                    "with a trailing millisecond value — [[spinner <style> <ms>]]:[/]")
+                    "[dim]Each style animates at a sensible default speed. Override inline with a " +
+                    "trailing millisecond value or named args — [[spinner <style> <ms>]] / [[spinner <style> ms:<n>]]:[/]")
                 .WithMargin(1, 0, 1, 0)
                 .Build())
             .AddControl(Controls.Markup(
                     "Default [green][spinner dots][/]    Fast [yellow][spinner dots 80][/]    Slow [cyan1][spinner dots 600][/]")
+                .WithMargin(1, 0, 1, 1)
+                .Build())
+            .AddControl(Controls.Rule(""))
+            .AddControl(Controls.Header("Reserved Width"))
+            .AddControl(Controls.Markup(
+                    "[dim]Reserve a fixed field width so toggling content never shifts neighbours — " +
+                    "[[spinner <style> width:<n>]]. It is a minimum: a value below the glyph's natural " +
+                    "width is clamped up so it never clips.[/]")
+                .WithMargin(1, 0, 1, 0)
+                .Build())
+            .AddControl(Controls.Markup(
+                    "natural |[yellow][spinner braille][/]|   width:6 |[yellow][spinner braille width:6][/]|   dots width:8 |[green][spinner dots width:8][/]|")
                 .WithMargin(1, 0, 1, 1)
                 .Build())
             .AddControl(Controls.Rule(""))
