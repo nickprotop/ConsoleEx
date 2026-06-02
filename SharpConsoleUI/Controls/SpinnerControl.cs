@@ -156,8 +156,8 @@ public class SpinnerControl : BaseControl
 		SpinnerStyle.Arrow => ControlDefaults.SpinnerMediumIntervalMs,
 		SpinnerStyle.Line => ControlDefaults.SpinnerMediumIntervalMs,
 		SpinnerStyle.Circle => ControlDefaults.SpinnerMediumIntervalMs,
-		SpinnerStyle.BouncingBar => ControlDefaults.SpinnerBarIntervalMs,
-		SpinnerStyle.AestheticBar => ControlDefaults.SpinnerBarIntervalMs,
+		SpinnerStyle.BouncingBar => ControlDefaults.SpinnerBouncingBarIntervalMs,
+		SpinnerStyle.AestheticBar => ControlDefaults.SpinnerAestheticBarIntervalMs,
 		SpinnerStyle.Arc => ControlDefaults.SpinnerArcIntervalMs,
 		_ => ControlDefaults.SpinnerDefaultIntervalMs,
 	};

@@ -88,13 +88,13 @@ public class SpinnerControlTests
 	[InlineData(SpinnerStyle.Line, 120)]
 	[InlineData(SpinnerStyle.Arc, 300)]
 	[InlineData(SpinnerStyle.Bounce, 100)]
-	[InlineData(SpinnerStyle.Star, 70)]
+	[InlineData(SpinnerStyle.Star, 180)]
 	[InlineData(SpinnerStyle.GrowVertical, 120)]
 	[InlineData(SpinnerStyle.GrowHorizontal, 120)]
 	[InlineData(SpinnerStyle.Toggle, 240)]
 	[InlineData(SpinnerStyle.Arrow, 120)]
-	[InlineData(SpinnerStyle.BouncingBar, 80)]
-	[InlineData(SpinnerStyle.AestheticBar, 80)]
+	[InlineData(SpinnerStyle.BouncingBar, 210)]
+	[InlineData(SpinnerStyle.AestheticBar, 360)]
 	[InlineData(SpinnerStyle.BrailleDots, 80)]
 	[InlineData(SpinnerStyle.DotsBounce, 200)]
 	public void DefaultIntervalMsMatchesTable(SpinnerStyle style, int expected)
@@ -150,7 +150,7 @@ public class SpinnerControlTests
 		var s = new SpinnerControl { Style = SpinnerStyle.Dots };
 		Assert.Equal(360, s.IntervalMs);
 		s.Style = SpinnerStyle.Star;
-		Assert.Equal(70, s.IntervalMs);
+		Assert.Equal(180, s.IntervalMs);
 	}
 
 	[Fact]

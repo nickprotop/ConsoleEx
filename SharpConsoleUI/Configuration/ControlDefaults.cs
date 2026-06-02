@@ -859,13 +859,15 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Default interval for the BrailleDots throbber.</summary>
 		public const int SpinnerBrailleDotsIntervalMs = 80;
 		/// <summary>Default interval for the Star style.</summary>
-		public const int SpinnerStarIntervalMs = 70;
+		public const int SpinnerStarIntervalMs = 180;
 		/// <summary>Default interval for the Grow/Arrow/Line/Circle family.</summary>
 		public const int SpinnerMediumIntervalMs = 120;
 		/// <summary>Default interval for the Toggle style.</summary>
 		public const int SpinnerToggleIntervalMs = 240;
-		/// <summary>Default interval for the bar styles (BouncingBar, AestheticBar).</summary>
-		public const int SpinnerBarIntervalMs = 80;
+		/// <summary>Default interval for the BouncingBar style.</summary>
+		public const int SpinnerBouncingBarIntervalMs = 210;
+		/// <summary>Default interval for the AestheticBar style.</summary>
+		public const int SpinnerAestheticBarIntervalMs = 360;
 		/// <summary>Default interval for the Arc style (deliberately slow).</summary>
 		public const int SpinnerArcIntervalMs = 300;
 
