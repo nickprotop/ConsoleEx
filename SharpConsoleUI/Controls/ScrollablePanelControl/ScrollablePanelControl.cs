@@ -71,6 +71,10 @@ namespace SharpConsoleUI.Controls
 		// PaintDOM defers the scroll until first valid render.
 		private bool _pendingScrollToFocused = false;
 
+		// Set when ScrollToBottom() is called before the viewport has been laid out;
+		// PaintDOM completes the scroll once content/viewport metrics are known.
+		private bool _pendingScrollToBottom = false;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ScrollablePanelControl"/> class.
 		/// </summary>

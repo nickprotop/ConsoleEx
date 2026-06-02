@@ -256,6 +256,56 @@ public class ScrollablePanelControlTests
 	}
 
 	[Fact]
+	public void ScrollToBottom_BeforeFirstPaint_ScrollsAfterLayout()
+	{
+		// Issue #28: panel initialized with content taller than the viewport,
+		// ScrollToBottom() called BEFORE the first render (viewport not yet laid out).
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+		for (int i = 0; i < 32; i++)
+			panel.AddControl(ContainerTestHelpers.CreateLabel($"Line {i}"));
+
+		var (_, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+
+		panel.ScrollToBottom();            // called before any paint — viewport is still 0
+		window.RenderAndGetVisibleContent(); // first paint lays out viewport/content
+
+		int expectedMax = Math.Max(0, panel.TotalContentHeight - panel.ViewportHeight);
+		Assert.True(expectedMax > 0, "Content must exceed viewport for this scenario");
+		Assert.Equal(expectedMax, panel.VerticalScrollOffset);
+	}
+
+	[Fact]
+	public void ScrollToBottom_AfterAddingContent_ScrollsPastNewContent()
+	{
+		// Issue #28: after the panel is laid out, add a new child then ScrollToBottom().
+		// The new content must be included in the scroll target, not the stale height.
+		var panel = new ScrollablePanelControl();
+		panel.Height = 10;
+		for (int i = 0; i < 32; i++)
+			panel.AddControl(ContainerTestHelpers.CreateLabel($"Line {i}"));
+
+		var (_, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+		panel.ScrollToBottom();
+		int offsetBefore = panel.VerticalScrollOffset;
+
+		// Add several new lines and request bottom again, WITHOUT painting in between.
+		for (int i = 0; i < 5; i++)
+			panel.AddControl(ContainerTestHelpers.CreateLabel($"New {i}"));
+		panel.ScrollToBottom();
+
+		window.RenderAndGetVisibleContent(); // paint reflects the additions
+
+		int expectedMax = Math.Max(0, panel.TotalContentHeight - panel.ViewportHeight);
+		Assert.Equal(expectedMax, panel.VerticalScrollOffset);
+		Assert.True(panel.VerticalScrollOffset > offsetBefore,
+			"Adding content then ScrollToBottom must scroll further down");
+	}
+
+	[Fact]
 	public void Scrolled_EventFires_OnScroll()
 	{
 		var (panel, _, _) = CreateRenderedScrollPanel();

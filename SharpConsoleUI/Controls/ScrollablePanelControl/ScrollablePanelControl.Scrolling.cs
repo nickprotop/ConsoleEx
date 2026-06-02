@@ -116,6 +116,21 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Recomputes <see cref="_contentHeight"/> from the current children when the viewport
+		/// is known. The cached height is otherwise only refreshed during <see cref="PaintDOM"/>,
+		/// so callers that scroll right after mutating children (without an intervening paint)
+		/// would otherwise compute their target from a stale height. Returns true if the viewport
+		/// is laid out (height is now current); false if it is not yet known.
+		/// </summary>
+		private bool RefreshContentHeightIfLaidOut()
+		{
+			if (_viewportWidth <= 0 || _viewportHeight <= 0)
+				return false;
+			_contentHeight = CalculateContentHeight(_viewportWidth, _viewportHeight);
+			return true;
+		}
+
+		/// <summary>
 		/// Scrolls the content horizontally by the specified number of characters.
 		/// Positive values scroll right, negative values scroll left.
 		/// The offset is clamped to valid bounds automatically.
@@ -141,7 +156,22 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Scrolls to the bottom of the content.
 		/// </summary>
-		public void ScrollToBottom() => ScrollVerticalTo(Math.Max(0, _contentHeight - _viewportHeight));
+		/// <remarks>
+		/// This is a one-shot scroll — it does not enable <see cref="AutoScroll"/>. When called
+		/// before the panel has been laid out (e.g. immediately after <c>AddWindow</c>), the scroll
+		/// is deferred to the first paint. When called right after adding content, the content
+		/// height is recomputed on demand so the new content is included in the target.
+		/// </remarks>
+		public void ScrollToBottom()
+		{
+			if (!RefreshContentHeightIfLaidOut())
+			{
+				// Viewport not laid out yet — defer to the first valid paint.
+				_pendingScrollToBottom = true;
+				return;
+			}
+			ScrollVerticalTo(Math.Max(0, _contentHeight - _viewportHeight));
+		}
 
 		/// <summary>
 		/// Scrolls to a specific position.

@@ -81,6 +81,14 @@ namespace SharpConsoleUI.Controls
 					ScrollChildIntoView(pendingFw);
 			}
 
+			// Deferred scroll-to-bottom: ScrollToBottom() was called before the viewport
+			// was laid out. Metrics are now current, so complete the one-shot scroll.
+			if (_pendingScrollToBottom && _viewportWidth > 0 && _viewportHeight > 0)
+			{
+				_pendingScrollToBottom = false;
+				_verticalScrollOffset = Math.Max(0, _contentHeight - _viewportHeight);
+			}
+
 			// AutoScroll: scroll to bottom on any repaint when enabled
 			if (_autoScroll)
 			{
