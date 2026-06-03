@@ -303,6 +303,11 @@ namespace SharpConsoleUI
 				}
 			}
 
+			// Rebuild content before drawing borders so the border scrollbar reflects the
+			// current content height rather than the previous frame's (see issue #31).
+			var buffer = window.EnsureContentReady(visibleRegions);
+			window.IsDirty = false;
+
 			// Draw window borders - these might be partially hidden but the drawing functions
 			// will handle clipping against screen boundaries
 			window.BorderRenderer?.RenderBorders(visibleRegions);
@@ -310,10 +315,6 @@ namespace SharpConsoleUI
 			// Composite border cells for transparent windows
 			if (window.BackgroundColor.A < 255)
 				CompositeBorders(window, visibleRegions);
-
-			// Optimized path: rebuild buffer only and render cells directly
-			var buffer = window.EnsureContentReady(visibleRegions);
-			window.IsDirty = false;
 
 			if (buffer != null)
 			{
@@ -401,6 +402,14 @@ namespace SharpConsoleUI
 				}
 			}
 
+			// Rebuild content (measure/layout/paint) BEFORE drawing borders. The border
+			// scrollbar is derived from window.TotalLines (the laid-out content height); if
+			// borders are drawn first, the scrollbar reflects the previous frame's content
+			// size. After a resize that shrinks the content (e.g. restoring from a maximized
+			// OS window), that leaves a stale scrollbar drawn until the next frame (issue #31).
+			var buffer = window.EnsureContentReady(visibleRegions);
+			window.IsDirty = false;
+
 			// Draw window borders - these might be partially hidden but the drawing functions
 			// will handle clipping against screen boundaries
 			window.BorderRenderer?.RenderBorders(visibleRegions);
@@ -408,10 +417,6 @@ namespace SharpConsoleUI
 			// Composite border cells for transparent windows
 			if (window.BackgroundColor.A < 255)
 				CompositeBorders(window, visibleRegions);
-
-			// Optimized path: rebuild buffer only (no ANSI serialization) and render cells directly
-			var buffer = window.EnsureContentReady(visibleRegions);
-			window.IsDirty = false;
 
 			if (buffer != null)
 			{
