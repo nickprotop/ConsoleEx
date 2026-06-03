@@ -28,13 +28,13 @@ public static class SpinnerStyleExtensions
     }
 
     private static Dictionary<SpinnerStyle, int> FrameWidthCache = [];
-    private static readonly object FrameWidthLock = new object();
+    private static readonly object FrameWidthCacheLock = new object();
 
     private static void TryReadyFrameWidthCache()
     {        
         if (FrameWidthCache.Count == 0)
         {
-            lock (FrameWidthLock)
+            lock (FrameWidthCacheLock)
             {
                 if (FrameWidthCache.Count == 0)
                 {
