@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -41,17 +41,21 @@ public sealed class SpinnerTextAnimator : IDisposable
 	/// <summary>Creates an animator using a preset style. When <paramref name="intervalMs"/> is null,
 	/// the style's per-style default interval is used.</summary>
 	public SpinnerTextAnimator(ConsoleWindowSystem system, SpinnerStyle style, Action<string> setter, int? intervalMs = null)
-	{
-        _system = system ?? throw new ArgumentNullException(nameof(system));
-        _setter = setter ?? throw new ArgumentNullException(nameof(setter));
+		: this(system, SpinnerControl.FramesForStyle(style), setter, intervalMs ?? SpinnerControl.DefaultIntervalMs(style)) { }
 
-        var frames = SpinnerControl.FramesForStyle(style);
-        _frames = frames is { Length: > 0 } ? frames.ToArray() : ControlDefaults.SpinnerBrailleFrames;
-        
+	/// <summary>Creates an animator using custom frames (may contain markup).</summary>
+	public SpinnerTextAnimator(ConsoleWindowSystem system, IReadOnlyList<string> frames, Action<string> setter, int? intervalMs = null)
+	{
+		_system = system ?? throw new ArgumentNullException(nameof(system));
+		_setter = setter ?? throw new ArgumentNullException(nameof(setter));
+		_frames = frames is { Count: > 0 } ? frames.ToArray() : ControlDefaults.SpinnerBrailleFrames;
 		_intervalMs = Math.Max(ControlDefaults.AnimationMinIntervalMs, intervalMs ?? ControlDefaults.SpinnerDefaultIntervalMs);
 
-		FrameWidth = style.FrameWidth();
-    }
+		int frameWidth = 0;
+		foreach (var f in _frames)
+			frameWidth = Math.Max(frameWidth, MarkupParser.StripLength(f));
+		FrameWidth = frameWidth;
+	}
 
 	/// <summary>Starts the animation. Idempotent. No visible effect while <see cref="Visible"/> is false;
 	/// the animation begins when the animator is next shown.</summary>
