@@ -28,6 +28,7 @@ jobs:
         dotnet-version: |
           8.0.x
           9.0.x
+          10.0.x
         
     - name: Determine Version
       id: version
@@ -51,13 +52,13 @@ jobs:
         
     - name: Restore dependencies
       run: dotnet restore SharpConsoleUI/SharpConsoleUI.csproj
-      
+
+    - name: Test
+      run: dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj --configuration Release --verbosity normal
+
     - name: Build
       run: dotnet build SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-restore /p:Version=${{ steps.version.outputs.version }}
-      
-    - name: Test
-      run: dotnet test SharpConsoleUI/SharpConsoleUI.csproj --no-build --verbosity normal
-      
+
     - name: Package
       run: dotnet pack SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-build --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
 
