@@ -343,7 +343,17 @@ internal sealed class VT100Machine
         bool isDec = _useG1 ? _g1Decs : _g0Decs;
         if (isDec) ch = MapDecSpecial(ch);
 
-        _screen.SetNarrowCell(_cx, _cy, ch, _fg, _bg);
+        // Replace C1 controls, BiDi overrides, surrogates, and other unsafe
+        // runes with U+FFFD before they can reach a cell. This must run in
+        // Release builds: the Debug.Assert in SetNarrowCell is compiled out
+        // there, so it cannot be relied on as the actual protection boundary.
+        var rune = char.IsSurrogate(ch)
+            ? Helpers.TextSanitizer.ReplacementCharacter
+            : new System.Text.Rune(ch);
+        if (Helpers.TextSanitizer.IsUnsafeRune(rune))
+            rune = Helpers.TextSanitizer.ReplacementCharacter;
+
+        _screen.SetNarrowCell(_cx, _cy, rune, _fg, _bg);
         _cx++;
     }
 

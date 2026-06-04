@@ -859,7 +859,12 @@ namespace SharpConsoleUI.Layout
 					int dy = destY + (sy - sourceRect.Y);
 					if (dx >= 0 && dx < Width && dy >= 0 && dy < Height)
 					{
-						SetCell(dx, dy, source.GetCell(sx, sy));
+						var cell = source.GetCell(sx, sy);
+						// Defense in depth: never let an unsafe rune cross a buffer
+						// boundary, regardless of where the source buffer came from.
+						if (TextSanitizer.IsUnsafeRune(cell.Character))
+							cell.Character = TextSanitizer.ReplacementCharacter;
+						SetCell(dx, dy, cell);
 					}
 				}
 			}
