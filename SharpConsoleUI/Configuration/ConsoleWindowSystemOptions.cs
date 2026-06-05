@@ -125,11 +125,13 @@ public record ConsoleWindowSystemOptions(
     WatchdogOptions? Watchdog = null,
 
     // Install a UI SynchronizationContext for the duration of Run() so `await` inside handlers
-    // resumes on the main-loop (UI) thread (WinForms/WPF model). Default true.
-    // Set false to preserve the legacy behavior where awaited continuations resume on the thread
-    // pool — use this only if upgrading an app that relies on blocking on async work (.Result/.Wait())
-    // on the UI thread, which can deadlock once a UI SynchronizationContext is installed.
-    bool InstallSynchronizationContext = true
+    // resumes on the main-loop (UI) thread (WinForms/WPF model). Default false.
+    // Default is false to preserve legacy behavior: awaited continuations resume on the thread
+    // pool, so a handler that blocks on async work (.Result/.Wait()/.GetAwaiter().GetResult())
+    // freezes-then-recovers instead of deadlocking. Set true to opt into the WinForms/WPF model
+    // where `await` resumes on the UI thread — but then handlers MUST use `await` and never block
+    // on async work on the UI thread, or the captured continuation deadlocks against the loop.
+    bool InstallSynchronizationContext = false
 )
 {
     private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

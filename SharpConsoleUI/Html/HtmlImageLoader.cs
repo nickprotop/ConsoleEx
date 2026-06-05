@@ -100,21 +100,11 @@ namespace SharpConsoleUI.Html
 				!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
 				return null;
 
-			var response = Task.Run(async () => await HttpClient.GetAsync(url).ConfigureAwait(false))
+			// Run the whole async fetch+render off the captured SynchronizationContext.
+			// Blocking on async work directly on the UI thread (.GetAwaiter().GetResult())
+			// deadlocks once a UI SynchronizationContext is installed; Task.Run escapes it.
+			return Task.Run(() => LoadAndRenderAsync(url, maxWidthChars, background, graphicsProtocol))
 				.GetAwaiter().GetResult();
-			var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
-			if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
-			    contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
-				return null;
-			const long MaxImageBytes = 10 * 1024 * 1024; // 10 MB
-			if (response.Content.Headers.ContentLength > MaxImageBytes)
-				return null;
-			var bytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
-			if (bytes.Length > MaxImageBytes)
-				return null;
-			using var ms = new MemoryStream(bytes);
-			var buffer = PixelBuffer.FromStream(ms);
-			return RenderFromBuffer(buffer, maxWidthChars, background, graphicsProtocol);
 		}
 
 		/// <summary>

@@ -6,12 +6,18 @@ namespace SharpConsoleUI.Tests.Configuration;
 public class WatchdogOptionsTests
 {
 	[Fact]
-	public void InstallSynchronizationContext_DefaultsTrue_AndIsConfigurable()
+	public void InstallSynchronizationContext_DefaultsFalse_AndIsConfigurable()
 	{
-		Assert.True(new ConsoleWindowSystemOptions().InstallSynchronizationContext);
+		// Default is false to preserve legacy behavior: awaited continuations resume on the thread
+		// pool, so a handler that blocks on async work (.Result/.Wait()/.GetAwaiter().GetResult())
+		// freezes-then-recovers instead of deadlocking. Installing a UI SynchronizationContext
+		// (true) would capture those continuations onto the UI queue, which a blocked UI thread
+		// never drains -> permanent deadlock. Confirmed external users (dotnet-skills, Cratis CLI)
+		// block on async from UI handlers, so this MUST default to false to avoid breaking them.
+		Assert.False(new ConsoleWindowSystemOptions().InstallSynchronizationContext);
 
-		var opted = new ConsoleWindowSystemOptions() with { InstallSynchronizationContext = false };
-		Assert.False(opted.InstallSynchronizationContext);
+		var opted = new ConsoleWindowSystemOptions() with { InstallSynchronizationContext = true };
+		Assert.True(opted.InstallSynchronizationContext);
 	}
 
 	[Fact]

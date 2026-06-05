@@ -28,17 +28,22 @@ Everything that reads or writes UI state runs on this thread:
 | Window lifecycle — `Activated`, `OnResize`, and similar handlers | |
 | Actions marshalled via `EnqueueOnUIThread` / `InvokeAsync` | |
 
-A `SynchronizationContext` tied to the UI thread is installed for the lifetime
-of `Run()`. This means that if you write an `async` handler and you are already
-on the UI thread, `await` will resume you on the UI thread automatically —
-exactly the same model as WinForms and WPF.
+A `SynchronizationContext` tied to the UI thread can be installed for the lifetime
+of `Run()` by opting in with `ConsoleWindowSystemOptions.InstallSynchronizationContext = true`
+(see [below](#opting-in-installsynchronizationcontext)). With it installed, if you write
+an `async` handler and you are already on the UI thread, `await` will resume you on the
+UI thread automatically — exactly the same model as WinForms and WPF. It is **off by
+default**: by default awaited continuations resume on the thread pool, so you marshal UI
+mutations back yourself via `InvokeAsync` / `EnqueueOnUIThread`.
 
 ```csharp
-// This handler is called on the UI thread. After the await, execution
-// continues on the UI thread — no manual marshalling needed.
+// With InstallSynchronizationContext = true (opt-in), this handler is called on the
+// UI thread and execution continues on the UI thread after the await — no manual
+// marshalling needed. With the default (false), wrap the post-await UI mutation in
+// InvokeAsync / EnqueueOnUIThread instead.
 button.ClickAsync += async (s, e) =>
 {
-    var result = await FetchDataAsync();   // suspends; resumes on UI thread
+    var result = await FetchDataAsync();   // suspends; resumes on UI thread when opted in
     label.SetContent(new List<string> { result });
 };
 ```
@@ -74,28 +79,43 @@ task that reports back via `InvokeAsync` / `EnqueueOnUIThread`.
 > This is the *same* deadlock WinForms and WPF have, for the same reason — it is
 > intrinsic to a single-threaded UI with a capturing `SynchronizationContext`.
 > A plain console app (no context) does **not** have it, because the continuation
-> in step 3 would resume on the thread pool instead of the UI thread. That is why
-> installing the context is the one upgrade behavior that can affect existing apps.
+> in step 3 would resume on the thread pool instead of the UI thread. **This is why
+> the context is off by default** — so that a handler which blocks on async work
+> freezes-then-recovers (as it always did) instead of deadlocking on upgrade.
 
-### Opting out (`InstallSynchronizationContext`)
+### Opting in (`InstallSynchronizationContext`)
 
-If you are upgrading an existing app that deliberately blocks on async work on the
-UI thread and you cannot fix every call site yet, you can restore the legacy
-behavior (continuations resume on the thread pool) by disabling the context:
+The UI `SynchronizationContext` is **off by default** (`InstallSynchronizationContext
+= false`). By default, awaited continuations resume on the thread pool — the legacy
+behavior — so a handler that blocks on async work (`.Result` / `.Wait()` /
+`.GetAwaiter().GetResult()`) freezes-then-recovers rather than deadlocking. This keeps
+existing apps that block on async from UI handlers working unchanged after an upgrade.
+
+Opt into the WinForms/WPF model (so `await` in a handler resumes on the UI thread) by
+enabling it explicitly:
 
 ```csharp
 var options = new ConsoleWindowSystemOptions
 {
-    InstallSynchronizationContext = false   // default is true
+    InstallSynchronizationContext = true   // default is false
 };
 var system = new ConsoleWindowSystem(RenderMode.Buffer, options: options);
 ```
 
-With it disabled, `await` in your handlers resumes on a thread-pool thread, so you
-**must** marshal any UI mutation back yourself via `InvokeAsync` /
+> ⚠️ Once enabled, your handlers **must** use `await` and **must never** block on async
+> work on the UI thread (`.Result` / `.Wait()` / `.GetAwaiter().GetResult()`), or the
+> captured continuation deadlocks against the loop (see above).
+
+> 📌 **This will become the default in a future major version.** It is opt-in today only
+> to avoid silently breaking existing apps that block on async from UI handlers on upgrade.
+> The constraint it enforces — never block the UI thread on async work — is simply good
+> async practice, and good practices are always good practices: writing `await`-based
+> handlers now means your code is already correct under both the current and future default.
+
+With the default (disabled), `await` in your handlers resumes on a thread-pool thread,
+so you **must** marshal any UI mutation back yourself via `InvokeAsync` /
 `EnqueueOnUIThread`. `IsOnUIThread`, `VerifyAccess`, and `InvokeAsync` keep working
-regardless of this setting. Leaving it at the default (`true`) is recommended for
-new code — it is what makes the async event handlers above safe.
+regardless of this setting.
 
 ---
 
@@ -138,13 +158,44 @@ button.ClickAsync += async (s, e) =>
 {
     statusLabel.SetContent(new List<string> { "Loading…" });
     var data = await _service.LoadAsync();          // does not block the loop
-    statusLabel.SetContent(new List<string> { data });
+    // ⚠️ which thread runs THIS line depends on InstallSynchronizationContext — see below
+    await system.InvokeAsync(() =>
+        statusLabel.SetContent(new List<string> { data }));
 };
 ```
 
-Because the UI `SynchronizationContext` is active, the continuation after
-`await` runs back on the UI thread, so updating controls directly after the
-`await` is safe — no marshalling required.
+### Which thread runs the code after `await`?
+
+An async handler always *starts* on the UI thread. What changes with
+`InstallSynchronizationContext` is **where execution resumes after an `await`** —
+because `await` captures `SynchronizationContext.Current` at the point of suspension:
+
+| | Opt-in (`true`) | **Opt-out (`false`, the default)** |
+|---|---|---|
+| Code **before** the first `await` | UI thread | UI thread |
+| Code **after** an `await` | UI thread (auto) | **thread-pool thread** |
+| Touching a control after `await` | direct, safe | **data race** — must marshal back |
+
+So under the **default (`false`)**, the line after the `await` resumes on a
+thread-pool thread. Mutating a control there races the render loop (see
+[Thread safety](#marshalling-from-background-threads)). You **must** marshal the UI
+mutation back yourself:
+
+```csharp
+button.ClickAsync += async (s, e) =>
+{
+    var data = await _service.LoadAsync();     // resumes on the thread pool (default)
+    await system.InvokeAsync(() =>             // hop back onto the UI thread
+        statusLabel.SetContent(new List<string> { data }));
+};
+```
+
+If you [opt in](#opting-in-installsynchronizationcontext) (`true`), the continuation
+runs back on the UI thread automatically and the `InvokeAsync` wrapper is unnecessary
+(though still correct — marshalling onto the UI thread while already on it just runs
+inline). Writing the explicit `InvokeAsync`/`EnqueueOnUIThread` marshal is therefore
+correct under **both** settings — which is why it's the recommended pattern regardless
+of the default.
 
 Exceptions thrown by async handlers are routed to the SharpConsoleUI log
 (see `SHARPCONSOLEUI_DEBUG_LOG`) rather than propagated to the caller.
