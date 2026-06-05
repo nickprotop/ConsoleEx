@@ -211,6 +211,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<ButtonControl>? Click;
 
+		/// <summary>Async counterpart of <see cref="Click"/>.</summary>
+		public event Core.AsyncEventHandler<ButtonControl>? ClickAsync;
+
 		/// <inheritdoc/>
 		#pragma warning disable CS0067  // Event never raised (interface requirement)
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
@@ -293,7 +296,13 @@ namespace SharpConsoleUI.Controls
 			MouseClick?.Invoke(this, args);
 
 			// Fire the convenience click event
-			Click?.Invoke(this, this);
+			Core.AsyncEvent.Raise(Click, ClickAsync, this, this, Container?.GetConsoleWindowSystem?.LogService);
+		}
+
+		/// <summary>Triggers a click for unit testing without requiring a parent window or mouse input.</summary>
+		internal void PerformClickForTest()
+		{
+			Core.AsyncEvent.Raise(Click, ClickAsync, this, this, Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		// IFocusableControl implementation

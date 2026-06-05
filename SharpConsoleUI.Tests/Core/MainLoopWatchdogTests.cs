@@ -53,7 +53,7 @@ public class MainLoopWatchdogTests
 	public void OnTick_CallsScanForEmergencyExit_WhenStale()
 	{
 		var scanCalled = false;
-		var watchdog = new MainLoopWatchdog(staleThresholdMs: 50, bannerThresholdMs: 10000);
+		var watchdog = new MainLoopWatchdog(staleThresholdMs: 50, unresponsiveThresholdMs: 10000);
 		watchdog.Heartbeat();
 		watchdog.Start(
 			scanForEmergencyExit: () => { scanCalled = true; return false; },
@@ -85,7 +85,7 @@ public class MainLoopWatchdogTests
 	public void OnTick_CallsForceExit_WhenScanReturnsTrue()
 	{
 		var forceExitCalled = false;
-		var watchdog = new MainLoopWatchdog(staleThresholdMs: 50, bannerThresholdMs: 10000);
+		var watchdog = new MainLoopWatchdog(staleThresholdMs: 50, unresponsiveThresholdMs: 10000);
 		watchdog.Heartbeat();
 		watchdog.Start(
 			scanForEmergencyExit: () => true,
@@ -101,7 +101,7 @@ public class MainLoopWatchdogTests
 	{
 		var bannerTick = false;
 		var recoveryCalled = false;
-		var watchdog = new MainLoopWatchdog(staleThresholdMs: 30, bannerThresholdMs: 60);
+		var watchdog = new MainLoopWatchdog(staleThresholdMs: 30, unresponsiveThresholdMs: 60);
 		watchdog.Heartbeat();
 		watchdog.Start(
 			scanForEmergencyExit: () => { bannerTick = true; return false; },
@@ -119,21 +119,72 @@ public class MainLoopWatchdogTests
 	}
 
 	[Fact]
-	public void Heartbeat_DoesNotTriggerRecovery_WhenNoBannerShown()
+	public void Heartbeat_DoesNotTriggerRecovery_WhenNeverWentStale()
 	{
 		var recoveryCalled = false;
-		var watchdog = new MainLoopWatchdog(staleThresholdMs: 30, bannerThresholdMs: 10000);
+		var watchdog = new MainLoopWatchdog(staleThresholdMs: 10000, unresponsiveThresholdMs: 20000);
 		watchdog.Heartbeat();
 		watchdog.Start(
 			scanForEmergencyExit: () => false,
 			onForceExit: () => { },
 			onRecovery: () => { recoveryCalled = true; });
 
-		// Wait just enough for stale but not banner
+		// Heartbeat stays fresh — never crosses the stale threshold
 		Thread.Sleep(100);
 		watchdog.Heartbeat();
 
-		Assert.False(recoveryCalled, "Watchdog should not call onRecovery if banner was never shown");
+		Assert.False(recoveryCalled, "Watchdog should not call onRecovery if it never went stale");
+		watchdog.Dispose();
+	}
+
+	[Fact]
+	public void PollInterval_Configurable_TicksFaster()
+	{
+		var ticks = 0;
+		var watchdog = new MainLoopWatchdog(staleThresholdMs: 50, unresponsiveThresholdMs: 10000, pollIntervalMs: 60);
+		watchdog.Heartbeat();
+		watchdog.Start(
+			scanForEmergencyExit: () => { Interlocked.Increment(ref ticks); return false; },
+			onForceExit: () => { },
+			onRecovery: () => { });
+
+		Assert.True(WaitFor(() => Volatile.Read(ref ticks) >= 3, timeoutMs: 2000));
+		watchdog.Dispose();
+	}
+
+	[Fact]
+	public void OnUnresponsive_Invoked_AndBannerSuppressedWhenCallbackReturnsFalse()
+	{
+		var unresponsiveCalls = 0;
+		var watchdog = new MainLoopWatchdog(staleThresholdMs: 50, unresponsiveThresholdMs: 80, pollIntervalMs: 40);
+		watchdog.Heartbeat();
+		watchdog.Start(
+			scanForEmergencyExit: () => false,
+			onForceExit: () => { },
+			onRecovery: () => { },
+			onUnresponsive: _ => { Interlocked.Increment(ref unresponsiveCalls); return false; },
+			onRecovered: _ => { });
+
+		Assert.True(WaitFor(() => Volatile.Read(ref unresponsiveCalls) >= 1, timeoutMs: 2000));
+		watchdog.Dispose();
+	}
+
+	[Fact]
+	public void OnRecovered_Invoked_AfterAnyStalePeriod_NotJustBanner()
+	{
+		TimeSpan? recoveredWith = null;
+		var watchdog = new MainLoopWatchdog(staleThresholdMs: 50, unresponsiveThresholdMs: 100000, pollIntervalMs: 40);
+		watchdog.Heartbeat();
+		watchdog.Start(
+			scanForEmergencyExit: () => false,
+			onForceExit: () => { },
+			onRecovery: () => { },
+			onUnresponsive: _ => true,
+			onRecovered: d => recoveredWith = d);
+
+		Assert.True(WaitFor(() => watchdog.IsStale, timeoutMs: 2000));
+		watchdog.Heartbeat();
+		Assert.True(WaitFor(() => recoveredWith != null, timeoutMs: 2000));
 		watchdog.Dispose();
 	}
 }

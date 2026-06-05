@@ -204,7 +204,7 @@ namespace SharpConsoleUI.Controls
 			// Handle gutter clicks: fire GutterClick on the first Button1Pressed only,
 			// use _gutterPressed guard to prevent re-fire during SGR drag continuation,
 			// and consume all Button1 events in gutter area to prevent text selection.
-			if (GutterClick != null)
+			if (GutterClick != null || GutterClickAsync != null)
 			{
 				int gutterWidth = GetGutterWidth();
 				int gutterX = args.Position.X - Margin.Left;
@@ -222,12 +222,12 @@ namespace SharpConsoleUI.Controls
 					if (clickRow >= 0 && clickRow < wrappedLines.Count)
 						sourceLineIndex = wrappedLines[clickRow].SourceLineIndex;
 
-					GutterClick.Invoke(this, new GutterClickEventArgs
+					Core.AsyncEvent.Raise(GutterClick, GutterClickAsync, this, new GutterClickEventArgs
 					{
 						SourceLineIndex = sourceLineIndex,
 						GutterX = gutterX,
 						MouseEventArgs = args
-					});
+					}, Container?.GetConsoleWindowSystem?.LogService);
 					return true;
 				}
 

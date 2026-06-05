@@ -449,6 +449,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<NavigationViewDisplayMode>? DisplayModeChanged;
 
+		/// <summary>Async counterpart of <see cref="DisplayModeChanged"/>.</summary>
+		public event Core.AsyncEventHandler<NavigationViewDisplayMode>? DisplayModeChangedAsync;
+
 		/// <summary>
 		/// Raised before the selected item changes. Can be canceled.
 		/// </summary>
@@ -459,10 +462,16 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<NavigationItemChangedEventArgs>? SelectedItemChanged;
 
+		/// <summary>Async counterpart of <see cref="SelectedItemChanged"/>.</summary>
+		public event Core.AsyncEventHandler<NavigationItemChangedEventArgs>? SelectedItemChangedAsync;
+
 		/// <summary>
 		/// Raised when the selected item is invoked (Enter/Space key or double-click on already-selected item).
 		/// </summary>
 		public event EventHandler<NavigationItemChangedEventArgs>? ItemInvoked;
+
+		/// <summary>Async counterpart of <see cref="ItemInvoked"/>.</summary>
+		public event Core.AsyncEventHandler<NavigationItemChangedEventArgs>? ItemInvokedAsync;
 
 		#endregion
 

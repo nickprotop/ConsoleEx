@@ -157,6 +157,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<string>? ContentChanged;
 
+		/// <summary>Async counterpart of <see cref="ContentChanged"/>.</summary>
+		public event Core.AsyncEventHandler<string>? ContentChangedAsync;
+
 		/// <summary>
 		/// Occurs when the cursor position changes.
 		/// Event argument is a tuple of (Line, Column) using 1-based indices.
@@ -174,6 +177,9 @@ namespace SharpConsoleUI.Controls
 		/// Event argument is true when entering edit mode, false when leaving.
 		/// </summary>
 		public event EventHandler<bool>? EditingModeChanged;
+
+		/// <summary>Async counterpart of <see cref="EditingModeChanged"/>.</summary>
+		public event Core.AsyncEventHandler<bool>? EditingModeChangedAsync;
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
@@ -203,10 +209,16 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<bool>? OverwriteModeChanged;
 
+		/// <summary>Async counterpart of <see cref="OverwriteModeChanged"/>.</summary>
+		public event Core.AsyncEventHandler<bool>? OverwriteModeChangedAsync;
+
 		/// <summary>
 		/// Occurs when the user clicks on the gutter area (left of the text).
 		/// </summary>
 		public event EventHandler<GutterClickEventArgs>? GutterClick;
+
+		/// <summary>Async counterpart of <see cref="GutterClick"/>.</summary>
+		public event Core.AsyncEventHandler<GutterClickEventArgs>? GutterClickAsync;
 
 		#endregion
 
@@ -356,7 +368,7 @@ namespace SharpConsoleUI.Controls
 				_isEditing = value;
 				OnPropertyChanged();
 				Container?.Invalidate(true);
-				EditingModeChanged?.Invoke(this, _isEditing);
+				Core.AsyncEvent.Raise(EditingModeChanged, EditingModeChangedAsync, this, _isEditing, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
 
@@ -607,7 +619,7 @@ namespace SharpConsoleUI.Controls
 				_overwriteMode = value;
 				OnPropertyChanged();
 				Container?.Invalidate(true);
-				OverwriteModeChanged?.Invoke(this, _overwriteMode);
+				Core.AsyncEvent.Raise(OverwriteModeChanged, OverwriteModeChangedAsync, this, _overwriteMode, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
 

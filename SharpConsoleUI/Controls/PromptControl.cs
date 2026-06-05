@@ -28,6 +28,13 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<string>? Entered;
 
+		/// <summary>Async counterpart of <see cref="Entered"/>.</summary>
+		public event Core.AsyncEventHandler<string>? EnteredAsync;
+
+		/// <summary>Raises the <see cref="Entered"/> event for unit testing without simulating key input.</summary>
+		internal void PerformEnterForTest()
+			=> Core.AsyncEvent.Raise(Entered, EnteredAsync, this, _input, Container?.GetConsoleWindowSystem?.LogService);
+
 		/// <summary>
 		/// Event fired when input text changes (modern standardized event)
 		/// </summary>
@@ -375,7 +382,7 @@ namespace SharpConsoleUI.Controls
 					_history.Add(_input);
 					_historyIndex = _history.Count;
 				}
-				Entered?.Invoke(this, _input);
+				Core.AsyncEvent.Raise(Entered, EnteredAsync, this, _input, Container?.GetConsoleWindowSystem?.LogService);
 				if (UnfocusOnEnter)
 				{
 					_cursorPosition = 0;

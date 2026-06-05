@@ -340,7 +340,7 @@ namespace SharpConsoleUI.Controls
 					_selectedIndex, _selectedIndex, item, item);
 			}
 
-			ItemInvoked?.Invoke(this, args);
+			Core.AsyncEvent.Raise(ItemInvoked, ItemInvokedAsync, this, args, Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		#endregion

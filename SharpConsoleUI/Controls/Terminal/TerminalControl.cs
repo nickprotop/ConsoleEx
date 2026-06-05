@@ -45,6 +45,9 @@ public sealed class TerminalControl
     /// <summary>Raised on the PTY read thread when the spawned process exits.</summary>
     public event EventHandler? ProcessExited;
 
+    /// <summary>Async counterpart of <see cref="ProcessExited"/>.</summary>
+    public event SharpConsoleUI.Core.AsyncEventHandler<EventArgs>? ProcessExitedAsync;
+
     internal TerminalControl(string exe, string[]? args, string? workingDirectory = null, ILogService? logService = null, Color? defaultBackground = null)
     {
         _log = logService;
@@ -95,7 +98,7 @@ public sealed class TerminalControl
         _log?.LogInfo($"TerminalControl.ReadLoop: EOF reached (pid={_pty.ChildProcessId}), closing window", "Terminal");
         // EOF or backend closed — clean up and close the containing window.
         Dispose();
-        ProcessExited?.Invoke(this, EventArgs.Empty);
+        SharpConsoleUI.Core.AsyncEvent.Raise(ProcessExited, ProcessExitedAsync, this, EventArgs.Empty, _log);
         var window = Container as Window;
         if (window != null)
         {

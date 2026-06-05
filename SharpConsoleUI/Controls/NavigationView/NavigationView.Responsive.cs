@@ -102,7 +102,7 @@ namespace SharpConsoleUI.Controls
 				SyncInternalControls();
 			}
 
-			DisplayModeChanged?.Invoke(this, newMode);
+			Core.AsyncEvent.Raise(DisplayModeChanged, DisplayModeChangedAsync, this, newMode, Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		#endregion

@@ -302,7 +302,7 @@ public partial class TableControl
 					if (_lastClickRowIndex == rowIdx &&
 						(now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs)
 					{
-						RowActivated?.Invoke(this, rowIdx);
+						Core.AsyncEvent.Raise(RowActivated, RowActivatedAsync, this, rowIdx, Container?.GetConsoleWindowSystem?.LogService);
 						MouseDoubleClick?.Invoke(this, args);
 						_lastClickTime = DateTime.MinValue;
 						_lastClickRowIndex = -1;
@@ -350,7 +350,7 @@ public partial class TableControl
 					}
 				}
 
-				RowActivated?.Invoke(this, rowIdx);
+				Core.AsyncEvent.Raise(RowActivated, RowActivatedAsync, this, rowIdx, Container?.GetConsoleWindowSystem?.LogService);
 			}
 			MouseDoubleClick?.Invoke(this, args);
 			return true;

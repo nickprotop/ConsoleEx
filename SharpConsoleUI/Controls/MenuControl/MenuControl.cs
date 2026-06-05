@@ -512,6 +512,11 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
     /// </summary>
     public event EventHandler<MenuItem>? ItemSelected;
 
+    /// <summary>Async counterpart of <see cref="ItemSelected"/>.</summary>
+#pragma warning disable CS0067 // No internal raise site; mirrors the sync ItemSelected event.
+    public event Core.AsyncEventHandler<MenuItem>? ItemSelectedAsync;
+#pragma warning restore CS0067
+
     /// <summary>
     /// Event fired when a menu item is hovered.
     /// </summary>

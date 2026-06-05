@@ -104,7 +104,7 @@ namespace SharpConsoleUI.Controls
 				if (_playbackState == value) return;
 				_playbackState = value;
 				OnPropertyChanged();
-				PlaybackStateChanged?.Invoke(this, value);
+				Core.AsyncEvent.Raise(PlaybackStateChanged, PlaybackStateChangedAsync, this, value, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
 
@@ -187,8 +187,14 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Fired when playback state changes.</summary>
 		public event EventHandler<VideoPlaybackState>? PlaybackStateChanged;
 
+		/// <summary>Async counterpart of <see cref="PlaybackStateChanged"/>.</summary>
+		public event Core.AsyncEventHandler<VideoPlaybackState>? PlaybackStateChangedAsync;
+
 		/// <summary>Fired when playback reaches end of file.</summary>
 		public event EventHandler? PlaybackEnded;
+
+		/// <summary>Async counterpart of <see cref="PlaybackEnded"/>.</summary>
+		public event Core.AsyncEventHandler<EventArgs>? PlaybackEndedAsync;
 
 		#endregion
 
@@ -369,7 +375,9 @@ namespace SharpConsoleUI.Controls
 			StopPlayback();
 			DisposeSink();
 			PlaybackStateChanged = null;
+			PlaybackStateChangedAsync = null;
 			PlaybackEnded = null;
+			PlaybackEndedAsync = null;
 		}
 
 		#endregion

@@ -235,6 +235,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<ConsoleKeyInfo>? CanvasKeyPressed;
 
+		/// <summary>Async counterpart of <see cref="CanvasKeyPressed"/>.</summary>
+		public event Core.AsyncEventHandler<ConsoleKeyInfo>? CanvasKeyPressedAsync;
+
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -292,6 +295,7 @@ namespace SharpConsoleUI.Controls
 			CanvasMouseMove = null;
 			CanvasMouseRightClick = null;
 			CanvasKeyPressed = null;
+			CanvasKeyPressedAsync = null;
 			MouseClick = null;
 			MouseDoubleClick = null;
 			MouseRightClick = null;

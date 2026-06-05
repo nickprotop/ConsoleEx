@@ -1342,11 +1342,17 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_dataSource.CollectionChanged -= OnDataSourceCollectionChanged;
 
 		SelectedRowChanged = null;
+		SelectedRowChangedAsync = null;
 		SelectedRowItemChanged = null;
+		SelectedRowItemChangedAsync = null;
 		RowActivated = null;
+		RowActivatedAsync = null;
 		CellActivated = null;
+		CellActivatedAsync = null;
 		CellEditCompleted = null;
+		CellEditCompletedAsync = null;
 		CellEditCancelled = null;
+		CellEditCancelledAsync = null;
 		MouseClick = null;
 		MouseDoubleClick = null;
 		MouseRightClick = null;

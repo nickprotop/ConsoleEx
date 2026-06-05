@@ -55,7 +55,7 @@ namespace SharpConsoleUI
 							_windowSystem?.DesktopDimensions.Width ?? 80,
 							_windowSystem?.DesktopDimensions.Height ?? 24
 						);
-						OnResize?.Invoke(this, EventArgs.Empty);
+						Core.AsyncEvent.Raise(OnResize, OnResizeAsync, this, EventArgs.Empty, _windowSystem?.LogService);
 						break;
 
 					case WindowState.Normal:
@@ -68,7 +68,7 @@ namespace SharpConsoleUI
 							Left = OriginalLeft;
 							// Use centralized SetSize which handles invalidation order correctly
 							SetSize(OriginalWidth, OriginalHeight);
-							OnResize?.Invoke(this, EventArgs.Empty);
+							Core.AsyncEvent.Raise(OnResize, OnResizeAsync, this, EventArgs.Empty, _windowSystem?.LogService);
 						}
 						else if (previous_state == WindowState.Minimized)
 						{
@@ -188,7 +188,7 @@ namespace SharpConsoleUI
 			// Clean up any desktop portals created by this window
 			CleanupDesktopPortals();
 
-			OnClosed?.Invoke(this, EventArgs.Empty);
+			Core.AsyncEvent.Raise(OnClosed, OnClosedAsync, this, EventArgs.Empty, _windowSystem?.LogService);
 
 			foreach (var content in _controls.ToList())
 			{
@@ -493,12 +493,12 @@ namespace SharpConsoleUI
 
 			if (value)
 			{
-				Activated?.Invoke(this, EventArgs.Empty);
+				Core.AsyncEvent.Raise(Activated, ActivatedAsync, this, EventArgs.Empty, _windowSystem?.LogService);
 			}
 			else
 			{
 				DismissAutoClosePortals();
-				Deactivated?.Invoke(this, EventArgs.Empty);
+				Core.AsyncEvent.Raise(Deactivated, DeactivatedAsync, this, EventArgs.Empty, _windowSystem?.LogService);
 
 				if (CloseOnDeactivate)
 				{
@@ -621,7 +621,7 @@ namespace SharpConsoleUI
 				GoToBottom();
 			}
 
-			OnResize?.Invoke(this, EventArgs.Empty);
+			Core.AsyncEvent.Raise(OnResize, OnResizeAsync, this, EventArgs.Empty, _windowSystem?.LogService);
 		}
 
 		/// <summary>
@@ -629,7 +629,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public void WindowIsAdded()
 		{
-			OnShown?.Invoke(this, EventArgs.Empty);
+			Core.AsyncEvent.Raise(OnShown, OnShownAsync, this, EventArgs.Empty, _windowSystem?.LogService);
 
 			// Auto-focus the first control when the window is added to the system
 			if (FocusManager.FocusedControl == null)
@@ -676,7 +676,7 @@ namespace SharpConsoleUI
 		/// <param name="newState">The new window state.</param>
 		protected virtual void OnStateChanged(WindowState newState)
 		{
-			StateChanged?.Invoke(this, new WindowStateChangedEventArgs(newState));
+			Core.AsyncEvent.Raise(StateChanged, StateChangedAsync, this, new WindowStateChangedEventArgs(newState), _windowSystem?.LogService);
 		}
 
 		// Helper method to set up initial position for subwindows

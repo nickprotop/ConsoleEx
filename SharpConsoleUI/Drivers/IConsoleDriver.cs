@@ -139,6 +139,12 @@ namespace SharpConsoleUI.Drivers
 		public int GetDirtyCharacterCount();
 
 		/// <summary>
+		/// Forces the next flush to re-emit every cell (used by watchdog recovery to repair the
+		/// screen after stray terminal output). No-op for drivers that do not diff-render.
+		/// </summary>
+		void InvalidateFrontBuffer() { }
+
+		/// <summary>
 		/// Copies a horizontal strip of cells from a <see cref="CharacterBuffer"/> directly
 		/// to the console output buffer, bypassing ANSI string serialization and parsing.
 		/// </summary>

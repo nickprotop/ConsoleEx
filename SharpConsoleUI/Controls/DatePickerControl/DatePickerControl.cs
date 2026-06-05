@@ -89,6 +89,9 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the selected date changes.
 		/// </summary>
 		public event EventHandler<DateTime?>? SelectedDateChanged;
+
+		/// <summary>Async counterpart of <see cref="SelectedDateChanged"/>.</summary>
+		public event Core.AsyncEventHandler<DateTime?>? SelectedDateChangedAsync;
 		#pragma warning disable CS0067, CS0414
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
@@ -119,7 +122,7 @@ namespace SharpConsoleUI.Controls
 				if (_selectedDate == value) return;
 				_selectedDate = ClampDate(value);
 				OnPropertyChanged();
-				SelectedDateChanged?.Invoke(this, _selectedDate);
+				Core.AsyncEvent.Raise(SelectedDateChanged, SelectedDateChangedAsync, this, _selectedDate, Container?.GetConsoleWindowSystem?.LogService);
 				Container?.Invalidate(true);
 			}
 		}
@@ -542,6 +545,7 @@ namespace SharpConsoleUI.Controls
 				_subscribedWindow = null;
 			}
 			SelectedDateChanged = null;
+			SelectedDateChangedAsync = null;
 			MouseClick = null;
 			MouseDoubleClick = null;
 			MouseRightClick = null;

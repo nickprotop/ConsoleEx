@@ -327,6 +327,13 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <inheritdoc/>
+		public void InvalidateFrontBuffer()
+		{
+			if (RenderMode == RenderMode.Buffer)
+				_consoleBuffer?.InvalidateFrontBuffer();
+		}
+
+		/// <inheritdoc/>
 		public void Flush()
 		{
 			if (RenderMode.Buffer == RenderMode)

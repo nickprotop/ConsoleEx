@@ -92,7 +92,7 @@ namespace SharpConsoleUI.Controls
 				// Phase 4: Fire changed event
 				if (changedArgs != null)
 				{
-					SelectedItemChanged?.Invoke(this, changedArgs);
+					Core.AsyncEvent.Raise(SelectedItemChanged, SelectedItemChangedAsync, this, changedArgs, Container?.GetConsoleWindowSystem?.LogService);
 					Invalidate(true);
 				}
 			}

@@ -30,6 +30,16 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int MaxSleepDurationMs = 100;
 
+		// Watchdog timings
+		/// <summary>No heartbeat for this long → log + scan for emergency exit (default: 2000ms).</summary>
+		public const int WatchdogStaleThresholdMs = 2000;
+
+		/// <summary>No heartbeat for this long → raise Unresponsive + optional banner (default: 5000ms).</summary>
+		public const int WatchdogUnresponsiveThresholdMs = 5000;
+
+		/// <summary>Watchdog timer tick cadence in milliseconds (default: 500ms).</summary>
+		public const int WatchdogPollIntervalMs = 500;
+
 		/// <summary>
 		/// Debounce time before allowing portal dismiss after creation (default: 200ms).
 		/// Prevents the same click that opens a portal from immediately dismissing it.

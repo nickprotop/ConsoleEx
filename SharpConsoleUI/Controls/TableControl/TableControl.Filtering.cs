@@ -114,10 +114,16 @@ public partial class TableControl
 	/// </summary>
 	public event EventHandler<string>? FilterApplied;
 
+	/// <summary>Async counterpart of <see cref="FilterApplied"/>.</summary>
+	public event Core.AsyncEventHandler<string>? FilterAppliedAsync;
+
 	/// <summary>
 	/// Occurs when the filter is cleared.
 	/// </summary>
 	public event EventHandler? FilterCleared;
+
+	/// <summary>Async counterpart of <see cref="FilterCleared"/>.</summary>
+	public event Core.AsyncEventHandler<EventArgs>? FilterClearedAsync;
 
 	/// <summary>
 	/// Occurs when the filter text changes during typing.
@@ -189,7 +195,7 @@ public partial class TableControl
 		_scrollOffset = 0;
 		_selectedRowIndices.Clear();
 
-		FilterApplied?.Invoke(this, compound.RawText);
+		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Container?.Invalidate(true);
 	}
@@ -249,7 +255,7 @@ public partial class TableControl
 			ApplySort();
 		}
 
-		FilterCleared?.Invoke(this, EventArgs.Empty);
+		Core.AsyncEvent.Raise(FilterCleared, FilterClearedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Container?.Invalidate(true);
 	}
@@ -293,7 +299,7 @@ public partial class TableControl
 				if (!string.IsNullOrEmpty(_filterBuffer))
 				{
 					_filterMode = FilterMode.Confirmed;
-					FilterApplied?.Invoke(this, _filterBuffer);
+					Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, _filterBuffer, Container?.GetConsoleWindowSystem?.LogService);
 				}
 				else
 				{

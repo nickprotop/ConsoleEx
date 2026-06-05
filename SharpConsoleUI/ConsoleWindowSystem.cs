@@ -52,6 +52,9 @@ namespace SharpConsoleUI
 		private readonly ConcurrentQueue<Action> _uiActionQueue = new();
 		private volatile bool _uiActionsPending;
 
+		// Managed thread id of the main-loop (UI) thread; set at Run() start. -1 until then.
+		private int _uiThreadId = -1;
+
 		// Signal to wake the main loop when input or UI actions arrive
 		private readonly ManualResetEventSlim _wakeSignal = new(false);
 
@@ -98,7 +101,12 @@ namespace SharpConsoleUI
 		private readonly Dictionary<(ConsoleModifiers Modifiers, ConsoleKey Key), Action> _globalShortcuts = new();
 
 		// Main loop watchdog — detects stalled frames and provides emergency Ctrl+Q exit
-		private readonly MainLoopWatchdog _watchdog = new();
+		private readonly MainLoopWatchdog _watchdog;
+
+		// Breadcrumbs for the watchdog: which phase the main loop is in and which callback (if any)
+		// is currently executing. Read from the watchdog timer thread, written from the UI thread.
+		private volatile Core.MainLoopPhase _currentPhase = Core.MainLoopPhase.Idle;
+		private volatile string? _currentCallback;
 
 		// Input coordination
 		/// <summary>
@@ -208,6 +216,10 @@ namespace SharpConsoleUI
 			// Initialize options with environment variable fallback
 			_options = options ?? ConsoleWindowSystemOptions.Create();
 			Animations.IsEnabled = _options.EnableAnimations;
+
+			// Build the watchdog from the resolved options (all constructors chain here).
+			var wd0 = _options.Watchdog ?? new Configuration.WatchdogOptions();
+			_watchdog = new MainLoopWatchdog(wd0.StaleThresholdMs, wd0.UnresponsiveThresholdMs, wd0.PollIntervalMs);
 
 			// Initialize state services BEFORE driver.Initialize() call
 			_cursorStateService = new CursorStateService(_consoleDriver);
@@ -489,6 +501,18 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Raised on the watchdog timer thread when the main loop blocks past the unresponsive
+		/// threshold. Handlers MUST be thread-safe and MUST NOT touch the UI. Set
+		/// <see cref="Core.UnresponsiveEventArgs.ShowBanner"/> = false to own the display.
+		/// </summary>
+		public event EventHandler<Core.UnresponsiveEventArgs>? Unresponsive;
+
+		/// <summary>
+		/// Raised on the UI thread when the main loop recovers after a stall. Safe to touch the UI.
+		/// </summary>
+		public event EventHandler<Core.RecoveredEventArgs>? Recovered;
+
+		/// <summary>
 		/// Gets the rendering diagnostics system for testing and debugging.
 		/// Only available when EnableDiagnostics is true in options.
 		/// </summary>
@@ -565,6 +589,39 @@ namespace SharpConsoleUI
 			_uiActionsPending = true;
 			_wakeSignal.Set();
 		}
+
+		/// <summary>True when the caller is on the main-loop (UI) thread.</summary>
+		public bool IsOnUIThread => Environment.CurrentManagedThreadId == _uiThreadId;
+
+		/// <summary>Throws if the caller is not on the UI thread.</summary>
+		public void VerifyAccess()
+		{
+			if (!IsOnUIThread)
+				throw new InvalidOperationException("This operation must run on the UI (main-loop) thread.");
+		}
+
+		/// <summary>Marshals work onto the UI thread and awaits completion. Runs inline if already on it.</summary>
+		public Task InvokeAsync(Action work)
+		{
+			ArgumentNullException.ThrowIfNull(work);
+			if (IsOnUIThread) { work(); return Task.CompletedTask; }
+			var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+			EnqueueOnUIThread(() => { try { work(); tcs.SetResult(); } catch (Exception ex) { tcs.SetException(ex); } });
+			return tcs.Task;
+		}
+
+		/// <summary>Marshals work onto the UI thread, awaits, and returns its result. Runs inline if already on it.</summary>
+		public Task<T> InvokeAsync<T>(Func<T> work)
+		{
+			ArgumentNullException.ThrowIfNull(work);
+			if (IsOnUIThread) return Task.FromResult(work());
+			var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+			EnqueueOnUIThread(() => { try { tcs.SetResult(work()); } catch (Exception ex) { tcs.SetException(ex); } });
+			return tcs.Task;
+		}
+
+		/// <summary>Test hook: drains pending UI actions synchronously on the calling thread.</summary>
+		internal void DrainPendingUIActionsForTest() => DrainUIActionQueue();
 
 		#region Window Management
 
@@ -652,6 +709,23 @@ namespace SharpConsoleUI
 			_logService.LogInfo("Console window system starting", "System");
 			_running = true;
 
+			// Capture the UI (main-loop) thread so IsOnUIThread / InvokeAsync work regardless of
+			// the SynchronizationContext setting below.
+			_uiThreadId = Environment.CurrentManagedThreadId;
+
+			// Optionally install a UI SynchronizationContext so that `await` in handlers resumes on
+			// the main-loop (UI) thread, mirroring the WinForms/WPF model. Opt-out for legacy apps
+			// that block on async work on the UI thread (see ConsoleWindowSystemOptions).
+			SynchronizationContext? previousSyncContext = null;
+			bool installedSyncContext = false;
+			if (_options.InstallSynchronizationContext)
+			{
+				previousSyncContext = SynchronizationContext.Current;
+				SynchronizationContext.SetSynchronizationContext(
+					new Core.ConsoleUISynchronizationContext(EnqueueOnUIThread, () => IsOnUIThread));
+				installedSyncContext = true;
+			}
+
 			// Subscribe to the console driver events
 			// Store handlers in fields so they can be properly unsubscribed in Shutdown()
 			_keyPressedHandler = (sender, key) =>
@@ -669,6 +743,9 @@ namespace SharpConsoleUI
 			_consoleDriver.Start();
 
 			// Start watchdog — monitors main loop liveness, provides emergency Ctrl+Q exit
+			var wd = _options.Watchdog ?? new Configuration.WatchdogOptions();
+			if (wd.Enabled)
+			{
 			_watchdog.WithLogging(msg => _logService.LogWarning(msg, "Watchdog"));
 			_watchdog.Start(
 				scanForEmergencyExit: ScanInputQueueForEmergencyExit,
@@ -687,7 +764,24 @@ namespace SharpConsoleUI
 					// directly to the terminal, bypassing the CharacterBuffer.
 					Render.DesktopNeedsRender = true;
 					Render.InvalidateAllWindows();
+				},
+				onUnresponsive: stalledFor =>
+				{
+					var args = new Core.UnresponsiveEventArgs(
+						stalledFor, _currentPhase, _currentCallback, DateTime.UtcNow,
+						showBanner: wd.ShowUnresponsiveBanner);
+					Unresponsive?.Invoke(this, args);
+					return args.ShowBanner;
+				},
+				onRecovered: wasStalledFor =>
+				{
+					var args = new Core.RecoveredEventArgs(
+						wasStalledFor, DateTime.UtcNow, fullRefresh: wd.FullRefreshOnRecovery);
+					Recovered?.Invoke(this, args);
+					if (args.FullRefresh)
+						ForceFullRepaint();
 				});
+			}
 
 			// Initialize the console window system with background color and character
 			_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);
@@ -700,7 +794,9 @@ namespace SharpConsoleUI
 				while (_running)
 				{
 					_watchdog.Heartbeat();
+					_currentPhase = Core.MainLoopPhase.Input;
 					Input.ProcessInput();
+					_currentPhase = Core.MainLoopPhase.Drain;
 					DrainUIActionQueue();
 
 					var now = DateTime.UtcNow;
@@ -741,6 +837,7 @@ namespace SharpConsoleUI
 						// Frame rate limiting enabled: only render if enough time elapsed
 						if (shouldRender && elapsed >= Performance.MinFrameTime)
 						{
+							_currentPhase = Core.MainLoopPhase.Render;
 							Render.UpdateDisplay();
 							_lastRenderTime = now;
 							_idleTime = (int)Performance.MinFrameTime;
@@ -756,6 +853,7 @@ namespace SharpConsoleUI
 						// Frame rate limiting disabled: render immediately when dirty
 						if (shouldRender)
 						{
+							_currentPhase = Core.MainLoopPhase.Render;
 							Render.UpdateDisplay();
 							_lastRenderTime = now;
 							_idleTime = Configuration.SystemDefaults.FastLoopIdleMs; // Fast loop when dirty, no frame rate cap
@@ -770,6 +868,7 @@ namespace SharpConsoleUI
 					UpdateCursor();
 					if (_uiActionsPending && _idleTime > Configuration.SystemDefaults.MinSleepDurationMs)
 						_idleTime = Configuration.SystemDefaults.MinSleepDurationMs;
+					_currentPhase = Core.MainLoopPhase.Idle;
 					try
 					{
 						_wakeSignal.Wait(_idleTime);
@@ -790,6 +889,11 @@ namespace SharpConsoleUI
 			}
 			finally
 			{
+				// Restore the previously-installed SynchronizationContext for the calling thread
+				// (only if we installed our own).
+				if (installedSyncContext)
+					SynchronizationContext.SetSynchronizationContext(previousSyncContext);
+
 				// ALWAYS restore console state (mouse mode, cursor, etc.)
 				// This ensures the terminal is usable even if the app crashes
 				try
@@ -916,6 +1020,19 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Forces a complete screen repaint that re-emits every cell, including regions the diff
+		/// renderer would otherwise skip. Resets the driver's front buffer so stray terminal output
+		/// (manual console writes, the unresponsive banner) is overwritten. Called on recovery.
+		/// </summary>
+		public void ForceFullRepaint()
+		{
+			_consoleDriver.InvalidateFrontBuffer();
+			_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);
+			Render.DesktopNeedsRender = true;
+			Render.InvalidateAllWindows();
+		}
+
+		/// <summary>
 		/// Requests the window system to exit with the specified exit code.
 		/// </summary>
 		public void RequestExit(int exitCode)
@@ -996,6 +1113,7 @@ namespace SharpConsoleUI
 			while (_uiActionQueue.TryDequeue(out var action))
 			{
 				anyDrained = true;
+				_currentCallback = "UIAction";
 				try
 				{
 					action();
@@ -1003,6 +1121,10 @@ namespace SharpConsoleUI
 				catch (Exception ex)
 				{
 					LogService?.LogError($"Error in EnqueueOnUIThread action: {ex.Message}", ex, "System");
+				}
+				finally
+				{
+					_currentCallback = null;
 				}
 			}
 

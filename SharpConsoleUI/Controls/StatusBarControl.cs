@@ -316,6 +316,9 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public event EventHandler<StatusBarItemClickedEventArgs>? ItemClicked;
 
+	/// <summary>Async counterpart of <see cref="ItemClicked"/>.</summary>
+	public event Core.AsyncEventHandler<StatusBarItemClickedEventArgs>? ItemClickedAsync;
+
 	#endregion
 
 	#region Public Methods - Item Management
@@ -643,7 +646,7 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 				if (rendered.Item.IsSeparator) return false;
 
 				rendered.Item.OnClick?.Invoke();
-				ItemClicked?.Invoke(this, new StatusBarItemClickedEventArgs(rendered.Item));
+				Core.AsyncEvent.Raise(ItemClicked, ItemClickedAsync, this, new StatusBarItemClickedEventArgs(rendered.Item), Container?.GetConsoleWindowSystem?.LogService);
 				MouseClick?.Invoke(this, args);
 				return true;
 			}

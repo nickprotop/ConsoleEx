@@ -237,15 +237,24 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<TreeNodeEventArgs>? NodeExpandCollapse;
 
+		/// <summary>Async counterpart of <see cref="NodeExpandCollapse"/>.</summary>
+		public event Core.AsyncEventHandler<TreeNodeEventArgs>? NodeExpandCollapseAsync;
+
 		/// <summary>
 		/// Event that fires when the selected node changes.
 		/// </summary>
 		public event EventHandler<TreeNodeEventArgs>? SelectedNodeChanged;
 
+		/// <summary>Async counterpart of <see cref="SelectedNodeChanged"/>.</summary>
+		public event Core.AsyncEventHandler<TreeNodeEventArgs>? SelectedNodeChangedAsync;
+
 		/// <summary>
 		/// Event that fires when a node is activated (double-clicked or Enter pressed on a leaf node).
 		/// </summary>
 		public event EventHandler<TreeNodeEventArgs>? NodeActivated;
+
+		/// <summary>Async counterpart of <see cref="NodeActivated"/>.</summary>
+		public event Core.AsyncEventHandler<TreeNodeEventArgs>? NodeActivatedAsync;
 
 		/// <summary>
 		/// Gets the collection of root nodes in the tree.
@@ -282,7 +291,7 @@ namespace SharpConsoleUI.Controls
 						}
 					}
 				}
-				if (eventArgs != null) SelectedNodeChanged?.Invoke(this, eventArgs);
+				if (eventArgs != null) Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, eventArgs, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
 
@@ -319,7 +328,7 @@ namespace SharpConsoleUI.Controls
 				UpdateFlattenedNodes();
 			}
 			if (_deferredSelectionChanged != null)
-				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
+				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
 			Container?.Invalidate(true);
 		}
 
@@ -338,7 +347,7 @@ namespace SharpConsoleUI.Controls
 				UpdateFlattenedNodes();
 			}
 			if (_deferredSelectionChanged != null)
-				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
+				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
 			Container?.Invalidate(true);
 			return node;
 		}
@@ -362,7 +371,7 @@ namespace SharpConsoleUI.Controls
 				_scrollOffset = 0;
 			}
 
-			if (fireEvent) SelectedNodeChanged?.Invoke(this, new TreeNodeEventArgs(null));
+			if (fireEvent) Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, new TreeNodeEventArgs(null), Container?.GetConsoleWindowSystem?.LogService);
 			Container?.Invalidate(true);
 		}
 
@@ -378,7 +387,7 @@ namespace SharpConsoleUI.Controls
 				UpdateFlattenedNodes();
 			}
 			if (_deferredSelectionChanged != null)
-				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
+				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
 			Container?.Invalidate(true);
 		}
 
@@ -387,8 +396,11 @@ namespace SharpConsoleUI.Controls
 		{
 			// Clear all event handlers to prevent memory leaks
 			NodeExpandCollapse = null;
+			NodeExpandCollapseAsync = null;
 			SelectedNodeChanged = null;
+			SelectedNodeChangedAsync = null;
 			NodeActivated = null;
+			NodeActivatedAsync = null;
 			MouseClick = null;
 			MouseDoubleClick = null;
 			MouseRightClick = null;
@@ -436,7 +448,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 			if (_deferredSelectionChanged != null)
-				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
+				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
 
 			return result;
 		}
@@ -453,7 +465,7 @@ namespace SharpConsoleUI.Controls
 				UpdateFlattenedNodes();
 			}
 			if (_deferredSelectionChanged != null)
-				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
+				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
 			Container?.Invalidate(true);
 		}
 
@@ -527,7 +539,7 @@ namespace SharpConsoleUI.Controls
 				size = new System.Drawing.Size(width, height);
 			}
 			if (_deferredSelectionChanged != null)
-				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
+				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
 			return size;
 		}
 
@@ -555,7 +567,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 			if (_deferredSelectionChanged != null)
-				SelectedNodeChanged?.Invoke(this, _deferredSelectionChanged);
+				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
 			if (result)
 			{
 				Container?.Invalidate(true);
@@ -625,7 +637,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			if (eventArgs != null) SelectedNodeChanged?.Invoke(this, eventArgs);
+			if (eventArgs != null) Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, eventArgs, Container?.GetConsoleWindowSystem?.LogService);
 			return result;
 		}
 

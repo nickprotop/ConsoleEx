@@ -54,7 +54,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		TabRemoved?.Invoke(this, new TabEventArgs(tabPage, index));
+		Core.AsyncEvent.Raise(TabRemoved, TabRemovedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
 		this.GetParentWindow()?.ForceRebuildLayout();
 		Invalidate(true);
 	}
@@ -99,7 +99,7 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		TabRemoved?.Invoke(this, new TabEventArgs(tabPage, index));
+		Core.AsyncEvent.Raise(TabRemoved, TabRemovedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
 		this.GetParentWindow()?.ForceRebuildLayout();
 		Invalidate(true);
 		return tabPage.Content;

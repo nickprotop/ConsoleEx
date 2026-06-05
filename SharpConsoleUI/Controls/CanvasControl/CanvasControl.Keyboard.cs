@@ -15,10 +15,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!IsEnabled || !HasFocus || CanvasKeyPressed == null)
+			if (!IsEnabled || !HasFocus || (CanvasKeyPressed == null && CanvasKeyPressedAsync == null))
 				return false;
 
-			CanvasKeyPressed.Invoke(this, key);
+			Core.AsyncEvent.Raise(CanvasKeyPressed, CanvasKeyPressedAsync, this, key, Container?.GetConsoleWindowSystem?.LogService);
 			return true;
 		}
 

@@ -206,12 +206,13 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Fire deferred events outside the lock
+			var log = Container?.GetConsoleWindowSystem?.LogService;
 			if (selChanged != null)
-				SelectedNodeChanged?.Invoke(this, selChanged);
+				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, selChanged, log);
 			if (expCollapse != null)
-				NodeExpandCollapse?.Invoke(this, expCollapse);
+				Core.AsyncEvent.Raise(NodeExpandCollapse, NodeExpandCollapseAsync, this, expCollapse, log);
 			if (nodeAct != null)
-				NodeActivated?.Invoke(this, nodeAct);
+				Core.AsyncEvent.Raise(NodeActivated, NodeActivatedAsync, this, nodeAct, log);
 
 			return result;
 		}

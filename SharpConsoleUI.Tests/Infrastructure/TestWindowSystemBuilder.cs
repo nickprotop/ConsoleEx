@@ -115,7 +115,7 @@ public static class TestWindowSystemBuilder
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
-			DirtyTrackingMode: Configuration.DirtyTrackingMode.Line,  // LINE MODE
+			DirtyTrackingMode: SharpConsoleUI.Configuration.DirtyTrackingMode.Line,  // LINE MODE
 			ShowTopPanel: false,
 			ShowBottomPanel: false
 		);
@@ -139,7 +139,7 @@ public static class TestWindowSystemBuilder
 			EnableQualityAnalysis: true,
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,
-			DirtyTrackingMode: Configuration.DirtyTrackingMode.Cell,  // CELL MODE
+			DirtyTrackingMode: SharpConsoleUI.Configuration.DirtyTrackingMode.Cell,  // CELL MODE
 			ShowTopPanel: false,
 			ShowBottomPanel: false
 		);

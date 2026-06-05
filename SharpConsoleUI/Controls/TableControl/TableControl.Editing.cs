@@ -17,10 +17,16 @@ public partial class TableControl
 	/// </summary>
 	public event EventHandler<(int Row, int Column, string OldValue, string NewValue)>? CellEditCompleted;
 
+	/// <summary>Async counterpart of <see cref="CellEditCompleted"/>.</summary>
+	public event Core.AsyncEventHandler<(int Row, int Column, string OldValue, string NewValue)>? CellEditCompletedAsync;
+
 	/// <summary>
 	/// Occurs when a cell edit is cancelled (Escape key).
 	/// </summary>
 	public event EventHandler<(int Row, int Column)>? CellEditCancelled;
+
+	/// <summary>Async counterpart of <see cref="CellEditCancelled"/>.</summary>
+	public event Core.AsyncEventHandler<(int Row, int Column)>? CellEditCancelledAsync;
 
 	#endregion
 
@@ -157,7 +163,7 @@ public partial class TableControl
 		_editCursorPosition = 0;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCachedEntry(committedValue);
-		CellEditCompleted?.Invoke(this, (_selectedRowIndex, _selectedColumnIndex, oldValue, committedValue));
+		Core.AsyncEvent.Raise(CellEditCompleted, CellEditCompletedAsync, this, (_selectedRowIndex, _selectedColumnIndex, oldValue, committedValue), Container?.GetConsoleWindowSystem?.LogService);
 		Container?.Invalidate(true);
 	}
 
@@ -170,7 +176,7 @@ public partial class TableControl
 		_isEditing = false;
 		_editBuffer = string.Empty;
 		_editCursorPosition = 0;
-		CellEditCancelled?.Invoke(this, (_selectedRowIndex, _selectedColumnIndex));
+		Core.AsyncEvent.Raise(CellEditCancelled, CellEditCancelledAsync, this, (_selectedRowIndex, _selectedColumnIndex), Container?.GetConsoleWindowSystem?.LogService);
 		Container?.Invalidate(true);
 	}
 

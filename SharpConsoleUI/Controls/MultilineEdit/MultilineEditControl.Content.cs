@@ -98,7 +98,7 @@ namespace SharpConsoleUI.Controls
 			RefreshSearchMatches();
 
 			// Notify that content has changed
-			ContentChanged?.Invoke(this, GetContent());
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		/// <summary>
@@ -166,7 +166,7 @@ namespace SharpConsoleUI.Controls
 			RefreshSearchMatches();
 
 			// Notify that content has changed
-			ContentChanged?.Invoke(this, GetContent());
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		/// <summary>
@@ -225,7 +225,7 @@ namespace SharpConsoleUI.Controls
 			_skipUpdateScrollPositionsInRender = false;
 
 			// Notify that content has changed
-			ContentChanged?.Invoke(this, GetContent());
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		/// <summary>
@@ -272,7 +272,7 @@ namespace SharpConsoleUI.Controls
 			_skipUpdateScrollPositionsInRender = false;
 
 			// Notify that content has changed
-			ContentChanged?.Invoke(this, GetContent());
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		/// <summary>
@@ -298,7 +298,7 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 			RefreshSearchMatches();
 			Container?.Invalidate(true);
-			ContentChanged?.Invoke(this, GetContent());
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		/// <summary>
@@ -324,7 +324,7 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 			RefreshSearchMatches();
 			Container?.Invalidate(true);
-			ContentChanged?.Invoke(this, GetContent());
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		/// <summary>

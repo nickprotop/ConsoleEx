@@ -22,28 +22,34 @@ namespace SharpConsoleUI.Core;
 internal sealed class MainLoopWatchdog : IDisposable
 {
 	private readonly int _staleThresholdMs;
-	private readonly int _bannerThresholdMs;
+	private readonly int _unresponsiveThresholdMs;
+	private readonly int _pollIntervalMs;
 	private long _lastHeartbeatTicks;
 	private Timer? _timer;
 	private volatile bool _disposed;
 	private volatile bool _bannerShown;
 	private volatile bool _staleLogged;
+	private volatile bool _wasStale;                 // crossed stale threshold since last recovery
 
 	// Dependencies injected via Start()
 	private Func<bool>? _scanForEmergencyExit;
 	private Action? _onForceExit;
 	private Action? _onRecovery;
+	private Func<TimeSpan, bool>? _onUnresponsive;   // returns whether to show the banner
+	private Action<TimeSpan>? _onRecovered;
 	private Action<string>? _logWarning;
 
 	/// <summary>
 	/// Creates a watchdog with configurable thresholds.
 	/// </summary>
 	/// <param name="staleThresholdMs">Milliseconds without heartbeat before scanning for emergency exit (default 2000).</param>
-	/// <param name="bannerThresholdMs">Milliseconds without heartbeat before showing terminal banner (default 5000).</param>
-	public MainLoopWatchdog(int staleThresholdMs = 2000, int bannerThresholdMs = 5000)
+	/// <param name="unresponsiveThresholdMs">Milliseconds without heartbeat before raising Unresponsive / showing the banner (default 5000).</param>
+	/// <param name="pollIntervalMs">Watchdog timer tick cadence in milliseconds (default 500).</param>
+	public MainLoopWatchdog(int staleThresholdMs = 2000, int unresponsiveThresholdMs = 5000, int pollIntervalMs = 500)
 	{
 		_staleThresholdMs = staleThresholdMs;
-		_bannerThresholdMs = bannerThresholdMs;
+		_unresponsiveThresholdMs = unresponsiveThresholdMs;
+		_pollIntervalMs = pollIntervalMs;
 		_lastHeartbeatTicks = Stopwatch.GetTimestamp();
 	}
 
@@ -70,20 +76,28 @@ internal sealed class MainLoopWatchdog : IDisposable
 
 	/// <summary>
 	/// Called by the main loop each iteration to signal liveness.
-	/// If the banner was shown during a stall, triggers recovery (full repaint).
+	/// If the loop went stale since the last recovery, triggers recovery (full repaint)
+	/// and raises the Recovered callback with the duration of the stall.
 	/// </summary>
 	public void Heartbeat()
 	{
-		Volatile.Write(ref _lastHeartbeatTicks, Stopwatch.GetTimestamp());
+		var now = Stopwatch.GetTimestamp();
+		var stalledFor = Stopwatch.GetElapsedTime(Volatile.Read(ref _lastHeartbeatTicks));
+		Volatile.Write(ref _lastHeartbeatTicks, now);
+
 		if (_staleLogged)
 		{
 			_staleLogged = false;
 			_logWarning?.Invoke("Main loop recovered from stall");
 		}
-		if (_bannerShown)
+		// Recover if the watchdog flagged a stall, or if this heartbeat itself arrived
+		// after the stale threshold (covers stalls the timer hasn't observed yet).
+		if (_wasStale || stalledFor.TotalMilliseconds > _staleThresholdMs)
 		{
+			_wasStale = false;
 			_bannerShown = false;
-			_onRecovery?.Invoke();
+			_onRecovery?.Invoke();            // existing: full repaint hook
+			_onRecovered?.Invoke(stalledFor); // new: raise Recovered event
 		}
 	}
 
@@ -93,14 +107,24 @@ internal sealed class MainLoopWatchdog : IDisposable
 	/// <param name="scanForEmergencyExit">Callback that scans the input queue for Ctrl+Q.
 	/// Returns true if an emergency exit key was found and consumed.</param>
 	/// <param name="onForceExit">Callback invoked to force-exit the application.</param>
-	/// <param name="onRecovery">Callback invoked when the main loop recovers after a banner
-	/// was shown. Should trigger a full screen repaint to clear the ghost banner.</param>
-	public void Start(Func<bool> scanForEmergencyExit, Action onForceExit, Action onRecovery)
+	/// <param name="onRecovery">Callback invoked when the main loop recovers after going stale.
+	/// Should trigger a full screen repaint to clear any ghost banner.</param>
+	/// <param name="onUnresponsive">Optional callback invoked when the unresponsive threshold is
+	/// crossed. Returns whether the watchdog should write the terminal banner.</param>
+	/// <param name="onRecovered">Optional callback invoked on recovery with the stall duration.</param>
+	public void Start(
+		Func<bool> scanForEmergencyExit,
+		Action onForceExit,
+		Action onRecovery,
+		Func<TimeSpan, bool>? onUnresponsive = null,
+		Action<TimeSpan>? onRecovered = null)
 	{
 		_scanForEmergencyExit = scanForEmergencyExit;
 		_onForceExit = onForceExit;
 		_onRecovery = onRecovery;
-		_timer = new Timer(OnTick, null, 500, 500);
+		_onUnresponsive = onUnresponsive;
+		_onRecovered = onRecovered;
+		_timer = new Timer(OnTick, null, _pollIntervalMs, _pollIntervalMs);
 	}
 
 	private void OnTick(object? state)
@@ -112,13 +136,16 @@ internal sealed class MainLoopWatchdog : IDisposable
 		if (elapsed.TotalMilliseconds > _staleThresholdMs && !_staleLogged)
 		{
 			_staleLogged = true;
+			_wasStale = true;
 			_logWarning?.Invoke($"Main loop stale \u2014 no heartbeat for {elapsed.TotalMilliseconds:F0}ms");
 		}
 
-		if (elapsed.TotalMilliseconds > _bannerThresholdMs && !_bannerShown)
+		if (elapsed.TotalMilliseconds > _unresponsiveThresholdMs && !_bannerShown)
 		{
 			_bannerShown = true;
-			WriteBanner();
+			bool showBanner = _onUnresponsive?.Invoke(elapsed) ?? true;
+			if (showBanner)
+				WriteBanner();
 		}
 
 		if (elapsed.TotalMilliseconds > _staleThresholdMs)

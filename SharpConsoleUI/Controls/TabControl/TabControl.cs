@@ -180,7 +180,7 @@ namespace SharpConsoleUI.Controls
 			// Set visibility based on whether this is the active tab
 			content.Visible = count - 1 == _activeTabIndex;
 
-			TabAdded?.Invoke(this, new TabEventArgs(tabPage, count - 1));
+			Core.AsyncEvent.Raise(TabAdded, TabAddedAsync, this, new TabEventArgs(tabPage, count - 1), Container?.GetConsoleWindowSystem?.LogService);
 
 			// Auto-activate the first tab added (standard UI framework behavior)
 			if (count == 1)
@@ -257,7 +257,7 @@ namespace SharpConsoleUI.Controls
 			// Phase 4: Fire TabChanged event outside lock
 			if (changedArgs != null)
 			{
-				TabChanged?.Invoke(this, changedArgs);
+				Core.AsyncEvent.Raise(TabChanged, TabChangedAsync, this, changedArgs, Container?.GetConsoleWindowSystem?.LogService);
 				Invalidate(true);
 			}
 		}
@@ -280,15 +280,24 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public event EventHandler<TabChangedEventArgs>? TabChanged;
 
+	/// <summary>Async counterpart of <see cref="TabChanged"/>.</summary>
+	public event Core.AsyncEventHandler<TabChangedEventArgs>? TabChangedAsync;
+
 	/// <summary>
 	/// Raised when a tab is added to the control.
 	/// </summary>
 	public event EventHandler<TabEventArgs>? TabAdded;
 
+	/// <summary>Async counterpart of <see cref="TabAdded"/>.</summary>
+	public event Core.AsyncEventHandler<TabEventArgs>? TabAddedAsync;
+
 	/// <summary>
 	/// Raised when a tab is removed from the control.
 	/// </summary>
 	public event EventHandler<TabEventArgs>? TabRemoved;
+
+	/// <summary>Async counterpart of <see cref="TabRemoved"/>.</summary>
+	public event Core.AsyncEventHandler<TabEventArgs>? TabRemovedAsync;
 
 	/// <summary>
 	/// Raised when the user clicks the close (×) button on a closable tab.
@@ -359,7 +368,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			TabAdded?.Invoke(this, new TabEventArgs(tabPage, index));
+			Core.AsyncEvent.Raise(TabAdded, TabAddedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
 			this.GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(true);
 		}

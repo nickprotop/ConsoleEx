@@ -2,6 +2,8 @@
 
 Practical recipes for building TUI applications with SharpConsoleUI. Each pattern shows the real way it's done in production cx apps (cxfiles, cxtop, LazyNuGet).
 
+See also: [Threading & Async](THREADING_AND_ASYNC.md) — the UI thread model, async events, and the unresponsive watchdog.
+
 ## 1. App Bootstrap
 
 Every cx app follows the same startup pattern:

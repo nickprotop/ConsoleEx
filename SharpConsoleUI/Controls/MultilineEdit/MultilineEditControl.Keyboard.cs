@@ -698,7 +698,7 @@ namespace SharpConsoleUI.Controls
 									InvalidateWrappedLinesCache();
 									EnsureCursorVisible();
 									Container?.Invalidate(true);
-									ContentChanged?.Invoke(this, GetContent());
+									Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 								}
 								return true;
 
@@ -718,7 +718,7 @@ namespace SharpConsoleUI.Controls
 											InvalidateWrappedLinesCache();
 											EnsureCursorVisible();
 											Container?.Invalidate(true);
-											ContentChanged?.Invoke(this, GetContent());
+											Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 										}
 									}
 								}
@@ -736,7 +736,7 @@ namespace SharpConsoleUI.Controls
 									_isModified = _savedContent != action.OldText;
 									EnsureCursorVisible();
 									Container?.Invalidate(true);
-									ContentChanged?.Invoke(this, GetContent());
+									Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 								}
 								return true;
 
@@ -786,7 +786,7 @@ namespace SharpConsoleUI.Controls
 									_isModified = _savedContent != action.NewText;
 									EnsureCursorVisible();
 									Container?.Invalidate(true);
-									ContentChanged?.Invoke(this, GetContent());
+									Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 								}
 								return true;
 
@@ -868,7 +868,7 @@ namespace SharpConsoleUI.Controls
 			if (contentChanged)
 			{
 				Container?.Invalidate(true);
-				ContentChanged?.Invoke(this, GetContent());
+				Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 			}
 
 			// Fire cursor position changed event

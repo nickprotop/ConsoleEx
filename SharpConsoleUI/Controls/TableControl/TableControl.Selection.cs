@@ -17,26 +17,41 @@ public partial class TableControl
 	/// </summary>
 	public event EventHandler<int>? SelectedRowChanged;
 
+	/// <summary>Async counterpart of <see cref="SelectedRowChanged"/>.</summary>
+	public event Core.AsyncEventHandler<int>? SelectedRowChangedAsync;
+
 	/// <summary>
 	/// Fired when multi-selection changes (checkbox toggled, selection cleared, select all).
 	/// Argument is the current count of selected rows.
 	/// </summary>
 	public event EventHandler<int>? MultiSelectionChanged;
 
+	/// <summary>Async counterpart of <see cref="MultiSelectionChanged"/>.</summary>
+	public event Core.AsyncEventHandler<int>? MultiSelectionChangedAsync;
+
 	/// <summary>
 	/// Occurs when the selected row item changes.
 	/// </summary>
 	public event EventHandler<TableRow?>? SelectedRowItemChanged;
+
+	/// <summary>Async counterpart of <see cref="SelectedRowItemChanged"/>.</summary>
+	public event Core.AsyncEventHandler<TableRow?>? SelectedRowItemChangedAsync;
 
 	/// <summary>
 	/// Occurs when a row is activated (Enter key or double-click).
 	/// </summary>
 	public event EventHandler<int>? RowActivated;
 
+	/// <summary>Async counterpart of <see cref="RowActivated"/>.</summary>
+	public event Core.AsyncEventHandler<int>? RowActivatedAsync;
+
 	/// <summary>
 	/// Occurs when a cell is activated (Enter key in cell navigation mode).
 	/// </summary>
 	public event EventHandler<(int Row, int Column)>? CellActivated;
+
+	/// <summary>Async counterpart of <see cref="CellActivated"/>.</summary>
+	public event Core.AsyncEventHandler<(int Row, int Column)>? CellActivatedAsync;
 
 	#endregion
 
@@ -208,7 +223,7 @@ public partial class TableControl
 
 		EnsureSelectedRowVisible();
 
-		SelectedRowChanged?.Invoke(this, newIndex);
+		Core.AsyncEvent.Raise(SelectedRowChanged, SelectedRowChangedAsync, this, newIndex, Container?.GetConsoleWindowSystem?.LogService);
 
 		if (_dataSource == null)
 		{
@@ -219,7 +234,7 @@ public partial class TableControl
 				if (dataIdx >= 0 && dataIdx < _rows.Count)
 					row = _rows[dataIdx];
 			}
-			SelectedRowItemChanged?.Invoke(this, row);
+			Core.AsyncEvent.Raise(SelectedRowItemChanged, SelectedRowItemChangedAsync, this, row, Container?.GetConsoleWindowSystem?.LogService);
 		}
 
 		Container?.Invalidate(true);
@@ -240,7 +255,7 @@ public partial class TableControl
 				SyncCheckboxState(i);
 		}
 		Container?.Invalidate(true);
-		MultiSelectionChanged?.Invoke(this, _selectedRowIndices.Count);
+		Core.AsyncEvent.Raise(MultiSelectionChanged, MultiSelectionChangedAsync, this, _selectedRowIndices.Count, Container?.GetConsoleWindowSystem?.LogService);
 	}
 
 	/// <summary>
@@ -258,7 +273,7 @@ public partial class TableControl
 		}
 		_selectedRowIndices.Clear();
 		Container?.Invalidate(true);
-		MultiSelectionChanged?.Invoke(this, 0);
+		Core.AsyncEvent.Raise(MultiSelectionChanged, MultiSelectionChangedAsync, this, 0, Container?.GetConsoleWindowSystem?.LogService);
 	}
 
 	/// <summary>
@@ -316,7 +331,7 @@ public partial class TableControl
 			SyncCheckboxState(displayIndex);
 
 		Container?.Invalidate(true);
-		MultiSelectionChanged?.Invoke(this, _selectedRowIndices.Count);
+		Core.AsyncEvent.Raise(MultiSelectionChanged, MultiSelectionChangedAsync, this, _selectedRowIndices.Count, Container?.GetConsoleWindowSystem?.LogService);
 	}
 
 	/// <summary>
@@ -334,7 +349,7 @@ public partial class TableControl
 				SyncCheckboxState(i);
 		}
 		Container?.Invalidate(true);
-		MultiSelectionChanged?.Invoke(this, _selectedRowIndices.Count);
+		Core.AsyncEvent.Raise(MultiSelectionChanged, MultiSelectionChangedAsync, this, _selectedRowIndices.Count, Container?.GetConsoleWindowSystem?.LogService);
 	}
 
 	/// <summary>

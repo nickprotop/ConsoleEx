@@ -347,10 +347,16 @@ namespace SharpConsoleUI
 		/// </summary>
 		public event EventHandler? Activated;
 
+		/// <summary>Async counterpart of <see cref="Activated"/>.</summary>
+		public event Core.AsyncEventHandler<EventArgs>? ActivatedAsync;
+
 		/// <summary>
 		/// Occurs when the window loses active status.
 		/// </summary>
 		public event EventHandler? Deactivated;
+
+		/// <summary>Async counterpart of <see cref="Deactivated"/>.</summary>
+		public event Core.AsyncEventHandler<EventArgs>? DeactivatedAsync;
 
 		/// <summary>
 		/// Occurs before a key is dispatched to the focused control.
@@ -368,6 +374,9 @@ namespace SharpConsoleUI
 		/// </summary>
 		public event EventHandler? OnClosed;
 
+		/// <summary>Async counterpart of <see cref="OnClosed"/>.</summary>
+		public event Core.AsyncEventHandler<EventArgs>? OnClosedAsync;
+
 		/// <summary>
 		/// Occurs when the window is about to close, allowing cancellation.
 		/// </summary>
@@ -378,15 +387,24 @@ namespace SharpConsoleUI
 		/// </summary>
 		public event EventHandler? OnResize;
 
+		/// <summary>Async counterpart of <see cref="OnResize"/>.</summary>
+		public event Core.AsyncEventHandler<EventArgs>? OnResizeAsync;
+
 		/// <summary>
 		/// Occurs when the window is first shown.
 		/// </summary>
 		public event EventHandler? OnShown;
 
+		/// <summary>Async counterpart of <see cref="OnShown"/>.</summary>
+		public event Core.AsyncEventHandler<EventArgs>? OnShownAsync;
+
 		/// <summary>
 		/// Occurs when the window state changes (Normal, Minimized, Maximized).
 		/// </summary>
 		public event EventHandler<WindowStateChangedEventArgs>? StateChanged;
+
+		/// <summary>Async counterpart of <see cref="StateChanged"/>.</summary>
+		public event Core.AsyncEventHandler<WindowStateChangedEventArgs>? StateChangedAsync;
 
 		/// <summary>
 		/// Occurs when a mouse click happens on empty space (no control at that position).

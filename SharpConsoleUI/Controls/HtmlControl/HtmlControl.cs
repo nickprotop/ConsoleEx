@@ -270,6 +270,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<LinkClickedEventArgs>? LinkClicked;
 
+		/// <summary>Async counterpart of <see cref="LinkClicked"/>.</summary>
+#pragma warning disable CS0067 // No internal raise site; mirrors the sync LinkClicked event.
+		public event Core.AsyncEventHandler<LinkClickedEventArgs>? LinkClickedAsync;
+#pragma warning restore CS0067
+
 		/// <summary>
 		/// Raised when a link is hovered or unhovered.
 		/// </summary>
@@ -282,6 +287,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler? ContentLoaded;
 
+		/// <summary>Async counterpart of <see cref="ContentLoaded"/>.</summary>
+		public event Core.AsyncEventHandler<EventArgs>? ContentLoadedAsync;
+
 		/// <summary>
 		/// Raised when every phase of loading has finished, including progressive image
 		/// loading. Fires exactly once per <see cref="LoadUrlAsync(string)"/> call (on success,
@@ -290,10 +298,16 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler? LoadingCompleted;
 
+		/// <summary>Async counterpart of <see cref="LoadingCompleted"/>.</summary>
+		public event Core.AsyncEventHandler<EventArgs>? LoadingCompletedAsync;
+
 		/// <summary>
 		/// Raised when an error occurs during content loading.
 		/// </summary>
 		public event EventHandler<LoadErrorEventArgs>? LoadError;
+
+		/// <summary>Async counterpart of <see cref="LoadError"/>.</summary>
+		public event Core.AsyncEventHandler<LoadErrorEventArgs>? LoadErrorAsync;
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
@@ -427,7 +441,7 @@ namespace SharpConsoleUI.Controls
 				else
 					_loadingStatus = "Preparing images...";
 				Container?.Invalidate(true);
-				ContentLoaded?.Invoke(this, EventArgs.Empty);
+				Core.AsyncEvent.Raise(ContentLoaded, ContentLoadedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 
 				// Phase 2b: Load external CSS stylesheets in background.
 				// When done, re-layout with CSS-aware computed styles (correct image widths etc.)
@@ -447,7 +461,7 @@ namespace SharpConsoleUI.Controls
 				else
 				{
 					// No image phase — this is the terminal state for a successful load.
-					LoadingCompleted?.Invoke(this, EventArgs.Empty);
+					Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 				}
 			}
 			catch (OperationCanceledException)
@@ -455,7 +469,7 @@ namespace SharpConsoleUI.Controls
 				_isLoading = false;
 				_isNavigating = false;
 				_loadingStatus = null;
-				LoadingCompleted?.Invoke(this, EventArgs.Empty);
+				Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 			}
 			catch (Exception ex)
 			{
@@ -480,8 +494,8 @@ namespace SharpConsoleUI.Controls
 					RunLayout(layoutWidth);
 				}
 
-				LoadError?.Invoke(this, new LoadErrorEventArgs(url, ex));
-				LoadingCompleted?.Invoke(this, EventArgs.Empty);
+				Core.AsyncEvent.Raise(LoadError, LoadErrorAsync, this, new LoadErrorEventArgs(url, ex), Container?.GetConsoleWindowSystem?.LogService);
+				Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 			}
 
 			Container?.Invalidate(true);
@@ -642,7 +656,7 @@ namespace SharpConsoleUI.Controls
 			finally
 			{
 				if (raiseCompleted)
-					LoadingCompleted?.Invoke(this, EventArgs.Empty);
+					Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
 

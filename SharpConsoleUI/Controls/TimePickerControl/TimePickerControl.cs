@@ -79,6 +79,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<TimeSpan?>? SelectedTimeChanged;
 
+		/// <summary>Async counterpart of <see cref="SelectedTimeChanged"/>.</summary>
+		public event Core.AsyncEventHandler<TimeSpan?>? SelectedTimeChangedAsync;
+
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -111,7 +114,7 @@ namespace SharpConsoleUI.Controls
 			{
 				var clamped = ClampTime(value);
 				if (SetProperty(ref _selectedTime, clamped))
-					SelectedTimeChanged?.Invoke(this, _selectedTime);
+					Core.AsyncEvent.Raise(SelectedTimeChanged, SelectedTimeChangedAsync, this, _selectedTime, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
 
@@ -457,6 +460,7 @@ namespace SharpConsoleUI.Controls
 				_subscribedWindow = null;
 			}
 			SelectedTimeChanged = null;
+			SelectedTimeChangedAsync = null;
 			MouseClick = null;
 			MouseDoubleClick = null;
 			MouseRightClick = null;

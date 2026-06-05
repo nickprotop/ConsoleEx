@@ -83,6 +83,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<HorizontalSplitterMovedEventArgs>? SplitterMoved;
 
+		/// <summary>Async counterpart of <see cref="SplitterMoved"/>.</summary>
+		public event Core.AsyncEventHandler<HorizontalSplitterMovedEventArgs>? SplitterMovedAsync;
+
 		#endregion
 
 		#region Properties
@@ -451,7 +454,7 @@ namespace SharpConsoleUI.Controls
 					below!.Height = newBelowHeight;
 				}
 
-				SplitterMoved?.Invoke(this, new HorizontalSplitterMovedEventArgs(actualDelta, newAboveHeight, newBelowHeight));
+				Core.AsyncEvent.Raise(SplitterMoved, SplitterMovedAsync, this, new HorizontalSplitterMovedEventArgs(actualDelta, newAboveHeight, newBelowHeight), Container?.GetConsoleWindowSystem?.LogService);
 			}
 			else if (aboveSettable && !belowSettable)
 			{
@@ -462,7 +465,7 @@ namespace SharpConsoleUI.Controls
 				if (actualDelta == 0) return;
 
 				above!.Height = newAboveHeight;
-				SplitterMoved?.Invoke(this, new HorizontalSplitterMovedEventArgs(actualDelta, newAboveHeight, 0));
+				Core.AsyncEvent.Raise(SplitterMoved, SplitterMovedAsync, this, new HorizontalSplitterMovedEventArgs(actualDelta, newAboveHeight, 0), Container?.GetConsoleWindowSystem?.LogService);
 			}
 			else
 			{
@@ -473,7 +476,7 @@ namespace SharpConsoleUI.Controls
 				if (actualDelta == 0) return;
 
 				below!.Height = newBelowHeight;
-				SplitterMoved?.Invoke(this, new HorizontalSplitterMovedEventArgs(delta, 0, newBelowHeight));
+				Core.AsyncEvent.Raise(SplitterMoved, SplitterMovedAsync, this, new HorizontalSplitterMovedEventArgs(delta, 0, newBelowHeight), Container?.GetConsoleWindowSystem?.LogService);
 			}
 
 			Invalidate();

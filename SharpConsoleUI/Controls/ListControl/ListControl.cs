@@ -220,20 +220,32 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<int>? SelectedIndexChanged;
 
+		/// <summary>Async counterpart of <see cref="SelectedIndexChanged"/>.</summary>
+		public event Core.AsyncEventHandler<int>? SelectedIndexChangedAsync;
+
 		/// <summary>
 		/// Occurs when the selected item changes.
 		/// </summary>
 		public event EventHandler<ListItem?>? SelectedItemChanged;
+
+		/// <summary>Async counterpart of <see cref="SelectedItemChanged"/>.</summary>
+		public event Core.AsyncEventHandler<ListItem?>? SelectedItemChangedAsync;
 
 		/// <summary>
 		/// Occurs when the selected value (text) changes.
 		/// </summary>
 		public event EventHandler<string?>? SelectedValueChanged;
 
+		/// <summary>Async counterpart of <see cref="SelectedValueChanged"/>.</summary>
+		public event Core.AsyncEventHandler<string?>? SelectedValueChangedAsync;
+
 		/// <summary>
 		/// Occurs when an item is activated (Enter or double-click).
 		/// </summary>
 		public event EventHandler<ListItem>? ItemActivated;
+
+		/// <summary>Async counterpart of <see cref="ItemActivated"/>.</summary>
+		public event Core.AsyncEventHandler<ListItem>? ItemActivatedAsync;
 
 		/// <summary>
 		/// Occurs when the control is clicked with the mouse.
@@ -382,9 +394,10 @@ namespace SharpConsoleUI.Controls
 				_selectedIndex = newSel;
 				if (oldIndex != _selectedIndex)
 				{
-					SelectedIndexChanged?.Invoke(this, _selectedIndex);
-					SelectedItemChanged?.Invoke(this, SelectedItem);
-					SelectedValueChanged?.Invoke(this, SelectedValue);
+					var log = Container?.GetConsoleWindowSystem?.LogService;
+					Core.AsyncEvent.Raise(SelectedIndexChanged, SelectedIndexChangedAsync, this, _selectedIndex, log);
+					Core.AsyncEvent.Raise(SelectedItemChanged, SelectedItemChangedAsync, this, SelectedItem, log);
+					Core.AsyncEvent.Raise(SelectedValueChanged, SelectedValueChangedAsync, this, SelectedValue, log);
 				}
 				}
 				Container?.Invalidate(true);
@@ -427,13 +440,14 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 
 				// Fire events ONCE
-				SelectedIndexChanged?.Invoke(this, value);
+				var log = Container?.GetConsoleWindowSystem?.LogService;
+				Core.AsyncEvent.Raise(SelectedIndexChanged, SelectedIndexChangedAsync, this, value, log);
 
 				if (SelectedItem != oldItem)
-					SelectedItemChanged?.Invoke(this, SelectedItem);
+					Core.AsyncEvent.Raise(SelectedItemChanged, SelectedItemChangedAsync, this, SelectedItem, log);
 
 				if (SelectedValue != oldValue)
-					SelectedValueChanged?.Invoke(this, SelectedValue);
+					Core.AsyncEvent.Raise(SelectedValueChanged, SelectedValueChangedAsync, this, SelectedValue, log);
 
 				// Ensure selected item is visible
 				if (value >= 0)
@@ -470,6 +484,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<EventArgs>? CheckedItemsChanged;
 
+		/// <summary>Async counterpart of <see cref="CheckedItemsChanged"/>.</summary>
+		public event Core.AsyncEventHandler<EventArgs>? CheckedItemsChangedAsync;
+
 		/// <summary>
 		/// Returns all items where IsChecked is true.
 		/// </summary>
@@ -491,7 +508,7 @@ namespace SharpConsoleUI.Controls
 				foreach (var item in _items)
 					item.IsChecked = value;
 			}
-			CheckedItemsChanged?.Invoke(this, EventArgs.Empty);
+			Core.AsyncEvent.Raise(CheckedItemsChanged, CheckedItemsChangedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 			Container?.Invalidate(true);
 		}
 
@@ -592,9 +609,10 @@ namespace SharpConsoleUI.Controls
 				_selectedIndex = newSel;
 				if (oldIndex != _selectedIndex)
 				{
-					SelectedIndexChanged?.Invoke(this, _selectedIndex);
-					SelectedItemChanged?.Invoke(this, SelectedItem);
-					SelectedValueChanged?.Invoke(this, SelectedValue);
+					var log = Container?.GetConsoleWindowSystem?.LogService;
+					Core.AsyncEvent.Raise(SelectedIndexChanged, SelectedIndexChangedAsync, this, _selectedIndex, log);
+					Core.AsyncEvent.Raise(SelectedItemChanged, SelectedItemChangedAsync, this, SelectedItem, log);
+					Core.AsyncEvent.Raise(SelectedValueChanged, SelectedValueChangedAsync, this, SelectedValue, log);
 				}
 				}
 				Container?.Invalidate(true);
@@ -685,9 +703,10 @@ namespace SharpConsoleUI.Controls
 
 			if (_isSelectable)
 			{
-				SelectedIndexChanged?.Invoke(this, -1);
-				SelectedItemChanged?.Invoke(this, null);
-				SelectedValueChanged?.Invoke(this, null);
+				var log = Container?.GetConsoleWindowSystem?.LogService;
+				Core.AsyncEvent.Raise(SelectedIndexChanged, SelectedIndexChangedAsync, this, -1, log);
+				Core.AsyncEvent.Raise(SelectedItemChanged, SelectedItemChangedAsync, this, null, log);
+				Core.AsyncEvent.Raise(SelectedValueChanged, SelectedValueChangedAsync, this, null, log);
 			}
 		}
 
@@ -700,10 +719,15 @@ namespace SharpConsoleUI.Controls
 		{
 			// Clear all event handlers to prevent memory leaks
 			SelectedIndexChanged = null;
+			SelectedIndexChangedAsync = null;
 			SelectedItemChanged = null;
+			SelectedItemChangedAsync = null;
 			SelectedValueChanged = null;
+			SelectedValueChangedAsync = null;
 			ItemActivated = null;
+			ItemActivatedAsync = null;
 			CheckedItemsChanged = null;
+			CheckedItemsChangedAsync = null;
 			MouseClick = null;
 			MouseEnter = null;
 			MouseLeave = null;

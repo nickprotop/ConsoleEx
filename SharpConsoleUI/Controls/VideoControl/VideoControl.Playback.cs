@@ -207,7 +207,7 @@ namespace SharpConsoleUI.Controls
 				else
 				{
 					PlaybackState = VideoPlaybackState.Stopped;
-					PlaybackEnded?.Invoke(this, EventArgs.Empty);
+					Core.AsyncEvent.Raise(PlaybackEnded, PlaybackEndedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 				}
 			});
 		}

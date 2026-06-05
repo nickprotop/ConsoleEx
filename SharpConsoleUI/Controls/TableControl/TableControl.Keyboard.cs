@@ -170,11 +170,11 @@ public partial class TableControl
 							BeginCellEdit();
 							return true;
 						}
-						CellActivated?.Invoke(this, (_selectedRowIndex, _selectedColumnIndex));
+						Core.AsyncEvent.Raise(CellActivated, CellActivatedAsync, this, (_selectedRowIndex, _selectedColumnIndex), Container?.GetConsoleWindowSystem?.LogService);
 					}
 					else
 					{
-						RowActivated?.Invoke(this, _selectedRowIndex);
+						Core.AsyncEvent.Raise(RowActivated, RowActivatedAsync, this, _selectedRowIndex, Container?.GetConsoleWindowSystem?.LogService);
 					}
 					return true;
 				}

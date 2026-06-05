@@ -196,7 +196,7 @@ namespace SharpConsoleUI.Controls
 
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
-			ContentChanged?.Invoke(this, GetContent());
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 
 			if (oldCount != newCount)
 				MatchCountChanged?.Invoke(this, newCount);
@@ -258,7 +258,7 @@ namespace SharpConsoleUI.Controls
 
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
-			ContentChanged?.Invoke(this, GetContent());
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 
 			if (oldCount != newCount)
 				MatchCountChanged?.Invoke(this, newCount);

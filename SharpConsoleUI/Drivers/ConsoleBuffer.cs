@@ -396,6 +396,22 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <summary>
+		/// Resets the front buffer so the next Render() re-emits every populated cell.
+		/// Use after external output (stray writes, the ANSI banner) may have corrupted the
+		/// terminal — a normal diff render would skip unchanged regions and leave the garbage.
+		/// </summary>
+		public void InvalidateFrontBuffer()
+		{
+			for (int y = 0; y < _height; y++)
+			{
+				for (int x = 0; x < _width; x++)
+				{
+					_frontBuffer[x, y].Reset();
+				}
+			}
+		}
+
+		/// <summary>
 		/// Gets the count of dirty characters in the back buffer.
 		/// </summary>
 		/// <returns>The number of characters marked as dirty.</returns>

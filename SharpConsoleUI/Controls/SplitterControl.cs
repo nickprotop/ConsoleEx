@@ -77,6 +77,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<SplitterMovedEventArgs>? SplitterMoved;
 
+		/// <summary>Async counterpart of <see cref="SplitterMoved"/>.</summary>
+		public event Core.AsyncEventHandler<SplitterMovedEventArgs>? SplitterMovedAsync;
+
 		/// <inheritdoc/>
 		public override int? ContentWidth => Width;
 
@@ -541,7 +544,7 @@ namespace SharpConsoleUI.Controls
 				int actualDelta = newLeftWidth - leftColumnWidth;
 
 				// Raise the SplitterMoved event
-				SplitterMoved?.Invoke(this, new SplitterMovedEventArgs(actualDelta, newLeftWidth, 0));
+				Core.AsyncEvent.Raise(SplitterMoved, SplitterMovedAsync, this, new SplitterMovedEventArgs(actualDelta, newLeftWidth, 0), Container?.GetConsoleWindowSystem?.LogService);
 
 				// Invalidate to ensure redraw
 				Invalidate();

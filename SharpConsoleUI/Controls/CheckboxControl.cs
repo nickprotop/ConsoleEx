@@ -52,6 +52,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<bool>? CheckedChanged;
 
+		/// <summary>Async counterpart of <see cref="CheckedChanged"/>.</summary>
+		public event Core.AsyncEventHandler<bool>? CheckedChangedAsync;
+
 		/// <summary>
 		/// Occurs when the checkbox is clicked with the mouse.
 	/// </summary>
@@ -119,7 +122,7 @@ namespace SharpConsoleUI.Controls
 					_checked = value;
 					OnPropertyChanged();
 					Container?.Invalidate(true);
-					CheckedChanged?.Invoke(this, _checked);
+					Core.AsyncEvent.Raise(CheckedChanged, CheckedChangedAsync, this, _checked, Container?.GetConsoleWindowSystem?.LogService);
 				}
 			}
 		}
