@@ -113,6 +113,7 @@ namespace SharpConsoleUI.Windows
 					{
 						var controlPosition = GetControlRelativePosition(capturedControl, args.WindowPosition);
 						var controlArgs = args.WithPosition(controlPosition);
+						using var _capScope = new Core.UiCallbackScope(_window._windowSystem, _window, capturedControl, Core.UiOp.Click);
 						return mouseCapture.ProcessMouseEvent(controlArgs);
 					}
 				}
@@ -209,6 +210,7 @@ namespace SharpConsoleUI.Windows
 								var controlPosition = GetControlRelativePosition(control, args.WindowPosition);
 								var controlArgs = args.WithPosition(controlPosition);
 
+								using var _scrollScope = new Core.UiCallbackScope(_window._windowSystem, _window, control, Core.UiOp.MouseScroll);
 								if (mouseAware.ProcessMouseEvent(controlArgs))
 								{
 									return true; // Event consumed
@@ -239,6 +241,7 @@ namespace SharpConsoleUI.Windows
 							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
 							var controlArgs = args.WithPosition(controlPosition);
 
+							using var _clickScope = new Core.UiCallbackScope(_window._windowSystem, _window, targetControl, Core.UiOp.Click);
 							if (mouseAware.ProcessMouseEvent(controlArgs))
 								return true;
 							// Control didn't handle it — fall through to UnhandledMouseClick
@@ -491,6 +494,11 @@ namespace SharpConsoleUI.Windows
 
 				if (HasActiveInteractiveContent(out var activeInteractiveContent))
 				{
+					// Watchdog breadcrumb: name the window + focused control while its key handler
+					// (and any ancestor bubbling) runs, so a stall here is reported in BlockedIn.
+					using var _keyScope = new Core.UiCallbackScope(
+						_window._windowSystem, _window, activeInteractiveContent as IWindowControl, Core.UiOp.Key);
+
 					// Intercept Tab/Shift+Tab — route to FocusManager unless the
 					// control wants Tab (e.g. editor in edit mode for indent/dedent).
 					if (key.Key == ConsoleKey.Tab)

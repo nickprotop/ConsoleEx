@@ -117,6 +117,40 @@ so you **must** marshal any UI mutation back yourself via `InvokeAsync` /
 `EnqueueOnUIThread`. `IsOnUIThread`, `VerifyAccess`, and `InvokeAsync` keep working
 regardless of this setting.
 
+### Querying the resolved mode (`SynchronizationContextInstalled`)
+
+After `Run()` starts, you can ask the system which async model it actually resolved to
+rather than inferring it from your options object:
+
+```csharp
+if (system.SynchronizationContextInstalled)
+{
+    // await in handlers resumes on the UI thread (WinForms/WPF-style)
+}
+else
+{
+    // await resumes on the thread pool — marshal UI mutations back yourself
+}
+```
+
+`SynchronizationContextInstalled` is a read-only `bool` reflecting the *resolved* state,
+not merely the requested option. It is `false` before `Run()` starts and `false` again
+after `Run()` returns. This lets a library or component adapt its behavior to whichever
+mode the host application chose, without guessing.
+
+### `InvokeRequired` equivalent
+
+There is no `InvokeRequired` property — the existing `IsOnUIThread` is its analogue
+(`!IsOnUIThread` ≡ WinForms `InvokeRequired`). The WinForms "check-then-marshal" pattern
+translates directly, and works **regardless** of `InstallSynchronizationContext`:
+
+```csharp
+if (!system.IsOnUIThread)                    // == WinForms InvokeRequired
+    system.EnqueueOnUIThread(() => UpdateUI());   // == this.Invoke(...)
+else
+    UpdateUI();
+```
+
 ---
 
 ## Golden rule: never block the UI thread
@@ -250,6 +284,19 @@ private async Task UpdateFromBackgroundAsync(string newText)
 int selectedIndex = await ws.InvokeAsync(() => list.SelectedIndex);
 ```
 
+#### Labelling marshalled work for the watchdog
+
+`EnqueueOnUIThread` and both `InvokeAsync` overloads accept an optional `string? label`.
+The label is attached to the queued action and surfaces in `UnresponsiveEventArgs.BlockedIn`
+if that action stalls the loop — turning an anonymous `UIAction` into a named culprit:
+
+```csharp
+ws.EnqueueOnUIThread(() => RebuildExpensiveTree(), label: "RebuildTree");
+await ws.InvokeAsync(() => Reflow(), label: "Reflow");
+```
+
+The label-less overloads are unchanged and report as `UIAction`.
+
 ### `bool IsOnUIThread`
 
 Returns `true` when the calling thread is the UI thread.
@@ -322,9 +369,18 @@ past a configurable threshold, the watchdog raises two events on
 |---|---|---|
 | `StalledFor` | `TimeSpan` | How long the loop has been blocked |
 | `Phase` | `Core.MainLoopPhase` | Loop phase where the stall was detected: `Unknown`, `Input`, `Drain`, `Render`, or `Idle` |
-| `BlockedIn` | `string?` | Name of the method or component that was executing when the stall was detected, if available |
+| `BlockedIn` | `string?` | Best-effort breadcrumb naming the handler that was executing when the stall was detected, if available (see below) |
 | `TimestampUtc` | `DateTime` | UTC time when the stall was detected |
 | `ShowBanner` | `bool` (settable) | Set to `false` to suppress the built-in freeze overlay and display your own |
+
+> **`BlockedIn` content.** The library tags the active handler as it dispatches input,
+> drained UI actions, and per-window rendering, so when a stall fires `BlockedIn` names
+> the likely culprit — for example `Click on 'Editor' / ButtonControl`,
+> `Render on 'Dashboard'`, or `UIAction: SaveTimer` (the label you pass to the
+> `EnqueueOnUIThread` / `InvokeAsync` overloads). It is **best-effort**: it reflects the
+> innermost in-progress frame and may be `null` if the stall is outside any tracked
+> handler. Treat it as a diagnostic hint, not a guaranteed value, and read it only as an
+> opaque string.
 
 ### `RecoveredEventArgs` members
 

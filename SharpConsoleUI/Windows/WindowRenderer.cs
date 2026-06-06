@@ -326,6 +326,11 @@ namespace SharpConsoleUI.Windows
 		{
 			if (_rootNode == null || _buffer == null) return;
 
+			// Watchdog breadcrumb: name the window being painted so a render stall is reported in
+			// BlockedIn. Window-level granularity only — per-control would be a hot-path allocation
+			// (this runs once per window per frame; the DOM node paint loop must stay scope-free).
+			using var _renderScope = new Core.UiCallbackScope(_window._windowSystem, _window, null, Core.UiOp.Render);
+
 			// Clear buffer (could optimize to only clear clipRect region, but full clear is simpler)
 			_buffer.Clear(backgroundColor);
 

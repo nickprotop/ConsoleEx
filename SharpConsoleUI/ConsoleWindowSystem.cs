@@ -48,8 +48,9 @@ namespace SharpConsoleUI
 		private volatile int _idleTime = Configuration.SystemDefaults.DefaultIdleTimeMs;
 		private volatile bool _running;
 
-		// UI thread action queue - allows background threads to schedule work on the main thread
-		private readonly ConcurrentQueue<Action> _uiActionQueue = new();
+		// UI thread action queue - allows background threads to schedule work on the main thread.
+		// Each item carries an optional best-effort label for the watchdog breadcrumb.
+		private readonly ConcurrentQueue<(Action Action, string? Label)> _uiActionQueue = new();
 		private volatile bool _uiActionsPending;
 
 		// Managed thread id of the main-loop (UI) thread; set at Run() start. -1 until then.
@@ -103,10 +104,91 @@ namespace SharpConsoleUI
 		// Main loop watchdog — detects stalled frames and provides emergency Ctrl+Q exit
 		private readonly MainLoopWatchdog _watchdog;
 
-		// Breadcrumbs for the watchdog: which phase the main loop is in and which callback (if any)
-		// is currently executing. Read from the watchdog timer thread, written from the UI thread.
+		// Breadcrumbs for the watchdog: which phase the main loop is in and which UI-thread "frame"
+		// (window / control / operation, or a free-form label) is currently executing. Read from the
+		// watchdog timer thread, written from the UI thread. All volatile; cross-field publication is
+		// not atomic, but a torn read is a harmless best-effort inconsistency (see UiCallbackScope).
 		private volatile Core.MainLoopPhase _currentPhase = Core.MainLoopPhase.Idle;
-		private volatile string? _currentCallback;
+		private volatile Window? _frameWindow;
+		private volatile Controls.IWindowControl? _frameControl;
+		private volatile Core.UiOp _frameOp;
+		private volatile string? _frameLabel;
+
+		// Frame breadcrumb helpers. Called from the UI thread via UiCallbackScope (a using-scoped
+		// ref struct). Writes are plain volatile-field stores; cross-field publication is not atomic
+		// but a torn read only produces a slightly inconsistent best-effort label (see UiCallbackScope).
+
+		/// <summary>Captures the current frame breadcrumb so a scope can restore it on exit.</summary>
+		internal void CaptureFrame(out Window? window, out Controls.IWindowControl? control, out Core.UiOp op, out string? label)
+		{
+			window = _frameWindow;
+			control = _frameControl;
+			op = _frameOp;
+			label = _frameLabel;
+		}
+
+		/// <summary>Sets a structured frame (window / control / operation), clearing any free-form label.</summary>
+		internal void SetFrame(Window? window, Controls.IWindowControl? control, Core.UiOp op)
+		{
+			_frameWindow = window;
+			_frameControl = control;
+			_frameOp = op;
+			_frameLabel = null;
+		}
+
+		/// <summary>Sets a free-form frame label, clearing the structured window / control / operation.</summary>
+		internal void SetFrameLabel(string? label)
+		{
+			_frameWindow = null;
+			_frameControl = null;
+			_frameOp = Core.UiOp.UIAction;
+			_frameLabel = label;
+		}
+
+		/// <summary>Restores a previously captured frame breadcrumb.</summary>
+		internal void RestoreFrame(Window? window, Controls.IWindowControl? control, Core.UiOp op, string? label)
+		{
+			_frameWindow = window;
+			_frameControl = control;
+			_frameOp = op;
+			_frameLabel = label;
+		}
+
+		/// <summary>
+		/// Builds the best-effort breadcrumb string for <see cref="Core.UnresponsiveEventArgs.BlockedIn"/>
+		/// from the current frame. Read from the watchdog timer thread while the UI thread is stalled.
+		/// </summary>
+		internal string? FormatCurrentCallback()
+		{
+			// Snapshot the volatile fields once for a consistent-as-possible read.
+			var op = _frameOp;
+			var label = _frameLabel;
+			var window = _frameWindow;
+			var control = _frameControl;
+
+			if (op == Core.UiOp.None && label is null && window is null)
+				return null;
+
+			// Free-form label (drained UI actions / async continuations).
+			if (label is not null)
+				return $"{op}: {label}";
+
+			// Structured frame: "Op on '<window title>' / <ControlType>".
+			var sb = new System.Text.StringBuilder();
+			sb.Append(op);
+			if (window is not null)
+			{
+				sb.Append(" on '");
+				sb.Append(window.Title);
+				sb.Append('\'');
+			}
+			if (control is not null)
+			{
+				sb.Append(" / ");
+				sb.Append(control.GetType().Name);
+			}
+			return sb.ToString();
+		}
 
 		// Input coordination
 		/// <summary>
@@ -582,16 +664,33 @@ namespace SharpConsoleUI
 		/// Safe to call from any thread. Actions run between input processing and rendering.
 		/// </summary>
 		/// <param name="action">The action to execute on the UI thread.</param>
-		public void EnqueueOnUIThread(Action action)
+		public void EnqueueOnUIThread(Action action) => EnqueueOnUIThread(action, null);
+
+		/// <summary>
+		/// Enqueues an action to be executed on the UI thread during the next main loop iteration,
+		/// tagging it with a best-effort label that appears in <see cref="Core.UnresponsiveEventArgs.BlockedIn"/>
+		/// if the action stalls the loop. Safe to call from any thread.
+		/// </summary>
+		/// <param name="action">The action to execute on the UI thread.</param>
+		/// <param name="label">A diagnostic label for the watchdog breadcrumb, or null.</param>
+		public void EnqueueOnUIThread(Action action, string? label)
 		{
 			ArgumentNullException.ThrowIfNull(action);
-			_uiActionQueue.Enqueue(action);
+			_uiActionQueue.Enqueue((action, label));
 			_uiActionsPending = true;
 			_wakeSignal.Set();
 		}
 
 		/// <summary>True when the caller is on the main-loop (UI) thread.</summary>
 		public bool IsOnUIThread => Environment.CurrentManagedThreadId == _uiThreadId;
+
+		/// <summary>
+		/// True if a UI SynchronizationContext was installed for the current Run() — i.e. awaited
+		/// continuations in UI handlers resume on the UI (main-loop) thread (WinForms/WPF-style).
+		/// Reflects the resolved state, not merely the requested option. False before Run() starts
+		/// and after it returns.
+		/// </summary>
+		public bool SynchronizationContextInstalled { get; private set; }
 
 		/// <summary>Throws if the caller is not on the UI thread.</summary>
 		public void VerifyAccess()
@@ -601,22 +700,38 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>Marshals work onto the UI thread and awaits completion. Runs inline if already on it.</summary>
-		public Task InvokeAsync(Action work)
+		public Task InvokeAsync(Action work) => InvokeAsync(work, null);
+
+		/// <summary>
+		/// Marshals work onto the UI thread and awaits completion, tagging it with a best-effort
+		/// watchdog label. Runs inline if already on the UI thread.
+		/// </summary>
+		/// <param name="work">The work to execute on the UI thread.</param>
+		/// <param name="label">A diagnostic label for the watchdog breadcrumb, or null.</param>
+		public Task InvokeAsync(Action work, string? label)
 		{
 			ArgumentNullException.ThrowIfNull(work);
 			if (IsOnUIThread) { work(); return Task.CompletedTask; }
 			var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-			EnqueueOnUIThread(() => { try { work(); tcs.SetResult(); } catch (Exception ex) { tcs.SetException(ex); } });
+			EnqueueOnUIThread(() => { try { work(); tcs.SetResult(); } catch (Exception ex) { tcs.SetException(ex); } }, label);
 			return tcs.Task;
 		}
 
 		/// <summary>Marshals work onto the UI thread, awaits, and returns its result. Runs inline if already on it.</summary>
-		public Task<T> InvokeAsync<T>(Func<T> work)
+		public Task<T> InvokeAsync<T>(Func<T> work) => InvokeAsync(work, null);
+
+		/// <summary>
+		/// Marshals work onto the UI thread, awaits, and returns its result, tagging it with a
+		/// best-effort watchdog label. Runs inline if already on the UI thread.
+		/// </summary>
+		/// <param name="work">The work to execute on the UI thread.</param>
+		/// <param name="label">A diagnostic label for the watchdog breadcrumb, or null.</param>
+		public Task<T> InvokeAsync<T>(Func<T> work, string? label)
 		{
 			ArgumentNullException.ThrowIfNull(work);
 			if (IsOnUIThread) return Task.FromResult(work());
 			var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-			EnqueueOnUIThread(() => { try { tcs.SetResult(work()); } catch (Exception ex) { tcs.SetException(ex); } });
+			EnqueueOnUIThread(() => { try { tcs.SetResult(work()); } catch (Exception ex) { tcs.SetException(ex); } }, label);
 			return tcs.Task;
 		}
 
@@ -726,6 +841,9 @@ namespace SharpConsoleUI
 				installedSyncContext = true;
 			}
 
+			// Report the resolved async model so user code can query it at runtime (Issue #35).
+			SynchronizationContextInstalled = installedSyncContext;
+
 			// Subscribe to the console driver events
 			// Store handlers in fields so they can be properly unsubscribed in Shutdown()
 			_keyPressedHandler = (sender, key) =>
@@ -768,7 +886,7 @@ namespace SharpConsoleUI
 					onUnresponsive: stalledFor =>
 					{
 						var args = new Core.UnresponsiveEventArgs(
-							stalledFor, _currentPhase, _currentCallback, DateTime.UtcNow,
+							stalledFor, _currentPhase, FormatCurrentCallback(), DateTime.UtcNow,
 							showBanner: wd.ShowUnresponsiveBanner);
 						Unresponsive?.Invoke(this, args);
 						return args.ShowBanner;
@@ -893,6 +1011,9 @@ namespace SharpConsoleUI
 				// (only if we installed our own).
 				if (installedSyncContext)
 					SynchronizationContext.SetSynchronizationContext(previousSyncContext);
+
+				// Run() has returned — the resolved async model no longer applies.
+				SynchronizationContextInstalled = false;
 
 				// ALWAYS restore console state (mouse mode, cursor, etc.)
 				// This ensures the terminal is usable even if the app crashes
@@ -1110,21 +1231,19 @@ namespace SharpConsoleUI
 			_uiActionsPending = false;
 			bool anyDrained = false;
 
-			while (_uiActionQueue.TryDequeue(out var action))
+			while (_uiActionQueue.TryDequeue(out var item))
 			{
 				anyDrained = true;
-				_currentCallback = "UIAction";
-				try
+				using (new Core.UiCallbackScope(this, item.Label ?? "UIAction"))
 				{
-					action();
-				}
-				catch (Exception ex)
-				{
-					LogService?.LogError($"Error in EnqueueOnUIThread action: {ex.Message}", ex, "System");
-				}
-				finally
-				{
-					_currentCallback = null;
+					try
+					{
+						item.Action();
+					}
+					catch (Exception ex)
+					{
+						LogService?.LogError($"Error in EnqueueOnUIThread action: {ex.Message}", ex, "System");
+					}
 				}
 			}
 
