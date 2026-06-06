@@ -76,16 +76,23 @@ jobs:
     - name: Test
       run: dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj --configuration Release --verbosity normal
 
+    # Build/pack/upload only matter for a release — the packages they produce are never
+    # published or consumed on a plain push/PR (compile is already checked warning-clean by
+    # the Code Quality workflow). Gate them to release events to avoid wasted cycles.
     - name: Build
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
       run: dotnet build SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-restore /p:Version=${{ steps.version.outputs.version }}
 
     - name: Package
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
       run: dotnet pack SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-build --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
 
     - name: Pack Templates
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
       run: dotnet pack templates/SharpConsoleUI.Templates.csproj --configuration Release --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
 
     - name: Pack schost Tool
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
       run: dotnet pack tools/schost/src/schost/schost.csproj --configuration Release --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
 
     - name: Generate Release Notes
@@ -162,6 +169,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload Artifact
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
       uses: actions/upload-artifact@v4
       with:
         name: nuget-packages
